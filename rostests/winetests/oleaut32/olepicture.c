@@ -477,7 +477,7 @@ static void test_OleCreatePictureIndirect(void)
 
     if(!pOleCreatePictureIndirect)
     {
-        win_skip("Skipping OleCreatePictureIndirect tests\n");
+        skip("Skipping OleCreatePictureIndirect tests\n");
         return;
     }
 
@@ -707,7 +707,7 @@ START_TEST(olepicture)
 	pOleCreatePictureIndirect = (void*)GetProcAddress(hOleaut32, "OleCreatePictureIndirect");
 	if (!pOleLoadPicture)
 	{
-	    win_skip("OleLoadPicture is not available\n");
+	    skip("OleLoadPicture is not available\n");
 	    return;
 	}
 

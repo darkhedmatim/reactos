@@ -31,9 +31,7 @@
 #	include <sys/types.h>
 #	include <sys/stat.h>
 #	include <fcntl.h>
-#	undef strcasecmp
 #	define strcasecmp stricmp
-#	undef strncasecmp
 #	define strncasecmp strnicmp
 #	define sleep WinSleep
 #	ifndef S_ISREG

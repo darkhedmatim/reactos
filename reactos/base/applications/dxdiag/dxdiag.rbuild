@@ -28,9 +28,5 @@
 	<file>dxdiag.c</file>
 	<file>dxdiag.rc</file>
 	<file>ddtest.c</file>
-	<file>d3dtest.c</file>
-	<file>d3dtest7.c</file>
-	<file>d3dtest8.c</file>
-	<file>d3dtest9.c</file>
 	<pch>precomp.h</pch>
 </module>

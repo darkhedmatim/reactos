@@ -46,7 +46,7 @@ static HMODULE hOleaut32;
 /* Get a conversion function ptr, return if function not available */
 #define CHECKPTR(func) p##func = (void*)GetProcAddress(hOleaut32, #func); \
   if (!p##func) { \
-    win_skip("function " # func " not available, not testing it\n"); return; }
+    skip("function " # func " not available, not testing it\n"); return; }
 
 /* Is a given function exported from oleaut32? */
 #define HAVE_FUNC(func) ((void*)GetProcAddress(hOleaut32, #func) != NULL)
@@ -2349,7 +2349,7 @@ static void test_VarI8Copy(void)
 
   if (!HAVE_OLEAUT32_I8)
   {
-    win_skip("I8 and UI8 data types are not available\n");
+    skip("I8 and UI8 data types are not available\n");
     return;
   }
 
@@ -2379,7 +2379,7 @@ static void test_VarI8ChangeTypeEx(void)
 
   if (!HAVE_OLEAUT32_I8)
   {
-    win_skip("I8 and UI8 data types are not available\n");
+    skip("I8 and UI8 data types are not available\n");
     return;
   }
 
@@ -2611,7 +2611,7 @@ static void test_VarUI8Copy(void)
 
   if (!HAVE_OLEAUT32_I8)
   {
-    win_skip("I8 and UI8 data types are not available\n");
+    skip("I8 and UI8 data types are not available\n");
     return;
   }
 
@@ -2641,7 +2641,7 @@ static void test_VarUI8ChangeTypeEx(void)
 
   if (!HAVE_OLEAUT32_I8)
   {
-    win_skip("I8 and UI8 data types are not available\n");
+    skip("I8 and UI8 data types are not available\n");
     return;
   }
 
@@ -3434,11 +3434,6 @@ static void test_VarDateFromStr(void)
   DFS("1/2/1970");        EXPECT_DBL(25570.0);
   DFS("1-2-1970");        EXPECT_DBL(25570.0);
   /* Native fails "1999 January 3, 9AM". I consider that a bug in native */
-
-  /* test a none english data string */
-  DFS("02.01.1970 00:00:00"); EXPECT_MISMATCH;
-  lcid = MAKELCID(MAKELANGID(LANG_GERMAN,SUBLANG_GERMAN),SORT_DEFAULT);
-  DFS("02.01.1970 00:00:00"); todo_wine EXPECT_DBL(25570.0);
 }
 
 static void test_VarDateCopy(void)
@@ -4413,104 +4408,9 @@ static void test_VarDecCmp(void)
   MATHVARS1;
 
   CHECKPTR(VarDecCmp);
-
   SETDEC(l,0,0,0,1); SETDEC(out,0,0,0,1); MATH1(VarDecCmp); EXPECT_EQ;
   SETDEC(l,0,0,0,1); SETDEC(out,0,0,0,0); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,0,0,1); SETDEC(out,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(l,0,0,0,1); SETDEC(out,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,0,0,1); SETDEC(out,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,0,0,1); SETDEC(out,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(l,0,DECIMAL_NEG,0,1); SETDEC(out,0,0,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,DECIMAL_NEG,0,1); SETDEC(out,0,0,0,0); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,DECIMAL_NEG,0,1); SETDEC(out,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(l,0,DECIMAL_NEG,0,1); SETDEC(out,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(l,0,DECIMAL_NEG,0,1); SETDEC(out,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,DECIMAL_NEG,0,1); SETDEC(out,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
   SETDEC(l,0,0,0,0); SETDEC(out,0,0,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,0,0,0); SETDEC(out,0,0,0,0); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(l,0,0,0,0); SETDEC(out,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(l,0,0,0,0); SETDEC(out,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,0,0,0); SETDEC(out,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(l,0,0,0,0); SETDEC(out,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(l,0,DECIMAL_NEG,0,0); SETDEC(out,0,0,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,DECIMAL_NEG,0,0); SETDEC(out,0,0,0,0); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(l,0,DECIMAL_NEG,0,0); SETDEC(out,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(l,0,DECIMAL_NEG,0,0); SETDEC(out,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,DECIMAL_NEG,0,0); SETDEC(out,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(l,0,DECIMAL_NEG,0,0); SETDEC(out,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(l,0,0,-1,-1); SETDEC(out,0,0,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,0,-1,-1); SETDEC(out,0,0,0,0); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,0,-1,-1); SETDEC(out,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_EQ;
-
-  SETDEC(l,0,0,-1,-1); SETDEC(out,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,0,-1,-1); SETDEC(out,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(l,0,0,-1,-1); SETDEC(out,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(l,0,DECIMAL_NEG,-1,-1); SETDEC(out,0,0,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,DECIMAL_NEG,-1,-1); SETDEC(out,0,0,0,0); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,DECIMAL_NEG,-1,-1); SETDEC(out,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(l,0,DECIMAL_NEG,-1,-1); SETDEC(out,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,DECIMAL_NEG,-1,-1); SETDEC(out,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(l,0,DECIMAL_NEG,-1,-1); SETDEC(out,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_EQ;
-
-
-  SETDEC(out,0,0,0,1); SETDEC(l,0,0,0,1); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(out,0,0,0,1); SETDEC(l,0,0,0,0); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,0,0,1); SETDEC(l,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(out,0,0,0,1); SETDEC(l,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,0,0,1); SETDEC(l,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,0,0,1); SETDEC(l,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(out,0,DECIMAL_NEG,0,1); SETDEC(l,0,0,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,DECIMAL_NEG,0,1); SETDEC(l,0,0,0,0); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,DECIMAL_NEG,0,1); SETDEC(l,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(out,0,DECIMAL_NEG,0,1); SETDEC(l,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(out,0,DECIMAL_NEG,0,1); SETDEC(l,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,DECIMAL_NEG,0,1); SETDEC(l,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(out,0,0,0,0); SETDEC(l,0,0,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,0,0,0); SETDEC(l,0,0,0,0); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(out,0,0,0,0); SETDEC(l,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(out,0,0,0,0); SETDEC(l,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,0,0,0); SETDEC(l,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(out,0,0,0,0); SETDEC(l,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(out,0,DECIMAL_NEG,0,0); SETDEC(l,0,0,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,DECIMAL_NEG,0,0); SETDEC(l,0,0,0,0); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(out,0,DECIMAL_NEG,0,0); SETDEC(l,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(out,0,DECIMAL_NEG,0,0); SETDEC(l,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,DECIMAL_NEG,0,0); SETDEC(l,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_EQ;
-  SETDEC(out,0,DECIMAL_NEG,0,0); SETDEC(l,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(out,0,0,-1,-1); SETDEC(l,0,0,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,0,-1,-1); SETDEC(l,0,0,0,0); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,0,-1,-1); SETDEC(l,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_EQ;
-
-  SETDEC(out,0,0,-1,-1); SETDEC(l,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,0,-1,-1); SETDEC(l,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_LT;
-  SETDEC(out,0,0,-1,-1); SETDEC(l,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_LT;
-
-  SETDEC(out,0,DECIMAL_NEG,-1,-1); SETDEC(l,0,0,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,DECIMAL_NEG,-1,-1); SETDEC(l,0,0,0,0); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,DECIMAL_NEG,-1,-1); SETDEC(l,0,0,-1,-1); MATH1(VarDecCmp); EXPECT_GT;
-
-  SETDEC(out,0,DECIMAL_NEG,-1,-1); SETDEC(l,0,DECIMAL_NEG,0,1); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,DECIMAL_NEG,-1,-1); SETDEC(l,0,DECIMAL_NEG,0,0); MATH1(VarDecCmp); EXPECT_GT;
-  SETDEC(out,0,DECIMAL_NEG,-1,-1); SETDEC(l,0,DECIMAL_NEG,-1,-1); MATH1(VarDecCmp); EXPECT_EQ;
-
 }
 
 /*
@@ -5083,8 +4983,6 @@ static void test_VarBstrCmp(void)
     static const WCHAR s2[] = { 'a',0,'b' };
     static const char sb1[] = {1,0,1};
     static const char sb2[] = {1,0,2};
-    static const char sbchr0[] = {0,0};
-    static const char sbchr00[] = {0,0,0};
     BSTR bstr, bstrempty, bstr2;
 
     CHECKPTR(VarBstrCmp);
@@ -5123,15 +5021,6 @@ static void test_VarBstrCmp(void)
 
     SysFreeString(bstr);
 
-    bstr = SysAllocStringByteLen(sbchr0, sizeof(sbchr0));
-    bstr2 = SysAllocStringByteLen(sbchr0, sizeof(sbchr00));
-    VARBSTRCMP(bstr,bstrempty,0,VARCMP_GT);
-    VARBSTRCMP(bstrempty,bstr,0,VARCMP_LT);
-    VARBSTRCMP(bstr2,bstrempty,0,VARCMP_GT);
-    VARBSTRCMP(bstr2,bstr,0,VARCMP_EQ);
-    SysFreeString(bstr2);
-    SysFreeString(bstr);
-
     /* When (LCID == 0) it should be a binary comparison
      * so these two strings could not match.
      */
@@ -5139,15 +5028,6 @@ static void test_VarBstrCmp(void)
     bstr2 = SysAllocStringByteLen(sb2, sizeof(sb2));
     lcid = 0;
     VARBSTRCMP(bstr,bstr2,0,VARCMP_LT);
-    SysFreeString(bstr2);
-    SysFreeString(bstr);
-
-    bstr = SysAllocStringByteLen(sbchr0, sizeof(sbchr0));
-    bstr2 = SysAllocStringByteLen(sbchr0, sizeof(sbchr00));
-    VARBSTRCMP(bstr,bstrempty,0,VARCMP_GT);
-    VARBSTRCMP(bstrempty,bstr,0,VARCMP_LT);
-    VARBSTRCMP(bstr2,bstrempty,0,VARCMP_GT);
-    VARBSTRCMP(bstr2,bstr,0,VARCMP_GT);
     SysFreeString(bstr2);
     SysFreeString(bstr);
 }
@@ -5888,13 +5768,21 @@ static void test_UintChangeTypeEx(void)
 
 static void test_ClearCustData(void)
 {
+  WCHAR buff[sizeof(CUSTDATAITEM) * NUM_CUST_ITEMS / sizeof(WCHAR)];
   CUSTDATA ci;
   unsigned i;
 
   CHECKPTR(ClearCustData);
 
+  memset(buff, 0, sizeof(buff));
+
   ci.cCustData = NUM_CUST_ITEMS;
-  ci.prgCustData = CoTaskMemAlloc( sizeof(CUSTDATAITEM) * NUM_CUST_ITEMS );
+  /* This is a bit tricky. We use SysAllocStringByteLen to allocate the
+   * array, since native uses an internal IMalloc interface for allocating
+   * its memory, while Wine uses HeapAlloc(). Doing this ensures we allocate
+   * using the correct function whether with native or builtin.
+   */
+  ci.prgCustData = (LPCUSTDATAITEM)Get(SysAllocStringByteLen((LPCSTR)buff, sizeof(buff)));
   for (i = 0; i < NUM_CUST_ITEMS; i++)
     VariantInit(&ci.prgCustData[i].varValue);
   pClearCustData(&ci);

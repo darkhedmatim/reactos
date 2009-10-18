@@ -12,7 +12,6 @@
 #include <windef.h>
 #include <winbase.h>
 #include <winnt.h>
-#include <time.h>
 
 #include <stddef.h>
 
@@ -30,10 +29,6 @@ typedef struct _ThreadData
 
   EXCEPTION_RECORD *exc_record; /* Head of exception record list */
 
-  struct tm tmbuf;              /* Used by gmtime, mktime, mkgmtime, localtime */
-  char asctimebuf[26];          /* Buffer for asctime and ctime */
-  wchar_t wasctimebuf[26];      /* Buffer for wasctime and wctime */
-
 } THREADDATA, *PTHREADDATA;
 
 
@@ -46,3 +41,4 @@ PTHREADDATA GetThreadData(void);
 #endif /* __MSVCRT_INTERNAL_TLS_H */
 
 /* EOF */
+

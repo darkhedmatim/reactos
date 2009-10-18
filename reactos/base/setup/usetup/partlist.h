@@ -43,7 +43,7 @@ typedef struct _PARTENTRY
 {
   LIST_ENTRY ListEntry;
 
-  CHAR DriveLetter[4];
+  CHAR DriveLetter;
   CHAR VolumeLabel[17];
   CHAR FileSystemName[9];
 
@@ -109,7 +109,6 @@ typedef struct _DISKENTRY
   BOOLEAN Modified;
 
   BOOLEAN NewDisk;
-  BOOLEAN NoMbr; /* MBR is absent */
 
   UNICODE_STRING DriverName;
 
@@ -133,11 +132,9 @@ typedef struct _PARTLIST
 
   PDISKENTRY CurrentDisk;
   PPARTENTRY CurrentPartition;
-  UCHAR      CurrentPartitionNumber;
 
   PDISKENTRY ActiveBootDisk;
   PPARTENTRY ActiveBootPartition;
-  UCHAR      ActiveBootPartitionNumber;
 
   LIST_ENTRY DiskListHead;
   LIST_ENTRY BiosDiskListHead;

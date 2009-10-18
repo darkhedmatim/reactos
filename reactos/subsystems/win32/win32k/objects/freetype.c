@@ -75,6 +75,8 @@ static FAST_MUTEX FontListLock;
 static BOOL RenderingEnabled = TRUE;
 
 #define MAX_FONT_CACHE 256
+UINT Hits;
+UINT Misses;
 
 typedef struct _FONT_CACHE_ENTRY
 {
@@ -421,7 +423,7 @@ IntGdiAddFontResource(PUNICODE_STRING FileName, DWORD Characteristics)
 
     if (Characteristics & FR_PRIVATE)
     {
-        PPROCESSINFO Win32Process = PsGetCurrentProcessWin32Process();
+        PW32PROCESS Win32Process = PsGetCurrentProcessWin32Process();
         IntLockProcessPrivateFonts(Win32Process);
         InsertTailList(&Win32Process->PrivateFontListHead, &Entry->ListEntry);
         IntUnLockProcessPrivateFonts(Win32Process);
@@ -566,18 +568,6 @@ IntTranslateCharsetInfo(PDWORD Src, /* [in]
 }
 
 
-static BOOL face_has_symbol_charmap(FT_Face ft_face)
-{
-    int i;
-
-    for(i = 0; i < ft_face->num_charmaps; i++)
-    {
-        if(ft_face->charmaps[i]->encoding == FT_ENCODING_MS_SYMBOL)
-            return TRUE;
-    }
-    return FALSE;
-}
-
 static void FASTCALL
 FillTM(TEXTMETRICW *TM, PFONTGDI FontGDI, TT_OS2 *pOS2, TT_HoriHeader *pHori, FT_WinFNT_HeaderRec *pWin)
 {
@@ -656,36 +646,10 @@ FillTM(TEXTMETRICW *TM, PFONTGDI FontGDI, TT_OS2 *pOS2, TT_HoriHeader *pHori, FT
     TM->tmOverhang = 0;
     TM->tmDigitizedAspectX = 96;
     TM->tmDigitizedAspectY = 96;
-    if (face_has_symbol_charmap(Face) || (pOS2->usFirstCharIndex >= 0xf000 && pOS2->usFirstCharIndex < 0xf100))
-    {
-        USHORT cpOEM, cpAnsi;
-
-        EngGetCurrentCodePage(&cpOEM, &cpAnsi);
-        TM->tmFirstChar = 0;
-        switch(cpAnsi)
-        {
-        case 1257: /* Baltic */
-            TM->tmLastChar = 0xf8fd;
-            break;
-        default:
-            TM->tmLastChar = 0xf0ff;
-        }
-        TM->tmBreakChar = 0x20;
-        TM->tmDefaultChar = 0x1f;
-    }
-    else
-    {
-        TM->tmFirstChar = pOS2->usFirstCharIndex; /* Should be the first char in the cmap */
-        TM->tmLastChar = pOS2->usLastCharIndex;   /* Should be min(cmap_last, os2_last) */
-
-        if(pOS2->usFirstCharIndex <= 1)
-            TM->tmBreakChar = pOS2->usFirstCharIndex + 2;
-        else if (pOS2->usFirstCharIndex > 0xff)
-            TM->tmBreakChar = 0x20;
-        else
-            TM->tmBreakChar = pOS2->usFirstCharIndex;
-        TM->tmDefaultChar = TM->tmBreakChar - 1;
-    }
+    TM->tmFirstChar = pOS2->usFirstCharIndex;
+    TM->tmDefaultChar = pOS2->usDefaultChar ? pOS2->usDefaultChar : 0xffff;
+    TM->tmLastChar = pOS2->usLastCharIndex;
+    TM->tmBreakChar = L'\0' != pOS2->usBreakChar ? pOS2->usBreakChar : ' ';
     TM->tmItalic = (Face->style_flags & FT_STYLE_FLAG_ITALIC) ? 255 : 0;
     TM->tmUnderlined = FontGDI->Underline;
     TM->tmStruckOut  = FontGDI->StrikeOut;
@@ -978,7 +942,7 @@ FindFaceNameInList(PUNICODE_STRING FaceName, PLIST_ENTRY Head)
 static PFONTGDI FASTCALL
 FindFaceNameInLists(PUNICODE_STRING FaceName)
 {
-    PPROCESSINFO Win32Process;
+    PW32PROCESS Win32Process;
     PFONTGDI Font;
 
     /* Search the process local list */
@@ -1358,6 +1322,8 @@ ftGdiGlyphCacheGet(
     PLIST_ENTRY CurrentEntry;
     PFONT_CACHE_ENTRY FontEntry;
 
+//   DbgPrint("CacheGet\n");
+
     CurrentEntry = FontCacheListHead.Flink;
     while (CurrentEntry != &FontCacheListHead)
     {
@@ -1371,11 +1337,29 @@ ftGdiGlyphCacheGet(
 
     if (CurrentEntry == &FontCacheListHead)
     {
+//      DbgPrint("Miss! %x\n", FontEntry->Glyph);
+        /*
+              Misses++;
+              if (Misses>100) {
+                 DbgPrint ("Hits: %d Misses: %d\n", Hits, Misses);
+                 Hits = Misses = 0;
+              }
+        */
         return NULL;
     }
 
     RemoveEntryList(CurrentEntry);
     InsertHeadList(&FontCacheListHead, CurrentEntry);
+
+//   DbgPrint("Hit! %x\n", FontEntry->Glyph);
+    /*
+       Hits++;
+
+          if (Hits>100) {
+             DbgPrint ("Hits: %d Misses: %d\n", Hits, Misses);
+             Hits = Misses = 0;
+          }
+    */
     return FontEntry->Glyph;
 }
 
@@ -1391,23 +1375,25 @@ ftGdiGlyphCacheSet(
     INT error;
     PFONT_CACHE_ENTRY NewEntry;
 
+//   DbgPrint("CacheSet.\n");
+
     error = FT_Get_Glyph(GlyphSlot, &GlyphCopy);
     if (error)
     {
-        DPRINT1("Failure caching glyph.\n");
+        DbgPrint("Failure caching glyph.\n");
         return NULL;
     };
     error = FT_Glyph_To_Bitmap(&GlyphCopy, RenderMode, 0, 1);
     if (error)
     {
-        DPRINT1("Failure rendering glyph.\n");
+        DbgPrint("Failure rendering glyph.\n");
         return NULL;
     };
 
     NewEntry = ExAllocatePoolWithTag(PagedPool, sizeof(FONT_CACHE_ENTRY), TAG_FONT);
     if (!NewEntry)
     {
-        DPRINT1("Alloc failure caching glyph.\n");
+        DbgPrint("Alloc failure caching glyph.\n");
         FT_Done_Glyph(GlyphCopy);
         return NULL;
     }
@@ -1426,6 +1412,8 @@ ftGdiGlyphCacheSet(
         ExFreePool(NewEntry);
         FontCacheNumEntries--;
     }
+
+//   DbgPrint("Returning the glyphcopy: %x\n", GlyphCopy);
 
     return GlyphCopy;
 }
@@ -1482,7 +1470,7 @@ ftGdiGetGlyphOutline(
     BOOL bIgnoreRotation)
 {
     static const FT_Matrix identityMat = {(1 << 16), 0, 0, (1 << 16)};
-    PDC_ATTR pdcattr;
+    PDC_ATTR Dc_Attr;
     PTEXTOBJ TextObj;
     PFONTGDI FontGDI;
     HFONT hFont = 0;
@@ -1510,12 +1498,13 @@ ftGdiGetGlyphOutline(
     DPRINT("%d, %08x, %p, %08lx, %p, %p\n", wch, iFormat, pgm,
            cjBuf, pvBuf, pmat2);
 
-    pdcattr = dc->pdcattr;
+    Dc_Attr = dc->pDc_Attr;
+    if (!Dc_Attr) Dc_Attr = &dc->Dc_Attr;
 
-    MatrixS2XForm(&xForm, &dc->dclevel.mxWorldToDevice);
+    MatrixS2XForm(&xForm, &dc->DcLevel.mxWorldToDevice);
     eM11 = xForm.eM11;
 
-    hFont = pdcattr->hlfntNew;
+    hFont = Dc_Attr->hlfntNew;
     TextObj = RealizeFontInit(hFont);
 
     if (!TextObj)
@@ -2239,7 +2228,7 @@ ftGdiGetTextCharsetInfo(
     LPFONTSIGNATURE lpSig,
     DWORD dwFlags)
 {
-    PDC_ATTR pdcattr;
+    PDC_ATTR Dc_Attr;
     UINT Ret = DEFAULT_CHARSET, i;
     HFONT hFont;
     PTEXTOBJ TextObj;
@@ -2251,8 +2240,9 @@ ftGdiGetTextCharsetInfo(
     DWORD cp, fs0;
     USHORT usACP, usOEM;
 
-    pdcattr = Dc->pdcattr;
-    hFont = pdcattr->hlfntNew;
+    Dc_Attr = Dc->pDc_Attr;
+    if (!Dc_Attr) Dc_Attr = &Dc->Dc_Attr;
+    hFont = Dc_Attr->hlfntNew;
     TextObj = RealizeFontInit(hFont);
 
     if (!TextObj)
@@ -2417,7 +2407,7 @@ ftGdiGetTextMetricsW(
     PTMW_INTERNAL ptmwi)
 {
     PDC dc;
-    PDC_ATTR pdcattr;
+    PDC_ATTR Dc_Attr;
     PTEXTOBJ TextObj;
     PFONTGDI FontGDI;
     FT_Face Face;
@@ -2438,8 +2428,9 @@ ftGdiGetTextMetricsW(
         SetLastWin32Error(ERROR_INVALID_HANDLE);
         return FALSE;
     }
-    pdcattr = dc->pdcattr;
-    TextObj = RealizeFontInit(pdcattr->hlfntNew);
+    Dc_Attr = dc->pDc_Attr;
+    if (!Dc_Attr) Dc_Attr = &dc->Dc_Attr;
+    TextObj = RealizeFontInit(Dc_Attr->hlfntNew);
     if (NULL != TextObj)
     {
         FontGDI = ObjToGDI(TextObj->Font, FONT);
@@ -2728,7 +2719,7 @@ TextIntRealizeFont(HFONT FontHandle, PTEXTOBJ pTextObj)
     NTSTATUS Status = STATUS_SUCCESS;
     PTEXTOBJ TextObj;
     UNICODE_STRING FaceName;
-    PPROCESSINFO Win32Process;
+    PW32PROCESS Win32Process;
     UINT MatchScore;
 
     if (!pTextObj)
@@ -3041,7 +3032,7 @@ NtGdiGetFontFamilyInfo(HDC Dc,
     LOGFONTW LogFont;
     PFONTFAMILYINFO Info;
     DWORD Count;
-    PPROCESSINFO Win32Process;
+    PW32PROCESS Win32Process;
 
     /* Make a safe copy */
     Status = MmCopyFromCaller(&LogFont, UnsafeLogFont, sizeof(LOGFONTW));
@@ -3114,7 +3105,7 @@ GreExtTextOutW(
     IN INT XStart,
     IN INT YStart,
     IN UINT fuOptions,
-    IN OPTIONAL PRECTL lprc,
+    IN OPTIONAL LPRECT lprc,
     IN LPWSTR String,
     IN INT Count,
     IN OPTIONAL LPINT Dx,
@@ -3127,7 +3118,7 @@ GreExtTextOutW(
      */
 
     DC *dc;
-    PDC_ATTR pdcattr;
+    PDC_ATTR Dc_Attr;
     SURFOBJ *SurfObj;
     SURFACE *psurf = NULL;
     int error, glyph_index, n, i;
@@ -3140,6 +3131,12 @@ GreExtTextOutW(
     FT_Bool use_kerning;
     RECTL DestRect, MaskRect;
     POINTL SourcePoint, BrushOrigin;
+    HBRUSH hBrushFg = NULL;
+    PGDIBRUSHOBJ BrushFg = NULL;
+    GDIBRUSHINST BrushFgInst;
+    HBRUSH hBrushBg = NULL;
+    PGDIBRUSHOBJ BrushBg = NULL;
+    GDIBRUSHINST BrushBgInst;
     HBITMAP HSourceGlyph;
     SURFOBJ *SourceGlyphSurf;
     SIZEL bitSize;
@@ -3148,13 +3145,14 @@ GreExtTextOutW(
     FONTOBJ *FontObj;
     PFONTGDI FontGDI;
     PTEXTOBJ TextObj = NULL;
-    EXLATEOBJ exloRGB2Dst, exloDst2RGB;
+    PPALGDI PalDestGDI;
+    XLATEOBJ *XlateObj=NULL, *XlateObj2=NULL;
+    ULONG Mode;
     FT_Render_Mode RenderMode;
     BOOLEAN Render;
     POINT Start;
     BOOL DoBreak = FALSE;
     HPALETTE hDestPalette;
-    PPALETTE ppalDst;
     USHORT DxShift;
 
     // TODO: Write test-cases to exactly match real Windows in different
@@ -3165,23 +3163,15 @@ GreExtTextOutW(
         SetLastWin32Error(ERROR_INVALID_HANDLE);
         return FALSE;
     }
-    if (dc->dctype == DC_TYPE_INFO)
+    if (dc->DC_Type == DC_TYPE_INFO)
     {
         DC_UnlockDc(dc);
         /* Yes, Windows really returns TRUE in this case */
         return TRUE;
     }
 
-    pdcattr = dc->pdcattr;
-
-    if (pdcattr->ulDirty_ & DIRTY_TEXT)
-        DC_vUpdateTextBrush(dc);
-
-    if ((fuOptions & ETO_OPAQUE) || pdcattr->jBkMode == OPAQUE)
-    {
-        if (pdcattr->ulDirty_ & DIRTY_BACKGROUND)
-            DC_vUpdateBackgroundBrush(dc);
-    }
+    Dc_Attr = dc->pDc_Attr;
+    if (!Dc_Attr) Dc_Attr = &dc->Dc_Attr;
 
     /* Check if String is valid */
     if ((Count > 0xFFFF) || (Count > 0 && String == NULL))
@@ -3192,13 +3182,13 @@ GreExtTextOutW(
 
     DxShift = fuOptions & ETO_PDY ? 1 : 0;
 
-    if (PATH_IsPathOpen(dc->dclevel))
+    if (PATH_IsPathOpen(dc->DcLevel))
     {
         if (!PATH_ExtTextOut( dc,
                               XStart,
                               YStart,
                               fuOptions,
-                              (const RECTL *)lprc,
+                              (const RECT *)lprc,
                               String,
                               Count,
                               (const INT *)Dx)) goto fail;
@@ -3210,12 +3200,13 @@ GreExtTextOutW(
         IntLPtoDP(dc, (POINT *)lprc, 2);
     }
 
-    psurf = dc->dclevel.pSurface;
+    psurf = SURFACE_LockSurface(dc->w.hBitmap);
     if (!psurf)
     {
         goto fail;
     }
     SurfObj = &psurf->SurfObj;
+    ASSERT(SurfObj);
 
     Start.x = XStart;
     Start.y = YStart;
@@ -3223,6 +3214,53 @@ GreExtTextOutW(
 
     RealXStart = (Start.x + dc->ptlDCOrig.x) << 6;
     YStart = Start.y + dc->ptlDCOrig.y;
+
+    /* Create the brushes */
+    hDestPalette = psurf->hDIBPalette;
+    if (!hDestPalette) hDestPalette = pPrimarySurface->DevInfo.hpalDefault;
+    PalDestGDI = PALETTE_LockPalette(hDestPalette);
+    if ( !PalDestGDI )
+        Mode = PAL_RGB;
+    else
+    {
+        Mode = PalDestGDI->Mode;
+        PALETTE_UnlockPalette(PalDestGDI);
+    }
+    XlateObj = (XLATEOBJ*)IntEngCreateXlate(Mode, PAL_RGB, hDestPalette, NULL);
+    if ( !XlateObj )
+    {
+        goto fail;
+    }
+    hBrushFg = NtGdiCreateSolidBrush(XLATEOBJ_iXlate(XlateObj, Dc_Attr->crForegroundClr), 0);
+    if ( !hBrushFg )
+    {
+        goto fail;
+    }
+    BrushFg = BRUSHOBJ_LockBrush(hBrushFg);
+    if ( !BrushFg )
+    {
+        goto fail;
+    }
+    IntGdiInitBrushInstance(&BrushFgInst, BrushFg, NULL);
+    if ((fuOptions & ETO_OPAQUE) || Dc_Attr->jBkMode == OPAQUE)
+    {
+        hBrushBg = NtGdiCreateSolidBrush(XLATEOBJ_iXlate(XlateObj, Dc_Attr->crBackgroundClr), 0);
+        if ( !hBrushBg )
+        {
+            goto fail;
+        }
+        BrushBg = BRUSHOBJ_LockBrush(hBrushBg);
+        if ( !BrushBg )
+        {
+            goto fail;
+        }
+        IntGdiInitBrushInstance(&BrushBgInst, BrushBg, NULL);
+    }
+    XlateObj2 = (XLATEOBJ*)IntEngCreateXlate(PAL_RGB, Mode, NULL, hDestPalette);
+    if ( !XlateObj2 )
+    {
+        goto fail;
+    }
 
     SourcePoint.x = 0;
     SourcePoint.y = 0;
@@ -3233,41 +3271,34 @@ GreExtTextOutW(
 
     if ((fuOptions & ETO_OPAQUE) && lprc)
     {
-        DestRect.left   = lprc->left;
-        DestRect.top    = lprc->top;
-        DestRect.right  = lprc->right;
-        DestRect.bottom = lprc->bottom;
-
+        DestRect.left   = lprc->left   + dc->ptlDCOrig.x;
+        DestRect.top    = lprc->top    + dc->ptlDCOrig.y;
+        DestRect.right  = lprc->right  + dc->ptlDCOrig.x;
+        DestRect.bottom = lprc->bottom + dc->ptlDCOrig.y;
         IntLPtoDP(dc, (LPPOINT)&DestRect, 2);
-
-        DestRect.left   += dc->ptlDCOrig.x;
-        DestRect.top    += dc->ptlDCOrig.y;
-        DestRect.right  += dc->ptlDCOrig.x;
-        DestRect.bottom += dc->ptlDCOrig.y;
-
         IntEngBitBlt(
             &psurf->SurfObj,
             NULL,
             NULL,
-            dc->rosdc.CombinedClip,
+            dc->CombinedClip,
             NULL,
             &DestRect,
             &SourcePoint,
             &SourcePoint,
-            &dc->eboBackground.BrushObject,
+            &BrushBgInst.BrushObject,
             &BrushOrigin,
             ROP3_TO_ROP4(PATCOPY));
         fuOptions &= ~ETO_OPAQUE;
     }
     else
     {
-        if (pdcattr->jBkMode == OPAQUE)
+        if (Dc_Attr->jBkMode == OPAQUE)
         {
             fuOptions |= ETO_OPAQUE;
         }
     }
 
-    TextObj = RealizeFontInit(pdcattr->hlfntNew);
+    TextObj = RealizeFontInit(Dc_Attr->hlfntNew);
     if (TextObj == NULL)
     {
         goto fail;
@@ -3330,9 +3361,9 @@ GreExtTextOutW(
      * Process the vertical alignment and determine the yoff.
      */
 
-    if (pdcattr->lTextAlign & TA_BASELINE)
+    if (Dc_Attr->lTextAlign & TA_BASELINE)
         yoff = 0;
-    else if (pdcattr->lTextAlign & TA_BOTTOM)
+    else if (Dc_Attr->lTextAlign & TA_BOTTOM)
         yoff = -face->size->metrics.descender >> 6;
     else /* TA_TOP */
         yoff = face->size->metrics.ascender >> 6;
@@ -3344,7 +3375,7 @@ GreExtTextOutW(
      * Process the horizontal alignment and modify XStart accordingly.
      */
 
-    if (pdcattr->lTextAlign & (TA_RIGHT | TA_CENTER))
+    if (Dc_Attr->lTextAlign & (TA_RIGHT | TA_CENTER))
     {
         ULONGLONG TextWidth = 0;
         LPCWSTR TempText = String;
@@ -3408,7 +3439,7 @@ GreExtTextOutW(
 
         previous = 0;
 
-        if (pdcattr->lTextAlign & TA_RIGHT)
+        if (Dc_Attr->lTextAlign & TA_RIGHT)
         {
             RealXStart -= TextWidth;
         }
@@ -3421,15 +3452,6 @@ GreExtTextOutW(
     TextLeft = RealXStart;
     TextTop = YStart;
     BackgroundLeft = (RealXStart + 32) >> 6;
-
-    /* Create the xlateobj */
-    hDestPalette = psurf->hDIBPalette;
-    if (!hDestPalette) hDestPalette = pPrimarySurface->devinfo.hpalDefault;
-    ppalDst = PALETTE_LockPalette(hDestPalette);
-    EXLATEOBJ_vInitialize(&exloRGB2Dst, &gpalRGB, ppalDst, 0, 0, 0);
-    EXLATEOBJ_vInitialize(&exloDst2RGB, ppalDst, &gpalRGB, 0, 0, 0);
-    PALETTE_UnlockPalette(ppalDst);
-
 
     /*
      * The main rendering loop.
@@ -3450,7 +3472,7 @@ GreExtTextOutW(
             {
                 DPRINT1("Failed to load and render glyph! [index: %u]\n", glyph_index);
                 IntUnLockFreeType;
-                goto fail2;
+                goto fail;
             }
             glyph = face->glyph;
             realglyph = ftGdiGlyphCacheSet(face,
@@ -3462,9 +3484,11 @@ GreExtTextOutW(
             {
                 DPRINT1("Failed to render glyph! [index: %u]\n", glyph_index);
                 IntUnLockFreeType;
-                goto fail2;
+                goto fail;
             }
         }
+//      DbgPrint("realglyph: %x\n", realglyph);
+//      DbgPrint("TextLeft: %d\n", TextLeft);
 
         /* retrieve kerning distance and move pen position */
         if (use_kerning && previous && glyph_index && NULL == Dx)
@@ -3473,23 +3497,24 @@ GreExtTextOutW(
             FT_Get_Kerning(face, previous, glyph_index, 0, &delta);
             TextLeft += delta.x;
         }
-        DPRINT("TextLeft: %d\n", TextLeft);
-        DPRINT("TextTop: %d\n", TextTop);
+//      DPRINT1("TextLeft: %d\n", TextLeft);
+//      DPRINT1("TextTop: %d\n", TextTop);
 
         if (realglyph->format == ft_glyph_format_outline)
         {
-            DPRINT1("Should already be done\n");
+            DbgPrint("Should already be done\n");
 //         error = FT_Render_Glyph(glyph, RenderMode);
             error = FT_Glyph_To_Bitmap(&realglyph, RenderMode, 0, 0);
             if (error)
             {
                 DPRINT1("WARNING: Failed to render glyph!\n");
-                goto fail2;
+                goto fail;
             }
         }
         realglyph2 = (FT_BitmapGlyph)realglyph;
 
-        DPRINT("Advance: %d\n", realglyph->advance.x);
+//      DPRINT1("Pitch: %d\n", pitch);
+//      DPRINT1("Advance: %d\n", realglyph->advance.x);
 
         if (fuOptions & ETO_OPAQUE)
         {
@@ -3501,12 +3526,12 @@ GreExtTextOutW(
                 &psurf->SurfObj,
                 NULL,
                 NULL,
-                dc->rosdc.CombinedClip,
+                dc->CombinedClip,
                 NULL,
                 &DestRect,
                 &SourcePoint,
                 &SourcePoint,
-                &dc->eboBackground.BrushObject,
+                &BrushBgInst.BrushObject,
                 &BrushOrigin,
                 ROP3_TO_ROP4(PATCOPY));
             BackgroundLeft = DestRect.right;
@@ -3542,7 +3567,7 @@ GreExtTextOutW(
             DPRINT1("WARNING: EngLockSurface() failed!\n");
             // FT_Done_Glyph(realglyph);
             IntUnLockFreeType;
-            goto fail2;
+            goto fail;
         }
         SourceGlyphSurf = EngLockSurface((HSURF)HSourceGlyph);
         if ( !SourceGlyphSurf )
@@ -3550,7 +3575,7 @@ GreExtTextOutW(
             EngDeleteSurface((HSURF)HSourceGlyph);
             DPRINT1("WARNING: EngLockSurface() failed!\n");
             IntUnLockFreeType;
-            goto fail2;
+            goto fail;
         }
 
         /*
@@ -3572,12 +3597,13 @@ GreExtTextOutW(
         IntEngMaskBlt(
             SurfObj,
             SourceGlyphSurf,
-            dc->rosdc.CombinedClip,
-            &exloRGB2Dst.xlo,
-            &exloDst2RGB.xlo,
+            dc->CombinedClip,
+            XlateObj,
+            XlateObj2,
             &DestRect,
+            &SourcePoint,
             (PPOINTL)&MaskRect,
-            &dc->eboText.BrushObject,
+            &BrushFgInst.BrushObject,
             &BrushOrigin);
 
         EngUnlockSurface(SourceGlyphSurf);
@@ -3591,12 +3617,12 @@ GreExtTextOutW(
         if (NULL == Dx)
         {
             TextLeft += realglyph->advance.x >> 10;
-             DPRINT("new TextLeft: %d\n", TextLeft);
+//         DbgPrint("new TextLeft: %d\n", TextLeft);
         }
         else
         {
             TextLeft += Dx[i<<DxShift] << 6;
-             DPRINT("new TextLeft2: %d\n", TextLeft);
+//         DbgPrint("new TextLeft2: %d\n", TextLeft);
         }
 
         if (DxShift)
@@ -3611,21 +3637,42 @@ GreExtTextOutW(
 
     IntUnLockFreeType;
 
-    EXLATEOBJ_vCleanup(&exloRGB2Dst);
-    EXLATEOBJ_vCleanup(&exloDst2RGB);
+    EngDeleteXlate(XlateObj);
+    EngDeleteXlate(XlateObj2);
+    SURFACE_UnlockSurface(psurf);
     if (TextObj != NULL)
         TEXTOBJ_UnlockText(TextObj);
+    if (hBrushBg != NULL)
+    {
+        BRUSHOBJ_UnlockBrush(BrushBg);
+        NtGdiDeleteObject(hBrushBg);
+    }
+    BRUSHOBJ_UnlockBrush(BrushFg);
+    NtGdiDeleteObject(hBrushFg);
 good:
     DC_UnlockDc( dc );
 
     return TRUE;
 
-fail2:
-    EXLATEOBJ_vCleanup(&exloRGB2Dst);
-    EXLATEOBJ_vCleanup(&exloDst2RGB);
 fail:
+    if ( XlateObj2 != NULL )
+        EngDeleteXlate(XlateObj2);
+    if ( XlateObj != NULL )
+        EngDeleteXlate(XlateObj);
     if (TextObj != NULL)
         TEXTOBJ_UnlockText(TextObj);
+    if (psurf != NULL)
+        SURFACE_UnlockSurface(psurf);
+    if (hBrushBg != NULL)
+    {
+        BRUSHOBJ_UnlockBrush(BrushBg);
+        NtGdiDeleteObject(hBrushBg);
+    }
+    if (hBrushFg != NULL)
+    {
+        BRUSHOBJ_UnlockBrush(BrushFg);
+        NtGdiDeleteObject(hBrushFg);
+    }
     DC_UnlockDc(dc);
 
     return FALSE;
@@ -3647,7 +3694,7 @@ NtGdiExtTextOutW(
 {
     BOOL Result = FALSE;
     NTSTATUS Status = STATUS_SUCCESS;
-    RECTL SafeRect;
+    RECT SafeRect;
     BYTE LocalBuffer[STACK_TEXT_BUFFER_SIZE];
     PVOID Buffer = LocalBuffer;
     LPWSTR SafeString = NULL;
@@ -3770,7 +3817,7 @@ NtGdiGetCharABCWidthsW(
     LPABC SafeBuff;
     LPABCFLOAT SafeBuffF = NULL;
     PDC dc;
-    PDC_ATTR pdcattr;
+    PDC_ATTR Dc_Attr;
     PTEXTOBJ TextObj;
     PFONTGDI FontGDI;
     FT_Face face;
@@ -3799,12 +3846,6 @@ NtGdiGetCharABCWidthsW(
         return FALSE;
     }
 
-    if (!Buffer)
-    {
-        SetLastWin32Error(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-
     BufferSize = Count * sizeof(ABC); // Same size!
     SafeBuff = ExAllocatePoolWithTag(PagedPool, BufferSize, TAG_GDITEXT);
     if (!fl) SafeBuffF = (LPABCFLOAT) SafeBuff;
@@ -3821,8 +3862,9 @@ NtGdiGetCharABCWidthsW(
         SetLastWin32Error(ERROR_INVALID_HANDLE);
         return FALSE;
     }
-    pdcattr = dc->pdcattr;
-    hFont = pdcattr->hlfntNew;
+    Dc_Attr = dc->pDc_Attr;
+    if (!Dc_Attr) Dc_Attr = &dc->Dc_Attr;
+    hFont = Dc_Attr->hlfntNew;
     TextObj = RealizeFontInit(hFont);
     DC_UnlockDc(dc);
 
@@ -3944,7 +3986,7 @@ NtGdiGetCharWidthW(
     LPINT SafeBuff;
     PFLOAT SafeBuffF = NULL;
     PDC dc;
-    PDC_ATTR pdcattr;
+    PDC_ATTR Dc_Attr;
     PTEXTOBJ TextObj;
     PFONTGDI FontGDI;
     FT_Face face;
@@ -3988,8 +4030,9 @@ NtGdiGetCharWidthW(
         SetLastWin32Error(ERROR_INVALID_HANDLE);
         return FALSE;
     }
-    pdcattr = dc->pdcattr;
-    hFont = pdcattr->hlfntNew;
+    Dc_Attr = dc->pDc_Attr;
+    if (!Dc_Attr) Dc_Attr = &dc->Dc_Attr;
+    hFont = Dc_Attr->hlfntNew;
     TextObj = RealizeFontInit(hFont);
     DC_UnlockDc(dc);
 
@@ -4079,7 +4122,7 @@ NtGdiGetGlyphIndicesW(
     IN DWORD iMode)
 {
     PDC dc;
-    PDC_ATTR pdcattr;
+    PDC_ATTR Dc_Attr;
     PTEXTOBJ TextObj;
     PFONTGDI FontGDI;
     HFONT hFont = 0;
@@ -4099,8 +4142,9 @@ NtGdiGetGlyphIndicesW(
         SetLastWin32Error(ERROR_INVALID_HANDLE);
         return GDI_ERROR;
     }
-    pdcattr = dc->pdcattr;
-    hFont = pdcattr->hlfntNew;
+    Dc_Attr = dc->pDc_Attr;
+    if (!Dc_Attr) Dc_Attr = &dc->Dc_Attr;
+    hFont = Dc_Attr->hlfntNew;
     TextObj = RealizeFontInit(hFont);
     DC_UnlockDc(dc);
     if (!TextObj)

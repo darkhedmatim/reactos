@@ -73,7 +73,6 @@ QueryNt4WaveDeviceFormatSupport(
 MMRESULT
 SetNt4WaveDeviceFormat(
     IN  PSOUND_DEVICE_INSTANCE SoundDeviceInstance,
-    IN  DWORD DeviceId,
     IN  LPWAVEFORMATEX Format,
     IN  DWORD FormatSize);
 

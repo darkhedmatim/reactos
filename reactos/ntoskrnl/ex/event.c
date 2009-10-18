@@ -101,13 +101,13 @@ NtCreateEvent(OUT PHANDLE EventHandle,
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     PKEVENT Event;
     HANDLE hEvent;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
     DPRINT("NtCreateEvent(0x%p, 0x%x, 0x%p)\n",
             EventHandle, DesiredAccess, ObjectAttributes);
 
     /* Check if we were called from user-mode */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
         /* Enter SEH Block */
         _SEH2_TRY
@@ -115,12 +115,14 @@ NtCreateEvent(OUT PHANDLE EventHandle,
             /* Check handle pointer */
             ProbeForWriteHandle(EventHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH2_EXCEPT(ExSystemExceptionFilter())
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+
+        /* Bail out if pointer was invalid */
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Create the Object */
@@ -161,7 +163,6 @@ NtCreateEvent(OUT PHANDLE EventHandle,
             }
             _SEH2_EXCEPT(ExSystemExceptionFilter())
             {
-                /* Get the exception code */
                 Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
@@ -183,13 +184,13 @@ NtOpenEvent(OUT PHANDLE EventHandle,
 {
     HANDLE hEvent;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
     DPRINT("NtOpenEvent(0x%p, 0x%x, 0x%p)\n",
             EventHandle, DesiredAccess, ObjectAttributes);
 
     /* Check if we were called from user-mode */
-    if (PreviousMode != KernelMode)
+    if(PreviousMode != KernelMode)
     {
         /* Enter SEH Block */
         _SEH2_TRY
@@ -197,12 +198,14 @@ NtOpenEvent(OUT PHANDLE EventHandle,
             /* Check handle pointer */
             ProbeForWriteHandle(EventHandle);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH2_EXCEPT(ExSystemExceptionFilter())
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+
+        /* Bail out if pointer was invalid */
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Open the Object */
@@ -215,7 +218,7 @@ NtOpenEvent(OUT PHANDLE EventHandle,
                                 &hEvent);
 
     /* Check for success */
-    if (NT_SUCCESS(Status))
+    if(NT_SUCCESS(Status))
     {
         /* Enter SEH for return */
         _SEH2_TRY
@@ -225,7 +228,6 @@ NtOpenEvent(OUT PHANDLE EventHandle,
         }
         _SEH2_EXCEPT(ExSystemExceptionFilter())
         {
-            /* Get the exception code */
             Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
@@ -245,7 +247,7 @@ NtPulseEvent(IN HANDLE EventHandle,
 {
     PKEVENT Event;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
     DPRINT("NtPulseEvent(EventHandle 0%x PreviousState 0%x)\n",
             EventHandle, PreviousState);
@@ -259,12 +261,14 @@ NtPulseEvent(IN HANDLE EventHandle,
             /* Make sure the state pointer is valid */
             ProbeForWriteLong(PreviousState);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH2_EXCEPT(ExSystemExceptionFilter())
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+
+        /* Bail out if pointer was invalid */
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Open the Object */
@@ -293,7 +297,6 @@ NtPulseEvent(IN HANDLE EventHandle,
             }
             _SEH2_EXCEPT(ExSystemExceptionFilter())
             {
-                /* Get the exception code */
                 Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
@@ -317,7 +320,7 @@ NtQueryEvent(IN HANDLE EventHandle,
 {
     PKEVENT Event;
     KPROCESSOR_MODE PreviousMode  = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PEVENT_BASIC_INFORMATION BasicInfo =
         (PEVENT_BASIC_INFORMATION)EventInformation;
     PAGED_CODE();
@@ -362,7 +365,6 @@ NtQueryEvent(IN HANDLE EventHandle,
         }
         _SEH2_EXCEPT(ExSystemExceptionFilter())
         {
-            /* Get the exception code */
             Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
@@ -385,13 +387,13 @@ NtResetEvent(IN HANDLE EventHandle,
 {
     PKEVENT Event;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
     DPRINT("NtResetEvent(EventHandle 0%x PreviousState 0%x)\n",
             EventHandle, PreviousState);
 
     /* Check if we were called from user-mode */
-    if ((PreviousState) && (PreviousMode != KernelMode))
+    if((PreviousState) && (PreviousMode != KernelMode))
     {
         /* Entry SEH Block */
         _SEH2_TRY
@@ -399,12 +401,14 @@ NtResetEvent(IN HANDLE EventHandle,
             /* Make sure the state pointer is valid */
             ProbeForWriteLong(PreviousState);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH2_EXCEPT(ExSystemExceptionFilter())
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+
+        /* Bail out if pointer was invalid */
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Open the Object */
@@ -433,7 +437,6 @@ NtResetEvent(IN HANDLE EventHandle,
             }
             _SEH2_EXCEPT(ExSystemExceptionFilter())
             {
-                /* Get the exception code */
                 Status = _SEH2_GetExceptionCode();
             }
             _SEH2_END;
@@ -454,7 +457,7 @@ NtSetEvent(IN HANDLE EventHandle,
 {
     PKEVENT Event;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
     DPRINT("NtSetEvent(EventHandle 0%x PreviousState 0%x)\n",
            EventHandle, PreviousState);
@@ -468,12 +471,14 @@ NtSetEvent(IN HANDLE EventHandle,
             /* Make sure the state pointer is valid */
             ProbeForWriteLong(PreviousState);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH2_EXCEPT(ExSystemExceptionFilter())
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+
+        /* Bail out if pointer was invalid */
+        if(!NT_SUCCESS(Status)) return Status;
     }
 
     /* Open the Object */

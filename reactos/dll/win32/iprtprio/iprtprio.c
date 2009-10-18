@@ -26,7 +26,7 @@
 #define EXPORT CALLBACK
 #endif
 
-#if DBG
+#ifdef DBG
 /* See debug.h for debug/trace constants */
 DWORD DebugTraceLevel = MAX_TRACE;
 #endif /* DBG */

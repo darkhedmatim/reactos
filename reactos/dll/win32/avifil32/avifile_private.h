@@ -19,9 +19,6 @@
 #ifndef __AVIFILE_PRIVATE_H
 #define __AVIFILE_PRIVATE_H
 
-#include <windef.h>
-#include <winuser.h>
-
 #ifndef MAX_AVISTREAMS
 #define MAX_AVISTREAMS 8
 #endif

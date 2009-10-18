@@ -33,14 +33,14 @@ extern "C" {
 #define WIN32_LEAN_AND_MEAN
 #define WIN32_NO_STATUS
 #include <windows.h>
+
 #include <winreg.h>
 
 #define NTOS_MODE_USER
+#include <ddraw.h>
+#include <ddrawi.h>
 #include <winddi.h>
 #include <ndk/ntndk.h>
-
-#include <GL/gl.h>
-#include <GL/glu.h>
 
 /* gl function list */
 #include "glfuncs.h"
@@ -61,6 +61,7 @@ extern "C" {
 
 /* debug macros */
 # ifdef DEBUG_OPENGL32
+ULONG DbgPrint(PCH Format,...);
 #  include <debug.h>
 #  define DBGPRINT( fmt, args... ) \
           DPRINT( "OpenGL32.DLL: %s: "fmt"\n", __FUNCTION__, ##args )
@@ -104,7 +105,28 @@ extern "C" {
 #ifdef APIENTRY
 #undef APIENTRY
 #endif /* APIENTRY */
-#define APIENTRY __stdcall
+#define APIENTRY EXPORT __stdcall
+
+/* gl function list */
+#include "glfuncs.h"
+
+/* GL data types - x86 typedefs */
+typedef unsigned int GLenum;
+typedef unsigned char GLboolean;
+typedef unsigned int GLbitfield;
+typedef signed char GLbyte;
+typedef short GLshort;
+typedef int GLint;
+typedef int GLsizei;
+typedef unsigned char GLubyte;
+typedef unsigned short GLushort;
+typedef unsigned int GLuint;
+typedef unsigned short GLhalf;
+typedef float GLfloat;
+typedef float GLclampf;
+typedef double GLdouble;
+typedef double GLclampd;
+typedef void GLvoid;
 
 /* Called by the driver to set the dispatch table */
 typedef DWORD (WINAPI *SetContextCallBack)( const ICDTable * );
@@ -191,17 +213,9 @@ extern GLPROCESSDATA OPENGL32_processdata;
 GLDRIVERDATA *OPENGL32_LoadICD( LPCWSTR driver );
 BOOL OPENGL32_UnloadICD( GLDRIVERDATA *icd );
 BOOL APIENTRY rosglMakeCurrent( HDC hdc, HGLRC hglrc );
-BOOL APIENTRY IntUseFontBitmapsA( HDC hDC, DWORD first, DWORD count, DWORD listBase );
-BOOL APIENTRY IntUseFontBitmapsW( HDC hDC, DWORD first, DWORD count, DWORD listBase );
-BOOL APIENTRY IntUseFontOutlinesA( HDC hDC, DWORD first, DWORD count, DWORD listBase,
-                                  FLOAT chordalDeviation, FLOAT extrusion, INT format,
-                                  GLYPHMETRICSFLOAT *glyphMetricsFloatArray );
-BOOL APIENTRY IntUseFontOutlinesW( HDC hDC, DWORD first, DWORD count, DWORD listBase,
-                                  FLOAT chordalDeviation, FLOAT extrusion, INT format,
-                                  GLYPHMETRICSFLOAT *glyphMetricsFloatArray );
 
 /* empty gl functions from gl.c */
-int WINAPI glEmptyFunc0( void );
+int WINAPI glEmptyFunc0();
 int WINAPI glEmptyFunc4( long );
 int WINAPI glEmptyFunc8( long, long );
 int WINAPI glEmptyFunc12( long, long, long );
@@ -225,7 +239,7 @@ int WINAPI glEmptyFunc56( long, long, long, long, long, long, long, long,
 
 #ifdef OPENGL32_GL_FUNC_PROTOTYPES
 
-#define X(func,ret,typeargs,args,icdidx,tebidx,stack) ret WINAPI func typeargs;
+#define X(func,ret,typeargs,args,icdidx,tebidx,stack) EXPORT ret WINAPI func typeargs;
 GLFUNCS_MACRO
 #undef X
 

@@ -10,19 +10,6 @@
 
 #include "ndissys.h"
 
-/*
- * @unimplemented
- */
-NDIS_STATUS
-EXPORT
-NdisClGetProtocolVcContextFromTapiCallId(
-    IN UNICODE_STRING  TapiCallId,
-    OUT PNDIS_HANDLE  ProtocolVcContext)
-{
-    UNIMPLEMENTED
-
-    return NDIS_STATUS_FAILURE;
-}
 
 /*
  * @unimplemented

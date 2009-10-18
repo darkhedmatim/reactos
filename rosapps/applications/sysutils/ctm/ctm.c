@@ -277,11 +277,10 @@ void DisplayScreen()
 int ProcessKeys(int numEvents)
 {
 	DWORD numChars;
-	TCHAR key;
 	if ((ProcessCount-scrolled < 17) && (ProcessCount > 17))
 		scrolled = ProcessCount-17;
 
-	key = GetKeyPressed(numEvents);
+	TCHAR key = GetKeyPressed(numEvents);
 	if (key == KEY_QUIT)
 		return TRUE;
 	else if (key == KEY_KILL)

@@ -38,10 +38,9 @@
 #include "shlobj.h"
 #include "shellapi.h"
 #include "wine/windef16.h"
-*/
 #include "wine/unicode.h"
 
-
+*/
 /*******************************************
 *  global SHELL32.DLL variables
 */
@@ -92,7 +91,6 @@ IContextMenu2 *	ISvBgCm_Constructor(LPSHELLFOLDER pSFParent, BOOL bDesktop);
 LPSHELLVIEW	IShellView_Constructor(LPSHELLFOLDER);
 
 HRESULT WINAPI IFSFolder_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
-HRESULT WINAPI IShellItem_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
 HRESULT WINAPI IShellLink_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
 HRESULT WINAPI IShellLink_ConstructFromFile(IUnknown * pUnkOuter, REFIID riid, LPCITEMIDLIST pidl, LPVOID * ppv);
 HRESULT WINAPI ISF_Desktop_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
@@ -113,7 +111,6 @@ HRESULT WINAPI RecycleBin_Constructor(IUnknown * pUnkOuter, REFIID riif, LPVOID 
 HRESULT WINAPI SHEOW_Constructor(IUnknown * pUnkOuter, REFIID riif, LPVOID *ppv);
 HRESULT WINAPI ShellFSFolder_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID *ppv);
 HRESULT WINAPI StartMenu_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID *ppv);
-HRESULT WINAPI MenuBandSite_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID *ppv);
 extern HRESULT CPanel_GetIconLocationW(LPCITEMIDLIST, LPWSTR, UINT, int*);
 HRESULT WINAPI CPanel_ExtractIconA(LPITEMIDLIST pidl, LPCSTR pszFile, UINT nIconIndex, HICON *phiconLarge, HICON *phiconSmall, UINT nIconSize);
 HRESULT WINAPI CPanel_ExtractIconW(LPITEMIDLIST pidl, LPCWSTR pszFile, UINT nIconIndex, HICON *phiconLarge, HICON *phiconSmall, UINT nIconSize);
@@ -151,7 +148,6 @@ HGLOBAL RenderPREFEREDDROPEFFECT (DWORD dwFlags);
 /* Change Notification */
 void InitChangeNotifications(void);
 void FreeChangeNotifications(void);
-void InitIconOverlays(void);
 
 /* file operation */
 #define ASK_DELETE_FILE           1
@@ -217,9 +213,12 @@ static LPWSTR __inline __SHCloneStrAtoW(WCHAR ** target, const char * source)
 #define HINSTANCE_16(h32)	(LOWORD(h32))
 
 typedef UINT_PTR (*SHELL_ExecuteW32)(const WCHAR *lpCmd, WCHAR *env, BOOL shWait,
-			    const SHELLEXECUTEINFOW *sei, LPSHELLEXECUTEINFOW sei_out);
+			    LPSHELLEXECUTEINFOW sei, LPSHELLEXECUTEINFOW sei_out);
 
 BOOL SHELL_execute(LPSHELLEXECUTEINFOW sei, SHELL_ExecuteW32 execfunc);
+
+UINT SHELL_FindExecutable(LPCWSTR lpPath, LPCWSTR lpFile, LPCWSTR lpOperation,
+                          LPWSTR lpResult, int resultLen, LPWSTR key, WCHAR **env, LPITEMIDLIST pidl, LPCWSTR args);
 
 extern WCHAR swShell32Name[MAX_PATH];
 
@@ -239,5 +238,5 @@ HPROPSHEETPAGE SH_CreatePropertySheetPage(LPSTR resname, DLGPROC dlgproc, LPARAM
 BOOL SH_ShowDriveProperties(WCHAR * drive, LPCITEMIDLIST pidlFolder, LPCITEMIDLIST * apidl);
 BOOL SH_ShowRecycleBinProperties(WCHAR sDrive);
 BOOL SH_ShowPropertiesDialog(LPWSTR lpf, LPCITEMIDLIST pidlFolder, LPCITEMIDLIST * apidl);
-BOOL SH_ShowFolderProperties(LPWSTR pwszFolder, LPCITEMIDLIST pidlFolder, LPCITEMIDLIST * apidl);
+BOOL SH_ShowFolderProperties(LPWSTR pwszFolder);
 #endif

@@ -1,14 +1,14 @@
 @ stub AbortPrinter
 @ stub AddFormW
 @ stub AddJobW
-@ stdcall AddMonitorW(wstr long ptr)
+@ stub AddMonitorW
 @ stub AddPerMachineConnectionW
 @ stub AddPortExW
 @ stub AddPortW
 @ stub AddPrintProcessorW
 @ stub AddPrintProvidorW
 @ stub AddPrinterConnectionW
-@ stdcall AddPrinterDriverExW(wstr long ptr long)
+@ stub AddPrinterDriverExW
 @ stub AddPrinterDriverW
 @ stub AddPrinterExW
 @ stub AddPrinterW
@@ -25,7 +25,7 @@
 @ stub CreatePrinterIC
 @ stub DbgGetPointers
 @ stub DeleteFormW
-@ stdcall DeleteMonitorW(wstr wstr wstr)
+@ stub DeleteMonitorW
 @ stub DeletePerMachineConnectionW
 @ stub DeletePortW
 @ stub DeletePrintProcessorW
@@ -45,9 +45,15 @@
 @ stub EndPagePrinter
 @ stub EnumFormsW
 @ stub EnumJobsW
-@ stdcall EnumMonitorsW(wstr long ptr long ptr ptr)
+@ stub EnumMonitorsW
 @ stub EnumPerMachineConnectionsW
-@ stdcall EnumPortsW(wstr long ptr long ptr ptr)
+
+;FIXME: something is seriously broken here
+; the forwarder will break the export table
+
+;@ stdcall EnumPortsW(wstr long ptr ptr ptr ptr) winspool.drv.EnumPortsW
+@ stub EnumPortsW
+
 @ stub EnumPrintProcessorDatatypesW
 @ stub EnumPrintProcessorsW
 @ stub EnumPrinterDataExW
@@ -68,7 +74,7 @@
 @ stub GetPrintProcessorDirectoryW
 @ stub GetPrinterDataExW
 @ stub GetPrinterDataW
-@ stdcall GetPrinterDriverDirectoryW(wstr wstr long ptr long ptr)
+@ stub GetPrinterDriverDirectoryW
 @ stub GetPrinterDriverExW
 @ stub GetPrinterDriverW
 @ stub GetPrinterW

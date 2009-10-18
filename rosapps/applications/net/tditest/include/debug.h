@@ -21,7 +21,7 @@
 #undef ASSERT
 #endif
 
-#if DBG
+#ifdef DBG
 
 extern ULONG DebugTraceLevel;
 

@@ -2,7 +2,7 @@
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
- * FILE:            dll/win32/kernel32/misc/console.c
+ * FILE:            lib/kernel32/misc/console.c
  * PURPOSE:         Win32 server console functions
  * PROGRAMMER:      James Tabor
  *            <jimtabor@adsl-64-217-116-74.dsl.hstntx.swbell.net>
@@ -352,12 +352,6 @@ GetConsoleAliasW(LPWSTR lpSource,
 
     DPRINT("GetConsoleAliasW entered lpSource %S lpExeName %S\n", lpSource, lpExeName);
 
-    if (lpTargetBuffer == NULL)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return 0;
-    }
-
     CsrRequest = MAKE_CSR_API(GET_CONSOLE_ALIAS, CSR_CONSOLE);
 
     ExeLength = wcslen(lpExeName) + 1;
@@ -367,17 +361,11 @@ GetConsoleAliasW(LPWSTR lpSource,
 
     RequestLength = Size + sizeof(CSR_API_MESSAGE);
     Request = RtlAllocateHeap(GetProcessHeap(), 0, RequestLength);
-    if (Request == NULL)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return 0;
-    }
 
     CaptureBuffer = CsrAllocateCaptureBuffer(1, TargetBufferLength);
     if (!CaptureBuffer)
     {
         RtlFreeHeap(GetProcessHeap(), 0, Request);
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
         return 0;
     }
 
@@ -438,39 +426,15 @@ GetConsoleAliasA(LPSTR lpSource,
 
     DPRINT("GetConsoleAliasA entered\n");
 
-    if (lpTargetBuffer == NULL)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return 0;
-    }
-
     dwSourceSize = (strlen(lpSource)+1) * sizeof(WCHAR);
     lpwSource = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwSourceSize);
-    if (lpwSource == NULL)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return 0;
-    }
     MultiByteToWideChar(CP_ACP, 0, lpSource, -1, lpwSource, dwSourceSize);
 
     dwExeNameSize = (strlen(lpExeName)+1) * sizeof(WCHAR);
     lpwExeName = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwExeNameSize);
-    if (lpwExeName == NULL)
-    {
-        HeapFree(GetProcessHeap(), 0, lpwSource);
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return 0;
-    }
     MultiByteToWideChar(CP_ACP, 0, lpExeName, -1, lpwExeName, dwExeNameSize);
 
     lpwTargetBuffer = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, TargetBufferLength * sizeof(WCHAR));
-    if (lpwTargetBuffer == NULL)
-    {
-        HeapFree(GetProcessHeap(), 0, lpwSource);
-        HeapFree(GetProcessHeap(), 0, lpwExeName);
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return 0;
-    }
 
     dwResult = GetConsoleAliasW(lpwSource, lpwTargetBuffer, TargetBufferLength * sizeof(WCHAR), lpwExeName);
 
@@ -3789,7 +3753,8 @@ WINAPI
 AttachConsole(DWORD dwProcessId)
 {
     DPRINT1("AttachConsole(0x%x) UNIMPLEMENTED!\n", dwProcessId);
-    return TRUE;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
 }
 
 /*--------------------------------------------------------------

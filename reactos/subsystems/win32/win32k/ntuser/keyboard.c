@@ -1000,31 +1000,22 @@ DWORD
 APIENTRY
 NtUserVkKeyScanEx(
    WCHAR wChar,
-   HKL hKeyboardLayout,
-   BOOL UsehKL ) // TRUE from KeyboardLayout, FALSE from pkbl = (THREADINFO)->KeyboardLayout
+   HKL KeyboardLayout,
+   DWORD Unknown2)
 {
+/* FIXME: currently, this routine doesnt seem to need any locking */
    PKBDTABLES KeyLayout;
    PVK_TO_WCHAR_TABLE vtwTbl;
    PVK_TO_WCHARS10 vkPtr;
    size_t size_this_entry;
    int nMod;
-   PKBL pkbl = NULL;
-   DWORD CapsMod = 0, CapsState = 0, Ret = -1;
+   DWORD CapsMod = 0, CapsState = 0;
 
-   DPRINT("NtUserVkKeyScanEx() wChar %d, KbdLayout 0x%p\n", wChar, hKeyboardLayout);
-   UserEnterShared();
+   DPRINT("NtUserVkKeyScanEx() wChar %d, KbdLayout 0x%p\n", wChar, KeyboardLayout);
 
-   if (UsehKL)
-   {
-      if ( !hKeyboardLayout || !(pkbl = UserHklToKbl(hKeyboardLayout)))
-      goto Exit;
-   }
-   else // From VkKeyScanAW it is FALSE so KeyboardLayout is white noise.
-   {
-     pkbl = ((PTHREADINFO)PsGetCurrentThreadWin32Thread())->KeyboardLayout;
-   }   
-
-   KeyLayout = pkbl->KBTables;
+   if(!KeyboardLayout)
+      return -1;
+   KeyLayout = UserHklToKbl(KeyboardLayout)->KBTables;
 
    for (nMod = 0; KeyLayout->pVkToWcharTable[nMod].nModifications; nMod++)
    {
@@ -1047,16 +1038,13 @@ NtUserVkKeyScanEx(
                CapsMod = KeyLayout->pCharModifiers->ModNumber[CapsState];
                DPRINT("nMod %d wC %04x: CapsMod %08x CapsState %08x MaxModBits %08x\n",
                       nMod, wChar, CapsMod, CapsState, KeyLayout->pCharModifiers->wMaxModBits);
-               Ret = ((CapsMod << 8)|(vkPtr->VirtualKey & 0xff));
-               goto Exit;
+               return ((CapsMod << 8)|(vkPtr->VirtualKey & 0xff));
             }
          }
          vkPtr = (PVK_TO_WCHARS10)(((BYTE *)vkPtr) + size_this_entry);
       }
    }
-Exit:
-   UserLeave();
-   return Ret;
+   return -1;
 }
 
 

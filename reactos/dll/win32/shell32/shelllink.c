@@ -575,20 +575,20 @@ static HRESULT Stream_LoadString( IStream* stm, BOOL unicode, LPWSTR *pstr )
     /* convert to unicode if necessary */
     if( !unicode )
     {
-        count = MultiByteToWideChar( CP_ACP, 0, temp, len, NULL, 0 );
+        count = MultiByteToWideChar( CP_ACP, 0, (LPSTR) temp, len, NULL, 0 );
         str = HeapAlloc( GetProcessHeap(), 0, (count+1)*sizeof (WCHAR) );
         if( !str )
         {
             HeapFree( GetProcessHeap(), 0, temp );
             return E_OUTOFMEMORY;
         }
-        MultiByteToWideChar( CP_ACP, 0, temp, len, str, count );
+        MultiByteToWideChar( CP_ACP, 0, (LPSTR) temp, len, str, count );
         HeapFree( GetProcessHeap(), 0, temp );
     }
     else
     {
         count /= 2;
-        str = temp;
+        str = (LPWSTR) temp;
     }
     str[count] = 0;
 
@@ -627,7 +627,7 @@ static HRESULT Stream_ReadChunk( IStream* stm, LPVOID *data )
 
     TRACE("Read %d bytes\n",chunk->size);
 
-    *data = chunk;
+    *data = (LPVOID) chunk;
 
     return S_OK;
 }
@@ -676,7 +676,7 @@ static HRESULT Stream_LoadLocation( IStream *stm,
     char *p = NULL;
     LOCATION_INFO *loc;
     HRESULT r;
-    DWORD n;
+    int n;
 
     r = Stream_ReadChunk( stm, (LPVOID*) &p );
     if( FAILED(r) )
@@ -1073,7 +1073,7 @@ static HRESULT WINAPI IPersistStream_fnSave(
     memset(&header, 0, sizeof(header));
     header.dwSize = sizeof(header);
     header.fStartup = This->iShowCmd;
-    header.MagicGuid = CLSID_ShellLink;
+    memcpy(&header.MagicGuid, &CLSID_ShellLink, sizeof(header.MagicGuid) );
 
     header.wHotKey = This->wHotKey;
     header.nIcon = This->iIcoNdx;
@@ -1308,7 +1308,7 @@ HRESULT WINAPI IShellLink_ConstructFromFile( IUnknown* pUnkOuter, REFIID riid,
                 hr = E_FAIL;
 
 	    if (SUCCEEDED(hr))
-		*ppv = psl;
+		*ppv = (IUnknown*) psl;
 
 	    IPersistFile_Release(ppf);
 	}
@@ -1539,12 +1539,12 @@ static HRESULT SHELL_PidlGeticonLocationA(IShellFolder* psf, LPCITEMIDLIST pidl,
     if (SUCCEEDED(hr)) {
 	IExtractIconA* pei;
 
-	hr = IShellFolder_GetUIObjectOf(psf, 0, 1, &pidlLast, &IID_IExtractIconA, NULL, (LPVOID*)&pei);
+	hr = IShellFolder_GetUIObjectOf(psf, 0, 1, (LPCITEMIDLIST*)&pidlLast, &IID_IExtractIconA, NULL, (LPVOID*)&pei);
 
 	if (SUCCEEDED(hr)) {
-	    hr = IExtractIconA_GetIconLocation(pei, 0, pszIconPath, MAX_PATH, piIcon, NULL);
+	    hr = pei->lpVtbl->GetIconLocation(pei, 0, pszIconPath, MAX_PATH, piIcon, NULL);
 
-	    IExtractIconA_Release(pei);
+	    pei->lpVtbl->Release(pei);
 	}
 
 	IShellFolder_Release(psf);
@@ -1919,12 +1919,12 @@ static HRESULT SHELL_PidlGeticonLocationW(IShellFolder* psf, LPCITEMIDLIST pidl,
     if (SUCCEEDED(hr)) {
 	IExtractIconW* pei;
 
-	hr = IShellFolder_GetUIObjectOf(psf, 0, 1, &pidlLast, &IID_IExtractIconW, NULL, (LPVOID*)&pei);
+	hr = IShellFolder_GetUIObjectOf(psf, 0, 1, (LPCITEMIDLIST*)&pidlLast, &IID_IExtractIconW, NULL, (LPVOID*)&pei);
 
 	if (SUCCEEDED(hr)) {
-	    hr = IExtractIconW_GetIconLocation(pei, 0, pszIconPath, MAX_PATH, piIcon, &wFlags);
+	    hr = pei->lpVtbl->GetIconLocation(pei, 0, pszIconPath, MAX_PATH, piIcon, &wFlags);
 
-	    IExtractIconW_Release(pei);
+	    pei->lpVtbl->Release(pei);
 	}
 
 	IShellFolder_Release(psf);
@@ -2633,7 +2633,7 @@ SH_ShellLinkDlgProc(
             {
                 //FIXME load localized error msg
                 MessageBoxW( hwndDlg, L"file not existing", szBuffer, MB_OK );
-                SetWindowLongPtr( hwndDlg, DWL_MSGRESULT, PSNRET_INVALID_NOCHANGEPAGE );
+                SetWindowLong( hwndDlg, DWL_MSGRESULT, PSNRET_INVALID_NOCHANGEPAGE );
                 return TRUE;
             }
             ptr = wcsrchr(szBuffer, L'.');
@@ -2641,7 +2641,7 @@ SH_ShellLinkDlgProc(
             {
                 // FIXME load localized error msg
                 MessageBoxW( hwndDlg, L"You cannot create a link to a shortcut", L"Error", MB_ICONERROR );
-                SetWindowLongPtr( hwndDlg, DWL_MSGRESULT, PSNRET_INVALID_NOCHANGEPAGE );
+                SetWindowLong( hwndDlg, DWL_MSGRESULT, PSNRET_INVALID_NOCHANGEPAGE );
                 return TRUE;
             }
 
@@ -2649,7 +2649,7 @@ SH_ShellLinkDlgProc(
 
             TRACE("This %p sLinkPath %S\n", This, This->sLinkPath);
             IPersistFile_fnSave( (IPersistFile*)&This->lpvtblPersistFile, This->sLinkPath, TRUE );
-            SetWindowLongPtr( hwndDlg, DWL_MSGRESULT, PSNRET_NOERROR );
+            SetWindowLong( hwndDlg, DWL_MSGRESULT, PSNRET_NOERROR );
             return TRUE;
        }
        break;
@@ -2815,10 +2815,6 @@ ShellLink_InvokeCommand( IContextMenu* iface, LPCMINVOKECOMMANDINFO lpici )
             wcscat( args, space );
             wcscat( args, iciex->lpParametersW );
         }
-    }
-    else if (This->sArgs != NULL)
-    {
-        args = This->sArgs;
     }
 
     memset( &sei, 0, sizeof sei );

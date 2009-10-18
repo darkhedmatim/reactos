@@ -283,13 +283,6 @@ CreateDeviceInfo(
     IN LPCGUID pClassGuid,
     OUT struct DeviceInfo **pDeviceInfo);
 
-LONG
-SETUP_CreateDevicesList(
-    IN OUT struct DeviceInfoSet *list,
-    IN PCWSTR MachineName OPTIONAL,
-    IN CONST GUID *Class OPTIONAL,
-    IN PCWSTR Enumerator OPTIONAL);
-
 /* driver.c */
 
 struct InfFileDetails *

@@ -354,7 +354,7 @@ RtlSetEnvironmentVariable(PWSTR *Environment,
    }
 
 found:
-   if (Value != NULL && Value->Buffer != NULL)
+   if (Value != NULL)
    {
       hole_len = tail - hole;
       /* calculate new environment size */
@@ -472,6 +472,10 @@ found:
          memmove(head,
                  tail,
                  (env_end - tail) * sizeof(WCHAR));
+      }
+      else
+      {
+         Status = STATUS_VARIABLE_NOT_FOUND;
       }
    }
 

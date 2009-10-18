@@ -4,7 +4,6 @@
  * Copyright 2002-2005 Jason Edmeades
  * Copyright 2002-2005 Raphael Junqueira
  * Copyright 2005 Oliver Stieber
- * Copyright 2009 Henri Verbeet for CodeWeavers
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -27,11 +26,10 @@
 WINE_DEFAULT_DEBUG_CHANNEL(d3d_surface);
 #define GLINFO_LOCATION This->resource.wineD3DDevice->adapter->gl_info
 
-/* Context activation is done by the caller. */
 static void volume_bind_and_dirtify(IWineD3DVolume *iface) {
     IWineD3DVolumeImpl *This = (IWineD3DVolumeImpl *)iface;
     IWineD3DVolumeTexture *texture;
-    DWORD active_sampler;
+    int active_sampler;
 
     /* We don't need a specific texture unit, but after binding the texture the current unit is dirty.
      * Read the unit back instead of switching to 0, this avoids messing around with the state manager's
@@ -54,13 +52,12 @@ static void volume_bind_and_dirtify(IWineD3DVolume *iface) {
         active_sampler = 0;
     }
 
-    if (active_sampler != WINED3D_UNMAPPED_STAGE)
-    {
+    if (active_sampler != -1) {
         IWineD3DDeviceImpl_MarkStateDirty(This->resource.wineD3DDevice, STATE_SAMPLER(active_sampler));
     }
 
     if (SUCCEEDED(IWineD3DSurface_GetContainer(iface, &IID_IWineD3DVolumeTexture, (void **)&texture))) {
-        IWineD3DVolumeTexture_BindTexture(texture, FALSE);
+        IWineD3DVolumeTexture_BindTexture(texture);
         IWineD3DVolumeTexture_Release(texture);
     } else {
         ERR("Volume should be part of a volume texture\n");
@@ -123,7 +120,6 @@ static ULONG WINAPI IWineD3DVolumeImpl_Release(IWineD3DVolume *iface) {
     ref = InterlockedDecrement(&This->resource.ref);
     if (ref == 0) {
         resource_cleanup((IWineD3DResource *)iface);
-        This->resource.parent_ops->wined3d_object_destroyed(This->resource.parent);
         HeapFree(GetProcessHeap(), 0, This);
     }
     return ref;
@@ -200,15 +196,14 @@ static HRESULT WINAPI IWineD3DVolumeImpl_GetDesc(IWineD3DVolume *iface, WINED3DV
     IWineD3DVolumeImpl *This = (IWineD3DVolumeImpl *)iface;
     TRACE("(%p) : copying into %p\n", This, pDesc);
 
-    pDesc->Format = This->resource.format_desc->format;
-    pDesc->Type = This->resource.resourceType;
-    pDesc->Usage = This->resource.usage;
-    pDesc->Pool = This->resource.pool;
-    pDesc->Size = This->resource.size; /* dx8 only */
-    pDesc->Width = This->currentDesc.Width;
-    pDesc->Height = This->currentDesc.Height;
-    pDesc->Depth = This->currentDesc.Depth;
-
+    *(pDesc->Format)  = This->resource.format;
+    *(pDesc->Type)    = This->resource.resourceType;
+    *(pDesc->Usage)   = This->resource.usage;
+    *(pDesc->Pool)    = This->resource.pool;
+    *(pDesc->Size)    = This->resource.size; /* dx8 only */
+    *(pDesc->Width)   = This->currentDesc.Width;
+    *(pDesc->Height)  = This->currentDesc.Height;
+    *(pDesc->Depth)   = This->currentDesc.Depth;
     return WINED3D_OK;
 }
 
@@ -223,9 +218,8 @@ static HRESULT WINAPI IWineD3DVolumeImpl_LockBox(IWineD3DVolume *iface, WINED3DL
     /* fixme: should we really lock as such? */
     TRACE("(%p) : box=%p, output pbox=%p, allMem=%p\n", This, pBox, pLockedVolume, This->resource.allocatedMemory);
 
-    pLockedVolume->RowPitch = This->resource.format_desc->byte_count * This->currentDesc.Width; /* Bytes / row   */
-    pLockedVolume->SlicePitch = This->resource.format_desc->byte_count
-            * This->currentDesc.Width * This->currentDesc.Height;                               /* Bytes / slice */
+    pLockedVolume->RowPitch   = This->bytesPerPixel * This->currentDesc.Width;                        /* Bytes / row   */
+    pLockedVolume->SlicePitch = This->bytesPerPixel * This->currentDesc.Width * This->currentDesc.Height;  /* Bytes / slice */
     if (!pBox) {
         TRACE("No box supplied - all is ok\n");
         pLockedVolume->pBits = This->resource.allocatedMemory;
@@ -237,10 +231,10 @@ static HRESULT WINAPI IWineD3DVolumeImpl_LockBox(IWineD3DVolume *iface, WINED3DL
         This->lockedBox.Back   = This->currentDesc.Depth;
     } else {
         TRACE("Lock Box (%p) = l %d, t %d, r %d, b %d, fr %d, ba %d\n", pBox, pBox->Left, pBox->Top, pBox->Right, pBox->Bottom, pBox->Front, pBox->Back);
-        pLockedVolume->pBits = This->resource.allocatedMemory
-                + (pLockedVolume->SlicePitch * pBox->Front)     /* FIXME: is front < back or vica versa? */
-                + (pLockedVolume->RowPitch * pBox->Top)
-                + (pBox->Left * This->resource.format_desc->byte_count);
+        pLockedVolume->pBits = This->resource.allocatedMemory +
+          (pLockedVolume->SlicePitch * pBox->Front) + /* FIXME: is front < back or vica versa? */
+          (pLockedVolume->RowPitch * pBox->Top) +
+          (pBox->Left * This->bytesPerPixel);
         This->lockedBox.Left   = pBox->Left;
         This->lockedBox.Top    = pBox->Top;
         This->lockedBox.Front  = pBox->Front;
@@ -266,8 +260,7 @@ static HRESULT WINAPI IWineD3DVolumeImpl_LockBox(IWineD3DVolume *iface, WINED3DL
 
         if (containerType == WINED3DRTYPE_VOLUMETEXTURE) {
           IWineD3DBaseTextureImpl* pTexture = (IWineD3DBaseTextureImpl*) cont;
-          pTexture->baseTexture.texture_rgb.dirty = TRUE;
-          pTexture->baseTexture.texture_srgb.dirty = TRUE;
+          pTexture->baseTexture.dirty = TRUE;
         } else {
           FIXME("Set dirty on container type %d\n", containerType);
         }
@@ -306,12 +299,13 @@ static HRESULT WINAPI IWineD3DVolumeImpl_SetContainer(IWineD3DVolume *iface, IWi
     return WINED3D_OK;
 }
 
-/* Context activation is done by the caller. */
 static HRESULT WINAPI IWineD3DVolumeImpl_LoadTexture(IWineD3DVolume *iface, int gl_level, BOOL srgb_mode) {
     IWineD3DVolumeImpl *This     = (IWineD3DVolumeImpl *)iface;
-    const struct GlPixelFormatDesc *glDesc = This->resource.format_desc;
+    WINED3DFORMAT format = This->resource.format;
+    const struct GlPixelFormatDesc *glDesc;
+    getFormatDescEntry(format, &GLINFO_LOCATION, &glDesc);
 
-    TRACE("(%p) : level %u, format %s (0x%08x)\n", This, gl_level, debug_d3dformat(glDesc->format), glDesc->format);
+    TRACE("(%p) : level %u, format %s (0x%08x)\n", This, gl_level, debug_d3dformat(format), format);
 
     volume_bind_and_dirtify(iface);
 
@@ -349,7 +343,7 @@ static HRESULT WINAPI IWineD3DVolumeImpl_LoadTexture(IWineD3DVolume *iface, int 
 
 }
 
-static const IWineD3DVolumeVtbl IWineD3DVolume_Vtbl =
+const IWineD3DVolumeVtbl IWineD3DVolume_Vtbl =
 {
     /* IUnknown */
     IWineD3DVolumeImpl_QueryInterface,
@@ -375,40 +369,3 @@ static const IWineD3DVolumeVtbl IWineD3DVolume_Vtbl =
     IWineD3DVolumeImpl_LoadTexture,
     IWineD3DVolumeImpl_SetContainer
 };
-
-HRESULT volume_init(IWineD3DVolumeImpl *volume, IWineD3DDeviceImpl *device, UINT width,
-        UINT height, UINT depth, DWORD usage, WINED3DFORMAT format, WINED3DPOOL pool,
-        IUnknown *parent, const struct wined3d_parent_ops *parent_ops)
-{
-    const struct wined3d_gl_info *gl_info = &device->adapter->gl_info;
-    const struct GlPixelFormatDesc *format_desc = getFormatDescEntry(format, gl_info);
-    HRESULT hr;
-
-    if (!gl_info->supported[EXT_TEXTURE3D])
-    {
-        WARN("Volume cannot be created - no volume texture support.\n");
-        return WINED3DERR_INVALIDCALL;
-    }
-
-    volume->lpVtbl = &IWineD3DVolume_Vtbl;
-
-    hr = resource_init((IWineD3DResource *)volume, WINED3DRTYPE_VOLUME, device,
-            width * height * depth * format_desc->byte_count, usage, format_desc, pool, parent, parent_ops);
-    if (FAILED(hr))
-    {
-        WARN("Failed to initialize resource, returning %#x.\n", hr);
-        return hr;
-    }
-
-    volume->currentDesc.Width = width;
-    volume->currentDesc.Height = height;
-    volume->currentDesc.Depth = depth;
-    volume->lockable = TRUE;
-    volume->locked = FALSE;
-    memset(&volume->lockedBox, 0, sizeof(volume->lockedBox));
-    volume->dirty = TRUE;
-
-    volume_add_dirty_box((IWineD3DVolume *)volume, NULL);
-
-    return WINED3D_OK;
-}

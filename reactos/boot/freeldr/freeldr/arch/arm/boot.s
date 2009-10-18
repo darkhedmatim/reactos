@@ -10,6 +10,7 @@
     .include "ntoskrnl/include/internal/arm/kxarm.h"
     .include "ntoskrnl/include/internal/arm/ksarm.h"
 
+    .section startup
     NESTED_ENTRY _start
     PROLOG_END _start
     
@@ -44,7 +45,7 @@
     //
     // Okay, now give us a stack
     //
-    //ldr sp, L_BootStackEnd
+    ldr sp, L_BootStackEnd
 
     //
     // Go ahead and call the C initialization code
@@ -58,6 +59,13 @@ L_BootStackEnd:
 
 L_ArmInit:
     .long ArmInit
+
+	.align 4
+.global BootStack
+BootStack:
+	.space 0x4000
+BootStackEnd:
+    .long 0
 
 .section pagedata
 .global TranslationTableStart
@@ -138,6 +146,11 @@ FlatMapTranslationTable:
     
 .global MasterTranslationTable
 MasterTranslationTable:
+    .space 0x0400 // 0xYYYYYYYY->0xC10FFFFF
+    .space 0x0C00 // PADDING FOR 4KB GRANULARITY
+
+.global HyperSpaceTranslationTable
+HyperSpaceTranslationTable:
     .space 0x0400 // 0xYYYYYYYY->0xC10FFFFF
     .space 0x0C00 // PADDING FOR 4KB GRANULARITY
 

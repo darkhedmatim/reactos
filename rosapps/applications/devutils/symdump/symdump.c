@@ -807,7 +807,6 @@ DumpParams(PSYMBOL_INFO pSymInfo, PENUMINFO pei)
 {
 	IMAGEHLP_STACK_FRAME sf;
 	BOOL bRet;
-	INT NumLocals = 0; // the number of local variables found
 
 	sf.InstructionOffset = pSymInfo->Address;
 
@@ -822,6 +821,8 @@ DumpParams(PSYMBOL_INFO pSymInfo, PENUMINFO pei)
 	printf("Address == 0x%x, ReturnOffset = 0x%x", (UINT)pSymInfo->Address, (UINT)sf.ReturnOffset);
 
 	// Enumerate local variables
+
+	INT NumLocals = 0; // the number of local variables found
 
 	bRet = SymEnumSymbols(pei->hProcess, 0, 0, EnumParamsProc, &NumLocals);
 
@@ -875,12 +876,7 @@ EnumSymbolsProc(
 		}
 		else
 		{
-#if defined(__GNUC__) && \
-	(__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__ < 40400)
 		    printf("Symbol: %s, TypeIndex=%ld, Flags=%lx, Value=0x%llx\n",
-#else
-		    printf("Symbol: %s, TypeIndex=%ld, Flags=%lx, Value=0x%I64x\n",
-#endif
 		        pSymInfo->Name, pSymInfo->TypeIndex, pSymInfo->Flags, pSymInfo->Value);
 			//if (pSymInfo->Flags & SYMFLAG_FUNCTION)
 			{

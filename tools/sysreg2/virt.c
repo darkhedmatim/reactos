@@ -1,17 +1,5 @@
-/*
- * PROJECT:     ReactOS System Regression Testing Utility
- * LICENSE:     GNU GPLv2 or any later version as published by the Free Software Foundation
- * PURPOSE:     Main entry point and controlling the virtual machine
- * COPYRIGHT:   Copyright 2008-2009 Christoph von Wittich <christoph_vw@reactos.org>
- *              Copyright 2009 Colin Finck <colin@reactos.org>
- */
-
 #include "sysreg.h"
-
-const char DefaultOutputPath[] = "output-i386";
-const char* OutputPath;
-Settings AppSettings;
-ModuleListEntry* ModuleList;
+#include <libvirt.h>
 
 bool GetConsole(virDomainPtr vDomPtr, char* console)
 {
@@ -152,25 +140,19 @@ virDomainPtr LaunchVirtualMachine(virConnectPtr vConn, const char* XmlFileName, 
     return vDomPtr;
 }
 
+
 int main(int argc, char **argv)
 {
-    virConnectPtr vConn = NULL;
+    virConnectPtr vConn;
     virDomainPtr vDom;
     virDomainInfo info;
+    int Stage;
+    int Stages = 3;
     char qemu_img_cmdline[300];
     FILE* file;
     char config[255];
-    int Ret = EXIT_DONT_CONTINUE;
+    int Ret = EXIT_SUCCESS;
     char console[50];
-    unsigned int Retries;
-    unsigned int Stage;
-
-    /* Get the output path to the built ReactOS files */
-    OutputPath = getenv("ROS_OUTPUT");
-    if(!OutputPath)
-        OutputPath = DefaultOutputPath;
-
-    InitializeModuleList();
 
     if (argc == 2)
         strcpy(config, argv[1]);
@@ -179,27 +161,23 @@ int main(int argc, char **argv)
 
     if (!LoadSettings(config))
     {
-        SysregPrintf("Cannot load configuration file\n");
-        goto cleanup;
+        printf("Can not load configuration file\n");
+        return EXIT_FAILURE;
     }
     vConn = virConnectOpen("qemu:///session");
 
     if (IsVirtualMachineRunning(vConn, AppSettings.Name))
     {
-        /* SysregPrintf("Error: Virtual Machine is already running.\n");
-        goto cleanup; */
-        system("virsh destroy ReactOS");
-		usleep(1000);
+        printf("Error: Virtual Machine is already running.\n");
+        return EXIT_FAILURE;
     }
 
-    /* If the HD image already exists, delete it */
     if (file = fopen(AppSettings.HardDiskImage, "r"))
     {
         fclose(file);
         remove(AppSettings.HardDiskImage);
     }
 
-    /* Create a new HD image */
     sprintf(qemu_img_cmdline, "qemu-img create -f qcow2 %s %dM", 
             AppSettings.HardDiskImage, AppSettings.ImageSize);
     FILE* p = popen(qemu_img_cmdline, "r");
@@ -207,81 +185,43 @@ int main(int argc, char **argv)
     while(feof(p)==0)
     {
         fgets(buf,100,p);
-        SysregPrintf("%s\n",buf);
+        printf("%s\n",buf);
     }
-    pclose(p);
+    pclose(p); 
 
-    for(Stage = 0; Stage < NUM_STAGES; Stage++)
+    for (Stage=0;Stage<Stages; Stage++)
     {
-        for(Retries = 0; Retries < AppSettings.MaxRetries; Retries++)
+        vDom = LaunchVirtualMachine(vConn, AppSettings.Filename,
+                AppSettings.Stage[Stage].BootDevice);
         {
-            vDom = LaunchVirtualMachine(vConn, AppSettings.Filename,
-                    AppSettings.Stage[Stage].BootDevice);
-
-            if (!vDom)
+            if (vDom)
             {
-                SysregPrintf("LaunchVirtualMachine failed!\n");
-                goto cleanup;
+                if (Stage > 0)
+                    printf("\n\n\n");
+                printf("Running stage %d...\n", Stage + 1);
+                printf("Domain %s started.\n", virDomainGetName(vDom));
+                GetConsole(vDom, console);
+                if (!ProcessDebugData(console,
+                                 AppSettings.Timeout, Stage))
+                {
+                    Ret = EXIT_FAILURE;
+                }
+                virDomainGetInfo(vDom, &info);
+                if (info.state != VIR_DOMAIN_SHUTOFF)
+                    virDomainDestroy(vDom);
+                virDomainUndefine(vDom);
+                virDomainFree(vDom);
+                if (Ret == EXIT_FAILURE)
+                    break;
             }
-
-            printf("\n\n\n");
-            SysregPrintf("Running stage %d...\n", Stage + 1);
-            SysregPrintf("Domain %s started.\n", virDomainGetName(vDom));
-
-            GetConsole(vDom, console);
-            Ret = ProcessDebugData(console, AppSettings.Timeout, Stage);
-
-            /* Kill the VM */
-            virDomainGetInfo(vDom, &info);
-
-            if (info.state != VIR_DOMAIN_SHUTOFF)
-                virDomainDestroy(vDom);
-
-            virDomainUndefine(vDom);
-            virDomainFree(vDom);
-
-            usleep(1000);
-
-            /* If we have a checkpoint to reach for success, assume that
-               the application used for running the tests (probably "rosautotest")
-               continues with the next test after a VM restart. */
-            if (Ret == EXIT_CONTINUE && *AppSettings.Stage[Stage].Checkpoint)
-                SysregPrintf("Rebooting VM (retry %d)\n", Retries + 1);
-            else
-                break;
-        }
-
-        if (Retries == AppSettings.MaxRetries)
-        {
-            SysregPrintf("Maximum number of allowed retries exceeded, aborting!\n");
-            break;
-        }
-
-        if (Ret == EXIT_DONT_CONTINUE)
-            break;
+        }   
     }
 
-
-cleanup:
-    CleanModuleList();
-
-    if (vConn)
-        virConnectClose(vConn);
-
-    switch (Ret)
-    {
-        case EXIT_CHECKPOINT_REACHED:
-            SysregPrintf("Status: Reached the checkpoint!\n");
-            break;
-
-        case EXIT_CONTINUE:
-            SysregPrintf("Status: Failed to reach the checkpoint!\n");
-            break;
-
-        case EXIT_DONT_CONTINUE:
-            SysregPrintf("Status: Testing process aborted!\n");
-            break;
-    }
-
+    virConnectClose(vConn);
+    if (Ret == EXIT_SUCCESS)
+        printf("Test succeeded!\n");
+    else
+        printf("Test failed!\n");
     return Ret;
 }
+

@@ -171,10 +171,6 @@ typedef struct _DnsRecordFlags {
 	DWORD Unused	:3;
 	DWORD Reserved	:24;
 } DNS_RECORD_FLAGS;
-#define DNSREC_QUESTION 0
-#define DNSREC_ANSWER 1
-#define DNSREC_AUTHORITY 2
-#define DNSREC_ADDITIONAL 3
 typedef struct {
 	IP4_ADDRESS IpAddress;
 } DNS_A_DATA, *PDNS_A_DATA;
@@ -472,27 +468,6 @@ typedef struct _DnsRRSet {
 	PDNS_RECORD pFirstRR;
 	PDNS_RECORD pLastRR;
 } DNS_RRSET, *PDNS_RRSET;
-
-#define DNS_RRSET_INIT( rrset )                          \
-{                                                        \
-    PDNS_RRSET  _prrset = &(rrset);                      \
-    _prrset->pFirstRR = NULL;                            \
-    _prrset->pLastRR = (PDNS_RECORD) &_prrset->pFirstRR; \
-}
-
-#define DNS_RRSET_ADD( rrset, pnewRR ) \
-{                                      \
-    PDNS_RRSET  _prrset = &(rrset);    \
-    PDNS_RECORD _prrnew = (pnewRR);    \
-    _prrset->pLastRR->pNext = _prrnew; \
-    _prrset->pLastRR = _prrnew;        \
-}
-
-#define DNS_RRSET_TERMINATE( rrset ) \
-{                                    \
-    PDNS_RRSET  _prrset = &(rrset);  \
-    _prrset->pLastRR->pNext = NULL;  \
-}
 
 DNS_STATUS WINAPI DnsAcquireContextHandle_A(DWORD,PVOID,HANDLE*);
 DNS_STATUS WINAPI DnsAcquireContextHandle_W(DWORD,PVOID,HANDLE*);

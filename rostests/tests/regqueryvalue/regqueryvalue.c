@@ -1,3 +1,4 @@
+#define _DISABLE_TIDENTS
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -62,6 +63,7 @@ int main( int argc, char **argv ) {
 
   free( WcharResult );
   free( CharResult );
+  free( ValueNameWC );
 
   return 0;
 }

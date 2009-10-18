@@ -20,19 +20,13 @@
 #include <mment4.h>
 //#include <debug.h>
 
-/* TODO: Give individual device names if someone has > 1 card */
-PWSTR SBWaveOutDeviceName = L"ROS Sound Blaster Wave Out";
-PWSTR SBWaveInDeviceName  = L"ROS Sound Blaster Wave In";
-PWSTR SBMidiOutDeviceName = L"ROS Sound Blaster Midi Out";
-PWSTR SBMidiInDeviceName  = L"ROS Sound Blaster Midi In";
-PWSTR SBAuxDeviceName     = L"ROS Sound Blaster Aux";
-PWSTR SBMixerDeviceName   = L"ROS Sound Blaster Mixer";
+PWSTR SBWaveOutDeviceName = L"ROS Sound Blaster Out";
+PWSTR SBWaveInDeviceName  = L"ROS Sound Blaster In";
 /* TODO: Mixer etc */
 
 MMRESULT
 GetSoundBlasterDeviceCapabilities(
     IN  PSOUND_DEVICE SoundDevice,
-    IN  DWORD DeviceId,
     OUT PVOID Capabilities,
     IN  DWORD CapabilitiesSize)
 {
@@ -70,30 +64,6 @@ GetSoundBlasterDeviceCapabilities(
             CopyWideString(WaveInCaps->szPname, SBWaveInDeviceName);
             break;
         }
-        case MIDI_OUT_DEVICE_TYPE :
-        {
-            LPMIDIOUTCAPS MidiOutCaps = (LPMIDIOUTCAPS) Capabilities;
-            CopyWideString(MidiOutCaps->szPname, SBMidiOutDeviceName);
-            break;
-        }
-        case MIDI_IN_DEVICE_TYPE :
-        {
-            LPMIDIINCAPS MidiInCaps = (LPMIDIINCAPS) Capabilities;
-            CopyWideString(MidiInCaps->szPname, SBMidiInDeviceName);
-            break;
-        }
-        case AUX_DEVICE_TYPE :
-        {
-            LPAUXCAPS AuxCaps = (LPAUXCAPS) Capabilities;
-            CopyWideString(AuxCaps->szPname, SBAuxDeviceName);
-            break;
-        }
-        case MIXER_DEVICE_TYPE :
-        {
-            LPMIXERCAPS MixerCaps = (LPMIXERCAPS) Capabilities;
-            CopyWideString(MixerCaps->szPname, SBMixerDeviceName);
-            break;
-        }
     }
 
     return MMSYSERR_NOERROR;
@@ -123,7 +93,6 @@ BOOLEAN FoundDevice(
         return FALSE;
 
     /* Set up our function table */
-    ZeroMemory(&FuncTable, sizeof(MMFUNCTION_TABLE));
     FuncTable.GetCapabilities = GetSoundBlasterDeviceCapabilities;
     FuncTable.QueryWaveFormatSupport = QueryNt4WaveDeviceFormatSupport;
     FuncTable.SetWaveFormat = SetNt4WaveDeviceFormat;
@@ -137,7 +106,7 @@ BOOLEAN FoundDevice(
     return TRUE;
 }
 
-LONG APIENTRY
+APIENTRY LONG
 DriverProc(
     DWORD DriverId,
     HANDLE DriverHandle,

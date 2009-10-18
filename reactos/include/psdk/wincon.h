@@ -5,11 +5,6 @@
 extern "C" {
 #endif
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4820)
-#endif
-
 #define FOREGROUND_BLUE	1
 #define FOREGROUND_GREEN	2
 #define FOREGROUND_RED	4
@@ -269,10 +264,6 @@ BOOL WINAPI WriteConsoleOutputCharacterW(HANDLE,LPCWSTR,DWORD,COORD,PDWORD);
 #define WriteConsoleInput WriteConsoleInputA
 #define WriteConsoleOutput WriteConsoleOutputA
 #define WriteConsoleOutputCharacter WriteConsoleOutputCharacterA
-#endif
-
-#ifdef _MSC_VER
-#pragma warning(pop)
 #endif
 
 #ifdef __cplusplus

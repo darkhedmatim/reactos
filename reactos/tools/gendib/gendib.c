@@ -489,7 +489,7 @@ CreateSetSinglePixel(FILE *Out, unsigned Bpp, PROPINFO RopInfo, int Flags,
     }
   if (RopInfo->UsesPattern && 0 != (Flags & FLAG_PATTERNSURFACE))
     {
-      Output(Out, "Pattern = DIB_GetSourceIndex(BltInfo->PatternSurface, PatternX, PatternY);\n");
+      Output(Out, "Pattern = DIB_GetSource(BltInfo->PatternSurface, PatternX, PatternY, BltInfo->XlatePatternToDest);\n");
       Output(Out, "if (BltInfo->PatternSurface->sizlBitmap.cx <= ++PatternX)\n");
       Output(Out, "{\n");
       Output(Out, "PatternX -= BltInfo->PatternSurface->sizlBitmap.cx;\n");
@@ -618,11 +618,11 @@ CreateBitCase(FILE *Out, unsigned Bpp, PROPINFO RopInfo, int Flags,
             {
               if (0 == Partial)
                 {
-                  Output(Out, "Pattern = DIB_GetSourceIndex(BltInfo->PatternSurface, PatternX, PatternY);\n");
+                  Output(Out, "Pattern = DIB_GetSource(BltInfo->PatternSurface, PatternX, PatternY, BltInfo->XlatePatternToDest);\n");
                 }
               else
                 {
-                  Output(Out, "Pattern |= DIB_GetSourceIndex(BltInfo->PatternSurface, PatternX, PatternY) << %u;\n", Partial * Bpp);
+                  Output(Out, "Pattern |= DIB_GetSource(BltInfo->PatternSurface, PatternX, PatternY, BltInfo->XlatePatternToDest) << %u;\n", Partial * Bpp);
                 }
               Output(Out, "if (BltInfo->PatternSurface->sizlBitmap.cx <= ++PatternX)\n");
               Output(Out, "{\n");
@@ -877,12 +877,6 @@ CreatePrimitive(FILE *Out, unsigned Bpp, PROPINFO RopInfo)
             {
               if (0 == Partial)
                 {
-                  Output(Out, "if (!BltInfo->Brush)\n");
-                  Output(Out, "{\n");
-                  Output(Out, "Pattern = 0;\n");
-                  Output(Out, "}\n");
-                  Output(Out, "else\n");
-                  Output(Out, "{\n");
                   Output(Out, "Pattern = BltInfo->Brush->iSolidColor");
                 }
               else
@@ -893,7 +887,6 @@ CreatePrimitive(FILE *Out, unsigned Bpp, PROPINFO RopInfo)
               if (32 / Bpp <= Partial + 1)
                 {
                   Output(Out, ";\n");
-                  Output(Out, "}\n");
                 }
               else
                 {

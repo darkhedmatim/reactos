@@ -34,12 +34,11 @@
 #define DPRINT_LINUX        0x00000200  // OR this with DebugPrintMask to enable Linux messages
 #define DPRINT_HWDETECT     0x00000400  // OR this with DebugPrintMask to enable hardware detection messages
 #define DPRINT_WINDOWS      0x00000800  // OR this with DebugPrintMask to enable messages from Windows loader
-#define DPRINT_PELOADER     0x00001000  // OR this with DebugPrintMask to enable messages from PE images loader
 
 extern char* g_file;
 extern int g_line;
 
-#if DBG
+#ifdef DBG
 
     VOID	DbgPrintMask(ULONG Mask, char *format, ...);
 	VOID	DebugInit(VOID);
@@ -47,7 +46,7 @@ extern int g_line;
 
 	VOID	DebugDumpBuffer(ULONG Mask, PVOID Buffer, ULONG Length);
 
-	#define DPRINTM							g_file=__FILE__, g_line=__LINE__, DbgPrintMask
+	#define DPRINTM					        g_file=__FILE__;g_line=__LINE__;DbgPrintMask
 	#define BugCheck(_x_)					{ DbgPrintMask(DPRINT_WARNING, "Fatal Error: %s:%d(%s)\n", __FILE__, __LINE__, __FUNCTION__); DbgPrintMask _x_ ; for (;;); }
 	#define DbgDumpBuffer(_x_, _y_, _z_)	DebugDumpBuffer(_x_, _y_, _z_)
 
@@ -85,6 +84,6 @@ void	MEMORY_WRITE_BREAKPOINT4(unsigned long addr);
 	#define BugCheck(_x_)
 	#define DbgDumpBuffer(_x_, _y_, _z_)
 
-#endif // DBG
+#endif // defined DBG
 
 #endif // defined __DEBUG_H

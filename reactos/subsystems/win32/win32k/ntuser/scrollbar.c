@@ -1,4 +1,23 @@
 /*
+ *  ReactOS W32 Subsystem
+ *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id$
+ *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * PURPOSE:          Scrollbars
@@ -38,12 +57,12 @@
  * the top. Return TRUE if the scrollbar is vertical, FALSE if horizontal.
  */
 BOOL FASTCALL
-IntGetScrollBarRect (PWINDOW_OBJECT Window, INT nBar, RECTL *lprect)
+IntGetScrollBarRect (PWINDOW_OBJECT Window, INT nBar, PRECT lprect)
 {
    BOOL vertical;
-   PWND Wnd = Window->Wnd;
-   RECTL ClientRect = Window->Wnd->rcClient;
-   RECTL WindowRect = Window->Wnd->rcWindow;
+   PWINDOW Wnd = Window->Wnd;
+   RECT ClientRect = Window->Wnd->ClientRect;
+   RECT WindowRect = Window->Wnd->WindowRect;
 
    switch (nBar)
    {
@@ -73,7 +92,7 @@ IntGetScrollBarRect (PWINDOW_OBJECT Window, INT nBar, RECTL *lprect)
 
       case SB_CTL:
          IntGetClientRect (Window, lprect);
-         vertical = ((Wnd->style & SBS_VERT) != 0);
+         vertical = ((Wnd->Style & SBS_VERT) != 0);
          break;
 
       default:
@@ -86,9 +105,9 @@ IntGetScrollBarRect (PWINDOW_OBJECT Window, INT nBar, RECTL *lprect)
 BOOL FASTCALL
 IntCalculateThumb(PWINDOW_OBJECT Window, LONG idObject, PSCROLLBARINFO psbi, LPSCROLLINFO psi)
 {
-   PWND Wnd = Window->Wnd;
+   PWINDOW Wnd = Window->Wnd;
    INT Thumb, ThumbBox, ThumbPos, cxy, mx;
-   RECTL ClientRect;
+   RECT ClientRect;
 
    switch(idObject)
    {
@@ -101,8 +120,8 @@ IntCalculateThumb(PWINDOW_OBJECT Window, LONG idObject, PSCROLLBARINFO psbi, LPS
          cxy = psbi->rcScrollBar.bottom - psbi->rcScrollBar.top;
          break;
       case SB_CTL:
-         IntGetClientRect(Window, &ClientRect);
-         if(Wnd->style & SBS_VERT)
+         IntGetClientRect (Window, &ClientRect);
+         if(Wnd->Style & SBS_VERT)
          {
             Thumb = UserGetSystemMetrics(SM_CYVSCROLL);
             cxy = ClientRect.bottom - ClientRect.top;
@@ -372,11 +391,11 @@ co_IntSetScrollInfo(PWINDOW_OBJECT Window, INT nBar, LPCSCROLLINFO lpsi, BOOL bR
 
    if (bRedraw)
    {
-      RECTL UpdateRect = psbi->rcScrollBar;
-      UpdateRect.left -= Window->Wnd->rcClient.left - Window->Wnd->rcWindow.left;
-      UpdateRect.right -= Window->Wnd->rcClient.left - Window->Wnd->rcWindow.left;
-      UpdateRect.top -= Window->Wnd->rcClient.top - Window->Wnd->rcWindow.top;
-      UpdateRect.bottom -= Window->Wnd->rcClient.top - Window->Wnd->rcWindow.top;
+      RECT UpdateRect = psbi->rcScrollBar;
+      UpdateRect.left -= Window->Wnd->ClientRect.left - Window->Wnd->WindowRect.left;
+      UpdateRect.right -= Window->Wnd->ClientRect.left - Window->Wnd->WindowRect.left;
+      UpdateRect.top -= Window->Wnd->ClientRect.top - Window->Wnd->WindowRect.top;
+      UpdateRect.bottom -= Window->Wnd->ClientRect.top - Window->Wnd->WindowRect.top;
       co_UserRedrawWindow(Window, &UpdateRect, 0, RDW_INVALIDATE | RDW_FRAME);
    }
 
@@ -446,8 +465,8 @@ co_IntCreateScrollBars(PWINDOW_OBJECT Window)
    RtlZeroMemory(Window->Scroll, Size);
 
    Result = co_WinPosGetNonClientSize(Window,
-                                      &Window->Wnd->rcWindow,
-                                      &Window->Wnd->rcClient);
+                                      &Window->Wnd->WindowRect,
+                                      &Window->Wnd->ClientRect);
 
    for(s = SB_HORZ; s <= SB_VERT; s++)
    {
@@ -686,7 +705,7 @@ NtUserEnableScrollBar(
    if(InfoH)
       Chg = (IntEnableScrollBar(TRUE, InfoH, wArrows) || Chg);
 
-   //if(Chg && (Window->style & WS_VISIBLE))
+   //if(Chg && (Window->Style & WS_VISIBLE))
    /* FIXME - repaint scrollbars */
 
    RETURN( TRUE);
@@ -810,7 +829,7 @@ DWORD FASTCALL
 co_UserShowScrollBar(PWINDOW_OBJECT Window, int wBar, DWORD bShow)
 {
    DWORD Style, OldStyle;
-   PWND Wnd;
+   PWINDOW Wnd;
 
    ASSERT_REFS_CO(Window);
 
@@ -848,20 +867,20 @@ co_UserShowScrollBar(PWINDOW_OBJECT Window, int wBar, DWORD bShow)
       return( TRUE);
    }
 
-   OldStyle = Wnd->style;
+   OldStyle = Wnd->Style;
    if(bShow)
-      Wnd->style |= Style;
+      Wnd->Style |= Style;
    else
-      Wnd->style &= ~Style;
+      Wnd->Style &= ~Style;
 
-   if(Wnd->style != OldStyle)
+   if(Wnd->Style != OldStyle)
    {
-      if(Wnd->style & WS_HSCROLL)
+      if(Wnd->Style & WS_HSCROLL)
          IntUpdateSBInfo(Window, SB_HORZ);
-      if(Wnd->style & WS_VSCROLL)
+      if(Wnd->Style & WS_VSCROLL)
          IntUpdateSBInfo(Window, SB_VERT);
 
-      if(Wnd->style & WS_VISIBLE)
+      if(Wnd->Style & WS_VISIBLE)
       {
          /* Frame has been changed, let the window redraw itself */
          co_WinPosSetWindowPos(Window, 0, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE |

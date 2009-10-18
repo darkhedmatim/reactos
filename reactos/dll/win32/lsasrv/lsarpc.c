@@ -6,6 +6,7 @@
 #define NTOS_MODE_USER
 #include <ndk/ntndk.h>
 
+#include "lsasrv.h"
 #include "lsa_s.h"
 
 #include <wine/debug.h>
@@ -25,11 +26,10 @@ WINE_DEFAULT_DEBUG_CHANNEL(lsasrv);
 
 /* FUNCTIONS ***************************************************************/
 
-static NTSTATUS
-ReferencePolicyHandle(
-    IN LSA_HANDLE ObjectHandle,
-    IN ACCESS_MASK DesiredAccess,
-    OUT PLSAR_POLICY_HANDLE *Policy)
+/*static*/ NTSTATUS
+ReferencePolicyHandle(IN LSAPR_HANDLE ObjectHandle,
+                      IN ACCESS_MASK DesiredAccess,
+                      OUT PLSAR_POLICY_HANDLE *Policy)
 {
     PLSAR_POLICY_HANDLE ReferencedPolicy;
     NTSTATUS Status = STATUS_SUCCESS;
@@ -58,10 +58,10 @@ ReferencePolicyHandle(
     return Status;
 }
 
-static VOID
-DereferencePolicyHandle(
-    IN OUT PLSAR_POLICY_HANDLE Policy,
-    IN BOOLEAN Delete)
+
+/*static*/ VOID
+DereferencePolicyHandle(IN OUT PLSAR_POLICY_HANDLE Policy,
+                        IN BOOLEAN Delete)
 {
     RtlEnterCriticalSection(&PolicyHandleTableLock);
 
@@ -83,17 +83,13 @@ DereferencePolicyHandle(
     RtlLeaveCriticalSection(&PolicyHandleTableLock);
 }
 
-VOID
-LsarStartRpcServer(VOID)
+
+DWORD WINAPI
+LsapRpcThreadRoutine(LPVOID lpParameter)
 {
     RPC_STATUS Status;
 
-    RtlInitializeCriticalSection(&PolicyHandleTableLock);
-    RtlInitializeHandleTable(0x1000,
-                             sizeof(LSAR_POLICY_HANDLE),
-                             &PolicyHandleTable);
-
-    TRACE("LsarStartRpcServer() called");
+    TRACE("LsapRpcThreadRoutine() called");
 
     Status = RpcServerUseProtseqEpW(L"ncacn_np",
                                     10,
@@ -102,7 +98,7 @@ LsarStartRpcServer(VOID)
     if (Status != RPC_S_OK)
     {
         WARN("RpcServerUseProtseqEpW() failed (Status %lx)\n", Status);
-        return;
+        return 0;
     }
 
     Status = RpcServerRegisterIf(lsarpc_v0_0_s_ifspec,
@@ -111,17 +107,51 @@ LsarStartRpcServer(VOID)
     if (Status != RPC_S_OK)
     {
         WARN("RpcServerRegisterIf() failed (Status %lx)\n", Status);
-        return;
+        return 0;
     }
 
-    Status = RpcServerListen(1, 20, TRUE);
+    Status = RpcServerListen(1, 20, FALSE);
     if (Status != RPC_S_OK)
     {
         WARN("RpcServerListen() failed (Status %lx)\n", Status);
-        return;
+        return 0;
     }
 
-    TRACE("LsarStartRpcServer() done\n");
+    TRACE("LsapRpcThreadRoutine() done\n");
+
+    return 0;
+}
+
+
+VOID
+LsarStartRpcServer(VOID)
+{
+    HANDLE hThread;
+
+    TRACE("LsarStartRpcServer() called");
+
+    RtlInitializeCriticalSection(&PolicyHandleTableLock);
+    RtlInitializeHandleTable(0x1000,
+                             sizeof(LSAR_POLICY_HANDLE),
+                             &PolicyHandleTable);
+
+    hThread = CreateThread(NULL,
+                           0,
+                           (LPTHREAD_START_ROUTINE)
+                           LsapRpcThreadRoutine,
+                           NULL,
+                           0,
+                           NULL);
+    if (!hThread)
+    {
+        WARN("Starting LsapRpcThreadRoutine-Thread failed!\n");
+    }
+    else
+    {
+        CloseHandle(hThread);
+    }
+
+    TRACE("LsarStartRpcServer() done");
 }
 
 
@@ -132,24 +162,16 @@ void __RPC_USER LSAPR_HANDLE_rundown(LSAPR_HANDLE hHandle)
 
 
 /* Function 0 */
-NTSTATUS LsarClose(
-    LSAPR_HANDLE *ObjectHandle)
+NTSTATUS
+LsarClose(LSAPR_HANDLE *ObjectHandle)
 {
+#if 0
     PLSAR_POLICY_HANDLE Policy = NULL;
     NTSTATUS Status;
 
     TRACE("0x%p\n", ObjectHandle);
 
-#if 1
-    /* This is our fake handle, don't go too much long way */
-    if (*ObjectHandle == (LSA_HANDLE)0xcafe)
-    {
-        *ObjectHandle = NULL;
-        Status = STATUS_SUCCESS;
-    }
-#endif
-
-    Status = ReferencePolicyHandle((LSA_HANDLE)*ObjectHandle,
+    Status = ReferencePolicyHandle(*ObjectHandle,
                                    0,
                                    &Policy);
     if (NT_SUCCESS(Status))
@@ -160,12 +182,28 @@ NTSTATUS LsarClose(
     }
 
     return Status;
+#endif
+    NTSTATUS Status = STATUS_NOT_IMPLEMENTED;
+
+    TRACE("LsarClose called!\n");
+
+    /* This is our fake handle, don't go too much long way */
+    if (*ObjectHandle == (LSA_HANDLE)0xcafe)
+    {
+        *ObjectHandle = NULL;
+        Status = STATUS_SUCCESS;
+    }
+
+
+    TRACE("LsarClose done (Status: 0x%08lx)!\n", Status);
+
+    return Status;
 }
 
 
 /* Function 1 */
-NTSTATUS LsarDelete(
-    LSAPR_HANDLE ObjectHandle)
+NTSTATUS
+LsarDelete(LSAPR_HANDLE ObjectHandle)
 {
     /* Deprecated */
     return STATUS_NOT_SUPPORTED;
@@ -208,7 +246,7 @@ NTSTATUS LsarSetSecurityObject(
 
 /* Function 5 */
 NTSTATUS LsarChangePassword(
-    handle_t IDL_handle,
+    handle_t hBinding,  /* FIXME */
     PRPC_UNICODE_STRING String1,
     PRPC_UNICODE_STRING String2,
     PRPC_UNICODE_STRING String3,
@@ -227,7 +265,6 @@ NTSTATUS LsarOpenPolicy(
     ACCESS_MASK DesiredAccess,
     LSAPR_HANDLE *PolicyHandle)
 {
-#if 1
     TRACE("LsarOpenPolicy called!\n");
 
     *PolicyHandle = (LSAPR_HANDLE)0xcafe;
@@ -235,10 +272,6 @@ NTSTATUS LsarOpenPolicy(
     TRACE("LsarOpenPolicy done!\n");
 
     return STATUS_SUCCESS;
-#else
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-#endif
 }
 
 
@@ -539,11 +572,7 @@ NTSTATUS LsarLookupPrivilegeName(
 
 /* Function 33 */
 NTSTATUS LsarLookupPrivilegeDisplayName(
-    LSAPR_HANDLE PolicyHandle,
-    PRPC_UNICODE_STRING Name,
-    USHORT ClientLanguage,
-    USHORT ClientSystemDefaultLanguage,
-    PRPC_UNICODE_STRING *DisplayName,
+    LSAPR_HANDLE PolicyHandle,  /* FIXME */
     USHORT *LanguageReturned)
 {
     UNIMPLEMENTED;
@@ -1015,7 +1044,7 @@ NTSTATUS CredrRename(
 
 /* Function 76 */
 NTSTATUS LsarLookupSids3(
-    LSAPR_HANDLE PolicyHandle,
+    handle_t hBinding,
     PLSAPR_SID_ENUM_BUFFER SidEnumBuffer,
     PLSAPR_REFERENCED_DOMAIN_LIST *ReferencedDomains,
     PLSAPR_TRANSLATED_NAMES_EX TranslatedNames,
@@ -1031,6 +1060,7 @@ NTSTATUS LsarLookupSids3(
 
 /* Function 77 */
 NTSTATUS LsarLookupNames4(
+    handle_t hBinding,
     handle_t RpcHandle,
     DWORD Count,
     PRPC_UNICODE_STRING Names,
@@ -1075,123 +1105,6 @@ NTSTATUS LsarAdtUnregisterSecurityEventSource(
 
 /* Function 81 */
 NTSTATUS LsarAdtReportSecurityEvent(
-    handle_t hBinding)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/* Function 82 */
-NTSTATUS CredrFindBestCredential(
-    handle_t hBinding)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/* Function 83 */
-NTSTATUS LsarSetAuditPolicy(
-    handle_t hBinding)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/* Function 84 */
-NTSTATUS LsarQueryAuditPolicy(
-    handle_t hBinding)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/* Function 85 */
-NTSTATUS LsarEnumerateAuditPolicy(
-    handle_t hBinding)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/* Function 86 */
-NTSTATUS LsarEnumerateAuditCategories(
-    handle_t hBinding)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/* Function 87 */
-NTSTATUS LsarEnumerateAuditSubCategories(
-    handle_t hBinding)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/* Function 88 */
-NTSTATUS LsarLookupAuditCategoryName(
-    handle_t hBinding)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/* Function 89 */
-NTSTATUS LsarLookupAuditSubCategoryName(
-    handle_t hBinding)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/* Function 90 */
-NTSTATUS LsarSetAuditSecurity(
-    handle_t hBinding)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/* Function 91 */
-NTSTATUS LsarQueryAuditSecurity(
-    handle_t hBinding)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/* Function 92 */
-NTSTATUS CredReadByTokenHandle(
-    handle_t hBinding)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/* Function 93 */
-NTSTATUS CredrRestoreCredentials(
-    handle_t hBinding)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-
-/* Function 94 */
-NTSTATUS CredrBackupCredentials(
     handle_t hBinding)
 {
     UNIMPLEMENTED;

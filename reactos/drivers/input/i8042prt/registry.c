@@ -42,7 +42,7 @@ ReadRegistryEntries(
 	/* Default value for CrashOnCtrlScroll depends if we're
 	 * running a debug build or a normal build.
 	 */
-#if DBG
+#ifdef DBG
 	DefaultCrashOnCtrlScroll = 1;
 #else
 	DefaultCrashOnCtrlScroll = 0;

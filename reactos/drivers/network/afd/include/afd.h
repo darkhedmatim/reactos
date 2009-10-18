@@ -178,7 +178,7 @@ typedef struct _AFD_STORED_DATAGRAM {
 
 typedef struct _AFD_FCB {
     BOOLEAN Locked, Critical, Overread;
-    UINT State, Flags, BlockingMode, GroupID, GroupType;
+    UINT State, Flags;
     KIRQL OldIrql;
     UINT LockCount;
     PVOID CurrentThread;
@@ -196,6 +196,7 @@ typedef struct _AFD_FCB {
     KEVENT StateLockedEvent;
     PKEVENT EventSelect;
     DWORD EventSelectTriggers;
+    DWORD EventsFired;
     UNICODE_STRING TdiDeviceName;
     PVOID Context;
     DWORD PollState;
@@ -236,16 +237,8 @@ AfdGetInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 	    PIO_STACK_LOCATION IrpSp );
 
 NTSTATUS NTAPI
-AfdSetInfo( PDEVICE_OBJECT DeviceObject, PIRP Irp,
-	    PIO_STACK_LOCATION IrpSp );
-
-NTSTATUS NTAPI
-AfdGetSockName( PDEVICE_OBJECT DeviceObject, PIRP Irp,
-                PIO_STACK_LOCATION IrpSp );
-
-NTSTATUS NTAPI
-AfdGetPeerName( PDEVICE_OBJECT DeviceObject, PIRP Irp,
-                PIO_STACK_LOCATION IrpSp );
+AfdGetSockOrPeerName( PDEVICE_OBJECT DeviceObject, PIRP Irp,
+                      PIO_STACK_LOCATION IrpSp, BOOLEAN Local );
 
 /* listen.c */
 NTSTATUS AfdWaitForListen( PDEVICE_OBJECT DeviceObject, PIRP Irp,
@@ -266,21 +259,22 @@ VOID UnlockBuffers( PAFD_WSABUF Buf, UINT Count, BOOL Address );
 UINT SocketAcquireStateLock( PAFD_FCB FCB );
 NTSTATUS NTAPI UnlockAndMaybeComplete
 ( PAFD_FCB FCB, NTSTATUS Status, PIRP Irp,
-  UINT Information );
+  UINT Information,
+  PIO_COMPLETION_ROUTINE Completion );
 VOID SocketStateUnlock( PAFD_FCB FCB );
 NTSTATUS LostSocket( PIRP Irp );
 PAFD_HANDLE LockHandles( PAFD_HANDLE HandleArray, UINT HandleCount );
 VOID UnlockHandles( PAFD_HANDLE HandleArray, UINT HandleCount );
 PVOID LockRequest( PIRP Irp, PIO_STACK_LOCATION IrpSp );
 VOID UnlockRequest( PIRP Irp, PIO_STACK_LOCATION IrpSp );
+VOID SocketCalloutEnter( PAFD_FCB FCB );
+VOID SocketCalloutLeave( PAFD_FCB FCB );
 
 /* main.c */
 
 VOID OskitDumpBuffer( PCHAR Buffer, UINT Len );
 NTSTATUS LeaveIrpUntilLater( PAFD_FCB FCB, PIRP Irp, UINT Function );
 VOID DestroySocket( PAFD_FCB FCB );
-VOID NTAPI AfdCancelHandler(PDEVICE_OBJECT DeviceObject,
-                 PIRP Irp);
 
 /* read.c */
 
@@ -315,11 +309,6 @@ AfdEnumEvents( PDEVICE_OBJECT DeviceObject, PIRP Irp,
 VOID PollReeval( PAFD_DEVICE_EXTENSION DeviceObject, PFILE_OBJECT FileObject );
 VOID KillSelectsForFCB( PAFD_DEVICE_EXTENSION DeviceExt,
                         PFILE_OBJECT FileObject, BOOLEAN ExclusiveOnly );
-VOID ZeroEvents( PAFD_HANDLE HandleArray,
-		 UINT HandleCount );
-VOID SignalSocket(
-   PAFD_ACTIVE_POLL Poll OPTIONAL, PIRP _Irp OPTIONAL,
-   PAFD_POLL_INFO PollReq, NTSTATUS Status);
 
 /* tdi.c */
 

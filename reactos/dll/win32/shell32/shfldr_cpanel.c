@@ -204,55 +204,17 @@ ISF_ControlPanel_fnParseDisplayName(IShellFolder2 * iface,
 				   DWORD * pchEaten, LPITEMIDLIST * ppidl, DWORD * pdwAttributes)
 {
     ICPanelImpl *This = (ICPanelImpl *)iface;
-    WCHAR szElement[MAX_PATH];
-    LPCWSTR szNext = NULL;
-    LPITEMIDLIST pidlTemp = NULL;
-    HRESULT hr = S_OK;
-    CLSID clsid;
 
-    TRACE ("(%p)->(HWND=%p,%p,%p=%s,%p,pidl=%p,%p)\n",
-           This, hwndOwner, pbc, lpszDisplayName, debugstr_w(lpszDisplayName),
-           pchEaten, ppidl, pdwAttributes);
+    HRESULT hr = E_INVALIDARG;
 
-    if (!lpszDisplayName || !ppidl)
-        return E_INVALIDARG;
+    FIXME("(%p)->(HWND=%p,%p,%p=%s,%p,pidl=%p,%p)\n",
+	   This, hwndOwner, pbc, lpszDisplayName, debugstr_w(lpszDisplayName), pchEaten, ppidl, pdwAttributes);
 
     *ppidl = 0;
-
     if (pchEaten)
-        *pchEaten = 0;        /* strange but like the original */
+	*pchEaten = 0;
 
-    if (lpszDisplayName[0] == ':' && lpszDisplayName[1] == ':')
-    {
-        szNext = GetNextElementW (lpszDisplayName, szElement, MAX_PATH);
-        TRACE ("-- element: %s\n", debugstr_w (szElement));
-        CLSIDFromString (szElement + 2, &clsid);
-        pidlTemp = _ILCreateGuid (PT_GUID, &clsid);
-    }
-    else if( (pidlTemp = SHELL32_CreatePidlFromBindCtx(pbc, lpszDisplayName)) )
-    {
-        *ppidl = pidlTemp;
-        return S_OK;
-    }
-
-    if (SUCCEEDED(hr) && pidlTemp)
-    {
-        if (szNext && *szNext)
-        {
-            hr = SHELL32_ParseNextElement(iface, hwndOwner, pbc,
-                    &pidlTemp, (LPOLESTR) szNext, pchEaten, pdwAttributes);
-        }
-        else
-        {
-            if (pdwAttributes && *pdwAttributes)
-                hr = SHELL32_GetItemAttributes(_IShellFolder_ (This),
-                                               pidlTemp, pdwAttributes);
-        }
-    }
-
-    *ppidl = pidlTemp;
-
-    TRACE ("(%p)->(-- ret=0x%08x)\n", This, hr);
+    TRACE("(%p)->(-- ret=0x%08x)\n", This, hr);
 
     return hr;
 }

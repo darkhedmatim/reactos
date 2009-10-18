@@ -43,16 +43,6 @@ Author:
 // Processor Architectures
 //
 #define PROCESSOR_ARCHITECTURE_INTEL    0
-#define PROCESSOR_ARCHITECTURE_MIPS     1
-#define PROCESSOR_ARCHITECTURE_ALPHA    2
-#define PROCESSOR_ARCHITECTURE_PPC      3
-#define PROCESSOR_ARCHITECTURE_SHX      4
-#define PROCESSOR_ARCHITECTURE_ARM      5
-#define PROCESSOR_ARCHITECTURE_IA64     6
-#define PROCESSOR_ARCHITECTURE_ALPHA64  7
-#define PROCESSOR_ARCHITECTURE_MSIL     8
-#define PROCESSOR_ARCHITECTURE_AMD64    9
-#define PROCESSOR_ARCHITECTURE_UNKNOWN  0xFFFF
 
 //
 // Object Type Mask for Kernel Dispatcher Objects
@@ -626,7 +616,7 @@ typedef struct _KPROFILE
     PVOID RangeLimit;
     ULONG BucketShift;
     PVOID Buffer;
-    ULONG_PTR Segment;
+    PVOID Segment;
     KAFFINITY Affinity;
     KPROFILE_SOURCE Source;
     BOOLEAN Started;

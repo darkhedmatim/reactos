@@ -40,10 +40,6 @@ static WNDPROC g_status_wndproc;
 static RECT g_rcCreated;
 static HWND g_hMainWnd;
 static int g_wmsize_count = 0;
-static DWORD g_ysize;
-static DWORD g_dpisize;
-static int g_wmdrawitm_ctr;
-static WNDPROC g_wndproc_saved;
 
 static HWND create_status_control(DWORD style, DWORD exstyle)
 {
@@ -82,7 +78,7 @@ static LRESULT WINAPI create_test_wndproc(HWND hwnd, UINT msg, WPARAM wParam, LP
     return ret;
 }
 
-static void register_subclass(void)
+static void register_subclass()
 {
     WNDCLASSEX cls;
 
@@ -95,7 +91,7 @@ static void register_subclass(void)
     ok(RegisterClassEx(&cls), "RegisterClassEx failed\n");
 }
 
-static void test_create(void)
+static void test_create()
 {
     RECT rc;
     HWND hwnd;
@@ -117,16 +113,10 @@ static int CALLBACK check_height_font_enumproc(ENUMLOGFONTEX *enumlf, NEWTEXTMET
 {
     HWND hwndStatus = (HWND)lParam;
     HDC hdc = GetDC(NULL);
-    static const int sizes[] = { 6,  7,  8,  9, 10, 11, 12, 13, 15, 16,
-                                20, 22, 28, 36, 48, 72};
-    DWORD i;
-    DWORD y;
-    LPSTR facename = (CHAR *)enumlf->elfFullName;
+    static const int sizes[] = {8, 9, 10, 12, 16, 22, 28, 36, 48, 72};
+    int i;
 
-    /* on win9x, enumlf->elfFullName is only valid for truetype fonts */
-    if (type != TRUETYPE_FONTTYPE)
-        facename = enumlf->elfLogFont.lfFaceName;
-
+    trace("Font %s\n", enumlf->elfFullName);
     for (i = 0; i < sizeof(sizes)/sizeof(sizes[0]); i++)
     {
         HFONT hFont;
@@ -142,11 +132,7 @@ static int CALLBACK check_height_font_enumproc(ENUMLOGFONTEX *enumlf, NEWTEXTMET
 
         GetClientRect(hwndStatus, &rcCtrl);
         GetTextMetrics(hdc, &tm);
-        y = tm.tmHeight + (tm.tmInternalLeading ? tm.tmInternalLeading : 2) + 4;
-
-        ok( (rcCtrl.bottom == max(y, g_ysize)) || (rcCtrl.bottom == max(y, g_dpisize)),
-            "got %d (expected %d or %d) for %s #%d\n",
-            rcCtrl.bottom, max(y, g_ysize), max(y, g_dpisize), facename, sizes[i]);
+        expect(max(tm.tmHeight + (tm.tmInternalLeading ? tm.tmInternalLeading : 2) + 4, 20), rcCtrl.bottom);
 
         SelectObject(hdc, hOldFont);
         SendMessage(hwndStatus, WM_SETFONT, (WPARAM)hCtrlFont, TRUE);
@@ -227,19 +213,7 @@ static void test_height(void)
     ZeroMemory(&lf, sizeof(lf));
     SendMessage(hwndStatus, SB_SETMINHEIGHT, 0, 0);
     hdc = GetDC(NULL);
-
-    /* used only for some fonts (tahoma as example) */
-    g_ysize = GetSystemMetrics(SM_CYSIZE) + 2;
-    if (g_ysize & 1) g_ysize--;     /* The min height is always even */
-
-    g_dpisize = MulDiv(18, GetDeviceCaps(hdc, LOGPIXELSY), 96) + 2;
-    if (g_dpisize & 1) g_dpisize--; /* The min height is always even */
-
-
-    trace("dpi=%d (min height: %d or %d) SM_CYSIZE: %d\n",
-            GetDeviceCaps(hdc, LOGPIXELSY), g_ysize, g_dpisize,
-            GetSystemMetrics(SM_CYSIZE));
-
+    trace("dpi=%d\n", GetDeviceCaps(hdc, LOGPIXELSY));
     EnumFontFamiliesEx(hdc, &lf, (FONTENUMPROC)check_height_family_enumproc, (LPARAM)hwndStatus, 0);
     ReleaseDC(NULL, hdc);
 
@@ -258,8 +232,6 @@ static void test_status_control(void)
     RECT rc;
     CHAR charArray[20];
     HICON hIcon;
-    char ch;
-    char chstr[10] = "Inval id";
 
     hWndStatus = create_status_control(WS_VISIBLE, 0);
 
@@ -309,7 +281,7 @@ static void test_status_control(void)
     /* Test resetting text with different characters */
     r = SendMessage(hWndStatus, SB_SETTEXT, 0, (LPARAM)"First@Again");
     expect(TRUE,r);
-    r = SendMessage(hWndStatus, SB_SETTEXT, 1, (LPARAM)"Invalid\tChars\\7\7");
+    r = SendMessage(hWndStatus, SB_SETTEXT, 1, (LPARAM)"InvalidChars\\7\7");
         expect(TRUE,r);
     r = SendMessage(hWndStatus, SB_SETTEXT, 2, (LPARAM)"InvalidChars\\n\n");
         expect(TRUE,r);
@@ -320,27 +292,19 @@ static void test_status_control(void)
     expect(11,LOWORD(r));
     expect(0,HIWORD(r));
     r = SendMessage(hWndStatus, SB_GETTEXT, 1, (LPARAM) charArray);
-    ok(strcmp(charArray,"Invalid\tChars\\7 ") == 0, "Expected Invalid\tChars\\7 , got %s\n", charArray);
-
-    expect(16,LOWORD(r));
-    expect(0,HIWORD(r));
-    r = SendMessage(hWndStatus, SB_GETTEXT, 2, (LPARAM) charArray);
-    ok(strcmp(charArray,"InvalidChars\\n ") == 0, "Expected InvalidChars\\n , got %s\n", charArray);
-
+    todo_wine
+    {
+        ok(strcmp(charArray,"InvalidChars\\7 ") == 0, "Expected InvalidChars\\7 , got %s\n", charArray);
+    }
     expect(15,LOWORD(r));
     expect(0,HIWORD(r));
-
-    /* test more nonprintable chars */
-    for(ch = 0x00; ch < 0x7F; ch++) {
-        chstr[5] = ch;
-        r = SendMessage(hWndStatus, SB_SETTEXT, 0, (LPARAM)chstr);
-        expect(TRUE,r);
-        r = SendMessage(hWndStatus, SB_GETTEXT, 0, (LPARAM)charArray);
-        /* substitution with single space */
-        if (ch > 0x00 && ch < 0x20 && ch != '\t')
-            chstr[5] = ' ';
-        ok(strcmp(charArray, chstr) == 0, "Expected %s, got %s\n", chstr, charArray);
+    r = SendMessage(hWndStatus, SB_GETTEXT, 2, (LPARAM) charArray);
+    todo_wine
+    {
+        ok(strcmp(charArray,"InvalidChars\\n ") == 0, "Expected InvalidChars\\n , got %s\n", charArray);
     }
+    expect(15,LOWORD(r));
+    expect(0,HIWORD(r));
 
     /* Set background color */
     r = SendMessage(hWndStatus, SB_SETBKCOLOR , 0, RGB(255,0,0));
@@ -419,53 +383,6 @@ static void test_status_control(void)
     DestroyWindow(hWndStatus);
 }
 
-static LRESULT WINAPI ownerdraw_test_wndproc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{
-    LRESULT ret;
-    if (msg == WM_DRAWITEM)
-        g_wmdrawitm_ctr++;
-    ret = CallWindowProc(g_wndproc_saved, hwnd, msg, wParam, lParam);
-    return ret;
-}
-
-static void test_status_ownerdraw(void)
-{
-    HWND hWndStatus;
-    int r;
-    const char* statustext = "STATUS TEXT";
-    LONG oldstyle;
-
-    /* subclass the main window and make sure it is visible */
-    g_wndproc_saved = (WNDPROC) SetWindowLongPtr( g_hMainWnd, GWLP_WNDPROC,
-                                                  (LONG_PTR)ownerdraw_test_wndproc );
-    ok( g_wndproc_saved != 0, "failed to set the WndProc\n");
-    SetWindowPos( g_hMainWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE|SWP_NOMOVE);
-    oldstyle = GetWindowLong( g_hMainWnd, GWL_STYLE);
-    SetWindowLong( g_hMainWnd, GWL_STYLE, oldstyle | WS_VISIBLE);
-    /* create a status child window */
-    ok((hWndStatus = CreateWindowA(SUBCLASS_NAME, "", WS_CHILD|WS_VISIBLE, 0, 0, 100, 100,
-                    g_hMainWnd, NULL, NULL, 0)) != NULL, "CreateWindowA failed\n");
-    /* set text */
-    g_wmdrawitm_ctr = 0;
-    r = SendMessage(hWndStatus, SB_SETTEXT, 0, (LPARAM)statustext);
-    ok( r == TRUE, "Sendmessage returned %d, expected 1\n", r);
-    ok( 0 == g_wmdrawitm_ctr, "got %d drawitem messages expected none\n", g_wmdrawitm_ctr);
-    /* set same text, with ownerdraw flag */
-    g_wmdrawitm_ctr = 0;
-    r = SendMessage(hWndStatus, SB_SETTEXT, SBT_OWNERDRAW, (LPARAM)statustext);
-    ok( r == TRUE, "Sendmessage returned %d, expected 1\n", r);
-    ok( 1 == g_wmdrawitm_ctr, "got %d drawitem messages expected 1\n", g_wmdrawitm_ctr);
-    /* ;and again */
-    g_wmdrawitm_ctr = 0;
-    r = SendMessage(hWndStatus, SB_SETTEXT, SBT_OWNERDRAW, (LPARAM)statustext);
-    ok( r == TRUE, "Sendmessage returned %d, expected 1\n", r);
-    ok( 1 == g_wmdrawitm_ctr, "got %d drawitem messages expected 1\n", g_wmdrawitm_ctr);
-    /* clean up */
-    DestroyWindow(hWndStatus);
-    SetWindowLong( g_hMainWnd, GWL_STYLE, oldstyle);
-    SetWindowLongPtr( g_hMainWnd, GWLP_WNDPROC, (LONG_PTR)g_wndproc_saved );
-}
-
 START_TEST(status)
 {
     hinst = GetModuleHandleA(NULL);
@@ -482,5 +399,4 @@ START_TEST(status)
     test_status_control();
     test_create();
     test_height();
-    test_status_ownerdraw();
 }

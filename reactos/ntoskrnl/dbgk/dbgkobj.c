@@ -59,7 +59,7 @@ DbgkpQueueMessage(IN PEPROCESS Process,
         /* Allocate it */
         DebugEvent = ExAllocatePoolWithTag(NonPagedPool,
                                            sizeof(DEBUG_EVENT),
-                                           'EgbD');
+                                           TAG('D', 'b', 'g', 'E'));
         if (!DebugEvent) return STATUS_INSUFFICIENT_RESOURCES;
 
         /* Set flags */
@@ -1512,12 +1512,12 @@ NTAPI
 NtCreateDebugObject(OUT PHANDLE DebugHandle,
                     IN ACCESS_MASK DesiredAccess,
                     IN POBJECT_ATTRIBUTES ObjectAttributes,
-                    IN ULONG Flags)
+                    IN BOOLEAN KillProcessOnExit)
 {
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     PDEBUG_OBJECT DebugObject;
     HANDLE hDebug;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
 
     /* Check if we were called from user mode*/
@@ -1531,13 +1531,11 @@ NtCreateDebugObject(OUT PHANDLE DebugHandle,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get exception error */
+            Status = _SEH2_GetExceptionCode();
         } _SEH2_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
-
-    /* Check for invalid flags */
-    if (Flags & ~DBGK_ALL_FLAGS) return STATUS_INVALID_PARAMETER;
 
     /* Create the Object */
     Status = ObCreateObject(PreviousMode,
@@ -1563,11 +1561,7 @@ NtCreateDebugObject(OUT PHANDLE DebugHandle,
                           FALSE);
 
         /* Set the Flags */
-        DebugObject->Flags = 0;
-        if (Flags & DBGK_KILL_PROCESS_ON_EXIT)
-        {
-            DebugObject->KillProcessOnExit = TRUE;
-        }
+        DebugObject->KillProcessOnExit = KillProcessOnExit;
 
         /* Insert it */
         Status = ObInsertObject((PVOID)DebugObject,
@@ -1609,7 +1603,7 @@ NtDebugContinue(IN HANDLE DebugHandle,
 {
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     PDEBUG_OBJECT DebugObject;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PDEBUG_EVENT DebugEvent = NULL, DebugEventToWake = NULL;
     PLIST_ENTRY ListHead, NextEntry;
     BOOLEAN NeedsWake = FALSE;
@@ -1631,9 +1625,10 @@ NtDebugContinue(IN HANDLE DebugHandle,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get exception error */
+            Status = _SEH2_GetExceptionCode();
         } _SEH2_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /* Make sure that the status is valid */
@@ -1867,7 +1862,7 @@ NtSetInformationDebugObject(IN HANDLE DebugHandle,
 {
     PDEBUG_OBJECT DebugObject;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PDEBUG_OBJECT_KILL_PROCESS_ON_EXIT_INFORMATION DebugInfo = DebugInformation;
     PAGED_CODE();
 
@@ -1879,7 +1874,6 @@ NtSetInformationDebugObject(IN HANDLE DebugHandle,
                                        DebugInformation,
                                        DebugInformationLength,
                                        PreviousMode);
-    if (!NT_SUCCESS(Status)) return Status;
 
     /* Check if the caller wanted the return length */
     if (ReturnLength)
@@ -1893,11 +1887,12 @@ NtSetInformationDebugObject(IN HANDLE DebugHandle,
         }
         _SEH2_EXCEPT(ExSystemExceptionFilter())
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get SEH Exception code */
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
     }
+    if (!NT_SUCCESS(Status)) return Status;
 
     /* Open the Object */
     Status = ObReferenceObjectByHandle(DebugHandle,
@@ -1953,7 +1948,7 @@ NtWaitForDebugEvent(IN HANDLE DebugHandle,
     LARGE_INTEGER NewTime;
     PDEBUG_OBJECT DebugObject;
     DBGUI_WAIT_STATE_CHANGE WaitStateChange;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PDEBUG_EVENT DebugEvent = NULL, DebugEvent2;
     PLIST_ENTRY ListHead, NextEntry, NextEntry2;
     PAGED_CODE();
@@ -1985,10 +1980,11 @@ NtWaitForDebugEvent(IN HANDLE DebugHandle,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
     else
     {

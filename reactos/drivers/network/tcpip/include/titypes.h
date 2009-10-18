@@ -8,7 +8,7 @@
 #define __TITYPES_H
 
 
-#if DBG
+#ifdef DBG
 
 #define DEFINE_TAG ULONG Tag;
 #define INIT_TAG(_Object, _Tag) \

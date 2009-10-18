@@ -13,13 +13,6 @@
 #include <mmddk.h>
 #include <mmebuddy.h>
 
-/*
-    Restrain ourselves from flooding the kernel device!
-*/
-
-#define SOUND_KERNEL_BUFFER_COUNT       10
-#define SOUND_KERNEL_BUFFER_SIZE        16384
-
 MMRESULT
 AllocateSoundDeviceInstance(
     OUT PSOUND_DEVICE_INSTANCE* SoundDeviceInstance)
@@ -34,11 +27,6 @@ AllocateSoundDeviceInstance(
     if ( ! NewInstance )
         return MMSYSERR_NOMEM;
 
-    /* Use default frame size */
-    NewInstance->FrameSize = SOUND_KERNEL_BUFFER_SIZE;
-    /* Use default buffer count */
-    NewInstance->BufferCount = SOUND_KERNEL_BUFFER_COUNT;
-
     /* Provide the caller with the new instance pointer */
     *SoundDeviceInstance = NewInstance;
 
@@ -49,12 +37,8 @@ VOID
 FreeSoundDeviceInstance(
     IN  PSOUND_DEVICE_INSTANCE SoundDeviceInstance)
 {
-    /*
-        Device is marked as invalid by now, but we can still do some sanity
-        checking.
-    */
-    SND_ASSERT( SoundDeviceInstance->Thread == NULL );
-
+    /* This won't work as the device is no longer valid by this point! */
+    /*SND_ASSERT( IsValidSoundDeviceInstance(SoundDeviceInstance) );*/
     ZeroMemory(SoundDeviceInstance, sizeof(SOUND_DEVICE_INSTANCE));
     FreeMemory(SoundDeviceInstance);
 }
@@ -126,8 +110,6 @@ UnlistSoundDeviceInstance(
 
     Result = GetSoundDeviceFromInstance(SoundDeviceInstance, &SoundDevice);
     SND_ASSERT( MMSUCCESS(Result) );
-    if ( ! MMSUCCESS(Result) )
-        return TranslateInternalMmResult(Result);
 
     PreviousInstance = NULL;
     CurrentInstance = SoundDevice->HeadInstance;
@@ -208,9 +190,9 @@ CreateSoundDeviceInstance(
     (*SoundDeviceInstance)->HeadWaveHeader = NULL;
     (*SoundDeviceInstance)->TailWaveHeader = NULL;
 
+    (*SoundDeviceInstance)->CurrentWaveHeader = NULL;
     (*SoundDeviceInstance)->OutstandingBuffers = 0;
-
-    (*SoundDeviceInstance)->LoopsRemaining = 0;
+    // TODO: Loop
 
     /* Create the streaming thread (TODO - is this for wave only?) */
     Result = CreateSoundThread(&(*SoundDeviceInstance)->Thread);
@@ -273,29 +255,13 @@ DestroySoundDeviceInstance(
         return MMSYSERR_NOTSUPPORTED;
     }
 
-    /* Stop the streaming thread */
-    if ( SoundDeviceInstance->Thread )
-    {
-        Result = DestroySoundThread(SoundDeviceInstance->Thread);
-        SND_ASSERT( MMSUCCESS(Result) );    /* It should succeed! */
-        if ( ! MMSUCCESS(Result ) )
-        {
-            return TranslateInternalMmResult(Result);
-        }
-    }
-
-    /* Blank this out here */
-    SoundDeviceInstance->Thread = NULL;
-
     /* Try and close the device */
     Result = FunctionTable->Close(SoundDeviceInstance, Handle);
-    SND_ASSERT( MMSUCCESS(Result) );    /* It should succeed! */
     if ( ! MMSUCCESS(Result) )
         return TranslateInternalMmResult(Result);
 
     /* Drop it from the list */
     Result = UnlistSoundDeviceInstance(SoundDeviceInstance);
-    SND_ASSERT( MMSUCCESS(Result) );    /* It should succeed! */
     if ( ! MMSUCCESS(Result) )
         return TranslateInternalMmResult(Result);
 
@@ -308,19 +274,7 @@ MMRESULT
 DestroyAllSoundDeviceInstances(
     IN  PSOUND_DEVICE SoundDevice)
 {
-    MMRESULT Result;
-    PSOUND_DEVICE_INSTANCE SoundDeviceInstance;
-
-    SoundDeviceInstance = SoundDevice->HeadInstance;
-
-    while ( SoundDeviceInstance )
-    {
-        Result = DestroySoundDeviceInstance(SoundDeviceInstance);
-        SND_ASSERT( MMSUCCESS(Result) );
-        SoundDeviceInstance = SoundDeviceInstance->Next;
-    }
-
-    return MMSYSERR_NOERROR;
+    return MMSYSERR_NOTSUPPORTED;
 }
 
 MMRESULT

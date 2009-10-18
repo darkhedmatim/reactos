@@ -2013,11 +2013,6 @@ RtlInitializeContext(
 );
 
 NTSYSAPI
-BOOLEAN
-NTAPI
-RtlIsThreadWithinLoaderCallout(VOID);
-
-NTSYSAPI
 PRTL_USER_PROCESS_PARAMETERS
 NTAPI
 RtlNormalizeProcessParams(IN PRTL_USER_PROCESS_PARAMETERS ProcessParameters);
@@ -2666,7 +2661,7 @@ DbgBreakPoint(
     VOID
 );
 
-VOID
+NTSTATUS
 NTAPI
 DbgLoadImageSymbols(
     IN PANSI_STRING Name,

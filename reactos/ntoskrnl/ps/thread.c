@@ -113,7 +113,8 @@ PspUserThreadStartup(IN PKSTART_ROUTINE StartRoutine,
     }
 }
 
-LONG
+static
+int
 PspUnhandledExceptionInSystemThread(PEXCEPTION_POINTERS ExceptionPointers)
 {
     /* Print debugging information */
@@ -310,18 +311,34 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
     if (ThreadContext)
     {
         /* User-mode Thread, create Teb */
-        Status = MmCreateTeb(Process, &Thread->Cid, InitialTeb, &TebBase);
-        if (!NT_SUCCESS(Status))
+        TebBase = MmCreateTeb(Process, &Thread->Cid, InitialTeb);
+        if (!TebBase)
         {
             /* Failed to create the TEB. Release rundown and dereference */
             ExReleaseRundownProtection(&Process->RundownProtect);
             ObDereferenceObject(Thread);
-            return Status;
+            return STATUS_INSUFFICIENT_RESOURCES;
         }
 
         /* Set the Start Addresses */
-        Thread->StartAddress = (PVOID)KeGetContextPc(ThreadContext);
-        Thread->Win32StartAddress = (PVOID)KeGetContextReturnRegister(ThreadContext);
+#if defined(_M_IX86)
+        Thread->StartAddress = (PVOID)ThreadContext->Eip;
+        Thread->Win32StartAddress = (PVOID)ThreadContext->Eax;
+#elif defined(_M_PPC)
+        Thread->StartAddress = (PVOID)ThreadContext->Dr0;
+        Thread->Win32StartAddress = (PVOID)ThreadContext->Gpr3;
+#elif defined(_M_MIPS)
+        Thread->StartAddress = (PVOID)ThreadContext->Psr;
+        Thread->Win32StartAddress = (PVOID)ThreadContext->IntA0;
+#elif defined(_M_ARM)
+        Thread->StartAddress = (PVOID)ThreadContext->Pc;
+        Thread->Win32StartAddress = (PVOID)ThreadContext->R0;
+#elif defined(_M_AMD64)
+        Thread->StartAddress = (PVOID)ThreadContext->Rip;
+        Thread->Win32StartAddress = (PVOID)ThreadContext->Rax;
+#else
+#error Unknown architecture
+#endif
 
         /* Let the kernel intialize the Thread */
         Status = KeInitThread(&Thread->Tcb,
@@ -459,6 +476,9 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
+            /* Get the exception code */
+            Status = _SEH2_GetExceptionCode();
+
             /* Thread insertion failed, thread is dead */
             PspSetCrossThreadFlag(Thread, CT_DEAD_THREAD_BIT);
 
@@ -473,11 +493,9 @@ PspCreateThread(OUT PHANDLE ThreadHandle,
 
             /* Close its handle, killing it */
             ObCloseHandle(ThreadHandle, PreviousMode);
-
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
         }
         _SEH2_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
     else
     {
@@ -862,6 +880,7 @@ NtCreateThread(OUT PHANDLE ThreadHandle,
                IN BOOLEAN CreateSuspended)
 {
     INITIAL_TEB SafeInitialTeb;
+    NTSTATUS Status = STATUS_SUCCESS;
     PAGED_CODE();
     PSTRACE(PS_THREAD_DEBUG,
             "ProcessHandle: %p Context: %p\n", ProcessHandle, ThreadContext);
@@ -879,7 +898,7 @@ NtCreateThread(OUT PHANDLE ThreadHandle,
             ProbeForWriteHandle(ThreadHandle);
 
             /* Check if the caller wants a client id */
-            if (ClientId)
+            if(ClientId)
             {
                 /* Make sure we can write to it */
                 ProbeForWrite(ClientId, sizeof(CLIENT_ID), sizeof(ULONG));
@@ -894,10 +913,10 @@ NtCreateThread(OUT PHANDLE ThreadHandle,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
     else
     {
@@ -933,7 +952,7 @@ NtOpenThread(OUT PHANDLE ThreadHandle,
     CLIENT_ID SafeClientId;
     ULONG Attributes = 0;
     HANDLE hThread = NULL;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     PETHREAD Thread;
     BOOLEAN HasObjectName = FALSE;
     ACCESS_STATE AccessState;
@@ -972,10 +991,11 @@ NtOpenThread(OUT PHANDLE ThreadHandle,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+        if (!NT_SUCCESS(Status)) return Status;
     }
     else
     {

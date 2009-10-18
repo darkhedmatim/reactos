@@ -3,7 +3,7 @@
 	<include base="crypt32">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<redefine name="_WIN32_WINNT">0x600</redefine>
+	<define name="_WIN32_WINNT">0x600</define>
 	<library>wine</library>
 	<library>user32</library>
 	<library>advapi32</library>
@@ -36,7 +36,6 @@
 	<file>ctl.c</file>
 	<file>message.c</file>
 	<file>crypt32.rc</file>
-	<file>version.rc</file>
 	<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38054#c7 -->
-	<compilerflag compilerset="gcc">-fno-unit-at-a-time</compilerflag>
+	<compilerflag>-fno-unit-at-a-time</compilerflag>
 </module>

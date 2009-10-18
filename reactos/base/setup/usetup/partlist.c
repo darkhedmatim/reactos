@@ -70,9 +70,8 @@ AssignDriverLetters (PPARTLIST List)
   PDISKENTRY DiskEntry;
   PPARTENTRY PartEntry;
   PLIST_ENTRY Entry1;
-  //PLIST_ENTRY Entry2;
+  PLIST_ENTRY Entry2;
   CHAR Letter;
-  UCHAR i;
 
   Letter = 'C';
 
@@ -88,25 +87,19 @@ AssignDriverLetters (PPARTLIST List)
                                      PARTENTRY,
                                      ListEntry);
 
-      for (i=0; i<3; i++)
-        PartEntry->DriveLetter[i] = 0;
+      PartEntry->DriveLetter = 0;
 
-      if (PartEntry->Unpartitioned == FALSE)
+      if (PartEntry->Unpartitioned == FALSE &&
+        !IsContainerPartition (PartEntry->PartInfo[0].PartitionType))
       {
-        for (i=0; i<3; i++)
+        if (IsRecognizedPartition (PartEntry->PartInfo[0].PartitionType) ||
+           (PartEntry->PartInfo[0].PartitionType == PARTITION_ENTRY_UNUSED &&
+           PartEntry->PartInfo[0].PartitionLength.QuadPart != 0LL))
         {
-          if (IsContainerPartition (PartEntry->PartInfo[i].PartitionType))
-            continue;
-
-          if (IsRecognizedPartition (PartEntry->PartInfo[i].PartitionType) ||
-             (PartEntry->PartInfo[i].PartitionType == PARTITION_ENTRY_UNUSED &&
-             PartEntry->PartInfo[i].PartitionLength.QuadPart != 0LL))
+          if (Letter <= 'Z')
           {
-            if (Letter <= 'Z')
-            {
-              PartEntry->DriveLetter[i] = Letter;
-              Letter++;
-            }
+            PartEntry->DriveLetter = Letter;
+            Letter++;
           }
         }
       }
@@ -115,8 +108,8 @@ AssignDriverLetters (PPARTLIST List)
     Entry1 = Entry1->Flink;
   }
 
+
   /* Assign drive letters to logical drives */
-#if 0
   Entry1 = List->DiskListHead.Flink;
   while (Entry1 != &List->DiskListHead)
   {
@@ -155,7 +148,6 @@ AssignDriverLetters (PPARTLIST List)
 
     Entry1 = Entry1->Flink;
   }
-#endif
 }
 
 
@@ -775,6 +767,10 @@ AddDiskToList (HANDLE FileHandle,
   }
   Checksum = ~Checksum + 1;
 
+  RtlFreeHeap (ProcessHeap,
+               0,
+               Mbr);
+
   swprintf(Identifier, L"%08x-%08x-A", Checksum, Signature);
   DPRINT("Identifier: %S\n", Identifier);
 
@@ -794,17 +790,6 @@ AddDiskToList (HANDLE FileHandle,
     DiskEntry->Modified = TRUE;
   }
   DiskEntry->BiosFound = FALSE;
-
-  /* Check if this disk has a valid MBR */
-  if (Mbr->BootCode[0] == 0 && Mbr->BootCode[1] == 0)
-    DiskEntry->NoMbr = TRUE;
-  else
-    DiskEntry->NoMbr = FALSE;
-
-  /* Free Mbr sector buffer */
-  RtlFreeHeap (ProcessHeap,
-               0,
-               Mbr);
 
   ListEntry = List->BiosDiskListHead.Flink;
   while(ListEntry != &List->BiosDiskListHead)
@@ -943,7 +928,6 @@ CreatePartitionList (SHORT Left,
 
   List->CurrentDisk = NULL;
   List->CurrentPartition = NULL;
-  List->CurrentPartitionNumber = 0;
 
   InitializeListHead (&List->DiskListHead);
   InitializeListHead (&List->BiosDiskListHead);
@@ -1000,7 +984,6 @@ CreatePartitionList (SHORT Left,
   {
     List->CurrentDisk = NULL;
     List->CurrentPartition = NULL;
-    List->CurrentPartitionNumber = 0;
   }
   else
   {
@@ -1012,7 +995,6 @@ CreatePartitionList (SHORT Left,
     if (IsListEmpty (&List->CurrentDisk->PartListHead))
     {
       List->CurrentPartition = 0;
-      List->CurrentPartitionNumber = 0;
     }
     else
     {
@@ -1020,7 +1002,6 @@ CreatePartitionList (SHORT Left,
         CONTAINING_RECORD (List->CurrentDisk->PartListHead.Flink,
                            PARTENTRY,
                            ListEntry);
-      List->CurrentPartitionNumber = 0;
     }
   }
 
@@ -1110,8 +1091,7 @@ PrintEmptyLine (PPARTLIST List)
 static VOID
 PrintPartitionData (PPARTLIST List,
                     PDISKENTRY DiskEntry,
-                    PPARTENTRY PartEntry,
-                    ULONG PartNumber)
+                    PPARTENTRY PartEntry)
 {
   CHAR LineBuffer[128];
   COORD coPos;
@@ -1167,44 +1147,44 @@ PrintPartitionData (PPARTLIST List,
     }
     else if (PartEntry->Unpartitioned == FALSE)
     {
-      if ((PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_FAT_12) ||
-          (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_FAT_16) ||
-          (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_HUGE) ||
-          (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_XINT13))
+      if ((PartEntry->PartInfo[0].PartitionType == PARTITION_FAT_12) ||
+          (PartEntry->PartInfo[0].PartitionType == PARTITION_FAT_16) ||
+          (PartEntry->PartInfo[0].PartitionType == PARTITION_HUGE) ||
+          (PartEntry->PartInfo[0].PartitionType == PARTITION_XINT13))
       {
         PartType = "FAT";
       }
-      else if ((PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_FAT32) ||
-               (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_FAT32_XINT13))
+      else if ((PartEntry->PartInfo[0].PartitionType == PARTITION_FAT32) ||
+               (PartEntry->PartInfo[0].PartitionType == PARTITION_FAT32_XINT13))
       {
         PartType = "FAT32";
       }
-      else if (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_EXT2)
+      else if (PartEntry->PartInfo[0].PartitionType == PARTITION_EXT2)
       {
         PartType = "EXT2";
       }
-      else if (PartEntry->PartInfo[PartNumber].PartitionType == PARTITION_IFS)
+      else if (PartEntry->PartInfo[0].PartitionType == PARTITION_IFS)
       {
         PartType = "NTFS"; /* FIXME: Not quite correct! */
       }
     }
 
 #if 0
-    if (PartEntry->PartInfo[PartNumber].PartitionLength.QuadPart >= 0x280000000LL) /* 10 GB */
+    if (PartEntry->PartInfo[0].PartitionLength.QuadPart >= 0x280000000LL) /* 10 GB */
     {
-      PartSize.QuadPart = (PartEntry->PartInfo[PartNumber].PartitionLength.QuadPart + (1 << 29)) >> 30;
+      PartSize.QuadPart = (PartEntry->PartInfo[0].PartitionLength.QuadPart + (1 << 29)) >> 30;
       Unit = MUIGetString(STRING_GB);
     }
     else
 #endif
-    if (PartEntry->PartInfo[PartNumber].PartitionLength.QuadPart >= 0xA00000LL) /* 10 MB */
+    if (PartEntry->PartInfo[0].PartitionLength.QuadPart >= 0xA00000LL) /* 10 MB */
     {
-      PartSize.QuadPart = (PartEntry->PartInfo[PartNumber].PartitionLength.QuadPart + (1 << 19)) >> 20;
+      PartSize.QuadPart = (PartEntry->PartInfo[0].PartitionLength.QuadPart + (1 << 19)) >> 20;
       Unit = MUIGetString(STRING_MB);
     }
     else
     {
-      PartSize.QuadPart = (PartEntry->PartInfo[PartNumber].PartitionLength.QuadPart + (1 << 9)) >> 10;
+      PartSize.QuadPart = (PartEntry->PartInfo[0].PartitionLength.QuadPart + (1 << 9)) >> 10;
       Unit = MUIGetString(STRING_KB);
     }
 
@@ -1212,9 +1192,9 @@ PrintPartitionData (PPARTLIST List,
     {
       sprintf (LineBuffer,
                MUIGetString(STRING_HDDINFOUNK5),
-               (PartEntry->DriveLetter[PartNumber] == 0) ? '-' : PartEntry->DriveLetter[PartNumber],
-               (PartEntry->DriveLetter[PartNumber] == 0) ? '-' : ':',
-               PartEntry->PartInfo[PartNumber].PartitionType,
+               (PartEntry->DriveLetter == 0) ? '-' : PartEntry->DriveLetter,
+               (PartEntry->DriveLetter == 0) ? '-' : ':',
+               PartEntry->PartInfo[0].PartitionType,
                PartSize.u.LowPart,
                Unit);
     }
@@ -1222,8 +1202,8 @@ PrintPartitionData (PPARTLIST List,
     {
       sprintf (LineBuffer,
                "%c%c  %-24s         %6lu %s",
-               (PartEntry->DriveLetter[PartNumber] == 0) ? '-' : PartEntry->DriveLetter[PartNumber],
-               (PartEntry->DriveLetter[PartNumber] == 0) ? '-' : ':',
+               (PartEntry->DriveLetter == 0) ? '-' : PartEntry->DriveLetter,
+               (PartEntry->DriveLetter == 0) ? '-' : ':',
                PartType,
                PartSize.u.LowPart,
                Unit);
@@ -1231,8 +1211,7 @@ PrintPartitionData (PPARTLIST List,
   }
 
   Attribute = (List->CurrentDisk == DiskEntry &&
-               List->CurrentPartition == PartEntry &&
-               List->CurrentPartitionNumber == PartNumber) ?
+               List->CurrentPartition == PartEntry) ?
                FOREGROUND_BLUE | BACKGROUND_WHITE :
                FOREGROUND_WHITE | BACKGROUND_BLUE;
 
@@ -1280,7 +1259,6 @@ PrintDiskData (PPARTLIST List,
   USHORT Height;
   ULARGE_INTEGER DiskSize;
   PCHAR Unit;
-  ULONG i;
 
   Width = List->Right - List->Left - 1;
   Height = List->Bottom - List->Top - 2;
@@ -1360,27 +1338,9 @@ PrintDiskData (PPARTLIST List,
   LIST_FOR_EACH(PartEntry, &DiskEntry->PartListHead, PARTENTRY, ListEntry)
   {
     /* Print disk entry */
-    for (i=0; i<4; i++)
-    {
-      if (PartEntry->PartInfo[i].PartitionType != PARTITION_ENTRY_UNUSED ||
-          PartEntry->PartInfo[i].PartitionLength.QuadPart != 0ULL)
-      {
-        PrintPartitionData (List,
-                            DiskEntry,
-                            PartEntry,
-                            i);
-      }
-    }
-
-    /* Print unpartitioned entry */
-    if (PartEntry->Unpartitioned)
-    {
-        PrintPartitionData (List,
-                            DiskEntry,
-                            PartEntry,
-                            0);
-    }
-
+    PrintPartitionData (List,
+                        DiskEntry,
+                        PartEntry);
   }
 
   /* Print separator line */
@@ -1629,7 +1589,6 @@ SelectPartition(PPARTLIST List, ULONG DiskNumber, ULONG PartitionNumber)
           {
             List->CurrentDisk = DiskEntry;
             List->CurrentPartition = PartEntry;
-            List->CurrentPartitionNumber = i;
             DrawPartitionList (List);
             return TRUE;
           }
@@ -1651,7 +1610,6 @@ ScrollDownPartitionList (PPARTLIST List)
   PPARTENTRY PartEntry;
   PLIST_ENTRY Entry1;
   PLIST_ENTRY Entry2;
-  UCHAR i;
 
   /* Check for empty disks */
   if (IsListEmpty (&List->DiskListHead))
@@ -1660,30 +1618,7 @@ ScrollDownPartitionList (PPARTLIST List)
   /* Check for next usable entry on current disk */
   if (List->CurrentPartition != NULL)
   {
-    Entry2 = &List->CurrentPartition->ListEntry;
-    PartEntry = CONTAINING_RECORD (Entry2, PARTENTRY, ListEntry);
-
-    /* Check if we can move inside primary partitions */
-    for (i = List->CurrentPartitionNumber + 1; i < 4; i++)
-    {
-        if (PartEntry->PartInfo[i].PartitionType != PARTITION_ENTRY_UNUSED)
-            break;
-    }
-
-    if (i == 4)
-    {
-        /* We're out of partitions in the current partition table.
-           Try to move to the next one if possible. */
-        Entry2 = Entry2->Flink;
-    }
-    else
-    {
-        /* Just advance to the next partition */
-        List->CurrentPartitionNumber = i;
-        DrawPartitionList (List);
-        return;
-    }
-
+    Entry2 = List->CurrentPartition->ListEntry.Flink;
     while (Entry2 != &List->CurrentDisk->PartListHead)
     {
       PartEntry = CONTAINING_RECORD (Entry2, PARTENTRY, ListEntry);
@@ -1691,7 +1626,6 @@ ScrollDownPartitionList (PPARTLIST List)
 //	  if (PartEntry->HidePartEntry == FALSE)
       {
         List->CurrentPartition = PartEntry;
-        List->CurrentPartitionNumber = 0;
         DrawPartitionList (List);
         return;
       }
@@ -1716,7 +1650,6 @@ ScrollDownPartitionList (PPARTLIST List)
         {
           List->CurrentDisk = DiskEntry;
           List->CurrentPartition = PartEntry;
-          List->CurrentPartitionNumber = 0;
           DrawPartitionList (List);
           return;
         }
@@ -1737,7 +1670,6 @@ ScrollUpPartitionList (PPARTLIST List)
   PPARTENTRY PartEntry;
   PLIST_ENTRY Entry1;
   PLIST_ENTRY Entry2;
-  UCHAR i;
 
   /* Check for empty disks */
   if (IsListEmpty (&List->DiskListHead))
@@ -1746,28 +1678,7 @@ ScrollUpPartitionList (PPARTLIST List)
   /* check for previous usable entry on current disk */
   if (List->CurrentPartition != NULL)
   {
-    Entry2 = &List->CurrentPartition->ListEntry;
-    PartEntry = CONTAINING_RECORD (Entry2, PARTENTRY, ListEntry);
-
-    /* Check if we can move inside primary partitions */
-    if (List->CurrentPartitionNumber > 0)
-    {
-        /* Find a previous partition */
-        for (i = List->CurrentPartitionNumber - 1; i > 0; i--)
-        {
-            if (PartEntry->PartInfo[i].PartitionType != PARTITION_ENTRY_UNUSED)
-                break;
-        }
-
-        /* Move to it and return */
-        List->CurrentPartitionNumber = i;
-        DrawPartitionList (List);
-        return;
-    }
-
-    /* Move to the previous entry */
-    Entry2 = Entry2->Blink;
-
+    Entry2 = List->CurrentPartition->ListEntry.Blink;
     while (Entry2 != &List->CurrentDisk->PartListHead)
     {
       PartEntry = CONTAINING_RECORD (Entry2, PARTENTRY, ListEntry);
@@ -1775,18 +1686,6 @@ ScrollUpPartitionList (PPARTLIST List)
 //	  if (PartEntry->HidePartEntry == FALSE)
       {
         List->CurrentPartition = PartEntry;
-
-        /* Find last existing partition in the table */
-        for (i = 3; i > 0; i--)
-        {
-            if (PartEntry->PartInfo[i].PartitionType != PARTITION_ENTRY_UNUSED)
-                break;
-        }
-
-        /* Move to it */
-        List->CurrentPartitionNumber = i;
-
-        /* Draw partition list and return */
         DrawPartitionList (List);
         return;
       }
@@ -1812,18 +1711,6 @@ ScrollUpPartitionList (PPARTLIST List)
         {
           List->CurrentDisk = DiskEntry;
           List->CurrentPartition = PartEntry;
-
-          /* Find last existing partition in the table */
-          for (i = 3; i > 0; i--)
-          {
-            if (PartEntry->PartInfo[i].PartitionType != PARTITION_ENTRY_UNUSED)
-              break;
-          }
-
-          /* Move to it */
-          List->CurrentPartitionNumber = i;
-
-          /* Draw partition list and return */
           DrawPartitionList (List);
           return;
         }
@@ -2320,15 +2207,12 @@ CheckActiveBootPartition (PPARTLIST List)
 {
   PDISKENTRY DiskEntry;
   PPARTENTRY PartEntry;
-  PLIST_ENTRY ListEntry;
-  UCHAR i;
 
   /* Check for empty disk list */
   if (IsListEmpty (&List->DiskListHead))
   {
     List->ActiveBootDisk = NULL;
     List->ActiveBootPartition = NULL;
-    List->ActiveBootPartitionNumber = 0;
     return;
   }
 
@@ -2350,7 +2234,6 @@ CheckActiveBootPartition (PPARTLIST List)
   {
     List->ActiveBootDisk = NULL;
     List->ActiveBootPartition = NULL;
-    List->ActiveBootPartitionNumber = 0;
     return;
   }
 
@@ -2368,51 +2251,11 @@ CheckActiveBootPartition (PPARTLIST List)
     PartEntry->PartInfo[0].BootIndicator = TRUE;
     PartEntry->PartInfo[0].RewritePartition = TRUE;
     DiskEntry->Modified = TRUE;
-
-    /* FIXME: Might be incorrect if partitions were created by Linux FDISK */
-    List->ActiveBootDisk = DiskEntry;
-    List->ActiveBootPartition = PartEntry;
-    List->ActiveBootPartitionNumber = 0;
-
-    return;
   }
 
-  /* Disk is not new, scan all partitions to find a bootable one */
-  List->ActiveBootDisk = NULL;
-  List->ActiveBootPartition = NULL;
-  List->ActiveBootPartitionNumber = 0;
-
-  ListEntry = DiskEntry->PartListHead.Flink;
-  while (ListEntry != &DiskEntry->PartListHead)
-  {
-    PartEntry = CONTAINING_RECORD(ListEntry,
-                                  PARTENTRY,
-                                  ListEntry);
-
-    /* Check if it's partitioned */
-    if (!PartEntry->Unpartitioned)
-    {
-      /* Go through all of its 4 partitions */
-      for (i=0; i<4; i++)
-      {
-        if (PartEntry->PartInfo[i].PartitionType != PARTITION_ENTRY_UNUSED &&
-            PartEntry->PartInfo[i].BootIndicator)
-        {
-          /* Yes, we found it */
-          List->ActiveBootDisk = DiskEntry;
-          List->ActiveBootPartition = PartEntry;
-          List->ActiveBootPartitionNumber = i;
-
-          DPRINT("Found bootable partition disk %d, drive letter %c\n",
-              DiskEntry->BiosDiskNumber, PartEntry->DriveLetter[i]);
-
-          break;
-        }
-      }
-    }
-    /* Go to the next one */
-    ListEntry = ListEntry->Flink;
-  }
+  /* FIXME: Might be incorrect if partitions were created by Linux FDISK */
+  List->ActiveBootDisk = DiskEntry;
+  List->ActiveBootPartition = PartEntry;
 }
 
 
@@ -2691,7 +2534,6 @@ WritePartitionsToDisk (PPARTLIST List)
         }
 
         DiskEntry1->NewDisk = FALSE;
-        DiskEntry1->NoMbr = FALSE;
       }
     }
 
@@ -2706,7 +2548,6 @@ BOOL SetMountedDeviceValues(PPARTLIST List)
   PLIST_ENTRY Entry1, Entry2;
   PDISKENTRY DiskEntry;
   PPARTENTRY PartEntry;
-  UCHAR i;
 
   if (List == NULL)
   {
@@ -2724,17 +2565,11 @@ BOOL SetMountedDeviceValues(PPARTLIST List)
     while (Entry2 != &DiskEntry->PartListHead)
     {
       PartEntry = CONTAINING_RECORD(Entry2, PARTENTRY, ListEntry);
-      if (!PartEntry->Unpartitioned)
+      if (!PartEntry->Unpartitioned && PartEntry->DriveLetter)
       {
-        for (i=0; i<4; i++)
+        if (!SetMountedDeviceValue(PartEntry->DriveLetter, DiskEntry->Signature, PartEntry->PartInfo[0].StartingOffset))
         {
-          if (PartEntry->DriveLetter[i])
-          {
-            if (!SetMountedDeviceValue(PartEntry->DriveLetter[i], DiskEntry->Signature, PartEntry->PartInfo[i].StartingOffset))
-            {
-              return FALSE;
-            }
-          }
+          return FALSE;
         }
       }
       Entry2 = Entry2->Flink;

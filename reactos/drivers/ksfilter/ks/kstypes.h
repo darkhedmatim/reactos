@@ -1,115 +1,37 @@
 #ifndef KSTYPES_H__
 #define KSTYPES_H__
 
-#include <ntddk.h>
-#include <ks.h>
-
-typedef struct
-{
-    KoCreateObjectHandler CreateObjectHandler;
-}KO_DRIVER_EXTENSION, *PKO_DRIVER_EXTENSION;
-
-typedef struct
-{
-    const KSDEVICE_DESCRIPTOR  *Descriptor;
-}KS_DRIVER_EXTENSION, *PKS_DRIVER_EXTENSION;
-
-typedef struct
-{
-    KSOBJECT_HEADER ObjectHeader;
-    KSOBJECT_CREATE_ITEM CreateItem;
-}KO_OBJECT_HEADER, *PKO_OBJECT_HEADER;
-
+struct KSIDEVICE_HEADER;
 
 typedef struct
 {
     KSDISPATCH_TABLE DispatchTable;
-    KSOBJECTTYPE Type;
-
-    LONG ItemListCount;
-    LIST_ENTRY ItemList;
-
-    UNICODE_STRING ObjectClass;
-    PUNKNOWN Unknown;
-    PVOID ObjectType;
-
-    PDEVICE_OBJECT TargetDevice;
-    LIST_ENTRY TargetDeviceListEntry;
-
-    PDEVICE_OBJECT ParentDeviceObject;
-
-    PFNKSCONTEXT_DISPATCH PowerDispatch;
-    PVOID PowerContext;
-    LIST_ENTRY PowerDispatchEntry;
-    PKSOBJECT_CREATE_ITEM OriginalCreateItem;
-    ACCESS_MASK AccessMask;
+    LPWSTR ObjectClass;
+    ULONG ItemCount;
+    PKSOBJECT_CREATE_ITEM CreateItem;
 
 }KSIOBJECT_HEADER, *PKSIOBJECT_HEADER;
 
 typedef struct
 {
-    LIST_ENTRY Entry;
-    PKSOBJECT_CREATE_ITEM CreateItem;
-    PFNKSITEMFREECALLBACK ItemFreeCallback;
-    LONG ReferenceCount;
-    LIST_ENTRY ObjectItemList;
-}CREATE_ITEM_ENTRY, *PCREATE_ITEM_ENTRY;
+    BOOL bCreated;
+    PKSIOBJECT_HEADER ObjectHeader;
+    KSOBJECT_CREATE_ITEM CreateItem;
+}DEVICE_ITEM, *PDEVICE_ITEM;
+
 
 typedef struct
 {
-    KSOBJECTTYPE Type;
-    PKSDEVICE KsDevice;
-    KMUTEX ControlMutex;
-    LIST_ENTRY EventList;
-    KSPIN_LOCK EventListLock;
-    union
-    {
-        PKSDEVICE KsDevice;
-        PKSFILTERFACTORY KsFilterFactory;
-        PKSFILTER KsFilter;
-    }Parent;
-
-    union
-    {
-        PKSFILTERFACTORY FilterFactory;
-        PKSFILTER Filter;
-        PKSPIN Pin;
-    }Next;
-
-    union
-    {
-        PKSFILTERFACTORY FilterFactory;
-        PKSFILTER Filter;
-    }FirstChild;
-
-}KSBASIC_HEADER, *PKSBASIC_HEADER;
-
-typedef struct
-{
-    KSBASIC_HEADER BasicHeader;
-    KSDEVICE KsDevice;
-    IKsDeviceVtbl *lpVtblIKsDevice;
-
-    LONG ref;
-    ERESOURCE SecurityLock;
-
-    LONG ItemListCount;
-    LIST_ENTRY ItemList;
+    USHORT MaxItems;
+    DEVICE_ITEM *ItemList;
 
     ULONG DeviceIndex;
-    PDEVICE_OBJECT PnpDeviceObject;
-    PDEVICE_OBJECT BaseDevice;
+    KSPIN_LOCK ItemListLock;
 
-    KSTARGET_STATE TargetState;
-    LIST_ENTRY TargetDeviceList;
-
-    KMUTEX DeviceMutex;
-    KSDEVICE_DESCRIPTOR* Descriptor;
-
-    LIST_ENTRY PowerDispatchList;
-    LIST_ENTRY ObjectBags;
-
+    PDEVICE_OBJECT NextDeviceObject;
+    ERESOURCE SecurityLock;
 }KSIDEVICE_HEADER, *PKSIDEVICE_HEADER;
+
 
 typedef struct
 {
@@ -117,47 +39,6 @@ typedef struct
 
 }DEVICE_EXTENSION, *PDEVICE_EXTENSION;
 
-typedef struct
-{
-    LIST_ENTRY Entry;
-    UNICODE_STRING SymbolicLink;
-}SYMBOLIC_LINK_ENTRY, *PSYMBOLIC_LINK_ENTRY;
-
-typedef struct
-{
-    PKSIDEVICE_HEADER DeviceHeader;
-    PIO_WORKITEM WorkItem;
-}PNP_POSTSTART_CONTEXT, *PPNP_POSTSTART_CONTEXT;
-
-typedef struct
-{
-    PIRP Irp;
-    KEVENT Event;
-}KSREMOVE_BUS_INTERFACE_CTX, *PKSREMOVE_BUS_INTERFACE_CTX;
-
-typedef struct
-{
-    PLIST_ENTRY List;
-    PFILE_OBJECT FileObject;
-    PKSEVENT_ENTRY EventEntry;
-    PIRP Irp;
-}KSEVENT_CTX, *PKSEVENT_CTX;
-
-typedef BOOLEAN (NTAPI *PKSEVENT_SYNCHRONIZED_ROUTINE)(PKSEVENT_CTX Context);
-
-typedef struct
-{
-    BOOLEAN Enabled;
-
-    PDEVICE_OBJECT PnpDeviceObject;
-    PDEVICE_OBJECT PhysicalDeviceObject;
-    PDEVICE_OBJECT BusDeviceObject;
-
-    UNICODE_STRING ServicePath;
-    UNICODE_STRING SymbolicLinkName;
-
-    WCHAR BusIdentifier[1];
-}BUS_ENUM_DEVICE_EXTENSION, *PBUS_ENUM_DEVICE_EXTENSION;
 
 
 #endif

@@ -1,26 +1,16 @@
-/**
- * This file has no copyright assigned and is placed in the Public Domain.
- * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
- */
-
 #undef CRTDLL
-#ifndef _DLL
-#define _DLL
-#endif
+//#define _DLL
 
 #define SPECIAL_CRTEXE
 
-#include <oscalls.h>
-#include <internal.h>
+#include "oscalls.h"
+#include "internal.h"
 #include <process.h>
 #include <signal.h>
 #include <math.h>
 #include <stdlib.h>
 #include <tchar.h>
-#include <sect_attribs.h>
 #include <locale.h>
-#include <intrin.h>
 
 #ifndef __winitenv
 extern wchar_t ***_imp____winitenv;
@@ -52,11 +42,6 @@ extern int *_imp___commode;
 #define _commode (*_imp___commode)
 extern int _dowildcard;
 
-#if defined(__GNUC__)
-int _MINGW_INSTALL_DEBUG_MATHERR __attribute__((weak)) = 0;
-#else
-int _MINGW_INSTALL_DEBUG_MATHERR = 0;
-#endif
 extern int __defaultmatherr;
 extern _CRTIMP void __cdecl _initterm(_PVFV *, _PVFV *);
 
@@ -76,7 +61,6 @@ extern int mingw_app_type;
 
 static int argc;
 #ifdef WPRFLAG
-extern void __main(void);
 static wchar_t **argv;
 static wchar_t **envp;
 #else
@@ -91,7 +75,7 @@ static int has_cctor = 0;
 static _startupinfo startinfo;
 
 extern void _pei386_runtime_relocator (void);
-static long CALLBACK _gnu_exception_handler (EXCEPTION_POINTERS * exception_data);
+static CALLBACK long _gnu_exception_handler (EXCEPTION_POINTERS * exception_data);
 //static LONG __mingw_vex(EXCEPTION_POINTERS * exception_data);
 #ifdef WPRFLAG
 static void duplicate_ppstrings (int ac, wchar_t ***av);
@@ -123,14 +107,9 @@ pre_c_init (void)
 #else
   _setargv();
 #endif
-  if (_MINGW_INSTALL_DEBUG_MATHERR)
-    {
-      if (! __defaultmatherr)
-	{
-	  __setusermatherr (_matherr);
-	  __defaultmatherr = 1;
-	}
-    }
+
+  if (! __defaultmatherr)
+    __setusermatherr (_matherr);
 
   if (__globallocalestatus == -1)
     {
@@ -152,14 +131,22 @@ pre_cpp_init (void)
 
 static int __tmainCRTStartup (void);
 
+#ifdef WPRFLAG
+int wWinMainCRTStartup (void)
+#else
 int WinMainCRTStartup (void)
+#endif
 {
   mingw_app_type = 1;
   __security_init_cookie ();
   return __tmainCRTStartup ();
 }
 
+#ifdef WPRFLAG
+int wmainCRTStartup (void)
+#else
 int mainCRTStartup (void)
+#endif
 {
   mingw_app_type = 0;
   __security_init_cookie ();
@@ -174,7 +161,7 @@ __tmainCRTStartup (void)
   STARTUPINFO StartupInfo;
   BOOL inDoubleQuote = FALSE;
   memset (&StartupInfo, 0, sizeof (STARTUPINFO));
-
+  
   if (mingw_app_type)
     GetStartupInfo (&StartupInfo);
   {
@@ -211,31 +198,41 @@ __tmainCRTStartup (void)
     _ASSERTE(__native_startup_state == __initialized);
     if (! nested)
       (VOID)InterlockedExchangePointer ((volatile PVOID *) &__native_startup_lock, 0);
-
+    
     if (__dyn_tls_init_callback != NULL && _IsNonwritableInCurrentImage ((PBYTE) &__dyn_tls_init_callback))
       __dyn_tls_init_callback (NULL, DLL_THREAD_ATTACH, NULL);
-
+    
+#if defined(__i386__) || defined(__x86_64__)
     _pei386_runtime_relocator ();
-
-#if defined(__i386__) || defined(_M_IX86)
-	__writefsdword(0, 0xffffffff);
 #endif
+    
+    #if defined(__x86_64__)
+    __asm__ __volatile__ (
+	"xorq %rax,%rax\n\t"
+	"decq %rax\n\t"
+	"movq %rax,%gs:0" "\n");
+    #elif defined(__i386__)
+    __asm__ __volatile__ (
+	"xorl %eax,%eax\n\t"
+	"decl %eax\n\t"
+	"movl %eax,%fs:0" "\n");
+    #endif
     //AddVectoredExceptionHandler (0, (PVECTORED_EXCEPTION_HANDLER)__mingw_vex);
     SetUnhandledExceptionFilter (_gnu_exception_handler);
-
-    _fpreset ();
 
     if (mingw_app_type)
       {
 #ifdef WPRFLAG
+    if (_wcmdln == NULL)
+      return 255;
     lpszCommandLine = (_TCHAR *) _wcmdln;
 #else
     lpszCommandLine = (char *) _acmdln;
 #endif
-    while (*lpszCommandLine > SPACECHAR || (*lpszCommandLine&&inDoubleQuote))
+    while (*lpszCommandLine > SPACECHAR || (*lpszCommandLine && inDoubleQuote))
       {
 	if (*lpszCommandLine == DQUOTECHAR)
-	  inDoubleQuote = !inDoubleQuote;
+	  inDoubleQuote = TRUE;
 #ifdef _MBCS
 	if (_ismbblead (*lpszCommandLine))
 	  {
@@ -249,9 +246,6 @@ __tmainCRTStartup (void)
       lpszCommandLine++;
 
 #ifdef WPRFLAG
-    /* C++ initialization.
-       gcc inserts this call automatically for a function called main, but not for wmain.  */
-    __main ();
     mainret = wmain (
     	(int) (StartupInfo.dwFlags & STARTF_USESHOWWINDOW ? StartupInfo.wShowWindow : SW_SHOWDEFAULT),
     	(wchar_t **) lpszCommandLine, (wchar_t **) (HINSTANCE) &__ImageBase);
@@ -266,9 +260,6 @@ __tmainCRTStartup (void)
     duplicate_ppstrings (argc, &argv);
 #ifdef WPRFLAG
     __winitenv = envp;
-    /* C++ initialization.
-       gcc inserts this call automatically for a function called main, but not for wmain.  */
-    __main ();
     mainret = wmain (argc, argv, envp);
 #else
     __initenv = envp;
@@ -298,9 +289,10 @@ check_managed_app (void)
   PIMAGE_OPTIONAL_HEADER64 pNTHeader64;
 
   /* Force to be linked.  */
-  mingw_initltsdrot_force=1;
-  mingw_initltsdyn_force=1;
-  mingw_initltssuo_force=1;
+  //TLS sections
+  //mingw_initltsdrot_force=1;
+  //mingw_initltsdyn_force=1;
+  //mingw_initltssuo_force=1;
   mingw_initcharmax=1;
 
   pDOSHeader = (PIMAGE_DOS_HEADER) &__ImageBase;
@@ -327,7 +319,9 @@ check_managed_app (void)
   return 0;
 }
 
-static long CALLBACK
+int __defaultmatherr;
+
+static CALLBACK long
 _gnu_exception_handler (EXCEPTION_POINTERS * exception_data)
 {
   void (*old_handler) (int);
@@ -465,7 +459,7 @@ static void duplicate_ppstrings (int ac, char ***av)
 	char **avl;
 	int i;
 	char **n = (char **) malloc (sizeof (char *) * (ac + 1));
-
+	
 	avl=*av;
 	for (i=0; i < ac; i++)
 	  {

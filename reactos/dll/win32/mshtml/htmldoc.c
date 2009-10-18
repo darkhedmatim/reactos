@@ -27,7 +27,6 @@
 #include "winbase.h"
 #include "winuser.h"
 #include "ole2.h"
-#include "perhist.h"
 
 #include "wine/debug.h"
 
@@ -133,9 +132,6 @@ static HRESULT WINAPI HTMLDocument_QueryInterface(IHTMLDocument2 *iface, REFIID 
     }else if(IsEqualGUID(&IID_ISupportErrorInfo, riid)) {
         TRACE("(%p)->(IID_ISupportErrorInfo %p)\n", This, ppvObject);
         *ppvObject = SUPPERRINFO(This);
-    }else if(IsEqualGUID(&IID_IPersistHistory, riid)) {
-        TRACE("(%p)->(IID_IPersistHistory %p)\n", This, ppvObject);
-        *ppvObject = PERSISTHIST(This);
     }else if(IsEqualGUID(&CLSID_CMarkup, riid)) {
         FIXME("(%p)->(CLSID_CMarkup %p)\n", This, ppvObject);
         return E_NOINTERFACE;
@@ -215,7 +211,6 @@ static ULONG WINAPI HTMLDocument_Release(IHTMLDocument2 *iface)
         detach_selection(This);
         detach_ranges(This);
         release_nodes(This);
-        release_dispex(&This->dispex);
 
         ConnectionPointContainer_Destroy(&This->cp_container);
 
@@ -901,13 +896,16 @@ static HRESULT WINAPI HTMLDocument_get_nameProp(IHTMLDocument2 *iface, BSTR *p)
     return E_NOTIMPL;
 }
 
-static HRESULT document_write(HTMLDocument *This, SAFEARRAY *psarray, BOOL ln)
+static HRESULT WINAPI HTMLDocument_write(IHTMLDocument2 *iface, SAFEARRAY *psarray)
 {
+    HTMLDocument *This = HTMLDOC_THIS(iface);
     nsAString nsstr;
     VARIANT *var;
-    ULONG i, argc;
+    ULONG i;
     nsresult nsres;
     HRESULT hres;
+
+    TRACE("(%p)->(%p)\n", iface, psarray);
 
     if(!This->nsdoc) {
         WARN("NULL nsdoc\n");
@@ -927,14 +925,10 @@ static HRESULT document_write(HTMLDocument *This, SAFEARRAY *psarray, BOOL ln)
 
     nsAString_Init(&nsstr, NULL);
 
-    argc = psarray->rgsabound[0].cElements;
-    for(i=0; i < argc; i++) {
+    for(i=0; i < psarray->rgsabound[0].cElements; i++) {
         if(V_VT(var+i) == VT_BSTR) {
             nsAString_SetData(&nsstr, V_BSTR(var+i));
-            if(!ln || i != argc-1)
-                nsres = nsIDOMHTMLDocument_Write(This->nsdoc, &nsstr);
-            else
-                nsres = nsIDOMHTMLDocument_Writeln(This->nsdoc, &nsstr);
+            nsres = nsIDOMHTMLDocument_Write(This->nsdoc, &nsstr);
             if(NS_FAILED(nsres))
                 ERR("Write failed: %08x\n", nsres);
         }else {
@@ -948,22 +942,11 @@ static HRESULT document_write(HTMLDocument *This, SAFEARRAY *psarray, BOOL ln)
     return S_OK;
 }
 
-static HRESULT WINAPI HTMLDocument_write(IHTMLDocument2 *iface, SAFEARRAY *psarray)
-{
-    HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", iface, psarray);
-
-    return document_write(This, psarray, FALSE);
-}
-
 static HRESULT WINAPI HTMLDocument_writeln(IHTMLDocument2 *iface, SAFEARRAY *psarray)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", This, psarray);
-
-    return document_write(This, psarray, TRUE);
+    FIXME("(%p)->(%p)\n", This, psarray);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_open(IHTMLDocument2 *iface, BSTR url, VARIANT name,
@@ -1379,11 +1362,11 @@ static HRESULT WINAPI HTMLDocument_get_onselectstart(IHTMLDocument2 *iface, VARI
     return get_doc_event(This, EVENTID_SELECTSTART, p);
 }
 
-static HRESULT WINAPI HTMLDocument_elementFromPoint(IHTMLDocument2 *iface, LONG x, LONG y,
+static HRESULT WINAPI HTMLDocument_elementFromPoint(IHTMLDocument2 *iface, long x, long y,
                                                         IHTMLElement **elementHit)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-    FIXME("(%p)->(%d %d %p)\n", This, x, y, elementHit);
+    FIXME("(%p)->(%ld %ld %p)\n", This, x, y, elementHit);
     return E_NOTIMPL;
 }
 
@@ -1465,11 +1448,11 @@ static HRESULT WINAPI HTMLDocument_toString(IHTMLDocument2 *iface, BSTR *String)
 }
 
 static HRESULT WINAPI HTMLDocument_createStyleSheet(IHTMLDocument2 *iface, BSTR bstrHref,
-                                            LONG lIndex, IHTMLStyleSheet **ppnewStyleSheet)
+                                            long lIndex, IHTMLStyleSheet **ppnewStyleSheet)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
 
-    FIXME("(%p)->(%s %d %p) semi-stub\n", This, debugstr_w(bstrHref), lIndex, ppnewStyleSheet);
+    FIXME("(%p)->(%s %ld %p) semi-stub\n", This, debugstr_w(bstrHref), lIndex, ppnewStyleSheet);
 
     *ppnewStyleSheet = HTMLStyleSheet_Create(NULL);
     return S_OK;

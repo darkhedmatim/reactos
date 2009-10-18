@@ -280,7 +280,7 @@ NTSTATUS tdiGetMibForIfEntity
            entry->ent.if_descr);
     TRACE("} status %08x\n",status);
 
-    return STATUS_SUCCESS;
+    return status;
 }
 
 NTSTATUS tdiGetEntityIDSet( HANDLE tcpFile,
@@ -315,7 +315,7 @@ BOOL isInterface( TDIEntityID *if_maybe ) {
         if_maybe->tei_entity == IF_ENTITY;
 }
 
-BOOL isLoopback( HANDLE tcpFile, TDIEntityID *loop_maybe ) {
+static BOOL isLoopback( HANDLE tcpFile, TDIEntityID *loop_maybe ) {
     IFEntrySafelySized entryInfo;
     NTSTATUS status;
 
@@ -323,8 +323,36 @@ BOOL isLoopback( HANDLE tcpFile, TDIEntityID *loop_maybe ) {
                                    loop_maybe,
                                    &entryInfo );
 
-    return NT_SUCCESS(status) &&
-           (entryInfo.ent.if_type == IFENT_SOFTWARE_LOOPBACK);
+    return NT_SUCCESS(status) && (!entryInfo.ent.if_type ||
+        entryInfo.ent.if_type == IFENT_SOFTWARE_LOOPBACK);
+}
+
+NTSTATUS tdiGetEntityType( HANDLE tcpFile, TDIEntityID *ent, PULONG type ) {
+    TCP_REQUEST_QUERY_INFORMATION_EX req = TCP_REQUEST_QUERY_INFORMATION_INIT;
+    NTSTATUS status = STATUS_SUCCESS;
+    DWORD returnSize;
+
+    TRACE("TdiGetEntityType(tcpFile %x,entityId %x)\n",
+           (DWORD)tcpFile, ent->tei_instance);
+
+    req.ID.toi_class                = INFO_CLASS_GENERIC;
+    req.ID.toi_type                 = INFO_TYPE_PROVIDER;
+    req.ID.toi_id                   = ENTITY_TYPE_ID;
+    req.ID.toi_entity.tei_entity    = ent->tei_entity;
+    req.ID.toi_entity.tei_instance  = ent->tei_instance;
+
+    status = DeviceIoControl( tcpFile,
+                              IOCTL_TCP_QUERY_INFORMATION_EX,
+                              &req,
+                              sizeof(req),
+                              type,
+                              sizeof(*type),
+                              &returnSize,
+                              NULL );
+
+    TRACE("TdiGetEntityType() => %08x %08x\n", *type, status);
+
+    return (status ? STATUS_SUCCESS : STATUS_UNSUCCESSFUL);
 }
 
 BOOL hasArp( HANDLE tcpFile, TDIEntityID *arp_maybe ) {
@@ -346,9 +374,9 @@ BOOL hasArp( HANDLE tcpFile, TDIEntityID *arp_maybe ) {
                               sizeof(type),
                               &returnSize,
                               NULL );
-    if( !NT_SUCCESS(status) ) return FALSE;
 
-    return (type & AT_ARP);
+    if( !NT_SUCCESS(status) ) return FALSE;
+    return type == AT_ENTITY;
 }
 
 static NTSTATUS getInterfaceInfoSet( HANDLE tcpFile,
@@ -358,6 +386,7 @@ static NTSTATUS getInterfaceInfoSet( HANDLE tcpFile,
     TDIEntityID *entIDSet = 0;
     NTSTATUS status = tdiGetEntityIDSet( tcpFile, &entIDSet, &numEntities );
     IFInfo *infoSetInt = 0;
+    BOOL interfaceInfoComplete;
     int curInterf = 0, i;
 
     if (!NT_SUCCESS(status)) {
@@ -383,7 +412,8 @@ static NTSTATUS getInterfaceInfoSet( HANDLE tcpFile,
                     TDIEntityID ip_ent;
                     int j;
 
-		    status = getNthIpEntity( tcpFile, curInterf, &ip_ent );
+                    interfaceInfoComplete = FALSE;
+		    status = getNthIpEntity( tcpFile, 0, &ip_ent );
 		    if( NT_SUCCESS(status) )
 			status = tdiGetIpAddrsForIpEntity
 			    ( tcpFile, &ip_ent, &addrs, &numAddrs );
@@ -552,8 +582,6 @@ const char *getInterfaceNameByIndex(DWORD index)
 
             interfaceName = HeapAlloc( GetProcessHeap(), 0,
                                        strlen(adapter_name) + 1 );
-            if (!interfaceName) return NULL;
-
             strcpy( interfaceName, adapter_name );
         }
 
@@ -819,14 +847,15 @@ DWORD getInterfaceEntryByIndex(DWORD index, PMIB_IFROW entry)
 
 char *toIPAddressString(unsigned int addr, char string[16])
 {
+  if (string) {
     struct in_addr iAddr;
 
     iAddr.s_addr = addr;
-
-    if (string)
-        strncpy(string, inet_ntoa(iAddr), 16);
-  
-    return inet_ntoa(iAddr);
+    /* extra-anal, just to make auditors happy */
+    strncpy(string, inet_ntoa(iAddr), 16);
+    string[16] = '\0';
+  }
+  return string;
 }
 
 NTSTATUS addIPAddress( IPAddr Address, IPMask Mask, DWORD IfIndex,

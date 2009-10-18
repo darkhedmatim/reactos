@@ -750,7 +750,7 @@ LANStatusUiDlg(
             if (lppsn->hdr.code == PSN_APPLY || lppsn->hdr.code == PSN_RESET)
             {
                 pContext = (LANSTATUSUI_CONTEXT*)GetWindowLongPtr(hwndDlg, DWLP_USER);
-                SetWindowLongPtr(hwndDlg, DWL_MSGRESULT, PSNRET_NOERROR);
+                SetWindowLong(hwndDlg, DWL_MSGRESULT, PSNRET_NOERROR);
                 pContext->hwndDlg = NULL;
                 return TRUE;
             }

@@ -32,9 +32,7 @@
 #	include <sys/types.h>
 #	include <sys/stat.h>
 #	include <fcntl.h>
-#	undef strcasecmp
 #	define strcasecmp stricmp
-#	undef strncasecmp
 #	define strncasecmp strnicmp
 #	define sleep(a) Sleep(a * 1000)
 #	ifndef S_ISREG

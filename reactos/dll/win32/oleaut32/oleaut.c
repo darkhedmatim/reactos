@@ -266,7 +266,7 @@ BSTR WINAPI SysAllocStringLen(const OLECHAR *str, unsigned int len)
     stringBuffer = (WCHAR*)newBuffer;
     stringBuffer[len] = '\0';
 
-    return stringBuffer;
+    return (LPWSTR)stringBuffer;
 }
 
 /******************************************************************************
@@ -706,7 +706,7 @@ static HRESULT WINAPI PSDispatchFacBuf_QueryInterface(IPSFactoryBuffer *iface, R
         IsEqualIID(riid, &IID_IPSFactoryBuffer))
     {
         IUnknown_AddRef(iface);
-        *ppv = iface;
+        *ppv = (void *)iface;
         return S_OK;
     }
     return E_NOINTERFACE;

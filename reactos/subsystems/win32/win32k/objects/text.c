@@ -13,121 +13,14 @@
 #define NDEBUG
 #include <debug.h>
 
-/** Functions *****************************************************************/
-
-BOOL
-FASTCALL
-GreGetTextExtentW(
-    HDC hDC,
-    LPWSTR lpwsz,
-    INT cwc,
-    LPSIZE psize,
-    UINT flOpts)
-{
-  PDC pdc;
-  PDC_ATTR pdcattr;
-  BOOL Result;
-  PTEXTOBJ TextObj;
-
-  if (!cwc)
-  {
-     psize->cx = 0;
-     psize->cy = 0;
-     return TRUE;
-  }
-
-  pdc = DC_LockDc(hDC);
-  if (!pdc)
-  {
-     SetLastWin32Error(ERROR_INVALID_HANDLE);
-     return FALSE;
-  }
-
-  pdcattr = pdc->pdcattr;
-
-  TextObj = RealizeFontInit(pdcattr->hlfntNew);
-  if ( TextObj )
-  {
-     Result = TextIntGetTextExtentPoint( pdc,
-                                         TextObj,
-                                         lpwsz,
-                                         cwc,
-                                         0,
-                                         NULL,
-                                         0,
-                                         psize);
-     TEXTOBJ_UnlockText(TextObj);
-  }
-  else
-     Result = FALSE;
-
-  DC_UnlockDc(pdc);
-  return Result;
-} 
-
-BOOL
-FASTCALL
-GreGetTextExtentExW(
-    HDC hDC,
-    LPWSTR String,
-    ULONG Count,
-    ULONG MaxExtent,
-    PULONG Fit,
-    PULONG Dx,
-    LPSIZE pSize,
-    FLONG fl)
-{
-  PDC pdc;
-  PDC_ATTR pdcattr;
-  BOOL Result;
-  PTEXTOBJ TextObj;
-
-  if ( (!String && Count ) || !pSize )
-  {
-     SetLastWin32Error(ERROR_INVALID_PARAMETER);
-     return FALSE;
-  }
-
-  if ( !Count )
-  {
-     if ( Fit ) Fit = 0;  
-     return TRUE;
-  }
-      
-  pdc = DC_LockDc(hDC);
-  if (NULL == pdc)
-  {
-     SetLastWin32Error(ERROR_INVALID_HANDLE);
-     return FALSE;
-  }
-  pdcattr = pdc->pdcattr;
-
-  TextObj = RealizeFontInit(pdcattr->hlfntNew);
-  if ( TextObj )
-  {
-     Result = TextIntGetTextExtentPoint( pdc,
-                                         TextObj,
-                                         String,
-                                         Count,
-                                         MaxExtent,
-                                         (LPINT)Fit,
-                                         (LPINT)Dx,
-                                         pSize);
-     TEXTOBJ_UnlockText(TextObj);
-  }
-  else
-     Result = FALSE;
-
-  DC_UnlockDc(pdc);
-  return Result;
-}
+/** Functions ******************************************************************/
 
 DWORD
 APIENTRY
 NtGdiGetCharSet(HDC hDC)
 {
   PDC Dc;
-  PDC_ATTR pdcattr;
+  PDC_ATTR Dc_Attr;
   DWORD cscp;
   // If here, update everything!
   Dc = DC_LockDc(hDC);
@@ -137,9 +30,10 @@ NtGdiGetCharSet(HDC hDC)
      return 0;
   }
   cscp = ftGdiGetTextCharsetInfo(Dc,NULL,0);
-  pdcattr = Dc->pdcattr;
-  pdcattr->iCS_CP = cscp;
-  pdcattr->ulDirty_ &= ~DIRTY_CHARSET;
+  Dc_Attr = Dc->pDc_Attr;
+  if (!Dc_Attr) Dc_Attr = &Dc->Dc_Attr;
+  Dc_Attr->iCS_CP = cscp;
+  Dc_Attr->ulDirty_ &= ~DIRTY_CHARSET;
   DC_UnlockDc( Dc );
   return cscp;
 }
@@ -176,8 +70,6 @@ NtGdiGetRasterizerCaps(
            SetLastNtError(Status);
            return FALSE;
         }
-
-        return TRUE;
      }
   }
   return FALSE;
@@ -250,7 +142,7 @@ NtGdiGetTextExtentExW(
 )
 {
   PDC dc;
-  PDC_ATTR pdcattr;
+  PDC_ATTR Dc_Attr;
   LPWSTR String;
   SIZE Size;
   NTSTATUS Status;
@@ -319,18 +211,13 @@ NtGdiGetTextExtentExW(
       SetLastWin32Error(ERROR_INVALID_HANDLE);
       return FALSE;
     }
-  pdcattr = dc->pdcattr;
-  TextObj = RealizeFontInit(pdcattr->hlfntNew);
+  Dc_Attr = dc->pDc_Attr;
+  if(!Dc_Attr) Dc_Attr = &dc->Dc_Attr;
+  TextObj = RealizeFontInit(Dc_Attr->hlfntNew);
   if ( TextObj )
   {
-    Result = TextIntGetTextExtentPoint( dc,
-                                        TextObj,
-                                        String,
-                                        Count,
-                                        MaxExtent,
-                                        NULL == UnsafeFit ? NULL : &Fit,
-                                        Dx,
-                                       &Size);
+    Result = TextIntGetTextExtentPoint(dc, TextObj, String, Count, MaxExtent,
+                                     NULL == UnsafeFit ? NULL : &Fit, Dx, &Size);
     TEXTOBJ_UnlockText(TextObj);
   }
   else
@@ -407,7 +294,7 @@ NtGdiSetTextJustification(HDC  hDC,
                           int  BreakCount)
 {
   PDC pDc;
-  PDC_ATTR pdcattr;
+  PDC_ATTR pDc_Attr;
 
   pDc = DC_LockDc(hDC);
   if (!pDc)
@@ -416,10 +303,11 @@ NtGdiSetTextJustification(HDC  hDC,
      return FALSE;
   }
 
-  pdcattr = pDc->pdcattr;
+  pDc_Attr = pDc->pDc_Attr;
+  if(!pDc_Attr) pDc_Attr = &pDc->Dc_Attr;
 
-  pdcattr->lBreakExtra = BreakExtra;
-  pdcattr->cBreak = BreakCount;
+  pDc_Attr->lBreakExtra = BreakExtra;
+  pDc_Attr->cBreak = BreakCount;
 
   DC_UnlockDc(pDc);
   return TRUE;
@@ -437,11 +325,10 @@ NtGdiGetTextFaceW(
 )
 {
    PDC Dc;
-   PDC_ATTR pdcattr;
+   PDC_ATTR Dc_Attr;
    HFONT hFont;
    PTEXTOBJ TextObj;
    NTSTATUS Status;
-   INT fLen, ret;
 
    /* FIXME: Handle bAliasName */
 
@@ -451,38 +338,23 @@ NtGdiGetTextFaceW(
       SetLastWin32Error(ERROR_INVALID_HANDLE);
       return FALSE;
    }
-   pdcattr = Dc->pdcattr;
-   hFont = pdcattr->hlfntNew;
+   Dc_Attr = Dc->pDc_Attr;
+   if(!Dc_Attr) Dc_Attr = &Dc->Dc_Attr;
+   hFont = Dc_Attr->hlfntNew;
    DC_UnlockDc(Dc);
 
    TextObj = RealizeFontInit(hFont);
    ASSERT(TextObj != NULL);
-   fLen = wcslen(TextObj->logfont.elfEnumLogfontEx.elfLogFont.lfFaceName) + 1;
-
-   if (FaceName != NULL)
-   {
-      Count = min(Count, fLen);
-      Status = MmCopyToCaller(FaceName, TextObj->logfont.elfEnumLogfontEx.elfLogFont.lfFaceName, Count * sizeof(WCHAR));
-      if (!NT_SUCCESS(Status))
-      {
-         TEXTOBJ_UnlockText(TextObj);
-         SetLastNtError(Status);
-         return 0;
-      }
-      /* Terminate if we copied only part of the font name */
-      if (Count > 0 && Count < fLen)
-      {
-         FaceName[Count - 1] = '\0';
-      }
-      ret = Count;
-   }
-   else
-   {
-      ret = fLen; 
-   }
-
+   Count = min(Count, wcslen(TextObj->logfont.elfEnumLogfontEx.elfLogFont.lfFaceName));
+   Status = MmCopyToCaller(FaceName, TextObj->logfont.elfEnumLogfontEx.elfLogFont.lfFaceName, Count * sizeof(WCHAR));
    TEXTOBJ_UnlockText(TextObj);
-   return ret;
+   if (!NT_SUCCESS(Status))
+   {
+      SetLastNtError(Status);
+      return 0;
+   }
+
+   return Count;
 }
 
 W32KAPI

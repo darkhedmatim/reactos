@@ -129,7 +129,7 @@ static HRESULT WINAPI HTMLDOMChildrenCollection_Invoke(IHTMLDOMChildrenCollectio
             wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr);
 }
 
-static HRESULT WINAPI HTMLDOMChildrenCollection_get_length(IHTMLDOMChildrenCollection *iface, LONG *p)
+static HRESULT WINAPI HTMLDOMChildrenCollection_get_length(IHTMLDOMChildrenCollection *iface, long *p)
 {
     HTMLDOMChildrenCollection *This = HTMLCHILDCOL_THIS(iface);
     PRUint32 length=0;
@@ -148,19 +148,14 @@ static HRESULT WINAPI HTMLDOMChildrenCollection__newEnum(IHTMLDOMChildrenCollect
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI HTMLDOMChildrenCollection_item(IHTMLDOMChildrenCollection *iface, LONG index, IDispatch **ppItem)
+static HRESULT WINAPI HTMLDOMChildrenCollection_item(IHTMLDOMChildrenCollection *iface, long index, IDispatch **ppItem)
 {
     HTMLDOMChildrenCollection *This = HTMLCHILDCOL_THIS(iface);
     nsIDOMNode *nsnode = NULL;
     PRUint32 length=0;
     nsresult nsres;
 
-    TRACE("(%p)->(%d %p)\n", This, index, ppItem);
-
-    if (ppItem)
-        *ppItem = NULL;
-    else
-        return E_POINTER;
+    TRACE("(%p)->(%ld %p)\n", This, index, ppItem);
 
     nsIDOMNodeList_GetLength(This->nslist, &length);
     if(index < 0 || index >= length)
@@ -250,7 +245,6 @@ static const tid_t HTMLDOMChildrenCollection_iface_tids[] = {
 };
 
 static const dispex_static_data_vtbl_t HTMLDOMChildrenCollection_dispex_vtbl = {
-    NULL,
     HTMLDOMChildrenCollection_get_dispid,
     HTMLDOMChildrenCollection_invoke
 };
@@ -308,7 +302,6 @@ static ULONG WINAPI HTMLDOMNode_Release(IHTMLDOMNode *iface)
 
     if(!ref) {
         This->vtbl->destructor(This);
-        release_dispex(&This->dispex);
         heap_free(This);
     }
 
@@ -345,7 +338,7 @@ static HRESULT WINAPI HTMLDOMNode_Invoke(IHTMLDOMNode *iface, DISPID dispIdMembe
             wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr);
 }
 
-static HRESULT WINAPI HTMLDOMNode_get_nodeType(IHTMLDOMNode *iface, LONG *p)
+static HRESULT WINAPI HTMLDOMNode_get_nodeType(IHTMLDOMNode *iface, long *p)
 {
     HTMLDOMNode *This = HTMLDOMNODE_THIS(iface);
     PRUint16 type = -1;

@@ -27,12 +27,10 @@
 #include <msidefs.h>
 #include <msi.h>
 #include <sddl.h>
-#include <secext.h>
 
 #include "wine/test.h"
 
 static BOOL (WINAPI *pConvertSidToStringSidA)(PSID, LPSTR*);
-static BOOLEAN (WINAPI *pGetUserNameExA)(EXTENDED_NAME_FORMAT, LPSTR, PULONG);
 static UINT (WINAPI *pMsiSourceListAddMediaDiskA)
     (LPCSTR, LPCSTR, MSIINSTALLCONTEXT, DWORD, DWORD, LPCSTR, LPCSTR);
 static UINT (WINAPI *pMsiSourceListAddSourceExA)
@@ -53,7 +51,6 @@ static void init_functionpointers(void)
 {
     HMODULE hmsi = GetModuleHandleA("msi.dll");
     HMODULE hadvapi32 = GetModuleHandleA("advapi32.dll");
-    HMODULE hsecur32 = LoadLibraryA("secur32.dll");
 
 #define GET_PROC(dll, func) \
     p ## func = (void *)GetProcAddress(dll, #func); \
@@ -69,8 +66,6 @@ static void init_functionpointers(void)
     GET_PROC(hmsi, MsiSourceListAddSourceA)
 
     GET_PROC(hadvapi32, ConvertSidToStringSidA)
-
-    GET_PROC(hsecur32, GetUserNameExA)
 
 #undef GET_PROC
 }
@@ -193,7 +188,7 @@ static void test_MsiSourceListGetInfo(void)
 
     if (!pMsiSourceListGetInfoA)
     {
-        win_skip("Skipping MsiSourceListGetInfoA tests\n");
+        skip("Skipping MsiSourceListGetInfoA tests\n");
         return;
     }
 
@@ -283,7 +278,7 @@ static void test_MsiSourceListGetInfo(void)
     size = MAX_PATH;
     r = pMsiSourceListGetInfoA(prodcode, usersid, MSIINSTALLCONTEXT_USERUNMANAGED,
                               MSICODE_PRODUCT, INSTALLPROPERTY_PACKAGENAME, NULL, &size);
-    ok(r == ERROR_UNKNOWN_PRODUCT || r == ERROR_INVALID_PARAMETER,
+    ok(r == ERROR_UNKNOWN_PRODUCT || ERROR_INVALID_PARAMETER,
       "Expected ERROR_UNKNOWN_PRODUCT or ERROR_INVALID_PARAMETER, got %d\n", r);
 
     lstrcpyA(keypath, "Software\\Microsoft\\Installer\\Products\\");
@@ -645,7 +640,7 @@ static void test_MsiSourceListAddSourceEx(void)
 
     if (!pMsiSourceListAddSourceExA)
     {
-        win_skip("Skipping MsiSourceListAddSourceExA tests\n");
+        skip("Skipping MsiSourceListAddSourceExA tests\n");
         return;
     }
 
@@ -1018,7 +1013,7 @@ static void test_MsiSourceListEnumSources(void)
 
     if (!pMsiSourceListEnumSourcesA)
     {
-        win_skip("MsiSourceListEnumSourcesA is not available\n");
+        skip("MsiSourceListEnumSourcesA is not available\n");
         return;
     }
 
@@ -1620,7 +1615,7 @@ static void test_MsiSourceListSetInfo(void)
 
     if (!pMsiSourceListSetInfoA)
     {
-        win_skip("MsiSourceListSetInfoA is not available\n");
+        skip("MsiSourceListSetInfoA is not available\n");
         return;
     }
 
@@ -2030,7 +2025,7 @@ static void test_MsiSourceListAddMediaDisk(void)
 
     if (!pMsiSourceListAddMediaDiskA)
     {
-        win_skip("MsiSourceListAddMediaDiskA is not available\n");
+        skip("MsiSourceListAddMediaDiskA is not available\n");
         return;
     }
 
@@ -2332,7 +2327,7 @@ static void test_MsiSourceListEnumMediaDisks(void)
 
     if (!pMsiSourceListEnumMediaDisksA)
     {
-        win_skip("MsiSourceListEnumMediaDisksA is not available\n");
+        skip("MsiSourceListEnumMediaDisksA is not available\n");
         return;
     }
 
@@ -3131,7 +3126,7 @@ static void test_MsiSourceListAddSource(void)
 
     if (!pMsiSourceListAddSourceA)
     {
-        win_skip("Skipping MsiSourceListAddSourceA tests\n");
+        skip("Skipping MsiSourceListAddSourceA tests\n");
         return;
     }
 
@@ -3144,17 +3139,11 @@ static void test_MsiSourceListAddSource(void)
 
     /* MACHINENAME\username */
     size = MAX_PATH;
-    if (pGetUserNameExA != NULL)
-        pGetUserNameExA(NameSamCompatible, username, &size);
-    else
-    {
-        GetComputerNameA(username, &size);
-        lstrcatA(username, "\\");
-        ptr = username + lstrlenA(username);
-        size = MAX_PATH - (ptr - username);
-        GetUserNameA(ptr, &size);
-    }
-    trace("username: %s\n", username);
+    GetComputerNameA(username, &size);
+    lstrcatA(username, "\\");
+    ptr = username + lstrlenA(username);
+    size = MAX_PATH;
+    GetUserNameA(ptr, &size);
 
     /* GetLastError is not set by the function */
 

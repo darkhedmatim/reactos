@@ -401,13 +401,9 @@ static LPWSTR* msi_split_string( LPCWSTR str, WCHAR sep )
 
 static UINT msi_check_transform_applicable( MSIPACKAGE *package, IStorage *patch )
 {
-    static const WCHAR szProductCode[] =
-        { 'P','r','o','d','u','c','t','C','o','d','e',0 };
-    static const WCHAR szSystemLanguageID[] =
-        { 'S','y','s','t','e','m','L','a','n','g','u','a','g','e','I','D',0 };
-
-    LPWSTR prod_code, patch_product, langid = NULL, template = NULL;
-    UINT ret = ERROR_FUNCTION_FAILED;
+    WCHAR szProductCode[] = { 'P','r','o','d','u','c','t','C','o','d','e',0 };
+    LPWSTR prod_code, patch_product;
+    UINT ret;
 
     prod_code = msi_dup_property( package, szProductCode );
     patch_product = msi_get_suminfo_product( patch );
@@ -415,57 +411,12 @@ static UINT msi_check_transform_applicable( MSIPACKAGE *package, IStorage *patch
     TRACE("db = %s patch = %s\n", debugstr_w(prod_code), debugstr_w(patch_product));
 
     if ( strstrW( patch_product, prod_code ) )
-    {
-        static const WCHAR zero[] = {'0',0};
-        MSISUMMARYINFO *si;
-        const WCHAR *p;
+        ret = ERROR_SUCCESS;
+    else
+        ret = ERROR_FUNCTION_FAILED;
 
-        si = MSI_GetSummaryInformationW( patch, 0 );
-        if (!si)
-        {
-            ERR("no summary information!\n");
-            goto end;
-        }
-
-        template = msi_suminfo_dup_string( si, PID_TEMPLATE );
-        if (!template)
-        {
-            ERR("no template property!\n");
-            msiobj_release( &si->hdr );
-            goto end;
-        }
-
-        if (!template[0])
-        {
-            ret = ERROR_SUCCESS;
-            msiobj_release( &si->hdr );
-            goto end;
-        }
-
-        langid = msi_dup_property( package, szSystemLanguageID );
-        if (!langid)
-        {
-            msiobj_release( &si->hdr );
-            goto end;
-        }
-
-        p = strchrW( template, ';' );
-        if (p && (!strcmpW( p + 1, langid ) || !strcmpW( p + 1, zero )))
-        {
-            TRACE("applicable transform\n");
-            ret = ERROR_SUCCESS;
-        }
-
-        /* FIXME: check platform */
-
-        msiobj_release( &si->hdr );
-    }
-
-end:
     msi_free( patch_product );
     msi_free( prod_code );
-    msi_free( template );
-    msi_free( langid );
 
     return ret;
 }
@@ -501,7 +452,7 @@ static UINT msi_apply_substorage_transform( MSIPACKAGE *package,
     return ERROR_SUCCESS;
 }
 
-UINT msi_check_patch_applicable( MSIPACKAGE *package, MSISUMMARYINFO *si )
+static UINT msi_check_patch_applicable( MSIPACKAGE *package, MSISUMMARYINFO *si )
 {
     static const WCHAR szProdCode[] = { 'P','r','o','d','u','c','t','C','o','d','e',0 };
     LPWSTR guid_list, *guids, product_code;
@@ -789,9 +740,6 @@ UINT MSI_InstallPackage( MSIPACKAGE *package, LPCWSTR szPackagePath,
     static const WCHAR szUILevel[] = {'U','I','L','e','v','e','l',0};
     static const WCHAR szAction[] = {'A','C','T','I','O','N',0};
     static const WCHAR szInstall[] = {'I','N','S','T','A','L','L',0};
-    static const WCHAR szReinstall[] = {'R','E','I','N','S','T','A','L','L',0};
-    static const WCHAR szInstalled[] = {'I','n','s','t','a','l','l','e','d',0};
-    static const WCHAR szAll[] = {'A','L','L',0};
 
     MSI_SetPropertyW(package, szAction, szInstall);
 
@@ -840,12 +788,6 @@ UINT MSI_InstallPackage( MSIPACKAGE *package, LPCWSTR szPackagePath,
     msi_apply_transforms( package );
     msi_apply_patches( package );
 
-    if (!szCommandLine && msi_get_property_int( package, szInstalled, 0 ))
-    {
-        TRACE("setting reinstall property\n");
-        MSI_SetPropertyW( package, szReinstall, szAll );
-    }
-
     /* properties may have been added by a transform */
     msi_clone_properties( package );
     msi_set_context( package );
@@ -880,9 +822,6 @@ UINT MSI_InstallPackage( MSIPACKAGE *package, LPCWSTR szPackagePath,
     /* finish up running custom actions */
     ACTION_FinishCustomActions(package);
     
-    if (rc == ERROR_SUCCESS && package->need_reboot)
-        return ERROR_SUCCESS_REBOOT_REQUIRED;
-
     return rc;
 }
 
@@ -1843,7 +1782,6 @@ static BOOL process_state_property(MSIPACKAGE* package, int level,
 {
     static const WCHAR all[]={'A','L','L',0};
     static const WCHAR remove[] = {'R','E','M','O','V','E',0};
-    static const WCHAR reinstall[] = {'R','E','I','N','S','T','A','L','L',0};
     LPWSTR override;
     MSIFEATURE *feature;
 
@@ -1856,8 +1794,6 @@ static BOOL process_state_property(MSIPACKAGE* package, int level,
         if (lstrcmpW(property, remove) &&
             (feature->Level <= 0 || feature->Level > level))
             continue;
-
-        if (!strcmpW(property, reinstall)) state = feature->Installed;
 
         if (strcmpiW(override,all)==0)
             msi_feature_set_state(package, feature, state);
@@ -1902,8 +1838,6 @@ UINT MSI_SetFeatureStates(MSIPACKAGE *package)
         {'R','E','M','O','V','E',0};
     static const WCHAR szReinstall[] =
         {'R','E','I','N','S','T','A','L','L',0};
-    static const WCHAR szAdvertise[] =
-        {'A','D','V','E','R','T','I','S','E',0};
     BOOL override = FALSE;
     MSICOMPONENT* component;
     MSIFEATURE *feature;
@@ -1918,13 +1852,12 @@ UINT MSI_SetFeatureStates(MSIPACKAGE *package)
     /* ok here is the _real_ rub
      * all these activation/deactivation things happen in order and things
      * later on the list override things earlier on the list.
-     * 0) INSTALLLEVEL processing
-     * 1) ADDLOCAL
-     * 2) REMOVE
-     * 3) ADDSOURCE
-     * 4) ADDDEFAULT
-     * 5) REINSTALL
-     * 6) ADVERTISE
+     * 1) INSTALLLEVEL processing
+     * 2) ADDLOCAL
+     * 3) REMOVE
+     * 4) ADDSOURCE
+     * 5) ADDDEFAULT
+     * 6) REINSTALL
      * 7) COMPADDLOCAL
      * 8) COMPADDSOURCE
      * 9) FILEADDLOCAL
@@ -1938,8 +1871,7 @@ UINT MSI_SetFeatureStates(MSIPACKAGE *package)
     override |= process_state_property(package, level, szAddLocal, INSTALLSTATE_LOCAL);
     override |= process_state_property(package, level, szRemove, INSTALLSTATE_ABSENT);
     override |= process_state_property(package, level, szAddSource, INSTALLSTATE_SOURCE);
-    override |= process_state_property(package, level, szReinstall, INSTALLSTATE_UNKNOWN);
-    override |= process_state_property(package, level, szAdvertise, INSTALLSTATE_ADVERTISED);
+    override |= process_state_property(package, level, szReinstall, INSTALLSTATE_LOCAL);
 
     if (!override)
     {
@@ -3390,12 +3322,16 @@ static UINT ACTION_CreateShortcuts(MSIPACKAGE *package)
         return ERROR_SUCCESS;
 
     res = CoInitialize( NULL );
+    if (FAILED (res))
+    {
+        ERR("CoInitialize failed\n");
+        return ERROR_FUNCTION_FAILED;
+    }
 
     rc = MSI_IterateRecords(view, NULL, ITERATE_CreateShortcuts, package);
     msiobj_release(&view->hdr);
 
-    if (SUCCEEDED(res))
-        CoUninitialize();
+    CoUninitialize();
 
     return rc;
 }
@@ -3567,6 +3503,9 @@ static UINT msi_publish_product_properties(MSIPACKAGE *package, HKEY hkey)
     langid = msi_get_property_int(package, szProductLanguage, 0);
     msi_reg_set_val_dword(hkey, INSTALLPROPERTY_LANGUAGEW, langid);
 
+    ptr = strrchrW(package->PackagePath, '\\' ) + 1;
+    msi_reg_set_val_str(hkey, INSTALLPROPERTY_PACKAGENAMEW, ptr);
+
     /* FIXME */
     msi_reg_set_val_dword(hkey, INSTALLPROPERTY_AUTHORIZED_LUA_APPW, 0);
 
@@ -3729,7 +3668,7 @@ static UINT ACTION_PublishProduct(MSIPACKAGE *package)
     if (!msi_check_publish(package))
         return ERROR_SUCCESS;
 
-    rc = MSIREG_OpenProductKey(package->ProductCode, NULL, package->Context,
+    rc = MSIREG_OpenProductKey(package->ProductCode, package->Context,
                                &hukey, TRUE);
     if (rc != ERROR_SUCCESS)
         goto end;
@@ -5316,7 +5255,8 @@ static LONG env_set_flags( LPCWSTR *name, LPCWSTR *value, DWORD *flags )
         }
     }
 
-    if (check_flag_combo(*flags, ENV_ACT_SETALWAYS | ENV_ACT_SETABSENT) ||
+    if (!*flags ||
+        check_flag_combo(*flags, ENV_ACT_SETALWAYS | ENV_ACT_SETABSENT) ||
         check_flag_combo(*flags, ENV_ACT_REMOVEMATCH | ENV_ACT_SETABSENT) ||
         check_flag_combo(*flags, ENV_ACT_REMOVEMATCH | ENV_ACT_SETALWAYS) ||
         check_flag_combo(*flags, ENV_ACT_SETABSENT | ENV_MOD_MASK))
@@ -5324,9 +5264,6 @@ static LONG env_set_flags( LPCWSTR *name, LPCWSTR *value, DWORD *flags )
         ERR("Invalid flags: %08x\n", *flags);
         return ERROR_FUNCTION_FAILED;
     }
-
-    if (!*flags)
-        *flags = ENV_ACT_SETALWAYS | ENV_ACT_REMOVE;
 
     return ERROR_SUCCESS;
 }
@@ -5354,8 +5291,6 @@ static UINT ITERATE_WriteEnvironmentString( MSIRECORD *rec, LPVOID param )
 
     name = MSI_RecordGetString(rec, 2);
     value = MSI_RecordGetString(rec, 3);
-
-    TRACE("name %s value %s\n", debugstr_w(name), debugstr_w(value));
 
     res = env_set_flags(&name, &value, &flags);
     if (res != ERROR_SUCCESS)
@@ -5941,13 +5876,13 @@ static UINT parse_assembly_name(MSIRECORD *rec, LPVOID param)
     static const WCHAR PublicKeyToken[] = {
         'P','u','b','l','i','c','K','e','y','T','o','k','e','n',0};
 
-    if (!strcmpiW(name, Name))
+    if (!lstrcmpW(name, Name))
         asmname->name = val;
-    else if (!strcmpiW(name, Version))
+    else if (!lstrcmpW(name, Version))
         asmname->version = val;
-    else if (!strcmpiW(name, Culture))
+    else if (!lstrcmpW(name, Culture))
         asmname->culture = val;
-    else if (!strcmpiW(name, PublicKeyToken))
+    else if (!lstrcmpW(name, PublicKeyToken))
         asmname->pubkeytoken = val;
     else
         msi_free(val);
@@ -6039,6 +5974,7 @@ static BOOL check_assembly_installed(MSIDATABASE *db, IAssemblyCache *cache,
     found = (asminfo.dwAssemblyFlags == ASSEMBLYINFO_FLAG_INSTALLED);
 
 done:
+    msiobj_release(&view->hdr);
     msi_free(disp);
     msi_free(name.name);
     msi_free(name.version);
@@ -6079,24 +6015,9 @@ static UINT load_assembly(MSIRECORD *rec, LPVOID param)
     assembly->manifest = strdupW(MSI_RecordGetString(rec, 3));
     assembly->application = strdupW(MSI_RecordGetString(rec, 4));
     assembly->attributes = MSI_RecordGetInteger(rec, 5);
-
-    if (assembly->application)
-    {
-        WCHAR version[24];
-        DWORD size = sizeof(version)/sizeof(WCHAR);
-
-        /* FIXME: we should probably check the manifest file here */
-
-        if (!MsiGetFileVersionW(assembly->file->TargetPath, version, &size, NULL, NULL) &&
-            (!assembly->file->Version || strcmpW(version, assembly->file->Version) >= 0))
-        {
-            assembly->installed = TRUE;
-        }
-    }
-    else
-        assembly->installed = check_assembly_installed(list->package->db,
-                                                       list->cache,
-                                                       assembly->component);
+    assembly->installed = check_assembly_installed(list->package->db,
+                                                   list->cache,
+                                                   assembly->component);
 
     list_add_head(list->assemblies, &assembly->entry);
     return ERROR_SUCCESS;

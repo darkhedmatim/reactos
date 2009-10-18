@@ -364,25 +364,14 @@ static void delete_test_files(void)
 /* ok-like statement which takes two unicode strings or one unicode and one ANSI string as arguments */
 static CHAR string1[MAX_PATH], string2[MAX_PATH];
 
-/* lstrcmpW is not supported on Win9x */
-static int strcmp_ww(const WCHAR* str1, const WCHAR* str2)
-{
-    CHAR str1A[MAX_PATH], str2A[MAX_PATH];
-
-    WideCharToMultiByte(CP_ACP, 0, str1, -1, str1A, MAX_PATH, NULL, NULL); \
-    WideCharToMultiByte(CP_ACP, 0, str2, -1, str2A, MAX_PATH, NULL, NULL); \
-
-    return lstrcmpA(str1A, str2A);
-}
-
 #define ok_w2(format, szString1, szString2) \
 \
-    do { \
-    WideCharToMultiByte(CP_ACP, 0, szString1, -1, string1, MAX_PATH, NULL, NULL); \
-    WideCharToMultiByte(CP_ACP, 0, szString2, -1, string2, MAX_PATH, NULL, NULL); \
-    if (lstrcmpA(string1, string2) != 0) \
+    if (lstrcmpW(szString1, szString2) != 0) \
+    { \
+        WideCharToMultiByte(CP_ACP, 0, szString1, -1, string1, MAX_PATH, NULL, NULL); \
+        WideCharToMultiByte(CP_ACP, 0, szString2, -1, string2, MAX_PATH, NULL, NULL); \
         ok(0, format, string1, string2); \
-    } while(0);
+    }
 
 #define ok_w2n(format, szString1, szString2, len) \
 \
@@ -770,9 +759,7 @@ static HRESULT Installer_RegistryValueW(HKEY hkey, LPCWSTR szKey, LPCWSTR szValu
     V_BSTR(&vararg) = SysAllocString(szValue);
 
     hr = Installer_RegistryValue(hkey, szKey, vararg, &varresult, VT_BSTR);
-    if (V_BSTR(&varresult))
-        /* lstrcpyW is not implemented on Win95 (lstrlenW is though) */
-        memcpy(szString, V_BSTR(&varresult), (lstrlenW(V_BSTR(&varresult)) + 1) * sizeof(WCHAR));
+    if (V_BSTR(&varresult)) lstrcpyW(szString, V_BSTR(&varresult));
     VariantClear(&varresult);
     return hr;
 }
@@ -788,8 +775,7 @@ static HRESULT Installer_RegistryValueI(HKEY hkey, LPCWSTR szKey, int iValue, LP
     V_I4(&vararg) = iValue;
 
     hr = Installer_RegistryValue(hkey, szKey, vararg, &varresult, vtResult);
-    if (SUCCEEDED(hr) && vtResult == VT_BSTR)
-        memcpy(szString, V_BSTR(&varresult), (lstrlenW(V_BSTR(&varresult)) + 1) * sizeof(WCHAR));
+    if (SUCCEEDED(hr) && vtResult == VT_BSTR) lstrcpyW(szString, V_BSTR(&varresult));
     VariantClear(&varresult);
     return hr;
 }
@@ -880,8 +866,7 @@ static HRESULT Installer_ProductInfo(LPCWSTR szProduct, LPCWSTR szAttribute, LPW
     V_BSTR(&vararg[0]) = SysAllocString(szAttribute);
 
     hr = invoke(pInstaller, "ProductInfo", DISPATCH_PROPERTYGET, &dispparams, &varresult, VT_BSTR);
-    if (V_BSTR(&varresult))
-        memcpy(szString, V_BSTR(&varresult), (lstrlenW(V_BSTR(&varresult)) + 1) * sizeof(WCHAR));
+    if (V_BSTR(&varresult)) lstrcpyW(szString, V_BSTR(&varresult));
     VariantClear(&varresult);
     return hr;
 }
@@ -920,8 +905,7 @@ static HRESULT Installer_VersionGet(LPWSTR szVersion)
     HRESULT hr;
 
     hr = invoke(pInstaller, "Version", DISPATCH_PROPERTYGET, &dispparams, &varresult, VT_BSTR);
-    if (V_BSTR(&varresult))
-        memcpy(szVersion, V_BSTR(&varresult), (lstrlenW(V_BSTR(&varresult)) + 1) * sizeof(WCHAR));
+    if (V_BSTR(&varresult)) lstrcpyW(szVersion, V_BSTR(&varresult));
     VariantClear(&varresult);
     return hr;
 }
@@ -949,8 +933,7 @@ static HRESULT Session_PropertyGet(IDispatch *pSession, LPCWSTR szName, LPWSTR s
     V_BSTR(&vararg[0]) = SysAllocString(szName);
 
     hr = invoke(pSession, "Property", DISPATCH_PROPERTYGET, &dispparams, &varresult, VT_BSTR);
-    if (V_BSTR(&varresult))
-        memcpy(szReturn, V_BSTR(&varresult), (lstrlenW(V_BSTR(&varresult)) + 1) * sizeof(WCHAR));
+    if (V_BSTR(&varresult)) lstrcpyW(szReturn, V_BSTR(&varresult));
     VariantClear(&varresult);
     return hr;
 }
@@ -1063,7 +1046,7 @@ static HRESULT Session_EvaluateCondition(IDispatch *pSession, LPCWSTR szConditio
     return hr;
 }
 
-static HRESULT Session_Message(IDispatch *pSession, LONG kind, IDispatch *record, int *ret)
+static HRESULT Session_Message(IDispatch *pSession, long kind, IDispatch *record, int *ret)
 {
     VARIANT varresult;
     VARIANTARG vararg[2];
@@ -1084,7 +1067,7 @@ static HRESULT Session_Message(IDispatch *pSession, LONG kind, IDispatch *record
     return hr;
 }
 
-static HRESULT Session_SetInstallLevel(IDispatch *pSession, LONG iInstallLevel)
+static HRESULT Session_SetInstallLevel(IDispatch *pSession, long iInstallLevel)
 {
     VARIANT varresult;
     VARIANTARG vararg[1];
@@ -1249,8 +1232,7 @@ static HRESULT Record_StringDataGet(IDispatch *pRecord, int iField, LPWSTR szStr
     V_I4(&vararg[0]) = iField;
 
     hr = invoke(pRecord, "StringData", DISPATCH_PROPERTYGET, &dispparams, &varresult, VT_BSTR);
-    if (V_BSTR(&varresult))
-        memcpy(szString, V_BSTR(&varresult), (lstrlenW(V_BSTR(&varresult)) + 1) * sizeof(WCHAR));
+    if (V_BSTR(&varresult)) lstrcpyW(szString, V_BSTR(&varresult));
     VariantClear(&varresult);
     return hr;
 }
@@ -1327,8 +1309,7 @@ static HRESULT StringList_Item(IDispatch *pStringList, int iIndex, LPWSTR szStri
     V_I4(&vararg[0]) = iIndex;
 
     hr = invoke(pStringList, "Item", DISPATCH_PROPERTYGET, &dispparams, &varresult, VT_BSTR);
-    if (V_BSTR(&varresult))
-        memcpy(szString, V_BSTR(&varresult), (lstrlenW(V_BSTR(&varresult)) + 1) * sizeof(WCHAR));
+    if (V_BSTR(&varresult)) lstrcpyW(szString, V_BSTR(&varresult));
     VariantClear(&varresult);
     return hr;
 }
@@ -1673,7 +1654,7 @@ static void test_Session(IDispatch *pSession)
     memset(stringw, 0, sizeof(stringw));
     hr = Session_PropertyGet(pSession, szProductName, stringw);
     ok(hr == S_OK, "Session_PropertyGet failed, hresult 0x%08x\n", hr);
-    if (strcmp_ww(stringw, szMSITEST) != 0)
+    if (lstrcmpW(stringw, szMSITEST) != 0)
     {
         len = WideCharToMultiByte(CP_ACP, 0, stringw, -1, string, MAX_PATH, NULL, NULL);
         ok(len, "WideCharToMultiByteChar returned error %d\n", GetLastError());
@@ -1686,7 +1667,7 @@ static void test_Session(IDispatch *pSession)
     memset(stringw, 0, sizeof(stringw));
     hr = Session_PropertyGet(pSession, szProductName, stringw);
     ok(hr == S_OK, "Session_PropertyGet failed, hresult 0x%08x\n", hr);
-    if (strcmp_ww(stringw, szProductName) != 0)
+    if (lstrcmpW(stringw, szProductName) != 0)
     {
         len = WideCharToMultiByte(CP_ACP, 0, stringw, -1, string, MAX_PATH, NULL, NULL);
         ok(len, "WideCharToMultiByteChar returned error %d\n", GetLastError());
@@ -2025,7 +2006,7 @@ static void test_Installer_Products(BOOL bProductInstalled)
                     ok(iValue == INSTALLSTATE_DEFAULT || iValue == INSTALLSTATE_ADVERTISED, "Installer_ProductState returned %d, expected %d or %d\n", iValue, INSTALLSTATE_DEFAULT, INSTALLSTATE_ADVERTISED);
 
                 /* Not found our product code yet? Check */
-                if (!bProductFound && !strcmp_ww(szString, szProductCode))
+                if (!bProductFound && !lstrcmpW(szString, szProductCode))
                     bProductFound = TRUE;
 
                 /* IEnumVARIANT::Next */
@@ -2041,7 +2022,7 @@ static void test_Installer_Products(BOOL bProductInstalled)
             }
         }
 
-        if (bProductInstalled)
+        if (bProductInstalled) todo_wine
         {
             ok(bProductInstalled == bProductFound, "Product expected to %s installed but product code was %s\n",
                bProductInstalled ? "be" : "not be",
@@ -2314,22 +2295,12 @@ static void test_Installer_InstallProduct(void)
     ok(res == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", res);
 
     res = find_registry_key(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Installer\\UserData", "05FA3C1F65B896A40AC00077F34EF203", &hkey);
-    ok(res == ERROR_SUCCESS ||
-       broken(res == ERROR_FILE_NOT_FOUND), /* win9x */
-       "Expected ERROR_SUCCESS, got %d\n", res);
+    ok(res == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", res);
     if (res == ERROR_SUCCESS)
     {
         res = delete_registry_key(hkey, "05FA3C1F65B896A40AC00077F34EF203");
         ok(res == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", res);
         RegCloseKey(hkey);
-
-        res = RegDeleteKeyA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Installer\\Products\\05FA3C1F65B896A40AC00077F34EF203");
-        ok(res == ERROR_FILE_NOT_FOUND, "Expected ERROR_FILE_NOT_FOUND, got %d\n", res);
-    }
-    else
-    {
-        /* win9x defaults to a per-machine install. */
-        RegDeleteKeyA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Installer\\Products\\05FA3C1F65B896A40AC00077F34EF203");
     }
 
     /* Remove registry keys written by PublishProduct standard action */
@@ -2344,12 +2315,16 @@ static void test_Installer_InstallProduct(void)
 
     RegCloseKey(hkey);
 
+    res = RegDeleteKeyA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Installer\\Products\\05FA3C1F65B896A40AC00077F34EF203");
+    ok(res == ERROR_FILE_NOT_FOUND, "Expected ERROR_FILE_NOT_FOUND, got %d\n", res);
+
     /* Delete installation files we installed */
     delete_test_files();
 }
 
 static void test_Installer(void)
 {
+    static WCHAR szBackslash[] = { '\\',0 };
     static WCHAR szCreateRecordException[] = { 'C','r','e','a','t','e','R','e','c','o','r','d',',','C','o','u','n','t',0 };
     static WCHAR szIntegerDataException[] = { 'I','n','t','e','g','e','r','D','a','t','a',',','F','i','e','l','d',0 };
     WCHAR szPath[MAX_PATH];
@@ -2413,9 +2388,8 @@ static void test_Installer(void)
     ok(len, "MultiByteToWideChar returned error %d\n", GetLastError());
     if (!len) return;
 
-    /* lstrcatW does not work on win95 */
-    szPath[len - 1] = '\\';
-    memcpy(&szPath[len], szMsifile, sizeof(szMsifile));
+    lstrcatW(szPath, szBackslash);
+    lstrcatW(szPath, szMsifile);
 
     /* Installer::OpenPackage */
     hr = Installer_OpenPackage(szPath, 0, &pSession);

@@ -317,7 +317,9 @@ CBBackend::_generate_workspace ( FILE* OUT )
 		Module& module = *p->second;
 
 		if ((module.type != Iso) &&
-			(module.type != LiveIso))
+			(module.type != LiveIso) &&
+			(module.type != IsoRegTest) &&
+			(module.type != LiveIsoRegTest))
 		{
 			std::string Cbp_file = CbpFileName ( module );
 			fprintf ( OUT, "\t\t<Project filename=\"%s\">\r\n", Cbp_file.c_str());
@@ -382,6 +384,8 @@ CBBackend::_generate_cbproj ( const Module& module )
 	{
 		case Iso:
 		case LiveIso:
+		case IsoRegTest:
+		case LiveIsoRegTest:
 			return;
 		default:
 			break;

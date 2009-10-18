@@ -4,7 +4,6 @@
 #include "shader/prog_print.h"
 #include "slang_compile.h"
 #include "slang_compile_variable.h"
-#include "slang_emit.h"
 #include "slang_mem.h"
 #include "slang_vartable.h"
 #include "slang_ir.h"
@@ -73,8 +72,9 @@ _slang_delete_var_table(slang_var_table *vt)
 
 
 /**
- * Create new table on top of vartable stack.
- * Used when we enter a {} block.
+ * Create new table, put at head, return ptr to it.
+ * XXX we should take a maxTemps parameter to indicate how many temporaries
+ * are available for the current shader/program target.
  */
 void
 _slang_push_var_table(slang_var_table *vt)
@@ -95,8 +95,7 @@ _slang_push_var_table(slang_var_table *vt)
 
 
 /**
- * Pop top entry from variable table.
- * Used when we leave a {} block.
+ * Destroy given table, return ptr to Parent
  */
 void
 _slang_pop_var_table(slang_var_table *vt)
@@ -126,12 +125,10 @@ _slang_pop_var_table(slang_var_table *vt)
       else
          comp = 0;
 
-      /* store->Index may be -1 if we run out of registers */
-      if (store->Index >= 0) {
-         for (j = 0; j < store->Size; j++) {
-            assert(t->Temps[store->Index * 4 + j + comp] == VAR);
-            t->Temps[store->Index * 4 + j + comp] = FREE;
-         }
+      assert(store->Index >= 0);
+      for (j = 0; j < store->Size; j++) {
+         assert(t->Temps[store->Index * 4 + j + comp] == VAR);
+         t->Temps[store->Index * 4 + j + comp] = FREE;
       }
       store->Index = -1;
    }
@@ -159,7 +156,7 @@ _slang_pop_var_table(slang_var_table *vt)
 
 
 /**
- * Add a new variable to the given var/symbol table.
+ * Add a new variable to the given symbol table.
  */
 void
 _slang_add_variable(slang_var_table *vt, slang_variable *v)
@@ -217,7 +214,6 @@ alloc_reg(slang_var_table *vt, GLint size, GLboolean isTemp)
    for (i = 0; i <= vt->MaxRegisters * 4 - size; i += step) {
       GLuint found = 0;
       for (j = 0; j < (GLuint) size; j++) {
-         assert(i + j < 4 * MAX_PROGRAM_TEMPS);
          if (i + j < vt->MaxRegisters * 4 && t->Temps[i + j] == FREE) {
             found++;
          }
@@ -229,17 +225,13 @@ alloc_reg(slang_var_table *vt, GLint size, GLboolean isTemp)
          /* found block of size free regs */
          if (size > 1)
             assert(i % 4 == 0);
-         for (j = 0; j < (GLuint) size; j++) {
-            assert(i + j < 4 * MAX_PROGRAM_TEMPS);
+         for (j = 0; j < (GLuint) size; j++)
             t->Temps[i + j] = isTemp ? TEMP : VAR;
-         }
          assert(i < MAX_PROGRAM_TEMPS * 4);
          t->ValSize[i] = size;
          return i;
       }
    }
-
-   /* if we get here, we ran out of registers */
    return -1;
 }
 
@@ -267,7 +259,21 @@ _slang_alloc_var(slang_var_table *vt, slang_ir_storage *store)
       return GL_FALSE;
 
    store->Index = i / 4;
-   store->Swizzle = _slang_var_swizzle(store->Size, i % 4);
+   if (store->Size == 1) {
+      const GLuint comp = i % 4;
+      store->Swizzle = MAKE_SWIZZLE4(comp, comp, comp, comp);
+   }
+   else if (store->Size == 2) {
+      store->Swizzle = MAKE_SWIZZLE4(SWIZZLE_X, SWIZZLE_Y,
+                                     SWIZZLE_NIL, SWIZZLE_NIL);
+   }
+   else if (store->Size == 3) {
+      store->Swizzle = MAKE_SWIZZLE4(SWIZZLE_X, SWIZZLE_Y,
+                                     SWIZZLE_Z, SWIZZLE_NIL);
+   }
+   else {
+      store->Swizzle = SWIZZLE_NOOP;
+   }
 
    if (dbg)
       printf("Alloc var storage sz %d at %d.%s (level %d) store %p\n",
@@ -295,7 +301,20 @@ _slang_alloc_temp(slang_var_table *vt, slang_ir_storage *store)
    assert(store->Index < 0);
 
    store->Index = i / 4;
-   store->Swizzle = _slang_var_swizzle(store->Size, i % 4);
+   if (store->Size == 1) {
+      const GLuint comp = i % 4;
+      store->Swizzle = MAKE_SWIZZLE4(comp, comp, comp, comp);
+   }
+   else {
+      /* XXX improve swizzled for size=2/3, use for writemask... */
+#if 1
+      if (store->Size == 2) {
+         store->Swizzle = MAKE_SWIZZLE4(SWIZZLE_X, SWIZZLE_Y,
+                                        SWIZZLE_NIL, SWIZZLE_NIL);
+      }
+#endif
+      store->Swizzle = SWIZZLE_NOOP;
+   }
 
    if (dbg) printf("Alloc temp sz %d at %d.%s (level %d) store %p\n",
                    store->Size, store->Index,

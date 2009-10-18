@@ -10,6 +10,7 @@
 
 #include <asm.h>
 #include <internal/i386/asmmacro.S>
+#undef LOCK
 .intel_syntax noprefix
 
 /* FIXME: Can we make a nice macro to generate V86 Opcode handlers? */
@@ -139,8 +140,6 @@ _Opcode0FV86:
     UNHANDLED_V86_OPCODE
 .endfunc
 
-#undef LOCK
-
 GENERATE_PREFIX_HANDLER ES
 GENERATE_PREFIX_HANDLER CS
 GENERATE_PREFIX_HANDLER DS
@@ -152,12 +151,6 @@ GENERATE_PREFIX_HANDLER ADDR32
 GENERATE_PREFIX_HANDLER LOCK
 GENERATE_PREFIX_HANDLER REP
 GENERATE_PREFIX_HANDLER REPNE
-
-#ifdef CONFIG_SMP
-#define LOCK lock
-#else
-#define LOCK
-#endif
 
 .func OpcodeINSBV86
 _OpcodeINSBV86:

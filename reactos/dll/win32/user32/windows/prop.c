@@ -43,7 +43,7 @@ IntGetProp(HWND hWnd, ATOM Atom)
 {
   PLIST_ENTRY ListEntry, temp;
   PPROPERTY Property;
-  PWND pWnd;
+  PWINDOW pWnd;
   int i;
 
   pWnd = ValidateHwnd(hWnd);

@@ -14,10 +14,12 @@
 #include <wine/debug.h>
 WINE_DEFAULT_DEBUG_CHANNEL(user32);
 
+#define DESKTOP_CLASS_ATOM   MAKEINTATOMA(32769)  /* Desktop */
+static LRESULT WINAPI DesktopWndProc( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam );
+
 /*********************************************************************
  * desktop class descriptor
  */
-#if 0 // Kept for referencing.
 const struct builtin_class_descr DESKTOP_builtin_class =
 {
   (LPCWSTR) DESKTOP_CLASS_ATOM,   /* name */
@@ -28,12 +30,13 @@ const struct builtin_class_descr DESKTOP_builtin_class =
   IDC_ARROW,            /* cursor */
   (HBRUSH)(COLOR_BACKGROUND+1)    /* brush */
 };
-#endif
+
+static
 LRESULT
 WINAPI
 DesktopWndProc( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
 {
-    TRACE("Desktop Class Atom! hWnd 0x%x, Msg %d\n", hwnd, message);
+    FIXME("Desktop Class Atom!\n");
     if (message == WM_NCCREATE) return TRUE;
     return 0;  /* all other messages are ignored */
 }
@@ -90,49 +93,18 @@ LogFontW2A(LPLOGFONTA pA, CONST LOGFONTW *pW)
 #undef COPYS
 }
 
-int WINAPI
-RealGetSystemMetrics(int nIndex)
-{
-  GetConnected();
-//  FIXME("Global Server Data -> %x\n",gpsi);
-  if (nIndex < 0 || nIndex >= SM_CMETRICS) return 0;
-  return gpsi->aiSysMet[nIndex];
-}
-
 /*
  * @implemented
  */
 int WINAPI
 GetSystemMetrics(int nIndex)
 {
-   BOOL Hook;
-   int Ret = 0;
-
-   if (!gpsi) // Fixme! Hax! Need Timos delay load support?
-   {
-      return RealGetSystemMetrics(nIndex);
-   }
-
-   LOADUSERAPIHOOK
-
-   Hook = BeginIfHookedUserApiHook();
-
-   /* Bypass SEH and go direct. */
-   if (!Hook) return RealGetSystemMetrics(nIndex);
-
-   _SEH2_TRY
-   {
-      Ret = guah.GetSystemMetrics(nIndex);
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-   }
-   _SEH2_END;
-
-   EndUserApiHook();
-
-   return Ret;
+  GetConnected();
+//  FIXME("Global Sever Data -> %x\n",g_psi);
+  if (nIndex < 0 || nIndex >= SM_CMETRICS) return 0;
+  return g_psi->SystemMetrics[nIndex];
 }
+
 
 /*
  * @unimplemented
@@ -141,15 +113,26 @@ BOOL WINAPI SetDeskWallpaper(LPCSTR filename)
 {
 	return SystemParametersInfoA(SPI_SETDESKWALLPAPER,0,(PVOID)filename,TRUE);
 }
-
+/*
+ * @implemented
+ */
 BOOL WINAPI
-RealSystemParametersInfoA(UINT uiAction,
+SystemParametersInfoA(UINT uiAction,
 		      UINT uiParam,
 		      PVOID pvParam,
 		      UINT fWinIni)
 {
   switch (uiAction)
     {
+      case SPI_GETHIGHCONTRAST:
+      case SPI_SETHIGHCONTRAST:
+      case SPI_GETSOUNDSENTRY:
+      case SPI_SETSOUNDSENTRY:
+        {
+            /* FIXME: Support this accessibility SPI actions */
+            FIXME("FIXME: Unsupported SPI Code: %lx \n",uiAction );
+            return FALSE;
+        }
 
       case SPI_GETNONCLIENTMETRICS:
         {
@@ -265,97 +248,93 @@ RealSystemParametersInfoA(UINT uiAction,
           }
       case SPI_GETDESKWALLPAPER:
       {
-        BOOL Ret;
-        WCHAR awc[MAX_PATH];
-        UNICODE_STRING ustrWallpaper;
-        ANSI_STRING astrWallpaper;
+        HKEY hKey;
+        BOOL Ret = FALSE;
 
-        Ret = NtUserSystemParametersInfo(SPI_GETDESKWALLPAPER, MAX_PATH, awc, fWinIni);
-        RtlInitUnicodeString(&ustrWallpaper, awc);
-        RtlUnicodeStringToAnsiString(&astrWallpaper, &ustrWallpaper, TRUE);
+#if 0
+        /* Get the desktop bitmap handle, this does NOT return the file name! */
+        if(!NtUserSystemParametersInfo(SPI_GETDESKWALLPAPER, 0, &hbmWallpaper, 0))
+        {
+          /* Return an empty string, no wallpapaper is set */
+          *(CHAR*)pvParam = '\0';
+          return TRUE;
+        }
+#endif
 
-        RtlCopyMemory(pvParam, astrWallpaper.Buffer, uiParam);
-        RtlFreeAnsiString(&astrWallpaper);
+        /* FIXME - Read the registry key for now, but what happens if the wallpaper was
+                   changed without SPIF_UPDATEINIFILE?! */
+        if(RegOpenKeyExW(HKEY_CURRENT_USER,
+                         L"Control Panel\\Desktop",
+                         0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS)
+        {
+          DWORD Type, Size;
+          Size = uiParam;
+          if(RegQueryValueExA(hKey,
+                              "Wallpaper",
+                              NULL,
+                              &Type,
+                              (LPBYTE)pvParam,
+                              &Size) == ERROR_SUCCESS
+             && Type == REG_SZ)
+          {
+            Ret = TRUE;
+          }
+          RegCloseKey(hKey);
+        }
         return Ret;
       }
-
       case SPI_SETDESKWALLPAPER:
       {
-          NTSTATUS Status;
-          UNICODE_STRING ustrWallpaper;
-          BOOL Ret;
+        HBITMAP hNewWallpaper;
+        BOOL Ret;
+        LPSTR lpWallpaper = (LPSTR)pvParam;
 
-          if (pvParam)
+        if(lpWallpaper != NULL && *lpWallpaper != '\0')
+        {
+          hNewWallpaper = LoadImageA(0, lpWallpaper, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+          if(hNewWallpaper == NULL)
           {
-            Status = RtlCreateUnicodeStringFromAsciiz(&ustrWallpaper, pvParam);
-            if (!NT_SUCCESS(Status))
-            {
-                ERR("Status = 0x%x\n", Status);
-                return FALSE;
-            }
-            pvParam = &ustrWallpaper;
+            return FALSE;
           }
+        }
+        else
+        {
+          hNewWallpaper = NULL;
+          lpWallpaper = NULL;
+        }
 
-          Ret = NtUserSystemParametersInfo(SPI_SETDESKWALLPAPER, uiParam, pvParam, fWinIni);
-          RtlFreeUnicodeString(&ustrWallpaper);
-          return Ret;
+        /* Set the wallpaper bitmap */
+        if(!NtUserSystemParametersInfo(SPI_SETDESKWALLPAPER, 0, &hNewWallpaper, fWinIni & SPIF_SENDCHANGE))
+        {
+          if(hNewWallpaper != NULL)
+            DeleteObject(hNewWallpaper);
+          return FALSE;
+        }
+        /* Do not use the bitmap handle anymore, it doesn't belong to our process anymore! */
+
+        Ret = TRUE;
+        if(fWinIni & SPIF_UPDATEINIFILE)
+        {
+          /* Save the path to the file in the registry */
+          HKEY hKey;
+          if(RegOpenKeyExW(HKEY_CURRENT_USER,
+                           L"Control Panel\\Desktop",
+                           0, KEY_SET_VALUE, &hKey) == ERROR_SUCCESS)
+          {
+            Ret = RegSetValueExA(hKey, "Wallpaper", 0, REG_SZ, (LPBYTE)(lpWallpaper != NULL ? lpWallpaper : ""),
+                                 (lpWallpaper != NULL ? (lstrlenA(lpWallpaper) + 1) * sizeof(CHAR) : sizeof(CHAR)) == ERROR_SUCCESS);
+            RegCloseKey(hKey);
+          }
+        }
+
+        RedrawWindow(GetShellWindow(), NULL, NULL, RDW_INVALIDATE | RDW_ERASE);
+
+        return Ret;
       }
     }
     return NtUserSystemParametersInfo(uiAction, uiParam, pvParam, fWinIni);
 }
 
-BOOL WINAPI
-RealSystemParametersInfoW(UINT uiAction,
-		      UINT uiParam,
-		      PVOID pvParam,
-		      UINT fWinIni)
-{
-  switch(uiAction)
-  {
-
-    case SPI_SETDESKWALLPAPER:
-      {
-          UNICODE_STRING ustrWallpaper;
-
-          RtlInitUnicodeString(&ustrWallpaper, pvParam);
-          return NtUserSystemParametersInfo(SPI_SETDESKWALLPAPER, uiParam, &ustrWallpaper, fWinIni);
-      }
-  }
-  return NtUserSystemParametersInfo(uiAction, uiParam, pvParam, fWinIni);
-}
-
-
-/*
- * @implemented
- */
-BOOL WINAPI
-SystemParametersInfoA(UINT uiAction,
-		      UINT uiParam,
-		      PVOID pvParam,
-		      UINT fWinIni)
-{
-   BOOL Hook, Ret = FALSE;
-
-   LOADUSERAPIHOOK
-
-   Hook = BeginIfHookedUserApiHook();
-
-   /* Bypass SEH and go direct. */
-   if (!Hook) return RealSystemParametersInfoA(uiAction, uiParam, pvParam, fWinIni);
-
-   _SEH2_TRY
-   {
-      Ret = guah.SystemParametersInfoA(uiAction, uiParam, pvParam, fWinIni);
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-   }
-   _SEH2_END;
-
-   EndUserApiHook();
-
-   return Ret;
-}
 
 /*
  * @implemented
@@ -366,28 +345,103 @@ SystemParametersInfoW(UINT uiAction,
 		      PVOID pvParam,
 		      UINT fWinIni)
 {
-   BOOL Hook, Ret = FALSE;
+  switch(uiAction)
+  {
+    case SPI_GETHIGHCONTRAST:
+    case SPI_SETHIGHCONTRAST:
+    case SPI_GETSOUNDSENTRY:
+    case SPI_SETSOUNDSENTRY:
+       {
+           /* FIXME: Support this accessibility SPI actions */
+           FIXME("FIXME: Unsupported SPI Code: %lx \n",uiAction );
+           return FALSE;
+       }
+    case SPI_GETDESKWALLPAPER:
+    {
+      HKEY hKey;
+      BOOL Ret = FALSE;
 
-   LOADUSERAPIHOOK
+#if 0
+      /* Get the desktop bitmap handle, this does NOT return the file name! */
+      if(!NtUserSystemParametersInfo(SPI_GETDESKWALLPAPER, 0, &hbmWallpaper, 0))
+      {
+        /* Return an empty string, no wallpapaper is set */
+        *(WCHAR*)pvParam = L'\0';
+        return TRUE;
+      }
+#endif
 
-   Hook = BeginIfHookedUserApiHook();
+      /* FIXME - Read the registry key for now, but what happens if the wallpaper was
+                 changed without SPIF_UPDATEINIFILE?! */
+      if(RegOpenKeyExW(HKEY_CURRENT_USER,
+                       L"Control Panel\\Desktop",
+                       0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS)
+      {
+        DWORD Type, Size;
+        Size = uiParam * sizeof(WCHAR);
+        if(RegQueryValueExW(hKey,
+                            L"Wallpaper",
+                            NULL,
+                            &Type,
+                            (LPBYTE)pvParam,
+                            &Size) == ERROR_SUCCESS
+           && Type == REG_SZ)
+        {
+          Ret = TRUE;
+        }
+        RegCloseKey(hKey);
+      }
+      return Ret;
+    }
+    case SPI_SETDESKWALLPAPER:
+    {
+      HBITMAP hNewWallpaper;
+      BOOL Ret;
+      LPWSTR lpWallpaper = (LPWSTR)pvParam;
 
-   /* Bypass SEH and go direct. */
-   if (!Hook) return RealSystemParametersInfoW(uiAction, uiParam, pvParam, fWinIni);
+      if(lpWallpaper != NULL && *lpWallpaper != L'\0')
+      {
+        hNewWallpaper = LoadImageW(0, lpWallpaper, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 
-   _SEH2_TRY
-   {
-      Ret = guah.SystemParametersInfoW(uiAction, uiParam, pvParam, fWinIni);
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-   }
-   _SEH2_END;
+        if(hNewWallpaper == NULL)
+        {
+          return FALSE;
+        }
+      }
+      else
+      {
+        hNewWallpaper = NULL;
+        lpWallpaper = NULL;
+      }
 
-   EndUserApiHook();
+      /* Set the wallpaper bitmap */
+      if(!NtUserSystemParametersInfo(SPI_SETDESKWALLPAPER, 0, &hNewWallpaper, fWinIni & SPIF_SENDCHANGE))
+        return FALSE;
+      /* Do not use the bitmap handle anymore, it doesn't belong to our process anymore! */
+      Ret = TRUE;
+      if(fWinIni & SPIF_UPDATEINIFILE)
+      {
+        /* Save the path to the file in the registry */
+        HKEY hKey;
 
-   return Ret;
+        if(RegOpenKeyExW(HKEY_CURRENT_USER,
+                         L"Control Panel\\Desktop",
+                         0, KEY_SET_VALUE, &hKey) == ERROR_SUCCESS)
+        {
+          Ret = (RegSetValueExW(hKey, L"Wallpaper", 0, REG_SZ, (lpWallpaper != NULL ? (LPBYTE)lpWallpaper : (LPBYTE)L""),
+                               (lpWallpaper != NULL ? (lstrlenW(lpWallpaper) + 1) * sizeof(WCHAR) : sizeof(WCHAR))) == ERROR_SUCCESS);
+          RegCloseKey(hKey);
+        }
+      }
+
+      RedrawWindow(GetShellWindow(), NULL, NULL, RDW_INVALIDATE | RDW_ERASE);
+
+      return Ret;
+    }
+  }
+  return NtUserSystemParametersInfo(uiAction, uiParam, pvParam, fWinIni);
 }
+
 
 /*
  * @implemented
@@ -442,35 +496,19 @@ CreateDesktopW(LPCWSTR lpszDesktop,
 	       ACCESS_MASK dwDesiredAccess,
 	       LPSECURITY_ATTRIBUTES lpsa)
 {
-  OBJECT_ATTRIBUTES oas;
-  UNICODE_STRING DesktopName, DesktopDevice;
+  UNICODE_STRING DesktopName;
   HWINSTA hWinSta;
   HDESK hDesktop;
-  ULONG Attributes = (OBJ_OPENIF|OBJ_CASE_INSENSITIVE);
 
-  /* Retrive WinStation handle. */
   hWinSta = NtUserGetProcessWindowStation();
 
-  /* Initialize the strings. */
   RtlInitUnicodeString(&DesktopName, lpszDesktop);
-  RtlInitUnicodeString(&DesktopDevice, lpszDevice);
 
-  /* Check for process is inherited, set flag if set. */
-  if (lpsa && lpsa->bInheritHandle) Attributes |= OBJ_INHERIT;
-
-  /* Initialize the attributes for the desktop. */
-  InitializeObjectAttributes( &oas,
-                              &DesktopName,
-                               Attributes,
-                               hWinSta,
-                               lpsa ? lpsa->lpSecurityDescriptor : NULL);
-
-  /* Send the request and call to win32k. */
-  hDesktop = NtUserCreateDesktop( &oas,
-                                  &DesktopDevice,
-                                   pDevmode,
-				   dwFlags,
-				   dwDesiredAccess);
+  hDesktop = NtUserCreateDesktop(&DesktopName,
+				 dwFlags,
+				 dwDesiredAccess,
+				 lpsa,
+				 hWinSta);
 
   return(hDesktop);
 }

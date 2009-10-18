@@ -40,8 +40,6 @@ static UINT (WINAPI *pMsiSourceListEnumSourcesA)
 static UINT (WINAPI *pMsiSourceListGetInfoA)
     (LPCSTR, LPCSTR, MSIINSTALLCONTEXT, DWORD, LPCSTR, LPSTR, LPDWORD);
 
-static BOOL (WINAPI *pConvertSidToStringSidA)(PSID, LPSTR*);
-
 static HMODULE hsrclient = 0;
 static BOOL (WINAPI *pSRRemoveRestorePoint)(DWORD);
 static BOOL (WINAPI *pSRSetRestorePointA)(RESTOREPOINTINFOA*, STATEMGRSTATUS*);
@@ -62,7 +60,7 @@ static const CHAR component_dat[] = "Component\tComponentId\tDirectory_\tAttribu
                                     "Component\tComponent\n"
                                     "Five\t{8CC92E9D-14B2-4CA4-B2AA-B11D02078087}\tNEWDIR\t2\t\tfive.txt\n"
                                     "Four\t{FD37B4EA-7209-45C0-8917-535F35A2F080}\tCABOUTDIR\t2\t\tfour.txt\n"
-                                    "One\t{783B242E-E185-4A56-AF86-C09815EC053C}\tMSITESTDIR\t2\tNOT REINSTALL\tone.txt\n"
+                                    "One\t{783B242E-E185-4A56-AF86-C09815EC053C}\tMSITESTDIR\t2\t\tone.txt\n"
                                     "Three\t{010B6ADD-B27D-4EDD-9B3D-34C4F7D61684}\tCHANGEDDIR\t2\t\tthree.txt\n"
                                     "Two\t{BF03D1A6-20DA-4A65-82F3-6CAC995915CE}\tFIRSTDIR\t2\t\ttwo.txt\n"
                                     "dangler\t{6091DF25-EF96-45F1-B8E9-A9B1420C7A3C}\tTARGETDIR\t4\t\tregdata\n"
@@ -158,74 +156,6 @@ static const CHAR property_dat[] = "Property\tValue\n"
                                    "ROOTDRIVE\tC:\\\n"
                                    "SERVNAME\tTestService\n"
                                    "SERVDISP\tTestServiceDisp\n";
-
-static const CHAR up_property_dat[] = "Property\tValue\n"
-                                      "s72\tl0\n"
-                                      "Property\tProperty\n"
-                                      "DefaultUIFont\tDlgFont8\n"
-                                      "HASUIRUN\t0\n"
-                                      "INSTALLLEVEL\t3\n"
-                                      "InstallMode\tTypical\n"
-                                      "Manufacturer\tWine\n"
-                                      "PIDTemplate\t12345<###-%%%%%%%>@@@@@\n"
-                                      "ProductCode\t{7DF88A48-996F-4EC8-A022-BF956F9B2CBB}\n"
-                                      "ProductID\tnone\n"
-                                      "ProductLanguage\t1033\n"
-                                      "ProductName\tMSITEST\n"
-                                      "ProductVersion\t1.1.1\n"
-                                      "PROMPTROLLBACKCOST\tP\n"
-                                      "Setup\tSetup\n"
-                                      "UpgradeCode\t{4C0EAA15-0264-4E5A-8758-609EF142B92D}\n"
-                                      "AdminProperties\tPOSTADMIN\n"
-                                      "ROOTDRIVE\tC:\\\n"
-                                      "SERVNAME\tTestService\n"
-                                      "SERVDISP\tTestServiceDisp\n"
-                                      "RemovePreviousVersions\t1\n";
-
-static const CHAR up2_property_dat[] = "Property\tValue\n"
-                                       "s72\tl0\n"
-                                       "Property\tProperty\n"
-                                       "DefaultUIFont\tDlgFont8\n"
-                                       "HASUIRUN\t0\n"
-                                       "INSTALLLEVEL\t3\n"
-                                       "InstallMode\tTypical\n"
-                                       "Manufacturer\tWine\n"
-                                       "PIDTemplate\t12345<###-%%%%%%%>@@@@@\n"
-                                       "ProductCode\t{7DF88A48-996F-4EC8-A022-BF956F9B2CBB}\n"
-                                       "ProductID\tnone\n"
-                                       "ProductLanguage\t1033\n"
-                                       "ProductName\tMSITEST\n"
-                                       "ProductVersion\t1.1.2\n"
-                                       "PROMPTROLLBACKCOST\tP\n"
-                                       "Setup\tSetup\n"
-                                       "UpgradeCode\t{4C0EAA15-0264-4E5A-8758-609EF142B92D}\n"
-                                       "AdminProperties\tPOSTADMIN\n"
-                                       "ROOTDRIVE\tC:\\\n"
-                                       "SERVNAME\tTestService\n"
-                                       "SERVDISP\tTestServiceDisp\n";
-
-static const CHAR up3_property_dat[] = "Property\tValue\n"
-                                       "s72\tl0\n"
-                                       "Property\tProperty\n"
-                                       "DefaultUIFont\tDlgFont8\n"
-                                       "HASUIRUN\t0\n"
-                                       "INSTALLLEVEL\t3\n"
-                                       "InstallMode\tTypical\n"
-                                       "Manufacturer\tWine\n"
-                                       "PIDTemplate\t12345<###-%%%%%%%>@@@@@\n"
-                                       "ProductCode\t{7DF88A48-996F-4EC8-A022-BF956F9B2CBB}\n"
-                                       "ProductID\tnone\n"
-                                       "ProductLanguage\t1033\n"
-                                       "ProductName\tMSITEST\n"
-                                       "ProductVersion\t1.1.2\n"
-                                       "PROMPTROLLBACKCOST\tP\n"
-                                       "Setup\tSetup\n"
-                                       "UpgradeCode\t{4C0EAA15-0264-4E5A-8758-609EF142B92D}\n"
-                                       "AdminProperties\tPOSTADMIN\n"
-                                       "ROOTDRIVE\tC:\\\n"
-                                       "SERVNAME\tTestService\n"
-                                       "SERVDISP\tTestServiceDisp\n"
-                                       "RemovePreviousVersions\t1\n";
 
 static const CHAR registry_dat[] = "Registry\tRoot\tKey\tName\tValue\tComponent_\n"
                                    "s72\ti2\tl255\tL255\tL0\ts72\n"
@@ -875,111 +805,6 @@ static const msi_table tables[] =
     ADD_TABLE(service_control)
 };
 
-static const msi_table up_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(install_exec_seq),
-    ADD_TABLE(media),
-    ADD_TABLE(up_property),
-    ADD_TABLE(registry),
-    ADD_TABLE(service_install),
-    ADD_TABLE(service_control)
-};
-
-static const msi_table up2_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(install_exec_seq),
-    ADD_TABLE(media),
-    ADD_TABLE(up2_property),
-    ADD_TABLE(registry),
-    ADD_TABLE(service_install),
-    ADD_TABLE(service_control)
-};
-
-static const msi_table up3_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(install_exec_seq),
-    ADD_TABLE(media),
-    ADD_TABLE(up3_property),
-    ADD_TABLE(registry),
-    ADD_TABLE(service_install),
-    ADD_TABLE(service_control)
-};
-
-static const msi_table up4_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(pp_install_exec_seq),
-    ADD_TABLE(media),
-    ADD_TABLE(property),
-    ADD_TABLE(registry),
-    ADD_TABLE(service_install),
-    ADD_TABLE(service_control)
-};
-
-static const msi_table up5_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(pp_install_exec_seq),
-    ADD_TABLE(media),
-    ADD_TABLE(up_property),
-    ADD_TABLE(registry),
-    ADD_TABLE(service_install),
-    ADD_TABLE(service_control)
-};
-
-static const msi_table up6_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(pp_install_exec_seq),
-    ADD_TABLE(media),
-    ADD_TABLE(up2_property),
-    ADD_TABLE(registry),
-    ADD_TABLE(service_install),
-    ADD_TABLE(service_control)
-};
-
-static const msi_table up7_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(pp_install_exec_seq),
-    ADD_TABLE(media),
-    ADD_TABLE(up3_property),
-    ADD_TABLE(registry),
-    ADD_TABLE(service_install),
-    ADD_TABLE(service_control)
-};
-
 static const msi_table cc_tables[] =
 {
     ADD_TABLE(cc_component),
@@ -1491,7 +1316,6 @@ static int CDECL fci_delete(char *pszFile, int *err, void *pv)
 static void init_functionpointers(void)
 {
     HMODULE hmsi = GetModuleHandleA("msi.dll");
-    HMODULE hadvapi32 = GetModuleHandleA("advapi32.dll");
 
 #define GET_PROC(mod, func) \
     p ## func = (void*)GetProcAddress(mod, #func); \
@@ -1501,8 +1325,6 @@ static void init_functionpointers(void)
     GET_PROC(hmsi, MsiQueryComponentStateA);
     GET_PROC(hmsi, MsiSourceListEnumSourcesA);
     GET_PROC(hmsi, MsiSourceListGetInfoA);
-
-    GET_PROC(hadvapi32, ConvertSidToStringSidA);
 
     hsrclient = LoadLibraryA("srclient.dll");
     GET_PROC(hsrclient, SRRemoveRestorePoint);
@@ -1524,28 +1346,26 @@ static BOOL check_win9x(void)
     return FALSE;
 }
 
-static LPSTR get_user_sid(LPSTR *usersid)
+static void get_user_sid(LPSTR *usersid)
 {
     HANDLE token;
     BYTE buf[1024];
     DWORD size;
     PTOKEN_USER user;
-
-    if (!pConvertSidToStringSidA)
-    {
-        win_skip("ConvertSidToStringSidA is not available\n");
-        return NULL;
-    }
+    HMODULE hadvapi32 = GetModuleHandleA("advapi32.dll");
+    static BOOL (WINAPI *pConvertSidToStringSidA)(PSID, LPSTR*);
 
     *usersid = NULL;
+    pConvertSidToStringSidA = (void *)GetProcAddress(hadvapi32, "ConvertSidToStringSidA");
+    if (!pConvertSidToStringSidA)
+        return;
+
     OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token);
     size = sizeof(buf);
     GetTokenInformation(token, TokenUser, buf, size, &size);
     user = (PTOKEN_USER)buf;
     pConvertSidToStringSidA(user->User.Sid, usersid);
-    ok(*usersid != NULL, "pConvertSidToStringSidA failed lre=%d\n", GetLastError());
     CloseHandle(token);
-    return *usersid;
 }
 
 static BOOL check_record(MSIHANDLE rec, UINT field, LPCSTR val)
@@ -1901,25 +1721,9 @@ static void test_MsiInstallProduct(void)
         return;
     }
 
-    /* szPackagePath is NULL */
-    r = MsiInstallProductA(NULL, "INSTALL=ALL");
-    ok(r == ERROR_INVALID_PARAMETER,
-       "Expected ERROR_INVALID_PARAMETER, got %d\n", r);
-
-    /* both szPackagePath and szCommandLine are NULL */
-    r = MsiInstallProductA(NULL, NULL);
-    ok(r == ERROR_INVALID_PARAMETER,
-       "Expected ERROR_INVALID_PARAMETER, got %d\n", r);
-
-    /* szPackagePath is empty */
-    r = MsiInstallProductA("", "INSTALL=ALL");
-    ok(r == ERROR_PATH_NOT_FOUND,
-       "Expected ERROR_PATH_NOT_FOUND, got %d\n", r);
-
     create_test_files();
     create_database(msifile, tables, sizeof(tables) / sizeof(msi_table));
 
-    /* install, don't publish */
     r = MsiInstallProductA(msifile, NULL);
     ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
 
@@ -1960,214 +1764,11 @@ static void test_MsiInstallProduct(void)
     type = REG_SZ;
     res = RegQueryValueExA(hkey, "OrderTestName", NULL, &type, (LPBYTE)path, &size);
     ok(res == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", res);
-    ok(!lstrcmpA(path, "OrderTestValue"), "Expected OrderTestValue, got %s\n", path);
+    ok(!lstrcmpA(path, "OrderTestValue"), "Expected imaname, got %s\n", path);
 
     check_service_is_installed();
 
     RegDeleteKeyA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Wine\\msitest");
-
-    /* not published, reinstall */
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\new", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\changed", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\first", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-    ok(delete_pf("msitest", FALSE), "File not installed\n");
-
-    res = RegOpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Wine\\msitest", &hkey);
-    ok(res == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", res);
-    RegDeleteKeyA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Wine\\msitest");
-
-    create_database(msifile, up_tables, sizeof(up_tables) / sizeof(msi_table));
-
-    /* not published, RemovePreviousVersions set */
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\new", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\changed", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\first", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-    ok(delete_pf("msitest", FALSE), "File not installed\n");
-
-    res = RegOpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Wine\\msitest", &hkey);
-    ok(res == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", res);
-    RegDeleteKeyA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Wine\\msitest");
-
-    create_database(msifile, up2_tables, sizeof(up2_tables) / sizeof(msi_table));
-
-    /* not published, version number bumped */
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\new", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\changed", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\first", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-    ok(delete_pf("msitest", FALSE), "File not installed\n");
-
-    res = RegOpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Wine\\msitest", &hkey);
-    ok(res == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", res);
-    RegDeleteKeyA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Wine\\msitest");
-
-    create_database(msifile, up3_tables, sizeof(up3_tables) / sizeof(msi_table));
-
-    /* not published, RemovePreviousVersions set and version number bumped */
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\new", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\changed", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\first", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-    ok(delete_pf("msitest", FALSE), "File not installed\n");
-
-    res = RegOpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Wine\\msitest", &hkey);
-    ok(res == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", res);
-    RegDeleteKeyA(HKEY_LOCAL_MACHINE, "SOFTWARE\\Wine\\msitest");
-
-    create_database(msifile, up4_tables, sizeof(up4_tables) / sizeof(msi_table));
-
-    /* install, publish product */
-    r = MsiInstallProductA(msifile, "PUBLISH_PRODUCT=1");
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\new", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\changed", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\first", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-    ok(delete_pf("msitest", FALSE), "File not installed\n");
-
-    res = RegOpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Wine\\msitest", &hkey);
-    ok(res == ERROR_FILE_NOT_FOUND, "Expected ERROR_FILE_NOT_FOUND, got %d\n", res);
-
-    create_database(msifile, up4_tables, sizeof(up4_tables) / sizeof(msi_table));
-
-    /* published, reinstall */
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\new", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\changed", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\first", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-    ok(delete_pf("msitest", FALSE), "File not installed\n");
-
-    res = RegOpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Wine\\msitest", &hkey);
-    ok(res == ERROR_FILE_NOT_FOUND, "Expected ERROR_FILE_NOT_FOUND, got %d\n", res);
-
-    create_database(msifile, up5_tables, sizeof(up5_tables) / sizeof(msi_table));
-
-    /* published product, RemovePreviousVersions set */
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\new", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\changed", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\first", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-    ok(delete_pf("msitest", FALSE), "File not installed\n");
-
-    res = RegOpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Wine\\msitest", &hkey);
-    ok(res == ERROR_FILE_NOT_FOUND, "Expected ERROR_FILE_NOT_FOUND, got %d\n", res);
-
-    create_database(msifile, up6_tables, sizeof(up6_tables) / sizeof(msi_table));
-
-    /* published product, version number bumped */
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\new", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\changed", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\first", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-    ok(delete_pf("msitest", FALSE), "File not installed\n");
-
-    res = RegOpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Wine\\msitest", &hkey);
-    ok(res == ERROR_FILE_NOT_FOUND, "Expected ERROR_FILE_NOT_FOUND, got %d\n", res);
-
-    create_database(msifile, up7_tables, sizeof(up7_tables) / sizeof(msi_table));
-
-    /* published product, RemovePreviousVersions set and version number bumped */
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\new", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\changed", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\first", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-    ok(delete_pf("msitest", FALSE), "File not installed\n");
-
-    res = RegOpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\Wine\\msitest", &hkey);
-    ok(res == ERROR_FILE_NOT_FOUND, "Expected ERROR_FILE_NOT_FOUND, got %d\n", res);
-
-    r = MsiInstallProductA(msifile, "REMOVE=ALL");
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
 
     delete_test_files();
 }
@@ -2679,7 +2280,6 @@ static void test_setpropertyfolder(void)
 {
     UINT r;
     CHAR path[MAX_PATH];
-    DWORD attr;
 
     lstrcpyA(path, PROG_FILES_DIR);
     lstrcatA(path, "\\msitest\\added");
@@ -2693,8 +2293,7 @@ static void test_setpropertyfolder(void)
 
     r = MsiInstallProductA(msifile, NULL);
     ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-    attr = GetFileAttributesA(path);
-    if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY))
+    if (GetFileAttributesA(path) == FILE_ATTRIBUTE_DIRECTORY)
     {
         ok(delete_pf("msitest\\added\\maximus", TRUE), "File not installed\n");
         ok(delete_pf("msitest\\added", FALSE), "File not installed\n");
@@ -2895,8 +2494,12 @@ static void test_publish_registerproduct(void)
     static const CHAR userugkey[] = "Software\\Microsoft\\Installer\\UpgradeCodes"
                                     "\\51AAE0C44620A5E4788506E91F249BD2";
 
-    if (!get_user_sid(&usersid))
+    get_user_sid(&usersid);
+    if (!usersid)
+    {
+        skip("ConvertSidToStringSidA is not available\n");
         return;
+    }
 
     get_date_str(date);
     GetTempPath(MAX_PATH, temp);
@@ -3136,8 +2739,12 @@ static void test_publish_publishproduct(void)
     static const CHAR machprod[] = "Installer\\Products\\84A88FD7F6998CE40A22FB59F6B9C2BB";
     static const CHAR machup[] = "Installer\\UpgradeCodes\\51AAE0C44620A5E4788506E91F249BD2";
 
-    if (!get_user_sid(&usersid))
+    get_user_sid(&usersid);
+    if (!usersid)
+    {
+        skip("ConvertSidToStringSidA is not available\n");
         return;
+    }
 
     GetTempPath(MAX_PATH, temp);
 
@@ -3328,8 +2935,12 @@ static void test_publish_publishfeatures(void)
     static const CHAR classfeat[] = "Software\\Classes\\Installer\\Features"
                                     "\\84A88FD7F6998CE40A22FB59F6B9C2BB";
 
-    if (!get_user_sid(&usersid))
+    get_user_sid(&usersid);
+    if (!usersid)
+    {
+        skip("ConvertSidToStringSidA is not available\n");
         return;
+    }
 
     CreateDirectoryA("msitest", NULL);
     create_file("msitest\\maximus", 500);
@@ -3486,8 +3097,12 @@ static void test_publish_registeruser(void)
         "Software\\Microsoft\\Windows\\CurrentVersion\\Installer\\"
         "UserData\\%s\\Products\\84A88FD7F6998CE40A22FB59F6B9C2BB\\InstallProperties";
 
-    if (!get_user_sid(&usersid))
+    get_user_sid(&usersid);
+    if (!usersid)
+    {
+        skip("ConvertSidToStringSidA is not available\n");
         return;
+    }
 
     get_owner_company(&owner, &company);
 
@@ -3565,8 +3180,12 @@ static void test_publish_processcomponents(void)
     static const CHAR compkey[] =
         "Software\\Microsoft\\Windows\\CurrentVersion\\Installer\\Components";
 
-    if (!get_user_sid(&usersid))
+    get_user_sid(&usersid);
+    if (!usersid)
+    {
+        skip("ConvertSidToStringSidA is not available\n");
         return;
+    }
 
     CreateDirectoryA("msitest", NULL);
     create_file("msitest\\maximus", 500);
@@ -3594,7 +3213,7 @@ static void test_publish_processcomponents(void)
     lstrcpyA(program_files_maximus,PROG_FILES_DIR);
     lstrcatA(program_files_maximus,"\\msitest\\maximus");
 
-    ok(!lstrcmpiA(val, program_files_maximus),
+    ok(!lstrcmpA(val, program_files_maximus),
        "Expected \"%s\", got \"%s\"\n", program_files_maximus, val);
 
     res = RegOpenKeyA(HKEY_LOCAL_MACHINE, compkey, &hkey);
@@ -3638,7 +3257,7 @@ static void test_publish_processcomponents(void)
     res = RegQueryValueExA(comp, "84A88FD7F6998CE40A22FB59F6B9C2BB",
                            NULL, NULL, (LPBYTE)val, &size);
     ok(res == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", res);
-    ok(!lstrcmpiA(val, program_files_maximus),
+    ok(!lstrcmpA(val, program_files_maximus),
        "Expected \"%s\", got \"%s\"\n", program_files_maximus, val);
 
     res = RegOpenKeyA(HKEY_LOCAL_MACHINE, compkey, &hkey);
@@ -3686,7 +3305,7 @@ static void test_publish(void)
 
     if (!pMsiQueryComponentStateA)
     {
-        win_skip("MsiQueryComponentStateA is not available\n");
+        skip("MsiQueryComponentStateA is not available\n");
         return;
     }
 
@@ -4174,7 +3793,7 @@ static void test_publishsourcelist(void)
 
     if (!pMsiSourceListEnumSourcesA || !pMsiSourceListGetInfoA)
     {
-        win_skip("MsiSourceListEnumSourcesA and/or MsiSourceListGetInfoA are not available\n");
+        skip("MsiSourceListEnumSourcesA and/or MsiSourceListGetInfoA are not available\n");
         return;
     }
 
@@ -4386,19 +4005,31 @@ static void set_transform_summary_info(void)
 
     /* build summary info */
     r = MsiGetSummaryInformation(0, mstfile, 3, &suminfo);
-    ok(r == ERROR_SUCCESS , "Failed to open summaryinfo\n");
+    todo_wine
+    {
+        ok(r == ERROR_SUCCESS , "Failed to open summaryinfo\n");
+    }
 
     r = MsiSummaryInfoSetProperty(suminfo, PID_TITLE, VT_LPSTR, 0, NULL, "MSITEST");
-    ok(r == ERROR_SUCCESS, "Failed to set summary info\n");
+    todo_wine
+    {
+        ok(r == ERROR_SUCCESS, "Failed to set summary info\n");
+    }
 
     r = MsiSummaryInfoSetProperty(suminfo, PID_REVNUMBER, VT_LPSTR, 0, NULL,
                         "{7DF88A48-996F-4EC8-A022-BF956F9B2CBB}1.1.1;"
                         "{7DF88A48-996F-4EC8-A022-BF956F9B2CBB}1.1.1;"
                         "{4C0EAA15-0264-4E5A-8758-609EF142B92D}");
-    ok(r == ERROR_SUCCESS , "Failed to set summary info\n");
+    todo_wine
+    {
+        ok(r == ERROR_SUCCESS , "Failed to set summary info\n");
+    }
 
     r = MsiSummaryInfoSetProperty(suminfo, PID_PAGECOUNT, VT_I4, 100, NULL, NULL);
-    ok(r == ERROR_SUCCESS, "Failed to set summary info\n");
+    todo_wine
+    {
+        ok(r == ERROR_SUCCESS, "Failed to set summary info\n");
+    }
 
     r = MsiSummaryInfoPersist(suminfo);
     todo_wine
@@ -4562,8 +4193,8 @@ static void test_transformprop(void)
 static void test_currentworkingdir(void)
 {
     UINT r;
-    CHAR drive[MAX_PATH], path[MAX_PATH];
-    LPSTR ptr;
+    CHAR path[MAX_PATH];
+    LPSTR ptr, ptr2;
 
     CreateDirectoryA("msitest", NULL);
     create_file("msitest\\augustus", 500);
@@ -4590,17 +4221,18 @@ static void test_currentworkingdir(void)
     ok(delete_pf("msitest\\augustus", TRUE), "File not installed\n");
     ok(delete_pf("msitest", FALSE), "File not installed\n");
 
-    lstrcpyA(drive, CURR_DIR);
-    drive[2] = '\\';
-    drive[3] = '\0';
-    SetCurrentDirectoryA(drive);
-
-    lstrcpy(path, CURR_DIR);
+    lstrcpyA(path, CURR_DIR);
     if (path[lstrlenA(path) - 1] != '\\')
         lstrcatA(path, "\\");
-    lstrcatA(path, msifile);
-    ptr = strchr(path, ':');
-    ptr +=2;
+    lstrcatA(path, "msitest.msi");
+
+    ptr2 = strrchr(path, '\\');
+    *ptr2 = '\0';
+    ptr = strrchr(path, '\\');
+    *ptr2 = '\\';
+    *(ptr++) = '\0';
+
+    SetCurrentDirectoryA(path);
 
     r = MsiInstallProductA(ptr, NULL);
     ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
@@ -4996,15 +4628,10 @@ static void test_missingcab(void)
     create_pf_data("msitest\\caesar", "abcdefgh", TRUE);
 
     r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS ||
-       broken(r == ERROR_INSTALL_FAILURE), /* win9x */
-       "Expected ERROR_SUCCESS, got %u\n", r);
-    if (r == ERROR_SUCCESS)
-    {
-      ok(delete_pf("msitest\\augustus", TRUE), "File not installed\n");
-      ok(delete_pf("msitest\\maximus", TRUE), "File not installed\n");
-    }
+    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
+    ok(delete_pf("msitest\\augustus", TRUE), "File not installed\n");
     ok(delete_pf("msitest\\caesar", TRUE), "File not installed\n");
+    ok(delete_pf("msitest\\maximus", TRUE), "File not installed\n");
     ok(!delete_pf("msitest\\gaius", TRUE), "File installed\n");
     ok(delete_pf("msitest", FALSE), "File not installed\n");
 
@@ -6050,70 +5677,10 @@ static void test_propcase(void)
     RemoveDirectory("msitest");
 }
 
-static void test_int_widths( void )
-{
-    static const char int0[] = "int0\ni0\nint0\tint0\n1";
-    static const char int1[] = "int1\ni1\nint1\tint1\n1";
-    static const char int2[] = "int2\ni2\nint2\tint2\n1";
-    static const char int3[] = "int3\ni3\nint3\tint3\n1";
-    static const char int4[] = "int4\ni4\nint4\tint4\n1";
-    static const char int5[] = "int5\ni5\nint5\tint5\n1";
-    static const char int8[] = "int8\ni8\nint8\tint8\n1";
-
-    static const struct
-    {
-        const char  *data;
-        unsigned int size;
-        UINT         ret;
-    }
-    tests[] =
-    {
-        { int0, sizeof(int0) - 1, ERROR_SUCCESS },
-        { int1, sizeof(int1) - 1, ERROR_SUCCESS },
-        { int2, sizeof(int2) - 1, ERROR_SUCCESS },
-        { int3, sizeof(int3) - 1, ERROR_FUNCTION_FAILED },
-        { int4, sizeof(int4) - 1, ERROR_SUCCESS },
-        { int5, sizeof(int5) - 1, ERROR_FUNCTION_FAILED },
-        { int8, sizeof(int8) - 1, ERROR_FUNCTION_FAILED }
-    };
-
-    char tmpdir[MAX_PATH], msitable[MAX_PATH], msidb[MAX_PATH];
-    MSIHANDLE db;
-    UINT r, i;
-
-    GetTempPathA(MAX_PATH, tmpdir);
-    CreateDirectoryA(tmpdir, NULL);
-
-    strcpy(msitable, tmpdir);
-    strcat(msitable, "\\msitable.idt");
-
-    strcpy(msidb, tmpdir);
-    strcat(msidb, "\\msitest.msi");
-
-    r = MsiOpenDatabaseA(msidb, MSIDBOPEN_CREATE, &db);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    for (i = 0; i < sizeof(tests)/sizeof(tests[0]); i++)
-    {
-        write_file(msitable, tests[i].data, tests[i].size);
-
-        r = MsiDatabaseImportA(db, tmpdir, "msitable.idt");
-        ok(r == tests[i].ret, " %u expected %u, got %u\n", i, tests[i].ret, r);
-
-        r = MsiDatabaseCommit(db);
-        ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-        DeleteFileA(msitable);
-    }
-
-    MsiCloseHandle(db);
-    DeleteFileA(msidb);
-    RemoveDirectoryA(tmpdir);
-}
-
 START_TEST(install)
 {
     DWORD len;
-    char temp_path[MAX_PATH], prev_path[MAX_PATH], log_file[MAX_PATH];
+    char temp_path[MAX_PATH], prev_path[MAX_PATH];
     STATEMGRSTATUS status;
     BOOL ret = FALSE;
 
@@ -6143,13 +5710,9 @@ START_TEST(install)
     }
 
     /* Create only one log file and don't append. We have to pass something
-     * for the log mode for this to work. The logfile needs to have an absolute
-     * path otherwise we still end up with some extra logfiles as some tests
-     * change the current directory.
+     * for the log mode for this to work.
      */
-    lstrcpyA(log_file, temp_path);
-    lstrcatA(log_file, "\\msitest.log");
-    MsiEnableLogA(INSTALLLOGMODE_FATALEXIT, log_file, 0);
+    MsiEnableLogA(INSTALLLOGMODE_FATALEXIT, "msitest.log", 0);
 
     test_MsiInstallProduct();
     test_MsiSetComponentState();
@@ -6189,9 +5752,8 @@ START_TEST(install)
     test_sourcedirprop();
     test_adminimage();
     test_propcase();
-    test_int_widths();
 
-    DeleteFileA(log_file);
+    DeleteFileA("msitest.log");
 
     if (pSRSetRestorePointA && ret)
     {

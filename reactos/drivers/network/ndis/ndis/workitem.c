@@ -29,7 +29,7 @@ NdisQueueIoWorkItem(
 
    IoQueueWorkItem(WorkItem,
                    Routine,
-                   DelayedWorkQueue,
+                   CriticalWorkQueue,
                    WorkItemContext);
 }
 

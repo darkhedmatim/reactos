@@ -221,7 +221,7 @@ START_TEST(protectdata)
     pCryptUnprotectData = (void*)GetProcAddress(hCrypt32, "CryptUnprotectData");
     if (!pCryptProtectData || !pCryptUnprotectData)
     {
-        win_skip("Crypt(Un)ProtectData() is not available\n");
+        skip("Crypt(Un)ProtectData() is not available\n");
         return;
     }
 

@@ -53,7 +53,6 @@ QueryWaveDeviceFormatSupport(
 MMRESULT
 SetWaveDeviceFormat(
     IN  PSOUND_DEVICE_INSTANCE SoundDeviceInstance,
-    IN  DWORD DeviceId,
     IN  LPWAVEFORMATEX Format,
     IN  DWORD FormatSize)
 {
@@ -88,5 +87,5 @@ SetWaveDeviceFormat(
     if ( ! FunctionTable->SetWaveFormat )
         return MMSYSERR_NOTSUPPORTED;
 
-    return FunctionTable->SetWaveFormat(SoundDeviceInstance, DeviceId, Format, FormatSize);
+    return FunctionTable->SetWaveFormat(SoundDeviceInstance, Format, FormatSize);
 }

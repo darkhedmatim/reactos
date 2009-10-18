@@ -30,6 +30,7 @@
 #include <fileobjs.h>
 #include <lock.h>
 #include <wait.h>
+#include <bug.h>
 #include <memtrack.h>
 #include <oskittcp.h>
 #include <interface.h>

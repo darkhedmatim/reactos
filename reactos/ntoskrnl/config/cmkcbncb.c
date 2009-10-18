@@ -18,6 +18,8 @@ ULONG CmpHashTableSize = 2048;
 PCM_KEY_HASH_TABLE_ENTRY CmpCacheTable;
 PCM_NAME_HASH_TABLE_ENTRY CmpNameCacheTable;
 
+BOOLEAN CmpHoldLazyFlush;
+
 /* FUNCTIONS *****************************************************************/
 
 VOID
@@ -30,7 +32,7 @@ CmpInitializeCache(VOID)
     Length = CmpHashTableSize * sizeof(CM_KEY_HASH_TABLE_ENTRY);
     
     /* Allocate it */
-    CmpCacheTable = CmpAllocate(Length, TRUE, TAG_CM);
+    CmpCacheTable = ExAllocatePoolWithTag(PagedPool, Length, TAG_CM);
     if (!CmpCacheTable)
     {
         /* Take the system down */
@@ -51,7 +53,7 @@ CmpInitializeCache(VOID)
     Length = CmpHashTableSize * sizeof(CM_NAME_HASH_TABLE_ENTRY);
     
     /* Now allocate the name cache table */
-    CmpNameCacheTable = CmpAllocate(Length, TRUE, TAG_CM);
+    CmpNameCacheTable = ExAllocatePoolWithTag(PagedPool, Length, TAG_CM);
     if (!CmpNameCacheTable)
     {
         /* Take the system down */
@@ -247,7 +249,7 @@ CmpGetNameControlBlock(IN PUNICODE_STRING NodeName)
     {
         /* Allocate one */
         NcbSize = FIELD_OFFSET(CM_NAME_CONTROL_BLOCK, Name) + Length;
-        Ncb = CmpAllocate(NcbSize, TRUE, TAG_CM);
+        Ncb = ExAllocatePoolWithTag(PagedPool, NcbSize, TAG_CM);
         if (!Ncb)
         {
             /* Release the lock and fail */
@@ -341,7 +343,7 @@ CmpDereferenceNameControlBlockWithLock(IN PCM_NAME_CONTROL_BLOCK Ncb)
         }
 
         /* Found it, now free it */
-        CmpFree(Ncb, 0);
+        ExFreePool(Ncb);
     }
 
     /* Release the lock */
@@ -444,12 +446,12 @@ CmpCleanUpKcbValueCache(IN PCM_KEY_CONTROL_BLOCK Kcb)
             if (CMP_IS_CELL_CACHED(CachedList[i]))
             {
                 /* Free it */
-                CmpFree((PVOID)CMP_GET_CACHED_CELL(CachedList[i]), 0);
+                ExFreePool((PVOID)CMP_GET_CACHED_CELL(CachedList[i]));
             }
         }
 
         /* Now free the list */
-        CmpFree((PVOID)CMP_GET_CACHED_CELL(Kcb->ValueCache.ValueList), 0);
+        ExFreePool((PVOID)CMP_GET_CACHED_CELL(Kcb->ValueCache.ValueList));
         Kcb->ValueCache.ValueList = HCELL_NIL;
     }
     else if (Kcb->ExtFlags & CM_KCB_SYM_LINK_FOUND)
@@ -488,7 +490,7 @@ CmpCleanUpKcbCacheWithLock(IN PCM_KEY_CONTROL_BLOCK Kcb,
     CmpDereferenceNameControlBlockWithLock(Kcb->NameBlock);
 
     /* Check if we have an index hint block and free it */
-    if (Kcb->ExtFlags & CM_KCB_SUBKEY_HINT) CmpFree(Kcb->IndexHint, 0);
+    if (Kcb->ExtFlags & CM_KCB_SUBKEY_HINT) ExFreePool(Kcb->IndexHint);
 
     /* Check if we were already deleted */
     Parent = Kcb->ParentKcb;
@@ -527,7 +529,7 @@ CmpCleanUpSubKeyInfo(IN PCM_KEY_CONTROL_BLOCK Kcb)
         if (Kcb->ExtFlags & (CM_KCB_SUBKEY_HINT))
         {
             /* Kill it */
-            CmpFree(Kcb->IndexHint, 0);
+            ExFreePool(Kcb->IndexHint);
         }
         
         /* Remove subkey flags */
@@ -929,9 +931,9 @@ CmpConstructName(IN PCM_KEY_CONTROL_BLOCK Kcb)
     }
 
     /* Allocate the unicode string now */
-    KeyName = CmpAllocate(NameLength + sizeof(UNICODE_STRING),
-                          TRUE,
-                          TAG_CM);
+    KeyName = ExAllocatePoolWithTag(PagedPool,
+                                    NameLength + sizeof(UNICODE_STRING),
+                                    TAG_CM);
 
     if (!KeyName) return NULL;
 
@@ -952,7 +954,7 @@ CmpConstructName(IN PCM_KEY_CONTROL_BLOCK Kcb)
             MyKcb->ExtFlags & CM_KCB_KEY_NON_EXIST)
         {
             /* Failure */
-            CmpFree(KeyName, 0);
+            ExFreePool(KeyName);
             return NULL;
         }
 
@@ -965,7 +967,7 @@ CmpConstructName(IN PCM_KEY_CONTROL_BLOCK Kcb)
             if (!KeyNode)
             {
                 /* Failure */
-                CmpFree(KeyName, 0);
+                ExFreePool(KeyName);
                 return NULL;
             }
         }

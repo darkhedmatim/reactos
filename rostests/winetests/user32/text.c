@@ -27,7 +27,8 @@
 #include "winuser.h"
 #include "winerror.h"
 
-#define MODIFIED(rect) (rect.left == 10 && rect.right != 100 && rect.top == 10 && rect.bottom != 100)
+#define MODIFIED(rect) (rect.left = 10 && rect.right != 100 && rect.top == 10 && rect.bottom != 100)
+#define SAME(rect) (rect.left = 10 && rect.right == 100 && rect.top == 10 && rect.bottom == 100)
 #define EMPTY(rect) (rect.left == rect.right && rect.bottom == rect.top)
 
 static void test_DrawTextCalcRect(void)
@@ -80,7 +81,7 @@ static void test_DrawTextCalcRect(void)
     ok( textheight, "DrawTextA error %u\n", GetLastError());
 
     trace("MM_HIENGLISH rect.bottom %d\n", rect.bottom);
-    ok(rect.bottom < 0, "In MM_HIENGLISH, DrawText with "
+    todo_wine ok(rect.bottom < 0, "In MM_HIENGLISH, DrawText with "
        "DT_CALCRECT should return a negative rectangle bottom. "
        "(bot=%d)\n", rect.bottom);
 
@@ -314,23 +315,6 @@ static void test_DrawTextCalcRect(void)
     textheight = DrawTextExA(hdc, NULL, -1, &rect, 0, &dtp);
     ok(textheight==0,"Got textheight from DrawTextExA\n");
     ok(dtp.uiLengthDrawn==1337, "invalid dtp.uiLengthDrawn = %i\n",dtp.uiLengthDrawn);
-
-    /* Margin calculations */
-    dtp.cbSize = sizeof(dtp);
-    dtp.iLeftMargin = 0;
-    dtp.iRightMargin = 0;
-    SetRect( &rect, 0, 0, 0, 0);
-    DrawTextExA(hdc, text, -1, &rect, DT_CALCRECT, &dtp);
-    textlen = rect.right; /* Width without margin */
-    dtp.iLeftMargin = 8;
-    SetRect( &rect, 0, 0, 0, 0);
-    DrawTextExA(hdc, text, -1, &rect, DT_CALCRECT, &dtp);
-    ok(rect.right==dtp.iLeftMargin+textlen  ,"Incorrect left margin calculated  rc(%d,%d)\n", rect.left, rect.right);
-    dtp.iLeftMargin = 0;
-    dtp.iRightMargin = 8;
-    SetRect( &rect, 0, 0, 0, 0);
-    DrawTextExA(hdc, text, -1, &rect, DT_CALCRECT, &dtp);
-    ok(rect.right==dtp.iRightMargin+textlen  ,"Incorrect right margin calculated rc(%d,%d)\n", rect.left, rect.right);
 
     /* Wide char versions */
     SetRect( &rect, 10,10, 100, 100);

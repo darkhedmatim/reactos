@@ -125,7 +125,7 @@ MmGetFileNameForSection(IN PROS_SECTION_OBJECT Section,
     /* Allocate memory for our structure */
     ObjectNameInfo = ExAllocatePoolWithTag(PagedPool,
                                            1024,
-                                           '  mM');
+                                           TAG('M', 'm', ' ', ' '));
     if (!ObjectNameInfo) return STATUS_NO_MEMORY;
 
     /* Query the name */
@@ -136,7 +136,7 @@ MmGetFileNameForSection(IN PROS_SECTION_OBJECT Section,
     if (!NT_SUCCESS(Status))
     {
         /* Failed, free memory */
-        ExFreePoolWithTag(ObjectNameInfo, '  mM');
+        ExFreePoolWithTag(ObjectNameInfo, TAG('M', 'm', ' ', ' '));
         return Status;
     }
 
@@ -152,7 +152,7 @@ MmGetFileNameForAddress(IN PVOID Address,
 {
    PROS_SECTION_OBJECT Section;
    PMEMORY_AREA MemoryArea;
-   PMMSUPPORT AddressSpace;
+   PMM_AVL_TABLE AddressSpace;
    POBJECT_NAME_INFORMATION ModuleNameInformation;
    NTSTATUS Status = STATUS_ADDRESS_NOT_ASSOCIATED;
 
@@ -163,7 +163,7 @@ MmGetFileNameForAddress(IN PVOID Address,
    }
    else
    {
-      AddressSpace = &PsGetCurrentProcess()->Vm;
+      AddressSpace = &PsGetCurrentProcess()->VadRoot;
    }
 
    /* Lock address space */
@@ -191,7 +191,7 @@ MmGetFileNameForAddress(IN PVOID Address,
                                 ModuleNameInformation->Name.Buffer);
 
          /* Free temp taged buffer from MmGetFileNameForSection() */
-         ExFreePoolWithTag(ModuleNameInformation, '  mM');
+         ExFreePoolWithTag(ModuleNameInformation, TAG('M', 'm', ' ', ' '));
          DPRINT("Found ModuleName %S by address %p\n",
                 ModuleName->Buffer,Address);
       }
@@ -576,25 +576,6 @@ BOOLEAN MiIsPageFromCache(PMEMORY_AREA MemoryArea,
 
 NTSTATUS
 NTAPI
-MiCopyFromUserPage(PFN_TYPE DestPage, PVOID SourceAddress)
-{
-    PEPROCESS Process;
-    KIRQL Irql;
-    PVOID TempAddress;
-    
-    Process = PsGetCurrentProcess();
-    TempAddress = MiMapPageInHyperSpace(Process, DestPage, &Irql);
-    if (TempAddress == NULL)
-    {
-        return(STATUS_NO_MEMORY);
-    }
-    memcpy(TempAddress, SourceAddress, PAGE_SIZE);
-    MiUnmapPageInHyperSpace(Process, TempAddress, Irql);
-    return(STATUS_SUCCESS);
-}
-
-NTSTATUS
-NTAPI
 MiReadPage(PMEMORY_AREA MemoryArea,
            ULONG SegOffset,
            PPFN_TYPE Page)
@@ -676,11 +657,8 @@ MiReadPage(PMEMORY_AREA MemoryArea,
    }
    else
    {
-      PEPROCESS Process;
-      KIRQL Irql;
       PVOID PageAddr;
       ULONG CacheSegOffset;
-
       /*
        * Allocate a page, this is rather complicated by the possibility
        * we might have to move other things out of memory
@@ -713,9 +691,7 @@ MiReadPage(PMEMORY_AREA MemoryArea,
             return Status;
          }
       }
-
-      Process = PsGetCurrentProcess();
-      PageAddr = MiMapPageInHyperSpace(Process, *Page, &Irql);
+      PageAddr = MmCreateHyperspaceMapping(*Page);
       CacheSegOffset = BaseOffset + CacheSeg->Bcb->CacheSegmentSize - FileOffset;
       Length = RawLength - SegOffset;
       if (Length <= CacheSegOffset && Length <= PAGE_SIZE)
@@ -729,7 +705,6 @@ MiReadPage(PMEMORY_AREA MemoryArea,
       else
       {
          memcpy(PageAddr, (char*)BaseAddress + FileOffset - BaseOffset, CacheSegOffset);
-         MiUnmapPageInHyperSpace(Process, PageAddr, Irql);
          CcRosReleaseCacheSegment(Bcb, CacheSeg, TRUE, FALSE, FALSE);
          Status = CcRosGetCacheSegment(Bcb,
                                        FileOffset + CacheSegOffset,
@@ -739,6 +714,7 @@ MiReadPage(PMEMORY_AREA MemoryArea,
                                        &CacheSeg);
          if (!NT_SUCCESS(Status))
          {
+            MmDeleteHyperspaceMapping(PageAddr);
             return(Status);
          }
          if (!UptoDate)
@@ -751,10 +727,10 @@ MiReadPage(PMEMORY_AREA MemoryArea,
             if (!NT_SUCCESS(Status))
             {
                CcRosReleaseCacheSegment(Bcb, CacheSeg, FALSE, FALSE, FALSE);
+               MmDeleteHyperspaceMapping(PageAddr);
                return Status;
             }
          }
-         PageAddr = MiMapPageInHyperSpace(Process, *Page, &Irql);
          if (Length < PAGE_SIZE)
          {
             memcpy((char*)PageAddr + CacheSegOffset, BaseAddress, Length - CacheSegOffset);
@@ -764,15 +740,15 @@ MiReadPage(PMEMORY_AREA MemoryArea,
             memcpy((char*)PageAddr + CacheSegOffset, BaseAddress, PAGE_SIZE - CacheSegOffset);
          }
       }
-      MiUnmapPageInHyperSpace(Process, PageAddr, Irql);
       CcRosReleaseCacheSegment(Bcb, CacheSeg, TRUE, FALSE, FALSE);
+      MmDeleteHyperspaceMapping(PageAddr);
    }
    return(STATUS_SUCCESS);
 }
 
 NTSTATUS
 NTAPI
-MmNotPresentFaultSectionView(PMMSUPPORT AddressSpace,
+MmNotPresentFaultSectionView(PMM_AVL_TABLE AddressSpace,
                              MEMORY_AREA* MemoryArea,
                              PVOID Address,
                              BOOLEAN Locked)
@@ -790,7 +766,6 @@ MmNotPresentFaultSectionView(PMMSUPPORT AddressSpace,
    PMM_REGION Region;
    BOOLEAN HasSwapEntry;
    PEPROCESS Process = MmGetAddressSpaceOwner(AddressSpace);
-   KIRQL OldIrql;
     
    /*
     * There is a window between taking the page fault and locking the
@@ -801,9 +776,7 @@ MmNotPresentFaultSectionView(PMMSUPPORT AddressSpace,
    {
       if (Locked)
       {
-         OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
          MmLockPage(MmGetPfnForProcess(Process, Address));
-         KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
       }
       return(STATUS_SUCCESS);
    }
@@ -930,9 +903,7 @@ MmNotPresentFaultSectionView(PMMSUPPORT AddressSpace,
       }
       if (Locked)
       {
-         OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
          MmLockPage(Page);
-         KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
       }
       MmUnlockSectionSegment(Segment);
       PageOp->Status = STATUS_SUCCESS;
@@ -1002,9 +973,7 @@ MmNotPresentFaultSectionView(PMMSUPPORT AddressSpace,
        */
       if (Locked)
       {
-         OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
          MmLockPage(Page);
-         KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
       }
       PageOp->Status = STATUS_SUCCESS;
       MmspCompleteAndReleasePageOp(PageOp);
@@ -1039,9 +1008,7 @@ MmNotPresentFaultSectionView(PMMSUPPORT AddressSpace,
        */
       if (Locked)
       {
-         OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
-         MmLockPage(Page);
-         KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
+         MmLockPageUnsafe(Page);
       }
 
       /*
@@ -1084,9 +1051,7 @@ MmNotPresentFaultSectionView(PMMSUPPORT AddressSpace,
       MmInsertRmap(Page, Process, (PVOID)PAddress);
       if (Locked)
       {
-         OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
          MmLockPage(Page);
-         KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
       }
 
       /*
@@ -1186,9 +1151,7 @@ MmNotPresentFaultSectionView(PMMSUPPORT AddressSpace,
 
       if (Locked)
       {
-         OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
          MmLockPage(Page);
-         KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
       }
       PageOp->Status = STATUS_SUCCESS;
       MmspCompleteAndReleasePageOp(PageOp);
@@ -1262,9 +1225,7 @@ MmNotPresentFaultSectionView(PMMSUPPORT AddressSpace,
       MmInsertRmap(Page, Process, (PVOID)PAddress);
       if (Locked)
       {
-         OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
          MmLockPage(Page);
-         KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
       }
       PageOp->Status = STATUS_SUCCESS;
       MmspCompleteAndReleasePageOp(PageOp);
@@ -1296,9 +1257,7 @@ MmNotPresentFaultSectionView(PMMSUPPORT AddressSpace,
       MmInsertRmap(Page, Process, (PVOID)PAddress);
       if (Locked)
       {
-         OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
          MmLockPage(Page);
-         KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
       }
       PageOp->Status = STATUS_SUCCESS;
       MmspCompleteAndReleasePageOp(PageOp);
@@ -1309,7 +1268,7 @@ MmNotPresentFaultSectionView(PMMSUPPORT AddressSpace,
 
 NTSTATUS
 NTAPI
-MmAccessFaultSectionView(PMMSUPPORT AddressSpace,
+MmAccessFaultSectionView(PMM_AVL_TABLE AddressSpace,
                          MEMORY_AREA* MemoryArea,
                          PVOID Address,
                          BOOLEAN Locked)
@@ -1325,7 +1284,6 @@ MmAccessFaultSectionView(PMMSUPPORT AddressSpace,
    PMM_REGION Region;
    ULONG Entry;
    PEPROCESS Process = MmGetAddressSpaceOwner(AddressSpace);
-   KIRQL OldIrql;
     
    DPRINT("MmAccessFaultSectionView(%x, %x, %x, %x)\n", AddressSpace, MemoryArea, Address, Locked);
 
@@ -1466,10 +1424,8 @@ MmAccessFaultSectionView(PMMSUPPORT AddressSpace,
    }
    if (Locked)
    {
-      OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
       MmLockPage(NewPage);
       MmUnlockPage(OldPage);
-      KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
    }
 
    /*
@@ -1497,7 +1453,7 @@ MmPageOutDeleteMapping(PVOID Context, PEPROCESS Process, PVOID Address)
    PageOutContext = (MM_SECTION_PAGEOUT_CONTEXT*)Context;
    if (Process)
    {
-      MmLockAddressSpace(&Process->Vm);
+      MmLockAddressSpace(&Process->VadRoot);
    }
 
    MmDeleteVirtualMapping(Process,
@@ -1521,7 +1477,7 @@ MmPageOutDeleteMapping(PVOID Context, PEPROCESS Process, PVOID Address)
    }
    if (Process)
    {
-      MmUnlockAddressSpace(&Process->Vm);
+      MmUnlockAddressSpace(&Process->VadRoot);
    }
 
    if (PageOutContext->Private)
@@ -1534,7 +1490,7 @@ MmPageOutDeleteMapping(PVOID Context, PEPROCESS Process, PVOID Address)
 
 NTSTATUS
 NTAPI
-MmPageOutSectionView(PMMSUPPORT AddressSpace,
+MmPageOutSectionView(PMM_AVL_TABLE AddressSpace,
                      MEMORY_AREA* MemoryArea,
                      PVOID Address,
                      PMM_PAGEOP PageOp)
@@ -1550,7 +1506,6 @@ MmPageOutSectionView(PMMSUPPORT AddressSpace,
    BOOLEAN DirectMapped;
    BOOLEAN IsImageSection;
    PEPROCESS Process = MmGetAddressSpaceOwner(AddressSpace);
-   KIRQL OldIrql;
     
    Address = (PVOID)PAGE_ROUND_DOWN(Address);
 
@@ -1639,9 +1594,7 @@ MmPageOutSectionView(PMMSUPPORT AddressSpace,
    }
    else
    {
-      OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
       MmReferencePage(Page);
-      KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
    }
 
    MmDeleteAllRmaps(Page, (PVOID)&Context, MmPageOutDeleteMapping);
@@ -1891,7 +1844,7 @@ MmPageOutSectionView(PMMSUPPORT AddressSpace,
 
 NTSTATUS
 NTAPI
-MmWritePageSectionView(PMMSUPPORT AddressSpace,
+MmWritePageSectionView(PMM_AVL_TABLE AddressSpace,
                        PMEMORY_AREA MemoryArea,
                        PVOID Address,
                        PMM_PAGEOP PageOp)
@@ -2038,7 +1991,7 @@ MmWritePageSectionView(PMMSUPPORT AddressSpace,
 }
 
 static VOID
-MmAlterViewAttributes(PMMSUPPORT AddressSpace,
+MmAlterViewAttributes(PMM_AVL_TABLE AddressSpace,
                       PVOID BaseAddress,
                       ULONG RegionSize,
                       ULONG OldType,
@@ -2103,7 +2056,7 @@ MmAlterViewAttributes(PMMSUPPORT AddressSpace,
 
 NTSTATUS
 NTAPI
-MmProtectSectionView(PMMSUPPORT AddressSpace,
+MmProtectSectionView(PMM_AVL_TABLE AddressSpace,
                      PMEMORY_AREA MemoryArea,
                      PVOID BaseAddress,
                      ULONG Length,
@@ -2370,8 +2323,6 @@ MmInitSectionImplementation(VOID)
    ObjectTypeInitializer.CloseProcedure = MmpCloseSection;
    ObjectTypeInitializer.ValidAccessMask = SECTION_ALL_ACCESS;
    ObCreateObjectType(&Name, &ObjectTypeInitializer, NULL, &MmSectionObjectType);
-    
-   MmCreatePhysicalMemorySection();
 
    return(STATUS_SUCCESS);
 }
@@ -2419,9 +2370,10 @@ MmCreatePageFileSection(PROS_SECTION_OBJECT *SectionObject,
    /*
     * Initialize it
     */
-   RtlZeroMemory(Section, sizeof(ROS_SECTION_OBJECT));
    Section->SectionPageProtection = SectionPageProtection;
    Section->AllocationAttributes = AllocationAttributes;
+   Section->Segment = NULL;
+   Section->FileObject = NULL;
    Section->MaximumSize = MaximumSize;
    Segment = ExAllocatePoolWithTag(NonPagedPool, sizeof(MM_SECTION_SEGMENT),
                                    TAG_MM_SECTION_SEGMENT);
@@ -2490,9 +2442,9 @@ MmCreateDataFileSection(PROS_SECTION_OBJECT *SectionObject,
    /*
     * Initialize it
     */
-   RtlZeroMemory(Section, sizeof(ROS_SECTION_OBJECT));
    Section->SectionPageProtection = SectionPageProtection;
    Section->AllocationAttributes = AllocationAttributes;
+   Section->Segment = NULL;
 
    /*
     * Check file access required
@@ -2797,11 +2749,7 @@ ExeFmtpReadFile(IN PVOID File,
     */
    Buffer = ExAllocatePoolWithTag(PagedPool,
                                   BufferSize,
-                                  'rXmM');
-   if (!Buffer)
-   {
-      KeBugCheck(MEMORY_MANAGEMENT);
-   }
+                                  TAG('M', 'm', 'X', 'r'));
 
    UsedSize = 0;
 
@@ -2852,7 +2800,7 @@ ExeFmtpReadFile(IN PVOID File,
    }
    else
    {
-      ExFreePoolWithTag(Buffer, 'rXmM');
+      ExFreePoolWithTag(Buffer, TAG('M', 'm', 'X', 'r'));
    }
 
    return Status;
@@ -3261,7 +3209,7 @@ ExeFmtpCreateImageSection(HANDLE FileHandle,
          break;
    }
 
-   ExFreePoolWithTag(FileHeaderBuffer, 'rXmM');
+   ExFreePoolWithTag(FileHeaderBuffer, TAG('M', 'm', 'X', 'r'));
 
    /*
     * No loader handled the format
@@ -3420,7 +3368,6 @@ MmCreateImageSection(PROS_SECTION_OBJECT *SectionObject,
    /*
     * Initialize it
     */
-   RtlZeroMemory(Section, sizeof(ROS_SECTION_OBJECT));
    Section->SectionPageProtection = SectionPageProtection;
    Section->AllocationAttributes = AllocationAttributes;
 
@@ -3542,28 +3489,28 @@ NtCreateSection (OUT PHANDLE SectionHandle,
    LARGE_INTEGER SafeMaximumSize;
    PVOID SectionObject;
    KPROCESSOR_MODE PreviousMode;
-   NTSTATUS Status;
+   NTSTATUS Status = STATUS_SUCCESS;
 
    PreviousMode = ExGetPreviousMode();
 
-   if(PreviousMode != KernelMode)
+   if(MaximumSize != NULL && PreviousMode != KernelMode)
    {
      _SEH2_TRY
      {
-       if (MaximumSize != NULL)
-       {
-          /* make a copy on the stack */
-          SafeMaximumSize = ProbeForReadLargeInteger(MaximumSize);
-          MaximumSize = &SafeMaximumSize;
-       }
-       ProbeForWriteHandle(SectionHandle);
+       /* make a copy on the stack */
+       SafeMaximumSize = ProbeForReadLargeInteger(MaximumSize);
+       MaximumSize = &SafeMaximumSize;
      }
      _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
      {
-         /* Return the exception code */
-         _SEH2_YIELD(return _SEH2_GetExceptionCode());
+       Status = _SEH2_GetExceptionCode();
      }
      _SEH2_END;
+
+     if(!NT_SUCCESS(Status))
+     {
+       return Status;
+     }
    }
 
    Status = MmCreateSection(&SectionObject,
@@ -3612,7 +3559,7 @@ NtOpenSection(PHANDLE   SectionHandle,
 {
    HANDLE hSection;
    KPROCESSOR_MODE PreviousMode;
-   NTSTATUS Status;
+   NTSTATUS Status = STATUS_SUCCESS;
 
    PreviousMode = ExGetPreviousMode();
 
@@ -3624,10 +3571,14 @@ NtOpenSection(PHANDLE   SectionHandle,
      }
      _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
      {
-        /* Return the exception code */
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+       Status = _SEH2_GetExceptionCode();
      }
      _SEH2_END;
+
+     if(!NT_SUCCESS(Status))
+     {
+       return Status;
+     }
    }
 
    Status = ObOpenObjectByName(ObjectAttributes,
@@ -3655,7 +3606,7 @@ NtOpenSection(PHANDLE   SectionHandle,
 }
 
 static NTSTATUS
-MmMapViewOfSegment(PMMSUPPORT AddressSpace,
+MmMapViewOfSegment(PMM_AVL_TABLE AddressSpace,
                    PROS_SECTION_OBJECT Section,
                    PMM_SECTION_SEGMENT Segment,
                    PVOID* BaseAddress,
@@ -3766,10 +3717,9 @@ NtMapViewOfSection(IN HANDLE SectionHandle,
    PROS_SECTION_OBJECT Section;
    PEPROCESS Process;
    KPROCESSOR_MODE PreviousMode;
-   PMMSUPPORT AddressSpace;
-   NTSTATUS Status;
+   PMM_AVL_TABLE AddressSpace;
+   NTSTATUS Status = STATUS_SUCCESS;
    ULONG tmpProtect;
-   ACCESS_MASK DesiredAccess;
 
    /*
     * Check the protection
@@ -3817,10 +3767,14 @@ NtMapViewOfSection(IN HANDLE SectionHandle,
      }
      _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
      {
-         /* Return the exception code */
-         _SEH2_YIELD(return _SEH2_GetExceptionCode());
+       Status = _SEH2_GetExceptionCode();
      }
      _SEH2_END;
+
+     if(!NT_SUCCESS(Status))
+     {
+       return Status;
+     }
    }
    else
    {
@@ -3842,29 +3796,10 @@ NtMapViewOfSection(IN HANDLE SectionHandle,
       return(Status);
    }
 
-   AddressSpace = &Process->Vm;
-
-   /* Convert NT Protection Attr to Access Mask */
-   if (Protect == PAGE_READONLY)
-   {
-      DesiredAccess = SECTION_MAP_READ;
-   }
-   else if (Protect == PAGE_READWRITE)
-   {
-      DesiredAccess = SECTION_MAP_WRITE;
-   }
-   else if (Protect == PAGE_WRITECOPY)
-   {
-      DesiredAccess = SECTION_QUERY;
-   }
-   /* FIXME: Handle other Protection Attributes. For now keep previous behavior */
-   else
-   {
-      DesiredAccess = SECTION_MAP_READ;
-   }
+   AddressSpace = &Process->VadRoot;
 
    Status = ObReferenceObjectByHandle(SectionHandle,
-                                      DesiredAccess,
+                                      SECTION_MAP_READ,
                                       MmSectionObjectType,
                                       PreviousMode,
                                       (PVOID*)(PVOID)&Section,
@@ -3943,10 +3878,10 @@ MmFreeSectionPage(PVOID Context, MEMORY_AREA* MemoryArea, PVOID Address,
    NTSTATUS Status;
    PROS_SECTION_OBJECT Section;
    PMM_SECTION_SEGMENT Segment;
-   PMMSUPPORT AddressSpace;
+   PMM_AVL_TABLE AddressSpace;
    PEPROCESS Process;
 
-   AddressSpace = (PMMSUPPORT)Context;
+   AddressSpace = (PMM_AVL_TABLE)Context;
    Process = MmGetAddressSpaceOwner(AddressSpace);
 
    Address = (PVOID)PAGE_ROUND_DOWN(Address);
@@ -4040,7 +3975,7 @@ MmFreeSectionPage(PVOID Context, MEMORY_AREA* MemoryArea, PVOID Address,
 }
 
 static NTSTATUS
-MmUnmapViewOfSegment(PMMSUPPORT AddressSpace,
+MmUnmapViewOfSegment(PMM_AVL_TABLE AddressSpace,
                      PVOID BaseAddress)
 {
    NTSTATUS Status;
@@ -4100,7 +4035,7 @@ MmUnmapViewOfSection(PEPROCESS Process,
 {
    NTSTATUS Status;
    PMEMORY_AREA MemoryArea;
-   PMMSUPPORT AddressSpace;
+   PMM_AVL_TABLE AddressSpace;
    PROS_SECTION_OBJECT Section;
    PMM_PAGEOP PageOp;
    ULONG_PTR Offset;
@@ -4111,7 +4046,7 @@ MmUnmapViewOfSection(PEPROCESS Process,
 
    ASSERT(Process);
 
-   AddressSpace = &Process->Vm;
+   AddressSpace = &Process->VadRoot;
 
    MmLockAddressSpace(AddressSpace);
    MemoryArea = MmLocateMemoryAreaByAddress(AddressSpace,
@@ -4208,11 +4143,10 @@ MmUnmapViewOfSection(PEPROCESS Process,
       Status = MmUnmapViewOfSegment(AddressSpace, BaseAddress);
    }
 
-   MmUnlockAddressSpace(AddressSpace);
-
    /* Notify debugger */
    if (ImageBaseAddress) DbgkUnMapViewOfSection(ImageBaseAddress);
 
+   MmUnlockAddressSpace(AddressSpace);
    return(STATUS_SUCCESS);
 }
 
@@ -4297,8 +4231,7 @@ NtQuerySection(IN HANDLE SectionHandle,
 {
    PROS_SECTION_OBJECT Section;
    KPROCESSOR_MODE PreviousMode;
-   NTSTATUS Status;
-   PAGED_CODE();
+   NTSTATUS Status = STATUS_SUCCESS;
 
    PreviousMode = ExGetPreviousMode();
 
@@ -4426,7 +4359,7 @@ NtExtendSection(IN HANDLE SectionHandle,
    LARGE_INTEGER SafeNewMaximumSize;
    PROS_SECTION_OBJECT Section;
    KPROCESSOR_MODE PreviousMode;
-   NTSTATUS Status;
+   NTSTATUS Status = STATUS_SUCCESS;
 
    PreviousMode = ExGetPreviousMode();
 
@@ -4440,10 +4373,14 @@ NtExtendSection(IN HANDLE SectionHandle,
      }
      _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
      {
-        /* Return the exception code */
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+       Status = _SEH2_GetExceptionCode();
      }
      _SEH2_END;
+
+     if(!NT_SUCCESS(Status))
+     {
+       return Status;
+     }
    }
 
    Status = ObReferenceObjectByHandle(SectionHandle,
@@ -4459,7 +4396,7 @@ NtExtendSection(IN HANDLE SectionHandle,
 
    if (!(Section->AllocationAttributes & SEC_FILE))
    {
-      ObDereferenceObject(Section);
+      ObfDereferenceObject(Section);
       return STATUS_INVALID_PARAMETER;
    }
 
@@ -4499,7 +4436,7 @@ MmAllocateSection (IN ULONG Length, PVOID BaseAddress)
    PVOID Result;
    MEMORY_AREA* marea;
    NTSTATUS Status;
-   PMMSUPPORT AddressSpace;
+   PMM_AVL_TABLE AddressSpace;
    PHYSICAL_ADDRESS BoundaryAddressMultiple;
 
    DPRINT("MmAllocateSection(Length %x)\n",Length);
@@ -4595,7 +4532,7 @@ MmMapViewOfSection(IN PVOID SectionObject,
                    IN ULONG Protect)
 {
    PROS_SECTION_OBJECT Section;
-   PMMSUPPORT AddressSpace;
+   PMM_AVL_TABLE AddressSpace;
    ULONG ViewOffset;
    NTSTATUS Status = STATUS_SUCCESS;
 
@@ -4608,7 +4545,7 @@ MmMapViewOfSection(IN PVOID SectionObject,
 
 
    Section = (PROS_SECTION_OBJECT)SectionObject;
-   AddressSpace = &Process->Vm;
+   AddressSpace = &Process->VadRoot;
 
    AllocationType |= (Section->AllocationAttributes & SEC_NO_CHANGE);
 
@@ -4748,8 +4685,6 @@ MmMapViewOfSection(IN PVOID SectionObject,
          (*ViewSize) = Section->MaximumSize.u.LowPart - ViewOffset;
       }
 
-      *ViewSize = PAGE_ROUND_UP(*ViewSize);
-
       MmLockSectionSegment(Section->Segment);
       Status = MmMapViewOfSegment(AddressSpace,
                                   Section,
@@ -4810,11 +4745,11 @@ MmCanFileBeTruncated (IN PSECTION_OBJECT_POINTERS SectionObjectPointer,
          /* Something must gone wrong
           * how can we have a Section but no 
           * reference? */
-         DPRINT("ERROR: DataSectionObject without reference!\n");
+         DPRINT1("ERROR: DataSectionObject without reference!\n");
       }
    }
 
-   DPRINT("FIXME: didn't check for outstanding write probes\n");
+   DPRINT1("FIXME: didn't check for outstanding write probes\n");
 
    return TRUE;
 }
@@ -4875,7 +4810,7 @@ MmMapViewInSystemSpace (IN PVOID SectionObject,
                         IN OUT PULONG ViewSize)
 {
    PROS_SECTION_OBJECT Section;
-   PMMSUPPORT AddressSpace;
+   PMM_AVL_TABLE AddressSpace;
    NTSTATUS Status;
 
    DPRINT("MmMapViewInSystemSpace() called\n");
@@ -4935,7 +4870,7 @@ MmMapViewInSessionSpace (
 NTSTATUS NTAPI
 MmUnmapViewInSystemSpace (IN PVOID MappedBase)
 {
-   PMMSUPPORT AddressSpace;
+   PMM_AVL_TABLE AddressSpace;
    NTSTATUS Status;
 
    DPRINT("MmUnmapViewInSystemSpace() called\n");
@@ -4959,6 +4894,22 @@ MmUnmapViewInSessionSpace (
 	UNIMPLEMENTED;
 	return STATUS_NOT_IMPLEMENTED;
 }
+
+/*
+ * @unimplemented
+ */
+NTSTATUS NTAPI
+MmSetBankedSection (ULONG Unknown0,
+                    ULONG Unknown1,
+                    ULONG Unknown2,
+                    ULONG Unknown3,
+                    ULONG Unknown4,
+                    ULONG Unknown5)
+{
+   UNIMPLEMENTED;
+   return (STATUS_NOT_IMPLEMENTED);
+}
+
 
 /**********************************************************************
  * NAME       EXPORTED
@@ -5032,7 +4983,8 @@ MmCreateSection (OUT PVOID  * Section,
     * Check the protection
     */
    Protection = SectionPageProtection & ~(PAGE_GUARD|PAGE_NOCACHE);
-   if (Protection != PAGE_READONLY &&
+   if (Protection != PAGE_NOACCESS &&
+       Protection != PAGE_READONLY &&
        Protection != PAGE_READWRITE &&
        Protection != PAGE_WRITECOPY &&
        Protection != PAGE_EXECUTE &&
@@ -5071,6 +5023,46 @@ MmCreateSection (OUT PVOID  * Section,
                                   MaximumSize,
                                   SectionPageProtection,
                                   AllocationAttributes));
+}
+
+NTSTATUS
+NTAPI
+NtAllocateUserPhysicalPages(IN HANDLE ProcessHandle,
+                            IN OUT PULONG_PTR NumberOfPages,
+                            IN OUT PULONG_PTR UserPfnArray)
+{
+    UNIMPLEMENTED;
+    return STATUS_NOT_IMPLEMENTED;
+}
+
+NTSTATUS
+NTAPI
+NtMapUserPhysicalPages(IN PVOID VirtualAddresses,
+                       IN ULONG_PTR NumberOfPages,
+                       IN OUT PULONG_PTR UserPfnArray)
+{
+    UNIMPLEMENTED;
+    return STATUS_NOT_IMPLEMENTED;
+}
+
+NTSTATUS
+NTAPI
+NtMapUserPhysicalPagesScatter(IN PVOID *VirtualAddresses,
+                              IN ULONG_PTR NumberOfPages,
+                              IN OUT PULONG_PTR UserPfnArray)
+{
+    UNIMPLEMENTED;
+    return STATUS_NOT_IMPLEMENTED;
+}
+
+NTSTATUS
+NTAPI
+NtFreeUserPhysicalPages(IN HANDLE ProcessHandle,
+                        IN OUT PULONG_PTR NumberOfPages,
+                        IN OUT PULONG_PTR UserPfnArray)
+{
+    UNIMPLEMENTED;
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 NTSTATUS

@@ -108,7 +108,7 @@ ExpInitLookasideLists()
         ExInitializeSystemLookasideList(&ExpSmallNPagedPoolLookasideLists[i],
                                         NonPagedPool,
                                         (i + 1) * 8,
-                                        'looP',
+                                        TAG('P', 'o', 'o', 'l'),
                                         256,
                                         &ExPoolLookasideListHead);
 
@@ -116,7 +116,7 @@ ExpInitLookasideLists()
         ExInitializeSystemLookasideList(&ExpSmallPagedPoolLookasideLists[i],
                                         PagedPool,
                                         (i + 1) * 8,
-                                        'looP',
+                                        TAG('P', 'o', 'o', 'l'),
                                         256,
                                         &ExPoolLookasideListHead);
     }

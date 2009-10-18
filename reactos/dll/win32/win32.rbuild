@@ -25,14 +25,8 @@
 <directory name="authz">
 	<xi:include href="authz/authz.rbuild" />
 </directory>
-<directory name="avicap32">
-	<xi:include href="avicap32/avicap32.rbuild" />
-</directory>
 <directory name="avifil32">
 	<xi:include href="avifil32/avifil32.rbuild" />
-</directory>
-<directory name="bcrypt">
-	<xi:include href="bcrypt/bcrypt.rbuild" />
 </directory>
 <directory name="beepmidi">
 	<xi:include href="beepmidi/beepmidi.rbuild" />
@@ -130,20 +124,8 @@
 <directory name="hlink">
 	<xi:include href="hlink/hlink.rbuild" />
 </directory>
-<directory name="hnetcfg">
-	<xi:include href="hnetcfg/hnetcfg.rbuild" />
-</directory>
-<directory name="httpapi">
-	<xi:include href="httpapi/httpapi.rbuild" />
-</directory>
-<directory name="iccvid">
-	<xi:include href="iccvid/iccvid.rbuild" />
-</directory>
 <directory name="icmp">
 	<xi:include href="icmp/icmp.rbuild" />
-</directory>
-<directory name="imaadp32.acm">
-	<xi:include href="imaadp32.acm/imaadp32.acm.rbuild" />
 </directory>
 <directory name="imagehlp">
 	<xi:include href="imagehlp/imagehlp.rbuild" />
@@ -157,17 +139,8 @@
 <directory name="inetmib1">
 	<xi:include href="inetmib1/inetmib1.rbuild" />
 </directory>
-<directory name="initpki">
-	<xi:include href="initpki/initpki.rbuild" />
-</directory>
-<directory name="inseng">
-	<xi:include href="inseng/inseng.rbuild" />
-</directory>
 <directory name="iphlpapi">
 	<xi:include href="iphlpapi/iphlpapi.rbuild" />
-</directory>
-<directory name="itircl">
-	<xi:include href="itircl/itircl.rbuild" />
 </directory>
 <directory name="itss">
 	<xi:include href="itss/itss.rbuild" />
@@ -180,9 +153,6 @@
 </directory>
 <directory name="loadperf">
 	<xi:include href="loadperf/loadperf.rbuild" />
-</directory>
-<directory name="localspl">
-	<xi:include href="localspl/localspl.rbuild" />
 </directory>
 <directory name="localui">
 	<xi:include href="localui/localui.rbuild" />
@@ -198,21 +168,6 @@
 </directory>
 <directory name="mapi32">
 	<xi:include href="mapi32/mapi32.rbuild" />
-</directory>
-<directory name="mciavi32">
-	<xi:include href="mciavi32/mciavi32.rbuild" />
-</directory>
-<directory name="mcicda">
-	<xi:include href="mcicda/mcicda.rbuild" />
-</directory>
-<directory name="mciqtz32">
-	<xi:include href="mciqtz32/mciqtz32.rbuild" />
-</directory>
-<directory name="mciseq">
-	<xi:include href="mciseq/mciseq.rbuild" />
-</directory>
-<directory name="mciwave">
-	<xi:include href="mciwave/mciwave.rbuild" />
 </directory>
 <directory name="modemui">
 	<xi:include href="modemui/modemui.rbuild" />
@@ -232,35 +187,17 @@
 <directory name="msacm32">
 	<xi:include href="msacm32/msacm32.rbuild" />
 </directory>
-<directory name="msadp32.acm">
-	<xi:include href="msadp32.acm/msadp32.acm.rbuild" />
-</directory>
 <directory name="msafd">
 	<xi:include href="msafd/msafd.rbuild" />
 </directory>
 <directory name="mscat32">
 	<xi:include href="mscat32/mscat32.rbuild" />
 </directory>
-<directory name="mscms">
-	<xi:include href="mscms/mscms.rbuild" />
-</directory>
 <directory name="mscoree">
 	<xi:include href="mscoree/mscoree.rbuild" />
 </directory>
-<directory name="msctf">
-	<xi:include href="msctf/msctf.rbuild" />
-</directory>
-<directory name="msftedit">
-	<xi:include href="msftedit/msftedit.rbuild" />
-</directory>
-<directory name="msg711.acm">
-	<xi:include href="msg711.acm/msg711.acm.rbuild" />
-</directory>
 <directory name="msgina">
 	<xi:include href="msgina/msgina.rbuild" />
-</directory>
-<directory name="msgsm32.acm">
-	<xi:include href="msgsm32.acm/msgsm32.acm.rbuild" />
 </directory>
 <directory name="mshtml">
 	<xi:include href="mshtml/mshtml.rbuild" />
@@ -277,24 +214,6 @@
 <directory name="msimtf">
 	<xi:include href="msimtf/msimtf.rbuild" />
 </directory>
-<directory name="msisip">
-	<xi:include href="msisip/msisip.rbuild" />
-</directory>
-<directory name="msisys.ocx">
-	<xi:include href="msisys.ocx/msisys.ocx.rbuild" />
-</directory>
-<directory name="msnet32">
-	<xi:include href="msnet32/msnet32.rbuild" />
-</directory>
-<directory name="msrle32">
-	<xi:include href="msrle32/msrle32.rbuild" />
-</directory>
-<directory name="mssign32">
-	<xi:include href="mssign32/mssign32.rbuild" />
-</directory>
-<directory name="mssip32">
-	<xi:include href="mssip32/mssip32.rbuild" />
-</directory>
 <directory name="mstask">
 	<xi:include href="mstask/mstask.rbuild" />
 </directory>
@@ -309,9 +228,6 @@
 </directory>
 <directory name="msvfw32">
 	<xi:include href="msvfw32/msvfw32.rbuild" />
-</directory>
-<directory name="msvidc32">
-	<xi:include href="msvidc32/msvidc32.rbuild" />
 </directory>
 <directory name="mswsock">
 	<xi:include href="mswsock/mswsock.rbuild" />
@@ -339,9 +255,6 @@
 </directory>
 <directory name="ntdsapi">
 	<xi:include href="ntdsapi/ntdsapi.rbuild" />
-</directory>
-<directory name="ntlanman">
-	<xi:include href="ntlanman/ntlanman.rbuild" />
 </directory>
 <directory name="ntmarta">
 	<xi:include href="ntmarta/ntmarta.rbuild" />
@@ -388,9 +301,6 @@
 <directory name="pdh">
 	<xi:include href="pdh/pdh.rbuild" />
 </directory>
-<directory name="pidgen">
-	<xi:include href="pidgen/pidgen.rbuild" />
-</directory>
 <directory name="powrprof">
 	<xi:include href="powrprof/powrprof.rbuild" />
 </directory>
@@ -409,12 +319,6 @@
 <directory name="qmgrprxy">
 	<xi:include href="qmgrprxy/qmgrprxy.rbuild" />
 </directory>
-<directory name="query">
-	<xi:include href="query/query.rbuild" />
-</directory>
-<directory name="rasadhlp">
-	<xi:include href="rasadhlp/rasadhlp.rbuild" />
-</directory>
 <directory name="rasapi32">
 	<xi:include href="rasapi32/rasapi32.rbuild" />
 </directory>
@@ -423,9 +327,6 @@
 </directory>
 <directory name="rasman">
 	<xi:include href="rasman/rasman.rbuild" />
-</directory>
-<directory name="resutils">
-	<xi:include href="resutils/resutils.rbuild" />
 </directory>
 <directory name="riched20">
 	<xi:include href="riched20/riched20.rbuild" />
@@ -447,9 +348,6 @@
 </directory>
 <directory name="samsrv">
 	<xi:include href="samsrv/samsrv.rbuild" />
-</directory>
-<directory name="sccbase">
-	<xi:include href="sccbase/sccbase.rbuild" />
 </directory>
 <directory name="schannel">
 	<xi:include href="schannel/schannel.rbuild" />
@@ -493,9 +391,6 @@
 <directory name="shlwapi">
 	<xi:include href="shlwapi/shlwapi.rbuild" />
 </directory>
-<directory name="slbcsp">
-	<xi:include href="slbcsp/slbcsp.rbuild" />
-</directory>
 <directory name="smdll">
 	<xi:include href="smdll/smdll.rbuild" />
 </directory>
@@ -504,9 +399,6 @@
 </directory>
 <directory name="snmpapi">
 	<xi:include href="snmpapi/snmpapi.rbuild" />
-</directory>
-<directory name="softpub">
-	<xi:include href="softpub/softpub.rbuild" />
 </directory>
 <directory name="spoolss">
 	<xi:include href="spoolss/spoolss.rbuild" />
@@ -529,17 +421,11 @@
 <directory name="syssetup">
 	<xi:include href="syssetup/syssetup.rbuild" />
 </directory>
-<directory name="t2embed">
-	<xi:include href="t2embed/t2embed.rbuild" />
-</directory>
 <directory name="tapi32">
 	<xi:include href="tapi32/tapi32.rbuild" />
 </directory>
 <directory name="tapiui">
 	<xi:include href="tapiui/tapiui.rbuild" />
-</directory>
-<directory name="traffic">
-	<xi:include href="traffic/traffic.rbuild" />
 </directory>
 <directory name="twain_32">
 	<xi:include href="twain_32/twain_32.rbuild" />
@@ -555,9 +441,6 @@
 </directory>
 <directory name="untfs">
 	<xi:include href="untfs/untfs.rbuild" />
-</directory>
-<directory name="updspapi">
-	<xi:include href="updspapi/updspapi.rbuild" />
 </directory>
 <directory name="url">
 	<xi:include href="url/url.rbuild" />
@@ -586,12 +469,6 @@
 <directory name="wdmaud.drv">
 	<xi:include href="wdmaud.drv/wdmaud.rbuild" />
 </directory>
-<directory name="windowscodecs">
-	<xi:include href="windowscodecs/windowscodecs.rbuild" />
-</directory>
-<directory name="winemp3.acm">
-	<xi:include href="winemp3.acm/winemp3.acm.rbuild" />
-</directory>
 <directory name="winfax">
 	<xi:include href="winfax/winfax.rbuild" />
 </directory>
@@ -613,9 +490,6 @@
 <directory name="wintrust">
 	<xi:include href="wintrust/wintrust.rbuild" />
 </directory>
-<directory name="wlanapi">
-	<xi:include href="wlanapi/wlanapi.rbuild" />
-</directory>
 <directory name="wldap32">
 	<xi:include href="wldap32/wldap32.rbuild" />
 </directory>
@@ -624,9 +498,6 @@
 </directory>
 <directory name="ws2_32">
 	<xi:include href="ws2_32/ws2_32.rbuild" />
-</directory>
-<directory name="ws2_32_new">
-	<xi:include href="ws2_32_new/ws2_32.rbuild" />
 </directory>
 <directory name="ws2help">
 	<xi:include href="ws2help/ws2help.rbuild" />
@@ -642,23 +513,5 @@
 </directory>
 <directory name="wtsapi32">
 	<xi:include href="wtsapi32/wtsapi32.rbuild" />
-</directory>
-<directory name="wuapi">
-	<xi:include href="wuapi/wuapi.rbuild" />
-</directory>
-<directory name="xinput1_1">
-	<xi:include href="xinput1_1/xinput1_1.rbuild" />
-</directory>
-<directory name="xinput1_2">
-	<xi:include href="xinput1_2/xinput1_2.rbuild" />
-</directory>
-<directory name="xinput1_3">
-	<xi:include href="xinput1_3/xinput1_3.rbuild" />
-</directory>
-<directory name="xinput9_1_0">
-	<xi:include href="xinput9_1_0/xinput9_1_0.rbuild" />
-</directory>
-<directory name="xmllite">
-	<xi:include href="xmllite/xmllite.rbuild" />
 </directory>
 </group>

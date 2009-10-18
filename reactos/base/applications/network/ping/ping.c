@@ -437,14 +437,6 @@ static BOOL DecodeResponse(PCHAR buffer, UINT size, PSOCKADDR_IN from)
         return FALSE;
     }
 
-    if (from->sin_addr.s_addr != Target.sin_addr.s_addr)
-    {
-#ifndef NDEBUG
-        printf("Bad source address (%s should be %s)\n", inet_ntoa(from->sin_addr), inet_ntoa(Target.sin_addr));
-#endif /* !NDEBUG */
-        return FALSE;
-    }
-
     QueryTime(&LargeTime);
 
     RelativeTime.QuadPart = (LargeTime.QuadPart - Icmp->Timestamp.QuadPart);
@@ -551,40 +543,44 @@ static BOOL Ping(VOID)
     Timeval.tv_sec  = Timeout / 1000;
     Timeval.tv_usec = Timeout % 1000;
 
-    do {
-        Status = select(0, &Fds, NULL, NULL, &Timeval);
-        if ((Status != SOCKET_ERROR) && (Status != 0))
-        {
-            Length = sizeof(From);
-            Status = recvfrom(IcmpSock, Buffer, Size, 0, &From, &Length);
+    Status = select(0, &Fds, NULL, NULL, &Timeval);
+    if ((Status != SOCKET_ERROR) && (Status != 0))
+    {
+        Length = sizeof(From);
+        Status = recvfrom(IcmpSock, Buffer, Size, 0, &From, &Length);
 
 #ifndef NDEBUG
-            printf("Received packet\n");
-            DisplayBuffer(Buffer, Status);
-            printf("\n");
+        printf("Received packet\n");
+        DisplayBuffer(Buffer, Status);
+        printf("\n");
 #endif /* !NDEBUG */
-        }
-        else
-            LostCount++;
-        if (Status == SOCKET_ERROR)
+    }
+    else
+        LostCount++;
+    if (Status == SOCKET_ERROR)
+    {
+        if (WSAGetLastError() != WSAETIMEDOUT)
         {
-            if (WSAGetLastError() != WSAETIMEDOUT)
-            {
-                printf("Could not receive data (%d).\n", WSAGetLastError());
-                GlobalFree(Buffer);
-                return FALSE;
-            }
-            Status = 0;
-        }
-
-        if (Status == 0)
-        {
-            printf("Request timed out.\n");
+            printf("Could not receive data (%d).\n", WSAGetLastError());
             GlobalFree(Buffer);
-            return TRUE;
+            return FALSE;
         }
+        Status = 0;
+    }
 
-    } while (!DecodeResponse(Buffer, Status, (PSOCKADDR_IN)&From));
+    if (Status == 0)
+    {
+        printf("Request timed out.\n");
+        GlobalFree(Buffer);
+        return TRUE;
+    }
+
+    if (!DecodeResponse(Buffer, Status, (PSOCKADDR_IN)&From))
+    {
+        /* FIXME: Wait again as it could be another ICMP message type */
+        printf("Request timed out (incomplete datagram received).\n");
+        LostCount++;
+    }
 
     GlobalFree(Buffer);
     return TRUE;

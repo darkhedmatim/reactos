@@ -99,41 +99,37 @@ VOID DestroyFIBEs(
 }
 
 
-UINT CountFIBs(PIP_INTERFACE IF) {
+UINT CountFIBs() {
     UINT FibCount = 0;
     PLIST_ENTRY CurrentEntry;
     PLIST_ENTRY NextEntry;
-    PFIB_ENTRY Current;
 
+    /* Search the list and remove every FIB entry we find */
     CurrentEntry = FIBListHead.Flink;
     while (CurrentEntry != &FIBListHead) {
         NextEntry = CurrentEntry->Flink;
-        Current = CONTAINING_RECORD(CurrentEntry, FIB_ENTRY, ListEntry);
-        if (Current->Router->Interface == IF)
-	    FibCount++;
         CurrentEntry = NextEntry;
+	FibCount++;
     }
 
     return FibCount;
 }
 
 
-UINT CopyFIBs( PIP_INTERFACE IF, PFIB_ENTRY Target ) {
+UINT CopyFIBs( PFIB_ENTRY Target ) {
     UINT FibCount = 0;
     PLIST_ENTRY CurrentEntry;
     PLIST_ENTRY NextEntry;
     PFIB_ENTRY Current;
 
+    /* Search the list and remove every FIB entry we find */
     CurrentEntry = FIBListHead.Flink;
     while (CurrentEntry != &FIBListHead) {
         NextEntry = CurrentEntry->Flink;
 	Current = CONTAINING_RECORD(CurrentEntry, FIB_ENTRY, ListEntry);
-        if (Current->Router->Interface == IF)
-        {
-	    Target[FibCount] = *Current;
-	    FibCount++;
-        }
+	Target[FibCount] = *Current;
         CurrentEntry = NextEntry;
+	FibCount++;
     }
 
     return FibCount;
@@ -223,7 +219,7 @@ PFIB_ENTRY RouterAddRoute(
         return NULL;
     }
 
-    INIT_TAG(Router, 'TUOR');
+    INIT_TAG(Router, TAG('R','O','U','T'));
 
     RtlCopyMemory( &FIBE->NetworkAddress, NetworkAddress,
 		   sizeof(FIBE->NetworkAddress) );
@@ -278,8 +274,7 @@ PNEIGHBOR_CACHE_ENTRY RouterGetRoute(PIP_ADDRESS Destination)
 	TI_DbgPrint(DEBUG_ROUTER,("This-Route: %s (Sharing %d bits)\n",
 				  A2S(&NCE->Address), Length));
 
-	if(Length >= MaskLength && (Length > BestLength || !BestNCE) &&
-           (!(State & NUD_STALE) || !BestNCE)) {
+	if(Length >= MaskLength && (Length > BestLength || !BestLength)) {
 	    /* This seems to be a better router */
 	    BestNCE    = NCE;
 	    BestLength = Length;
@@ -420,6 +415,7 @@ PFIB_ENTRY RouterCreateRoute(
  */
 {
     KIRQL OldIrql;
+    PFIB_ENTRY FIBE;
     PLIST_ENTRY CurrentEntry;
     PLIST_ENTRY NextEntry;
     PFIB_ENTRY Current;
@@ -454,7 +450,13 @@ PFIB_ENTRY RouterCreateRoute(
         return NULL;
     }
 
-    return RouterAddRoute(NetworkAddress, Netmask, NCE, Metric);
+    FIBE = RouterAddRoute(NetworkAddress, Netmask, NCE, Metric);
+    if (!FIBE) {
+        /* Not enough free resources */
+        NBRemoveNeighbor(NCE);
+    }
+
+    return FIBE;
 }
 
 

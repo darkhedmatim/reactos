@@ -299,10 +299,10 @@ HasClipboardData()
       if(SUCCEEDED(IDataObject_GetData(pda,&formatetc,&medium)))
       {
           ret = TRUE;
-          ReleaseStgMedium(&medium);		  
       }
 
       IDataObject_Release(pda);
+      ReleaseStgMedium(&medium);
     }
 
     return ret;
@@ -1052,12 +1052,7 @@ DoPaste(
         return E_FAIL;
     }
 
-    if (_ILIsDesktop(pidl))
-    {
-        /* use desktop shellfolder */
-        psfFrom = psfDesktop;
-    }
-    else if (FAILED(IShellFolder_BindToObject(psfDesktop, pidl, NULL, &IID_IShellFolder, (LPVOID*)&psfFrom)))
+    if (FAILED(IShellFolder_BindToObject(psfDesktop, pidl, NULL, &IID_IShellFolder, (LPVOID*)&psfFrom)))
     {
         ERR("no IShellFolder\n");
 
@@ -1077,31 +1072,9 @@ DoPaste(
     }
     else
     {
-        IPersistFolder2 *ppf2 = NULL;
-        LPITEMIDLIST pidl;
-
-        /* cidl is zero due to explorer view */
-        hr = IShellFolder_QueryInterface (This->dcm.psf, &IID_IPersistFolder2, (LPVOID *) &ppf2);
-        if (SUCCEEDED(hr))
-        {
-            hr = IPersistFolder2_GetCurFolder (ppf2, &pidl);
-            IPersistFolder2_Release(ppf2);
-            if (SUCCEEDED(hr))
-            {
-                if (_ILIsDesktop(pidl))
-                {
-                    /* use desktop shellfolder */
-                    psfTarget = psfDesktop;
-                }
-                else
-                {
-                    /* retrieve target desktop folder */
-                    hr = IShellFolder_BindToObject(psfDesktop, pidl, NULL, &IID_IShellFolder, (LPVOID*)&psfTarget);
-                }
-                TRACE("psfTarget %x %p, Desktop %u\n", hr, psfTarget, _ILIsDesktop(pidl));
-                ILFree(pidl);
-            }
-        }
+        /* target folder is desktop because cidl is zero */
+        psfTarget = psfDesktop;
+        hr = S_OK;
     }
 
     if (FAILED(hr))
@@ -1160,7 +1133,6 @@ DoPaste(
     _ILFreeaPidl(apidl, lpcida->cidl);
     ReleaseStgMedium(&medium);
     IDataObject_Release(pda);
-    TRACE("CP result %x\n",hr);
     return S_OK;
 }
 

@@ -37,7 +37,7 @@ struct HTMLCommentElement {
     const IHTMLCommentElementVtbl   *lpIHTMLCommentElementVtbl;
 };
 
-#define HTMLCOMMENT(x)  (&(x)->lpIHTMLCommentElementVtbl)
+#define HTMLCOMMENT(x)  ((IHTMLCommentElement*)  &(x)->lpIHTMLCommentElementVtbl)
 
 #define HTMLCOMMENT_THIS(iface) DEFINE_THIS(HTMLCommentElement, IHTMLCommentElement, iface)
 
@@ -107,14 +107,14 @@ static HRESULT WINAPI HTMLCommentElement_get_text(IHTMLCommentElement *iface, BS
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI HTMLCommentElement_put_atomic(IHTMLCommentElement *iface, LONG v)
+static HRESULT WINAPI HTMLCommentElement_put_atomic(IHTMLCommentElement *iface, long v)
 {
     HTMLCommentElement *This = HTMLCOMMENT_THIS(iface);
-    FIXME("(%p)->(%d)\n", This, v);
+    FIXME("(%p)->(%ld)\n", This, v);
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI HTMLCommentElement_get_atomic(IHTMLCommentElement *iface, LONG *p)
+static HRESULT WINAPI HTMLCommentElement_get_atomic(IHTMLCommentElement *iface, long *p)
 {
     HTMLCommentElement *This = HTMLCOMMENT_THIS(iface);
     FIXME("(%p)->(%p)\n", This, p);

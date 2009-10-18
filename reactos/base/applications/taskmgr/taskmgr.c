@@ -103,12 +103,10 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
 INT_PTR CALLBACK
 TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-#if 0
     HDC              hdc;
     PAINTSTRUCT      ps;
-    RECT             rc;
-#endif
     LPRECT           pRC;
+    RECT             rc;
     int              idctrl;
     LPNMHDR          pnmh;
     WINDOWPLACEMENT  wp;
@@ -250,7 +248,7 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
             GetCursorPos(&pt);
 
-            OnTop = ((GetWindowLongPtrW(hMainWnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0);
+            OnTop = ((GetWindowLongW(hMainWnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0);
 
             hMenu = LoadMenuW(hInst, MAKEINTRESOURCEW(IDR_TRAY_POPUP));
             hPopupMenu = GetSubMenu(hMenu, 0);
@@ -267,9 +265,6 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             if(OnTop)
             {
               CheckMenuItem(hPopupMenu, ID_OPTIONS_ALWAYSONTOP, MF_BYCOMMAND | MF_CHECKED);
-            } else
-            {
-              CheckMenuItem(hPopupMenu, ID_OPTIONS_ALWAYSONTOP, MF_BYCOMMAND | MF_UNCHECKED);
             }
 
             SetForegroundWindow(hMainWnd);
@@ -294,7 +289,7 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             TaskManager_OnTabWndSelChange();
         }
         break;
-#if 0
+
     case WM_NCPAINT:
         hdc = GetDC(hDlg);
         GetClientRect(hDlg, &rc);
@@ -308,7 +303,7 @@ TaskManagerWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         Draw3dRect(hdc, rc.left, rc.top, rc.right, rc.top + 2, GetSysColor(COLOR_3DSHADOW), GetSysColor(COLOR_3DHILIGHT));
         EndPaint(hDlg, &ps);
         break;
-#endif
+
     case WM_SIZING:
         /* Make sure the user is sizing the dialog */
         /* in an acceptable range */
@@ -459,9 +454,9 @@ BOOL OnCreate(HWND hWnd)
         return FALSE;
 
     /* Create the status bar panes */
-    nParts[0] = STATUS_SIZE1;
-    nParts[1] = STATUS_SIZE2;
-    nParts[2] = STATUS_SIZE3;
+    nParts[0] = 100;
+    nParts[1] = 210;
+    nParts[2] = 400;
     SendMessageW(hStatusWnd, SB_SETPARTS, 3, (LPARAM) (LPINT) nParts);
 
     /* Create tab pages */
@@ -635,11 +630,11 @@ void OnSize( WPARAM nType, int cx, int cy )
 
     /* Update the status bar size */
     GetWindowRect(hStatusWnd, &rc);
-    SendMessageW(hStatusWnd, WM_SIZE, nType, MAKELPARAM(cx,rc.bottom - rc.top));
+    SendMessageW(hStatusWnd, WM_SIZE, nType, MAKELPARAM(cx, cy + (rc.bottom - rc.top)));
 
     /* Update the status bar pane sizes */
-    nParts[0] = bInMenuLoop ? -1 : STATUS_SIZE1;
-    nParts[1] = STATUS_SIZE2;
+    nParts[0] = bInMenuLoop ? -1 : 100;
+    nParts[1] = 210;
     nParts[2] = cx;
     SendMessageW(hStatusWnd, SB_SETPARTS, bInMenuLoop ? 1 : 3, (LPARAM) (LPINT) nParts);
 
@@ -706,7 +701,7 @@ void LoadSettings(void)
         TaskManagerSettings.ColumnSizeArray[i] = ColumnPresets[i].size;
     }
 
-    TaskManagerSettings.SortColumn = COLUMN_IMAGENAME;
+    TaskManagerSettings.SortColumn = 1;
     TaskManagerSettings.SortAscending = TRUE;
 
     /* Performance page settings */
@@ -761,7 +756,7 @@ void TaskManager_OnRestoreMainWindow(void)
 
     hMenu = GetMenu(hMainWnd);
     hOptionsMenu = GetSubMenu(hMenu, OPTIONS_MENU_INDEX);
-    OnTop = ((GetWindowLongPtrW(hMainWnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0);
+    OnTop = ((GetWindowLongW(hMainWnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0);
 
     OpenIcon(hMainWnd);
     SetForegroundWindow(hMainWnd);
@@ -792,8 +787,8 @@ void TaskManager_OnExitMenuLoop(HWND hWnd)
     bInMenuLoop = FALSE;
     /* Update the status bar pane sizes */
     GetClientRect(hWnd, &rc);
-    nParts[0] = STATUS_SIZE1;
-    nParts[1] = STATUS_SIZE2;
+    nParts[0] = 100;
+    nParts[1] = 210;
     nParts[2] = rc.right;
     SendMessageW(hStatusWnd, SB_SETPARTS, 3, (LPARAM) (LPINT) nParts);
     SendMessageW(hStatusWnd, SB_SETTEXT, 0, (LPARAM)L"");

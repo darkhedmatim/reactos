@@ -94,7 +94,7 @@ CsrInitializeProcesses(VOID)
     /* Set up the minimal information for it */
     InitializeListHead(&CsrRootProcess->ListLink);
     CsrRootProcess->ProcessHandle = (HANDLE)-1;
-    CsrRootProcess->ClientId = NtCurrentTeb()->ClientId;
+    CsrRootProcess->ClientId = NtCurrentTeb()->Cid;
 
     /* Initialize the Thread Hash List */
     for (i = 0; i < 256; i++) InitializeListHead(&CsrThreadHashTable[i]);

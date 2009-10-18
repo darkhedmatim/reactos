@@ -11,12 +11,7 @@ enum
 #define KD_SECONDARY_VERSION_AMD64_OBSOLETE_CONTEXT_1   0
 #define KD_SECONDARY_VERSION_AMD64_OBSOLETE_CONTEXT_2   1
 #define KD_SECONDARY_VERSION_AMD64_CONTEXT              2
-
-#if defined(_AMD64_)
-#define CURRENT_KD_SECONDARY_VERSION                    KD_SECONDARY_VERSION_AMD64_CONTEXT
-#else
 #define CURRENT_KD_SECONDARY_VERSION                    KD_SECONDARY_VERSION_DEFAULT
-#endif
 
 #define DBGKD_VERS_FLAG_MP                              0x0001
 #define DBGKD_VERS_FLAG_DATA                            0x0002
@@ -25,7 +20,7 @@ enum
 #define DBGKD_VERS_FLAG_HSS                             0x0010
 #define DBGKD_VERS_FLAG_PARTITIONS                      0x0020
 
-#define KDBG_TAG                                        'GBDK'
+#define KDBG_TAG                                        TAG('K', 'D', 'B', 'G')
 
 typedef struct _DBGKD_GET_VERSION32
 {
@@ -164,7 +159,7 @@ typedef struct _KDDEBUGGER_DATA64
     USHORT FramePointer;
     USHORT PaeEnabled:1;
     GCC_ULONG64 KiCallUserMode;
-    ULONG64 KeUserCallbackDispatcher;
+    GCC_ULONG64 KeUserCallbackDispatcher;
     GCC_ULONG64 PsLoadedModuleList;
     GCC_ULONG64 PsActiveProcessHead;
     GCC_ULONG64 PspCidTable;

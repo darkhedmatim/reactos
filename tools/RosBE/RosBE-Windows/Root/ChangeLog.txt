@@ -1,115 +1,4 @@
-*** Sep XXth, 2009 - RosBE 1.5 Released
-
-- Updated SVN to 1.6.5 (Daniel Reimer)
-- Updated NASM to 2.07 (Daniel Reimer)
-- Updated GCC to 4.4.2 20090915 (Dmitry Gorbachev)
-- Updated BinUtils to 2.20.51 20090915 (Dmitry Gorbachev)
-  (with delay import feature (Timo Kreuzer))
-- Updated w32api to 3.13 (Dmitry Gorbachev)
-- Updated mingwrt to 3.16 (Dmitry Gorbachev)
-
-- Installer Fixes:
-  * Installer starts the Uninstaller of the old Version again.
-  * Installer does not accidentially kill the whole Start menu again.
-  * Installer uninstalls charch too.
-  * Fixed some line skippers.
-(care2debug, Daniel Reimer)
-- AMD64 Addon Fixes:
-  * Fix the one dash too much problem.
-  * Fix the args not checked bug.
-(Samuel Serapion)
-- Prepare scripts for RosBE64 1.1 which is compatible with the new RosBE Versions (Daniel Reimer)
-- Bugfixes in ssvn (Shashkov Maxim, Daniel Reimer)
-- Fix confusion between %_ROSBE_ROSPREFIX% and %_ROSBE_PREFIX%. (Colin Finck)
-  We only use %_ROSBE_PREFIX% now, which should fix building with amd64. (Colin Finck)
-- Readd chdefdir's feature to switch to the new default directory after changing it. (Colin Finck)
-- Fix inability to switch back to i386. (Colin Finck)
-- Fix Variables to be able to use more recent GCCs. (Daniel Reimer)
-- Fix up the call of the i386 config file in charch. (Daniel Reimer)
-- Fix up default color of the 64 bit RosBE. (Daniel Reimer)
-- "Only" call the 64 bit config file when you are in 64 bit mode. (Daniel Reimer)
-- Fix the 64 bit options tool to be useable. (Daniel Reimer)
-- Tidy up work on all files. (Daniel Reimer)
-- Added RBuild Flags Setting possibility into the "config" command. They will be loaded at RosBE
-  startup and thus behave the same way like the other settings you can set in there. (Daniel Reimer)
-- Made the "update" command stop when it found the last existant update online. Theres no use in trying
-  the full update 1-9 if theres none/one. This speeds up the status generation process. (Daniel Reimer)
-- Get rid of the Doskey macro file, just add %_ROSBE_BASEDIR% (and %_ROSBE_BASEDIR%\Tools for svn.exe)
-  to the PATH and call all .cmd files directly. Renamed some batch files to match the macro names and
-  added some new ones, for which no batch file existed. (except "env", this command has been removed)
-  Now these commands can be called from other batch files and stuff like "clean & make" will work as well.
-  (Colin Finck, Gunnar)
-- Fix raddr2line.cmd to properly handle spaces in the path. (Colin Finck)
-- Added rosapps and rostests support to ssvn. (Daniel Reimer)
-- clean supports now multiple clean commands like "clean aaa bbb" (Daniel Reimer, mota)
-- Got rid of the TranslateOptions Hack (Daniel Reimer, Art Yerkes)
-
-*** Jun 29th, 2009 - RosBE 1.4.4 Released
-
-- Reverted to the old GCC. Because of the optimization we have problems running ROS on Pentium I PCs. (Colin Finck)
-- Updated SVN to 1.6.3 (Daniel Reimer)
-- Fixed a bug which prevented makefile.auto to be deleted by "clean" in the PS Version, this was the reason for
-  the "buildno.h not found" error, too (Daniel Reimer)
-- Fixed "ssvn create" not working due to the fact that RosBE creates a log folder and then tries to verify a
-  empty folder. Thx for gabriel_it and kjk_hyperion for mentioning. (Daniel Reimer)
-- Updated: NSIS to 2.45 (Daniel Reimer)
-- Added a way to enable/disable the Version Show up (Daniel Reimer)
-- Fixed a bug with not activating settings in options.ps1 (Daniel Reimer)
-- Added a while-like loop into Batch where already used in PS. This makes it possible to get more than 10 Updates
-  and realizes the Log show feature in SSVN in Batch too. (Victor Martinez, Daniel Reimer)
-- Killed a forgotten regression test from update.ps1 (Daniel Reimer)
-
-*** May 26th, 2009 - RosBE 1.4.3 Released
-
-- GCC is now optimized for Pentium3. Thus it uses MMX and SSE Optimizations (Colin Finck)
-- Bison fixed for REAL. (Daniel Reimer)
-- Updated SVN to 1.6.2 (Daniel Reimer)
-- Updated yasm to 0.8.0 (Daniel Reimer)
-RosBE-Windows spring cleaning:
-- Rewrite most of the RosBE-Windows CMD scripts resulting in more compact and cleaner code. (Colin Finck)
-- Remove the Standard MinGW Build Environment. We don't need it any longer since we have a new GCC. (Colin Finck)
-- Get rid of the GCC 3.4.5-specific hacks: A properly compiled GCC 3.4.5 shouldn't need them. (Colin Finck)
-- Get rid of the experimental ARM and PPC compiler support: It simply won't work that way and we can readd that
-  later, when we have proper compilers. (Colin Finck)
-- Use setlocal wherever possible, so that we don't need to unload the used variables explicitly. (Colin Finck)
-- Make the coding style more consistent. (Colin Finck)
-- Commands like "make bootcd livecd install" work again. (Daniel Reimer)
-- Cleaned up the PS Scripts with an eye to Colin's cleaning process and removed the Variable nulling because its
-  not needed at all. All vars are only available in the actual Script. So the are killed anyway. (Daniel Reimer)
-- In PS Logs were generated, but without any warnings or errors in it. Additionally they were not even displayed
-  in the console too. This is now fixed. (Daniel Reimer)
-- "buildno.h not found" errors i PS were fixed now that I was able to see them :-P (Daniel Reimer)
-- Fixed chdefgcc, charch and chdefdir for PS and Batch. (Daniel Reimer)
-- Fixed version showing when using charch and chdefdir under PS. (Daniel Reimer)
-- Fixed endless loop in update under PS. (Daniel Reimer)
-- Fixed variables to TARGET GCC under PS. (Daniel Reimer)
-
-
-*** May 08th, 2009 - RosBE 1.4.2 Released
-
-- Add the environment variables ROSBE_HOST_CFLAGS, ROSBE_HOST_CXXFLAGS, ROSBE_TARGET_CFLAGS, ROSBE_TARGET_CXXFLAGS
-  They contain existing pathes for the built-in include directories of the Host C/C++ and Target C/C++ compilers as compiler flags.
-  Required for kjk's rbuild work. (Colin Finck)
-- Fixes for the Uninstall Routine to keep most settings, if wished, on a update. (Daniel Reimer)
-- Remove some stupid setlocals. (Daniel Reimer)
-- New binutils and GCC builds optimized for i686 and with proper relative include directories (Colin Finck)
-- Remove unneeded components such as the MingW32 Runtime DLL (Colin Finck)
-- Make it possible to set different settings for any arch in RosBE. (Daniel Reimer, Timo Kreuzer)
-- Updated: SVN 1.6.1 included (Daniel Reimer)
-- Finally fully integrate the PS Version of RosBE and make it default in Windows 7 (Daniel Reimer)
-  This made following stuff needed:
-  * Let the Installer change the Security Level of Powershell to Remote Signed.
-  * Generate Shortcuts for the PS Versions.
-  * Fix some typos in the PS files to fully work with the new GCC
-- sSVN can show the Log Files now. ONLY in the PS Version (Daniel Reimer)
-
-*** April 07th, 2009 - RosBE 1.4.1 Released
-
-- Updated: SVN 1.6 included (Daniel Reimer)
-- Fixed: Sped up starting of rosbe (Daniel Reimer)
-- Fixed: Hopefully fixed bison. (Daniel Reimer)
-
-*** February 01st, 2009 - RosBE 1.4 Released
+*** February xxth, 200x - RosBE 1.4 Released
 
 "Quote of the year: A loooong time ago there was something called Batch. It was a old
 scripting "language" which you could use for some stuff, but with hacks, so ugly, you
@@ -126,7 +15,7 @@ hungry ppl. After a loong live Powershell died and was replaced by PS 2.0."
 - Fixed: More logical names for the GCC Folders
 - Fixed: Drive not Found Errors (Colin Finck, d0g)
 - Fixed: clean when using _ROSBE_OBJPATH and/or _ROSBE_OUTPATH
-- Fixed: If the specified OBJ and OUT Paths are non existant, don't just abort. Create
+- Fixed: If the specified OBJ and OUT Paths are non existant, don't just abort. Create 
   them and continue.
 - Fixed: Options.exe configs the PS Port now too.
 - Updated: "clean MODULENAME" does the same like "make MODULENAME_clean now"
@@ -163,11 +52,11 @@ hungry ppl. After a loong live Powershell died and was replaced by PS 2.0."
 - Added: YASM 0.72, which supports 64 bit asm too. (Daniel Reimer)
 - Added: Update command (Daniel Reimer)
 - Added: nostrip function (Christoph von Wittich)
-- Added: RosBE Debugging Feature which disables the @echo off. just set
+- Added: RosBE Debugging Feature which disables the @echo off. just set 
          _ROSBE_DEBUG=1 (Daniel Reimer)
 - Added: Mingw-64 GCC 4.4.0 for the 64 bit Branch. It will be installed with a
          Optional installer (Daniel Reimer)
-- Fixed: Fixed the Header Mess in the different GCC Versions. Now the need for
+- Fixed: Fixed the Header Mess in the different GCC Versions. Now the need for 
          LIBRARY_PATH is no more and all Arches use THEIR Headers. (Samuel Serapion)
 - Fixed: Dependant on the Arch variable a crosscompiler will be used now. (Daniel Reimer)
 - Fixed: Clean only cleans the arch which is active right now. (Daniel Reimer)

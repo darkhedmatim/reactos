@@ -331,7 +331,7 @@ static void test_incorrect_api_usage(void)
             GetLastError() == ERROR_CALL_NOT_IMPLEMENTED), "%d\n", GetLastError());
     }
     else
-        win_skip("CryptSignHashW is not available\n");
+        skip("CryptSignHashW is not available\n");
 
     result = pCryptSetKeyParam(hKey, 0, &temp, 1);
     ok (!result && GetLastError() == ERROR_INVALID_PARAMETER, "%d\n", GetLastError());
@@ -349,7 +349,7 @@ static void test_incorrect_api_usage(void)
             GetLastError() == ERROR_CALL_NOT_IMPLEMENTED), "%d\n", GetLastError());
     }
     else
-        win_skip("CryptVerifySignatureW is not available\n");
+        skip("CryptVerifySignatureW is not available\n");
 
     result = pCryptDestroyHash(hHash);
     ok (!result && GetLastError() == ERROR_INVALID_PARAMETER, "%d\n", GetLastError());
@@ -394,7 +394,7 @@ static void test_verify_sig(void)
 
 	if (!pCryptVerifySignatureW)
 	{
-		win_skip("CryptVerifySignatureW is not available\n");
+		skip("CryptVerifySignatureW is not available\n");
 		return;
 	}
 
@@ -402,7 +402,7 @@ static void test_verify_sig(void)
 	ret = pCryptVerifySignatureW(0, NULL, 0, 0, NULL, 0);
 	if (!ret && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
 	{
-		win_skip("CryptVerifySignatureW is not implemented\n");
+		skip("CryptVerifySignatureW is not implemented\n");
 		return;
 	}
 	ok(!ret && GetLastError() == ERROR_INVALID_PARAMETER,
@@ -497,13 +497,13 @@ static void test_enum_providers(void)
 	
 	if(!pCryptEnumProvidersA)
 	{
-	    win_skip("CryptEnumProvidersA is not available\n");
+	    skip("CryptEnumProvidersA is not available\n");
 	    return;
 	}
 	
 	if (!FindProvRegVals(dwIndex, &dwType, &pszProvName, &cbName, &provCount))
 	{
-	    win_skip("Could not find providers in registry\n");
+	    skip("Could not find providers in registry\n");
 	    return;
 	}
 	
@@ -643,7 +643,7 @@ static void test_enum_provider_types(void)
 
 	if(!pCryptEnumProviderTypesA)
 	{
-		win_skip("CryptEnumProviderTypesA is not available\n");
+		skip("CryptEnumProviderTypesA is not available\n");
 		return;
 	}
 
@@ -784,7 +784,7 @@ static void test_get_default_provider(void)
 	
 	if(!pCryptGetDefaultProviderA)
 	{
-	    win_skip("CryptGetDefaultProviderA is not available\n");
+	    skip("CryptGetDefaultProviderA is not available\n");
 	    return;
 	}
 	
@@ -858,7 +858,7 @@ static void test_set_provider_ex(void)
 	
 	if(!pCryptGetDefaultProviderA || !pCryptSetProviderExA)
 	{
-	    win_skip("CryptGetDefaultProviderA and/or CryptSetProviderExA are not available\n");
+	    skip("CryptGetDefaultProviderA and/or CryptSetProviderExA are not available\n");
 	    return;
 	}
 

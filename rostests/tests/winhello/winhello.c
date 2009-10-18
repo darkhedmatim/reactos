@@ -110,7 +110,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
         PAINTSTRUCT   ps;    /* Also used during window drawing */
         HDC hDC;             /* A device context used for drawing */
-        RECT rc = {0,0,0,0}, clr, wir;   /* A rectangle used during drawing */
+	RECT rc, clr, wir;   /* A rectangle used during drawing */
         char spr[100], sir[100];
 	static HBRUSH hbrWhite=NULL, hbrGray=NULL, hbrBlack=NULL, hbrRed=NULL, hbrBlue=NULL, hbrYellow=NULL;
 
@@ -123,8 +123,9 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 	  case WM_CHAR:
 	  {
-	   TCHAR text[2];
+
 	   hDC = GetDC(hWnd);
+	   TCHAR text[2];
  	   text[0] = (TCHAR)wParam;
 	   text[1] = _T('\0');
 
@@ -169,9 +170,10 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 	  case WM_KEYDOWN:
 	  {
+
+	   hDC = GetDC(hWnd);
 	   RECT Rect;
 	   TCHAR text[2];
-	   hDC = GetDC(hWnd);
  	   text[0] = (TCHAR)wParam;
 	   text[1] = _T('\0');
 
@@ -199,9 +201,10 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 	  case WM_KEYUP:
 	  {
+
+	   hDC = GetDC(hWnd);
 	   RECT Rect;
 	   TCHAR text[2];
-	   hDC = GetDC(hWnd);
  	   text[0] = (TCHAR)wParam;
 	   text[1] = _T('\0');
 
@@ -591,8 +594,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 	case WM_CREATE:
 	 {
-	  SCROLLINFO si;
-	  TEXTMETRIC tm;
 	  /* Register a Ctrl+Alt+C hotkey*/
 	  RegisterHotKey(hWnd, CTRLC, MOD_CONTROL, VK_C);
 	  RegisterHotKey(hWnd, ALTF1, MOD_CONTROL | MOD_ALT, VK_F1);
@@ -604,6 +605,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	  hbrBlue = CreateSolidBrush ( RGB(0x00, 0x00, 0xFF));
 	  hbrYellow = CreateSolidBrush ( RGB(0xFF, 0xFF, 0x00));
 
+	  SCROLLINFO si;
 	  si.cbSize = sizeof(si);
 	  si.fMask = SIF_ALL;
           si.nMin = 0;
@@ -617,6 +619,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 	  /* The window is being created. Create our button
 	   * window now. */
+	  TEXTMETRIC        tm;
 
 	  /* First we use the system fixed font size to choose
 	   * a nice button size. */

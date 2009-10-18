@@ -35,6 +35,9 @@
 #include "d3d8.h"
 #include "wine/wined3d.h"
 
+/* Device caps */
+#define INITIAL_SHADER_HANDLE_TABLE_SIZE        64
+
 /* CreateVertexShader can return > 0xFFFF */
 #define VS_HIGHESTFIXEDFXF 0xF0000000
 
@@ -97,8 +100,6 @@
     _pD3D8Caps->PixelShaderVersion                = _pWineCaps->PixelShaderVersion; \
     _pD3D8Caps->MaxPixelShaderValue               = _pWineCaps->PixelShader1xMaxValue;
 
-void fixup_caps(WINED3DCAPS *pWineCaps) DECLSPEC_HIDDEN;
-
 /* Direct3D8 Interfaces: */
 typedef struct IDirect3DBaseTexture8Impl IDirect3DBaseTexture8Impl;
 typedef struct IDirect3DVolumeTexture8Impl IDirect3DVolumeTexture8Impl;
@@ -122,6 +123,9 @@ typedef struct IDirect3DVertexShaderDeclarationImpl IDirect3DVertexShaderDeclara
 /* Advance declaration of structures to satisfy compiler */
 typedef struct IDirect3DVertexShader8Impl IDirect3DVertexShader8Impl;
 
+/* Global critical section */
+extern CRITICAL_SECTION d3d8_cs;
+
 /* ===========================================================================
     The interfaces themselves
    =========================================================================== */
@@ -133,7 +137,7 @@ typedef struct IDirect3DVertexShader8Impl IDirect3DVertexShader8Impl;
 /*****************************************************************************
  * Predeclare the interface implementation structures
  */
-extern const IDirect3D8Vtbl Direct3D8_Vtbl DECLSPEC_HIDDEN;
+extern const IDirect3D8Vtbl Direct3D8_Vtbl;
 
 /*****************************************************************************
  * IDirect3D implementation structure
@@ -155,37 +159,14 @@ struct IDirect3D8Impl
 /*****************************************************************************
  * Predeclare the interface implementation structures
  */
-extern const IDirect3DDevice8Vtbl Direct3DDevice8_Vtbl DECLSPEC_HIDDEN;
-extern const IWineD3DDeviceParentVtbl d3d8_wined3d_device_parent_vtbl DECLSPEC_HIDDEN;
+extern const IDirect3DDevice8Vtbl Direct3DDevice8_Vtbl;
+extern const IWineD3DDeviceParentVtbl d3d8_wined3d_device_parent_vtbl;
 
 /*****************************************************************************
  * IDirect3DDevice8 implementation structure
  */
 
-#define D3D8_INITIAL_HANDLE_TABLE_SIZE 64
-#define D3D8_INVALID_HANDLE ~0U
-
-enum d3d8_handle_type
-{
-    D3D8_HANDLE_FREE,
-    D3D8_HANDLE_VS,
-    D3D8_HANDLE_PS,
-    D3D8_HANDLE_SB,
-};
-
-struct d3d8_handle_entry
-{
-    void *object;
-    enum d3d8_handle_type type;
-};
-
-struct d3d8_handle_table
-{
-    struct d3d8_handle_entry *entries;
-    struct d3d8_handle_entry *free_entries;
-    UINT table_size;
-    UINT entry_count;
-};
+typedef void * shader_handle;
 
 struct FvfToDecl
 {
@@ -201,7 +182,10 @@ struct IDirect3DDevice8Impl
     LONG                         ref;
 /* But what about baseVertexIndex in state blocks? hmm... it may be a better idea to pass this to wined3d */
     IWineD3DDevice               *WineD3DDevice;
-    struct d3d8_handle_table handle_table;
+    DWORD                         shader_handle_table_size;
+    DWORD                         allocated_shader_handles;
+    shader_handle                *shader_handles;
+    shader_handle                *free_shader_handles;
 
     /* FVF management */
     struct FvfToDecl       *decls;
@@ -218,6 +202,7 @@ struct IDirect3DDevice8Impl
 /*****************************************************************************
  * IDirect3DVolume8 implementation structure
  */
+extern const IDirect3DVolume8Vtbl Direct3DVolume8_Vtbl;
 struct IDirect3DVolume8Impl
 {
     /* IUnknown fields */
@@ -234,9 +219,6 @@ struct IDirect3DVolume8Impl
     IUnknown                    *forwardReference;
 };
 
-HRESULT volume_init(IDirect3DVolume8Impl *volume, IDirect3DDevice8Impl *device, UINT width, UINT height,
-        UINT depth, DWORD usage, WINED3DFORMAT format, WINED3DPOOL pool) DECLSPEC_HIDDEN;
-
 /* ------------------- */
 /* IDirect3DSwapChain8 */
 /* ------------------- */
@@ -244,7 +226,7 @@ HRESULT volume_init(IDirect3DVolume8Impl *volume, IDirect3DDevice8Impl *device, 
 /*****************************************************************************
  * Predeclare the interface implementation structures
  */
-extern const IDirect3DSwapChain8Vtbl Direct3DSwapChain8_Vtbl DECLSPEC_HIDDEN;
+extern const IDirect3DSwapChain8Vtbl Direct3DSwapChain8_Vtbl;
 
 /*****************************************************************************
  * IDirect3DSwapChain8 implementation structure
@@ -267,6 +249,11 @@ struct IDirect3DSwapChain8Impl
 /* ----------------- */
 
 /*****************************************************************************
+ * Predeclare the interface implementation structures
+ */
+extern const IDirect3DSurface8Vtbl Direct3DSurface8_Vtbl;
+
+/*****************************************************************************
  * IDirect3DSurface8 implementation structure
  */
 struct IDirect3DSurface8Impl
@@ -286,11 +273,10 @@ struct IDirect3DSurface8Impl
 
     /* If set forward refcounting to this object */
     IUnknown                    *forwardReference;
-};
 
-HRESULT surface_init(IDirect3DSurface8Impl *surface, IDirect3DDevice8Impl *device,
-        UINT width, UINT height, D3DFORMAT format, BOOL lockable, BOOL discard, UINT level,
-        DWORD usage, D3DPOOL pool, D3DMULTISAMPLE_TYPE multisample_type, DWORD multisample_quality) DECLSPEC_HIDDEN;
+    /* Flags an implicit surface */
+    BOOL                        isImplicit;
+};
 
 /* ------------------ */
 /* IDirect3DResource8 */
@@ -299,7 +285,7 @@ HRESULT surface_init(IDirect3DSurface8Impl *surface, IDirect3DDevice8Impl *devic
 /*****************************************************************************
  * Predeclare the interface implementation structures
  */
-extern const IDirect3DResource8Vtbl Direct3DResource8_Vtbl DECLSPEC_HIDDEN;
+extern const IDirect3DResource8Vtbl Direct3DResource8_Vtbl;
 
 /*****************************************************************************
  * IDirect3DResource8 implementation structure
@@ -313,10 +299,16 @@ struct IDirect3DResource8Impl
     /* IDirect3DResource8 fields */
     IWineD3DResource             *wineD3DResource;
 };
+extern HRESULT WINAPI IDirect3DResource8Impl_GetDevice(LPDIRECT3DRESOURCE8 iface, IDirect3DDevice8** ppDevice);
 
 /* ---------------------- */
 /* IDirect3DVertexBuffer8 */
 /* ---------------------- */
+
+/*****************************************************************************
+ * Predeclare the interface implementation structures
+ */
+extern const IDirect3DVertexBuffer8Vtbl Direct3DVertexBuffer8_Vtbl;
 
 /*****************************************************************************
  * IDirect3DVertexBuffer8 implementation structure
@@ -328,20 +320,20 @@ struct IDirect3DVertexBuffer8Impl
     LONG                              ref;
 
     /* IDirect3DResource8 fields */
-    IWineD3DBuffer *wineD3DVertexBuffer;
+    IWineD3DVertexBuffer             *wineD3DVertexBuffer;
 
     /* Parent reference */
     LPDIRECT3DDEVICE8                 parentDevice;
-
-    DWORD                             fvf;
 };
-
-HRESULT vertexbuffer_init(IDirect3DVertexBuffer8Impl *buffer, IDirect3DDevice8Impl *device,
-        UINT size, DWORD usage, DWORD fvf, D3DPOOL pool) DECLSPEC_HIDDEN;
 
 /* --------------------- */
 /* IDirect3DIndexBuffer8 */
 /* --------------------- */
+
+/*****************************************************************************
+ * Predeclare the interface implementation structures
+ */
+extern const IDirect3DIndexBuffer8Vtbl Direct3DIndexBuffer8_Vtbl;
 
 /*****************************************************************************
  * IDirect3DIndexBuffer8 implementation structure
@@ -353,16 +345,11 @@ struct IDirect3DIndexBuffer8Impl
     LONG                             ref;
 
     /* IDirect3DResource8 fields */
-    IWineD3DBuffer                  *wineD3DIndexBuffer;
+    IWineD3DIndexBuffer             *wineD3DIndexBuffer;
 
     /* Parent reference */
     LPDIRECT3DDEVICE8                parentDevice;
-
-    WINED3DFORMAT                    format;
 };
-
-HRESULT indexbuffer_init(IDirect3DIndexBuffer8Impl *buffer, IDirect3DDevice8Impl *device,
-        UINT size, DWORD usage, D3DFORMAT format, D3DPOOL pool) DECLSPEC_HIDDEN;
 
 /* --------------------- */
 /* IDirect3DBaseTexture8 */
@@ -386,6 +373,11 @@ struct IDirect3DBaseTexture8Impl
 /* --------------------- */
 
 /*****************************************************************************
+ * Predeclare the interface implementation structures
+ */
+extern const IDirect3DCubeTexture8Vtbl Direct3DCubeTexture8_Vtbl;
+
+/*****************************************************************************
  * IDirect3DCubeTexture8 implementation structure
  */
 struct IDirect3DCubeTexture8Impl
@@ -401,12 +393,14 @@ struct IDirect3DCubeTexture8Impl
     LPDIRECT3DDEVICE8                parentDevice;
 };
 
-HRESULT cubetexture_init(IDirect3DCubeTexture8Impl *texture, IDirect3DDevice8Impl *device,
-        UINT edge_length, UINT levels, DWORD usage, D3DFORMAT format, D3DPOOL pool) DECLSPEC_HIDDEN;
-
 /* ----------------- */
 /* IDirect3DTexture8 */
 /* ----------------- */
+
+/*****************************************************************************
+ * Predeclare the interface implementation structures
+ */
+extern const IDirect3DTexture8Vtbl Direct3DTexture8_Vtbl;
 
 /*****************************************************************************
  * IDirect3DTexture8 implementation structure
@@ -424,12 +418,14 @@ struct IDirect3DTexture8Impl
     LPDIRECT3DDEVICE8            parentDevice;
 };
 
-HRESULT texture_init(IDirect3DTexture8Impl *texture, IDirect3DDevice8Impl *device,
-        UINT width, UINT height, UINT levels, DWORD usage, D3DFORMAT format, D3DPOOL pool) DECLSPEC_HIDDEN;
-
 /* ----------------------- */
 /* IDirect3DVolumeTexture8 */
 /* ----------------------- */
+
+/*****************************************************************************
+ * Predeclare the interface implementation structures
+ */
+extern const IDirect3DVolumeTexture8Vtbl Direct3DVolumeTexture8_Vtbl;
 
 /*****************************************************************************
  * IDirect3DVolumeTexture8 implementation structure
@@ -447,16 +443,13 @@ struct IDirect3DVolumeTexture8Impl
     LPDIRECT3DDEVICE8                  parentDevice;
 };
 
-HRESULT volumetexture_init(IDirect3DVolumeTexture8Impl *texture, IDirect3DDevice8Impl *device,
-        UINT width, UINT height, UINT depth, UINT levels, DWORD usage, D3DFORMAT format, D3DPOOL pool) DECLSPEC_HIDDEN;
-
 /* ----------------------- */
 /* IDirect3DStateBlockImpl */
 /* ----------------------- */
 
 /* TODO: Generate a valid GUIDs */
 /* {83B073CE-6F30-11d9-C687-00046142C14F} */
-DEFINE_GUID(IID_IDirect3DStateBlock8,
+DEFINE_GUID(IID_IDirect3DStateBlock8, 
 0x83b073ce, 0x6f30, 0x11d9, 0xc6, 0x87, 0x0, 0x4, 0x61, 0x42, 0xc1, 0x4f);
 
 DEFINE_GUID(IID_IDirect3DVertexDeclaration8,
@@ -498,7 +491,7 @@ DECLARE_INTERFACE_(IDirect3DStateBlock8, IUnknown)
 /*****************************************************************************
  * Predeclare the interface implementation structures
  */
-extern const IDirect3DStateBlock8Vtbl Direct3DStateBlock8_Vtbl DECLSPEC_HIDDEN;
+extern const IDirect3DStateBlock8Vtbl Direct3DStateBlock8_Vtbl;
 
 /*****************************************************************************
  * IDirect3DStateBlock implementation structure
@@ -530,6 +523,9 @@ DECLARE_INTERFACE_(IDirect3DVertexDeclaration8, IUnknown)
 #define IDirect3DVertexDeclaration8_AddRef(p)              (p)->lpVtbl->AddRef(p)
 #define IDirect3DVertexDeclaration8_Release(p)             (p)->lpVtbl->Release(p)
 
+/*** Implementation ***/
+extern const IDirect3DVertexDeclaration8Vtbl Direct3DVertexDeclaration8_Vtbl;
+
 typedef struct {
     const IDirect3DVertexDeclaration8Vtbl *lpVtbl;
     LONG ref_count;
@@ -541,10 +537,6 @@ typedef struct {
     DWORD shader_handle;
 } IDirect3DVertexDeclaration8Impl;
 
-HRESULT vertexdeclaration_init(IDirect3DVertexDeclaration8Impl *declaration,
-        IDirect3DDevice8Impl *device, const DWORD *elements, DWORD shader_handle) DECLSPEC_HIDDEN;
-HRESULT vertexdeclaration_init_fvf(IDirect3DVertexDeclaration8Impl *declaration,
-        IDirect3DDevice8Impl *device, DWORD fvf) DECLSPEC_HIDDEN;
 
 /*****************************************************************************
  * IDirect3DVertexShader8 interface
@@ -587,6 +579,11 @@ DECLARE_INTERFACE_(IDirect3DPixelShader8,IUnknown)
 #define IDirect3DPixelShader8_Release(p)             (p)->lpVtbl->Release(p)
 
 /*****************************************************************************
+ * Predeclare the interface implementation structures
+ */
+extern const IDirect3DVertexShader8Vtbl Direct3DVertexShader8_Vtbl;
+
+/*****************************************************************************
  * IDirect3DVertexShader implementation structure
  */
 
@@ -598,10 +595,16 @@ struct IDirect3DVertexShader8Impl {
   IWineD3DVertexShader             *wineD3DVertexShader;
 };
 
-HRESULT vertexshader_init(IDirect3DVertexShader8Impl *shader, IDirect3DDevice8Impl *device,
-        const DWORD *declaration, const DWORD *byte_code, DWORD shader_handle, DWORD usage) DECLSPEC_HIDDEN;
 
-#define D3D8_MAX_VERTEX_SHADER_CONSTANTF 256
+/* ------------------------ */
+/* IDirect3DPixelShaderImpl */
+/* ------------------------ */
+
+
+/*****************************************************************************
+ * Predeclare the interface implementation structures
+ */
+extern const IDirect3DPixelShader8Vtbl Direct3DPixelShader8_Vtbl;
 
 /*****************************************************************************
  * IDirect3DPixelShader implementation structure
@@ -614,22 +617,20 @@ typedef struct IDirect3DPixelShader8Impl {
     IWineD3DPixelShader             *wineD3DPixelShader;
 } IDirect3DPixelShader8Impl;
 
-HRESULT pixelshader_init(IDirect3DPixelShader8Impl *shader, IDirect3DDevice8Impl *device,
-        const DWORD *byte_code, DWORD shader_handle) DECLSPEC_HIDDEN;
-
 /**
  * Internals functions
  *
  * to see how not defined it here
  */
-D3DFORMAT d3dformat_from_wined3dformat(WINED3DFORMAT format) DECLSPEC_HIDDEN;
-WINED3DFORMAT wined3dformat_from_d3dformat(D3DFORMAT format) DECLSPEC_HIDDEN;
-void load_local_constants(const DWORD *d3d8_elements, IWineD3DVertexShader *wined3d_vertex_shader) DECLSPEC_HIDDEN;
-UINT convert_to_wined3d_declaration(const DWORD *d3d8_elements, DWORD *d3d8_elements_size,
-        WINED3DVERTEXELEMENT **wined3d_elements) DECLSPEC_HIDDEN;
-size_t parse_token(const DWORD *pToken) DECLSPEC_HIDDEN;
+void load_local_constants(const DWORD *d3d8_elements, IWineD3DVertexShader *wined3d_vertex_shader);
+UINT convert_to_wined3d_declaration(const DWORD *d3d8_elements, DWORD *d3d8_elements_size, WINED3DVERTEXELEMENT **wined3d_elements);
+size_t parse_token(const DWORD* pToken);
 
 /* Callbacks */
-extern ULONG WINAPI D3D8CB_DestroySwapChain(IWineD3DSwapChain *pSwapChain) DECLSPEC_HIDDEN;
+extern ULONG WINAPI D3D8CB_DestroySwapChain (IWineD3DSwapChain *pSwapChain);
+extern ULONG WINAPI D3D8CB_DestroyDepthStencilSurface (IWineD3DSurface *pSurface);
+extern ULONG WINAPI D3D8CB_DestroyRenderTarget (IWineD3DSurface *pSurface);
+extern ULONG WINAPI D3D8CB_DestroySurface(IWineD3DSurface *pSurface);
+extern ULONG WINAPI D3D8CB_DestroyVolume(IWineD3DVolume *pVolume);
 
 #endif /* __WINE_D3DX8_PRIVATE_H */

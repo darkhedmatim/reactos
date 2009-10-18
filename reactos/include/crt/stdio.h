@@ -8,9 +8,6 @@
 
 #include <crtdefs.h>
 
-#define __need___va_list
-#include <stdarg.h>
-
 #pragma pack(push,_CRT_PACKING)
 
 #ifdef __cplusplus

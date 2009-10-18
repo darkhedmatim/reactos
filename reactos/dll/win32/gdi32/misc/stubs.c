@@ -72,128 +72,47 @@ SaveDC(IN HDC hdc)
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 WINAPI
-CancelDC(HDC hDC)
+CancelDC(HDC hdc)
 {
-  PDC_ATTR pDc_Attr;
-
-  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC &&
-      GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_METADC )
-  {
-     PLDC pLDC = GdiGetLDC(hDC);
-     if ( !pLDC )
-     {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return FALSE;
-     }
-     /* If a document has started set it to die. */
-     if (pLDC->Flags & LDC_INIT_DOCUMENT) pLDC->Flags |= LDC_KILL_DOCUMENT;
-
-     return NtGdiCancelDC(hDC);
-  }
-
-  if (GdiGetHandleUserData((HGDIOBJ) hDC, GDI_OBJECT_TYPE_DC, (PVOID) &pDc_Attr))
-  {
-     pDc_Attr->ulDirty_ &= ~DC_PLAYMETAFILE;
-     return TRUE;
-  }
-
-  return FALSE;
+    UNIMPLEMENTED;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int
 WINAPI
-DrawEscape(HDC  hDC,
-           INT nEscape,
-           INT cbInput,
-           LPCSTR lpszInData)
+DrawEscape(HDC  hdc,
+           int a1,
+           int a2,
+           LPCSTR a3)
 {
-  if (GDI_HANDLE_GET_TYPE(hDC) == GDI_OBJECT_TYPE_DC)
-     return NtGdiDrawEscape(hDC, nEscape, cbInput, (LPSTR) lpszInData);
-
-  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_METADC)
-  {
-     PLDC pLDC = GdiGetLDC(hDC);
-     if ( pLDC )
-     {
-        if (pLDC->Flags & LDC_META_PRINT)
-        {
-//           if (nEscape != QUERYESCSUPPORT)
-//              return EMFDRV_WriteEscape(hDC, nEscape, cbInput, lpszInData, EMR_DRAWESCAPE);
-
-           return NtGdiDrawEscape(hDC, nEscape, cbInput, (LPSTR) lpszInData);
-        }
-     }
-     SetLastError(ERROR_INVALID_HANDLE);
-  }
-  return 0;
+    UNIMPLEMENTED;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
 }
 
 
 /*
- * @implemented
+ * @unimplemented
  */
 int
 WINAPI
 EnumObjects(HDC hdc,
-            int nObjectType,
-            GOBJENUMPROC lpObjectFunc,
-            LPARAM lParam)
+            int a1,
+            GOBJENUMPROC a2,
+            LPARAM a3)
 {
-    ULONG ObjectsCount;
-    ULONG Size;
-    PVOID Buffer = NULL;
-    DWORD_PTR EndOfBuffer;
-    int Result = 0;
-
-    switch (nObjectType)
-    {
-        case OBJ_BRUSH:
-            Size = sizeof(LOGBRUSH);
-            break;
-
-        case OBJ_PEN:
-            Size = sizeof(LOGPEN);
-            break;
-
-        default:
-            SetLastError(ERROR_INVALID_PARAMETER);
-            return 0;
-    }
-
-    ObjectsCount = NtGdiEnumObjects(hdc, nObjectType, 0, NULL);
-    if (!ObjectsCount) return 0;
-
-    Buffer = HeapAlloc(GetProcessHeap(), 0, ObjectsCount * Size);
-    if (!Buffer)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return 0;
-    }
-
-    if (!NtGdiEnumObjects(hdc, nObjectType, ObjectsCount * Size, Buffer))
-    {
-        HeapFree(GetProcessHeap(), 0, Buffer);
-        return 0;
-    }
-
-    EndOfBuffer = (DWORD_PTR)Buffer + (ObjectsCount * Size);
-    while ((DWORD_PTR)Buffer < EndOfBuffer)
-    {
-        Result = lpObjectFunc(Buffer, lParam);
-        if (!Result) break;
-        Buffer = (PVOID)((DWORD_PTR)Buffer + Size);
-    }
-
-    HeapFree(GetProcessHeap(), 0, Buffer);
-    return Result;
+    UNIMPLEMENTED;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
 }
 
 
@@ -263,21 +182,10 @@ SetBoundsRect(HDC hdc,
 HMETAFILE
 WINAPI
 SetMetaFileBitsEx(
-	UINT		size,
-	CONST BYTE	*lpData
+	UINT		a0,
+	CONST BYTE	*a1
 	)
 {
-    const METAHEADER *mh_in = (const METAHEADER *)lpData;
-
-    if (size & 1) return 0;
-
-    if (!size || mh_in->mtType != METAFILE_MEMORY || mh_in->mtVersion != 0x300 ||
-        mh_in->mtHeaderSize != sizeof(METAHEADER) / 2)
-    {
-        SetLastError(ERROR_INVALID_DATA);
-        return 0;
-    }
-
 	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
@@ -338,19 +246,13 @@ DeleteEnhMetaFile(
 BOOL
 WINAPI
 EnumEnhMetaFile(
-	HDC		hdc,
-	HENHMETAFILE	hmf,
-	ENHMFENUMPROC	callback,
-	LPVOID		data,
-	CONST RECT	*lpRect
+	HDC		a0,
+	HENHMETAFILE	a1,
+	ENHMFENUMPROC	a2,
+	LPVOID		a3,
+	CONST RECT	*a4
 	)
 {
-    if(!lpRect && hdc)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-
 	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return FALSE;
@@ -538,6 +440,80 @@ SetColorAdjustment(
 }
 
 /*
+ * @unimplemented
+ */
+int
+WINAPI
+EndDoc(
+	HDC	hdc
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+WINAPI
+StartPage(
+	HDC	hdc
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+WINAPI
+EndPage(
+	HDC	hdc
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+WINAPI
+AbortDoc(
+	HDC	hdc
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+WINAPI
+SetAbortProc(
+	HDC hdc,
+	ABORTPROC lpAbortProc)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
  * @implemented
  */
 BOOL
@@ -585,15 +561,10 @@ GdiFlush()
 int
 WINAPI
 SetICMMode(
-	HDC	hdc,
-	int	iEnableICM
+	HDC	a0,
+	int	a1
 	)
 {
-    /*FIXME:  Assume that ICM is always off, and cannot be turned on */
-    if (iEnableICM == ICM_OFF) return ICM_OFF;
-    if (iEnableICM == ICM_ON) return 0;
-    if (iEnableICM == ICM_QUERY) return ICM_OFF;
-
 	UNIMPLEMENTED;
 	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
 	return 0;
@@ -678,6 +649,233 @@ ColorMatchToTarget(
 	return FALSE;
 }
 
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+wglCopyContext(
+	HGLRC	a0,
+	HGLRC	a1,
+	UINT	a2
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+HGLRC
+WINAPI
+wglCreateContext(
+	HDC	hDc
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HGLRC
+WINAPI
+wglCreateLayerContext(
+	HDC	hDc,
+	int	a1
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+wglDeleteContext(
+	HGLRC	a
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+HGLRC
+WINAPI
+wglGetCurrentContext(VOID)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HDC
+WINAPI
+wglGetCurrentDC(VOID)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+PROC
+WINAPI
+wglGetProcAddress(
+	LPCSTR		a0
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+wglMakeCurrent(
+	HDC	a0,
+	HGLRC	a1
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+wglShareLists(
+	HGLRC	a0,
+	HGLRC	a1
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+wglDescribeLayerPlane(
+	HDC			a0,
+	int			a1,
+	int			a2,
+	UINT			a3,
+	LPLAYERPLANEDESCRIPTOR	a4
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+WINAPI
+wglSetLayerPaletteEntries(
+	HDC		a0,
+	int		a1,
+	int		a2,
+	int		a3,
+	CONST COLORREF	*a4
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+int
+WINAPI
+wglGetLayerPaletteEntries(
+	HDC		a0,
+	int		a1,
+	int		a2,
+	int		a3,
+	COLORREF	*a4
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+wglRealizeLayerPalette(
+	HDC		a0,
+	int		a1,
+	BOOL		a2
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+wglSwapLayerBuffers(
+	HDC		a0,
+	UINT		a1
+	)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return FALSE;
+}
+
+
 /* === AFTER THIS POINT I GUESS... =========
  * (based on stack size in Norlander's .def)
  * === WHERE ARE THEY DEFINED? =============
@@ -757,7 +955,7 @@ gdiPlaySpoolStream(
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 HANDLE
 WINAPI
@@ -768,12 +966,9 @@ AddFontMemResourceEx(
 	DWORD *pcFonts
 )
 {
-  if ( pbFont && cbFont && pcFonts)
-  {
-     return NtGdiAddFontMemResourceEx(pbFont, cbFont, NULL, 0, pcFonts);
-  }
-  SetLastError(ERROR_INVALID_PARAMETER);
-  return NULL;
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 /*
@@ -832,6 +1027,18 @@ ColorCorrectPalette(HDC hDC,HPALETTE hPalette,DWORD dwFirstEntry,DWORD dwNumOfEn
 /*
  * @unimplemented
  */
+int
+WINAPI
+EndFormPage(HDC hdc)
+{
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
+}
+
+/*
+ * @unimplemented
+ */
 BOOL
 WINAPI
 GdiArtificialDecrementDriver(LPWSTR pDriverName,BOOL unknown)
@@ -854,26 +1061,15 @@ GdiCleanCacheDC(HDC hdc)
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 HDC
 WINAPI
 GdiConvertAndCheckDC(HDC hdc)
 {
-   PLDC pldc;
-   ULONG hType = GDI_HANDLE_GET_TYPE(hdc);
-   if (hType == GDILoObjType_LO_DC_TYPE || hType == GDILoObjType_LO_METADC16_TYPE)
-      return hdc;
-   pldc = GdiGetLDC(hdc);
-   if (pldc)
-   {
-      if (pldc->Flags & LDC_SAPCALLBACK) GdiSAPCallback(pldc);
-      if (pldc->Flags & LDC_KILL_DOCUMENT) return NULL;
-      if (pldc->Flags & LDC_STARTPAGE) StartPage(hdc);
-      return hdc;
-   }
-   SetLastError(ERROR_INVALID_HANDLE);
-   return NULL;   
+	UNIMPLEMENTED;
+	SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+	return 0;
 }
 
 /*
@@ -901,69 +1097,39 @@ GdiDrawStream(HDC dc, ULONG l, VOID *v)
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 WINAPI
-GdiIsMetaFileDC(HDC hDC)
+GdiIsMetaFileDC(HDC hdc)
 {
-  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
-  {
-     if (GDI_HANDLE_GET_TYPE(hDC) == GDI_OBJECT_TYPE_METADC)
-        return TRUE;
-     else
-     {
-        PLDC pLDC = GdiGetLDC(hDC);
-        if ( !pLDC )
-        {
-           SetLastError(ERROR_INVALID_HANDLE);
-           return FALSE;
-        }
-        if ( pLDC->iType == LDC_EMFLDC) return TRUE;
-     }
-  }
-  return FALSE;
+    UNIMPLEMENTED;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 WINAPI
-GdiIsMetaPrintDC(HDC hDC)
+GdiIsMetaPrintDC(HDC hdc)
 {
-
-  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
-  {
-     if (GDI_HANDLE_GET_TYPE(hDC) == GDI_OBJECT_TYPE_METADC)
-        return FALSE;
-     else
-     {
-        PLDC pLDC = GdiGetLDC(hDC);
-        if ( !pLDC )
-        {
-           SetLastError(ERROR_INVALID_HANDLE);
-           return FALSE;
-        }
-        if ( pLDC->Flags & LDC_META_PRINT) return TRUE;
-     }
-  }
-  return FALSE;
+    UNIMPLEMENTED;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOL
 WINAPI
-GdiIsPlayMetafileDC(HDC hDC)
+GdiIsPlayMetafileDC(HDC hdc)
 {
-  PLDC pLDC = GdiGetLDC(hDC);
-  if ( pLDC )
-  {
-     if ( pLDC->Flags & LDC_PLAY_MFDC ) return TRUE;
-  }
-  return FALSE;
+    UNIMPLEMENTED;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
 }
 
 /*
@@ -1064,12 +1230,17 @@ BOOL
 WINAPI
 RemoveFontMemResourceEx(HANDLE fh)
 {
-  if (fh)
-  {
-     return NtGdiRemoveFontMemResourceEx(fh);
-  }
-  SetLastError(ERROR_INVALID_PARAMETER);
-  return FALSE;
+    BOOL retValue=0;
+
+    if (fh)
+    {
+        retValue = NtGdiRemoveFontMemResourceEx(fh);
+    }
+    else
+    {
+        SetLastError(ERROR_INVALID_PARAMETER);
+    }
+    return retValue;
 }
 
 /*
@@ -1435,6 +1606,45 @@ GdiCreateLocalEnhMetaFile(HENHMETAFILE hmo)
 METAFILEPICT *
 WINAPI
 GdiCreateLocalMetaFilePict(HENHMETAFILE hmo)
+{
+    UNIMPLEMENTED;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+
+/*
+ * @unimplemented
+ */
+HANDLE
+WINAPI
+GdiGetSpoolFileHandle(LPWSTR pwszPrinterName,
+                      LPDEVMODEW pDevmode,
+                      LPWSTR pwszDocName)
+{
+    UNIMPLEMENTED;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+GdiDeleteSpoolFileHandle(HANDLE SpoolFileHandle)
+{
+    UNIMPLEMENTED;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+DWORD
+WINAPI
+GdiGetPageCount(HANDLE SpoolFileHandle)
 {
     UNIMPLEMENTED;
     SetLastError(ERROR_CALL_NOT_IMPLEMENTED);

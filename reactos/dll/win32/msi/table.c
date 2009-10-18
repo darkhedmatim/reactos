@@ -59,7 +59,6 @@ typedef struct tagMSICOLUMNINFO
     UINT   type;
     UINT   offset;
     INT    ref_count;
-    BOOL   temporary;
     MSICOLUMNHASHENTRY **hash_table;
 } MSICOLUMNINFO;
 
@@ -73,12 +72,13 @@ typedef struct tagMSIORDERINFO
 struct tagMSITABLE
 {
     BYTE **data;
-    BOOL *data_persistent;
     UINT row_count;
+    BYTE **nonpersistent_data;
+    UINT nonpersistent_row_count;
     struct list entry;
     MSICOLUMNINFO *colinfo;
     UINT col_count;
-    MSICONDITION persistent;
+    BOOL persistent;
     INT ref_count;
     WCHAR name[1];
 };
@@ -102,14 +102,14 @@ static WCHAR szNumber[]  = { 'N','u','m','b','e','r',0 };
 static WCHAR szType[]    = { 'T','y','p','e',0 };
 
 static const MSICOLUMNINFO _Columns_cols[4] = {
-    { szColumns, 1, szTable,  MSITYPE_VALID | MSITYPE_STRING | MSITYPE_KEY | 64, 0, 0, 0, NULL },
-    { szColumns, 2, szNumber, MSITYPE_VALID | MSITYPE_KEY | 2,     2, 0, 0, NULL },
-    { szColumns, 3, szName,   MSITYPE_VALID | MSITYPE_STRING | 64, 4, 0, 0, NULL },
-    { szColumns, 4, szType,   MSITYPE_VALID | 2,                   6, 0, 0, NULL },
+    { szColumns, 1, szTable,  MSITYPE_VALID | MSITYPE_STRING | MSITYPE_KEY | 64, 0, 0, NULL },
+    { szColumns, 2, szNumber, MSITYPE_VALID | MSITYPE_KEY | 2,     2, 0, NULL },
+    { szColumns, 3, szName,   MSITYPE_VALID | MSITYPE_STRING | 64, 4, 0, NULL },
+    { szColumns, 4, szType,   MSITYPE_VALID | 2,                   6, 0, NULL },
 };
 
 static const MSICOLUMNINFO _Tables_cols[1] = {
-    { szTables,  1, szName,   MSITYPE_VALID | MSITYPE_STRING | MSITYPE_KEY | 64, 0, 0, 0, NULL },
+    { szTables,  1, szName,   MSITYPE_VALID | MSITYPE_STRING | MSITYPE_KEY | 64, 0, 0, NULL },
 };
 
 #define MAX_STREAM_NAME 0x1f
@@ -121,23 +121,16 @@ static void table_calc_column_offsets( MSIDATABASE *db, MSICOLUMNINFO *colinfo,
 static UINT get_tablecolumns( MSIDATABASE *db,
        LPCWSTR szTableName, MSICOLUMNINFO *colinfo, UINT *sz);
 static void msi_free_colinfo( MSICOLUMNINFO *colinfo, UINT count );
-static UINT table_find_insert_idx (MSIVIEW *view, LPCWSTR name, INT *pidx);
 
 static inline UINT bytes_per_column( MSIDATABASE *db, const MSICOLUMNINFO *col )
 {
     if( MSITYPE_IS_BINARY(col->type) )
         return 2;
-
     if( col->type & MSITYPE_STRING )
         return db->bytes_per_strref;
-
-    if( (col->type & 0xff) <= 2)
-        return 2;
-
-    if( (col->type & 0xff) != 4 )
+    if( (col->type & 0xff) > 4 )
         ERR("Invalid column size!\n");
-
-    return 4;
+    return col->type & 0xff;
 }
 
 static int utf2mime(int x)
@@ -482,7 +475,9 @@ static void free_table( MSITABLE *table )
     for( i=0; i<table->row_count; i++ )
         msi_free( table->data[i] );
     msi_free( table->data );
-    msi_free( table->data_persistent );
+    for( i=0; i<table->nonpersistent_row_count; i++ )
+        msi_free( table->nonpersistent_data[i] );
+    msi_free( table->nonpersistent_data );
     msi_free_colinfo( table->colinfo, table->col_count );
     msi_free( table->colinfo );
     msi_free( table );
@@ -524,9 +519,6 @@ static UINT read_table_from_storage( MSIDATABASE *db, MSITABLE *t, IStorage *stg
     t->data = msi_alloc_zero( t->row_count * sizeof (USHORT*) );
     if( !t->data )
         goto err;
-    t->data_persistent = msi_alloc_zero( t->row_count * sizeof(BOOL));
-    if ( !t->data_persistent )
-        goto err;
 
     /* transpose all the data */
     TRACE("Transposing data from %d rows\n", t->row_count );
@@ -535,7 +527,6 @@ static UINT read_table_from_storage( MSIDATABASE *db, MSITABLE *t, IStorage *stg
         t->data[i] = msi_alloc( row_size );
         if( !t->data[i] )
             goto err;
-        t->data_persistent[i] = TRUE;
 
         for( j=0; j<t->col_count; j++ )
         {
@@ -619,7 +610,7 @@ static UINT table_get_column_info( MSIDATABASE *db, LPCWSTR name, MSICOLUMNINFO 
 }
 
 UINT msi_create_table( MSIDATABASE *db, LPCWSTR name, column_info *col_info,
-                       MSICONDITION persistent, MSITABLE **table_ret)
+                       BOOL persistent, MSITABLE **table_ret)
 {
     UINT r, nField;
     MSIVIEW *tv = NULL;
@@ -627,7 +618,6 @@ UINT msi_create_table( MSIDATABASE *db, LPCWSTR name, column_info *col_info,
     column_info *col;
     MSITABLE *table;
     UINT i;
-    INT idx;
 
     /* only add tables that don't exist already */
     if( TABLE_Exists(db, name ) )
@@ -643,7 +633,8 @@ UINT msi_create_table( MSIDATABASE *db, LPCWSTR name, column_info *col_info,
     table->ref_count = 1;
     table->row_count = 0;
     table->data = NULL;
-    table->data_persistent = NULL;
+    table->nonpersistent_row_count = 0;
+    table->nonpersistent_data = NULL;
     table->colinfo = NULL;
     table->col_count = 0;
     table->persistent = persistent;
@@ -668,7 +659,6 @@ UINT msi_create_table( MSIDATABASE *db, LPCWSTR name, column_info *col_info,
         table->colinfo[ i ].offset = 0;
         table->colinfo[ i ].ref_count = 0;
         table->colinfo[ i ].hash_table = NULL;
-        table->colinfo[ i ].temporary = col->temporary;
     }
     table_calc_column_offsets( db, table->colinfo, table->col_count);
 
@@ -693,11 +683,7 @@ UINT msi_create_table( MSIDATABASE *db, LPCWSTR name, column_info *col_info,
     if( r )
         goto err;
 
-    r = table_find_insert_idx (tv, name, &idx);
-    if (r != ERROR_SUCCESS)
-       idx = -1;
-
-    r = tv->ops->insert_row( tv, rec, idx, persistent == MSICONDITION_FALSE );
+    r = tv->ops->insert_row( tv, rec, !persistent );
     TRACE("insert_row returned %x\n", r);
     if( r )
         goto err;
@@ -708,7 +694,7 @@ UINT msi_create_table( MSIDATABASE *db, LPCWSTR name, column_info *col_info,
     msiobj_release( &rec->hdr );
     rec = NULL;
 
-    if( persistent != MSICONDITION_FALSE )
+    if( persistent )
     {
         /* add each column to the _Columns table */
         r = TABLE_CreateView( db, szColumns, &tv );
@@ -747,11 +733,7 @@ UINT msi_create_table( MSIDATABASE *db, LPCWSTR name, column_info *col_info,
             if( r )
                 goto err;
 
-            r = table_find_insert_idx (tv, name, &idx);
-            if (r != ERROR_SUCCESS)
-                idx = -1;
-
-            r = tv->ops->insert_row( tv, rec, idx, FALSE );
+            r = tv->ops->insert_row( tv, rec, FALSE );
             if( r )
                 goto err;
 
@@ -799,14 +781,12 @@ static UINT get_table( MSIDATABASE *db, LPCWSTR name, MSITABLE **table_ret )
 
     table->row_count = 0;
     table->data = NULL;
-    table->data_persistent = NULL;
+    table->nonpersistent_row_count = 0;
+    table->nonpersistent_data = NULL;
     table->colinfo = NULL;
     table->col_count = 0;
-    table->persistent = MSICONDITION_TRUE;
+    table->persistent = TRUE;
     lstrcpyW( table->name, name );
-
-    if ( !lstrcmpW(name, szTables) || !lstrcmpW(name, szColumns) )
-        table->persistent = MSICONDITION_NONE;
 
     r = table_get_column_info( db, name, &table->colinfo, &table->col_count);
     if (r != ERROR_SUCCESS)
@@ -833,7 +813,7 @@ static UINT save_table( MSIDATABASE *db, const MSITABLE *t )
     UINT rawsize, r, i, j, row_size;
 
     /* Nothing to do for non-persistent tables */
-    if( t->persistent == MSICONDITION_FALSE )
+    if( !t->persistent )
         return ERROR_SUCCESS;
 
     TRACE("Saving %s\n", debugstr_w( t->name ) );
@@ -848,17 +828,12 @@ static UINT save_table( MSIDATABASE *db, const MSITABLE *t )
         goto err;
     }
 
-    rawsize = 0;
     p = rawdata;
     for( i=0; i<t->col_count; i++ )
     {
         for( j=0; j<t->row_count; j++ )
         {
             UINT offset = t->colinfo[i].offset;
-
-            if (!t->data_persistent[j]) continue;
-            if (i == 0)
-                rawsize += row_size;
 
             *p++ = t->data[j][offset];
             *p++ = t->data[j][offset + 1];
@@ -1058,9 +1033,8 @@ static void msi_update_table_columns( MSIDATABASE *db, LPCWSTR name )
     table = find_cached_table( db, name );
     old_count = table->col_count;
     msi_free( table->colinfo );
-    table->colinfo = NULL;
-
     table_get_column_info( db, name, &table->colinfo, &table->col_count );
+
     if (!table->col_count)
         return;
 
@@ -1081,11 +1055,9 @@ BOOL TABLE_Exists( MSIDATABASE *db, LPCWSTR name )
     UINT r, table_id = 0, i, count;
     MSITABLE *table = NULL;
 
-    static const WCHAR szStreams[] = {'_','S','t','r','e','a','m','s',0};
-    static const WCHAR szStorages[] = {'_','S','t','o','r','a','g','e','s',0};
-
-    if( !lstrcmpW( name, szTables ) || !lstrcmpW( name, szColumns ) ||
-        !lstrcmpW( name, szStreams ) || !lstrcmpW( name, szStorages ) )
+    if( !lstrcmpW( name, szTables ) )
+        return TRUE;
+    if( !lstrcmpW( name, szColumns ) )
         return TRUE;
 
     r = msi_string2idW( db->strings, name, &table_id );
@@ -1105,6 +1077,11 @@ BOOL TABLE_Exists( MSIDATABASE *db, LPCWSTR name )
     count = table->row_count;
     for( i=0; i<count; i++ )
         if( table->data[ i ][ 0 ] == table_id )
+            return TRUE;
+
+    count = table->nonpersistent_row_count;
+    for( i=0; i<count; i++ )
+        if( table->nonpersistent_data[ i ][ 0 ] == table_id )
             return TRUE;
 
     return FALSE;
@@ -1128,6 +1105,7 @@ static UINT TABLE_fetch_int( struct tagMSIVIEW *view, UINT row, UINT col, UINT *
 {
     MSITABLEVIEW *tv = (MSITABLEVIEW*)view;
     UINT offset, n;
+    BYTE **data;
 
     if( !tv->table )
         return ERROR_INVALID_PARAMETER;
@@ -1136,7 +1114,7 @@ static UINT TABLE_fetch_int( struct tagMSIVIEW *view, UINT row, UINT col, UINT *
         return ERROR_INVALID_PARAMETER;
 
     /* how many rows are there ? */
-    if( row >= tv->table->row_count )
+    if( row >= tv->table->row_count + tv->table->nonpersistent_row_count )
         return ERROR_NO_MORE_ITEMS;
 
     if( tv->columns[col-1].offset >= tv->row_size )
@@ -1149,6 +1127,14 @@ static UINT TABLE_fetch_int( struct tagMSIVIEW *view, UINT row, UINT col, UINT *
     if (tv->order)
         row = tv->order->reorder[row];
 
+    if (row >= tv->table->row_count)
+    {
+        row -= tv->table->row_count;
+        data = tv->table->nonpersistent_data;
+    }
+    else
+        data = tv->table->data;
+
     n = bytes_per_column( tv->db, &tv->columns[col-1] );
     if (n != 2 && n != 3 && n != 4)
     {
@@ -1157,98 +1143,11 @@ static UINT TABLE_fetch_int( struct tagMSIVIEW *view, UINT row, UINT col, UINT *
     }
 
     offset = tv->columns[col-1].offset;
-    *val = read_table_int(tv->table->data, row, offset, n);
+    *val = read_table_int(data, row, offset, n);
 
     /* TRACE("Data [%d][%d] = %d\n", row, col, *val ); */
 
     return ERROR_SUCCESS;
-}
-
-static UINT msi_stream_name( const MSITABLEVIEW *tv, UINT row, LPWSTR *pstname )
-{
-    LPWSTR p, stname = NULL;
-    UINT i, r, type, ival;
-    DWORD len;
-    LPCWSTR sval;
-    MSIVIEW *view = (MSIVIEW *) tv;
-
-    TRACE("%p %d\n", tv, row);
-
-    len = lstrlenW( tv->name ) + 1;
-    stname = msi_alloc( len*sizeof(WCHAR) );
-    if ( !stname )
-    {
-       r = ERROR_OUTOFMEMORY;
-       goto err;
-    }
-
-    lstrcpyW( stname, tv->name );
-
-    for ( i = 0; i < tv->num_cols; i++ )
-    {
-        type = tv->columns[i].type;
-        if ( type & MSITYPE_KEY )
-        {
-            static const WCHAR szDot[] = { '.', 0 };
-
-            r = TABLE_fetch_int( view, row, i+1, &ival );
-            if ( r != ERROR_SUCCESS )
-                goto err;
-
-            if ( tv->columns[i].type & MSITYPE_STRING )
-            {
-                sval = msi_string_lookup_id( tv->db->strings, ival );
-                if ( !sval )
-                {
-                    r = ERROR_INVALID_PARAMETER;
-                    goto err;
-                }
-            }
-            else
-            {
-                static const WCHAR fmt[] = { '%','d',0 };
-                WCHAR number[0x20];
-                UINT n = bytes_per_column( tv->db, &tv->columns[i] );
-
-                switch( n )
-                {
-                case 2:
-                    sprintfW( number, fmt, ival^0x8000 );
-                    break;
-                case 4:
-                    sprintfW( number, fmt, ival^0x80000000 );
-                    break;
-                default:
-                    ERR( "oops - unknown column width %d\n", n );
-                    r = ERROR_FUNCTION_FAILED;
-                    goto err;
-                }
-                sval = number;
-            }
-
-            len += lstrlenW( szDot ) + lstrlenW( sval );
-            p = msi_realloc ( stname, len*sizeof(WCHAR) );
-            if ( !p )
-            {
-                r = ERROR_OUTOFMEMORY;
-                goto err;
-            }
-            stname = p;
-
-            lstrcatW( stname, szDot );
-            lstrcatW( stname, sval );
-        }
-        else
-           continue;
-    }
-
-    *pstname = stname;
-    return ERROR_SUCCESS;
-
-err:
-    msi_free( stname );
-    *pstname = NULL;
-    return r;
 }
 
 /*
@@ -1259,18 +1158,57 @@ err:
 static UINT TABLE_fetch_stream( struct tagMSIVIEW *view, UINT row, UINT col, IStream **stm )
 {
     MSITABLEVIEW *tv = (MSITABLEVIEW*)view;
-    UINT r;
-    LPWSTR full_name = NULL;
+    UINT ival = 0, refcol = 0, r;
+    LPCWSTR sval;
+    LPWSTR full_name;
+    DWORD len;
+    static const WCHAR szDot[] = { '.', 0 };
+    WCHAR number[0x20];
 
     if( !view->ops->fetch_int )
         return ERROR_INVALID_PARAMETER;
 
-    r = msi_stream_name( tv, row, &full_name );
-    if ( r != ERROR_SUCCESS )
-    {
-        ERR("fetching stream, error = %d\n", r);
+    /*
+     * The column marked with the type stream data seems to have a single number
+     * which references the column containing the name of the stream data
+     *
+     * Fetch the column to reference first.
+     */
+    r = view->ops->fetch_int( view, row, col, &ival );
+    if( r != ERROR_SUCCESS )
         return r;
+
+    /* check the column value is in range */
+    if (ival > tv->num_cols || ival == col)
+    {
+        ERR("bad column ref (%u) for stream\n", ival);
+        return ERROR_FUNCTION_FAILED;
     }
+
+    if ( tv->columns[ival - 1].type & MSITYPE_STRING )
+    {
+        /* now get the column with the name of the stream */
+        r = view->ops->fetch_int( view, row, ival, &refcol );
+        if ( r != ERROR_SUCCESS )
+            return r;
+
+        /* lookup the string value from the string table */
+        sval = msi_string_lookup_id( tv->db->strings, refcol );
+        if ( !sval )
+            return ERROR_INVALID_PARAMETER;
+    }
+    else
+    {
+        static const WCHAR fmt[] = { '%','d',0 };
+        sprintfW( number, fmt, ival );
+        sval = number;
+    }
+
+    len = lstrlenW( tv->name ) + 2 + lstrlenW( sval );
+    full_name = msi_alloc( len*sizeof(WCHAR) );
+    lstrcpyW( full_name, tv->name );
+    lstrcatW( full_name, szDot );
+    lstrcatW( full_name, sval );
 
     r = db_get_raw_stream( tv->db, full_name, stm );
     if( r )
@@ -1283,6 +1221,7 @@ static UINT TABLE_fetch_stream( struct tagMSIVIEW *view, UINT row, UINT col, ISt
 static UINT TABLE_set_int( MSITABLEVIEW *tv, UINT row, UINT col, UINT val )
 {
     UINT offset, n, i;
+    BYTE **data;
 
     if( !tv->table )
         return ERROR_INVALID_PARAMETER;
@@ -1290,7 +1229,7 @@ static UINT TABLE_set_int( MSITABLEVIEW *tv, UINT row, UINT col, UINT val )
     if( (col==0) || (col>tv->num_cols) )
         return ERROR_INVALID_PARAMETER;
 
-    if( row >= tv->table->row_count )
+    if( row >= tv->table->row_count + tv->table->nonpersistent_row_count )
         return ERROR_INVALID_PARAMETER;
 
     if( tv->columns[col-1].offset >= tv->row_size )
@@ -1303,6 +1242,14 @@ static UINT TABLE_set_int( MSITABLEVIEW *tv, UINT row, UINT col, UINT val )
     msi_free( tv->columns[col-1].hash_table );
     tv->columns[col-1].hash_table = NULL;
 
+    if (row >= tv->table->row_count)
+    {
+        row -= tv->table->row_count;
+        data = tv->table->nonpersistent_data;
+    }
+    else
+        data = tv->table->data;
+
     n = bytes_per_column( tv->db, &tv->columns[col-1] );
     if ( n != 2 && n != 3 && n != 4 )
     {
@@ -1312,7 +1259,7 @@ static UINT TABLE_set_int( MSITABLEVIEW *tv, UINT row, UINT col, UINT val )
 
     offset = tv->columns[col-1].offset;
     for ( i = 0; i < n; i++ )
-        tv->table->data[row][offset + i] = (val >> i * 8) & 0xff;
+        data[row][offset + i] = (val >> i * 8) & 0xff;
 
     return ERROR_SUCCESS;
 }
@@ -1328,46 +1275,6 @@ static UINT TABLE_get_row( struct tagMSIVIEW *view, UINT row, MSIRECORD **rec )
         row = tv->order->reorder[row];
 
     return msi_view_get_row(tv->db, view, row, rec);
-}
-
-static UINT msi_addstreamW( MSIDATABASE *db, LPCWSTR name, IStream *data )
-{
-    UINT r;
-    MSIQUERY *query = NULL;
-    MSIRECORD *rec = NULL;
-
-    static const WCHAR insert[] = {
-       'I','N','S','E','R','T',' ','I','N','T','O',' ',
-          '`','_','S','t','r','e','a','m','s','`',' ',
-         '(','`','N','a','m','e','`',',',
-             '`','D','a','t','a','`',')',' ',
-         'V','A','L','U','E','S',' ','(','?',',','?',')',0};
-
-    TRACE("%p %s %p\n", db, debugstr_w(name), data);
-
-    rec = MSI_CreateRecord( 2 );
-    if ( !rec )
-        return ERROR_OUTOFMEMORY;
-
-    r = MSI_RecordSetStringW( rec, 1, name );
-    if ( r != ERROR_SUCCESS )
-       goto err;
-
-    r = MSI_RecordSetIStream( rec, 2, data );
-    if ( r != ERROR_SUCCESS )
-       goto err;
-
-    r = MSI_DatabaseOpenViewW( db, insert, &query );
-    if ( r != ERROR_SUCCESS )
-       goto err;
-
-    r = MSI_ViewExecute( query, rec );
-
-err:
-    msiobj_release( &query->hdr );
-    msiobj_release( &rec->hdr );
-
-    return r;
 }
 
 static UINT TABLE_set_row( struct tagMSIVIEW *view, UINT row, MSIRECORD *rec, UINT mask )
@@ -1390,8 +1297,8 @@ static UINT TABLE_set_row( struct tagMSIVIEW *view, UINT row, MSIRECORD *rec, UI
         if ( !(mask&(1<<i)) )
             continue;
 
-        persistent = (tv->table->persistent != MSICONDITION_FALSE) &&
-                     (tv->table->data_persistent[row]);
+        /* if row >= tv->table->row_count then it is a non-persistent row */
+        persistent = tv->table->persistent && (row < tv->table->row_count);
         /* FIXME: should we allow updating keys? */
 
         val = 0;
@@ -1399,27 +1306,6 @@ static UINT TABLE_set_row( struct tagMSIVIEW *view, UINT row, MSIRECORD *rec, UI
         {
             if ( MSITYPE_IS_BINARY(tv->columns[ i ].type) )
             {
-                IStream *stm;
-                LPWSTR stname;
-
-                r = MSI_RecordGetIStream( rec, i + 1, &stm );
-                if ( r != ERROR_SUCCESS )
-                    return r;
-
-                r = msi_stream_name( tv, row, &stname );
-                if ( r != ERROR_SUCCESS )
-                {
-                    IStream_Release( stm );
-                    return r;
-                }
-
-                r = msi_addstreamW( tv->db, stname, stm );
-                IStream_Release( stm );
-                msi_free ( stname );
-
-                if ( r != ERROR_SUCCESS )
-                    return r;
-
                 val = 1; /* refers to the first key column */
             }
             else if ( tv->columns[i].type & MSITYPE_STRING )
@@ -1465,10 +1351,8 @@ static UINT table_create_new_row( struct tagMSIVIEW *view, UINT *num, BOOL tempo
 {
     MSITABLEVIEW *tv = (MSITABLEVIEW*)view;
     BYTE **p, *row;
-    BOOL *b;
     UINT sz;
     BYTE ***data_ptr;
-    BOOL **data_persist_ptr;
     UINT *row_count;
 
     TRACE("%p %s\n", view, temporary ? "TRUE" : "FALSE");
@@ -1480,11 +1364,18 @@ static UINT table_create_new_row( struct tagMSIVIEW *view, UINT *num, BOOL tempo
     if( !row )
         return ERROR_NOT_ENOUGH_MEMORY;
 
-    row_count = &tv->table->row_count;
-    data_ptr = &tv->table->data;
-    data_persist_ptr = &tv->table->data_persistent;
-    if (*num == -1)
+    if( temporary )
+    {
+        row_count = &tv->table->nonpersistent_row_count;
+        data_ptr = &tv->table->nonpersistent_data;
+        *num = tv->table->row_count + tv->table->nonpersistent_row_count;
+    }
+    else
+    {
+        row_count = &tv->table->row_count;
+        data_ptr = &tv->table->data;
         *num = tv->table->row_count;
+    }
 
     sz = (*row_count + 1) * sizeof (BYTE*);
     if( *data_ptr )
@@ -1497,24 +1388,8 @@ static UINT table_create_new_row( struct tagMSIVIEW *view, UINT *num, BOOL tempo
         return ERROR_NOT_ENOUGH_MEMORY;
     }
 
-    sz = (*row_count + 1) * sizeof (BOOL);
-    if( *data_persist_ptr )
-        b = msi_realloc( *data_persist_ptr, sz );
-    else
-        b = msi_alloc( sz );
-    if( !b )
-    {
-        msi_free( row );
-        msi_free( p );
-        return ERROR_NOT_ENOUGH_MEMORY;
-    }
-
     *data_ptr = p;
     (*data_ptr)[*row_count] = row;
-
-    *data_persist_ptr = b;
-    (*data_persist_ptr)[*row_count] = !temporary;
-
     (*row_count)++;
 
     return ERROR_SUCCESS;
@@ -1550,14 +1425,14 @@ static UINT TABLE_get_dimensions( struct tagMSIVIEW *view, UINT *rows, UINT *col
     {
         if( !tv->table )
             return ERROR_INVALID_PARAMETER;
-        *rows = tv->table->row_count;
+        *rows = tv->table->row_count + tv->table->nonpersistent_row_count;
     }
 
     return ERROR_SUCCESS;
 }
 
 static UINT TABLE_get_column_info( struct tagMSIVIEW *view,
-                UINT n, LPWSTR *name, UINT *type, BOOL *temporary )
+                UINT n, LPWSTR *name, UINT *type )
 {
     MSITABLEVIEW *tv = (MSITABLEVIEW*)view;
 
@@ -1572,12 +1447,8 @@ static UINT TABLE_get_column_info( struct tagMSIVIEW *view,
         if( !*name )
             return ERROR_FUNCTION_FAILED;
     }
-
     if( type )
         *type = tv->columns[n-1].type;
-
-    if( temporary )
-        *temporary = tv->columns[n-1].temporary;
 
     return ERROR_SUCCESS;
 }
@@ -1622,10 +1493,10 @@ static UINT table_validate_new( MSITABLEVIEW *tv, MSIRECORD *rec )
     return ERROR_SUCCESS;
 }
 
-static UINT TABLE_insert_row( struct tagMSIVIEW *view, MSIRECORD *rec, UINT row, BOOL temporary )
+static UINT TABLE_insert_row( struct tagMSIVIEW *view, MSIRECORD *rec, BOOL temporary )
 {
     MSITABLEVIEW *tv = (MSITABLEVIEW*)view;
-    UINT i, r;
+    UINT r, row = -1;
 
     TRACE("%p %p %s\n", tv, rec, temporary ? "TRUE" : "FALSE" );
 
@@ -1639,16 +1510,6 @@ static UINT TABLE_insert_row( struct tagMSIVIEW *view, MSIRECORD *rec, UINT row,
     if( r != ERROR_SUCCESS )
         return r;
 
-    /* shift the rows to make room for the new row */
-    for (i = tv->table->row_count - 1; i > row; i--)
-    {
-        memmove(&(tv->table->data[i][0]),
-                &(tv->table->data[i - 1][0]), tv->row_size);
-        tv->table->data_persistent[i] = tv->table->data_persistent[i - 1];
-    }
-
-    /* Re-set the persistence flag */
-    tv->table->data_persistent[row] = !temporary;
     return TABLE_set_row( view, row, rec, (1<<tv->num_cols) - 1 );
 }
 
@@ -1656,6 +1517,7 @@ static UINT TABLE_delete_row( struct tagMSIVIEW *view, UINT row )
 {
     MSITABLEVIEW *tv = (MSITABLEVIEW*)view;
     UINT r, num_rows, num_cols, i;
+    BYTE **data;
 
     TRACE("%p %d\n", tv, row);
 
@@ -1669,8 +1531,19 @@ static UINT TABLE_delete_row( struct tagMSIVIEW *view, UINT row )
     if ( row >= num_rows )
         return ERROR_FUNCTION_FAILED;
 
-    num_rows = tv->table->row_count;
-    tv->table->row_count--;
+    if ( row < tv->table->row_count )
+    {
+        num_rows = tv->table->row_count;
+        tv->table->row_count--;
+        data = tv->table->data;
+    }
+    else
+    {
+        num_rows = tv->table->nonpersistent_row_count;
+        row -= tv->table->row_count;
+        tv->table->nonpersistent_row_count--;
+        data = tv->table->nonpersistent_data;
+    }
 
     /* reset the hash tables */
     for (i = 0; i < tv->num_cols; i++)
@@ -1683,10 +1556,7 @@ static UINT TABLE_delete_row( struct tagMSIVIEW *view, UINT row )
         return ERROR_SUCCESS;
 
     for (i = row + 1; i < num_rows; i++)
-    {
-        memcpy(tv->table->data[i - 1], tv->table->data[i], tv->row_size);
-        tv->table->data_persistent[i - 1] = tv->table->data_persistent[i];
-    }
+        memcpy(data[i - 1], data[i], tv->row_size);
 
     return ERROR_SUCCESS;
 }
@@ -1715,21 +1585,6 @@ static UINT msi_table_update(struct tagMSIVIEW *view, MSIRECORD *rec, UINT row)
         return ERROR_FUNCTION_FAILED;
 
     return TABLE_set_row(view, new_row, rec, (1 << tv->num_cols) - 1);
-}
-
-static UINT msi_table_assign(struct tagMSIVIEW *view, MSIRECORD *rec)
-{
-    MSITABLEVIEW *tv = (MSITABLEVIEW *)view;
-    UINT r, row;
-
-    if (!tv->table)
-        return ERROR_INVALID_PARAMETER;
-
-    r = msi_table_find_row(tv, rec, &row);
-    if (r == ERROR_SUCCESS)
-        return TABLE_set_row(view, row, rec, (1 << tv->num_cols) - 1);
-    else
-        return TABLE_insert_row( view, rec, -1, FALSE );
 }
 
 static UINT modify_delete_row( struct tagMSIVIEW *view, MSIRECORD *rec )
@@ -1782,14 +1637,14 @@ static UINT TABLE_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode,
         r = table_validate_new( tv, rec );
         if (r != ERROR_SUCCESS)
             break;
-        r = TABLE_insert_row( view, rec, -1, FALSE );
+        r = TABLE_insert_row( view, rec, FALSE );
         break;
 
     case MSIMODIFY_INSERT_TEMPORARY:
         r = table_validate_new( tv, rec );
         if (r != ERROR_SUCCESS)
             break;
-        r = TABLE_insert_row( view, rec, -1, TRUE );
+        r = TABLE_insert_row( view, rec, TRUE );
         break;
 
     case MSIMODIFY_REFRESH:
@@ -1801,9 +1656,6 @@ static UINT TABLE_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode,
         break;
 
     case MSIMODIFY_ASSIGN:
-        r = msi_table_assign( view, rec );
-        break;
-
     case MSIMODIFY_REPLACE:
     case MSIMODIFY_MERGE:
     case MSIMODIFY_VALIDATE:
@@ -1858,7 +1710,7 @@ static UINT TABLE_find_matching_rows( struct tagMSIVIEW *view, UINT col,
     if( !tv->columns[col-1].hash_table )
     {
         UINT i;
-        UINT num_rows = tv->table->row_count;
+        UINT num_rows = tv->table->row_count + tv->table->nonpersistent_row_count;
         MSICOLUMNHASHENTRY **hash_table;
         MSICOLUMNHASHENTRY *new_entry;
 
@@ -2024,7 +1876,7 @@ static UINT TABLE_add_column(struct tagMSIVIEW *view, LPCWSTR table, UINT number
     MSI_RecordSetStringW(rec, 3, column);
     MSI_RecordSetInteger(rec, 4, type);
 
-    r = TABLE_insert_row(&tv->view, rec, -1, FALSE);
+    r = TABLE_insert_row(&tv->view, rec, FALSE);
     if (r != ERROR_SUCCESS)
         goto done;
 
@@ -2362,7 +2214,10 @@ MSICONDITION MSI_DatabaseIsTablePersistent( MSIDATABASE *db, LPCWSTR table )
     if (r != ERROR_SUCCESS)
         return MSICONDITION_NONE;
 
-    return t->persistent;
+    if (t->persistent)
+        return MSICONDITION_TRUE;
+    else
+        return MSICONDITION_FALSE;
 }
 
 static UINT read_raw_int(const BYTE *data, UINT col, UINT bytes)
@@ -2375,67 +2230,7 @@ static UINT read_raw_int(const BYTE *data, UINT col, UINT bytes)
     return ret;
 }
 
-static UINT msi_record_encoded_stream_name( const MSITABLEVIEW *tv, MSIRECORD *rec, LPWSTR *pstname )
-{
-    static const WCHAR szDot[] = { '.', 0 };
-    LPWSTR stname = NULL, sval, p;
-    DWORD len;
-    UINT i, r;
-
-    TRACE("%p %p\n", tv, rec);
-
-    len = lstrlenW( tv->name ) + 1;
-    stname = msi_alloc( len*sizeof(WCHAR) );
-    if ( !stname )
-    {
-       r = ERROR_OUTOFMEMORY;
-       goto err;
-    }
-
-    lstrcpyW( stname, tv->name );
-
-    for ( i = 0; i < tv->num_cols; i++ )
-    {
-        if ( tv->columns[i].type & MSITYPE_KEY )
-        {
-            sval = msi_dup_record_field( rec, i + 1 );
-            if ( !sval )
-            {
-                r = ERROR_OUTOFMEMORY;
-                goto err;
-            }
-
-            len += lstrlenW( szDot ) + lstrlenW ( sval );
-            p = msi_realloc ( stname, len*sizeof(WCHAR) );
-            if ( !p )
-            {
-                r = ERROR_OUTOFMEMORY;
-                goto err;
-            }
-            stname = p;
-
-            lstrcatW( stname, szDot );
-            lstrcatW( stname, sval );
-
-            msi_free( sval );
-        }
-        else
-            continue;
-    }
-
-    *pstname = encode_streamname( FALSE, stname );
-    msi_free( stname );
-
-    return ERROR_SUCCESS;
-
-err:
-    msi_free ( stname );
-    *pstname = NULL;
-    return r;
-}
-
 static MSIRECORD *msi_get_transform_record( const MSITABLEVIEW *tv, const string_table *st,
-                                            IStorage *stg,
                                             const BYTE *rawdata, UINT bytes_per_strref )
 {
     UINT i, val, ofs = 0;
@@ -2459,28 +2254,8 @@ static MSIRECORD *msi_get_transform_record( const MSITABLEVIEW *tv, const string
         if ( (~mask&1) && (~columns[i].type & MSITYPE_KEY) && ((1<<i) & ~mask) )
             continue;
 
-        if( MSITYPE_IS_BINARY(tv->columns[i].type) )
-        {
-            LPWSTR encname;
-            IStream *stm = NULL;
-            UINT r;
-
-            ofs += bytes_per_column( tv->db, &columns[i] );
-
-            r = msi_record_encoded_stream_name( tv, rec, &encname );
-            if ( r != ERROR_SUCCESS )
-                return NULL;
-
-            r = IStorage_OpenStream( stg, encname, NULL,
-                     STGM_READ | STGM_SHARE_EXCLUSIVE, 0, &stm );
-            msi_free( encname );
-            if ( r != ERROR_SUCCESS )
-                return NULL;
-
-            MSI_RecordSetStream( rec, i+1, stm );
-            TRACE(" field %d [%s]\n", i+1, debugstr_w(encname));
-        }
-        else if( columns[i].type & MSITYPE_STRING )
+        if( (columns[i].type & MSITYPE_STRING) &&
+            ! MSITYPE_IS_BINARY(tv->columns[i].type) )
         {
             LPCWSTR sval;
 
@@ -2578,10 +2353,7 @@ static UINT* msi_record_to_row( const MSITABLEVIEW *tv, MSIRECORD *rec )
         else
         {
             data[i] = MSI_RecordGetInteger( rec, i+1 );
-
-            if (data[i] == MSI_NULL_INTEGER)
-                data[i] = 0;
-            else if ((tv->columns[i].type&0xff) == 2)
+            if ((tv->columns[i].type&0xff) == 2)
                 data[i] += 0x8000;
             else
                 data[i] += 0x80000000;
@@ -2627,7 +2399,7 @@ static UINT msi_table_find_row( MSITABLEVIEW *tv, MSIRECORD *rec, UINT *row )
     data = msi_record_to_row( tv, rec );
     if( !data )
         return r;
-    for( i = 0; i < tv->table->row_count; i++ )
+    for( i = 0; i < tv->table->row_count + tv->table->nonpersistent_row_count; i++ )
     {
         r = msi_row_matches( tv, i, data );
         if( r == ERROR_SUCCESS )
@@ -2741,7 +2513,7 @@ static UINT msi_table_load_transform( MSIDATABASE *db, IStorage *stg,
             break;
         }
 
-        rec = msi_get_transform_record( tv, st, stg, &rawdata[n], bytes_per_strref );
+        rec = msi_get_transform_record( tv, st, &rawdata[n], bytes_per_strref );
         if (rec)
         {
             if ( mask & 1 )
@@ -2775,9 +2547,9 @@ static UINT msi_table_load_transform( MSIDATABASE *db, IStorage *stg,
                     }
                 }
 
-                r = TABLE_insert_row( &tv->view, rec, -1, FALSE );
+                r = TABLE_insert_row( &tv->view, rec, FALSE );
                 if (r != ERROR_SUCCESS)
-                    WARN("insert row failed\n");
+                    ERR("insert row failed\n");
 
                 if ( number != MSI_NULL_INTEGER && !lstrcmpW(name, szColumns) )
                     msi_update_table_columns( db, table );
@@ -2788,7 +2560,7 @@ static UINT msi_table_load_transform( MSIDATABASE *db, IStorage *stg,
 
                 r = msi_table_find_row( tv, rec, &row );
                 if (r != ERROR_SUCCESS)
-                    WARN("no matching row to transform\n");
+                    ERR("no matching row to transform\n");
                 else if ( mask )
                 {
                     TRACE("modifying row [%d]:\n", row);
@@ -2956,30 +2728,4 @@ void msi_free_transforms( MSIDATABASE *db )
         IStorage_Release( t->stg );
         msi_free( t );
     }
-}
-
-static UINT table_find_insert_idx (MSIVIEW *view, LPCWSTR name, INT *pidx)
-{
-    UINT r, name_id, row_id;
-    INT idx;
-    MSITABLEVIEW *tv = (MSITABLEVIEW *)view;
-
-    TRACE ("%p %s\n", view, debugstr_w(name));
-
-    r = msi_string2idW(tv->db->strings, name, &name_id);
-    if (r != ERROR_SUCCESS)
-    {
-        *pidx = -1;
-        return r;
-    }
-
-    for( idx = 0; idx < tv->table->row_count; idx++ )
-    {
-        r = TABLE_fetch_int( &tv->view, idx, 1, &row_id );
-        if (row_id > name_id)
-            break;
-    }
-
-    *pidx = idx;
-    return ERROR_SUCCESS;
 }

@@ -126,9 +126,8 @@ ClearCommandLine (LPTSTR str, INT maxlen, SHORT orgx, SHORT orgy)
 
 
 /* read in a command line */
-BOOL ReadCommand (LPTSTR str, INT maxlen)
+VOID ReadCommand (LPTSTR str, INT maxlen)
 {
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
 	SHORT orgx;			/* origin x/y */
 	SHORT orgy;
 	SHORT curx;			/*current x/y cursor position*/
@@ -150,30 +149,11 @@ BOOL ReadCommand (LPTSTR str, INT maxlen)
 	TCHAR PreviousChar;
 #endif
 
-	if (!GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
-	{
-		/* No console */
-		HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
-		DWORD dwRead;
-		CHAR chr;
-		do
-		{
-			if (!ReadFile(hStdin, &chr, 1, &dwRead, NULL) || !dwRead)
-				return FALSE;
-#ifdef _UNICODE
-			MultiByteToWideChar(InputCodePage, 0, &chr, 1, &str[charcount++], 1);
-#endif
-		} while (chr != '\n' && charcount < maxlen);
-		str[charcount] = _T('\0');
-		return TRUE;
-	}
-
 	/* get screen size */
-	maxx = csbi.dwSize.X;
-	maxy = csbi.dwSize.Y;
+	GetScreenSize (&maxx, &maxy);
 
-	curx = orgx = csbi.dwCursorPosition.X;
-	cury = orgy = csbi.dwCursorPosition.Y;
+	GetCursorXY (&orgx, &orgy);
+	GetCursorXY (&curx, &cury);
 
 	memset (str, 0, maxlen * sizeof (TCHAR));
 
@@ -449,6 +429,7 @@ BOOL ReadCommand (LPTSTR str, INT maxlen)
 #endif
 				str[charcount++] = _T('\n');
 				str[charcount] = _T('\0');
+				ConInDummy ();
 				ConOutChar (_T('\n'));
 			bReturn = TRUE;
 				break;
@@ -609,5 +590,4 @@ BOOL ReadCommand (LPTSTR str, INT maxlen)
 	/* expand all aliases */
 	ExpandAlias (str, maxlen);
 #endif /* FEATURE_ALIAS */
-	return TRUE;
 }

@@ -114,12 +114,12 @@ IntGdiExtEscape(
    INT    OutSize,
    LPSTR  OutData)
 {
-   SURFACE *psurf = dc->dclevel.pSurface;
+   SURFACE *psurf = SURFACE_LockSurface(dc->w.hBitmap);
    INT Result;
 
    /* FIXME - Handle psurf == NULL !!!!!! */
 
-   if ( NULL == dc->ppdev->DriverFunctions.Escape )
+   if ( NULL == ((GDIDEVICE *)dc->pPDev)->DriverFunctions.Escape )
    {
       Result = IntEngExtEscape(
          &psurf->SurfObj,
@@ -131,7 +131,7 @@ IntGdiExtEscape(
    }
    else
    {
-      Result = dc->ppdev->DriverFunctions.Escape(
+      Result = ((GDIDEVICE *)dc->pPDev)->DriverFunctions.Escape(
          &psurf->SurfObj,
          Escape,
          InSize,
@@ -139,6 +139,7 @@ IntGdiExtEscape(
          OutSize,
          (PVOID)OutData );
    }
+   SURFACE_UnlockSurface(psurf);
 
    return Result;
 }
@@ -172,7 +173,7 @@ NtGdiExtEscape(
       SetLastWin32Error(ERROR_INVALID_HANDLE);
       return -1;
    }
-   if ( pDC->dctype == DC_TYPE_INFO)
+   if ( pDC->DC_Type == DC_TYPE_INFO)
    {
       DC_UnlockDc(pDC);
       return 0;

@@ -20,13 +20,13 @@ static DWORD OPENGL32_RegGetDriverInfo( LPCWSTR driver, GLDRIVERDATA *icd );
 
 
 /* global vars */
-/* Do not assume it have the free value MAXDWORD set, any value can be in here */
-DWORD OPENGL32_tls = MAXDWORD;
+/* Do not assume it have the free value -1 set, any value can be in here */
+DWORD OPENGL32_tls = -1U;
 GLPROCESSDATA OPENGL32_processdata;
 
 
 static BOOL
-OPENGL32_ThreadAttach( void )
+OPENGL32_ThreadAttach()
 {
     GLTHREADDATA* lpData = NULL;
     PROC *dispatchTable = NULL;
@@ -69,7 +69,7 @@ OPENGL32_ThreadAttach( void )
 
 
 static void
-OPENGL32_ThreadDetach( void )
+OPENGL32_ThreadDetach()
 {
     GLTHREADDATA* lpData = NULL;
     PROC *dispatchTable = NULL;
@@ -96,14 +96,14 @@ OPENGL32_ThreadDetach( void )
 
 
 static BOOL
-OPENGL32_ProcessAttach( void )
+OPENGL32_ProcessAttach()
 {
     SECURITY_ATTRIBUTES attrib = { sizeof (SECURITY_ATTRIBUTES), /* nLength */
                                    NULL, /* lpSecurityDescriptor */
                                    TRUE /* bInheritHandle */ };
 
     OPENGL32_tls = TlsAlloc();
-    if (OPENGL32_tls == MAXDWORD)
+    if (-1U == OPENGL32_tls)
         return FALSE;
 
     memset( &OPENGL32_processdata, 0, sizeof (OPENGL32_processdata) );
@@ -136,7 +136,7 @@ OPENGL32_ProcessAttach( void )
 
 
 static void
-OPENGL32_ProcessDetach( void )
+OPENGL32_ProcessDetach()
 {
     GLDRIVERDATA *icd, *icd2;
     GLDCDATA *dcdata, *dcdata2;
@@ -179,7 +179,7 @@ OPENGL32_ProcessDetach( void )
         CloseHandle( OPENGL32_processdata.dcdata_mutex );
 
     /* free TLS */
-    if (OPENGL32_tls != MAXDWORD)
+    if (OPENGL32_tls != -1U)
         TlsFree(OPENGL32_tls);
 }
 

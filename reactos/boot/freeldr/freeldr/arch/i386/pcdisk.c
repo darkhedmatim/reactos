@@ -22,7 +22,12 @@
 #define NDEBUG
 #include <debug.h>
 
-#include <pshpack2.h>
+/* non-standard specifier from windef.h -- please deprecate */
+#undef PACKED
+#ifdef __GNUC__
+#define PACKED __attribute__((packed))
+#endif
+
 typedef struct
 {
 	UCHAR		PacketSize;				// 00h - Size of packet (10h or 18h)
@@ -35,8 +40,7 @@ typedef struct
 									//       used if DWORD at 04h is FFFFh:FFFFh
 									//       Commented since some earlier BIOSes refuse to work with
 									//       such extended structure
-} I386_DISK_ADDRESS_PACKET, *PI386_DISK_ADDRESS_PACKET;
-#include <poppack.h>
+} PACKED I386_DISK_ADDRESS_PACKET, *PI386_DISK_ADDRESS_PACKET;
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 // FUNCTIONS

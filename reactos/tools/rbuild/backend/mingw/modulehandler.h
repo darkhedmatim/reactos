@@ -57,17 +57,10 @@ public:
 
 	static const FileLocation* GetImportLibraryFilename (
 		const Module& module,
-		string_list* pclean_files,
-		bool delayimp );
+		string_list* pclean_files );
 
 	static std::string GenerateGccDefineParametersFromVector ( const std::vector<Define*>& defines, std::set<std::string> &used_defs );
-	static std::string GenerateDefineParametersFromVector ( const std::vector<Define*>& defines, CompilerType compiler );
-	static std::string GenerateCompilerParametersFromVector ( const std::vector<CompilerFlag*>& compilerFlags, const CompilerType type );
-	static std::string GenerateIncludeParametersFromVector ( const std::vector<Include*>& includes, CompilerType compiler );
-
-	static void GenerateParameters ( const char* prefix,
-									 const char* assignmentOperation,
-									 const IfableData& data );
+	static std::string GenerateGccIncludeParametersFromVector ( const std::vector<Include*>& includes );
 
 	std::string GetModuleTargets ( const Module& module );
 	void GetObjectsVector ( const IfableData& data,
@@ -90,15 +83,13 @@ public:
 
 	void OutputCopyCommand ( const FileLocation& source,
 	                         const FileLocation& destination );
-	void OutputCopyCommandSingle ( const FileLocation& source,
-	                               const FileLocation& destination );
 protected:
 	virtual void GetModuleSpecificCompilationUnits ( std::vector<CompilationUnit*>& compilationUnits );
 	std::string GetWorkingDirectory () const;
 	std::string GetBasename ( const std::string& filename ) const;
 	std::string GetCompilationUnitDependencies ( const CompilationUnit& compilationUnit ) const;
 	const FileLocation* GetModuleArchiveFilename () const;
-	std::string GetImportLibraryDependency ( const Module& importedModule, bool delayimp );
+	std::string GetImportLibraryDependency ( const Module& importedModule );
 	void GetTargets ( const Module& dependencyModule,
 	                  string_list& targets );
 	void GetModuleDependencies ( string_list& dependencies );
@@ -111,7 +102,7 @@ protected:
 	std::string GetLinkingDependenciesMacro () const;
 	std::string GetLibsMacro () const;
 	std::string GetLinkerMacro () const;
-	static std::string GetDebugFormat ();
+	std::string GetDebugFormat () const;
 	void GenerateCleanObjectsAsYouGoCode () const;
 	void GenerateRunRsymCode () const;
 	void GenerateRunStripCode () const;
@@ -121,7 +112,6 @@ protected:
 	void GeneratePhonyTarget() const;
 	void GenerateBuildMapCode ( const FileLocation *mapTarget = NULL );
 	void GenerateRules ();
-	void GenerateImportLibraryTarget (const FileLocation *defFilename, const FileLocation *library_target, bool delayimp);
 	void GenerateImportLibraryTargetIfNeeded ();
 	void GetDefinitionDependencies ( std::vector<FileLocation>& dependencies ) const;
 	std::string GetLinkingDependencies () const;
@@ -131,9 +121,15 @@ protected:
 private:
 	std::string ConcatenatePaths ( const std::string& path1,
 	                               const std::string& path2 ) const;
+	std::string GenerateCompilerParametersFromVector ( const std::vector<CompilerFlag*>& compilerFlags, const CompilerType type ) const;
 	std::string GenerateLinkerParametersFromVector ( const std::vector<LinkerFlag*>& linkerFlags ) const;
 	std::string GenerateImportLibraryDependenciesFromVector ( const std::vector<Library*>& libraries );
 	std::string GenerateLinkerParameters () const;
+	void GenerateMacro ( const char* assignmentOperation,
+	                     const std::string& macro,
+	                     const IfableData& data,
+	                     std::set<const Define *>* used_defs,
+	                     bool generatingCompilerMacro );
 	void GenerateMacros ( const char* op,
 	                      const IfableData& data,
 	                      const std::vector<LinkerFlag*>* linkerFlags,
@@ -141,7 +137,6 @@ private:
 	void GenerateSourceMacros ( const IfableData& data );
 	void GenerateObjectMacros ( const IfableData& data );
 	const FileLocation* GetPrecompiledHeaderFilename () const;
-	const FileLocation* GetPrecompiledHeaderPath () const;
 	const FileLocation* GetDlldataFilename () const;
 	void GenerateGccCommand ( const FileLocation* sourceFile,
 	                          const Rule *rule,
@@ -323,10 +318,8 @@ private:
 	void GetBootstrapCdFiles ( std::vector<FileLocation>& out ) const;
 	void GetNonModuleCdFiles ( std::vector<FileLocation>& out ) const;
 	void GetCdFiles ( std::vector<FileLocation>& out ) const;
-	void OutputBootstrapfileCopyCommands ( const std::string& bootcdDirectory,
-	                                       std::vector<FileLocation>& destinations );
-	void OutputCdfileCopyCommands ( const std::string& bootcdDirectory,
-	                                std::vector<FileLocation>& destinations );
+	void OutputBootstrapfileCopyCommands ( const std::string& bootcdDirectory );
+	void OutputCdfileCopyCommands ( const std::string& bootcdDirectory );
 };
 
 
@@ -339,15 +332,11 @@ private:
 	void GenerateLiveIsoModuleTarget ();
 	void CreateDirectory ( const std::string& directory );
 	void OutputModuleCopyCommands ( std::string& livecdDirectory,
-	                                std::string& livecdReactos,
-	                                std::vector<FileLocation>& destinations );
+	                                std::string& livecdReactos );
 	void OutputNonModuleCopyCommands ( std::string& livecdDirectory,
-	                                   std::string& livecdReactos,
-	                                   std::vector<FileLocation>& destinations );
-	void OutputProfilesDirectoryCommands ( std::string& livecdDirectory,
-	                                       std::vector<FileLocation>& destinations );
-	void OutputLoaderCommands ( std::string& livecdDirectory,
-	                            std::vector<FileLocation>& destinations );
+	                                   std::string& livecdReactos );
+	void OutputProfilesDirectoryCommands ( std::string& livecdDirectory );
+	void OutputLoaderCommands ( std::string& livecdDirectory );
 	void OutputRegistryCommands ( std::string& livecdDirectory );
 };
 

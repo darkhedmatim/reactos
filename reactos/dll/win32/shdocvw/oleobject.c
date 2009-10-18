@@ -28,7 +28,6 @@
 #include "shdocvw.h"
 #include "htiframe.h"
 #include "idispids.h"
-#include "mshtmdid.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shdocvw);
 
@@ -152,16 +151,8 @@ static HRESULT activate_inplace(WebBrowser *This, IOleClientSite *active_site)
                  SWP_NOZORDER | SWP_SHOWWINDOW);
 
     if(This->client) {
-        IOleContainer *container;
-
         IOleClientSite_ShowObject(This->client);
-
-        hres = IOleClientSite_GetContainer(This->client, &container);
-        if(SUCCEEDED(hres)) {
-            if(This->container)
-                IOleContainer_Release(This->container);
-            This->container = container;
-        }
+        IOleClientSite_GetContainer(This->client, &This->container);
     }
 
     if(This->doc_host.frame)
@@ -623,13 +614,7 @@ static HRESULT WINAPI OleInPlaceObject_InPlaceDeactivate(IOleInPlaceObject *ifac
 {
     WebBrowser *This = INPLACEOBJ_THIS(iface);
     FIXME("(%p)\n", This);
-
-    if(This->inplace) {
-        IOleInPlaceSite_Release(This->inplace);
-        This->inplace = NULL;
-    }
-
-    return S_OK;
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI OleInPlaceObject_UIDeactivate(IOleInPlaceObject *iface)
@@ -737,8 +722,6 @@ static HRESULT WINAPI OleControl_OnAmbientPropertyChange(IOleControl *iface, DIS
         /* Unknown means multiple properties changed, so check them all.
          * BUT the Webbrowser OleControl object doesn't appear to do this.
          */
-        return S_OK;
-    case DISPID_AMBIENT_DLCONTROL:
         return S_OK;
     case DISPID_AMBIENT_OFFLINEIFNOTCONNECTED:
         return on_offlineconnected_change(This);
@@ -885,26 +868,9 @@ static HRESULT WINAPI WBOleCommandTarget_QueryStatus(IOleCommandTarget *iface,
         const GUID *pguidCmdGroup, ULONG cCmds, OLECMD prgCmds[], OLECMDTEXT *pCmdText)
 {
     WebBrowser *This = OLECMD_THIS(iface);
-    IOleCommandTarget *cmdtrg;
-    HRESULT hres;
-
-    TRACE("(%p)->(%s %u %p %p)\n", This, debugstr_guid(pguidCmdGroup), cCmds, prgCmds,
+    FIXME("(%p)->(%s %u %p %p)\n", This, debugstr_guid(pguidCmdGroup), cCmds, prgCmds,
           pCmdText);
-
-    if(!This->doc_host.document)
-        return 0x80040104;
-
-    /* NOTE: There are probably some commands that we should handle here
-     * instead of forwarding to document object. */
-
-    hres = IUnknown_QueryInterface(This->doc_host.document, &IID_IOleCommandTarget, (void**)&cmdtrg);
-    if(FAILED(hres))
-        return hres;
-
-    hres = IOleCommandTarget_QueryStatus(cmdtrg, pguidCmdGroup, cCmds, prgCmds, pCmdText);
-    IOleCommandTarget_Release(cmdtrg);
-
-    return hres;
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI WBOleCommandTarget_Exec(IOleCommandTarget *iface,

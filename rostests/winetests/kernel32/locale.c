@@ -118,77 +118,25 @@ static void InitFunctionPointers(void)
 static void test_GetLocaleInfoA(void)
 {
   int ret;
-  int len;
   LCID lcid = MAKELCID(MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), SORT_DEFAULT);
   char buffer[BUFFER_SIZE];
-  char expected[BUFFER_SIZE];
 
   ok(lcid == 0x409, "wrong LCID calculated - %d\n", lcid);
-
-  /* en, ar and zh use SUBLANG_NEUTRAL, but GetLocaleInfo assume SUBLANG_DEFAULT */
-  memset(expected, 0, COUNTOF(expected));
-  len = GetLocaleInfoA(MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), LOCALE_SLANGUAGE, expected, COUNTOF(expected));
-  SetLastError(0xdeadbeef);
-  memset(buffer, 0, COUNTOF(buffer));
-  ret = GetLocaleInfoA(LANG_ENGLISH, LOCALE_SLANGUAGE, buffer, COUNTOF(buffer));
-  ok((ret == len) && !lstrcmpA(buffer, expected),
-      "got %d with '%s' (expected %d with '%s')\n",
-      ret, buffer, len, expected);
-
-  memset(expected, 0, COUNTOF(expected));
-  len = GetLocaleInfoA(MAKELANGID(LANG_ARABIC, SUBLANG_DEFAULT), LOCALE_SLANGUAGE, expected, COUNTOF(expected));
-  if (len) {
-      SetLastError(0xdeadbeef);
-      memset(buffer, 0, COUNTOF(buffer));
-      ret = GetLocaleInfoA(LANG_ARABIC, LOCALE_SLANGUAGE, buffer, COUNTOF(buffer));
-      ok((ret == len) && !lstrcmpA(buffer, expected),
-          "got %d with '%s' (expected %d with '%s')\n",
-          ret, buffer, len, expected);
-  }
-  else
-      win_skip("LANG_ARABIC not installed\n");
-
-  memset(expected, 0, COUNTOF(expected));
-  len = GetLocaleInfoA(MAKELANGID(LANG_CHINESE, SUBLANG_DEFAULT), LOCALE_SLANGUAGE, expected, COUNTOF(expected));
-  if (len) {
-      SetLastError(0xdeadbeef);
-      memset(buffer, 0, COUNTOF(buffer));
-      ret = GetLocaleInfoA(LANG_CHINESE, LOCALE_SLANGUAGE, buffer, COUNTOF(buffer));
-      ok((ret == len) && !lstrcmpA(buffer, expected),
-          "got %d with '%s' (expected %d with '%s')\n",
-          ret, buffer, len, expected);
-  }
-  else
-      win_skip("LANG_CHINESE not installed\n");
-
-  /* SUBLANG_DEFAULT is required for mlang.dll, but optional for GetLocaleInfo */
-  memset(expected, 0, COUNTOF(expected));
-  len = GetLocaleInfoA(MAKELANGID(LANG_GERMAN, SUBLANG_DEFAULT), LOCALE_SLANGUAGE, expected, COUNTOF(expected));
-  SetLastError(0xdeadbeef);
-  memset(buffer, 0, COUNTOF(buffer));
-  ret = GetLocaleInfoA(LANG_GERMAN, LOCALE_SLANGUAGE, buffer, COUNTOF(buffer));
-  ok((ret == len) && !lstrcmpA(buffer, expected),
-      "got %d with '%s' (expected %d with '%s')\n",
-      ret, buffer, len, expected);
-
 
   /* HTMLKit and "Font xplorer lite" expect GetLocaleInfoA to
    * partially fill the buffer even if it is too short. See bug 637.
    */
-  SetLastError(0xdeadbeef);
-  memset(buffer, 0, COUNTOF(buffer));
+  SetLastError(0); memset(buffer, 0, COUNTOF(buffer));
   ret = GetLocaleInfoA(lcid, NUO|LOCALE_SDAYNAME1, buffer, 0);
   ok(ret == 7 && !buffer[0], "Expected len=7, got %d\n", ret);
 
-  SetLastError(0xdeadbeef);
-  memset(buffer, 0, COUNTOF(buffer));
+  SetLastError(0); memset(buffer, 0, COUNTOF(buffer));
   ret = GetLocaleInfoA(lcid, NUO|LOCALE_SDAYNAME1, buffer, 3);
   ok( !ret && GetLastError() == ERROR_INSUFFICIENT_BUFFER,
       "Expected ERROR_INSUFFICIENT_BUFFER, got %d\n", GetLastError());
   ok(!strcmp(buffer, "Mon"), "Expected 'Mon', got '%s'\n", buffer);
 
-  SetLastError(0xdeadbeef);
-  memset(buffer, 0, COUNTOF(buffer));
+  SetLastError(0); memset(buffer, 0, COUNTOF(buffer));
   ret = GetLocaleInfoA(lcid, NUO|LOCALE_SDAYNAME1, buffer, 10);
   ok(ret == 7, "Expected ret == 7, got %d, error %d\n", ret, GetLastError());
   ok(!strcmp(buffer, "Monday"), "Expected 'Monday', got '%s'\n", buffer);
@@ -484,10 +432,7 @@ static void test_GetDateFormatW(void)
   ret = GetDateFormatW(LOCALE_SYSTEM_DEFAULT, DATE_LONGDATE, NULL,
                        input, buffer, COUNTOF(buffer));
   if (GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
-  {
-    win_skip("GetDateFormatW is not implemented\n");
-    return;
-  }
+      return;
   ok(!ret && GetLastError() == ERROR_INVALID_FLAGS,
      "Expected ERROR_INVALID_FLAGS, got %d\n", GetLastError());
   EXPECT_EQW;
@@ -1165,12 +1110,6 @@ static void test_CompareStringA(void)
 
     ret = CompareStringA(lcid, 0, "\2", 2, "\1", 2);
     todo_wine ok(ret != 2, "\\2 vs \\1 expected unequal\n");
-
-    ret = CompareStringA(lcid, NORM_IGNORECASE | LOCALE_USE_CP_ACP, "#", -1, ".", -1);
-    todo_wine ok(ret == CSTR_LESS_THAN, "\"#\" vs \".\" expected CSTR_LESS_THAN, got %d\n", ret);
-
-    ret = lstrcmpi("#", ".");
-    todo_wine ok(ret == -1, "\"#\" vs \".\" expected -1, got %d\n", ret);
 }
 
 static void test_LCMapStringA(void)
@@ -1282,11 +1221,9 @@ static void test_LCMapStringA(void)
     ret = LCMapStringA(LOCALE_USER_DEFAULT, LCMAP_SORTKEY,
                        upper_case, -1, buf, sizeof(buf));
     ok(ret, "LCMapStringA must succeed\n");
-    ok(buf[ret-1] == 0, "LCMapStringA not null-terminated\n");
     ret2 = LCMapStringA(LOCALE_USER_DEFAULT, LCMAP_SORTKEY,
                        upper_case, lstrlenA(upper_case), buf2, sizeof(buf2));
-    ok(ret2, "LCMapStringA must succeed\n");
-    ok(buf2[ret2-1] == 0, "LCMapStringA not null-terminated\n" );
+    ok(ret, "LCMapStringA must succeed\n");
     ok(ret == ret2, "lengths of sort keys must be equal\n");
     ok(!lstrcmpA(buf, buf2), "sort keys must be equal\n");
 
@@ -1686,11 +1623,8 @@ static void test_FoldStringA(void)
   /* MAP_FOLDDIGITS */
   SetLastError(0);
   ret = pFoldStringA(MAP_FOLDDIGITS, digits_src, -1, dst, 256);
-  if (GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
-  {
-    win_skip("FoldStringA is not implemented\n");
+  if (GetLastError()==ERROR_CALL_NOT_IMPLEMENTED)
     return;
-  }
   ok(ret == 4, "Expected ret == 4, got %d, error %d\n", ret, GetLastError());
   ok(strcmp(dst, digits_dst) == 0,
      "MAP_FOLDDIGITS: Expected '%s', got '%s'\n", digits_dst, dst);
@@ -1967,7 +1901,7 @@ static void test_FoldStringW(void)
 
   if (!pFoldStringW)
   {
-    win_skip("FoldStringW is not available\n");
+    skip("FoldStringW is not available\n");
     return; /* FoldString is present in NT v3.1+, but not 95/98/Me */
   }
 
@@ -1979,7 +1913,7 @@ static void test_FoldStringW(void)
     ret = pFoldStringW(badFlags[i], src, 256, dst, 256);
     if (GetLastError()==ERROR_CALL_NOT_IMPLEMENTED)
     {
-      win_skip("FoldStringW is not implemented\n");
+      skip("FoldStringW is not implemented\n");
       return;
     }
     ok(!ret && GetLastError() == ERROR_INVALID_FLAGS,
@@ -2357,7 +2291,7 @@ static void test_EnumUILanguageA(void)
 {
   BOOL ret;
   if (!pEnumUILanguagesA) {
-    win_skip("EnumUILanguagesA is not available on Win9x or NT4\n");
+    skip("EnumUILanguagesA is not available on Win9x or NT4\n");
     return;
   }
 

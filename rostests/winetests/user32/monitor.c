@@ -78,7 +78,7 @@ static void test_enumdisplaydevices(void)
 
     if (!pEnumDisplayDevicesA)
     {
-        win_skip("EnumDisplayDevicesA is not available\n");
+        skip("EnumDisplayDevicesA is not available\n");
         return;
     }
 
@@ -156,7 +156,7 @@ static void test_ChangeDisplaySettingsEx(void)
 
     if (!pChangeDisplaySettingsExA)
     {
-        win_skip("ChangeDisplaySettingsExA is not available\n");
+        skip("ChangeDisplaySettingsExA is not available\n");
         return;
     }
 
@@ -240,9 +240,8 @@ static void test_ChangeDisplaySettingsEx(void)
         dm.dmFields           = vid_modes_test[i].fields;
         res = pChangeDisplaySettingsExA(NULL, &dm, NULL, CDS_TEST, NULL);
         ok(vid_modes_test[i].must_succeed ?
-           (res == DISP_CHANGE_SUCCESSFUL || res == DISP_CHANGE_RESTART) :
-           (res == DISP_CHANGE_SUCCESSFUL || res == DISP_CHANGE_RESTART ||
-            res == DISP_CHANGE_BADMODE || res == DISP_CHANGE_BADPARAM),
+           (res == DISP_CHANGE_SUCCESSFUL) :
+           (res == DISP_CHANGE_SUCCESSFUL || res == DISP_CHANGE_BADMODE || res == DISP_CHANGE_BADPARAM),
            "Unexpected ChangeDisplaySettingsEx() return code for resolution[%d]: %d\n", i, res);
 
         if (res == DISP_CHANGE_SUCCESSFUL)
@@ -258,7 +257,7 @@ static void test_ChangeDisplaySettingsEx(void)
             ok(GetClipCursor(&r), "GetClipCursor() failed\n");
             ok(EqualRect(&r, &virt), "Invalid clip rect: (%d %d) x (%d %d)\n", r.left, r.top, r.right, r.bottom);
 
-            if (!ClipCursor(NULL)) continue;
+            ok(ClipCursor(NULL), "ClipCursor() failed\n");
             ok(GetClipCursor(&r), "GetClipCursor() failed\n");
             ok(EqualRect(&r, &virt), "Invalid clip rect: (%d %d) x (%d %d)\n", r.left, r.top, r.right, r.bottom);
 
@@ -288,7 +287,7 @@ static void test_monitors(void)
 
     if (!pMonitorFromPoint || !pMonitorFromWindow)
     {
-        win_skip("MonitorFromPoint or MonitorFromWindow are not available\n");
+        skip("MonitorFromPoint or MonitorFromWindow are not available\n");
         return;
     }
 
@@ -331,7 +330,7 @@ static void test_work_area(void)
 
     if (!pEnumDisplayMonitors || !pGetMonitorInfoA)
     {
-        win_skip("EnumDisplayMonitors or GetMonitorInfoA are not available\n");
+        skip("EnumDisplayMonitors or GetMonitorInfoA are not available\n");
         return;
     }
 
@@ -369,8 +368,7 @@ static void test_work_area(void)
           wp.rcNormalPosition.left, wp.rcNormalPosition.top,
           wp.rcNormalPosition.right, wp.rcNormalPosition.bottom);
     OffsetRect(&wp.rcNormalPosition, rc_work.left, rc_work.top);
-    if (mi.rcMonitor.left != mi.rcWork.left ||
-        mi.rcMonitor.top != mi.rcWork.top)  /* FIXME: remove once Wine is fixed */
+    if (!EqualRect(&mi.rcMonitor, &mi.rcWork)) /* FIXME: remove once Wine is fixed */
         todo_wine ok(EqualRect(&rc_normal, &wp.rcNormalPosition), "normal pos is different\n");
     else
         ok(EqualRect(&rc_normal, &wp.rcNormalPosition), "normal pos is different\n");

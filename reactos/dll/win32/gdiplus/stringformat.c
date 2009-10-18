@@ -35,8 +35,6 @@ WINE_DEFAULT_DEBUG_CHANNEL(gdiplus);
 GpStatus WINGDIPAPI GdipCreateStringFormat(INT attr, LANGID lang,
     GpStringFormat **format)
 {
-    TRACE("(%i, %x, %p)\n", attr, lang, format);
-
     if(!format)
         return InvalidParameter;
 
@@ -191,8 +189,6 @@ GpStatus WINGDIPAPI GdipGetStringFormatTrimming(GpStringFormat *format,
 GpStatus WINGDIPAPI GdipSetStringFormatAlign(GpStringFormat *format,
     StringAlignment align)
 {
-    TRACE("(%p, %i)\n", format, align);
-
     if(!format)
         return InvalidParameter;
 
@@ -205,8 +201,6 @@ GpStatus WINGDIPAPI GdipSetStringFormatAlign(GpStringFormat *format,
 GpStatus WINGDIPAPI GdipSetStringFormatDigitSubstitution(GpStringFormat *format,
     LANGID language, StringDigitSubstitute substitute)
 {
-    TRACE("(%p, %x, %i)\n", format, language, substitute);
-
     if(!format)
         return InvalidParameter;
 
@@ -219,8 +213,6 @@ GpStatus WINGDIPAPI GdipSetStringFormatDigitSubstitution(GpStringFormat *format,
 GpStatus WINGDIPAPI GdipSetStringFormatHotkeyPrefix(GpStringFormat *format,
     INT hkpx)
 {
-    TRACE("(%p, %i)\n", format, hkpx);
-
     if(!format || hkpx < 0 || hkpx > 2)
         return InvalidParameter;
 
@@ -232,8 +224,6 @@ GpStatus WINGDIPAPI GdipSetStringFormatHotkeyPrefix(GpStringFormat *format,
 GpStatus WINGDIPAPI GdipSetStringFormatLineAlign(GpStringFormat *format,
     StringAlignment align)
 {
-    TRACE("(%p, %i)\n", format, align);
-
     if(!format)
         return InvalidParameter;
 
@@ -256,8 +246,6 @@ GpStatus WINGDIPAPI GdipSetStringFormatMeasurableCharacterRanges(GpStringFormat*
 GpStatus WINGDIPAPI GdipSetStringFormatTabStops(GpStringFormat *format, REAL firsttab,
     INT count, GDIPCONST REAL *tabs)
 {
-    TRACE("(%p, %0.2f, %i, %p)\n", format, firsttab, count, tabs);
-
     if(!format || !tabs)
         return InvalidParameter;
 
@@ -288,8 +276,6 @@ GpStatus WINGDIPAPI GdipSetStringFormatTabStops(GpStringFormat *format, REAL fir
 GpStatus WINGDIPAPI GdipSetStringFormatTrimming(GpStringFormat *format,
     StringTrimming trimming)
 {
-    TRACE("(%p, %i)\n", format, trimming);
-
     if(!format)
         return InvalidParameter;
 
@@ -300,8 +286,6 @@ GpStatus WINGDIPAPI GdipSetStringFormatTrimming(GpStringFormat *format,
 
 GpStatus WINGDIPAPI GdipSetStringFormatFlags(GpStringFormat *format, INT flags)
 {
-    TRACE("(%p, %x)\n", format, flags);
-
     if(!format)
         return InvalidParameter;
 

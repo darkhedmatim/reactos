@@ -2970,16 +2970,14 @@ CSR_API(CsrSetConsoleCodePage)
 
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-
   if (IsValidCodePage(Request->Data.SetConsoleCodePage.CodePage))
     {
       Console->CodePage = Request->Data.SetConsoleCodePage.CodePage;
       ConioUnlockConsole(Console);
       return STATUS_SUCCESS;
     }
-
   ConioUnlockConsole(Console);
-  return STATUS_INVALID_PARAMETER;
+  return STATUS_UNSUCCESSFUL;
 }
 
 CSR_API(CsrGetConsoleOutputCodePage)
@@ -3017,16 +3015,14 @@ CSR_API(CsrSetConsoleOutputCodePage)
 
   Request->Header.u1.s1.TotalLength = sizeof(CSR_API_MESSAGE);
   Request->Header.u1.s1.DataLength = sizeof(CSR_API_MESSAGE) - sizeof(PORT_MESSAGE);
-
   if (IsValidCodePage(Request->Data.SetConsoleOutputCodePage.CodePage))
     {
       Console->OutputCodePage = Request->Data.SetConsoleOutputCodePage.CodePage;
       ConioUnlockConsole(Console);
       return STATUS_SUCCESS;
     }
-
   ConioUnlockConsole(Console);
-  return STATUS_INVALID_PARAMETER;
+  return STATUS_UNSUCCESSFUL;
 }
 
 CSR_API(CsrGetProcessList)

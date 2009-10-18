@@ -101,8 +101,8 @@ static void test_CredWriteA(void)
     ret = pCredWriteA(&new_cred, 0);
     if (ret)
     {
-        ok(GetLastError() == ERROR_SUCCESS ||
-           GetLastError() == ERROR_IO_PENDING, /* Vista */
+        /* Vista */
+        ok(GetLastError() == ERROR_IO_PENDING,
            "Expected ERROR_IO_PENDING, got %d\n", GetLastError());
     }
     else
@@ -154,13 +154,12 @@ static void test_CredReadDomainCredentialsA(void)
 
     /* these two tests would crash on both native and Wine. Implementations
      * does not check for NULL output pointers and try to zero them out early */
-if(0)
-{
+#if 0
     ok(!pCredReadDomainCredentialsA(&info, 0, NULL, &creds) &&
             GetLastError() == ERROR_INVALID_PARAMETER, "!\n");
     ok(!pCredReadDomainCredentialsA(&info, 0, &count, NULL) &&
             GetLastError() == ERROR_INVALID_PARAMETER, "!\n");
-}
+#endif
 
     SetLastError(0xdeadbeef);
     ret = pCredReadDomainCredentialsA(NULL, 0, &count, &creds);
@@ -239,13 +238,7 @@ static void test_generic(void)
     new_cred.UserName = (char *)"winetest";
 
     ret = pCredWriteA(&new_cred, 0);
-    ok(ret || broken(GetLastError() == ERROR_NO_SUCH_LOGON_SESSION),
-       "CredWriteA failed with error %d\n", GetLastError());
-    if (!ret)
-    {
-        skip("couldn't write generic credentials, skipping tests\n");
-        return;
-    }
+    ok(ret, "CredWriteA failed with error %d\n", GetLastError());
 
     ret = pCredEnumerateA(NULL, 0, &count, &creds);
     ok(ret, "CredEnumerateA failed with error %d\n", GetLastError());
@@ -352,7 +345,7 @@ START_TEST(cred)
     if (!pCredEnumerateA || !pCredFree || !pCredWriteA || !pCredDeleteA ||
         !pCredReadA)
     {
-        win_skip("credentials functions not present in advapi32.dll\n");
+        skip("credentials functions not present in advapi32.dll\n");
         return;
     }
 

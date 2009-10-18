@@ -263,13 +263,13 @@ OpenThread(DWORD dwDesiredAccess,
            BOOL bInheritHandle,
            DWORD dwThreadId)
 {
-    NTSTATUS Status;
+    NTSTATUS errCode;
     HANDLE ThreadHandle;
     OBJECT_ATTRIBUTES ObjectAttributes;
     CLIENT_ID ClientId ;
 
     ClientId.UniqueProcess = 0;
-    ClientId.UniqueThread = ULongToHandle(dwThreadId);
+    ClientId.UniqueThread = (HANDLE)dwThreadId;
 
     InitializeObjectAttributes(&ObjectAttributes,
                                NULL,
@@ -277,13 +277,13 @@ OpenThread(DWORD dwDesiredAccess,
                                NULL,
                                NULL);
 
-    Status = NtOpenThread(&ThreadHandle,
-                          dwDesiredAccess,
-                          &ObjectAttributes,
-                          &ClientId);
-    if (!NT_SUCCESS(Status))
+    errCode = NtOpenThread(&ThreadHandle,
+                           dwDesiredAccess,
+                           &ObjectAttributes,
+                           &ClientId);
+    if (!NT_SUCCESS(errCode))
     {
-        SetLastErrorByStatus(Status);
+        SetLastErrorByStatus (errCode);
         return NULL;
     }
 
@@ -306,7 +306,9 @@ BOOL
 WINAPI
 SwitchToThread(VOID)
 {
-    return NtYieldExecution() != STATUS_NO_YIELD_PERFORMED;
+    NTSTATUS Status;
+    Status = NtYieldExecution();
+    return Status != STATUS_NO_YIELD_PERFORMED;
 }
 
 
@@ -695,7 +697,7 @@ SetThreadIdealProcessor(HANDLE hThread,
         return -1;
     }
 
-    return (DWORD)Status;
+    return dwIdealProcessor;
 }
 
 /*
@@ -748,10 +750,10 @@ GetThreadId(HANDLE Thread)
  * @unimplemented
  */
 LANGID WINAPI
-SetThreadUILanguage(LANGID LangId)
+SetThreadUILanguage(WORD wReserved)
 {
-  DPRINT1("SetThreadUILanguage(0x%4x) unimplemented!\n", LangId);
-  return LangId;
+  DPRINT1("SetThreadUILanguage(0x%4x) unimplemented!\n", wReserved);
+  return 0;
 }
 
 static void CALLBACK
@@ -771,13 +773,10 @@ QueueUserAPC(PAPCFUNC pfnAPC, HANDLE hThread, ULONG_PTR dwData)
 
   Status = NtQueueApcThread(hThread, IntCallUserApc, pfnAPC,
                             (PVOID)dwData, NULL);
-  if (!NT_SUCCESS(Status))
-  {
+  if (Status)
     SetLastErrorByStatus(Status);
-    return 0;
-  }
 
-  return 1;
+  return NT_SUCCESS(Status);
 }
 
 /*
@@ -943,16 +942,16 @@ RegisterWaitForSingleObject(
     ULONG dwFlags
     )
 {
-    NTSTATUS Status = RtlRegisterWait(phNewWaitObject,
-                                      hObject,
-                                      Callback,
-                                      Context,
-                                      dwMilliseconds,
-                                      dwFlags);
+    NTSTATUS Status = RtlRegisterWait( phNewWaitObject,
+                                       hObject,
+                                       Callback,
+                                       Context,
+                                       dwMilliseconds,
+                                       dwFlags );
 
-    if (!NT_SUCCESS(Status))
+    if (Status != STATUS_SUCCESS)
     {
-        SetLastErrorByStatus(Status);
+        SetLastError( RtlNtStatusToDosError(Status) );
         return FALSE;
     }
     return TRUE;
@@ -975,19 +974,18 @@ RegisterWaitForSingleObjectEx(
     NTSTATUS Status;
     HANDLE hNewWaitObject;
 
-    Status = RtlRegisterWait(&hNewWaitObject,
-                             hObject,
-                             Callback,
-                             Context,
-                             dwMilliseconds,
-                             dwFlags);
+    Status = RtlRegisterWait( &hNewWaitObject,
+                               hObject,
+                               Callback,
+                               Context,
+                               dwMilliseconds,
+                               dwFlags );
 
-    if (!NT_SUCCESS(Status))
+    if (Status != STATUS_SUCCESS)
     {
-        SetLastErrorByStatus(Status);
+        SetLastError( RtlNtStatusToDosError(Status) );
         return NULL;
     }
-
     return hNewWaitObject;
 }
 
@@ -1001,14 +999,12 @@ UnregisterWait(
     HANDLE WaitHandle
     )
 {
-    NTSTATUS Status = RtlDeregisterWaitEx(WaitHandle, NULL);
-
-    if (!NT_SUCCESS(Status))
+    NTSTATUS Status = RtlDeregisterWaitEx( WaitHandle, NULL );
+    if (Status != STATUS_SUCCESS)
     {
-        SetLastErrorByStatus(Status);
+        SetLastError( RtlNtStatusToDosError(Status) );
         return FALSE;
     }
-
     return TRUE;
 }
 
@@ -1023,14 +1019,12 @@ UnregisterWaitEx(
     HANDLE CompletionEvent
     )
 {
-    NTSTATUS Status = RtlDeregisterWaitEx(WaitHandle, CompletionEvent);
-
-    if (!NT_SUCCESS(Status))
+    NTSTATUS Status = RtlDeregisterWaitEx( WaitHandle, CompletionEvent );
+    if (Status != STATUS_SUCCESS)
     {
-        SetLastErrorByStatus(Status);
+        SetLastError( RtlNtStatusToDosError(Status) );
         return FALSE;
     }
-
     return TRUE;
 }
 

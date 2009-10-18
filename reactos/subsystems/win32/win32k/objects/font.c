@@ -15,27 +15,6 @@
 
 /** Internal ******************************************************************/
 
-DWORD
-FASTCALL
-GreGetCharacterPlacementW(
-    HDC hdc,
-    LPWSTR pwsz,
-    INT nCount,
-    INT nMaxExtent,
-    LPGCP_RESULTSW pgcpw,
-    DWORD dwFlags)
-{
-  SIZE Size = {0,0};
-
-  if (!pgcpw)
-  {
-     if (GreGetTextExtentW( hdc, pwsz, nCount, &Size, 1))
-        return MAKELONG(Size.cx, Size.cy);
-  }
-  UNIMPLEMENTED;
-  return 0;
-}
-
 INT
 FASTCALL
 FontGetObject(PTEXTOBJ TFont, INT Count, PVOID Buffer)
@@ -80,7 +59,7 @@ FASTCALL
 IntGetCharDimensions(HDC hdc, PTEXTMETRICW ptm, PDWORD height)
 {
   PDC pdc;
-  PDC_ATTR pdcattr;
+  PDC_ATTR pDc_Attr;
   PTEXTOBJ TextObj;
   SIZE sz;
   TMW_INTERNAL tmwi;
@@ -97,9 +76,10 @@ IntGetCharDimensions(HDC hdc, PTEXTMETRICW ptm, PDWORD height)
 
   if (!pdc) return 0;
 
-  pdcattr = pdc->pdcattr;
+  pDc_Attr = pdc->pDc_Attr;
+  if(!pDc_Attr) pDc_Attr = &pdc->Dc_Attr;
 
-  TextObj = RealizeFontInit(pdcattr->hlfntNew);
+  TextObj = RealizeFontInit(pDc_Attr->hlfntNew);
   if ( !TextObj )
   {
      DC_UnlockDc(pdc);
@@ -121,7 +101,7 @@ DWORD
 FASTCALL
 IntGetFontLanguageInfo(PDC Dc)
 {
-  PDC_ATTR pdcattr;
+  PDC_ATTR Dc_Attr;
   FONTSIGNATURE fontsig;
   static const DWORD GCP_DBCS_MASK=0x003F0000,
 		GCP_DIACRITIC_MASK=0x00000000,
@@ -158,10 +138,11 @@ IntGetFontLanguageInfo(PDC Dc)
   if( (fontsig.fsCsb[0]&GCP_USEKERNING_MASK)!=0 )
 		result|=GCP_USEKERNING;
 
-  pdcattr = Dc->pdcattr;
+  Dc_Attr = Dc->pDc_Attr;
+  if(!Dc_Attr) Dc_Attr = &Dc->Dc_Attr;
 
   /* this might need a test for a HEBREW- or ARABIC_CHARSET as well */
-  if ( pdcattr->lTextAlign & TA_RTLREADING )
+  if ( Dc_Attr->lTextAlign & TA_RTLREADING )
      if( (fontsig.fsCsb[0]&GCP_REORDER_MASK)!=0 )
                     result|=GCP_REORDER;
 
@@ -238,23 +219,6 @@ NtGdiAddFontResourceW(
   return Ret;
 }
 
- /*
- * @unimplemented
- */
-DWORD
-APIENTRY
-NtGdiGetCharacterPlacementW(
-    IN HDC hdc,
-    IN LPWSTR pwsz,
-    IN INT nCount,
-    IN INT nMaxExtent,
-    IN OUT LPGCP_RESULTSW pgcpw,
-    IN DWORD dwFlags)
-{
-    UNIMPLEMENTED;
-    return 0;
-}
-
 DWORD
 APIENTRY
 NtGdiGetFontData(
@@ -265,7 +229,7 @@ NtGdiGetFontData(
    DWORD Size)
 {
   PDC Dc;
-  PDC_ATTR pdcattr;
+  PDC_ATTR Dc_Attr;
   HFONT hFont;
   PTEXTOBJ TextObj;
   PFONTGDI FontGdi;
@@ -293,9 +257,10 @@ NtGdiGetFontData(
      SetLastWin32Error(ERROR_INVALID_HANDLE);
      return GDI_ERROR;
   }
-  pdcattr = Dc->pdcattr;
+  Dc_Attr = Dc->pDc_Attr;
+  if(!Dc_Attr) Dc_Attr = &Dc->Dc_Attr;
 
-  hFont = pdcattr->hlfntNew;
+  hFont = Dc_Attr->hlfntNew;
   TextObj = RealizeFontInit(hFont);
   DC_UnlockDc(Dc);
 
@@ -324,7 +289,7 @@ NtGdiGetFontUnicodeRanges(
     OUT OPTIONAL LPGLYPHSET pgs)
 {
   PDC pDc;
-  PDC_ATTR pdcattr;
+  PDC_ATTR Dc_Attr;
   HFONT hFont;
   PTEXTOBJ TextObj;
   PFONTGDI FontGdi;
@@ -339,9 +304,10 @@ NtGdiGetFontUnicodeRanges(
      return 0;
   }
 
-  pdcattr = pDc->pdcattr;
+  Dc_Attr = pDc->pDc_Attr;
+  if(!Dc_Attr) Dc_Attr = &pDc->Dc_Attr;
 
-  hFont = pdcattr->hlfntNew;
+  hFont = Dc_Attr->hlfntNew;
   TextObj = RealizeFontInit(hFont);
         
   if ( TextObj == NULL)
@@ -480,7 +446,7 @@ NtGdiGetKerningPairs(HDC  hDC,
                      LPKERNINGPAIR  krnpair)
 {
   PDC dc;
-  PDC_ATTR pdcattr;
+  PDC_ATTR Dc_Attr;
   PTEXTOBJ TextObj;
   PFONTGDI FontGDI;
   DWORD Count;
@@ -494,8 +460,9 @@ NtGdiGetKerningPairs(HDC  hDC,
      return 0;
   }
 
-  pdcattr = dc->pdcattr;
-  TextObj = RealizeFontInit(pdcattr->hlfntNew);
+  Dc_Attr = dc->pDc_Attr;
+  if(!Dc_Attr) Dc_Attr = &dc->Dc_Attr;
+  TextObj = RealizeFontInit(Dc_Attr->hlfntNew);
   DC_UnlockDc(dc);
 
   if (!TextObj)
@@ -555,7 +522,7 @@ NtGdiGetOutlineTextMetricsInternalW (HDC  hDC,
                                    TMDIFF *Tmd)
 {
   PDC dc;
-  PDC_ATTR pdcattr;
+  PDC_ATTR Dc_Attr;
   PTEXTOBJ TextObj;
   PFONTGDI FontGDI;
   HFONT hFont = 0;
@@ -569,8 +536,9 @@ NtGdiGetOutlineTextMetricsInternalW (HDC  hDC,
      SetLastWin32Error(ERROR_INVALID_HANDLE);
      return 0;
   }
-  pdcattr = dc->pdcattr;
-  hFont = pdcattr->hlfntNew;
+  Dc_Attr = dc->pDc_Attr;
+  if(!Dc_Attr) Dc_Attr = &dc->Dc_Attr;
+  hFont = Dc_Attr->hlfntNew;
   TextObj = RealizeFontInit(hFont);
   DC_UnlockDc(dc);
   if (!TextObj)
@@ -656,7 +624,7 @@ NtGdiGetFontResourceInfoInternalW(
     SafeFileNames.MaximumLength = SafeFileNames.Length = cbStringSize - sizeof(WCHAR);
     SafeFileNames.Buffer = ExAllocatePoolWithTag(PagedPool,
                                                  cbStringSize,
-                                                 'RTSU');
+                                                 TAG('R','T','S','U'));
     if (!SafeFileNames.Buffer)
     {
         SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
@@ -682,7 +650,7 @@ NtGdiGetFontResourceInfoInternalW(
     {
         SetLastNtError(Status);
         /* Free the string buffer for the safe filename */
-        ExFreePoolWithTag(SafeFileNames.Buffer,'RTSU');
+        ExFreePoolWithTag(SafeFileNames.Buffer,TAG('R','T','S','U'));
         return FALSE;
     }
 
@@ -713,7 +681,7 @@ NtGdiGetFontResourceInfoInternalW(
     }
 
     /* Free the string for the safe filenames */
-    ExFreePoolWithTag(SafeFileNames.Buffer,'RTSU');
+    ExFreePoolWithTag(SafeFileNames.Buffer,TAG('R','T','S','U'));
 
     return bRet;
 }
@@ -731,7 +699,7 @@ NtGdiGetRealizationInfo(
   PDC pDc;
   PTEXTOBJ pTextObj;
   PFONTGDI pFontGdi;
-  PDC_ATTR pdcattr;
+  PDC_ATTR Dc_Attr;
   BOOL Ret = FALSE;
   INT i = 0;
   REALIZATION_INFO ri;
@@ -742,8 +710,9 @@ NtGdiGetRealizationInfo(
      SetLastWin32Error(ERROR_INVALID_HANDLE);
      return 0;
   }
-  pdcattr = pDc->pdcattr;
-  pTextObj = RealizeFontInit(pdcattr->hlfntNew);
+  Dc_Attr = pDc->pDc_Attr;
+  if(!Dc_Attr) Dc_Attr = &pDc->Dc_Attr;
+  pTextObj = RealizeFontInit(Dc_Attr->hlfntNew);
   pFontGdi = ObjToGDI(pTextObj->Font, FONT);
   TEXTOBJ_UnlockText(pTextObj);
   DC_UnlockDc(pDc);
@@ -847,18 +816,6 @@ NtGdiHfontCreate(
   }
   TEXTOBJ_UnlockText(TextObj);
 
-  if (pvCliData && hNewFont)
-  {
-    // FIXME: use GDIOBJ_InsertUserData
-    KeEnterCriticalRegion();
-    {
-       INT Index = GDI_HANDLE_GET_INDEX((HGDIOBJ)hNewFont);
-       PGDI_TABLE_ENTRY Entry = &GdiHandleTable->Entries[Index];
-       Entry->UserData = pvCliData;
-    }
-    KeLeaveCriticalRegion();
-  }
-
   return hNewFont;
 }
 
@@ -872,7 +829,7 @@ NtGdiSelectFont(
     IN HFONT hFont)
 {
     PDC pDC;
-    PDC_ATTR pdcattr;
+    PDC_ATTR pDc_Attr;
     HFONT hOrgFont = NULL;
 
     if (hDC == NULL || hFont == NULL) return NULL;
@@ -883,13 +840,14 @@ NtGdiSelectFont(
         return NULL;
     }
 
-    pdcattr = pDC->pdcattr;
+    pDc_Attr = pDC->pDc_Attr;
+    if(!pDc_Attr) pDc_Attr = &pDC->Dc_Attr;
 
     /* FIXME: what if not successful? */
     if(NT_SUCCESS(TextIntRealizeFont((HFONT)hFont,NULL)))
     {
-        hOrgFont = pdcattr->hlfntNew;
-        pdcattr->hlfntNew = hFont;
+        hOrgFont = pDc_Attr->hlfntNew;
+        pDc_Attr->hlfntNew = hFont;
     }
 
     DC_UnlockDc(pDC);

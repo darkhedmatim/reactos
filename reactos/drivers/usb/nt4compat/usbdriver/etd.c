@@ -451,7 +451,7 @@ elem_pool_free_elem(PEHCI_ELEM_LINKS elem_link)
     lh = elem_link->list_link->get_list_head(elem_link->list_link);
     if (lh == NULL)
         return;
-    InsertHeadList(lh, &elem_link->elem_link);
+    InsertHeadList(lh, (PLIST_ENTRY) elem_link);
     ref = elem_link->list_link->release_ref(elem_link->list_link);
     pool->free_count++;
     if (ref == 0)

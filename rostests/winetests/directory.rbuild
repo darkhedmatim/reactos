@@ -22,23 +22,8 @@
 	<directory name="comdlg32">
 		<xi:include href="comdlg32/comdlg32.rbuild" />
 	</directory>
-	<directory name="credui">
-		<xi:include href="credui/credui.rbuild" />
-	</directory>
 	<directory name="crypt32">
 		<xi:include href="crypt32/crypt32.rbuild" />
-	</directory>
-	<directory name="cryptnet">
-		<xi:include href="cryptnet/cryptnet.rbuild" />
-	</directory>
-	<directory name="cryptui">
-		<xi:include href="cryptui/cryptui.rbuild" />
-	</directory>
-	<directory name="dnsapi">
-		<xi:include href="dnsapi/dnsapi.rbuild" />
-	</directory>
-	<directory name="fusion">
-		<xi:include href="fusion/fusion.rbuild" />
 	</directory>
 	<directory name="gdi32">
 		<xi:include href="gdi32/gdi32.rbuild" />
@@ -55,29 +40,14 @@
 	<directory name="imm32">
 		<xi:include href="imm32/imm32.rbuild" />
 	</directory>
-	<directory name="inetcomm">
-		<xi:include href="inetcomm/inetcomm.rbuild" />
-	</directory>
-	<directory name="inetmib1">
-		<xi:include href="inetmib1/inetmib1.rbuild" />
-	</directory>
 	<directory name="iphlpapi">
 		<xi:include href="iphlpapi/iphlpapi.rbuild" />
-	</directory>
-	<directory name="itss">
-		<xi:include href="itss/itss.rbuild" />
 	</directory>
 	<directory name="jscript">
 		<xi:include href="jscript/jscript.rbuild" />
 	</directory>
 	<directory name="kernel32">
 		<xi:include href="kernel32/kernel32.rbuild" />
-	</directory>
-	<directory name="localspl">
-		<xi:include href="localspl/localspl.rbuild" />
-	</directory>
-	<directory name="localui">
-		<xi:include href="localui/localui.rbuild" />
 	</directory>
 	<directory name="lz32">
 		<xi:include href="lz32/lz32.rbuild" />
@@ -91,12 +61,6 @@
 	<directory name="msacm32">
 		<xi:include href="msacm32/msacm32.rbuild" />
 	</directory>
-	<directory name="mscms">
-		<xi:include href="mscms/mscms.rbuild" />
-	</directory>
-	<directory name="msctf">
-		<xi:include href="msctf/msctf.rbuild" />
-	</directory>
 	<directory name="mshtml">
 		<xi:include href="mshtml/mshtml.rbuild" />
 	</directory>
@@ -109,12 +73,6 @@
 	<directory name="msvcrt">
 		<xi:include href="msvcrt/msvcrt.rbuild" />
 	</directory>
-	<directory name="msvcrtd">
-		<xi:include href="msvcrtd/msvcrtd.rbuild" />
-	</directory>
-	<directory name="msvfw32">
-		<xi:include href="msvfw32/msvfw32.rbuild" />
-	</directory>
 	<directory name="msxml3">
 		<xi:include href="msxml3/msxml3.rbuild" />
 	</directory>
@@ -124,38 +82,17 @@
 	<directory name="ntdll">
 		<xi:include href="ntdll/ntdll.rbuild" />
 	</directory>
-	<directory name="ntdsapi">
-		<xi:include href="ntdsapi/ntdsapi.rbuild" />
-	</directory>
-	<directory name="ntprint">
-		<xi:include href="ntprint/ntprint.rbuild" />
-	</directory>
 	<directory name="odbccp32">
 		<xi:include href="odbccp32/odbccp32.rbuild" />
 	</directory>
 	<directory name="ole32">
 		<xi:include href="ole32/ole32.rbuild" />
 	</directory>
-	<directory name="oleacc">
-		<xi:include href="oleacc/oleacc.rbuild" />
-	</directory>
 	<directory name="oleaut32">
 		<xi:include href="oleaut32/oleaut32.rbuild" />
 	</directory>
-	<directory name="pdh">
-		<xi:include href="pdh/pdh.rbuild" />
-	</directory>
 	<directory name="psapi">
 		<xi:include href="psapi/psapi.rbuild" />
-	</directory>
-	<directory name="qmgr">
-		<xi:include href="qmgr/qmgr.rbuild" />
-	</directory>
-	<directory name="quartz">
-		<xi:include href="quartz/quartz.rbuild" />
-	</directory>
-	<directory name="rasapi32">
-		<xi:include href="rasapi32/rasapi32.rbuild" />
 	</directory>
 	<directory name="powrprof">
 		<xi:include href="powrprof/powrprof.rbuild" />
@@ -178,12 +115,6 @@
 	<directory name="schannel">
 		<xi:include href="schannel/schannel.rbuild" />
 	</directory>
-	<directory name="secur32">
-		<xi:include href="secur32/secur32.rbuild" />
-	</directory>
-	<directory name="serialui">
-		<xi:include href="serialui/serialui.rbuild" />
-	</directory>
 	<directory name="setupapi">
 		<xi:include href="setupapi/setupapi.rbuild" />
 	</directory>
@@ -196,23 +127,11 @@
 	<directory name="shlwapi">
 		<xi:include href="shlwapi/shlwapi.rbuild" />
 	</directory>
-	<directory name="snmpapi">
-		<xi:include href="snmpapi/snmpapi.rbuild" />
-	</directory>
-	<directory name="spoolss">
-		<xi:include href="spoolss/spoolss.rbuild" />
-	</directory>
-	<directory name="twain_32">
-		<xi:include href="twain_32/twain_32.rbuild" />
-	</directory>
 	<directory name="urlmon">
 		<xi:include href="urlmon/urlmon.rbuild" />
 	</directory>
 	<directory name="user32">
 		<xi:include href="user32/user32.rbuild" />
-	</directory>
-	<directory name="userenv">
-		<xi:include href="userenv/userenv.rbuild" />
 	</directory>
 	<directory name="usp10">
 		<xi:include href="usp10/usp10.rbuild" />
@@ -231,12 +150,6 @@
 	</directory>
 	<directory name="wintrust">
 		<xi:include href="wintrust/wintrust.rbuild" />
-	</directory>
-	<directory name="wlanapi">
-		<xi:include href="wlanapi/wlanapi.rbuild" />
-	</directory>
-	<directory name="wldap32">
-		<xi:include href="wldap32/wldap32.rbuild" />
 	</directory>
 	<directory name="ws2_32">
 		<xi:include href="ws2_32/ws2_32.rbuild" />

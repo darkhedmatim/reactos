@@ -161,7 +161,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				OutputFile=".\Debug/rbuild.exe"
-				LinkIncremental="2"
+				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\Debug/rbuild.pdb"
@@ -396,10 +396,6 @@
 					>
 				</File>
 				<File
-					RelativePath=".\backend\mingw\mstools_detection.cpp"
-					>
-				</File>
-				<File
 					RelativePath="backend\mingw\pch_detection.h"
 					>
 				</File>
@@ -626,30 +622,6 @@
 			</File>
 			<File
 				RelativePath="compilationunitsupportcode.cpp"
-				>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						Optimization="2"
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						Optimization="0"
-						AdditionalIncludeDirectories=""
-						PreprocessorDefinitions=""
-						BasicRuntimeChecks="3"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="compilerdirective.cpp"
 				>
 				<FileConfiguration
 					Name="Release|Win32"

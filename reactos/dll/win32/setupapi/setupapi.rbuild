@@ -10,7 +10,6 @@
 	<library>uuid</library>
 	<library>wine</library>
 	<library>ntdll</library>
-	<library>gdi32</library>
 	<library>comctl32</library>
 	<library>kernel32</library>
 	<library>advapi32</library>
@@ -37,5 +36,5 @@
 	<file>rpc.c</file>
 	<file>setupapi.rc</file>
 	<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38054#c7 -->
-	<compilerflag compilerset="gcc">-fno-unit-at-a-time</compilerflag>
+	<compilerflag>-fno-unit-at-a-time</compilerflag>
 </module>

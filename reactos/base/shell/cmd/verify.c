@@ -35,13 +35,22 @@ INT cmd_verify (LPTSTR param)
 		return 0;
 	}
 
-	if (!OnOffCommand(param, &bVerify, STRING_VERIFY_HELP2))
+  nErrorLevel = 0;
+
+	if (!*param)
 	{
-		ConErrResPuts(STRING_VERIFY_HELP3);
-		return nErrorLevel = 1;
+		ConOutResPrintf(STRING_VERIFY_HELP2, bVerify ? D_ON : D_OFF);
+	}
+	else if (_tcsicmp (param, D_OFF) == 0)
+		bVerify = FALSE;
+	else if (_tcsicmp (param, D_ON) == 0)
+		bVerify = TRUE;
+	else
+	{
+		ConOutResPuts(STRING_VERIFY_HELP3);
 	}
 
-	return nErrorLevel = 0;
+	return 0;
 }
 
 #endif

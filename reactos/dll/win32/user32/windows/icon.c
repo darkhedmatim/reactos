@@ -94,28 +94,17 @@ ICON_CreateIconFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cxDe
 HICON
 ICON_CreateCursorFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cxDesired, int cyDesired, int xHotspot, int yHotspot)
 {
+   /* FIXME - color cursors */
    BYTE BitmapInfoBuffer[sizeof(BITMAPINFOHEADER) + 2 * sizeof(RGBQUAD)];
    BITMAPINFO *bwBIH = (BITMAPINFO *)BitmapInfoBuffer;
-   BITMAPINFO *orgBIH = (BITMAPINFO *)IconImage;
    ICONINFO IconInfo;
+   PVOID XORImageData = ImageData;
 
    IconInfo.fIcon = FALSE;
    IconInfo.xHotspot = xHotspot;
    IconInfo.yHotspot = yHotspot;
 
-   /* Handle the color part of the cursor */
-   if (IconImage->icHeader.biBitCount == 1)
-   {
-      IconInfo.hbmColor = (HBITMAP)0;
-   }
-   else
-   {
-       IconInfo.hbmColor = CreateDIBitmap(hDC, &IconImage->icHeader, CBM_INIT,
-                                          ImageData, (BITMAPINFO*)IconImage,
-                                          DIB_RGB_COLORS);
-   }
-
-   /* Create a BITMAPINFO header for the monochrome part of the cursor */
+   /* Create a BITMAPINFO header for the monocrome part of the icon */
    bwBIH->bmiHeader.biBitCount = 1;
    bwBIH->bmiHeader.biWidth = IconImage->icHeader.biWidth;
    bwBIH->bmiHeader.biHeight = IconImage->icHeader.biHeight;
@@ -138,14 +127,16 @@ ICON_CreateCursorFromData(HDC hDC, PVOID ImageData, ICONIMAGE* IconImage, int cx
    bwBIH->bmiColors[1].rgbRed = 0xff;
    bwBIH->bmiColors[1].rgbReserved = 0;
 
-   /* Load the monochrome bitmap */
+   /* Load the AND bitmap */
    IconInfo.hbmMask = CreateDIBitmap(hDC, &bwBIH->bmiHeader, 0,
-                                     ImageData, bwBIH, DIB_RGB_COLORS);
+                                     XORImageData, bwBIH, DIB_RGB_COLORS);
    if (IconInfo.hbmMask)
    {
       SetDIBits(hDC, IconInfo.hbmMask, 0, IconImage->icHeader.biHeight,
-                ImageData, orgBIH, DIB_RGB_COLORS);
+                XORImageData, bwBIH, DIB_RGB_COLORS);
    }
+
+   IconInfo.hbmColor = (HBITMAP)0;
 
    /* Create the icon based on everything we have so far */
    return NtUserCreateCursorIconHandle(&IconInfo, FALSE);
@@ -190,29 +181,18 @@ CreateIcon(
   ICONINFO IconInfo;
 
   IconInfo.fIcon = TRUE;
-  
-  if (cBitsPixel == 1)
-  {
-    nHeight <<= 1;
-  }
+  IconInfo.xHotspot = nWidth / 2;
+  IconInfo.yHotspot = nHeight / 2;
   IconInfo.hbmMask = CreateBitmap(nWidth, nHeight, 1, 1, ANDbits);
   if(!IconInfo.hbmMask)
   {
     return (HICON)0;
   }
-
-  if (cBitsPixel == 1)
+  IconInfo.hbmColor = CreateBitmap(nWidth, nHeight, cPlanes, cBitsPixel, XORbits);
+  if(!IconInfo.hbmColor)
   {
-    IconInfo.hbmColor = (HBITMAP)0;
-  }
-  else
-  {
-    IconInfo.hbmColor = CreateBitmap(nWidth, nHeight, cPlanes, cBitsPixel, XORbits);
-    if(!IconInfo.hbmColor)
-    { 
-       DeleteObject(IconInfo.hbmMask);
-       return (HICON)0;
-    }
+    DeleteObject(IconInfo.hbmMask);
+    return (HICON)0;
   }
 
   return NtUserCreateCursorIconHandle(&IconInfo, FALSE);
@@ -340,7 +320,6 @@ CreateIconIndirect(PICONINFO IconInfo)
 {
   BITMAP ColorBitmap;
   BITMAP MaskBitmap;
-  HBITMAP hbmTemp;
 
   if(!IconInfo)
   {
@@ -352,26 +331,20 @@ CreateIconIndirect(PICONINFO IconInfo)
   {
     return (HICON)0;
   }
-
-  /* Try to get color bitmap */
-  if (GetObjectW(IconInfo->hbmColor, sizeof(BITMAP), &ColorBitmap))
+  /* FIXME - does there really *have* to be a color bitmap? monochrome cursors don't have one */
+  if(/*IconInfo->hbmColor &&*/ !GetObjectW(IconInfo->hbmColor, sizeof(BITMAP), &ColorBitmap))
   {
-     /* Compare size of color and mask bitmap*/
-     if (ColorBitmap.bmWidth != MaskBitmap.bmWidth ||
-        ColorBitmap.bmHeight != MaskBitmap.bmHeight)
-     {
-        ERR("Color and mask size are different!");
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return (HICON)0;
-     }
-     /* Check if color and mask are switched and switch them back */
-     if (MaskBitmap.bmBitsPixel != 1 && ColorBitmap.bmBitsPixel == 1)
-     {
-        hbmTemp = IconInfo->hbmMask;
-        IconInfo->hbmMask = IconInfo->hbmColor;
-        IconInfo->hbmColor = hbmTemp;
-     }
+    return (HICON)0;
   }
+
+  /* FIXME - i doubt this is right (monochrome cursors */
+  /*if(ColorBitmap.bmWidth != MaskBitmap.bmWidth ||
+     ColorBitmap.bmHeight != MaskBitmap.bmWidth)
+  {
+    SetLastError(ERROR_INVALID_PARAMETER);
+    return (HICON)0;
+  }*/
+
   return (HICON)NtUserCreateCursorIconHandle(IconInfo, TRUE);
 }
 
@@ -703,7 +676,7 @@ LookupIconIdFromDirectoryEx(PBYTE xdir,
         }
         else
         {
-            ColorBits = gpsi->BitsPixel;
+            ColorBits = g_psi->BitsPixel;
         }
 
         if(bIcon)

@@ -31,15 +31,15 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(mshtml);
 
-struct HTMLOptionElement {
+typedef struct {
     HTMLElement element;
 
     const IHTMLOptionElementVtbl *lpHTMLOptionElementVtbl;
 
     nsIDOMHTMLOptionElement *nsoption;
-};
+} HTMLOptionElement;
 
-#define HTMLOPTION(x)  (&(x)->lpHTMLOptionElementVtbl)
+#define HTMLOPTION(x)  ((IHTMLOptionElement*)  &(x)->lpHTMLOptionElementVtbl)
 
 #define HTMLOPTION_THIS(iface) DEFINE_THIS(HTMLOptionElement, HTMLOptionElement, iface)
 

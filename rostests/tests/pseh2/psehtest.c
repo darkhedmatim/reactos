@@ -2248,71 +2248,6 @@ DEFINE_TEST(test_abnorm_8)
 }
 //}}}
 
-/* Use of local variables from _SEH2_EXCEPT(...) and _SEH2_FINALLY { ... } *///{{{
-DEFINE_TEST(test_nested_locals_1)
-{
-	int var1 = return_one();
-
-	_SEH2_TRY
-	{
-		RaiseException(0xE00DEAD0, 0, 0, 0);
-	}
-	_SEH2_EXCEPT((var1 = (var1 == return_one() ? return_positive() : var1)), EXCEPTION_EXECUTE_HANDLER)
-	{
-		if(var1 == return_positive())
-			var1 = return_positive() + 1;
-	}
-	_SEH2_END;
-
-	return var1 == return_positive() + 1;
-}
-
-DEFINE_TEST(test_nested_locals_2)
-{
-	int var1 = return_positive();
-
-	_SEH2_TRY
-	{
-	}
-	_SEH2_FINALLY
-	{
-		if(var1 == return_positive())
-			var1 = return_positive() + 1;
-	}
-	_SEH2_END;
-
-	return var1 == return_positive() + 1;
-}
-
-DEFINE_TEST(test_nested_locals_3)
-{
-	int var1 = return_zero();
-
-	_SEH2_TRY
-	{
-		_SEH2_TRY
-		{
-			var1 = return_one();
-			RaiseException(0xE00DEAD0, 0, 0, 0);
-		}
-		_SEH2_FINALLY
-		{
-			if(var1 == return_one())
-				var1 = return_positive();
-		}
-		_SEH2_END;
-	}
-	_SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-	{
-		if(var1 == return_positive())
-			var1 = return_positive() + 1;
-	}
-	_SEH2_END;
-
-	return var1 == return_positive() + 1;
-}
-//}}}
-
 /* System support *///{{{
 // TODO
 //}}}
@@ -2369,51 +2304,12 @@ DEFINE_TEST(test_bug_4004)
 	return return_arg(i1) + return_arg(i2) + return_arg(i3) == return_positive() * 3;
 }
 //}}}
-
-/* #4663: *///{{{
-DEFINE_TEST(test_bug_4663)
-{
-	int i1, i2;
-
-	i1 = return_positive();
-	i2 = return_positive();
-
-	_SEH2_TRY
-	{
-		_SEH2_TRY
-		{
-			RaiseException(0xE00DEAD0, 0, 0, 0);
-		}
-		_SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-		{
-			if (i1 == return_positive())
-			{
-				i1 = return_positive() + 1;
-			}
-		}
-		_SEH2_END;
-
-		if (i1 == return_positive() + 1)
-		{
-			i1 = return_negative();
-			RaiseException(0xE00DEAD0, 0, 0, 0);
-		}
-	}
-	_SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-	{
-		i2 = return_negative();
-	}
-	_SEH2_END;
-
-	return ((i1 == return_negative()) && (i2 == return_negative()));
-}
-//}}}
 //}}}
 
 static
 LONG WINAPI unhandled_exception(PEXCEPTION_POINTERS ExceptionInfo)
 {
-	trace("unhandled exception %08lX thrown from %p\n", ExceptionInfo->ExceptionRecord->ExceptionCode, ExceptionInfo->ExceptionRecord->ExceptionAddress);
+	ok(0, "unhandled exception %08lX thrown from %p\n", ExceptionInfo->ExceptionRecord->ExceptionCode, ExceptionInfo->ExceptionRecord->ExceptionAddress);
 	return EXCEPTION_CONTINUE_SEARCH;
 }
 
@@ -2438,18 +2334,9 @@ DECLSPEC_NOINLINE
 int sanity_check(int ret, struct volatile_context * before, struct volatile_context * after)
 {
 	if(ret && memcmp(before, after, sizeof(before)))
-	{
-		trace("volatile context corrupted\n");
-		return 0;
-	}
+		ok(0, "volatile context corrupted\n");
 
 	return ret;
-}
-
-static
-int passthrough_handler(struct _EXCEPTION_RECORD * e, void * f, struct _CONTEXT * c, void * d)
-{
-	return ExceptionContinueSearch;
 }
 
 static
@@ -2459,17 +2346,8 @@ int call_test(int (* func)(void))
 	static int ret;
 	static struct volatile_context before, after;
 	static LPTOP_LEVEL_EXCEPTION_FILTER prev_unhandled_exception;
-	static _SEH2Registration_t * prev_frame;
-	_SEH2Registration_t passthrough_frame;
 
 	prev_unhandled_exception = SetUnhandledExceptionFilter(&unhandled_exception);
-
-#if defined(_X86_)
-	prev_frame = (_SEH2Registration_t *)__readfsdword(0);
-	passthrough_frame.SER_Prev = prev_frame;
-	passthrough_frame.SER_Handler = passthrough_handler;
-	__writefsdword(0, (unsigned long)&passthrough_frame);
-#endif
 
 #if defined(__GNUC__) && defined(__i386__)
 	__asm__ __volatile__
@@ -2498,16 +2376,6 @@ int call_test(int (* func)(void))
 	);
 #else
 	ret = func();
-#endif
-
-#if defined(_X86_)
-	if((_SEH2Registration_t *)__readfsdword(0) != &passthrough_frame || passthrough_frame.SER_Prev != prev_frame)
-	{
-		trace("exception registration list corrupted\n");
-		ret = 0;
-	}
-
-	__writefsdword(0, (unsigned long)prev_frame);
 #endif
 
 	SetUnhandledExceptionFilter(prev_unhandled_exception);
@@ -2632,12 +2500,7 @@ void testsuite_syntax(void)
 		USE_TEST(test_abnorm_7),
 		USE_TEST(test_abnorm_8),
 
-		USE_TEST(test_nested_locals_1),
-		USE_TEST(test_nested_locals_2),
-		USE_TEST(test_nested_locals_3),
-
 		USE_TEST(test_bug_4004),
-		USE_TEST(test_bug_4663),
 	};
 
 	size_t i;

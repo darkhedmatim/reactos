@@ -6,7 +6,7 @@
 	<include base="lsa_client">.</include>
 	<include base="eventlog_client">.</include>
 
-	<redefine name="_WIN32_WINNT">0x600</redefine>
+	<define name="_WIN32_WINNT">0x600</define>
 
 	<define name="_ADVAPI32_" />
 	<library>scm_client</library>
@@ -60,5 +60,5 @@
 			<file>token.c</file>
 	</directory>
 	<file>advapi32.rc</file>
-	<compilerflag compilerset="gcc">-fno-unit-at-a-time</compilerflag>
+	<compilerflag>-fno-unit-at-a-time</compilerflag>
 </module>

@@ -1163,51 +1163,6 @@ GetVersionInfoFromImage(LPWSTR lpFileName,
 }
 
 /***********************************************************************
- *      SetupUninstallOEMInfW  (SETUPAPI.@)
- */
-BOOL WINAPI SetupUninstallOEMInfW( PCWSTR inf_file, DWORD flags, PVOID reserved )
-{
-    static const WCHAR infW[] = {'\\','i','n','f','\\',0};
-    WCHAR target[MAX_PATH];
-
-    TRACE("%s, 0x%08x, %p\n", debugstr_w(inf_file), flags, reserved);
-
-    if (!inf_file)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-
-    if (!GetWindowsDirectoryW( target, sizeof(target)/sizeof(WCHAR) )) return FALSE;
-
-    strcatW( target, infW );
-    strcatW( target, inf_file );
-
-    if (flags & SUOI_FORCEDELETE)
-        return DeleteFileW(target);
-
-    FIXME("not deleting %s\n", debugstr_w(target));
-
-    return TRUE;
-}
-
-/***********************************************************************
- *      SetupUninstallOEMInfA  (SETUPAPI.@)
- */
-BOOL WINAPI SetupUninstallOEMInfA( PCSTR inf_file, DWORD flags, PVOID reserved )
-{
-    BOOL ret;
-    WCHAR *inf_fileW = NULL;
-
-    TRACE("%s, 0x%08x, %p\n", debugstr_a(inf_file), flags, reserved);
-
-    if (inf_file && !(inf_fileW = strdupAtoW( inf_file ))) return FALSE;
-    ret = SetupUninstallOEMInfW( inf_fileW, flags, reserved );
-    HeapFree( GetProcessHeap(), 0, inf_fileW );
-    return ret;
-}
-
-/***********************************************************************
  *      InstallCatalog  (SETUPAPI.@)
  */
 DWORD WINAPI InstallCatalog( LPCSTR catalog, LPCSTR basename, LPSTR fullname )
@@ -1729,32 +1684,4 @@ WINAPI
 pSetupIsGuidNull(LPGUID lpGUID)
 {
     return IsEqualGUID(lpGUID, &GUID_NULL);
-}
-
-/*
- * implemented
- */
-BOOL
-WINAPI
-IsUserAdmin(VOID)
-{
-    SID_IDENTIFIER_AUTHORITY Authority = {SECURITY_NT_AUTHORITY};
-    BOOL bResult = FALSE;
-    PSID lpSid;
-
-    if (!AllocateAndInitializeSid(&Authority, 2, SECURITY_BUILTIN_DOMAIN_RID,
-                                  DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0, 0,
-                                  &lpSid))
-    {
-        return FALSE;
-    }
-
-    if (!CheckTokenMembership(NULL, lpSid, &bResult))
-    {
-        bResult = FALSE;
-    }
-
-    FreeSid(lpSid);
-
-    return bResult;
 }

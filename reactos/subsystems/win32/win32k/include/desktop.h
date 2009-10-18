@@ -17,7 +17,7 @@ typedef struct _DESKTOP
     /* Pointer to the active queue. */
     PVOID ActiveMessageQueue;
     /* Rectangle of the work area */
-    RECTL WorkArea;
+    RECT WorkArea;
     /* Handle of the desktop window. */
     HANDLE DesktopWindow;
     /* Thread blocking input */
@@ -28,12 +28,11 @@ typedef struct _DESKTOP
     PWIN32HEAP pheapDesktop;
     PSECTION_OBJECT DesktopHeapSection;
     PDESKTOPINFO DesktopInfo;
-    PWND spwndMessage;
 } DESKTOP, *PDESKTOP;
 
 extern PDESKTOP InputDesktop;
 extern HDESK InputDesktopHandle;
-extern PCLS DesktopWindowClass;
+extern PWINDOWCLASS DesktopWindowClass;
 extern HDC ScreenDeviceContext;
 extern BOOL g_PaintDesktopVersion;
 
@@ -66,7 +65,7 @@ VOID APIENTRY
 IntDesktopObjectDelete(PWIN32_DELETEMETHOD_PARAMETERS Parameters);
 
 VOID FASTCALL
-IntGetDesktopWorkArea(PDESKTOP Desktop, RECTL *Rect);
+IntGetDesktopWorkArea(PDESKTOP Desktop, PRECT Rect);
 
 LRESULT CALLBACK
 IntDesktopWindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -110,17 +109,22 @@ IntValidateDesktopHandle(
    KPROCESSOR_MODE AccessMode,
    ACCESS_MASK DesiredAccess,
    PDESKTOP *Object);
+
 NTSTATUS FASTCALL
 IntParseDesktopPath(PEPROCESS Process,
                     PUNICODE_STRING DesktopPath,
                     HWINSTA *hWinSta,
                     HDESK *hDesktop);
-BOOL FASTCALL IntDesktopUpdatePerUserSettings(BOOL bEnable);
+
+BOOL FASTCALL
+IntDesktopUpdatePerUserSettings(BOOL bEnable);
+
 VOID APIENTRY UserRedrawDesktop(VOID);
+
 BOOL IntRegisterShellHookWindow(HWND hWnd);
 BOOL IntDeRegisterShellHookWindow(HWND hWnd);
+
 VOID co_IntShellHookNotify(WPARAM Message, LPARAM lParam);
-HDC FASTCALL UserGetDesktopDC(ULONG,BOOL,BOOL);
 
 #define IntIsActiveDesktop(Desktop) \
   ((Desktop)->WindowStation->ActiveDesktop == (Desktop))
@@ -130,7 +134,6 @@ HDC FASTCALL UserGetDesktopDC(ULONG,BOOL,BOOL);
     &(OBJECT_HEADER_TO_NAME_INFO(OBJECT_TO_OBJECT_HEADER(d))->Name) :   \
     NULL
 
-HWND FASTCALL IntGetMessageWindow(VOID);
 
 static __inline PVOID
 DesktopHeapAlloc(IN PDESKTOP Desktop,
@@ -198,7 +201,7 @@ DesktopHeapGetUserDelta(VOID)
 {
     PW32HEAP_USER_MAPPING Mapping;
     PTHREADINFO pti;
-    PPROCESSINFO W32Process;
+    PW32PROCESS W32Process;
     PWIN32HEAP pheapDesktop;
     ULONG_PTR Delta = 0;
 
@@ -228,7 +231,7 @@ static __inline PVOID
 DesktopHeapAddressToUser(PVOID lpMem)
 {
     PW32HEAP_USER_MAPPING Mapping;
-    PPROCESSINFO W32Process;
+    PW32PROCESS W32Process;
 
     W32Process = PsGetCurrentProcessWin32Process();
     Mapping = W32Process->HeapMappings.Next;

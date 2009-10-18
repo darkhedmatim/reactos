@@ -12,33 +12,20 @@ typedef struct _SURFACE
   SURFOBJ     SurfObj;
   FLONG	      flHooks;
   FLONG       flFlags;
-  struct _PALETTE  *ppal;
-
-  union
-  {
-    HANDLE    hSecureUMPD;  // if UMPD_SURFACE set
-    HANDLE    hMirrorParent;// if MIRROR_SURFACE set
-    HANDLE    hDDSurface;   // if DIRECTDRAW_SURFACE set
-  };
-
-  SIZEL       dimension;    /* For SetBitmapDimension(), do NOT use
+  SIZE        dimension;    /* For SetBitmapDimension(), do NOT use
                                to get width/height of bitmap, use
                                bitmap.bmWidth/bitmap.bmHeight for
                                that */
-  
-  HDC         hDC; // Doc in "Undocumented Windows", page 546, seems to be supported with XP.
-  ULONG       cRef;         // 0x064
-  HPALETTE    hpalHint;
+  PFAST_MUTEX BitsLock;     /* You need to hold this lock before you touch
+                               the actual bits in the bitmap */
 
   /* For device-independent bitmaps: */
   HANDLE      hDIBSection;
   HANDLE      hSecure;
   DWORD       dwOffset;
 
-  /* reactos specific */
-  PFAST_MUTEX BitsLock;     /* You need to hold this lock before you touch
-                               the actual bits in the bitmap */
   HPALETTE hDIBPalette;
+  HDC hDC; // Doc in "Undocumented Windows", page 546, seems to be supported with XP.
   DWORD dsBitfields[3]; // hack, should probably use palette instead
   DWORD biClrUsed;
   DWORD biClrImportant;
@@ -70,8 +57,8 @@ BOOL INTERNAL_CALL SURFACE_Cleanup(PVOID ObjectBody);
 BOOL INTERNAL_CALL SURFACE_InitBitsLock(SURFACE *pBMObj);
 void INTERNAL_CALL SURFACE_CleanupBitsLock(SURFACE *pBMObj);
 
-#define GDIDEV(SurfObj) ((PDEVOBJ *)((SurfObj)->hdev))
-#define GDIDEVFUNCS(SurfObj) ((PDEVOBJ *)((SurfObj)->hdev))->DriverFunctions
+#define GDIDEV(SurfObj) ((GDIDEVICE *)((SurfObj)->hdev))
+#define GDIDEVFUNCS(SurfObj) ((GDIDEVICE *)((SurfObj)->hdev))->DriverFunctions
 
 INT   FASTCALL BitsPerFormat (ULONG Format);
 ULONG FASTCALL BitmapFormat (WORD Bits, DWORD Compression);

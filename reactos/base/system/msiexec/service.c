@@ -32,7 +32,7 @@ static SERVICE_STATUS_HANDLE hstatus;
 static HANDLE thread;
 static HANDLE kill_event;
 
-static void KillService(void)
+void KillService(void)
 {
     WINE_TRACE("Killing service\n");
     SetEvent(kill_event);

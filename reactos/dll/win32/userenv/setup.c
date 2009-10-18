@@ -109,7 +109,6 @@ InitializeProfiles(VOID)
 {
     WCHAR szProfilesPath[MAX_PATH];
     WCHAR szProfilePath[MAX_PATH];
-    WCHAR szCommonFilesDirPath[MAX_PATH];
     WCHAR szBuffer[MAX_PATH];
     DWORD dwLength;
     PFOLDERDATA lpFolderData;
@@ -585,14 +584,6 @@ InitializeProfiles(VOID)
         return FALSE;
     }
 
-    if (!LoadStringW(hInstance,
-                     IDS_COMMONFILES,
-                     szCommonFilesDirPath,
-                     MAX_PATH))
-    {
-        DPRINT1("Warning: %lu\n", GetLastError());
-    }
-
     /* Expand it */
     if (!ExpandEnvironmentStringsW(szBuffer,
                                    szProfilesPath,
@@ -600,17 +591,6 @@ InitializeProfiles(VOID)
     {
         DPRINT1("Error: %lu\n", GetLastError());
         return FALSE;
-    }
-
-    wcscpy(szBuffer, szProfilesPath);
-    wcscat(szBuffer, L"\\");
-    wcscat(szBuffer, szCommonFilesDirPath);
-
-    if (!ExpandEnvironmentStringsW(szBuffer,
-                                  szCommonFilesDirPath,
-                                  MAX_PATH))
-    {
-        DPRINT1("Warning: %lu\n", GetLastError());
     }
 
     /* Store it */
@@ -641,18 +621,6 @@ InitializeProfiles(VOID)
         return FALSE;
     }
 
-    dwLength = (wcslen(szCommonFilesDirPath) + 1) * sizeof(WCHAR);
-    Error = RegSetValueExW(hKey,
-                           L"CommonFilesDir",
-                           0,
-                           REG_SZ,
-                           (LPBYTE)szCommonFilesDirPath,
-                           dwLength);
-    if (Error != ERROR_SUCCESS)
-    {
-        DPRINT1("Warning: %lu\n", Error);
-    }
-
     RegCloseKey (hKey);
 
     /* Create directory */
@@ -664,19 +632,6 @@ InitializeProfiles(VOID)
             return FALSE;
         }
     }
-
-    /* Create directory */
-    if (!CreateDirectoryW(szCommonFilesDirPath, NULL))
-    {
-        if (GetLastError () != ERROR_ALREADY_EXISTS)
-        {
-            DPRINT1("Warning: %lu\n", GetLastError());
-        }
-    }
-
-    SetEnvironmentVariableW(L"ProgramFiles", szProfilesPath);
-    SetEnvironmentVariableW(L"CommonProgramFiles", szCommonFilesDirPath);
-
 
     DPRINT("Success\n");
 
