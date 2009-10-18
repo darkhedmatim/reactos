@@ -228,9 +228,8 @@ EngLoadImage (LPWSTR DriverName)
 			DPRINT1("ZwSetSystemInformation failed with Status 0x%lx\n", Status);
 		}
 		else {
-            PDRIVERS DriverInfo;
 			hImageHandle = (HANDLE)GdiDriverInfo.ImageAddress;
-			DriverInfo = ExAllocatePool(PagedPool, sizeof(DRIVERS));
+			PDRIVERS DriverInfo = ExAllocatePool(PagedPool, sizeof(DRIVERS));
 			DriverInfo->DriverName.MaximumLength = GdiDriverInfo.DriverName.MaximumLength;
 			DriverInfo->DriverName.Length = GdiDriverInfo.DriverName.Length;
 			DriverInfo->DriverName.Buffer = ExAllocatePool(PagedPool, GdiDriverInfo.DriverName.MaximumLength);
@@ -241,6 +240,27 @@ EngLoadImage (LPWSTR DriverName)
 	}
 
 	return hImageHandle;
+}
+
+
+/*
+ * @unimplemented
+ */
+HANDLE
+APIENTRY
+EngLoadModule(LPWSTR ModuleName)
+{
+  SYSTEM_GDI_DRIVER_INFORMATION GdiDriverInfo;
+  NTSTATUS Status;
+
+  // FIXME: should load as readonly
+
+  RtlInitUnicodeString (&GdiDriverInfo.DriverName, ModuleName);
+  Status = ZwSetSystemInformation (SystemLoadGdiDriverInformation,
+    &GdiDriverInfo, sizeof(SYSTEM_GDI_DRIVER_INFORMATION));
+  if (!NT_SUCCESS(Status)) return NULL;
+
+  return (HANDLE)GdiDriverInfo.ImageAddress;
 }
 
 VOID

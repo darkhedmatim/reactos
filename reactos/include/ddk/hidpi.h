@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 #if defined(_HIDPI_)
-  #define HIDAPI
+  #define HIDAPI DECLSPEC_EXPORT
 #else
   #define HIDAPI DECLSPEC_IMPORT
 #endif

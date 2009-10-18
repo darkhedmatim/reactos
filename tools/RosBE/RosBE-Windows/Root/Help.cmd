@@ -5,18 +5,17 @@
 :: PURPOSE:     Display help for the commands included with the ReactOS Build Environment.
 :: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
 ::                             Peter Ward <dralnix@gmail.com>
-::                             Colin Finck <colin@reactos.org>
 ::
-
+::
 @echo off
 if not defined _ROSBE_DEBUG set _ROSBE_DEBUG=0
 if %_ROSBE_DEBUG% == 1 (
     @echo on
 )
 
+::
 :: Check if we are displaying help on all commands, if so, display it.
-:: Otherwise check if we are displaying help on individual commands, if so,
-:: display the help for that command.
+::
 if "%1" == "" (
     echo.
     echo Available Commands:
@@ -79,7 +78,14 @@ if "%1" == "" (
     )
 
     echo.
-) else if /i "%1" == "make" (
+    goto :EOC
+)
+
+::
+:: Now check if we are displaying help on individual commands, if so,
+:: display the help for that command.
+::
+if /i "%1" == "make" (
     echo Usage: make [OPTIONS]
     echo Make does a standard build of ReactOS. OPTIONS are the standard ReactOS build
     echo options:
@@ -100,7 +106,9 @@ if "%1" == "" (
         echo                       and generates a new makefile. This will take a while.
         echo    "module"-depends - Does a dependency check for one module with the
         echo                       appropiate name.
-) else if /i "%1" == "makex" (
+    goto :EOC
+)
+if /i "%1" == "makex" (
     echo Usage: makex [OPTIONS]
     echo Same as 'make' but automatically determines the number of CPU Cores in the
     echo system and uses "make -j x" with the appropriate number. OPTIONS are the
@@ -125,32 +133,42 @@ if "%1" == "" (
     echo NOTE: The number makex uses can be modified by editing Build.cmd
     echo       located in the RosBE directory, instructions for doing so are
     echo       contained within the file.
-) else if /i "%1" == "basedir" (
+    goto :EOC
+)
+if /i "%1" == "basedir" (
     echo Usage: basedir
     echo Switches back to the ReactOS source directory.
-) else if /i "%1" == "charch" (
-    if exist "%_ROSBE_BASEDIR%\charch.cmd" (
+    goto :EOC
+)
+if exist "%_ROSBE_BASEDIR%\charch.cmd" (
+    if /i "%1" == "charch" (
         echo Usage: charch [OPTIONS]
         echo Change the Architecture to build ReactOS for, for the current RosBE session.
         echo Possible Architectures are: i386, ppc, arm, amd64.
         echo.
+        goto :EOC
     )
-) else if /i "%1" == "chdefdir" (
-    if exist "%_ROSBE_BASEDIR%\chdefdir.cmd" (
+)
+if exist "%_ROSBE_BASEDIR%\chdefdir.cmd" (
+    if /i "%1" == "chdefdir" (
         echo Usage: chdefdir [OPTIONS]
         echo Change the ReactOS source directory for the current RosBE session.
         echo.
         echo    previous - Switch to the previous ReactOS source directory.
+        goto :EOC
     )
-) else if /i "%1" == "chdefgcc" (
-    if exist "%_ROSBE_BASEDIR%\chdefgcc.cmd" (
+)
+if exist "%_ROSBE_BASEDIR%\chdefgcc.cmd" (
+    if /i "%1" == "chdefgcc" (
         echo Usage: chdefgcc [OPTIONS]
         echo Change the MinGW/GCC Target/Host directory for the current RosBE session.
         echo.
         echo    "Path" - Path to set the Host or Target GCC to.
         echo    "Type" - Set it to "target" or "host"
+        goto :EOC
     )
-) else if /i "%1" == "clean" (
+)
+if /i "%1" == "clean" (
     echo Usage: clean [logs]
     echo Fully clean the ReactOS source directory.
     echo.
@@ -158,22 +176,27 @@ if "%1" == "" (
     echo    logs - Removes all build logs in the RosBE-Logs directory.
     echo    All other commands will be parsed as "make COMMAND_clean" and cleans the
     echo    specific command.
-) else if /i "%1" == "config" (
-    if exist "%_ROSBE_BASEDIR%\Config.cmd" (
+    goto :EOC
+)
+if exist "%_ROSBE_BASEDIR%\Config.cmd" (
+    if /i "%1" == "config" (
         echo Usage: config [OPTIONS]
         echo Creates a configuration file, which tells RosBE how to build the tree.
         echo.
         echo    delete - Deletes the created configuration file and so sets back to default
         echo             settings.
-        echo    rbuild - Switches to RBuild Flag setting mode.
         echo    update - Deletes the old created configuration file and updates it with a
         echo             new, default one.
+        goto :EOC
     )
-) else if /i "%1" == "help" (
+)
+if /i "%1" == "help" (
     echo Usage: help [COMMAND]
     echo Shows help for the specified command or lists all available commands.
-) else if /i "%1" == "raddr2line" (
-    if exist "%_ROSBE_BASEDIR%\reladdr2line.cmd" (
+    goto :EOC
+)
+if exist "%_ROSBE_BASEDIR%\reladdr2line.cmd" (
+    if /i "%1" == "raddr2line" (
         echo Usage: raddr2line [FILE] [ADDRESS]
         echo Translates program addresses into file names and line numbers to assist
         echo developers with finding specific bugs in ReactOS. If either of the options
@@ -185,33 +208,39 @@ if "%1" == "" (
         echo           sub-directories are searched.
         echo ADDRESS - The address to be translated.
         echo.
+        goto :EOC
     )
-) else if /i "%1" == "scut" (
-    if exist "%_ROSBE_BASEDIR%\scut.cmd" (
+)
+if exist "%_ROSBE_BASEDIR%\scut.cmd" (
+    if /i "%1" == "scut" (
         "%_ROSBE_BASEDIR%\Tools\scut.exe" --help
+        goto :EOC
     )
-) else if /i "%1" == "ssvn" (
-    if exist "%_ROSBE_BASEDIR%\sSVN.cmd" (
+)
+if exist "%_ROSBE_BASEDIR%\sSVN.cmd" (
+    if /i "%1" == "ssvn" (
         echo Usage: ssvn [OPTIONS]
         echo Creates, updates or cleans up your ReactOS source tree or shows the revision
         echo number of the local and online trees.
         echo.
-        echo    update    - Updates to HEAD revision or to a specific one when the second
-        echo                 parameter specifies one.
-        echo    create    - Creates a new ReactOS source tree.
-        echo    rosapps   - Creates a new ReactOS RosApps source tree.
-        echo    rostests  - Creates a new ReactOS RosTests source tree.
-        echo    cleanup   - Cleans up and fixes errors in the source tree.
-        echo    status    - Show the current local and online revision numbers.
+        echo    update  - Updates to HEAD revision or to a specific one when the second
+        echo              parameter specifies one.
+        echo    create  - Creates a new ReactOS source tree.
+        echo    cleanup - Cleans up and fixes errors in the source tree.
+        echo    status  - Show the current local and online revision numbers.
+        goto :EOC
     )
-) else if /i "%1" == "options" (
-    if exist "%_ROSBE_BASEDIR%\options.cmd" (
+)
+if exist "%_ROSBE_BASEDIR%\options.cmd" (
+    if /i "%1" == "options" (
         echo Usage: options
         echo Starts the RosBE configurator and sets the changes active in the current
         echo RosBE session.
+        goto :EOC
     )
-) else if /i "%1" == "update" (
-    if exist "%_ROSBE_BASEDIR%\update.cmd" (
+)
+if exist "%_ROSBE_BASEDIR%\update.cmd" (
+    if /i "%1" == "update" (
         echo Usage: update [OPTIONS]
         echo Updates all files of RosBE to the most recent files.
         echo.
@@ -220,9 +249,16 @@ if "%1" == "" (
         echo    nr X     - Re/Installs Update Nr X.
         echo    reset    - Removes the Updates Cache. Not recommended.
         echo    status   - Shows the recent status of available, non installed updates.
+        goto :EOC
     )
-) else (
+)
+if not "%1" == "" (
     echo Unknown command specified. No help available for %1.
+    goto :EOC
 )
 
-title ReactOS Build Environment %_ROSBE_VERSION%
+:EOC
+
+if defined _ROSBE_VERSION (
+    title ReactOS Build Environment %_ROSBE_VERSION%
+)

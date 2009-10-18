@@ -59,6 +59,7 @@
 #include <reactos.h>
 #include <registry.h>
 #include <winldr.h>
+#include <fsrec.h>
 /* file system headers */
 #include <fs/ext2.h>
 #include <fs/fat.h>
@@ -83,9 +84,6 @@
 #include <arch/arm/hardware.h>
 #elif defined(_M_MIPS)
 #include <arch/mips/arcbios.h>
-#elif defined(_M_AMD64)
-#include <arch/amd64/hardware.h>
-#include <arch/amd64/machpc.h>
 #endif
 /* misc files */
 #include <keycodes.h>
@@ -108,11 +106,15 @@
 /* Swap */
 #include <bytesex.h>
 
+/* arch defines */
+#ifdef _X86_
+#define Ke386EraseFlags(x)     __asm__ __volatile__("pushl $0 ; popfl\n")
+#endif
+
 VOID BootMain(LPSTR CmdLine);
 VOID RunLoader(VOID);
 
 /* Special hack for ReactOS setup OS type */
 VOID LoadReactOSSetup(VOID);
-VOID LoadReactOSSetup2(VOID);
 
 #endif  // defined __FREELDR_H

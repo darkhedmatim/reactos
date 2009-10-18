@@ -27,14 +27,16 @@
 
 #include "windef.h"
 #include "winbase.h"
+
 #include "oleauto.h"
 #include "ocidl.h"
 #include "shlwapi.h"
+#include "initguid.h"
 #include "tmarshal.h"
 
 #define expect_eq(expr, value, type, format) { type _ret = (expr); ok((value) == _ret, #expr " expected " format " got " format "\n", value, _ret); }
-#define expect_int(expr, value) expect_eq(expr, (int)(value), int, "%d")
-#define expect_hex(expr, value) expect_eq(expr, (int)(value), int, "0x%x")
+#define expect_int(expr, value) expect_eq(expr, (int)value, int, "%d")
+#define expect_hex(expr, value) expect_eq(expr, (int)value, int, "0x%x")
 #define expect_null(expr) expect_eq(expr, NULL, const void *, "%p")
 
 #define expect_wstr_acpval(expr, value) \
@@ -399,7 +401,7 @@ static void test_CreateDispTypeInfo(void)
     ok(pFuncDesc->invkind == methdata[1].wFlags, "invkind %d\n", pFuncDesc->invkind);
     ok(pFuncDesc->callconv == methdata[1].cc, "callconv %d\n", pFuncDesc->callconv);
     ok(pFuncDesc->cParams == methdata[1].cArgs, "cParams %d\n", pFuncDesc->cParams);
-    ok(pFuncDesc->oVft == sizeof(void *), "oVft %d\n", pFuncDesc->oVft);
+    ok(pFuncDesc->oVft == 4, "oVft %d\n", pFuncDesc->oVft);
     ok(pFuncDesc->wFuncFlags == 0, "oVft %d\n", pFuncDesc->wFuncFlags);
     ok(pFuncDesc->elemdescFunc.tdesc.vt == VT_I4, "ret vt %x\n", pFuncDesc->elemdescFunc.tdesc.vt);
     ITypeInfo_ReleaseFuncDesc(pTI2, pFuncDesc);
@@ -410,7 +412,7 @@ static void test_CreateDispTypeInfo(void)
     ok(pFuncDesc->invkind == methdata[2].wFlags, "invkind %d\n", pFuncDesc->invkind);
     ok(pFuncDesc->callconv == methdata[2].cc, "callconv %d\n", pFuncDesc->callconv);
     ok(pFuncDesc->cParams == methdata[2].cArgs, "cParams %d\n", pFuncDesc->cParams);
-    ok(pFuncDesc->oVft == 3 * sizeof(void *), "oVft %d\n", pFuncDesc->oVft);
+    ok(pFuncDesc->oVft == 12, "oVft %d\n", pFuncDesc->oVft);
     ok(pFuncDesc->wFuncFlags == 0, "oVft %d\n", pFuncDesc->wFuncFlags);
     ok(pFuncDesc->elemdescFunc.tdesc.vt == VT_HRESULT, "ret vt %x\n", pFuncDesc->elemdescFunc.tdesc.vt);
     ok(pFuncDesc->lprgelemdescParam[0].tdesc.vt == VT_I4, "parm 0 vt %x\n", pFuncDesc->lprgelemdescParam[0].tdesc.vt);
@@ -423,7 +425,7 @@ static void test_CreateDispTypeInfo(void)
     ok(pFuncDesc->invkind == methdata[3].wFlags, "invkind %d\n", pFuncDesc->invkind);
     ok(pFuncDesc->callconv == methdata[3].cc, "callconv %d\n", pFuncDesc->callconv);
     ok(pFuncDesc->cParams == methdata[3].cArgs, "cParams %d\n", pFuncDesc->cParams);
-    ok(pFuncDesc->oVft == 4 * sizeof(void *), "oVft %d\n", pFuncDesc->oVft);
+    ok(pFuncDesc->oVft == 16, "oVft %d\n", pFuncDesc->oVft);
     ok(pFuncDesc->wFuncFlags == 0, "oVft %d\n", pFuncDesc->wFuncFlags);
     ok(pFuncDesc->elemdescFunc.tdesc.vt == VT_I4, "ret vt %x\n", pFuncDesc->elemdescFunc.tdesc.vt);
     ITypeInfo_ReleaseFuncDesc(pTI2, pFuncDesc);
@@ -638,10 +640,6 @@ static void test_QueryPathOfRegTypeLib(void)
         { 3, 22, S_OK, {'f','a','k','e','_','3','_','3','7','.','d','l','l',0 } },
         { 3, 37, S_OK, {'f','a','k','e','_','3','_','3','7','.','d','l','l',0 } },
         { 3, 40, S_OK, {'f','a','k','e','_','3','_','3','7','.','d','l','l',0 } },
-        { 0xffff, 0xffff, S_OK, {'f','a','k','e','_','5','_','3','7','.','d','l','l',0 } },
-        { 0xffff, 0, TYPE_E_LIBNOTREGISTERED, { 0 } },
-        { 3, 0xffff, TYPE_E_LIBNOTREGISTERED, { 0 } },
-        { 5, 0xffff, TYPE_E_LIBNOTREGISTERED, { 0 } },
         { 4, 0, TYPE_E_LIBNOTREGISTERED, { 0 } }
     };
     static const WCHAR base[] = {'f','a','k','e',0};
@@ -653,7 +651,7 @@ static void test_QueryPathOfRegTypeLib(void)
     BSTR path;
 
     status = UuidCreate(&uid);
-    ok(!status || status == RPC_S_UUID_LOCAL_ONLY, "UuidCreate error %08x\n", status);
+    ok(!status || status == RPC_S_UUID_LOCAL_ONLY, "UuidCreate error %08lx\n", status);
 
     StringFromGUID2(&uid, uid_str, 40);
     /*trace("GUID: %s\n", wine_dbgstr_w(uid_str));*/
@@ -661,7 +659,6 @@ static void test_QueryPathOfRegTypeLib(void)
     if (!do_typelib_reg_key(&uid, 3, 0, base, 0)) return;
     if (!do_typelib_reg_key(&uid, 3, 1, base, 0)) return;
     if (!do_typelib_reg_key(&uid, 3, 37, base, 0)) return;
-    if (!do_typelib_reg_key(&uid, 5, 37, base, 0)) return;
 
     for (i = 0; i < sizeof(td)/sizeof(td[0]); i++)
     {
@@ -708,7 +705,7 @@ static void test_inheritance(void)
     hr = ITypeInfo_GetTypeAttr(pTI, &pTA);
     ok(hr == S_OK, "hr %08x\n", hr);
     ok(pTA->typekind == TKIND_DISPATCH, "kind %04x\n", pTA->typekind);
-    ok(pTA->cbSizeVft == 7 * sizeof(void *), "sizevft %d\n", pTA->cbSizeVft);
+    ok(pTA->cbSizeVft == 28, "sizevft %d\n", pTA->cbSizeVft);
     ok(pTA->wTypeFlags == TYPEFLAG_FDISPATCHABLE, "typeflags %x\n", pTA->wTypeFlags);
 if(use_midl_tlb) {
     ok(pTA->cFuncs == 6, "cfuncs %d\n", pTA->cFuncs);
@@ -730,7 +727,7 @@ if(use_midl_tlb) {
     hr = ITypeInfo_GetFuncDesc(pTI, 5, &pFD);
     ok(hr == S_OK, "hr %08x\n", hr);
     ok(pFD->memid == 0x60020000, "memid %08x\n", pFD->memid);
-    ok(pFD->oVft == 5 * sizeof(void *), "oVft %d\n", pFD->oVft);
+    ok(pFD->oVft == 20, "oVft %d\n", pFD->oVft);
     ITypeInfo_ReleaseFuncDesc(pTI, pFD);
 }
     ITypeInfo_Release(pTI);
@@ -743,7 +740,7 @@ if(use_midl_tlb) {
     hr = ITypeInfo_GetTypeAttr(pTI, &pTA);
     ok(hr == S_OK, "hr %08x\n", hr);
     ok(pTA->typekind == TKIND_DISPATCH, "kind %04x\n", pTA->typekind);
-    ok(pTA->cbSizeVft == 7 * sizeof(void *), "sizevft %d\n", pTA->cbSizeVft);
+    ok(pTA->cbSizeVft == 28, "sizevft %d\n", pTA->cbSizeVft);
     ok(pTA->wTypeFlags == TYPEFLAG_FDISPATCHABLE, "typeflags %x\n", pTA->wTypeFlags);
     ok(pTA->cFuncs == 1, "cfuncs %d\n", pTA->cFuncs);
     ok(pTA->cImplTypes == 1, "cimpltypes %d\n", pTA->cImplTypes);
@@ -772,17 +769,15 @@ if(use_midl_tlb) {
 
     hr = ITypeInfo_GetTypeAttr(pTI, &pTA);
     ok(hr == S_OK, "hr %08x\n", hr);
-    if (hr == S_OK)
-    {
-        ok(pTA->typekind == TKIND_DISPATCH, "kind %04x\n", pTA->typekind);
-        ok(pTA->cbSizeVft == 7 * sizeof(void *), "sizevft %d\n", pTA->cbSizeVft);
-        if(use_midl_tlb) {
-            ok(pTA->wTypeFlags == TYPEFLAG_FDUAL, "typeflags %x\n", pTA->wTypeFlags);
-        }
-        ok(pTA->cFuncs == 8, "cfuncs %d\n", pTA->cFuncs);
-        ok(pTA->cImplTypes == 1, "cimpltypes %d\n", pTA->cImplTypes);
-        ITypeInfo_ReleaseTypeAttr(pTI, pTA);
-    }
+    ok(pTA->typekind == TKIND_DISPATCH, "kind %04x\n", pTA->typekind);
+    ok(pTA->cbSizeVft == 28, "sizevft %d\n", pTA->cbSizeVft);
+if(use_midl_tlb) {
+    ok(pTA->wTypeFlags == TYPEFLAG_FDUAL, "typeflags %x\n", pTA->wTypeFlags);
+ }
+    ok(pTA->cFuncs == 8, "cfuncs %d\n", pTA->cFuncs);
+    ok(pTA->cImplTypes == 1, "cimpltypes %d\n", pTA->cImplTypes);
+    ITypeInfo_ReleaseTypeAttr(pTI, pTA);
+
     hr = ITypeInfo_GetRefTypeOfImplType(pTI, 0, &href);
     ok(hr == S_OK, "hr %08x\n", hr);
     hr = ITypeInfo_GetRefTypeInfo(pTI, href, &pTI_p);
@@ -806,7 +801,7 @@ if(use_midl_tlb) {
     hr = ITypeInfo_GetTypeAttr(pTI, &pTA);
     ok(hr == S_OK, "hr %08x\n", hr);
     ok(pTA->typekind == TKIND_DISPATCH, "kind %04x\n", pTA->typekind);
-    ok(pTA->cbSizeVft == 7 * sizeof(void *), "sizevft %d\n", pTA->cbSizeVft);
+    ok(pTA->cbSizeVft == 28, "sizevft %d\n", pTA->cbSizeVft);
     ok(pTA->wTypeFlags == (TYPEFLAG_FDISPATCHABLE|TYPEFLAG_FDUAL), "typeflags %x\n", pTA->wTypeFlags);
     ok(pTA->cFuncs == 10, "cfuncs %d\n", pTA->cFuncs);
     ok(pTA->cImplTypes == 1, "cimpltypes %d\n", pTA->cImplTypes);
@@ -834,7 +829,7 @@ if(use_midl_tlb) {
     hr = ITypeInfo_GetTypeAttr(pTI, &pTA);
     ok(hr == S_OK, "hr %08x\n", hr);
     ok(pTA->typekind == TKIND_DISPATCH, "kind %04x\n", pTA->typekind);
-    ok(pTA->cbSizeVft == 7 * sizeof(void *), "sizevft %d\n", pTA->cbSizeVft);
+    ok(pTA->cbSizeVft == 28, "sizevft %d\n", pTA->cbSizeVft);
     ok(pTA->wTypeFlags == TYPEFLAG_FDISPATCHABLE, "typeflags %x\n", pTA->wTypeFlags);
 if(use_midl_tlb) {
     ok(pTA->cFuncs == 3, "cfuncs %d\n", pTA->cFuncs);
@@ -858,7 +853,7 @@ if(use_midl_tlb) {
     hr = ITypeInfo_GetFuncDesc(pTI, 2, &pFD);
     ok(hr == S_OK, "hr %08x\n", hr);
     ok(pFD->memid == 0x60010000, "memid %08x\n", pFD->memid);
-    ok(pFD->oVft == 2 * sizeof(void *), "oVft %d\n", pFD->oVft);
+    ok(pFD->oVft == 8, "oVft %d\n", pFD->oVft);
     ITypeInfo_ReleaseFuncDesc(pTI, pFD);
 }
     ITypeInfo_Release(pTI);
@@ -870,7 +865,7 @@ if(use_midl_tlb) {
     hr = ITypeInfo_GetTypeAttr(pTI, &pTA);
     ok(hr == S_OK, "hr %08x\n", hr);
     ok(pTA->typekind == TKIND_DISPATCH, "kind %04x\n", pTA->typekind);
-    ok(pTA->cbSizeVft == 7 * sizeof(void *), "sizevft %d\n", pTA->cbSizeVft);
+    ok(pTA->cbSizeVft == 28, "sizevft %d\n", pTA->cbSizeVft);
     ok(pTA->wTypeFlags == TYPEFLAG_FDISPATCHABLE, "typeflags %x\n", pTA->wTypeFlags);
 if(use_midl_tlb) {
     ok(pTA->cFuncs == 10, "cfuncs %d\n", pTA->cFuncs);
@@ -892,7 +887,7 @@ if(use_midl_tlb) {
     hr = ITypeInfo_GetFuncDesc(pTI, 9, &pFD);
     ok(hr == S_OK, "hr %08x\n", hr);
     ok(pFD->memid == 0x1236, "memid %08x\n", pFD->memid);
-    ok(pFD->oVft == 9 * sizeof(void *), "oVft %d\n", pFD->oVft);
+    ok(pFD->oVft == 36, "oVft %d\n", pFD->oVft);
     ITypeInfo_ReleaseFuncDesc(pTI, pFD);
 }
     ITypeInfo_Release(pTI);
@@ -905,7 +900,7 @@ if(use_midl_tlb) {
     hr = ITypeInfo_GetTypeAttr(pTI, &pTA);
     ok(hr == S_OK, "hr %08x\n", hr);
     ok(pTA->typekind == TKIND_INTERFACE, "kind %04x\n", pTA->typekind);
-    ok(pTA->cbSizeVft == 6 * sizeof(void *), "sizevft %d\n", pTA->cbSizeVft);
+    ok(pTA->cbSizeVft == 24, "sizevft %d\n", pTA->cbSizeVft);
     ok(pTA->wTypeFlags == 0, "typeflags %x\n", pTA->wTypeFlags);
 if(use_midl_tlb) {
     ok(pTA->cFuncs == 1, "cfuncs %d\n", pTA->cFuncs);
@@ -918,7 +913,7 @@ if(use_midl_tlb) {
     hr = ITypeInfo_GetFuncDesc(pTI, 0, &pFD);
     ok(hr == S_OK, "hr %08x\n", hr);
     ok(pFD->memid == 0x60020000, "memid %08x\n", pFD->memid);
-    ok(pFD->oVft == 5 * sizeof(void *), "oVft %d\n", pFD->oVft);
+    ok(pFD->oVft == 20, "oVft %d\n", pFD->oVft);
     ITypeInfo_ReleaseFuncDesc(pTI, pFD);
 }
     ITypeInfo_Release(pTI);
@@ -1090,7 +1085,7 @@ typedef struct _function_info
     CALLCONV callconv;
     short cParams;
     short cParamsOpt;
-    short vtbl_index;
+    short oVft;
     short cScodes;
     WORD wFuncFlags;
     element_info ret_type;
@@ -1115,7 +1110,7 @@ static const interface_info info[] = {
 {
   "IDualIface",
   /*kind*/ TKIND_DISPATCH, /*flags*/ 0x1040, /*align*/ 4, /*size*/ 4,
-  /*#vtbl*/ 7, /*#func*/ 8,
+  /*#vtbl*/ 28, /*#func*/ 8,
   {
     {
       0x60000000, /*func*/ FUNC_DISPATCH, /*inv*/ INVOKE_FUNC, /*call*/ 0x4,
@@ -1135,7 +1130,7 @@ static const interface_info info[] = {
     },
     {
       0x60000001, /*func*/ FUNC_DISPATCH, /*inv*/ INVOKE_FUNC, /*call*/ 0x4,
-      /*#param*/ 0, /*#opt*/ 0, /*vtbl*/ 1, /*#scodes*/ 0, /*flags*/ 0x1,
+      /*#param*/ 0, /*#opt*/ 0, /*vtbl*/ 4, /*#scodes*/ 0, /*flags*/ 0x1,
       {19, 0}, /* ret */
       { /* params */
         {-1, -1}
@@ -1147,7 +1142,7 @@ static const interface_info info[] = {
     },
     {
       0x60000002, /*func*/ FUNC_DISPATCH, /*inv*/ INVOKE_FUNC, /*call*/ 0x4,
-      /*#param*/ 0, /*#opt*/ 0, /*vtbl*/ 2, /*#scodes*/ 0, /*flags*/ 0x1,
+      /*#param*/ 0, /*#opt*/ 0, /*vtbl*/ 8, /*#scodes*/ 0, /*flags*/ 0x1,
       {19, 0}, /* ret */
       { /* params */
         {-1, -1}
@@ -1159,7 +1154,7 @@ static const interface_info info[] = {
     },
     {
       0x60010000, /*func*/ FUNC_DISPATCH, /*inv*/ INVOKE_FUNC, /*call*/ 0x4,
-      /*#param*/ 1, /*#opt*/ 0, /*vtbl*/ 3, /*#scodes*/ 0, /*flags*/ 0x1,
+      /*#param*/ 1, /*#opt*/ 0, /*vtbl*/ 12, /*#scodes*/ 0, /*flags*/ 0x1,
       {24, 0}, /* ret */
       { /* params */
         {26, 2},
@@ -1173,7 +1168,7 @@ static const interface_info info[] = {
     },
     {
       0x60010001, /*func*/ FUNC_DISPATCH, /*inv*/ INVOKE_FUNC, /*call*/ 0x4,
-      /*#param*/ 3, /*#opt*/ 0, /*vtbl*/ 4, /*#scodes*/ 0, /*flags*/ 0x1,
+      /*#param*/ 3, /*#opt*/ 0, /*vtbl*/ 16, /*#scodes*/ 0, /*flags*/ 0x1,
       {24, 0}, /* ret */
       { /* params */
         {23, 1},
@@ -1191,7 +1186,7 @@ static const interface_info info[] = {
     },
     {
       0x60010002, /*func*/ FUNC_DISPATCH, /*inv*/ INVOKE_FUNC, /*call*/ 0x4,
-      /*#param*/ 5, /*#opt*/ 0, /*vtbl*/ 5, /*#scodes*/ 0, /*flags*/ 0x1,
+      /*#param*/ 5, /*#opt*/ 0, /*vtbl*/ 20, /*#scodes*/ 0, /*flags*/ 0x1,
       {24, 0}, /* ret */
       { /* params */
         {26, 1},
@@ -1213,7 +1208,7 @@ static const interface_info info[] = {
     },
     {
       0x60010003, /*func*/ FUNC_DISPATCH, /*inv*/ INVOKE_FUNC, /*call*/ 0x4,
-      /*#param*/ 8, /*#opt*/ 0, /*vtbl*/ 6, /*#scodes*/ 0, /*flags*/ 0x1,
+      /*#param*/ 8, /*#opt*/ 0, /*vtbl*/ 24, /*#scodes*/ 0, /*flags*/ 0x1,
       {24, 0}, /* ret */
       { /* params */
         {3, 1},
@@ -1241,7 +1236,7 @@ static const interface_info info[] = {
     },
     {
       0x60020000, /*func*/ FUNC_DISPATCH, /*inv*/ INVOKE_FUNC, /*call*/ 0x4,
-      /*#param*/ 0, /*#opt*/ 0, /*vtbl*/ 7, /*#scodes*/ 0, /*flags*/ 0x0,
+      /*#param*/ 0, /*#opt*/ 0, /*vtbl*/ 28, /*#scodes*/ 0, /*flags*/ 0x0,
       {24, 0}, /* ret */
       { /* params */
         {-1, -1}
@@ -1256,11 +1251,11 @@ static const interface_info info[] = {
 {
   "ISimpleIface",
   /*kind*/ TKIND_INTERFACE, /*flags*/ 0x1000, /*align*/ 4, /*size*/ 4,
-  /*#vtbl*/ 8, /*#func*/ 1,
+  /*#vtbl*/ 32, /*#func*/ 1,
   {
     {
       0x60020000, /*func*/ FUNC_PUREVIRTUAL, /*inv*/ INVOKE_FUNC, /*call*/ 0x4,
-      /*#param*/ 0, /*#opt*/ 0, /*vtbl*/ 7, /*#scodes*/ 0, /*flags*/ 0x0,
+      /*#param*/ 0, /*#opt*/ 0, /*vtbl*/ 28, /*#scodes*/ 0, /*flags*/ 0x0,
       {25, 0}, /* ret */
       { /* params */
         {-1, -1}
@@ -1307,7 +1302,7 @@ static void test_dump_typelib(const char *name)
         expect_hex(typeattr->wTypeFlags, if_info->wTypeFlags);
         expect_int(typeattr->cbAlignment, if_info->cbAlignment);
         expect_int(typeattr->cbSizeInstance, if_info->cbSizeInstance);
-        expect_int(typeattr->cbSizeVft, if_info->cbSizeVft * sizeof(void*));
+        expect_int(typeattr->cbSizeVft, if_info->cbSizeVft);
         expect_int(typeattr->cFuncs, if_info->cFuncs);
 
         for (func = 0; func < typeattr->cFuncs; func++)
@@ -1326,9 +1321,7 @@ static void test_dump_typelib(const char *name)
             expect_int(desc->callconv, fn_info->callconv);
             expect_int(desc->cParams, fn_info->cParams);
             expect_int(desc->cParamsOpt, fn_info->cParamsOpt);
-            ok( desc->oVft == fn_info->vtbl_index * sizeof(void*) ||
-                broken(desc->oVft == fn_info->vtbl_index * 4), /* xp64 */
-                "desc->oVft got %u\n", desc->oVft );
+            expect_int(desc->oVft, fn_info->oVft);
             expect_int(desc->cScodes, fn_info->cScodes);
             expect_int(desc->wFuncFlags, fn_info->wFuncFlags);
             ole_check(ITypeInfo_GetNames(typeinfo, desc->memid, namesTab, 256, &cNames));
@@ -1378,58 +1371,6 @@ static const char *create_test_typelib(void)
     return filename;
 }
 
-static void test_create_typelib_lcid(LCID lcid)
-{
-    char filename[MAX_PATH];
-    WCHAR name[MAX_PATH];
-    HRESULT hr;
-    ICreateTypeLib2 *tl;
-    HANDLE file;
-    DWORD msft_header[5]; /* five is enough for now */
-    DWORD read;
-
-    GetTempFileNameA( ".", "tlb", 0, filename );
-    MultiByteToWideChar(CP_ACP, 0, filename, -1, name, MAX_PATH);
-
-    hr = CreateTypeLib2(SYS_WIN32, name, &tl);
-    ok(hr == S_OK, "got %08x\n", hr);
-
-    hr = ICreateTypeLib2_SetLcid(tl, lcid);
-    ok(hr == S_OK, "got %08x\n", hr);
-
-    hr = ICreateTypeLib2_SaveAllChanges(tl);
-    ICreateTypeLib2_Release(tl);
-
-    file = CreateFileA( filename, GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, 0 );
-    ok( file != INVALID_HANDLE_VALUE, "file creation failed\n" );
-
-    ReadFile( file, msft_header, sizeof(msft_header), &read, NULL );
-    ok(read == sizeof(msft_header), "read %d\n", read);
-    CloseHandle( file );
-
-    ok(msft_header[0] == 0x5446534d, "got %08x\n", msft_header[0]);
-    ok(msft_header[1] == 0x00010002, "got %08x\n", msft_header[1]);
-    ok(msft_header[2] == 0xffffffff, "got %08x\n", msft_header[2]);
-    ok(msft_header[3] == (lcid ? lcid : 0x409), "got %08x (lcid %08x)\n", msft_header[3], lcid);
-    ok(msft_header[4] == lcid, "got %08x (lcid %08x)\n", msft_header[4], lcid);
-
-    DeleteFileA(filename);
-}
-
-static void test_create_typelibs(void)
-{
-    test_create_typelib_lcid(LOCALE_SYSTEM_DEFAULT);
-    test_create_typelib_lcid(LOCALE_USER_DEFAULT);
-    test_create_typelib_lcid(LOCALE_NEUTRAL);
-
-    test_create_typelib_lcid(0x009);
-    test_create_typelib_lcid(0x409);
-    test_create_typelib_lcid(0x809);
-
-    test_create_typelib_lcid(0x007);
-    test_create_typelib_lcid(0x407);
-}
-
 START_TEST(typelib)
 {
     const char *filename;
@@ -1446,7 +1387,4 @@ START_TEST(typelib)
         test_dump_typelib( filename );
         DeleteFile( filename );
     }
-
-    test_create_typelibs();
-
 }

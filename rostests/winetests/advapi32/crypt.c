@@ -331,7 +331,7 @@ static void test_incorrect_api_usage(void)
             GetLastError() == ERROR_CALL_NOT_IMPLEMENTED), "%d\n", GetLastError());
     }
     else
-        win_skip("CryptSignHashW is not available\n");
+        skip("CryptSignHashW is not available\n");
 
     result = pCryptSetKeyParam(hKey, 0, &temp, 1);
     ok (!result && GetLastError() == ERROR_INVALID_PARAMETER, "%d\n", GetLastError());
@@ -349,7 +349,7 @@ static void test_incorrect_api_usage(void)
             GetLastError() == ERROR_CALL_NOT_IMPLEMENTED), "%d\n", GetLastError());
     }
     else
-        win_skip("CryptVerifySignatureW is not available\n");
+        skip("CryptVerifySignatureW is not available\n");
 
     result = pCryptDestroyHash(hHash);
     ok (!result && GetLastError() == ERROR_INVALID_PARAMETER, "%d\n", GetLastError());
@@ -394,7 +394,7 @@ static void test_verify_sig(void)
 
 	if (!pCryptVerifySignatureW)
 	{
-		win_skip("CryptVerifySignatureW is not available\n");
+		skip("CryptVerifySignatureW is not available\n");
 		return;
 	}
 
@@ -402,7 +402,7 @@ static void test_verify_sig(void)
 	ret = pCryptVerifySignatureW(0, NULL, 0, 0, NULL, 0);
 	if (!ret && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
 	{
-		win_skip("CryptVerifySignatureW is not implemented\n");
+		skip("CryptVerifySignatureW is not implemented\n");
 		return;
 	}
 	ok(!ret && GetLastError() == ERROR_INVALID_PARAMETER,
@@ -461,8 +461,8 @@ static BOOL FindProvRegVals(DWORD dwIndex, DWORD *pdwProvType, LPSTR *pszProvNam
 	RegQueryInfoKey(hKey, NULL, NULL, NULL, pdwProvCount, pcbProvName, 
 				 NULL, NULL, NULL, NULL, NULL, NULL);
 	(*pcbProvName)++;
-
-	if (!(*pszProvName = LocalAlloc(LMEM_ZEROINIT, *pcbProvName)))
+	
+	if (!(*pszProvName = ((LPSTR)LocalAlloc(LMEM_ZEROINIT, *pcbProvName))))
 		return FALSE;
 	
 	RegEnumKeyEx(hKey, dwIndex, *pszProvName, pcbProvName, NULL, NULL, NULL, NULL);
@@ -497,13 +497,13 @@ static void test_enum_providers(void)
 	
 	if(!pCryptEnumProvidersA)
 	{
-	    win_skip("CryptEnumProvidersA is not available\n");
+	    skip("CryptEnumProvidersA is not available\n");
 	    return;
 	}
 	
 	if (!FindProvRegVals(dwIndex, &dwType, &pszProvName, &cbName, &provCount))
 	{
-	    win_skip("Could not find providers in registry\n");
+	    skip("Could not find providers in registry\n");
 	    return;
 	}
 	
@@ -518,7 +518,7 @@ static void test_enum_providers(void)
 	/* alloc provider to half the size required
 	 * cbName holds the size required */
 	providerLen = cbName / 2;
-	if (!(provider = LocalAlloc(LMEM_ZEROINIT, providerLen)))
+	if (!(provider = ((LPSTR)LocalAlloc(LMEM_ZEROINIT, providerLen))))
 		return;
 
 	result = pCryptEnumProvidersA(dwIndex, NULL, 0, &type, provider, &providerLen);
@@ -546,7 +546,7 @@ static void test_enum_providers(void)
 	/* check expected versus actual values returned */
 	result = pCryptEnumProvidersA(dwIndex, NULL, 0, &type, NULL, &providerLen);
 	ok(result && providerLen==cbName, "expected %i, got %i\n", (int)cbName, (int)providerLen);
-	if (!(provider = LocalAlloc(LMEM_ZEROINIT, providerLen)))
+	if (!(provider = ((LPSTR)LocalAlloc(LMEM_ZEROINIT, providerLen))))
 		return;
 		
 	providerLen = 0xdeadbeef;
@@ -643,7 +643,7 @@ static void test_enum_provider_types(void)
 
 	if(!pCryptEnumProviderTypesA)
 	{
-		win_skip("CryptEnumProviderTypesA is not available\n");
+		skip("CryptEnumProviderTypesA is not available\n");
 		return;
 	}
 
@@ -670,7 +670,7 @@ static void test_enum_provider_types(void)
 		/* alloc provider type to half the size required
 		 * cbTypeName holds the size required */
 		typeNameSize = cbTypeName / 2;
-		if (!(typeName = LocalAlloc(LMEM_ZEROINIT, typeNameSize)))
+		if (!(typeName = ((LPSTR)LocalAlloc(LMEM_ZEROINIT, typeNameSize))))
 			goto cleanup;
 
 		SetLastError(0xdeadbeef);
@@ -700,7 +700,7 @@ static void test_enum_provider_types(void)
 	/* check expected versus actual values returned */
 	result = pCryptEnumProviderTypesA(index, NULL, 0, &provType, NULL, &typeNameSize);
 	ok(result && typeNameSize==cbTypeName, "expected %d, got %d\n", cbTypeName, typeNameSize);
-	if (!(typeName = LocalAlloc(LMEM_ZEROINIT, typeNameSize)))
+	if (!(typeName = ((LPSTR)LocalAlloc(LMEM_ZEROINIT, typeNameSize))))
 		goto cleanup;
 
 	typeNameSize = 0xdeadbeef;
@@ -784,7 +784,7 @@ static void test_get_default_provider(void)
 	
 	if(!pCryptGetDefaultProviderA)
 	{
-	    win_skip("CryptGetDefaultProviderA is not available\n");
+	    skip("CryptGetDefaultProviderA is not available\n");
 	    return;
 	}
 	
@@ -858,7 +858,7 @@ static void test_set_provider_ex(void)
 	
 	if(!pCryptGetDefaultProviderA || !pCryptSetProviderExA)
 	{
-	    win_skip("CryptGetDefaultProviderA and/or CryptSetProviderExA are not available\n");
+	    skip("CryptGetDefaultProviderA and/or CryptSetProviderExA are not available\n");
 	    return;
 	}
 
@@ -870,13 +870,12 @@ static void test_set_provider_ex(void)
 	/* remove the default provider and then set it to MS_DEF_PROV/PROV_RSA_FULL */
         SetLastError(0xdeadbeef);
 	result = pCryptSetProviderExA(MS_DEF_PROV, PROV_RSA_FULL, NULL, CRYPT_MACHINE_DEFAULT | CRYPT_DELETE_DEFAULT);
-	if (!result)
+	if (!result && (GetLastError() == ERROR_ACCESS_DENIED))
 	{
-                ok( GetLastError() == ERROR_ACCESS_DENIED || broken(GetLastError() == ERROR_INVALID_PARAMETER),
-                    "wrong error %u\n", GetLastError() );
 		skip("Not enough rights to remove the default provider\n");
 		return;
 	}
+	ok(result, "%d\n", GetLastError());
 
 	result = pCryptSetProviderExA(MS_DEF_PROV, PROV_RSA_FULL, NULL, CRYPT_MACHINE_DEFAULT);
 	ok(result, "%d\n", GetLastError());

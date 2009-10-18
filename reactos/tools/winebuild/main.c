@@ -53,8 +53,6 @@ int force_pointer_size = 0;
 enum target_cpu target_cpu = CPU_x86;
 #elif defined(TARGET_amd64)
 enum target_cpu target_cpu = CPU_x86_64;
-#elif defined (TARGET_arm)
-enum target_cpu target_cpu = CPU_ARM;
 #else
 #error Unsupported CPU
 #endif

@@ -59,7 +59,7 @@ BEGIN
     PUSHBUTTON "V&olume...", IDC_VOLUME2_BTN, 85,115,70,15
     PUSHBUTTON "Advan&ced...", IDC_ADV1_BTN, 160,115,70,15
     GROUPBOX "MIDI music playback", -1, 7,145,230,60
-    ICON IDI_MIDICON, IDI_MIDICON, 15,158,32,32
+    ICON IDI_CPLICON, IDI_CPLICON, 15,158,32,32
     LTEXT "De&fault device:",-1,50,158,80,17
     COMBOBOX IDC_DEVICE_MIDI_LIST, 50, 168, 180, 46, CBS_DROPDOWNLIST
     PUSHBUTTON "Volu&me...", IDC_VOLUME3_BTN, 85,185,70,15
@@ -234,7 +234,6 @@ BEGIN
     IDS_CPLNAME "Suara dan Audio Devices"
     IDS_CPLDESCRIPTION "Mengubah skema suara untuk komputer anda, atau mengkonfigurasi setelan untuk speaker dan device perekaman anda."
     IDS_NO_SOUND "(None)"
-	IDS_NO_DEVICES "No Devices"
 
     5825 "Program error"
     5826 "Close program"
@@ -265,5 +264,4 @@ BEGIN
     5851 "Start Menu"
     5852 "ReactOS Logoff"
     5853 "ReactOS Logon"
-	5854 "ReactOS Explorer"
 END

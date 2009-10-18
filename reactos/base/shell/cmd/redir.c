@@ -54,7 +54,7 @@ BOOL
 PerformRedirection(REDIRECTION *RedirList)
 {
 	REDIRECTION *Redir;
-	LPTSTR Filename;
+	TCHAR Filename[MAX_PATH];
 	HANDLE hNew;
 	UINT DupNumber;
 	static SECURITY_ATTRIBUTES SecAttr = { sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
@@ -78,9 +78,8 @@ PerformRedirection(REDIRECTION *RedirList)
 
 	for (Redir = RedirList; Redir; Redir = Redir->Next)
 	{
-		Filename = DoDelayedExpansion(Redir->Filename);
-		if (!Filename)
-			goto redir_error;
+		*Filename = _T('\0');
+		_tcsncat(Filename, Redir->Filename, MAX_PATH - 1);
 		StripQuotes(Filename);
 
 		if (*Filename == _T('&'))
@@ -113,8 +112,6 @@ PerformRedirection(REDIRECTION *RedirList)
 		{
 			ConErrResPrintf(Redir->Type == REDIR_READ ? STRING_CMD_ERROR1 : STRING_CMD_ERROR3,
 			                Filename);
-			cmd_free(Filename);
-redir_error:
 			/* Undo all the redirections before this one */
 			UndoRedirection(RedirList, Redir);
 			return FALSE;
@@ -126,7 +123,6 @@ redir_error:
 		SetHandle(Redir->Number, hNew);
 
 		TRACE("%d redirected to: %s\n", Redir->Number, debugstr_aw(Filename));
-		cmd_free(Filename);
 	}
 	return TRUE;
 }

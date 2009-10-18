@@ -35,6 +35,7 @@
 #ifndef __WINE_PIDL_H
 #define __WINE_PIDL_H
 
+
 #include <stdarg.h>
 
 #include <windef.h>
@@ -49,7 +50,7 @@
 * a pidl of NULL means the desktop
 *
 * The structure of the pidl seems to be a union. The first byte of the
-* PIDLDATA describes the type of pidl.
+* PIDLDATA desribes the type of pidl.
 *
 *	object        ! first byte /  ! format       ! living space
 *	              ! size
@@ -106,6 +107,7 @@
 #define PT_YAGUID	0x70 /* yet another guid.. */
 #define PT_IESPECIAL2	0xb1
 #define PT_SHARE	0xc3
+
 
 #include "pshpack1.h"
 typedef BYTE PIDLTYPE;
@@ -232,7 +234,6 @@ DWORD	_ILGetDrive		(LPCITEMIDLIST, LPSTR, UINT);
 BOOL	_ILIsUnicode		(LPCITEMIDLIST pidl);
 BOOL	_ILIsDesktop		(LPCITEMIDLIST pidl);
 BOOL	_ILIsMyComputer		(LPCITEMIDLIST pidl);
-BOOL	_ILIsPrinter		(LPCITEMIDLIST pidl);
 BOOL    _ILIsMyDocuments       (LPCITEMIDLIST pidl);
 BOOL    _ILIsControlPanel       (LPCITEMIDLIST pidl);
 BOOL    _ILIsBitBucket      (LPCITEMIDLIST pidl);
@@ -255,6 +256,14 @@ BOOL  __inline _ILIsEmpty              (LPCITEMIDLIST pidl) { return _ILIsDeskto
 /*
  * simple pidls
  */
+
+/* Basic PIDL constructor.  Allocates size + 5 bytes, where:
+ * - two bytes are SHITEMID.cb
+ * - one byte is PIDLDATA.type
+ * - two bytes are the NULL PIDL terminator
+ * Sets type of the returned PIDL to type.
+ */
+LPITEMIDLIST	_ILAlloc(PIDLTYPE type, unsigned int size);
 
 /* Creates a PIDL with guid format and type type, which must be one of PT_GUID,
  * PT_SHELLEXT, or PT_YAGUID.
@@ -288,6 +297,8 @@ LPITEMIDLIST	_ILCreateDrive		(LPCWSTR);
  */
 LPPIDLDATA	_ILGetDataPointer	(LPCITEMIDLIST);
 LPSTR		_ILGetTextPointer	(LPCITEMIDLIST);
+LPWSTR		_ILGetTextPointerW	(LPCITEMIDLIST);
+LPSTR		_ILGetSTextPointer	(LPCITEMIDLIST);
 IID		*_ILGetGUIDPointer	(LPCITEMIDLIST pidl);
 FileStructW     *_ILGetFileStructW      (LPCITEMIDLIST pidl);
 
@@ -304,6 +315,7 @@ void _ILFreeaPidl(LPITEMIDLIST * apidl, UINT cidl);
 LPITEMIDLIST * _ILCopyaPidl(const LPCITEMIDLIST * apidlsrc, UINT cidl);
 LPITEMIDLIST * _ILCopyCidaToaPidl(LPITEMIDLIST* pidl, const CIDA * cida);
 
+BOOL WINAPI ILGetDisplayNameExA(LPSHELLFOLDER psf, LPCITEMIDLIST pidl, LPSTR path, DWORD type);
 BOOL WINAPI ILGetDisplayNameExW(LPSHELLFOLDER psf, LPCITEMIDLIST pidl, LPWSTR path, DWORD type);
 
 #endif

@@ -100,7 +100,7 @@ static void testProps(void)
 
     /* test setting one by name with an invalid propidNameFirst */
     spec.ulKind = PRSPEC_LPWSTR;
-    U(spec).lpwstr = propName;
+    U(spec).lpwstr = (LPOLESTR)propName;
     hr = IPropertyStorage_WriteMultiple(propertyStorage, 1, &spec, &var,
      PID_DICTIONARY);
     ok(hr == STG_E_INVALIDPARAMETER,
@@ -123,7 +123,7 @@ static void testProps(void)
 
     /* set one by name */
     spec.ulKind = PRSPEC_LPWSTR;
-    U(spec).lpwstr = propName;
+    U(spec).lpwstr = (LPOLESTR)propName;
     U(var).lVal = 2;
     hr = IPropertyStorage_WriteMultiple(propertyStorage, 1, &spec, &var,
      PID_FIRST_USABLE);
@@ -160,15 +160,15 @@ static void testProps(void)
     hr = IPropertyStorage_ReadMultiple(propertyStorage, 1, &spec, &var);
     ok(hr == S_OK, "ReadMultiple failed: 0x%08x\n", hr);
     ok(var.vt == VT_I4 && U(var).lVal == 1,
-     "Didn't get expected type or value for property (got type %d, value %d)\n",
+     "Didn't get expected type or value for property (got type %d, value %ld)\n",
      var.vt, U(var).lVal);
     /* read by name */
     spec.ulKind = PRSPEC_LPWSTR;
-    U(spec).lpwstr = propName;
+    U(spec).lpwstr = (LPOLESTR)propName;
     hr = IPropertyStorage_ReadMultiple(propertyStorage, 1, &spec, &var);
     ok(hr == S_OK, "ReadMultiple failed: 0x%08x\n", hr);
     ok(var.vt == VT_I4 && U(var).lVal == 2,
-     "Didn't get expected type or value for property (got type %d, value %d)\n",
+     "Didn't get expected type or value for property (got type %d, value %ld)\n",
      var.vt, U(var).lVal);
     /* read string value */
     spec.ulKind = PRSPEC_PROPID;
@@ -237,7 +237,7 @@ static void testProps(void)
     ok(hr == S_OK, "Commit failed: 0x%08x\n", hr);
     /* set it to a string value */
     var.vt = VT_LPSTR;
-    U(var).pszVal = val;
+    U(var).pszVal = (LPSTR)val;
     hr = IPropertyStorage_WriteMultiple(propertyStorage, 1, &spec, &var, 0);
     ok(hr == S_OK, "WriteMultiple failed: 0x%08x\n", hr);
     /* revert it */
@@ -269,11 +269,11 @@ static void testProps(void)
 
     /* check properties again */
     spec.ulKind = PRSPEC_LPWSTR;
-    U(spec).lpwstr = propName;
+    U(spec).lpwstr = (LPOLESTR)propName;
     hr = IPropertyStorage_ReadMultiple(propertyStorage, 1, &spec, &var);
     ok(hr == S_OK, "ReadMultiple failed: 0x%08x\n", hr);
     ok(var.vt == VT_I4 && U(var).lVal == 2,
-     "Didn't get expected type or value for property (got type %d, value %d)\n",
+     "Didn't get expected type or value for property (got type %d, value %ld)\n",
      var.vt, U(var).lVal);
     spec.ulKind = PRSPEC_PROPID;
     U(spec).propid = PIDSI_AUTHOR;

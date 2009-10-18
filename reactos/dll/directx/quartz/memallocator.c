@@ -31,42 +31,40 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(quartz);
 
-typedef struct BaseMemAllocator
+void dump_AM_SAMPLE2_PROPERTIES(const AM_SAMPLE2_PROPERTIES * pProps)
 {
-    const IMemAllocatorVtbl * lpVtbl;
-
-    LONG ref;
-    ALLOCATOR_PROPERTIES props;
-    HRESULT (* fnAlloc) (IMemAllocator *);
-    HRESULT (* fnFree)(IMemAllocator *);
-    HRESULT (* fnVerify)(IMemAllocator *, ALLOCATOR_PROPERTIES *);
-    HRESULT (* fnBufferPrepare)(IMemAllocator *, StdMediaSample2 *, DWORD flags);
-    HRESULT (* fnBufferReleased)(IMemAllocator *, StdMediaSample2 *);
-    void (* fnDestroyed)(IMemAllocator *);
-    HANDLE hSemWaiting;
-    BOOL bDecommitQueued;
-    BOOL bCommitted;
-    LONG lWaiting;
-    struct list free_list;
-    struct list used_list;
-    CRITICAL_SECTION *pCritSect;
-} BaseMemAllocator;
+    if (!pProps)
+    {
+        TRACE("AM_SAMPLE2_PROPERTIES: (null)\n");
+        return;
+    }
+    TRACE("\tcbData: %d\n", pProps->cbData);
+    TRACE("\tdwTypeSpecificFlags: 0x%8x\n", pProps->dwTypeSpecificFlags);
+    TRACE("\tdwSampleFlags: 0x%8x\n", pProps->dwSampleFlags);
+    TRACE("\tlActual: %d\n", pProps->lActual);
+    TRACE("\ttStart: %x%08x%s\n", (LONG)(pProps->tStart >> 32), (LONG)pProps->tStart, pProps->dwSampleFlags & AM_SAMPLE_TIMEVALID ? "" : " (not valid)");
+    TRACE("\ttStop: %x%08x%s\n", (LONG)(pProps->tStop >> 32), (LONG)pProps->tStop, pProps->dwSampleFlags & AM_SAMPLE_STOPVALID ? "" : " (not valid)");
+    TRACE("\tdwStreamId: 0x%x\n", pProps->dwStreamId);
+    TRACE("\tpMediaType: %p\n", pProps->pMediaType);
+    TRACE("\tpbBuffer: %p\n", pProps->pbBuffer);
+    TRACE("\tcbBuffer: %d\n", pProps->cbBuffer);
+}
 
 static const IMemAllocatorVtbl BaseMemAllocator_VTable;
 static const IMediaSample2Vtbl StdMediaSample2_VTable;
 
-#define AM_SAMPLE2_PROP_SIZE_WRITABLE FIELD_OFFSET(AM_SAMPLE2_PROPERTIES, pbBuffer)
+#define AM_SAMPLE2_PROP_SIZE_WRITABLE (unsigned int)(&((AM_SAMPLE2_PROPERTIES *)0)->pbBuffer)
 
 #define INVALID_MEDIA_TIME (((ULONGLONG)0x7fffffff << 32) | 0xffffffff)
 
-static HRESULT BaseMemAllocator_Init(HRESULT (* fnAlloc)(IMemAllocator *),
-                                     HRESULT (* fnFree)(IMemAllocator *),
-                                     HRESULT (* fnVerify)(IMemAllocator *, ALLOCATOR_PROPERTIES *),
-                                     HRESULT (* fnBufferPrepare)(IMemAllocator *, StdMediaSample2 *, DWORD),
-                                     HRESULT (* fnBufferReleased)(IMemAllocator *, StdMediaSample2 *),
-                                     void (* fnDestroyed)(IMemAllocator *),
-                                     CRITICAL_SECTION *pCritSect,
-                                     BaseMemAllocator * pMemAlloc)
+HRESULT BaseMemAllocator_Init(HRESULT (* fnAlloc)(IMemAllocator *),
+                              HRESULT (* fnFree)(IMemAllocator *),
+                              HRESULT (* fnVerify)(IMemAllocator *, ALLOCATOR_PROPERTIES *),
+                              HRESULT (* fnBufferPrepare)(IMemAllocator *, StdMediaSample2 *, DWORD),
+                              HRESULT (* fnBufferReleased)(IMemAllocator *, StdMediaSample2 *),
+                              void (* fnDestroyed)(IMemAllocator *),
+                              CRITICAL_SECTION *pCritSect,
+                              BaseMemAllocator * pMemAlloc)
 {
     assert(fnAlloc && fnFree && fnDestroyed);
 
@@ -99,9 +97,9 @@ static HRESULT WINAPI BaseMemAllocator_QueryInterface(IMemAllocator * iface, REF
     *ppv = NULL;
 
     if (IsEqualIID(riid, &IID_IUnknown))
-        *ppv = This;
+        *ppv = (LPVOID)This;
     else if (IsEqualIID(riid, &IID_IMemAllocator))
-        *ppv = This;
+        *ppv = (LPVOID)This;
 
     if (*ppv)
     {
@@ -401,7 +399,7 @@ static const IMemAllocatorVtbl BaseMemAllocator_VTable =
     BaseMemAllocator_ReleaseBuffer
 };
 
-static HRESULT StdMediaSample2_Construct(BYTE * pbBuffer, LONG cbBuffer, IMemAllocator * pParent, StdMediaSample2 ** ppSample)
+HRESULT StdMediaSample2_Construct(BYTE * pbBuffer, LONG cbBuffer, IMemAllocator * pParent, StdMediaSample2 ** ppSample)
 {
     assert(pbBuffer && pParent && (cbBuffer > 0));
 
@@ -425,7 +423,7 @@ static HRESULT StdMediaSample2_Construct(BYTE * pbBuffer, LONG cbBuffer, IMemAll
     return S_OK;
 }
 
-static void StdMediaSample2_Delete(StdMediaSample2 * This)
+void StdMediaSample2_Delete(StdMediaSample2 * This)
 {
     /* NOTE: does not remove itself from the list it belongs to */
     CoTaskMemFree(This);
@@ -439,11 +437,11 @@ static HRESULT WINAPI StdMediaSample2_QueryInterface(IMediaSample2 * iface, REFI
     *ppv = NULL;
 
     if (IsEqualIID(riid, &IID_IUnknown))
-        *ppv = This;
+        *ppv = (LPVOID)This;
     else if (IsEqualIID(riid, &IID_IMediaSample))
-        *ppv = This;
+        *ppv = (LPVOID)This;
     else if (IsEqualIID(riid, &IID_IMediaSample2))
-        *ppv = This;
+        *ppv = (LPVOID)This;
 
     if (*ppv)
     {
@@ -501,7 +499,7 @@ static HRESULT WINAPI StdMediaSample2_GetPointer(IMediaSample2 * iface, BYTE ** 
     return S_OK;
 }
 
-static LONG WINAPI StdMediaSample2_GetSize(IMediaSample2 * iface)
+static long WINAPI StdMediaSample2_GetSize(IMediaSample2 * iface)
 {
     StdMediaSample2 *This = (StdMediaSample2 *)iface;
 
@@ -877,7 +875,7 @@ HRESULT StdMemAllocator_create(LPUNKNOWN lpUnkOuter, LPVOID * ppv)
     pMemAlloc->pMemory = NULL;
 
     if (SUCCEEDED(hr = BaseMemAllocator_Init(StdMemAllocator_Alloc, StdMemAllocator_Free, NULL, NULL, NULL, StdMemAllocator_Destroy, &pMemAlloc->csState, &pMemAlloc->base)))
-        *ppv = pMemAlloc;
+        *ppv = (LPVOID)pMemAlloc;
     else
         CoTaskMemFree(pMemAlloc);
 

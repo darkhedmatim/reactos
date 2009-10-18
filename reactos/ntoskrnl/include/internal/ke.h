@@ -168,8 +168,8 @@ extern ULONG KiDPCTimeout;
 {                                                                           \
     (Header)->Type = t;                                                     \
     (Header)->Absolute = 0;                                                 \
-    (Header)->Size = s;                                                     \
     (Header)->Inserted = 0;                                                 \
+    (Header)->Size = s;                                                     \
     (Header)->SignalState = State;                                          \
     InitializeListHead(&((Header)->WaitListHead));                          \
 }
@@ -191,29 +191,6 @@ extern ULONG KiDPCTimeout;
 #define SIZE_OF_FX_REGISTERS 32
 
 /* INTERNAL KERNEL FUNCTIONS ************************************************/
-
-VOID
-NTAPI
-CPUID(
-    IN ULONG InfoType,
-    OUT PULONG CpuInfoEax,
-    OUT PULONG CpuInfoEbx,
-    OUT PULONG CpuInfoEcx,
-    OUT PULONG CpuInfoEdx
-);
-
-LONGLONG
-FASTCALL
-RDMSR(
-    IN ULONG Register
-);
-
-VOID
-NTAPI
-WRMSR(
-    IN ULONG Register,
-    IN LONGLONG Value
-);
 
 /* Finds a new thread to run */
 NTSTATUS
@@ -268,7 +245,7 @@ FASTCALL
 KiExitDispatcher(KIRQL OldIrql);
 
 VOID
-FASTCALL
+NTAPI
 KiDeferredReadyThread(IN PKTHREAD Thread);
 
 PKTHREAD
@@ -294,6 +271,13 @@ PKTHREAD
 FASTCALL
 KiSelectNextThread(
     IN PKPRCB Prcb
+);
+
+VOID
+NTAPI
+CPUID(
+    OUT ULONG CpuInfo[4],
+    IN ULONG InfoType
 );
 
 BOOLEAN
@@ -494,16 +478,6 @@ KeInitThread(
     IN PCONTEXT Context,
     IN PVOID Teb,
     IN PKPROCESS Process
-);
-
-VOID
-NTAPI
-KiInitializeContextThread(
-    PKTHREAD Thread,
-    PKSYSTEM_ROUTINE SystemRoutine,
-    PKSTART_ROUTINE StartRoutine,
-    PVOID StartContext,
-    PCONTEXT Context
 );
 
 VOID
@@ -816,7 +790,6 @@ KeTrapFrameToContext(
     IN OUT PCONTEXT Context
 );
 
-DECLSPEC_NORETURN
 VOID
 NTAPI
 KeBugCheckWithTf(
@@ -1018,6 +991,12 @@ KiInitMachineDependent(VOID);
 VOID
 NTAPI
 KiI386PentiumLockErrataFixup(VOID);
+
+VOID
+WRMSR(
+    IN ULONG Register,
+    IN LONGLONG Value
+);
 
 BOOLEAN
 NTAPI

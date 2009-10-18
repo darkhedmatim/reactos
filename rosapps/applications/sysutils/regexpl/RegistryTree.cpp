@@ -95,7 +95,7 @@ BOOL CRegistryTree::ChangeCurrentKey(const TCHAR *pszRelativePath)
     GotoRoot();  // This is full absolute path.
 
   // split path to key names.
-	const TCHAR *pszSeps = _T("\\");
+	TCHAR *pszSeps = _T("\\");
 
   // Make buffer and copy relative path into it.
   TCHAR *pszBuffer = new TCHAR[_tcslen(pszRelativePath)+1];
@@ -124,7 +124,7 @@ BOOL CRegistryTree::ChangeCurrentKey(const TCHAR *pszRelativePath)
     }
   }
 
-	const TCHAR *pszNewKey = _tcstok(pszBuffer,pszSeps);
+	TCHAR *pszNewKey = _tcstok(pszBuffer,pszSeps);
 
 	if ((!pszNewKey)&&((*pszRelativePath != _T('\\'))||(*(pszRelativePath+1) != 0)))
 	{

@@ -466,7 +466,8 @@ ObpCaptureObjectCreateInformation(IN POBJECT_ATTRIBUTES ObjectAttributes,
                 (ObjectAttributes->Attributes & ~OBJ_VALID_ATTRIBUTES))
             {
                 /* Invalid combination, fail */
-                _SEH2_YIELD(return STATUS_INVALID_PARAMETER);
+                Status = STATUS_INVALID_PARAMETER;
+                _SEH2_LEAVE;
             }
 
             /* Set some Create Info */
@@ -486,11 +487,11 @@ ObpCaptureObjectCreateInformation(IN POBJECT_ATTRIBUTES ObjectAttributes,
                                                      TRUE,
                                                      &ObjectCreateInfo->
                                                      SecurityDescriptor);
-                if (!NT_SUCCESS(Status))
+                if(!NT_SUCCESS(Status))
                 {
                     /* Capture failed, quit */
                     ObjectCreateInfo->SecurityDescriptor = NULL;
-                    _SEH2_YIELD(return Status);
+                    _SEH2_LEAVE;
                 }
 
                 /* Save the probe mode and security descriptor size */
@@ -524,36 +525,38 @@ ObpCaptureObjectCreateInformation(IN POBJECT_ATTRIBUTES ObjectAttributes,
     }
     _SEH2_EXCEPT(ExSystemExceptionFilter())
     {
-        /* Cleanup and return the exception code */
-        ObpReleaseObjectCreateInformation(ObjectCreateInfo);
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+        /* Get the exception */
+        Status = _SEH2_GetExceptionCode();
     }
     _SEH2_END;
 
-    /* Now check if the Object Attributes had an Object Name */
-    if (LocalObjectName)
+    if (NT_SUCCESS(Status))
     {
-        Status = ObpCaptureObjectName(ObjectName,
-                                      LocalObjectName,
-                                      AccessMode,
-                                      AllocateFromLookaside);
-    }
-    else
-    {
-        /* Clear the string */
-        RtlInitEmptyUnicodeString(ObjectName, NULL, 0);
-
-        /* He can't have specified a Root Directory */
-        if (ObjectCreateInfo->RootDirectory)
+        /* Now check if the Object Attributes had an Object Name */
+        if (LocalObjectName)
         {
-            Status = STATUS_OBJECT_NAME_INVALID;
+            Status = ObpCaptureObjectName(ObjectName,
+                                          LocalObjectName,
+                                          AccessMode,
+                                          AllocateFromLookaside);
+        }
+        else
+        {
+            /* Clear the string */
+            RtlInitEmptyUnicodeString(ObjectName, NULL, 0);
+
+            /* He can't have specified a Root Directory */
+            if (ObjectCreateInfo->RootDirectory)
+            {
+                Status = STATUS_OBJECT_NAME_INVALID;
+            }
         }
     }
 
     /* Cleanup if we failed */
     if (!NT_SUCCESS(Status))
     {
-        ObpReleaseObjectCreateInformation(ObjectCreateInfo);
+	ObpReleaseObjectCreateInformation(ObjectCreateInfo);
     }
 
     /* Return status to caller */
@@ -596,7 +599,7 @@ ObpAllocateObject(IN POBJECT_CREATE_INFORMATION ObjectCreateInfo,
     {
         /* Use default tag and non-paged pool */
         PoolType = NonPagedPool;
-        Tag = 'TjbO';
+        Tag = TAG('O', 'b', 'j', 'T');
     }
     else
     {
@@ -825,6 +828,9 @@ ObpAllocateObject(IN POBJECT_CREATE_INFORMATION ObjectCreateInfo,
                                                    ObjectType->
                                                    HighWaterNumberOfObjects);
     }
+
+    /* OMG-Hack-Of-Doom */
+    RtlZeroMemory(&Header->Body, ObjectSize);
 
     /* Return Header */
     *ObjectHeader = Header;
@@ -1119,7 +1125,7 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
 
         /* Set the hard-coded key and object count */
         LocalObjectType->TotalNumberOfObjects = 1;
-        LocalObjectType->Key = 'TjbO';
+        LocalObjectType->Key = TAG('O', 'b', 'j', 'T');
     }
     else
     {
@@ -1408,7 +1414,7 @@ NtQueryObject(IN HANDLE ObjectHandle,
     POBJECT_BASIC_INFORMATION BasicInfo;
     ULONG InfoLength;
     PVOID Object = NULL;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     PAGED_CODE();
 
@@ -1426,10 +1432,13 @@ NtQueryObject(IN HANDLE ObjectHandle,
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+
+        /* Fail if we raised an exception */
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /*
@@ -1626,7 +1635,7 @@ NtSetInformationObject(IN HANDLE ObjectHandle,
                        IN PVOID ObjectInformation,
                        IN ULONG Length)
 {
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     OBP_SET_HANDLE_ATTRIBUTES_CONTEXT Context;
     PVOID ObjectTable;
     KAPC_STATE ApcState;
@@ -1647,35 +1656,30 @@ NtSetInformationObject(IN HANDLE ObjectHandle,
         return STATUS_INFO_LENGTH_MISMATCH;
     }
 
-    /* Save the previous mode */
+    /* Save the previous mode and actual information */
     Context.PreviousMode = ExGetPreviousMode();
 
-    /* Check if we were called from user mode */
     if (Context.PreviousMode != KernelMode)
     {
-        /* Enter SEH */
         _SEH2_TRY
         {
-            /* Probe and capture the attribute buffer */
             ProbeForRead(ObjectInformation,
                          sizeof(OBJECT_HANDLE_ATTRIBUTE_INFORMATION),
-                         sizeof(BOOLEAN));
+                         sizeof(ULONG));
             Context.Information = *(POBJECT_HANDLE_ATTRIBUTE_INFORMATION)
                                     ObjectInformation;
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH2_GetExceptionCode();
         }
         _SEH2_END;
+
+        if (!NT_SUCCESS(Status)) return Status;
     }
     else
-    {
-        /* Just copy the buffer directly */
         Context.Information = *(POBJECT_HANDLE_ATTRIBUTE_INFORMATION)
                                 ObjectInformation;
-    }
 
     /* Check if this is a kernel handle */
     if (ObIsKernelHandle(ObjectHandle, Context.PreviousMode))
@@ -1706,11 +1710,6 @@ NtSetInformationObject(IN HANDLE ObjectHandle,
     {
         /* Some failure */
         Status = STATUS_ACCESS_DENIED;
-    }
-    else
-    {
-        /* We are done */
-        Status = STATUS_SUCCESS;
     }
 
     /* De-attach if we were attached, and return status */

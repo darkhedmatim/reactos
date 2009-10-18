@@ -90,8 +90,12 @@ static const WCHAR ignoreCaseW[] = {'i','g','n','o','r','e','C','a','s','e',0};
 static const WCHAR multilineW[] = {'m','u','l','t','i','l','i','n','e',0};
 static const WCHAR lastIndexW[] = {'l','a','s','t','I','n','d','e','x',0};
 static const WCHAR toStringW[] = {'t','o','S','t','r','i','n','g',0};
+static const WCHAR toLocaleStringW[] = {'t','o','L','o','c','a','l','e','S','t','r','i','n','g',0};
+static const WCHAR hasOwnPropertyW[] = {'h','a','s','O','w','n','P','r','o','p','e','r','t','y',0};
+static const WCHAR propertyIsEnumerableW[] =
+    {'p','r','o','p','e','r','t','y','I','s','E','n','u','m','e','r','a','b','l','e',0};
+static const WCHAR isPrototypeOfW[] = {'i','s','P','r','o','t','o','t','y','p','e','O','f',0};
 static const WCHAR execW[] = {'e','x','e','c',0};
-static const WCHAR testW[] = {'t','e','s','t',0};
 
 static const WCHAR emptyW[] = {0};
 
@@ -177,7 +181,7 @@ typedef enum REOp {
 
 #define REOP_IS_SIMPLE(op)  ((op) <= REOP_NCLASS)
 
-static const char *reop_names[] = {
+const char *reop_names[] = {
     "empty",
     "bol",
     "eol",
@@ -555,7 +559,7 @@ EmitREBytecode(CompilerState *state, JSRegExp *re, size_t treeDepth,
             emitStateSP->jumpToJumpFlag = FALSE;
             ++emitStateSP;
             assert((size_t)(emitStateSP - emitStateStack) <= treeDepth);
-            t = t->kid;
+            t = (RENode *) t->kid;
             op = t->op;
             assert(op < REOP_LIMIT);
             continue;
@@ -568,7 +572,7 @@ EmitREBytecode(CompilerState *state, JSRegExp *re, size_t treeDepth,
             emitStateSP->continueOp = REOP_ENDALT;
             ++emitStateSP;
             assert((size_t)(emitStateSP - emitStateStack) <= treeDepth);
-            t = t->u.kid2;
+            t = (RENode *) t->u.kid2;
             op = t->op;
             assert(op < REOP_LIMIT);
             continue;
@@ -672,7 +676,7 @@ EmitREBytecode(CompilerState *state, JSRegExp *re, size_t treeDepth,
             emitStateSP->jumpToJumpFlag = FALSE;
             ++emitStateSP;
             assert((size_t)(emitStateSP - emitStateStack) <= treeDepth);
-            t = t->kid;
+            t = (RENode *) t->kid;
             op = t->op;
             assert(op < REOP_LIMIT);
             continue;
@@ -695,7 +699,7 @@ EmitREBytecode(CompilerState *state, JSRegExp *re, size_t treeDepth,
                 while (t->next &&
                        t->next->op == REOP_FLAT &&
                        (WCHAR*)t->kid + t->u.flat.length ==
-                       t->next->kid) {
+                       (WCHAR*)t->next->kid) {
                     t->u.flat.length += t->next->u.flat.length;
                     t->next = t->next->next;
                 }
@@ -723,7 +727,7 @@ EmitREBytecode(CompilerState *state, JSRegExp *re, size_t treeDepth,
             emitStateSP->continueOp = REOP_RPAREN;
             ++emitStateSP;
             assert((size_t)(emitStateSP - emitStateStack) <= treeDepth);
-            t = t->kid;
+            t = (RENode *) t->kid;
             op = t->op;
             continue;
 
@@ -743,7 +747,7 @@ EmitREBytecode(CompilerState *state, JSRegExp *re, size_t treeDepth,
             emitStateSP->continueOp = REOP_ASSERTTEST;
             ++emitStateSP;
             assert((size_t)(emitStateSP - emitStateStack) <= treeDepth);
-            t = t->kid;
+            t = (RENode *) t->kid;
             op = t->op;
             continue;
 
@@ -761,7 +765,7 @@ EmitREBytecode(CompilerState *state, JSRegExp *re, size_t treeDepth,
             emitStateSP->continueOp = REOP_ASSERTNOTTEST;
             ++emitStateSP;
             assert((size_t)(emitStateSP - emitStateStack) <= treeDepth);
-            t = t->kid;
+            t = (RENode *) t->kid;
             op = t->op;
             continue;
 
@@ -789,7 +793,7 @@ EmitREBytecode(CompilerState *state, JSRegExp *re, size_t treeDepth,
             emitStateSP->continueOp = REOP_ENDCHILD;
             ++emitStateSP;
             assert((size_t)(emitStateSP - emitStateStack) <= treeDepth);
-            t = t->kid;
+            t = (RENode *) t->kid;
             op = t->op;
             continue;
 
@@ -2382,7 +2386,7 @@ SimpleMatch(REGlobalData *gData, REMatchState *x, REOp op,
 
     const char *opname = reop_names[op];
     TRACE("\n%06d: %*s%s\n", pc - gData->regexp->program,
-          (int)gData->stateStackTop * 2, "", opname);
+             gData->stateStackTop * 2, "", opname);
 
     switch (op) {
       case REOP_EMPTY:
@@ -2567,7 +2571,7 @@ SimpleMatch(REGlobalData *gData, REMatchState *x, REOp op,
         if (!updatecp)
             x->cp = startcp;
         *startpc = pc;
-        TRACE(" *\n");
+        TRACE(" * \n");
         return result;
     }
     x->cp = startcp;
@@ -2621,7 +2625,7 @@ ExecuteREBytecode(REGlobalData *gData, REMatchState *x)
     for (;;) {
         const char *opname = reop_names[op];
         TRACE("\n%06d: %*s%s\n", pc - gData->regexp->program,
-              (int)gData->stateStackTop * 2, "", opname);
+                 gData->stateStackTop * 2, "", opname);
 
         if (REOP_IS_SIMPLE(op)) {
             result = SimpleMatch(gData, x, op, &pc, TRUE);
@@ -2997,7 +3001,7 @@ ExecuteREBytecode(REGlobalData *gData, REMatchState *x)
     }while(0)
 
                 if (!result) {
-                    TRACE(" -\n");
+                    TRACE(" - \n");
                     /*
                      * Non-greedy failure - try to consume another child.
                      */
@@ -3293,119 +3297,66 @@ out:
     return re;
 }
 
-static HRESULT do_regexp_match_next(RegExpInstance *regexp, const WCHAR *str, DWORD len,
-        const WCHAR **cp, match_result_t **parens, DWORD *parens_size, DWORD *parens_cnt, match_result_t *ret)
-{
-    REMatchState *x, *result;
-    REGlobalData gData;
-    DWORD matchlen;
-
-    gData.cpbegin = *cp;
-    gData.cpend = str + len;
-    gData.start = *cp-str;
-    gData.skipped = 0;
-    gData.pool = &regexp->dispex.ctx->tmp_heap;
-
-    x = InitMatch(NULL, &gData, regexp->jsregexp, gData.cpend - gData.cpbegin);
-    if(!x) {
-        WARN("InitMatch failed\n");
-        return E_FAIL;
-    }
-
-    x->cp = *cp;
-    result = MatchRegExp(&gData, x);
-    if(!gData.ok) {
-        WARN("MatchRegExp failed\n");
-        return E_FAIL;
-    }
-
-    if(!result)
-        return S_FALSE;
-
-    if(parens) {
-        DWORD i;
-
-        if(regexp->jsregexp->parenCount > *parens_size) {
-            match_result_t *new_parens;
-
-            if(*parens)
-                new_parens = heap_realloc(*parens, sizeof(match_result_t)*regexp->jsregexp->parenCount);
-            else
-                new_parens = heap_alloc(sizeof(match_result_t)*regexp->jsregexp->parenCount);
-            if(!new_parens)
-                return E_OUTOFMEMORY;
-
-            *parens = new_parens;
-        }
-
-        *parens_cnt = regexp->jsregexp->parenCount;
-
-        for(i=0; i < regexp->jsregexp->parenCount; i++) {
-            (*parens)[i].str = *cp + result->parens[i].index;
-            (*parens)[i].len = result->parens[i].length;
-        }
-    }
-
-    matchlen = (result->cp-*cp) - gData.skipped;
-    *cp = result->cp;
-    ret->str = result->cp-matchlen;
-    ret->len = matchlen;
-
-    return S_OK;
-}
-
-HRESULT regexp_match_next(DispatchEx *dispex, BOOL gcheck, const WCHAR *str, DWORD len,
-        const WCHAR **cp, match_result_t **parens, DWORD *parens_size, DWORD *parens_cnt, match_result_t *ret)
-{
-    RegExpInstance *regexp = (RegExpInstance*)dispex;
-    jsheap_t *mark;
-    HRESULT hres;
-
-    if(gcheck && !(regexp->jsregexp->flags & JSREG_GLOB))
-        return S_FALSE;
-
-    mark = jsheap_mark(&regexp->dispex.ctx->tmp_heap);
-
-    hres = do_regexp_match_next(regexp, str, len, cp, parens, parens_size, parens_cnt, ret);
-
-    jsheap_clear(mark);
-    return hres;
-}
-
 HRESULT regexp_match(DispatchEx *dispex, const WCHAR *str, DWORD len, BOOL gflag, match_result_t **match_result,
         DWORD *result_cnt)
 {
     RegExpInstance *This = (RegExpInstance*)dispex;
-    match_result_t *ret = NULL, cres;
+    match_result_t *ret = NULL;
     const WCHAR *cp = str;
+    REGlobalData gData;
+    REMatchState *x, *result;
+    DWORD matchlen;
     DWORD i=0, ret_size = 0;
     jsheap_t *mark;
-    HRESULT hres;
+    size_t length;
+    HRESULT hres = E_FAIL;
+
+    length = len;
 
     mark = jsheap_mark(&This->dispex.ctx->tmp_heap);
+    gData.pool = &This->dispex.ctx->tmp_heap;
 
     while(1) {
-        hres = do_regexp_match_next(This, str, len, &cp, NULL, NULL, NULL, &cres);
-        if(hres == S_FALSE) {
+        gData.cpbegin = cp;
+        gData.cpend = str + len;
+        gData.start = cp-str;
+        gData.skipped = 0;
+
+        x = InitMatch(NULL, &gData, This->jsregexp, length);
+        if(!x) {
+            WARN("InitMatch failed\n");
+            break;
+        }
+
+        x->cp = cp;
+        result = MatchRegExp(&gData, x);
+        if(!gData.ok) {
+            WARN("MatchRegExp failed\n");
+            break;
+        }
+
+        if(!result) {
             hres = S_OK;
             break;
         }
 
-        if(FAILED(hres))
-            break;
+        matchlen = (result->cp-cp) - gData.skipped;
 
-        if(ret_size == i) {
-            if(ret)
-                ret = heap_realloc(ret, (ret_size <<= 1) * sizeof(match_result_t));
-            else
-                ret = heap_alloc((ret_size=4) * sizeof(match_result_t));
-            if(!ret) {
-                hres = E_OUTOFMEMORY;
-                break;
-            }
+        if(ret)
+            ret = heap_realloc(ret, (ret_size <<= 1) * sizeof(match_result_t));
+        else if(ret_size == i)
+            ret = heap_alloc((ret_size=4) * sizeof(match_result_t));
+        if(!ret) {
+            hres = E_OUTOFMEMORY;
+            break;
         }
 
-        ret[i++] = cres;
+        ret[i].str = result->cp-matchlen;
+        ret[i].len = matchlen;
+
+        length -= result->cp-cp;
+        cp = result->cp;
+        i++;
 
         if(!gflag && !(This->jsregexp->flags & JSREG_GLOB)) {
             hres = S_OK;
@@ -3427,24 +3378,8 @@ HRESULT regexp_match(DispatchEx *dispex, const WCHAR *str, DWORD len, BOOL gflag
 static HRESULT RegExp_source(DispatchEx *dispex, LCID lcid, WORD flags, DISPPARAMS *dp,
         VARIANT *retv, jsexcept_t *ei, IServiceProvider *sp)
 {
-    TRACE("\n");
-
-    switch(flags) {
-    case DISPATCH_PROPERTYGET: {
-        RegExpInstance *This = (RegExpInstance*)dispex;
-
-        V_VT(retv) = VT_BSTR;
-        V_BSTR(retv) = SysAllocString(This->str);
-        if(!V_BSTR(retv))
-            return E_OUTOFMEMORY;
-        break;
-    }
-    default:
-        FIXME("Unimplemnted flags %x\n", flags);
-        return E_NOTIMPL;
-    }
-
-    return S_OK;
+    FIXME("\n");
+    return E_NOTIMPL;
 }
 
 static HRESULT RegExp_global(DispatchEx *dispex, LCID lcid, WORD flags, DISPPARAMS *dp,
@@ -3482,14 +3417,35 @@ static HRESULT RegExp_toString(DispatchEx *dispex, LCID lcid, WORD flags, DISPPA
     return E_NOTIMPL;
 }
 
-static HRESULT RegExp_exec(DispatchEx *dispex, LCID lcid, WORD flags, DISPPARAMS *dp,
+static HRESULT RegExp_toLocaleString(DispatchEx *dispex, LCID lcid, WORD flags, DISPPARAMS *dp,
         VARIANT *retv, jsexcept_t *ei, IServiceProvider *sp)
 {
     FIXME("\n");
     return E_NOTIMPL;
 }
 
-static HRESULT RegExp_test(DispatchEx *dispex, LCID lcid, WORD flags, DISPPARAMS *dp,
+static HRESULT RegExp_hasOwnProperty(DispatchEx *dispex, LCID lcid, WORD flags, DISPPARAMS *dp,
+        VARIANT *retv, jsexcept_t *ei, IServiceProvider *sp)
+{
+    FIXME("\n");
+    return E_NOTIMPL;
+}
+
+static HRESULT RegExp_propertyIsEnumerable(DispatchEx *dispex, LCID lcid, WORD flags, DISPPARAMS *dp,
+        VARIANT *retv, jsexcept_t *ei, IServiceProvider *sp)
+{
+    FIXME("\n");
+    return E_NOTIMPL;
+}
+
+static HRESULT RegExp_isPrototypeOf(DispatchEx *dispex, LCID lcid, WORD flags, DISPPARAMS *dp,
+        VARIANT *retv, jsexcept_t *ei, IServiceProvider *sp)
+{
+    FIXME("\n");
+    return E_NOTIMPL;
+}
+
+static HRESULT RegExp_exec(DispatchEx *dispex, LCID lcid, WORD flags, DISPPARAMS *dp,
         VARIANT *retv, jsexcept_t *ei, IServiceProvider *sp)
 {
     FIXME("\n");
@@ -3499,17 +3455,8 @@ static HRESULT RegExp_test(DispatchEx *dispex, LCID lcid, WORD flags, DISPPARAMS
 static HRESULT RegExp_value(DispatchEx *dispex, LCID lcid, WORD flags, DISPPARAMS *dp,
         VARIANT *retv, jsexcept_t *ei, IServiceProvider *sp)
 {
-    TRACE("\n");
-
-    switch(flags) {
-    case INVOKE_FUNC:
-        return throw_type_error(dispex->ctx, ei, IDS_NOT_FUNC, NULL);
-    default:
-        FIXME("unimplemented flags %x\n", flags);
-        return E_NOTIMPL;
-    }
-
-    return S_OK;
+    FIXME("\n");
+    return E_NOTIMPL;
 }
 
 static void RegExp_destructor(DispatchEx *dispex)
@@ -3523,13 +3470,16 @@ static void RegExp_destructor(DispatchEx *dispex)
 }
 
 static const builtin_prop_t RegExp_props[] = {
-    {execW,                  RegExp_exec,                  PROPF_METHOD|1},
+    {execW,                  RegExp_exec,                  PROPF_METHOD},
     {globalW,                RegExp_global,                0},
+    {hasOwnPropertyW,        RegExp_hasOwnProperty,        PROPF_METHOD},
     {ignoreCaseW,            RegExp_ignoreCase,            0},
+    {isPrototypeOfW,         RegExp_isPrototypeOf,         PROPF_METHOD},
     {lastIndexW,             RegExp_lastIndex,             0},
     {multilineW,             RegExp_multiline,             0},
+    {propertyIsEnumerableW,  RegExp_propertyIsEnumerable,  PROPF_METHOD},
     {sourceW,                RegExp_source,                0},
-    {testW,                  RegExp_test,                  PROPF_METHOD|1},
+    {toLocaleStringW,        RegExp_toLocaleString,        PROPF_METHOD},
     {toStringW,              RegExp_toString,              PROPF_METHOD}
 };
 
@@ -3542,7 +3492,7 @@ static const builtin_info_t RegExp_info = {
     NULL
 };
 
-static HRESULT alloc_regexp(script_ctx_t *ctx, DispatchEx *object_prototype, RegExpInstance **ret)
+static HRESULT alloc_regexp(script_ctx_t *ctx, BOOL use_constr, RegExpInstance **ret)
 {
     RegExpInstance *regexp;
     HRESULT hres;
@@ -3551,10 +3501,10 @@ static HRESULT alloc_regexp(script_ctx_t *ctx, DispatchEx *object_prototype, Reg
     if(!regexp)
         return E_OUTOFMEMORY;
 
-    if(object_prototype)
-        hres = init_dispex(&regexp->dispex, ctx, &RegExp_info, object_prototype);
-    else
+    if(use_constr)
         hres = init_dispex_from_constr(&regexp->dispex, ctx, &RegExp_info, ctx->regexp_constr);
+    else
+        hres = init_dispex(&regexp->dispex, ctx, &RegExp_info, NULL);
 
     if(FAILED(hres)) {
         heap_free(regexp);
@@ -3572,7 +3522,7 @@ static HRESULT create_regexp(script_ctx_t *ctx, const WCHAR *exp, int len, DWORD
 
     TRACE("%s %x\n", debugstr_w(exp), flags);
 
-    hres = alloc_regexp(ctx, NULL, &regexp);
+    hres = alloc_regexp(ctx, TRUE, &regexp);
     if(FAILED(hres))
         return hres;
 
@@ -3596,93 +3546,23 @@ static HRESULT create_regexp(script_ctx_t *ctx, const WCHAR *exp, int len, DWORD
     return S_OK;
 }
 
-static HRESULT regexp_constructor(script_ctx_t *ctx, DISPPARAMS *dp, VARIANT *retv)
-{
-    const WCHAR *opt = emptyW, *src;
-    DispatchEx *ret;
-    VARIANT *arg;
-    HRESULT hres;
-
-    if(!arg_cnt(dp)) {
-        FIXME("no args\n");
-        return E_NOTIMPL;
-    }
-
-    arg = get_arg(dp,0);
-    if(V_VT(arg) == VT_DISPATCH) {
-        DispatchEx *obj;
-
-        obj = iface_to_jsdisp((IUnknown*)V_DISPATCH(arg));
-        if(obj) {
-            if(is_class(obj, JSCLASS_REGEXP)) {
-                RegExpInstance *regexp = (RegExpInstance*)obj;
-
-                hres = create_regexp(ctx, regexp->str, -1, regexp->jsregexp->flags, &ret);
-                jsdisp_release(obj);
-                if(FAILED(hres))
-                    return hres;
-
-                V_VT(retv) = VT_DISPATCH;
-                V_DISPATCH(retv) = (IDispatch*)_IDispatchEx_(ret);
-                return S_OK;
-            }
-
-            jsdisp_release(obj);
-        }
-    }
-
-    if(V_VT(arg) != VT_BSTR) {
-        FIXME("vt arg0 = %d\n", V_VT(arg));
-        return E_NOTIMPL;
-    }
-
-    src = V_BSTR(arg);
-
-    if(arg_cnt(dp) >= 2) {
-        arg = get_arg(dp,1);
-        if(V_VT(arg) != VT_BSTR) {
-            FIXME("unimplemented for vt %d\n", V_VT(arg));
-            return E_NOTIMPL;
-        }
-
-        opt = V_BSTR(arg);
-    }
-
-    hres = create_regexp_str(ctx, src, -1, opt, strlenW(opt), &ret);
-    if(FAILED(hres))
-        return hres;
-
-    V_VT(retv) = VT_DISPATCH;
-    V_DISPATCH(retv) = (IDispatch*)_IDispatchEx_(ret);
-    return S_OK;
-}
-
 static HRESULT RegExpConstr_value(DispatchEx *dispex, LCID lcid, WORD flags, DISPPARAMS *dp,
         VARIANT *retv, jsexcept_t *ei, IServiceProvider *sp)
 {
-    TRACE("\n");
-
-    switch(flags) {
-    case DISPATCH_CONSTRUCT:
-        return regexp_constructor(dispex->ctx, dp, retv);
-    default:
-        FIXME("unimplemented flags: %x\n", flags);
-        return E_NOTIMPL;
-    }
-
-    return S_OK;
+    FIXME("\n");
+    return E_NOTIMPL;
 }
 
-HRESULT create_regexp_constr(script_ctx_t *ctx, DispatchEx *object_prototype, DispatchEx **ret)
+HRESULT create_regexp_constr(script_ctx_t *ctx, DispatchEx **ret)
 {
     RegExpInstance *regexp;
     HRESULT hres;
 
-    hres = alloc_regexp(ctx, object_prototype, &regexp);
+    hres = alloc_regexp(ctx, FALSE, &regexp);
     if(FAILED(hres))
         return hres;
 
-    hres = create_builtin_function(ctx, RegExpConstr_value, NULL, PROPF_CONSTR, &regexp->dispex, ret);
+    hres = create_builtin_function(ctx, RegExpConstr_value, PROPF_CONSTR, &regexp->dispex, ret);
 
     jsdisp_release(&regexp->dispex);
     return hres;

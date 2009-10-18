@@ -41,7 +41,7 @@ static void test_encodeSPCFinancialCriteria(void)
 
     if (!pCryptEncodeObjectEx)
     {
-        win_skip("CryptEncodeObjectEx() is not available. Skipping the encodeFinancialCriteria tests\n");
+        skip("CryptEncodeObjectEx() is not available. Skipping the encodeFinancialCriteria tests\n");
         return;
     }
     ret = pCryptEncodeObjectEx(X509_ASN_ENCODING, SPC_FINANCIAL_CRITERIA_STRUCT,
@@ -73,7 +73,7 @@ static void test_decodeSPCFinancialCriteria(void)
 
     if (!pCryptDecodeObjectEx)
     {
-        win_skip("CryptDecodeObjectEx() is not available. Skipping the decodeSPCFinancialCriteria tests\n");
+        skip("CryptDecodeObjectEx() is not available. Skipping the decodeSPCFinancialCriteria tests\n");
         return;
     }
 
@@ -123,7 +123,7 @@ static void test_encodeSPCLink(void)
 
     if (!pCryptEncodeObjectEx)
     {
-        win_skip("CryptEncodeObjectEx() is not available. Skipping the encodeSPCLink tests\n");
+        skip("CryptEncodeObjectEx() is not available. Skipping the encodeSPCLink tests\n");
         return;
     }
 
@@ -215,7 +215,7 @@ static void test_decodeSPCLink(void)
 
     if (!pCryptDecodeObjectEx)
     {
-        win_skip("CryptDecodeObjectEx() is not available. Skipping the decodeSPCLink tests\n");
+        skip("CryptDecodeObjectEx() is not available. Skipping the decodeSPCLink tests\n");
         return;
     }
 
@@ -325,7 +325,7 @@ static void test_encodeSPCPEImage(void)
 
     if (!pCryptEncodeObjectEx)
     {
-        win_skip("CryptEncodeObjectEx() is not available. Skipping the encodeSPCPEImage tests\n");
+        skip("CryptEncodeObjectEx() is not available. Skipping the encodeSPCPEImage tests\n");
         return;
     }
 
@@ -430,7 +430,7 @@ static void test_decodeSPCPEImage(void)
 
     if (!pCryptDecodeObjectEx)
     {
-        win_skip("CryptDecodeObjectEx() is not available. Skipping the decodeSPCPEImage tests\n");
+        skip("CryptDecodeObjectEx() is not available. Skipping the decodeSPCPEImage tests\n");
         return;
     }
 
@@ -556,7 +556,7 @@ static void test_encodeCatMemberInfo(void)
 
     if (!pCryptEncodeObjectEx)
     {
-        win_skip("CryptEncodeObjectEx() is not available. Skipping the encodeCatMemberInfo tests\n");
+        skip("CryptEncodeObjectEx() is not available. Skipping the encodeCatMemberInfo tests\n");
         return;
     }
 
@@ -605,7 +605,7 @@ static void test_decodeCatMemberInfo(void)
 
     if (!pCryptDecodeObjectEx)
     {
-        win_skip("CryptDecodeObjectEx() is not available. Skipping the decodeCatMemberInfo tests\n");
+        skip("CryptDecodeObjectEx() is not available. Skipping the decodeCatMemberInfo tests\n");
         return;
     }
 

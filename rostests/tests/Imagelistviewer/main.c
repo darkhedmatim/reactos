@@ -1,7 +1,6 @@
 #include <windows.h>
 #include <setupapi.h>
 #include <tchar.h>
-#include <stdlib.h>
 #include "resource.h"
 
 typedef BOOL (WINAPI * SH_GIL_PROC)(HIMAGELIST *phLarge, HIMAGELIST *phSmall);

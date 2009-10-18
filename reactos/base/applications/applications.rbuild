@@ -16,14 +16,8 @@
 	<directory name="control">
 		<xi:include href="control/control.rbuild" />
 	</directory>
-	<directory name="downloader">
-		<xi:include href="downloader/downloader.rbuild" />
-	</directory>	
 	<directory name="dxdiag">
 		<xi:include href="dxdiag/dxdiag.rbuild" />
-	</directory>
-	<directory name="fontview">
-		<xi:include href="fontview/fontview.rbuild" />
 	</directory>
 	<directory name="games">
 		<xi:include href="games/games.rbuild" />
@@ -31,20 +25,16 @@
 	<directory name="hh">
 		<xi:include href="hh/hh.rbuild" />
 	</directory>
+<!--
 	<directory name="iexplore">
 		<xi:include href="iexplore/iexplore.rbuild" />
 	</directory>
+-->
 	<directory name="kbswitch">
 		<xi:include href="kbswitch/kbswitch.rbuild" />
 	</directory>
 	<directory name="logoff">
 		<xi:include href="logoff/logoff.rbuild" />
-	</directory>
-	<directory name="magnify">
-		<xi:include href="magnify/magnify.rbuild" />
-	</directory>
-	<directory name="mplay32">
-		<xi:include href="mplay32/mplay32.rbuild" />
 	</directory>
 	<directory name="msconfig">
 		<xi:include href="msconfig/msconfig.rbuild" />
@@ -60,9 +50,6 @@
 	</directory>
 	<directory name="notepad">
 		<xi:include href="notepad/notepad.rbuild" />
-	</directory>
-	<directory name="paint">
-		<xi:include href="paint/paint.rbuild" />
 	</directory>
 	<directory name="regedit">
 		<xi:include href="regedit/regedit.rbuild" />
@@ -88,16 +75,7 @@
 	<directory name="winhlp32">
 		<xi:include href="winhlp32/winhlp32.rbuild" />
 	</directory>
-	<directory name="winver">
-		<xi:include href="winver/winver.rbuild" />
-	</directory>
 	<directory name="wordpad">
 		<xi:include href="wordpad/wordpad.rbuild" />
-	</directory>
-	<directory name="write">
-		<xi:include href="write/write.rbuild" />
-	</directory>
-	<directory name="rapps">
-		<xi:include href="rapps/rapps.rbuild" />
 	</directory>
 </group>

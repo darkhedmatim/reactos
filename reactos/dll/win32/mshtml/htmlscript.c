@@ -39,7 +39,7 @@ typedef struct {
     nsIDOMHTMLScriptElement *nsscript;
 } HTMLScriptElement;
 
-#define HTMLSCRIPT(x)  (&(x)->lpHTMLScriptElementVtbl)
+#define HTMLSCRIPT(x)  ((IHTMLScriptElement*)  &(x)->lpHTMLScriptElementVtbl)
 
 #define HTMLSCRIPT_THIS(iface) DEFINE_THIS(HTMLScriptElement, HTMLScriptElement, iface)
 
@@ -68,14 +68,16 @@ static ULONG WINAPI HTMLScriptElement_Release(IHTMLScriptElement *iface)
 static HRESULT WINAPI HTMLScriptElement_GetTypeInfoCount(IHTMLScriptElement *iface, UINT *pctinfo)
 {
     HTMLScriptElement *This = HTMLSCRIPT_THIS(iface);
-    return IDispatchEx_GetTypeInfoCount(DISPATCHEX(&This->element.node.dispex), pctinfo);
+    FIXME("(%p)->(%p)\n", This, pctinfo);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLScriptElement_GetTypeInfo(IHTMLScriptElement *iface, UINT iTInfo,
                                               LCID lcid, ITypeInfo **ppTInfo)
 {
     HTMLScriptElement *This = HTMLSCRIPT_THIS(iface);
-    return IDispatchEx_GetTypeInfo(DISPATCHEX(&This->element.node.dispex), iTInfo, lcid, ppTInfo);
+    FIXME("(%p)->(%u %u %p)\n", This, iTInfo, lcid, ppTInfo);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLScriptElement_GetIDsOfNames(IHTMLScriptElement *iface, REFIID riid,
@@ -83,7 +85,9 @@ static HRESULT WINAPI HTMLScriptElement_GetIDsOfNames(IHTMLScriptElement *iface,
                                                 LCID lcid, DISPID *rgDispId)
 {
     HTMLScriptElement *This = HTMLSCRIPT_THIS(iface);
-    return IDispatchEx_GetIDsOfNames(DISPATCHEX(&This->element.node.dispex), riid, rgszNames, cNames, lcid, rgDispId);
+    FIXME("(%p)->(%s %p %u %u %p)\n", This, debugstr_guid(riid), rgszNames, cNames,
+                                        lcid, rgDispId);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLScriptElement_Invoke(IHTMLScriptElement *iface, DISPID dispIdMember,
@@ -91,8 +95,9 @@ static HRESULT WINAPI HTMLScriptElement_Invoke(IHTMLScriptElement *iface, DISPID
                             VARIANT *pVarResult, EXCEPINFO *pExcepInfo, UINT *puArgErr)
 {
     HTMLScriptElement *This = HTMLSCRIPT_THIS(iface);
-    return IDispatchEx_Invoke(DISPATCHEX(&This->element.node.dispex), dispIdMember, riid, lcid, wFlags, pDispParams,
-            pVarResult, pExcepInfo, puArgErr);
+    FIXME("(%p)->(%d %s %d %d %p %p %p %p)\n", This, dispIdMember, debugstr_guid(riid),
+            lcid, wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLScriptElement_put_src(IHTMLScriptElement *iface, BSTR v)
@@ -154,40 +159,15 @@ static HRESULT WINAPI HTMLScriptElement_get_text(IHTMLScriptElement *iface, BSTR
 static HRESULT WINAPI HTMLScriptElement_put_defer(IHTMLScriptElement *iface, VARIANT_BOOL v)
 {
     HTMLScriptElement *This = HTMLSCRIPT_THIS(iface);
-    HRESULT hr = S_OK;
-    nsresult nsres;
-
-    TRACE("(%p)->(%x)\n", This, v);
-
-    nsres = nsIDOMHTMLScriptElement_SetDefer(This->nsscript, v != VARIANT_FALSE);
-    if(NS_FAILED(nsres))
-    {
-        hr = E_FAIL;
-    }
-
-    return hr;
+    FIXME("(%p)->(%x)\n", This, v);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLScriptElement_get_defer(IHTMLScriptElement *iface, VARIANT_BOOL *p)
 {
     HTMLScriptElement *This = HTMLSCRIPT_THIS(iface);
-    PRBool defer = FALSE;
-    nsresult nsres;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    if(!p)
-        return E_INVALIDARG;
-
-    nsres = nsIDOMHTMLScriptElement_GetDefer(This->nsscript, &defer);
-    if(NS_FAILED(nsres)) {
-        ERR("GetSrc failed: %08x\n", nsres);
-    }
-
-    *p = defer ? VARIANT_TRUE : VARIANT_FALSE;
-
-    TRACE("*p = %d\n", *p);
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLScriptElement_get_readyState(IHTMLScriptElement *iface, BSTR *p)

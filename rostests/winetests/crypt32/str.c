@@ -281,7 +281,7 @@ static void test_CertRDNValueToStrW(void)
 
     if (!pCertRDNValueToStrW)
     {
-        win_skip("CertRDNValueToStrW is not available\n");
+        skip("CertRDNValueToStrW is not available\n");
         return;
     }
 
@@ -333,7 +333,7 @@ static void test_CertNameToStrA(void)
 
     if (!pCertNameToStrA)
     {
-        win_skip("CertNameToStrA is not available\n");
+        skip("CertNameToStrA is not available\n");
         return;
     }
 
@@ -412,7 +412,7 @@ static void test_CertNameToStrW(void)
 
     if (!pCertNameToStrW)
     {
-        win_skip("CertNameToStrW is not available\n");
+        skip("CertNameToStrW is not available\n");
         return;
     }
 
@@ -499,7 +499,7 @@ static void test_CertStrToNameA(void)
 
     if (!pCertStrToNameA)
     {
-        win_skip("CertStrToNameA is not available\n");
+        skip("CertStrToNameA is not available\n");
         return;
     }
 
@@ -584,7 +584,7 @@ static void test_CertStrToNameW(void)
 
     if (!pCertStrToNameW)
     {
-        win_skip("CertStrToNameW is not available\n");
+        skip("CertStrToNameW is not available\n");
         return;
     }
 

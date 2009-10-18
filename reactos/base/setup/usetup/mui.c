@@ -112,13 +112,6 @@ MUIDefaultKeyboardLayout(VOID)
     return LanguageList[lngIndex].MuiLayouts[0].LayoutID;
 }
 
-PWCHAR
-MUIGetGeoID(VOID)
-{
-    ULONG lngIndex = max(FindLanguageIndex(), 0);
-    return LanguageList[lngIndex].GeoID;
-}
-
 const MUI_LAYOUTS *
 MUIGetLayoutsList(VOID)
 {
@@ -235,7 +228,7 @@ AddHotkeySettings(IN LPCWSTR Hotkey, IN LPCWSTR LangHotkey, IN LPCWSTR LayoutHot
                                NULL);
 
     Status =  NtCreateKey(&KeyHandle,
-                          KEY_SET_VALUE,
+                          KEY_ALL_ACCESS,
                           &ObjectAttributes,
                           0,
                           NULL,
@@ -326,7 +319,7 @@ AddKbLayoutsToRegistry(IN const MUI_LAYOUTS * MuiLayouts)
                                NULL);
 
     Status =  NtCreateKey(&KeyHandle,
-                          KEY_CREATE_SUB_KEY,
+                          KEY_ALL_ACCESS,
                           &ObjectAttributes,
                           0,
                           NULL,
@@ -358,7 +351,7 @@ AddKbLayoutsToRegistry(IN const MUI_LAYOUTS * MuiLayouts)
                                NULL);
 
     Status = NtCreateKey(&KeyHandle,
-                         KEY_SET_VALUE,
+                         KEY_ALL_ACCESS,
                          &ObjectAttributes,
                          0,
                          NULL,
@@ -379,7 +372,7 @@ AddKbLayoutsToRegistry(IN const MUI_LAYOUTS * MuiLayouts)
                                NULL);
 
     Status =  NtCreateKey(&SubKeyHandle,
-                          KEY_SET_VALUE,
+                          KEY_ALL_ACCESS,
                           &ObjectAttributes,
                           0,
                           NULL,

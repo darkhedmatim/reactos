@@ -142,13 +142,11 @@ ProcessPlayingNotes(
 
         while ( ( node != NULL ) && ( arp_notes <= POLYPHONY ) )
         {
+            DPRINT("playing..\n");
             BEEP_SET_PARAMETERS beep_data;
             DWORD actually_playing = 0;
 
             double frequency = node->note;
-
-            DPRINT("playing..\n");
-
             frequency = frequency / 12;
             frequency = pow(2, frequency);
             frequency = 8.1758 * frequency;
@@ -483,9 +481,9 @@ PlayNote(
 {
     HANDLE heap = GetProcessHeap();
 
-    NoteNode* node;
-
     DPRINT("PlayNote\n");
+
+    NoteNode* node;
 
     if ( velocity == 0 )
     {
@@ -759,8 +757,8 @@ ProcessLongMidiMessage(
     Exported function that receives messages from WINMM (the MME API.)
 */
 
-MMRESULT
 FAR PASCAL
+MMRESULT
 modMessage(
     UINT device_id,
     UINT message,
@@ -841,8 +839,7 @@ modMessage(
     Driver entrypoint.
 */
 
-LONG
-FAR PASCAL
+FAR PASCAL LONG
 DriverProc(
     DWORD driver_id,
     HDRVR driver_handle,

@@ -666,7 +666,7 @@ VideoPortInitialize(
             ExAllocatePoolWithTag(
                PagedPool,
                DriverExtension->RegistryPath.MaximumLength,
-               'RTSU');
+               TAG('U', 'S', 'T', 'R'));
          if (DriverExtension->RegistryPath.Buffer == NULL)
          {
             RtlInitUnicodeString(&DriverExtension->RegistryPath, NULL);
@@ -1045,12 +1045,12 @@ VideoPortSynchronizeExecution(
       case VpHighPriority:
          OldIrql = KeGetCurrentIrql();
          if (OldIrql < SYNCH_LEVEL)
-            KeRaiseIrql(SYNCH_LEVEL, &OldIrql);
+            OldIrql = KfRaiseIrql(SYNCH_LEVEL);
 
          Ret = (*SynchronizeRoutine)(Context);
 
          if (OldIrql < SYNCH_LEVEL)
-            KeLowerIrql(OldIrql);
+            KfLowerIrql(OldIrql);
          break;
 
       default:

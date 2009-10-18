@@ -354,7 +354,7 @@ void WINAPI NdrInterfacePointerFree(PMIDL_STUB_MESSAGE pStubMsg,
 /***********************************************************************
  *           NdrOleAllocate [RPCRT4.@]
  */
-void * WINAPI NdrOleAllocate(SIZE_T Size)
+void * WINAPI NdrOleAllocate(size_t Size)
 {
   if (!LoadCOM()) return NULL;
   return COM_MemAlloc(Size);

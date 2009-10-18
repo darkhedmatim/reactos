@@ -40,9 +40,13 @@
 #include <stdarg.h>
 #include <windef.h>
 #include <winbase.h>
+#if !(defined NOGDI || defined  _WINGDI_H)
 #include <wingdi.h>
-#include <winuser.h>
+#endif
 #include <wincon.h>
+#ifndef _WINUSER_H
+#include <winuser.h>
+#endif
 #ifndef _WINNLS_H
 #include <winnls.h>
 #endif
@@ -101,7 +105,7 @@
 #endif
 #ifndef NOGDI
 #if !defined (__OBJC__)
-#if (defined(__GNUC__) && (__GNUC__ >= 3)) || defined (__WATCOMC__) || defined(_MSC_VER)
+#if (__GNUC__ >= 3) || defined (__WATCOMC__)
 #include <ole2.h>
 #endif
 #endif /* __OBJC__ */

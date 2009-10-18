@@ -61,7 +61,7 @@ GetCPFileNameFromRegistry(UINT CodePage, LPWSTR FileName, ULONG FileNameSize);
 
 BOOL
 FASTCALL
-NlsInit(VOID)
+NlsInit()
 {
     UNICODE_STRING DirName;
     OBJECT_ATTRIBUTES ObjectAttributes;
@@ -117,7 +117,7 @@ NlsInit(VOID)
 
 VOID
 FASTCALL
-NlsUninit(VOID)
+NlsUninit()
 {
     PCODEPAGE_ENTRY Current;
 
@@ -523,14 +523,6 @@ IntMultiByteToWideCharCP(UINT CodePage,
         if (WideCharCount == 0)
             return MultiByteCount;
 
-        /* Fill the WideCharString buffer with what will fit: Verified on WinXP */
-        for (TempLength = (WideCharCount < MultiByteCount) ? WideCharCount : MultiByteCount;
-            TempLength > 0;
-            MultiByteString++, TempLength--)
-        {
-            *WideCharString++ = CodePageTable->MultiByteTable[(UCHAR)*MultiByteString];
-        }
-
         /* Adjust buffer size. Wine trick ;-) */
         if (WideCharCount < MultiByteCount)
         {
@@ -538,7 +530,15 @@ IntMultiByteToWideCharCP(UINT CodePage,
             SetLastError(ERROR_INSUFFICIENT_BUFFER);
             return 0;
         }
-	    return MultiByteCount;
+
+        for (TempLength = MultiByteCount;
+            TempLength > 0;
+            MultiByteString++, TempLength--)
+        {
+            *WideCharString++ = CodePageTable->MultiByteTable[(UCHAR)*MultiByteString];
+        }
+
+        return MultiByteCount;
     }
 }
 
@@ -1252,7 +1252,6 @@ BOOL
 WINAPI
 IsValidCodePage(UINT CodePage)
 {
-    if (CodePage == 0) return FALSE;
     if (CodePage == CP_UTF8 || CodePage == CP_UTF7)
         return TRUE;
     if (IntGetLoadedCodePageEntry(CodePage))

@@ -1,10 +1,11 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="csrsrv" type="nativedll">
-	<importlibrary definition="csrsrv.spec" />
+	<importlibrary definition="csrsrv.def" />
 	<include base="csrsrv">.</include>
 	<include base="csr">.</include>
 	<include base="ReactOS">include/reactos/subsys</include>
+	<define name="_DISABLE_TIDENTS" />
 	<library>ntdll</library>
 	<library>pseh</library>
 	<file>api.c</file>

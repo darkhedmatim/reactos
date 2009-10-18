@@ -191,15 +191,15 @@ ScmRpcStatusToWinError(RPC_STATUS Status)
 {
     switch (Status)
     {
-        case RPC_S_INVALID_BINDING:
         case RPC_X_SS_IN_NULL_CONTEXT:
             return ERROR_INVALID_HANDLE;
 
+        case RPC_X_NULL_REF_POINTER:
         case RPC_X_ENUM_VALUE_OUT_OF_RANGE:
         case RPC_X_BYTE_COUNT_TOO_SMALL:
             return ERROR_INVALID_PARAMETER;
 
-        case RPC_X_NULL_REF_POINTER:
+        case STATUS_ACCESS_VIOLATION:
             return ERROR_INVALID_ADDRESS;
 
         default:
@@ -229,11 +229,10 @@ ChangeServiceConfig2A(SC_HANDLE hService,
     {
         case SERVICE_CONFIG_DESCRIPTION:
             Info.psd = (LPSERVICE_DESCRIPTIONA)&lpInfo;
-            Info.lpDescription = ((LPSERVICE_DESCRIPTIONA)lpInfo)->lpDescription; //HACK
             break;
 
         case SERVICE_CONFIG_FAILURE_ACTIONS:
-            Info.psfa = (LPSERVICE_FAILURE_ACTIONSA)lpInfo;
+            Info.psfa = (LPSERVICE_FAILURE_ACTIONSA)&lpInfo;
             break;
 
         default:
@@ -487,12 +486,6 @@ CloseServiceHandle(SC_HANDLE hSCObject)
 
     TRACE("CloseServiceHandle() called\n");
 
-    if (!hSCObject)
-    {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return FALSE;
-    }
-
     RpcTryExcept
     {
         /* Call to services.exe using RPC */
@@ -608,12 +601,6 @@ CreateServiceA(SC_HANDLE hSCManager,
     DWORD dwLength;
     int len;
     LPSTR lpStr;
-
-    if (!hSCManager)
-    {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return NULL;
-    }
 
     if (lpServiceName)
     {
@@ -776,12 +763,6 @@ CreateServiceW(SC_HANDLE hSCManager,
     TRACE("CreateServiceW() called\n");
     TRACE("%p %S %S\n", hSCManager, 
           lpServiceName, lpDisplayName);
-
-    if (!hSCManager)
-    {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return NULL;
-    }
 
     /* Calculate the Dependencies length*/
     if (lpDependencies != NULL)
@@ -1038,48 +1019,6 @@ EnumServicesStatusA(SC_HANDLE hSCManager,
 
     TRACE("EnumServicesStatusA() called\n");
 
-    if (!hSCManager)
-    {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return FALSE;
-    }
-
-    if (dwServiceType != SERVICE_DRIVER && dwServiceType != SERVICE_WIN32)
-    {
-        if (pcbBytesNeeded && lpServicesReturned)
-        {
-            *pcbBytesNeeded = 0;
-            *lpServicesReturned = 0;
-        }
-
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-
-    if (dwServiceState != SERVICE_ACTIVE && dwServiceState != SERVICE_INACTIVE && dwServiceState != SERVICE_STATE_ALL)
-    {
-            if (pcbBytesNeeded)
-                *pcbBytesNeeded = 0;
-
-            if (lpServicesReturned)
-                *lpServicesReturned = 0;
-
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-
-    if (!pcbBytesNeeded || !lpServicesReturned)
-    {
-        SetLastError(ERROR_INVALID_ADDRESS);
-        return FALSE;
-    }
-
-    if (!lpServices && cbBufSize != 0)
-    {
-        SetLastError(ERROR_INVALID_ADDRESS);
-        return FALSE;
-    }
-
     RpcTryExcept
     {
         dwError = REnumServicesStatusA((SC_RPC_HANDLE)hSCManager,
@@ -1144,12 +1083,6 @@ EnumServicesStatusW(SC_HANDLE hSCManager,
     DWORD dwCount;
 
     TRACE("EnumServicesStatusW() called\n");
-
-    if (!hSCManager)
-    {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return FALSE;
-    }
 
     RpcTryExcept
     {
@@ -1217,19 +1150,6 @@ EnumServicesStatusExA(SC_HANDLE hSCManager,
     DWORD dwCount;
 
     TRACE("EnumServicesStatusExA() called\n");
-
-    if (InfoLevel != SC_ENUM_PROCESS_INFO)
-    {
-        SetLastError(ERROR_INVALID_LEVEL);
-        return FALSE;
-    }
-
-    if (!hSCManager)
-    {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return FALSE;
-    }
-
 
     RpcTryExcept
     {
@@ -1379,12 +1299,6 @@ GetServiceDisplayNameA(SC_HANDLE hSCManager,
     TRACE("%p %s %p %p\n", hSCManager,
           debugstr_a(lpServiceName), lpDisplayName, lpcchBuffer);
 
-    if (!hSCManager)
-    {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return FALSE;
-    }
-
     if (!lpDisplayName)
         *lpcchBuffer = 0;
 
@@ -1430,12 +1344,6 @@ GetServiceDisplayNameW(SC_HANDLE hSCManager,
 
     TRACE("GetServiceDisplayNameW() called\n");
 
-    if (!hSCManager)
-    {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return FALSE;
-    }
-
     if (!lpDisplayName)
         *lpcchBuffer = 0;
 
@@ -1477,21 +1385,6 @@ GetServiceKeyNameA(SC_HANDLE hSCManager,
     DWORD dwError;
 
     TRACE("GetServiceKeyNameA() called\n");
-
-    if (!hSCManager)
-    {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return FALSE;
-    }
-
-    if (!lpDisplayName)
-    {
-        SetLastError(ERROR_INVALID_ADDRESS);
-
-        if (!lpServiceName)
-            *lpcchBuffer = 1;
-        return FALSE;
-    }
 
     if (!lpServiceName)
         *lpcchBuffer = 0;
@@ -1535,22 +1428,7 @@ GetServiceKeyNameW(SC_HANDLE hSCManager,
 
     TRACE("GetServiceKeyNameW() called\n");
 
-    if (!hSCManager)
-    {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return FALSE;
-    }
-
     if (!lpDisplayName)
-    {
-        SetLastError(ERROR_INVALID_ADDRESS);
-
-        if (!lpServiceName)
-            *lpcchBuffer = 1;
-        return FALSE;
-    }
-
-    if (!lpServiceName)
         *lpcchBuffer = 0;
 
     RpcTryExcept
@@ -1761,12 +1639,6 @@ OpenServiceA(SC_HANDLE hSCManager,
     TRACE("OpenServiceA(%p, %s, %lx)\n",
            hSCManager, lpServiceName, dwDesiredAccess);
 
-    if (!hSCManager)
-    {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return NULL;
-    }
-
     RpcTryExcept
     {
         /* Call to services.exe using RPC */
@@ -1809,12 +1681,6 @@ OpenServiceW(SC_HANDLE hSCManager,
 
     TRACE("OpenServiceW(%p, %S, %lx)\n",
            hSCManager, lpServiceName, dwDesiredAccess);
-
-    if (!hSCManager)
-    {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return NULL;
-    }
 
     RpcTryExcept
     {
@@ -2001,7 +1867,7 @@ QueryServiceConfig2A(SC_HANDLE hService,
 {
     DWORD dwError;
 
-    DbgPrint("QueryServiceConfig2A(hService %p, dwInfoLevel %lu, lpBuffer %p, cbBufSize %lu, pcbBytesNeeded %p)\n",
+    TRACE("QueryServiceConfig2A(%p, %lu, %p, %lu, %p)\n",
            hService, dwInfoLevel, lpBuffer, cbBufSize, pcbBytesNeeded);
 
     if (dwInfoLevel != SERVICE_CONFIG_DESCRIPTION &&
@@ -2398,12 +2264,6 @@ QueryServiceStatus(SC_HANDLE hService,
     TRACE("QueryServiceStatus(%p, %p)\n",
            hService, lpServiceStatus);
 
-    if (!hService)
-    {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return FALSE;
-    }
-
     RpcTryExcept
     {
         /* Call to services.exe using RPC */
@@ -2442,12 +2302,6 @@ QueryServiceStatusEx(SC_HANDLE hService,
     DWORD dwError;
 
     TRACE("QueryServiceStatusEx() called\n");
-
-    if (InfoLevel != SC_STATUS_PROCESS_INFO)
-    {
-        SetLastError(ERROR_INVALID_LEVEL);
-        return FALSE;
-    }
 
     RpcTryExcept
     {

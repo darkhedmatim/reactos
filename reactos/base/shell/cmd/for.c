@@ -33,9 +33,27 @@
 #include <precomp.h>
 
 
-/* FOR is a special command, so this function is only used for showing help now */
+/*
+ * Perform FOR command.
+ *
+ * First check syntax is correct : FOR %v IN ( <list> ) DO <command>
+ *   v must be alphabetic, <command> must not be empty.
+ *
+ * If all is correct build a new bcontext structure which preserves
+ *   the necessary information so that readbatchline can expand
+ *   each the command prototype for each list element.
+ *
+ * You might look on a FOR as being a called batch file with one line
+ *   per list element.
+ */
+
 INT cmd_for (LPTSTR param)
 {
+	LPBATCH_CONTEXT lpNew;
+	LPTSTR pp;
+	TCHAR  var;
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
+
 	TRACE ("cmd_for (\'%s\')\n", debugstr_aw(param));
 
 	if (!_tcsncmp (param, _T("/?"), 2))
@@ -44,465 +62,87 @@ INT cmd_for (LPTSTR param)
 		return 0;
 	}
 
-	error_syntax(param);
-	return 1;
-}
-
-/* The stack of current FOR contexts.
- * NULL when no FOR command is active */
-LPFOR_CONTEXT fc = NULL;
-
-/* Get the next element of the FOR's list */
-static BOOL GetNextElement(TCHAR **pStart, TCHAR **pEnd)
-{
-	TCHAR *p = *pEnd;
-	BOOL InQuotes = FALSE;
-	while (_istspace(*p))
-		p++;
-	if (!*p)
-		return FALSE;
-	*pStart = p;
-	while (*p && (InQuotes || !_istspace(*p)))
-		InQuotes ^= (*p++ == _T('"'));
-	*pEnd = p;
-	return TRUE;
-}
-
-/* Execute a single instance of a FOR command */
-static INT RunInstance(PARSED_COMMAND *Cmd)
-{
-	if (bEcho && !bDisableBatchEcho && Cmd->Subcommands->Type != C_QUIET)
+	/* Check that first element is % then an alpha char followed by space */
+	if ((*param != _T('%')) || !_istalpha (*(param + 1)) || !_istspace (*(param + 2)))
 	{
-		if (!bIgnoreEcho)
-			ConOutChar(_T('\n'));
-		PrintPrompt();
-		EchoCommand(Cmd->Subcommands);
-		ConOutChar(_T('\n'));
-	}
-	/* Just run the command (variable expansion is done in DoDelayedExpansion) */
-	return ExecuteCommand(Cmd->Subcommands);
-}
-
-/* Check if this FOR should be terminated early */
-static BOOL Exiting(PARSED_COMMAND *Cmd)
-{
-	/* Someone might have removed our context */
-	return bCtrlBreak || fc != Cmd->For.Context;
-}
-
-/* Read the contents of a text file into memory,
- * dynamically allocating enough space to hold it all */
-static LPTSTR ReadFileContents(FILE *InputFile, TCHAR *Buffer)
-{
-	DWORD Len = 0;
-	DWORD AllocLen = 1000;
-	LPTSTR Contents = cmd_alloc(AllocLen * sizeof(TCHAR));
-	if (!Contents)
-		return NULL;
-
-	while (_fgetts(Buffer, CMDLINE_LENGTH, InputFile))
-	{
-		DWORD CharsRead = _tcslen(Buffer);
-		while (Len + CharsRead >= AllocLen)
-		{
-			Contents = cmd_realloc(Contents, (AllocLen *= 2) * sizeof(TCHAR));
-			if (!Contents)
-				return NULL;
-		}
-		_tcscpy(&Contents[Len], Buffer);
-		Len += CharsRead;
-	}
-
-	Contents[Len] = _T('\0');
-	return Contents;
-}
-
-static INT ForF(PARSED_COMMAND *Cmd, LPTSTR List, TCHAR *Buffer)
-{
-	LPTSTR Delims = _T(" \t");
-	TCHAR Eol = _T(';');
-	INT SkipLines = 0;
-	DWORD Tokens = (1 << 1);
-	BOOL RemainderVar = FALSE;
-	TCHAR StringQuote = _T('"');
-	TCHAR CommandQuote = _T('\'');
-	LPTSTR Variables[32];
-	TCHAR *Start, *End;
-	INT i;
-	INT Ret = 0;
-
-	if (Cmd->For.Params)
-	{
-		TCHAR Quote = 0;
-		TCHAR *Param = Cmd->For.Params;
-		if (*Param == _T('"') || *Param == _T('\''))
-			Quote = *Param++;
-
-		while (*Param && *Param != Quote)
-		{
-			if (*Param <= _T(' '))
-			{
-				Param++;
-			}
-			else if (_tcsnicmp(Param, _T("delims="), 7) == 0)
-			{
-				Param += 7;
-				/* delims=xxx: Specifies the list of characters that separate tokens */
-				Delims = Param;
-				while (*Param && *Param != Quote)
-				{
-					if (*Param == _T(' '))
-					{
-						TCHAR *FirstSpace = Param;
-						Param += _tcsspn(Param, _T(" "));
-						/* Exclude trailing spaces if this is not the last parameter */
-						if (*Param && *Param != Quote)
-							*FirstSpace = _T('\0');
-						break;
-					}
-					Param++;
-				}
-				if (*Param == Quote)
-					*Param++ = _T('\0');
-			}
-			else if (_tcsnicmp(Param, _T("eol="), 4) == 0)
-			{
-				Param += 4;
-				/* eol=c: Lines starting with this character (may be
-				 * preceded by delimiters) are skipped. */
-				Eol = *Param;
-				if (Eol != _T('\0'))
-					Param++;
-			}
-			else if (_tcsnicmp(Param, _T("skip="), 5) == 0)
-			{
-				/* skip=n: Number of lines to skip at the beginning of each file */
-				SkipLines = _tcstol(Param + 5, &Param, 0);
-				if (SkipLines <= 0)
-					goto error;
-			}
-			else if (_tcsnicmp(Param, _T("tokens="), 7) == 0)
-			{
-				Param += 7;
-				/* tokens=x,y,m-n: List of token numbers (must be between
-				 * 1 and 31) that will be assigned into variables. */
-				Tokens = 0;
-				while (*Param && *Param != Quote && *Param != _T('*'))
-				{
-					INT First = _tcstol(Param, &Param, 0);
-					INT Last = First;
-					if (First < 1)
-						goto error;
-					if (*Param == _T('-'))
-					{
-						/* It's a range of tokens */
-						Last = _tcstol(Param + 1, &Param, 0);
-						if (Last < First || Last > 31)
-							goto error;
-					}
-					Tokens |= (2 << Last) - (1 << First);
-
-					if (*Param != _T(','))
-						break;
-					Param++;
-				}
-				/* With an asterisk at the end, an additional variable
-				 * will be created to hold the remainder of the line
-				 * (after the last token specified). */
-				if (*Param == _T('*'))
-				{
-					RemainderVar = TRUE;
-					Param++;
-				}
-			}
-			else if (_tcsnicmp(Param, _T("useback"), 7) == 0)
-			{
-				Param += 7;
-				/* usebackq: Use alternate quote characters */
-				StringQuote = _T('\'');
-				CommandQuote = _T('`');
-				/* Can be written as either "useback" or "usebackq" */
-				if (_totlower(*Param) == _T('q'))
-					Param++;
-			}
-			else
-			{
-			error:
-				error_syntax(Param);
-				return 1;
-			}
-		}
-	}
-
-	/* Count how many variables will be set: one for each token,
-	 * plus maybe one for the remainder */
-	fc->varcount = RemainderVar;
-	for (i = 1; i < 32; i++)
-		fc->varcount += (Tokens >> i & 1);
-	fc->values = Variables;
-
-	if (*List == StringQuote || *List == CommandQuote)
-	{
-		/* Treat the entire "list" as one single element */
-		Start = List;
-		End = &List[_tcslen(List)];
-		goto single_element;
-	}
-
-	End = List;
-	while (GetNextElement(&Start, &End))
-	{
-		FILE *InputFile;
-		LPTSTR FullInput, In, NextLine;
-		INT Skip;
-	single_element:
-
-		if (*Start == StringQuote && End[-1] == StringQuote)
-		{
-			/* Input given directly as a string */
-			End[-1] = _T('\0');
-			FullInput = cmd_dup(Start + 1);
-		}
-		else if (*Start == CommandQuote && End[-1] == CommandQuote)
-		{
-			/* Read input from a command */
-			End[-1] = _T('\0');
-			InputFile = _tpopen(Start + 1, _T("r"));
-			if (!InputFile)
-			{
-				error_bad_command(Start + 1);
-				return 1;
-			}
-			FullInput = ReadFileContents(InputFile, Buffer);
-			_pclose(InputFile);
-		}
-		else
-		{
-			/* Read input from a file */
-			TCHAR Temp = *End;
-			*End = _T('\0');
-			StripQuotes(Start);
-			InputFile = _tfopen(Start, _T("r"));
-			*End = Temp;
-			if (!InputFile)
-			{
-				error_sfile_not_found(Start);
-				return 1;
-			}
-			FullInput = ReadFileContents(InputFile, Buffer);
-			fclose(InputFile);
-		}
-
-		if (!FullInput)
-		{
-			error_out_of_memory();
-			return 1;
-		}
-
-		/* Loop over the input line by line */
-		In = FullInput;
-		Skip = SkipLines;
-		do
-		{
-			DWORD RemainingTokens = Tokens;
-			LPTSTR *CurVar = Variables;
-
-			NextLine = _tcschr(In, _T('\n'));
-			if (NextLine)
-				*NextLine++ = _T('\0');
-
-			if (--Skip >= 0)
-				continue;
-
-			/* Ignore lines where the first token starts with the eol character */
-			In += _tcsspn(In, Delims);
-			if (*In == Eol)
-				continue;
-
-			while ((RemainingTokens >>= 1) != 0)
-			{
-				/* Save pointer to this token in a variable if requested */
-				if (RemainingTokens & 1)
-					*CurVar++ = In;
-				/* Find end of token */
-				In += _tcscspn(In, Delims);
-				/* Nul-terminate it and advance to next token */
-				if (*In)
-				{
-					*In++ = _T('\0');
-					In += _tcsspn(In, Delims);
-				}
-			}
-			/* Save pointer to remainder of line */
-			*CurVar = In;
-
-			/* Don't run unless the line had enough tokens to fill at least one variable */
-			if (*Variables[0])
-				Ret = RunInstance(Cmd);
-		} while (!Exiting(Cmd) && (In = NextLine) != NULL);
-		cmd_free(FullInput);
-	}
-
-	return Ret;
-}
-
-/* FOR /L: Do a numeric loop */
-static INT ForLoop(PARSED_COMMAND *Cmd, LPTSTR List, TCHAR *Buffer)
-{
-	enum { START, STEP, END };
-	INT params[3] = { 0, 0, 0 };
-	INT i;
-	INT Ret = 0;
-
-	TCHAR *Start, *End = List;
-	for (i = 0; i < 3 && GetNextElement(&Start, &End); i++)
-		params[i] = _tcstol(Start, NULL, 0);
-
-	i = params[START];
-	while (!Exiting(Cmd) &&
-	       (params[STEP] >= 0 ? (i <= params[END]) : (i >= params[END])))
-	{
-		_itot(i, Buffer, 10);
-		Ret = RunInstance(Cmd);
-		i += params[STEP];
-	}
-	return Ret;
-}
-
-/* Process a FOR in one directory. Stored in Buffer (up to BufPos) is a
- * string which is prefixed to each element of the list. In a normal FOR
- * it will be empty, but in FOR /R it will be the directory name. */
-static INT ForDir(PARSED_COMMAND *Cmd, LPTSTR List, TCHAR *Buffer, TCHAR *BufPos)
-{
-	TCHAR *Start, *End = List;
-	INT Ret = 0;
-	while (!Exiting(Cmd) && GetNextElement(&Start, &End))
-	{
-		if (BufPos + (End - Start) > &Buffer[CMDLINE_LENGTH])
-			continue;
-		memcpy(BufPos, Start, (End - Start) * sizeof(TCHAR));
-		BufPos[End - Start] = _T('\0');
-
-		if (_tcschr(BufPos, _T('?')) || _tcschr(BufPos, _T('*')))
-		{
-			WIN32_FIND_DATA w32fd;
-			HANDLE hFind;
-			TCHAR *FilePart;
-
-			StripQuotes(BufPos);
-			hFind = FindFirstFile(Buffer, &w32fd);
-			if (hFind == INVALID_HANDLE_VALUE)
-				continue;
-			FilePart = _tcsrchr(BufPos, _T('\\'));
-			FilePart = FilePart ? FilePart + 1 : BufPos;
-			do
-			{
-				if (w32fd.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN)
-					continue;
-				if (!(w32fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-				    != !(Cmd->For.Switches & FOR_DIRS))
-					continue;
-				if (_tcscmp(w32fd.cFileName, _T(".")) == 0 ||
-				    _tcscmp(w32fd.cFileName, _T("..")) == 0)
-					continue;
-				_tcscpy(FilePart, w32fd.cFileName);
-				Ret = RunInstance(Cmd);
-			} while (!Exiting(Cmd) && FindNextFile(hFind, &w32fd));
-			FindClose(hFind);
-		}
-		else
-		{
-			Ret = RunInstance(Cmd);
-		}
-	}
-	return Ret;
-}
-
-/* FOR /R: Process a FOR in each directory of a tree, recursively. */
-static INT ForRecursive(PARSED_COMMAND *Cmd, LPTSTR List, TCHAR *Buffer, TCHAR *BufPos)
-{
-	HANDLE hFind;
-	WIN32_FIND_DATA w32fd;
-	INT Ret = 0;
-
-	if (BufPos[-1] != _T('\\'))
-	{
-		*BufPos++ = _T('\\');
-		*BufPos = _T('\0');
-	}
-
-	Ret = ForDir(Cmd, List, Buffer, BufPos);
-
-	_tcscpy(BufPos, _T("*"));
-	hFind = FindFirstFile(Buffer, &w32fd);
-	if (hFind == INVALID_HANDLE_VALUE)
-		return Ret;
-	do
-	{
-		if (!(w32fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-			continue;
-		if (_tcscmp(w32fd.cFileName, _T(".")) == 0 ||
-		    _tcscmp(w32fd.cFileName, _T("..")) == 0)
-			continue;
-		Ret = ForRecursive(Cmd, List, Buffer, _stpcpy(BufPos, w32fd.cFileName));
-	} while (!Exiting(Cmd) && FindNextFile(hFind, &w32fd));
-	FindClose(hFind);
-	return Ret;
-}
-
-BOOL
-ExecuteFor(PARSED_COMMAND *Cmd)
-{
-	TCHAR Buffer[CMDLINE_LENGTH]; /* Buffer to hold the variable value */
-	LPTSTR BufferPtr = Buffer;
-	LPFOR_CONTEXT lpNew;
-	INT Ret;
-	LPTSTR List = DoDelayedExpansion(Cmd->For.List);
-
-	if (!List)
-		return 1;
-
-	/* Create our FOR context */
-	lpNew = cmd_alloc(sizeof(FOR_CONTEXT));
-	if (!lpNew)
-	{
-		cmd_free(List);
+		LoadString( CMD_ModuleHandle, STRING_FOR_ERROR, szMsg, RC_STRING_MAX_SIZE);
+		error_syntax (szMsg);
 		return 1;
 	}
-	lpNew->prev = fc;
-	lpNew->firstvar = Cmd->For.Variable;
-	lpNew->varcount = 1;
-	lpNew->values = &BufferPtr;
 
-	Cmd->For.Context = lpNew;
-	fc = lpNew;
+	param++;
+	var = *param++;               /* Save FOR var name */
 
-	if (Cmd->For.Switches & FOR_F)
+	while (_istspace (*param))
+		param++;
+
+	/* Check next element is 'IN' */
+	if ((_tcsnicmp (param, _T("in"), 2) != 0) || !_istspace (*(param + 2)))
 	{
-		Ret = ForF(Cmd, List, Buffer);
+		LoadString(CMD_ModuleHandle, STRING_FOR_ERROR1, szMsg, RC_STRING_MAX_SIZE);
+		error_syntax(szMsg);
+		return 1;
 	}
-	else if (Cmd->For.Switches & FOR_LOOP)
+
+	param += 2;
+	while (_istspace (*param))
+		param++;
+
+	/* Folowed by a '(', find also matching ')' */
+	if ((*param != _T('(')) || (NULL == (pp = _tcsrchr (param, _T(')')))))
 	{
-		Ret = ForLoop(Cmd, List, Buffer);
+		LoadString(CMD_ModuleHandle, STRING_FOR_ERROR2, szMsg, RC_STRING_MAX_SIZE);
+		error_syntax(szMsg);
+		return 1;
 	}
-	else if (Cmd->For.Switches & FOR_RECURSIVE)
+
+	*pp++ = _T('\0');
+	param++;		/* param now points at null terminated list */
+
+	while (_istspace (*pp))
+		pp++;
+
+	/* Check DO follows */
+	if ((_tcsnicmp (pp, _T("do"), 2) != 0) || !_istspace (*(pp + 2)))
 	{
-		DWORD Len = GetFullPathName(Cmd->For.Params ? Cmd->For.Params : _T("."),
-		                            MAX_PATH, Buffer, NULL);
-		Ret = ForRecursive(Cmd, List, Buffer, &Buffer[Len]);
+		LoadString(CMD_ModuleHandle, STRING_FOR_ERROR3, szMsg, RC_STRING_MAX_SIZE);
+		error_syntax(szMsg);
+		return 1;
 	}
+
+	pp += 2;
+	while (_istspace (*pp))
+		pp++;
+
+	/* Check that command tail is not empty */
+	if (*pp == _T('\0'))
+	{
+		LoadString(CMD_ModuleHandle, STRING_FOR_ERROR4, szMsg, RC_STRING_MAX_SIZE);
+		error_syntax(szMsg);
+		return 1;
+	}
+
+	/* OK all is correct, build a bcontext.... */
+	lpNew = (LPBATCH_CONTEXT)cmd_alloc (sizeof (BATCH_CONTEXT));
+
+	lpNew->prev = bc;
+	bc = lpNew;
+
+	bc->hBatchFile = INVALID_HANDLE_VALUE;
+	bc->ffind = NULL;
+	bc->raw_params = NULL;
+	bc->params = BatchParams (_T(""), param); /* Split out list */
+	bc->shiftlevel = 0;
+	bc->forvar = var;
+	bc->forproto = cmd_dup (pp);
+	if (bc->prev)
+		bc->bEcho = bc->prev->bEcho;
 	else
-	{
-		Ret = ForDir(Cmd, List, Buffer, Buffer);
-	}
+		bc->bEcho = bEcho;
+	bc->RedirList = NULL;
 
-	/* Remove our context, unless someone already did that */
-	if (fc == lpNew)
-		fc = lpNew->prev;
 
-	cmd_free(lpNew);
-	cmd_free(List);
-	return Ret;
+	return 0;
 }
 
 /* EOF */

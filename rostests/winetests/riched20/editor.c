@@ -445,7 +445,7 @@ static int get_scroll_pos_y(HWND hwnd)
   return p.y;
 }
 
-static void move_cursor(HWND hwnd, LONG charindex)
+static void move_cursor(HWND hwnd, long charindex)
 {
   CHARRANGE cr;
   cr.cpMax = charindex;
@@ -1420,46 +1420,6 @@ static void test_EM_GETTEXTRANGE(void)
     ok(result == 7, "EM_GETTEXTRANGE returned %ld\n", result);
     ok(!strcmp(expect, buffer), "EM_GETTEXTRANGE filled %s\n", buffer);
 
-    /* cpMax of text length is used instead of -1 in this case */
-    textRange.lpstrText = buffer;
-    textRange.chrg.cpMin = 0;
-    textRange.chrg.cpMax = -1;
-    result = SendMessage(hwndRichEdit, EM_GETTEXTRANGE, 0, (LPARAM)&textRange);
-    ok(result == strlen(text2), "EM_GETTEXTRANGE returned %ld\n", result);
-    ok(!strcmp(text2, buffer), "EM_GETTEXTRANGE filled %s\n", buffer);
-
-    /* cpMin < 0 causes no text to be copied, and 0 to be returned */
-    textRange.lpstrText = buffer;
-    textRange.chrg.cpMin = -1;
-    textRange.chrg.cpMax = 1;
-    result = SendMessage(hwndRichEdit, EM_GETTEXTRANGE, 0, (LPARAM)&textRange);
-    ok(result == 0, "EM_GETTEXTRANGE returned %ld\n", result);
-    ok(!strcmp(text2, buffer), "EM_GETTEXTRANGE filled %s\n", buffer);
-
-    /* cpMax of -1 is not replaced with text length if cpMin != 0 */
-    textRange.lpstrText = buffer;
-    textRange.chrg.cpMin = 1;
-    textRange.chrg.cpMax = -1;
-    result = SendMessage(hwndRichEdit, EM_GETTEXTRANGE, 0, (LPARAM)&textRange);
-    ok(result == 0, "EM_GETTEXTRANGE returned %ld\n", result);
-    ok(!strcmp(text2, buffer), "EM_GETTEXTRANGE filled %s\n", buffer);
-
-    /* no end character is copied if cpMax - cpMin < 0 */
-    textRange.lpstrText = buffer;
-    textRange.chrg.cpMin = 5;
-    textRange.chrg.cpMax = 5;
-    result = SendMessage(hwndRichEdit, EM_GETTEXTRANGE, 0, (LPARAM)&textRange);
-    ok(result == 0, "EM_GETTEXTRANGE returned %ld\n", result);
-    ok(!strcmp(text2, buffer), "EM_GETTEXTRANGE filled %s\n", buffer);
-
-    /* cpMax of text length is used if cpMax > text length*/
-    textRange.lpstrText = buffer;
-    textRange.chrg.cpMin = 0;
-    textRange.chrg.cpMax = 1000;
-    result = SendMessage(hwndRichEdit, EM_GETTEXTRANGE, 0, (LPARAM)&textRange);
-    ok(result == strlen(text2), "EM_GETTEXTRANGE returned %ld\n", result);
-    ok(!strcmp(text2, buffer), "EM_GETTEXTRANGE filled %s\n", buffer);
-
     DestroyWindow(hwndRichEdit);
 }
 
@@ -1511,7 +1471,7 @@ static void test_EM_SETOPTIONS(void)
     DestroyWindow(hwndRichEdit);
 
     hwndRichEdit = CreateWindow(RICHEDIT_CLASS, NULL,
-                                WS_POPUP|WS_HSCROLL|WS_VSCROLL|WS_VISIBLE,
+                                WS_POPUP|WS_HSCROLL|WS_VSCROLL,
                                 0, 0, 200, 60, NULL, NULL,
                                 hmoduleRichEdit, NULL);
     ok(hwndRichEdit != NULL, "class: %s, error: %d\n",
@@ -3265,7 +3225,7 @@ static DWORD CALLBACK test_WM_SETTEXT_esCallback(DWORD_PTR dwCookie,
   return 0;
 }
 
-static void test_WM_SETTEXT(void)
+static void test_WM_SETTEXT()
 {
   HWND hwndRichEdit = new_richedit(NULL);
   const char * TestItem1 = "TestSomeText";
@@ -3322,7 +3282,7 @@ static void test_WM_SETTEXT(void)
   memset(buf, 0, sizeof(buf));
   SendMessage(hwndRichEdit, EM_STREAMOUT,
               (WPARAM)(SF_RTF), (LPARAM)&es);
-  trace("EM_STREAMOUT produced:\n%s\n", buf);
+  trace("EM_STREAMOUT produced: \n%s\n", buf);
   TEST_SETTEXT(buf, TestItem1)
 
 #undef TEST_SETTEXT
@@ -3383,66 +3343,9 @@ static void test_EM_STREAMOUT(void)
   DestroyWindow(hwndRichEdit);
 }
 
-static void test_EM_STREAMOUT_FONTTBL(void)
-{
-  HWND hwndRichEdit = new_richedit(NULL);
-  EDITSTREAM es;
-  char buf[1024] = {0};
-  char * p;
-  char * fontTbl;
-  int brackCount;
-
-  const char * TestItem = "TestSomeText";
-
-  /* fills in the richedit control with some text */
-  SendMessage(hwndRichEdit, WM_SETTEXT, 0, (LPARAM) TestItem);
-
-  /* streams out the text in rtf format */
-  p = buf;
-  es.dwCookie = (DWORD_PTR)&p;
-  es.dwError = 0;
-  es.pfnCallback = test_WM_SETTEXT_esCallback;
-  memset(buf, 0, sizeof(buf));
-  SendMessage(hwndRichEdit, EM_STREAMOUT,
-              (WPARAM)(SF_RTF), (LPARAM)&es);
-
-  /* scans for \fonttbl, error if not found */
-  fontTbl = strstr(buf, "\\fonttbl");
-  ok(fontTbl != NULL, "missing \\fonttbl section\n");
-  if(fontTbl)
-  {
-      /* scans for terminating closing bracket */
-      brackCount = 1;
-      while(*fontTbl && brackCount)
-      {
-          if(*fontTbl == '{')
-              brackCount++;
-          else if(*fontTbl == '}')
-              brackCount--;
-          fontTbl++;
-      }
-    /* checks whether closing bracket is ok */
-      ok(brackCount == 0, "missing closing bracket in \\fonttbl block\n");
-      if(!brackCount)
-      {
-          /* char before closing fonttbl block should be a closed bracket */
-          fontTbl -= 2;
-          ok(*fontTbl == '}', "spurious character '%02x' before \\fonttbl closing bracket\n", *fontTbl);
-
-          /* char after fonttbl block should be a crlf */
-          fontTbl += 2;
-          ok(*fontTbl == 0x0d && *(fontTbl+1) == 0x0a, "missing crlf after \\fonttbl block\n");
-      }
-  }
-  DestroyWindow(hwndRichEdit);
-}
-
-
 static void test_EM_SETTEXTEX(void)
 {
-  HWND hwndRichEdit, parent;
-  SCROLLINFO si;
-  int sel_start, sel_end;
+  HWND hwndRichEdit = new_richedit(NULL);
   SETTEXTEX setText;
   GETTEXTEX getText;
   WCHAR TestItem1[] = {'T', 'e', 's', 't', 
@@ -3489,76 +3392,6 @@ static void test_EM_SETTEXTEX(void)
   int result;
   CHARRANGE cr;
   EDITSTREAM es;
-  WNDCLASSA cls;
-
-  /* Test the scroll position with and without a parent window.
-   *
-   * For some reason the scroll position is 0 after EM_SETTEXTEX
-   * with the ST_SELECTION flag only when the control has a parent
-   * window, even though the selection is at the end. */
-  cls.style = 0;
-  cls.lpfnWndProc = DefWindowProcA;
-  cls.cbClsExtra = 0;
-  cls.cbWndExtra = 0;
-  cls.hInstance = GetModuleHandleA(0);
-  cls.hIcon = 0;
-  cls.hCursor = LoadCursorA(0, IDC_ARROW);
-  cls.hbrBackground = GetStockObject(WHITE_BRUSH);
-  cls.lpszMenuName = NULL;
-  cls.lpszClassName = "ParentTestClass";
-  if(!RegisterClassA(&cls)) assert(0);
-
-  parent = CreateWindow(cls.lpszClassName, NULL, WS_POPUP|WS_VISIBLE,
-                        0, 0, 200, 60, NULL, NULL, NULL, NULL);
-  ok (parent != 0, "Failed to create parent window\n");
-
-  hwndRichEdit = CreateWindowEx(0,
-                        RICHEDIT_CLASS, NULL,
-                        ES_MULTILINE|WS_VSCROLL|WS_VISIBLE|WS_CHILD,
-                        0, 0, 200, 60, parent, NULL,
-                        hmoduleRichEdit, NULL);
-
-  setText.codepage = CP_ACP;
-  setText.flags = ST_SELECTION;
-  SendMessage(hwndRichEdit, EM_SETTEXTEX, (WPARAM)&setText,
-              (LPARAM)"{\\rtf 1\\par 2\\par 3\\par 4\\par 5\\par 6\\par 7\\par 8\\par 9\\par}");
-  si.cbSize = sizeof(si);
-  si.fMask = SIF_ALL;
-  GetScrollInfo(hwndRichEdit, SB_VERT, &si);
-  todo_wine ok(si.nPos == 0, "Position is incorrectly at %d\n", si.nPos);
-  SendMessage(hwndRichEdit, EM_GETSEL, (WPARAM)&sel_start, (LPARAM)&sel_end);
-  ok(sel_start == 18, "Selection start incorrectly at %d\n", sel_start);
-  ok(sel_end == 18, "Selection end incorrectly at %d\n", sel_end);
-
-  DestroyWindow(parent);
-
-  /* Test without a parent window */
-  hwndRichEdit = new_richedit(NULL);
-  setText.codepage = CP_ACP;
-  setText.flags = ST_SELECTION;
-  SendMessage(hwndRichEdit, EM_SETTEXTEX, (WPARAM)&setText,
-              (LPARAM)"{\\rtf 1\\par 2\\par 3\\par 4\\par 5\\par 6\\par 7\\par 8\\par 9\\par}");
-  si.cbSize = sizeof(si);
-  si.fMask = SIF_ALL;
-  GetScrollInfo(hwndRichEdit, SB_VERT, &si);
-  ok(si.nPos != 0, "Position is incorrectly at %d\n", si.nPos);
-  SendMessage(hwndRichEdit, EM_GETSEL, (WPARAM)&sel_start, (LPARAM)&sel_end);
-  ok(sel_start == 18, "Selection start incorrectly at %d\n", sel_start);
-  ok(sel_end == 18, "Selection end incorrectly at %d\n", sel_end);
-
-  /* The scroll position should also be 0 after EM_SETTEXTEX with ST_DEFAULT,
-   * but this time it is because the selection is at the beginning. */
-  setText.codepage = CP_ACP;
-  setText.flags = ST_DEFAULT;
-  SendMessage(hwndRichEdit, EM_SETTEXTEX, (WPARAM)&setText,
-              (LPARAM)"{\\rtf 1\\par 2\\par 3\\par 4\\par 5\\par 6\\par 7\\par 8\\par 9\\par}");
-  si.cbSize = sizeof(si);
-  si.fMask = SIF_ALL;
-  GetScrollInfo(hwndRichEdit, SB_VERT, &si);
-  ok(si.nPos == 0, "Position is incorrectly at %d\n", si.nPos);
-  SendMessage(hwndRichEdit, EM_GETSEL, (WPARAM)&sel_start, (LPARAM)&sel_end);
-  ok(sel_start == 0, "Selection start incorrectly at %d\n", sel_start);
-  ok(sel_end == 0, "Selection end incorrectly at %d\n", sel_end);
 
   setText.codepage = 1200;  /* no constant for unicode */
   getText.codepage = 1200;  /* no constant for unicode */
@@ -3713,7 +3546,7 @@ static void test_EM_SETTEXTEX(void)
   memset(buf, 0, sizeof(buf));
   SendMessage(hwndRichEdit, EM_STREAMOUT,
               (WPARAM)(SF_RTF), (LPARAM)&es);
-  trace("EM_STREAMOUT produced:\n%s\n", (char *)buf);
+  trace("EM_STREAMOUT produced: \n%s\n", (char *)buf);
 
   /* !ST_SELECTION && !Unicode && \rtf */
   setText.codepage = CP_ACP;/* EM_STREAMOUT saved as ANSI string */
@@ -3729,22 +3562,6 @@ static void test_EM_SETTEXTEX(void)
   ok(lstrcmpW(buf, TestItem1) == 0,
       "EM_GETTEXTEX results not what was set by EM_SETTEXTEX\n");
 
-  /* The following test demonstrates that EM_SETTEXTEX treats text as ASCII if it
-   * starts with ASCII characters "{\rtf" even when the codepage is unicode. */
-  setText.codepage = 1200; /* Lie about code page (actual ASCII) */
-  getText.codepage = CP_ACP;
-  getText.cb = MAX_BUF_LEN;
-  getText.flags = GT_DEFAULT;
-  getText.lpDefaultChar = NULL;
-  getText.lpUsedDefChar = NULL;
-
-  setText.flags = ST_SELECTION;
-  SendMessage(hwndRichEdit, EM_SETSEL, 0, -1);
-  result = SendMessage(hwndRichEdit, EM_SETTEXTEX, (WPARAM)&setText, (LPARAM) "{\\rtf not unicode}");
-  todo_wine ok(result == 11, "EM_SETTEXTEX incorrectly returned %d\n", result);
-  SendMessage(hwndRichEdit, EM_GETTEXTEX, (WPARAM)&getText, (LPARAM) bufACP);
-  ok(lstrcmpA(bufACP, "not unicode") == 0, "'%s' != 'not unicode'\n", bufACP);
-
   /* The following test demonstrates that EM_SETTEXTEX supports RTF strings with a selection */
   SendMessage(hwndRichEdit, WM_SETTEXT, 0, (LPARAM) "TestSomeText"); /* TestItem1 */
   p = (char *)buf;
@@ -3754,7 +3571,7 @@ static void test_EM_SETTEXTEX(void)
   memset(buf, 0, sizeof(buf));
   SendMessage(hwndRichEdit, EM_STREAMOUT,
               (WPARAM)(SF_RTF), (LPARAM)&es);
-  trace("EM_STREAMOUT produced:\n%s\n", (char *)buf);
+  trace("EM_STREAMOUT produced: \n%s\n", (char *)buf);
 
   /* select some text */
   cr.cpMax = 1;
@@ -4266,36 +4083,37 @@ static void test_EM_GETMODIFY(void)
 }
 
 struct exsetsel_s {
-  LONG min;
-  LONG max;
-  LRESULT expected_retval;
+  long min;
+  long max;
+  long expected_retval;
   int expected_getsel_start;
   int expected_getsel_end;
+  int _exsetsel_todo_wine;
   int _getsel_todo_wine;
 };
 
 const struct exsetsel_s exsetsel_tests[] = {
   /* sanity tests */
-  {5, 10, 10, 5, 10, 0},
-  {15, 17, 17, 15, 17, 0},
+  {5, 10, 10, 5, 10, 0, 0},
+  {15, 17, 17, 15, 17, 0, 0},
   /* test cpMax > strlen() */
-  {0, 100, 18, 0, 18, 1},
+  {0, 100, 18, 0, 18, 0, 1},
   /* test cpMin == cpMax */
-  {5, 5, 5, 5, 5, 0},
+  {5, 5, 5, 5, 5, 0, 0},
   /* test cpMin < 0 && cpMax >= 0 (bug 4462) */
-  {-1, 0, 5, 5, 5, 0},
-  {-1, 17, 5, 5, 5, 0},
-  {-1, 18, 5, 5, 5, 0},
+  {-1, 0, 5, 5, 5, 0, 0},
+  {-1, 17, 5, 5, 5, 0, 0},
+  {-1, 18, 5, 5, 5, 0, 0},
   /* test cpMin < 0 && cpMax < 0 */
-  {-1, -1, 17, 17, 17, 0},
-  {-4, -5, 17, 17, 17, 0},
+  {-1, -1, 17, 17, 17, 0, 0},
+  {-4, -5, 17, 17, 17, 0, 0},
   /* test cMin >=0 && cpMax < 0 (bug 6814) */
-  {0, -1, 18, 0, 18, 1},
-  {17, -5, 18, 17, 18, 1},
-  {18, -3, 17, 17, 17, 0},
+  {0, -1, 18, 0, 18, 0, 1},
+  {17, -5, 18, 17, 18, 0, 1},
+  {18, -3, 17, 17, 17, 0, 0},
   /* test if cpMin > cpMax */
-  {15, 19, 18, 15, 18, 1},
-  {19, 15, 18, 15, 18, 1}
+  {15, 19, 18, 15, 18, 0, 1},
+  {19, 15, 18, 15, 18, 0, 1}
 };
 
 static void check_EM_EXSETSEL(HWND hwnd, const struct exsetsel_s *setsel, int id) {
@@ -4307,7 +4125,13 @@ static void check_EM_EXSETSEL(HWND hwnd, const struct exsetsel_s *setsel, int id
     cr.cpMax = setsel->max;
     result = SendMessage(hwnd, EM_EXSETSEL, 0, (LPARAM) &cr);
 
-    ok(result == setsel->expected_retval, "EM_EXSETSEL(%d): expected: %ld actual: %ld\n", id, setsel->expected_retval, result);
+    if (setsel->_exsetsel_todo_wine) {
+        todo_wine {
+            ok(result == setsel->expected_retval, "EM_EXSETSEL(%d): expected: %ld actual: %ld\n", id, setsel->expected_retval, result);
+        }
+    } else {
+        ok(result == setsel->expected_retval, "EM_EXSETSEL(%d): expected: %ld actual: %ld\n", id, setsel->expected_retval, result);
+    }
 
     SendMessage(hwnd, EM_GETSEL, (WPARAM) &start, (LPARAM) &end);
 
@@ -4794,95 +4618,46 @@ static void test_WM_PASTE(void)
 
 static void test_EM_FORMATRANGE(void)
 {
-  int i, tpp_x, tpp_y;
+  int r;
+  FORMATRANGE fr;
   HDC hdc;
   HWND hwndRichEdit = new_richedit(NULL);
-  static const struct {
-    const char *string; /* The string */
-    int first;          /* First 'pagebreak', 0 for don't care */
-    int second;         /* Second 'pagebreak', 0 for don't care */
-  } fmtstrings[] = {
-    {"WINE wine", 0, 0},
-    {"WINE wineWine", 0, 0},
-    {"WINE\r\nwine\r\nwine", 5, 10},
-    {"WINE\r\nWINEwine\r\nWINEwine", 5, 14},
-    {"WINE\r\n\r\nwine\r\nwine", 5, 6}
-  };
+
+  SendMessage(hwndRichEdit, WM_SETTEXT, 0, (LPARAM) haystack);
 
   hdc = GetDC(hwndRichEdit);
   ok(hdc != NULL, "Could not get HDC\n");
 
-  /* Calculate the twips per pixel */
-  tpp_x = 1440 / GetDeviceCaps(hdc, LOGPIXELSX);
-  tpp_y = 1440 / GetDeviceCaps(hdc, LOGPIXELSY);
+  fr.hdc = fr.hdcTarget = hdc;
+  fr.rc.top = fr.rcPage.top = fr.rc.left = fr.rcPage.left = 0;
+  fr.rc.right = fr.rcPage.right = GetDeviceCaps(hdc, HORZRES);
+  fr.rc.bottom = fr.rcPage.bottom = GetDeviceCaps(hdc, VERTRES);
+  fr.chrg.cpMin = 0;
+  fr.chrg.cpMax = 20;
 
-  SendMessage(hwndRichEdit, EM_FORMATRANGE, FALSE, 0);
-
-  for (i = 0; i < sizeof(fmtstrings)/sizeof(fmtstrings[0]); i++)
-  {
-    FORMATRANGE fr;
-    GETTEXTLENGTHEX gtl;
-    SIZE stringsize;
-    int r, len;
-
-    SendMessage(hwndRichEdit, WM_SETTEXT, 0, (LPARAM) fmtstrings[i].string);
-
-    gtl.flags = GTL_NUMCHARS | GTL_PRECISE;
-    gtl.codepage = CP_ACP;
-    len = SendMessageA(hwndRichEdit, EM_GETTEXTLENGTHEX, (WPARAM)&gtl, 0);
-
-    /* Get some size information for the string */
-    GetTextExtentPoint32(hdc, fmtstrings[i].string, strlen(fmtstrings[i].string), &stringsize);
-
-    /* Define the box to be half the width needed and a bit larger than the height.
-     * Changes to the width means we have at least 2 pages. Changes to the height
-     * is done so we can check the changing of fr.rc.bottom.
-     */
-    fr.hdc = fr.hdcTarget = hdc;
-    fr.rc.top = fr.rcPage.top = fr.rc.left = fr.rcPage.left = 0;
-    fr.rc.right = fr.rcPage.right = (stringsize.cx / 2) * tpp_x;
-    fr.rc.bottom = fr.rcPage.bottom = (stringsize.cy + 10) * tpp_y;
-
-    r = SendMessage(hwndRichEdit, EM_FORMATRANGE, TRUE, 0);
-    todo_wine {
-    ok(r == len, "Expected %d, got %d\n", len, r);
-    }
-
-    /* We know that the page can't hold the full string. See how many characters
-     * are on the first one
-     */
-    fr.chrg.cpMin = 0;
-    fr.chrg.cpMax = -1;
-    r = SendMessage(hwndRichEdit, EM_FORMATRANGE, TRUE, (LPARAM) &fr);
-    todo_wine {
-    ok(fr.rc.bottom == (stringsize.cy * tpp_y), "Expected bottom to be %d, got %d\n", (stringsize.cy * tpp_y), fr.rc.bottom);
-    }
-    if (fmtstrings[i].first)
-      todo_wine {
-      ok(r == fmtstrings[i].first, "Expected %d, got %d\n", fmtstrings[i].first, r);
-      }
-    else
-      ok(r < len, "Expected < %d, got %d\n", len, r);
-
-    /* Do another page */
-    fr.chrg.cpMin = r;
-    r = SendMessage(hwndRichEdit, EM_FORMATRANGE, TRUE, (LPARAM) &fr);
-    if (fmtstrings[i].second)
-      todo_wine {
-      ok(r == fmtstrings[i].second, "Expected %d, got %d\n", fmtstrings[i].second, r);
-      }
-    else
-      ok (r < len, "Expected < %d, got %d\n", len, r);
-
-    /* There is at least on more page, but we don't care */
-
-    r = SendMessage(hwndRichEdit, EM_FORMATRANGE, TRUE, 0);
-    todo_wine {
-    ok(r == len, "Expected %d, got %d\n", len, r);
-    }
+  r = SendMessage(hwndRichEdit, EM_FORMATRANGE, TRUE, 0);
+  todo_wine {
+    ok(r == 31, "EM_FORMATRANGE expect %d, got %d\n", 31, r);
   }
 
-  ReleaseDC(NULL, hdc);
+  r = SendMessage(hwndRichEdit, EM_FORMATRANGE, TRUE, (LPARAM) &fr);
+  todo_wine {
+    ok(r == 20 || r == 9, "EM_FORMATRANGE expect 20 or 9, got %d\n", r);
+  }
+
+  fr.chrg.cpMin = 0;
+  fr.chrg.cpMax = 10;
+
+  r = SendMessage(hwndRichEdit, EM_FORMATRANGE, TRUE, (LPARAM) &fr);
+  todo_wine {
+    ok(r == 10, "EM_FORMATRANGE expect %d, got %d\n", 10, r);
+  }
+
+  r = SendMessage(hwndRichEdit, EM_FORMATRANGE, TRUE, 0);
+  todo_wine {
+    ok(r == 31, "EM_FORMATRANGE expect %d, got %d\n", 31, r);
+  }
+
   DestroyWindow(hwndRichEdit);
 }
 
@@ -5550,7 +5325,7 @@ static void test_eventMask(void)
     cls.cbWndExtra = 0;
     cls.hInstance = GetModuleHandleA(0);
     cls.hIcon = 0;
-    cls.hCursor = LoadCursorA(0, IDC_ARROW);
+    cls.hCursor = LoadCursorA(0, (LPSTR)IDC_ARROW);
     cls.hbrBackground = GetStockObject(WHITE_BRUSH);
     cls.lpszMenuName = NULL;
     cls.lpszClassName = "EventMaskParentClass";
@@ -5640,7 +5415,7 @@ static void test_WM_NOTIFY(void)
     cls.cbWndExtra = 0;
     cls.hInstance = GetModuleHandleA(0);
     cls.hIcon = 0;
-    cls.hCursor = LoadCursorA(0, IDC_ARROW);
+    cls.hCursor = LoadCursorA(0, (LPSTR)IDC_ARROW);
     cls.hbrBackground = GetStockObject(WHITE_BRUSH);
     cls.lpszMenuName = NULL;
     cls.lpszClassName = "WM_NOTIFY_ParentClass";
@@ -6076,12 +5851,12 @@ static void test_word_wrap(void)
 
     /* Test the effect of EM_SETTARGETDEVICE on word wrap. */
     res = SendMessage(hwnd, EM_SETTARGETDEVICE, 0, 1);
-    ok(res, "EM_SETTARGETDEVICE failed (returned %d).\n", res);
+    todo_wine ok(res, "EM_SETTARGETDEVICE failed (returned %d).\n", res);
     pos = SendMessage(hwnd, EM_CHARFROMPOS, 0, (LPARAM) &point);
     ok(!pos, "pos=%d indicating word wrap when none is expected.\n", pos);
 
     res = SendMessage(hwnd, EM_SETTARGETDEVICE, 0, 0);
-    ok(res, "EM_SETTARGETDEVICE failed (returned %d).\n", res);
+    todo_wine ok(res, "EM_SETTARGETDEVICE failed (returned %d).\n", res);
     pos = SendMessage(hwnd, EM_CHARFROMPOS, 0, (LPARAM) &point);
     ok(pos, "pos=%d indicating no word wrap when it is expected.\n", pos);
     DestroyWindow(hwnd);
@@ -6686,7 +6461,6 @@ START_TEST( editor )
   test_WM_PASTE();
   test_EM_STREAMIN();
   test_EM_STREAMOUT();
-  test_EM_STREAMOUT_FONTTBL();
   test_EM_StreamIn_Undo();
   test_EM_FORMATRANGE();
   test_unicode_conversions();

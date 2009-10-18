@@ -1353,7 +1353,7 @@ MUI_ERROR csCZErrorEntries[] =
           "\n"
           "Vytv ýen¡ nebo odstraåov n¡ odd¡l… m…§e tuto tabulku odd¡l… zniŸit.\n"
           "\n"
-          "  \x07  Stisknut¡m F3 ukonŸ¡te instalaci.\n"
+          "  \x07  Stisknut¡m F3 ukonŸ¡te instalaci."
           "  \x07  Stisknut¡m ENTER budete pokraŸovat v instalaci.",
           "F3= UkonŸit  ENTER = PokraŸovat"
     },
@@ -1479,11 +1479,6 @@ MUI_ERROR csCZErrorEntries[] =
         //ERROR_ADDING_KBLAYOUTS,
         "Nepodaýilo se pýidat rozlo§en¡ kl vesnice do registru.\n"
         "ENTER = Restartovat poŸ¡taŸ"
-    },
-    {
-        //ERROR_UPDATE_GEOID,
-        "Setup could not set the geo id.\n"
-        "ENTER = Reboot computer"
     },
     {
         NULL,

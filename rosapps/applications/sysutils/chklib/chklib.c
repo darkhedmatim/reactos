@@ -117,7 +117,7 @@ DisplayEntryPoint(
 		return;
 	}
 	printf(
-		"0x%p  %s\n",
+		"%08X  %s\n",
 		EntryPoint,
 		SymbolName
 		);

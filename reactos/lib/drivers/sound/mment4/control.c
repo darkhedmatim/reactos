@@ -8,13 +8,10 @@
  * PROGRAMMERS: Andrew Greenwood (silverblade@reactos.org)
 */
 
-#define NDEBUG
-
 #include <windows.h>
 #include <mmsystem.h>
 #include <mmddk.h>
 #include <ntddsnd.h>
-#include <sndtypes.h>
 #include <mmebuddy.h>
 #include <mment4.h>
 
@@ -200,7 +197,6 @@ QueryNt4WaveDeviceFormatSupport(
 MMRESULT
 SetNt4WaveDeviceFormat(
     IN  PSOUND_DEVICE_INSTANCE SoundDeviceInstance,
-    IN  DWORD DeviceId,
     IN  LPWAVEFORMATEX Format,
     IN  DWORD FormatSize)
 {
@@ -232,17 +228,3 @@ SetNt4WaveDeviceFormat(
     return MMSYSERR_NOERROR;
 }
 
-#if 0
-MMRESULT
-SubmitNt4WaveHeader(
-    IN  PSOUND_DEVICE_INSTANCE SoundDeviceInstance,
-    IN  PWAVEHDR WaveHeader)
-{
-    VALIDATE_MMSYS_PARAMETER( SoundDeviceInstance );
-    VALIDATE_MMSYS_PARAMETER( WaveHeader );
-
-    SND_TRACE(L"Submitting wave header %p (in sound thread)\n", WaveHeader);
-
-    /* TODO: This should only submit the header to the device, nothing more! */
-}
-#endif

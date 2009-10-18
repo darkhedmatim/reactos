@@ -12,7 +12,6 @@
 #include <mmsystem.h>
 #include <mmddk.h>
 #include <ntddsnd.h>
-#include <sndtypes.h>
 #include <mmebuddy.h>
 
 /*
@@ -28,7 +27,6 @@
 MMRESULT
 GetSoundDeviceCapabilities(
     IN  PSOUND_DEVICE SoundDevice,
-    IN  DWORD DeviceId,
     OUT PVOID Capabilities,
     IN  DWORD CapabilitiesSize)
 {
@@ -55,8 +53,6 @@ GetSoundDeviceCapabilities(
     if ( ! MMSUCCESS(Result) )
         return TranslateInternalMmResult(Result);
 
-    SND_ASSERT( IS_VALID_SOUND_DEVICE_TYPE(DeviceType) );
-
     /* Check that the capabilities structure is of a valid size */
     switch ( DeviceType )
     {
@@ -80,15 +76,10 @@ GetSoundDeviceCapabilities(
             GoodSize = CapabilitiesSize >= sizeof(MIDIINCAPS);
             break;
         }
-        case AUX_DEVICE_TYPE :
+        /* TODO: Others... */
+        default :
         {
-            GoodSize = CapabilitiesSize >= sizeof(AUXCAPS);
-            break;
-        }
-        case MIXER_DEVICE_TYPE :
-        {
-            GoodSize = CapabilitiesSize >= sizeof(MIXERCAPS);
-            break;
+            SND_ASSERT(FALSE);
         }
     };
 
@@ -105,7 +96,6 @@ GetSoundDeviceCapabilities(
         return MMSYSERR_NOTSUPPORTED;
 
     return FunctionTable->GetCapabilities(SoundDevice,
-                                          DeviceId,
                                           Capabilities,
                                           CapabilitiesSize);
 }

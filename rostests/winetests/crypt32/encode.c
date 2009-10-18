@@ -1960,6 +1960,8 @@ static const struct encodedBits bits[] = {
     { 1, bin54, 2, bin55 },
     /* strange test case, showing cUnusedBits >= 8 is allowed */
     { 9, bin56, 1, bin57 },
+    /* even stranger test case, showing cUnusedBits > cbData * 8 is allowed */
+    { 17, bin58, 0, NULL },
 };
 
 static void test_encodeBits(DWORD dwEncoding)
@@ -5843,8 +5845,7 @@ static void test_decodePKCSAttribute(DWORD dwEncoding)
      * I doubt an app depends on that.
      */
     ok(!ret && (GetLastError() == CRYPT_E_ASN1_EOD ||
-     GetLastError() == CRYPT_E_ASN1_CORRUPT ||
-     GetLastError() == OSS_MORE_INPUT /* Win9x */),
+     GetLastError() == CRYPT_E_ASN1_CORRUPT || OSS_MORE_INPUT /* Win9x */),
      "Expected CRYPT_E_ASN1_EOD, CRYPT_E_ASN1_CORRUPT, or OSS_MORE_INPUT, got %x\n",
      GetLastError());
     ret = pCryptDecodeObjectEx(dwEncoding, PKCS_ATTRIBUTE,
@@ -7498,7 +7499,7 @@ START_TEST(encode)
     pCryptEncodeObjectEx = (void*)GetProcAddress(hCrypt32, "CryptEncodeObjectEx");
     if (!pCryptDecodeObjectEx || !pCryptEncodeObjectEx)
     {
-        win_skip("CryptDecodeObjectEx() is not available\n");
+        skip("CryptDecodeObjectEx() is not available\n");
         return;
     }
 

@@ -329,15 +329,15 @@ static LRESULT CALLBACK WDML_EventProc(HWND hwndEvent, UINT uMsg, WPARAM wParam,
  *
  */
 UINT WDML_Initialize(LPDWORD pidInst, PFNCALLBACK pfnCallback,
-		     DWORD afCmd, DWORD ulRes, BOOL bUnicode)
+		     DWORD afCmd, DWORD ulRes, BOOL bUnicode, BOOL b16)
 {
     WDML_INSTANCE*		pInstance;
     WDML_INSTANCE*		reference_inst;
     UINT			ret;
     WNDCLASSEXW			wndclass;
 
-    TRACE("(%p,%p,0x%x,%d,0x%x)\n",
-	  pidInst, pfnCallback, afCmd, ulRes, bUnicode);
+    TRACE("(%p,%p,0x%x,%d)\n",
+	  pidInst, pfnCallback, afCmd, ulRes);
 
     if (ulRes)
     {
@@ -365,6 +365,7 @@ UINT WDML_Initialize(LPDWORD pidInst, PFNCALLBACK pfnCallback,
     pInstance->threadID = GetCurrentThreadId();
     pInstance->callback = *pfnCallback;
     pInstance->unicode = bUnicode;
+    pInstance->win16 = b16;
     pInstance->nodeList = NULL; /* node will be added later */
     pInstance->monitorFlags = afCmd & MF_MASK;
     pInstance->wStatus = 0;
@@ -502,6 +503,7 @@ UINT WDML_Initialize(LPDWORD pidInst, PFNCALLBACK pfnCallback,
 	    ret = DMLERR_INVALIDPARAMETER;
 	    goto theError;
 	}
+	HeapFree(GetProcessHeap(), 0, pInstance); /* finished - release heap space used as work store */
 	/* can't reinitialise if we have initialised nothing !! */
 	reference_inst = WDML_InstanceList;
 	/* must first check if we have been given a valid instance to re-initialise !!  how do we do that ? */
@@ -557,9 +559,6 @@ UINT WDML_Initialize(LPDWORD pidInst, PFNCALLBACK pfnCallback,
 	reference_inst->CBFflags = pInstance->CBFflags;
 	reference_inst->clientOnly = pInstance->clientOnly;
 	reference_inst->monitorFlags = pInstance->monitorFlags;
-
-	HeapFree(GetProcessHeap(), 0, pInstance); /* finished - release heap space used as work store */
-
 	LeaveCriticalSection(&WDML_CritSect);
     }
 
@@ -578,7 +577,7 @@ UINT WDML_Initialize(LPDWORD pidInst, PFNCALLBACK pfnCallback,
 UINT WINAPI DdeInitializeA(LPDWORD pidInst, PFNCALLBACK pfnCallback,
 			   DWORD afCmd, DWORD ulRes)
 {
-    return WDML_Initialize(pidInst, pfnCallback, afCmd, ulRes, FALSE);
+    return WDML_Initialize(pidInst, pfnCallback, afCmd, ulRes, FALSE, FALSE);
 }
 
 /******************************************************************************
@@ -598,7 +597,7 @@ UINT WINAPI DdeInitializeA(LPDWORD pidInst, PFNCALLBACK pfnCallback,
 UINT WINAPI DdeInitializeW(LPDWORD pidInst, PFNCALLBACK pfnCallback,
 			   DWORD afCmd, DWORD ulRes)
 {
-    return WDML_Initialize(pidInst, pfnCallback, afCmd, ulRes, TRUE);
+    return WDML_Initialize(pidInst, pfnCallback, afCmd, ulRes, TRUE, FALSE);
 }
 
 /*****************************************************************
@@ -715,10 +714,12 @@ HDDEDATA 	WDML_InvokeCallback(WDML_INSTANCE* pInstance, UINT uType, UINT uFmt, H
     if (pInstance == NULL)
 	return NULL;
 
-    TRACE("invoking CB[%p] (%x %x %p %p %p %p %lx %lx)\n",
-	  pInstance->callback, uType, uFmt,
+    TRACE("invoking CB%d[%p] (%x %x %p %p %p %p %lx %lx)\n",
+	  pInstance->win16 ? 16 : 32, pInstance->callback, uType, uFmt,
 	  hConv, hsz1, hsz2, hdata, dwData1, dwData2);
+
 	ret = pInstance->callback(uType, uFmt, hConv, hsz1, hsz2, hdata, dwData1, dwData2);
+
     TRACE("done => %p\n", ret);
     return ret;
 }
@@ -794,25 +795,6 @@ UINT WINAPI DdeGetLastError(DWORD idInst)
     }
 
     return error_code;
-}
-
-/******************************************************************
- *		WDML_SetAllLastError
- *
- *
- */
-static void	WDML_SetAllLastError(DWORD lastError)
-{
-    DWORD		threadID;
-    WDML_INSTANCE*	pInstance;
-    threadID = GetCurrentThreadId();
-    pInstance = WDML_InstanceList;
-    while (pInstance)
-    {
-	if (pInstance->threadID == threadID)
-	    pInstance->lastError = lastError;
-	pInstance = pInstance->next;
-    }
 }
 
 /* ================================================================
@@ -997,14 +979,6 @@ static int	WDML_QueryString(WDML_INSTANCE* pInstance, HSZ hsz, LPVOID ptr, DWORD
 	cchMax = MAX_BUFFER_LEN;
     }
 
-    /* if there is no input windows returns a NULL string */
-    if (hsz == NULL)
-    {
-	CHAR *t_ptr = ptr;
-	*t_ptr = '\0';
-	return 1;
-    }
-
     switch (codepage)
     {
     case CP_WINANSI:
@@ -1107,9 +1081,7 @@ HSZ WINAPI DdeCreateStringHandleA(DWORD idInst, LPCSTR psz, INT codepage)
     TRACE("(%d,%s,%d)\n", idInst, debugstr_a(psz), codepage);
 
     pInstance = WDML_GetInstance(idInst);
-    if (pInstance == NULL)
-	WDML_SetAllLastError(DMLERR_INVALIDPARAMETER);
-    else
+    if (pInstance)
     {
 	if (codepage == 0) codepage = CP_WINANSI;
 	hsz = WDML_CreateString(pInstance, psz, codepage);
@@ -1136,9 +1108,7 @@ HSZ WINAPI DdeCreateStringHandleW(DWORD idInst, LPCWSTR psz, INT codepage)
     HSZ			hsz = 0;
 
     pInstance = WDML_GetInstance(idInst);
-    if (pInstance == NULL)
-	WDML_SetAllLastError(DMLERR_INVALIDPARAMETER);
-    else
+    if (pInstance)
     {
 	if (codepage == 0) codepage = CP_WINUNICODE;
 	hsz = WDML_CreateString(pInstance, psz, codepage);
@@ -1269,23 +1239,14 @@ INT WINAPI DdeCmpStringHandles(HSZ hsz1, HSZ hsz2)
 HDDEDATA WINAPI DdeCreateDataHandle(DWORD idInst, LPBYTE pSrc, DWORD cb, DWORD cbOff,
                                     HSZ hszItem, UINT wFmt, UINT afCmd)
 {
-
-    /* Other than check for validity we will ignore for now idInst, hszItem.
+    /* For now, we ignore idInst, hszItem.
      * The purpose of these arguments still need to be investigated.
      */
 
-    WDML_INSTANCE*		pInstance;
     HGLOBAL     		hMem;
     LPBYTE      		pByte;
     DDE_DATAHANDLE_HEAD*	pDdh;
     WCHAR psz[MAX_BUFFER_LEN];
-
-    pInstance = WDML_GetInstance(idInst);
-    if (pInstance == NULL)
-    {
-        WDML_SetAllLastError(DMLERR_INVALIDPARAMETER);
-        return NULL;
-    }
 
     if (!GetAtomNameW(HSZ2ATOM(hszItem), psz, MAX_BUFFER_LEN))
     {
@@ -1306,7 +1267,7 @@ HDDEDATA WINAPI DdeCreateDataHandle(DWORD idInst, LPBYTE pSrc, DWORD cb, DWORD c
 	return 0;
     }
 
-    pDdh = GlobalLock(hMem);
+    pDdh = (DDE_DATAHANDLE_HEAD*)GlobalLock(hMem);
     if (!pDdh)
     {
         GlobalFree(hMem);
@@ -1324,7 +1285,7 @@ HDDEDATA WINAPI DdeCreateDataHandle(DWORD idInst, LPBYTE pSrc, DWORD cb, DWORD c
     GlobalUnlock(hMem);
 
     TRACE("=> %p\n", hMem);
-    return hMem;
+    return (HDDEDATA)hMem;
 }
 
 /*****************************************************************
@@ -1420,7 +1381,7 @@ LPBYTE WINAPI DdeAccessData(HDDEDATA hData, LPDWORD pcbDataSize)
 
     TRACE("(%p,%p)\n", hData, pcbDataSize);
 
-    pDdh = GlobalLock(hMem);
+    pDdh = (DDE_DATAHANDLE_HEAD*)GlobalLock(hMem);
     if (pDdh == NULL)
     {
 	ERR("Failed on GlobalLock(%p)\n", hMem);
@@ -1468,7 +1429,7 @@ BOOL WDML_IsAppOwned(HDDEDATA hData)
     DDE_DATAHANDLE_HEAD*	pDdh;
     BOOL                        ret = FALSE;
 
-    pDdh = GlobalLock(hData);
+    pDdh = (DDE_DATAHANDLE_HEAD*)GlobalLock(hData);
     if (pDdh != NULL)
     {
         ret = pDdh->bAppOwned;
@@ -1490,7 +1451,7 @@ BOOL WDML_IsAppOwned(HDDEDATA hData)
  *	2	   16	clipboard format
  *	4	   ?	data to be used
  */
-HDDEDATA        WDML_Global2DataHandle(WDML_CONV* pConv, HGLOBAL hMem, WINE_DDEHEAD* p)
+HDDEDATA        WDML_Global2DataHandle(HGLOBAL hMem, WINE_DDEHEAD* p)
 {
     DDEDATA*    pDd;
     HDDEDATA	ret = 0;
@@ -1511,7 +1472,7 @@ HDDEDATA        WDML_Global2DataHandle(WDML_CONV* pConv, HGLOBAL hMem, WINE_DDEH
                 /* fall thru */
             case 0:
             case CF_TEXT:
-                ret = DdeCreateDataHandle(pConv->instance->instanceID, pDd->Value, size, 0, 0, pDd->cfFormat, 0);
+                ret = DdeCreateDataHandle(0, pDd->Value, size, 0, 0, pDd->cfFormat, 0);
                 break;
             case CF_BITMAP:
                 if (size >= sizeof(BITMAP))
@@ -1526,7 +1487,7 @@ HDDEDATA        WDML_Global2DataHandle(WDML_CONV* pConv, HGLOBAL hMem, WINE_DDEH
                                                  bmp->bmPlanes, bmp->bmBitsPixel,
                                                  pDd->Value + sizeof(BITMAP))))
                         {
-                            ret = DdeCreateDataHandle(pConv->instance->instanceID, (LPBYTE)&hbmp, sizeof(hbmp),
+                            ret = DdeCreateDataHandle(0, (LPBYTE)&hbmp, sizeof(hbmp),
                                                       0, 0, CF_BITMAP, 0);
                         }
                         else ERR("Can't create bmp\n");
@@ -1556,8 +1517,8 @@ HGLOBAL WDML_DataHandle2Global(HDDEDATA hDdeData, BOOL fResponse, BOOL fRelease,
     DWORD                       dwSize;
     HGLOBAL                     hMem = 0;
 
-    dwSize = GlobalSize(hDdeData) - sizeof(DDE_DATAHANDLE_HEAD);
-    pDdh = GlobalLock(hDdeData);
+    dwSize = GlobalSize((HGLOBAL)hDdeData) - sizeof(DDE_DATAHANDLE_HEAD);
+    pDdh = (DDE_DATAHANDLE_HEAD*)GlobalLock((HGLOBAL)hDdeData);
     if (dwSize && pDdh)
     {
         WINE_DDEHEAD*    wdh = NULL;
@@ -1607,7 +1568,7 @@ HGLOBAL WDML_DataHandle2Global(HDDEDATA hDdeData, BOOL fResponse, BOOL fRelease,
             wdh->cfFormat = pDdh->cfFormat;
             GlobalUnlock(hMem);
         }
-        GlobalUnlock(hDdeData);
+        GlobalUnlock((HGLOBAL)hDdeData);
     }
 
     return hMem;
@@ -1626,7 +1587,7 @@ HGLOBAL WDML_DataHandle2Global(HDDEDATA hDdeData, BOOL fResponse, BOOL fRelease,
  */
 WDML_SERVER*	WDML_AddServer(WDML_INSTANCE* pInstance, HSZ hszService, HSZ hszTopic)
 {
-    static const WCHAR fmtW[] = {'%','s','(','0','x','%','*','x',')',0};
+    static const WCHAR fmtW[] = {'%','s','(','0','x','%','0','8','l','x',')',0};
     WDML_SERVER* 	pServer;
     WCHAR		buf1[256];
     WCHAR		buf2[256];
@@ -1677,10 +1638,9 @@ void WDML_RemoveServer(WDML_INSTANCE* pInstance, HSZ hszService, HSZ hszTopic)
 		pConvNext = pConv->next;
 		if (DdeCmpStringHandles(pConv->hszService, hszService) == 0)
 		{
-                    HWND client = pConv->hwndClient, server = pConv->hwndServer;
 		    WDML_RemoveConv(pConv, WDML_SERVER_SIDE);
 		    /* don't care about return code (whether client window is present or not) */
-		    PostMessageW(client, WM_DDE_TERMINATE, (WPARAM)server, 0);
+		    PostMessageW(pConv->hwndClient, WM_DDE_TERMINATE, (WPARAM)pConv->hwndServer, 0);
 		}
 	    }
 	    if (pServer == pInstance->servers)
@@ -1771,7 +1731,7 @@ WDML_CONV*	WDML_AddConv(WDML_INSTANCE* pInstance, WDML_SIDE side,
     pConv->next = pInstance->convs[side];
     pInstance->convs[side] = pConv;
 
-    TRACE("pConv->wStatus %04x pInstance(%p)\n", pConv->wStatus, pInstance);
+    TRACE("pConv->wStatus %04x\n", pConv->wStatus);
 
     return pConv;
 }

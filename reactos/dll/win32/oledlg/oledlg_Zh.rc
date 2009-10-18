@@ -18,8 +18,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "resource.h"
-
 /* Chinese text is encoded in UTF-8 */
 #pragma code_page(65001)
 
@@ -178,3 +176,5 @@ STRINGTABLE DISCARDABLE
     IDS_PS_UNKNOWN_SRC                "不明來源"
     IDS_PS_UNKNOWN_APP                "不明應用程式"
 }
+
+#pragma code_page(default)

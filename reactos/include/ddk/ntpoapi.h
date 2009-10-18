@@ -90,7 +90,7 @@ typedef NTSTATUS
   IN PENTER_STATE_SYSTEM_HANDLER  SystemHandler  OPTIONAL,
   IN PVOID  SystemContext,
   IN LONG  NumberProcessors,
-  IN LONG volatile *Number);
+  IN VOLATILE PLONG  Number);
 
 typedef struct _POWER_STATE_HANDLER {
 	POWER_STATE_HANDLER_TYPE  Type;

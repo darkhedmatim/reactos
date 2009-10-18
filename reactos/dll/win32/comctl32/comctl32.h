@@ -183,6 +183,18 @@ DWORD  WINAPI GetSize (LPVOID);
 INT  WINAPI Str_GetPtrA (LPCSTR, LPSTR, INT);
 INT  WINAPI Str_GetPtrW (LPCWSTR, LPWSTR, INT);
 
+INT  WINAPI DPA_GetPtrIndex (const HDPA, LPVOID);
+BOOL WINAPI DPA_Grow (const HDPA, INT);
+
+#define DPAM_NOSORT             0x0001
+#define DPAM_INSERT             0x0004
+#define DPAM_DELETE             0x0008
+
+typedef PVOID (CALLBACK *PFNDPAMERGE)(DWORD,PVOID,PVOID,LPARAM);
+BOOL WINAPI DPA_Merge (const HDPA, const HDPA, DWORD, PFNDPACOMPARE, PFNDPAMERGE, LPARAM);
+
+#define DPA_GetPtrCount(hdpa)  (*(INT*)(hdpa))
+
 LRESULT WINAPI SetPathWordBreakProc(HWND hwnd, BOOL bSet);
 BOOL WINAPI MirrorIcon(HICON *phicon1, HICON *phicon2);
 

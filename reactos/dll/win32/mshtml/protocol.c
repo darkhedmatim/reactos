@@ -39,9 +39,9 @@ WINE_DEFAULT_DEBUG_CHANNEL(mshtml);
  * common ProtocolFactory implementation
  */
 
-#define CLASSFACTORY(x) (&(x)->lpClassFactoryVtbl)
-#define PROTOCOL(x)     ((IInternetProtocol*)     &(x)->lpInternetProtocolVtbl)
 #define PROTOCOLINFO(x) ((IInternetProtocolInfo*) &(x)->lpInternetProtocolInfoVtbl)
+#define CLASSFACTORY(x) ((IClassFactory*)         &(x)->lpClassFactoryVtbl)
+#define PROTOCOL(x)     ((IInternetProtocol*)     &(x)->lpInternetProtocolVtbl)
 
 typedef struct {
     const IInternetProtocolInfoVtbl *lpInternetProtocolInfoVtbl;
@@ -77,13 +77,17 @@ static HRESULT WINAPI InternetProtocolInfo_QueryInterface(IInternetProtocolInfo 
 
 static ULONG WINAPI InternetProtocolInfo_AddRef(IInternetProtocolInfo *iface)
 {
-    TRACE("(%p)\n", iface);
+    ProtocolFactory *This = PROTOCOLINFO_THIS(iface);
+    TRACE("(%p)\n", This);
+    LOCK_MODULE();
     return 2;
 }
 
 static ULONG WINAPI InternetProtocolInfo_Release(IInternetProtocolInfo *iface)
 {
-    TRACE("(%p)\n", iface);
+    ProtocolFactory *This = PROTOCOLINFO_THIS(iface);
+    TRACE("(%p)\n", This);
+    UNLOCK_MODULE();
     return 1;
 }
 
@@ -129,7 +133,15 @@ static ULONG WINAPI ClassFactory_Release(IClassFactory *iface)
 
 static HRESULT WINAPI ClassFactory_LockServer(IClassFactory *iface, BOOL dolock)
 {
-    TRACE("(%p)->(%x)\n", iface, dolock);
+    ProtocolFactory *This = CLASSFACTORY_THIS(iface);
+
+    TRACE("(%p)->(%x)\n", This, dolock);
+
+    if(dolock)
+        LOCK_MODULE();
+    else
+        UNLOCK_MODULE();
+
     return S_OK;
 }
 
@@ -203,6 +215,7 @@ static ULONG WINAPI AboutProtocol_Release(IInternetProtocol *iface)
     if(!ref) {
         heap_free(This->data);
         heap_free(This);
+        UNLOCK_MODULE();
     }
 
     return pUnkOuter ? IUnknown_Release(pUnkOuter) : ref;
@@ -210,7 +223,7 @@ static ULONG WINAPI AboutProtocol_Release(IInternetProtocol *iface)
 
 static HRESULT WINAPI AboutProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl,
         IInternetProtocolSink* pOIProtSink, IInternetBindInfo* pOIBindInfo,
-        DWORD grfPI, HANDLE_PTR dwReserved)
+        DWORD grfPI, DWORD dwReserved)
 {
     AboutProtocol *This = PROTOCOL_THIS(iface);
     BINDINFO bindinfo;
@@ -230,7 +243,7 @@ static HRESULT WINAPI AboutProtocol_Start(IInternetProtocol *iface, LPCWSTR szUr
      * when the url does not have "about:" in the beginning.
      */
 
-    TRACE("(%p)->(%s %p %p %08x %lx)\n", This, debugstr_w(szUrl), pOIProtSink,
+    TRACE("(%p)->(%s %p %p %08x %d)\n", This, debugstr_w(szUrl), pOIProtSink,
             pOIBindInfo, grfPI, dwReserved);
 
     memset(&bindinfo, 0, sizeof(bindinfo));
@@ -395,7 +408,9 @@ static HRESULT WINAPI AboutProtocolFactory_CreateInstance(IClassFactory *iface, 
         hres = IInternetProtocol_QueryInterface(PROTOCOL(ret), riid, ppv);
     }
 
-    if(FAILED(hres))
+    if(SUCCEEDED(hres))
+        LOCK_MODULE();
+    else
         heap_free(ret);
 
     return hres;
@@ -409,7 +424,7 @@ static HRESULT WINAPI AboutProtocolInfo_ParseUrl(IInternetProtocolInfo *iface, L
             dwParseFlags, pwzResult, cchResult, pcchResult, dwReserved);
 
     if(ParseAction == PARSE_SECURITY_URL) {
-        unsigned int len = strlenW(pwzUrl);
+        int len = lstrlenW(pwzUrl);
 
         if(len >= cchResult)
             return S_FALSE;
@@ -568,6 +583,7 @@ static ULONG WINAPI ResProtocol_Release(IInternetProtocol *iface)
     if(!ref) {
         heap_free(This->data);
         heap_free(This);
+        UNLOCK_MODULE();
     }
 
     return pUnkOuter ? IUnknown_Release(pUnkOuter) : ref;
@@ -575,7 +591,7 @@ static ULONG WINAPI ResProtocol_Release(IInternetProtocol *iface)
 
 static HRESULT WINAPI ResProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl,
         IInternetProtocolSink* pOIProtSink, IInternetBindInfo* pOIBindInfo,
-        DWORD grfPI, HANDLE_PTR dwReserved)
+        DWORD grfPI, DWORD dwReserved)
 {
     ResProtocol *This = PROTOCOL_THIS(iface);
     DWORD grfBINDF = 0, len;
@@ -587,7 +603,7 @@ static HRESULT WINAPI ResProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl,
 
     static const WCHAR wszRes[] = {'r','e','s',':','/','/'};
 
-    TRACE("(%p)->(%s %p %p %08x %lx)\n", This, debugstr_w(szUrl), pOIProtSink,
+    TRACE("(%p)->(%s %p %p %08x %d)\n", This, debugstr_w(szUrl), pOIProtSink,
             pOIBindInfo, grfPI, dwReserved);
 
     memset(&bindinfo, 0, sizeof(bindinfo));
@@ -647,7 +663,7 @@ static HRESULT WINAPI ResProtocol_Start(IInternetProtocol *iface, LPCWSTR szUrl,
         LPWSTR endpoint = NULL;
         DWORD file_id = strtolW(url_file, &endpoint, 10);
         if(endpoint == url_file+strlenW(url_file))
-            src = FindResourceW(hdll, MAKEINTRESOURCEW(file_id), MAKEINTRESOURCEW(RT_HTML));
+            src = FindResourceW(hdll, (LPCWSTR)file_id, (LPCWSTR)RT_HTML);
 
         if(!src) {
             WARN("Could not find resource\n");
@@ -817,7 +833,9 @@ static HRESULT WINAPI ResProtocolFactory_CreateInstance(IClassFactory *iface, IU
         hres = IInternetProtocol_QueryInterface(PROTOCOL(ret), riid, ppv);
     }
 
-    if(FAILED(hres))
+    if(SUCCEEDED(hres))
+        LOCK_MODULE();
+    else
         heap_free(ret);
 
     return hres;

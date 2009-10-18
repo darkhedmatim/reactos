@@ -103,10 +103,9 @@ Test_Dibsection(PTESTINFO pti)
 	BITMAP bitmap;
 	DIBSECTION dibsection;
 	PVOID pData;
-	HDC hDC;
 
 	FillMemory(&dibsection, sizeof(DIBSECTION), 0x77);
-	hDC = GetDC(0);
+	HDC hDC = GetDC(0);
 	hBitmap = CreateDIBSection(hDC, &bmi, DIB_RGB_COLORS, &pData, NULL, 0);
 	ASSERT(hBitmap);
 

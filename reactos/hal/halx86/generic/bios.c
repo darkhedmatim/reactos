@@ -107,17 +107,6 @@ NTAPI
 HalpSwitchToRealModeTrapHandlers(VOID)
 {
     ULONG Handler;
-    PHARDWARE_PTE IdtPte;
-
-    /* On i586, the first 7 entries of IDT are write-protected, unprotect them. */
-    if (KeGetCurrentPrcb()->CpuType == 5)
-    {
-        IdtPte = GetPteAddress(((PKIPCR)KeGetPcr())->IDT);
-        IdtPte->Write = 1;
-
-        /* Flush the TLB by resetting CR3 */
-        __writecr3(__readcr3());
-    }
 
     /* Save the current Invalid Opcode and General Protection Fault Handlers */
     HalpGpfHandler = ((((PKIPCR)KeGetPcr())->IDT[13].ExtendedOffset << 16) &
@@ -213,10 +202,10 @@ BOOLEAN
 NTAPI
 HalpBiosDisplayReset(VOID)
 {
-    ULONG Flags;
+    ULONG Flags = 0;
 
     /* Disable interrupts */
-    Flags = __readeflags();
+    Ke386SaveFlags(Flags);
     _disable();
 
     /* Map memory available to the V8086 real-mode code */
@@ -241,7 +230,7 @@ HalpBiosDisplayReset(VOID)
     HalpUnmapRealModeMemory();
 
     /* Restore interrupts if they were previously enabled */
-    __writeeflags(Flags);
+    Ke386RestoreFlags(Flags);
     return TRUE;
 }
 

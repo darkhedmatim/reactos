@@ -29,7 +29,7 @@
 
 /* ##### */
 
-static UINT_PTR CALLBACK OFNHookProc( HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
+static UINT CALLBACK OFNHookProc( HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     LPNMHDR nmh;
 
@@ -111,7 +111,7 @@ static void test_DialogCancel(void)
     SetLastError(0xdeadbeef);
     result = GetOpenFileNameW((LPOPENFILENAMEW) &ofn);
     if (GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
-        win_skip("GetOpenFileNameW is not implemented\n");
+        skip("GetOpenFileNameW is not implemented\n");
     else
     {
         ok(0 == result, "expected %d, got %d\n", 0, result);
@@ -124,7 +124,7 @@ static void test_DialogCancel(void)
     SetLastError(0xdeadbeef);
     result = GetSaveFileNameW((LPOPENFILENAMEW) &ofn);
     if (GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
-        win_skip("GetSaveFileNameW is not implemented\n");
+        skip("GetSaveFileNameW is not implemented\n");
     else
     {
         ok(0 == result, "expected %d, got %d\n", 0, result);
@@ -135,7 +135,7 @@ static void test_DialogCancel(void)
     }
 }
 
-static UINT_PTR CALLBACK create_view_window2_hook(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam)
+static UINT CALLBACK create_view_window2_hook(HWND dlg, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_NOTIFY)
     {
@@ -156,7 +156,7 @@ static UINT_PTR CALLBACK create_view_window2_hook(HWND dlg, UINT msg, WPARAM wPa
             hr = IShellView_QueryInterface(shell_view, &IID_IShellView2, (void **)&shell_view2);
             if (hr == E_NOINTERFACE)
             {
-                win_skip("IShellView2 not supported\n");
+                skip("IShellView2 not supported\n");
                 goto cleanup;
             }
             ok(SUCCEEDED(hr), "QueryInterface returned %#x\n", hr);

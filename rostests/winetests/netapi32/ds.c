@@ -87,7 +87,7 @@ START_TEST(ds)
         test_get();
     }
     else
-        win_skip("DsRoleGetPrimaryDomainInformation is not available\n");
+        skip("DsRoleGetPrimaryDomainInformation is not available\n");
 
     FreeLibrary(hnetapi32);
 }

@@ -14,24 +14,26 @@
 
 /* FUNCTIONS *****************************************************************/
 
-VOID
-NTAPI
+VOID NTAPI
 KiHaltProcessorDpcRoutine(IN PKDPC Dpc,
-                          IN PVOID DeferredContext,
-                          IN PVOID SystemArgument1,
-                          IN PVOID SystemArgument2)
+			  IN PVOID DeferredContext,
+			  IN PVOID SystemArgument1,
+			  IN PVOID SystemArgument2)
 {
-    KIRQL OldIrql;
-    if (DeferredContext)
-    {
-        ExFreePool(DeferredContext);
-    }
-
-    while (TRUE)
-    {
-        KeRaiseIrql(SYNCH_LEVEL, &OldIrql);
-        HalHaltSystem();
-    }
+   KIRQL OldIrql;
+   if (DeferredContext)
+     {
+       ExFreePool(DeferredContext);
+     }
+   while (TRUE)
+     {
+       KeRaiseIrql(SYNCH_LEVEL, &OldIrql);
+#if defined(_M_X86)
+       Ke386HaltProcessor();
+#else
+       HalProcessorIdle();
+#endif
+     }
 }
 
 VOID NTAPI
@@ -131,10 +133,6 @@ ShutdownThreadMain(PVOID Context)
        "<Place your Ad here>\n"
     };
    LARGE_INTEGER Now;
-#ifdef CONFIG_SMP
-	LONG i;
-	KIRQL OldIrql;
-#endif
 
    /* Run the thread on the boot processor */
    KeSetSystemAffinityThread(1);
@@ -162,6 +160,7 @@ ShutdownThreadMain(PVOID Context)
    PspShutdownProcessManager();
 
    CmShutdownSystem();
+   MiShutdownMemoryManager();
    IoShutdownRegisteredFileSystems();
    IoShutdownRegisteredDevices();
 
@@ -174,6 +173,9 @@ ShutdownThreadMain(PVOID Context)
         HalReturnToFirmware (FIRMWARE_OFF);
 #else
 #ifdef CONFIG_SMP
+        LONG i;
+	KIRQL OldIrql;
+
 	OldIrql = KeRaiseIrqlToDpcLevel();
         /* Halt all other processors */
 	for (i = 0; i < KeNumberProcessors; i++)

@@ -8,7 +8,7 @@
 
 #include <stdio.h>
 
-#if DBG
+#ifdef DBG
 #define DPRINT(x, ...)    printf(x)
 #else
 #define DPRINT(x...)

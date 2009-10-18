@@ -997,7 +997,7 @@ PendingUserApc:
 // @remark
 //
 .macro TRAP_EPILOG SystemCall, RestorePreviousMode, RestoreSegments, RestoreVolatiles, RestoreAllRegs
-#if DBG
+#ifdef DBG
     /* Assert the flags */
     pushfd
     pop edx
@@ -1011,7 +1011,7 @@ PendingUserApc:
     /* Assert the trap frame */
 #endif
 5:
-#if DBG
+#ifdef DBG
     sub dword ptr [esp+KTRAP_FRAME_DEBUGARGMARK], 0xBADB0D00
     jnz 0f
 
@@ -1033,7 +1033,7 @@ PendingUserApc:
     /* Get exception list */
     mov edx, [esp+KTRAP_FRAME_EXCEPTION_LIST]
 
-#if DBG
+#ifdef DBG
     /* Assert the saved exception list */
     or edx, edx
     jnz 1f
@@ -1048,7 +1048,7 @@ PendingUserApc:
     /* Get previous mode */
     mov ecx, [esp+KTRAP_FRAME_PREVIOUS_MODE]
 
-#if DBG
+#ifdef DBG
     /* Assert the saved previous mode */
     cmp ecx, -1
     jnz 1f
@@ -1061,7 +1061,7 @@ PendingUserApc:
     mov byte ptr [esi+KTHREAD_PREVIOUS_MODE], cl
 .else
 
-#if DBG
+#ifdef DBG
     /* Assert the saved previous mode */
     mov ecx, [esp+KTRAP_FRAME_PREVIOUS_MODE]
     cmp ecx, -1
@@ -1304,7 +1304,7 @@ FastExit:
 .endif
 .endm
 
-#if DBG
+#ifdef DBG
 
 .macro VERIFY_INT Label
     /* Get the current time and mask it to 192 ticks */
@@ -1334,7 +1334,7 @@ VfOvr_&Label:
     mov [edi+KINTERRUPT_TICK_COUNT], eax
     jmp VfRstDef_&Label
 
-1:
+.1:
     /* Check if the debugger is enabled */
     cmp byte ptr __KdDebuggerEnabled, 0
     jnz 1f

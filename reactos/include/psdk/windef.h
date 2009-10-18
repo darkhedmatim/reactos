@@ -11,11 +11,6 @@
 extern "C" {
 #endif
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4255)
-#endif
-
 #ifndef WINVER
 #define WINVER 0x0400
 /*
@@ -202,8 +197,8 @@ extern "C" {
 #define DBG_UNREFERENCED_PARAMETER(P)
 #define DBG_UNREFERENCED_LOCAL_VARIABLE(L)
 
-#ifndef NONAMELESSUNION
 #ifdef __GNUC__
+#ifndef NONAMELESSUNION
 #if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95)
 #define _ANONYMOUS_UNION __extension__
 #define _ANONYMOUS_STRUCT __extension__
@@ -212,11 +207,11 @@ extern "C" {
 #define _ANONYMOUS_UNION __extension__
 #endif /* __cplusplus */
 #endif /* __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95) */
+#endif /* NONAMELESSUNION */
 #elif defined(__WATCOMC__) || defined(_MSC_VER)
 #define _ANONYMOUS_UNION
 #define _ANONYMOUS_STRUCT
 #endif /* __GNUC__/__WATCOMC__ */
-#endif /* NONAMELESSUNION */
 
 #ifndef _ANONYMOUS_UNION
 #define _ANONYMOUS_UNION
@@ -389,15 +384,9 @@ DECLARE_HANDLE(HKL);
 typedef int HFILE;
 typedef HICON HCURSOR;
 typedef DWORD COLORREF;
-#ifdef _WIN64
-typedef INT_PTR (FAR WINAPI *FARPROC)();
-typedef INT_PTR (NEAR WINAPI *NEARPROC)();
-typedef INT_PTR (WINAPI *PROC)();
-#else
-typedef int (FAR WINAPI *FARPROC)();
-typedef int (NEAR WINAPI *NEARPROC)();
+typedef int (WINAPI *FARPROC)();
+typedef int (WINAPI *NEARPROC)();
 typedef int (WINAPI *PROC)();
-#endif
 typedef struct tagRECT {
 	LONG left;
 	LONG top;
@@ -424,10 +413,6 @@ typedef struct tagPOINTS {
 	SHORT x;
 	SHORT y;
 } POINTS,*PPOINTS,*LPPOINTS;
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 #ifdef __cplusplus
 }

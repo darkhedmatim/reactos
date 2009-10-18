@@ -32,12 +32,12 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(mshtml);
 
-struct HTMLCommentElement {
+typedef struct {
     HTMLElement element;
     const IHTMLCommentElementVtbl   *lpIHTMLCommentElementVtbl;
-};
+} HTMLCommentElement;
 
-#define HTMLCOMMENT(x)  (&(x)->lpIHTMLCommentElementVtbl)
+#define HTMLCOMMENT(x)  ((IHTMLCommentElement*)  &(x)->lpIHTMLCommentElementVtbl)
 
 #define HTMLCOMMENT_THIS(iface) DEFINE_THIS(HTMLCommentElement, IHTMLCommentElement, iface)
 
@@ -66,14 +66,16 @@ static ULONG WINAPI HTMLCommentElement_Release(IHTMLCommentElement *iface)
 static HRESULT WINAPI HTMLCommentElement_GetTypeInfoCount(IHTMLCommentElement *iface, UINT *pctinfo)
 {
     HTMLCommentElement *This = HTMLCOMMENT_THIS(iface);
-    return IDispatchEx_GetTypeInfoCount(DISPATCHEX(&This->element.node.dispex), pctinfo);
+    FIXME("(%p)->(%p)\n", This, pctinfo);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLCommentElement_GetTypeInfo(IHTMLCommentElement *iface, UINT iTInfo,
         LCID lcid, ITypeInfo **ppTInfo)
 {
     HTMLCommentElement *This = HTMLCOMMENT_THIS(iface);
-    return IDispatchEx_GetTypeInfo(DISPATCHEX(&This->element.node.dispex), iTInfo, lcid, ppTInfo);
+    FIXME("(%p)->(%u %u %p)\n", This, iTInfo, lcid, ppTInfo);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLCommentElement_GetIDsOfNames(IHTMLCommentElement *iface, REFIID riid,
@@ -81,7 +83,9 @@ static HRESULT WINAPI HTMLCommentElement_GetIDsOfNames(IHTMLCommentElement *ifac
                                                 LCID lcid, DISPID *rgDispId)
 {
     HTMLCommentElement *This = HTMLCOMMENT_THIS(iface);
-    return IDispatchEx_GetIDsOfNames(DISPATCHEX(&This->element.node.dispex), riid, rgszNames, cNames, lcid, rgDispId);
+    FIXME("(%p)->(%s %p %u %u %p)\n", This, debugstr_guid(riid), rgszNames, cNames,
+                                        lcid, rgDispId);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLCommentElement_Invoke(IHTMLCommentElement *iface, DISPID dispIdMember,
@@ -89,8 +93,9 @@ static HRESULT WINAPI HTMLCommentElement_Invoke(IHTMLCommentElement *iface, DISP
                             VARIANT *pVarResult, EXCEPINFO *pExcepInfo, UINT *puArgErr)
 {
     HTMLCommentElement *This = HTMLCOMMENT_THIS(iface);
-    return IDispatchEx_Invoke(DISPATCHEX(&This->element.node.dispex), dispIdMember, riid, lcid,
-            wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr);
+    FIXME("(%p)->(%d %s %d %d %p %p %p %p)\n", This, dispIdMember, debugstr_guid(riid),
+          lcid, wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLCommentElement_put_text(IHTMLCommentElement *iface, BSTR v)
@@ -107,14 +112,14 @@ static HRESULT WINAPI HTMLCommentElement_get_text(IHTMLCommentElement *iface, BS
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI HTMLCommentElement_put_atomic(IHTMLCommentElement *iface, LONG v)
+static HRESULT WINAPI HTMLCommentElement_put_atomic(IHTMLCommentElement *iface, long v)
 {
     HTMLCommentElement *This = HTMLCOMMENT_THIS(iface);
-    FIXME("(%p)->(%d)\n", This, v);
+    FIXME("(%p)->(%ld)\n", This, v);
     return E_NOTIMPL;
 }
 
-static HRESULT WINAPI HTMLCommentElement_get_atomic(IHTMLCommentElement *iface, LONG *p)
+static HRESULT WINAPI HTMLCommentElement_get_atomic(IHTMLCommentElement *iface, long *p)
 {
     HTMLCommentElement *This = HTMLCOMMENT_THIS(iface);
     FIXME("(%p)->(%p)\n", This, p);
@@ -139,7 +144,7 @@ static const IHTMLCommentElementVtbl HTMLCommentElementVtbl = {
 
 #define HTMLCOMMENT_NODE_THIS(iface) DEFINE_THIS2(HTMLCommentElement, element.node, iface)
 
-static HRESULT HTMLCommentElement_QI(HTMLDOMNode *iface, REFIID riid, void **ppv)
+HRESULT HTMLCommentElement_QI(HTMLDOMNode *iface, REFIID riid, void **ppv)
 {
     HTMLCommentElement *This = HTMLCOMMENT_NODE_THIS(iface);
 
@@ -156,7 +161,7 @@ static HRESULT HTMLCommentElement_QI(HTMLDOMNode *iface, REFIID riid, void **ppv
     return S_OK;
 }
 
-static void HTMLCommentElement_destructor(HTMLDOMNode *iface)
+void HTMLCommentElement_destructor(HTMLDOMNode *iface)
 {
     HTMLCommentElement *This = HTMLCOMMENT_NODE_THIS(iface);
 
@@ -175,7 +180,6 @@ static const tid_t HTMLCommentElement_iface_tids[] = {
     IHTMLDOMNode2_tid,
     IHTMLElement_tid,
     IHTMLElement2_tid,
-    IHTMLElement3_tid,
     IHTMLCommentElement_tid,
     0
 };

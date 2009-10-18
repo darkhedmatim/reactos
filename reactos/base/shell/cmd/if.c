@@ -63,73 +63,52 @@ INT cmd_if (LPTSTR param)
 	return 1;
 }
 
-INT ExecuteIf(PARSED_COMMAND *Cmd)
+BOOL ExecuteIf(PARSED_COMMAND *Cmd)
 {
 	INT result = FALSE; /* when set cause 'then' clause to be executed */
 	LPTSTR param;
-	LPTSTR Left = NULL, Right;
-
-	if (Cmd->If.LeftArg)
-	{
-		Left = DoDelayedExpansion(Cmd->If.LeftArg);
-		if (!Left)
-			return 1;
-	}
-	Right = DoDelayedExpansion(Cmd->If.RightArg);
-	if (!Right)
-	{
-		cmd_free(Left);
-		return 1;
-	}
 
 	if (Cmd->If.Operator == IF_CMDEXTVERSION)
 	{
 		/* IF CMDEXTVERSION n: check if Command Extensions version
 		 * is greater or equal to n */
-		DWORD n = _tcstoul(Right, &param, 10);
+		DWORD n = _tcstoul(Cmd->If.RightArg, &param, 10);
 		if (*param != _T('\0'))
 		{
-			error_syntax(Right);
-			cmd_free(Right);
-			return 1;
+			error_syntax(Cmd->If.RightArg);
+			return FALSE;
 		}
 		result = (2 >= n);
 	}
 	else if (Cmd->If.Operator == IF_DEFINED)
 	{
 		/* IF DEFINED var: check if environment variable exists */
-		result = (GetEnvVarOrSpecial(Right) != NULL);
+		result = (GetEnvVarOrSpecial(Cmd->If.RightArg) != NULL);
 	}
 	else if (Cmd->If.Operator == IF_ERRORLEVEL)
 	{
 		/* IF ERRORLEVEL n: check if last exit code is greater or equal to n */
-		INT n = _tcstol(Right, &param, 10);
+		INT n = _tcstol(Cmd->If.RightArg, &param, 10);
 		if (*param != _T('\0'))
 		{
-			error_syntax(Right);
-			cmd_free(Right);
-			return 1;
+			error_syntax(Cmd->If.RightArg);
+			return FALSE;
 		}
 		result = (nErrorLevel >= n);
 	}
 	else if (Cmd->If.Operator == IF_EXIST)
 	{
 		/* IF EXIST filename: check if file exists (wildcards allowed) */
-		StripQuotes(Right);
+		WIN32_FIND_DATA f;
+		HANDLE hFind;
 
-		if (_tcschr(Right, _T('*')) || _tcschr(Right, _T('?')))
+		StripQuotes(Cmd->If.RightArg);
+
+		hFind = FindFirstFile(Cmd->If.RightArg, &f);
+		if (hFind != INVALID_HANDLE_VALUE)
 		{
-			WIN32_FIND_DATA f;
-			HANDLE hFind = FindFirstFile(Right, &f);
-			if (hFind != INVALID_HANDLE_VALUE)
-			{
-				result = TRUE;
-				FindClose(hFind);
-			}
-		}
-		else
-		{
-			result = (GetFileAttributes(Right) != INVALID_FILE_ATTRIBUTES);
+			result = TRUE;
+			FindClose(hFind);
 		}
 	}
 	else
@@ -141,11 +120,11 @@ INT ExecuteIf(PARSED_COMMAND *Cmd)
 		if (Cmd->If.Operator == IF_STRINGEQ)
 		{
 			/* IF str1 == str2 */
-			result = StringCmp(Left, Right) == 0;
+			result = StringCmp(Cmd->If.LeftArg, Cmd->If.RightArg) == 0;
 		}
 		else
 		{
-			result = GenericCmp(StringCmp, Left, Right);
+			result = GenericCmp(StringCmp, Cmd->If.LeftArg, Cmd->If.RightArg);
 			switch (Cmd->If.Operator)
 			{
 			case IF_EQU: result = (result == 0); break;
@@ -158,9 +137,6 @@ INT ExecuteIf(PARSED_COMMAND *Cmd)
 		}
 	}
 
-	cmd_free(Left);
-	cmd_free(Right);
-
 	if (result ^ ((Cmd->If.Flags & IFFLAG_NEGATE) != 0))
 	{
 		/* full condition was true, do the command */
@@ -171,7 +147,7 @@ INT ExecuteIf(PARSED_COMMAND *Cmd)
 		/* full condition was false, do the "else" command if there is one */
 		if (Cmd->Subcommands->Next)
 			return ExecuteCommand(Cmd->Subcommands->Next);
-		return 0;
+		return TRUE;
 	}
 }
 

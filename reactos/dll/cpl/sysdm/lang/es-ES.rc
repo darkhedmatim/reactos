@@ -35,17 +35,17 @@ BEGIN
     GROUPBOX    "Administrador de dispositivos ", IDC_STATIC, 6, 7, 244, 61
     ICON        IDI_DEVMGR, IDC_STATIC, 12, 18, 23, 21, SS_ICON
     LTEXT       "El Administrador de dispositivos muestra una lista de todos los dispositivos de hardware instalados en su equipo. Puede usarlo para cambiar las propiedades de cualquier dispositivo.", IDC_STATIC, 42, 18, 204, 24
-    PUSHBUTTON  "&Administrador de dispositivos...", IDC_HARDWARE_DEVICE_MANAGER, 138, 48, 106, 15
+    PUSHBUTTON  "&Administrador de dispositivos...", IDC_HARDWARE_DEVICE_MANAGER, 140, 48, 104, 15
 
     GROUPBOX    "Asistente de Hardware ", IDC_STATIC, 6, 79, 244, 61
     ICON        IDI_DEVMGR, IDC_STATIC, 12, 90, 23, 21, SS_ICON
     LTEXT       "El asistente de hardware the ayuda instalar, desinstalar, reparar, desconectar, expulsar, y configurar tu hardware.", IDC_STATIC, 42, 90, 204, 24
-    PUSHBUTTON  "&Asistente de Hardware...", IDC_HARDWARE_WIZARD, 138, 120, 106, 15
+    PUSHBUTTON  "&Asistente de Hardware...", IDC_HARDWARE_WIZARD, 140, 120, 104, 15
 
     GROUPBOX    "Perfiles de Hardware ", IDC_STATIC, 6, 149, 244, 61
     ICON        IDI_HARDPROF, IDC_STATIC, 12, 160, 23, 21, SS_ICON
     LTEXT       "Los perfiles de hardware le ofrecen una forma de definir y almacenar diferentes configuraciones de hardware.", IDC_STATIC, 42, 160, 204, 24
-    PUSHBUTTON  "Perfiles Hard&ware...", IDC_HARDWARE_PROFILE, 138, 190, 106, 15
+    PUSHBUTTON  "Perfiles Hard&ware...", IDC_HARDWARE_PROFILE, 140, 190, 104, 15
 END
 
 
@@ -57,7 +57,7 @@ BEGIN
     LTEXT       "Debe iniciar la sesión como un Administrador para hacer la mayoría de los cambios.", IDC_STATIC, 12, 5, 236, 17
     GROUPBOX    "Rendimiento ", IDC_STATIC, 6, 27, 244, 50
     LTEXT       "Efectos visuales, programación del precesador, uso de memoria y memoria virtual.", IDC_STATIC, 16, 38, 210, 17
-    PUSHBUTTON  "Configuración", IDC_PERFOR, 194, 57, 50, 15
+    PUSHBUTTON  "Configuración", IDC_PERFOR, 194, 47, 50, 15
 
     GROUPBOX    "Perfiles de usuario ", IDC_STATIC, 6,84,244,48
     LTEXT       "Configuración del escritorio relacionada con su inicio de sesión", IDC_STATIC, 16, 97, 210, 20
@@ -144,7 +144,7 @@ CAPTION "Inicio y recuperación"
 FONT 8, "MS Shell Dlg"
 BEGIN
     GROUPBOX    "Inicio del sistema ", IDC_STATIC, 7, 12, 238, 95
-    LTEXT       "&Sistema operativo predeterminado:", IDC_STATIC, 14, 26, 180, 8
+    LTEXT       "&Sistema operativo predeterminado:", IDC_STATIC, 14, 26, 100, 8
     COMBOBOX    IDC_STRECOSCOMBO, 14, 37, 224, 46, CBS_DROPDOWNLIST
     AUTOCHECKBOX "&Mostrar la lista de sistemas operativos durante:", IDC_STRECLIST, 14, 56, 165, 8
     EDITTEXT    IDC_STRRECLISTEDIT, 180, 54, 29, 12, ES_NUMBER
@@ -154,7 +154,7 @@ BEGIN
     EDITTEXT    IDC_STRRECRECEDIT, 180, 68, 29, 12, ES_NUMBER
     CONTROL     "", IDC_STRRECRECUPDWN, "msctls_updown32", UDS_WRAP | UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS | UDS_NOTHOUSANDS | WS_CHILD | WS_VISIBLE, 0, 0, 8, 13
     LTEXT       "segundos", IDC_STATIC, 210, 70, 30, 8
-    LTEXT       "Para editar manualmente el archivo de opciones de inicio, haga clic en Editar.", IDC_STATIC, 14, 84, 170, 17
+    LTEXT       "Para editar manualmente el archivo de opciones de inicio, haga clic en Editar.", IDC_STATIC, 14, 84, 187, 17
     PUSHBUTTON  "&Editar", IDC_STRRECEDIT, 188, 87, 50, 14
 
     GROUPBOX    "Error del sistema ", IDC_STATIC, 7, 111, 238, 140

@@ -1,4 +1,23 @@
 /*
+ *  ReactOS W32 Subsystem
+ *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id$
+ *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * PURPOSE:          Menus
@@ -273,7 +292,6 @@ IntDestroyMenuObject(PMENU_OBJECT Menu,
                                          NULL);
       if(NT_SUCCESS(Status))
       {
-         BOOL ret;
          if (Menu->MenuInfo.Wnd)
          {
             Window = UserGetWindowObject(Menu->MenuInfo.Wnd);
@@ -283,7 +301,7 @@ IntDestroyMenuObject(PMENU_OBJECT Menu,
             }
          }
 //         UserDereferenceObject(Menu);
-         ret = UserDeleteObject(Menu->MenuInfo.Self, otMenu);
+         BOOL ret = UserDeleteObject(Menu->MenuInfo.Self, otMenu);
          ObDereferenceObject(WindowStation);
          return ret;
       }
@@ -295,7 +313,7 @@ PMENU_OBJECT FASTCALL
 IntCreateMenu(PHANDLE Handle, BOOL IsMenuBar)
 {
    PMENU_OBJECT Menu;
-   PPROCESSINFO CurrentWin32Process;
+   PW32PROCESS CurrentWin32Process;
 
    Menu = (PMENU_OBJECT)UserCreateObject(
              gHandleTable, Handle,
@@ -400,7 +418,7 @@ IntCloneMenuItems(PMENU_OBJECT Destination, PMENU_OBJECT Source)
 PMENU_OBJECT FASTCALL
 IntCloneMenu(PMENU_OBJECT Source)
 {
-   PPROCESSINFO CurrentWin32Process;
+   PW32PROCESS CurrentWin32Process;
    HANDLE hMenu;
    PMENU_OBJECT Menu;
 
@@ -483,6 +501,20 @@ IntGetMenuInfo(PMENU_OBJECT Menu, PROSMENUINFO lpmi)
    }
    return TRUE;
 }
+
+
+BOOL FASTCALL
+IntIsMenu(HMENU hMenu)
+{
+   PMENU_OBJECT Menu;
+
+   if((Menu = UserGetMenuObject(hMenu)))
+   {
+      return TRUE;
+   }
+   return FALSE;
+}
+
 
 BOOL FASTCALL
 IntSetMenuInfo(PMENU_OBJECT Menu, PROSMENUINFO lpmi)
@@ -994,7 +1026,6 @@ IntBuildMenuItemList(PMENU_OBJECT MenuObject, PVOID Buffer, ULONG nMax)
          }
          mii.fState = CurItem->fState;
          mii.fType = CurItem->fType;
-         mii.wID = CurItem->wID;
          mii.hbmpChecked = CurItem->hbmpChecked;
          mii.hbmpItem = CurItem->hbmpItem;
          mii.hbmpUnchecked = CurItem->hbmpUnchecked;
@@ -1233,14 +1264,14 @@ co_IntExitTracking(PWINDOW_OBJECT Window, PMENU_OBJECT Menu, BOOL Popup,
 
 INT FASTCALL
 IntTrackMenu(PMENU_OBJECT Menu, PWINDOW_OBJECT Window, INT x, INT y,
-             RECTL lprect)
+             RECT lprect)
 {
    return 0;
 }
 
 BOOL FASTCALL
 co_IntTrackPopupMenu(PMENU_OBJECT Menu, PWINDOW_OBJECT Window,
-                     UINT Flags, POINT *Pos, UINT MenuPos, RECTL *ExcludeRect)
+                     UINT Flags, POINT *Pos, UINT MenuPos, RECT *ExcludeRect)
 {
    co_IntInitTracking(Window, Menu, TRUE, Flags);
 
@@ -1249,7 +1280,7 @@ co_IntTrackPopupMenu(PMENU_OBJECT Menu, PWINDOW_OBJECT Window,
 }
 
 BOOL FASTCALL
-IntSetMenuItemRect(PMENU_OBJECT Menu, UINT Item, BOOL fByPos, RECTL *rcRect)
+IntSetMenuItemRect(PMENU_OBJECT Menu, UINT Item, BOOL fByPos, RECT *rcRect)
 {
    PMENU_ITEM mi;
    if(IntGetMenuItemByFlag(Menu, Item, (fByPos ? MF_BYPOSITION : MF_BYCOMMAND),
@@ -1266,7 +1297,7 @@ IntSetMenuItemRect(PMENU_OBJECT Menu, UINT Item, BOOL fByPos, RECTL *rcRect)
  * Internal function. Called when the process is destroyed to free the remaining menu handles.
 */
 BOOL FASTCALL
-IntCleanupMenus(struct _EPROCESS *Process, PPROCESSINFO Win32Process)
+IntCleanupMenus(struct _EPROCESS *Process, PW32PROCESS Win32Process)
 {
    PEPROCESS CurrentProcess;
    PLIST_ENTRY LastHead = NULL;
@@ -1295,7 +1326,7 @@ IntCleanupMenus(struct _EPROCESS *Process, PPROCESSINFO Win32Process)
 }
 
 VOID APIENTRY
-co_InflateRect(RECTL *rect, int dx, int dy)
+co_InflateRect(LPRECT rect, int dx, int dy)
 {
     rect->left -= dx;
     rect->top -= dy;
@@ -1317,13 +1348,13 @@ intGetTitleBarInfo(PWINDOW_OBJECT pWindowObject, PTITLEBARINFO bti)
 
         bti->rgstate[0] = STATE_SYSTEM_FOCUSABLE;
 
-        dwStyle = pWindowObject->Wnd->style;
+        dwStyle = pWindowObject->Wnd->Style;
         dwExStyle = pWindowObject->Wnd->ExStyle;
 
         bti->rcTitleBar.top  = 0;
         bti->rcTitleBar.left = 0;
-        bti->rcTitleBar.right  = pWindowObject->Wnd->rcWindow.right - pWindowObject->Wnd->rcWindow.left;
-        bti->rcTitleBar.bottom = pWindowObject->Wnd->rcWindow.bottom - pWindowObject->Wnd->rcWindow.top;
+        bti->rcTitleBar.right  = pWindowObject->Wnd->WindowRect.right - pWindowObject->Wnd->WindowRect.left;
+        bti->rcTitleBar.bottom = pWindowObject->Wnd->WindowRect.bottom - pWindowObject->Wnd->WindowRect.top;
 
         /* is it iconiced ? */ 
         if ((dwStyle & WS_ICONIC)!=WS_ICONIC)
@@ -1364,9 +1395,9 @@ intGetTitleBarInfo(PWINDOW_OBJECT pWindowObject, PTITLEBARINFO bti)
             }
         }
 
-        bti->rcTitleBar.top += pWindowObject->Wnd->rcWindow.top;
-        bti->rcTitleBar.left += pWindowObject->Wnd->rcWindow.left;
-        bti->rcTitleBar.right += pWindowObject->Wnd->rcWindow.left;
+        bti->rcTitleBar.top += pWindowObject->Wnd->WindowRect.top;
+        bti->rcTitleBar.left += pWindowObject->Wnd->WindowRect.left;
+        bti->rcTitleBar.right += pWindowObject->Wnd->WindowRect.left;
 
         bti->rcTitleBar.bottom = bti->rcTitleBar.top;
         if (dwExStyle & WS_EX_TOOLWINDOW)
@@ -1407,7 +1438,7 @@ intGetTitleBarInfo(PWINDOW_OBJECT pWindowObject, PTITLEBARINFO bti)
                 {
                     bti->rgstate[4] = STATE_SYSTEM_INVISIBLE;
                 }
-                if (pWindowObject->Wnd->pcls->style & CS_NOCLOSE)
+                if (pWindowObject->Wnd->Class->Style & CS_NOCLOSE)
                 {
                     bti->rgstate[5] = STATE_SYSTEM_UNAVAILABLE;
                 }
@@ -1844,7 +1875,7 @@ NtUserGetMenuBarInfo(
    PWINDOW_OBJECT WindowObject;
    HMENU hMenu;
    POINT Offset;
-   RECTL Rect;
+   RECT Rect;
    MENUBARINFO kmbi;
    DECLARE_RETURN(BOOL);
 
@@ -2066,12 +2097,12 @@ NtUserGetMenuItemRect(
    HWND hWnd,
    HMENU hMenu,
    UINT uItem,
-   PRECTL lprcItem)
+   LPRECT lprcItem)
 {
    ROSMENUINFO mi;
    PWINDOW_OBJECT ReferenceWnd;
    LONG XMove, YMove;
-   RECTL Rect;
+   RECT Rect;
    NTSTATUS Status;
    PMENU_OBJECT Menu;
    PMENU_ITEM MenuItem;
@@ -2104,13 +2135,13 @@ NtUserGetMenuItemRect(
 
    if(MenuItem->fType & MF_POPUP)
    {
-     XMove = ReferenceWnd->Wnd->rcClient.left;
-     YMove = ReferenceWnd->Wnd->rcClient.top;
+     XMove = ReferenceWnd->Wnd->ClientRect.left;
+     YMove = ReferenceWnd->Wnd->ClientRect.top;
    }
    else
    {
-     XMove = ReferenceWnd->Wnd->rcWindow.left;
-     YMove = ReferenceWnd->Wnd->rcWindow.top;
+     XMove = ReferenceWnd->Wnd->WindowRect.left;
+     YMove = ReferenceWnd->Wnd->WindowRect.top;
    }
 
    Rect.left   += XMove;
@@ -2291,8 +2322,8 @@ NtUserMenuItemFromPoint(
       RETURN( -1);
    }
 
-   X -= Window->Wnd->rcWindow.left;
-   Y -= Window->Wnd->rcWindow.top;
+   X -= Window->Wnd->WindowRect.left;
+   Y -= Window->Wnd->WindowRect.top;
 
    mi = Menu->MenuItemList;
    for (i = 0; NULL != mi; i++)

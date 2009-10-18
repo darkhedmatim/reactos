@@ -20,14 +20,18 @@
 
 #define COBJMACROS
 
-#include "ws2tcpip.h"
+#include <stdarg.h>
+#include <stdio.h>
+
 #include "windef.h"
+#include "winbase.h"
 #include "winnt.h"
+#include "winuser.h"
+#include "winsock2.h"
+#include "ws2tcpip.h"
 #include "objbase.h"
 #include "ole2.h"
 #include "mimeole.h"
-
-#include <stdio.h>
 
 #include "wine/debug.h"
 
@@ -197,6 +201,29 @@ HRESULT InternetTransport_ChangeStatus(InternetTransport *This, IXPSTATUS Status
     if (This->pCallback)
         ITransportCallback_OnStatus(This->pCallback, Status,
             (IInternetTransport *)&This->u.vtbl);
+    return S_OK;
+}
+
+HRESULT InternetTransport_Read(InternetTransport *This, int cbBuffer,
+    INETXPORT_COMPLETION_FUNCTION fnCompletion)
+{
+    if (This->Status == IXP_DISCONNECTED)
+        return IXP_E_NOT_CONNECTED;
+
+    if (This->fnCompletion)
+        return IXP_E_BUSY;
+
+    This->fnCompletion = fnCompletion;
+
+    This->cbBuffer = cbBuffer;
+    This->pBuffer = HeapAlloc(GetProcessHeap(), 0, This->cbBuffer);
+    This->iCurrentBufferOffset = 0;
+
+    if (WSAAsyncSelect(This->Socket, This->hwnd, IX_READ, FD_READ) == SOCKET_ERROR)
+    {
+        ERR("WSAAsyncSelect failed with error %d\n", WSAGetLastError());
+        /* FIXME: handle error */
+    }
     return S_OK;
 }
 

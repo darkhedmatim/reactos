@@ -12,28 +12,30 @@
 #include <stdio.h>
 
 /* WDK HAL Compilation hack */
+#ifdef _MSC_VER
 #include <excpt.h>
 #include <ntdef.h>
 #undef _NTHAL_
 #undef DECLSPEC_IMPORT
 #define DECLSPEC_IMPORT
-#undef NTSYSAPI
-#define NTSYSAPI __declspec(dllimport)
+#define __declspec(dllimport)
+#endif
 
 /* IFS/DDK/NDK Headers */
 #include <ntifs.h>
 #include <bugcodes.h>
 #include <ntdddisk.h>
 #include <arc/arc.h>
-#include <ntndk.h>
+#include <iotypes.h>
+#include <kefuncs.h>
+#include <halfuncs.h>
+#include <iofuncs.h>
+#include <ldrtypes.h>
+#include <obfuncs.h>
 
 /* Internal kernel headers */
 #include "internal/pci.h"
-#ifdef _M_AMD64
-#include "internal/amd64/intrin_i.h"
-#else
 #include "internal/i386/intrin_i.h"
-#endif
 
 /* Internal HAL Headers */
 #include "apic.h"

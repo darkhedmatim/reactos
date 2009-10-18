@@ -24,8 +24,8 @@
  *    _X86_        - X86 environment
  */
 
-#ifndef _NTDDK_
-#define _NTDDK_
+#ifndef __NTDDK_H
+#define __NTDDK_H
 
 //
 // Dependencies
@@ -50,8 +50,17 @@
 typedef GUID UUID;
 
 
+
 /* Windows Device Driver Kit */
 #include "winddk.h"
 
+/* Definitions only in Windows XP */
+#include "winxp.h"
 
-#endif /* _NTDDK_ */
+/* Definitions only in Windows 2000 */
+#include "win2k.h"
+
+/* Definitions only in Windows NT 4 */
+#include "winnt4.h"
+
+#endif /* __NTDDK_H */

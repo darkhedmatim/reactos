@@ -28,7 +28,6 @@
 #include "winsvc.h"
 #include "winnls.h"
 #include "lmcons.h"
-#include "aclapi.h"
 
 #include "wine/test.h"
 
@@ -38,8 +37,6 @@ static BOOL (WINAPI *pChangeServiceConfig2A)(SC_HANDLE,DWORD,LPVOID);
 static BOOL (WINAPI *pEnumServicesStatusExA)(SC_HANDLE, SC_ENUM_TYPE, DWORD,
                                              DWORD, LPBYTE, DWORD, LPDWORD,
                                              LPDWORD, LPDWORD, LPCSTR);
-static DWORD (WINAPI *pGetSecurityInfo)(HANDLE, SE_OBJECT_TYPE, SECURITY_INFORMATION,
-                                        PSID*, PSID*, PACL*, PACL*, PSECURITY_DESCRIPTOR*);
 static BOOL (WINAPI *pQueryServiceConfig2A)(SC_HANDLE,DWORD,LPBYTE,DWORD,LPDWORD);
 static BOOL (WINAPI *pQueryServiceConfig2W)(SC_HANDLE,DWORD,LPBYTE,DWORD,LPDWORD);
 static BOOL (WINAPI *pQueryServiceStatusEx)(SC_HANDLE, SC_STATUS_TYPE, LPBYTE,
@@ -51,7 +48,6 @@ static void init_function_pointers(void)
 
     pChangeServiceConfig2A = (void*)GetProcAddress(hadvapi32, "ChangeServiceConfig2A");
     pEnumServicesStatusExA= (void*)GetProcAddress(hadvapi32, "EnumServicesStatusExA");
-    pGetSecurityInfo = (void *)GetProcAddress(hadvapi32, "GetSecurityInfo");
     pQueryServiceConfig2A= (void*)GetProcAddress(hadvapi32, "QueryServiceConfig2A");
     pQueryServiceConfig2W= (void*)GetProcAddress(hadvapi32, "QueryServiceConfig2W");
     pQueryServiceStatusEx= (void*)GetProcAddress(hadvapi32, "QueryServiceStatusEx");
@@ -64,7 +60,11 @@ static void test_open_scm(void)
     /* No access rights */
     SetLastError(0xdeadbeef);
     scm_handle = OpenSCManagerA(NULL, NULL, 0);
-    ok(scm_handle != NULL, "Expected success, got error %u\n", GetLastError());
+    ok(scm_handle != NULL, "Expected success\n");
+    ok(GetLastError() == ERROR_SUCCESS    /* W2K3, Vista */ ||
+       GetLastError() == 0xdeadbeef       /* NT4, XP */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */,
+       "Expected ERROR_SUCCESS, ERROR_IO_PENDING or 0xdeadbeef, got %d\n", GetLastError());
     CloseServiceHandle(scm_handle);
 
     /* Unknown database name */
@@ -84,24 +84,31 @@ static void test_open_scm(void)
     /* Remote unknown host */
     SetLastError(0xdeadbeef);
     scm_handle = OpenSCManagerA("DOESNOTEXIST", SERVICES_ACTIVE_DATABASEA, SC_MANAGER_CONNECT);
-    todo_wine
-    {
     ok(!scm_handle, "Expected failure\n");
+    todo_wine
     ok(GetLastError() == RPC_S_SERVER_UNAVAILABLE || GetLastError() == RPC_S_INVALID_NET_ADDR /* w2k8 */,
        "Expected RPC_S_SERVER_UNAVAILABLE or RPC_S_INVALID_NET_ADDR, got %d\n", GetLastError());
-    }
     CloseServiceHandle(scm_handle); /* Just in case */
 
     /* Proper call with an empty hostname */
     SetLastError(0xdeadbeef);
     scm_handle = OpenSCManagerA("", SERVICES_ACTIVE_DATABASEA, SC_MANAGER_CONNECT);
-    ok(scm_handle != NULL, "Expected success, got error %u\n", GetLastError());
+    ok(scm_handle != NULL, "Expected success\n");
+    ok(GetLastError() == ERROR_SUCCESS          /* W2K3, Vista */ ||
+       GetLastError() == ERROR_ENVVAR_NOT_FOUND /* NT4 */ ||
+       GetLastError() == 0xdeadbeef             /* XP */ ||
+       GetLastError() == ERROR_IO_PENDING       /* W2K */,
+       "Expected ERROR_SUCCESS, ERROR_IO_PENDING, ERROR_ENVVAR_NOT_FOUND or 0xdeadbeef, got %d\n", GetLastError());
     CloseServiceHandle(scm_handle);
 
     /* Again a correct one */
     SetLastError(0xdeadbeef);
     scm_handle = OpenSCManagerA(NULL, NULL, SC_MANAGER_CONNECT);
-    ok(scm_handle != NULL, "Expected success, got error %u\n", GetLastError());
+    ok(scm_handle != NULL, "Expected success\n");
+    ok(GetLastError() == ERROR_SUCCESS    /* W2K3, Vista */ ||
+       GetLastError() == 0xdeadbeef       /* NT4, XP */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */,
+       "Expected ERROR_SUCCESS, ERROR_IO_PENDING or 0xdeadbeef, got %d\n", GetLastError());
     CloseServiceHandle(scm_handle);
 }
 
@@ -144,7 +151,11 @@ static void test_open_svc(void)
         skip("Not enough rights to get a handle to the service\n");
     else
     {
-        ok(svc_handle != NULL, "Expected success, got error %u\n", GetLastError());
+        ok(svc_handle != NULL, "Expected success\n");
+        ok(GetLastError() == ERROR_SUCCESS    /* W2K3, Vista */ ||
+           GetLastError() == ERROR_IO_PENDING /* W2K */ ||
+           GetLastError() == 0xdeadbeef       /* XP, NT4 */,
+           "Expected ERROR_SUCCESS or 0xdeadbeef, got %d\n", GetLastError());
         CloseServiceHandle(svc_handle);
     }
 
@@ -311,8 +322,7 @@ static void test_create_delete_svc(void)
     svc_handle1 = CreateServiceA(scm_handle, servicename, NULL, GENERIC_ALL, SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS,
                                  SERVICE_DISABLED, 0, pathname, NULL, NULL, NULL, account, password);
     ok(!svc_handle1, "Expected failure\n");
-    ok(GetLastError() == ERROR_INVALID_PARAMETER || GetLastError() == ERROR_INVALID_SERVICE_ACCOUNT,
-       "Expected ERROR_INVALID_PARAMETER or ERROR_INVALID_SERVICE_ACCOUNT, got %d\n", GetLastError());
+    ok(GetLastError() == ERROR_INVALID_PARAMETER, "Expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
 
     /* Illegal (start-type is not a mask and should only be one of the possibilities)
      * Remark : 'OR'-ing them could result in a valid possibility (but doesn't make sense as
@@ -376,6 +386,10 @@ static void test_create_delete_svc(void)
     svc_handle1 = CreateServiceA(scm_handle, servicename, NULL, 0, SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS,
                                  SERVICE_DISABLED, 0, pathname, NULL, NULL, NULL, NULL, NULL);
     ok(svc_handle1 != NULL, "Could not create the service : %d\n", GetLastError());
+    ok(GetLastError() == ERROR_SUCCESS    /* W2K3, Vista */ ||
+       GetLastError() == 0xdeadbeef       /* NT4, XP */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */,
+       "Expected ERROR_SUCCESS, ERROR_IO_PENDING or 0xdeadbeef, got %d\n", GetLastError());
 
     /* DeleteService however must have proper rights */
     SetLastError(0xdeadbeef);
@@ -393,9 +407,14 @@ static void test_create_delete_svc(void)
     /* Now that we have the proper rights, we should be able to delete */
     SetLastError(0xdeadbeef);
     ret = DeleteService(svc_handle1);
-    ok(ret, "Expected success, got error %u\n", GetLastError());
+    ok(ret, "Expected success\n");
+    ok(GetLastError() == ERROR_SUCCESS    /* W2K3 */ ||
+       GetLastError() == 0xdeadbeef       /* NT4, XP, Vista */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */,
+       "Expected ERROR_SUCCESS, ERROR_IO_PENDING or 0xdeadbeef, got %d\n", GetLastError());
 
     CloseServiceHandle(svc_handle1);
+
     CloseServiceHandle(scm_handle);
 
     /* Wait a while. One of the following tests also does a CreateService for the
@@ -421,8 +440,6 @@ static void test_get_displayname(void)
     DWORD displaysize, tempsize, tempsizeW;
     static const CHAR deadbeef[] = "Deadbeef";
     static const WCHAR spoolerW[] = {'S','p','o','o','l','e','r',0};
-    static const WCHAR deadbeefW[] = {'D','e','a','d','b','e','e','f',0};
-    static const WCHAR abcW[] = {'A','B','C',0};
     static const CHAR servicename[] = "Winetest";
     static const CHAR pathname[] = "we_dont_care.exe";
 
@@ -458,85 +475,6 @@ static void test_get_displayname(void)
     ok(!ret, "Expected failure\n");
     ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
        "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
-
-    SetLastError(0xdeadbeef);
-    ret = GetServiceDisplayNameA(scm_handle, deadbeef, NULL, &displaysize);
-    ok(!ret, "Expected failure\n");
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
-    todo_wine ok(displaysize == 1, "Service size expected 1, got %d\n", displaysize);
-
-    displaysize = 15;
-    strcpy(displayname, "ABC");
-    ret = GetServiceDisplayNameA(scm_handle, deadbeef, displayname, &displaysize);
-    ok(!ret, "Expected failure\n");
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
-    todo_wine ok(displaysize == 15, "Service size expected 15, got %d\n", displaysize);
-    ok(displayname[0] == 0, "Service name not empty\n");
-
-    displaysize = 15;
-    lstrcpyW( displaynameW, abcW );
-    ret = GetServiceDisplayNameW(scm_handle, deadbeefW, displaynameW, &displaysize);
-    ok(!ret, "Expected failure\n");
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
-    ok(displaysize == 15, "Service size expected 15, got %d\n", displaysize);
-    ok(displaynameW[0] == 0, "Service name not empty\n");
-
-    displaysize = 0;
-    strcpy(displayname, "ABC");
-    ret = GetServiceDisplayNameA(scm_handle, deadbeef, displayname, &displaysize);
-    ok(!ret, "Expected failure\n");
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
-    todo_wine ok(displaysize == 1, "Service size expected 1, got %d\n", displaysize);
-    ok(displayname[0] == 'A', "Service name changed\n");
-
-    displaysize = 0;
-    lstrcpyW( displaynameW, abcW );
-    ret = GetServiceDisplayNameW(scm_handle, deadbeefW, displaynameW, &displaysize);
-    ok(!ret, "Expected failure\n");
-    ok(displaysize == 2, "Service size expected 2, got %d\n", displaysize);
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
-    ok(displaynameW[0] == 'A', "Service name changed\n");
-
-    displaysize = 1;
-    strcpy(displayname, "ABC");
-    ret = GetServiceDisplayNameA(scm_handle, deadbeef, displayname, &displaysize);
-    ok(!ret, "Expected failure\n");
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
-    todo_wine ok(displaysize == 1, "Service size expected 1, got %d\n", displaysize);
-    ok(displayname[0] == 0, "Service name not empty\n");
-
-    displaysize = 1;
-    lstrcpyW( displaynameW, abcW );
-    ret = GetServiceDisplayNameW(scm_handle, deadbeefW, displaynameW, &displaysize);
-    ok(!ret, "Expected failure\n");
-    ok(displaysize == 2, "Service size expected 2, got %d\n", displaysize);
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
-    ok(displaynameW[0] == 'A', "Service name changed\n");
-
-    displaysize = 2;
-    strcpy(displayname, "ABC");
-    ret = GetServiceDisplayNameA(scm_handle, deadbeef, displayname, &displaysize);
-    ok(!ret, "Expected failure\n");
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
-    todo_wine ok(displaysize == 2, "Service size expected 2, got %d\n", displaysize);
-    ok(displayname[0] == 0, "Service name not empty\n");
-
-    displaysize = 2;
-    lstrcpyW( displaynameW, abcW );
-    ret = GetServiceDisplayNameW(scm_handle, deadbeefW, displaynameW, &displaysize);
-    ok(!ret, "Expected failure\n");
-    ok(displaysize == 2, "Service size expected 2, got %d\n", displaysize);
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
-    ok(displaynameW[0] == 0, "Service name not empty\n");
 
     /* Check if 'Spooler' exists */
     svc_handle = OpenServiceA(scm_handle, spooler, GENERIC_READ);
@@ -580,21 +518,33 @@ static void test_get_displayname(void)
     SetLastError(0xdeadbeef);
     displaysize = (tempsize / 2) + 1;
     ret = GetServiceDisplayNameA(scm_handle, spooler, displayname, &displaysize);
-    ok(ret, "Expected success, got error %u\n", GetLastError());
+    ok(ret, "Expected success\n");
     ok(displaysize == ((tempsize / 2) + 1), "Expected no change for the needed buffer size\n");
+    ok(GetLastError() == ERROR_SUCCESS    /* W2K3 */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */ ||
+       GetLastError() == 0xdeadbeef       /* NT4, XP, Vista */,
+       "Expected ERROR_SUCCESS, ERROR_IO_PENDING or 0xdeadbeef, got %d\n", GetLastError());
 
     /* Now with the original returned size */
     SetLastError(0xdeadbeef);
     displaysize = tempsize;
     ret = GetServiceDisplayNameA(scm_handle, spooler, displayname, &displaysize);
-    ok(ret, "Expected success, got error %u\n", GetLastError());
+    ok(ret, "Expected success\n");
     ok(displaysize == tempsize, "Expected no change for the needed buffer size\n");
+    ok(GetLastError() == ERROR_SUCCESS    /* W2K3 */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */ ||
+       GetLastError() == 0xdeadbeef       /* NT4, XP, Vista */,
+       "Expected ERROR_SUCCESS, ERROR_IO_PENDING or 0xdeadbeef, got %d\n", GetLastError());
 
     /* And with a bigger than needed buffer */
     SetLastError(0xdeadbeef);
     displaysize = tempsize * 2;
     ret = GetServiceDisplayNameA(scm_handle, spooler, displayname, &displaysize);
-    ok(ret, "Expected success, got error %u\n", GetLastError());
+    ok(ret, "Expected success\n");
+    ok(GetLastError() == ERROR_SUCCESS    /* W2K3 */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */ ||
+       GetLastError() == 0xdeadbeef       /* NT4, XP, Vista */,
+       "Expected ERROR_SUCCESS, ERROR_IO_PENDING or 0xdeadbeef, got %d\n", GetLastError());
     /* Test that shows that if the buffersize is enough, it's not changed */
     ok(displaysize == tempsize * 2, "Expected no change for the needed buffer size\n");
     ok(lstrlen(displayname) == tempsize/2,
@@ -631,7 +581,11 @@ static void test_get_displayname(void)
     SetLastError(0xdeadbeef);
     displaysize = tempsizeW + 1; /* This caters for the null terminating character */
     ret = GetServiceDisplayNameW(scm_handle, spoolerW, displaynameW, &displaysize);
-    ok(ret, "Expected success, got error %u\n", GetLastError());
+    ok(ret, "Expected success\n");
+    ok(GetLastError() == ERROR_SUCCESS    /* W2K3 */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */ ||
+       GetLastError() == 0xdeadbeef       /* NT4, XP, Vista */,
+       "Expected ERROR_SUCCESS, ERROR_IO_PENDING or 0xdeadbeef, got %d\n", GetLastError());
     ok(displaysize == tempsizeW, "Expected the needed buffersize\n");
     ok(lstrlenW(displaynameW) == displaysize,
        "Expected the buffer to be the length of the string\n") ;
@@ -685,9 +639,13 @@ static void test_get_displayname(void)
     /* Get the displayname */
     SetLastError(0xdeadbeef);
     ret = GetServiceDisplayNameA(scm_handle, servicename, displayname, &displaysize);
-    ok(ret, "Expected success, got error %u\n", GetLastError());
+    ok(ret, "Expected success\n");
     ok(!lstrcmpi(displayname, servicename),
        "Expected displayname to be %s, got %s\n", servicename, displayname);
+    ok(GetLastError() == ERROR_SUCCESS    /* W2K3 */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */ ||
+       GetLastError() == 0xdeadbeef       /* NT4, XP, Vista */,
+       "Expected ERROR_SUCCESS, ERROR_IO_PENDING or 0xdeadbeef, got %d\n", GetLastError());
 
     /* Delete the service */
     ret = DeleteService(svc_handle);
@@ -711,7 +669,6 @@ static void test_get_servicekeyname(void)
     BOOL ret;
     static const CHAR deadbeef[] = "Deadbeef";
     static const WCHAR deadbeefW[] = {'D','e','a','d','b','e','e','f',0};
-    static const WCHAR abcW[] = {'A','B','C',0};
 
     /* Having NULL for the size of the buffer will crash on W2K3 */
 
@@ -754,73 +711,29 @@ static void test_get_servicekeyname(void)
     strcpy(servicename, "ABC");
     ret = GetServiceKeyNameA(scm_handle, deadbeef, servicename, &servicesize);
     ok(!ret, "Expected failure\n");
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
     todo_wine ok(servicesize == 15, "Service size expected 15, got %d\n", servicesize);
     ok(servicename[0] == 0, "Service name not empty\n");
 
     servicesize = 15;
-    lstrcpyW( servicenameW, abcW );
+    servicenameW[0] = 'A';
     ret = GetServiceKeyNameW(scm_handle, deadbeefW, servicenameW, &servicesize);
     ok(!ret, "Expected failure\n");
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
-    ok(servicesize == 15, "Service size expected 15, got %d\n", servicesize);
+    todo_wine ok(servicesize == 15, "Service size expected 15, got %d\n", servicesize);
     ok(servicenameW[0] == 0, "Service name not empty\n");
 
     servicesize = 0;
     strcpy(servicename, "ABC");
     ret = GetServiceKeyNameA(scm_handle, deadbeef, servicename, &servicesize);
     ok(!ret, "Expected failure\n");
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
     todo_wine ok(servicesize == 1, "Service size expected 1, got %d\n", servicesize);
     ok(servicename[0] == 'A', "Service name changed\n");
 
     servicesize = 0;
-    lstrcpyW( servicenameW, abcW );
+    servicenameW[0] = 'A';
     ret = GetServiceKeyNameW(scm_handle, deadbeefW, servicenameW, &servicesize);
     ok(!ret, "Expected failure\n");
-    ok(servicesize == 2, "Service size expected 2, got %d\n", servicesize);
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
-    ok(servicenameW[0] == 'A', "Service name changed\n");
-
-    servicesize = 1;
-    strcpy(servicename, "ABC");
-    ret = GetServiceKeyNameA(scm_handle, deadbeef, servicename, &servicesize);
-    ok(!ret, "Expected failure\n");
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
-    todo_wine ok(servicesize == 1, "Service size expected 1, got %d\n", servicesize);
-    ok(servicename[0] == 0, "Service name not empty\n");
-
-    servicesize = 1;
-    lstrcpyW( servicenameW, abcW );
-    ret = GetServiceKeyNameW(scm_handle, deadbeefW, servicenameW, &servicesize);
-    ok(!ret, "Expected failure\n");
-    ok(servicesize == 2, "Service size expected 2, got %d\n", servicesize);
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
-    ok(servicenameW[0] == 'A', "Service name changed\n");
-
-    servicesize = 2;
-    strcpy(servicename, "ABC");
-    ret = GetServiceKeyNameA(scm_handle, deadbeef, servicename, &servicesize);
-    ok(!ret, "Expected failure\n");
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
     todo_wine ok(servicesize == 2, "Service size expected 2, got %d\n", servicesize);
-    ok(servicename[0] == 0, "Service name not empty\n");
-
-    servicesize = 2;
-    lstrcpyW( servicenameW, abcW );
-    ret = GetServiceKeyNameW(scm_handle, deadbeefW, servicenameW, &servicesize);
-    ok(!ret, "Expected failure\n");
-    ok(servicesize == 2, "Service size expected 2, got %d\n", servicesize);
-    ok(GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST,
-       "Expected ERROR_SERVICE_DOES_NOT_EXIST, got %d\n", GetLastError());
-    ok(servicenameW[0] == 0, "Service name not empty\n");
+    ok(servicenameW[0] == 'A', "Service name changed\n");
 
     /* Check if 'Spooler' exists */
     svc_handle = OpenServiceA(scm_handle, spooler, GENERIC_READ);
@@ -849,7 +762,11 @@ static void test_get_servicekeyname(void)
     tempsize = servicesize;
     servicesize *= 2;
     ret = GetServiceKeyNameA(scm_handle, displayname, servicename, &servicesize);
-    ok(ret, "Expected success, got error %u\n", GetLastError());
+    ok(ret, "Expected success\n");
+    ok(GetLastError() == ERROR_SUCCESS    /* W2K3 */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */ ||
+       GetLastError() == 0xdeadbeef       /* NT4, XP, Vista */,
+       "Expected ERROR_SUCCESS, ERROR_IO_PENDING or 0xdeadbeef, got %d\n", GetLastError());
     if (ret)
     {
         ok(lstrlen(servicename) == tempsize/2,
@@ -863,7 +780,11 @@ static void test_get_servicekeyname(void)
     SetLastError(0xdeadbeef);
     servicesize *= 2;
     ret = GetServiceKeyNameW(scm_handle, displaynameW, servicenameW, &servicesize);
-    ok(ret, "Expected success, got error %u\n", GetLastError());
+    ok(ret, "Expected success\n");
+    ok(GetLastError() == ERROR_SUCCESS    /* W2K3 */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */ ||
+       GetLastError() == 0xdeadbeef       /* NT4, XP, Vista */,
+       "Expected ERROR_SUCCESS, ERROR_IO_PENDING or 0xdeadbeef, got %d\n", GetLastError());
     if (ret)
     {
         ok(lstrlen(servicename) == tempsize/2,
@@ -933,7 +854,11 @@ static void test_query_svc(void)
 
     SetLastError(0xdeadbeef);
     ret = QueryServiceStatus(svc_handle, &status);
-    ok(ret, "Expected success, got error %u\n", GetLastError());
+    ok(ret, "Expected success\n");
+    ok(GetLastError() == ERROR_SUCCESS /* W2K3 */ ||
+       GetLastError() == 0xdeadbeef /* NT4, XP and Vista */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */,
+       "Unexpected last error %d\n", GetLastError());
 
     CloseServiceHandle(svc_handle);
 
@@ -1012,7 +937,11 @@ static void test_query_svc(void)
     bufsize = sizeof(SERVICE_STATUS_PROCESS);
     SetLastError(0xdeadbeef);
     ret = pQueryServiceStatusEx(svc_handle, 0, (BYTE*)statusproc, bufsize, &needed);
-    ok(ret, "Expected success, got error %u\n", GetLastError());
+    ok(ret, "Expected success\n");
+    ok(GetLastError() == ERROR_SUCCESS /* W2K3 */ ||
+       GetLastError() == 0xdeadbeef /* NT4, XP and Vista */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */,
+       "Unexpected last error %d\n", GetLastError());
     if (statusproc->dwCurrentState == SERVICE_RUNNING)
         ok(statusproc->dwProcessId != 0,
            "Expect a process id for this running service\n");
@@ -1030,7 +959,7 @@ static void test_enum_svc(void)
     SC_HANDLE scm_handle;
     BOOL ret;
     DWORD bufsize, needed, returned, resume;
-    DWORD tempneeded, tempreturned, missing;
+    DWORD tempneeded, tempreturned;
     DWORD servicecountactive, servicecountinactive;
     ENUM_SERVICE_STATUS *services;
     ENUM_SERVICE_STATUS_PROCESS *exservices;
@@ -1072,8 +1001,7 @@ static void test_enum_svc(void)
     SetLastError(0xdeadbeef);
     ret = EnumServicesStatusA(scm_handle, 0, 0, NULL, 0, &needed, NULL, NULL);
     ok(!ret, "Expected failure\n");
-    ok(needed == 0xdeadbeef || broken(needed != 0xdeadbeef), /* nt4 */
-       "Expected no change to the needed buffer variable\n");
+    ok(needed == 0xdeadbeef, "Expected no change to the needed buffer variable\n");
     todo_wine
     ok(GetLastError() == ERROR_INVALID_ADDRESS ||
        GetLastError() == ERROR_INVALID_PARAMETER /* NT4 */,
@@ -1087,8 +1015,7 @@ static void test_enum_svc(void)
     ok(!ret, "Expected failure\n");
     todo_wine
     {
-    ok(needed == 0 || broken(needed != 0), /* nt4 */
-       "Expected needed buffer size to be set to 0, got %d\n", needed);
+    ok(needed == 0, "Expected needed buffer size to be set to 0, got %d\n", needed);
     ok(returned == 0, "Expected number of services to be set to 0, got %d\n", returned);
     ok(GetLastError() == ERROR_INVALID_PARAMETER,
        "Expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
@@ -1102,8 +1029,7 @@ static void test_enum_svc(void)
     ok(!ret, "Expected failure\n");
     todo_wine
     {
-    ok(needed == 0 || broken(needed != 0), /* nt4 */
-       "Expected needed buffer size to be set to 0, got %d\n", needed);
+    ok(needed == 0, "Expected needed buffer size to be set to 0, got %d\n", needed);
     ok(returned == 0, "Expected number of services to be set to 0, got %d\n", returned);
     ok(GetLastError() == ERROR_INVALID_PARAMETER,
        "Expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
@@ -1118,8 +1044,7 @@ static void test_enum_svc(void)
     ok(!ret, "Expected failure\n");
     todo_wine
     {
-    ok(needed == 0 || broken(needed != 0), /* nt4 */
-       "Expected needed buffer size to be set to 0, got %d\n", needed);
+    ok(needed == 0, "Expected needed buffer size to be set to 0, got %d\n", needed);
     ok(returned == 0, "Expected number of services to be set to 0, got %d\n", returned);
     ok(GetLastError() == ERROR_INVALID_PARAMETER,
        "Expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
@@ -1134,8 +1059,7 @@ static void test_enum_svc(void)
     ok(!ret, "Expected failure\n");
     todo_wine
     {
-    ok(needed == 0 || broken(needed != 0), /* nt4 */
-       "Expected needed buffer size to be set to 0, got %d\n", needed);
+    ok(needed == 0, "Expected needed buffer size to be set to 0, got %d\n", needed);
     ok(returned == 0, "Expected number of services to be set to 0, got %d\n", returned);
     }
     ok(GetLastError() == ERROR_ACCESS_DENIED,
@@ -1173,9 +1097,13 @@ static void test_enum_svc(void)
                               services, bufsize, &needed, &returned, NULL);
     todo_wine
     {
-    ok(ret, "Expected success, got error %u\n", GetLastError());
+    ok(ret, "Expected success\n");
     ok(needed == 0, "Expected needed buffer to be 0 as we are done\n");
     ok(returned != 0xdeadbeef && returned > 0, "Expected some returned services\n");
+    ok(GetLastError() == ERROR_SUCCESS /* W2K3 */ ||
+       GetLastError() == 0xdeadbeef /* NT4, XP and Vista */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */,
+       "Unexpected last error %d\n", GetLastError());
     }
     HeapFree(GetProcessHeap(), 0, services);
 
@@ -1183,8 +1111,8 @@ static void test_enum_svc(void)
     tempreturned = returned;
 
     /* Allocate less than the needed bytes and don't specify a resume handle */
-    services = HeapAlloc(GetProcessHeap(), 0, tempneeded);
-    bufsize = (tempreturned - 1) * sizeof(ENUM_SERVICE_STATUS);
+    services = HeapAlloc(GetProcessHeap(), 0, tempneeded - 1);
+    bufsize = tempneeded - 1;
     needed = 0xdeadbeef;
     returned = 0xdeadbeef;
     SetLastError(0xdeadbeef);
@@ -1194,13 +1122,15 @@ static void test_enum_svc(void)
     todo_wine
     {
     ok(needed != 0xdeadbeef && needed > 0, "Expected the needed buffer size for this one service\n");
-    ok(returned < tempreturned, "Expected fewer services to be returned\n");
+    ok(returned == (tempreturned - 1), "Expected one service less to be returned\n");
     ok(GetLastError() == ERROR_MORE_DATA,
        "Expected ERROR_MORE_DATA, got %d\n", GetLastError());
     }
+    HeapFree(GetProcessHeap(), 0, services);
 
     /* Allocate less than the needed bytes, this time with a correct resume handle */
-    bufsize = (tempreturned - 1) * sizeof(ENUM_SERVICE_STATUS);
+    services = HeapAlloc(GetProcessHeap(), 0, tempneeded - 1);
+    bufsize = tempneeded - 1;
     needed = 0xdeadbeef;
     returned = 0xdeadbeef;
     resume = 0;
@@ -1211,14 +1141,15 @@ static void test_enum_svc(void)
     todo_wine
     {
     ok(needed != 0xdeadbeef && needed > 0, "Expected the needed buffer size for this one service\n");
-    ok(returned < tempreturned, "Expected fewer services to be returned\n");
+    ok(returned == (tempreturned - 1), "Expected one service less to be returned\n");
     ok(resume, "Expected a resume handle\n");
     ok(GetLastError() == ERROR_MORE_DATA,
        "Expected ERROR_MORE_DATA, got %d\n", GetLastError());
     }
+    HeapFree(GetProcessHeap(), 0, services);
 
-    /* Fetch the missing services but pass a bigger buffer size */
-    missing = tempreturned - returned;
+    /* Fetch that last service but pass a bigger buffer size */
+    services = HeapAlloc(GetProcessHeap(), 0, tempneeded);
     bufsize = tempneeded;
     needed = 0xdeadbeef;
     returned = 0xdeadbeef;
@@ -1227,9 +1158,13 @@ static void test_enum_svc(void)
                               services, bufsize, &needed, &returned, &resume);
     todo_wine
     {
-    ok(ret, "Expected success, got error %u\n", GetLastError());
+    ok(ret, "Expected success\n");
     ok(needed == 0, "Expected needed buffer to be 0 as we are done\n");
-    ok(returned == missing, "Expected %u services to be returned\n", missing);
+    ok(returned == 1, "Expected only 1 service to be returned\n");
+    ok(GetLastError() == ERROR_SUCCESS /* W2K3 */ ||
+       GetLastError() == 0xdeadbeef /* NT4, XP and Vista */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */,
+       "Unexpected last error %d\n", GetLastError());
     }
     ok(resume == 0, "Expected the resume handle to be 0\n");
     HeapFree(GetProcessHeap(), 0, services);
@@ -1314,8 +1249,8 @@ static void test_enum_svc(void)
 
     todo_wine
     {
-    ok(servicecountactive == 0, "Active services mismatch %u\n", servicecountactive);
-    ok(servicecountinactive == 0, "Inactive services mismatch %u\n", servicecountinactive);
+    ok(servicecountactive == 0, "Active services mismatch\n");
+    ok(servicecountinactive == 0, "Inactive services mismatch\n");
     }
 
     CloseServiceHandle(scm_handle);
@@ -1355,8 +1290,7 @@ static void test_enum_svc(void)
     SetLastError(0xdeadbeef);
     ret = pEnumServicesStatusExA(scm_handle, 0, 0, 0, NULL, 0, &needed, NULL, NULL, NULL);
     ok(!ret, "Expected failure\n");
-    ok(needed == 0xdeadbeef || broken(needed != 0xdeadbeef), /* nt4 */
-       "Expected no change to the needed buffer variable\n");
+    ok(needed == 0xdeadbeef, "Expected no change to the needed buffer variable\n");
     todo_wine
     ok(GetLastError() == ERROR_INVALID_ADDRESS ||
        GetLastError() == ERROR_INVALID_PARAMETER /* NT4 */,
@@ -1384,8 +1318,7 @@ static void test_enum_svc(void)
     ok(returned == 0, "Expected number of service to be set to 0, got %d\n", returned);
     todo_wine
     {
-    ok(needed == 0 || broken(needed != 0), /* nt4 */
-       "Expected needed buffer size to be set to 0, got %d\n", needed);
+    ok(needed == 0, "Expected needed buffer size to be set to 0, got %d\n", needed);
     ok(GetLastError() == ERROR_INVALID_PARAMETER,
        "Expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
     }
@@ -1400,8 +1333,7 @@ static void test_enum_svc(void)
     ok(returned == 0, "Expected number of service to be set to 0, got %d\n", returned);
     todo_wine
     {
-    ok(needed == 0 || broken(needed != 0), /* nt4 */
-       "Expected needed buffer size to be set to 0, got %d\n", needed);
+    ok(needed == 0, "Expected needed buffer size to be set to 0, got %d\n", needed);
     ok(GetLastError() == ERROR_INVALID_PARAMETER,
        "Expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
     }
@@ -1416,8 +1348,7 @@ static void test_enum_svc(void)
     ok(returned == 0, "Expected number of service to be set to 0, got %d\n", returned);
     todo_wine
     {
-    ok(needed == 0 || broken(needed != 0), /* nt4 */
-       "Expected needed buffer size to be set to 0, got %d\n", needed);
+    ok(needed == 0, "Expected needed buffer size to be set to 0, got %d\n", needed);
     ok(GetLastError() == ERROR_INVALID_PARAMETER,
        "Expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
     }
@@ -1432,8 +1363,7 @@ static void test_enum_svc(void)
     ok(returned == 0, "Expected number of service to be set to 0, got %d\n", returned);
     todo_wine
     {
-    ok(needed == 0 || broken(needed != 0), /* nt4 */
-       "Expected needed buffer size to be set to 0, got %d\n", needed);
+    ok(needed == 0, "Expected needed buffer size to be set to 0, got %d\n", needed);
     ok(GetLastError() == ERROR_INVALID_PARAMETER,
        "Expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
     }
@@ -1446,8 +1376,7 @@ static void test_enum_svc(void)
                                  NULL, 0, &needed, &returned, NULL, NULL);
     ok(!ret, "Expected failure\n");
     todo_wine
-    ok(needed == 0 || broken(needed != 0), /* nt4 */
-       "Expected needed buffer size to be set to 0, got %d\n", needed);
+    ok(needed == 0, "Expected needed buffer size to be set to 0, got %d\n", needed);
     ok(returned == 0, "Expected number of service to be set to 0, got %d\n", returned);
     ok(GetLastError() == ERROR_ACCESS_DENIED,
        "Expected ERROR_ACCESS_DENIED, got %d\n", GetLastError());
@@ -1462,8 +1391,7 @@ static void test_enum_svc(void)
                                  NULL, 0, &needed, &returned, NULL, "deadbeef_group");
     ok(!ret, "Expected failure\n");
     todo_wine
-    ok(needed == 0 || broken(needed != 0), /* nt4 */
-       "Expected needed buffer size to be set to 0, got %d\n", needed);
+    ok(needed == 0, "Expected needed buffer size to be set to 0, got %d\n", needed);
     ok(returned == 0, "Expected number of service to be set to 0, got %d\n", returned);
     ok(GetLastError() == ERROR_ACCESS_DENIED,
        "Expected ERROR_ACCESS_DENIED, got %d\n", GetLastError());
@@ -1519,9 +1447,13 @@ static void test_enum_svc(void)
                                  (BYTE*)exservices, bufsize, &needed, &returned, NULL, NULL);
     todo_wine
     {
-    ok(ret, "Expected success, got error %u\n", GetLastError());
+    ok(ret, "Expected success\n");
     ok(needed == 0, "Expected needed buffer to be 0 as we are done\n");
     ok(returned == tempreturned, "Expected the same number of service from this function\n");
+    ok(GetLastError() == ERROR_SUCCESS /* W2K3 */ ||
+       GetLastError() == 0xdeadbeef /* NT4, XP and Vista */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */,
+       "Unexpected last error %d\n", GetLastError());
     }
     HeapFree(GetProcessHeap(), 0, exservices);
 
@@ -1529,8 +1461,8 @@ static void test_enum_svc(void)
     tempreturned = returned;
 
     /* Allocate less than the needed bytes and don't specify a resume handle */
-    exservices = HeapAlloc(GetProcessHeap(), 0, tempneeded);
-    bufsize = (tempreturned - 1) * sizeof(ENUM_SERVICE_STATUS);
+    exservices = HeapAlloc(GetProcessHeap(), 0, tempneeded - 1);
+    bufsize = tempneeded - 1;
     needed = 0xdeadbeef;
     returned = 0xdeadbeef;
     SetLastError(0xdeadbeef);
@@ -1540,13 +1472,15 @@ static void test_enum_svc(void)
     todo_wine
     {
     ok(needed != 0xdeadbeef && needed > 0, "Expected the needed buffer size\n");
-    ok(returned < tempreturned, "Expected fewer services to be returned\n");
+    ok(returned == (tempreturned - 1), "Expected one service less to be returned\n");
     ok(GetLastError() == ERROR_MORE_DATA,
        "Expected ERROR_MORE_DATA, got %d\n", GetLastError());
     }
+    HeapFree(GetProcessHeap(), 0, exservices);
 
     /* Allocate less than the needed bytes, this time with a correct resume handle */
-    bufsize = (tempreturned - 1) * sizeof(ENUM_SERVICE_STATUS);
+    exservices = HeapAlloc(GetProcessHeap(), 0, tempneeded - 1);
+    bufsize = tempneeded - 1;
     needed = 0xdeadbeef;
     returned = 0xdeadbeef;
     resume = 0;
@@ -1557,14 +1491,15 @@ static void test_enum_svc(void)
     todo_wine
     {
     ok(needed != 0xdeadbeef && needed > 0, "Expected the needed buffer size\n");
-    ok(returned < tempreturned, "Expected fewer services to be returned\n");
+    ok(returned == (tempreturned - 1), "Expected one service less to be returned\n");
     ok(resume, "Expected a resume handle\n");
     ok(GetLastError() == ERROR_MORE_DATA,
        "Expected ERROR_MORE_DATA, got %d\n", GetLastError());
     }
+    HeapFree(GetProcessHeap(), 0, exservices);
 
     /* Fetch that last service but pass a bigger buffer size */
-    missing = tempreturned - returned;
+    exservices = HeapAlloc(GetProcessHeap(), 0, tempneeded);
     bufsize = tempneeded;
     needed = 0xdeadbeef;
     returned = 0xdeadbeef;
@@ -1573,10 +1508,14 @@ static void test_enum_svc(void)
                                  (BYTE*)exservices, bufsize, &needed, &returned, &resume, NULL);
     todo_wine
     {
-    ok(ret, "Expected success, got error %u\n", GetLastError());
+    ok(ret, "Expected success\n");
     ok(needed == 0, "Expected needed buffer to be 0 as we are done\n");
+    ok(returned == 1, "Expected only 1 service to be returned\n");
+    ok(GetLastError() == ERROR_SUCCESS /* W2K3 */ ||
+       GetLastError() == 0xdeadbeef /* NT4, XP and Vista */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */,
+       "Unexpected last error %d\n", GetLastError());
     }
-    ok(returned == missing, "Expected %u services to be returned\n", missing);
     ok(resume == 0, "Expected the resume handle to be 0\n");
     HeapFree(GetProcessHeap(), 0, exservices);
 
@@ -1655,8 +1594,7 @@ static void test_enum_svc(void)
             else
             {
                 /* We shouldn't have a process id for inactive services */
-                ok(status.dwProcessId == 0, "Service %s state %u shouldn't have an associated process id\n",
-                   exservices[i].lpServiceName, status.dwCurrentState);
+                ok(status.dwProcessId == 0, "This service shouldn't have an associated process id\n");
 
                 servicecountinactive--;
             }
@@ -1664,8 +1602,8 @@ static void test_enum_svc(void)
     }
     HeapFree(GetProcessHeap(), 0, exservices);
 
-    ok(servicecountactive == 0, "Active services mismatch %u\n", servicecountactive);
-    ok(servicecountinactive == 0, "Inactive services mismatch %u\n", servicecountinactive);
+    ok(servicecountactive == 0, "Active services mismatch\n");
+    ok(servicecountinactive == 0, "Inactive services mismatch\n");
 
     CloseServiceHandle(scm_handle);
 }
@@ -1687,7 +1625,11 @@ static void test_close(void)
     handle = OpenSCManagerA(NULL, NULL, SC_MANAGER_CONNECT);
     SetLastError(0xdeadbeef);
     ret = CloseServiceHandle(handle);
-    ok(ret, "Expected success got error %u\n", GetLastError());
+    ok(ret, "Expected success\n");
+    ok(GetLastError() == ERROR_IO_PENDING /* W2K */ ||
+       GetLastError() == ERROR_SUCCESS    /* W2K3 */ ||
+       GetLastError() == 0xdeadbeef       /* NT4, XP, Vista */,
+       "Expected ERROR_SUCCESS, ERROR_IO_PENDING or 0xdeadbeef, got %d\n", GetLastError());
 }
 
 static void test_sequence(void)
@@ -1747,17 +1689,7 @@ static void test_sequence(void)
         return;
     }
     else
-    {
         ok(svc_handle != NULL, "Could not create the service : %d\n", GetLastError());
-        if ((svc_handle != NULL) && (pGetSecurityInfo != NULL))
-        {
-            PSID sidOwner, sidGroup;
-            PACL dacl, sacl;
-            PSECURITY_DESCRIPTOR pSD;
-            HRESULT retval = pGetSecurityInfo(svc_handle,SE_SERVICE,DACL_SECURITY_INFORMATION,&sidOwner,&sidGroup,&dacl,&sacl,&pSD);
-            todo_wine ok(ERROR_SUCCESS == retval, "Expected GetSecurityInfo to succeed: result %d\n",retval);
-        }
-    }
 
     if (!svc_handle) return;
 
@@ -1776,8 +1708,15 @@ static void test_sequence(void)
     given = needed;
     SetLastError(0xdeadbeef);
     ret = QueryServiceConfigA(svc_handle, config, given, &needed);
-    ok(ret, "Expected success, got error %u\n", GetLastError());
-
+    ok(ret, "Expected success\n");
+    ok(GetLastError() == ERROR_SUCCESS    /* W2K3 */||
+       GetLastError() == 0xdeadbeef       /* NT4, XP, Vista */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */,
+        "Expected ERROR_SUCCESS, ERROR_IO_PENDING or 0xdeadbeef, got %d\n", GetLastError());
+    todo_wine
+    {
+    ok(given == needed, "Expected the given (%d) and needed (%d) buffersizes to be equal\n", given, needed);
+    }
     ok(config->lpBinaryPathName && config->lpLoadOrderGroup && config->lpDependencies && config->lpServiceStartName &&
         config->lpDisplayName, "Expected all string struct members to be non-NULL\n");
     ok(config->dwServiceType == (SERVICE_INTERACTIVE_PROCESS | SERVICE_WIN32_OWN_PROCESS),
@@ -1815,7 +1754,12 @@ static void test_sequence(void)
 
     SetLastError(0xdeadbeef);
     ret = DeleteService(svc_handle);
-    ok(ret, "Expected success, got error %u\n", GetLastError());
+    ok(ret, "Expected success\n");
+    ok(GetLastError() == ERROR_SUCCESS    /* W2K3 */||
+       GetLastError() == 0xdeadbeef       /* NT4, XP, Vista */ ||
+       GetLastError() == ERROR_IO_PENDING /* W2K */,
+        "Expected ERROR_SUCCESS, ERROR_IO_PENDING or 0xdeadbeef, got %d\n", GetLastError());
+    
     CloseServiceHandle(svc_handle);
 
     /* Wait a while. The following test does a CreateService again */
@@ -1841,7 +1785,7 @@ static void test_queryconfig2(void)
 
     if(!pQueryServiceConfig2A)
     {
-        win_skip("function QueryServiceConfig2A not present\n");
+        skip("function QueryServiceConfig2A not present\n");
         return;
     }
 
@@ -1945,7 +1889,7 @@ static void test_queryconfig2(void)
 
     if(!pChangeServiceConfig2A)
     {
-        win_skip("function ChangeServiceConfig2A not present\n");
+        skip("function ChangeServiceConfig2A not present\n");
         goto cleanup;
     }
 
@@ -1983,7 +1927,7 @@ static void test_queryconfig2(void)
 
     if(!pQueryServiceConfig2W)
     {
-        win_skip("function QueryServiceConfig2W not present\n");
+        skip("function QueryServiceConfig2W not present\n");
         goto cleanup;
     }
     SetLastError(0xdeadbeef);
@@ -2029,15 +1973,15 @@ static void test_refcount(void)
     svc_handle1 = CreateServiceA(scm_handle, servicename, NULL, GENERIC_ALL,
                                  SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS,
                                  SERVICE_DISABLED, 0, pathname, NULL, NULL, NULL, NULL, NULL);
-    ok(svc_handle1 != NULL, "Expected success, got error %u\n", GetLastError());
+    ok(svc_handle1 != NULL, "Expected success\n");
 
     /* Get a handle to this new service */
     svc_handle2 = OpenServiceA(scm_handle, servicename, GENERIC_READ);
-    ok(svc_handle2 != NULL, "Expected success, got error %u\n", GetLastError());
+    ok(svc_handle2 != NULL, "Expected success\n");
 
     /* Get another handle to this new service */
     svc_handle3 = OpenServiceA(scm_handle, servicename, GENERIC_READ);
-    ok(svc_handle3 != NULL, "Expected success, got error %u\n", GetLastError());
+    ok(svc_handle3 != NULL, "Expected success\n");
 
     /* Check if we can close the handle to the Service Control Manager */
     ret = CloseServiceHandle(scm_handle);
@@ -2045,11 +1989,11 @@ static void test_refcount(void)
 
     /* Get a new handle to the Service Control Manager */
     scm_handle = OpenSCManagerA(NULL, NULL, GENERIC_ALL);
-    ok(scm_handle != NULL, "Expected success, got error %u\n", GetLastError());
+    ok(scm_handle != NULL, "Expected success\n");
 
     /* Get a handle to this new service */
     svc_handle4 = OpenServiceA(scm_handle, servicename, GENERIC_ALL);
-    ok(svc_handle4 != NULL, "Expected success, got error %u\n", GetLastError());
+    ok(svc_handle4 != NULL, "Expected success\n");
 
     /* Delete the service */
     ret = DeleteService(svc_handle4);
@@ -2096,7 +2040,7 @@ static void test_refcount(void)
     svc_handle5 = CreateServiceA(scm_handle, servicename, NULL, GENERIC_ALL,
                                  SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS,
                                  SERVICE_DISABLED, 0, pathname, NULL, NULL, NULL, NULL, NULL);
-    ok(svc_handle5 != NULL, "Expected success, got error %u\n", GetLastError());
+    ok(svc_handle5 != NULL, "Expected success\n");
 
     /* Delete the service */
     ret = DeleteService(svc_handle5);
@@ -2119,7 +2063,7 @@ START_TEST(service)
 
     if (!scm_handle && (GetLastError() == ERROR_CALL_NOT_IMPLEMENTED))
     {
-        win_skip("OpenSCManagerA is not implemented, we are most likely on win9x\n");
+        skip("OpenSCManagerA is not implemented, we are most likely on win9x\n");
         return;
     }
     CloseServiceHandle(scm_handle);

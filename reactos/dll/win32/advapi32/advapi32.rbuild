@@ -1,12 +1,12 @@
 <module name="advapi32" type="win32dll" baseaddress="${BASEADDRESS_ADVAPI32}" installbase="system32" installname="advapi32.dll" unicode="yes">
 
-	<importlibrary definition="advapi32.spec" />
+	<importlibrary definition="advapi32.def" />
 	<include base="advapi32">.</include>
 	<include base="scm_client">.</include>
 	<include base="lsa_client">.</include>
 	<include base="eventlog_client">.</include>
 
-	<redefine name="_WIN32_WINNT">0x600</redefine>
+	<define name="_WIN32_WINNT">0x600</define>
 
 	<define name="_ADVAPI32_" />
 	<library>scm_client</library>
@@ -60,5 +60,5 @@
 			<file>token.c</file>
 	</directory>
 	<file>advapi32.rc</file>
-	<compilerflag compilerset="gcc">-fno-unit-at-a-time</compilerflag>
+	<compilerflag>-fno-unit-at-a-time</compilerflag>
 </module>

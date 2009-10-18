@@ -572,7 +572,7 @@ HalpAssignPCISlotResources(IN PBUS_HANDLER BusHandler,
         {
             ResourceCount++;
 
-            Offset = (UCHAR)FIELD_OFFSET(PCI_COMMON_CONFIG, u.type0.BaseAddresses[Address]);
+            Offset = FIELD_OFFSET(PCI_COMMON_CONFIG, u.type0.BaseAddresses[Address]);
 
             /* Write 0xFFFFFFFF there */
             WriteBuffer = 0xffffffff;
@@ -595,7 +595,7 @@ HalpAssignPCISlotResources(IN PBUS_HANDLER BusHandler,
         PagedPool,
         sizeof(CM_RESOURCE_LIST) +
         (ResourceCount - 1) * sizeof(CM_PARTIAL_RESOURCE_DESCRIPTOR),
-        ' laH');
+        TAG('H','a','l',' '));
 
     if (NULL == *AllocatedResources)
         return STATUS_NO_MEMORY;
@@ -815,7 +815,7 @@ HalpQueryPciRegistryInfo(VOID)
             /* Allocate the return structure */
             PciRegistryInfo = ExAllocatePoolWithTag(NonPagedPool,
                                                     sizeof(PCI_REGISTRY_INFO_INTERNAL),
-                                                    ' laH');
+                                                    TAG('H', 'a', 'l', ' '));
             if (!PciRegistryInfo) return NULL;
 
             /* Fill it out */

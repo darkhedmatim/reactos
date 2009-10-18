@@ -30,8 +30,10 @@ VOID ShortVersion (VOID)
 	unsigned RosVersionLen;
 	LPTSTR RosVersion;
 
-	ConOutResPrintf(STRING_CMD_SHELLINFO, _T(KERNEL_RELEASE_STR), _T(KERNEL_VERSION_BUILD_STR));
+	ConOutResPuts (STRING_CMD_SHELLINFO );
 	VersionInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+
+	ConOutPrintf(_T("Version %s %s"), _T(KERNEL_RELEASE_STR), _T(KERNEL_VERSION_BUILD_STR));
 
 	memset(VersionInfo.szCSDVersion, 0, sizeof(VersionInfo.szCSDVersion));
 	if (GetVersionEx(&VersionInfo))

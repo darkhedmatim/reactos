@@ -40,10 +40,6 @@
 		<xi:include href="regexpl/regexpl.rbuild" />
 	</directory>
 
-	<directory name="rosddt">
-		<xi:include href="rosddt/rosddt.rbuild" />
-	</directory>
-
 	<directory name="screenshot">
 		<xi:include href="screenshot/screenshot.rbuild" />
 	</directory>

@@ -47,16 +47,12 @@ static DWORD (WINAPI *pRegDeleteTreeA)(HKEY,LPCSTR);
 static char *get_temp_buffer( int size )
 {
     static char *list[32];
-    static UINT pos;
+    static long pos;
     char *ret;
-    UINT idx;
+    int idx;
 
     idx = ++pos % (sizeof(list)/sizeof(list[0]));
-    if (list[idx])
-        ret = HeapReAlloc( GetProcessHeap(), 0, list[idx], size );
-    else
-        ret = HeapAlloc( GetProcessHeap(), 0, size );
-    if (ret) list[idx] = ret;
+    if ((ret = realloc( list[idx], size ))) list[idx] = ret;
     return ret;
 }
 
@@ -110,6 +106,57 @@ static const char *wine_debugstr_an( const char *str, int n )
     *dst++ = 0;
     return res;
 }
+
+static const char *wine_debugstr_wn( const WCHAR *str, int n )
+{
+    char *dst, *res;
+    size_t size;
+
+    if (!HIWORD(str))
+    {
+        if (!str) return "(null)";
+        res = get_temp_buffer( 6 );
+        sprintf( res, "#%04x", LOWORD(str) );
+        return res;
+    }
+    if (n == -1) n = lstrlenW(str);
+    if (n < 0) n = 0;
+    size = 12 + min( 300, n * 5);
+    dst = res = get_temp_buffer( n * 5 + 7 );
+    *dst++ = 'L';
+    *dst++ = '"';
+    while (n-- > 0 && dst <= res + size - 10)
+    {
+        WCHAR c = *str++;
+        switch (c)
+        {
+        case '\n': *dst++ = '\\'; *dst++ = 'n'; break;
+        case '\r': *dst++ = '\\'; *dst++ = 'r'; break;
+        case '\t': *dst++ = '\\'; *dst++ = 't'; break;
+        case '"':  *dst++ = '\\'; *dst++ = '"'; break;
+        case '\\': *dst++ = '\\'; *dst++ = '\\'; break;
+        default:
+            if (c >= ' ' && c <= 126)
+                *dst++ = (char)c;
+            else
+            {
+                *dst++ = '\\';
+                sprintf(dst,"%04x",c);
+                dst+=4;
+            }
+        }
+    }
+    *dst++ = '"';
+    if (n > 0)
+    {
+        *dst++ = '.';
+        *dst++ = '.';
+        *dst++ = '.';
+    }
+    *dst = 0;
+    return res;
+}
+
 
 #define ADVAPI32_GET_PROC(func) \
     p ## func = (void*)GetProcAddress(hadvapi32, #func);
@@ -237,8 +284,8 @@ static void _test_hkey_main_Value_W(int line, LPCWSTR name, LPCWSTR string,
     if (string)
     {
         lok(memcmp(value, string, cbData) == 0, "RegQueryValueExW failed: %s/%d != %s/%d\n",
-           wine_dbgstr_wn((WCHAR*)value, cbData / sizeof(WCHAR)), cbData,
-           wine_dbgstr_wn(string, full_byte_len / sizeof(WCHAR)), full_byte_len);
+           wine_debugstr_wn((WCHAR*)value, cbData / sizeof(WCHAR)), cbData,
+           wine_debugstr_wn(string, full_byte_len / sizeof(WCHAR)), full_byte_len);
     }
     /* This implies that when cbData == 0, RegQueryValueExW() should not modify the buffer */
     lok(*(value+cbData) == 0xbd, "RegQueryValueExW/2 overflowed at %u: %02x != bd\n", cbData, *(value+cbData));
@@ -908,12 +955,6 @@ static void test_reg_open_key(void)
     ret = RegOpenKeyA(HKEY_CURRENT_USER, "Software\\Wine\\Test", NULL);
     ok(ret == ERROR_INVALID_PARAMETER, "expected ERROR_INVALID_PARAMETER, got %d\n", ret);
 
-    ret = RegOpenKeyA(HKEY_CURRENT_USER, NULL, NULL);
-    ok(ret == ERROR_INVALID_PARAMETER, "expected ERROR_INVALID_PARAMETER, got %d\n", ret);
-
-    ret = RegOpenKeyA(NULL, NULL, NULL);
-    ok(ret == ERROR_INVALID_PARAMETER, "expected ERROR_INVALID_PARAMETER, got %d\n", ret);
-
     /*  beginning backslash character */
     ret = RegOpenKeyA(HKEY_CURRENT_USER, "\\Software\\Wine\\Test", &hkResult);
        ok(ret == ERROR_BAD_PATHNAME || /* NT/2k/XP */
@@ -1434,52 +1475,6 @@ static void test_reg_delete_tree(void)
         "Expected ERROR_FILE_NOT_FOUND, got %d\n", ret);
 }
 
-static void test_rw_order(void)
-{
-    HKEY hKey;
-    DWORD dw = 0;
-    static char keyname[] = "test_rw_order";
-    char value_buf[2];
-    DWORD values, value_len, value_name_max_len;
-    LSTATUS ret;
-
-    RegDeleteKeyA(HKEY_CURRENT_USER, keyname);
-    ret = RegCreateKeyA(HKEY_CURRENT_USER, keyname, &hKey);
-    if(ret != ERROR_SUCCESS) {
-        skip("Couldn't create key. Skipping.\n");
-        return;
-    }
-
-    ok(!RegSetValueExA(hKey, "A", 0, REG_DWORD, (LPBYTE)&dw, sizeof(dw)),
-       "RegSetValueExA for value \"A\" failed\n");
-    ok(!RegSetValueExA(hKey, "C", 0, REG_DWORD, (LPBYTE)&dw, sizeof(dw)),
-       "RegSetValueExA for value \"C\" failed\n");
-    ok(!RegSetValueExA(hKey, "D", 0, REG_DWORD, (LPBYTE)&dw, sizeof(dw)),
-       "RegSetValueExA for value \"D\" failed\n");
-    ok(!RegSetValueExA(hKey, "B", 0, REG_DWORD, (LPBYTE)&dw, sizeof(dw)),
-       "RegSetValueExA for value \"B\" failed\n");
-
-    ok(!RegQueryInfoKeyA(hKey, NULL, NULL, NULL, NULL, NULL, NULL, &values,
-       &value_name_max_len, NULL, NULL, NULL), "RegQueryInfoKeyA failed\n");
-    ok(values == 4, "Expected 4 values, got %u\n", values);
-
-    /* Value enumeration preserves RegSetValueEx call order */
-    value_len = 2;
-    ok(!RegEnumValueA(hKey, 0, value_buf, &value_len, NULL, NULL, NULL, NULL), "RegEnumValueA failed\n");
-    ok(strcmp(value_buf, "A") == 0, "Expected name \"A\", got %s\n", value_buf);
-    value_len = 2;
-    ok(!RegEnumValueA(hKey, 1, value_buf, &value_len, NULL, NULL, NULL, NULL), "RegEnumValueA failed\n");
-    todo_wine ok(strcmp(value_buf, "C") == 0, "Expected name \"C\", got %s\n", value_buf);
-    value_len = 2;
-    ok(!RegEnumValueA(hKey, 2, value_buf, &value_len, NULL, NULL, NULL, NULL), "RegEnumValueA failed\n");
-    todo_wine ok(strcmp(value_buf, "D") == 0, "Expected name \"D\", got %s\n", value_buf);
-    value_len = 2;
-    ok(!RegEnumValueA(hKey, 3, value_buf, &value_len, NULL, NULL, NULL, NULL), "RegEnumValueA failed\n");
-    todo_wine ok(strcmp(value_buf, "B") == 0, "Expected name \"B\", got %s\n", value_buf);
-
-    ok(!RegDeleteKey(HKEY_CURRENT_USER, keyname), "Failed to delete key\n");
-}
-
 START_TEST(registry)
 {
     /* Load pointers for functions that are not available in all Windows versions */
@@ -1511,7 +1506,6 @@ START_TEST(registry)
     }
 
     test_reg_delete_tree();
-    test_rw_order();
 
     /* cleanup */
     delete_key( hkey_main );

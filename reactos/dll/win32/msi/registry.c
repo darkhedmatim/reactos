@@ -103,12 +103,6 @@ static const WCHAR szUninstall_fmt[] = {
 'U','n','i','n','s','t','a','l','l','\\',
 '%','s',0 };
 
-static const WCHAR szUserProduct[] = {
-'S','o','f','t','w','a','r','e','\\',
-'M','i','c','r','o','s','o','f','t','\\',
-'I','n','s','t','a','l','l','e','r','\\',
-'P','r','o','d','u','c','t','s',0};
-
 static const WCHAR szUserProduct_fmt[] = {
 'S','o','f','t','w','a','r','e','\\',
 'M','i','c','r','o','s','o','f','t','\\',
@@ -193,12 +187,6 @@ static const WCHAR szInstallProperties_fmt[] = {
 '%','s','\\','P','r','o','d','u','c','t','s','\\','%','s','\\',
 'I','n','s','t','a','l','l','P','r','o','p','e','r','t','i','e','s',0};
 
-static const WCHAR szInstaller_LocalClassesProd[] = {
-'S','o','f','t','w','a','r','e','\\',
-'C','l','a','s','s','e','s','\\',
-'I','n','s','t','a','l','l','e','r','\\',
-'P','r','o','d','u','c','t','s',0};
-
 static const WCHAR szInstaller_LocalClassesProd_fmt[] = {
 'S','o','f','t','w','a','r','e','\\',
 'C','l','a','s','s','e','s','\\',
@@ -210,16 +198,6 @@ static const WCHAR szInstaller_LocalClassesFeat_fmt[] = {
 'C','l','a','s','s','e','s','\\',
 'I','n','s','t','a','l','l','e','r','\\',
 'F','e','a','t','u','r','e','s','\\','%','s',0};
-
-static const WCHAR szInstaller_LocalManaged_fmt[] = {
-'S','o','f','t','w','a','r','e','\\',
-'M','i','c','r','o','s','o','f','t','\\',
-'W','i','n','d','o','w','s','\\',
-'C','u','r','r','e','n','t','V','e','r','s','i','o','n','\\',
-'I','n','s','t','a','l','l','e','r','\\',
-'M','a','n','a','g','e','d','\\','%','s','\\',
-'I','n','s','t','a','l','l','e','r','\\',
-'P','r','o','d','u','c','t','s',0};
 
 static const WCHAR szInstaller_LocalManagedProd_fmt[] = {
 'S','o','f','t','w','a','r','e','\\',
@@ -414,6 +392,17 @@ DWORD msi_version_str_to_dword(LPCWSTR p)
     return MAKELONG(build, MAKEWORD(minor, major));
 }
 
+LPWSTR msi_version_dword_to_str(DWORD version)
+{
+    static const WCHAR fmt[] = { '%','u','.','%','u','.','%','u',0 };
+    LPWSTR str = msi_alloc(20);
+    sprintfW(str, fmt,
+             (version&0xff000000)>>24,
+             (version&0x00ff0000)>>16,
+              version&0x0000ffff);
+    return str;
+}
+
 LONG msi_reg_set_val_str( HKEY hkey, LPCWSTR name, LPCWSTR value )
 {
     static const WCHAR emptyW[] = {0};
@@ -526,11 +515,11 @@ UINT MSIREG_DeleteUninstallKey(LPCWSTR szProduct)
     return RegDeleteTreeW(HKEY_LOCAL_MACHINE, keypath);
 }
 
-UINT MSIREG_OpenProductKey(LPCWSTR szProduct, LPCWSTR szUserSid,
-                           MSIINSTALLCONTEXT context, HKEY *key, BOOL create)
+UINT MSIREG_OpenProductKey(LPCWSTR szProduct, MSIINSTALLCONTEXT context,
+                           HKEY *key, BOOL create)
 {
     UINT r;
-    LPWSTR usersid = NULL;
+    LPWSTR usersid;
     HKEY root = HKEY_LOCAL_MACHINE;
     WCHAR squished_pc[GUID_SIZE];
     WCHAR keypath[MAX_PATH];
@@ -553,20 +542,14 @@ UINT MSIREG_OpenProductKey(LPCWSTR szProduct, LPCWSTR szUserSid,
     }
     else
     {
-        if (!szUserSid)
+        r = get_user_sid(&usersid);
+        if (r != ERROR_SUCCESS || !usersid)
         {
-            r = get_user_sid(&usersid);
-            if (r != ERROR_SUCCESS || !usersid)
-            {
-                ERR("Failed to retrieve user SID: %d\n", r);
-                return r;
-            }
-
-            szUserSid = usersid;
+            ERR("Failed to retrieve user SID: %d\n", r);
+            return r;
         }
 
-        sprintfW(keypath, szInstaller_LocalManagedProd_fmt,
-                 szUserSid, squished_pc);
+        sprintfW(keypath, szInstaller_LocalManagedProd_fmt, usersid, squished_pc);
         LocalFree(usersid);
     }
 
@@ -832,7 +815,7 @@ UINT MSIREG_OpenUserDataProductKey(LPCWSTR szProduct, MSIINSTALLCONTEXT dwContex
     if (dwContext == MSIINSTALLCONTEXT_MACHINE)
         sprintfW(keypath, szUserDataProd_fmt, szLocalSid, squished_pc);
     else if (szUserSid)
-        sprintfW(keypath, szUserDataProd_fmt, szUserSid, squished_pc);
+        sprintfW(keypath, szUserDataProd_fmt, usersid, squished_pc);
     else
     {
         rc = get_user_sid(&usersid);
@@ -1220,108 +1203,25 @@ UINT WINAPI MsiEnumProductsA(DWORD index, LPSTR lpguid)
 
 UINT WINAPI MsiEnumProductsW(DWORD index, LPWSTR lpguid)
 {
-    UINT r;
+    HKEY hkeyProducts = 0;
+    DWORD r;
     WCHAR szKeyName[SQUISH_GUID_SIZE];
-    HKEY key;
-    DWORD machine_count, managed_count, unmanaged_count;
-    WCHAR keypath[MAX_PATH];
-    LPWSTR usersid = NULL;
-
-    static DWORD last_index;
 
     TRACE("%d %p\n", index, lpguid);
 
     if (NULL == lpguid)
         return ERROR_INVALID_PARAMETER;
 
-    if (index && index - last_index != 1)
-        return ERROR_INVALID_PARAMETER;
-
-    r = RegCreateKeyW(HKEY_LOCAL_MACHINE, szInstaller_LocalClassesProd, &key);
+    r = RegCreateKeyW(HKEY_LOCAL_MACHINE, szInstaller_Products, &hkeyProducts);
     if( r != ERROR_SUCCESS )
         return ERROR_NO_MORE_ITEMS;
 
-    r = RegQueryInfoKeyW(key, NULL, NULL, NULL, &machine_count, NULL, NULL,
-                         NULL, NULL, NULL, NULL, NULL);
-    if( r != ERROR_SUCCESS )
-    {
-        RegCloseKey(key);
-        return ERROR_NO_MORE_ITEMS;
-    }
+    r = RegEnumKeyW(hkeyProducts, index, szKeyName, SQUISH_GUID_SIZE);
+    if( r == ERROR_SUCCESS )
+        unsquash_guid(szKeyName, lpguid);
+    RegCloseKey(hkeyProducts);
 
-    if (machine_count && index <= machine_count)
-    {
-        r = RegEnumKeyW(key, index, szKeyName, SQUISH_GUID_SIZE);
-        if( r == ERROR_SUCCESS )
-        {
-            unsquash_guid(szKeyName, lpguid);
-            last_index = index;
-            RegCloseKey(key);
-            return ERROR_SUCCESS;
-        }
-    }
-    RegCloseKey(key);
-
-    r = get_user_sid(&usersid);
-    if (r != ERROR_SUCCESS || !usersid)
-    {
-        ERR("Failed to retrieve user SID: %d\n", r);
-        return r;
-    }
-    sprintfW(keypath, szInstaller_LocalManaged_fmt, usersid);
-    LocalFree(usersid);
-
-    r = RegCreateKeyW(HKEY_LOCAL_MACHINE, keypath, &key);
-    if( r != ERROR_SUCCESS )
-        return ERROR_NO_MORE_ITEMS;
-
-    r = RegQueryInfoKeyW(key, NULL, NULL, NULL, &managed_count, NULL, NULL,
-                         NULL, NULL, NULL, NULL, NULL);
-    if( r != ERROR_SUCCESS )
-    {
-        RegCloseKey(key);
-        return ERROR_NO_MORE_ITEMS;
-    }
-
-    if (managed_count && index <= machine_count + managed_count)
-    {
-        r = RegEnumKeyW(key, index - machine_count, szKeyName, SQUISH_GUID_SIZE);
-        if( r == ERROR_SUCCESS )
-        {
-            unsquash_guid(szKeyName, lpguid);
-            last_index = index;
-            RegCloseKey(key);
-            return ERROR_SUCCESS;
-        }
-    }
-    RegCloseKey(key);
-
-    r = RegCreateKeyW(HKEY_CURRENT_USER, szUserProduct, &key);
-    if( r != ERROR_SUCCESS )
-        return ERROR_NO_MORE_ITEMS;
-
-    r = RegQueryInfoKeyW(key, NULL, NULL, NULL, &unmanaged_count, NULL, NULL,
-                         NULL, NULL, NULL, NULL, NULL);
-    if( r != ERROR_SUCCESS )
-    {
-        RegCloseKey(key);
-        return ERROR_NO_MORE_ITEMS;
-    }
-
-    if (unmanaged_count && index <= machine_count + managed_count + unmanaged_count)
-    {
-        r = RegEnumKeyW(key, index - machine_count - managed_count, szKeyName, SQUISH_GUID_SIZE);
-        if( r == ERROR_SUCCESS )
-        {
-            unsquash_guid(szKeyName, lpguid);
-            last_index = index;
-            RegCloseKey(key);
-            return ERROR_SUCCESS;
-        }
-    }
-    RegCloseKey(key);
-
-    return ERROR_NO_MORE_ITEMS;
+    return r;
 }
 
 UINT WINAPI MsiEnumFeaturesA(LPCSTR szProduct, DWORD index, 
@@ -1770,7 +1670,6 @@ done:
 }
 
 static UINT msi_get_patch_state(LPCWSTR prodcode, LPCWSTR usersid,
-                                MSIINSTALLCONTEXT context,
                                 LPWSTR patch, MSIPATCHSTATE *state)
 {
     DWORD type, val, size;
@@ -1784,8 +1683,9 @@ static UINT msi_get_patch_state(LPCWSTR prodcode, LPCWSTR usersid,
 
     *state = MSIPATCHSTATE_INVALID;
 
-    r = MSIREG_OpenUserDataProductKey(prodcode, context,
-                                      usersid, &prod, FALSE);
+    /* FIXME: usersid might not be current user */
+    r = MSIREG_OpenUserDataProductKey(prodcode, MSIINSTALLCONTEXT_USERUNMANAGED,
+                                      NULL, &prod, FALSE);
     if (r != ERROR_SUCCESS)
         return ERROR_NO_MORE_ITEMS;
 
@@ -1822,7 +1722,7 @@ static UINT msi_check_product_patches(LPCWSTR prodcode, LPCWSTR usersid,
         LPWSTR patch, LPWSTR targetprod, MSIINSTALLCONTEXT *targetctx,
         LPWSTR targetsid, DWORD *sidsize, LPWSTR *transforms)
 {
-    MSIPATCHSTATE state = MSIPATCHSTATE_INVALID;
+    MSIPATCHSTATE state;
     LPWSTR ptr, patches = NULL;
     HKEY prod, patchkey = 0;
     HKEY localprod = 0, localpatch = 0;
@@ -1834,8 +1734,7 @@ static UINT msi_check_product_patches(LPCWSTR prodcode, LPCWSTR usersid,
     static const WCHAR szState[] = {'S','t','a','t','e',0};
     static const WCHAR szEmpty[] = {0};
 
-    if (MSIREG_OpenProductKey(prodcode, usersid, context,
-                              &prod, FALSE) != ERROR_SUCCESS)
+    if (MSIREG_OpenProductKey(prodcode, context, &prod, FALSE) != ERROR_SUCCESS)
         return ERROR_NO_MORE_ITEMS;
 
     size = 0;
@@ -1896,8 +1795,7 @@ static UINT msi_check_product_patches(LPCWSTR prodcode, LPCWSTR usersid,
         {
             if (!(filter & MSIPATCHSTATE_APPLIED))
             {
-                temp = msi_get_patch_state(prodcode, usersid, context,
-                                           ptr, &state);
+                temp = msi_get_patch_state(prodcode, usersid, ptr, &state);
                 if (temp == ERROR_BAD_CONFIGURATION)
                 {
                     r = ERROR_BAD_CONFIGURATION;
@@ -1912,8 +1810,7 @@ static UINT msi_check_product_patches(LPCWSTR prodcode, LPCWSTR usersid,
         {
             if (!(filter & MSIPATCHSTATE_APPLIED))
             {
-                temp = msi_get_patch_state(prodcode, usersid, context,
-                                           ptr, &state);
+                temp = msi_get_patch_state(prodcode, usersid, ptr, &state);
                 if (temp == ERROR_BAD_CONFIGURATION)
                 {
                     r = ERROR_BAD_CONFIGURATION;
@@ -1997,14 +1894,7 @@ static UINT msi_enum_patches(LPCWSTR szProductCode, LPCWSTR szUserSid,
         MSIINSTALLCONTEXT *pdwTargetProductContext, LPWSTR szTargetUserSid,
         LPDWORD pcchTargetUserSid, LPWSTR *szTransforms)
 {
-    LPWSTR usersid = NULL;
     UINT r = ERROR_INVALID_PARAMETER;
-
-    if (!szUserSid)
-    {
-        get_user_sid(&usersid);
-        szUserSid = usersid;
-    }
 
     if (dwContext & MSIINSTALLCONTEXT_USERMANAGED)
     {
@@ -2043,7 +1933,6 @@ static UINT msi_enum_patches(LPCWSTR szProductCode, LPCWSTR szUserSid,
     }
 
 done:
-    LocalFree(usersid);
     return r;
 }
 
@@ -2105,7 +1994,7 @@ UINT WINAPI MsiEnumPatchesExW(LPCWSTR szProductCode, LPCWSTR szUserSid,
 UINT WINAPI MsiEnumPatchesA(LPCSTR szProduct, DWORD iPatchIndex,
         LPSTR lpPatchBuf, LPSTR lpTransformsBuf, LPDWORD pcchTransformsBuf)
 {
-    LPWSTR product, transforms;
+    LPWSTR product, transforms = NULL;
     WCHAR patch[GUID_SIZE];
     DWORD len;
     UINT r;
@@ -2120,8 +2009,12 @@ UINT WINAPI MsiEnumPatchesA(LPCSTR szProduct, DWORD iPatchIndex,
     if (!product)
         return ERROR_OUTOFMEMORY;
 
-    len = *pcchTransformsBuf;
-    transforms = msi_alloc( len * sizeof(WCHAR) );
+    len = 0;
+    r = MsiEnumPatchesW(product, iPatchIndex, patch, patch, &len);
+    if (r != ERROR_MORE_DATA)
+        goto done;
+
+    transforms = msi_alloc(len);
     if (!transforms)
     {
         r = ERROR_OUTOFMEMORY;
@@ -2129,23 +2022,24 @@ UINT WINAPI MsiEnumPatchesA(LPCSTR szProduct, DWORD iPatchIndex,
     }
 
     r = MsiEnumPatchesW(product, iPatchIndex, patch, transforms, &len);
-    if (r != ERROR_SUCCESS && r != ERROR_MORE_DATA)
+    if (r != ERROR_SUCCESS)
         goto done;
 
     WideCharToMultiByte(CP_ACP, 0, patch, -1, lpPatchBuf,
                         GUID_SIZE, NULL, NULL);
 
-    if (!WideCharToMultiByte(CP_ACP, 0, transforms, -1, lpTransformsBuf,
-                             *pcchTransformsBuf, NULL, NULL))
-        r = ERROR_MORE_DATA;
+    WideCharToMultiByte(CP_ACP, 0, transforms, -1, lpTransformsBuf,
+                        *pcchTransformsBuf - 1, NULL, NULL);
 
-    if (r == ERROR_MORE_DATA)
+    len = lstrlenW(transforms);
+    if (*pcchTransformsBuf < len + 1)
     {
+        r = ERROR_MORE_DATA;
         lpTransformsBuf[*pcchTransformsBuf - 1] = '\0';
-        *pcchTransformsBuf = len * 2;
+        *pcchTransformsBuf = len * sizeof(WCHAR);
     }
     else
-        *pcchTransformsBuf = strlen( lpTransformsBuf );
+        *pcchTransformsBuf = len;
 
 done:
     msi_free(transforms);
@@ -2175,11 +2069,11 @@ UINT WINAPI MsiEnumPatchesW(LPCWSTR szProduct, DWORD iPatchIndex,
     if (!lpPatchBuf || !lpTransformsBuf || !pcchTransformsBuf)
         return ERROR_INVALID_PARAMETER;
 
-    if (MSIREG_OpenProductKey(szProduct, NULL, MSIINSTALLCONTEXT_USERMANAGED,
+    if (MSIREG_OpenProductKey(szProduct, MSIINSTALLCONTEXT_USERMANAGED,
                               &prod, FALSE) != ERROR_SUCCESS &&
-        MSIREG_OpenProductKey(szProduct, NULL, MSIINSTALLCONTEXT_USERUNMANAGED,
+        MSIREG_OpenProductKey(szProduct, MSIINSTALLCONTEXT_USERUNMANAGED,
                               &prod, FALSE) != ERROR_SUCCESS &&
-        MSIREG_OpenProductKey(szProduct, NULL, MSIINSTALLCONTEXT_MACHINE,
+        MSIREG_OpenProductKey(szProduct, MSIINSTALLCONTEXT_MACHINE,
                               &prod, FALSE) != ERROR_SUCCESS)
         return ERROR_UNKNOWN_PRODUCT;
 
@@ -2195,7 +2089,7 @@ UINT WINAPI MsiEnumPatchesW(LPCWSTR szProduct, DWORD iPatchIndex,
     if (*pcchTransformsBuf <= lstrlenW(transforms))
     {
         r = ERROR_MORE_DATA;
-        *pcchTransformsBuf = lstrlenW(transforms);
+        *pcchTransformsBuf = lstrlenW(transforms) * sizeof(WCHAR);
     }
     else
         *pcchTransformsBuf = lstrlenW(transforms);

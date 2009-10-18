@@ -31,10 +31,4 @@ namespace AbstractPipe
         event PipeErrorEventHandler PipeErrorEvent;
         bool Write(string output);
     }
-
-    public interface NPipe
-    {
-        event EventHandler ClientConnectedEvent;
-        event EventHandler ClientDisconnectedEvent;
-    }
 }

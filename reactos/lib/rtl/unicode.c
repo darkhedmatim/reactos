@@ -23,9 +23,6 @@ extern BOOLEAN NlsMbCodePageTag;
 extern BOOLEAN NlsMbOemCodePageTag;
 extern PUSHORT NlsLeadByteInfo;
 
-extern USHORT NlsOemDefaultChar;
-extern USHORT NlsUnicodeDefaultChar;
-
 /* FUNCTIONS *****************************************************************/
 
 /*
@@ -395,57 +392,6 @@ RtlFreeUnicodeString(IN PUNICODE_STRING UnicodeString)
     {
         RtlpFreeStringMemory(UnicodeString->Buffer, TAG_USTR);
         RtlZeroMemory(UnicodeString, sizeof(UNICODE_STRING));
-    }
-}
-
-
-/*
- * @implemented
- *
- * NOTES
- *  Check the OEM string to match the Unicode string.
- *
- *  Functions which convert Unicode strings to OEM strings will set a
- *  DefaultChar from the OEM codepage when the characters are unknown.
- *  So check it against the Unicode string and return false when the
- *  Unicode string does not contain a TransDefaultChar.
- */
-BOOLEAN
-NTAPI
-RtlpDidUnicodeToOemWork(IN PCUNICODE_STRING UnicodeString,
-                        IN POEM_STRING OemString)
-{
-    ULONG i = 0;
-
-    if (NlsMbOemCodePageTag == FALSE)
-    {
-        /* single-byte code page */
-        /* Go through all characters of a string */
-        while (i < OemString->Length)
-        {
-            /* Check if it got translated into a default char,
-             * but source char wasn't a default char equivalent
-             */
-            if ((OemString->Buffer[i] == NlsOemDefaultChar) &&
-                (UnicodeString->Buffer[i] != NlsUnicodeDefaultChar))
-            {
-                /* Yes, it means unmappable characters were found */
-                return FALSE;
-            }
-
-            /* Move to the next char */
-            i++;
-        }
-
-        /* All chars were translated successfuly */
-        return TRUE;
-    }
-    else
-    {
-        /* multibyte code page */
-
-        /* FIXME */
-        return TRUE;
     }
 }
 
@@ -1119,7 +1065,7 @@ RtlIsTextUnicode( PVOID buf, INT len, INT *pf )
     static const WCHAR byterev_control_chars[] = {0x0d00,0x0a00,0x0900,0x2000,0};
     const WCHAR *s = buf;
     int i;
-    unsigned int flags = MAXULONG, out_flags = 0;
+    unsigned int flags = ~0U, out_flags = 0;
 
     if (len < sizeof(WCHAR))
     {
@@ -1588,9 +1534,8 @@ RtlUnicodeStringToCountedOemString(
                               UniSource->Buffer,
                               UniSource->Length);
 
-    /* Check for unmapped character */
-    if (NT_SUCCESS(Status) && !RtlpDidUnicodeToOemWork(UniSource, OemDest))
-        Status = STATUS_UNMAPPABLE_CHARACTER;
+    /* FIXME: Check if everything mapped correctly and
+     * return STATUS_UNMAPPABLE_CHARACTER */
 
     if (!NT_SUCCESS(Status) && AllocateDestinationString)
     {
@@ -1614,67 +1559,56 @@ RtlLargeIntegerToChar(
    IN ULONG  Length,
    IN OUT PCHAR  String)
 {
-    ULONGLONG Val = Value->QuadPart;
-    NTSTATUS Status = STATUS_SUCCESS;
-    CHAR Buffer[65];
-    CHAR Digit;
-    ULONG Len;
-    PCHAR Pos;
+   NTSTATUS Status = STATUS_SUCCESS;
+   ULONG Radix;
+   CHAR  temp[65];
+   ULONGLONG v = Value->QuadPart;
+   ULONG i;
+   PCHAR tp;
+   PCHAR sp;
 
-    if (Base == 0) Base = 10;
+   Radix = Base;
+   if (Radix == 0)
+      Radix = 10;
 
-    if ((Base != 2) && (Base != 8) &&
-        (Base != 10) && (Base != 16))
-    {
-        return STATUS_INVALID_PARAMETER;
-    }
+   if ((Radix != 2) && (Radix != 8) &&
+         (Radix != 10) && (Radix != 16))
+      return STATUS_INVALID_PARAMETER;
 
-    Pos = &Buffer[64];
-    *Pos = '\0';
+   tp = temp;
+   while (v || tp == temp)
+   {
+      i = v % Radix;
+      v = v / Radix;
+      if (i < 10)
+         *tp = i + '0';
+      else
+         *tp = i + 'A' - 10;
+      tp++;
+   }
 
-    do
-    {
-        Pos--;
-        Digit = Val % Base;
-        Val = Val / Base;
-        if (Digit < 10)
-            *Pos = '0' + Digit;
-        else
-            *Pos = 'A' + Digit - 10;
-    }
-    while (Val != 0L);
+   if ((ULONG)((ULONG_PTR)tp - (ULONG_PTR)temp) > Length)
+      return STATUS_BUFFER_OVERFLOW;
 
-    Len = &Buffer[64] - Pos;
+   //_SEH2_TRY
+   {
+      sp = String;
+      while (tp > temp)
+         *sp++ = *--tp;
 
-    if (Len > Length)
-        return STATUS_BUFFER_OVERFLOW;
-
-#if 1 /* It needs to be removed, when will probably use SEH in rtl */
-    if (String == NULL)
-    {
-        return STATUS_ACCESS_VIOLATION;
-    }
-#endif
-
+      if((ULONG)((ULONG_PTR)sp - (ULONG_PTR)String) < Length)
+         *sp = 0;
+   }
 #if 0
-    _SEH2_TRY
-    {
-#endif
-        if (Len == Length)
-            RtlCopyMemory(String, Pos, Len);
-        else
-            RtlCopyMemory(String, Pos, Len + 1);
-#if 0
-    }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-        /* Get the error code */
-        Status = _SEH2_GetExceptionCode();
-    }
-    _SEH2_END;
+   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+   {
+      /* Get the error code */
+      Status = _SEH2_GetExceptionCode();
+   }
+   _SEH2_END;
 #endif
 
-    return Status;
+   return Status;
 }
 
 /*
@@ -1818,9 +1752,7 @@ RtlUpcaseUnicodeStringToCountedOemString(
                                     UniSource->Buffer,
                                     UniSource->Length);
 
-    /* Check for unmapped characters */
-    if (NT_SUCCESS(Status) && !RtlpDidUnicodeToOemWork(UniSource, OemDest))
-        Status = STATUS_UNMAPPABLE_CHARACTER;
+    /* FIXME: Special check needed and return STATUS_UNMAPPABLE_CHARACTER */
 
     if (!NT_SUCCESS(Status) && AllocateDestinationString)
     {
@@ -1873,9 +1805,7 @@ RtlUpcaseUnicodeStringToOemString (
                                     UniSource->Buffer,
                                     UniSource->Length);
 
-    /* Check for unmapped characters */
-    if (NT_SUCCESS(Status) && !RtlpDidUnicodeToOemWork(UniSource, OemDest))
-        Status = STATUS_UNMAPPABLE_CHARACTER;
+    /* FIXME: Special check needed and return STATUS_UNMAPPABLE_CHARACTER */
 
     if (!NT_SUCCESS(Status) && AllocateDestinationString)
     {

@@ -176,6 +176,7 @@ static HRESULT FillBuffer(MPEGSplitterImpl *This, IMediaSample *pCurrentSample)
 
     /* Find the next valid header.. it <SHOULD> be right here */
     assert(parse_header(fbuf, &length, &This->position) == S_OK);
+    assert(length == len || length + 4 == len);
     IMediaSample_SetActualDataLength(pCurrentSample, length);
 
     /* Queue the next sample */
@@ -242,7 +243,7 @@ static HRESULT FillBuffer(MPEGSplitterImpl *This, IMediaSample *pCurrentSample)
 
 static HRESULT MPEGSplitter_process_sample(LPVOID iface, IMediaSample * pSample, DWORD_PTR cookie)
 {
-    MPEGSplitterImpl *This = iface;
+    MPEGSplitterImpl *This = (MPEGSplitterImpl*)iface;
     BYTE *pbSrcStream;
     DWORD cbSrcStream = 0;
     REFERENCE_TIME tStart, tStop, tAviStart = This->position;
@@ -285,7 +286,7 @@ static HRESULT MPEGSplitter_process_sample(LPVOID iface, IMediaSample * pSample,
 
     if (BYTES_FROM_MEDIATIME(tStop) >= This->EndOfFile || This->position >= This->Parser.mediaSeeking.llStop)
     {
-        unsigned int i;
+        int i;
 
         TRACE("End of file reached\n");
 
@@ -300,7 +301,7 @@ static HRESULT MPEGSplitter_process_sample(LPVOID iface, IMediaSample * pSample,
                 IPin_Release(ppin);
             }
             if (FAILED(hr))
-                WARN("Error sending EndOfStream to pin %u (%x)\n", i, hr);
+                WARN("Error sending EndOfStream to pin %d (%x)\n", i, hr);
         }
 
         /* Force the pullpin thread to stop */
@@ -614,7 +615,7 @@ static HRESULT MPEGSplitter_pre_connect(IPin *iface, IPin *pConnectPin, ALLOCATO
 
 static HRESULT MPEGSplitter_cleanup(LPVOID iface)
 {
-    MPEGSplitterImpl *This = iface;
+    MPEGSplitterImpl *This = (MPEGSplitterImpl*)iface;
 
     TRACE("(%p)\n", This);
 
@@ -708,7 +709,7 @@ static HRESULT MPEGSplitter_disconnect(LPVOID iface)
 
 static HRESULT MPEGSplitter_first_request(LPVOID iface)
 {
-    MPEGSplitterImpl *This = iface;
+    MPEGSplitterImpl *This = (MPEGSplitterImpl*)iface;
     PullPin *pin = This->Parser.pInputPin;
     HRESULT hr;
     LONGLONG length;
@@ -807,7 +808,7 @@ HRESULT MPEGSplitter_create(IUnknown * pUnkOuter, LPVOID * ppv)
     This->seek = 1;
 
     /* Note: This memory is managed by the parser filter once created */
-    *ppv = This;
+    *ppv = (LPVOID)This;
 
     return hr;
 }

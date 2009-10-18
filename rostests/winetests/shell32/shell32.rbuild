@@ -2,9 +2,9 @@
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <group>
 <module name="shell32_winetest" type="win32cui" installbase="bin" installname="shell32_winetest.exe" allowwarnings="true">
+	<compilerflag compiler="cc">-Wno-format</compilerflag>
 	<include base="shell32_winetest">.</include>
-	<define name="__ROS_LONG64__" />
-	<redefine name="_WIN32_WINNT">0x0501</redefine>
+    <define name="__ROS_LONG64__" />
 	<library>wine</library>
 	<library>shell32</library>
 	<library>ole32</library>
@@ -16,8 +16,6 @@
 	<library>kernel32</library>
 	<library>uuid</library>
 	<library>ntdll</library>
-	<file>appbar.c</file>
-	<file>autocomplete.c</file>
 	<file>generated.c</file>
 	<file>shelllink.c</file>
 	<file>shellpath.c</file>
@@ -28,7 +26,5 @@
 	<file>systray.c</file>
 	<file>testlist.c</file>
 	<file>shfldr_netplaces.c</file>
-	<file>shfldr_special.c</file>
-	<file>rsrc.rc</file>
 </module>
 </group>

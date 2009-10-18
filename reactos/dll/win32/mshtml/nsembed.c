@@ -34,14 +34,17 @@
 #include "mshtml_private.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(mshtml);
-WINE_DECLARE_DEBUG_CHANNEL(gecko);
 
 #define NS_APPSTARTUPNOTIFIER_CONTRACTID "@mozilla.org/embedcomp/appstartup-notifier;1"
 #define NS_WEBBROWSER_CONTRACTID "@mozilla.org/embedding/browser/nsWebBrowser;1"
+#define NS_PROFILE_CONTRACTID "@mozilla.org/profile/manager;1"
 #define NS_MEMORY_CONTRACTID "@mozilla.org/xpcom/memory-service;1"
+#define NS_STRINGSTREAM_CONTRACTID "@mozilla.org/io/string-input-stream;1"
 #define NS_COMMANDPARAMS_CONTRACTID "@mozilla.org/embedcomp/command-params;1"
 #define NS_HTMLSERIALIZER_CONTRACTID "@mozilla.org/layout/contentserializer;1?mimetype=text/html"
 #define NS_EDITORCONTROLLER_CONTRACTID "@mozilla.org/editor/editorcontroller;1"
+#define NS_ARRAY_CONTRACTID "@mozilla.org/array;1"
+#define NS_VARIANT_CONTRACTID "@mozilla.org/variant;1"
 #define NS_PREFERENCES_CONTRACTID "@mozilla.org/preferences;1"
 
 #define APPSTARTUP_TOPIC "app-startup"
@@ -91,7 +94,7 @@ static LRESULT WINAPI nsembed_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
         This = *(NSContainer**)lParam;
         SetPropW(hwnd, wszTHIS, This);
     }else {
-        This = GetPropW(hwnd, wszTHIS);
+        This = (NSContainer*)GetPropW(hwnd, wszTHIS);
     }
 
     switch(msg) {
@@ -139,46 +142,22 @@ static void register_nscontainer_class(void)
     nscontainer_class = RegisterClassExW(&wndclass);
 }
 
-static void set_environment(LPCWSTR gre_path)
-{
-    WCHAR path_env[MAX_PATH], buf[20];
-    int len, debug_level = 0;
-
-    static const WCHAR pathW[] = {'P','A','T','H',0};
-    static const WCHAR warnW[] = {'w','a','r','n',0};
-    static const WCHAR xpcom_debug_breakW[] =
-        {'X','P','C','O','M','_','D','E','B','U','G','_','B','R','E','A','K',0};
-    static const WCHAR nspr_log_modulesW[] =
-        {'N','S','P','R','_','L','O','G','_','M','O','D','U','L','E','S',0};
-    static const WCHAR debug_formatW[] = {'a','l','l',':','%','d',0};
-
-    /* We have to modify PATH as XPCOM loads other DLLs from this directory. */
-    GetEnvironmentVariableW(pathW, path_env, sizeof(path_env)/sizeof(WCHAR));
-    len = strlenW(path_env);
-    path_env[len++] = ';';
-    strcpyW(path_env+len, gre_path);
-    SetEnvironmentVariableW(pathW, path_env);
-
-    SetEnvironmentVariableW(xpcom_debug_breakW, warnW);
-
-    if(TRACE_ON(gecko))
-        debug_level = 5;
-    else if(WARN_ON(gecko))
-        debug_level = 3;
-    else if(ERR_ON(gecko))
-        debug_level = 2;
-
-    sprintfW(buf, debug_formatW, debug_level);
-    SetEnvironmentVariableW(nspr_log_modulesW, buf);
-}
-
 static BOOL load_xpcom(const PRUnichar *gre_path)
 {
+    WCHAR path_env[MAX_PATH];
+    int len;
+
+    static const WCHAR wszPATH[] = {'P','A','T','H',0};
     static const WCHAR strXPCOM[] = {'x','p','c','o','m','.','d','l','l',0};
 
     TRACE("(%s)\n", debugstr_w(gre_path));
 
-    set_environment(gre_path);
+    /* We have to modify PATH as XPCOM loads other DLLs from this directory. */
+    GetEnvironmentVariableW(wszPATH, path_env, sizeof(path_env)/sizeof(WCHAR));
+    len = strlenW(path_env);
+    path_env[len++] = ';';
+    strcpyW(path_env+len, gre_path);
+    SetEnvironmentVariableW(wszPATH, path_env);
 
     hXPCOM = LoadLibraryW(strXPCOM);
     if(!hXPCOM) {
@@ -292,38 +271,12 @@ static BOOL load_wine_gecko(PRUnichar *gre_path)
     return ret;
 }
 
-static void set_bool_pref(nsIPrefBranch *pref, const char *pref_name, BOOL val)
-{
-    nsresult nsres;
-
-    nsres = nsIPrefBranch_SetBoolPref(pref, pref_name, val);
-    if(NS_FAILED(nsres))
-        ERR("Could not set pref %s\n", debugstr_a(pref_name));
-}
-
-static void set_int_pref(nsIPrefBranch *pref, const char *pref_name, int val)
-{
-    nsresult nsres;
-
-    nsres = nsIPrefBranch_SetIntPref(pref, pref_name, val);
-    if(NS_FAILED(nsres))
-        ERR("Could not set pref %s\n", debugstr_a(pref_name));
-}
-
-static void set_string_pref(nsIPrefBranch *pref, const char *pref_name, const char *val)
-{
-    nsresult nsres;
-
-    nsres = nsIPrefBranch_SetCharPref(pref, pref_name, val);
-    if(NS_FAILED(nsres))
-        ERR("Could not set pref %s\n", debugstr_a(pref_name));
-}
-
 static void set_lang(nsIPrefBranch *pref)
 {
     char langs[100];
     DWORD res, size, type;
     HKEY hkey;
+    nsresult nsres;
 
     static const WCHAR international_keyW[] =
         {'S','o','f','t','w','a','r','e',
@@ -343,7 +296,9 @@ static void set_lang(nsIPrefBranch *pref)
 
     TRACE("Setting lang %s\n", debugstr_a(langs));
 
-    set_string_pref(pref, "intl.accept_languages", langs);
+    nsres = nsIPrefBranch_SetCharPref(pref, "intl.accept_languages", langs);
+    if(NS_FAILED(nsres))
+        ERR("SetCharPref failed: %08x\n", nsres);
 }
 
 static void set_proxy(nsIPrefBranch *pref)
@@ -353,6 +308,7 @@ static void set_proxy(nsIPrefBranch *pref)
     int proxy_port_num;
     DWORD enabled = 0, res, size, type;
     HKEY hkey;
+    nsresult nsres;
 
     static const WCHAR proxy_keyW[] =
         {'S','o','f','t','w','a','r','e',
@@ -387,18 +343,60 @@ static void set_proxy(nsIPrefBranch *pref)
     proxy_port_num = atoi(proxy_port + 1);
     TRACE("Setting proxy to %s, port %d\n", debugstr_a(proxy), proxy_port_num);
 
-    set_string_pref(pref, "network.proxy.http", proxy);
-    set_string_pref(pref, "network.proxy.ssl", proxy);
-
-    set_int_pref(pref, "network.proxy.type", 1);
-    set_int_pref(pref, "network.proxy.http_port", proxy_port_num);
-    set_int_pref(pref, "network.proxy.ssl_port", proxy_port_num);
+    nsres = nsIPrefBranch_SetIntPref(pref, "network.proxy.type", 1);
+    if(NS_FAILED(nsres))
+        ERR("SetIntPref network.proxy.type failed: %08x\n", nsres);
+    nsres = nsIPrefBranch_SetCharPref(pref, "network.proxy.http", proxy);
+    if(NS_FAILED(nsres))
+        ERR("SetCharPref network.proxy.http failed: %08x\n", nsres);
+    nsres = nsIPrefBranch_SetIntPref(pref, "network.proxy.http_port", proxy_port_num);
+    if(NS_FAILED(nsres))
+        ERR("SetIntPref network.proxy.http_port failed: %08x\n", nsres);
+    nsres = nsIPrefBranch_SetCharPref(pref, "network.proxy.ssl", proxy);
+    if(NS_FAILED(nsres))
+        ERR("SetCharPref network.proxy.ssl failed: %08x\n", nsres);
+    nsres = nsIPrefBranch_SetIntPref(pref, "network.proxy.ssl_port", proxy_port_num);
+    if(NS_FAILED(nsres))
+        ERR("SetIntPref network.proxy.ssl_port failed: %08x\n", nsres);
 }
 
-static void set_preferences(void)
+static void set_bool_pref(nsIPrefBranch *pref, const char *pref_name, BOOL val)
+{
+    nsresult nsres;
+
+    nsres = nsIPrefBranch_SetBoolPref(pref, pref_name, val);
+    if(NS_FAILED(nsres))
+        ERR("Could not set pref %s\n", debugstr_a(pref_name));
+}
+
+static void set_profile(void)
 {
     nsIPrefBranch *pref;
+    nsIProfile *profile;
+    PRBool exists = FALSE;
     nsresult nsres;
+
+    static const WCHAR wszMSHTML[] = {'M','S','H','T','M','L',0};
+
+    nsres = nsIServiceManager_GetServiceByContractID(pServMgr, NS_PROFILE_CONTRACTID,
+            &IID_nsIProfile, (void**)&profile);
+    if(NS_FAILED(nsres)) {
+        ERR("Could not get profile service: %08x\n", nsres);
+        return;
+    }
+
+    nsres = nsIProfile_ProfileExists(profile, wszMSHTML, &exists);
+    if(!exists) {
+        nsres = nsIProfile_CreateNewProfile(profile, wszMSHTML, NULL, NULL, FALSE);
+        if(NS_FAILED(nsres))
+            ERR("CreateNewProfile failed: %08x\n", nsres);
+    }
+
+    nsres = nsIProfile_SetCurrentProfile(profile, wszMSHTML);
+    if(NS_FAILED(nsres))
+        ERR("SetCurrentProfile failed: %08x\n", nsres);
+
+    nsIProfile_Release(profile);
 
     nsres = nsIServiceManager_GetServiceByContractID(pServMgr, NS_PREFERENCES_CONTRACTID,
             &IID_nsIPrefBranch, (void**)&pref);
@@ -411,7 +409,6 @@ static void set_preferences(void)
     set_proxy(pref);
     set_bool_pref(pref, "security.warn_entering_secure", FALSE);
     set_bool_pref(pref, "security.warn_submit_insecure", FALSE);
-    set_int_pref(pref, "layout.spellcheckDefault", 0);
 
     nsIPrefBranch_Release(pref);
 }
@@ -450,6 +447,10 @@ static BOOL init_xpcom(const PRUnichar *gre_path)
         if(NS_FAILED(nsres))
             ERR("AutoRegister(NULL) failed: %08x\n", nsres);
 
+        nsres = nsIComponentRegistrar_AutoRegister(registrar, gre_dir);
+        if(NS_FAILED(nsres))
+            ERR("AutoRegister(gre_dir) failed: %08x\n", nsres);
+
         init_nsio(pCompMgr, registrar);
     }else {
         ERR("NS_GetComponentRegistrar failed: %08x\n", nsres);
@@ -467,7 +468,7 @@ static BOOL init_xpcom(const PRUnichar *gre_path)
         ERR("could not get appstartup-notifier: %08x\n", nsres);
     }
 
-    set_preferences();
+    set_profile();
 
     nsres = nsIComponentManager_CreateInstanceByContractID(pCompMgr, NS_MEMORY_CONTRACTID,
             NULL, &IID_nsIMemory, (void**)&nsmem);
@@ -496,7 +497,7 @@ BOOL load_gecko(BOOL silent)
     PRUnichar gre_path[MAX_PATH];
     BOOL ret = FALSE;
 
-    static DWORD loading_thread;
+    static LONG loading_thread;
 
     TRACE("()\n");
 
@@ -513,7 +514,7 @@ BOOL load_gecko(BOOL silent)
            || (install_wine_gecko(silent) && load_wine_gecko(gre_path)))
             ret = init_xpcom(gre_path);
         else
-           MESSAGE("Could not load wine-gecko. HTML rendering will be disabled.\n");
+           MESSAGE("Could not load Mozilla. HTML rendering will be disabled.\n");
     }else {
         ret = pCompMgr != NULL;
     }
@@ -577,6 +578,70 @@ void nsAString_Finish(nsAString *str)
     NS_StringContainerFinish(str);
 }
 
+nsIInputStream *create_nsstream(const char *data, PRInt32 data_len)
+{
+    nsIStringInputStream *ret;
+    nsresult nsres;
+
+    if(!pCompMgr)
+        return NULL;
+
+    nsres = nsIComponentManager_CreateInstanceByContractID(pCompMgr,
+            NS_STRINGSTREAM_CONTRACTID, NULL, &IID_nsIStringInputStream,
+            (void**)&ret);
+    if(NS_FAILED(nsres)) {
+        ERR("Could not get nsIStringInputStream\n");
+        return NULL;
+    }
+
+    nsres = nsIStringInputStream_SetData(ret, data, data_len);
+    if(NS_FAILED(nsres)) {
+        ERR("AdoptData failed: %08x\n", nsres);
+        nsIStringInputStream_Release(ret);
+        return NULL;
+    }
+
+    return (nsIInputStream*)ret;
+}
+
+nsIMutableArray *create_nsarray(void)
+{
+    nsIMutableArray *ret;
+    nsresult nsres;
+
+    if(!pCompMgr)
+        return NULL;
+
+    nsres = nsIComponentManager_CreateInstanceByContractID(pCompMgr,
+            NS_ARRAY_CONTRACTID, NULL, &IID_nsIMutableArray,
+            (void**)&ret);
+    if(NS_FAILED(nsres)) {
+        ERR("Could not get nsIArray: %08x\n", nsres);
+        return NULL;
+    }
+
+    return ret;
+}
+
+nsIWritableVariant *create_nsvariant(void)
+{
+    nsIWritableVariant *ret;
+    nsresult nsres;
+
+    if(!pCompMgr)
+        return NULL;
+
+    nsres = nsIComponentManager_CreateInstanceByContractID(pCompMgr,
+            NS_VARIANT_CONTRACTID, NULL, &IID_nsIWritableVariant,
+            (void**)&ret);
+    if(NS_FAILED(nsres)) {
+        ERR("Could not get nsIWritableVariant: %08x\n", nsres);
+        return NULL;
+    }
+
+    return ret;
+}
+
 nsICommandParams *create_nscommand_params(void)
 {
     nsICommandParams *ret = NULL;
@@ -609,7 +674,7 @@ nsresult get_nsinterface(nsISupports *iface, REFIID riid, void **ppv)
     return nsres;
 }
 
-static HRESULT nsnode_to_nsstring_rec(nsIContentSerializer *serializer, nsIDOMNode *nsnode, nsAString *str)
+static void nsnode_to_nsstring_rec(nsIContentSerializer *serializer, nsIDOMNode *nsnode, nsAString *str)
 {
     nsIDOMNodeList *node_list = NULL;
     PRBool has_children = FALSE;
@@ -621,14 +686,14 @@ static HRESULT nsnode_to_nsstring_rec(nsIContentSerializer *serializer, nsIDOMNo
     nsres = nsIDOMNode_GetNodeType(nsnode, &type);
     if(NS_FAILED(nsres)) {
         ERR("GetType failed: %08x\n", nsres);
-        return E_FAIL;
+        return;
     }
 
     switch(type) {
     case ELEMENT_NODE: {
         nsIDOMElement *nselem;
         nsIDOMNode_QueryInterface(nsnode, &IID_nsIDOMElement, (void**)&nselem);
-        nsIContentSerializer_AppendElementStart(serializer, nselem, nselem, str);
+        nsIContentSerializer_AppendElementStart(serializer, nselem, has_children, str);
         nsIDOMElement_Release(nselem);
         break;
     }
@@ -652,9 +717,6 @@ static HRESULT nsnode_to_nsstring_rec(nsIContentSerializer *serializer, nsIDOMNo
         nsIDOMDocument_Release(nsdoc);
         break;
     }
-    case DOCUMENT_TYPE_NODE:
-        WARN("Ignoring DOCUMENT_TYPE_NODE\n");
-        break;
     case DOCUMENT_FRAGMENT_NODE:
         break;
     default:
@@ -687,37 +749,35 @@ static HRESULT nsnode_to_nsstring_rec(nsIContentSerializer *serializer, nsIDOMNo
         nsIContentSerializer_AppendElementEnd(serializer, nselem, str);
         nsIDOMElement_Release(nselem);
     }
-
-    return S_OK;
 }
 
-HRESULT nsnode_to_nsstring(nsIDOMNode *nsnode, nsAString *str)
+void nsnode_to_nsstring(nsIDOMNode *nsdoc, nsAString *str)
 {
     nsIContentSerializer *serializer;
+    nsIDOMNode *nsnode;
     nsresult nsres;
-    HRESULT hres;
 
     nsres = nsIComponentManager_CreateInstanceByContractID(pCompMgr,
             NS_HTMLSERIALIZER_CONTRACTID, NULL, &IID_nsIContentSerializer,
             (void**)&serializer);
     if(NS_FAILED(nsres)) {
         ERR("Could not get nsIContentSerializer: %08x\n", nsres);
-        return E_FAIL;
+        return;
     }
 
-    nsres = nsIContentSerializer_Init(serializer, 0, 100, NULL, FALSE, FALSE /* FIXME */);
+    nsres = nsIContentSerializer_Init(serializer, 0, 100, NULL, FALSE);
     if(NS_FAILED(nsres))
         ERR("Init failed: %08x\n", nsres);
 
-    hres = nsnode_to_nsstring_rec(serializer, nsnode, str);
-    if(SUCCEEDED(hres)) {
-        nsres = nsIContentSerializer_Flush(serializer, str);
-        if(NS_FAILED(nsres))
-            ERR("Flush failed: %08x\n", nsres);
-    }
+    nsIDOMDocument_QueryInterface(nsdoc, &IID_nsIDOMNode, (void**)&nsnode);
+    nsnode_to_nsstring_rec(serializer, nsnode, str);
+    nsIDOMNode_Release(nsnode);
+
+    nsres = nsIContentSerializer_Flush(serializer, str);
+    if(NS_FAILED(nsres))
+        ERR("Flush failed: %08x\n", nsres);
 
     nsIContentSerializer_Release(serializer);
-    return hres;
 }
 
 void get_editor_controller(NSContainer *This)
@@ -788,8 +848,7 @@ void set_ns_editmode(NSContainer *This)
         return;
     }
 
-    nsres = nsIEditingSession_MakeWindowEditable(editing_session, dom_window,
-            NULL, FALSE, TRUE, TRUE);
+    nsres = nsIEditingSession_MakeWindowEditable(editing_session, dom_window, NULL, FALSE);
     nsIEditingSession_Release(editing_session);
     nsIDOMWindow_Release(dom_window);
     if(NS_FAILED(nsres)) {
@@ -807,49 +866,9 @@ void set_ns_editmode(NSContainer *This)
     nsIWebBrowser_SetParentURIContentListener(This->webbrowser, NSURICL(This));
 }
 
-void update_nsdocument(HTMLDocument *doc)
-{
-    nsIDOMHTMLDocument *nsdoc;
-    nsIDOMDocument *nsdomdoc;
-    nsresult nsres;
-
-    if(!doc->nscontainer || !doc->nscontainer->navigation)
-        return;
-
-    nsres = nsIWebNavigation_GetDocument(doc->nscontainer->navigation, &nsdomdoc);
-    if(NS_FAILED(nsres) || !nsdomdoc) {
-        ERR("GetDocument failed: %08x\n", nsres);
-        return;
-    }
-
-    nsres = nsIDOMDocument_QueryInterface(nsdomdoc, &IID_nsIDOMHTMLDocument, (void**)&nsdoc);
-    nsIDOMDocument_Release(nsdomdoc);
-    if(NS_FAILED(nsres)) {
-        ERR("Could not get nsIDOMHTMLDocument iface: %08x\n", nsres);
-        return;
-    }
-
-    if(nsdoc == doc->nsdoc) {
-        nsIDOMHTMLDocument_Release(nsdoc);
-        return;
-    }
-
-    if(doc->nsdoc) {
-        remove_mutation_observer(doc->nscontainer, doc->nsdoc);
-        nsIDOMHTMLDocument_Release(doc->nsdoc);
-    }
-
-    doc->nsdoc = nsdoc;
-
-    if(nsdoc)
-        set_mutation_observer(doc->nscontainer, nsdoc);
-}
-
 void close_gecko(void)
 {
     TRACE("()\n");
-
-    release_nsio();
 
     if(pCompMgr)
         nsIComponentManager_Release(pCompMgr);
@@ -860,8 +879,8 @@ void close_gecko(void)
     if(nsmem)
         nsIMemory_Release(nsmem);
 
-    /* Gecko doesn't really support being unloaded */
-    /* if (hXPCOM) FreeLibrary(hXPCOM); */
+    if(hXPCOM)
+        FreeLibrary(hXPCOM);
 }
 
 /**********************************************************
@@ -932,7 +951,6 @@ static nsrefcnt NSAPI nsWebBrowserChrome_Release(nsIWebBrowserChrome *iface)
     TRACE("(%p) ref=%d\n", This, ref);
 
     if(!ref) {
-        heap_free(This->event_vector);
         if(This->parent)
             nsIWebBrowserChrome_Release(NSWBCHROME(This->parent));
         heap_free(This);
@@ -945,14 +963,8 @@ static nsresult NSAPI nsWebBrowserChrome_SetStatus(nsIWebBrowserChrome *iface,
         PRUint32 statusType, const PRUnichar *status)
 {
     NSContainer *This = NSWBCHROME_THIS(iface);
-
     TRACE("(%p)->(%d %s)\n", This, statusType, debugstr_w(status));
-
-    /* FIXME: This hack should be removed when we'll load all pages by URLMoniker */
-    if(This->doc)
-        update_nsdocument(This->doc);
-
-    return NS_OK;
+    return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 static nsresult NSAPI nsWebBrowserChrome_GetWebBrowser(nsIWebBrowserChrome *iface,
@@ -1160,33 +1172,6 @@ static nsrefcnt NSAPI nsURIContentListener_Release(nsIURIContentListener *iface)
     return nsIWebBrowserChrome_Release(NSWBCHROME(This));
 }
 
-static BOOL translate_url(HTMLDocument *doc, nsIWineURI *nsuri)
-{
-    OLECHAR *new_url = NULL, *url;
-    BOOL ret = FALSE;
-    LPCWSTR wine_url;
-    HRESULT hres;
-
-    if(!doc->hostui)
-        return FALSE;
-
-    nsIWineURI_GetWineURL(nsuri, &wine_url);
-
-    url = heap_strdupW(wine_url);
-    hres = IDocHostUIHandler_TranslateUrl(doc->hostui, 0, url, &new_url);
-    heap_free(url);
-    if(hres != S_OK || !new_url)
-        return FALSE;
-
-    if(strcmpW(url, new_url)) {
-        FIXME("TranslateUrl returned new URL %s -> %s\n", debugstr_w(url), debugstr_w(new_url));
-        ret = TRUE;
-    }
-
-    CoTaskMemFree(new_url);
-    return ret;
-}
-
 static nsresult NSAPI nsURIContentListener_OnStartURIOpen(nsIURIContentListener *iface,
                                                           nsIURI *aURI, PRBool *_retval)
 {
@@ -1230,15 +1215,12 @@ static nsresult NSAPI nsURIContentListener_OnStartURIOpen(nsIURIContentListener 
 
             IMoniker_Release(mon);
         }
-
-        *_retval = FALSE;
-    }else if(This->doc) {
-        *_retval = translate_url(This->doc, wine_uri);
     }
 
     nsIWineURI_Release(wine_uri);
 
-    return !*_retval && This->content_listener
+    *_retval = FALSE;
+    return This->content_listener
         ? nsIURIContentListener_OnStartURIOpen(This->content_listener, aURI, _retval)
         : NS_OK;
 }
@@ -1504,8 +1486,7 @@ static nsresult NSAPI nsTooltipListener_OnShowTooltip(nsITooltipListener *iface,
 {
     NSContainer *This = NSTOOLTIP_THIS(iface);
 
-    if (This->doc)
-        show_tooltip(This->doc, aXCoord, aYCoord, aTipText);
+    show_tooltip(This->doc, aXCoord, aYCoord, aTipText);
 
     return NS_OK;
 }
@@ -1514,8 +1495,7 @@ static nsresult NSAPI nsTooltipListener_OnHideTooltip(nsITooltipListener *iface)
 {
     NSContainer *This = NSTOOLTIP_THIS(iface);
 
-    if (This->doc)
-        hide_tooltip(This->doc);
+    hide_tooltip(This->doc);
 
     return NS_OK;
 }
@@ -1676,7 +1656,6 @@ NSContainer *NSContainer_Create(HTMLDocument *doc, NSContainer *parent)
 
     ret->doc = doc;
     ret->ref = 1;
-    init_mutation(ret);
 
     nsres = nsIComponentManager_CreateInstanceByContractID(pCompMgr, NS_WEBBROWSER_CONTRACTID,
             NULL, &IID_nsIWebBrowser, (void**)&ret->webbrowser);

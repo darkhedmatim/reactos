@@ -7,9 +7,6 @@
 	<directory name="kmtest">
 		<xi:include href="kmtest/kmtest.rbuild" />
 	</directory>
-	<directory name="kmtest">
-		<xi:include href="kmtest/kmtestassist.rbuild" />
-	</directory>
 	<directory name="memtest">
 		<xi:include href="memtest/memtest.rbuild" />
 	</directory>

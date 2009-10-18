@@ -11,7 +11,6 @@
 #include "precomp.h"
 
 PNDIS_PACKET PrepareARPPacket(
-    PIP_INTERFACE IF,
     USHORT HardwareType,
     USHORT ProtocolType,
     UCHAR LinkAddressLength,
@@ -46,10 +45,11 @@ PNDIS_PACKET PrepareARPPacket(
     TI_DbgPrint(DEBUG_ARP, ("Called.\n"));
 
     /* Prepare ARP packet */
-    Size = sizeof(ARP_HEADER) +
+    Size = MaxLLHeaderSize +
+        sizeof(ARP_HEADER) +
         2 * LinkAddressLength + /* Hardware address length */
         2 * ProtoAddressLength; /* Protocol address length */
-    Size = MAX(Size, IF->MinFrameSize - IF->HeaderSize);
+    Size = MAX(Size, MinLLFrameSize);
 
     NdisStatus = AllocatePacketWithBuffer( &NdisPacket, NULL, Size );
     if( !NT_SUCCESS(NdisStatus) ) return NULL;
@@ -58,7 +58,7 @@ PNDIS_PACKET PrepareARPPacket(
     ASSERT(DataBuffer);
 
     RtlZeroMemory(DataBuffer, Size);
-    Header = (PARP_HEADER)((ULONG_PTR)DataBuffer);
+    Header = (PARP_HEADER)((ULONG_PTR)DataBuffer + MaxLLHeaderSize);
     Header->HWType       = HardwareType;
     Header->ProtoType    = ProtocolType;
     Header->HWAddrLen    = LinkAddressLength;
@@ -108,8 +108,7 @@ VOID ARPTransmitComplete(
 }
 
 
-BOOLEAN ARPTransmit(PIP_ADDRESS Address, PVOID LinkAddress,
-                    PIP_INTERFACE Interface)
+BOOLEAN ARPTransmit(PIP_ADDRESS Address, PIP_INTERFACE Interface)
 /*
  * FUNCTION: Creates an ARP request and transmits it on a network
  * ARGUMENTS:
@@ -123,11 +122,6 @@ BOOLEAN ARPTransmit(PIP_ADDRESS Address, PVOID LinkAddress,
     USHORT ProtoType;
 
     TI_DbgPrint(DEBUG_ARP, ("Called.\n"));
-
-    /* If Address is NULL then the caller wants an
-     * gratuitous ARP packet sent */
-    if (!Address)
-        Address = &Interface->Unicast;
 
     switch (Address->Type) {
         case IP_ADDRESS_V4:
@@ -146,15 +140,14 @@ BOOLEAN ARPTransmit(PIP_ADDRESS Address, PVOID LinkAddress,
     }
 
     NdisPacket = PrepareARPPacket(
-        Interface,
         WN2H(0x0001),                    /* FIXME: Ethernet only */
         ProtoType,                       /* Protocol type */
         (UCHAR)Interface->AddressLength, /* Hardware address length */
         (UCHAR)ProtoAddrLen,             /* Protocol address length */
         Interface->Address,              /* Sender's (local) hardware address */
         &Interface->Unicast.Address.IPv4Address,/* Sender's (local) protocol address */
-        LinkAddress,                     /* Target's (remote) hardware address */
-        &Address->Address.IPv4Address,   /* Target's (remote) protocol address */
+        NULL,                            /* Don't care */
+        &Address->Address,               /* Target's (remote) protocol address */
         ARP_OPCODE_REQUEST);             /* ARP request */
 
     if( !NdisPacket ) return FALSE;
@@ -166,7 +159,7 @@ BOOLEAN ARPTransmit(PIP_ADDRESS Address, PVOID LinkAddress,
     TI_DbgPrint(DEBUG_ARP,("Sending ARP Packet\n"));
 
     (*Interface->Transmit)(Interface->Context, NdisPacket,
-        0, NULL, LAN_PROTO_ARP);
+        MaxLLHeaderSize, NULL, LAN_PROTO_ARP);
 
     return TRUE;
 }
@@ -186,6 +179,7 @@ VOID ARPReceive(
     IP_ADDRESS Address;
     PVOID SenderHWAddress;
     PVOID SenderProtoAddress;
+    PVOID TargetProtoAddress;
     PNEIGHBOR_CACHE_ENTRY NCE;
     PNDIS_PACKET NdisPacket;
     PIP_INTERFACE Interface = (PIP_INTERFACE)Context;
@@ -209,31 +203,39 @@ VOID ARPReceive(
     SenderHWAddress    = (PVOID)((ULONG_PTR)Header + sizeof(ARP_HEADER));
     SenderProtoAddress = (PVOID)((ULONG_PTR)SenderHWAddress + Header->HWAddrLen);
 
+    /* Check if we have the target protocol address */
+
+    TargetProtoAddress = (PVOID)((ULONG_PTR)SenderProtoAddress +
+        Header->ProtoAddrLen + Header->HWAddrLen);
+
+    if( !AddrLocateADEv4( *((PIPv4_RAW_ADDRESS)TargetProtoAddress),
+			  &Address) ) {
+        TI_DbgPrint(DEBUG_ARP, ("Target address (0x%X) is not mine.\n", *((PULONG)TargetProtoAddress)));
+        return;
+    }
+
     /* Check if we know the sender */
 
     AddrInitIPv4(&Address, *((PULONG)SenderProtoAddress));
-
     NCE = NBLocateNeighbor(&Address);
     if (NCE) {
         /* We know the sender. Update the hardware address
            and state in our neighbor address cache */
-        NBUpdateNeighbor(NCE, SenderHWAddress, 0);
+        NBUpdateNeighbor(NCE, SenderHWAddress, NUD_REACHABLE);
     } else {
         /* The packet had our protocol address as target. The sender
            may want to communicate with us soon, so add his address
            to our address cache */
         NCE = NBAddNeighbor(Interface, &Address, SenderHWAddress,
-            Header->HWAddrLen, 0, ARP_TIMEOUT);
+            Header->HWAddrLen, NUD_REACHABLE);
     }
 
-    if (Header->Opcode != ARP_OPCODE_REQUEST ||
-        !AddrIsEqual(&Address, &Interface->Unicast))
+    if (Header->Opcode != ARP_OPCODE_REQUEST || !NCE)
         return;
 
     /* This is a request for our address. Swap the addresses and
        send an ARP reply back to the sender */
     NdisPacket = PrepareARPPacket(
-        Interface,
         Header->HWType,                  /* Hardware type */
         Header->ProtoType,               /* Protocol type */
         (UCHAR)Interface->AddressLength, /* Hardware address length */
@@ -247,12 +249,10 @@ VOID ARPReceive(
         PC(NdisPacket)->DLComplete = ARPTransmitComplete;
         (*Interface->Transmit)(Interface->Context,
                                NdisPacket,
-                               0,
+                               MaxLLHeaderSize,
                                SenderHWAddress,
                                LAN_PROTO_ARP);
     }
-
-    Packet->Free(Packet);
 }
 
 /* EOF */

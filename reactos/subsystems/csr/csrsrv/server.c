@@ -598,10 +598,9 @@ CsrSetCallingSpooler(ULONG Reserved)
  * @remarks None.
  *
  *--*/
-LONG
-NTAPI
-CsrUnhandledExceptionFilter(IN PEXCEPTION_POINTERS ExceptionInfo)
+_SEH_FILTER(CsrUnhandledExceptionFilter)
 {
+    struct _EXCEPTION_POINTERS *ExceptionInfo = _SEH_GetExceptionPointers();
     SYSTEM_KERNEL_DEBUGGER_INFORMATION DebuggerInfo;
     EXCEPTION_DISPOSITION Result = EXCEPTION_EXECUTE_HANDLER;
     BOOLEAN OldValue;

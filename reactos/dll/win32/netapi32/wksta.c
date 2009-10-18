@@ -157,7 +157,8 @@ static BOOL WkstaEnumAdaptersCallback(UCHAR totalLANAs, UCHAR lanaIndex,
  ULONG transport, const NetBIOSAdapterImpl *data, void *closure)
 {
     BOOL ret;
-    struct WkstaTransportEnumData *enumData = closure;
+    struct WkstaTransportEnumData *enumData = (struct WkstaTransportEnumData *)
+     closure;
 
     if (enumData && enumData->pbuf)
     {

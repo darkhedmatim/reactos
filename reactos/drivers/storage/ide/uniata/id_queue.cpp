@@ -4,7 +4,6 @@
     Get cost of insertion Req1 before Req2
  */
 LONGLONG
-NTAPI
 UniataGetCost(
     PHW_LU_EXTENSION LunExt,
     IN PATA_REQ AtaReq1,
@@ -53,7 +52,6 @@ UniataGetCost(
     Perform reorder if necessary
  */
 VOID
-NTAPI
 UniataQueueRequest(
     IN PHW_CHANNEL chan,
     IN PSCSI_REQUEST_BLOCK Srb
@@ -220,7 +218,6 @@ UniataQueueRequest(
     Remove request from queue and get next request
  */
 VOID
-NTAPI
 UniataRemoveRequest(
     IN PHW_CHANNEL chan,
     IN PSCSI_REQUEST_BLOCK Srb
@@ -309,7 +306,6 @@ UniataRemoveRequest(
     (from head of the queue)
  */
 PSCSI_REQUEST_BLOCK
-NTAPI
 UniataGetCurRequest(
     IN PHW_CHANNEL chan
     )
@@ -327,7 +323,6 @@ UniataGetCurRequest(
     (used in simplex mode only)
  */
 PHW_CHANNEL
-NTAPI
 UniataGetNextChannel(
     IN PHW_CHANNEL chan
     )

@@ -31,7 +31,7 @@ POBJECT_TYPE IoDeviceObjectType = NULL;
 POBJECT_TYPE IoFileObjectType = NULL;
 extern POBJECT_TYPE IoControllerObjectType;
 extern UNICODE_STRING NtSystemRoot;
-BOOLEAN IoCountOperations = TRUE;
+BOOLEAN IoCountOperations;
 ULONG IoReadOperationCount = 0;
 LARGE_INTEGER IoReadTransferCount = {{0, 0}};
 ULONG IoWriteOperationCount = 0;
@@ -265,10 +265,9 @@ IopCreateObjectTypes(VOID)
                                        NULL,
                                        &IoControllerObjectType))) return FALSE;
 
-    /* Do the Device Type */
+    /* Do the Device Type. FIXME: Needs Delete Routine! */
     RtlInitUnicodeString(&Name, L"Device");
     ObjectTypeInitializer.DefaultNonPagedPoolCharge = sizeof(DEVICE_OBJECT);
-    ObjectTypeInitializer.DeleteProcedure = IopDeleteDevice;
     ObjectTypeInitializer.ParseProcedure = IopParseDevice;
     ObjectTypeInitializer.SecurityProcedure = IopSecurityFile;
     if (!NT_SUCCESS(ObCreateObjectType(&Name,
@@ -497,6 +496,9 @@ IoInitSystem(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     /* Call back drivers that asked for */
     IopReinitializeBootDrivers();
 
+    /* Initialize PnP root relations */
+    IopEnumerateDevice(IopRootDeviceNode->PhysicalDeviceObject);
+
     /* Check if this was a ramdisk boot */
     if (!_strnicmp(LoaderBlock->ArcBootDeviceName, "ramdisk(0)", 10))
     {
@@ -510,9 +512,6 @@ IoInitSystem(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     /* Mark the system boot partition */
     if (!IopMarkBootPartition(LoaderBlock)) return FALSE;
 
-    /* Initialize PnP root relations */
-    IopEnumerateDevice(IopRootDeviceNode->PhysicalDeviceObject);
-
 #ifndef _WINKD_
     /* Read KDB Data */
     KdbInit();
@@ -525,8 +524,8 @@ IoInitSystem(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     IopInitializePnpServices(IopRootDeviceNode);
 
     /* Load system start drivers */
-    IopInitializeSystemDrivers();
     PnpSystemInit = TRUE;
+    IopInitializeSystemDrivers();
 
     /* Destroy the group driver list */
     IoDestroyDriverList();

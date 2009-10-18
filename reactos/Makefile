@@ -112,10 +112,6 @@
 #        will go from 80 to 40MB, memory usage from 58 to 38MB and the install CD
 #        from 18 to 13MB. The variable defaults to no.
 #
-#    ROS_GENERATE_RSYM
-#        This variable controls generation of RSYM symbol data. The value can be
-#        either yes (to generate symbol data) or no. The variable defaults to yes.
-#
 #    ROS_RBUILDFLAGS
 #        Pass parameters to rbuild.
 #            -v           Be verbose.
@@ -224,14 +220,12 @@ ifeq ($(HALFVERBOSEECHO),yes)
   ECHO_CC      =@echo $(QUOTE)[CC]       $<$(QUOTE)
   ECHO_HOSTCC  =@echo $(QUOTE)[HOST-CC]  $<$(QUOTE)
   ECHO_CL      =@echo $(QUOTE)[CL]       $<$(QUOTE)
-  ECHO_AS      =@echo $(QUOTE)[AS]       $<$(QUOTE)
+  ECHO_GAS     =@echo $(QUOTE)[GAS]      $<$(QUOTE)
   ECHO_NASM    =@echo $(QUOTE)[NASM]     $<$(QUOTE)
   ECHO_AR      =@echo $(QUOTE)[AR]       $@$(QUOTE)
   ECHO_HOSTAR  =@echo $(QUOTE)[HOST-AR]  $@$(QUOTE)
   ECHO_WINEBLD =@echo $(QUOTE)[WINEBLD]  $@$(QUOTE)
   ECHO_WRC     =@echo $(QUOTE)[WRC]      $@$(QUOTE)
-  ECHO_RC      =@echo $(QUOTE)[RC]       $@$(QUOTE)
-  ECHO_CVTRES  =@echo $(QUOTE)[CVTRES]   $@$(QUOTE)
   ECHO_WIDL    =@echo $(QUOTE)[WIDL]     $@$(QUOTE)
   ECHO_BIN2RES =@echo $(QUOTE)[BIN2RES]  $<$(QUOTE)
   ECHO_DLLTOOL =@echo $(QUOTE)[DLLTOOL]  $@$(QUOTE)
@@ -262,14 +256,12 @@ else
   ECHO_CPP     =
   ECHO_CC      =
   ECHO_HOSTCC  =
-  ECHO_AS      =
+  ECHO_GAS     =
   ECHO_NASM    =
   ECHO_AR      =
   ECHO_HOSTAR  =
   ECHO_WINEBLD =
   ECHO_WRC     =
-  ECHO_RC      =
-  ECHO_CVTRES  =
   ECHO_WIDL    =
   ECHO_BIN2RES =
   ECHO_DLLTOOL =
@@ -323,7 +315,6 @@ ifeq ($(TARGET_CPP),)
 endif
 gcc = $(Q)$(TARGET_CC)
 gpp = $(Q)$(TARGET_CPP)
-gas = $(Q)$(TARGET_CC) -x assembler-with-cpp
 ld = $(Q)$(PREFIX_)ld
 nm = $(Q)$(PREFIX_)nm
 objdump = $(Q)$(PREFIX_)objdump
@@ -332,6 +323,8 @@ objcopy = $(Q)$(PREFIX_)objcopy
 dlltool = $(Q)$(PREFIX_)dlltool
 strip = $(Q)$(PREFIX_)strip
 windres = $(Q)$(PREFIX_)windres
+cl = $(Q)cl -nologo
+link = $(Q)link -nologo
 
 # Set utilities
 ifeq ($(OSTYPE),msys)

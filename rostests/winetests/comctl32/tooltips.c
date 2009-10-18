@@ -291,14 +291,11 @@ static void test_gettext(void)
     r = SendMessageW(hwnd, TTM_ADDTOOL, 0, (LPARAM)&toolinfoW);
     ok(r, "Adding the tool to the tooltip failed\n");
 
-    if (0)  /* crashes on NT4 */
-    {
-        toolinfoW.hwnd = NULL;
-        toolinfoW.uId = 0x1234ABCD;
-        toolinfoW.lpszText = bufW;
-        SendMessageW(hwnd, TTM_GETTEXTW, 0, (LPARAM)&toolinfoW);
-        ok(toolinfoW.lpszText[0] == 0, "lpszText should be an empty string\n");
-    }
+    toolinfoW.hwnd = NULL;
+    toolinfoW.uId = 0x1234ABCD;
+    toolinfoW.lpszText = bufW;
+    SendMessageW(hwnd, TTM_GETTEXTW, 0, (LPARAM)&toolinfoW);
+    ok(toolinfoW.lpszText[0] == 0, "lpszText should be an empty string\n");
 
     DestroyWindow(hwnd);
 }

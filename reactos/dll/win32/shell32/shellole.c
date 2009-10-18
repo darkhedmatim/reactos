@@ -42,7 +42,6 @@ static const struct {
 	{&CLSID_ShellFSFolder,	&IFSFolder_Constructor},
 	{&CLSID_MyComputer,	&ISF_MyComputer_Constructor},
 	{&CLSID_ShellDesktop,	&ISF_Desktop_Constructor},
-	{&CLSID_ShellItem,	&IShellItem_Constructor},
 	{&CLSID_ShellLink,	&IShellLink_Constructor},
 	{&CLSID_DragDropHelper, &IDropTargetHelper_Constructor},
 	{&CLSID_ControlPanel,	&IControlPanel_Constructor},
@@ -61,7 +60,6 @@ static const struct {
 	{&CLSID_OpenWith,       &SHEOW_Constructor},
 	{&dummy1,               &INewItem_Constructor},
 	{&CLSID_StartMenu,      &StartMenu_Constructor},
-	{&CLSID_MenuBandSite,   &MenuBandSite_Constructor},
 	{NULL,NULL}
 };
 
@@ -524,12 +522,12 @@ void WINAPI DragAcceptFiles(HWND hWnd, BOOL b)
 	LONG exstyle;
 
 	if( !IsWindow(hWnd) ) return;
-	exstyle = GetWindowLongPtrA(hWnd,GWL_EXSTYLE);
+	exstyle = GetWindowLongA(hWnd,GWL_EXSTYLE);
 	if (b)
 	  exstyle |= WS_EX_ACCEPTFILES;
 	else
 	  exstyle &= ~WS_EX_ACCEPTFILES;
-	SetWindowLongPtrA(hWnd,GWL_EXSTYLE,exstyle);
+	SetWindowLongA(hWnd,GWL_EXSTYLE,exstyle);
 }
 
 /*************************************************************************

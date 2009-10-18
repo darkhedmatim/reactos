@@ -18,11 +18,11 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#define _WIN32_WINNT 0x0501
-
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
+
+#define _WIN32_WINNT 0x0501
 
 #include "windef.h"
 #include "winbase.h"
@@ -66,10 +66,7 @@ static BOOL init_procs(void)
         pBroadcastA = (PBROADCAST)GetProcAddress(user32, "BroadcastSystemMessage");
     ok(pBroadcastA != NULL, "No BroadcastSystemMessage found\n");
     if (!pBroadcastA)
-    {
-        win_skip("BroadcastA is not available\n");
         return FALSE;
-    }
 
     pBroadcastW = (PBROADCAST)GetProcAddress(user32, "BroadcastSystemMessageW");
     pBroadcastExA = (PBROADCASTEX)GetProcAddress(user32, "BroadcastSystemMessageExA");
@@ -83,13 +80,13 @@ static BOOL init_procs(void)
     cls.cbWndExtra = 0;
     cls.hInstance = GetModuleHandleA(0);
     cls.hIcon = 0;
-    cls.hCursor = LoadCursorA(0, IDC_ARROW);
+    cls.hCursor = LoadCursorA(0, (LPSTR)IDC_ARROW);
     cls.hbrBackground = GetStockObject(WHITE_BRUSH);
     cls.lpszMenuName = NULL;
     cls.lpszClassName = "MainWindowClass";
 
     if (!RegisterClassA(&cls))
-        return FALSE;
+        return 0;
 
     if (!CreateWindowExA(0, "MainWindowClass", "Main window", WS_CAPTION | WS_SYSMENU |
                                WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP, 100, 100, 200,
@@ -108,7 +105,7 @@ static void test_parameters(PBROADCAST broadcast, const char *functionname)
     ret = broadcast( 0x80000000, &recips, WM_NULL, 0, 0 );
     if (!ret && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
     {
-        win_skip("%s is not implemented\n", functionname);
+        skip("%s is not implemented\n", functionname);
         return;
     }
     ok(!ret || broken(ret), "Returned: %d\n", ret);
@@ -348,14 +345,14 @@ START_TEST(broadcast)
         test_parameters(pBroadcastW, "BroadcastSystemMessageW");
     }
     else
-        win_skip("No BroadcastSystemMessageW, skipping\n");
+        skip("No BroadcastSystemMessageW, skipping\n");
     if (pBroadcastExA)
     {
         trace("Running BroadcastSystemMessageExA tests\n");
         test_parametersEx(pBroadcastExA);
     }
     else
-        win_skip("No BroadcastSystemMessageExA, skipping\n");
+        skip("No BroadcastSystemMessageExA, skipping\n");
     if (pBroadcastExW)
     {
         trace("Running BroadcastSystemMessageExW tests\n");
@@ -364,5 +361,5 @@ START_TEST(broadcast)
         test_noprivileges();
     }
     else
-        win_skip("No BroadcastSystemMessageExW, skipping\n");
+        skip("No BroadcastSystemMessageExW, skipping\n");
 }

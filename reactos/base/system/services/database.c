@@ -727,7 +727,7 @@ ScmControlService(PSERVICE Service,
     ControlPacket->dwSize = TotalLength;
     wcscpy(&ControlPacket->szArguments[0], Service->lpServiceName);
 
-    /* Send the control packet */
+    /* Send the start command */
     WriteFile(Service->ControlPipeHandle,
               ControlPacket,
               sizeof(SCM_CONTROL_PACKET) + (TotalLength * sizeof(WCHAR)),

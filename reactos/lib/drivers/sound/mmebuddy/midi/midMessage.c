@@ -14,15 +14,13 @@
 #include <mmddk.h>
 
 #include <ntddsnd.h>
-#include <sndtypes.h>
 
 #include <mmebuddy.h>
 
 /*
     Standard MME driver entry-point for messages relating to MIDI input.
 */
-DWORD
-APIENTRY
+APIENTRY DWORD
 midMessage(
     DWORD DeviceId,
     DWORD Message,

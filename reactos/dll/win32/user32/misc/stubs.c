@@ -18,6 +18,37 @@ WINE_DEFAULT_DEBUG_CHANNEL(user32);
 /*
  * @unimplemented
  */
+int
+WINAPI
+GetMouseMovePointsEx(
+  UINT cbSize,
+  LPMOUSEMOVEPOINT lppt,
+  LPMOUSEMOVEPOINT lpptBuf,
+  int nBufPoints,
+  DWORD resolution)
+{
+    if((cbSize != sizeof(MOUSEMOVEPOINT)) || (nBufPoints < 0) || (nBufPoints > 64))
+	{
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return -1;
+    }
+
+    if(!lppt || !lpptBuf)
+	{
+        SetLastError(ERROR_NOACCESS);
+        return -1;
+    }
+
+    UNIMPLEMENTED;
+
+    SetLastError(ERROR_POINT_NOT_FOUND);
+    return -1;
+}
+
+
+/*
+ * @unimplemented
+ */
 DWORD
 WINAPI
 WaitForInputIdle(
@@ -485,6 +516,25 @@ BOOL WINAPI IsServerSideWindow(HWND wnd)
   return FALSE;
 }
 
+typedef BOOL (CALLBACK *THEME_HOOK_FUNC) (DWORD state,PVOID arg2); //return type and 2nd parameter unknown
+/*
+ * @unimplemented
+ */
+BOOL WINAPI RegisterUserApiHook(HINSTANCE instance,THEME_HOOK_FUNC proc)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL WINAPI UnregisterUserApiHook(VOID)
+{
+  UNIMPLEMENTED;
+  return FALSE;
+}
+
 /*
  * @unimplemented
  */
@@ -518,40 +568,3 @@ BOOL WINAPI DdeGetQualityOfService(HWND hWnd, DWORD Reserved, PSECURITY_QUALITY_
   UNIMPLEMENTED;
   return FALSE;
 }
-
-/*
- * @unimplemented
- */
-BOOL WINAPI SetProcessDPIAware(VOID)
-{
-    UNIMPLEMENTED;
-    return TRUE;
-}
-
-/*
- * @unimplemented
- */
-BOOL WINAPI CliImmSetHotKey(DWORD dwID, UINT uModifiers, UINT uVirtualKey, HKL hKl)
-{
-  UNIMPLEMENTED;
-  return FALSE;
-}
-
-/*
- * @unimplemented
- */
-DWORD WINAPI GetMenuIndex(HMENU hMenu, HMENU hSubMenu)
-{
-  UNIMPLEMENTED;
-  return 0;
-}
-
-/*
- * @unimplemented
- */
-DWORD WINAPI UserRegisterWowHandlers(PVOID Unknown1, PVOID Unknown2)
-{
-  UNIMPLEMENTED;
-  return 0;
-}
-

@@ -1,4 +1,22 @@
 /*
+ *  ReactOS W32 Subsystem
+ *  Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/*
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * PURPOSE:          Window timers messages
@@ -144,8 +162,7 @@ ValidateTimerCallback(PTHREADINFO pti,
   {
     if ( (lParam == (LPARAM)pTmr->pfn) &&
          (pTmr->flags & (TMRF_SYSTEM|TMRF_RIT)) &&
-//       (pTmr->head.pti->ppi == pti->ppi) )
-         (pTmr->pti->ppi == pti->ppi) )
+         (pTmr->pti->ThreadInfo->kpi == pti->ThreadInfo->kpi) )
        break;
 
     pTmr = (PTIMER)pTmr->ptmrList.Flink;
@@ -263,19 +280,21 @@ SetSystemTimer( PWINDOW_OBJECT Window,
 
 BOOL
 FASTCALL
-PostTimerMessages(PWINDOW_OBJECT Window)
+PostTimerMessages(HWND hWnd)
 {
   PUSER_MESSAGE_QUEUE ThreadQueue;
   MSG Msg;
   PTHREADINFO pti;
+  PWINDOW_OBJECT pWnd = NULL;
   BOOL Hit = FALSE;
   PTIMER pTmr = FirstpTmr;
 
   if (!pTmr) return FALSE;
 
-  if (Window && (int)Window != 1)
+  if (hWnd)
   {
-     if (!Window->Wnd) return FALSE;
+     pWnd = UserGetWindowObject(hWnd);
+     if (!pWnd || !pWnd->Wnd) return FALSE;
   }
 
   pti = PsGetCurrentThreadWin32Thread();
@@ -286,9 +305,9 @@ PostTimerMessages(PWINDOW_OBJECT Window)
   {
      if ( (pTmr->flags & TMRF_READY) &&
           (pTmr->pti == pti) &&
-          (pTmr->pWnd == Window))
+          (pTmr->pWnd == pWnd))
         {
-           Msg.hwnd    = Window->hSelf;
+           Msg.hwnd    = hWnd;
            Msg.message = (pTmr->flags & TMRF_SYSTEM) ? WM_SYSTIMER : WM_TIMER;
            Msg.wParam  = (WPARAM) pTmr->nID;
            Msg.lParam  = (LPARAM) pTmr->pfn;

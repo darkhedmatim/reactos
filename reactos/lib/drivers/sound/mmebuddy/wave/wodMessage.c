@@ -14,7 +14,6 @@
 #include <mmddk.h>
 
 #include <ntddsnd.h>
-#include <sndtypes.h>
 
 #include <mmebuddy.h>
 
@@ -31,8 +30,7 @@ MMRESULT HelloWorld(PSOUND_DEVICE_INSTANCE Instance, PVOID String)
     Standard MME driver entry-point for messages relating to wave audio
     output.
 */
-DWORD
-APIENTRY
+APIENTRY DWORD
 wodMessage(
     DWORD DeviceId,
     DWORD Message,
@@ -95,26 +93,18 @@ wodMessage(
 
         case WODM_WRITE :
         {
-            Result = MmeWriteWaveHeader(PrivateHandle, Parameter1);
-            break;
-        }
-
-        case WODM_RESET :
-        {
-            /* Stop playback, reset position to zero */
-            Result = MmeResetWavePlayback(PrivateHandle);
-            break;
-        }
-
-        case WODM_RESTART :
-        {
-            /* Continue playback when paused */
+            Result = MmeSubmitWaveHeader(PrivateHandle, Parameter1);
             break;
         }
 
         case WODM_GETPOS :
         {
-            Result = MmeGetPosition(WAVE_OUT_DEVICE_TYPE, DeviceId, PrivateHandle, (MMTIME*)Parameter1, Parameter2);
+#if 0
+            /* Hacky code to test the threading */
+            PSOUND_DEVICE_INSTANCE Instance = (PSOUND_DEVICE_INSTANCE)PrivateHandle;
+            CallSoundThread(Instance->Thread, HelloWorld, Instance, L"Hello World!");
+            CallSoundThread(Instance->Thread, HelloWorld, Instance, L"Hello Universe!");
+#endif
             break;
         }
     }

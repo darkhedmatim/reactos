@@ -511,12 +511,12 @@ static HRESULT WINAPI domcomment_put_data(
 
 static HRESULT WINAPI domcomment_get_length(
     IXMLDOMComment *iface,
-    LONG *len)
+    long *len)
 {
     domcomment *This = impl_from_IXMLDOMComment( iface );
     xmlnode *pDOMNode = impl_from_IXMLDOMNode( This->node );
     xmlChar *pContent;
-    LONG nLength = 0;
+    long nLength = 0;
 
     TRACE("%p\n", iface);
 
@@ -537,12 +537,12 @@ static HRESULT WINAPI domcomment_get_length(
 
 static HRESULT WINAPI domcomment_substringData(
     IXMLDOMComment *iface,
-    LONG offset, LONG count, BSTR *p)
+    long offset, long count, BSTR *p)
 {
     domcomment *This = impl_from_IXMLDOMComment( iface );
     xmlnode *pDOMNode = impl_from_IXMLDOMNode( This->node );
     xmlChar *pContent;
-    LONG nLength = 0;
+    long nLength = 0;
     HRESULT hr = S_FALSE;
 
     TRACE("%p\n", iface);
@@ -626,14 +626,14 @@ static HRESULT WINAPI domcomment_appendData(
 
 static HRESULT WINAPI domcomment_insertData(
     IXMLDOMComment *iface,
-    LONG offset, BSTR p)
+    long offset, BSTR p)
 {
     domcomment *This = impl_from_IXMLDOMComment( iface );
     xmlnode *pDOMNode = impl_from_IXMLDOMNode( This->node );
     xmlChar *pXmlContent;
     BSTR sNewString;
     HRESULT hr = S_FALSE;
-    LONG nLength = 0, nLengthP = 0;
+    long nLength = 0, nLengthP = 0;
     xmlChar *str = NULL;
 
     TRACE("%p\n", This);
@@ -696,7 +696,7 @@ static HRESULT WINAPI domcomment_insertData(
 
 static HRESULT WINAPI domcomment_deleteData(
     IXMLDOMComment *iface,
-    LONG offset, LONG count)
+    long offset, long count)
 {
     FIXME("\n");
     return E_NOTIMPL;
@@ -704,7 +704,7 @@ static HRESULT WINAPI domcomment_deleteData(
 
 static HRESULT WINAPI domcomment_replaceData(
     IXMLDOMComment *iface,
-    LONG offset, LONG count, BSTR p)
+    long offset, long count, BSTR p)
 {
     FIXME("\n");
     return E_NOTIMPL;
@@ -768,7 +768,7 @@ static const struct IXMLDOMCommentVtbl domcomment_vtbl =
 IUnknown* create_comment( xmlNodePtr comment )
 {
     domcomment *This;
-    xmlnode *node;
+    HRESULT hr;
 
     This = HeapAlloc( GetProcessHeap(), 0, sizeof *This );
     if ( !This )
@@ -777,15 +777,22 @@ IUnknown* create_comment( xmlNodePtr comment )
     This->lpVtbl = &domcomment_vtbl;
     This->ref = 1;
 
-    node = create_basic_node( comment, (IUnknown*)&This->lpVtbl, NULL );
-    if(!node)
+    This->node_unk = create_basic_node( comment, (IUnknown*)&This->lpVtbl );
+    if(!This->node_unk)
     {
         HeapFree(GetProcessHeap(), 0, This);
         return NULL;
     }
 
-    This->node_unk = (IUnknown*)&node->lpInternalUnkVtbl;
-    This->node = IXMLDOMNode_from_impl(node);
+    hr = IUnknown_QueryInterface(This->node_unk, &IID_IXMLDOMNode, (LPVOID*)&This->node);
+    if(FAILED(hr))
+    {
+        IUnknown_Release(This->node_unk);
+        HeapFree( GetProcessHeap(), 0, This );
+        return NULL;
+    }
+    /* The ref on This->node is actually looped back into this object, so release it */
+    IXMLDOMNode_Release(This->node);
 
     return (IUnknown*) &This->lpVtbl;
 }

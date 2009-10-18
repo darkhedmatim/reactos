@@ -1,8 +1,9 @@
 <module name="dnsapi" type="win32dll" entrypoint="0" baseaddress="${BASEADDRESS_DNSAPI}" installbase="system32" installname="dnsapi.dll" crt="msvcrt">
-	<importlibrary definition="dnsapi.spec" />
+	<importlibrary definition="dnsapi.def" />
 	<include base="dnsapi">include</include>
 	<include base="adns">src</include>
 	<include base="adns">adns_win32</include>
+	<define name="_DISABLE_TIDENTS" />
 	<define name="ADNS_JGAA_WIN32" />
 	<library>adns</library>
 	<library>ntdll</library>

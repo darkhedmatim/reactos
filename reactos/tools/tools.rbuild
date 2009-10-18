@@ -34,7 +34,4 @@
 <directory name="utf16le">
 	<xi:include href="utf16le/utf16le.rbuild" />
 </directory>
-<directory name="rbuild_helper">
-	<xi:include href="rbuild_helper/rbuild_helper.rbuild" />
-</directory>
 </group>

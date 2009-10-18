@@ -5,7 +5,6 @@
  * Copyright 2003-2004 Raphael Junqueira
  * Copyright 2004 Christian Costa
  * Copyright 2005 Oliver Stieber
- * Copyright 2009 Henri Verbeet for CodeWeavers
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,23 +25,20 @@
 #include "wined3d_private.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(d3d);
+#define GLINFO_LOCATION ((IWineD3DImpl *)(((IWineD3DDeviceImpl *)This->resource.wineD3DDevice)->wineD3D))->gl_info
 
-HRESULT resource_init(IWineD3DResource *iface, WINED3DRESOURCETYPE resource_type,
-        IWineD3DDeviceImpl *device, UINT size, DWORD usage, const struct GlPixelFormatDesc *format_desc,
-        WINED3DPOOL pool, IUnknown *parent, const struct wined3d_parent_ops *parent_ops)
+HRESULT resource_init(struct IWineD3DResourceClass *resource, WINED3DRESOURCETYPE resource_type,
+        IWineD3DDeviceImpl *device, UINT size, DWORD usage, WINED3DFORMAT format, WINED3DPOOL pool, IUnknown *parent)
 {
-    struct IWineD3DResourceClass *resource = &((IWineD3DResourceImpl *)iface)->resource;
-
     resource->wineD3DDevice = device;
     resource->parent = parent;
     resource->resourceType = resource_type;
     resource->ref = 1;
     resource->pool = pool;
-    resource->format_desc = format_desc;
+    resource->format = format;
     resource->usage = usage;
     resource->size = size;
     resource->priority = 0;
-    resource->parent_ops = parent_ops;
     list_init(&resource->privateData);
 
     if (size)
@@ -72,8 +68,6 @@ HRESULT resource_init(IWineD3DResource *iface, WINED3DRESOURCETYPE resource_type
         WineD3DAdapterChangeGLRam(device, size);
     }
 
-    device_resource_add(device, iface);
-
     return WINED3D_OK;
 }
 
@@ -102,7 +96,10 @@ void resource_cleanup(IWineD3DResource *iface)
     This->resource.allocatedMemory = 0;
     This->resource.heapMemory = 0;
 
-    if (This->resource.wineD3DDevice) device_resource_released(This->resource.wineD3DDevice, iface);
+    if (This->resource.wineD3DDevice != NULL) {
+        IWineD3DDevice_ResourceReleased((IWineD3DDevice *)This->resource.wineD3DDevice, iface);
+    }/* NOTE: this is not really an error for system memory resources */
+    return;
 }
 
 HRESULT resource_get_device(IWineD3DResource *iface, IWineD3DDevice** ppDevice)

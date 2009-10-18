@@ -66,9 +66,6 @@ PBIOS_MEMORY_DESCRIPTOR BiosMemoryDescriptorList = BiosMemoryDescriptors;
 ULONG NumberDescriptors = 0;
 MEMORY_DESCRIPTOR MDArray[60] = { { 0, 0, 0 }, };
 
-/* Old boot style IDT */
-KIDTENTRY KiHackIdt[256];
-
 /* FUNCTIONS *****************************************************************/
 
 PMEMORY_ALLOCATION_DESCRIPTOR
@@ -312,7 +309,7 @@ KiRosConfigureArcDescriptor(IN ULONG PageBegin,
         }
 
         /* Check if the block matches us, and we haven't tried combining yet */
-        if (((TYPE_OF_MEMORY)BlockType == MemoryType) && !(Combined))
+        if ((BlockType == MemoryType) && !(Combined))
         {
             /* Check if it starts where we end */
             if (BlockBegin == PageEnd)
@@ -1269,16 +1266,10 @@ KiRosPrepareForSystemStartup(IN ULONG Dummy,
 #if defined(_M_IX86)
     PKTSS Tss;
     PKGDTENTRY TssEntry;
-    KDESCRIPTOR IdtDescriptor;
-
-    __sidt(&IdtDescriptor.Limit);
-    RtlCopyMemory(KiHackIdt, (PVOID)IdtDescriptor.Base, IdtDescriptor.Limit + 1);
-    IdtDescriptor.Base = (ULONG)&KiHackIdt;
-    IdtDescriptor.Limit = sizeof(KiHackIdt) - 1;
 
     /* Load the GDT and IDT */
-    Ke386SetGlobalDescriptorTable(&KiGdtDescriptor.Limit);
-    __lidt(&IdtDescriptor.Limit);
+    Ke386SetGlobalDescriptorTable(*(PKDESCRIPTOR)&KiGdtDescriptor.Limit);
+    Ke386SetInterruptDescriptorTable(*(PKDESCRIPTOR)&KiIdtDescriptor.Limit);
 
     /* Initialize the boot TSS */
     Tss = &KiBootTss;
@@ -1289,9 +1280,6 @@ KiRosPrepareForSystemStartup(IN ULONG Dummy,
     TssEntry->BaseLow = (USHORT)((ULONG_PTR)Tss & 0xFFFF);
     TssEntry->HighWord.Bytes.BaseMid = (UCHAR)((ULONG_PTR)Tss >> 16);
     TssEntry->HighWord.Bytes.BaseHi = (UCHAR)((ULONG_PTR)Tss >> 24);
-
-    /* Set the TSS selector */
-    Ke386SetTr(KGDT_TSS);
 #endif
 
 #if defined(_M_PPC)
@@ -1354,3 +1342,5 @@ KiRosPrepareForSystemStartup(IN ULONG Dummy,
     /* Do general System Startup */
     KiSystemStartupReal(NtLoaderBlock);
 }
+
+/* EOF */

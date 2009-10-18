@@ -63,9 +63,6 @@ ProcessKeyboardLayoutRegistry(PGENERIC_LIST List);
 BOOLEAN
 ProcessKeyboardLayoutFiles(PGENERIC_LIST List);
 
-BOOLEAN
-SetGeoID(PWCHAR Id);
-
 #endif /* __SETTINGS_H__ */
 
 /* EOF */

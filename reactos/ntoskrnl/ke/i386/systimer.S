@@ -98,7 +98,7 @@ _KeUpdateRunTime@8:
 
     /* At dispatch, increase DPC time */
     inc dword ptr [eax+KPCR_PRCB_DPC_TIME]
-#if DBG
+#ifdef DBG
     /* Update the DPC time */
     inc dword ptr [eax+KPCR_PRCB_DEBUG_DPC_TIME]
 
@@ -276,7 +276,7 @@ _KeUpdateSystemTime@0:
     /* Put tick count back in EBX */
     mov ebx, eax
 
-    /* Copy it in ECX and get high count */
+    /* Copyit in ECX and get hich count */
     mov ecx, eax
     mov edx, _KeTickCount + 4
 
@@ -372,7 +372,7 @@ DebuggerEnabled:
     jz NoDebug
 
     /* Break-in requested! */
-    push DBG_STATUS_CONTROL_C
+    push 1
     call _DbgBreakPointWithStatus@4
     jmp NoDebug
 

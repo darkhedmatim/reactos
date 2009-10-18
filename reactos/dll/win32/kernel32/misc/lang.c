@@ -1550,10 +1550,10 @@ GetGeoInfoA(
         case GEO_FRIENDLYNAME:
         {
             WCHAR szBuffer[MAX_PATH];
-            char szBufferA[sizeof(szBuffer)/sizeof(WCHAR)];
             int Ret;
-
+        
             Ret = NLS_GetGeoFriendlyName(Location, szBuffer, cchData);
+            char szBufferA[sizeof(szBuffer)/sizeof(WCHAR)];
 
             WideCharToMultiByte(CP_ACP, 0, szBuffer, -1, szBufferA, sizeof(szBufferA), 0, 0);
             strcpy(lpGeoData, szBufferA);
@@ -2533,8 +2533,6 @@ LCMapStringA (
         ret = wine_get_sortkey(dwMapFlags, srcW, srclenW, lpDestStr, cchDest);
         if (ret == 0)
             SetLastError(ERROR_INSUFFICIENT_BUFFER);
-        else
-            ret++;
         goto map_string_exit;
     }
 
@@ -3043,14 +3041,4 @@ VerLanguageNameW (
     )
 {
     return GetLocaleInfoW( MAKELCID(wLang, SORT_DEFAULT), LOCALE_SENGLANGUAGE, szLang, nSize );
-}
-
-/***********************************************************************
- *           LCIDToLocaleName  (KERNEL32.@) Wine 13.02.2009
- */
-INT WINAPI LCIDToLocaleName( LCID lcid, LPWSTR name, INT count, DWORD flags )
-{
-    if (flags) DPRINT1( "unsupported flags %x\n", flags );
-
-    return GetLocaleInfoW( lcid, LOCALE_SNAME | LOCALE_NOUSEROVERRIDE, name, count );
 }

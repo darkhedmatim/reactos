@@ -206,7 +206,9 @@ static void test_context(void)
     /* Proper release */
     SetLastError(0xdeadbeef);
     ret = pCryptCATAdminReleaseContext(hca, 0);
-    ok(ret, "Expected success, got FALSE with %d\n", GetLastError());
+    ok(ret, "Expected success\n");
+    ok(GetLastError() == 0xdeadbeef,
+       "Expected no change in last error, got %d\n", GetLastError());
 
     /* Try to release a second time */
     SetLastError(0xdeadbeef);
@@ -373,37 +375,6 @@ static void test_calchash(void)
     DeleteFileA(temp);
 }
 
-static void test_CryptCATOpen(void)
-{
-    HANDLE hcat;
-    char empty[MAX_PATH];
-    WCHAR emptyW[MAX_PATH];
-    HANDLE file;
-    BOOL ret;
-
-    SetLastError(0xdeadbeef);
-    hcat = pCryptCATOpen(NULL, 0, 0, 0, 0);
-    ok(hcat == INVALID_HANDLE_VALUE, "CryptCATOpen succeeded\n");
-    ok(GetLastError() == ERROR_INVALID_PARAMETER,
-       "Expected ERROR_INVALID_PARAMETER, got %08x\n", GetLastError());
-
-    if (!GetTempFileNameA(CURR_DIR, "cat", 0, empty)) return;
-
-    file = CreateFileA(empty, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
-    ok(file != INVALID_HANDLE_VALUE, "CreateFileA failed %u\n", GetLastError());
-    CloseHandle(file);
-    MultiByteToWideChar(CP_ACP, 0, empty, -1, emptyW, MAX_PATH);
-
-    hcat = pCryptCATOpen(emptyW, 0, 0, 0, 0);
-    todo_wine
-    ok(hcat != INVALID_HANDLE_VALUE, "Expected a correct handle\n");
-
-    ret = pCryptCATClose(hcat);
-    todo_wine
-    ok(ret, "CryptCATClose failed\n");
-    DeleteFileA(empty);
-}
-
 static DWORD error_area;
 static DWORD local_error;
 
@@ -498,13 +469,13 @@ static void test_CryptCATAdminAddRemoveCatalog(void)
     hcatinfo = pCryptCATAdminAddCatalog(NULL, NULL, NULL, 0);
     error = GetLastError();
     ok(hcatinfo == NULL, "CryptCATAdminAddCatalog succeeded\n");
-    ok(error == ERROR_INVALID_PARAMETER, "got %u expected ERROR_INVALID_PARAMETER\n", GetLastError());
+    ok(error == ERROR_INVALID_PARAMETER, "got %u expected ERROR_INVALID_PARAMTER\n", GetLastError());
 
     SetLastError(0xdeadbeef);
     hcatinfo = pCryptCATAdminAddCatalog(hcatadmin, NULL, NULL, 0);
     error = GetLastError();
     ok(hcatinfo == NULL, "CryptCATAdminAddCatalog succeeded\n");
-    ok(error == ERROR_INVALID_PARAMETER, "got %u expected ERROR_INVALID_PARAMETER\n", GetLastError());
+    ok(error == ERROR_INVALID_PARAMETER, "got %u expected INVALID_PARAMTER\n", GetLastError());
 
     MultiByteToWideChar(0, 0, tmpfile, -1, tmpfileW, MAX_PATH);
 
@@ -520,7 +491,7 @@ static void test_CryptCATAdminAddRemoveCatalog(void)
     hcatinfo = pCryptCATAdminAddCatalog(hcatadmin, tmpfileW, basenameW, 1);
     error = GetLastError();
     ok(hcatinfo == NULL, "CryptCATAdminAddCatalog succeeded\n");
-    ok(error == ERROR_INVALID_PARAMETER, "got %u expected ERROR_INVALID_PARAMETER\n", GetLastError());
+    ok(error == ERROR_INVALID_PARAMETER, "got %u expected ERROR_INVALID_PARAMTER\n", GetLastError());
 
     SetLastError(0xdeadbeef);
     hcatinfo = pCryptCATAdminAddCatalog(hcatadmin, tmpfileW, NULL, 0);
@@ -646,6 +617,9 @@ static void test_catalog_properties(CHAR *catfile, int attributes, int members)
         catalog[0] = 0;
     }
 
+    hcat = pCryptCATOpen(NULL, 0, 0, 0, 0);
+    ok(hcat == INVALID_HANDLE_VALUE, "CryptCATOpen succeeded\n");
+
     hcat = pCryptCATOpen(catalogW, 0, 0, 0, 0);
     if (hcat == INVALID_HANDLE_VALUE && members == 0)
     {
@@ -766,7 +740,7 @@ static void test_create_catalog_file(void)
     ok(attrcount == 2, "Expected 2 attributes, got %d\n", attrcount);
 
     pCryptCATCDFClose(catcdf);
-    /* Even though the resulting catalog file shows the attributes, they will not be enumerated */
+    /* Eventhough the resulting catalogfile shows the attributes, they will not be enumerated */
     test_catalog_properties(catfileA, 0, 0);
     DeleteFileA(catfileA);
 
@@ -880,9 +854,7 @@ static void test_cdf_parsing(void)
     catcdf = pCryptCATCDFOpen(cdffileW, cdf_callback);
     ok(catcdf == NULL, "CryptCATCDFOpen succeeded\n");
     todo_wine
-    ok(GetLastError() == ERROR_SHARING_VIOLATION ||
-        broken(GetLastError() == ERROR_SUCCESS),    /* win9x */
-        "Expected ERROR_SHARING_VIOLATION, got %d\n", GetLastError());
+    ok(GetLastError() == ERROR_SHARING_VIOLATION, "Expected ERROR_SHARING_VIOLATION, got %d\n", GetLastError());
     DeleteFileA(cdffileA);
 
     /* Header and member only */
@@ -896,9 +868,7 @@ static void test_cdf_parsing(void)
     catcdf = pCryptCATCDFOpen(cdffileW, cdf_callback);
     ok(catcdf == NULL, "CryptCATCDFOpen succeeded\n");
     todo_wine
-    ok(GetLastError() == ERROR_SHARING_VIOLATION ||
-        broken(GetLastError() == ERROR_SUCCESS),    /* win9x */
-        "Expected ERROR_SHARING_VIOLATION, got %d\n", GetLastError());
+    ok(GetLastError() == ERROR_SHARING_VIOLATION, "Expected ERROR_SHARING_VIOLATION, got %d\n", GetLastError());
     DeleteFileA(cdffileA);
     ok(!DeleteFileA(catfileA), "Didn't expect a catalog file to be created\n");
 
@@ -912,9 +882,7 @@ static void test_cdf_parsing(void)
     catcdf = pCryptCATCDFOpen(cdffileW, cdf_callback);
     ok(catcdf == NULL, "CryptCATCDFOpen succeeded\n");
     todo_wine
-    ok(GetLastError() == ERROR_SHARING_VIOLATION ||
-        broken(GetLastError() == ERROR_SUCCESS),    /* win9x */
-        "Expected ERROR_SHARING_VIOLATION, got %d\n", GetLastError());
+    ok(GetLastError() == ERROR_SHARING_VIOLATION, "Expected ERROR_SHARING_VIOLATION, got %d\n", GetLastError());
     DeleteFileA(cdffileA);
     ok(!DeleteFileA(catfileA), "Didn't expect a catalog file to be created\n");
 
@@ -936,7 +904,7 @@ static void test_cdf_parsing(void)
     todo_wine
     ok(DeleteFileA(catfileA), "Expected a catalog file to be created\n");
 
-    /* Header and nonexistent member */
+    /* Header and non-existing member */
     lstrcpyA(cdf_contents, "[CatalogHeader]\r\n");
     lstrcatA(cdf_contents, "Name=tempfile.cat\r\n");
     lstrcatA(cdf_contents, "[CatalogFiles]\r\n");
@@ -1111,7 +1079,7 @@ START_TEST(crypt)
 {
     int myARGC;
     char** myARGV;
-    char sysdir[MAX_PATH];
+    char windir[MAX_PATH];
 
     InitFunctionPtrs();
 
@@ -1121,11 +1089,11 @@ START_TEST(crypt)
         return;
     }
 
-    GetSystemDirectoryA(sysdir, MAX_PATH);
-    lstrcpyA(catroot, sysdir);
-    lstrcatA(catroot, "\\CatRoot");
-    lstrcpyA(catroot2, sysdir);
-    lstrcatA(catroot2, "\\CatRoot2");
+    GetWindowsDirectoryA(windir, MAX_PATH);
+    lstrcpyA(catroot, windir);
+    lstrcatA(catroot, "\\system32\\CatRoot");
+    lstrcpyA(catroot2, windir);
+    lstrcatA(catroot2, "\\system32\\CatRoot2");
 
     myARGC = winetest_get_mainargs(&myARGV);
     strcpy(selfname, myARGV[0]);
@@ -1134,12 +1102,11 @@ START_TEST(crypt)
    
     test_context();
     test_calchash();
-    test_CryptCATOpen();
     /* Parameter checking only */
     test_CryptCATCDF_params();
     /* Test the parsing of a cdf file */
     test_cdf_parsing();
-    /* Create a catalog file out of our own catalog definition file */
+    /* Create a catalogfile out of our own catalog definition file */
     test_create_catalog_file();
     test_CryptCATAdminAddRemoveCatalog();
 }

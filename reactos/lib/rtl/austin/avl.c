@@ -34,9 +34,9 @@
 #define LESS GenericLessThan
 #define GREATER GenericGreaterThan
 
-int print_node(udict_t *ud, udict_node_t *node, int indent)
+void print_node(udict_t *ud, udict_node_t *node, int indent)
 {
-	int i, rh = 0, lh = 0;
+	int i;
 	char buf[100];
 	udict_node_t *nil = ud->BalancedRoot.Parent;
 
@@ -44,49 +44,19 @@ int print_node(udict_t *ud, udict_node_t *node, int indent)
 	if( node == ud->BalancedRoot.Parent ) {
 		sprintf(buf+i, "Nil\n");
 		DbgPrint("%s", buf);
-		return 0;
 	} else {
 		sprintf(buf+i, "Node %p (parent %p: balance %d)\n", node, node->parent, node->Balance);
 		DbgPrint("%s", buf);
 		if( node->LeftChild != nil ) {
 			sprintf(buf+i, "--> Left\n");
 			DbgPrint("%s", buf);
-			lh = print_node(ud, node->LeftChild, indent+1);
+			print_node(ud, node->LeftChild, indent+1);
 		}
 		if( node->RightChild != nil ) {
 			sprintf(buf+i, "--> Right\n");
 			DbgPrint("%s", buf);
-			rh = print_node(ud, node->RightChild, indent+1);
+			print_node(ud, node->RightChild, indent+1);
 		}
-		if (indent)
-		{
-			if (rh < lh - 1 || lh < rh - 1)
-			{
-				sprintf(buf+i, "warning: tree is too unbalanced %d vs %d\n",
-						lh, rh);
-				DbgPrint("%s", buf);
-			}
-			if (rh != lh && node->Balance == BALANCED)
-			{
-				sprintf(buf+i, "warning: tree says balanced, but %d vs %d\n", 
-						lh, rh);
-				DbgPrint("%s", buf);
-			}
-			else if (lh <= rh && node->Balance == LEFTHEAVY)
-			{
-				sprintf(buf+i, "warning: tree says leftheavy but %d vs %d\n",
-						lh, rh);
-				DbgPrint("%s", buf);
-			}
-			else if (lh >= rh && node->Balance == RIGHTHEAVY)
-			{
-				sprintf(buf+i, "warning: tree says rightheavy but %d vs %d\n",
-						lh, rh);
-				DbgPrint("%s", buf);
-			}
-		}
-		if (rh > lh) return 1+rh;
-		else return 1+lh;
 	}
 }
 
@@ -278,6 +248,8 @@ void avl_insert_node(udict_t *ud, udict_node_t *node)
 		ud->BalancedRoot.balance = LEFTHEAVY;
 	}
 
+	print_tree(ud);
+
 	ud->nodecount++;
 }
 
@@ -334,7 +306,7 @@ void avl_delete_node(udict_t *ud, udict_node_t *node)
 		}/*if*/
 	}/*if*/
 
-	while (parent != &ud->BalancedRoot) {
+	while (parent != nil) {
 		if ((parent->left == nil) && (parent->right == nil)) {
 			assert (child == nil);
 			parent->balance = BALANCED;

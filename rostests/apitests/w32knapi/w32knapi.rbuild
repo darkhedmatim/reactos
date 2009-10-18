@@ -1,5 +1,6 @@
 <module name="w32knapi" type="win32cui">
 	<include base="w32knapi">.</include>
+	<define name="__USE_W32API" />
 	<library>apitest</library>
 	<library>ntdll</library>
 	<library>kernel32</library>
@@ -9,7 +10,6 @@
 	<library>advapi32</library>
 	<library>w32kdll</library>
 	<library>dbghelp</library>
-	<compilerflag compilerset="gcc">-fms-extensions</compilerflag>
 	<file>w32knapi.c</file>
 	<file>osver.c</file>
 	<file>testlist.c</file>

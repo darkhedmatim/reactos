@@ -41,7 +41,6 @@
 #include "msi.h"
 #include "initguid.h"
 #include "msipriv.h"
-
 WINE_DEFAULT_DEBUG_CHANNEL(msi);
 
 /*

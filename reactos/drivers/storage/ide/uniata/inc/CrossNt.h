@@ -28,7 +28,6 @@ extern "C" {
 
 extern "C"
 NTSTATUS
-NTAPI
 CrNtInit(
     IN PDRIVER_OBJECT DriverObject,
     IN PUNICODE_STRING RegistryPath
@@ -36,14 +35,12 @@ CrNtInit(
 
 extern "C"
 PVOID
-NTAPI
 CrNtGetModuleBase(
     IN PCHAR  pModuleName
     );
 
 extern "C"
 PVOID
-NTAPI
 CrNtFindModuleBaseByPtr(
     IN PVOID  ptrInSection,
     IN PCHAR  ptrExportedName
@@ -51,7 +48,6 @@ CrNtFindModuleBaseByPtr(
 
 extern "C"
 PVOID
-NTAPI
 CrNtGetProcAddress(
     PVOID ModuleBase,
     PCHAR pFunctionName

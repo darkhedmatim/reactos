@@ -12,7 +12,6 @@
 #include <mmsystem.h>
 #include <mmddk.h>
 #include <ntddsnd.h>
-#include <sndtypes.h>
 #include <mmebuddy.h>
 
 ULONG           SoundDeviceCounts[SOUND_DEVICE_TYPES];

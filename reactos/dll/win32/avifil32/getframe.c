@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2003 Michael GÃ¼nnewig
+ * Copyright 2002-2003 Michael Günnewig
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -140,7 +140,6 @@ static HRESULT WINAPI IGetFrame_fnQueryInterface(IGetFrame *iface,
   if (IsEqualGUID(&IID_IUnknown, refiid) ||
       IsEqualGUID(&IID_IGetFrame, refiid)) {
     *obj = iface;
-    IGetFrame_AddRef(iface);
     return S_OK;
   }
 

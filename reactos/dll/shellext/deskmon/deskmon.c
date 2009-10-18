@@ -530,9 +530,9 @@ MonitorDlgProc(HWND hwndDlg,
             {
                 case PSN_APPLY:
                 {
-                    SetWindowLongPtr(hwndDlg,
-                                     DWL_MSGRESULT,
-                                     ApplyMonitorChanges(This));
+                    SetWindowLong(hwndDlg,
+                                  DWL_MSGRESULT,
+                                  ApplyMonitorChanges(This));
                     break;
                 }
 

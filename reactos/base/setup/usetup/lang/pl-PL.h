@@ -1482,11 +1482,6 @@ MUI_ERROR plPLErrorEntries[] =
         "ENTER = Restart komputera"
     },
     {
-        //ERROR_UPDATE_GEOID,
-        "Instalator nie m¢gˆ ustawi† lokalizacji geograficznej.\n"
-        "ENTER = Restart komputera"
-    },
-    {
         NULL,
         NULL
     }

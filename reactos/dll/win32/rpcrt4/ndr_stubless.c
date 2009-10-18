@@ -583,7 +583,12 @@ LONG_PTR WINAPIV NdrClientCall2(PMIDL_STUB_DESC pStubDesc, PFORMAT_STRING pForma
 
     TRACE("pStubDesc %p, pFormat %p, ...\n", pStubDesc, pFormat);
 
-    TRACE("NDR Version: 0x%x\n", pStubDesc->Version);
+    /* Later NDR language versions probably won't be backwards compatible */
+    if (pStubDesc->Version > 0x50002)
+    {
+        FIXME("Incompatible stub description version: 0x%x\n", pStubDesc->Version);
+        RpcRaiseException(RPC_X_WRONG_STUB_VERSION);
+    }
 
     if (pProcHeader->Oi_flags & RPC_FC_PROC_OIF_RPCFLAGS)
     {
@@ -1288,7 +1293,12 @@ LONG WINAPI NdrStubCall2(
     pFormat = pServerInfo->ProcString + pServerInfo->FmtStringOffset[pRpcMsg->ProcNum];
     pProcHeader = (const NDR_PROC_HEADER *)&pFormat[0];
 
-    TRACE("NDR Version: 0x%x\n", pStubDesc->Version);
+    /* Later NDR language versions probably won't be backwards compatible */
+    if (pStubDesc->Version > 0x50002)
+    {
+        FIXME("Incompatible stub description version: 0x%x\n", pStubDesc->Version);
+        RpcRaiseException(RPC_X_WRONG_STUB_VERSION);
+    }
 
     /* create the full pointer translation tables, if requested */
     if (pProcHeader->Oi_flags & RPC_FC_PROC_OIF_FULLPTR)

@@ -1,7 +1,7 @@
 #ifndef _WIN32K_WINSTA_H
 #define _WIN32K_WINSTA_H
 
-#include "window.h"
+#include "msgqueue.h"
 #include "clipboard.h"
 
 #define WINSTA_ROOT_NAME	L"\\Windows\\WindowStations"
@@ -34,14 +34,7 @@ typedef struct _WINSTATION_OBJECT
     HANDLE ShellWindow;
     HANDLE ShellListView;
 
-    /* Effects */
-    BOOL FontSmoothing; /* enable */
-    UINT FontSmoothingType; /* 1:Standard,2:ClearType */
-    /* FIXME: Big Icons (SPI_GETICONMETRICS?) */
-    BOOL DropShadow;
-    BOOL DragFullWindows;
     BOOL FlatMenu;
-
     /* ScreenSaver */
     BOOL ScreenSaverRunning;
     UINT  ScreenSaverTimeOut;
@@ -62,7 +55,7 @@ typedef struct _WINSTATION_OBJECT
 } WINSTATION_OBJECT, *PWINSTATION_OBJECT;
 
 extern WINSTATION_OBJECT *InputWindowStation;
-extern PPROCESSINFO LogonProcess;
+extern PW32PROCESS LogonProcess;
 
 NTSTATUS FASTCALL
 InitWindowStationImpl(VOID);

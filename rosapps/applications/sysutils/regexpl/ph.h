@@ -14,7 +14,7 @@
 //#define UNICODE
 //#define _UNICODE
 
-#if DBG
+#ifdef DBG
 #define _DEBUG
 #endif
 

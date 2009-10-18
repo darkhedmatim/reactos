@@ -54,6 +54,8 @@ VOID
 IntDrawScrollBar(HWND hWnd, HDC hDC, INT nBar);
 DWORD
 IntScrollHitTest(HWND hWnd, INT nBar, POINT pt, BOOL bDragging);
+HPEN WINAPI
+GetSysColorPen(int nIndex);
 
 BOOL WINAPI GdiGradientFill(HDC,PTRIVERTEX,ULONG,PVOID,ULONG,ULONG);
 
@@ -132,10 +134,10 @@ UserGetWindowIcon(HWND hwnd)
       SendMessageTimeout(hwnd, WM_GETICON, ICON_BIG, 0, SMTO_ABORTIFHUNG, 1000, (LPDWORD)&hIcon);
 
    if (!hIcon)
-      hIcon = (HICON)GetClassLongPtr(hwnd, GCL_HICONSM);
+      hIcon = (HICON)GetClassLong(hwnd, GCL_HICONSM);
 
    if (!hIcon)
-      hIcon = (HICON)GetClassLongPtr(hwnd, GCL_HICON);
+      hIcon = (HICON)GetClassLong(hwnd, GCL_HICON);
 
    return hIcon;
 }
@@ -249,8 +251,8 @@ UserDrawCaptionButtonWnd(HWND hWnd, HDC hDC, BOOL bDown, ULONG Type)
    WindowRect.right -= WindowRect.left;
    WindowRect.bottom -= WindowRect.top;
    WindowRect.left = WindowRect.top = 0;
-   Style = GetWindowLongPtrW(hWnd, GWL_STYLE);
-   ExStyle = GetWindowLongPtrW(hWnd, GWL_EXSTYLE);
+   Style = GetWindowLongW(hWnd, GWL_STYLE);
+   ExStyle = GetWindowLongW(hWnd, GWL_EXSTYLE);
    UserGetWindowBorders(Style, ExStyle, &WindowBorder, FALSE);
    InflateRect(&WindowRect, -WindowBorder.cx, -WindowBorder.cy);
    UserDrawCaptionButton(&WindowRect, Style, ExStyle, hDC, bDown, Type);
@@ -279,7 +281,7 @@ DefWndNCPaint(HWND hWnd, HRGN hRgn, BOOL Active)
    if (!IsWindowVisible(hWnd))
       return 0;
 
-   Style = GetWindowLongPtrW(hWnd, GWL_STYLE);
+   Style = GetWindowLongW(hWnd, GWL_STYLE);
 
    hDC = GetDCEx(hWnd, hRgn, DCX_WINDOW | DCX_INTERSECTRGN | DCX_USESTYLE | DCX_KEEPCLIPRGN);
    if (hDC == 0)
@@ -288,7 +290,7 @@ DefWndNCPaint(HWND hWnd, HRGN hRgn, BOOL Active)
    }
 
    Parent = GetParent(hWnd);
-   ExStyle = GetWindowLongPtrW(hWnd, GWL_EXSTYLE);
+   ExStyle = GetWindowLongW(hWnd, GWL_EXSTYLE);
    if (Active == -1)
    {
       if (ExStyle & WS_EX_MDICHILD)
@@ -430,8 +432,7 @@ DefWndNCPaint(HWND hWnd, HRGN hRgn, BOOL Active)
       if(!(Style & WS_MINIMIZE))
       {
         /* Line under caption */
-        PreviousPen = SelectObject(hDC, GetStockObject(DC_PEN));
-        SetDCPenColor(hDC, GetSysColor(
+        PreviousPen = SelectObject(hDC, GetSysColorPen(
            ((ExStyle & (WS_EX_STATICEDGE | WS_EX_CLIENTEDGE |
                         WS_EX_DLGMODALFRAME)) == WS_EX_STATICEDGE) ?
            COLOR_WINDOWFRAME : COLOR_3DFACE));
@@ -473,7 +474,7 @@ DefWndNCPaint(HWND hWnd, HRGN hRgn, BOOL Active)
         /* FIXME: Correct drawing of size-box with WS_EX_LEFTSCROLLBAR */
         if(Parent)
           GetClientRect(Parent, &ParentClientRect);
-        if (HASSIZEGRIP(Style, ExStyle, GetWindowLongPtrW(Parent, GWL_STYLE), WindowRect, ParentClientRect))
+        if (HASSIZEGRIP(Style, ExStyle, GetWindowLongW(Parent, GWL_STYLE), WindowRect, ParentClientRect))
         {
            DrawFrameControl(hDC, &TempRect, DFC_SCROLL, DFCS_SCROLLSIZEGRIP);
         }
@@ -498,16 +499,10 @@ LRESULT
 DefWndNCCalcSize(HWND hWnd, BOOL CalcSizeStruct, RECT *Rect)
 {
    LRESULT Result = 0;
-   DWORD Style = GetClassLongPtrW(hWnd, GCL_STYLE);
+   DWORD Style = GetClassLongW(hWnd, GCL_STYLE);
    DWORD ExStyle;
    SIZE WindowBorders;
-   RECT OrigRect;
-
-   if (Rect == NULL)
-   {
-      return Result;
-   }
-   OrigRect = *Rect;
+   RECT OrigRect = *Rect;
 
    if (CalcSizeStruct)
    {
@@ -522,8 +517,8 @@ DefWndNCCalcSize(HWND hWnd, BOOL CalcSizeStruct, RECT *Rect)
       Result |= WVR_VALIDRECTS;
    }
 
-   Style = GetWindowLongPtrW(hWnd, GWL_STYLE);
-   ExStyle = GetWindowLongPtrW(hWnd, GWL_EXSTYLE);
+   Style = GetWindowLongW(hWnd, GWL_STYLE);
+   ExStyle = GetWindowLongW(hWnd, GWL_EXSTYLE);
 
    if (!(Style & WS_MINIMIZE))
    {
@@ -664,8 +659,8 @@ DefWndNCHitTest(HWND hWnd, POINT Point)
    RECT WindowRect, ClientRect, OrigWndRect;
    POINT ClientPoint;
    SIZE WindowBorders;
-   ULONG Style = GetWindowLongPtrW(hWnd, GWL_STYLE);
-   ULONG ExStyle = GetWindowLongPtrW(hWnd, GWL_EXSTYLE);
+   ULONG Style = GetWindowLongW(hWnd, GWL_STYLE);
+   ULONG ExStyle = GetWindowLongW(hWnd, GWL_EXSTYLE);
 
    GetWindowRect(hWnd, &WindowRect);
    if (!PtInRect(&WindowRect, Point))
@@ -836,7 +831,7 @@ DefWndNCHitTest(HWND hWnd, POINT Point)
         if(Parent)
           GetClientRect(Parent, &ParentRect);
         if (PtInRect(&TempRect, Point) && HASSIZEGRIP(Style, ExStyle,
-            GetWindowLongPtrW(Parent, GWL_STYLE), OrigWndRect, ParentRect))
+            GetWindowLongW(Parent, GWL_STYLE), OrigWndRect, ParentRect))
         {
            if ((ExStyle & WS_EX_LEFTSCROLLBAR) != 0)
               return HTBOTTOMLEFT;
@@ -879,7 +874,7 @@ DefWndDoButton(HWND hWnd, WPARAM wParam)
    WPARAM SCMsg;
    ULONG ButtonType, Style;
 
-   Style = GetWindowLongPtrW(hWnd, GWL_STYLE);
+   Style = GetWindowLongW(hWnd, GWL_STYLE);
    switch (wParam)
    {
       case HTCLOSE:
@@ -961,7 +956,7 @@ DefWndNCLButtonDown(HWND hWnd, WPARAM wParam, LPARAM lParam)
         }
         case HTSYSMENU:
         {
-	  if (GetWindowLongPtrW(hWnd, GWL_STYLE) & WS_SYSMENU)
+	  if (GetWindowLongW(hWnd, GWL_STYLE) & WS_SYSMENU)
             {
 	      SendMessageW(hWnd, WM_SYSCOMMAND, SC_MOUSEMENU + HTSYSMENU,
 			   lParam);
@@ -1012,7 +1007,7 @@ DefWndNCLButtonDblClk(HWND hWnd, WPARAM wParam, LPARAM lParam)
 {
   ULONG Style;
 
-  Style = GetWindowLongPtrW(hWnd, GWL_STYLE);
+  Style = GetWindowLongW(hWnd, GWL_STYLE);
   switch(wParam)
   {
     case HTCAPTION:
@@ -1058,11 +1053,14 @@ DefWndTrackScrollBar(HWND hWnd, WPARAM wParam, POINT Point)
 
 /* PUBLIC FUNCTIONS ***********************************************************/
 
+/*
+ * @implemented
+ */
 BOOL WINAPI
-RealAdjustWindowRectEx(LPRECT lpRect,
-                       DWORD dwStyle,
-                       BOOL bMenu,
-                       DWORD dwExStyle)
+AdjustWindowRectEx(LPRECT lpRect,
+		   DWORD dwStyle,
+		   BOOL bMenu,
+		   DWORD dwExStyle)
 {
    SIZE BorderSize;
 
@@ -1086,38 +1084,6 @@ RealAdjustWindowRectEx(LPRECT lpRect,
    return TRUE;
 }
 
-/*
- * @implemented
- */
-BOOL WINAPI
-AdjustWindowRectEx(LPRECT lpRect,
-		   DWORD dwStyle,
-		   BOOL bMenu,
-		   DWORD dwExStyle)
-{
-   BOOL Hook, Ret = FALSE;
-
-   LOADUSERAPIHOOK
-
-   Hook = BeginIfHookedUserApiHook();
-
-     /* Bypass SEH and go direct. */
-   if (!Hook) return RealAdjustWindowRectEx(lpRect, dwStyle, bMenu, dwExStyle);
-
-   _SEH2_TRY
-   {
-      Ret = guah.AdjustWindowRectEx(lpRect, dwStyle, bMenu, dwExStyle);
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-   }
-   _SEH2_END;
-
-   EndUserApiHook();
-
-   return Ret;
-}
-
 
 /*
  * @implemented
@@ -1139,27 +1105,7 @@ AdjustWindowRect(LPRECT lpRect,
 BOOL WINAPI
 DrawCaption(HWND hWnd, HDC hDC, LPCRECT lprc, UINT uFlags)
 {
-   BOOL Hook, Ret = FALSE;
-
-   LOADUSERAPIHOOK
-
-   Hook = BeginIfHookedUserApiHook();
-
-   /* Bypass SEH and go direct. */
-   if (!Hook) return NtUserDrawCaption(hWnd, hDC, lprc, uFlags);
-
-   _SEH2_TRY
-   {
-      Ret = guah.DrawCaption(hWnd, hDC, lprc, uFlags);
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-   }
-   _SEH2_END;
-
-   EndUserApiHook();
-
-   return Ret;
+ return NtUserDrawCaption(hWnd, hDC, lprc, uFlags);
 }
 
 /*
@@ -1233,14 +1179,14 @@ NcGetInsideRect(HWND Wnd, RECT *Rect)
   Rect->bottom = Rect->bottom - Rect->top;
   Rect->top = 0;
 
-  Style = GetWindowLongPtrW(Wnd, GWL_STYLE);
+  Style = GetWindowLongW(Wnd, GWL_STYLE);
   if (0 != (Style & WS_ICONIC))
     {
       return;
     }
 
   /* Remove frame from rectangle */
-  ExStyle = GetWindowLongPtrW(Wnd, GWL_EXSTYLE);
+  ExStyle = GetWindowLongW(Wnd, GWL_EXSTYLE);
   if (HAS_THICKFRAME(Style, ExStyle))
     {
       InflateRect(Rect, - GetSystemMetrics(SM_CXFRAME), - GetSystemMetrics(SM_CYFRAME));
@@ -1287,7 +1233,7 @@ NcGetSysPopupPos(HWND Wnd, RECT *Rect)
       NcGetInsideRect(Wnd, Rect);
       GetWindowRect(Wnd, &WindowRect);
       OffsetRect(Rect, WindowRect.left, WindowRect.top);
-      if (0 != (GetWindowLongPtrW(Wnd, GWL_STYLE) & WS_CHILD))
+      if (0 != (GetWindowLongW(Wnd, GWL_STYLE) & WS_CHILD))
         {
           ClientToScreen(GetParent(Wnd), (POINT *) Rect);
         }

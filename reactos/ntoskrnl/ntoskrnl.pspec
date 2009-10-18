@@ -599,7 +599,7 @@
 @ stdcall KeInitializeMutex(ptr long)
 @ stdcall KeInitializeQueue(ptr long)
 @ stdcall KeInitializeSemaphore(ptr long long)
-@ stdcall KeInitializeSpinLock(ptr) _KeInitializeSpinLock
+@ stdcall KeInitializeSpinLock(ptr)
 @ stdcall KeInitializeThreadedDpc(ptr ptr ptr)
 @ stdcall KeInitializeTimer(ptr)
 @ stdcall KeInitializeTimerEx(ptr long)
@@ -718,7 +718,7 @@
 @ fastcall KiReleaseSpinLock(ptr)
 @ cdecl KiUnexpectedInterrupt()
 #ifdef _M_IX86
-@ stdcall Kii386SpinOnSpinLock(ptr long)
+;Kii386SpinOnSpinLock
 #endif
 @ stdcall LdrAccessResource(ptr ptr ptr ptr)
 @ stdcall LdrEnumResources(ptr ptr long ptr ptr)
@@ -771,9 +771,9 @@
 @ stdcall MmIsRecursiveIoFault()
 @ stdcall MmIsThisAnNtAsSystem()
 @ stdcall MmIsVerifierEnabled(ptr)
-@ stdcall MmLockPagableDataSection(ptr) MmLockPageableDataSection
-@ stdcall MmLockPagableImageSection(ptr) MmLockPageableDataSection
-@ stdcall MmLockPagableSectionByHandle(ptr) MmLockPageableSectionByHandle
+@ stdcall MmLockPagableDataSection(ptr)
+@ stdcall MmLockPagableImageSection(ptr) MmLockPagableDataSection
+@ stdcall MmLockPagableSectionByHandle(ptr)
 @ stdcall MmMapIoSpace(long long long long)
 @ stdcall MmMapLockedPages(ptr long)
 @ stdcall MmMapLockedPagesSpecifyCache(ptr long long ptr long long)
@@ -801,8 +801,8 @@
 @ stdcall MmSetBankedSection(long long long long long long)
 @ stdcall MmSizeOfMdl(ptr long)
 @ extern MmSystemRangeStart
-@ stdcall MmTrimAllSystemPagableMemory(long) MmTrimAllSystemPageableMemory
-@ stdcall MmUnlockPagableImageSection(ptr) MmUnlockPageableImageSection
+@ stdcall MmTrimAllSystemPagableMemory(long)
+@ stdcall MmUnlockPagableImageSection(ptr)
 @ stdcall MmUnlockPages(ptr)
 @ stdcall MmUnmapIoSpace(ptr long)
 @ stdcall MmUnmapLockedPages(ptr ptr)

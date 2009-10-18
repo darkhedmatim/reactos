@@ -39,7 +39,6 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include "xml.h"
 #include "ssprintf.h"
 

@@ -137,27 +137,23 @@ static void testCreateCTL(void)
     ctl = CertCreateCTLContext(X509_ASN_ENCODING, signedCTL, sizeof(signedCTL));
     ok(!ctl &&
      (GetLastError() == ERROR_INVALID_DATA ||
-      GetLastError() == CRYPT_E_UNEXPECTED_MSG_TYPE /* win9x */ ||
-      GetLastError() == ERROR_SUCCESS /* some win98 */),
-     "expected ERROR_INVALID_DATA, CRYPT_E_UNEXPECTED_MSG_TYPE, or ERROR_SUCCESS, got %d (0x%08x)\n", GetLastError(),
+      GetLastError() == CRYPT_E_UNEXPECTED_MSG_TYPE), /* win9x */
+     "expected ERROR_INVALID_DATA, got %d (0x%08x)\n", GetLastError(),
      GetLastError());
     SetLastError(0xdeadbeef);
     ctl = CertCreateCTLContext(X509_ASN_ENCODING, ctlWithOneEntry,
      sizeof(ctlWithOneEntry));
     ok(!ctl &&
      (GetLastError() == ERROR_INVALID_DATA ||
-      GetLastError() == CRYPT_E_UNEXPECTED_MSG_TYPE /* win9x */ ||
-      GetLastError() == OSS_DATA_ERROR /* some win98 */ ||
-      GetLastError() == ERROR_SUCCESS /* some win98 */),
-     "expected ERROR_INVALID_DATA, CRYPT_E_UNEXPECTED_MSG_TYPE, OSS_DATA_ERROR, or ERROR_SUCCESS, got %d (0x%08x)\n", GetLastError(),
+      GetLastError() == OSS_DATA_ERROR), /* win9x */
+     "expected ERROR_INVALID_DATA, got %d (0x%08x)\n", GetLastError(),
      GetLastError());
     SetLastError(0xdeadbeef);
     ctl = CertCreateCTLContext(X509_ASN_ENCODING,
      signedCTLWithSubjectAlgorithm, sizeof(signedCTLWithSubjectAlgorithm));
     ok(!ctl &&
      (GetLastError() == ERROR_INVALID_DATA ||
-      GetLastError() == CRYPT_E_UNEXPECTED_MSG_TYPE /* win9x */ ||
-      GetLastError() == ERROR_SUCCESS /* some win98 */),
+      GetLastError() == CRYPT_E_UNEXPECTED_MSG_TYPE), /* win9x */
      "expected ERROR_INVALID_DATA, got %d (0x%08x)\n", GetLastError(),
      GetLastError());
     /* This signed CTL with the appropriate inner content type can be decoded.
@@ -232,15 +228,12 @@ static void testCTLProperties(void)
     /* An implicit property */
     ret = CertGetCTLContextProperty(ctl, CERT_ACCESS_STATE_PROP_ID, NULL,
      &size);
-    ok(ret || broken(GetLastError() == CRYPT_E_NOT_FOUND /* some win98 */),
-     "CertGetCTLContextProperty failed: %08x\n", GetLastError());
+    ok(ret, "CertGetCTLContextProperty failed: %08x\n", GetLastError());
     ret = CertGetCTLContextProperty(ctl, CERT_ACCESS_STATE_PROP_ID, &access,
      &size);
-    ok(ret || broken(GetLastError() == CRYPT_E_NOT_FOUND /* some win98 */),
-     "CertGetCTLContextProperty failed: %08x\n", GetLastError());
-    if (ret)
-        ok(!(access & CERT_ACCESS_STATE_WRITE_PERSIST_FLAG),
-         "Didn't expect a persisted cert\n");
+    ok(ret, "CertGetCTLContextProperty failed: %08x\n", GetLastError());
+    ok(!(access & CERT_ACCESS_STATE_WRITE_PERSIST_FLAG),
+     "Didn't expect a persisted cert\n");
 
     checkHash(signedCTLWithCTLInnerContent,
      sizeof(signedCTLWithCTLInnerContent), CALG_SHA1, ctl, CERT_HASH_PROP_ID);
@@ -327,7 +320,7 @@ static void testAddCTLToStore(void)
 {
     HCERTSTORE store;
     BOOL ret;
-    DWORD numCTLs, expectedCTLs;
+    DWORD numCTLs;
     PCCTL_CONTEXT ctl;
 
     store = CertOpenStore(CERT_STORE_PROV_MEMORY, 0, 0,
@@ -369,16 +362,13 @@ static void testAddCTLToStore(void)
     if (ret)
     {
         /* win9x */
-        ok(GetLastError() == CRYPT_E_NOT_FOUND ||
-           GetLastError() == OSS_DATA_ERROR /* some win98 */,
+        ok(GetLastError() == CRYPT_E_NOT_FOUND,
            "Expected CRYPT_E_NOT_FOUND, got %08x\n", GetLastError());
     }
     else
     {
-        ok(!ret && (GetLastError() == CRYPT_E_EXISTS ||
-           GetLastError() == OSS_DATA_ERROR),
-           "expected CRYPT_E_EXISTS or OSS_DATA_ERROR, got %d %08x\n", ret,
-           GetLastError());
+        ok(!ret && GetLastError() == CRYPT_E_EXISTS,
+           "expected CRYPT_E_EXISTS, got %d %08x\n", ret, GetLastError());
     }
     CertCloseStore(store, 0);
 
@@ -391,14 +381,10 @@ static void testAddCTLToStore(void)
      signedCTLWithCTLInnerContent, sizeof(signedCTLWithCTLInnerContent),
      CERT_STORE_ADD_NEW, NULL);
     ok(ret, "CertAddEncodedCTLToStore failed: %08x\n", GetLastError());
-    expectedCTLs = 1;
     ret = CertAddEncodedCTLToStore(store, X509_ASN_ENCODING,
      signedCTLWithUsage, sizeof(signedCTLWithUsage), CERT_STORE_ADD_NEW,
      NULL);
-    ok(ret || broken(GetLastError() == OSS_DATA_ERROR /* some win98 */),
-       "CertAddEncodedCTLToStore failed: %08x\n", GetLastError());
-    if (ret)
-        expectedCTLs++;
+    ok(ret, "CertAddEncodedCTLToStore failed: %08x\n", GetLastError());
     /* Check that two exist */
     numCTLs = 0;
     ctl = NULL;
@@ -407,8 +393,7 @@ static void testAddCTLToStore(void)
         if (ctl)
             numCTLs++;
     } while (ctl);
-    ok(numCTLs == expectedCTLs, "expected %d CTLs, got %d\n", expectedCTLs,
-       numCTLs);
+    ok(numCTLs == 2, "expected 2 CTLs, got %d\n", numCTLs);
     CertCloseStore(store, 0);
 
     store = CertOpenStore(CERT_STORE_PROV_MEMORY, 0, 0,
@@ -419,11 +404,6 @@ static void testAddCTLToStore(void)
     ret = CertAddEncodedCTLToStore(store, X509_ASN_ENCODING,
      signedCTLWithListID1, sizeof(signedCTLWithListID1), CERT_STORE_ADD_NEW,
      NULL);
-    if (!ret)
-    {
-        skip("adding a CTL with an empty usage not supported\n");
-        return;
-    }
     ok(ret, "CertAddEncodedCTLToStore failed: %08x\n", GetLastError());
     ret = CertAddEncodedCTLToStore(store, X509_ASN_ENCODING,
      signedCTLWithListID2, sizeof(signedCTLWithListID2), CERT_STORE_ADD_NEW,

@@ -48,8 +48,8 @@
 @ stub FindCertsByIssuer
 @ stdcall GenericChainCertificateTrust(ptr)
 @ stdcall GenericChainFinalProv(ptr)
-@ stdcall HTTPSCertificateTrust(ptr)
-@ stdcall HTTPSFinalProv(ptr)
+@ stub HTTPSCertificateTrust
+@ stub HTTPSFinalProv
 @ stub IsCatalogFile
 @ stub MsCatConstructHashTag
 @ stub MsCatFreeHashTag
@@ -73,7 +73,6 @@
 @ stub TrustFreeDecode
 @ stdcall TrustIsCertificateSelfSigned(ptr)
 @ stub TrustOpenStores
-@ stdcall WTHelperCertCheckValidSignature(ptr)
 @ stub WTHelperCertFindIssuerCertificate
 @ stub WTHelperCertIsSelfSigned
 @ stub WTHelperCheckCertUsage

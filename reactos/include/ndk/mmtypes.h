@@ -42,6 +42,12 @@ Author:
     & ~(MM_ALLOCATION_GRANULARITY - 1))
 
 //
+// Macro for generating pool tags
+//
+#define TAG(A, B, C, D)                                     \
+    (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+
+//
 // PFN Identity Uses
 //
 #define MMPFNUSE_PROCESSPRIVATE                             0
@@ -56,12 +62,6 @@ Author:
 #define MMPFNUSE_AWEPAGE                                    9
 #define MMPFNUSE_DRIVERLOCKPAGE                             10
 #define MMPFNUSE_KERNELSTACK                                11
-
-//
-// Lock/Unlock Virtuam Memory Flags
-//
-#define MAP_PROCESS                                         1
-#define MAP_SYSTEM                                          2
 
 #ifndef NTOS_MODE_USER
 
@@ -756,7 +756,7 @@ typedef struct _MEMORY_BASIC_INFORMATION
     PVOID BaseAddress;
     PVOID AllocationBase;
     ULONG AllocationProtect;
-    SIZE_T RegionSize;
+    ULONG RegionSize;
     ULONG State;
     ULONG Protect;
     ULONG Type;

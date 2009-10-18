@@ -83,14 +83,9 @@ typedef struct tagARENA_FREE
 
 #define ARENA_FLAG_FREE        0x00000001  /* flags OR'ed with arena size */
 #define ARENA_FLAG_PREV_FREE   0x00000002
+#define ARENA_SIZE_MASK        (~3)
 #define ARENA_INUSE_MAGIC      0x455355        /* Value for arena 'magic' field */
 #define ARENA_FREE_MAGIC       0x45455246      /* Value for arena 'magic' field */
-
-#ifndef _WIN64
-#define ARENA_SIZE_MASK        (~3L)
-#else
-#define ARENA_SIZE_MASK        (~7L)
-#endif
 
 #define ARENA_INUSE_FILLER     0x55
 #define ARENA_FREE_FILLER      0xaa
@@ -110,15 +105,15 @@ typedef struct tagARENA_FREE
 /* minimum size that must remain to shrink an allocated block */
 #define HEAP_MIN_SHRINK_SIZE  (HEAP_MIN_DATA_SIZE+sizeof(ARENA_FREE))
 
-#define HEAP_NB_FREE_LISTS   5   /* Number of free lists */
+#define HEAP_NB_FREE_LISTS   4   /* Number of free lists */
 
 /* Max size of the blocks on the free lists */
 static const DWORD HEAP_freeListSizes[HEAP_NB_FREE_LISTS] =
 {
-    0x10, 0x20, 0x80, 0x200, MAXULONG
+    0x20, 0x80, 0x200, ~0UL
 };
 
-typedef union
+typedef struct
 {
     ARENA_FREE  arena;
     void        *aligment[4];
@@ -151,7 +146,7 @@ typedef struct tagHEAP
     SUBHEAP          subheap;       /* First sub-heap */
     struct list      entry;         /* Entry in process heap list */
     RTL_CRITICAL_SECTION critSection; /* Critical section for serialization */
-    DECLSPEC_ALIGN(8) FREE_LIST_ENTRY  freeList[HEAP_NB_FREE_LISTS];  /* Free lists */
+    FREE_LIST_ENTRY  freeList[HEAP_NB_FREE_LISTS];  /* Free lists */
     DWORD            flags;         /* Heap flags */
     DWORD            magic;         /* Magic number */
     PRTL_HEAP_COMMIT_ROUTINE commitRoutine;
@@ -1254,7 +1249,7 @@ RtlDestroyHeap(HANDLE heap) /* [in] Handle of heap */
 PVOID NTAPI
 RtlAllocateHeap(HANDLE heap,   /* [in] Handle of private heap block */
                 ULONG flags,   /* [in] Heap allocation control flags */
-                SIZE_T size)    /* [in] Number of bytes to allocate */
+                ULONG size)    /* [in] Number of bytes to allocate */
 {
    ARENA_FREE *pArena;
    ARENA_INUSE *pInUse;
@@ -1604,20 +1599,20 @@ RtlUnlockHeap(HANDLE Heap)
  *
  * @implemented
  */
-SIZE_T NTAPI
+ULONG NTAPI
 RtlSizeHeap(
    HANDLE heap,
    ULONG flags,
    PVOID ptr
 )
 {
-    SIZE_T ret;
+   SIZE_T ret;
     HEAP *heapPtr = HEAP_GetPtr( heap );
 
     if (!heapPtr)
     {
         RtlSetLastWin32ErrorAndNtStatusFromNtStatus( STATUS_INVALID_HANDLE );
-        return MAXULONG;
+        return ~0UL;
     }
     flags &= HEAP_NO_SERIALIZE;
     flags |= heapPtr->flags;
@@ -1625,7 +1620,7 @@ RtlSizeHeap(
     if (!HEAP_IsRealArena( heapPtr, HEAP_NO_SERIALIZE, ptr, QUIET ))
     {
         RtlSetLastWin32ErrorAndNtStatusFromNtStatus( STATUS_INVALID_PARAMETER );
-        ret = MAXULONG;
+        ret = ~0UL;
     }
     else
     {
@@ -1896,7 +1891,7 @@ NTAPI
 RtlExtendHeap(IN HANDLE Heap,
               IN ULONG Flags,
               IN PVOID P,
-              IN SIZE_T Size)
+              IN ULONG Size)
 {
     /* TODO */
     UNIMPLEMENTED;

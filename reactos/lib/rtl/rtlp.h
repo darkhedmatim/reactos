@@ -9,7 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 /* PAGED_CODE equivalent for user-mode RTL */
-#if DBG
+#ifdef DBG
 extern VOID FASTCALL CHECK_PAGED_CODE_RTL(char *file, int line);
 #define PAGED_CODE_RTL() CHECK_PAGED_CODE_RTL(__FILE__, __LINE__)
 #else
@@ -19,11 +19,9 @@ extern VOID FASTCALL CHECK_PAGED_CODE_RTL(char *file, int line);
 #ifdef _PPC_
 #define SWAPD(x) ((((x)&0xff)<<24)|(((x)&0xff00)<<8)|(((x)>>8)&0xff00)|(((x)>>24)&0xff))
 #define SWAPW(x) ((((x)&0xff)<<8)|(((x)>>8)&0xff))
-#define SWAPQ(x) ((SWAPD((x)&0xffffffff) << 32) | (SWAPD((x)>>32)))
 #else
-#define SWAPD(x) (x)
-#define SWAPW(x) (x)
-#define SWAPQ(x) (x)
+#define SWAPD(x) x
+#define SWAPW(x) x
 #endif
 
 #define ROUND_DOWN(n, align) \
@@ -165,9 +163,9 @@ DebugService2(IN PVOID Argument1,
               IN ULONG Service);
 
 /* Tags for the String Allocators */
-#define TAG_USTR        'RTSU'
-#define TAG_ASTR        'RTSA'
-#define TAG_OSTR        'RTSO'
+#define TAG_USTR        TAG('U', 'S', 'T', 'R')
+#define TAG_ASTR        TAG('A', 'S', 'T', 'R')
+#define TAG_OSTR        TAG('O', 'S', 'T', 'R')
 
 /* Timer Queue */
 

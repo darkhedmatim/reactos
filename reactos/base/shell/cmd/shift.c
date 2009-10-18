@@ -38,7 +38,7 @@
 
 INT cmd_shift (LPTSTR param)
 {
-	INT i = 0;
+
 	TRACE ("cmd_shift: (\'%s\')\n", debugstr_aw(param));
 
 	if (!_tcsncmp (param, _T("/?"), 2))
@@ -58,26 +58,11 @@ INT cmd_shift (LPTSTR param)
 
 	if (!_tcsicmp (param, _T("down")))
 	{
-		if (bc->shiftlevel[0])
-			for (; i <= 9; i++)
-				bc->shiftlevel[i]--;
+		if (bc->shiftlevel)
+			bc->shiftlevel--;
 	}
 	else /* shift up */
-	{
-		if (*param == _T('/'))
-		{
-			if (param[1] < '0' || param[1] > '9')
-			{
-				error_invalid_switch(param[1]);
-				return 1;
-			}
-			i = param[1] - '0';
-		}
-
-		for (; i < 9; i++)
-			bc->shiftlevel[i] = bc->shiftlevel[i + 1];
-		bc->shiftlevel[i]++;
-	}
+		bc->shiftlevel++;
 
 	return 0;
 }

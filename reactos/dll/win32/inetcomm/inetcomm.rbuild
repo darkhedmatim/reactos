@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <group>
-<module name="inetcomm" type="win32dll" baseaddress="${BASEADDRESS_INETCOMM}" installbase="system32" installname="inetcomm.dll" allowwarnings="true">
+<module name="inetcomm" type="win32dll" baseaddress="${BASEADDRESS_INETCOMM}" installbase="system32" installname="inetcomm.dll">
 	<autoregister infsection="OleControlDlls" type="DllRegisterServer" />
 	<importlibrary definition="inetcomm.spec" />
 	<include base="inetcomm">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
-	<redefine name="_WIN32_WINNT">0x600</redefine>
+	<define name="_WIN32_WINNT">0x600</define>
 	<file>imaptransport.c</file>
 	<file>inetcomm_main.c</file>
 	<file>internettransport.c</file>

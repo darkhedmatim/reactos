@@ -24,13 +24,13 @@
 #include "mm.h"
 #endif
 
-extern UCHAR XboxFont8x16[256 * 16];
+UCHAR XboxFont8x16[256 * 16];
 
 VOID XboxMachInit(const char *CmdLine);
 
 VOID XboxConsPutChar(int Ch);
-BOOLEAN XboxConsKbHit(VOID);
-int XboxConsGetCh(VOID);
+BOOLEAN XboxConsKbHit();
+int XboxConsGetCh();
 
 VOID XboxVideoInit(VOID);
 VOID XboxVideoClearScreen(UCHAR Attr);
@@ -57,7 +57,7 @@ BOOLEAN XboxDiskGetPartitionEntry(ULONG DriveNumber, ULONG PartitionNumber, PPAR
 BOOLEAN XboxDiskGetDriveGeometry(ULONG DriveNumber, PGEOMETRY DriveGeometry);
 ULONG XboxDiskGetCacheableBlockCount(ULONG DriveNumber);
 
-TIMEINFO* XboxGetTime(VOID);
+VOID XboxRTCGetCurrentDateTime(PULONG Year, PULONG Month, PULONG Day, PULONG Hour, PULONG Minute, PULONG Second);
 
 PCONFIGURATION_COMPONENT_DATA XboxHwDetect(VOID);
 

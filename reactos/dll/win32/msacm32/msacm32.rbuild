@@ -16,6 +16,3 @@
 	<file>pcmconverter.c</file>
 	<file>stream.c</file>
 </module>
-<directory name="msacm32.drv">
-	<xi:include href="msacm32.drv/msacm32.drv.rbuild" />
-</directory>

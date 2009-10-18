@@ -1,7 +1,8 @@
 <module name="psapi" type="win32dll" baseaddress="${BASEADDRESS_PSAPI}" installbase="system32" installname="psapi.dll">
-	<importlibrary definition="psapi.spec" />
+	<importlibrary definition="psapi.def" />
 	<include base="psapi">.</include>
 	<include base="psapi">include</include>
+	<define name="_DISABLE_TIDENTS" />
 	<library>epsapi</library>
 	<library>pseh</library>
 	<library>ntdll</library>
@@ -13,5 +14,5 @@
 	<file>psapi.c</file>
 	<file>psapi.rc</file>
 	<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38054#c7 -->
-	<compilerflag compilerset="gcc">-fno-unit-at-a-time</compilerflag>
+	<compilerflag>-fno-unit-at-a-time</compilerflag>
 </module>

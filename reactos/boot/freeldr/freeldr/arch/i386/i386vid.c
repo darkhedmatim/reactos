@@ -1,6 +1,9 @@
 /*
  *  FreeLoader
  *  Copyright (C) 1998-2003  Brian Palmer  <brianp@sginet.com>
+ *  Portions from Linux video.S - Display adapter & video mode setup, version 2.13 (14-May-99)
+ *  Copyright (C) 1995 -- 1999 Martin Mares <mj@ucw.cz>
+ *  Based on the original setup.S code (C) Linus Torvalds and Mats Anderson
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,7 +25,12 @@
 #define NDEBUG
 #include <debug.h>
 
-#include <pshpack2.h>
+/* non-standard specifier from windef.h -- please deprecate */
+#undef PACKED
+#ifdef __GNUC__
+#define PACKED __attribute__((packed))
+#endif
+
 typedef struct
 {
 	UCHAR	Signature[4];				// (ret) signature ("VESA")
@@ -50,8 +58,7 @@ typedef struct
 									// accelerated video modes (list of words terminated with FFFFh)
 	UCHAR	Reserved[216];				// reserved for VBE implementation
 	UCHAR	ScratchPad[256];			// OEM scratchpad (for OEM strings, etc.)
-} VESA_SVGA_INFO, *PVESA_SVGA_INFO;
-#include <poppack.h>
+} PACKED VESA_SVGA_INFO, *PVESA_SVGA_INFO;
 
 // Bitfields for VESA capabilities:
 //
@@ -164,7 +171,7 @@ USHORT BiosIsVesaSupported(VOID)
 	//USHORT*			VideoModes;
 	//USHORT			Index;
 
-	DPRINTM(DPRINT_UI, "BiosIsVesaSupported()\n");
+	DbgPrint((DPRINT_UI, "BiosIsVesaSupported()\n"));
 
 	RtlZeroMemory(SvgaInfo, sizeof(VESA_SVGA_INFO));
 
@@ -198,44 +205,46 @@ USHORT BiosIsVesaSupported(VOID)
 	Regs.w.di = BIOSCALLBUFOFFSET;
 	Int386(0x10, &Regs, &Regs);
 
-	DPRINTM(DPRINT_UI, "AL = 0x%x\n", Regs.b.al);
-	DPRINTM(DPRINT_UI, "AH = 0x%x\n", Regs.b.ah);
+	DbgPrint((DPRINT_UI, "AL = 0x%x\n", Regs.b.al));
+	DbgPrint((DPRINT_UI, "AH = 0x%x\n", Regs.b.ah));
 
 	if (Regs.w.ax != 0x004F)
 	{
-		DPRINTM(DPRINT_UI, "Failed.\n");
+		DbgPrint((DPRINT_UI, "Failed.\n"));
 		return 0x0000;
 	}
 
-	DPRINTM(DPRINT_UI, "Supported.\n");
-	DPRINTM(DPRINT_UI, "SvgaInfo->Signature[4] = %c%c%c%c\n", SvgaInfo->Signature[0], SvgaInfo->Signature[1], SvgaInfo->Signature[2], SvgaInfo->Signature[3]);
-	DPRINTM(DPRINT_UI, "SvgaInfo->VesaVersion = v%d.%d\n", ((SvgaInfo->VesaVersion >> 8) & 0xFF), (SvgaInfo->VesaVersion & 0xFF));
-	DPRINTM(DPRINT_UI, "SvgaInfo->OemNamePtr = 0x%x\n", SvgaInfo->OemNamePtr);
-	DPRINTM(DPRINT_UI, "SvgaInfo->Capabilities = 0x%x\n", SvgaInfo->Capabilities);
-	DPRINTM(DPRINT_UI, "SvgaInfo->VideoMemory = %dK\n", SvgaInfo->TotalVideoMemory * 64);
-	DPRINTM(DPRINT_UI, "---VBE v2.0 ---\n");
-	DPRINTM(DPRINT_UI, "SvgaInfo->OemSoftwareVersion = v%d.%d\n", ((SvgaInfo->OemSoftwareVersion >> 8) & 0x0F) + (((SvgaInfo->OemSoftwareVersion >> 12) & 0x0F) * 10), (SvgaInfo->OemSoftwareVersion & 0x0F) + (((SvgaInfo->OemSoftwareVersion >> 4) & 0x0F) * 10));
-	DPRINTM(DPRINT_UI, "SvgaInfo->VendorNamePtr = 0x%x\n", SvgaInfo->VendorNamePtr);
-	DPRINTM(DPRINT_UI, "SvgaInfo->ProductNamePtr = 0x%x\n", SvgaInfo->ProductNamePtr);
-	DPRINTM(DPRINT_UI, "SvgaInfo->ProductRevisionStringPtr = 0x%x\n", SvgaInfo->ProductRevisionStringPtr);
-	DPRINTM(DPRINT_UI, "SvgaInfo->VBE/AF Version = 0x%x (BCD WORD)\n", SvgaInfo->VBE_AF_Version);
+	DbgPrint((DPRINT_UI, "Supported.\n"));
+	DbgPrint((DPRINT_UI, "SvgaInfo->Signature[4] = %c%c%c%c\n", SvgaInfo->Signature[0], SvgaInfo->Signature[1], SvgaInfo->Signature[2], SvgaInfo->Signature[3]));
+	DbgPrint((DPRINT_UI, "SvgaInfo->VesaVersion = v%d.%d\n", ((SvgaInfo->VesaVersion >> 8) & 0xFF), (SvgaInfo->VesaVersion & 0xFF)));
+	DbgPrint((DPRINT_UI, "SvgaInfo->OemNamePtr = 0x%x\n", SvgaInfo->OemNamePtr));
+	DbgPrint((DPRINT_UI, "SvgaInfo->Capabilities = 0x%x\n", SvgaInfo->Capabilities));
+	DbgPrint((DPRINT_UI, "SvgaInfo->VideoMemory = %dK\n", SvgaInfo->TotalVideoMemory * 64));
+	DbgPrint((DPRINT_UI, "---VBE v2.0 ---\n"));
+	DbgPrint((DPRINT_UI, "SvgaInfo->OemSoftwareVersion = v%d.%d\n", ((SvgaInfo->OemSoftwareVersion >> 8) & 0x0F) + (((SvgaInfo->OemSoftwareVersion >> 12) & 0x0F) * 10), (SvgaInfo->OemSoftwareVersion & 0x0F) + (((SvgaInfo->OemSoftwareVersion >> 4) & 0x0F) * 10)));
+	DbgPrint((DPRINT_UI, "SvgaInfo->VendorNamePtr = 0x%x\n", SvgaInfo->VendorNamePtr));
+	DbgPrint((DPRINT_UI, "SvgaInfo->ProductNamePtr = 0x%x\n", SvgaInfo->ProductNamePtr));
+	DbgPrint((DPRINT_UI, "SvgaInfo->ProductRevisionStringPtr = 0x%x\n", SvgaInfo->ProductRevisionStringPtr));
+	DbgPrint((DPRINT_UI, "SvgaInfo->VBE/AF Version = 0x%x (BCD WORD)\n", SvgaInfo->VBE_AF_Version));
 
-	//DPRINTM(DPRINT_UI, "\nSupported VESA and OEM video modes:\n");
+	//DbgPrint((DPRINT_UI, "\nSupported VESA and OEM video modes:\n"));
 	//VideoModes = (USHORT*)SvgaInfo->SupportedModeListPtr;
 	//for (Index=0; VideoModes[Index]!=0xFFFF; Index++)
 	//{
-	//	DPRINTM(DPRINT_UI, "Mode %d: 0x%x\n", Index, VideoModes[Index]);
+	//	DbgPrint((DPRINT_UI, "Mode %d: 0x%x\n", Index, VideoModes[Index]));
 	//}
 
 	//if (SvgaInfo->VesaVersion >= 0x0200)
 	//{
-	//	DPRINTM(DPRINT_UI, "\nSupported accelerated video modes (VESA v2.0):\n");
+	//	DbgPrint((DPRINT_UI, "\nSupported accelerated video modes (VESA v2.0):\n"));
 	//	VideoModes = (USHORT*)SvgaInfo->AcceleratedModeListPtr;
 	//	for (Index=0; VideoModes[Index]!=0xFFFF; Index++)
 	//	{
-	//		DPRINTM(DPRINT_UI, "Mode %d: 0x%x\n", Index, VideoModes[Index]);
+	//		DbgPrint((DPRINT_UI, "Mode %d: 0x%x\n", Index, VideoModes[Index]));
 	//	}
 	//}
+
+	DbgPrint((DPRINT_UI, "\n"));
 
 	return SvgaInfo->VesaVersion;
 }

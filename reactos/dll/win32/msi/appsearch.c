@@ -178,8 +178,7 @@ static LPWSTR app_search_file(LPWSTR path, MSISIGNATURE *sig)
     }
 
     attr = GetFileAttributesW(path);
-    if (attr == INVALID_FILE_ATTRIBUTES ||
-        (attr & FILE_ATTRIBUTE_DIRECTORY))
+    if (attr == INVALID_FILE_ATTRIBUTES || attr == FILE_ATTRIBUTE_DIRECTORY)
         return NULL;
 
     size = GetFileVersionInfoSizeW(path, &handle);
@@ -299,8 +298,7 @@ static UINT ACTION_AppSearchComponents(MSIPACKAGE *package, LPWSTR *appValue, MS
         lstrcatW(path, MSI_RecordGetString(rec, 2));
 
         attr = GetFileAttributesW(path);
-        if (attr != INVALID_FILE_ATTRIBUTES &&
-            !(attr & FILE_ATTRIBUTE_DIRECTORY))
+        if (attr != INVALID_FILE_ATTRIBUTES && attr != FILE_ATTRIBUTE_DIRECTORY)
             *appValue = strdupW(path);
     }
 
@@ -903,8 +901,7 @@ static UINT ACTION_SearchDirectory(MSIPACKAGE *package, MSISIGNATURE *sig,
     }
 
     attr = GetFileAttributesW(val);
-    if (attr != INVALID_FILE_ATTRIBUTES &&
-        (attr & FILE_ATTRIBUTE_DIRECTORY) &&
+    if ((attr & FILE_ATTRIBUTE_DIRECTORY) &&
         val && val[lstrlenW(val) - 1] != '\\')
     {
         val = msi_realloc(val, (lstrlenW(val) + 2) * sizeof(WCHAR));
@@ -936,7 +933,7 @@ static UINT ACTION_AppSearchDr(MSIPACKAGE *package, LPWSTR *appValue, MSISIGNATU
     WCHAR expanded[MAX_PATH];
     MSIRECORD *row;
     int depth;
-    DWORD sz, attr;
+    DWORD sz;
     UINT rc;
 
     TRACE("%s\n", debugstr_w(sig->Name));
@@ -969,16 +966,11 @@ static UINT ACTION_AppSearchDr(MSIPACKAGE *package, LPWSTR *appValue, MSISIGNATU
     else
         depth = MSI_RecordGetInteger(row,4);
 
-    if (sz)
-        ACTION_ExpandAnyPath(package, path, expanded, MAX_PATH);
-    else
-        strcpyW(expanded, path);
+    ACTION_ExpandAnyPath(package, path, expanded, MAX_PATH);
 
     if (parent)
     {
-        attr = GetFileAttributesW(parent);
-        if (attr != INVALID_FILE_ATTRIBUTES &&
-            !(attr & FILE_ATTRIBUTE_DIRECTORY))
+        if (!(GetFileAttributesW(parent) & FILE_ATTRIBUTE_DIRECTORY))
         {
             PathRemoveFileSpecW(parent);
             PathAddBackslashW(parent);
@@ -987,7 +979,7 @@ static UINT ACTION_AppSearchDr(MSIPACKAGE *package, LPWSTR *appValue, MSISIGNATU
         strcpyW(path, parent);
         strcatW(path, expanded);
     }
-    else if (sz)
+    else
         strcpyW(path, expanded);
 
     PathAddBackslashW(path);

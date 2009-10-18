@@ -102,7 +102,7 @@ HANDLE WINAPI PSetupCreateMonitorInfo(LPVOID unknown1, LPVOID  unknown2,LPVOID u
     }
 
     TRACE("=> %p (%u monitors installed)\n", mi, mi->installed);
-    return mi;
+    return (HANDLE) mi;
 }
 
 /*****************************************************
@@ -112,7 +112,7 @@ HANDLE WINAPI PSetupCreateMonitorInfo(LPVOID unknown1, LPVOID  unknown2,LPVOID u
 
 VOID WINAPI PSetupDestroyMonitorInfo(HANDLE monitorinfo)
 {
-    monitorinfo_t * mi = monitorinfo;
+    monitorinfo_t * mi = (monitorinfo_t *) monitorinfo;
 
     TRACE("(%p)\n", mi);
     if (mi) {
@@ -144,7 +144,7 @@ VOID WINAPI PSetupDestroyMonitorInfo(HANDLE monitorinfo)
 
 BOOL WINAPI PSetupEnumMonitor(HANDLE monitorinfo, DWORD index, LPWSTR buffer, LPDWORD psize)
 {
-    monitorinfo_t * mi = monitorinfo;
+    monitorinfo_t * mi = (monitorinfo_t *) monitorinfo;
     LPWSTR  nameW;
     DWORD   len;
 

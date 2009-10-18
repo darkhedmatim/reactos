@@ -2,8 +2,6 @@
 #define _IPTYPES_H
 
 #include <sys/types.h>
-#include <ifdef.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -101,6 +99,15 @@ typedef enum {
   IpDadStateDeprecated,
   IpDadStatePreferred,
 } IP_DAD_STATE;
+typedef enum {
+  IfOperStatusUp = 1,
+  IfOperStatusDown,
+  IfOperStatusTesting,
+  IfOperStatusUnknown,
+  IfOperStatusDormant,
+  IfOperStatusNotPresent,
+  IfOperStatusLowerLayerDown
+} IF_OPER_STATUS;
 typedef struct _IP_ADAPTER_UNICAST_ADDRESS {
   union {
     ULONGLONG Alignment;

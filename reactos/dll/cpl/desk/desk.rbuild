@@ -27,7 +27,6 @@
 	<file>preview.c</file>
 	<file>screensaver.c</file>
 	<file>advappdlg.c</file>
-	<file>effappdlg.c</file>
 	<file>settings.c</file>
 	<file>monslctl.c</file>
 	<file>general.c</file>

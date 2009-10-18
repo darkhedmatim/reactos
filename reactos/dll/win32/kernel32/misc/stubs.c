@@ -387,6 +387,39 @@ GetNumaProcessorNode(
 }
 
 /*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+HeapQueryInformation (
+    HANDLE HeapHandle,
+    HEAP_INFORMATION_CLASS HeapInformationClass,
+    PVOID HeapInformation OPTIONAL,
+    SIZE_T HeapInformationLength OPTIONAL,
+    PSIZE_T ReturnLength OPTIONAL
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+HeapSetInformation (
+    HANDLE HeapHandle,
+    HEAP_INFORMATION_CLASS HeapInformationClass,
+    PVOID HeapInformation OPTIONAL,
+    SIZE_T HeapInformationLength OPTIONAL
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
  * @implemented
  */
 BOOL
@@ -426,6 +459,19 @@ ReadFileScatter(HANDLE hFile,
     }
 
     return TRUE;
+}
+
+/*
+ * @unimplemented
+ */
+ULONG
+WINAPI
+RemoveVectoredExceptionHandler(
+    PVOID VectoredHandlerHandle
+    )
+{
+    STUB;
+    return 0;
 }
 
 /*
@@ -583,6 +629,22 @@ GetFirmwareEnvironmentVariableW(
  */
 BOOL
 WINAPI
+GetVolumePathNameW(
+    LPCWSTR lpszFileName,
+    LPWSTR lpszVolumePathName,
+    DWORD cchBufferLength
+    )
+{
+    STUB;
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
 GetVolumePathNamesForVolumeNameW(
     LPCWSTR lpszVolumeName,
     LPWSTR lpszVolumePathNames,
@@ -661,14 +723,8 @@ FindNextVolumeA(HANDLE handle,
                 LPSTR volume,
                 DWORD len)
 {
-    WCHAR *buffer = RtlAllocateHeap(RtlGetProcessHeap(), 0, len * sizeof(WCHAR));
+    WCHAR *buffer = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
     BOOL ret;
-
-    if (!buffer)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return FALSE;
-    }
 
     if ((ret = FindNextVolumeW( handle, buffer, len )))
     {
@@ -704,6 +760,21 @@ GetFirmwareEnvironmentVariableA(
     LPCSTR lpGuid,
     PVOID   pBuffer,
     DWORD    nSize
+    )
+{
+    STUB;
+    return 0;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+GetVolumePathNameA(
+    LPCSTR lpszFileName,
+    LPSTR lpszVolumePathName,
+    DWORD cchBufferLength
     )
 {
     STUB;
@@ -994,275 +1065,17 @@ GetProcessWorkingSetSizeEx(IN HANDLE hProcess,
 
 BOOL
 WINAPI
+GetLogicalProcessorInformation(OUT PSYSTEM_LOGICAL_PROCESSOR_INFORMATION Buffer,
+                               IN OUT PDWORD ReturnLength)
+{
+    STUB;
+    return FALSE;
+}
+
+BOOL
+WINAPI
 GetNumaAvailableMemoryNode(IN UCHAR Node,
                            OUT PULONGLONG AvailableBytes)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-GetNumaAvailableMemory(PVOID lpInfo,
-                       ULONG Length,
-                       PULONG ReturnLength)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-GetNumaProcessorMap(PVOID lpInfo,
-                    ULONG Length,
-                    PULONG ReturnLength)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-NlsResetProcessLocale(VOID)
-{
-    STUB;
-    return TRUE;
-}
-
-DWORD
-WINAPI
-AddLocalAlternateComputerNameA(LPSTR lpName, PNTSTATUS Status)
-{
-    STUB;
-    return 0;
-}
-
-DWORD
-WINAPI
-AddLocalAlternateComputerNameW(LPWSTR lpName, PNTSTATUS Status)
-{
-    STUB;
-    return 0;
-}
-
-NTSTATUS
-WINAPI
-BaseCleanupAppcompatCache(VOID)
-{
-    STUB;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-NTSTATUS
-WINAPI
-BaseCleanupAppcompatCacheSupport(PVOID pUnknown)
-{
-    STUB;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-BOOL
-WINAPI
-BaseInitAppcompatCache(VOID)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-BaseInitAppcompatCacheSupport(VOID)
-{
-    STUB;
-    return FALSE;
-}
-
-VOID
-WINAPI
-CreateProcessInternalWSecure(VOID)
-{
-    STUB;
-}
-
-DWORD
-WINAPI
-EnumerateLocalComputerNamesA(PVOID pUnknown, DWORD Size, LPSTR lpBuffer, LPDWORD lpnSize)
-{
-    STUB;
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-DWORD
-WINAPI
-EnumerateLocalComputerNamesW(PVOID pUnknown, DWORD Size, LPWSTR lpBuffer, LPDWORD lpnSize)
-{
-    STUB;
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-PVOID
-WINAPI
-GetComPlusPackageInstallStatus(VOID)
-{
-    STUB;
-    return NULL;
-}
-
-BOOL
-WINAPI
-GetConsoleCharType(HANDLE hConsole, COORD Coord, PDWORD Type)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-GetConsoleCursorMode(HANDLE hConsole, PBOOL pUnknown1, PBOOL pUnknown2)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-GetConsoleNlsMode(HANDLE hConsole, LPDWORD lpMode)
-{
-    STUB;
-    return FALSE;
-}
-
-VOID
-WINAPI
-GetDefaultSortkeySize(LPVOID lpUnknown)
-{
-    STUB;
-    lpUnknown = NULL;
-}
-
-VOID
-WINAPI
-GetLinguistLangSize(LPVOID lpUnknown)
-{
-    STUB;
-    lpUnknown = NULL;
-}
-
-BOOL
-WINAPI
-OpenDataFile(HANDLE hFile, DWORD dwUnused)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-OpenProfileUserMapping(VOID)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-PrivMoveFileIdentityW(DWORD Unknown1, DWORD Unknown2, DWORD Unknown3)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-ReadConsoleInputExA(HANDLE hConsole, LPVOID lpBuffer, DWORD dwLen, LPDWORD Unknown1, DWORD Unknown2)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-ReadConsoleInputExW(HANDLE hConsole, LPVOID lpBuffer, DWORD dwLen, LPDWORD Unknown1, DWORD Unknown2)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-RegisterConsoleIME(HWND hWnd, LPDWORD ThreadId)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-RegisterConsoleOS2(BOOL bUnknown)
-{
-    STUB;
-    return FALSE;
-}
-
-DWORD
-WINAPI
-RemoveLocalAlternateComputerNameA(LPSTR lpName, DWORD Unknown)
-{
-    STUB;
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-DWORD
-WINAPI
-RemoveLocalAlternateComputerNameW(LPWSTR lpName, DWORD Unknown)
-{
-    STUB;
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-BOOL
-WINAPI
-SetComPlusPackageInstallStatus(LPVOID lpInfo)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-SetConsoleCursorMode(HANDLE hConsole, BOOL Unknown1, BOOL Unknown2)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-SetConsoleLocalEUDC(DWORD Unknown1, DWORD Unknown2, DWORD Unknown3, DWORD Unknown4)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-SetConsoleNlsMode(HANDLE hConsole, DWORD dwMode)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-SetConsoleOS2OemFormat(BOOL bUnknown)
-{
-    STUB;
-    return FALSE;
-}
-
-BOOL
-WINAPI
-UnregisterConsoleIME(VOID)
 {
     STUB;
     return FALSE;

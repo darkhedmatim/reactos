@@ -602,8 +602,8 @@ static PDOC_ITEM SYSLINK_GetPrevLink (const SYSLINK_INFO *infoPtr, PDOC_ITEM Cur
  * SYSLINK_WrapLine
  * Tries to wrap a line.
  */
-static BOOL SYSLINK_WrapLine (LPWSTR Text, WCHAR BreakChar, int *LineLen,
-                             int nFit, LPSIZE Extent)
+static BOOL SYSLINK_WrapLine (HDC hdc, LPWSTR Text, WCHAR BreakChar, int *LineLen,
+                             int nFit, LPSIZE Extent, int Width)
 {
     WCHAR *Current;
 
@@ -720,7 +720,7 @@ static VOID SYSLINK_Render (const SYSLINK_INFO *infoPtr, HDC hdc, PRECT pRect)
                 
                 if(n != 0)
                 {
-                    Wrap = SYSLINK_WrapLine(tx, infoPtr->BreakChar, &LineLen, nFit, &szDim);
+                    Wrap = SYSLINK_WrapLine(hdc, tx, infoPtr->BreakChar, &LineLen, nFit, &szDim, rc.right - x);
 
                     if(LineLen == 0)
                     {
@@ -831,7 +831,7 @@ static LRESULT SYSLINK_Draw (const SYSLINK_INFO *infoPtr, HDC hdc)
 
     hOldFont = SelectObject(hdc, infoPtr->Font);
     OldTextColor = SetTextColor(hdc, infoPtr->TextColor);
-    OldBkColor = SetBkColor(hdc, comctl32_color.clrBtnFace);
+    OldBkColor = SetBkColor(hdc, GetSysColor(COLOR_BTNFACE));
     
     GetClientRect(infoPtr->Self, &rc);
     rc.right -= SL_RIGHTMARGIN + SL_LEFTMARGIN;
@@ -1317,7 +1317,7 @@ static LRESULT SYSLINK_SendParentNotify (const SYSLINK_INFO *infoPtr, UINT code,
  *           SYSLINK_SetFocus
  * Handles receiving the input focus.
  */
-static LRESULT SYSLINK_SetFocus (SYSLINK_INFO *infoPtr)
+static LRESULT SYSLINK_SetFocus (SYSLINK_INFO *infoPtr, HWND PrevFocusWindow)
 {
     PDOC_ITEM Focus;
     
@@ -1329,8 +1329,10 @@ static LRESULT SYSLINK_SetFocus (SYSLINK_INFO *infoPtr)
     if(Focus != NULL)
     {
         SYSLINK_SetFocusLink(infoPtr, Focus);
-        SYSLINK_RepaintLink(infoPtr, Focus);
     }
+    
+    SYSLINK_RepaintLink(infoPtr, Focus);
+    
     return 0;
 }
 
@@ -1338,7 +1340,7 @@ static LRESULT SYSLINK_SetFocus (SYSLINK_INFO *infoPtr)
  *           SYSLINK_KillFocus
  * Handles losing the input focus.
  */
-static LRESULT SYSLINK_KillFocus (SYSLINK_INFO *infoPtr)
+static LRESULT SYSLINK_KillFocus (SYSLINK_INFO *infoPtr, HWND NewFocusWindow)
 {
     PDOC_ITEM Focus;
     
@@ -1383,7 +1385,7 @@ static PDOC_ITEM SYSLINK_LinkAtPt (const SYSLINK_INFO *infoPtr, const POINT *pt,
  *           SYSLINK_LButtonDown
  * Handles mouse clicks
  */
-static LRESULT SYSLINK_LButtonDown (SYSLINK_INFO *infoPtr, const POINT *pt)
+static LRESULT SYSLINK_LButtonDown (SYSLINK_INFO *infoPtr, DWORD Buttons, const POINT *pt)
 {
     PDOC_ITEM Current, Old;
     int id;
@@ -1409,7 +1411,7 @@ static LRESULT SYSLINK_LButtonDown (SYSLINK_INFO *infoPtr, const POINT *pt)
  *           SYSLINK_LButtonUp
  * Handles mouse clicks
  */
-static LRESULT SYSLINK_LButtonUp (SYSLINK_INFO *infoPtr, const POINT *pt)
+static LRESULT SYSLINK_LButtonUp (SYSLINK_INFO *infoPtr, DWORD Buttons, const POINT *pt)
 {
     if(infoPtr->MouseDownID > -1)
     {
@@ -1474,7 +1476,7 @@ static BOOL SYSKEY_SelectNextPrevLink (const SYSLINK_INFO *infoPtr, BOOL Prev)
             {
                 OldFocus = SYSLINK_SetFocusLink(infoPtr, NewFocus);
 
-                if(OldFocus && OldFocus != NewFocus)
+                if(OldFocus != NewFocus)
                 {
                     SYSLINK_RepaintLink(infoPtr, OldFocus);
                 }
@@ -1599,14 +1601,14 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
         POINT pt;
         pt.x = (short)LOWORD(lParam);
         pt.y = (short)HIWORD(lParam);
-        return SYSLINK_LButtonDown(infoPtr, &pt);
+        return SYSLINK_LButtonDown(infoPtr, wParam, &pt);
     }
     case WM_LBUTTONUP:
     {
         POINT pt;
         pt.x = (short)LOWORD(lParam);
         pt.y = (short)HIWORD(lParam);
-        return SYSLINK_LButtonUp(infoPtr, &pt);
+        return SYSLINK_LButtonUp(infoPtr, wParam, &pt);
     }
     
     case WM_KEYDOWN:
@@ -1692,10 +1694,10 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
         return SYSLINK_GetIdealHeight(infoPtr);
 
     case WM_SETFOCUS:
-        return SYSLINK_SetFocus(infoPtr);
+        return SYSLINK_SetFocus(infoPtr, (HWND)wParam);
 
     case WM_KILLFOCUS:
-        return SYSLINK_KillFocus(infoPtr);
+        return SYSLINK_KillFocus(infoPtr, (HWND)wParam);
 
     case WM_ENABLE:
         infoPtr->Style &= ~WS_DISABLED;
@@ -1727,9 +1729,9 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
         infoPtr->Items = NULL;
         infoPtr->HasFocus = FALSE;
         infoPtr->MouseDownID = -1;
-        infoPtr->TextColor = comctl32_color.clrWindowText;
-        infoPtr->LinkColor = comctl32_color.clrHighlight;
-        infoPtr->VisitedColor = comctl32_color.clrHighlight;
+        infoPtr->TextColor = GetSysColor(COLOR_WINDOWTEXT);
+        infoPtr->LinkColor = GetSysColor(COLOR_HIGHLIGHT);
+        infoPtr->VisitedColor = GetSysColor(COLOR_HIGHLIGHT);
         infoPtr->BreakChar = ' ';
         TRACE("SysLink Ctrl creation, hwnd=%p\n", hwnd);
         SYSLINK_SetText(infoPtr, ((LPCREATESTRUCTW)lParam)->lpszName);
@@ -1742,10 +1744,6 @@ static LRESULT WINAPI SysLinkWindowProc(HWND hwnd, UINT message,
         if(infoPtr->LinkFont != 0) DeleteObject(infoPtr->LinkFont);
         SetWindowLongPtrW(hwnd, 0, 0);
         Free (infoPtr);
-        return 0;
-
-    case WM_SYSCOLORCHANGE:
-        COMCTL32_RefreshSysColors();
         return 0;
 
     default:

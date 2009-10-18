@@ -44,8 +44,7 @@
   #define STRICT 1
 #endif
 
-#include <windef.h>
-#include <winbase.h>
+#include <windows.h>
 
 /* Non documented stuff in MS Headers */
 /* NurbsCallback */

@@ -52,6 +52,7 @@
 /* use LoadString */
 static const WCHAR wszAppTitle[] = {'W','i','n','e',' ','W','o','r','d','p','a','d',0};
 
+static const WCHAR wszRichEditClass[] = {'R','I','C','H','E','D','I','T','2','0','W',0};
 static const WCHAR wszMainWndClass[] = {'W','O','R','D','P','A','D','T','O','P',0};
 
 static const WCHAR stringFormat[] = {'%','2','d','\0'};
@@ -300,7 +301,7 @@ static void on_sizelist_modified(HWND hwndSizeList, LPWSTR wszNewFontSize)
     if(lstrcmpW(sizeBuffer, wszNewFontSize))
     {
         float size = 0;
-        if(number_from_string(wszNewFontSize, &size, FALSE)
+        if(number_from_string((LPCWSTR) wszNewFontSize, &size, FALSE)
            && size > 0)
         {
             set_size(size);
@@ -321,7 +322,7 @@ static void add_size(HWND hSizeListWnd, unsigned size)
     cbItem.iItem = -1;
 
     wsprintfW(buffer, stringFormat, size);
-    cbItem.pszText = buffer;
+    cbItem.pszText = (LPWSTR)buffer;
     SendMessageW(hSizeListWnd, CBEM_INSERTITEMW, 0, (LPARAM)&cbItem);
 }
 
@@ -493,7 +494,7 @@ static void on_fontlist_modified(LPWSTR wszNewFaceName)
     SendMessageW(hEditorWnd, EM_GETCHARFORMAT, SCF_SELECTION, (LPARAM)&format);
 
     if(lstrcmpW(format.szFaceName, wszNewFaceName))
-        set_font(wszNewFaceName);
+        set_font((LPCWSTR) wszNewFaceName);
 }
 
 static void add_font(LPCWSTR fontName, DWORD fontType, HWND hListWnd, const NEWTEXTMETRICEXW *ntmc)
@@ -644,7 +645,7 @@ static void set_toolbar_state(int bandId, BOOL show)
         REBARBANDINFOW rbbinfo;
         int index = SendMessageW(hwndReBar, RB_IDTOINDEX, BANDID_FONTLIST, 0);
 
-        rbbinfo.cbSize = REBARBANDINFOW_V6_SIZE;
+        rbbinfo.cbSize = sizeof(rbbinfo);
         rbbinfo.fMask = RBBIM_STYLE;
 
         SendMessageW(hwndReBar, RB_GETBANDINFO, index, (LPARAM)&rbbinfo);
@@ -869,7 +870,7 @@ static void DialogSaveFile(void)
     ZeroMemory(&sfn, sizeof(sfn));
 
     sfn.lStructSize = sizeof(sfn);
-    sfn.Flags = OFN_HIDEREADONLY | OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_ENABLESIZING;
+    sfn.Flags = OFN_HIDEREADONLY | OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
     sfn.hwndOwner = hMainWnd;
     sfn.lpstrFilter = wszFilter;
     sfn.lpstrFile = wszFile;
@@ -963,7 +964,7 @@ static void DialogOpenFile(void)
     ZeroMemory(&ofn, sizeof(ofn));
 
     ofn.lStructSize = sizeof(ofn);
-    ofn.Flags = OFN_HIDEREADONLY | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_ENABLESIZING;
+    ofn.Flags = OFN_HIDEREADONLY | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
     ofn.hwndOwner = hMainWnd;
     ofn.lpstrFilter = wszFilter;
     ofn.lpstrFile = wszFile;
@@ -1411,11 +1412,11 @@ static INT_PTR CALLBACK newfile_proc(HWND hWnd, UINT message, WPARAM wParam, LPA
                 WCHAR buffer[MAX_STRING_LEN];
                 HWND hListWnd = GetDlgItem(hWnd, IDC_NEWFILE);
 
-                LoadStringW(hInstance, STRING_NEWFILE_RICHTEXT, buffer, MAX_STRING_LEN);
+                LoadStringW(hInstance, STRING_NEWFILE_RICHTEXT, (LPWSTR)buffer, MAX_STRING_LEN);
                 SendMessageW(hListWnd, LB_ADDSTRING, 0, (LPARAM)&buffer);
-                LoadStringW(hInstance, STRING_NEWFILE_TXT, buffer, MAX_STRING_LEN);
+                LoadStringW(hInstance, STRING_NEWFILE_TXT, (LPWSTR)buffer, MAX_STRING_LEN);
                 SendMessageW(hListWnd, LB_ADDSTRING, 0, (LPARAM)&buffer);
-                LoadStringW(hInstance, STRING_NEWFILE_TXT_UNICODE, buffer, MAX_STRING_LEN);
+                LoadStringW(hInstance, STRING_NEWFILE_TXT_UNICODE, (LPWSTR)buffer, MAX_STRING_LEN);
                 SendMessageW(hListWnd, LB_ADDSTRING, 0, (LPARAM)&buffer);
 
                 SendMessageW(hListWnd, LB_SETSEL, TRUE, 0);
@@ -1635,36 +1636,15 @@ static INT_PTR CALLBACK tabstops_proc(HWND hWnd, UINT message, WPARAM wParam, LP
                         if(SendMessageW(hTabWnd, CB_FINDSTRINGEXACT, -1, (LPARAM)&buffer) == CB_ERR)
                         {
                             float number = 0;
-                            int item_count = SendMessage(hTabWnd, CB_GETCOUNT, 0, 0);
 
                             if(!number_from_string(buffer, &number, TRUE))
                             {
                                 MessageBoxWithResStringW(hWnd, MAKEINTRESOURCEW(STRING_INVALID_NUMBER),
                                              wszAppTitle, MB_OK | MB_ICONINFORMATION);
-                            } else if (item_count >= MAX_TAB_STOPS) {
-                                MessageBoxWithResStringW(hWnd, MAKEINTRESOURCEW(STRING_MAX_TAB_STOPS),
-                                             wszAppTitle, MB_OK | MB_ICONINFORMATION);
-                            } else {
-                                int i;
-                                float next_number = -1;
-                                int next_number_in_twips = -1;
-                                int insert_number = current_units_to_twips(number);
-
-                                /* linear search for position to insert the string */
-                                for(i = 0; i < item_count; i++)
-                                {
-                                    SendMessageW(hTabWnd, CB_GETLBTEXT, i, (LPARAM)&buffer);
-                                    number_from_string(buffer, &next_number, TRUE);
-                                    next_number_in_twips = current_units_to_twips(next_number);
-                                    if (insert_number <= next_number_in_twips)
-                                        break;
-                                }
-                                if (insert_number != next_number_in_twips)
-                                {
-                                    number_with_units(buffer, insert_number);
-                                    SendMessageW(hTabWnd, CB_INSERTSTRING, i, (LPARAM)&buffer);
-                                    SetWindowTextW(hTabWnd, 0);
-                                }
+                            } else
+                            {
+                                SendMessageW(hTabWnd, CB_ADDSTRING, 0, (LPARAM)&buffer);
+                                SetWindowTextW(hTabWnd, 0);
                             }
                         }
                         SetFocus(hTabWnd);
@@ -1795,7 +1775,7 @@ static LRESULT OnCreate( HWND hWnd )
 
     SendMessageW(hToolBarWnd, TB_AUTOSIZE, 0, 0);
 
-    rbb.cbSize = REBARBANDINFOW_V6_SIZE;
+    rbb.cbSize = sizeof(rbb);
     rbb.fMask = RBBIM_SIZE | RBBIM_CHILDSIZE | RBBIM_CHILD | RBBIM_STYLE | RBBIM_ID;
     rbb.fStyle = RBBS_CHILDEDGE | RBBS_BREAK | RBBS_NOGRIPPER;
     rbb.cx = 0;
@@ -1866,7 +1846,7 @@ static LRESULT OnCreate( HWND hWnd )
         PostQuitMessage(1);
     }
 
-    hEditorWnd = CreateWindowExW(WS_EX_CLIENTEDGE, RICHEDIT_CLASS20W, NULL,
+    hEditorWnd = CreateWindowExW(WS_EX_CLIENTEDGE, wszRichEditClass, NULL,
       WS_CHILD|WS_VISIBLE|ES_SELECTIONBAR|ES_MULTILINE|ES_AUTOVSCROLL
       |ES_WANTRETURN|WS_VSCROLL|ES_NOHIDESEL|WS_HSCROLL,
       0, 0, 1000, 100, hWnd, (HMENU)IDC_EDITOR, hInstance, NULL);
@@ -2232,7 +2212,7 @@ static LRESULT OnCommand( HWND hWnd, WPARAM wParam, LPARAM lParam)
 
     case ID_EDIT_READONLY:
         {
-        LONG nStyle = GetWindowLong(hwndEditor, GWL_STYLE);
+        long nStyle = GetWindowLong(hwndEditor, GWL_STYLE);
         if (nStyle & ES_READONLY)
             SendMessageW(hwndEditor, EM_SETREADONLY, 0, 0);
         else

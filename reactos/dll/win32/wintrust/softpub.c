@@ -90,9 +90,7 @@ static BOOL SOFTPUB_GetFileSubject(CRYPT_PROVIDER_DATA *data)
 {
     BOOL ret;
 
-    if (!WVT_ISINSTRUCT(WINTRUST_FILE_INFO,
-     data->pWintrustData->u.pFile->cbStruct, pgKnownSubject) ||
-     !data->pWintrustData->u.pFile->pgKnownSubject)
+    if (!data->pWintrustData->u.pFile->pgKnownSubject)
     {
         ret = CryptSIPRetrieveSubjectGuid(
          data->pWintrustData->u.pFile->pcwszFilePath,
@@ -256,8 +254,7 @@ static BOOL SOFTPUB_LoadCertMessage(CRYPT_PROVIDER_DATA *data)
     BOOL ret;
 
     if (data->pWintrustData->u.pCert &&
-     WVT_IS_CBSTRUCT_GT_MEMBEROFFSET(WINTRUST_CERT_INFO,
-     data->pWintrustData->u.pCert->cbStruct, psCertContext))
+     data->pWintrustData->u.pCert->cbStruct == sizeof(WINTRUST_CERT_INFO))
     {
         if (data->psPfns)
         {
@@ -267,9 +264,7 @@ static BOOL SOFTPUB_LoadCertMessage(CRYPT_PROVIDER_DATA *data)
             /* Add a signer with nothing but the time to verify, so we can
              * add a cert to it
              */
-            if (WVT_ISINSTRUCT(WINTRUST_CERT_INFO,
-             data->pWintrustData->u.pCert->cbStruct, psftVerifyAsOf) &&
-             data->pWintrustData->u.pCert->psftVerifyAsOf)
+            if (data->pWintrustData->u.pCert->psftVerifyAsOf)
                 data->sftSystemTime = signer.sftVerifyAsOf;
             else
             {
@@ -283,12 +278,10 @@ static BOOL SOFTPUB_LoadCertMessage(CRYPT_PROVIDER_DATA *data)
             {
                 ret = data->psPfns->pfnAddCert2Chain(data, 0, FALSE, 0,
                  data->pWintrustData->u.pCert->psCertContext);
-                if (WVT_ISINSTRUCT(WINTRUST_CERT_INFO,
-                 data->pWintrustData->u.pCert->cbStruct, pahStores))
-                        for (i = 0;
-                         ret && i < data->pWintrustData->u.pCert->chStores; i++)
-                            ret = data->psPfns->pfnAddStore2Chain(data,
-                             data->pWintrustData->u.pCert->pahStores[i]);
+                for (i = 0; ret && i < data->pWintrustData->u.pCert->chStores;
+                 i++)
+                    ret = data->psPfns->pfnAddStore2Chain(data,
+                     data->pWintrustData->u.pCert->pahStores[i]);
             }
         }
         else
@@ -1063,17 +1056,5 @@ HRESULT WINAPI SoftpubCleanup(CRYPT_PROVIDER_DATA *data)
     if (data->fOpenedFile)
         CloseHandle(data->pWintrustData->u.pFile->hFile);
 
-    return S_OK;
-}
-
-HRESULT WINAPI HTTPSCertificateTrust(CRYPT_PROVIDER_DATA *data)
-{
-    FIXME("(%p)\n", data);
-    return S_OK;
-}
-
-HRESULT WINAPI HTTPSFinalProv(CRYPT_PROVIDER_DATA *data)
-{
-    FIXME("(%p)\n", data);
     return S_OK;
 }

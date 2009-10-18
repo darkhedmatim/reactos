@@ -147,7 +147,7 @@ static BOOL flatten_bezier(path_list_node_t *start, REAL x2, REAL y2, REAL x3, R
     /* check flatness as a half of distance between middle point and a linearized path */
     if(fabs(((pt.Y - pt_st.Y)*mp[2].X + (pt_st.X - pt.X)*mp[2].Y +
         (pt_st.Y*pt.X - pt_st.X*pt.Y))) <=
-        (0.5 * flatness*sqrtf((powf(pt.Y - pt_st.Y, 2.0) + powf(pt_st.X - pt.X, 2.0))))){
+        (0.5 * flatness*sqrt((powf(pt.Y - pt_st.Y, 2.0) + powf(pt_st.X - pt.X, 2.0))))){
         return TRUE;
     }
     else
@@ -723,17 +723,6 @@ GpStatus WINGDIPAPI GdipAddPathPie(GpPath *path, REAL x, REAL y, REAL width, REA
     if(!path)
         return InvalidParameter;
 
-    /* on zero width/height only start point added */
-    if(width <= 1e-7 || height <= 1e-7){
-        if(!lengthen_path(path, 1))
-            return OutOfMemory;
-        path->pathdata.Points[0].X = x + width  / 2.0;
-        path->pathdata.Points[0].Y = y + height / 2.0;
-        path->pathdata.Types[0] = PathPointTypeStart | PathPointTypeCloseSubpath;
-        path->pathdata.Count = 1;
-        return InvalidParameter;
-    }
-
     count = arc2polybezier(NULL, x, y, width, height, startAngle, sweepAngle);
 
     if(count == 0)
@@ -775,7 +764,7 @@ GpStatus WINGDIPAPI GdipAddPathPieI(GpPath *path, INT x, INT y, INT width, INT h
     TRACE("(%p, %d, %d, %d, %d, %.2f, %.2f)\n",
           path, x, y, width, height, startAngle, sweepAngle);
 
-    return GdipAddPathPie(path, (REAL)x, (REAL)y, (REAL)width, (REAL)height, startAngle, sweepAngle);
+    return GdipAddPathPieI(path, (REAL)x, (REAL)y, (REAL)width, (REAL)height, startAngle, sweepAngle);
 }
 
 GpStatus WINGDIPAPI GdipAddPathPolygon(GpPath *path, GDIPCONST GpPointF *points, INT count)
@@ -829,18 +818,6 @@ GpStatus WINGDIPAPI GdipAddPathPolygonI(GpPath *path, GDIPCONST GpPoint *points,
     GdipFree(ptf);
 
     return status;
-}
-
-GpStatus WINGDIPAPI GdipAddPathString(GpPath* path, GDIPCONST WCHAR* string, INT length, GDIPCONST GpFontFamily* family, INT style, REAL emSize, GDIPCONST RectF* layoutRect, GDIPCONST GpStringFormat* format)
-{
-    FIXME("(%p, %p, %d, %p, %d, %f, %p, %p): stub\n", path, string, length, family, style, emSize, layoutRect, format);
-    return NotImplemented;
-}
-
-GpStatus WINGDIPAPI GdipAddPathStringI(GpPath* path, GDIPCONST WCHAR* string, INT length, GDIPCONST GpFontFamily* family, INT style, REAL emSize, GDIPCONST Rect* layoutRect, GDIPCONST GpStringFormat* format)
-{
-    FIXME("(%p, %p, %d, %p, %d, %f, %p, %p): stub\n", path, string, length, family, style, emSize, layoutRect, format);
-    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipClonePath(GpPath* path, GpPath **clone)
@@ -1396,33 +1373,16 @@ GpStatus WINGDIPAPI GdipIsVisiblePathPointI(GpPath* path, INT x, INT y, GpGraphi
     return GdipIsVisiblePathPoint(path, x, y, graphics, result);
 }
 
-/*****************************************************************************
- * GdipIsVisiblePathPoint [GDIPLUS.@]
- */
 GpStatus WINGDIPAPI GdipIsVisiblePathPoint(GpPath* path, REAL x, REAL y, GpGraphics *graphics, BOOL *result)
 {
-    GpRegion *region;
-    HRGN hrgn;
-    GpStatus status;
+    static int calls;
 
-    if(!path || !result) return InvalidParameter;
+    if(!path) return InvalidParameter;
 
-    status = GdipCreateRegionPath(path, &region);
-    if(status != Ok)
-        return status;
+    if(!(calls++))
+        FIXME("not implemented\n");
 
-    status = GdipGetRegionHRgn(region, graphics, &hrgn);
-    if(status != Ok){
-        GdipDeleteRegion(region);
-        return status;
-    }
-
-    *result = PtInRegion(hrgn, roundr(x), roundr(y));
-
-    DeleteObject(hrgn);
-    GdipDeleteRegion(region);
-
-    return Ok;
+    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipStartPathFigure(GpPath *path)
@@ -1475,24 +1435,6 @@ GpStatus WINGDIPAPI GdipTransformPath(GpPath *path, GpMatrix *matrix)
 
     return GdipTransformMatrixPoints(matrix, path->pathdata.Points,
                                      path->pathdata.Count);
-}
-
-GpStatus WINGDIPAPI GdipWarpPath(GpPath *path, GpMatrix* matrix,
-    GDIPCONST GpPointF *points, INT count, REAL x, REAL y, REAL width,
-    REAL height, WarpMode warpmode, REAL flatness)
-{
-    FIXME("(%p,%p,%p,%i,%0.2f,%0.2f,%0.2f,%0.2f,%i,%0.2f)\n", path, matrix,
-        points, count, x, y, width, height, warpmode, flatness);
-
-    return NotImplemented;
-}
-
-GpStatus WINGDIPAPI GdipWidenPath(GpPath *path, GpPen *pen, GpMatrix *matrix,
-    REAL flatness)
-{
-    FIXME("(%p,%p,%p,%0.2f)\n", path, pen, matrix, flatness);
-
-    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipAddPathRectangle(GpPath *path, REAL x, REAL y,

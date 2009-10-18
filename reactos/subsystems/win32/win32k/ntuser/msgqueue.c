@@ -71,7 +71,7 @@ IdlePing(VOID)
 {
   HWND hWnd;
   PWINDOW_OBJECT Window;
-  PPROCESSINFO W32d = PsGetCurrentProcessWin32Process();
+  PW32PROCESS W32d = PsGetCurrentProcessWin32Process();
 
   hWnd = UserGetForegroundWindow();
 
@@ -79,7 +79,7 @@ IdlePing(VOID)
 
   if (Window && Window->ti)
   {
-     if (Window->ti->fsHooks & HOOKID_TO_FLAG(WH_FOREGROUNDIDLE))
+     if (Window->ti->Hooks & HOOKID_TO_FLAG(WH_FOREGROUNDIDLE))
      {
         co_HOOK_CallHooks(WH_FOREGROUNDIDLE,HC_ACTION,0,0);
      }
@@ -233,49 +233,6 @@ MsqInsertSystemMessage(MSG* Msg)
 }
 
 BOOL FASTCALL
-MsqIsClkLck(LPMSG Msg, BOOL Remove)
-{
-   PTHREADINFO pti;
-   PWINSTATION_OBJECT WinStaObject;
-   PSYSTEM_CURSORINFO CurInfo;
-   BOOL Res = FALSE;
-
-   pti = PsGetCurrentThreadWin32Thread();
-   if (pti->Desktop == NULL)
-   {
-      return FALSE;
-   }
-
-   WinStaObject = pti->Desktop->WindowStation;
-
-   CurInfo = IntGetSysCursorInfo(WinStaObject);
-
-   switch (Msg->message)
-   {
-     case WM_LBUTTONUP:
-       Res = ((Msg->time - CurInfo->ClickLockTime) >= gspv.dwMouseClickLockTime);
-       if (Res && (!CurInfo->ClickLockActive))
-       {
-         CurInfo->ClickLockActive = TRUE;
-       }
-       break;
-     case WM_LBUTTONDOWN:
-       if (CurInfo->ClickLockActive)
-       {
-         Res = TRUE;
-         CurInfo->ClickLockActive = FALSE;
-         CurInfo->ClickLockTime = 0;
-       }
-       else
-       {
-         CurInfo->ClickLockTime = Msg->time;
-       }
-       break;
-   }
-   return Res;
-}
-
-BOOL FASTCALL
 MsqIsDblClk(LPMSG Msg, BOOL Remove)
 {
    PTHREADINFO pti;
@@ -294,7 +251,7 @@ MsqIsDblClk(LPMSG Msg, BOOL Remove)
 
    CurInfo = IntGetSysCursorInfo(WinStaObject);
    Res = (Msg->hwnd == (HWND)CurInfo->LastClkWnd) &&
-         ((Msg->time - CurInfo->LastBtnDown) < gspv.iDblClickTime);
+         ((Msg->time - CurInfo->LastBtnDown) < CurInfo->DblClickSpeed);
    if(Res)
    {
 
@@ -305,8 +262,8 @@ MsqIsDblClk(LPMSG Msg, BOOL Remove)
       if(dY < 0)
          dY = -dY;
 
-      Res = (dX <= gspv.iDblClickWidth) &&
-            (dY <= gspv.iDblClickHeight);
+      Res = (dX <= CurInfo->DblClickWidth) &&
+            (dY <= CurInfo->DblClickHeight);
 
       if(Res)
       {
@@ -317,18 +274,21 @@ MsqIsDblClk(LPMSG Msg, BOOL Remove)
 
    if(Remove)
    {
-      CurInfo->LastBtnDownX = Msg->pt.x;
-      CurInfo->LastBtnDownY = Msg->pt.y;
-      CurInfo->ButtonsDown = Msg->message;
       if (Res)
       {
          CurInfo->LastBtnDown = 0;
+         CurInfo->LastBtnDownX = Msg->pt.x;
+         CurInfo->LastBtnDownY = Msg->pt.y;
          CurInfo->LastClkWnd = NULL;
+		 CurInfo->ButtonsDown = Msg->message;
       }
       else
       {
+         CurInfo->LastBtnDownX = Msg->pt.x;
+         CurInfo->LastBtnDownY = Msg->pt.y;
          CurInfo->LastClkWnd = (HANDLE)Msg->hwnd;
          CurInfo->LastBtnDown = Msg->time;
+		 CurInfo->ButtonsDown = Msg->message;
       }
    }
 
@@ -336,12 +296,12 @@ MsqIsDblClk(LPMSG Msg, BOOL Remove)
 }
 
 static BOOL APIENTRY
-co_MsqTranslateMouseMessage(PUSER_MESSAGE_QUEUE MessageQueue, PWINDOW_OBJECT Window, UINT FilterLow, UINT FilterHigh,
+co_MsqTranslateMouseMessage(PUSER_MESSAGE_QUEUE MessageQueue, HWND hWnd, UINT FilterLow, UINT FilterHigh,
                             PUSER_MESSAGE Message, BOOL Remove, PBOOL Freed,
                             PWINDOW_OBJECT ScopeWin, PPOINT ScreenPoint, BOOL FromGlobalQueue, PLIST_ENTRY *Next)
 {
    USHORT Msg = Message->Msg.message;
-   PWINDOW_OBJECT CaptureWindow = NULL;
+   PWINDOW_OBJECT Window = NULL;
    HWND hCaptureWin;
 
    ASSERT_REFS_CO(ScopeWin);
@@ -355,18 +315,18 @@ co_MsqTranslateMouseMessage(PUSER_MESSAGE_QUEUE MessageQueue, PWINDOW_OBJECT Win
    hCaptureWin = IntGetCaptureWindow();
    if (hCaptureWin == NULL)
    {
-      if (Msg == WM_MOUSEWHEEL)
+      if(Msg == WM_MOUSEWHEEL)
       {
-         CaptureWindow = UserGetWindowObject(IntGetFocusWindow());
-         if (CaptureWindow) UserReferenceObject(CaptureWindow);
+         Window = UserGetWindowObject(IntGetFocusWindow());
+         if (Window) UserReferenceObject(Window);
       }
       else
       {
-         co_WinPosWindowFromPoint(ScopeWin, NULL, &Message->Msg.pt, &CaptureWindow);
-         if(CaptureWindow == NULL)
+         co_WinPosWindowFromPoint(ScopeWin, NULL, &Message->Msg.pt, &Window);
+         if(Window == NULL)
          {
-            CaptureWindow = ScopeWin;
-            if (CaptureWindow) UserReferenceObject(CaptureWindow);
+            Window = ScopeWin;
+            if (Window) UserReferenceObject(Window);
          }
          else
          {
@@ -379,13 +339,13 @@ co_MsqTranslateMouseMessage(PUSER_MESSAGE_QUEUE MessageQueue, PWINDOW_OBJECT Win
    {
       /* FIXME - window messages should go to the right window if no buttons are
                  pressed */
-      CaptureWindow = UserGetWindowObject(hCaptureWin);
-      if (CaptureWindow) UserReferenceObject(CaptureWindow);
+      Window = UserGetWindowObject(hCaptureWin);
+      if (Window) UserReferenceObject(Window);
    }
 
 
 
-   if (CaptureWindow == NULL)
+   if (Window == NULL)
    {
       if(!FromGlobalQueue)
       {
@@ -401,7 +361,7 @@ co_MsqTranslateMouseMessage(PUSER_MESSAGE_QUEUE MessageQueue, PWINDOW_OBJECT Win
       return(FALSE);
    }
 
-   if (CaptureWindow->MessageQueue != MessageQueue)
+   if (Window->MessageQueue != MessageQueue)
    {
       if (! FromGlobalQueue)
       {
@@ -424,37 +384,37 @@ co_MsqTranslateMouseMessage(PUSER_MESSAGE_QUEUE MessageQueue, PWINDOW_OBJECT Win
 
       /* lock the destination message queue, so we don't get in trouble with other
          threads, messing with it at the same time */
-      IntLockHardwareMessageQueue(CaptureWindow->MessageQueue);
-      InsertTailList(&CaptureWindow->MessageQueue->HardwareMessagesListHead,
+      IntLockHardwareMessageQueue(Window->MessageQueue);
+      InsertTailList(&Window->MessageQueue->HardwareMessagesListHead,
                      &Message->ListEntry);
       if(Message->Msg.message == WM_MOUSEMOVE)
       {
-         if(CaptureWindow->MessageQueue->MouseMoveMsg)
+         if(Window->MessageQueue->MouseMoveMsg)
          {
             /* remove the old WM_MOUSEMOVE message, we're processing a more recent
                one */
-            RemoveEntryList(&CaptureWindow->MessageQueue->MouseMoveMsg->ListEntry);
-            ExFreePool(CaptureWindow->MessageQueue->MouseMoveMsg);
+            RemoveEntryList(&Window->MessageQueue->MouseMoveMsg->ListEntry);
+            ExFreePool(Window->MessageQueue->MouseMoveMsg);
          }
          /* save the pointer to the WM_MOUSEMOVE message in the new queue */
-         CaptureWindow->MessageQueue->MouseMoveMsg = Message;
+         Window->MessageQueue->MouseMoveMsg = Message;
 
-         CaptureWindow->MessageQueue->QueueBits |= QS_MOUSEMOVE;
-         CaptureWindow->MessageQueue->ChangedBits |= QS_MOUSEMOVE;
-         if (CaptureWindow->MessageQueue->WakeMask & QS_MOUSEMOVE)
-            KeSetEvent(CaptureWindow->MessageQueue->NewMessages, IO_NO_INCREMENT, FALSE);
+         Window->MessageQueue->QueueBits |= QS_MOUSEMOVE;
+         Window->MessageQueue->ChangedBits |= QS_MOUSEMOVE;
+         if (Window->MessageQueue->WakeMask & QS_MOUSEMOVE)
+            KeSetEvent(Window->MessageQueue->NewMessages, IO_NO_INCREMENT, FALSE);
       }
       else
       {
-         CaptureWindow->MessageQueue->QueueBits |= QS_MOUSEBUTTON;
-         CaptureWindow->MessageQueue->ChangedBits |= QS_MOUSEBUTTON;
-         if (CaptureWindow->MessageQueue->WakeMask & QS_MOUSEBUTTON)
-            KeSetEvent(CaptureWindow->MessageQueue->NewMessages, IO_NO_INCREMENT, FALSE);
+         Window->MessageQueue->QueueBits |= QS_MOUSEBUTTON;
+         Window->MessageQueue->ChangedBits |= QS_MOUSEBUTTON;
+         if (Window->MessageQueue->WakeMask & QS_MOUSEBUTTON)
+            KeSetEvent(Window->MessageQueue->NewMessages, IO_NO_INCREMENT, FALSE);
       }
-      IntUnLockHardwareMessageQueue(CaptureWindow->MessageQueue);
+      IntUnLockHardwareMessageQueue(Window->MessageQueue);
 
       *Freed = FALSE;
-      UserDereferenceObject(CaptureWindow);
+      UserDereferenceObject(Window);
       return(FALSE);
    }
 
@@ -462,7 +422,7 @@ co_MsqTranslateMouseMessage(PUSER_MESSAGE_QUEUE MessageQueue, PWINDOW_OBJECT Win
 
    *ScreenPoint = Message->Msg.pt;
 
-   if((Window != NULL && (int)Window != 1 && CaptureWindow->hSelf != Window->hSelf) ||
+   if((hWnd != NULL && Window->hSelf != hWnd) ||
          ((FilterLow != 0 || FilterHigh != 0) && (Msg < FilterLow || Msg > FilterHigh)))
    {
       /* Reject the message because it doesn't match the filter */
@@ -472,21 +432,21 @@ co_MsqTranslateMouseMessage(PUSER_MESSAGE_QUEUE MessageQueue, PWINDOW_OBJECT Win
          /* Lock the message queue so no other thread can mess with it.
             Our own message queue is not locked while fetching from the global
             queue, so we have to make sure nothing interferes! */
-         IntLockHardwareMessageQueue(CaptureWindow->MessageQueue);
+         IntLockHardwareMessageQueue(Window->MessageQueue);
          /* if we're from the global queue, we need to add our message to our
             private queue so we don't loose it! */
-         InsertTailList(&CaptureWindow->MessageQueue->HardwareMessagesListHead,
+         InsertTailList(&Window->MessageQueue->HardwareMessagesListHead,
                         &Message->ListEntry);
       }
 
       if (Message->Msg.message == WM_MOUSEMOVE)
       {
-         if(CaptureWindow->MessageQueue->MouseMoveMsg &&
-               (CaptureWindow->MessageQueue->MouseMoveMsg != Message))
+         if(Window->MessageQueue->MouseMoveMsg &&
+               (Window->MessageQueue->MouseMoveMsg != Message))
          {
             /* delete the old message */
-            RemoveEntryList(&CaptureWindow->MessageQueue->MouseMoveMsg->ListEntry);
-            ExFreePool(CaptureWindow->MessageQueue->MouseMoveMsg);
+            RemoveEntryList(&Window->MessageQueue->MouseMoveMsg->ListEntry);
+            ExFreePool(Window->MessageQueue->MouseMoveMsg);
             if (!FromGlobalQueue)
             {
                // We might have deleted the next one in our queue, so fix next
@@ -495,20 +455,20 @@ co_MsqTranslateMouseMessage(PUSER_MESSAGE_QUEUE MessageQueue, PWINDOW_OBJECT Win
          }
          /* always save a pointer to this WM_MOUSEMOVE message here because we're
             sure that the message is in the private queue */
-         CaptureWindow->MessageQueue->MouseMoveMsg = Message;
+         Window->MessageQueue->MouseMoveMsg = Message;
       }
       if(FromGlobalQueue)
       {
-         IntUnLockHardwareMessageQueue(CaptureWindow->MessageQueue);
+         IntUnLockHardwareMessageQueue(Window->MessageQueue);
       }
 
-      UserDereferenceObject(CaptureWindow);
+      UserDereferenceObject(Window);
       *Freed = FALSE;
       return(FALSE);
    }
 
    /* FIXME - only assign if removing? */
-   Message->Msg.hwnd = CaptureWindow->hSelf;
+   Message->Msg.hwnd = Window->hSelf;
    Message->Msg.message = Msg;
    Message->Msg.lParam = MAKELONG(Message->Msg.pt.x, Message->Msg.pt.y);
 
@@ -522,32 +482,32 @@ co_MsqTranslateMouseMessage(PUSER_MESSAGE_QUEUE MessageQueue, PWINDOW_OBJECT Win
          /* Lock the message queue so no other thread can mess with it.
             Our own message queue is not locked while fetching from the global
             queue, so we have to make sure nothing interferes! */
-         IntLockHardwareMessageQueue(CaptureWindow->MessageQueue);
-         if(CaptureWindow->MessageQueue->MouseMoveMsg)
+         IntLockHardwareMessageQueue(Window->MessageQueue);
+         if(Window->MessageQueue->MouseMoveMsg)
          {
             /* delete the WM_(NC)MOUSEMOVE message in the private queue, we're dealing
                with one that's been sent later */
-            RemoveEntryList(&CaptureWindow->MessageQueue->MouseMoveMsg->ListEntry);
-            ExFreePool(CaptureWindow->MessageQueue->MouseMoveMsg);
+            RemoveEntryList(&Window->MessageQueue->MouseMoveMsg->ListEntry);
+            ExFreePool(Window->MessageQueue->MouseMoveMsg);
             /* our message is not in the private queue so we can remove the pointer
                instead of setting it to the current message we're processing */
-            CaptureWindow->MessageQueue->MouseMoveMsg = NULL;
+            Window->MessageQueue->MouseMoveMsg = NULL;
          }
-         IntUnLockHardwareMessageQueue(CaptureWindow->MessageQueue);
+         IntUnLockHardwareMessageQueue(Window->MessageQueue);
       }
-      else if (CaptureWindow->MessageQueue->MouseMoveMsg == Message)
+      else if(Window->MessageQueue->MouseMoveMsg == Message)
       {
-         CaptureWindow->MessageQueue->MouseMoveMsg = NULL;
+         Window->MessageQueue->MouseMoveMsg = NULL;
       }
    }
 
-   UserDereferenceObject(CaptureWindow);
+   UserDereferenceObject(Window);
    *Freed = FALSE;
    return(TRUE);
 }
 
 BOOL APIENTRY
-co_MsqPeekHardwareMessage(PUSER_MESSAGE_QUEUE MessageQueue, PWINDOW_OBJECT Window,
+co_MsqPeekHardwareMessage(PUSER_MESSAGE_QUEUE MessageQueue, HWND hWnd,
                           UINT FilterLow, UINT FilterHigh, BOOL Remove,
                           PUSER_MESSAGE* Message)
 {
@@ -574,6 +534,11 @@ co_MsqPeekHardwareMessage(PUSER_MESSAGE_QUEUE MessageQueue, PWINDOW_OBJECT Windo
                                             UserMode, FALSE, NULL, NULL);
 
       UserEnterCo();
+
+      while (co_MsqDispatchOneSentMessage(MessageQueue))
+      {
+         ;
+      }
    }
    while (NT_SUCCESS(WaitStatus) && STATUS_WAIT_0 != WaitStatus);
 
@@ -582,7 +547,7 @@ co_MsqPeekHardwareMessage(PUSER_MESSAGE_QUEUE MessageQueue, PWINDOW_OBJECT Windo
    if (DesktopWindow)
    {
        UserRefObjectCo(DesktopWindow, &Ref);//can DesktopWindow be NULL?
-       Desk = DesktopWindow->ti->pDeskInfo;
+       Desk = DesktopWindow->ti->Desktop;
    }
 
    /* Process messages in the message queue itself. */
@@ -598,7 +563,7 @@ co_MsqPeekHardwareMessage(PUSER_MESSAGE_QUEUE MessageQueue, PWINDOW_OBJECT Windo
       {
 
 
-         Accept = co_MsqTranslateMouseMessage(MessageQueue, Window, FilterLow, FilterHigh,
+         Accept = co_MsqTranslateMouseMessage(MessageQueue, hWnd, FilterLow, FilterHigh,
                                               Current, Remove, &Freed,
                                               DesktopWindow, &ScreenPoint, FALSE, &CurrentEntry);
          if (Accept)
@@ -698,7 +663,7 @@ co_MsqPeekHardwareMessage(PUSER_MESSAGE_QUEUE MessageQueue, PWINDOW_OBJECT Windo
       {
          const ULONG ActiveStamp = HardwareMessageQueueStamp;
          /* Translate the message. */
-         Accept = co_MsqTranslateMouseMessage(MessageQueue, Window, FilterLow, FilterHigh,
+         Accept = co_MsqTranslateMouseMessage(MessageQueue, hWnd, FilterLow, FilterHigh,
                                               Current, Remove, &Freed,
                                               DesktopWindow, &ScreenPoint, TRUE, NULL);
          if (Accept)
@@ -1361,7 +1326,7 @@ BOOLEAN APIENTRY
 co_MsqFindMessage(IN PUSER_MESSAGE_QUEUE MessageQueue,
                   IN BOOLEAN Hardware,
                   IN BOOLEAN Remove,
-                  IN PWINDOW_OBJECT Window,
+                  IN HWND Wnd,
                   IN UINT MsgFilterLow,
                   IN UINT MsgFilterHigh,
                   OUT PUSER_MESSAGE* Message)
@@ -1372,7 +1337,7 @@ co_MsqFindMessage(IN PUSER_MESSAGE_QUEUE MessageQueue,
 
    if (Hardware)
    {
-      return(co_MsqPeekHardwareMessage(MessageQueue, Window,
+      return(co_MsqPeekHardwareMessage(MessageQueue, Wnd,
                                        MsgFilterLow, MsgFilterHigh,
                                        Remove, Message));
    }
@@ -1383,7 +1348,7 @@ co_MsqFindMessage(IN PUSER_MESSAGE_QUEUE MessageQueue,
    {
       CurrentMessage = CONTAINING_RECORD(CurrentEntry, USER_MESSAGE,
                                          ListEntry);
-      if ((!Window || (int)Window == 1 || Window->hSelf == CurrentMessage->Msg.hwnd) &&
+      if ((Wnd == 0 || Wnd == CurrentMessage->Msg.hwnd) &&
             ((MsgFilterLow == 0 && MsgFilterHigh == 0) ||
              (MsgFilterLow <= CurrentMessage->Msg.message &&
               MsgFilterHigh >= CurrentMessage->Msg.message)))
@@ -1403,7 +1368,7 @@ co_MsqFindMessage(IN PUSER_MESSAGE_QUEUE MessageQueue,
 }
 
 NTSTATUS FASTCALL
-co_MsqWaitForNewMessages(PUSER_MESSAGE_QUEUE MessageQueue, PWINDOW_OBJECT WndFilter,
+co_MsqWaitForNewMessages(PUSER_MESSAGE_QUEUE MessageQueue, HWND WndFilter,
                          UINT MsgFilterMin, UINT MsgFilterMax)
 {
    PVOID WaitObjects[2] = {MessageQueue->NewMessages, &HardwareMessageEvent};
@@ -1596,7 +1561,7 @@ MsqCreateMessageQueue(struct _ETHREAD *Thread)
 {
    PUSER_MESSAGE_QUEUE MessageQueue;
 
-   MessageQueue = (PUSER_MESSAGE_QUEUE)ExAllocatePoolWithTag(NonPagedPool,
+   MessageQueue = (PUSER_MESSAGE_QUEUE)ExAllocatePoolWithTag(PagedPool,
                   sizeof(USER_MESSAGE_QUEUE) + sizeof(THRDCARETINFO),
                   TAG_MSGQ);
 
@@ -1868,7 +1833,7 @@ MsqKillTimer(PUSER_MESSAGE_QUEUE MessageQueue, HWND Wnd,
 
 BOOLEAN FASTCALL
 MsqGetTimerMessage(PUSER_MESSAGE_QUEUE MessageQueue,
-                   PWINDOW_OBJECT WindowFilter, UINT MsgFilterMin, UINT MsgFilterMax,
+                   HWND WndFilter, UINT MsgFilterMin, UINT MsgFilterMax,
                    MSG *Msg, BOOLEAN Restart)
 {
    PTIMER_ENTRY Timer;
@@ -1892,7 +1857,7 @@ MsqGetTimerMessage(PUSER_MESSAGE_QUEUE MessageQueue,
       DPRINT("Checking timer %p wnd %x expiry %I64d\n", Timer, Timer->Wnd,
              Timer->ExpiryTime.QuadPart);
       EnumEntry = EnumEntry->Flink;
-      if ((NULL == WindowFilter || Timer->Wnd == WindowFilter->hSelf) &&
+      if ((NULL == WndFilter || Timer->Wnd == WndFilter) &&
             ((MsgFilterMin == 0 && MsgFilterMax == 0) ||
              (MsgFilterMin <= Timer->Msg &&
               Timer->Msg <= MsgFilterMax)))
@@ -1912,7 +1877,7 @@ MsqGetTimerMessage(PUSER_MESSAGE_QUEUE MessageQueue,
       else
       {
          DPRINT("timer %p (wnd %x msg %d) failed filter wnd %x msgmin %d msgmax %d\n",
-                Timer, Timer->Wnd, Timer->Msg, WindowFilter->hSelf, MsgFilterMin, MsgFilterMax);
+                Timer, Timer->Wnd, Timer->Msg, WndFilter, MsgFilterMin, MsgFilterMax);
       }
    }
 
@@ -1982,7 +1947,7 @@ MsqRemoveTimersWindow(PUSER_MESSAGE_QUEUE MessageQueue, HWND Wnd)
 
 BOOLEAN FASTCALL
 MsqGetFirstTimerExpiry(PUSER_MESSAGE_QUEUE MessageQueue,
-                       PWINDOW_OBJECT WndFilter, UINT MsgFilterMin, UINT MsgFilterMax,
+                       HWND WndFilter, UINT MsgFilterMin, UINT MsgFilterMax,
                        PLARGE_INTEGER FirstTimerExpiry)
 {
    PTIMER_ENTRY Timer;
@@ -1997,7 +1962,7 @@ MsqGetFirstTimerExpiry(PUSER_MESSAGE_QUEUE MessageQueue,
       Timer = CONTAINING_RECORD(MessageQueue->TimerListHead.Flink,
                                 TIMER_ENTRY, ListEntry);
       EnumEntry = EnumEntry->Flink;
-      if ((NULL == WndFilter || (int)WndFilter == 1 || Timer->Wnd == WndFilter->hSelf) &&
+      if ((NULL == WndFilter || Timer->Wnd == WndFilter) &&
             ((MsgFilterMin == 0 && MsgFilterMax == 0) ||
              (MsgFilterMin <= Timer->Msg &&
               Timer->Msg <= MsgFilterMax)))

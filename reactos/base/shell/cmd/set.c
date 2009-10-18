@@ -106,9 +106,7 @@ INT cmd_set (LPTSTR param)
 	/* the /A does *NOT* have to be followed by a whitespace */
 	if ( !_tcsnicmp (param, _T("/A"), 2) )
 	{
-		BOOL Success;
-		StripQuotes(param);
-		Success = seta_eval ( skip_ws(param+2) );
+		BOOL Success = seta_eval ( skip_ws(param+2) );
 		if(!Success)
 		{
 			/*might seem random but this is what windows xp does */
@@ -232,7 +230,7 @@ seta_identval ( LPCTSTR ident, INT* result )
 		*result = 0;
 		return FALSE;
 	}
-	*result = _tcstol ( identVal, NULL, 0 );
+	*result = _ttoi ( identVal );
 	return TRUE;
 }
 
@@ -285,16 +283,18 @@ seta_unaryTerm ( LPCTSTR* p_, INT* result )
 		p = skip_ws ( p + 1 );
 		if ( !seta_stmt ( &p, &rval ) )
 			return FALSE;
-		if ( *p++ != _T(')') )
+		if ( *p != _T(')') )
 		{
 			ConErrResPuts ( STRING_EXPECTED_CLOSE_PAREN );
 			return FALSE;
 		}
 		*result = rval;
+		p = skip_ws ( p + 1 );
 	}
 	else if ( isdigit(*p) )
 	{
-		*result = _tcstol ( p, (LPTSTR *)&p, 0 );
+		*result = _ttoi ( p );
+		p = skip_ws ( p + _tcsspn ( p, _T("1234567890") ) );
 	}
 	else if ( __iscsymf(*p) )
 	{
@@ -309,7 +309,7 @@ seta_unaryTerm ( LPCTSTR* p_, INT* result )
 		ConErrResPuts ( STRING_EXPECTED_NUMBER_OR_VARIABLE );
 		return FALSE;
 	}
-	*p_ = skip_ws ( p );
+	*p_ = p;
 	return TRUE;
 }
 
@@ -447,7 +447,6 @@ seta_assignment ( LPCTSTR* p_, INT* result )
 	PARSE_IDENT(ident,identlen,p);
 	if ( identlen )
 	{
-		p = skip_ws(p);
 		if ( *p == _T('=') )
 			op = *p, p = skip_ws(p+1);
 		else if ( _tcschr ( _T("*/%+-&^|"), *p ) && p[1] == _T('=') )
@@ -532,8 +531,7 @@ seta_eval ( LPCTSTR p )
 	}
 	if ( !seta_stmt ( &p, &rval ) )
 		return FALSE;
-	if ( !bc )
-		ConOutPrintf ( _T("%i"), rval );
+	ConOutPrintf ( _T("%i"), rval );
 	return TRUE;
 }
 

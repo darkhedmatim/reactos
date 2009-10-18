@@ -294,7 +294,7 @@ static void test_GetTimeZoneInformation(void)
 
     if (!pSystemTimeToTzSpecificLocalTime)
     {
-        win_skip("SystemTimeToTzSpecificLocalTime not available\n");
+        skip("SystemTimeToTzSpecificLocalTime not present\n");
         return;
     }
 
@@ -305,7 +305,7 @@ static void test_GetTimeZoneInformation(void)
     res = pSystemTimeToTzSpecificLocalTime(&tzinfo, &utc, &current);
     if (!res && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
     {
-        win_skip("SystemTimeToTzSpecificLocalTime is not implemented\n");
+        skip("SystemTimeToTzSpecificLocalTime is not implemented\n");
         return;
     }
 
@@ -425,7 +425,7 @@ static void test_TzSpecificLocalTimeToSystemTime(void)
 
     if (!pTzSpecificLocalTimeToSystemTime || !pSystemTimeToTzSpecificLocalTime)
     {
-        win_skip("TzSpecificLocalTimeToSystemTime or SystemTimeToTzSpecificLocalTime not available\n");
+        skip("TzSpecificLocalTimeToSystemTime or SystemTimeToTzSpecificLocalTime not present\n");
         return;
     }
 

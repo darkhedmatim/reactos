@@ -1409,17 +1409,6 @@ HKEY WINAPI SetupDiCreateDevRegKeyW(
 {
     struct DeviceInfoSet *set = (struct DeviceInfoSet *)DeviceInfoSet;
     HKEY key = INVALID_HANDLE_VALUE;
-    LPWSTR lpGuidString = NULL;
-    LPWSTR DriverKey = NULL; /* {GUID}\Index */
-    LPWSTR pDeviceInstance; /* Points into DriverKey, on the Index field */
-    DWORD Index; /* Index used in the DriverKey name */
-    DWORD rc;
-    HKEY hHWProfileKey = INVALID_HANDLE_VALUE;
-    HKEY hEnumKey = NULL;
-    HKEY hClassKey = NULL;
-    HKEY hDeviceKey = INVALID_HANDLE_VALUE;
-    HKEY hKey = NULL;
-    HKEY RootKey;
 
     TRACE("%p %p %lu %lu %lu %p %s\n", DeviceInfoSet, DeviceInfoData, Scope,
             HwProfile, KeyType, InfHandle, debugstr_w(InfSectionName));
@@ -1460,6 +1449,18 @@ HKEY WINAPI SetupDiCreateDevRegKeyW(
         SetLastError(ERROR_INVALID_PARAMETER);
         return INVALID_HANDLE_VALUE;
     }
+
+        LPWSTR lpGuidString = NULL;
+        LPWSTR DriverKey = NULL; /* {GUID}\Index */
+        LPWSTR pDeviceInstance; /* Points into DriverKey, on the Index field */
+        DWORD Index; /* Index used in the DriverKey name */
+        DWORD rc;
+        HKEY hHWProfileKey = INVALID_HANDLE_VALUE;
+        HKEY hEnumKey = NULL;
+        HKEY hClassKey = NULL;
+        HKEY hDeviceKey = INVALID_HANDLE_VALUE;
+        HKEY hKey = NULL;
+        HKEY RootKey;
 
         if (Scope == DICS_FLAG_GLOBAL)
             RootKey = set->HKLM;
@@ -1669,7 +1670,6 @@ BOOL WINAPI SetupDiCreateDeviceInfoW(
 {
     struct DeviceInfoSet *set = (struct DeviceInfoSet *)DeviceInfoSet;
     BOOL ret = FALSE;
-    SP_DEVINFO_DATA DevInfo;
 
     TRACE("%p %s %s %s %p %x %p\n", DeviceInfoSet, debugstr_w(DeviceName),
         debugstr_guid(ClassGuid), debugstr_w(DeviceDescription),
@@ -1707,6 +1707,8 @@ BOOL WINAPI SetupDiCreateDeviceInfoW(
         SetLastError(ERROR_INVALID_FLAGS);
         return FALSE;
     }
+
+        SP_DEVINFO_DATA DevInfo;
 
         if (CreationFlags & DICD_GENERATE_ID)
         {
@@ -2312,6 +2314,12 @@ HDEVINFO WINAPI SetupDiGetClassDevsW(
 /***********************************************************************
  *              SetupDiGetClassDevsExW (SETUPAPI.@)
  */
+LONG
+SETUP_CreateDevicesList(
+    IN OUT struct DeviceInfoSet *list,
+    IN PCWSTR MachineName OPTIONAL,
+    IN CONST GUID *Class OPTIONAL,
+    IN PCWSTR Enumerator OPTIONAL);
 HDEVINFO WINAPI SetupDiGetClassDevsExW(
         CONST GUID *class,
         PCWSTR enumstr,
@@ -3365,12 +3373,7 @@ SetupDiInstallClassExA(
     PWSTR InfFileNameW = NULL;
     BOOL Result;
 
-    if (!InfFileName)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-    else
+    if (InfFileName)
     {
         InfFileNameW = MultiByteToUnicode(InfFileName, CP_ACP);
         if (InfFileNameW == NULL)
@@ -3558,7 +3561,7 @@ HKEY WINAPI SetupDiOpenClassRegKeyExW(
     else
     {
         ERR("Invalid Flags parameter!\n");
-        SetLastError(ERROR_INVALID_FLAGS);
+        SetLastError(ERROR_INVALID_PARAMETER);
         if (MachineName != NULL) RegCloseKey(HKLM);
         return INVALID_HANDLE_VALUE;
     }
@@ -3571,7 +3574,7 @@ HKEY WINAPI SetupDiOpenClassRegKeyExW(
                           samDesired,
                           &hClassesKey)))
         {
-            SetLastError(ERROR_INVALID_CLASS);
+            SetLastError(l);
             hClassesKey = INVALID_HANDLE_VALUE;
         }
         if (MachineName != NULL)
@@ -4135,19 +4138,8 @@ SetupDiGetDeviceInstallParamsW(
             Source = &((struct DeviceInfo *)DeviceInfoData->Reserved)->InstallParams;
         else
             Source = &list->InstallParams;
-
+        memcpy(DeviceInstallParams, Source, Source->cbSize);
         ret = TRUE;
-
-        _SEH2_TRY
-        {
-            memcpy(DeviceInstallParams, Source, Source->cbSize);
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            SetLastError(RtlNtStatusToDosError(_SEH2_GetExceptionCode()));
-            ret = FALSE;
-        }
-        _SEH2_END;
     }
 
     TRACE("Returning %d\n", ret);
@@ -4645,18 +4637,21 @@ ResetDevice(
     IN PSP_DEVINFO_DATA DeviceInfoData)
 {
 #ifndef __WINESRC__
-    struct DeviceInfoSet *set = (struct DeviceInfoSet *)DeviceInfoSet;
+    PLUGPLAY_CONTROL_RESET_DEVICE_DATA ResetDeviceData;
     struct DeviceInfo *deviceInfo = (struct DeviceInfo *)DeviceInfoData->Reserved;
-    CONFIGRET cr;
+    NTSTATUS Status;
 
-    cr = CM_Enable_DevNode_Ex(deviceInfo->dnDevInst, 0, set->hMachine);
-    if (cr != CR_SUCCESS)
+    if (((struct DeviceInfoSet *)DeviceInfoSet)->HKLM != HKEY_LOCAL_MACHINE)
     {
-        SetLastError(GetErrorCodeFromCrCode(cr));
+        /* At the moment, I only know how to start local devices */
+        SetLastError(ERROR_INVALID_COMPUTERNAME);
         return FALSE;
     }
 
-    return TRUE;
+    RtlInitUnicodeString(&ResetDeviceData.DeviceInstance, deviceInfo->instanceId);
+    Status = NtPlugPlayControl(PlugPlayControlResetDevice, &ResetDeviceData, sizeof(PLUGPLAY_CONTROL_RESET_DEVICE_DATA));
+    SetLastError(RtlNtStatusToDosError(Status));
+    return NT_SUCCESS(Status);
 #else
     FIXME("Stub: ResetDevice(%p %p)\n", DeviceInfoSet, DeviceInfoData);
     return TRUE;
@@ -5340,7 +5335,7 @@ HKEY WINAPI SetupDiOpenDevRegKey(
        DWORD KeyType,
        REGSAM samDesired)
 {
-    struct DeviceInfoSet *set = DeviceInfoSet;
+    struct DeviceInfoSet *set = (struct DeviceInfoSet *)DeviceInfoSet;
     struct DeviceInfo *devInfo;
     HKEY key = INVALID_HANDLE_VALUE;
     HKEY RootKey;

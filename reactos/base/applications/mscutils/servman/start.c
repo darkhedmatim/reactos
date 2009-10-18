@@ -3,7 +3,7 @@
  * LICENSE:     GPL - See COPYING in the top level directory
  * FILE:        base/applications/mscutils/servman/start.c
  * PURPOSE:     Start a service
- * COPYRIGHT:   Copyright 2005-2009 Ged Murphy <gedmurphy@reactos.org>
+ * COPYRIGHT:   Copyright 2005-2007 Ged Murphy <gedmurphy@reactos.org>
  *
  */
 
@@ -14,100 +14,102 @@ DoStartService(PMAIN_WND_INFO Info,
                HWND hProgDlg)
 {
     SC_HANDLE hSCManager;
-    SC_HANDLE hService;
+    SC_HANDLE hSc;
     SERVICE_STATUS_PROCESS ServiceStatus;
     DWORD BytesNeeded = 0;
-    DWORD dwStartTickCount;
-    DWORD dwOldCheckPoint;
-    DWORD dwWaitTime;
-    DWORD dwMaxWait;
     BOOL bRet = FALSE;
+    BOOL bDispErr = TRUE;
 
     hSCManager = OpenSCManager(NULL,
                                NULL,
                                SC_MANAGER_ALL_ACCESS);
-    if (!hSCManager)
+    if (hSCManager != NULL)
     {
-        return FALSE;
-    }
-
-    hService = OpenService(hSCManager,
-                           Info->pCurrentService->lpServiceName,
-                           SERVICE_START | SERVICE_QUERY_STATUS);
-    if (hService)
-    {
-        bRet = StartService(hService,
-                            0,
-                            NULL);
-        if (!bRet && GetLastError() == ERROR_SERVICE_ALREADY_RUNNING)
+        hSc = OpenService(hSCManager,
+                          Info->pCurrentService->lpServiceName,
+                          SERVICE_ALL_ACCESS);
+        if (hSc != NULL)
         {
-            bRet = TRUE;
-        }
-        else if (bRet)
-        {
-            bRet = FALSE;
-
-            if (QueryServiceStatusEx(hService,
-                                     SC_STATUS_PROCESS_INFO,
-                                     (LPBYTE)&ServiceStatus,
-                                     sizeof(SERVICE_STATUS_PROCESS),
-                                     &BytesNeeded))
+            if (StartService(hSc,
+                              0,
+                              NULL))
             {
-                dwStartTickCount = GetTickCount();
-                dwOldCheckPoint = ServiceStatus.dwCheckPoint;
-                dwMaxWait = 30000; // 30 secs
+                bDispErr = FALSE;
 
-                while (ServiceStatus.dwCurrentState != SERVICE_RUNNING)
+                if (QueryServiceStatusEx(hSc,
+                                         SC_STATUS_PROCESS_INFO,
+                                         (LPBYTE)&ServiceStatus,
+                                         sizeof(SERVICE_STATUS_PROCESS),
+                                         &BytesNeeded))
                 {
-                    dwWaitTime = ServiceStatus.dwWaitHint / 10;
+                    DWORD dwStartTickCount = GetTickCount();
+                    DWORD dwOldCheckPoint = ServiceStatus.dwCheckPoint;
+                    DWORD dwMaxWait = 2000 * 60; // wait for 2 mins
 
-                    if (!QueryServiceStatusEx(hService,
-                                              SC_STATUS_PROCESS_INFO,
-                                              (LPBYTE)&ServiceStatus,
-                                              sizeof(SERVICE_STATUS_PROCESS),
-                                              &BytesNeeded))
-                    {
-                        break;
-                    }
+                    IncrementProgressBar(hProgDlg);
 
-                    if (ServiceStatus.dwCheckPoint > dwOldCheckPoint)
+                    while (ServiceStatus.dwCurrentState != SERVICE_RUNNING)
                     {
-                        /* The service is making progress*/
-                        dwStartTickCount = GetTickCount();
-                        dwOldCheckPoint = ServiceStatus.dwCheckPoint;
-                    }
-                    else
-                    {
-                        if (GetTickCount() >= dwStartTickCount + dwMaxWait)
+                        DWORD dwWaitTime = ServiceStatus.dwWaitHint / 10;
+
+                        if (!QueryServiceStatusEx(hSc,
+                                                  SC_STATUS_PROCESS_INFO,
+                                                  (LPBYTE)&ServiceStatus,
+                                                  sizeof(SERVICE_STATUS_PROCESS),
+                                                  &BytesNeeded))
                         {
-                            /* We exceeded our max wait time, give up */
                             break;
                         }
+
+                        if (ServiceStatus.dwCheckPoint > dwOldCheckPoint)
+                        {
+                            /* The service is making progress, increment the progress bar */
+                            IncrementProgressBar(hProgDlg);
+                            dwStartTickCount = GetTickCount();
+                            dwOldCheckPoint = ServiceStatus.dwCheckPoint;
+                        }
+                        else
+                        {
+                            if(GetTickCount() >= dwStartTickCount + dwMaxWait)
+                            {
+                                /* give up */
+                                break;
+                            }
+                        }
+
+                        if(dwWaitTime < 200)
+                            dwWaitTime = 200;
+                        else if (dwWaitTime > 10000)
+                            dwWaitTime = 10000;
+
+                        Sleep(dwWaitTime);
                     }
-
-                    if (dwWaitTime < 200)
-                        dwWaitTime = 200;
-                    else if (dwWaitTime > 10000)
-                        dwWaitTime = 10000;
-
-                    Sleep(dwWaitTime);
-                }
-
-                if (ServiceStatus.dwCurrentState == SERVICE_RUNNING)
-                {
-                    bRet = TRUE;
                 }
             }
+
+            CloseServiceHandle(hSc);
         }
 
-        CloseServiceHandle(hService);
+        CloseServiceHandle(hSCManager);
     }
 
-    CloseServiceHandle(hSCManager);
-
+    if (ServiceStatus.dwCurrentState == SERVICE_RUNNING)
+    {
+        CompleteProgressBar(hProgDlg);
+        Sleep(500);
+        bRet = TRUE;
+    }
+    else
+    {
+        if (bDispErr)
+            GetError();
+        else
+            DisplayString(_T("The service failed to start"));
+    }
 
     return bRet;
 }
+
 
 BOOL
 DoStart(PMAIN_WND_INFO Info)
@@ -126,20 +128,8 @@ DoStart(PMAIN_WND_INFO Info)
         bRet = DoStartService(Info,
                               hProgDlg);
 
-        if (bRet)
-        {
-            CompleteProgressBar(hProgDlg);
-            Sleep(500);
-            bRet = TRUE;
-        }
-        else
-        {
-            GetError();
-        }
-
         DestroyWindow(hProgDlg);
     }
 
     return bRet;
 }
-

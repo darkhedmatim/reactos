@@ -4,10 +4,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#ifndef _WIN64
 #pragma pack(push,1)
-#endif
 
 #define SAVE_DIALOG  1
 #define OPEN_DIALOG  2
@@ -37,7 +34,6 @@ extern "C" {
 #define CDN_HELP	(CDN_FIRST-4U)
 #define CDN_FILEOK	(CDN_FIRST-5U)
 #define CDN_TYPECHANGE	(CDN_FIRST-6U)
-#define CDN_INCLUDEITEM (CDN_FIRST-7U)
 #define CDM_FIRST	(WM_USER+100)
 #define CDM_LAST	(WM_USER+200)
 #define CDM_GETSPEC	CDM_FIRST
@@ -217,7 +213,7 @@ extern "C" {
 #define CommDlg_OpenSave_HideControl(d,i) ((void)SNDMSG((d),CDM_HIDECONTROL,(i),0))
 #define CommDlg_OpenSave_SetDefExt(d,e) ((void)SNDMSG((d),CDM_SETDEFEXT,0,(LPARAM)(e)))
 
-typedef UINT_PTR (APIENTRY *__CDHOOKPROC)(HWND,UINT,WPARAM,LPARAM);
+typedef UINT (APIENTRY *__CDHOOKPROC)(HWND,UINT,WPARAM,LPARAM);
 typedef __CDHOOKPROC LPCCHOOKPROC;
 typedef __CDHOOKPROC LPCFHOOKPROC;
 typedef __CDHOOKPROC LPFRHOOKPROC;
@@ -370,23 +366,6 @@ typedef struct _OFNOTIFYW {
 	LPOPENFILENAMEW lpOFN;
 	LPWSTR pszFile;
 } OFNOTIFYW,*LPOFNOTIFYW;
-
-typedef struct _OFNOTIFYEXA
-{
-    NMHDR hdr;
-    LPOPENFILENAMEA lpOFN;
-    LPVOID psf;
-    LPVOID pidl;
-} OFNOTIFYEXA, *LPOFNOTIFYEXA;
-
-typedef struct _OFNOTIFYEXW
-{
-        NMHDR hdr;
-        LPOPENFILENAMEW lpOFN;
-        LPVOID psf;
-        LPVOID pidl;
-} OFNOTIFYEXW, *LPOFNOTIFYEXW;
-
 typedef struct tagPSDA {
 	DWORD lStructSize;
 	HWND hwndOwner;
@@ -596,9 +575,7 @@ typedef PRINTDLGEXA PRINTDLGEX, *LPPRINTDLGEX;
 #define PrintDlgEx PrintDlgExA
 #endif /* WINVER >= 0x0500 */
 #endif /* UNICODE */
-#ifndef _WIN64
 #pragma pack(pop)
-#endif
 #ifdef __cplusplus
 }
 #endif

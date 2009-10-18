@@ -205,7 +205,7 @@ static void test_overlapped_buffers(void)
     int ret;
 
     SetLastError(0xdeadbeef);
-    memcpy(buf + 1, strW, sizeof(strW));
+    memcpy((WCHAR *)(buf + 1), strW, sizeof(strW));
     ret = WideCharToMultiByte(CP_ACP, 0, (WCHAR *)(buf + 1), -1, buf, sizeof(buf), NULL, NULL);
     ok(ret == sizeof(strA), "unexpected ret %d\n", ret);
     ok(!memcmp(buf, strA, sizeof(strA)), "conversion failed: %s\n", buf);
@@ -320,7 +320,7 @@ static void test_string_conversion(LPBOOL bUsedDefaultChar)
     SetLastError(0xdeadbeef);
     ret = WideCharToMultiByte(950, 0, dbwcs, -1, mbs, sizeof(mbs), NULL, bUsedDefaultChar);
     ok(ret == 5, "ret is %d\n", ret);
-    ok(!strcmp(mbs, "\xb5H\xa9\xd2"), "mbs is %s\n", mbs);
+    ok(!strcmp(mbs, "µH©Ò"), "mbs is %s\n", mbs);
     if(bUsedDefaultChar) ok(*bUsedDefaultChar == FALSE, "bUsedDefaultChar is %d\n", *bUsedDefaultChar);
     ok(GetLastError() == 0xdeadbeef, "GetLastError() is %u\n", GetLastError());
 
@@ -334,7 +334,7 @@ static void test_string_conversion(LPBOOL bUsedDefaultChar)
     SetLastError(0xdeadbeef);
     ret = WideCharToMultiByte(950, 0, dbwcs, 1, mbs, sizeof(mbs), NULL, bUsedDefaultChar);
     ok(ret == 2, "ret is %d\n", ret);
-    ok(!strcmp(mbs, "\xb5H"), "mbs is %s\n", mbs);
+    ok(!strcmp(mbs, "µH"), "mbs is %s\n", mbs);
     if(bUsedDefaultChar) ok(*bUsedDefaultChar == FALSE, "bUsedDefaultChar is %d\n", *bUsedDefaultChar);
     ok(GetLastError() == 0xdeadbeef, "GetLastError() is %u\n", GetLastError());
 

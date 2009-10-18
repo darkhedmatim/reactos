@@ -24,7 +24,12 @@
 #define _NTIFS_
 #define _GNU_NTIFS_
 
+#ifdef _NTOSKRNL_
+/* HACKHACKHACK!!! We shouldn't include this header from ntoskrnl! */
+#define NTKERNELAPI
+#else
 #define NTKERNELAPI DECLSPEC_IMPORT
+#endif
 
 #include <ntddk.h>
 
@@ -37,6 +42,10 @@ extern "C" {
 
 #ifndef VER_PRODUCTBUILD
 #define VER_PRODUCTBUILD 10000
+#endif
+
+#ifndef NTSYSAPI
+#define NTSYSAPI
 #endif
 
 #define EX_PUSH_LOCK ULONG_PTR
@@ -329,6 +338,8 @@ typedef enum _SECURITY_LOGON_TYPE
 
 #define MAILSLOT_SIZE_AUTO              0
 
+#define MAP_PROCESS                     1L
+#define MAP_SYSTEM                      2L
 #define MEM_DOS_LIM                     0x40000000
 
 #define MCB_FLAG_RAISE_ON_ALLOCATION_FAILURE 1
@@ -943,10 +954,10 @@ typedef struct _SECURITY_DESCRIPTOR_RELATIVE {
     UCHAR Revision;
     UCHAR Sbz1;
     SECURITY_DESCRIPTOR_CONTROL Control;
-    ULONG Owner;
-    ULONG Group;
-    ULONG Sacl;
-    ULONG Dacl;
+    DWORD_PTR Owner;
+    DWORD_PTR Group;
+    DWORD_PTR Sacl;
+    DWORD_PTR Dacl;
 } SECURITY_DESCRIPTOR_RELATIVE, *PISECURITY_DESCRIPTOR_RELATIVE;
 typedef enum _TOKEN_INFORMATION_CLASS {
 	TokenUser=1,TokenGroups,TokenPrivileges,TokenOwner,
@@ -1082,7 +1093,7 @@ typedef struct _FILE_FULL_DIRECTORY_INFORMATION {
     ULONG           FileAttributes;
     ULONG           FileNameLength;
     ULONG           EaSize;
-    WCHAR           FileName[ANYSIZE_ARRAY];
+    WCHAR           FileName[0];
 } FILE_FULL_DIRECTORY_INFORMATION, *PFILE_FULL_DIRECTORY_INFORMATION;
     
 typedef struct _FILE_ID_FULL_DIR_INFORMATION {
@@ -2376,7 +2387,7 @@ CcFlushCache (
     OUT PIO_STATUS_BLOCK        IoStatus OPTIONAL
 );
 
-typedef VOID (NTAPI *PDIRTY_PAGE_ROUTINE) (
+typedef VOID (*PDIRTY_PAGE_ROUTINE) (
     IN PFILE_OBJECT     FileObject,
     IN PLARGE_INTEGER   FileOffset,
     IN ULONG            Length,
@@ -3599,7 +3610,7 @@ FsRtlNotifyCleanup (
     IN PVOID        FsContext
 );
 
-typedef BOOLEAN (NTAPI *PCHECK_FOR_TRAVERSE_ACCESS) (
+typedef BOOLEAN (*PCHECK_FOR_TRAVERSE_ACCESS) (
     IN PVOID                        NotifyContext,
     IN PVOID                        TargetContext,
     IN PSECURITY_SUBJECT_CONTEXT    SubjectContext
@@ -3954,6 +3965,13 @@ FsRtlUninitializeOplock (
     IN OUT POPLOCK Oplock
 );
 
+NTHALAPI
+VOID
+NTAPI
+HalDisplayString (
+    IN PCHAR String
+);
+
 NTKERNELAPI
 UCHAR
 NTAPI
@@ -4064,32 +4082,6 @@ NTAPI
 IoGetBaseFileSystemDeviceObject (
     IN PFILE_OBJECT FileObject
 );
-
-#if (VER_PRODUCTBUILD >= 2600)
-
-NTKERNELAPI
-PDEVICE_OBJECT
-NTAPI
-IoGetDeviceAttachmentBaseRef (
-    IN PDEVICE_OBJECT DeviceObject
-);
-
-NTKERNELAPI
-NTSTATUS
-NTAPI
-IoGetDiskDeviceObject (
-    IN PDEVICE_OBJECT   FileSystemDeviceObject,
-    OUT PDEVICE_OBJECT  *DiskDeviceObject
-);
-
-NTKERNELAPI
-PDEVICE_OBJECT
-NTAPI
-IoGetLowerDeviceObject (
-    IN PDEVICE_OBJECT DeviceObject
-);
-
-#endif /* (VER_PRODUCTBUILD >= 2600) */
 
 NTKERNELAPI
 PEPROCESS
@@ -4759,7 +4751,7 @@ NTAPI
 RtlAllocateHeap (
     IN HANDLE  HeapHandle,
     IN ULONG   Flags,
-    IN SIZE_T   Size
+    IN ULONG   Size
 );
 
 NTSYSAPI
@@ -5520,7 +5512,7 @@ SeQuerySessionIdToken (
     ((PSECURITY_SUBJECT_CONTEXT) SubjectContext)->ClientToken :     \
     ((PSECURITY_SUBJECT_CONTEXT) SubjectContext)->PrimaryToken )
 
-typedef NTSTATUS (NTAPI *PSE_LOGON_SESSION_TERMINATED_ROUTINE) (
+typedef NTSTATUS (*PSE_LOGON_SESSION_TERMINATED_ROUTINE) (
     IN PLUID LogonId
 );
 

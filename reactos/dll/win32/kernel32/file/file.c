@@ -534,7 +534,7 @@ SetFilePointer(HANDLE hFile,
         *lpDistanceToMoveHigh = FilePosition.CurrentByteOffset.u.HighPart;
      }
 
-   if (FilePosition.CurrentByteOffset.u.LowPart == MAXDWORD)
+   if (FilePosition.CurrentByteOffset.u.LowPart == -1U)
      {
        /* The value of -1 is valid here, especially when the new
           file position is greater than 4 GB. Since NtSetInformationFile
@@ -996,9 +996,9 @@ GetFileAttributesA(LPCSTR lpFileName)
 {
    WIN32_FILE_ATTRIBUTE_DATA FileAttributeData;
    PWSTR FileNameW;
-   BOOL ret;
+	BOOL ret;
 
-   if (!lpFileName || !(FileNameW = FilenameA2W(lpFileName, FALSE)))
+   if (!(FileNameW = FilenameA2W(lpFileName, FALSE)))
       return INVALID_FILE_ATTRIBUTES;
 
    ret = GetFileAttributesExW(FileNameW, GetFileExInfoStandard, &FileAttributeData);

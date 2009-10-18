@@ -151,7 +151,7 @@ typedef struct fdi_cds_fwd {
 /****************************************************************
  * QTMupdatemodel (internal)
  */
-static void QTMupdatemodel(struct QTMmodel *model, int sym) {
+void QTMupdatemodel(struct QTMmodel *model, int sym) {
   struct QTMmodelsym temp;
   int i, j;
 
@@ -220,8 +220,7 @@ static void QTMupdatemodel(struct QTMmodel *model, int sym) {
  *   OK:    0
  *   error: 1
  */
-static int make_decode_table(cab_ULONG nsyms, cab_ULONG nbits,
-                             const cab_UBYTE *length, cab_UWORD *table) {
+int make_decode_table(cab_ULONG nsyms, cab_ULONG nbits, const cab_UBYTE *length, cab_UWORD *table) {
   register cab_UWORD sym;
   register cab_ULONG leaf;
   register cab_UBYTE bit_num = 1;
@@ -2260,7 +2259,7 @@ static int fdi_decomp(const struct fdi_file *fi, int savemode, fdi_decomp_state 
   return DECR_OK;
 }
 
-static void free_decompression_temps(HFDI hfdi, const struct fdi_folder *fol,
+static void free_decompression_temps(HFDI hfdi, struct fdi_folder *fol,
   fdi_decomp_state *decomp_state)
 {
   switch (fol->comp_type & cffoldCOMPTYPE_MASK) {

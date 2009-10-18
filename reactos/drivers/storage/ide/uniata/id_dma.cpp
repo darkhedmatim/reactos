@@ -53,7 +53,6 @@ static const CHAR retry_Udma[MAX_RETRIES+1] = {6, 2,-1,-1,-1,-1};
 PHYSICAL_ADDRESS ph4gb = {{0xFFFFFFFF, 0}};
 
 VOID
-NTAPI
 cyrix_timing (
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG dev,               // physical device number (0-3)
@@ -61,7 +60,6 @@ cyrix_timing (
     );
 
 VOID
-NTAPI
 promise_timing (
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG dev,               // physical device number (0-3)
@@ -69,7 +67,6 @@ promise_timing (
     );
 
 VOID
-NTAPI
 hpt_timing (
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG dev,               // physical device number (0-3)
@@ -77,7 +74,6 @@ hpt_timing (
     );
 
 VOID
-NTAPI
 via82c_timing (
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG dev,               // physical device number (0-3)
@@ -85,7 +81,6 @@ via82c_timing (
     );
 
 ULONG
-NTAPI
 hpt_cable80(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG channel            // physical channel number (0-1)
@@ -94,7 +89,6 @@ hpt_cable80(
 #define ATAPI_DEVICE(de, ldev)    (de->lun[ldev].DeviceFlags & DFLAGS_ATAPI_DEVICE)
 
 ULONG
-NTAPI
 AtapiVirtToPhysAddr_(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb,
@@ -130,7 +124,6 @@ AtapiVirtToPhysAddr_(
 } // end AtapiVirtToPhysAddr_()
 
 VOID
-NTAPI
 AtapiDmaAlloc(
     IN PVOID HwDeviceExtension,
     IN PPORT_CONFIGURATION_INFORMATION ConfigInfo,
@@ -211,7 +204,6 @@ err_1:
 } // end AtapiDmaAlloc()
 
 BOOLEAN
-NTAPI
 AtapiDmaSetup(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -360,7 +352,6 @@ retry_DB_IO:
 } // end AtapiDmaSetup()
 
 BOOLEAN
-NTAPI
 AtapiDmaPioSync(
     PVOID  HwDeviceExtension,
     PSCSI_REQUEST_BLOCK Srb,
@@ -425,7 +416,6 @@ AtapiDmaPioSync(
 } // end AtapiDmaPioSync()
 
 BOOLEAN
-NTAPI
 AtapiDmaDBSync(
     PHW_CHANNEL chan,
     PSCSI_REQUEST_BLOCK Srb
@@ -446,7 +436,6 @@ AtapiDmaDBSync(
 } // end AtapiDmaDBSync()
 
 VOID
-NTAPI
 AtapiDmaStart(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -539,7 +528,6 @@ AtapiDmaStart(
 } // end AtapiDmaStart()
 
 UCHAR
-NTAPI
 AtapiDmaDone(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -601,7 +589,6 @@ AtapiDmaDone(
 } // end AtapiDmaDone()
 
 VOID
-NTAPI
 AtapiDmaReinit(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG ldev,
@@ -684,7 +671,6 @@ limit_pio:
 } // end AtapiDmaReinit()
 
 VOID
-NTAPI
 AtapiDmaInit__(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG ldev
@@ -720,7 +706,6 @@ AtapiDmaInit__(
 } // end AtapiDmaInit__()
 
 BOOLEAN
-NTAPI
 AtaSetTransferMode(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG DeviceNumber,
@@ -764,7 +749,6 @@ AtaSetTransferMode(
 } // end AtaSetTransferMode()
 
 VOID
-NTAPI
 AtapiDmaInit(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -1812,7 +1796,6 @@ try_generic_dma:
 
 
 VOID
-NTAPI
 cyrix_timing(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG dev,               // physical device number (0-3)
@@ -1842,7 +1825,6 @@ cyrix_timing(
 } // cyrix_timing()
 
 VOID
-NTAPI
 promise_timing(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG dev,               // physical device number (0-3)
@@ -1906,7 +1888,6 @@ promise_timing(
 
 
 VOID
-NTAPI
 hpt_timing(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG dev,               // physical device number (0-3)
@@ -2051,7 +2032,6 @@ hpt_timing(
 #define FIT(v,min,max) (((v)>(max)?(max):(v))<(min)?(min):(v))
 
 VOID
-NTAPI
 via82c_timing(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG dev,               // physical device number (0-3)

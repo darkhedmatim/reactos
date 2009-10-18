@@ -102,7 +102,6 @@ AtapiResetController__(
     );
 
 VOID
-NTAPI
 AtapiHwInitialize__(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG lChannel
@@ -141,7 +140,6 @@ AtapiEnableInterrupts__(
     );
 
 VOID
-NTAPI
 AtapiQueueTimerDpc(
     IN PVOID HwDeviceExtension,
     IN ULONG lChannel,
@@ -160,7 +158,6 @@ AtapiAdapterControl(
 #endif //UNIATA_CORE
 
 BOOLEAN
-NTAPI
 AtapiCheckInterrupt__(
     IN PVOID HwDeviceExtension,
     IN UCHAR c
@@ -170,7 +167,6 @@ AtapiCheckInterrupt__(
 #ifndef UNIATA_CORE
 
 BOOLEAN
-NTAPI
 AtapiRegGetStringParameterValue(
     IN PWSTR RegistryPath,
     IN PWSTR Name,
@@ -493,10 +489,10 @@ WaitOnBusy(
 {
     ULONG i;
     UCHAR Status;
-    for (i=0; i<20000; i++) {
+    for (i=0; i<200; i++) {
         GetStatus(chan, Status);
         if (Status & IDE_STATUS_BUSY) {
-            AtapiStallExecution(150);
+            AtapiStallExecution(10);
             continue;
         } else {
             break;
@@ -537,10 +533,10 @@ WaitOnBaseBusy(
 {
     ULONG i;
     UCHAR Status;
-    for (i=0; i<20000; i++) {
+    for (i=0; i<200; i++) {
         GetBaseStatus(chan, Status);
         if (Status & IDE_STATUS_BUSY) {
-            AtapiStallExecution(150);
+            AtapiStallExecution(10);
             continue;
         } else {
             break;
@@ -640,11 +636,11 @@ WaitForDrq(
     for (i=0; i<1000; i++) {
         GetStatus(chan, Status);
         if (Status & IDE_STATUS_BUSY) {
-            AtapiStallExecution(100);
+            AtapiStallExecution(10);
         } else if (Status & IDE_STATUS_DRQ) {
             break;
         } else {
-            AtapiStallExecution(200);
+            AtapiStallExecution(10);
         }
     }
     return Status;
@@ -661,11 +657,11 @@ WaitShortForDrq(
     for (i=0; i<2; i++) {
         GetStatus(chan, Status);
         if (Status & IDE_STATUS_BUSY) {
-            AtapiStallExecution(100);
+            AtapiStallExecution(10);
         } else if (Status & IDE_STATUS_DRQ) {
             break;
         } else {
-            AtapiStallExecution(100);
+            AtapiStallExecution(10);
         }
     }
     return Status;
@@ -722,7 +718,6 @@ AtapiSoftReset(
     Translate to 48-Lba form if required
 */
 UCHAR
-NTAPI
 AtaCommand48(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG DeviceNumber,
@@ -901,7 +896,6 @@ AtaCommand48(
     This is simply wrapper for AtaCommand48()
 */
 UCHAR
-NTAPI
 AtaCommand(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG DeviceNumber,
@@ -922,7 +916,6 @@ AtaCommand(
 } // end AtaCommand()
 
 LONG
-NTAPI
 AtaPio2Mode(LONG pio)
 {
     switch (pio) {
@@ -937,7 +930,6 @@ AtaPio2Mode(LONG pio)
 } // end AtaPio2Mode()
 
 LONG
-NTAPI
 AtaPioMode(PIDENTIFY_DATA2 ident)
 {
     if (ident->PioTimingsValid) {
@@ -958,7 +950,6 @@ AtaPioMode(PIDENTIFY_DATA2 ident)
 } // end AtaPioMode()
 
 LONG
-NTAPI
 AtaWmode(PIDENTIFY_DATA2 ident)
 {
     if (ident->MultiWordDMASupport & 0x04)
@@ -971,7 +962,6 @@ AtaWmode(PIDENTIFY_DATA2 ident)
 } // end AtaWmode()
 
 LONG
-NTAPI
 AtaUmode(PIDENTIFY_DATA2 ident)
 {
     if (!ident->UdmaModesValid)
@@ -1077,7 +1067,6 @@ AtapiTimerDpc(
     cancels previous Dpc request (if any), but we need Dpc queue.
 */
 VOID
-NTAPI
 AtapiQueueTimerDpc(
     IN PVOID HwDeviceExtension,
     IN ULONG lChannel,
@@ -1139,7 +1128,6 @@ AtapiQueueTimerDpc(
 #endif //UNIATA_CORE
 
 VOID
-NTAPI
 UniataDumpATARegs(
     IN PHW_CHANNEL chan
     )
@@ -1187,7 +1175,6 @@ Return Value:
 
 --*/
 BOOLEAN
-NTAPI
 IssueIdentify(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -1782,7 +1769,6 @@ Return Value:
 
 --*/
 BOOLEAN
-NTAPI
 SetDriveParameters(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -1825,7 +1811,6 @@ SetDriveParameters(
 } // end SetDriveParameters()
 
 VOID
-NTAPI
 UniataForgetDevice(
     PHW_LU_EXTENSION   LunExt
     )
@@ -1860,7 +1845,6 @@ AtapiResetController(
 
 
 BOOLEAN
-NTAPI
 AtapiResetController__(
     IN PVOID HwDeviceExtension,
     IN ULONG PathId,
@@ -2209,7 +2193,6 @@ Return Value:
 
 --*/
 ULONG
-NTAPI
 MapError(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb
@@ -2621,7 +2604,6 @@ AtapiHwInitialize(
 } // end AtapiHwInitialize()
 
 VOID
-NTAPI
 AtapiHwInitialize__(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG lChannel
@@ -2844,7 +2826,6 @@ AtapiHwInitialize__(
 #ifndef UNIATA_CORE
 
 VOID
-NTAPI
 AtapiHwInitializeChanger(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb,
@@ -2879,7 +2860,6 @@ Return Values:
 
 --*/
 ULONG
-NTAPI
 AtapiParseArgumentString(
     IN PCCH String,
     IN PCCH KeyWord
@@ -3046,7 +3026,6 @@ ContinueSearch:
     Timer callback
 */
 VOID
-NTAPI
 AtapiCallBack__(
     IN PVOID HwDeviceExtension,
     IN UCHAR lChannel
@@ -3077,7 +3056,7 @@ AtapiCallBack__(
         goto ReturnCallback;
     }
 
-#if DBG
+#ifdef DBG
     if (!IS_RDP((srb->Cdb[0]))) {
         KdPrint2((PRINT_PREFIX "AtapiCallBack: Invalid CDB marked as RDP - %#x\n", srb->Cdb[0]));
     }
@@ -3176,7 +3155,6 @@ ReturnCallback:
 } // end AtapiCallBack__()
 
 VOID
-NTAPI
 AtapiCallBack_X(
     IN PVOID HwDeviceExtension
     )
@@ -3322,7 +3300,6 @@ AtapiInterrupt(
 #ifndef UNIATA_CORE
 
 BOOLEAN
-NTAPI
 AtapiInterrupt2(
     IN PKINTERRUPT Interrupt,
     IN PVOID Isr2HwDeviceExtension
@@ -3493,7 +3470,6 @@ AtapiEnableInterrupts__(
 
 
 VOID
-NTAPI
 AtapiEnableInterrupts(
     IN PVOID HwDeviceExtension,
     IN ULONG c
@@ -3516,7 +3492,6 @@ AtapiEnableInterrupts(
 } // end AtapiEnableInterrupts()
 
 VOID
-NTAPI
 AtapiDisableInterrupts(
     IN PVOID HwDeviceExtension,
     IN ULONG c
@@ -3542,7 +3517,6 @@ AtapiDisableInterrupts(
     Check hardware for interrupt state
  */
 BOOLEAN
-NTAPI
 AtapiCheckInterrupt__(
     IN PVOID HwDeviceExtension,
     IN UCHAR c // logical channel
@@ -3921,7 +3895,6 @@ skip_dma_stat_check:
 
 
 BOOLEAN
-NTAPI
 AtapiInterrupt__(
     IN PVOID HwDeviceExtension,
     IN UCHAR c
@@ -4305,7 +4278,7 @@ continue_err:
         for (k = atapiDev ? 0 : 200; k; k--) {
             GetStatus(chan, statusByte);
             if (!(statusByte & IDE_STATUS_DRQ)) {
-                AtapiStallExecution(100);
+                AtapiStallExecution(50);
             } else {
                 break;
             }
@@ -5308,7 +5281,6 @@ Return Value:
 
 --*/
 ULONG
-NTAPI
 IdeSendSmartCommand(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb
@@ -5422,7 +5394,6 @@ IdeSendSmartCommand(
 #endif //UNIATA_CORE
 
 ULONGLONG
-NTAPI
 UniAtaCalculateLBARegs(
     PHW_LU_EXTENSION     LunExt,
     ULONG                startingSector,
@@ -5432,8 +5403,6 @@ UniAtaCalculateLBARegs(
     UCHAR                drvSelect,sectorNumber;
     USHORT               cylinder;
     ULONG                tmp;
-
-    (*max_bcount) = 0;
 
     if(LunExt->DeviceFlags & DFLAGS_LBA_ENABLED) {
         if(LunExt->LimitedTransferMode >= ATA_DMA) {
@@ -5459,12 +5428,12 @@ UniAtaCalculateLBARegs(
         KdPrint2((PRINT_PREFIX "UniAtaCalculateLBARegs: C:H:S=%#x:%#x:%#x, max_bc %#x\n",
             cylinder, drvSelect, sectorNumber, (*max_bcount)));
     }
+        (*max_bcount) = 0;
 
     return (ULONG)(sectorNumber&0xff) | (((ULONG)cylinder&0xffff)<<8) | (((ULONG)drvSelect&0xf)<<24);
 } // end UniAtaCalculateLBARegs()
 
 ULONGLONG
-NTAPI
 UniAtaCalculateLBARegsBack(
     PHW_LU_EXTENSION     LunExt,
     ULONGLONG            lba
@@ -5509,7 +5478,6 @@ Return Value:
 
 --*/
 ULONG
-NTAPI
 IdeReadWrite(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb,
@@ -5768,7 +5736,6 @@ Return Value:
 
 --*/
 ULONG
-NTAPI
 IdeVerify(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb
@@ -5870,7 +5837,6 @@ Return Value:
 
 --*/
 ULONG
-NTAPI
 AtapiSendCommand(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb,
@@ -6365,7 +6331,7 @@ make_reset:
         InterlockedExchange(&(chan->CheckIntr),
                                       CHECK_INTR_IDLE);
 
-        //AtapiDisableInterrupts(deviceExtension, lChannel);
+        AtapiDisableInterrupts(deviceExtension, lChannel);
 
         // Write ATAPI packet command.
         AtapiWritePort1(chan, IDX_IO1_o_Command, IDE_COMMAND_ATAPI_PACKET);
@@ -6400,7 +6366,7 @@ make_reset:
 
     GetBaseStatus(chan, statusByte);
 
-    //AtapiEnableInterrupts(deviceExtension, lChannel);
+    AtapiEnableInterrupts(deviceExtension, lChannel);
 
     WriteBuffer(chan,
                 (PUSHORT)Srb->Cdb,
@@ -6443,7 +6409,6 @@ ULONG check_point = 0;
 #endif
 
 ULONG
-NTAPI
 IdeSendCommand(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb,
@@ -7038,7 +7003,6 @@ Arguments:
 
 --*/
 VOID
-NTAPI
 IdeMediaStatus(
     BOOLEAN EnableMSN,
     IN PVOID HwDeviceExtension,
@@ -7113,7 +7077,6 @@ Return Value:
 
 --*/
 ULONG
-NTAPI
 IdeBuildSenseBuffer(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb
@@ -7166,7 +7129,6 @@ IdeBuildSenseBuffer(
 }// End of IdeBuildSenseBuffer
 
 VOID
-NTAPI
 UniataUserDeviceReset(
     PHW_DEVICE_EXTENSION deviceExtension,
     PHW_LU_EXTENSION LunExt,
@@ -7190,7 +7152,6 @@ UniataUserDeviceReset(
 } // end UniataUserDeviceReset()
 
 BOOLEAN
-NTAPI
 UniataNeedQueueing(
     PHW_DEVICE_EXTENSION deviceExtension,
     PHW_CHANNEL          chan,
@@ -7253,7 +7214,6 @@ AtapiStartIo(
 } // end AtapiStartIo()
 
 BOOLEAN
-NTAPI
 AtapiStartIo__(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb,
@@ -8203,7 +8163,6 @@ complete_req:
 
 
 void
-NTAPI
 UniataInitAtaCommands()
 {
     int i;
@@ -8356,7 +8315,7 @@ DriverEntry(
     LARGE_INTEGER t0, t1;
 
     Connect_DbgPrint();
-    KdPrint2((PRINT_PREFIX "%s", (PCCHAR)ver_string));
+    KdPrint2((PRINT_PREFIX (PCCHAR)ver_string));
     a = (WCHAR)strlen(ver_string);
 
     g_opt_Verbose = (BOOLEAN)AtapiRegCheckDevValue(NULL, CHAN_NOT_SPECIFIED, DEVNUM_NOT_SPECIFIED, L"PrintLogo", 0);
@@ -8707,7 +8666,6 @@ DriverEntry(
 
 
 PSCSI_REQUEST_BLOCK
-NTAPI
 BuildMechanismStatusSrb(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb
@@ -8749,7 +8707,6 @@ BuildMechanismStatusSrb(
 #endif //UNIATA_CORE
 
 PSCSI_REQUEST_BLOCK
-NTAPI
 BuildRequestSenseSrb (
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb
@@ -8791,7 +8748,6 @@ BuildRequestSenseSrb (
 #ifndef UNIATA_CORE
 
 ULONG
-NTAPI
 AtapiRegCheckDevLunValue(
     IN PVOID HwDeviceExtension,
     IN PCWCH NamePrefix,
@@ -8821,7 +8777,6 @@ AtapiRegCheckDevLunValue(
 } // end AtapiRegCheckDevLunValue()
 
 ULONG
-NTAPI
 EncodeVendorStr(
    OUT PWCHAR Buffer,
     IN PUCHAR Str,
@@ -8861,7 +8816,6 @@ EncodeVendorStr(
 } // end EncodeVendorStr()
 
 ULONG
-NTAPI
 AtapiRegCheckDevValue(
     IN PVOID HwDeviceExtension,
     IN ULONG chan,
@@ -8982,7 +8936,6 @@ AtapiRegCheckDevValue(
     Returns:    Registry Key value
  */
 ULONG
-NTAPI
 AtapiRegCheckParameterValue(
     IN PVOID HwDeviceExtension,
     IN PCWSTR PathSuffix,

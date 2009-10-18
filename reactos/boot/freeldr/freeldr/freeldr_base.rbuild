@@ -7,14 +7,8 @@
 	<include base="ntoskrnl">include</include>
 	<define name="_NTHAL_" />
 	<define name="_NTSYSTEM_" />
-	<group compilerset="gcc">
-		<compilerflag>-fno-inline</compilerflag>
-		<compilerflag>-fno-zero-initialized-in-bss</compilerflag>
-	</group>
-	<directory name="arcemul">
-		<file>mm.c</file>
-		<file>time.c</file>
-	</directory>
+	<compilerflag>-fno-inline</compilerflag>
+	<compilerflag>-fno-zero-initialized-in-bss</compilerflag>
 	<directory name="cache">
 		<file>blocklist.c</file>
 		<file>cache.c</file>
@@ -31,6 +25,7 @@
 		<file>ext2.c</file>
 		<file>fat.c</file>
 		<file>fs.c</file>
+		<file>fsrec.c</file>
 		<file>iso.c</file>
 		<file>ntfs.c</file>
 	</directory>

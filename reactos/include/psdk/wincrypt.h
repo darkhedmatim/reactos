@@ -21,17 +21,12 @@
 #ifndef __WINE_WINCRYPT_H
 #define __WINE_WINCRYPT_H
 
-#include <bcrypt.h>
-/* FIXME: #include <ncrypt.h> */
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4201)
-#endif
+#include <bcrypt.h>
+/* FIXME: #include <ncrypt.h> */
 
 #ifdef _ADVAPI32_
 # define WINADVAPI
@@ -1046,7 +1041,6 @@ typedef struct _CERT_CHAIN_PARA {
     DWORD            dwUrlRetrievalTimeout;
     BOOL             fCheckRevocationFreshnessTime;
     DWORD            dwRevocationFreshnessTime;
-    LPFILETIME       pftCacheResync;
 #endif
 } CERT_CHAIN_PARA, *PCERT_CHAIN_PARA;
 
@@ -4451,10 +4445,6 @@ BOOL WINAPI CryptRetrieveObjectByUrlW(LPCWSTR pszURL, LPCSTR pszObjectOid,
  HCRYPTASYNC hAsyncRetrieve, PCRYPT_CREDENTIALS pCredentials, LPVOID pvVerify,
  PCRYPT_RETRIEVE_AUX_INFO pAuxInfo);
 #define CryptRetrieveObjectByUrl WINELIB_NAME_AW(CryptRetrieveObjectByUrl)
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 #ifdef __cplusplus
 }
