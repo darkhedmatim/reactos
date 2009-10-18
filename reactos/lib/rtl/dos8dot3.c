@@ -83,7 +83,7 @@ RtlGenerate8dot3Name(IN PUNICODE_STRING Name,
    DPRINT("StrLength: %lu\n", StrLength);
 
    /* Find last dot in Name */
-   DotPos = StrLength;
+   DotPos = 0;
    for (i = 0; i < StrLength; i++)
    {
       if (Name->Buffer[i] == L'.')
@@ -92,6 +92,10 @@ RtlGenerate8dot3Name(IN PUNICODE_STRING Name,
       }
    }
 
+   if (DotPos == 0)
+   {
+      DotPos = i;
+   }
    DPRINT("DotPos: %lu\n", DotPos);
 
    /* Copy name (6 valid characters max) */
@@ -158,6 +162,7 @@ RtlGenerate8dot3Name(IN PUNICODE_STRING Name,
          (Checksum == Context->Checksum) &&
          (Context->LastIndexValue < 999))
    {
+      CHECKPOINT;
       Context->LastIndexValue++;
       if (Context->CheckSumInserted == FALSE &&
             Context->LastIndexValue > 9)
@@ -169,6 +174,7 @@ RtlGenerate8dot3Name(IN PUNICODE_STRING Name,
    }
    else
    {
+      CHECKPOINT;
       Context->LastIndexValue = 1;
       Context->CheckSumInserted = FALSE;
    }
@@ -249,7 +255,7 @@ RtlIsNameLegalDOS8Dot3(IN PCUNICODE_STRING UnicodeName,
     if (RtlUpcaseUnicodeStringToCountedOemString( AnsiName, UnicodeName, FALSE ) != STATUS_SUCCESS)
         return FALSE;
 
-    if ((AnsiName->Length > 12) || (AnsiName->Buffer == NULL)) return FALSE;
+    if (AnsiName->Length > 12) return FALSE;
 
     /* a starting . is invalid, except for . and .. */
     if (AnsiName->Buffer[0] == '.')

@@ -36,7 +36,7 @@
  * 	that only care about gross token distinctions.
  * Major/minor numbers: Within their class, tokens have a major
  * 	number, and may also have a minor number to further
- * 	distinguish tokens with the same major number.
+ * 	distinquish tokens with the same major number.
  *
  *	*** Class, major and minor token numbers are all >= 0 ***
  *
@@ -182,9 +182,7 @@
 # define		rtfTOC			72
 # define		rtfNeXTGraphic		73
 # define		rtfGenerator		74
-# define		rtfNestTableProps	75
-# define		rtfNoNestTables		76
-# define		rtfMaxDestination	77	/* highest dest + 1 */
+# define		rtfMaxDestination	75	/* highest dest + 1 */
 
 # define	rtfFontFamily	4
 # define		rtfFFNil		0
@@ -263,8 +261,6 @@
 # define		rtfCurHeadPict		57	/* valid? */
 /*# define		rtfCurAnnot		58*/	/* apparently not used */
 # define		rtfUnicode		58	/* no better category*/
-# define		rtfNestCell		59
-# define		rtfNestRow		60
 
 # define	rtfStyleAttr	7
 # define		rtfAdditive		0	/* new in 1.10 */
@@ -555,7 +551,6 @@
 # define		rtfDarkDiagHatchBgPat	101
 # define		rtfBgPatLineColor	102
 # define		rtfBgPatColor		103
-# define		rtfNestLevel		104
 
 # define	rtfCharAttr	12
 # define		rtfPlain		0
@@ -602,24 +597,23 @@
 # define		rtfWinMetafile		2
 # define		rtfDevIndBitmap		3
 # define		rtfWinBitmap		4
-# define                rtfEmfBlip              5
-# define		rtfPixelBits		6
-# define		rtfBitmapPlanes		7
-# define		rtfBitmapWid		8
-# define		rtfPicWid		9
-# define		rtfPicHt		10
-# define		rtfPicGoalWid		11
-# define		rtfPicGoalHt		12
-# define		rtfPicScaleX		13
-# define		rtfPicScaleY		14
-# define		rtfPicScaled		15
-# define		rtfPicCropTop		16
-# define		rtfPicCropBottom	17
-# define		rtfPicCropLeft		18
-# define		rtfPicCropRight		19
-# define		rtfPicMFHasBitmap	20	/* new in 1.10 */
-# define		rtfPicMFBitsPerPixel	21	/* new in 1.10 */
-# define		rtfPicBinary		22
+# define		rtfPixelBits		5
+# define		rtfBitmapPlanes		6
+# define		rtfBitmapWid		7
+# define		rtfPicWid		8
+# define		rtfPicHt		9
+# define		rtfPicGoalWid		10
+# define		rtfPicGoalHt		11
+# define		rtfPicScaleX		12
+# define		rtfPicScaleY		13
+# define		rtfPicScaled		14
+# define		rtfPicCropTop		15
+# define		rtfPicCropBottom	16
+# define		rtfPicCropLeft		17
+# define		rtfPicCropRight		18
+# define		rtfPicMFHasBitmap	19	/* new in 1.10 */
+# define		rtfPicMFBitsPerPixel	20	/* new in 1.10 */
+# define		rtfPicBinary		21
 
 # define	rtfBookmarkAttr	14
 # define		rtfBookmarkFirstCol	0
@@ -950,9 +944,7 @@ typedef struct RTFFont		RTFFont;
 typedef struct RTFColor		RTFColor;
 typedef struct RTFStyle		RTFStyle;
 typedef struct RTFStyleElt	RTFStyleElt;
-typedef struct RTFBorder	RTFBorder;
-typedef struct RTFCell		RTFCell;
-typedef struct RTFTable		RTFTable;
+
 
 struct RTFFont
 {
@@ -969,7 +961,7 @@ struct RTFFont
 
 
 /*
- * Color values are -1 if the default color for the color
+ * Color values are -1 if the default color for the the color
  * number should be used.  The default color is writer-dependent.
  */
 
@@ -1007,81 +999,13 @@ struct RTFStyleElt
 	RTFStyleElt	*rtfNextSE;	/* next element in style */
 };
 
-struct RTFBorder
-{
-	int width;
-	int color;
-};
-
-struct RTFCell
-{
-	int rightBoundary;
-	RTFBorder border[4];
-};
-
-
-struct RTFTable
-{
-	RTFCell cells[MAX_TABLE_CELLS];
-	int numCellsDefined;
-
-	int gapH, leftEdge;
-	/* borders for the table row */
-	RTFBorder border[6];
-
-	/* Used in v1.0 - v3.0 */
-	int numCellsInserted;
-
-	/* v4.1 */
-	/* tableRowStart may be the start row paragraph of the table row,
-	 * or it may store the end of the previous row if it may still be
-	 * continued, otherwise NULL is stored. */
-	ME_DisplayItem *tableRowStart;
-
-	/* Table definitions are stored as a stack to support nested tables. */
-	RTFTable *parent;
-};
-
-
-# define RTFBorderTypeNone       0x00
-# define RTFBorderTypePara       0x10 /* for \brdrX control words */
-# define RTFBorderTypeRow        0x20 /* for \trbrdrX control words */
-# define RTFBorderTypeCell       0x30 /* for \clbrdrX control words */
-# define RTFBorderTypeMask       0xf0
-
-/* The X in the control words \brdrX \trbrdrX and \clbrdrX mentioned above
- * should be one of t, l, b, r which stand for top, left, bottom, right
- * respectively. */
-# define RTFBorderSideTop        0x00
-# define RTFBorderSideLeft       0x01
-# define RTFBorderSideBottom     0x02
-# define RTFBorderSideRight      0x03
-# define RTFBorderSideHorizontal 0x04
-# define RTFBorderSideVertical   0x05
-# define RTFBorderSideMask       0x0f
-
-/* Here are the values from the border types and sides put together.  */
-# define RTFBorderParaTop        0x10
-# define RTFBorderParaLeft       0x11
-# define RTFBorderParaBottom     0x12
-# define RTFBorderParaRight      0x13
-# define RTFBorderRowTop         0x20
-# define RTFBorderRowLeft        0x21
-# define RTFBorderRowBottom      0x22
-# define RTFBorderRowRight       0x23
-# define RTFBorderRowHorizontal  0x24
-# define RTFBorderRowVertical    0x25
-# define RTFBorderCellTop        0x30
-# define RTFBorderCellLeft       0x31
-# define RTFBorderCellBottom     0x32
-# define RTFBorderCellRight      0x33
 
 /*
  * Return pointer to new element of type t, or NULL
  * if no memory available.
  */
 
-# define        New(t)  (heap_alloc (sizeof (t)))
+# define        New(t)  ((t *) RTFAlloc ((int) sizeof (t)))
 
 /* Parser stack size */
 
@@ -1152,7 +1076,13 @@ struct _RTF_Info {
     int unicodeLength; /* The length of ANSI representation of Unicode characters */
     int codePage; /* Current codepage for text conversion */
 
+    char *inputName;
+    char *outputName;
+
     ME_InStream *stream;
+
+    /* edit window to output to */
+    HWND hwndEdit;
 
     ME_TextEditor *editor;
     ME_Style *style;
@@ -1173,12 +1103,6 @@ struct _RTF_Info {
     RTFState         stack[maxStack];
     int              stackTop;
     BOOL             styleChanged;
-    LPRICHEDITOLE       lpRichEditOle;
-
-    RTFTable *tableDef;
-    int nestingLevel;
-    BOOL canInheritInTbl;
-    int borderType; /* value corresponds to the RTFBorder constants. */
 };
 
 
@@ -1188,19 +1112,32 @@ struct _RTF_Info {
 
 void		RTFInit (RTF_Info *);
 void	        RTFDestroy(RTF_Info *info);
+void		RTFSetInputName (RTF_Info *, char *);
+char		*RTFGetInputName (RTF_Info *);
+void		RTFSetOutputName (RTF_Info *, char *);
+char		*RTFGetOutputName (RTF_Info *);
+void		RTFSetClassCallback (RTF_Info *, int, RTFFuncPtr);
+RTFFuncPtr	RTFGetClassCallback (RTF_Info *, int);
 void		RTFSetDestinationCallback (RTF_Info *, int, RTFFuncPtr);
+RTFFuncPtr	RTFGetDestinationCallback (RTF_Info *, int);
 void		RTFRead (RTF_Info *);
 int		RTFGetToken (RTF_Info *);	/* writer should rarely need this */
+void		RTFUngetToken (RTF_Info *);
+int		RTFPeekToken (RTF_Info *);
+void		RTFSetToken (RTF_Info *, int, int, int, int, const char *);
 void		RTFSetReadHook (RTF_Info *, RTFFuncPtr);
+RTFFuncPtr	RTFGetReadHook (RTF_Info *);
 void		RTFRouteToken (RTF_Info *);
 void		RTFSkipGroup (RTF_Info *);
-void		RTFReadGroup (RTF_Info *);
-int		RTFCheckCM (const RTF_Info *, int, int);
-int		RTFCheckCMM (const RTF_Info *, int, int, int);
-int		RTFCheckMM (const RTF_Info *, int, int);
-RTFFont		*RTFGetFont (const RTF_Info *, int);
-RTFColor	*RTFGetColor (const RTF_Info *, int);
+void		RTFExpandStyle (RTF_Info *, int);
+int		RTFCheckCM (RTF_Info *, int, int);
+int		RTFCheckCMM (RTF_Info *, int, int, int);
+int		RTFCheckMM (RTF_Info *, int, int);
+RTFFont		*RTFGetFont (RTF_Info *, int);
+RTFColor	*RTFGetColor (RTF_Info *, int);
+RTFStyle	*RTFGetStyle (RTF_Info *, int);
 int		RTFCharToHex ( char);
+int		RTFHexToChar ( int );
 
 void	RTFFlushOutputBuffer( RTF_Info *info );
 void	RTFSetEditStream(RTF_Info *info, ME_InStream *stream);

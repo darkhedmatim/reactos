@@ -21,33 +21,27 @@
 
 
 <!--
-	Generate instructions for this CPU type. Specify one of:
-		native, i386, i486, pentium, pentium-mmx, pentiumpro, i686,
-		pentium2, pentium3, pentium-m, pentium4, prescott, nocona,
-		core2, k6, k6-2, athlon, athlon-xp, opteron, opteron-sse3,
-		barcelona, winchip-c6, winchip2, c3, c3-2, geode
+	Which CPU ReactOS should be optimized for. Specify one of:
+		i486, i586, pentium, pentium2, pentium3, pentium4, athlon-xp, athlon-mp,
+		k6-2
 
-	See GCC manual for more CPU names.
+	See GCC manual for more CPU names and which CPUs GCC can optimize for.
 -->
 <property name="OARCH" value="pentium" />
 
 
 <!--
-	Which CPU ReactOS should be optimized for. Specify one of the above
-	CPUs or generic. When this option is not used, GCC will optimize for
-	the processor specified by OARCH.
--->
-<property name="TUNE" value="i686" />
-
-
-<!--
-	What level of optimisation to use.
+	OPTIMIZE what level do you want ReactOS to be optimized at
+	this setting does not work if GDB is set
 		0 = off
-		1 = Default option, optimize for size (-Os) with some additional options
-		2 = -Os
-		3 = -O1
-		4 = -O2
-		5 = -O3
+		1 = Normal compiling recommended, is default setting in official build and debug build
+
+		warning : 2,3,4,5  is not tested on ReactOS. Change at own risk.
+
+		2 = gcc -Oz with -mpreferred-stack-boundary=2
+		3 = gcc -O1 with -mpreferred-stack-boundary=2
+		4 = gcc -O2 with -mpreferred-stack-boundary=2
+		5 = gcc -O3 with -mpreferred-stack-boundary=2
 -->
 <property name="OPTIMIZE" value="1" />
 
@@ -55,11 +49,12 @@
 <!--
 	Whether to compile in the integrated kernel debugger.
 -->
-<property name="KDBG" value="1" />
+<property name="KDBG" value="0" />
 
 
 <!--
-	Whether to compile for debugging.
+	Whether to compile for debugging. No compiler optimizations will be
+	performed.
 -->
 <property name="DBG" value="1" />
 
@@ -87,16 +82,5 @@
 	failure to enter GUI mode. Do not enable unless you know what you're doing.
 -->
 <property name="_WINKD_" value="0" />
-
-<!--
-	Whether to compile support for ELF files. Do not enable unless you know what
-	you're doing.
--->
-<property name="_ELF_" value="0" />
-
-<!--
-	Whether to compile the multi processor versions for ntoskrnl and hal.
--->
-<property name="BUILD_MP" value="1" />
 
 </group>

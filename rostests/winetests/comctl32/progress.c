@@ -24,42 +24,27 @@
 #include "winbase.h"
 #include "wingdi.h"
 #include "winuser.h"
-#include "commctrl.h" 
+#include "commctrl.h"
 
 #include "wine/test.h"
 
 
-static HWND hProgressParentWnd, hProgressWnd;
+HWND hProgressParentWnd, hProgressWnd;
 static const char progressTestClass[] = "ProgressBarTestClass";
 
 
-/* try to make sure pending X events have been processed before continuing */
-static void flush_events(void)
-{
-    MSG msg;
-    int diff = 100;
-    DWORD time = GetTickCount() + diff;
-
-    while (diff > 0)
-    {
-        if (MsgWaitForMultipleObjects( 0, NULL, FALSE, min(10,diff), QS_ALLINPUT ) == WAIT_TIMEOUT) break;
-        while (PeekMessage( &msg, 0, 0, 0, PM_REMOVE )) DispatchMessage( &msg );
-        diff = time - GetTickCount();
-    }
-}
-
-static LRESULT CALLBACK ProgressTestWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK ProgressTestWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch(msg) {
 
     case WM_DESTROY:
         PostQuitMessage(0);
         break;
-  
+
     default:
         return DefWindowProcA(hWnd, msg, wParam, lParam);
     }
-    
+
     return 0L;
 }
 
@@ -67,7 +52,7 @@ static WNDPROC progress_wndproc;
 static BOOL erased;
 static RECT last_paint_rect;
 
-static LRESULT CALLBACK ProgressSubclassProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK ProgressSubclassProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_PAINT)
     {
@@ -84,47 +69,38 @@ static LRESULT CALLBACK ProgressSubclassProc(HWND hWnd, UINT msg, WPARAM wParam,
 static void update_window(HWND hWnd)
 {
     UpdateWindow(hWnd);
-    ok(!GetUpdateRect(hWnd, NULL, FALSE), "GetUpdateRect must return zero after UpdateWindow\n");    
+    ok(!GetUpdateRect(hWnd, NULL, FALSE), "GetUpdateRect must return zero after UpdateWindow\n");
 }
 
 
 static void init(void)
 {
-    HMODULE hComctl32;
-    BOOL (WINAPI *pInitCommonControlsEx)(const INITCOMMONCONTROLSEX*);
     WNDCLASSA wc;
+    INITCOMMONCONTROLSEX icex;
     RECT rect;
-    
-    hComctl32 = GetModuleHandleA("comctl32.dll");
-    pInitCommonControlsEx = (void*)GetProcAddress(hComctl32, "InitCommonControlsEx");
-    if (pInitCommonControlsEx)
-    {
-        INITCOMMONCONTROLSEX iccex;
-        iccex.dwSize = sizeof(iccex);
-        iccex.dwICC  = ICC_PROGRESS_CLASS;
-        pInitCommonControlsEx(&iccex);
-    }
-    else
-        InitCommonControls();
-  
+
+    icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
+    icex.dwICC   = ICC_PROGRESS_CLASS;
+    InitCommonControlsEx(&icex);
+
     wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.cbClsExtra = 0;
     wc.cbWndExtra = 0;
     wc.hInstance = GetModuleHandleA(NULL);
     wc.hIcon = NULL;
-    wc.hCursor = LoadCursorA(NULL, IDC_ARROW);
+    wc.hCursor = LoadCursorA(NULL, MAKEINTRESOURCEA(IDC_ARROW));
     wc.hbrBackground = GetSysColorBrush(COLOR_WINDOW);
     wc.lpszMenuName = NULL;
     wc.lpszClassName = progressTestClass;
     wc.lpfnWndProc = ProgressTestWndProc;
     RegisterClassA(&wc);
-    
+
     rect.left = 0;
     rect.top = 0;
     rect.right = 400;
     rect.bottom = 20;
     assert(AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE));
-    
+
     hProgressParentWnd = CreateWindowExA(0, progressTestClass, "Progress Bar Test", WS_OVERLAPPEDWINDOW,
       CW_USEDEFAULT, CW_USEDEFAULT, rect.right - rect.left, rect.bottom - rect.top, NULL, NULL, GetModuleHandleA(NULL), 0);
     assert(hProgressParentWnd != NULL);
@@ -134,24 +110,23 @@ static void init(void)
       0, 0, rect.right, rect.bottom, hProgressParentWnd, NULL, GetModuleHandleA(NULL), 0);
     assert(hProgressWnd != NULL);
     progress_wndproc = (WNDPROC)SetWindowLongPtr(hProgressWnd, GWLP_WNDPROC, (LPARAM)ProgressSubclassProc);
-    
+
     ShowWindow(hProgressParentWnd, SW_SHOWNORMAL);
     ok(GetUpdateRect(hProgressParentWnd, NULL, FALSE), "GetUpdateRect: There should be a region that needs to be updated\n");
-    flush_events();
-    update_window(hProgressParentWnd);    
+    update_window(hProgressParentWnd);
 }
 
 
 static void cleanup(void)
 {
     MSG msg;
-    
+
     PostMessageA(hProgressParentWnd, WM_CLOSE, 0, 0);
     while (GetMessageA(&msg,0,0,0)) {
         TranslateMessage(&msg);
         DispatchMessageA(&msg);
     }
-    
+
     UnregisterClassA(progressTestClass, GetModuleHandleA(NULL));
 }
 
@@ -172,20 +147,20 @@ static void test_redraw(void)
     /* PBM_SETPOS */
     ok(SendMessageA(hProgressWnd, PBM_SETPOS, 50, 0) == 10, "PBM_SETPOS must return the previous position\n");
     ok(!GetUpdateRect(hProgressWnd, NULL, FALSE), "PBM_SETPOS: The progress bar should be redrawn immediately\n");
-    
+
     /* PBM_DELTAPOS */
     ok(SendMessageA(hProgressWnd, PBM_DELTAPOS, 15, 0) == 50, "PBM_DELTAPOS must return the previous position\n");
     ok(!GetUpdateRect(hProgressWnd, NULL, FALSE), "PBM_DELTAPOS: The progress bar should be redrawn immediately\n");
-    
+
     /* PBM_SETPOS */
     ok(SendMessageA(hProgressWnd, PBM_SETPOS, 80, 0) == 65, "PBM_SETPOS must return the previous position\n");
     ok(!GetUpdateRect(hProgressWnd, NULL, FALSE), "PBM_SETPOS: The progress bar should be redrawn immediately\n");
-    
+
     /* PBM_STEPIT */
     ok(SendMessageA(hProgressWnd, PBM_STEPIT, 0, 0) == 80, "PBM_STEPIT must return the previous position\n");
     ok(!GetUpdateRect(hProgressWnd, NULL, FALSE), "PBM_STEPIT: The progress bar should be redrawn immediately\n");
     ok((UINT)SendMessageA(hProgressWnd, PBM_GETPOS, 0, 0) == 100, "PBM_GETPOS returned a wrong position\n");
-    
+
     /* PBM_SETRANGE and PBM_SETRANGE32:
     Usually the progress bar doesn't repaint itself immediately. If the
     position is not in the new range, it does.
@@ -200,7 +175,7 @@ static void test_redraw(void)
     SendMessage(hProgressWnd, PBM_SETPOS, 10, 0);
     GetClientRect(hProgressWnd, &client_rect);
     ok(EqualRect(&last_paint_rect, &client_rect),
-       "last_paint_rect was { %d, %d, %d, %d } instead of { %d, %d, %d, %d }\n",
+       "last_paint_rect was { %ld, %ld, %ld, %ld } instead of { %ld, %ld, %ld, %ld }\n",
        last_paint_rect.left, last_paint_rect.top, last_paint_rect.right, last_paint_rect.bottom,
        client_rect.left, client_rect.top, client_rect.right, client_rect.bottom);
     update_window(hProgressWnd);
@@ -212,7 +187,7 @@ static void test_redraw(void)
     SendMessage(hProgressWnd, PBM_SETPOS, 0, 0);
     GetClientRect(hProgressWnd, &client_rect);
     ok(EqualRect(&last_paint_rect, &client_rect),
-       "last_paint_rect was { %d, %d, %d, %d } instead of { %d, %d, %d, %d }\n",
+       "last_paint_rect was { %ld, %ld, %ld, %ld } instead of { %ld, %ld, %ld, %ld }\n",
        last_paint_rect.left, last_paint_rect.top, last_paint_rect.right, last_paint_rect.bottom,
        client_rect.left, client_rect.top, client_rect.right, client_rect.bottom);
     update_window(hProgressWnd);
@@ -223,8 +198,8 @@ static void test_redraw(void)
 START_TEST(progress)
 {
     init();
-    
+
     test_redraw();
-    
+
     cleanup();
 }

@@ -304,9 +304,11 @@ CreateBindStatusCallback(void)
 {
     CBindStatusCallback *This;
 
-    This = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*This));
+    This = HeapAlloc(GetProcessHeap(), 0, sizeof(*This));
     if (This == NULL)
         return NULL;
+
+    ZeroMemory(This, sizeof(*This));
 
     This->lpIBindStatusCallbackVtbl = &vtblIBindStatusCallback;
     This->ref = 1;

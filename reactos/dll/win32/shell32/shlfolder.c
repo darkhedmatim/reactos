@@ -21,7 +21,32 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <precomp.h>
+#include "config.h"
+#include "wine/port.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
+
+#define COBJMACROS
+
+#include "winerror.h"
+#include "windef.h"
+#include "winbase.h"
+#include "winreg.h"
+#include "wingdi.h"
+#include "winuser.h"
+
+#include "ole2.h"
+#include "shlguid.h"
+
+#include "pidl.h"
+#include "undocshell.h"
+#include "shell32_main.h"
+#include "shlwapi.h"
+#include "wine/debug.h"
+#include "shfldr.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL (shell);
 
@@ -45,7 +70,7 @@ static const WCHAR wszDotShellClassInfo[] = {
  *    TRUE if returned non-NULL value.
  *    FALSE otherwise.
  */
-static BOOL __inline SHELL32_GetCustomFolderAttributeFromPath(
+static inline BOOL SHELL32_GetCustomFolderAttributeFromPath(
     LPWSTR pwszFolderPath, LPCWSTR pwszHeading, LPCWSTR pwszAttribute,
     LPWSTR pwszValue, DWORD cchValue)
 {
@@ -88,7 +113,7 @@ BOOL SHELL32_GetCustomFolderAttribute(
  *
  * PARAMETERS
  *  pszNext [IN] string to get the element from
- *  pszOut  [IN] pointer to buffer which receives string
+ *  pszOut  [IN] pointer to buffer whitch receives string
  *  dwOut   [IN] length of pszOut
  *
  *  RETURNS
@@ -110,7 +135,7 @@ LPCWSTR GetNextElementW (LPCWSTR pszNext, LPWSTR pszOut, DWORD dwOut)
     while (*pszTail && (*pszTail != (WCHAR) '\\'))
 	pszTail++;
 
-    dwCopy = pszTail - pszNext + 1;
+    dwCopy = (const WCHAR *) pszTail - (const WCHAR *) pszNext + 1;
     lstrcpynW (pszOut, pszNext, (dwOut < dwCopy) ? dwOut : dwCopy);
 
     if (*pszTail)
@@ -199,7 +224,7 @@ static HRESULT SHELL32_CoCreateInitSF (LPCITEMIDLIST pidlRoot, LPCWSTR pathRoot,
 	    }
 
 	    if (pidlChild) {
-                int len = wcslen(ppfti.szTargetParsingName);
+                int len = lstrlenW(ppfti.szTargetParsingName);
 
 		if (!_ILSimpleGetTextW(pidlChild, ppfti.szTargetParsingName + len, MAX_PATH - len))
 			hr = E_INVALIDARG;
@@ -393,7 +418,7 @@ HRESULT SHELL32_GetItemAttributes (IShellFolder * psf, LPCITEMIDLIST pidl, LPDWO
 
     if (_ILIsDrive (pidl)) {
         *pdwAttributes &= SFGAO_HASSUBFOLDER|SFGAO_FILESYSTEM|SFGAO_FOLDER|SFGAO_FILESYSANCESTOR|
-	    SFGAO_DROPTARGET|SFGAO_HASPROPSHEET|SFGAO_CANRENAME;
+	    SFGAO_DROPTARGET|SFGAO_HASPROPSHEET|SFGAO_CANLINK;
     } else if (has_guid && HCR_GetFolderAttributes(pidl, &dwAttributes)) {
 	*pdwAttributes = dwAttributes;
     } else if (_ILGetDataPointer (pidl)) {
@@ -421,10 +446,7 @@ HRESULT SHELL32_GetItemAttributes (IShellFolder * psf, LPCITEMIDLIST pidl, LPDWO
                           SFGAO_CANRENAME | SFGAO_CANLINK | SFGAO_CANMOVE | SFGAO_CANCOPY;
 
 	if (dwAttributes & FILE_ATTRIBUTE_DIRECTORY)
-	{
 	    *pdwAttributes |=  (SFGAO_FOLDER | SFGAO_HASSUBFOLDER | SFGAO_FILESYSANCESTOR);
-		*pdwAttributes &= ~SFGAO_CANLINK;
-	}
 	else
 	    *pdwAttributes &= ~(SFGAO_FOLDER | SFGAO_HASSUBFOLDER | SFGAO_FILESYSANCESTOR);
 
@@ -544,21 +566,5 @@ HRESULT WINAPI SHCreateLinks( HWND hWnd, LPCSTR lpszDir, LPDATAOBJECT lpDataObje
                               UINT uFlags, LPITEMIDLIST *lppidlLinks)
 {
     FIXME("%p %s %p %08x %p\n",hWnd,lpszDir,lpDataObject,uFlags,lppidlLinks);
-    return E_NOTIMPL;
-}
-
-/***********************************************************************
- *  SHOpenFolderAndSelectItems
- *
- *   Unimplemented.
- */
-HRESULT
-WINAPI
-SHOpenFolderAndSelectItems(PCIDLIST_ABSOLUTE pidlFolder,
-                           UINT cidl,
-                           PCUITEMID_CHILD_ARRAY *apidl,
-                           DWORD dwFlags)
-{
-    FIXME("SHOpenFolderAndSelectItems() stub\n");
     return E_NOTIMPL;
 }

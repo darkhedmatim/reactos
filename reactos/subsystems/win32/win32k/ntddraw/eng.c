@@ -18,22 +18,25 @@
 /* HeapVidMemAllocAligned                                               */
 /************************************************************************/
 FLATPTR
-APIENTRY
+STDCALL
 HeapVidMemAllocAligned(LPVIDMEM lpVidMem,
                        DWORD dwWidth,
                        DWORD dwHeight,
                        LPSURFACEALIGNMENT lpAlignment,
                        LPLONG lpNewPitch)
 {
-    PGD_HEAPVIDMEMALLOCALIGNED pfnHeapVidMemAllocAligned = (PGD_HEAPVIDMEMALLOCALIGNED)gpDxFuncs[DXG_INDEX_DxDdHeapVidMemAllocAligned].pfn;
+    PGD_HEAPVIDMEMALLOCALIGNED pfnHeapVidMemAllocAligned = NULL;
+    INT i;
+
+    DXG_GET_INDEX_FUNCTION(DXG_INDEX_DxDdHeapVidMemAllocAligned, pfnHeapVidMemAllocAligned);
 
     if (pfnHeapVidMemAllocAligned == NULL)
     {
-        DPRINT1("Warning: no pfnHeapVidMemAllocAligned\n");
+        DPRINT1("Warring no pfnHeapVidMemAllocAligned");
         return 0;
     }
 
-    DPRINT1("Calling dxg.sys pfnHeapVidMemAllocAligned\n");
+    DPRINT1("Calling on dxg.sys pfnHeapVidMemAllocAligned");
     return pfnHeapVidMemAllocAligned(lpVidMem, dwWidth, dwHeight, lpAlignment, lpNewPitch);
 }
 
@@ -41,19 +44,22 @@ HeapVidMemAllocAligned(LPVIDMEM lpVidMem,
 /* VidMemFree                                                           */
 /************************************************************************/
 VOID
-APIENTRY
+STDCALL
 VidMemFree(LPVMEMHEAP pvmh,
            FLATPTR ptr)
 {
-    PGD_VIDMEMFREE pfnVidMemFree = (PGD_VIDMEMFREE)gpDxFuncs[DXG_INDEX_DxDdHeapVidMemFree].pfn;
+    PGD_VIDMEMFREE pfnVidMemFree = NULL;
+    INT i;
+
+    DXG_GET_INDEX_FUNCTION(DXG_INDEX_DxDdHeapVidMemFree, pfnVidMemFree);
 
     if (pfnVidMemFree == NULL)
     {
-        DPRINT1("Warning: no pfnVidMemFree\n");
+        DPRINT1("Warring no pfnVidMemFree");
     }
     else
     {
-        DPRINT1("Calling dxg.sys pfnVidMemFree\n");
+        DPRINT1("Calling on dxg.sys pfnVidMemFree");
         pfnVidMemFree(pvmh, ptr);
     }
 }
@@ -62,20 +68,23 @@ VidMemFree(LPVMEMHEAP pvmh,
 /* EngAllocPrivateUserMem                                               */
 /************************************************************************/
 PVOID
-APIENTRY
+STDCALL
 EngAllocPrivateUserMem(PDD_SURFACE_LOCAL  psl,
                        SIZE_T  cj,
                        ULONG  tag)
 {
-    PGD_ENGALLOCPRIVATEUSERMEM pfnEngAllocPrivateUserMem = (PGD_ENGALLOCPRIVATEUSERMEM)gpDxFuncs[DXG_INDEX_DxDdAllocPrivateUserMem].pfn;
+    PGD_ENGALLOCPRIVATEUSERMEM pfnEngAllocPrivateUserMem = NULL;
+    INT i;
+
+    DXG_GET_INDEX_FUNCTION(DXG_INDEX_DxDdAllocPrivateUserMem, pfnEngAllocPrivateUserMem);
 
     if (pfnEngAllocPrivateUserMem == NULL)
     {
-        DPRINT1("Warning: no pfnEngAllocPrivateUserMem\n");
+        DPRINT1("Warring no pfnEngAllocPrivateUserMem");
         return DDHAL_DRIVER_NOTHANDLED;
     }
 
-    DPRINT1("Calling dxg.sys pfnEngAllocPrivateUserMem\n");
+    DPRINT1("Calling on dxg.sys pfnEngAllocPrivateUserMem");
     return pfnEngAllocPrivateUserMem(psl, cj, tag);
 }
 
@@ -83,19 +92,22 @@ EngAllocPrivateUserMem(PDD_SURFACE_LOCAL  psl,
 /* EngFreePrivateUserMem                                                */
 /************************************************************************/
 VOID
-APIENTRY
+STDCALL
 EngFreePrivateUserMem(PDD_SURFACE_LOCAL  psl,
                       PVOID  pv)
 {
-    PGD_ENGFREEPRIVATEUSERMEM pfnEngFreePrivateUserMem = (PGD_ENGFREEPRIVATEUSERMEM)gpDxFuncs[DXG_INDEX_DxDdFreePrivateUserMem].pfn;
+    PGD_ENGFREEPRIVATEUSERMEM pfnEngFreePrivateUserMem = NULL;
+    INT i;
+
+    DXG_GET_INDEX_FUNCTION(DXG_INDEX_DxDdFreePrivateUserMem, pfnEngFreePrivateUserMem);
 
     if (pfnEngFreePrivateUserMem == NULL)
     {
-        DPRINT1("Warning: no pfnEngFreePrivateUserMem\n");
+        DPRINT1("Warring no pfnEngFreePrivateUserMem");
     }
     else
     {
-        DPRINT1("Calling dxg.sys pfnEngFreePrivateUserMem\n");
+        DPRINT1("Calling on dxg.sys pfnEngFreePrivateUserMem");
         pfnEngFreePrivateUserMem(psl, pv);
     }
 }
@@ -104,8 +116,8 @@ EngFreePrivateUserMem(PDD_SURFACE_LOCAL  psl,
 * @name EngDxIoctl
 * @implemented
 *
-* The function EngDxIoctl is the ioctl call to different DirectX functions
-* in the driver dxg.sys
+* The function EngDxIoctl is the ioctl call to diffent dx functions 
+* to the driver dxg.sys
 *
 * @param ULONG ulIoctl
 * The ioctl code that we want call to
@@ -116,97 +128,73 @@ EngFreePrivateUserMem(PDD_SURFACE_LOCAL  psl,
 * @param ULONG ulBufferSize
 * The buffer size in bytes
 *
-* @return
-* Always returns DDERR_UNSUPPORTED
+* @return 
+* always return DDERR_UNSUPPORTED
 *
 * @remarks.
-* dxg.sys EngDxIoctl call is redirected to dxg.sys
-* This function is no longer used in Windows NT 2000/XP/2003
+* dxg.sys EngDxIoctl call are redirect to dxg.sys
+* This api are not longer use in Windows NT 2000/XP/2003
 *
 *--*/
 DWORD
-APIENTRY
+STDCALL
 EngDxIoctl(ULONG ulIoctl,
            PVOID pBuffer,
            ULONG ulBufferSize)
 {
     PGD_ENGDXIOCTL pfnEngDxIoctl = (PGD_ENGDXIOCTL)gpDxFuncs[DXG_INDEX_DxDdIoctl].pfn;
-    DWORD retVal = DDERR_UNSUPPORTED;
 
-    DPRINT1("Calling dxg.sys pfnEngDxIoctl\n");
-
-    if (pfnEngDxIoctl != NULL)
+    if (pfnEngDxIoctl == NULL)
     {
-        retVal = pfnEngDxIoctl(ulIoctl, pBuffer, ulBufferSize);
+        DPRINT1("Warring no pfnEngDxIoctl");
+        return DDERR_UNSUPPORTED;
     }
 
-    return retVal;
+    DPRINT1("Calling on dxg.sys pfnEngDxIoctl");
+    return pfnEngDxIoctl(ulIoctl, pBuffer, ulBufferSize);
 }
 
-/*++
-* @name EngLockDirectDrawSurface
-* @implemented
-*
-* The function EngUnlockDirectDrawSurface locks the DirectX surface.
-
-* @param HANDLE hSurface
-* The handle of a surface
-*
-* @return
-* This return a vaild or NULL pointer to a PDD_SURFACE_LOCAL object
-*
-* @remarks.
-* None
-*
-*--*/
+/************************************************************************/
+/* EngLockDirectDrawSurface                                             */
+/************************************************************************/
 PDD_SURFACE_LOCAL
-APIENTRY
+STDCALL
 EngLockDirectDrawSurface(HANDLE hSurface)
 {
-    PGD_ENGLOCKDIRECTDRAWSURFACE pfnEngLockDirectDrawSurface = (PGD_ENGLOCKDIRECTDRAWSURFACE)gpDxFuncs[DXG_INDEX_DxDdLockDirectDrawSurface].pfn;
-    PDD_SURFACE_LOCAL retVal = NULL;
+    PGD_ENGLOCKDIRECTDRAWSURFACE pfnEngLockDirectDrawSurface = NULL;
+    INT i;
 
-    DPRINT1("Calling dxg.sys pfnEngLockDirectDrawSurface\n");
+    DXG_GET_INDEX_FUNCTION(DXG_INDEX_DxDdLockDirectDrawSurface, pfnEngLockDirectDrawSurface);
 
-    if (pfnEngLockDirectDrawSurface != NULL)
+    if (pfnEngLockDirectDrawSurface == NULL)
     {
-       retVal = pfnEngLockDirectDrawSurface(hSurface);
+        DPRINT1("Warring no pfnEngLockDirectDrawSurface");
+        return DDHAL_DRIVER_NOTHANDLED;
     }
 
-    return retVal;
+    DPRINT1("Calling on dxg.sys pfnEngLockDirectDrawSurface");
+    return pfnEngLockDirectDrawSurface(hSurface);
 }
 
-
-/*++
-* @name EngUnlockDirectDrawSurface
-* @implemented
-*
-* The function EngUnlockDirectDrawSurface unlocks the DirectX surface
-
-* @param PDD_SURFACE_LOCAL pSurface
-* The Surface we want to unlock
-*
-* @return
-* This return TRUE for success, FALSE for failure
-*
-* @remarks.
-* None
-*
-*--*/
+/************************************************************************/
+/* EngUnlockDirectDrawSurface                                           */
+/************************************************************************/
 BOOL
-APIENTRY
+STDCALL
 EngUnlockDirectDrawSurface(PDD_SURFACE_LOCAL pSurface)
 {
-    PGD_ENGUNLOCKDIRECTDRAWSURFACE pfnEngUnlockDirectDrawSurface = (PGD_ENGUNLOCKDIRECTDRAWSURFACE)gpDxFuncs[DXG_INDEX_DxDdUnlockDirectDrawSurface].pfn;
-    BOOL retVal = FALSE;
+    PGD_ENGUNLOCKDIRECTDRAWSURFACE pfnEngUnlockDirectDrawSurface = NULL;
+    INT i;
 
-    DPRINT1("Calling dxg.sys pfnEngUnlockDirectDrawSurface\n");
+    DXG_GET_INDEX_FUNCTION(DXG_INDEX_DxDdUnlockDirectDrawSurface, pfnEngUnlockDirectDrawSurface);
 
-    if (pfnEngUnlockDirectDrawSurface != NULL)
+    if (pfnEngUnlockDirectDrawSurface == NULL)
     {
-        retVal = pfnEngUnlockDirectDrawSurface(pSurface);
+        DPRINT1("Warring no pfnEngUnlockDirectDrawSurface");
+        return DDHAL_DRIVER_NOTHANDLED;
     }
 
-    return retVal;
+    DPRINT1("Calling on dxg.sys pfnEngUnlockDirectDrawSurface");
+    return pfnEngUnlockDirectDrawSurface(pSurface);
 }
 

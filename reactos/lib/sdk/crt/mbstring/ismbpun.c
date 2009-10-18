@@ -1,15 +1,18 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS system libraries
- * FILE:        lib/sdk/crt/mbstring/ismbpun.c
- * PURPOSE:
- * PROGRAMER:   
+ * FILE:        lib/crt/??????
+ * PURPOSE:     Unknown
+ * PROGRAMER:   Unknown
  * UPDATE HISTORY:
- *              05/30/08: Samuel Serapion adapted from PROJECT C Library
- *
+ *              25/11/05: Added license header
  */
 
 #include <precomp.h>
+
+#include <mbstring.h>
+#include <mbctype.h>
+#include <ctype.h>
 
 
 /*
@@ -18,7 +21,7 @@
 int _ismbbpunct(unsigned int c)
 {
 // (0xA1 <= c <= 0xA6)
-    return (_mbctype[c & 0xff] & _MBPUNCT);
+  return (ispunct(c) || _ismbbkana(c));
 }
 
  //iskana()     :(0xA1 <= c <= 0xDF)

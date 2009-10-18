@@ -18,10 +18,9 @@
 /* Base address where the handle table is mapped to */
 #define GDI_HANDLE_TABLE_BASE_ADDRESS (0x400000)
 
-/* GDI handle table can hold 0x10000 handles */
-#define GDI_HANDLE_COUNT 0x10000
+/* GDI handle table can hold 0x4000 handles */
+#define GDI_HANDLE_COUNT 0x4000
 #define GDI_GLOBAL_PROCESS (0x0)
-#define GDI_CFONT_MAX 16
 
 /* Handle Masks and shifts */
 #define GDI_HANDLE_INDEX_MASK (GDI_HANDLE_COUNT - 1)
@@ -37,15 +36,23 @@
 #define GDI_ENTRY_REUSE_MASK 0x0000ff00
 #define GDI_ENTRY_REUSE_INC 0x00000100
 #define GDI_ENTRY_BASETYPE_MASK 0x001f0000
-#define GDI_ENTRY_FLAGS_MASK 0xff000000
 #define GDI_ENTRY_REUSECNT_SHIFT 8
 #define GDI_ENTRY_UPPER_SHIFT 16
 
-/* GDI Entry Flags */
-#define GDI_ENTRY_UNDELETABLE  1    /* Mark Object as nonremovable */
-#define GDI_ENTRY_DELETING     2    /* Used when deleting Font Objects */
-#define GDI_ENTRY_VALIDATE_VIS 4    /* Validating Visible region data */
-#define GDI_ENTRY_ALLOCATE_LAL 0x80 /* Object Allocated with Look aside List */
+#define GDI_OBJECT_TAG_DC       TAG('G', 'l', 'a', '1')
+#define GDI_OBJECT_TAG_REGION   TAG('G', 'l', 'a', '4')
+#define GDI_OBJECT_TAG_BITMAP   TAG('G', 'l', 'a', '5')
+#define GDI_OBJECT_TAG_CLIOBJ   TAG('G', 'h', '0', '6')
+#define GDI_OBJECT_TAG_PATH     TAG('G', 'h', '0', '7')
+#define GDI_OBJECT_TAG_PALETTE  TAG('G', 'l', 'a', '8')
+#define GDI_OBJECT_TAG_COLSPC   TAG('G', 'h', '0', '9')
+#define GDI_OBJECT_TAG_FONT     TAG('G', 'l', 'a', ':')
+#define GDI_OBJECT_TAG_PFE      TAG('G', 'h', '0', '<')
+#define GDI_OBJECT_TAG_BRUSH    TAG('G', 'l', 'a', '@')
+#define GDI_OBJECT_TAG_ENUMFONT TAG('G', 'h', '0', 'F')
+
+#define GDI_OBJECT_TAG_DDRAW    TAG('D', 'h', ' ', '1')
+#define GDI_OBJECT_TAG_DDSURF   TAG('D', 'h', ' ', '2')
 
 /*! \defgroup GDI object types
  *
@@ -54,6 +61,7 @@
  */
 /*@{*/
 #define GDI_OBJECT_TYPE_DC            0x00010000
+#define GDI_OBJECT_TYPE_DIRECTDRAW    0x00020000 /* Should be moved away from gdi objects */
 #define GDI_OBJECT_TYPE_DD_SURFACE    0x00030000 /* Should be moved away from gdi objects */
 #define GDI_OBJECT_TYPE_REGION        0x00040000
 #define GDI_OBJECT_TYPE_BITMAP        0x00050000
@@ -67,15 +75,10 @@
 #define GDI_OBJECT_TYPE_DD_VIDEOPORT  0x00120000 /* Should be moved away from gdi objects */
 #define GDI_OBJECT_TYPE_DD_MOTIONCOMP 0x00140000 /* Should be moved away from gdi objects */
 #define GDI_OBJECT_TYPE_ENUMFONT      0x00160000
-#define GDI_OBJECT_TYPE_DRIVEROBJ     0x001C0000
-
-/* Confrim on XP value is taken from NtGdiCreateDirectDrawObject */
-#define GDI_OBJECT_TYPE_DIRECTDRAW  0x00200000
 
 /* Following object types are derived types from the above base types
    use 0x001f0000 as mask to get the base type */
 #define GDI_OBJECT_TYPE_EMF         0x00210000
-
 #define GDI_OBJECT_TYPE_METAFILE    0x00260000
 #define GDI_OBJECT_TYPE_ENHMETAFILE 0x00460000
 #define GDI_OBJECT_TYPE_PEN         0x00300000
@@ -121,18 +124,10 @@
 #define GDI_OBJECT_GET_TYPE_INDEX(t) \
     ((t & GDI_HANDLE_BASETYPE_MASK) >> GDI_HANDLE_BASETYPE_SHIFT)
 
-/* Gdi Object Handle Managment Pid lock masking sets. */
-/* Ref: used with DxEngSetDCOwner */
-#define GDI_OBJ_HMGR_PUBLIC     0          /* Public owner, Open access? */
-#define GDI_OBJ_HMGR_POWNED     0x80000002 /* Set to current owner. */
-#define GDI_OBJ_HMGR_NONE       0x80000012 /* No owner, Open access? */
-#define GDI_OBJ_HMGR_RESTRICTED 0x80000022 /* Restricted? */
-
-
 /* DC OBJ Types */
-#define DC_TYPE_DIRECT 0  /* normal device context */
-#define DC_TYPE_MEMORY 1  /* memory device context */
-#define DC_TYPE_INFO   2  /* information context */
+#define DC_TYPE_DIRECT 0  // normal device context
+#define DC_TYPE_MEMORY 1  // memory device context
+#define DC_TYPE_INFO   2  // information context
 
 /* DC OBJ Flags */
 #define DC_FLAG_DISPLAY            0x0001
@@ -173,19 +168,12 @@
 #define DC_FONTTEXT_DIRTY                   0x00400000
 
 /* DC_ATTR LCD Flags */
-#define LDC_LDC           0x00000001 /* (init) local DC other than a normal DC */
-#define LDC_EMFLDC        0x00000002 /* Enhance Meta File local DC */
-#define LDC_SAPCALLBACK   0x00000020
+#define LDC_LDC           0x00000001 // (init) local DC other than a normal DC
+#define LDC_EMFLDC        0x00000002 // Enhance Meta File local DC
 #define LDC_INIT_DOCUMENT 0x00000040
 #define LDC_INIT_PAGE     0x00000080
-#define LDC_STARTPAGE     0x00000100
-#define LDC_PLAY_MFDC     0x00000800
-#define LDC_CLOCKWISE     0x00002000
 #define LDC_KILL_DOCUMENT 0x00010000
-#define LDC_META_PRINT    0x00020000
-#define LDC_INFODC        0x01000000 /* If CreateIC was passed. */
-#define LDC_DEVCAPS       0x02000000
-#define LDC_ATENDPAGE     0x10000000
+
 
 /* DC_ATTR Xform Flags */
 #define METAFILE_TO_WORLD_IDENTITY          0x00000001
@@ -204,67 +192,35 @@
 #define PAGE_EXTENTS_CHANGED                0x00004000
 #define WORLD_XFORM_CHANGED                 0x00008000
 
-/* BRUSH/RGN_ATTR Flags */
-#define ATTR_CACHED                         0x00000001
-#define ATTR_TO_BE_DELETED                  0x00000002
-#define ATTR_NEW_COLOR                      0x00000004
-#define ATTR_CANT_SELECT                    0x00000008
-#define ATTR_RGN_VALID                      0x00000010
-#define ATTR_RGN_DIRTY                      0x00000020
-
-
 /* TYPES *********************************************************************/
 
 typedef struct _GDI_TABLE_ENTRY
 {
     PVOID KernelData; /* Points to the kernel mode structure */
-    DWORD ProcessId;  /* process id that created the object, 0 for stock objects */
-    union{            /* temp union structure. */
+    SHORT ProcessId;  /* process id that created the object, 0 for stock objects */
+    SHORT nCount;     /* usage count of object handles */
     LONG  Type;       /* the first 16 bit is the object type including the stock obj flag, the last 16 bits is just the object type */
-    struct{
-    USHORT FullUnique; /* unique */
-    UCHAR  ObjectType; /* objt */
-    UCHAR  Flags;      /* Flags */
-    };};
-    PVOID UserData;   /* pUser Points to the user mode structure, usually NULL though */
+    PVOID UserData;   /* Points to the user mode structure, usually NULL though */
 } GDI_TABLE_ENTRY, *PGDI_TABLE_ENTRY;
 
-/*
- * User space only structure!
- */
-typedef struct __GDI_SHARED_HANDLE_TABLE /* Must match win32k/include/gdiobj.h */
-{
-    GDI_TABLE_ENTRY Entries[GDI_HANDLE_COUNT]; /* Handle table. */
-    DEVCAPS         DevCaps;                   /* Shared device capabilities. */
-    FLONG           flDeviceUniq;              /* Device settings uniqueness. */
-    PVOID           pvLangPack;                /* Lanuage Pack. */
-    CFONT           cfPublic[GDI_CFONT_MAX];   /* Public Fonts. */
-    DWORD           dwCFCount;
-} GDI_SHARED_HANDLE_TABLE, *PGDI_SHARED_HANDLE_TABLE;
-
-typedef struct _RGN_ATTR
+typedef struct _RGNATTR
 {
     ULONG AttrFlags;
-    ULONG Flags;     /* Clipping region's complexity. NULL, SIMPLE & COMPLEXREGION */
+    ULONG Flags;
     RECTL Rect;
-} RGN_ATTR,*PRGN_ATTR;
+} RGNATTR,*PRGNATTR;
 
-/* Local DC structure (_DC_ATTR) PVOID pvLDC; */
+// Local DC structure (_DC_ATTR) PVOID pvLDC;
 typedef struct _LDC
 {
     HDC hDC;
     ULONG Flags;
     INT iType;
     PVOID pvEmfDC;        /* Pointer to ENHMETAFILE structure */
-    LPWSTR pwszPort;
     ABORTPROC pAbortProc; /* AbortProc for Printing */
-    DWORD CallBackTick;
     HANDLE hPrinter;      /* Local or Remote Printer driver */
-    PVOID pUMPDev;
-    PUMDHPDEV pUMdhpdev;
-    DEVCAPS DevCaps;
-    HBRUSH BrushColor;
-    HPEN PenColor;
+    INT iInitPage;        /* Start/Stop */
+    INT iInitDocument;
 } LDC, *PLDC;
 
 typedef struct _DC_ATTR
@@ -307,13 +263,13 @@ typedef struct _DC_ATTR
     LONG lBreakExtra;
     LONG cBreak;
     HANDLE hlfntNew;
-    MATRIX mxWorldToDevice;
-    MATRIX mxDeviceToWorld;
-    MATRIX mxWorldToPage;
-    FLOATOBJ efM11PtoD;
-    FLOATOBJ efM22PtoD;
-    FLOATOBJ efDxPtoD;
-    FLOATOBJ efDyPtoD;
+    MATRIX_S mxWorldToDevice;
+    MATRIX_S mxDevicetoWorld;
+    MATRIX_S mxWorldToPage;
+    EFLOAT_S efM11PtoD;
+    EFLOAT_S efM22PtoD;
+    EFLOAT_S efDxPtoD;
+    EFLOAT_S efDyPtoD;
     INT iMapMode;
     DWORD dwLayout;
     LONG lWindowOrgx;
@@ -326,20 +282,112 @@ typedef struct _DC_ATTR
     SIZEL szlVirtualDeviceMm;
     SIZEL szlVirtualDeviceSize;
     POINTL ptlBrushOrigin;
-    RGN_ATTR VisRectRegion;
+    RGNATTR VisRectRegion;
 } DC_ATTR, *PDC_ATTR;
 
-typedef struct _BRUSH_ATTR /* Used with pen too. */
+typedef struct _BRUSH_ATTR
 {
-    FLONG    AttrFlags;
-    COLORREF lbColor;
+    LOGBRUSH logbrush;
+    DWORD    dwUnused[3];
 } BRUSH_ATTR, *PBRUSH_ATTR;
+
+
+typedef struct _REGION_ATTR
+{
+    DWORD dwUnknown1; 
+    DWORD dwUnknown2; 
+    LONG right; 
+    LONG bottom;
+    LONG left; 
+    LONG top; 
+} REGION_ATTR, *PREGION_ATTR;
 
 typedef struct _FONT_ATTR
 {
-    BOOL    bSlowWidths;
-    PCFONT  pCharWidthData;
+    DWORD dwUnknown;
+    void *pCharWidthData;
 } FONT_ATTR, *PFONT_ATTR;
 
+
+typedef enum tagGdiPathState
+{
+   PATH_Null,
+   PATH_Open,
+   PATH_Closed
+} GdiPathState;
+
+typedef struct tagGdiPath
+{
+   GdiPathState state;
+   POINT      *pPoints;
+   BYTE         *pFlags;
+   int          numEntriesUsed, numEntriesAllocated;
+   BOOL       newStroke;
+} GdiPath;
+
+typedef struct _WIN_DC_INFO
+{
+  int  flags;
+  HRGN  hClipRgn;     /* Clip region (may be 0) */
+  HRGN  hVisRgn;      /* Visible region (must never be 0) */
+  HRGN  hGCClipRgn;   /* GC clip region (ClipRgn AND VisRgn) */
+  HBITMAP  hBitmap;
+  HBITMAP  hFirstBitmap; /* Bitmap selected at creation of the DC */
+
+/* #if 0 */
+    HANDLE      hDevice;
+    HPALETTE    hPalette;
+
+    GdiPath       path;
+/* #endif */
+
+  RECT   totalExtent;
+  BYTE   bitsPerPixel;
+
+  INT  DCOrgX;            /* DC origin */
+  INT  DCOrgY;
+  INT  ArcDirection;
+
+  XFORM  xformWorld2Wnd;    /* World-to-window transformation */
+  XFORM  xformWorld2Vport;  /* World-to-viewport transformation */
+  XFORM  xformVport2World;  /* Inverse of the above transformation */
+  BOOL  vport2WorldValid;  /* Is xformVport2World valid? */
+} WIN_DC_INFO;
+
+typedef struct _DC
+{
+  HGDIOBJ     hHmgr;  // Handle for this DC object.
+  PVOID       pvEntry;
+  ULONG       lucExcLock;
+  ULONG       Tid;
+
+  DHPDEV      PDev;   // GDIDEVICE.Handle
+  INT         DC_Type;
+  INT         DC_Flags;
+  PVOID       pPDev;  // PGDIDEVICE
+  PVOID       hSem;   // PERESOURCE
+  FLONG       flGraphics;
+  FLONG       flGraphics2;
+  PDC_ATTR    pDc_Attr;
+  DC_ATTR     Dc_Attr;
+  HDC         hNext;
+  HDC         hPrev;
+
+  CLIPOBJ     *CombinedClip;
+  XLATEOBJ    *XlateBrush;
+  XLATEOBJ    *XlatePen;
+
+  INT         saveLevel; // DCLEVEL lSaveDepth
+  HDC         hSelf;  // DCLEVEL hdcSave Used only for MemoryDC & SaveDC.
+  BOOL        IsIC;      // Use DC_Type
+
+  HPALETTE    PalIndexed;
+
+  UNICODE_STRING    DriverName;
+  WIN_DC_INFO w;
+
+  HANDLE      hFile;
+  LPENHMETAHEADER emh;
+} DC, *PDC;
 
 #endif

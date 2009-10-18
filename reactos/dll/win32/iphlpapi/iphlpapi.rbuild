@@ -1,8 +1,9 @@
-<module name="iphlpapi" type="win32dll" baseaddress="${BASEADDRESS_IPHLPAPI}" installbase="system32" installname="iphlpapi.dll" allowwarnings="true" unicode="yes" crt="msvcrt">
-	<importlibrary definition="iphlpapi.spec" />
-	<include base="iphlpapi">.</include>
+<module name="iphlpapi" type="win32dll" baseaddress="${BASEADDRESS_IPHLPAPI}" installbase="system32" installname="iphlpapi.dll" allowwarnings="true">
+	<importlibrary definition="iphlpapi.spec.def" />
+	<include base="iphlpapi">include</include>
 	<include base="ReactOS">include/reactos/wine</include>
-        <include base="dhcp">include</include>
+	<define name="UNICODE" />
+	<define name="_UNICODE" />
 	<library>wine</library>
 	<library>ntdll</library>
 	<library>kernel32</library>
@@ -18,4 +19,5 @@
 	<file>resinfo_reactos.c</file>
 	<file>route_reactos.c</file>
 	<file>iphlpapi.rc</file>
+	<file>iphlpapi.spec</file>
 </module>

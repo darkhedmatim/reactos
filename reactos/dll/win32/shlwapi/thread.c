@@ -43,7 +43,7 @@ extern DWORD SHLWAPI_ThreadRef_index;  /* Initialised in shlwapi_main.c */
 INT WINAPI SHStringFromGUIDA(REFGUID,LPSTR,INT);
 
 /**************************************************************************
- *      CreateAllAccessSecurityAttributes       [SHLWAPI.356]
+ *      _CreateAllAccessSecurityAttributes       [SHLWAPI.356]
  *
  * Initialise security attributes from a security descriptor.
  *
@@ -60,7 +60,7 @@ INT WINAPI SHStringFromGUIDA(REFGUID,LPSTR,INT);
  *  Wine is impersonating does not use security descriptors (i.e. anything
  *  before Windows NT).
  */
-LPSECURITY_ATTRIBUTES WINAPI CreateAllAccessSecurityAttributes(
+LPSECURITY_ATTRIBUTES WINAPI _CreateAllAccessSecurityAttributes(
 	LPSECURITY_ATTRIBUTES lpAttr,
 	PSECURITY_DESCRIPTOR lpSec,
         DWORD p3)
@@ -140,7 +140,7 @@ HRESULT WINAPI SHGetThreadRef(IUnknown **lppUnknown)
   if (!lppUnknown || SHLWAPI_ThreadRef_index == TLS_OUT_OF_INDEXES)
     return E_NOINTERFACE;
 
-  *lppUnknown = TlsGetValue(SHLWAPI_ThreadRef_index);
+  *lppUnknown = (IUnknown*)TlsGetValue(SHLWAPI_ThreadRef_index);
   if (!*lppUnknown)
     return E_NOINTERFACE;
 
@@ -184,7 +184,7 @@ HRESULT WINAPI SHSetThreadRef(IUnknown *lpUnknown)
  *   Success: S_OK. The threads object reference is released.
  *   Failure: An HRESULT error code.
  */
-HRESULT WINAPI SHReleaseThreadRef(void)
+HRESULT WINAPI SHReleaseThreadRef()
 {
   FIXME("() - stub!\n");
   return S_OK;
@@ -327,7 +327,7 @@ BOOL WINAPI SHCreateThread(LPTHREAD_START_ROUTINE pfnThreadProc, VOID *pData,
 }
 
 /*************************************************************************
- *      SHGlobalCounterGetValue	[SHLWAPI.223]
+ *      _SHGlobalCounterGetValue	[SHLWAPI.223]
  *
  * Get the current count of a semaphore.
  *
@@ -337,7 +337,7 @@ BOOL WINAPI SHCreateThread(LPTHREAD_START_ROUTINE pfnThreadProc, VOID *pData,
  * RETURNS
  *  The current count of the semaphore.
  */
-LONG WINAPI SHGlobalCounterGetValue(HANDLE hSem)
+LONG WINAPI _SHGlobalCounterGetValue(HANDLE hSem)
 {
   LONG dwOldCount = 0;
 
@@ -348,7 +348,7 @@ LONG WINAPI SHGlobalCounterGetValue(HANDLE hSem)
 }
 
 /*************************************************************************
- *      SHGlobalCounterIncrement	[SHLWAPI.224]
+ *      _SHGlobalCounterIncrement	[SHLWAPI.224]
  *
  * Claim a semaphore.
  *
@@ -358,7 +358,7 @@ LONG WINAPI SHGlobalCounterGetValue(HANDLE hSem)
  * RETURNS
  *  The new count of the semaphore.
  */
-LONG WINAPI SHGlobalCounterIncrement(HANDLE hSem)
+LONG WINAPI _SHGlobalCounterIncrement(HANDLE hSem)
 {
   LONG dwOldCount = 0;
 
@@ -368,7 +368,7 @@ LONG WINAPI SHGlobalCounterIncrement(HANDLE hSem)
 }
 
 /*************************************************************************
- *      SHGlobalCounterDecrement	[SHLWAPI.424]
+ *      _SHGlobalCounterDecrement	[SHLWAPI.424]
  *
  * Release a semaphore.
  *
@@ -378,23 +378,23 @@ LONG WINAPI SHGlobalCounterIncrement(HANDLE hSem)
  * RETURNS
  *  The new count of the semaphore.
  */
-DWORD WINAPI SHGlobalCounterDecrement(HANDLE hSem)
+DWORD WINAPI _SHGlobalCounterDecrement(HANDLE hSem)
 {
   DWORD dwOldCount = 0;
 
   TRACE("(%p)\n", hSem);
 
-  dwOldCount = SHGlobalCounterGetValue(hSem);
+  dwOldCount = _SHGlobalCounterGetValue(hSem);
   WaitForSingleObject(hSem, 0);
   return dwOldCount - 1;
 }
 
 /*************************************************************************
- *      SHGlobalCounterCreateNamedW	[SHLWAPI.423]
+ *      _SHGlobalCounterCreateNamedW	[SHLWAPI.423]
  *
- * Unicode version of SHGlobalCounterCreateNamedA.
+ * Unicode version of _SHGlobalCounterCreateNamedA.
  */
-HANDLE WINAPI SHGlobalCounterCreateNamedW(LPCWSTR lpszName, DWORD iInitial)
+HANDLE WINAPI _SHGlobalCounterCreateNamedW(LPCWSTR lpszName, DWORD iInitial)
 {
   static const WCHAR szPrefix[] = { 's', 'h', 'e', 'l', 'l', '.', '\0' };
   const int iPrefixLen = 6;
@@ -412,7 +412,7 @@ HANDLE WINAPI SHGlobalCounterCreateNamedW(LPCWSTR lpszName, DWORD iInitial)
     StrCpyNW(szBuff + iPrefixLen, lpszName, iBuffLen - iPrefixLen);
 
   /* Initialise security attributes */
-  pSecAttr = CreateAllAccessSecurityAttributes(&sAttr, &sd, 0);
+  pSecAttr = _CreateAllAccessSecurityAttributes(&sAttr, &sd, 0);
 
   if (!(hRet = CreateSemaphoreW(pSecAttr , iInitial, MAXLONG, szBuff)))
     hRet = OpenSemaphoreW(SYNCHRONIZE|SEMAPHORE_MODIFY_STATE, 0, szBuff);
@@ -420,7 +420,7 @@ HANDLE WINAPI SHGlobalCounterCreateNamedW(LPCWSTR lpszName, DWORD iInitial)
 }
 
 /*************************************************************************
- *      SHGlobalCounterCreateNamedA	[SHLWAPI.422]
+ *      _SHGlobalCounterCreateNamedA	[SHLWAPI.422]
  *
  * Create a semaphore.
  *
@@ -431,7 +431,7 @@ HANDLE WINAPI SHGlobalCounterCreateNamedW(LPCWSTR lpszName, DWORD iInitial)
  * RETURNS
  *  A new semaphore handle.
  */
-HANDLE WINAPI SHGlobalCounterCreateNamedA(LPCSTR lpszName, DWORD iInitial)
+HANDLE WINAPI _SHGlobalCounterCreateNamedA(LPCSTR lpszName, DWORD iInitial)
 {
   WCHAR szBuff[MAX_PATH];
 
@@ -439,11 +439,11 @@ HANDLE WINAPI SHGlobalCounterCreateNamedA(LPCSTR lpszName, DWORD iInitial)
 
   if (lpszName)
     MultiByteToWideChar(0, 0, lpszName, -1, szBuff, MAX_PATH);
-  return SHGlobalCounterCreateNamedW(lpszName ? szBuff : NULL, iInitial);
+  return _SHGlobalCounterCreateNamedW(lpszName ? szBuff : NULL, iInitial);
 }
 
 /*************************************************************************
- *      SHGlobalCounterCreate	[SHLWAPI.222]
+ *      _SHGlobalCounterCreate	[SHLWAPI.222]
  *
  * Create a semaphore using the name of a GUID.
  *
@@ -456,7 +456,7 @@ HANDLE WINAPI SHGlobalCounterCreateNamedA(LPCSTR lpszName, DWORD iInitial)
  * NOTES
  *  The initial count of the semaphore is set to 0.
  */
-HANDLE WINAPI SHGlobalCounterCreate (REFGUID guid)
+HANDLE WINAPI _SHGlobalCounterCreate (REFGUID guid)
 {
   char szName[40];
 
@@ -464,5 +464,5 @@ HANDLE WINAPI SHGlobalCounterCreate (REFGUID guid)
 
   /* Create a named semaphore using the GUID string */
   SHStringFromGUIDA(guid, szName, sizeof(szName) - 1);
-  return SHGlobalCounterCreateNamedA(szName, 0);
+  return _SHGlobalCounterCreateNamedA(szName, 0);
 }

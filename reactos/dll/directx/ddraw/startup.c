@@ -9,6 +9,7 @@
  */
 
 #include "rosdraw.h"
+#include "ddrawgdi.h"
 
 DDRAWI_DIRECTDRAW_GBL ddgbl;
 DDRAWI_DDRAWSURFACE_GBL ddSurfGbl;
@@ -136,7 +137,7 @@ Create_DirectDraw (LPGUID pGUID, LPDIRECTDRAW* pIface,
     {
         DX_STUB_str("Got iface\n");
 
-        if (StartDirectDraw((LPDIRECTDRAW)This, pGUID, FALSE) == DD_OK)
+        if (StartDirectDraw((LPDIRECTDRAW)This, pGUID, FALSE) == DD_OK);
         {
             /*
             RtlZeroMemory(&wnd_class, sizeof(wnd_class));
@@ -332,15 +333,15 @@ StartDirectDraw(LPDIRECTDRAW iface, LPGUID lpGuid, BOOL reenable)
     This->lpLcl->lpDDCB = This->lpLcl->lpGbl->lpDDCBtmp;
     This->lpLcl->hDD = ddgbl.hDD;
 
-    ddgbl.rectDevice.top = 0;
-    ddgbl.rectDevice.left = 0;
+    ddgbl.rectDevice.bottom = 0;
+    ddgbl.rectDevice.left= 0;
     ddgbl.rectDevice.right = ddgbl.vmiData.dwDisplayWidth;
-    ddgbl.rectDevice.bottom = ddgbl.vmiData.dwDisplayHeight;
+    ddgbl.rectDevice.right = ddgbl.vmiData.dwDisplayHeight;
 
-    ddgbl.rectDesktop.top = 0;
-    ddgbl.rectDesktop.left = 0;
+    ddgbl.rectDesktop.bottom = 0;
+    ddgbl.rectDesktop.left= 0;
     ddgbl.rectDesktop.right = ddgbl.vmiData.dwDisplayWidth;
-    ddgbl.rectDesktop.bottom = ddgbl.vmiData.dwDisplayHeight;
+    ddgbl.rectDesktop.right = ddgbl.vmiData.dwDisplayHeight;
 
     ddgbl.dwMonitorFrequency = GetDeviceCaps(GetWindowDC(NULL),VREFRESH);
     ddgbl.lpModeInfo->dwWidth      = ddgbl.vmiData.dwDisplayWidth;
@@ -503,7 +504,7 @@ StartDirectDrawHal(LPDIRECTDRAW iface, BOOL reenable)
     {
       DxHeapMemFree(This->lpLcl->lpGbl->lpModeInfo);
       DxHeapMemFree(ddgbl.lpDDCBtmp);
-      // FIXME Close DX first and second call
+      // FIXME Close DX fristcall and second call
       return DD_FALSE;
     }
 
@@ -521,7 +522,7 @@ StartDirectDrawHal(LPDIRECTDRAW iface, BOOL reenable)
         if (mpFourCC == NULL)
         {
             DxHeapMemFree(ddgbl.lpDDCBtmp);
-            // FIXME Close DX first and second call
+            // FIXME Close DX fristcall and second call
             return DD_FALSE;
         }
     }
@@ -543,7 +544,7 @@ StartDirectDrawHal(LPDIRECTDRAW iface, BOOL reenable)
         {
             DxHeapMemFree(mpFourCC);
             DxHeapMemFree(ddgbl.lpDDCBtmp);
-            // FIXME Close DX first and second call
+            // FIXME Close DX fristcall and second call
         }
     }
 
@@ -571,7 +572,7 @@ StartDirectDrawHal(LPDIRECTDRAW iface, BOOL reenable)
         DxHeapMemFree(mpFourCC);
         DxHeapMemFree(mpTextures);
         DxHeapMemFree(ddgbl.lpDDCBtmp);
-        // FIXME Close DX first and second call
+        // FIXME Close DX fristcall and second call
         return DD_FALSE;
     }
 

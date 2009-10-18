@@ -40,7 +40,6 @@ typedef struct _PDO_DEVICE_EXTENSION
 
 /* fdo.c */
 
-DRIVER_ADD_DEVICE PciIdeXAddDevice;
 NTSTATUS NTAPI
 PciIdeXAddDevice(
 	IN PDRIVER_OBJECT DriverObject,
@@ -53,7 +52,6 @@ PciIdeXFdoPnpDispatch(
 
 /* misc.c */
 
-IO_COMPLETION_ROUTINE PciIdeXGenericCompletion;
 NTSTATUS NTAPI
 PciIdeXGenericCompletion(
 	IN PDEVICE_OBJECT DeviceObject,

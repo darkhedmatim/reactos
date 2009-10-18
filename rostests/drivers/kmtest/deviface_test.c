@@ -31,21 +31,21 @@
 
 /* PRIVATE FUNCTIONS **********************************************************/
 
-NTSTATUS
-(NTAPI *IoGetDeviceInterfaces_Func)(
+NTSTATUS STDCALL
+(*IoGetDeviceInterfaces_Func)(
    IN CONST GUID *InterfaceClassGuid,
    IN PDEVICE_OBJECT PhysicalDeviceObject OPTIONAL,
    IN ULONG Flags,
    OUT PWSTR *SymbolicLinkList);
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 ReactOS_IoGetDeviceInterfaces(
    IN CONST GUID *InterfaceClassGuid,
    IN PDEVICE_OBJECT PhysicalDeviceObject OPTIONAL,
    IN ULONG Flags,
    OUT PWSTR *SymbolicLinkList);
 
-VOID DeviceInterfaceTest_Func()
+VOID FASTCALL DeviceInterfaceTest_Func()
 {
    NTSTATUS Status;
    PWSTR SymbolicLinkList;
@@ -134,7 +134,7 @@ VOID RegisterDI_Test()
         "IoRegisterDeviceInterface returned 0x%08lX\n", Status);
 }
 
-VOID NtoskrnlIoDeviceInterface()
+VOID FASTCALL NtoskrnlIoDeviceInterface()
 {
     StartTest();
 

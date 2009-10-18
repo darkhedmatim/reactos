@@ -60,10 +60,8 @@
 #define RPC_FC_BOGUS_ARRAY		0x21 /* complex array */
 
 #define RPC_FC_C_CSTRING		0x22
-#define RPC_FC_C_SSTRING		0x24
 #define RPC_FC_C_WSTRING		0x25
 #define RPC_FC_CSTRING                  0x26
-#define RPC_FC_SSTRING			0x28
 #define RPC_FC_WSTRING                  0x29
 
 #define RPC_FC_ENCAPSULATED_UNION	0x2a
@@ -87,17 +85,16 @@
 
 #define RPC_FC_POINTER			0x36
 
-#define RPC_FC_ALIGNM2			0x37
 #define RPC_FC_ALIGNM4			0x38
 #define RPC_FC_ALIGNM8			0x39
 
 #define RPC_FC_STRUCTPAD1		0x3d
 #define RPC_FC_STRUCTPAD2		0x3e
 #define RPC_FC_STRUCTPAD3		0x3f
-#define RPC_FC_STRUCTPAD4       0x40
-#define RPC_FC_STRUCTPAD5       0x41
-#define RPC_FC_STRUCTPAD6       0x42
-#define RPC_FC_STRUCTPAD7       0x43
+#define RPC_FC_STRUCTPAD4		0x40
+#define RPC_FC_STRUCTPAD5		0x41
+#define RPC_FC_STRUCTPAD6		0x42
+#define RPC_FC_STRUCTPAD7		0x43
 
 #define RPC_FC_STRING_SIZED		0x44
 
@@ -169,6 +166,13 @@
 #define RPC_FC_PROC_OIF_OBJ_V2          0x20
 #define RPC_FC_PROC_OIF_NEWINIT         0x40
 
+#define RPC_FC_PROC_OI2F_SRVMUSTSIZE    0x01
+#define RPC_FC_PROC_OI2F_CLTMUSTSIZE    0x02
+#define RPC_FC_PROC_OI2F_HASRETURN      0x04
+#define RPC_FC_PROC_OI2F_HASPIPES       0x08
+#define RPC_FC_PROC_OI2F_HASASYNCUUID   0x20
+#define RPC_FC_PROC_OI2F_HASEXTS        0x40
+#define RPC_FC_PROC_OI2F_HASASYNCHND    0x80
 #define RPC_FC_PROC_PF_MUSTSIZE         0x0001
 #define RPC_FC_PROC_PF_MUSTFREE         0x0002
 #define RPC_FC_PROC_PF_PIPE             0x0004
@@ -181,6 +185,11 @@
 #define RPC_FC_PROC_PF_DONTFREEINST     0x0200
 #define RPC_FC_PROC_PF_SAVEASYNC        0x0400
 #define RPC_FC_PROC_PF_SRVALLOCSIZE     0xe000 /* in 8 byte units */
+#define RPC_FC_PROC_EXT_NEWCORRDESC     0x01
+#define RPC_FC_PROC_EXT_CLIENTCORRCHECK 0x02
+#define RPC_FC_PROC_EXT_SERVERCORRCHECK 0x04
+#define RPC_FC_PROC_EXT_HASNOTIFY       0x08
+#define RPC_FC_PROC_EXT_HASNOTIFY2      0x10
 
 /* correlation types */
 #define RPC_FC_NORMAL_CONFORMANCE		0x00
@@ -194,11 +203,5 @@
 #define USER_MARSHAL_REF	0x40
 #define USER_MARSHAL_POINTER	0xc0
 #define USER_MARSHAL_IID	0x20
-
-/* context handle flags */
-#define NDR_CONTEXT_HANDLE_CANNOT_BE_NULL   0x01
-#define NDR_CONTEXT_HANDLE_SERIALIZE        0x02
-#define NDR_CONTEXT_HANDLE_NO_SERIALIZE     0x04
-#define NDR_STRICT_CONTEXT_HANDLE           0x08
 
 #endif /* __WINE_RPCFC_H */

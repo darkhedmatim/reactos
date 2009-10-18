@@ -1,4 +1,4 @@
-/* $Id: display.c 29112 2007-09-19 21:31:49Z ekohl $
+/* $Id$
  *
  * PROJECT:         ReactOS Accessibility Control Panel
  * LICENSE:         GPL - See COPYING in the top level directory
@@ -87,7 +87,7 @@ HighContrastDlgProc(HWND hwndDlg,
             SendDlgItemMessage(hwndDlg,
                                IDC_CONTRAST_COMBO,
                                CB_SELECTSTRING,
-                               (WPARAM)-1,
+                               -1,
                                (LPARAM)pGlobalData->highContrast.lpszDefaultScheme);
             break;
 
@@ -197,7 +197,7 @@ DisplayPageProc(HWND hwndDlg,
             break;
 
         case WM_HSCROLL:
-            switch (GetWindowLongPtr((HWND) lParam, GWL_ID))
+            switch (GetWindowLong((HWND) lParam, GWL_ID))
             {
                 case IDC_CURSOR_BLINK_TRACK:
                     i = SendDlgItemMessage(hwndDlg, IDC_CURSOR_BLINK_TRACK, TBM_GETPOS, 0, 0);
@@ -255,7 +255,7 @@ DisplayPageProc(HWND hwndDlg,
                 SetCaretBlinkTime(pGlobalData->uCaretBlinkTime);
                 SystemParametersInfo(SPI_SETCARETWIDTH,
                                      0,
-                                     IntToPtr(pGlobalData->uCaretWidth),
+                                     (PVOID)pGlobalData->uCaretWidth,
                                      SPIF_UPDATEINIFILE | SPIF_SENDCHANGE /*0*/);
                 SystemParametersInfo(SPI_SETHIGHCONTRAST,
                                      sizeof(HIGHCONTRAST),

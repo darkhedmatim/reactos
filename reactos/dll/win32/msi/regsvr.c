@@ -18,8 +18,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#define COBJMACROS
-
 #include "config.h"
 
 #include <stdarg.h>
@@ -33,10 +31,8 @@
 
 #include "ole2.h"
 #include "olectl.h"
-#include "oleauto.h"
 
 #include "wine/debug.h"
-#include "wine/unicode.h"
 
 #include "msi.h"
 #include "initguid.h"
@@ -80,7 +76,6 @@ struct regsvr_coclass {
     LPCSTR progid;		/* can be NULL to omit */
     LPCSTR viprogid;		/* can be NULL to omit */
     LPCSTR progid_extra;	/* can be NULL to omit */
-    LPCSTR dllversion;		/* can be NULL to omit */
 };
 
 /* flags for regsvr_coclass.flags */
@@ -124,8 +119,6 @@ static WCHAR const viprogid_keyname[25] = {
     'V', 'e', 'r', 's', 'i', 'o', 'n', 'I', 'n', 'd', 'e', 'p',
     'e', 'n', 'd', 'e', 'n', 't', 'P', 'r', 'o', 'g', 'I', 'D',
     0 };
-static WCHAR const dllversion_keyname[11] = {
-    'D', 'l', 'l', 'V', 'e', 'r', 's', 'i', 'o', 'n', 0 };
 static char const tmodel_valuename[] = "ThreadingModel";
 
 /***********************************************************************
@@ -139,6 +132,9 @@ static LONG register_key_defvalueA(HKEY base, WCHAR const *name,
 static LONG register_progid(WCHAR const *clsid,
 			    char const *progid, char const *curver_progid,
 			    char const *name, char const *extra);
+static LONG recursive_delete_key(HKEY key);
+static LONG recursive_delete_keyA(HKEY base, char const *name);
+static LONG recursive_delete_keyW(HKEY base, WCHAR const *name);
 
 /***********************************************************************
  *		register_interfaces
@@ -180,7 +176,7 @@ static HRESULT register_interfaces(struct regsvr_interface const *list) {
 				  KEY_READ | KEY_WRITE, NULL, &key, NULL);
 	    if (res != ERROR_SUCCESS) goto error_close_iid_key;
 
-	    sprintfW(buf, fmt, list->num_methods);
+	    wsprintfW(buf, fmt, list->num_methods);
 	    res = RegSetValueExW(key, NULL, 0, REG_SZ,
 				 (CONST BYTE*)buf,
 				 (lstrlenW(buf) + 1) * sizeof(WCHAR));
@@ -225,8 +221,7 @@ static HRESULT unregister_interfaces(struct regsvr_interface const *list) {
 	WCHAR buf[39];
 
 	StringFromGUID2(list->iid, buf, 39);
-	res = RegDeleteTreeW(interface_key, buf);
-	if (res == ERROR_FILE_NOT_FOUND) res = ERROR_SUCCESS;
+	res = recursive_delete_keyW(interface_key, buf);
     }
 
     RegCloseKey(interface_key);
@@ -322,22 +317,6 @@ static HRESULT register_coclasses(struct regsvr_coclass const *list) {
 	    if (res != ERROR_SUCCESS) goto error_close_clsid_key;
 	}
 
-        if (list->dllversion) {
-            HKEY dllver_key;
-
-            res = RegCreateKeyExW(clsid_key, dllversion_keyname, 0, NULL, 0,
-                                  KEY_READ | KEY_WRITE, NULL,
-                                  &dllver_key, NULL);
-            if (res != ERROR_SUCCESS) goto error_close_clsid_key;
-
-            res = RegSetValueExA(dllver_key, NULL, 0, REG_SZ,
-                                 (CONST BYTE*)list->dllversion,
-                                 lstrlenA(list->dllversion) + 1);
-            RegCloseKey(dllver_key);
-            if (res != ERROR_SUCCESS) goto error_close_clsid_key;
-        }
-
-
     error_close_clsid_key:
 	RegCloseKey(clsid_key);
     }
@@ -364,19 +343,16 @@ static HRESULT unregister_coclasses(struct regsvr_coclass const *list) {
 	WCHAR buf[39];
 
 	StringFromGUID2(list->clsid, buf, 39);
-	res = RegDeleteTreeW(coclass_key, buf);
-	if (res == ERROR_FILE_NOT_FOUND) res = ERROR_SUCCESS;
+	res = recursive_delete_keyW(coclass_key, buf);
 	if (res != ERROR_SUCCESS) goto error_close_coclass_key;
 
 	if (list->progid) {
-	    res = RegDeleteTreeA(HKEY_CLASSES_ROOT, list->progid);
-	    if (res == ERROR_FILE_NOT_FOUND) res = ERROR_SUCCESS;
+	    res = recursive_delete_keyA(HKEY_CLASSES_ROOT, list->progid);
 	    if (res != ERROR_SUCCESS) goto error_close_coclass_key;
 	}
 
 	if (list->viprogid) {
-	    res = RegDeleteTreeA(HKEY_CLASSES_ROOT, list->viprogid);
-	    if (res == ERROR_FILE_NOT_FOUND) res = ERROR_SUCCESS;
+	    res = recursive_delete_keyA(HKEY_CLASSES_ROOT, list->viprogid);
 	    if (res != ERROR_SUCCESS) goto error_close_coclass_key;
 	}
     }
@@ -485,10 +461,71 @@ error_close_progid_key:
 }
 
 /***********************************************************************
+ *		recursive_delete_key
+ */
+static LONG recursive_delete_key(HKEY key) {
+    LONG res;
+    WCHAR subkey_name[MAX_PATH];
+    DWORD cName;
+    HKEY subkey;
+
+    for (;;) {
+	cName = sizeof(subkey_name) / sizeof(WCHAR);
+	res = RegEnumKeyExW(key, 0, subkey_name, &cName,
+			    NULL, NULL, NULL, NULL);
+	if (res != ERROR_SUCCESS && res != ERROR_MORE_DATA) {
+	    res = ERROR_SUCCESS; /* presumably we're done enumerating */
+	    break;
+	}
+	res = RegOpenKeyExW(key, subkey_name, 0,
+			    KEY_READ | KEY_WRITE, &subkey);
+	if (res == ERROR_FILE_NOT_FOUND) continue;
+	if (res != ERROR_SUCCESS) break;
+
+	res = recursive_delete_key(subkey);
+	RegCloseKey(subkey);
+	if (res != ERROR_SUCCESS) break;
+    }
+
+    if (res == ERROR_SUCCESS) res = RegDeleteKeyW(key, 0);
+    return res;
+}
+
+/***********************************************************************
+ *		recursive_delete_keyA
+ */
+static LONG recursive_delete_keyA(HKEY base, char const *name) {
+    LONG res;
+    HKEY key;
+
+    res = RegOpenKeyExA(base, name, 0, KEY_READ | KEY_WRITE, &key);
+    if (res == ERROR_FILE_NOT_FOUND) return ERROR_SUCCESS;
+    if (res != ERROR_SUCCESS) return res;
+    res = recursive_delete_key(key);
+    RegCloseKey(key);
+    return res;
+}
+
+/***********************************************************************
+ *		recursive_delete_keyW
+ */
+static LONG recursive_delete_keyW(HKEY base, WCHAR const *name) {
+    LONG res;
+    HKEY key;
+
+    res = RegOpenKeyExW(base, name, 0, KEY_READ | KEY_WRITE, &key);
+    if (res == ERROR_FILE_NOT_FOUND) return ERROR_SUCCESS;
+    if (res != ERROR_SUCCESS) return res;
+    res = recursive_delete_key(key);
+    RegCloseKey(key);
+    return res;
+}
+
+/***********************************************************************
  *		coclass list
  */
 static struct regsvr_coclass const coclass_list[] = {
-    {     
+    {
         &CLSID_IMsiServer,
 	"Msi install server",
 	"ole32.dll",
@@ -497,11 +534,9 @@ static struct regsvr_coclass const coclass_list[] = {
 	"Apartment",
         PROGID_CLSID,
 	"IMsiServer",
-        NULL,
-        NULL,
 	NULL
-    },    
-    {     
+    },
+    {
         &CLSID_IMsiServerMessage,
 	"Wine Installer Message RPC",
 	NULL,
@@ -510,11 +545,9 @@ static struct regsvr_coclass const coclass_list[] = {
 	NULL,
         PROGID_CLSID,
 	"WindowsInstaller.Message",
-        NULL,
-        NULL,
-        "3.1.4000"
+	NULL
     },
-    {     
+    {
         &CLSID_IMsiServerX1,
 	"Msi install server",
 	"ole32.dll",
@@ -523,11 +556,9 @@ static struct regsvr_coclass const coclass_list[] = {
 	"Apartment",
         0,
 	"WindowsInstaller.Installer",
-        NULL,
-        NULL,
 	NULL
     },
-    {     
+    {
         &CLSID_IMsiServerX2,
 	"Msi install server",
 	"ole32.dll",
@@ -536,11 +567,9 @@ static struct regsvr_coclass const coclass_list[] = {
 	"Apartment",
         PROGID_CLSID,
 	"WindowsInstaller.Installer",
-        NULL,
-        NULL,
 	NULL
     },
-    {     
+    {
         &CLSID_IMsiServerX3,
 	"Msi install server",
 	"ole32.dll",
@@ -549,8 +578,6 @@ static struct regsvr_coclass const coclass_list[] = {
 	"Apartment",
         0,
 	"WindowsInstaller.Installer",
-        NULL,
-        NULL,
         NULL
     },
     { NULL }			/* list terminator */
@@ -561,6 +588,7 @@ static struct regsvr_coclass const coclass_list[] = {
  */
 /*
  * we should declare: (@see ole32/regsvr.c for examples)
+ [-HKEY_CLASSES_ROOT\Interface\{000C101C-0000-0000-C000-000000000046}]
  [-HKEY_CLASSES_ROOT\Interface\{000C101D-0000-0000-C000-000000000046}]
  [-HKEY_CLASSES_ROOT\Interface\{000C1025-0000-0000-C000-000000000046}]
  [-HKEY_CLASSES_ROOT\Interface\{000C1033-0000-0000-C000-000000000046}]
@@ -574,15 +602,8 @@ static struct regsvr_coclass const coclass_list[] = {
  [-HKEY_CLASSES_ROOT\Interface\{000C109E-0000-0000-C000-000000000046}]
  [-HKEY_CLASSES_ROOT\Interface\{000C109F-0000-0000-C000-000000000046}]
 */
-
 static struct regsvr_interface const interface_list[] = {
-    { &CLSID_IMsiServer,
-      "IMsiServer",
-      NULL,
-      18,
-      NULL,
-      NULL },
-    { NULL } /* list terminator */
+    { NULL }			/* list terminator */
 };
 
 static HRESULT register_msiexec(void)
@@ -623,8 +644,6 @@ static HRESULT register_msiexec(void)
  */
 HRESULT WINAPI DllRegisterServer(void)
 {
-    LPWSTR path = NULL;
-    ITypeLib *tl;
     HRESULT hr;
 
     TRACE("\n");
@@ -634,16 +653,6 @@ HRESULT WINAPI DllRegisterServer(void)
 	hr = register_interfaces(interface_list);
     if (SUCCEEDED(hr))
 	hr = register_msiexec();
-
-    tl = get_msi_typelib( &path );
-    if (tl)
-    {
-        hr = RegisterTypeLib( tl, path, NULL );
-        ITypeLib_Release( tl );
-    }
-    else
-        hr = E_FAIL;
-
     return hr;
 }
 

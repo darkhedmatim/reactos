@@ -42,7 +42,7 @@
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
 /* this code is from SysAllocStringLen (ole2disp.c in oleaut32) */
-static BSTR ERRORINFO_SysAllocString(const OLECHAR* in)
+static BSTR WINAPI ERRORINFO_SysAllocString(const OLECHAR* in)
 {
     DWORD  bufferSize;
     DWORD* newBuffer;
@@ -83,8 +83,8 @@ static BSTR ERRORINFO_SysAllocString(const OLECHAR* in)
     newBuffer++;
 
     /*
-     * Copy the information in the buffer.  It is not possible to pass 
-     * a NULL pointer here. 
+     * Copy the information in the buffer.  It is not possible to pass
+     * a NULL pointer here.
      */
     memcpy(newBuffer, in, bufferSize);
 
@@ -95,11 +95,11 @@ static BSTR ERRORINFO_SysAllocString(const OLECHAR* in)
     stringBuffer = (WCHAR*)newBuffer;
     stringBuffer[len] = 0;
 
-    return stringBuffer;
+    return (LPWSTR)stringBuffer;
 }
 
 /* this code is from SysFreeString (ole2disp.c in oleaut32)*/
-static VOID ERRORINFO_SysFreeString(BSTR in)
+static VOID WINAPI ERRORINFO_SysFreeString(BSTR in)
 {
     DWORD* bufferPointer;
 
@@ -163,9 +163,9 @@ static inline ErrorInfoImpl *impl_from_ISupportErrorInfo( ISupportErrorInfo *ifa
 /*
  converts This to an object pointer
  */
-#define _IErrorInfo_(This)              ((IErrorInfo*)&(This)->lpvtei)
-#define _ICreateErrorInfo_(This)        (&(This)->lpvtcei)
-#define _ISupportErrorInfo_(This)       (&(This)->lpvtsei)
+#define _IErrorInfo_(This)		(IErrorInfo*)&(This->lpvtei)
+#define _ICreateErrorInfo_(This)	(ICreateErrorInfo*)&(This->lpvtcei)
+#define _ISupportErrorInfo_(This)	(ISupportErrorInfo*)&(This->lpvtsei)
 
 static IErrorInfo * IErrorInfoImpl_Constructor(void)
 {
@@ -191,7 +191,7 @@ static HRESULT WINAPI IErrorInfoImpl_QueryInterface(
 	VOID**     ppvoid)
 {
 	ErrorInfoImpl *This = impl_from_IErrorInfo(iface);
-	TRACE("(%p)->(%s,%p)\n",This,debugstr_guid(riid),ppvoid);
+	TRACE("(%p)->(\n\tIID:\t%s,%p)\n",This,debugstr_guid(riid),ppvoid);
 
 	*ppvoid = NULL;
 
@@ -250,7 +250,7 @@ static HRESULT WINAPI IErrorInfoImpl_GetGUID(
 	ErrorInfoImpl *This = impl_from_IErrorInfo(iface);
 	TRACE("(%p)->(count=%u)\n",This,This->ref);
 	if(!pGUID )return E_INVALIDARG;
-	*pGUID = This->m_Guid;
+	memcpy(pGUID, &This->m_Guid, sizeof(GUID));
 	return S_OK;
 }
 
@@ -354,7 +354,7 @@ static HRESULT WINAPI ICreateErrorInfoImpl_SetGUID(
 {
 	ErrorInfoImpl *This = impl_from_ICreateErrorInfo(iface);
 	TRACE("(%p)->(%s)\n", This, debugstr_guid(rguid));
-	This->m_Guid = *rguid;
+	memcpy(&This->m_Guid,  rguid, sizeof(GUID));
 	return S_OK;
 }
 
@@ -528,7 +528,7 @@ HRESULT WINAPI GetErrorInfo(ULONG dwReserved, IErrorInfo **pperrinfo)
 	}
 
 	*pperrinfo = COM_CurrentInfo()->errorinfo;
-        
+
 	/* clear thread error state */
 	COM_CurrentInfo()->errorinfo = NULL;
 	return S_OK;
@@ -566,6 +566,6 @@ HRESULT WINAPI SetErrorInfo(ULONG dwReserved, IErrorInfo *perrinfo)
 	/* set to new value */
 	COM_CurrentInfo()->errorinfo = perrinfo;
 	if (perrinfo) IErrorInfo_AddRef(perrinfo);
-        
+
 	return S_OK;
 }

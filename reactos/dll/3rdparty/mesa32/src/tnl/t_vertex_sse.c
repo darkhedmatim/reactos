@@ -25,24 +25,18 @@
  *    Keith Whitwell <keithw@tungstengraphics.com>
  */
 
-#include "main/glheader.h"
-#include "main/context.h"
-#include "main/colormac.h"
-#include "main/simple_list.h"
-#include "main/enums.h"
+#include "glheader.h"
+#include "context.h"
+#include "colormac.h"
 #include "t_context.h"
 #include "t_vertex.h"
+#include "simple_list.h"
+#include "enums.h"
 
 #if defined(USE_SSE_ASM)
 
 #include "x86/rtasm/x86sse.h"
 #include "x86/common_x86_asm.h"
-
-
-/**
- * Number of bytes to allocate for generated SSE functions
- */
-#define MAX_SSE_CODE_SIZE 1024
 
 
 #define X    0
@@ -146,8 +140,7 @@ static void emit_load3f_1( struct x86_program *p,
 			   struct x86_reg dest,
 			   struct x86_reg arg0 )
 {
-   /* Loading from memory erases the upper bits. */
-   sse_movss(&p->func, dest, arg0);
+   emit_load4f_1(p, dest, arg0);
 }
 
 static void emit_load2f_2( struct x86_program *p, 
@@ -161,8 +154,7 @@ static void emit_load2f_1( struct x86_program *p,
 			   struct x86_reg dest,
 			   struct x86_reg arg0 )
 {
-   /* Loading from memory erases the upper bits. */
-   sse_movss(&p->func, dest, arg0);
+   emit_load4f_1(p, dest, arg0);
 }
 
 static void emit_load1f_1( struct x86_program *p, 
@@ -354,9 +346,10 @@ static GLboolean build_vertex_emit( struct x86_program *p )
    struct x86_reg temp = x86_make_reg(file_XMM, 0);
    struct x86_reg vp0 = x86_make_reg(file_XMM, 1);
    struct x86_reg vp1 = x86_make_reg(file_XMM, 2);
-   struct x86_reg temp2 = x86_make_reg(file_XMM, 3);
    GLubyte *fixup, *label;
 
+   x86_init_func(&p->func);
+   
    /* Push a few regs?
     */
    x86_push(&p->func, countEBP);
@@ -527,8 +520,7 @@ static GLboolean build_vertex_emit( struct x86_program *p )
 	    sse_shufps(&p->func, temp, temp, SHUF(W,X,Y,Z));
 
 	    get_src_ptr(p, srcECX, vtxESI, &a[1]);
-	    emit_load(p, temp2, 1, x86_deref(srcECX), a[1].inputsize);
-	    sse_movss(&p->func, temp, temp2);
+	    emit_load(p, temp, 1, x86_deref(srcECX), a[1].inputsize);
 	    update_src_ptr(p, srcECX, vtxESI, &a[1]);
 
 	    /* Rearrange and possibly do BGR conversion:
@@ -543,8 +535,8 @@ static GLboolean build_vertex_emit( struct x86_program *p )
 	 }
 	 else {
 	    _mesa_printf("Can't emit 3ub\n");
-	    return GL_FALSE;	/* add this later */
 	 }
+	 return GL_FALSE;	/* add this later */
 	 break;
 
       case EMIT_4UB_4F_RGBA:
@@ -629,10 +621,7 @@ static GLboolean build_vertex_emit( struct x86_program *p )
    x86_pop(&p->func, countEBP);
    x86_ret(&p->func);
 
-   assert(!vtx->emit);
    vtx->emit = (tnl_emit_func)x86_get_func(&p->func);
-
-   assert( (char *) p->func.csr - (char *) p->func.store <= MAX_SSE_CODE_SIZE );
    return GL_TRUE;
 }
 
@@ -652,15 +641,12 @@ void _tnl_generate_sse_emit( GLcontext *ctx )
 
    p.ctx = ctx;
    p.inputs_safe = 0;		/* for now */
-   p.outputs_safe = 0;		/* for now */
+   p.outputs_safe = 1;		/* for now */
    p.have_sse2 = cpu_has_xmm2;
    p.identity = x86_make_reg(file_XMM, 6);
    p.chan0 = x86_make_reg(file_XMM, 7);
 
-   if (!x86_init_func_size(&p.func, MAX_SSE_CODE_SIZE)) {
-      vtx->emit = NULL;
-      return;
-   }
+   x86_init_func(&p.func);
 
    if (build_vertex_emit(&p)) {
       _tnl_register_fastpath( vtx, GL_TRUE );

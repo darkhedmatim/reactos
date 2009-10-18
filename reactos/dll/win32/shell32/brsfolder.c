@@ -23,8 +23,19 @@
  *    - implement new dialog style resizing
  */
 
-#include <precomp.h>
+#include <stdlib.h>
+#include <string.h>
 
+#define COBJMACROS
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
+
+#include "wine/debug.h"
+#include "undocshell.h"
+#include "pidl.h"
+#include "shell32_main.h"
+#include "shellapi.h"
+#include "shresdef.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
@@ -39,7 +50,7 @@ typedef struct tagbrowse_info
 typedef struct tagTV_ITEMDATA
 {
    LPSHELLFOLDER lpsfParent; /* IShellFolder of the parent */
-   LPITEMIDLIST  lpi;        /* PIDL relative to parent */
+   LPITEMIDLIST  lpi;        /* PIDL relativ to parent */
    LPITEMIDLIST  lpifq;      /* Fully qualified PIDL */
    IEnumIDList*  pEnumIL;    /* Children iterator */
 } TV_ITEMDATA, *LPTV_ITEMDATA;
@@ -63,7 +74,7 @@ static const WCHAR szBrowseFolderInfo[] = {
     'I','N','F','O',0
 };
 
-static DWORD __inline BrowseFlagsToSHCONTF(UINT ulFlags)
+static inline DWORD BrowseFlagsToSHCONTF(UINT ulFlags)
 {
     return SHCONTF_FOLDERS | (ulFlags & BIF_BROWSEINCLUDEFILES ? SHCONTF_NONFOLDERS : 0);
 }
@@ -98,7 +109,7 @@ static void InitializeTreeView( browse_info *info )
 
     TRACE("%p\n", info );
 
-    Shell_GetImageLists(NULL, &hImageList);
+    Shell_GetImageList(NULL, &hImageList);
 
     if (hImageList)
         SendMessageW( info->hwndTreeView, TVM_SETIMAGELIST, 0, (LPARAM)hImageList );
@@ -234,7 +245,7 @@ static BOOL GetName(LPSHELLFOLDER lpsf, LPCITEMIDLIST lpi, DWORD dwFlags, LPWSTR
  * PARAMS
  *  info       [I] data for the dialog
  *  lpsf       [I] IShellFolder interface of the item's parent shell folder
- *  pidl       [I] ITEMIDLIST of the child to insert, relative to parent
+ *  pidl       [I] ITEMIDLIST of the child to insert, relativ to parent
  *  pidlParent [I] ITEMIDLIST of the parent shell folder
  *  pEnumIL    [I] Iterator for the children of the item to be inserted
  *  hParent    [I] The treeview-item that represents the parent shell folder
@@ -279,7 +290,7 @@ static HTREEITEM InsertTreeViewItem( browse_info *info, IShellFolder * lpsf,
 	tvins.hInsertAfter = NULL;
 	tvins.hParent      = hParent;
 
-	return (HTREEITEM)SendMessageW(info->hwndTreeView, TVM_INSERTITEM, 0, (LPARAM)&tvins );
+	return (HTREEITEM)TreeView_InsertItemW( info->hwndTreeView, &tvins );
 }
 
 /******************************************************************************
@@ -350,7 +361,7 @@ done:
     SHFree(pidlTemp);
 }
 
-static BOOL __inline PIDLIsType(LPCITEMIDLIST pidl, PIDLTYPE type)
+static inline BOOL PIDLIsType(LPCITEMIDLIST pidl, PIDLTYPE type)
 {
     LPPIDLDATA data = _ILGetDataPointer(pidl);
     if (!data)

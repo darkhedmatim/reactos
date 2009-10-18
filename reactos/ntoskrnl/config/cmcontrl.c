@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -137,6 +138,9 @@ CmGetSystemControlValues(IN PVOID SystemHiveData,
 
     /* Sanity check, flat hives don't have release routines */
     ASSERT(SystemHive->ReleaseCellRoutine == NULL);
+
+    /* FIXME: Prepare it */
+    CmPrepareHive(SystemHive);
 
     /* Set the Root Cell */
     RootCell = ((PHBASE_BLOCK)SystemHiveData)->RootCell;

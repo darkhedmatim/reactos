@@ -61,7 +61,7 @@ static ULONG HalpPendingInterruptCount[NR_IRQS];
 
 #else
 
-VOID NTAPI
+VOID STDCALL
 KiInterruptDispatch2 (ULONG Irq, KIRQL old_level);
 
 #endif
@@ -69,7 +69,7 @@ KiInterruptDispatch2 (ULONG Irq, KIRQL old_level);
 /* FUNCTIONS ****************************************************************/
 
 #undef KeGetCurrentIrql
-KIRQL NTAPI KeGetCurrentIrql (VOID)
+KIRQL STDCALL KeGetCurrentIrql (VOID)
 /*
  * PURPOSE: Returns the current irq level
  * RETURNS: The current irq level
@@ -216,7 +216,7 @@ KfLowerIrql (KIRQL	NewIrql)
     {
       DbgPrint ("(%s:%d) NewIrql %x CurrentIrql %x\n",
 		__FILE__, __LINE__, NewIrql, KeGetPcr()->Irql);
-      KeBugCheck(0);
+      KEBUGCHECK(0);
       for(;;);
     }
 
@@ -251,7 +251,7 @@ KfRaiseIrql (KIRQL	NewIrql)
     {
       DbgPrint ("%s:%d CurrentIrql %x NewIrql %x\n",
 		__FILE__,__LINE__,KeGetPcr()->Irql,NewIrql);
-      KeBugCheck (0);
+      KEBUGCHECK (0);
       for(;;);
     }
 
@@ -277,7 +277,7 @@ KfRaiseIrql (KIRQL	NewIrql)
  *	Calls KfRaiseIrql
  */
 
-KIRQL NTAPI
+KIRQL STDCALL
 KeRaiseIrqlToDpcLevel (VOID)
 {
   return KfRaiseIrql (DISPATCH_LEVEL);
@@ -301,14 +301,14 @@ KeRaiseIrqlToDpcLevel (VOID)
  *	Calls KfRaiseIrql
  */
 
-KIRQL NTAPI
+KIRQL STDCALL
 KeRaiseIrqlToSynchLevel (VOID)
 {
   return KfRaiseIrql (DISPATCH_LEVEL);
 }
 
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 HalBeginSystemInterrupt (KIRQL Irql,
 			 ULONG Vector,
 			 PKIRQL OldIrql)
@@ -347,7 +347,7 @@ HalBeginSystemInterrupt (KIRQL Irql,
 }
 
 
-VOID NTAPI HalEndSystemInterrupt (KIRQL Irql, ULONG Unknown2)
+VOID STDCALL HalEndSystemInterrupt (KIRQL Irql, ULONG Unknown2)
 /*
  * FUNCTION: Finish a system interrupt and restore the specified irq level.
  */
@@ -357,7 +357,7 @@ VOID NTAPI HalEndSystemInterrupt (KIRQL Irql, ULONG Unknown2)
 }
 
 BOOLEAN
-NTAPI
+STDCALL
 HalDisableSystemInterrupt(
   ULONG Vector,
   KIRQL Irql)
@@ -383,7 +383,7 @@ HalDisableSystemInterrupt(
 
 
 BOOLEAN
-NTAPI
+STDCALL
 HalEnableSystemInterrupt(
   ULONG Vector,
   KIRQL Irql,
@@ -424,7 +424,7 @@ HalRequestSoftwareInterrupt(
       break;
 
     default:
-      KeBugCheck(0);
+      KEBUGCHECK(0);
   }
 }
 
@@ -443,7 +443,7 @@ HalClearSoftwareInterrupt(
       break;
 
     default:
-      KeBugCheck(0);
+      KEBUGCHECK(0);
   }
 }
 

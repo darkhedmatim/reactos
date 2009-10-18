@@ -1,7 +1,7 @@
 #include "stdafx.h"
 
 extern "C" {
-ULONG MajorVersion = 0x05;
-ULONG MinorVersion = 0x02;
+ULONG MajorVersion = 0x04;
+ULONG MinorVersion = 0x01;
 ULONG  BuildNumber = 0x0;
 }

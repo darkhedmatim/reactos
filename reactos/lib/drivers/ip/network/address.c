@@ -106,7 +106,7 @@ VOID IPAddressFree(
  *     Nothing
  */
 {
-    exFreePool(Object);
+    PoolFreeBuffer(Object);
 }
 
 
@@ -122,8 +122,7 @@ BOOLEAN AddrIsUnspecified(
 {
     switch (Address->Type) {
         case IP_ADDRESS_V4:
-            return (Address->Address.IPv4Address == 0 ||
-                    Address->Address.IPv4Address == 0xFFFFFFFF);
+            return (Address->Address.IPv4Address == 0);
 
         case IP_ADDRESS_V6:
         /* FIXME: IPv6 is not supported */
@@ -304,7 +303,7 @@ BOOLEAN AddrIsEqualIPv4(
 }
 
 
-unsigned long NTAPI inet_addr(const char *AddrString)
+unsigned long PASCAL inet_addr(const char *AddrString)
 /*
  * Convert an ansi string dotted-quad address to a ulong
  * NOTES:

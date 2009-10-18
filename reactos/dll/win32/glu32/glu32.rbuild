@@ -1,5 +1,5 @@
-<module name="glu32" type="win32dll" entrypoint="0" baseaddress="${BASEADDRESS_GLU32}" installbase="system32" installname="glu32.dll" allowwarnings="true" crt="msvcrt">
-	<importlibrary definition="glu32.spec" />
+<module name="glu32" type="win32dll" entrypoint="0" baseaddress="${BASEADDRESS_GLU32}" installbase="system32" installname="glu32.dll" allowwarnings="true">
+	<importlibrary definition="glu32.def" />
 	<include base="glu32">include</include>
 	<include base="glu32">libnurbs/internals</include>
 	<include base="glu32">libnurbs/interface</include>
@@ -13,6 +13,7 @@
 	<library>opengl32</library>
 	<library>kernel32</library>
 	<library>gdi32</library>
+	<library>msvcrt</library>
 	<directory name="libnurbs">
 		<directory name="interface">
 			<file>bezierEval.cc</file>

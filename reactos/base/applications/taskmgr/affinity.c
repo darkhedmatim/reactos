@@ -1,7 +1,7 @@
 /*
  *  ReactOS Task Manager
  *
- *  affinity.c
+ *  affinity.cpp
  *
  *  Copyright (C) 1999 - 2001  Brian Palmer  <brianp@reactos.org>
  *                2005         Klemens Friedl <frik85@reactos.at>
@@ -24,6 +24,8 @@
 #include <precomp.h>
 
 HANDLE        hProcessAffinityHandle;
+WCHAR         szTemp[256];
+WCHAR         szTempA[256];
 
 static const DWORD dwCpuTable[] = {
     IDC_CPU0,   IDC_CPU1,   IDC_CPU2,   IDC_CPU3,
@@ -40,20 +42,28 @@ static INT_PTR CALLBACK AffinityDialogWndProc(HWND hDlg, UINT message, WPARAM wP
 
 void ProcessPage_OnSetAffinity(void)
 {
+    LV_ITEM  lvitem;
+    ULONG    Index;
     DWORD    dwProcessId;
     WCHAR    strErrorText[260];
-    WCHAR    szTitle[256];
 
-    dwProcessId = GetSelectedProcessId();
-
-    if (dwProcessId == 0)
+    for (Index=0; Index<(ULONG)ListView_GetItemCount(hProcessPageListCtrl); Index++) {
+        memset(&lvitem, 0, sizeof(LV_ITEM));
+        lvitem.mask = LVIF_STATE;
+        lvitem.stateMask = LVIS_SELECTED;
+        lvitem.iItem = Index;
+        (void)ListView_GetItem(hProcessPageListCtrl, &lvitem);
+        if (lvitem.state & LVIS_SELECTED)
+            break;
+    }
+    dwProcessId = PerfDataGetProcessId(Index);
+    if ((ListView_GetSelectedCount(hProcessPageListCtrl) != 1) || (dwProcessId == 0))
         return;
-
     hProcessAffinityHandle = OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_SET_INFORMATION, FALSE, dwProcessId);
     if (!hProcessAffinityHandle) {
         GetLastErrorText(strErrorText, sizeof(strErrorText) / sizeof(WCHAR));
-        LoadStringW(hInst, IDS_MSG_ACCESSPROCESSAFF, szTitle, sizeof(szTitle) / sizeof(WCHAR));
-        MessageBoxW(hMainWnd, strErrorText, szTitle, MB_OK|MB_ICONSTOP);
+        LoadStringW(hInst, IDS_MSG_ACCESSPROCESSAFF, szTemp, sizeof(szTemp) / sizeof(WCHAR));
+        MessageBoxW(hMainWnd, strErrorText, szTemp, MB_OK|MB_ICONSTOP);
         return;
     }
     DialogBoxW(hInst, MAKEINTRESOURCEW(IDD_AFFINITY_DIALOG), hMainWnd, AffinityDialogWndProc);
@@ -66,10 +76,9 @@ void ProcessPage_OnSetAffinity(void)
 INT_PTR CALLBACK
 AffinityDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    DWORD_PTR  dwProcessAffinityMask = 0;
-    DWORD_PTR  dwSystemAffinityMask = 0;
+    DWORD  dwProcessAffinityMask = 0;
+    DWORD  dwSystemAffinityMask = 0;
     WCHAR  strErrorText[260];
-    WCHAR  szTitle[256];
     BYTE   nCpu;
 
     switch (message) {
@@ -82,8 +91,8 @@ AffinityDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         if (!GetProcessAffinityMask(hProcessAffinityHandle, &dwProcessAffinityMask, &dwSystemAffinityMask))    {
             GetLastErrorText(strErrorText, sizeof(strErrorText) / sizeof(WCHAR));
             EndDialog(hDlg, 0);
-            LoadStringW(hInst, IDS_MSG_ACCESSPROCESSAFF, szTitle, sizeof(szTitle) / sizeof(WCHAR));
-            MessageBoxW(hMainWnd, strErrorText, szTitle, MB_OK|MB_ICONSTOP);
+            LoadStringW(hInst, IDS_MSG_ACCESSPROCESSAFF, szTemp, sizeof(szTemp) / sizeof(WCHAR));
+            MessageBoxW(hMainWnd, strErrorText, szTemp, MB_OK|MB_ICONSTOP);
         }
 
         for (nCpu=0; nCpu<sizeof(dwCpuTable) / sizeof(dwCpuTable[0]); nCpu++) {
@@ -134,9 +143,9 @@ AffinityDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
              * of it's cpu time.
              */
             if (!dwProcessAffinityMask) {
-                LoadStringW(hInst, IDS_MSG_PROCESSONEPRO, strErrorText, sizeof(strErrorText) / sizeof(WCHAR));
-                LoadStringW(hInst, IDS_MSG_INVALIDOPTION, szTitle, sizeof(szTitle) / sizeof(WCHAR));
-                MessageBoxW(hDlg, strErrorText, szTitle, MB_OK|MB_ICONSTOP);
+                LoadStringW(hInst, IDS_MSG_PROCESSONEPRO, szTemp, sizeof(szTemp) / sizeof(WCHAR));
+                LoadStringW(hInst, IDS_MSG_INVALIDOPTION, szTempA, sizeof(szTempA) / sizeof(WCHAR));
+                MessageBoxW(hDlg, szTemp, szTempA, MB_OK|MB_ICONSTOP);
                 return TRUE;
             }
 
@@ -146,8 +155,8 @@ AffinityDialogWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             if (!SetProcessAffinityMask(hProcessAffinityHandle, dwProcessAffinityMask)) {
                 GetLastErrorText(strErrorText, sizeof(strErrorText) / sizeof(WCHAR));
                 EndDialog(hDlg, LOWORD(wParam));
-                LoadStringW(hInst, IDS_MSG_ACCESSPROCESSAFF, szTitle, sizeof(szTitle) / sizeof(WCHAR));
-                MessageBoxW(hMainWnd, strErrorText, szTitle, MB_OK|MB_ICONSTOP);
+                LoadStringW(hInst, IDS_MSG_ACCESSPROCESSAFF, szTemp, sizeof(szTemp) / sizeof(WCHAR));
+                MessageBoxW(hMainWnd, strErrorText, szTemp, MB_OK|MB_ICONSTOP);
             }
 
             EndDialog(hDlg, LOWORD(wParam));

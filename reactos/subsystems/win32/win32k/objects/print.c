@@ -24,7 +24,7 @@
 #include <debug.h>
 
 INT
-APIENTRY
+STDCALL
 NtGdiAbortDoc(HDC  hDC)
 {
   UNIMPLEMENTED;
@@ -32,7 +32,7 @@ NtGdiAbortDoc(HDC  hDC)
 }
 
 INT
-APIENTRY
+STDCALL
 NtGdiEndDoc(HDC  hDC)
 {
   UNIMPLEMENTED;
@@ -40,7 +40,7 @@ NtGdiEndDoc(HDC  hDC)
 }
 
 INT
-APIENTRY
+STDCALL
 NtGdiEndPage(HDC  hDC)
 {
   UNIMPLEMENTED;
@@ -63,7 +63,7 @@ IntGdiEscape(PDC    dc,
 }
 
 INT
-APIENTRY
+STDCALL
 NtGdiEscape(HDC  hDC,
             INT  Escape,
             INT  InSize,
@@ -88,7 +88,7 @@ NtGdiEscape(HDC  hDC,
 }
 
 INT
-APIENTRY
+STDCALL
 IntEngExtEscape(
    SURFOBJ *Surface,
    INT      Escape,
@@ -105,7 +105,7 @@ IntEngExtEscape(
 }
 
 INT
-APIENTRY
+STDCALL
 IntGdiExtEscape(
    PDC    dc,
    INT    Escape,
@@ -114,15 +114,15 @@ IntGdiExtEscape(
    INT    OutSize,
    LPSTR  OutData)
 {
-   SURFACE *psurf = dc->dclevel.pSurface;
+   BITMAPOBJ *BitmapObj = BITMAPOBJ_LockBitmap(dc->w.hBitmap);
    INT Result;
 
-   /* FIXME - Handle psurf == NULL !!!!!! */
+   /* FIXME - Handle BitmapObj == NULL !!!!!! */
 
-   if ( NULL == dc->ppdev->DriverFunctions.Escape )
+   if ( NULL == ((GDIDEVICE *)dc->pPDev)->DriverFunctions.Escape )
    {
       Result = IntEngExtEscape(
-         &psurf->SurfObj,
+         &BitmapObj->SurfObj,
          Escape,
          InSize,
          (PVOID)((ULONG_PTR)InData),
@@ -131,20 +131,21 @@ IntGdiExtEscape(
    }
    else
    {
-      Result = dc->ppdev->DriverFunctions.Escape(
-         &psurf->SurfObj,
+      Result = ((GDIDEVICE *)dc->pPDev)->DriverFunctions.Escape(
+         &BitmapObj->SurfObj,
          Escape,
          InSize,
          (PVOID)InData,
          OutSize,
          (PVOID)OutData );
    }
+   BITMAPOBJ_UnlockBitmap(BitmapObj);
 
    return Result;
 }
 
 INT
-APIENTRY
+STDCALL
 NtGdiExtEscape(
    HDC    hDC,
    IN OPTIONAL PWCHAR pDriver,
@@ -163,7 +164,7 @@ NtGdiExtEscape(
 
    if (hDC == 0)
    {
-       hDC = UserGetWindowDC(NULL);
+       hDC = (HDC)UserGetWindowDC(NULL);
    }
 
    pDC = DC_LockDc(hDC);
@@ -172,7 +173,7 @@ NtGdiExtEscape(
       SetLastWin32Error(ERROR_INVALID_HANDLE);
       return -1;
    }
-   if ( pDC->dctype == DC_TYPE_INFO)
+   if ( pDC->IsIC )
    {
       DC_UnlockDc(pDC);
       return 0;
@@ -180,17 +181,17 @@ NtGdiExtEscape(
 
    if ( InSize && UnsafeInData )
    {
-      _SEH2_TRY
+      _SEH_TRY
       {
         ProbeForRead(UnsafeInData,
                      InSize,
                      1);
       }
-      _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+      _SEH_HANDLE
       {
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
       }
-      _SEH2_END;
+      _SEH_END;
 
       if (!NT_SUCCESS(Status))
       {
@@ -207,22 +208,22 @@ NtGdiExtEscape(
          return -1;
       }
 
-      _SEH2_TRY
+      _SEH_TRY
       {
         /* pointers were already probed! */
         RtlCopyMemory(SafeInData,
                       UnsafeInData,
                       InSize);
       }
-      _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+      _SEH_HANDLE
       {
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
       }
-      _SEH2_END;
+      _SEH_END;
 
       if ( !NT_SUCCESS(Status) )
       {
-         ExFreePoolWithTag ( SafeInData, TAG_PRINT );
+         ExFreePool ( SafeInData );
          DC_UnlockDc(pDC);
          SetLastNtError(Status);
          return -1;
@@ -231,17 +232,17 @@ NtGdiExtEscape(
 
    if ( OutSize && UnsafeOutData )
    {
-      _SEH2_TRY
+      _SEH_TRY
       {
         ProbeForWrite(UnsafeOutData,
                       OutSize,
                       1);
       }
-      _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+      _SEH_HANDLE
       {
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
       }
-      _SEH2_END;
+      _SEH_END;
 
       if (!NT_SUCCESS(Status))
       {
@@ -255,7 +256,7 @@ NtGdiExtEscape(
          SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
 freeout:
          if ( SafeInData )
-            ExFreePoolWithTag ( SafeInData, TAG_PRINT );
+            ExFreePool ( SafeInData );
          DC_UnlockDc(pDC);
          return -1;
       }
@@ -266,24 +267,24 @@ freeout:
    DC_UnlockDc(pDC);
 
    if ( SafeInData )
-      ExFreePoolWithTag ( SafeInData ,TAG_PRINT );
+      ExFreePool ( SafeInData );
 
    if ( SafeOutData )
    {
-      _SEH2_TRY
+      _SEH_TRY
       {
         /* pointers were already probed! */
         RtlCopyMemory(UnsafeOutData,
                       SafeOutData,
                       OutSize);
       }
-      _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+      _SEH_HANDLE
       {
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
       }
-      _SEH2_END;
+      _SEH_END;
 
-      ExFreePoolWithTag ( SafeOutData, TAG_PRINT );
+      ExFreePool ( SafeOutData );
       if ( !NT_SUCCESS(Status) )
       {
          SetLastNtError(Status);
@@ -307,7 +308,7 @@ NtGdiStartDoc(
 }
 
 INT
-APIENTRY
+STDCALL
 NtGdiStartPage(HDC  hDC)
 {
   UNIMPLEMENTED;

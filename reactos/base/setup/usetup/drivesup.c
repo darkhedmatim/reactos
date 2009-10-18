@@ -41,7 +41,7 @@ GetSourcePaths(PUNICODE_STRING SourcePath,
   OBJECT_ATTRIBUTES ObjectAttributes;
   UNICODE_STRING LinkName;
   UNICODE_STRING SourceName;
-  WCHAR SourceBuffer[MAX_PATH] = {L'\0'};
+  WCHAR SourceBuffer[MAX_PATH];
   HANDLE Handle;
   NTSTATUS Status;
   ULONG Length;

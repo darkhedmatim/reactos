@@ -18,6 +18,7 @@
  * If not, write to the Free Software Foundation,
  * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
+ * $Id: videoprt.c 28975 2007-09-09 12:39:11Z fireball $
  */
 
 
@@ -30,22 +31,12 @@ typedef struct _VIDEO_PORT_FUNCTION_TABLE {
 
 /* GLOBAL VARIABLES ***********************************************************/
 
-#define VP_EXPORTED_FUNCS 6
+#define VP_EXPORTED_FUNCS 1
 
-UCHAR FN_VideoPortClearEvent[] = "VideoPortClearEvent";
-UCHAR FN_VideoPortCreateEvent[] = "VideoPortCreateEvent";
 UCHAR FN_VideoPortCreateSecondaryDisplay[] = "VideoPortCreateSecondaryDisplay";
-UCHAR FN_VideoPortDeleteEvent[] = "VideoPortDeleteEvent";
-UCHAR FN_VideoPortQueueDpc[] = "VideoPortQueueDpc";
-UCHAR FN_VideoPortSetEvent[] = "VideoPortSetEvent";
 
 VIDEO_PORT_FUNCTION_TABLE VideoPortExports[] = {
-    {VideoPortClearEvent, FN_VideoPortClearEvent},
-    {VideoPortCreateEvent, FN_VideoPortCreateEvent},
-    {VideoPortCreateSecondaryDisplay, FN_VideoPortCreateSecondaryDisplay},
-    {VideoPortDeleteEvent, FN_VideoPortDeleteEvent},
-    {VideoPortQueueDpc, FN_VideoPortQueueDpc},
-    {VideoPortSetEvent, FN_VideoPortSetEvent}
+    {VideoPortCreateSecondaryDisplay, FN_VideoPortCreateSecondaryDisplay}
 };
 
 PVOID NTAPI
@@ -55,7 +46,7 @@ IntVideoPortGetProcAddress(
 {
    ULONG i = 0;
 
-   TRACE_(VIDEOPRT, "VideoPortGetProcAddress(%s)\n", FunctionName);
+   DPRINT("VideoPortGetProcAddress(%s)\n", FunctionName);
 
    /* Search by name */
    for (i = 0; i < VP_EXPORTED_FUNCS; i++)
@@ -67,7 +58,7 @@ IntVideoPortGetProcAddress(
       }
    }
 
-   WARN_(VIDEOPRT, "VideoPortGetProcAddress: Can't resolve symbol %s\n", FunctionName);
+   DPRINT("VideoPortGetProcAddress: Can't resolve symbol %s\n", FunctionName);
 
    return NULL;
 }

@@ -3,7 +3,7 @@
 LANGUAGE LANG_GERMAN, SUBLANG_NEUTRAL
 
 IDD_PROPPAGEPOWERSHEMES DIALOGEX 0, 0, 252, 218
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Energieschemata"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -12,13 +12,13 @@ BEGIN
 	-1,45,13,194,36
   GROUPBOX "&Energieschemata", -1, 7,57,240,46
   COMBOBOX IDC_ENERGYLIST, 14,70,224,92, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-  PUSHBUTTON "Speichern &unter...", IDC_SAVEAS_BTN, 100,85,75,15,WS_DISABLED
-  PUSHBUTTON "&Löschen", IDC_DELETE_BTN, 180,85,55,15,WS_DISABLED
+  PUSHBUTTON "Speichern &unter...", -1, 100,85,75,15,WS_DISABLED
+  PUSHBUTTON "&Löschen", -1, 180,85,55,15,WS_DISABLED
   GROUPBOX "Unbekannt", IDC_GRPDETAIL, 7,108,240,105
   LTEXT "Bei:",IDC_SAT,15,120,60,10
   LTEXT "Netzbetrieb",IDC_SAC,100,120,45,15
   ICON IDI_AC, IDC_IAC, 75,115,25,15
-  LTEXT "Batteriebetrieb",IDC_SDC,190,120,50,15
+  LTEXT "Batteriebetrieb",IDC_SDC,197,120,45,15
   ICON IDI_DC, IDC_IDC, 165,115,25,15
   LTEXT "&Monitor ausschalten:",IDC_MONITOR,15,145,80,10
   COMBOBOX IDC_MONITORACLIST, 100,140,65,150, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
@@ -34,8 +34,8 @@ BEGIN
   COMBOBOX IDC_HYBERNATEDCLIST, 175,190,65,150, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 END
 
-IDD_PROPPAGEALARMS DIALOGEX DISCARDABLE  0, 0, 250, 220
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_PROPPAGEALARMS DIALOG DISCARDABLE  0, 0, 250, 220
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Alarme"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -48,12 +48,12 @@ BEGIN
                     TBS_AUTOTICKS | WS_TABSTOP,30,40,170,15
     LTEXT           "100%",-1,215,40,25,10
     PUSHBUTTON      "Alar&m Action...",-1,20,70,70,15,WS_DISABLED
-    LTEXT           "Benachrichtigung:",-1,95,70,60,10
-    LTEXT           "Unbekannt",IDC_ALARMMSG1,155,70,95,10
+    LTEXT           "Benachrichtigung:",-1,95,70,50,10
+    LTEXT           "Unbekannt",IDC_ALARMMSG1,145,70,95,10
     LTEXT           "Aktion:",-1,95,80,45,10
-    LTEXT           "Unbekannt",IDC_ALARMAKTION1,155,80,95,10
+    LTEXT           "Unbekannt",IDC_ALARMAKTION1,145,80,95,10
     LTEXT           "Ausführen:",-1,95,90,50,10
-    LTEXT           "Unbekannt",IDC_ALARMPROG1,155,90,40,10
+    LTEXT           "Unbekannt",IDC_ALARMPROG1,150,90,40,10
 
     GROUPBOX        "Alarm bei kritischem Batteriestand",-1,10,115,235,95
     CONTROL         "Alarm bei folgendem &Energiestand auslösen:",IDC_ALARM2,
@@ -64,29 +64,29 @@ BEGIN
                     TBS_AUTOTICKS | WS_TABSTOP,30,140,170,15
     LTEXT           "100%",-1,215,140,25,10
     PUSHBUTTON      "Alar&m Action...",-1,20,170,70,15,WS_DISABLED
-    LTEXT           "Benachrichtigung:",-1,95,170,60,10
-    LTEXT           "Unbekannt",IDC_ALARMMSG2,155,170,95,10
+    LTEXT           "Benachrichtigung:",-1,95,170,50,10
+    LTEXT           "Unbekannt",IDC_ALARMMSG2,145,170,95,10
     LTEXT           "Aktion:",-1,95,180,45,10
-    LTEXT           "Unbekannt",IDC_ALARMAKTION2,155,180,95,10
+    LTEXT           "Unbekannt",IDC_ALARMAKTION2,145,180,95,10
     LTEXT           "Ausführen:",-1,95,190,50,10
-    LTEXT           "Unbekannt",IDC_ALARMPROG2,155,190,40,10
+    LTEXT           "Unbekannt",IDC_ALARMPROG2,150,190,40,10
 END
 
-IDD_PROPPAGEADVANCED DIALOGEX DISCARDABLE  0, 0, 250, 220
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_PROPPAGEADVANCED DIALOG DISCARDABLE  0, 0, 250, 220
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Erweitert"
 FONT 8, "MS Shell Dlg"
 BEGIN
     ICON            IDI_ACDC,IDI_ACDC,5,5,20,20
     LTEXT           "Wählen Sie die Energiesparoptionen aus, die Sie verwenden möchten.",-1,30,5,205,20
-    GROUPBOX        "Optionen",-1,5,35,240,55
+    GROUPBOX        "Optionen",-1,5,35,225,55
     CONTROL         "&Symbol in der Taskleiste anzeigen",IDC_SYSTRAYBATTERYMETER,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,15,45,200,10
     CONTROL         "&Kennwort beim Reaktivieren aus dem Standbymodus anfordern",IDC_PASSWORDLOGON,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,15,55,220,10
+                    WS_TABSTOP,15,55,210,10
     CONTROL         "&Helligkeit der Anzeige beim Batteriebetrieb verringern",IDC_VIDEODIMDISPLAY,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,15,65,200,10
-    GROUPBOX        "Netzschaltervorgänge",-1,5,100,240,105
+    GROUPBOX        "Netzschaltervorgänge",-1,5,100,230,105
     LTEXT           "Beim Schließen des &Laptops:", IDC_SLIDCLOSE,10,110,210,10
     COMBOBOX        IDC_LIDCLOSE,10,120,220,90,CBS_DROPDOWNLIST | CBS_SORT |
                     WS_VSCROLL | WS_TABSTOP
@@ -98,15 +98,15 @@ BEGIN
                     WS_VSCROLL | WS_TABSTOP
 END
 
-IDD_PROPPAGEHIBERNATE DIALOGEX DISCARDABLE  0, 0, 250, 220
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_PROPPAGEHIBERNATE DIALOG DISCARDABLE  0, 0, 250, 220
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Ruhezustand"
 FONT 8, "MS Shell Dlg"
 BEGIN
     ICON            IDI_SCREEN,IDI_SCREEN,5,5,20,20
     LTEXT           "Wenn der Computer in den Ruhezustand wechselt, wird der Inhalt des Arbeitsspeichers gespeichert und der Computer heruntergefahren. Wenn er wieder gestartet wird, kehrt er zum vorherigen Zustand zurück.",
                     -1,35,5,195,35
-    GROUPBOX        "Ruhezustand",-1,5,45,240,25
+    GROUPBOX        "Ruhezustand",-1,5,45,235,25
     CONTROL         "&Ruhezustand aktivieren",IDC_HIBERNATEFILE,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,10,55,210,10
     GROUPBOX        "Speicherplatz für den Ruhezustand",-1,5,80,240,60
@@ -159,6 +159,4 @@ BEGIN
   IDS_TIMEOUT15 "Nach 5 Stunden"
   IDS_TIMEOUT16 "Nie"
 
-  IDS_DEL_SCHEME "Sind Sie sicher, dass Sie das Energieschema löschen wollen?"
-  IDS_DEL_SCHEME_TITLE "Schema löschen"
 END

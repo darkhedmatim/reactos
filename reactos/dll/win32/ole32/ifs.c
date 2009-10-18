@@ -148,7 +148,7 @@ static HRESULT WINAPI IMalloc_fnQueryInterface(LPMALLOC iface,REFIID refiid,LPVO
 	TRACE("(%s,%p)\n",debugstr_guid(refiid),obj);
 
 	if (IsEqualIID(&IID_IUnknown,refiid) || IsEqualIID(&IID_IMalloc,refiid)) {
-		*obj = &Malloc32;
+		*obj = (LPMALLOC)&Malloc32;
 		return S_OK;
 	}
 	return E_NOINTERFACE;
@@ -172,7 +172,7 @@ static LPVOID WINAPI IMalloc_fnAlloc(LPMALLOC iface, DWORD cb) {
 
 	if(Malloc32.pSpy) {
 	    DWORD preAllocResult;
-	    
+
 	    EnterCriticalSection(&IMalloc32_SpyCS);
 	    preAllocResult = IMallocSpy_PreAlloc(Malloc32.pSpy, cb);
 	    if ((cb != 0) && (preAllocResult == 0)) {
@@ -182,7 +182,7 @@ static LPVOID WINAPI IMalloc_fnAlloc(LPMALLOC iface, DWORD cb) {
 		return NULL;
 	    }
 	}
- 	
+
 	addr = HeapAlloc(GetProcessHeap(),0,cb);
 
 	if(Malloc32.pSpy) {
@@ -383,7 +383,7 @@ static HRESULT WINAPI IMallocSpy_fnQueryInterface(LPMALLOCSPY iface,REFIID refii
 	TRACE("(%s,%p)\n",debugstr_guid(refiid),obj);
 
 	if (IsEqualIID(&IID_IUnknown,refiid) || IsEqualIID(&IID_IMallocSpy,refiid)) {
-		*obj = &MallocSpy;
+		*obj = (LPMALLOC)&MallocSpy;
 		return S_OK;
 	}
 	return E_NOINTERFACE;
@@ -640,7 +640,7 @@ HRESULT WINAPI CoRegisterMallocSpy(LPMALLOCSPY pMallocSpy)
 /***********************************************************************
  *           CoRevokeMallocSpy  [OLE32.@]
  *
- * Revokes a previously registered object that receives notifications on memory
+ * Revokes a previousl registered object that receives notifications on memory
  * allocations and frees.
  *
  * PARAMS

@@ -326,8 +326,9 @@ static inline int compare_case_weights(int flags, const WCHAR *str1, int len1,
 
 static inline int real_length(const WCHAR *str, int len)
 {
-    while (len && !str[len - 1]) len--;
-    return len;
+    int real_len = 0;
+    while (len-- && *str++) real_len++;
+    return real_len;
 }
 
 int wine_compare_string(int flags, const WCHAR *str1, int len1,

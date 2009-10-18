@@ -895,7 +895,7 @@ MonSelPaint(IN OUT PMONITORSELWND infoPtr,
 
     /* Paint the dragging monitor last */
     if (infoPtr->IsDraggingMonitor &&
-        infoPtr->DraggingMonitor >= 0)
+        (DWORD)infoPtr->DraggingMonitor >= 0)
     {
         MonSelRectToScreen(infoPtr,
                            &infoPtr->rcDragging,
@@ -1345,14 +1345,7 @@ MonitorSelWndProc(IN HWND hwnd,
 
         case WM_UPDATEUISTATE:
         {
-            DWORD OldUIState;
-
-            Ret = DefWindowProcW(hwnd,
-                                 uMsg,
-                                 wParam,
-                                 lParam);
-
-            OldUIState = infoPtr->UIState;
+            DWORD OldUIState = infoPtr->UIState;
             switch (LOWORD(wParam))
             {
                 case UIS_SET:

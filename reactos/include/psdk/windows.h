@@ -12,17 +12,25 @@
 */
 #ifndef _WINDOWS_H
 #define _WINDOWS_H
-
-#ifdef __GNUC__
-#include <msvctarget.h>
+#if __GNUC__ >=3
+#pragma GCC system_header
 #endif
 
+/* translate GCC target defines to MS equivalents. Keep this synchronized
+   with winnt.h. */
+#if defined(__i686__) && !defined(_M_IX86)
+#define _M_IX86 600
+#elif defined(__i586__) && !defined(_M_IX86)
+#define _M_IX86 500
+#elif defined(__i486__) && !defined(_M_IX86)
+#define _M_IX86 400
+#elif defined(__i386__) && !defined(_M_IX86)
+#define _M_IX86 300
+#endif
 #if defined(_M_IX86) && !defined(_X86_)
 #define _X86_
 #elif defined(_M_ALPHA) && !defined(_ALPHA_)
 #define _ALPHA_
-#elif defined(_M_ARM) && !defined(_ARM_)
-#define _ARM_
 #elif defined(_M_PPC) && !defined(_PPC_)
 #define _PPC_
 #elif defined(_M_MRX000) && !defined(_MIPS_)
@@ -40,9 +48,13 @@
 #include <stdarg.h>
 #include <windef.h>
 #include <winbase.h>
+#if !(defined NOGDI || defined  _WINGDI_H)
 #include <wingdi.h>
-#include <winuser.h>
+#endif
 #include <wincon.h>
+#ifndef _WINUSER_H
+#include <winuser.h>
+#endif
 #ifndef _WINNLS_H
 #include <winnls.h>
 #endif
@@ -71,11 +83,6 @@
 #include <rpc.h>
 #include <shellapi.h>
 #include <winperf.h>
-#ifndef NOCRYPT
-#include <wincrypt.h>
-#include <winefs.h>
-#include <winscard.h>
-#endif
 #ifndef NOGDI
 #include <commdlg.h>
 #include <winspool.h>
@@ -101,7 +108,7 @@
 #endif
 #ifndef NOGDI
 #if !defined (__OBJC__)
-#if (defined(__GNUC__) && (__GNUC__ >= 3)) || defined (__WATCOMC__) || defined(_MSC_VER)
+#if (__GNUC__ >= 3) || defined (__WATCOMC__)
 #include <ole2.h>
 #endif
 #endif /* __OBJC__ */

@@ -4,7 +4,7 @@
  *
  * Copyright 2005 James Hawkins
  * Copyright 2005 YunSong Hwang
- 
+
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -20,7 +20,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-LANGUAGE LANG_KOREAN, SUBLANG_DEFAULT
+LANGUAGE LANG_KOREAN, SUBLANG_NEUTRAL
 
 STRINGTABLE
 BEGIN

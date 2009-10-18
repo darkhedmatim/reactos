@@ -122,21 +122,21 @@ static DWORD query_reg_path (HKEY hKey, LPCWSTR lpszValue,
       WCHAR cNull = '\0';
       nBytesToAlloc = dwUnExpDataLen;
 
-      szData = LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc);
+      szData = (LPWSTR) LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc);
       RegQueryValueExW (hKey, lpszValue, 0, NULL, (LPBYTE)szData, &nBytesToAlloc);
       dwExpDataLen = ExpandEnvironmentStringsW(szData, &cNull, 1);
       dwUnExpDataLen = max(nBytesToAlloc, dwExpDataLen);
-      LocalFree(szData);
+      LocalFree((HLOCAL) szData);
     }
     else
     {
       nBytesToAlloc = (lstrlenW(pvData) + 1) * sizeof(WCHAR);
-      szData = LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc );
+      szData = (LPWSTR) LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc );
       lstrcpyW(szData, pvData);
       dwExpDataLen = ExpandEnvironmentStringsW(szData, pvData, MAX_PATH );
       if (dwExpDataLen > MAX_PATH) dwRet = ERROR_MORE_DATA;
       dwUnExpDataLen = max(nBytesToAlloc, dwExpDataLen);
-      LocalFree(szData);
+      LocalFree((HLOCAL) szData);
     }
   }
 
@@ -246,7 +246,7 @@ static const char * const SysColorsNames[] =
     "MenuHilight",              /* COLOR_MENUHILIGHT */
     "MenuBar",                  /* COLOR_MENUBAR */
 };
-static const WCHAR strColorKey[] = 
+static const WCHAR strColorKey[] =
     { 'C','o','n','t','r','o','l',' ','P','a','n','e','l','\\',
       'C','o','l','o','r','s',0 };
 static const WCHAR keyFlatMenus[] = { 'F','l','a','t','M','e','n','u', 0};
@@ -261,7 +261,7 @@ static const struct BackupSysParam
 {
     int spiGet, spiSet;
     const WCHAR* keyName;
-} backupSysParams[] = 
+} backupSysParams[] =
 {
     {SPI_GETFLATMENU, SPI_SETFLATMENU, keyFlatMenus},
     {SPI_GETGRADIENTCAPTIONS, SPI_SETGRADIENTCAPTIONS, keyGradientCaption},
@@ -283,19 +283,19 @@ static void save_sys_colors (HKEY baseKey)
         for (i = 0; i < NUM_SYS_COLORS; i++)
         {
             COLORREF col = GetSysColor (i);
-        
-            sprintf (colorStr, "%d %d %d", 
+
+            sprintf (colorStr, "%d %d %d",
                 GetRValue (col), GetGValue (col), GetBValue (col));
 
-            RegSetValueExA (hKey, SysColorsNames[i], 0, REG_SZ, 
+            RegSetValueExA (hKey, SysColorsNames[i], 0, REG_SZ,
                 (BYTE*)colorStr, strlen (colorStr)+1);
         }
         RegCloseKey (hKey);
     }
 }
 
-/* Before activating a theme, query current system colors, certain settings 
- * and backup them in the registry, so they can be restored when the theme 
+/* Before activating a theme, query current system colors, certain settings
+ * and backup them in the registry, so they can be restored when the theme
  * is deactivated */
 static void UXTHEME_BackupSystemMetrics(void)
 {
@@ -308,22 +308,22 @@ static void UXTHEME_BackupSystemMetrics(void)
     {
         NONCLIENTMETRICSW ncm;
         LOGFONTW iconTitleFont;
-        
+
         /* back up colors */
         save_sys_colors (hKey);
-    
+
         /* back up "other" settings */
         while (bsp->spiGet >= 0)
         {
             DWORD value;
-            
+
             SystemParametersInfoW (bsp->spiGet, 0, &value, 0);
-            RegSetValueExW (hKey, bsp->keyName, 0, REG_DWORD, 
+            RegSetValueExW (hKey, bsp->keyName, 0, REG_DWORD,
                 (LPBYTE)&value, sizeof (value));
-        
+
             bsp++;
         }
-        
+
 	/* back up non-client metrics */
         memset (&ncm, 0, sizeof (ncm));
         ncm.cbSize = sizeof (ncm);
@@ -333,9 +333,9 @@ static void UXTHEME_BackupSystemMetrics(void)
 	memset (&iconTitleFont, 0, sizeof (iconTitleFont));
 	SystemParametersInfoW (SPI_GETICONTITLELOGFONT, sizeof (iconTitleFont),
 	    &iconTitleFont, 0);
-	RegSetValueExW (hKey, keyIconTitleFont, 0, REG_BINARY, 
+	RegSetValueExW (hKey, keyIconTitleFont, 0, REG_BINARY,
 	    (LPBYTE)&iconTitleFont, sizeof (iconTitleFont));
-    
+
         RegCloseKey (hKey);
     }
 }
@@ -347,25 +347,25 @@ static void UXTHEME_RestoreSystemMetrics(void)
     const struct BackupSysParam* bsp = backupSysParams;
 
     if (RegOpenKeyExW (HKEY_CURRENT_USER, szThemeManager,
-                       0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS) 
+                       0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS)
     {
         HKEY colorKey;
-    
+
         /* read backed-up colors */
         if (RegOpenKeyExW (hKey, strColorKey,
-                           0, KEY_QUERY_VALUE, &colorKey) == ERROR_SUCCESS) 
+                           0, KEY_QUERY_VALUE, &colorKey) == ERROR_SUCCESS)
         {
             int i;
             COLORREF sysCols[NUM_SYS_COLORS];
             int sysColsIndices[NUM_SYS_COLORS];
             int sysColCount = 0;
-        
+
             for (i = 0; i < NUM_SYS_COLORS; i++)
             {
                 DWORD type;
                 char colorStr[13];
                 DWORD count = sizeof(colorStr);
-            
+
                 if (RegQueryValueExA (colorKey, SysColorsNames[i], 0,
                     &type, (LPBYTE) colorStr, &count) == ERROR_SUCCESS)
                 {
@@ -379,56 +379,56 @@ static void UXTHEME_RestoreSystemMetrics(void)
                 }
             }
             RegCloseKey (colorKey);
-          
+
             SetSysColors (sysColCount, sysColsIndices, sysCols);
         }
-    
+
         /* read backed-up other settings */
         while (bsp->spiGet >= 0)
         {
             DWORD value;
             DWORD count = sizeof(value);
             DWORD type;
-            
+
             if (RegQueryValueExW (hKey, bsp->keyName, 0,
                 &type, (LPBYTE)&value, &count) == ERROR_SUCCESS)
             {
                 SystemParametersInfoW (bsp->spiSet, 0, (LPVOID)value,
                     SPIF_UPDATEINIFILE);
             }
-        
+
             bsp++;
         }
-    
+
         /* read backed-up non-client metrics */
         {
             NONCLIENTMETRICSW ncm;
             LOGFONTW iconTitleFont;
             DWORD count = sizeof(ncm);
             DWORD type;
-            
+
 	    if (RegQueryValueExW (hKey, keyNonClientMetrics, 0,
 		&type, (LPBYTE)&ncm, &count) == ERROR_SUCCESS)
 	    {
-		SystemParametersInfoW (SPI_SETNONCLIENTMETRICS, 
-                    count, &ncm, SPIF_UPDATEINIFILE);
+		SystemParametersInfoW (SPI_SETNONCLIENTMETRICS,
+		    count, (LPVOID)&ncm, SPIF_UPDATEINIFILE);
 	    }
-	    
+
             count = sizeof(iconTitleFont);
-            
+
 	    if (RegQueryValueExW (hKey, keyIconTitleFont, 0,
 		&type, (LPBYTE)&iconTitleFont, &count) == ERROR_SUCCESS)
 	    {
-		SystemParametersInfoW (SPI_SETICONTITLELOGFONT, 
-                    count, &iconTitleFont, SPIF_UPDATEINIFILE);
+		SystemParametersInfoW (SPI_SETICONTITLELOGFONT,
+		    count, (LPVOID)&iconTitleFont, SPIF_UPDATEINIFILE);
 	    }
 	}
-      
+
         RegCloseKey (hKey);
     }
 }
 
-/* Make system settings persistent, so they're in effect even w/o uxtheme 
+/* Make system settings persistent, so they're in effect even w/o uxtheme
  * loaded.
  * For efficiency reasons, only the last SystemParametersInfoW sets
  * SPIF_SENDWININICHANGE */
@@ -443,25 +443,27 @@ static void UXTHEME_SaveSystemMetrics(void)
     while (bsp->spiGet >= 0)
     {
         DWORD value;
-        
+
         SystemParametersInfoW (bsp->spiGet, 0, &value, 0);
         SystemParametersInfoW (bsp->spiSet, 0, (LPVOID)value,
             SPIF_UPDATEINIFILE);
-    
+
         bsp++;
     }
-    
+
     memset (&ncm, 0, sizeof (ncm));
     ncm.cbSize = sizeof (ncm);
-    SystemParametersInfoW (SPI_GETNONCLIENTMETRICS, sizeof (ncm), &ncm, 0);
-    SystemParametersInfoW (SPI_SETNONCLIENTMETRICS, sizeof (ncm), &ncm,
-        SPIF_UPDATEINIFILE);
+    SystemParametersInfoW (SPI_GETNONCLIENTMETRICS,
+	sizeof (ncm), (LPVOID)&ncm, 0);
+    SystemParametersInfoW (SPI_SETNONCLIENTMETRICS,
+	sizeof (ncm), (LPVOID)&ncm, SPIF_UPDATEINIFILE);
 
     memset (&iconTitleFont, 0, sizeof (iconTitleFont));
-    SystemParametersInfoW (SPI_GETICONTITLELOGFONT, sizeof (iconTitleFont),
-        &iconTitleFont, 0);
-    SystemParametersInfoW (SPI_SETICONTITLELOGFONT, sizeof (iconTitleFont),
-        &iconTitleFont, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
+    SystemParametersInfoW (SPI_GETICONTITLELOGFONT,
+	sizeof (iconTitleFont), (LPVOID)&iconTitleFont, 0);
+    SystemParametersInfoW (SPI_SETICONTITLELOGFONT,
+	sizeof (iconTitleFont), (LPVOID)&iconTitleFont,
+	SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
 }
 
 /***********************************************************************
@@ -499,11 +501,11 @@ static HRESULT UXTHEME_SetActiveTheme(PTHEME_FILE tf)
         tmp[1] = '\0';
         RegSetValueExW(hKey, szThemeActive, 0, REG_SZ, (const BYTE*)tmp, sizeof(WCHAR)*2);
         if(bThemeActive) {
-            RegSetValueExW(hKey, szColorName, 0, REG_SZ, (const BYTE*)szCurrentColor, 
+            RegSetValueExW(hKey, szColorName, 0, REG_SZ, (const BYTE*)szCurrentColor,
 		(lstrlenW(szCurrentColor)+1)*sizeof(WCHAR));
-            RegSetValueExW(hKey, szSizeName, 0, REG_SZ, (const BYTE*)szCurrentSize, 
+            RegSetValueExW(hKey, szSizeName, 0, REG_SZ, (const BYTE*)szCurrentSize,
 		(lstrlenW(szCurrentSize)+1)*sizeof(WCHAR));
-            RegSetValueExW(hKey, szDllName, 0, REG_SZ, (const BYTE*)szCurrentTheme, 
+            RegSetValueExW(hKey, szDllName, 0, REG_SZ, (const BYTE*)szCurrentTheme,
 		(lstrlenW(szCurrentTheme)+1)*sizeof(WCHAR));
         }
         else {
@@ -516,9 +518,9 @@ static HRESULT UXTHEME_SetActiveTheme(PTHEME_FILE tf)
     }
     else
         TRACE("Failed to open theme registry key\n");
-    
+
     UXTHEME_SaveSystemMetrics ();
-    
+
     return hr;
 }
 
@@ -564,7 +566,6 @@ BOOL WINAPI IsAppThemed(void)
 BOOL WINAPI IsThemeActive(void)
 {
     TRACE("\n");
-    SetLastError(ERROR_SUCCESS);
     return bThemeActive;
 }
 
@@ -582,7 +583,7 @@ HRESULT WINAPI EnableTheming(BOOL fEnable)
     TRACE("(%d)\n", fEnable);
 
     if(fEnable != bThemeActive) {
-        if(fEnable) 
+        if(fEnable)
             UXTHEME_BackupSystemMetrics();
         else
             UXTHEME_RestoreSystemMetrics();
@@ -841,7 +842,7 @@ HRESULT WINAPI GetThemeDocumentationProperty(LPCWSTR pszThemeName,
  * RETURNS
  *     some kind of status flag
  */
-DWORD WINAPI QueryThemeServices(void)
+DWORD WINAPI QueryThemeServices()
 {
     FIXME("stub\n");
     return 3; /* This is what is returned under XP in most cases */
@@ -914,7 +915,7 @@ HRESULT WINAPI CloseThemeFile(HTHEMEFILE hThemeFile)
  * char b[] = "\0"; where \0 can be one or more of any character, makes no difference
  *   the theme is applied smoothly (screen does not flicker)
  * char *b = "\0" or NULL; where \0 can be zero or more of any character, makes no difference
- *   the function fails returning invalid parameter... very strange
+ *   the function fails returning invalid parameter...very strange
  */
 HRESULT WINAPI ApplyTheme(HTHEMEFILE hThemeFile, char *unknown, HWND hWnd)
 {
@@ -1052,7 +1053,7 @@ HRESULT WINAPI EnumThemes(LPCWSTR pszThemePath, EnumThemeProc callback,
  *          or when pszSizeName does not refer to a valid size
  *
  * NOTES
- * XP fails with E_POINTER when pszColorNames points to a buffer smaller than 
+ * XP fails with E_POINTER when pszColorNames points to a buffer smaller than
  * sizeof(THEMENAMES).
  *
  * Not very efficient that I'm opening & validating the theme every call, but
@@ -1112,7 +1113,7 @@ HRESULT WINAPI EnumThemeColors(LPWSTR pszThemeFileName, LPWSTR pszSizeName,
  *          or when pszColorName does not refer to a valid color
  *
  * NOTES
- * XP fails with E_POINTER when pszSizeNames points to a buffer smaller than 
+ * XP fails with E_POINTER when pszSizeNames points to a buffer smaller than
  * sizeof(THEMENAMES).
  *
  * Not very efficient that I'm opening & validating the theme every call, but
@@ -1170,7 +1171,7 @@ HRESULT WINAPI EnumThemeSizes(LPWSTR pszThemeFileName, LPWSTR pszColorName,
  *     0x800706488 (Unknown property) when enumeration is canceled from callback
  *
  * NOTES
- * When pszUnknown is NULL the callback is never called, the value does not seem to serve
+ * When pszUnknown is NULL the callback is never called, the value does not seem to surve
  * any other purpose
  */
 HRESULT WINAPI ParseThemeIniFile(LPCWSTR pszIniFileName, LPWSTR pszUnknown,

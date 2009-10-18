@@ -148,7 +148,7 @@ MSZipCodecUncompress(PVOID OutputBuffer,
 		  return CS_BADSTREAM;
 		}
 
-	  ZStream.next_in   = ((PUCHAR)InputBuffer )+ 2;
+	  ZStream.next_in   = (PUCHAR)((ULONG)InputBuffer + 2);
 	  ZStream.avail_in  = *InputLength - 2;
 	  ZStream.next_out  = (PUCHAR)OutputBuffer;
 	  ZStream.avail_out = abs(*OutputLength);
@@ -712,7 +712,7 @@ CabinetFindNext(PCAB_SEARCH Search)
   PCFFILE Prev;
   ANSI_STRING AnsiString;
   UNICODE_STRING UnicodeString;
-  WCHAR FileName[MAX_PATH] = {L'\0'};
+  WCHAR FileName[MAX_PATH];
 
   if( wcscmp( Search->Cabinet, CabinetName ) != 0 )
 	Search->File = 0;    // restart search of cabinet has changed since last find

@@ -22,6 +22,10 @@ RenameProfDlgProc(HWND hwndDlg,
 
     switch (uMsg)
     {
+        case WM_INITDIALOG:
+            MessageBox(hwndDlg, _T("Dialog not yet implemented!"), NULL, 0);
+            break;
+
         case WM_COMMAND:
             if ((LOWORD(wParam) == IDOK) || (LOWORD(wParam) == IDCANCEL))
             {
@@ -49,18 +53,8 @@ HardProfDlgProc(HWND hwndDlg,
     switch (uMsg)
     {
         case WM_INITDIALOG:
-        {
-            SendMessage(GetDlgItem(hwndDlg, IDC_HRDPROFUP),
-                        BM_SETIMAGE,(WPARAM)IMAGE_ICON,
-                        (LPARAM)(HANDLE)LoadIcon(hApplet, MAKEINTRESOURCE(IDI_UP)));
-            SendMessage(GetDlgItem(hwndDlg, IDC_HRDPROFDWN),
-                        BM_SETIMAGE,(WPARAM)IMAGE_ICON,
-                        (LPARAM)(HANDLE)LoadIcon(hApplet, MAKEINTRESOURCE(IDI_DOWN)));
-
-            SendDlgItemMessageW(hwndDlg, IDC_HRDPROFUPDWN, UDM_SETRANGE, (WPARAM) 0, (LPARAM) MAKELONG((short) 500, 0));
-            //SendDlgItemMessageW(hwndDlg, IDC_HRDPROFUPDWN, UDM_SETPOS, (WPARAM) 0, (LPARAM) MAKELONG((short) 30, 0));
-        }
-        break;
+            MessageBox(hwndDlg, _T("Dialog not yet implemented!"), NULL, 0);
+            break;
 
         case WM_COMMAND:
             switch (LOWORD(wParam))

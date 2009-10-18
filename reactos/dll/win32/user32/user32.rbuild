@@ -1,22 +1,23 @@
-<module name="user32" type="win32dll" baseaddress="${BASEADDRESS_USER32}" installbase="system32" installname="user32.dll" unicode="yes" crt="dll">
-	<importlibrary definition="user32.pspec" />
+<module name="user32" type="win32dll" baseaddress="${BASEADDRESS_USER32}" installbase="system32" installname="user32.dll" allowwarnings="true">
+	<importlibrary definition="user32.def" />
 	<include base="user32">.</include>
 	<include base="user32">include</include>
 	<include base="ReactOS">include/reactos/subsys</include>
+	<define name="_DISABLE_TIDENTS" />
+	<define name="UNICODE" />
+	<define name="WINVER">0x0600</define>
+	<define name="_WIN32_WINNT">0x0501</define>
 	<library>wine</library>
+	<library>ntdll</library>
 	<library>gdi32</library>
 	<library>kernel32</library>
 	<library>advapi32</library>
 	<library>imm32</library>
 	<library>win32ksys</library>
-	<library>pseh</library>
-	<library>ntdll</library>
-	<compilerflag compilerset="gcc">-fms-extensions</compilerflag>
-	<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38269
+
 	<directory name="include">
 		<pch>user32.h</pch>
 	</directory>
-	-->
 	<directory name="controls">
 		<file>button.c</file>
 		<file>combo.c</file>
@@ -36,14 +37,12 @@
 		<file>dllmain.c</file>
 		<file>exit.c</file>
 		<file>exticon.c</file>
-		<file>imm.c</file>
 		<file>misc.c</file>
 		<file>object.c</file>
 		<file>resources.c</file>
-		<file>rtlstr.c</file>
+		<file>strpool.c</file>
 		<file>stubs.c</file>
 		<file>timer.c</file>
-		<file>usrapihk.c</file>
 		<file>winhelp.c</file>
 		<file>winsta.c</file>
 		<file>wsprintf.c</file>
@@ -76,7 +75,8 @@
 		<file>window.c</file>
 		<file>winpos.c</file>
 	</directory>
+	<linkerflag>-lgcc</linkerflag>
+	<linkerflag>-nostartfiles</linkerflag>
+	<linkerflag>-nostdlib</linkerflag>
 	<file>user32.rc</file>
-	<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38054#c7 -->
-	<compilerflag compilerset="gcc">-fno-unit-at-a-time</compilerflag>
 </module>

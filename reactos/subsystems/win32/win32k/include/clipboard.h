@@ -2,7 +2,6 @@
 #define _WIN32K_CLIPBOARD_H
 
 #include "window.h"
-#include <include/win32.h>
 
 VOID FASTCALL IntIncrementSequenceNumber(VOID);
 
@@ -22,8 +21,8 @@ typedef struct _ClipboardElement
 
 typedef struct _CLIPBOARDSYSTEM
 {
-    PTHREADINFO     ClipboardThread;
-    PTHREADINFO     ClipboardOwnerThread;
+    PW32THREAD      ClipboardThread;
+    PW32THREAD      ClipboardOwnerThread;
     PWINDOW_OBJECT  ClipboardWindow;
     PWINDOW_OBJECT  ClipboardViewerWindow;
     PWINDOW_OBJECT  ClipboardOwnerWindow;
@@ -43,8 +42,6 @@ typedef struct _CLIPBOARDSYSTEM
 
 VOID FASTCALL
 IntClipboardFreeWindow(PWINDOW_OBJECT window);
-
-UINT APIENTRY IntEnumClipboardFormats(UINT format);
 
 /*
 UINT FASTCALL

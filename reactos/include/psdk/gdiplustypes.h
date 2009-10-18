@@ -1,249 +1,509 @@
 /*
- * Copyright (C) 2007 Google (Evan Stade)
+ * GdiPlusTypes.h
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * Windows GDI+
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
+ * This file is part of the w32api package.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * THIS SOFTWARE IS NOT COPYRIGHTED
+ *
+ * This source code is offered for use in the public domain. You may
+ * use, modify or distribute it freely.
+ *
+ * This code is distributed in the hope that it will be useful but
+ * WITHOUT ANY WARRANTY. ALL WARRANTIES, EXPRESS OR IMPLIED ARE HEREBY
+ * DISCLAIMED. This includes but is not limited to warranties of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 
 #ifndef _GDIPLUSTYPES_H
 #define _GDIPLUSTYPES_H
 
+#if __GNUC__ >= 3
+#pragma GCC system_header
+#endif
+
 typedef float REAL;
 
-enum Status{
-    Ok                          = 0,
-    GenericError                = 1,
-    InvalidParameter            = 2,
-    OutOfMemory                 = 3,
-    ObjectBusy                  = 4,
-    InsufficientBuffer          = 5,
-    NotImplemented              = 6,
-    Win32Error                  = 7,
-    WrongState                  = 8,
-    Aborted                     = 9,
-    FileNotFound                = 10,
-    ValueOverflow               = 11,
-    AccessDenied                = 12,
-    UnknownImageFormat          = 13,
-    FontFamilyNotFound          = 14,
-    FontStyleNotFound           = 15,
-    NotTrueTypeFont             = 16,
-    UnsupportedGdiplusVersion   = 17,
-    GdiplusNotInitialized       = 18,
-    PropertyNotFound            = 19,
-    PropertyNotSupported        = 20,
-    ProfileNotFound             = 21
-};
-
-
-#ifdef __cplusplus
 extern "C" {
-#endif
-
-typedef BOOL (CALLBACK * ImageAbort)(VOID *);
-typedef ImageAbort DrawImageAbort;
-typedef ImageAbort GetThumbnailImageAbort;
-
-#ifdef __cplusplus
+  typedef BOOL (CALLBACK * ImageAbort)(VOID *);
+  typedef ImageAbort DrawImageAbort;
+  typedef ImageAbort GetThumbnailImageAbort;
+  typedef BOOL (CALLBACK * EnumerateMetafileProc)(EmfPlusRecordType, UINT, UINT, const BYTE*, VOID*);
 }
-#endif
+
+typedef enum {
+  Ok = 0,
+  GenericError = 1,
+  InvalidParameter = 2,
+  OutOfMemory = 3,
+  ObjectBusy = 4,
+  InsufficientBuffer = 5,
+  NotImplemented = 6,
+  Win32Error = 7,
+  WrongState = 8,
+  Aborted = 9,
+  FileNotFound = 10,
+  ValueOverflow = 11,
+  AccessDenied = 12,
+  UnknownImageFormat = 13,
+  FontFamilyNotFound = 14,
+  FontStyleNotFound = 15,
+  NotTrueTypeFont = 16,
+  UnsupportedGdiplusVersion = 17,
+  GdiplusNotInitialized = 18,
+  PropertyNotFound = 19,
+  PropertyNotSupported = 20,
+  ProfileNotFound = 21
+} Status;
 
 
-#ifdef __cplusplus
-
-class Point
+class CharacterRange
 {
 public:
-   Point()
-   {
-       X = Y = 0;
-   }
+  CharacterRange(VOID)
+  {
+  }
 
-   Point(IN const Point &pt)
-   {
-       X = pt.X;
-       Y = pt.Y;
-   }
+  CharacterRange(INT first, INT length)
+  {
+  }
 
-   /* FIXME: missing constructor that takes a Size */
-
-   Point(IN INT x, IN INT y)
-   {
-       X = x;
-       Y = y;
-   }
-
-   Point operator+(IN const Point& pt) const
-   {
-       return Point(X + pt.X, Y + pt.Y);
-   }
-
-   Point operator-(IN const Point& pt) const
-   {
-       return Point(X - pt.X, Y - pt.Y);
-   }
-
-   BOOL Equals(IN const Point& pt)
-   {
-       return (X == pt.X) && (Y == pt.Y);
-   }
+  CharacterRange &operator=(const CharacterRange &rhs)
+  {
+    First  = rhs.First;
+    Length = rhs.Length;
+    return *this;
+  }
 
 public:
-    INT X;
-    INT Y;
+  INT First;
+  INT Length;
 };
+
+
+class SizeF
+{
+public:
+  SizeF(VOID)
+  {
+  }
+
+  SizeF(FLOAT width, FLOAT height)
+  {
+  }
+
+  SizeF(const SizeF &size)
+  {
+  }
+
+  BOOL Empty(VOID)
+  {
+    return FALSE;
+  }
+
+  BOOL Equals(const SizeF &sz)
+  {
+    return FALSE;
+  }
+
+  SizeF operator+(const SizeF &sz)
+  {
+    return SizeF(Width + sz.Width,
+      Height + sz.Height);
+  }
+
+  SizeF operator-(const SizeF &sz)
+  {
+    return SizeF(Width - sz.Width,
+      Height - sz.Height);
+  }
+
+public:
+  FLOAT Height;
+  FLOAT Width;
+};
+
 
 class PointF
 {
 public:
-   PointF()
-   {
-       X = Y = 0.0f;
-   }
+  PointF(REAL x, REAL y)
+  {
+  }
 
-   PointF(IN const PointF &pt)
-   {
-       X = pt.X;
-       Y = pt.Y;
-   }
+  PointF(const SizeF &size)
+  {
+  }
 
-   /* FIXME: missing constructor that takes a SizeF */
+  PointF(VOID)
+  {
+  }
 
-   PointF(IN REAL x, IN REAL y)
-   {
-       X = x;
-       Y = y;
-   }
+  PointF(const PointF &point)
+  {
+  }
 
-   PointF operator+(IN const PointF& pt) const
-   {
-       return PointF(X + pt.X, Y + pt.Y);
-   }
+  BOOL Equals(const PointF& point)
+  {
+    return FALSE;
+  }
 
-   PointF operator-(IN const PointF& pt) const
-   {
-       return PointF(X - pt.X, Y - pt.Y);
-   }
+  PointF operator+(const PointF &point)
+  {
+    return PointF(X + point.X,
+      Y + point.Y);
+  }
 
-   BOOL Equals(IN const PointF& pt)
-   {
-       return (X == pt.X) && (Y == pt.Y);
-   }
+  PointF operator-(const PointF &point)
+  {
+    return PointF(X - point.X,
+      Y - point.Y);
+  }
 
 public:
-    REAL X;
-    REAL Y;
+  REAL X;
+  REAL Y;
 };
+
 
 class PathData
 {
 public:
-    PathData()
-    {
-        Count = 0;
-        Points = NULL;
-        Types = NULL;
-    }
-
-    ~PathData()
-    {
-        if (Points != NULL)
-        {
-            delete Points;
-        }
-
-        if (Types != NULL)
-        {
-            delete Types;
-        }
-    }
-
-private:
-    PathData(const PathData &);
-    PathData& operator=(const PathData &);
+  PathData(VOID)
+  {
+  }
 
 public:
-    INT Count;
-    PointF* Points;
-    BYTE* Types;
+  INT Count;
+  PointF *Points;
+  BYTE *Types;
 };
 
-/* FIXME: missing the methods. */
-class RectF
+
+class Size
 {
 public:
-    REAL X;
-    REAL Y;
-    REAL Width;
-    REAL Height;
+  Size(VOID)
+  {
+  }
+
+  Size(INT width, INT height)
+  {
+  }
+
+  Size(const Size &size)
+  {
+  }
+
+  BOOL Empty(VOID)
+  {
+    return FALSE;
+  }
+
+  BOOL Equals(const Size &sz)
+  {
+    return FALSE;
+  }
+
+  Size operator+(const Size &sz)
+  {
+    return Size(Width + sz.Width,
+      Height + sz.Height);
+  }
+
+  Size operator-(const Size &sz)
+  {
+    return Size(Width - sz.Width,
+      Height - sz.Height);
+  }
+
+public:
+  INT Height;
+  INT Width;
 };
 
-/* FIXME: missing the methods. */
+
+class Point
+{
+public:
+  Point(VOID)
+  {
+  }
+
+  Point(INT x, INT y)
+  {
+  }
+
+  Point(const Point &point)
+  {
+  }
+
+  Point(const Size &size)
+  {
+  }
+
+  BOOL Equals(const Point& point)
+  {
+    return FALSE;
+  }
+
+  Point operator+(const Point &point)
+  {
+    return Point(X + point.X,
+      Y + point.Y);
+  }
+
+  Point operator-(const Point &point)
+  {
+    return Point(X - point.X,
+      Y - point.Y);
+  }
+
+public:
+  INT X;
+  INT Y;
+};
+
+
 class Rect
 {
 public:
-    INT X;
-    INT Y;
-    INT Width;
-    INT Height;
+  Rect(VOID)
+  {
+  }
+
+  Rect(const Point &location, const Size &size)
+  {
+  }
+
+  Rect(INT x, INT y, INT width, INT height)
+  {
+  }
+
+  Rect *Clone(VOID) const
+  {
+    return NULL;
+  }
+
+  BOOL Contains(const Point& pt)
+  {
+    return FALSE;
+  }
+
+  BOOL Contains(Rect& rect)
+  {
+    return FALSE;
+  }
+
+  BOOL Contains(INT x, INT y)
+  {
+    return FALSE;
+  }
+
+  BOOL Equals(const Rect& rect) const
+  {
+    return FALSE;
+  }
+
+  INT GetBottom(VOID) const
+  {
+    return 0;
+  }
+
+  VOID GetBounds(Rect* rect) const
+  {
+  }
+
+  INT GetLeft(VOID) const
+  {
+    return 0;
+  }
+
+  VOID GetLocation(Point* point) const
+  {
+  }
+
+  INT GetRight(VOID) const
+  {
+    return 0;
+  }
+
+  VOID GetSize(Size* size) const
+  {
+  }
+
+  INT GetTop(VOID) const
+  {
+    return 0;
+  }
+
+  VOID Inflate(INT dx, INT dy)
+  {
+  }
+
+  VOID Inflate(const Point& point)
+  {
+  }
+
+  BOOL Intersect(Rect& c, const Rect& a, const Rect& b)
+  {
+    return FALSE;
+  }
+
+  BOOL Intersect(const Rect& rect)
+  {
+    return FALSE;
+  }
+
+  BOOL IntersectsWith(const Rect& rect) const
+  {
+    return FALSE;
+  }
+
+  BOOL IsEmptyArea(VOID) const
+  {
+    return FALSE;
+  }
+
+  VOID Offset(INT dx, INT dy)
+  {
+  }
+
+  VOID Offset(const Point& point)
+  {
+  }
+
+  BOOL Union(Rect& c, const Rect& a, const Rect& b)
+  {
+    return FALSE;
+  }
+public:
+  INT X;
+  INT Y;
+  INT Width;
+  INT Height;
 };
 
-#else /* end of c++ typedefs */
 
-typedef struct Point
+class RectF
 {
-    INT X;
-    INT Y;
-} Point;
+public:
+  RectF(const PointF &location, const SizeF &size)
+  {
+  }
 
-typedef struct PointF
-{
-    REAL X;
-    REAL Y;
-} PointF;
+  RectF(VOID)
+  {
+  }
 
-typedef struct PathData
-{
-    INT Count;
-    PointF* Points;
-    BYTE* Types;
-} PathData;
+  RectF(REAL x, REAL y, REAL width, REAL height)
+  {
+  }
 
-typedef struct RectF
-{
-    REAL X;
-    REAL Y;
-    REAL Width;
-    REAL Height;
-} RectF;
+  RectF *Clone(VOID) const
+  {
+    return NULL;
+  }
 
-typedef struct Rect
-{
-    INT X;
-    INT Y;
-    INT Width;
-    INT Height;
-} Rect;
+  BOOL Contains(const RectF& rect)
+  {
+    return FALSE;
+  }
 
-typedef struct CharacterRange
-{
-    INT First;
-    INT Length;
-} CharacterRange;
+  BOOL Contains(const PointF& pt) const
+  {
+    return FALSE;
+  }
 
-typedef enum Status Status;
+  BOOL Contains(REAL x, REAL y)
+  {
+    return FALSE;
+  }
 
-#endif /* end of c typedefs */
+  BOOL Equals(const RectF& rect) const
+  {
+    return FALSE;
+  }
 
-#endif
+  REAL GetBottom(VOID) const
+  {
+    return 0;
+  }
+
+  VOID GetBounds(RectF* rect) const
+  {
+  }
+
+  REAL GetLeft(VOID) const
+  {
+    return 0;
+  }
+
+  VOID GetLocation(PointF* point) const
+  {
+  }
+
+  REAL GetRight(VOID) const
+  {
+    return 0;
+  }
+
+  VOID GetSize(SizeF* size) const
+  {
+  }
+
+  REAL GetTop(VOID) const
+  {
+    return 0;
+  }
+
+  VOID Inflate(const PointF& point)
+  {
+  }
+
+  VOID Inflate(REAL dx, REAL dy)
+  {
+  }
+
+  BOOL Intersect(Rect& c, const Rect& a, const Rect& b)
+  {
+    return FALSE;
+  }
+
+  BOOL Intersect(const Rect& rect)
+  {
+    return FALSE;
+  }
+
+  BOOL IntersectsWith(const RectF& rect) const
+  {
+    return FALSE;
+  }
+
+  BOOL IsEmptyArea(VOID) const
+  {
+    return FALSE;
+  }
+
+  VOID Offset(INT dx, INT dy)
+  {
+  }
+
+  VOID Offset(const Point& point)
+  {
+  }
+
+  BOOL Union(RectF& c, const RectF& a, const RectF& b)
+  {
+    return FALSE;
+  }
+
+public:
+  REAL X;
+  REAL Y;
+  REAL Width;
+  REAL Height;
+};
+
+#endif /* _GDIPLUSTYPES_H */

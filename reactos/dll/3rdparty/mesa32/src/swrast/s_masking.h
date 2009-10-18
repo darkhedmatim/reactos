@@ -27,6 +27,7 @@
 #define S_MASKING_H
 
 
+#include "mtypes.h"
 #include "swrast.h"
 
 

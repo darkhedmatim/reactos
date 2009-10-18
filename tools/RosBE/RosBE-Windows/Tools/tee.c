@@ -1,6 +1,6 @@
 /*
  * PROJECT:     RosBE - ReactOS Build Environment for Windows.
- * LICENSE:     GNU General Public License v2. (see LICENSE.txt)
+ * LICENSE:     GPL - See LICENSE.txt in the top level directory.
  * FILE:        Tools/tee.c
  * PURPOSE:     Spit stdin to stdout and a file.
  * COPYRIGHT:   Copyright 2007 Peter Ward <dralnix@gmail.com>
@@ -10,11 +10,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#define LINE_MAX 1024
-
 int main(int argc, char* argv[])
 {
-    char buff[LINE_MAX];
+    unsigned char charbuff;
     FILE *fp;
 
     if (argc > 2)
@@ -33,20 +31,20 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    if (!(fp = fopen(argv[1], "w")))
+    fp = fopen(argv[1], "w");
+    if (!fp)
     {
         fprintf(stderr, "%s: Error cannot create/open file \"%s\".\n", argv[0], argv[1]);
         return -1;
     }
     while (!feof(stdin))
     {
-        fgets(buff, LINE_MAX, stdin);
-        if (strlen(buff) > 0)
+        charbuff = fgetc(stdin);
+        if (!feof(stdin))
         {
-            fwrite(buff, 1, strlen(buff), stdout);
-            fwrite(buff, 1, strlen(buff), fp);
+            fputc(charbuff, stdout);
+            fputc(charbuff, fp);
         }
-        memset(&buff, '\0', LINE_MAX);
     }
     if (fclose(fp))
     {

@@ -20,6 +20,7 @@
 #include "machine.h"
 #include "ppcmmu/mmu.h"
 #include "of.h"
+#include "ppcboot.h"
 #include "prep.h"
 #include "compat.h"
 
@@ -28,13 +29,14 @@ extern PCHAR GetFreeLoaderVersionString();
 extern ULONG CacheSizeLimit;
 of_proxy ofproxy;
 void *PageDirectoryStart, *PageDirectoryEnd;
-static int chosen_package, stdin_handle, stdout_handle, part_handle = -1;
-int mmu_handle = 0;
-int claimed[4];
+static int chosen_package, stdin_handle, stdout_handle,
+  part_handle = -1, kernel_mem = 0;
+int mmu_handle = 0, FixedMemory = 0;
 BOOLEAN AcpiPresent = FALSE;
 char BootPath[0x100] = { 0 }, BootPart[0x100] = { 0 }, CmdLine[0x100] = { "bootprep" };
 jmp_buf jmp;
 volatile char *video_mem = 0;
+boot_infos_t BootInfo;
 
 void PpcOfwPutChar( int ch ) {
     char buf[3];
@@ -164,15 +166,136 @@ VOID PpcVideoSync() {
     printf( "Sync\n" );
 }
 
+static int prom_next_node(int *nodep)
+{
+	int node;
+
+	if ((node = *nodep) != 0
+	    && (*nodep = ofw_child(node)) != 0)
+		return 1;
+	if ((*nodep = ofw_peer(node)) != 0)
+		return 1;
+	for (;;) {
+		if ((node = ofw_parent(node)) == 0)
+			return 0;
+		if ((*nodep = ofw_peer(node)) != 0)
+			return 1;
+	}
+}
+
+/* Appropriated from linux' btext.c
+ * author:
+ * Benjamin Herrenschmidt <benh@kernel.crashing.org>
+ */
+VOID PpcVideoPrepareForReactOS(BOOLEAN Setup) {
+    int i, j, k, /* display_handle, */ display_package, display_size = 0;
+    int node, ret, elts;
+    int device_address;
+    //pci_reg_property display_regs[8];
+    char type[256], path[256], name[256];
+    char logo[] = {
+	"          "
+	"  XXXXXX  "
+	" X      X "
+	" X X  X X "
+	" X      X "
+	" X XXXX X "
+	" X  XX  X "
+	" X      X "
+	"  XXXXXX  "
+	"          "
+    };
+    int logo_x = 10, logo_y = 10;
+    int logo_scale_x = 8, logo_scale_y = 8;
+
+
+    for( node = ofw_finddevice("/"); prom_next_node(&node); ) {
+	memset(type, 0, sizeof(type));
+	memset(path, 0, sizeof(path));
+
+	ret = ofw_getprop(node, "name", name, sizeof(name));
+
+	if(ofw_getprop(node, "device_type", type, sizeof(type)) <= 0) {
+	    printf("Could not get type for node %x\n", node);
+	    continue;
+	}
+
+	printf("Node %x ret %d name %s type %s\n", node, ret, name, type);
+
+	if(strcmp(type, "display") == 0) break;
+    }
+
+    if(!node) return;
+
+    if(ofw_package_to_path(node, path, sizeof(path)) < 0) {
+	printf("could not get path for display package %x\n", node);
+	return;
+    }
+
+    printf("Opening display package: %s\n", path);
+    display_package = ofw_finddevice(path);
+    printf("display package %x\n", display_package);
+
+    BootInfo.dispDeviceRect[0] = BootInfo.dispDeviceRect[1] = 0;
+
+    ofw_getprop(display_package, "width",
+		(void *)&BootInfo.dispDeviceRect[2], sizeof(int));
+    ofw_getprop(display_package, "height",
+		(void *)&BootInfo.dispDeviceRect[3], sizeof(int));
+    ofw_getprop(display_package, "depth",
+		(void *)&BootInfo.dispDeviceDepth, sizeof(int));
+    ofw_getprop(display_package, "linebytes",
+		(void *)&BootInfo.dispDeviceRowBytes, sizeof(int));
+
+    BootInfo.dispDeviceRect[2] = BootInfo.dispDeviceRect[2];
+    BootInfo.dispDeviceRect[3] = BootInfo.dispDeviceRect[3];
+    BootInfo.dispDeviceDepth = BootInfo.dispDeviceDepth;
+    BootInfo.dispDeviceRowBytes = BootInfo.dispDeviceRowBytes;
+
+    if(ofw_getprop
+       (display_package,
+	"address",
+	(void *)&device_address,
+	sizeof(device_address)) < 1) {
+	printf("Could not get device base\n");
+	return;
+    }
+
+    BootInfo.dispDeviceBase = (PVOID)(device_address);
+
+    display_size = BootInfo.dispDeviceRowBytes * BootInfo.dispDeviceRect[3];
+
+    printf("Display size is %x bytes (%x per row times %x rows)\n",
+	   display_size,
+	   BootInfo.dispDeviceRowBytes,
+	   BootInfo.dispDeviceRect[3]);
+
+    printf("display is at %x\n", BootInfo.dispDeviceBase);
+
+    for( i = 0; i < logo_y * logo_scale_y; i++ ) {
+	for( j = 0; j < logo_x * logo_scale_x; j++ ) {
+	    elts = (j/logo_scale_x) + ((i/logo_scale_y) * logo_x);
+
+	    for( k = 0; k < BootInfo.dispDeviceDepth/8; k++ ) {
+		SetPhysByte(((ULONG_PTR)BootInfo.dispDeviceBase)+
+			    k +
+			    ((j * (BootInfo.dispDeviceDepth/8)) +
+			     (i * (BootInfo.dispDeviceRowBytes))),
+			    logo[elts] == ' ' ? 0 : 255);
+	    }
+	}
+    }
+}
+
 int mmu_initialized = 0;
 int mem_range_end;
-VOID PpcInitializeMmu()
+VOID PpcInitializeMmu(int max_mem)
 {
     if(!mmu_initialized)
     {
 	MmuInit();
 	MmuDbgInit(0, 0x800003f8);
-        MmuSetMemorySize(mem_range_end);
+        MmuSetMemorySize(mem_range_end > max_mem ? mem_range_end : max_mem);
         //MmuDbgEnter(0x20);
 	mmu_initialized = 1;
     }
@@ -186,70 +309,116 @@ ULONG PpcPrepGetMemoryMap( PBIOS_MEMORY_MAP BiosMemoryMap,
  */
 ULONG PpcGetMemoryMap( PBIOS_MEMORY_MAP BiosMemoryMap,
                        ULONG MaxMemoryMapSize ) {
-    int i, memhandle, total = 0, slots = 0, last = 0x40000, allocstart = 0x1000000;
-    int regdata[0x40];
+    int i, memhandle, returned, total = 0, slots = 0;
+    int memdata[0x40];
 
     printf("PpcGetMemoryMap(%d)\n", MaxMemoryMapSize);
 
     memhandle = ofw_finddevice("/memory");
 
-    ofw_getprop(memhandle, "reg", (char *)regdata, sizeof(regdata));
+    returned = ofw_getprop(memhandle, "available",
+			   (char *)memdata, sizeof(memdata));
 
-    /* Try to claim some memory in usable blocks.  Try to get some 8mb bits */
-    for( i = 0; i < sizeof(claimed) / sizeof(claimed[0]); ) {
-        if (!claimed[i])
-            claimed[i] = ofw_claim(allocstart, 8 * 1024 * 1024, 0x1000);
+    printf("Returned data: %d\n", returned);
+    if( returned == -1 ) {
+	printf("getprop /memory[@reg] failed\n");
+        return PpcPrepGetMemoryMap( BiosMemoryMap, MaxMemoryMapSize );
+    }
 
-        allocstart += 8 * 1024 * 1024;
+    for( i = 0; i < returned; i++ ) {
+	printf("%x ", memdata[i]);
+    }
+    printf("\n");
 
-        if (claimed[i]) {
-            if (last < claimed[i]) {
-                BiosMemoryMap[slots].Type = BiosMemoryAcpiReclaim;
-                BiosMemoryMap[slots].BaseAddress = last;
-                BiosMemoryMap[slots].Length = claimed[i] - last;
-                slots++;
-            }
-            
-            BiosMemoryMap[slots].Type = BiosMemoryUsable;
-            BiosMemoryMap[slots].BaseAddress = claimed[i];
-            BiosMemoryMap[slots].Length = 8 * 1024 * 1024;
-            
-            total += BiosMemoryMap[slots].Length;
-            last = 
-                BiosMemoryMap[slots].BaseAddress + 
-                BiosMemoryMap[slots].Length;
-            slots++;
-            i++;
+    for( i = 0; i < returned / 2; i++ ) {
+	BiosMemoryMap[slots].Type = BiosMemoryUsable;
+	BiosMemoryMap[slots].BaseAddress = memdata[i*2];
+	BiosMemoryMap[slots].Length = memdata[i*2+1];
+	printf("MemoryMap[%d] = (%x:%x)\n",
+	       i,
+	       (int)BiosMemoryMap[slots].BaseAddress,
+	       (int)BiosMemoryMap[slots].Length);
+
+        // Track end of ram
+        if (BiosMemoryMap[slots].BaseAddress + BiosMemoryMap[slots].Length >
+            mem_range_end)
+        {
+            mem_range_end =
+                BiosMemoryMap[slots].BaseAddress + BiosMemoryMap[slots].Length;
         }
+
+	/* Hack for pearpc */
+	if( kernel_mem ) {
+	    BiosMemoryMap[slots].Length = kernel_mem * 1024;
+	    if( !FixedMemory ) {
+		ofw_claim((int)BiosMemoryMap[slots].BaseAddress,
+			  (int)BiosMemoryMap[slots].Length,
+			  0x1000);
+		FixedMemory = BiosMemoryMap[slots].BaseAddress;
+	    }
+	    total += BiosMemoryMap[slots].Length;
+	    slots++;
+	    break;
+	/* Normal way */
+	} else if( BiosMemoryMap[slots].Length &&
+		   ofw_claim((int)BiosMemoryMap[slots].BaseAddress,
+			     (int)BiosMemoryMap[slots].Length,
+			     0x1000) ) {
+	    total += BiosMemoryMap[slots].Length;
+	    slots++;
+	}
     }
 
-    /* Get the rest until the end of the memory object as we see it */
-    if (last < regdata[1]) {
-        BiosMemoryMap[slots].Type = BiosMemoryAcpiReclaim;
-        BiosMemoryMap[slots].BaseAddress = last;
-        BiosMemoryMap[slots].Length = regdata[1] - last;
-        slots++;
-    }
-
-    for (i = 0; i < slots; i++) {
-        printf("MemoryMap[%d] = (%x:%x)\n",
-               i,
-               (int)BiosMemoryMap[i].BaseAddress,
-               (int)BiosMemoryMap[i].Length);
-            
-    }
-
-    mem_range_end = regdata[1];
-
-    printf( "Returning memory map (%d entries, %dk free, %dk total ram)\n", 
-            slots, total / 1024, regdata[1] / 1024 );
+    printf( "Returning memory map (%dk total)\n", total / 1024 );
 
     return slots;
+}
+
+/* Strategy:
+ *
+ * For now, it'll be easy enough to use the boot command line as our boot path.
+ * Treat it as the path of a disk partition.  We might even be able to get
+ * away with grabbing a partition image by tftp in this scenario.
+ */
+
+BOOLEAN PpcDiskGetBootVolume( PULONG DriveNumber, PULONGLONG StartSector, PULONGLONG SectorCount, int *FsType ) {
+    *DriveNumber = 0;
+    *StartSector = 0;
+    *SectorCount = 0;
+    *FsType = FS_FAT;
+    return TRUE;
+}
+
+BOOLEAN PpcDiskGetSystemVolume( char *SystemPath,
+                             char *RemainingPath,
+                             PULONG Device,
+                             PULONG DriveNumber,
+                             PULONGLONG StartSector,
+                             PULONGLONG SectorCount,
+                             int *FsType ) {
+    char *remain = strchr(SystemPath, '\\');
+    if( remain ) {
+	strcpy( RemainingPath, remain+1 );
+    } else {
+	RemainingPath[0] = 0;
+    }
+    *Device = 0;
+    // Hack to be a bit easier on ram
+    CacheSizeLimit = 64 * 1024;
+    return MachDiskGetBootVolume(DriveNumber, StartSector, SectorCount, FsType);
 }
 
 BOOLEAN PpcDiskGetBootPath( char *OutBootPath, unsigned Size ) {
     strncpy( OutBootPath, BootPath, Size );
     return TRUE;
+}
+
+VOID PpcDiskGetBootDevice( PULONG BootDevice ) {
+    BootDevice[0] = BootDevice[1] = 0;
+}
+
+BOOLEAN PpcDiskBootingFromFloppy(VOID) {
+    return FALSE;
 }
 
 BOOLEAN PpcDiskReadLogicalSectors( ULONG DriveNumber, ULONGLONG SectorNumber,
@@ -281,6 +450,12 @@ BOOLEAN PpcDiskReadLogicalSectors( ULONG DriveNumber, ULONGLONG SectorNumber,
     return rlen > 0;
 }
 
+BOOLEAN PpcDiskGetPartitionEntry( ULONG DriveNumber, ULONG PartitionNumber,
+                               PPARTITION_TABLE_ENTRY PartitionTableEntry ) {
+    printf("GetPartitionEntry(%d,%d)\n", DriveNumber, PartitionNumber);
+    return FALSE;
+}
+
 BOOLEAN PpcDiskGetDriveGeometry( ULONG DriveNumber, PGEOMETRY DriveGeometry ) {
     printf("GetGeometry(%d)\n", DriveNumber);
     DriveGeometry->BytesPerSector = 512;
@@ -294,21 +469,9 @@ ULONG PpcDiskGetCacheableBlockCount( ULONG DriveNumber ) {
     return 1;
 }
 
-TIMEINFO*
-PpcGetTime(VOID)
-{
-    static TIMEINFO TimeInfo;
-    //printf("PpcGetTime\n");
-    return &TimeInfo;
-}
-
-VOID NarrowToWide(WCHAR *wide_name, char *name)
-{
-    char *copy_name;
-    WCHAR *wide_name_ptr;
-    for (wide_name_ptr = wide_name, copy_name = name;
-         (*wide_name_ptr = *copy_name);
-         wide_name_ptr++, copy_name++);
+VOID PpcRTCGetCurrentDateTime( PULONG Hear, PULONG Month, PULONG Day,
+                               PULONG Hour, PULONG Minute, PULONG Second ) {
+    //printf("RTCGeturrentDateTime\n");
 }
 
 /* Recursively copy the device tree into our representation
@@ -326,33 +489,10 @@ VOID NarrowToWide(WCHAR *wide_name, char *name)
  * configuration scheme that relies both on verification of devices and
  * recording information from openfirmware to be treated as hints.
  */
-VOID OfwCopyDeviceTree
-(PCONFIGURATION_COMPONENT_DATA ParentKey, 
- char *name, 
- int innode,
- ULONG *BusNumber,
- ULONG *DiskController,
- ULONG *DiskNumber)
+VOID OfwCopyDeviceTree(PPPC_DEVICE_TREE tree, int innode)
 {
     int proplen = 0, node = innode;
-    char *prev_name, cur_name[64], data[256], *slash, devtype[64];
-    wchar_t wide_name[64];
-    PCONFIGURATION_COMPONENT_DATA NewKey;
-
-    NarrowToWide(wide_name, name);
-
-    /* Create a key for this device */
-    FldrCreateComponentKey
-        (ParentKey,
-         AdapterClass,
-         MultiFunctionAdapter,
-         0,
-         0,
-         (ULONG)-1,
-         NULL,
-         NULL,
-         0,
-         &NewKey);
+    char *prev_name, cur_name[64], data[256], *slash;
 
     /* Add properties */
     for (prev_name = ""; ofw_nextprop(node, prev_name, cur_name) == 1; )
@@ -365,32 +505,10 @@ VOID OfwCopyDeviceTree
             continue;
         }
         ofw_getprop(node, cur_name, data, sizeof(data));
-
-        /* Get device type so we can examine it */
-        if (!strcmp(cur_name, "device_type"))
-            strcpy(devtype, (char *)data);
-        
-        NarrowToWide(wide_name, cur_name);
-        //RegSetValue(NewKey, wide_name, REG_BINARY, data, proplen);
-
+        PpcDevTreeAddProperty(tree, 0, cur_name, data, proplen);
         strcpy(data, cur_name);
         prev_name = data;
     }
-
-#if 0
-    /* Special device handling */
-    if (!strcmp(devtype, "ata"))
-    {
-        OfwHandleDiskController(NewKey, node, *DiskController);
-        (*DiskController)++;
-        *DiskNumber = 0;
-    }
-    else if (!strcmp(devtype, "disk"))
-    {
-        OfwHandleDiskObject(NewKey, node, *DiskController, *DiskNumber);
-        (*DiskNumber)++;
-    }
-#endif
 
     /* Subdevices */
     for (node = ofw_child(node); node; node = ofw_peer(node))
@@ -398,25 +516,71 @@ VOID OfwCopyDeviceTree
         ofw_package_to_path(node, data, sizeof(data));
         slash = strrchr(data, '/');
         if (slash) slash++; else continue;
-        OfwCopyDeviceTree
-            (NewKey, slash, node, BusNumber, DiskController, DiskNumber);
+        PpcDevTreeAddDevice(tree, 0, slash);
+        OfwCopyDeviceTree(tree, node);
+        PpcDevTreeCloseDevice(tree);
     }
 }
 
-PCONFIGURATION_COMPONENT_DATA PpcHwDetect() {
-    PCONFIGURATION_COMPONENT_DATA RootKey;
-    ULONG BusNumber = 0, DiskController = 0, DiskNumber = 0;
+VOID PpcHwDetect() {
+    PPC_DEVICE_TREE tree;
     int node = ofw_finddevice("/");
 
-    FldrCreateSystemKey(&RootKey);
+    /* Start the tree */
+    if(!PpcDevTreeInitialize
+       (&tree,
+        PAGE_SIZE, sizeof(long long), 
+        (PPC_DEVICE_ALLOC)MmAllocateMemory, 
+        (PPC_DEVICE_FREE)MmFreeMemory))
+        return;
 
-    OfwCopyDeviceTree(RootKey,"/",node,&BusNumber,&DiskController,&DiskNumber);
-    return RootKey;
+    OfwCopyDeviceTree(&tree,node);
+    
+    PpcDevTreeCloseDevice(&tree);
+
+    BootInfo.machine = tree.head;
 }
 
-/* Compatibility functions that don't do much */
-VOID PpcVideoPrepareForReactOS(BOOLEAN Setup) {
+BOOLEAN PpcDiskNormalizeSystemPath(char *SystemPath, unsigned Size) {
+	CHAR BootPath[256];
+	ULONG PartitionNumber;
+	ULONG DriveNumber;
+	PARTITION_TABLE_ENTRY PartEntry;
+	char *p;
+
+	if (!DissectArcPath(SystemPath, BootPath, &DriveNumber, &PartitionNumber))
+	{
+		return FALSE;
+	}
+
+	if (0 != PartitionNumber)
+	{
+		return TRUE;
+	}
+
+	if (! DiskGetActivePartitionEntry(DriveNumber,
+	                                  &PartEntry,
+	                                  &PartitionNumber) ||
+	    PartitionNumber < 1 || 9 < PartitionNumber)
+	{
+		return FALSE;
+	}
+
+	p = SystemPath;
+	while ('\0' != *p && 0 != _strnicmp(p, "partition(", 10)) {
+		p++;
+	}
+	p = strchr(p, ')');
+	if (NULL == p || '0' != *(p - 1)) {
+		return FALSE;
+	}
+	*(p - 1) = '0' + PartitionNumber;
+
+	return TRUE;
 }
+
+extern int _bss;
+//typedef unsigned int uint32_t;
 
 void PpcDefaultMachVtbl()
 {
@@ -440,13 +604,18 @@ void PpcDefaultMachVtbl()
 
     MachVtbl.GetMemoryMap = PpcGetMemoryMap;
 
-    MachVtbl.DiskNormalizeSystemPath = DiskNormalizeSystemPath;
+    MachVtbl.DiskNormalizeSystemPath = PpcDiskNormalizeSystemPath;
+    MachVtbl.DiskGetBootVolume = PpcDiskGetBootVolume;
+    MachVtbl.DiskGetSystemVolume = PpcDiskGetSystemVolume;
     MachVtbl.DiskGetBootPath = PpcDiskGetBootPath;
+    MachVtbl.DiskGetBootDevice = PpcDiskGetBootDevice;
+    MachVtbl.DiskBootingFromFloppy = PpcDiskBootingFromFloppy;
     MachVtbl.DiskReadLogicalSectors = PpcDiskReadLogicalSectors;
+    MachVtbl.DiskGetPartitionEntry = PpcDiskGetPartitionEntry;
     MachVtbl.DiskGetDriveGeometry = PpcDiskGetDriveGeometry;
     MachVtbl.DiskGetCacheableBlockCount = PpcDiskGetCacheableBlockCount;
 
-    MachVtbl.GetTime = PpcGetTime;
+    MachVtbl.RTCGetCurrentDateTime = PpcRTCGetCurrentDateTime;
 
     MachVtbl.HwDetect = PpcHwDetect;
 }
@@ -468,7 +637,6 @@ void PpcOfwInit()
     if(!strncmp(CmdLine, "bootprep", 8))
     {
 	printf("Going to PREP init...\n");
-        ofproxy = NULL;
 	PpcPrepInit();
 	return;
     }
@@ -479,8 +647,6 @@ void PpcOfwInit()
 }
 
 void PpcInit( of_proxy the_ofproxy ) {
-    // Hack to be a bit easier on ram
-    CacheSizeLimit = 64 * 1024;
     ofproxy = the_ofproxy;
     PpcDefaultMachVtbl();
     if(ofproxy) PpcOfwInit();
@@ -503,6 +669,11 @@ void MachInit(const char *CmdLine) {
 	    sep = strchr(BootPart, ',');
 	    if( sep )
 		*sep = 0;
+	    while(CmdLine[i] && CmdLine[i]!=',') i++;
+	}
+	if( strncmp(CmdLine + i, "mem=", 4) == 0) {
+	    kernel_mem = atoi(CmdLine+i+4);
+	    printf("Allocate %dk kernel memory\n", kernel_mem);
 	    while(CmdLine[i] && CmdLine[i]!=',') i++;
 	}
     }
@@ -528,6 +699,7 @@ void MachInit(const char *CmdLine) {
     printf( "FreeLDR starting (boot partition: %s)\n", BootPart );
 }
 
+/* Compatibility functions that don't do much */
 void beep() {
 }
 

@@ -2,7 +2,7 @@
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS User Manager Control Panel
- * FILE:            dll/cpl/usrmgr/usrmgr.c
+ * FILE:            dll/cpl/usrmgr/extra.c
  * PURPOSE:         Main functions
  *
  * PROGRAMMERS:     Eric Kohl
@@ -20,7 +20,7 @@ HINSTANCE hApplet = 0;
 APPLET Applets[NUM_APPLETS] =
 {
     {
-        IDI_USRMGR_ICON,
+        IDC_USRMGR_ICON,
         IDS_CPLNAME,
         IDS_CPLDESCRIPTION,
         UsrmgrApplet
@@ -51,15 +51,16 @@ UsrmgrApplet(HWND hwnd, UINT uMsg, LPARAM wParam, LPARAM lParam)
     UNREFERENCED_PARAMETER(lParam);
     UNREFERENCED_PARAMETER(wParam);
     UNREFERENCED_PARAMETER(uMsg);
+    UNREFERENCED_PARAMETER(hwnd);
 
     LoadString(hApplet, IDS_CPLNAME, Caption, sizeof(Caption) / sizeof(TCHAR));
 
     ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
     psh.dwSize = sizeof(PROPSHEETHEADER);
     psh.dwFlags =  PSH_PROPSHEETPAGE;
-    psh.hwndParent = hwnd;
+    psh.hwndParent = NULL;
     psh.hInstance = hApplet;
-    psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDI_USRMGR_ICON));
+    psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDC_USRMGR_ICON));
     psh.pszCaption = Caption;
     psh.nPages = sizeof(psp) / sizeof(PROPSHEETPAGE);
     psh.nStartPage = 0;

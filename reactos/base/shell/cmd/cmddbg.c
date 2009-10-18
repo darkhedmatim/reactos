@@ -244,4 +244,4 @@ cmd_exit(int code)
     ExitProcess(code);
 }
 
-#endif /* _DEBUG_MEM */
+#endif /* _DEBUG */

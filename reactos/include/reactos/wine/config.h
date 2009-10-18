@@ -276,12 +276,10 @@
 /* #undef HAVE_LIBSOCKET */
 
 /* Define if you have the libxml2 library */
-#define HAVE_LIBXML2
-#define HAVE_XMLNEWDOCPI
-#define HAVE_XMLREADMEMORY
+/* #undef HAVE_LIBXML2 */
 
 /* Define to 1 if you have the <libxml/parser.h> header file. */
-#define HAVE_LIBXML_PARSER_H
+/* #undef HAVE_LIBXML_PARSER_H */
 
 /* Define to 1 if you have the `xpg4' library (-lxpg4). */
 /* #undef HAVE_LIBXPG4 */
@@ -296,10 +294,10 @@
 /* #undef HAVE_LIBXSLT */
 
 /* Define to 1 if you have the <libxslt/pattern.h> header file. */
-#define HAVE_LIBXSLT_PATTERN_H
+/* #undef HAVE_LIBXSLT_PATTERN_H */
 
 /* Define to 1 if you have the <libxslt/transform.h> header file. */
-#define HAVE_LIBXSLT_TRANSFORM_H
+/* #undef HAVE_LIBXSLT_TRANSFORM_H */
 
 /* Define if you have the Xxf86dga library version 2 */
 /* #undef HAVE_LIBXXF86DGA2 */
@@ -780,9 +778,7 @@
 /* #undef HAVE_UNICODE_UBIDI_H */
 
 /* Define to 1 if you have the <unistd.h> header file. */
-#if !defined(_MSC_VER)
 #define HAVE_UNISTD_H 1
-#endif
 
 /* Define to 1 if you have the `usleep' function. */
 /* #undef HAVE_USLEEP */
@@ -797,7 +793,7 @@
 #define HAVE_VA_COPY 1
 
 /* Define to 1 if you have the `vsnprintf' function. */
-#define HAVE_VSNPRINTF 1
+//#define HAVE_VSNPRINTF 1
 
 /* Define to 1 if you have the `wait4' function. */
 /* #undef HAVE_WAIT4 */
@@ -921,7 +917,7 @@
 /* #undef SONAME_LIBJACK */
 
 /* Define to the soname of the libjpeg library. */
-#define SONAME_LIBJPEG "libjpeg"
+/* #undef SONAME_LIBJPEG */
 
 /* Define to the soname of the libncurses library. */
 /* #undef SONAME_LIBNCURSES */
@@ -949,9 +945,6 @@
 
 /* Define to the soname of the libXrender library. */
 /* #undef SONAME_LIBXRENDER */
-
-/* Define to the soname of the libxslt library. */
-#define SONAME_LIBXSLT "libxslt"
 
 /* Define if the struct statfs is defined by <sys/mount.h> */
 /* #undef STATFS_DEFINED_BY_SYS_MOUNT */
@@ -988,8 +981,4 @@
    calls it, or to nothing if 'inline' is not supported under any name.  */
 #ifndef __cplusplus
 /* #undef inline */
-#endif
-
-#if defined(_MSC_VER)
-#define inline __inline
 #endif

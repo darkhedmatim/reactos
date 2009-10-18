@@ -374,7 +374,7 @@ POLYGONFILL_UpdateScanline(FILL_EDGE* pEdge, int Scanline)
 */
 static
 void
-APIENTRY
+STDCALL
 POLYGONFILL_BuildActiveList ( int Scanline, FILL_EDGE_LIST* list, FILL_EDGE** ActiveHead )
 {
   int i;
@@ -399,12 +399,12 @@ POLYGONFILL_BuildActiveList ( int Scanline, FILL_EDGE_LIST* list, FILL_EDGE** Ac
 */
 static
 void
-APIENTRY
+STDCALL
 POLYGONFILL_FillScanLineAlternate(
   PDC dc,
   int ScanLine,
   FILL_EDGE* ActiveHead,
-  SURFACE *psurf,
+  BITMAPOBJ *BitmapObj,
   BRUSHOBJ *BrushObj,
   MIX RopMode )
 {
@@ -430,8 +430,8 @@ POLYGONFILL_FillScanLineAlternate(
       BoundRect.right = x2;
 
       //DPRINT("Fill Line (%d, %d) to (%d, %d)\n",x1, ScanLine, x2, ScanLine);
-      IntEngLineTo(&psurf->SurfObj,
-                   dc->rosdc.CombinedClip,
+      IntEngLineTo(&BitmapObj->SurfObj,
+                   dc->CombinedClip,
                    BrushObj,
                    x1,
                    ScanLine,
@@ -447,12 +447,12 @@ POLYGONFILL_FillScanLineAlternate(
 
 static
 void
-APIENTRY
+STDCALL
 POLYGONFILL_FillScanLineWinding(
   PDC dc,
   int ScanLine,
   FILL_EDGE* ActiveHead,
-  SURFACE *psurf,
+  BITMAPOBJ *BitmapObj,
   BRUSHOBJ *BrushObj,
   MIX RopMode )
 {
@@ -503,8 +503,8 @@ POLYGONFILL_FillScanLineWinding(
 	BoundRect.right = x2;
 
 	//DPRINT("Fill Line (%d, %d) to (%d, %d)\n",x1, ScanLine, x2, ScanLine);
-	IntEngLineTo(&psurf->SurfObj,
-                     dc->rosdc.CombinedClip,
+	IntEngLineTo(&BitmapObj->SurfObj,
+                     dc->CombinedClip,
                      BrushObj,
                      x1,
                      ScanLine,
@@ -526,8 +526,8 @@ POLYGONFILL_FillScanLineWinding(
   BoundRect.right = x2;
 
   //DPRINT("Fill Line (%d, %d) to (%d, %d)\n",x1, ScanLine, x2, ScanLine);
-  IntEngLineTo(&psurf->SurfObj,
-               dc->rosdc.CombinedClip,
+  IntEngLineTo(&BitmapObj->SurfObj,
+               dc->CombinedClip,
                BrushObj,
                x1,
                ScanLine,
@@ -547,10 +547,10 @@ POLYGONFILL_FillScanLineWinding(
 //The direction of each edge of the polygon is important.
 
 BOOL
-APIENTRY
+STDCALL
 FillPolygon(
   PDC dc,
-  SURFACE *psurf,
+  BITMAPOBJ *BitmapObj,
   BRUSHOBJ *BrushObj,
   MIX RopMode,
   CONST PPOINT Points,
@@ -560,13 +560,13 @@ FillPolygon(
   FILL_EDGE_LIST *list = 0;
   FILL_EDGE *ActiveHead = 0;
   int ScanLine;
-  PDC_ATTR pdcattr = dc->pdcattr;
+
   void
-  (APIENTRY *FillScanLine)(
+  (STDCALL *FillScanLine)(
     PDC dc,
     int ScanLine,
     FILL_EDGE* ActiveHead,
-    SURFACE *psurf,
+    BITMAPOBJ *BitmapObj,
     BRUSHOBJ *BrushObj,
     MIX RopMode );
 
@@ -578,7 +578,7 @@ FillPolygon(
   if (NULL == list)
     return FALSE;
 
-  if ( WINDING == pdcattr->jFillMode )
+  if ( WINDING == dc->Dc_Attr.jFillMode )
     FillScanLine = POLYGONFILL_FillScanLineWinding;
   else /* default */
     FillScanLine = POLYGONFILL_FillScanLineAlternate;
@@ -590,7 +590,7 @@ FillPolygon(
   {
     POLYGONFILL_BuildActiveList(ScanLine, list, &ActiveHead);
     //DEBUG_PRINT_ACTIVE_EDGELIST(ActiveHead);
-    FillScanLine ( dc, ScanLine, ActiveHead, psurf, BrushObj, RopMode );
+    FillScanLine ( dc, ScanLine, ActiveHead, BitmapObj, BrushObj, RopMode );
   }
 
   /* Free Edge List. If any are left. */
@@ -598,76 +598,4 @@ FillPolygon(
 
   return TRUE;
 }
-
-BOOL FASTCALL
-IntFillPolygon(
-    PDC dc,
-    SURFACE *psurf,
-    BRUSHOBJ *BrushObj,
-    CONST PPOINT Points,
-    int Count,
-    RECTL DestRect, 
-    POINTL *BrushOrigin)
-{
-    FILL_EDGE_LIST *list = 0;
-    FILL_EDGE *ActiveHead = 0;
-    FILL_EDGE *pLeft, *pRight;
-    int ScanLine;
-  
-    //DPRINT("IntFillPolygon\n");
-
-    /* Create Edge List. */
-    list = POLYGONFILL_MakeEdgeList(Points, Count);
-    /* DEBUG_PRINT_EDGELIST(list); */
-    if (NULL == list)
-        return FALSE;
-
-    /* For each Scanline from DestRect.top to DestRect.bottom, determine line segments to draw */
-    for ( ScanLine = DestRect.top; ScanLine < DestRect.bottom; ++ScanLine )
-    {
-        POLYGONFILL_BuildActiveList(ScanLine, list, &ActiveHead);
-        //DEBUG_PRINT_ACTIVE_EDGELIST(ActiveHead);
-
-        if ( !ActiveHead )
-          return FALSE;
-
-        pLeft = ActiveHead;
-        pRight = pLeft->pNext;
-        ASSERT(pRight);
-
-        while ( NULL != pRight )
-        {
-            int x1 = pLeft->XIntercept[0];
-            int x2 = pRight->XIntercept[1];
-            if ( x2 > x1 )
-            {
-                RECTL LineRect;
-                LineRect.top = ScanLine;
-                LineRect.bottom = ScanLine + 1;
-                LineRect.left = x1;
-                LineRect.right = x2;
-
-                IntEngBitBlt(&psurf->SurfObj,
-                                 NULL,
-                                 NULL,
-                                 dc->rosdc.CombinedClip,
-                                 NULL,
-                                 &LineRect,
-                                 NULL,
-                                 NULL,
-                                 BrushObj,
-                                 BrushOrigin,
-                                 ROP3_TO_ROP4(PATCOPY));
-            }
-            pLeft = pRight->pNext;
-            pRight = pLeft ? pLeft->pNext : NULL;
-        }   
-    }
-
-    /* Free Edge List. If any are left. */
-    POLYGONFILL_DestroyEdgeList(list);
-
-    return TRUE;
-}
-
 /* EOF */

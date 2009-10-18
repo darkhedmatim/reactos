@@ -55,7 +55,7 @@ class Buffer {
 
 class Pool {
 public:
-			Pool( int, int, const char * );
+			Pool( int, int, char * );
 			~Pool( void );
     inline void*	new_buffer( void );
     inline void		free_buffer( void * );
@@ -74,7 +74,7 @@ protected:
     int			nextfree;		/* byte offset past next free buffer */
     int			initsize;
     enum Magic { is_allocated = 0xf3a1, is_free = 0xf1a2 };
-    const char	*name;			/* name of the pool */
+    char		*name;			/* name of the pool */
     Magic		magic;			/* marker for valid pool */
 };
 
@@ -115,7 +115,7 @@ Pool::new_buffer( void )
     } else {
     	if( ! nextfree )
     	    grow( );
-    	nextfree -= buffersize;
+    	nextfree -= buffersize;;
     	buffer = (void *) (curblock + nextfree);
     }
     return buffer;

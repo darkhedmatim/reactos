@@ -53,11 +53,6 @@ _mesa_ShadeModel( GLenum mode )
 
    FLUSH_VERTICES(ctx, _NEW_LIGHT);
    ctx->Light.ShadeModel = mode;
-   if (mode == GL_FLAT)
-      ctx->_TriangleCaps |= DD_FLATSHADE;
-   else
-      ctx->_TriangleCaps &= ~DD_FLATSHADE;
-
    if (ctx->Driver.ShadeModel)
       ctx->Driver.ShadeModel( ctx, mode );
 }
@@ -184,7 +179,6 @@ _mesa_Lightfv( GLenum light, GLenum pname, const GLfloat *params )
    GET_CURRENT_CONTEXT(ctx);
    GLint i = (GLint) (light - GL_LIGHT0);
    GLfloat temp[4];
-   ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (i < 0 || i >= (GLint) ctx->Const.MaxLights) {
       _mesa_error( ctx, GL_INVALID_ENUM, "glLight(light=0x%x)", light );
@@ -208,8 +202,7 @@ _mesa_Lightfv( GLenum light, GLenum pname, const GLfloat *params )
       if (_math_matrix_is_dirty(ctx->ModelviewMatrixStack.Top)) {
 	 _math_matrix_analyse(ctx->ModelviewMatrixStack.Top);
       }
-      TRANSFORM_DIRECTION(temp, params, ctx->ModelviewMatrixStack.Top->m);
-      NORMALIZE_3FV(temp);
+      TRANSFORM_NORMAL(temp, params, ctx->ModelviewMatrixStack.Top->inv);
       params = temp;
       break;
    case GL_SPOT_EXPONENT:
@@ -448,10 +441,6 @@ _mesa_LightModelfv( GLenum pname, const GLfloat *params )
 	    return;
 	 FLUSH_VERTICES(ctx, _NEW_LIGHT);
 	 ctx->Light.Model.TwoSide = newbool;
-         if (ctx->Light.Enabled && ctx->Light.Model.TwoSide)
-            ctx->_TriangleCaps |= DD_TRI_LIGHT_TWOSIDE;
-         else
-            ctx->_TriangleCaps &= ~DD_TRI_LIGHT_TWOSIDE;
          break;
       case GL_LIGHT_MODEL_COLOR_CONTROL:
          if (params[0] == (GLfloat) GL_SINGLE_COLOR)
@@ -1130,7 +1119,7 @@ compute_light_positions( GLcontext *ctx )
       }
       else {
          /* positional light w/ homogeneous coordinate, divide by W */
-         GLfloat wInv = (GLfloat)1.0 / light->_Position[3];
+         GLfloat wInv = 1.0 / light->_Position[3];
          light->_Position[0] *= wInv;
          light->_Position[1] *= wInv;
          light->_Position[2] *= wInv;

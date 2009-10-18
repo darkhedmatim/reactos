@@ -20,14 +20,12 @@
 #ifndef __VIDEO_H
 #define __VIDEO_H
 
-#include <pshpack1.h>
 typedef struct
 {
   UCHAR Red;
   UCHAR Green;
   UCHAR Blue;
-} PALETTE_ENTRY, *PPALETTE_ENTRY;
-#include <poppack.h>
+} PACKED PALETTE_ENTRY, *PPALETTE_ENTRY;
 
 extern	PVOID	VideoOffScreenBuffer;
 

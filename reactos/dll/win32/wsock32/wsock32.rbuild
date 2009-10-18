@@ -1,6 +1,7 @@
-<module name="wsock32" type="win32dll" baseaddress="${BASEADDRESS_WSOCK32}" installbase="system32" installname="wsock32.dll" unicode="yes">
+<module name="wsock32" type="win32dll" baseaddress="${BASEADDRESS_WSOCK32}" installbase="system32" installname="wsock32.dll">
 	<importlibrary definition="wsock32.def" />
 	<include base="wsock32">.</include>
+	<define name="UNICODE" />
 	<library>ntdll</library>
 	<library>kernel32</library>
 	<library>ws2_32</library>

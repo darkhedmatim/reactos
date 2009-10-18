@@ -81,8 +81,6 @@ IntVideoPortAddDevice(
       DriverExtension,
       PhysicalDeviceObject,
       &DeviceObject);
-   if (NT_SUCCESS(Status))
-      VideoPortDeviceNumber++;
 
    return Status;
 }
@@ -104,7 +102,7 @@ IntVideoPortDispatchOpen(
    PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension;
    PVIDEO_PORT_DRIVER_EXTENSION DriverExtension;
 
-   TRACE_(VIDEOPRT, "IntVideoPortDispatchOpen\n");
+   DPRINT("IntVideoPortDispatchOpen\n");
 
    if (CsrssInitialized == FALSE)
    {
@@ -113,9 +111,9 @@ IntVideoPortDispatchOpen(
        * to let us know its handle.
        */
 
-      INFO_(VIDEOPRT, "Referencing CSRSS\n");
+      DPRINT("Referencing CSRSS\n");
       Csrss = (PKPROCESS)PsGetCurrentProcess();
-      INFO_(VIDEOPRT, "Csrss %p\n", Csrss);
+      DPRINT("Csrss %p\n", Csrss);
 
       CsrssInitialized = TRUE;
 
@@ -161,7 +159,7 @@ IntVideoPortDispatchClose(
 {
    PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension;
 
-   TRACE_(VIDEOPRT, "IntVideoPortDispatchClose\n");
+   DPRINT("IntVideoPortDispatchClose\n");
 
    DeviceExtension = (PVIDEO_PORT_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
    if (DeviceExtension->DeviceOpened >= 1 &&
@@ -199,7 +197,7 @@ IntVideoPortDispatchDeviceControl(
    PVIDEO_REQUEST_PACKET vrp;
    NTSTATUS Status;
 
-   TRACE_(VIDEOPRT, "IntVideoPortDispatchDeviceControl\n");
+   DPRINT("IntVideoPortDispatchDeviceControl\n");
 
    IrpStack = IoGetCurrentIrpStackLocation(Irp);
    DeviceExtension = DeviceObject->DeviceExtension;
@@ -215,7 +213,7 @@ IntVideoPortDispatchDeviceControl(
    vrp->StatusBlock = (PSTATUS_BLOCK)&(Irp->IoStatus);
    vrp->IoControlCode = IrpStack->Parameters.DeviceIoControl.IoControlCode;
 
-   INFO_(VIDEOPRT, "- IoControlCode: %x\n", vrp->IoControlCode);
+   DPRINT("- IoControlCode: %x\n", vrp->IoControlCode);
 
    /* We're assuming METHOD_BUFFERED */
    vrp->InputBuffer = Irp->AssociatedIrp.SystemBuffer;
@@ -231,7 +229,7 @@ IntVideoPortDispatchDeviceControl(
    /* Free the VRP */
    ExFreePool(vrp);
 
-   INFO_(VIDEOPRT, "- Returned status: %x\n", Irp->IoStatus.Status);
+   DPRINT("- Returned status: %x\n", Irp->IoStatus.Status);
 
    if (Irp->IoStatus.Status != STATUS_SUCCESS)
    {
@@ -358,9 +356,6 @@ IntVideoPortPnPStartDevice(
            FullList < AllocatedResources->List + AllocatedResources->Count;
            FullList++)
       {
-         INFO_(VIDEOPRT, "InterfaceType %u BusNumber List %u Device BusNumber %u Version %u Revision %u\n",
-                FullList->InterfaceType, FullList->BusNumber, DeviceExtension->SystemIoBusNumber, FullList->PartialResourceList.Version, FullList->PartialResourceList.Revision);
-
          /* FIXME: Is this ASSERT ok for resources from the PNP manager? */
          ASSERT(FullList->InterfaceType == PCIBus &&
                 FullList->BusNumber == DeviceExtension->SystemIoBusNumber &&
@@ -382,7 +377,7 @@ IntVideoPortPnPStartDevice(
          }
       }
    }
-   INFO_(VIDEOPRT, "Interrupt level: 0x%x Interrupt Vector: 0x%x\n",
+   DPRINT("Interrupt level: 0x%x Interrupt Vector: 0x%x\n",
           DeviceExtension->InterruptLevel,
           DeviceExtension->InterruptVector);
 
@@ -508,14 +503,6 @@ IntVideoPortDispatchCleanup(
 
 NTSTATUS NTAPI
 IntVideoPortDispatchPower(
-   IN PDEVICE_OBJECT DeviceObject,
-   IN PIRP Irp)
-{
-   return STATUS_NOT_IMPLEMENTED;
-}
-
-NTSTATUS NTAPI
-IntVideoPortDispatchSystemControl(
    IN PDEVICE_OBJECT DeviceObject,
    IN PIRP Irp)
 {

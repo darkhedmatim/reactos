@@ -23,13 +23,13 @@
 #include <errno.h>
 #include "wine/test.h"
 
-static void (__cdecl *p_aligned_free)(void*) = NULL;
-static void * (__cdecl *p_aligned_malloc)(size_t,size_t) = NULL;
-static void * (__cdecl *p_aligned_offset_malloc)(size_t,size_t,size_t) = NULL;
-static void * (__cdecl *p_aligned_realloc)(void*,size_t,size_t) = NULL;
-static void * (__cdecl *p_aligned_offset_realloc)(void*,size_t,size_t,size_t) = NULL;
+static void (*p_aligned_free)(void*) = NULL;
+static void * (*p_aligned_malloc)(size_t,size_t) = NULL;
+static void * (*p_aligned_offset_malloc)(size_t,size_t,size_t) = NULL;
+static void * (*p_aligned_realloc)(void*,size_t,size_t) = NULL;
+static void * (*p_aligned_offset_realloc)(void*,size_t,size_t,size_t) = NULL;
 
-static void test_aligned_malloc(unsigned int size, unsigned int alignment)
+static void test_aligned_malloc(size_t size, size_t alignment)
 {
     void *mem;
 
@@ -48,7 +48,8 @@ static void test_aligned_malloc(unsigned int size, unsigned int alignment)
         {
             void *saved;
             saved = *(void **)((DWORD_PTR)((char *)mem - sizeof(void *)) & ~(sizeof(void *) - 1));
-            trace("_aligned_malloc(%3d, %3d) returns %p, saved = %p\n", size, alignment, mem, saved );
+            trace("_aligned_malloc(%3d, %3d) returns %p, saved = %p, diff = %d\n",
+                  size, alignment, mem, saved, (char *)saved - (char *)mem);
         }
         p_aligned_free(mem);
     }
@@ -56,7 +57,7 @@ static void test_aligned_malloc(unsigned int size, unsigned int alignment)
         ok(errno == EINVAL, "_aligned_malloc(%d, %d) errno: %d != %d\n", size, alignment, errno, EINVAL);
 }
 
-static void test_aligned_offset_malloc(unsigned int size, unsigned int alignment, unsigned int offset)
+static void test_aligned_offset_malloc(size_t size, size_t alignment, size_t offset)
 {
     void *mem;
 
@@ -78,8 +79,8 @@ static void test_aligned_offset_malloc(unsigned int size, unsigned int alignment
         {
             void *saved;
             saved = *(void **)((DWORD_PTR)((char *)mem - sizeof(void *)) & ~(sizeof(void *) - 1));
-            trace("_aligned_offset_malloc(%3d, %3d, %3d) returns %p, saved = %p\n",
-                  size, alignment, offset, mem, saved);
+            trace("_aligned_offset_malloc(%3d, %3d, %3d) returns %p, saved = %p, diff = %d\n",
+                  size, alignment, offset, mem, saved, (char *)saved - (char *)mem);
         }
         p_aligned_free(mem);
     }
@@ -87,7 +88,7 @@ static void test_aligned_offset_malloc(unsigned int size, unsigned int alignment
         ok(errno == EINVAL, "_aligned_offset_malloc(%d, %d, %d) errno: %d != %d\n", size, alignment, offset, errno, EINVAL);
 }
 
-static void test_aligned_realloc(unsigned int size1, unsigned int size2, unsigned int alignment)
+static void test_aligned_realloc(size_t size1, size_t size2, size_t alignment)
 {
     void *mem, *mem1, *mem2;
 
@@ -103,7 +104,7 @@ static void test_aligned_realloc(unsigned int size1, unsigned int size2, unsigne
 	mem1 = malloc(size1);
         if (mem1)
         {
-            unsigned int i;
+            int i;
             for (i = 0; i < size1; i++)
                 ((char *)mem)[i] = i + 1;
             memcpy(mem1, mem, size1);
@@ -115,7 +116,8 @@ static void test_aligned_realloc(unsigned int size1, unsigned int size2, unsigne
         {
             void *saved;
             saved = *(void **)((DWORD_PTR)((char *)mem - sizeof(void *)) & ~(sizeof(void *) - 1));
-            trace("_aligned_malloc(%3d, %3d) returns %p, saved = %p\n", size1, alignment, mem, saved);
+            trace("_aligned_malloc(%3d, %3d) returns %p, saved = %p, diff = %d\n",
+                  size1, alignment, mem, saved, (char *)saved - (char *)mem);
         }
 
         mem2 = p_aligned_realloc(mem, size2, alignment);
@@ -130,15 +132,15 @@ static void test_aligned_realloc(unsigned int size1, unsigned int size2, unsigne
             {
                 void *saved;
                 saved = *(void **)((DWORD_PTR)((char *)mem2 - sizeof(void *)) & ~(sizeof(void *) - 1));
-                trace("_aligned_realloc(%p, %3d, %3d) returns %p, saved = %p\n",
-                      mem, size2, alignment, mem2, saved);
+                trace("_aligned_realloc(%p, %3d, %3d) returns %p, saved = %p, diff = %d\n",
+                      mem, size2, alignment, mem2, saved, (char *)saved - (char *)mem2);
             }
             if (mem1)
             {
                 ok(memcmp(mem2, mem1, min(size1, size2))==0, "_aligned_realloc(%p, %d, %d) has different data\n", mem, size2, alignment);
                 if (memcmp(mem2, mem1, min(size1, size2)) && winetest_debug > 1)
                 {
-                    unsigned int i;
+                    int i;
                     for (i = 0; i < min(size1, size2); i++)
                     {
                         if (((char *)mem2)[i] != ((char *)mem1)[i])
@@ -146,20 +148,18 @@ static void test_aligned_realloc(unsigned int size1, unsigned int size2, unsigne
                     }
                 }
             }
-            p_aligned_free(mem2);
-        } else {
-            ok(errno == EINVAL, "_aligned_realloc(%p, %d, %d) errno: %d != %d\n", mem, size2, alignment, errno, EINVAL);
-            p_aligned_free(mem);
         }
+        else
+            ok(errno == EINVAL, "_aligned_realloc(%p, %d, %d) errno: %d != %d\n", mem, size2, alignment, errno, EINVAL);
 
+        p_aligned_free(mem);
         free(mem1);
     }
     else
         ok(errno == EINVAL, "_aligned_malloc(%d, %d) errno: %d != %d\n", size1, alignment, errno, EINVAL);
 }
 
-static void test_aligned_offset_realloc(unsigned int size1, unsigned int size2,
-                                        unsigned int alignment, unsigned int offset)
+static void test_aligned_offset_realloc(size_t size1, size_t size2, size_t alignment, size_t offset)
 {
     void *mem, *mem1, *mem2;
 
@@ -175,7 +175,7 @@ static void test_aligned_offset_realloc(unsigned int size1, unsigned int size2,
 	mem1 = malloc(size1);
         if (mem1)
         {
-            unsigned int i;
+            int i;
             for (i = 0; i < size1; i++)
                 ((char *)mem)[i] = i + 1;
             memcpy(mem1, mem, size1);
@@ -187,8 +187,8 @@ static void test_aligned_offset_realloc(unsigned int size1, unsigned int size2,
         {
             void *saved;
             saved = *(void **)((DWORD_PTR)((char *)mem - sizeof(void *)) & ~(sizeof(void *) - 1));
-            trace("_aligned_offset_malloc(%3d, %3d, %3d) returns %p, saved = %p\n",
-                  size1, alignment, offset, mem, saved);
+            trace("_aligned_offset_malloc(%3d, %3d, %3d) returns %p, saved = %p, diff = %d\n",
+                  size1, alignment, offset, mem, saved, (char *)saved - (char *)mem);
         }
 
         mem2 = p_aligned_offset_realloc(mem, size2, alignment, offset);
@@ -203,15 +203,15 @@ static void test_aligned_offset_realloc(unsigned int size1, unsigned int size2,
             {
                 void *saved;
                 saved = *(void **)((DWORD_PTR)((char *)mem2 - sizeof(void *)) & ~(sizeof(void *) - 1));
-                trace("_aligned_offset_realloc(%p, %3d, %3d, %3d) returns %p, saved = %p\n",
-                      mem, size2, alignment, offset, mem2, saved);
+                trace("_aligned_offset_realloc(%p, %3d, %3d, %3d) returns %p, saved = %p, diff = %d\n",
+                      mem, size2, alignment, offset, mem2, saved, (char *)saved - (char *)mem2);
             }
             if (mem1)
             {
                 ok(memcmp(mem2, mem1, min(size1, size2))==0, "_aligned_offset_realloc(%p, %d, %d, %d) has different data\n", mem, size2, alignment, offset);
                 if (memcmp(mem2, mem1, min(size1, size2)) && winetest_debug > 1)
                 {
-                    unsigned int i;
+                    int i;
                     for (i = 0; i < min(size1, size2); i++)
                     {
                         if (((char *)mem2)[i] != ((char *)mem1)[i])
@@ -219,12 +219,11 @@ static void test_aligned_offset_realloc(unsigned int size1, unsigned int size2,
                     }
                 }
             }
-            p_aligned_free(mem2);
-        } else {
-            ok(errno == EINVAL, "_aligned_offset_realloc(%p, %d, %d, %d) errno: %d != %d\n", mem, size2, alignment, offset, errno, EINVAL);
-            p_aligned_free(mem);
         }
+        else
+            ok(errno == EINVAL, "_aligned_offset_realloc(%p, %d, %d, %d) errno: %d != %d\n", mem, size2, alignment, offset, errno, EINVAL);
 
+        p_aligned_free(mem);
         free(mem1);
     }
     else
@@ -333,84 +332,6 @@ static void test_aligned(void)
     test_aligned_offset_realloc(256, 128, 32, 4);
     test_aligned_offset_realloc(256, 512, 64, 4);
     test_aligned_offset_realloc(256, 128, 64, 4);
-
-    test_aligned_offset_realloc(256, 512, 0, 8);
-    test_aligned_offset_realloc(256, 128, 0, 8);
-    test_aligned_offset_realloc(256, 512, 4, 8);
-    test_aligned_offset_realloc(256, 128, 4, 8);
-    test_aligned_offset_realloc(256, 512, 8, 8);
-    test_aligned_offset_realloc(256, 128, 8, 8);
-    test_aligned_offset_realloc(256, 512, 16, 8);
-    test_aligned_offset_realloc(256, 128, 16, 8);
-    test_aligned_offset_realloc(256, 512, 32, 8);
-    test_aligned_offset_realloc(256, 128, 32, 8);
-    test_aligned_offset_realloc(256, 512, 64, 8);
-    test_aligned_offset_realloc(256, 128, 64, 8);
-
-    test_aligned_offset_realloc(256, 512, 0, 16);
-    test_aligned_offset_realloc(256, 128, 0, 16);
-    test_aligned_offset_realloc(256, 512, 4, 16);
-    test_aligned_offset_realloc(256, 128, 4, 16);
-    test_aligned_offset_realloc(256, 512, 8, 16);
-    test_aligned_offset_realloc(256, 128, 8, 16);
-    test_aligned_offset_realloc(256, 512, 16, 16);
-    test_aligned_offset_realloc(256, 128, 16, 16);
-    test_aligned_offset_realloc(256, 512, 32, 16);
-    test_aligned_offset_realloc(256, 128, 32, 16);
-    test_aligned_offset_realloc(256, 512, 64, 16);
-    test_aligned_offset_realloc(256, 128, 64, 16);
-
-    test_aligned_offset_realloc(256, 512, 0, 32);
-    test_aligned_offset_realloc(256, 128, 0, 32);
-    test_aligned_offset_realloc(256, 512, 4, 32);
-    test_aligned_offset_realloc(256, 128, 4, 32);
-    test_aligned_offset_realloc(256, 512, 8, 32);
-    test_aligned_offset_realloc(256, 128, 8, 32);
-    test_aligned_offset_realloc(256, 512, 16, 32);
-    test_aligned_offset_realloc(256, 128, 16, 32);
-    test_aligned_offset_realloc(256, 512, 32, 32);
-    test_aligned_offset_realloc(256, 128, 32, 32);
-    test_aligned_offset_realloc(256, 512, 64, 32);
-    test_aligned_offset_realloc(256, 128, 64, 32);
-
-    test_aligned_offset_realloc(256, 512, 0, 64);
-    test_aligned_offset_realloc(256, 128, 0, 64);
-    test_aligned_offset_realloc(256, 512, 4, 64);
-    test_aligned_offset_realloc(256, 128, 4, 64);
-    test_aligned_offset_realloc(256, 512, 8, 64);
-    test_aligned_offset_realloc(256, 128, 8, 64);
-    test_aligned_offset_realloc(256, 512, 16, 64);
-    test_aligned_offset_realloc(256, 128, 16, 64);
-    test_aligned_offset_realloc(256, 512, 32, 64);
-    test_aligned_offset_realloc(256, 128, 32, 64);
-    test_aligned_offset_realloc(256, 512, 64, 64);
-    test_aligned_offset_realloc(256, 128, 64, 64);
-
-    test_aligned_offset_realloc(256, 512, 0, 96);
-    test_aligned_offset_realloc(256, 128, 0, 96);
-    test_aligned_offset_realloc(256, 512, 4, 96);
-    test_aligned_offset_realloc(256, 128, 4, 96);
-    test_aligned_offset_realloc(256, 512, 8, 96);
-    test_aligned_offset_realloc(256, 128, 8, 96);
-    test_aligned_offset_realloc(256, 512, 16, 96);
-    test_aligned_offset_realloc(256, 128, 16, 96);
-    test_aligned_offset_realloc(256, 512, 32, 96);
-    test_aligned_offset_realloc(256, 128, 32, 96);
-    test_aligned_offset_realloc(256, 512, 64, 96);
-    test_aligned_offset_realloc(256, 128, 64, 96);
-
-    test_aligned_offset_realloc(256, 512, 0, 112);
-    test_aligned_offset_realloc(256, 128, 0, 112);
-    test_aligned_offset_realloc(256, 512, 4, 112);
-    test_aligned_offset_realloc(256, 128, 4, 112);
-    test_aligned_offset_realloc(256, 512, 8, 112);
-    test_aligned_offset_realloc(256, 128, 8, 112);
-    test_aligned_offset_realloc(256, 512, 16, 112);
-    test_aligned_offset_realloc(256, 128, 16, 112);
-    test_aligned_offset_realloc(256, 512, 32, 112);
-    test_aligned_offset_realloc(256, 128, 32, 112);
-    test_aligned_offset_realloc(256, 512, 64, 112);
-    test_aligned_offset_realloc(256, 128, 64, 112);
 }
 
 START_TEST(heap)
@@ -419,21 +340,18 @@ START_TEST(heap)
 
     mem = malloc(0);
     ok(mem != NULL, "memory not allocated for size 0\n");
-    free(mem);
 
     mem = realloc(NULL, 10);
     ok(mem != NULL, "memory not allocated\n");
-    
+
     mem = realloc(mem, 20);
     ok(mem != NULL, "memory not reallocated\n");
- 
+
     mem = realloc(mem, 0);
     ok(mem == NULL, "memory not freed\n");
-    
+
     mem = realloc(NULL, 0);
     ok(mem != NULL, "memory not (re)allocated for size 0\n");
-
-    free(mem);
 
     test_aligned();
 }

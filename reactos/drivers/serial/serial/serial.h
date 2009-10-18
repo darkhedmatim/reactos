@@ -11,7 +11,19 @@
 #include <ndk/haltypes.h>
 #include <ntddser.h>
 #include <stdio.h>
-#include <debug.h>
+
+#if defined(__GNUC__)
+  #include <debug.h>
+#elif defined(_MSC_VER)
+  #define DPRINT1 DbgPrint("(%s:%d) ", __FILE__, __LINE__), DbgPrint
+  #define CHECKPOINT1 DbgPrint("(%s:%d)\n", __FILE__, __LINE__)
+  #define DPRINT
+  #define CHECKPOINT
+#else
+  #error Unknown compiler!
+#endif
+
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
 
 /* See winbase.h */
 #define PST_RS232 1
@@ -106,9 +118,9 @@ typedef struct _WORKITEM_DATA
 	BOOLEAN ReadAtLeastOneByte;
 } WORKITEM_DATA, *PWORKITEM_DATA;
 
-#define SERIAL_TAG 'lreS'
+#define SERIAL_TAG TAG('S', 'e', 'r', 'l')
 
-#define INFINITE MAXULONG
+#define INFINITE ((ULONG)-1)
 
 /* Baud master clock */
 #define BAUD_CLOCK      1843200

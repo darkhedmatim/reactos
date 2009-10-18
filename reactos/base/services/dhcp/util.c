@@ -4,6 +4,8 @@
 #define NDEBUG
 #include <reactos/debug.h>
 
+extern struct interface_info *ifi;
+
 char *piaddr( struct iaddr addr ) {
     struct sockaddr_in sa;
     memcpy(&sa.sin_addr,addr.iabuf,sizeof(sa.sin_addr));
@@ -94,8 +96,8 @@ int addr_eq( struct iaddr a, struct iaddr b ) {
 
 void *dmalloc( int size, char *name ) { return malloc( size ); }
 
-int read_client_conf(struct interface_info *ifi) {
-       /* What a strange dance */
+int read_client_conf(void) {
+       /* What a strage dance */
        struct client_config *config;
        char ComputerName [MAX_COMPUTERNAME_LENGTH + 1];
        LPSTR lpCompName;
@@ -111,16 +113,14 @@ int read_client_conf(struct interface_info *ifi) {
 
 
        GetComputerName(ComputerName, & ComputerNameSize);
-       debug("Hostname: %s, length: %lu",
-			   ComputerName, ComputerNameSize);
        /* This never gets freed since it's only called once */
        lpCompName =
-       HeapAlloc(GetProcessHeap(), 0, ComputerNameSize + 1);
+       HeapAlloc(GetProcessHeap(), 0, strlen(ComputerName) + 1);
        if (lpCompName !=NULL) {
-           memcpy(lpCompName, ComputerName, ComputerNameSize + 1);
+           GetComputerName(lpCompName, & ComputerNameSize);
            /* Send our hostname, some dhcpds use this to update DNS */
-           config->send_options[DHO_HOST_NAME].data = (u_int8_t*)_strlwr(lpCompName);
-           config->send_options[DHO_HOST_NAME].len = ComputerNameSize;
+           config->send_options[DHO_HOST_NAME].data = (u_int8_t*)strlwr(lpCompName);
+           config->send_options[DHO_HOST_NAME].len = strlen(ComputerName);
            debug("Hostname: %s, length: %d",
                  config->send_options[DHO_HOST_NAME].data,
                  config->send_options[DHO_HOST_NAME].len);

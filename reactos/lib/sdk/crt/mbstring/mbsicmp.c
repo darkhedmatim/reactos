@@ -9,6 +9,7 @@
  */
 #include <precomp.h>
 #include <mbstring.h>
+#include <mbctype.h>
 
 /*
  * @implemented

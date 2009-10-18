@@ -1,5 +1,19 @@
 #include <precomp.h>
-#include "include/internal/wine/msvcrt.h"
+
+#include <signal.h>
+#include <stdlib.h>
+#include <string.h>
+
+void _default_handler(int signal);
+
+typedef struct _sig_element
+{
+   int signal;
+   char *signame;
+   __p_sig_fn_t handler;
+}
+sig_element;
+
 
 static sig_element signal_list[] =
    {
@@ -18,6 +32,8 @@ static sig_element signal_list[] =
  * @implemented
  */
 //void ( *signal( int sig, void (__cdecl *func) ( int sig [, int subcode ] )) ) ( int sig );
+
+
 
 
 __p_sig_fn_t signal(int sig, __p_sig_fn_t func)
@@ -121,8 +137,5 @@ void _default_handler(int sig)
 {
    _exit(3);
 }
-
-
-
 
 

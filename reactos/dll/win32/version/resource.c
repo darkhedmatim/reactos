@@ -39,6 +39,7 @@
 
 #include "wine/unicode.h"
 #include "wine/winbase16.h"
+#include "wine/winuser16.h"
 
 #include "wine/debug.h"
 
@@ -173,7 +174,7 @@ static int read_xx_header( HFILE lzfd )
 
 #ifndef __REACTOS__
 /***********************************************************************
- *           find_ne_resource         [internal]
+ *           load_ne_resource         [internal]
  */
 static BOOL find_ne_resource( HFILE lzfd, LPCSTR typeid, LPCSTR resid,
                                 DWORD *resLen, DWORD *resOff )
@@ -273,7 +274,7 @@ static BOOL find_ne_resource( HFILE lzfd, LPCSTR typeid, LPCSTR resid,
 #endif /* ! __REACTOS__ */
 
 /***********************************************************************
- *           find_pe_resource         [internal]
+ *           load_pe_resource         [internal]
  */
 static BOOL find_pe_resource( HFILE lzfd, LPCSTR typeid, LPCSTR resid,
                                 DWORD *resLen, DWORD *resOff )
@@ -294,7 +295,7 @@ static BOOL find_pe_resource( HFILE lzfd, LPCSTR typeid, LPCSTR resid,
     pehdoffset = LZSeek( lzfd, 0, SEEK_CUR );
     if ( sizeof(pehd) != LZRead( lzfd, (LPSTR)&pehd, sizeof(pehd) ) ) return 0;
 
-    resDataDir = pehd.OptionalHeader.DataDirectory+IMAGE_DIRECTORY_ENTRY_RESOURCE;
+    resDataDir = pehd.OptionalHeader.DataDirectory+IMAGE_FILE_RESOURCE_DIRECTORY;
     if ( !resDataDir->Size )
     {
         TRACE("No resources in PE dll\n" );
@@ -348,7 +349,7 @@ static BOOL find_pe_resource( HFILE lzfd, LPCSTR typeid, LPCSTR resid,
     /* Find resource */
     resDir = resSection + (resDataDir->VirtualAddress - sections[i].VirtualAddress);
 
-    resPtr = resDir;
+    resPtr = (const IMAGE_RESOURCE_DIRECTORY*)resDir;
     resPtr = find_entry_by_name( resPtr, typeid, resDir );
     if ( !resPtr )
     {
@@ -406,8 +407,9 @@ DWORD WINAPI GetFileResourceSize16( LPCSTR lpszFileName, LPCSTR lpszResType,
     OFSTRUCT ofs;
     DWORD reslen;
 
-    TRACE("(%s,type=%p,id=%p,off=%p)\n",
-          debugstr_a(lpszFileName), lpszResType, lpszResId, lpszResId );
+    TRACE("(%s,type=0x%x,id=0x%x,off=%p)\n",
+                debugstr_a(lpszFileName), (LONG)lpszResType, (LONG)lpszResId,
+                lpszResId );
 
     lzfd = LZOpenFileA( (LPSTR)lpszFileName, &ofs, OF_READ );
     if ( lzfd < 0 ) return 0;

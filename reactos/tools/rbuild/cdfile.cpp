@@ -34,12 +34,6 @@ CDFile::ReplaceVariable ( const string& name,
 		return path;
 }
 
-CDFile::~CDFile ()
-{
-	delete source;
-	delete target;
-}
-
 CDFile::CDFile ( const Project& project,
                  const XMLElement& cdfileNode,
                  const string& path )
@@ -60,6 +54,6 @@ CDFile::CDFile ( const Project& project,
 	                            &cdfileNode );
 	target = new FileLocation ( OutputDirectory,
 	                            target_relative_directory,
-	                            nameoncd ? nameoncd->value : cdfileNode.value,
+	                            nameoncd ? att->value : cdfileNode.value,
 	                            &cdfileNode );
 }

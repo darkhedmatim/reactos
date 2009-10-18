@@ -195,7 +195,7 @@ RtlCreateUserProcess(IN PUNICODE_STRING ImageFileName,
     HANDLE hSection;
     PROCESS_BASIC_INFORMATION ProcessBasicInfo;
     OBJECT_ATTRIBUTES ObjectAttributes;
-    UNICODE_STRING DebugString = RTL_CONSTANT_STRING(L"\\WindowsSS");
+    UNICODE_STRING DebugString = RTL_CONSTANT_STRING(L"\\WindowsSS");;
     DPRINT("RtlCreateUserProcess: %wZ\n", ImageFileName);
 
     /* Map and Load the File */
@@ -330,27 +330,6 @@ RtlEncodePointer(IN PVOID Pointer)
 }
 
 /*
- * @implemented
- */
-PVOID
-NTAPI
-RtlDecodePointer(IN PVOID Pointer)
-{
-  return RtlEncodePointer(Pointer);
-}
-
-/*
- * @unimplemented
- */
-PVOID
-NTAPI
-RtlEncodeSystemPointer(IN PVOID Pointer)
-{
-    UNIMPLEMENTED;
-    return NULL;
-}
-
-/*
  * @unimplemented
  */
 NTSYSAPI
@@ -362,13 +341,6 @@ RtlSetProcessIsCritical(
     IN   BOOLEAN   IsWinlogon)
 {
 	//TODO
-    UNIMPLEMENTED;
 }
 
-ULONG
-NTAPI
-RtlGetCurrentProcessorNumber(VOID)
-{
-    /* Forward to kernel */
-    return NtGetCurrentProcessorNumber();
-}
+/* EOF */

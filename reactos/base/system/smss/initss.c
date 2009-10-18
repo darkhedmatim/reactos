@@ -1,12 +1,28 @@
-/*
- * PROJECT:         ReactOS Session Manager
- * LICENSE:         GPL v2 or later - See COPYING in the top level directory
- * FILE:            base/system/smss/initss.c
- * PURPOSE:         Load the subsystems.
- * PROGRAMMERS:     ReactOS Development Team
+/* $Id$
+ *
+ * initss.c - Load the subsystems
+ *
+ * ReactOS Operating System
+ *
+ * --------------------------------------------------------------------
+ *
+ * This software is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of the
+ * License, or (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this software; see the file COPYING.LIB. If not, write
+ * to the Free Software Foundation, Inc., 675 Mass Ave, Cambridge,
+ * MA 02139, USA.
+ *
+ * --------------------------------------------------------------------
  */
-
-/* INCLUDES ******************************************************************/
 #include "smss.h"
 
 #define NDEBUG
@@ -29,7 +45,7 @@ HANDLE hSmApiPort = (HANDLE) 0;
  *	Register with itself for ImageSubsystemId
  *	(programmatically).
  */
-NTSTATUS NTAPI SmRegisterInternalSubsystem (LPWSTR PgmName,
+NTSTATUS STDCALL SmRegisterInternalSubsystem (LPWSTR PgmName,
 					      USHORT ImageSubsystemId,
 					      PHANDLE ApiPort)
 {
@@ -41,9 +57,9 @@ NTSTATUS NTAPI SmRegisterInternalSubsystem (LPWSTR PgmName,
 
 	RtlZeroMemory (& ProcessInfo, sizeof ProcessInfo);
 	ProcessInfo.Size = sizeof ProcessInfo;
-	ProcessInfo.ProcessHandle = (HANDLE) UlongToPtr(SmSsProcessId);
-	ProcessInfo.ClientId.UniqueProcess = (HANDLE) UlongToPtr(SmSsProcessId);
-	DPRINT("SM: %s: ProcessInfo.ProcessHandle=%p\n",
+	ProcessInfo.ProcessHandle = (HANDLE) SmSsProcessId;
+	ProcessInfo.ClientId.UniqueProcess = (HANDLE) SmSsProcessId;
+	DPRINT("SM: %s: ProcessInfo.ProcessHandle=%lx\n",
 		__FUNCTION__,ProcessInfo.ProcessHandle);
 	Status = SmCreateClient (& ProcessInfo, PgmName);
 	if (NT_SUCCESS(Status))
@@ -148,14 +164,14 @@ SmLoadSubsystems(VOID)
 	Status = SmRegisterInternalSubsystem (L"Session Manager", IMAGE_SUBSYSTEM_NATIVE, & hSmApiPort);
 	if(!NT_SUCCESS(Status))
 	{
-		DPRINT1("SM: %s SmRegisterInternalSubsystem failed Status=%08lx\n", __FUNCTION__, Status);
+		DPRINT1("SM: SmRegisterInternalSubsystem failed Status=%08lx\n", __FUNCTION__, Status);
 		return Status;
 	}
 	/* Load Required subsystems (Debug Windows) */
 	Status = SmpLoadRequiredSubsystems();
 	if(!NT_SUCCESS(Status))
 	{
-		DPRINT1("SM: %s SmpLoadRequiredSubsystems failed Status=%08lx\n", __FUNCTION__, Status);
+		DPRINT1("SM: SmpLoadRequiredSubsystems failed Status=%08lx\n", __FUNCTION__, Status);
 		return Status;
 	}
 	/* done */

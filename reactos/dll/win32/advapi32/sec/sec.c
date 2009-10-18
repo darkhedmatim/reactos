@@ -12,31 +12,33 @@
  */
 
 #include <advapi32.h>
-#include "wine/debug.h"
 
-WINE_DEFAULT_DEBUG_CHANNEL(advapi);
+#define NDEBUG
+#include <debug.h>
 
 /*
  * @implemented
  */
 BOOL
-WINAPI
-GetSecurityDescriptorControl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
-                             PSECURITY_DESCRIPTOR_CONTROL pControl,
-                             LPDWORD lpdwRevision)
+STDCALL
+GetSecurityDescriptorControl (
+	PSECURITY_DESCRIPTOR		pSecurityDescriptor,
+	PSECURITY_DESCRIPTOR_CONTROL	pControl,
+	LPDWORD				lpdwRevision
+	)
 {
-    NTSTATUS Status;
+	NTSTATUS Status;
 
-    Status = RtlGetControlSecurityDescriptor(pSecurityDescriptor,
-                                             pControl,
-                                             (PULONG)lpdwRevision);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
+	Status = RtlGetControlSecurityDescriptor (pSecurityDescriptor,
+	                                          pControl,
+	                                          (PULONG)lpdwRevision);
+	if (!NT_SUCCESS(Status))
+	{
+		SetLastError (RtlNtStatusToDosError (Status));
+		return FALSE;
+	}
 
-    return TRUE;
+	return TRUE;
 }
 
 
@@ -44,30 +46,32 @@ GetSecurityDescriptorControl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
-GetSecurityDescriptorDacl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
-                          LPBOOL lpbDaclPresent,
-                          PACL *pDacl,
-                          LPBOOL lpbDaclDefaulted)
+STDCALL
+GetSecurityDescriptorDacl (
+	PSECURITY_DESCRIPTOR	pSecurityDescriptor,
+	LPBOOL			lpbDaclPresent,
+	PACL			*pDacl,
+	LPBOOL			lpbDaclDefaulted
+	)
 {
-    BOOLEAN DaclPresent;
-    BOOLEAN DaclDefaulted;
-    NTSTATUS Status;
+	BOOLEAN DaclPresent;
+	BOOLEAN DaclDefaulted;
+	NTSTATUS Status;
 
-    Status = RtlGetDaclSecurityDescriptor(pSecurityDescriptor,
-                                          &DaclPresent,
-                                          pDacl,
-                                          &DaclDefaulted);
-    *lpbDaclPresent = (BOOL)DaclPresent;
-    *lpbDaclDefaulted = (BOOL)DaclDefaulted;
+	Status = RtlGetDaclSecurityDescriptor (pSecurityDescriptor,
+	                                       &DaclPresent,
+	                                       pDacl,
+	                                       &DaclDefaulted);
+	*lpbDaclPresent = (BOOL)DaclPresent;
+	*lpbDaclDefaulted = (BOOL)DaclDefaulted;
 
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
+	if (!NT_SUCCESS(Status))
+	{
+		SetLastError (RtlNtStatusToDosError (Status));
+		return FALSE;
+	}
 
-    return TRUE;
+	return TRUE;
 }
 
 
@@ -75,26 +79,28 @@ GetSecurityDescriptorDacl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
-GetSecurityDescriptorGroup(PSECURITY_DESCRIPTOR pSecurityDescriptor,
-                           PSID *pGroup,
-                           LPBOOL lpbGroupDefaulted)
+STDCALL
+GetSecurityDescriptorGroup (
+	PSECURITY_DESCRIPTOR	pSecurityDescriptor,
+	PSID			*pGroup,
+	LPBOOL			lpbGroupDefaulted
+	)
 {
-    BOOLEAN GroupDefaulted;
-    NTSTATUS Status;
+	BOOLEAN GroupDefaulted;
+	NTSTATUS Status;
 
-    Status = RtlGetGroupSecurityDescriptor(pSecurityDescriptor,
-                                           pGroup,
-                                           &GroupDefaulted);
-    *lpbGroupDefaulted = (BOOL)GroupDefaulted;
+	Status = RtlGetGroupSecurityDescriptor (pSecurityDescriptor,
+	                                        pGroup,
+	                                        &GroupDefaulted);
+	*lpbGroupDefaulted = (BOOL)GroupDefaulted;
 
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
+	if (!NT_SUCCESS(Status))
+	{
+		SetLastError (RtlNtStatusToDosError (Status));
+		return FALSE;
+	}
 
-    return TRUE;
+	return TRUE;
 }
 
 
@@ -102,26 +108,28 @@ GetSecurityDescriptorGroup(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
-GetSecurityDescriptorOwner(PSECURITY_DESCRIPTOR pSecurityDescriptor,
-                           PSID *pOwner,
-                           LPBOOL lpbOwnerDefaulted)
+STDCALL
+GetSecurityDescriptorOwner (
+	PSECURITY_DESCRIPTOR	pSecurityDescriptor,
+	PSID			*pOwner,
+	LPBOOL			lpbOwnerDefaulted
+	)
 {
-    BOOLEAN OwnerDefaulted;
-    NTSTATUS Status;
+	BOOLEAN OwnerDefaulted;
+	NTSTATUS Status;
 
-    Status = RtlGetOwnerSecurityDescriptor(pSecurityDescriptor,
-                                           pOwner,
-                                           &OwnerDefaulted);
-    *lpbOwnerDefaulted = (BOOL)OwnerDefaulted;
+	Status = RtlGetOwnerSecurityDescriptor (pSecurityDescriptor,
+	                                        pOwner,
+	                                        &OwnerDefaulted);
+	*lpbOwnerDefaulted = (BOOL)OwnerDefaulted;
 
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
+	if (!NT_SUCCESS(Status))
+	{
+		SetLastError (RtlNtStatusToDosError (Status));
+		return FALSE;
+	}
 
-    return TRUE;
+	return TRUE;
 }
 
 
@@ -129,15 +137,16 @@ GetSecurityDescriptorOwner(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 DWORD
-WINAPI
-GetSecurityDescriptorRMControl(PSECURITY_DESCRIPTOR SecurityDescriptor,
-                               PUCHAR RMControl)
+STDCALL
+GetSecurityDescriptorRMControl (
+	PSECURITY_DESCRIPTOR	SecurityDescriptor,
+	PUCHAR			RMControl)
 {
-    if (!RtlGetSecurityDescriptorRMControl(SecurityDescriptor,
-                                           RMControl))
-        return ERROR_INVALID_DATA;
+  if (!RtlGetSecurityDescriptorRMControl(SecurityDescriptor,
+					 RMControl))
+    return ERROR_INVALID_DATA;
 
-    return ERROR_SUCCESS;
+  return ERROR_SUCCESS;
 }
 
 
@@ -145,30 +154,32 @@ GetSecurityDescriptorRMControl(PSECURITY_DESCRIPTOR SecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
-GetSecurityDescriptorSacl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
-                          LPBOOL lpbSaclPresent,
-                          PACL *pSacl,
-                          LPBOOL lpbSaclDefaulted)
+STDCALL
+GetSecurityDescriptorSacl (
+	PSECURITY_DESCRIPTOR	pSecurityDescriptor,
+	LPBOOL			lpbSaclPresent,
+	PACL			*pSacl,
+	LPBOOL			lpbSaclDefaulted
+	)
 {
-    BOOLEAN SaclPresent;
-    BOOLEAN SaclDefaulted;
-    NTSTATUS Status;
+	BOOLEAN SaclPresent;
+	BOOLEAN SaclDefaulted;
+	NTSTATUS Status;
 
-    Status = RtlGetSaclSecurityDescriptor(pSecurityDescriptor,
-                                          &SaclPresent,
-                                          pSacl,
-                                          &SaclDefaulted);
-    *lpbSaclPresent = (BOOL)SaclPresent;
-    *lpbSaclDefaulted = (BOOL)SaclDefaulted;
+	Status = RtlGetSaclSecurityDescriptor (pSecurityDescriptor,
+	                                       &SaclPresent,
+	                                       pSacl,
+	                                       &SaclDefaulted);
+	*lpbSaclPresent = (BOOL)SaclPresent;
+	*lpbSaclDefaulted = (BOOL)SaclDefaulted;
 
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
+	if (!NT_SUCCESS(Status))
+	{
+		SetLastError (RtlNtStatusToDosError (Status));
+		return FALSE;
+	}
 
-    return TRUE;
+	return TRUE;
 }
 
 
@@ -176,21 +187,23 @@ GetSecurityDescriptorSacl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
-InitializeSecurityDescriptor(PSECURITY_DESCRIPTOR pSecurityDescriptor,
-                             DWORD dwRevision)
+STDCALL
+InitializeSecurityDescriptor (
+	PSECURITY_DESCRIPTOR	pSecurityDescriptor,
+	DWORD			dwRevision
+	)
 {
-    NTSTATUS Status;
+	NTSTATUS Status;
 
-    Status = RtlCreateSecurityDescriptor(pSecurityDescriptor,
-                                         dwRevision);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
+	Status = RtlCreateSecurityDescriptor (pSecurityDescriptor,
+	                                      dwRevision);
+	if (!NT_SUCCESS(Status))
+	{
+		SetLastError (RtlNtStatusToDosError (Status));
+		return FALSE;
+	}
 
-    return TRUE;
+	return TRUE;
 }
 
 
@@ -198,16 +211,18 @@ InitializeSecurityDescriptor(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
-IsValidSecurityDescriptor(PSECURITY_DESCRIPTOR pSecurityDescriptor)
+STDCALL
+IsValidSecurityDescriptor (
+	PSECURITY_DESCRIPTOR	pSecurityDescriptor
+	)
 {
-    BOOLEAN Result;
+	BOOLEAN Result;
 
-    Result = RtlValidSecurityDescriptor (pSecurityDescriptor);
-    if (Result == FALSE)
-        SetLastError(RtlNtStatusToDosError(STATUS_INVALID_SECURITY_DESCR));
+	Result = RtlValidSecurityDescriptor (pSecurityDescriptor);
+	if (Result == FALSE)
+		SetLastError (RtlNtStatusToDosError (STATUS_INVALID_SECURITY_DESCR));
 
-    return (BOOL)Result;
+	return (BOOL)Result;
 }
 
 
@@ -215,18 +230,20 @@ IsValidSecurityDescriptor(PSECURITY_DESCRIPTOR pSecurityDescriptor)
  * @implemented
  */
 BOOL
-WINAPI
-MakeAbsoluteSD(PSECURITY_DESCRIPTOR pSelfRelativeSecurityDescriptor,
-               PSECURITY_DESCRIPTOR pAbsoluteSecurityDescriptor,
-               LPDWORD lpdwAbsoluteSecurityDescriptorSize,
-               PACL pDacl,
-               LPDWORD lpdwDaclSize,
-               PACL pSacl,
-               LPDWORD lpdwSaclSize,
-               PSID pOwner,
-               LPDWORD lpdwOwnerSize,
-               PSID pPrimaryGroup,
-               LPDWORD lpdwPrimaryGroupSize)
+STDCALL
+MakeAbsoluteSD (
+	PSECURITY_DESCRIPTOR	pSelfRelativeSecurityDescriptor,
+	PSECURITY_DESCRIPTOR	pAbsoluteSecurityDescriptor,
+	LPDWORD			lpdwAbsoluteSecurityDescriptorSize,
+	PACL			pDacl,
+	LPDWORD			lpdwDaclSize,
+	PACL			pSacl,
+	LPDWORD			lpdwSaclSize,
+	PSID			pOwner,
+	LPDWORD			lpdwOwnerSize,
+	PSID			pPrimaryGroup,
+	LPDWORD			lpdwPrimaryGroupSize
+	)
 {
 	NTSTATUS Status;
 
@@ -255,7 +272,7 @@ MakeAbsoluteSD(PSECURITY_DESCRIPTOR pSelfRelativeSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 MakeAbsoluteSD2(IN OUT PSECURITY_DESCRIPTOR pSelfRelativeSecurityDescriptor,
                 OUT LPDWORD lpdwBufferSize)
 {
@@ -263,13 +280,13 @@ MakeAbsoluteSD2(IN OUT PSECURITY_DESCRIPTOR pSelfRelativeSecurityDescriptor,
 
     Status = RtlSelfRelativeToAbsoluteSD2(pSelfRelativeSecurityDescriptor,
                                           lpdwBufferSize);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
+	if (!NT_SUCCESS(Status))
+	{
+		SetLastError (RtlNtStatusToDosError (Status));
+		return FALSE;
+	}
 
-    return TRUE;
+	return TRUE;
 }
 
 
@@ -277,23 +294,25 @@ MakeAbsoluteSD2(IN OUT PSECURITY_DESCRIPTOR pSelfRelativeSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
-MakeSelfRelativeSD(PSECURITY_DESCRIPTOR pAbsoluteSecurityDescriptor,
-                   PSECURITY_DESCRIPTOR pSelfRelativeSecurityDescriptor,
-                   LPDWORD lpdwBufferLength)
+STDCALL
+MakeSelfRelativeSD (
+	PSECURITY_DESCRIPTOR	pAbsoluteSecurityDescriptor,
+	PSECURITY_DESCRIPTOR	pSelfRelativeSecurityDescriptor,
+	LPDWORD			lpdwBufferLength
+	)
 {
-    NTSTATUS Status;
+	NTSTATUS Status;
 
-    Status = RtlAbsoluteToSelfRelativeSD(pAbsoluteSecurityDescriptor,
-                                         pSelfRelativeSecurityDescriptor,
-                                         (PULONG)lpdwBufferLength);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
+	Status = RtlAbsoluteToSelfRelativeSD (pAbsoluteSecurityDescriptor,
+	                                      pSelfRelativeSecurityDescriptor,
+	                                      (PULONG)lpdwBufferLength);
+	if (!NT_SUCCESS(Status))
+	{
+		SetLastError (RtlNtStatusToDosError (Status));
+		return FALSE;
+	}
 
-    return TRUE;
+	return TRUE;
 }
 
 
@@ -301,23 +320,24 @@ MakeSelfRelativeSD(PSECURITY_DESCRIPTOR pAbsoluteSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
-SetSecurityDescriptorControl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
-                             SECURITY_DESCRIPTOR_CONTROL ControlBitsOfInterest,
-                             SECURITY_DESCRIPTOR_CONTROL ControlBitsToSet)
+STDCALL
+SetSecurityDescriptorControl (
+	PSECURITY_DESCRIPTOR		pSecurityDescriptor,
+	SECURITY_DESCRIPTOR_CONTROL	ControlBitsOfInterest,
+	SECURITY_DESCRIPTOR_CONTROL	ControlBitsToSet)
 {
-    NTSTATUS Status;
-    
-    Status = RtlSetControlSecurityDescriptor(pSecurityDescriptor,
-                                             ControlBitsOfInterest,
-                                             ControlBitsToSet);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
+	NTSTATUS Status;
 
-    return TRUE;
+	Status = RtlSetControlSecurityDescriptor(pSecurityDescriptor,
+	                                         ControlBitsOfInterest,
+	                                         ControlBitsToSet);
+	if (!NT_SUCCESS(Status))
+	{
+		SetLastError (RtlNtStatusToDosError (Status));
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 
@@ -325,25 +345,27 @@ SetSecurityDescriptorControl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
-SetSecurityDescriptorDacl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
-                          BOOL bDaclPresent,
-                          PACL pDacl,
-                          BOOL bDaclDefaulted)
+STDCALL
+SetSecurityDescriptorDacl (
+	PSECURITY_DESCRIPTOR	pSecurityDescriptor,
+	BOOL			bDaclPresent,
+	PACL			pDacl,
+	BOOL			bDaclDefaulted
+	)
 {
-    NTSTATUS Status;
+	NTSTATUS Status;
 
-    Status = RtlSetDaclSecurityDescriptor(pSecurityDescriptor,
-                                          bDaclPresent,
-                                          pDacl,
-                                          bDaclDefaulted);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
+	Status = RtlSetDaclSecurityDescriptor (pSecurityDescriptor,
+	                                       bDaclPresent,
+	                                       pDacl,
+	                                       bDaclDefaulted);
+	if (!NT_SUCCESS(Status))
+	{
+		SetLastError (RtlNtStatusToDosError (Status));
+		return FALSE;
+	}
 
-    return TRUE;
+	return TRUE;
 }
 
 
@@ -351,23 +373,25 @@ SetSecurityDescriptorDacl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
-SetSecurityDescriptorGroup(PSECURITY_DESCRIPTOR pSecurityDescriptor,
-                           PSID pGroup,
-                           BOOL bGroupDefaulted)
+STDCALL
+SetSecurityDescriptorGroup (
+	PSECURITY_DESCRIPTOR	pSecurityDescriptor,
+	PSID			pGroup,
+	BOOL			bGroupDefaulted
+	)
 {
-    NTSTATUS Status;
+	NTSTATUS Status;
 
-    Status = RtlSetGroupSecurityDescriptor(pSecurityDescriptor,
-                                           pGroup,
-                                           bGroupDefaulted);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
+	Status = RtlSetGroupSecurityDescriptor (pSecurityDescriptor,
+	                                        pGroup,
+	                                        bGroupDefaulted);
+	if (!NT_SUCCESS(Status))
+	{
+		SetLastError (RtlNtStatusToDosError (Status));
+		return FALSE;
+	}
 
-    return TRUE;
+	return TRUE;
 }
 
 
@@ -375,23 +399,25 @@ SetSecurityDescriptorGroup(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
-SetSecurityDescriptorOwner(PSECURITY_DESCRIPTOR pSecurityDescriptor,
-                           PSID pOwner,
-                           BOOL bOwnerDefaulted)
+STDCALL
+SetSecurityDescriptorOwner (
+	PSECURITY_DESCRIPTOR	pSecurityDescriptor,
+	PSID			pOwner,
+	BOOL			bOwnerDefaulted
+	)
 {
-    NTSTATUS Status;
+	NTSTATUS Status;
 
-    Status = RtlSetOwnerSecurityDescriptor(pSecurityDescriptor,
-                                           pOwner,
-                                           bOwnerDefaulted);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
+	Status = RtlSetOwnerSecurityDescriptor (pSecurityDescriptor,
+	                                        pOwner,
+	                                        bOwnerDefaulted);
+	if (!NT_SUCCESS(Status))
+	{
+		SetLastError (RtlNtStatusToDosError (Status));
+		return FALSE;
+	}
 
-    return TRUE;
+	return TRUE;
 }
 
 
@@ -399,14 +425,15 @@ SetSecurityDescriptorOwner(PSECURITY_DESCRIPTOR pSecurityDescriptor,
  * @implemented
  */
 DWORD
-WINAPI
-SetSecurityDescriptorRMControl(PSECURITY_DESCRIPTOR SecurityDescriptor,
-                               PUCHAR RMControl)
+STDCALL
+SetSecurityDescriptorRMControl (
+	PSECURITY_DESCRIPTOR	SecurityDescriptor,
+	PUCHAR			RMControl)
 {
-    RtlSetSecurityDescriptorRMControl(SecurityDescriptor,
-                                      RMControl);
+  RtlSetSecurityDescriptorRMControl(SecurityDescriptor,
+				    RMControl);
 
-    return ERROR_SUCCESS;
+  return ERROR_SUCCESS;
 }
 
 
@@ -414,25 +441,27 @@ SetSecurityDescriptorRMControl(PSECURITY_DESCRIPTOR SecurityDescriptor,
  * @implemented
  */
 BOOL
-WINAPI
-SetSecurityDescriptorSacl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
-                          BOOL bSaclPresent,
-                          PACL pSacl,
-                          BOOL bSaclDefaulted)
+STDCALL
+SetSecurityDescriptorSacl (
+	PSECURITY_DESCRIPTOR	pSecurityDescriptor,
+	BOOL			bSaclPresent,
+	PACL			pSacl,
+	BOOL			bSaclDefaulted
+	)
 {
-    NTSTATUS Status;
+	NTSTATUS Status;
 
-    Status = RtlSetSaclSecurityDescriptor(pSecurityDescriptor,
-                                          bSaclPresent,
-                                          pSacl,
-                                          bSaclDefaulted);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
+	Status = RtlSetSaclSecurityDescriptor (pSecurityDescriptor,
+	                                       bSaclPresent,
+	                                       pSacl,
+	                                       bSaclDefaulted);
+	if (!NT_SUCCESS(Status))
+	{
+		SetLastError (RtlNtStatusToDosError (Status));
+		return FALSE;
+	}
 
-    return TRUE;
+	return TRUE;
 }
 
 
@@ -482,7 +511,7 @@ SetSecurityAccessMask(IN SECURITY_INFORMATION SecurityInformation,
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 ConvertToAutoInheritPrivateObjectSecurity(IN PSECURITY_DESCRIPTOR ParentDescriptor,
                                           IN PSECURITY_DESCRIPTOR CurrentSecurityDescriptor,
                                           OUT PSECURITY_DESCRIPTOR* NewSecurityDescriptor,
@@ -499,7 +528,7 @@ ConvertToAutoInheritPrivateObjectSecurity(IN PSECURITY_DESCRIPTOR ParentDescript
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 BuildSecurityDescriptorW(IN PTRUSTEE_W pOwner  OPTIONAL,
                          IN PTRUSTEE_W pGroup  OPTIONAL,
                          IN ULONG cCountOfAccessEntries,
@@ -519,7 +548,7 @@ BuildSecurityDescriptorW(IN PTRUSTEE_W pOwner  OPTIONAL,
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 BuildSecurityDescriptorA(IN PTRUSTEE_A pOwner  OPTIONAL,
                          IN PTRUSTEE_A pGroup  OPTIONAL,
                          IN ULONG cCountOfAccessEntries,
@@ -540,16 +569,15 @@ BuildSecurityDescriptorA(IN PTRUSTEE_A pOwner  OPTIONAL,
  */
 BOOL WINAPI DecryptFileW(LPCWSTR lpFileName, DWORD dwReserved)
 {
-    FIXME("%s(%S) not implemented!\n", __FUNCTION__, lpFileName);
-    return TRUE;
+    DPRINT1("%s(%S) not implemented!\n", __FUNCTION__, lpFileName);
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
 }
-
 
 /*
  * @implemented
  */
-BOOL WINAPI
-DecryptFileA(LPCSTR lpFileName, DWORD dwReserved)
+BOOL WINAPI DecryptFileA(LPCSTR lpFileName, DWORD dwReserved)
 {
     UNICODE_STRING FileName;
     NTSTATUS Status;
@@ -569,23 +597,20 @@ DecryptFileA(LPCSTR lpFileName, DWORD dwReserved)
     return ret;
 }
 
-
 /*
  * @unimplemented
  */
-BOOL WINAPI
-EncryptFileW(LPCWSTR lpFileName)
+BOOL WINAPI EncryptFileW(LPCWSTR lpFileName)
 {
-    FIXME("%s() not implemented!\n", __FUNCTION__);
-    return TRUE;
+    DPRINT1("%s() not implemented!\n", __FUNCTION__);
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
 }
-
 
 /*
  * @implemented
  */
-BOOL WINAPI
-EncryptFileA(LPCSTR lpFileName)
+BOOL WINAPI EncryptFileA(LPCSTR lpFileName)
 {
     UNICODE_STRING FileName;
     NTSTATUS Status;
@@ -603,6 +628,30 @@ EncryptFileA(LPCSTR lpFileName)
     if (FileName.Buffer != NULL)
         RtlFreeUnicodeString(&FileName);
     return ret;
+}
+
+BOOL WINAPI ConvertSecurityDescriptorToStringSecurityDescriptorW(
+    PSECURITY_DESCRIPTOR pSecurityDescriptor,
+    DWORD dword,
+    SECURITY_INFORMATION SecurityInformation,
+    LPWSTR* lpwstr,
+    PULONG pulong)
+{
+    DPRINT1("%s() not implemented!\n", __FUNCTION__);
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+BOOL WINAPI ConvertSecurityDescriptorToStringSecurityDescriptorA(
+    PSECURITY_DESCRIPTOR pSecurityDescriptor,
+    DWORD dword,
+    SECURITY_INFORMATION SecurityInformation,
+    LPSTR* lpstr,
+    PULONG pulong)
+{
+    DPRINT1("%s() not implemented!\n", __FUNCTION__);
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
 }
 
 /* EOF */

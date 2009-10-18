@@ -4,7 +4,4 @@
 	<directory name="audio">
 		<xi:include href="audio/directory.rbuild" />
 	</directory>
-	<directory name="bdasup">
-		<xi:include href="bdasup/bdasup.rbuild" />
-	</directory>
 </group>

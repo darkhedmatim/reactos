@@ -19,6 +19,10 @@
 #ifndef _GDIPLUSMATRIX_H
 #define _GDIPLUSMATRIX_H
 
+#if __GNUC__ >= 3
+#pragma GCC system_header
+#endif
+
 class Matrix : public GdiplusBase
 {
 public:

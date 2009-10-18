@@ -16,11 +16,21 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "urlmon_main.h"
+#include <stdarg.h>
+
+#define COBJMACROS
+
+#include "windef.h"
+#include "winbase.h"
+#include "winuser.h"
 #include "winreg.h"
 #include "shlwapi.h"
+#include "ole2.h"
+#include "urlmon.h"
+#include "urlmon_main.h"
 
 #include "wine/debug.h"
+#include "wine/unicode.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(urlmon);
 
@@ -33,7 +43,7 @@ static HRESULT parse_schema(LPCWSTR url, DWORD flags, LPWSTR result, DWORD size,
 
     if(flags)
         ERR("wrong flags\n");
-    
+
     ptr = strchrW(url, ':');
     if(ptr)
         len = ptr-url;
@@ -209,7 +219,7 @@ HRESULT WINAPI CoInternetCombineUrl(LPCWSTR pwzBaseUrl, LPCWSTR pwzRelativeUrl,
     IInternetProtocolInfo *protocol_info;
     DWORD size = cchResult;
     HRESULT hres;
-    
+
     TRACE("(%s,%s,0x%08x,%p,%d,%p,%d)\n", debugstr_w(pwzBaseUrl),
           debugstr_w(pwzRelativeUrl), dwCombineFlags, pwzResult, cchResult, pcchResult,
           dwReserved);
@@ -253,57 +263,4 @@ HRESULT WINAPI CoInternetCompareUrl(LPCWSTR pwzUrl1, LPCWSTR pwzUrl2, DWORD dwCo
     }
 
     return UrlCompareW(pwzUrl1, pwzUrl2, dwCompareFlags) ? S_FALSE : S_OK;
-}
-
-/***********************************************************************
- *           CoInternetQueryInfo (URLMON.@)
- *
- * Retrieves information relevant to a specified URL
- *
- */
-HRESULT WINAPI CoInternetQueryInfo(LPCWSTR pwzUrl, QUERYOPTION QueryOption,
-        DWORD dwQueryFlags, LPVOID pvBuffer, DWORD cbBuffer, DWORD *pcbBuffer,
-        DWORD dwReserved)
-{
-    IInternetProtocolInfo *protocol_info;
-    HRESULT hres;
-
-    TRACE("(%s, %x, %x, %p, %x, %p, %x): stub\n", debugstr_w(pwzUrl),
-          QueryOption, dwQueryFlags, pvBuffer, cbBuffer, pcbBuffer, dwReserved);
-
-    protocol_info = get_protocol_info(pwzUrl);
-
-    if(protocol_info) {
-        hres = IInternetProtocolInfo_QueryInfo(protocol_info, pwzUrl, QueryOption, dwQueryFlags,
-                pvBuffer, cbBuffer, pcbBuffer, dwReserved);
-        IInternetProtocolInfo_Release(protocol_info);
-
-        return SUCCEEDED(hres) ? hres : E_FAIL;
-    }
-
-    switch(QueryOption) {
-    case QUERY_USES_NETWORK:
-        if(!pvBuffer || cbBuffer < sizeof(DWORD))
-            return E_FAIL;
-
-        *(DWORD*)pvBuffer = 0;
-        if(pcbBuffer)
-            *pcbBuffer = sizeof(DWORD);
-        break;
-
-    default:
-        FIXME("Not supported option %d\n", QueryOption);
-        return E_NOTIMPL;
-    }
-
-    return S_OK;
-}
-
-/***********************************************************************
- *             CoInternetSetFeatureEnabled (URLMON.@)
- */
-HRESULT WINAPI CoInternetSetFeatureEnabled(INTERNETFEATURELIST feature, DWORD flags, BOOL enable)
-{
-    FIXME("%d, 0x%08x, %x, stub\n", feature, flags, enable);
-    return E_NOTIMPL;
 }

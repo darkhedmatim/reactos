@@ -10,21 +10,12 @@
 // Print information about which commandline arguments the program accepts.
 static void PrintUsage() {
 	LPTSTR lpUsage = NULL;
-	DWORD errLength; // error message length
-	LPTSTR resMsg; // for error message in OEM symbols
 
 	if( AllocAndLoadString( &lpUsage,
 							GetModuleHandle(NULL),
 							IDS_USAGE ) )
 	{
-		errLength = strlen(lpUsage) + 1;
-		resMsg = (LPTSTR)LocalAlloc(LPTR, errLength * sizeof(TCHAR));
-		CharToOemBuff(lpUsage, resMsg, errLength);
-
-		_putts( resMsg );
-
-		LocalFree(lpUsage);
-		LocalFree(resMsg);
+		_putts( lpUsage );
 	}
 }
 
@@ -135,28 +126,20 @@ static struct ExitOptions ParseCommandLineOptionsToExitOptions(struct CommandLin
 void DisplayLastError()
 {
 	int errorCode = GetLastError();
-	LPTSTR lpMsgBuf = NULL;
-	DWORD errLength; // error message length
-	LPTSTR resMsg; // for error message in OEM symbols
+	LPTSTR lpMsgBuf;
 
 	// Display the error message to the user
-	errLength = FormatMessage(
+	FormatMessage(
 		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
 		NULL,
 		errorCode,
 		LANG_USER_DEFAULT,
 		(LPTSTR) &lpMsgBuf,
 		0,
-		NULL) + 1;
+		NULL);
 
-	resMsg = (LPTSTR)LocalAlloc(LPTR, errLength * sizeof(TCHAR));
-	CharToOemBuff(lpMsgBuf, resMsg, errLength);
-
-	_ftprintf(stderr, resMsg);
+	_ftprintf(stderr, lpMsgBuf);
 	_ftprintf(stderr, _T("Error code: %d\n"), errorCode);
-
-	LocalFree(lpMsgBuf);
-	LocalFree(resMsg);
 }
 
 void EnableShutdownPrivileges()

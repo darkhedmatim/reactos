@@ -51,8 +51,6 @@ HandleDeviceEvent(
     DWORD dwEventType,
     LPVOID lpEventData);
 
-BOOL
-StartSystemAudioServices();
 
 /* Debugging */
 

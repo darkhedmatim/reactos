@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="9,00"
+	Version="8,00"
 	Name="explorer"
 	ProjectGUID="{BFBAE588-8C68-4303-9BF6-C830087D8F25}"
 	RootNamespace="explorer"
-	TargetFrameworkVersion="131072"
 	>
 	<Platforms>
 		<Platform
@@ -82,8 +81,6 @@
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\UDebug/explorer.pdb"
 				SubSystem="2"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -106,6 +103,9 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -176,8 +176,6 @@
 				DelayLoadDLLs="oleaut32.dll,wsock32.dll"
 				ProgramDatabaseFile=".\URelease/explorer.pdb"
 				SubSystem="2"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -200,6 +198,9 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -269,8 +270,6 @@
 				DelayLoadDLLs="oleaut32.dll,wsock32.dll"
 				ProgramDatabaseFile=".\WineRelease/wexplorer.pdb"
 				SubSystem="2"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -293,6 +292,9 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -365,8 +367,6 @@
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\DRelease/explorer.pdb"
 				SubSystem="2"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -389,6 +389,9 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -461,8 +464,6 @@
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\Debug/explorer.pdb"
 				SubSystem="2"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -485,6 +486,9 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -555,8 +559,6 @@
 				DelayLoadDLLs="oleaut32.dll,wsock32.dll"
 				ProgramDatabaseFile=".\Release/explorer.pdb"
 				SubSystem="2"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -579,6 +581,9 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -648,8 +653,6 @@
 				DelayLoadDLLs="oleaut32.dll,wsock32.dll"
 				ProgramDatabaseFile=".\WineDll/wexplorer.pdb"
 				SubSystem="2"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -672,6 +675,9 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -2001,10 +2007,6 @@
 			</File>
 			<File
 				RelativePath="resource.h"
-				>
-			</File>
-			<File
-				RelativePath=".\res\restart.ico"
 				>
 			</File>
 			<File

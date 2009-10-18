@@ -23,7 +23,6 @@ Author:
 // Dependencies
 //
 #include <umtypes.h>
-#include <cmtypes.h>
 
 //
 // Native calls
@@ -140,7 +139,10 @@ NtLoadKeyEx(
     IN POBJECT_ATTRIBUTES TargetKey,
     IN POBJECT_ATTRIBUTES SourceFile,
     IN ULONG Flags,
-    IN HANDLE TrustClassKey
+    IN HANDLE TrustClassKey,
+    IN HANDLE Event,
+    IN ACCESS_MASK DesiredAccess,
+    OUT PHANDLE RootHandle
 );
 
 NTSTATUS
@@ -234,7 +236,7 @@ NTSTATUS
 NTAPI
 NtQueryOpenSubKeys(
     IN POBJECT_ATTRIBUTES TargetKey,
-    OUT PULONG HandleCount
+    IN ULONG HandleCount
 );
 
 NTSTATUS
@@ -256,14 +258,6 @@ NtQueryValueKey(
     OUT PVOID KeyValueInformation,
     IN ULONG Length,
     OUT PULONG ResultLength
-);
-
-NTSYSCALLAPI
-NTSTATUS
-NTAPI
-NtRenameKey(
-    IN HANDLE KeyHandle,
-    IN PUNICODE_STRING ReplacementName
 );
 
 NTSYSCALLAPI

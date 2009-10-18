@@ -21,20 +21,12 @@ i8042Flush(
 {
 	UCHAR Ignore;
 
-	/* Flush output buffer */
-	while (NT_SUCCESS(i8042ReadData(DeviceExtension, KBD_OBF /* | MOU_OBF*/, &Ignore))) {
-		KeStallExecutionProcessor(50);
-		TRACE_(I8042PRT, "Output data flushed\n");
-	}
-
-	/* Flush input buffer */
-	while (NT_SUCCESS(i8042ReadData(DeviceExtension, KBD_IBF, &Ignore))) {
-		KeStallExecutionProcessor(50);
-		TRACE_(I8042PRT, "Input data flushed\n");
+	while (NT_SUCCESS(i8042ReadData(DeviceExtension, KBD_OBF | MOU_OBF, &Ignore))) {
+		DPRINT("Data flushed\n"); /* drop */
 	}
 }
 
-BOOLEAN
+VOID
 i8042IsrWritePort(
 	IN PPORT_DEVICE_EXTENSION DeviceExtension,
 	IN UCHAR Value,
@@ -42,9 +34,9 @@ i8042IsrWritePort(
 {
 	if (SelectCmd)
 		if (!i8042Write(DeviceExtension, DeviceExtension->ControlPort, SelectCmd))
-			return FALSE;
+			return;
 
-	return i8042Write(DeviceExtension, DeviceExtension->DataPort, Value);
+	i8042Write(DeviceExtension, DeviceExtension->DataPort, Value);
 }
 
 /*
@@ -67,7 +59,7 @@ i8042ReadData(
 	if (PortStatus & StatusFlags)
 	{
 		*Data = READ_PORT_UCHAR(DeviceExtension->DataPort);
-		INFO_(I8042PRT, "Read: 0x%02x (status: 0x%x)\n", Data[0], PortStatus);
+		DPRINT("Read: 0x%02x (status: 0x%x)\n", Data[0], PortStatus);
 
 		// If the data is valid (not timeout, not parity error)
 		if ((PortStatus & KBD_PERR) == 0)
@@ -119,15 +111,13 @@ i8042ReadDataWait(
  * is enough this time. Note how MSDN specifies the
  * WaitForAck parameter to be ignored.
  */
-NTSTATUS NTAPI
+NTSTATUS DDKAPI
 i8042SynchReadPort(
 	IN PVOID Context,
 	OUT PUCHAR Value,
 	IN BOOLEAN WaitForAck)
 {
 	PPORT_DEVICE_EXTENSION DeviceExtension;
-
-	UNREFERENCED_PARAMETER(WaitForAck);
 
 	DeviceExtension = (PPORT_DEVICE_EXTENSION)Context;
 
@@ -156,13 +146,13 @@ i8042SynchWritePort(
 		if (Port)
 			if (!i8042Write(DeviceExtension, DeviceExtension->DataPort, Port))
 			{
-				WARN_(I8042PRT, "Failed to write Port\n");
+				DPRINT1("Failed to write Port\n");
 				return STATUS_IO_TIMEOUT;
 			}
 
 		if (!i8042Write(DeviceExtension, DeviceExtension->DataPort, Value))
 		{
-			WARN_(I8042PRT, "Failed to write Value\n");
+			DPRINT1("Failed to write Value\n");
 			return STATUS_IO_TIMEOUT;
 		}
 
@@ -171,19 +161,19 @@ i8042SynchWritePort(
 			Status = i8042ReadDataWait(DeviceExtension, &Ack);
 			if (!NT_SUCCESS(Status))
 			{
-				WARN_(I8042PRT, "Failed to read Ack\n");
+				DPRINT1("Failed to read Ack\n");
 				return Status;
 			}
 			if (Ack == KBD_ACK)
 				return STATUS_SUCCESS;
 			else if (Ack == KBD_RESEND)
-				INFO_(I8042PRT, "i8042 asks for a data resend\n");
+				DPRINT("i8042 asks for a data resend\n");
 		}
 		else
 		{
 			return STATUS_SUCCESS;
 		}
-		TRACE_(I8042PRT, "Reiterating\n");
+		DPRINT("Reiterating\n");
 		ResendIterations--;
 	} while (ResendIterations);
 
@@ -199,23 +189,23 @@ i8042Write(
 	IN PUCHAR addr,
 	IN UCHAR data)
 {
-	ULONG Counter;
+	ULONG ResendIterations;
 
 	ASSERT(addr);
 	ASSERT(DeviceExtension->ControlPort != NULL);
 
-	Counter = DeviceExtension->Settings.PollingIterations;
+	ResendIterations = DeviceExtension->Settings.ResendIterations;
 
 	while ((KBD_IBF & READ_PORT_UCHAR(DeviceExtension->ControlPort)) &&
-	       (Counter--))
+	       (ResendIterations--))
 	{
 		KeStallExecutionProcessor(50);
 	}
 
-	if (Counter)
+	if (ResendIterations)
 	{
 		WRITE_PORT_UCHAR(addr, data);
-		INFO_(I8042PRT, "Sent 0x%x to port %p\n", data, addr);
+		DPRINT("Sent 0x%x to port 0x%x\n", data, addr);
 		return TRUE;
 	}
 	return FALSE;

@@ -235,7 +235,6 @@ LPWSTR WINAPI PathCombineW(LPWSTR lpszDest, LPCWSTR lpszDir, LPCWSTR lpszFile)
 LPSTR WINAPI PathAddBackslashA(LPSTR lpszPath)
 {
   size_t iLen;
-  LPSTR prev = lpszPath;
 
   TRACE("(%s)\n",debugstr_a(lpszPath));
 
@@ -244,15 +243,11 @@ LPSTR WINAPI PathAddBackslashA(LPSTR lpszPath)
 
   if (iLen)
   {
-    do {
-      lpszPath = CharNextA(prev);
-      if (*lpszPath)
-        prev = lpszPath;
-    } while (*lpszPath);
-    if (*prev != '\\')
+    lpszPath += iLen;
+    if (lpszPath[-1] != '\\')
     {
-      *lpszPath++ = '\\';
-      *lpszPath = '\0';
+     *lpszPath++ = '\\';
+     *lpszPath = '\0';
     }
   }
   return lpszPath;
@@ -899,7 +894,7 @@ VOID WINAPI PathRemoveBlanksW(LPWSTR lpszPath)
 /*************************************************************************
  * PathQuoteSpacesA [SHLWAPI.@]
  *
- * Surround a path containing spaces in quotes.
+ * Surround a path containg spaces in quotes.
  *
  * PARAMS
  *  lpszPath [I/O] Path to quote
@@ -1156,7 +1151,7 @@ BOOL WINAPI PathFileExistsDefExtA(LPSTR lpszPath,DWORD dwWhich)
  *
  * Internal helper for SHLWAPI_PathFindOnPathExA/W.
  */
-static BOOL SHLWAPI_PathFindInOtherDirs(LPWSTR lpszFile, DWORD dwWhich)
+static BOOL WINAPI SHLWAPI_PathFindInOtherDirs(LPWSTR lpszFile, DWORD dwWhich)
 {
   static const WCHAR szSystem[] = { 'S','y','s','t','e','m','\0'};
   static const WCHAR szPath[] = { 'P','A','T','H','\0'};
@@ -1792,7 +1787,7 @@ BOOL WINAPI PathFileExistsAndAttributesW(LPCWSTR lpszPath, DWORD *dwAttr)
 /*************************************************************************
  * PathMatchSingleMaskA	[internal]
  */
-static BOOL PathMatchSingleMaskA(LPCSTR name, LPCSTR mask)
+static BOOL WINAPI PathMatchSingleMaskA(LPCSTR name, LPCSTR mask)
 {
   while (*name && *mask && *mask!=';')
   {
@@ -1826,7 +1821,7 @@ static BOOL PathMatchSingleMaskA(LPCSTR name, LPCSTR mask)
 /*************************************************************************
  * PathMatchSingleMaskW	[internal]
  */
-static BOOL PathMatchSingleMaskW(LPCWSTR name, LPCWSTR mask)
+static BOOL WINAPI PathMatchSingleMaskW(LPCWSTR name, LPCWSTR mask)
 {
   while (*name && *mask && *mask != ';')
   {
@@ -2045,7 +2040,7 @@ BOOL WINAPI PathIsContentTypeW(LPCWSTR lpszPath, LPCWSTR lpszContentType)
  * Determine if a path is a file specification.
  *
  * PARAMS
- *  lpszPath [I] Path to check
+ *  lpszPath [I] Path to chack
  *
  * RETURNS
  *  TRUE  If lpszPath is a file specification (i.e. Contains no directories).
@@ -2328,7 +2323,7 @@ BOOL WINAPI PathIsUNCServerShareW(LPCWSTR lpszPath)
  *
  * PARAMS
  *  lpszBuf  [O] Output path
- *  lpszPath [I] Path to canonicalize
+ *  lpszPath [I] Path to cnonicalize
  *
  * RETURNS
  *  Success: TRUE.  lpszBuf contains the output path,
@@ -2349,12 +2344,7 @@ BOOL WINAPI PathCanonicalizeA(LPSTR lpszBuf, LPCSTR lpszPath)
   {
     WCHAR szPath[MAX_PATH];
     WCHAR szBuff[MAX_PATH];
-    int ret = MultiByteToWideChar(CP_ACP,0,lpszPath,-1,szPath,MAX_PATH);
-
-    if (!ret) {
-	WARN("Failed to convert string to widechar (too long?), LE %d.\n", GetLastError());
-	return FALSE;
-    }
+    MultiByteToWideChar(CP_ACP,0,lpszPath,-1,szPath,MAX_PATH);
     bRet = PathCanonicalizeW(szBuff, szPath);
     WideCharToMultiByte(CP_ACP,0,szBuff,-1,lpszBuf,MAX_PATH,0,0);
   }
@@ -2991,7 +2981,7 @@ UINT WINAPI PathGetCharTypeW(WCHAR ch)
  *
  * Internal helper for PathMakeSystemFolderW.
  */
-static BOOL SHLWAPI_UseSystemForSystemFolders(void)
+static BOOL WINAPI SHLWAPI_UseSystemForSystemFolders(void)
 {
   static BOOL bCheckedReg = FALSE;
   static BOOL bUseSystemForSystemFolders = FALSE;
@@ -3318,7 +3308,7 @@ HRESULT WINAPI PathCreateFromUrlW(LPCWSTR pszUrl, LPWSTR pszPath,
 
     while(*pszPath == '\\')
         pszPath++;
- 
+
     if(isalphaW(*pszPath) && pszPath[1] == '|' && pszPath[2] == '\\') /* c|\ -> c:\ */
         pszPath[1] = ':';
 
@@ -3349,7 +3339,7 @@ HRESULT WINAPI PathCreateFromUrlW(LPCWSTR pszUrl, LPWSTR pszPath,
  *
  * RETURNS
  *  TRUE  If a relative path can be formed. lpszPath contains the new path
- *  FALSE If the paths are not relative or any parameters are invalid
+ *  FALSE If the paths are not relavtive or any parameters are invalid
  *
  * NOTES
  *  lpszTo should be at least MAX_PATH in length.

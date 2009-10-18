@@ -10,9 +10,11 @@
 /* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
+#include <reactos/ppcboot.h>
 
-//#define NDEBUG
+#define NDEBUG
 #include <debug.h>
+#include <ppcdebug.h>
 #include "ppcmmu/mmu.h"
 
 /* GLOBALS *******************************************************************/
@@ -25,16 +27,30 @@ extern LOADER_MODULE KeLoaderModules[64];
 extern ULONG KeLoaderModuleCount;
 extern ULONG_PTR MmFreeLdrLastKernelAddress;
 KPRCB PrcbData[MAXIMUM_PROCESSORS];
-/* BIOS Memory Map. Not NTLDR-compliant yet */
-extern ULONG KeMemoryMapRangeCount;
-extern ADDRESS_RANGE KeMemoryMap[64];
 
 /* FUNCTIONS *****************************************************************/
+
 /*
  * Trap frame:
  * r0 .. r32
  * lr, ctr, srr0, srr1, dsisr
  */
+__asm__(".text\n\t"
+	".globl syscall_start\n\t"
+	".globl syscall_end\n\t"
+	".globl KiSystemService\n\t"
+	"syscall_start:\n\t"
+	"mr 2,1\n\t"
+	"lis 1,KiSystemService1@ha\n\t"
+	"addi 1,1,KiSystemService1@l\n\t"
+	"mfsrr0 0\n\t"
+	"mtsrr0 1\n\t"
+	"lis 1,_kernel_trap_stack@ha\n\t"
+	"addi 1,1,_kernel_trap_stack@l\n\t"
+	"subi 1,1,0x100\n\t"
+	"rfi\n\t"
+	"syscall_end:\n\t"
+	".space 4");
 
 extern int syscall_start[], syscall_end, KiDecrementerTrapHandler[],
     KiDecrementerTrapHandlerEnd;
@@ -66,14 +82,11 @@ KiSetupDecrementerTrap()
         source++, handler_target += sizeof(int))
         SetPhys(handler_target, *source);
 
-    DPRINT("CurrentThread %08x IdleThread %08x\n",
-           KeGetCurrentThread(), KeGetCurrentPrcb()->IdleThread);
+    /* Enable interrupts! */
+    _enable();
 
     /* Kick decmrenter! */
     __asm__("mtdec %0" : : "r" (0));
-
-    /* Enable interrupts! */
-    _enable();
 }
 
 VOID
@@ -97,7 +110,6 @@ KiInitializePcr(IN ULONG ProcessorNumber,
     Pcr->PrcbData->BuildType = 0;
 #endif
     Pcr->PrcbData->DpcStack = DpcStack;
-    KeGetPcr()->Prcb = Pcr->PrcbData;
     KiProcessorBlock[ProcessorNumber] = Pcr->PrcbData;
 }
 
@@ -112,11 +124,17 @@ KiInitializeKernel(IN PKPROCESS InitProcess,
                    IN PVOID IdleStack,
                    IN PKPRCB Prcb,
                    IN CCHAR Number,
-                   IN PLOADER_PARAMETER_BLOCK LoaderBlock)
+                   IN PROS_LOADER_PARAMETER_BLOCK LoaderBlock)
 {
     ULONG FeatureBits;
     LARGE_INTEGER PageDirectory;
     PVOID DpcStack;
+    boot_infos_t *BootInfo = ((boot_infos_t *)LoaderBlock->ArchExtra);
+
+#ifdef _M_PPC
+    /* Set the machine type in LoaderBlock for HAL */
+    KeLoaderBlock->u.PowerPC.MachineType = BootInfo->machineType;
+#endif
 
     /* Detect and set the CPU Type */
     KiSetProcessorType();
@@ -189,25 +207,14 @@ KiInitializeKernel(IN PKPROCESS InitProcess,
     InitThread->Affinity = 1 << Number;
     InitThread->WaitIrql = DISPATCH_LEVEL;
     InitProcess->ActiveProcessors = 1 << Number;
-    
-    /* HACK for MmUpdatePageDir */
-    ((PETHREAD)InitThread)->ThreadsProcess = (PEPROCESS)InitProcess;
 
     /* Set up the thread-related fields in the PRCB */
-    Prcb->CurrentThread = InitThread;
+    //Prcb->CurrentThread = InitThread;
     Prcb->NextThread = NULL;
-    Prcb->IdleThread = InitThread;
-
-    /* Initialize Kernel Memory Address Space */
-    MmInit1(MmFreeLdrFirstKrnlPhysAddr,
-            MmFreeLdrLastKrnlPhysAddr,
-            MmFreeLdrLastKernelAddress,
-            KeMemoryMap,
-            KeMemoryMapRangeCount,
-            4096);
+    //Prcb->IdleThread = InitThread;
 
     /* Initialize the Kernel Executive */
-    ExpInitializeExecutive(0, LoaderBlock);
+    ExpInitializeExecutive(0, (PLOADER_PARAMETER_BLOCK)LoaderBlock);
 
     /* Only do this on the boot CPU */
     if (!Number)
@@ -231,28 +238,23 @@ KiInitializeKernel(IN PKPROCESS InitProcess,
     /* Free Initial Memory */
     // MiFreeInitMemory();
 
-    KfRaiseIrql(DISPATCH_LEVEL);
-    
-    KeSetPriorityThread(InitThread, 0);
     /* Setup decrementer exception */
     KiSetupDecrementerTrap();
 
-    KfLowerIrql(PASSIVE_LEVEL);
-
-    /* Should not return */
-    while(1)
+    while (1)
     {
-        NtYieldExecution();
+        LARGE_INTEGER Timeout;
+        Timeout.QuadPart = 0x7fffffffffffffffLL;
+        KeDelayExecutionThread(KernelMode, FALSE, &Timeout);
     }
 }
 
-extern int KiPageFaultTrap();
-KTRAP_FRAME KiInitialTrapFrame;
+extern int KiPageFaultHandler(int trap, ppc_trap_frame_t *frame);
 
 /* Use this for early boot additions to the page table */
 VOID
 NTAPI
-KiSystemStartupReal(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
+KiSystemStartup(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
 {
     ULONG Cpu;
     ppc_map_info_t info[4];
@@ -262,8 +264,8 @@ KiSystemStartupReal(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     __asm__("mr 13,%0" : : "r" (KPCR_BASE));
 
     /* Set the page fault handler to the kernel */
-    MmuSetTrapHandler(3,KiPageFaultTrap);
-    MmuSetTrapHandler(4,KiPageFaultTrap);
+    MmuSetTrapHandler(3,KiPageFaultHandler);
+    MmuSetTrapHandler(4,KiPageFaultHandler);
 
     // Make 0xf... special
     MmuAllocVsid(2, 0x8000);
@@ -297,7 +299,7 @@ KiSystemStartupReal(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
 
     /* Skip initial setup if this isn't the Boot CPU */
     if (Cpu) goto AppCpuInit;
-    
+
     /* Initialize the PCR */
     RtlZeroMemory(Pcr, PAGE_SIZE);
     KiInitializePcr(Cpu,
@@ -307,7 +309,6 @@ KiSystemStartupReal(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
 
     /* Set us as the current process */
     KiInitialThread.Tcb.ApcState.Process = &KiInitialProcess.Pcb;
-    KiInitialThread.Tcb.TrapFrame = &KiInitialTrapFrame;
 
     /* Setup CPU-related fields */
 AppCpuInit:
@@ -329,7 +330,7 @@ AppCpuInit:
     /* Check for break-in */
     if (KdPollBreakIn())
     {
-	DbgBreakPointWithStatus(DBG_STATUS_CONTROL_C);
+	DbgBreakPointWithStatus(1);
     }
 
     /* Raise to HIGH_LEVEL */

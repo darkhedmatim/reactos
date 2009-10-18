@@ -39,14 +39,14 @@ BEGIN
     END
     POPUP "&Ansicht"
     BEGIN
-        MENUITEM "&Werkzeugleiste",             ID_VIEW_TOOL_BAR
-        MENUITEM "&Extraleiste",                ID_VIEW_EXTRA_BAR
-        MENUITEM "&Laufwerksleiste",            ID_VIEW_DRIVE_BAR
-        MENUITEM "Se&itenleiste",               ID_VIEW_SIDE_BAR
-        MENUITEM "&Statusleiste",               ID_VIEW_STATUSBAR
+        MENUITEM "&Toolbar",                    ID_VIEW_TOOL_BAR
+        MENUITEM "&Extra Bar",                  ID_VIEW_EXTRA_BAR
+        MENUITEM "Lauf&werkleiste",             ID_VIEW_DRIVE_BAR, CHECKED
+        MENUITEM "S&ide Bar",                   ID_VIEW_SIDE_BAR
+        MENUITEM "&Status Bar",                 ID_VIEW_STATUSBAR
         MENUITEM SEPARATOR
         MENUITEM "&Aktualisieren\tF5",          ID_REFRESH
-        MENUITEM "&Vollbild\tStrg+Shift+S",     ID_VIEW_FULLSCREEN
+        MENUITEM "&Vollbild\tCtrl+Shift+S",     ID_VIEW_FULLSCREEN
         MENUITEM "SDI",                         ID_VIEW_SDI
     END
     POPUP "&Fenster"
@@ -80,12 +80,12 @@ BEGIN
     END
     POPUP "&Ansicht"
     BEGIN
-        MENUITEM "&Werkzeugleiste",             ID_VIEW_TOOL_BAR
-        MENUITEM "Se&itenleiste",               ID_VIEW_SIDE_BAR, GRAYED
-        MENUITEM "&Statusleiste",               ID_VIEW_STATUSBAR
+        MENUITEM "&Toolbar",                    ID_VIEW_TOOL_BAR
+        MENUITEM "S&ide Bar",                   ID_VIEW_SIDE_BAR, GRAYED
+        MENUITEM "&Status Bar",                 ID_VIEW_STATUSBAR
         MENUITEM SEPARATOR
         MENUITEM "&Aktualisieren\tF5",          ID_REFRESH
-        MENUITEM "&Vollbild\tStrg+Shift+S",     ID_VIEW_FULLSCREEN
+        MENUITEM "&Vollbild\tCtrl+Shift+S",     ID_VIEW_FULLSCREEN
         MENUITEM "&MDI",                        ID_VIEW_MDI
     END
     POPUP "&Extras"
@@ -115,8 +115,8 @@ IDM_NOTIFYAREA MENU DISCARDABLE
 BEGIN
     POPUP ""
     BEGIN
-        MENUITEM "&Zeige versteckte Symbole",     ID_SHOW_HIDDEN_ICONS
-        MENUITEM "Zeige Symbol&knopf",          ID_SHOW_ICON_BUTTON
+        MENUITEM "&Zeige versteckte Icons",     ID_SHOW_HIDDEN_ICONS
+        MENUITEM "Zeige Icon-&Button",          ID_SHOW_ICON_BUTTON
         MENUITEM "&Konfiguriere Benachrichtigungen...", ID_CONFIG_NOTIFYAREA
         MENUITEM "Einstellen von &Datum/Zeit...", ID_CONFIG_TIME
         MENUITEM SEPARATOR
@@ -139,8 +139,8 @@ END
 // Dialog
 //
 
-IDD_EXECUTE DIALOGEX DISCARDABLE  15, 13, 210, 63
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_EXECUTE DIALOG DISCARDABLE  15, 13, 210, 63
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Ausführen"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -155,10 +155,10 @@ BEGIN
     PUSHBUTTON      "&Hilfe",254,158,43,47,14
 END
 
-IDD_ABOUT_EXPLORER DIALOGEX DISCARDABLE  0, 0, 199, 106
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_ABOUT_EXPLORER DIALOG DISCARDABLE  0, 0, 199, 106
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Über ReactOS Explorer"
-FONT 8, "MS Shell Dlg"
+FONT 10, "MS Sans Serif"
 BEGIN
     LTEXT           "ReactOS Explorer",IDC_ROS_EXPLORER,91,13,104,11
     LTEXT           "V 0.9",IDC_VERSION_TXT,91,27,104,8
@@ -170,12 +170,12 @@ BEGIN
                     154,90,38,12
 END
 
-IDD_DESKBAR_DESKTOP DIALOGEX DISCARDABLE  0, 0, 212, 204
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+IDD_DESKBAR_DESKTOP DIALOG DISCARDABLE  0, 0, 212, 204
+STYLE WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Desktop-Einstellungen"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Sans Serif"
 BEGIN
-    LTEXT           "Bitte wählen Sie den gewünschten Platzierungs-Algorithmus für die Desktop-Symbole aus:",
+    LTEXT           "Bitte wählen Sie den gewünschten Platzierungs-Algorithmus für die Desktop-Icons aus:",
                     IDC_STATIC,7,7,197,23
     CONTROL         "left/top dwn",IDC_ICON_ALIGN_0,"Button",BS_OWNERDRAW |
                     BS_BOTTOM | WS_TABSTOP,7,35,46,44
@@ -205,31 +205,31 @@ BEGIN
 //                    BS_AUTOCHECKBOX | WS_TABSTOP,7,187,107,10
 END
 
-IDD_DESKBAR_STARTMENU DIALOGEX DISCARDABLE  0, 0, 210, 204
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+IDD_DESKBAR_STARTMENU DIALOG DISCARDABLE  0, 0, 210, 204
+STYLE WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Startmenü-Einstellungen"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Sans Serif"
 BEGIN
 END
 
-IDD_DESKBAR_TASKBAR DIALOGEX DISCARDABLE  0, 0, 210, 204
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+IDD_DESKBAR_TASKBAR DIALOG DISCARDABLE  0, 0, 210, 204
+STYLE WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Taskbar-Einstellungen"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Sans Serif"
 BEGIN
     CONTROL         "Anzeigen der &Uhr",ID_SHOW_CLOCK,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,7,152,71,10
-    CONTROL         "&verstecke inaktive Benachrichtigungssymbole",
+    CONTROL         "&verstecke inaktive Notification-Icons",
                     ID_HIDE_INACTIVE_ICONS,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,7,174,131,10
-    PUSHBUTTON      "&Benachrichtigungen...",ID_CONFIG_NOTIFYAREA,153,173,50,14
+    PUSHBUTTON      "&Notifications...",ID_CONFIG_NOTIFYAREA,153,173,50,14
 END
 
 IDD_MDI_SDI DIALOGEX 0, 0, 194, 157
-STYLE DS_SHELLFONT | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+STYLE WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_APPWINDOW
 CAPTION "Auswahl des Explorerfenster-Modus"
-FONT 8, "MS Shell Dlg", 0, 0, 0x1
+FONT 8, "MS Sans Serif", 0, 0, 0x1
 BEGIN
     LTEXT           "Bitte wählen Sie ihr bevorzugtes Explorer Userinterface:",
                     IDC_STATIC,7,7,160,8
@@ -249,11 +249,11 @@ BEGIN
 END
 
 IDD_NOTIFYAREA DIALOGEX 0, 0, 208, 174
-STYLE DS_SHELLFONT | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION |
+STYLE WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION |
     WS_SYSMENU | WS_THICKFRAME
 EXSTYLE WS_EX_APPWINDOW
-CAPTION "Konfiguration der Benachrichtigungssymbole"
-FONT 8, "MS Shell Dlg", 0, 0, 0x1
+CAPTION "Konfiguration der Benachrichtigungs-Icons"
+FONT 8, "MS Sans Serif", 0, 0, 0x1
 BEGIN
     CONTROL         "Tree1",IDC_NOTIFY_ICONS,"SysTreeView32",TVS_HASLINES |
                     TVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP,7,7,194,31
@@ -281,11 +281,11 @@ BEGIN
 END
 
 IDD_SEARCH_PROGRAM DIALOGEX 0, 0, 200, 65
-STYLE DS_SHELLFONT | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION |
+STYLE WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION |
     WS_SYSMENU | WS_THICKFRAME
 EXSTYLE WS_EX_APPWINDOW
 CAPTION "Programmsuche im Startmenü"
-FONT 8, "MS Shell Dlg", 0, 0, 0x1
+FONT 8, "MS Sans Serif", 0, 0, 0x1
 BEGIN
     LTEXT           "&Filter:",IDC_STATIC,7,9,18,8
     EDITTEXT        IDC_FILTER,34,7,96,14,ES_AUTOHSCROLL
@@ -341,7 +341,7 @@ BEGIN
     IDS_START_HELP          "Hilfe"
     IDS_SEARCH_FILES        "Suche Dateien..."
     IDS_DOCUMENTS           "Dokumente"
-    IDS_FAVORITES           "Favoriten"
+    IDS_FAVORITES           "Bookmarks"
     IDS_PROGRAMS            "Programme"
     IDS_SETTINGS            "Einstellungen"
     IDS_EXPLORE             "Explore"
@@ -356,15 +356,15 @@ BEGIN
     IDS_MINIMIZE_ALL        "alle Fenster minimieren"
     IDS_DESKTOP_NUM         "Desktop %d"
     IDS_VOLUME              "Lautstärke"
-    IDS_ITEMS_CUR           "aktuelle Symbole"
-    IDS_ITEMS_CONFIGURED    "Konfiguration"
+    IDS_ITEMS_CUR           "aktuelle Icons"
+    IDS_ITEMS_CONFIGURED    "Konfiguratrion"
     IDS_ITEMS_VISIBLE       "sichtbar"
     IDS_ITEMS_HIDDEN        "unsichtbar"
     IDS_NOTIFY_SHOW         "sichtbar"
     IDS_NOTIFY_HIDE         "versteckt"
     IDS_NOTIFY_AUTOHIDE     "automatisch"
-    IDS_SHOW_HIDDEN_ICONS   "Zeige versteckte Symbole"
-    IDS_HIDE_ICONS          "Verstecke Symbole"
+    IDS_SHOW_HIDDEN_ICONS   "Zeige versteckte Icons"
+    IDS_HIDE_ICONS          "Verstecke Icons"
     IDS_TERMINATE           "ROS Explorer beenden"
 END
 
@@ -383,13 +383,10 @@ BEGIN
     IDS_SEARCH              "Suche"
     IDS_ABOUT_EXPLORER      "&Über Explorer..."
     IDS_LAUNCH_MANY_PROGRAMS
-                            "Sie haben mehrere Programme ausgewählt.\nSind Sie sicher, daß Sie diese alle starten wollen?"
+                            "Sie haben mehrere Programme ausgewählt.\nSind Sie sicher, daß sie diese alle starten wollen?"
     IDS_DESKTOPBAR_SETTINGS "Desktop-Einstellungen"
     IDS_DESKTOP             "Desktop"
     IDS_TASKBAR             "Taskbar"
-    IDS_NAMECOLUMN          "Name"
-    IDS_PATHCOLUMN          "Pfad"
-    IDS_MENUCOLUMN          "Menüpfad"
 END
 
 #endif    // German (Germany) resources

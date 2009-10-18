@@ -77,8 +77,8 @@ VOID WINAPI DsRoleFreeMemory(PVOID Buffer)
  *  DsRoleGetPrimaryDomainInformation  (NETAPI32.@)
  *
  * PARAMS
- *  lpServer  [I] Pointer to UNICODE string with ComputerName
- *  InfoLevel [I] Type of data to retrieve	
+ *  lpServer  [I] Pointer to UNICODE string with Computername
+ *  InfoLevel [I] Type of data to retrieve
  *  Buffer    [O] Pointer to to the requested data
  *
  * RETURNS
@@ -99,7 +99,6 @@ DWORD WINAPI DsRoleGetPrimaryDomainInformation(
     if (!Buffer) return ERROR_INVALID_PARAMETER;
     if ((InfoLevel < DsRolePrimaryDomainInfoBasic) || (InfoLevel > DsRoleOperationState)) return ERROR_INVALID_PARAMETER;
 
-    *Buffer = NULL;
     switch (InfoLevel)
     {
         case DsRolePrimaryDomainInfoBasic:

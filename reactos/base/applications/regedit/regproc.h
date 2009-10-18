@@ -34,6 +34,7 @@ void doSetValue(LPSTR lpsLine);
 void doDeleteValue(LPSTR lpsLine);
 void doCreateKey(LPSTR lpsLine);
 void doDeleteKey(LPSTR lpsLine);
+void doQueryValue(LPSTR lpsLine);
 void doRegisterDLL(LPSTR lpsLine);
 void doUnregisterDLL(LPSTR lpsLine);
 
@@ -51,10 +52,12 @@ void processRegLines(FILE *in, CommandAPI command);
  */
 char*   getToken(char** str, const char* delims);
 void    get_file_name(CHAR **command_line, CHAR *filename);
+DWORD   convertHexToDWord(char *str, BYTE *buf);
+DWORD   convertHexCSVToHex(char *str, BYTE *buf, ULONG bufLen);
 LPSTR   convertHexToHexCSV( BYTE *buf, ULONG len);
 LPSTR   convertHexToDWORDStr( BYTE *buf, ULONG len);
 LPSTR   getRegKeyName(LPSTR lpLine);
-BOOL    getRegClass(LPSTR lpLine, HKEY* hkey);
+HKEY    getRegClass(LPSTR lpLine);
 DWORD   getDataType(LPSTR *lpValue, DWORD* parse_type);
 LPSTR   getArg(LPSTR arg);
 HRESULT openKey(LPSTR stdInput);
@@ -65,6 +68,11 @@ void    closeKey(void);
  */
 void    processSetValue(LPSTR cmdline);
 HRESULT setValue(LPSTR val_name, LPSTR val_data);
+
+/*
+ * api queryValue prototypes
+ */
+void    processQueryValue(LPSTR cmdline);
 
 /*
  * Permission prototypes

@@ -56,11 +56,6 @@ EthCreateFilter(
 
 VOID
 NTAPI
-EthDeleteFilter(
-    IN  PETH_FILTER Filter);
-
-VOID
-NTAPI
 EthFilterDprIndicateReceive(
     IN	PETH_FILTER Filter,
     IN	NDIS_HANDLE MacReceiveContext,

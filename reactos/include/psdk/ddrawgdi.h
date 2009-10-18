@@ -17,8 +17,7 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef _DDRAWGDI_
-#define _DDRAWGDI_
+#include <d3dhal.h>
 
 /* Define the real export names */
 #define DdCreateDirectDrawObject            GdiEntry1
@@ -38,25 +37,16 @@
 #define DdSetGammaRamp                      GdiEntry15
 #define DdSwapTextureHandles                GdiEntry16
 
-#ifndef D3DHAL_CALLBACKS_DEFINED
-typedef struct _D3DHAL_CALLBACKS FAR *LPD3DHAL_CALLBACKS;
-#define D3DHAL_CALLBACKS_DEFINED
-#endif
-
-#ifndef D3DHAL_GLOBALDRIVERDATA_DEFINED
-typedef struct _D3DHAL_GLOBALDRIVERDATA FAR *LPD3DHAL_GLOBALDRIVERDATA;
-#define D3DHAL_GLOBALDRIVERDATA_DEFINED
-#endif
 
 BOOL
-WINAPI
+STDCALL
 DdCreateDirectDrawObject(
     LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal,
     HDC hdc
 );
 
 BOOL
-WINAPI
+STDCALL
 DdQueryDirectDrawObject(
     LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal,
     LPDDHALINFO pHalInfo,
@@ -72,46 +62,46 @@ DdQueryDirectDrawObject(
 );
 
 BOOL
-WINAPI
+STDCALL
 DdDeleteDirectDrawObject(
     LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal
 );
 
 BOOL
-WINAPI
+STDCALL
 DdCreateSurfaceObject(
     LPDDRAWI_DDRAWSURFACE_LCL pSurfaceLocal,
     BOOL bPrimarySurface
 );
 
 BOOL
-WINAPI
+STDCALL
 DdDeleteSurfaceObject(
     LPDDRAWI_DDRAWSURFACE_LCL pSurfaceLocal
 );
 
 BOOL
-WINAPI
+STDCALL
 DdResetVisrgn(
     LPDDRAWI_DDRAWSURFACE_LCL pSurfaceLocal,
     HWND hWnd
 );
 
 HDC
-WINAPI
+STDCALL
 DdGetDC(
     LPDDRAWI_DDRAWSURFACE_LCL pSurfaceLocal,
     LPPALETTEENTRY pColorTable
 );
 
 BOOL
-WINAPI
+STDCALL
 DdReleaseDC(
     LPDDRAWI_DDRAWSURFACE_LCL pSurfaceLocal
 );
 
 HBITMAP
-WINAPI
+STDCALL
 DdCreateDIBSection(
     HDC hdc,
     CONST BITMAPINFO *pbmi,
@@ -122,32 +112,32 @@ DdCreateDIBSection(
 );
 
 BOOL
-WINAPI
+STDCALL
 DdReenableDirectDrawObject(
     LPDDRAWI_DIRECTDRAW_GBL pDirectDrawGlobal,
     BOOL *pbNewMode
 );
 
 BOOL
-WINAPI
+STDCALL
 DdAttachSurface(
     LPDDRAWI_DDRAWSURFACE_LCL pSurfaceFrom,
     LPDDRAWI_DDRAWSURFACE_LCL pSurfaceTo
 );
 
 VOID
-WINAPI
+STDCALL
 DdUnattachSurface(
     LPDDRAWI_DDRAWSURFACE_LCL pSurface,
     LPDDRAWI_DDRAWSURFACE_LCL pSurfaceAttached
 );
 
 ULONG
-WINAPI
+STDCALL
 DdQueryDisplaySettingsUniqueness(VOID);
 
 HANDLE
-WINAPI
+STDCALL
 DdGetDxHandle(
     LPDDRAWI_DIRECTDRAW_LCL pDDraw,
     LPDDRAWI_DDRAWSURFACE_LCL pSurface,
@@ -155,7 +145,7 @@ DdGetDxHandle(
 );
 
 BOOL
-WINAPI
+STDCALL
 DdSetGammaRamp(
     LPDDRAWI_DIRECTDRAW_LCL pDDraw,
     HDC hdc,
@@ -163,10 +153,9 @@ DdSetGammaRamp(
 );
 
 DWORD
-WINAPI
+STDCALL
 DdSwapTextureHandles(
     LPDDRAWI_DIRECTDRAW_LCL pDDraw,
     LPDDRAWI_DDRAWSURFACE_LCL pDDSLcl1,
     LPDDRAWI_DDRAWSURFACE_LCL pDDSLcl2
 );
-#endif

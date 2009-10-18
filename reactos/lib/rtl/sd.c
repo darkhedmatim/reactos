@@ -142,8 +142,8 @@ RtlCopySecurityDescriptor(IN PSECURITY_DESCRIPTOR pSourceSecurityDescriptor,
   PACL Dacl = NULL, Sacl = NULL;
   BOOLEAN Defaulted, Present;
   DWORD OwnerLength, GroupLength;
-  PISECURITY_DESCRIPTOR srcSD = pSourceSecurityDescriptor;
-  PISECURITY_DESCRIPTOR destSD = pDestinationSecurityDescriptor;
+  PSECURITY_DESCRIPTOR srcSD = pSourceSecurityDescriptor;
+  PSECURITY_DESCRIPTOR destSD = pDestinationSecurityDescriptor;
      
   if (srcSD->Revision != SECURITY_DESCRIPTOR_REVISION)
     return STATUS_UNKNOWN_REVISION;
@@ -667,13 +667,6 @@ RtlSetControlSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
                                 IN SECURITY_DESCRIPTOR_CONTROL ControlBitsOfInterest,
                                 IN SECURITY_DESCRIPTOR_CONTROL ControlBitsToSet)
 {
-   SECURITY_DESCRIPTOR_CONTROL const immutable
-       = SE_OWNER_DEFAULTED  | SE_GROUP_DEFAULTED
-       | SE_DACL_PRESENT     | SE_DACL_DEFAULTED
-       | SE_SACL_PRESENT     | SE_SACL_DEFAULTED
-       | SE_RM_CONTROL_VALID | SE_SELF_RELATIVE
-       ;
-
    PISECURITY_DESCRIPTOR pSD = (PISECURITY_DESCRIPTOR)SecurityDescriptor;
 
    PAGED_CODE_RTL();
@@ -682,9 +675,6 @@ RtlSetControlSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
    {
       return STATUS_UNKNOWN_REVISION;
    }
-
-   if ((ControlBitsOfInterest | ControlBitsToSet) & immutable)
-      return STATUS_INVALID_PARAMETER;
 
    /* Zero the 'bits of interest' */
    pSD->Control &= ~ControlBitsOfInterest;
@@ -1028,7 +1018,7 @@ RtlSelfRelativeToAbsoluteSD2(IN OUT PSECURITY_DESCRIPTOR SelfRelativeSD,
  * @implemented
  */
 BOOLEAN NTAPI
-RtlValidRelativeSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptorInput,
+RtlValidRelativeSecurityDescriptor(IN PISECURITY_DESCRIPTOR SecurityDescriptorInput,
                                    IN ULONG SecurityDescriptorLength,
                                    IN SECURITY_INFORMATION RequiredInformation)
 {
@@ -1037,7 +1027,7 @@ RtlValidRelativeSecurityDescriptor(IN PSECURITY_DESCRIPTOR SecurityDescriptorInp
    PAGED_CODE_RTL();
 
    if (SecurityDescriptorLength < sizeof(SECURITY_DESCRIPTOR_RELATIVE) ||
-       pSD->Revision != SECURITY_DESCRIPTOR_REVISION1 ||
+       SecurityDescriptorInput->Revision != SECURITY_DESCRIPTOR_REVISION1 ||
        !(pSD->Control & SE_SELF_RELATIVE))
    {
       return FALSE;

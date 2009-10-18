@@ -25,6 +25,10 @@
 #define __DSOUND_INCLUDED__
 
 
+#if __GNUC__ >= 3
+#pragma GCC system_header
+#endif
+
 #ifndef DIRECTSOUND_VERSION
 #define DIRECTSOUND_VERSION 0x0900
 #endif
@@ -51,16 +55,9 @@ typedef struct _D3DVECTOR {
     float x;
     float y;
     float z;
-} D3DVECTOR;
+} D3DVECTOR, *LPD3DVECTOR;
 #define D3DVECTOR_DEFINED
 #endif
-
-#ifndef LPD3DVECTOR_DEFINED
-typedef D3DVECTOR *LPD3DVECTOR;
-#define LPD3DVECTOR_DEFINED
-#endif
-
-
 
 #define DX_SHARED_DEFINES
 #endif /* DX_SHARED_DEFINES */
@@ -553,7 +550,7 @@ DECLARE_INTERFACE_(IDirectSoundBuffer,IUnknown)
     STDMETHOD(GetFrequency)(THIS_ LPDWORD lpdwFrequency) PURE;
     STDMETHOD(GetStatus)(THIS_ LPDWORD lpdwStatus) PURE;
     STDMETHOD(Initialize)(THIS_ LPDIRECTSOUND lpDirectSound, LPCDSBUFFERDESC lpcDSBufferDesc) PURE;
-    STDMETHOD(Lock)(THIS_ DWORD dwWriteCursor, DWORD dwWriteBytes, LPVOID *lplpvAudioPtr1, LPDWORD lpdwAudioBytes1, LPVOID *lplpvAudioPtr2, LPDWORD lpdwAudioBytes2, DWORD dwFlags) PURE;
+    STDMETHOD(Lock)(THIS_ DWORD dwWriteCursor, DWORD dwWriteBytes, LPVOID lplpvAudioPtr1, LPDWORD lpdwAudioBytes1, LPVOID lplpvAudioPtr2, LPDWORD lpdwAudioBytes2, DWORD dwFlags) PURE;
     STDMETHOD(Play)(THIS_ DWORD dwReserved1, DWORD dwReserved2, DWORD dwFlags) PURE;
     STDMETHOD(SetCurrentPosition)(THIS_ DWORD dwNewPosition) PURE;
     STDMETHOD(SetFormat)(THIS_ LPCWAVEFORMATEX lpcfxFormat) PURE;
@@ -636,7 +633,7 @@ DECLARE_INTERFACE_(IDirectSoundBuffer8,IUnknown)
     STDMETHOD(GetFrequency)(THIS_ LPDWORD lpdwFrequency) PURE;
     STDMETHOD(GetStatus)(THIS_ LPDWORD lpdwStatus) PURE;
     STDMETHOD(Initialize)(THIS_ LPDIRECTSOUND lpDirectSound, LPCDSBUFFERDESC lpcDSBufferDesc) PURE;
-    STDMETHOD(Lock)(THIS_ DWORD dwWriteCursor, DWORD dwWriteBytes, LPVOID *lplpvAudioPtr1, LPDWORD lpdwAudioBytes1, LPVOID *lplpvAudioPtr2, LPDWORD lpdwAudioBytes2, DWORD dwFlags) PURE;
+    STDMETHOD(Lock)(THIS_ DWORD dwWriteCursor, DWORD dwWriteBytes, LPVOID lplpvAudioPtr1, LPDWORD lpdwAudioBytes1, LPVOID lplpvAudioPtr2, LPDWORD lpdwAudioBytes2, DWORD dwFlags) PURE;
     STDMETHOD(Play)(THIS_ DWORD dwReserved1, DWORD dwReserved2, DWORD dwFlags) PURE;
     STDMETHOD(SetCurrentPosition)(THIS_ DWORD dwNewPosition) PURE;
     STDMETHOD(SetFormat)(THIS_ LPCWAVEFORMATEX lpcfxFormat) PURE;

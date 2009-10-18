@@ -124,7 +124,7 @@ UINT WINAPI OleUIInsertObjectA(LPOLEUIINSERTOBJECTA lpOleUIInsertObject)
  */
 INT_PTR CALLBACK UIInsertObjectDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-  InsertObjectDlgInfo* pdlgInfo = GetPropA(hwnd,OleUIInsertObjectInfoStr);
+  InsertObjectDlgInfo* pdlgInfo = (InsertObjectDlgInfo*) GetPropA(hwnd,OleUIInsertObjectInfoStr);
 
   switch(uMsg)
   {
@@ -134,7 +134,7 @@ INT_PTR CALLBACK UIInsertObjectDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPAR
 
         pdlgInfo->hwndSelf = hwnd;
 
-        SetPropA(hwnd, OleUIInsertObjectInfoStr, pdlgInfo);
+        SetPropA(hwnd, OleUIInsertObjectInfoStr, (HANDLE) pdlgInfo);
 
         UIINSERTOBJECTDLG_InitDialog(pdlgInfo);
 
@@ -165,7 +165,7 @@ static LRESULT UIINSOBJDLG_OnWMCommand(HWND hwnd, WPARAM wParam, LPARAM lParam)
 {
   WORD wNotifyCode = HIWORD(wParam);
   WORD wID = LOWORD(wParam);
-  InsertObjectDlgInfo* pdlgInfo = GetPropA(hwnd,OleUIInsertObjectInfoStr);
+  InsertObjectDlgInfo* pdlgInfo = (InsertObjectDlgInfo*) GetPropA(hwnd,OleUIInsertObjectInfoStr);
 
   switch(wID)
   {
@@ -305,7 +305,7 @@ static void UIINSERTOBJECTDLG_SelectCreateNew(InsertObjectDlgInfo* pdlgInfo)
  */
 static void UIINSERTOBJECTDLG_SelectCreateFromFile(InsertObjectDlgInfo* pdlgInfo)
 {
-  WCHAR resstr[MAX_PATH];
+  char resstr[MAX_PATH];
 
   ShowWindow(pdlgInfo->hwndAddCtrlBTN, SW_HIDE);
   ShowWindow(pdlgInfo->hwndObjTypeLBL, SW_HIDE);
@@ -318,10 +318,10 @@ static void UIINSERTOBJECTDLG_SelectCreateFromFile(InsertObjectDlgInfo* pdlgInfo
   ShowWindow(pdlgInfo->hwndFileTB, SW_SHOW);
   ShowWindow(pdlgInfo->hwndBrowseBTN, SW_SHOW);
 
-  SendMessageW(pdlgInfo->hwndCreateFromFileCB, BM_SETCHECK, BST_CHECKED, 0);
+  SendMessageA(pdlgInfo->hwndCreateFromFileCB, BM_SETCHECK, BST_CHECKED, 0);
 
-  if (LoadStringW(OLEDLG_hInstance, IDS_RESULTFILEOBJDESC, resstr, MAX_PATH))
-     SendMessageW(pdlgInfo->hwndResultDesc, WM_SETTEXT, 0, (LPARAM)resstr);
+  if (LoadStringA(OLEDLG_hInstance, IDS_RESULTFILEOBJDESC, resstr, MAX_PATH))
+     SendMessageA(pdlgInfo->hwndResultDesc, WM_SETTEXT, 0, (LPARAM)resstr);
 }
 
 
@@ -332,39 +332,38 @@ static void UIINSERTOBJECTDLG_SelectCreateFromFile(InsertObjectDlgInfo* pdlgInfo
  */
 static BOOL UIINSERTOBJECTDLG_PopulateObjectTypes(InsertObjectDlgInfo* pdlgInfo)
 {
-  static const WCHAR szClsid[] = {'C','L','S','I','D',0};
-  static const WCHAR szInsertable[] = {'I','n','s','e','r','t','a','b','l','e',0};
-  static const WCHAR szNotInsertable[] = {'N','o','t','I','n','s','e','r','t','a','b','l','e',0};
   DWORD i;
   LONG len;
   HKEY hkclsids;
   HKEY hkey;
   CLSID clsid;
-  LSTATUS ret;
-  WCHAR keydesc[MAX_PATH];
-  WCHAR keyname[MAX_PATH];
-  WCHAR szclsid[128];
+  HRESULT ret;
+  CHAR szclsid[128];
+  CHAR keydesc[MAX_PATH];
+  CHAR keyname[MAX_PATH];
+  WCHAR wszclsid[128];
   DWORD index = 0;
 
   UIINSERTOBJECTDLG_FreeObjectTypes(pdlgInfo);
 
-  RegOpenKeyExW(HKEY_CLASSES_ROOT, szClsid, 0, KEY_READ, &hkclsids);
+  RegOpenKeyExA(HKEY_CLASSES_ROOT, "CLSID", 0, KEY_READ, &hkclsids);
 
-  while (ERROR_SUCCESS == (ret = RegEnumKeyW(hkclsids, index, szclsid, sizeof(szclsid)/sizeof(szclsid[0]))))
+  while (ERROR_SUCCESS == (ret = RegEnumKeyA(hkclsids, index, szclsid, MAX_PATH)))
   {
     index++;
 
-    RegOpenKeyExW(hkclsids, szclsid, 0, KEY_READ, &hkey);
+    RegOpenKeyExA(hkclsids, szclsid, 0, KEY_READ, &hkey);
 
-    len = sizeof(keyname);
-    if (ERROR_SUCCESS != RegQueryValueW(hkey, szInsertable, keyname, &len))
+    len = MAX_PATH;
+    if (ERROR_SUCCESS != RegQueryValueA(hkey, "Insertable", keyname, &len))
         continue;
 
-    len = sizeof(keyname);
-    if (ERROR_SUCCESS == RegQueryValueW(hkey, szNotInsertable, keyname, &len))
+    len = MAX_PATH;
+    if (ERROR_SUCCESS == RegQueryValueA(hkey, "NotInsertable", keyname, &len))
         continue;
 
-    CLSIDFromString(szclsid, &clsid);
+    RtlMultiByteToUnicodeN(wszclsid, MAX_PATH, NULL, szclsid, MAX_PATH);
+    CLSIDFromString(wszclsid, &clsid);
 
     for (i = 0; i < pdlgInfo->lpOleUIInsertObject->cClsidExclude; i++)
       if (IsEqualGUID(&pdlgInfo->lpOleUIInsertObject->lpClsidExclude[i], &clsid))
@@ -373,14 +372,14 @@ static BOOL UIINSERTOBJECTDLG_PopulateObjectTypes(InsertObjectDlgInfo* pdlgInfo)
     if (i < pdlgInfo->lpOleUIInsertObject->cClsidExclude)
       continue;
 
-    len = sizeof(keydesc);
-    if (ERROR_SUCCESS == RegQueryValueW(hkey, NULL, keydesc, &len))
+    len = MAX_PATH;
+    if (ERROR_SUCCESS == RegQueryValueA(hkey, NULL, keydesc, &len))
     {
        CLSID* lpclsid = HeapAlloc(GetProcessHeap(), 0, sizeof(CLSID));
-       *lpclsid = clsid;
+       memcpy(lpclsid, &clsid, sizeof(CLSID));
 
-       len = SendMessageW(pdlgInfo->hwndObjTypeLB, LB_ADDSTRING, 0, (LPARAM)keydesc);
-       SendMessageW(pdlgInfo->hwndObjTypeLB, LB_SETITEMDATA, (WPARAM)len, (LPARAM)lpclsid);
+       len = SendMessageA(pdlgInfo->hwndObjTypeLB, LB_ADDSTRING, 0, (LPARAM)keydesc);
+       SendMessageA(pdlgInfo->hwndObjTypeLB, LB_SETITEMDATA, (WPARAM)len, (LPARAM)lpclsid);
     }
   }
 
@@ -399,12 +398,12 @@ static void UIINSERTOBJECTDLG_FreeObjectTypes(InsertObjectDlgInfo* pdlgInfo)
 {
   UINT i, count;
 
-  count = SendMessageA(pdlgInfo->hwndObjTypeLB, LB_GETCOUNT, 0, 0);
+  count = SendMessageA(pdlgInfo->hwndObjTypeLB, LB_GETCOUNT, (WPARAM)0, (LPARAM)0);
 
   for (i = 0; i < count; i++)
   {
-      CLSID* lpclsid = (CLSID*) SendMessageA(pdlgInfo->hwndObjTypeLB, 
-         LB_GETITEMDATA, i, 0);
+      CLSID* lpclsid = (CLSID*) SendMessageA(pdlgInfo->hwndObjTypeLB,
+         LB_GETITEMDATA, (WPARAM)i, (LPARAM)0);
       HeapFree(GetProcessHeap(), 0, lpclsid);
   }
 }
@@ -418,20 +417,20 @@ static void UIINSERTOBJECTDLG_FreeObjectTypes(InsertObjectDlgInfo* pdlgInfo)
 static void UIINSERTOBJECTDLG_SelChange(InsertObjectDlgInfo* pdlgInfo)
 {
   INT index;
-  WCHAR objname[MAX_PATH];
-  WCHAR objdesc[MAX_PATH];
-  WCHAR resstr[MAX_PATH];
+  CHAR objname[MAX_PATH];
+  CHAR objdesc[MAX_PATH];
+  CHAR resstr[MAX_PATH];
 
   TRACE("\n");
 
-  if (LoadStringW(OLEDLG_hInstance, IDS_RESULTOBJDESC, resstr, MAX_PATH) &&
-     ((index = SendMessageW(pdlgInfo->hwndObjTypeLB, LB_GETCURSEL, 0, 0)) >= 0) &&
-     SendMessageW(pdlgInfo->hwndObjTypeLB, LB_GETTEXT, (WPARAM)index, (LPARAM)objname))
-       wsprintfW(objdesc, resstr, objname);
+  if (LoadStringA(OLEDLG_hInstance, IDS_RESULTOBJDESC, resstr, MAX_PATH) &&
+     ((index = SendMessageA(pdlgInfo->hwndObjTypeLB, LB_GETCURSEL, 0, 0)) >= 0) &&
+     SendMessageA(pdlgInfo->hwndObjTypeLB, LB_GETTEXT, (WPARAM)index, (LPARAM)objname))
+       sprintf(objdesc, resstr, objname);
   else
     objdesc[0] = 0;
 
-  SendMessageW(pdlgInfo->hwndResultDesc, WM_SETTEXT, 0, (LPARAM)objdesc);
+  SendMessageA(pdlgInfo->hwndResultDesc, WM_SETTEXT, 0, (LPARAM)objdesc);
 }
 
 
@@ -451,9 +450,9 @@ static BOOL UIINSERTOBJECTDLG_OnOpen(InsertObjectDlgInfo* pdlgInfo)
 
     if (index >= 0)
     {
-       CLSID* clsid = (CLSID*) SendMessageA(pdlgInfo->hwndObjTypeLB, 
+       CLSID* clsid = (CLSID*) SendMessageA(pdlgInfo->hwndObjTypeLB,
           LB_GETITEMDATA, (WPARAM)index, 0);
-       pdlgInfo->lpOleUIInsertObject->clsid = *clsid;
+       memcpy(&pdlgInfo->lpOleUIInsertObject->clsid, clsid, sizeof(CLSID));
 
        if (pdlgInfo->lpOleUIInsertObject->dwFlags & IOF_CREATENEWOBJECT)
        {
@@ -472,15 +471,17 @@ static BOOL UIINSERTOBJECTDLG_OnOpen(InsertObjectDlgInfo* pdlgInfo)
   }
   else if (BST_CHECKED == SendMessageA(pdlgInfo->hwndCreateFromFileCB, BM_GETCHECK, 0, 0))
   {
+    char fname[MAX_PATH];
+
     if (pdlgInfo->lpOleUIInsertObject->lpszFile)
     {
       HRESULT hres;
       WCHAR wcsFile[MAX_PATH];
 
-      if (SendMessageW(pdlgInfo->hwndFileTB, WM_GETTEXT, MAX_PATH, (LPARAM)wcsFile))
-          WideCharToMultiByte(CP_ACP, 0, wcsFile, -1,
-              pdlgInfo->lpOleUIInsertObject->lpszFile, pdlgInfo->lpOleUIInsertObject->cchFile, NULL, NULL);
+      SendMessageA(pdlgInfo->hwndFileTB, WM_GETTEXT, (WPARAM)MAX_PATH, (LPARAM)fname);
+      lstrcpynA(pdlgInfo->lpOleUIInsertObject->lpszFile, fname, pdlgInfo->lpOleUIInsertObject->cchFile);
 
+      RtlMultiByteToUnicodeN(wcsFile, MAX_PATH, NULL, fname, MAX_PATH);
       if (ERROR_SUCCESS == (hres = GetClassFile(wcsFile, &pdlgInfo->lpOleUIInsertObject->clsid)))
       {
          if (pdlgInfo->lpOleUIInsertObject->dwFlags & IOF_CREATEFILEOBJECT)
@@ -546,7 +547,7 @@ static void UIINSERTOBJECTDLG_BrowseFile(InsertObjectDlgInfo* pdlgInfo)
    fn.lpTemplateName = NULL;
 
    if (GetOpenFileNameA(&fn))
-      SendMessageA(pdlgInfo->hwndFileTB, WM_SETTEXT, 0, (LPARAM)fn.lpstrFile);
+      SendMessageA(pdlgInfo->hwndFileTB, WM_SETTEXT, (WPARAM)0, (LPARAM)fn.lpstrFile);
 }
 
 
@@ -615,13 +616,13 @@ static void UIINSERTOBJECTDLG_AddControl(InsertObjectDlgInfo* pdlgInfo)
 
       if (!bValid)
       {
-          WCHAR title[32];
-          WCHAR msg[256];
+          char title[32];
+          char msg[256];
 
-          LoadStringW(OLEDLG_hInstance, IDS_NOTOLEMODCAPTION, title, 32);
-          LoadStringW(OLEDLG_hInstance, IDS_NOTOLEMOD, msg, 256);
+          LoadStringA(OLEDLG_hInstance, IDS_NOTOLEMODCAPTION, title, 32);
+          LoadStringA(OLEDLG_hInstance, IDS_NOTOLEMOD, msg, 256);
 
-          MessageBoxW(pdlgInfo->hwndSelf, msg, title, MB_ICONEXCLAMATION);
+          MessageBoxA(pdlgInfo->hwndSelf, msg, title, MB_ICONEXCLAMATION);
       }
    }
 }

@@ -49,7 +49,11 @@ enum __wine_debug_class
     __WINE_DBCL_TRACE = 3, /* 0x8 */
 
     /* lazy init flag */
+#ifdef YDEBUG
+    __WINE_DBCL_INIT = 0xf
+#else
     __WINE_DBCL_INIT = 0x7
+#endif
 };
 
 struct __wine_debug_channel
@@ -176,46 +180,46 @@ extern int wine_dbg_printf( const char *format, ... ) __WINE_PRINTF_ATTR(1,2);
 extern int wine_dbg_log( enum __wine_debug_class cls, struct __wine_debug_channel *ch, const char *file,
                          const char *func, const int line, const char *format, ... ) __WINE_PRINTF_ATTR(6,7);
 
-static __inline const char *wine_dbgstr_a( const char *s )
+static inline const char *wine_dbgstr_a( const char *s )
 {
     return wine_dbgstr_an( s, -1 );
 }
 
-static __inline const char *wine_dbgstr_w( const WCHAR *s )
+static inline const char *wine_dbgstr_w( const WCHAR *s )
 {
     return wine_dbgstr_wn( s, -1 );
 }
 
-static __inline const char *wine_dbgstr_guid( const GUID *id )
+static inline const char *wine_dbgstr_guid( const GUID *id )
 {
     if (!id) return "(null)";
-    if (!((ULONG_PTR)id >> 16)) return wine_dbg_sprintf( "<guid-0x%04lx>", (ULONG_PTR)id & 0xffff );
+    if (!((INT_PTR)id >> 16)) return wine_dbg_sprintf( "<guid-0x%04x>", (INT_PTR)id & 0xffff );
     return wine_dbg_sprintf( "{%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
                              id->Data1, id->Data2, id->Data3,
                              id->Data4[0], id->Data4[1], id->Data4[2], id->Data4[3],
                              id->Data4[4], id->Data4[5], id->Data4[6], id->Data4[7] );
 }
 
-static __inline const char *wine_dbgstr_point( const POINT *pt )
+static inline const char *wine_dbgstr_point( const POINT *pt )
 {
     if (!pt) return "(null)";
     return wine_dbg_sprintf( "(%ld,%ld)", pt->x, pt->y );
 }
 
-static __inline const char *wine_dbgstr_size( const SIZE *size )
+static inline const char *wine_dbgstr_size( const SIZE *size )
 {
     if (!size) return "(null)";
     return wine_dbg_sprintf( "(%ld,%ld)", size->cx, size->cy );
 }
 
-static __inline const char *wine_dbgstr_rect( const RECT *rect )
+static inline const char *wine_dbgstr_rect( const RECT *rect )
 {
     if (!rect) return "(null)";
     return wine_dbg_sprintf( "(%ld,%ld)-(%ld,%ld)", rect->left, rect->top,
                              rect->right, rect->bottom );
 }
 
-static __inline const char *wine_dbgstr_longlong( ULONGLONG ll )
+static inline const char *wine_dbgstr_longlong( ULONGLONG ll )
 {
     if (sizeof(ll) > sizeof(unsigned long) && ll >> 32)
         return wine_dbg_sprintf( "%lx%08lx", (unsigned long)(ll >> 32), (unsigned long)ll );
@@ -255,11 +259,11 @@ static __inline const char *wine_dbgstr_longlong( ULONGLONG ll )
 
 /* Wine uses shorter names that are very likely to conflict with other software */
 
-static __inline const char *debugstr_an( const char * s, int n ) { return wine_dbgstr_an( s, n ); }
-static __inline const char *debugstr_wn( const WCHAR *s, int n ) { return wine_dbgstr_wn( s, n ); }
-static __inline const char *debugstr_guid( const struct _GUID *id ) { return wine_dbgstr_guid(id); }
-static __inline const char *debugstr_a( const char *s )  { return wine_dbgstr_an( s, -1 ); }
-static __inline const char *debugstr_w( const WCHAR *s ) { return wine_dbgstr_wn( s, -1 ); }
+static inline const char *debugstr_an( const char * s, int n ) { return wine_dbgstr_an( s, n ); }
+static inline const char *debugstr_wn( const WCHAR *s, int n ) { return wine_dbgstr_wn( s, n ); }
+static inline const char *debugstr_guid( const struct _GUID *id ) { return wine_dbgstr_guid(id); }
+static inline const char *debugstr_a( const char *s )  { return wine_dbgstr_an( s, -1 ); }
+static inline const char *debugstr_w( const WCHAR *s ) { return wine_dbgstr_wn( s, -1 ); }
 
 #define TRACE                      WINE_TRACE
 #define TRACE_(ch)                 WINE_TRACE_(ch)

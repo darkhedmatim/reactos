@@ -29,7 +29,6 @@
 #include "lmaccess.h"
 #include "lmapibuf.h"
 #include "lmerr.h"
-#include "lmuse.h"
 #include "ntsecapi.h"
 #include "wine/debug.h"
 #include "wine/unicode.h"
@@ -57,6 +56,10 @@ struct sam_user
     DWORD user_flags;
     LPWSTR user_logon_script_path;
 };
+
+static const WCHAR sAdminUserName[] = {'A','d','m','i','n','i','s','t','r','a','t',
+                                'o','r',0};
+static const WCHAR sGuestUserName[] = {'G','u','e','s','t',0};
 
 static struct list user_list = LIST_INIT( user_list );
 
@@ -105,34 +108,6 @@ static struct sam_user* NETAPI_FindUser(LPCWSTR UserName)
     return NULL;
 }
 
-static BOOL NETAPI_IsCurrentUser(LPCWSTR username)
-{
-    LPWSTR curr_user = NULL;
-    DWORD dwSize;
-    BOOL ret = FALSE;
-
-    dwSize = LM20_UNLEN+1;
-    curr_user = HeapAlloc(GetProcessHeap(), 0, dwSize);
-    if(!curr_user)
-    {
-        ERR("Failed to allocate memory for user name.\n");
-        goto end;
-    }
-    if(!GetUserNameW(curr_user, &dwSize))
-    {
-        ERR("Failed to get current user's user name.\n");
-        goto end;
-    }
-    if (!lstrcmpW(curr_user, username))
-    {
-        ret = TRUE;
-    }
-
-end:
-    HeapFree(GetProcessHeap(), 0, curr_user);
-    return ret;
-}
-
 /************************************************************
  *                NetUserAdd (NETAPI32.@)
  */
@@ -156,7 +131,7 @@ NET_API_STATUS WINAPI NetUserAdd(LPCWSTR servername,
         /* Fall through */
     case 2:
         FIXME("Level 2 not implemented.\n");
-        /* Fall through */
+        /* Fall throught */
     case 1:
     {
         PUSER_INFO_1 ui = (PUSER_INFO_1) bufptr;
@@ -202,8 +177,13 @@ NET_API_STATUS WINAPI NetUserAdd(LPCWSTR servername,
         break;
     }
 
-    HeapFree(GetProcessHeap(), 0, su);
-
+    if(su)
+    {
+        HeapFree(GetProcessHeap(), 0, su->home_dir);
+        HeapFree(GetProcessHeap(), 0, su->user_comment);
+        HeapFree(GetProcessHeap(), 0, su->user_logon_script_path);
+        HeapFree(GetProcessHeap(), 0, su);
+    }
     return status;
 }
 
@@ -254,7 +234,7 @@ NetUserGetInfo(LPCWSTR servername, LPCWSTR username, DWORD level,
         return NERR_InvalidComputer;
     }
 
-    if(!NETAPI_FindUser(username) && !NETAPI_IsCurrentUser(username))
+    if(!NETAPI_FindUser(username))
     {
         TRACE("User %s is unknown.\n", debugstr_w(username));
         return NERR_UserNotFound;
@@ -417,10 +397,6 @@ NetUserGetLocalGroups(LPCWSTR servername, LPCWSTR username, DWORD level,
                       LPDWORD entriesread, LPDWORD totalentries)
 {
     NET_API_STATUS status;
-    const WCHAR admins[] = {'A','d','m','i','n','i','s','t','r','a','t','o','r','s',0};
-    LPWSTR currentuser;
-    LOCALGROUP_USERS_INFO_0* info;
-    DWORD size;
 
     FIXME("(%s, %s, %d, %08x, %p %d, %p, %p) stub!\n",
           debugstr_w(servername), debugstr_w(username), level, flags, bufptr,
@@ -430,37 +406,12 @@ NetUserGetLocalGroups(LPCWSTR servername, LPCWSTR username, DWORD level,
     if (status != NERR_Success)
         return status;
 
-    size = UNLEN + 1;
-    NetApiBufferAllocate(size, (LPVOID*)&currentuser);
-    GetUserNameW(currentuser, &size);
-
-    if (lstrcmpiW(username, currentuser) && NETAPI_FindUser(username))
-    {
-        NetApiBufferFree(currentuser);
+    if (!NETAPI_FindUser(username))
         return NERR_UserNotFound;
-    }
 
-    NetApiBufferFree(currentuser);
-    *totalentries = 1;
-    size = sizeof(*info) + sizeof(admins);
-
-    if(prefmaxlen < size)
-        status = ERROR_MORE_DATA;
-    else
-        status = NetApiBufferAllocate(size, (LPVOID*)&info);
-
-    if(status != NERR_Success)
-    {
-        *bufptr = NULL;
-        *entriesread = 0;
-        return status;
-    }
-
-    info->lgrui0_name = (LPWSTR)((LPBYTE)info + sizeof(*info));
-    lstrcpyW(info->lgrui0_name, admins);
-
-    *bufptr = (LPBYTE)info;
-    *entriesread = 1;
+    if (bufptr) *bufptr = NULL;
+    if (entriesread) *entriesread = 0;
+    if (totalentries) *totalentries = 0;
 
     return NERR_Success;
 }
@@ -497,7 +448,7 @@ static void ACCESS_QueryAdminDisplayInformation(PNET_DISPLAY_USER *buf, PDWORD p
     name_sz = lstrlenW(sAdminUserName);
     comment_sz = 1;
     full_name_sz = 1;
-    
+
     *pdwSize = sizeof(NET_DISPLAY_USER);
     *pdwSize += (name_sz + comment_sz + full_name_sz) * sizeof(WCHAR);
     NetApiBufferAllocate(*pdwSize, (LPVOID *) buf);
@@ -514,7 +465,7 @@ static void ACCESS_QueryAdminDisplayInformation(PNET_DISPLAY_USER *buf, PDWORD p
     usr->usri1_comment[0] = 0;
     usr->usri1_flags = UF_SCRIPT | UF_NORMAL_ACCOUNT | UF_DONT_EXPIRE_PASSWD;
     usr->usri1_full_name[0] = 0;
-    usr->usri1_user_id = DOMAIN_USER_RID_ADMIN;
+    usr->usri1_user_id = 500;
     usr->usri1_next_index = 0;
 }
 
@@ -536,7 +487,7 @@ static void ACCESS_QueryGuestDisplayInformation(PNET_DISPLAY_USER *buf, PDWORD p
     name_sz = lstrlenW(sGuestUserName);
     comment_sz = 1;
     full_name_sz = 1;
-    
+
     *pdwSize = sizeof(NET_DISPLAY_USER);
     *pdwSize += (name_sz + comment_sz + full_name_sz) * sizeof(WCHAR);
     NetApiBufferAllocate(*pdwSize, (LPVOID *) buf);
@@ -554,7 +505,7 @@ static void ACCESS_QueryGuestDisplayInformation(PNET_DISPLAY_USER *buf, PDWORD p
     usr->usri1_flags = UF_ACCOUNTDISABLE | UF_SCRIPT | UF_NORMAL_ACCOUNT |
         UF_DONT_EXPIRE_PASSWD;
     usr->usri1_full_name[0] = 0;
-    usr->usri1_user_id = DOMAIN_USER_RID_GUEST;
+    usr->usri1_user_id = 500;
     usr->usri1_next_index = 0;
 }
 
@@ -657,8 +608,8 @@ NetQueryDisplayInformation(
         NetApiBufferAllocate(dwSize +
                              admin_size - sizeof(NET_DISPLAY_USER) +
                              guest_size - sizeof(NET_DISPLAY_USER),
-                             SortedBuffer);
-        inf = *SortedBuffer;
+                             (LPVOID *) SortedBuffer);
+        inf = (PNET_DISPLAY_USER) *SortedBuffer;
         str = (LPWSTR) ((PBYTE) inf + sizeof(NET_DISPLAY_USER) * records);
         inf->usri1_name = str;
         str = (LPWSTR) (
@@ -715,21 +666,9 @@ NetGetDCName(LPCWSTR servername, LPCWSTR domainname, LPBYTE *bufptr)
 {
   FIXME("(%s, %s, %p) stub!\n", debugstr_w(servername),
                  debugstr_w(domainname), bufptr);
-  return NERR_DCNotFound; /* say we can't find a domain controller */  
+  return NERR_DCNotFound; /* say we can't find a domain controller */
 }
 
-/************************************************************
- *                NetGroupEnum  (NETAPI32.@)
- *
- */
-NET_API_STATUS WINAPI
-NetGroupEnum(LPCWSTR servername, DWORD level, LPBYTE *bufptr, DWORD prefmaxlen,
-             LPDWORD entriesread, LPDWORD totalentries, LPDWORD resume_handle)
-{
-    FIXME("(%s, %d, %p, %d, %p, %p, %p) stub!\n", debugstr_w(servername),
-          level, bufptr, prefmaxlen, entriesread, totalentries, resume_handle);
-    return ERROR_ACCESS_DENIED;
-}
 
 /******************************************************************************
  * NetUserModalsGet  (NETAPI32.@)
@@ -745,7 +684,7 @@ NetGroupEnum(LPCWSTR servername, DWORD level, LPBYTE *bufptr, DWORD prefmaxlen,
  *         USER_MODALS_INFO_0 struct.
  *     1   Return logon server and domain controller information. bufptr
  *         points to a USER_MODALS_INFO_1 struct.
- *     2   Return domain name and identifier. bufptr points to a 
+ *     2   Return domain name and identifier. bufptr points to a
  *         USER_MODALS_INFO_2 struct.
  *     3   Return lockout information. bufptr points to a USER_MODALS_INFO_3
  *         struct.
@@ -753,7 +692,7 @@ NetGroupEnum(LPCWSTR servername, DWORD level, LPBYTE *bufptr, DWORD prefmaxlen,
  *
  * RETURNS
  *  Success: NERR_Success.
- *  Failure: 
+ *  Failure:
  *     ERROR_ACCESS_DENIED - the user does not have access to the info.
  *     NERR_InvalidComputer - computer name is invalid.
  */
@@ -761,7 +700,7 @@ NET_API_STATUS WINAPI NetUserModalsGet(
     LPCWSTR szServer, DWORD level, LPBYTE *pbuffer)
 {
     TRACE("(%s %d %p)\n", debugstr_w(szServer), level, pbuffer);
-    
+
     switch (level)
     {
         case 0:
@@ -826,7 +765,8 @@ NET_API_STATUS WINAPI NetUserModalsGet(
             }
 
             umi = (USER_MODALS_INFO_2 *) *pbuffer;
-            umi->usrmod2_domain_id = *pbuffer + sizeof(USER_MODALS_INFO_2);
+            umi->usrmod2_domain_id = (PSID)(*pbuffer +
+                sizeof(USER_MODALS_INFO_2));
             umi->usrmod2_domain_name = (LPWSTR)(*pbuffer +
                 sizeof(USER_MODALS_INFO_2) + GetLengthSid(domainIdentifier));
 
@@ -839,7 +779,7 @@ NET_API_STATUS WINAPI NetUserModalsGet(
             LsaFreeMemory(domainInfo);
 
             break;
-        } 
+        }
         case 3:
             /* return lockout information */
             FIXME("level 3 not implemented!\n");
@@ -893,7 +833,7 @@ NET_API_STATUS WINAPI NetUserChangePassword(LPCWSTR domainname, LPCWSTR username
     return NERR_Success;
 }
 
-NET_API_STATUS WINAPI NetUseAdd(LMSTR servername, DWORD level, LPBYTE bufptr, LPDWORD parm_err)
+NET_API_STATUS NetUseAdd(LMSTR servername, DWORD level, LPBYTE bufptr, LPDWORD parm_err)
 {
     FIXME("%s %d %p %p stub\n", debugstr_w(servername), level, bufptr, parm_err);
     return NERR_Success;

@@ -15,6 +15,7 @@ Author:
     Alex Ionescu (alexi@tinykrnl.org) - Updated - 27-Feb-2006
 
 --*/
+
 #ifndef _IOTYPES_H
 #define _IOTYPES_H
 
@@ -23,7 +24,6 @@ Author:
 //
 #include <umtypes.h>
 #include <ifssupp.h>
-#include <potypes.h>
 
 //
 // I/O Completion Access Rights
@@ -323,18 +323,6 @@ typedef enum _FSINFOCLASS
 #endif
 
 //
-// Dock Profile Status
-//
-typedef enum _PROFILE_STATUS
-{
-    DOCK_NOTDOCKDEVICE,
-    DOCK_QUIESCENT,
-    DOCK_ARRIVING,
-    DOCK_DEPARTING,
-    DOCK_EJECTIRP_COMPLETED
-} PROFILE_STATUS, *PPROFILE_STATUS;
-
-//
 // Device Node States
 //
 typedef enum _PNP_DEVNODE_STATE
@@ -364,19 +352,6 @@ typedef enum _PNP_DEVNODE_STATE
 } PNP_DEVNODE_STATE;
 
 #ifdef NTOS_MODE_USER
-
-//
-// I/O Status Block
-//
-typedef struct _IO_STATUS_BLOCK
-{
-    union
-    {
-        NTSTATUS Status;
-        PVOID Pointer;
-    };
-    ULONG_PTR Information;
-} IO_STATUS_BLOCK, *PIO_STATUS_BLOCK;
 
 //
 // File Information structures for NtQueryInformationFile
@@ -585,13 +560,6 @@ typedef struct _FILE_DIRECTORY_INFORMATION
     WCHAR FileName[1];
 } FILE_DIRECTORY_INFORMATION, *PFILE_DIRECTORY_INFORMATION;
 
-typedef struct _FILE_IO_COMPLETION_INFORMATION
-{
-    PVOID KeyContext;
-    PVOID ApcContext;
-    IO_STATUS_BLOCK IoStatusBlock;
-} FILE_IO_COMPLETION_INFORMATION, *PFILE_IO_COMPLETION_INFORMATION;
-
 //
 // File System Information structures for NtQueryInformationFile
 //
@@ -660,6 +628,19 @@ typedef struct _FILE_PIPE_PEEK_BUFFER
     ULONG MessageLength;
     CHAR Data[1];
 } FILE_PIPE_PEEK_BUFFER, *PFILE_PIPE_PEEK_BUFFER;
+
+//
+// I/O Status Block
+//
+typedef struct _IO_STATUS_BLOCK
+{
+    union
+    {
+        NTSTATUS  Status;
+        PVOID  Pointer;
+    };
+    ULONG_PTR  Information;
+} IO_STATUS_BLOCK, *PIO_STATUS_BLOCK;
 
 //
 // I/O Error Log Structures
@@ -737,7 +718,7 @@ typedef struct _IO_TIMER
     PIO_TIMER_ROUTINE TimerRoutine;
     PVOID Context;
     PDEVICE_OBJECT DeviceObject;
-} IO_TIMER;
+} IO_TIMER, *PIO_TIMER;
 
 //
 // Driver Extension
@@ -753,18 +734,17 @@ typedef struct _IO_CLIENT_EXTENSION
 //
 typedef struct _DEVICE_NODE
 {
-    struct _DEVICE_NODE *Sibling;
-    struct _DEVICE_NODE *Child;
     struct _DEVICE_NODE *Parent;
-    struct _DEVICE_NODE *LastChild;
+    struct _DEVICE_NODE *PrevSibling;
+    struct _DEVICE_NODE *NextSibling;
+    struct _DEVICE_NODE *Child;
     ULONG Level;
     struct _PO_DEVICE_NOTIFY *Notify;
-    PO_IRP_MANAGER PoIrpManager;
     PNP_DEVNODE_STATE State;
     PNP_DEVNODE_STATE PreviousState;
     PNP_DEVNODE_STATE StateHistory[20];
     ULONG StateHistoryEntry;
-    NTSTATUS CompletionStatus;
+    INT CompletionStatus;
     PIRP PendingIrp;
     ULONG Flags;
     ULONG UserFlags;
@@ -800,13 +780,10 @@ typedef struct _DEVICE_NODE
         struct _DEVICE_NODE *NextResourceDeviceNode;
     } OverUsed2;
     PCM_RESOURCE_LIST BootResources;
-#if (NTDDI_VERSION >= NTDDI_LONGHORN)
-    PCM_RESOURCE_LIST BootResourcesTranslated;
-#endif
     ULONG CapabilityFlags;
     struct
     {
-        PROFILE_STATUS DockStatus;
+        ULONG DockStatus;
         LIST_ENTRY ListEntry;
         WCHAR *SerialNumber;
     } DockInfo;
@@ -816,9 +793,6 @@ typedef struct _DEVICE_NODE
     ULONG DriverUnloadRetryCount;
     struct _DEVICE_NODE *PreviousParent;
     ULONG DeletedChidren;
-#if (NTDDI_VERSION >= NTDDI_LONGHORN)
-    ULONG NumaNodeIndex;
-#endif
 } DEVICE_NODE, *PDEVICE_NODE;
 
 //
@@ -1172,8 +1146,6 @@ typedef struct _EFI_DRIVER_ENTRY
     ULONG DriverFilePathOffset;
 } EFI_DRIVER_ENTRY, *PEFI_DRIVER_ENTRY;
 
-#ifdef NTOS_MODE_USER
-
 //
 // APC Callback for NtCreateFile
 //
@@ -1182,6 +1154,8 @@ typedef VOID
     IN PVOID ApcContext,
     IN PIO_STATUS_BLOCK IoStatusBlock,
     IN ULONG Reserved);
+
+#ifdef NTOS_MODE_USER
 
 //
 // Mailslot IOCTL Codes

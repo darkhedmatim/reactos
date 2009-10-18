@@ -41,8 +41,8 @@ RtlRaiseException(PEXCEPTION_RECORD ExceptionRecord)
     /* Write the context flag */
     Context.ContextFlags = CONTEXT_FULL;
 
-    /* Check if user mode debugger is active */
-    if (RtlpCheckForActiveDebugger(FALSE))
+    /* Check if we're being debugged (user-mode only) */
+    if (!RtlpCheckForActiveDebugger(TRUE))
     {
         /* Raise an exception immediately */
         Status = ZwRaiseException(ExceptionRecord, &Context, TRUE);
@@ -50,7 +50,7 @@ RtlRaiseException(PEXCEPTION_RECORD ExceptionRecord)
     else
     {
         /* Dispatch the exception and check if we should continue */
-        if (!RtlDispatchException(ExceptionRecord, &Context))
+        if (RtlDispatchException(ExceptionRecord, &Context))
         {
             /* Raise the exception */
             Status = ZwRaiseException(ExceptionRecord, &Context, FALSE);
@@ -62,14 +62,9 @@ RtlRaiseException(PEXCEPTION_RECORD ExceptionRecord)
         }
     }
 
-    /* If we returned, raise a status */
-    RtlRaiseStatus(Status);
+    /* We should never return */
+    while (TRUE);
 }
-
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4717)
-#endif
 
 /*
  * @implemented
@@ -99,8 +94,8 @@ RtlRaiseStatus(NTSTATUS Status)
     /* Write the context flag */
     Context.ContextFlags = CONTEXT_FULL;
 
-    /* Check if user mode debugger is active */
-    if (RtlpCheckForActiveDebugger(FALSE))
+    /* Check if we're being debugged (user-mode only) */
+    if (!RtlpCheckForActiveDebugger(TRUE))
     {
         /* Raise an exception immediately */
         ZwRaiseException(&ExceptionRecord, &Context, TRUE);
@@ -117,10 +112,6 @@ RtlRaiseStatus(NTSTATUS Status)
     /* If we returned, raise a status */
     RtlRaiseStatus(Status);
 }
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 /*
  * @implemented
@@ -178,13 +169,4 @@ RtlUnhandledExceptionFilter(IN struct _EXCEPTION_POINTERS* ExceptionInfo)
     return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
-/*
- * @unimplemented
- */
-PVOID
-NTAPI
-RtlSetUnhandledExceptionFilter(IN PVOID TopLevelExceptionFilter)
-{
-    UNIMPLEMENTED;
-    return NULL;
-}
+/* EOF */

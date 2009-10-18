@@ -17,14 +17,12 @@
 
 #ifndef __WINSMCRD_H
 #define __WINSMCRD_H
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4820)
 #endif
 
 typedef struct _SCARD_IO_REQUEST
@@ -40,7 +38,7 @@ typedef struct _SCARD_T0_COMMAND
   BYTE bIns;
   BYTE P1;
   BYTE P2;
-  BYTE P3;
+  BYTE P3
 } SCARD_T0_COMMAND, *PSCARD_T0_COMMAND, *LPSCARD_T0_COMMAND;
 
 typedef struct _SCARD_T0_REQUEST
@@ -60,7 +58,7 @@ typedef struct _SCARD_T1_REQUEST
   SCARD_IO_REQUEST ioRequest;
 } SCARD_T1_REQUEST, *PSCARD_T1_REQUEST, *LPSCARD_T1_REQUEST;
 
-#define FILE_DEVICE_SMARTCARD 49
+#define FILE_DEVICE_SMARTCARD (0x00000031)
 
 #define SCARD_ATR_LENGTH (0x21)
 
@@ -207,10 +205,6 @@ typedef struct _SCARD_T1_REQUEST
 #define SCARD_ATTR_DEVICE_FRIENDLY_NAME SCARD_ATTR_DEVICE_FRIENDLY_NAME_A
 #define SCARD_ATTR_DEVICE_SYSTEM_NAME SCARD_ATTR_DEVICE_SYSTEM_NAME_A
 #endif /* UNICODE */
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 #ifdef __cplusplus
 }

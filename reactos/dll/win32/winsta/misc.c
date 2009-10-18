@@ -1,67 +1,12 @@
-/*
- * PROJECT:         ReactOS winsta.dll
- * FILE:            lib/winsta/misc.c
- * PURPOSE:         WinStation
- * PROGRAMMER:      Samuel Serapi?n
- * NOTES:           Misc functions.
- * 
- */
-#include <winsta.h>
+/* $Id$ */
+#include <windows.h>
+#include "winsta.h"
 
-VOID
-WINSTAAPI LogonIdFromWinStationNameA(PVOID A,
-                                     PVOID B,
-                                     PVOID C)
-{
-    UNIMPLEMENTED;
-}
-
-VOID
-WINSTAAPI LogonIdFromWinStationNameW(PVOID A,
-                                     PVOID B,
-                                     PVOID C)
-{
-    UNIMPLEMENTED;
-}
-
-VOID
-WINSTAAPI RemoteAssistancePrepareSystemRestore(PVOID A)
-{
-    UNIMPLEMENTED;
-}
-
-VOID
-WINSTAAPI _NWLogonQueryAdmin(PVOID A,
-                             PVOID B,
-                             PVOID C)
-{
-    UNIMPLEMENTED;
-}
-
-VOID
-WINSTAAPI _NWLogonSetAdmin(PVOID A,
-                           PVOID B,
-                           PVOID C)
-{
-    UNIMPLEMENTED;
-}
-
-VOID
-WINSTAAPI WinStationNameFromLogonIdA(PVOID A,
-                                     PVOID B,
-                                     PVOID C)
-{
-    UNIMPLEMENTED;
-}
-
-VOID
-WINSTAAPI WinStationNameFromLogonIdW(PVOID A,
-                                     PVOID B,
-                                     PVOID C)
-{
-    UNIMPLEMENTED;
-}
-
+WINSTASTUB(LogonIdFromWinStationNameA)
+WINSTASTUB(LogonIdFromWinStationNameW)
+WINSTASTUB(RemoteAssistancePrepareSystemRestore)
+WINSTASTUB(_NWLogonQueryAdmin)
+WINSTASTUB(_NWLogonSetAdmin)
 /* EOF */
 
 

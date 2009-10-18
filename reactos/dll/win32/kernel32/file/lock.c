@@ -14,9 +14,11 @@
 /* INCLUDES ****************************************************************/
 
 #include <k32.h>
+
+//#define YDEBUG
 #include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+WINE_DEFAULT_DEBUG_CHANNEL(kernel32);
 
 /* FUNCTIONS ****************************************************************/
 
@@ -24,7 +26,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 LockFile(HANDLE hFile,
          DWORD dwFileOffsetLow,
          DWORD dwFileOffsetHigh,
@@ -53,7 +55,7 @@ LockFile(HANDLE hFile,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 LockFileEx(HANDLE hFile,
            DWORD dwFlags,
            DWORD dwReserved,
@@ -120,7 +122,7 @@ LockFileEx(HANDLE hFile,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 UnlockFile(HANDLE hFile,
            DWORD dwFileOffsetLow,
            DWORD dwFileOffsetHigh,
@@ -145,7 +147,7 @@ UnlockFile(HANDLE hFile,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 UnlockFileEx(HANDLE hFile,
              DWORD dwReserved,
              DWORD nNumberOfBytesToUnLockLow,

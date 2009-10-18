@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * NOTES
- * 
+ *
  * This code was audited for completeness against the documented features
  * of Comctl32.dll version 6.0 on Oct. 21, 2002, by Christian Neumair.
  *
@@ -74,7 +74,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(commctrl);
 
 #define NAME       "microsoft.windows.common-controls"
 #define FILE       "comctl32.dll"
-#define VERSION    "6.0.2600.2982"
+#define VERSION    "6.0.0.0"
 #define PUBLIC_KEY "6595b64144ccf1df"
 
 #ifdef __i386__
@@ -123,11 +123,11 @@ static const char manifest[] =
 
 static const char manifest_filename[] = ARCH "_" NAME "_" PUBLIC_KEY "_" VERSION "_none_deadbeef.manifest";
 
-static LRESULT WINAPI COMCTL32_SubclassProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+LRESULT WINAPI COMCTL32_SubclassProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-static LPWSTR COMCTL32_wSubclass = NULL;
+LPWSTR  COMCTL32_wSubclass = NULL;
 HMODULE COMCTL32_hModule = 0;
-static LANGID COMCTL32_uiLang = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL);
+LANGID  COMCTL32_uiLang = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL);
 HBRUSH  COMCTL32_hPattern55AABrush = NULL;
 COMCTL32_SysColor  comctl32_color;
 
@@ -207,7 +207,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 	case DLL_PROCESS_ATTACH:
             DisableThreadLibraryCalls(hinstDLL);
 
-            COMCTL32_hModule = hinstDLL;
+            COMCTL32_hModule = (HMODULE)hinstDLL;
 
             /* add global subclassing atom (used by 'tooltip' and 'updown') */
             COMCTL32_wSubclass = (LPWSTR)(DWORD_PTR)GlobalAddAtomW (strCC32SubclassInfo);
@@ -248,7 +248,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
             break;
 
 	case DLL_PROCESS_DETACH:
-            /* clean up subclassing */ 
+            /* clean up subclassing */
             THEMING_Uninitialize();
 
             /* unregister all common control classes */
@@ -343,7 +343,7 @@ MenuHelp (UINT uMsg, WPARAM wParam, LPARAM lParam, HMENU hMainMenu,
 	    else {
 		/* menu item was selected */
 		if (HIWORD(wParam) & MF_POPUP)
-		    uMenuID = *(lpwIDs+1);
+		    uMenuID = (UINT)*(lpwIDs+1);
 		else
 		    uMenuID = (UINT)LOWORD(wParam);
 		TRACE("uMenuID = %u\n", uMenuID);
@@ -535,27 +535,18 @@ void WINAPI DrawStatusTextW (HDC hdc, LPCRECT lprc, LPCWSTR text, UINT style)
     if (text) {
         int oldbkmode = SetBkMode (hdc, TRANSPARENT);
         UINT align = DT_LEFT;
-        int strCnt = 0;
-
-        if (style & SBT_RTLREADING)
-            FIXME("Unsupported RTL style!\n");
-        r.left += 3;
-        do {
+        if (*text == '\t') {
+	    text++;
+	    align = DT_CENTER;
             if (*text == '\t') {
-                if (strCnt) {
-                    DrawTextW (hdc, text - strCnt, strCnt, &r, align|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
-                    strCnt = 0;
-                }
-                if (align==DT_RIGHT) {
-                    break;
-                }
-                align = (align==DT_LEFT ? DT_CENTER : DT_RIGHT);
-            } else {
-                strCnt++;
-            }
-        } while(*text++);
-
-        if (strCnt) DrawTextW (hdc, text - strCnt, -1, &r, align|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+	        text++;
+	        align = DT_RIGHT;
+	    }
+        }
+        r.left += 3;
+        if (style & SBT_RTLREADING)
+	    FIXME("Unsupported RTL style!\n");
+        DrawTextW (hdc, text, -1, &r, align|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
 	SetBkMode(hdc, oldbkmode);
     }
 }
@@ -723,8 +714,8 @@ InitCommonControls (void)
  *     Failure: FALSE
  *
  * NOTES
- *     Probably all versions of comctl32 initializes the Win95 controls in DllMain
- *     during DLL initialization. Starting from comctl32 v5.82 all the controls
+ *     Probaly all versions of comctl32 initializes the Win95 controls in DllMain
+ *     during DLL initializaiton. Starting from comctl32 v5.82 all the controls
  *     are initialized there. We follow this behaviour and this function is just
  *     a dummy.
  *
@@ -772,7 +763,7 @@ InitCommonControlsEx (const INITCOMMONCONTROLSEX *lpInitCtrls)
 
 HWND WINAPI
 CreateToolbarEx (HWND hwnd, DWORD style, UINT wID, INT nBitmaps,
-                 HINSTANCE hBMInst, UINT_PTR wBMID, LPCTBBUTTON lpButtons,
+                 HINSTANCE hBMInst, UINT wBMID, LPCTBBUTTON lpButtons,
                  INT iNumButtons, INT dxButton, INT dyButton,
                  INT dxBitmap, INT dyBitmap, UINT uStructSize)
 {
@@ -869,7 +860,7 @@ CreateMappedBitmap (HINSTANCE hInstance, INT_PTR idBitmap, UINT wFlags,
 	internalColorMap[2].to = GetSysColor (COLOR_BTNFACE);
 	internalColorMap[3].to = GetSysColor (COLOR_BTNHIGHLIGHT);
 	iMaps = 4;
-	sysColorMap = internalColorMap;
+	sysColorMap = (LPCOLORMAP)internalColorMap;
     }
 
     hRsrc = FindResourceW (hInstance, (LPWSTR)idBitmap, (LPWSTR)RT_BITMAP);
@@ -878,23 +869,23 @@ CreateMappedBitmap (HINSTANCE hInstance, INT_PTR idBitmap, UINT wFlags,
     hglb = LoadResource (hInstance, hRsrc);
     if (hglb == 0)
 	return 0;
-    lpBitmap = LockResource (hglb);
+    lpBitmap = (LPBITMAPINFOHEADER)LockResource (hglb);
     if (lpBitmap == NULL)
 	return 0;
 
     if (lpBitmap->biSize >= sizeof(BITMAPINFOHEADER) && lpBitmap->biClrUsed)
         nColorTableSize = lpBitmap->biClrUsed;
-    else if (lpBitmap->biBitCount <= 8)	
+    else if (lpBitmap->biBitCount <= 8)
         nColorTableSize = (1 << lpBitmap->biBitCount);
     else
         nColorTableSize = 0;
     nSize = lpBitmap->biSize + nColorTableSize * sizeof(RGBQUAD);
-    lpBitmapInfo = GlobalAlloc (GMEM_FIXED, nSize);
+    lpBitmapInfo = (LPBITMAPINFOHEADER)GlobalAlloc (GMEM_FIXED, nSize);
     if (lpBitmapInfo == NULL)
 	return 0;
     RtlMoveMemory (lpBitmapInfo, lpBitmap, nSize);
 
-    pColorTable = (RGBQUAD*)(((LPBYTE)lpBitmapInfo) + lpBitmapInfo->biSize);
+    pColorTable = (RGBQUAD*)(((LPBYTE)lpBitmapInfo)+(UINT)lpBitmapInfo->biSize);
 
     for (iColor = 0; iColor < nColorTableSize; iColor++) {
 	for (i = 0; i < iMaps; i++) {
@@ -916,8 +907,8 @@ CreateMappedBitmap (HINSTANCE hInstance, INT_PTR idBitmap, UINT wFlags,
 	    }
 	}
     }
-    nWidth  = lpBitmapInfo->biWidth;
-    nHeight = lpBitmapInfo->biHeight;
+    nWidth  = (INT)lpBitmapInfo->biWidth;
+    nHeight = (INT)lpBitmapInfo->biHeight;
     hdcScreen = GetDC (NULL);
     hbm = CreateCompatibleBitmap (hdcScreen, nWidth, nHeight);
     if (hbm) {
@@ -932,7 +923,7 @@ CreateMappedBitmap (HINSTANCE hInstance, INT_PTR idBitmap, UINT wFlags,
 	DeleteDC (hdcDst);
     }
     ReleaseDC (NULL, hdcScreen);
-    GlobalFree (lpBitmapInfo);
+    GlobalFree ((HGLOBAL)lpBitmapInfo);
     FreeResource (hglb);
 
     return hbm;
@@ -1099,8 +1090,8 @@ VOID WINAPI InitMUILanguage (LANGID uiLang)
  *
  * BUGS
  *     If an application manually subclasses a window after subclassing it with
- *     this API and then with this API again, then none of the previous 
- *     subclasses get called or the original window procedure.
+ *     this API and then with this API again, then none of the previous
+ *     subclasses get called or the origional window procedure.
  */
 
 BOOL WINAPI SetWindowSubclass (HWND hWnd, SUBCLASSPROC pfnSubclass,
@@ -1117,7 +1108,7 @@ BOOL WINAPI SetWindowSubclass (HWND hWnd, SUBCLASSPROC pfnSubclass,
     * from there. */
 
    /* See if we have been called for this window */
-   stack = GetPropW (hWnd, COMCTL32_wSubclass);
+   stack = (LPSUBCLASS_INFO)GetPropW (hWnd, COMCTL32_wSubclass);
    if (!stack) {
       /* allocate stack */
       stack = Alloc (sizeof(SUBCLASS_INFO));
@@ -1125,7 +1116,7 @@ BOOL WINAPI SetWindowSubclass (HWND hWnd, SUBCLASSPROC pfnSubclass,
          ERR ("Failed to allocate our Subclassing stack\n");
          return FALSE;
       }
-      SetPropW (hWnd, COMCTL32_wSubclass, stack);
+      SetPropW (hWnd, COMCTL32_wSubclass, (HANDLE)stack);
 
       /* set window procedure to our own and save the current one */
       if (IsWindowUnicode (hWnd))
@@ -1148,7 +1139,7 @@ BOOL WINAPI SetWindowSubclass (HWND hWnd, SUBCLASSPROC pfnSubclass,
          proc = proc->next;
       }
    }
-   
+
    proc = Alloc(sizeof(SUBCLASSPROCS));
    if (!proc) {
       ERR ("Failed to allocate subclass entry in stack\n");
@@ -1160,7 +1151,7 @@ BOOL WINAPI SetWindowSubclass (HWND hWnd, SUBCLASSPROC pfnSubclass,
       RemovePropW( hWnd, COMCTL32_wSubclass );
       return FALSE;
    }
-   
+
    proc->subproc = pfnSubclass;
    proc->ref = dwRef;
    proc->id = uIDSubclass;
@@ -1196,7 +1187,7 @@ BOOL WINAPI GetWindowSubclass (HWND hWnd, SUBCLASSPROC pfnSubclass,
    TRACE ("(%p, %p, %lx, %p)\n", hWnd, pfnSubclass, uID, pdwRef);
 
    /* See if we have been called for this window */
-   stack = GetPropW (hWnd, COMCTL32_wSubclass);
+   stack = (LPSUBCLASS_INFO)GetPropW (hWnd, COMCTL32_wSubclass);
    if (!stack)
       return FALSE;
 
@@ -1239,7 +1230,7 @@ BOOL WINAPI RemoveWindowSubclass(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR u
    TRACE ("(%p, %p, %lx)\n", hWnd, pfnSubclass, uID);
 
    /* Find the Subclass to remove */
-   stack = GetPropW (hWnd, COMCTL32_wSubclass);
+   stack = (LPSUBCLASS_INFO)GetPropW (hWnd, COMCTL32_wSubclass);
    if (!stack)
       return FALSE;
 
@@ -1247,15 +1238,15 @@ BOOL WINAPI RemoveWindowSubclass(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR u
    while (proc) {
       if ((proc->id == uID) &&
          (proc->subproc == pfnSubclass)) {
-         
+
          if (!prevproc)
             stack->SubclassProcs = proc->next;
          else
             prevproc->next = proc->next;
-          
+
          if (stack->stackpos == proc)
             stack->stackpos = stack->stackpos->next;
-            
+
          Free (proc);
          ret = TRUE;
          break;
@@ -1263,10 +1254,10 @@ BOOL WINAPI RemoveWindowSubclass(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR u
       prevproc = proc;
       proc = proc->next;
    }
-   
+
    if (!stack->SubclassProcs && !stack->running) {
       TRACE("Last Subclass removed, cleaning up\n");
-      /* clean up our heap and reset the original window procedure */
+      /* clean up our heap and reset the origional window procedure */
       if (IsWindowUnicode (hWnd))
          SetWindowLongPtrW (hWnd, GWLP_WNDPROC, (DWORD_PTR)stack->origproc);
       else
@@ -1274,30 +1265,30 @@ BOOL WINAPI RemoveWindowSubclass(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR u
       Free (stack);
       RemovePropW( hWnd, COMCTL32_wSubclass );
    }
-   
+
    return ret;
 }
 
 /***********************************************************************
  * COMCTL32_SubclassProc (internal)
  *
- * Window procedure for all subclassed windows. 
+ * Window procedure for all subclassed windows.
  * Saves the current subclassing stack position to support nested messages
  */
-static LRESULT WINAPI COMCTL32_SubclassProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+LRESULT WINAPI COMCTL32_SubclassProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
    LPSUBCLASS_INFO stack;
    LPSUBCLASSPROCS proc;
    LRESULT ret;
-    
+
    TRACE ("(%p, 0x%08x, 0x%08lx, 0x%08lx)\n", hWnd, uMsg, wParam, lParam);
 
-   stack = GetPropW (hWnd, COMCTL32_wSubclass);
+   stack = (LPSUBCLASS_INFO)GetPropW (hWnd, COMCTL32_wSubclass);
    if (!stack) {
       ERR ("Our sub classing stack got erased for %p!! Nothing we can do\n", hWnd);
       return 0;
    }
-    
+
    /* Save our old stackpos to properly handle nested messages */
    proc = stack->stackpos;
    stack->stackpos = stack->SubclassProcs;
@@ -1305,10 +1296,10 @@ static LRESULT WINAPI COMCTL32_SubclassProc (HWND hWnd, UINT uMsg, WPARAM wParam
    ret = DefSubclassProc(hWnd, uMsg, wParam, lParam);
    stack->running--;
    stack->stackpos = proc;
-    
+
    if (!stack->SubclassProcs && !stack->running) {
       TRACE("Last Subclass removed, cleaning up\n");
-      /* clean up our heap and reset the original window procedure */
+      /* clean up our heap and reset the origional window procedure */
       if (IsWindowUnicode (hWnd))
          SetWindowLongPtrW (hWnd, GWLP_WNDPROC, (DWORD_PTR)stack->origproc);
       else
@@ -1339,11 +1330,11 @@ LRESULT WINAPI DefSubclassProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 {
    LPSUBCLASS_INFO stack;
    LRESULT ret;
-   
+
    TRACE ("(%p, 0x%08x, 0x%08lx, 0x%08lx)\n", hWnd, uMsg, wParam, lParam);
 
    /* retrieve our little stack from the Properties */
-   stack = GetPropW (hWnd, COMCTL32_wSubclass);
+   stack = (LPSUBCLASS_INFO)GetPropW (hWnd, COMCTL32_wSubclass);
    if (!stack) {
       ERR ("Our sub classing stack got erased for %p!! Nothing we can do\n", hWnd);
       return 0;
@@ -1358,7 +1349,7 @@ LRESULT WINAPI DefSubclassProc (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
          ret = CallWindowProcA (stack->origproc, hWnd, uMsg, wParam, lParam);
    } else {
       const SUBCLASSPROCS *proc = stack->stackpos;
-      stack->stackpos = stack->stackpos->next; 
+      stack->stackpos = stack->stackpos->next;
       /* call the Subclass procedure from the stack */
       ret = proc->subproc (hWnd, uMsg, wParam, lParam,
             proc->id, proc->ref);
@@ -1434,7 +1425,6 @@ COMCTL32_RefreshSysColors(void)
     comctl32_color.clrBtnFace = GetSysColor (COLOR_BTNFACE);
     comctl32_color.clrHighlight = GetSysColor (COLOR_HIGHLIGHT);
     comctl32_color.clrHighlightText = GetSysColor (COLOR_HIGHLIGHTTEXT);
-    comctl32_color.clrHotTrackingColor = GetSysColor (COLOR_HOTLIGHT);
     comctl32_color.clr3dHilight = GetSysColor (COLOR_3DHILIGHT);
     comctl32_color.clr3dShadow = GetSysColor (COLOR_3DSHADOW);
     comctl32_color.clr3dDkShadow = GetSysColor (COLOR_3DDKSHADOW);
@@ -1471,8 +1461,8 @@ void COMCTL32_DrawInsertMark(HDC hDC, const RECT *lpRect, COLORREF clrInsertMark
     HPEN hPen = CreatePen(PS_SOLID, 1, clrInsertMark);
     HPEN hOldPen;
     static const DWORD adwPolyPoints[] = {4,4,4};
-    LONG lCentre = (bHorizontal ? 
-        lpRect->top + (lpRect->bottom - lpRect->top)/2 : 
+    LONG lCentre = (bHorizontal ?
+        lpRect->top + (lpRect->bottom - lpRect->top)/2 :
         lpRect->left + (lpRect->right - lpRect->left)/2);
     LONG l1 = (bHorizontal ? lpRect->left : lpRect->top);
     LONG l2 = (bHorizontal ? lpRect->right : lpRect->bottom);
@@ -1556,64 +1546,9 @@ void COMCTL32_EnsureBitmapSize(HBITMAP *pBitmap, int cxMinWidth, int cyMinHeight
     SelectObject(hdcOld, hOldDCBitmap);
     DeleteDC(hdcOld);
 
-    DeleteObject(*pBitmap);    
+    DeleteObject(*pBitmap);
     *pBitmap = hNewBitmap;
     return;
-}
-
-void COMCTL32_GetFontMetrics(HFONT hFont, TEXTMETRICW *ptm)
-{
-    HDC hdc = GetDC(NULL);
-    HFONT hOldFont;
-
-    hOldFont = SelectObject(hdc, hFont);
-    GetTextMetricsW(hdc, ptm);
-    SelectObject(hdc, hOldFont);
-    ReleaseDC(NULL, hdc);
-}
-
-#ifndef OCM__BASE      /* avoid including olectl.h */
-#define OCM__BASE (WM_USER+0x1c00)
-#endif
-
-/***********************************************************************
- * COMCTL32_IsReflectedMessage [internal]
- *
- * Some parents reflect notify messages - for some messages sent by the child,
- * they send it back with the message code increased by OCM__BASE (0x2000).
- * This allows better subclassing of controls. We don't need to handle such
- * messages but we don't want to print ERRs for them, so this helper function
- * identifies them.
- *
- * Some of the codes are in the CCM_FIRST..CCM_LAST range, but there is no
- * colision with defined CCM_ codes.
- */
-BOOL COMCTL32_IsReflectedMessage(UINT uMsg)
-{
-    switch (uMsg)
-    {
-        case OCM__BASE + WM_COMMAND:
-        case OCM__BASE + WM_CTLCOLORBTN:
-        case OCM__BASE + WM_CTLCOLOREDIT:
-        case OCM__BASE + WM_CTLCOLORDLG:
-        case OCM__BASE + WM_CTLCOLORLISTBOX:
-        case OCM__BASE + WM_CTLCOLORMSGBOX:
-        case OCM__BASE + WM_CTLCOLORSCROLLBAR:
-        case OCM__BASE + WM_CTLCOLORSTATIC:
-        case OCM__BASE + WM_DRAWITEM:
-        case OCM__BASE + WM_MEASUREITEM:
-        case OCM__BASE + WM_DELETEITEM:
-        case OCM__BASE + WM_VKEYTOITEM:
-        case OCM__BASE + WM_CHARTOITEM:
-        case OCM__BASE + WM_COMPAREITEM:
-        case OCM__BASE + WM_HSCROLL:
-        case OCM__BASE + WM_VSCROLL:
-        case OCM__BASE + WM_PARENTNOTIFY:
-        case OCM__BASE + WM_NOTIFY:
-            return TRUE;
-        default:
-            return FALSE;
-    }
 }
 
 /***********************************************************************
@@ -1685,7 +1620,7 @@ LRESULT WINAPI SetPathWordBreakProc(HWND hwnd, BOOL bSet)
  *
  * Draw text with shadow.
  */
-int WINAPI DrawShadowText(HDC hdc, LPCWSTR pszText, UINT cch, RECT *rect, DWORD dwFlags,
+int WINAPI DrawShadowText(HDC hdc, LPCWSTR pszText, UINT cch, const RECT *rect, DWORD dwFlags,
                           COLORREF crText, COLORREF crShadow, int ixOffset, int iyOffset)
 {
     FIXME("(%p, %s, %d, %p, %d, 0x%08x, 0x%08x, %d, %d): stub\n", hdc, debugstr_w(pszText), cch, rect, dwFlags,

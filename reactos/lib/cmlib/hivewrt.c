@@ -79,7 +79,7 @@ HvpWriteLog(
    {
       LastIndex = BlockIndex;
       BlockIndex = RtlFindSetBits(&RegistryHive->DirtyVector, 1, BlockIndex);
-      if (BlockIndex == ~0U || BlockIndex < LastIndex)
+      if (BlockIndex == ~0 || BlockIndex < LastIndex)
       {
          break;
       }
@@ -163,7 +163,7 @@ HvpWriteHive(
    RegistryHive->BaseBlock->Type = HFILE_TYPE_PRIMARY;
    RegistryHive->BaseBlock->Sequence1++;
    RegistryHive->BaseBlock->CheckSum =
-   HvpHiveHeaderChecksum(RegistryHive->BaseBlock);
+      HvpHiveHeaderChecksum(RegistryHive->BaseBlock);
 
    /* Write hive block */
    FileOffset = 0;
@@ -182,14 +182,14 @@ HvpWriteHive(
       {
          LastIndex = BlockIndex;
          BlockIndex = RtlFindSetBits(&RegistryHive->DirtyVector, 1, BlockIndex);
-         if (BlockIndex == ~0U || BlockIndex < LastIndex)
+         if (BlockIndex == ~0 || BlockIndex < LastIndex)
          {
             break;
          }
       }
 
       BlockPtr = (PVOID)RegistryHive->Storage[Stable].BlockList[BlockIndex].BlockAddress;
-      FileOffset = (BlockIndex + 1) * HV_BLOCK_SIZE;
+      FileOffset = (ULONGLONG)(BlockIndex + 1) * (ULONGLONG)HV_BLOCK_SIZE;
 
       /* Write hive block */
       Success = RegistryHive->FileWrite(RegistryHive, HFILE_TYPE_PRIMARY,
@@ -239,7 +239,7 @@ HvSyncHive(
 {
    ASSERT(RegistryHive->ReadOnly == FALSE);
 
-   if (RtlFindSetBits(&RegistryHive->DirtyVector, 1, 0) == ~0U)
+   if (RtlFindSetBits(&RegistryHive->DirtyVector, 1, 0) == ~0)
    {
       return TRUE;
    }

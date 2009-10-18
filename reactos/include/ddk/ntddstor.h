@@ -23,6 +23,10 @@
 #ifndef __NTDDSTOR_H
 #define __NTDDSTOR_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -80,12 +84,6 @@ extern "C" {
 #define IOCTL_STORAGE_RESERVE \
   CTL_CODE(IOCTL_STORAGE_BASE, 0x0204, METHOD_BUFFERED, FILE_READ_ACCESS)
 
-#define IOCTL_STORAGE_GET_HOTPLUG_INFO \
-  CTL_CODE(IOCTL_STORAGE_BASE, 0x0305, METHOD_BUFFERED, FILE_ANY_ACCESS)
-
-#define IOCTL_STORAGE_SET_HOTPLUG_INFO \
-  CTL_CODE(IOCTL_STORAGE_BASE, 0x0306, METHOD_BUFFERED, FILE_READ_ACCESS | FILE_WRITE_ACCESS)
-
 #define IOCTL_STORAGE_RESET_BUS \
   CTL_CODE(IOCTL_STORAGE_BASE, 0x0400, METHOD_BUFFERED, FILE_READ_ACCESS | FILE_WRITE_ACCESS)
 
@@ -123,21 +121,6 @@ DEFINE_GUID(GUID_DEVINTERFACE_CDCHANGER,
 DEFINE_GUID(GUID_DEVINTERFACE_STORAGEPORT,
   0x2accfe60L, 0xc130, 0x11d2, 0xb0, 0x82, 0x00, 0xa0, 0xc9, 0x1e, 0xfb, 0x8b);
 
-DEFINE_GUID(GUID_DEVINTERFACE_HIDDEN_VOLUME,
-  0x7f108a28L, 0x9833, 0x4b3b, 0xb7, 0x80, 0x2c, 0x6b, 0x5f, 0xa5, 0xc0, 0x62);
-
-/* Aliases for storage guids */
-#define DiskClassGuid               GUID_DEVINTERFACE_DISK
-#define CdRomClassGuid              GUID_DEVINTERFACE_CDROM
-#define PartitionClassGuid          GUID_DEVINTERFACE_PARTITION
-#define TapeClassGuid               GUID_DEVINTERFACE_TAPE
-#define WriteOnceDiskClassGuid      GUID_DEVINTERFACE_WRITEONCEDISK
-#define VolumeClassGuid             GUID_DEVINTERFACE_VOLUME
-#define MediumChangerClassGuid      GUID_DEVINTERFACE_MEDIUMCHANGER
-#define FloppyClassGuid             GUID_DEVINTERFACE_FLOPPY
-#define CdChangerClassGuid          GUID_DEVINTERFACE_CDCHANGER
-#define StoragePortClassGuid        GUID_DEVINTERFACE_STORAGEPORT
-#define HiddenVolumeClassGuid       GUID_DEVINTERFACE_HIDDEN_VOLUME
 
 typedef enum _STORAGE_MEDIA_TYPE {
   DDS_4mm = 0x20,
@@ -325,11 +308,7 @@ typedef struct _STORAGE_PREDICT_FAILURE {
 typedef enum _STORAGE_PROPERTY_ID {
   StorageDeviceProperty = 0,
   StorageAdapterProperty,
-  StorageDeviceIdProperty,
-  StorageDeviceUniqueIdProperty,
-  StorageDeviceWriteCacheProperty,
-  StorageMiniportProperty,
-  StorageAccessAlignmentProperty
+  StorageDeviceIdProperty
 } STORAGE_PROPERTY_ID, *PSTORAGE_PROPERTY_ID;
 
 typedef enum _STORAGE_QUERY_TYPE {

@@ -1,35 +1,12 @@
 #include <string.h>
-#undef __MINGW_IMPORT
-#define __MINGW_IMPORT
 #include <ctype.h>
 
 #undef _pctype
-#undef _pwctype
-
-/* MS's CRT header defines all that, and we actually implement that */
-#undef iswalnum
-#undef __isascii
-#undef iswascii
-#undef __iscsym
-#undef __iscsymf
-#undef iswalpha
-#undef iswcntrl
-#undef iswdigit
-#undef iswgraph
-#undef iswprint
-#undef iswpunct
-#undef iswlower
-#undef iswupper
-#undef iswspace
-#undef iswxdigit
-#undef __toascii
-#undef _tolower
-#undef _toupper
 
 #define upalpha ('A' - 'a')
 
 
-const unsigned short _ctype[] = {
+unsigned short _ctype[] = {
 	0,			/* <EOF>, 0xFFFF */
 	_CONTROL,		/* CTRL+@, 0x00 */
 	_CONTROL,		/* CTRL+A, 0x01 */
@@ -289,13 +266,13 @@ const unsigned short _ctype[] = {
 	0			/* 0xff */
 };
 
-const unsigned short *_pctype = _ctype + 1;
-const unsigned short *_pwctype = _ctype + 1;
+unsigned short *_pctype = _ctype + 1;
+unsigned short *_pwctype = _ctype + 1;
 
 /*
  * @implemented
  */
-const unsigned short **__p__pctype(void)
+unsigned short **__p__pctype(void)
 {
    return &_pctype;
 }
@@ -303,7 +280,7 @@ const unsigned short **__p__pctype(void)
 /*
  * @implemented
  */
-const unsigned short **__p__pwctype(void)
+unsigned short **__p__pwctype(void)
 {
    return &_pwctype;
 }
@@ -384,7 +361,7 @@ int iscntrl(int c)
  */
 int __iscsym(int c)
 {
-   return (c < 127 && (isalnum(c) || (c == '_')));
+   return(isalnum(c)||(c == '_'));
 }
 
 /*
@@ -392,7 +369,7 @@ int __iscsym(int c)
  */
 int __iscsymf(int c)
 {
-   return (c < 127 && (isalpha(c) || (c == '_')));
+   return(isalpha(c)||(c == '_'));
 }
 
 /*
@@ -548,7 +525,7 @@ int iswxdigit(wint_t c)
  */
 int __toascii(int c)
 {
-   return((unsigned int)(c) & 0x7f);
+   return((unsigned)(c) & 0x7f);
 }
 
 /*
@@ -594,7 +571,7 @@ int toupper(int c)
 /*
  * @implemented
  */
-wint_t towlower(wint_t c)
+wchar_t towlower(wchar_t c)
 {
    if (iswctype (c, _UPPER))
        return (c - upalpha);
@@ -604,7 +581,7 @@ wint_t towlower(wint_t c)
 /*
  * @implemented
  */
-wint_t towupper(wint_t c)
+wchar_t towupper(wchar_t c)
 {
    if (iswctype (c, _LOWER))
       return (c + upalpha);

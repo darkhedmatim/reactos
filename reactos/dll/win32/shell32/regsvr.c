@@ -17,18 +17,26 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
-#include <precomp.h>
 
-const GUID CLSID_AdminFolderShortcut     = {0xD20EA4E1, 0x3957, 0x11D2, {0xA4, 0x0B, 0x0C, 0x50, 0x20, 0x52, 0x41, 0x53}};
-const GUID CLSID_StartMenu               = {0x4622AD11, 0xFF23, 0x11D0, {0x8D, 0x34, 0x00, 0xA0, 0xC9, 0x0F, 0x27, 0x19}};
-const GUID CLSID_MenuBandSite            = {0xE13EF4E4, 0xD2F2, 0x11d0, {0x98, 0x16, 0x00, 0xC0, 0x4F, 0xD9, 0x19, 0x72}};
-const GUID CLSID_OpenWith                = {0x09799AFB, 0xAD67, 0x11d1, {0xAB, 0xCD, 0x00, 0xC0, 0x4F, 0xC3, 0x09, 0x36}};
-const GUID CLSID_UnixFolder              = {0xcc702eb2, 0x7dc5, 0x11d9, {0xc6, 0x87, 0x00, 0x04, 0x23, 0x8a, 0x01, 0xcd}};
-const GUID CLSID_UnixDosFolder           = {0x9d20aae8, 0x0625, 0x44b0, {0x9c, 0xa7, 0x71, 0x88, 0x9c, 0x22, 0x54, 0xd9}};
-const GUID CLSID_FontsFolderShortcut     = {0xD20EA4E1, 0x3957, 0x11D2, {0xA4, 0x0B, 0x0C, 0x50, 0x20, 0x52, 0x41,0x52}};
-const GUID SHELL32_AdvtShortcutProduct   = {0x9db1186f, 0x40df, 0x11d1, {0xaa, 0x8c, 0x00, 0xc0, 0x4f, 0xb6, 0x78, 0x63}};
-const GUID SHELL32_AdvtShortcutComponent = {0x9db1186e, 0x40df, 0x11d1, {0xaa, 0x8c, 0x00, 0xc0, 0x4f, 0xb6, 0x78, 0x63}};
+#include <stdarg.h>
+#include <string.h>
+#include <stdio.h>
 
+#include "windef.h"
+#include "winbase.h"
+#include "winuser.h"
+#include "winreg.h"
+#include "winerror.h"
+
+#include "ole2.h"
+#include "shldisp.h"
+#include "shlguid.h"
+#include "shell32_main.h"
+#include "shresdef.h"
+#include "initguid.h"
+#include "shfldr.h"
+
+#include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
@@ -75,8 +83,6 @@ struct regsvr_coclass
 #define SHELLFOLDER_WANTSFORPARSING   0x00000002
 #define SHELLFOLDER_ATTRIBUTES        0x00000004
 #define SHELLFOLDER_CALLFORATTRIBUTES 0x00000008
-#define SHELLFOLDER_WANTSFORDISPLAY   0x00000010
-#define SHELLFOLDER_HIDEASDELETEPERUSER 0x00000020
 
 static HRESULT register_coclasses(struct regsvr_coclass const *list);
 static HRESULT unregister_coclasses(struct regsvr_coclass const *list);
@@ -129,8 +135,6 @@ static WCHAR const defaulticon_keyname[] = {
 static WCHAR const contextmenu_keyname[] = { 'C', 'o', 'n', 't', 'e', 'x', 't', 'M', 'e', 'n', 'u', 'H', 'a', 'n', 'd', 'l', 'e', 'r', 's', 0 };
 static char const tmodel_valuename[] = "ThreadingModel";
 static char const wfparsing_valuename[] = "WantsFORPARSING";
-static char const wfdisplay_valuename[] = "WantsFORDISPLAY";
-static char const hideasdeleteperuser_valuename[] = "HideAsDeletePerUser";
 static char const attributes_valuename[] = "Attributes";
 static char const cfattributes_valuename[] = "CallForAttributes";
 static char const localized_valuename[] = "LocalizedString";
@@ -185,10 +189,10 @@ static HRESULT register_interfaces(struct regsvr_interface const *list)
 				  KEY_READ | KEY_WRITE, NULL, &key, NULL);
 	    if (res != ERROR_SUCCESS) goto error_close_iid_key;
 
-	    swprintf(buf, fmt, list->num_methods);
+	    wsprintfW(buf, fmt, list->num_methods);
 	    res = RegSetValueExW(key, NULL, 0, REG_SZ,
 				 (CONST BYTE*)buf,
-				 (wcslen(buf) + 1) * sizeof(WCHAR));
+				 (lstrlenW(buf) + 1) * sizeof(WCHAR));
 	    RegCloseKey(key);
 
 	    if (res != ERROR_SUCCESS) goto error_close_iid_key;
@@ -331,7 +335,7 @@ static HRESULT register_coclasses(struct regsvr_coclass const *list)
 	}
 
 	if (list->flags &
-		(SHELLFOLDER_WANTSFORPARSING|SHELLFOLDER_ATTRIBUTES|SHELLFOLDER_CALLFORATTRIBUTES|SHELLFOLDER_WANTSFORDISPLAY|SHELLFOLDER_HIDEASDELETEPERUSER))
+		(SHELLFOLDER_WANTSFORPARSING|SHELLFOLDER_ATTRIBUTES|SHELLFOLDER_CALLFORATTRIBUTES))
 	{
 	    HKEY shellfolder_key;
 
@@ -347,11 +351,7 @@ static HRESULT register_coclasses(struct regsvr_coclass const *list)
 	    if (list->flags & SHELLFOLDER_CALLFORATTRIBUTES)
 		res = RegSetValueExA(shellfolder_key, cfattributes_valuename, 0, REG_DWORD,
 				     (const BYTE *)&list->dwCallForAttributes, sizeof(DWORD));
-        if (list->flags & SHELLFOLDER_WANTSFORDISPLAY)
-		res = RegSetValueExA(shellfolder_key, wfdisplay_valuename, 0, REG_SZ, (const BYTE *)"", 1);
-        if (list->flags & SHELLFOLDER_HIDEASDELETEPERUSER)
-		res = RegSetValueExA(shellfolder_key, hideasdeleteperuser_valuename, 0, REG_SZ, (const BYTE *)"", 1);
-        RegCloseKey(shellfolder_key);
+	    RegCloseKey(shellfolder_key);
 	    if (res != ERROR_SUCCESS) goto error_close_clsid_key;
 	}
 
@@ -456,18 +456,18 @@ static WCHAR *get_namespace_key(struct regsvr_namespace const *list) {
     WCHAR *pwszKey, *pwszCLSID;
 
     pwszKey = HeapAlloc(GetProcessHeap(), 0, sizeof(wszExplorerKey)+sizeof(wszNamespace)+
-                                             sizeof(WCHAR)*(wcslen(list->parent)+CHARS_IN_GUID));
+                                             sizeof(WCHAR)*(lstrlenW(list->parent)+CHARS_IN_GUID));
     if (!pwszKey)
         return NULL;
 
-    wcscpy(pwszKey, wszExplorerKey);
-    wcscat(pwszKey, list->parent);
-    wcscat(pwszKey, wszNamespace);
+    lstrcpyW(pwszKey, wszExplorerKey);
+    lstrcatW(pwszKey, list->parent);
+    lstrcatW(pwszKey, wszNamespace);
     if (FAILED(StringFromCLSID(list->clsid, &pwszCLSID))) {
         HeapFree(GetProcessHeap(), 0, pwszKey);
         return NULL;
     }
-    wcscat(pwszKey, pwszCLSID);
+    lstrcatW(pwszKey, pwszCLSID);
     CoTaskMemFree(pwszCLSID);
 
     return pwszKey;
@@ -484,7 +484,7 @@ static HRESULT register_namespace_extensions(struct regsvr_namespace const *list
         if (pwszKey && ERROR_SUCCESS ==
             RegCreateKeyExW(HKEY_LOCAL_MACHINE, pwszKey, 0, NULL, 0, KEY_WRITE, NULL, &hKey, NULL))
         {
-            RegSetValueExW(hKey, NULL, 0, REG_SZ, (const BYTE *)list->value, sizeof(WCHAR)*(wcslen(list->value)+1));
+            RegSetValueExW(hKey, NULL, 0, REG_SZ, (const BYTE *)list->value, sizeof(WCHAR)*(lstrlenW(list->value)+1));
             RegCloseKey(hKey);
         }
 
@@ -530,7 +530,7 @@ static LONG register_key_defvalueW(
 			  KEY_READ | KEY_WRITE, NULL, &key, NULL);
     if (res != ERROR_SUCCESS) return res;
     res = RegSetValueExW(key, NULL, 0, REG_SZ, (CONST BYTE*)value,
-			 (wcslen(value) + 1) * sizeof(WCHAR));
+			 (lstrlenW(value) + 1) * sizeof(WCHAR));
     RegCloseKey(key);
     return res;
 }
@@ -572,19 +572,6 @@ static struct regsvr_coclass const coclass_list[] = {
 	"shell32.dll",
 	"Apartment"
     },
-    {  &CLSID_ControlPanel,
-       "Shell Control Panel Folder",
-       IDS_CONTROLPANEL,
-       NULL,
-       "shell32.dll",
-       "Apartment",
-       SHELLFOLDER_WANTSFORDISPLAY|SHELLFOLDER_ATTRIBUTES|SHELLFOLDER_HIDEASDELETEPERUSER,
-	   SFGAO_FOLDER|SFGAO_HASSUBFOLDER,
-	   0,
-	   NULL,
-	   NULL,
-	   IDI_SHELL_CONTROL_PANEL1
-    },
     {   &CLSID_DragDropHelper,
         "Shell Drag and Drop Helper",
 	0,
@@ -594,62 +581,24 @@ static struct regsvr_coclass const coclass_list[] = {
     },
     {   &CLSID_Printers,
         "Printers & Fax",
-        IDS_PRINTERS,
-        NULL,
-        "shell32.dll",
-        "Apartment",
-        SHELLFOLDER_ATTRIBUTES,
-        SFGAO_FOLDER,
-        0,
-        NULL,
-        NULL,
-        IDI_SHELL_PRINTERS_FOLDER
-    },
-    {   &CLSID_MyComputer,
-        "My Computer",
-        IDS_MYCOMPUTER,
+	0,
         NULL,
         "shell32.dll",
         "Apartment"
     },
+    {   &CLSID_MyComputer,
+	"My Computer",
+	IDS_MYCOMPUTER,
+	NULL,
+	"shell32.dll",
+	"Apartment"
+    },
     {   &CLSID_NetworkPlaces,
-        "My Network Places",
-        IDS_NETWORKPLACE,
-        NULL,
-        "shell32.dll",
-        "Apartment",
-        SHELLFOLDER_ATTRIBUTES|SHELLFOLDER_CALLFORATTRIBUTES,
-        SFGAO_FOLDER|SFGAO_HASPROPSHEET,
-        0,
-        NULL,
-        NULL,
-        IDI_SHELL_MY_NETWORK_PLACES
-    },
-    {  &CLSID_FontsFolderShortcut,
-       "Fonts",
-       IDS_FONTS,
-       NULL,
-       "shell32.dll", 
-       "Apartment",
-       SHELLFOLDER_ATTRIBUTES,
-       SFGAO_FOLDER,
-       0,
-       NULL,
-       NULL,
-       IDI_SHELL_FONTS_FOLDER
-    },
-    {  &CLSID_AdminFolderShortcut,
-       "Administrative Tools",
-       IDS_ADMINISTRATIVETOOLS,
-       NULL,
-       "shell32.dll", 
-       "Apartment",
-       SHELLFOLDER_ATTRIBUTES,
-       SFGAO_FOLDER,
-       0,
-       NULL,
-       NULL,
-       IDI_SHELL_ADMINTOOLS //FIXME
+	"My Network Places",
+	0,
+	NULL,
+	"shell32.dll",
+	"Apartment"
     },
     {   &CLSID_Shortcut,
 	"Shortcut",
@@ -665,6 +614,24 @@ static struct regsvr_coclass const coclass_list[] = {
 	NULL,
 	"shell32.dll",
 	"Apartment",
+    },
+    {	&CLSID_UnixFolder,
+	"/",
+	0,
+	NULL,
+	"shell32.dll",
+	"Apartment",
+	SHELLFOLDER_WANTSFORPARSING
+    },
+    {   &CLSID_UnixDosFolder,
+	"/",
+	0,
+	NULL,
+	"shell32.dll",
+	"Apartment",
+	SHELLFOLDER_WANTSFORPARSING|SHELLFOLDER_ATTRIBUTES|SHELLFOLDER_CALLFORATTRIBUTES,
+	SFGAO_FILESYSANCESTOR|SFGAO_FOLDER|SFGAO_HASSUBFOLDER,
+	SFGAO_FILESYSTEM
     },
     {	&CLSID_FolderShortcut,
 	"Foldershortcut",
@@ -692,7 +659,7 @@ static struct regsvr_coclass const coclass_list[] = {
 	NULL,
 	"shell32.dll",
 	"Apartment",
-	SHELLFOLDER_ATTRIBUTES|SHELLFOLDER_CALLFORATTRIBUTES,
+	SHELLFOLDER_ATTRIBUTES,
 	SFGAO_FOLDER|SFGAO_DROPTARGET|SFGAO_HASPROPSHEET,
 	0,
 	NULL,
@@ -721,13 +688,6 @@ static struct regsvr_coclass const coclass_list[] = {
 	"shell32.dll",
 	"Apartment"
     },
-    {   &CLSID_MenuBandSite,
-	"Menu Site",
-	0,
-	NULL,
-	"shell32.dll",
-	"Apartment"
-    },
     { NULL }			/* list terminator */
 };
 
@@ -746,14 +706,6 @@ static const WCHAR wszDesktop[] = { 'D','e','s','k','t','o','p',0 };
 static const WCHAR wszSlash[] = { '/', 0 };
 static const WCHAR wszMyDocuments[] = { 'M','y',' ','D','o','c','u','m','e','n','t','s', 0 };
 static const WCHAR wszRecycleBin[] = { 'T','r','a','s','h', 0 };
-static const WCHAR wszMyComputer[] = { 'M','y','C','o','m','p','u','t','e','r',0 };
-static const WCHAR wszControlPanel[] = { 'C','o','n','t','r','o','l','P','a','n','e','l',0 };
-static const WCHAR wszFolderOptions[] = { 'F','o','l','d','e','r',' ','O','p','t','i','o','n','s',0 };
-static const WCHAR wszNethoodFolder[] = { 'N','e','t','h','o','o','d',' ','f','o','l','d','e','r',0};
-static const WCHAR wszPrinters[] = { 'P','r','i','n','t','e','r','s',0 };
-static const WCHAR wszFonts[] = { 'F','o','n','t','s',0 };
-static const WCHAR wszAdminTools[] = { 'A','d','m','i','n','T','o','o','l','s',0 };
-const GUID CLSID_FolderOptions = { 0x6DFD7C5C, 0x2451, 0x11d3, {0xa2,0x99,0x00,0xC0,0x4F,0x8e,0xf6,0xaf} };
 
 static struct regsvr_namespace const namespace_extensions_list[] = {
 #if 0
@@ -769,39 +721,9 @@ static struct regsvr_namespace const namespace_extensions_list[] = {
         wszMyDocuments
     },
     {
-        &CLSID_NetworkPlaces,
-        wszDesktop,
-        wszNethoodFolder
-    },
-    {
         &CLSID_RecycleBin,
         wszDesktop,
         wszRecycleBin
-    },
-    {
-        &CLSID_ControlPanel,
-        wszMyComputer,
-        wszControlPanel
-    },
-    {
-        &CLSID_FolderOptions,
-        wszControlPanel,
-        wszFolderOptions
-    },
-    {
-        &CLSID_FontsFolderShortcut,
-        wszControlPanel,
-        wszFonts
-    },
-    {
-        &CLSID_Printers,
-        wszControlPanel,
-        wszPrinters
-    },
-    {
-        &CLSID_AdminFolderShortcut,
-        wszControlPanel,
-        wszAdminTools
     },
     { NULL }
 };

@@ -4,398 +4,79 @@
 #define NDEBUG
 #include <debug.h>
 
-COLORREF FASTCALL
-IntGdiSetBkColor(HDC hDC, COLORREF color)
-{
-    COLORREF oldColor;
-    PDC dc;
-    PDC_ATTR pdcattr;
-    HBRUSH hBrush;
-
-    if (!(dc = DC_LockDc(hDC)))
-    {
-        SetLastWin32Error(ERROR_INVALID_HANDLE);
-        return CLR_INVALID;
-    }
-    pdcattr = dc->pdcattr;
-    oldColor = pdcattr->crBackgroundClr;
-    pdcattr->crBackgroundClr = color;
-    pdcattr->ulBackgroundClr = (ULONG)color;
-    pdcattr->ulDirty_ &= ~(DIRTY_BACKGROUND|DIRTY_LINE|DIRTY_FILL); // Clear Flag if set.
-    hBrush = pdcattr->hbrush;
-    DC_UnlockDc(dc);
-    NtGdiSelectBrush(hDC, hBrush);
-    return oldColor;
-}
-
-INT FASTCALL
-IntGdiSetBkMode(HDC hDC, INT Mode)
-{
-    COLORREF oldMode;
-    PDC dc;
-    PDC_ATTR pdcattr;
-
-    if (!(dc = DC_LockDc(hDC)))
-    {
-        SetLastWin32Error(ERROR_INVALID_HANDLE);
-        return CLR_INVALID;
-    }
-    pdcattr = dc->pdcattr;
-    oldMode = pdcattr->lBkMode;
-    pdcattr->jBkMode = Mode;
-    pdcattr->lBkMode = Mode;
-    DC_UnlockDc(dc);
-    return oldMode;
-}
-
-UINT
-FASTCALL
-IntGdiSetTextAlign(HDC  hDC,
-                   UINT  Mode)
-{
-    UINT prevAlign;
-    DC *dc;
-    PDC_ATTR pdcattr;
-
-    dc = DC_LockDc(hDC);
-    if (!dc)
-    {
-        SetLastWin32Error(ERROR_INVALID_HANDLE);
-        return GDI_ERROR;
-    }
-    pdcattr = dc->pdcattr;
-    prevAlign = pdcattr->lTextAlign;
-    pdcattr->lTextAlign = Mode;
-    DC_UnlockDc(dc);
-    return  prevAlign;
-}
-
-COLORREF
-FASTCALL
-IntGdiSetTextColor(HDC hDC,
-                   COLORREF color)
-{
-    COLORREF crOldColor;
-    PDC pdc;
-    PDC_ATTR pdcattr;
-
-    pdc = DC_LockDc(hDC);
-    if (!pdc)
-    {
-        SetLastWin32Error(ERROR_INVALID_HANDLE);
-        return CLR_INVALID;
-    }
-    pdcattr = pdc->pdcattr;
-
-    // What about ulForegroundClr, like in gdi32?
-    crOldColor = pdcattr->crForegroundClr;
-    pdcattr->crForegroundClr = color;
-    DC_vUpdateTextBrush(pdc);
-
-    DC_UnlockDc(pdc);
-
-    return  crOldColor;
-}
-
+static
 VOID
+CopytoUserDcAttr(PDC dc, PDC_ATTR Dc_Attr, FLONG Dirty)
+{
+      Dc_Attr->hpen              = dc->Dc_Attr.hpen;
+      Dc_Attr->hbrush            = dc->Dc_Attr.hbrush;
+      Dc_Attr->hColorSpace       = dc->Dc_Attr.hColorSpace;
+      Dc_Attr->hlfntNew          = dc->Dc_Attr.hlfntNew;
+
+      Dc_Attr->jROP2             = dc->Dc_Attr.jROP2;
+      Dc_Attr->jFillMode         = dc->Dc_Attr.jFillMode;
+      Dc_Attr->jStretchBltMode   = dc->Dc_Attr.jStretchBltMode;
+      Dc_Attr->lRelAbs           = dc->Dc_Attr.lRelAbs;
+      Dc_Attr->jBkMode           = dc->Dc_Attr.jBkMode;
+
+      Dc_Attr->crBackgroundClr   = dc->Dc_Attr.crBackgroundClr;
+      Dc_Attr->ulBackgroundClr   = dc->Dc_Attr.ulBackgroundClr;
+      Dc_Attr->crForegroundClr   = dc->Dc_Attr.crForegroundClr;
+      Dc_Attr->ulForegroundClr   = dc->Dc_Attr.ulForegroundClr;
+
+      Dc_Attr->ulBrushClr        = dc->Dc_Attr.ulBrushClr;
+      Dc_Attr->crBrushClr        = dc->Dc_Attr.crBrushClr;
+
+      Dc_Attr->ulPenClr          = dc->Dc_Attr.ulPenClr;
+      Dc_Attr->crPenClr          = dc->Dc_Attr.crPenClr;
+
+      Dc_Attr->ptlBrushOrigin    = dc->Dc_Attr.ptlBrushOrigin;
+
+      Dc_Attr->lTextAlign        = dc->Dc_Attr.lTextAlign;
+      Dc_Attr->lTextExtra        = dc->Dc_Attr.lTextExtra;
+      Dc_Attr->cBreak            = dc->Dc_Attr.cBreak;
+      Dc_Attr->lBreakExtra       = dc->Dc_Attr.lBreakExtra;
+      Dc_Attr->iMapMode          = dc->Dc_Attr.iMapMode;
+      Dc_Attr->iGraphicsMode     = dc->Dc_Attr.iGraphicsMode;
+
+      Dc_Attr->ptlCurrent        = dc->Dc_Attr.ptlCurrent;
+      Dc_Attr->ptlWindowOrg      = dc->Dc_Attr.ptlWindowOrg;
+      Dc_Attr->szlWindowExt      = dc->Dc_Attr.szlWindowExt;
+      Dc_Attr->ptlViewportOrg    = dc->Dc_Attr.ptlViewportOrg;
+      Dc_Attr->szlViewportExt    = dc->Dc_Attr.szlViewportExt;
+
+      Dc_Attr->ulDirty_          = dc->Dc_Attr.ulDirty_; //Copy flags! We may have set them.
+      
+      XForm2MatrixS( &Dc_Attr->mxWorldToDevice, &dc->w.xformWorld2Vport);
+      XForm2MatrixS( &Dc_Attr->mxDevicetoWorld, &dc->w.xformVport2World);
+      XForm2MatrixS( &Dc_Attr->mxWorldToPage, &dc->w.xformWorld2Wnd);
+}
+
+
+BOOL
 FASTCALL
-DCU_SetDcUndeletable(HDC  hDC)
+DCU_SyncDcAttrtoUser(PDC dc, FLONG Dirty)
 {
-    PDC dc = DC_LockDc(hDC);
-    if (!dc)
-    {
-        SetLastWin32Error(ERROR_INVALID_HANDLE);
-        return;
-    }
+  PDC_ATTR Dc_Attr = dc->pDc_Attr;
+  if (!Dirty) return FALSE;
 
-    dc->fs |= DC_FLAG_PERMANENT;
-    DC_UnlockDc(dc);
-    return;
-}
-
-#if 0
-BOOL FASTCALL
-IntIsPrimarySurface(SURFOBJ *SurfObj)
-{
-    if (PrimarySurface.pSurface == NULL)
-    {
-        return FALSE;
-    }
-    return SurfObj->hsurf == PrimarySurface.pSurface; // <- FIXME: WTF?
-}
-#endif
-
-
-BOOL APIENTRY
-NtGdiCancelDC(HDC  hDC)
-{
-    UNIMPLEMENTED;
-    return FALSE;
-}
-
-
-WORD APIENTRY
-IntGdiSetHookFlags(HDC hDC, WORD Flags)
-{
-    WORD wRet;
-    DC *dc = DC_LockDc(hDC);
-
-    if (NULL == dc)
-    {
-        SetLastWin32Error(ERROR_INVALID_HANDLE);
-        return 0;
-    }
-
-    wRet = dc->fs & DC_FLAG_DIRTY_RAO; // Fixme wrong flag!
-
-    /* "Undocumented Windows" info is slightly confusing.
-     */
-
-    DPRINT("DC %p, Flags %04x\n", hDC, Flags);
-
-    if (Flags & DCHF_INVALIDATEVISRGN)
-    {
-        /* hVisRgn has to be updated */
-        dc->fs |= DC_FLAG_DIRTY_RAO;
-    }
-    else if (Flags & DCHF_VALIDATEVISRGN || 0 == Flags)
-    {
-        dc->fs &= ~DC_FLAG_DIRTY_RAO;
-    }
-
-    DC_UnlockDc(dc);
-
-    return wRet;
-}
-
-
-BOOL
-APIENTRY
-NtGdiGetDCDword(
-    HDC hDC,
-    UINT u,
-    DWORD *Result)
-{
-    BOOL Ret = TRUE;
-    PDC pdc;
-    PDC_ATTR pdcattr;
-
-    DWORD SafeResult = 0;
-    NTSTATUS Status = STATUS_SUCCESS;
-
-    if (!Result)
-    {
-        SetLastWin32Error(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-
-    pdc = DC_LockDc(hDC);
-    if (!pdc)
-    {
-        SetLastWin32Error(ERROR_INVALID_HANDLE);
-        return FALSE;
-    }
-    pdcattr = pdc->pdcattr;
-
-    switch (u)
-    {
-        case GdiGetJournal:
-            break;
-
-        case GdiGetRelAbs:
-            SafeResult = pdcattr->lRelAbs;
-            break;
-
-        case GdiGetBreakExtra:
-            SafeResult = pdcattr->lBreakExtra;
-            break;
-
-        case GdiGerCharBreak:
-            SafeResult = pdcattr->cBreak;
-            break;
-
-        case GdiGetArcDirection:
-            if (pdcattr->dwLayout & LAYOUT_RTL)
-                SafeResult = AD_CLOCKWISE - ((pdc->dclevel.flPath & DCPATH_CLOCKWISE) != 0);
-            else
-                SafeResult = ((pdc->dclevel.flPath & DCPATH_CLOCKWISE) != 0) + AD_COUNTERCLOCKWISE;
-            break;
-
-        case GdiGetEMFRestorDc:
-            break;
-
-        case GdiGetFontLanguageInfo:
-            SafeResult = IntGetFontLanguageInfo(pdc);
-            break;
-
-        case GdiGetIsMemDc:
-            SafeResult = pdc->dctype;
-            break;
-
-        case GdiGetMapMode:
-            SafeResult = pdcattr->iMapMode;
-            break;
-
-        case GdiGetTextCharExtra:
-            SafeResult = pdcattr->lTextExtra;
-            break;
-
-        default:
-            SetLastWin32Error(ERROR_INVALID_PARAMETER);
-            Ret = FALSE;
-            break;
-    }
-
-    if (Ret)
-    {
-        _SEH2_TRY
-        {
-            ProbeForWrite(Result, sizeof(DWORD), 1);
-            *Result = SafeResult;
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            Status = _SEH2_GetExceptionCode();
-        }
-        _SEH2_END;
-
-        if (!NT_SUCCESS(Status))
-        {
-            SetLastNtError(Status);
-            Ret = FALSE;
-        }
-    }
-
-    DC_UnlockDc(pdc);
-    return Ret;
+  if (Dc_Attr == ((PDC_ATTR)&dc->Dc_Attr)) return TRUE; // No need to copy self.
+  
+  if (!Dc_Attr) return FALSE;
+  else
+    CopytoUserDcAttr( dc, Dc_Attr, Dirty);
+  return TRUE;
 }
 
 BOOL
-APIENTRY
-NtGdiGetAndSetDCDword(
-    HDC hDC,
-    UINT u,
-    DWORD dwIn,
-    DWORD *Result)
+FASTCALL
+DCU_SynchDcAttrtoUser(HDC hDC, FLONG Dirty)
 {
-    BOOL Ret = TRUE;
-    PDC pdc;
-    PDC_ATTR pdcattr;
-
-    DWORD SafeResult = 0;
-    NTSTATUS Status = STATUS_SUCCESS;
-
-    if (!Result)
-    {
-        SetLastWin32Error(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-
-    pdc = DC_LockDc(hDC);
-    if (!pdc)
-    {
-        SetLastWin32Error(ERROR_INVALID_HANDLE);
-        return FALSE;
-    }
-    pdcattr = pdc->pdcattr;
-
-    switch (u)
-    {
-        case GdiGetSetCopyCount:
-            SafeResult = pdc->ulCopyCount;
-            pdc->ulCopyCount = dwIn;
-            break;
-
-        case GdiGetSetTextAlign:
-            SafeResult = pdcattr->lTextAlign;
-            pdcattr->lTextAlign = dwIn;
-            // pdcattr->flTextAlign = dwIn; // Flags!
-            break;
-
-        case GdiGetSetRelAbs:
-            SafeResult = pdcattr->lRelAbs;
-            pdcattr->lRelAbs = dwIn;
-            break;
-
-        case GdiGetSetTextCharExtra:
-            SafeResult = pdcattr->lTextExtra;
-            pdcattr->lTextExtra = dwIn;
-            break;
-
-        case GdiGetSetSelectFont:
-            break;
-
-        case GdiGetSetMapperFlagsInternal:
-            if (dwIn & ~1)
-            {
-                SetLastWin32Error(ERROR_INVALID_PARAMETER);
-                Ret = FALSE;
-                break;
-            }
-            SafeResult = pdcattr->flFontMapper;
-            pdcattr->flFontMapper = dwIn;
-            break;
-
-        case GdiGetSetMapMode:
-            SafeResult = IntGdiSetMapMode(pdc, dwIn);
-            break;
-
-        case GdiGetSetArcDirection:
-            if (dwIn != AD_COUNTERCLOCKWISE && dwIn != AD_CLOCKWISE)
-            {
-                SetLastWin32Error(ERROR_INVALID_PARAMETER);
-                Ret = FALSE;
-                break;
-            }
-            if (pdcattr->dwLayout & LAYOUT_RTL) // Right to Left
-            {
-                SafeResult = AD_CLOCKWISE - ((pdc->dclevel.flPath & DCPATH_CLOCKWISE) != 0);
-                if (dwIn == AD_CLOCKWISE)
-                {
-                    pdc->dclevel.flPath &= ~DCPATH_CLOCKWISE;
-                    break;
-                }
-                pdc->dclevel.flPath |= DCPATH_CLOCKWISE;
-            }
-            else // Left to Right
-            {
-                SafeResult = ((pdc->dclevel.flPath & DCPATH_CLOCKWISE) != 0) +
-                             AD_COUNTERCLOCKWISE;
-                if (dwIn == AD_COUNTERCLOCKWISE)
-                {
-                    pdc->dclevel.flPath &= ~DCPATH_CLOCKWISE;
-                    break;
-                }
-                pdc->dclevel.flPath |= DCPATH_CLOCKWISE;
-            }
-            break;
-
-        default:
-            SetLastWin32Error(ERROR_INVALID_PARAMETER);
-            Ret = FALSE;
-            break;
-    }
-
-    if (Ret)
-    {
-        _SEH2_TRY
-        {
-            ProbeForWrite(Result, sizeof(DWORD), 1);
-            *Result = SafeResult;
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            Status = _SEH2_GetExceptionCode();
-        }
-        _SEH2_END;
-
-        if (!NT_SUCCESS(Status))
-        {
-            SetLastNtError(Status);
-            Ret = FALSE;
-        }
-    }
-
-    DC_UnlockDc(pdc);
-    return Ret;
+  PDC pDC = DC_LockDc ( hDC );
+  if (!pDC) return FALSE;
+  BOOL Ret = DCU_SyncDcAttrtoUser(pDC, Dirty);
+  DC_UnlockDc( pDC );
+  return Ret;
 }
+
+

@@ -161,7 +161,7 @@ ULONG CDECL WLDAP32_ber_first_element( BerElement *berelement, ULONG *len, CHAR 
  * Flatten a berelement structure into a berval structure.
  *
  * PARAMS
- *  berelement [I] Pointer to a berelement structure.
+ *  berlement [I] Pointer to a berelement structure.
  *  berval    [O] Pointer to a berval structure.
  *
  * RETURNS
@@ -187,7 +187,7 @@ INT CDECL WLDAP32_ber_flatten( BerElement *berelement, PBERVAL *berval )
  * Free a berelement structure.
  *
  * PARAMS
- *  berelement [I] Pointer to the berelement structure to be freed.
+ *  berlement [I] Pointer to the berelement structure to be freed.
  *  buf       [I] Flag.
  *
  * RETURNS
@@ -245,7 +245,7 @@ BerElement * CDECL WLDAP32_ber_init( BERVAL *berval )
  *  Failure: LBER_DEFAULT (no more data).
  *
  * NOTES
- *  len and cookie are initialized by ber_first_element and should
+ *  len and cookie are intitialised by ber_first_element and should
  *  be passed on in subsequent calls to ber_next_element.
  */
 ULONG CDECL WLDAP32_ber_next_element( BerElement *berelement, ULONG *len, CHAR *opaque )
@@ -315,7 +315,7 @@ ULONG CDECL WLDAP32_ber_skip_tag( BerElement *berelement, ULONG *len )
  *  ...        [I]   Values to encode.
  *
  * RETURNS
- *  Success: Non-negative number. 
+ *  Success: Non-negative number.
  *  Failure: LBER_ERROR
  *
  * NOTES
@@ -325,12 +325,12 @@ ULONG CDECL WLDAP32_ber_skip_tag( BerElement *berelement, ULONG *len )
 INT CDECL WLDAP32_ber_printf( BerElement *berelement, PCHAR fmt, ... )
 {
 #ifdef HAVE_LDAP
-    __ms_va_list list;
+    va_list list;
     int ret = 0;
     char new_fmt[2];
 
     new_fmt[1] = 0;
-    __ms_va_start( list, fmt );
+    va_start( list, fmt );
     while (*fmt)
     {
         new_fmt[0] = *fmt++;
@@ -391,7 +391,7 @@ INT CDECL WLDAP32_ber_printf( BerElement *berelement, PCHAR fmt, ... )
         }
         if (ret == -1) break;
     }
-    __ms_va_end( list );
+    va_end( list );
     return ret;
 #else
     return LBER_ERROR;
@@ -410,7 +410,7 @@ INT CDECL WLDAP32_ber_printf( BerElement *berelement, PCHAR fmt, ... )
  *  ...        [I]   Pointers to values to be decoded.
  *
  * RETURNS
- *  Success: Non-negative number. 
+ *  Success: Non-negative number.
  *  Failure: LBER_ERROR
  *
  * NOTES
@@ -420,12 +420,12 @@ INT CDECL WLDAP32_ber_printf( BerElement *berelement, PCHAR fmt, ... )
 INT CDECL WLDAP32_ber_scanf( BerElement *berelement, PCHAR fmt, ... )
 {
 #ifdef HAVE_LDAP
-    __ms_va_list list;
+    va_list list;
     int ret = 0;
     char new_fmt[2];
 
     new_fmt[1] = 0;
-    __ms_va_start( list, fmt );
+    va_start( list, fmt );
     while (*fmt)
     {
         new_fmt[0] = *fmt++;
@@ -491,7 +491,7 @@ INT CDECL WLDAP32_ber_scanf( BerElement *berelement, PCHAR fmt, ... )
         }
         if (ret == -1) break;
     }
-    __ms_va_end( list );
+    va_end( list );
     return ret;
 #else
     return LBER_ERROR;

@@ -55,11 +55,9 @@ _mesa_LineWidth( GLfloat width )
 
    FLUSH_VERTICES(ctx, _NEW_LINE);
    ctx->Line.Width = width;
-
-   if (width != 1.0F)
-      ctx->_TriangleCaps |= DD_LINE_WIDTH;
-   else
-      ctx->_TriangleCaps &= ~DD_LINE_WIDTH;
+   ctx->Line._Width = CLAMP(width,
+			    ctx->Const.MinLineWidth,
+			    ctx->Const.MaxLineWidth);
 
    if (ctx->Driver.LineWidth)
       ctx->Driver.LineWidth(ctx, width);
@@ -107,12 +105,13 @@ _mesa_LineStipple( GLint factor, GLushort pattern )
  * Initializes __GLcontextRec::Line and line related constants in
  * __GLcontextRec::Const.
  */
-void GLAPIENTRY
-_mesa_init_line( GLcontext * ctx )
+void GLAPIENTRY _mesa_init_line( GLcontext * ctx )
 {
+   /* Line group */
    ctx->Line.SmoothFlag = GL_FALSE;
    ctx->Line.StippleFlag = GL_FALSE;
    ctx->Line.Width = 1.0;
+   ctx->Line._Width = 1.0;
    ctx->Line.StipplePattern = 0xffff;
    ctx->Line.StippleFactor = 1;
 }

@@ -41,7 +41,7 @@ NotifyClient(
     Wave Output
 */
 
-DWORD APIENTRY
+APIENTRY DWORD
 wodMessage(
     DWORD device_id,
     DWORD message,

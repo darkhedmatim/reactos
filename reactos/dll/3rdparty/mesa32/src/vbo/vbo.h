@@ -32,7 +32,7 @@
 #ifndef _VBO_H
 #define _VBO_H
 
-#include "main/mtypes.h"
+#include "mtypes.h"
 
 struct _mesa_prim {
    GLuint mode:8;
@@ -112,9 +112,6 @@ void vbo_rebase_prims( GLcontext *ctx,
 		       GLuint min_index,
 		       GLuint max_index,
 		       vbo_draw_func draw );
-
-
-void vbo_use_buffer_objects(GLcontext *ctx);
 
 
 #endif

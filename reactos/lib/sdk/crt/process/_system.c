@@ -14,7 +14,6 @@
 #include <string.h>
 #include <process.h>
 
-
 /*
  * @implemented
  */
@@ -108,14 +107,8 @@ int system(const char *command)
   CloseHandle(ProcessInformation.hThread);
 
 // system should wait untill the calling process is finished
-  _cwait(&nStatus,(intptr_t)ProcessInformation.hProcess,0);
+  _cwait(&nStatus,(int)ProcessInformation.hProcess,0);
   CloseHandle(ProcessInformation.hProcess);
 
   return nStatus;
-}
-
-int CDECL _wsystem(const wchar_t* cmd)
-{
-    FIXME("_wsystem stub\n");
-    return -1;
 }

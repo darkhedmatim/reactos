@@ -38,26 +38,44 @@
 /*
  * get a character out-of-band and honor Ctrl-Break characters
  */
-TCHAR
-cgetchar (VOID)
+TCHAR cgetchar (VOID)
 {
 	HANDLE hInput = GetStdHandle (STD_INPUT_HANDLE);
 	INPUT_RECORD irBuffer;
 	DWORD  dwRead;
-
+/*
 	do
 	{
 		ReadConsoleInput (hInput, &irBuffer, 1, &dwRead);
 		if ((irBuffer.EventType == KEY_EVENT) &&
 			(irBuffer.Event.KeyEvent.bKeyDown == TRUE))
 		{
+			if ((irBuffer.Event.KeyEvent.dwControlKeyState &
+				 (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED)) &
+				(irBuffer.Event.KeyEvent.wVirtualKeyCode == 'C'))
+				bCtrlBreak = TRUE;
+
+			break;
+		}
+	}
+	while (TRUE);
+*/
+	do
+ 	{
+ 		ReadConsoleInput (hInput, &irBuffer, 1, &dwRead);
+
+		if (irBuffer.EventType == KEY_EVENT)
+ 		{
 			if (irBuffer.Event.KeyEvent.dwControlKeyState &
 				 (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED))
 			{
 				if (irBuffer.Event.KeyEvent.wVirtualKeyCode == 'C')
 				{
-					bCtrlBreak = TRUE;
-					break;
+//					if (irBuffer.Event.KeyEvent.bKeyDown == TRUE)
+//					{
+						bCtrlBreak = TRUE;
+						break;
+//					}
 				}
 			}
 			else if ((irBuffer.Event.KeyEvent.wVirtualKeyCode == VK_SHIFT) ||
@@ -135,7 +153,6 @@ VOID GetPathCase( TCHAR * Path, TCHAR * OutPath)
 BOOL CheckCtrlBreak (INT mode)
 {
 	static BOOL bLeaveAll = FALSE; /* leave all batch files */
-	TCHAR options[4]; /* Yes, No, All */
 	TCHAR c;
 
 	switch (mode)
@@ -151,22 +168,18 @@ BOOL CheckCtrlBreak (INT mode)
 			if (!bCtrlBreak)
 				return FALSE;
 
-			LoadString(CMD_ModuleHandle, STRING_COPY_OPTION, options, 4);
-
 			/* we need to be sure the string arrives on the screen! */
 			do
-			{
-				ConOutResPuts(STRING_CANCEL_BATCH_FILE);
-				c = _totupper(cgetchar());
-			} while (!(_tcschr(options, c) || c == _T('\3')) || !c);
+				ConOutPuts (_T("\r\nCtrl-Break pressed.  Cancel batch file? (Yes/No/All) "));
+			while (!_tcschr (_T("YNA\3"), c = _totupper (cgetchar())) || !c);
 
 			ConOutPuts (_T("\r\n"));
 
-			if (c == options[1])
+			if (c == _T('N'))
 				return bCtrlBreak = FALSE; /* ignore */
 
 			/* leave all batch files */
-			bLeaveAll = ((c == options[2]) || (c == _T('\3')));
+			bLeaveAll = ((c == _T('A')) || (c == _T('\3')));
 			break;
 
 		case BREAK_INPUT:
@@ -282,6 +295,7 @@ LPTSTR *split (LPTSTR s, LPINT args, BOOL expand_wildcards)
 	LPTSTR q;
 	INT  ac;
 	INT  len;
+	BOOL bQuoted = FALSE;
 
 	arg = cmd_alloc (sizeof (LPTSTR));
 	if (!arg)
@@ -291,11 +305,16 @@ LPTSTR *split (LPTSTR s, LPINT args, BOOL expand_wildcards)
 	ac = 0;
 	while (*s)
 	{
-		BOOL bQuoted = FALSE;
-
 		/* skip leading spaces */
 		while (*s && (_istspace (*s) || _istcntrl (*s)))
 			++s;
+
+		/* if quote (") then set bQuoted */
+		if (*s == _T('\"'))
+		{
+			++s;
+			bQuoted = TRUE;
+		}
 
 		start = s;
 
@@ -304,11 +323,15 @@ LPTSTR *split (LPTSTR s, LPINT args, BOOL expand_wildcards)
 			++s;
 
 		/* skip to next word delimiter or start of next option */
-		while (_istprint(*s) && (bQuoted || (!_istspace(*s) && *s != _T('/'))))
+		if (bQuoted)
 		{
-			/* if quote (") then set bQuoted */
-			bQuoted ^= (*s == _T('\"'));
-			++s;
+			while (_istprint (*s) && (*s != _T('\"')) && (*s != _T('/')))
+				++s;
+		}
+		else
+		{
+			while (_istprint (*s) && !_istspace (*s) && (*s != _T('/')))
+				++s;
 		}
 
 		/* a word was found */
@@ -321,7 +344,6 @@ LPTSTR *split (LPTSTR s, LPINT args, BOOL expand_wildcards)
 			}
 			memcpy (q, start, len * sizeof (TCHAR));
 			q[len] = _T('\0');
-			StripQuotes(q);
 			if (expand_wildcards && _T('/') != *start &&
 			    (NULL != _tcschr(q, _T('*')) || NULL != _tcschr(q, _T('?'))))
 			{
@@ -343,67 +365,18 @@ LPTSTR *split (LPTSTR s, LPINT args, BOOL expand_wildcards)
 			}
 			cmd_free (q);
 		}
-	}
 
-	*args = ac;
-
-	return arg;
-}
-
-/* splitspace() is a function which uses JUST spaces as delimeters. split() uses "/" AND spaces.
- * The way it works is real similar to split(), search the difference ;)
- * splitspace is needed for commands such as "move" where paths as C:\this/is\allowed/ are allowed
- */
-LPTSTR *splitspace (LPTSTR s, LPINT args)
-{
-	LPTSTR *arg;
-	LPTSTR start;
-	LPTSTR q;
-	INT  ac;
-	INT  len;
-
-	arg = cmd_alloc (sizeof (LPTSTR));
-	if (!arg)
-		return NULL;
-	*arg = NULL;
-
-	ac = 0;
-	while (*s)
-	{
-		BOOL bQuoted = FALSE;
-
-		/* skip leading spaces */
-		while (*s && (_istspace (*s) || _istcntrl (*s)))
-			++s;
-
-		start = s;
-
-		/* skip to next word delimiter or start of next option */
-		while (_istprint(*s) && (bQuoted || !_istspace(*s)))
+		/* adjust string pointer if quoted (") */
+		if (bQuoted)
 		{
-			/* if quote (") then set bQuoted */
-			bQuoted ^= (*s == _T('\"'));
+      /* Check to make sure if there is no ending "
+       * we dont run over the null char */
+      if(*s == _T('\0'))
+      {
+        break;
+      }
 			++s;
-		}
-
-		/* a word was found */
-		if (s != start)
-		{
-			q = cmd_alloc (((len = s - start) + 1) * sizeof (TCHAR));
-			if (!q)
-			{
-				return NULL;
-			}
-			memcpy (q, start, len * sizeof (TCHAR));
-			q[len] = _T('\0');
-			StripQuotes(q);
-			if (! add_entry(&ac, &arg, q))
-			{
-				cmd_free (q);
-				freep (arg);
-				return NULL;
-			}
-			cmd_free (q);
+			bQuoted = FALSE;
 		}
 	}
 
@@ -411,6 +384,7 @@ LPTSTR *splitspace (LPTSTR s, LPINT args)
 
 	return arg;
 }
+
 
 /*
  * freep -- frees memory used for a call to split
@@ -435,18 +409,6 @@ LPTSTR _stpcpy (LPTSTR dest, LPCTSTR src)
 {
 	_tcscpy (dest, src);
 	return (dest + _tcslen (src));
-}
-
-VOID
-StripQuotes(TCHAR *in)
-{
-	TCHAR *out = in;
-	for (; *in; in++)
-	{
-		if (*in != _T('"'))
-			*out++ = *in;
-	}
-	*out = _T('\0');
 }
 
 
@@ -490,27 +452,27 @@ BOOL IsExistingDirectory (LPCTSTR pszPath)
 BOOL FileGetString (HANDLE hFile, LPTSTR lpBuffer, INT nBufferLength)
 {
 	LPSTR lpString;
+	CHAR ch;
 	DWORD  dwRead;
-	INT len = 0;
+	INT len;
 #ifdef _UNICODE
 	lpString = cmd_alloc(nBufferLength);
 #else
 	lpString = lpBuffer;
 #endif
-
-	if (ReadFile(hFile, lpString, nBufferLength - 1, &dwRead, NULL))
+	len = 0;
+	while ((--nBufferLength >  0) &&
+		   ReadFile(hFile, &ch, 1, &dwRead, NULL) && dwRead)
 	{
-		/* break at new line*/
-		CHAR *end = memchr(lpString, '\n', dwRead);
-		len = dwRead;
-		if (end)
+        lpString[len++] = ch;
+        if ((ch == _T('\n')) || (ch == _T('\r')))
 		{
-			len = (end - lpString) + 1;
-			SetFilePointer(hFile, len - dwRead, NULL, FILE_CURRENT);
+			/* break at new line*/
+			break;
 		}
 	}
 
-	if (!len)
+	if (!dwRead && !len)
 	{
 #ifdef _UNICODE
 		cmd_free(lpString);
@@ -518,9 +480,9 @@ BOOL FileGetString (HANDLE hFile, LPTSTR lpBuffer, INT nBufferLength)
 		return FALSE;
 	}
 
-	lpString[len++] = '\0';
+	lpString[len++] = _T('\0');
 #ifdef _UNICODE
-	MultiByteToWideChar(OutputCodePage, 0, lpString, -1, lpBuffer, len);
+	MultiByteToWideChar(CP_ACP, 0, lpString, len, lpBuffer, len);
 	cmd_free(lpString);
 #endif
 	return TRUE;
@@ -558,17 +520,22 @@ INT PagePrompt (VOID)
 }
 
 
-INT FilePromptYN (UINT resID)
+INT FilePromptYN (LPTSTR szFormat, ...)
 {
 	TCHAR szMsg[RC_STRING_MAX_SIZE];
+	TCHAR szOut[512];
+	va_list arg_ptr;
 //	TCHAR cKey = 0;
 //	LPTSTR szKeys = _T("yna");
 
 	TCHAR szIn[10];
 	LPTSTR p;
 
-	if (resID != 0)
-		ConOutResPrintf (resID);
+	va_start (arg_ptr, szFormat);
+	_vstprintf (szOut, szFormat, arg_ptr);
+	va_end (arg_ptr);
+
+	ConOutPrintf (szFormat);
 
 	/* preliminary fix */
 	ConInString (szIn, 10);
@@ -623,17 +590,22 @@ INT FilePromptYN (UINT resID)
 }
 
 
-INT FilePromptYNA (UINT resID)
+INT FilePromptYNA (LPTSTR szFormat, ...)
 {
 	TCHAR szMsg[RC_STRING_MAX_SIZE];
+	TCHAR szOut[512];
+	va_list arg_ptr;
 //	TCHAR cKey = 0;
 //	LPTSTR szKeys = _T("yna");
 
 	TCHAR szIn[10];
 	LPTSTR p;
 
-	if (resID != 0)
-		ConOutResPrintf (resID);
+	va_start (arg_ptr, szFormat);
+	_vstprintf (szOut, szFormat, arg_ptr);
+	va_end (arg_ptr);
+
+	ConOutPrintf (szFormat);
 
 	/* preliminary fix */
 	ConInString (szIn, 10);

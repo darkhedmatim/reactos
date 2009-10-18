@@ -15,7 +15,7 @@
 * @name DxDxgGenericThunk
 * @implemented
 *
-* The function DxDxgGenericThunk redirects DirectX calls to other functions.
+* The function DxDxgGenericThunk redirect dx call to other thing.
 *
 * @param ULONG_PTR ulIndex
 * The functions we want redirct
@@ -36,14 +36,14 @@
 * Unknown
 *
 * @return 
-* Always returns DDHAL_DRIVER_NOTHANDLED
+* always return DDHAL_DRIVER_NOTHANDLED
 *
 * @remarks.
-* This function is no longer used in Windows NT 2000/XP/2003
+* This api are not longer use in Windows NT 2000/XP/2003
 *
 *--*/
 DWORD
-NTAPI
+STDCALL
 DxDxgGenericThunk(ULONG_PTR ulIndex,
                   ULONG_PTR ulHandle,
                   SIZE_T *pdwSizeOfPtr1,
@@ -59,7 +59,7 @@ DxDxgGenericThunk(ULONG_PTR ulIndex,
 * @name DxDdIoctl
 * @implemented
 *
-* The function DxDdIoctl is the ioctl call to diffent DirectX functions 
+* The function DxDdIoctl is the ioctl call to diffent dx functions 
 *
 * @param ULONG ulIoctl
 * The ioctl code that we want call to
@@ -71,14 +71,14 @@ DxDxgGenericThunk(ULONG_PTR ulIndex,
 * The buffer size in bytes
 *
 * @return 
-* Always returns DDERR_UNSUPPORTED
+* always return DDERR_UNSUPPORTED
 *
 * @remarks.
-* This function is no longer used in Windows NT 2000/XP/2003
+* This api are not longer use in Windows NT 2000/XP/2003
 *
 *--*/
 DWORD
-NTAPI
+STDCALL
 DxDdIoctl(ULONG ulIoctl,
           PVOID pBuffer,
           ULONG ulBufferSize)

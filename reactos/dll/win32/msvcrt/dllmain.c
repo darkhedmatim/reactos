@@ -22,14 +22,15 @@
 
 #include <precomp.h>
 #include <internal/wine/msvcrt.h>
-#include <locale.h>
-#include <mbctype.h>
 
-#include "wine/debug.h"
-WINE_DEFAULT_DEBUG_CHANNEL(msvcrt);
+#define NDEBUG
+#include <internal/debug.h>
+
 
 /* EXTERNAL PROTOTYPES ********************************************************/
 
+//void __fileno_init(void);
+extern BOOL __fileno_init(void);
 extern int BlockEnvToEnvironA(void);
 extern int BlockEnvToEnvironW(void);
 extern void FreeEnvironment(char **environment);
@@ -57,24 +58,24 @@ HANDLE hHeap = NULL;        /* handle for heap */
 /* LIBRARY ENTRY POINT ********************************************************/
 
 BOOL
-WINAPI
+STDCALL
 DllMain(PVOID hinstDll, ULONG dwReason, PVOID reserved)
 {
-    OSVERSIONINFOW osvi;
     switch (dwReason)
     {
     case DLL_PROCESS_ATTACH://1
         /* initialize version info */
         //DPRINT1("Process Attach %d\n", nAttachCount);
         //DPRINT1("Process Attach\n");
-        osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOW);
-        GetVersionExW( &osvi );
-        _winver     = (osvi.dwMajorVersion << 8) | osvi.dwMinorVersion;
-        _winmajor   = osvi.dwMajorVersion;
-        _winminor   = osvi.dwMinorVersion;
-        _osver      = osvi.dwBuildNumber;
+        _osver = GetVersion();
+        _winmajor = (_osver >> 8) & 0xFF;
+        _winminor = _osver & 0xFF;
+        _winver = (_winmajor << 8) + _winminor;
+        _osver = (_osver >> 16) & 0xFFFF;
         hHeap = HeapCreate(0, 100000, 0);
         if (hHeap == NULL)
+            return FALSE;
+        if (!__fileno_init())
             return FALSE;
 
         /* create tls stuff */
@@ -95,32 +96,25 @@ DllMain(PVOID hinstDll, ULONG dwReason, PVOID reserved)
 
         /* FIXME: more initializations... */
 
-        /* Initialization of the WINE code */
+        /* FIXME: Initialization of the WINE code */
         msvcrt_init_mt_locks();
-        msvcrt_init_io();
-        setlocale(0, "C");
-        //_setmbcp(_MB_CP_LOCALE);
 
-        TRACE("Attach done\n");
+        DPRINT("Attach done\n");
         break;
 
-    case DLL_THREAD_ATTACH:
+    case DLL_THREAD_ATTACH://2
         break;
 
-    case DLL_THREAD_DETACH:
+    case DLL_THREAD_DETACH://4
         FreeThreadData(NULL);
         break;
 
-    case DLL_PROCESS_DETACH:
+    case DLL_PROCESS_DETACH://0
         //DPRINT1("Detach %d\n", nAttachCount);
         //DPRINT("Detach\n");
         /* FIXME: more cleanup... */
-        /* Deinit of the WINE code */
-        msvcrt_free_io();
-        msvcrt_free_mt_locks();
-
+        _fcloseall();
         _atexit_cleanup();
-
 
         /* destroy tls stuff */
         DestroyThreadData();
@@ -138,7 +132,7 @@ DllMain(PVOID hinstDll, ULONG dwReason, PVOID reserved)
         /* destroy heap */
         HeapDestroy(hHeap);
 
-        TRACE("Detach done\n");
+        DPRINT("Detach done\n");
         break;
     }
 

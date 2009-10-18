@@ -21,17 +21,17 @@
 #include <freeldr.h>
 #include <elf/elf.h>
 #include <elf/reactos.h>
-#include <of.h>
+#include <of_call.h>
+#include "ppcboot.h"
 #include "ppcmmu/mmu.h"
 #include "compat.h"
+#include "ppcfont.h"
 
 #define NDEBUG
 #include <debug.h>
 
-/* We'll check this to see if we're in OFW land */
-extern of_proxy ofproxy;
-
 PVOID KernelMemory = 0;
+extern boot_infos_t BootInfo;
 
 /* Bits to shift to convert a Virtual Address into an Offset in the Page Table */
 #define PFN_SHIFT 12
@@ -51,6 +51,13 @@ PVOID KernelMemory = 0;
 #define HyperspacePageTableIndex    (HYPERSPACE_BASE >> 22)
 #define KpcrPageTableIndex          (KPCR_BASE >> 22)
 #define ApicPageTableIndex          (APIC_BASE >> 22)
+
+#define LowMemPageTableIndexPae     0
+#define StartupPageTableIndexPae    (STARTUP_BASE >> 21)
+#define HyperspacePageTableIndexPae (HYPERSPACE_PAE_BASE >> 21)
+#define KpcrPageTableIndexPae       (KPCR_BASE >> 21)
+#define ApicPageTableIndexPae       (APIC_BASE >> 21)
+
 
 #define BAT_GRANULARITY             (64 * 1024)
 #define KernelMemorySize            (8 * 1024 * 1024)
@@ -122,43 +129,16 @@ typedef struct _ppc_map_set_t {
     ppc_map_info_t *info;
 } ppc_map_set_t;
 
-extern int mmu_handle;
-paddr_t MmuTranslate(paddr_t possibly_virtual)
-{
-    if (ofproxy)
-    {
-        /* Openfirmware takes liberties with boot-time memory.
-         * if you're in a unitary kernel, it's not as difficult, but since
-         * we rely on loading things into virtual space from here, we need
-         * to detect the mappings so far.
-         */
-        int args[2];
-        args[0] = possibly_virtual;
-        args[1] = 1; /* Marker to tell we want a physical addr */
-        return (paddr_t)ofw_callmethod_ret("translate", mmu_handle, 2, args, 3);
-    }
-    else
-    {
-        /* Other booters don't remap ram */
-        return possibly_virtual;
-    }
-}
-
 VOID
 NTAPI
 FrLdrAddPageMapping(ppc_map_set_t *set, int proc, paddr_t phys, vaddr_t virt)
 {
     int j;
     paddr_t page = ROUND_DOWN(phys, (1<<PFN_SHIFT));
-
     if (virt == 0)
-        virt = ROUND_DOWN(page, (1<<PFN_SHIFT));
+        virt = page;
     else
         virt = ROUND_DOWN(virt, (1<<PFN_SHIFT));
-
-    page = MmuTranslate(page);
-
-    //printf("Mapping virt [%x] to phys [%x (from) %x]\n", virt, page, phys);
 
     for( j = 0; j < set->usecount; j++ )
     {
@@ -186,95 +166,87 @@ FrLdrAddPageMapping(ppc_map_set_t *set, int proc, paddr_t phys, vaddr_t virt)
     set->usecount++;
 }
 
-extern int _start[], _end[];
-
 VOID
 NTAPI
 FrLdrStartup(ULONG Magic)
 {
-    ULONG_PTR i, tmp, OldModCount = 0;
+    ULONG_PTR i, tmp;
     PCHAR ModHeader;
-    CHAR ModulesTreated[64] = { 0 };
-    ULONG NumberOfEntries = 0, UsedEntries = 0;
-    PPAGE_LOOKUP_TABLE_ITEM FreeLdrMap = MmGetMemoryMap(&NumberOfEntries);
+    boot_infos_t *LocalBootInfo = &BootInfo;
+    LocalBootInfo->dispFont = (font_char *)&LocalBootInfo[1];
+    LoaderBlock.ArchExtra = (ULONG)LocalBootInfo;
     ppc_map_set_t memmap = { };
 
-    printf("FrLdrStartup\n");
-
-    /* Disable EE */
-    __asm__("mfmsr %0" : "=r" (tmp));
-    tmp &= 0x7fff;
-    __asm__("mtmsr %0" : : "r" (tmp));
-
-    while(OldModCount != LoaderBlock.ModsCount)
+    for(i = 0; i < LoaderBlock.ModsCount; i++)
     {
-        printf("Added %d modules last pass\n", 
-               LoaderBlock.ModsCount - OldModCount);
-
-        OldModCount = LoaderBlock.ModsCount;
-
-        for(i = 0; i < LoaderBlock.ModsCount; i++)
+	ModHeader = ((PCHAR)reactos_modules[i].ModStart);
+	if(ModHeader[0] == 'M' && ModHeader[1] == 'Z')
+	    LdrPEFixupImports
+		((PVOID)reactos_modules[i].ModStart,
+		 (PCHAR)reactos_modules[i].String);
+        else /* Make RVA */
         {
-            if (!ModulesTreated[i])
-            {
-                ModulesTreated[i] = 1;
-                ModHeader = ((PCHAR)reactos_modules[i].ModStart);
-                if(ModHeader[0] == 'M' && ModHeader[1] == 'Z')
-                    LdrPEFixupImports
-                        ((PVOID)reactos_modules[i].ModStart,
-                         (PCHAR)reactos_modules[i].String);
-            }
-        }        
-    }
-
-    printf("Starting mmu\n");
-
-    PpcInitializeMmu(0);
-
-    printf("Allocating vsid 0 (kernel)\n");
-    MmuAllocVsid(0, 0xff00);
-    
-    /* We'll use vsid 1 for freeldr (expendable) */
-    printf("Allocating vsid 1 (freeldr)\n");
-    MmuAllocVsid(1, 0xff);
-
-    printf("Mapping Freeldr Code (%x-%x)\n", _start, _end);
-
-    /* Map memory zones */
-    /* Freeldr itself */
-    for( i = (int)_start;
-         i < (int)_end;
-         i += (1<<PFN_SHIFT) ) {
-        FrLdrAddPageMapping(&memmap, 1, i, 0);
-    }
-    
-    printf("KernelBase %x\n", KernelBase);
-
-    /* Heap pages -- this gets the entire freeldr heap */
-    for( i = 0; i < NumberOfEntries; i++ ) {
-        tmp = i<<PFN_SHIFT;
-        if (FreeLdrMap[i].PageAllocated == LoaderSystemCode) {
-            UsedEntries++;
-            if (tmp >= (ULONG)KernelMemory && 
-                tmp <  (ULONG)KernelMemory + KernelMemorySize) {
-                FrLdrAddPageMapping(&memmap, 0, tmp, KernelBase + tmp - (ULONG)KernelMemory);
-            } else {
-                FrLdrAddPageMapping(&memmap, 1, tmp, 0);
-            }
+            reactos_modules[i].ModStart -= (ULONG_PTR)KernelMemory;
+            reactos_modules[i].ModEnd   -= (ULONG_PTR)KernelMemory;
         }
     }
 
-    MmuMapPage(memmap.info, memmap.usecount);
+    /* We don't use long longs, but longs for the addresses in the 
+     * ADDRESS_RANGE structure.  Swap the quad halves of our memory
+     * map.
+     */
+    for( i = 0; 
+         i < reactos_memory_map_descriptor_size / sizeof(reactos_memory_map[0]); 
+         i++ )
+    {
+        tmp = reactos_memory_map[i].base_addr_high;
+        reactos_memory_map[i].base_addr_high = reactos_memory_map[i].base_addr_low;
+        reactos_memory_map[i].base_addr_low = tmp;
+        tmp = reactos_memory_map[i].length_high;
+        reactos_memory_map[i].length_high = reactos_memory_map[i].length_low;
+        reactos_memory_map[i].length_low = tmp;
+    }
 
-    printf("Finished Mapping the Freeldr Heap (used %d pages)\n", UsedEntries);
+    printf("PpcInitializeMmu\n");
+    PpcInitializeMmu(0);
+    printf("PpcInitializeMmu done\n");
 
-    printf("Setting initial segments\n");
+    /* We'll use vsid 1 for freeldr (expendable) */
+    MmuAllocVsid(1, 0xff);
     MmuSetVsid(0, 8, 1);
+
+    MmuAllocVsid(0, 0xff00);
     MmuSetVsid(8, 16, 0);
 
-    printf("Segments set!\n");
+    /* Map kernel space 0x80000000 ... */
+    for( i = (ULONG)KernelMemory;
+	 i < (ULONG)KernelMemory + KernelMemorySize;
+	 i += (1<<PFN_SHIFT) ) {
+        
+        FrLdrAddPageMapping(&memmap, 0, i, KernelBase + i - (ULONG)KernelMemory);
+    }
 
-    MmuTurnOn((KernelEntryFn)KernelEntryPoint, &LoaderBlock);
+    /* Map device data */
+    for (i = (ULONG)BootInfo.machine; 
+         i < (ULONG)PpcDevTreeSiblingNode(BootInfo.machine);
+         i += (1<<PFN_SHIFT) )
+    {
+        FrLdrAddPageMapping(&memmap, 0, i, 0);
+    }
+
+    /* Map module name strings */
+    for( i = 0; i < LoaderBlock.ModsCount; i++ )
+    {
+        FrLdrAddPageMapping(&memmap, 1, (ULONG)reactos_modules[i].String, 0);
+    }
+
+    /* Map memory zones */
+    FrLdrAddPageMapping(&memmap, 1, (vaddr_t)&reactos_memory_map_descriptor_size, 0);
+    FrLdrAddPageMapping(&memmap, 1, (vaddr_t)&LoaderBlock, 0);
+
+    MmuMapPage(memmap.info, memmap.usecount);
+
+    MmuTurnOn((KernelEntryFn)KernelEntryPoint, (void*)&LoaderBlock);
 
     /* Nothing more */
     while(1);
@@ -326,10 +298,10 @@ FrLdrGetKernelBase(VOID)
     PCHAR p;
 
     /* Default kernel base at 2GB */
-    KernelBase = 0x80800000;
+    KernelBase = 0x80000000;
 
     /* Set KernelBase */
-    LoaderBlock.KernelBase = 0x80000000;
+    LoaderBlock.KernelBase = KernelBase;
 
     /* Read Command Line */
     p = (PCHAR)LoaderBlock.CommandLine;
@@ -459,7 +431,7 @@ FrLdrMapModule(FILE *KernelImage, PCHAR ImageName, PCHAR MemLoadAddr, ULONG Kern
     phnum = ehdr.e_phnum;
     shsize = ehdr.e_shentsize;
     shnum = ehdr.e_shnum;
-    sptr = (PCHAR)MmHeapAlloc(shnum * shsize);
+    sptr = (PCHAR)MmAllocateMemory(shnum * shsize);
 
     /* Read section headers */
     FsSetFilePointer(KernelImage,  ehdr.e_shoff);
@@ -560,14 +532,14 @@ FrLdrMapModule(FILE *KernelImage, PCHAR ImageName, PCHAR MemLoadAddr, ULONG Kern
 
 	if (!ELF_SECTION(targetSection)->sh_addr) continue;
 
-	RelocSection = MmHeapAlloc(shdr->sh_size);
+	RelocSection = MmAllocateMemory(shdr->sh_size);
 	FsSetFilePointer(KernelImage, relstart);
 	FsReadFile(KernelImage, shdr->sh_size, NULL, RelocSection);
 
 	/* Get the symbol section */
 	shdr = ELF_SECTION(shdr->sh_link);
 
-	SymbolSection = MmHeapAlloc(shdr->sh_size);
+	SymbolSection = MmAllocateMemory(shdr->sh_size);
 	FsSetFilePointer(KernelImage, shdr->sh_offset);
 	FsReadFile(KernelImage, shdr->sh_size, NULL, SymbolSection);
 
@@ -642,11 +614,11 @@ FrLdrMapModule(FILE *KernelImage, PCHAR ImageName, PCHAR MemLoadAddr, ULONG Kern
 #endif
 	}
 
-	MmHeapFree(SymbolSection);
-	MmHeapFree(RelocSection);
+	MmFreeMemory(SymbolSection);
+	MmFreeMemory(RelocSection);
     }
 
-    MmHeapFree(sptr);
+    MmFreeMemory(sptr);
 
     ModuleData->ModStart = (ULONG)MemLoadAddr;
     /* Increase the next Load Base */
@@ -654,11 +626,13 @@ FrLdrMapModule(FILE *KernelImage, PCHAR ImageName, PCHAR MemLoadAddr, ULONG Kern
     ModuleData->ModEnd = NextModuleBase;
     ModuleData->String = (ULONG)MmAllocateMemory(strlen(ImageName)+1);
     strcpy((PCHAR)ModuleData->String, ImageName);
+#if 0
     printf("Module %s (%x-%x) next at %x\n",
 	   ModuleData->String,
 	   ModuleData->ModStart,
 	   ModuleData->ModEnd,
 	   NextModuleBase);
+#endif
     LoaderBlock.ModsCount++;
 
     /* Return Success */
@@ -746,12 +720,6 @@ FrLdrLoadModule(FILE *ModuleImage,
         *ModuleSize = LocalModuleSize;
     }
 
-    printf("Module %s (%x-%x) next at %x\n",
-	   ModuleData->String,
-	   ModuleData->ModStart,
-	   ModuleData->ModEnd,
-	   NextModuleBase);
-
     return ThisModuleBase;
 }
 
@@ -815,7 +783,7 @@ FrLdrCloseModule(ULONG_PTR ModuleBase,
     if (ModuleData) {
 
         /* Make sure this is the right module and that it hasn't been closed */
-        if ((ModuleBase == ModuleData->ModStart) && (ModuleData->ModEnd == MAXULONG_PTR)) {
+        if ((ModuleBase == ModuleData->ModStart) && (ModuleData->ModEnd == (ULONG_PTR)-1)) {
 
             /* Close the Module */
             ModuleData->ModEnd = ModuleData->ModStart + ModuleSize;

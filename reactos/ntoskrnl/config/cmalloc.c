@@ -11,6 +11,7 @@
 #include <ntoskrnl.h>
 #define NDEBUG
 #include <debug.h>
+#include "cm.h"
 
 /* GLOBALS *******************************************************************/
 
@@ -55,14 +56,14 @@ CmpFreeKeyControlBlock(IN PCM_KEY_CONTROL_BLOCK Kcb)
     PAGED_CODE();
     
     /* Sanity checks */
-    ASSERT(IsListEmpty(&Kcb->KeyBodyListHead) == TRUE);
+    ASSERT(IsListEmpty(&(Kcb->KeyBodyListHead)) == TRUE);
     for (i = 0; i < 4; i++) ASSERT(Kcb->KeyBodyArray[i] == NULL);
     
     /* Check if it wasn't privately allocated */
     if (!Kcb->PrivateAlloc)
     {
         /* Free it from the pool */
-        CmpFree(Kcb, 0);
+        ExFreePool(Kcb);
         return;
     }
     
@@ -70,8 +71,9 @@ CmpFreeKeyControlBlock(IN PCM_KEY_CONTROL_BLOCK Kcb)
     KeAcquireGuardedMutex(&CmpAllocBucketLock);
     
     /* Sanity check on lock ownership */
-    //ASSERT((CmpIsKcbLockedExclusive(Kcb) == TRUE) ||
-    //       (CmpTestRegistryLockExclusive() == TRUE));
+    ASSERT((GET_HASH_ENTRY(CmpCacheTable, Kcb->ConvKey).Owner ==
+            KeGetCurrentThread()) ||
+           (CmpTestRegistryLockExclusive() == TRUE));
     
     /* Add us to the free list */
     InsertTailList(&CmpFreeKCBListHead, &Kcb->FreeListEntry);
@@ -86,7 +88,7 @@ CmpFreeKeyControlBlock(IN PCM_KEY_CONTROL_BLOCK Kcb)
     if (++AllocPage->FreeCount == CM_KCBS_PER_PAGE)
     {
         /* Loop all the entries */
-        for (i = 0; i < CM_KCBS_PER_PAGE; i++)
+        for (i = CM_KCBS_PER_PAGE; i; i--)
         {
             /* Get the KCB */
             Kcb = (PVOID)((ULONG_PTR)AllocPage +
@@ -98,7 +100,7 @@ CmpFreeKeyControlBlock(IN PCM_KEY_CONTROL_BLOCK Kcb)
         }
         
         /* Free the page */
-        CmpFree(AllocPage, 0);
+        ExFreePool(AllocPage);
     }
     
     /* Release the lock */
@@ -114,7 +116,7 @@ CmpAllocateKeyControlBlock(VOID)
     PCM_ALLOC_PAGE AllocPage;
     ULONG i;
     PAGED_CODE();
-
+    
     /* Check if private allocations are initialized */
     if (CmpAllocInited)
     {
@@ -151,7 +153,7 @@ SearchKcbList:
         }
         
         /* Allocate an allocation page */
-        AllocPage = CmpAllocate(PAGE_SIZE, TRUE, TAG_CM);
+        AllocPage = ExAllocatePoolWithTag(PagedPool, PAGE_SIZE, TAG_CM);
         if (AllocPage)
         {
             /* Set default entries */
@@ -176,11 +178,11 @@ SearchKcbList:
             goto SearchKcbList;
         }
     }
-
+    
     /* Allocate a KCB only */
-    CurrentKcb = CmpAllocate(sizeof(CM_KEY_CONTROL_BLOCK),
-                             TRUE,
-                             TAG_CM);
+    CurrentKcb = ExAllocatePoolWithTag(PagedPool,
+                                       sizeof(CM_KEY_CONTROL_BLOCK),
+                                       TAG_CM);
     if (CurrentKcb)
     {
         /* Set it up */
@@ -207,31 +209,31 @@ CmpAllocateDelayItem(VOID)
     
     /* Look for an item on the free list */
 SearchList:
-    if (!IsListEmpty(&CmpFreeDelayItemsListHead))
-    {
-        /* Get the current entry in the list */
-        NextEntry = RemoveHeadList(&CmpFreeDelayItemsListHead);
-        
-        /* Grab the item */
-        Entry = CONTAINING_RECORD(NextEntry, CM_DELAY_ALLOC, ListEntry);
-        
-        /* Clear the list */
-        Entry->ListEntry.Flink = Entry->ListEntry.Blink = NULL;
-        
-        /* Grab the alloc page */
-        AllocPage = (PCM_ALLOC_PAGE)((ULONG_PTR)Entry & 0xFFFFF000);
-        
-        /* Decrease free entries */
-        ASSERT(AllocPage->FreeCount != 0);
-        AllocPage->FreeCount--;
-        
-        /* Release the lock */
-        KeReleaseGuardedMutex(&CmpDelayAllocBucketLock);
-        return Entry;
-    }
+        if (!IsListEmpty(&CmpFreeDelayItemsListHead))
+        {
+            /* Get the current entry in the list */
+            NextEntry = RemoveHeadList(&CmpFreeDelayItemsListHead);
+            
+            /* Grab the item */
+            Entry = CONTAINING_RECORD(NextEntry, CM_DELAY_ALLOC, ListEntry);
+            
+            /* Clear the list */
+            Entry->ListEntry.Flink = Entry->ListEntry.Blink = NULL;
+            
+            /* Grab the alloc page */
+            AllocPage = (PCM_ALLOC_PAGE)((ULONG_PTR)Entry & 0xFFFFF000);
+            
+            /* Decrease free entries */
+            ASSERT(AllocPage->FreeCount != 0);
+            AllocPage->FreeCount--;
+            
+            /* Release the lock */
+            KeReleaseGuardedMutex(&CmpDelayAllocBucketLock);
+            return Entry;
+        }
     
     /* Allocate an allocation page */
-    AllocPage = CmpAllocate(PAGE_SIZE, TRUE, TAG_CM);
+    AllocPage = ExAllocatePoolWithTag(PagedPool, PAGE_SIZE, TAG_CM);
     if (AllocPage)
     {
         /* Set default entries */
@@ -295,7 +297,7 @@ CmpFreeDelayItem(PVOID Entry)
         }
         
         /* Now free the page */
-        CmpFree(AllocPage, 0);
+        ExFreePool(AllocPage);
     }
     
     /* Release the lock */

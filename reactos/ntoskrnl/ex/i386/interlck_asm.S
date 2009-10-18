@@ -239,7 +239,7 @@ _ExInterlockedInsertTailList@12:
     /* Restore flags */
     popfd
 
-    /* Check if the list was empty and return NULL */
+    /* check if the list was empty and return NULL */
     xor eax, edx
     jz 2f
 
@@ -461,7 +461,7 @@ _ExInterlockedDecrementLong@8:
 
 /*ULONG
  *NTAPI
- *ExInterlockedExchangeUlong(IN PULONG Target,
+ *ExInterlockedExchangeUlong(IN PULONG Taget,
  *                           IN ULONG Value,
  *                           IN PKSPIN_LOCK Lock)
  */
@@ -529,7 +529,7 @@ _Exi386InterlockedDecrementLong@4:
 
 /*ULONG
  *NTAPI
- *Exi386InterlockedExchangeUlong(IN PULONG Target,
+ *Exi386InterlockedExchangeUlong(IN PULONG Taget,
  *                               IN ULONG Value,
  *                               IN PKSPIN_LOCK Lock)
  */
@@ -556,5 +556,24 @@ _Exi386InterlockedExchangeUlong@12:
 
     /* Return */
     ret 8
+
+/* Ugly hack: Use InterlockedExchange64 */
+.att_syntax
+.global @ExfpInterlockedExchange64@8
+@ExfpInterlockedExchange64@8:
+	pushl %ebx
+	pushl %esi
+	movl %ecx,%esi
+	movl (%edx),%ebx
+	movl 4(%edx),%ecx
+1:
+	movl (%esi),%eax
+	movl 4(%esi),%edx
+	LOCK
+	cmpxchg8b (%esi)
+	jnz 1b
+	popl %esi
+	popl %ebx
+	ret
 	
 /* EOF */

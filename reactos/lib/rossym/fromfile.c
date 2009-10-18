@@ -11,7 +11,9 @@
 #include <ntddk.h>
 #include <reactos/rossym.h>
 #include "rossympriv.h"
-#include <ntimage.h>
+#ifdef _MSC_VER
+#include "ntimage.h"
+#endif
 
 #define NDEBUG
 #include <debug.h>

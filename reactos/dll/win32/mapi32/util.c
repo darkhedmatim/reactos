@@ -806,7 +806,7 @@ ULONG WINAPI CbOfEncoded(LPCSTR lpszEnc)
  *
  * PARAMS
  *  session          [I]   MAPI session handle
- *  item             [I]   Enumerated variable that identifies which 
+ *  item             [I]   Enumerated variable that identifies which
  *                         configuration information is being requested
  *  reference        [O]   Buffer where configuration information is written
  *  config_extensions[I/O] Path of file to create stream on
@@ -889,16 +889,4 @@ BOOL WINAPI FGetComponentPath(LPCSTR component, LPCSTR qualifier, LPSTR dll_path
         FreeLibrary(hmsi);
     }
     return ret;
-}
-
-/**************************************************************************
- *  HrQueryAllRows   (MAPI32.75)
- */
-HRESULT WINAPI HrQueryAllRows(LPMAPITABLE lpTable, LPSPropTagArray lpPropTags,
-    LPSRestriction lpRestriction, LPSSortOrderSet lpSortOrderSet,
-    LONG crowsMax, LPSRowSet *lppRows)
-{
-    FIXME("(%p, %p, %p, %p, %d, %p): stub\n", lpTable, lpPropTags, lpRestriction, lpSortOrderSet, crowsMax, lppRows);
-    *lppRows = NULL;
-    return MAPI_E_CALL_FAILED;
 }

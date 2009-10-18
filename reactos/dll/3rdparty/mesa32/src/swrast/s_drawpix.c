@@ -1,6 +1,6 @@
 /*
  * Mesa 3-D graphics library
- * Version:  7.1
+ * Version:  7.0.1
  *
  * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
  *
@@ -23,17 +23,18 @@
  */
 
 
-#include "main/glheader.h"
-#include "main/bufferobj.h"
-#include "main/context.h"
-#include "main/convolve.h"
-#include "main/image.h"
-#include "main/macros.h"
-#include "main/imports.h"
-#include "main/pixel.h"
-#include "main/state.h"
+#include "glheader.h"
+#include "bufferobj.h"
+#include "context.h"
+#include "convolve.h"
+#include "image.h"
+#include "macros.h"
+#include "imports.h"
+#include "pixel.h"
+#include "state.h"
 
 #include "s_context.h"
+#include "s_drawpix.h"
 #include "s_span.h"
 #include "s_stencil.h"
 #include "s_zoom.h"
@@ -52,19 +53,14 @@ fast_draw_rgba_pixels(GLcontext *ctx, GLint x, GLint y,
                       const GLvoid *pixels)
 {
    const GLint imgX = x, imgY = y;
-   struct gl_renderbuffer *rb = ctx->DrawBuffer->_ColorDrawBuffers[0];
-   GLenum rbType;
+   struct gl_renderbuffer *rb = ctx->DrawBuffer->_ColorDrawBuffers[0][0];
+   const GLenum rbType = rb->DataType;
    SWcontext *swrast = SWRAST_CONTEXT(ctx);
    SWspan span;
    GLboolean simpleZoom;
    GLint yStep;  /* +1 or -1 */
    struct gl_pixelstore_attrib unpack;
    GLint destX, destY, drawWidth, drawHeight; /* post clipping */
-
-   if (!rb)
-      return GL_TRUE; /* no-op */
-
-   rbType = rb->DataType;
 
    if ((swrast->_RasterMask & ~CLIP_BIT) ||
        ctx->Texture._EnabledCoordUnits ||
@@ -74,10 +70,14 @@ fast_draw_rgba_pixels(GLcontext *ctx, GLint x, GLint y,
       return GL_FALSE;
    }
 
-   INIT_SPAN(span, GL_BITMAP);
-   span.arrayMask = SPAN_RGBA;
-   span.arrayAttribs = FRAG_BIT_COL0;
-   _swrast_span_default_attribs(ctx, &span);
+   INIT_SPAN(span, GL_BITMAP, 0, 0, SPAN_RGBA);
+   _swrast_span_default_secondary_color(ctx, &span);
+   if (ctx->Depth.Test)
+      _swrast_span_default_z(ctx, &span);
+   if (swrast->_FogEnabled)
+      _swrast_span_default_fog(ctx, &span);
+   if (ctx->Texture._EnabledCoordUnits)
+      _swrast_span_default_texcoords(ctx, &span);
 
    /* copy input params since clipping may change them */
    unpack = *userUnpack;
@@ -274,9 +274,9 @@ fast_draw_rgba_pixels(GLcontext *ctx, GLint x, GLint y,
             for (row = 0; row < drawHeight; row++) {
                ASSERT(drawWidth <= MAX_WIDTH);
                _mesa_map_ci8_to_rgba8(ctx, drawWidth, src,
-                                      span.array->rgba8);
+                                      span.array->color.sz1.rgba);
                rb->PutRow(ctx, rb, drawWidth, destX, destY,
-                          span.array->rgba8, NULL);
+                          span.array->color.sz1.rgba, NULL);
                src += unpack.RowLength;
                destY += yStep;
             }
@@ -287,12 +287,12 @@ fast_draw_rgba_pixels(GLcontext *ctx, GLint x, GLint y,
             for (row = 0; row < drawHeight; row++) {
                ASSERT(drawWidth <= MAX_WIDTH);
                _mesa_map_ci8_to_rgba8(ctx, drawWidth, src,
-                                      span.array->rgba8);
+                                      span.array->color.sz1.rgba);
                span.x = destX;
                span.y = destY;
                span.end = drawWidth;
                _swrast_write_zoomed_rgba_span(ctx, imgX, imgY, &span,
-                                              span.array->rgba8);
+                                              span.array->color.sz1.rgba);
                src += unpack.RowLength;
                destY++;
             }
@@ -333,14 +333,18 @@ draw_index_pixels( GLcontext *ctx, GLint x, GLint y,
                    const struct gl_pixelstore_attrib *unpack,
                    const GLvoid *pixels )
 {
+   SWcontext *swrast = SWRAST_CONTEXT(ctx);
    const GLint imgX = x, imgY = y;
    const GLboolean zoom = ctx->Pixel.ZoomX!=1.0 || ctx->Pixel.ZoomY!=1.0;
    GLint row, skipPixels;
    SWspan span;
 
-   INIT_SPAN(span, GL_BITMAP);
-   span.arrayMask = SPAN_INDEX;
-   _swrast_span_default_attribs(ctx, &span);
+   INIT_SPAN(span, GL_BITMAP, 0, 0, SPAN_INDEX);
+
+   if (ctx->Depth.Test)
+      _swrast_span_default_z(ctx, &span);
+   if (swrast->_FogEnabled)
+      _swrast_span_default_fog(ctx, &span);
 
    /*
     * General solution
@@ -428,14 +432,20 @@ draw_depth_pixels( GLcontext *ctx, GLint x, GLint y,
                    const struct gl_pixelstore_attrib *unpack,
                    const GLvoid *pixels )
 {
+   SWcontext *swrast = SWRAST_CONTEXT(ctx);
    const GLboolean scaleOrBias
       = ctx->Pixel.DepthScale != 1.0 || ctx->Pixel.DepthBias != 0.0;
    const GLboolean zoom = ctx->Pixel.ZoomX != 1.0 || ctx->Pixel.ZoomY != 1.0;
    SWspan span;
 
-   INIT_SPAN(span, GL_BITMAP);
-   span.arrayMask = SPAN_Z;
-   _swrast_span_default_attribs(ctx, &span);
+   INIT_SPAN(span, GL_BITMAP, 0, 0, SPAN_Z);
+
+   _swrast_span_default_color(ctx, &span);
+   _swrast_span_default_secondary_color(ctx, &span);
+   if (swrast->_FogEnabled)
+      _swrast_span_default_fog(ctx, &span);
+   if (ctx->Texture._EnabledCoordUnits)
+      _swrast_span_default_texcoords(ctx, &span);
 
    if (type == GL_UNSIGNED_SHORT
        && ctx->DrawBuffer->Visual.depthBits == 16
@@ -488,7 +498,7 @@ draw_depth_pixels( GLcontext *ctx, GLint x, GLint y,
    }
    else {
       /* General case */
-      const GLuint depthMax = ctx->DrawBuffer->_DepthMax;
+      const GLfloat depthMax = ctx->DrawBuffer->_DepthMaxF;
       GLint skipPixels = 0;
 
       /* in case width > MAX_WIDTH do the copy in chunks */
@@ -539,6 +549,7 @@ draw_rgba_pixels( GLcontext *ctx, GLint x, GLint y,
                   const struct gl_pixelstore_attrib *unpack,
                   const GLvoid *pixels )
 {
+   SWcontext *swrast = SWRAST_CONTEXT(ctx);
    const GLint imgX = x, imgY = y;
    const GLboolean zoom = ctx->Pixel.ZoomX!=1.0 || ctx->Pixel.ZoomY!=1.0;
    GLfloat *convImage = NULL;
@@ -547,14 +558,17 @@ draw_rgba_pixels( GLcontext *ctx, GLint x, GLint y,
 
    /* Try an optimized glDrawPixels first */
    if (fast_draw_rgba_pixels(ctx, x, y, width, height, format, type,
-                             unpack, pixels)) {
+                             unpack, pixels))
       return;
-   }
 
-   INIT_SPAN(span, GL_BITMAP);
-   _swrast_span_default_attribs(ctx, &span);
-   span.arrayMask = SPAN_RGBA;
-   span.arrayAttribs = FRAG_BIT_COL0; /* we're fill in COL0 attrib values */
+   INIT_SPAN(span, GL_BITMAP, 0, 0, SPAN_RGBA);
+   _swrast_span_default_secondary_color(ctx, &span);
+   if (ctx->Depth.Test)
+      _swrast_span_default_z(ctx, &span);
+   if (swrast->_FogEnabled)
+      _swrast_span_default_fog(ctx, &span);
+   if (ctx->Texture._EnabledCoordUnits)
+      _swrast_span_default_texcoords(ctx, &span);
 
    if (ctx->Pixel.Convolution2DEnabled || ctx->Pixel.Separable2DEnabled) {
       /* Convolution has to be handled specially.  We'll create an
@@ -612,8 +626,8 @@ draw_rgba_pixels( GLcontext *ctx, GLint x, GLint y,
                        IMAGE_POST_CONVOLUTION_SCALE_BIAS);
    }
 
-   if (ctx->DrawBuffer->_NumColorDrawBuffers > 0 &&
-       ctx->DrawBuffer->_ColorDrawBuffers[0]->DataType != GL_FLOAT &&
+   if (ctx->DrawBuffer->_NumColorDrawBuffers[0] > 0 &&
+       ctx->DrawBuffer->_ColorDrawBuffers[0][0]->DataType != GL_FLOAT &&
        ctx->Color.ClampFragmentColor != GL_FALSE) {
       /* need to clamp colors before applying fragment ops */
       transferOps |= IMAGE_CLAMP_BIT;
@@ -699,7 +713,7 @@ draw_depth_stencil_pixels(GLcontext *ctx, GLint x, GLint y,
    const GLint imgX = x, imgY = y;
    const GLboolean scaleOrBias
       = ctx->Pixel.DepthScale != 1.0 || ctx->Pixel.DepthBias != 0.0;
-   const GLuint depthMax = ctx->DrawBuffer->_DepthMax;
+   const GLfloat depthScale = ctx->DrawBuffer->_DepthMaxF;
    const GLuint stencilMask = ctx->Stencil.WriteMask[0];
    const GLuint stencilType = (STENCIL_BITS == 8) ? 
       GL_UNSIGNED_BYTE : GL_UNSIGNED_SHORT;
@@ -787,7 +801,7 @@ draw_depth_stencil_pixels(GLcontext *ctx, GLint x, GLint y,
                /* general case */
                GLuint zValues[MAX_WIDTH];  /* 16 or 32-bit Z value storage */
                _mesa_unpack_depth_span(ctx, width,
-                                       depthRb->DataType, zValues, depthMax,
+                                       depthRb->DataType, zValues, depthScale,
                                        type, depthStencilSrc, &clippedUnpack);
                if (zoom) {
                   _swrast_write_zoomed_z_span(ctx, imgX, imgY, width, x,
@@ -816,6 +830,7 @@ draw_depth_stencil_pixels(GLcontext *ctx, GLint x, GLint y,
 }
 
 
+
 /**
  * Execute software-based glDrawPixels.
  * By time we get here, all error checking will have been done.
@@ -838,11 +853,25 @@ _swrast_DrawPixels( GLcontext *ctx,
    if (swrast->NewState)
       _swrast_validate_derived( ctx );
 
-    pixels = _mesa_map_drawpix_pbo(ctx, unpack, pixels);
-    if (!pixels) {
-       RENDER_FINISH(swrast,ctx);
-       return;
-    }
+   if (unpack->BufferObj->Name) {
+      /* unpack from PBO */
+      GLubyte *buf;
+      if (!_mesa_validate_pbo_access(2, unpack, width, height, 1,
+                                     format, type, pixels)) {
+         _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "glDrawPixels(invalid PBO access)");
+         goto end;
+      }
+      buf = (GLubyte *) ctx->Driver.MapBuffer(ctx, GL_PIXEL_UNPACK_BUFFER_EXT,
+                                              GL_READ_ONLY_ARB,
+                                              unpack->BufferObj);
+      if (!buf) {
+         /* buffer is already mapped - that's an error */
+         _mesa_error(ctx, GL_INVALID_OPERATION, "glDrawPixels(PBO is mapped)");
+         goto end;
+      }
+      pixels = ADD_POINTERS(buf, pixels);
+   }
 
    switch (format) {
    case GL_STENCIL_INDEX:
@@ -879,9 +908,15 @@ _swrast_DrawPixels( GLcontext *ctx,
       /* don't return yet, clean-up */
    }
 
+end:
+
    RENDER_FINISH(swrast,ctx);
 
-   _mesa_unmap_drapix_pbo(ctx, unpack);
+   if (unpack->BufferObj->Name) {
+      /* done with PBO so unmap it now */
+      ctx->Driver.UnmapBuffer(ctx, GL_PIXEL_UNPACK_BUFFER_EXT,
+                              unpack->BufferObj);
+   }
 }
 
 

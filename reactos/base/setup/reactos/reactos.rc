@@ -14,10 +14,6 @@ LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 /* Icons */
 IDI_MAIN ICON "res/reactos.ico"
 
-/* Bitmaps */
-IDB_WATERMARK BITMAP "res/watermark.bmp"
-IDB_HEADER    BITMAP "res/header.bmp"
-IDB_ROSLOGO   BITMAP "res/rosbitmap.bmp"
 
 /* Language-specific resources */
 #include "rsrc.rc"

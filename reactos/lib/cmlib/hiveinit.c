@@ -445,9 +445,6 @@ HvInitialize(
    NTSTATUS Status;
    PHHIVE Hive = RegistryHive;
 
-   UNREFERENCED_PARAMETER(HiveType);
-   UNREFERENCED_PARAMETER(FileName);
-
    /*
     * Create a new hive structure that will hold all the maintenance data.
     */
@@ -463,7 +460,6 @@ HvInitialize(
    Hive->StorageTypeCount = HTYPE_COUNT;
    Hive->Cluster = 1;
    Hive->Version = HSYS_MINOR;
-   Hive->HiveFlags = HiveFlags &~ HIVE_NOLAZYFLUSH;
 
    switch (Operation)
    {
@@ -501,9 +497,10 @@ HvInitialize(
    }
 
    if (!NT_SUCCESS(Status))
+   {
+      Hive->Free(Hive, 0);
       return Status;
-
-   if (Operation != HINIT_CREATE) CmPrepareHive(Hive);
+   }
 
    return Status;
 }

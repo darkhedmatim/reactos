@@ -21,7 +21,7 @@
  *
  * This code was audited for completeness against the documented features
  * of Comctl32.dll version 6.0 on Sep. 18, 2004, by Robert Shearman.
- * 
+ *
  * Unless otherwise noted, we believe this code to be complete, as per
  * the specification mentioned above.
  * If you discover missing features or bugs please note them below.
@@ -43,11 +43,11 @@
  *
  * IMPLEMENTATION NOTES:
  *    This control uses WM_NCPAINT instead of WM_PAINT to paint itself
- *    as we need to scroll a child window. In order to do this we move 
+ *    as we need to scroll a child window. In order to do this we move
  *    the child window in the control's client area, using the clipping
- *    region that is automatically set around the client area. As the 
- *    entire client area now consists of the child window, we must 
- *    allocate space (WM_NCCALCSIZE) for the buttons and draw them as 
+ *    region that is automatically set around the client area. As the
+ *    entire client area now consists of the child window, we must
+ *    allocate space (WM_NCCALCSIZE) for the buttons and draw them as
  *    a non-client area (WM_NCPAINT).
  *       Robert Shearman <rob@codeweavers.com>
  */
@@ -237,7 +237,7 @@ PAGER_DrawButton(HDC hdc, COLORREF clrBk, RECT arrowRect,
         return;
 
     hBrush = CreateSolidBrush(clrBk);
-    hOldBrush = SelectObject(hdc, hBrush);
+    hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
 
     FillRect(hdc, &rc, hBrush);
 
@@ -352,7 +352,8 @@ PAGER_CalcSize (const PAGER_INFO *infoPtr, INT* size, BOOL getWidth)
     nmpgcs.dwFlag = getWidth ? PGF_CALCWIDTH : PGF_CALCHEIGHT;
     nmpgcs.iWidth = getWidth ? *size : 0;
     nmpgcs.iHeight = getWidth ? 0 : *size;
-    SendMessageW (infoPtr->hwndNotify, WM_NOTIFY, nmpgcs.hdr.idFrom, (LPARAM)&nmpgcs);
+    SendMessageW (infoPtr->hwndNotify, WM_NOTIFY,
+                  (WPARAM)nmpgcs.hdr.idFrom, (LPARAM)&nmpgcs);
 
     *size = getWidth ? nmpgcs.iWidth : nmpgcs.iHeight;
 
@@ -492,7 +493,7 @@ PAGER_UpdateBtns(PAGER_INFO *infoPtr, INT scrollRange, BOOL hideGrayBtns)
                      SWP_NOZORDER | SWP_NOACTIVATE);
 
     /* repaint when changing any state */
-    repaintBtns = (oldTLbtnState != infoPtr->TLbtnState) || 
+    repaintBtns = (oldTLbtnState != infoPtr->TLbtnState) ||
                   (oldBRbtnState != infoPtr->BRbtnState);
     if (repaintBtns)
         SendMessageW(infoPtr->hwndSelf, WM_NCPAINT, 0, 0);
@@ -555,8 +556,8 @@ static INT
 PAGER_SetFixedWidth(PAGER_INFO* infoPtr)
 {
   /* Must set the non-scrollable dimension to be less than the full height/width
-   * so that NCCalcSize is called.  The Microsoft docs mention 3/4 factor for button
-   * size, and experimentation shows that the effect is almost right. */
+   * so that NCCalcSize is called.  The Msoft docs mention 3/4 factor for button
+   * size, and experimentation shows that affect is almost right. */
 
     RECT wndRect;
     INT delta, h;
@@ -586,8 +587,8 @@ static INT
 PAGER_SetFixedHeight(PAGER_INFO* infoPtr)
 {
   /* Must set the non-scrollable dimension to be less than the full height/width
-   * so that NCCalcSize is called.  The Microsoft docs mention 3/4 factor for button
-   * size, and experimentation shows that the effect is almost right. */
+   * so that NCCalcSize is called.  The Msoft docs mention 3/4 factor for button
+   * size, and experimentation shows that affect is almost right. */
 
     RECT wndRect;
     INT delta, w;
@@ -762,7 +763,8 @@ PAGER_Scroll(PAGER_INFO* infoPtr, INT dir)
         }
         nmpgScroll.iScroll -= 2*infoPtr->nButtonSize;
 
-        SendMessageW (infoPtr->hwndNotify, WM_NOTIFY, nmpgScroll.hdr.idFrom, (LPARAM)&nmpgScroll);
+        SendMessageW (infoPtr->hwndNotify, WM_NOTIFY,
+                    (WPARAM)nmpgScroll.hdr.idFrom, (LPARAM)&nmpgScroll);
 
         TRACE("[%p] PGN_SCROLL returns iScroll=%d\n", infoPtr->hwndSelf, nmpgScroll.iScroll);
 
@@ -801,7 +803,7 @@ PAGER_Create (HWND hwnd, const CREATESTRUCTW *lpcs)
     PAGER_INFO *infoPtr;
 
     /* allocate memory for info structure */
-    infoPtr = Alloc (sizeof(PAGER_INFO));
+    infoPtr = (PAGER_INFO *)Alloc (sizeof(PAGER_INFO));
     if (!infoPtr) return -1;
     SetWindowLongPtrW (hwnd, 0, (DWORD_PTR)infoPtr);
 
@@ -1008,8 +1010,9 @@ PAGER_MouseMove (PAGER_INFO* infoPtr, INT keys, INT x, INT y)
 	/* If in one of the buttons the capture and draw buttons */
 	if (btnrect)
 	{
-            TRACE("[%p] draw btn (%s), Capture %s, style %08x\n",
-                  infoPtr->hwndSelf, wine_dbgstr_rect(btnrect),
+            TRACE("[%p] draw btn (%d,%d)-(%d,%d), Capture %s, style %08x\n",
+		  infoPtr->hwndSelf, btnrect->left, btnrect->top,
+		  btnrect->right, btnrect->bottom,
 		  (infoPtr->bCapture) ? "TRUE" : "FALSE",
 		  infoPtr->dwStyle);
 	    if (!infoPtr->bCapture)
@@ -1073,7 +1076,8 @@ PAGER_MouseMove (PAGER_INFO* infoPtr, INT keys, INT x, INT y)
         	nmhdr.hwndFrom = infoPtr->hwndSelf;
         	nmhdr.idFrom   = GetWindowLongPtrW(infoPtr->hwndSelf, GWLP_ID);
         	nmhdr.code = NM_RELEASEDCAPTURE;
-		SendMessageW(infoPtr->hwndNotify, WM_NOTIFY, nmhdr.idFrom, (LPARAM)&nmhdr);
+        	SendMessageW(infoPtr->hwndNotify, WM_NOTIFY,
+                         (WPARAM)nmhdr.idFrom, (LPARAM)&nmhdr);
         }
         if (IsWindow(infoPtr->hwndSelf))
             KillTimer(infoPtr->hwndSelf, TIMERID1);
@@ -1232,7 +1236,7 @@ PAGER_Size (PAGER_INFO* infoPtr, INT type, INT x, INT y)
 }
 
 
-static LRESULT 
+static LRESULT
 PAGER_StyleChanged(PAGER_INFO *infoPtr, WPARAM wStyleType, const STYLESTRUCT *lpss)
 {
     DWORD oldStyle = infoPtr->dwStyle;
@@ -1241,7 +1245,7 @@ PAGER_StyleChanged(PAGER_INFO *infoPtr, WPARAM wStyleType, const STYLESTRUCT *lp
           wStyleType, lpss->styleOld, lpss->styleNew);
 
     if (wStyleType != GWL_STYLE) return 0;
-  
+
     infoPtr->dwStyle = lpss->styleNew;
 
     if ((oldStyle ^ lpss->styleNew) & (PGS_HORZ | PGS_VERT))

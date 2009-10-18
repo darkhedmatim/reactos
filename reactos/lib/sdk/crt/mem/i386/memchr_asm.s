@@ -2,7 +2,7 @@
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
- * FILE:            lib/sdk/crt/mem/i386/memchr.s
+ * FILE:            lib/string/i386/memchr.s
  */
 
 /*
@@ -19,14 +19,13 @@ _memchr:
 	mov	0xc(%ebp),%eax
 	mov	0x10(%ebp),%ecx
 	cld
-	jecxz	.Lnotfound
 	repne	scasb
-	je	.Lfound
-.Lnotfound:
+	je	.L1
 	mov	$1,%edi
-.Lfound:
+.L1:
 	mov	%edi,%eax
 	dec	%eax
 	pop	%edi
 	leave
 	ret
+

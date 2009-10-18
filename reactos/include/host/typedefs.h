@@ -4,7 +4,6 @@
   FILE:       include/host/typedefs.h
   PURPOSE:    Type definitions and useful macros for host tools
   COPYRIGHT:  Copyright 2007 Hervé Poussineau
-              Copyright 2007 Colin Finck <mail@colinfinck.de>
 */
 
 #ifndef _TYPEDEFS_HOST_H
@@ -14,7 +13,14 @@
 #include <stdlib.h>
 #include <limits.h>
 
-/* Function attributes for GCC */
+#if defined(_MSC_VER)
+#define W64 __w64
+#elif defined(__GNUC__)
+#define W64
+#else
+#error Unknown compiler
+#endif
+
 #if !defined(_MSC_VER) && !defined(__fastcall)
 #define __fastcall __attribute__((fastcall))
 #endif
@@ -25,7 +31,6 @@
 #define __stdcall __attribute__((stdcall))
 #endif
 
-/* Basic definitions */
 #define UNIMPLEMENTED { printf("%s unimplemented\n", __FUNCTION__); exit(1); }
 #define ASSERT(x) assert(x)
 #define ASSERTMSG(x, m) assert(x)
@@ -40,35 +45,39 @@
 #define OPTIONAL
 
 #define FALSE 0
-#define TRUE  1
+#define TRUE (!(FALSE))
+
+/* FIXME: this value is target specific, host tools MUST not use it
+ * and this line has to be removed */
+#define PAGE_SIZE 4096
 
 #define ANYSIZE_ARRAY 1
 
-/* Basic types
-   Emulate a LLP64 memory model using a LP64 compiler */
-typedef void VOID, *PVOID;
-typedef char CHAR, CCHAR, *PCHAR, *PSTR;
+typedef void VOID, *PVOID, *HANDLE;
+typedef HANDLE HKEY, *PHKEY;
+typedef unsigned char UCHAR, *PUCHAR, BYTE, *LPBYTE;
+typedef char CHAR, *PCHAR, *PSTR;
+typedef const char CCHAR;
 typedef const char *PCSTR, *LPCSTR;
-typedef unsigned char UCHAR, *PUCHAR, BYTE, *LPBYTE, BOOLEAN, *PBOOLEAN;
 typedef short SHORT, *PSHORT;
-typedef unsigned short USHORT, *PUSHORT, WORD, *PWORD, *LPWORD, WCHAR, *PWCHAR, *PWSTR, *LPWSTR;
-typedef const unsigned short *PCWSTR, *LPCWSTR;
-typedef int INT, LONG, *PLONG, *LPLONG, BOOL;
-typedef unsigned int UINT, *PUINT, *LPUINT, ULONG, *PULONG, DWORD, *LPDWORD;
-typedef long LONG_PTR, *PLONG_PTR, INT_PTR, *PINT_PTR;
-typedef unsigned long ULONG_PTR, DWORD_PTR, *PULONG_PTR, UINT_PTR, *PUINT_PTR;
+typedef unsigned short USHORT, *PUSHORT;
+typedef unsigned short WORD, *PWORD, *LPWORD;
+typedef int LONG, *PLONG, *LPLONG;
+typedef unsigned int ULONG, *PULONG, DWORD, *LPDWORD;
 typedef long long LONGLONG;
 typedef unsigned long long ULONGLONG;
-
-/* Derived types */
-typedef PVOID HANDLE, HKEY, *PHKEY;
-typedef INT NTSTATUS, POOL_TYPE;
-typedef LONG HRESULT;
+typedef UCHAR BOOLEAN, *PBOOLEAN;
+typedef int BOOL;
+typedef long int W64 LONG_PTR, *PLONG_PTR;
+typedef long unsigned int W64 ULONG_PTR, DWORD_PTR, *PULONG_PTR;
 typedef ULONG_PTR SIZE_T, *PSIZE_T;
+typedef unsigned short WCHAR, *PWCHAR, *PWSTR, *LPWSTR;
+typedef const unsigned short *PCWSTR, *LPCWSTR;
+typedef int NTSTATUS;
+typedef int POOL_TYPE;
 
 #define MAXUSHORT USHRT_MAX
 
-/* Widely used structures */
 #include <host/pshpack4.h>
 typedef struct _RTL_BITMAP
 {
@@ -113,8 +122,10 @@ typedef struct _UNICODE_STRING
 } UNICODE_STRING, *PUNICODE_STRING;
 #include <host/poppack.h>
 
-/* List Functions */
-static __inline
+//
+// List Functions
+//
+static inline
 VOID
 InitializeListHead(
                    IN PLIST_ENTRY ListHead
@@ -123,7 +134,7 @@ InitializeListHead(
     ListHead->Flink = ListHead->Blink = ListHead;
 }
 
-static __inline
+static inline
 VOID
 InsertHeadList(
                IN PLIST_ENTRY ListHead,
@@ -138,7 +149,7 @@ InsertHeadList(
     ListHead->Flink = Entry;
 }
 
-static __inline
+static inline
 VOID
 InsertTailList(
                IN PLIST_ENTRY ListHead,
@@ -153,8 +164,8 @@ InsertTailList(
     ListHead->Blink = Entry;
 }
 
-static __inline
 BOOLEAN
+static inline
 IsListEmpty(
             IN const LIST_ENTRY * ListHead
             )
@@ -162,7 +173,7 @@ IsListEmpty(
     return (BOOLEAN)(ListHead->Flink == ListHead);
 }
 
-static __inline
+static inline
 BOOLEAN
 RemoveEntryList(
                 IN PLIST_ENTRY Entry)
@@ -177,7 +188,7 @@ RemoveEntryList(
     return (BOOLEAN)(OldFlink == OldBlink);
 }
 
-static __inline
+static inline
 PLIST_ENTRY
 RemoveHeadList(
                IN PLIST_ENTRY ListHead)
@@ -192,7 +203,7 @@ RemoveHeadList(
     return Entry;
 }
 
-static __inline
+static inline
 PLIST_ENTRY
 RemoveTailList(
                IN PLIST_ENTRY ListHead)
@@ -209,28 +220,13 @@ RemoveTailList(
 
 typedef const UNICODE_STRING *PCUNICODE_STRING;
 
-/* Widely used macros */
-#define LOBYTE(w)               ((BYTE)(w))
-#define HIBYTE(w)               ((BYTE)(((WORD)(w)>>8)&0xFF))
-#define LOWORD(l)               ((WORD)((DWORD_PTR)(l)))
-#define HIWORD(l)               ((WORD)(((DWORD_PTR)(l)>>16)&0xFFFF))
-#define MAKEWORD(a,b)           ((WORD)(((BYTE)(a))|(((WORD)((BYTE)(b)))<<8)))
-#define MAKELONG(a,b)           ((LONG)(((WORD)(a))|(((DWORD)((WORD)(b)))<<16)))
-
-#define MAXULONG 0xFFFFFFFF
-
-#define NT_SUCCESS(x)           ((x)>=0)
-#if !defined(__GNUC__)
-#define FIELD_OFFSET(t,f)       ((LONG)(LONG_PTR)&(((t*) 0)->f))
-#else
-#define FIELD_OFFSET(t,f)       ((LONG)__builtin_offsetof(t,f))
-#endif
-#define RTL_CONSTANT_STRING(s)  { sizeof(s)-sizeof((s)[0]), sizeof(s), s }
-#define CONTAINING_RECORD(address, type, field)  ((type *)(((ULONG_PTR)address) - (ULONG_PTR)(&(((type *)0)->field))))
-
-#define RtlZeroMemory(Destination, Length)            memset(Destination, 0, Length)
-#define RtlCopyMemory(Destination, Source, Length)    memcpy(Destination, Source, Length)
-#define RtlMoveMemory(Destination, Source, Length)    memmove(Destination, Source, Length)
+#define NT_SUCCESS(x) ((x)>=0)
+#define FIELD_OFFSET(t,f) ((LONG_PTR)&(((t*)0)->f))
+#define RTL_CONSTANT_STRING(s) { sizeof(s)-sizeof((s)[0]), sizeof(s), s }
+#define CONTAINING_RECORD(address, type, field) ((type *)(((ULONG_PTR)address) - (ULONG_PTR)(&(((type *)0)->field))))
+#define RtlZeroMemory(Destination, Length) memset(Destination, 0, Length)
+#define RtlCopyMemory(Destination, Source, Length) memcpy(Destination, Source, Length)
+#define RtlMoveMemory(Destination, Source, Length) memmove(Destination, Source, Length)
 
 /* Prevent inclusion of some other headers */
 #define __INTERNAL_DEBUG

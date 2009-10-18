@@ -39,7 +39,7 @@ static inline BYTE hex( BYTE x )
     return x + 'A' - 10;
 }
 
-static inline signed char ctox( CHAR x )
+static inline CHAR ctox( CHAR x )
 {
     if( ( x >= '0' ) && ( x <= '9' ) )
         return x - '0';
@@ -56,9 +56,8 @@ static LPSTR MPR_GetValueName( LPCSTR pbResource, WORD cbResource, BYTE nType )
     DWORD  i;
 
     name = HeapAlloc( GetProcessHeap(), 0, 6+cbResource*2 );
-    if( !name ) return NULL;
-
-    sprintf( name, "X-%02X-", nType );
+    if( name )
+        sprintf( name, "X-%02X-", nType );
     for(i=0; i<cbResource; i++)
     {
         name[5+i*2]=hex((pbResource[i]&0xf0)>>4);
@@ -74,7 +73,7 @@ static LPSTR MPR_GetValueName( LPCSTR pbResource, WORD cbResource, BYTE nType )
  * WNetCachePassword [MPR.@]  Saves password in cache
  *
  * NOTES
- *	Only the parameter count is verified
+ *	only the parameter count is verifyed
  *
  *	---- everything below this line might be wrong (js) -----
  * RETURNS
@@ -108,7 +107,7 @@ DWORD WINAPI WNetCachePassword(
     valname = MPR_GetValueName( pbResource, cbResource, nType );
     if( valname )
     {
-        r = RegSetValueExA( hkey, valname, 0, REG_BINARY, 
+        r = RegSetValueExA( hkey, valname, 0, REG_BINARY,
                             (LPBYTE)pbPassword, cbPassword );
         if( r )
             r = WN_CANCEL;
@@ -221,10 +220,10 @@ DWORD WINAPI WNetGetCachedPassword(
  * WNetEnumCachedPasswords [MPR.@]
  *
  * NOTES
- *	The parameter count is verified
- * 
+ *	the parameter count is verifyed
+ *
  *  This function is a huge security risk, as virii and such can use
- * it to grab all the passwords in the cache.  It's bad enough to 
+ * it to grab all the passwords in the cache.  It's bad enough to
  * store the passwords (insecurely).
  *
  *  bpPrefix and cbPrefix are used to filter the returned passwords
@@ -282,7 +281,7 @@ UINT WINAPI WNetEnumCachedPasswords(
         /* decode the value */
         for(j=5; j<val_sz; j+=2 )
         {
-            signed char hi = ctox( val[j] ), lo = ctox( val[j+1] );
+            CHAR hi = ctox( val[j] ), lo = ctox( val[j+1] );
             if( ( hi < 0 ) || ( lo < 0 ) )
                 break;
             val[(j-5)/2] = (hi<<4) | lo;
@@ -307,7 +306,7 @@ UINT WINAPI WNetEnumCachedPasswords(
         entry->cbPassword = data_sz;
         entry->iEntry = i;
         entry->nType = nType;
-        r = RegEnumValueA( hkey, i, NULL, &val_sz, NULL, &type, 
+        r = RegEnumValueA( hkey, i, NULL, &val_sz, NULL, &type,
                            &entry->abResource[val_sz], &data_sz );
         if( r == ERROR_SUCCESS )
             enumPasswordProc( entry, param );

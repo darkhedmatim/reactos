@@ -49,37 +49,13 @@ extern "C" {
 #include "mtypes.h"
 #include "glapi.h"
 
-typedef void *HPBUFFERARB;
-
-GLAPI const char * GLAPIENTRY wglGetExtensionsStringARB(HDC hdc);
-GLAPI const char * GLAPIENTRY wglGetExtensionsStringEXT (void);
-GLAPI BOOL GLAPIENTRY wglChoosePixelFormatARB (HDC hdc, const int *piAttribIList, const FLOAT *pfAttribFList, UINT nMaxFormats, int *piFormats, UINT *nNumFormats);
-GLAPI BOOL GLAPIENTRY wglSwapIntervalEXT (int interval);
-GLAPI int GLAPIENTRY wglGetSwapIntervalEXT (void);
-GLAPI BOOL GLAPIENTRY wglGetPixelFormatAttribivARB (HDC hdc, int iPixelFormat, int iLayerPlane, UINT nAttributes, int *piAttributes, int *piValues);
-GLAPI BOOL GLAPIENTRY wglGetPixelFormatAttribfvARB (HDC hdc, int iPixelFormat, int iLayerPlane, UINT nAttributes, int *piAttributes, FLOAT *pfValues);
-GLAPI BOOL GLAPIENTRY wglMakeContextCurrentARB(HDC hDrawDC, HDC hReadDC, HGLRC hglrc);
-GLAPI HANDLE GLAPIENTRY wglGetCurrentReadDCARB(void);
-GLAPI HPBUFFERARB GLAPIENTRY wglCreatePbufferARB (HDC hDC, int iPixelFormat, int iWidth, int iHeight, const int *piAttribList);
-GLAPI HDC GLAPIENTRY wglGetPbufferDCARB (HPBUFFERARB hPbuffer);
-GLAPI int GLAPIENTRY wglReleasePbufferDCARB (HPBUFFERARB hPbuffer, HDC hDC);
-GLAPI BOOL GLAPIENTRY wglDestroyPbufferARB (HPBUFFERARB hPbuffer);
-GLAPI BOOL GLAPIENTRY wglQueryPbufferARB (HPBUFFERARB hPbuffer, int iAttribute, int *piValue);
-GLAPI HANDLE GLAPIENTRY wglCreateBufferRegionARB(HDC hDC, int iLayerPlane, UINT uType);
-GLAPI VOID GLAPIENTRY wglDeleteBufferRegionARB(HANDLE hRegion);
-GLAPI BOOL GLAPIENTRY wglSaveBufferRegionARB(HANDLE hRegion, int x, int y, int width, int height);
-GLAPI BOOL GLAPIENTRY wglRestoreBufferRegionARB(HANDLE hRegion, int x, int y, int width, int height, int xSrc, int ySrc);
-GLAPI BOOL GLAPIENTRY wglSetPbufferAttribARB (HPBUFFERARB hPbuffer, const int *piAttribList);
-GLAPI BOOL GLAPIENTRY wglBindTexImageARB (HPBUFFERARB hPbuffer, int iBuffer);
-GLAPI BOOL GLAPIENTRY wglReleaseTexImageARB (HPBUFFERARB hPbuffer, int iBuffer);
-
 #define MAX_MESA_ATTRS	20
 
 typedef struct wmesa_context *PWMC;
 
 typedef struct _icdTable {
     DWORD size;
-    PROC  table[418];
+    PROC  table[336];
 } ICDTABLE, *PICDTABLE;
 
 #ifdef USE_MGL_NAMESPACE
@@ -88,8 +64,7 @@ typedef struct _icdTable {
 # define GL_FUNC(func) gl##func
 #endif
 
-
-static ICDTABLE icdTable = { 418, {
+static ICDTABLE icdTable = { 336, {
 #define ICD_ENTRY(func) (PROC)GL_FUNC(func),
 #include "icdlist.h"
 #undef ICD_ENTRY
@@ -160,8 +135,14 @@ WGLAPI BOOL GLAPIENTRY DrvCopyContext(HGLRC hglrcSrc,HGLRC hglrcDst,UINT mask)
 
 WGLAPI HGLRC GLAPIENTRY DrvCreateContext(HDC hdc)
 {
+    HWND		hWnd;
     int i = 0;
 
+    if(!(hWnd = WindowFromDC(hdc)))
+    {
+        SetLastError(0);
+        return(NULL);
+    }
     if (!ctx_count)
     {
     	for(i=0;i<MESAWGL_CTX_MAX_COUNT;i++)
@@ -302,21 +283,17 @@ WGLAPI BOOL GLAPIENTRY DrvSwapLayerBuffers(HDC hdc,UINT fuPlanes)
 WGLAPI int GLAPIENTRY DrvDescribePixelFormat(HDC hdc,int iPixelFormat,UINT nBytes,
                                     LPPIXELFORMATDESCRIPTOR ppfd)
 {
-    int qt_valid_pix;
+    int	qt_valid_pix;
     (void) hdc;
 
     qt_valid_pix = qt_pix;
-    if( (nBytes != sizeof(PIXELFORMATDESCRIPTOR)) || (iPixelFormat < 1) || (iPixelFormat >qt_valid_pix) )
+    if(ppfd==NULL)
+	return(qt_valid_pix);
+    if(iPixelFormat < 1 || iPixelFormat > qt_valid_pix || nBytes != sizeof(PIXELFORMATDESCRIPTOR))
     {
         SetLastError(0);
         return(0);
     }
-
-    if(ppfd==NULL)
-    {
-        return(qt_valid_pix);
-    }
-
     *ppfd = pix[iPixelFormat - 1].pfd;
     return(qt_valid_pix);
 }
@@ -324,49 +301,11 @@ WGLAPI int GLAPIENTRY DrvDescribePixelFormat(HDC hdc,int iPixelFormat,UINT nByte
 /*
 * GetProcAddress - return the address of an appropriate extension
 */
-
-static struct {
-   const char *name;
-   PROC func;
-} wgl_ext[] = {
-       {"wglGetExtensionsStringARB",    (PROC)wglGetExtensionsStringARB},
-       {"wglGetExtensionsStringEXT",    (PROC)wglGetExtensionsStringEXT},
-       {"wglSwapIntervalEXT",           (PROC)wglSwapIntervalEXT},
-       {"wglGetSwapIntervalEXT",        (PROC)wglGetSwapIntervalEXT},
-       {"wglGetPixelFormatAttribivARB", (PROC)wglGetPixelFormatAttribivARB},
-       {"wglGetPixelFormatAttribfvARB", (PROC)wglGetPixelFormatAttribfvARB},
-       {"wglChoosePixelFormatARB",      (PROC)wglChoosePixelFormatARB},
-       {"wglCreatePbufferARB",          (PROC)wglCreatePbufferARB},
-       {"wglGetPbufferDCARB",           (PROC)wglGetPbufferDCARB},
-       {"wglReleasePbufferDCARB",       (PROC)wglReleasePbufferDCARB},
-       {"wglDestroyPbufferARB",         (PROC)wglDestroyPbufferARB},
-       {"wglQueryPbufferARB",           (PROC)wglQueryPbufferARB},
-       {"wglSetPbufferAttribARB",       (PROC)wglSetPbufferAttribARB},
-       {"wglBindTexImageARB",           (PROC)wglBindTexImageARB},
-       {"wglReleaseTexImageARB",        (PROC)wglReleaseTexImageARB},
-       {"wglCreateBufferRegionARB",     (PROC)wglCreateBufferRegionARB},
-       {"wglDeleteBufferRegionARB",     (PROC)wglDeleteBufferRegionARB},
-       {"wglSaveBufferRegionARB",       (PROC)wglSaveBufferRegionARB},
-       {"wglRestoreBufferRegionARB",    (PROC)wglRestoreBufferRegionARB},
-       {"wglMakeContextCurrentARB",     (PROC)wglMakeContextCurrentARB},
-       {"wglGetCurrentReadDCARB",       (PROC)wglGetCurrentReadDCARB},
-       {NULL, NULL}
-};
-
 WGLAPI PROC GLAPIENTRY DrvGetProcAddress(LPCSTR lpszProc)
 {
-   int i;
-   PROC p = (PROC) _glapi_get_proc_address((const char *) lpszProc);
+   PROC p = (PROC) (int) _glapi_get_proc_address((const char *) lpszProc);
    if (p)
       return p;
-
-   for (i = 0; wgl_ext[i].name; i++)
-   {
-      if (!strcmp(lpszProc, wgl_ext[i].name))
-      {
-         return wgl_ext[i].func;
-      }
-   }
 
    SetLastError(0);
    return(NULL);

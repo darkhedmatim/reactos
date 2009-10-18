@@ -17,7 +17,7 @@
 
 LIST_ENTRY HandleTableListHead;
 EX_PUSH_LOCK HandleTableListLock;
-#define SizeOfHandle(x) (sizeof(HANDLE) * (x))
+#define SizeOfHandle(x) (sizeof(HANDLE) * x)
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
@@ -43,11 +43,11 @@ ExpLookupHandleTableEntry(IN PHANDLE_TABLE HandleTable,
 
     /* Clear the tag bits and check what the next handle is */
     Handle.TagBits = 0;
-    NextHandle = *(volatile ULONG*)&HandleTable->NextHandleNeedingPool;
+    NextHandle = HandleTable->NextHandleNeedingPool;
     if (Handle.Value >= NextHandle) return NULL;
 
     /* Get the table code */
-    TableBase = *(volatile ULONG_PTR*)&HandleTable->TableCode;
+    TableBase = (ULONG_PTR)HandleTable->TableCode;
 
     /* Extract the table level and actual table base */
     TableLevel = (ULONG)(TableBase & 3);
@@ -59,7 +59,7 @@ ExpLookupHandleTableEntry(IN PHANDLE_TABLE HandleTable,
         /* Direct index */
         case 0:
 
-            /* Use level 1 and just get the entry directly */
+            /* Use level 1 and just get the entry directlry */
             Level1 = (PUCHAR)TableBase;
             Entry = (PVOID)&Level1[Handle.Value *
                                    (sizeof(HANDLE_TABLE_ENTRY) /
@@ -131,7 +131,7 @@ ExpAllocateTablePagedPool(IN PEPROCESS Process OPTIONAL,
     PVOID Buffer;
 
     /* Do the allocation */
-    Buffer = ExAllocatePoolWithTag(PagedPool, Size, 'btbO');
+    Buffer = ExAllocatePoolWithTag(PagedPool, Size, TAG('O', 'b', 't', 'b'));
     if (Buffer)
     {
         /* Clear the memory */
@@ -156,7 +156,7 @@ ExpAllocateTablePagedPoolNoZero(IN PEPROCESS Process OPTIONAL,
     PVOID Buffer;
 
     /* Do the allocation */
-    Buffer = ExAllocatePoolWithTag(PagedPool, Size, 'btbO');
+    Buffer = ExAllocatePoolWithTag(PagedPool, Size, TAG('O', 'b', 't', 'b'));
     if (Buffer)
     {
         /* Check if we have a process to charge quota */
@@ -209,9 +209,8 @@ ExpFreeHandleTable(IN PHANDLE_TABLE HandleTable)
 {
     PEPROCESS Process = HandleTable->QuotaProcess;
     ULONG i, j;
-    ULONG_PTR TableCode = HandleTable->TableCode;
-    ULONG_PTR TableBase = TableCode & ~3;
-    ULONG TableLevel = (ULONG)(TableCode & 3);
+    ULONG TableLevel = (ULONG)(HandleTable->TableCode & 3);
+    ULONG_PTR TableBase = HandleTable->TableCode & ~3;
     PHANDLE_TABLE_ENTRY Level1, *Level2, **Level3;
     PAGED_CODE();
 
@@ -268,7 +267,8 @@ ExpFreeHandleTable(IN PHANDLE_TABLE HandleTable)
         /* Free the third level table */
         ExpFreeTablePagedPool(Process,
                               Level3,
-                              SizeOfHandle(HIGH_LEVEL_ENTRIES));
+                              HIGH_LEVEL_ENTRIES *
+                              sizeof(PHANDLE_TABLE_ENTRY));
     }
 
     /* Free the actual table and check if we need to release quota */
@@ -344,7 +344,7 @@ ExpAllocateHandleTable(IN PEPROCESS Process OPTIONAL,
     /* Allocate the table */
     HandleTable = ExAllocatePoolWithTag(PagedPool,
                                         sizeof(HANDLE_TABLE),
-                                        'btbO');
+                                        TAG('O', 'b', 't', 'b'));
     if (!HandleTable) return NULL;
 
     /* Check if we have a process */
@@ -405,14 +405,10 @@ ExpAllocateHandleTable(IN PEPROCESS Process OPTIONAL,
     HandleTable->Flags = 0;
 
     /* Loop all the handle table locks */
-    for (i = 0; i < 4; i++)
-    {
-        /* Initialize the handle table lock */
-        ExInitializePushLock((PULONG_PTR)&HandleTable->HandleTableLock[i]);
-    }
+    for (i = 0; i < 4; i++) HandleTable->HandleTableLock[i].Value = 0;
 
     /* Initialize the contention event lock and return the lock */
-    ExInitializePushLock((PULONG_PTR)&HandleTable->HandleContentionEvent);
+    HandleTable->HandleContentionEvent.Value = 0;
     return HandleTable;
 }
 
@@ -497,9 +493,8 @@ ExpAllocateHandleTableEntrySlow(IN PHANDLE_TABLE HandleTable,
     PHANDLE_TABLE_ENTRY Low = NULL, *Mid, **High, *SecondLevel, **ThirdLevel;
     ULONG NewFree, FirstFree;
     PVOID Value;
-    ULONG_PTR TableCode = HandleTable->TableCode;
-    ULONG_PTR TableBase = TableCode & ~3;
-    ULONG TableLevel = (ULONG)(TableCode & 3);
+    ULONG_PTR TableBase = HandleTable->TableCode & ~3;
+    ULONG TableLevel = (ULONG)(TableBase & 3);
     PAGED_CODE();
 
     /* Check how many levels we already have */
@@ -539,7 +534,7 @@ ExpAllocateHandleTableEntrySlow(IN PHANDLE_TABLE HandleTable,
         {
             /* We need a new high level table */
             High = ExpAllocateTablePagedPool(HandleTable->QuotaProcess,
-                                             SizeOfHandle(HIGH_LEVEL_ENTRIES));
+                                             HIGH_LEVEL_ENTRIES);
             if (!High) return FALSE;
 
             /* Allocate a new mid level table as well */
@@ -549,7 +544,7 @@ ExpAllocateHandleTableEntrySlow(IN PHANDLE_TABLE HandleTable,
                 /* We failed, free the high level table as welll */
                 ExpFreeTablePagedPool(HandleTable->QuotaProcess,
                                       High,
-                                      SizeOfHandle(HIGH_LEVEL_ENTRIES));
+                                      HIGH_LEVEL_ENTRIES);
                 return FALSE;
             }
 
@@ -660,7 +655,7 @@ ExpMoveFreeHandles(IN PHANDLE_TABLE HandleTable)
     }
 
     /* We are strict FIFO, we need to reverse the entries */
-    ASSERT(FALSE);
+    KEBUGCHECK(0);
     return LastFree;
 }
 
@@ -739,7 +734,7 @@ ExpAllocateHandleTableEntry(IN PHANDLE_TABLE HandleTable,
         ExAcquirePushLockShared(&HandleTable->HandleTableLock[i]);
 
         /* Check if the value changed after acquiring the lock */
-        if (OldValue != *(volatile ULONG*)&HandleTable->FirstFree)
+        if (OldValue != HandleTable->FirstFree)
         {
             /* It did, so try again */
             ExReleasePushLockShared(&HandleTable->HandleTableLock[i]);
@@ -748,7 +743,7 @@ ExpAllocateHandleTableEntry(IN PHANDLE_TABLE HandleTable,
         }
 
         /* Now get the next value and do the compare */
-        NewValue = *(volatile ULONG*)&Entry->NextFreeTableEntry;
+        NewValue = Entry->NextFreeTableEntry;
         NewValue1 = InterlockedCompareExchange((PLONG) &HandleTable->FirstFree,
                                                NewValue,
                                                OldValue);
@@ -879,7 +874,7 @@ ExpLockHandleTableEntry(IN PHANDLE_TABLE HandleTable,
     for (;;)
     {
         /* Get the current value and check if it's locked */
-        OldValue = *(volatile LONG_PTR *)&HandleTableEntry->Object;
+        OldValue = (LONG_PTR)HandleTableEntry->Object;
         if (OldValue & EXHANDLE_TABLE_ENTRY_LOCK_BIT)
         {
             /* It's not locked, remove the lock bit to lock it */
@@ -957,7 +952,7 @@ ExDestroyHandleTable(IN PHANDLE_TABLE HandleTable,
     if (DestroyHandleProcedure)
     {
         /* FIXME: */
-        ASSERT(FALSE);
+        KEBUGCHECK(0);
     }
 
     /* Free the handle table */
@@ -1125,9 +1120,6 @@ ExDupHandleTable(IN PEPROCESS Process,
                                            HandleTableEntry,
                                            NewEntry))
                     {
-                        /* Clear failure flag */
-                        Failed = FALSE;
-
                         /* Lock the entry, increase the handle count */
                         NewEntry->Value |= EXHANDLE_TABLE_ENTRY_LOCK_BIT;
                         NewTable->HandleCount++;
@@ -1273,7 +1265,8 @@ ExEnumHandleTable(IN PHANDLE_TABLE HandleTable,
         /* Validate the entry */
         if ((HandleTableEntry) &&
             (HandleTableEntry->Object) &&
-            (HandleTableEntry->NextFreeTableEntry != -2))
+            (HandleTableEntry->NextFreeTableEntry != -2) &&
+            (HandleTableEntry->Object != (PVOID)0xCDCDCDCD)) // HACK OF ETERNAL LAPDANCE
         {
             /* Lock the entry */
             if (ExpLockHandleTableEntry(HandleTable, HandleTableEntry))

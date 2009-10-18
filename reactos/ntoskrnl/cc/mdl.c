@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/cc/fs.c
@@ -11,7 +12,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* FUNCTIONS *****************************************************************/
 
@@ -19,7 +20,7 @@
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 CcMdlRead(
 	IN	PFILE_OBJECT		FileObject,
 	IN	PLARGE_INTEGER		FileOffset,
@@ -49,7 +50,7 @@ CcMdlRead(
  *
  */
 VOID
-NTAPI
+STDCALL
 CcMdlReadComplete2(IN PMDL MemoryDescriptorList,
                      IN PFILE_OBJECT FileObject)
 {
@@ -81,7 +82,7 @@ CcMdlReadComplete2(IN PMDL MemoryDescriptorList,
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 CcMdlReadComplete(IN PFILE_OBJECT FileObject,
                   IN PMDL MdlChain)
 {
@@ -109,7 +110,7 @@ CcMdlReadComplete(IN PFILE_OBJECT FileObject,
  * @implemented
  */
 VOID
-NTAPI
+STDCALL
 CcMdlWriteComplete(IN PFILE_OBJECT FileObject,
                    IN PLARGE_INTEGER FileOffset,
                    IN PMDL MdlChain)
@@ -150,7 +151,7 @@ CcMdlWriteComplete2(
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 CcMdlWriteAbort (
     IN PFILE_OBJECT FileObject,
     IN PMDL MdlChain
@@ -163,7 +164,7 @@ CcMdlWriteAbort (
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 CcPrepareMdlWrite (
 	IN	PFILE_OBJECT		FileObject,
 	IN	PLARGE_INTEGER		FileOffset,

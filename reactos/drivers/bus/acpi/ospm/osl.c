@@ -36,7 +36,7 @@ static KDPC AcpiDpc;
 static PVOID IVTVirtualAddress = NULL;
 
 
-VOID NTAPI
+VOID STDCALL
 OslDpcStub(
   IN PKDPC Dpc,
   IN PVOID DeferredContext,
@@ -182,7 +182,7 @@ acpi_os_get_physical_address(void *virt, ACPI_PHYSICAL_ADDRESS *phys)
   return AE_OK;
 }
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 OslIsrStub(
   PKINTERRUPT Interrupt,
   PVOID ServiceContext)
@@ -302,38 +302,38 @@ acpi_os_out32(ACPI_IO_ADDRESS port, u32 val)
   WRITE_PORT_ULONG((PULONG)port, val);
 }
 
-u8
+UINT8
 acpi_os_mem_in8 (ACPI_PHYSICAL_ADDRESS phys_addr)
 {
   return (*(PUCHAR)(ULONG)phys_addr);
 }
 
-u16
+UINT16
 acpi_os_mem_in16 (ACPI_PHYSICAL_ADDRESS phys_addr)
 {
   return (*(PUSHORT)(ULONG)phys_addr);
 }
 
-u32
+UINT32
 acpi_os_mem_in32 (ACPI_PHYSICAL_ADDRESS phys_addr)
 {
   return (*(PULONG)(ULONG)phys_addr);
 }
 
 void
-acpi_os_mem_out8 (ACPI_PHYSICAL_ADDRESS phys_addr, u8 value)
+acpi_os_mem_out8 (ACPI_PHYSICAL_ADDRESS phys_addr, UINT8 value)
 {
   *(PUCHAR)(ULONG)phys_addr = value;
 }
 
 void
-acpi_os_mem_out16 (ACPI_PHYSICAL_ADDRESS phys_addr, u16 value)
+acpi_os_mem_out16 (ACPI_PHYSICAL_ADDRESS phys_addr, UINT16 value)
 {
   *(PUSHORT)(ULONG)phys_addr = value;
 }
 
 void
-acpi_os_mem_out32 (ACPI_PHYSICAL_ADDRESS phys_addr, u32 value)
+acpi_os_mem_out32 (ACPI_PHYSICAL_ADDRESS phys_addr, UINT32 value)
 {
   *(PULONG)(ULONG)phys_addr = value;
 }
@@ -635,7 +635,7 @@ acpi_os_wait_semaphore(
 
   DPRINT("Waiting for semaphore[%p|%d|%d]\n", handle, units, timeout);
 
-  ExAcquireFastMutex(Mutex);
+  //ExAcquireFastMutex(Mutex);
 
   return AE_OK;
 }
@@ -654,7 +654,7 @@ acpi_os_signal_semaphore(
 
   DPRINT("Signaling semaphore[%p|%d]\n", handle, units);
 
-  ExReleaseFastMutex(Mutex);
+  //ExReleaseFastMutex(Mutex);
 
   return AE_OK;
 }

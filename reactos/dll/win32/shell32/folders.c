@@ -17,14 +17,33 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <precomp.h>
+#include "config.h"
+#include "wine/port.h"
+
+#include <stdlib.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
+
+#define COBJMACROS
+
+#include "windef.h"
+#include "winbase.h"
+#include "winerror.h"
+#include "objbase.h"
+#include "undocshell.h"
+#include "shlguid.h"
+
+#include "wine/debug.h"
+
+#include "pidl.h"
+#include "shell32_main.h"
+#include "shfldr.h"
+#include "shresdef.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
 WCHAR swShell32Name[MAX_PATH];
-
-DWORD NumIconOverlayHandlers = 0;
-IShellIconOverlayIdentifier ** Handlers = NULL;
 
 static HRESULT getIconLocationForFolder(LPCITEMIDLIST pidl, UINT uFlags,
  LPWSTR szIconFile, UINT cchMax, int *piIndex, UINT *pwFlags)
@@ -44,7 +63,7 @@ static HRESULT getIconLocationForFolder(LPCITEMIDLIST pidl, UINT uFlags,
         WCHAR wszIconIndex[10];
         SHELL32_GetCustomFolderAttribute(pidl, shellClassInfo, iconIndex,
             wszIconIndex, 10);
-        *piIndex = _wtoi(wszIconIndex);
+        *piIndex = atoiW(wszIconIndex);
     }
     else if (SHELL32_GetCustomFolderAttribute(pidl, shellClassInfo, clsid,
         wszCLSIDValue, CHARS_IN_GUID) &&
@@ -75,111 +94,6 @@ static HRESULT getIconLocationForFolder(LPCITEMIDLIST pidl, UINT uFlags,
     }
 
     return S_OK;
-}
-
-void InitIconOverlays(void)
-{
-    HKEY hKey;
-    DWORD dwIndex, dwResult, dwSize;
-    WCHAR szName[MAX_PATH];
-    WCHAR szValue[100];
-    CLSID clsid;
-    IShellIconOverlayIdentifier * Overlay;
-
-    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\ShellIconOverlayIdentifiers",0, KEY_READ, &hKey) != ERROR_SUCCESS)
-        return;
-
-    if (RegQueryInfoKeyW(hKey, NULL, NULL, NULL, &dwResult, NULL, NULL, NULL, NULL, NULL, NULL, NULL) != ERROR_SUCCESS)
-    {
-        RegCloseKey(hKey);
-        return;
-    }
-
-    Handlers = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwResult * sizeof(IShellIconOverlayIdentifier*));
-    if (!Handlers)
-    {
-        RegCloseKey(hKey);
-        return;
-    }
-
-    dwIndex = 0;
-
-    CoInitialize(0);
-
-    do
-    {
-        dwSize = sizeof(szName) / sizeof(WCHAR);
-        dwResult = RegEnumKeyExW(hKey, dwIndex, szName, &dwSize, NULL, NULL, NULL, NULL);
-
-        if (dwResult == ERROR_NO_MORE_ITEMS)
-            break;
-
-        if (dwResult == ERROR_SUCCESS)
-        {
-            dwSize = sizeof(szValue) / sizeof(WCHAR);
-            if (RegGetValueW(hKey, szName, NULL, RRF_RT_REG_SZ, NULL, szValue, &dwSize) == ERROR_SUCCESS)
-            {
-
-                CLSIDFromString(szValue, &clsid);
-                dwResult = CoCreateInstance(&clsid, NULL, CLSCTX_INPROC_SERVER, &IID_IUnknown, (LPVOID*)&Overlay);
-                if (dwResult == S_OK)
-                {
-                    Handlers[NumIconOverlayHandlers] = Overlay;
-                    NumIconOverlayHandlers++;
-                }
-            }
-        }
-
-        dwIndex++;
-
-    }while(1);
-
-    RegCloseKey(hKey);
-}
-
-BOOL
-GetIconOverlay(LPCITEMIDLIST pidl, WCHAR * wTemp, int* pIndex)
-{
-    DWORD Index;
-    HRESULT hResult;
-    int Priority;
-    int HighestPriority;
-    ULONG IconIndex;
-    ULONG Flags;
-    WCHAR szPath[MAX_PATH];
-
-    if(!SHGetPathFromIDListW(pidl, szPath))
-        return FALSE;
-
-
-    HighestPriority = 101;
-    IconIndex = NumIconOverlayHandlers;
-    for(Index = 0; Index < NumIconOverlayHandlers; Index++)
-    {
-        hResult = Handlers[Index]->lpVtbl->IsMemberOf(Handlers[Index], szPath, SFGAO_FILESYSTEM);
-        if (hResult == S_OK)
-        {
-            hResult = Handlers[Index]->lpVtbl->GetPriority(Handlers[Index], &Priority);
-            if (hResult == S_OK)
-            {
-                if (Priority < HighestPriority)
-                {
-                    HighestPriority = Priority;
-                    IconIndex = Index;
-                }
-            }
-        }
-    }
-
-    if (IconIndex == NumIconOverlayHandlers)
-        return FALSE;
-
-    hResult = Handlers[IconIndex]->lpVtbl->GetOverlayInfo(Handlers[IconIndex], wTemp, MAX_PATH, pIndex, &Flags);
-
-    if (hResult == S_OK)
-        return TRUE;
-    else
-        return FALSE;
 }
 
 /**************************************************************************
@@ -219,7 +133,7 @@ IExtractIconW* IExtractIconW_Constructor(LPCITEMIDLIST pidl)
             '%','0','2','x','%','0','2','x','%','0','2','x','%','0','2','x','}',0 };
             WCHAR xriid[50];
 
-            swprintf(xriid, fmt,
+            sprintfW(xriid, fmt,
                 riid->Data1, riid->Data2, riid->Data3,
                 riid->Data4[0], riid->Data4[1], riid->Data4[2], riid->Data4[3],
                 riid->Data4[4], riid->Data4[5], riid->Data4[6], riid->Data4[7]);
@@ -377,9 +291,8 @@ IExtractIconA* IExtractIconA_Constructor(LPCITEMIDLIST pidl)
     extractIconW = IExtractIconW_Constructor(pidl);
     if (!extractIconW)
         return NULL;
-
-    hr = extractIconW->lpVtbl->QueryInterface(extractIconW, &IID_IExtractIconA, (void **)&extractIconA);
-    extractIconW->lpVtbl->Release(extractIconW);
+    hr = IExtractIconW_QueryInterface(extractIconW, &IID_IExtractIconA, (void **)&extractIconA);
+    IExtractIconW_Release(extractIconW);
     if (!SUCCEEDED(hr))
         return NULL;
     return extractIconA;

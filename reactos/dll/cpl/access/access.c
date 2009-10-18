@@ -1,4 +1,4 @@
-/* $Id: access.c 29112 2007-09-19 21:31:49Z ekohl $
+/* $Id$
  *
  * PROJECT:         ReactOS Accessibility Control Panel
  * LICENSE:         GPL - See COPYING in the top level directory
@@ -20,7 +20,6 @@
 
 LONG CALLBACK SystemApplet(VOID);
 HINSTANCE hApplet = 0;
-HWND hCPLWindow;
 
 /* Applets */
 APPLET Applets[NUM_APPLETS] =
@@ -194,7 +193,7 @@ SystemApplet(VOID)
     ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
     psh.dwSize = sizeof(PROPSHEETHEADER);
     psh.dwFlags =  PSH_PROPSHEETPAGE;
-    psh.hwndParent = hCPLWindow;
+    psh.hwndParent = NULL;
     psh.hInstance = hApplet;
     psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDI_CPLACCESS));
     psh.pszCaption = Caption;
@@ -224,6 +223,8 @@ CPlApplet(HWND hwndCPl,
 {
     INT i = (INT)lParam1;
 
+    UNREFERENCED_PARAMETER(hwndCPl);
+
     switch (uMsg)
     {
         case CPL_INIT:
@@ -243,7 +244,6 @@ CPlApplet(HWND hwndCPl,
             break;
 
         case CPL_DBLCLK:
-            hCPLWindow = hwndCPl;
             Applets[i].AppletProc();
             break;
     }
@@ -252,7 +252,7 @@ CPlApplet(HWND hwndCPl,
 }
 
 
-BOOL WINAPI
+BOOL STDCALL
 DllMain(HINSTANCE hinstDLL,
         DWORD dwReason,
         LPVOID lpvReserved)

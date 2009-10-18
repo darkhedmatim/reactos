@@ -1,7 +1,9 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<module name="sc" type="win32cui" installbase="system32" installname="sc.exe" unicode="yes">
+<module name="sc" type="win32cui" installbase="system32" installname="sc.exe">
 	<define name="DEFINE_GUID" />
+	<define name="UNICODE" />
+	<define name="_UNICODE" />
 	<library>kernel32</library>
 	<library>advapi32</library>
 	<file>control.c</file>

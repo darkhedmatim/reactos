@@ -1,5 +1,5 @@
 /*
- *  Spanish language file by Javier Remacha <2007-2008>
+ *  Spanish language file by Javier Remacha <2007-09-18>
  */
 LANGUAGE LANG_SPANISH, SUBLANG_NEUTRAL
 
@@ -23,11 +23,11 @@ END
 STRINGTABLE DISCARDABLE
 BEGIN
     IDS_SNDVOL32       "Control de Volumen"
-    IDS_NOMIXERDEVICES "¡No hay dispositivos mezcladores activos en este momento! \n\La aplicación se cerrará ahora."
+    IDS_NOMIXERDEVICES "¡No hay dispositivos mezcladores activos en este momento! La aplicación se cerrará ahora."
 END
 
 IDD_PREFERENCES DIALOGEX 0, 0, 224, 250
-STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CONTEXTHELP | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+STYLE DS_MODALFRAME | DS_CONTEXTHELP | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Propiedades"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN

@@ -10,6 +10,7 @@
 
 #include "winlogon.h"
 
+#define YDEBUG
 #include <wine/debug.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(winlogon);
@@ -243,7 +244,7 @@ StartScreenSaver(
 	HKEY hKey = NULL;
 	WCHAR szApplicationName[MAX_PATH];
 	WCHAR szCommandLine[MAX_PATH + 3];
-	DWORD bufferSize = sizeof(szApplicationName) - sizeof(WCHAR);
+	DWORD bufferSize = sizeof(szApplicationName)- 1;
 	DWORD dwType;
 	STARTUPINFOW StartupInfo;
 	PROCESS_INFORMATION ProcessInformation;
@@ -280,7 +281,7 @@ StartScreenSaver(
 	if (bufferSize == 0)
 		goto cleanup;
 
-	szApplicationName[bufferSize / sizeof(WCHAR)] = 0; /* Terminate the string */
+	szApplicationName[bufferSize] = 0; /* Terminate the string */
 
 	if (wcslen(szApplicationName) == 0)
 		goto cleanup;

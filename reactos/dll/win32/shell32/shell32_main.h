@@ -23,9 +23,7 @@
 #define __WINE_SHELL_MAIN_H
 
 #include <stdarg.h>
-#include <shlobj.h>
 
-/*
 #include "windef.h"
 #include "winbase.h"
 #include "wingdi.h"
@@ -38,9 +36,7 @@
 #include "shlobj.h"
 #include "shellapi.h"
 #include "wine/windef16.h"
-*/
 #include "wine/unicode.h"
-
 
 /*******************************************
 *  global SHELL32.DLL variables
@@ -50,7 +46,7 @@ extern HINSTANCE shell32_hInstance;
 extern HIMAGELIST	ShellSmallIconList;
 extern HIMAGELIST	ShellBigIconList;
 
-BOOL WINAPI Shell_GetImageLists(HIMAGELIST * lpBigList, HIMAGELIST * lpSmallList);
+BOOL WINAPI Shell_GetImageList(HIMAGELIST * lpBigList, HIMAGELIST * lpSmallList);
 
 /* Iconcache */
 #define INVALID_INDEX -1
@@ -85,23 +81,19 @@ LPDATAOBJECT	IDataObject_Constructor(HWND hwndOwner, LPCITEMIDLIST myPidl, LPCIT
 LPENUMFORMATETC	IEnumFORMATETC_Constructor(UINT, const FORMATETC []);
 
 LPCLASSFACTORY	IClassFactory_Constructor(REFCLSID);
-IContextMenu2 *	ISvItemCm_Constructor(LPSHELLFOLDER pSFParent, LPCITEMIDLIST pidl, const LPCITEMIDLIST *aPidls, UINT uItemCount);
+IContextMenu2 *	ISvItemCm_Constructor(LPSHELLFOLDER pSFParent, LPCITEMIDLIST pidl, LPCITEMIDLIST *aPidls, UINT uItemCount);
 HRESULT WINAPI INewItem_Constructor(IUnknown * pUnkOuter, REFIID riif, LPVOID *ppv);
 IContextMenu2 * ISvStaticItemCm_Constructor(LPSHELLFOLDER pSFParent, LPCITEMIDLIST pidl, LPCITEMIDLIST *apidl, UINT cidl, HKEY hKey);
 IContextMenu2 *	ISvBgCm_Constructor(LPSHELLFOLDER pSFParent, BOOL bDesktop);
 LPSHELLVIEW	IShellView_Constructor(LPSHELLFOLDER);
 
 HRESULT WINAPI IFSFolder_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
-HRESULT WINAPI IShellItem_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
 HRESULT WINAPI IShellLink_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
 HRESULT WINAPI IShellLink_ConstructFromFile(IUnknown * pUnkOuter, REFIID riid, LPCITEMIDLIST pidl, LPVOID * ppv);
 HRESULT WINAPI ISF_Desktop_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
 HRESULT WINAPI ISF_MyComputer_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
 HRESULT WINAPI ISF_Printers_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
 HRESULT WINAPI ISF_MyDocuments_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
-HRESULT WINAPI ISF_NetworkPlaces_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
-HRESULT WINAPI ISF_Fonts_Constructor (IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
-HRESULT WINAPI ISF_AdminTools_Constructor (IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
 HRESULT WINAPI IDropTargetHelper_Constructor (IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
 HRESULT WINAPI IFileSystemBindData_Constructor(const WIN32_FIND_DATAW *pfd, LPBC *ppV);
 HRESULT WINAPI IControlPanel_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID * ppv);
@@ -113,7 +105,6 @@ HRESULT WINAPI RecycleBin_Constructor(IUnknown * pUnkOuter, REFIID riif, LPVOID 
 HRESULT WINAPI SHEOW_Constructor(IUnknown * pUnkOuter, REFIID riif, LPVOID *ppv);
 HRESULT WINAPI ShellFSFolder_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID *ppv);
 HRESULT WINAPI StartMenu_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID *ppv);
-HRESULT WINAPI MenuBandSite_Constructor(IUnknown * pUnkOuter, REFIID riid, LPVOID *ppv);
 extern HRESULT CPanel_GetIconLocationW(LPCITEMIDLIST, LPWSTR, UINT, int*);
 HRESULT WINAPI CPanel_ExtractIconA(LPITEMIDLIST pidl, LPCSTR pszFile, UINT nIconIndex, HICON *phiconLarge, HICON *phiconSmall, UINT nIconSize);
 HRESULT WINAPI CPanel_ExtractIconW(LPITEMIDLIST pidl, LPCWSTR pszFile, UINT nIconIndex, HICON *phiconLarge, HICON *phiconSmall, UINT nIconSize);
@@ -151,7 +142,6 @@ HGLOBAL RenderPREFEREDDROPEFFECT (DWORD dwFlags);
 /* Change Notification */
 void InitChangeNotifications(void);
 void FreeChangeNotifications(void);
-void InitIconOverlays(void);
 
 /* file operation */
 #define ASK_DELETE_FILE           1
@@ -169,10 +159,24 @@ void InitIconOverlays(void);
 BOOL SHELL_DeleteDirectoryW(HWND hwnd, LPCWSTR pwszDir, BOOL bShowUI);
 BOOL SHELL_ConfirmYesNoW(HWND hWnd, int nKindOfDialog, LPCWSTR szDir);
 
-void WINAPI _InsertMenuItemW (HMENU hmenu, UINT indexMenu, BOOL fByPosition,
-			UINT wID, UINT fType, LPCWSTR dwTypeData, UINT fState);
+/* 16-bit functions */
+void        WINAPI DragAcceptFiles16(HWND16 hWnd, BOOL16 b);
+UINT16      WINAPI DragQueryFile16(HDROP16 hDrop, WORD wFile, LPSTR lpszFile, WORD wLength);
+void        WINAPI DragFinish16(HDROP16 h);
+BOOL16      WINAPI DragQueryPoint16(HDROP16 hDrop, POINT16 *p);
+HINSTANCE16 WINAPI ShellExecute16(HWND16,LPCSTR,LPCSTR,LPCSTR,LPCSTR,INT16);
+HICON16     WINAPI ExtractIcon16(HINSTANCE16,LPCSTR,UINT16);
+HICON16     WINAPI ExtractAssociatedIcon16(HINSTANCE16,LPSTR,LPWORD);
+HICON16     WINAPI ExtractIconEx16 ( LPCSTR, INT16, HICON16 *, HICON16 *, UINT16 );
+HINSTANCE16 WINAPI FindExecutable16(LPCSTR,LPCSTR,LPSTR);
+HGLOBAL16   WINAPI InternalExtractIcon16(HINSTANCE16,LPCSTR,UINT16,WORD);
+BOOL16      WINAPI ShellAbout16(HWND16,LPCSTR,LPCSTR,HICON16);
+BOOL16      WINAPI AboutDlgProc16(HWND16,UINT16,WPARAM16,LPARAM);
 
-static BOOL __inline SHELL_OsIsUnicode(void)
+void WINAPI _InsertMenuItem (HMENU hmenu, UINT indexMenu, BOOL fByPosition,
+			UINT wID, UINT fType, LPCSTR dwTypeData, UINT fState);
+
+static inline BOOL SHELL_OsIsUnicode(void)
 {
     /* if high-bit of version is 0, we are emulating NT */
     return !(GetVersion() & 0x80000000);
@@ -183,26 +187,26 @@ static BOOL __inline SHELL_OsIsUnicode(void)
 	  SHFree(*ptr); \
 	  *ptr = NULL; \
 	};
-static void __inline __SHCloneStrA(char ** target,const char * source)
+static inline void __SHCloneStrA(char ** target,const char * source)
 {
 	*target = SHAlloc(strlen(source)+1);
 	strcpy(*target, source);
 }
 
-static void __inline __SHCloneStrWtoA(char ** target, const WCHAR * source)
+static inline void __SHCloneStrWtoA(char ** target, const WCHAR * source)
 {
 	int len = WideCharToMultiByte(CP_ACP, 0, source, -1, NULL, 0, NULL, NULL);
 	*target = SHAlloc(len);
 	WideCharToMultiByte(CP_ACP, 0, source, -1, *target, len, NULL, NULL);
 }
 
-static void __inline __SHCloneStrW(WCHAR ** target, const WCHAR * source)
+static inline void __SHCloneStrW(WCHAR ** target, const WCHAR * source)
 {
 	*target = SHAlloc( (lstrlenW(source)+1) * sizeof(WCHAR) );
 	lstrcpyW(*target, source);
 }
 
-static LPWSTR __inline __SHCloneStrAtoW(WCHAR ** target, const char * source)
+static inline WCHAR * __SHCloneStrAtoW(WCHAR ** target, const char * source)
 {
 	int len = MultiByteToWideChar(CP_ACP, 0, source, -1, NULL, 0);
 	*target = SHAlloc(len*sizeof(WCHAR));
@@ -217,9 +221,12 @@ static LPWSTR __inline __SHCloneStrAtoW(WCHAR ** target, const char * source)
 #define HINSTANCE_16(h32)	(LOWORD(h32))
 
 typedef UINT_PTR (*SHELL_ExecuteW32)(const WCHAR *lpCmd, WCHAR *env, BOOL shWait,
-			    const SHELLEXECUTEINFOW *sei, LPSHELLEXECUTEINFOW sei_out);
+			    LPSHELLEXECUTEINFOW sei, LPSHELLEXECUTEINFOW sei_out);
 
 BOOL SHELL_execute(LPSHELLEXECUTEINFOW sei, SHELL_ExecuteW32 execfunc);
+
+UINT SHELL_FindExecutable(LPCWSTR lpPath, LPCWSTR lpFile, LPCWSTR lpOperation,
+                          LPWSTR lpResult, int resultLen, LPWSTR key, WCHAR **env, LPITEMIDLIST pidl, LPCWSTR args);
 
 extern WCHAR swShell32Name[MAX_PATH];
 
@@ -236,8 +243,6 @@ BOOL SHELL_IsShortcut(LPCITEMIDLIST);
 INT_PTR CALLBACK SH_FileGeneralDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
 INT_PTR CALLBACK SH_FileVersionDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
 HPROPSHEETPAGE SH_CreatePropertySheetPage(LPSTR resname, DLGPROC dlgproc, LPARAM lParam, LPWSTR szTitle);
-BOOL SH_ShowDriveProperties(WCHAR * drive, LPCITEMIDLIST pidlFolder, LPCITEMIDLIST * apidl);
+BOOL SH_ShowDriveProperties(WCHAR * drive);
 BOOL SH_ShowRecycleBinProperties(WCHAR sDrive);
-BOOL SH_ShowPropertiesDialog(LPWSTR lpf, LPCITEMIDLIST pidlFolder, LPCITEMIDLIST * apidl);
-BOOL SH_ShowFolderProperties(LPWSTR pwszFolder, LPCITEMIDLIST pidlFolder, LPCITEMIDLIST * apidl);
 #endif

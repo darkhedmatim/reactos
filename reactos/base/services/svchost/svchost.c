@@ -9,8 +9,6 @@
 /* INCLUDES ******************************************************************/
 
 #include "svchost.h"
-
-#define NDEBUG
 #include <debug.h>
 
 #ifdef _MSC_VER
@@ -104,12 +102,11 @@ BOOL PrepareService(LPCTSTR ServiceName)
 	HeapFree(GetProcessHeap(), 0, Buffer);
 
 	/* Load the service dll */
-	DPRINT1("Trying to load dll\n");
 	hServiceDll = LoadLibrary(DllPath);
 
 	if (NULL == hServiceDll)
 	{
-		DPRINT1("Unable to load ServiceDll: %s, ErrorCode: %u\n", DllPath, GetLastError());
+		DPRINT1("Unable to load ServiceDll: %s\n", DllPath);
 		return FALSE;
 	}
 
@@ -142,7 +139,7 @@ BOOL PrepareService(LPCTSTR ServiceName)
 	return TRUE;
 }
 
-VOID FreeServices(VOID)
+VOID FreeServices()
 {
 	while (FirstService)
 	{
@@ -211,47 +208,39 @@ int _tmain (int argc, LPTSTR argv [])
 {
 	DWORD NrOfServices;
 	LPSERVICE_TABLE_ENTRY ServiceTable;
+	DWORD i;
 
 	if (argc < 3)
 	{
 		/* MS svchost.exe doesn't seem to print help, should we? */
-		return 0;
+		return 1;
 	}
 
 	if (_tcscmp(argv[1], _T("-k")) != 0)
 	{
 		/* For now, we only handle "-k" */
-		return 0;
+		return 1;
 	}
 
 	NrOfServices = LoadServiceCategory(argv[2]);
 
-	DPRINT1("NrOfServices: %lu\n", NrOfServices);
 	if (0 == NrOfServices)
-		return 0;
+		return 1;
 
 	ServiceTable = HeapAlloc(GetProcessHeap(), 0, sizeof(SERVICE_TABLE_ENTRY) * (NrOfServices + 1));
 
 	if (NULL != ServiceTable)
 	{
-		DWORD i;
 		PSERVICE Service = FirstService;
 
-		/* Fill the service table */
 		for (i = 0; i < NrOfServices; ++i)
 		{
-			DPRINT1("Loading service: %s\n", Service->Name);
 			ServiceTable[i].lpServiceName = Service->Name;
 			ServiceTable[i].lpServiceProc = Service->ServiceMainFunc;
 			Service = Service->Next;
 		}
 
-		/* Set a NULL entry to end the service table */
-		ServiceTable[i].lpServiceName = NULL;
-		ServiceTable[i].lpServiceProc = NULL;
-
-		if (FALSE == StartServiceCtrlDispatcher(ServiceTable))
-			printf("Failed to start service control dispatcher, ErrorCode: %lu\n", GetLastError());
+		StartServiceCtrlDispatcher(ServiceTable);
 
 		HeapFree(GetProcessHeap(), 0, ServiceTable);
 	}
@@ -260,7 +249,6 @@ int _tmain (int argc, LPTSTR argv [])
 		DPRINT1("Not enough memory for the service table, trying to allocate %u bytes\n", sizeof(SERVICE_TABLE_ENTRY) * (NrOfServices + 1));
 	}
 
-	DPRINT1("Freeing services...\n");
 	FreeServices();
 
     return 0;

@@ -32,6 +32,9 @@
 
 #ifdef HAVE_LDAP_H
 #include <ldap.h>
+#else
+#define LDAP_SUCCESS        0x00
+#define LDAP_NOT_SUPPORTED  0x5c
 #endif
 
 #include "winldap_private.h"
@@ -76,7 +79,7 @@ static char **split_hostnames( const char *hostnames )
 
     q = p;
     i = 0;
-    
+
     while (*p)
     {
         if (p[1] != '\0')
@@ -87,7 +90,7 @@ static char **split_hostnames( const char *hostnames )
                 res[i] = strdupU( q );
                 if (!res[i]) goto oom;
                 i++;
-            
+
                 while (isspace( *p )) p++;
                 q = p;
             }
@@ -117,7 +120,7 @@ oom:
 /* Determine if a URL starts with a known LDAP scheme */
 static int has_ldap_scheme( char *url )
 {
-    if (!strncasecmp( url, "ldap://", 7 ) || 
+    if (!strncasecmp( url, "ldap://", 7 ) ||
         !strncasecmp( url, "ldaps://", 8 ) ||
         !strncasecmp( url, "ldapi://", 8 ) ||
         !strncasecmp( url, "cldap://", 8 )) return 1;
@@ -131,11 +134,11 @@ static int has_ldap_scheme( char *url )
 static char *join_hostnames( const char *scheme, char **hostnames, ULONG portnumber )
 {
     char *res, *p, *q, **v;
-    unsigned int i = 0, size = 0; 
+    unsigned int i = 0, size = 0;
     static const char sep[] = " ", fmt[] = ":%d";
     char port[7];
 
-    sprintf( port, fmt, portnumber ); 
+    sprintf( port, fmt, portnumber );
 
     for (v = hostnames; *v; v++)
     {
@@ -150,14 +153,14 @@ static char *join_hostnames( const char *scheme, char **hostnames, ULONG portnum
 
         size += strlen( *v );
 
-        if (!strchr( q, ':' )) 
+        if (!strchr( q, ':' ))
             size += strlen( port );
 
         i++;
     }
 
     size += (i - 1) * strlen( sep );
- 
+
     res = HeapAlloc( GetProcessHeap(), 0, size + 1 );
     if (!res) return NULL;
 
@@ -255,7 +258,7 @@ exit:
  *  The hostname string can be a space separated string of hostnames,
  *  in which case the LDAP runtime will try to connect to the hosts
  *  in order, until a connection can be made. A hostname may have a
- *  trailing portnumber (separated from the hostname by a ':'), which 
+ *  trailing portnumber (separated from the hostname by a ':'), which
  *  will take precedence over the portnumber supplied as a parameter
  *  to this function.
  */
@@ -294,7 +297,7 @@ exit:
 /***********************************************************************
  *      ldap_connect     (WLDAP32.@)
  *
- * Connect to an LDAP server. 
+ * Connect to an LDAP server.
  *
  * PARAMS
  *  ld      [I] Pointer to an LDAP context.
@@ -314,7 +317,7 @@ ULONG CDECL ldap_connect( WLDAP32_LDAP *ld, struct l_timeval *timeout )
     TRACE( "(%p, %p)\n", ld, timeout );
 
     if (!ld) return WLDAP32_LDAP_PARAM_ERROR;
-    return WLDAP32_LDAP_SUCCESS; /* FIXME: do something, e.g. ping the host */
+    return LDAP_SUCCESS; /* FIXME: do something, e.g. ping the host */
 }
 
 /***********************************************************************
@@ -363,7 +366,7 @@ exit:
  *  The hostname string can be a space separated string of hostnames,
  *  in which case the LDAP runtime will try to connect to the hosts
  *  in order, until a connection can be made. A hostname may have a
- *  trailing portnumber (separated from the hostname by a ':'), which 
+ *  trailing portnumber (separated from the hostname by a ':'), which
  *  will take precedence over the portnumber supplied as a parameter
  *  to this function. The connection will not be made until the first
  *  LDAP function that needs it is called.
@@ -446,7 +449,7 @@ exit:
  *  The hostname string can be a space separated string of hostnames,
  *  in which case the LDAP runtime will try to connect to the hosts
  *  in order, until a connection can be made. A hostname may have a
- *  trailing portnumber (separated from the hostname by a ':'), which 
+ *  trailing portnumber (separated from the hostname by a ':'), which
  *  will take precedence over the portnumber supplied as a parameter
  *  to this function.
  */
@@ -528,7 +531,7 @@ WLDAP32_LDAP * CDECL ldap_sslinitA( PCHAR hostname, ULONG portnumber, int secure
  *  The hostname string can be a space separated string of hostnames,
  *  in which case the LDAP runtime will try to connect to the hosts
  *  in order, until a connection can be made. A hostname may have a
- *  trailing portnumber (separated from the hostname by a ':'), which 
+ *  trailing portnumber (separated from the hostname by a ':'), which
  *  will take precedence over the portnumber supplied as a parameter
  *  to this function. The connection will not be made until the first
  *  LDAP function that needs it is called.
@@ -576,7 +579,7 @@ exit:
 ULONG CDECL ldap_start_tls_sA( WLDAP32_LDAP *ld, PULONG retval, WLDAP32_LDAPMessage **result,
     PLDAPControlA *serverctrls, PLDAPControlA *clientctrls )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     LDAPControlW **serverctrlsW = NULL, **clientctrlsW = NULL;
 
@@ -584,7 +587,7 @@ ULONG CDECL ldap_start_tls_sA( WLDAP32_LDAP *ld, PULONG retval, WLDAP32_LDAPMess
 
     TRACE( "(%p, %p, %p, %p, %p)\n", ld, retval, result, serverctrls, clientctrls );
 
-    if (!ld) return ~0u;
+    if (!ld) return ~0UL;
 
     if (serverctrls) {
         serverctrlsW = controlarrayAtoW( serverctrls );
@@ -627,7 +630,7 @@ exit:
 ULONG CDECL ldap_start_tls_sW( WLDAP32_LDAP *ld, PULONG retval, WLDAP32_LDAPMessage **result,
     PLDAPControlW *serverctrls, PLDAPControlW *clientctrls )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     LDAPControl **serverctrlsU = NULL, **clientctrlsU = NULL;
 
@@ -635,7 +638,7 @@ ULONG CDECL ldap_start_tls_sW( WLDAP32_LDAP *ld, PULONG retval, WLDAP32_LDAPMess
 
     TRACE( "(%p, %p, %p, %p, %p)\n", ld, retval, result, serverctrls, clientctrls );
 
-    if (!ld) return ~0u;
+    if (!ld) return ~0UL;
 
     if (serverctrls) {
         serverctrlsU = controlarrayWtoU( serverctrls );
@@ -646,7 +649,7 @@ ULONG CDECL ldap_start_tls_sW( WLDAP32_LDAP *ld, PULONG retval, WLDAP32_LDAPMess
         if (!clientctrlsU) goto exit;
     }
 
-    ret = map_error( ldap_start_tls_s( ld, serverctrlsU, clientctrlsU ));
+    ret = ldap_start_tls_s( ld, serverctrlsU, clientctrlsU );
 
 exit:
     controlarrayfreeU( serverctrlsU );
@@ -662,7 +665,7 @@ exit:
 ULONG CDECL ldap_startup( PLDAP_VERSION_INFO version, HANDLE *instance )
 {
     TRACE( "(%p, %p)\n", version, instance );
-    return WLDAP32_LDAP_SUCCESS;
+    return LDAP_SUCCESS;
 }
 
 /***********************************************************************

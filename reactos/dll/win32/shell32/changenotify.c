@@ -18,8 +18,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <precomp.h>
+#include <stdarg.h>
+#include <string.h>
 
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
+#include "windef.h"
+#include "winbase.h"
+#include "wine/debug.h"
+#include "shell32_main.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
@@ -185,7 +192,7 @@ SHChangeNotifyRegister(
     LONG wEventMask,
     UINT uMsg,
     int cItems,
-    const SHChangeNotifyEntry *lpItems)
+    SHChangeNotifyEntry *lpItems)
 {
     LPNOTIFICATIONLIST item;
     int i;
@@ -308,8 +315,8 @@ void WINAPI SHChangeNotify(LONG wEventId, UINT uFlags, LPCVOID dwItem1, LPCVOID 
     switch (typeFlag)
     {
     case SHCNF_PATHA:
-        if (dwItem1) Pidls[0] = SHSimpleIDListFromPathA((LPCSTR)dwItem1); //FIXME
-        if (dwItem2) Pidls[1] = SHSimpleIDListFromPathA((LPCSTR)dwItem2); //FIXME
+        if (dwItem1) Pidls[0] = SHSimpleIDListFromPathA((LPCSTR)dwItem1);
+        if (dwItem2) Pidls[1] = SHSimpleIDListFromPathA((LPCSTR)dwItem2);
         break;
     case SHCNF_PATHW:
         if (dwItem1) Pidls[0] = SHSimpleIDListFromPathW((LPCWSTR)dwItem1);
@@ -380,9 +387,9 @@ void WINAPI SHChangeNotify(LONG wEventId, UINT uFlags, LPCVOID dwItem1, LPCVOID 
         ptr->wSignalledEvent |= wEventId;
 
         if (ptr->dwFlags  & SHCNRF_NewDelivery)
-            SendMessageW(ptr->hwnd, ptr->uMsg, (WPARAM) ptr, (LPARAM) GetCurrentProcessId());
+            SendMessageA(ptr->hwnd, ptr->uMsg, (WPARAM) ptr, (LPARAM) GetCurrentProcessId());
         else
-            SendMessageW(ptr->hwnd, ptr->uMsg, (WPARAM)Pidls, wEventId);
+            SendMessageA(ptr->hwnd, ptr->uMsg, (WPARAM)Pidls, wEventId);
 
         TRACE("notifying %s, event %s(%x) after\n", NodeName( ptr ), DumpEvent(
                 wEventId ),wEventId );

@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2002-2008 Alexander A. Telyatnikov (Alter)
+Copyright (c) 2002-2007 Alexander A. Telyatnikov (Alter)
 
 Module Name:
     id_dma.cpp
@@ -31,7 +31,7 @@ Notes:
 Revision History:
 
     This module is a port from FreeBSD 4.3-6.1 ATA driver (ata-dma.c, ata-chipset.c) by
-         Søren Schmidt, Copyright (c) 1998-2008
+         Søren Schmidt, Copyright (c) 1998-2007
 
     Changed defaulting-to-generic-PIO/DMA policy
     Added PIO settings for VIA
@@ -53,7 +53,6 @@ static const CHAR retry_Udma[MAX_RETRIES+1] = {6, 2,-1,-1,-1,-1};
 PHYSICAL_ADDRESS ph4gb = {{0xFFFFFFFF, 0}};
 
 VOID
-NTAPI
 cyrix_timing (
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG dev,               // physical device number (0-3)
@@ -61,7 +60,6 @@ cyrix_timing (
     );
 
 VOID
-NTAPI
 promise_timing (
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG dev,               // physical device number (0-3)
@@ -69,7 +67,6 @@ promise_timing (
     );
 
 VOID
-NTAPI
 hpt_timing (
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG dev,               // physical device number (0-3)
@@ -77,7 +74,6 @@ hpt_timing (
     );
 
 VOID
-NTAPI
 via82c_timing (
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG dev,               // physical device number (0-3)
@@ -85,7 +81,6 @@ via82c_timing (
     );
 
 ULONG
-NTAPI
 hpt_cable80(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG channel            // physical channel number (0-1)
@@ -94,7 +89,6 @@ hpt_cable80(
 #define ATAPI_DEVICE(de, ldev)    (de->lun[ldev].DeviceFlags & DFLAGS_ATAPI_DEVICE)
 
 ULONG
-NTAPI
 AtapiVirtToPhysAddr_(
     IN PVOID HwDeviceExtension,
     IN PSCSI_REQUEST_BLOCK Srb,
@@ -130,7 +124,6 @@ AtapiVirtToPhysAddr_(
 } // end AtapiVirtToPhysAddr_()
 
 VOID
-NTAPI
 AtapiDmaAlloc(
     IN PVOID HwDeviceExtension,
     IN PPORT_CONFIGURATION_INFORMATION ConfigInfo,
@@ -184,34 +177,10 @@ err_1:
     }
 #endif //USE_OWN_DMA
 
-    if(deviceExtension->HwFlags & UNIATA_AHCI) {
-        if(chan->AHCI_CL) {
-            return;
-        }
-        chan->AHCI_CL = (PIDE_AHCI_CMD_LIST)MmAllocateContiguousMemory(sizeof(IDE_AHCI_CMD_LIST)*ATA_AHCI_MAX_TAGS+sizeof(IDE_AHCI_RCV_FIS), ph4gb);
-        if(chan->AHCI_CL) {
-            chan->AHCI_CL_PhAddr = AtapiVirtToPhysAddr(HwDeviceExtension, NULL, (PUCHAR)(chan->AHCI_CL), &i, &ph_addru);
-            if(!chan->AHCI_CL_PhAddr || !i || ((LONG)(chan->AHCI_CL_PhAddr) == -1)) {
-                KdPrint2((PRINT_PREFIX "AtapiDmaAlloc: No AHCI CLP BASE\n" ));
-                chan->AHCI_CL = NULL;
-                chan->AHCI_CL_PhAddr = 0;
-                return;
-            }
-            if(ph_addru) {
-                KdPrint2((PRINT_PREFIX "AtapiDmaAlloc: No AHCI CLP below 4Gb\n" ));
-                MmFreeContiguousMemory(chan->AHCI_CL);
-                chan->AHCI_CL = NULL;
-                chan->AHCI_CL_PhAddr = 0;
-                return;
-            }
-        }
-    }
-
     return;
 } // end AtapiDmaAlloc()
 
 BOOLEAN
-NTAPI
 AtapiDmaSetup(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -227,45 +196,36 @@ AtapiDmaSetup(
     PHW_CHANNEL chan = &(deviceExtension->chan[lChannel]);
     PATA_REQ AtaReq = (PATA_REQ)(Srb->SrbExtension);
     BOOLEAN use_DB_IO = FALSE;
-    //BOOLEAN use_AHCI = FALSE;
     ULONG orig_count = count;
-    ULONG max_entries = (deviceExtension->HwFlags & UNIATA_AHCI) ? ATA_AHCI_DMA_ENTRIES : ATA_DMA_ENTRIES;
 
     AtaReq->Flags &= ~REQ_FLAG_DMA_OPERATION;
 
-    KdPrint2((PRINT_PREFIX "AtapiDmaSetup: mode %#x, data %x, count %x, lCh %x, dev %x\n",
-        deviceExtension->lun[lChannel*2+DeviceNumber].TransferMode,
-        data, count, lChannel, DeviceNumber ));
+    KdPrint2((PRINT_PREFIX "AtapiDmaSetup: mode %#x\n", deviceExtension->lun[lChannel*2+DeviceNumber].TransferMode ));
     if(deviceExtension->lun[lChannel*2+DeviceNumber].TransferMode < ATA_DMA) {
         KdPrint2((PRINT_PREFIX "AtapiDmaSetup: Not DMA mode, assume this is just preparation\n" ));
         //return FALSE;
     }
-    //KdPrint2((PRINT_PREFIX "  checkpoint 1\n" ));
     if(!count) {
         KdPrint2((PRINT_PREFIX "AtapiDmaSetup: count=0\n" ));
         return FALSE;
     }
-    //KdPrint2((PRINT_PREFIX "  checkpoint 2\n" ));
     if(count > deviceExtension->MaximumDmaTransferLength) {
         KdPrint2((PRINT_PREFIX "AtapiDmaSetup: deviceExtension->MaximumDmaTransferLength > count\n" ));
         return FALSE;
     }
-    //KdPrint2((PRINT_PREFIX "  checkpoint 3\n" ));
     if((ULONG)data & deviceExtension->AlignmentMask) {
         KdPrint2((PRINT_PREFIX "AtapiDmaSetup: unaligned data: %#x (%#x)\n", data, deviceExtension->AlignmentMask));
         return FALSE;
     }
 
-    //KdPrint2((PRINT_PREFIX "  checkpoint 4\n" ));
-    KdPrint2((PRINT_PREFIX "  get Phys(PRD=%x)\n", &(AtaReq->dma_tab) ));
+    // NOTE: This code is intended for 32-bit capable controllers only.
+    // 64-bit capable controllers shall be handled separately.
     dma_base = AtapiVirtToPhysAddr(HwDeviceExtension, NULL, (PUCHAR)&(AtaReq->dma_tab) /*chan->dma_tab*/, &i, &dma_baseu);
     if(dma_baseu) {
         KdPrint2((PRINT_PREFIX "AtapiDmaSetup: SRB built-in PRD above 4Gb: %8.8x%8.8x\n", dma_baseu, dma_base));
-        if(!deviceExtension->Host64) {
-            dma_base = chan->DB_PRD_PhAddr;
-            AtaReq->Flags |= REQ_FLAG_DMA_DBUF_PRD;
-            i = 1;
-        }
+        dma_base = chan->DB_PRD_PhAddr;
+        AtaReq->Flags |= REQ_FLAG_DMA_DBUF_PRD;
+        i = 1;
     } else
     if(!dma_base || !i || ((LONG)(dma_base) == -1)) {
         KdPrint2((PRINT_PREFIX "AtapiDmaSetup: No BASE\n" ));
@@ -273,23 +233,17 @@ AtapiDmaSetup(
     }
     AtaReq->dma_base = dma_base;
 
-    KdPrint2((PRINT_PREFIX "  get Phys(data=%x)\n", data ));
     dma_base = AtapiVirtToPhysAddr(HwDeviceExtension, Srb, data, &dma_count, &dma_baseu);
     if(dma_baseu) {
         KdPrint2((PRINT_PREFIX "AtapiDmaSetup: 1st block of buffer above 4Gb: %8.8x%8.8x\n", dma_baseu, dma_base));
-        if(!deviceExtension->Host64) {
 retry_DB_IO:
-            use_DB_IO = TRUE;
-            dma_base = chan->DB_IO_PhAddr;
-            data = (PUCHAR)(chan->DB_IO);
-        } else {
-            AtaReq->ahci_base64 = (ULONGLONG)dma_base | ((ULONGLONG)dma_baseu << 32);
-        }
+        use_DB_IO = TRUE;
+        dma_base = chan->DB_IO_PhAddr;
+        data = (PUCHAR)(chan->DB_IO);
     } else
     if(!dma_count || ((LONG)(dma_base) == -1)) {
+        AtaReq->dma_base = 0;
         KdPrint2((PRINT_PREFIX "AtapiDmaSetup: No 1st block\n" ));
-        //AtaReq->dma_base = NULL;
-        AtaReq->ahci_base64 = 0;
         return FALSE;
     }
 
@@ -299,37 +253,26 @@ retry_DB_IO:
     i = 0;
 
     while (count) {
-        if(deviceExtension->HwFlags & UNIATA_AHCI) {
-            AtaReq->ahci_cmd.prd_tab[i].base   = dma_base;
-            AtaReq->ahci_cmd.prd_tab[i].baseu  = dma_baseu;
-            AtaReq->ahci_cmd.prd_tab[i].DBC    = ((dma_count-1) & 0x3fffff);
-        } else {
-            AtaReq->dma_tab[i].base  = dma_base;
-            AtaReq->dma_tab[i].count = (dma_count & 0xffff);
-        }
-        i++; 
-        if (i >= max_entries) {
+        AtaReq->dma_tab[i].base = dma_base;
+        AtaReq->dma_tab[i].count = (dma_count & 0xffff);
+        i++;
+        if (i >= ATA_DMA_ENTRIES) {
+            AtaReq->dma_base = 0;
             KdPrint2((PRINT_PREFIX "too many segments in DMA table\n" ));
-            //AtaReq->dma_base = NULL;
-            AtaReq->ahci_base64 = 0;
             return FALSE;
         }
-        KdPrint2((PRINT_PREFIX "  get Phys(data[n]=%x)\n", data ));
         dma_base = AtapiVirtToPhysAddr(HwDeviceExtension, Srb, data, &dma_count, &dma_baseu);
         if(dma_baseu) {
             KdPrint2((PRINT_PREFIX "AtapiDmaSetup: block of buffer above 4Gb: %8.8x%8.8x\n", dma_baseu, dma_base));
-            if(!deviceExtension->Host64) {
-                if(use_DB_IO) {
-                    KdPrint2((PRINT_PREFIX "AtapiDmaSetup: *ERROR* special buffer above 4Gb: %8.8x%8.8x\n", dma_baseu, dma_base));
-                    return FALSE;
-                }
-                count = orig_count;
-                goto retry_DB_IO;
+            if(use_DB_IO) {
+                KdPrint2((PRINT_PREFIX "AtapiDmaSetup: *ERROR* special buffer above 4Gb: %8.8x%8.8x\n", dma_baseu, dma_base));
+                return FALSE;
             }
+            count = orig_count;
+            goto retry_DB_IO;
         } else
         if(!dma_count || !dma_base || ((LONG)(dma_base) == -1)) {
-            //AtaReq->dma_base = NULL;
-            AtaReq->ahci_base64 = 0;
+            AtaReq->dma_base = 0;
             KdPrint2((PRINT_PREFIX "AtapiDmaSetup: No NEXT block\n" ));
             return FALSE;
         }
@@ -338,16 +281,8 @@ retry_DB_IO:
         data += min(count, PAGE_SIZE);
         count -= min(count, PAGE_SIZE);
     }
-    KdPrint2((PRINT_PREFIX "  set TERM\n" ));
-    if(deviceExtension->HwFlags & UNIATA_AHCI) {
-        AtaReq->ahci_cmd.prd_tab[i].base   = dma_base;
-        AtaReq->ahci_cmd.prd_tab[i].baseu  = dma_baseu;
-        AtaReq->ahci_cmd.prd_tab[i].DBC    = ((dma_count-1) & 0x3fffff);
-    } else {
-        AtaReq->dma_tab[i].base = dma_base;
-        AtaReq->dma_tab[i].count = (dma_count & 0xffff) | ATA_DMA_EOT;
-    }
-    AtaReq->dma_entries = i;
+    AtaReq->dma_tab[i].base = dma_base;
+    AtaReq->dma_tab[i].count = (dma_count & 0xffff) | ATA_DMA_EOT;
 
     if(use_DB_IO) {
         AtaReq->Flags |= REQ_FLAG_DMA_DBUF;
@@ -360,7 +295,6 @@ retry_DB_IO:
 } // end AtapiDmaSetup()
 
 BOOLEAN
-NTAPI
 AtapiDmaPioSync(
     PVOID  HwDeviceExtension,
     PSCSI_REQUEST_BLOCK Srb,
@@ -425,7 +359,6 @@ AtapiDmaPioSync(
 } // end AtapiDmaPioSync()
 
 BOOLEAN
-NTAPI
 AtapiDmaDBSync(
     PHW_CHANNEL chan,
     PSCSI_REQUEST_BLOCK Srb
@@ -446,7 +379,6 @@ AtapiDmaDBSync(
 } // end AtapiDmaDBSync()
 
 VOID
-NTAPI
 AtapiDmaStart(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -473,11 +405,7 @@ AtapiDmaStart(
     if(AtaReq->Flags & REQ_FLAG_DMA_DBUF_PRD) {
         KdPrint2((PRINT_PREFIX "  DBUF_PRD\n"));
         ASSERT(FALSE);
-        if(deviceExtension->HwFlags & UNIATA_AHCI) {
-            RtlCopyMemory(chan->DB_PRD, &(AtaReq->ahci_cmd), sizeof(AtaReq->ahci_cmd));
-        } else {
-            RtlCopyMemory(chan->DB_PRD, &(AtaReq->dma_tab), sizeof(AtaReq->dma_tab));
-        }
+        RtlCopyMemory(chan->DB_PRD, &(AtaReq->dma_tab), sizeof(AtaReq->dma_tab));
     }
     if(!(Srb->SrbFlags & SRB_FLAGS_DATA_IN) &&
        (AtaReq->Flags & REQ_FLAG_DMA_DBUF)) {
@@ -539,7 +467,6 @@ AtapiDmaStart(
 } // end AtapiDmaStart()
 
 UCHAR
-NTAPI
 AtapiDmaDone(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
@@ -601,7 +528,6 @@ AtapiDmaDone(
 } // end AtapiDmaDone()
 
 VOID
-NTAPI
 AtapiDmaReinit(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG ldev,
@@ -609,7 +535,7 @@ AtapiDmaReinit(
     )
 {
     PHW_LU_EXTENSION LunExt = &(deviceExtension->lun[ldev]);
-    SCHAR apiomode;
+    CHAR apiomode;
 
     apiomode = (CHAR)AtaPioMode(&(LunExt->IdentifyData));
 
@@ -625,7 +551,7 @@ AtapiDmaReinit(
     }
 
     if((deviceExtension->HbaCtrlFlags & HBAFLAGS_DMA_DISABLED_LBA48) &&
-       (AtaReq->lba >= (LONGLONG)ATA_MAX_LBA28) &&
+       (AtaReq->lba >= ATA_MAX_LBA28) &&
        (LunExt->TransferMode > ATA_PIO5) ) {
         KdPrint2((PRINT_PREFIX
                     "AtapiDmaReinit: FORCE_DOWNRATE on Device %d for LBA48\n", ldev & 1));
@@ -636,30 +562,21 @@ AtapiDmaReinit(
     if(AtaReq->Flags & REQ_FLAG_FORCE_DOWNRATE) {
         KdPrint2((PRINT_PREFIX
                     "AtapiDmaReinit: FORCE_DOWNRATE on Device %d\n", ldev & 1));
-        if(AtaReq->lba >= (LONGLONG)ATA_MAX_LBA28) {
+        if(AtaReq->lba >= ATA_MAX_LBA28) {
 limit_lba48:
             LunExt->DeviceFlags |= REQ_FLAG_FORCE_DOWNRATE_LBA48;
 limit_pio:
             // do not make extra work if we already use PIO
+            KdPrint2((PRINT_PREFIX
+                        "AtapiDmaReinit: set PIO mode on Device %d (%x -> %x)\n", ldev & 1, LunExt->TransferMode, ATA_PIO0+apiomode));
             if(/*LunExt->TransferMode >= ATA_DMA*/
-               (LunExt->TransferMode > ATA_PIO5) && (LunExt->TransferMode != ATA_PIO0+apiomode)
+               LunExt->TransferMode != ATA_PIO0+apiomode
                ) {
-                KdPrint2((PRINT_PREFIX 
-                            "AtapiDmaReinit: set PIO mode on Device %d (%x -> %x)\n", ldev & 1, LunExt->TransferMode, ATA_PIO0+apiomode));
                 AtapiDmaInit(deviceExtension, ldev & 1, ldev >> 1,
                              apiomode,
                              -1,
                              -1 );
-            } else
-            if(LunExt->LimitedTransferMode < LunExt->TransferMode) {
-                KdPrint2((PRINT_PREFIX 
-                            "AtapiDmaReinit: set PIO mode on Device %d (%x -> %x) (2)\n", ldev & 1, LunExt->TransferMode, LunExt->LimitedTransferMode));
-                AtapiDmaInit(deviceExtension, ldev & 1, ldev >> 1,
-                             LunExt->LimitedTransferMode-ATA_PIO0, 
-                             -1,
-                             -1 );
             }
-
         } else {
             KdPrint2((PRINT_PREFIX
                         "AtapiDmaReinit: set MAX mode on Device %d\n", ldev & 1));
@@ -684,7 +601,6 @@ limit_pio:
 } // end AtapiDmaReinit()
 
 VOID
-NTAPI
 AtapiDmaInit__(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG ldev
@@ -720,7 +636,6 @@ AtapiDmaInit__(
 } // end AtapiDmaInit__()
 
 BOOLEAN
-NTAPI
 AtaSetTransferMode(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG DeviceNumber,
@@ -729,7 +644,7 @@ AtaSetTransferMode(
     IN ULONG mode
     )
 {
-    KdPrint3((PRINT_PREFIX 
+    KdPrint2((PRINT_PREFIX
                 "AtaSetTransferMode: Set %#x on Device %d/%d\n", mode, lChannel, DeviceNumber));
     LONG statusByte = 0;
     CHAR apiomode;
@@ -738,23 +653,23 @@ AtaSetTransferMode(
                         IDE_COMMAND_SET_FEATURES, 0, 0, 0,
                         (UCHAR)((mode > ATA_UDMA6) ? ATA_UDMA6 : mode), ATA_C_F_SETXFER, ATA_WAIT_BASE_READY);
     if(statusByte & IDE_STATUS_ERROR) {
-        KdPrint3((PRINT_PREFIX "  wait ready after error\n"));
+        KdPrint2((PRINT_PREFIX "  wait ready after error\n"));
         if(LunExt->DeviceFlags & DFLAGS_ATAPI_DEVICE) {
             AtapiStallExecution(10);
         } else {
             AtapiStallExecution(100);
         }
         apiomode = (CHAR)AtaPioMode(&(LunExt->IdentifyData));
-        if(  (apiomode > 0) &&
-             ((CHAR)AtaWmode(&(LunExt->IdentifyData))   > 0) &&
-             ((CHAR)AtaUmode(&(LunExt->IdentifyData))   > 0)
+        if(  apiomode > 0 &&
+             (CHAR)AtaWmode(&(LunExt->IdentifyData))   > 0 &&
+             (CHAR)AtaUmode(&(LunExt->IdentifyData))   > 0
           ) {
             return FALSE;
         }
         if(mode > ATA_PIO2) {
             return FALSE;
         }
-        KdPrint3((PRINT_PREFIX "  assume that drive doesn't support mode swithing using PIO%d\n", apiomode));
+        KdPrint2((PRINT_PREFIX "  assume that drive doesn't support mode swithingm using PIO%d\n", apiomode));
         mode = ATA_PIO0 + apiomode;
     }
     //if(mode <= ATA_UDMA6) {
@@ -764,15 +679,14 @@ AtaSetTransferMode(
 } // end AtaSetTransferMode()
 
 VOID
-NTAPI
 AtapiDmaInit(
     IN PVOID HwDeviceExtension,
     IN ULONG DeviceNumber,
     IN ULONG lChannel,          // logical channel,
                                // is always 0 except simplex-only controllers
-    IN SCHAR apiomode,
-    IN SCHAR wdmamode,
-    IN SCHAR udmamode
+    IN CHAR apiomode,
+    IN CHAR wdmamode,
+    IN CHAR udmamode
     )
 {
     PHW_DEVICE_EXTENSION deviceExtension = (PHW_DEVICE_EXTENSION)HwDeviceExtension;
@@ -866,7 +780,7 @@ AtapiDmaInit(
         goto try_generic_dma;
     }
 
-    if(UniataIsSATARangeAvailable(deviceExtension, lChannel)) {
+    if(deviceExtension->BaseIoAddressSATA_0.Addr) {
     //if(ChipFlags & UNIATA_SATA) {
         /****************/
         /* SATA Generic */
@@ -909,7 +823,7 @@ AtapiDmaInit(
         AtaSetTransferMode(deviceExtension, DeviceNumber, lChannel, LunExt, ModeByte);
         return;
     }
-    if(udmamode > 2 && !LunExt->IdentifyData.HwResCableId) {
+    if (udmamode > 2 && !LunExt->IdentifyData.HwResCableId) {
         KdPrint2((PRINT_PREFIX "AtapiDmaInit: DMA limited to UDMA33, non-ATA66 compliant cable\n"));
         udmamode = 2;
         apiomode = min( apiomode, (CHAR)(LunExt->LimitedTransferMode - ATA_PIO));
@@ -1146,40 +1060,6 @@ set_new_acard:
         }
         /* Use GENERIC PIO */
         break;
-    case ATA_MARVELL_ID:
-        /***********/
-        /* Marvell */
-        /***********/
-        for(i=udmamode; i>=0; i--) {
-            if(AtaSetTransferMode(deviceExtension, DeviceNumber, lChannel, LunExt, ATA_UDMA0 + i)) {
-                return;
-            }
-        }
-        for(i=wdmamode; i>=0; i--) {
-            if(AtaSetTransferMode(deviceExtension, DeviceNumber, lChannel, LunExt, ATA_WDMA0 + i)) {
-                return;
-            }
-        }
-        /* try generic DMA, use hpt_timing() */
-        if (wdmamode >= 0 && apiomode >= 4) {
-            if(AtaSetTransferMode(deviceExtension, DeviceNumber, lChannel, LunExt, ATA_DMA)) {
-                return;
-            }
-        }
-        AtaSetTransferMode(deviceExtension, DeviceNumber, lChannel, LunExt, ATA_PIO0 + apiomode);
-        return;
-        break;
-    case ATA_NETCELL_ID:
-        /***********/
-        /* NetCell */
-        /***********/
-        if (wdmamode >= 2 && apiomode >= 4) {
-            if(AtaSetTransferMode(deviceExtension, DeviceNumber, lChannel, LunExt, ATA_WDMA2)) {
-                return;
-            }
-        }
-        /* Use GENERIC PIO */
-        break;
     case ATA_HIGHPOINT_ID: {
         /********************/
         /* High Point (HPT) */
@@ -1304,7 +1184,6 @@ set_new_acard:
                     if(ChipFlags & ICH4_FIX) {
                         return;
                     }
-                    break;
                 }
             }
         }
@@ -1504,7 +1383,7 @@ l_ATA_SILICON_IMAGE_ID:
             AtaSetTransferMode(deviceExtension, DeviceNumber, lChannel, LunExt, ATA_PIO0 + apiomode);
 
             SetPciConfig1(mreg, mode | (mask & 0x11));
-            SetPciConfig2(ureg - 0x8, sil_pio_modes[apiomode]);
+            SetPciConfig2(ureg - 0x8, sil_pio_modes[i]);
             return;
 
         } else {
@@ -1554,7 +1433,7 @@ l_ATA_SILICON_IMAGE_ID:
         /*******/
         /* SiS */
         /*******/
-        PULONG sis_modes = NULL;
+        PULONG sis_modes;
         static const ULONG sis_modes_new133[] =
                 { 0x28269008, 0x0c266008, 0x04263008, 0x0c0a3008, 0x05093008,
                   0x22196008, 0x0c0a3008, 0x05093008, 0x050939fc, 0x050936ac,
@@ -1569,9 +1448,9 @@ l_ATA_SILICON_IMAGE_ID:
                 { 0x00cb, 0x0067, 0x0044, 0x0033, 0x0031, 0x0044, 0x0033, 0x0031,
                   0x8b31, 0x8731, 0x8531, 0x8431, 0x8231, 0x8131 };
 
-        ULONG reg = 0;
+        ULONG reg;
         UCHAR reg57;
-        ULONG reg_size = 0;
+        ULONG reg_size;
         ULONG offs;
 
         switch(ChipType) {
@@ -1747,8 +1626,8 @@ setup_drive_ite:
             AtaSetTransferMode(deviceExtension, DeviceNumber, lChannel, LunExt, ATA_PIO0 + apiomode);
             ChangePciConfig1(0x50, a | (1 << (dev + 3)) );
             GetPciConfig1(0x54 + offset, reg54);
-            if(reg54 < chtiming[apiomode]) {
-                SetPciConfig1(0x54 + offset, chtiming[apiomode]);
+            if(reg54 < chtiming[i]) {
+                SetPciConfig1(0x54 + offset, chtiming[i]);
             }
             return;
         }
@@ -1812,7 +1691,6 @@ try_generic_dma:
 
 
 VOID
-NTAPI
 cyrix_timing(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG dev,               // physical device number (0-3)
@@ -1842,7 +1720,6 @@ cyrix_timing(
 } // cyrix_timing()
 
 VOID
-NTAPI
 promise_timing(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG dev,               // physical device number (0-3)
@@ -1906,7 +1783,6 @@ promise_timing(
 
 
 VOID
-NTAPI
 hpt_timing(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG dev,               // physical device number (0-3)
@@ -1920,7 +1796,7 @@ hpt_timing(
     ULONG ChipType  = deviceExtension->HwFlags & CHIPTYPE_MASK;
     //ULONG ChipFlags = deviceExtension->HwFlags & CHIPFLAG_MASK;
 
-    ULONG timing = 0;
+    ULONG timing;
 
     if(mode == ATA_PIO5)
         mode = ATA_PIO4;
@@ -2051,7 +1927,6 @@ hpt_timing(
 #define FIT(v,min,max) (((v)>(max)?(max):(v))<(min)?(min):(v))
 
 VOID
-NTAPI
 via82c_timing(
     IN PHW_DEVICE_EXTENSION deviceExtension,
     IN ULONG dev,               // physical device number (0-3)
@@ -2102,5 +1977,4 @@ via82c_timing(
     /* PIO active & recover */
     SetPciConfig1(0x4b-dev, (FIT(active - 1, 0, 0xf) << 4) | FIT(recover - 1, 0, 0xf) );
 } // end via82c_timing()
-
 

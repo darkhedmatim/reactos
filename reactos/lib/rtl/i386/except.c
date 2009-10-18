@@ -16,47 +16,14 @@
 /* PUBLIC FUNCTIONS **********************************************************/
 
 /*
- * @implemented
+ * @unimplemented
  */
 VOID
 NTAPI
 RtlGetCallersAddress(OUT PVOID *CallersAddress,
                      OUT PVOID *CallersCaller)
 {
-    USHORT FrameCount;
-    PVOID  BackTrace[2];
-    PULONG BackTraceHash = NULL;
-
-    /* Get the tow back trace address */
-    FrameCount = RtlCaptureStackBackTrace(2, 2, &BackTrace[0],BackTraceHash);
-
-    /* Only if user want it */
-    if (*CallersAddress != NULL)
-    {
-        /* only when first frames exist */ 
-        if (FrameCount >= 1)
-        {
-            *CallersAddress = BackTrace[0];
-        }
-        else
-        {
-            *CallersAddress = NULL;
-        }
-    }
-
-    /* Only if user want it */
-    if (*CallersCaller != NULL)
-    {
-        /* only when second frames exist */ 
-        if (FrameCount >= 2)
-        {
-            *CallersCaller = BackTrace[1];
-        }
-        else
-        {
-            *CallersCaller = NULL;
-        }
-    }
+    UNIMPLEMENTED;
 }
 
 /*
@@ -73,17 +40,6 @@ RtlDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
     EXCEPTION_DISPOSITION Disposition;
     ULONG_PTR StackLow, StackHigh;
     ULONG_PTR RegistrationFrameEnd;
-
-    /* Perform vectored exception handling if we are in user mode */
-    if (RtlpGetMode() != KernelMode)
-    {
-        /* Call any registered vectored handlers */
-        if (RtlCallVectoredExceptionHandlers(ExceptionRecord, Context))
-        {
-            /* Exception handled, continue execution */
-            return TRUE;
-        }
-    }
 
     /* Get the current stack limits and registration frame */
     RtlpGetStackLimits(&StackLow, &StackHigh);

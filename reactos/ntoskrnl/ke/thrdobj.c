@@ -10,7 +10,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 extern EX_WORK_QUEUE ExWorkerQueue[MaximumWorkQueue];
 extern LIST_ENTRY PspReaperListHead;
@@ -99,7 +99,7 @@ KeSetDisableBoostThread(IN OUT PKTHREAD Thread,
     ASSERT_THREAD(Thread);
 
     /* Check if we're enabling or disabling */
-    if (Disable)
+    if (Disable != FALSE)
     {
         /* Set the bit */
         return InterlockedBitTestAndSet(&Thread->ThreadFlags, 1);
@@ -416,7 +416,7 @@ KeRundownThread(VOID)
         if (Mutant->ApcDisable)
         {
             /* Bugcheck the system */
-            KeBugCheckEx(THREAD_TERMINATE_HELD_MUTEX,
+            KEBUGCHECKEX(0, //THREAD_TERMINATE_HELD_MUTEX,
                          (ULONG_PTR)Thread,
                          (ULONG_PTR)Mutant,
                          0,
@@ -652,7 +652,7 @@ KeThawAllThreads(VOID)
 
                 /* Signal the suspend semaphore and wake it */
                 Current->SuspendSemaphore.Header.SignalState++;
-                KiWaitTest(&Current->SuspendSemaphore, 0);
+                KiWaitTest(&Current->SuspendSemaphore, 1);
 
                 /* Unlock the dispatcher */
                 KiReleaseDispatcherLockFromDpcLevel();
@@ -742,7 +742,7 @@ KeInitThread(IN OUT PKTHREAD Thread,
     }
 
     /* Set swap settings */
-    Thread->EnableStackSwap = TRUE;
+    Thread->EnableStackSwap = FALSE;//TRUE;
     Thread->IdealProcessor = 1;
     Thread->SwapBusy = FALSE;
     Thread->KernelStackResident = TRUE;
@@ -810,21 +810,24 @@ KeInitThread(IN OUT PKTHREAD Thread,
     Thread->StackLimit = (ULONG_PTR)KernelStack - KERNEL_STACK_SIZE;
     Thread->KernelStackResident = TRUE;
 
-    /* Make sure that we are in the right page directory (ReactOS Mm Hack) */
-    MiSyncForProcessAttach(Thread, (PEPROCESS)Process);
+    /* Make sure that we are in the right page directory */
+    MiSyncThreadProcessViews(Process,
+                             (PVOID)Thread->StackLimit,
+                             KERNEL_STACK_SIZE);
+    MiSyncThreadProcessViews(Process, Thread, sizeof(ETHREAD));
 
     /* Enter SEH to avoid crashes due to user mode */
     Status = STATUS_SUCCESS;
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Initalize the Thread Context */
-        KiInitializeContextThread(Thread,
-                                  SystemRoutine,
-                                  StartRoutine,
-                                  StartContext,
-                                  Context);
+        KeArchInitThreadWithContext(Thread,
+                                    SystemRoutine,
+                                    StartRoutine,
+                                    StartContext,
+                                    Context);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         /* Set failure status */
         Status = STATUS_UNSUCCESSFUL;
@@ -833,11 +836,11 @@ KeInitThread(IN OUT PKTHREAD Thread,
         if (AllocatedStack)
         {
             /* Delete the stack */
-            MmDeleteKernelStack((PVOID)Thread->StackBase, FALSE);
+            MmDeleteKernelStack(Thread->StackBase, FALSE);
             Thread->InitialStack = NULL;
         }
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Set the Thread to initalized */
     Thread->State = Initialized;
@@ -855,7 +858,7 @@ KeInitializeThread(IN PKPROCESS Process,
                    IN PVOID Teb,
                    IN PVOID KernelStack)
 {
-    /* Initialize and start the thread on success */
+    /* Initailize and start the thread on success */
     if (NT_SUCCESS(KeInitThread(Thread,
                                 KernelStack,
                                 SystemRoutine,
@@ -875,7 +878,7 @@ NTAPI
 KeUninitThread(IN PKTHREAD Thread)
 {
     /* Delete the stack */
-    MmDeleteKernelStack((PVOID)Thread->StackBase, FALSE);
+    MmDeleteKernelStack(Thread->StackBase, FALSE);
     Thread->InitialStack = NULL;
 }
 
@@ -1156,9 +1159,6 @@ KeSetBasePriorityThread(IN PKTHREAD Thread,
     /* If priority saturation happened, use the saturated increment */
     if (Thread->Saturation) OldIncrement = (HIGH_PRIORITY + 1) / 2 *
                                             Thread->Saturation;
-
-    /* Reset the saturation value */
-    Thread->Saturation = 0;
 
     /* Now check if saturation is being used for the new value */
     if (abs(Increment) >= ((HIGH_PRIORITY + 1) / 2))

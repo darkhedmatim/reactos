@@ -37,7 +37,7 @@ ForwardIrpAndWait(
 	KeInitializeEvent(&Event, NotificationEvent, FALSE);
 	IoCopyCurrentIrpStackLocationToNext(Irp);
 
-	TRACE_(CLASS_NAME, "Calling lower device %p\n", LowerDevice);
+	DPRINT("Calling lower device %p\n", LowerDevice);
 	IoSetCompletionRoutine(Irp, ForwardIrpAndWaitCompletion, &Event, TRUE, TRUE, TRUE);
 
 	Status = IoCallDriver(LowerDevice, Irp);

@@ -1,8 +1,27 @@
 /*
+ *  ReactOS W32 Subsystem
+ *  Copyright (C) 1998 - 2006 ReactOS Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id: class.c 21596 2006-04-15 10:41:58Z greatlrd $
+ *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * PURPOSE:          Window classes
- * FILE:             subsystems/win32/win32k/ntuser/class.c
+ * FILE:             subsys/win32k/ntuser/class.c
  * PROGRAMER:        Thomas Weidenmueller <w3seek@reactos.com>
  * REVISION HISTORY:
  *       06-06-2001  CSH  Created
@@ -17,66 +36,66 @@
 /* CALLPROC ******************************************************************/
 
 WNDPROC
-GetCallProcHandle(IN PCALLPROCDATA CallProc)
+GetCallProcHandle(IN PCALLPROC CallProc)
 {
     /* FIXME - check for 64 bit architectures... */
-    return (WNDPROC)((ULONG_PTR)UserObjectToHandle(CallProc) | 0xFFFF0000);
+    return (WNDPROC)((ULONG_PTR)ObmObjectToHandle(CallProc) | 0xFFFF0000);
 }
 
 VOID
-DestroyCallProc(IN PDESKTOPINFO Desktop,
-                IN OUT PCALLPROCDATA CallProc)
+DestroyCallProc(IN PDESKTOP Desktop,
+                IN OUT PCALLPROC CallProc)
 {
     /* FIXME - use new object manager! */
-    HANDLE Handle = UserObjectToHandle(CallProc);
+    HANDLE Handle = ObmObjectToHandle(CallProc);
 
-    UserDeleteObject(Handle,
+    ObmDeleteObject(Handle,
                     otCallProc);
 }
 
-PCALLPROCDATA
-CloneCallProc(IN PDESKTOPINFO Desktop,
-              IN PCALLPROCDATA CallProc)
+PCALLPROC
+CloneCallProc(IN PDESKTOP Desktop,
+              IN PCALLPROC CallProc)
 {
-    PCALLPROCDATA NewCallProc;
+    PCALLPROC NewCallProc;
     HANDLE Handle;
 
     /* FIXME - use new object manager! */
-    NewCallProc = (PCALLPROCDATA)UserCreateObject(gHandleTable,
+    NewCallProc = (PCALLPROC)ObmCreateObject(gHandleTable,
                                              &Handle,
                                              otCallProc,
-                                             sizeof(CALLPROCDATA));
+                                             sizeof(CALLPROC));
     if (NewCallProc != NULL)
     {
-        NewCallProc->head.h = Handle;
-        NewCallProc->pfnClientPrevious = CallProc->pfnClientPrevious;
-        NewCallProc->wType = CallProc->wType;
-        NewCallProc->spcpdNext = NULL;
+        NewCallProc->pi = CallProc->pi;
+        NewCallProc->WndProc = CallProc->WndProc;
+        NewCallProc->Unicode = CallProc->Unicode;
+        NewCallProc->Next = NULL;
     }
 
     return NewCallProc;
 }
 
-PCALLPROCDATA
-CreateCallProc(IN PDESKTOPINFO Desktop,
+PCALLPROC
+CreateCallProc(IN PDESKTOP Desktop,
                IN WNDPROC WndProc,
                IN BOOL Unicode,
-               IN PPROCESSINFO pi)
+               IN PW32PROCESSINFO pi)
 {
-    PCALLPROCDATA NewCallProc;
+    PCALLPROC NewCallProc;
     HANDLE Handle;
 
     /* FIXME - use new object manager! */
-    NewCallProc = (PCALLPROCDATA)UserCreateObject(gHandleTable,
+    NewCallProc = (PCALLPROC)ObmCreateObject(gHandleTable,
                                              &Handle,
                                              otCallProc,
-                                             sizeof(CALLPROCDATA));
+                                             sizeof(CALLPROC));
     if (NewCallProc != NULL)
     {
-        NewCallProc->head.h = Handle;
-        NewCallProc->pfnClientPrevious = WndProc;
-        NewCallProc->wType |= Unicode ? UserGetCPDA2U : UserGetCPDU2A ;
-        NewCallProc->spcpdNext = NULL;
+        NewCallProc->pi = pi;
+        NewCallProc->WndProc = WndProc;
+        NewCallProc->Unicode = Unicode;
+        NewCallProc->Next = NULL;
     }
 
     return NewCallProc;
@@ -86,7 +105,7 @@ BOOL
 UserGetCallProcInfo(IN HANDLE hCallProc,
                     OUT PWNDPROC_INFO wpInfo)
 {
-    PCALLPROCDATA CallProc;
+    PCALLPROC CallProc;
 
     /* NOTE: Accessing the WNDPROC_INFO structure may raise an exception! */
 
@@ -99,126 +118,41 @@ UserGetCallProcInfo(IN HANDLE hCallProc,
         return FALSE;
     }
 
-/* Use Handle pEntry->ppi!
     if (CallProc->pi != GetW32ProcessInfo())
     {
         return FALSE;
-    }*/
+    }
 
-    wpInfo->WindowProc = CallProc->pfnClientPrevious;
-    wpInfo->IsUnicode = !!(CallProc->wType & UserGetCPDA2U);
+    wpInfo->WindowProc = CallProc->WndProc;
+    wpInfo->IsUnicode = CallProc->Unicode;
 
     return TRUE;
 }
 
-/*
-   Based on UserFindCallProc.
- */
-PCALLPROCDATA
-FASTCALL
-UserSearchForCallProc(
-   PCALLPROCDATA pcpd,
-   WNDPROC WndProc,
-   GETCPD Type)
+BOOL NTAPI
+NtUserDereferenceWndProcHandle(IN HANDLE wpHandle,
+                               OUT PWNDPROC_INFO wpInfo)
 {
-   while ( pcpd && (pcpd->pfnClientPrevious != WndProc || pcpd->wType != Type) )
-   {
-      pcpd = pcpd->spcpdNext;
-   }
-   return pcpd;
+    BOOL Ret = FALSE;
+
+    UserEnterShared();
+
+    _SEH_TRY
+    {
+        ProbeForWrite(wpInfo,
+                      sizeof(WNDPROC_INFO),
+                      sizeof(ULONG));
+
+        Ret = UserGetCallProcInfo(wpHandle,
+                                  wpInfo);
+    }
+    _SEH_HANDLE
+    {
+        SetLastWin32Error(_SEH_GetExceptionCode());
+    }
+    _SEH_END;
+
+    UserLeave();
+
+    return Ret;
 }
-
-/*
-   Get Call Proc Data handle for the window proc being requested or create a
-   new Call Proc Data handle to be return for the requested window proc.
- */
-ULONG_PTR
-FASTCALL
-UserGetCPD(
-   PVOID pvClsWnd,
-   GETCPD Flags,
-   ULONG_PTR ProcIn)
-{
-   PCLS pCls;
-   PWND pWnd;
-   PCALLPROCDATA CallProc = NULL;
-   PTHREADINFO pti;
-
-   pti = PsGetCurrentThreadWin32Thread();
-
-   if ( Flags & (UserGetCPDWindow|UserGetCPDDialog) ||
-        Flags & UserGetCPDWndtoCls)
-   {
-      pWnd = pvClsWnd;
-      pCls = pWnd->pcls;
-   }
-   else
-      pCls = pvClsWnd;
-
-   // Search Class call proc data list.
-   if (pCls->spcpdFirst)
-      CallProc = UserSearchForCallProc( pCls->spcpdFirst, (WNDPROC)ProcIn, Flags);
-
-   // No luck, create a new one for the requested proc.
-   if (!CallProc)
-   {
-      CallProc = CreateCallProc( NULL,
-                                 (WNDPROC)ProcIn,
-                                 !!(Flags & UserGetCPDA2U),
-                                 pti->ppi);
-      if (CallProc)
-      {
-          CallProc->spcpdNext = pCls->spcpdFirst;
-          (void)InterlockedExchangePointer((PVOID*)&pCls->spcpdFirst,
-                                                    CallProc);
-          CallProc->wType = Flags;
-      }
-   }
-   return (ULONG_PTR)(CallProc ? GetCallProcHandle(CallProc) : NULL);
-}
-
-/* SYSCALLS *****************************************************************/
-
-/* 
-   Retrieve the WinProcA/W or CallProcData handle for Class, Dialog or Window.
-   This Function called from user space uses Window handle for class, window
-   and dialog procs only.
-
-   Note:
-      ProcIn is the default proc from pCls/pDlg/pWnd->lpfnXxyz, caller is
-      looking for another type of proc if the original lpfnXxyz proc is preset
-      to Ansi or Unicode.
-
-      Example:
-        If pWnd is created from Ansi and lpfnXxyz is assumed to be Ansi, caller
-        will ask for Unicode Proc return Proc or CallProcData handle.
-
-   This function should replaced NtUserGetClassLong and NtUserGetWindowLong.
- */
-ULONG_PTR
-APIENTRY
-NtUserGetCPD(
-   HWND hWnd,
-   GETCPD Flags,
-   ULONG_PTR ProcIn)
-{
-   PWINDOW_OBJECT Window;
-   PWND Wnd;
-   ULONG_PTR Result = 0;
-
-   UserEnterExclusive();
-   if (!(Window = UserGetWindowObject(hWnd)) || !Window->Wnd)
-   {   
-      goto Cleanup;
-   }
-   Wnd = Window->Wnd;
-
-   // Processing Window only from User space.
-   if ((Flags & ~(UserGetCPDU2A|UserGetCPDA2U)) != UserGetCPDClass)        
-      Result = UserGetCPD(Wnd, Flags, ProcIn);
-
-Cleanup:
-   UserLeave();
-   return Result;
-}
-

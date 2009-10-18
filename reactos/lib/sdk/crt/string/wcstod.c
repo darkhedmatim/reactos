@@ -6,7 +6,6 @@
 /*
  * @implemented
  */
-#if 0 //FIXME: Compare with wcstod in wcs.c
 double wcstod(const wchar_t *s, wchar_t **sret)
 {
   long double r;		/* result */
@@ -97,4 +96,3 @@ double wcstod(const wchar_t *s, wchar_t **sret)
     *sret = (wchar_t *)s;
   return r * sign;
 }
-#endif

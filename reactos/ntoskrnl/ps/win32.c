@@ -11,7 +11,7 @@
 #include <ntoskrnl.h>
 #include <winerror.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 /* GLOBALS ******************************************************************/
 
@@ -38,9 +38,6 @@ PsConvertToGuiThread(VOID)
 
     /* Validate the previous mode */
     if (KeGetPreviousMode() == KernelMode) return STATUS_INVALID_PARAMETER;
-
-    /* If no win32k, crashes later */
-    ASSERT(PspW32ProcessCallout != NULL);
 
     /* Make sure win32k is here */
     if (!PspW32ProcessCallout) return STATUS_ACCESS_DENIED;
@@ -131,44 +128,48 @@ NtW32Call(IN ULONG RoutineIndex,
 {
     PVOID RetResult;
     ULONG RetResultLength;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     ASSERT(KeGetPreviousMode() != KernelMode);
 
     /* Enter SEH for probing */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Probe arguments */
         ProbeForWritePointer(Result);
         ProbeForWriteUlong(ResultLength);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        /* Return the exception code */
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+        /* Get exception code */
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
-    /* Call kernel function */
-    Status = KeUserModeCallback(RoutineIndex,
-                                Argument,
-                                ArgumentLength,
-                                &RetResult,
-                                &RetResultLength);
+    /* Make sure we got success */
     if (NT_SUCCESS(Status))
     {
-        /* Enter SEH for write back */
-        _SEH2_TRY
+        /* Call kernel function */
+        Status = KeUserModeCallback(RoutineIndex,
+                                    Argument,
+                                    ArgumentLength,
+                                    &RetResult,
+                                    &RetResultLength);
+        if (NT_SUCCESS(Status))
         {
-            /* Return results to user mode */
-            *Result = RetResult;
-            *ResultLength = RetResultLength;
+            /* Enter SEH for write back */
+            _SEH_TRY
+            {
+                /* Return results to user mode */
+                *Result = RetResult;
+                *ResultLength = RetResultLength;
+            }
+            _SEH_HANDLE
+            {
+                /* Get the exception code */
+                Status = _SEH_GetExceptionCode();
+            }
+            _SEH_END;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
-        }
-        _SEH2_END;
     }
 
     /* Return the result */

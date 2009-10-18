@@ -36,7 +36,7 @@ BOOLEAN IniParseFile(PCHAR IniFileData, ULONG IniFileSize)
 	PINI_SECTION		CurrentSection = NULL;
 	PINI_SECTION_ITEM	CurrentItem = NULL;
 
-	DPRINTM(DPRINT_INIFILE, "IniParseFile() IniFileSize: %d\n", IniFileSize);
+	DbgPrint((DPRINT_INIFILE, "IniParseFile() IniFileSize: %d\n", IniFileSize));
 
 	if (!IniFileSectionInitialized)
 	{
@@ -46,7 +46,7 @@ BOOLEAN IniParseFile(PCHAR IniFileData, ULONG IniFileSize)
 
 	// Start with an 80-byte buffer
 	IniFileLineSize = 80;
-	IniFileLine = MmHeapAlloc(IniFileLineSize);
+	IniFileLine = MmAllocateMemory(IniFileLineSize);
 	if (!IniFileLine)
 	{
 		return FALSE;
@@ -61,8 +61,8 @@ BOOLEAN IniParseFile(PCHAR IniFileData, ULONG IniFileSize)
 		if (IniFileLineSize < IniGetNextLineSize(IniFileData, IniFileSize, CurrentOffset))
 		{
 			IniFileLineSize = IniGetNextLineSize(IniFileData, IniFileSize, CurrentOffset);
-			MmHeapFree(IniFileLine);
-			IniFileLine = MmHeapAlloc(IniFileLineSize);
+			MmFreeMemory(IniFileLine);
+			IniFileLine = MmAllocateMemory(IniFileLineSize);
 			if (!IniFileLine)
 			{
 				return FALSE;
@@ -84,21 +84,21 @@ BOOLEAN IniParseFile(PCHAR IniFileData, ULONG IniFileSize)
 		if (IniIsSectionName(IniFileLine, LineLength))
 		{
 			// Allocate a new section structure
-			CurrentSection = MmHeapAlloc(sizeof(INI_SECTION));
+			CurrentSection = MmAllocateMemory(sizeof(INI_SECTION));
 			if (!CurrentSection)
 			{
-				MmHeapFree(IniFileLine);
+				MmFreeMemory(IniFileLine);
 				return FALSE;
 			}
 
 			RtlZeroMemory(CurrentSection, sizeof(INI_SECTION));
 
 			// Allocate the section name buffer
-			CurrentSection->SectionName = MmHeapAlloc(IniGetSectionNameSize(IniFileLine, LineLength));
+			CurrentSection->SectionName = MmAllocateMemory(IniGetSectionNameSize(IniFileLine, LineLength));
 			if (!CurrentSection->SectionName)
 			{
-				MmHeapFree(CurrentSection);
-				MmHeapFree(IniFileLine);
+				MmFreeMemory(CurrentSection);
+				MmFreeMemory(IniFileLine);
 				return FALSE;
 			}
 
@@ -128,31 +128,31 @@ BOOLEAN IniParseFile(PCHAR IniFileData, ULONG IniFileSize)
 			}
 
 			// Allocate a new item structure
-			CurrentItem = MmHeapAlloc(sizeof(INI_SECTION_ITEM));
+			CurrentItem = MmAllocateMemory(sizeof(INI_SECTION_ITEM));
 			if (!CurrentItem)
 			{
-				MmHeapFree(IniFileLine);
+				MmFreeMemory(IniFileLine);
 				return FALSE;
 			}
 
 			RtlZeroMemory(CurrentItem, sizeof(INI_SECTION_ITEM));
 
 			// Allocate the setting name buffer
-			CurrentItem->ItemName = MmHeapAlloc(IniGetSettingNameSize(IniFileLine, LineLength));
+			CurrentItem->ItemName = MmAllocateMemory(IniGetSettingNameSize(IniFileLine, LineLength));
 			if (!CurrentItem->ItemName)
 			{
-				MmHeapFree(CurrentItem);
-				MmHeapFree(IniFileLine);
+				MmFreeMemory(CurrentItem);
+				MmFreeMemory(IniFileLine);
 				return FALSE;
 			}
 
 			// Allocate the setting value buffer
-			CurrentItem->ItemValue = MmHeapAlloc(IniGetSettingValueSize(IniFileLine, LineLength));
+			CurrentItem->ItemValue = MmAllocateMemory(IniGetSettingValueSize(IniFileLine, LineLength));
 			if (!CurrentItem->ItemValue)
 			{
-				MmHeapFree(CurrentItem->ItemName);
-				MmHeapFree(CurrentItem);
-				MmHeapFree(IniFileLine);
+				MmFreeMemory(CurrentItem->ItemName);
+				MmFreeMemory(CurrentItem);
+				MmFreeMemory(IniFileLine);
 				return FALSE;
 			}
 
@@ -172,8 +172,8 @@ BOOLEAN IniParseFile(PCHAR IniFileData, ULONG IniFileSize)
 		CurrentLineNumber++;
 	}
 
-	DPRINTM(DPRINT_INIFILE, "Parsed %d sections and %d settings.\n", IniFileSectionCount, IniFileSettingCount);
-	DPRINTM(DPRINT_INIFILE, "IniParseFile() done.\n");
+	DbgPrint((DPRINT_INIFILE, "Parsed %d sections and %d settings.\n", IniFileSectionCount, IniFileSettingCount));
+	DbgPrint((DPRINT_INIFILE, "IniParseFile() done.\n"));
 
 	return TRUE;
 }
@@ -232,8 +232,10 @@ ULONG IniGetNextLine(PCHAR IniFileData, ULONG IniFileSize, PCHAR Buffer, ULONG B
 	Buffer[Idx] = '\0';
 
 	// Get rid of newline & linefeed characters (if any)
-	while(Idx && (Buffer[--Idx] == '\n' || Buffer[Idx] == '\r'))
-		Buffer[Idx] = '\0';
+	if((Buffer[strlen(Buffer)-1] == '\n') || (Buffer[strlen(Buffer)-1] == '\r'))
+		Buffer[strlen(Buffer)-1] = '\0';
+	if((Buffer[strlen(Buffer)-1] == '\n') || (Buffer[strlen(Buffer)-1] == '\r'))
+		Buffer[strlen(Buffer)-1] = '\0';
 
 	// Send back new offset
 	return CurrentOffset;

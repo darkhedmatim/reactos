@@ -17,21 +17,10 @@ extern "C" {
 #endif
 
 #ifndef __NTDDKCOMP__
-
-#ifndef FLATPTR_DEFINED
 typedef ULONG_PTR FLATPTR;
-#define FLATPTR_DEFINED
-#endif
-
 typedef struct _VIDMEM *LPVIDMEM;
-
 #else
-
-#ifndef FLATPTR_DEFINED
 typedef ULONG_PTR FLATPTR;
-#define FLATPTR_DEFINED
-#endif
-
 typedef struct _VIDEOMEMORY *LPVIDMEM;
 #endif
 
@@ -133,12 +122,7 @@ typedef struct _DD_GETHEAPALIGNMENTDATA
     HRESULT ddRVal;
     VOID* GetHeapAlignment;
     HEAPALIGNMENT Alignment;
-} DD_GETHEAPALIGNMENTDATA;
-
-#ifndef DD_GETHEAPALIGNMENTDATA_DECLARED
-typedef DD_GETHEAPALIGNMENTDATA *PDD_GETHEAPALIGNMENTDATA;
-#define DD_GETHEAPALIGNMENTDATA_DECLARED
-#endif
+} DD_GETHEAPALIGNMENTDATA, *PDD_GETHEAPALIGNMENTDATA;
 
 extern void WINAPI VidMemFree( LPVMEMHEAP pvmh, FLATPTR ptr);
 extern FLATPTR WINAPI VidMemAlloc( LPVMEMHEAP pvmh, DWORD width, DWORD height);

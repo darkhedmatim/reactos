@@ -1,4 +1,5 @@
-/*
+/* $Id: page.c 23907 2006-09-04 05:52:23Z arty $
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/i386/page.c
@@ -12,8 +13,8 @@
 
 #include <ntoskrnl.h>
 #include <ppcmmu/mmu.h>
-//#define NDEBUG
-#include <debug.h>
+#define NDEBUG
+#include <internal/debug.h>
 
 #if defined (ALLOC_PRAGMA)
 #pragma alloc_text(INIT, MmInitGlobalKernelPageDirectory)
@@ -52,7 +53,7 @@ __inline LARGE_INTEGER PTE_TO_PAGE(ULONG npage)
 /* FUNCTIONS ***************************************************************/
 
 VOID
-NTAPI
+STDCALL
 MiFlushTlbIpiRoutine(PVOID Address)
 {
    if (Address == (PVOID)0xffffffff)
@@ -91,14 +92,14 @@ ProtectToFlags(ULONG flProtect)
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 MmCopyMmInfo(PEPROCESS Src,
              PEPROCESS Dest,
              PPHYSICAL_ADDRESS DirectoryTableBase)
 {
     DPRINT("MmCopyMmInfo(Src %x, Dest %x)\n", Src, Dest);
 
-    ASSERT(FALSE);
+    KeBugCheck(0);
 
     return(STATUS_SUCCESS);
 }
@@ -120,12 +121,12 @@ MmInitializeHandBuiltProcess(IN PEPROCESS Process,
 }
 
 BOOLEAN
-NTAPI
+STDCALL
 MmCreateProcessAddressSpace(IN ULONG MinWs,
                             IN PEPROCESS Process,
                             IN PLARGE_INTEGER DirectoryTableBase)
 {
-    ASSERT(FALSE);
+    KeBugCheck(0);
     return TRUE;
 }
 
@@ -135,28 +136,9 @@ MmDeletePageTable(PEPROCESS Process, PVOID Address)
 {
     PEPROCESS CurrentProcess = PsGetCurrentProcess();
 
-    DPRINT1("DeletePageTable: Process: %x CurrentProcess %x\n", 
-            Process, CurrentProcess);
+    if(!CurrentProcess) return;
 
-    if (Process != NULL && Process != CurrentProcess)
-    {
-        KeAttachProcess(&Process->Pcb);
-    }
-    
-    if (Process)
-    {
-        DPRINT1("Revoking VSID %d\n", (paddr_t)Process->UniqueProcessId);
-        MmuRevokeVsid((paddr_t)Process->UniqueProcessId, -1);
-    }
-    else
-    {
-        DPRINT1("No vsid to revoke\n");
-    }
-    
-    if (Process != NULL && Process != CurrentProcess)
-    {
-        KeDetachProcess();
-    }    
+    MmuRevokeVsid((paddr_t)Process->UniqueProcessId, -1);
 }
 
 VOID
@@ -180,7 +162,7 @@ MmGetPhysicalAddressProcess(PEPROCESS Process, PVOID Addr)
 /*
  * @implemented
  */
-PHYSICAL_ADDRESS NTAPI
+PHYSICAL_ADDRESS STDCALL
 MmGetPhysicalAddress(PVOID vaddr)
 /*
  * FUNCTION: Returns the physical address corresponding to a virtual address
@@ -302,7 +284,7 @@ MmIsAccessedAndResetAccessPage(PEPROCESS Process, PVOID Address)
     if (Address < MmSystemRangeStart && Process == NULL)
     {
 	DPRINT1("MmIsAccessedAndResetAccessPage is called for user space without a process.\n");
-	ASSERT(FALSE);
+	KEBUGCHECK(0);
     }
 
     info.proc = Process ? (int)Process->UniqueProcessId : 0;
@@ -370,7 +352,7 @@ MmCreateVirtualMappingForKernel(PVOID Address,
     if (Address < MmSystemRangeStart)
     {
 	DPRINT1("MmCreateVirtualMappingForKernel is called for user space\n");
-	ASSERT(FALSE);
+	KEBUGCHECK(0);
     }
 
     Addr = Address;
@@ -383,7 +365,7 @@ MmCreateVirtualMappingForKernel(PVOID Address,
             DPRINT1("Setting physical address but not allowing access at address "
                     "0x%.8X with attributes %x/%x.\n",
                     Addr, Attributes, flProtect);
-            ASSERT(FALSE);
+            KEBUGCHECK(0);
 	}
 	(void)InterlockedExchangeUL(Pt, PFN_TO_PTE(Pages[i]) | Attributes);
 #endif
@@ -401,16 +383,16 @@ MmCreatePageFileMapping(PEPROCESS Process,
     if (Process == NULL && Address < MmSystemRangeStart)
     {
 	DPRINT1("No process\n");
-	ASSERT(FALSE);
+	KEBUGCHECK(0);
     }
     if (Process != NULL && Address >= MmSystemRangeStart)
     {
 	DPRINT1("Setting kernel address with process context\n");
-	ASSERT(FALSE);
+	KEBUGCHECK(0);
     }
     if (SwapEntry & (1 << 31))
     {
-	ASSERT(FALSE);
+	KEBUGCHECK(0);
     }
 
     // XXX arty
@@ -430,7 +412,7 @@ MmCreateVirtualMappingUnsafe(PEPROCESS Process,
     ULONG Attributes;
     PVOID Addr;
     ULONG i;
-    ppc_map_info_t info = { 0 };
+    ppc_map_info_t info;
 
     DPRINT("MmCreateVirtualMappingUnsafe(%x, %x, %x, %x (%x), %d)\n",
 	   Process, Address, flProtect, Pages, *Pages, PageCount);
@@ -440,13 +422,13 @@ MmCreateVirtualMappingUnsafe(PEPROCESS Process,
 	if (Address < MmSystemRangeStart)
 	{
 	    DPRINT1("No process\n");
-	    ASSERT(FALSE);
+	    KEBUGCHECK(0);
 	}
 	if (PageCount > 0x10000 ||
 	    (ULONG_PTR) Address / PAGE_SIZE + PageCount > 0x100000)
 	{
 	    DPRINT1("Page count to large\n");
-	    ASSERT(FALSE);
+	    KEBUGCHECK(0);
 	}
     }
     else
@@ -454,14 +436,14 @@ MmCreateVirtualMappingUnsafe(PEPROCESS Process,
 	if (Address >= MmSystemRangeStart)
 	{
 	    DPRINT1("Setting kernel address with process context\n");
-	    ASSERT(FALSE);
+	    KEBUGCHECK(0);
 	}
 	if (PageCount > (ULONG_PTR)MmSystemRangeStart / PAGE_SIZE ||
 	    (ULONG_PTR) Address / PAGE_SIZE + PageCount >
 	    (ULONG_PTR)MmSystemRangeStart / PAGE_SIZE)
 	{
 	    DPRINT1("Page Count to large\n");
-	    ASSERT(FALSE);
+	    KEBUGCHECK(0);
 	}
     }
 
@@ -471,8 +453,7 @@ MmCreateVirtualMappingUnsafe(PEPROCESS Process,
     for (i = 0; i < PageCount; i++, Addr = (PVOID)((ULONG_PTR)Addr + PAGE_SIZE))
     {
 	Process = PsGetCurrentProcess();
-	info.proc = ((Addr < MmSystemRangeStart) && Process) ? 
-            (int)Process->UniqueProcessId : 0;
+	info.proc = Process ? (int)Process->UniqueProcessId : 0;
 	info.addr = (vaddr_t)Addr;
 	info.flags = Attributes;
 	MmuMapPage(&info, 1);
@@ -508,7 +489,7 @@ MmCreateVirtualMapping(PEPROCESS Process,
       if (!MmIsUsablePage(Pages[i]))
       {
          DPRINT1("Page at address %x not usable\n", PFN_TO_PTE(Pages[i]));
-         ASSERT(FALSE);
+         KEBUGCHECK(0);
       }
    }
 
@@ -564,7 +545,7 @@ MmSetPageProtect(PEPROCESS Process, PVOID Address, ULONG flProtect)
    Pt = MmGetPageTableForProcess(Process, Address, FALSE);
    if (Pt == NULL)
    {
-       ASSERT(FALSE);
+       KEBUGCHECK(0);
    }
    InterlockedExchange((PLONG)Pt, PAGE_MASK(*Pt) | Attributes | (*Pt & (PA_ACCESSED|PA_DIRTY)));
    MiFlushTlb(Pt, Address);
@@ -644,25 +625,6 @@ VOID
 NTAPI
 MmUpdatePageDir(PEPROCESS Process, PVOID Address, ULONG Size)
 {
-}
-
-/* Create a simple, primitive mapping at the specified address on a new page */
-NTSTATUS MmPPCCreatePrimitiveMapping(ULONG_PTR PageAddr)
-{
-    NTSTATUS result;
-    ppc_map_info_t info = { 0 };
-    info.flags = MMU_KRW;
-    info.addr = (vaddr_t)PageAddr;
-    result = MmuMapPage(&info, 1) ? STATUS_SUCCESS : STATUS_NO_MEMORY;
-    return result;
-}
-
-/* Use our primitive allocator */
-PFN_TYPE MmPPCPrimitiveAllocPage()
-{
-    paddr_t Result = MmuGetPage();
-    DbgPrint("Got Page %x\n", Result);
-    return Result / PAGE_SIZE;
 }
 
 /* EOF */

@@ -27,8 +27,8 @@
  * Andre Werthmann <wertmann@cs.uni-potsdam.de>
  */
 
-#include "main/glheader.h"
-#include "main/context.h"
+#include "glheader.h"
+#include "context.h"
 #include "math/m_xform.h"
 #include "tnl/t_context.h"
 

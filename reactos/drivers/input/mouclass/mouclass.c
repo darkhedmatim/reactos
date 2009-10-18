@@ -37,7 +37,7 @@ ClassCreate(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)
 {
-	TRACE_(CLASS_NAME, "IRP_MJ_CREATE\n");
+	DPRINT("IRP_MJ_CREATE\n");
 
 	if (!((PCOMMON_DEVICE_EXTENSION)DeviceObject->DeviceExtension)->IsClassDO)
 		return ForwardIrpAndForget(DeviceObject, Irp);
@@ -54,7 +54,7 @@ ClassClose(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)
 {
-	TRACE_(CLASS_NAME, "IRP_MJ_CLOSE\n");
+	DPRINT("IRP_MJ_CLOSE\n");
 
 	if (!((PCOMMON_DEVICE_EXTENSION)DeviceObject->DeviceExtension)->IsClassDO)
 		return ForwardIrpAndForget(DeviceObject, Irp);
@@ -71,7 +71,7 @@ ClassCleanup(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp)
 {
-	TRACE_(CLASS_NAME, "IRP_MJ_CLEANUP\n");
+	DPRINT("IRP_MJ_CLEANUP\n");
 
 	if (!((PCOMMON_DEVICE_EXTENSION)DeviceObject->DeviceExtension)->IsClassDO)
 		return ForwardIrpAndForget(DeviceObject, Irp);
@@ -92,7 +92,7 @@ ClassRead(
 	KIRQL OldIrql;
 	NTSTATUS Status;
 
-	TRACE_(CLASS_NAME, "IRP_MJ_READ\n");
+	DPRINT("IRP_MJ_READ\n");
 
 	ASSERT(DeviceExtension->Common.IsClassDO);
 
@@ -122,7 +122,7 @@ ClassDeviceControl(
 	PCLASS_DEVICE_EXTENSION DeviceExtension;
 	NTSTATUS Status = STATUS_NOT_SUPPORTED;
 
-	TRACE_(CLASS_NAME, "IRP_MJ_DEVICE_CONTROL\n");
+	DPRINT("IRP_MJ_DEVICE_CONTROL\n");
 
 	if (!((PCOMMON_DEVICE_EXTENSION)DeviceObject->DeviceExtension)->IsClassDO)
 		return ForwardIrpAndForget(DeviceObject, Irp);
@@ -147,7 +147,7 @@ ClassDeviceControl(
 			break;
 		}
 		default:
-			WARN_(CLASS_NAME, "IRP_MJ_DEVICE_CONTROL / unknown I/O control code 0x%lx\n",
+			DPRINT1("IRP_MJ_DEVICE_CONTROL / unknown I/O control code 0x%lx\n",
 				IoGetCurrentIrpStackLocation(Irp)->Parameters.DeviceIoControl.IoControlCode);
 			ASSERT(FALSE);
 			break;
@@ -177,7 +177,7 @@ IrpStub(
 				return ForwardIrpAndForget(DeviceObject, Irp);
 			default:
 			{
-				ERR_(CLASS_NAME, "Port DO stub for major function 0x%lx\n",
+				DPRINT1("Port DO stub for major function 0x%lx\n",
 					IoGetCurrentIrpStackLocation(Irp)->MajorFunction);
 				ASSERT(FALSE);
 			}
@@ -185,7 +185,7 @@ IrpStub(
 	}
 	else
 	{
-		ERR_(CLASS_NAME, "Class DO stub for major function 0x%lx\n",
+		DPRINT1("Class DO stub for major function 0x%lx\n",
 			IoGetCurrentIrpStackLocation(Irp)->MajorFunction);
 		ASSERT(FALSE);
 	}
@@ -213,7 +213,7 @@ ReadRegistryEntries(
 	ParametersRegistryKey.Buffer = ExAllocatePoolWithTag(PagedPool, ParametersRegistryKey.MaximumLength, CLASS_TAG);
 	if (!ParametersRegistryKey.Buffer)
 	{
-		WARN_(CLASS_NAME, "ExAllocatePoolWithTag() failed\n");
+		DPRINT("ExAllocatePoolWithTag() failed\n");
 		return STATUS_NO_MEMORY;
 	}
 	RtlCopyUnicodeString(&ParametersRegistryKey, RegistryPath);
@@ -292,7 +292,7 @@ CreateClassDeviceObject(
 	PCLASS_DEVICE_EXTENSION DeviceExtension;
 	NTSTATUS Status;
 
-	TRACE_(CLASS_NAME, "CreateClassDeviceObject(0x%p)\n", DriverObject);
+	DPRINT("CreateClassDeviceObject(0x%p)\n", DriverObject);
 
 	/* Create new device object */
 	DriverExtension = IoGetDriverObjectExtension(DriverObject, DriverObject);
@@ -305,19 +305,19 @@ CreateClassDeviceObject(
 	DeviceNameU.Buffer = ExAllocatePoolWithTag(PagedPool, DeviceNameU.MaximumLength, CLASS_TAG);
 	if (!DeviceNameU.Buffer)
 	{
-		WARN_(CLASS_NAME, "ExAllocatePoolWithTag() failed\n");
+		DPRINT("ExAllocatePoolWithTag() failed\n");
 		return STATUS_NO_MEMORY;
 	}
 	Status = RtlAppendUnicodeToString(&DeviceNameU, L"\\Device\\");
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(CLASS_NAME, "RtlAppendUnicodeToString() failed with status 0x%08lx\n", Status);
+		DPRINT("RtlAppendUnicodeToString() failed with status 0x%08lx\n", Status);
 		goto cleanup;
 	}
 	Status = RtlAppendUnicodeStringToString(&DeviceNameU, &DriverExtension->DeviceBaseName);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(CLASS_NAME, "RtlAppendUnicodeStringToString() failed with status 0x%08lx\n", Status);
+		DPRINT("RtlAppendUnicodeStringToString() failed with status 0x%08lx\n", Status);
 		goto cleanup;
 	}
 	PrefixLength = DeviceNameU.MaximumLength - 4 * sizeof(WCHAR) - sizeof(UNICODE_NULL);
@@ -331,18 +331,18 @@ CreateClassDeviceObject(
 			&DeviceNameU,
 			FILE_DEVICE_MOUSE,
 			FILE_DEVICE_SECURE_OPEN,
-			FALSE,
+			TRUE,
 			&Fdo);
 		if (NT_SUCCESS(Status))
 			goto cleanup;
 		else if (Status != STATUS_OBJECT_NAME_COLLISION)
 		{
-			WARN_(CLASS_NAME, "IoCreateDevice() failed with status 0x%08lx\n", Status);
+			DPRINT("IoCreateDevice() failed with status 0x%08lx\n", Status);
 			goto cleanup;
 		}
 		DeviceId++;
 	}
-	WARN_(CLASS_NAME, "Too many devices starting with '\\Device\\%wZ'\n", &DriverExtension->DeviceBaseName);
+	DPRINT("Too many devices starting with '\\Device\\%wZ'\n", &DriverExtension->DeviceBaseName);
 	Status = STATUS_TOO_MANY_NAMES;
 cleanup:
 	if (!NT_SUCCESS(Status))
@@ -368,7 +368,6 @@ cleanup:
 	DeviceExtension->DeviceName = DeviceNameU.Buffer;
 	Fdo->Flags |= DO_POWER_PAGABLE;
 	Fdo->Flags &= ~DO_DEVICE_INITIALIZING;
-    Fdo->Flags |= DO_BUFFERED_IO;
 
 	/* Add entry entry to HKEY_LOCAL_MACHINE\HARDWARE\DEVICEMAP\[DeviceBaseName] */
 	RtlWriteRegistryValue(
@@ -416,18 +415,18 @@ FillEntries(
 	}
 	else
 	{
-		_SEH2_TRY
+		_SEH_TRY
 		{
 			RtlCopyMemory(
 				Irp->UserBuffer,
 				DataStart,
 				NumberOfEntries * sizeof(MOUSE_INPUT_DATA));
 		}
-		_SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+		_SEH_HANDLE
 		{
-			Status = _SEH2_GetExceptionCode();
+			Status = _SEH_GetExceptionCode();
 		}
-		_SEH2_END;
+		_SEH_END;
 	}
 
 	return Status;
@@ -445,7 +444,7 @@ ClassCallback(
 	SIZE_T InputCount = DataEnd - DataStart;
 	SIZE_T ReadSize;
 
-	TRACE_(CLASS_NAME, "ClassCallback()\n");
+	DPRINT("ClassCallback()\n");
 
 	ASSERT(ClassDeviceExtension->Common.IsClassDO);
 
@@ -483,7 +482,7 @@ ClassCallback(
 	}
 	KeReleaseSpinLock(&ClassDeviceExtension->SpinLock, OldIrql);
 
-	TRACE_(CLASS_NAME, "Leaving ClassCallback()\n");
+	DPRINT("Leaving ClassCallback()\n");
 	return TRUE;
 }
 
@@ -499,7 +498,7 @@ ConnectPortDriver(
 	CONNECT_DATA ConnectData;
 	NTSTATUS Status;
 
-	TRACE_(CLASS_NAME, "Connecting PortDO %p to ClassDO %p\n", PortDO, ClassDO);
+	DPRINT("Connecting PortDO %p to ClassDO %p\n", PortDO, ClassDO);
 
 	KeInitializeEvent(&Event, NotificationEvent, FALSE);
 
@@ -555,7 +554,7 @@ DestroyPortDriver(
 	KIRQL OldIrql;
 	NTSTATUS Status;
 
-	TRACE_(CLASS_NAME, "Destroying PortDO %p\n", PortDO);
+	DPRINT("Destroying PortDO %p\n", PortDO);
 
 	DeviceExtension = (PPORT_DEVICE_EXTENSION)PortDO->DeviceExtension;
 	ClassDeviceExtension = DeviceExtension->ClassDO->DeviceExtension;
@@ -611,7 +610,7 @@ ClassAddDevice(
 	PPORT_DEVICE_EXTENSION DeviceExtension = NULL;
 	NTSTATUS Status;
 
-	TRACE_(CLASS_NAME, "ClassAddDevice called. Pdo = 0x%p\n", Pdo);
+	DPRINT("ClassAddDevice called. Pdo = 0x%p\n", Pdo);
 
 	DriverExtension = IoGetDriverObjectExtension(DriverObject, DriverObject);
 
@@ -626,11 +625,11 @@ ClassAddDevice(
 		NULL,
 		Pdo->DeviceType,
 		Pdo->Characteristics & FILE_DEVICE_SECURE_OPEN ? FILE_DEVICE_SECURE_OPEN : 0,
-		FALSE,
+		TRUE,
 		&Fdo);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(CLASS_NAME, "IoCreateDevice() failed with status 0x%08lx\n", Status);
+		DPRINT("IoCreateDevice() failed with status 0x%08lx\n", Status);
 		goto cleanup;
 	}
 	IoSetStartIoAttributes(Fdo, TRUE, TRUE);
@@ -643,7 +642,7 @@ ClassAddDevice(
 	Status = IoAttachDeviceToDeviceStackSafe(Fdo, Pdo, &DeviceExtension->LowerDevice);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(CLASS_NAME, "IoAttachDeviceToDeviceStackSafe() failed with status 0x%08lx\n", Status);
+		DPRINT("IoAttachDeviceToDeviceStackSafe() failed with status 0x%08lx\n", Status);
 		goto cleanup;
 	}
 	if (DeviceExtension->LowerDevice->Flags & DO_POWER_PAGABLE)
@@ -663,14 +662,14 @@ ClassAddDevice(
 			&DeviceExtension->ClassDO);
 		if (!NT_SUCCESS(Status))
 		{
-			WARN_(CLASS_NAME, "CreateClassDeviceObject() failed with status 0x%08lx\n", Status);
+			DPRINT("CreateClassDeviceObject() failed with status 0x%08lx\n", Status);
 			goto cleanup;
 		}
 	}
 	Status = ConnectPortDriver(Fdo, DeviceExtension->ClassDO);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(CLASS_NAME, "ConnectPortDriver() failed with status 0x%08lx\n", Status);
+		DPRINT("ConnectPortDriver() failed with status 0x%08lx\n", Status);
 		goto cleanup;
 	}
 	Fdo->Flags &= ~DO_DEVICE_INITIALIZING;
@@ -702,14 +701,12 @@ ClassCancelRoutine(
 	KIRQL OldIrql;
 	BOOLEAN wasQueued = FALSE;
 
-	TRACE_(CLASS_NAME, "ClassCancelRoutine(DeviceObject %p, Irp %p)\n", DeviceObject, Irp);
+	DPRINT("ClassCancelRoutine(DeviceObject %p, Irp %p)\n", DeviceObject, Irp);
 
 	ASSERT(ClassDeviceExtension->Common.IsClassDO);
 
-	IoReleaseCancelSpinLock(Irp->CancelIrql);
-
 	KeAcquireSpinLock(&ClassDeviceExtension->SpinLock, &OldIrql);
-
+	IoAcquireCancelSpinLock(&OldIrql);
 	if (ClassDeviceExtension->PendingIrp == Irp)
 	{
 		ClassDeviceExtension->PendingIrp = NULL;
@@ -739,7 +736,7 @@ HandleReadIrp(
 	PCLASS_DEVICE_EXTENSION DeviceExtension = DeviceObject->DeviceExtension;
 	NTSTATUS Status;
 
-	TRACE_(CLASS_NAME, "HandleReadIrp(DeviceObject %p, Irp %p)\n", DeviceObject, Irp);
+	DPRINT("HandleReadIrp(DeviceObject %p, Irp %p)\n", DeviceObject, Irp);
 
 	ASSERT(DeviceExtension->Common.IsClassDO);
 
@@ -775,6 +772,9 @@ HandleReadIrp(
 		/* Go to next packet and complete this request */
 		Irp->IoStatus.Status = Status;
 
+		if (IsInStartIo)
+			IoStartNextPacket(DeviceObject, TRUE);
+
 		(VOID)IoSetCancelRoutine(Irp, NULL);
 		IoCompleteRequest(Irp, IO_MOUSE_INCREMENT);
 		DeviceExtension->PendingIrp = NULL;
@@ -792,6 +792,8 @@ HandleReadIrp(
 			IoMarkIrpPending(Irp);
 			DeviceExtension->PendingIrp = Irp;
 			Status = STATUS_PENDING;
+			if (!IsInStartIo)
+				IoStartPacket(DeviceObject, Irp, NULL, NULL);
 		}
 	}
 	return Status;
@@ -805,7 +807,7 @@ ClassStartIo(
 	PCLASS_DEVICE_EXTENSION DeviceExtension = DeviceObject->DeviceExtension;
 	KIRQL OldIrql;
 
-	TRACE_(CLASS_NAME, "ClassStartIo(DeviceObject %p, Irp %p)\n", DeviceObject, Irp);
+	DPRINT("ClassStartIo(DeviceObject %p, Irp %p)\n", DeviceObject, Irp);
 
 	ASSERT(DeviceExtension->Common.IsClassDO);
 
@@ -822,7 +824,7 @@ SearchForLegacyDrivers(
 {
 	UNICODE_STRING DeviceMapKeyU = RTL_CONSTANT_STRING(L"\\REGISTRY\\MACHINE\\HARDWARE\\DEVICEMAP");
 	PCLASS_DRIVER_EXTENSION DriverExtension;
-	UNICODE_STRING PortBaseName = { 0, 0, NULL };
+	UNICODE_STRING PortBaseName = {0, };
 	PKEY_VALUE_BASIC_INFORMATION KeyValueInformation = NULL;
 	OBJECT_ATTRIBUTES ObjectAttributes;
 	HANDLE hDeviceMapKey = (HANDLE)-1;
@@ -831,7 +833,7 @@ SearchForLegacyDrivers(
 	ULONG Size, ResultLength;
 	NTSTATUS Status;
 
-	TRACE_(CLASS_NAME, "SearchForLegacyDrivers(%p %p %lu)\n",
+	DPRINT("SearchForLegacyDrivers(%p %p %lu)\n",
 		DriverObject, Context, Count);
 
 	if (Count != 1)
@@ -845,7 +847,7 @@ SearchForLegacyDrivers(
 		&PortBaseName);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(CLASS_NAME, "DuplicateUnicodeString() failed with status 0x%08lx\n", Status);
+		DPRINT("DuplicateUnicodeString() failed with status 0x%08lx\n", Status);
 		goto cleanup;
 	}
 	PortBaseName.Length -= (sizeof(L"Class") - sizeof(UNICODE_NULL));
@@ -856,7 +858,7 @@ SearchForLegacyDrivers(
 	KeyValueInformation = ExAllocatePoolWithTag(PagedPool, Size, CLASS_TAG);
 	if (!KeyValueInformation)
 	{
-		WARN_(CLASS_NAME, "ExAllocatePoolWithTag() failed\n");
+		DPRINT("ExAllocatePoolWithTag() failed\n");
 		Status = STATUS_NO_MEMORY;
 		goto cleanup;
 	}
@@ -866,13 +868,13 @@ SearchForLegacyDrivers(
 	Status = ZwOpenKey(&hDeviceMapKey, 0, &ObjectAttributes);
 	if (Status == STATUS_OBJECT_NAME_NOT_FOUND)
 	{
-		INFO_(CLASS_NAME, "HKLM\\HARDWARE\\DEVICEMAP is non-existent\n");
+		DPRINT("HKLM\\HARDWARE\\DEVICEMAP is non-existent\n");
 		Status = STATUS_SUCCESS;
 		goto cleanup;
 	}
 	else if (!NT_SUCCESS(Status))
 	{
-		WARN_(CLASS_NAME, "ZwOpenKey() failed with status 0x%08lx\n", Status);
+		DPRINT("ZwOpenKey() failed with status 0x%08lx\n", Status);
 		goto cleanup;
 	}
 
@@ -881,13 +883,13 @@ SearchForLegacyDrivers(
 	Status = ZwOpenKey(&hPortKey, KEY_QUERY_VALUE, &ObjectAttributes);
 	if (Status == STATUS_OBJECT_NAME_NOT_FOUND)
 	{
-		INFO_(CLASS_NAME, "HKLM\\HARDWARE\\DEVICEMAP\\%wZ is non-existent\n", &PortBaseName);
+		DPRINT("HKLM\\HARDWARE\\DEVICEMAP\\%wZ is non-existent\n", &PortBaseName);
 		Status = STATUS_SUCCESS;
 		goto cleanup;
 	}
 	else if (!NT_SUCCESS(Status))
 	{
-		WARN_(CLASS_NAME, "ZwOpenKey() failed with status 0x%08lx\n", Status);
+		DPRINT("ZwOpenKey() failed with status 0x%08lx\n", Status);
 		goto cleanup;
 	}
 
@@ -905,16 +907,16 @@ SearchForLegacyDrivers(
 		Status = IoGetDeviceObjectPointer(&PortName, FILE_READ_ATTRIBUTES, &FileObject, &PortDeviceObject);
 		if (!NT_SUCCESS(Status))
 		{
-			WARN_(CLASS_NAME, "IoGetDeviceObjectPointer(%wZ) failed with status 0x%08lx\n", &PortName, Status);
+			DPRINT("IoGetDeviceObjectPointer(%wZ) failed with status 0x%08lx\n", &PortName, Status);
 			continue;
 		}
-		INFO_(CLASS_NAME, "Legacy driver found\n");
+		DPRINT("Legacy driver found\n");
 
 		Status = ClassAddDevice(DriverObject, PortDeviceObject);
 		if (!NT_SUCCESS(Status))
 		{
 			/* FIXME: Log the error */
-			WARN_(CLASS_NAME, "ClassAddDevice() failed with status 0x%08lx\n", Status);
+			DPRINT("ClassAddDevice() failed with status 0x%08lx\n", Status);
 		}
 	}
 
@@ -946,7 +948,7 @@ DriverEntry(
 		(PVOID*)&DriverExtension);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(CLASS_NAME, "IoAllocateDriverObjectExtension() failed with status 0x%08lx\n", Status);
+		DPRINT("IoAllocateDriverObjectExtension() failed with status 0x%08lx\n", Status);
 		return Status;
 	}
 	RtlZeroMemory(DriverExtension, sizeof(CLASS_DRIVER_EXTENSION));
@@ -957,14 +959,14 @@ DriverEntry(
 		&DriverExtension->RegistryPath);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(CLASS_NAME, "DuplicateUnicodeString() failed with status 0x%08lx\n", Status);
+		DPRINT("DuplicateUnicodeString() failed with status 0x%08lx\n", Status);
 		return Status;
 	}
 
 	Status = ReadRegistryEntries(RegistryPath, DriverExtension);
 	if (!NT_SUCCESS(Status))
 	{
-		WARN_(CLASS_NAME, "ReadRegistryEntries() failed with status 0x%08lx\n", Status);
+		DPRINT("ReadRegistryEntries() failed with status 0x%08lx\n", Status);
 		return Status;
 	}
 
@@ -975,7 +977,7 @@ DriverEntry(
 			&DriverExtension->MainClassDeviceObject);
 		if (!NT_SUCCESS(Status))
 		{
-			WARN_(CLASS_NAME, "CreateClassDeviceObject() failed with status 0x%08lx\n", Status);
+			DPRINT("CreateClassDeviceObject() failed with status 0x%08lx\n", Status);
 			return Status;
 		}
 	}

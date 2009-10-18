@@ -27,6 +27,7 @@
 #define S_TEXFILTER_H
 
 
+#include "mtypes.h"
 #include "swrast.h"
 
 

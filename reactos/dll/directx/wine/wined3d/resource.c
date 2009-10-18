@@ -5,7 +5,6 @@
  * Copyright 2003-2004 Raphael Junqueira
  * Copyright 2004 Christian Costa
  * Copyright 2005 Oliver Stieber
- * Copyright 2009 Henri Verbeet for CodeWeavers
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,59 +25,44 @@
 #include "wined3d_private.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(d3d);
+#define GLINFO_LOCATION ((IWineD3DImpl *)(((IWineD3DDeviceImpl *)This->resource.wineD3DDevice)->wineD3D))->gl_info
 
-HRESULT resource_init(IWineD3DResource *iface, WINED3DRESOURCETYPE resource_type,
-        IWineD3DDeviceImpl *device, UINT size, DWORD usage, const struct GlPixelFormatDesc *format_desc,
-        WINED3DPOOL pool, IUnknown *parent, const struct wined3d_parent_ops *parent_ops)
+/* IWineD3DResource IUnknown parts follow: */
+HRESULT WINAPI IWineD3DResourceImpl_QueryInterface(IWineD3DResource *iface, REFIID riid, LPVOID *ppobj)
 {
-    struct IWineD3DResourceClass *resource = &((IWineD3DResourceImpl *)iface)->resource;
-
-    resource->wineD3DDevice = device;
-    resource->parent = parent;
-    resource->resourceType = resource_type;
-    resource->ref = 1;
-    resource->pool = pool;
-    resource->format_desc = format_desc;
-    resource->usage = usage;
-    resource->size = size;
-    resource->priority = 0;
-    resource->parent_ops = parent_ops;
-    list_init(&resource->privateData);
-
-    if (size)
-    {
-        resource->heapMemory = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size + RESOURCE_ALIGNMENT);
-        if (!resource->heapMemory)
-        {
-            ERR("Out of memory!\n");
-            return WINED3DERR_OUTOFVIDEOMEMORY;
-        }
+    IWineD3DResourceImpl *This = (IWineD3DResourceImpl *)iface;
+    TRACE("(%p)->(%s,%p)\n",This,debugstr_guid(riid),ppobj);
+    if (IsEqualGUID(riid, &IID_IUnknown)
+        || IsEqualGUID(riid, &IID_IWineD3DBase)
+        || IsEqualGUID(riid, &IID_IWineD3DResource)) {
+        IUnknown_AddRef(iface);
+        *ppobj = This;
+        return S_OK;
     }
-    else
-    {
-        resource->heapMemory = NULL;
-    }
-    resource->allocatedMemory = (BYTE *)(((ULONG_PTR)resource->heapMemory + (RESOURCE_ALIGNMENT - 1)) & ~(RESOURCE_ALIGNMENT - 1));
-
-    /* Check that we have enough video ram left */
-    if (pool == WINED3DPOOL_DEFAULT)
-    {
-        if (size > IWineD3DDevice_GetAvailableTextureMem((IWineD3DDevice *)device))
-        {
-            ERR("Out of adapter memory\n");
-            HeapFree(GetProcessHeap(), 0, resource->heapMemory);
-            return WINED3DERR_OUTOFVIDEOMEMORY;
-        }
-        WineD3DAdapterChangeGLRam(device, size);
-    }
-
-    device_resource_add(device, iface);
-
-    return WINED3D_OK;
+    *ppobj = NULL;
+    return E_NOINTERFACE;
 }
 
-void resource_cleanup(IWineD3DResource *iface)
-{
+ULONG WINAPI IWineD3DResourceImpl_AddRef(IWineD3DResource *iface) {
+    IWineD3DResourceImpl *This = (IWineD3DResourceImpl *)iface;
+    ULONG ref = InterlockedIncrement(&This->resource.ref);
+    TRACE("(%p) : AddRef increasing from %d\n", This, ref - 1);
+    return ref; 
+}
+
+ULONG WINAPI IWineD3DResourceImpl_Release(IWineD3DResource *iface) {
+    IWineD3DResourceImpl *This = (IWineD3DResourceImpl *)iface;
+    ULONG ref = InterlockedDecrement(&This->resource.ref);
+    TRACE("(%p) : Releasing from %d\n", This, ref + 1);
+    if (ref == 0) {
+        IWineD3DResourceImpl_CleanUp(iface);
+        HeapFree(GetProcessHeap(), 0, This);
+    }
+    return ref;
+}
+
+/* class static (not in vtable) */
+void IWineD3DResourceImpl_CleanUp(IWineD3DResource *iface){
     IWineD3DResourceImpl *This = (IWineD3DResourceImpl *)iface;
     struct list *e1, *e2;
     PrivateData *data;
@@ -92,7 +76,7 @@ void resource_cleanup(IWineD3DResource *iface)
 
     LIST_FOR_EACH_SAFE(e1, e2, &This->resource.privateData) {
         data = LIST_ENTRY(e1, PrivateData, entry);
-        hr = resource_free_private_data(iface, &data->tag);
+        hr = IWineD3DResourceImpl_FreePrivateData(iface, &data->tag);
         if(hr != WINED3D_OK) {
             ERR("Failed to free private data when destroying resource %p, hr = %08x\n", This, hr);
         }
@@ -102,11 +86,14 @@ void resource_cleanup(IWineD3DResource *iface)
     This->resource.allocatedMemory = 0;
     This->resource.heapMemory = 0;
 
-    if (This->resource.wineD3DDevice) device_resource_released(This->resource.wineD3DDevice, iface);
+    if (This->resource.wineD3DDevice != NULL) {
+        IWineD3DDevice_ResourceReleased((IWineD3DDevice *)This->resource.wineD3DDevice, iface);
+    }/* NOTE: this is not really an error for systemmem resoruces */
+    return;
 }
 
-HRESULT resource_get_device(IWineD3DResource *iface, IWineD3DDevice** ppDevice)
-{
+/* IWineD3DResource Interface follow: */
+HRESULT WINAPI IWineD3DResourceImpl_GetDevice(IWineD3DResource *iface, IWineD3DDevice** ppDevice) {
     IWineD3DResourceImpl *This = (IWineD3DResourceImpl *)iface;
     TRACE("(%p) : returning %p\n", This, This->resource.wineD3DDevice);
     *ppDevice = (IWineD3DDevice *) This->resource.wineD3DDevice;
@@ -114,7 +101,8 @@ HRESULT resource_get_device(IWineD3DResource *iface, IWineD3DDevice** ppDevice)
     return WINED3D_OK;
 }
 
-static PrivateData* resource_find_private_data(IWineD3DResourceImpl *This, REFGUID tag)
+static PrivateData* IWineD3DResourceImpl_FindPrivateData(IWineD3DResourceImpl *This,
+                    REFGUID tag)
 {
     PrivateData *data;
     struct list *entry;
@@ -132,21 +120,21 @@ static PrivateData* resource_find_private_data(IWineD3DResourceImpl *This, REFGU
     return NULL;
 }
 
-HRESULT resource_set_private_data(IWineD3DResource *iface, REFGUID refguid,
-        const void *pData, DWORD SizeOfData, DWORD Flags)
-{
+HRESULT WINAPI IWineD3DResourceImpl_SetPrivateData(IWineD3DResource *iface, REFGUID refguid, CONST void* pData, DWORD SizeOfData, DWORD Flags) {
     IWineD3DResourceImpl *This = (IWineD3DResourceImpl *)iface;
     PrivateData *data;
 
     TRACE("(%p) : %s %p %d %d\n", This, debugstr_guid(refguid), pData, SizeOfData, Flags);
-    resource_free_private_data(iface, refguid);
+    IWineD3DResourceImpl_FreePrivateData(iface, refguid);
 
     data = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*data));
     if (NULL == data) return E_OUTOFMEMORY;
 
     data->tag = *refguid;
     data->flags = Flags;
-
+#if 0
+        (*data)->uniquenessValue = This->uniquenessValue;
+#endif
     if (Flags & WINED3DSPD_IUNKNOWN) {
         if(SizeOfData != sizeof(IUnknown *)) {
             WARN("IUnknown data with size %d, returning WINED3DERR_INVALIDCALL\n", SizeOfData);
@@ -172,15 +160,20 @@ HRESULT resource_set_private_data(IWineD3DResource *iface, REFGUID refguid,
     return WINED3D_OK;
 }
 
-HRESULT resource_get_private_data(IWineD3DResource *iface, REFGUID refguid, void *pData, DWORD *pSizeOfData)
-{
+HRESULT WINAPI IWineD3DResourceImpl_GetPrivateData(IWineD3DResource *iface, REFGUID refguid, void* pData, DWORD* pSizeOfData) {
     IWineD3DResourceImpl *This = (IWineD3DResourceImpl *)iface;
     PrivateData *data;
 
     TRACE("(%p) : %p %p %p\n", This, refguid, pData, pSizeOfData);
-    data = resource_find_private_data(This, refguid);
+    data = IWineD3DResourceImpl_FindPrivateData(This, refguid);
     if (data == NULL) return WINED3DERR_NOTFOUND;
 
+
+#if 0 /* This may not be right. */
+    if (((*data)->flags & WINED3DSPD_VOLATILE)
+        && (*data)->uniquenessValue != This->uniquenessValue)
+        return DDERR_EXPIRED;
+#endif
     if (*pSizeOfData < data->size) {
         *pSizeOfData = data->size;
         return WINED3DERR_MOREDATA;
@@ -202,13 +195,12 @@ HRESULT resource_get_private_data(IWineD3DResource *iface, REFGUID refguid, void
 
     return WINED3D_OK;
 }
-HRESULT resource_free_private_data(IWineD3DResource *iface, REFGUID refguid)
-{
+HRESULT WINAPI IWineD3DResourceImpl_FreePrivateData(IWineD3DResource *iface, REFGUID refguid) {
     IWineD3DResourceImpl *This = (IWineD3DResourceImpl *)iface;
     PrivateData *data;
 
     TRACE("(%p) : %s\n", This, debugstr_guid(refguid));
-    data = resource_find_private_data(This, refguid);
+    data = IWineD3DResourceImpl_FindPrivateData(This, refguid);
     if (data == NULL) return WINED3DERR_NOTFOUND;
 
     if (data->flags & WINED3DSPD_IUNKNOWN)
@@ -225,41 +217,60 @@ HRESULT resource_free_private_data(IWineD3DResource *iface, REFGUID refguid)
     return WINED3D_OK;
 }
 
-DWORD resource_set_priority(IWineD3DResource *iface, DWORD PriorityNew)
-{
+/* Priority support is not implemented yet */
+DWORD    WINAPI        IWineD3DResourceImpl_SetPriority(IWineD3DResource *iface, DWORD PriorityNew) {
     IWineD3DResourceImpl *This = (IWineD3DResourceImpl *)iface;
-    DWORD PriorityOld = This->resource.priority;
-    This->resource.priority = PriorityNew;
-    TRACE("(%p) : new priority %d, returning old priority %d\n", This, PriorityNew, PriorityOld );
-    return PriorityOld;
+    FIXME("(%p) : stub\n", This);
+    return 0;
+}
+DWORD    WINAPI        IWineD3DResourceImpl_GetPriority(IWineD3DResource *iface) {
+    IWineD3DResourceImpl *This = (IWineD3DResourceImpl *)iface;
+    FIXME("(%p) : stub\n", This);
+    return 0;
 }
 
-DWORD resource_get_priority(IWineD3DResource *iface)
-{
+/* Preloading of resources is not supported yet */
+void     WINAPI        IWineD3DResourceImpl_PreLoad(IWineD3DResource *iface) {
     IWineD3DResourceImpl *This = (IWineD3DResourceImpl *)iface;
-    TRACE("(%p) : returning %d\n", This, This->resource.priority );
-    return This->resource.priority;
+    FIXME("(%p) : stub\n", This);
 }
 
-WINED3DRESOURCETYPE resource_get_type(IWineD3DResource *iface)
-{
+WINED3DRESOURCETYPE WINAPI IWineD3DResourceImpl_GetType(IWineD3DResource *iface) {
     IWineD3DResourceImpl *This = (IWineD3DResourceImpl *)iface;
     TRACE("(%p) : returning %d\n", This, This->resource.resourceType);
     return This->resource.resourceType;
 }
 
-HRESULT resource_get_parent(IWineD3DResource *iface, IUnknown **pParent)
-{
+HRESULT WINAPI IWineD3DResourceImpl_GetParent(IWineD3DResource *iface, IUnknown **pParent) {
     IWineD3DResourceImpl *This = (IWineD3DResourceImpl *)iface;
     IUnknown_AddRef(This->resource.parent);
     *pParent = This->resource.parent;
     return WINED3D_OK;
 }
 
-void dumpResources(struct list *list) {
-    IWineD3DResourceImpl *resource;
+void dumpResources(ResourceList *resources) {
+    ResourceList *iterator = resources;
 
-    LIST_FOR_EACH_ENTRY(resource, list, IWineD3DResourceImpl, resource.resource_list_entry) {
-        FIXME("Leftover resource %p with type %d,%s\n", resource, IWineD3DResource_GetType((IWineD3DResource *) resource), debug_d3dresourcetype(IWineD3DResource_GetType((IWineD3DResource *) resource)));
+    while(iterator) {
+        FIXME("Leftover resource %p with type %d,%s\n", iterator->resource, IWineD3DResource_GetType(iterator->resource), debug_d3dresourcetype(IWineD3DResource_GetType(iterator->resource)));
+        iterator = iterator->next;
     }
 }
+
+static const IWineD3DResourceVtbl IWineD3DResource_Vtbl =
+{
+    /* IUnknown */
+    IWineD3DResourceImpl_QueryInterface,
+    IWineD3DResourceImpl_AddRef,
+    IWineD3DResourceImpl_Release,
+    /* IWineD3DResource */
+    IWineD3DResourceImpl_GetParent,
+    IWineD3DResourceImpl_GetDevice,
+    IWineD3DResourceImpl_SetPrivateData,
+    IWineD3DResourceImpl_GetPrivateData,
+    IWineD3DResourceImpl_FreePrivateData,
+    IWineD3DResourceImpl_SetPriority,
+    IWineD3DResourceImpl_GetPriority,
+    IWineD3DResourceImpl_PreLoad,
+    IWineD3DResourceImpl_GetType
+};

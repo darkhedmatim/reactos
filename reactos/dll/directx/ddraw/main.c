@@ -11,29 +11,15 @@
 
 
 #include "rosdraw.h"
-HMODULE hDllModule = 0;
+
+/* PSEH for SEH Support */
+#include <pseh/pseh.h>
 
 CRITICAL_SECTION ddcs;
 
 // This function is exported by the dll
 
-typedef struct
-{
-    LPVOID lpCallback;
-    LPVOID lpContext;
-} DirectDrawEnumerateProcData;
 
-BOOL
-CALLBACK
-TranslateCallbackA(GUID *lpGUID,
-                   LPSTR lpDriverDescription,
-                   LPSTR lpDriverName,
-                   LPVOID lpContext,
-                   HMONITOR hm)
-{
-        DirectDrawEnumerateProcData *pEPD = (DirectDrawEnumerateProcData*)lpContext;
-        return ((LPDDENUMCALLBACKA) pEPD->lpCallback)(lpGUID, lpDriverDescription, lpDriverName, pEPD->lpContext);
-}
 
 /*++
 * @name DirectDrawCreateClipper
@@ -74,8 +60,8 @@ HRESULT WINAPI DirectDrawCreateClipper (DWORD dwFlags,
 *        <FILLMEIN>.
 *
 * @param pUnkOuter
-*        Always set to NULL otherwise DirectDrawCreate will fail and return
-*        error code CLASS_E_NOAGGREGATION
+*        Alwas set to NULL other wise will  DirectDrawCreate fail it return
+*        errror code CLASS_E_NOAGGREGATION
 *
 * @return  <FILLMEIN>.
 *
@@ -91,14 +77,14 @@ DirectDrawCreate (LPGUID lpGUID,
 {
     HRESULT retVal = DDERR_GENERIC;
     /*
-       remove this when UML diagram is in place
-       this api is finished and is working as it should
+       remove this when UML digram are in place
+       this api is finish and is working as it should
     */
 
     DX_WINDBG_trace();
-     _SEH2_TRY
+     _SEH_TRY
     {
-        /* check if pUnkOuter is null or not */
+        /* check see if pUnkOuter is null or not */
         if (pUnkOuter)
         {
             retVal = CLASS_E_NOAGGREGATION;
@@ -108,10 +94,10 @@ DirectDrawCreate (LPGUID lpGUID,
             retVal = Create_DirectDraw (lpGUID, (LPDIRECTDRAW*)lplpDD, &IID_IDirectDraw, FALSE);
         }
      }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
     }
-    _SEH2_END;
+    _SEH_END;
 
     return retVal;
 }
@@ -128,8 +114,8 @@ DirectDrawCreate (LPGUID lpGUID,
 *        <FILLMEIN>.
 *
 * @param pUnkOuter
-*        Always set to NULL otherwise DirectDrawCreateEx will fail and return
-*        error code CLASS_E_NOAGGREGATION
+*        Alwas set to NULL other wise will  DirectDrawCreateEx fail it return
+*        errror code CLASS_E_NOAGGREGATION
 *
 * @return  <FILLMEIN>.
 *
@@ -145,12 +131,12 @@ DirectDrawCreateEx(LPGUID lpGUID,
 {
     HRESULT retVal = DDERR_GENERIC;
     /*
-        remove this when UML diagram is in place
-        this api is finished and is working as it should
+        remove this when UML digram are in place
+        this api is finish and is working as it should
     */
     DX_WINDBG_trace();
 
-     _SEH2_TRY
+     _SEH_TRY
     {
         /* check see if pUnkOuter is null or not */
         if (pUnkOuter)
@@ -169,36 +155,36 @@ DirectDrawCreateEx(LPGUID lpGUID,
 
         /* Create our DirectDraw interface */
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
     }
-    _SEH2_END;
+    _SEH_END;
 
     return retVal;
 }
 
+/*
+ * UNIMPLEMENT
+ */
+
 HRESULT
 WINAPI
-DirectDrawEnumerateA( LPDDENUMCALLBACKA lpCallback,
+DirectDrawEnumerateA(
+                     LPDDENUMCALLBACKA lpCallback,
                      LPVOID lpContext)
 {
-     HRESULT retValue;
-     DirectDrawEnumerateProcData epd;
+    DX_STUB;
+}
 
-     DX_WINDBG_trace();
 
-     epd.lpCallback = (LPVOID) lpCallback;
-     epd.lpContext = lpContext;
+/*
+ * UNIMPLEMENT
+ */
 
-     if (!IsBadCodePtr((LPVOID)lpCallback))
-     {
-         return DirectDrawEnumerateExA((LPDDENUMCALLBACKEXA)TranslateCallbackA, &epd, DDENUM_NONDISPLAYDEVICES);
-     }
-     else
-     {
-         retValue = DDERR_INVALIDPARAMS;
-     }
-     return retValue;
+HRESULT WINAPI DirectDrawEnumerateW(LPDDENUMCALLBACKW lpCallback,
+                                    LPVOID lpContext)
+{
+    DX_STUB;
 }
 
 /*
@@ -211,68 +197,12 @@ DirectDrawEnumerateExA(LPDDENUMCALLBACKEXA lpCallback,
                        LPVOID lpContext,
                        DWORD dwFlags)
 {
-    HKEY hKey;
-    DWORD cbData = 0;
-    DWORD Value = 0;
-    LONG rc;
-    BOOL  EnumerateAttachedSecondaries = FALSE;
-    DWORD privateDWFlags = 0;
-    CHAR strMsg[RC_STRING_MAX_SIZE];
-    HRESULT retVal = DDERR_INVALIDPARAMS;
-
-    DX_WINDBG_trace();
-
-    if ((IsBadCodePtr((LPVOID)lpCallback) == 0) &&
-       ((dwFlags & ~(DDENUM_NONDISPLAYDEVICES |
-                    DDENUM_DETACHEDSECONDARYDEVICES |
-                    DDENUM_ATTACHEDSECONDARYDEVICES)) == 0))
-    {
-        LoadStringA(hDllModule, STR_PRIMARY_DISPLAY, (LPSTR)&strMsg, RC_STRING_MAX_SIZE);
-
-        rc = RegOpenKeyA(HKEY_LOCAL_MACHINE, REGSTR_PATH_DDHW, &hKey);
-        if (rc == ERROR_SUCCESS)
-        {
-            /* Enumerate Attached Secondaries */
-            cbData = sizeof(DWORD);
-            rc = RegQueryValueExA(hKey, "EnumerateAttachedSecondaries", NULL, NULL, (LPBYTE)&Value, &cbData);
-            if (rc == ERROR_SUCCESS)
-            {
-                if (Value != 0)
-                {
-                    EnumerateAttachedSecondaries = TRUE;
-                    privateDWFlags = DDENUM_ATTACHEDSECONDARYDEVICES;
-                }
-            }
-            RegCloseKey(hKey);
-        }
-
-        /* Call the user supplied callback function */
-        rc = lpCallback(NULL, strMsg, "display", lpContext, NULL);
-
-        /* If the callback function returns DDENUMRET_CANCEL, we will stop enumerating devices */
-        if(rc == DDENUMRET_CANCEL)
-        {
-            retVal = DD_OK;
-        }
-        else
-        {
-            // not finished
-            retVal = DDERR_UNSUPPORTED;
-        }
-    }
-
-    return retVal;
+    DX_STUB;
 }
 
-HRESULT
-WINAPI
-DirectDrawEnumerateW(LPDDENUMCALLBACKW lpCallback,
-                                    LPVOID lpContext)
-{
-    DX_WINDBG_trace();
-
-    return DDERR_UNSUPPORTED;
-}
+/*
+ * UNIMPLEMENT
+ */
 
 HRESULT
 WINAPI
@@ -280,22 +210,18 @@ DirectDrawEnumerateExW(LPDDENUMCALLBACKEXW lpCallback,
                        LPVOID lpContext,
                        DWORD dwFlags)
 {
-    DX_WINDBG_trace();
-
-    return DDERR_UNSUPPORTED;
+     DX_STUB;
 }
-
-
-
 
 /*
    See http://msdn.microsoft.com/library/default.asp?url=/library/en-us/
        Display_d/hh/Display_d/d3d_21ac30ea-9803-401e-b541-6b08af79653d.xml.asp
 
-   for more info about this command see msdn documentation
+   for more info about this command
 
-    The buffer start with D3DHAL_DP2COMMAND struct afer that follows either one struct or
-    no struct at at all
+   summuer the msdn
+
+    The buffer start with D3DHAL_DP2COMMAND struct afer that it follow either one struct or no struct at at all
     example for command D3DDP2OP_VIEWPORTINFO
 
     then lpCmd will look like this
@@ -307,9 +233,9 @@ DirectDrawEnumerateExW(LPDDENUMCALLBACKEXW lpCallback,
     | D3DHAL_DP2VIEWPORTINFO | 0x04 - xxxx |
     ---------------------------------------
 
-    to calculate the end of the lpCmd buffer in this exmaple
+    to calc end of the lpCmd buffer in this exmaple
     D3DHAL_DP2COMMAND->wStateCount * sizeof(D3DHAL_DP2VIEWPORTINFO);
-    now you got number of bytes but we need to add the size of D3DHAL_DP2COMMAND
+    now you got number of bytes but we need add the size of D3DHAL_DP2COMMAND
     to get this right. the end should be
     sizeof(D3DHAL_DP2COMMAND) + ( D3DHAL_DP2COMMAND->wStateCount * sizeof(D3DHAL_DP2VIEWPORTINFO));
     to get the xxxx end positions.
@@ -334,12 +260,12 @@ DirectDrawEnumerateExW(LPDDENUMCALLBACKEXW lpCallback,
 *       } D3DHAL_DP2COMMAND, *LPD3DHAL_DP2COMMAND;
 *
 *       lpCmd->bCommand
-*       only accept D3DDP2OP_VIEWPORTINFO, and undocumented command 0x0D
-*       anything else will result in an error
+*       only accpect D3DDP2OP_VIEWPORTINFO, and undocument command 0x0D
+*       rest of the command will be return error code for.
 *
         Command 0x0D
 *       dp2command->bReserved
-*       is the size of the struct we got in wStateCount or how many wStateCount we got
+*       is how big struect we got in wStateCount or how many wStateCount we got
 *       do not known more about it, no info in msdn about it either.
 *
 *       Command  D3DDP2OP_VIEWPORTINFO
@@ -362,8 +288,6 @@ D3DParseUnknownCommand( LPVOID lpCmd,
     DWORD retCode = DD_OK;
     LPD3DHAL_DP2COMMAND dp2command = lpCmd;
 
-    DX_WINDBG_trace();
-
     /* prevent it crash if null pointer are being sent */
     if ( (lpCmd == NULL) || (lpRetCmd == NULL) )
     {
@@ -374,7 +298,7 @@ D3DParseUnknownCommand( LPVOID lpCmd,
 
     switch (dp2command->bCommand)
     {
-       /* check for vaild command, only 3 commands are vaild */
+       /* check for vaild command, only 3 command is vaild */
        case D3DDP2OP_VIEWPORTINFO:
            *(PBYTE)lpRetCmd += ((dp2command->wStateCount * sizeof(D3DHAL_DP2VIEWPORTINFO)) + sizeof(D3DHAL_DP2COMMAND));
            break;
@@ -396,7 +320,7 @@ D3DParseUnknownCommand( LPVOID lpCmd,
               (dp2command->bCommand >= D3DDP2OP_LINELIST) )  // dp2command->bCommand  >= with 15 to 255
            {
                /* set error code for command 0 to 3, 8 and 15 to 255 */
-               retCode = DDERR_INVALIDPARAMS;
+               retCode = E_FAIL;
            }
            else
            {   /* set error code for 4 - 7, 9 - 12, 14  */
@@ -413,46 +337,39 @@ VOID
 WINAPI
 AcquireDDThreadLock()
 {
-    DX_WINDBG_trace();
-
-    EnterCriticalSection(&ddcs);
+   EnterCriticalSection(&ddcs);
 }
 
 VOID
 WINAPI
 ReleaseDDThreadLock()
 {
-    DX_WINDBG_trace();
-
-    LeaveCriticalSection(&ddcs);
+   LeaveCriticalSection(&ddcs);
 }
-
 
 BOOL APIENTRY
 DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved )
 {
-
-    hDllModule = hModule;
-
-    DX_WINDBG_trace();
-
-
+  BOOL retStatus;
   switch(ul_reason_for_call)
   {
      case DLL_PROCESS_DETACH:
-           DeleteCriticalSection( &ddcs );
+           //DeleteCriticalSection( &ddcs );
+           retStatus = TRUE;
            break;
 
      case DLL_PROCESS_ATTACH:
-        DisableThreadLibraryCalls( hModule );
-        InitializeCriticalSection( &ddcs );
-        EnterCriticalSection( &ddcs );
-        LeaveCriticalSection( &ddcs );
+        //DisableThreadLibraryCalls( hModule );
+        //InitializeCriticalSection( &ddcs );
+        //EnterCriticalSection( &ddcs );
+        //LeaveCriticalSection( &ddcs );
+        retStatus = FALSE;
         break;
 
     default:
+        retStatus = TRUE;
          break;
   }
+  return retStatus;
 
-  return TRUE;
 }

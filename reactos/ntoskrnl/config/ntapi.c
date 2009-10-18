@@ -9,176 +9,22 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
-
-BOOLEAN CmBootAcceptFirstTime = TRUE;
-BOOLEAN CmFirstTime = TRUE;
 
 /* FUNCTIONS *****************************************************************/
 
 NTSTATUS
 NTAPI
-NtCreateKey(OUT PHANDLE KeyHandle,
-            IN ACCESS_MASK DesiredAccess,
-            IN POBJECT_ATTRIBUTES ObjectAttributes,
-            IN ULONG TitleIndex,
-            IN PUNICODE_STRING Class OPTIONAL,
-            IN ULONG CreateOptions,
-            OUT PULONG Disposition OPTIONAL)
-{
-    NTSTATUS Status;
-    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    CM_PARSE_CONTEXT ParseContext = {0};
-    HANDLE Handle;
-    PAGED_CODE();
-    DPRINT("NtCreateKey(OB name %wZ)\n", ObjectAttributes->ObjectName);
-
-    /* Check for user-mode caller */
-    if (PreviousMode != KernelMode)
-    {
-        /* Prepare to probe parameters */
-        _SEH2_TRY
-        {
-            /* Check if we have a class */
-            if (Class)
-            {
-                /* Probe it */
-                ParseContext.Class = ProbeForReadUnicodeString(Class);
-                ProbeForRead(ParseContext.Class.Buffer,
-                             ParseContext.Class.Length,
-                             sizeof(WCHAR));
-            }
-
-            /* Probe the key handle */
-            ProbeForWriteHandle(KeyHandle);
-            *KeyHandle = NULL;
-
-            /* Probe object attributes */
-            ProbeForRead(ObjectAttributes,
-                         sizeof(OBJECT_ATTRIBUTES),
-                         sizeof(ULONG));
-
-            if (Disposition) ProbeForWriteUlong(Disposition);
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
-        }
-        _SEH2_END;
-    }
-    else
-    {
-        /* Save the class directly */
-        if (Class) ParseContext.Class = *Class;
-    }
-
-    /* Setup the parse context */
-    ParseContext.CreateOperation = TRUE;
-    ParseContext.CreateOptions = CreateOptions;
-
-    /* Do the create */
-    Status = ObOpenObjectByName(ObjectAttributes,
-                                CmpKeyObjectType,
-                                PreviousMode,
-                                NULL,
-                                DesiredAccess,
-                                &ParseContext,
-                                &Handle);
-
-    _SEH2_TRY
-    {
-        /* Return data to user */
-        if (NT_SUCCESS(Status)) *KeyHandle = Handle;
-        if (Disposition) *Disposition = ParseContext.Disposition;
-    }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-        /* Get the status */
-        Status = _SEH2_GetExceptionCode();
-    }
-    _SEH2_END;
-
-    /* Return status */
-    return Status;
-}
-
-NTSTATUS
-NTAPI
-NtOpenKey(OUT PHANDLE KeyHandle,
-          IN ACCESS_MASK DesiredAccess,
-          IN POBJECT_ATTRIBUTES ObjectAttributes)
-{
-    CM_PARSE_CONTEXT ParseContext = {0};
-    HANDLE Handle;
-    NTSTATUS Status;
-    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    PAGED_CODE();
-    DPRINT("NtOpenKey(OB 0x%wZ)\n", ObjectAttributes->ObjectName);
-
-    /* Check for user-mode caller */
-    if (PreviousMode != KernelMode)
-    {
-        /* Prepare to probe parameters */
-        _SEH2_TRY
-        {
-            /* Probe the key handle */
-            ProbeForWriteHandle(KeyHandle);
-            *KeyHandle = NULL;
-
-            /* Probe object attributes */
-            ProbeForRead(ObjectAttributes,
-                         sizeof(OBJECT_ATTRIBUTES),
-                         sizeof(ULONG));
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
-        }
-        _SEH2_END;
-    }
-
-    /* Just let the object manager handle this */
-    Status = ObOpenObjectByName(ObjectAttributes,
-                                CmpKeyObjectType,
-                                ExGetPreviousMode(),
-                                NULL,
-                                DesiredAccess,
-                                &ParseContext,
-                                &Handle);
-
-    /* Only do this if we succeeded */
-    if (NT_SUCCESS(Status))
-    {
-        _SEH2_TRY
-        {
-            /* Return the handle to caller */
-            *KeyHandle = Handle;
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            /* Get the status */
-            Status = _SEH2_GetExceptionCode();
-        }
-        _SEH2_END;
-    }
-
-    /* Return status */
-    return Status;
-}
-
-
-NTSTATUS
-NTAPI
 NtDeleteKey(IN HANDLE KeyHandle)
 {
-    PCM_KEY_BODY KeyObject;
+    PKEY_OBJECT KeyObject;
     NTSTATUS Status;
     REG_DELETE_KEY_INFORMATION DeleteKeyInfo;
     REG_POST_OPERATION_INFORMATION PostOperationInfo;
     PAGED_CODE();
+
     DPRINT("NtDeleteKey(KH 0x%p)\n", KeyHandle);
 
     /* Verify that the handle is valid and is a registry key */
@@ -186,9 +32,13 @@ NtDeleteKey(IN HANDLE KeyHandle)
                                        DELETE,
                                        CmpKeyObjectType,
                                        ExGetPreviousMode(),
-                                       (PVOID*)&KeyObject,
+                                       (PVOID *)&KeyObject,
                                        NULL);
-    if (!NT_SUCCESS(Status)) return Status;
+    if (!NT_SUCCESS(Status))
+    {
+        DPRINT("ObReferenceObjectByHandle() failed with Status = 0x%08X\n");
+        return Status;
+    }
 
     /* Setup the callback */
     PostOperationInfo.Object = (PVOID)KeyObject;
@@ -196,17 +46,16 @@ NtDeleteKey(IN HANDLE KeyHandle)
     Status = CmiCallRegisteredCallbacks(RegNtPreDeleteKey, &DeleteKeyInfo);
     if (NT_SUCCESS(Status))
     {
-        /* Check if we are read-only */
-        if ((KeyObject->KeyControlBlock->ExtFlags & CM_KCB_READ_ONLY_KEY) ||
-            (KeyObject->KeyControlBlock->ParentKcb->ExtFlags & CM_KCB_READ_ONLY_KEY))
+        /* Call the internal API */
+        Status = CmDeleteKey(KeyObject->KeyControlBlock);
+
+        /* Remove the keep-alive reference */
+        ObDereferenceObject(KeyObject);
+        if (KeyObject->KeyControlBlock->KeyHive !=
+            KeyObject->KeyControlBlock->ParentKcb->KeyHive)
         {
-            /* Fail */
-            Status = STATUS_ACCESS_DENIED;
-        }
-        else
-        {
-            /* Call the internal API */
-            Status = CmDeleteKey(KeyObject);
+            /* Dereference again */
+            ObDereferenceObject(KeyObject);
         }
 
         /* Do post callback */
@@ -228,49 +77,26 @@ NtEnumerateKey(IN HANDLE KeyHandle,
                IN ULONG Length,
                OUT PULONG ResultLength)
 {
-    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     NTSTATUS Status;
-    PCM_KEY_BODY KeyObject;
+    PKEY_OBJECT KeyObject;
     REG_ENUMERATE_KEY_INFORMATION EnumerateKeyInfo;
     REG_POST_OPERATION_INFORMATION PostOperationInfo;
     PAGED_CODE();
-    DPRINT("NtEnumerateKey() KH 0x%x, Index 0x%x, KIC %d, Length %d\n",
-           KeyHandle, Index, KeyInformationClass, Length);
 
-    /* Reject classes we don't know about */
-    if ((KeyInformationClass != KeyBasicInformation) &&
-        (KeyInformationClass != KeyNodeInformation)  &&
-        (KeyInformationClass != KeyFullInformation))
-    {
-        /* Fail */
-        return STATUS_INVALID_PARAMETER;
-    }
+    DPRINT("NtEnumerateKey() KH 0x%x, Index 0x%x, KIC %d, Length %d\n",
+        KeyHandle, Index, KeyInformationClass, Length);
 
     /* Verify that the handle is valid and is a registry key */
     Status = ObReferenceObjectByHandle(KeyHandle,
                                        KEY_ENUMERATE_SUB_KEYS,
                                        CmpKeyObjectType,
                                        ExGetPreviousMode(),
-                                       (PVOID*)&KeyObject,
+                                       (PVOID *)&KeyObject,
                                        NULL);
-    if (!NT_SUCCESS(Status)) return Status;
-
-    if (PreviousMode != KernelMode)
+    if (!NT_SUCCESS(Status))
     {
-        _SEH2_TRY
-        {
-            ProbeForWriteUlong(ResultLength);
-            ProbeForWrite(KeyInformation,
-                          Length,
-                          sizeof(ULONG));
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            /* Dereference and return status */
-            ObDereferenceObject(KeyObject);
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
-        }
-        _SEH2_END;
+        DPRINT("ObReferenceObjectByHandle() failed with Status = 0x%08X\n");
+        return Status;
     }
 
     /* Setup the callback */
@@ -312,49 +138,26 @@ NtEnumerateValueKey(IN HANDLE KeyHandle,
                     IN ULONG Length,
                     OUT PULONG ResultLength)
 {
-    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     NTSTATUS Status;
-    PCM_KEY_BODY KeyObject;
+    PKEY_OBJECT KeyObject;
     REG_ENUMERATE_VALUE_KEY_INFORMATION EnumerateValueKeyInfo;
     REG_POST_OPERATION_INFORMATION PostOperationInfo;
     PAGED_CODE();
-    DPRINT("NtEnumerateValueKey() KH 0x%x, Index 0x%x, KVIC %d, Length %d\n",
-           KeyHandle, Index, KeyValueInformationClass, Length);
 
-    /* Reject classes we don't know about */
-    if ((KeyValueInformationClass != KeyValueBasicInformation) &&
-        (KeyValueInformationClass != KeyValueFullInformation)  &&
-        (KeyValueInformationClass != KeyValuePartialInformation))
-    {
-        /* Fail */
-        return STATUS_INVALID_PARAMETER;
-    }
+    DPRINT("NtEnumerateValueKey() KH 0x%x, Index 0x%x, KVIC %d, Length %d\n",
+        KeyHandle, Index, KeyValueInformationClass, Length);
 
     /* Verify that the handle is valid and is a registry key */
     Status = ObReferenceObjectByHandle(KeyHandle,
                                        KEY_QUERY_VALUE,
                                        CmpKeyObjectType,
                                        ExGetPreviousMode(),
-                                       (PVOID*)&KeyObject,
+                                       (PVOID *)&KeyObject,
                                        NULL);
-    if (!NT_SUCCESS(Status)) return Status;
-
-    if (PreviousMode != KernelMode)
+    if (!NT_SUCCESS(Status))
     {
-        _SEH2_TRY
-        {
-            ProbeForWriteUlong(ResultLength);
-            ProbeForWrite(KeyValueInformation,
-                          Length,
-                          sizeof(ULONG));
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            /* Dereference and return status */
-            ObDereferenceObject(KeyObject);
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
-        }
-        _SEH2_END;
+        DPRINT("ObReferenceObjectByHandle() failed with Status = 0x%08X\n");
+        return Status;
     }
 
     /* Setup the callback */
@@ -396,79 +199,28 @@ NtQueryKey(IN HANDLE KeyHandle,
            IN ULONG Length,
            OUT PULONG ResultLength)
 {
-    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     NTSTATUS Status;
-    PCM_KEY_BODY KeyObject;
+    PKEY_OBJECT KeyObject;
     REG_QUERY_KEY_INFORMATION QueryKeyInfo;
     REG_POST_OPERATION_INFORMATION PostOperationInfo;
-    OBJECT_HANDLE_INFORMATION HandleInfo;
     PAGED_CODE();
+
     DPRINT("NtQueryKey() KH 0x%x, KIC %d, Length %d\n",
-           KeyHandle, KeyInformationClass, Length);
+        KeyHandle, KeyInformationClass, Length);
 
-    /* Reject invalid classes */
-    if ((KeyInformationClass != KeyBasicInformation) &&
-        (KeyInformationClass != KeyNodeInformation)  &&
-        (KeyInformationClass != KeyFullInformation)  &&
-        (KeyInformationClass != KeyNameInformation) &&
-        (KeyInformationClass != KeyCachedInformation) &&
-        (KeyInformationClass != KeyFlagsInformation))
+    /* Verify that the handle is valid and is a registry key */
+    Status = ObReferenceObjectByHandle(KeyHandle,
+                                       (KeyInformationClass !=
+                                        KeyNameInformation) ?
+                                       KEY_QUERY_VALUE : 0,
+                                       CmpKeyObjectType,
+                                       ExGetPreviousMode(),
+                                       (PVOID *)&KeyObject,
+                                       NULL);
+    if (!NT_SUCCESS(Status))
     {
-        /* Fail */
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    /* Check if just the name is required */
-    if (KeyInformationClass == KeyNameInformation)
-    {
-        /* Ignore access level */
-        Status = ObReferenceObjectByHandle(KeyHandle,
-                                           0,
-                                           CmpKeyObjectType,
-                                           ExGetPreviousMode(),
-                                           (PVOID*)&KeyObject,
-                                           &HandleInfo);
-        if (NT_SUCCESS(Status))
-        {
-            /* At least a single bit of access is required */
-            if (!HandleInfo.GrantedAccess)
-            {
-                /* No such luck */
-                ObDereferenceObject(KeyObject);
-                Status = STATUS_ACCESS_DENIED;
-            }
-        }
-    }
-    else
-    {
-        /* Get a reference */
-        Status = ObReferenceObjectByHandle(KeyHandle,
-                                           KEY_QUERY_VALUE,
-                                           CmpKeyObjectType,
-                                           ExGetPreviousMode(),
-                                           (PVOID*)&KeyObject,
-                                           NULL);
-    }
-
-    /* Quit on failure */
-    if (!NT_SUCCESS(Status)) return Status;
-
-    if (PreviousMode != KernelMode)
-    {
-        _SEH2_TRY
-        {
-            ProbeForWriteUlong(ResultLength);
-            ProbeForWrite(KeyInformation,
-                          Length,
-                          sizeof(ULONG));
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            /* Dereference and return status */
-            ObDereferenceObject(KeyObject);
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
-        }
-        _SEH2_END;
+        DPRINT("ObReferenceObjectByHandle() failed with Status = 0x%08X\n");
+        return Status;
     }
 
     /* Setup the callback */
@@ -509,13 +261,12 @@ NtQueryValueKey(IN HANDLE KeyHandle,
                 IN ULONG Length,
                 OUT PULONG ResultLength)
 {
-    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     NTSTATUS Status;
-    PCM_KEY_BODY KeyObject;
+    PKEY_OBJECT KeyObject;
     REG_QUERY_VALUE_KEY_INFORMATION QueryValueKeyInfo;
     REG_POST_OPERATION_INFORMATION PostOperationInfo;
-    UNICODE_STRING ValueNameCopy = *ValueName;
     PAGED_CODE();
+
     DPRINT("NtQueryValueKey() KH 0x%x, VN '%wZ', KVIC %d, Length %d\n",
         KeyHandle, ValueName, KeyValueInformationClass, Length);
 
@@ -524,50 +275,18 @@ NtQueryValueKey(IN HANDLE KeyHandle,
                                        KEY_QUERY_VALUE,
                                        CmpKeyObjectType,
                                        ExGetPreviousMode(),
-                                       (PVOID*)&KeyObject,
+                                       (PVOID *)&KeyObject,
                                        NULL);
-    if (!NT_SUCCESS(Status)) return Status;
-
-    if (PreviousMode != KernelMode)
+    if (!NT_SUCCESS(Status))
     {
-        _SEH2_TRY
-        {
-            ProbeForWriteUlong(ResultLength);
-            ProbeForWrite(KeyValueInformation,
-                          Length,
-                          sizeof(ULONG));
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            /* Dereference and return status */
-            ObDereferenceObject(KeyObject);
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
-        }
-        _SEH2_END;
-    }
-
-    /* Make sure the name is aligned properly */
-    if ((ValueNameCopy.Length & (sizeof(WCHAR) - 1)))
-    {
-        /* It isn't, so we'll fail */
-        ObDereferenceObject(KeyObject);
-        return STATUS_INVALID_PARAMETER;
-    }
-    else
-    {
-        /* Ignore any null characters at the end */
-        while ((ValueNameCopy.Length) &&
-               !(ValueNameCopy.Buffer[ValueNameCopy.Length / sizeof(WCHAR) - 1]))
-        {
-            /* Skip it */
-            ValueNameCopy.Length -= sizeof(WCHAR);
-        }
+        DPRINT("ObReferenceObjectByHandle() failed with Status = 0x%08X\n");
+        return Status;
     }
 
     /* Setup the callback */
     PostOperationInfo.Object = (PVOID)KeyObject;
     QueryValueKeyInfo.Object = (PVOID)KeyObject;
-    QueryValueKeyInfo.ValueName = &ValueNameCopy;
+    QueryValueKeyInfo.ValueName = ValueName;
     QueryValueKeyInfo.KeyValueInformationClass = KeyValueInformationClass;
     QueryValueKeyInfo.Length = Length;
     QueryValueKeyInfo.ResultLength = ResultLength;
@@ -578,7 +297,7 @@ NtQueryValueKey(IN HANDLE KeyHandle,
     {
         /* Call the internal API */
         Status = CmQueryValueKey(KeyObject->KeyControlBlock,
-                                 ValueNameCopy,
+                                 *ValueName,
                                  KeyValueInformationClass,
                                  KeyValueInformation,
                                  Length,
@@ -588,6 +307,8 @@ NtQueryValueKey(IN HANDLE KeyHandle,
         PostOperationInfo.Status = Status;
         CmiCallRegisteredCallbacks(RegNtPostQueryValueKey, &PostOperationInfo);
     }
+
+    DPRINT("NtQueryValueKey() returning 0x%08X\n", Status);
 
     /* Dereference and return status */
     ObDereferenceObject(KeyObject);
@@ -604,11 +325,11 @@ NtSetValueKey(IN HANDLE KeyHandle,
               IN ULONG DataSize)
 {
     NTSTATUS Status;
-    PCM_KEY_BODY KeyObject;
+    PKEY_OBJECT KeyObject;
     REG_SET_VALUE_KEY_INFORMATION SetValueKeyInfo;
     REG_POST_OPERATION_INFORMATION PostOperationInfo;
-    UNICODE_STRING ValueNameCopy = *ValueName;
     PAGED_CODE();
+
     DPRINT("NtSetValueKey() KH 0x%x, VN '%wZ', TI %x, T %d, DS %d\n",
         KeyHandle, ValueName, TitleIndex, Type, DataSize);
 
@@ -617,34 +338,12 @@ NtSetValueKey(IN HANDLE KeyHandle,
                                        KEY_SET_VALUE,
                                        CmpKeyObjectType,
                                        ExGetPreviousMode(),
-                                       (PVOID*)&KeyObject,
+                                       (PVOID *)&KeyObject,
                                        NULL);
-    if (!NT_SUCCESS(Status)) return Status;
-
-    /* Make sure the name is aligned, not too long, and the data under 4GB */
-    if ( (ValueNameCopy.Length > 32767) ||
-         ((ValueNameCopy.Length & (sizeof(WCHAR) - 1))) ||
-         (DataSize > 0x80000000))
+    if (!NT_SUCCESS(Status))
     {
-        /* Fail */
-        ObDereferenceObject(KeyObject);
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    /* Ignore any null characters at the end */
-    while ((ValueNameCopy.Length) &&
-           !(ValueNameCopy.Buffer[ValueNameCopy.Length / sizeof(WCHAR) - 1]))
-    {
-        /* Skip it */
-        ValueNameCopy.Length -= sizeof(WCHAR);
-    }
-
-    /* Don't touch read-only keys */
-    if (KeyObject->KeyControlBlock->ExtFlags & CM_KCB_READ_ONLY_KEY)
-    {
-        /* Fail */
-        ObDereferenceObject(KeyObject);
-        return STATUS_ACCESS_DENIED;
+        DPRINT1("ObReferenceObjectByHandle() failed with Status = 0x%08X\n", Status);
+        return Status;
     }
 
     /* Setup callback */
@@ -659,21 +358,22 @@ NtSetValueKey(IN HANDLE KeyHandle,
     /* Do the callback */
     Status = CmiCallRegisteredCallbacks(RegNtPreSetValueKey, &SetValueKeyInfo);
     if (NT_SUCCESS(Status))
-    {
+    {        
         /* Call the internal API */
         Status = CmSetValueKey(KeyObject->KeyControlBlock,
-                               &ValueNameCopy,
+                               ValueName,
                                Type,
                                Data,
                                DataSize);
     }
 
-    /* Do the post-callback */
+    /* Do the post-callback and de-reference the key object */
     PostOperationInfo.Status = Status;
     CmiCallRegisteredCallbacks(RegNtPostSetValueKey, &PostOperationInfo);
-
-    /* Dereference and return status */
     ObDereferenceObject(KeyObject);
+
+    /* Synchronize the hives and return */
+    CmpLazyFlush();
     return Status;
 }
 
@@ -682,12 +382,11 @@ NTAPI
 NtDeleteValueKey(IN HANDLE KeyHandle,
                  IN PUNICODE_STRING ValueName)
 {
-    PCM_KEY_BODY KeyObject;
+    PKEY_OBJECT KeyObject;
     NTSTATUS Status;
     REG_DELETE_VALUE_KEY_INFORMATION DeleteValueKeyInfo;
     REG_POST_OPERATION_INFORMATION PostOperationInfo;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    UNICODE_STRING ValueNameCopy = *ValueName;
     PAGED_CODE();
 
     /* Verify that the handle is valid and is a registry key */
@@ -697,22 +396,10 @@ NtDeleteValueKey(IN HANDLE KeyHandle,
                                        PreviousMode,
                                        (PVOID *)&KeyObject,
                                        NULL);
-    if (!NT_SUCCESS(Status)) return Status;
-
-    /* Don't touch read-only keys */
-    if (KeyObject->KeyControlBlock->ExtFlags & CM_KCB_READ_ONLY_KEY)
+    if (!NT_SUCCESS(Status))
     {
-        /* Fail */
-        ObDereferenceObject(KeyObject);
-        return STATUS_ACCESS_DENIED;
-    }
-
-    /* Make sure the name is aligned properly */
-    if ((ValueNameCopy.Length & (sizeof(WCHAR) - 1)))
-    {
-        /* It isn't, so we'll fail */
-        ObDereferenceObject(KeyObject);
-        return STATUS_INVALID_PARAMETER;
+        DPRINT("ObReferenceObjectByHandle() failed with Status = 0x%08X\n");
+        return Status;
     }
 
     /* Do the callback */
@@ -723,7 +410,7 @@ NtDeleteValueKey(IN HANDLE KeyHandle,
     if (NT_SUCCESS(Status))
     {
         /* Call the internal API */
-        Status = CmDeleteValueKey(KeyObject->KeyControlBlock, ValueNameCopy);
+        Status = CmDeleteValueKey(KeyObject->KeyControlBlock, *ValueName);
 
         /* Do the post callback */
         PostOperationInfo.Object = (PVOID)KeyObject;
@@ -732,8 +419,9 @@ NtDeleteValueKey(IN HANDLE KeyHandle,
                                    &PostOperationInfo);
     }
 
-    /* Dereference the key body */
+    /* Dereference the key body and synchronize the hives */
     ObDereferenceObject(KeyObject);
+    CmpLazyFlush();
     return Status;
 }
 
@@ -742,9 +430,9 @@ NTAPI
 NtFlushKey(IN HANDLE KeyHandle)
 {
     NTSTATUS Status;
-    PCM_KEY_BODY KeyObject;
+    PKEY_OBJECT KeyObject;
     PAGED_CODE();
-
+    
     /* Get the key object */
     Status = ObReferenceObjectByHandle(KeyHandle,
                                        0,
@@ -753,13 +441,11 @@ NtFlushKey(IN HANDLE KeyHandle)
                                        (PVOID*)&KeyObject,
                                        NULL);
     if (!NT_SUCCESS(Status)) return Status;
-
+    
     /* Lock the registry */
-    CmpLockRegistry();
-
-    /* Lock the KCB */
-    CmpAcquireKcbLockShared(KeyObject->KeyControlBlock);
-
+    KeEnterCriticalRegion();
+    ExAcquireResourceExclusiveLite(&CmpRegistryLock, TRUE);
+    
     /* Make sure KCB isn't deleted */
     if (KeyObject->KeyControlBlock->Delete)
     {
@@ -771,174 +457,14 @@ NtFlushKey(IN HANDLE KeyHandle)
         /* Call the internal API */
         Status = CmFlushKey(KeyObject->KeyControlBlock, FALSE);
     }
-
-    /* Release the locks */
-    CmpReleaseKcbLock(KeyObject->KeyControlBlock);
-    CmpUnlockRegistry();
-
+    
+    /* Release the lock */
+    ExReleaseResourceLite(&CmpRegistryLock);
+    KeLeaveCriticalRegion();
+    
     /* Dereference the object and return status */
     ObDereferenceObject(KeyObject);
     return Status;
-}
-
-NTSTATUS
-NTAPI
-NtLoadKey(IN POBJECT_ATTRIBUTES KeyObjectAttributes,
-          IN POBJECT_ATTRIBUTES FileObjectAttributes)
-{
-    /* Call the newer API */
-    return NtLoadKeyEx(KeyObjectAttributes, FileObjectAttributes, 0, NULL);
-}
-
-NTSTATUS
-NTAPI
-NtLoadKey2(IN POBJECT_ATTRIBUTES KeyObjectAttributes,
-           IN POBJECT_ATTRIBUTES FileObjectAttributes,
-           IN ULONG Flags)
-{
-    /* Call the newer API */
-    return NtLoadKeyEx(KeyObjectAttributes, FileObjectAttributes, Flags, NULL);
-}
-
-NTSTATUS
-NTAPI
-NtLoadKeyEx(IN POBJECT_ATTRIBUTES TargetKey,
-            IN POBJECT_ATTRIBUTES SourceFile,
-            IN ULONG Flags,
-            IN HANDLE TrustClassKey)
-{
-    NTSTATUS Status;
-    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    PCM_KEY_BODY KeyBody = NULL;
-    PAGED_CODE();
-
-    /* Validate flags */
-    if (Flags & ~REG_NO_LAZY_FLUSH) return STATUS_INVALID_PARAMETER;
-
-    /* Validate privilege */
-    if (!SeSinglePrivilegeCheck(SeRestorePrivilege, PreviousMode))
-    {
-        /* Fail */
-        DPRINT1("Restore Privilege missing!\n");
-        return STATUS_PRIVILEGE_NOT_HELD;
-    }
-
-    /* Block APCs */
-    KeEnterCriticalRegion();
-
-    /* Check if we have a trust class */
-    if (TrustClassKey)
-    {
-        /* Reference it */
-        Status = ObReferenceObjectByHandle(TrustClassKey,
-                                           0,
-                                           CmpKeyObjectType,
-                                           PreviousMode,
-                                           (PVOID *)&KeyBody,
-                                           NULL);
-    }
-
-    /* Call the internal API */
-    Status = CmLoadKey(TargetKey, SourceFile, Flags, KeyBody);
-
-    /* Dereference the trust key, if any */
-    if (KeyBody) ObDereferenceObject(KeyBody);
-
-    /* Bring back APCs */
-    KeLeaveCriticalRegion();
-
-    /* Return status */
-    return Status;
-}
-
-NTSTATUS
-NTAPI
-NtNotifyChangeKey(IN HANDLE KeyHandle,
-                  IN HANDLE Event,
-                  IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
-                  IN PVOID ApcContext OPTIONAL,
-                  OUT PIO_STATUS_BLOCK IoStatusBlock,
-                  IN ULONG CompletionFilter,
-                  IN BOOLEAN WatchTree,
-                  OUT PVOID Buffer,
-                  IN ULONG Length,
-                  IN BOOLEAN Asynchronous)
-{
-    /* Call the newer API */
-    return NtNotifyChangeMultipleKeys(KeyHandle,
-                                      0,
-                                      NULL,
-                                      Event,
-                                      ApcRoutine,
-                                      ApcContext,
-                                      IoStatusBlock,
-                                      CompletionFilter,
-                                      WatchTree,
-                                      Buffer,
-                                      Length,
-                                      Asynchronous);
-}
-
-NTSTATUS
-NTAPI
-NtInitializeRegistry(IN USHORT Flag)
-{
-    BOOLEAN SetupBoot;
-    NTSTATUS Status = STATUS_SUCCESS;
-    PAGED_CODE();
-
-    /* Always do this as kernel mode */
-    if (KeGetPreviousMode() == UserMode) return ZwInitializeRegistry(Flag);
-
-    /* Validate flag */
-    if (Flag > CM_BOOT_FLAG_MAX) return STATUS_INVALID_PARAMETER;
-
-    /* Check if boot was accepted */
-    if ((Flag >= CM_BOOT_FLAG_ACCEPTED) && (Flag <= CM_BOOT_FLAG_MAX))
-    {
-        /* Only allow once */
-        if (!CmBootAcceptFirstTime) return STATUS_ACCESS_DENIED;
-        CmBootAcceptFirstTime = FALSE;
-
-        /* Get the control set accepted */
-        Flag -= CM_BOOT_FLAG_ACCEPTED;
-        if (Flag)
-        {
-            /* FIXME: Save the last known good boot */
-            //Status = CmpSaveBootControlSet(Flag);
-
-            /* Notify HAL */
-            HalEndOfBoot();
-
-            /* Enable lazy flush */
-            CmpHoldLazyFlush = FALSE;
-            CmpLazyFlush();
-            return Status;
-        }
-
-        /* Otherwise, invalid boot */
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    /* Check if this was a setup boot */
-    SetupBoot = (Flag == CM_BOOT_FLAG_SETUP ? TRUE : FALSE);
-
-    /* Make sure we're only called once */
-    if (!CmFirstTime) return STATUS_ACCESS_DENIED;
-    CmFirstTime = FALSE;
-
-    /* Acquire registry lock */
-    //CmpLockRegistryExclusive();
-
-    /* Initialize the hives and lazy flusher */
-    CmpCmdInit(SetupBoot);
-
-    /* FIXME: Save version data */
-    //CmpSetVersionData();
-
-    /* Release the registry lock */
-    //CmpUnlockRegistry();
-    return STATUS_SUCCESS;
 }
 
 NTSTATUS
@@ -953,6 +479,28 @@ NtCompactKeys(IN ULONG Count,
 NTSTATUS
 NTAPI
 NtCompressKey(IN HANDLE Key)
+{
+    UNIMPLEMENTED;
+    return STATUS_NOT_IMPLEMENTED;
+}
+
+NTSTATUS
+NTAPI
+NtLoadKey(IN POBJECT_ATTRIBUTES KeyObjectAttributes,
+          IN POBJECT_ATTRIBUTES FileObjectAttributes)
+{
+    return NtLoadKey2(KeyObjectAttributes, FileObjectAttributes, 0);
+}
+
+NTSTATUS
+NTAPI
+NtLoadKeyEx(IN POBJECT_ATTRIBUTES TargetKey,
+            IN POBJECT_ATTRIBUTES SourceFile,
+            IN ULONG Flags,
+            IN HANDLE TrustClassKey,
+            IN HANDLE Event,
+            IN ACCESS_MASK DesiredAccess,
+            OUT PHANDLE RootHandle)
 {
     UNIMPLEMENTED;
     return STATUS_NOT_IMPLEMENTED;
@@ -996,6 +544,33 @@ NtNotifyChangeMultipleKeys(IN HANDLE MasterKeyHandle,
 
 NTSTATUS
 NTAPI
+NtNotifyChangeKey(IN HANDLE KeyHandle,
+                  IN HANDLE Event,
+                  IN PIO_APC_ROUTINE ApcRoutine OPTIONAL,
+                  IN PVOID ApcContext OPTIONAL,
+                  OUT PIO_STATUS_BLOCK IoStatusBlock,
+                  IN ULONG CompletionFilter,
+                  IN BOOLEAN WatchTree,
+                  OUT PVOID Buffer,
+                  IN ULONG Length,
+                  IN BOOLEAN Asynchronous)
+{
+     return NtNotifyChangeMultipleKeys(KeyHandle,
+                                       0,
+                                       NULL,
+                                       Event,
+                                       ApcRoutine,
+                                       ApcContext,
+                                       IoStatusBlock,
+                                       CompletionFilter,
+                                       WatchTree,
+                                       Buffer,
+                                       Length,
+                                       Asynchronous);
+}
+
+NTSTATUS
+NTAPI
 NtQueryMultipleValueKey(IN HANDLE KeyHandle,
                         IN OUT PKEY_VALUE_ENTRY ValueList,
                         IN ULONG NumberOfValues,
@@ -1010,7 +585,7 @@ NtQueryMultipleValueKey(IN HANDLE KeyHandle,
 NTSTATUS
 NTAPI
 NtQueryOpenSubKeys(IN POBJECT_ATTRIBUTES TargetKey,
-                   OUT PULONG HandleCount)
+                   IN ULONG HandleCount)
 {
     UNIMPLEMENTED;
     return STATUS_NOT_IMPLEMENTED;
@@ -1022,15 +597,6 @@ NtQueryOpenSubKeysEx(IN POBJECT_ATTRIBUTES TargetKey,
                      IN ULONG BufferLength,
                      IN PVOID Buffer,
                      IN PULONG RequiredSize)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-NTSTATUS
-NTAPI
-NtRenameKey(IN HANDLE KeyHandle,
-            IN PUNICODE_STRING ReplacementName)
 {
     UNIMPLEMENTED;
     return STATUS_NOT_IMPLEMENTED;
@@ -1100,7 +666,8 @@ NTSTATUS
 NTAPI
 NtUnloadKey(IN POBJECT_ATTRIBUTES KeyObjectAttributes)
 {
-    return NtUnloadKey2(KeyObjectAttributes, 0);
+    UNIMPLEMENTED;
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 NTSTATUS
@@ -1108,170 +675,8 @@ NTAPI
 NtUnloadKey2(IN POBJECT_ATTRIBUTES TargetKey,
              IN ULONG Flags)
 {
-#if 0
-    NTSTATUS Status;
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    UNICODE_STRING ObjectName;
-    CM_PARSE_CONTEXT ParseContext = {0};
-    KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
-    PCM_KEY_BODY KeyBody = NULL;
-    ULONG ParentConv = 0, ChildConv = 0;
-    HANDLE Handle;
-    PAGED_CODE();
-
-    /* Validate privilege */
-    if (!SeSinglePrivilegeCheck(SeRestorePrivilege, PreviousMode))
-    {
-        /* Fail */
-        DPRINT1("Restore Privilege missing!\n");
-        return STATUS_PRIVILEGE_NOT_HELD;
-    }
-
-    /* Check for user-mode caller */
-    if (PreviousMode != KernelMode)
-    {
-        /* Prepare to probe parameters */
-        _SEH2_TRY
-        {
-            /* Probe object attributes */
-            ProbeForRead(TargetKey,
-                         sizeof(OBJECT_ATTRIBUTES),
-                         sizeof(ULONG));
-
-            ObjectAttributes = *TargetKey;
-
-            /* Probe the string */
-            ProbeForReadUnicodeString(&TargetKey->ObjectName);
-
-            ObjectName = *TargetKey->ObjectName;
-
-            ProbeForRead(ObjectName.Buffer,
-                         ObjectName.Length,
-                         sizeof(WCHAR));
-
-            ObjectAttributes.ObjectName = &ObjectName;
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
-        }
-        _SEH2_END;
-    }
-    else
-    {
-        /* Save the target attributes directly */
-        ObjectAttributes = *TargetKey;
-    }
-
-    /* Setup the parse context */
-    ParseContext.CreateOperation = TRUE;
-    ParseContext.CreateOptions = REG_OPTION_BACKUP_RESTORE;
-
-    /* Do the create */
-    Status = ObOpenObjectByName(&ObjectAttributes,
-                                CmpKeyObjectType,
-                                KernelMode,
-                                NULL,
-                                KEY_WRITE,
-                                &ParseContext,
-                                &Handle);
-
-    /* Return if failure encountered */
-    if (!NT_SUCCESS(Status)) return Status;
-
-    /* Reference it */
-    Status = ObReferenceObjectByHandle(Handle,
-                                       KEY_WRITE,
-                                       CmpKeyObjectType,
-                                       KernelMode,
-                                       (PVOID *)&KeyBody,
-                                       NULL);
-
-    /* Close the handle */
-    ZwClose(Handle);
-
-    /* Return if failure encountered */
-    if (!NT_SUCCESS(Status)) return Status;
-
-    /* Acquire the lock depending on flags */
-    if (Flags == REG_FORCE_UNLOAD)
-    {
-        /* Lock registry exclusively */
-        CmpLockRegistryExclusive();
-    }
-    else
-    {
-        /* Lock registry */
-        CmpLockRegistry();
-
-        /* Acquire the hive loading lock */
-        ExAcquirePushLockExclusive(&CmpLoadHiveLock);
-
-        /* Lock parent and child */
-        if (KeyBody->KeyControlBlock->ParentKcb)
-            ParentConv = KeyBody->KeyControlBlock->ParentKcb->ConvKey;
-        else
-            ParentConv = KeyBody->KeyControlBlock->ConvKey;
-
-        ChildConv = KeyBody->KeyControlBlock->ConvKey;
-
-        CmpAcquireTwoKcbLocksExclusiveByKey(ChildConv, ParentConv);
-    }
-
-    /* Check if it's being deleted already */
-    if (KeyBody->KeyControlBlock->Delete)
-    {
-        /* Return appropriate status */
-        Status = STATUS_KEY_DELETED;
-        goto Quickie;
-    }
-
-    /* Check if it's a readonly key */
-    if (KeyBody->KeyControlBlock->ExtFlags & CM_KCB_READ_ONLY_KEY)
-    {
-        /* Return appropriate status */
-        Status = STATUS_ACCESS_DENIED;
-        goto Quickie;
-    }
-
-    /* Call the internal API */
-    Status = CmUnloadKey(KeyBody->KeyControlBlock,
-                         Flags);
-
-    /* Check if we failed, but really need to succeed */
-    if ((Status == STATUS_CANNOT_DELETE) && (Flags == REG_FORCE_UNLOAD))
-    {
-        /* TODO: We should perform another attempt here */
-        ASSERT(FALSE);
-    }
-
-    /* If CmUnloadKey failed we need to unlock registry ourselves */
-    if (!NT_SUCCESS(Status))
-    {
-        if (Flags != REG_FORCE_UNLOAD)
-        {
-            /* Release the hive loading lock */
-            ExReleasePushLockExclusive(&CmpLoadHiveLock);
-
-            /* Release two KCBs lock */
-            CmpReleaseTwoKcbLockByKey(ChildConv, ParentConv);
-        }
-
-        /* Unlock the registry */
-        CmpUnlockRegistry();
-    }
-
-Quickie:
-    /* Dereference the key */
-    ObDereferenceObject(KeyBody);
-
-    /* Return status */
-    return Status;
-#else
     UNIMPLEMENTED;
     return STATUS_NOT_IMPLEMENTED;
-#endif
 }
 
 NTSTATUS

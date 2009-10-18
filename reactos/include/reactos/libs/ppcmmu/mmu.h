@@ -38,12 +38,6 @@
  * 106 -- Unit Test
  * 107 -- Turn on paging
  * 108 -- Unmap process
- * 109 -- Get lowest unallocated page
- * 10a -- Alloc vsid
- * 10b -- Revoke vsid
- * 10c -- Allocate a page and return it
- * 10d -- Return from trap callback
- * 10e -- Dump Map
  *
  * 2** -- Debug Stub and Interrupt Vectoring
  *
@@ -112,7 +106,7 @@ typedef struct _ppc_map_info_t {
 typedef struct _ppc_trap_frame_t {
     unsigned long gpr[32];
     unsigned long long fpr[32];
-    unsigned long srr0, srr1, cr, lr, ctr, dsisr, dar, xer;
+    unsigned long srr0, srr1, cr, lr, ctr, xer, mq, dsisr, dar;
 } ppc_trap_frame_t;
 
 typedef int (*MmuTrapHandler)(int trapid, ppc_trap_frame_t *trap);
@@ -122,40 +116,32 @@ typedef int (*MmuTrapHandler)(int trapid, ppc_trap_frame_t *trap);
 static inline int PPCMMU(int action, void *arg1, void *arg2, void *arg3)
 {
     /* Set Bat0 to mmu object address */
-    int i, batu, batl, usebat[2] = { 0, 1 }, gotbat = 0, pc, mask;
+    int i, batu, batl, oldbat[8], usebat[2] = { 0, 1 }, gotbat = 0, pc, mask;
     volatile int ret;
     int (*mmumain)(int action, void *arg1, void *arg2, void *arg3) = (void *)MMUCODE;
     __asm__("bl 1f\n\t"
 	    "\n1:\n\t"
 	    "mflr %0\n\t" : "=r" (pc));
 
-    for(i = 0, gotbat = 0; i < 4; i++)
+    for(i = 0, gotbat = 0; i < 4 && gotbat < 2; i++)
     {
-        /* Use the space above the trap handlers to store the old bats */
-        GetBat(i, 0, &batu, &batl);
-
-        SetPhys(0xf000 + i * 16, batu);
-        SetPhys(0xf004 + i * 16, batl);
-
 	GetBat(i, 1, &batu, &batl);
-
-        SetPhys(0xf008 + i * 16, batu);
-        SetPhys(0xf00c + i * 16, batl);
-
-	if (gotbat < 2)
-        {
-            if(batu & 0xffc)
-            {
-                mask = ~(0x1ffff | ((batu & 0xffc)>>2)<<17);
-                if(!(batu & 2) || ((batu & mask) != (pc & mask)))
-                    usebat[gotbat++] = i;
-            } else {
-                mask = ~(0x1ffff | (batl << 17));
-                if(!(batl & 0x40) || ((batu & mask) != (pc & mask)))
-                    usebat[gotbat++] = i;
-            }
-        }
+	if(batu & 0xffc)
+	{
+	    mask = ~(0x1ffff | ((batu & 0xffc)>>2)<<17);
+	    if(!(batu & 2) || ((batu & mask) != (pc & mask)))
+		usebat[gotbat++] = i;
+	} else {
+	    mask = ~(0x1ffff | (batl << 17));
+	    if(!(batl & 0x40) || ((batu & mask) != (pc & mask)))
+		usebat[gotbat++] = i;
+	}
     }
+
+    GetBat(usebat[0], 0, &oldbat[0], &oldbat[1]);
+    GetBat(usebat[0], 1, &oldbat[2], &oldbat[3]);
+    GetBat(usebat[1], 0, &oldbat[4], &oldbat[5]);
+    GetBat(usebat[1], 1, &oldbat[6], &oldbat[7]);
 
     batu = 0xff;
     batl = 0x7f;
@@ -167,6 +153,12 @@ static inline int PPCMMU(int action, void *arg1, void *arg2, void *arg3)
     SetBat(usebat[1], 1, batu, batl);
 
     ret = mmumain(action, arg1, arg2, arg3);
+
+    /* Ok done ... Whatever happened probably worked */
+    SetBat(usebat[0], 0, oldbat[0], oldbat[1]);
+    SetBat(usebat[0], 1, oldbat[2], oldbat[3]);
+    SetBat(usebat[1], 0, oldbat[4], oldbat[5]);
+    SetBat(usebat[1], 1, oldbat[6], oldbat[7]);
 
     return ret;
 }
@@ -194,9 +186,9 @@ static inline void _MmuInit(void *_start, void *_end)
     PPCMMU(0x100, 0, 0, 0);
 }
 
-static inline int MmuMapPage(ppc_map_info_t *info, int count)
+static inline void MmuMapPage(ppc_map_info_t *info, int count)
 {
-    return PPCMMU(0x101, info, (void *)count, 0);
+    PPCMMU(0x101, info, (void *)count, 0);
 }
 
 static inline void MmuUnmapPage(ppc_map_info_t *info, int count)
@@ -247,21 +239,6 @@ static inline void *MmuAllocVsid(int vsid, int mask)
 static inline void MmuRevokeVsid(int vsid, int mask)
 {
     PPCMMU(0x10b, (void *)vsid, (void *)mask, 0);
-}
-
-static inline paddr_t MmuGetPage()
-{
-    return PPCMMU(0x10c, 0,0,0);
-}
-
-static inline void MmuCallbackRet()
-{
-    PPCMMU(0x10d, 0,0,0);
-}
-
-static inline void MmuDumpMap()
-{
-    PPCMMU(0x10e, 0,0,0);
 }
 
 static inline void MmuDbgInit(int deviceType, int devicePort)

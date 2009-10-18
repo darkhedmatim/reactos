@@ -1,4 +1,4 @@
-/* $Id: stubs.c 35011 2008-08-01 16:29:40Z sginsberg $
+/* $Id$
  *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS Access Control List Editor

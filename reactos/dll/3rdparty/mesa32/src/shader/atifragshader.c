@@ -21,13 +21,13 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "main/glheader.h"
-#include "main/context.h"
-#include "main/hash.h"
-#include "main/imports.h"
-#include "main/macros.h"
-#include "main/enums.h"
-#include "main/mtypes.h"
+#include "glheader.h"
+#include "context.h"
+#include "hash.h"
+#include "imports.h"
+#include "macros.h"
+#include "enums.h"
+#include "mtypes.h"
 #include "atifragshader.h"
 
 #define MESA_DEBUG_ATI_FS 0
@@ -440,7 +440,7 @@ _mesa_PassTexCoordATI(GLuint dst, GLuint coord, GLenum swizzle)
       _mesa_error(ctx, GL_INVALID_OPERATION, "glPassTexCoordATI(coord)");
       return;
    }
-   if (!(swizzle >= GL_SWIZZLE_STR_ATI) && (swizzle <= GL_SWIZZLE_STQ_DQ_ATI)) {
+   if ((swizzle < GL_SWIZZLE_STR_ATI) && (swizzle > GL_SWIZZLE_STQ_DQ_ATI)) {
       _mesa_error(ctx, GL_INVALID_ENUM, "glPassTexCoordATI(swizzle)");
       return;
    }
@@ -513,7 +513,7 @@ _mesa_SampleMapATI(GLuint dst, GLuint interp, GLenum swizzle)
       _mesa_error(ctx, GL_INVALID_OPERATION, "glSampleMapATI(interp)");
       return;
    }
-   if (!(swizzle >= GL_SWIZZLE_STR_ATI) && (swizzle <= GL_SWIZZLE_STQ_DQ_ATI)) {
+   if ((swizzle < GL_SWIZZLE_STR_ATI) && (swizzle > GL_SWIZZLE_STQ_DQ_ATI)) {
       _mesa_error(ctx, GL_INVALID_ENUM, "glSampleMapATI(swizzle)");
       return;
    }

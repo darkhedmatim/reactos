@@ -17,11 +17,7 @@ IntDeleteRecursive(
 	IN LPCWSTR FullName)
 {
 	DWORD RemovableAttributes = FILE_ATTRIBUTE_READONLY;
-	WIN32_FIND_DATAW FindData;
-	HANDLE hSearch = INVALID_HANDLE_VALUE;
-	LPWSTR FullPath = NULL, pFilePart;
 	DWORD FileAttributes;
-	SIZE_T dwLength;
 	BOOL ret = FALSE;
 
 	FileAttributes = GetFileAttributesW(FullName);
@@ -38,46 +34,11 @@ IntDeleteRecursive(
 	}
 	if (FileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 	{
-		/* Prepare file specification */
-		dwLength = wcslen(FullName);
-		FullPath = HeapAlloc(GetProcessHeap(), 0, (dwLength + 1 + MAX_PATH + 1) * sizeof(WCHAR));
-		if (!FullPath)
-		{
-			SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-			goto cleanup;
-		}
-		wcscpy(FullPath, FullName);
-		if (FullPath[dwLength - 1] != '\\')
-		{
-			FullPath[dwLength] = '\\';
-			dwLength++;
-		}
-		pFilePart = &FullPath[dwLength];
-		wcscpy(pFilePart, L"*");
+		/* Recursive deletion */
+		/* FIXME: recursive deletion */
+		SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+		goto cleanup;
 
-		/* Enumerate contents, and delete it */
-		hSearch = FindFirstFileW(FullPath, &FindData);
-		if (hSearch == INVALID_HANDLE_VALUE)
-			goto cleanup;
-		do
-		{
-			if (!(FindData.cFileName[0] == '.' &&
-				(FindData.cFileName[1] == '\0' || (FindData.cFileName[1] == '.' && FindData.cFileName[2] == '\0'))))
-			{
-				wcscpy(pFilePart, FindData.cFileName);
-				if (!IntDeleteRecursive(FullPath))
-				{
-					FindClose(hSearch);
-					goto cleanup;
-				}
-			}
-		}
-		while (FindNextFileW(hSearch, &FindData));
-		FindClose(hSearch);
-		if (GetLastError() != ERROR_NO_MORE_FILES)
-			goto cleanup;
-
-		/* Remove (now empty) directory */
 		if (!RemoveDirectoryW(FullName))
 			goto cleanup;
 	}
@@ -89,7 +50,6 @@ IntDeleteRecursive(
 	ret = TRUE;
 
 cleanup:
-	HeapFree(GetProcessHeap(), 0, FullPath);
 	return ret;
 }
 
@@ -107,7 +67,7 @@ struct RecycleBin5
 };
 
 static HRESULT STDMETHODCALLTYPE
-RecycleBin5_RecycleBin5_QueryInterface(
+RecycleBin5_RecycleBin5_QueryInterface( 
 	IRecycleBin5 *This,
 	REFIID riid,
 	void **ppvObject)
@@ -145,19 +105,6 @@ RecycleBin5_RecycleBin5_AddRef(
 	return refCount;
 }
 
-static VOID
-RecycleBin5_Destructor(
-	struct RecycleBin5 *s)
-{
-	TRACE("(%p)\n", s);
-
-	if (s->hInfo && s->hInfo != INVALID_HANDLE_VALUE)
-		CloseHandle(s->hInfo);
-	if (s->hInfoMapped)
-		CloseHandle(s->hInfoMapped);
-	CoTaskMemFree(s);
-}
-
 static ULONG STDMETHODCALLTYPE
 RecycleBin5_RecycleBin5_Release(
 	IRecycleBin5 *This)
@@ -170,7 +117,11 @@ RecycleBin5_RecycleBin5_Release(
 	refCount = InterlockedDecrement((PLONG)&s->ref);
 
 	if (refCount == 0)
-		RecycleBin5_Destructor(s);
+	{
+		CloseHandle(s->hInfo);
+		CloseHandle(s->hInfoMapped);
+		CoTaskMemFree(s);
+	}
 
 	return refCount;
 }
@@ -190,8 +141,8 @@ RecycleBin5_RecycleBin5_DeleteFile(
 	HANDLE hFile = INVALID_HANDLE_VALUE;
 	PINFO2_HEADER pHeader = NULL;
 	PDELETED_FILE_RECORD pDeletedFile;
-	ULARGE_INTEGER FileSize;
-	DWORD dwAttributes, dwEntries;
+	ULARGE_INTEGER fileSize;
+	DWORD dwAttributes;
 	SYSTEMTIME SystemTime;
 	DWORD ClusterSize, BytesPerSector, SectorsPerCluster;
 	HRESULT hr;
@@ -199,7 +150,7 @@ RecycleBin5_RecycleBin5_DeleteFile(
 	TRACE("(%p, %s)\n", This, debugstr_w(szFileName));
 
 	if (s->EnumeratorCount != 0)
-		return HRESULT_FROM_WIN32(ERROR_SHARING_VIOLATION);
+		return E_FAIL;
 
 	/* Get full file name */
 	while (TRUE)
@@ -258,51 +209,37 @@ RecycleBin5_RecycleBin5_DeleteFile(
 		hr = HRESULT_FROM_WIN32(GetLastError());
 		goto cleanup;
 	}
-
-	/* Get number of entries */
-	FileSize.u.LowPart = GetFileSize(s->hInfo, &FileSize.u.HighPart);
-	if (FileSize.u.LowPart < sizeof(INFO2_HEADER))
-	{
-		UnmapViewOfFile(pHeader);
-		return HRESULT_FROM_WIN32(GetLastError());
-	}
-	dwEntries = (DWORD)((FileSize.QuadPart - sizeof(INFO2_HEADER)) / sizeof(DELETED_FILE_RECORD)) - 1;
-	pDeletedFile = ((PDELETED_FILE_RECORD)(pHeader + 1)) + dwEntries;
+	pDeletedFile = ((PDELETED_FILE_RECORD)(pHeader + 1)) + pHeader->dwNumberOfEntries;
 
 	/* Get file size */
 #if 0
-	if (!GetFileSizeEx(hFile, (PLARGE_INTEGER)&FileSize))
+	if (!GetFileSizeEx(hFile, (PLARGE_INTEGER)&fileSize))
 	{
 		hr = HRESULT_FROM_WIN32(GetLastError());
 		goto cleanup;
 	}
 #else
-	FileSize.u.LowPart = GetFileSize(hFile, &FileSize.u.HighPart);
-	if (FileSize.u.LowPart == INVALID_FILE_SIZE && GetLastError() != NO_ERROR)
+	fileSize.u.LowPart = GetFileSize(hFile, &fileSize.u.HighPart);
+	if (fileSize.u.LowPart == INVALID_FILE_SIZE && GetLastError() != NO_ERROR)
 	{
 		hr = HRESULT_FROM_WIN32(GetLastError());
 		goto cleanup;
 	}
 #endif
 	/* Check if file size is > 4Gb */
-	if (FileSize.u.HighPart != 0)
+	if (fileSize.u.HighPart != 0)
 	{
-		/* Yes, this recyclebin can't support this file */
-		hr = HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED);
+		/* FIXME: how to delete files >= 4Gb? */
+		hr = E_NOTIMPL;
 		goto cleanup;
 	}
-	pHeader->dwTotalLogicalSize += FileSize.u.LowPart;
+	pHeader->dwTotalLogicalSize += fileSize.u.LowPart;
 
 	/* Generate new name */
+	pHeader->dwHighestRecordUniqueId++;
 	Extension = wcsrchr(szFullName, '.');
 	ZeroMemory(pDeletedFile, sizeof(DELETED_FILE_RECORD));
-	if (dwEntries == 0)
-		pDeletedFile->dwRecordUniqueId = 0;
-	else
-	{
-		PDELETED_FILE_RECORD pLastDeleted = ((PDELETED_FILE_RECORD)(pHeader + 1)) + dwEntries - 1;
-		pDeletedFile->dwRecordUniqueId = pLastDeleted->dwRecordUniqueId + 1;
-	}
+	pDeletedFile->dwRecordUniqueId = pHeader->dwHighestRecordUniqueId;
 	pDeletedFile->dwDriveNumber = tolower(szFullName[0]) - 'a';
 	_snwprintf(DeletedFileName, MAX_PATH, L"%s\\D%c%lu%s", s->Folder, pDeletedFile->dwDriveNumber + 'a', pDeletedFile->dwRecordUniqueId, Extension);
 
@@ -321,7 +258,7 @@ RecycleBin5_RecycleBin5_DeleteFile(
 		hr = HRESULT_FROM_WIN32(GetLastError());
 		goto cleanup;
 	}
-	pDeletedFile->dwPhysicalFileSize = ROUND_UP(FileSize.u.LowPart, ClusterSize);
+	pDeletedFile->dwPhysicalFileSize = ROUND_UP(fileSize.u.LowPart, ClusterSize);
 
 	/* Set name */
 	wcscpy(pDeletedFile->FileNameW, szFullName);
@@ -331,6 +268,7 @@ RecycleBin5_RecycleBin5_DeleteFile(
 		SetLastError(ERROR_INVALID_NAME);
 		goto cleanup;
 	}
+	pHeader->dwNumberOfEntries++;
 
 	/* Move file */
 	if (MoveFileW(szFullName, DeletedFileName))
@@ -385,7 +323,7 @@ RecycleBin5_RecycleBin5_EnumObjects(
 
 	TRACE("(%p, %p)\n", This, ppEnumList);
 
-	hr = RecycleBin5Enum_Constructor(This, s->hInfo, s->hInfoMapped, s->Folder, &pUnk);
+	hr = RecycleBin5_Enumerator_Constructor(This, s->hInfo, s->hInfoMapped, s->Folder, &pUnk);
 	if (!SUCCEEDED(hr))
 		return hr;
 
@@ -414,8 +352,8 @@ RecycleBin5_RecycleBin5_Delete(
 	TRACE("(%p, %s, %p)\n", This, debugstr_w(pDeletedFileName), pDeletedFile);
 
 	if (s->EnumeratorCount != 0)
-		return HRESULT_FROM_WIN32(ERROR_SHARING_VIOLATION);
-
+		return E_FAIL;
+	
 	pHeader = MapViewOfFile(s->hInfoMapped, FILE_MAP_WRITE, 0, 0, 0);
 	if (!pHeader)
 		return HRESULT_FROM_WIN32(GetLastError());
@@ -472,12 +410,11 @@ RecycleBin5_RecycleBin5_Restore(
 	PINFO2_HEADER pHeader;
 	DELETED_FILE_RECORD *pRecord, *pLast;
 	DWORD dwEntries, i;
-	SHFILEOPSTRUCTW op;
 
 	TRACE("(%p, %s, %p)\n", This, debugstr_w(pDeletedFileName), pDeletedFile);
 
 	if (s->EnumeratorCount != 0)
-		return HRESULT_FROM_WIN32(ERROR_SHARING_VIOLATION);
+		return E_FAIL;
 
 	pHeader = MapViewOfFile(s->hInfoMapped, FILE_MAP_WRITE, 0, 0, 0);
 	if (!pHeader)
@@ -497,12 +434,7 @@ RecycleBin5_RecycleBin5_Restore(
 		if (pRecord->dwRecordUniqueId == pDeletedFile->dwRecordUniqueId)
 		{
 			/* Restore file */
-			ZeroMemory(&op, sizeof(op));
-			op.wFunc = FO_COPY;
-			op.pFrom = pDeletedFileName;
-			op.pTo = pDeletedFile->FileNameW;
-
-			if (!SHFileOperationW(&op))
+			if (!MoveFileW(pDeletedFileName, pDeletedFile->FileNameW))
 			{
 				UnmapViewOfFile(pHeader);
 				return HRESULT_FROM_WIN32(GetLastError());
@@ -564,7 +496,7 @@ RecycleBin5_Create(
 	LPWSTR FileName; /* Pointer into BufferName buffer */
 	LPCSTR DesktopIniContents = "[.ShellClassInfo]\r\nCLSID={645FF040-5081-101B-9F08-00AA002F954E}\r\n";
 	INFO2_HEADER Info2Contents[] = { { 5, 0, 0, 0x320, 0 } };
-	DWORD BytesToWrite, BytesWritten, Needed;
+	SIZE_T BytesToWrite, BytesWritten, Needed;
 	HANDLE hFile = INVALID_HANDLE_VALUE;
 	HRESULT hr;
 
@@ -676,7 +608,7 @@ HRESULT RecycleBin5_Constructor(IN LPCWSTR VolumePath, OUT IUnknown **ppUnknown)
 	HANDLE tokenHandle = INVALID_HANDLE_VALUE;
 	PTOKEN_USER TokenUserInfo = NULL;
 	LPWSTR StringSid = NULL, p;
-	DWORD Needed, DirectoryLength;
+	SIZE_T Needed, DirectoryLength;
 	INT len;
 	HRESULT hr;
 
@@ -797,7 +729,13 @@ cleanup:
 	if (!SUCCEEDED(hr))
 	{
 		if (s)
-			RecycleBin5_Destructor(s);
+		{
+			if (s->hInfo && s->hInfo != INVALID_HANDLE_VALUE)
+				CloseHandle(s->hInfo);
+			if (s->hInfoMapped)
+				CloseHandle(s->hInfoMapped);
+			CoTaskMemFree(s);
+		}
 	}
 	return hr;
 }

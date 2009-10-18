@@ -57,16 +57,6 @@ RecycleBin5File_RecycleBinFile_AddRef(
 	return refCount;
 }
 
-static VOID
-RecycleBin5File_Destructor(
-	struct RecycleBin5File *s)
-{
-	TRACE("(%p)\n", s);
-
-	IRecycleBin5_Release(s->recycleBin);
-	CoTaskMemFree(s);
-}
-
 static ULONG STDMETHODCALLTYPE
 RecycleBin5File_RecycleBinFile_Release(
 	IN IRecycleBinFile *This)
@@ -79,7 +69,10 @@ RecycleBin5File_RecycleBinFile_Release(
 	refCount = InterlockedDecrement((PLONG)&s->ref);
 
 	if (refCount == 0)
-		RecycleBin5File_Destructor(s);
+	{
+		IRecycleBin5_Release(s->recycleBin);
+		CoTaskMemFree(s);
+	}
 
 	return refCount;
 }
@@ -191,9 +184,9 @@ RecycleBin5File_RecycleBinFile_GetAttributes(
 static HRESULT STDMETHODCALLTYPE
 RecycleBin5File_RecycleBinFile_GetFileName(
 	IN IRecycleBinFile *This,
-	IN SIZE_T BufferSize,
+	IN DWORD BufferSize,
 	IN OUT LPWSTR Buffer,
-	OUT SIZE_T *RequiredSize)
+	OUT DWORD *RequiredSize)
 {
 	struct RecycleBin5File *s = CONTAINING_RECORD(This, struct RecycleBin5File, recycleBinFileImpl);
 	DWORD dwRequired;
@@ -247,7 +240,7 @@ CONST_VTBL struct IRecycleBinFileVtbl RecycleBin5FileVtbl =
 };
 
 static HRESULT
-RecycleBin5File_Constructor(
+RecycleBin5_File_Constructor(
 	IN IRecycleBin5 *prb,
 	IN LPCWSTR Folder,
 	IN PDELETED_FILE_RECORD pDeletedFile,
@@ -279,11 +272,6 @@ RecycleBin5File_Constructor(
 	IRecycleBin5_AddRef(s->recycleBin);
 	*ppFile = &s->recycleBinFileImpl;
 	wsprintfW(s->FullName, L"%s\\D%c%lu%s", Folder, pDeletedFile->dwDriveNumber + 'a', pDeletedFile->dwRecordUniqueId, Extension);
-	if (GetFileAttributesW(s->FullName) == INVALID_FILE_ATTRIBUTES)
-	{
-		RecycleBin5File_Destructor(s);
-		return E_FAIL;
-	}
 
 	return S_OK;
 }
@@ -336,18 +324,6 @@ RecycleBin5Enum_RecycleBinEnumList_AddRef(
 	return refCount;
 }
 
-static VOID
-RecycleBin5Enum_Destructor(
-	struct RecycleBin5Enum *s)
-{
-	TRACE("(%p)\n", s);
-
-	IRecycleBin5_OnClosing(s->recycleBin, &s->recycleBinEnumImpl);
-	UnmapViewOfFile(s->pInfo);
-	IRecycleBin5_Release(s->recycleBin);
-	CoTaskMemFree(s);
-}
-
 static ULONG STDMETHODCALLTYPE
 RecycleBin5Enum_RecycleBinEnumList_Release(
 	IN IRecycleBinEnumList *This)
@@ -360,7 +336,12 @@ RecycleBin5Enum_RecycleBinEnumList_Release(
 	refCount = InterlockedDecrement((PLONG)&s->ref);
 
 	if (refCount == 0)
-		RecycleBin5Enum_Destructor(s);
+	{
+		IRecycleBin5_OnClosing(s->recycleBin, This);
+		UnmapViewOfFile(s->pInfo);
+		IRecycleBin5_Release(s->recycleBin);
+		CoTaskMemFree(s);
+	}
 
 	return refCount;
 }
@@ -396,10 +377,15 @@ RecycleBin5Enum_RecycleBinEnumList_Next(
 	pDeletedFile = (DELETED_FILE_RECORD *)(pHeader + 1) + i;
 	for (; i < dwEntries && fetched < celt; i++)
 	{
-		hr = RecycleBin5File_Constructor(s->recycleBin, s->szPrefix, pDeletedFile, &rgelt[fetched]);
-		if (SUCCEEDED(hr))
-			fetched++;
+		hr = RecycleBin5_File_Constructor(s->recycleBin, s->szPrefix, pDeletedFile, &rgelt[fetched]);
+		if (!SUCCEEDED(hr))
+		{
+			for (i = 0; i < fetched; i++)
+				IRecycleBinFile_Release(rgelt[i]);
+			return hr;
+		}
 		pDeletedFile++;
+		fetched++;
 	}
 
 	s->dwCurrent = i;
@@ -443,7 +429,7 @@ CONST_VTBL struct IRecycleBinEnumListVtbl RecycleBin5EnumVtbl =
 };
 
 HRESULT
-RecycleBin5Enum_Constructor(
+RecycleBin5_Enumerator_Constructor(
 	IN IRecycleBin5 *prb,
 	IN HANDLE hInfo,
 	IN HANDLE hInfoMapped,

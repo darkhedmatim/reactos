@@ -196,18 +196,18 @@ RtlpExecuteWorkItem(IN OUT PVOID NormalContext,
         }
     }
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         DPRINT("RtlpExecuteWorkItem: Function: 0x%p Context: 0x%p ImpersonationToken: 0x%p\n", WorkItem.Function, WorkItem.Context, WorkItem.TokenHandle);
 
         /* Execute the function */
         WorkItem.Function(WorkItem.Context);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        DPRINT1("Exception 0x%x while executing IO work item 0x%p\n", _SEH2_GetExceptionCode(), WorkItem.Function);
+        DPRINT1("Exception 0x%x while executing IO work item 0x%p\n", _SEH_GetExceptionCode(), WorkItem.Function);
     }
-    _SEH2_END;
+    _SEH_END;
 
     if (Impersonated)
     {
@@ -313,18 +313,18 @@ RtlpExecuteIoWorkItem(IN OUT PVOID NormalContext,
         }
     }
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         DPRINT("RtlpExecuteIoWorkItem: Function: 0x%p Context: 0x%p ImpersonationToken: 0x%p\n", WorkItem.Function, WorkItem.Context, WorkItem.TokenHandle);
 
         /* Execute the function */
         WorkItem.Function(WorkItem.Context);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
-        DPRINT1("Exception 0x%x while executing IO work item 0x%p\n", _SEH2_GetExceptionCode(), WorkItem.Function);
+        DPRINT1("Exception 0x%x while executing IO work item 0x%p\n", _SEH_GetExceptionCode(), WorkItem.Function);
     }
-    _SEH2_END;
+    _SEH_END;
 
     if (Impersonated)
     {
@@ -693,17 +693,17 @@ RtlpWorkerThreadProc(IN PVOID Parameter)
         {
             TimeoutCount = 0;
 
-            _SEH2_TRY
+            _SEH_TRY
             {
                 /* Call the APC routine */
                 ApcRoutine(NULL,
                            (PVOID)IoStatusBlock.Information,
                            SystemArgument2);
             }
-            _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+            _SEH_HANDLE
             {
             }
-            _SEH2_END;
+            _SEH_END;
         }
         else
         {
@@ -878,17 +878,4 @@ Cleanup:
     }
 
     return Status;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-NTAPI
-RtlSetIoCompletionCallback(IN HANDLE FileHandle,
-                           IN PIO_APC_ROUTINE Callback,
-                           IN ULONG Flags)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
 }

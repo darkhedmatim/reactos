@@ -33,15 +33,6 @@
 #include "config.h"
 #include "batch.h"
 
-#include <reactos/buildno.h>
-#include <reactos/version.h>
-
-#include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(cmd);
-#ifdef UNICODE
-#define debugstr_aw debugstr_w
-#else
-#define debugstr_aw debugstr_a
-#endif
+#include <reactos/resource.h>
 
 #endif /* __CMD_PRECOMP_H */

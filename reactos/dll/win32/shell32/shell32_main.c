@@ -19,7 +19,34 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <precomp.h>
+#include "config.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
+
+#define COBJMACROS
+
+#include "windef.h"
+#include "winbase.h"
+#include "winerror.h"
+#include "winreg.h"
+#include "dlgs.h"
+#include "shellapi.h"
+#include "winuser.h"
+#include "wingdi.h"
+#include "shlobj.h"
+#include "shlwapi.h"
+
+#include "undocshell.h"
+#include "pidl.h"
+#include "shell32_main.h"
+#include "version.h"
+#include "shresdef.h"
+
+#include "wine/debug.h"
+#include "wine/unicode.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
@@ -58,6 +85,7 @@ extern const char * const SHELL_Authors[];
 LPWSTR* WINAPI CommandLineToArgvW(LPCWSTR lpCmdline, int* numargs)
 {
     DWORD argc;
+    HGLOBAL hargv;
     LPWSTR  *argv;
     LPCWSTR cs;
     LPWSTR arg,s,d;
@@ -69,18 +97,20 @@ LPWSTR* WINAPI CommandLineToArgvW(LPCWSTR lpCmdline, int* numargs)
         /* Return the path to the executable */
         DWORD len, size=16;
 
-        argv=LocalAlloc(LMEM_FIXED, size);
+        hargv=GlobalAlloc(GMEM_FIXED, size);
+        argv=GlobalLock(hargv);
         for (;;)
         {
-            len = GetModuleFileNameW(0, (LPWSTR)(argv+1), (size-sizeof(LPWSTR))/sizeof(WCHAR));
+            len = GetModuleFileNameW(0, (LPWSTR)(argv+1), size-sizeof(LPWSTR));
             if (!len)
             {
-                LocalFree(argv);
+                GlobalFree(hargv);
                 return NULL;
             }
             if (len < size) break;
             size*=2;
-            argv=LocalReAlloc(argv, size, 0);
+            hargv=GlobalReAlloc(hargv, size, 0);
+            argv=GlobalLock(hargv);
         }
         argv[0]=(LPWSTR)(argv+1);
         if (numargs)
@@ -130,11 +160,12 @@ LPWSTR* WINAPI CommandLineToArgvW(LPCWSTR lpCmdline, int* numargs)
     /* Allocate in a single lump, the string array, and the strings that go with it.
      * This way the caller can make a single GlobalFree call to free both, as per MSDN.
      */
-    argv=LocalAlloc(LMEM_FIXED, argc*sizeof(LPWSTR)+(wcslen(lpCmdline)+1)*sizeof(WCHAR));
+    hargv=GlobalAlloc(0, argc*sizeof(LPWSTR)+(strlenW(lpCmdline)+1)*sizeof(WCHAR));
+    argv=GlobalLock(hargv);
     if (!argv)
         return NULL;
     cmdline=(LPWSTR)(argv+argc);
-    wcscpy(cmdline, lpCmdline);
+    strcpyW(cmdline, lpCmdline);
 
     argc=0;
     bcount=0;
@@ -412,7 +443,7 @@ DWORD_PTR WINAPI SHGetFileInfoW(LPCWSTR path,DWORD dwFileAttributes,
     {
         if (flags & SHGFI_USEFILEATTRIBUTES)
         {
-            wcscpy (psfi->szDisplayName, PathFindFileNameW(szFullPath));
+            lstrcpyW (psfi->szDisplayName, PathFindFileNameW(szFullPath));
         }
         else
         {
@@ -439,17 +470,17 @@ DWORD_PTR WINAPI SHGetFileInfoW(LPCWSTR path,DWORD dwFileAttributes,
         else
         {
             if (dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-                wcscat (psfi->szTypeName, szFile);
+                strcatW (psfi->szTypeName, szFile);
             else
             {
                 WCHAR sTemp[64];
 
-                wcscpy(sTemp,PathFindExtensionW(szFullPath));
+                lstrcpyW(sTemp,PathFindExtensionW(szFullPath));
                 if (!( HCR_MapTypeToValueW(sTemp, sTemp, 64, TRUE) &&
                     HCR_MapTypeToValueW(sTemp, psfi->szTypeName, 80, FALSE )))
                 {
                     lstrcpynW (psfi->szTypeName, sTemp, 64);
-                    wcscat (psfi->szTypeName, szDashFile);
+                    strcatW (psfi->szTypeName, szDashFile);
                 }
             }
         }
@@ -486,7 +517,7 @@ DWORD_PTR WINAPI SHGetFileInfoW(LPCWSTR path,DWORD dwFileAttributes,
         {
             if (dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
             {
-                wcscpy(psfi->szDisplayName, swShell32Name);
+                lstrcpyW(psfi->szDisplayName, swShell32Name);
                 psfi->iIcon = -IDI_SHELL_FOLDER;
             }
             else
@@ -502,11 +533,11 @@ DWORD_PTR WINAPI SHGetFileInfoW(LPCWSTR path,DWORD dwFileAttributes,
                      HCR_GetDefaultIconW(sTemp, sTemp, MAX_PATH, &psfi->iIcon))
                 {
                     if (lstrcmpW(p1W, sTemp))
-                        wcscpy(psfi->szDisplayName, sTemp);
+                        strcpyW(psfi->szDisplayName, sTemp);
                     else
                     {
                         /* the icon is in the file */
-                        wcscpy(psfi->szDisplayName, szFullPath);
+                        strcpyW(psfi->szDisplayName, szFullPath);
                     }
                 }
                 else
@@ -520,17 +551,17 @@ DWORD_PTR WINAPI SHGetFileInfoW(LPCWSTR path,DWORD dwFileAttributes,
                 &uDummy, (LPVOID*)&pei);
             if (SUCCEEDED(hr))
             {
-                hr = pei->lpVtbl->GetIconLocation(pei, uGilFlags,
+                hr = IExtractIconW_GetIconLocation(pei, uGilFlags,
                     szLocation, MAX_PATH, &iIndex, &uFlags);
 
                 if (uFlags & GIL_NOTFILENAME)
                     ret = FALSE;
                 else
                 {
-                    wcscpy (psfi->szDisplayName, szLocation);
+                    lstrcpyW (psfi->szDisplayName, szLocation);
                     psfi->iIcon = iIndex;
                 }
-                pei->lpVtbl->Release(pei);
+                IExtractIconW_Release(pei);
             }
         }
     }
@@ -559,7 +590,7 @@ DWORD_PTR WINAPI SHGetFileInfoW(LPCWSTR path,DWORD dwFileAttributes,
                      HCR_GetDefaultIconW(sTemp, sTemp, MAX_PATH, &icon_idx))
                 {
                     if (!lstrcmpW(p1W,sTemp))            /* icon is in the file */
-                        wcscpy(sTemp, szFullPath);
+                        strcpyW(sTemp, szFullPath);
 
                     if (flags & SHGFI_SYSICONINDEX)
                     {
@@ -764,7 +795,7 @@ HICON WINAPI ExtractIconW(HINSTANCE hInstance, LPCWSTR lpszFile, UINT nIconIndex
  */
 VOID WINAPI Printer_LoadIconsW(LPCWSTR wsPrinterName, HICON * pLargeIcon, HICON * pSmallIcon)
 {
-    INT iconindex=IDI_SHELL_PRINTERS_FOLDER;
+    INT iconindex=IDI_SHELL_PRINTER;
 
     TRACE("(%s, %p, %p)\n", debugstr_w(wsPrinterName), pLargeIcon, pSmallIcon);
 
@@ -829,15 +860,11 @@ typedef struct
 /*************************************************************************
  * SHAppBarMessage            [SHELL32.@]
  */
-UINT_PTR WINAPI SHAppBarMessage(DWORD msg, PAPPBARDATA data)
+UINT WINAPI SHAppBarMessage(DWORD msg, PAPPBARDATA data)
 {
     int width=data->rc.right - data->rc.left;
     int height=data->rc.bottom - data->rc.top;
     RECT rec=data->rc;
-
-    TRACE("msg=%d, data={cb=%d, hwnd=%p, callback=%x, edge=%d, rc=%s, lparam=%lx}\n",
-          msg, data->cbSize, data->hWnd, data->uCallbackMessage, data->uEdge,
-          wine_dbgstr_rect(&data->rc), data->lParam);
 
     switch (msg)
     {
@@ -851,7 +878,8 @@ UINT_PTR WINAPI SHAppBarMessage(DWORD msg, PAPPBARDATA data)
         SetActiveWindow(data->hWnd);
         return TRUE;
     case ABM_GETAUTOHIDEBAR:
-        return 0; /* pretend there is no autohide bar */
+        data->hWnd=GetActiveWindow();
+        return TRUE;
     case ABM_NEW:
         /* cbSize, hWnd, and uCallbackMessage are used. All other ignored */
         SetWindowPos(data->hWnd,HWND_TOP,0,0,0,0,SWP_SHOWWINDOW|SWP_NOMOVE|SWP_NOSIZE);
@@ -1016,7 +1044,7 @@ INT_PTR CALLBACK AboutDlgProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
                 SendDlgItemMessageW(hWnd, IDC_SHELL_ABOUT_ICON, STM_SETICON, (WPARAM)info->hIcon, 0);
 
                 GetWindowTextW( hWnd, szAppTitleTemplate, sizeof(szAppTitleTemplate) / sizeof(WCHAR) );
-                swprintf( szAppTitle, szAppTitleTemplate, info->szApp );
+                wsprintfW( szAppTitle, szAppTitleTemplate, info->szApp );
                 SetWindowTextW( hWnd, szAppTitle );
 
                 SetDlgItemTextW( hWnd, IDC_SHELL_ABOUT_APPNAME, info->szApp );
@@ -1081,13 +1109,13 @@ INT_PTR CALLBACK AboutDlgProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
                             uDecimals = (UCHAR)((UINT)(dTotalPhys * 100) - uIntegral * 100);
 
                             // Display the RAM size with 2 decimals
-                            swprintf(szBuf, L"%u%s%02u %s", uIntegral, szDecimalSeparator, uDecimals, szUnits);
+                            wsprintfW(szBuf, L"%u%s%02u %s", uIntegral, szDecimalSeparator, uDecimals, szUnits);
                         }
                     }
                     else
                     {
                         // We're dealing with MBs, don't show any decimals
-                        swprintf( szBuf, L"%u MB", (UINT)MemStat.ullTotalPhys / 1024 / 1024 );
+                        wsprintfW( szBuf, L"%u MB", (UINT)MemStat.ullTotalPhys / 1024 / 1024 );
                     }
 
                     SetDlgItemTextW( hWnd, IDC_SHELL_ABOUT_PHYSMEM, szBuf);
@@ -1324,7 +1352,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID fImpLoad)
 
         SIC_Initialize();
         InitChangeNotifications();
-        InitIconOverlays();
         break;
 
     case DLL_PROCESS_DETACH:
@@ -1356,6 +1383,6 @@ HRESULT WINAPI DllInstall(BOOL bInstall, LPCWSTR cmdline)
  */
 HRESULT WINAPI DllCanUnloadNow(void)
 {
-    TRACE("stub\n");
+    FIXME("stub\n");
     return S_FALSE;
 }

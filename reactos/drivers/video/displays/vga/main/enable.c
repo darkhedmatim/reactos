@@ -56,7 +56,7 @@ static DRVFN FuncList[] =
 };
 
 static GDIINFO gaulCap = {
-    GDI_DRIVER_VERSION,    // ulVersion
+    GDI_DRIVER_VERSION,
     DT_RASDISPLAY,         // ulTechnology
     0,                     // ulHorzSize
     0,                     // ulVertSize
@@ -73,7 +73,7 @@ static GDIINFO gaulCap = {
     TC_RA_ABLE | TC_SCROLLBLT,  // flTextCaps
 
     6,                     // ulDACRed
-    6,                     // ulDACGreen
+    6,                     // ulDACGree
     6,                     // ulDACBlue
 
     0x0024,                // ulAspectX  (one-to-one aspect ratio)
@@ -115,18 +115,7 @@ static GDIINFO gaulCap = {
     8,                                         // ulBltAlignment
     0,                                         // ulPanningHorzRes
     0,                                         // ulPanningVertRes
-
-    0,                                         // xPanningAlignment
-    0,                                         // yPanningAlignment
-    0,                                         // cxHTPat
-    0,                                         // cyHTPat
-    NULL,                                      // pHTPatA
-    NULL,                                      // pHTPatB
-    NULL,                                      // pHTPatC
-    0,                                         // flShadeBlend
-    0,                                         // ulPhysicalPixelCharacteristics
-    0                                          // ulPhysicalPixelGamma
-};
+  };
 
 // Palette for VGA
 
@@ -181,8 +170,7 @@ DEVINFO devinfoVGA =
     BMF_4BPP,       // preferred DIB format
     8,              // Width of color dither
     8,              // Height of color dither
-    NULL,           // Default palette to use for this device
-    0               // flGraphicsCaps2
+    0               // Default palette to use for this device
 };
 
 BOOL APIENTRY

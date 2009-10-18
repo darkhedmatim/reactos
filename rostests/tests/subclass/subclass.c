@@ -15,6 +15,7 @@ WinMain(HINSTANCE hInstance,
 	int nCmdShow)
 {
   WNDCLASSW wc;
+  MSG msg;
   HWND hWnd;
   WCHAR WindowTextW[256];
   char WindowTextA[256];
@@ -31,11 +32,11 @@ WinMain(HINSTANCE hInstance,
   wc.cbWndExtra = 0;
   if (RegisterClassW(&wc) == 0)
     {
-      fprintf(stderr, "RegisterClassW failed (last error 0x%lu)\n",
+      fprintf(stderr, "RegisterClassW failed (last error 0x%X)\n",
 	      GetLastError());
       return 1;
     }
-  printf("Unicode class registered, WndProc = 0x%p\n", wc.lpfnWndProc);
+  printf("Unicode class registered, WndProc = 0x%08x\n", wc.lpfnWndProc);
 
   hWnd = CreateWindowA("UnicodeClass",
 		       "Unicode Window",
@@ -50,7 +51,7 @@ WinMain(HINSTANCE hInstance,
 		       NULL);
   if (hWnd == NULL)
     {
-      fprintf(stderr, "CreateWindowA failed (last error 0x%lu)\n",
+      fprintf(stderr, "CreateWindowA failed (last error 0x%X)\n",
 	      GetLastError());
       return 1;
     }
@@ -60,7 +61,7 @@ WinMain(HINSTANCE hInstance,
   printf("Calling GetWindowTextW\n");
   if (! GetWindowTextW(hWnd, WindowTextW, sizeof(WindowTextW) / sizeof(WindowTextW[0])))
     {
-      fprintf(stderr, "GetWindowTextW failed (last error 0x%lu)\n", GetLastError());
+      fprintf(stderr, "GetWindowTextW failed (last error 0x%X)\n", GetLastError());
       return 1;
     }
   printf("GetWindowTextW returned Unicode string \"%S\"\n", WindowTextW);
@@ -68,43 +69,43 @@ WinMain(HINSTANCE hInstance,
   printf("Calling GetWindowTextA\n");
   if (! GetWindowTextA(hWnd, WindowTextA, sizeof(WindowTextA) / sizeof(WindowTextA[0])))
     {
-      fprintf(stderr, "GetWindowTextA failed (last error 0x%lu)\n", GetLastError());
+      fprintf(stderr, "GetWindowTextA failed (last error 0x%X)\n", GetLastError());
       return 1;
     }
   printf("GetWindowTextA returned Ansi string \"%s\"\n", WindowTextA);
   printf("\n");
 
   SavedWndProcW = (WNDPROC) GetWindowLongW(hWnd, GWL_WNDPROC);
-  printf("GetWindowLongW returned 0x%p\n", SavedWndProcW);
+  printf("GetWindowLongW returned 0x%08x\n", SavedWndProcW);
   SavedWndProcA = (WNDPROC) GetWindowLongA(hWnd, GWL_WNDPROC);
-  printf("GetWindowLongA returned 0x%p\n", SavedWndProcA);
+  printf("GetWindowLongA returned 0x%08x\n", SavedWndProcA);
   printf("\n");
 
-  printf("Subclassing window using SetWindowLongW, new WndProc 0x%p\n", UnicodeSubclassProc);
+  printf("Subclassing window using SetWindowLongW, new WndProc 0x%08x\n", UnicodeSubclassProc);
   SetWindowLongW(hWnd, GWL_WNDPROC, (LONG) UnicodeSubclassProc);
-  printf("After subclass, IsWindowUnicode %s, WndProcA 0x%lx, WndProcW 0x%lx\n",
+  printf("After subclass, IsWindowUnicode %s, WndProcA 0x%08x, WndProcW 0x%08x\n",
          IsWindowUnicode(hWnd) ? "TRUE" : "FALSE", GetWindowLongA(hWnd, GWL_WNDPROC),
          GetWindowLongW(hWnd, GWL_WNDPROC));
 
   printf("Calling GetWindowTextW\n");
   if (! GetWindowTextW(hWnd, WindowTextW, sizeof(WindowTextW) / sizeof(WindowTextW[0])))
     {
-      fprintf(stderr, "GetWindowTextW failed (last error 0x%lu)\n", GetLastError());
+      fprintf(stderr, "GetWindowTextW failed (last error 0x%X)\n", GetLastError());
       return 1;
     }
   printf("GetWindowTextW returned Unicode string \"%S\"\n", WindowTextW);
   printf("\n");
 
-  printf("Subclassing window using SetWindowLongA, new WndProc 0x%p\n", AnsiSubclassProc);
+  printf("Subclassing window using SetWindowLongA, new WndProc 0x%08x\n", AnsiSubclassProc);
   SetWindowLongA(hWnd, GWL_WNDPROC, (LONG) AnsiSubclassProc);
-  printf("After subclass, IsWindowUnicode %s, WndProcA 0x%lx, WndProcW 0x%lx\n",
+  printf("After subclass, IsWindowUnicode %s, WndProcA 0x%08x, WndProcW 0x%08x\n",
          IsWindowUnicode(hWnd) ? "TRUE" : "FALSE", GetWindowLongA(hWnd, GWL_WNDPROC),
          GetWindowLongW(hWnd, GWL_WNDPROC));
 
   printf("Calling GetWindowTextW\n");
   if (! GetWindowTextW(hWnd, WindowTextW, sizeof(WindowTextW) / sizeof(WindowTextW[0])))
     {
-      fprintf(stderr, "GetWindowTextW failed (last error 0x%lu)\n", GetLastError());
+      fprintf(stderr, "GetWindowTextW failed (last error 0x%X)\n", GetLastError());
       return 1;
     }
   printf("GetWindowTextW returned Unicode string \"%S\"\n", WindowTextW);

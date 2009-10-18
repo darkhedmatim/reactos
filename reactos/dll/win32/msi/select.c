@@ -82,18 +82,6 @@ static UINT SELECT_fetch_stream( struct tagMSIVIEW *view, UINT row, UINT col, IS
     return sv->table->ops->fetch_stream( sv->table, row, col, stm );
 }
 
-static UINT SELECT_get_row( struct tagMSIVIEW *view, UINT row, MSIRECORD **rec )
-{
-    MSISELECTVIEW *sv = (MSISELECTVIEW *)view;
-
-    TRACE("%p %d %p\n", sv, row, rec );
-
-    if( !sv->table )
-         return ERROR_FUNCTION_FAILED;
-
-    return msi_view_get_row(sv->db, view, row, rec);
-}
-
 static UINT SELECT_set_row( struct tagMSIVIEW *view, UINT row, MSIRECORD *rec, UINT mask )
 {
     MSISELECTVIEW *sv = (MSISELECTVIEW*)view;
@@ -136,7 +124,7 @@ static UINT SELECT_set_row( struct tagMSIVIEW *view, UINT row, MSIRECORD *rec, U
     return r;
 }
 
-static UINT SELECT_insert_row( struct tagMSIVIEW *view, MSIRECORD *record, UINT row, BOOL temporary )
+static UINT SELECT_insert_row( struct tagMSIVIEW *view, MSIRECORD *record )
 {
     MSISELECTVIEW *sv = (MSISELECTVIEW*)view;
     UINT i, table_cols, r;
@@ -161,7 +149,7 @@ static UINT SELECT_insert_row( struct tagMSIVIEW *view, MSIRECORD *record, UINT 
             goto fail;
     }
 
-    r = sv->table->ops->insert_row( sv->table, outrec, row, temporary );
+    r = sv->table->ops->insert_row( sv->table, outrec );
 
 fail:
     msiobj_release( &outrec->hdr );
@@ -209,11 +197,11 @@ static UINT SELECT_get_dimensions( struct tagMSIVIEW *view, UINT *rows, UINT *co
 }
 
 static UINT SELECT_get_column_info( struct tagMSIVIEW *view,
-                UINT n, LPWSTR *name, UINT *type, BOOL *temporary )
+                UINT n, LPWSTR *name, UINT *type )
 {
     MSISELECTVIEW *sv = (MSISELECTVIEW*)view;
 
-    TRACE("%p %d %p %p %p\n", sv, n, name, type, temporary );
+    TRACE("%p %d %p %p\n", sv, n, name, type );
 
     if( !sv->table )
          return ERROR_FUNCTION_FAILED;
@@ -223,83 +211,20 @@ static UINT SELECT_get_column_info( struct tagMSIVIEW *view,
 
     n = sv->cols[ n - 1 ];
 
-    return sv->table->ops->get_column_info( sv->table, n, name,
-                                            type, temporary );
-}
-
-static UINT msi_select_update(struct tagMSIVIEW *view, MSIRECORD *rec, UINT row)
-{
-    MSISELECTVIEW *sv = (MSISELECTVIEW*)view;
-    UINT r, i, num_columns, col, type, val;
-    LPWSTR name;
-    LPCWSTR str;
-    MSIRECORD *mod;
-
-    r = SELECT_get_dimensions(view, NULL, &num_columns);
-    if (r != ERROR_SUCCESS)
-        return r;
-
-    r = sv->table->ops->get_row(sv->table, row - 1, &mod);
-    if (r != ERROR_SUCCESS)
-        return r;
-
-    for (i = 0; i < num_columns; i++)
-    {
-        col = sv->cols[i];
-
-        r = SELECT_get_column_info(view, i + 1, &name, &type, NULL);
-        msi_free(name);
-        if (r != ERROR_SUCCESS)
-        {
-            ERR("Failed to get column information: %d\n", r);
-            goto done;
-        }
-
-        if (MSITYPE_IS_BINARY(type))
-        {
-            ERR("Cannot modify binary data!\n");
-            r = ERROR_FUNCTION_FAILED;
-            goto done;
-        }
-        else if (type & MSITYPE_STRING)
-        {
-            str = MSI_RecordGetString(rec, i + 1);
-            r = MSI_RecordSetStringW(mod, col, str);
-        }
-        else
-        {
-            val = MSI_RecordGetInteger(rec, i + 1);
-            r = MSI_RecordSetInteger(mod, col, val);
-        }
-
-        if (r != ERROR_SUCCESS)
-        {
-            ERR("Failed to modify record: %d\n", r);
-            goto done;
-        }
-    }
-
-    r = sv->table->ops->modify(sv->table, MSIMODIFY_UPDATE, mod, row);
-
-done:
-    msiobj_release(&mod->hdr);
-    return r;
+    return sv->table->ops->get_column_info( sv->table, n, name, type );
 }
 
 static UINT SELECT_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode,
-                           MSIRECORD *rec, UINT row )
+                MSIRECORD *rec )
 {
     MSISELECTVIEW *sv = (MSISELECTVIEW*)view;
 
-    TRACE("%p %d %p %d\n", sv, eModifyMode, rec, row );
+    TRACE("%p %d %p\n", sv, eModifyMode, rec );
 
     if( !sv->table )
          return ERROR_FUNCTION_FAILED;
 
-    if (eModifyMode == MSIMODIFY_UPDATE)
-        return msi_select_update(view, rec, row);
-
-    return sv->table->ops->modify( sv->table, eModifyMode, rec, row );
+    return sv->table->ops->modify( sv->table, eModifyMode, rec );
 }
 
 static UINT SELECT_delete( struct tagMSIVIEW *view )
@@ -335,36 +260,20 @@ static UINT SELECT_find_matching_rows( struct tagMSIVIEW *view, UINT col,
     return sv->table->ops->find_matching_rows( sv->table, col, val, row, handle );
 }
 
-static UINT SELECT_sort(struct tagMSIVIEW *view, column_info *columns)
-{
-    MSISELECTVIEW *sv = (MSISELECTVIEW *)view;
-
-    TRACE("%p %p\n", view, columns);
-
-    return sv->table->ops->sort( sv->table, columns );
-}
 
 static const MSIVIEWOPS select_ops =
 {
     SELECT_fetch_int,
     SELECT_fetch_stream,
-    SELECT_get_row,
     SELECT_set_row,
     SELECT_insert_row,
-    NULL,
     SELECT_execute,
     SELECT_close,
     SELECT_get_dimensions,
     SELECT_get_column_info,
     SELECT_modify,
     SELECT_delete,
-    SELECT_find_matching_rows,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    SELECT_sort,
-    NULL,
+    SELECT_find_matching_rows
 };
 
 static UINT SELECT_AddColumn( MSISELECTVIEW *sv, LPCWSTR name )
@@ -393,7 +302,7 @@ static UINT SELECT_AddColumn( MSISELECTVIEW *sv, LPCWSTR name )
         return r;
 
     sv->cols[sv->num_cols] = n;
-    TRACE("Translating column %s from %d -> %d\n", 
+    TRACE("Translating column %s from %d -> %d\n",
           debugstr_w( name ), sv->num_cols, n);
 
     sv->num_cols++;
@@ -401,7 +310,7 @@ static UINT SELECT_AddColumn( MSISELECTVIEW *sv, LPCWSTR name )
     return ERROR_SUCCESS;
 }
 
-static int select_count_columns( const column_info *col )
+static int select_count_columns( column_info *col )
 {
     int n;
     for (n = 0; col; col = col->next)
@@ -410,7 +319,7 @@ static int select_count_columns( const column_info *col )
 }
 
 UINT SELECT_CreateView( MSIDATABASE *db, MSIVIEW **view, MSIVIEW *table,
-                        const column_info *columns )
+                        column_info *columns )
 {
     MSISELECTVIEW *sv = NULL;
     UINT count = 0, r = ERROR_SUCCESS;
@@ -422,7 +331,7 @@ UINT SELECT_CreateView( MSIDATABASE *db, MSIVIEW **view, MSIVIEW *table,
     sv = msi_alloc_zero( sizeof *sv + count*sizeof (UINT) );
     if( !sv )
         return ERROR_FUNCTION_FAILED;
-    
+
     /* fill the structure */
     sv->view.ops = &select_ops;
     sv->db = db;

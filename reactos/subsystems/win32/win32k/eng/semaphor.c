@@ -7,25 +7,30 @@
  * @implemented
  */
 HSEMAPHORE
-APIENTRY
+STDCALL
 EngCreateSemaphore ( VOID )
 {
   // www.osr.com/ddk/graphics/gdifncs_95lz.htm
-  PERESOURCE psem = ExAllocatePoolWithTag( NonPagedPool, sizeof(ERESOURCE), TAG_GSEM );
+  PERESOURCE psem = ExAllocatePool ( NonPagedPool, sizeof(ERESOURCE) );
   if ( !psem )
     return NULL;
   if ( !NT_SUCCESS(ExInitializeResourceLite ( psem )) )
   {
-    ExFreePoolWithTag ( psem, TAG_GSEM );
+    ExFreePool ( psem );
     return NULL;
   }
   return (HSEMAPHORE)psem;
 }
 
+/*
+ * @implemented
+ */
 VOID
-FASTCALL
-IntGdiAcquireSemaphore ( HSEMAPHORE hsem )
+STDCALL
+EngAcquireSemaphore ( IN HSEMAPHORE hsem )
 {
+  // www.osr.com/ddk/graphics/gdifncs_14br.htm
+  ASSERT(hsem);
   KeEnterCriticalRegion();
   ExAcquireResourceExclusiveLite ( (PERESOURCE)hsem, TRUE );
 }
@@ -34,22 +39,11 @@ IntGdiAcquireSemaphore ( HSEMAPHORE hsem )
  * @implemented
  */
 VOID
-APIENTRY
-EngAcquireSemaphore ( IN HSEMAPHORE hsem )
+STDCALL
+EngReleaseSemaphore ( IN HSEMAPHORE hsem )
 {
-  // www.osr.com/ddk/graphics/gdifncs_14br.htm
-  PTHREADINFO W32Thread;
+  // www.osr.com/ddk/graphics/gdifncs_5u3r.htm
   ASSERT(hsem);
-  IntGdiAcquireSemaphore ( hsem );
-  W32Thread = PsGetThreadWin32Thread(PsGetCurrentThread());
-  if (W32Thread) W32Thread->dwEngAcquireCount++;
-}
-
-
-VOID
-FASTCALL
-IntGdiReleaseSemaphore ( HSEMAPHORE hsem )
-{
   ExReleaseResourceLite ( (PERESOURCE)hsem );
   KeLeaveCriticalRegion();
 }
@@ -58,37 +52,19 @@ IntGdiReleaseSemaphore ( HSEMAPHORE hsem )
  * @implemented
  */
 VOID
-APIENTRY
-EngReleaseSemaphore ( IN HSEMAPHORE hsem )
-{
-  // www.osr.com/ddk/graphics/gdifncs_5u3r.htm
-  PTHREADINFO W32Thread;
-  ASSERT(hsem);
-  W32Thread = PsGetThreadWin32Thread(PsGetCurrentThread());
-  if (W32Thread) --W32Thread->dwEngAcquireCount;
-  IntGdiReleaseSemaphore ( hsem );
-}
-
-/*
- * @implemented
- */
-VOID
-APIENTRY
+STDCALL
 EngDeleteSemaphore ( IN HSEMAPHORE hsem )
 {
   // www.osr.com/ddk/graphics/gdifncs_13c7.htm
   ASSERT ( hsem );
-
-  ExDeleteResourceLite((PERESOURCE)hsem);
-
-  ExFreePoolWithTag( (PVOID)hsem, TAG_GSEM);
+  ExFreePool ( (PVOID)hsem );
 }
 
 /*
  * @implemented
  */
 BOOL
-APIENTRY
+STDCALL
 EngIsSemaphoreOwned ( IN HSEMAPHORE hsem )
 {
   // www.osr.com/ddk/graphics/gdifncs_6wmf.htm
@@ -100,7 +76,7 @@ EngIsSemaphoreOwned ( IN HSEMAPHORE hsem )
  * @implemented
  */
 BOOL
-APIENTRY
+STDCALL
 EngIsSemaphoreOwnedByCurrentThread ( IN HSEMAPHORE hsem )
 {
   // www.osr.com/ddk/graphics/gdifncs_9yxz.htm
@@ -111,7 +87,7 @@ EngIsSemaphoreOwnedByCurrentThread ( IN HSEMAPHORE hsem )
 /*
  * @implemented
  */
-BOOL APIENTRY
+BOOL STDCALL
 EngInitializeSafeSemaphore(
    OUT ENGSAFESEMAPHORE *Semaphore)
 {
@@ -134,7 +110,7 @@ EngInitializeSafeSemaphore(
    {
       /* Wait for the other thread to create the semaphore */
       ASSERT(Semaphore->lCount > 1);
-      ASSERT_IRQL_LESS_OR_EQUAL(PASSIVE_LEVEL);
+      ASSERT_IRQL(PASSIVE_LEVEL);
       while (Semaphore->hsem == NULL);
    }
 
@@ -144,7 +120,7 @@ EngInitializeSafeSemaphore(
 /*
  * @implemented
  */
-VOID APIENTRY
+VOID STDCALL
 EngDeleteSafeSemaphore(
    IN OUT ENGSAFESEMAPHORE *Semaphore)
 {

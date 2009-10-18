@@ -92,16 +92,16 @@ typedef struct tagMSFT_pSeg {
 
 /* layout of the main segment directory */
 typedef struct tagMSFT_SegDir {
-/*1*/MSFT_pSeg pTypeInfoTab; /* each typeinfo gets an entry of 0x64 bytes */
+/*1*/MSFT_pSeg pTypeInfoTab; /* each type info get an entry of 0x64 bytes */
                              /* (25 ints) */
 /*2*/MSFT_pSeg pImpInfo;     /* table with info for imported types */
-/*3*/MSFT_pSeg pImpFiles;    /* import libraries */
+/*3*/MSFT_pSeg pImpFiles;    /* import libaries */
 /*4*/MSFT_pSeg pRefTab;      /* References table */
-/*5*/MSFT_pSeg pLibtab;      /* always exists, always same size (0x80) */
+/*5*/MSFT_pSeg pLibtab;      /* always exists, alway same size (0x80) */
                              /* hash table w offsets to guid????? */
 /*6*/MSFT_pSeg pGuidTab;     /* all guids are stored here together with  */
                              /* offset in some table???? */
-/*7*/MSFT_pSeg res07;        /* always created, always same size (0x200) */
+/*7*/MSFT_pSeg res07;        /* always created, alway same size (0x200) */
                              /* purpose largely unknown */
 /*8*/MSFT_pSeg pNametab;     /* name tables */
 /*9*/MSFT_pSeg pStringtab;   /* string table */
@@ -119,10 +119,10 @@ typedef struct tagMSFT_SegDir {
 /* base type info data */
 typedef struct tagMSFT_TypeInfoBase {
 /*000*/ INT   typekind;             /*  it is the TKIND_xxx */
-                                    /* some byte alignment stuff */
+                                    /* some byte alignment stuf */
         INT     memoffset;          /* points past the file, if no elements */
         INT     res2;               /* zero if no element, N*0x40 */
-        INT     res3;               /* -1 if no element, (N-1)*0x38 */
+        INT     res3;               /* -1 if no lement, (N-1)*0x38 */
 /*010*/ INT     res4;               /* always? 3 */
         INT     res5;               /* always? zero */
         INT     cElement;           /* counts elements, HI=cVars, LO=cFuncs */
@@ -148,7 +148,7 @@ typedef struct tagMSFT_TypeInfoBase {
 /*050*/ INT     size;           /* size in bytes, at least for structures */
         /* FIXME: name of this field */
         INT     datatype1;      /* position in type description table */
-                                /* or in base interfaces */
+                                /* or in base intefaces */
                                 /* if coclass: offset in reftable */
                                 /* if interface: reference to inherited if */
         INT     datatype2;      /* for interfaces: hiword is num of inherited funcs */
@@ -171,7 +171,7 @@ typedef struct tagMSFT_ImpInfo {
 
 /* function description data */
 typedef struct {
-/*  INT   recsize;       record size including some extra stuff */
+/*  INT   recsize;       record size including some xtra stuff */
     INT   DataType;     /* data type of the member, eg return of function */
     INT   Flags;        /* something to do with attribute flags (LOWORD) */
 #ifdef WORDS_BIGENDIAN
@@ -227,7 +227,7 @@ typedef struct {
 
 /* Variable description data */
 typedef struct {
-/*  INT   recsize;      // record size including some extra stuff */
+/*  INT   recsize;      // record size including some xtra stuff */
     INT   DataType;     /* data type of the variable */
     INT   Flags;        /* VarFlags (LOWORD) */
 #ifdef WORDS_BIGENDIAN
@@ -286,7 +286,7 @@ typedef struct {
                         /* 0x3800 if name is typeinfo name */
 			/* upper 16 bits are hash code */
 } MSFT_NameIntro;
-/* the custom data table directory has entries like this */
+/* the custom data table directory has enties like this */
 typedef struct {
     INT   GuidOffset;
     INT   DataOffset;
@@ -302,7 +302,7 @@ typedef struct {
  *
  */
 
-#include <host/pshpack1.h>
+#include "pshpack1.h"
 
 typedef struct {
 /*00*/	DWORD SLTG_magic;	/* 0x47544c53  == "SLTG" */
@@ -599,7 +599,7 @@ WORD offset from start of block to SAFEARRAY
 WORD typeofarray
 */
 
-#include <host/poppack.h>
+#include "poppack.h"
 
 /*---------------------------END--------------------------------------------*/
 #endif

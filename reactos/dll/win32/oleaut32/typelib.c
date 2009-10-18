@@ -64,7 +64,6 @@
 #include "winnls.h"
 #include "winreg.h"
 #include "winuser.h"
-#include "lzexpand.h"
 
 #include "wine/unicode.h"
 #include "objbase.h"
@@ -75,26 +74,6 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 WINE_DECLARE_DEBUG_CHANNEL(typelib);
-
-typedef struct
-{
-    WORD     offset;
-    WORD     length;
-    WORD     flags;
-    WORD     id;
-    WORD     handle;
-    WORD     usage;
-} NE_NAMEINFO;
-
-typedef struct
-{
-    WORD        type_id;   /* Type identifier */
-    WORD        count;     /* Number of resources of this type */
-    DWORD       resloader; /* SetResourceHandler() */
-    /*
-     * Name info array.
-     */
-} NE_TYPEINFO;
 
 static HRESULT typedescvt_to_variantvt(ITypeInfo *tinfo, const TYPEDESC *tdesc, VARTYPE *vt);
 static HRESULT TLB_AllocAndInitVarDesc(const VARDESC *src, VARDESC **dest_ptr);
@@ -174,7 +153,7 @@ static BOOL find_typelib_key( REFGUID guid, WORD *wMaj, WORD *wMin )
     WCHAR buffer[60];
     char key_name[16];
     DWORD len, i;
-    INT best_maj = -1, best_min = -1;
+    INT best_min = -1;
     HKEY hkey;
 
     memcpy( buffer, typelibW, sizeof(typelibW) );
@@ -193,40 +172,20 @@ static BOOL find_typelib_key( REFGUID guid, WORD *wMaj, WORD *wMin )
         {
             TRACE("found %s: %x.%x\n", debugstr_w(buffer), v_maj, v_min);
 
-            if (*wMaj == 0xffff && *wMin == 0xffff)
+            if (*wMaj == v_maj)
             {
-                if (v_maj > best_maj) best_maj = v_maj;
-                if (v_min > best_min) best_min = v_min;
-            }
-            else if (*wMaj == v_maj)
-            {
-                best_maj = v_maj;
-
                 if (*wMin == v_min)
                 {
                     best_min = v_min;
                     break; /* exact match */
                 }
-                if (*wMin != 0xffff && v_min > best_min) best_min = v_min;
+                if (v_min > best_min) best_min = v_min;
             }
         }
         len = sizeof(key_name);
     }
     RegCloseKey( hkey );
-
-    TRACE("found best_maj %d, best_min %d\n", best_maj, best_min);
-
-    if (*wMaj == 0xffff && *wMin == 0xffff)
-    {
-        if (best_maj >= 0 && best_min >= 0)
-        {
-            *wMaj = best_maj;
-            *wMin = best_min;
-            return TRUE;
-        }
-    }
-
-    if (*wMaj == best_maj && best_min >= 0)
+    if (best_min >= 0)
     {
         *wMin = best_min;
         return TRUE;
@@ -265,14 +224,12 @@ static WCHAR *get_lcid_subkey( LCID lcid, SYSKIND syskind, WCHAR *buffer )
     static const WCHAR LcidFormatW[] = {'%','l','x','\\',0};
     static const WCHAR win16W[] = {'w','i','n','1','6',0};
     static const WCHAR win32W[] = {'w','i','n','3','2',0};
-    static const WCHAR win64W[] = {'w','i','n','6','4',0};
 
     sprintfW( buffer, LcidFormatW, lcid );
     switch(syskind)
     {
     case SYS_WIN16: strcatW( buffer, win16W ); break;
     case SYS_WIN32: strcatW( buffer, win32W ); break;
-    case SYS_WIN64: strcatW( buffer, win64W ); break;
     default:
         TRACE("Typelib is for unsupported syskind %i\n", syskind);
         return NULL;
@@ -280,7 +237,7 @@ static WCHAR *get_lcid_subkey( LCID lcid, SYSKIND syskind, WCHAR *buffer )
     return buffer;
 }
 
-static HRESULT TLB_ReadTypeLib(LPCWSTR pszFileName, LPWSTR pszPath, UINT cchPath, ITypeLib2 **ppTypeLib);
+static int TLB_ReadTypeLib(LPCWSTR pszFileName, LPWSTR pszPath, UINT cchPath, ITypeLib2 **ppTypeLib);
 
 
 /****************************************************************************
@@ -437,7 +394,7 @@ HRESULT WINAPI LoadTypeLibEx(
                 /* else fall-through */
 
             case REGKIND_REGISTER:
-                if (FAILED(res = RegisterTypeLib(*pptLib, szPath, NULL)))
+                if (!SUCCEEDED(res = RegisterTypeLib(*pptLib, (LPOLESTR)szPath, NULL)))
                 {
                     IUnknown_Release(*pptLib);
                     *pptLib = 0;
@@ -534,14 +491,8 @@ HRESULT WINAPI RegisterTypeLib(
     if (ptlib == NULL || szFullPath == NULL)
         return E_INVALIDARG;
 
-    if (FAILED(ITypeLib_GetLibAttr(ptlib, &attr)))
+    if (!SUCCEEDED(ITypeLib_GetLibAttr(ptlib, &attr)))
         return E_FAIL;
-
-#ifdef _WIN64
-    if (attr->syskind != SYS_WIN64) return TYPE_E_BADMODULEKIND;
-#else
-    if (attr->syskind != SYS_WIN32 && attr->syskind != SYS_WIN16) return TYPE_E_BADMODULEKIND;
-#endif
 
     get_typelib_key( &attr->guid, attr->wMajorVerNum, attr->wMinorVerNum, keyName );
 
@@ -788,7 +739,7 @@ HRESULT WINAPI UnRegisterTypeLib(
     /* Create the path to the key */
     get_typelib_key( libid, wVerMajor, wVerMinor, keyName );
 
-    if (syskind != SYS_WIN16 && syskind != SYS_WIN32 && syskind != SYS_WIN64)
+    if (syskind != SYS_WIN16 && syskind != SYS_WIN32)
     {
         TRACE("Unsupported syskind %i\n", syskind);
         result = E_INVALIDARG;
@@ -887,7 +838,7 @@ enddeleteloop:
     }
 
 end:
-    SysFreeString(tlibPath);
+    if (tlibPath) SysFreeString(tlibPath);
     if (typeLib) ITypeLib_Release(typeLib);
     if (subKey) RegCloseKey(subKey);
     if (key) RegCloseKey(key);
@@ -930,7 +881,6 @@ typedef struct tagITypeLibImpl
     const ITypeCompVtbl *lpVtblTypeComp;
     LONG ref;
     TLIBATTR LibAttr;            /* guid,lcid,syskind,version,flags */
-    LCID lcid;
 
     /* strings can be stored in tlb as multibyte strings BUT they are *always*
      * exported to the application as a UNICODE string.
@@ -939,7 +889,7 @@ typedef struct tagITypeLibImpl
     BSTR DocString;
     BSTR HelpFile;
     BSTR HelpStringDll;
-    DWORD dwHelpContext;
+    unsigned long  dwHelpContext;
     int TypeInfoCount;          /* nr of typeinfo's in librarry */
     struct tagITypeInfoImpl *pTypeInfo;   /* linked list of type info data */
     int ctCustData;             /* number of items in cust data list */
@@ -1048,7 +998,7 @@ typedef struct tagITypeInfoImpl
     const ITypeInfo2Vtbl *lpVtbl;
     const ITypeCompVtbl  *lpVtblTypeComp;
     LONG ref;
-    BOOL no_free_data; /* don't free data structures */
+    BOOL no_free_data; /* don't free data structurees */
     TYPEATTR TypeAttr ;         /* _lots_ of type information. */
     ITypeLibImpl * pTypeLib;        /* back pointer to typelib */
     int index;                  /* index in this typelib; */
@@ -1059,8 +1009,8 @@ typedef struct tagITypeInfoImpl
     BSTR Name;
     BSTR DocString;
     BSTR DllName;
-    DWORD dwHelpContext;
-    DWORD dwHelpStringContext;
+    unsigned long  dwHelpContext;
+    unsigned long  dwHelpStringContext;
 
     /* functions  */
     TLBFuncDesc * funclist;     /* linked list with function descriptions */
@@ -1084,7 +1034,7 @@ static inline ITypeInfoImpl *info_impl_from_ITypeComp( ITypeComp *iface )
 static const ITypeInfo2Vtbl tinfvt;
 static const ITypeCompVtbl  tcompvt;
 
-static ITypeInfo2 * ITypeInfo_Constructor(void);
+static ITypeInfo2 * WINAPI ITypeInfo_Constructor(void);
 
 typedef struct tagTLBContext
 {
@@ -1134,8 +1084,6 @@ static void dump_TypeDesc(const TYPEDESC *pTD,char *szVarType) {
     case VT_HRESULT: sprintf(szVarType, "VT_HRESULT"); break;
     case VT_USERDEFINED: sprintf(szVarType, "VT_USERDEFINED ref = %x",
 				 pTD->u.hreftype); break;
-    case VT_LPSTR: sprintf(szVarType, "VT_LPSTR"); break;
-    case VT_LPWSTR: sprintf(szVarType, "VT_LPWSTR"); break;
     case VT_PTR: sprintf(szVarType, "ptr to ");
       dump_TypeDesc(pTD->u.lptdesc, szVarType + 7);
       break;
@@ -1344,7 +1292,7 @@ static void dump_Variant(const VARIANT * pvar)
 
 static void dump_DispParms(const DISPPARAMS * pdp)
 {
-    unsigned int index;
+    int index;
 
     TRACE("args=%u named args=%u\n", pdp->cArgs, pdp->cNamedArgs);
 
@@ -1407,8 +1355,6 @@ static void TLB_abort(void)
 {
     DebugBreak();
 }
-
-static void * TLB_Alloc(unsigned size) __WINE_ALLOC_SIZE(1);
 static void * TLB_Alloc(unsigned size)
 {
     void * ret;
@@ -1475,36 +1421,11 @@ static void *TLB_CopyTypeDesc( TYPEDESC *dest, const TYPEDESC *src, void *buffer
     return buffer;
 }
 
-/* free custom data allocated by MSFT_CustData */
-static inline void TLB_FreeCustData(TLBCustData *pCustData)
-{
-    TLBCustData *pCustDataNext;
-    for (; pCustData; pCustData = pCustDataNext)
-    {
-        VariantClear(&pCustData->data);
-
-        pCustDataNext = pCustData->next;
-        TLB_Free(pCustData);
-    }
-}
-
-static BSTR TLB_MultiByteToBSTR(const char *ptr)
-{
-    DWORD len;
-    BSTR ret;
-
-    len = MultiByteToWideChar(CP_ACP, 0, ptr, -1, NULL, 0);
-    ret = SysAllocStringLen(NULL, len - 1);
-    if (!ret) return ret;
-    MultiByteToWideChar(CP_ACP, 0, ptr, -1, ret, len);
-    return ret;
-}
-
 /**********************************************************************
  *
  *  Functions for reading MSFT typelibs (those created by CreateTypeLib2)
  */
-static inline unsigned int MSFT_Tell(const TLBContext *pcx)
+static inline unsigned int MSFT_Tell(TLBContext *pcx)
 {
     return pcx->pos;
 }
@@ -1935,7 +1856,7 @@ MSFT_DoFuncs(TLBContext*     pcx,
         (*pptfd)->funcdesc.callconv   =  (pFuncRec->FKCCIC) >> 8 & 0xF;
         (*pptfd)->funcdesc.cParams    =   pFuncRec->nrargs  ;
         (*pptfd)->funcdesc.cParamsOpt =   pFuncRec->nroargs ;
-        (*pptfd)->funcdesc.oVft       =   pFuncRec->VtableOffset;
+        (*pptfd)->funcdesc.oVft       =   pFuncRec->VtableOffset ;
         (*pptfd)->funcdesc.wFuncFlags =   LOWORD(pFuncRec->Flags) ;
 
         MSFT_GetTdesc(pcx,
@@ -2090,6 +2011,7 @@ static void MSFT_DoVars(TLBContext *pcx, ITypeInfoImpl *pTI, int cFuncs,
 static void MSFT_DoRefType(TLBContext *pcx, ITypeLibImpl *pTL,
                           int offset)
 {
+    int j;
     TLBRefType *ref;
 
     TRACE_(typelib)("TLB context %p, TLB offset %x\n", pcx, offset);
@@ -2111,7 +2033,7 @@ static void MSFT_DoRefType(TLBContext *pcx, ITypeLibImpl *pTL,
 
         MSFT_ReadLEDWords(&impinfo, sizeof(impinfo), pcx,
                           pcx->pTblDir->pImpInfo.offset + (offset & 0xfffffffc));
-        while (pImpLib){   /* search the known offsets of all import libraries */
+        for(j=0;pImpLib;j++){   /* search the known offsets of all import libraries */
             if(pImpLib->offset==impinfo.oImpFile) break;
             pImpLib=pImpLib->next;
         }
@@ -2236,7 +2158,7 @@ static ITypeInfoImpl * MSFT_DoTypeInfo(
             break;
         case TKIND_DISPATCH:
             /* This is not -1 when the interface is a non-base dual interface or
-               when a dispinterface wraps an interface, i.e., the idl 'dispinterface x {interface y;};'.
+               when a dispinterface wraps an interface ie the idl 'dispinterface x {interface y;};'.
                Note however that GetRefTypeOfImplType(0) always returns a ref to IDispatch and
                not this interface.
             */
@@ -2262,8 +2184,6 @@ static ITypeInfoImpl * MSFT_DoTypeInfo(
        debugstr_w(ptiRet->Name),
        debugstr_guid(&ptiRet->TypeAttr.guid),
        typekind_desc[ptiRet->TypeAttr.typekind]);
-    if (TRACE_ON(typelib))
-      dump_TypeInfo(ptiRet);
 
     return ptiRet;
 }
@@ -2284,402 +2204,6 @@ static CRITICAL_SECTION_DEBUG cache_section_debug =
 static CRITICAL_SECTION cache_section = { &cache_section_debug, -1, 0, 0, 0, 0 };
 
 
-typedef struct TLB_PEFile
-{
-    const IUnknownVtbl *lpvtbl;
-    LONG refs;
-    HMODULE dll;
-    HRSRC typelib_resource;
-    HGLOBAL typelib_global;
-    LPVOID typelib_base;
-} TLB_PEFile;
-
-static HRESULT WINAPI TLB_PEFile_QueryInterface(IUnknown *iface, REFIID riid, void **ppv)
-{
-    if (IsEqualIID(riid, &IID_IUnknown))
-    {
-        *ppv = iface;
-        IUnknown_AddRef(iface);
-        return S_OK;
-    }
-    *ppv = NULL;
-    return E_NOINTERFACE;
-}
-
-static ULONG WINAPI TLB_PEFile_AddRef(IUnknown *iface)
-{
-    TLB_PEFile *This = (TLB_PEFile *)iface;
-    return InterlockedIncrement(&This->refs);
-}
-
-static ULONG WINAPI TLB_PEFile_Release(IUnknown *iface)
-{
-    TLB_PEFile *This = (TLB_PEFile *)iface;
-    ULONG refs = InterlockedDecrement(&This->refs);
-    if (!refs)
-    {
-        if (This->typelib_global)
-            FreeResource(This->typelib_global);
-        if (This->dll)
-            FreeLibrary(This->dll);
-        HeapFree(GetProcessHeap(), 0, This);
-    }
-    return refs;
-}
-
-static const IUnknownVtbl TLB_PEFile_Vtable =
-{
-    TLB_PEFile_QueryInterface,
-    TLB_PEFile_AddRef,
-    TLB_PEFile_Release
-};
-
-static HRESULT TLB_PEFile_Open(LPCWSTR path, INT index, LPVOID *ppBase, DWORD *pdwTLBLength, IUnknown **ppFile)
-{
-    TLB_PEFile *This;
-
-    This = HeapAlloc(GetProcessHeap(), 0, sizeof(*This));
-    if (!This)
-        return E_OUTOFMEMORY;
-
-    This->lpvtbl = &TLB_PEFile_Vtable;
-    This->refs = 1;
-    This->dll = NULL;
-    This->typelib_resource = NULL;
-    This->typelib_global = NULL;
-    This->typelib_base = NULL;
-
-    This->dll = LoadLibraryExW(path, 0, DONT_RESOLVE_DLL_REFERENCES |
-                    LOAD_LIBRARY_AS_DATAFILE | LOAD_WITH_ALTERED_SEARCH_PATH);
-
-    if (This->dll)
-    {
-        static const WCHAR TYPELIBW[] = {'T','Y','P','E','L','I','B',0};
-        This->typelib_resource = FindResourceW(This->dll, MAKEINTRESOURCEW(index), TYPELIBW);
-        if (This->typelib_resource)
-        {
-            This->typelib_global = LoadResource(This->dll, This->typelib_resource);
-            if (This->typelib_global)
-            {
-                This->typelib_base = LockResource(This->typelib_global);
-
-                if (This->typelib_base)
-                {
-                    *pdwTLBLength = SizeofResource(This->dll, This->typelib_resource);
-                    *ppBase = This->typelib_base;
-                    *ppFile = (IUnknown *)&This->lpvtbl;
-                    return S_OK;
-                }
-            }
-        }
-    }
-
-    TLB_PEFile_Release((IUnknown *)&This->lpvtbl);
-    return TYPE_E_CANTLOADLIBRARY;
-}
-
-typedef struct TLB_NEFile
-{
-    const IUnknownVtbl *lpvtbl;
-    LONG refs;
-    LPVOID typelib_base;
-} TLB_NEFile;
-
-static HRESULT WINAPI TLB_NEFile_QueryInterface(IUnknown *iface, REFIID riid, void **ppv)
-{
-    if (IsEqualIID(riid, &IID_IUnknown))
-    {
-        *ppv = iface;
-        IUnknown_AddRef(iface);
-        return S_OK;
-    }
-    *ppv = NULL;
-    return E_NOINTERFACE;
-}
-
-static ULONG WINAPI TLB_NEFile_AddRef(IUnknown *iface)
-{
-    TLB_NEFile *This = (TLB_NEFile *)iface;
-    return InterlockedIncrement(&This->refs);
-}
-
-static ULONG WINAPI TLB_NEFile_Release(IUnknown *iface)
-{
-    TLB_NEFile *This = (TLB_NEFile *)iface;
-    ULONG refs = InterlockedDecrement(&This->refs);
-    if (!refs)
-    {
-        HeapFree(GetProcessHeap(), 0, This->typelib_base);
-        HeapFree(GetProcessHeap(), 0, This);
-    }
-    return refs;
-}
-
-static const IUnknownVtbl TLB_NEFile_Vtable =
-{
-    TLB_NEFile_QueryInterface,
-    TLB_NEFile_AddRef,
-    TLB_NEFile_Release
-};
-
-/***********************************************************************
- *           read_xx_header         [internal]
- */
-static int read_xx_header( HFILE lzfd )
-{
-    IMAGE_DOS_HEADER mzh;
-    char magic[3];
-
-    LZSeek( lzfd, 0, SEEK_SET );
-    if ( sizeof(mzh) != LZRead( lzfd, (LPSTR)&mzh, sizeof(mzh) ) )
-        return 0;
-    if ( mzh.e_magic != IMAGE_DOS_SIGNATURE )
-        return 0;
-
-    LZSeek( lzfd, mzh.e_lfanew, SEEK_SET );
-    if ( 2 != LZRead( lzfd, magic, 2 ) )
-        return 0;
-
-    LZSeek( lzfd, mzh.e_lfanew, SEEK_SET );
-
-    if ( magic[0] == 'N' && magic[1] == 'E' )
-        return IMAGE_OS2_SIGNATURE;
-    if ( magic[0] == 'P' && magic[1] == 'E' )
-        return IMAGE_NT_SIGNATURE;
-
-    magic[2] = '\0';
-    WARN("Can't handle %s files.\n", magic );
-    return 0;
-}
-
-
-/***********************************************************************
- *           find_ne_resource         [internal]
- */
-static BOOL find_ne_resource( HFILE lzfd, LPCSTR typeid, LPCSTR resid,
-                                DWORD *resLen, DWORD *resOff )
-{
-    IMAGE_OS2_HEADER nehd;
-    NE_TYPEINFO *typeInfo;
-    NE_NAMEINFO *nameInfo;
-    DWORD nehdoffset;
-    LPBYTE resTab;
-    DWORD resTabSize;
-    int count;
-
-    /* Read in NE header */
-    nehdoffset = LZSeek( lzfd, 0, SEEK_CUR );
-    if ( sizeof(nehd) != LZRead( lzfd, (LPSTR)&nehd, sizeof(nehd) ) ) return 0;
-
-    resTabSize = nehd.ne_restab - nehd.ne_rsrctab;
-    if ( !resTabSize )
-    {
-        TRACE("No resources in NE dll\n" );
-        return FALSE;
-    }
-
-    /* Read in resource table */
-    resTab = HeapAlloc( GetProcessHeap(), 0, resTabSize );
-    if ( !resTab ) return FALSE;
-
-    LZSeek( lzfd, nehd.ne_rsrctab + nehdoffset, SEEK_SET );
-    if ( resTabSize != LZRead( lzfd, (char*)resTab, resTabSize ) )
-    {
-        HeapFree( GetProcessHeap(), 0, resTab );
-        return FALSE;
-    }
-
-    /* Find resource */
-    typeInfo = (NE_TYPEINFO *)(resTab + 2);
-
-    if (HIWORD(typeid) != 0)  /* named type */
-    {
-        BYTE len = strlen( typeid );
-        while (typeInfo->type_id)
-        {
-            if (!(typeInfo->type_id & 0x8000))
-            {
-                BYTE *p = resTab + typeInfo->type_id;
-                if ((*p == len) && !strncasecmp( (char*)p+1, typeid, len )) goto found_type;
-            }
-            typeInfo = (NE_TYPEINFO *)((char *)(typeInfo + 1) +
-                                       typeInfo->count * sizeof(NE_NAMEINFO));
-        }
-    }
-    else  /* numeric type id */
-    {
-        WORD id = LOWORD(typeid) | 0x8000;
-        while (typeInfo->type_id)
-        {
-            if (typeInfo->type_id == id) goto found_type;
-            typeInfo = (NE_TYPEINFO *)((char *)(typeInfo + 1) +
-                                       typeInfo->count * sizeof(NE_NAMEINFO));
-        }
-    }
-    TRACE("No typeid entry found for %p\n", typeid );
-    HeapFree( GetProcessHeap(), 0, resTab );
-    return FALSE;
-
- found_type:
-    nameInfo = (NE_NAMEINFO *)(typeInfo + 1);
-
-    if (HIWORD(resid) != 0)  /* named resource */
-    {
-        BYTE len = strlen( resid );
-        for (count = typeInfo->count; count > 0; count--, nameInfo++)
-        {
-            BYTE *p = resTab + nameInfo->id;
-            if (nameInfo->id & 0x8000) continue;
-            if ((*p == len) && !strncasecmp( (char*)p+1, resid, len )) goto found_name;
-        }
-    }
-    else  /* numeric resource id */
-    {
-        WORD id = LOWORD(resid) | 0x8000;
-        for (count = typeInfo->count; count > 0; count--, nameInfo++)
-            if (nameInfo->id == id) goto found_name;
-    }
-    TRACE("No resid entry found for %p\n", typeid );
-    HeapFree( GetProcessHeap(), 0, resTab );
-    return FALSE;
-
- found_name:
-    /* Return resource data */
-    if ( resLen ) *resLen = nameInfo->length << *(WORD *)resTab;
-    if ( resOff ) *resOff = nameInfo->offset << *(WORD *)resTab;
-
-    HeapFree( GetProcessHeap(), 0, resTab );
-    return TRUE;
-}
-
-static HRESULT TLB_NEFile_Open(LPCWSTR path, INT index, LPVOID *ppBase, DWORD *pdwTLBLength, IUnknown **ppFile){
-
-    HFILE lzfd = -1;
-    OFSTRUCT ofs;
-    HRESULT hr = TYPE_E_CANTLOADLIBRARY;
-    TLB_NEFile *This = NULL;
-
-    This = HeapAlloc(GetProcessHeap(), 0, sizeof(*This));
-    if (!This) return E_OUTOFMEMORY;
-
-    This->lpvtbl = &TLB_NEFile_Vtable;
-    This->refs = 1;
-    This->typelib_base = NULL;
-
-    lzfd = LZOpenFileW( (LPWSTR)path, &ofs, OF_READ );
-    if ( lzfd >= 0 && read_xx_header( lzfd ) == IMAGE_OS2_SIGNATURE )
-    {
-        DWORD reslen, offset;
-        if( find_ne_resource( lzfd, "TYPELIB", MAKEINTRESOURCEA(index), &reslen, &offset ) )
-        {
-            This->typelib_base = HeapAlloc(GetProcessHeap(), 0, reslen);
-            if( !This->typelib_base )
-                hr = E_OUTOFMEMORY;
-            else
-            {
-                LZSeek( lzfd, offset, SEEK_SET );
-                reslen = LZRead( lzfd, This->typelib_base, reslen );
-                LZClose( lzfd );
-                *ppBase = This->typelib_base;
-                *pdwTLBLength = reslen;
-                *ppFile = (IUnknown *)&This->lpvtbl;
-                return S_OK;
-            }
-        }
-    }
-
-    if( lzfd >= 0) LZClose( lzfd );
-    TLB_NEFile_Release((IUnknown *)&This->lpvtbl);
-    return hr;
-}
-
-typedef struct TLB_Mapping
-{
-    const IUnknownVtbl *lpvtbl;
-    LONG refs;
-    HANDLE file;
-    HANDLE mapping;
-    LPVOID typelib_base;
-} TLB_Mapping;
-
-static HRESULT WINAPI TLB_Mapping_QueryInterface(IUnknown *iface, REFIID riid, void **ppv)
-{
-    if (IsEqualIID(riid, &IID_IUnknown))
-    {
-        *ppv = iface;
-        IUnknown_AddRef(iface);
-        return S_OK;
-    }
-    *ppv = NULL;
-    return E_NOINTERFACE;
-}
-
-static ULONG WINAPI TLB_Mapping_AddRef(IUnknown *iface)
-{
-    TLB_Mapping *This = (TLB_Mapping *)iface;
-    return InterlockedIncrement(&This->refs);
-}
-
-static ULONG WINAPI TLB_Mapping_Release(IUnknown *iface)
-{
-    TLB_Mapping *This = (TLB_Mapping *)iface;
-    ULONG refs = InterlockedDecrement(&This->refs);
-    if (!refs)
-    {
-        if (This->typelib_base)
-            UnmapViewOfFile(This->typelib_base);
-        if (This->mapping)
-            CloseHandle(This->mapping);
-        if (This->file != INVALID_HANDLE_VALUE)
-            CloseHandle(This->file);
-        HeapFree(GetProcessHeap(), 0, This);
-    }
-    return refs;
-}
-
-static const IUnknownVtbl TLB_Mapping_Vtable =
-{
-    TLB_Mapping_QueryInterface,
-    TLB_Mapping_AddRef,
-    TLB_Mapping_Release
-};
-
-static HRESULT TLB_Mapping_Open(LPCWSTR path, LPVOID *ppBase, DWORD *pdwTLBLength, IUnknown **ppFile)
-{
-    TLB_Mapping *This;
-
-    This = HeapAlloc(GetProcessHeap(), 0, sizeof(*This));
-    if (!This)
-        return E_OUTOFMEMORY;
-
-    This->lpvtbl = &TLB_Mapping_Vtable;
-    This->refs = 1;
-    This->file = INVALID_HANDLE_VALUE;
-    This->mapping = NULL;
-    This->typelib_base = NULL;
-
-    This->file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0);
-    if (INVALID_HANDLE_VALUE != This->file)
-    {
-        This->mapping = CreateFileMappingW(This->file, NULL, PAGE_READONLY | SEC_COMMIT, 0, 0, NULL);
-        if (This->mapping)
-        {
-            This->typelib_base = MapViewOfFile(This->mapping, FILE_MAP_READ, 0, 0, 0);
-            if(This->typelib_base)
-            {
-                /* retrieve file size */
-                *pdwTLBLength = GetFileSize(This->file, NULL);
-                *ppBase = This->typelib_base;
-                *ppFile = (IUnknown *)&This->lpvtbl;
-                return S_OK;
-            }
-        }
-    }
-
-    IUnknown_Release((IUnknown *)&This->lpvtbl);
-    return TYPE_E_CANTLOADLIBRARY;
-}
-
 /****************************************************************************
  *	TLB_ReadTypeLib
  *
@@ -2688,15 +2212,13 @@ static HRESULT TLB_Mapping_Open(LPCWSTR path, LPVOID *ppBase, DWORD *pdwTLBLengt
  */
 #define MSFT_SIGNATURE 0x5446534D /* "MSFT" */
 #define SLTG_SIGNATURE 0x47544c53 /* "SLTG" */
-static HRESULT TLB_ReadTypeLib(LPCWSTR pszFileName, LPWSTR pszPath, UINT cchPath, ITypeLib2 **ppTypeLib)
+static int TLB_ReadTypeLib(LPCWSTR pszFileName, LPWSTR pszPath, UINT cchPath, ITypeLib2 **ppTypeLib)
 {
     ITypeLibImpl *entry;
-    HRESULT ret;
+    int ret = TYPE_E_CANTLOADLIBRARY;
     INT index = 1;
+    HINSTANCE hinstDLL;
     LPWSTR index_str, file = (LPWSTR)pszFileName;
-    LPVOID pBase = NULL;
-    DWORD dwTLBLength = 0;
-    IUnknown *pFile = NULL;
 
     *ppTypeLib = NULL;
 
@@ -2750,29 +2272,63 @@ static HRESULT TLB_ReadTypeLib(LPCWSTR pszFileName, LPWSTR pszPath, UINT cchPath
 
     /* now actually load and parse the typelib */
 
-    ret = TLB_PEFile_Open(pszPath, index, &pBase, &dwTLBLength, &pFile);
-    if (ret == TYPE_E_CANTLOADLIBRARY)
-        ret = TLB_NEFile_Open(pszPath, index, &pBase, &dwTLBLength, &pFile);
-    if (ret == TYPE_E_CANTLOADLIBRARY)
-        ret = TLB_Mapping_Open(pszPath, &pBase, &dwTLBLength, &pFile);
-    if (SUCCEEDED(ret))
+    hinstDLL = LoadLibraryExW(pszPath, 0, DONT_RESOLVE_DLL_REFERENCES |
+            LOAD_LIBRARY_AS_DATAFILE | LOAD_WITH_ALTERED_SEARCH_PATH);
+
+    if (hinstDLL)
     {
-        if (dwTLBLength >= 4)
+        static const WCHAR TYPELIBW[] = {'T','Y','P','E','L','I','B',0};
+        HRSRC hrsrc = FindResourceW(hinstDLL, MAKEINTRESOURCEW(index), TYPELIBW);
+        if (hrsrc)
         {
-            DWORD dwSignature = FromLEDWord(*((DWORD*) pBase));
-            if (dwSignature == MSFT_SIGNATURE)
-                *ppTypeLib = ITypeLib2_Constructor_MSFT(pBase, dwTLBLength);
-            else if (dwSignature == SLTG_SIGNATURE)
-                *ppTypeLib = ITypeLib2_Constructor_SLTG(pBase, dwTLBLength);
-            else
+            HGLOBAL hGlobal = LoadResource(hinstDLL, hrsrc);
+            if (hGlobal)
             {
-                FIXME("Header type magic 0x%08x not supported.\n",dwSignature);
-                ret = TYPE_E_CANTLOADLIBRARY;
+                LPVOID pBase = LockResource(hGlobal);
+                DWORD  dwTLBLength = SizeofResource(hinstDLL, hrsrc);
+
+                if (pBase)
+                {
+                    /* try to load as incore resource */
+                    DWORD dwSignature = FromLEDWord(*((DWORD*) pBase));
+                    if (dwSignature == MSFT_SIGNATURE)
+                        *ppTypeLib = ITypeLib2_Constructor_MSFT(pBase, dwTLBLength);
+                    else if (dwSignature == SLTG_SIGNATURE)
+                        *ppTypeLib = ITypeLib2_Constructor_SLTG(pBase, dwTLBLength);
+                    else
+                        FIXME("Header type magic 0x%08x not supported.\n",dwSignature);
+                }
+                FreeResource( hGlobal );
             }
         }
-        else
-            ret = TYPE_E_CANTLOADLIBRARY;
-        IUnknown_Release(pFile);
+        FreeLibrary(hinstDLL);
+    }
+    else
+    {
+        HANDLE hFile = CreateFileW(pszPath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0 );
+        if (INVALID_HANDLE_VALUE != hFile)
+        {
+            HANDLE hMapping = CreateFileMappingW( hFile, NULL, PAGE_READONLY | SEC_COMMIT, 0, 0, NULL );
+            if (hMapping)
+            {
+                LPVOID pBase = MapViewOfFile(hMapping, FILE_MAP_READ, 0, 0, 0);
+                if(pBase)
+                {
+                    /* retrieve file size */
+                    DWORD dwTLBLength = GetFileSize(hFile, NULL);
+                    DWORD dwSignature = FromLEDWord(*((DWORD*) pBase));
+
+                    if (dwSignature == MSFT_SIGNATURE)
+                        *ppTypeLib = ITypeLib2_Constructor_MSFT(pBase, dwTLBLength);
+                    else if (dwSignature == SLTG_SIGNATURE)
+                        *ppTypeLib = ITypeLib2_Constructor_SLTG(pBase, dwTLBLength);
+
+                    UnmapViewOfFile(pBase);
+                }
+                CloseHandle(hMapping);
+            }
+            CloseHandle(hFile);
+        }
     }
 
     if(*ppTypeLib) {
@@ -2873,13 +2429,17 @@ static ITypeLib2* ITypeLib2_Constructor_MSFT(LPVOID pLib, DWORD dwTLBLength)
     /* TLIBATTR fields */
     MSFT_ReadGuid(&pTypeLibImpl->LibAttr.guid, tlbHeader.posguid, &cx);
 
-    pTypeLibImpl->LibAttr.lcid = tlbHeader.lcid2;
+    /*    pTypeLibImpl->LibAttr.lcid = tlbHeader.lcid;*/
+    /* Windows seems to have zero here, is this correct? */
+    if(SUBLANGID(tlbHeader.lcid) == SUBLANG_NEUTRAL)
+      pTypeLibImpl->LibAttr.lcid = MAKELCID(MAKELANGID(PRIMARYLANGID(tlbHeader.lcid),0),0);
+    else
+      pTypeLibImpl->LibAttr.lcid = 0;
+
     pTypeLibImpl->LibAttr.syskind = tlbHeader.varflags & 0x0f; /* check the mask */
     pTypeLibImpl->LibAttr.wMajorVerNum = LOWORD(tlbHeader.version);
     pTypeLibImpl->LibAttr.wMinorVerNum = HIWORD(tlbHeader.version);
     pTypeLibImpl->LibAttr.wLibFlags = (WORD) tlbHeader.flags & 0xffff;/* check mask */
-
-    pTypeLibImpl->lcid = tlbHeader.lcid;
 
     /* name, eventually add to a hash table */
     pTypeLibImpl->Name = MSFT_ReadName(&cx, tlbHeader.NameOffset);
@@ -2903,7 +2463,7 @@ static ITypeLib2* ITypeLib2_Constructor_MSFT(LPVOID pLib, DWORD dwTLBLength)
         pTypeLibImpl->ctCustData = MSFT_CustData(&cx, tlbHeader.CustomDataOffset, &pTypeLibImpl->pCustData);
     }
 
-    /* fill in type descriptions */
+    /* fill in typedescriptions */
     if(tlbSegDir.pTypdescTab.length > 0)
     {
         int i, j, cTD = tlbSegDir.pTypdescTab.length / (2*sizeof(INT));
@@ -2977,6 +2537,7 @@ static ITypeLib2* ITypeLib2_Constructor_MSFT(LPVOID pLib, DWORD dwTLBLength)
         while(offset < tlbSegDir.pImpFiles.offset +tlbSegDir.pImpFiles.length)
 	{
             char *name;
+            DWORD len;
 
             *ppImpLib = TLB_Alloc(sizeof(TLBImpLib));
             (*ppImpLib)->offset = offset - tlbSegDir.pImpFiles.offset;
@@ -2990,7 +2551,10 @@ static ITypeLib2* ITypeLib2_Constructor_MSFT(LPVOID pLib, DWORD dwTLBLength)
             size >>= 2;
             name = TLB_Alloc(size+1);
             MSFT_Read(name, size, &cx, DO_NOT_SEEK);
-            (*ppImpLib)->name = TLB_MultiByteToBSTR(name);
+            len = MultiByteToWideChar(CP_ACP, 0, name, -1, NULL, 0 );
+            (*ppImpLib)->name = TLB_Alloc(len * sizeof(WCHAR));
+            MultiByteToWideChar(CP_ACP, 0, name, -1, (*ppImpLib)->name, len );
+            TLB_Free(name);
 
             MSFT_ReadGuid(&(*ppImpLib)->guid, oGuid, &cx);
             offset = (offset + sizeof(INT) + sizeof(DWORD) + sizeof(LCID) + sizeof(UINT16) + size + 3) & ~3;
@@ -3010,7 +2574,7 @@ static ITypeLib2* ITypeLib2_Constructor_MSFT(LPVOID pLib, DWORD dwTLBLength)
         ITypeInfoImpl **ppTI = &(pTypeLibImpl->pTypeInfo);
         int i;
 
-        for(i = 0; i < tlbHeader.nrtypeinfos; i++)
+        for(i = 0; i<(int)tlbHeader.nrtypeinfos; i++)
         {
             *ppTI = MSFT_DoTypeInfo(&cx, i, pTypeLibImpl);
 
@@ -3024,7 +2588,21 @@ static ITypeLib2* ITypeLib2_Constructor_MSFT(LPVOID pLib, DWORD dwTLBLength)
 }
 
 
-static BOOL TLB_GUIDFromString(const char *str, GUID *guid)
+static BSTR TLB_MultiByteToBSTR(char *ptr)
+{
+    DWORD len;
+    WCHAR *nameW;
+    BSTR ret;
+
+    len = MultiByteToWideChar(CP_ACP, 0, ptr, -1, NULL, 0);
+    nameW = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
+    MultiByteToWideChar(CP_ACP, 0, ptr, -1, nameW, len);
+    ret = SysAllocString(nameW);
+    HeapFree(GetProcessHeap(), 0, nameW);
+    return ret;
+}
+
+static BOOL TLB_GUIDFromString(char *str, GUID *guid)
 {
   char b[3];
   int i;
@@ -3046,27 +2624,29 @@ static BOOL TLB_GUIDFromString(const char *str, GUID *guid)
   return TRUE;
 }
 
-static WORD SLTG_ReadString(const char *ptr, BSTR *pBstr)
+static WORD SLTG_ReadString(char *ptr, BSTR *pBstr)
 {
     WORD bytelen;
     DWORD len;
+    WCHAR *nameW;
 
     *pBstr = NULL;
-    bytelen = *(const WORD*)ptr;
+    bytelen = *(WORD*)ptr;
     if(bytelen == 0xffff) return 2;
     len = MultiByteToWideChar(CP_ACP, 0, ptr + 2, bytelen, NULL, 0);
-    *pBstr = SysAllocStringLen(NULL, len);
-    if (*pBstr)
-        len = MultiByteToWideChar(CP_ACP, 0, ptr + 2, bytelen, *pBstr, len);
+    nameW = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
+    len = MultiByteToWideChar(CP_ACP, 0, ptr + 2, bytelen, nameW, len);
+    *pBstr = SysAllocStringLen(nameW, len);
+    HeapFree(GetProcessHeap(), 0, nameW);
     return bytelen + 2;
 }
 
-static WORD SLTG_ReadStringA(const char *ptr, char **str)
+static WORD SLTG_ReadStringA(char *ptr, char **str)
 {
     WORD bytelen;
 
     *str = NULL;
-    bytelen = *(const WORD*)ptr;
+    bytelen = *(WORD*)ptr;
     if(bytelen == 0xffff) return 2;
     *str = HeapAlloc(GetProcessHeap(), 0, bytelen + 1);
     memcpy(*str, ptr + 2, bytelen);
@@ -3102,9 +2682,9 @@ static DWORD SLTG_ReadLibBlk(LPVOID pLibBlk, ITypeLibImpl *pTypeLibImpl)
     ptr += 2;
 
     if(SUBLANGID(*(WORD*)ptr) == SUBLANG_NEUTRAL)
-        pTypeLibImpl->lcid = pTypeLibImpl->LibAttr.lcid = MAKELCID(MAKELANGID(PRIMARYLANGID(*(WORD*)ptr),0),0);
+        pTypeLibImpl->LibAttr.lcid = MAKELCID(MAKELANGID(PRIMARYLANGID(*(WORD*)ptr),0),0);
     else
-        pTypeLibImpl->lcid = pTypeLibImpl->LibAttr.lcid = 0;
+        pTypeLibImpl->LibAttr.lcid = 0;
     ptr += 2;
 
     ptr += 4; /* skip res12 */
@@ -3131,21 +2711,20 @@ typedef struct
     HREFTYPE refs[1];
 } sltg_ref_lookup_t;
 
-static HRESULT sltg_get_typelib_ref(const sltg_ref_lookup_t *table, DWORD typeinfo_ref,
-				    HREFTYPE *typelib_ref)
+static HRESULT sltg_get_typelib_ref(sltg_ref_lookup_t *table, DWORD typeinfo_ref, HREFTYPE *typelib_ref)
 {
-    if(table && typeinfo_ref < table->num)
+    if(typeinfo_ref < table->num)
     {
         *typelib_ref = table->refs[typeinfo_ref];
         return S_OK;
     }
 
-    ERR_(typelib)("Unable to find reference\n");
+    ERR("Unable to find reference\n");
     *typelib_ref = -1;
     return E_FAIL;
 }
 
-static WORD *SLTG_DoType(WORD *pType, char *pBlk, TYPEDESC *pTD, const sltg_ref_lookup_t *ref_lookup)
+static WORD *SLTG_DoType(WORD *pType, char *pBlk, TYPEDESC *pTD, sltg_ref_lookup_t *ref_lookup)
 {
     BOOL done = FALSE;
 
@@ -3211,8 +2790,7 @@ static WORD *SLTG_DoType(WORD *pType, char *pBlk, TYPEDESC *pTD, const sltg_ref_
     return pType;
 }
 
-static WORD *SLTG_DoElem(WORD *pType, char *pBlk,
-			 ELEMDESC *pElem, const sltg_ref_lookup_t *ref_lookup)
+static WORD *SLTG_DoElem(WORD *pType, char *pBlk, ELEMDESC *pElem, sltg_ref_lookup_t *ref_lookup)
 {
     /* Handle [in/out] first */
     if((*pType & 0xc000) == 0xc000)
@@ -3237,7 +2815,7 @@ static WORD *SLTG_DoElem(WORD *pType, char *pBlk,
 static sltg_ref_lookup_t *SLTG_DoRefs(SLTG_RefInfo *pRef, ITypeLibImpl *pTL,
 			char *pNameTable)
 {
-    unsigned int ref;
+    int ref;
     char *name;
     TLBRefType *ref_type;
     sltg_ref_lookup_t *table;
@@ -3247,7 +2825,7 @@ static sltg_ref_lookup_t *SLTG_DoRefs(SLTG_RefInfo *pRef, ITypeLibImpl *pTL,
         FIXME("Ref magic = %x\n", pRef->magic);
 	return NULL;
     }
-    name = ( (char*)pRef->names + pRef->number);
+    name = ( (char*)(&pRef->names) + pRef->number);
 
     table = HeapAlloc(GetProcessHeap(), 0, sizeof(*table) + ((pRef->number >> 3) - 1) * sizeof(table->refs[0]));
     table->num = pRef->number >> 3;
@@ -3265,7 +2843,7 @@ static sltg_ref_lookup_t *SLTG_DoRefs(SLTG_RefInfo *pRef, ITypeLibImpl *pTL,
 
 	name += SLTG_ReadStringA(name, &refname);
 	if(sscanf(refname, "*\\R%x*#%x", &lib_offs, &type_num) != 2)
-	    FIXME_(typelib)("Can't sscanf ref\n");
+	    FIXME("Can't sscanf ref\n");
 	if(lib_offs != 0xffff) {
 	    TLBImpLib **import = &pTL->pImpLibs;
 
@@ -3287,7 +2865,7 @@ static sltg_ref_lookup_t *SLTG_DoRefs(SLTG_RefInfo *pRef, ITypeLibImpl *pTL,
 			  &(*import)->wVersionMajor,
 			  &(*import)->wVersionMinor,
 			  &(*import)->lcid, fname) != 4) {
-		  FIXME_(typelib)("can't sscanf ref %s\n",
+		  FIXME("can't sscanf ref %s\n",
 			pNameTable + lib_offs + 40);
 		}
 		len = strlen(fname);
@@ -3315,13 +2893,13 @@ static sltg_ref_lookup_t *SLTG_DoRefs(SLTG_RefInfo *pRef, ITypeLibImpl *pTL,
         typelib_ref += 4;
     }
     if((BYTE)*name != SLTG_REF_MAGIC)
-      FIXME_(typelib)("End of ref block magic = %x\n", *name);
+      FIXME("End of ref block magic = %x\n", *name);
     dump_TLBRefType(pTL);
     return table;
 }
 
 static char *SLTG_DoImpls(char *pBlk, ITypeInfoImpl *pTI,
-			  BOOL OneOnly, const sltg_ref_lookup_t *ref_lookup)
+			  BOOL OneOnly, sltg_ref_lookup_t *ref_lookup)
 {
     SLTG_ImplInfo *info;
     TLBImplType **ppImplType = &pTI->impltypelist;
@@ -3344,21 +2922,21 @@ static char *SLTG_DoImpls(char *pBlk, ITypeInfoImpl *pTI,
         if(info->next == 0xffff)
 	    break;
 	if(OneOnly)
-	    FIXME_(typelib)("Interface inheriting more than one interface\n");
+	    FIXME("Interface inheriting more than one interface\n");
 	info = (SLTG_ImplInfo*)(pBlk + info->next);
     }
     info++; /* see comment at top of function */
     return (char*)info;
 }
 
-static void SLTG_DoVars(char *pBlk, char *pFirstItem, ITypeInfoImpl *pTI, unsigned short cVars,
-			const char *pNameTable, const sltg_ref_lookup_t *ref_lookup)
+static void SLTG_DoVars(char *pBlk, char *pFirstItem, ITypeInfoImpl *pTI, unsigned short cVars, char *pNameTable, sltg_ref_lookup_t *ref_lookup)
 {
   TLBVarDesc **ppVarDesc = &pTI->varlist;
   BSTR bstrPrevName = NULL;
   SLTG_Variable *pItem;
   unsigned short i;
   WORD *pType;
+  char buf[300];
 
   for(pItem = (SLTG_Variable *)pFirstItem, i = 0; i < cVars;
       pItem = (SLTG_Variable *)(pBlk + pItem->next), i++) {
@@ -3378,26 +2956,8 @@ static void SLTG_DoVars(char *pBlk, char *pFirstItem, ITypeInfoImpl *pTI, unsign
       else
         (*ppVarDesc)->Name = TLB_MultiByteToBSTR(pItem->name + pNameTable);
 
-      TRACE_(typelib)("name: %s\n", debugstr_w((*ppVarDesc)->Name));
       TRACE_(typelib)("byte_offs = 0x%x\n", pItem->byte_offs);
       TRACE_(typelib)("memid = 0x%x\n", pItem->memid);
-
-      if(pItem->flags & 0x02)
-	  pType = &pItem->type;
-      else
-	  pType = (WORD*)(pBlk + pItem->type);
-
-      if (pItem->flags & ~0xda)
-        FIXME_(typelib)("unhandled flags = %02x\n", pItem->flags & ~0xda);
-
-      SLTG_DoElem(pType, pBlk,
-		  &(*ppVarDesc)->vardesc.elemdescVar, ref_lookup);
-
-      if (TRACE_ON(typelib)) {
-          char buf[300];
-          dump_TypeDesc(&(*ppVarDesc)->vardesc.elemdescVar.tdesc, buf);
-          TRACE_(typelib)("elemdescVar: %s\n", buf);
-      }
 
       if (pItem->flags & 0x40) {
         TRACE_(typelib)("VAR_DISPATCH\n");
@@ -3409,42 +2969,8 @@ static void SLTG_DoVars(char *pBlk, char *pFirstItem, ITypeInfoImpl *pTI, unsign
         (*ppVarDesc)->vardesc.u.lpvarValue = HeapAlloc(GetProcessHeap(), 0,
 						       sizeof(VARIANT));
         V_VT((*ppVarDesc)->vardesc.u.lpvarValue) = VT_INT;
-        if (pItem->flags & 0x08)
-          V_INT((*ppVarDesc)->vardesc.u.lpvarValue) = pItem->byte_offs;
-        else {
-          switch ((*ppVarDesc)->vardesc.elemdescVar.tdesc.vt)
-          {
-            case VT_LPSTR:
-            case VT_LPWSTR:
-            case VT_BSTR:
-            {
-              WORD len = *(WORD *)(pBlk + pItem->byte_offs);
-              BSTR str;
-              TRACE_(typelib)("len = %u\n", len);
-              if (len == 0xffff) {
-                str = NULL;
-              } else {
-                INT alloc_len = MultiByteToWideChar(CP_ACP, 0, pBlk + pItem->byte_offs + 2, len, NULL, 0);
-                str = SysAllocStringLen(NULL, alloc_len);
-                MultiByteToWideChar(CP_ACP, 0, pBlk + pItem->byte_offs + 2, len, str, alloc_len);
-              }
-              V_VT((*ppVarDesc)->vardesc.u.lpvarValue) = VT_BSTR;
-              V_BSTR((*ppVarDesc)->vardesc.u.lpvarValue) = str;
-              break;
-            }
-            case VT_I2:
-            case VT_UI2:
-            case VT_I4:
-            case VT_UI4:
-            case VT_INT:
-            case VT_UINT:
-              V_INT((*ppVarDesc)->vardesc.u.lpvarValue) =
-                *(INT*)(pBlk + pItem->byte_offs);
-              break;
-            default:
-              FIXME_(typelib)("VAR_CONST unimplemented for type %d\n", (*ppVarDesc)->vardesc.elemdescVar.tdesc.vt);
-          }
-        }
+        V_UNION((*ppVarDesc)->vardesc.u.lpvarValue, intVal) =
+	  *(INT*)(pBlk + pItem->byte_offs);
       }
       else {
         TRACE_(typelib)("VAR_PERINSTANCE\n");
@@ -3458,14 +2984,26 @@ static void SLTG_DoVars(char *pBlk, char *pFirstItem, ITypeInfoImpl *pTI, unsign
       if (pItem->flags & 0x80)
         (*ppVarDesc)->vardesc.wVarFlags |= VARFLAG_FREADONLY;
 
+      if(pItem->flags & 0x02)
+	  pType = &pItem->type;
+      else
+	  pType = (WORD*)(pBlk + pItem->type);
+
+      if (pItem->flags & ~0xd2)
+        FIXME_(typelib)("unhandled flags = %02x\n", pItem->flags & ~0xd2);
+
+      SLTG_DoElem(pType, pBlk,
+		  &(*ppVarDesc)->vardesc.elemdescVar, ref_lookup);
+
+      dump_TypeDesc(&(*ppVarDesc)->vardesc.elemdescVar.tdesc, buf);
+
       bstrPrevName = (*ppVarDesc)->Name;
       ppVarDesc = &((*ppVarDesc)->next);
   }
   pTI->TypeAttr.cVars = cVars;
 }
 
-static void SLTG_DoFuncs(char *pBlk, char *pFirstItem, ITypeInfoImpl *pTI,
-			 unsigned short cFuncs, char *pNameTable, const sltg_ref_lookup_t *ref_lookup)
+static void SLTG_DoFuncs(char *pBlk, char *pFirstItem, ITypeInfoImpl *pTI, unsigned short cFuncs, char *pNameTable, sltg_ref_lookup_t *ref_lookup)
 {
     SLTG_Function *pFunc;
     unsigned short i;
@@ -3534,7 +3072,7 @@ static void SLTG_DoFuncs(char *pBlk, char *pFirstItem, ITypeInfoImpl *pTI,
 	       pointing at an alpha-numeric char.  However if *pArg is
 	       0xffff or 0xfffe then the param has no name, the former
 	       meaning that the next WORD is the type, the latter
-	       meaning that the next WORD is an offset to the type. */
+	       meaning the the next WORD is an offset to the type. */
 
 	    HaveOffs = FALSE;
 	    if(*pArg == 0xffff)
@@ -3568,9 +3106,6 @@ static void SLTG_DoFuncs(char *pBlk, char *pFirstItem, ITypeInfoImpl *pTI,
 	    if(paramName) {
 	        (*ppFuncDesc)->pParamDesc[param].Name =
 		  TLB_MultiByteToBSTR(paramName);
-	    } else {
-	        (*ppFuncDesc)->pParamDesc[param].Name =
-                  SysAllocString((*ppFuncDesc)->Name);
 	    }
 	}
 
@@ -3584,7 +3119,7 @@ static void SLTG_ProcessCoClass(char *pBlk, ITypeInfoImpl *pTI,
 				char *pNameTable, SLTG_TypeInfoHeader *pTIHeader,
 				SLTG_TypeInfoTail *pTITail)
 {
-    char *pFirstItem;
+    char *pFirstItem, *pNextItem;
     sltg_ref_lookup_t *ref_lookup = NULL;
 
     if(pTIHeader->href_table != 0xffffffff) {
@@ -3592,10 +3127,10 @@ static void SLTG_ProcessCoClass(char *pBlk, ITypeInfoImpl *pTI,
 		    pNameTable);
     }
 
-    pFirstItem = pBlk;
+    pFirstItem = pNextItem = pBlk;
 
     if(*(WORD*)pFirstItem == SLTG_IMPL_MAGIC) {
-        SLTG_DoImpls(pFirstItem, pTI, FALSE, ref_lookup);
+        pNextItem = SLTG_DoImpls(pFirstItem, pTI, FALSE, ref_lookup);
     }
     HeapFree(GetProcessHeap(), 0, ref_lookup);
 }
@@ -3603,9 +3138,9 @@ static void SLTG_ProcessCoClass(char *pBlk, ITypeInfoImpl *pTI,
 
 static void SLTG_ProcessInterface(char *pBlk, ITypeInfoImpl *pTI,
 				  char *pNameTable, SLTG_TypeInfoHeader *pTIHeader,
-				  const SLTG_TypeInfoTail *pTITail)
+				  SLTG_TypeInfoTail *pTITail)
 {
-    char *pFirstItem;
+    char *pFirstItem, *pNextItem;
     sltg_ref_lookup_t *ref_lookup = NULL;
 
     if(pTIHeader->href_table != 0xffffffff) {
@@ -3613,10 +3148,10 @@ static void SLTG_ProcessInterface(char *pBlk, ITypeInfoImpl *pTI,
 		    pNameTable);
     }
 
-    pFirstItem = pBlk;
+    pFirstItem = pNextItem = pBlk;
 
     if(*(WORD*)pFirstItem == SLTG_IMPL_MAGIC) {
-        SLTG_DoImpls(pFirstItem, pTI, TRUE, ref_lookup);
+        pNextItem = SLTG_DoImpls(pFirstItem, pTI, TRUE, ref_lookup);
     }
 
     if (pTITail->funcs_off != 0xffff)
@@ -3629,15 +3164,15 @@ static void SLTG_ProcessInterface(char *pBlk, ITypeInfoImpl *pTI,
 }
 
 static void SLTG_ProcessRecord(char *pBlk, ITypeInfoImpl *pTI,
-			       const char *pNameTable, SLTG_TypeInfoHeader *pTIHeader,
-			       const SLTG_TypeInfoTail *pTITail)
+			       char *pNameTable, SLTG_TypeInfoHeader *pTIHeader,
+			       SLTG_TypeInfoTail *pTITail)
 {
   SLTG_DoVars(pBlk, pBlk + pTITail->vars_off, pTI, pTITail->cVars, pNameTable, NULL);
 }
 
 static void SLTG_ProcessAlias(char *pBlk, ITypeInfoImpl *pTI,
 			      char *pNameTable, SLTG_TypeInfoHeader *pTIHeader,
-			      const SLTG_TypeInfoTail *pTITail)
+			      SLTG_TypeInfoTail *pTITail)
 {
   WORD *pType;
   sltg_ref_lookup_t *ref_lookup = NULL;
@@ -3663,7 +3198,7 @@ static void SLTG_ProcessAlias(char *pBlk, ITypeInfoImpl *pTI,
 
 static void SLTG_ProcessDispatch(char *pBlk, ITypeInfoImpl *pTI,
 				 char *pNameTable, SLTG_TypeInfoHeader *pTIHeader,
-				 const SLTG_TypeInfoTail *pTITail)
+				 SLTG_TypeInfoTail *pTITail)
 {
   sltg_ref_lookup_t *ref_lookup = NULL;
   if (pTIHeader->href_table != 0xffffffff)
@@ -3677,7 +3212,7 @@ static void SLTG_ProcessDispatch(char *pBlk, ITypeInfoImpl *pTI,
     SLTG_DoFuncs(pBlk, pBlk + pTITail->funcs_off, pTI, pTITail->cFuncs, pNameTable, ref_lookup);
 
   /* this is necessary to cope with MSFT typelibs that set cFuncs to the number
-   * of dispinterface functions including the IDispatch ones, so
+   * of dispinterface functons including the IDispatch ones, so
    * ITypeInfo::GetFuncDesc takes the real value for cFuncs from cbSizeVft */
   pTI->TypeAttr.cbSizeVft = pTI->TypeAttr.cFuncs * sizeof(void *);
 
@@ -3687,15 +3222,15 @@ static void SLTG_ProcessDispatch(char *pBlk, ITypeInfoImpl *pTI,
 }
 
 static void SLTG_ProcessEnum(char *pBlk, ITypeInfoImpl *pTI,
-			     const char *pNameTable, SLTG_TypeInfoHeader *pTIHeader,
-			     const SLTG_TypeInfoTail *pTITail)
+			     char *pNameTable, SLTG_TypeInfoHeader *pTIHeader,
+                             SLTG_TypeInfoTail *pTITail)
 {
   SLTG_DoVars(pBlk, pBlk + pTITail->vars_off, pTI, pTITail->cVars, pNameTable, NULL);
 }
 
 static void SLTG_ProcessModule(char *pBlk, ITypeInfoImpl *pTI,
 			       char *pNameTable, SLTG_TypeInfoHeader *pTIHeader,
-			       const SLTG_TypeInfoTail *pTITail)
+			       SLTG_TypeInfoTail *pTITail)
 {
   sltg_ref_lookup_t *ref_lookup = NULL;
   if (pTIHeader->href_table != 0xffffffff)
@@ -3708,8 +3243,6 @@ static void SLTG_ProcessModule(char *pBlk, ITypeInfoImpl *pTI,
   if (pTITail->funcs_off != 0xffff)
     SLTG_DoFuncs(pBlk, pBlk + pTITail->funcs_off, pTI, pTITail->cFuncs, pNameTable, ref_lookup);
   HeapFree(GetProcessHeap(), 0, ref_lookup);
-  if (TRACE_ON(typelib))
-    dump_TypeInfo(pTI);
 }
 
 /* Because SLTG_OtherTypeInfo is such a painful struct, we make a more
@@ -3762,7 +3295,7 @@ static ITypeLib2* ITypeLib2_Constructor_SLTG(LPVOID pLib, DWORD dwTLBLength)
     TRACE_(typelib)("\tmagic=0x%08x, file blocks = %d\n", pHeader->SLTG_magic,
 	  pHeader->nrOfFileBlks );
     if (pHeader->SLTG_magic != SLTG_SIGNATURE) {
-	FIXME_(typelib)("Header type magic 0x%08x not supported.\n",
+	FIXME("Header type magic 0x%08x not supported.\n",
 	      pHeader->SLTG_magic);
 	return NULL;
     }
@@ -3779,12 +3312,12 @@ static ITypeLib2* ITypeLib2_Constructor_SLTG(LPVOID pLib, DWORD dwTLBLength)
     /* Let's see if we're still in sync */
     if(memcmp(pMagic->CompObj_magic, SLTG_COMPOBJ_MAGIC,
 	      sizeof(SLTG_COMPOBJ_MAGIC))) {
-        FIXME_(typelib)("CompObj magic = %s\n", pMagic->CompObj_magic);
+        FIXME("CompObj magic = %s\n", pMagic->CompObj_magic);
 	return NULL;
     }
     if(memcmp(pMagic->dir_magic, SLTG_DIR_MAGIC,
 	      sizeof(SLTG_DIR_MAGIC))) {
-        FIXME_(typelib)("dir magic = %s\n", pMagic->dir_magic);
+        FIXME("dir magic = %s\n", pMagic->dir_magic);
 	return NULL;
     }
 
@@ -3792,7 +3325,7 @@ static ITypeLib2* ITypeLib2_Constructor_SLTG(LPVOID pLib, DWORD dwTLBLength)
 
     pPad9 = (SLTG_Pad9*)(pIndex + pTypeLibImpl->TypeInfoCount);
 
-    pFirstBlk = pPad9 + 1;
+    pFirstBlk = (LPVOID)(pPad9 + 1);
 
     /* We'll set up a ptr to the main library block, which is the last one. */
 
@@ -3878,7 +3411,7 @@ static ITypeLib2* ITypeLib2_Constructor_SLTG(LPVOID pLib, DWORD dwTLBLength)
        pNameTable += 0x20;
        break;
    default:
-       FIXME_(typelib)("pNameTable jump = %x\n", *(WORD*)pNameTable);
+       FIXME("pNameTable jump = %x\n", *(WORD*)pNameTable);
        break;
    }
 
@@ -3886,7 +3419,7 @@ static ITypeLib2* ITypeLib2_Constructor_SLTG(LPVOID pLib, DWORD dwTLBLength)
 
     pNameTable += 2;
 
-    TRACE_(typelib)("Library name is %s\n", pNameTable + pLibBlk->name);
+    TRACE("Library name is %s\n", pNameTable + pLibBlk->name);
 
     pTypeLibImpl->Name = TLB_MultiByteToBSTR(pNameTable + pLibBlk->name);
 
@@ -3908,17 +3441,16 @@ static ITypeLib2* ITypeLib2_Constructor_SLTG(LPVOID pLib, DWORD dwTLBLength)
 
       if(strcmp(pBlkEntry[order].index_string + (char*)pMagic,
 		pOtherTypeInfoBlks[i].index_name)) {
-	FIXME_(typelib)("Index strings don't match\n");
+	FIXME("Index strings don't match\n");
 	return NULL;
       }
 
       pTIHeader = pBlk;
       if(pTIHeader->magic != SLTG_TIHEADER_MAGIC) {
-	FIXME_(typelib)("TypeInfoHeader magic = %04x\n", pTIHeader->magic);
+	FIXME("TypeInfoHeader magic = %04x\n", pTIHeader->magic);
 	return NULL;
       }
-      TRACE_(typelib)("pTIHeader->res06 = %x, pTIHeader->res0e = %x, "
-        "pTIHeader->res16 = %x, pTIHeader->res1e = %x\n",
+      TRACE("pTIHeader->res06 = %x, pTIHeader->res0e = %x, pTIHeader->res16 = %x, pTIHeader->res1e = %x\n",
         pTIHeader->res06, pTIHeader->res0e, pTIHeader->res16, pTIHeader->res1e);
 
       *ppTypeInfoImpl = (ITypeInfoImpl*)ITypeInfo_Constructor();
@@ -3928,7 +3460,8 @@ static ITypeLib2* ITypeLib2_Constructor_SLTG(LPVOID pLib, DWORD dwTLBLength)
 					     pOtherTypeInfoBlks[i].name_offs +
 					     pNameTable);
       (*ppTypeInfoImpl)->dwHelpContext = pOtherTypeInfoBlks[i].helpcontext;
-      (*ppTypeInfoImpl)->TypeAttr.guid = pOtherTypeInfoBlks[i].uuid;
+      memcpy(&((*ppTypeInfoImpl)->TypeAttr.guid), &pOtherTypeInfoBlks[i].uuid,
+	     sizeof(GUID));
       (*ppTypeInfoImpl)->TypeAttr.typekind = pTIHeader->typekind;
       (*ppTypeInfoImpl)->TypeAttr.wMajorVerNum = pTIHeader->major_version;
       (*ppTypeInfoImpl)->TypeAttr.wMinorVerNum = pTIHeader->minor_version;
@@ -3936,11 +3469,11 @@ static ITypeLib2* ITypeLib2_Constructor_SLTG(LPVOID pLib, DWORD dwTLBLength)
 	(pTIHeader->typeflags1 >> 3) | (pTIHeader->typeflags2 << 5);
 
       if((pTIHeader->typeflags1 & 7) != 2)
-	FIXME_(typelib)("typeflags1 = %02x\n", pTIHeader->typeflags1);
+	FIXME("typeflags1 = %02x\n", pTIHeader->typeflags1);
       if(pTIHeader->typeflags3 != 2)
-	FIXME_(typelib)("typeflags3 = %02x\n", pTIHeader->typeflags3);
+	FIXME("typeflags3 = %02x\n", pTIHeader->typeflags3);
 
-      TRACE_(typelib)("TypeInfo %s of kind %s guid %s typeflags %04x\n",
+      TRACE("TypeInfo %s of kind %s guid %s typeflags %04x\n",
 	    debugstr_w((*ppTypeInfoImpl)->Name),
 	    typekind_desc[pTIHeader->typekind],
 	    debugstr_guid(&(*ppTypeInfoImpl)->TypeAttr.guid),
@@ -3996,23 +3529,23 @@ static ITypeLib2* ITypeLib2_Constructor_SLTG(LPVOID pLib, DWORD dwTLBLength)
 
       }
 
-      /* could get cFuncs, cVars and cImplTypes from here
+      if(pTITail) { /* could get cFuncs, cVars and cImplTypes from here
 		       but we've already set those */
 #define X(x) TRACE_(typelib)("tt "#x": %x\n",pTITail->res##x);
-      X(06);
-      X(16);
-      X(18);
-      X(1a);
-      X(1e);
-      X(24);
-      X(26);
-      X(2a);
-      X(2c);
-      X(2e);
-      X(30);
-      X(32);
-      X(34);
-#undef X
+	  X(06);
+	  X(16);
+	  X(18);
+	  X(1a);
+	  X(1e);
+	  X(24);
+	  X(26);
+	  X(2a);
+	  X(2c);
+	  X(2e);
+	  X(30);
+	  X(32);
+	  X(34);
+      }
       ppTypeInfoImpl = &((*ppTypeInfoImpl)->next);
       pBlk = (char*)pBlk + pBlkEntry[order].len;
     }
@@ -4097,17 +3630,29 @@ static ULONG WINAPI ITypeLib2_fnRelease( ITypeLib2 *iface)
       }
       TRACE(" destroying ITypeLib(%p)\n",This);
 
-      SysFreeString(This->Name);
-      This->Name = NULL;
+      if (This->Name)
+      {
+          SysFreeString(This->Name);
+          This->Name = NULL;
+      }
 
-      SysFreeString(This->DocString);
-      This->DocString = NULL;
+      if (This->DocString)
+      {
+          SysFreeString(This->DocString);
+          This->DocString = NULL;
+      }
 
-      SysFreeString(This->HelpFile);
-      This->HelpFile = NULL;
+      if (This->HelpFile)
+      {
+          SysFreeString(This->HelpFile);
+          This->HelpFile = NULL;
+      }
 
-      SysFreeString(This->HelpStringDll);
-      This->HelpStringDll = NULL;
+      if (This->HelpStringDll)
+      {
+          SysFreeString(This->HelpStringDll);
+          This->HelpStringDll = NULL;
+      }
 
       for (pCustData = This->pCustData; pCustData; pCustData = pCustDataNext)
       {
@@ -4127,7 +3672,7 @@ static ULONG WINAPI ITypeLib2_fnRelease( ITypeLib2 *iface)
       {
           if (pImpLib->pImpTypeLib)
               ITypeLib_Release((ITypeLib *)pImpLib->pImpTypeLib);
-          SysFreeString(pImpLib->name);
+          TLB_Free(pImpLib->name);
 
           pImpLibNext = pImpLib->next;
           TLB_Free(pImpLib);
@@ -4168,7 +3713,7 @@ static HRESULT WINAPI ITypeLib2_fnGetTypeInfo(
     UINT index,
     ITypeInfo **ppTInfo)
 {
-    UINT i;
+    int i;
 
     ITypeLibImpl *This = (ITypeLibImpl *)iface;
     ITypeInfoImpl *pTypeInfo = This->pTypeInfo;
@@ -4206,10 +3751,10 @@ static HRESULT WINAPI ITypeLib2_fnGetTypeInfoType(
     TYPEKIND *pTKind)
 {
     ITypeLibImpl *This = (ITypeLibImpl *)iface;
-    UINT i;
+    int i;
     ITypeInfoImpl *pTInfo = This->pTypeInfo;
 
-    if (ITypeLib2_fnGetTypeInfoCount(iface) < index + 1)
+    if ((ITypeLib2_fnGetTypeInfoCount(iface) < index + 1) || (index < 0))
     	 return TYPE_E_ELEMENTNOTFOUND;
 
     TRACE("(%p) index %d\n", This, index);
@@ -4287,7 +3832,7 @@ static HRESULT WINAPI ITypeLib2_fnGetLibAttr(
     ITypeLibImpl *This = (ITypeLibImpl *)iface;
     TRACE("(%p)\n",This);
     *ppTLibAttr = HeapAlloc(GetProcessHeap(), 0, sizeof(**ppTLibAttr));
-    **ppTLibAttr = This->LibAttr;
+    memcpy(*ppTLibAttr, &This->LibAttr, sizeof(**ppTLibAttr));
     return S_OK;
 }
 
@@ -4851,7 +4396,7 @@ static const ITypeCompVtbl tlbtcvt =
 };
 
 /*================== ITypeInfo(2) Methods ===================================*/
-static ITypeInfo2 * ITypeInfo_Constructor(void)
+static ITypeInfo2 * WINAPI ITypeInfo_Constructor(void)
 {
     ITypeInfoImpl * pTypeInfoImpl;
 
@@ -4925,24 +4470,34 @@ static ULONG WINAPI ITypeInfo_fnRelease(ITypeInfo2 *iface)
       TLBFuncDesc *pFInfo, *pFInfoNext;
       TLBVarDesc *pVInfo, *pVInfoNext;
       TLBImplType *pImpl, *pImplNext;
+      TLBCustData *pCustData, *pCustDataNext;
 
       TRACE("destroying ITypeInfo(%p)\n",This);
 
       if (This->no_free_data)
           goto finish_free;
 
-      SysFreeString(This->Name);
-      This->Name = NULL;
+      if (This->Name)
+      {
+          SysFreeString(This->Name);
+          This->Name = 0;
+      }
 
-      SysFreeString(This->DocString);
-      This->DocString = NULL;
+      if (This->DocString)
+      {
+          SysFreeString(This->DocString);
+          This->DocString = 0;
+      }
 
-      SysFreeString(This->DllName);
-      This->DllName = NULL;
+      if (This->DllName)
+      {
+          SysFreeString(This->DllName);
+          This->DllName = 0;
+      }
 
       for (pFInfo = This->funclist; pFInfo; pFInfo = pFInfoNext)
       {
-          INT i;
+          UINT i;
           for(i = 0;i < pFInfo->funcdesc.cParams; i++)
           {
               ELEMDESC *elemdesc = &pFInfo->funcdesc.lprgelemdescParam[i];
@@ -4955,8 +4510,14 @@ static ULONG WINAPI ITypeInfo_fnRelease(ITypeInfo2 *iface)
           }
           TLB_Free(pFInfo->funcdesc.lprgelemdescParam);
           TLB_Free(pFInfo->pParamDesc);
-          TLB_FreeCustData(pFInfo->pCustData);
-          if (HIWORD(pFInfo->Entry) != 0 && pFInfo->Entry != (BSTR)-1) 
+          for (pCustData = This->pCustData; pCustData; pCustData = pCustDataNext)
+          {
+              VariantClear(&pCustData->data);
+
+              pCustDataNext = pCustData->next;
+              TLB_Free(pCustData);
+          }
+          if (HIWORD(pFInfo->Entry) != 0 && pFInfo->Entry != (BSTR)-1)
               SysFreeString(pFInfo->Entry);
           SysFreeString(pFInfo->HelpString);
           SysFreeString(pFInfo->Name);
@@ -4971,18 +4532,23 @@ static ULONG WINAPI ITypeInfo_fnRelease(ITypeInfo2 *iface)
               VariantClear(pVInfo->vardesc.u.lpvarValue);
               TLB_Free(pVInfo->vardesc.u.lpvarValue);
           }
-          TLB_FreeCustData(pVInfo->pCustData);
           SysFreeString(pVInfo->Name);
           pVInfoNext = pVInfo->next;
           TLB_Free(pVInfo);
       }
       for(pImpl = This->impltypelist; pImpl; pImpl = pImplNext)
       {
-          TLB_FreeCustData(pImpl->pCustData);
+          for (pCustData = pImpl->pCustData; pCustData; pCustData = pCustDataNext)
+          {
+              VariantClear(&pCustData->data);
+
+              pCustDataNext = pCustData->next;
+              TLB_Free(pCustData);
+          }
           pImplNext = pImpl->next;
           TLB_Free(pImpl);
       }
-      TLB_FreeCustData(This->pCustData);
+      TLB_Free(This->pCustData);
 
 finish_free:
       if (This->next)
@@ -5018,16 +4584,16 @@ static HRESULT WINAPI ITypeInfo_fnGetTypeAttr( ITypeInfo2 *iface,
     if (!*ppTypeAttr)
         return E_OUTOFMEMORY;
 
-    **ppTypeAttr = This->TypeAttr;
+    memcpy(*ppTypeAttr, &This->TypeAttr, sizeof(**ppTypeAttr));
 
     if (This->TypeAttr.typekind == TKIND_ALIAS)
         TLB_CopyTypeDesc(&(*ppTypeAttr)->tdescAlias,
-            &This->TypeAttr.tdescAlias, *ppTypeAttr + 1);
+            &This->TypeAttr.tdescAlias, (void *)(*ppTypeAttr + 1));
 
     if((*ppTypeAttr)->typekind == TKIND_DISPATCH) {
-        /* This should include all the inherited funcs */
-        (*ppTypeAttr)->cFuncs = (*ppTypeAttr)->cbSizeVft / sizeof(void *);
-        (*ppTypeAttr)->cbSizeVft = 7 * sizeof(void *); /* This is always the size of IDispatch's vtbl */
+        (*ppTypeAttr)->cFuncs = (*ppTypeAttr)->cbSizeVft / 4; /* This should include all the inherited
+                                                                 funcs */
+        (*ppTypeAttr)->cbSizeVft = 28; /* This is always the size of IDispatch's vtbl */
         (*ppTypeAttr)->wTypeFlags &= ~TYPEFLAG_FOLEAUTOMATION;
     }
     return S_OK;
@@ -5061,16 +4627,16 @@ static SIZE_T TLB_SizeElemDesc( const ELEMDESC *elemdesc )
 
 static HRESULT TLB_CopyElemDesc( const ELEMDESC *src, ELEMDESC *dest, char **buffer )
 {
-    *dest = *src;
+    memcpy(dest, src, sizeof(ELEMDESC));
     *buffer = TLB_CopyTypeDesc(&dest->tdesc, &src->tdesc, *buffer);
     if (src->u.paramdesc.wParamFlags & PARAMFLAG_FHASDEFAULT)
     {
         const PARAMDESCEX *pparamdescex_src = src->u.paramdesc.pparamdescex;
         PARAMDESCEX *pparamdescex_dest = dest->u.paramdesc.pparamdescex = (PARAMDESCEX *)*buffer;
         *buffer += sizeof(PARAMDESCEX);
-        *pparamdescex_dest = *pparamdescex_src;
+        memcpy(pparamdescex_dest, pparamdescex_src, sizeof(PARAMDESCEX));
         VariantInit(&pparamdescex_dest->varDefaultValue);
-        return VariantCopy(&pparamdescex_dest->varDefaultValue, 
+        return VariantCopy(&pparamdescex_dest->varDefaultValue,
                            (VARIANTARG *)&pparamdescex_src->varDefaultValue);
     }
     else
@@ -5103,9 +4669,7 @@ static HRESULT TLB_AllocAndInitFuncDesc( const FUNCDESC *src, FUNCDESC **dest_pt
     dest = (FUNCDESC *)SysAllocStringByteLen(NULL, size);
     if (!dest) return E_OUTOFMEMORY;
 
-    *dest = *src;
-    if (dispinterface)    /* overwrite funckind */
-        dest->funckind = FUNC_DISPATCH;
+    memcpy(dest, src, sizeof(FUNCDESC));
     buffer = (char *)(dest + 1);
 
     dest->lprgscode = (SCODE *)buffer;
@@ -5177,7 +4741,7 @@ HRESULT ITypeInfoImpl_GetInternalFuncDesc( ITypeInfo *iface, UINT index, const F
 {
     ITypeInfoImpl *This = (ITypeInfoImpl *)iface;
     const TLBFuncDesc *pFDesc;
-    UINT i;
+    int i;
 
     for(i=0, pFDesc=This->funclist; i!=index && pFDesc; i++, pFDesc=pFDesc->next)
         ;
@@ -5229,7 +4793,7 @@ static HRESULT ITypeInfoImpl_GetInternalDispatchFuncDesc( ITypeInfo *iface,
         *funcs = implemented_funcs + This->TypeAttr.cFuncs;
     else
         *hrefoffset = 0;
-    
+
     if (index < implemented_funcs)
         return E_INVALIDARG;
     return ITypeInfoImpl_GetInternalFuncDesc(iface, index - implemented_funcs,
@@ -5370,7 +4934,7 @@ static HRESULT WINAPI ITypeInfo_fnGetVarDesc( ITypeInfo2 *iface, UINT index,
         LPVARDESC  *ppVarDesc)
 {
     ITypeInfoImpl *This = (ITypeInfoImpl *)iface;
-    UINT i;
+    int i;
     const TLBVarDesc *pVDesc;
 
     TRACE("(%p) index %d\n", This, index);
@@ -5462,7 +5026,7 @@ static HRESULT WINAPI ITypeInfo_fnGetRefTypeOfImplType(
 	HREFTYPE  *pRefType)
 {
     ITypeInfoImpl *This = (ITypeInfoImpl *)iface;
-    UINT i;
+    int i;
     HRESULT hr = S_OK;
     const TLBImplType *pImpl = This->impltypelist;
 
@@ -5525,7 +5089,7 @@ static HRESULT WINAPI ITypeInfo_fnGetImplTypeFlags( ITypeInfo2 *iface,
         UINT index, INT  *pImplTypeFlags)
 {
     ITypeInfoImpl *This = (ITypeInfoImpl *)iface;
-    UINT i;
+    int i;
     TLBImplType *pImpl;
 
     TRACE("(%p) index %d\n", This, index);
@@ -5551,7 +5115,7 @@ static HRESULT WINAPI ITypeInfo_fnGetIDsOfNames( ITypeInfo2 *iface,
     const TLBFuncDesc *pFDesc;
     const TLBVarDesc *pVDesc;
     HRESULT ret=S_OK;
-    UINT i;
+    int i;
 
     TRACE("(%p) Name %s cNames %d\n", This, debugstr_w(*rgszNames),
             cNames);
@@ -5728,32 +5292,7 @@ _invoke(FARPROC func,CALLCONV callconv, int nrargs, DWORD *args) {
     return res;
 }
 
-/* The size of the argument on the stack in DWORD units (in all x86 call
- * convetions the arguments on the stack are DWORD-aligned)
- */
-static int _dispargsize(VARTYPE vt)
-{
-    switch (vt) {
-    case VT_I8:
-    case VT_UI8:
-	return 8/sizeof(DWORD);
-    case VT_R8:
-        return sizeof(double)/sizeof(DWORD);
-    case VT_DECIMAL:
-        return (sizeof(DECIMAL)+3)/sizeof(DWORD);
-    case VT_CY:
-        return sizeof(CY)/sizeof(DWORD);
-    case VT_DATE:
-	return sizeof(DATE)/sizeof(DWORD);
-    case VT_VARIANT:
-	return (sizeof(VARIANT)+3)/sizeof(DWORD);
-    case VT_RECORD:
-        FIXME("VT_RECORD not implemented\n");
-        return 1;
-    default:
-	return 1;
-    }
-}
+extern int _argsize(DWORD vt);
 
 static HRESULT userdefined_to_variantvt(ITypeInfo *tinfo, const TYPEDESC *tdesc, VARTYPE *vt)
 {
@@ -5833,7 +5372,7 @@ static HRESULT typedescvt_to_variantvt(ITypeInfo *tinfo, const TYPEDESC *tdesc, 
         tdesc = tdesc->u.lptdesc;
 
         /* munch VT_PTR -> VT_USERDEFINED(interface) into VT_UNKNOWN or
-         * VT_DISPATCH and VT_PTR -> VT_PTR -> VT_USERDEFINED(interface) into 
+         * VT_DISPATCH and VT_PTR -> VT_PTR -> VT_USERDEFINED(interface) into
          * VT_BYREF|VT_DISPATCH or VT_BYREF|VT_UNKNOWN */
         if ((tdesc->vt == VT_USERDEFINED) ||
             ((tdesc->vt == VT_PTR) && (tdesc->u.lptdesc->vt == VT_USERDEFINED)))
@@ -5846,7 +5385,7 @@ static HRESULT typedescvt_to_variantvt(ITypeInfo *tinfo, const TYPEDESC *tdesc, 
                 tdesc_userdefined = tdesc->u.lptdesc;
             }
             hr = userdefined_to_variantvt(tinfo, tdesc_userdefined, &vt_userdefined);
-            if ((hr == S_OK) && 
+            if ((hr == S_OK) &&
                 (((vt_userdefined & VT_TYPEMASK) == VT_UNKNOWN) ||
                  ((vt_userdefined & VT_TYPEMASK) == VT_DISPATCH)))
             {
@@ -5877,12 +5416,6 @@ static HRESULT typedescvt_to_variantvt(ITypeInfo *tinfo, const TYPEDESC *tdesc, 
         *vt |= VT_ARRAY;
         hr = typedescvt_to_variantvt(tinfo, tdesc->u.lptdesc, vt);
         break;
-    case VT_INT:
-        *vt |= VT_I4;
-        break;
-    case VT_UINT:
-        *vt |= VT_UI4;
-        break;
     default:
         *vt |= tdesc->vt;
         break;
@@ -5893,7 +5426,7 @@ static HRESULT typedescvt_to_variantvt(ITypeInfo *tinfo, const TYPEDESC *tdesc, 
 /***********************************************************************
  *		DispCallFunc (OLEAUT32.@)
  *
- * Invokes a function of the specified calling convention, passing the
+ * Invokes a function of the specifed calling convention, passing the
  * specified arguments and returns the result.
  *
  * PARAMS
@@ -5933,8 +5466,7 @@ DispCallFunc(
     void* pvInstance, ULONG_PTR oVft, CALLCONV cc, VARTYPE vtReturn, UINT cActuals,
     VARTYPE* prgvt, VARIANTARG** prgpvarg, VARIANT* pvargResult)
 {
-    int argsize, argspos;
-    UINT i;
+    int i, argsize, argspos;
     DWORD *args;
     HRESULT hres;
 
@@ -5948,9 +5480,9 @@ DispCallFunc(
 
     for (i=0;i<cActuals;i++)
     {
-        TRACE("arg %u: type %d, size %d\n",i,prgvt[i],_dispargsize(prgvt[i]));
+        TRACE("arg %d: type %d, size %d\n",i,prgvt[i],_argsize(prgvt[i]));
         dump_Variant(prgpvarg[i]);
-        argsize += _dispargsize(prgvt[i]);
+        argsize += _argsize(prgvt[i]);
     }
     args = HeapAlloc(GetProcessHeap(),0,sizeof(DWORD)*argsize);
 
@@ -5964,12 +5496,12 @@ DispCallFunc(
     for (i=0;i<cActuals;i++)
     {
         VARIANT *arg = prgpvarg[i];
-        TRACE("Storing arg %u (%d as %d)\n",i,V_VT(arg),prgvt[i]);
+        TRACE("Storing arg %d (%d as %d)\n",i,V_VT(arg),prgvt[i]);
         if (prgvt[i] == VT_VARIANT)
-            memcpy(&args[argspos], arg, _dispargsize(prgvt[i]) * sizeof(DWORD));
+            memcpy(&args[argspos], arg, _argsize(prgvt[i]) * sizeof(DWORD));
         else
-            memcpy(&args[argspos], &V_NONE(arg), _dispargsize(prgvt[i]) * sizeof(DWORD));
-        argspos += _dispargsize(prgvt[i]);
+            memcpy(&args[argspos], &V_NONE(arg), _argsize(prgvt[i]) * sizeof(DWORD));
+        argspos += _argsize(prgvt[i]);
     }
 
     if (pvInstance)
@@ -5995,7 +5527,8 @@ DispCallFunc(
 
 #define INVBUF_ELEMENT_SIZE \
     (sizeof(VARIANTARG) + sizeof(VARIANTARG) + sizeof(VARIANTARG *) + sizeof(VARTYPE))
-#define INVBUF_GET_ARG_ARRAY(buffer, params) (buffer)
+#define INVBUF_GET_ARG_ARRAY(buffer, params) \
+    ((VARIANTARG *)(buffer))
 #define INVBUF_GET_MISSING_ARG_ARRAY(buffer, params) \
     ((VARIANTARG *)((char *)(buffer) + sizeof(VARIANTARG) * (params)))
 #define INVBUF_GET_ARG_PTR_ARRAY(buffer, params) \
@@ -6054,7 +5587,7 @@ static HRESULT WINAPI ITypeInfo_fnInvoke(
             TRACE("invoking:\n");
             dump_TLBFuncDescOne(pFuncInfo);
         }
-        
+
 	switch (func_desc->funckind) {
 	case FUNC_PUREVIRTUAL:
 	case FUNC_VIRTUAL: {
@@ -6066,7 +5599,6 @@ static HRESULT WINAPI ITypeInfo_fnInvoke(
             VARTYPE *rgvt = INVBUF_GET_ARG_TYPE_ARRAY(buffer, func_desc->cParams);
             UINT cNamedArgs = pDispParams->cNamedArgs;
             DISPID *rgdispidNamedArgs = pDispParams->rgdispidNamedArgs;
-            UINT vargs_converted=0;
 
             hres = S_OK;
 
@@ -6104,15 +5636,6 @@ static HRESULT WINAPI ITypeInfo_fnInvoke(
                 USHORT wParamFlags = func_desc->lprgelemdescParam[i].u.paramdesc.wParamFlags;
                 VARIANTARG *src_arg;
 
-                if (wParamFlags & PARAMFLAG_FLCID)
-                {
-                    VARIANTARG *arg;
-                    arg = prgpvarg[i] = &rgvarg[i];
-                    V_VT(arg) = VT_I4;
-                    V_I4(arg) = This->pTypeLib->lcid;
-                    continue;
-                }
-
                 if (cNamedArgs)
                 {
                     USHORT j;
@@ -6125,10 +5648,7 @@ static HRESULT WINAPI ITypeInfo_fnInvoke(
                         }
                 }
                 else
-                {
-                    src_arg = vargs_converted < pDispParams->cArgs ? &pDispParams->rgvarg[pDispParams->cArgs - 1 - vargs_converted] : NULL;
-                    vargs_converted++;
-                }
+                    src_arg = i < pDispParams->cArgs ? &pDispParams->rgvarg[pDispParams->cArgs - 1 - i] : NULL;
 
                 if (wParamFlags & PARAMFLAG_FRETVAL)
                 {
@@ -6294,15 +5814,10 @@ static HRESULT WINAPI ITypeInfo_fnInvoke(
                                 V_VT(&varresult), func_desc->cParams, rgvt,
                                 prgpvarg, &varresult);
 
-            vargs_converted = 0;
-
             for (i = 0; i < func_desc->cParams; i++)
             {
                 USHORT wParamFlags = func_desc->lprgelemdescParam[i].u.paramdesc.wParamFlags;
-
-                if (wParamFlags & PARAMFLAG_FLCID)
-                    continue;
-                else if (wParamFlags & PARAMFLAG_FRETVAL)
+                if (wParamFlags & PARAMFLAG_FRETVAL)
                 {
                     if (TRACE_ON(ole))
                     {
@@ -6330,11 +5845,11 @@ static HRESULT WINAPI ITypeInfo_fnInvoke(
                     }
                     break;
                 }
-                else if (vargs_converted < pDispParams->cArgs)
+                else if (i < pDispParams->cArgs)
                 {
                     if (wParamFlags & PARAMFLAG_FOUT)
                     {
-                        VARIANTARG *arg = &pDispParams->rgvarg[pDispParams->cArgs - 1 - vargs_converted];
+                        VARIANTARG *arg = &pDispParams->rgvarg[pDispParams->cArgs - 1 - i];
 
                         if ((rgvt[i] == VT_BYREF) && (V_VT(arg) != VT_BYREF))
                             hres = VariantChangeType(arg, &rgvarg[i], 0, V_VT(arg));
@@ -6342,7 +5857,7 @@ static HRESULT WINAPI ITypeInfo_fnInvoke(
                         if (FAILED(hres))
                         {
                             ERR("failed to convert param %d to vt %d\n", i,
-                                V_VT(&pDispParams->rgvarg[pDispParams->cArgs - 1 - vargs_converted]));
+                                V_VT(&pDispParams->rgvarg[pDispParams->cArgs - 1 - i]));
                             break;
                         }
                     }
@@ -6375,7 +5890,6 @@ static HRESULT WINAPI ITypeInfo_fnInvoke(
                         }
                     }
                     VariantClear(&rgvarg[i]);
-                    vargs_converted++;
                 }
                 else if (wParamFlags & PARAMFLAG_FOPT)
                 {
@@ -6475,7 +5989,7 @@ func_fail:
 
         hres = ITypeInfo2_GetVarDesc(iface, var_index, &var_desc);
         if(FAILED(hres)) return hres;
-        
+
         FIXME("varseek: Found memid, but variable-based invoking not supported\n");
         dump_VARDESC(var_desc);
         ITypeInfo2_ReleaseVarDesc(iface, var_desc);
@@ -6728,7 +6242,7 @@ static HRESULT WINAPI ITypeInfo_fnGetRefTypeInfo(
                 if(ref_type->pImpTLInfo->pImpTypeLib) {
 		    TRACE("typeinfo in imported typelib that is already loaded\n");
                     pTLib = (ITypeLib*)ref_type->pImpTLInfo->pImpTypeLib;
-		    ITypeLib2_AddRef(pTLib);
+		    ITypeLib2_AddRef((ITypeLib*) pTLib);
 		    result = S_OK;
 		} else {
 		    TRACE("typeinfo in imported typelib that isn't already loaded\n");
@@ -6738,7 +6252,7 @@ static HRESULT WINAPI ITypeInfo_fnGetRefTypeInfo(
                                              ref_type->pImpTLInfo->lcid,
 					     &pTLib);
 
-                    if(FAILED(result)) {
+		    if(!SUCCEEDED(result)) {
                         BSTR libnam=SysAllocString(ref_type->pImpTLInfo->name);
 			result=LoadTypeLib(libnam, &pTLib);
 			SysFreeString(libnam);
@@ -6794,7 +6308,7 @@ static HRESULT WINAPI ITypeInfo_fnAddressOfMember( ITypeInfo2 *iface,
     {
         ERR("couldn't load %s\n", debugstr_w(dll));
         SysFreeString(dll);
-        SysFreeString(entry);
+        if (entry) SysFreeString(entry);
         return STG_E_FILENOTFOUND;
     }
     /* FIXME: store library somewhere where we can free it */
@@ -6820,7 +6334,7 @@ static HRESULT WINAPI ITypeInfo_fnAddressOfMember( ITypeInfo2 *iface,
     }
 
     SysFreeString(dll);
-    SysFreeString(entry);
+    if (entry) SysFreeString(entry);
 
     if (!*ppv)
         return TYPE_E_DLLFUNCTIONNOTFOUND;
@@ -6904,19 +6418,19 @@ static HRESULT WINAPI ITypeInfo_fnGetContainingTypeLib( ITypeInfo2 *iface,
         ITypeLib  * *ppTLib, UINT  *pIndex)
 {
     ITypeInfoImpl *This = (ITypeInfoImpl *)iface;
-    
+
     /* If a pointer is null, we simply ignore it, the ATL in particular passes pIndex as 0 */
     if (pIndex) {
       *pIndex=This->index;
       TRACE("returning pIndex=%d\n", *pIndex);
     }
-    
+
     if (ppTLib) {
       *ppTLib=(LPTYPELIB )(This->pTypeLib);
       ITypeLib2_AddRef(*ppTLib);
       TRACE("returning ppTLib=%p\n", *ppTLib);
     }
-    
+
     return S_OK;
 }
 
@@ -7069,12 +6583,13 @@ static HRESULT WINAPI ITypeInfo2_fnGetCustData(
 
     TRACE("(%p) guid %s %s found!x)\n", This, debugstr_guid(guid), pCData? "" : "NOT");
 
-    VariantInit( pVarVal);
-    if (pCData)
+    if(pCData)
+    {
+        VariantInit( pVarVal);
         VariantCopy( pVarVal, &pCData->data);
-    else
-        VariantClear( pVarVal );
-    return S_OK;
+        return S_OK;
+    }
+    return E_INVALIDARG;  /* FIXME: correct? */
 }
 
 /* ITypeInfo2::GetFuncCustData
@@ -7090,7 +6605,7 @@ static HRESULT WINAPI ITypeInfo2_fnGetFuncCustData(
     ITypeInfoImpl *This = (ITypeInfoImpl *)iface;
     TLBCustData *pCData=NULL;
     TLBFuncDesc * pFDesc;
-    UINT i;
+    int i;
     for(i=0, pFDesc=This->funclist; i!=index && pFDesc; i++,
             pFDesc=pFDesc->next);
 
@@ -7122,11 +6637,11 @@ static HRESULT WINAPI ITypeInfo2_fnGetParamCustData(
     ITypeInfoImpl *This = (ITypeInfoImpl *)iface;
     TLBCustData *pCData=NULL;
     TLBFuncDesc * pFDesc;
-    UINT i;
+    int i;
 
     for(i=0, pFDesc=This->funclist; i!=indexFunc && pFDesc; i++,pFDesc=pFDesc->next);
 
-    if(pFDesc && indexParam<pFDesc->funcdesc.cParams)
+    if(pFDesc && indexParam >=0 && indexParam<pFDesc->funcdesc.cParams)
         for(pCData=pFDesc->pParamDesc[indexParam].pCustData; pCData;
                 pCData = pCData->next)
             if( IsEqualIID(guid, &pCData->guid)) break;
@@ -7155,7 +6670,7 @@ static HRESULT WINAPI ITypeInfo2_fnGetVarCustData(
     ITypeInfoImpl *This = (ITypeInfoImpl *)iface;
     TLBCustData *pCData=NULL;
     TLBVarDesc * pVDesc;
-    UINT i;
+    int i;
 
     for(i=0, pVDesc=This->varlist; i!=index && pVDesc; i++, pVDesc=pVDesc->next);
 
@@ -7191,7 +6706,7 @@ static HRESULT WINAPI ITypeInfo2_fnGetImplTypeCustData(
     ITypeInfoImpl *This = (ITypeInfoImpl *)iface;
     TLBCustData *pCData=NULL;
     TLBImplType * pRDesc;
-    UINT i;
+    int i;
 
     for(i=0, pRDesc=This->impltypelist; i!=index && pRDesc; i++, pRDesc=pRDesc->next);
 
@@ -7318,7 +6833,7 @@ static HRESULT WINAPI ITypeInfo2_fnGetAllFuncCustData(
     ITypeInfoImpl *This = (ITypeInfoImpl *)iface;
     TLBCustData *pCData;
     TLBFuncDesc * pFDesc;
-    UINT i;
+    int i;
     TRACE("(%p) index %d\n", This, index);
     for(i=0, pFDesc=This->funclist; i!=index && pFDesc; i++,
             pFDesc=pFDesc->next)
@@ -7354,12 +6869,12 @@ static HRESULT WINAPI ITypeInfo2_fnGetAllParamCustData( ITypeInfo2 * iface,
     ITypeInfoImpl *This = (ITypeInfoImpl *)iface;
     TLBCustData *pCData=NULL;
     TLBFuncDesc * pFDesc;
-    UINT i;
+    int i;
     TRACE("(%p) index %d\n", This, indexFunc);
     for(i=0, pFDesc=This->funclist; i!=indexFunc && pFDesc; i++,
             pFDesc=pFDesc->next)
         ;
-    if(pFDesc && indexParam<pFDesc->funcdesc.cParams){
+    if(pFDesc && indexParam >=0 && indexParam<pFDesc->funcdesc.cParams){
         pCustData->prgCustData =
             TLB_Alloc(pFDesc->pParamDesc[indexParam].ctCustData *
                     sizeof(CUSTDATAITEM));
@@ -7391,7 +6906,7 @@ static HRESULT WINAPI ITypeInfo2_fnGetAllVarCustData( ITypeInfo2 * iface,
     ITypeInfoImpl *This = (ITypeInfoImpl *)iface;
     TLBCustData *pCData;
     TLBVarDesc * pVDesc;
-    UINT i;
+    int i;
     TRACE("(%p) index %d\n", This, index);
     for(i=0, pVDesc=This->varlist; i!=index && pVDesc; i++,
             pVDesc=pVDesc->next)
@@ -7429,7 +6944,7 @@ static HRESULT WINAPI ITypeInfo2_fnGetAllImplTypeCustData(
     ITypeInfoImpl *This = (ITypeInfoImpl *)iface;
     TLBCustData *pCData;
     TLBImplType * pRDesc;
-    UINT i;
+    int i;
     TRACE("(%p) index %d\n", This, index);
     for(i=0, pRDesc=This->impltypelist; i!=index && pRDesc; i++,
             pRDesc=pRDesc->next)
@@ -7519,7 +7034,7 @@ HRESULT WINAPI CreateDispTypeInfo(
 {
     ITypeInfoImpl *pTIClass, *pTIIface;
     ITypeLibImpl *pTypeLibImpl;
-    unsigned int param, func;
+    int param, func;
     TLBFuncDesc **ppFuncDesc;
     TLBRefType *ref;
 
@@ -7557,7 +7072,7 @@ HRESULT WINAPI CreateDispTypeInfo(
         (*ppFuncDesc)->funcdesc.callconv = md->cc;
         (*ppFuncDesc)->funcdesc.cParams = md->cArgs;
         (*ppFuncDesc)->funcdesc.cParamsOpt = 0;
-        (*ppFuncDesc)->funcdesc.oVft = md->iMeth * sizeof(void *);
+        (*ppFuncDesc)->funcdesc.oVft = md->iMeth << 2;
         (*ppFuncDesc)->funcdesc.cScodes = 0;
         (*ppFuncDesc)->funcdesc.wFuncFlags = 0;
         (*ppFuncDesc)->funcdesc.elemdescFunc.tdesc.vt = md->vtReturn;

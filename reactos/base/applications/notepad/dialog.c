@@ -22,8 +22,6 @@
 
 #include <notepad.h>
 
-LRESULT CALLBACK EDIT_WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-
 static const TCHAR helpfile[]     = _T("notepad.hlp");
 static const TCHAR empty_str[]    = _T("");
 static const TCHAR szDefaultExt[] = _T("txt");
@@ -237,13 +235,10 @@ static VOID DoSaveFile(VOID)
     }
 #endif
 
-    if (size)
-    {
-        if (!WriteText(hFile, (LPWSTR)pTemp, size, Globals.iEncoding, Globals.iEoln))
-            ShowLastError();
-        else
-            SendMessage(Globals.hEdit, EM_SETMODIFY, FALSE, 0);
-    }
+    if (!WriteText(hFile, (LPWSTR)pTemp, size, Globals.iEncoding, Globals.iEoln))
+        ShowLastError();
+    else
+        SendMessage(Globals.hEdit, EM_SETMODIFY, FALSE, 0);
 
     CloseHandle(hFile);
     HeapFree(GetProcessHeap(), 0, pTemp);
@@ -294,7 +289,7 @@ void DoOpenFile(LPCTSTR szFileName)
     if (!DoCloseFile())
         return;
 
-    hFile = CreateFile(szFileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+    hFile = CreateFile(szFileName, GENERIC_READ, FILE_SHARE_READ, NULL,
                        OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile == INVALID_HANDLE_VALUE)
     {
@@ -325,16 +320,16 @@ void DoOpenFile(LPCTSTR szFileName)
      */
     if (GetWindowText(Globals.hEdit, log, SIZEOF(log)) && !_tcscmp(log, dotlog))
     {
-        static const TCHAR lf[] = _T("\r\n");
-        SendMessage(Globals.hEdit, EM_SETSEL, GetWindowTextLength(Globals.hEdit), -1);
-        SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)lf);
-        DIALOG_EditTimeDate();
-        SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)lf);
+	static const TCHAR lf[] = _T("\r\n");
+	SendMessage(Globals.hEdit, EM_SETSEL, GetWindowTextLength(Globals.hEdit), -1);
+	SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)lf);
+	DIALOG_EditTimeDate();
+	SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)lf);
     }
 
     SetFileName(szFileName);
     UpdateWindowCaption();
-    NOTEPAD_EnableSearchMenu();
+
 done:
     if (hFile != INVALID_HANDLE_VALUE)
         CloseHandle(hFile);
@@ -349,7 +344,6 @@ VOID DIALOG_FileNew(VOID)
         SetWindowText(Globals.hEdit, empty_str);
         SendMessage(Globals.hEdit, EM_EMPTYUNDOBUFFER, 0, 0);
         SetFocus(Globals.hEdit);
-        NOTEPAD_EnableSearchMenu();
     }
 }
 
@@ -678,15 +672,16 @@ VOID DIALOG_EditTimeDate(VOID)
 {
     SYSTEMTIME   st;
     TCHAR        szDate[MAX_STRING_LEN];
-    TCHAR        szText[MAX_STRING_LEN * 2 + 2];
+    static const TCHAR space[] = _T(" ");
 
     GetLocalTime(&st);
 
     GetTimeFormat(LOCALE_USER_DEFAULT, 0, &st, NULL, szDate, MAX_STRING_LEN);
-    _tcscpy(szText, szDate);
-    _tcscat(szText, _T(" "));
+    SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)szDate);
+
+    SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)space);
+
     GetDateFormat(LOCALE_USER_DEFAULT, DATE_LONGDATE, &st, NULL, szDate, MAX_STRING_LEN);
-    _tcscat(szText, szDate);
     SendMessage(Globals.hEdit, EM_REPLACESEL, TRUE, (LPARAM)szDate);
 }
 
@@ -697,7 +692,6 @@ VOID DIALOG_EditWrap(VOID)
     RECT rc, rcstatus;
     DWORD size;
     LPTSTR pTemp;
-    TCHAR buff[MAX_PATH];
 
     Globals.bWrapLongLines = !Globals.bWrapLongLines;
 
@@ -728,13 +722,10 @@ VOID DIALOG_EditWrap(VOID)
     Globals.hEdit = CreateWindowEx(WS_EX_CLIENTEDGE, edit, NULL, dwStyle,
                          0, 0, rc.right, rc.bottom, Globals.hMainWnd,
                          NULL, Globals.hInstance, NULL);
-    SendMessage(Globals.hEdit, WM_SETFONT, (WPARAM)Globals.hFont, FALSE);
+    SendMessage(Globals.hEdit, WM_SETFONT, (WPARAM)Globals.hFont, (LPARAM)FALSE);
     SendMessage(Globals.hEdit, EM_LIMITTEXT, 0, 0);
     SetWindowText(Globals.hEdit, pTemp);
     SetFocus(Globals.hEdit);
-    Globals.EditProc = (WNDPROC) SetWindowLongPtr(Globals.hEdit, GWLP_WNDPROC, (LONG_PTR)EDIT_WndProc);
-    _stprintf(buff, Globals.szStatusBarLineCol, 1, 1);
-    SendMessage(Globals.hStatusBar, SB_SETTEXT, SB_SIMPLEID, (LPARAM)buff);
     HeapFree(GetProcessHeap(), 0, pTemp);
     DrawMenuBar(Globals.hMainWnd);
 }
@@ -792,8 +783,6 @@ VOID DIALOG_SearchNext(VOID)
 {
     if (Globals.find.lpstrFindWhat != NULL)
       NOTEPAD_FindNext(&Globals.find, FALSE, TRUE);
-    else
-      DIALOG_Search();
 }
 
 VOID DIALOG_Replace(VOID)
@@ -876,16 +865,20 @@ VOID DIALOG_GoTo(VOID)
 
 VOID DIALOG_StatusBarUpdateCaretPos(VOID)
 {
-    int line, col;
+    int line;
+    int col;
+    int ccol;
+    POINT point;
     TCHAR buff[MAX_PATH];
-    DWORD dwStart, dwSize;
 
-    SendMessage(Globals.hEdit, EM_GETSEL, (WPARAM)&dwStart, (LPARAM)&dwSize);
-    line = SendMessage(Globals.hEdit, EM_LINEFROMCHAR, (WPARAM)dwStart, 0);
-    col  = dwStart - SendMessage(Globals.hEdit, EM_LINEINDEX, (WPARAM)line, 0);
+    GetCaretPos(&point);
+    line = (int) SendMessage(Globals.hEdit, EM_LINEFROMCHAR, (WPARAM)-1, (LPARAM)0);
+    ccol = (int) SendMessage(Globals.hEdit, EM_CHARFROMPOS, (WPARAM)0, (LPARAM)MAKELPARAM(point.x, point.y));
+    ccol = LOWORD(ccol);
+    col = ccol - (int) SendMessage(Globals.hEdit, EM_LINEINDEX, (WPARAM)line, (LPARAM)0);
 
-    _stprintf(buff, Globals.szStatusBarLineCol, line+1, col+1);
-    SendMessage(Globals.hStatusBar, SB_SETTEXT, SB_SIMPLEID, (LPARAM)buff);
+    _stprintf(buff, TEXT("%S %d, %S %d"), Globals.szStatusBarLine, line+1, Globals.szStatusBarCol, col+1);
+    SendMessage(Globals.hStatusBar, SB_SETTEXT, (WPARAM) SB_SIMPLEID, (LPARAM)buff);
 }
 
 VOID DIALOG_ViewStatusBar(VOID)
@@ -897,7 +890,8 @@ VOID DIALOG_ViewStatusBar(VOID)
    if ( !Globals.hStatusBar )
    {
        Globals.hStatusBar = CreateStatusWindow(WS_CHILD | WS_VISIBLE | WS_EX_STATICEDGE, TEXT("test"), Globals.hMainWnd, CMD_STATUSBAR_WND_ID );
-       LoadString(Globals.hInstance, STRING_LINE_COLUMN, Globals.szStatusBarLineCol, MAX_PATH-1);
+       LoadString(Globals.hInstance, STRING_LINE, Globals.szStatusBarLine, MAX_PATH-1);
+       LoadString(Globals.hInstance, STRING_COLUMN, Globals.szStatusBarCol, MAX_PATH-1);
        SendMessage(Globals.hStatusBar, SB_SIMPLE, (WPARAM)TRUE, (LPARAM)0);
    }
     CheckMenuItem(GetMenu(Globals.hMainWnd), CMD_STATUSBAR,
@@ -931,7 +925,7 @@ VOID DIALOG_HelpHelp(VOID)
 #ifdef _MSC_VER
 #pragma warning(disable : 4100)
 #endif
-INT_PTR CALLBACK
+BOOL CALLBACK
 AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     HWND    hLicenseEditWnd;
@@ -969,12 +963,11 @@ AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 VOID DIALOG_HelpAboutWine(VOID)
 {
+    static const TCHAR notepad[] = _T("Notepad\n");
     TCHAR szNotepad[MAX_STRING_LEN];
-    HICON notepadIcon = LoadIcon(Globals.hInstance, MAKEINTRESOURCE(IDI_NPICON));
 
     LoadString(Globals.hInstance, STRING_NOTEPAD, szNotepad, SIZEOF(szNotepad));
-    ShellAbout(Globals.hMainWnd, szNotepad, 0, notepadIcon);
-    DeleteObject(notepadIcon);
+    ShellAbout(Globals.hMainWnd, szNotepad, notepad, 0);
 }
 
 

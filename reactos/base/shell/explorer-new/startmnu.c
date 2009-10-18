@@ -100,31 +100,35 @@ OnStartContextMenuCommand(IN HWND hWndOwner,
 
     if (uiCmdId != 0)
     {
-        if ((uiCmdId >= ID_SHELL_CMD_FIRST) && (uiCmdId <= ID_SHELL_CMD_LAST))
+        switch (uiCmdId)
         {
-            CMINVOKECOMMANDINFO cmici = {0};
-            CHAR szDir[MAX_PATH];
-
-            /* Setup and invoke the shell command */
-            cmici.cbSize = sizeof(cmici);
-            cmici.hwnd = hWndOwner;
-            cmici.lpVerb = (LPCSTR)MAKEINTRESOURCE(uiCmdId - ID_SHELL_CMD_FIRST);
-            cmici.nShow = SW_NORMAL;
-
-            /* FIXME: Support Unicode!!! */
-            if (SHGetPathFromIDListA(psmcmc->pidl,
-                                     szDir))
+            case ID_SHELL_CMD_FIRST ... ID_SHELL_CMD_LAST:
             {
-                cmici.lpDirectory = szDir;
+                CMINVOKECOMMANDINFO cmici = {0};
+                CHAR szDir[MAX_PATH];
+
+                /* Setup and invoke the shell command */
+                cmici.cbSize = sizeof(cmici);
+                cmici.hwnd = hWndOwner;
+                cmici.lpVerb = (LPCSTR)MAKEINTRESOURCE(uiCmdId - ID_SHELL_CMD_FIRST);
+                cmici.nShow = SW_NORMAL;
+
+                /* FIXME: Support Unicode!!! */
+                if (SHGetPathFromIDListA(psmcmc->pidl,
+                                         szDir))
+                {
+                    cmici.lpDirectory = szDir;
+                }
+
+                IContextMenu_InvokeCommand(psmcmc->pcm,
+                                           &cmici);
+                break;
             }
 
-            IContextMenu_InvokeCommand(psmcmc->pcm,
-                                       &cmici);
-        }
-        else
-        {
-            ITrayWindow_ExecContextMenuCmd((ITrayWindow *)Context,
-                                           uiCmdId);
+            default:
+                ITrayWindow_ExecContextMenuCmd((ITrayWindow *)Context,
+                                               uiCmdId);
+                break;
         }
     }
 
@@ -471,30 +475,12 @@ IStartMenuSiteImpl_Execute(IN OUT IStartMenuCallback *iface,
                            IN IShellFolder *pShellFolder,
                            IN LPCITEMIDLIST pidl)
 {
-    HMODULE hShlwapi;
-    HRESULT ret = S_FALSE;
-
     IStartMenuSiteImpl *This = IStartMenuSiteImpl_from_IStartMenuCallback(iface);
 
     DbgPrint("IStartMenuCallback::Execute\n");
-
-    hShlwapi = GetModuleHandle(TEXT("SHLWAPI.DLL"));
-    if (hShlwapi != NULL)
-    {
-        SHINVDEFCMD SHInvokeDefCmd;
-
-        /* SHInvokeDefaultCommand */
-        SHInvokeDefCmd = (SHINVDEFCMD)GetProcAddress(hShlwapi,
-                                                     (LPCSTR)((LONG)279));
-        if (SHInvokeDefCmd != NULL)
-        {
-            ret = SHInvokeDefCmd(ITrayWindow_GetHWND(This->Tray),
-                                 pShellFolder,
-                                 pidl);
-        }
-    }
-
-    return ret;
+    return SHInvokeDefaultCommand(ITrayWindow_GetHWND(This->Tray),
+                                  pShellFolder,
+                                  pidl);
 }
 
 static HRESULT STDMETHODCALLTYPE
@@ -818,20 +804,15 @@ UpdateStartMenu(IN OUT IMenuPopup *pMenuPopup,
                                      (PVOID)&pbb);
     if (SUCCEEDED(hRet))
     {
-       // hRet = IBanneredBar_SetBitmap(pbb,
-       //                               hbmBanner);
-        hRet = pbb->lpVtbl->SetBitmap(pbb,
+        hRet = IBanneredBar_SetBitmap(pbb,
                                       hbmBanner);
 
 
         /* Update the icon size */
-        //hRet = IBanneredBar_SetIconSize(pbb,
-        //                                bSmallIcons ? BMICON_SMALL : BMICON_LARGE);
-        hRet = pbb->lpVtbl->SetIconSize(pbb,
+        hRet = IBanneredBar_SetIconSize(pbb,
                                         bSmallIcons ? BMICON_SMALL : BMICON_LARGE);
 
-        //IBanneredBar_Release(pbb);
-        pbb->lpVtbl->Release(pbb);
+        IBanneredBar_Release(pbb);
     }
 
     return hRet;
@@ -880,11 +861,9 @@ CreateStartMenu(IN ITrayWindow *Tray,
                                                  (PVOID*)&pIo);
                 if (SUCCEEDED(hRet))
                 {
-                    //hRet = IInitializeObject_Initialize(pIo);
-                    hRet = pIo->lpVtbl->Initialize(pIo);
+                    hRet = IInitializeObject_Initialize(pIo);
 
-                    //IInitializeObject_Release(pIo);
-                    pIo->lpVtbl->Release(pIo);
+                    IInitializeObject_Release(pIo);
                 }
                 else
                     hRet = S_OK;

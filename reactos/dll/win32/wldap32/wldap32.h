@@ -18,8 +18,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-ULONG map_error( int );
-
 /* A set of helper functions to convert LDAP data structures
  * to and from ansi (A), wide character (W) and utf8 (U) encodings.
  */
@@ -445,8 +443,8 @@ static inline LDAPControlW *controlAtoW( LDAPControlA *control )
     }
 
     controlW->ldctl_oid = strAtoW( control->ldctl_oid );
-    controlW->ldctl_value.bv_len = len; 
-    controlW->ldctl_value.bv_val = val; 
+    controlW->ldctl_value.bv_len = len;
+    controlW->ldctl_value.bv_val = val;
     controlW->ldctl_iscritical = control->ldctl_iscritical;
 
     return controlW;
@@ -473,7 +471,7 @@ static inline LDAPControlA *controlWtoA( LDAPControlW *control )
     }
 
     controlA->ldctl_oid = strWtoA( control->ldctl_oid );
-    controlA->ldctl_value.bv_len = len; 
+    controlA->ldctl_value.bv_len = len;
     controlA->ldctl_value.bv_val = val;
     controlA->ldctl_iscritical = control->ldctl_iscritical;
 
@@ -501,8 +499,8 @@ static inline LDAPControl *controlWtoU( LDAPControlW *control )
     }
 
     controlU->ldctl_oid = strWtoU( control->ldctl_oid );
-    controlU->ldctl_value.bv_len = len; 
-    controlU->ldctl_value.bv_val = val; 
+    controlU->ldctl_value.bv_len = len;
+    controlU->ldctl_value.bv_val = val;
     controlU->ldctl_iscritical = control->ldctl_iscritical;
 
     return controlU;
@@ -529,10 +527,10 @@ static inline LDAPControlW *controlUtoW( LDAPControl *control )
     }
 
     controlW->ldctl_oid = strUtoW( control->ldctl_oid );
-    controlW->ldctl_value.bv_len = len; 
-    controlW->ldctl_value.bv_val = val; 
+    controlW->ldctl_value.bv_len = len;
+    controlW->ldctl_value.bv_val = val;
     controlW->ldctl_iscritical = control->ldctl_iscritical;
- 
+
     return controlW;
 }
 

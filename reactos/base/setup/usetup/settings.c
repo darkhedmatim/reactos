@@ -20,8 +20,7 @@
  * PROJECT:         ReactOS text-mode setup
  * FILE:            subsys/system/usetup/settings.c
  * PURPOSE:         Device settings support functions
- * PROGRAMMERS:     Eric Kohl
- *                  Colin Finck
+ * PROGRAMMER:      Eric Kohl
  */
 
 /* INCLUDES *****************************************************************/
@@ -37,915 +36,758 @@ static BOOLEAN
 GetComputerIdentifier(PWSTR Identifier,
                       ULONG IdentifierLength)
 {
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    UNICODE_STRING KeyName;
-    LPCWSTR ComputerIdentifier;
-    HANDLE ProcessorsKey;
-    PKEY_FULL_INFORMATION pFullInfo;
-    ULONG Size, SizeNeeded;
-    NTSTATUS Status;
+  OBJECT_ATTRIBUTES ObjectAttributes;
+  UNICODE_STRING KeyName;
+  LPCWSTR ComputerIdentifier;
+  HANDLE ProcessorsKey;
+  PKEY_FULL_INFORMATION pFullInfo;
+  ULONG Size, SizeNeeded;
+  NTSTATUS Status;
 
-    DPRINT("GetComputerIdentifier() called\n");
+  DPRINT("GetComputerIdentifier() called\n");
 
-    Size = sizeof(KEY_FULL_INFORMATION);
-    pFullInfo = (PKEY_FULL_INFORMATION)RtlAllocateHeap(RtlGetProcessHeap(), 0, Size);
-    if (!pFullInfo)
+  Size = sizeof(KEY_FULL_INFORMATION);
+  pFullInfo = (PKEY_FULL_INFORMATION)RtlAllocateHeap(RtlGetProcessHeap(), 0, Size);
+  if (!pFullInfo)
     {
-        DPRINT("RtlAllocateHeap() failed\n");
-        return FALSE;
+      DPRINT("RtlAllocateHeap() failed\n");
+      return FALSE;
     }
 
-    /* Open the processors key */
-    RtlInitUnicodeString(&KeyName,
-                         L"\\Registry\\Machine\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor");
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &KeyName,
-                               OBJ_CASE_INSENSITIVE,
-                               NULL,
-                               NULL);
-
-    Status = NtOpenKey(&ProcessorsKey,
-                       KEY_QUERY_VALUE ,
-                       &ObjectAttributes);
-    if (!NT_SUCCESS(Status))
+  /* Open the processors key */
+  RtlInitUnicodeString(&KeyName,
+                       L"\\Registry\\Machine\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor");
+  InitializeObjectAttributes(&ObjectAttributes,
+                             &KeyName,
+                             OBJ_CASE_INSENSITIVE,
+                             NULL,
+                             NULL);
+  Status = NtOpenKey(&ProcessorsKey,
+                     KEY_QUERY_VALUE ,
+                     &ObjectAttributes);
+  if (!NT_SUCCESS(Status))
     {
-        DPRINT("NtOpenKey() failed (Status 0x%lx)\n", Status);
-        RtlFreeHeap(RtlGetProcessHeap(), 0, pFullInfo);
-        return FALSE;
+      DPRINT("NtOpenKey() failed (Status 0x%lx)\n", Status);
+      RtlFreeHeap(RtlGetProcessHeap(), 0, pFullInfo);
+      return FALSE;
     }
 
-    /* Get number of subkeys */
-    Status = NtQueryKey(
-        ProcessorsKey,
-        KeyFullInformation,
-        pFullInfo,
-        Size,
-        &Size);
-    NtClose(ProcessorsKey);
-
-    if (!NT_SUCCESS(Status) && Status != STATUS_BUFFER_OVERFLOW)
+  /* Get number of subkeys */
+  Status = NtQueryKey(
+    ProcessorsKey,
+    KeyFullInformation,
+    pFullInfo,
+    Size,
+    &Size);
+  NtClose(ProcessorsKey);
+  if (!NT_SUCCESS(Status) && Status != STATUS_BUFFER_OVERFLOW)
     {
-        DPRINT("NtQueryKey() failed (Status 0x%lx)\n", Status);
-        RtlFreeHeap(RtlGetProcessHeap(), 0, pFullInfo);
-        return FALSE;
+      DPRINT("NtQueryKey() failed (Status 0x%lx)\n", Status);
+      RtlFreeHeap(RtlGetProcessHeap(), 0, pFullInfo);
+      return FALSE;
     }
 
-    /* Find computer identifier */
-    if (pFullInfo->SubKeys == 0)
+  /* Find computer identifier */
+  if (pFullInfo->SubKeys == 0)
     {
-        /* Something strange happened. No processor detected */
-        RtlFreeHeap(RtlGetProcessHeap(), 0, pFullInfo);
-        return FALSE;
+      /* Something strange happened. No processor detected */
+      RtlFreeHeap(RtlGetProcessHeap(), 0, pFullInfo);
+      return FALSE;
     }
 
-    if (pFullInfo->SubKeys == 1)
+  if (pFullInfo->SubKeys == 1)
     {
-        /* Computer is mono-CPU */
-        ComputerIdentifier = L"PC UP";
+      /* Computer is mono-CPU */
+      ComputerIdentifier = L"PC UP";
     }
-    else
+  else
     {
-        /* Computer is multi-CPUs */
-        ComputerIdentifier = L"PC MP";
+      /* Computer is multi-CPUs */
+      ComputerIdentifier = L"PC MP";
     }
+  RtlFreeHeap(RtlGetProcessHeap(), 0, pFullInfo);
 
-    RtlFreeHeap(RtlGetProcessHeap(), 0, pFullInfo);
-
-    /* Copy computer identifier to return buffer */
-    SizeNeeded = (wcslen(ComputerIdentifier) + 1) * sizeof(WCHAR);
-    if (SizeNeeded > IdentifierLength)
-        return FALSE;
-
-    RtlCopyMemory(Identifier, ComputerIdentifier, SizeNeeded);
-
-    return TRUE;
+  /* Copy computer identifier to return buffer */
+  SizeNeeded = (wcslen(ComputerIdentifier) + 1) * sizeof(WCHAR);
+  if (SizeNeeded > IdentifierLength)
+    return FALSE;
+  RtlCopyMemory(Identifier, ComputerIdentifier, SizeNeeded);
+  return TRUE;
 }
 
 
 PGENERIC_LIST
 CreateComputerTypeList(HINF InfFile)
 {
-    CHAR Buffer[128];
-    PGENERIC_LIST List;
-    INFCONTEXT Context;
-    PWCHAR KeyName;
-    PWCHAR KeyValue;
-    PWCHAR UserData;
-    WCHAR ComputerIdentifier[128];
-    WCHAR ComputerKey[32];
+  CHAR Buffer[128];
+  PGENERIC_LIST List;
+  INFCONTEXT Context;
+  PWCHAR KeyName;
+  PWCHAR KeyValue;
+  PWCHAR UserData;
+  WCHAR ComputerIdentifier[128];
+  WCHAR ComputerKey[32];
 
-    /* Get the computer identification */
-    if (!GetComputerIdentifier(ComputerIdentifier, 128))
+  /* Get the computer identification */
+  if (!GetComputerIdentifier(ComputerIdentifier, 128))
     {
-        ComputerIdentifier[0] = 0;
+      ComputerIdentifier[0] = 0;
     }
 
-    DPRINT("Computer identifier: '%S'\n", ComputerIdentifier);
+  DPRINT("Computer identifier: '%S'\n", ComputerIdentifier);
 
-    /* Search for matching device identifier */
-    if (!SetupFindFirstLineW(InfFile, L"Map.Computer", NULL, &Context))
+  /* Search for matching device identifier */
+  if (!SetupFindFirstLineW(InfFile, L"Map.Computer", NULL, &Context))
     {
-        /* FIXME: error message */
-        return NULL;
+      /* FIXME: error message */
+      return NULL;
     }
 
-    do
+  do
     {
-        if (!INF_GetDataField(&Context, 1, &KeyValue))
+      if (!INF_GetDataField(&Context, 1, &KeyValue))
         {
-            /* FIXME: Handle error! */
-            DPRINT("INF_GetDataField() failed\n");
-            return NULL;
+          /* FIXME: Handle error! */
+          DPRINT("INF_GetDataField() failed\n");
+          return NULL;
         }
 
-        DPRINT("KeyValue: %S\n", KeyValue);
-        if (wcsstr(ComputerIdentifier, KeyValue))
+      DPRINT("KeyValue: %S\n", KeyValue);
+      if (wcsstr(ComputerIdentifier, KeyValue))
         {
-            if (!INF_GetDataField(&Context, 0, &KeyName))
+          if (!INF_GetDataField(&Context, 0, &KeyName))
             {
-                /* FIXME: Handle error! */
-                DPRINT("INF_GetDataField() failed\n");
-                return NULL;
+              /* FIXME: Handle error! */
+              DPRINT("INF_GetDataField() failed\n");
+              return NULL;
             }
 
-            DPRINT("Computer key: %S\n", KeyName);
-            wcscpy(ComputerKey, KeyName);
+          DPRINT("Computer key: %S\n", KeyName);
+          wcscpy(ComputerKey, KeyName);
         }
-    } while (SetupFindNextLine(&Context, &Context));
+    }
+  while (SetupFindNextLine(&Context, &Context));
 
-    List = CreateGenericList();
-    if (List == NULL)
-        return NULL;
+  List = CreateGenericList();
+  if (List == NULL)
+    return NULL;
 
-    if (!SetupFindFirstLineW (InfFile, L"Computer", NULL, &Context))
+  if (!SetupFindFirstLineW (InfFile, L"Computer", NULL, &Context))
     {
-        DestroyGenericList(List, FALSE);
-        return NULL;
+      DestroyGenericList(List, FALSE);
+      return NULL;
     }
 
-    do
+  do
     {
-        if (!INF_GetData (&Context, &KeyName, &KeyValue))
-        {
-            /* FIXME: Handle error! */
-            DPRINT("INF_GetData() failed\n");
-            break;
-        }
+      if (!INF_GetData (&Context, &KeyName, &KeyValue))
+	{
+	  /* FIXME: Handle error! */
+	  DPRINT("INF_GetData() failed\n");
+	  break;
+	}
 
-        UserData = (WCHAR*) RtlAllocateHeap(ProcessHeap,
-                                            0,
-                                            (wcslen(KeyName) + 1) * sizeof(WCHAR));
-        if (UserData == NULL)
-        {
-            /* FIXME: Handle error! */
-        }
+      UserData = (WCHAR*) RtlAllocateHeap(ProcessHeap,
+				 0,
+				 (wcslen(KeyName) + 1) * sizeof(WCHAR));
+      if (UserData == NULL)
+	{
+	  /* FIXME: Handle error! */
+	}
 
-        wcscpy(UserData, KeyName);
+      wcscpy(UserData, KeyName);
 
-        sprintf(Buffer, "%S", KeyValue);
-        AppendGenericListEntry(List, Buffer, UserData,
-                               _wcsicmp(KeyName, ComputerKey) ? FALSE : TRUE);
-    } while (SetupFindNextLine(&Context, &Context));
+      sprintf(Buffer, "%S", KeyValue);
+      AppendGenericListEntry(List, Buffer, UserData,
+                             _wcsicmp(KeyName, ComputerKey) ? FALSE : TRUE);
+    }
+  while (SetupFindNextLine(&Context, &Context));
 
-    return List;
+  return List;
 }
 
 
 static BOOLEAN
 GetDisplayIdentifier(PWSTR Identifier,
-    ULONG IdentifierLength)
+		     ULONG IdentifierLength)
 {
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    UNICODE_STRING KeyName;
-    WCHAR Buffer[32];
-    HANDLE BusKey;
-    HANDLE BusInstanceKey;
-    HANDLE ControllerKey;
-    HANDLE ControllerInstanceKey;
-    ULONG BusInstance;
-    ULONG ControllerInstance;
-    ULONG BufferLength;
-    ULONG ReturnedLength;
-    PKEY_VALUE_PARTIAL_INFORMATION ValueInfo;
-    NTSTATUS Status;
+  OBJECT_ATTRIBUTES ObjectAttributes;
+  UNICODE_STRING KeyName;
+  WCHAR Buffer[32];
+  HANDLE BusKey;
+  HANDLE BusInstanceKey;
+  HANDLE ControllerKey;
+  HANDLE ControllerInstanceKey;
+  ULONG BusInstance;
+  ULONG ControllerInstance;
+  ULONG BufferLength;
+  ULONG ReturnedLength;
+  PKEY_VALUE_PARTIAL_INFORMATION ValueInfo;
+  NTSTATUS Status;
 
-    DPRINT("GetDisplayIdentifier() called\n");
+  DPRINT("GetDisplayIdentifier() called\n");
 
-    /* Open the bus key */
-    RtlInitUnicodeString(&KeyName,
-                         L"\\Registry\\Machine\\HARDWARE\\Description\\System\\MultifunctionAdapter");
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &KeyName,
-                               OBJ_CASE_INSENSITIVE,
-                               NULL,
-                               NULL);
-
-    Status = NtOpenKey(&BusKey,
-                       KEY_ENUMERATE_SUB_KEYS,
-                       &ObjectAttributes);
-    if (!NT_SUCCESS(Status))
+  /* Open the bus key */
+  RtlInitUnicodeString(&KeyName,
+		       L"\\Registry\\Machine\\HARDWARE\\Description\\System\\MultifunctionAdapter");
+  InitializeObjectAttributes(&ObjectAttributes,
+			     &KeyName,
+			     OBJ_CASE_INSENSITIVE,
+			     NULL,
+			     NULL);
+  Status = NtOpenKey(&BusKey,
+		     KEY_ALL_ACCESS,
+		     &ObjectAttributes);
+  if (!NT_SUCCESS(Status))
     {
-        DPRINT("NtOpenKey() failed (Status %lx)\n", Status);
-        return FALSE;
+      DPRINT("NtOpenKey() failed (Status %lx)\n", Status);
+      return FALSE;
     }
 
-    BusInstance = 0;
-    while (TRUE)
+  BusInstance = 0;
+  while (TRUE)
     {
-        swprintf(Buffer, L"%lu", BusInstance);
-        RtlInitUnicodeString(&KeyName,
-                             Buffer);
-        InitializeObjectAttributes(&ObjectAttributes,
-                                   &KeyName,
-                                   OBJ_CASE_INSENSITIVE,
-                                   BusKey,
-                                   NULL);
+      swprintf(Buffer, L"%lu", BusInstance);
+      RtlInitUnicodeString(&KeyName,
+			   Buffer);
+      InitializeObjectAttributes(&ObjectAttributes,
+				 &KeyName,
+				 OBJ_CASE_INSENSITIVE,
+				 BusKey,
+				 NULL);
+      Status = NtOpenKey(&BusInstanceKey,
+			 KEY_ALL_ACCESS,
+			 &ObjectAttributes);
+      if (!NT_SUCCESS(Status))
+	{
+	  DPRINT("NtOpenKey() failed (Status %lx)\n", Status);
+	  NtClose(BusKey);
+	  return FALSE;
+	}
 
-        Status = NtOpenKey(&BusInstanceKey,
-                           KEY_ENUMERATE_SUB_KEYS,
-                           &ObjectAttributes);
-        if (!NT_SUCCESS(Status))
-        {
-            DPRINT("NtOpenKey() failed (Status %lx)\n", Status);
-            NtClose(BusKey);
-            return FALSE;
-        }
+      /* Open the controller type key */
+      RtlInitUnicodeString(&KeyName,
+			   L"DisplayController");
+      InitializeObjectAttributes(&ObjectAttributes,
+				 &KeyName,
+				 OBJ_CASE_INSENSITIVE,
+				 BusInstanceKey,
+				 NULL);
+      Status = NtOpenKey(&ControllerKey,
+			 KEY_ALL_ACCESS,
+			 &ObjectAttributes);
+      if (NT_SUCCESS(Status))
+	{
+	  ControllerInstance = 0;
+	  while (TRUE)
+	    {
+	      /* Open the pointer controller instance key */
+	      swprintf(Buffer, L"%lu", ControllerInstance);
+	      RtlInitUnicodeString(&KeyName,
+				   Buffer);
+	      InitializeObjectAttributes(&ObjectAttributes,
+					 &KeyName,
+					 OBJ_CASE_INSENSITIVE,
+					 ControllerKey,
+					 NULL);
+	      Status = NtOpenKey(&ControllerInstanceKey,
+				 KEY_ALL_ACCESS,
+				 &ObjectAttributes);
+	      if (!NT_SUCCESS(Status))
+		{
+		  DPRINT("NtOpenKey() failed (Status %lx)\n", Status);
+		  NtClose(ControllerKey);
+		  NtClose(BusInstanceKey);
+		  NtClose(BusKey);
+		  return FALSE;
+		}
 
-        /* Open the controller type key */
-        RtlInitUnicodeString(&KeyName,
-                             L"DisplayController");
-        InitializeObjectAttributes(&ObjectAttributes,
-                                   &KeyName,
-                                   OBJ_CASE_INSENSITIVE,
-                                   BusInstanceKey,
-                                   NULL);
+	      /* Get controller identifier */
+	      RtlInitUnicodeString(&KeyName,
+				   L"Identifier");
 
-        Status = NtOpenKey(&ControllerKey,
-                           KEY_ENUMERATE_SUB_KEYS,
-                           &ObjectAttributes);
-        if (NT_SUCCESS(Status))
-        {
-            ControllerInstance = 0;
+	      BufferLength = sizeof(KEY_VALUE_PARTIAL_INFORMATION) +
+			     256 * sizeof(WCHAR);
+	      ValueInfo = (KEY_VALUE_PARTIAL_INFORMATION*) RtlAllocateHeap(RtlGetProcessHeap(),
+					  0,
+					  BufferLength);
+	      if (ValueInfo == NULL)
+		{
+		  DPRINT("RtlAllocateHeap() failed\n");
+		  NtClose(ControllerInstanceKey);
+		  NtClose(ControllerKey);
+		  NtClose(BusInstanceKey);
+		  NtClose(BusKey);
+		  return FALSE;
+		}
 
-            while (TRUE)
-            {
-                /* Open the pointer controller instance key */
-                swprintf(Buffer, L"%lu", ControllerInstance);
-                RtlInitUnicodeString(&KeyName,
-                                     Buffer);
-                InitializeObjectAttributes(&ObjectAttributes,
-                                           &KeyName,
-                                           OBJ_CASE_INSENSITIVE,
-                                           ControllerKey,
-                                           NULL);
+	      Status = NtQueryValueKey(ControllerInstanceKey,
+				       &KeyName,
+				       KeyValuePartialInformation,
+				       ValueInfo,
+				       BufferLength,
+				       &ReturnedLength);
+	      if (NT_SUCCESS(Status))
+		{
+		  DPRINT("Identifier: %S\n", (PWSTR)ValueInfo->Data);
 
-                Status = NtOpenKey(&ControllerInstanceKey,
-                                   KEY_QUERY_VALUE,
-                                   &ObjectAttributes);
-                if (!NT_SUCCESS(Status))
-                {
-                    DPRINT("NtOpenKey() failed (Status %lx)\n", Status);
-                    NtClose(ControllerKey);
-                    NtClose(BusInstanceKey);
-                    NtClose(BusKey);
-                    return FALSE;
-                }
+		  BufferLength = min(ValueInfo->DataLength / sizeof(WCHAR), IdentifierLength);
+		  RtlCopyMemory (Identifier,
+				 ValueInfo->Data,
+				 BufferLength * sizeof(WCHAR));
+		  Identifier[BufferLength] = 0;
 
-                /* Get controller identifier */
-                RtlInitUnicodeString(&KeyName,
-                                     L"Identifier");
+		  RtlFreeHeap(RtlGetProcessHeap(),
+			      0,
+			      ValueInfo);
+		  NtClose(ControllerInstanceKey);
+		  NtClose(ControllerKey);
+		  NtClose(BusInstanceKey);
+		  NtClose(BusKey);
+		  return TRUE;
+		}
 
-                BufferLength = sizeof(KEY_VALUE_PARTIAL_INFORMATION) +
-                               256 * sizeof(WCHAR);
-                ValueInfo = (KEY_VALUE_PARTIAL_INFORMATION*) RtlAllocateHeap(RtlGetProcessHeap(),
-                                                                             0,
-                                                                             BufferLength);
-                if (ValueInfo == NULL)
-                {
-                    DPRINT("RtlAllocateHeap() failed\n");
-                    NtClose(ControllerInstanceKey);
-                    NtClose(ControllerKey);
-                    NtClose(BusInstanceKey);
-                    NtClose(BusKey);
-                    return FALSE;
-                }
+	      NtClose(ControllerInstanceKey);
 
-                Status = NtQueryValueKey(ControllerInstanceKey,
-                                         &KeyName,
-                                         KeyValuePartialInformation,
-                                         ValueInfo,
-                                         BufferLength,
-                                         &ReturnedLength);
-                if (NT_SUCCESS(Status))
-                {
-                    DPRINT("Identifier: %S\n", (PWSTR)ValueInfo->Data);
+	      ControllerInstance++;
+	    }
 
-                    BufferLength = min(ValueInfo->DataLength / sizeof(WCHAR), IdentifierLength);
-                    RtlCopyMemory (Identifier,
-                                   ValueInfo->Data,
-                                   BufferLength * sizeof(WCHAR));
-                    Identifier[BufferLength] = 0;
+	  NtClose(ControllerKey);
+	}
 
-                    RtlFreeHeap(RtlGetProcessHeap(),
-                                0,
-                                ValueInfo);
+      NtClose(BusInstanceKey);
 
-                    NtClose(ControllerInstanceKey);
-                    NtClose(ControllerKey);
-                    NtClose(BusInstanceKey);
-                    NtClose(BusKey);
-                    return TRUE;
-                }
-
-                NtClose(ControllerInstanceKey);
-
-                ControllerInstance++;
-            }
-
-            NtClose(ControllerKey);
-        }
-
-        NtClose(BusInstanceKey);
-
-        BusInstance++;
+      BusInstance++;
     }
 
-    NtClose(BusKey);
+  NtClose(BusKey);
 
-    return FALSE;
+  return FALSE;
 }
 
 
 PGENERIC_LIST
 CreateDisplayDriverList(HINF InfFile)
 {
-    CHAR Buffer[128];
-    PGENERIC_LIST List;
-    INFCONTEXT Context;
-    PWCHAR KeyName;
-    PWCHAR KeyValue;
-    PWCHAR UserData;
-    WCHAR DisplayIdentifier[128];
-    WCHAR DisplayKey[32];
+  CHAR Buffer[128];
+  PGENERIC_LIST List;
+  INFCONTEXT Context;
+  PWCHAR KeyName;
+  PWCHAR KeyValue;
+  PWCHAR UserData;
+  WCHAR DisplayIdentifier[128];
+  WCHAR DisplayKey[32];
 
-    /* Get the display identification */
-    if (!GetDisplayIdentifier(DisplayIdentifier, 128))
+  /* Get the display identification */
+  if (!GetDisplayIdentifier(DisplayIdentifier, 128))
     {
-        DisplayIdentifier[0] = 0;
+      DisplayIdentifier[0] = 0;
     }
 
-    DPRINT("Display identifier: '%S'\n", DisplayIdentifier);
+  DPRINT("Display identifier: '%S'\n", DisplayIdentifier);
 
-    /* Search for matching device identifier */
-    if (!SetupFindFirstLineW(InfFile, L"Map.Display", NULL, &Context))
+  /* Search for matching device identifier */
+  if (!SetupFindFirstLineW(InfFile, L"Map.Display", NULL, &Context))
     {
-        /* FIXME: error message */
-        return NULL;
+      /* FIXME: error message */
+      return NULL;
     }
 
-    do
+  do
     {
-        if (!INF_GetDataField(&Context, 1, &KeyValue))
-        {
-            /* FIXME: Handle error! */
-            DPRINT("INF_GetDataField() failed\n");
-            return NULL;
-        }
+      if (!INF_GetDataField(&Context, 1, &KeyValue))
+	{
+	  /* FIXME: Handle error! */
+	  DPRINT("INF_GetDataField() failed\n");
+	  return NULL;
+	}
 
-        DPRINT("KeyValue: %S\n", KeyValue);
-        if (wcsstr(DisplayIdentifier, KeyValue))
-        {
-            if (!INF_GetDataField(&Context, 0, &KeyName))
-            {
-                /* FIXME: Handle error! */
-                DPRINT("INF_GetDataField() failed\n");
-                return NULL;
-            }
+      DPRINT("KeyValue: %S\n", KeyValue);
+      if (wcsstr(DisplayIdentifier, KeyValue))
+	{
+	  if (!INF_GetDataField(&Context, 0, &KeyName))
+	    {
+	      /* FIXME: Handle error! */
+	      DPRINT("INF_GetDataField() failed\n");
+	      return NULL;
+	    }
 
-            DPRINT("Display key: %S\n", KeyName);
-            wcscpy(DisplayKey, KeyName);
-        }
-    } while (SetupFindNextLine(&Context, &Context));
+	  DPRINT("Display key: %S\n", KeyName);
+	  wcscpy(DisplayKey, KeyName);
+	}
+    }
+  while (SetupFindNextLine(&Context, &Context));
 
-    List = CreateGenericList();
-    if (List == NULL)
-        return NULL;
 
-    if (!SetupFindFirstLineW (InfFile, L"Display", NULL, &Context))
+  List = CreateGenericList();
+  if (List == NULL)
+    return NULL;
+
+  if (!SetupFindFirstLineW (InfFile, L"Display", NULL, &Context))
     {
-        DestroyGenericList(List, FALSE);
-        return NULL;
+      DestroyGenericList(List, FALSE);
+      return NULL;
     }
 
-    do
+  do
     {
-        if (!INF_GetDataField(&Context, 0, &KeyName))
-        {
-            DPRINT1("INF_GetDataField() failed\n");
-            break;
-        }
+      if (!INF_GetDataField(&Context, 0, &KeyName))
+	{
+	  DPRINT1("INF_GetDataField() failed\n");
+	  break;
+	}
 
-        if (!INF_GetDataField(&Context, 1, &KeyValue))
-        {
-            DPRINT1("INF_GetDataField() failed\n");
-            break;
-        }
+      if (!INF_GetDataField(&Context, 1, &KeyValue))
+	{
+	  DPRINT1("INF_GetDataField() failed\n");
+	  break;
+	}
 
-        UserData = (WCHAR*) RtlAllocateHeap(ProcessHeap,
-                                            0,
-                                            (wcslen(KeyName) + 1) * sizeof(WCHAR));
-        if (UserData == NULL)
-        {
-            DPRINT1("RtlAllocateHeap() failed\n");
-            DestroyGenericList(List, TRUE);
-            return NULL;
-        }
+      UserData = (WCHAR*) RtlAllocateHeap(ProcessHeap,
+				 0,
+				 (wcslen(KeyName) + 1) * sizeof(WCHAR));
+      if (UserData == NULL)
+	{
+	  DPRINT1("RtlAllocateHeap() failed\n");
+	  DestroyGenericList(List, TRUE);
+	  return NULL;
+	}
 
-        wcscpy(UserData, KeyName);
+      wcscpy(UserData, KeyName);
 
-        sprintf(Buffer, "%S", KeyValue);
-        AppendGenericListEntry(List,
-                               Buffer,
-                               UserData,
-                               _wcsicmp(KeyName, DisplayKey) ? FALSE : TRUE);
-    } while (SetupFindNextLine(&Context, &Context));
+      sprintf(Buffer, "%S", KeyValue);
+      AppendGenericListEntry(List,
+			     Buffer,
+			     UserData,
+			     _wcsicmp(KeyName, DisplayKey) ? FALSE : TRUE);
+    }
+  while (SetupFindNextLine(&Context, &Context));
 
 #if 0
-    AppendGenericListEntry(List, "Other display driver", NULL, TRUE);
+  AppendGenericListEntry(List, "Other display driver", NULL, TRUE);
 #endif
 
-    return List;
+  return List;
 }
 
 BOOLEAN
 ProcessComputerFiles(HINF InfFile, PGENERIC_LIST List, PWCHAR* AdditionalSectionName)
 {
-    PGENERIC_LIST_ENTRY Entry;
-    static WCHAR SectionName[128];
+	PGENERIC_LIST_ENTRY Entry;
+	static WCHAR SectionName[128];
 
-    DPRINT("ProcessComputerFiles() called\n");
+	DPRINT("ProcessComputerFiles() called\n");
 
-    Entry = GetCurrentListEntry(List);
-    if (Entry == NULL)
-    {
-        DPRINT("GetCurrentListEntry() failed\n");
-        return FALSE;
-    }
+	Entry = GetGenericListEntry(List);
+	if (Entry == NULL)
+	{
+		DPRINT("GetGenericListEntry() failed\n");
+		return FALSE;
+	}
 
-    wcscpy(SectionName, L"Files.");
-    wcscat(SectionName, (const wchar_t*)GetListEntryUserData(Entry));
-    *AdditionalSectionName = SectionName;
+	wcscpy(SectionName, L"Files.");
+	wcscat(SectionName, (const wchar_t*) Entry->UserData);
+	*AdditionalSectionName = SectionName;
 
-    return TRUE;
+	return TRUE;
 }
 
 
 BOOLEAN
 ProcessDisplayRegistry(HINF InfFile, PGENERIC_LIST List)
 {
-    PGENERIC_LIST_ENTRY Entry;
-    INFCONTEXT Context;
-    PWCHAR ServiceName;
-    ULONG StartValue;
-    NTSTATUS Status;
-    WCHAR RegPath [255];
-    PWCHAR Buffer;
-    ULONG Width, Height, Bpp;
+  PGENERIC_LIST_ENTRY Entry;
+  INFCONTEXT Context;
+  PWCHAR ServiceName;
+  ULONG StartValue;
+  NTSTATUS Status;
+  WCHAR RegPath [255];
+  PWCHAR Buffer;
+  ULONG Width, Hight, Bpp;
 
-    DPRINT("ProcessDisplayRegistry() called\n");
+  DPRINT("ProcessDisplayRegistry() called\n");
 
-    Entry = GetCurrentListEntry(List);
-    if (Entry == NULL)
+  Entry = GetGenericListEntry(List);
+  if (Entry == NULL)
     {
-        DPRINT("GetCurrentListEntry() failed\n");
-        return FALSE;
+      DPRINT("GetGenericListEntry() failed\n");
+      return FALSE;
     }
 
-    if (!SetupFindFirstLineW(InfFile, L"Display", (WCHAR*)GetListEntryUserData(Entry), &Context))
+  if (!SetupFindFirstLineW(InfFile, L"Display", (WCHAR*) Entry->UserData, &Context))
     {
-        DPRINT("SetupFindFirstLineW() failed\n");
-        return FALSE;
+      DPRINT("SetupFindFirstLineW() failed\n");
+      return FALSE;
     }
 
-    /* Enable the right driver */
-    if (!INF_GetDataField(&Context, 3, &ServiceName))
+  /* Enable the right driver */
+  if (!INF_GetDataField(&Context, 3, &ServiceName))
     {
-        DPRINT("INF_GetDataField() failed\n");
-        return FALSE;
+      DPRINT("INF_GetDataField() failed\n");
+      return FALSE;
     }
 
-    ASSERT(wcslen(ServiceName) < 10);
-    DPRINT("Service name: %S\n", ServiceName);
+  ASSERT(wcslen(ServiceName) < 10);
+  DPRINT("Service name: %S\n", ServiceName);
 
-    StartValue = 1;
-    Status = RtlWriteRegistryValue(RTL_REGISTRY_SERVICES,
-        ServiceName,
-        L"Start",
-        REG_DWORD,
-        &StartValue,
-        sizeof(ULONG));
+  StartValue = 1;
+  Status = RtlWriteRegistryValue(RTL_REGISTRY_SERVICES,
+				 ServiceName,
+				 L"Start",
+				 REG_DWORD,
+				 &StartValue,
+				 sizeof(ULONG));
 
-    if (!NT_SUCCESS(Status))
+  if (!NT_SUCCESS(Status))
     {
-        DPRINT("RtlWriteRegistryValue() failed (Status %lx)\n", Status);
-        return FALSE;
+      DPRINT("RtlWriteRegistryValue() failed (Status %lx)\n", Status);
+      return FALSE;
     }
 
-    /* Set the resolution */
-    swprintf(RegPath, L"\\Registry\\Machine\\System\\CurrentControlSet\\Hardware Profiles\\Current\\System\\CurrentControlSet\\Services\\%s\\Device0", ServiceName);
+  /* Set the resolution */
+  swprintf(RegPath, L"\\Registry\\Machine\\System\\CurrentControlSet\\Hardware Profiles\\Current\\System\\CurrentControlSet\\Services\\%s\\Device0", ServiceName);
 
-    if (!INF_GetDataField(&Context, 4, &Buffer))
+  if (!INF_GetDataField(&Context, 4, &Buffer))
     {
-        DPRINT("INF_GetDataField() failed\n");
-        return FALSE;
+      DPRINT("INF_GetDataField() failed\n");
+      return FALSE;
+    }
+  Width = wcstoul(Buffer, NULL, 10);
+  Status = RtlWriteRegistryValue(RTL_REGISTRY_ABSOLUTE,
+				 RegPath,
+				 L"DefaultSettings.XResolution",
+				 REG_DWORD,
+				 &Width,
+				 sizeof(ULONG));
+  if (!NT_SUCCESS(Status))
+    {
+      DPRINT("RtlWriteRegistryValue() failed (Status %lx)\n", Status);
+      return FALSE;
     }
 
-    Width = wcstoul(Buffer, NULL, 10);
-    Status = RtlWriteRegistryValue(RTL_REGISTRY_ABSOLUTE,
-        RegPath,
-        L"DefaultSettings.XResolution",
-        REG_DWORD,
-        &Width,
-        sizeof(ULONG));
-    if (!NT_SUCCESS(Status))
+
+  if (!INF_GetDataField(&Context, 5, &Buffer))
     {
-        DPRINT("RtlWriteRegistryValue() failed (Status %lx)\n", Status);
-        return FALSE;
+      DPRINT("INF_GetDataField() failed\n");
+      return FALSE;
+    }
+  Hight = wcstoul(Buffer, 0, 0);
+  Status = RtlWriteRegistryValue(RTL_REGISTRY_ABSOLUTE,
+				 RegPath,
+				 L"DefaultSettings.YResolution",
+				 REG_DWORD,
+				 &Hight,
+				 sizeof(ULONG));
+  if (!NT_SUCCESS(Status))
+    {
+      DPRINT("RtlWriteRegistryValue() failed (Status %lx)\n", Status);
+      return FALSE;
     }
 
-    if (!INF_GetDataField(&Context, 5, &Buffer))
+  if (!INF_GetDataField(&Context, 6, &Buffer))
     {
-        DPRINT("INF_GetDataField() failed\n");
-        return FALSE;
+      DPRINT("INF_GetDataField() failed\n");
+      return FALSE;
+    }
+  Bpp = wcstoul(Buffer, 0, 0);
+  Status = RtlWriteRegistryValue(RTL_REGISTRY_ABSOLUTE,
+				 RegPath,
+				 L"DefaultSettings.BitsPerPel",
+				 REG_DWORD,
+				 &Bpp,
+				 sizeof(ULONG));
+  if (!NT_SUCCESS(Status))
+    {
+      DPRINT("RtlWriteRegistryValue() failed (Status %lx)\n", Status);
+      return FALSE;
     }
 
-    Height = wcstoul(Buffer, 0, 0);
-    Status = RtlWriteRegistryValue(RTL_REGISTRY_ABSOLUTE,
-        RegPath,
-        L"DefaultSettings.YResolution",
-        REG_DWORD,
-        &Height,
-        sizeof(ULONG));
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT("RtlWriteRegistryValue() failed (Status %lx)\n", Status);
-        return FALSE;
-    }
+  DPRINT("ProcessDisplayRegistry() done\n");
 
-    if (!INF_GetDataField(&Context, 6, &Buffer))
-    {
-        DPRINT("INF_GetDataField() failed\n");
-        return FALSE;
-    }
-
-    Bpp = wcstoul(Buffer, 0, 0);
-    Status = RtlWriteRegistryValue(RTL_REGISTRY_ABSOLUTE,
-        RegPath,
-        L"DefaultSettings.BitsPerPel",
-        REG_DWORD,
-        &Bpp,
-        sizeof(ULONG));
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT("RtlWriteRegistryValue() failed (Status %lx)\n", Status);
-        return FALSE;
-    }
-
-    DPRINT("ProcessDisplayRegistry() done\n");
-
-    return TRUE;
-}
-
-
-BOOLEAN
-ProcessLocaleRegistry(PGENERIC_LIST List)
-{
-    PGENERIC_LIST_ENTRY Entry;
-    PWCHAR LanguageId;
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    UNICODE_STRING KeyName;
-    UNICODE_STRING ValueName;
-
-    HANDLE KeyHandle;
-    NTSTATUS Status;
-
-    Entry = GetCurrentListEntry(List);
-    if (Entry == NULL)
-        return FALSE;
-
-    LanguageId = (PWCHAR)GetListEntryUserData(Entry);
-    if (LanguageId == NULL)
-        return FALSE;
-
-    /* Open the NLS language key */
-    RtlInitUnicodeString(&KeyName,
-                         L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\NLS\\Language");
-
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &KeyName,
-                               OBJ_CASE_INSENSITIVE,
-                               NULL,
-                               NULL);
-
-    Status =  NtOpenKey(&KeyHandle,
-                        KEY_SET_VALUE,
-                        &ObjectAttributes);
-
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("NtOpenKey() failed (Status %lx)\n", Status);
-        return FALSE;
-    }
-
-    /* Set default language */
-    RtlInitUnicodeString(&ValueName,
-                         L"Default");
-
-    Status = NtSetValueKey(KeyHandle,
-                           &ValueName,
-                           0,
-                           REG_SZ,
-                           (PVOID)(LanguageId + 4),
-                           8 * sizeof(PWCHAR));
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("NtSetValueKey() failed (Status %lx)\n", Status);
-        NtClose(KeyHandle);
-        return FALSE;
-    }
-
-    /* Set install language */
-    RtlInitUnicodeString(&ValueName,
-                         L"InstallLanguage");
-    Status = NtSetValueKey (KeyHandle,
-                            &ValueName,
-                            0,
-                            REG_SZ,
-                            (PVOID)(LanguageId + 4),
-                            8 * sizeof(PWCHAR));
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("NtSetValueKey() failed (Status %lx)\n", Status);
-        NtClose(KeyHandle);
-        return FALSE;
-    }
-
-    NtClose(KeyHandle);
-
-    return TRUE;
+  return TRUE;
 }
 
 
 PGENERIC_LIST
 CreateKeyboardDriverList(HINF InfFile)
 {
-    CHAR Buffer[128];
-    PGENERIC_LIST List;
-    INFCONTEXT Context;
-    PWCHAR KeyName;
-    PWCHAR KeyValue;
-    PWCHAR UserData;
+  CHAR Buffer[128];
+  PGENERIC_LIST List;
+  INFCONTEXT Context;
+  PWCHAR KeyName;
+  PWCHAR KeyValue;
+  PWCHAR UserData;
 
-    List = CreateGenericList();
-    if (List == NULL)
-        return NULL;
+  List = CreateGenericList();
+  if (List == NULL)
+    return NULL;
 
-    if (!SetupFindFirstLineW (InfFile, L"Keyboard", NULL, &Context))
+  if (!SetupFindFirstLineW (InfFile, L"Keyboard", NULL, &Context))
     {
-        DestroyGenericList(List, FALSE);
-        return NULL;
+      DestroyGenericList(List, FALSE);
+      return NULL;
     }
 
-    do
+  do
     {
-        if (!INF_GetData (&Context, &KeyName, &KeyValue))
-        {
-            /* FIXME: Handle error! */
-            DPRINT("INF_GetData() failed\n");
-            break;
-        }
+      if (!INF_GetData (&Context, &KeyName, &KeyValue))
+	{
+	  /* FIXME: Handle error! */
+	  DPRINT("INF_GetData() failed\n");
+	  break;
+	}
 
-        UserData = (WCHAR*) RtlAllocateHeap(ProcessHeap,
-                                            0,
-                                            (wcslen(KeyName) + 1) * sizeof(WCHAR));
-        if (UserData == NULL)
-        {
-            /* FIXME: Handle error! */
-        }
+      UserData = (WCHAR*) RtlAllocateHeap(ProcessHeap,
+				 0,
+				 (wcslen(KeyName) + 1) * sizeof(WCHAR));
+      if (UserData == NULL)
+	{
+	  /* FIXME: Handle error! */
+	}
 
-        wcscpy(UserData, KeyName);
+      wcscpy(UserData, KeyName);
 
-        sprintf(Buffer, "%S", KeyValue);
-        AppendGenericListEntry(List, Buffer, UserData, FALSE);
-    } while (SetupFindNextLine(&Context, &Context));
+      sprintf(Buffer, "%S", KeyValue);
+      AppendGenericListEntry(List, Buffer, UserData, FALSE);
+    }
+  while (SetupFindNextLine(&Context, &Context));
 
-    return List;
+  return List;
 }
 
-ULONG DefaultLanguageIndex = 0;
-
-ULONG
-GetDefaultLanguageIndex(VOID)
-{
-    return DefaultLanguageIndex;
-}
 
 PGENERIC_LIST
-CreateLanguageList(HINF InfFile, WCHAR * DefaultLanguage) 
+CreateKeyboardLayoutList(HINF InfFile)
 {
-    CHAR Buffer[128];
-    PGENERIC_LIST List;
-    INFCONTEXT Context;
-    PWCHAR KeyName;
-    PWCHAR KeyValue;
-    PWCHAR UserData;
-    ULONG uIndex = 0;
+  CHAR Buffer[128];
+  PGENERIC_LIST List;
+  INFCONTEXT Context;
+  PWCHAR KeyName;
+  PWCHAR KeyValue;
+  PWCHAR UserData;
+  WCHAR DefaultLayout[20];
 
-    /* Get default language id */
-    if (!SetupFindFirstLineW (InfFile, L"NLS", L"DefaultLanguage", &Context))
-        return NULL;
+  /* Get default layout id */
+  if (!SetupFindFirstLineW (InfFile, L"NLS", L"DefaultLayout", &Context))
+    return NULL;
 
-    if (!INF_GetData (&Context, NULL, &KeyValue))
-        return NULL;
+  if (!INF_GetData (&Context, NULL, &KeyValue))
+    return NULL;
 
-    wcscpy(DefaultLanguage, KeyValue);
+  wcscpy(DefaultLayout, KeyValue);
 
-    SelectedLanguageId = KeyValue;
+  List = CreateGenericList();
+  if (List == NULL)
+    return NULL;
 
-    List = CreateGenericList();
-    if (List == NULL)
-        return NULL;
-
-    if (!SetupFindFirstLineW (InfFile, L"Language", NULL, &Context))
+  if (!SetupFindFirstLineW (InfFile, L"KeyboardLayout", NULL, &Context))
     {
-        DestroyGenericList(List, FALSE);
-        return NULL; 
+      DestroyGenericList(List, FALSE);
+      return NULL;
     }
 
-    do
+  do
     {
-        if (!INF_GetData (&Context, &KeyName, &KeyValue))
-        {
-            /* FIXME: Handle error! */
-            DPRINT("INF_GetData() failed\n");
-            break;
-        }
+      if (!INF_GetData (&Context, &KeyName, &KeyValue))
+	{
+	  /* FIXME: Handle error! */
+	  DPRINT("INF_GetData() failed\n");
+	  break;
+	}
 
-        UserData = (WCHAR*) RtlAllocateHeap(ProcessHeap,
-                                            0,
-                                            (wcslen(KeyName) + 1) * sizeof(WCHAR));
-        if (UserData == NULL)
-        {
-            /* FIXME: Handle error! */
-        }
+      UserData = (WCHAR*) RtlAllocateHeap(ProcessHeap,
+				 0,
+				 (wcslen(KeyName) + 1) * sizeof(WCHAR));
+      if (UserData == NULL)
+	{
+	  /* FIXME: Handle error! */
+	}
 
-        wcscpy(UserData, KeyName);
+      wcscpy(UserData, KeyName);
 
-        if (!_wcsicmp(KeyName, DefaultLanguage)) DefaultLanguageIndex = uIndex;
-
-        sprintf(Buffer, "%S", KeyValue);
-        AppendGenericListEntry(List,
-                               Buffer,
-                               UserData,
-                               FALSE);
-        uIndex++;
-    } while (SetupFindNextLine(&Context, &Context));
-
-    return List;
-}
-
-PGENERIC_LIST
-CreateKeyboardLayoutList(HINF InfFile, WCHAR * DefaultKBLayout)
-{
-    CHAR Buffer[128];
-    PGENERIC_LIST List;
-    INFCONTEXT Context;
-    PWCHAR KeyName;
-    PWCHAR KeyValue;
-    PWCHAR UserData;
-    const MUI_LAYOUTS * LayoutsList;
-    ULONG uIndex = 0;
-    BOOL KeyboardLayoutsFound = FALSE;
-
-    /* Get default layout id */
-    if (!SetupFindFirstLineW (InfFile, L"NLS", L"DefaultLayout", &Context))
-        return NULL;
-
-    if (!INF_GetData (&Context, NULL, &KeyValue))
-        return NULL;
-
-    wcscpy(DefaultKBLayout, KeyValue);
-
-    List = CreateGenericList();
-    if (List == NULL)
-        return NULL;
-
-    LayoutsList = MUIGetLayoutsList();
-
-    do
-    {
-        if (!SetupFindFirstLineW(InfFile, L"KeyboardLayout", NULL, &Context))
-        {
-            DestroyGenericList(List, FALSE);
-            return NULL;
-        }
-
-        do
-        {
-            if (!INF_GetData (&Context, &KeyName, &KeyValue))
-            {
-                /* FIXME: Handle error! */
-                DPRINT("INF_GetData() failed\n");
-                DestroyGenericList(List, FALSE);
-                return NULL;
-            }
-
-            if (_wcsicmp(LayoutsList[uIndex].LayoutID, KeyName) == 0)
-            {
-                UserData = (WCHAR*) RtlAllocateHeap(ProcessHeap,
-                                                0,
-                                                (wcslen(KeyName) + 1) * sizeof(WCHAR));
-
-                if (UserData == NULL)
-                {
-                    /* FIXME: Handle error! */
-                    DPRINT("RtlAllocateHeap() failed\n");
-                    DestroyGenericList(List, FALSE);
-                    return NULL;
-                }
-
-                wcscpy(UserData, KeyName);
-
-                sprintf(Buffer, "%S", KeyValue);
-                AppendGenericListEntry(List,
-                                       Buffer,
-                                       UserData,
-                                       _wcsicmp(KeyName, DefaultKBLayout) ? FALSE : TRUE);
-                KeyboardLayoutsFound = TRUE;
-            }
-
-        } while (SetupFindNextLine(&Context, &Context));
-
-        uIndex++;
-
-    } while (LayoutsList[uIndex].LangID != NULL);
-
-    /* FIXME: Handle this case */
-    if (!KeyboardLayoutsFound)
-    {
-        DPRINT1("No keyboard layouts have been found\n");
-        DestroyGenericList(List, FALSE);
-        return NULL;
+      sprintf(Buffer, "%S", KeyValue);
+      AppendGenericListEntry(List,
+			     Buffer,
+			     UserData,
+			     _wcsicmp(KeyName, DefaultLayout) ? FALSE : TRUE);
     }
+  while (SetupFindNextLine(&Context, &Context));
 
-    return List;
+  return List;
 }
+
 
 BOOLEAN
 ProcessKeyboardLayoutRegistry(PGENERIC_LIST List)
 {
-    PGENERIC_LIST_ENTRY Entry;
-    PWCHAR LayoutId;
-    const MUI_LAYOUTS * LayoutsList;
-    MUI_LAYOUTS NewLayoutsList[20];
-    ULONG uIndex;
-    ULONG uOldPos = 0;
+  PGENERIC_LIST_ENTRY Entry;
+  PWCHAR LanguageId;
+  OBJECT_ATTRIBUTES ObjectAttributes;
+  UNICODE_STRING KeyName;
+  UNICODE_STRING ValueName;
+  HANDLE KeyHandle;
+  NTSTATUS Status;
 
-    Entry = GetCurrentListEntry(List);
-    if (Entry == NULL)
-        return FALSE;
+  Entry = GetGenericListEntry(List);
+  if (Entry == NULL)
+    return FALSE;
 
-    LayoutId = (PWCHAR)GetListEntryUserData(Entry);
-    if (LayoutId == NULL)
-        return FALSE;
+  LanguageId = (PWCHAR)Entry->UserData;
+  if (LanguageId == NULL)
+    return FALSE;
 
-    LayoutsList = MUIGetLayoutsList();
-
-    if (_wcsicmp(LayoutsList[0].LayoutID, LayoutId) != 0)
+  /* Open the nls language key */
+  RtlInitUnicodeString(&KeyName,
+		       L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\NLS\\Language");
+  InitializeObjectAttributes(&ObjectAttributes,
+			     &KeyName,
+			     OBJ_CASE_INSENSITIVE,
+			     NULL,
+			     NULL);
+  Status =  NtOpenKey(&KeyHandle,
+		      KEY_ALL_ACCESS,
+		      &ObjectAttributes);
+  if (!NT_SUCCESS(Status))
     {
-        for (uIndex = 1; LayoutsList[uIndex].LangID != NULL; uIndex++)
-        {
-            if (_wcsicmp(LayoutsList[uIndex].LayoutID, LayoutId) == 0)
-            {
-                uOldPos = uIndex;
-                continue;
-            }
-
-            NewLayoutsList[uIndex].LangID   = LayoutsList[uIndex].LangID;
-            NewLayoutsList[uIndex].LayoutID = LayoutsList[uIndex].LayoutID;
-        }
-
-        NewLayoutsList[uIndex].LangID    = NULL;
-        NewLayoutsList[uIndex].LayoutID  = NULL;
-        NewLayoutsList[uOldPos].LangID   = LayoutsList[0].LangID;
-        NewLayoutsList[uOldPos].LayoutID = LayoutsList[0].LayoutID;
-        NewLayoutsList[0].LangID         = LayoutsList[uOldPos].LangID;
-        NewLayoutsList[0].LayoutID       = LayoutsList[uOldPos].LayoutID;
-
-        return AddKbLayoutsToRegistry(NewLayoutsList);
+      DPRINT1("NtOpenKey() failed (Status %lx)\n", Status);
+      return FALSE;
     }
 
-    return TRUE;
+  /* Set default language */
+  RtlInitUnicodeString(&ValueName,
+		       L"Default");
+  Status = NtSetValueKey (KeyHandle,
+			  &ValueName,
+			  0,
+			  REG_SZ,
+			  (PVOID)(LanguageId + 4),
+			  8);
+  if (!NT_SUCCESS(Status))
+    {
+      DPRINT1("NtSetValueKey() failed (Status %lx)\n", Status);
+      NtClose(KeyHandle);
+      return FALSE;
+    }
+
+  /* Set install language */
+  RtlInitUnicodeString(&ValueName,
+		       L"InstallLanguage");
+  Status = NtSetValueKey (KeyHandle,
+			  &ValueName,
+			  0,
+			  REG_SZ,
+			  (PVOID)(LanguageId + 4),
+			  8);
+  if (!NT_SUCCESS(Status))
+    {
+      DPRINT1("NtSetValueKey() failed (Status %lx)\n", Status);
+      NtClose(KeyHandle);
+      return FALSE;
+    }
+
+  NtClose(KeyHandle);
+
+  return TRUE;
 }
 
 
@@ -953,51 +795,8 @@ ProcessKeyboardLayoutRegistry(PGENERIC_LIST List)
 BOOLEAN
 ProcessKeyboardLayoutFiles(PGENERIC_LIST List)
 {
-    return TRUE;
+  return TRUE;
 }
 #endif
-
-BOOLEAN
-SetGeoID(PWCHAR Id)
-{
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    UNICODE_STRING KeyName;
-    UNICODE_STRING ValueName;
-    HANDLE KeyHandle;
-    WCHAR szKeyName[] = L"\\Registry\\User\\.DEFAULT\\Control Panel\\International\\Geo";
-    WCHAR szValueName[] = L"Nation";
-    NTSTATUS Status;
-    RtlInitUnicodeString(&KeyName,
-                         szKeyName);
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &KeyName,
-                               OBJ_CASE_INSENSITIVE,
-                               NULL,
-                               NULL);
-
-    Status =  NtOpenKey(&KeyHandle,
-                        KEY_SET_VALUE,
-			  &ObjectAttributes);
-    if(!NT_SUCCESS(Status))
-    {
-        DPRINT1("NtOpenKey() failed (Status %lx)\n", Status);
-        return FALSE;
-    }
-    RtlInitUnicodeString(&ValueName, szValueName);
-    Status = NtSetValueKey(KeyHandle,
-                                   &ValueName,
-                                   0,
-                                   REG_SZ,
-                                   (PVOID)Id,
-                                   (wcslen(Id) * sizeof(WCHAR)));
-    if (!NT_SUCCESS(Status))
-    {
-         DPRINT1("NtSetValueKey() failed (Status = %lx)\n", Status);
-         NtClose(KeyHandle);
-         return FALSE;
-    }
-
-    return TRUE;
-}
 
 /* EOF */

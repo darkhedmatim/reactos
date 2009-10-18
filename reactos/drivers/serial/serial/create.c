@@ -18,25 +18,25 @@ SerialCreate(
 	PSERIAL_DEVICE_EXTENSION DeviceExtension;
 	NTSTATUS Status;
 
-	TRACE_(SERIAL, "IRP_MJ_CREATE\n");
+	DPRINT("IRP_MJ_CREATE\n");
 	Stack = IoGetCurrentIrpStackLocation(Irp);
 	DeviceExtension = (PSERIAL_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
 
 	if (Stack->Parameters.Create.Options & FILE_DIRECTORY_FILE)
 	{
-		INFO_(SERIAL, "Not a directory\n");
+		CHECKPOINT;
 		Status = STATUS_NOT_A_DIRECTORY;
 		goto ByeBye;
 	}
 
 	if(DeviceExtension->IsOpened)
 	{
-		WARN_(SERIAL, "COM%lu is already opened\n", DeviceExtension->ComPort);
+		DPRINT("COM%lu is already opened\n", DeviceExtension->ComPort);
 		Status = STATUS_ACCESS_DENIED;
 		goto ByeBye;
 	}
 
-	INFO_(SERIAL, "Open COM%lu: successfull\n", DeviceExtension->ComPort);
+	DPRINT("Open COM%lu: successfull\n", DeviceExtension->ComPort);
 	DeviceExtension->IsOpened = TRUE;
 	Status = STATUS_SUCCESS;
 

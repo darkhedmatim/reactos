@@ -3,7 +3,7 @@
 LANGUAGE LANG_FRENCH, SUBLANG_NEUTRAL
 
 IDD_PROPPAGEPOWERSHEMES DIALOGEX 0, 0, 250, 220
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Profils d'alimentation"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -12,8 +12,8 @@ BEGIN
 	-1,45,13,194,36
   GROUPBOX "P&rofils d'alimentation", -1, 7,57,240,46
   COMBOBOX IDC_ENERGYLIST, 14,70,224,92, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-  PUSHBUTTON "&Sauvegarder sous...", IDC_SAVEAS_BTN, 100,85,75,15,WS_DISABLED
-  PUSHBUTTON "&Supprimer", IDC_DELETE_BTN, 180,85,55,15,WS_DISABLED
+  PUSHBUTTON "&Sauvegarder sous...", -1, 100,85,75,15,WS_DISABLED
+  PUSHBUTTON "&Supprimer", -1, 180,85,55,15,WS_DISABLED
   GROUPBOX "Inconnu", IDC_GRPDETAIL, 7,108,240,105
   LTEXT "Alimentation :",IDC_SAT,15,120,60,10
   LTEXT "Branché",IDC_SAC,100,120,45,15
@@ -34,10 +34,10 @@ BEGIN
   COMBOBOX IDC_HYBERNATEDCLIST, 175,190,65,150, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 END
 
-IDD_PROPPAGEALARMS DIALOGEX DISCARDABLE  0, 0, 250, 220
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_PROPPAGEALARMS DIALOG DISCARDABLE  0, 0, 250, 220
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Alarmes"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Sans Serif"
 BEGIN
     GROUPBOX        "Alarme de batterie faible",-1,10,15,235,95
     CONTROL         "Activer l'alarme de batterie faible quand le niveau d'énergie atteint :",IDC_ALARM1,
@@ -72,15 +72,15 @@ BEGIN
     LTEXT           "Inconnu",IDC_ALARMPROG2,150,190,40,10
 END
 
-IDD_PROPPAGEADVANCED DIALOGEX DISCARDABLE  0, 0, 250, 220
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_PROPPAGEADVANCED DIALOG DISCARDABLE  0, 0, 250, 220
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Avancé"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Sans Serif"
 BEGIN
     ICON            IDI_ACDC,IDI_ACDC,5,5,20,20
     LTEXT           "Choisissez les options d'économie d'énergie que vous voulez utiliser.",-1,30,5,205,20
     GROUPBOX        "Options",-1,5,35,225,55
-    CONTROL         "Toujours &afficher l'icône sur la barre des tâches",IDC_SYSTRAYBATTERYMETER,"Button",BS_AUTOCHECKBOX |
+    CONTROL         "Toujours &afficher l'icône sur la barre des taches",IDC_SYSTRAYBATTERYMETER,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,15,45,200,10
     CONTROL         "&Demander un mot de passe pour sortir de la mise en veille",IDC_PASSWORDLOGON,"Button",BS_AUTOCHECKBOX |
                     WS_TABSTOP,15,55,200,10
@@ -98,10 +98,10 @@ BEGIN
                     WS_VSCROLL | WS_TABSTOP
 END
 
-IDD_PROPPAGEHIBERNATE DIALOGEX DISCARDABLE  0, 0, 250, 220
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_PROPPAGEHIBERNATE DIALOG DISCARDABLE  0, 0, 250, 220
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Mise en veille"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Sans Serif"
 BEGIN
     ICON            IDI_SCREEN,IDI_SCREEN,5,5,20,20
     LTEXT           "Quand votre ordinateur se met en veille, il enregistre tout ce qu'il a en memoire sur le disque dur et s'arrête. Quand votre ordinateur sort de la mise en veille, il reprend son état précédent. ",
@@ -158,9 +158,5 @@ BEGIN
   IDS_TIMEOUT14 "Après 4 heures"
   IDS_TIMEOUT15 "Après 5 heures"
   IDS_TIMEOUT16 "Jamais"
-  
-  IDS_DEL_SCHEME "Êtes-vous sûr de vouloir supprimer le profil d'alimentation ?"
-  IDS_DEL_SCHEME_TITLE "Supprimer le profil"
 END
-
 

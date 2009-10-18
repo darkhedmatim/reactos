@@ -55,10 +55,7 @@ CompilerFlag::Initialize ()
 			node.location,
 			"<compilerflag> is empty." );
 	}
-
 	flag = node.value;
-
-	ParseCompilers ( node, "cc,cxx" );
 }
 
 void

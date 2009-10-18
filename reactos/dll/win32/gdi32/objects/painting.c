@@ -5,7 +5,7 @@
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 LineTo( HDC hDC, INT x, INT y )
 {
 #if 0
@@ -33,13 +33,16 @@ LineTo( HDC hDC, INT x, INT y )
  return NtGdiLineTo( hDC, x, y);
 }
 
+#if 0 /* FIXME: enable this as soon as we have working usermode gdi */
 
 BOOL
-WINAPI
+STDCALL
 MoveToEx( HDC hDC, INT x, INT y, LPPOINT Point )
 {
  PDC_ATTR Dc_Attr;
-#if 0
+
+ if (!GdiGetHandleUserData((HGDIOBJ) hDC, (PVOID) &Dc_Attr)) return FALSE;
+
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC)
  {
     if (GDI_HANDLE_GET_TYPE(hDC) == GDI_OBJECT_TYPE_METADC)
@@ -58,8 +61,6 @@ MoveToEx( HDC hDC, INT x, INT y, LPPOINT Point )
       }
     }
  }
-#endif
- if (!GdiGetHandleUserData((HGDIOBJ) hDC, GDI_OBJECT_TYPE_DC, (PVOID) &Dc_Attr)) return FALSE;
 
  if ( Point )
  {
@@ -79,17 +80,16 @@ MoveToEx( HDC hDC, INT x, INT y, LPPOINT Point )
  Dc_Attr->ptlCurrent.x = x;
  Dc_Attr->ptlCurrent.y = y;
 
- Dc_Attr->ulDirty_ &= ~DIRTY_PTLCURRENT;
- Dc_Attr->ulDirty_ |= ( DIRTY_PTFXCURRENT|DIRTY_STYLESTATE); // Set dirty
+ Dc_Attr->ulDirty_ |= ( DIRTY_PTLCURRENT|DIRTY_STYLESTATE); // Set dirty
  return TRUE;
 }
-
+#endif
 
 /*
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 Ellipse(HDC hDC, INT Left, INT Top, INT Right, INT Bottom)
 {
 #if 0
@@ -122,7 +122,7 @@ Ellipse(HDC hDC, INT Left, INT Top, INT Right, INT Bottom)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 Rectangle(HDC hDC, INT Left, INT Top, INT Right, INT Bottom)
 {
 #if 0
@@ -155,7 +155,7 @@ Rectangle(HDC hDC, INT Left, INT Top, INT Right, INT Bottom)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 RoundRect(HDC hDC, INT Left, INT Top, INT Right, INT Bottom,
                                                 INT ell_Width, INT ell_Height)
 {
@@ -191,7 +191,7 @@ RoundRect(HDC hDC, INT Left, INT Top, INT Right, INT Bottom,
  * @implemented
  */
 COLORREF
-WINAPI
+STDCALL
 GetPixel( HDC hDC, INT x, INT y )
 {
  if (GDI_HANDLE_GET_TYPE(hDC) != GDI_OBJECT_TYPE_DC) return CLR_INVALID;
@@ -204,7 +204,7 @@ GetPixel( HDC hDC, INT x, INT y )
  * @implemented
  */
 COLORREF
-WINAPI
+STDCALL
 SetPixel( HDC hDC, INT x, INT y, COLORREF Color )
 {
 #if 0
@@ -238,7 +238,7 @@ SetPixel( HDC hDC, INT x, INT y, COLORREF Color )
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetPixelV( HDC hDC, INT x, INT y, COLORREF Color )
 {
    COLORREF Cr = SetPixel( hDC, x, y, Color );
@@ -251,7 +251,7 @@ SetPixelV( HDC hDC, INT x, INT y, COLORREF Color )
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 FillRgn( HDC hDC, HRGN hRgn, HBRUSH hBrush )
 {
 
@@ -286,7 +286,7 @@ FillRgn( HDC hDC, HRGN hRgn, HBRUSH hBrush )
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 FrameRgn( HDC hDC, HRGN hRgn, HBRUSH hBrush, INT nWidth, INT nHeight )
 {
 
@@ -321,7 +321,7 @@ FrameRgn( HDC hDC, HRGN hRgn, HBRUSH hBrush, INT nWidth, INT nHeight )
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 InvertRgn( HDC hDC, HRGN hRgn )
 {
 
@@ -356,7 +356,7 @@ InvertRgn( HDC hDC, HRGN hRgn )
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 PaintRgn( HDC hDC, HRGN hRgn )
 {
 #if 0
@@ -392,7 +392,7 @@ PaintRgn( HDC hDC, HRGN hRgn )
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 PolyBezier(HDC hDC ,const POINT* Point, DWORD cPoints)
 {
 #if 0
@@ -429,7 +429,7 @@ PolyBezier(HDC hDC ,const POINT* Point, DWORD cPoints)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 PolyBezierTo(HDC hDC, const POINT* Point ,DWORD cPoints)
 {
 #if 0
@@ -462,7 +462,7 @@ PolyBezierTo(HDC hDC, const POINT* Point ,DWORD cPoints)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 PolyDraw(HDC hDC, const POINT* Point, const BYTE *lpbTypes, int cCount )
 {
 #if 0
@@ -495,7 +495,7 @@ PolyDraw(HDC hDC, const POINT* Point, const BYTE *lpbTypes, int cCount )
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 Polygon(HDC hDC, const POINT *Point, int Count)
 {
 #if 0
@@ -528,7 +528,7 @@ Polygon(HDC hDC, const POINT *Point, int Count)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 Polyline(HDC hDC, const POINT *Point, int Count)
 {
 #if 0
@@ -561,7 +561,7 @@ Polyline(HDC hDC, const POINT *Point, int Count)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 PolylineTo(HDC hDC, const POINT* Point, DWORD Count)
 {
 #if 0
@@ -594,7 +594,7 @@ PolylineTo(HDC hDC, const POINT* Point, DWORD Count)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 PolyPolygon(HDC hDC, const POINT* Point, const INT* Count, int Polys)
 {
 #if 0
@@ -627,7 +627,7 @@ PolyPolygon(HDC hDC, const POINT* Point, const INT* Count, int Polys)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 PolyPolyline(HDC hDC, const POINT* Point, const DWORD* Counts, DWORD Polys)
 {
 #if 0
@@ -660,7 +660,7 @@ PolyPolyline(HDC hDC, const POINT* Point, const DWORD* Counts, DWORD Polys)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 ExtFloodFill(
        HDC hDC,
        int nXStart,
@@ -740,7 +740,7 @@ MaskBlt(
 	                    xMask,
 	                    yMask,
 	                    dwRop,
-	                    GetBkColor(hdcSrc));
+	                    0);
 }
 
 
@@ -771,5 +771,5 @@ PlgBlt(
 	                   hbmMask,
 	                   xMask,
 	                   yMask,
-	                   GetBkColor(hdcSrc));
+	                   0);
 }

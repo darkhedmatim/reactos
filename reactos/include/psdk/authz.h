@@ -20,7 +20,7 @@
 #if !defined(_AUTHZ_)
 #define AUTHZAPI DECLSPEC_IMPORT
 #else
-#define AUTHZAPI
+#define AUTHZAPI DECLSPEC_EXPORT
 #endif
 
 #ifdef __cplusplus

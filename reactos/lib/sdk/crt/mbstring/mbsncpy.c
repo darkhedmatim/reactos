@@ -3,56 +3,48 @@
  * PROJECT:     ReactOS system libraries
  * FILE:        lib/msvcrt/mbstring/mbsncpy.c
  * PURPOSE:     Copies a string to a maximum of n bytes or characters
- * PROGRAMERS:
- *              Copyright 1999 Ariadne
- *              Copyright 1999 Alexandre Julliard
- *              Copyright 2000 Jon Griffths
- *
+ * PROGRAMER:   Ariadne
+ * UPDATE HISTORY:
+ *              12/04/99: Created
  */
 
-#include <precomp.h>
 #include <mbstring.h>
 
-extern int g_mbcp_is_multibyte;
 
 /*
  * @implemented
  */
-unsigned char* _mbsncpy(unsigned char *dst, const unsigned char *src, size_t n)
+unsigned char* _mbsncpy(unsigned char *str1, const unsigned char *str2, size_t n)
 {
-  unsigned char* ret = dst;
-  if(!n)
-    return dst;
-  if (g_mbcp_is_multibyte)
-  {
-    while (*src && n)
-    {
-      n--;
-      if (_ismbblead(*src))
-      {
-        if (!*(src+1))
-        {
-            *dst++ = 0;
-            *dst++ = 0;
-            break;
-        }
+	unsigned char *s1 = (unsigned char *)str1;
+	unsigned char *s2 = (unsigned char *)str2;
 
-        *dst++ = *src++;
-      }
+	unsigned short *short_s1, *short_s2;
 
-      *dst++ = *src++;
-    }
-  }
-  else
-  {
-    while (n)
-    {
-        n--;
-        if (!(*dst++ = *src++)) break;
-    }
-  }
-  while (n--) *dst++ = 0;
-  return ret;
+	if (n == 0)
+		return 0;
+	do {
+
+		if (*s2 == 0)
+			break;
+
+		if (  !_ismbblead(*s2) ) {
+
+			*s1 = *s2;
+			s1 += 1;
+			s2 += 1;
+			n--;
+		}
+		else {
+			short_s1 = (unsigned short *)s1;
+			short_s2 = (unsigned short *)s2;
+			*short_s1 = *short_s2;
+			s1 += 2;
+			s2 += 2;
+			n--;
+		}
+	} while (n > 0);
+	return str1;
 }
 
 
@@ -63,95 +55,37 @@ unsigned char* _mbsncpy(unsigned char *dst, const unsigned char *src, size_t n)
  *
  * @implemented
  */
-unsigned char * _mbsnbcpy(unsigned char *dst, const unsigned char *src, size_t n)
+unsigned char * _mbsnbcpy(unsigned char *str1, const unsigned char *str2, size_t n)
 {
-  unsigned char* ret = dst;
-  if(!n)
-    return dst;
-  if(g_mbcp_is_multibyte)
-  {
-    int is_lead = 0;
-    while (*src && n)
-    {
-      is_lead = (!is_lead && _ismbblead(*src));
-      n--;
-      *dst++ = *src++;
-    }
+	unsigned char *s1 = (unsigned char *)str1;
+	unsigned char *s2 = (unsigned char *)str2;
 
-    if (is_lead) /* if string ends with a lead, remove it */
-      *(dst - 1) = 0;
-  }
-  else
-  {
-    while (n)
-    {
-        n--;
-        if (!(*dst++ = *src++)) break;
-    }
-  }
-  while (n--) *dst++ = 0;
-  return ret;
-}
+	unsigned short *short_s1, *short_s2;
 
-/*
- * Unlike _mbsnbcpy this function does not pad the rest of the dest
- * string with 0
-*/
-int CDECL _mbsnbcpy_s(unsigned char* dst, size_t size, const unsigned char* src, size_t n)
-{
-    size_t pos = 0;
+	if (n == 0)
+		return 0;
+	do {
 
-    if(!dst || size == 0)
-        return EINVAL;
-    if(!src)
-    {
-        dst[0] = '\0';
-        return EINVAL;
-    }
-    if(!n)
-        return 0;
-
-    if(g_mbcp_is_multibyte)
-    {
-        int is_lead = 0;
-        while (*src && n)
-        {
-            if(pos == size)
-            {
-                dst[0] = '\0';
-                return ERANGE;
-            }
-            is_lead = (!is_lead && _ismbblead(*src));
-            n--;
-            dst[pos++] = *src++;
+        if (*s2 == 0) {
+			*s1 = *s2;
+			break;
         }
 
-        if (is_lead) /* if string ends with a lead, remove it */
-            dst[pos - 1] = 0;
-    }
-    else
-    {
-        while (n)
-        {
-            n--;
-            if(pos == size)
-            {
-                dst[0] = '\0';
-                return ERANGE;
-            }
+		if (  !_ismbblead(*s2) ) {
 
-            if(!(*src)) break;
-            dst[pos++] = *src++;
-        }
-    }
-
-    if(pos < size)
-        dst[pos] = '\0';
-    else
-    {
-        dst[0] = '\0';
-        return ERANGE;
-    }
-
-    return 0;
+			*s1 = *s2;
+			s1 += 1;
+			s2 += 1;
+			n--;
+		}
+		else {
+			short_s1 = (unsigned short *)s1;
+			short_s2 = (unsigned short *)s2;
+			*short_s1 = *short_s2;
+			s1 += 2;
+			s2 += 2;
+			n-=2;
+		}
+	} while (n > 0);
+	return str1;
 }

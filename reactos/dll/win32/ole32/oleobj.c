@@ -32,8 +32,6 @@
 #include "wine/debug.h"
 #include "ole2.h"
 
-#include "compobj_private.h"
-
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
 #define INITIAL_SINKS 10
@@ -113,7 +111,7 @@ static HRESULT WINAPI EnumOleSTATDATA_Next(
 
     for (; celt; celt--, rgelt++)
     {
-        while ((This->index < This->pOleAdviseHolder->maxSinks) && 
+        while ((This->index < This->pOleAdviseHolder->maxSinks) &&
                !This->pOleAdviseHolder->arrayOfSinks[This->index])
         {
             This->index++;
@@ -146,7 +144,7 @@ static HRESULT WINAPI EnumOleSTATDATA_Skip(
 
     for (; celt; celt--)
     {
-        while ((This->index < This->pOleAdviseHolder->maxSinks) && 
+        while ((This->index < This->pOleAdviseHolder->maxSinks) &&
                !This->pOleAdviseHolder->arrayOfSinks[This->index])
         {
             This->index++;
@@ -199,7 +197,7 @@ static HRESULT EnumOleSTATDATA_Construct(OleAdviseHolderImpl *pOleAdviseHolder, 
     This->pOleAdviseHolder = pOleAdviseHolder;
     IOleAdviseHolder_AddRef((IOleAdviseHolder *)pOleAdviseHolder);
     *ppenum = (IEnumSTATDATA *)&This->lpvtbl;
-    return S_OK;    
+    return S_OK;
 }
 
 /**************************************************************************
@@ -256,7 +254,7 @@ static HRESULT WINAPI OleAdviseHolderImpl_QueryInterface(
   else if(IsEqualIID(riid, &IID_IOleAdviseHolder))
   {
     /* IOleAdviseHolder */
-    *ppvObj = This;
+    *ppvObj = (IOleAdviseHolder*) This;
   }
 
   if(*ppvObj == NULL)
@@ -575,7 +573,7 @@ static void DataAdviseHolder_Destructor(DataAdviseHolder* ptrToDestroy)
   {
     if (ptrToDestroy->Connections[index].sink != NULL)
     {
-      if (ptrToDestroy->delegate && 
+      if (ptrToDestroy->delegate &&
           (ptrToDestroy->Connections[index].advf & WINE_ADVF_REMOTE))
         IDataObject_DUnadvise(ptrToDestroy->delegate,
           ptrToDestroy->Connections[index].remote_connection);
@@ -726,7 +724,7 @@ static HRESULT WINAPI DataAdviseHolder_Advise(
    */
   This->Connections[index].sink = pAdvise;
   This->Connections[index].advf = advf & ~WINE_ADVF_REMOTE;
-  This->Connections[index].fmat = *pFetc;
+  memcpy(&(This->Connections[index].fmat), pFetc, sizeof(FORMATETC));
   if (pFetc->ptd)
   {
     This->Connections[index].fmat.ptd = CoTaskMemAlloc(pFetc->ptd->tdSize);

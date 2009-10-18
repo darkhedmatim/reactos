@@ -77,15 +77,6 @@ typedef struct _CHILD_LIST
 } CHILD_LIST, *PCHILD_LIST;
 
 //
-// Node Key Reference to Parents
-//
-typedef struct  _CM_KEY_REFERENCE
-{
-    HCELL_INDEX KeyCell;
-    PHHIVE KeyHive;
-} CM_KEY_REFERENCE, *PCM_KEY_REFERENCE;
-
-//
 // Node Key
 //
 typedef struct _CM_KEY_NODE
@@ -96,15 +87,8 @@ typedef struct _CM_KEY_NODE
     ULONG Spare;
     HCELL_INDEX Parent;
     ULONG SubKeyCounts[HTYPE_COUNT];
-    union
-    {
-        struct
-        {
-            HCELL_INDEX SubKeyLists[HTYPE_COUNT];
-            CHILD_LIST ValueList;
-        };
-        CM_KEY_REFERENCE ChildHiveReference;
-    };
+    HCELL_INDEX SubKeyLists[HTYPE_COUNT];
+    CHILD_LIST ValueList;
     HCELL_INDEX Security;
     HCELL_INDEX Class;
     ULONG MaxNameLen;
@@ -114,7 +98,7 @@ typedef struct _CM_KEY_NODE
     ULONG WorkVar;
     USHORT NameLength;
     USHORT ClassLength;
-    WCHAR Name[ANYSIZE_ARRAY];
+    WCHAR Name[0];
 } CM_KEY_NODE, *PCM_KEY_NODE;
 
 //
@@ -122,7 +106,7 @@ typedef struct _CM_KEY_NODE
 //
 typedef struct _VALUE_LIST_CELL
 {
-    HCELL_INDEX ValueOffset[ANYSIZE_ARRAY];
+    HCELL_INDEX ValueOffset[0];
 } VALUE_LIST_CELL, *PVALUE_LIST_CELL;
 
 //
@@ -137,7 +121,7 @@ typedef struct _CM_KEY_VALUE
     ULONG Type;
     USHORT Flags;
     USHORT Unused1;
-    WCHAR Name[ANYSIZE_ARRAY];
+    WCHAR Name[0];
 } CM_KEY_VALUE, *PCM_KEY_VALUE;
 
 //
@@ -152,7 +136,7 @@ typedef struct _CM_KEY_SECURITY
     ULONG ReferenceCount;
     ULONG DescriptorLength;
     //SECURITY_DESCRIPTOR_RELATIVE Descriptor;
-    UCHAR Data[ANYSIZE_ARRAY];
+    UCHAR Data[0];
 } CM_KEY_SECURITY, *PCM_KEY_SECURITY;
 
 #ifdef CMLIB_HOST

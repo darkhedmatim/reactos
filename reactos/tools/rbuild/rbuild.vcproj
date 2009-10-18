@@ -133,10 +133,9 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..,../../lib/inflib,../../include/reactos;../../include"
-				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;INFLIB_HOST;_CRT_SECURE_NO_WARNINGS;_CRT_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE"
+				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;INFLIB_HOST"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
-				DefaultCharIsUnsigned="true"
 				UsePrecompiledHeader="0"
 				PrecompiledHeaderFile=".\Debug/rbuild.pch"
 				AssemblerListingLocation=".\Debug/"
@@ -161,7 +160,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				OutputFile=".\Debug/rbuild.exe"
-				LinkIncremental="2"
+				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\Debug/rbuild.pdb"
@@ -396,10 +395,6 @@
 					>
 				</File>
 				<File
-					RelativePath=".\backend\mingw\mstools_detection.cpp"
-					>
-				</File>
-				<File
 					RelativePath="backend\mingw\pch_detection.h"
 					>
 				</File>
@@ -426,14 +421,6 @@
 							BasicRuntimeChecks="3"
 						/>
 					</FileConfiguration>
-				</File>
-				<File
-					RelativePath=".\backend\mingw\rule.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\backend\mingw\rule.h"
-					>
 				</File>
 			</Filter>
 			<Filter
@@ -626,30 +613,6 @@
 			</File>
 			<File
 				RelativePath="compilationunitsupportcode.cpp"
-				>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						Optimization="2"
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						Optimization="0"
-						AdditionalIncludeDirectories=""
-						PreprocessorDefinitions=""
-						BasicRuntimeChecks="3"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="compilerdirective.cpp"
 				>
 				<FileConfiguration
 					Name="Release|Win32"
@@ -1058,6 +1021,30 @@
 			</File>
 			<File
 				RelativePath="testsupportcode.cpp"
+				>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						Optimization="2"
+						PreprocessorDefinitions=""
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						Optimization="0"
+						AdditionalIncludeDirectories=""
+						PreprocessorDefinitions=""
+						BasicRuntimeChecks="3"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="wineresource.cpp"
 				>
 				<FileConfiguration
 					Name="Release|Win32"

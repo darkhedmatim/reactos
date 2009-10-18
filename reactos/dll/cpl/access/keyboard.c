@@ -1,4 +1,4 @@
-/* $Id: keyboard.c 29170 2007-09-23 22:59:00Z ekohl $
+/* $Id$
  *
  * PROJECT:         ReactOS Accessibility Control Panel
  * LICENSE:         GPL - See COPYING in the top level directory
@@ -19,16 +19,16 @@
 
 
 #define BOUNCETICKS 5
-static UINT nBounceArray[BOUNCETICKS] = {500, 700, 1000, 1500, 2000};
+static INT nBounceArray[BOUNCETICKS] = {500, 700, 1000, 1500, 2000};
 
 #define DELAYTICKS 5
-static UINT nDelayArray[DELAYTICKS] = {300, 700, 1000, 1500, 2000};
+static INT nDelayArray[DELAYTICKS] = {300, 700, 1000, 1500, 2000};
 
 #define REPEATTICKS 6
-static UINT nRepeatArray[REPEATTICKS] = {300, 500, 700, 1000, 1500, 2000};
+static INT nRepeatArray[REPEATTICKS] = {300, 500, 700, 1000, 1500, 2000};
 
 #define WAITTICKS 10
-static UINT nWaitArray[WAITTICKS] = {0, 300, 500, 700, 1000, 1500, 2000, 5000, 10000, 20000};
+static INT nWaitArray[WAITTICKS] = {0, 300, 500, 700, 1000, 1500, 2000, 5000, 10000, 20000};
 
 
 static VOID

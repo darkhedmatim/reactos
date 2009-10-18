@@ -14,25 +14,20 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-// For character conversion functions like "wctomb" and "alloca" under Unix
-#include <stdlib.h>
-
-#if defined(WIN32)
-    // Under Win32 hosts, "alloca" is not defined by stdlib.h, but by malloc.h
-    // On the other hand, malloc.h is deprecated under some Unix hosts, so only include it for Win32 hosts.
-    #include <malloc.h>
-#endif
-
-#include <ctype.h>
+#if defined(__FreeBSD__) || defined(__APPLE__)
+# include <stdlib.h>
+#else
+# include <malloc.h>
+#endif // __FreeBSD__
 #include <math.h>
 #include <float.h>
 #include <assert.h>
 #include "ssprintf.h"
 
 #ifndef WIN32
+#include <ctype.h>
 #define _finite __finite
 #define _isnan __isnan
-#endif
 
 #ifndef __APPLE__
 inline int iswdigit ( wchar_t c )
@@ -40,13 +35,9 @@ inline int iswdigit ( wchar_t c )
 	return ( c >= L'0' && c <= L'9' );
 }
 #endif
+#endif//WIN32
 
-#if defined(__sun__)
-#include <alloca.h>
-#include <ieee.h>
-#endif
-
-#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__sun__) || defined(__CYGWIN__)
+#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__CYGWIN__)
 # define __isnan isnan
 # define __finite finite
 # define powl __builtin_powl
@@ -1561,7 +1552,7 @@ ssvprintf ( const char *fmt, va_list args )
 				flags |= ZEROPAD;
 			}
 			result = number(f,
-				        (size_t) va_arg(args, void *), 16,
+				        (unsigned long) va_arg(args, void *), 16,
 					field_width, precision, flags);
 			if (result < 0)
 			{
@@ -1885,7 +1876,7 @@ sswvprintf ( const wchar_t* fmt, va_list args )
 				flags |= ZEROPAD;
 			}
 			result = wnumber(f,
-				        (size_t) va_arg(args, void *), 16,
+				        (unsigned long) va_arg(args, void *), 16,
 					field_width, precision, flags);
 			if (result < 0)
 			{

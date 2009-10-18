@@ -19,23 +19,13 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  *
  * NOTE
- * 
+ *
  * This code was audited for completeness against the documented features
  * of Comctl32.dll version 6.0 on Sep. 9, 2002, by Dimitrie O. Paun.
- * 
+ *
  * Unless otherwise noted, we believe this code to be complete, as per
  * the specification mentioned above.
  * If you discover missing features, or bugs, please note them below.
- *
- * TODO:
- *
- * Messages:
- *    -- PBM_GETSTEP
- *    -- PBM_SETSTATE
- *    -- PBM_GETSTATE
- *
- * Styles:
- *    -- PBS_SMOOTHREVERSE
  *
  */
 
@@ -263,22 +253,38 @@ static const ProgressDrawProc drawProcClassic[8] = {
 static void draw_theme_bar_H (const ProgressDrawInfo* di, int start, int end)
 {
     RECT r;
+    int right = di->rect.left + end;
     r.left = di->rect.left + start;
     r.top = di->rect.top;
     r.bottom = di->rect.bottom;
-    r.right = di->rect.left + end;
-    DrawThemeBackground (di->theme, di->hdc, PP_CHUNK, 0, &r, NULL);
+    while (r.left < right)
+    {
+        r.right = min (r.left + di->ledW, right);
+        DrawThemeBackground (di->theme, di->hdc, PP_CHUNK, 0, &r, NULL);
+        r.left = r.right;
+        r.right = min (r.left + di->ledGap, right);
+        DrawThemeBackground (di->theme, di->hdc, PP_BAR, 0, &di->bgRect, &r);
+        r.left = r.right;
+    }
 }
 
-/* draw themed vertical bar from 'start' to 'end' */
+/* draw themed horizontal bar from 'start' to 'end' */
 static void draw_theme_bar_V (const ProgressDrawInfo* di, int start, int end)
 {
     RECT r;
+    int top = di->rect.bottom - end;
     r.left = di->rect.left;
     r.right = di->rect.right;
     r.bottom = di->rect.bottom - start;
-    r.top = di->rect.bottom - end;
-    DrawThemeBackground (di->theme, di->hdc, PP_CHUNKVERT, 0, &r, NULL);
+    while (r.bottom > top)
+    {
+        r.top = max (r.bottom - di->ledW, top);
+        DrawThemeBackground (di->theme, di->hdc, PP_CHUNKVERT, 0, &r, NULL);
+        r.bottom = r.top;
+        r.top = max (r.bottom - di->ledGap, top);
+        DrawThemeBackground (di->theme, di->hdc, PP_BARVERT, 0, &di->bgRect, &r);
+        r.bottom = r.top;
+    }
 }
 
 /* draw themed horizontal background from 'start' to 'end' */
@@ -358,12 +364,12 @@ static LRESULT PROGRESS_Draw (PROGRESS_INFO *infoPtr, HDC hdc)
     {
         RECT cntRect;
         int part = (dwStyle & PBS_VERTICAL) ? PP_BARVERT : PP_BAR;
-        
-        GetThemeBackgroundContentRect (pdi.theme, hdc, part, 0, &pdi.rect, 
+
+        GetThemeBackgroundContentRect (pdi.theme, hdc, part, 0, &pdi.rect,
             &cntRect);
-        
+
         /* Exclude content rect - content background will be drawn later */
-        ExcludeClipRect (hdc, cntRect.left, cntRect.top, 
+        ExcludeClipRect (hdc, cntRect.left, cntRect.top,
             cntRect.right, cntRect.bottom);
         if (IsThemeBackgroundPartiallyTransparent (pdi.theme, part, 0))
             DrawThemeParentBackground (infoPtr->Self, hdc, NULL);
@@ -396,7 +402,7 @@ static LRESULT PROGRESS_Draw (PROGRESS_INFO *infoPtr, HDC hdc)
 
         if (ledMEnd > leds)
         {
-            /* case 1: the marquee bar extends over the end and wraps around to 
+            /* case 1: the marquee bar extends over the end and wraps around to
              * the start */
             const int gapStart = max((ledMEnd - leds) * ledW, 0);
             const int gapEnd = min(infoPtr->MarqueePos * ledW, barSize);
@@ -469,12 +475,12 @@ static LRESULT PROGRESS_Timer (PROGRESS_INFO *infoPtr, INT idTimer)
         get_client_rect (infoPtr->Self, &rect);
 
         if(!barSmooth)
-            ledWidth = get_led_size( infoPtr, style, &rect ) + 
+            ledWidth = get_led_size( infoPtr, style, &rect ) +
                 get_led_gap( infoPtr );
         else
             ledWidth = 1;
 
-        leds = (get_bar_size( style, &rect ) + ledWidth - 1) / 
+        leds = (get_bar_size( style, &rect ) + ledWidth - 1) /
             ledWidth;
 
         /* increment the marquee progress */
@@ -550,7 +556,7 @@ static LRESULT WINAPI ProgressWindowProc(HWND hwnd, UINT message,
     case WM_CREATE:
     {
 	DWORD dwExStyle = GetWindowLongW (hwnd, GWL_EXSTYLE);
-        
+
         theme = OpenThemeData (hwnd, themeClass);
 
 	dwExStyle &= ~(WS_EX_CLIENTEDGE | WS_EX_WINDOWEDGE);
@@ -561,7 +567,7 @@ static LRESULT WINAPI ProgressWindowProc(HWND hwnd, UINT message,
 	    SWP_FRAMECHANGED | SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 
         /* allocate memory for info struct */
-        infoPtr = Alloc (sizeof(PROGRESS_INFO));
+        infoPtr = (PROGRESS_INFO *)Alloc (sizeof(PROGRESS_INFO));
         if (!infoPtr) return -1;
         SetWindowLongPtrW (hwnd, 0, (DWORD_PTR)infoPtr);
 
@@ -608,18 +614,18 @@ static LRESULT WINAPI ProgressWindowProc(HWND hwnd, UINT message,
     case WM_THEMECHANGED:
     {
         DWORD dwExStyle = GetWindowLongW (hwnd, GWL_EXSTYLE);
-        
+
         theme = GetWindowTheme (hwnd);
         CloseThemeData (theme);
         theme = OpenThemeData (hwnd, themeClass);
-        
+
         /* WS_EX_STATICEDGE disappears when the control is themed */
         if (theme)
             dwExStyle &= ~WS_EX_STATICEDGE;
         else
             dwExStyle |= WS_EX_STATICEDGE;
         SetWindowLongW (hwnd, GWL_EXSTYLE, dwExStyle);
-        
+
         InvalidateRect (hwnd, NULL, FALSE);
         return 0;
     }
@@ -697,16 +703,10 @@ static LRESULT WINAPI ProgressWindowProc(HWND hwnd, UINT message,
 	InvalidateRect(hwnd, NULL, TRUE);
 	return 0;
 
-    case PBM_GETBARCOLOR:
-	return infoPtr->ColorBar;
-
     case PBM_SETBKCOLOR:
         infoPtr->ColorBk = (COLORREF)lParam;
 	InvalidateRect(hwnd, NULL, TRUE);
 	return 0;
-
-    case PBM_GETBKCOLOR:
-	return infoPtr->ColorBk;
 
     case PBM_SETMARQUEE:
 	if(wParam != 0)
@@ -722,7 +722,7 @@ static LRESULT WINAPI ProgressWindowProc(HWND hwnd, UINT message,
 	return infoPtr->Marquee;
 
     default:
-        if ((message >= WM_USER) && (message < WM_APP) && !COMCTL32_IsReflectedMessage(message))
+        if ((message >= WM_USER) && (message < WM_APP))
 	    ERR("unknown msg %04x wp=%04lx lp=%08lx\n", message, wParam, lParam );
         return DefWindowProcW( hwnd, message, wParam, lParam );
     }

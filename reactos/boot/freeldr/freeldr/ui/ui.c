@@ -80,7 +80,7 @@ BOOLEAN UiInitialize(BOOLEAN ShowGui)
 {
 	VIDEODISPLAYMODE	UiDisplayMode; // Tells us if we are in text or graphics mode
 	BOOLEAN	UiMinimal = FALSE; // Tells us if we should use a minimal console-like UI
-	ULONG_PTR SectionId;
+	ULONG	SectionId;
 	CHAR	DisplayModeText[260];
 	CHAR	SettingText[260];
 	ULONG	Depth;
@@ -94,8 +94,9 @@ BOOLEAN UiInitialize(BOOLEAN ShowGui)
 		return TRUE;
 	}
 
-	DPRINTM(DPRINT_UI, "Initializing User Interface.\n");
-	DPRINTM(DPRINT_UI, "Reading in UI settings from [Display] section.\n");
+	DbgPrint((DPRINT_UI, "Initializing User Interface.\n"));
+
+	DbgPrint((DPRINT_UI, "Reading in UI settings from [Display] section.\n"));
 
 	DisplayModeText[0] = '\0';
 	if (IniOpenSection("Display", &SectionId))
@@ -106,7 +107,14 @@ BOOLEAN UiInitialize(BOOLEAN ShowGui)
 		}
 		if (IniReadSettingByName(SectionId, "MinimalUI", SettingText, sizeof(SettingText)))
 		{
-			UiMinimal = (_stricmp(SettingText, "Yes") == 0 && strlen(SettingText) == 3);
+			if (_stricmp(SettingText, "Yes") == 0 && strlen(SettingText) == 3)
+			{
+				UiMinimal = TRUE;
+			}
+			else
+			{
+				UiMinimal = FALSE;
+			}
 		}
 	}
 
@@ -200,26 +208,54 @@ BOOLEAN UiInitialize(BOOLEAN ShowGui)
 		}
 		if (IniReadSettingByName(SectionId, "SpecialEffects", SettingText, sizeof(SettingText)))
 		{
-			UiUseSpecialEffects = (_stricmp(SettingText, "Yes") == 0 && strlen(SettingText) == 3);
+			if (_stricmp(SettingText, "Yes") == 0 && strlen(SettingText) == 3)
+			{
+				UiUseSpecialEffects = TRUE;
+			}
+			else
+			{
+				UiUseSpecialEffects = FALSE;
+			}
 		}
 		if (IniReadSettingByName(SectionId, "ShowTime", SettingText, sizeof(SettingText)))
 		{
-			UiDrawTime = (_stricmp(SettingText, "Yes") == 0 && strlen(SettingText) == 3);
+			if (_stricmp(SettingText, "Yes") == 0 && strlen(SettingText) == 3)
+			{
+				UiDrawTime = TRUE;
+			}
+			else
+			{
+				UiDrawTime = FALSE;
+			}
 		}
 		if (IniReadSettingByName(SectionId, "MenuBox", SettingText, sizeof(SettingText)))
 		{
-			UiMenuBox = (_stricmp(SettingText, "Yes") == 0 && strlen(SettingText) == 3);
+			if (_stricmp(SettingText, "Yes") == 0 && strlen(SettingText) == 3)
+			{
+				UiMenuBox = TRUE;
+			}
+			else
+			{
+				UiMenuBox = FALSE;
+			}
 		}
 		if (IniReadSettingByName(SectionId, "CenterMenu", SettingText, sizeof(SettingText)))
 		{
-			UiCenterMenu = (_stricmp(SettingText, "Yes") == 0 && strlen(SettingText) == 3);
+			if (_stricmp(SettingText, "Yes") == 0 && strlen(SettingText) == 3)
+			{
+				UiCenterMenu = TRUE;
+			}
+			else
+			{
+				UiCenterMenu = FALSE;
+			}
 		}
 	}
 
 	// Draw the backdrop and fade it in if special effects are enabled
 	UiFadeInBackdrop();
 
-	DPRINTM(DPRINT_UI, "UiInitialize() returning TRUE.\n");
+	DbgPrint((DPRINT_UI, "UiInitialize() returning TRUE.\n"));
 	return TRUE;
 }
 
@@ -227,10 +263,11 @@ BOOLEAN SetupUiInitialize(VOID)
 {
 	VIDEODISPLAYMODE	UiDisplayMode;
 	CHAR	DisplayModeText[260];
-	ULONG	Depth, Length;
+	ULONG	Depth;
 
 
 	DisplayModeText[0] = '\0';
+
 
 	UiDisplayMode = MachVideoSetDisplayMode(DisplayModeText, TRUE);
 	MachVideoGetDisplaySize(&UiScreenWidth, &UiScreenHeight, &Depth);
@@ -246,17 +283,13 @@ BOOLEAN SetupUiInitialize(VOID)
 			0,
 			ATTR(UiBackdropFgColor, UiBackdropBgColor));
 
-	UiDrawTime = FALSE;
-	UiStatusBarBgColor = 7;
+    UiDrawTime = FALSE;
+    UiStatusBarBgColor = 7;
 
-	Length = strlen("ReactOS " KERNEL_VERSION_STR " Setup");
-	memset(DisplayModeText, 0xcd, Length + 2);
-	DisplayModeText[Length + 2] = '\0';
+    UiVtbl.DrawText(4, 1, "ReactOS " KERNEL_VERSION_STR " Setup", ATTR(COLOR_GRAY, UiBackdropBgColor));
+    UiVtbl.DrawText(3, 2, "\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD", ATTR(COLOR_GRAY, UiBackdropBgColor));
 
-	UiVtbl.DrawText(4, 1, "ReactOS " KERNEL_VERSION_STR " Setup", ATTR(COLOR_GRAY, UiBackdropBgColor));
-	UiVtbl.DrawText(3, 2, DisplayModeText, ATTR(COLOR_GRAY, UiBackdropBgColor));
-
-	DPRINTM(DPRINT_UI, "UiInitialize() returning TRUE.\n");
+	DbgPrint((DPRINT_UI, "UiInitialize() returning TRUE.\n"));
 
 	return TRUE;
 }
@@ -408,10 +441,12 @@ VOID UiShowMessageBoxesInSection(PCSTR SectionName)
 	CHAR	SettingValue[80];
 	PCHAR	MessageBoxText;
 	ULONG		MessageBoxTextSize;
-	ULONG_PTR	SectionId;
+	ULONG		SectionId;
 
 	if (!IniOpenSection(SectionName, &SectionId))
 	{
+		sprintf(SettingName, "Section %s not found in freeldr.ini.\n", SectionName);
+		UiMessageBox(SettingName);
 		return;
 	}
 
@@ -430,7 +465,7 @@ VOID UiShowMessageBoxesInSection(PCSTR SectionName)
 			//if (MessageBoxTextSize > 0)
 			{
 				// Allocate enough memory to hold the text
-				MessageBoxText = MmHeapAlloc(MessageBoxTextSize);
+				MessageBoxText = MmAllocateMemory(MessageBoxTextSize);
 
 				if (MessageBoxText)
 				{
@@ -444,7 +479,7 @@ VOID UiShowMessageBoxesInSection(PCSTR SectionName)
 					UiMessageBox(MessageBoxText);
 
 					// Free the memory
-					MmHeapFree(MessageBoxText);
+					MmFreeMemory(MessageBoxText);
 				}
 			}
 		}

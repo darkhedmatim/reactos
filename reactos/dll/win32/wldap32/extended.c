@@ -31,6 +31,9 @@
 
 #ifdef HAVE_LDAP_H
 #include <ldap.h>
+#else
+#define LDAP_SUCCESS        0x00
+#define LDAP_NOT_SUPPORTED  0x5c
 #endif
 
 #include "winldap_private.h"
@@ -60,7 +63,7 @@ ULONG CDECL ldap_close_extended_op( WLDAP32_LDAP *ld, ULONG msgid )
     TRACE( "(%p, 0x%08x)\n", ld, msgid );
 
     if (!ld) return WLDAP32_LDAP_PARAM_ERROR;
-    return WLDAP32_LDAP_SUCCESS;
+    return LDAP_SUCCESS;
 }
 
 /***********************************************************************
@@ -71,7 +74,7 @@ ULONG CDECL ldap_close_extended_op( WLDAP32_LDAP *ld, ULONG msgid )
 ULONG CDECL ldap_extended_operationA( WLDAP32_LDAP *ld, PCHAR oid, struct WLDAP32_berval *data,
     PLDAPControlA *serverctrls, PLDAPControlA *clientctrls, ULONG *message )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     WCHAR *oidW = NULL;
     LDAPControlW **serverctrlsW = NULL, **clientctrlsW = NULL;
@@ -135,7 +138,7 @@ exit:
 ULONG CDECL ldap_extended_operationW( WLDAP32_LDAP *ld, PWCHAR oid, struct WLDAP32_berval *data,
     PLDAPControlW *serverctrls, PLDAPControlW *clientctrls, ULONG *message )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     char *oidU = NULL;
     LDAPControl **serverctrlsU = NULL, **clientctrlsU = NULL;
@@ -160,8 +163,8 @@ ULONG CDECL ldap_extended_operationW( WLDAP32_LDAP *ld, PWCHAR oid, struct WLDAP
         if (!clientctrlsU) goto exit;
     }
 
-    ret = map_error( ldap_extended_operation( ld, oid ? oidU : "", (struct berval *)data,
-                                              serverctrlsU, clientctrlsU, (int *)message ));
+    ret = ldap_extended_operation( ld, oid ? oidU : "", (struct berval *)data,
+                                   serverctrlsU, clientctrlsU, (int *)message );
 
 exit:
     strfreeU( oidU );
@@ -181,7 +184,7 @@ ULONG CDECL ldap_extended_operation_sA( WLDAP32_LDAP *ld, PCHAR oid, struct WLDA
     PLDAPControlA *serverctrls, PLDAPControlA *clientctrls, PCHAR *retoid,
     struct WLDAP32_berval **retdata )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     WCHAR *oidW = NULL, *retoidW = NULL;
     LDAPControlW **serverctrlsW = NULL, **clientctrlsW = NULL;
@@ -252,7 +255,7 @@ ULONG CDECL ldap_extended_operation_sW( WLDAP32_LDAP *ld, PWCHAR oid, struct WLD
     PLDAPControlW *serverctrls, PLDAPControlW *clientctrls, PWCHAR *retoid,
     struct WLDAP32_berval **retdata )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
     char *oidU = NULL, *retoidU = NULL;
     LDAPControl **serverctrlsU = NULL, **clientctrlsU = NULL;
@@ -277,8 +280,8 @@ ULONG CDECL ldap_extended_operation_sW( WLDAP32_LDAP *ld, PWCHAR oid, struct WLD
         if (!clientctrlsU) goto exit;
     }
 
-    ret = map_error( ldap_extended_operation_s( ld, oid ? oidU : "", (struct berval *)data, serverctrlsU,
-                                                clientctrlsU, &retoidU, (struct berval **)retdata ));
+    ret = ldap_extended_operation_s( ld, oid ? oidU : "", (struct berval *)data, serverctrlsU,
+                                     clientctrlsU, &retoidU, (struct berval **)retdata );
 
     if (retoid && retoidU) {
         *retoid = strUtoW( retoidU );

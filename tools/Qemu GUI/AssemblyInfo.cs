@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Resources;
 
 //
 // General Information about an assembly is controlled through the following 
@@ -57,4 +56,3 @@ using System.Resources;
 [assembly: AssemblyDelaySign(false)]
 [assembly: AssemblyKeyFile("")]
 [assembly: AssemblyKeyName("")]
-[assembly: NeutralResourcesLanguageAttribute("en")]

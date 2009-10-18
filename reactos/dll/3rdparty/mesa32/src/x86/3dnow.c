@@ -1,3 +1,4 @@
+/* $Id: 3dnow.c,v 1.24 2005/10/07 17:18:52 brianp Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -28,8 +29,8 @@
  * Holger Waechtler <holger@akaflieg.extern.tu-berlin.de>
  */
 
-#include "main/glheader.h"
-#include "main/context.h"
+#include "glheader.h"
+#include "context.h"
 #include "math/m_xform.h"
 #include "tnl/t_context.h"
 

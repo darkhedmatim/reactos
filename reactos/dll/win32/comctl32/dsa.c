@@ -22,11 +22,11 @@
  * NOTES
  *     These functions were involuntarily documented by Microsoft in 2002 as
  *     the outcome of an anti-trust suit brought by various U.S. governments.
- *     As a result the specifications on MSDN are inaccurate, incomplete 
+ *     As a result the specifications on MSDN are inaccurate, incomplete
  *     and misleading. A much more complete (unofficial) documentation is
  *     available at:
  *
- *     http://members.ozemail.com.au/~geoffch/samples/win32/shell/comctl32  
+ *     http://members.ozemail.com.au/~geoffch/samples/win32/shell/comctl32
  */
 
 #include <stdarg.h>
@@ -90,7 +90,7 @@ HDSA WINAPI DSA_Create (INT nSize, INT nGrow)
 
 /**************************************************************************
  * DSA_Destroy [COMCTL32.321]
- * 
+ *
  * Destroys a dynamic storage array
  *
  * PARAMS
@@ -211,7 +211,7 @@ BOOL WINAPI DSA_SetItem (const HDSA hdsa, INT nIndex, LPVOID pSrc)
         else {
             /* resize the block of memory */
             nNewItems =
-                hdsa->nGrow * ((((nIndex + 1) - 1) / hdsa->nGrow) + 1);
+                hdsa->nGrow * ((INT)(((nIndex + 1) - 1) / hdsa->nGrow) + 1);
             nSize = hdsa->nItemSize * nNewItems;
 
             lpTemp = ReAlloc (hdsa->pData, nSize);

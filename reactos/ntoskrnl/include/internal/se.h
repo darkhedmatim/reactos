@@ -86,7 +86,7 @@ extern PSECURITY_DESCRIPTOR SeUnrestrictedSd;
 /* Functions */
 BOOLEAN
 NTAPI
-SeInitSystem(VOID);
+SeInit(VOID);
 
 BOOLEAN
 NTAPI
@@ -94,7 +94,7 @@ SeInitSRM(VOID);
 
 VOID
 NTAPI
-ExpInitLuid(VOID);
+SepInitLuid(VOID);
 
 VOID
 NTAPI
@@ -139,7 +139,7 @@ SeCreateAccessStateEx(
     IN PETHREAD Thread,
     IN PEPROCESS Process,
     IN OUT PACCESS_STATE AccessState,
-    IN PAUX_ACCESS_DATA AuxData,
+    IN PAUX_DATA AuxData,
     IN ACCESS_MASK Access,
     IN PGENERIC_MAPPING GenericMapping
 );
@@ -313,15 +313,6 @@ SeSetWorldSecurityDescriptor(
     SECURITY_INFORMATION SecurityInformation,
     PISECURITY_DESCRIPTOR SecurityDescriptor,
     PULONG BufferLength
-);
-
-NTSTATUS
-NTAPI
-SeCopyClientToken(
-    IN PACCESS_TOKEN Token,
-    IN SECURITY_IMPERSONATION_LEVEL Level,
-    IN KPROCESSOR_MODE PreviousMode,
-    OUT PACCESS_TOKEN* NewToken
 );
 
 #define SepAcquireTokenLockExclusive(Token)                                    \

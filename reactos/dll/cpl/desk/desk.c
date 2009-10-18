@@ -22,7 +22,6 @@ INT_PTR CALLBACK SettingsPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM
 UINT CALLBACK SettingsPageCallbackProc(HWND hwnd, UINT uMsg, LPPROPSHEETPAGE ppsp);
 
 HINSTANCE hApplet = 0;
-HWND hCPLWindow;
 
 /* Applets */
 APPLET Applets[NUM_APPLETS] =
@@ -137,7 +136,7 @@ DisplayApplet(HWND hwnd, UINT uMsg, LPARAM wParam, LPARAM lParam)
     ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
     psh.dwSize = sizeof(PROPSHEETHEADER);
     psh.dwFlags = PSH_USECALLBACK | PSH_PROPTITLE;
-    psh.hwndParent = hCPLWindow;
+    psh.hwndParent = NULL;
     psh.hInstance = hApplet;
     psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDC_DESK_ICON));
     psh.pszCaption = Caption;
@@ -162,7 +161,7 @@ DisplayApplet(HWND hwnd, UINT uMsg, LPARAM wParam, LPARAM lParam)
         InitPropSheetPage(&psh, PropPages[i].idDlg, PropPages[i].DlgProc, PropPages[i].Callback);
     }
 
-    /* NOTE: Don't call SHAddFromPropSheetExtArray here because this applet only allows
+    /* NOTE: Don;t call SHAddFromPropSheetExtArray here because this applet only allows
              replacing the background page but not extending the applet by more pages */
 
     ret = (LONG)(PropertySheet(&psh) != -1);
@@ -199,7 +198,6 @@ CPlApplet(HWND hwndCPl, UINT uMsg, LPARAM lParam1, LPARAM lParam2)
             break;
 
         case CPL_DBLCLK:
-            hCPLWindow = hwndCPl;
             Applets[i].AppletProc(hwndCPl, uMsg, lParam1, lParam2);
             break;
     }

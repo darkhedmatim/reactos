@@ -18,6 +18,7 @@
  * If not, write to the Free Software Foundation,
  * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
+ * $Id: interrupt.c 21844 2006-05-07 19:34:23Z ion $
  */
 
 #include "videoprt.h"
@@ -48,17 +49,13 @@ IntVideoPortSetupInterrupt(
 
    DeviceExtension = (PVIDEO_PORT_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
 
-   /*
-    * MSDN documentation for VIDEO_PORT_CONFIG_INFO states: "If a miniport driver's
-    * HwVidFindAdapter function finds that the video adapter does not generate
-    * interrupts or that it cannot determine a valid interrupt vector/level for
-    * the adapter, HwVidFindAdapter should set both BusInterruptVector and
-    * BusInterruptLevel to zero.
-    */
+   if (ConfigInfo->BusInterruptVector == 0)
+      ConfigInfo->BusInterruptVector = DeviceExtension->InterruptVector;
 
-   if (DriverExtension->InitializationData.HwInterrupt != NULL &&
-       (ConfigInfo->BusInterruptLevel != 0 ||
-       ConfigInfo->BusInterruptVector != 0))
+   if (ConfigInfo->BusInterruptLevel == 0)
+      ConfigInfo->BusInterruptLevel = DeviceExtension->InterruptLevel;
+
+   if (DriverExtension->InitializationData.HwInterrupt != NULL)
    {
       ULONG InterruptVector;
       KIRQL Irql;
@@ -74,7 +71,7 @@ IntVideoPortSetupInterrupt(
 
       if (InterruptVector == 0)
       {
-         WARN_(VIDEOPRT, "HalGetInterruptVector failed\n");
+         DPRINT("HalGetInterruptVector failed\n");
          return FALSE;
       }
 
@@ -94,7 +91,7 @@ IntVideoPortSetupInterrupt(
 
       if (!NT_SUCCESS(Status))
       {
-         WARN_(VIDEOPRT, "IoConnectInterrupt failed with status 0x%08x\n", Status);
+         DPRINT("IoConnectInterrupt failed with status 0x%08x\n", Status);
          return FALSE;
       }
    }
@@ -114,7 +111,7 @@ VideoPortEnableInterrupt(IN PVOID HwDeviceExtension)
    PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension;
    BOOLEAN Status;
 
-   TRACE_(VIDEOPRT, "VideoPortEnableInterrupt\n");
+   DPRINT("VideoPortEnableInterrupt\n");
 
    DeviceExtension = VIDEO_PORT_GET_DEVICE_EXTENSION(HwDeviceExtension);
 
@@ -123,7 +120,7 @@ VideoPortEnableInterrupt(IN PVOID HwDeviceExtension)
       0,
       DeviceExtension->InterruptLevel);
 
-   return Status ? NO_ERROR : ERROR_INVALID_PARAMETER;
+   return Status ? NO_ERROR : ERROR_INVALID_ACCESS;
 }
 
 /*
@@ -136,7 +133,7 @@ VideoPortDisableInterrupt(IN PVOID HwDeviceExtension)
    PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension;
    BOOLEAN Status;
 
-   TRACE_(VIDEOPRT, "VideoPortDisableInterrupt\n");
+   DPRINT("VideoPortDisableInterrupt\n");
 
    DeviceExtension = VIDEO_PORT_GET_DEVICE_EXTENSION(HwDeviceExtension);
 
@@ -144,5 +141,5 @@ VideoPortDisableInterrupt(IN PVOID HwDeviceExtension)
       DeviceExtension->InterruptVector,
       0);
 
-   return Status ? NO_ERROR : ERROR_INVALID_PARAMETER;
+   return Status ? NO_ERROR : ERROR_INVALID_ACCESS;
 }

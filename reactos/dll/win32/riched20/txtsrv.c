@@ -27,7 +27,6 @@
 
 #include "editor.h"
 #include "ole2.h"
-#include "oleauto.h"
 #include "richole.h"
 #include "imm.h"
 #include "textserv.h"
@@ -58,8 +57,6 @@ typedef struct ITextServicesImpl {
    ITextHost *pMyHost;
    LONG ref;
    CRITICAL_SECTION csTxtSrv;
-   ME_TextEditor *editor;
-   char spare[256];
 } ITextServicesImpl;
 
 static const ITextServicesVtbl textservices_Vtbl;
@@ -72,7 +69,6 @@ HRESULT WINAPI CreateTextServices(IUnknown  * pUnkOuter,
                                   IUnknown  **ppUnk)
 {
    ITextServicesImpl *ITextImpl;
-   HRESULT hres;
    TRACE("%p %p --> %p\n", pUnkOuter, pITextHost, ppUnk);
    if (pITextHost == NULL)
       return E_POINTER;
@@ -86,8 +82,6 @@ HRESULT WINAPI CreateTextServices(IUnknown  * pUnkOuter,
    ITextHost_AddRef(pITextHost);
    ITextImpl->pMyHost = pITextHost;
    ITextImpl->lpVtbl = &textservices_Vtbl;
-   ITextImpl->editor = ME_MakeEditor(pITextHost, FALSE);
-   ME_HandleMessage(ITextImpl->editor, WM_CREATE, 0, 0, TRUE, &hres);
 
    if (pUnkOuter)
    {
@@ -110,7 +104,7 @@ static HRESULT WINAPI fnTextSrv_QueryInterface(ITextServices * iface,
    TRACE("(%p/%p)->(%s, %p)\n", This, iface, debugstr_guid(riid), ppv);
    *ppv = NULL;
    if (IsEqualIID(riid, &IID_IUnknown) || IsEqualIID(riid, &IID_ITextServices))
-      *ppv = This;
+      *ppv = (LPVOID)This;
 
    if (*ppv)
    {
@@ -155,12 +149,9 @@ HRESULT WINAPI fnTextSrv_TxSendMessage(ITextServices *iface,
                                        LRESULT* plresult)
 {
    ICOM_THIS_MULTI(ITextServicesImpl, lpVtbl, iface);
-   HRESULT hresult;
-   LRESULT lresult;
 
-   lresult = ME_HandleMessage(This->editor, msg, wparam, lparam, TRUE, &hresult);
-   if (plresult) *plresult = lresult;
-   return hresult;
+   FIXME("%p: STUB\n", This);
+   return E_NOTIMPL;
 }
 
 HRESULT WINAPI fnTextSrv_TxDraw(ITextServices *iface,
@@ -192,12 +183,8 @@ HRESULT WINAPI fnTextSrv_TxGetHScroll(ITextServices *iface,
 {
    ICOM_THIS_MULTI(ITextServicesImpl, lpVtbl, iface);
 
-   *plMin = This->editor->horz_si.nMin;
-   *plMax = This->editor->horz_si.nMax;
-   *plPos = This->editor->horz_si.nPos;
-   *plPage = This->editor->horz_si.nPage;
-   *pfEnabled = (This->editor->styleFlags & WS_HSCROLL) != 0;
-   return S_OK;
+   FIXME("%p: STUB\n", This);
+   return E_NOTIMPL;
 }
 
 HRESULT WINAPI fnTextSrv_TxGetVScroll(ITextServices *iface,
@@ -209,12 +196,8 @@ HRESULT WINAPI fnTextSrv_TxGetVScroll(ITextServices *iface,
 {
    ICOM_THIS_MULTI(ITextServicesImpl, lpVtbl, iface);
 
-   *plMin = This->editor->vert_si.nMin;
-   *plMax = This->editor->vert_si.nMax;
-   *plPos = This->editor->vert_si.nPos;
-   *plPage = This->editor->vert_si.nPage;
-   *pfEnabled = (This->editor->styleFlags & WS_VSCROLL) != 0;
-   return S_OK;
+   FIXME("%p: STUB\n", This);
+   return E_NOTIMPL;
 }
 
 HRESULT WINAPI fnTextSrv_OnTxSetCursor(ITextServices *iface,
@@ -287,23 +270,9 @@ HRESULT WINAPI fnTextSrv_TxGetText(ITextServices *iface,
                                    BSTR* pbstrText)
 {
    ICOM_THIS_MULTI(ITextServicesImpl, lpVtbl, iface);
-   int length;
 
-   length = ME_GetTextLength(This->editor);
-   if (length)
-   {
-      BSTR bstr;
-      bstr = SysAllocStringByteLen(NULL, length * sizeof(WCHAR));
-      if (bstr == NULL)
-         return E_OUTOFMEMORY;
-
-      ME_GetTextW(This->editor, bstr , 0, length, FALSE);
-      *pbstrText = bstr;
-   } else {
-      *pbstrText = NULL;
-   }
-
-   return S_OK;
+   FIXME("%p: STUB\n", This);
+   return E_NOTIMPL;
 }
 
 HRESULT WINAPI fnTextSrv_TxSetText(ITextServices *iface,
@@ -311,17 +280,8 @@ HRESULT WINAPI fnTextSrv_TxSetText(ITextServices *iface,
 {
    ICOM_THIS_MULTI(ITextServicesImpl, lpVtbl, iface);
 
-   ME_InternalDeleteText(This->editor, 0, ME_GetTextLength(This->editor),
-                         FALSE);
-   ME_InsertTextFromCursor(This->editor, 0, pszText, -1,
-                           This->editor->pBuffer->pDefaultStyle);
-   ME_SetSelection(This->editor, 0, 0);
-   This->editor->nModifyStep = 0;
-   OleFlushClipboard();
-   ME_EmptyUndoStack(This->editor);
-   ME_UpdateRepaint(This->editor);
-
-   return S_OK;
+   FIXME("%p: STUB\n", This);
+   return E_NOTIMPL;
 }
 
 HRESULT WINAPI fnTextSrv_TxGetCurrentTargetX(ITextServices *iface,

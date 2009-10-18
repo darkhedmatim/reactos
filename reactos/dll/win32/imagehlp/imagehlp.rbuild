@@ -1,6 +1,8 @@
-<module name="imagehlp" type="win32dll" baseaddress="${BASEADDRESS_IMAGEHLP}" installbase="system32" installname="imagehlp.dll">
-	<importlibrary definition="imagehlp.spec" />
+<module name="imagehlp" type="win32dll" baseaddress="${BASEADDRESS_IMAGEHLP}" installbase="system32" installname="imagehlp.dll" allowwarnings="true">
+	<importlibrary definition="imagehlp.def" />
 	<include base="imagehlp">.</include>
+	<define name="_WIN32_WINNT">0x600</define>
+	<define name="WINVER">0x0600</define>
 	<define name="_IMAGEHLP_SOURCE_"></define>
 	<library>wine</library>
 	<library>ntdll</library>
@@ -11,4 +13,5 @@
 	<file>modify.c</file>
 	<file>imagehlp.rc</file>
 	<pch>precomp.h</pch>
+	<linkerflag>-enable-stdcall-fixup</linkerflag>
 </module>

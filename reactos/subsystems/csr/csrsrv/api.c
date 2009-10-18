@@ -50,7 +50,7 @@ CsrCheckRequestThreads(VOID)
     NTSTATUS Status;
 
     /* Decrease the count, and see if we're out */
-    if (!(_InterlockedDecrement((PLONG)&CsrpStaticThreadCount)))
+    if (!(InterlockedDecrement(&CsrpStaticThreadCount)))
     {
         /* Check if we've still got space for a Dynamic Thread */
         if (CsrpDynamicThreadTotal < CsrMaxApiRequestThreads)
@@ -342,8 +342,8 @@ CsrApiRequestThread(IN PVOID Parameter)
     ULONG Reply;
 
     /* Probably because of the way GDI is loaded, this has to be done here */
-    Teb->GdiClientPID = HandleToUlong(Teb->ClientId.UniqueProcess);
-    Teb->GdiClientTID = HandleToUlong(Teb->ClientId.UniqueThread);
+    Teb->GdiClientPID = HandleToUlong(Teb->Cid.UniqueProcess);
+    Teb->GdiClientTID = HandleToUlong(Teb->Cid.UniqueThread);
 
     /* Set up the timeout for the connect (30 seconds) */
     TimeOut.QuadPart = -30 * 1000 * 1000 * 10;
@@ -366,15 +366,15 @@ CsrApiRequestThread(IN PVOID Parameter)
         NtSetEvent((HANDLE)Parameter, NULL);
 
         /* Increase the Thread Counts */
-        _InterlockedIncrement((PLONG)&CsrpStaticThreadCount);
-        _InterlockedIncrement((PLONG)&CsrpDynamicThreadTotal);
+        InterlockedIncrement(&CsrpStaticThreadCount);
+        InterlockedIncrement(&CsrpDynamicThreadTotal);
     }
 
     /* Now start the loop */
     while (TRUE)
     {
         /* Make sure the real CID is set */
-        Teb->RealClientId = Teb->ClientId;
+        Teb->RealClientId = Teb->Cid;
 
         /* Wait for a message to come through */
         Status = NtReplyWaitReceivePort(CsrApiPort,
@@ -464,7 +464,7 @@ CsrApiRequestThread(IN PVOID Parameter)
                 }
 
                 /* Increase the thread count */
-                _InterlockedIncrement((PLONG)&CsrpStaticThreadCount);
+                InterlockedIncrement(&CsrpStaticThreadCount);
 
                 /* If the response was 0xFFFFFFFF, we'll ignore it */
                 if (HardErrorMsg->Response == 0xFFFFFFFF)
@@ -513,7 +513,7 @@ CsrApiRequestThread(IN PVOID Parameter)
                     ReceiveMsg.Status = STATUS_SUCCESS;
 
                     /* Validation complete, start SEH */
-                    _SEH2_TRY
+                    _SEH_TRY
                     {
                         /* Make sure we have enough threads */
                         CsrCheckRequestThreads();
@@ -523,13 +523,13 @@ CsrApiRequestThread(IN PVOID Parameter)
                         (ServerDll->DispatchTable[ApiId])(&ReceiveMsg, &Reply);
 
                         /* Increase the static thread count */
-                        _InterlockedIncrement((PLONG)&CsrpStaticThreadCount);
+                        InterlockedIncrement(&CsrpStaticThreadCount);
                     }
-                    _SEH2_EXCEPT(CsrUnhandledExceptionFilter(_SEH2_GetExceptionInformation()))
+                    _SEH_EXCEPT(CsrUnhandledExceptionFilter)
                     {
                         ReplyMsg = NULL;
                     }
-                    _SEH2_END;
+                    _SEH_END;
                 }
             }
             else
@@ -590,7 +590,7 @@ CsrApiRequestThread(IN PVOID Parameter)
 
                 /* Return a Debug Message */
                 DebugMessage = (PDBGKM_MSG)&ReceiveMsg;
-                DebugMessage->ReturnedStatus = DBG_CONTINUE;
+                DebugMessage->Status = DBG_CONTINUE;
                 ReplyMsg = &ReceiveMsg;
 
                 /* Remove our extra reference */
@@ -627,7 +627,7 @@ CsrApiRequestThread(IN PVOID Parameter)
                 }
 
                 /* Increase the thread count */
-                _InterlockedIncrement((PLONG)&CsrpStaticThreadCount);
+                InterlockedIncrement(&CsrpStaticThreadCount);
 
                 /* If the response was 0xFFFFFFFF, we'll ignore it */
                 if (HardErrorMsg->Response == 0xFFFFFFFF)
@@ -751,7 +751,7 @@ CsrApiHandleConnectionRequest(IN PCSR_API_MESSAGE ApiMessage)
     RemotePortView.ViewBase = NULL;
 
     /* Save the Process ID */
-    ConnectInfo->ProcessId = NtCurrentTeb()->ClientId.UniqueProcess;
+    ConnectInfo->ProcessId = NtCurrentTeb()->Cid.UniqueProcess;
 
     /* Accept the Connection */
     Status = NtAcceptConnectPort(&hPort,
@@ -1001,7 +1001,7 @@ CsrCallServerFromServer(PCSR_API_MESSAGE ReceiveMsg,
     }
 
     /* Validation complete, start SEH */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Call the API and get the result */
         Status = (ServerDll->DispatchTable[ApiId])(ReceiveMsg, &Reply);
@@ -1009,12 +1009,12 @@ CsrCallServerFromServer(PCSR_API_MESSAGE ReceiveMsg,
         /* Return the result, no matter what it is */
         ReplyMsg->Status = Status;
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         /* If we got an exception, return access violation */
         ReplyMsg->Status = STATUS_ACCESS_VIOLATION;
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return success */
     return STATUS_SUCCESS;
@@ -1072,7 +1072,7 @@ CsrConnectToUser(VOID)
     CsrClientThreadSetup();
 
     /* Save pointer to this thread in TEB */
-    CsrThread = CsrLocateThreadInProcess(NULL, &Teb->ClientId);
+    CsrThread = CsrLocateThreadInProcess(NULL, &Teb->Cid);
     if (CsrThread) Teb->CsrClientThread = CsrThread;
 
     /* Return it */
@@ -1133,7 +1133,7 @@ CsrCaptureArguments(IN PCSR_THREAD CsrThread,
     ULONG_PTR *CurrentPointer = NULL;
 
     /* Use SEH to make sure this is valid */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Get the buffer we got from whoever called NTDLL */
         LocalCaptureBuffer = ApiMessage->CsrCaptureData;
@@ -1145,7 +1145,7 @@ CsrCaptureArguments(IN PCSR_THREAD CsrThread,
         {
             /* Return failure */
             ApiMessage->Status = STATUS_INVALID_PARAMETER;
-            _SEH2_YIELD(return FALSE);
+            _SEH_YIELD(return FALSE);
         }
 
         /* Check if the Length is valid */
@@ -1154,15 +1154,15 @@ CsrCaptureArguments(IN PCSR_THREAD CsrThread,
         {
             /* Return failure */
             ApiMessage->Status = STATUS_INVALID_PARAMETER;
-            _SEH2_YIELD(return FALSE);
+            _SEH_YIELD(return FALSE);
         }
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         /* Return failure */
         ApiMessage->Status = STATUS_INVALID_PARAMETER;
-        _SEH2_YIELD(return FALSE);
-    } _SEH2_END;
+        _SEH_YIELD(return FALSE);
+    } _SEH_END;
 
     /* We validated the incoming buffer, now allocate the remote one */
     RemoteCaptureBuffer = RtlAllocateHeap(CsrHeap, 0, LocalLength);
@@ -1346,7 +1346,7 @@ CsrValidateMessageBuffer(IN PCSR_API_MESSAGE ApiMessage,
     if (!CaptureBuffer)
     {
         /* In this case, check only the Process ID */
-        if (NtCurrentTeb()->ClientId.UniqueProcess ==
+        if (NtCurrentTeb()->Cid.UniqueProcess ==
             ApiMessage->Header.ClientId.UniqueProcess)
         {
             /* There is a match, validation succeeded */

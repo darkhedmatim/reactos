@@ -55,8 +55,8 @@ Main_DirectDraw_CreateSurface(
 HRESULT WINAPI
 Main_DirectDraw_DuplicateSurface(
                                  LPDIRECTDRAW2 iface,
-                                 LPDIRECTDRAWSURFACE src,
-                                 LPDIRECTDRAWSURFACE* dst);
+                                 LPDIRECTDRAWSURFACE2 src,
+                                 LPDIRECTDRAWSURFACE2* dst);
 
 HRESULT WINAPI
 Main_DirectDraw_EnumDisplayModes(
@@ -70,7 +70,7 @@ HRESULT WINAPI
 Main_DirectDraw_EnumSurfaces(
                              LPDIRECTDRAW2 iface,
                              DWORD dwFlags,
-                             LPDDSURFACEDESC lpDDSD,
+                             LPDDSURFACEDESC2 lpDDSD,
                              LPVOID context,
                              LPDDENUMSURFACESCALLBACK callback);
 
@@ -130,7 +130,7 @@ Main_DirectDraw_SetCooperativeLevel (
                                      DWORD cooplevel);
 
 HRESULT WINAPI
-Main_DirectDraw_SetDisplayMode2(
+Main_DirectDraw_SetDisplayMode(
                                LPDIRECTDRAW2 iface,
                                DWORD dwWidth,
                                DWORD dwHeight,
@@ -176,10 +176,9 @@ IDirectDraw2Vtbl DirectDraw2_Vtable =
     Main_DirectDraw_Initialize,
     Main_DirectDraw_RestoreDisplayMode,
     Main_DirectDraw_SetCooperativeLevel,
-    Main_DirectDraw_SetDisplayMode2,
+    Main_DirectDraw_SetDisplayMode,
     Main_DirectDraw_WaitForVerticalBlank,
     Main_DirectDraw_GetAvailableVidMem
 };
-
 
 

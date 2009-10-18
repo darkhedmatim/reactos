@@ -141,7 +141,6 @@ void QuickLaunchBar::AddShortcuts()
 		HBITMAP hbmp = CreateCompatibleBitmap(canvas, cx, cy);
 		HBITMAP hbmp_old = SelectBitmap(hdc, hbmp);
 
-		FontSelection font(hdc, GetStockFont(ANSI_VAR_FONT));
 		FmtString num_txt(TEXT("%d"), i+1);
 		TextColor color(hdc, RGB(64,64,64));
 		BkMode mode(hdc, TRANSPARENT);
@@ -150,9 +149,11 @@ void QuickLaunchBar::AddShortcuts()
 
 		SelectBitmap(hdc, hbmp_old);
 
-		AddButton(ID_SWITCH_DESKTOP_1+i, hbmp, FmtString(desktop_fmt, i+1), NULL, cur_desktop==i?TBSTATE_ENABLED|TBSTATE_PRESSED:TBSTATE_ENABLED);
+		AddButton(ID_SWITCH_DESKTOP_1+i, hbmp, FmtString(desktop_fmt, i+1), NULL, cur_desktop==i?TBSTATE_ENABLED|TBSTATE_CHECKED:TBSTATE_ENABLED);
 	}
 	DeleteDC(hdc);
+
+	SendMessage(_hwnd, TB_INSERTBUTTON, INT_MAX, (LPARAM)&sep);
 
 	for(Entry*entry=_dir->_down; entry; entry=entry->_next) {
 		 // hide files like "desktop.ini"
@@ -197,7 +198,7 @@ void QuickLaunchBar::AddButton(int id, HBITMAP hbmp, LPCTSTR name, Entry* entry,
 void QuickLaunchBar::UpdateDesktopButtons(int desktop_idx)
 {
 	for(int i=0; i<DESKTOP_COUNT; ++i) {
-		TBBUTTONINFO tbi = {sizeof(TBBUTTONINFO), TBIF_STATE, 0, 0, desktop_idx==i? TBSTATE_ENABLED|TBSTATE_PRESSED: TBSTATE_ENABLED};
+		TBBUTTONINFO tbi = {sizeof(TBBUTTONINFO), TBIF_STATE, 0, 0, desktop_idx==i? TBSTATE_ENABLED|TBSTATE_CHECKED: TBSTATE_ENABLED};
 
 		SendMessage(_hwnd, TB_SETBUTTONINFO, ID_SWITCH_DESKTOP_1+i, (LPARAM)&tbi);
 	}
@@ -252,7 +253,9 @@ LRESULT QuickLaunchBar::WndProc(UINT nmsg, WPARAM wparam, LPARAM lparam)
 		if (entry) {	// entry is NULL for desktop switch buttons
 			HRESULT hr = entry->do_context_menu(_hwnd, screen_pt, _cm_ifs);
 
-			if (!SUCCEEDED(hr))
+			if (SUCCEEDED(hr))
+				AddShortcuts();	//refresh();
+			else
 				CHECKERROR(hr);
 		} else
 			goto def;

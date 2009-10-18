@@ -108,7 +108,7 @@ AcpiCreateInstanceIDString(PUNICODE_STRING InstanceID,
     swprintf(Buffer, L"%S", Node->device.id.uid);
   else
     /* FIXME: Generate unique id! */
-    swprintf(Buffer, L"%S", L"0000");
+    swprintf(Buffer, L"0000");
 
   return AcpiCreateUnicodeString(InstanceID, Buffer, PagedPool);
 }
@@ -402,7 +402,7 @@ AcpiCheckIfIsSerialDebugPort(
       case io:
       {
         IO_RESOURCE *io_data = (IO_RESOURCE*) &resource->data;
-        if (KdComPortInUse == (PUCHAR)io_data->min_base_address)
+        if (*KdComPortInUse == ULongToPtr(io_data->min_base_address))
         {
           ExFreePool(Buffer.pointer);
           return TRUE;
@@ -775,9 +775,7 @@ FdoStartDevice(
   KeInitializeSpinLock(&DeviceExtension->DeviceListLock);
   DeviceExtension->DeviceListCount = 0;
 
-#if 0
   ACPIEnumerateDevices(DeviceExtension);
-#endif
 
   ACPIInitializeInternalDrivers(DeviceExtension);
 
@@ -850,7 +848,7 @@ FdoSetPower(
 /*** PUBLIC ******************************************************************/
 
 NTSTATUS
-NTAPI
+STDCALL
 FdoPnpControl(
   PDEVICE_OBJECT DeviceObject,
   PIRP Irp)
@@ -939,7 +937,7 @@ FdoPnpControl(
 
 
 NTSTATUS
-NTAPI
+STDCALL
 FdoPowerControl(
   PDEVICE_OBJECT DeviceObject,
   PIRP Irp)

@@ -8,7 +8,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #if defined (ALLOC_PRAGMA)
 #pragma alloc_text(INIT, ExpWin32kInit)
@@ -42,7 +42,7 @@ PKWIN32_DELETEMETHOD_CALLOUT ExpDesktopObjectDelete = NULL;
 /* FUNCTIONS ****************************************************************/
 
 VOID
-NTAPI
+STDCALL
 ExpWinStaObjectDelete(PVOID DeletedObject)
 {
     WIN32_DELETEMETHOD_PARAMETERS Parameters;
@@ -55,7 +55,7 @@ ExpWinStaObjectDelete(PVOID DeletedObject)
 }
 
 NTSTATUS
-NTAPI
+STDCALL
 ExpWinStaObjectParse(IN PVOID ParseObject,
                      IN PVOID ObjectType,
                      IN OUT PACCESS_STATE AccessState,
@@ -85,7 +85,7 @@ ExpWinStaObjectParse(IN PVOID ParseObject,
     return ExpWindowStationObjectParse(&Parameters);
 }
 VOID
-NTAPI
+STDCALL
 ExpDesktopDelete(PVOID DeletedObject)
 {
     WIN32_DELETEMETHOD_PARAMETERS Parameters;
@@ -99,7 +99,7 @@ ExpDesktopDelete(PVOID DeletedObject)
 
 VOID
 INIT_FUNCTION
-NTAPI
+STDCALL
 ExpWin32kInit(VOID)
 {
     OBJECT_TYPE_INITIALIZER ObjectTypeInitializer;

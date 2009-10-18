@@ -6,6 +6,7 @@
  * COPYRIGHT:       Copyright 2005 Art Yerkes <ayerkes@speakeasy.net>
  */
 
+#include <roscfg.h>
 #include <winsock2.h>
 #include <dhcpcsdk.h>
 #include <time.h>
@@ -36,7 +37,7 @@ DWORD APIENTRY DhcpQueryHWInfo( DWORD AdapterIndex,
     Req.Type = DhcpReqQueryHWInfo;
     Req.AdapterIndex = AdapterIndex;
 
-    Result = CallNamedPipeW
+    Result = CallNamedPipe
         ( DHCP_PIPE_NAME, &Req, sizeof(Req), &Reply, sizeof(Reply),
           &BytesRead, DHCP_TIMEOUT );
 
@@ -58,7 +59,7 @@ DWORD APIENTRY DhcpLeaseIpAddress( DWORD AdapterIndex ) {
     Req.Type = DhcpReqLeaseIpAddress;
     Req.AdapterIndex = AdapterIndex;
 
-    Result = CallNamedPipeW
+    Result = CallNamedPipe
         ( DHCP_PIPE_NAME, &Req, sizeof(Req), &Reply, sizeof(Reply),
           &BytesRead, DHCP_TIMEOUT );
 
@@ -74,7 +75,7 @@ DWORD APIENTRY DhcpReleaseIpAddressLease( DWORD AdapterIndex ) {
     Req.Type = DhcpReqReleaseIpAddress;
     Req.AdapterIndex = AdapterIndex;
 
-    Result = CallNamedPipeW
+    Result = CallNamedPipe
         ( DHCP_PIPE_NAME, &Req, sizeof(Req), &Reply, sizeof(Reply),
           &BytesRead, DHCP_TIMEOUT );
 
@@ -90,7 +91,7 @@ DWORD APIENTRY DhcpRenewIpAddressLease( DWORD AdapterIndex ) {
     Req.Type = DhcpReqRenewIpAddress;
     Req.AdapterIndex = AdapterIndex;
 
-    Result = CallNamedPipeW
+    Result = CallNamedPipe
         ( DHCP_PIPE_NAME, &Req, sizeof(Req), &Reply, sizeof(Reply),
           &BytesRead, DHCP_TIMEOUT );
 
@@ -110,7 +111,7 @@ DWORD APIENTRY DhcpStaticRefreshParams( DWORD AdapterIndex,
     Req.Body.StaticRefreshParams.IPAddress = Address;
     Req.Body.StaticRefreshParams.Netmask = Netmask;
 
-    Result = CallNamedPipeW
+    Result = CallNamedPipe
         ( DHCP_PIPE_NAME, &Req, sizeof(Req), &Reply, sizeof(Reply),
           &BytesRead, DHCP_TIMEOUT );
 
@@ -195,7 +196,7 @@ DWORD APIENTRY DhcpRosGetAdapterInfo( DWORD AdapterIndex,
     Req.Type = DhcpReqGetAdapterInfo;
     Req.AdapterIndex = AdapterIndex;
 
-    Result = CallNamedPipeW
+    Result = CallNamedPipe
         ( DHCP_PIPE_NAME, &Req, sizeof(Req), &Reply, sizeof(Reply),
           &BytesRead, DHCP_TIMEOUT );
 
@@ -217,7 +218,7 @@ DWORD APIENTRY DhcpRosGetAdapterInfo( DWORD AdapterIndex,
     return Reply.Reply;
 }
 
-INT WINAPI
+INT STDCALL
 DllMain(PVOID hinstDll,
 	ULONG dwReason,
 	PVOID reserved)

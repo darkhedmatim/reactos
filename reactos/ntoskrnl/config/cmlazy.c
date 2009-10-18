@@ -9,6 +9,7 @@
 /* INCLUDES *******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -187,7 +188,7 @@ CmpLazyFlushWorker(IN PVOID Parameter)
     }
     
     /* Flush the next hive */
-    MoreWork = CmpDoFlushNextHive(ForceFlush, &Result, &DirtyCount);
+    MoreWork = CmpDoFlushNextHive(ForceFlush, &Result, &DirtyCount);     
     if (!MoreWork)
     {
         /* We're done */
@@ -232,61 +233,11 @@ CmpCmdInit(IN BOOLEAN SetupBoot)
     KeSetTimer(&CmpEnableLazyFlushTimer, DueTime, &CmpEnableLazyFlushDpc);
 
     /* Setup flush variables */
-    CmpNoWrite = CmpMiniNTBoot;
+    CmpNoWrite = CmpMiniNTBoot;    
     CmpWasSetupBoot = SetupBoot;
     
     /* Testing: Force Lazy Flushing */
     CmpHoldLazyFlush = FALSE;
-    
-    /* Setup the hive list */
-    CmpInitializeHiveList(SetupBoot);
-}
-
-NTSTATUS
-NTAPI
-CmpCmdHiveOpen(IN POBJECT_ATTRIBUTES FileAttributes,
-               IN PSECURITY_CLIENT_CONTEXT ImpersonationContext,
-               IN OUT PBOOLEAN Allocate,
-               OUT PCMHIVE *NewHive,
-               IN ULONG CheckFlags)
-{
-    PUNICODE_STRING FileName;
-    NTSTATUS Status;
-    PAGED_CODE();
-
-    /* Open the file in the current security context */
-    FileName = FileAttributes->ObjectName;
-    Status = CmpInitHiveFromFile(FileName,
-                                 0,
-                                 NewHive,
-                                 Allocate,
-                                 CheckFlags);
-    if (((Status == STATUS_ACCESS_DENIED) ||
-         (Status == STATUS_NO_SUCH_USER) ||
-         (Status == STATUS_WRONG_PASSWORD) ||
-         (Status == STATUS_ACCOUNT_EXPIRED) ||
-         (Status == STATUS_ACCOUNT_DISABLED) ||
-         (Status == STATUS_ACCOUNT_RESTRICTION)) &&
-        (ImpersonationContext))
-    {
-        /* We failed due to an account/security error, impersonate SYSTEM */
-        Status = SeImpersonateClientEx(ImpersonationContext, NULL);
-        if (NT_SUCCESS(Status))
-        {
-            /* Now try again */
-            Status = CmpInitHiveFromFile(FileName,
-                                         0,
-                                         NewHive,
-                                         Allocate,
-                                         CheckFlags);
-
-            /* Restore impersonation token */
-            PsRevertToSelf();
-        }
-    }
-
-    /* Return status of open attempt */
-    return Status;
 }
 
 VOID

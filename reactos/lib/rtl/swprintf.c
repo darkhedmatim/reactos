@@ -226,9 +226,7 @@ numberf(wchar_t * buf, wchar_t * end, double num, int base, int size, int precis
 	{
         x = num;
 		tmp[i++] = digits[do_div(&x,base)];
-#ifndef _M_ARM // Missing __floatdidf in CeGCC 0.55 -- GCC 4.4
 		num = x;
-#endif
     }
 	if (i > precision)
 		precision = i;
@@ -577,7 +575,7 @@ int __cdecl _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list ar
 				flags |= ZEROPAD;
 			}
 			str = number(str, end,
-				(ULONG_PTR) va_arg(args, void *), 16,
+				(unsigned long) va_arg(args, void *), 16,
 				field_width, precision, flags);
 			continue;
 
@@ -691,9 +689,21 @@ int __cdecl _vsnwprintf(wchar_t *buf, size_t cnt, const wchar_t *fmt, va_list ar
 	}
 	if (str <= end)
 		*str = L'\0';
-	else if (cnt > 0)
+    else if (cnt > 0)
+	{
 		/* don't write out a null byte if the buf size is zero */
-		*end = L'\0';
+		//*end = '\0';
+	   if (str-buf >cnt )
+       {
+		 *end = L'\0';
+       }
+       else
+       {
+           end++;
+          *end = L'\0';
+       }
+
+    }
 	return str-buf;
 }
 

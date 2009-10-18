@@ -39,7 +39,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(advpack);
 #define SPAPI_ERROR     0xE0000000L
 #define SPAPI_PREFIX    0x800F0000L
 #define SPAPI_MASK      0xFFFFL
-#define HRESULT_FROM_SPAPI(x)   ((HRESULT)((x & SPAPI_MASK) | SPAPI_PREFIX))
+#define HRESULT_FROM_SPAPI(x)   ((x & SPAPI_MASK) | SPAPI_PREFIX)
 
 #define ADV_HRESULT(x)  ((x & SPAPI_ERROR) ? HRESULT_FROM_SPAPI(x) : HRESULT_FROM_WIN32(x))
 
@@ -82,7 +82,7 @@ static HRESULT del_dirs_callback(HINF hinf, PCWSTR field, const void *arg)
     DWORD size;
 
     BOOL ok = SetupFindFirstLineW(hinf, field, NULL, &context);
-    
+
     for (; ok; ok = SetupFindNextLine(&context, &context))
     {
         WCHAR directory[MAX_INF_STRING_LENGTH];
@@ -91,7 +91,7 @@ static HRESULT del_dirs_callback(HINF hinf, PCWSTR field, const void *arg)
                                MAX_INF_STRING_LENGTH, &size))
             continue;
 
-        if (DelNodeW(directory, ADN_DEL_IF_EMPTY) != S_OK)
+        if (DelNodeW(directory, ADN_DEL_IF_EMPTY))
             hr = E_FAIL;
     }
 
@@ -148,7 +148,7 @@ static HRESULT register_ocxs_callback(HINF hinf, PCWSTR field, const void *arg)
     HRESULT hr = S_OK;
 
     BOOL ok = SetupFindFirstLineW(hinf, field, NULL, &context);
-    
+
     for (; ok; ok = SetupFindNextLine(&context, &context))
     {
         WCHAR buffer[MAX_INF_STRING_LENGTH];
@@ -161,7 +161,7 @@ static HRESULT register_ocxs_callback(HINF hinf, PCWSTR field, const void *arg)
         hm = LoadLibraryExW(buffer, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
         if (hm)
         {
-            if (do_ocx_reg(hm, TRUE) != S_OK)
+            if (do_ocx_reg(hm, TRUE))
                 hr = E_FAIL;
 
             FreeLibrary(hm);
@@ -196,7 +196,7 @@ static HRESULT run_setup_commands_callback(HINF hinf, PCWSTR field, const void *
                                MAX_INF_STRING_LENGTH, &size))
             continue;
 
-        if (launch_exe(buffer, info->working_dir, NULL) != S_OK)
+        if (launch_exe(buffer, info->working_dir, NULL))
             hr = E_FAIL;
     }
 
@@ -633,7 +633,7 @@ HRESULT WINAPI ExecuteCabA(HWND hwnd, CABINFOA* pCab, LPVOID pReserved)
 
     RtlCreateUnicodeStringFromAsciiz(&inf, pCab->pszInf);
     RtlCreateUnicodeStringFromAsciiz(&section, pCab->pszSection);
-    
+
     MultiByteToWideChar(CP_ACP, 0, pCab->szSrcPath, -1, cabinfo.szSrcPath,
                         sizeof(cabinfo.szSrcPath) / sizeof(WCHAR));
 
@@ -654,14 +654,14 @@ HRESULT WINAPI ExecuteCabA(HWND hwnd, CABINFOA* pCab, LPVOID pReserved)
 
 /***********************************************************************
  *             ExecuteCabW    (ADVPACK.@)
- * 
+ *
  * Installs the INF file extracted from a specified cabinet file.
- * 
+ *
  * PARAMS
  *   hwnd      [I] Handle to the window used for the display.
  *   pCab      [I] Information about the cabinet file.
  *   pReserved [I] Reserved.  Must be NULL.
- * 
+ *
  * RETURNS
  *   Success: S_OK.
  *   Failure: E_FAIL.

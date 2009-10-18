@@ -29,20 +29,9 @@ void ME_InitContext(ME_Context *c, ME_TextEditor *editor, HDC hDC)
   c->pt.y = 0;
   c->hbrMargin = CreateSolidBrush(RGB(224,224,224));
   c->rcView = editor->rcFormat;
-  if (hDC) {
-      c->dpi.cx = GetDeviceCaps(hDC, LOGPIXELSX);
-      c->dpi.cy = GetDeviceCaps(hDC, LOGPIXELSY);
-  } else {
-      c->dpi.cx = c->dpi.cy = 96;
-  }
-  if (editor->nAvailWidth)
-      c->nAvailWidth = ME_twips2pointsX(c, editor->nAvailWidth);
-  else
-      c->nAvailWidth = c->rcView.right - c->rcView.left;
 }
 
 void ME_DestroyContext(ME_Context *c)
 {
-  if (c->hDC) ITextHost_TxReleaseDC(c->editor->texthost, c->hDC);
   DeleteObject(c->hbrMargin);
 }

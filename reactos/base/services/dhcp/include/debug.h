@@ -18,7 +18,7 @@
 #define DEBUG_ADAPTER  0x00000100
 #define DEBUG_ULTRA    0xFFFFFFFF
 
-#if DBG
+#ifdef DBG
 
 extern unsigned long debug_trace_level;
 

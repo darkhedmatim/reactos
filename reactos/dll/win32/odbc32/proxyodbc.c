@@ -39,8 +39,6 @@
 #include "wine/debug.h"
 //#include "wine/library.h"
 
-#undef TRACE_ON
-
 #include "sql.h"
 #include "sqltypes.h"
 #include "sqlext.h"
@@ -223,9 +221,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 static BOOL ODBC_LoadDriverManager(void)
 {
    const char *s = getenv("LIB_ODBC_DRIVER_MANAGER");
-#ifndef __REACTOS__
    char error[256];
-#endif
 
    TRACE("\n");
 
@@ -273,10 +269,8 @@ static BOOL ODBC_LoadDriverManager(void)
 
 static BOOL ODBC_LoadDMFunctions(void)
 {
-#ifndef __REACTOS__
     int i;
     char error[256];
-#endif
 
     if (gProxyHandle.dmHandle == NULL)
         return FALSE;
@@ -560,8 +554,8 @@ SQLRETURN WINAPI SQLConnect(SQLHDBC ConnectionHandle,
 
         CHECK_READY_AND_dmHandle();
 
-        strcpy(gProxyHandle.ServerName, (const char*)ServerName);
-        strcpy(gProxyHandle.UserName, (const char*)UserName);
+        strcpy(gProxyHandle.ServerName, ServerName);
+        strcpy(gProxyHandle.UserName, UserName);
 
         assert(gProxyHandle.functions[SQLAPI_INDEX_SQLCONNECT].func);
         ret=(gProxyHandle.functions[SQLAPI_INDEX_SQLCONNECT].func)
@@ -612,7 +606,9 @@ SQLRETURN WINAPI SQLDataSources(SQLHENV EnvironmentHandle,
             (EnvironmentHandle, Direction, ServerName,
             BufferLength1, NameLength1, Description, BufferLength2, NameLength2);
 
-        if (WINE_TRACE_ON(odbc))
+#ifndef __REACTOS__
+        if (TRACE_ON(odbc))
+#endif
         {
            TRACE("returns: %d \t", ret);
            if (*NameLength1 > 0)

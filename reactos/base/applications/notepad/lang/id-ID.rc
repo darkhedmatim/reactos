@@ -24,82 +24,80 @@
 LANGUAGE LANG_INDONESIAN, SUBLANG_DEFAULT
 
 ID_ACCEL ACCELERATORS
-BEGIN
+{
     "^A", CMD_SELECT_ALL
     "^C", CMD_COPY
     "^F", CMD_SEARCH
     "^G", CMD_GOTO
-    "H", CMD_REPLACE, VIRTKEY, CONTROL
-    "^N", CMD_NEW
+    "H",  CMD_REPLACE, VIRTKEY, CONTROL
     "^O", CMD_OPEN
-    "^P", CMD_PRINT
     "^S", CMD_SAVE
     "^V", CMD_PASTE
     "^X", CMD_CUT
     "^Z", CMD_UNDO
     VK_F3, CMD_SEARCH_NEXT, VIRTKEY
     VK_F5, CMD_TIME_DATE, VIRTKEY
-END
+}
 
 MAIN_MENU MENU
 BEGIN
-    POPUP "&File"
-    BEGIN
-        MENUITEM "Bar&u\tCtrl+N",      CMD_NEW
-        MENUITEM "&Buka\tCtrl+O",      CMD_OPEN
-        MENUITEM "&Simpan\tCtrl+S",    CMD_SAVE
-        MENUITEM "Simpan seb&agai...", CMD_SAVE_AS
-        MENUITEM SEPARATOR
-        MENUITEM "Se&tup Halaman...",  CMD_PAGE_SETUP
-        MENUITEM "&Cetak\tCtrl+P",     CMD_PRINT
-        MENUITEM "P&rinter Setup...",  CMD_PRINTER_SETUP
-        MENUITEM SEPARATOR
-        MENUITEM "&Keluar",            CMD_EXIT
-    END
-    POPUP "&Edit"
-    BEGIN
-        MENUITEM "&Undo\tCtrl+Z",        CMD_UNDO
-        MENUITEM SEPARATOR
-        MENUITEM "Cu&t\tCtrl+X",         CMD_CUT
-        MENUITEM "&Copy\tCtrl+C",        CMD_COPY
-        MENUITEM "&Paste\tCtrl+V",       CMD_PASTE
-        MENUITEM "&Hapus\tDel",          CMD_DELETE
-        MENUITEM SEPARATOR
-        MENUITEM "Ca&ri...\tCtrl+F",     CMD_SEARCH
-        MENUITEM "Cari berikut&nya\tF3", CMD_SEARCH_NEXT
-        MENUITEM "Ganti\tCtrl+H",        CMD_REPLACE
-        MENUITEM "Pergi Ke...\tCtrl+G",  CMD_GOTO
-        MENUITEM SEPARATOR
-        MENUITEM "Pilih semu&a\tCtrl+A", CMD_SELECT_ALL
-        MENUITEM "&Jam/Tanggal\tF5",     CMD_TIME_DATE
-    END
-    POPUP "F&ormat"
-    BEGIN
-        MENUITEM "&Gulung baris panjang", CMD_WRAP
-        MENUITEM "&Font...",              CMD_FONT
-    END
-    POPUP "&Lihat"
-    BEGIN
-        MENUITEM "Status&bar", CMD_STATUSBAR
-    END
-    POPUP "&Bantuan"
-    BEGIN
-        MENUITEM "&Daftar Isi",           CMD_HELP_CONTENTS
-        MENUITEM "&Cari...",              CMD_HELP_SEARCH
-        MENUITEM "&Bantuan pada bantuan", CMD_HELP_ON_HELP
-        MENUITEM SEPARATOR
-        MENUITEM "&Tentang"               CMD_ABOUT
-        MENUITEM "Inf&o",                 CMD_ABOUT_WINE
-    END
+	POPUP "&File"
+	BEGIN
+		MENUITEM "Bar&u...",              CMD_NEW
+		MENUITEM "&Buka\tCtrl+O",         CMD_OPEN
+		MENUITEM "&Simpan\tCtrl+S",       CMD_SAVE
+		MENUITEM "Simpan seb&agai...",    CMD_SAVE_AS
+		MENUITEM SEPARATOR
+		MENUITEM "Se&tup Halaman...",     CMD_PAGE_SETUP
+		MENUITEM "&Cetak",                CMD_PRINT
+		MENUITEM "P&rinter Setup...",     CMD_PRINTER_SETUP
+		MENUITEM SEPARATOR
+		MENUITEM "&Keluar",               CMD_EXIT
+	END
+	POPUP "&Edit"
+	BEGIN
+		MENUITEM "&Undo\tCtrl+Z",         CMD_UNDO
+		MENUITEM SEPARATOR
+		MENUITEM "Cu&t\tCtrl+X",          CMD_CUT
+		MENUITEM "&Copy\tCtrl+C",         CMD_COPY
+		MENUITEM "&Paste\tCtrl+V",        CMD_PASTE
+		MENUITEM "&Hapus\tDel",           CMD_DELETE
+		MENUITEM SEPARATOR
+		MENUITEM "Ca&ri...\tCtrl+F",      CMD_SEARCH
+		MENUITEM "Cari berikut&nya\tF3",  CMD_SEARCH_NEXT
+		MENUITEM "Ganti\tCtrl+H",         CMD_REPLACE
+		MENUITEM "Pergi Ke...\tCtrl+G",   CMD_GOTO
+		MENUITEM SEPARATOR
+		MENUITEM "Pilih semu&a\tCtrl+A",  CMD_SELECT_ALL
+		MENUITEM "&Jam/Tanggal\tF5",      CMD_TIME_DATE
+	END
+	POPUP "F&ormat"
+	BEGIN
+		MENUITEM "&Gulung baris panjang", CMD_WRAP
+		MENUITEM "&Font...",              CMD_FONT
+	END
+	POPUP "&Lihat"
+	BEGIN
+		MENUITEM "Status&bar",            CMD_STATUSBAR
+	END
+	POPUP "&Bantuan"
+	BEGIN
+		MENUITEM "&Daftar Isi",           CMD_HELP_CONTENTS
+		MENUITEM "&Cari...",              CMD_HELP_SEARCH
+		MENUITEM "&Bantuan pada bantuan", CMD_HELP_ON_HELP
+		MENUITEM SEPARATOR
+		MENUITEM "&Tentang"               CMD_ABOUT
+		MENUITEM "Inf&o",                 CMD_ABOUT_WINE
+	END
 END
 
 /* Dialog `Page setup' */
 
-DIALOG_PAGESETUP DIALOGEX 0, 0, 225, 95
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
+DIALOG_PAGESETUP DIALOG 0, 0, 225, 95
+STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
 FONT 8, "MS Shell Dlg"
 CAPTION "Setup Halaman"
-BEGIN
+{
 LTEXT    "&Header:",  0x140,   10, 07, 40, 15
 EDITTEXT                         0x141,       60, 05,110, 12, WS_BORDER | WS_TABSTOP
 LTEXT    "&Footer:",  0x142,   10, 24, 40, 15
@@ -118,35 +116,35 @@ EDITTEXT /*STRING_PAGESETUP_BOTTOMVALUE,*/ 0x150,    130, 73, 35, 11, WS_CHILD |
 DEFPUSHBUTTON "OK",        IDOK,                   180,  3, 40, 15, WS_TABSTOP
 PUSHBUTTON    "Batal",     IDCANCEL,               180, 21, 40, 15, WS_TABSTOP
 PUSHBUTTON    "&Bantuan",  IDHELP,                  180, 39, 40, 15, WS_TABSTOP
-END
+}
 
 /* Dialog `Encoding' */
-DIALOG_ENCODING DIALOGEX 0, 0, 256, 44
-STYLE DS_SHELLFONT | DS_CONTROL | WS_CHILD | WS_CLIPSIBLINGS |
+DIALOG_ENCODING DIALOG 0, 0, 256, 44
+STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CLIPSIBLINGS |
     WS_CAPTION | WS_SYSMENU
 FONT 8, "MS Shell Dlg"
 CAPTION "Enkoding"
-BEGIN
+{
 COMBOBOX        ID_ENCODING,54,0,156,80,CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
 LTEXT           "Enkoding:",0x155,5,2,41,12
 COMBOBOX        ID_EOLN,54,18,156,80,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 LTEXT           "Akhirbaris:",0x156,5,20,41,12
-END
+}
 
 /* Dialog 'Go To' */
-DIALOG_GOTO DIALOGEX 0,0,165,50
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
+DIALOG_GOTO DIALOG 0,0,165,50
+STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
 FONT 8, "MS Shell Dlg"
 CAPTION "Pergi ke baris"
-BEGIN
+{
 EDITTEXT        ID_LINENUMBER,54,10,106,12,WS_CHILD | WS_BORDER | WS_TABSTOP
 LTEXT           "Nomor baris:",0x155,5,12,41,12,WS_CHILD | WS_TABSTOP | ES_NUMBER
 DEFPUSHBUTTON   "OK", IDOK, 75, 30, 40, 15, WS_CHILD | WS_TABSTOP
 PUSHBUTTON      "Batal", IDCANCEL, 120, 30, 40, 15, WS_CHILD | WS_TABSTOP
-END
+}
 
-IDD_ABOUTBOX DIALOGEX DISCARDABLE  22,16,284,170
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
+IDD_ABOUTBOX DIALOG DISCARDABLE  22,16,284,170
+STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
 CAPTION "Tentang ReactOS Notepad"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -166,7 +164,7 @@ BEGIN
 END
 
 STRINGTABLE DISCARDABLE
-BEGIN
+{
 STRING_PAGESETUP_HEADERVALUE,   "&n"        /* FIXME */
 STRING_PAGESETUP_FOOTERVALUE,   "Halaman &s"   /* FIXME */
 STRING_PAGESETUP_LEFTVALUE,             "20 mm"     /* FIXME */
@@ -204,5 +202,4 @@ STRING_UTF8,                                    "UTF-8"
 STRING_CRLF,                                    "Windows"
 STRING_LF,                                      "Unix"
 STRING_CR,                                      "Mac"
-STRING_LINE_COLUMN,                             "Line %d, column %d"
-END
+}

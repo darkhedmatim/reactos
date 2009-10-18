@@ -42,6 +42,5 @@
 @ stdcall acmStreamSize(long long ptr long)
 @ stdcall acmStreamUnprepareHeader(long ptr long)
 
-################################################################
-# Wine internal extension
-@ stdcall -private DriverProc(long long long long long) PCM_DriverProc
+# this is wine only
+@ stdcall DriverProc(long long long long long) PCM_DriverProc

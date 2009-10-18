@@ -19,8 +19,19 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
+#include <string.h>
 
-#include <precomp.h>
+#define COBJMACROS
+#define NONAMELESSUNION
+#define NONAMELESSSTRUCT
+
+#include "windef.h"
+#include "wingdi.h"
+#include "pidl.h"
+#include "winerror.h"
+#include "shell32_main.h"
+#include "wine/debug.h"
+#include "undocshell.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
@@ -439,18 +450,4 @@ LPDATAOBJECT IDataObject_Constructor(HWND hwndOwner,
 
     TRACE("(%p)->(apidl=%p cidl=%u)\n",dto, apidl, cidl);
     return (LPDATAOBJECT)dto;
-}
-
-/*************************************************************************
- * SHCreateDataObject			[SHELL32.@]
- *
- */
-
-HRESULT WINAPI SHCreateDataObject(LPCITEMIDLIST pidlFolder, UINT cidl, LPCITEMIDLIST* apidl, IDataObject *pdtInner, REFIID riid, void **ppv)
-{
-    if (IsEqualIID(riid, &IID_IDataObject))
-    {
-        return CIDLData_CreateFromIDArray(pidlFolder, cidl, apidl, (IDataObject**)ppv);
-    }
-    return E_FAIL;
 }

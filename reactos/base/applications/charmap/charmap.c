@@ -14,9 +14,7 @@
 HINSTANCE hInstance;
 
 /* Font-enumeration callback */
-static
-int
-CALLBACK
+static int CALLBACK
 EnumFontNames(ENUMLOGFONTEXW *lpelfe,
               NEWTEXTMETRICEXW *lpntme,
               DWORD FontType,
@@ -57,8 +55,7 @@ EnumFontNames(ENUMLOGFONTEXW *lpelfe,
 
 
 /* Initialize the font-list by enumeration all system fonts */
-static
-VOID
+static VOID
 FillFontStyleComboList(HWND hwndCombo)
 {
     HDC hdc;
@@ -93,8 +90,7 @@ FillFontStyleComboList(HWND hwndCombo)
 }
 
 
-static
-VOID
+static VOID
 ChangeMapFont(HWND hDlg)
 {
     HWND hCombo;
@@ -134,8 +130,7 @@ ChangeMapFont(HWND hDlg)
 }
 
 
-static
-VOID
+static VOID
 AddCharToSelection(HWND hText,
                    WCHAR ch)
 {
@@ -187,9 +182,7 @@ AddCharToSelection(HWND hText,
 }
 
 
-static
-INT_PTR
-CALLBACK
+static BOOL CALLBACK
 DlgProc(HWND hDlg,
         UINT Message,
         WPARAM wParam,
@@ -197,7 +190,6 @@ DlgProc(HWND hDlg,
 {
     static HICON hSmIcon;
     static HICON hBgIcon;
-    LPWSTR lpAboutText = NULL;
 
     switch(Message)
     {
@@ -237,13 +229,16 @@ DlgProc(HWND hDlg,
                                               IDC_FONTCOMBO));
 
             ChangeMapFont(hDlg);
+
             hSysMenu = GetSystemMenu(hDlg,
                                      FALSE);
             if (hSysMenu != NULL)
             {
+                LPCWSTR lpAboutText = NULL;
+
                 if (LoadStringW(hInstance,
                                 IDS_ABOUT,
-                                lpAboutText,
+                                (LPWSTR)&lpAboutText,
                                 0))
                 {
                     AppendMenuW(hSysMenu,
@@ -338,8 +333,7 @@ DlgProc(HWND hDlg,
 }
 
 
-INT
-WINAPI
+INT WINAPI
 wWinMain(HINSTANCE hInst,
          HINSTANCE hPrev,
          LPWSTR Cmd,
@@ -359,7 +353,7 @@ wWinMain(HINSTANCE hInst,
         Ret = DialogBoxW(hInstance,
                          MAKEINTRESOURCEW(IDD_CHARMAP),
                          NULL,
-                         DlgProc) >= 0;
+                         (DLGPROC)DlgProc) >= 0;
 
         UnregisterMapClasses(hInstance);
     }

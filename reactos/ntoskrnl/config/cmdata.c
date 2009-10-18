@@ -9,6 +9,7 @@
 /* INCLUDES ******************************************************************/
 
 #include "ntoskrnl.h"
+#include "cm.h"
 #define NDEBUG
 #include "debug.h"
 
@@ -16,6 +17,7 @@
 
 ULONG DummyData;
 ULONG CmNtGlobalFlag;
+ULONG CmNtCSDVersion;
 
 WCHAR CmDefaultLanguageId[12];
 ULONG CmDefaultLanguageIdLength = sizeof(CmDefaultLanguageId);
@@ -36,16 +38,7 @@ PCM_FULL_RESOURCE_DESCRIPTOR CmpConfigurationData;
 
 EX_PUSH_LOCK CmpHiveListHeadLock, CmpLoadHiveLock;
 
-HIVE_LIST_ENTRY CmpMachineHiveList[] =
-{
-    { L"HARDWARE", L"MACHINE\\", NULL, HIVE_VOLATILE    , 0                         ,   NULL,   FALSE,  FALSE,  FALSE},
-    { L"SECURITY", L"MACHINE\\", NULL, 0                , 0                         ,   NULL,   FALSE,  FALSE,  FALSE},
-    { L"SOFTWARE", L"MACHINE\\", NULL, 0                , 0                         ,   NULL,   FALSE,  FALSE,  FALSE},
-    { L"SYSTEM",   L"MACHINE\\", NULL, 0                , 0                         ,   NULL,   FALSE,  FALSE,  FALSE},
-    { L"DEFAULT",  L"USER\\.DEFAULT", NULL, 0           , 0   ,   NULL,   FALSE,  FALSE,  FALSE},
-    { L"SAM",      L"MACHINE\\", NULL, HIVE_NOLAZYFLUSH , 0                         ,   NULL,   FALSE,  FALSE,  FALSE},
-    { NULL,        NULL,         0, 0                   , 0                         ,   NULL,   FALSE,  FALSE,  FALSE}
-};
+HIVE_LIST_ENTRY CmpMachineHiveList[5];
 
 UNICODE_STRING CmSymbolicLinkValueName =
     RTL_CONSTANT_STRING(L"SymbolicLinkValue");
@@ -58,22 +51,7 @@ BOOLEAN CmpSelfHeal = TRUE;
 BOOLEAN CmpMiniNTBoot;
 ULONG CmpBootType;
 
-USHORT CmpUnknownBusCount;
-ULONG CmpTypeCount[MaximumType + 1];
-
 HANDLE CmpRegistryRootHandle;
-
-UNICODE_STRING CmClassName[MaximumClass + 1] =
-{
-    RTL_CONSTANT_STRING(L"System"),
-    RTL_CONSTANT_STRING(L"Processor"),
-    RTL_CONSTANT_STRING(L"Cache"),
-    RTL_CONSTANT_STRING(L"Adapter"),
-    RTL_CONSTANT_STRING(L"Controller"),
-    RTL_CONSTANT_STRING(L"Peripheral"),
-    RTL_CONSTANT_STRING(L"MemoryClass"),
-    RTL_CONSTANT_STRING(L"Undefined")
-};
 
 UNICODE_STRING CmTypeName[MaximumType + 1] =
 {
@@ -119,19 +97,6 @@ UNICODE_STRING CmTypeName[MaximumType + 1] =
     RTL_CONSTANT_STRING(L"RealModeIrqRoutingTable"),
     RTL_CONSTANT_STRING(L"RealModePCIEnumeration"),
     RTL_CONSTANT_STRING(L"Undefined")
-};
-
-CMP_MF_TYPE CmpMultifunctionTypes[] =
-{
-    {"ISA", Isa, 0},
-    {"MCA", MicroChannel, 0},
-    {"PCI", PCIBus, 0},
-    {"VME", VMEBus, 0},
-    {"PCMCIA", PCMCIABus, 0},
-    {"CBUS", CBus, 0},
-    {"MPIPI", MPIBus, 0},
-    {"MPSA", MPSABus, 0},
-    {NULL, Internal, 0}
 };
 
 CM_SYSTEM_CONTROL_VECTOR CmControlVector[] =

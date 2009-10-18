@@ -16,83 +16,76 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "wordpad.h"
-
-/* UTF-8 */
-#pragma code_page(65001)
-
 LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
 
-IDM_MAINMENU MENU DISCARDABLE
+MAINMENU MENU DISCARDABLE
 BEGIN
-    POPUP "&Файл"
+    POPUP "&����"
     BEGIN
-        MENUITEM "Созд&ать...\tCtrl+N",ID_FILE_NEW
-        MENUITEM "&Открыть...\tCtrl+O",ID_FILE_OPEN
-        MENUITEM "&Сохранить\tCtrl+S", ID_FILE_SAVE
-        MENUITEM "Сохранить &как...",  ID_FILE_SAVEAS
+        MENUITEM "����&���\tCtrl+N",   ID_FILE_NEW
+        MENUITEM "&�������...\tCtrl+O",ID_FILE_OPEN
+        MENUITEM "&���������\tCtrl+S", ID_FILE_SAVE
+        MENUITEM "��������� &���...",  ID_FILE_SAVEAS
         MENUITEM SEPARATOR
-        MENUITEM "&Печать...\tCtrl+P",            ID_PRINT
-        MENUITEM "Пред&варительный просмотр...",  ID_PREVIEW
-        MENUITEM "&Макет страницы...",            ID_PRINTSETUP
+        MENUITEM "&Print . . .\tCtrl+P",  ID_PRINT
+        MENUITEM "Print previe&w . . .",  ID_PREVIEW
+        MENUITEM "Pag&e setup . . .",     ID_PRINTSETUP
         MENUITEM SEPARATOR
-        MENUITEM "В&ыход",                           ID_FILE_EXIT
+        MENUITEM "�&����",     ID_FILE_EXIT
     END
-    POPUP "&Правка"
+    POPUP "&������"
     BEGIN
-        MENUITEM "&Отменить\tCtrl+Z",           ID_EDIT_UNDO
-        MENUITEM "&Повторить\tCtrl+Y",          ID_EDIT_REDO
+        MENUITEM "&��������\tCtrl+Z",           ID_EDIT_UNDO
+        MENUITEM "&���������\tCtrl+Y",          ID_EDIT_REDO
+        MENUITEM "�������� �&��\tCtrl+A",       ID_EDIT_SELECTALL
         MENUITEM SEPARATOR
-        MENUITEM "&Вырезать\tCtrl+X",           ID_EDIT_CUT
-        MENUITEM "&Копировать\tCtrl+C",         ID_EDIT_COPY
-        MENUITEM "&Вставить\tCtrl+V",           ID_EDIT_PASTE
-        MENUITEM "&Удалить\tDEL",               ID_EDIT_CLEAR
-        MENUITEM "Выделить в&се\tCtrl+A",       ID_EDIT_SELECTALL
+        MENUITEM "&��������\tCtrl+X",           ID_EDIT_CUT
+        MENUITEM "&����������\tCtrl+C",         ID_EDIT_COPY
+        MENUITEM "&Paste\tCtrl+V",              ID_EDIT_PASTE
         MENUITEM SEPARATOR
-        MENUITEM "&Найти...\tCrtl+F",           ID_FIND
-        MENUITEM "На&йти далее\tF3",            ID_FIND_NEXT
-        MENUITEM "&Заменить...\tCtrl+H",        ID_REPLACE
+        MENUITEM "&Find . . .\tCrtl+F",         ID_FIND
+        MENUITEM "Find &next\tF3",              ID_FIND_NEXT
+        MENUITEM "&Replace . . .\tCtrl+H",      ID_REPLACE
         MENUITEM SEPARATOR
-        MENUITEM "&Только для чтения",          ID_EDIT_READONLY
-        MENUITEM "&Изменен",                    ID_EDIT_MODIFIED
+        MENUITEM "&������ ��� ������",          ID_EDIT_READONLY
+        MENUITEM "&�������",                    ID_EDIT_MODIFIED
         MENUITEM SEPARATOR
-        POPUP "&Дополнительно"
+        POPUP "&�������������"
         BEGIN
-            MENUITEM "&Информация о выделении",         ID_EDIT_SELECTIONINFO
-            MENUITEM "&Формат символов",                ID_EDIT_CHARFORMAT
-            MENUITEM "Формат символов &по умолчанию",   ID_EDIT_DEFCHARFORMAT
-            MENUITEM "Формат &абзаца",                  ID_EDIT_PARAFORMAT
-            MENUITEM "П&олучить текст",                 ID_EDIT_GETTEXT
+            MENUITEM "&���������� � ���������",         ID_EDIT_SELECTIONINFO
+            MENUITEM "&������ ��������",                ID_EDIT_CHARFORMAT
+            MENUITEM "������ �������� &�� ���������",   ID_EDIT_DEFCHARFORMAT
+            MENUITEM "������ &������",                  ID_EDIT_PARAFORMAT
+            MENUITEM "�&������� �����",                 ID_EDIT_GETTEXT
         END
     END
-    POPUP "&Вид"
+    POPUP "&View"
     BEGIN
-        MENUITEM "Панель &инструментов",                ID_TOGGLE_TOOLBAR
-        MENUITEM "П&анель форматирования",              ID_TOGGLE_FORMATBAR
-        MENUITEM "&Линейка",                            ID_TOGGLE_RULER
-        MENUITEM "&Строка состояния",                   ID_TOGGLE_STATUSBAR
+        MENUITEM "&Toolbar",        ID_TOGGLE_TOOLBAR
+        MENUITEM "&Formatbar",      ID_TOGGLE_FORMATBAR
+        MENUITEM "&Statusbar",      ID_TOGGLE_STATUSBAR
         MENUITEM SEPARATOR
-        MENUITEM "&Параметры...",                       ID_VIEWPROPERTIES
+        MENUITEM "&Options . . .",  ID_VIEWPROPERTIES
     END
-    POPUP "Вст&авка"
+    POPUP "&Insert"
     BEGIN
-        MENUITEM "&Дата и время...",                    ID_DATETIME
+        MENUITEM "&Date and time . . .",  ID_DATETIME
     END
-    POPUP "Фор&мат"
+    POPUP "���&���"
     BEGIN
-        MENUITEM "&Шрифт...",                           ID_FONTSETTINGS
-        MENUITEM "&Маркер"                              ID_BULLET
-        MENUITEM "&Абзац..."                            ID_PARAFORMAT
-        MENUITEM "&Табуляция..."                        ID_TABSTOPS
-        POPUP "&Фон"
+        MENUITEM "&Font . . .",                  ID_FONTSETTINGS
+        MENUITEM "B&ullet points"                ID_BULLET
+        MENUITEM "&Paragraph . . ."              ID_PARAFORMAT
+        MENUITEM "&Tabs . . ."                   ID_TABSTOPS
+        POPUP "&���"
         BEGIN
-            MENUITEM "&Системный\tCtrl+1",              ID_BACK_1
-            MENUITEM "&Желтоватый PostThat\tCtrl+2",    ID_BACK_2
+            MENUITEM "&���������\tCtrl+1",              ID_BACK_1
+            MENUITEM "&���������� PostThat\tCtrl+2",    ID_BACK_2
         END
     END
-    POPUP "&Справка"
+    POPUP "&Help"
     BEGIN
-        MENUITEM "&О Wine Wordpad"       ID_ABOUT
+        MENUITEM "&About Wine Wordpad"       ID_ABOUT
     END
 END
 
@@ -100,67 +93,67 @@ IDM_POPUP MENU DISCARDABLE
 BEGIN
     POPUP ""
     BEGIN
-        MENUITEM "&Вырезать\tCtrl+X",   ID_EDIT_CUT
-        MENUITEM "&Копировать\tCtrl+C", ID_EDIT_COPY
-        MENUITEM "Вст&авить",           ID_EDIT_PASTE
+        MENUITEM "&��������\tCtrl+X",   ID_EDIT_CUT
+        MENUITEM "&����������\tCtrl+C", ID_EDIT_COPY
+        MENUITEM "&Paste",              ID_EDIT_PASTE
         MENUITEM SEPARATOR
-        MENUITEM "&Маркер"              ID_BULLET
-        MENUITEM "&Абзац..."            ID_PARAFORMAT
+        MENUITEM "&Bullet points"       ID_BULLET
+        MENUITEM "&Paragraph . . ."     ID_PARAFORMAT
     END
 END
 
 IDD_DATETIME DIALOG DISCARDABLE 30, 20, 130, 80
 STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
-CAPTION "Дата и время"
+CAPTION "Date and time"
 FONT 10, "MS Sans Serif"
 BEGIN
-    LTEXT        "Доступные форматы",-1,3,2,100,15
-    LISTBOX      IDC_DATETIME,3,12,80,65,LBS_NOINTEGRALHEIGHT | LBS_NOTIFY
-    PUSHBUTTON   "&ОК",IDOK,87,12,40,12
-    PUSHBUTTON   "О&тмена",IDCANCEL,87,26,40,12
+    LTEXT        "Available formats",0,3,2,100,15
+    LISTBOX      IDC_DATETIME,3,12,80,65,LBS_NOINTEGRALHEIGHT
+    PUSHBUTTON   "&OK",IDOK,87,12,40,12
+    PUSHBUTTON   "&Cancel",IDCANCEL,87,26,40,12
 END
 
 IDD_NEWFILE DIALOG DISCARDABLE 30, 20, 140, 80
 STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
-CAPTION "Новый документ"
+CAPTION "New"
 FONT 10, "MS Sans Serif"
 BEGIN
-    LTEXT        "Тип создаваемого документа",-1,3,2,100,15
+    LTEXT        "New document type",0,3,2,100,15
     LISTBOX      IDC_NEWFILE,3,12,90,65,LBS_NOINTEGRALHEIGHT
-    PUSHBUTTON   "&ОК",IDOK,97,12,40,12
-    PUSHBUTTON   "О&тмена",IDCANCEL,97,26,40,12
+    PUSHBUTTON   "&OK",IDOK,97,12,40,12
+    PUSHBUTTON   "&Cancel",IDCANCEL,97,26,40,12
 END
 
 IDD_PARAFORMAT DIALOG DISCARDABLE 30, 20, 200, 110
 STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
-Caption "Абзац"
+Caption "Paragraph format"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    GROUPBOX "Отступ", -1, 10, 10, 120, 68
-    LTEXT "Слева", -1, 15, 22, 40, 13
+    GROUPBOX "Indentation", 0, 10, 10, 120, 68
+    LTEXT "Left", 0, 15, 22, 40, 13
     EDITTEXT IDC_PARA_LEFT, 55, 20, 60, 13
-    LTEXT "Справа", -1, 15, 40, 40, 13
+    LTEXT "Right", 0, 15, 40, 40, 13
     EDITTEXT IDC_PARA_RIGHT, 55, 38, 60, 13
-    LTEXT "Первая строка", -1, 15, 58, 40, 13
+    LTEXT "First line", 0, 15, 58, 40, 13
     EDITTEXT IDC_PARA_FIRST, 55, 56, 60, 13
-    LTEXT "Выравнивание", -1, 15, 87, 40, 13
-    COMBOBOX IDC_PARA_ALIGN, 55, 85, 60, 60, CBS_DROPDOWNLIST
-    PUSHBUTTON "&ОК", IDOK, 137, 15, 50, 15
-    PUSHBUTTON "О&тмена", IDCANCEL, 137, 33, 50, 15
+    LTEXT "Alignment", 0, 15, 87, 40, 13
+    COMBOBOX IDC_PARA_ALIGN, 55, 85, 60, 13, CBS_DROPDOWNLIST
+    PUSHBUTTON "&OK", IDOK, 137, 15, 50, 15
+    PUSHBUTTON "&Cancel", IDCANCEL, 137, 33, 50, 15
 END
 
 IDD_TABSTOPS DIALOG DISCARDABLE 30, 20, 200, 110
 STYLE DS_MODALFRAME | WS_CAPTION | WS_SYSMENU
-Caption "Табуляция"
+Caption "Tabs"
 FONT 8, "MS SHell DLg"
 BEGIN
-    GROUPBOX "Позиции табуляции", -1, 10, 10, 120, 90
-    COMBOBOX IDC_TABSTOPS, 20, 20, 100, 60, CBS_SIMPLE
-    DEFPUSHBUTTON "&Установить", ID_TAB_ADD, 20, 80, 45, 15
-    PUSHBUTTON "О&чистить", ID_TAB_DEL, 72, 80, 45, 15
-    PUSHBUTTON "&ОК", IDOK, 137, 15, 50, 15
-    PUSHBUTTON "О&тмена", IDCANCEL, 137, 33, 50, 15
-    PUSHBUTTON "Очистить &все", ID_TAB_EMPTY, 137, 51, 50, 15
+    GROUPBOX "Tab stops", 0, 10, 10, 120, 90
+    COMBOBOX IDC_TABSTOPS, 20, 20, 100, 60, CBS_SIMPLE | CBS_SORT
+    DEFPUSHBUTTON "&Add", ID_TAB_ADD, 20, 80, 45, 15
+    PUSHBUTTON "&Remove", ID_TAB_DEL, 72, 80, 45, 15
+    PUSHBUTTON "&OK", IDOK, 137, 15, 50, 15
+    PUSHBUTTON "&Cancel", IDCANCEL, 137, 33, 50, 15
+    PUSHBUTTON "Remove al&l", ID_TAB_EMPTY, 137, 51, 50, 15
 END
 
 IDD_FORMATOPTS DIALOG DISCARDABLE 0, 0, 280, 110
@@ -168,78 +161,71 @@ STYLE DS_SYSMODAL
 Caption ""
 FONT 8, "MS Shell Dlg"
 BEGIN
-    GROUPBOX "Перенос по словам", -1, 10, 10, 130, 85
-    RADIOBUTTON "No line wrapping", IDC_PAGEFMT_WN, 18, 25, 117, 15
-    RADIOBUTTON "В границах &окна", IDC_PAGEFMT_WW, 18, 45, 117, 15
-    RADIOBUTTON "В границах &полей", IDC_PAGEFMT_WM, 18, 65, 117, 15
-    GROUPBOX "Панели", -1, 150, 10, 120, 85
-    CHECKBOX "&Инструментов", IDC_PAGEFMT_TB, 160, 20, 80, 15
-    CHECKBOX "&Форматирования", IDC_PAGEFMT_FB, 160, 38, 80, 15
-    CHECKBOX "&Линейка", IDC_PAGEFMT_RU, 160, 56, 80, 15
-    CHECKBOX "&Строка состояния", IDC_PAGEFMT_SB, 160, 74, 80, 15
+    GROUPBOX "Line wrapping", 0, 10, 10, 130, 85
+    RADIOBUTTON "Wrap text by the &window border", IDC_PAGEFMT_WW, 18, 25, 117, 15
+    RADIOBUTTON "Wrap text by the &margin", IDC_PAGEFMT_WM, 18, 45, 117, 15
+    GROUPBOX "Toolbars", 0, 150, 10, 120, 85
+    CHECKBOX "&Toolbar", IDC_PAGEFMT_TB, 160, 20, 80, 15
+    CHECKBOX "&Formatbar", IDC_PAGEFMT_FB, 160, 38, 80, 15
+    CHECKBOX "&Statusbar", IDC_PAGEFMT_SB, 160, 56, 80, 15
     LTEXT "", IDC_PAGEFMT_ID, 0,0,0,0
 END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-    STRING_RICHTEXT_FILES_RTF,     "Файлы RTF (*.rtf)"
-    STRING_TEXT_FILES_TXT,         "Текстовые документы (*.txt)"
-    STRING_TEXT_FILES_UNICODE_TXT, "Документы Unicode (*.txt)"
-    STRING_ALL_FILES,              "Все документы (*.*)"
+    STRING_RICHTEXT_FILES_RTF,     "Rich text format (*.rtf)"
+    STRING_TEXT_FILES_TXT,         "Text documents (*.txt)"
+    STRING_TEXT_FILES_UNICODE_TXT, "Unicode text document (*.txt)"
+    STRING_ALL_FILES,              "All documents (*.*)"
 END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-    STRING_ALIGN_LEFT,            "По левому краю"
-    STRING_ALIGN_RIGHT,           "По правому краю"
-    STRING_ALIGN_CENTER,          "По центру"
+    STRING_ALIGN_LEFT,            "Left"
+    STRING_ALIGN_RIGHT,           "Right"
+    STRING_ALIGN_CENTER,          "Center"
 END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-    STRING_NEWFILE_RICHTEXT,     "Файл RTF"
-    STRING_NEWFILE_TXT,          "Текстовый документ"
-    STRING_NEWFILE_TXT_UNICODE,  "Документ в формате Unicode"
+    STRING_NEWFILE_RICHTEXT,     "Rich text document"
+    STRING_NEWFILE_TXT,          "Text document"
+    STRING_NEWFILE_TXT_UNICODE,  "Unicode text document"
 END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-    STRING_PRINTER_FILES_PRN,        "Файлы принтера (*.PRN)"
+    STRING_PRINTER_FILES_PRN,        "Printer files (*.PRN)"
 END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-    STRING_VIEWPROPS_TITLE,          "Настройки"
-    STRING_VIEWPROPS_TEXT,           "Текст"
-    STRING_VIEWPROPS_RICHTEXT,       "Файл RTF"
+    STRING_VIEWPROPS_TITLE,          "Options"
+    STRING_VIEWPROPS_TEXT,           "Text"
+    STRING_VIEWPROPS_RICHTEXT,       "Rich text"
 END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-    STRING_PREVIEW_PRINT,            "Печать"
-    STRING_PREVIEW_NEXTPAGE,         "Следующая страница"
-    STRING_PREVIEW_PREVPAGE,         "Предыдущая страница"
-    STRING_PREVIEW_TWOPAGES,         "Two pages"
-    STRING_PREVIEW_ONEPAGE,          "One page"
-    STRING_PREVIEW_CLOSE,            "Закрыть"
+    STRING_PREVIEW_PRINT,            "Print"
+    STRING_PREVIEW_NEXTPAGE,         "Next page"
+    STRING_PREVIEW_PREVPAGE,         "Previous page"
+    STRING_PREVIEW_CLOSE,            "Close"
 END
 
 STRINGTABLE DISCARDABLE
 BEGIN
-    STRING_UNITS_CM,             "см"
+    STRING_UNITS_CM,             "cm"
 END
 
 STRINGTABLE DISCARDABLE
 BEGIN
     STRING_DEFAULT_FILENAME,     "Document"
-    STRING_PROMPT_SAVE_CHANGES,  "Сохранить изменения в '%s'?"
-    STRING_SEARCH_FINISHED,      "Поиск в документе завершен."
-    STRING_LOAD_RICHED_FAILED,   "Ошибка загрузки библиотеки RichEdit."
-    STRING_SAVE_LOSEFORMATTING,  "Сохранение документа в виде неформатированного текста, " \
-                                 "приведет к потере форматирования. Подтверждаете выполнение" \
-                                 "этой операции?"
-    STRING_INVALID_NUMBER,       "Неправильный числовой формат"
-    STRING_OLE_STORAGE_NOT_SUPPORTED, "OLE storage документы не поддерживаются"
-    STRING_PRINTING_NOT_IMPLEMENTED, "Печать не поддерживается"
+    STRING_PROMPT_SAVE_CHANGES,  "Save changes to '%s'?"
+    STRING_SEARCH_FINISHED,      "Finished searching the document."
+    STRING_LOAD_RICHED_FAILED,   "Failed to load the RichEdit library."
+    STRING_SAVE_LOSEFORMATTING,  "You have chosen to save in plain text format, " \
+                                 "which will cause all formatting to be lost. " \
+                                 "Are you sure that you wish to do this?"
+    STRING_INVALID_NUMBER,       "Invalid number format"
 END
-#pragma code_page(default)

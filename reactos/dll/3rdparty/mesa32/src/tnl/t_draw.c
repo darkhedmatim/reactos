@@ -1,8 +1,9 @@
+
 /*
  * Mesa 3-D graphics library
- * Version:  7.1
+ * Version:  6.5
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2006  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,13 +26,13 @@
  *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
-#include "main/glheader.h"
-#include "main/context.h"
-#include "main/imports.h"
-#include "main/state.h"
-#include "main/mtypes.h"
-#include "main/macros.h"
-#include "main/enums.h"
+#include "glheader.h"
+#include "context.h"
+#include "imports.h"
+#include "state.h"
+#include "mtypes.h"
+#include "macros.h"
+#include "enums.h"
 
 #include "t_context.h"
 #include "t_pipeline.h"
@@ -367,7 +368,7 @@ void _tnl_draw_prims( GLcontext *ctx,
 			_tnl_draw_prims );
       return;
    }
-   else if (max_index > max) {
+   else if (max_index >= max) {
       /* The software TNL pipeline has a fixed amount of storage for
        * vertices and it is necessary to split incoming drawing commands
        * if they exceed that limit.

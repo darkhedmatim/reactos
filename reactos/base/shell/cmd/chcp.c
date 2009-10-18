@@ -17,8 +17,9 @@
 
 #ifdef INCLUDE_CMD_CHCP
 
-INT CommandChcp (LPTSTR param)
+INT CommandChcp (LPTSTR cmd, LPTSTR param)
 {
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
 	LPTSTR *arg;
 	INT    args;
 	UINT uNewCodePage;
@@ -38,7 +39,8 @@ INT CommandChcp (LPTSTR param)
 	if (args == 0)
 	{
 		/* display active code page number */
-		ConErrResPrintf(STRING_CHCP_ERROR1, InputCodePage);
+		LoadString(CMD_ModuleHandle, STRING_CHCP_ERROR1, szMsg, RC_STRING_MAX_SIZE);
+		ConErrPrintf(szMsg, InputCodePage);
 		freep (arg);
 		return 0;
 	}
@@ -46,7 +48,8 @@ INT CommandChcp (LPTSTR param)
 	if (args >= 2)
 	{
 		/* too many parameters */
-		ConErrResPrintf(STRING_ERROR_INVALID_PARAM_FORMAT, param);
+		LoadString(CMD_ModuleHandle, STRING_ERROR_INVALID_PARAM_FORMAT, szMsg, RC_STRING_MAX_SIZE);
+		ConErrPrintf(szMsg, param);
 		nErrorLevel = 1;
 		freep (arg);
 		return 1;
@@ -56,7 +59,8 @@ INT CommandChcp (LPTSTR param)
 
 	if (uNewCodePage == 0)
 	{
-		ConErrResPrintf(STRING_ERROR_INVALID_PARAM_FORMAT, arg[0]);
+		LoadString(CMD_ModuleHandle, STRING_ERROR_INVALID_PARAM_FORMAT, szMsg, RC_STRING_MAX_SIZE);
+		ConErrPrintf(szMsg, arg[0]);
 		freep (arg);
 		nErrorLevel = 1;
 		return 1;

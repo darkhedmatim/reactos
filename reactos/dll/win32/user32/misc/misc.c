@@ -36,17 +36,30 @@ WINE_DEFAULT_DEBUG_CHANNEL(user32);
 /* FUNCTIONS *****************************************************************/
 
 /*
+ * @implemented
+ */
+DWORD
+STDCALL
+GetGuiResources(
+  HANDLE hProcess,
+  DWORD uiFlags)
+{
+  return NtUserGetGuiResources(hProcess, uiFlags);
+}
+
+
+/*
  * Private calls for CSRSS
  */
 VOID
-WINAPI
+STDCALL
 PrivateCsrssManualGuiCheck(LONG Check)
 {
-  NtUserCallOneParam(Check, ONEPARAM_ROUTINE_CSRSS_GUICHECK);
+  NtUserManualGuiCheck(Check);
 }
 
 VOID
-WINAPI
+STDCALL
 PrivateCsrssInitialized(VOID)
 {
   NtUserCallNoParam(NOPARAM_ROUTINE_CSRSS_INITIALIZED);
@@ -57,7 +70,7 @@ PrivateCsrssInitialized(VOID)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 RegisterLogonProcess(DWORD dwProcessId, BOOL bRegister)
 {
   return NtUserCallTwoParam(dwProcessId,
@@ -69,7 +82,7 @@ RegisterLogonProcess(DWORD dwProcessId, BOOL bRegister)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 SetLogonNotifyWindow (HWND Wnd, HWINSTA WinSta)
 {
   /* Maybe we should call NtUserSetLogonNotifyWindow and let that one inform CSRSS??? */
@@ -104,20 +117,35 @@ UpdatePerUserSystemParameters(
    return NtUserUpdatePerUserSystemParameters(dwReserved, bEnable);
 }
 
-PTHREADINFO
+PW32THREADINFO
 GetW32ThreadInfo(VOID)
 {
-    PTHREADINFO ti;
+    PW32THREADINFO ti;
 
-    ti = (PTHREADINFO)NtCurrentTeb()->Win32ThreadInfo;
+    ti = (PW32THREADINFO)NtCurrentTeb()->Win32ThreadInfo;
     if (ti == NULL)
     {
-        /* create the THREADINFO structure */
+        /* create the W32THREADINFO structure */
         NtUserGetThreadState(THREADSTATE_GETTHREADINFO);
-        ti = (PTHREADINFO)NtCurrentTeb()->Win32ThreadInfo;
+        ti = (PW32THREADINFO)NtCurrentTeb()->Win32ThreadInfo;
     }
 
     return ti;
+}
+
+PW32PROCESSINFO
+GetW32ProcessInfo(VOID)
+{
+    PW32THREADINFO ti;
+    PW32PROCESSINFO pi = NULL;
+
+    ti = GetW32ThreadInfo();
+    if (ti != NULL)
+    {
+        pi = ti->pi;
+    }
+
+    return pi;
 }
 
 
@@ -223,7 +251,7 @@ NTSTATUS Status;
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 EndTask(
 	HWND    hWnd,
 	BOOL fShutDown,
@@ -246,17 +274,17 @@ EndTask(
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 IsGUIThread(
     BOOL bConvert)
 {
-  PTHREADINFO ti = (PTHREADINFO)NtCurrentTeb()->Win32ThreadInfo;
+  PW32THREADINFO ti = (PW32THREADINFO)NtCurrentTeb()->Win32ThreadInfo;
   if (ti == NULL)
   {
     if(bConvert)
     {
       NtUserGetThreadState(THREADSTATE_GETTHREADINFO);
-      if ((PTHREADINFO)NtCurrentTeb()->Win32ThreadInfo) return TRUE;
+      if ((PW32THREADINFO)NtCurrentTeb()->Win32ThreadInfo) return TRUE;
       else
          SetLastError(ERROR_NOT_ENOUGH_MEMORY);
     }
@@ -264,17 +292,6 @@ IsGUIThread(
   }
   else
     return TRUE;
-}
-
-BOOL
-FASTCALL
-TestWindowProcess(PWND Wnd)
-{
-   if (Wnd->head.pti == (PTHREADINFO)NtCurrentTeb()->Win32ThreadInfo)
-      return TRUE;
-   else
-      return (NtUserQueryWindow(Wnd->head.h, QUERY_WINDOW_UNIQUE_PROCESS_ID) ==
-              (DWORD)NtCurrentTeb()->ClientId.UniqueProcess );
 }
 
 BOOL
@@ -319,7 +336,7 @@ GetUser32Handle(HANDLE handle)
 /*
  * Decide whether an object is located on the desktop or shared heap
  */
-static const BOOL g_ObjectHeapTypeShared[VALIDATE_TYPE_EVENT + 1] =
+static const BOOL g_ObjectHeapTypeShared[VALIDATE_TYPE_MONITOR + 1] =
 {
     FALSE, /* VALIDATE_TYPE_FREE (not used) */
     TRUE, /* VALIDATE_TYPE_WIN */ /* FIXME: FALSE once WINDOW_OBJECT is deleted! */
@@ -333,10 +350,7 @@ static const BOOL g_ObjectHeapTypeShared[VALIDATE_TYPE_EVENT + 1] =
     FALSE, /* (not used) */
     FALSE, /* (not used) */
     FALSE, /* (not used) */
-    TRUE, /* VALIDATE_TYPE_MONITOR */
-    FALSE, /* (not used) */
-    FALSE, /* (not used) */
-    TRUE  /* VALIDATE_TYPE_EVENT */
+    TRUE /* VALIDATE_TYPE_MONITOR */
 };
 
 //
@@ -349,7 +363,7 @@ ValidateHandle(HANDLE handle, UINT uType)
   PVOID ret;
   PUSER_HANDLE_ENTRY pEntry;
 
-  ASSERT(uType <= VALIDATE_TYPE_EVENT);
+  ASSERT(uType <= VALIDATE_TYPE_MONITOR);
 
   pEntry = GetUser32Handle(handle);
 
@@ -395,69 +409,34 @@ ValidateHandle(HANDLE handle, UINT uType)
 }
 
 //
-// Validate Handle and return the pointer to the object.
-//
-PVOID
-FASTCALL
-ValidateHandleNoErr(HANDLE handle, UINT uType)
-{
-  PVOID ret;
-  PUSER_HANDLE_ENTRY pEntry;
-
-  ASSERT(uType <= VALIDATE_TYPE_EVENT);
-
-  pEntry = GetUser32Handle(handle);
-
-  if (pEntry && uType == 0)
-      uType = pEntry->type;
-
-// Must have an entry and must be the same type!
-  if ( (!pEntry) || (pEntry->type != uType) || !pEntry->ptr )
-    return NULL;
-
-  if (g_ObjectHeapTypeShared[uType])
-    ret = SharedPtrToUser(pEntry->ptr);
-  else
-    ret = DesktopPtrToUser(pEntry->ptr);
-
-  return ret;
-}
-
-//
 // Validate a callproc handle and return the pointer to the object.
 //
-PCALLPROCDATA
+PCALLPROC
 FASTCALL
 ValidateCallProc(HANDLE hCallProc)
 {
-  PUSER_HANDLE_ENTRY pEntry;
+    PCALLPROC CallProc = ValidateHandle(hCallProc, VALIDATE_TYPE_CALLPROC);
+    if (CallProc != NULL && CallProc->pi == g_kpi)
+        return CallProc;
 
-  PCALLPROCDATA CallProc = ValidateHandle(hCallProc, VALIDATE_TYPE_CALLPROC);
-
-  pEntry = GetUser32Handle(hCallProc);
-
-  if (CallProc != NULL && pEntry->ppi == g_ppi)
-     return CallProc;
-
-  return NULL;
+    return NULL;
 }
 
 //
 // Validate a window handle and return the pointer to the object.
 //
-PWND
+PWINDOW
 FASTCALL
 ValidateHwnd(HWND hwnd)
 {
-    PWND Wnd;
-    PCLIENTINFO ClientInfo = GetWin32ClientInfo();
+    PW32CLIENTINFO ClientInfo = GetWin32ClientInfo();
     ASSERT(ClientInfo != NULL);
 
     /* See if the window is cached */
-    if (hwnd == ClientInfo->CallbackWnd.hWnd)
-        return ClientInfo->CallbackWnd.pvWnd;
+    if (hwnd == ClientInfo->hWND)
+        return ClientInfo->pvWND;
 
-    Wnd = ValidateHandle((HANDLE)hwnd, VALIDATE_TYPE_WIN);
+    PWINDOW Wnd = ValidateHandle((HANDLE)hwnd, VALIDATE_TYPE_WIN);
     if (Wnd != NULL)
     {
         /* FIXME: Check if handle table entry is marked as deleting and
@@ -479,139 +458,4 @@ ValidateHwnd(HWND hwnd)
     }
 
     return NULL;
-}
-
-//
-// Validate a window handle and return the pointer to the object.
-//
-PWND
-FASTCALL
-ValidateHwndNoErr(HWND hwnd)
-{
-    PWND Wnd;
-    PCLIENTINFO ClientInfo = GetWin32ClientInfo();
-    ASSERT(ClientInfo != NULL);
-
-    /* See if the window is cached */
-    if (hwnd == ClientInfo->CallbackWnd.hWnd)
-        return ClientInfo->CallbackWnd.pvWnd;
-
-    Wnd = ValidateHandleNoErr((HANDLE)hwnd, VALIDATE_TYPE_WIN);
-    if (Wnd != NULL)
-    {
-        /* FIXME: Check if handle table entry is marked as deleting and
-                  return NULL in this case! */
-
-#if 0
-        return Wnd;
-#else
-        /* HACK HACK HACK! This needs to be done until WINDOW_OBJECT is completely
-           superseded by the WINDOW structure. We *ASSUME* a pointer to the WINDOW
-           structure to be at the beginning of the WINDOW_OBJECT structure!!!
-
-           !!! REMOVE AS SOON AS WINDOW_OBJECT NO LONGER EXISTS !!!
-         */
-
-        if (*((PVOID*)Wnd) != NULL)
-            return DesktopPtrToUser(*((PVOID*)Wnd));
-#endif
-    }
-
-    return NULL;
-}
-
-PWND
-FASTCALL
-GetThreadDesktopWnd(VOID)
-{
-    PWND Wnd = GetThreadDesktopInfo()->Wnd;
-    if (Wnd != NULL)
-        Wnd = DesktopPtrToUser(Wnd);
-    return Wnd;
-}
-
-//
-// Validate a window handle and return the pointer to the object.
-//
-PWND
-FASTCALL
-ValidateHwndOrDesk(HWND hwnd)
-{
-    if (hwnd == HWND_DESKTOP)
-        return GetThreadDesktopWnd();
-
-    return ValidateHwnd(hwnd);
-}
-
-/*
- * @implemented
- */
-DWORD WINAPI WCSToMBEx(WORD CodePage,LPWSTR UnicodeString,LONG UnicodeSize,LPSTR *MBString,LONG MBSize,BOOL Allocate)
-{
-	DWORD Size;
-	if (UnicodeSize == -1)
-	{
-		UnicodeSize = wcslen(UnicodeString)+1;
-	}
-	if (MBSize == -1)
-	{
-		if (!Allocate)
-		{
-			return 0;
-		}
-		MBSize = UnicodeSize * 2;
-	}
-	if (Allocate)
-	{
-		LPSTR SafeString = RtlAllocateHeap(GetProcessHeap(), 0, MBSize);
-        if (SafeString == NULL)
-            return 0;
-        *MBString = SafeString;
-	}
-	if (CodePage == 0)
-	{
-		RtlUnicodeToMultiByteN(*MBString,MBSize,&Size,UnicodeString,UnicodeSize);
-	}
-	else
-	{
-		WideCharToMultiByte(CodePage,0,UnicodeString,UnicodeSize,*MBString,MBSize,0,0);
-	}
-	return UnicodeSize;
-}
-
-/*
- * @implemented
- */
-DWORD WINAPI MBToWCSEx(WORD CodePage,LPSTR MBString,LONG MBSize,LPWSTR *UnicodeString,LONG UnicodeSize,BOOL Allocate)
-{
-	DWORD Size;
-	if (MBSize == -1)
-	{
-		MBSize = strlen(MBString)+1;
-	}
-	if (UnicodeSize == -1)
-	{
-		if (!Allocate)
-		{
-			return 0;
-		}
-		UnicodeSize = MBSize;
-	}
-	if (Allocate)
-	{
-		LPWSTR SafeString = RtlAllocateHeap(GetProcessHeap(), 0, UnicodeSize);
-        if (SafeString == NULL)
-            return 0;
-        *UnicodeString = SafeString;
-	}
-	UnicodeSize *= sizeof(WCHAR);
-	if (CodePage == 0)
-	{
-		RtlMultiByteToUnicodeN(*UnicodeString,UnicodeSize,&Size,MBString,MBSize);
-	}
-	else
-	{
-		Size = MultiByteToWideChar(CodePage,0,MBString,MBSize,*UnicodeString,UnicodeSize);
-	}
-	return Size;
 }

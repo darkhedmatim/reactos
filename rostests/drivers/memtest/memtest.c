@@ -21,11 +21,11 @@
 
 /* INCLUDES *******************************************************************/
 
-#include <ddk/ntddk.h>
-#include "memtest.h"
-
 //#define NDEBUG
 #include <debug.h>
+
+#include <ddk/ntddk.h>
+#include "memtest.h"
 
 HANDLE MonitorThreadHandle;
 
@@ -47,7 +47,7 @@ MonitorThread(PVOID Ignored)
         if (ZwQuerySystemInformation(SystemPerformanceInformation,
             (PVOID) &PerformanceInfo,
             sizeof(SYSTEM_PERFORMANCE_INFORMATION),
-            &Length) != STATUS_SUCCESS)
+            &Length) != NO_ERROR)
         {
             break;
         }

@@ -241,7 +241,7 @@ static VOID
 UpdatePrefDlgControls(PPREFERENCES_CONTEXT Context,
                       DWORD LineID)
 {
-    INT OldID, MixerID = 0;
+    UINT OldID, MixerID = 0;
     INT DeviceCbIndex;
 
     /* select the mixer */
@@ -381,8 +381,8 @@ DlgPreferencesProc(HWND hwndDlg,
                 {
                     if (HIWORD(wParam) == CBN_SELCHANGE)
                     {
-                        INT LineID;
-                        INT Index;
+                        DWORD LineID;
+                        DWORD Index;
 
                         Index = SendDlgItemMessage(hwndDlg,
                                                    IDC_LINE,
@@ -429,7 +429,7 @@ DlgPreferencesProc(HWND hwndDlg,
                 case IDC_OTHER:
                 {
                     INT LineCbIndex;
-                    INT LineID;
+                    DWORD LineID;
 
                     EnableWindow(GetDlgItem(hwndDlg,
                                             IDC_LINE),
@@ -798,10 +798,10 @@ CreateApplicationWindow(VOID)
 }
 
 int WINAPI
-_tWinMain(HINSTANCE hInstance,
-          HINSTANCE hPrevInstance,
-          LPTSTR lpszCmdLine,
-          int nCmdShow)
+WinMain(HINSTANCE hInstance,
+        HINSTANCE hPrevInstance,
+        LPSTR lpszCmdLine,
+        int nCmdShow)
 {
     MSG Msg;
     int Ret = 1;
@@ -848,7 +848,7 @@ _tWinMain(HINSTANCE hInstance,
             }
             else
             {
-                DPRINT("Failed to create application window (LastError: %d)!\n", GetLastError());
+                DPRINT("Failed to creat application window (LastError: %d)!\n", GetLastError());
             }
 
             UnregisterApplicationClasses();

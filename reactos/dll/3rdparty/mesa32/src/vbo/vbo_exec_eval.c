@@ -25,12 +25,13 @@
  *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
-#include "main/glheader.h"
-#include "main/context.h"
-#include "main/macros.h"
+#include "glheader.h"
+#include "api_eval.h"
+#include "context.h"
+#include "macros.h"
 #include "math/m_eval.h"
-#include "glapi/dispatch.h"
 #include "vbo_exec.h"
+#include "dispatch.h"
 
 
 static void clear_active_eval1( struct vbo_exec_context *exec, GLuint attr ) 

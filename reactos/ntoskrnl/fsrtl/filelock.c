@@ -55,7 +55,7 @@ NTAPI
 FsRtlGetNextFileLock(IN PFILE_LOCK FileLock,
                      IN BOOLEAN Restart)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return NULL;
 }
 
@@ -115,7 +115,7 @@ NTAPI
 FsRtlCheckLockForReadAccess(IN PFILE_LOCK FileLock,
                             IN PIRP Irp)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return FALSE;
 }
 
@@ -127,7 +127,7 @@ NTAPI
 FsRtlCheckLockForWriteAccess(IN PFILE_LOCK FileLock,
                              IN PIRP Irp)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return FALSE;
 }
 
@@ -141,9 +141,9 @@ FsRtlFastCheckLockForRead(IN PFILE_LOCK FileLock,
                           IN PLARGE_INTEGER Length,
                           IN ULONG Key,
                           IN PFILE_OBJECT FileObject,
-                          IN PVOID Process)
+                          IN PEPROCESS Process)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return FALSE;
 }
 
@@ -157,9 +157,9 @@ FsRtlFastCheckLockForWrite(IN PFILE_LOCK FileLock,
                            IN PLARGE_INTEGER Length,
                            IN ULONG Key,
                            IN PFILE_OBJECT FileObject,
-                           IN PVOID Process)
+                           IN PEPROCESS Process)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return FALSE;
 }
 
@@ -192,7 +192,7 @@ FsRtlFastUnlockAll(IN PFILE_LOCK FileLock,
                    IN PEPROCESS Process,
                    IN PVOID Context OPTIONAL)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return STATUS_UNSUCCESSFUL;
 }
 
@@ -207,7 +207,7 @@ FsRtlFastUnlockAllByKey(IN PFILE_LOCK FileLock,
                         IN ULONG Key,
                         IN PVOID Context OPTIONAL)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return STATUS_UNSUCCESSFUL;
 }
 

@@ -30,13 +30,6 @@ extern "C" {
 
 #include <basetsd.h>
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4201)
-#pragma warning(disable:4255)
-#pragma warning(disable:4820)
-#endif
-
 #undef CONST_VTBL
 #ifdef CONST_VTABLE
 # define CONST_VTBL const
@@ -122,13 +115,7 @@ typedef unsigned char boolean;
 #define NdrFcLong(s)  (unsigned char)(s & 0xff), (unsigned char)((s & 0x0000ff00) >> 8), \
   (unsigned char)((s & 0x00ff0000) >> 16), (unsigned char)(s >> 24)
 
-#define RPC_BAD_STUB_DATA_EXCEPTION_FILTER  \
-  ((RpcExceptionCode() == STATUS_ACCESS_VIOLATION) || \
-   (RpcExceptionCode() == STATUS_DATATYPE_MISALIGNMENT) || \
-   (RpcExceptionCode() == RPC_X_BAD_STUB_DATA) || \
-   (RpcExceptionCode() == RPC_S_INVALID_BOUND))
-
-typedef struct _NDR_SCONTEXT
+typedef struct
 {
   void *pad[2];
   void *userContext;
@@ -150,8 +137,6 @@ struct _FULL_PTR_XLAT_TABLES;
 struct NDR_ALLOC_ALL_NODES_CONTEXT;
 struct NDR_POINTER_QUEUE_STATE;
 
-typedef unsigned char *RPC_BUFPTR;
-typedef ULONG RPC_LENGTH;
 typedef void (__RPC_USER *EXPR_EVAL)(struct _MIDL_STUB_MESSAGE *);
 typedef const unsigned char *PFORMAT_STRING;
 
@@ -177,6 +162,7 @@ typedef struct _NDR_PIPE_MESSAGE *PNDR_PIPE_MESSAGE;
 typedef struct _NDR_ASYNC_MESSAGE *PNDR_ASYNC_MESSAGE;
 typedef struct _NDR_CORRELATION_INFO *PNDR_CORRELATION_INFO;
 
+#include <pshpack4.h>
 typedef struct _MIDL_STUB_MESSAGE
 {
   PRPC_MESSAGE RpcMsg;
@@ -187,21 +173,19 @@ typedef struct _MIDL_STUB_MESSAGE
   ULONG BufferLength;
   ULONG MemorySize;
   unsigned char *Memory;
-  unsigned char IsClient;
-  unsigned char Pad;
-  unsigned short uFlags2;
+  int IsClient;
   int ReuseBuffer;
   struct NDR_ALLOC_ALL_NODES_CONTEXT *pAllocAllNodesContext;
   struct NDR_POINTER_QUEUE_STATE *pPointerQueueState;
   int IgnoreEmbeddedPointers;
   unsigned char *PointerBufferMark;
-  unsigned char CorrDespIncrement;
+  unsigned char fBufferValid;
   unsigned char uFlags;
   unsigned short UniquePtrCount;
   ULONG_PTR MaxCount;
   ULONG Offset;
   ULONG ActualCount;
-  void * (__WINE_ALLOC_SIZE(1) __RPC_API *pfnAllocate)(SIZE_T);
+  void * (__RPC_API *pfnAllocate)(size_t);
   void (__RPC_API *pfnFree)(void *);
   unsigned char *StackTop;
   unsigned char *pPresentedType;
@@ -217,14 +201,7 @@ typedef struct _MIDL_STUB_MESSAGE
   int fHasReturn:1;
   int fHasExtensions:1;
   int fHasNewCorrDesc:1;
-  int fIsIn:1;
-  int fIsOut:1;
-  int fIsOicf:1;
-  int fBufferValid:1;
-  int fHasMemoryValidateCallback:1;
-  int fInFree:1;
-  int fNeedMCCP:1;
-  int fUnused:3;
+  int fUnused:10;
   int fUnused2:16;
   DWORD dwDestContext;
   void *pvDestContext;
@@ -253,6 +230,7 @@ typedef struct _MIDL_STUB_MESSAGE
   INT_PTR Reserved51_4;
   INT_PTR Reserved51_5;
 } MIDL_STUB_MESSAGE, *PMIDL_STUB_MESSAGE;
+#include <poppack.h>
 
 typedef void * (__RPC_API * GENERIC_BINDING_ROUTINE)(void *);
 typedef void (__RPC_API * GENERIC_UNBIND_ROUTINE)(void *, unsigned char *);
@@ -327,7 +305,7 @@ typedef struct _USER_MARSHAL_CB
 
 typedef struct _MALLOC_FREE_STRUCT
 {
-  void * (__WINE_ALLOC_SIZE(1) __RPC_USER *pfnAllocate)(SIZE_T);
+  void * (__RPC_USER *pfnAllocate)(size_t);
   void   (__RPC_USER *pfnFree)(void *);
 } MALLOC_FREE_STRUCT;
 
@@ -340,7 +318,7 @@ typedef struct _COMM_FAULT_OFFSETS
 typedef struct _MIDL_STUB_DESC
 {
   void *RpcInterfaceInformation;
-  void * (__WINE_ALLOC_SIZE(1) __RPC_API *pfnAllocate)(SIZE_T);
+  void * (__RPC_API *pfnAllocate)(size_t);
   void (__RPC_API *pfnFree)(void *);
   union {
     handle_t *pAutoHandle;
@@ -475,25 +453,6 @@ typedef struct _SCONTEXT_QUEUE {
   NDR_SCONTEXT *ArrayOfObjects;
 } SCONTEXT_QUEUE, *PSCONTEXT_QUEUE;
 
-typedef struct _NDR_USER_MARSHAL_INFO_LEVEL1
-{
-    void *Buffer;
-    ULONG BufferSize;
-    void * (__WINE_ALLOC_SIZE(1) __RPC_API *pfnAllocate)(SIZE_T);
-    void (__RPC_API *pfnFree)(void *);
-    struct IRpcChannelBuffer *pRpcChannelBuffer;
-    ULONG_PTR Reserved[5];
-} NDR_USER_MARSHAL_INFO_LEVEL1;
-
-typedef struct _NDR_USER_MARSHAL_INFO
-{
-    ULONG InformationLevel;
-    union
-    {
-        NDR_USER_MARSHAL_INFO_LEVEL1 Level1;
-    } DUMMYUNIONNAME1;
-} NDR_USER_MARSHAL_INFO;
-
 /* Context Handles */
 
 RPCRTAPI RPC_BINDING_HANDLE RPC_ENTRY
@@ -556,9 +515,6 @@ RPCRTAPI void RPC_ENTRY
 RPCRTAPI NDR_SCONTEXT RPC_ENTRY
   NdrServerContextNewUnmarshall( PMIDL_STUB_MESSAGE pStubMsg, PFORMAT_STRING pFormat );
 
-RPCRTAPI RPC_STATUS RPC_ENTRY
-  RpcSmDestroyClientContext( void **ContextHandle );
-
 RPCRTAPI void RPC_ENTRY
   RpcSsDestroyClientContext( void **ContextHandle );
 
@@ -566,18 +522,6 @@ RPCRTAPI void RPC_ENTRY
   NdrSimpleTypeMarshall( PMIDL_STUB_MESSAGE pStubMsg, unsigned char* pMemory, unsigned char FormatChar );
 RPCRTAPI void RPC_ENTRY
   NdrSimpleTypeUnmarshall( PMIDL_STUB_MESSAGE pStubMsg, unsigned char* pMemory, unsigned char FormatChar );
-
-RPCRTAPI unsigned char* RPC_ENTRY
-  NdrByteCountPointerMarshall( PMIDL_STUB_MESSAGE pStubMsg, unsigned char* pMemory, PFORMAT_STRING pFormat );
-RPCRTAPI unsigned char* RPC_ENTRY
-  NdrByteCountPointerUnmarshall( PMIDL_STUB_MESSAGE pStubMsg, unsigned char** ppMemory, PFORMAT_STRING pFormat, unsigned char fMustAlloc );
-RPCRTAPI void RPC_ENTRY
-  NdrByteCountPointerBufferSize( PMIDL_STUB_MESSAGE pStubMsg, unsigned char* pMemory, PFORMAT_STRING pFormat );
-RPCRTAPI void RPC_ENTRY
-  NdrByteCountPointerFree( PMIDL_STUB_MESSAGE pStubMsg, unsigned char* pMemory, PFORMAT_STRING pFormat );
-
-RPCRTAPI unsigned char* RPC_ENTRY
-  NdrRangeUnmarshall( PMIDL_STUB_MESSAGE pStubMsg, unsigned char** ppMemory, PFORMAT_STRING pFormat, unsigned char fMustAlloc );
 
 /* while MS declares each prototype separately, I prefer to use macros for this kind of thing instead */
 #define SIMPLE_TYPE_MARSHAL(type) \
@@ -607,9 +551,11 @@ TYPE_MARSHAL(VaryingArray)
 TYPE_MARSHAL(ComplexArray)
 TYPE_MARSHAL(EncapsulatedUnion)
 TYPE_MARSHAL(NonEncapsulatedUnion)
+TYPE_MARSHAL(ByteCountPointer)
 TYPE_MARSHAL(XmitOrRepAs)
 TYPE_MARSHAL(UserMarshal)
 TYPE_MARSHAL(InterfacePointer)
+TYPE_MARSHAL(Range)
 
 SIMPLE_TYPE_MARSHAL(ConformantString)
 SIMPLE_TYPE_MARSHAL(NonConformantString)
@@ -618,32 +564,9 @@ SIMPLE_TYPE_MARSHAL(NonConformantString)
 #undef SIMPLE_TYPE_MARSHAL
 
 RPCRTAPI void RPC_ENTRY
-  NdrCorrelationInitialize( PMIDL_STUB_MESSAGE pStubMsg, void *pMemory, ULONG CacheSize, ULONG flags );
-RPCRTAPI void RPC_ENTRY
-  NdrCorrelationPass( PMIDL_STUB_MESSAGE pStubMsg );
-RPCRTAPI void RPC_ENTRY
-  NdrCorrelationFree( PMIDL_STUB_MESSAGE pStubMsg );
-
-RPCRTAPI void RPC_ENTRY
   NdrConvert2( PMIDL_STUB_MESSAGE pStubMsg, PFORMAT_STRING pFormat, LONG NumberParams );
 RPCRTAPI void RPC_ENTRY
   NdrConvert( PMIDL_STUB_MESSAGE pStubMsg, PFORMAT_STRING pFormat );
-
-#define USER_MARSHAL_FC_BYTE    1
-#define USER_MARSHAL_FC_CHAR    2
-#define USER_MARSHAL_FC_SMALL   3
-#define USER_MARSHAL_FC_USMALL  4
-#define USER_MARSHAL_FC_WCHAR   5
-#define USER_MARSHAL_FC_SHORT   6
-#define USER_MARSHAL_FC_USHORT  7
-#define USER_MARSHAL_FC_LONG    8
-#define USER_MARSHAL_FC_ULONG   9
-#define USER_MARSHAL_FC_FLOAT   10
-#define USER_MARSHAL_FC_HYPER   11
-#define USER_MARSHAL_FC_DOUBLE  12
-
-RPCRTAPI unsigned char* RPC_ENTRY
-  NdrUserMarshalSimpleTypeConvert( ULONG *pFlags, unsigned char *pBuffer, unsigned char FormatChar );
 
 /* Note: this should return a CLIENT_CALL_RETURN, but calling convention for
  * returning structures/unions is different between Windows and gcc on i386. */
@@ -653,15 +576,11 @@ LONG_PTR RPC_VAR_ENTRY
   NdrClientCall( PMIDL_STUB_DESC pStubDescriptor, PFORMAT_STRING pFormat, ... );
 LONG_PTR RPC_VAR_ENTRY
   NdrAsyncClientCall( PMIDL_STUB_DESC pStubDescriptor, PFORMAT_STRING pFormat, ... );
-LONG_PTR RPC_VAR_ENTRY
-  NdrDcomAsyncClientCall( PMIDL_STUB_DESC pStubDescriptor, PFORMAT_STRING pFormat, ... );
 
 RPCRTAPI void RPC_ENTRY
   NdrServerCall2( PRPC_MESSAGE pRpcMsg );
 RPCRTAPI void RPC_ENTRY
   NdrServerCall( PRPC_MESSAGE pRpcMsg );
-RPCRTAPI void RPC_ENTRY
-  NdrAsyncServerCall( PRPC_MESSAGE pRpcMsg );
 
 RPCRTAPI LONG RPC_ENTRY
   NdrStubCall2( struct IRpcStubBuffer* pThis, struct IRpcChannelBuffer* pChannel, PRPC_MESSAGE pRpcMsg, DWORD * pdwStubPhase );
@@ -669,11 +588,9 @@ RPCRTAPI LONG RPC_ENTRY
   NdrStubCall( struct IRpcStubBuffer* pThis, struct IRpcChannelBuffer* pChannel, PRPC_MESSAGE pRpcMsg, DWORD * pdwStubPhase );
 RPCRTAPI LONG RPC_ENTRY
   NdrAsyncStubCall( struct IRpcStubBuffer* pThis, struct IRpcChannelBuffer* pChannel, PRPC_MESSAGE pRpcMsg, DWORD * pdwStubPhase );
-RPCRTAPI LONG RPC_ENTRY
-  NdrDcomAsyncStubCall( struct IRpcStubBuffer* pThis, struct IRpcChannelBuffer* pChannel, PRPC_MESSAGE pRpcMsg, DWORD * pdwStubPhase );
 
 RPCRTAPI void* RPC_ENTRY
-  NdrAllocate( PMIDL_STUB_MESSAGE pStubMsg, SIZE_T Len ) __WINE_ALLOC_SIZE(2);
+  NdrAllocate( PMIDL_STUB_MESSAGE pStubMsg, size_t Len );
 
 RPCRTAPI void RPC_ENTRY
   NdrClearOutParameters( PMIDL_STUB_MESSAGE pStubMsg, PFORMAT_STRING pFormat, void *ArgAddr );
@@ -683,30 +600,15 @@ RPCRTAPI RPC_STATUS RPC_ENTRY
                             ULONG *pFaultStatus, RPC_STATUS Status_ );
 
 RPCRTAPI void* RPC_ENTRY
-  NdrOleAllocate( SIZE_T Size ) __WINE_ALLOC_SIZE(1);
+  NdrOleAllocate( size_t Size );
 RPCRTAPI void RPC_ENTRY
   NdrOleFree( void* NodeToFree );
 
 RPCRTAPI void RPC_ENTRY
-  NdrClientInitialize( PRPC_MESSAGE pRpcMessage, PMIDL_STUB_MESSAGE pStubMsg,
-                       PMIDL_STUB_DESC pStubDesc, unsigned int ProcNum );
-RPCRTAPI void RPC_ENTRY
   NdrClientInitializeNew( PRPC_MESSAGE pRpcMessage, PMIDL_STUB_MESSAGE pStubMsg,
                           PMIDL_STUB_DESC pStubDesc, unsigned int ProcNum );
 RPCRTAPI unsigned char* RPC_ENTRY
-  NdrServerInitialize( PRPC_MESSAGE pRpcMsg, PMIDL_STUB_MESSAGE pStubMsg, PMIDL_STUB_DESC pStubDesc );
-RPCRTAPI unsigned char* RPC_ENTRY
   NdrServerInitializeNew( PRPC_MESSAGE pRpcMsg, PMIDL_STUB_MESSAGE pStubMsg, PMIDL_STUB_DESC pStubDesc );
-RPCRTAPI unsigned char* RPC_ENTRY
-  NdrServerInitializeUnmarshall( PMIDL_STUB_MESSAGE pStubMsg, PMIDL_STUB_DESC pStubDesc, PRPC_MESSAGE pRpcMsg );
-RPCRTAPI void RPC_ENTRY
-  NdrServerInitializeMarshall( PRPC_MESSAGE pRpcMsg, PMIDL_STUB_MESSAGE pStubMsg  );
-RPCRTAPI void RPC_ENTRY
-  NdrServerMarshall( struct IRpcStubBuffer *pThis, struct IRpcChannelBuffer *pChannel, PMIDL_STUB_MESSAGE pStubMsg, PFORMAT_STRING pFormat );
-RPCRTAPI void RPC_ENTRY
-  NdrServerUnmarshall( struct IRpcChannelBuffer *pChannel, PRPC_MESSAGE pRpcMsg,
-                       PMIDL_STUB_MESSAGE pStubMsg, PMIDL_STUB_DESC pStubDesc,
-                       PFORMAT_STRING pFormat, void *pParamList );
 RPCRTAPI unsigned char* RPC_ENTRY
   NdrGetBuffer( PMIDL_STUB_MESSAGE stubmsg, ULONG buflen, RPC_BINDING_HANDLE handle );
 RPCRTAPI void RPC_ENTRY
@@ -718,9 +620,6 @@ RPCRTAPI unsigned char * RPC_ENTRY
   NdrNsGetBuffer( PMIDL_STUB_MESSAGE pStubMsg, ULONG BufferLength, RPC_BINDING_HANDLE Handle );
 RPCRTAPI unsigned char * RPC_ENTRY
   NdrNsSendReceive( PMIDL_STUB_MESSAGE pStubMsg, unsigned char *pBufferEnd, RPC_BINDING_HANDLE *pAutoHandle );
-
-RPCRTAPI RPC_STATUS RPC_ENTRY
-  NdrGetDcomProtocolVersion( PMIDL_STUB_MESSAGE pStubMsg, RPC_VERSION *pVersion );
 
 RPCRTAPI PFULL_PTR_XLAT_TABLES RPC_ENTRY
   NdrFullPointerXlatInit( ULONG NumberOfPointers, XLAT_SIDE XlatSide );
@@ -744,20 +643,20 @@ RPCRTAPI void RPC_ENTRY
 RPCRTAPI void RPC_ENTRY
   NdrRpcSmSetClientToOsf( PMIDL_STUB_MESSAGE pMessage );
 RPCRTAPI void * RPC_ENTRY
-  NdrRpcSmClientAllocate( SIZE_T Size ) __WINE_ALLOC_SIZE(1);
+  NdrRpcSmClientAllocate( size_t Size );
 RPCRTAPI void RPC_ENTRY
   NdrRpcSmClientFree( void *NodeToFree );
 RPCRTAPI void * RPC_ENTRY
-  NdrRpcSsDefaultAllocate( SIZE_T Size ) __WINE_ALLOC_SIZE(1);
+  NdrRpcSsDefaultAllocate( size_t Size );
 RPCRTAPI void RPC_ENTRY
   NdrRpcSsDefaultFree( void *NodeToFree );
 
-RPCRTAPI RPC_STATUS RPC_ENTRY
-  NdrGetUserMarshalInfo( ULONG *pFlags, ULONG InformationLevel, NDR_USER_MARSHAL_INFO *pMarshalInfo );
 
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
+#define RPC_BAD_STUB_DATA_EXCEPTION_FILTER  \
+                 ( (RpcExceptionCode() == STATUS_ACCESS_VIOLATION)  || \
+                   (RpcExceptionCode() == STATUS_DATATYPE_MISALIGNMENT) || \
+                   (RpcExceptionCode() == RPC_X_BAD_STUB_DATA) || \
+                   (RpcExceptionCode() == RPC_S_INVALID_BOUND) )
 
 #ifdef __cplusplus
 }
