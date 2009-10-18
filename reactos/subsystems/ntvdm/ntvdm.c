@@ -270,7 +270,7 @@ DestroyVDM(PVDM_CONTROL_BLOCK vdm)
     return result;
 }
 
-int WINAPI
+int STDCALL
 WinMain(HINSTANCE hInstance,  HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
     VDM_CONTROL_BLOCK VdmCB;

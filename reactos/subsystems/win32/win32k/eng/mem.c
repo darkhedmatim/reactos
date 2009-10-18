@@ -32,10 +32,17 @@
 #define NDEBUG
 #include <debug.h>
 
+typedef struct _USERMEMHEADER
+  {
+  ULONG Tag;
+  ULONG MemSize;
+  }
+USERMEMHEADER, *PUSERMEMHEADER;
+
 /*
  * @implemented
  */
-PVOID APIENTRY
+PVOID STDCALL
 EngAllocMem(ULONG Flags,
 	    ULONG MemSize,
 	    ULONG Tag)
@@ -55,7 +62,7 @@ EngAllocMem(ULONG Flags,
 /*
  * @implemented
  */
-VOID APIENTRY
+VOID STDCALL
 EngFreeMem(PVOID Mem)
 {
   ExFreePool(Mem);
@@ -64,106 +71,44 @@ EngFreeMem(PVOID Mem)
 /*
  * @implemented
  */
-PVOID APIENTRY
-EngAllocUserMem(SIZE_T cj, ULONG Tag)
+PVOID STDCALL
+EngAllocUserMem(ULONG cj, ULONG Tag)
 {
   PVOID NewMem = NULL;
   NTSTATUS Status;
-  SIZE_T MemSize = cj;
+  ULONG MemSize = sizeof(USERMEMHEADER) + cj;
+  PUSERMEMHEADER Header;
 
-  Status = ZwAllocateVirtualMemory(NtCurrentProcess(), &NewMem, 0, &MemSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+  Status = ZwAllocateVirtualMemory(NtCurrentProcess(), &NewMem, 0, &MemSize, MEM_COMMIT, PAGE_READWRITE);
 
   if (! NT_SUCCESS(Status))
     {
       return NULL;
     }
 
-  /* TODO: Add allocation info to AVL tree (stored inside W32PROCESS structure) */
+  Header = (PUSERMEMHEADER) NewMem;
+  Header->Tag = Tag;
+  Header->MemSize = cj;
 
-  return NewMem;
+  return (PVOID)(Header + 1);
 }
 
 /*
  * @implemented
  */
-VOID APIENTRY
+VOID STDCALL
 EngFreeUserMem(PVOID pv)
 {
-  PVOID BaseAddress = pv;
-  SIZE_T MemSize = 0;
+  PUSERMEMHEADER Header = ((PUSERMEMHEADER) pv) - 1;
+  ULONG MemSize = sizeof(USERMEMHEADER) + Header->MemSize;
 
-  ZwFreeVirtualMemory(NtCurrentProcess(), &BaseAddress, &MemSize, MEM_RELEASE);
-
-  /* TODO: Remove allocation info from AVL tree */
-}
-
-
-
-PVOID
-APIENTRY
-HackSecureVirtualMemory(
-	IN PVOID Address,
-	IN SIZE_T Size,
-	IN ULONG ProbeMode,
-	OUT PVOID *SafeAddress)
-{
-	NTSTATUS Status = STATUS_SUCCESS;
-	PMDL mdl;
-	LOCK_OPERATION Operation;
-
-	if (ProbeMode == PAGE_READONLY) Operation = IoReadAccess;
-	else if (ProbeMode == PAGE_READWRITE) Operation = IoModifyAccess;
-	else return NULL;
-
-	mdl = IoAllocateMdl(Address, Size, FALSE, TRUE, NULL);
-	if (mdl == NULL)
-	{
-		return NULL;
-	}
-
-	_SEH2_TRY
-	{
-		MmProbeAndLockPages(mdl, UserMode, Operation);
-	}
-	_SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-	{
-		Status = _SEH2_GetExceptionCode();
-	}
-	_SEH2_END
-
-	if (!NT_SUCCESS(Status))
-	{
-		IoFreeMdl(mdl);
-		return NULL;
-	}
-
-	*SafeAddress = MmGetSystemAddressForMdlSafe(mdl, NormalPagePriority);
-
-	if(!*SafeAddress)
-	{
-		MmUnlockPages(mdl);
-		IoFreeMdl(mdl);
-		return NULL;           
-	}
-
-	return mdl;
-}
-
-VOID
-APIENTRY
-HackUnsecureVirtualMemory(
-	IN PVOID  SecureHandle)
-{
-	PMDL mdl = (PMDL)SecureHandle;
-
-	MmUnlockPages(mdl);
-	IoFreeMdl(mdl);  
+  ZwFreeVirtualMemory(NtCurrentProcess(), (PVOID *) &Header, &MemSize, MEM_DECOMMIT);
 }
 
 /*
  * @implemented
  */
-HANDLE APIENTRY
+HANDLE STDCALL
 EngSecureMem(PVOID Address, ULONG Length)
 {
   return MmSecureVirtualMemory(Address, Length, PAGE_READWRITE);
@@ -172,10 +117,10 @@ EngSecureMem(PVOID Address, ULONG Length)
 /*
  * @implemented
  */
-VOID APIENTRY
+VOID STDCALL
 EngUnsecureMem(HANDLE Mem)
 {
-  MmUnsecureVirtualMemory((PVOID) Mem);
+  return MmUnsecureVirtualMemory((PVOID) Mem);
 }
 
 /* EOF */

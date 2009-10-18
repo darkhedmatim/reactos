@@ -32,24 +32,6 @@ typedef enum {
     INSERT_CHILD
 } insert_type_t;
 
-static void free_content_item(ContentItem *item)
-{
-    ContentItem *next;
-
-    while(item) {
-        next = item->next;
-
-        free_content_item(item->child);
-
-        heap_free(item->name);
-        heap_free(item->local);
-        heap_free(item->merge.chm_file);
-        heap_free(item->merge.chm_index);
-
-        item = next;
-    }
-}
-
 typedef struct {
     char *buf;
     int size;
@@ -60,7 +42,7 @@ static void strbuf_init(strbuf_t *buf)
 {
     buf->size = 8;
     buf->len = 0;
-    buf->buf = heap_alloc(buf->size);
+    buf->buf = hhctrl_alloc(buf->size);
 }
 
 static void strbuf_zero(strbuf_t *buf)
@@ -70,14 +52,14 @@ static void strbuf_zero(strbuf_t *buf)
 
 static void strbuf_free(strbuf_t *buf)
 {
-    heap_free(buf->buf);
+    hhctrl_free(buf->buf);
 }
 
 static void strbuf_append(strbuf_t *buf, const char *data, int len)
 {
     if(buf->len+len > buf->size) {
         buf->size = buf->len+len;
-        buf->buf = heap_realloc(buf->buf, buf->size);
+        buf->buf = hhctrl_realloc(buf->buf, buf->size);
     }
 
     memcpy(buf->buf+buf->len, data, len);
@@ -208,13 +190,13 @@ static void parse_obj_node_param(ContentItem *item, ContentItem *hhc_root, const
     }
 
     wlen = MultiByteToWideChar(CP_ACP, 0, ptr, len, NULL, 0);
-    *param = heap_alloc((wlen+1)*sizeof(WCHAR));
+    *param = hhctrl_alloc((wlen+1)*sizeof(WCHAR));
     MultiByteToWideChar(CP_ACP, 0, ptr, len, *param, wlen);
     (*param)[wlen] = 0;
 
     if(param == &merge) {
         SetChmPath(&item->merge, hhc_root->merge.chm_file, merge);
-        heap_free(merge);
+        hhctrl_free(merge);
     }
 }
 
@@ -224,9 +206,6 @@ static ContentItem *insert_item(ContentItem *item, ContentItem *new_item, insert
 {
     if(!item)
         return new_item;
-
-    if(!new_item)
-        return item;
 
     switch(insert_type) {
     case INSERT_NEXT:
@@ -258,7 +237,7 @@ static ContentItem *parse_sitemap_object(HHInfo *info, stream_t *stream, Content
     strbuf_init(&node);
     strbuf_init(&node_name);
 
-    item = heap_alloc_zero(sizeof(ContentItem));
+    item = hhctrl_alloc_zero(sizeof(ContentItem));
 
     while(next_node(stream, &node)) {
         get_node_name(&node, &node_name);
@@ -286,11 +265,6 @@ static ContentItem *parse_sitemap_object(HHInfo *info, stream_t *stream, Content
         }else {
             WARN("Could not get %s::%s stream\n", debugstr_w(item->merge.chm_file),
                  debugstr_w(item->merge.chm_file));
-
-            if(!item->name) {
-                free_content_item(item);
-                item = NULL;
-            }
         }
 
     }
@@ -421,7 +395,7 @@ void InitContent(HHInfo *info)
     IStream *stream;
     insert_type_t insert_type;
 
-    info->content = heap_alloc_zero(sizeof(ContentItem));
+    info->content = hhctrl_alloc_zero(sizeof(ContentItem));
     SetChmPath(&info->content->merge, info->pCHMInfo->szFile, info->WinType.pszToc);
 
     stream = GetChmStream(info->pCHMInfo, info->pCHMInfo->szFile, &info->content->merge);
@@ -435,6 +409,24 @@ void InitContent(HHInfo *info)
 
     set_item_parents(NULL, info->content);
     fill_content_tree(info->tabs[TAB_CONTENTS].hwnd, NULL, info->content);
+}
+
+static void free_content_item(ContentItem *item)
+{
+    ContentItem *next;
+
+    while(item) {
+        next = item->next;
+
+        free_content_item(item->child);
+
+        hhctrl_free(item->name);
+        hhctrl_free(item->local);
+        hhctrl_free(item->merge.chm_file);
+        hhctrl_free(item->merge.chm_index);
+
+        item = next;
+    }
 }
 
 void ReleaseContent(HHInfo *info)

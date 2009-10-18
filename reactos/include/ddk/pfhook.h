@@ -23,6 +23,10 @@
 #ifndef __PFHOOK_H
 #define __PFHOOK_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -41,8 +45,8 @@ typedef enum _PF_FORWARD_ACTION {
 	PF_ICMP_ON_DROP = 3
 } PF_FORWARD_ACTION;
 
-typedef PF_FORWARD_ACTION
-(NTAPI *PacketFilterExtensionPtr)(
+typedef PF_FORWARD_ACTION STDCALL
+(*PacketFilterExtensionPtr)(
   IN unsigned char  *PacketHeader,
   IN unsigned char  *Packet,
   IN unsigned int  PacketLength,

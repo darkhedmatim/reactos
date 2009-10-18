@@ -55,7 +55,7 @@ NTAPI
 FsRtlGetNextFileLock(IN PFILE_LOCK FileLock,
                      IN BOOLEAN Restart)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return NULL;
 }
 
@@ -77,34 +77,8 @@ FsRtlPrivateLock(IN PFILE_LOCK FileLock,
                  IN PVOID Context OPTIONAL,
                  IN BOOLEAN AlreadySynchronized)
 {
-    NTSTATUS Status;
-
-    DPRINT1("FsRtlPrivateLock() is stubplemented!\n");
-
-    /* Initialize the lock, if necessary */
-    if (!FileLock->LockInformation)
-    {
-        DPRINT("LockInformation is uninitialized!\n");
-    }
-
-    /* Assume all is cool, and lock is set */
-    IoStatus->Status = STATUS_SUCCESS;
-
-    if (Irp)
-    {
-        /* Complete the request */
-        FsRtlCompleteLockIrpReal(FileLock->CompleteLockIrpRoutine,
-                                 Context,
-                                 Irp,
-                                 IoStatus->Status,
-                                 &Status,
-                                 FileObject);
-
-        /* Update the status */
-        IoStatus->Status = Status;
-    }
-
-    return TRUE;
+    KEBUGCHECK(0);
+    return FALSE;
 }
 
 /*
@@ -115,7 +89,7 @@ NTAPI
 FsRtlCheckLockForReadAccess(IN PFILE_LOCK FileLock,
                             IN PIRP Irp)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return FALSE;
 }
 
@@ -127,7 +101,7 @@ NTAPI
 FsRtlCheckLockForWriteAccess(IN PFILE_LOCK FileLock,
                              IN PIRP Irp)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return FALSE;
 }
 
@@ -141,9 +115,9 @@ FsRtlFastCheckLockForRead(IN PFILE_LOCK FileLock,
                           IN PLARGE_INTEGER Length,
                           IN ULONG Key,
                           IN PFILE_OBJECT FileObject,
-                          IN PVOID Process)
+                          IN PEPROCESS Process)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return FALSE;
 }
 
@@ -157,9 +131,9 @@ FsRtlFastCheckLockForWrite(IN PFILE_LOCK FileLock,
                            IN PLARGE_INTEGER Length,
                            IN ULONG Key,
                            IN PFILE_OBJECT FileObject,
-                           IN PVOID Process)
+                           IN PEPROCESS Process)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return FALSE;
 }
 
@@ -177,9 +151,8 @@ FsRtlFastUnlockSingle(IN PFILE_LOCK FileLock,
                       IN PVOID Context OPTIONAL,
                       IN BOOLEAN AlreadySynchronized)
 {
-    DPRINT1("FsRtlFastUnlockSingle() is stubplemented!\n");
-
-    return STATUS_SUCCESS;
+    KEBUGCHECK(0);
+    return STATUS_UNSUCCESSFUL;
 }
 
 /*
@@ -192,7 +165,7 @@ FsRtlFastUnlockAll(IN PFILE_LOCK FileLock,
                    IN PEPROCESS Process,
                    IN PVOID Context OPTIONAL)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return STATUS_UNSUCCESSFUL;
 }
 
@@ -207,7 +180,7 @@ FsRtlFastUnlockAllByKey(IN PFILE_LOCK FileLock,
                         IN ULONG Key,
                         IN PVOID Context OPTIONAL)
 {
-    KeBugCheck(FILE_SYSTEM);
+    KEBUGCHECK(0);
     return STATUS_UNSUCCESSFUL;
 }
 

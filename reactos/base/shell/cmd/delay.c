@@ -10,11 +10,12 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_DELAY
 
 
-INT CommandDelay (LPTSTR param)
+INT CommandDelay (LPTSTR cmd, LPTSTR param)
 {
 	DWORD val;
 	DWORD mul=1000;

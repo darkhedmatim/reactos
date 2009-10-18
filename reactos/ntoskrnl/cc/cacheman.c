@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/cc/cacheman.c
@@ -11,7 +12,7 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 PFSN_PREFETCHER_GLOBALS CcPfGlobals;
 
@@ -46,7 +47,7 @@ CcInitializeCacheManager(VOID)
  * @unimplemented
  */
 LARGE_INTEGER
-NTAPI
+STDCALL
 CcGetFlushedValidData (
     IN PSECTION_OBJECT_POINTERS SectionObjectPointer,
     IN BOOLEAN BcbListHeld
@@ -64,7 +65,7 @@ CcGetFlushedValidData (
  * @unimplemented
  */
 PVOID
-NTAPI
+STDCALL
 CcRemapBcb (
     IN PVOID Bcb
     )
@@ -78,7 +79,7 @@ CcRemapBcb (
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 CcScheduleReadAhead (
 	IN	PFILE_OBJECT		FileObject,
 	IN	PLARGE_INTEGER		FileOffset,
@@ -92,7 +93,7 @@ CcScheduleReadAhead (
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 CcSetAdditionalCacheAttributes (
 	IN	PFILE_OBJECT	FileObject,
 	IN	BOOLEAN		DisableReadAhead,
@@ -106,7 +107,7 @@ CcSetAdditionalCacheAttributes (
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 CcSetBcbOwnerPointer (
 	IN	PVOID	Bcb,
 	IN	PVOID	Owner
@@ -119,7 +120,7 @@ CcSetBcbOwnerPointer (
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 CcSetDirtyPageThreshold (
 	IN	PFILE_OBJECT	FileObject,
 	IN	ULONG		DirtyPageThreshold
@@ -132,7 +133,7 @@ CcSetDirtyPageThreshold (
  * @unimplemented
  */
 VOID
-NTAPI
+STDCALL
 CcSetReadAheadGranularity (
 	IN	PFILE_OBJECT	FileObject,
 	IN	ULONG		Granularity

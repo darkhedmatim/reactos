@@ -19,6 +19,7 @@
 #include <obfuncs.h>
 #include <iotypes.h>
 #include <debug.h>
+#include <pseh/pseh.h>
 #include "eventlogrpc_s.h"
 
 typedef struct _IO_ERROR_LPC
@@ -35,42 +36,44 @@ typedef struct _IO_ERROR_LPC
  */
 #define LOGFILE_SIGNATURE 0x654c664c
 
-/*
+/*  
+ *  FIXME
  *  Flags used in logfile header
  */
-#define ELF_LOGFILE_HEADER_DIRTY 1
-#define ELF_LOGFILE_HEADER_WRAP 2
-#define ELF_LOGGFILE_LOGFULL_WRITTEN 4
-#define ELF_LOGFILE_ARCHIVE_SET 8
+#define LOGFILE_FLAG1 1
+#define LOGFILE_FLAG2 2
+#define LOGFILE_FLAG3 4
+#define LOGFILE_FLAG4 8
 
-/* FIXME: MSDN reads that the following two structs are in winnt.h. Are they? */
-typedef struct _EVENTLOGHEADER {
-    ULONG HeaderSize;
-    ULONG Signature;
-    ULONG MajorVersion;
-    ULONG MinorVersion;
-    ULONG StartOffset;
-    ULONG EndOffset;
-    ULONG CurrentRecordNumber;
-    ULONG OldestRecordNumber;
-    ULONG MaxSize;
-    ULONG Flags;
-    ULONG Retention;
-    ULONG EndHeaderSize;
-} EVENTLOGHEADER, *PEVENTLOGHEADER;
+typedef struct
+{
+    DWORD SizeOfHeader;
+    DWORD Signature;
+    DWORD MajorVersion;
+    DWORD MinorVersion;
+    DWORD FirstRecordOffset;
+    DWORD EofOffset;
+    DWORD NextRecord;
+    DWORD OldestRecord;
+    DWORD unknown1;
+    DWORD Flags;
+    DWORD unknown2;
+    DWORD SizeOfHeader2;
+} FILE_HEADER, *PFILE_HEADER;
 
-typedef struct _EVENTLOGEOF {
-    ULONG RecordSizeBeginning;
-    ULONG Ones;
-    ULONG Twos;
-    ULONG Threes;
-    ULONG Fours;
-    ULONG BeginRecord;
-    ULONG EndRecord;
-    ULONG CurrentRecordNumber;
-    ULONG OldestRecordNumber;
-    ULONG RecordSizeEnd;
-} EVENTLOGEOF, *PEVENTLOGEOF;
+typedef struct
+{
+    DWORD Size1;
+    DWORD Ones;                 // Must be 0x11111111
+    DWORD Twos;                 // Must be 0x22222222
+    DWORD Threes;               // Must be 0x33333333
+    DWORD Fours;                // Must be 0x44444444
+    DWORD StartOffset;
+    DWORD EndOffset;
+    DWORD NextRecordNumber;
+    DWORD OldestRecordNumber;
+    DWORD Size2;
+} EOF_RECORD, *PEOF_RECORD;
 
 typedef struct
 {
@@ -81,7 +84,7 @@ typedef struct
 typedef struct
 {
     HANDLE hFile;
-    EVENTLOGHEADER Header;
+    FILE_HEADER Header;
     WCHAR *LogName;
     WCHAR *FileName;
     CRITICAL_SECTION cs;
@@ -91,13 +94,6 @@ typedef struct
     LIST_ENTRY ListEntry;
 } LOGFILE, *PLOGFILE;
 
-typedef struct _EVENTSOURCE
-{
-    LIST_ENTRY EventSourceListEntry;
-    PLOGFILE LogFile;
-    ULONG CurrentRecord;
-    WCHAR szName[1];
-} EVENTSOURCE, *PEVENTSOURCE;
 
 /* file.c */
 VOID LogfListInitialize(VOID);
@@ -116,9 +112,9 @@ VOID LogfListAddItem(PLOGFILE Item);
 
 VOID LogfListRemoveItem(PLOGFILE Item);
 
-DWORD LogfReadEvent(PLOGFILE LogFile,
+BOOL LogfReadEvent(PLOGFILE LogFile,
                    DWORD Flags,
-                   DWORD * RecordNumber,
+                   DWORD RecordNumber,
                    DWORD BufSize,
                    PBYTE Buffer,
                    DWORD * BytesRead,
@@ -141,17 +137,12 @@ BOOL LogfInitializeExisting(PLOGFILE LogFile);
 
 DWORD LogfGetOldestRecord(PLOGFILE LogFile);
 
-DWORD LogfGetCurrentRecord(PLOGFILE LogFile);
-
 ULONG LogfOffsetByNumber(PLOGFILE LogFile,
                          DWORD RecordNumber);
 
 BOOL LogfAddOffsetInformation(PLOGFILE LogFile,
                               ULONG ulNumber,
                               ULONG ulOffset);
-
-BOOL LogfDeleteOffsetInformation(PLOGFILE LogFile,
-                              ULONG ulNumber);
 
 PBYTE LogfAllocAndBuildNewRecord(LPDWORD lpRecSize,
                                  DWORD dwRecordNumber,
@@ -167,10 +158,10 @@ PBYTE LogfAllocAndBuildNewRecord(LPDWORD lpRecSize,
                                  DWORD dwDataSize,
                                  LPVOID lpRawData);
 
-/* eventlog.c */
-extern HANDLE MyHeap;
+void __inline LogfFreeRecord(LPVOID Rec);
 
-VOID PRINT_HEADER(PEVENTLOGHEADER header);
+/* eventlog.c */
+VOID PRINT_HEADER(PFILE_HEADER header);
 
 VOID PRINT_RECORD(PEVENTLOGRECORD pRec);
 
@@ -181,18 +172,13 @@ VOID SystemTimeToEventTime(SYSTEMTIME * pSystemTime,
                            DWORD * pEventTime);
 
 /* logport.c */
-NTSTATUS WINAPI PortThreadRoutine(PVOID Param);
+NTSTATUS STDCALL PortThreadRoutine(PVOID Param);
 
 NTSTATUS InitLogPort(VOID);
 
 NTSTATUS ProcessPortMessage(VOID);
 
 /* rpc.c */
-DWORD WINAPI RpcThreadRoutine(LPVOID lpParameter);
-
-static __inline void LogfFreeRecord(LPVOID Rec)
-{
-    HeapFree(MyHeap, 0, Rec);
-}
+DWORD STDCALL RpcThreadRoutine(LPVOID lpParameter);
 
 #endif  /* __EVENTLOG_H__ */

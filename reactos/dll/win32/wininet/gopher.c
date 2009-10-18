@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "config.h"
@@ -93,7 +93,7 @@ BOOL WINAPI GopherCreateLocatorW(
  *                      - Locator created by the GopherCreateLocator function.
  * lpszSearchString [I] what to search for if this request is to an index server.
  *                      Otherwise, this parameter should be NULL.
- * lpFindData       [O] retrieved information
+ * lpFindData       [O] retrived information
  * dwFlags          [I] INTERNET_FLAG_{HYPERLINK, NEED_FILE, NO_CACHE_WRITE, RELOAD, RESYNCHRONIZE}
  * dwContext        [I] application private value
  *
@@ -108,7 +108,7 @@ HINTERNET WINAPI GopherFindFirstFileA(
  LPGOPHER_FIND_DATAA
            lpFindData,
  DWORD     dwFlags,
- DWORD_PTR dwContext
+ DWORD     dwContext
 )
 {
     FIXME("stub\n");
@@ -127,7 +127,7 @@ HINTERNET WINAPI GopherFindFirstFileW(
  LPGOPHER_FIND_DATAW
            lpFindData,
  DWORD     dwFlags,
- DWORD_PTR dwContext
+ DWORD     dwContext
 )
 {
     FIXME("stub\n");
@@ -152,7 +152,7 @@ BOOL WINAPI GopherGetAttributeA(
  LPDWORD   lpdwCharactersReturned,
  GOPHER_ATTRIBUTE_ENUMERATORA
            lpfnEnumerator,
- DWORD_PTR dwContext
+ DWORD     dwContext
 )
 {
     FIXME("stub\n");
@@ -173,7 +173,7 @@ BOOL WINAPI GopherGetAttributeW(
  LPDWORD   lpdwCharactersReturned,
  GOPHER_ATTRIBUTE_ENUMERATORW
            lpfnEnumerator,
- DWORD_PTR dwContext
+ DWORD     dwContext
 )
 {
     FIXME("stub\n");
@@ -231,7 +231,7 @@ HINTERNET WINAPI GopherOpenFileA(
  LPCSTR    lpszLocator,
  LPCSTR    lpszView,
  DWORD     dwFlags,
- DWORD_PTR dwContext
+ DWORD     dwContext
 )
 {
     FIXME("stub\n");
@@ -248,7 +248,7 @@ HINTERNET WINAPI GopherOpenFileW(
  LPCWSTR   lpszLocator,
  LPCWSTR   lpszView,
  DWORD     dwFlags,
- DWORD_PTR dwContext
+ DWORD     dwContext
 )
 {
     FIXME("stub\n");

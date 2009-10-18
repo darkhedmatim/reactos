@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * $Id: triodef.h 3473 2006-05-31 13:35:28Z veillard $
+ * $Id: triodef.h,v 1.7 2003/04/25 23:12:21 veillard Exp $
  *
  * Copyright (C) 2001 Bjorn Reese <breese@users.sourceforge.net>
  *
@@ -55,8 +55,6 @@
 #elif defined(TRIO_COMPILER_DECC) || defined(__osf___)
 # define TRIO_PLATFORM_UNIX
 #elif defined(__NetBSD__)
-# define TRIO_PLATFORM_UNIX
-#elif defined(__Lynx__)
 # define TRIO_PLATFORM_UNIX
 #elif defined(__QNX__)
 # define TRIO_PLATFORM_UNIX

@@ -1,13 +1,11 @@
 #ifndef _WINCON_H
 #define _WINCON_H
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4820)
 #endif
 
 #define FOREGROUND_BLUE	1
@@ -169,14 +167,6 @@ BOOL WINAPI AllocConsole(void);
 #if (_WIN32_WINNT >= 0x0501)
 #define ATTACH_PARENT_PROCESS (DWORD)-1
 BOOL WINAPI AttachConsole(DWORD);
-BOOL WINAPI AddConsoleAliasA(LPCSTR,LPCSTR,LPCSTR);
-BOOL WINAPI AddConsoleAliasW(LPCWSTR,LPCWSTR,LPCWSTR);
-DWORD WINAPI GetConsoleAliasA(LPSTR,LPSTR,DWORD,LPSTR);
-DWORD WINAPI GetConsoleAliasW(LPWSTR,LPWSTR,DWORD,LPWSTR);
-DWORD WINAPI GetConsoleAliasesA(LPSTR,DWORD,LPSTR);
-DWORD WINAPI GetConsoleAliasesW(LPWSTR,DWORD,LPWSTR);
-DWORD WINAPI GetConsoleAliasesLengthA(LPSTR);
-DWORD WINAPI GetConsoleAliasesLengthW(LPWSTR);
 #endif
 HANDLE WINAPI CreateConsoleScreenBuffer(DWORD,DWORD,CONST SECURITY_ATTRIBUTES*,DWORD,LPVOID);
 BOOL WINAPI FillConsoleOutputAttribute(HANDLE,WORD,DWORD,COORD,PDWORD);
@@ -235,10 +225,6 @@ BOOL WINAPI WriteConsoleOutputCharacterW(HANDLE,LPCWSTR,DWORD,COORD,PDWORD);
 
 #ifdef UNICODE
 #define FillConsoleOutputCharacter FillConsoleOutputCharacterW
-#define AddConsoleAlias AddConsoleAliasW
-#define GetConsoleAlias GetConsoleAliasW
-#define GetConsoleAliases GetConsoleAliasesW
-#define GetConsoleAliasesLength GetConsoleAliasesLengthW
 #define GetConsoleTitle GetConsoleTitleW
 #define PeekConsoleInput PeekConsoleInputW
 #define ReadConsole ReadConsoleW
@@ -252,11 +238,7 @@ BOOL WINAPI WriteConsoleOutputCharacterW(HANDLE,LPCWSTR,DWORD,COORD,PDWORD);
 #define WriteConsoleOutput WriteConsoleOutputW
 #define WriteConsoleOutputCharacter WriteConsoleOutputCharacterW
 #else
-#define AddConsoleAlias AddConsoleAliasA
 #define FillConsoleOutputCharacter FillConsoleOutputCharacterA
-#define GetConsoleAlias GetConsoleAliasA
-#define GetConsoleAliases GetConsoleAliasesA
-#define GetConsoleAliasesLength GetConsoleAliasesLengthA
 #define GetConsoleTitle GetConsoleTitleA
 #define PeekConsoleInput PeekConsoleInputA
 #define ReadConsole ReadConsoleA
@@ -269,10 +251,6 @@ BOOL WINAPI WriteConsoleOutputCharacterW(HANDLE,LPCWSTR,DWORD,COORD,PDWORD);
 #define WriteConsoleInput WriteConsoleInputA
 #define WriteConsoleOutput WriteConsoleOutputA
 #define WriteConsoleOutputCharacter WriteConsoleOutputCharacterA
-#endif
-
-#ifdef _MSC_VER
-#pragma warning(pop)
 #endif
 
 #ifdef __cplusplus

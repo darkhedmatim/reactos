@@ -22,11 +22,9 @@
 #ifdef _M_IX86
 #include <internal/i386/mm.h>
 #elif defined(_M_PPC)
-#include <internal/powerpc/mm.h>
+#include <internal/powerpc/ke.h>
 #elif defined(_M_MIPS)
-#include <internal/mips/mm.h>
-#elif defined(_M_ARM)
-#include <internal/arm/mm.h>
+#include <internal/mips/ke.h>
 #else
 #error "Unknown processor"
 #endif

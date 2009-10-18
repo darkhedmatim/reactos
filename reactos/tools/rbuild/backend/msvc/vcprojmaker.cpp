@@ -26,9 +26,6 @@
 #include <string>
 #include <vector>
 #include <set>
-#include <algorithm>
-#include <fstream>
-#include <iostream>
 
 #include <stdio.h>
 
@@ -43,14 +40,6 @@ typedef set<string> StringSet;
 #ifdef OUT
 #undef OUT
 #endif//OUT
-
-struct SortFilesAscending
-{
-	bool operator()(const string& rhs, const string& lhs)
-	{
-		return rhs < lhs;
-	}
-};
 
 MSVCConfiguration::MSVCConfiguration ( const OptimizationType optimization, const HeadersType headers, const std::string &name )
 {
@@ -84,7 +73,6 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 	string vcproj_file = VcprojFileName(module);
 	string computername;
 	string username;
-	string intermediatedir = "";
 
 	if (getenv ( "USERNAME" ) != NULL)
 		username = getenv ( "USERNAME" );
@@ -102,7 +90,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 	FILE* OUT = fopen ( vcproj_file.c_str(), "wb" );
 
 	vector<string> imports;
-	string module_type = GetExtension(*module.output);
+	string module_type = GetExtension(module.GetTargetName());
 	bool lib = (module.type == ObjectLibrary) || (module.type == RpcClient) ||(module.type == RpcServer) || (module_type == ".lib") || (module_type == ".a");
 	bool dll = (module_type == ".dll") || (module_type == ".cpl");
 	bool exe = (module_type == ".exe") || (module_type == ".scr");
@@ -135,7 +123,8 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 	bool console = exe && (module.type == Win32CUI);
 	bool include_idl = false;
 
-	vector<string> source_files, resource_files, header_files, includes, includes_ros, libraries;
+	string vcproj_path = module.GetBasePath();
+	vector<string> source_files, resource_files, includes, includes_ros, libraries;
 	StringSet common_defines;
 	vector<const IfableData*> ifs_list;
 	ifs_list.push_back ( &module.project.non_if_data );
@@ -147,22 +136,24 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 	{
 		const IfableData& data = *ifs_list.back();
 		ifs_list.pop_back();
+		for ( i = 0; i < data.ifs.size(); i++ )
+		{
+			const Property* property = _lookup_property( module, data.ifs[i]->property );
+			if ( property != NULL )
+			{
+				if ( data.ifs[i]->value == property->value && data.ifs[i]->negated == false ||
+					data.ifs[i]->value != property->value && data.ifs[i]->negated)
+					ifs_list.push_back ( &data.ifs[i]->data );
+			}
+		}
 		const vector<File*>& files = data.files;
 		for ( i = 0; i < files.size(); i++ )
 		{
-			if (files[i]->file.directory != SourceDirectory)
-				continue;
-
-			// We want the full path here for directory support later on
-			string path = Path::RelativeFromDirectory (
-				files[i]->file.relative_path,
-				module.output->relative_path );
-			string file = path + std::string("\\") + files[i]->file.name;
+			// TODO FIXME - do we want the full path of the file here?
+			string file = string(".") + &files[i]->name[vcproj_path.size()];
 
 			if ( !stricmp ( Right(file,3).c_str(), ".rc" ) )
 				resource_files.push_back ( file );
-			else if ( !stricmp ( Right(file,2).c_str(), ".h" ) )
-				header_files.push_back ( file );
 			else
 				source_files.push_back ( file );
 		}
@@ -170,8 +161,8 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 		for ( i = 0; i < incs.size(); i++ )
 		{
 			string path = Path::RelativeFromDirectory (
-				incs[i]->directory->relative_path,
-				module.output->relative_path );
+				incs[i]->directory,
+				module.GetBasePath() );
 			if ( module.type != RpcServer && module.type != RpcClient )
 			{
 				if ( path.find ("/include/reactos/idl") != string::npos)
@@ -180,16 +171,15 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 					continue;
 				}
 			}
-			// switch between general headers and ros headers
-			if ( !strncmp(incs[i]->directory->relative_path.c_str(), "include\\crt", 11 ) ||
-			     !strncmp(incs[i]->directory->relative_path.c_str(), "include\\ddk", 11 ) ||
-			     !strncmp(incs[i]->directory->relative_path.c_str(), "include\\GL", 10 ) ||
-			     !strncmp(incs[i]->directory->relative_path.c_str(), "include\\psdk", 12 ) ||
-			     !strncmp(incs[i]->directory->relative_path.c_str(), "include\\reactos\\wine", 20 ) )
+			// add to another list win32api and include/wine directories
+			if ( !strncmp(incs[i]->directory.c_str(), "include\\ddk", 11 ) ||
+			     !strncmp(incs[i]->directory.c_str(), "include\\crt", 11 ) ||
+			     !strncmp(incs[i]->directory.c_str(), "include\\GL", 10 ) ||
+				 !strncmp(incs[i]->directory.c_str(), "include\\ddk", 11 ) ||
+				 !strncmp(incs[i]->directory.c_str(), "include\\psdk", 12 ) ||
+			     !strncmp(incs[i]->directory.c_str(), "include\\reactos\\wine", 20 ) )
 			{
-				if (strncmp(incs[i]->directory->relative_path.c_str(), "include\\crt", 11 ))
-					// not crt include
-					includes_ros.push_back ( path );
+				includes_ros.push_back ( path );
 			}
 			else
 			{
@@ -199,7 +189,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 		const vector<Library*>& libs = data.libraries;
 		for ( i = 0; i < libs.size(); i++ )
 		{
-			string libpath = outdir + "\\" + libs[i]->importedModule->output->relative_path + "\\" + _get_vc_dir() + "\\---\\" + libs[i]->name + ".lib";
+			string libpath = outdir + "\\" + libs[i]->importedModule->GetBasePath() + "\\" + _get_vc_dir() + "\\---\\" + libs[i]->name + ".lib";
 			libraries.push_back ( libpath );
 		}
 		const vector<Define*>& defs = data.defines;
@@ -213,18 +203,15 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 			else
 				common_defines.insert( defs[i]->name );
 		}
-		for ( std::map<std::string, Property*>::const_iterator p = data.properties.begin(); p != data.properties.end(); ++ p )
+		for ( i = 0; i < data.properties.size(); i++ )
 		{
-			Property& prop = *p->second;
+			Property& prop = *data.properties[i];
 			if ( strstr ( module.baseaddress.c_str(), prop.name.c_str() ) )
 				baseaddr = prop.value;
 		}
 	}
-	/* include intermediate path for reactos.rc */
-	string version = intdir + "\\include";
-	includes.push_back (version);
-	version += "\\reactos";
-	includes.push_back (version);
+
+	vector<string> header_files;
 
 	string include_string;
 
@@ -237,7 +224,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 
 	fprintf ( OUT, "\tVersion=\"%s\"\r\n", configuration.VSProjectVersion.c_str() );
 	fprintf ( OUT, "\tName=\"%s\"\r\n", module.name.c_str() );
-	fprintf ( OUT, "\tProjectGUID=\"%s\"\r\n", module.guid.c_str() );
+	fprintf ( OUT, "\tProjectGUID=\"%s\"\r\n", module.guid.c_str() ); 
 	fprintf ( OUT, "\tKeyword=\"Win32Proj\">\r\n" );
 
 	fprintf ( OUT, "\t<Platforms>\r\n" );
@@ -257,17 +244,6 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 	int n = 0;
 
 	std::string output_dir;
-	string importLib;
-
-	// don't do the work m_configurations.size() times
-	if (module.importLibrary != NULL)
-	{
-		intermediatedir = module.output->relative_path + vcdir;
-		importLib = _strip_gcc_deffile(module.importLibrary->source->name, module.importLibrary->source->relative_path, intermediatedir);
-		importLib = Path::RelativeFromDirectory (
-				importLib,
-				module.output->relative_path );
-	}
 
 	fprintf ( OUT, "\t<Configurations>\r\n" );
 	for ( size_t icfg = 0; icfg < m_configurations.size(); icfg++ )
@@ -283,13 +259,13 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 
 		if ( configuration.UseConfigurationInPath )
 		{
-			fprintf ( OUT, "\t\t\tOutputDirectory=\"%s\\%s%s\\%s\"\r\n", outdir.c_str (), module.output->relative_path.c_str (), vcdir.c_str (), cfg.name.c_str() );
-			fprintf ( OUT, "\t\t\tIntermediateDirectory=\"%s\\%s%s\\%s\"\r\n", intdir.c_str (), module.output->relative_path.c_str (), vcdir.c_str (), cfg.name.c_str() );
+			fprintf ( OUT, "\t\t\tOutputDirectory=\"%s\\%s%s\\%s\"\r\n", outdir.c_str (), module.GetBasePath ().c_str (), vcdir.c_str (), cfg.name.c_str() );
+			fprintf ( OUT, "\t\t\tIntermediateDirectory=\"%s\\%s%s\\%s\"\r\n", intdir.c_str (), module.GetBasePath ().c_str (), vcdir.c_str (), cfg.name.c_str() );
 		}
 		else
 		{
-			fprintf ( OUT, "\t\t\tOutputDirectory=\"%s\\%s%s\"\r\n", outdir.c_str (), module.output->relative_path.c_str (), vcdir.c_str () );
-			fprintf ( OUT, "\t\t\tIntermediateDirectory=\"%s\\%s%s\"\r\n", intdir.c_str (), module.output->relative_path.c_str (), vcdir.c_str () );
+			fprintf ( OUT, "\t\t\tOutputDirectory=\"%s\\%s%s\"\r\n", outdir.c_str (), module.GetBasePath ().c_str (), vcdir.c_str () );
+			fprintf ( OUT, "\t\t\tIntermediateDirectory=\"%s\\%s%s\"\r\n", intdir.c_str (), module.GetBasePath ().c_str (), vcdir.c_str () );
 		}
 
 		fprintf ( OUT, "\t\t\tConfigurationType=\"%d\"\r\n", exe ? 1 : dll ? 2 : lib ? 4 : -1 );
@@ -340,37 +316,9 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 				multiple_includes = true;
 			}
 		}
-		else
-		{
-			// Add WDK or PSDK paths, if user provides them
-			if (getenv ( "BASEDIR" ) != NULL &&
-				(module.type == Kernel ||
-				 module.type == KernelModeDLL ||
-				 module.type == KernelModeDriver ||
-				 module.type == KeyboardLayout))
-			{
-				string WdkBase, SdkPath, CrtPath, DdkPath;
-				WdkBase = getenv ( "BASEDIR" );
-				SdkPath = WdkBase + "\\inc\\api";
-				CrtPath = WdkBase + "\\inc\\crt";
-				DdkPath = WdkBase + "\\inc\\ddk";
-
-				if ( multiple_includes )
-					fprintf ( OUT, ";" );
-
-				fprintf ( OUT, "%s;", SdkPath.c_str() );
-				fprintf ( OUT, "%s;", CrtPath.c_str() );
-				fprintf ( OUT, "%s", DdkPath.c_str() );
-				multiple_includes = true;
-			}
-		}
 		fprintf ( OUT, "\"\r\n" );
 
 		StringSet defines = common_defines;
-
-		// Always add _CRT_SECURE_NO_WARNINGS to disable warnings about not
-		// using the safe functions introduced in MSVC8.
-		defines.insert ( "_CRT_SECURE_NO_WARNINGS" );
 
 		if ( debug )
 		{
@@ -400,31 +348,30 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 				fprintf ( OUT, ";" );
 
 			string unescaped = *it1;
-			fprintf ( OUT, "%s", _replace_str(unescaped, "\"","").c_str() );
+			defines.erase(unescaped);
+			const string& escaped = _replace_str(unescaped, "\"","&quot;");
+
+			defines.insert(escaped);
+			fprintf ( OUT, "%s", escaped.c_str() );
 		}
 		fprintf ( OUT, "\"\r\n" );
 		fprintf ( OUT, "\t\t\t\tForcedIncludeFiles=\"%s\"\r\n", "warning.h");
 		fprintf ( OUT, "\t\t\t\tMinimalRebuild=\"%s\"\r\n", speed ? "TRUE" : "FALSE" );
 		fprintf ( OUT, "\t\t\t\tBasicRuntimeChecks=\"0\"\r\n" );
-		fprintf ( OUT, "\t\t\t\tRuntimeLibrary=\"%d\"\r\n", debug ? 3 : 2 );	// 3=/MDd 2=/MD
+		fprintf ( OUT, "\t\t\t\tRuntimeLibrary=\"%d\"\r\n", debug ? 1 : 5 );	// 1=/MTd 5=/MT
 		fprintf ( OUT, "\t\t\t\tBufferSecurityCheck=\"FALSE\"\r\n" );
 		fprintf ( OUT, "\t\t\t\tEnableFunctionLevelLinking=\"FALSE\"\r\n" );
-
+		
 		if ( module.pch != NULL )
 		{
 			fprintf ( OUT, "\t\t\t\tUsePrecompiledHeader=\"2\"\r\n" );
 			string pch_path = Path::RelativeFromDirectory (
-				module.pch->file->name,
-				module.output->relative_path );
+				module.pch->file.name,
+				module.GetBasePath() );
 			string::size_type pos = pch_path.find_last_of ("/");
 			if ( pos != string::npos )
-				pch_path.erase(0, pos+1);
+				pch_path.erase(0, pos+1);         
 			fprintf ( OUT, "\t\t\t\tPrecompiledHeaderThrough=\"%s\"\r\n", pch_path.c_str() );
-
-			// Only include from the same module
-			pos = pch_path.find("../");
-			if (pos == string::npos && std::find(header_files.begin(), header_files.end(), pch_path) == header_files.end())
-				header_files.push_back(pch_path);
 		}
 		else
 		{
@@ -467,18 +414,11 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 		{
 			fprintf ( OUT, "\t\t\t<Tool\r\n" );
 			fprintf ( OUT, "\t\t\t\tName=\"VCLinkerTool\"\r\n" );
-			if (module.GetEntryPoint(false) == "0" && sys == false)
+			if (module.GetEntryPoint(false) == "0")
 				fprintf ( OUT, "AdditionalOptions=\"/noentry\"" );
 
-			if (configuration.VSProjectVersion == "9.00")
-			{
-				fprintf ( OUT, "\t\t\t\tRandomizedBaseAddress=\"0\"\r\n" );
-				fprintf ( OUT, "\t\t\t\tDataExecutionPrevention=\"0\"\r\n" );
-			}
-
 			if (module.importLibrary != NULL)
-				fprintf ( OUT, "\t\t\t\tModuleDefinitionFile=\"%s\"\r\n", importLib.c_str());
-
+				fprintf ( OUT, "\t\t\t\tModuleDefinitionFile=\"%s\"\r\n", module.importLibrary->definition.c_str());
 			fprintf ( OUT, "\t\t\t\tAdditionalDependencies=\"" );
 			bool use_msvcrt_lib = false;
 			for ( i = 0; i < libraries.size(); i++ )
@@ -496,27 +436,6 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 			fprintf ( OUT, "\"\r\n" );
 
 			fprintf ( OUT, "\t\t\t\tAdditionalLibraryDirectories=\"" );
-
-			// Add WDK libs paths, if needed
-			if (getenv ( "BASEDIR" ) != NULL &&
-				(module.type == Kernel ||
-				 module.type == KernelModeDLL ||
-				 module.type == KernelModeDriver ||
-				 module.type == KeyboardLayout))
-			{
-				string WdkBase, CrtPath, DdkPath;
-				WdkBase = getenv ( "BASEDIR" );
-				CrtPath = WdkBase + "\\lib\\crt\\i386";
-				DdkPath = WdkBase + "\\lib\\wnet\\i386";
-
-				fprintf ( OUT, "%s;", CrtPath.c_str() );
-				fprintf ( OUT, "%s", DdkPath.c_str() );
-
-				if (libraries.size () > 0)
-					fprintf ( OUT, ";" );
-			}
-
-			// Add conventional libraries dirs
 			for (i = 0; i < libraries.size (); i++)
 			{
 				if ( i > 0 )
@@ -527,7 +446,6 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 				libpath = libpath.substr (0, libpath.find_last_of ("\\") );
 				fprintf ( OUT, "%s", libpath.c_str() );
 			}
-
 			fprintf ( OUT, "\"\r\n" );
 
 			fprintf ( OUT, "\t\t\t\tOutputFile=\"$(OutDir)/%s%s\"\r\n", module.name.c_str(), module_type.c_str() );
@@ -540,16 +458,13 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 
 			if ( sys )
 			{
-				if (module.GetEntryPoint(false) == "0")
-					fprintf ( OUT, "\t\t\t\tAdditionalOptions=\" /noentry /ALIGN:0x20 /SECTION:INIT,D /IGNORE:4001,4037,4039,4065,4070,4078,4087,4089,4096\"\r\n" );
-				else
-					fprintf ( OUT, "\t\t\t\tAdditionalOptions=\" /ALIGN:0x20 /SECTION:INIT,D /IGNORE:4001,4037,4039,4065,4070,4078,4087,4089,4096\"\r\n" );
+				fprintf ( OUT, "\t\t\t\tAdditionalOptions=\" /ALIGN:0x20 /SECTION:INIT,D /IGNORE:4001,4037,4039,4065,4070,4078,4087,4089,4096\"\r\n" );
 				fprintf ( OUT, "\t\t\t\tIgnoreAllDefaultLibraries=\"TRUE\"\r\n" );
 				fprintf ( OUT, "\t\t\t\tGenerateManifest=\"FALSE\"\r\n" );
 				fprintf ( OUT, "\t\t\t\tSubSystem=\"%d\"\r\n", 3 );
 				fprintf ( OUT, "\t\t\t\tDriver=\"%d\"\r\n", 1 );
 				fprintf ( OUT, "\t\t\t\tEntryPointSymbol=\"%s\"\r\n", module.GetEntryPoint(false) == "" ? "DriverEntry" : module.GetEntryPoint(false).c_str ());
-				fprintf ( OUT, "\t\t\t\tBaseAddress=\"%s\"\r\n", baseaddr == "" ? "0x10000" : baseaddr.c_str ());
+				fprintf ( OUT, "\t\t\t\tBaseAddress=\"%s\"\r\n", baseaddr == "" ? "0x10000" : baseaddr.c_str ());	
 			}
 			else if ( exe )
 			{
@@ -561,7 +476,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 					fprintf ( OUT, "\t\t\t\tSubSystem=\"%d\"\r\n", 3 );
 					fprintf ( OUT, "\t\t\t\tDriver=\"%d\"\r\n", 1 );
 					fprintf ( OUT, "\t\t\t\tEntryPointSymbol=\"KiSystemStartup\"\r\n" );
-					fprintf ( OUT, "\t\t\t\tBaseAddress=\"%s\"\r\n", baseaddr.c_str ());
+					fprintf ( OUT, "\t\t\t\tBaseAddress=\"%s\"\r\n", baseaddr.c_str ());	
 				}
 				else if ( module.type == NativeCUI )
 				{
@@ -570,7 +485,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 					fprintf ( OUT, "\t\t\t\tGenerateManifest=\"FALSE\"\r\n" );
 					fprintf ( OUT, "\t\t\t\tIgnoreAllDefaultLibraries=\"TRUE\"\r\n" );
 					fprintf ( OUT, "\t\t\t\tEntryPointSymbol=\"NtProcessStartup\"\r\n" );
-					fprintf ( OUT, "\t\t\t\tBaseAddress=\"%s\"\r\n", baseaddr.c_str ());
+					fprintf ( OUT, "\t\t\t\tBaseAddress=\"%s\"\r\n", baseaddr.c_str ());	
 				}
 				else if ( module.type == Win32CUI || module.type == Win32GUI || module.type == Win32SCR)
 				{
@@ -586,10 +501,10 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 				if (module.GetEntryPoint(false) == "0")
 					fprintf ( OUT, "\t\t\t\tEntryPointSymbol=\"\"\r\n" );
 				else
-				{
+				{	
 					// get rid of DllMain@12 because MSVC needs to link to _DllMainCRTStartup@12
 					// when using CRT
-					if (module.GetEntryPoint(false) == "DllMain@12")
+					if (module.GetEntryPoint(false) == "DllMain@12") 
 						fprintf ( OUT, "\t\t\t\tEntryPointSymbol=\"\"\r\n" );
 					else
 						fprintf ( OUT, "\t\t\t\tEntryPointSymbol=\"%s\"\r\n", module.GetEntryPoint(false).c_str ());
@@ -602,7 +517,7 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 			}
 			fprintf ( OUT, "\t\t\t\tTargetMachine=\"%d\"/>\r\n", 1 );
 		}
-
+		
 		fprintf ( OUT, "\t\t\t<Tool\r\n" );
 		fprintf ( OUT, "\t\t\t\tName=\"VCResourceCompilerTool\"\r\n" );
 		fprintf ( OUT, "\t\t\t\tAdditionalIncludeDirectories=\"" );
@@ -662,58 +577,11 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 	fprintf ( OUT, "\t\t<Filter\r\n" );
 	fprintf ( OUT, "\t\t\tName=\"Source Files\"\r\n" );
 	fprintf ( OUT, "\t\t\tFilter=\"cpp;c;cxx;rc;def;r;odl;idl;hpj;bat;S\">\r\n" );
-
-	std::sort(source_files.begin(), source_files.end(), SortFilesAscending());
-	vector<string> last_folder;
-	vector<string> split_path;
-	string indent_tab("\t\t\t");
-
 	for ( size_t isrcfile = 0; isrcfile < source_files.size(); isrcfile++ )
 	{
 		string source_file = DosSeparator(source_files[isrcfile]);
-
-		Path::Split(split_path, source_file, false);
-		size_t same_folder_index = 0;
-		for ( size_t ifolder = 0; ifolder < last_folder.size(); ifolder++ )
-		{
-			if ( ifolder < split_path.size() && last_folder[ifolder] == split_path[ifolder] )
-				++same_folder_index;
-			else
-				break;
-		}
-
-		if ( same_folder_index < split_path.size() || last_folder.size() > split_path.size() )
-		{
-			int tabStart = 1;
-			if ( split_path.size() > last_folder.size() )
-			{
-				for ( size_t ifolder = last_folder.size(); ifolder < split_path.size(); ifolder++ )
-					indent_tab.push_back('\t');
-				tabStart = split_path.size() - last_folder.size() + 1;
-			}
-			else if ( split_path.size() < last_folder.size() )
-			{
-				indent_tab.resize( split_path.size() + 3 );
-				tabStart = split_path.size() - last_folder.size() + 1;
-			}
-
-			for ( size_t ifolder = last_folder.size(), itab = tabStart; ifolder > same_folder_index; ifolder--, itab++ )
-			{
-				fprintf ( OUT, "%s</Filter>\r\n", indent_tab.substr(0, indent_tab.size() - itab).c_str() );
-			}
-
-			for ( size_t ifolder = same_folder_index, itab = split_path.size() - same_folder_index; ifolder < split_path.size(); ifolder++, itab-- )
-			{
-				const string tab = indent_tab.substr(0, indent_tab.size() - itab);
-				fprintf ( OUT, "%s<Filter\r\n", tab.c_str() );
-				fprintf ( OUT, "%s\tName=\"%s\">\r\n", tab.c_str(), split_path[ifolder].c_str() );
-			}
-
-			last_folder = split_path;
-		}
-
-		fprintf ( OUT, "%s<File\r\n", indent_tab.c_str() );
-		fprintf ( OUT, "%s\tRelativePath=\"%s\">\r\n", indent_tab.c_str(), source_file.c_str() );
+		fprintf ( OUT, "\t\t\t<File\r\n" );
+		fprintf ( OUT, "\t\t\t\tRelativePath=\"%s\">\r\n", source_file.c_str() );
 
 		for ( size_t iconfig = 0; iconfig < m_configurations.size(); iconfig++ )
 		{
@@ -722,24 +590,24 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 			if (( isrcfile == 0 ) && ( module.pch != NULL ))
 			{
 				/* little hack to speed up PCH */
-				fprintf ( OUT, "%s\t<FileConfiguration\r\n", indent_tab.c_str() );
-				fprintf ( OUT, "%s\t\tName=\"", indent_tab.c_str() );
+				fprintf ( OUT, "\t\t\t\t<FileConfiguration\r\n" );
+				fprintf ( OUT, "\t\t\t\t\tName=\"" );
 				fprintf ( OUT, config.name.c_str() );
 				fprintf ( OUT, "|Win32\">\r\n" );
-				fprintf ( OUT, "%s\t\t<Tool\r\n", indent_tab.c_str() );
-				fprintf ( OUT, "%s\t\t\tName=\"VCCLCompilerTool\"\r\n", indent_tab.c_str() );
-				fprintf ( OUT, "%s\t\t\tUsePrecompiledHeader=\"1\"/>\r\n", indent_tab.c_str() );
-				fprintf ( OUT, "%s\t</FileConfiguration>\r\n", indent_tab.c_str() );
+				fprintf ( OUT, "\t\t\t\t\t<Tool\r\n" );
+				fprintf ( OUT, "\t\t\t\t\t\tName=\"VCCLCompilerTool\"\r\n" );
+				fprintf ( OUT, "\t\t\t\t\t\tUsePrecompiledHeader=\"1\"/>\r\n" );
+				fprintf ( OUT, "\t\t\t\t</FileConfiguration>\r\n" );
 			}
 
 			//if (configuration.VSProjectVersion < "8.00") {
 				if ((source_file.find(".idl") != string::npos) || ((source_file.find(".asm") != string::npos || tolower(source_file.at(source_file.size() - 1)) == 's')))
 				{
-					fprintf ( OUT, "%s\t<FileConfiguration\r\n", indent_tab.c_str() );
-					fprintf ( OUT, "%s\t\tName=\"", indent_tab.c_str() );
+					fprintf ( OUT, "\t\t\t\t<FileConfiguration\r\n" );
+					fprintf ( OUT, "\t\t\t\t\tName=\"" );
 					fprintf ( OUT, config.name.c_str() );
 					fprintf ( OUT, "|Win32\">\r\n" );
-					fprintf ( OUT, "%s\t\t<Tool\r\n", indent_tab.c_str() );
+					fprintf ( OUT, "\t\t\t\t\t<Tool\r\n" );
 					if (source_file.find(".idl") != string::npos)
 					{
 						string src = source_file.substr (0, source_file.find(".idl"));
@@ -747,50 +615,43 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 						if ( src.find (".\\") != string::npos )
 							src.erase (0, 2);
 
-						fprintf ( OUT, "%s\t\t\tName=\"VCCustomBuildTool\"\r\n", indent_tab.c_str() );
+						fprintf ( OUT, "\t\t\t\t\t\tName=\"VCCustomBuildTool\"\r\n" );
 
 						if ( module.type == RpcClient )
 						{
-							fprintf ( OUT, "%s\t\t\tCommandLine=\"midl.exe /cstub %s_c.c /header %s_c.h /server none &quot;$(InputPath)&quot; /out &quot;$(IntDir)&quot;", indent_tab.c_str(), src.c_str (), src.c_str () );
+							fprintf ( OUT, "\t\t\t\t\t\tCommandLine=\"midl.exe /cstub %s_c.c /header %s_c.h /server none &quot;$(InputPath)&quot; /out &quot;$(IntDir)&quot;", src.c_str (), src.c_str () );
 							fprintf ( OUT, "&#x0D;&#x0A;");
-							fprintf ( OUT, "cl.exe /Od /D &quot;WIN32&quot; /D &quot;_DEBUG&quot; /D &quot;_WINDOWS&quot; /D &quot;_WIN32_WINNT=0x502&quot; /D &quot;_UNICODE&quot; /D &quot;UNICODE&quot; /Gm /EHsc /RTC1 /MDd /Fo&quot;$(IntDir)\\%s.obj&quot; /W3 /c /Wp64 /ZI /TC &quot;$(IntDir)\\%s_c.c&quot; /nologo /errorReport:prompt", src.c_str (), src.c_str () );
+							fprintf ( OUT, "cl.exe /Od /D &quot;WIN32&quot; /D &quot;_DEBUG&quot; /D &quot;_WINDOWS&quot; /D &quot;_WIN32_WINNT=0x502&quot; /D &quot;_UNICODE&quot; /D &quot;UNICODE&quot; /Gm /EHsc /RTC1 /MDd /Fo&quot;$(IntDir)\\%s.obj&quot; /W3 /c /Wp64 /ZI /TC &quot;$(IntDir)\\%s_c.c&quot; /nologo /errorReport:prompt", src.c_str (), src.c_str () ); 
 						}
 						else
 						{
-							fprintf ( OUT, "%s\t\t\tCommandLine=\"midl.exe /sstub %s_s.c /header %s_s.h /client none &quot;$(InputPath)&quot; /out &quot;$(IntDir)&quot;", indent_tab.c_str(), src.c_str (), src.c_str () );
+							fprintf ( OUT, "\t\t\t\t\t\tCommandLine=\"midl.exe /sstub %s_s.c /header %s_s.h /client none &quot;$(InputPath)&quot; /out &quot;$(IntDir)&quot;", src.c_str (), src.c_str () );
 							fprintf ( OUT, "&#x0D;&#x0A;");
-							fprintf ( OUT, "cl.exe /Od /D &quot;WIN32&quot; /D &quot;_DEBUG&quot; /D &quot;_WINDOWS&quot; /D &quot;_WIN32_WINNT=0x502&quot; /D &quot;_UNICODE&quot; /D &quot;UNICODE&quot; /Gm /EHsc /RTC1 /MDd /Fo&quot;$(IntDir)\\%s.obj&quot; /W3 /c /Wp64 /ZI /TC &quot;$(IntDir)\\%s_s.c&quot; /nologo /errorReport:prompt", src.c_str (), src.c_str () );
+							fprintf ( OUT, "cl.exe /Od /D &quot;WIN32&quot; /D &quot;_DEBUG&quot; /D &quot;_WINDOWS&quot; /D &quot;_WIN32_WINNT=0x502&quot; /D &quot;_UNICODE&quot; /D &quot;UNICODE&quot; /Gm /EHsc /RTC1 /MDd /Fo&quot;$(IntDir)\\%s.obj&quot; /W3 /c /Wp64 /ZI /TC &quot;$(IntDir)\\%s_s.c&quot; /nologo /errorReport:prompt", src.c_str (), src.c_str () ); 
 
 						}
 						fprintf ( OUT, "&#x0D;&#x0A;");
 						fprintf ( OUT, "lib.exe /OUT:&quot;$(OutDir)\\%s.lib&quot; &quot;$(IntDir)\\%s.obj&quot;&#x0D;&#x0A;\"\r\n", module.name.c_str (), src.c_str () );
-						fprintf ( OUT, "%s\t\t\tOutputs=\"$(IntDir)\\$(InputName).obj\"/>\r\n", indent_tab.c_str() );
+						fprintf ( OUT, "\t\t\t\t\t\tOutputs=\"$(IntDir)\\$(InputName).obj\"/>\r\n" );
 					}
 					else if ((source_file.find(".asm") != string::npos))
 					{
-						fprintf ( OUT, "%s\t\t\tName=\"VCCustomBuildTool\"\r\n", indent_tab.c_str() );
-						fprintf ( OUT, "%s\t\t\tCommandLine=\"nasmw $(InputPath) -f coff -o &quot;$(OutDir)\\$(InputName).obj&quot;\"\r\n", indent_tab.c_str() );
-						fprintf ( OUT, "%s\t\t\tOutputs=\"$(OutDir)\\$(InputName).obj\"/>\r\n", indent_tab.c_str() );
+						fprintf ( OUT, "\t\t\t\t\t\tName=\"VCCustomBuildTool\"\r\n" );
+						fprintf ( OUT, "\t\t\t\t\t\tCommandLine=\"nasmw $(InputPath) -f coff -o &quot;$(OutDir)\\$(InputName).obj&quot;\"\r\n");
+						fprintf ( OUT, "\t\t\t\t\t\tOutputs=\"$(OutDir)\\$(InputName).obj\"/>\r\n" );
 					}
 					else if ((tolower(source_file.at(source_file.size() - 1)) == 's'))
 					{
-						fprintf ( OUT, "%s\t\t\tName=\"VCCustomBuildTool\"\r\n", indent_tab.c_str() );
-						fprintf ( OUT, "%s\t\t\tCommandLine=\"cl /E &quot;$(InputPath)&quot; %s /D__ASM__ | as -o &quot;$(OutDir)\\$(InputName).obj&quot;\"\r\n", indent_tab.c_str(), include_string.c_str() );
-						fprintf ( OUT, "%s\t\t\tOutputs=\"$(OutDir)\\$(InputName).obj\"/>\r\n", indent_tab.c_str() );
+						fprintf ( OUT, "\t\t\t\t\t\tName=\"VCCustomBuildTool\"\r\n" );
+						fprintf ( OUT, "\t\t\t\t\t\tCommandLine=\"cl /E &quot;$(InputPath)&quot; %s /D__ASM__ | as -o &quot;$(OutDir)\\$(InputName).obj&quot;\"\r\n",include_string.c_str() );
+						fprintf ( OUT, "\t\t\t\t\t\tOutputs=\"$(OutDir)\\$(InputName).obj\"/>\r\n" );
 					}
-					fprintf ( OUT, "%s\t</FileConfiguration>\r\n", indent_tab.c_str() );
+					fprintf ( OUT, "\t\t\t\t</FileConfiguration>\r\n" );
 				}
 			//}
 		}
-		fprintf ( OUT, "%s</File>\r\n", indent_tab.c_str() );
+		fprintf ( OUT, "\t\t\t</File>\r\n" );
 	}
-
-	for ( size_t ifolder = last_folder.size(); ifolder > 0; ifolder-- )
-	{
-		indent_tab.resize( ifolder + 2 );
-		fprintf ( OUT, "%s</Filter>\r\n", indent_tab.c_str() );
-	}
-
 	fprintf ( OUT, "\t\t</Filter>\r\n" );
 
 	// Header files
@@ -885,56 +746,6 @@ MSVCBackend::_generate_vcproj ( const Module& module )
 }
 
 std::string
-MSVCBackend::_strip_gcc_deffile(std::string Filename, std::string sourcedir, std::string objdir)
-{
-	std::string NewFilename = Environment::GetIntermediatePath () + "\\" + objdir + "\\" + Filename;
-	// we don't like infinite loops - so replace it in two steps
-	NewFilename = _replace_str(NewFilename, ".def", "_msvc.de");
-	NewFilename = _replace_str(NewFilename, "_msvc.de", "_msvc.def");
-	Filename = sourcedir + "\\" + Filename;
-
-	Directory dir(objdir);
-	dir.GenerateTree(IntermediateDirectory, false);
-
-	std::fstream in_file(Filename.c_str(), std::ios::in);
-	std::fstream out_file(NewFilename.c_str(), std::ios::out);
-	std::string::size_type pos;
-	DWORD i = 0;
-
-	std::string line;
-	while (std::getline(in_file, line))
-	{
-		pos = line.find("@", 0);
-		while (std::string::npos != pos)
-		{
-			if (pos > 1)
-			{
-				// make sure it is stdcall and no ordinal
-				if (line[pos -1] != ' ')
-				{
-					i = 0;
-					while (true)
-					{
-						i++;
-						if ((line[pos + i] < '0') || (line[pos + i] > '9'))
-							break;
-					}
-					line.replace(pos, i, "");
-				}
-			}
-			pos = line.find("@", pos + 1);
-		}
-
-		line += "\n";
-		out_file << line;
-	}
-	in_file.close();
-	out_file.close();
-
-	return NewFilename;
-}
-
-std::string
 MSVCBackend::_replace_str(std::string string1, const std::string &find_str, const std::string &replace_str)
 {
 	std::string::size_type pos = string1.find(find_str, 0);
@@ -957,40 +768,14 @@ MSVCBackend::_get_solution_version ( void )
 	if (configuration.VSProjectVersion.empty())
 		configuration.VSProjectVersion = MS_VS_DEF_VERSION;
 
-	else if (configuration.VSProjectVersion == "7.00")
+	if (configuration.VSProjectVersion == "7.00")
 		version = "7.00";
 
-	else if (configuration.VSProjectVersion == "7.10")
+	if (configuration.VSProjectVersion == "7.10")
 		version = "8.00";
 
-	else if (configuration.VSProjectVersion == "8.00")
+	if (configuration.VSProjectVersion == "8.00")
 		version = "9.00";
-
-	else if (configuration.VSProjectVersion == "9.00")
-		version = "10.00";
-
-	return version;
-}
-
-std::string
-MSVCBackend::_get_studio_version ( void )
-{
-	string version;
-
-	if (configuration.VSProjectVersion.empty())
-		configuration.VSProjectVersion = MS_VS_DEF_VERSION;
-
-	else if (configuration.VSProjectVersion == "7.00")
-		version = "2002";
-
-	else if (configuration.VSProjectVersion == "7.10")
-		version = "2003";
-
-	else if (configuration.VSProjectVersion == "8.00")
-		version = "2005";
-
-	else if (configuration.VSProjectVersion == "9.00")
-		version = "2008";
 
 	return version;
 }
@@ -999,7 +784,7 @@ void
 MSVCBackend::_generate_sln_header ( FILE* OUT )
 {
 	fprintf ( OUT, "Microsoft Visual Studio Solution File, Format Version %s\r\n", _get_solution_version().c_str() );
-	fprintf ( OUT, "# Visual Studio %s\r\n", _get_studio_version().c_str() );
+	fprintf ( OUT, "# Visual Studio 2005\r\n" );
 	fprintf ( OUT, "\r\n" );
 }
 
@@ -1042,18 +827,18 @@ MSVCBackend::_generate_sln_footer ( FILE* OUT )
 		fprintf ( OUT, "\t\t%s = %s\r\n", m_configurations[i]->name.c_str(), m_configurations[i]->name.c_str() );
 	fprintf ( OUT, "\tEndGlobalSection\r\n" );
 	fprintf ( OUT, "\tGlobalSection(ProjectConfiguration) = postSolution\r\n" );
-	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
+	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
 	{
-		Module& module = *p->second;
+		Module& module = *ProjectNode.modules[i];
 		std::string guid = module.guid;
 		_generate_sln_configurations ( OUT, guid.c_str() );
-	}
+	} 
 	fprintf ( OUT, "\tEndGlobalSection\r\n" );
 	fprintf ( OUT, "\tGlobalSection(ExtensibilityGlobals) = postSolution\r\n" );
 	fprintf ( OUT, "\tEndGlobalSection\r\n" );
 	fprintf ( OUT, "\tGlobalSection(ExtensibilityAddIns) = postSolution\r\n" );
 	fprintf ( OUT, "\tEndGlobalSection\r\n" );
-
+	
 	if (configuration.VSProjectVersion == "7.00") {
 		fprintf ( OUT, "\tGlobalSection(ProjectDependencies) = postSolution\r\n" );
 		//FIXME: Add dependencies for VS 2002
@@ -1090,33 +875,33 @@ MSVCBackend::_generate_sln ( FILE* OUT )
 
 	_generate_sln_header(OUT);
 	// TODO FIXME - is it necessary to sort them?
-	for( std::map<std::string, Module*>::const_iterator p = ProjectNode.modules.begin(); p != ProjectNode.modules.end(); ++ p )
+	for ( size_t i = 0; i < ProjectNode.modules.size(); i++ )
 	{
-		Module& module = *p->second;
-
+		Module& module = *ProjectNode.modules[i];
+		
 		std::string vcproj_file = VcprojFileName ( module );
 		_generate_sln_project ( OUT, module, vcproj_file, sln_guid, module.guid, module.non_if_data.libraries );
 	}
 	_generate_sln_footer ( OUT );
 }
 
-const Property*
+const Property* 
 MSVCBackend::_lookup_property ( const Module& module, const std::string& name ) const
 {
-	std::map<std::string, Property*>::const_iterator p;
-
 	/* Check local values */
-	p = module.non_if_data.properties.find(name);
-
-	if ( p != module.non_if_data.properties.end() )
-		return p->second;
-
+	for ( size_t i = 0; i < module.non_if_data.properties.size(); i++ )
+	{
+		const Property& property = *module.non_if_data.properties[i];
+		if ( property.name == name )
+			return &property;
+	}
 	// TODO FIXME - should we check local if-ed properties?
-	p = module.project.non_if_data.properties.find(name);
-
-	if ( p != module.project.non_if_data.properties.end() )
-		return p->second;
-
+	for ( size_t i = 0; i < module.project.non_if_data.properties.size(); i++ )
+	{
+		const Property& property = *module.project.non_if_data.properties[i];
+		if ( property.name == name )
+			return &property;
+	}
 	// TODO FIXME - should we check global if-ed properties?
 	return NULL;
 }

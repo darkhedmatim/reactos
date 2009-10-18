@@ -32,9 +32,9 @@ SystemSetLocalTime(LPSYSTEMTIME lpSystemTime)
         priv.PrivilegeCount = 1;
         priv.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
 
-        if (LookupPrivilegeValueW(NULL,
-                                  SE_SYSTEMTIME_NAME,
-                                  &priv.Privileges[0].Luid))
+        if (LookupPrivilegeValue(NULL,
+                                 SE_SYSTEMTIME_NAME,
+                                 &priv.Privileges[0].Luid))
         {
             if (AdjustTokenPrivileges(hToken,
                                       FALSE,
@@ -80,29 +80,29 @@ SetLocalSystemTime(HWND hwnd)
     if (DateTime_GetSystemtime(GetDlgItem(hwnd,
                                           IDC_TIMEPICKER),
                                &Time) == GDT_VALID &&
-        SendMessageW(GetDlgItem(hwnd,
-                                IDC_MONTHCALENDAR),
-                     MCCM_GETDATE,
-                     (WPARAM)&Time,
-                     0))
+        SendMessage(GetDlgItem(hwnd,
+                               IDC_MONTHCALENDAR),
+                    MCCM_GETDATE,
+                    (WPARAM)&Time,
+                    0))
     {
         SystemSetLocalTime(&Time);
 
-        SetWindowLongPtrW(hwnd,
-                          DWL_MSGRESULT,
-                          PSNRET_NOERROR);
+        SetWindowLong(hwnd,
+                      DWL_MSGRESULT,
+                      PSNRET_NOERROR);
 
-        SendMessageW(GetDlgItem(hwnd,
-                                IDC_MONTHCALENDAR),
-                     MCCM_RESET,
-                     (WPARAM)&Time,
-                     0);
+        SendMessage(GetDlgItem(hwnd,
+                               IDC_MONTHCALENDAR),
+                    MCCM_RESET,
+                    (WPARAM)&Time,
+                    0);
 
         /* Broadcast the time change message */
-        SendMessageW(HWND_BROADCAST,
-                     WM_TIMECHANGE,
-                     0,
-                     0);
+        SendMessage(HWND_BROADCAST,
+                    WM_TIMECHANGE,
+                    0,
+                    0);
     }
 }
 
@@ -155,10 +155,10 @@ FillMonthsComboBox(HWND hCombo)
 
     GetLocalTime(&LocalDate);
 
-    SendMessageW(hCombo,
-                 CB_RESETCONTENT,
-                 0,
-                 0);
+    SendMessage(hCombo,
+                CB_RESETCONTENT,
+                0,
+                0);
 
     for (Month = 1;
          Month <= 13;
@@ -170,23 +170,23 @@ FillMonthsComboBox(HWND hCombo)
                            sizeof(szBuf) / sizeof(szBuf[0]));
         if (i > 1)
         {
-            i = (INT)SendMessageW(hCombo,
-                                  CB_ADDSTRING,
-                                  0,
-                                  (LPARAM)szBuf);
+            i = (INT)SendMessage(hCombo,
+                                 CB_ADDSTRING,
+                                 0,
+                                 (LPARAM)szBuf);
             if (i != CB_ERR)
             {
-                SendMessageW(hCombo,
-                             CB_SETITEMDATA,
-                             (WPARAM)i,
-                             Month);
+                SendMessage(hCombo,
+                            CB_SETITEMDATA,
+                            (WPARAM)i,
+                            Month);
 
                 if (Month == (UINT)LocalDate.wMonth)
                 {
-                    SendMessageW(hCombo,
-                                 CB_SETCURSEL,
-                                 (WPARAM)i,
-                                 0);
+                    SendMessage(hCombo,
+                                CB_SETCURSEL,
+                                (WPARAM)i,
+                                0);
                 }
             }
         }
@@ -200,16 +200,16 @@ GetCBSelectedMonth(HWND hCombo)
     INT i;
     WORD Ret = (WORD)-1;
 
-    i = (INT)SendMessageW(hCombo,
-                          CB_GETCURSEL,
-                          0,
-                          0);
+    i = (INT)SendMessage(hCombo,
+                         CB_GETCURSEL,
+                         0,
+                         0);
     if (i != CB_ERR)
     {
-        i = (INT)SendMessageW(hCombo,
-                              CB_GETITEMDATA,
-                              (WPARAM)i,
-                              0);
+        i = (INT)SendMessage(hCombo,
+                             CB_GETITEMDATA,
+                             (WPARAM)i,
+                             0);
 
         if (i >= 1 && i <= 13)
             Ret = (WORD)i;
@@ -225,12 +225,12 @@ ChangeMonthCalDate(HWND hMonthCal,
                    WORD Month,
                    WORD Year)
 {
-    SendMessageW(hMonthCal,
-                 MCCM_SETDATE,
-                 MAKEWPARAM(Day,
-                            Month),
-                 MAKELPARAM(Year,
-                            0));
+    SendMessage(hMonthCal,
+                MCCM_SETDATE,
+                MAKEWPARAM(Day,
+                           Month),
+                MAKELPARAM(Year,
+                           0));
 }
 
 static VOID
@@ -260,7 +260,7 @@ DTPProc(HWND hwnd,
             break;
     }
 
-    return CallWindowProcW(pOldWndProc, hwnd, uMsg, wParam, lParam);
+    return CallWindowProc(pOldWndProc, hwnd, uMsg, wParam, lParam);
 }
 
 /* Property page dialog callback */
@@ -282,14 +282,14 @@ DateTimePageProc(HWND hwndDlg,
             SetTimer(hwndDlg, ID_TIMER, 1000, NULL);
 
             /* set range and current year */
-            SendMessageW(GetDlgItem(hwndDlg, IDC_YEAR), UDM_SETRANGE, 0, MAKELONG ((short) 9999, (short) 1900));
-            SendMessageW(GetDlgItem(hwndDlg, IDC_YEAR), UDM_SETPOS, 0, MAKELONG( (short) st.wYear, 0));
+            SendMessage(GetDlgItem(hwndDlg, IDC_YEAR), UDM_SETRANGE, 0, MAKELONG ((short) 9999, (short) 1900));
+            SendMessage(GetDlgItem(hwndDlg, IDC_YEAR), UDM_SETPOS, 0, MAKELONG( (short) st.wYear, 0));
 
-            pOldWndProc = (WNDPROC) SetWindowLongPtrW(GetDlgItem(hwndDlg, IDC_TIMEPICKER), GWL_WNDPROC, (INT_PTR) DTPProc);
+            pOldWndProc = (WNDPROC) SetWindowLongPtr(GetDlgItem(hwndDlg, IDC_TIMEPICKER), GWL_WNDPROC, (INT_PTR) DTPProc);
             break;
 
         case WM_TIMER:
-            SendMessageW(GetDlgItem(hwndDlg, IDC_TIMEPICKER), DTM_SETSYSTEMTIME, GDT_VALID, (LPARAM) &st);
+            SendMessage(GetDlgItem(hwndDlg, IDC_TIMEPICKER), DTM_SETSYSTEMTIME, GDT_VALID, (LPARAM) &st);
             break;
 
         case WM_COMMAND:
@@ -326,7 +326,7 @@ DateTimePageProc(HWND hwndDlg,
                         {
                             SHORT wYear;
                             LPNMUPDOWN updown = (LPNMUPDOWN)lpnm;
-                            wYear = (SHORT)SendMessageW(GetDlgItem(hwndDlg, IDC_YEAR), UDM_GETPOS, 0, 0);
+                            wYear = (SHORT)SendMessage(GetDlgItem(hwndDlg, IDC_YEAR), UDM_GETPOS, 0, 0);
                             /* Enable the 'Apply' button */
                             PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
                             ChangeMonthCalDate(GetDlgItem(hwndDlg,
@@ -347,8 +347,8 @@ DateTimePageProc(HWND hwndDlg,
                             KillTimer(hwndDlg, ID_TIMER);
 
                             /* Tell the clock to stop ticking */
-                            SendDlgItemMessageW(hwndDlg, IDC_CLOCKWND, CLM_STOPCLOCK,
-                                                0, 0);
+                            SendDlgItemMessage(hwndDlg, IDC_CLOCKWND, CLM_SETTIME,
+                                               0, (LPARAM)&((LPNMDATETIMECHANGE)lpnm)->st);
 
                             /* Enable the 'Apply' button */
                             PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
@@ -381,10 +381,6 @@ DateTimePageProc(HWND hwndDlg,
                         case PSN_APPLY:
                             SetLocalSystemTime(hwndDlg);
                             SetTimer(hwndDlg, ID_TIMER, 1000, NULL);
-
-                            /* Tell the clock to start ticking */
-                            SendDlgItemMessageW(hwndDlg, IDC_CLOCKWND, CLM_STARTCLOCK,
-                                                0, 0);
                             return TRUE;
                     }
                     break;
@@ -394,11 +390,11 @@ DateTimePageProc(HWND hwndDlg,
 
         case WM_TIMECHANGE:
             /* FIXME - we don't get this message as we're not a top-level window... */
-            SendMessageW(GetDlgItem(hwndDlg,
-                                    IDC_MONTHCALENDAR),
-                         MCCM_RESET,
-                         0,
-                         0);
+            SendMessage(GetDlgItem(hwndDlg,
+                                   IDC_MONTHCALENDAR),
+                        MCCM_RESET,
+                        0,
+                        0);
             break;
 
         case WM_DESTROY:

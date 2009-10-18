@@ -15,10 +15,27 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include <precomp.h>
+#include <stdarg.h>
+#include <string.h>
+
+#define COBJMACROS
+
+#include "windef.h"
+#include "winbase.h"
+#include "winreg.h"
+#include "wingdi.h"
+#include "winuser.h"
+#include "shlobj.h"
+#include "undocshell.h"
+#include "shlwapi.h"
+#include "shell32_main.h"
+#include "shlguid.h"
+
+#include "pidl.h"
+#include "wine/debug.h"
 
 #ifdef FM_SEPARATOR
 #undef FM_SEPARATOR
@@ -73,7 +90,7 @@ static LPFMINFO FM_GetMenuInfo(HMENU hmenu)
 
 	if ((menudata == 0) || (MenuInfo.cbSize != sizeof(MENUINFO)))
 	{
-	  ERR("menudata corrupt: %p %u\n", menudata, MenuInfo.cbSize);
+	  ERR("menudata corrupt: %p %lu\n", menudata, MenuInfo.cbSize);
 	  return 0;
 	}
 
@@ -98,7 +115,9 @@ static LPFMINFO FM_SetMenuParameter(
 
 	menudata = FM_GetMenuInfo(hmenu);
 
-	SHFree(menudata->pidl);
+	if ( menudata->pidl)
+	{ SHFree(menudata->pidl);
+	}
 
 	menudata->uID = uID;
 	menudata->pidl = ILClone(pidl);
@@ -136,7 +155,7 @@ static int FM_InitMenuPopup(HMENU hmenu, LPCITEMIDLIST pAlternatePidl)
 
 	if ((menudata == 0) || (MenuInfo.cbSize != sizeof(MENUINFO)))
 	{
-	  ERR("menudata corrupt: %p %u\n", menudata, MenuInfo.cbSize);
+	  ERR("menudata corrupt: %p %lu\n", menudata, MenuInfo.cbSize);
 	  return 0;
 	}
 
@@ -248,7 +267,7 @@ HMENU WINAPI FileMenu_Create (
 
 	HMENU hMenu = CreatePopupMenu();
 
-	TRACE("0x%08x 0x%08x %p 0x%08x 0x%08x  hMenu=%p\n",
+	TRACE("0x%08lx 0x%08x %p 0x%08x 0x%08x  hMenu=%p\n",
 	crBorderColor, nBorderWidth, hBorderBmp, nSelHeight, uFlags, hMenu);
 
 	menudata = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(FMINFO));
@@ -280,7 +299,9 @@ void WINAPI FileMenu_Destroy (HMENU hmenu)
 
 	menudata = FM_GetMenuInfo(hmenu);
 
-	SHFree( menudata->pidl);
+	if ( menudata->pidl)
+	{ SHFree( menudata->pidl);
+	}
 	HeapFree(GetProcessHeap(), 0, menudata);
 
 	DestroyMenu (hmenu);
@@ -314,9 +335,9 @@ static BOOL FileMenu_AppendItemW(
 
 	if (lpText != FM_SEPARATOR)
 	{
-	  int len = wcslen (lpText);
+	  int len = strlenW (lpText);
 	  myItem = (LPFMITEM) SHAlloc( sizeof(FMITEM) + len*sizeof(WCHAR));
-	  wcscpy (myItem->szItemText, lpText);
+	  strcpyW (myItem->szItemText, lpText);
 	  myItem->cchItemText = len;
 	  myItem->iIconIndex = icon;
 	  myItem->hMenu = hMenu;
@@ -354,7 +375,7 @@ static BOOL FileMenu_AppendItemW(
 	menudata = (LPFMINFO)MenuInfo.dwMenuData;
 	if ((menudata == 0) || (MenuInfo.cbSize != sizeof(MENUINFO)))
 	{
-	  ERR("menudata corrupt: %p %u\n", menudata, MenuInfo.cbSize);
+	  ERR("menudata corrupt: %p %lu\n", menudata, MenuInfo.cbSize);
 	  return 0;
 	}
 
@@ -464,7 +485,7 @@ HMENU WINAPI FileMenu_FindSubMenuByPidl(
 int WINAPI FileMenu_AppendFilesForPidl(
 	HMENU	hmenu,
 	LPCITEMIDLIST	pidl,
-	BOOL	bAddSeparator)
+	BOOL	bAddSeperator)
 {
 	LPFMINFO	menudata;
 
@@ -474,10 +495,10 @@ int WINAPI FileMenu_AppendFilesForPidl(
 
 	FM_InitMenuPopup(hmenu, pidl);
 
-	if (bAddSeparator)
+	if (bAddSeperator)
 	  FileMenu_AppendItemW (hmenu, FM_SEPARATOR, 0, 0, 0, FM_DEFAULT_HEIGHT);
 
-	TRACE("%p %p 0x%08x\n",hmenu, pidl,bAddSeparator);
+	TRACE("%p %p 0x%08x\n",hmenu, pidl,bAddSeperator);
 
 	return 0;
 }
@@ -613,10 +634,10 @@ LRESULT WINAPI FileMenu_DrawItem(
 
 	ExtTextOutW (lpdis->hDC, xt , yt, ETO_OPAQUE, &TextRect, pMyItem->szItemText, pMyItem->cchItemText, NULL);
 
-	Shell_GetImageLists(0, &hImageList);
+	Shell_GetImageList(0, &hImageList);
 	ImageList_Draw(hImageList, pMyItem->iIconIndex, lpdis->hDC, xi, yi, ILD_NORMAL);
 
-	TRACE("-- 0x%04x 0x%04x 0x%04x 0x%04x\n", TextRect.left, TextRect.top, TextRect.right, TextRect.bottom);
+	TRACE("-- 0x%04lx 0x%04lx 0x%04lx 0x%04lx\n", TextRect.left, TextRect.top, TextRect.right, TextRect.bottom);
 
 	SetTextColor(lpdis->hDC, clrPrevText);
 	SetBkColor(lpdis->hDC, clrPrevBkgnd);
@@ -645,7 +666,7 @@ LRESULT WINAPI FileMenu_HandleMenuChar(
 	HMENU	hMenu,
 	WPARAM	wParam)
 {
-	FIXME("%p 0x%08lx\n",hMenu,wParam);
+	FIXME("%p 0x%08x\n",hMenu,wParam);
 	return 0;
 }
 
@@ -671,7 +692,8 @@ BOOL WINAPI FileMenu_DeleteAllItems (HMENU hmenu)
 	for (i = 0; i < GetMenuItemCount( hmenu ); i++)
 	{ GetMenuItemInfoW(hmenu, i, TRUE, &mii );
 
-	  SHFree((LPFMINFO)mii.dwItemData);
+	  if (mii.dwItemData)
+	    SHFree((LPFMINFO)mii.dwItemData);
 
 	  if (mii.hSubMenu)
 	    FileMenu_Destroy(mii.hSubMenu);
@@ -777,7 +799,7 @@ DWORD WINAPI FileMenu_GetItemExtent (HMENU hMenu, UINT uPos)
 	FIXME("%p 0x%08x\n", hMenu, uPos);
 
 	if (GetMenuItemRect(0, hMenu, uPos, &rect))
-	{ FIXME("0x%04x 0x%04x 0x%04x 0x%04x\n",
+	{ FIXME("0x%04lx 0x%04lx 0x%04lx 0x%04lx\n",
 	  rect.right, rect.left, rect.top, rect.bottom);
 	  return ((rect.right-rect.left)<<16) + (rect.top-rect.bottom);
 	}
@@ -809,9 +831,9 @@ void WINAPI FileMenu_AbortInitMenu (void)
  *  LPXXXXX			 pointer to struct containing a func addr at offset 8
  *					 or NULL at failure.
  */
-IContextMenu * WINAPI SHFind_InitMenuPopup (HMENU hMenu, HWND hWndParent, UINT w, UINT x)
+LPVOID WINAPI SHFind_InitMenuPopup (HMENU hMenu, HWND hWndParent, DWORD w, DWORD x)
 {
-	FIXME("hmenu=%p hwnd=%p 0x%08x 0x%08x stub\n",
+	FIXME("hmenu=%p hwnd=%p 0x%08lx 0x%08lx stub\n",
 		hMenu,hWndParent,w,x);
 	return NULL; /* this is supposed to be a pointer */
 }
@@ -843,15 +865,14 @@ static BOOL _SHIsMenuSeparator(HMENU hm, int i)
  * Shell_MergeMenus				[SHELL32.67]
  */
 HRESULT WINAPI Shell_MergeMenus (HMENU hmDst, HMENU hmSrc, UINT uInsert, UINT uIDAdjust, UINT uIDAdjustMax, ULONG uFlags)
-{
-	INT			nItem;
+{	int		nItem;
 	HMENU		hmSubMenu;
 	BOOL		bAlreadySeparated;
 	MENUITEMINFOW	miiSrc;
 	WCHAR		szName[256];
 	UINT		uTemp, uIDMax = uIDAdjust;
 
-	TRACE("hmenu1=%p hmenu2=%p 0x%04x 0x%04x 0x%04x  0x%04x\n",
+	TRACE("hmenu1=%p hmenu2=%p 0x%04x 0x%04x 0x%04x  0x%04lx\n",
 		 hmDst, hmSrc, uInsert, uIDAdjust, uIDAdjustMax, uFlags);
 
 	if (!hmDst || !hmSrc)
@@ -892,7 +913,6 @@ HRESULT WINAPI Shell_MergeMenus (HMENU hmDst, HMENU hmSrc, UINT uInsert, UINT uI
 
 	  if (!GetMenuItemInfoW(hmSrc, nItem, TRUE, &miiSrc))
 	  {
-MessageBoxW(NULL, L"GetMenuItemInfoW failed", NULL, MB_OK);
 	    continue;
 	  }
 
@@ -902,10 +922,8 @@ MessageBoxW(NULL, L"GetMenuItemInfoW failed", NULL, MB_OK);
 	  {
 	    /* This is a separator; don't put two of them in a row */
 	    if (bAlreadySeparated)
-		{
-MessageBoxW(NULL, L"bAlreadySeparated failed", NULL, MB_OK);
 	      continue;
-		}
+
 	    bAlreadySeparated = TRUE;
 	  }
 	  else if (miiSrc.hSubMenu)
@@ -914,10 +932,9 @@ MessageBoxW(NULL, L"bAlreadySeparated failed", NULL, MB_OK);
 	    {
 	      miiSrc.wID += uIDAdjust;			/* add uIDAdjust to the ID */
 
-		  if (miiSrc.wID > uIDAdjustMax)		/* skip ID's higher uIDAdjustMax */
-		  {MessageBoxW(NULL, L"uIDAdjustMax 111 failed", NULL, MB_OK);
+	      if (miiSrc.wID > uIDAdjustMax)		/* skip ID's higher uIDAdjustMax */
 	        continue;
-		  }
+
 	      if (uIDMax <= miiSrc.wID)			/* remember the highest ID */
 	        uIDMax = miiSrc.wID + 1;
 	    }
@@ -942,10 +959,9 @@ MessageBoxW(NULL, L"bAlreadySeparated failed", NULL, MB_OK);
 	  {
 	    miiSrc.wID += uIDAdjust;			/* add uIDAdjust to the ID */
 
-		if (miiSrc.wID > uIDAdjustMax)		/* skip ID's higher uIDAdjustMax */{
-MessageBoxW(NULL, L"uIDAdjustMax max 222 failed", NULL, MB_OK);
+	    if (miiSrc.wID > uIDAdjustMax)		/* skip ID's higher uIDAdjustMax */
 	      continue;
-		}
+
 	    if (uIDMax <= miiSrc.wID)			/* remember the highest ID */
 	      uIDMax = miiSrc.wID + 1;
 
@@ -956,7 +972,6 @@ MessageBoxW(NULL, L"uIDAdjustMax max 222 failed", NULL, MB_OK);
 */
 	  if (!InsertMenuItemW(hmDst, uInsert, TRUE, &miiSrc))
 	  {
-MessageBoxW(NULL, L"InsertMenuItemW failed", NULL, MB_OK);
 	    return(uIDMax);
 	  }
 	}

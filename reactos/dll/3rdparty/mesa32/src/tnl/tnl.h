@@ -1,8 +1,9 @@
+
 /*
  * Mesa 3-D graphics library
- * Version:  7.1
+ * Version:  3.5
  *
- * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,7 +29,7 @@
 #ifndef _TNL_H
 #define _TNL_H
 
-#include "main/mtypes.h"
+#include "mtypes.h"
 
 
 
@@ -49,13 +50,29 @@ _tnl_InvalidateState( GLcontext *ctx, GLuint new_state );
  * dispatch and/or driver callbacks.
  */
 
+/* Restore just the ctx->Exec table:
+ */
 extern void
-_tnl_wakeup( GLcontext *ctx );
+_tnl_wakeup_exec( GLcontext *ctx );
+
+/* Restore both ctx->Exec and ctx->Save:
+ */
+extern void
+_tnl_wakeup_save_exec( GLcontext *ctx );
 
 /* Driver configuration options:
  */
 extern void
 _tnl_need_projected_coords( GLcontext *ctx, GLboolean flag );
+
+extern void
+_tnl_need_dlist_loopback( GLcontext *ctx, GLboolean flag );
+
+extern void
+_tnl_need_dlist_norm_lengths( GLcontext *ctx, GLboolean flag );
+
+extern void
+_tnl_isolate_materials( GLcontext *ctx, GLboolean flag );
 
 
 /* Control whether T&L does per-vertex fog
@@ -66,23 +83,5 @@ _tnl_allow_vertex_fog( GLcontext *ctx, GLboolean value );
 extern void
 _tnl_allow_pixel_fog( GLcontext *ctx, GLboolean value );
 
-extern void
-_tnl_program_string(GLcontext *ctx, GLenum target, struct gl_program *program);
-
-struct _mesa_prim;
-struct _mesa_index_buffer;
-
-void
-_tnl_draw_prims( GLcontext *ctx,
-		 const struct gl_client_array *arrays[],
-		 const struct _mesa_prim *prim,
-		 GLuint nr_prims,
-		 const struct _mesa_index_buffer *ib,
-		 GLuint min_index,
-		 GLuint max_index);
-
-
-extern void
-_tnl_RasterPos(GLcontext *ctx, const GLfloat vObj[4]);
 
 #endif

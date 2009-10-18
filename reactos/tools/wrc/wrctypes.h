@@ -15,14 +15,23 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef __WRC_WRCTYPES_H
 #define __WRC_WRCTYPES_H
 
 #include <stdarg.h>
-#include "wrcrostypes.h"
+#include "windef.h"
+#include "winbase.h"
+
+#ifndef MAKELANGID
+#include "winnls.h"
+#endif
+
+#ifndef VS_FFI_SIGNATURE
+#include "winver.h"
+#endif
 
 /* Memory/load flags */
 #define WRC_MO_MOVEABLE		0x0010

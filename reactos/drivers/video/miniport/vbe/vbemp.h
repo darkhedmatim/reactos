@@ -24,21 +24,18 @@
 /* INCLUDES *******************************************************************/
 
 #ifdef _MSC_VER
-#pragma message ("INVESTIGATE ME")
-#endif
-
-#if 0 //#ifdef _MSC_VER
+#include "dderror.h"
 #include "devioctl.h"
 #else
 #include <ntddk.h>
 #endif
 
-#include "dderror.h"
 #include "miniport.h"
 #include "ntddvdeo.h"
 #include "video.h"
 
-#define TAG_VBE ' EBV'
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+#define TAG_VBE TAG('V', 'B', 'E', ' ')
 
 /*
  * Compile-time define to get VBE 1.2 support. The implementation
@@ -106,8 +103,6 @@
 #define VBE_UNSUCCESSFUL                      0x14F
 #define VBE_NOT_SUPPORTED                     0x24F
 #define VBE_FUNCTION_INVALID                  0x34F
-
-#define VBE_GETRETURNCODE(x) (x & 0xFFFF)
 
 /*
  * VBE specification defined structure for general adapter info
@@ -232,7 +227,7 @@ VBEGetVideoChildDescriptor(
    OUT PULONG pUnused);
 
 /* vbemp.c */
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VBEFindAdapter(
    IN PVOID HwDeviceExtension,
    IN PVOID HwContext,
@@ -240,27 +235,27 @@ VBEFindAdapter(
    IN OUT PVIDEO_PORT_CONFIG_INFO ConfigInfo,
    OUT PUCHAR Again);
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VBEInitialize(PVOID HwDeviceExtension);
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VBEStartIO(
    PVOID HwDeviceExtension,
    PVIDEO_REQUEST_PACKET RequestPacket);
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VBEResetHw(
    PVOID DeviceExtension,
    ULONG Columns,
    ULONG Rows);
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VBEGetPowerState(
    PVOID HwDeviceExtension,
    ULONG HwId,
    PVIDEO_POWER_MANAGEMENT VideoPowerControl);
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VBESetPowerState(
    PVOID HwDeviceExtension,
    ULONG HwId,

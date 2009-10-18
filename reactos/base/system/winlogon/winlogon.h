@@ -32,13 +32,10 @@
 #include <windows.h>
 #include <userenv.h>
 #include <winwlx.h>
-#include <cmfuncs.h>
 #include <rtlfuncs.h>
 #include <exfuncs.h>
 #include <setypes.h>
 #include <ntsecapi.h>
-#include <accctrl.h>
-#include <aclapi.h>
 
 #include <reactos/winlogon.h>
 
@@ -137,7 +134,6 @@ typedef struct _WLSESSION
   HDESK ScreenSaverDesktop;
   LUID LogonId;
   HANDLE UserToken;
-  HANDLE hProfileInfo;
   DWORD LogonStatus;
   DWORD DialogTimeout; /* Timeout for dialog boxes, in seconds */
 
@@ -157,7 +153,7 @@ typedef struct _WLSESSION
   /* Logon informations */
   DWORD Options;
   WLX_MPR_NOTIFY_INFO MprNotifyInfo;
-  WLX_PROFILE_V2_0 *Profile;
+  WLX_PROFILE_V2_0 Profile;
 } WLSESSION, *PWLSESSION;
 
 extern HINSTANCE hAppInstance;

@@ -1,10 +1,5 @@
 /*
- * PROJECT:     ReactOS Service Control Manager
- * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        base/system/services/groupdb.c
- * PURPOSE:     Service group control interface
- * COPYRIGHT:   Copyright 2005 Eric Kohl
- *
+ * groupdb.c
  */
 
 /* INCLUDES *****************************************************************/
@@ -25,7 +20,7 @@ LIST_ENTRY UnknownGroupListHead;
 
 DWORD
 ScmSetServiceGroup(PSERVICE lpService,
-                   LPCWSTR lpGroupName)
+                   LPWSTR lpGroupName)
 {
     PLIST_ENTRY GroupEntry;
     PSERVICE_GROUP lpGroup;
@@ -61,7 +56,7 @@ ScmSetServiceGroup(PSERVICE lpService,
 
     lpGroup = (PSERVICE_GROUP)HeapAlloc(GetProcessHeap(),
                                         HEAP_ZERO_MEMORY,
-                                        sizeof(SERVICE_GROUP) + ((wcslen(lpGroupName) + 1)* sizeof(WCHAR)));
+                                        sizeof(SERVICE_GROUP) + (wcslen(lpGroupName) * sizeof(WCHAR)));
     if (lpGroup == NULL)
         return ERROR_NOT_ENOUGH_MEMORY;
 
@@ -77,7 +72,7 @@ ScmSetServiceGroup(PSERVICE lpService,
 }
 
 
-static NTSTATUS WINAPI
+static NTSTATUS STDCALL
 CreateGroupOrderListRoutine(PWSTR ValueName,
                             ULONG ValueType,
                             PVOID ValueData,
@@ -126,7 +121,7 @@ CreateGroupOrderListRoutine(PWSTR ValueName,
 }
 
 
-static NTSTATUS WINAPI
+static NTSTATUS STDCALL
 CreateGroupListRoutine(PWSTR ValueName,
                        ULONG ValueType,
                        PVOID ValueData,
@@ -144,7 +139,7 @@ CreateGroupListRoutine(PWSTR ValueName,
 
         Group = (PSERVICE_GROUP)HeapAlloc(GetProcessHeap(),
                                           HEAP_ZERO_MEMORY,
-                                          sizeof(SERVICE_GROUP) + ((wcslen((const wchar_t*) ValueData) + 1) * sizeof(WCHAR)));
+                                          sizeof(SERVICE_GROUP) + (wcslen((const wchar_t*) ValueData) * sizeof(WCHAR)));
         if (Group == NULL)
         {
             return STATUS_INSUFFICIENT_RESOURCES;

@@ -17,6 +17,7 @@
 #include <assert.h>
 
 #define FASTCALL
+#define STDCALL
 #define INT int
 #define CLIPOBJ int
 #define SURFOBJ int
@@ -314,10 +315,10 @@ POLYGONFILL_MakeEdge(POINT From, POINT To)
 ** lines will become active first when scanning from
 ** top (min y) to bottom (max y).
 **
-** Return Value Meaning
-** Negative integer element1 < element2
-** Zero element1 = element2
-** Positive integer element1 > element2
+** Return Value Meaning 
+** Negative integer element1 < element2 
+** Zero element1 = element2 
+** Positive integer element1 > element2 
 */
 static
 INT
@@ -426,7 +427,7 @@ fail:
 
 
 /*
-** This slow routine uses the data stored in the edge list to
+** This slow routine uses the data stored in the edge list to 
 ** calculate the x intercepts for each line in the edge list
 ** for scanline Scanline.
 **TODO: Get rid of this floating point arithmetic
@@ -500,6 +501,7 @@ POLYGONFILL_UpdateScanline(FILL_EDGE* pEdge, int Scanline)
 */
 static
 void
+STDCALL
 POLYGONFILL_BuildActiveList ( int Scanline, FILL_EDGE_LIST* list, FILL_EDGE** ActiveHead )
 {
   int i;
@@ -524,6 +526,7 @@ POLYGONFILL_BuildActiveList ( int Scanline, FILL_EDGE_LIST* list, FILL_EDGE** Ac
 */
 static
 void
+STDCALL
 POLYGONFILL_FillScanLineAlternate(
   PDC dc,
   int ScanLine,
@@ -571,6 +574,7 @@ POLYGONFILL_FillScanLineAlternate(
 
 static
 void
+STDCALL
 POLYGONFILL_FillScanLineWinding(
   PDC dc,
   int ScanLine,
@@ -660,16 +664,17 @@ POLYGONFILL_FillScanLineWinding(
 		RopMode); // MIX
 }
 
-//When the fill mode is ALTERNATE, GDI fills the area between odd-numbered and
-//even-numbered polygon sides on each scan line. That is, GDI fills the area between the
-//first and second side, between the third and fourth side, and so on.
+//When the fill mode is ALTERNATE, GDI fills the area between odd-numbered and 
+//even-numbered polygon sides on each scan line. That is, GDI fills the area between the 
+//first and second side, between the third and fourth side, and so on. 
 
-//WINDING Selects winding mode (fills any region with a nonzero winding value).
+//WINDING Selects winding mode (fills any region with a nonzero winding value). 
 //When the fill mode is WINDING, GDI fills any region that has a nonzero winding value.
 //This value is defined as the number of times a pen used to draw the polygon would go around the region.
-//The direction of each edge of the polygon is important.
+//The direction of each edge of the polygon is important. 
 
 BOOL
+STDCALL
 FillPolygon(
   PDC dc,
   SURFOBJ *SurfObj,
@@ -684,6 +689,7 @@ FillPolygon(
   int ScanLine;
 
   void
+  STDCALL
   (*FillScanLine)(
     PDC dc,
     int ScanLine,
@@ -705,7 +711,7 @@ FillPolygon(
   else /* default */
     FillScanLine = POLYGONFILL_FillScanLineAlternate;
 
-  /* For each Scanline from BoundRect.bottom to BoundRect.top,
+  /* For each Scanline from BoundRect.bottom to BoundRect.top, 
    * determine line segments to draw
    */
   for ( ScanLine = BoundRect.top; ScanLine < BoundRect.bottom; ++ScanLine )
@@ -774,7 +780,7 @@ Polygon ( CONST PPOINT UnsafePoints, int Count, int polyFillMode )
       DestRect.top      = MIN(DestRect.top, Points[CurrentPoint].y);
       DestRect.bottom   = MAX(DestRect.bottom, Points[CurrentPoint].y);
     }
-
+    
   // Draw the Polygon Edges with the current pen
   for (CurrentPoint = 0; CurrentPoint < Count; ++CurrentPoint)
     {
@@ -794,13 +800,13 @@ Polygon ( CONST PPOINT UnsafePoints, int Count, int polyFillMode )
 	  To = Points[CurrentPoint + 1];
 	}
 
-      DPRINT1("Polygon Making line from (%ld,%ld) to (%ld,%ld)\n", From.x, From.y, To.x, To.y );
+      DPRINT1("Polygon Making line from (%d,%d) to (%d,%d)\n", From.x, From.y, To.x, To.y );
       IntEngLineTo(SurfObj,
 	           dc.CombinedClip,
 	           OutBrushObj,
-	           From.x,
-	           From.y,
-	           To.x,
+	           From.x, 
+	           From.y, 
+	           To.x, 
 	           To.y,
 	           &DestRect,
 	           EDGE_CHAR); /* MIX */
@@ -863,6 +869,6 @@ int main()
     printf("\n");
   }
   DPRINT1("Done!\n");
-  (void)_getch();
+  (void)getch();
 }
 /* EOF */

@@ -2,6 +2,6 @@
  */
 
 #include <string.h>
-#include "tcsncat.h"
+#include "internal/tcsncat.h"
 
 /* EOF */

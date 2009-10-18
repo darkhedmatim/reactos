@@ -35,8 +35,6 @@
 
 #include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(user32);
-
 /* DEFINES *******************************************************************/
 
 #define MSGBOX_IDICON   (1088)
@@ -618,7 +616,7 @@ MessageBoxTimeoutIndirectW(
  * @implemented
  */
 int
-WINAPI
+STDCALL
 MessageBoxA(
   HWND hWnd,
   LPCSTR lpText,
@@ -633,7 +631,7 @@ MessageBoxA(
  * @implemented
  */
 int
-WINAPI
+STDCALL
 MessageBoxExA(
   HWND hWnd,
   LPCSTR lpText,
@@ -662,7 +660,7 @@ MessageBoxExA(
  * @implemented
  */
 int
-WINAPI
+STDCALL
 MessageBoxExW(
   HWND hWnd,
   LPCWSTR lpText,
@@ -691,7 +689,7 @@ MessageBoxExW(
  * @implemented
  */
 int
-WINAPI
+STDCALL
 MessageBoxIndirectA(
   CONST MSGBOXPARAMSA *lpMsgBoxParams)
 {
@@ -770,7 +768,7 @@ MessageBoxIndirectA(
  * @implemented
  */
 int
-WINAPI
+STDCALL
 MessageBoxIndirectW(
   CONST MSGBOXPARAMSW *lpMsgBoxParams)
 {
@@ -782,7 +780,7 @@ MessageBoxIndirectW(
  * @implemented
  */
 int
-WINAPI
+STDCALL
 MessageBoxW(
   HWND hWnd,
   LPCWSTR lpText,
@@ -796,7 +794,7 @@ MessageBoxW(
  * @implemented
  */
 int
-WINAPI
+STDCALL
 MessageBoxTimeoutA(
   HWND hWnd,
   LPCSTR lpText,
@@ -845,7 +843,7 @@ MessageBoxTimeoutA(
  * @implemented
  */
 int
-WINAPI
+STDCALL
 MessageBoxTimeoutW(
   HWND hWnd,
   LPCWSTR lpText,
@@ -875,7 +873,7 @@ MessageBoxTimeoutW(
  * @unimplemented
  */
 DWORD
-WINAPI
+STDCALL
 SoftModalMessageBox(DWORD Unknown0)
 {
   UNIMPLEMENTED;
@@ -887,7 +885,7 @@ SoftModalMessageBox(DWORD Unknown0)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 MessageBeep(UINT uType)
 {
 #if 0
@@ -920,16 +918,6 @@ MessageBeep(UINT uType)
 #else
   return Beep(500, 100);    // Beep through speaker
 #endif
-}
-
-
-/*
- * @implemented
- */
-LPWSTR WINAPI MB_GetString(DWORD string)
-{
-    UNIMPLEMENTED;
-    return NULL;
 }
 
 /* EOF */

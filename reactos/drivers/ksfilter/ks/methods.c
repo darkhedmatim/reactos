@@ -1,19 +1,15 @@
-/*
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS Kernel Streaming
- * FILE:            drivers/ksfilter/ks/methods.c
- * PURPOSE:         KS Allocator functions
- * PROGRAMMER:      Johannes Anderwald
- */
+/* ===============================================================
+    Method Functions
+*/
 
-#include "priv.h"
+#include <ntddk.h>
+#include <debug.h>
+#include <ks.h>
 
 /*
     @unimplemented
 */
-KSDDKAPI
-NTSTATUS
-NTAPI
+KSDDKAPI NTSTATUS NTAPI
 KsMethodHandler(
     IN  PIRP Irp,
     IN  ULONG MethodSetsCount,
@@ -26,9 +22,7 @@ KsMethodHandler(
 /*
     @unimplemented
 */
-KSDDKAPI
-NTSTATUS
-NTAPI
+KSDDKAPI NTSTATUS NTAPI
 KsMethodHandlerWithAllocator(
     IN  PIRP Irp,
     IN  ULONG MethodSetsCount,
@@ -43,9 +37,7 @@ KsMethodHandlerWithAllocator(
 /*
     @unimplemented
 */
-KSDDKAPI
-BOOLEAN
-NTAPI
+KSDDKAPI BOOLEAN NTAPI
 KsFastMethodHandler(
     IN  PFILE_OBJECT FileObject,
     IN  PKSMETHOD UNALIGNED Method,

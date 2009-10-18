@@ -49,7 +49,7 @@ Main_DirectDraw_CreatePalette(
                               LPDIRECTDRAWPALETTE* ppPalette,
                               LPUNKNOWN pUnkOuter);
 
-HRESULT WINAPI
+HRESULT WINAPI 
 Main_DirectDraw_CreateSurface4(
                                LPDIRECTDRAW7 iface,
                                LPDDSURFACEDESC2 pDDSD,
@@ -62,8 +62,8 @@ Main_DirectDraw_DuplicateSurface(
                                  LPDIRECTDRAWSURFACE7 src,
                                  LPDIRECTDRAWSURFACE7* dst);
 
-HRESULT WINAPI
-Main_DirectDraw_EnumDisplayModes4(
+HRESULT WINAPI 
+Main_DirectDraw_EnumDisplayModes(
                                  LPDIRECTDRAW7 iface,
                                  DWORD dwFlags,
                                  LPDDSURFACEDESC2 pDDSD,
@@ -71,7 +71,7 @@ Main_DirectDraw_EnumDisplayModes4(
                                  LPDDENUMMODESCALLBACK2 pCallback);
 
 HRESULT WINAPI
-Main_DirectDraw_EnumSurfaces7(
+Main_DirectDraw_EnumSurfaces(
                              LPDIRECTDRAW7 iface,
                              DWORD dwFlags,
                              LPDDSURFACEDESC2 lpDDSD2,
@@ -88,7 +88,7 @@ Main_DirectDraw_GetCaps(
                         LPDDCAPS pHELCaps);
 
 HRESULT WINAPI
-Main_DirectDraw_GetDisplayMode4 (
+Main_DirectDraw_GetDisplayMode (
                                 LPDIRECTDRAW7 iface,
                                 LPDDSURFACEDESC2 pDDSD);
 
@@ -134,7 +134,7 @@ Main_DirectDraw_SetCooperativeLevel (
                                      DWORD cooplevel);
 
 HRESULT WINAPI
-Main_DirectDraw_SetDisplayMode2(
+Main_DirectDraw_SetDisplayMode(
                                LPDIRECTDRAW7 iface,
                                DWORD dwWidth,
                                DWORD dwHeight,
@@ -156,16 +156,16 @@ Main_DirectDraw_GetAvailableVidMem4(
                                     LPDWORD dwTotal,
                                     LPDWORD dwFree);
 
-HRESULT WINAPI
+HRESULT WINAPI 
 Main_DirectDraw_GetSurfaceFromDC(
                                  LPDIRECTDRAW7 iface,
                                  HDC hdc,
                                  LPDIRECTDRAWSURFACE7 *lpDDS);
 
-HRESULT WINAPI
+HRESULT WINAPI 
 Main_DirectDraw_RestoreAllSurfaces(LPDIRECTDRAW7 iface);
 
-HRESULT WINAPI
+HRESULT WINAPI 
 Main_DirectDraw_TestCooperativeLevel(LPDIRECTDRAW7 iface);
 
 HRESULT WINAPI
@@ -174,7 +174,7 @@ Main_DirectDraw_GetDeviceIdentifier7(
                                      LPDDDEVICEIDENTIFIER2 pDDDI,
                                      DWORD dwFlags);
 
-HRESULT WINAPI
+HRESULT WINAPI 
 Main_DirectDraw_StartModeTest(
                               LPDIRECTDRAW7 iface,
                               LPSIZE pModes,
@@ -197,11 +197,11 @@ IDirectDraw7Vtbl DirectDraw7_Vtable =
     Main_DirectDraw_CreatePalette,
     Main_DirectDraw_CreateSurface4,             /* (CreateSurface4 testing / devloping) */
     Main_DirectDraw_DuplicateSurface,
-    Main_DirectDraw_EnumDisplayModes4,           /* (EnumDisplayModes testing / devloping) */
-    Main_DirectDraw_EnumSurfaces7,
+    Main_DirectDraw_EnumDisplayModes,           /* (EnumDisplayModes testing / devloping) */
+    Main_DirectDraw_EnumSurfaces,
     Main_DirectDraw_FlipToGDISurface,
     Main_DirectDraw_GetCaps,                    /* (GetCaps done) */
-    Main_DirectDraw_GetDisplayMode4,             /* (GetDisplayMode testing / devloping) */
+    Main_DirectDraw_GetDisplayMode,             /* (GetDisplayMode testing / devloping) */
     Main_DirectDraw_GetFourCCCodes,             /* (GetFourCCCodes done) */
     Main_DirectDraw_GetGDISurface,
     Main_DirectDraw_GetMonitorFrequency,        /* (GetMonitorFrequency done) */
@@ -210,7 +210,7 @@ IDirectDraw7Vtbl DirectDraw7_Vtable =
     Main_DirectDraw_Initialize,                 /* (Initialize done) */
     Main_DirectDraw_RestoreDisplayMode,         /* (RestoreDisplayMode testing / devloping) */
     Main_DirectDraw_SetCooperativeLevel,        /* (SetCooperativeLevel testing / devloping) */
-    Main_DirectDraw_SetDisplayMode2,             /* (SetDisplayMode testing / devloping) */
+    Main_DirectDraw_SetDisplayMode,             /* (SetDisplayMode testing / devloping) */
     Main_DirectDraw_WaitForVerticalBlank,
     Main_DirectDraw_GetAvailableVidMem4,        /* (GetAvailableVidMem4 done) */
     Main_DirectDraw_GetSurfaceFromDC,
@@ -220,6 +220,4 @@ IDirectDraw7Vtbl DirectDraw7_Vtable =
     Main_DirectDraw_StartModeTest,
     Main_DirectDraw_EvaluateMode
 };
-
-
 

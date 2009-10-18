@@ -14,11 +14,13 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+/* $Id$
  *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/filesystem/ntfs/rw.c
+ * FILE:             services/fs/cdfs/rw.c
  * PURPOSE:          CDROM (ISO 9660) filesystem driver
  * PROGRAMMER:       Art Yerkes
  * UPDATE HISTORY:
@@ -129,8 +131,8 @@ NtfsReadFile(PDEVICE_EXTENSION DeviceExt,
 }
 
 
-NTSTATUS NTAPI
-NtfsFsdRead(PDEVICE_OBJECT DeviceObject,
+NTSTATUS STDCALL
+NtfsRead(PDEVICE_OBJECT DeviceObject,
 	 PIRP Irp)
 {
   PDEVICE_EXTENSION DeviceExt;
@@ -181,8 +183,8 @@ NtfsFsdRead(PDEVICE_OBJECT DeviceObject,
 }
 
 
-NTSTATUS NTAPI
-NtfsFsdWrite(PDEVICE_OBJECT DeviceObject,
+NTSTATUS STDCALL
+NtfsWrite(PDEVICE_OBJECT DeviceObject,
 	  PIRP Irp)
 {
   DPRINT("NtfwWrite(DeviceObject %x Irp %x)\n",DeviceObject,Irp);

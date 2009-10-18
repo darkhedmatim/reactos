@@ -18,6 +18,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 
 /* a list of all the internal commands, associating their command names */
@@ -35,10 +36,6 @@ COMMAND cmds[] =
 
 #ifdef FEATURE_ALIASES
 	{_T("alias"), 0, CommandAlias},
-#endif
-
-#ifdef INCLUDE_CMD_ASSOC
-	{_T("assoc"), 0, CommandAssoc},
 #endif
 
 #ifdef INCLUDE_CMD_ATTRIB
@@ -97,12 +94,12 @@ COMMAND cmds[] =
 	{_T("dirs"), 0, CommandDirs},
 #endif
 
-	{_T("echo"), CMD_SPECIAL, CommandEcho},
+	{_T("echo"), 0, CommandEcho},
+	{_T("echo."), CMD_HIDE, CommandEcho},
 	{_T("echos"), 0, CommandEchos},
-	{_T("echoerr"), CMD_SPECIAL, CommandEchoerr},
+	{_T("echoerr"), 0, CommandEchoerr},
+	{_T("echoerr."), CMD_HIDE, CommandEchoerr},
 	{_T("echoserr"), 0, CommandEchoserr},
-
-	{_T("endlocal"), 0, cmd_endlocal},
 
 #ifdef INCLUDE_CMD_DEL
 	{_T("erase"), 0, CommandDelete},
@@ -137,10 +134,6 @@ COMMAND cmds[] =
 #ifdef INCLUDE_CMD_MKDIR
 	{_T("md"), CMD_SPECIAL, cmd_mkdir},
 	{_T("mkdir"), CMD_SPECIAL, cmd_mkdir},
-#endif
-
-#ifdef INCLUDE_CMD_MKLINK
-	{_T("mklink"), 0, cmd_mklink},
 #endif
 
 #ifdef INCLUDE_CMD_MOVE
@@ -184,10 +177,6 @@ COMMAND cmds[] =
 	{_T("rename"), 0, cmd_rename},
 #endif
 
-#ifdef INCLUDE_CMD_REPLACE
-	{_T("replace"), 0, cmd_replace},
-#endif
-
 #ifdef INCLUDE_CMD_RMDIR
 	{_T("rmdir"), CMD_SPECIAL, cmd_rmdir},
 #endif
@@ -199,8 +188,6 @@ COMMAND cmds[] =
 #ifdef INCLUDE_CMD_SET
 	{_T("set"), 0, cmd_set},
 #endif
-
-	{_T("setlocal"), 0, cmd_setlocal},
 
 	{_T("shift"), CMD_BATCHONLY, cmd_shift},
 

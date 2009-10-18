@@ -26,7 +26,8 @@ BOOLEAN InitOperatingSystemList(PCSTR **SectionNamesPointer, PCSTR **DisplayName
 	CHAR	SettingName[260];
 	CHAR	SettingValue[260];
 	ULONG		OperatingSystemCount;
-	ULONG_PTR	SectionId;
+	ULONG		SectionId;
+	ULONG		OperatingSystemSectionId;
 	ULONG		SectionSettingCount;
 	PCHAR	*OperatingSystemSectionNames;
 	PCHAR	*OperatingSystemDisplayNames;
@@ -59,14 +60,17 @@ BOOLEAN InitOperatingSystemList(PCSTR **SectionNamesPointer, PCSTR **DisplayName
 	{
 		IniReadSettingByNumber(SectionId, Idx, SettingName, sizeof(SettingName), SettingValue, sizeof(SettingValue));
 
-		// Copy the section name
-		strcpy(OperatingSystemSectionNames[CurrentOperatingSystemIndex], SettingName);
+		if (IniOpenSection(SettingName, &OperatingSystemSectionId))
+		{
+			// Copy the section name
+			strcpy(OperatingSystemSectionNames[CurrentOperatingSystemIndex], SettingName);
 
-		// Copy the display name
-		RemoveQuotes(SettingValue);
-		strcpy(OperatingSystemDisplayNames[CurrentOperatingSystemIndex], SettingValue);
+			// Copy the display name
+			RemoveQuotes(SettingValue);
+			strcpy(OperatingSystemDisplayNames[CurrentOperatingSystemIndex], SettingValue);
 
-		CurrentOperatingSystemIndex++;
+			CurrentOperatingSystemIndex++;
+		}
 	}
 
 	*OperatingSystemCountPointer = OperatingSystemCount;
@@ -78,7 +82,32 @@ BOOLEAN InitOperatingSystemList(PCSTR **SectionNamesPointer, PCSTR **DisplayName
 
 ULONG CountOperatingSystems(ULONG SectionId)
 {
-	return IniGetNumSectionItems(SectionId);
+	ULONG		Idx;
+	CHAR	SettingName[260];
+	CHAR	SettingValue[260];
+	ULONG		OperatingSystemCount = 0;
+	ULONG		SectionSettingCount;
+
+	//
+	// Loop through and count the operating systems
+	//
+	SectionSettingCount = IniGetNumSectionItems(SectionId);
+	for (Idx=0; Idx<SectionSettingCount; Idx++)
+	{
+		IniReadSettingByNumber(SectionId, Idx, SettingName, sizeof(SettingName), SettingValue, sizeof(SettingValue));
+
+		if (IniOpenSection(SettingName, NULL))
+		{
+			OperatingSystemCount++;
+		}
+		else
+		{
+			sprintf(SettingName, "Operating System '%s' is listed in\nfreeldr.ini but doesn't have a [section].", SettingValue);
+			UiMessageBox(SettingName);
+		}
+	}
+
+	return OperatingSystemCount;
 }
 
 BOOLEAN AllocateListMemory(PCHAR **SectionNamesPointer, PCHAR **DisplayNamesPointer, ULONG OperatingSystemCount)
@@ -90,8 +119,8 @@ BOOLEAN AllocateListMemory(PCHAR **SectionNamesPointer, PCHAR **DisplayNamesPoin
 	//
 	// Allocate memory to hold operating system list arrays
 	//
-	OperatingSystemSectionNames = MmHeapAlloc( sizeof(PCHAR) * OperatingSystemCount);
-	OperatingSystemDisplayNames = MmHeapAlloc( sizeof(PCHAR) * OperatingSystemCount);
+	OperatingSystemSectionNames = MmAllocateMemory( sizeof(PCHAR) * OperatingSystemCount);
+	OperatingSystemDisplayNames = MmAllocateMemory( sizeof(PCHAR) * OperatingSystemCount);
 
 	//
 	// If either allocation failed then return FALSE
@@ -100,12 +129,12 @@ BOOLEAN AllocateListMemory(PCHAR **SectionNamesPointer, PCHAR **DisplayNamesPoin
 	{
 		if (OperatingSystemSectionNames != NULL)
 		{
-			MmHeapFree(OperatingSystemSectionNames);
+			MmFreeMemory(OperatingSystemSectionNames);
 		}
 
 		if (OperatingSystemDisplayNames != NULL)
 		{
-			MmHeapFree(OperatingSystemDisplayNames);
+			MmFreeMemory(OperatingSystemDisplayNames);
 		}
 
 		return FALSE;
@@ -122,8 +151,8 @@ BOOLEAN AllocateListMemory(PCHAR **SectionNamesPointer, PCHAR **DisplayNamesPoin
 	//
 	for (Idx=0; Idx<OperatingSystemCount; Idx++)
 	{
-		OperatingSystemSectionNames[Idx] = MmHeapAlloc(80);
-		OperatingSystemDisplayNames[Idx] = MmHeapAlloc(80);
+		OperatingSystemSectionNames[Idx] = MmAllocateMemory(80);
+		OperatingSystemDisplayNames[Idx] = MmAllocateMemory(80);
 
 		//
 		// If it failed then jump to the cleanup code
@@ -148,20 +177,20 @@ AllocateListMemoryFailed:
 	{
 		if (OperatingSystemSectionNames[Idx] != NULL)
 		{
-			MmHeapFree(OperatingSystemSectionNames[Idx]);
+			MmFreeMemory(OperatingSystemSectionNames[Idx]);
 		}
 
 		if (OperatingSystemDisplayNames[Idx] != NULL)
 		{
-			MmHeapFree(OperatingSystemDisplayNames[Idx]);
+			MmFreeMemory(OperatingSystemDisplayNames[Idx]);
 		}
 	}
 
 	//
 	// Free operating system list arrays
 	//
-	MmHeapFree(OperatingSystemSectionNames);
-	MmHeapFree(OperatingSystemDisplayNames);
+	MmFreeMemory(OperatingSystemSectionNames);
+	MmFreeMemory(OperatingSystemDisplayNames);
 
 	return FALSE;
 }

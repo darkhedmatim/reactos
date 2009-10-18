@@ -11,7 +11,6 @@
 
 HINSTANCE hInstance;
 HANDLE ProcessHeap;
-HANDLE hMutex;
 
 int WINAPI
 _tWinMain(HINSTANCE hThisInstance,
@@ -24,16 +23,6 @@ _tWinMain(HINSTANCE hThisInstance,
     MSG Msg;
     int Ret = 1;
     INITCOMMONCONTROLSEX icex;
-
-    hMutex = CreateMutex(NULL, TRUE, _T("devmgmt_mutex"));
-    if (hMutex == NULL || GetLastError() == ERROR_ALREADY_EXISTS)
-    {
-        if (hMutex)
-        {
-            CloseHandle(hMutex);
-        }
-        return 0;
-    }
 
     hInstance = hThisInstance;
     ProcessHeap = GetProcessHeap();
@@ -70,7 +59,7 @@ _tWinMain(HINSTANCE hThisInstance,
     }
 
     LocalFree((HLOCAL)lpAppName);
-    CloseHandle(hMutex);
+
     return Ret;
 }
 

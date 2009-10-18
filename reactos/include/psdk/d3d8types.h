@@ -13,7 +13,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef __WINE_D3D8TYPES_H
@@ -39,6 +39,11 @@
 #define D3DCOLOR_COLORVALUE(r,g,b,a)  D3DCOLOR_RGBA((DWORD)((r)*255.f),(DWORD)((g)*255.f),(DWORD)((b)*255.f),(DWORD)((a)*255.f))
 #define D3DCOLOR_RGBA(r,g,b,a)        D3DCOLOR_ARGB(a,r,g,b)
 #define D3DCOLOR_XRGB(r,g,b)          D3DCOLOR_ARGB(0xff,r,g,b)
+
+#define D3DCOLORWRITEENABLED_RED     1
+#define D3DCOLORWRITEENABLED_GREEN   2
+#define D3DCOLORWRITEENABLED_BLUE    4
+#define D3DCOLORWRITEENABLED_ALPHA   8
 
 #define D3DCS_LEFT                 0x001
 #define D3DCS_RIGHT                0x002
@@ -142,19 +147,19 @@
 #define D3DTA_ALPHAREPLICATE    0x00000020
 #define D3DTA_TEMP              0x00000005
 
-#define D3DCOLORWRITEENABLE_RED   (1L<<0)
+#define D3DCOLORWRITEENABLE_RED   (1L<<0)   
 #define D3DCOLORWRITEENABLE_GREEN (1L<<1)
 #define D3DCOLORWRITEENABLE_BLUE  (1L<<2)
 #define D3DCOLORWRITEENABLE_ALPHA (1L<<3)
 
 
-#ifndef MAKEFOURCC
+
 #define MAKEFOURCC(ch0, ch1, ch2, ch3)  \
     ((DWORD)(BYTE)(ch0) | ((DWORD)(BYTE)(ch1) << 8) |  \
     ((DWORD)(BYTE)(ch2) << 16) | ((DWORD)(BYTE)(ch3) << 24 ))
-#endif
 
-/****************************
+
+/**************************** 
  * Vertex Shaders Declaration
  */
 
@@ -608,8 +613,6 @@ typedef enum _D3DFORMAT {
     D3DFMT_A8                   =  28,
     D3DFMT_A8R3G3B2             =  29,
     D3DFMT_X4R4G4B4             =  30,
-    D3DFMT_A2B10G10R10          =  31,
-    D3DFMT_G16R16               =  34,
 
     D3DFMT_A8P8                 =  40,
     D3DFMT_P8                   =  41,
@@ -624,7 +627,6 @@ typedef enum _D3DFORMAT {
     D3DFMT_Q8W8V8U8             =  63,
     D3DFMT_V16U16               =  64,
     D3DFMT_W11V11U10            =  65,
-    D3DFMT_A2W10V10U10          =  67,
 
     D3DFMT_UYVY                 =  MAKEFOURCC('U', 'Y', 'V', 'Y'),
     D3DFMT_YUY2                 =  MAKEFOURCC('Y', 'U', 'Y', '2'),

@@ -12,7 +12,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 
 /* FUNCTIONS *****************************************************************/
@@ -49,7 +49,7 @@ IntCreateDefaultTimerQueue(VOID)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 CancelTimerQueueTimer(HANDLE TimerQueue,
                       HANDLE Timer)
 {
@@ -92,7 +92,7 @@ CancelTimerQueueTimer(HANDLE TimerQueue,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 ChangeTimerQueueTimer(HANDLE TimerQueue,
                       HANDLE Timer,
                       ULONG DueTime,
@@ -133,7 +133,7 @@ ChangeTimerQueueTimer(HANDLE TimerQueue,
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 CreateTimerQueue(VOID)
 {
   HANDLE Handle;
@@ -154,7 +154,7 @@ CreateTimerQueue(VOID)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 CreateTimerQueueTimer(PHANDLE phNewTimer,
                       HANDLE TimerQueue,
                       WAITORTIMERCALLBACK Callback,
@@ -202,7 +202,7 @@ CreateTimerQueueTimer(PHANDLE phNewTimer,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 DeleteTimerQueue(HANDLE TimerQueue)
 {
   NTSTATUS Status;
@@ -223,7 +223,7 @@ DeleteTimerQueue(HANDLE TimerQueue)
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 DeleteTimerQueueEx(HANDLE TimerQueue,
                    HANDLE CompletionEvent)
 {
@@ -260,7 +260,7 @@ DeleteTimerQueueEx(HANDLE TimerQueue,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 DeleteTimerQueueTimer(HANDLE TimerQueue,
                       HANDLE Timer,
                       HANDLE CompletionEvent)
@@ -309,7 +309,7 @@ DeleteTimerQueueTimer(HANDLE TimerQueue,
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 SetTimerQueueTimer(HANDLE TimerQueue,
                    WAITORTIMERCALLBACK Callback,
                    PVOID Parameter,

@@ -46,7 +46,7 @@ typedef struct BindCtxObject{
 
 } BindCtxObject;
 
-/* BindCtx data structure */
+/* BindCtx data strucrture */
 typedef struct BindCtxImpl{
 
     const IBindCtxVtbl *lpVtbl; /* VTable relative to the IBindCtx interface.*/
@@ -74,11 +74,11 @@ BindCtxImpl_QueryInterface(IBindCtx* iface,REFIID riid,void** ppvObject)
 {
     BindCtxImpl *This = (BindCtxImpl *)iface;
 
-    TRACE("(%p %s %p)\n",This, debugstr_guid(riid), ppvObject);
+    TRACE("(%p,%p,%p)\n",This,riid,ppvObject);
 
     /* Perform a sanity check on the parameters.*/
-    if (!ppvObject)
-        return E_POINTER;
+    if ( (This==0) || (ppvObject==0) )
+        return E_INVALIDARG;
 
     /* Initialize the return parameter.*/
     *ppvObject = 0;
@@ -87,7 +87,7 @@ BindCtxImpl_QueryInterface(IBindCtx* iface,REFIID riid,void** ppvObject)
     if (IsEqualIID(&IID_IUnknown, riid) ||
         IsEqualIID(&IID_IBindCtx, riid))
     {
-        *ppvObject = This;
+        *ppvObject = (IBindCtx*)This;
         IBindCtx_AddRef(iface);
         return S_OK;
     }
@@ -611,9 +611,6 @@ HRESULT WINAPI BindMoniker(LPMONIKER pmk, DWORD grfOpt, REFIID riid, LPVOID * pp
 
     res = CreateBindCtx(grfOpt, &pbc);
     if (SUCCEEDED(res))
-    {
         res = IMoniker_BindToObject(pmk, pbc, NULL, riid, ppvResult);
-        IBindCtx_Release(pbc);
-    }
     return res;
 }

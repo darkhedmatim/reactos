@@ -31,6 +31,7 @@
 #include "tmschema.h"
 
 #include "msstyles.h"
+#include "uxthemedll.h"
 
 #include "wine/debug.h"
 

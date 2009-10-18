@@ -41,7 +41,7 @@ typedef struct _REG_KEY
   /* Information on hard disk structure */
   HCELL_INDEX KeyCellOffset;
   PCM_KEY_NODE KeyCell;
-  PCMHIVE RegistryHive;
+  PEREGISTRY_HIVE RegistryHive;
 
   /* Used when linking to another key */
   struct _REG_KEY* LinkedKey;
@@ -50,11 +50,11 @@ typedef struct _REG_KEY
 #define HKEY_TO_MEMKEY(hKey) ((MEMKEY)(hKey))
 #define MEMKEY_TO_HKEY(memKey) ((HKEY)(memKey))
 
-extern CMHIVE DefaultHive;  /* \Registry\User\.DEFAULT */
-extern CMHIVE SamHive;      /* \Registry\Machine\SAM */
-extern CMHIVE SecurityHive; /* \Registry\Machine\SECURITY */
-extern CMHIVE SoftwareHive; /* \Registry\Machine\SOFTWARE */
-extern CMHIVE SystemHive;   /* \Registry\Machine\SYSTEM */
+extern EREGISTRY_HIVE DefaultHive;  /* \Registry\User\.DEFAULT */
+extern EREGISTRY_HIVE SamHive;      /* \Registry\Machine\SAM */
+extern EREGISTRY_HIVE SecurityHive; /* \Registry\Machine\SECURITY */
+extern EREGISTRY_HIVE SoftwareHive; /* \Registry\Machine\SOFTWARE */
+extern EREGISTRY_HIVE SystemHive;   /* \Registry\Machine\SYSTEM */
 
 #define ERROR_SUCCESS                    0L
 #define ERROR_UNSUCCESSFUL               1L
@@ -62,6 +62,124 @@ extern CMHIVE SystemHive;   /* \Registry\Machine\SYSTEM */
 #define ERROR_INVALID_PARAMETER          87L
 #define ERROR_MORE_DATA                  234L
 #define ERROR_NO_MORE_ITEMS              259L
+
+
+#define assert(x)
+
+/*
+ * VOID
+ * InitializeListHead (
+ *		PLIST_ENTRY	ListHead
+ *		);
+ *
+ * FUNCTION: Initializes a double linked list
+ * ARGUMENTS:
+ *         ListHead = Caller supplied storage for the head of the list
+ */
+#define InitializeListHead(ListHead) \
+{ \
+	(ListHead)->Flink = (ListHead); \
+	(ListHead)->Blink = (ListHead); \
+}
+
+
+/*
+ * VOID
+ * InsertHeadList (
+ *		PLIST_ENTRY	ListHead,
+ *		PLIST_ENTRY	Entry
+ *		);
+ *
+ * FUNCTION: Inserts an entry in a double linked list
+ * ARGUMENTS:
+ *        ListHead = Head of the list
+ *        Entry = Entry to insert
+ */
+#define InsertHeadList(ListHead, ListEntry) \
+{ \
+	PLIST_ENTRY OldFlink; \
+	OldFlink = (ListHead)->Flink; \
+	(ListEntry)->Flink = OldFlink; \
+	(ListEntry)->Blink = (ListHead); \
+	OldFlink->Blink = (ListEntry); \
+	(ListHead)->Flink = (ListEntry); \
+	assert((ListEntry) != NULL); \
+	assert((ListEntry)->Blink!=NULL); \
+	assert((ListEntry)->Blink->Flink == (ListEntry)); \
+	assert((ListEntry)->Flink != NULL); \
+	assert((ListEntry)->Flink->Blink == (ListEntry)); \
+}
+
+
+/*
+ * VOID
+ * InsertTailList (
+ *		PLIST_ENTRY	ListHead,
+ *		PLIST_ENTRY	Entry
+ *		);
+ *
+ * FUNCTION:
+ *	Inserts an entry in a double linked list
+ *
+ * ARGUMENTS:
+ *	ListHead = Head of the list
+ *	Entry = Entry to insert
+ */
+#define InsertTailList(ListHead, ListEntry) \
+{ \
+	PLIST_ENTRY OldBlink; \
+	OldBlink = (ListHead)->Blink; \
+	(ListEntry)->Flink = (ListHead); \
+	(ListEntry)->Blink = OldBlink; \
+	OldBlink->Flink = (ListEntry); \
+	(ListHead)->Blink = (ListEntry); \
+	assert((ListEntry) != NULL); \
+	assert((ListEntry)->Blink != NULL); \
+	assert((ListEntry)->Blink->Flink == (ListEntry)); \
+	assert((ListEntry)->Flink != NULL); \
+	assert((ListEntry)->Flink->Blink == (ListEntry)); \
+}
+
+/*
+ *VOID
+ *RemoveEntryList (
+ *	PLIST_ENTRY	Entry
+ *	);
+ *
+ * FUNCTION:
+ *	Removes an entry from a double linked list
+ *
+ * ARGUMENTS:
+ *	ListEntry = Entry to remove
+ */
+#define RemoveEntryList(ListEntry) \
+{ \
+	PLIST_ENTRY OldFlink; \
+	PLIST_ENTRY OldBlink; \
+	assert((ListEntry) != NULL); \
+	assert((ListEntry)->Blink!=NULL); \
+	assert((ListEntry)->Blink->Flink == (ListEntry)); \
+	assert((ListEntry)->Flink != NULL); \
+	assert((ListEntry)->Flink->Blink == (ListEntry)); \
+	OldFlink = (ListEntry)->Flink; \
+	OldBlink = (ListEntry)->Blink; \
+	OldFlink->Blink = OldBlink; \
+	OldBlink->Flink = OldFlink; \
+	(ListEntry)->Flink = NULL; \
+	(ListEntry)->Blink = NULL; \
+}
+
+/*
+ * PURPOSE: Returns the base address structure if the caller knows the 
+ * address of a field within the structure
+ * ARGUMENTS:
+ *          Address = address of the field
+ *          Type = Type of the whole structure
+ *          Field = Name of the field whose address is none
+ */
+#define CONTAINING_RECORD(address, type, field) \
+    ((type *)(((ULONG_PTR)address) - (ULONG_PTR)(&(((type *)0)->field))))
+
 
 #define REG_NONE 0
 #define REG_SZ 1
@@ -125,6 +243,4 @@ RegInitializeRegistry(VOID);
 #endif /* __REGISTRY_H__ */
 
 /* EOF */
-
-
 

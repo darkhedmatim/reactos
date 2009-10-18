@@ -1,19 +1,15 @@
+#include "resource.h"
+#include "windows.h"
 /*
- * Hungarian resource állomány for CMD
+ * Moved all hardcoded strings to En.rc.
+ * By Magnus Olsen  2005
+ * Hungarian resource állomány for ntvdm
  * Translation by Robert Horvath (talley at cubeclub.hu) 2005
  */
 
 LANGUAGE LANG_HUNGARIAN, SUBLANG_DEFAULT
 STRINGTABLE DISCARDABLE
-BEGIN
-
-STRING_ASSOC_HELP,    "Modify file extension associations.\n\n\
-assoc [.ext[=[FileType]]]\n\
-\n\
-assoc (print all associations)\n\
-assoc .ext (print specific association)\n\
-assoc .ext= (remove specific association)\n\
-assoc .ext=FileType (add new association)\n"
+{
 
 STRING_ATTRIB_HELP,    "Állományok attribútumok megjelenítése vagy beállításai.\n\n\
 ATTRIB [+R | -R] [+A | -A] [+S | -S] [+H | -H] állomány ...\n\
@@ -134,7 +130,7 @@ DATE [/T][dátum]\n\n\
   /T    Csak megjeleníti\n\n\
 Írd be a DATE parancsot paraméter nélkül, hogy megjelenítse a rendszer dátumot és bekérjen egy újat.\n\
 Nyomj ENTERT-t, ha nem akarsz változtatni.\n"
-
+				
 STRING_DEL_HELP1, "Eltávolít egy vagy több állományt.\n\n\
 DEL [/N /P /T /Q /S /W /Y /Z /A[[:]attribútumok]] állomány ...\n\
 DELETE [/N /P /T /Q /S /W /Y /Z /A[[:]attribútumok]] állomány ...\n\
@@ -285,13 +281,6 @@ STRING_LOCALE_HELP1, "Az aktuális idõ:"
 STRING_MKDIR_HELP,   "Létrehoz egy új mappát.\n\n\
 MKDIR [meghajtó:]path\nMD [meghajtó:]path"
 
-STRING_MKLINK_HELP, "Creates a filesystem link object.\n\n\
-MKLINK [/D | /H | /J] linkname target\n\n\
-  /D  Indicates that the symbolic link target is a directory.\n\
-  /H  Create a hard link.\n\
-  /J  Create a directory junction.\n\n\
-If neither /H or /J is specified, a symbolic link is created."
-
 STRING_MEMMORY_HELP1, "Megjeleníti a memória statisztikát.\n\nMEMORY"
 
 STRING_MEMMORY_HELP2, "\n A memória %12s%%-a foglalt.\n\n\
@@ -383,7 +372,7 @@ Ha ez nem elég, használd a MOVE parancsot."
 STRING_REN_HELP2, "    %lu állomány átnevezve\n"
 
 STRING_REN_HELP3, "    %lu állomány átnevezve\n"
-
+		 
 STRING_SHIFT_HELP, "Eltolja a helyettesíthetõ paraméterek pozícióját a batch állományban.\n\n\
 SHIFT [DOWN]"
 
@@ -419,21 +408,21 @@ STRING_TIMER_HELP1, "Eltelt %d ezred másodperc\n"
 
 STRING_TIMER_HELP2, "Eltelt: %02d%c%02d%c%02d%c%02d\n"
 
-STRING_TIMER_HELP3, "allow the use of ten stopwatches.\n\n\
+STRING_TIMER_HELP3, "allow the use of ten stopwaches.\n\n\
 TIMER  [ON|OFF] [/S] [/n] [/Fn]\n\n\
   ON          Stopper bekapcsolása\n\
   OFF         Stopper kikapcsolása\n\
   /S          Split time. Return stopwatch split\n\
               time without changing its value\n\
   /n          Stopper azonosító megadása.\n\
-              Stopwatches avaliable are 0 to 9\n\
+              Stopwaches avaliable are 0 to 9\n\
               If it is not specified default is 1\n\
   /Fn         Format for output\n\
               n can be:\n\
                     0    milliseconds\n\
                     1    hh%cmm%css%cdd\n\n\
 if none of ON, OFF or /S is specified the command\n\
-will toggle stopwatch state\n\n"
+will toggle stopwach state\n\n"
 
 STRING_TYPE_HELP1, "Megjeleníti az állományok tartalmát.\n\n\
 TYPE [meghajtó:][elérési_út]állománynév \n\
@@ -477,7 +466,7 @@ STRING_VERSION_HELP6, "\nA FreeDOS készítõi:\n"
 STRING_VERSION_HELP7, "\nA ReactOS készítõi:\n"
 
 STRING_VOL_HELP1, " A (%c) meghajtóban lévõ kötet: %s\n"
-STRING_VOL_HELP2, " A (%c) meghajtóban lévõ kötetnek nincs címkéje\n"
+STRING_VOL_HELP2, " A (%c) meghajtóban lévõ kötetnek nincs címkéje"
 STRING_VOL_HELP3, " A kötet sorozatszáma %04X-%04X\n"
 STRING_VOL_HELP4, "A kötet címkéjének és sorozatszámának megjelenítése, ha léteznek.\n\nVOL [meghajtó:]"
 
@@ -529,7 +518,6 @@ IF       Feltételes végrehajtás batch állományokban.\n\
 LABEL    Beállítja egy kötet címkéjét.\n\
 MD       Létrehoz egy új mappát.\n\
 MKDIR    Létrehoz egy új mappát.\n\
-MKLINK   Creates a filesystem link object.\n\
 MOVE     Áthelyez egy vagy több állományt az egyik mappából a másikba.\n\
 PATH     Megjeleníti vagy beállítja a keresési útvonalakat.\n\
 PAUSE    Felfüggeszti a futást, és vár a felhasználóra.\n\
@@ -559,7 +547,6 @@ STRING_COPY_OPTION,           "INM"
 
 
 STRING_ALIAS_ERROR,          "A parancssor túl hosszú az alias kibontásakor!\n"
-STRING_ASSOC_ERROR,          "File association not found for extension %s\n"
 STRING_BATCH_ERROR,          "Hiba a batch állomány megnyitásakor\n"
 STRING_CHCP_ERROR1,          "Aktív kódlap: %u\n"
 STRING_CHCP_ERROR4,          "Érvénytelen kódlap\n"
@@ -588,7 +575,7 @@ STRING_ERROR_ERROR1,         "Ismeretlen hiba! Hiba kód: 0x%lx\n"
 STRING_ERROR_ERROR2,         "Szintaxis hiba"
 STRING_FOR_ERROR1,           "az 'in' után hiányzik a feltétel."
 STRING_FOR_ERROR2,           "nincs zárójel megadva."
-STRING_FOR_ERROR3,           "a 'do' hiányzik."
+STRING_FOR_ERROR3,           "a 'do' hiányzik." 
 STRING_FOR_ERROR4,           "nincs parancs a  'do' után."
 STRING_FREE_ERROR1,          "Érvénytelen meghajtó"
 STRING_FREE_ERROR2,          "nincs cimkézve"
@@ -617,7 +604,7 @@ STRING_ERROR_FILE_NOT_FOUND,       "Az állomány nem található\n"
 STRING_ERROR_REQ_PARAM_MISSING,    "Egy szükséges paraméter hiányzik\n"
 STRING_ERROR_INVALID_DRIVE,        "Érvénytelen meghajtó\n"
 STRING_ERROR_INVALID_PARAM_FORMAT, "Érvénytelen paraméter megadás - %s\n"
-STRING_ERROR_BADCOMMAND,           "Ismeretlen parancs vagy állomány név - %s\n"
+STRING_ERROR_BADCOMMAND,           "Ismeretlen parancs vagy állomány név\n"
 STRING_ERROR_OUT_OF_MEMORY,        "Nincs elég memória.\n"
 STRING_ERROR_CANNOTPIPE,           "Error!  Cannot pipe!  Cannot open temporary állomány!\n"
 STRING_ERROR_D_PAUSEMSG,           "A folytatáshoz nyomj meg egy billentyût . . ."
@@ -625,8 +612,7 @@ STRING_ERROR_DRIVER_NOT_READY,     "A meghajtó nem áll készen"
 
 STRING_PATH_ERROR,                 "CMD: Not in environment '%s'\n"
 
-STRING_REACTOS_VERSION,            "ReactOS Operating System [Version %s-%s]\n"
-STRING_CMD_SHELLINFO,              "\nReactOS Parancssor értelmezõ\nVersion %s %s"
+STRING_CMD_SHELLINFO,              "\nReactOS Parancssor értelmezõ"
 STRING_VERSION_RUNVER,             " running on %s"
 STRING_COPY_FILE ,                 "        %d állomány másolva\n"
 STRING_DELETE_WIPE,                "wiped"
@@ -634,10 +620,4 @@ STRING_FOR_ERROR,                  "Hibás változó."
 STRING_SCREEN_COL,                 "Érvénytelen érték oszlopnak"
 STRING_SCREEN_ROW,                 "Érvénytelen érték sornak"
 STRING_TIMER_TIME                  "Idõzítõ %d értéke %s: "
-STRING_MKLINK_CREATED_SYMBOLIC,    "Symbolic link created for %s <<===>> %s\n"
-STRING_MKLINK_CREATED_HARD,        "Hard link created for %s <<===>> %s\n"
-STRING_MKLINK_CREATED_JUNCTION,    "Junction created for %s <<===>> %s\n"
-STRING_MORE,                       "More? "
-STRING_CANCEL_BATCH_FILE,          "\r\nCtrl-Break pressed.  Cancel batch file? (Igen/Nem/Mind) "
-
-END
+}

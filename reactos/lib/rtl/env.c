@@ -12,6 +12,7 @@
 #define NDEBUG
 #include <debug.h>
 
+PPEB NTAPI RtlpCurrentPeb(VOID);
 /* FUNCTIONS *****************************************************************/
 
 /*
@@ -24,7 +25,7 @@ RtlCreateEnvironment(BOOLEAN Inherit,
    MEMORY_BASIC_INFORMATION MemInfo;
    PVOID EnvPtr = NULL;
    NTSTATUS Status = STATUS_SUCCESS;
-   SIZE_T RegionSize = PAGE_SIZE;
+   ULONG RegionSize = PAGE_SIZE;
 
    if (Inherit == TRUE)
    {
@@ -95,7 +96,7 @@ RtlCreateEnvironment(BOOLEAN Inherit,
 VOID NTAPI
 RtlDestroyEnvironment(PWSTR Environment)
 {
-   SIZE_T Size = 0;
+   ULONG Size = 0;
 
    NtFreeVirtualMemory(NtCurrentProcess(),
                        (PVOID)&Environment,
@@ -274,16 +275,12 @@ RtlSetEnvironmentVariable(PWSTR *Environment,
    int hole_len, new_len, env_len = 0;
    WCHAR *new_env = 0, *env_end = 0, *wcs, *env, *val = 0, *tail = 0, *hole = 0;
    PWSTR head = NULL;
-   SIZE_T size = 0, new_size;
+   ULONG size = 0, new_size;
    LONG f = 1;
    NTSTATUS Status = STATUS_SUCCESS;
 
    DPRINT("RtlSetEnvironmentVariable(Environment %p Name %wZ Value %wZ)\n",
           Environment, Name, Value);
-
-   /* Variable name must not be empty */
-   if (Name->Length < sizeof(WCHAR))
-      return STATUS_INVALID_PARAMETER;
 
    /* Variable names can't contain a '=' except as a first character. */
    for (wcs = Name->Buffer + 1;
@@ -354,7 +351,7 @@ RtlSetEnvironmentVariable(PWSTR *Environment,
    }
 
 found:
-   if (Value != NULL && Value->Buffer != NULL)
+   if (Value != NULL && Value->Length > 0)
    {
       hole_len = tail - hole;
       /* calculate new environment size */
@@ -368,7 +365,7 @@ found:
          /* enlarge environment size */
          /* check the size of available memory */
          new_size += (env_len - hole_len) * sizeof(WCHAR);
-         new_size = ROUND_UP(new_size, PAGE_SIZE);
+         new_size = ROUNDUP(new_size, PAGE_SIZE);
          mbi.RegionSize = 0;
          DPRINT("new_size %lu\n", new_size);
 
@@ -473,6 +470,10 @@ found:
                  tail,
                  (env_end - tail) * sizeof(WCHAR));
       }
+      else
+      {
+         Status = STATUS_VARIABLE_NOT_FOUND;
+      }
    }
 
    if (Environment == NULL)
@@ -503,7 +504,7 @@ RtlQueryEnvironmentVariable_U(PWSTR Environment,
 
    if (Environment == NULL)
    {
-      PPEB Peb = RtlGetCurrentPeb();
+      PPEB Peb = RtlpCurrentPeb();
       if (Peb) {
           Environment = Peb->ProcessParameters->Environment;
           SysEnvUsed = TRUE;

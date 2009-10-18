@@ -32,13 +32,11 @@
 
 #include "ole2.h"
 #include "olectl.h"
-#include "comcat.h"
 #include "initguid.h"
 #include "compobj_private.h"
 #include "moniker.h"
 
 #include "wine/debug.h"
-#include "wine/unicode.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
@@ -114,6 +112,9 @@ static LONG register_key_defvalueA(HKEY base, WCHAR const *name,
 				   char const *value);
 static LONG register_progid(WCHAR const *clsid, char const *progid,
                             char const *name);
+static LONG recursive_delete_key(HKEY key);
+static LONG recursive_delete_keyA(HKEY base, char const *name);
+
 
 /***********************************************************************
  *		register_interfaces
@@ -156,7 +157,7 @@ static HRESULT register_interfaces(struct regsvr_interface const *list)
 				  KEY_READ | KEY_WRITE, NULL, &key, NULL);
 	    if (res != ERROR_SUCCESS) goto error_close_iid_key;
 
-	    sprintfW(buf, fmt, list->num_methods);
+	    wsprintfW(buf, fmt, list->num_methods);
 	    res = RegSetValueExW(key, NULL, 0, REG_SZ,
 				 (CONST BYTE*)buf,
 				 (lstrlenW(buf) + 1) * sizeof(WCHAR));
@@ -200,12 +201,22 @@ static HRESULT unregister_interfaces(struct regsvr_interface const *list)
 
     for (; res == ERROR_SUCCESS && list->iid; ++list) {
 	WCHAR buf[39];
+	HKEY iid_key;
 
 	StringFromGUID2(list->iid, buf, 39);
-	res = RegDeleteTreeW(interface_key, buf);
-	if (res == ERROR_FILE_NOT_FOUND) res = ERROR_SUCCESS;
+	res = RegOpenKeyExW(interface_key, buf, 0,
+			    KEY_READ | KEY_WRITE, &iid_key);
+	if (res == ERROR_FILE_NOT_FOUND) {
+	    res = ERROR_SUCCESS;
+	    continue;
+	}
+	if (res != ERROR_SUCCESS) goto error_close_interface_key;
+	res = recursive_delete_key(iid_key);
+	RegCloseKey(iid_key);
+	if (res != ERROR_SUCCESS) goto error_close_interface_key;
     }
 
+error_close_interface_key:
     RegCloseKey(interface_key);
 error_return:
     return res != ERROR_SUCCESS ? HRESULT_FROM_WIN32(res) : S_OK;
@@ -297,15 +308,22 @@ static HRESULT unregister_coclasses(struct regsvr_coclass const *list)
 
     for (; res == ERROR_SUCCESS && list->clsid; ++list) {
 	WCHAR buf[39];
+	HKEY clsid_key;
 
 	StringFromGUID2(list->clsid, buf, 39);
-	res = RegDeleteTreeW(coclass_key, buf);
-	if (res == ERROR_FILE_NOT_FOUND) res = ERROR_SUCCESS;
+	res = RegOpenKeyExW(coclass_key, buf, 0,
+			    KEY_READ | KEY_WRITE, &clsid_key);
+	if (res == ERROR_FILE_NOT_FOUND) {
+	    res = ERROR_SUCCESS;
+	    continue;
+	}
+	if (res != ERROR_SUCCESS) goto error_close_coclass_key;
+	res = recursive_delete_key(clsid_key);
+	RegCloseKey(clsid_key);
 	if (res != ERROR_SUCCESS) goto error_close_coclass_key;
 
 	if (list->progid) {
-	    res = RegDeleteTreeA(HKEY_CLASSES_ROOT, list->progid);
-	    if (res == ERROR_FILE_NOT_FOUND) res = ERROR_SUCCESS;
+	    res = recursive_delete_keyA(HKEY_CLASSES_ROOT, list->progid);
 	    if (res != ERROR_SUCCESS) goto error_close_coclass_key;
 	}
     }
@@ -400,16 +418,64 @@ error_close_progid_key:
 }
 
 /***********************************************************************
+ *		recursive_delete_key
+ */
+static LONG recursive_delete_key(HKEY key)
+{
+    LONG res;
+    WCHAR subkey_name[MAX_PATH];
+    DWORD cName;
+    HKEY subkey;
+
+    for (;;) {
+	cName = sizeof(subkey_name) / sizeof(WCHAR);
+	res = RegEnumKeyExW(key, 0, subkey_name, &cName,
+			    NULL, NULL, NULL, NULL);
+	if (res != ERROR_SUCCESS && res != ERROR_MORE_DATA) {
+	    res = ERROR_SUCCESS; /* presumably we're done enumerating */
+	    break;
+	}
+	res = RegOpenKeyExW(key, subkey_name, 0,
+			    KEY_READ | KEY_WRITE, &subkey);
+	if (res == ERROR_FILE_NOT_FOUND) continue;
+	if (res != ERROR_SUCCESS) break;
+
+	res = recursive_delete_key(subkey);
+	RegCloseKey(subkey);
+	if (res != ERROR_SUCCESS) break;
+    }
+
+    if (res == ERROR_SUCCESS) res = RegDeleteKeyW(key, 0);
+    return res;
+}
+
+/***********************************************************************
+ *		recursive_delete_keyA
+ */
+static LONG recursive_delete_keyA(HKEY base, char const *name)
+{
+    LONG res;
+    HKEY key;
+
+    res = RegOpenKeyExA(base, name, 0, KEY_READ | KEY_WRITE, &key);
+    if (res == ERROR_FILE_NOT_FOUND) return ERROR_SUCCESS;
+    if (res != ERROR_SUCCESS) return res;
+    res = recursive_delete_key(key);
+    RegCloseKey(key);
+    return res;
+}
+
+/***********************************************************************
  *		coclass list
  */
 static GUID const CLSID_StdOleLink = {
     0x00000300, 0x0000, 0x0000, {0xC0,0x00,0x00,0x00,0x00,0x00,0x00,0x46} };
 
+static GUID const CLSID_PointerMoniker = {
+    0x00000306, 0x0000, 0x0000, {0xC0,0x00,0x00,0x00,0x00,0x00,0x00,0x46} };
+
 static GUID const CLSID_PackagerMoniker = {
     0x00000308, 0x0000, 0x0000, {0xC0,0x00,0x00,0x00,0x00,0x00,0x00,0x46} };
-
-static GUID const CLSID_PSFactoryBuffer_actxprxy = {
-    0xB8DA6310, 0xE19B, 0x11D0, {0x93,0x3C,0x00,0xA0,0xC9,0x0D,0xCA,0xA9} };
 
 extern GUID const CLSID_Picture_Metafile;
 extern GUID const CLSID_Picture_Dib;
@@ -497,12 +563,6 @@ static struct regsvr_coclass const coclass_list[] = {
 	"ole32.dll",
 	"Apartment"
     },
-    {	&CLSID_StdComponentCategoriesMgr,
-	"Component Categories Manager",
-	NULL,
-	"ole32.dll",
-	"Both"
-    },
     { NULL }			/* list terminator */
 };
 
@@ -510,42 +570,68 @@ static struct regsvr_coclass const coclass_list[] = {
  *		interface list
  */
 
-#define INTERFACE_ENTRY(interface, base, clsid32) { &IID_##interface, #interface, base, sizeof(interface##Vtbl)/sizeof(void*), NULL, clsid32 }
-#define BAS_INTERFACE_ENTRY(interface, base) INTERFACE_ENTRY(interface, &IID_##base, NULL)
-#define ACTX_INTERFACE_ENTRY(interface) INTERFACE_ENTRY(interface, NULL, &CLSID_PSFactoryBuffer_actxprxy)
-#define LCL_INTERFACE_ENTRY(interface) INTERFACE_ENTRY(interface, NULL, NULL)
+#define INTERFACE_ENTRY(interface, base, clsid32, clsid16) { &IID_##interface, #interface, base, sizeof(interface##Vtbl)/sizeof(void*), clsid16, clsid32 }
+#define BAS_INTERFACE_ENTRY(interface, base) INTERFACE_ENTRY(interface, &IID_##base, &CLSID_PSFactoryBuffer, NULL)
+#define STD_INTERFACE_ENTRY(interface) INTERFACE_ENTRY(interface, NULL, &CLSID_PSFactoryBuffer, NULL)
+#define LCL_INTERFACE_ENTRY(interface) INTERFACE_ENTRY(interface, NULL, NULL, NULL)
 
 static const struct regsvr_interface interface_list[] = {
     LCL_INTERFACE_ENTRY(IUnknown),
+    STD_INTERFACE_ENTRY(IClassFactory),
     LCL_INTERFACE_ENTRY(IMalloc),
     LCL_INTERFACE_ENTRY(IMarshal),
+    STD_INTERFACE_ENTRY(ILockBytes),
+    STD_INTERFACE_ENTRY(IStorage),
+    STD_INTERFACE_ENTRY(IStream),
+    STD_INTERFACE_ENTRY(IEnumSTATSTG),
+    STD_INTERFACE_ENTRY(IBindCtx),
     BAS_INTERFACE_ENTRY(IMoniker, IPersistStream),
+    STD_INTERFACE_ENTRY(IRunningObjectTable),
+    STD_INTERFACE_ENTRY(IRootStorage),
     LCL_INTERFACE_ENTRY(IMessageFilter),
     LCL_INTERFACE_ENTRY(IStdMarshalInfo),
     LCL_INTERFACE_ENTRY(IExternalConnection),
     LCL_INTERFACE_ENTRY(IMallocSpy),
     LCL_INTERFACE_ENTRY(IMultiQI),
+    STD_INTERFACE_ENTRY(IEnumUnknown),
+    STD_INTERFACE_ENTRY(IEnumString),
+    STD_INTERFACE_ENTRY(IEnumMoniker),
+    STD_INTERFACE_ENTRY(IEnumFORMATETC),
+    STD_INTERFACE_ENTRY(IEnumOLEVERB),
+    STD_INTERFACE_ENTRY(IEnumSTATDATA),
     BAS_INTERFACE_ENTRY(IPersistStream, IPersist),
     BAS_INTERFACE_ENTRY(IPersistStorage, IPersist),
     BAS_INTERFACE_ENTRY(IPersistFile, IPersist),
+    STD_INTERFACE_ENTRY(IPersist),
+    STD_INTERFACE_ENTRY(IViewObject),
+    STD_INTERFACE_ENTRY(IDataObject),
+    STD_INTERFACE_ENTRY(IAdviseSink),
     LCL_INTERFACE_ENTRY(IDataAdviseHolder),
     LCL_INTERFACE_ENTRY(IOleAdviseHolder),
+    STD_INTERFACE_ENTRY(IOleObject),
     BAS_INTERFACE_ENTRY(IOleInPlaceObject, IOleWindow),
+    STD_INTERFACE_ENTRY(IOleWindow),
     BAS_INTERFACE_ENTRY(IOleInPlaceUIWindow, IOleWindow),
+    STD_INTERFACE_ENTRY(IOleInPlaceFrame),
     BAS_INTERFACE_ENTRY(IOleInPlaceActiveObject, IOleWindow),
+    STD_INTERFACE_ENTRY(IOleClientSite),
     BAS_INTERFACE_ENTRY(IOleInPlaceSite, IOleWindow),
+    STD_INTERFACE_ENTRY(IParseDisplayName),
     BAS_INTERFACE_ENTRY(IOleContainer, IParseDisplayName),
     BAS_INTERFACE_ENTRY(IOleItemContainer, IOleContainer),
+    STD_INTERFACE_ENTRY(IOleLink),
+    STD_INTERFACE_ENTRY(IOleCache),
     LCL_INTERFACE_ENTRY(IDropSource),
+    STD_INTERFACE_ENTRY(IDropTarget),
     BAS_INTERFACE_ENTRY(IAdviseSink2, IAdviseSink),
+    STD_INTERFACE_ENTRY(IRunnableObject),
     BAS_INTERFACE_ENTRY(IViewObject2, IViewObject),
     BAS_INTERFACE_ENTRY(IOleCache2, IOleCache),
+    STD_INTERFACE_ENTRY(IOleCacheControl),
+    STD_INTERFACE_ENTRY(IRemUnknown),
     LCL_INTERFACE_ENTRY(IClientSecurity),
     LCL_INTERFACE_ENTRY(IServerSecurity),
-    ACTX_INTERFACE_ENTRY(IEnumGUID),
-    ACTX_INTERFACE_ENTRY(IEnumCATEGORYINFO),
-    ACTX_INTERFACE_ENTRY(ICatRegister),
-    ACTX_INTERFACE_ENTRY(ICatInformation),
+    STD_INTERFACE_ENTRY(ISequentialStream),
     { NULL }			/* list terminator */
 };
 
@@ -558,9 +644,7 @@ HRESULT WINAPI DllRegisterServer(void)
 
     TRACE("\n");
 
-    hr = OLE32_DllRegisterServer();
-    if (SUCCEEDED(hr))
-        hr = register_coclasses(coclass_list);
+    hr = register_coclasses(coclass_list);
     if (SUCCEEDED(hr))
 	hr = register_interfaces(interface_list);
     return hr;
@@ -578,7 +662,5 @@ HRESULT WINAPI DllUnregisterServer(void)
     hr = unregister_coclasses(coclass_list);
     if (SUCCEEDED(hr))
 	hr = unregister_interfaces(interface_list);
-    if (SUCCEEDED(hr))
-        hr = OLE32_DllUnregisterServer();
     return hr;
 }

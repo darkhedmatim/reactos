@@ -22,7 +22,7 @@
  *    TRUE if the input values together form a valid image, FALSE otherwise.
  */
 
-BOOL WINAPI
+BOOL STDCALL
 CalculateColorTableSize(
    CONST BITMAPINFOHEADER *BitmapInfoHeader,
    UINT *ColorSpec,
@@ -34,7 +34,7 @@ CalculateColorTableSize(
 
    /*
     * At first get some basic parameters from the passed BitmapInfoHeader
-    * structure. It can have one of the following formats:
+    * structure. It can have one of the following formats: 
     * - BITMAPCOREHEADER (the oldest one with totally different layout
     *                     from the others)
     * - BITMAPINFOHEADER (the standard and most common header)
@@ -74,7 +74,7 @@ CalculateColorTableSize(
             *ColorTableSize = 0;
          else
             *ColorTableSize = 3;
-
+         
          return TRUE;
 
       case BI_RGB:
@@ -100,7 +100,7 @@ CalculateColorTableSize(
                *ColorTableSize = ClrUsed;
                return TRUE;
          }
-
+         
       case BI_RLE4:
          if (BitCount == 4)
          {
@@ -123,7 +123,7 @@ CalculateColorTableSize(
          return TRUE;
 
       default:
-         return FALSE;
+         return FALSE;      
    }
 }
 
@@ -168,7 +168,7 @@ CalculateColorTableSize(
  *    }
  */
 
-LPBITMAPINFO WINAPI
+LPBITMAPINFO STDCALL
 ConvertBitmapInfo(
    CONST BITMAPINFO *BitmapInfo,
    UINT ColorSpec,
@@ -188,10 +188,9 @@ ConvertBitmapInfo(
     * description).
     */
 
-   if ( !BitmapInfo || 
-        (BitmapInfo->bmiHeader.biSize != sizeof(BITMAPCOREHEADER) &&
+   if (BitmapInfo->bmiHeader.biSize != sizeof(BITMAPCOREHEADER) &&
        (BitmapInfo->bmiHeader.biSize < sizeof(BITMAPINFOHEADER) ||
-        BitmapInfo->bmiHeader.biSize > sizeof(BITMAPV5HEADER))))
+        BitmapInfo->bmiHeader.biSize > sizeof(BITMAPV5HEADER)))
    {
       return NULL;
    }
@@ -214,7 +213,32 @@ ConvertBitmapInfo(
 
    if (FollowedByData)
    {
-      DataSize = DIB_BitmapBitsSize((PBITMAPINFO)BitmapInfo );
+      if (BitmapInfo->bmiHeader.biSize == sizeof(BITMAPCOREHEADER))
+      {
+         DataSize =
+            CoreBitmapInfo->bmciHeader.bcHeight *
+            CoreBitmapInfo->bmciHeader.bcWidth *               
+            CoreBitmapInfo->bmciHeader.bcBitCount;
+         DataSize = ((DataSize + 31) & ~31) / 8;
+         DataSize *= CoreBitmapInfo->bmciHeader.bcPlanes;
+      }
+      else
+      {
+         if (BitmapInfo->bmiHeader.biCompression == BI_RGB ||
+             BitmapInfo->bmiHeader.biCompression == BI_BITFIELDS)
+         {
+            DataSize =
+               abs(BitmapInfo->bmiHeader.biHeight) *
+               BitmapInfo->bmiHeader.biWidth *
+               BitmapInfo->bmiHeader.biBitCount;
+            DataSize = ((DataSize + 31) & ~31) / 8;
+            DataSize *= BitmapInfo->bmiHeader.biPlanes;
+         }
+         else
+         {
+            DataSize = BitmapInfo->bmiHeader.biSizeImage;
+         }
+      }
    }
 
    /*
@@ -309,7 +333,7 @@ ConvertBitmapInfo(
 }
 
 VOID
-WINAPI
+STDCALL
 LogFontA2W(LPLOGFONTW pW, CONST LOGFONTA *pA)
 {
 #define COPYS(f,len) MultiByteToWideChar ( CP_THREAD_ACP, 0, pA->f, len, pW->f, len )
@@ -329,14 +353,13 @@ LogFontA2W(LPLOGFONTW pW, CONST LOGFONTA *pA)
   COPYN(lfQuality);
   COPYN(lfPitchAndFamily);
   COPYS(lfFaceName,LF_FACESIZE);
-  pW->lfFaceName[LF_FACESIZE - 1] = '\0';
 
 #undef COPYN
 #undef COPYS
 }
 
 VOID
-WINAPI
+STDCALL
 LogFontW2A(LPLOGFONTA pA, CONST LOGFONTW *pW)
 {
 #define COPYS(f,len) WideCharToMultiByte ( CP_THREAD_ACP, 0, pW->f, len, pA->f, len, NULL, NULL )
@@ -356,14 +379,13 @@ LogFontW2A(LPLOGFONTA pA, CONST LOGFONTW *pW)
   COPYN(lfQuality);
   COPYN(lfPitchAndFamily);
   COPYS(lfFaceName,LF_FACESIZE);
-  pA->lfFaceName[LF_FACESIZE - 1] = '\0';
 
 #undef COPYN
 #undef COPYS
 }
 
 VOID
-WINAPI
+STDCALL
 EnumLogFontExW2A( LPENUMLOGFONTEXA fontA, CONST ENUMLOGFONTEXW *fontW )
 {
     LogFontW2A( (LPLOGFONTA)fontA, (CONST LOGFONTW *)fontW );

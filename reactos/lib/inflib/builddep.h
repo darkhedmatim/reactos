@@ -8,17 +8,18 @@
 
 /* Definitions native to the host on which we're building */
 
-#include <host/typedefs.h>
-
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 
+#define FALSE 0
+#define TRUE  1
+
 #define FREE(Area) free(Area)
-#define MALLOC(Size) malloc((size_t)(Size))
-#define ZEROMEMORY(Area, Size) memset((Area), '\0', (size_t)(Size))
-#define MEMCPY(Dest, Src, Size) memcpy((Dest), (Src), (size_t)(Size))
+#define MALLOC(Size) malloc(Size)
+#define ZEROMEMORY(Area, Size) memset((Area), '\0', (Size))
+#define MEMCPY(Dest, Src, Size) memcpy((Dest), (Src), (Size))
 
 #define INF_STATUS_SUCCESS           0
 #define INF_STATUS_NO_MEMORY         ENOMEM
@@ -27,9 +28,14 @@
 #define INF_STATUS_BUFFER_OVERFLOW   E2BIG
 #define INF_SUCCESS(x) (0 == (x))
 
-typedef char TCHAR, *PTCHAR, *PTSTR;
-typedef const TCHAR *PCTSTR;
+typedef char CHAR, *PCHAR;
+typedef unsigned char UCHAR, *PUCHAR;
+typedef long LONG, *PLONG;
+typedef unsigned long ULONG, *PULONG;
+typedef void VOID, *PVOID;
+typedef UCHAR BOOLEAN, *PBOOLEAN;
 
+typedef char TCHAR, *PTCHAR, *PTSTR;
 #define _T(x) x
 #define _tcsicmp strcasecmp
 #define _tcslen strlen
@@ -39,8 +45,10 @@ typedef const TCHAR *PCTSTR;
 #define STRFMT "%s"
 
 #ifdef _MSC_VER
-#define strcasecmp _stricmp
+#define strcasecmp stricmp
 #endif
+
+extern unsigned long DbgPrint(char *Fmt, ...);
 
 #else /* ! defined(INFLIB_HOST) */
 
@@ -48,11 +56,11 @@ typedef const TCHAR *PCTSTR;
 
 #define UNICODE
 #define _UNICODE
+#include <tchar.h>
 #define WIN32_NO_STATUS
 #include <windows.h>
 #define NTOS_MODE_USER
 #include <ndk/ntndk.h>
-#include <tchar.h>
 
 extern PVOID InfpHeap;
 
@@ -71,5 +79,7 @@ extern PVOID InfpHeap;
 #define STRFMT "%S"
 
 #endif /* INFLIB_HOST */
+
+typedef const TCHAR *PCTSTR;
 
 /* EOF */

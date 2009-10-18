@@ -9,14 +9,8 @@
 
 #include <advapi32.h>
 
-#include <wine/debug.h>
-WINE_DEFAULT_DEBUG_CHANNEL(advapi);
-#ifndef _UNICODE
-#define debugstr_aw debugstr_a
-#else
-#define debugstr_aw debugstr_w
-#endif
-
+#define NDEBUG
+#include <debug.h>
 
 typedef UINT (WINAPI *fnMsiProvideComponentFromDescriptor)(LPCWSTR,LPWSTR,DWORD*,DWORD*);
 
@@ -28,7 +22,7 @@ DWORD WINAPI CommandLineFromMsiDescriptor( WCHAR *szDescriptor,
     HMODULE hmsi;
     UINT r = ERROR_CALL_NOT_IMPLEMENTED;
 
-    TRACE("%S %p %p\n", szDescriptor, szCommandLine, pcchCommandLine);
+    DPRINT("%S %p %p\n", szDescriptor, szCommandLine, pcchCommandLine);
 
     hmsi = LoadLibraryW( szMsi );
     if (!hmsi)

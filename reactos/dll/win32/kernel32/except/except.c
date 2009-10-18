@@ -13,9 +13,9 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
-LPTOP_LEVEL_EXCEPTION_FILTER GlobalTopLevelExceptionFilter = NULL;
+LPTOP_LEVEL_EXCEPTION_FILTER GlobalTopLevelExceptionFilter = UnhandledExceptionFilter;
 
 UINT
 WINAPI
@@ -124,7 +124,6 @@ _module_name_from_addr(const void* addr, void **module_start_addr,
    return psz;
 }
 
-#ifdef _M_IX86
 static VOID
 _dump_context(PCONTEXT pc)
 {
@@ -139,13 +138,6 @@ _dump_context(PCONTEXT pc)
 	    pc->Ebp, pc->Esi, pc->Esp);
    DbgPrint("EDI: %.8x   EFLAGS: %.8x\n", pc->Edi, pc->EFlags);
 }
-#else
-#warning Unknown architecture
-static VOID
-_dump_context(PCONTEXT pc)
-{
-}
-#endif
 
 static LONG
 BasepCheckForReadOnlyResource(IN PVOID Ptr)
@@ -170,7 +162,7 @@ BasepCheckForReadOnlyResource(IN PVOID Ptr)
            use SEH here because we don't know if it's actually a
            resource mapping */
 
-        _SEH2_TRY
+        _SEH_TRY
         {
             Data = RtlImageDirectoryEntryToData(mbi.AllocationBase,
                                                 TRUE,
@@ -195,10 +187,10 @@ BasepCheckForReadOnlyResource(IN PVOID Ptr)
                 }
             }
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
         }
-        _SEH2_END;
+        _SEH_END;
     }
 
     return Ret;
@@ -207,32 +199,22 @@ BasepCheckForReadOnlyResource(IN PVOID Ptr)
 /*
  * @unimplemented
  */
-LONG WINAPI
+LONG STDCALL
 UnhandledExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo)
 {
    LONG RetValue;
    HANDLE DebugPort = NULL;
    NTSTATUS ErrCode;
-   ULONG ErrorParameters[4];
-   ULONG ErrorResponse;
 
-   if ((NTSTATUS)ExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_ACCESS_VIOLATION &&
-       ExceptionInfo->ExceptionRecord->NumberParameters >= 2)
+   if (ExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_ACCESS_VIOLATION &&
+       ExceptionInfo->ExceptionRecord->ExceptionInformation[0])
    {
-      switch(ExceptionInfo->ExceptionRecord->ExceptionInformation[0])
-      {
-      case EXCEPTION_WRITE_FAULT:
-         /* Change the protection on some write attempts, some InstallShield setups
-            have this bug */
-         RetValue = BasepCheckForReadOnlyResource(
-            (PVOID)ExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
-         if (RetValue == EXCEPTION_CONTINUE_EXECUTION)
-            return EXCEPTION_CONTINUE_EXECUTION;
-         break;
-      case EXCEPTION_EXECUTE_FAULT:
-         /* FIXME */
-         break;
-      }
+      /* Change the protection on some write attempts, some InstallShield setups
+         have this bug */
+      RetValue = BasepCheckForReadOnlyResource(
+         (PVOID)ExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
+      if (RetValue == EXCEPTION_CONTINUE_EXECUTION)
+         return EXCEPTION_CONTINUE_EXECUTION;
    }
 
    /* Is there a debugger running ? */
@@ -251,25 +233,18 @@ UnhandledExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo)
       return EXCEPTION_CONTINUE_SEARCH;
    }
 
-   if (GlobalTopLevelExceptionFilter)
-   {
-      LONG ret = GlobalTopLevelExceptionFilter( ExceptionInfo );
-      if (ret != EXCEPTION_CONTINUE_SEARCH)
-         return ret;
-   }
-
    if ((GetErrorMode() & SEM_NOGPFAULTERRORBOX) == 0)
    {
 #ifdef _X86_
       PULONG Frame;
-#endif
       PVOID StartAddr;
       CHAR szMod[128] = "";
+#endif
 
       /* Print a stack trace. */
       DbgPrint("Unhandled exception\n");
       DbgPrint("ExceptionCode:    %8x\n", ExceptionInfo->ExceptionRecord->ExceptionCode);
-      if ((NTSTATUS)ExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_ACCESS_VIOLATION &&
+      if (ExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_ACCESS_VIOLATION &&
           ExceptionInfo->ExceptionRecord->NumberParameters == 2)
       {
          DbgPrint("Faulting Address: %8x\n", ExceptionInfo->ExceptionRecord->ExceptionInformation[1]);
@@ -280,7 +255,7 @@ UnhandledExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo)
       _dump_context ( ExceptionInfo->ContextRecord );
 #ifdef _X86_
       DbgPrint("Frames:\n");
-      _SEH2_TRY
+      _SEH_TRY
       {
          Frame = (PULONG)ExceptionInfo->ContextRecord->Ebp;
          while (Frame[1] != 0 && Frame[1] != 0xdeadbeef)
@@ -300,40 +275,12 @@ UnhandledExceptionFilter(struct _EXCEPTION_POINTERS *ExceptionInfo)
             Frame = (PULONG)Frame[0];
          }
       }
-      _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+      _SEH_HANDLE
       {
-         DbgPrint("<error dumping stack trace: 0x%x>\n", _SEH2_GetExceptionCode());
+         DbgPrint("<error dumping stack trace: 0x%x>\n", _SEH_GetExceptionCode());
       }
-      _SEH2_END;
+      _SEH_END;
 #endif
-   }
-
-   /* Save exception code and address */
-   ErrorParameters[0] = (ULONG)ExceptionInfo->ExceptionRecord->ExceptionCode;
-   ErrorParameters[1] = (ULONG)ExceptionInfo->ExceptionRecord->ExceptionAddress;
-
-   if ((NTSTATUS)ExceptionInfo->ExceptionRecord->ExceptionCode == STATUS_ACCESS_VIOLATION)
-   {
-       /* get the type of operation that caused the access violation */
-       ErrorParameters[2] = ExceptionInfo->ExceptionRecord->ExceptionInformation[0];
-   }
-   else
-   {
-       ErrorParameters[2] = ExceptionInfo->ExceptionRecord->ExceptionInformation[2];
-   }
-
-   /* Save faulting address */
-   ErrorParameters[3] = ExceptionInfo->ExceptionRecord->ExceptionInformation[1];
-
-   /* Raise the harderror */
-   ErrCode = NtRaiseHardError(STATUS_UNHANDLED_EXCEPTION | 0x10000000,
-       4, 0, ErrorParameters, OptionOkCancel, &ErrorResponse);
-
-   if (NT_SUCCESS(ErrCode) && (ErrorResponse == ResponseCancel))
-   {
-       /* FIXME: Check the result, if the "Cancel" button was
-                 clicked run a debugger */
-       DPRINT1("Debugging is not implemented yet\n");
    }
 
    /*
@@ -389,13 +336,6 @@ RaiseException(IN DWORD dwExceptionCode,
             ExceptionRecord.ExceptionInformation[nNumberOfArguments] =
                 *lpArguments++;
         }
-    }
-
-    if (dwExceptionCode == 0xeedface)
-    {
-        DPRINT1("Delphi Exception at address: %p\n", ExceptionRecord.ExceptionInformation[0]);
-        DPRINT1("Exception-Object: %p\n", ExceptionRecord.ExceptionInformation[1]);
-        DPRINT1("Exception text: %s\n", ExceptionRecord.ExceptionInformation[2]);        
     }
 
     /* Raise the exception */

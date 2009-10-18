@@ -1,38 +1,24 @@
 /*
- * PROJECT:         ReactOS Kernel
- * LICENSE:         GPL - See COPYING in the top level directory
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/po/events.c
  * PURPOSE:         Power Manager
+ *
  * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
  */
 
-/* INCLUDES ******************************************************************/
-
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
-/* GLOBALS *******************************************************************/
-
-typedef struct _SYS_BUTTON_CONTEXT
-{
-	PDEVICE_OBJECT DeviceObject;
-	PIO_WORKITEM WorkItem;
-	KEVENT Event;
-	IO_STATUS_BLOCK IoStatusBlock;
-	ULONG SysButton;
-} SYS_BUTTON_CONTEXT, *PSYS_BUTTON_CONTEXT;
+PKWIN32_POWEREVENT_CALLOUT PopEventCallout;
+extern PCALLBACK_OBJECT SetSystemTimeCallback;
 
 static VOID
 NTAPI
 PopGetSysButton(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PVOID Context);
-
-PKWIN32_POWEREVENT_CALLOUT PopEventCallout;
-extern PCALLBACK_OBJECT SetSystemTimeCallback;
-
-/* FUNCTIONS *****************************************************************/
 
 VOID
 NTAPI
@@ -53,6 +39,15 @@ PoNotifySystemTimeSet(VOID)
         KeLowerIrql(OldIrql);
     }
 }
+
+typedef struct _SYS_BUTTON_CONTEXT
+{
+	PDEVICE_OBJECT DeviceObject;
+	PIO_WORKITEM WorkItem;
+	KEVENT Event;
+	IO_STATUS_BLOCK IoStatusBlock;
+	ULONG SysButton;
+} SYS_BUTTON_CONTEXT, *PSYS_BUTTON_CONTEXT;
 
 static NTSTATUS
 NTAPI
@@ -105,7 +100,7 @@ PopGetSysButton(
 	IN PVOID Context)
 {
 	PSYS_BUTTON_CONTEXT SysButtonContext = Context;
-	PIO_WORKITEM CurrentWorkItem = SysButtonContext->WorkItem;
+	PIO_WORKITEM CurrentWorkItem = SysButtonContext->WorkItem;;
 	PIRP Irp;
 
 	/* Get button pressed (IOCTL_GET_SYS_BUTTON_EVENT) */
@@ -142,8 +137,9 @@ PopGetSysButton(
 
 NTSTATUS
 NTAPI
-PopAddRemoveSysCapsCallback(IN PVOID NotificationStructure,
-                            IN PVOID Context)
+PopAddRemoveSysCapsCallback(
+	IN PVOID NotificationStructure,
+	IN PVOID Context)
 {
 	PDEVICE_INTERFACE_CHANGE_NOTIFICATION Notification;
 	PSYS_BUTTON_CONTEXT SysButtonContext;

@@ -87,9 +87,10 @@ namespace RosTEGUI
 
         private void LoadHardDiskPage()
         {
-            foreach (HardDriveInfo hdi in VirtMach.HardDrives)
+            ArrayList hardDrives = VirtMach.GetHardDisks();
+            foreach (VMHardDrive vmhd in hardDrives)
             {
-                harddiskLstBox.Items.Add(hdi);
+                harddiskLstBox.Items.Add(vmhd);
             }
 
             if (harddiskLstBox.Items.Count > 0)
@@ -109,8 +110,8 @@ namespace RosTEGUI
             floppyEnableChkBox.Checked = VirtMach.FloppyEnable;
 
             int id = floppyPhyDrvCombo.FindString(VirtMach.FloppyPhysDrv);
-            if (id != -1)
-                floppyPhyDrvCombo.SelectedIndex = id;
+            if (id == -1) id = 0;
+            floppyPhyDrvCombo.SelectedIndex = id;
 
             if (VirtMach.CdRomUsePhys)
             {
@@ -236,7 +237,7 @@ namespace RosTEGUI
         {
             TrackBar tb = (TrackBar)sender;
             memoryUpDwn.Value = tb.Value;
-            /*
+            
             char[] chars = { ' ', 'M', 'B' };
             string max = memoryRecMax.Text.TrimEnd(chars);
             string min = memoryRecMin.Text.TrimEnd(chars);
@@ -254,7 +255,7 @@ namespace RosTEGUI
             {
                 memoryRecMin.ForeColor = SystemColors.WindowText;
                 memoryRecMax.ForeColor = SystemColors.WindowText;
-            }*/
+            }
         }
 
         private void memoryUpDwn_ValueChanged(object sender, EventArgs e)
@@ -307,12 +308,12 @@ namespace RosTEGUI
             ListBox lb = (ListBox)sender;
             if (lb.SelectedItem != null)
             {
-                HardDriveInfo hdi = (HardDriveInfo)lb.SelectedItem;
+                VMHardDrive vmhd = (VMHardDrive)lb.SelectedItem;
 
-                harddiskDriveName.Text = hdi.name;
-                harddiskFileNameTxtBox.Text = hdi.path;
-                harddiskSizeLbl.Text = hdi.size.ToString();
-                harddiskBootImageChk.Checked = hdi.bootImg;
+                harddiskDriveName.Text = vmhd.Drive;
+                harddiskFileNameTxtBox.Text = vmhd.Path;
+                harddiskSizeLbl.Text = vmhd.Size.ToString();
+                harddiskBootImageChk.Checked = vmhd.BootImg;
             }
         }
 

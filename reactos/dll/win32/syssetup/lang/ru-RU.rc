@@ -3,8 +3,8 @@
 LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
 
 
-IDD_WELCOMEPAGE DIALOGEX DISCARDABLE  0, 0, 317, 193
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_WELCOMEPAGE DIALOG DISCARDABLE  0, 0, 317, 193
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Установка ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -16,14 +16,14 @@ END
 
 
 IDD_ACKPAGE DIALOGEX 0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Установка ReactOS"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     LTEXT           "Разработчики ReactOS и Open Source-проекты, благодаря которым "\
                     "была создана ReactOS:",
                     IDC_STATIC,15,7,286,19
-    LISTBOX         IDC_PROJECTS,15,30,286,75,LBS_NOSEL | LBS_HASSTRINGS |
+    LISTBOX         IDC_PROJECTS,15,30,286,75,LBS_NOSEL | LBS_HASSTRINGS | 
                     LBS_NOINTEGRALHEIGHT | WS_VSCROLL
     LTEXT           "ReactOS распространяется под лицензией GPL, если "\
                     "вы хотите использовать и распространять ее, вы должны соблюдать GPL.",
@@ -34,56 +34,52 @@ BEGIN
 END
 
 
-IDD_OWNERPAGE DIALOGEX DISCARDABLE  0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_OWNERPAGE DIALOG DISCARDABLE  0, 0, 317, 143
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Установка ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_ICON2, IDC_STATIC, 21, 7, 20, 20
     LTEXT "Введите ваше полное имя и название организации.",
           IDC_STATIC, 54, 7, 242, 21
     LTEXT "&Имя:", IDC_STATIC, 54, 37, 44, 8
-    EDITTEXT IDC_OWNERNAME, 132, 35, 163, 14, WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL
+    EDITTEXT IDC_OWNERNAME, 132, 35, 163, 11, WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL
     LTEXT "&Организация:", IDC_STATIC, 54, 57, 47, 8
-    EDITTEXT IDC_OWNERORGANIZATION, 132, 55, 163, 14, WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL
+    EDITTEXT IDC_OWNERORGANIZATION, 132, 55, 163, 11, WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL
 END
 
 
-IDD_COMPUTERPAGE DIALOGEX DISCARDABLE  0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_COMPUTERPAGE DIALOG DISCARDABLE  0, 0, 317, 143
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Установка ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_ICON1, IDC_STATIC, 21, 7, 20, 20
     LTEXT "Введите имя вашего компьютера (не более 63 символов). "\
           "Если ваш компьютер подключен к сети, то его имя должно быть уникально.",
           IDC_STATIC, 54, 7, 250, 24
     LTEXT "&Имя компьютера:", IDC_STATIC, 54, 38, 75, 8
-    EDITTEXT IDC_COMPUTERNAME, 165, 35, 148, 14, WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL | ES_UPPERCASE
-    ICON IDI_ICON5, IDC_STATIC, 21, 57, 20, 20
+    EDITTEXT IDC_COMPUTERNAME, 140, 35, 163, 11, WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL | ES_UPPERCASE
     LTEXT "При установке будет создан профиль пользователя с именем Administrator "\
           "Вы можете использовать этот профиль, если вам нужно получить права администратора.",
           IDC_STATIC, 54, 57, 250, 25
     LTEXT "Введите пароль администратора (не более 14 символов).",
           IDC_STATIC, 54, 87, 250, 8
-    LTEXT "&Пароль администратора:", IDC_STATIC, 54, 104, 96, 8
-    EDITTEXT IDC_ADMINPASSWORD1, 165, 101, 148, 14, WS_VISIBLE | WS_TABSTOP | ES_PASSWORD
+    LTEXT "&Пароль администратора:", IDC_STATIC, 54, 104, 110, 8
+    EDITTEXT IDC_ADMINPASSWORD1, 142, 101, 170, 11, WS_VISIBLE | WS_TABSTOP | ES_PASSWORD
     LTEXT "П&овторите пароль:", IDC_STATIC, 54, 123, 75, 8
-    EDITTEXT IDC_ADMINPASSWORD2, 165, 120, 148, 14, WS_VISIBLE | WS_TABSTOP | ES_PASSWORD
+    EDITTEXT IDC_ADMINPASSWORD2, 142, 120, 170, 11, WS_VISIBLE | WS_TABSTOP | ES_PASSWORD
 END
 
 
-IDD_LOCALEPAGE DIALOGEX DISCARDABLE  0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_LOCALEPAGE DIALOG DISCARDABLE  0, 0, 317, 143
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Установка ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_ICON4, IDC_STATIC, 21, 7, 20, 20
     LTEXT "Язык системы устанавливается и действует во всех приложениях. "\
           "Можно выбрать систему исчисления, формат чисел и даты.", IDC_STATIC, 53, 7, 253, 20
     LTEXT "", IDC_LOCALETEXT, 53, 29, 250, 16
     LTEXT "Для изменения языка системы нажмите ""Настроить"".",
-          IDC_STATIC, 53, 60, 197, 8
+          IDC_STATIC, 53, 60, 184, 8
     PUSHBUTTON "&Настроить...", IDC_CUSTOMLOCALE, 245, 57, 55, 14
     LTEXT "Выбрав раскладку вы сможете вводить символы на вашем языке.",
           IDC_STATIC, 53, 86, 253, 8
@@ -94,17 +90,16 @@ BEGIN
 END
 
 
-IDD_DATETIMEPAGE DIALOGEX DISCARDABLE  0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_DATETIMEPAGE DIALOG DISCARDABLE  0, 0, 317, 143
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Установка ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_ICON3, IDC_STATIC, 21, 10, 20, 20
     LTEXT "Дата и время:", IDC_STATIC, 53, 7, 253, 8
     CONTROL "", IDC_DATEPICKER, "SysDateTimePick32",
-            DTS_LONGDATEFORMAT | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 53, 17, 137, 14
+            DTS_LONGDATEFORMAT | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 53, 17, 137, 11
     CONTROL "", IDC_TIMEPICKER, "SysDateTimePick32",
-            DTS_TIMEFORMAT | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 200, 17, 54, 14
+            DTS_TIMEFORMAT | WS_CHILD | WS_VISIBLE | WS_TABSTOP, 200, 17, 54, 11
     LTEXT "Часовой пояс:", IDC_STATIC, 53, 42, 253, 8
     COMBOBOX IDC_TIMEZONELIST, 53, 52, 201, 93,
              CBS_DROPDOWNLIST | WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL
@@ -113,8 +108,8 @@ BEGIN
 END
 
 
-IDD_PROCESSPAGE DIALOGEX 0, 0, 317, 143
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_PROCESSPAGE DIALOG 0, 0, 317, 143
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Установка ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -125,8 +120,8 @@ BEGIN
 END
 
 
-IDD_FINISHPAGE DIALOGEX DISCARDABLE  0, 0, 317, 193
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+IDD_FINISHPAGE DIALOG DISCARDABLE  0, 0, 317, 193
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "Завершение установки ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -139,19 +134,19 @@ BEGIN
 END
 
 
-IDD_GPL DIALOGEX 0, 0, 333, 230
-STYLE DS_SHELLFONT | DS_CENTER | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "Открытое лицензионное соглашение GNU"
+IDD_GPL DIALOG 0, 0, 333, 230
+STYLE DS_CENTER | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "GNU General Public License"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    EDITTEXT        IDC_GPL_TEXT,7,7,319,190,ES_MULTILINE | ES_AUTOHSCROLL |
+    EDITTEXT        IDC_GPL_TEXT,7,7,319,190,ES_MULTILINE | ES_AUTOHSCROLL | 
                     ES_READONLY | WS_VSCROLL
     DEFPUSHBUTTON   "OK",IDOK,141,209,50,14
 END
 
 
 IDD_STATUSWINDOW_DLG DIALOGEX 0,0,274,26
-STYLE NOT WS_VISIBLE | DS_CENTER | DS_MODALFRAME | DS_SHELLFONT | WS_BORDER | WS_CAPTION | WS_DLGFRAME | WS_POPUP
+STYLE NOT WS_VISIBLE | DS_3DLOOK | DS_CENTER | DS_MODALFRAME | DS_SETFONT | DS_FIXEDSYS | WS_BORDER | WS_CAPTION | WS_DLGFRAME | WS_POPUP
 CAPTION "Пожалуйста подождите..."
 FONT 8,"MS Shell Dlg 2",400,0,1
 BEGIN
@@ -177,6 +172,8 @@ END
 
 STRINGTABLE
 BEGIN
+    IDS_CMT_WINEFILE    "Запустить Winefile"
+    IDS_CMT_IBROWSER	"Запустить iBrowser"
     IDS_CMT_DOWNLOADER  "Скачать и установить другие приложения"
 END
 
@@ -192,80 +189,42 @@ BEGIN
     IDS_CMT_SCREENSHOT  "Сделать снимок экрана"
     IDS_CMT_DEVMGMT     "Запустить диспетчер устройств"
     IDS_CMT_SERVMAN     "Запустить диспетчер служб"
-    IDS_CMT_RDESKTOP    "Запустить удаленный рабочий стол"
-    IDS_CMT_EVENTVIEW   "Запустить программу просмотра событий"
-    IDS_CMT_MSCONFIG    "Запустить программу настройки системы"
-    IDS_CMT_PAINT       "Запустить Paint"
 END
 
 STRINGTABLE
 BEGIN
-    IDS_GAMES			"Игры"
-    IDS_CMT_SOLITAIRE	"Пасьянс ""Косынка"""
+    IDS_GAMES		"Игры"
+    IDS_CMT_SOLITAIRE	"Пасьянс"
     IDS_CMT_WINEMINE	"Сапер"
-	IDS_CMT_SPIDER      "Пасьянс ""Паук"""
 END
 
 STRINGTABLE
 BEGIN
-	IDS_SYS_TOOLS        "Служебные"
-	IDS_CMT_CHARMAP      "Таблица символов"
-	IDS_CMT_KBSWITCH     "Переключатель раскладки клавиатуры"
-    IDS_CMT_DXDIAG       "Запустить программу диагностики ReactX"
-END
-
-
-STRINGTABLE
-BEGIN
-	IDS_SYS_ACCESSIBILITY        "Специальные возможности"
-	IDS_CMT_MAGNIFY      	     "Экранная лупа"
-END
-
-STRINGTABLE
-BEGIN
-    IDS_SYS_ENTERTAINMENT       "Развлечения"
-    IDS_CMT_MPLAY32             "Запустить проигрыватель"
-    IDS_CMT_SNDVOL32            "Запустить регулятор громкости"
-END
-
-STRINGTABLE
-BEGIN
-    IDS_REACTOS_SETUP			"Установка ReactOS"
+    IDS_REACTOS_SETUP		"Установка ReactOS"
     IDS_UNKNOWN_ERROR           "Неизвестная ошибка"
     IDS_REGISTERING_COMPONENTS  "Регистрация компонентов..."
-    IDS_LOADLIBRARY_FAILED		"Ошибка LoadLibrary: "
-    IDS_GETPROCADDR_FAILED		"Ошибка GetProcAddr: "
+    IDS_LOADLIBRARY_FAILED	"Ошибка LoadLibrary: "
+    IDS_GETPROCADDR_FAILED	"Ошибка GetProcAddr: "
     IDS_REGSVR_FAILED           "Ошибка DllRegisterServer: "
-    IDS_DLLINSTALL_FAILED		"Ошибка DllInstall: "
-    IDS_TIMEOUT					"Таймаут в ходе регистрации"
+    IDS_DLLINSTALL_FAILED	"Ошибка DllInstall: "
+    IDS_TIMEOUT			"Таймаут в ходе регистрации"
     IDS_REASON_UNKNOWN          ""
 END
 
 STRINGTABLE
 BEGIN
-    IDS_SHORT_CMD        "Командная строка.lnk"
-    IDS_SHORT_EXPLORER   "Проводник ReactOS.lnk"
-    IDS_SHORT_DOWNLOADER "Менеджер приложений ReactOS.lnk"
-    IDS_SHORT_SERVICE    "Диспетчер служб.lnk"
-    IDS_SHORT_DEVICE     "Диспетчер устройств.lnk"
-    IDS_SHORT_MPLAY32    "Проигрыватель.lnk"
-    IDS_SHORT_CALC       "Калькулятор.lnk"
-    IDS_SHORT_REGEDIT    "Редактор реестра.lnk"
-    IDS_SHORT_NOTEPAD    "Блокнот.lnk"
+    IDS_SHORT_CMD        "Command Prompt.lnk"
+    IDS_SHORT_EXPLORER   "ReactOS Explorer.lnk"
+    IDS_SHORT_DOWNLOADER "Download !.lnk"
+    IDS_SHORT_SERVICE    "Service Manager.lnk"
+    IDS_SHORT_DEVICE     "Device Manager.lnk"
+    IDS_SHORT_CALC       "Calculator.lnk"
+    IDS_SHORT_REGEDIT    "Regedit.lnk"
+    IDS_SHORT_NOTEPAD    "Notepad.lnk"
     IDS_SHORT_WORDPAD    "WordPad.lnk"
     IDS_SHORT_SNAP       "SnapShot.lnk"
-    IDS_SHORT_SOLITAIRE  "Пасьянс ""Косынка"".lnk"
-    IDS_SHORT_WINEMINE   "Сапер.lnk"
-    IDS_SHORT_CHARMAP    "Таблица символов.lnk"
-    IDS_SHORT_MAGNIFY    "Экранная лупа.lnk"
-    IDS_SHORT_RDESKTOP   "Удаленный рабочий стол.lnk"
-    IDS_SHORT_KBSWITCH   "Переключатель раскладки клавиатуры.lnk"
-    IDS_SHORT_EVENTVIEW  "Просмотр событий.lnk"
-    IDS_SHORT_MSCONFIG   "Параметры системы.lnk"
-    IDS_SHORT_SNDVOL32   "Громкость.lnk"
-    IDS_SHORT_DXDIAG     "Средство диагностики ReactX.lnk"
-    IDS_SHORT_PAINT      "Paint.lnk"
-	IDS_SHORT_SPIDER     "Пасьянс ""Паук"".lnk"
+    IDS_SHORT_SOLITAIRE  "Solitaire.lnk"
+    IDS_SHORT_WINEMINE   "WineMine.lnk"
 END
 
 STRINGTABLE

@@ -19,7 +19,7 @@
  * - No Joliet file name validations
  * - Very bad ISO file name generation
  *
- *
+ * 
  * convert long filename to iso9660 file name by Magnus Olsen
  * magnus@greatlord.com
  *
@@ -38,7 +38,7 @@
 # include <io.h>
 # include <dos.h>
 #else
-# if defined(__FreeBSD__) || defined(__APPLE__)
+# ifdef __FreeBSD__
 #  include <sys/uio.h>
 # else
 #  include <sys/io.h>
@@ -557,8 +557,8 @@ void parse_filename_into_dirrecord ( const char* filename, PDIR_RECORD d, BOOL d
   const char *s = filename;
   char *t = d->name_on_cd;
   char *n = d->name;
-  int joliet_length;
-  int filename_counter;
+  int joliet_length;    
+  int filename_counter;  
   filename_counter = 1;
   while (*s != 0)
   {
@@ -567,12 +567,12 @@ void parse_filename_into_dirrecord ( const char* filename, PDIR_RECORD d, BOOL d
       s++;
       break;
     }
-
-    if ( (size_t)(t-d->name_on_cd) < sizeof(d->name_on_cd)-1 )
+     
+    if ( (t-d->name_on_cd) < sizeof(d->name_on_cd)-1 )
       *t++ = check_for_punctuation(*s, filename);
     else if (!joliet)
     error_exit ("'%s' is not ISO-9660, aborting...", filename );
-    if ( (size_t)(n-d->name) < sizeof(d->name)-1 )
+    if ( (n-d->name) < sizeof(d->name)-1 )
       *n++ = *s;
     else if (!joliet)
       error_exit ( "'%s' is not ISO-9660, aborting...", filename );
@@ -587,7 +587,7 @@ void parse_filename_into_dirrecord ( const char* filename, PDIR_RECORD d, BOOL d
   t = d->extension_on_cd;
   while ( *s != 0 )
   {
-    if ( (size_t)(t-d->extension_on_cd) < sizeof(d->extension_on_cd)-1 )
+    if ( (t-d->extension_on_cd) < (sizeof(d->extension_on_cd)-1) )
       *t++ = check_for_punctuation(*s, filename);
     else if (!joliet)
       error_exit ( "'%s' is not ISO-9660, aborting...", filename );
@@ -611,21 +611,21 @@ void parse_filename_into_dirrecord ( const char* filename, PDIR_RECORD d, BOOL d
   filename_counter = 1;
   while  ( cdname_exists ( d ) )
   {
+	   
+   // the file name must be least 8 char long 
+   if (strlen(d->name_on_cd)<8) 
+	   error_exit ( "'%s' is a duplicate file name, aborting...", filename );   	
 
-   // the file name must be least 8 char long
-   if (strlen(d->name_on_cd)<8)
-	   error_exit ( "'%s' is a duplicate file name, aborting...", filename );
-
-   if ((d->name_on_cd[8] == '.') && (strlen(d->name_on_cd) < 13))
-       error_exit ( "'%s' is a duplicate file name, aborting...", filename );
-
-   // max 255 times for equal short filename
-   if (filename_counter>255) error_exit ( "'%s' is a duplicate file name, aborting...", filename );
+   if ((d->name_on_cd[8] == '.') && (strlen(d->name_on_cd) < 13)) 
+       error_exit ( "'%s' is a duplicate file name, aborting...", filename );   	
+   
+   // max 255 times for equal short filename 
+   if (filename_counter>255) error_exit ( "'%s' is a duplicate file name, aborting...", filename );   		       
    d->name_on_cd[8] = '~';
-   memset(&d->name_on_cd[9],0,5);
-   sprintf(&d->name_on_cd[9],"%d",filename_counter);
-   filename_counter++;
-
+   memset(&d->name_on_cd[9],0,5);   
+   sprintf(&d->name_on_cd[9],"%d",filename_counter);   
+   filename_counter++;     		       
+   
   }
 
   if ( joliet )
@@ -882,8 +882,7 @@ make_directory_records (PDIR_RECORD d)
                 }
               else
                 {
-                  if (!getcwd(buf, sizeof(buf)))
-                    error_exit("Can't get CWD: %s\n", strerror(errno));
+                  getcwd(buf, sizeof(buf));
                   strcat(buf, DIR_SEPARATOR_STRING);
                   strcat(buf, source);
                   strcat(buf, entry->d_name);
@@ -944,8 +943,7 @@ make_directory_records (PDIR_RECORD d)
                     }
                   else
                     {
-                      if (!getcwd(buf, sizeof(buf)))
-                        error_exit("Can't get CWD: %s\n", strerror(errno));
+                      getcwd(buf, sizeof(buf));
                       strcat(buf, DIR_SEPARATOR_STRING);
                       strcat(buf, source);
                     }
@@ -996,8 +994,7 @@ make_directory_records (PDIR_RECORD d)
             }
           else
             {
-              if (!getcwd(buf, sizeof(buf)))
-                error_exit("Can't get CWD: %s\n", strerror(errno));
+              getcwd(buf, sizeof(buf));
               strcat(buf, DIR_SEPARATOR_STRING);
               strcat(buf, source);
               strcat(buf, entry->d_name);
@@ -1078,12 +1075,12 @@ static void get_file_specifications(PDIR_RECORD d)
 {
   if (d != &root)
   {
-    get_file_specifications(d->parent);
+    get_file_specifications(d->parent);	
 	if (d->joliet_name == NULL)
         append_string_to_source(d->name);
 	else
 		append_string_to_source(d->joliet_name);
-
+		 
     if (((d->flags & DIRECTORY_FLAG) == 0 || joliet) && d->extension[0] != 0)
     {
 	  if (d->joliet_name == NULL)
@@ -1176,7 +1173,7 @@ static void pass(void)
   {
     write_string("\2CD001\1");
     write_byte(0);
-
+    
     write_word_block(16, L' '); // system identifier
 
     t = volume_label;
@@ -1259,10 +1256,7 @@ static void pass(void)
       size = ftell(file);
       fseek(file, 0, SEEK_SET);
       if (size == 0 || (size % 2048))
-      {
-        fclose(file);
         error_exit("Invalid boot image size (%lu bytes)\n", size);
-      }
       boot_image_size = size / 512;
       while (size > 0)
       {

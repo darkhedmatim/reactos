@@ -13,7 +13,7 @@
 #include <debug.h>
 
 /* GCC's incompetence strikes again */
-__inline
+FORCEINLINE
 VOID
 sprintf_nt(IN PCHAR Buffer,
            IN PCHAR Format,
@@ -29,7 +29,7 @@ sprintf_nt(IN PCHAR Buffer,
 
 LIST_ENTRY PsLoadedModuleList;
 KSPIN_LOCK PsLoadedModuleSpinLock;
-ULONG_PTR PsNtosImageBase;
+ULONG PsNtosImageBase;
 KMUTANT MmSystemLoadLock;
 extern ULONG NtGlobalFlag;
 
@@ -44,7 +44,7 @@ MiCacheImageSymbols(IN PVOID BaseAddress)
     PAGED_CODE();
 
     /* Make sure it's safe to access the image */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Get the debug directory */
         DebugDirectory = RtlImageDirectoryEntryToData(BaseAddress,
@@ -52,11 +52,11 @@ MiCacheImageSymbols(IN PVOID BaseAddress)
                                                       IMAGE_DIRECTORY_ENTRY_DEBUG,
                                                       &DebugSize);
     }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    _SEH_HANDLE
     {
         /* Nothing */
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return the directory */
     return DebugDirectory;
@@ -95,7 +95,7 @@ MiLoadImageSection(IN OUT PVOID *SectionPtr,
     PVOID Base = NULL;
     SIZE_T ViewSize = 0;
     KAPC_STATE ApcState;
-    LARGE_INTEGER SectionOffset = {{0, 0}};
+    LARGE_INTEGER SectionOffset = {{0}};
     BOOLEAN LoadSymbols = FALSE;
     ULONG DriverSize;
     PVOID DriverBase;
@@ -177,23 +177,15 @@ NTSTATUS
 NTAPI
 MiDereferenceImports(IN PLOAD_IMPORTS ImportList)
 {
-    SIZE_T i;
-
     /* Check if there's no imports or if we're a boot driver */
-    if ((ImportList == (PVOID)-1) ||
-        (ImportList == (PVOID)-2) ||
-        (ImportList->Count == 0))
+    if ((ImportList == (PVOID)-1) || (ImportList == (PVOID)-2))
     {
         /* Then there's nothing to do */
         return STATUS_SUCCESS;
     }
 
     /* Otherwise, FIXME */
-    DPRINT1("%u imports not dereferenced!\n", ImportList->Count);
-    for (i = 0; i < ImportList->Count; i++)
-    {
-        DPRINT1("%wZ <%wZ>\n", &ImportList->Entry[i]->FullDllName, &ImportList->Entry[i]->BaseDllName);
-    }
+    DPRINT1("Imports not dereferenced!\n");
     return STATUS_UNSUCCESSFUL;
 }
 
@@ -282,7 +274,7 @@ MiFindExportedRoutineByName(IN PVOID DllBase,
     Function = (PVOID)((ULONG_PTR)DllBase + ExportTable[Ordinal]);
 
     /* We found it! */
-    ASSERT(!(Function > (PVOID)ExportDirectory) &&
+    ASSERT((Function > (PVOID)ExportDirectory) &&
            (Function < (PVOID)((ULONG_PTR)ExportDirectory + ExportSize)));
     return Function;
 }
@@ -369,60 +361,16 @@ NTAPI
 MmCallDllInitialize(IN PLDR_DATA_TABLE_ENTRY LdrEntry,
                     IN PLIST_ENTRY ListHead)
 {
-    UNICODE_STRING ServicesKeyName = RTL_CONSTANT_STRING(
-        L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\");
     PMM_DLL_INITIALIZE DllInit;
-    UNICODE_STRING RegPath, ImportName;
-    NTSTATUS Status;
 
     /* Try to see if the image exports a DllInitialize routine */
     DllInit = (PMM_DLL_INITIALIZE)MiLocateExportName(LdrEntry->DllBase,
                                                      "DllInitialize");
     if (!DllInit) return STATUS_SUCCESS;
 
-    /* Do a temporary copy of BaseDllName called ImportName
-     * because we'll alter the length of the string
-     */
-    ImportName.Length = LdrEntry->BaseDllName.Length;
-    ImportName.MaximumLength = LdrEntry->BaseDllName.MaximumLength;
-    ImportName.Buffer = LdrEntry->BaseDllName.Buffer;
-
-    /* Obtain the path to this dll's service in the registry */
-    RegPath.MaximumLength = ServicesKeyName.Length +
-        ImportName.Length + sizeof(UNICODE_NULL);
-    RegPath.Buffer = ExAllocatePoolWithTag(NonPagedPool,
-                                           RegPath.MaximumLength,
-                                           TAG_LDR_WSTR);
-
-    /* Check if this allocation was unsuccessful */
-    if (!RegPath.Buffer) return STATUS_INSUFFICIENT_RESOURCES;
-
-    /* Build and append the service name itself */
-    RegPath.Length = ServicesKeyName.Length;
-    RtlCopyMemory(RegPath.Buffer,
-                  ServicesKeyName.Buffer,
-                  ServicesKeyName.Length);
-
-    /* Check if there is a dot in the filename */
-    if (wcschr(ImportName.Buffer, L'.'))
-    {
-        /* Remove the extension */
-        ImportName.Length = (wcschr(ImportName.Buffer, L'.') -
-            ImportName.Buffer) * sizeof(WCHAR);
-    }
-
-    /* Append service name (the basename without extension) */
-    RtlAppendUnicodeStringToString(&RegPath, &ImportName);
-
-    /* Now call the DllInit func */
-    DPRINT("Calling DllInit(%wZ)\n", &RegPath);
-    Status = DllInit(&RegPath);
-
-    /* Clean up */
-    ExFreePool(RegPath.Buffer);
-
-    /* Return status value which DllInitialize returned */
-    return Status;
+    /* FIXME: TODO */
+    DPRINT1("DllInitialize not called!\n");
+    return STATUS_UNSUCCESSFUL;
 }
 
 VOID
@@ -705,7 +653,7 @@ MiSnapThunk(IN PVOID DllBase,
                                          &MissingForwarder);
 
                     /* Free the forwarder name and set the thunk */
-                    ExFreePoolWithTag(ForwardName, TAG_LDR_WSTR);
+                    ExFreePool(ForwardName);
                     Address->u1 = ForwardThunk.u1;
                     break;
                 }
@@ -865,8 +813,9 @@ MiResolveImageReferences(IN PVOID ImageBase,
                                               TAG_LDR_WSTR);
         if (LoadedImports)
         {
-            /* Zero it */
+            /* Zero it and set the count */
             RtlZeroMemory(LoadedImports, LoadedImportsSize);
+            LoadedImports->Count = ImportCount;
         }
     }
     else
@@ -921,7 +870,7 @@ MiResolveImageReferences(IN PVOID ImageBase,
         {
             /* Failed */
             MiDereferenceImports(LoadedImports);
-            if (LoadedImports) ExFreePoolWithTag(LoadedImports, TAG_LDR_WSTR);
+            if (LoadedImports) ExFreePool(LoadedImports);
             return Status;
         }
 
@@ -1042,7 +991,7 @@ CheckDllState:
                 /* Cleanup and return */
                 RtlFreeUnicodeString(&NameString);
                 MiDereferenceImports(LoadedImports);
-                if (LoadedImports) ExFreePoolWithTag(LoadedImports, TAG_LDR_WSTR);
+                if (LoadedImports) ExFreePool(LoadedImports);
                 return Status;
             }
 
@@ -1057,8 +1006,8 @@ CheckDllState:
             if (!(LdrEntry->Flags & LDRP_LOAD_IN_PROGRESS))
             {
                 /* Add the entry */
-                LoadedImports->Entry[LoadedImports->Count] = LdrEntry;
-                LoadedImports->Count++;
+                LoadedImports->Entry[ImportCount] = LdrEntry;
+                ImportCount++;
             }
         }
 
@@ -1075,7 +1024,7 @@ CheckDllState:
         {
             /* Cleanup and return */
             MiDereferenceImports(LoadedImports);
-            if (LoadedImports) ExFreePoolWithTag(LoadedImports, TAG_LDR_WSTR);
+            if (LoadedImports) ExFreePool(LoadedImports);
             return STATUS_DRIVER_ENTRYPOINT_NOT_FOUND;
         }
 
@@ -1104,7 +1053,7 @@ CheckDllState:
                 {
                     /* Cleanup and return */
                     MiDereferenceImports(LoadedImports);
-                    if (LoadedImports) ExFreePoolWithTag(LoadedImports, TAG_LDR_WSTR);
+                    if (LoadedImports) ExFreePool(LoadedImports);
                     return Status;
                 }
 
@@ -1136,13 +1085,13 @@ CheckDllState:
         if (!ImportCount)
         {
             /* Free the list and set it to no imports */
-            ExFreePoolWithTag(LoadedImports, TAG_LDR_WSTR);
+            ExFreePool(LoadedImports);
             LoadedImports = (PVOID)-2;
         }
         else if (ImportCount == 1)
         {
             /* Just one entry, we can free the table and only use our entry */
-            ExFreePoolWithTag(LoadedImports, TAG_LDR_WSTR);
+            ExFreePool(LoadedImports);
             LoadedImports = (PLOAD_IMPORTS)ImportEntry;
         }
         else if (ImportCount != LoadedImports->Count)
@@ -1155,22 +1104,22 @@ CheckDllState:
             if (NewImports)
             {
                 /* Set count */
-                NewImports->Count = 0;
+                NewImports->Count = ImportCount;
 
                 /* Loop all the imports */
-                for (i = 0; i < LoadedImports->Count; i++)
+                for (i = 0, ImportCount = 0; i < LoadedImports->Count; i++)
                 {
                     /* Make sure it's valid */
                     if (LoadedImports->Entry[i])
                     {
                         /* Copy it */
-                        NewImports->Entry[NewImports->Count] = LoadedImports->Entry[i];
-                        NewImports->Count++;
+                        NewImports->Entry[i] = LoadedImports->Entry[i];
+                        ImportCount++;
                     }
                 }
 
                 /* Free the old copy */
-                ExFreePoolWithTag(LoadedImports, TAG_LDR_WSTR);
+                ExFreePool(LoadedImports);
                 LoadedImports = NewImports;
             }
         }
@@ -1334,7 +1283,7 @@ MiInitializeLoadedModuleList(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     LdrEntry = CONTAINING_RECORD(NextEntry,
                                  LDR_DATA_TABLE_ENTRY,
                                  InLoadOrderLinks);
-    PsNtosImageBase = (ULONG_PTR)LdrEntry->DllBase;
+    PsNtosImageBase = (ULONG)LdrEntry->DllBase;
 
     /* Loop the loader block */
     while (NextEntry != ListHead)
@@ -1879,7 +1828,7 @@ LoaderScan:
         }
 
         /* Free the entry itself */
-        ExFreePoolWithTag(LdrEntry, TAG_MODULE_OBJECT);
+        ExFreePool(LdrEntry);
         LdrEntry = NULL;
         goto Quickie;
     }
@@ -1911,12 +1860,7 @@ LoaderScan:
     }
 
     /* Check if there's symbols */
-#ifdef KDBG
-    /* If KDBG is defined, then we always have symbols */
-    if (TRUE)
-#else
     if (MiCacheImageSymbols(LdrEntry->DllBase))
-#endif
     {
         /* Check if the system root is present */
         if ((PrefixName.Length > (11 * sizeof(WCHAR))) &&
@@ -1969,7 +1913,7 @@ Quickie:
     if (NamePrefix) ExFreePool(PrefixName.Buffer);
 
     /* Free the name buffer and return status */
-    ExFreePoolWithTag(Buffer, TAG_LDR_WSTR);
+    ExFreePool(Buffer);
     return Status;
 }
 

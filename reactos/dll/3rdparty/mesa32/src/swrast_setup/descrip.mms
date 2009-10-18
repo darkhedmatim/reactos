@@ -1,16 +1,13 @@
 # Makefile for core library for VMS
-# contributed by Jouk Jansen  joukj@hrem.nano.tudelft.nl
-# Last revision : 3 October 2007
+# contributed by Jouk Jansen  joukj@hrem.stm.tudelft.nl
+# Last revision : 16 June 2003
 
 .first
 	define gl [---.include.gl]
 	define math [-.math]
 	define tnl [-.tnl]
-	define vbo [-.vbo]
 	define swrast [-.swrast]
 	define array_cache [-.array_cache]
-	define glapi [-.glapi]
-	define main [-.main]
 
 .include [---]mms-config.
 
@@ -20,7 +17,7 @@ VPATH = RCS
 
 INCDIR = [---.include],[-.main],[-.glapi]
 LIBDIR = [---.lib]
-CFLAGS = /include=($(INCDIR),[])/define=(PTHREADS=1)/name=(as_is,short)/float=ieee/ieee=denorm
+CFLAGS = /include=($(INCDIR),[])/define=(PTHREADS=1)/name=(as_is,short)
 
 SOURCES = ss_context.c ss_triangle.c
 

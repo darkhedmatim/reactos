@@ -70,7 +70,7 @@ ConvertConfigToVA(PCONFIGURATION_COMPONENT_DATA Start)
 	PCONFIGURATION_COMPONENT_DATA Child;
 	PCONFIGURATION_COMPONENT_DATA Sibling;
 
-	DPRINTM(DPRINT_WINDOWS, "ConvertConfigToVA(Start 0x%X)\n", Start);
+	DbgPrint((DPRINT_WINDOWS, "ConvertConfigToVA(Start 0x%X)", Start));
 	Child = Start;
 
 	while (Child != NULL)
@@ -87,14 +87,11 @@ ConvertConfigToVA(PCONFIGURATION_COMPONENT_DATA Start)
 		if (Child->Sibling)
 			Child->Sibling = PaToVa(Child->Sibling);
 
-		if (Child->ComponentEntry.Identifier)
-			Child->ComponentEntry.Identifier = PaToVa(Child->ComponentEntry.Identifier);
+		DbgPrint((DPRINT_WINDOWS, "Device 0x%X class %d", Child, Child->ComponentEntry.Class));
 
-		DPRINTM(DPRINT_WINDOWS, "Device 0x%X class %d type %d id '%s', parent %p\n", Child,
-			Child->ComponentEntry.Class, Child->ComponentEntry.Type, VaToPa(Child->ComponentEntry.Identifier), Child->Parent);
-
-		// Go through siblings list
-		Sibling = VaToPa(Child->Sibling);
+		// If the child has a sibling list, then search the sibling list
+		// for an entry that matches the specified class, type, and key.
+		Sibling = Child->Sibling;
 		while (Sibling != NULL)
 		{
 			if (Sibling->ConfigurationData)
@@ -109,20 +106,16 @@ ConvertConfigToVA(PCONFIGURATION_COMPONENT_DATA Start)
 			if (Sibling->Sibling)
 				Sibling->Sibling = PaToVa(Sibling->Sibling);
 
-			if (Sibling->ComponentEntry.Identifier)
-				Sibling->ComponentEntry.Identifier = PaToVa(Sibling->ComponentEntry.Identifier);
+			DbgPrint((DPRINT_WINDOWS, "Device 0x%X class %d", Sibling, Sibling->ComponentEntry.Class));
 
-			DPRINTM(DPRINT_WINDOWS, "Device 0x%X class %d type %d id '%s', parent %p\n", Sibling,
-				Sibling->ComponentEntry.Class, Sibling->ComponentEntry.Type, VaToPa(Sibling->ComponentEntry.Identifier), Sibling->Parent);
-
-			// Recurse into the Child tree
+			// If the sibling has a child tree, then search the child tree
+			// for an entry that matches the specified class, type, and key.
 			if (VaToPa(Sibling->Child) != NULL)
 				ConvertConfigToVA(VaToPa(Sibling->Child));
 
 			Sibling = VaToPa(Sibling->Sibling);
 		}
 
-		// Go to the next child
 		Child = VaToPa(Child->Child);
 	}
 }

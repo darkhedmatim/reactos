@@ -12,9 +12,10 @@
 /* INCLUDES *****************************************************************/
 
 #include <k32.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+#define NDEBUG
+#include "../include/debug.h"
+
 
 /* TYPES ********************************************************************/
 
@@ -165,7 +166,7 @@ InternalCopyFindDataA(LPWIN32_FIND_DATAA            lpFindFileData,
 
     FileNameA.Buffer[FileNameA.Length] = 0;
 
-    TRACE("lpFileInfo->ShortNameLength %d\n", lpFileInfo->ShortNameLength);
+    DPRINT("lpFileInfo->ShortNameLength %d\n", lpFileInfo->ShortNameLength);
 
     FileNameU.Length = FileNameU.MaximumLength = lpFileInfo->ShortNameLength;
     FileNameU.Buffer = lpFileInfo->ShortName;
@@ -186,7 +187,7 @@ InternalCopyFindDataA(LPWIN32_FIND_DATAA            lpFindFileData,
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 InternalFindNextFile (
     HANDLE	hFindFile,
     PUNICODE_STRING SearchPattern,
@@ -201,7 +202,7 @@ InternalFindNextFile (
     PFILE_BOTH_DIR_INFORMATION Buffer, FoundFile = NULL;
     NTSTATUS Status = STATUS_SUCCESS;
 
-    TRACE("InternalFindNextFile(%lx, %wZ)\n", hFindFile, SearchPattern);
+    DPRINT("InternalFindNextFile(%lx, %wZ)\n", hFindFile, SearchPattern);
 
     if (hFindFile != FIND_DEVICE_HANDLE)
     {
@@ -292,7 +293,7 @@ NeedMoreData:
 
         if (FoundFile != NULL)
         {
-            _SEH2_TRY
+            _SEH_TRY
             {
                 if (bUnicode)
                 {
@@ -305,10 +306,10 @@ NeedMoreData:
                                           FoundFile);
                 }
             }
-            _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+            _SEH_HANDLE
             {
             }
-            _SEH2_END;
+            _SEH_END;
         }
 
         if (Locked)
@@ -334,7 +335,7 @@ NeedMoreData:
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 InternalFindFirstFile (
     LPCWSTR	lpFileName,
     BOOLEAN DirectoryOnly,
@@ -355,7 +356,7 @@ InternalFindFirstFile (
 	ULONG DeviceNameInfo;
 	HANDLE hDirectory = NULL;
 
-	TRACE("FindFirstFileW(lpFileName %S)\n",
+	DPRINT("FindFirstFileW(lpFileName %S)\n",
 	       lpFileName);
 
 	RtlZeroMemory(&PathFileName,
@@ -421,10 +422,10 @@ InternalFindFirstFile (
 	    RemovedLastChar = TRUE;
 	}
 
-	TRACE("lpFileName: \"%ws\"\n", lpFileName);
-	TRACE("NtPathU: \"%wZ\"\n", &NtPathU);
-	TRACE("PathFileName: \"%wZ\"\n", &PathFileName);
-	TRACE("RelativeTo: 0x%p\n", DirInfo.Handle);
+	DPRINT("lpFileName: \"%ws\"\n", lpFileName);
+	DPRINT("NtPathU: \"%wZ\"\n", &NtPathU);
+	DPRINT("PathFileName: \"%wZ\"\n", &PathFileName);
+	DPRINT("RelativeTo: 0x%p\n", DirInfo.Handle);
 
 	InitializeObjectAttributes (&ObjectAttributes,
 	                            &NtPathU,
@@ -554,7 +555,7 @@ InternalFindFirstFile (
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 FindFirstFileA (
 	LPCSTR			lpFileName,
 	LPWIN32_FIND_DATAA	lpFindFileData
@@ -573,7 +574,7 @@ FindFirstFileA (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 FindNextFileA (
 	HANDLE hFindFile,
 	LPWIN32_FIND_DATAA lpFindFileData)
@@ -589,14 +590,14 @@ FindNextFileA (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 FindClose (
 	HANDLE	hFindFile
 	)
 {
 	PKERNEL32_FIND_DATA_HEADER IHeader;
 
-	TRACE("FindClose(hFindFile %x)\n",hFindFile);
+	DPRINT("FindClose(hFindFile %x)\n",hFindFile);
 
 	if (hFindFile == FIND_DEVICE_HANDLE)
 		return TRUE;
@@ -617,7 +618,6 @@ FindClose (
 			CloseHandle (IData->DirectoryHandle);
 			if (IData->LockInitialized)
 				RtlDeleteCriticalSection(&IData->Lock);
-			IData->LockInitialized = FALSE;
 			break;
 		}
 
@@ -646,7 +646,7 @@ FindClose (
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 FindFirstFileW (
 	LPCWSTR			lpFileName,
 	LPWIN32_FIND_DATAW	lpFindFileData
@@ -664,7 +664,7 @@ FindFirstFileW (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 FindNextFileW (
 	HANDLE			hFindFile,
 	LPWIN32_FIND_DATAW	lpFindFileData
@@ -681,7 +681,7 @@ FindNextFileW (
  * @unimplemented
  */
 HANDLE
-WINAPI
+STDCALL
 FindFirstFileExW (LPCWSTR               lpFileName,
                   FINDEX_INFO_LEVELS    fInfoLevelId,
                   LPVOID                lpFindFileData,
@@ -717,7 +717,7 @@ FindFirstFileExW (LPCWSTR               lpFileName,
  * @unimplemented
  */
 HANDLE
-WINAPI
+STDCALL
 FindFirstFileExA (
 	LPCSTR			lpFileName,
 	FINDEX_INFO_LEVELS	fInfoLevelId,

@@ -18,6 +18,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_PAUSE
 
@@ -34,10 +35,12 @@
  *        Remove all hardcode string to En.rc
  */
 
-INT cmd_pause (LPTSTR param)
+INT cmd_pause (LPTSTR cmd, LPTSTR param)
 {
 
-	TRACE ("cmd_pause: \'%s\')\n", debugstr_aw(param));
+#ifdef _DEBUG
+	DebugPrintf (_T("cmd_pause: \'%s\' : \'%s\')\n"), cmd, param);
+#endif
 
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{

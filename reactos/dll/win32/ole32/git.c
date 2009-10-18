@@ -96,7 +96,7 @@ static void StdGlobalInterfaceTable_Destroy(void* self)
 
 /***
  * A helper function to traverse the list and find the entry that matches the cookie.
- * Returns NULL if not found. Must be called inside git_section critical section.
+ * Returns NULL if not found
  */
 static StdGITEntry*
 StdGlobalInterfaceTable_FindEntry(IGlobalInterfaceTable* iface, DWORD cookie)
@@ -104,12 +104,16 @@ StdGlobalInterfaceTable_FindEntry(IGlobalInterfaceTable* iface, DWORD cookie)
   StdGlobalInterfaceTableImpl* const self = (StdGlobalInterfaceTableImpl*) iface;
   StdGITEntry* e;
 
-  TRACE("iface=%p, cookie=0x%x\n", iface, cookie);
+  TRACE("iface=%p, cookie=0x%x\n", iface, (UINT)cookie);
 
+  EnterCriticalSection(&git_section);
   LIST_FOR_EACH_ENTRY(e, &self->list, StdGITEntry, entry) {
-    if (e->cookie == cookie)
+    if (e->cookie == cookie) {
+      LeaveCriticalSection(&git_section);
       return e;
+    }
   }
+  LeaveCriticalSection(&git_section);
   
   TRACE("Entry not found\n");
   return NULL;
@@ -227,20 +231,13 @@ StdGlobalInterfaceTable_RevokeInterfaceFromGlobal(
   StdGITEntry* entry;
   HRESULT hr;
 
-  TRACE("iface=%p, dwCookie=0x%x\n", iface, dwCookie);
-
-  EnterCriticalSection(&git_section);
-
+  TRACE("iface=%p, dwCookie=0x%x\n", iface, (UINT)dwCookie);
+  
   entry = StdGlobalInterfaceTable_FindEntry(iface, dwCookie);
   if (entry == NULL) {
     TRACE("Entry not found\n");
-    LeaveCriticalSection(&git_section);
     return E_INVALIDARG; /* not found */
   }
-
-  list_remove(&entry->entry);
-
-  LeaveCriticalSection(&git_section);
   
   /* Free the stream */
   hr = CoReleaseMarshalData(entry->stream);
@@ -251,6 +248,11 @@ StdGlobalInterfaceTable_RevokeInterfaceFromGlobal(
   }
   IStream_Release(entry->stream);
 		    
+  /* chop entry out of the list, and free the memory */
+  EnterCriticalSection(&git_section);
+  list_remove(&entry->entry);
+  LeaveCriticalSection(&git_section);
+
   HeapFree(GetProcessHeap(), 0, entry);
   return S_OK;
 }
@@ -262,39 +264,36 @@ StdGlobalInterfaceTable_GetInterfaceFromGlobal(
 {
   StdGITEntry* entry;
   HRESULT hres;
-  IStream *stream;
-
+  LARGE_INTEGER move;
+  LPUNKNOWN lpUnk;
+  
   TRACE("dwCookie=0x%x, riid=%s, ppv=%p\n", dwCookie, debugstr_guid(riid), ppv);
-
-  EnterCriticalSection(&git_section);
-
+  
   entry = StdGlobalInterfaceTable_FindEntry(iface, dwCookie);
-  if (entry == NULL) {
-    WARN("Entry for cookie 0x%x not found\n", dwCookie);
-    LeaveCriticalSection(&git_section);
+  if (entry == NULL) return E_INVALIDARG;
+
+  if (!IsEqualIID(&entry->iid, riid)) {
+    WARN("entry->iid (%s) != riid\n", debugstr_guid(&entry->iid));
     return E_INVALIDARG;
   }
-
   TRACE("entry=%p\n", entry);
-
-  hres = IStream_Clone(entry->stream, &stream);
-
-  LeaveCriticalSection(&git_section);
-
-  if (hres) {
-    WARN("Failed to clone stream with error 0x%08x\n", hres);
-    return hres;
-  }
-
+  
   /* unmarshal the interface */
-  hres = CoUnmarshalInterface(stream, riid, ppv);
-  IStream_Release(stream);
+  hres = CoUnmarshalInterface(entry->stream, riid, ppv);
+  
+  /* rewind stream, in case it's used again */
+  move.u.LowPart = 0;
+  move.u.HighPart = 0;
+  IStream_Seek(entry->stream, move, STREAM_SEEK_SET, NULL);
 
   if (hres) {
     WARN("Failed to unmarshal stream\n");
     return hres;
   }
 
+  /* addref it */
+  lpUnk = *ppv;
+  IUnknown_AddRef(lpUnk);
   TRACE("ppv=%p\n", *ppv);
   return S_OK;
 }
@@ -308,7 +307,7 @@ GITCF_QueryInterface(LPCLASSFACTORY iface,REFIID riid, LPVOID *ppv)
   if (IsEqualIID(riid,&IID_IUnknown) ||
       IsEqualIID(riid,&IID_IGlobalInterfaceTable))
   {
-    *ppv = iface;
+    *ppv = (LPVOID)iface;
     return S_OK;
   }
   return E_NOINTERFACE;

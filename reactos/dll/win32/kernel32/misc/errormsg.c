@@ -28,7 +28,7 @@
 
 #define NDEBUG
 
-#include <debug.h>
+#include "../include/debug.h"
 #include "wine/unicode.h"
 
 #define TRACE DPRINT
@@ -171,12 +171,6 @@ DWORD WINAPI FormatMessageA(
     if ((dwFlags & FORMAT_MESSAGE_FROM_STRING)
         &&((dwFlags & FORMAT_MESSAGE_FROM_SYSTEM)
            || (dwFlags & FORMAT_MESSAGE_FROM_HMODULE))) return 0;
-
-    if (!lpBuffer)
-    {
-        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return 0;
-    }
 
     if (width && width != FORMAT_MESSAGE_MAX_WIDTH_MASK)
         FIXME("line wrapping (%lu) not supported.\n", width);
@@ -429,12 +423,6 @@ DWORD WINAPI FormatMessageW(
         &&((dwFlags & FORMAT_MESSAGE_FROM_SYSTEM)
            || (dwFlags & FORMAT_MESSAGE_FROM_HMODULE))) return 0;
 
-    if (!lpBuffer)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return 0;
-    }
-
     if (width && width != FORMAT_MESSAGE_MAX_WIDTH_MASK)
         FIXME("line wrapping not supported.\n");
     from = NULL;
@@ -569,7 +557,7 @@ DWORD WINAPI FormatMessageW(
                                 if (sprintfbuf) {
                                     HeapFree(GetProcessHeap(),0,sprintfbuf);
                                 }
-                                len += 256;
+                                len += 256; 
                                 sprintfbuf=HeapAlloc(GetProcessHeap(),0,len*sizeof(WCHAR));
                                 /* CMF - This makes a BIG assumption about va_list */
                             } while (0 > _vsnwprintf(sprintfbuf, len, fmtstr, (va_list) argliststart));

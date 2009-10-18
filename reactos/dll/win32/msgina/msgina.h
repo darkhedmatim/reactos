@@ -2,7 +2,6 @@
 #define __MSGINA_H
 
 #include <windows.h>
-#include <userenv.h>
 #include <winwlx.h>
 #include "resource.h"
 
@@ -18,20 +17,21 @@ typedef struct
 	PWLX_DISPATCH_VERSION_1_3 pWlxFuncs;
 	HANDLE hDllInstance;
 	HWND hStatusWindow;
+	BOOL SignaledStatusWindowCreated;
 	DWORD AutoLogonState;
 
 	/* Informations to be filled during logon */
 	HANDLE UserToken;
 	PLUID pAuthenticationId;
 	PDWORD pdwOptions;
-	PWLX_MPR_NOTIFY_INFO pMprNotifyInfo;
+	PWLX_MPR_NOTIFY_INFO pNprNotifyInfo;
 	PVOID *pProfile;
 
 	/* Current logo to display */
 	HBITMAP hBitmap;
 } GINA_CONTEXT, *PGINA_CONTEXT;
 
-extern HINSTANCE hDllInstance;
+HINSTANCE hDllInstance;
 
 typedef BOOL (*PFGINA_INITIALIZE)(PGINA_CONTEXT);
 typedef BOOL (*PFGINA_DISPLAYSTATUSMESSAGE)(PGINA_CONTEXT, HDESK, DWORD, PWSTR, PWSTR);

@@ -5,58 +5,13 @@ using System.Data;
 using System.Xml;
 using System.Windows.Forms;
 using System.Collections;
-using System.Collections.Generic;
 
 namespace RosTEGUI
 {
-    public struct VirtMachInfo
-    {
-        public int virtMachID;
-        public string name;
-        public string machType;
-        public string defDir;
-        public int memSize;
-        public bool setClockToHost;
-        public bool cdRomEnable;
-        public bool cdRomUsePhys;
-        public string cdRomPhysDrv;
-        public bool cdRomUseIso;
-        public string cdRomIsoImg;
-        public bool floppyEnable;
-        public bool floppyUsePhys;
-        public string floppyPhysDrv;
-        public bool floppyUseImg;
-        public string floppyIsoImg;
-
-        public List<HardDriveInfo> hardDrives;
-        public List<NetCardInfo> netCards;
-    }
-
-    public struct HardDriveInfo
-    {
-        public int diskID;
-        public string name;
-        public string drive;
-        public string path;
-        public int size;
-        public bool bootImg;
-    }
-
-    public struct NetCardInfo
-    {
-        public int cardID;
-        public int virtMachID;
-        public string option;
-        public int vlan;
-        public string macAddr;
-        public string model;
-        public string hostname;
-    }
-
     public class VMHardDrive
     {
+        private Data data;
         private DataRow hdDataRow;
-        private DataSet dataSet;
 
         #region properties
 
@@ -92,6 +47,12 @@ namespace RosTEGUI
             get { return (bool)hdDataRow["BootImg"]; }
             set { hdDataRow["BootImg"] = value; }
         }
+
+        public VMHardDrive(Data dataIn)
+        {
+            data = dataIn;
+        }
+
         #endregion
 
         public override string ToString()
@@ -109,7 +70,7 @@ namespace RosTEGUI
 
             try
             {
-                DataTable hddt = dataSet.Tables["HardDisks"];
+                DataTable hddt = data.DataSet.Tables["HardDisks"];
                 hdDataRow = hddt.NewRow();
                 hdDataRow["DiskID"] = hddt.Rows.Count;
                 hdDataRow["Name"] = nameIn;
@@ -124,7 +85,8 @@ namespace RosTEGUI
             catch (Exception e)
             {
                 string message = "Failed to populate hard disk database";
-                Debug.LogMessage(message, e.Message, e.StackTrace, true);
+                ErrorForm err = new ErrorForm(message, e.Message, e.StackTrace);
+                err.ShowDialog();
             }
 
             return ret;
@@ -132,7 +94,7 @@ namespace RosTEGUI
 
         public void DeleteHardDrive(int diskID)
         {
-            DataTable dt = dataSet.Tables["HardDisks"];
+            DataTable dt = data.DataSet.Tables["HardDisks"];
             //DataRow dr = dt.Rows.Find(diskID); <-- can't seem to apply a primary key??
             // workaround for the above
             foreach (DataRow dr in dt.Rows)
@@ -148,125 +110,337 @@ namespace RosTEGUI
 
         public void LoadHardDrive(int index)
         {
-            DataTable hddt = dataSet.Tables["HardDisks"];
+            DataTable hddt = data.DataSet.Tables["HardDisks"];
             hdDataRow = hddt.Rows[index];
         }
     }
 
-    public class VMNetCard
-    {
-    }
-
     public class VirtualMachine
     {
-        private VirtMachInfo vmInfo;
-
-        private ArrayList netCards;
+        private Data data;
+        private DataRow vmDataRow;
         private ArrayList hardDrives;
+        private ArrayList netCards;
 
         #region Virtual machine properties
+
         public int VirtMachID
         {
-            get { return vmInfo.virtMachID; }
+            get { return GetIntValue("VirtMachID"); }
         }
+
         public string Name
         {
-            get { return vmInfo.name; }
-            set { vmInfo.name = value; }
+            get { return GetStringValue("Name"); }
+            set { SetStringValue("Name", value); }
         }
+
         public string MachType
         {
-            get { return vmInfo.machType; }
-            set { vmInfo.machType = value; }
+            get { return GetStringValue("MachType"); }
+            set { SetStringValue("MachType", value); }
         }
+
         public string DefDir
         {
-            get { return vmInfo.defDir; }
-            set { vmInfo.defDir = value; }
+            get { return GetStringValue("DefDir"); }
+            set { SetStringValue("DefDir", value); }
         }
+
         public int MemSize
         {
-            get { return vmInfo.memSize; }
-            set { vmInfo.memSize = value; }
+            get { return GetIntValue("MemSize"); }
+            set { SetIntValue("MemSize", value); }
         }
+
         public bool SetClockToHost
         {
-            get { return vmInfo.setClockToHost; }
-            set { vmInfo.setClockToHost = value; }
+            get { return GetBoolValue("SetClockToHost"); }
+            set { SetBoolValue("SetClockToHost", value); }
         }
+
         public bool CdRomEnable
         {
-            get { return vmInfo.cdRomEnable; }
-            set { vmInfo.cdRomEnable = value; }
+            get { return GetBoolValue("CdRomEnable"); }
+            set { SetBoolValue("CdRomEnable", value); }
         }
+
         public bool CdRomUsePhys
         {
-            get { return vmInfo.cdRomUsePhys; }
-            set { vmInfo.cdRomUsePhys = value; }
+            get { return GetBoolValue("CdRomUsePhys"); }
+            set { SetBoolValue("CdRomUsePhys", value); }
         }
+
         public string CdRomPhysDrv
         {
-            get { return vmInfo.cdRomPhysDrv; }
-            set { vmInfo.cdRomPhysDrv = value; }
+            get { return GetStringValue("CdRomPhysDrv"); }
+            set { SetStringValue("CdRomPhysDrv", value); }
         }
+
         public bool CdRomUseIso
         {
-            get { return vmInfo.cdRomUseIso; }
-            set { vmInfo.cdRomUseIso = value; }
+            get { return GetBoolValue("CdRomUseIso"); }
+            set { SetBoolValue("CdRomUseIso", value); }
         }
+
         public string CdRomIsoImg
         {
-            get { return vmInfo.cdRomIsoImg; }
-            set { vmInfo.cdRomIsoImg = value; }
+            get { return GetStringValue("CdRomIsoImg"); }
+            set { SetStringValue("CdRomIsoImg", value); }
         }
+
         public bool FloppyEnable
         {
-            get { return vmInfo.floppyEnable; }
-            set { vmInfo.floppyEnable = value; }
+            get { return GetBoolValue("FloppyEnable"); }
+            set { SetBoolValue("FloppyEnable", value); }
         }
+
         public bool FloppyUsePhys
         {
-            get { return vmInfo.floppyUsePhys; }
-            set { vmInfo.floppyUsePhys = value; }
+            get { return GetBoolValue("FloppyUsePhys"); }
+            set { SetBoolValue("FloppyUsePhys", value); }
         }
+
         public string FloppyPhysDrv
         {
-            get { return vmInfo.floppyPhysDrv; }
-            set { vmInfo.floppyPhysDrv = value; }
+            get { return GetStringValue("FloppyPhysDrv"); }
+            set { SetStringValue("FloppyPhysDrv", value); }
         }
-        public bool FloppyUseImg
+
+        public bool FloppyUseIso
         {
-            get { return vmInfo.floppyUseImg; }
-            set { vmInfo.floppyUseImg = value; }
+            get { return GetBoolValue("FloppyUseIso"); }
+            set { SetBoolValue("FloppyUseIso", value); }
         }
+
         public string FloppyIsoImg
         {
-            get { return vmInfo.floppyIsoImg; }
-            set { vmInfo.floppyIsoImg = value; }
+            get { return GetStringValue("FloppyIsoImg"); }
+            set { SetStringValue("FloppyIsoImg", value); }
         }
-        public VirtMachInfo VMInfo
+
+        #endregion
+
+        #region property helper functions
+
+        private int GetIntValue(string key)
         {
-            get { return vmInfo; }
+            try
+            {
+                return (int)vmDataRow[key];
+            }
+            catch (ArgumentException e)
+            {
+                string message = "Failed to get " + key + " value";
+                ErrorForm err = new ErrorForm(message, e.Message, e.StackTrace);
+                err.ShowDialog();
+                return 0;
+            }
         }
-        public List<HardDriveInfo> HardDrives
+
+        private bool GetBoolValue(string key)
         {
-            get { return vmInfo.hardDrives; }
+            try
+            {
+                return (bool)vmDataRow[key];
+            }
+            catch (ArgumentException e)
+            {
+                string message = "Failed to get " + key + " value";
+                ErrorForm err = new ErrorForm(message, e.Message, e.StackTrace);
+                err.ShowDialog();
+                return false;
+            }
         }
-        public List<NetCardInfo> NetCards
+
+        private string GetStringValue(string key)
         {
-            get { return vmInfo.netCards; }
+            try
+            {
+                return (string)vmDataRow[key];
+            }
+            catch (ArgumentException e)
+            {
+                string message = "Failed to get " + key + " value";
+                ErrorForm err = new ErrorForm(message, e.Message, e.StackTrace);
+                err.ShowDialog();
+                return string.Empty;
+            }
         }
+
+        private void SetIntValue(string key, int value)
+        {
+            try
+            {
+                vmDataRow[key] = value;
+            }
+            catch (ArgumentException e)
+            {
+                string message = "Failed to set " + key + " value";
+                ErrorForm err = new ErrorForm(message, e.Message, e.StackTrace);
+                err.ShowDialog();
+            }
+        }
+
+        private void SetBoolValue(string key, bool value)
+        {
+            try
+            {
+                vmDataRow[key] = value;
+            }
+            catch (ArgumentException e)
+            {
+                string message = "Failed to set " + key + " value";
+                ErrorForm err = new ErrorForm(message, e.Message, e.StackTrace);
+                err.ShowDialog();
+            }
+        }
+
+        private void SetStringValue(string key, string value)
+        {
+            try
+            {
+                vmDataRow[key] = value;
+            }
+            catch (ArgumentException e)
+            {
+                string message = "Failed to set " + key + " value";
+                ErrorForm err = new ErrorForm(message, e.Message, e.StackTrace);
+                err.ShowDialog();
+            }
+        }
+
+        #endregion
+
+        #region database functions
+
+        private bool PopulateVMDatabase(string name,
+                                        string dir,
+                                        float diskSize,
+                                        string existImg,
+                                        int memSize)
+        {
+            DataRow netDataRow;
+            bool ret = false;
+
+            try
+            {
+                DataTable vmdt = data.DataSet.Tables["VMConfig"];
+                vmDataRow = vmdt.NewRow();
+                vmDataRow["VirtMachID"] = vmdt.Rows.Count + 1;
+                vmDataRow["Name"] = name;
+                vmDataRow["MachType"] = "pc";
+                vmDataRow["DefDir"] = dir;
+                vmDataRow["MemSize"] = memSize;
+                vmDataRow["SetClockToHost"] = true;
+                vmDataRow["CdRomEnable"] = true;
+                vmDataRow["CdRomUsePhys"] = true;
+                vmDataRow["CdRomPhysDrv"] = string.Empty;
+                vmDataRow["CdRomUseIso"] = false;
+                vmDataRow["CdRomIsoImg"] = string.Empty;
+                vmDataRow["FloppyEnable"] = true;
+                vmDataRow["FloppyUsePhys"] = true;
+                vmDataRow["FloppyPhysDrv"] = string.Empty;
+                vmDataRow["FloppyUseImg"] = false;
+                vmDataRow["FloppyIsoImg"] = string.Empty;
+                vmdt.Rows.Add(vmDataRow);
+
+                VMHardDrive vmhd = new VMHardDrive(data);
+                vmhd.CreateHardDrive("Main Drive", "hda", dir, 768, true);
+                hardDrives.Add(vmhd);
+
+                DataTable netdt = data.DataSet.Tables["NetCards"];
+                netDataRow = netdt.NewRow();
+                netDataRow["CardID"] = netdt.Rows.Count + 1;
+                netDataRow["VirtMachID"] = vmDataRow["VirtMachID"];
+                netDataRow["Option"] = "user";
+                netDataRow["Vlan"] = 0;
+                netDataRow["MacAddr"] = string.Empty;
+                netDataRow["Model"] = string.Empty;
+                netDataRow["Hostname"] = string.Empty;
+                netdt.Rows.Add(netDataRow);
+                netCards.Add(netDataRow);
+
+                ret = true;
+            }
+            catch (Exception e)
+            {
+                string message = "Failed to populate database";
+                ErrorForm err = new ErrorForm(message, e.Message, e.StackTrace);
+                err.ShowDialog();
+            }
+
+            return ret;
+        }
+
+        public bool LoadVMConfig(string path)
+        {
+            bool ret = false;
+            string fileName = path + "\\Config.xml";
+
+            if (File.Exists(fileName))
+            {
+                try
+                {
+                    FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
+                    XmlTextReader xtr = new XmlTextReader(fs);
+                    data.DataSet.ReadXml(xtr, System.Data.XmlReadMode.ReadSchema);
+                    xtr.Close();
+
+                    DataTable vmdt = data.DataSet.Tables["VMConfig"];
+                    vmDataRow = vmdt.Rows[0];
+
+                    DataTable hddt = data.DataSet.Tables["HardDisks"];
+                    for (int i = 0; i < hddt.Rows.Count; i++)
+                    {
+                        VMHardDrive vmhd = new VMHardDrive(data);
+                        vmhd.LoadHardDrive(i);
+                        hardDrives.Add(vmhd);
+                    }
+
+                    DataTable netdt = data.DataSet.Tables["NetCards"];
+                    foreach (DataRow dr in netdt.Rows)
+                        netCards.Add(dr);
+
+                    ret = true;
+                }
+                catch (Exception e)
+                {
+                    MessageBox.Show("error loading the VM Config.xml: " + e.Message);
+                }
+            }
+
+            return ret;
+        }
+
+        public void SaveVMConfig()
+        {
+            try
+            {
+                string fileName = DefDir + "\\Config.xml";
+                Directory.CreateDirectory(DefDir);
+                FileStream fs = new FileStream(fileName, FileMode.Create, FileAccess.Write);
+                XmlTextWriter xtw = new XmlTextWriter(fs, System.Text.Encoding.Unicode);
+                data.DataSet.WriteXml(xtw, System.Data.XmlWriteMode.WriteSchema);
+                xtw.Close();
+            }
+            catch (Exception e)
+            {
+                MessageBox.Show("error loading VM Config.xml: " + e.Message);
+            }
+        }
+
+
         #endregion
 
         public VirtualMachine()
         {
-            vmInfo = new VirtMachInfo();
-            CreateDefaultConfig();
-        }
+            data = new Data();
+            if (!data.LoadVirtMachData())
+                MessageBox.Show("Failed to load VM Schema");
 
-        public VirtualMachine(VirtMachInfo vmInfoIn)
-        {
-            vmInfo = vmInfoIn;
+            hardDrives = new ArrayList(3);
+            netCards = new ArrayList();
         }
 
         public override string ToString()
@@ -311,7 +485,11 @@ namespace RosTEGUI
                 ;//FIXME: create a vm image 'qemu-img.exe create'
             }
 
-            return false;
+            return PopulateVMDatabase(name,
+                                      dir,
+                                      diskSize,
+                                      existImg,
+                                      memSize);
         }
 
         public VMHardDrive AddHardDisk(string nameIn,
@@ -320,7 +498,7 @@ namespace RosTEGUI
                                        int sizeIn,
                                        bool bootImgIn)
         {
-            VMHardDrive vmhd = new VMHardDrive();
+            VMHardDrive vmhd = new VMHardDrive(data);
             if (vmhd.CreateHardDrive(nameIn, driveIn, pathIn, sizeIn, bootImgIn))
             {
                 hardDrives.Add(vmhd);
@@ -339,49 +517,6 @@ namespace RosTEGUI
         public ArrayList GetHardDisks()
         {
             return hardDrives;
-        }
-
-        private void CreateDefaultConfig()
-        {
-            vmInfo.virtMachID = 0;
-            vmInfo.name = "New VM " + vmInfo.virtMachID.ToString();
-            vmInfo.machType = string.Empty;
-            vmInfo.defDir = string.Empty;
-            vmInfo.memSize = 0;
-            vmInfo.setClockToHost = true;
-            vmInfo.cdRomEnable = true;
-            vmInfo.cdRomUsePhys = true;
-            vmInfo.cdRomPhysDrv = string.Empty;
-            vmInfo.cdRomUseIso = false;
-            vmInfo.cdRomIsoImg = string.Empty;
-            vmInfo.floppyEnable = false;
-            vmInfo.floppyUsePhys = false;
-            vmInfo.floppyPhysDrv = string.Empty;
-            vmInfo.floppyUseImg = false;
-            vmInfo.floppyIsoImg = string.Empty;
-
-            HardDriveInfo hdi = new HardDriveInfo();
-            hdi.bootImg = true;
-            hdi.diskID = 1;
-            hdi.drive = string.Empty;
-            hdi.name = "root";
-            hdi.path = string.Empty;
-            hdi.size = 0;
-
-            vmInfo.hardDrives = new List<HardDriveInfo>();
-            vmInfo.hardDrives.Add(hdi);
-
-            NetCardInfo nci = new NetCardInfo();
-            nci.cardID = 1;
-            nci.hostname = string.Empty;
-            nci.macAddr = string.Empty;
-            nci.model = string.Empty;
-            nci.option = string.Empty;
-            nci.virtMachID = 0;
-            nci.vlan = 0;
-
-            vmInfo.netCards = new List<NetCardInfo>();
-            vmInfo.netCards.Add(nci);
         }
     }
 }

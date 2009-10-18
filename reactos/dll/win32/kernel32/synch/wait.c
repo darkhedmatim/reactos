@@ -11,7 +11,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "debug.h"
 
 /* FUNCTIONS *****************************************************************/
 
@@ -41,10 +41,32 @@ WaitForSingleObjectEx(IN HANDLE hHandle,
   NTSTATUS Status;
 
     /* Get real handle */
-    hHandle = TranslateStdHandle(hHandle);
+    switch ((ULONG)hHandle)
+    {
+        /* Input handle */
+        case STD_INPUT_HANDLE:
+
+            /* Read it from the PEB */
+            hHandle = NtCurrentPeb()->ProcessParameters->StandardInput;
+            break;
+
+        /* Output handle */
+        case STD_OUTPUT_HANDLE:
+
+            /* Read it from the PEB */
+            hHandle = NtCurrentPeb()->ProcessParameters->StandardOutput;
+            break;
+
+        /* Error handle */
+        case STD_ERROR_HANDLE:
+
+            /* Read it from the PEB */
+            hHandle = NtCurrentPeb()->ProcessParameters->StandardError;
+            break;
+    }
 
     /* Check for console handle */
-    if ((IsConsoleHandle(hHandle)) && (VerifyConsoleIoHandle(hHandle)))
+    if ((IsConsoleHandle(hHandle)) && (!VerifyConsoleIoHandle(hHandle)))
     {
         /* Get the real wait handle */
         hHandle = GetConsoleInputWaitHandle();
@@ -141,11 +163,30 @@ WaitForMultipleObjectsEx(IN DWORD nCount,
     for (i = 0; i < nCount; i++)
     {
         /* Check what kind of handle this is */
-        HandleBuffer[i] = TranslateStdHandle(HandleBuffer[i]);
+        switch ((ULONG)HandleBuffer[i])
+        {
+            /* Input handle */
+            case STD_INPUT_HANDLE:
+                HandleBuffer[i] = NtCurrentPeb()->
+                                  ProcessParameters->StandardInput;
+                break;
+
+            /* Output handle */
+            case STD_OUTPUT_HANDLE:
+                HandleBuffer[i] = NtCurrentPeb()->
+                                  ProcessParameters->StandardOutput;
+                break;
+
+            /* Error handle */
+            case STD_ERROR_HANDLE:
+                HandleBuffer[i] = NtCurrentPeb()->
+                                  ProcessParameters->StandardError;
+                break;
+        }
 
         /* Check for console handle */
         if ((IsConsoleHandle(HandleBuffer[i])) &&
-            (VerifyConsoleIoHandle(HandleBuffer[i])))
+            (!VerifyConsoleIoHandle(HandleBuffer[i])))
         {
             /* Get the real wait handle */
             HandleBuffer[i] = GetConsoleInputWaitHandle();
@@ -208,11 +249,36 @@ SignalObjectAndWait(IN HANDLE hObjectToSignal,
     NTSTATUS Status;
 
     /* Get real handle */
-    hObjectToWaitOn = TranslateStdHandle(hObjectToWaitOn);
+    switch ((ULONG)hObjectToWaitOn)
+    {
+        /* Input handle */
+        case STD_INPUT_HANDLE:
+
+            /* Read it from the PEB */
+            hObjectToWaitOn = NtCurrentPeb()->
+                              ProcessParameters->StandardInput;
+            break;
+
+        /* Output handle */
+        case STD_OUTPUT_HANDLE:
+
+            /* Read it from the PEB */
+            hObjectToWaitOn = NtCurrentPeb()->
+                              ProcessParameters->StandardOutput;
+            break;
+
+        /* Error handle */
+        case STD_ERROR_HANDLE:
+
+            /* Read it from the PEB */
+            hObjectToWaitOn = NtCurrentPeb()->
+                              ProcessParameters->StandardError;
+            break;
+    }
 
     /* Check for console handle */
     if ((IsConsoleHandle(hObjectToWaitOn)) &&
-        (VerifyConsoleIoHandle(hObjectToWaitOn)))
+        (!VerifyConsoleIoHandle(hObjectToWaitOn)))
     {
         /* Get the real wait handle */
         hObjectToWaitOn = GetConsoleInputWaitHandle();

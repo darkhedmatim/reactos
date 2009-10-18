@@ -12,7 +12,7 @@
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 
 /* FUNCTIONS ****************************************************************/
@@ -20,7 +20,7 @@
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 QueryPerformanceCounter(LARGE_INTEGER *lpPerformanceCount)
 {
   LARGE_INTEGER Frequency;
@@ -47,7 +47,7 @@ QueryPerformanceCounter(LARGE_INTEGER *lpPerformanceCount)
 /*
  * @implemented
  */
-BOOL WINAPI
+BOOL STDCALL
 QueryPerformanceFrequency(LARGE_INTEGER *lpFrequency)
 {
   LARGE_INTEGER Count;

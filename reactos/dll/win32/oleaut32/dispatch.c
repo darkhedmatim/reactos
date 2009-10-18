@@ -34,12 +34,14 @@
 #include "objbase.h"
 #include "oleauto.h"
 #include "winerror.h"
+#include "winreg.h"
+#include "winnls.h"         /* for PRIMARYLANGID */
 
 #include "wine/debug.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
-static IDispatch * StdDispatch_Construct(IUnknown * punkOuter, void * pvThis, ITypeInfo * pTypeInfo);
+static IDispatch * WINAPI StdDispatch_Construct(IUnknown * punkOuter, void * pvThis, ITypeInfo * pTypeInfo);
 
 /******************************************************************************
  *		DispInvoke (OLEAUT32.30)
@@ -192,7 +194,7 @@ HRESULT WINAPI CreateStdDispatch(
  *  Method, property and parameter names can be localised. The details required to
  *  map names to methods and parameters are collected in a type library, usually
  *  output by an IDL compiler using the objects IDL description. This information is
- *  accessible programmatically through the ITypeLib interface (for a type library),
+ *  accessible programatically through the ITypeLib interface (for a type library),
  *  and the ITypeInfo interface (for an object within the type library). Type information
  *  can also be created at run-time using CreateDispTypeInfo().
  *
@@ -233,7 +235,7 @@ static HRESULT WINAPI StdDispatch_QueryInterface(
     if (IsEqualIID(riid, &IID_IDispatch) ||
         IsEqualIID(riid, &IID_IUnknown))
     {
-        *ppvObject = This;
+        *ppvObject = (LPVOID)This;
 	IUnknown_AddRef((LPUNKNOWN)*ppvObject);
 	return S_OK;
     }
@@ -425,7 +427,7 @@ static const IDispatchVtbl StdDispatch_VTable =
   StdDispatch_Invoke
 };
 
-static IDispatch * StdDispatch_Construct(
+static IDispatch * WINAPI StdDispatch_Construct(
   IUnknown * punkOuter,
   void * pvThis,
   ITypeInfo * pTypeInfo)

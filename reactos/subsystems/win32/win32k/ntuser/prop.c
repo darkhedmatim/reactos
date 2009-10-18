@@ -16,7 +16,8 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/*
+/* $Id$
+ *
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
  * PURPOSE:          Window properties
@@ -32,16 +33,27 @@
 #define NDEBUG
 #include <debug.h>
 
+typedef struct _PROPLISTITEM
+{
+   ATOM Atom;
+   HANDLE Data;
+}
+PROPLISTITEM, *PPROPLISTITEM;
+
+
 /* STATIC FUNCTIONS **********************************************************/
 
+/* FUNCTIONS *****************************************************************/
+
+static
 PPROPERTY FASTCALL
 IntGetProp(PWINDOW_OBJECT Window, ATOM Atom)
 {
    PLIST_ENTRY ListEntry;
    PPROPERTY Property;
 
-   ListEntry = Window->Wnd->PropListHead.Flink;
-   while (ListEntry != &Window->Wnd->PropListHead)
+   ListEntry = Window->PropListHead.Flink;
+   while (ListEntry != &Window->PropListHead)
    {
       Property = CONTAINING_RECORD(ListEntry, PROPERTY, PropListEntry);
       if (Property->Atom == Atom)
@@ -53,50 +65,7 @@ IntGetProp(PWINDOW_OBJECT Window, ATOM Atom)
    return(NULL);
 }
 
-BOOL FASTCALL
-IntRemoveProp(PWINDOW_OBJECT Window, ATOM Atom)
-{
-   PPROPERTY Prop;
-   HANDLE Data;
-   Prop = IntGetProp(Window, Atom);
-
-   if (Prop == NULL)
-   {
-      return FALSE;
-   }
-   Data = Prop->Data;
-   RemoveEntryList(&Prop->PropListEntry);
-   UserHeapFree(Prop);
-   Window->Wnd->PropListItems--;
-   return TRUE;
-}
-
-BOOL FASTCALL
-IntSetProp(PWINDOW_OBJECT pWnd, ATOM Atom, HANDLE Data)
-{
-   PPROPERTY Prop;
-
-   Prop = IntGetProp(pWnd, Atom);
-
-   if (Prop == NULL)
-   {
-      Prop = UserHeapAlloc(sizeof(PROPERTY));
-      if (Prop == NULL)
-      {
-         return FALSE;
-      }
-      Prop->Atom = Atom;
-      InsertTailList(&pWnd->Wnd->PropListHead, &Prop->PropListEntry);
-      pWnd->Wnd->PropListItems++;
-   }
-
-   Prop->Data = Data;
-   return TRUE;
-}
-
-/* FUNCTIONS *****************************************************************/
-
-NTSTATUS APIENTRY
+NTSTATUS STDCALL
 NtUserBuildPropList(HWND hWnd,
                     LPVOID Buffer,
                     DWORD BufferSize,
@@ -127,8 +96,8 @@ NtUserBuildPropList(HWND hWnd,
 
       /* copy list */
       li = (PROPLISTITEM *)Buffer;
-      ListEntry = Window->Wnd->PropListHead.Flink;
-      while((BufferSize >= sizeof(PROPLISTITEM)) && (ListEntry != &Window->Wnd->PropListHead))
+      ListEntry = Window->PropListHead.Flink;
+      while((BufferSize >= sizeof(PROPLISTITEM)) && (ListEntry != &Window->PropListHead))
       {
          Property = CONTAINING_RECORD(ListEntry, PROPERTY, PropListEntry);
          listitem.Atom = Property->Atom;
@@ -149,7 +118,7 @@ NtUserBuildPropList(HWND hWnd,
    }
    else
    {
-      Cnt = Window->Wnd->PropListItems * sizeof(PROPLISTITEM);
+      Cnt = Window->PropListItems * sizeof(PROPLISTITEM);
    }
 
    if(Count)
@@ -169,7 +138,7 @@ CLEANUP:
    END_CLEANUP;
 }
 
-HANDLE APIENTRY
+HANDLE STDCALL
 NtUserRemoveProp(HWND hWnd, ATOM Atom)
 {
    PWINDOW_OBJECT Window;
@@ -193,8 +162,8 @@ NtUserRemoveProp(HWND hWnd, ATOM Atom)
    }
    Data = Prop->Data;
    RemoveEntryList(&Prop->PropListEntry);
-   UserHeapFree(Prop);
-   Window->Wnd->PropListItems--;
+   ExFreePool(Prop);
+   Window->PropListItems--;
 
    RETURN(Data);
 
@@ -204,7 +173,62 @@ CLEANUP:
    END_CLEANUP;
 }
 
-BOOL APIENTRY
+HANDLE STDCALL
+NtUserGetProp(HWND hWnd, ATOM Atom)
+{
+   PWINDOW_OBJECT Window;
+   PPROPERTY Prop;
+   HANDLE Data = NULL;
+   DECLARE_RETURN(HANDLE);
+
+   DPRINT("Enter NtUserGetProp\n");
+   UserEnterShared();
+
+   if (!(Window = UserGetWindowObject(hWnd)))
+   {
+      RETURN( FALSE);
+   }
+
+   Prop = IntGetProp(Window, Atom);
+   if (Prop != NULL)
+   {
+      Data = Prop->Data;
+   }
+
+   RETURN(Data);
+
+CLEANUP:
+   DPRINT("Leave NtUserGetProp, ret=%i\n",_ret_);
+   UserLeave();
+   END_CLEANUP;
+}
+
+static
+BOOL FASTCALL
+IntSetProp(PWINDOW_OBJECT Wnd, ATOM Atom, HANDLE Data)
+{
+   PPROPERTY Prop;
+
+   Prop = IntGetProp(Wnd, Atom);
+
+   if (Prop == NULL)
+   {
+      Prop = ExAllocatePoolWithTag(PagedPool, sizeof(PROPERTY), TAG_WNDPROP);
+      if (Prop == NULL)
+      {
+         return FALSE;
+      }
+      Prop->Atom = Atom;
+      InsertTailList(&Wnd->PropListHead, &Prop->PropListEntry);
+      Wnd->PropListItems++;
+   }
+
+   Prop->Data = Data;
+   return TRUE;
+}
+
+
+BOOL STDCALL
 NtUserSetProp(HWND hWnd, ATOM Atom, HANDLE Data)
 {
    PWINDOW_OBJECT Window;

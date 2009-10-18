@@ -58,11 +58,11 @@ void	intr();
 void	lostpeer();
 char	*getlogin();
 
-short	portnum;
+short   portnum;
 
-char	home[128];
+char     home[128];
 char	*globerr;
-int	autologin;
+int     autologin;
 
 
 
@@ -72,7 +72,7 @@ int	autologin;
  */
 int	trace;			/* trace packets exchanged */
 int	hash;			/* print # for each buffer transferred */
-//int	sendport;		/* use PORT cmd for each data connection */
+int	sendport;		/* use PORT cmd for each data connection */
 int	verbose;		/* print messages coming back from server */
 int	connected;		/* connected to server */
 int	fromatty;		/* input is from a terminal */
@@ -81,7 +81,7 @@ int	debug;			/* debugging level */
 int	bell;			/* ring bell on cmd completion */
 int	doglob;			/* glob local file names */
 int	proxy;			/* proxy server connection active */
-int	passivemode;
+int passivemode;
 int	proxflag;		/* proxy connection exists */
 int	sunique;		/* store files on server with unique name */
 int	runique;		/* store local files with unique name */
@@ -115,22 +115,11 @@ char	*stringbase;		/* current scan point in line buffer */
 char	argbuf[200];		/* argument storage buffer */
 char	*argbase;		/* current storage point in arg buffer */
 int	margc;			/* count of arguments on input line */
-const char	*margv[20];	/* args parsed from input line */
-int	cpend;			/* flag: if != 0, then pending server reply */
+const char	*margv[20];		/* args parsed from input line */
+int     cpend;                  /* flag: if != 0, then pending server reply */
 int	mflag;			/* flag: if != 0, then active multi command */
 
 int	options;		/* used during socket creation */
-
-int	macnum;			/* number of defined macros */
-struct	macel macros[16];
-char	macbuf[4096];
-
-/* 
- * Need to start a listen on the data channel 
- * before we send the command, otherwise the 
- * server's connect may fail. 
- */
-int sendport = -1;
 
 static const char *slurpstring();
 
@@ -275,9 +264,9 @@ void lostpeer(void)
    extern int data;
 
    if (connected) {
-      if (cout) {
+      if (cout != (int) NULL) {
          closesocket(cout);
-         cout = 0;
+         cout = (int) NULL;
       }
       if (data >= 0) {
          (void) shutdown(data, 1+1);
@@ -288,9 +277,9 @@ void lostpeer(void)
    }
    pswitch(1);
    if (connected) {
-      if (cout) {
+      if (cout != (int)NULL) {
 						closesocket(cout);
-         cout = 0;
+         cout = (int) NULL;
       }
       connected = 0;
    }
@@ -549,7 +538,7 @@ void help(argc, argv)
 	char *argv[];
 {
 	extern struct cmd cmdtab[];
-	struct cmd *c;
+	register struct cmd *c;
 
 	if (argc == 1) {
 		register int i, j, w, k;
@@ -602,7 +591,7 @@ void help(argc, argv)
 		else if (c == (struct cmd *)0)
 			printf("?Invalid help command %s\n", arg);
 		else
-			printf("%-*s\t%s\n", (int)HELPINDENT,
+			printf("%-*s\t%s\n", HELPINDENT,
 				c->c_name, c->c_help);
 	}
 	(void) fflush(stdout);

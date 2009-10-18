@@ -54,7 +54,7 @@ typedef struct CompositeMonikerImpl{
 
     LONG ref; /* reference counter for this object */
 
-    IMoniker** tabMoniker; /* dynamic table containing all components (monikers) of this composite moniker */
+    IMoniker** tabMoniker; /* dynamaic table containing all components (monikers) of this composite moniker */
 
     ULONG    tabSize;      /* size of tabMoniker */
 
@@ -115,9 +115,9 @@ CompositeMonikerImpl_QueryInterface(IMoniker* iface,REFIID riid,void** ppvObject
        )
         *ppvObject = iface;
     else if (IsEqualIID(&IID_IROTData, riid))
-        *ppvObject = &This->lpvtbl2;
+        *ppvObject = (IROTData*)&(This->lpvtbl2);
     else if (IsEqualIID(&IID_IMarshal, riid))
-        *ppvObject = &This->lpvtblMarshal;
+        *ppvObject = (IROTData*)&(This->lpvtblMarshal);
 
     /* Check that we obtained an interface.*/
     if ((*ppvObject)==0)
@@ -552,7 +552,6 @@ CompositeMonikerImpl_IsEqual(IMoniker* iface,IMoniker* pmkOtherMoniker)
     IEnumMoniker *enumMoniker1,*enumMoniker2;
     IMoniker *tempMk1,*tempMk2;
     HRESULT res1,res2,res;
-    BOOL done;
 
     TRACE("(%p,%p)\n",iface,pmkOtherMoniker);
 
@@ -568,18 +567,27 @@ CompositeMonikerImpl_IsEqual(IMoniker* iface,IMoniker* pmkOtherMoniker)
 
     IMoniker_Enum(iface,TRUE,&enumMoniker2);
 
-    do {
+    while(1){
 
         res1=IEnumMoniker_Next(enumMoniker1,1,&tempMk1,NULL);
         res2=IEnumMoniker_Next(enumMoniker2,1,&tempMk2,NULL);
 
         if((res1==S_OK)&&(res2==S_OK)){
-            done = (res = IMoniker_IsEqual(tempMk1,tempMk2)) == S_FALSE;
+
+            if(IMoniker_IsEqual(tempMk1,tempMk2)==S_FALSE){
+                res= S_FALSE;
+                break;
+            }
+            else
+                continue;
         }
-        else
-        {
-            res = (res1==S_FALSE) && (res2==S_FALSE);
-            done = TRUE;
+        else if ( (res1==S_FALSE) && (res2==S_FALSE) ){
+                res = S_OK;
+                break;
+        }
+        else{
+            res = S_FALSE;
+            break;
         }
 
         if (res1==S_OK)
@@ -587,7 +595,7 @@ CompositeMonikerImpl_IsEqual(IMoniker* iface,IMoniker* pmkOtherMoniker)
 
         if (res2==S_OK)
             IMoniker_Release(tempMk2);
-    } while (!done);
+    }
 
     IEnumMoniker_Release(enumMoniker1);
     IEnumMoniker_Release(enumMoniker2);
@@ -895,7 +903,7 @@ CompositeMonikerImpl_CommonPrefixWith(IMoniker* iface, IMoniker* pmkOther,
 
         IEnumMoniker_Next(enumMoniker1,1,&tempMk1,NULL);
 
-        /* if we have more than one common moniker the result will be a composite moniker */
+        /* if we have more than one commun moniker the result will be a composite moniker */
         if (nbCommonMk>1){
 
             /* initialize the common prefix moniker with the composite of two first moniker (from the left)*/
@@ -920,7 +928,7 @@ CompositeMonikerImpl_CommonPrefixWith(IMoniker* iface, IMoniker* pmkOther,
             return S_OK;
         }
         else{
-            /* if we have only one common moniker the result will be a simple moniker which is the most-left one*/
+            /* if we have only one commun moniker the result will be a simple moniker which is the most-left one*/
             *ppmkPrefix=tempMk1;
 
             return S_OK;
@@ -981,12 +989,12 @@ static VOID GetAfterCommonPrefix(IMoniker* pGenMk,IMoniker* commonMk,IMoniker** 
                     nbRestMk++;
 
                 IMoniker_Release(tempMk1);
-                IMoniker_Release(tempMk2);
+                IMoniker_Release(tempMk1);
 
                 break;
             }
             IMoniker_Release(tempMk1);
-            IMoniker_Release(tempMk2);
+            IMoniker_Release(tempMk1);
         }
     }
     else{
@@ -1778,10 +1786,8 @@ CompositeMonikerImpl_Construct(IMoniker** ppMoniker,
     This->tabLastIndex=0;
 
     This->tabMoniker=HeapAlloc(GetProcessHeap(),0,This->tabSize*sizeof(IMoniker));
-    if (This->tabMoniker==NULL) {
-        HeapFree(GetProcessHeap(), 0, This);
+    if (This->tabMoniker==NULL)
         return E_OUTOFMEMORY;
-    }
 
     if (!pmkFirst && !pmkRest)
     {
@@ -1805,16 +1811,12 @@ CompositeMonikerImpl_Construct(IMoniker** ppMoniker,
 
 
             if (++This->tabLastIndex==This->tabSize){
-                LPVOID tab_moniker = This->tabMoniker;
 
                 This->tabSize+=BLOCK_TAB_SIZE;
                 This->tabMoniker=HeapReAlloc(GetProcessHeap(),0,This->tabMoniker,This->tabSize*sizeof(IMoniker));
 
-                if (This->tabMoniker==NULL){
-                    HeapFree(GetProcessHeap(), 0, tab_moniker);
-                    HeapFree(GetProcessHeap(), 0, This);
+                if (This->tabMoniker==NULL)
                     return E_OUTOFMEMORY;
-                }
             }
         }
 
@@ -1858,17 +1860,13 @@ CompositeMonikerImpl_Construct(IMoniker** ppMoniker,
 
         /* resize tabMoniker if needed */
         if (This->tabLastIndex==This->tabSize){
-            LPVOID tab_moniker = This->tabMoniker;
 
             This->tabSize+=BLOCK_TAB_SIZE;
 
             This->tabMoniker=HeapReAlloc(GetProcessHeap(),0,This->tabMoniker,This->tabSize*sizeof(IMoniker));
 
-            if (This->tabMoniker==NULL){
-                HeapFree(GetProcessHeap(), 0, tab_moniker);
-                HeapFree(GetProcessHeap(), 0, This);
-                return E_OUTOFMEMORY;
-            }
+            if (This->tabMoniker==NULL)
+            return E_OUTOFMEMORY;
         }
     }
     else{
@@ -1901,17 +1899,13 @@ CompositeMonikerImpl_Construct(IMoniker** ppMoniker,
             }
 
             if (This->tabLastIndex==This->tabSize){
-                LPVOID tab_moniker = This->tabMoniker;
 
                 This->tabSize+=BLOCK_TAB_SIZE;
 
                 This->tabMoniker=HeapReAlloc(GetProcessHeap(),0,This->tabMoniker,This->tabSize*sizeof(IMoniker));
 
-                if (This->tabMoniker==NULL){
-                    HeapFree(GetProcessHeap(), 0, tab_moniker);
-                    HeapFree(GetProcessHeap(), 0, This);
+                if (This->tabMoniker==NULL)
                     return E_OUTOFMEMORY;
-                }
             }
         }
 

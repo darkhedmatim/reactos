@@ -57,9 +57,9 @@ _KiComputeTimerTableIndex@8:
     ret 8
 .endfunc
 
-.globl _KeUpdateRunTime@8
-.func KeUpdateRunTime@8
-_KeUpdateRunTime@8:
+.globl _KeUpdateRunTime@4
+.func KeUpdateRunTime@4
+_KeUpdateRunTime@4:
 
     /* Get KPCR */
     mov eax, [fs:KPCR_SELF]
@@ -98,7 +98,7 @@ _KeUpdateRunTime@8:
 
     /* At dispatch, increase DPC time */
     inc dword ptr [eax+KPCR_PRCB_DPC_TIME]
-#if DBG
+#ifdef DBG
     /* Update the DPC time */
     inc dword ptr [eax+KPCR_PRCB_DEBUG_DPC_TIME]
 
@@ -276,7 +276,7 @@ _KeUpdateSystemTime@0:
     /* Put tick count back in EBX */
     mov ebx, eax
 
-    /* Copy it in ECX and get high count */
+    /* Copyit in ECX and get hich count */
     mov ecx, eax
     mov edx, _KeTickCount + 4
 
@@ -293,6 +293,9 @@ _KeUpdateSystemTime@0:
     mov ds:[USER_SHARED_DATA+USER_SHARED_DATA_TICK_COUNT+8], edx
     mov ds:[USER_SHARED_DATA+USER_SHARED_DATA_TICK_COUNT], ecx
     mov ds:[USER_SHARED_DATA+USER_SHARED_DATA_TICK_COUNT+4], edx
+
+    /* FIXME: HACK */
+    mov ds:[USER_SHARED_DATA], ecx
 
     /* Get hand index and entry into the table */
     and eax, TIMER_TABLE_SIZE - 1
@@ -352,7 +355,7 @@ NoDebug:
 
     /* Update system run time */
     push [esp]
-    call _KeUpdateRunTime@8
+    call _KeUpdateRunTime@4
     jmp Done
 
 IncompleteTick2:
@@ -372,7 +375,7 @@ DebuggerEnabled:
     jz NoDebug
 
     /* Break-in requested! */
-    push DBG_STATUS_CONTROL_C
+    push 1
     call _DbgBreakPointWithStatus@4
     jmp NoDebug
 

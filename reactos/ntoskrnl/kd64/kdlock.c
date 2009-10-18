@@ -49,11 +49,11 @@ KdpPollBreakInWithPortLock(VOID)
         else
         {
             /* Now get a packet */
-            if (KdReceivePacket(PACKET_TYPE_KD_POLL_BREAKIN,
+            if (!KdReceivePacket(PACKET_TYPE_KD_POLL_BREAKIN,
                                  NULL,
                                  NULL,
                                  NULL,
-                                 NULL) == KdPacketReceived)
+                                 NULL))
             {
                 /* Successful breakin */
                 DoBreak = TRUE;
@@ -74,13 +74,16 @@ BOOLEAN
 NTAPI
 KdPollBreakIn(VOID)
 {
-    BOOLEAN DoBreak = FALSE, Enable;
+    BOOLEAN DoBreak = FALSE;
+    ULONG Flags = 0;
 
     /* First make sure that KD is enabled */
     if (KdDebuggerEnabled)
     {
         /* Disable interrupts */
-        Enable = KeDisableInterrupts();
+        Ke386SaveFlags(Flags);
+        //Flags = __getcallerseflags();
+        _disable();
 
         /* Check if a CTRL-C is in the queue */
         if (KdpContext.KdpControlCPending)
@@ -96,11 +99,11 @@ KdPollBreakIn(VOID)
             if (KeTryToAcquireSpinLockAtDpcLevel(&KdpDebuggerLock))
             {
                 /* Now get a packet */
-                if (KdReceivePacket(PACKET_TYPE_KD_POLL_BREAKIN,
+                if (!KdReceivePacket(PACKET_TYPE_KD_POLL_BREAKIN,
                                      NULL,
                                      NULL,
                                      NULL,
-                                     NULL) == KdPacketReceived)
+                                     NULL))
                 {
                     /* Successful breakin */
                     DoBreak = TRUE;
@@ -112,10 +115,11 @@ KdPollBreakIn(VOID)
             }
         }
 
-        /* Re-enable interrupts if they were enabled previously */
-        if (Enable) _enable();
+        /* Re-enable interrupts if they were disabled */
+        if (Flags & EFLAGS_INTERRUPT_MASK) _enable();
     }
 
     /* Tell the caller to do a break */
     return DoBreak;
 }
+

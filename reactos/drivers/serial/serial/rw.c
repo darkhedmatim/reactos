@@ -16,10 +16,7 @@ SerialGetUserBuffer(IN PIRP Irp)
 {
 	ASSERT(Irp);
 
-	if (Irp->MdlAddress)
-		return Irp->MdlAddress;
-	else
-		return Irp->AssociatedIrp.SystemBuffer;
+	return Irp->AssociatedIrp.SystemBuffer;
 }
 
 static VOID
@@ -48,10 +45,10 @@ ReadBytes(
 	Length = IoGetCurrentIrpStackLocation(Irp)->Parameters.Read.Length;
 	Buffer = SerialGetUserBuffer(Irp);
 
-	INFO_(SERIAL, "UseIntervalTimeout = %s, IntervalTimeout = %lu\n",
+	DPRINT("UseIntervalTimeout = %s, IntervalTimeout = %lu\n",
 		WorkItemData->UseIntervalTimeout ? "YES" : "NO",
 		WorkItemData->UseIntervalTimeout ? WorkItemData->IntervalTimeout.QuadPart : 0);
-	INFO_(SERIAL, "UseTotalTimeout = %s\n",
+	DPRINT("UseTotalTimeout = %s\n",
 		WorkItemData->UseTotalTimeout ? "YES" : "NO");
 
 	ObjectCount = 1;
@@ -73,7 +70,7 @@ ReadBytes(
 			&& Length > 0)
 		{
 			PopCircularBufferEntry(&DeviceExtension->InputBuffer, &ReceivedByte);
-			INFO_(SERIAL, "Reading byte from buffer: 0x%02x\n", ReceivedByte);
+			DPRINT("Reading byte from buffer: 0x%02x\n", ReceivedByte);
 
 			Buffer[Information++] = ReceivedByte;
 			Length--;
@@ -84,7 +81,7 @@ ReadBytes(
 		if (WorkItemData->DontWait
 			&& !(WorkItemData->ReadAtLeastOneByte && Information == 0))
 		{
-			INFO_(SERIAL, "Buffer empty. Don't wait more bytes\n");
+			DPRINT("Buffer empty. Don't wait more bytes\n");
 			break;
 		}
 
@@ -101,7 +98,7 @@ ReadBytes(
 		if (Status == STATUS_TIMEOUT /* interval timeout */
 			|| Status == STATUS_WAIT_1) /* total timeout */
 		{
-			TRACE_(SERIAL, "Timeout when reading bytes. Status = 0x%08lx\n", Status);
+			DPRINT("Timeout when reading bytes. Status = 0x%08lx\n", Status);
 			break;
 		}
 	}
@@ -125,7 +122,7 @@ SerialReadWorkItem(
 	PWORKITEM_DATA WorkItemData;
 	PIRP Irp;
 
-	TRACE_(SERIAL, "SerialReadWorkItem() called\n");
+	DPRINT("SerialReadWorkItem() called\n");
 
 	WorkItemData = (PWORKITEM_DATA)pWorkItemData;
 	Irp = WorkItemData->Irp;
@@ -151,7 +148,7 @@ SerialRead(
 	PIO_WORKITEM WorkItem;
 	NTSTATUS Status;
 
-	TRACE_(SERIAL, "IRP_MJ_READ\n");
+	DPRINT("IRP_MJ_READ\n");
 
 	Stack = IoGetCurrentIrpStackLocation(Irp);
 	Length = Stack->Parameters.Read.Length;
@@ -225,13 +222,13 @@ SerialRead(
 	if (WorkItem)
 	{
 		WorkItemData->IoWorkItem = WorkItem;
-		IoMarkIrpPending(Irp);
 		IoQueueWorkItem(WorkItem, SerialReadWorkItem, DelayedWorkQueue, WorkItemData);
+		IoMarkIrpPending(Irp);
 		return STATUS_PENDING;
 	}
 
-	/* Insufficient resources, we can't pend the Irp */
-	INFO_(SERIAL, "Insufficient resources\n");
+	/* insufficient resources, we can't pend the Irp */
+	CHECKPOINT;
 	Status = IoAcquireRemoveLock(&DeviceExtension->RemoveLock, ULongToPtr(DeviceExtension->ComPort));
 	if (!NT_SUCCESS(Status))
 	{
@@ -263,7 +260,7 @@ SerialWrite(
 	KIRQL Irql;
 	NTSTATUS Status = STATUS_SUCCESS;
 
-	TRACE_(SERIAL, "IRP_MJ_WRITE\n");
+	DPRINT("IRP_MJ_WRITE\n");
 
 	/* FIXME: pend operation if possible */
 	/* FIXME: use write timeouts */
@@ -300,7 +297,7 @@ SerialWrite(
 			}
 			else
 			{
-				WARN_(SERIAL, "Buffer overrun on COM%lu\n", DeviceExtension->ComPort);
+				DPRINT("Buffer overrun on COM%lu\n", DeviceExtension->ComPort);
 				DeviceExtension->SerialPerfStats.BufferOverrunErrorCount++;
 				break;
 			}

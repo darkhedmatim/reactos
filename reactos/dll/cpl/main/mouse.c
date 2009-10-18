@@ -28,6 +28,8 @@
 //TODO:
 //  add missing icons
 
+#define WINVER 0x0501
+
 #include <windows.h>
 #include <winuser.h>
 #include <devguid.h>
@@ -36,9 +38,6 @@
 #include <tchar.h>
 #include <math.h>
 #include <limits.h>
-#include <shlobj.h>
-#include <cplext.h>
-#include <regstr.h>
 
 #include <stdio.h>
 
@@ -54,6 +53,7 @@
 #define MIN_DOUBLE_CLICK_SPEED		200
 #define MAX_DOUBLE_CLICK_SPEED		900
 #define DEFAULT_WHEEL_SCROLL_LINES	3
+
 
 typedef struct _BUTTON_DATA
 {
@@ -75,8 +75,8 @@ typedef struct _BUTTON_DATA
 
 typedef struct _POINTER_DATA
 {
-    BOOL bCursorShadow;
-    BOOL bOrigCursorShadow;
+    BOOL bDropShadow;
+    BOOL bOrigDropShadow;
 
     INT cxCursor;
     INT cyCursor;
@@ -199,7 +199,6 @@ ClickLockProc(IN HWND hwndDlg,
 {
     HWND hDlgCtrl;
     int pos;
-    static HICON hIcon;
 
     PBUTTON_DATA pButtonData;
 
@@ -215,10 +214,6 @@ ClickLockProc(IN HWND hwndDlg,
             SendMessage(hDlgCtrl, TBM_SETRANGE, (WPARAM)TRUE, (LPARAM)MAKELONG(0, 10));
             pos = (pButtonData->g_ClickLockTime - 200) / 200;
             SendMessage(hDlgCtrl, TBM_SETPOS, (WPARAM)TRUE, (LPARAM)pos);
-
-            hIcon = LoadImage(hApplet, MAKEINTRESOURCE(IDI_LOOK_KEY),
-                              IMAGE_ICON, 16, 16, 0);
-            SendMessage(hwndDlg, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
             return TRUE;
 
         case WM_COMMAND:
@@ -227,12 +222,10 @@ ClickLockProc(IN HWND hwndDlg,
                 hDlgCtrl = GetDlgItem(hwndDlg, IDC_SLIDER_CLICK_LOCK);
                 pButtonData->g_ClickLockTime = (DWORD) (SendMessage(hDlgCtrl, TBM_GETPOS, 0, 0) * 200) + 200;
                 EndDialog(hwndDlg, TRUE);
-                if (hIcon) DestroyIcon(hIcon);
             }
             else if (LOWORD(wParam) == IDCANCEL)
             {
                 EndDialog(hwndDlg, FALSE);
-                if (hIcon) DestroyIcon(hIcon);
             }
             break;
     }
@@ -333,7 +326,7 @@ ButtonProc(IN HWND hwndDlg,
                         SendMessage((HWND)lParam, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
                         SendDlgItemMessage(hwndDlg, IDC_IMAGE_SWAP_MOUSE, STM_SETIMAGE, IMAGE_ICON, (LPARAM)pButtonData->hButtonRight);
                     }
-                    //SystemParametersInfo(SPI_SETMOUSEBUTTONSWAP, pButtonData->g_SwapMouseButtons, NULL, 0);
+                    SystemParametersInfo(SPI_SETMOUSEBUTTONSWAP, pButtonData->g_SwapMouseButtons, NULL, 0);
                     PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
                     break;
 
@@ -380,13 +373,11 @@ ButtonProc(IN HWND hwndDlg,
                     SystemParametersInfo(SPI_SETMOUSEBUTTONSWAP, pButtonData->g_OrigSwapMouseButtons, NULL, SPIF_SENDCHANGE | SPIF_UPDATEINIFILE);
                     
                 }
-                SystemParametersInfo(SPI_SETDOUBLECLICKTIME, pButtonData->g_DoubleClickSpeed, NULL, SPIF_SENDCHANGE | SPIF_UPDATEINIFILE);
-                //SetDoubleClickTime(pButtonData->g_DoubleClickSpeed);
 
 #if (WINVER >= 0x0500)
-                SystemParametersInfo(SPI_SETMOUSECLICKLOCK, 0, (PVOID)pButtonData->g_ClickLockEnabled, SPIF_SENDCHANGE | SPIF_UPDATEINIFILE);
+                SystemParametersInfo(SPI_SETMOUSECLICKLOCK, pButtonData->g_ClickLockEnabled, NULL, SPIF_SENDCHANGE);
                 if (pButtonData->g_ClickLockEnabled)
-                   SystemParametersInfo(SPI_SETMOUSECLICKLOCKTIME, pButtonData->g_ClickLockTime, NULL, SPIF_SENDCHANGE | SPIF_UPDATEINIFILE);
+                   SystemParametersInfo(SPI_SETMOUSECLICKLOCKTIME, pButtonData->g_ClickLockTime, NULL, SPIF_SENDCHANGE);
 #endif
             }
             else if (lppsn->hdr.code == PSN_RESET)
@@ -395,8 +386,8 @@ ButtonProc(IN HWND hwndDlg,
                 SystemParametersInfo(SPI_SETMOUSEBUTTONSWAP, pButtonData->g_OrigSwapMouseButtons, NULL, 0);
 
                 /* Reset double click speed setting */
-                SystemParametersInfo(SPI_SETDOUBLECLICKTIME, pButtonData->g_OrigDoubleClickSpeed, NULL, 0);
-                //SetDoubleClickTime(pButtonData->g_OrigDoubleClickSpeed);
+//                SystemParametersInfo(SPI_SETDOUBLECLICKTIME, pButtonData->g_OrigDoubleClickSpeed, NULL, 0);
+                SetDoubleClickTime(pButtonData->g_OrigDoubleClickSpeed);
             }
             return TRUE;
 
@@ -414,14 +405,14 @@ ButtonProc(IN HWND hwndDlg,
                     case TB_ENDTRACK:
                         lResult = SendDlgItemMessage(hwndDlg, IDC_SLIDER_DOUBLE_CLICK_SPEED, TBM_GETPOS, 0, 0);
                         pButtonData->g_DoubleClickSpeed = (14 - (INT)lResult) * 50 + 200;
-                	//SystemParametersInfo(SPI_SETDOUBLECLICKTIME, pButtonData->g_DoubleClickSpeed, NULL, SPIF_SENDCHANGE | SPIF_UPDATEINIFILE);
+//                        SystemParametersInfo(SPI_SETDOUBLECLICKTIME, pButtonData->g_DoubleClickSpeed, NULL, 0);
                         SetDoubleClickTime(pButtonData->g_DoubleClickSpeed);
                         PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
                         break;
 
                     case TB_THUMBTRACK:
                         pButtonData->g_DoubleClickSpeed = (14 - (INT)HIWORD(wParam)) * 50 + 200;
-                        //SystemParametersInfo(SPI_SETDOUBLECLICKTIME, pButtonData->g_DoubleClickSpeed, NULL, 0);
+//                        SystemParametersInfo(SPI_SETDOUBLECLICKTIME, pButtonData->g_DoubleClickSpeed, NULL, 0);
                         SetDoubleClickTime(pButtonData->g_DoubleClickSpeed);
                         PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
                         break;
@@ -971,7 +962,7 @@ OnDrawItem(UINT idCtl,
                    GetSysColor(COLOR_WINDOWTEXT));
     }
 
-    if (lpdis->itemID != MAXUINT)
+    if (lpdis->itemID != -1)
     {
         CopyRect(&rc, &lpdis->rcItem);
         rc.left += 5;
@@ -1223,13 +1214,15 @@ PointerProc(IN HWND hwndDlg,
             EnumerateCursorSchemes(hwndDlg);
             LoadInitialCursorScheme(hwndDlg);
 
-            /* Get cursor shadow setting */
-            SystemParametersInfo(SPI_GETCURSORSHADOW, 0, &pPointerData->bCursorShadow, 0);
-            pPointerData->bOrigCursorShadow = pPointerData->bCursorShadow;
+            /* Get drop shadow setting */
+            if (!SystemParametersInfo(SPI_GETDROPSHADOW, 0, &pPointerData->bDropShadow, 0))
+                pPointerData->bDropShadow = FALSE;
 
-            if (pPointerData->bCursorShadow)
+            pPointerData->bOrigDropShadow = pPointerData->bDropShadow;
+
+            if (pPointerData->bDropShadow)
             {
-                SendDlgItemMessage(hwndDlg, IDC_CHECK_CURSOR_SHADOW, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
+                SendDlgItemMessage(hwndDlg, IDC_CHECK_DROP_SHADOW, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
             }
 
             if ((INT)wParam == IDC_LISTBOX_CURSOR)
@@ -1256,10 +1249,10 @@ PointerProc(IN HWND hwndDlg,
             {
                 ApplyCursorScheme(hwndDlg);
 //#if (WINVER >= 0x0500)
-                if (pPointerData->bOrigCursorShadow != pPointerData->bCursorShadow)
+                if (pPointerData->bOrigDropShadow != pPointerData->bDropShadow)
                 {
-                    SystemParametersInfo(SPI_SETCURSORSHADOW, 0, (PVOID)pPointerData->bCursorShadow, SPIF_SENDCHANGE | SPIF_UPDATEINIFILE);
-                    pPointerData->bOrigCursorShadow = pPointerData->bCursorShadow;
+                    SystemParametersInfo(SPI_SETDROPSHADOW, 0, (PVOID)pPointerData->bDropShadow, SPIF_SENDCHANGE | SPIF_UPDATEINIFILE);
+                    pPointerData->bOrigDropShadow = pPointerData->bDropShadow;
                 }
 //#endif
                 return TRUE;
@@ -1267,7 +1260,7 @@ PointerProc(IN HWND hwndDlg,
             else if (lppsn->hdr.code == PSN_RESET)
             {
 //#if (WINVER >= 0x0500)
-                SystemParametersInfo(SPI_SETCURSORSHADOW, 0, (PVOID)pPointerData->bOrigCursorShadow, SPIF_SENDCHANGE | SPIF_UPDATEINIFILE);
+                SystemParametersInfo(SPI_SETDROPSHADOW, 0, (PVOID)pPointerData->bOrigDropShadow, 0);
 //#endif
             }
             break;
@@ -1350,23 +1343,23 @@ PointerProc(IN HWND hwndDlg,
                     DeleteUserCursorScheme(hwndDlg);
                     break;
 
-                case IDC_CHECK_CURSOR_SHADOW:
-                    if(IsDlgButtonChecked(hwndDlg, IDC_CHECK_CURSOR_SHADOW))
+                case IDC_CHECK_DROP_SHADOW:
+                    if(IsDlgButtonChecked(hwndDlg, IDC_CHECK_DROP_SHADOW))
                     {
-                        pPointerData->bCursorShadow = FALSE;
+                        pPointerData->bDropShadow = FALSE;
                         SendMessage((HWND)lParam, BM_SETCHECK, (WPARAM)BST_UNCHECKED, (LPARAM)0);
 //#if (WINVER >= 0x0500)
-//                        SystemParametersInfo(SPI_SETCURSORSHADOW, 0, (PVOID)pPointerData->bCursorShadow, 0);
+//                        SystemParametersInfo(SPI_SETDROPSHADOW, 0, (PVOID)pPointerData->bDropShadow, 0);
 //#endif
 //                        PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
                     }
                     else
                     {
-                        pPointerData->bCursorShadow = TRUE;
+                        pPointerData->bDropShadow = TRUE;
                         SendMessage((HWND)lParam, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
                     }
 //#if (WINVER >= 0x0500)
-                    //SystemParametersInfo(SPI_SETCURSORSHADOW, 0, (PVOID)pPointerData->bCursorShadow, SPIF_SENDCHANGE | SPIF_UPDATEINIFILE);
+                    SystemParametersInfo(SPI_SETDROPSHADOW, 0, (PVOID)pPointerData->bDropShadow, 0);
 //#endif
                     PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
                     break;
@@ -1413,19 +1406,23 @@ OptionProc(IN HWND hwndDlg,
             pOptionData->OrigMouseAccel.nThreshold2 = pOptionData->MouseAccel.nThreshold2;
 
             /* snap to default button */
-            SystemParametersInfo(SPI_GETSNAPTODEFBUTTON, 0, &pOptionData->bSnapToDefaultButton, 0);
+            if (SystemParametersInfo(SPI_GETSNAPTODEFBUTTON, 0, &pOptionData->bSnapToDefaultButton, 0))
+                pOptionData->bSnapToDefaultButton = FALSE;
             pOptionData->bOrigSnapToDefaultButton = pOptionData->bSnapToDefaultButton;
 
             /* mouse trails */
-            SystemParametersInfo(SPI_GETMOUSETRAILS, 0, &pOptionData->uMouseTrails, 0);
+            if (!SystemParametersInfo(SPI_GETMOUSETRAILS, 0, &pOptionData->uMouseTrails, 0))
+                pOptionData->uMouseTrails = 0;
             pOptionData->uOrigMouseTrails = pOptionData->uMouseTrails;
 
             /* hide pointer while typing */
-            SystemParametersInfo(SPI_GETMOUSEVANISH, 0, &pOptionData->bMouseVanish, 0);
+            if (!SystemParametersInfo(SPI_GETMOUSEVANISH, 0, &pOptionData->bMouseVanish, 0))
+                pOptionData->bMouseVanish = FALSE;
             pOptionData->bOrigMouseVanish = pOptionData->bMouseVanish;
 
             /* show pointer with Ctrl-Key */
-            SystemParametersInfo(SPI_GETMOUSESONAR, 0, &pOptionData->bMouseSonar, 0);
+            if (!SystemParametersInfo(SPI_GETMOUSESONAR, 0, &pOptionData->bMouseSonar, 0))
+                pOptionData->bMouseSonar = FALSE;
             pOptionData->bOrigMouseSonar = pOptionData->bMouseSonar;
 
             /* Set mouse speed */
@@ -1546,7 +1543,7 @@ OptionProc(IN HWND hwndDlg,
                         pOptionData->bMouseVanish = TRUE;
                         SendMessage((HWND)lParam, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
                     }
-                    SystemParametersInfo(SPI_SETMOUSEVANISH, 0, IntToPtr(pOptionData->bMouseVanish), 0);
+                    SystemParametersInfo(SPI_SETMOUSEVANISH, 0, (PVOID)pOptionData->bMouseVanish, 0);
                     break;
 
                 case IDC_CHECK_SHOW_POINTER:
@@ -1560,7 +1557,7 @@ OptionProc(IN HWND hwndDlg,
                         pOptionData->bMouseSonar = TRUE;
                         SendMessage((HWND)lParam, BM_SETCHECK, (WPARAM)BST_CHECKED, (LPARAM)0);
                     }
-                    SystemParametersInfo(SPI_SETMOUSESONAR, 0, IntToPtr(pOptionData->bMouseSonar), 0);
+                    SystemParametersInfo(SPI_SETMOUSESONAR, 0, (PVOID)pOptionData->bMouseSonar, 0);
                     break;
 
             }
@@ -1574,7 +1571,7 @@ OptionProc(IN HWND hwndDlg,
                 /* Set mouse speed */
                 if (pOptionData->ulOrigMouseSpeed != pOptionData->ulMouseSpeed)
                 {
-                    SystemParametersInfo(SPI_SETMOUSESPEED, 0, IntToPtr(pOptionData->ulMouseSpeed), SPIF_SENDCHANGE | SPIF_UPDATEINIFILE);
+                    SystemParametersInfo(SPI_SETMOUSESPEED, 0, (PVOID)pOptionData->ulMouseSpeed, SPIF_SENDCHANGE | SPIF_UPDATEINIFILE);
                     pOptionData->ulOrigMouseSpeed = pOptionData->ulMouseSpeed;
                 }
 
@@ -1604,14 +1601,14 @@ OptionProc(IN HWND hwndDlg,
                 /* hide pointer while typing */
                 if (pOptionData->bOrigMouseVanish != pOptionData->bMouseVanish)
                 {
-                    SystemParametersInfo(SPI_SETMOUSEVANISH, 0, IntToPtr(pOptionData->bMouseVanish), SPIF_SENDCHANGE | SPIF_UPDATEINIFILE);
+                    SystemParametersInfo(SPI_SETMOUSEVANISH, 0, (PVOID)pOptionData->bMouseVanish, SPIF_SENDCHANGE | SPIF_UPDATEINIFILE);
                     pOptionData->bOrigMouseVanish = pOptionData->bMouseVanish;
                 }
 
                 /* show pointer with Ctrl-Key */
                 if (pOptionData->bOrigMouseSonar != pOptionData->bMouseSonar)
                 {
-                    SystemParametersInfo(SPI_SETMOUSESONAR, 0, IntToPtr(pOptionData->bMouseSonar), SPIF_SENDCHANGE | SPIF_UPDATEINIFILE);
+                    SystemParametersInfo(SPI_SETMOUSESONAR, 0, (PVOID)pOptionData->bMouseSonar, SPIF_SENDCHANGE | SPIF_UPDATEINIFILE);
                     pOptionData->bOrigMouseSonar = pOptionData->bMouseSonar;
                 }
                 return TRUE;
@@ -1619,12 +1616,12 @@ OptionProc(IN HWND hwndDlg,
             else if (lppsn->hdr.code == PSN_RESET)
             {
                 /* Set the original mouse speed */
-                SystemParametersInfo(SPI_SETMOUSESPEED, 0, IntToPtr(pOptionData->ulOrigMouseSpeed), 0);
+                SystemParametersInfo(SPI_SETMOUSESPEED, 0, (PVOID)pOptionData->ulOrigMouseSpeed, 0);
                 SystemParametersInfo(SPI_SETMOUSE, 0, &pOptionData->OrigMouseAccel, 0);
                 SystemParametersInfo(SPI_SETSNAPTODEFBUTTON, (UINT)pOptionData->bOrigSnapToDefaultButton, 0, 0);
                 SystemParametersInfo(SPI_SETMOUSETRAILS, pOptionData->uOrigMouseTrails, 0, 0);
-                SystemParametersInfo(SPI_SETMOUSEVANISH, 0, IntToPtr(pOptionData->bOrigMouseVanish), 0);
-                SystemParametersInfo(SPI_SETMOUSESONAR, 0,IntToPtr(pOptionData->bOrigMouseSonar), 0);
+                SystemParametersInfo(SPI_SETMOUSEVANISH, 0, (PVOID)pOptionData->bOrigMouseVanish, 0);
+                SystemParametersInfo(SPI_SETMOUSESONAR, 0, (PVOID)pOptionData->bOrigMouseSonar, 0);
             }
             break;
 
@@ -1641,7 +1638,7 @@ OptionProc(IN HWND hwndDlg,
                     case TB_BOTTOM:
                     case TB_ENDTRACK:
                         pOptionData->ulMouseSpeed = (ULONG)SendDlgItemMessage(hwndDlg, IDC_SLIDER_MOUSE_SPEED, TBM_GETPOS, 0, 0) + 1;
-                        SystemParametersInfo(SPI_SETMOUSESPEED, 0, IntToPtr(pOptionData->ulMouseSpeed), SPIF_SENDCHANGE);
+                        SystemParametersInfo(SPI_SETMOUSESPEED, 0, (PVOID)pOptionData->ulMouseSpeed, SPIF_SENDCHANGE);
                         PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
                         break;
 #if 0
@@ -1741,7 +1738,10 @@ WheelProc(IN HWND hwndDlg,
             SetWindowLongPtr(hwndDlg, DWLP_USER, (LONG_PTR)pWheelData);
 
             /* Get wheel scroll lines */
-            SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &pWheelData->uWheelScrollLines, 0);
+            if (!SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &pWheelData->uWheelScrollLines, 0))
+            {
+                pWheelData->uWheelScrollLines = DEFAULT_WHEEL_SCROLL_LINES;
+            }
 
             ShowDialogWheelControls(hwndDlg, pWheelData->uWheelScrollLines, TRUE);
             SendDlgItemMessage(hwndDlg, IDC_UPDOWN_WHEEL_SCROLL_LINES, UDM_SETRANGE, 0, MAKELONG((short)100, (short)0));
@@ -1794,29 +1794,13 @@ WheelProc(IN HWND hwndDlg,
     return FALSE;
 }
 
-static const struct
-{
-    WORD idDlg;
-    DLGPROC DlgProc;
-    UINT uiReplaceWith;
-} PropPages[] =
-{
-    { IDD_PAGE_BUTTON, ButtonProc, CPLPAGE_MOUSE_BUTTONS },
-    { IDD_PAGE_POINTER, PointerProc, 0 },
-    { IDD_PAGE_OPTION, OptionProc, CPLPAGE_MOUSE_PTRMOTION },
-    { IDD_PAGE_WHEEL, WheelProc, CPLPAGE_MOUSE_WHEEL },
-    { IDD_HARDWARE, MouseHardwareProc, 0 },
-};
 
 LONG APIENTRY
-MouseApplet(HWND hwnd, UINT uMsg, LPARAM lParam1, LPARAM lParam2)
+MouseApplet(HWND hwnd, UINT uMsg, LONG lParam1, LONG lParam2)
 {
-    HPROPSHEETPAGE hpsp[MAX_CPL_PAGES];
+    PROPSHEETPAGE psp[5];
     PROPSHEETHEADER psh;
-    HPSXA hpsxa;
     TCHAR Caption[256];
-    UINT i;
-    LONG ret;
 
     UNREFERENCED_PARAMETER(lParam1);
     UNREFERENCED_PARAMETER(lParam2);
@@ -1827,40 +1811,21 @@ MouseApplet(HWND hwnd, UINT uMsg, LPARAM lParam1, LPARAM lParam2)
 
     ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
     psh.dwSize = sizeof(PROPSHEETHEADER);
-    psh.dwFlags = PSH_PROPTITLE;
-    psh.hwndParent = hwnd;
+    psh.dwFlags =  PSH_PROPSHEETPAGE | PSH_PROPTITLE;
+    psh.hwndParent = NULL;
     psh.hInstance = hApplet;
     psh.hIcon = LoadIcon(hApplet, MAKEINTRESOURCE(IDC_CPLICON_1));
     psh.pszCaption = Caption;
+    psh.nPages = sizeof(psp) / sizeof(PROPSHEETPAGE);
     psh.nStartPage = 0;
-    psh.phpage = hpsp;
+    psh.ppsp = psp;
 
-    /* Load additional pages provided by shell extensions */
-    hpsxa = SHCreatePropSheetExtArray(HKEY_LOCAL_MACHINE, REGSTR_PATH_CONTROLSFOLDER TEXT("\\Mouse"), MAX_CPL_PAGES - psh.nPages);
-
-    for (i = 0; i != sizeof(PropPages) / sizeof(PropPages[0]); i++)
-    {
-        /* Override the background page if requested by a shell extension */
-        if (PropPages[i].uiReplaceWith != 0 && hpsxa != NULL &&
-            SHReplaceFromPropSheetExtArray(hpsxa, PropPages[i].uiReplaceWith, PropSheetAddPage, (LPARAM)&psh) != 0)
-        {
-            /* The shell extension added one or more pages to replace a page.
-               Don't create the built-in page anymore! */
-            continue;
-        }
-
-        InitPropSheetPage(&psh, PropPages[i].idDlg, PropPages[i].DlgProc);
-    }
-
-    if (hpsxa != NULL)
-        SHAddFromPropSheetExtArray(hpsxa, PropSheetAddPage, (LPARAM)&psh);
-
-    ret = (LONG)(PropertySheet(&psh) != -1);
-
-    if (hpsxa != NULL)
-        SHDestroyPropSheetExtArray(hpsxa);
-
-    return ret;
+    InitPropSheetPage(&psp[0], IDD_PAGE_BUTTON, ButtonProc);
+    InitPropSheetPage(&psp[1], IDD_PAGE_POINTER, PointerProc);
+    InitPropSheetPage(&psp[2], IDD_PAGE_OPTION, OptionProc);
+    InitPropSheetPage(&psp[3], IDD_PAGE_WHEEL, WheelProc);
+    InitPropSheetPage(&psp[4], IDD_HARDWARE, MouseHardwareProc);
+    return (LONG)(PropertySheet(&psh) != -1);
 }
 
 /* EOF */

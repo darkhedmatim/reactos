@@ -1,3 +1,4 @@
+/* $Id: x86_cliptest.S,v 1.11 2005/01/04 14:33:47 brianp Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -29,7 +30,6 @@
  * in there will break the build on some platforms.
  */
 
-#include "assyntax.h"
 #include "matypes.h"
 #include "clip_args.h"
 
@@ -401,7 +401,3 @@ LLBL(ctp4_np_finish):
 	POP_L( ESI )
 
 	RET
-	
-#if defined (__ELF__) && defined (__linux__)
-	.section .note.GNU-stack,"",%progbits
-#endif

@@ -1,10 +1,12 @@
 #ifndef _DLGS_H
 #define _DLGS_H
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 #define FILEOPENORD 1536
 #define MULTIFILEOPENORD 1537
 #define PRINTDLGORD 1538
@@ -14,25 +16,9 @@ extern "C" {
 #define FONTDLGORD 1542
 #define FORMATDLGORD31 1543
 #define FORMATDLGORD30 1544
-#define RUNDLGORD 1545
-
-#ifdef _WINE
-#define OFN_DONTADDTORECENT          0x02000000
-#define OFN_ENABLEINCLUDENOTIFY      0x00400000
-#endif
-
-#if (WINVER >= 0x0400)
 #define PAGESETUPDLGORD 1546
-#define NEWFILEOPENORD 1547
-#define PRINTDLGEXORD 1549
-#define PAGESETUPDLGORDMOTIF 1550
-#define COLORMGMTDLGORD 1551
-#define NEWFILEOPENV2ORD 1552
-#endif /* (WINVER >= 0x0400) */
-
 #define ctlFirst 0x400
 #define ctlLast 0x4ff
-
 #define chx1 0x410
 #define chx2 0x411
 #define chx3 0x412
@@ -49,7 +35,6 @@ extern "C" {
 #define chx14 0x41d
 #define chx15 0x41e
 #define chx16 0x41f
-
 #define cmb1 0x470
 #define cmb2 0x471
 #define cmb3 0x472
@@ -66,7 +51,6 @@ extern "C" {
 #define cmb14 0x47d
 #define cmb15 0x47e
 #define cmb16 0x47f
-
 #define edt1 0x480
 #define edt2 0x481
 #define edt3 0x482
@@ -83,7 +67,6 @@ extern "C" {
 #define edt14 0x48d
 #define edt15 0x48e
 #define edt16 0x48f
-
 #define frm1 0x434
 #define frm2 0x435
 #define frm3 0x436
@@ -96,7 +79,6 @@ extern "C" {
 #define ico2 0x43d
 #define ico3 0x43e
 #define ico4 0x43f
-
 #define lst1 0x460
 #define lst2 0x461
 #define lst3 0x462
@@ -113,7 +95,6 @@ extern "C" {
 #define lst14 0x46d
 #define lst15 0x46e
 #define lst16 0x46f
-
 #define psh1 0x400
 #define psh2 0x401
 #define psh3 0x402
@@ -131,7 +112,6 @@ extern "C" {
 #define psh15 0x40e
 #define pshHelp 0x40e
 #define psh16 0x40f
-
 #define rad1 0x420
 #define rad2 0x421
 #define rad3 0x422
@@ -148,7 +128,6 @@ extern "C" {
 #define rad14 0x42d
 #define rad15 0x42e
 #define rad16 0x42f
-
 #define rct1 0x438
 #define rct2 0x439
 #define rct3 0x43a
@@ -161,7 +140,6 @@ extern "C" {
 #define scr6 0x495
 #define scr7 0x496
 #define scr8 0x497
-
 #define stc1 0x440
 #define stc2 0x441
 #define stc3 0x442
@@ -194,9 +172,6 @@ extern "C" {
 #define stc30 0x45d
 #define stc31 0x45e
 #define stc32 0x45f
-
-#define ctl1 0x4a0
-
 #ifndef RC_INVOKED
 typedef struct tagCRGB {
  BYTE bRed;

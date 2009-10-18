@@ -111,6 +111,4 @@
 
 #define IDS_MSCONFIG                    3000
 
-#define IDI_APPICON						3001
-
 /* EOF */

@@ -2,7 +2,7 @@ BOOL CreateSurface(LPDIRECTDRAWSURFACE7* pSurface);
 
 BOOL Test_Misc (INT* passed, INT* failed)
 {
-    LPDIRECTDRAWSURFACE7 Surface;
+	LPDIRECTDRAWSURFACE7 Surface;
     if(!CreateSurface(&Surface))
         return FALSE;
 
@@ -11,8 +11,8 @@ BOOL Test_Misc (INT* passed, INT* failed)
     // GetCaps
     DDSCAPS2 Caps;
     TEST (Surface->GetCaps((DDSCAPS2*)0xdeadbeef) == DDERR_INVALIDPARAMS);
-    TEST (Surface->GetCaps(&Caps) == DD_OK && Caps.dwCaps == 0x10004040
-          && Caps.dwCaps2 == 0 && Caps.dwCaps3 == 0 && Caps.dwCaps4 == 0); // FIXME: Replace 0x10004040
+    TEST (Surface->GetCaps(&Caps) == DD_OK && Caps.dwCaps == 0x10004040 
+        && Caps.dwCaps2 == Caps.dwCaps3 == Caps.dwCaps4 == 0); // FIXME: Replace 0x10004040
 
     // GetDC / ReleaseDC
     HDC hdc;
@@ -41,7 +41,7 @@ BOOL Test_Misc (INT* passed, INT* failed)
     TEST (Surface->GetPixelFormat(&PixelFormat));
     PixelFormat.dwSize = sizeof(DDPIXELFORMAT);
     TEST (Surface->GetPixelFormat(&PixelFormat) == DD_OK && PixelFormat.dwFlags == 0x40); // FIXME: Find out what 0x40 is
-
+    
     // GetSurfaceDesc / SetSurfaceDesc
     DDSURFACEDESC2 Desc = {0};
     // FIXME: Produce DDERR_INVALIDSURFACETYPE

@@ -1,7 +1,7 @@
 /*
  * Russian resources for shlwapi
  *
- * Copyright 2008 Vitaliy Margolen
+ * Copyright 2005 Mikhail Y. Zvyozdochkin
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -15,34 +15,21 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-
-#include "resource.h"
-
-/* UTF-8 */
-#pragma code_page(65001)
 
 LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
 
 IDD_ERR_DIALOG DIALOG MOVEABLE DISCARDABLE 0, 0, 220, 60
 STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "РћС€РёР±РєР°!"
+CAPTION "Ошибка!"
 FONT 8, "MS Shell Dlg"
 {
  LTEXT "", IDS_ERR_USER_MSG2, 15, 5, 28, 20
  LTEXT "", IDS_ERR_USER_MSG, 15, 5, 210, 8
- CHECKBOX "Р‘РѕР»СЊС€Рµ РЅРµ &РїРѕРєР°Р·С‹РІР°С‚СЊ СЌС‚Рѕ СЃРѕРѕР±С‰РµРЅРёРµ", IDC_ERR_DONT_SHOW, 5, 20, 210, 10, BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP
+ CHECKBOX "&Больше не показывать это сообщение", IDC_ERR_DONT_SHOW, 5, 20, 210, 10, BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP
  PUSHBUTTON L"&OK" IDOK, 105, 40, 50, 14, WS_GROUP | WS_TABSTOP
- PUSHBUTTON L"Рћ&С‚РјРµРЅРёС‚СЊ" IDCANCEL, 160, 40, 50, 14, WS_GROUP | WS_TABSTOP
- PUSHBUTTON L"&Р”Р°" IDYES, 105, 40, 50, 14, WS_GROUP | WS_TABSTOP
- PUSHBUTTON L"&РќРµС‚" IDNO, 160, 40, 50, 14, WS_GROUP | WS_TABSTOP
-}
-
-STRINGTABLE DISCARDABLE
-{
-    IDS_BYTES_FORMAT    "%ld Р±Р°Р№С‚"
-    IDS_TIME_INTERVAL_HOURS    " С‡Р°СЃ"
-    IDS_TIME_INTERVAL_MINUTES  " РјРёРЅ"
-    IDS_TIME_INTERVAL_SECONDS  " СЃРµРє"
+ PUSHBUTTON L"&Отмена" IDCANCEL, 160, 40, 50, 14, WS_GROUP | WS_TABSTOP
+ PUSHBUTTON L"&Да" IDYES, 105, 40, 50, 14, WS_GROUP | WS_TABSTOP
+ PUSHBUTTON L"&Нет" IDNO, 160, 40, 50, 14, WS_GROUP | WS_TABSTOP
 }

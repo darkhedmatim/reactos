@@ -1,5 +1,9 @@
 #define __KBD_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -67,10 +71,6 @@ typedef struct _LIGATURE ## i { \
 } LIGATURE ## i, *PLIGATURE ## i;
 
   TYPEDEF_LIGATURE(1)
-  TYPEDEF_LIGATURE(2)
-  TYPEDEF_LIGATURE(3)
-  TYPEDEF_LIGATURE(4)
-  TYPEDEF_LIGATURE(5)
 
 #define KBD_VERSION 1
 #define GET_KBD_VERSION(p) (HIWORD((p)->fLocalFlags))
@@ -100,14 +100,11 @@ typedef struct _LIGATURE ## i { \
 #define WCH_DEAD 0xf001
 #define WCH_LGTR 0xf002
 
-#define CAPSLOK     1
-#define SGCAPS      2
+#define CAPSLOK 1
+#define SGCAPS 2
 #define CAPLOKALTGR 4
-#define KANALOK     8
-#define GRPSELTAP   0x80
-
-#define VK_ABNT_C1  0xC1
-#define VK_ABNT_C2  0xC2
+#define KANALOK 8
+#define GRPSELTAP 0x80
 
 
 #ifdef __cplusplus

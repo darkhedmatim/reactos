@@ -25,6 +25,8 @@
 
 #include <time.h>
 
+#define WIDL_FULLVERSION "0.1"
+
 extern int debuglevel;
 #define DEBUGLEVEL_NONE		0x0000
 #define DEBUGLEVEL_CHAT		0x0001
@@ -34,49 +36,33 @@ extern int debuglevel;
 #define DEBUGLEVEL_PPLEX	0x0010
 #define DEBUGLEVEL_PPTRACE	0x0020
 
+extern int win32;
 extern int pedantic;
-extern int do_everything;
 extern int do_header;
 extern int do_typelib;
 extern int do_proxies;
 extern int do_client;
 extern int do_server;
-extern int do_idfile;
-extern int do_dlldata;
 extern int old_names;
-extern int do_win32;
-extern int do_win64;
-extern int packing;
 
 extern char *input_name;
 extern char *header_name;
-extern char *header_token;
-extern char *local_stubs_name;
 extern char *typelib_name;
-extern char *dlldata_name;
 extern char *proxy_name;
 extern char *proxy_token;
 extern char *client_name;
 extern char *client_token;
 extern char *server_name;
 extern char *server_token;
-extern const char *prefix_client;
-extern const char *prefix_server;
-extern size_t pointer_size;
 extern time_t now;
 
 extern int line_number;
 extern int char_number;
 
-extern void write_header(const statement_list_t *stmts);
-extern void write_id_data(const statement_list_t *stmts);
-extern void write_proxies(const statement_list_t *stmts);
-extern void write_client(const statement_list_t *stmts);
-extern void write_server(const statement_list_t *stmts);
-extern void write_local_stubs(const statement_list_t *stmts);
-extern void write_dlldata(const statement_list_t *stmts);
+extern FILE* header;
 
-extern void start_cplusplus_guard(FILE *fp);
-extern void end_cplusplus_guard(FILE *fp);
+extern void write_proxies(ifref_t *ifaces);
+extern void write_client(ifref_t *ifaces);
+extern void write_server(ifref_t *ifaces);
 
 #endif

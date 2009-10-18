@@ -1,50 +1,51 @@
 LANGUAGE LANG_GREEK, SUBLANG_DEFAULT
 
+IDD_PROPPAGEINSTALL DIALOGEX 0, 0, PROPSHEETWIDTH, PROPSHEETHEIGHT
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
+CAPTION "Εγκατάσταση/Απεγκατάσταση"
+FONT 8, "MS Shell Dlg", 0, 0, 0x0
+BEGIN
+  ICON            IDI_CPLSYSTEM,-1,PROPSHEETPADDING,18,16,16
+  LTEXT "Για να εγκαταστήσετε ένα νέο πρόγραμμα, κάντε κλικ στο 'Εγκατάσταση'",-1,36,18,PROPSHEETWIDTH-48,8
+  PUSHBUTTON "&Εγκατάσταση...", IDC_INSTALL, PROPSHEETWIDTH-(72), 36, 60, 14
+  LTEXT "", -1, PROPSHEETPADDING, 63, PROPSHEETWIDTH-12, 1, NOT WS_GROUP | SS_SUNKEN
+  
+  ICON            IDI_CPLSYSTEM,-1,PROPSHEETPADDING,76,16,16
+  CONTROL "&Show updates",IDC_SHOWUPDATES,"button",BS_AUTOCHECKBOX | WS_TABSTOP,PROPSHEETPADDING, 105, 119, 18
+  LTEXT "Το ακόλουθο λογισμικό μπορεί να απεγκατασταθεί αυτομάτως. Για να απεγκαταστήσετε ένα πρόγραμμα ή να αλλάξετε τα εγκατεστημένα του αρχεία, επιλέξτε το από τη λίστα και κάντε κλικ στο Προσθήκη/Αφαίρεση.",-1,36,72,PROPSHEETWIDTH-48,32
+  LISTBOX IDC_SOFTWARELIST, PROPSHEETPADDING, 123, PROPSHEETWIDTH-12, 75, LBS_STANDARD | WS_TABSTOP | LBS_NOINTEGRALHEIGHT
+  PUSHBUTTON "Προσθήκη/&Αφαίρεση", IDC_ADDREMOVE, PROPSHEETWIDTH-72, 200, 60, 14
+END
+
+IDD_PROPPAGEROSSETUP DIALOGEX 0, 0, PROPSHEETWIDTH, PROPSHEETHEIGHT
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
+CAPTION "Εγκατάσταση Reactos"
+FONT 8, "MS Shell Dlg", 0, 0, 0x0
+BEGIN
+
+END
+
 IDD_FIRSTPAGE DIALOGEX 0, 0, PROPSHEETWIDTH, PROPSHEETHEIGHT
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
-CAPTION "Δημιουργία συνδέσμου"
-FONT 8, "MS Shell Dlg", 0, 0, 0x0
-BEGIN
-	LTEXT "Text1", -1, 115, 15, 160, 24
-	LTEXT "Text2", -1, 115, 35, 160, 17
-END
-
-IDD_SUBMIT_REPORT DIALOGEX 0, 0, PROPSHEETWIDTH, PROPSHEETHEIGHT
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
-CAPTION "Δημιουργία συνδέσμου"
-FONT 8, "MS Shell Dlg", 0, 0, 0x0
-BEGIN
-	LTEXT "Text1",-1,10,0,225,40
-	LTEXT "Text2",-1,10,40,120,20
-	LTEXT "Text3",-1,10,55,120,20
-END
-
-IDD_SHORTCUT_LOCATION DIALOGEX 0, 0, 340, 200
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Δημιουργία συντόμευσης"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
-  LTEXT "Αυτός ο οδηγός σας βοηθάει να δημιουργήσετε συντομεύσεις σε τοπικά προγράμματα ή προγράμματα δικτύου, αρχεία, φακέλους, υπολογιστές ή διευθύνσεις στο διαδίκτυο.", -1, 120, 15, 200, 30
-  LTEXT "Εισάγετε την θέση του στοιχείου:", -1, 120, 50, 120, 10
-  EDITTEXT IDC_SHORTCUT_LOCATION, 120, 65, 150, 15, ES_LEFT
-  PUSHBUTTON "Αναζήτηση...", IDC_SHORTCUT_BROWSE, 272, 65, 55, 15, ES_LEFT
-  LTEXT "Πατήστε 'Επόμενο' για να συνεχίσετε.", -1, 120, 97, 162, 10
+  LTEXT "Text1", -1, 115, 15, 160, 24
+  LTEXT "Text2", -1, 115, 35, 160, 17
 END
 
-IDD_SHORTCUT_FINISH DIALOGEX 0, 0, 340, 200
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
-CAPTION "Επιλέξτε τίτλο για το πρόγραμμα"
+IDD_SUBMIT_REPORT DIALOGEX 0, 0, PROPSHEETWIDTH, PROPSHEETHEIGHT
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
+CAPTION "Δημιουργία συντόμευσης"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
-  LTEXT "&Πληκτρολογήστε ένα όνομα για τη συντόμευση:", -1, 120, 15, 150, 10
-  EDITTEXT IDC_SHORTCUT_NAME, 120, 35, 150, 15, ES_LEFT
-  LTEXT "Πατήστε 'Τέλος' για να δημιουργήσετε τη συντόμευση.", -1, 118, 97, 178, 17
+  LTEXT "Text1",-1,10,0,225,40
+  LTEXT "Text2",-1,10,40,120,20
+  LTEXT "Text3",-1,10,55,120,20
 END
 
-STRINGTABLE
+STRINGTABLE 
 BEGIN
-	IDS_CPLSYSTEMNAME "Προσθαφαίρεση προγραμμάτων"
-	IDS_CPLSYSTEMDESCRIPTION "Ρυθμίζει τα προγράμματα και δημιουργεί συντομεύσεις."
-    IDS_CREATE_SHORTCUT "Δημιουργία συντόμευσης"
-    IDS_ERROR_NOT_FOUND "Το αρχείο %s δε βρέθηκε."
+  IDS_CPLSYSTEMNAME "Προσθαφαίρεση προγραμμάτων"
+  IDS_CPLSYSTEMDESCRIPTION "Εγκαθιστά προγράμματα και δημιουργία συντομέυσεις."
 END

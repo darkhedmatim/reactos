@@ -66,7 +66,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(ole);
  * PresentationDataHeader
  *
  * This structure represents the header of the \002OlePresXXX stream in
- * the OLE object storage.
+ * the OLE object strorage.
  */
 typedef struct PresentationDataHeader
 {
@@ -295,7 +295,6 @@ static HRESULT DataCache_CreateEntry(DataCache *This, const FORMATETC *formatetc
         (*cache_entry)->fmtetc.ptd = HeapAlloc(GetProcessHeap(), 0, formatetc->ptd->tdSize);
         memcpy((*cache_entry)->fmtetc.ptd, formatetc->ptd, formatetc->ptd->tdSize);
     }
-    (*cache_entry)->data_cf = 0;
     (*cache_entry)->stgmedium.tymed = TYMED_NULL;
     (*cache_entry)->stgmedium.pUnkForRelease = NULL;
     (*cache_entry)->storage = NULL;
@@ -751,7 +750,6 @@ static HRESULT DataCacheEntry_Save(DataCacheEntry *This, IStorage *storage,
 
     if (data)
         hr = IStream_Write(pres_stream, data, header.dwSize, NULL);
-    HeapFree(GetProcessHeap(), 0, data);
 
     IStream_Release(pres_stream);
     return hr;
@@ -831,7 +829,7 @@ static HRESULT DataCacheEntry_GetData(DataCacheEntry *This,
         if (FAILED(hr))
             return hr;
     }
-    if (This->stgmedium.tymed == TYMED_NULL)
+    if (stgmedium->tymed == TYMED_NULL)
         return OLE_E_BLANK;
     return copy_stg_medium(This->data_cf, stgmedium, &This->stgmedium);
 }
@@ -892,26 +890,26 @@ static HRESULT WINAPI DataCache_NDIUnknown_QueryInterface(
   }
   else if (memcmp(&IID_IDataObject, riid, sizeof(IID_IDataObject)) == 0)
   {
-    *ppvObject = &this->lpVtbl;
+    *ppvObject = (IDataObject*)&(this->lpVtbl);
   }
   else if ( (memcmp(&IID_IPersistStorage, riid, sizeof(IID_IPersistStorage)) == 0)  ||
 	    (memcmp(&IID_IPersist, riid, sizeof(IID_IPersist)) == 0) )
   {
-    *ppvObject = &this->lpvtblIPersistStorage;
+    *ppvObject = (IPersistStorage*)&(this->lpvtblIPersistStorage);
   }
   else if ( (memcmp(&IID_IViewObject, riid, sizeof(IID_IViewObject)) == 0) ||
 	    (memcmp(&IID_IViewObject2, riid, sizeof(IID_IViewObject2)) == 0) )
   {
-    *ppvObject = &this->lpvtblIViewObject;
+    *ppvObject = (IViewObject2*)&(this->lpvtblIViewObject);
   }
   else if ( (memcmp(&IID_IOleCache, riid, sizeof(IID_IOleCache)) == 0) ||
 	    (memcmp(&IID_IOleCache2, riid, sizeof(IID_IOleCache2)) == 0) )
   {
-    *ppvObject = &this->lpvtblIOleCache2;
+    *ppvObject = (IOleCache2*)&(this->lpvtblIOleCache2);
   }
   else if (memcmp(&IID_IOleCacheControl, riid, sizeof(IID_IOleCacheControl)) == 0)
   {
-    *ppvObject = &this->lpvtblIOleCacheControl;
+    *ppvObject = (IOleCacheControl*)&(this->lpvtblIOleCacheControl);
   }
 
   /*
@@ -1240,13 +1238,13 @@ static HRESULT WINAPI DataCache_GetClassID(
       HRESULT hr = IStorage_Stat(cache_entry->storage, &statstg, STATFLAG_NONAME);
       if (SUCCEEDED(hr))
       {
-        *pClassID = statstg.clsid;
+        memcpy(pClassID, &statstg.clsid, sizeof(*pClassID));
         return S_OK;
       }
     }
   }
 
-  *pClassID = CLSID_NULL;
+  memcpy(pClassID, &CLSID_NULL, sizeof(*pClassID));
 
   return S_OK;
 }
@@ -1971,10 +1969,6 @@ static HRESULT WINAPI DataCache_Cache(
     HRESULT hr;
 
     TRACE("(%p, 0x%x, %p)\n", pformatetc, advf, pdwConnection);
-
-    if (!pformatetc || !pdwConnection)
-        return E_INVALIDARG;
-
     TRACE("pformatetc = %s\n", debugstr_formatetc(pformatetc));
 
     *pdwConnection = 0;
@@ -2252,7 +2246,7 @@ static const IOleCacheControlVtbl DataCache_IOleCacheControl_VTable =
  *
  * NOTES
  *  The following interfaces are supported by the returned data cache object:
- *  IOleCache, IOleCache2, IOleCacheControl, IPersistStorage, IDataObject,
+ *  IOleCache, IOleCache2, IOleCacheControl, IPersistStorae, IDataObject,
  *  IViewObject and IViewObject2.
  */
 HRESULT WINAPI CreateDataCache(

@@ -3,7 +3,7 @@
 /*
  * @unimplemented
  */
-uintptr_t CDECL _beginthreadex(
+unsigned long _beginthreadex(
     void* security,
     unsigned stack_size,
     unsigned (__stdcall *start_address)(void*),
@@ -25,14 +25,14 @@ uintptr_t CDECL _beginthreadex(
     _dosmaperr( GetLastError() );
     }
 
-  return (uintptr_t) NewThread;
+  return (unsigned long) NewThread;
 }
 
 
 /*
  * @implemented
  */
-void CDECL _endthreadex(unsigned retval)
+void _endthreadex(unsigned retval)
 {
   /*
    * Just call the API function. Any CRT specific processing is done in

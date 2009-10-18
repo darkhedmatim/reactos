@@ -54,7 +54,7 @@ typedef struct _AFD_HANDLE_ {
 typedef struct _AFD_POLL_INFO {
     LARGE_INTEGER		        Timeout;
     ULONG				HandleCount;
-    ULONG_PTR                               Exclusive;
+    ULONG                               Exclusive;
     AFD_HANDLE			        Handles[1];
 } AFD_POLL_INFO, *PAFD_POLL_INFO;
 
@@ -149,7 +149,6 @@ typedef struct _AFD_DISCONNECT_INFO {
 #define AFD_INFO_RECEIVE_WINDOW_SIZE	0x06L
 #define AFD_INFO_SEND_WINDOW_SIZE	0x07L
 #define AFD_INFO_GROUP_ID_TYPE	        0x10L
-#define AFD_INFO_RECEIVE_CONTENT_SIZE   0x11L
 
 /* AFD Share Flags */
 #define AFD_SHARE_UNIQUE		0x0L

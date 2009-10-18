@@ -29,14 +29,9 @@
 
 #include "vbemp.h"
 
-#undef LOWORD
-#undef HIWORD
-#define LOWORD(l)	((USHORT)((ULONG_PTR)(l)))
-#define HIWORD(l)	((USHORT)(((ULONG_PTR)(l)>>16)&0xFFFF))
-
 /* PUBLIC AND PRIVATE FUNCTIONS ***********************************************/
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 DriverEntry(IN PVOID Context1, IN PVOID Context2)
 {
    VIDEO_HW_INITIALIZATION_DATA InitData;
@@ -47,9 +42,9 @@ DriverEntry(IN PVOID Context1, IN PVOID Context2)
    InitData.HwInitialize = VBEInitialize;
    InitData.HwStartIO = VBEStartIO;
    InitData.HwResetHw = VBEResetHw;
-   //InitData.HwGetPowerState = VBEGetPowerState;
-   //InitData.HwSetPowerState = VBESetPowerState;
-   //InitData.HwGetVideoChildDescriptor = VBEGetVideoChildDescriptor;
+   InitData.HwGetPowerState = VBEGetPowerState;
+   InitData.HwSetPowerState = VBESetPowerState;
+   InitData.HwGetVideoChildDescriptor = VBEGetVideoChildDescriptor;
    InitData.HwDeviceExtensionSize = sizeof(VBE_DEVICE_EXTENSION);
 
    return VideoPortInitialize(Context1, Context2, &InitData, NULL);
@@ -63,7 +58,7 @@ DriverEntry(IN PVOID Context1, IN PVOID Context2)
  * so we always return NO_ERROR and do the real work in VBEInitialize.
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VBEFindAdapter(
    IN PVOID HwDeviceExtension,
    IN PVOID HwContext,
@@ -165,7 +160,7 @@ VBESortModes(PVBE_DEVICE_EXTENSION DeviceExtension)
  *   the VBE.
  */
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VBEInitialize(PVOID HwDeviceExtension)
 {
    INT10_BIOS_ARGUMENTS BiosRegisters;
@@ -235,7 +230,7 @@ VBEInitialize(PVOID HwDeviceExtension)
       VBEDeviceExtension->Int10Interface.Context,
       &BiosRegisters);
 
-   if (VBE_GETRETURNCODE(BiosRegisters.Eax) == VBE_SUCCESS)
+   if (BiosRegisters.Eax == VBE_SUCCESS)
    {
       VBEDeviceExtension->Int10Interface.Int10ReadMemory(
          VBEDeviceExtension->Int10Interface.Context,
@@ -250,11 +245,14 @@ VBEInitialize(PVOID HwDeviceExtension)
          VideoPortDebugPrint(Warn, "No VBE BIOS present\n");
          return FALSE;
       }
-
+      
       VideoPortDebugPrint(Trace, "VBE BIOS Present (%d.%d, %8ld Kb)\n",
          VBEDeviceExtension->VbeInfo.Version / 0x100,
          VBEDeviceExtension->VbeInfo.Version & 0xFF,
          VBEDeviceExtension->VbeInfo.TotalMemory * 64);
+
+
+
 
 #ifdef VBE12_SUPPORT
       if (VBEDeviceExtension->VbeInfo.Version < 0x102)
@@ -300,14 +298,16 @@ VBEInitialize(PVOID HwDeviceExtension)
          break;
    }
 
+ 
+
    /*
     * Allocate space for video modes information.
     */
 
    VBEDeviceExtension->ModeInfo =
-      VideoPortAllocatePool(HwDeviceExtension, VpPagedPool, ModeCount * sizeof(VBE_MODEINFO), TAG_VBE);
+      VideoPortAllocatePool(HwDeviceExtension, VpPagedPool, (ModeCount + 1) * sizeof(VBE_MODEINFO), TAG_VBE);
    VBEDeviceExtension->ModeNumbers =
-      VideoPortAllocatePool(HwDeviceExtension, VpPagedPool, ModeCount * sizeof(USHORT), TAG_VBE);
+      VideoPortAllocatePool(HwDeviceExtension, VpPagedPool, (ModeCount+ 1) * sizeof(USHORT), TAG_VBE);
 
    /*
     * Get the actual mode infos.
@@ -346,7 +346,7 @@ VBEInitialize(PVOID HwDeviceExtension)
       VbeModeInfo = VBEDeviceExtension->ModeInfo + SuitableModeCount;
 
       /* Is this mode acceptable? */
-      if (VBE_GETRETURNCODE(BiosRegisters.Eax) == VBE_SUCCESS &&
+      if (BiosRegisters.Eax == VBE_SUCCESS &&
           VbeModeInfo->XResolution >= 640 &&
           VbeModeInfo->YResolution >= 480 &&
           (VbeModeInfo->MemoryModel == VBE_MEMORYMODEL_PACKEDPIXEL ||
@@ -355,27 +355,72 @@ VBEInitialize(PVOID HwDeviceExtension)
       {
          if (VbeModeInfo->ModeAttributes & VBE_MODEATTR_LINEAR)
          {
-            /* Bit 15 14 13 12 | 11 10 9 8 | 7 6 5 4 | 3 2 1 0 */
-             // if (ModeTemp & 0x4000)
-             //{
-                VBEDeviceExtension->ModeNumbers[SuitableModeCount] = ModeTemp | 0x4000;
-                SuitableModeCount++;
-             //}
+            VBEDeviceExtension->ModeNumbers[SuitableModeCount] = ModeTemp | 0x4000;
+            SuitableModeCount++;
          }
 #ifdef VBE12_SUPPORT
          else
-         {
-            VBEDeviceExtension->ModeNumbers[SuitableModeCount] = ModeTemp;
-            SuitableModeCount++;
+         {   
+            /* FIXME when PCI bus scanner are inplace we need add ModeTemp | 0x4000 
+             * for we will map the memory our self and do not use bankswitch          */
+
+            if (VBEDeviceExtension->VbeInfo.Version < 0x200)
+            {
+                VBEDeviceExtension->ModeNumbers[SuitableModeCount] = ModeTemp;
+                SuitableModeCount++;
+            }
          }
 #endif
       }
    }
 
 
-   if (SuitableModeCount == 0)
+#ifdef VBE12_SUPPORT
+   if (VBEDeviceExtension->VbeInfo.Version < 0x200)
+   {
+          /* FIXME add PCI bus scanner to detect the video ram phy address */
+   }
+   else
+#endif
+   if (VBEDeviceExtension->VbeInfo.Version >= 0x200)
    {
 
+        /* Call VBE BIOS to read the mode info.for the special mode */
+        VideoPortZeroMemory(&BiosRegisters, sizeof(BiosRegisters));
+        BiosRegisters.Eax = VBE_GET_MODE_INFORMATION;
+        BiosRegisters.Ecx = 0x81FF;
+        BiosRegisters.Edi = VBEDeviceExtension->TrampolineMemoryOffset + 0x200;
+        BiosRegisters.SegEs = VBEDeviceExtension->TrampolineMemorySegment;
+        VBEDeviceExtension->Int10Interface.Int10CallBios(
+        VBEDeviceExtension->Int10Interface.Context,
+        &BiosRegisters);
+
+        VBEDeviceExtension->ModeNumbers[SuitableModeCount] = 0;
+
+        if (BiosRegisters.Eax == VBE_SUCCESS)
+        {
+                /* transfer the special mode data to protected memory */
+                VBEDeviceExtension->Int10Interface.Int10ReadMemory(
+                    VBEDeviceExtension->Int10Interface.Context,
+                    VBEDeviceExtension->TrampolineMemorySegment,
+                    VBEDeviceExtension->TrampolineMemoryOffset + 0x200,
+                    VBEDeviceExtension->ModeInfo + SuitableModeCount,
+                    sizeof(VBE_MODEINFO));
+        
+                VBEDeviceExtension->ModeNumbers[SuitableModeCount] = 0x81FF;
+                /* Do not add special mode to the list */
+                //SuitableModeCount++;
+
+                /* to gain full phy memory 
+                *  VBEDeviceExtension->ModeNumbers[SuitableModeCount].PhysBasePtr
+                *  VBEDeviceExtension->VbeInfo.TotalMemory * 64 = x Memory on the card in Kbyte
+                */
+        }
+   }
+
+
+   if (SuitableModeCount == 0)
+   {
       VideoPortDebugPrint(Warn, "VBEMP: No video modes supported\n");
       return FALSE;
    }
@@ -402,6 +447,9 @@ VBEInitialize(PVOID HwDeviceExtension)
          VBEDeviceExtension->ModeInfo[CurrentMode].BitsPerPixel);
    }
 
+
+
+
    /*
     * Enumerate our children.
     */
@@ -416,7 +464,7 @@ VBEInitialize(PVOID HwDeviceExtension)
  * Processes the specified Video Request Packet.
  */
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VBEStartIO(
    PVOID HwDeviceExtension,
    PVIDEO_REQUEST_PACKET RequestPacket)
@@ -540,14 +588,62 @@ VBEStartIO(
  * This function is called to reset the hardware to a known state.
  */
 
-BOOLEAN NTAPI
+BOOLEAN STDCALL
 VBEResetHw(
    PVOID DeviceExtension,
    ULONG Columns,
    ULONG Rows)
 {
-   /* Return FALSE to let HAL reset the display with INT10 */
-   return FALSE;
+   INT10_BIOS_ARGUMENTS BiosRegisters;
+   PVBE_DEVICE_EXTENSION VBEDeviceExtension =
+     (PVBE_DEVICE_EXTENSION)DeviceExtension;
+
+   if (!VBEResetDevice(DeviceExtension, NULL))
+      return FALSE;
+
+   /* Change number of columns/rows */
+   VideoPortZeroMemory(&BiosRegisters, sizeof(BiosRegisters));
+
+   if (Columns == 80 && Rows == 25)
+   {
+      /* Default text size, don't change anything. */
+      return TRUE;
+   }
+   else if (Columns == 80 && Rows == 28)
+   {
+      /* Use 9x14 font (80x28) */
+      BiosRegisters.Eax = 0x1111;
+   }
+   else if (Columns == 80 && Rows == 43)
+   {
+      /* Use 8x8 font in 350 scans mode (80x43) */
+      BiosRegisters.Eax = 0x1201;
+      BiosRegisters.Ebx = 0x30;
+      VBEDeviceExtension->Int10Interface.Int10CallBios(
+         VBEDeviceExtension->Int10Interface.Context,
+         &BiosRegisters);
+
+      BiosRegisters.Eax = 0x3;
+      BiosRegisters.Ebx = 0;
+      VBEDeviceExtension->Int10Interface.Int10CallBios(
+         VBEDeviceExtension->Int10Interface.Context,
+         &BiosRegisters);
+
+      BiosRegisters.Eax = 0x1112;
+   }
+   else if (Columns == 80 && Rows == 50)
+   {
+      /* Use 8x8 font (80x50) */
+      BiosRegisters.Eax = 0x1112;
+   }
+   else
+      return FALSE;
+
+   VBEDeviceExtension->Int10Interface.Int10CallBios(
+      VBEDeviceExtension->Int10Interface.Context,
+      &BiosRegisters);
+
+   return TRUE;
 }
 
 /*
@@ -556,7 +652,7 @@ VBEResetHw(
  * Queries whether the device can support the requested power state.
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VBEGetPowerState(
    PVOID HwDeviceExtension,
    ULONG HwId,
@@ -583,9 +679,9 @@ VBEGetPowerState(
       VBEDeviceExtension->Int10Interface.Context,
       &BiosRegisters);
 
-   if ( VBE_GETRETURNCODE(BiosRegisters.Eax) == VBE_NOT_SUPPORTED)
+   if (BiosRegisters.Eax == VBE_NOT_SUPPORTED)
       return ERROR_DEV_NOT_EXIST;
-   if (VBE_GETRETURNCODE(BiosRegisters.Eax) != VBE_SUCCESS)
+   if (BiosRegisters.Eax != VBE_SUCCESS)
       return ERROR_INVALID_FUNCTION;
 
    /*
@@ -601,7 +697,7 @@ VBEGetPowerState(
       VBEDeviceExtension->Int10Interface.Context,
       &BiosRegisters);
 
-   if (VBE_GETRETURNCODE(BiosRegisters.Eax) == VBE_SUCCESS)
+   if (BiosRegisters.Eax == VBE_SUCCESS)
    {
       VideoPowerControl->DPMSVersion = BiosRegisters.Ebx & 0xFF;
       switch (BiosRegisters.Ebx >> 8)
@@ -626,7 +722,7 @@ VBEGetPowerState(
  * Sets the power state of the specified device
  */
 
-VP_STATUS NTAPI
+VP_STATUS STDCALL
 VBESetPowerState(
    PVOID HwDeviceExtension,
    ULONG HwId,
@@ -665,9 +761,9 @@ VBESetPowerState(
       VBEDeviceExtension->Int10Interface.Context,
       &BiosRegisters);
 
-   if (VBE_GETRETURNCODE(BiosRegisters.Eax) == VBE_NOT_SUPPORTED)
+   if (BiosRegisters.Eax == VBE_NOT_SUPPORTED)
       return ERROR_DEV_NOT_EXIST;
-   if (VBE_GETRETURNCODE(BiosRegisters.Eax) != VBE_SUCCESS)
+   if (BiosRegisters.Eax != VBE_SUCCESS)
       return ERROR_INVALID_FUNCTION;
 
    return VBE_SUCCESS;
@@ -699,7 +795,7 @@ VBESetCurrentMode(
       DeviceExtension->Int10Interface.Context,
       &BiosRegisters);
 
-   if (VBE_GETRETURNCODE(BiosRegisters.Eax) == VBE_SUCCESS)
+   if (BiosRegisters.Eax == VBE_SUCCESS)
    {
       DeviceExtension->CurrentMode = RequestedMode->RequestedMode;
    }
@@ -709,7 +805,7 @@ VBESetCurrentMode(
       DeviceExtension->CurrentMode = -1;
    }
 
-   return VBE_GETRETURNCODE(BiosRegisters.Eax) == VBE_SUCCESS;
+   return BiosRegisters.Eax == VBE_SUCCESS;
 }
 
 /*
@@ -733,7 +829,7 @@ VBEResetDevice(
       DeviceExtension->Int10Interface.Context,
       &BiosRegisters);
 
-   return VBE_GETRETURNCODE(BiosRegisters.Eax) == VBE_SUCCESS;
+   return BiosRegisters.Eax == VBE_SUCCESS;
 }
 
 /*
@@ -777,11 +873,14 @@ VBEMapVideoMemory(
 #ifdef VBE12_SUPPORT
    else
    {
+       // when pci bus scanner are in place we remove this one 
       FrameBuffer.QuadPart = 0xA0000;
       MapInformation->VideoRamBase = RequestedAddress->RequestedVirtualAddress;
       MapInformation->VideoRamLength = 0x10000;
    }
-#endif
+#endif   
+
+
 
    VideoPortMapMemory(DeviceExtension, FrameBuffer,
       &MapInformation->VideoRamLength, &inIoSpace,
@@ -844,7 +943,7 @@ VBEQueryMode(
    ULONG VideoModeId)
 {
    PVBE_MODEINFO VBEMode = &DeviceExtension->ModeInfo[VideoModeId];
-
+   
    VideoMode->Length = sizeof(VIDEO_MODE_INFORMATION);
    VideoMode->ModeIndex = VideoModeId;
    VideoMode->VisScreenWidth = VBEMode->XResolution;
@@ -1037,6 +1136,6 @@ VBESetColorRegisters(
          DeviceExtension->Int10Interface.Context,
          &BiosRegisters);
 
-      return VBE_GETRETURNCODE(BiosRegisters.Eax) == VBE_SUCCESS;
+      return BiosRegisters.Eax == VBE_SUCCESS;
    }
 }

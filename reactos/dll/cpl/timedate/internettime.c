@@ -13,8 +13,8 @@ static VOID
 CreateNTPServerList(HWND hwnd)
 {
     HWND hList;
-    WCHAR szValName[MAX_VALUE_NAME];
-    WCHAR szData[256];
+    TCHAR szValName[MAX_VALUE_NAME];
+    TCHAR szData[256];
     DWORD dwIndex = 0;
     DWORD dwValSize;
     DWORD dwNameSize;
@@ -25,8 +25,8 @@ CreateNTPServerList(HWND hwnd)
     hList = GetDlgItem(hwnd,
                        IDC_SERVERLIST);
 
-    lRet = RegOpenKeyExW(HKEY_LOCAL_MACHINE,
-                        L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DateTime\\Servers",
+    lRet = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                        _T("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DateTime\\Servers"),
                         0,
                         KEY_QUERY_VALUE,
                         &hKey);
@@ -35,30 +35,30 @@ CreateNTPServerList(HWND hwnd)
 
     while (TRUE)
     {
-        dwValSize = MAX_VALUE_NAME * sizeof(WCHAR);
-        szValName[0] = L'\0';
-        lRet = RegEnumValueW(hKey,
-                             dwIndex,
-                             szValName,
-                             &dwValSize,
-                             NULL,
-                             NULL,
-                             (LPBYTE)szData,
-                             &dwNameSize);
+        dwValSize = MAX_VALUE_NAME * sizeof(TCHAR);
+        szValName[0] = '\0';
+        lRet = RegEnumValue(hKey,
+                            dwIndex,
+                            szValName,
+                            &dwValSize,
+                            NULL,
+                            NULL,
+                            (LPBYTE)szData,
+                            &dwNameSize);
         if (lRet == ERROR_SUCCESS)
         {
             /* get date from default reg value */
-            if (wcscmp(szValName, L"") == 0) // if (Index == 0)
+            if (_tcscmp(szValName, _T("")) == 0) // if (Index == 0)
             {
-                dwDefault = _wtoi(szData);
+                dwDefault = _ttoi(szData);
                 dwIndex++;
             }
             else
             {
-                SendMessageW(hList,
-                             CB_ADDSTRING,
-                             0,
-                             (LPARAM)szData);
+                SendMessage(hList,
+                            CB_ADDSTRING,
+                            0,
+                            (LPARAM)szData);
                 dwIndex++;
             }
         }
@@ -75,10 +75,10 @@ CreateNTPServerList(HWND hwnd)
      * combo boxes count from 0 */
     dwDefault--;
 
-    SendMessageW(hList,
-                 CB_SETCURSEL,
-                 dwDefault,
-                 0);
+    SendMessage(hList,
+                CB_SETCURSEL,
+                dwDefault,
+                0);
 
     RegCloseKey(hKey);
 }
@@ -91,13 +91,13 @@ SetNTPServer(HWND hwnd)
     HKEY hKey;
     HWND hList;
     UINT uSel;
-    WCHAR szSel[4];
+    TCHAR szSel[4];
     LONG lRet;
 
     hList = GetDlgItem(hwnd,
                        IDC_SERVERLIST);
 
-    uSel = (UINT)SendMessageW(hList, CB_GETCURSEL, 0, 0);
+    uSel = (UINT)SendMessage(hList, CB_GETCURSEL, 0, 0);
 
     /* server reg entries count from 1,
      * combo boxes count from 0 */
@@ -106,11 +106,11 @@ SetNTPServer(HWND hwnd)
     /* convert to wide char */
     _itow(uSel, szSel, 10);
 
-    lRet = RegOpenKeyExW(HKEY_LOCAL_MACHINE,
-                         L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DateTime\\Servers",
-                         0,
-                         KEY_SET_VALUE,
-                         &hKey);
+    lRet = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                        _T("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DateTime\\Servers"),
+                        0,
+                        KEY_SET_VALUE,
+                        &hKey);
     if (lRet != ERROR_SUCCESS)
     {
         DisplayWin32Error(lRet);
@@ -118,11 +118,11 @@ SetNTPServer(HWND hwnd)
     }
 
     lRet = RegSetValueExW(hKey,
-                          L"",
+                          _T(""),
                           0,
                           REG_SZ,
                           (LPBYTE)szSel,
-                          (wcslen(szSel) + 1) * sizeof(WCHAR));
+                          sizeof(szSel));
     if (lRet != ERROR_SUCCESS)
         DisplayWin32Error(lRet);
 
@@ -132,43 +132,43 @@ SetNTPServer(HWND hwnd)
 
 /* get the domain name from the registry */
 static BOOL
-GetNTPServerAddress(LPWSTR *lpAddress)
+GetNTPServerAddress(LPTSTR *lpAddress)
 {
     HKEY hKey;
-    WCHAR szSel[4];
+    TCHAR szSel[4];
     DWORD dwSize;
     LONG lRet;
 
-    lRet = RegOpenKeyExW(HKEY_LOCAL_MACHINE,
-                         L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DateTime\\Servers",
-                         0,
-                         KEY_QUERY_VALUE,
-                         &hKey);
+    lRet = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                        _T("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DateTime\\Servers"),
+                        0,
+                        KEY_QUERY_VALUE,
+                        &hKey);
     if (lRet != ERROR_SUCCESS)
         goto fail;
 
     /* Get data from default value */
-    dwSize = 4 * sizeof(WCHAR);
-    lRet = RegQueryValueExW(hKey,
-                            NULL,
-                            NULL,
-                            NULL,
-                            (LPBYTE)szSel,
-                            &dwSize);
+    dwSize = 4 * sizeof(TCHAR);
+    lRet = RegQueryValueEx(hKey,
+                           _T(""),
+                           NULL,
+                           NULL,
+                           (LPBYTE)szSel,
+                           &dwSize);
     if (lRet != ERROR_SUCCESS)
         goto fail;
 
     dwSize = 0;
-    lRet = RegQueryValueExW(hKey,
-                            szSel,
-                            NULL,
-                            NULL,
-                            NULL,
-                            &dwSize);
+    lRet = RegQueryValueEx(hKey,
+                           szSel,
+                           NULL,
+                           NULL,
+                           NULL,
+                           &dwSize);
     if (lRet != ERROR_SUCCESS)
         goto fail;
 
-    (*lpAddress) = (LPWSTR)HeapAlloc(GetProcessHeap(),
+    (*lpAddress) = (LPTSTR)HeapAlloc(GetProcessHeap(),
                                      0,
                                      dwSize);
     if ((*lpAddress) == NULL)
@@ -177,12 +177,12 @@ GetNTPServerAddress(LPWSTR *lpAddress)
         goto fail;
     }
 
-    lRet = RegQueryValueExW(hKey,
-                            szSel,
-                            NULL,
-                            NULL,
-                            (LPBYTE)*lpAddress,
-                            &dwSize);
+    lRet = RegQueryValueEx(hKey,
+                           szSel,
+                           NULL,
+                           NULL,
+                           (LPBYTE)*lpAddress,
+                           &dwSize);
     if (lRet != ERROR_SUCCESS)
         goto fail;
 
@@ -203,7 +203,7 @@ fail:
 static ULONG
 GetTimeFromServer(VOID)
 {
-    LPWSTR lpAddress = NULL;
+    LPTSTR lpAddress = NULL;
     ULONG ulTime = 0;
 
     if (GetNTPServerAddress(&lpAddress))
@@ -269,7 +269,7 @@ EnableDialogText(HWND hwnd)
     BOOL bChecked;
     UINT uCheck;
 
-    uCheck = (UINT)SendDlgItemMessageW(hwnd, IDC_AUTOSYNC, BM_GETCHECK, 0, 0);
+    uCheck = (UINT)SendDlgItemMessage(hwnd, IDC_AUTOSYNC, BM_GETCHECK, 0, 0);
     bChecked = (uCheck == BST_CHECKED) ? TRUE : FALSE;
 
     EnableWindow(GetDlgItem(hwnd, IDC_SERVERTEXT), bChecked);
@@ -284,25 +284,25 @@ static VOID
 GetSyncSetting(HWND hwnd)
 {
     HKEY hKey;
-    WCHAR szData[8];
+    TCHAR szData[8];
     DWORD dwSize;
 
-    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,
-                      L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DateTime\\Parameters",
-                      0,
-                      KEY_QUERY_VALUE,
-                      &hKey) == ERROR_SUCCESS)
+    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                     _T("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DateTime\\Parameters"),
+                     0,
+                     KEY_QUERY_VALUE,
+                     &hKey) == ERROR_SUCCESS)
     {
-        dwSize = 8 * sizeof(WCHAR);
-        if (RegQueryValueExW(hKey,
-                             L"Type",
-                             NULL,
-                             NULL,
-                             (LPBYTE)szData,
-                             &dwSize) == ERROR_SUCCESS)
+        dwSize = 8 * sizeof(TCHAR);
+        if (RegQueryValueEx(hKey,
+                            _T("Type"),
+                            NULL,
+                            NULL,
+                            (LPBYTE)szData,
+                            &dwSize) == ERROR_SUCCESS)
         {
-            if (wcscmp(szData, L"NTP") == 0)
-                SendDlgItemMessageW(hwnd, IDC_AUTOSYNC, BM_SETCHECK, 0, 0);
+            if (_tcscmp(szData, _T("NTP")) == 0)
+                SendDlgItemMessage(hwnd, IDC_AUTOSYNC, BM_SETCHECK, 0, 0);
         }
 
         RegCloseKey(hKey);

@@ -32,7 +32,8 @@
 #include "winreg.h"
 #include "winternl.h"
 
-/* FIXME!!! this test checks only mappings, defined by MSDN
+/* FIXME!!! this test checks only mappings, defined by MSDN:
+ * http://support.microsoft.com/default.aspx?scid=KB;EN-US;q113996&
  * It is necessary to add other mappings and to test them up to Windows XP.
  *
  * Some Windows platforms don't know about all the mappings, and in such
@@ -45,7 +46,7 @@
  * (of course older Windows platforms will fail to pass the strict mode)
  */
 
-static ULONG (WINAPI *pRtlNtStatusToDosError)(NTSTATUS Status);
+static ULONG (WINAPI *statustodoserror)(NTSTATUS Status);
 static int strict;
 
 static int prepare_test(void)
@@ -55,12 +56,9 @@ static int prepare_test(void)
     char** argv;
 
     ntdll = LoadLibraryA("ntdll.dll");
-    pRtlNtStatusToDosError = (void*)GetProcAddress(ntdll, "RtlNtStatusToDosError");
-    if (!pRtlNtStatusToDosError)
-    {
-        win_skip("RtlNtStatusToDosError is not available\n");
+    statustodoserror = (void*)GetProcAddress(ntdll, "RtlNtStatusToDosError");
+    if (!statustodoserror)
         return 0;
-    }
 
     argc = winetest_get_mainargs(&argv);
     strict=(argc >= 3 && strcmp(argv[2],"strict")==0);
@@ -71,9 +69,9 @@ static void cmp_call(NTSTATUS win_nt, ULONG win32, const char* message)
 {
     ULONG err;
 
-    err = pRtlNtStatusToDosError(win_nt);
+    err = statustodoserror(win_nt);
     ok(err == win32,
-       "%s (%x): got %u, expected %u\n",
+       "%s (%lx): got %ld, expected %ld\n",
             message, win_nt, err, win32);
 }
 
@@ -81,10 +79,10 @@ static void cmp_call2(NTSTATUS win_nt, ULONG win32, const char* message)
 {
     ULONG err;
 
-    err = pRtlNtStatusToDosError(win_nt);
+    err = statustodoserror(win_nt);
     ok(err == win32 ||
        (!strict && err == ERROR_MR_MID_NOT_FOUND),
-       "%s (%x): got %u, expected %u (or MID_NOT_FOUND)\n",
+       "%s (%lx): got %ld, expected %ld (or MID_NOT_FOUND)\n",
        message, win_nt, err, win32);
 }
 
@@ -92,9 +90,9 @@ static void cmp_call3(NTSTATUS win_nt, ULONG win32_1, ULONG win32_2, const char*
 {
     ULONG err;
 
-    err = pRtlNtStatusToDosError(win_nt);
+    err = statustodoserror(win_nt);
     ok(err == win32_1 || (!strict && err == win32_2),
-       "%s (%x): got %u, expected %u or %u\n",
+       "%s (%lx): got %ld, expected %ld or %ld\n",
             message, win_nt, err, win32_1, win32_2);
 }
 
@@ -102,10 +100,10 @@ static void cmp_call4(NTSTATUS win_nt, ULONG win32_1, ULONG win32_2, const char*
 {
     ULONG err;
 
-    err = pRtlNtStatusToDosError(win_nt);
+    err = statustodoserror(win_nt);
     ok(err == win32_1 ||
        (!strict && (err == win32_2 || err == ERROR_MR_MID_NOT_FOUND)),
-       "%s (%x): got %u, expected %u or %u\n",
+       "%s (%lx): got %ld, expected %ld or %ld\n",
             message, win_nt, err, win32_1, win32_2);
 }
 
@@ -189,7 +187,7 @@ static void run_error_tests(void)
     cmp(STATUS_HANDLE_NOT_CLOSABLE,              ERROR_INVALID_HANDLE);
     cmp(STATUS_NOT_COMMITTED,                    ERROR_INVALID_ADDRESS);
     cmp(STATUS_PARTIAL_COPY,                     ERROR_PARTIAL_COPY);
-    cmp3(STATUS_LPC_REPLY_LOST,                  ERROR_INTERNAL_ERROR, ERROR_CONNECTION_ABORTED);
+    cmp(STATUS_LPC_REPLY_LOST,                   ERROR_INTERNAL_ERROR);
     cmp(STATUS_INVALID_PARAMETER,                ERROR_INVALID_PARAMETER);
     cmp(STATUS_INVALID_PARAMETER_1,              ERROR_INVALID_PARAMETER);
     cmp(STATUS_INVALID_PARAMETER_2,              ERROR_INVALID_PARAMETER);
@@ -247,11 +245,11 @@ static void run_error_tests(void)
     cmp2(STATUS_PKINIT_FAILURE,                  ERROR_PKINIT_FAILURE);
     cmp2(STATUS_SMARTCARD_SUBSYSTEM_FAILURE,     ERROR_SMARTCARD_SUBSYSTEM_FAILURE);
     cmp2(STATUS_DOWNGRADE_DETECTED,              ERROR_DOWNGRADE_DETECTED);
-    cmp4(STATUS_SMARTCARD_CERT_REVOKED,          SEC_E_SMARTCARD_CERT_REVOKED, 1266); /* FIXME: real name? */
-    cmp4(STATUS_ISSUING_CA_UNTRUSTED,            SEC_E_ISSUING_CA_UNTRUSTED, 1267); /* FIXME: real name? */
-    cmp4(STATUS_REVOCATION_OFFLINE_C,            SEC_E_REVOCATION_OFFLINE_C, 1268); /* FIXME: real name? */
-    cmp4(STATUS_PKINIT_CLIENT_FAILURE,           SEC_E_PKINIT_CLIENT_FAILURE, 1269); /* FIXME: real name? */
-    cmp4(STATUS_SMARTCARD_CERT_EXPIRED,          SEC_E_SMARTCARD_CERT_EXPIRED, 1270); /* FIXME: real name? */
+    cmp2(STATUS_SMARTCARD_CERT_REVOKED,          SEC_E_SMARTCARD_CERT_REVOKED);
+    cmp2(STATUS_ISSUING_CA_UNTRUSTED,            SEC_E_ISSUING_CA_UNTRUSTED);
+    cmp2(STATUS_REVOCATION_OFFLINE_C,            SEC_E_REVOCATION_OFFLINE_C);
+    cmp2(STATUS_PKINIT_CLIENT_FAILURE,           SEC_E_PKINIT_CLIENT_FAILURE);
+    cmp2(STATUS_SMARTCARD_CERT_EXPIRED,          SEC_E_SMARTCARD_CERT_EXPIRED);
     cmp2(STATUS_NO_KERB_KEY,                     SEC_E_NO_KERB_KEY);
     cmp2(STATUS_CURRENT_DOMAIN_NOT_ALLOWED,      ERROR_CURRENT_DOMAIN_NOT_ALLOWED);
     cmp2(STATUS_SMARTCARD_WRONG_PIN,             SCARD_W_WRONG_CHV);
@@ -738,8 +736,8 @@ static void run_error_tests(void)
     cmp(STATUS_LOGIN_WKSTA_RESTRICTION,          ERROR_LOGIN_WKSTA_RESTRICTION);
     cmp(STATUS_LICENSE_QUOTA_EXCEEDED,           ERROR_LICENSE_QUOTA_EXCEEDED);
     cmp(STATUS_RESOURCE_NOT_OWNED,               ERROR_NOT_OWNER);
-    cmp3(STATUS_DUPLICATE_OBJECTID,              STATUS_DUPLICATE_OBJECTID, ERROR_OBJECT_ALREADY_EXISTS);
-    cmp3(STATUS_OBJECTID_EXISTS,                 STATUS_OBJECTID_EXISTS, ERROR_OBJECT_ALREADY_EXISTS);
+    cmp(STATUS_DUPLICATE_OBJECTID,               STATUS_DUPLICATE_OBJECTID);
+    cmp(STATUS_OBJECTID_EXISTS,                  STATUS_OBJECTID_EXISTS);
     cmp2(STATUS_OBJECTID_NOT_FOUND,              ERROR_FILE_NOT_FOUND);
     cmp2(STATUS_MFT_TOO_FRAGMENTED,              ERROR_DISK_TOO_FRAGMENTED);
     cmp(SEC_E_INSUFFICIENT_MEMORY,               ERROR_NO_SYSTEM_RESOURCES);

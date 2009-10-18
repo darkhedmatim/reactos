@@ -1,4 +1,5 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/mm/pe.c
@@ -12,9 +13,13 @@
 #include <ntoskrnl.h>
 
 //#define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 #include <reactos/exeformat.h>
+
+#ifndef MAXULONG
+#define MAXULONG ((ULONG)(~1))
+#endif
 
 static ULONG SectionCharacteristicsToProtect[16] =
 {
@@ -45,6 +50,10 @@ static __inline BOOLEAN Intsafe_CanAddULongPtr(IN ULONG_PTR Addend1, IN ULONG_PT
 {
     return Addend1 <= (MAXULONG_PTR - Addend2);
 }
+
+#ifndef MAXLONGLONG
+#define MAXLONGLONG ((LONGLONG)((~((ULONGLONG)0)) >> 1))
+#endif
 
 static __inline BOOLEAN Intsafe_CanAddLong64(IN LONG64 Addend1, IN LONG64 Addend2)
 {
@@ -128,90 +137,6 @@ static __inline BOOLEAN AlignUp(OUT PULONG AlignedAddress, IN ULONG Address, IN 
   (RTL_FIELD_SIZE(TYPE1_, FIELD_) == RTL_FIELD_SIZE(TYPE2_, FIELD_)) \
  )
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//
-// FIXME: All this whitespace is "padding" so the C_ASSERTs aren't on the same lines as asserts in other headers.
-// This is necessary because of the way we define C_ASSERT in a gcc compatible way.
-// This can be removed once we upgrade to gcc 4.3.x or later (which implements __COUNTER__).
-//
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//
-// PeFmtCreateSection depends on the following:
-//
-C_ASSERT(EXEFMT_LOAD_HEADER_SIZE >= sizeof(IMAGE_DOS_HEADER));
-C_ASSERT(sizeof(IMAGE_NT_HEADERS32) <= sizeof(IMAGE_NT_HEADERS64));
-
-C_ASSERT(TYPE_ALIGNMENT(IMAGE_NT_HEADERS32) == TYPE_ALIGNMENT(IMAGE_NT_HEADERS64));
-C_ASSERT(RTL_SIZEOF_THROUGH_FIELD(IMAGE_NT_HEADERS32, FileHeader) == RTL_SIZEOF_THROUGH_FIELD(IMAGE_NT_HEADERS64, FileHeader));
-C_ASSERT(FIELD_OFFSET(IMAGE_NT_HEADERS32, OptionalHeader) == FIELD_OFFSET(IMAGE_NT_HEADERS64, OptionalHeader));
-
-C_ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, Magic));
-C_ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, SectionAlignment));
-C_ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, FileAlignment));
-C_ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, Subsystem));
-C_ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, MinorSubsystemVersion));
-C_ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, MajorSubsystemVersion));
-C_ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, AddressOfEntryPoint));
-C_ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, SizeOfCode));
-C_ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, SizeOfHeaders));
-
 /*
  References:
   [1] Microsoft Corporation, "Microsoft Portable Executable and Common Object
@@ -254,6 +179,7 @@ NTSTATUS NTAPI PeFmtCreateSection(IN CONST VOID * FileHeader,
 
     ASSERT(Intsafe_CanOffsetPointer(FileHeader, FileHeaderSize));
 
+    ASSERT(EXEFMT_LOAD_HEADER_SIZE >= sizeof(IMAGE_DOS_HEADER));
     ASSERT(((UINT_PTR)FileHeader % TYPE_ALIGNMENT(IMAGE_DOS_HEADER)) == 0);
 
 #define DIE(ARGS_) { DPRINT ARGS_; goto l_Return; }
@@ -293,6 +219,11 @@ NTSTATUS NTAPI PeFmtCreateSection(IN CONST VOID * FileHeader,
 	ASSERT(Intsafe_CanOffsetPointer(FileHeader, pidhDosHeader->e_lfanew));
 	pinhNtHeader = (PVOID)((UINT_PTR)FileHeader + pidhDosHeader->e_lfanew);
     }
+
+    ASSERT(sizeof(IMAGE_NT_HEADERS32) <= sizeof(IMAGE_NT_HEADERS64));
+    ASSERT(TYPE_ALIGNMENT(IMAGE_NT_HEADERS32) == TYPE_ALIGNMENT(IMAGE_NT_HEADERS64));
+    ASSERT(RTL_SIZEOF_THROUGH_FIELD(IMAGE_NT_HEADERS32, FileHeader) == RTL_SIZEOF_THROUGH_FIELD(IMAGE_NT_HEADERS64, FileHeader));
+    ASSERT(FIELD_OFFSET(IMAGE_NT_HEADERS32, OptionalHeader) == FIELD_OFFSET(IMAGE_NT_HEADERS64, OptionalHeader));
 
     /*
      * the buffer doesn't contain the NT file header, or the alignment is wrong: we
@@ -377,6 +308,8 @@ l_ReadHeaderFromFile:
 
     nStatus = STATUS_INVALID_IMAGE_FORMAT;
 
+    ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, Magic));
+
     if(!RTL_CONTAINS_FIELD(piohOptHeader, cbOptHeaderSize, Magic))
 	DIE(("The optional header doesn't contain the Magic field, SizeOfOptionalHeader is %X\n", cbOptHeaderSize));
 
@@ -391,6 +324,9 @@ l_ReadHeaderFromFile:
 	default:
 	    DIE(("Unrecognized optional header, Magic is %X\n", piohOptHeader->Magic));
     }
+
+    ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, SectionAlignment));
+    ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, FileAlignment));
 
     if (RTL_CONTAINS_FIELD(piohOptHeader, cbOptHeaderSize, SectionAlignment) &&
         RTL_CONTAINS_FIELD(piohOptHeader, cbOptHeaderSize, FileAlignment))
@@ -427,9 +363,6 @@ l_ReadHeaderFromFile:
 	    if(RTL_CONTAINS_FIELD(piohOptHeader, cbOptHeaderSize, ImageBase))
 		ImageSectionObject->ImageBase = piohOptHeader->ImageBase;
 
-	    if(RTL_CONTAINS_FIELD(piohOptHeader, cbOptHeaderSize, SizeOfImage))
-		ImageSectionObject->ImageSize = piohOptHeader->SizeOfImage;
-
 	    if(RTL_CONTAINS_FIELD(piohOptHeader, cbOptHeaderSize, SizeOfStackReserve))
 		ImageSectionObject->StackReserve = piohOptHeader->SizeOfStackReserve;
 
@@ -451,15 +384,7 @@ l_ReadHeaderFromFile:
 		if(pioh64OptHeader->ImageBase > MAXULONG_PTR)
 		    DIE(("ImageBase exceeds the address space\n"));
 
-		ImageSectionObject->ImageBase = (ULONG_PTR)pioh64OptHeader->ImageBase;
-	    }
-
-	    if(RTL_CONTAINS_FIELD(pioh64OptHeader, cbOptHeaderSize, SizeOfImage))
-	    {
-		if(pioh64OptHeader->SizeOfImage > MAXULONG_PTR)
-		    DIE(("SizeOfImage exceeds the address space\n"));
-
-		ImageSectionObject->ImageSize = pioh64OptHeader->SizeOfImage;
+		ImageSectionObject->ImageBase = pioh64OptHeader->ImageBase;
 	    }
 
 	    if(RTL_CONTAINS_FIELD(pioh64OptHeader, cbOptHeaderSize, SizeOfStackReserve))
@@ -486,6 +411,10 @@ l_ReadHeaderFromFile:
     if((ULONG_PTR)ImageSectionObject->ImageBase % 0x10000)
 	DIE(("ImageBase is not aligned on a 64KB boundary"));
 
+    ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, Subsystem));
+    ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, MinorSubsystemVersion));
+    ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, MajorSubsystemVersion));
+
     if(RTL_CONTAINS_FIELD(piohOptHeader, cbOptHeaderSize, Subsystem))
     {
 	ImageSectionObject->Subsystem = piohOptHeader->Subsystem;
@@ -498,11 +427,15 @@ l_ReadHeaderFromFile:
 	}
     }
 
+    ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, AddressOfEntryPoint));
+
     if(RTL_CONTAINS_FIELD(piohOptHeader, cbOptHeaderSize, AddressOfEntryPoint))
     {
-	ImageSectionObject->EntryPoint = piohOptHeader->ImageBase +
+	ImageSectionObject->EntryPoint = piohOptHeader->ImageBase + 
                                          piohOptHeader->AddressOfEntryPoint;
     }
+
+    ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, SizeOfCode));
 
     if(RTL_CONTAINS_FIELD(piohOptHeader, cbOptHeaderSize, SizeOfCode))
 	ImageSectionObject->Executable = piohOptHeader->SizeOfCode != 0;
@@ -539,6 +472,8 @@ l_ReadHeaderFromFile:
 
     if(!Intsafe_AddULong32(&cbSectionHeadersOffsetSize, cbSectionHeadersOffset, cbSectionHeadersSize))
 	DIE(("Section headers too large\n"));
+
+    ASSERT(PEFMT_FIELDS_EQUAL(IMAGE_OPTIONAL_HEADER32, IMAGE_OPTIONAL_HEADER64, SizeOfHeaders));
 
     /* size of the executable's headers */
     if(RTL_CONTAINS_FIELD(piohOptHeader, cbOptHeaderSize, SizeOfHeaders))
@@ -663,9 +598,9 @@ l_ReadHeaderFromFile:
 	if(pishSectionHeaders[i].SizeOfRawData != 0)
 	{
 	    /* validate the alignment */
-#if 0
+#if 0	    
 	    /* Yes, this should be a multiple of FileAlignment, but there's
-	     * stuff out there that isn't. We can cope with that
+	     * stuff out there that isn't. We can cope with that 
 	     */
 	    if(!IsAligned(pishSectionHeaders[i].SizeOfRawData, nFileAlignment))
 		DIE(("SizeOfRawData[%u] is not aligned\n", i));

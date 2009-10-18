@@ -362,11 +362,11 @@ ITrayWindowImpl_GetMinimumWindowSize(IN OUT ITrayWindowImpl *This,
     RECT rcMin = {0};
 
     AdjustWindowRectEx(&rcMin,
-                       GetWindowLongPtr(This->hWnd,
-                                        GWL_STYLE),
+                       GetWindowLong(This->hWnd,
+                                     GWL_STYLE),
                        FALSE,
-                       GetWindowLongPtr(This->hWnd,
-                                        GWL_EXSTYLE));
+                       GetWindowLong(This->hWnd,
+                                     GWL_EXSTYLE));
 
     *pRect = rcMin;
 }
@@ -699,15 +699,6 @@ ITrayWindowImpl_RegLoadSettings(IN OUT ITrayWindowImpl *This)
 
         /* FIXME: Are there more flags? */
 
-        if (This->hWnd != NULL)
-            SetWindowPos (This->hWnd,
-                          This->AlwaysOnTop ? HWND_TOPMOST : HWND_NOTOPMOST,
-                          0,
-                          0,
-                          0,
-                          0,
-                          SWP_NOMOVE | SWP_NOSIZE);
-
         if (sr.Position > ABE_BOTTOM)
             This->Position = ABE_BOTTOM;
         else
@@ -992,7 +983,7 @@ static VOID
 ITrayWindowImpl_UpdateStartButton(IN OUT ITrayWindowImpl *This,
                                   IN HBITMAP hbmStart  OPTIONAL)
 {
-    SIZE Size = { 0, 0 };
+    SIZE Size = {0};
 
     if (This->himlStartBtn == NULL ||
         !SendMessage(This->hwndStart,
@@ -1019,7 +1010,8 @@ ITrayWindowImpl_UpdateStartButton(IN OUT ITrayWindowImpl *This,
                           sizeof(bmp),
                           &bmp) != 0)
             {
-                Size.cx += bmp.bmWidth;
+                Size.cx += max(bmp.bmWidth,
+                               GetSystemMetrics(SM_CXMINIMIZED));
                 Size.cy += max(bmp.bmHeight,
                                GetSystemMetrics(SM_CYCAPTION));
             }
@@ -1047,7 +1039,7 @@ ITrayWindowImpl_AlignControls(IN OUT ITrayWindowImpl *This,
 {
     RECT rcClient;
     SIZE TraySize, StartSize;
-    POINT ptTrayNotify = { 0, 0 };
+    POINT ptTrayNotify = {0};
     BOOL Horizontal;
     HDWP dwp;
 
@@ -1131,7 +1123,7 @@ ITrayWindowImpl_AlignControls(IN OUT ITrayWindowImpl *This,
     /* Resize/Move the rebar control */
     if (This->hwndRebar != NULL)
     {
-        POINT ptRebar = { 0, 0 };
+        POINT ptRebar = {0};
         SIZE szRebar;
 
         SetWindowStyle(This->hwndRebar,
@@ -1302,16 +1294,13 @@ ITrayWindowImpl_CreateStartButtonBitmap(IN OUT ITrayWindowImpl *This)
     if (hIconStart != NULL)
         Flags |= DC_ICON;
 
-    if (DrawCapTemp != NULL)
-    {
-        Ret = DrawCapTemp(NULL,
+    Ret = DrawCaptionTemp(NULL,
                           hDC,
                           &rcButton,
                           This->hStartBtnFont,
                           hIconStart,
                           szStartCaption,
                           Flags);
-    }
 
     SelectObject(hDC,
                  hbmpOld);
@@ -1697,17 +1686,6 @@ OpenCommonStartMenuDirectory(IN HWND hWndOwner,
     }
 }
 
-static VOID
-OpenTaskManager(IN HWND hWndOwner)
-{
-    ShellExecute(hWndOwner,
-                 TEXT("open"),
-                 TEXT("taskmgr.exe"),
-                 NULL,
-                 NULL,
-                 SW_SHOWNORMAL);
-}
-
 static BOOL STDMETHODCALLTYPE
 ITrayWindowImpl_ExecContextMenuCmd(IN OUT ITrayWindow *iface,
                                    IN UINT uiCmd)
@@ -1739,11 +1717,6 @@ ITrayWindowImpl_ExecContextMenuCmd(IN OUT ITrayWindow *iface,
             }
             break;
 
-        case ID_SHELL_CMD_OPEN_TASKMGR:
-            OpenTaskManager(This->hWnd);
-            break;
-
-
         default:
             DbgPrint("ITrayWindow::ExecContextMenuCmd(%u): Unhandled Command ID!\n", uiCmd);
             bHandled = FALSE;
@@ -1771,7 +1744,7 @@ ITrayWindowImpl_Lock(IN OUT ITrayWindow *iface,
                                               bLock)))
             {
                 /* Reset?? */
-                This->Locked = bPrevLock;
+                This->Locked = bLock;
             }
         }
     }
@@ -2285,45 +2258,7 @@ HandleTrayContextMenu:
                                                             lParam,
                                                             &Ret)))
                 {
-                    switch(LOWORD(wParam))
-                    {
-                        /* FIXME: Handle these commands as well */
-                        case IDM_TASKBARANDSTARTMENU:
-                        case IDM_SEARCH:
-                        case IDM_HELPANDSUPPORT:
-                            break;
-
-                        case IDM_RUN:
-                        {
-                            HANDLE hShell32;
-                            RUNFILEDLG RunFileDlg;
-
-                            hShell32 = GetModuleHandle(TEXT("SHELL32.DLL"));
-                            RunFileDlg = (RUNFILEDLG)GetProcAddress(hShell32, (LPCSTR)61);
-
-                            RunFileDlg(hwnd, NULL, NULL, NULL, NULL, RFF_CALCDIRECTORY);
-                            break;
-                        }
-
-                        /* FIXME: Handle these commands as well */
-                        case IDM_SYNCHRONIZE:
-                        case IDM_LOGOFF:
-                        case IDM_DISCONNECT:
-                        case IDM_UNDOCKCOMPUTER:
-                            break;
-
-                        case IDM_SHUTDOWN:
-                        {
-                            HANDLE hShell32;
-                            EXITWINDLG ExitWinDlg;
-
-                            hShell32 = GetModuleHandle(TEXT("SHELL32.DLL"));
-                            ExitWinDlg = (EXITWINDLG)GetProcAddress(hShell32, (LPCSTR)60);
-
-                            ExitWinDlg(hwnd);
-                            break;
-                        }
-                    }
+                    /* FIXME: Handle own commands */
                 }
                 break;
 

@@ -10,9 +10,9 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
-#define TAG_ERR ' rrE'
+#define TAG_ERR TAG('E', 'r', 'r', ' ')
 
 /* GLOBALS ****************************************************************/
 
@@ -23,7 +23,7 @@ PEPROCESS ExpDefaultErrorPortProcess = NULL;
 /* FUNCTIONS ****************************************************************/
 
 /*++
-* @name ExpSystemErrorHandler
+* @name ExpRaiseHardError
 *
 * For now it's a stub
 *
@@ -58,26 +58,10 @@ ExpSystemErrorHandler(IN NTSTATUS ErrorStatus,
                       IN PULONG_PTR Parameters,
                       IN BOOLEAN Shutdown)
 {
-    ULONG_PTR BugCheckParameters[MAXIMUM_HARDERROR_PARAMETERS] = {0, 0, 0, 0};
-    ULONG i;
-
-    /* Sanity check */
-    ASSERT(NumberOfParameters <= MAXIMUM_HARDERROR_PARAMETERS);
-
-    /*
-     * KeBugCheck expects MAXIMUM_HARDERROR_PARAMETERS parameters,
-     * but we might get called with less, so use a local buffer here.
-     */
-    for (i = 0; i < NumberOfParameters; i++)
-    {
-        /* Copy them over */
-        BugCheckParameters[i] = Parameters[i];
-    }
-
     /* FIXME: STUB */
     KeBugCheckEx(FATAL_UNHANDLED_HARD_ERROR,
                  ErrorStatus,
-                 (ULONG_PTR)BugCheckParameters,
+                 0,
                  0,
                  0);
     return STATUS_SUCCESS;
@@ -521,7 +505,7 @@ ExRaiseHardError(IN NTSTATUS ErrorStatus,
  *        Optional string parameter (can be only one per error code)
  *
  * @param Parameters
- *        Array of ULONG_PTR parameters for use in error message string
+ *        Array of ULONG parameters for use in error message string
  *
  * @param ValidResponseOptions
  *        See HARDERROR_RESPONSE_OPTION for possible values description
@@ -588,7 +572,7 @@ NtRaiseHardError(IN NTSTATUS ErrorStatus,
         }
 
         /* Enter SEH Block */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Validate the response pointer */
             ProbeForWriteUlong(Response);
@@ -636,15 +620,16 @@ NtRaiseHardError(IN NTSTATUS ErrorStatus,
                 }
             }
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
             /* Free captured buffer */
             if (SafeParams) ExFreePool(SafeParams);
-
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* If we failed to capture/probe, bail out */
+        if (!NT_SUCCESS(Status)) return Status;
 
         /* Call the system function directly, because we probed */
         ExpRaiseHardError(ErrorStatus,
@@ -660,7 +645,7 @@ NtRaiseHardError(IN NTSTATUS ErrorStatus,
         SafeParams = Parameters;
 
         /*
-         * Call the Executive Function. It will probe and copy pointers to
+         * Call the Executive Function. It will probe and copy pointers to 
          * user-mode
          */
         ExRaiseHardError(ErrorStatus,
@@ -678,17 +663,16 @@ NtRaiseHardError(IN NTSTATUS ErrorStatus,
         if (SafeParams) ExFreePool(SafeParams);
 
         /* Enter SEH Block for return */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Return the response */
             *Response = SafeResponse;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
         {
-            /* Get the exception code */
-            Status = _SEH2_GetExceptionCode();
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
     }
     else
     {

@@ -38,9 +38,6 @@
 #include <elf.h>
 #endif
 
-#include "common_ppc_features.h"
-
-
 unsigned long _mesa_ppc_cpu_features = 0;
 
 /**

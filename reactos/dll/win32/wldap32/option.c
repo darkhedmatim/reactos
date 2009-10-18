@@ -31,6 +31,8 @@
 
 #ifdef HAVE_LDAP_H
 #include <ldap.h>
+#else
+#define LDAP_NOT_SUPPORTED  0x5c
 #endif
 
 #include "winldap_private.h"
@@ -45,7 +47,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(wldap32);
  */
 ULONG CDECL ldap_get_optionA( WLDAP32_LDAP *ld, int option, void *value )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
 
     TRACE( "(%p, 0x%08x, %p)\n", ld, option, value );
@@ -157,11 +159,11 @@ ULONG CDECL ldap_get_optionA( WLDAP32_LDAP *ld, int option, void *value )
     case WLDAP32_LDAP_OPT_SSPI_FLAGS:
     case WLDAP32_LDAP_OPT_TCP_KEEPALIVE:
         FIXME( "Unsupported option: 0x%02x\n", option );
-        return WLDAP32_LDAP_NOT_SUPPORTED;
+        return LDAP_NOT_SUPPORTED;
 
     default:
         FIXME( "Unknown option: 0x%02x\n", option );
-        return WLDAP32_LDAP_LOCAL_ERROR;
+        return LDAP_LOCAL_ERROR;
     }
 
 #endif
@@ -184,7 +186,7 @@ ULONG CDECL ldap_get_optionA( WLDAP32_LDAP *ld, int option, void *value )
  */
 ULONG CDECL ldap_get_optionW( WLDAP32_LDAP *ld, int option, void *value )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
 
     TRACE( "(%p, 0x%08x, %p)\n", ld, option, value );
@@ -206,7 +208,7 @@ ULONG CDECL ldap_get_optionW( WLDAP32_LDAP *ld, int option, void *value )
 
         if (!featureU.ldapaif_name) return WLDAP32_LDAP_NO_MEMORY;
 
-        ret = map_error( ldap_get_option( ld, option, &featureU ));
+        ret = ldap_get_option( ld, option, &featureU );
 
         featureW->ldapaif_version = featureU.ldapaif_version;
         strfreeU( featureU.ldapaif_name );
@@ -220,7 +222,7 @@ ULONG CDECL ldap_get_optionW( WLDAP32_LDAP *ld, int option, void *value )
         memset( &infoU, 0, sizeof(LDAPAPIInfo) );
         infoU.ldapai_info_version = infoW->ldapai_info_version;
 
-        ret = map_error( ldap_get_option( ld, option, &infoU ));
+        ret = ldap_get_option( ld, option, &infoU );
 
         infoW->ldapai_api_version = infoU.ldapai_api_version;
         infoW->ldapai_protocol_version = infoU.ldapai_protocol_version;
@@ -253,7 +255,7 @@ ULONG CDECL ldap_get_optionW( WLDAP32_LDAP *ld, int option, void *value )
     case WLDAP32_LDAP_OPT_REFERRALS:
     case WLDAP32_LDAP_OPT_SIZELIMIT:
     case WLDAP32_LDAP_OPT_TIMELIMIT:
-        return map_error( ldap_get_option( ld, option, value ));
+        return ldap_get_option( ld, option, value );
 
     case WLDAP32_LDAP_OPT_CACHE_ENABLE:
     case WLDAP32_LDAP_OPT_CACHE_FN_PTRS:
@@ -263,7 +265,7 @@ ULONG CDECL ldap_get_optionW( WLDAP32_LDAP *ld, int option, void *value )
     case WLDAP32_LDAP_OPT_REBIND_FN:
     case WLDAP32_LDAP_OPT_RESTART:
     case WLDAP32_LDAP_OPT_THREAD_FN_PTRS:
-        return WLDAP32_LDAP_LOCAL_ERROR;
+        return LDAP_LOCAL_ERROR;
 
     case WLDAP32_LDAP_OPT_AREC_EXCLUSIVE:
     case WLDAP32_LDAP_OPT_AUTO_RECONNECT:
@@ -296,11 +298,11 @@ ULONG CDECL ldap_get_optionW( WLDAP32_LDAP *ld, int option, void *value )
     case WLDAP32_LDAP_OPT_SSPI_FLAGS:
     case WLDAP32_LDAP_OPT_TCP_KEEPALIVE:
         FIXME( "Unsupported option: 0x%02x\n", option );
-        return WLDAP32_LDAP_NOT_SUPPORTED;
+        return LDAP_NOT_SUPPORTED;
 
     default:
         FIXME( "Unknown option: 0x%02x\n", option );
-        return WLDAP32_LDAP_LOCAL_ERROR;
+        return LDAP_LOCAL_ERROR;
     }
 
 #endif
@@ -314,7 +316,7 @@ ULONG CDECL ldap_get_optionW( WLDAP32_LDAP *ld, int option, void *value )
  */
 ULONG CDECL ldap_set_optionA( WLDAP32_LDAP *ld, int option, void *value )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
 
     TRACE( "(%p, 0x%08x, %p)\n", ld, option, value );
@@ -327,7 +329,7 @@ ULONG CDECL ldap_set_optionA( WLDAP32_LDAP *ld, int option, void *value )
     {
         LDAPControlW **ctrlsW;
 
-        ctrlsW = controlarrayAtoW( value );
+        ctrlsW = controlarrayAtoW( (LDAPControlA **)value );
         if (!ctrlsW) return WLDAP32_LDAP_NO_MEMORY;
 
         ret = ldap_set_optionW( ld, option, ctrlsW );
@@ -351,11 +353,11 @@ ULONG CDECL ldap_set_optionA( WLDAP32_LDAP *ld, int option, void *value )
     case WLDAP32_LDAP_OPT_REBIND_FN:
     case WLDAP32_LDAP_OPT_RESTART:
     case WLDAP32_LDAP_OPT_THREAD_FN_PTRS:
-        return WLDAP32_LDAP_LOCAL_ERROR;
+        return LDAP_LOCAL_ERROR;
 
     case WLDAP32_LDAP_OPT_API_FEATURE_INFO:
     case WLDAP32_LDAP_OPT_API_INFO:
-        return WLDAP32_LDAP_UNWILLING_TO_PERFORM;
+        return LDAP_UNWILLING_TO_PERFORM;
 
     case WLDAP32_LDAP_OPT_AREC_EXCLUSIVE:
     case WLDAP32_LDAP_OPT_AUTO_RECONNECT:
@@ -387,11 +389,11 @@ ULONG CDECL ldap_set_optionA( WLDAP32_LDAP *ld, int option, void *value )
     case WLDAP32_LDAP_OPT_SSPI_FLAGS:
     case WLDAP32_LDAP_OPT_TCP_KEEPALIVE:
         FIXME( "Unsupported option: 0x%02x\n", option );
-        return WLDAP32_LDAP_NOT_SUPPORTED;
+        return LDAP_NOT_SUPPORTED;
 
     default:
         FIXME( "Unknown option: 0x%02x\n", option );
-        return WLDAP32_LDAP_LOCAL_ERROR;
+        return LDAP_LOCAL_ERROR;
     }
 
 #endif
@@ -417,7 +419,7 @@ ULONG CDECL ldap_set_optionA( WLDAP32_LDAP *ld, int option, void *value )
  */ 
 ULONG CDECL ldap_set_optionW( WLDAP32_LDAP *ld, int option, void *value )
 {
-    ULONG ret = WLDAP32_LDAP_NOT_SUPPORTED;
+    ULONG ret = LDAP_NOT_SUPPORTED;
 #ifdef HAVE_LDAP
 
     TRACE( "(%p, 0x%08x, %p)\n", ld, option, value );
@@ -430,10 +432,10 @@ ULONG CDECL ldap_set_optionW( WLDAP32_LDAP *ld, int option, void *value )
     {
         LDAPControl **ctrlsU;
 
-        ctrlsU = controlarrayWtoU( value );
+        ctrlsU = controlarrayWtoU( (LDAPControlW **)value );
         if (!ctrlsU) return WLDAP32_LDAP_NO_MEMORY;
 
-        ret = map_error( ldap_set_option( ld, option, ctrlsU ));
+        ret = ldap_set_option( ld, option, ctrlsU );
         controlarrayfreeU( ctrlsU );
         return ret;
     }
@@ -444,7 +446,7 @@ ULONG CDECL ldap_set_optionW( WLDAP32_LDAP *ld, int option, void *value )
     case WLDAP32_LDAP_OPT_REFERRALS:
     case WLDAP32_LDAP_OPT_SIZELIMIT:
     case WLDAP32_LDAP_OPT_TIMELIMIT:
-        return map_error( ldap_set_option( ld, option, value ));
+        return ldap_set_option( ld, option, value );
 
     case WLDAP32_LDAP_OPT_CACHE_ENABLE:
     case WLDAP32_LDAP_OPT_CACHE_FN_PTRS:
@@ -454,11 +456,11 @@ ULONG CDECL ldap_set_optionW( WLDAP32_LDAP *ld, int option, void *value )
     case WLDAP32_LDAP_OPT_REBIND_FN:
     case WLDAP32_LDAP_OPT_RESTART:
     case WLDAP32_LDAP_OPT_THREAD_FN_PTRS:
-        return WLDAP32_LDAP_LOCAL_ERROR;
+        return LDAP_LOCAL_ERROR;
 
     case WLDAP32_LDAP_OPT_API_FEATURE_INFO:
     case WLDAP32_LDAP_OPT_API_INFO:
-        return WLDAP32_LDAP_UNWILLING_TO_PERFORM;
+        return LDAP_UNWILLING_TO_PERFORM;
 
     case WLDAP32_LDAP_OPT_AREC_EXCLUSIVE:
     case WLDAP32_LDAP_OPT_AUTO_RECONNECT:
@@ -490,11 +492,11 @@ ULONG CDECL ldap_set_optionW( WLDAP32_LDAP *ld, int option, void *value )
     case WLDAP32_LDAP_OPT_SSPI_FLAGS:
     case WLDAP32_LDAP_OPT_TCP_KEEPALIVE:
         FIXME( "Unsupported option: 0x%02x\n", option );
-        return WLDAP32_LDAP_NOT_SUPPORTED;
+        return LDAP_NOT_SUPPORTED;
 
     default:
         FIXME( "Unknown option: 0x%02x\n", option );
-        return WLDAP32_LDAP_LOCAL_ERROR;
+        return LDAP_LOCAL_ERROR;
     }
 
 #endif

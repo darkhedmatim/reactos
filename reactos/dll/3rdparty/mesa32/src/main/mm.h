@@ -1,6 +1,6 @@
 /*
  * GLX Hardware Device Driver common code
- * Copyright (C) 1999 Wittawat Yamwong
+ * Copyright (C) 1999 Keith Whitwell
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -35,15 +35,37 @@
 #include "imports.h"
 
 
-struct mem_block {
-   struct mem_block *next, *prev;
-   struct mem_block *next_free, *prev_free;
-   struct mem_block *heap;
-   unsigned ofs;
-   unsigned size;
-   unsigned free:1;
-   unsigned reserved:1;
+struct mem_block_t {
+  struct mem_block_t *next;
+  struct mem_block_t *heap;
+  int ofs,size;
+  int align;
+  unsigned int free:1;
+  unsigned int reserved:1;
 };
+
+typedef struct mem_block_t TMemBlock;
+
+typedef struct mem_block_t *PMemBlock;
+
+/* a heap is just the first block in a chain */
+typedef struct mem_block_t memHeap_t;
+
+
+/* XXX are these needed? */
+#if 0
+static INLINE int
+mmBlockSize(PMemBlock b)
+{
+   return b->size;
+}
+
+static INLINE int
+mmOffset(PMemBlock b)
+{
+   return b->ofs;
+}
+#endif
 
 
 
@@ -51,7 +73,7 @@ struct mem_block {
  * input: total size in bytes
  * return: a heap pointer if OK, NULL if error
  */
-extern struct mem_block *mmInit(unsigned ofs, unsigned size);
+extern memHeap_t *mmInit(int ofs, int size);
 
 /**
  * Allocate 'size' bytes with 2^align2 bytes alignment,
@@ -63,31 +85,31 @@ extern struct mem_block *mmInit(unsigned ofs, unsigned size);
  *		startSearch = linear offset from start of heap to begin search
  * return: pointer to the allocated block, 0 if error
  */
-extern struct mem_block *mmAllocMem(struct mem_block *heap, unsigned size, 
-                                    unsigned align2, unsigned startSearch);
+extern PMemBlock mmAllocMem(memHeap_t *heap, int size, int align2, 
+                            int startSearch);
 
 /**
  * Free block starts at offset
  * input: pointer to a block
  * return: 0 if OK, -1 if error
  */
-extern int mmFreeMem(struct mem_block *b);
+extern int mmFreeMem(PMemBlock b);
 
 /**
  * Free block starts at offset
  * input: pointer to a heap, start offset
  * return: pointer to a block
  */
-extern struct mem_block *mmFindBlock(struct mem_block *heap, unsigned start);
+extern PMemBlock mmFindBlock(memHeap_t *heap, int start);
 
 /**
  * destroy MM
  */
-extern void mmDestroy(struct mem_block *mmInit);
+extern void mmDestroy(memHeap_t *mmInit);
 
 /**
  * For debuging purpose.
  */
-extern void mmDumpMemInfo(const struct mem_block *mmInit);
+extern void mmDumpMemInfo(const memHeap_t *mmInit);
 
 #endif

@@ -23,6 +23,10 @@
 #ifndef _CFGMGR32_H_
 #define _CFGMGR32_H_
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #include "cfg.h"
 
 #ifdef __cplusplus
@@ -30,7 +34,7 @@ extern "C" {
 #endif
 
 #if defined(_CFGMGR32_)
-#define CMAPI
+#define CMAPI DECLSPEC_EXPORT
 #else
 #define CMAPI DECLSPEC_IMPORT
 #endif
@@ -601,14 +605,7 @@ WINAPI
 CMP_Init_Detection(
   IN DWORD  dwMagic);
 
-CMAPI
-CONFIGRET
-WINAPI
-CMP_RegisterNotification(
-  IN HANDLE hRecipient,
-  IN LPVOID lpvNotificationFilter,
-  IN DWORD  dwFlags,
-  OUT PULONG pluhDevNotify);
+/* FIXME: Missing CMP_RegisterNotification */
 
 CMAPI
 CONFIGRET
@@ -617,11 +614,7 @@ CMP_Report_LogOn(
   IN DWORD dwMagic,
   IN DWORD dwProcessId);
 
-CMAPI
-CONFIGRET
-WINAPI
-CMP_UnregisterNotification(IN ULONG luhDevNotify);
-
+/* FIXME: Missing CMP_UnregisterNotification */
 /* FIXME: Missing CMP_WaitNoPendingInstallEvents */
 /* FIXME: Missing CMP_WaitServicesAvailable */
 

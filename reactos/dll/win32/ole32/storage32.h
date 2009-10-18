@@ -152,7 +152,27 @@ struct StgProperty
  * this section appear in stg_bigblockfile.c
  */
 
+/*
+ * Declaration of the data structures
+ */
 typedef struct BigBlockFile BigBlockFile,*LPBIGBLOCKFILE;
+typedef struct MappedPage   MappedPage,*LPMAPPEDPAGE;
+
+struct BigBlockFile
+{
+  BOOL fileBased;
+  ULARGE_INTEGER filesize;
+  ULONG blocksize;
+  HANDLE hfile;
+  HANDLE hfilemap;
+  DWORD flProtect;
+  MappedPage *maplist;
+  MappedPage *victimhead, *victimtail;
+  ULONG num_victim_pages;
+  ILockBytes *pLkbyt;
+  HGLOBAL hbytearray;
+  LPVOID pbytearray;
+};
 
 /*
  * Declaration of the functions used to manipulate the BigBlockFile
@@ -164,12 +184,12 @@ BigBlockFile*  BIGBLOCKFILE_Construct(HANDLE hFile,
                                       ULONG blocksize,
                                       BOOL fileBased);
 void           BIGBLOCKFILE_Destructor(LPBIGBLOCKFILE This);
-HRESULT        BIGBLOCKFILE_EnsureExists(LPBIGBLOCKFILE This, ULONG index);
-HRESULT        BIGBLOCKFILE_SetSize(LPBIGBLOCKFILE This, ULARGE_INTEGER newSize);
+void           BIGBLOCKFILE_EnsureExists(LPBIGBLOCKFILE This, ULONG index);
+void           BIGBLOCKFILE_SetSize(LPBIGBLOCKFILE This, ULARGE_INTEGER newSize);
 HRESULT        BIGBLOCKFILE_ReadAt(LPBIGBLOCKFILE This, ULARGE_INTEGER offset,
            void* buffer, ULONG size, ULONG* bytesRead);
 HRESULT        BIGBLOCKFILE_WriteAt(LPBIGBLOCKFILE This, ULARGE_INTEGER offset,
-           const void* buffer, ULONG size, ULONG* bytesRead);
+           void* buffer, const ULONG size, ULONG* bytesRead);
 
 /*************************************************************************
  * Ole Convert support
@@ -225,11 +245,6 @@ struct StorageBaseImpl
    * flags that this storage was opened or created with
    */
   DWORD openFlags;
-
-  /*
-   * State bits appear to only be preserved while running. No in the stream
-   */
-  DWORD stateBits;
 };
 
 /****************************************************************************
@@ -255,8 +270,6 @@ struct StorageImpl
    */
   HANDLE           hFile;      /* Physical support for the Docfile */
   LPOLESTR         pwcsName;   /* Full path of the document file */
-  BOOL             create;     /* Was the storage created or opened.
-                                  The behaviour of STGM_SIMPLE depends on this */
 
   /* FIXME: should this be in Storage32BaseImpl ? */
   WCHAR            filename[PROPERTY_NAME_BUFFER_LEN];
@@ -293,22 +306,18 @@ struct StorageImpl
 };
 
 BOOL StorageImpl_ReadProperty(
-            StorageImpl*    This,
-            ULONG           index,
-            StgProperty*    buffer);
+            StorageImpl* This,
+	    ULONG          index,
+	    StgProperty*    buffer);
 
 BOOL StorageImpl_WriteProperty(
-            StorageImpl*        This,
-            ULONG               index,
-            const StgProperty*  buffer);
+            StorageImpl* This,
+	    ULONG          index,
+	    StgProperty*   buffer);
 
 BlockChainStream* Storage32Impl_SmallBlocksToBigBlocks(
                       StorageImpl* This,
                       SmallBlockChainStream** ppsbChain);
-
-SmallBlockChainStream* Storage32Impl_BigBlocksToSmallBlocks(
-                      StorageImpl* This,
-                      BlockChainStream** ppbbChain);
 
 /****************************************************************************
  * StgStreamImpl definitions.
@@ -360,7 +369,7 @@ struct StgStreamImpl
   /*
    * The information in the stream is represented by a chain of small blocks
    * or a chain of large blocks. Depending on the case, one of the two
-   * following variables points to that information.
+   * following variabled points to that information.
    */
   BlockChainStream*      bigBlockChain;
   SmallBlockChainStream* smallBlockChain;
@@ -382,15 +391,15 @@ StgStreamImpl* StgStreamImpl_Construct(
 
 #define htole32(x) RtlUlongByteSwap(x)
 #define htole16(x) RtlUshortByteSwap(x)
-#define lendian32toh(x) RtlUlongByteSwap(x)
-#define lendian16toh(x) RtlUshortByteSwap(x)
+#define le32toh(x) RtlUlongByteSwap(x)
+#define le16toh(x) RtlUshortByteSwap(x)
 
 #else
 
 #define htole32(x) (x)
 #define htole16(x) (x)
-#define lendian32toh(x) (x)
-#define lendian16toh(x) (x)
+#define le32toh(x) (x)
+#define le16toh(x) (x)
 
 #endif
 
@@ -409,8 +418,9 @@ void StorageUtl_WriteULargeInteger(BYTE* buffer, ULONG offset,
  const ULARGE_INTEGER *value);
 void StorageUtl_ReadGUID(const BYTE* buffer, ULONG offset, GUID* value);
 void StorageUtl_WriteGUID(BYTE* buffer, ULONG offset, const GUID* value);
-void StorageUtl_CopyPropertyToSTATSTG(STATSTG* destination, const StgProperty* source,
- int statFlags);
+void StorageUtl_CopyPropertyToSTATSTG(STATSTG*     destination,
+					     StgProperty* source,
+					     int          statFlags);
 
 /****************************************************************************
  * BlockChainStream definitions.
@@ -468,16 +478,14 @@ struct SmallBlockChainStream
 {
   StorageImpl* parentStorage;
   ULONG          ownerPropertyIndex;
-  ULONG*         headOfStreamPlaceHolder;
 };
 
 /*
  * Methods of the SmallBlockChainStream class.
  */
 SmallBlockChainStream* SmallBlockChainStream_Construct(
-           StorageImpl*   parentStorage,
-           ULONG*         headOfStreamPlaceHolder,
-           ULONG          propertyIndex);
+	       StorageImpl* parentStorage,
+	       ULONG          propertyIndex);
 
 void SmallBlockChainStream_Destroy(
 	       SmallBlockChainStream* This);

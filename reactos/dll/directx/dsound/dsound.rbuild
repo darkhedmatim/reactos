@@ -1,11 +1,13 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<module name="dsound" type="win32dll" baseaddress="${BASEADDRESS_DSOUND}" installbase="system32" installname="dsound.dll" crt="msvcrt">
+<module name="dsound" type="win32dll" entrypoint="0" baseaddress="${BASEADDRESS_DSOUND}" installbase="system32" installname="dsound.dll" allowwarnings ="true">
 	<autoregister infsection="OleControlDlls" type="DllRegisterServer" />
-	<importlibrary definition="dsound.spec" />
+	<importlibrary definition="dsound.spec.def" />
 	<include base="dsound">.</include>
-	<include base="ReactOS">include/reactos/wine</include>
-	<define name="_WINE" />
+	<include base="ReactOS">include/reactos/wine</include>	
+	<define name="__REACTOS__" />
+	<define name="__USE_W32API" />
+	<define name="_WIN32_IE">0x600</define>
+	<define name="_WIN32_WINNT">0x501</define>
+	<define name="WINVER">0x501</define>
 	<library>wine</library>
 	<library>uuid</library>
 	<library>ntdll</library>
@@ -15,11 +17,11 @@
 	<library>ole32</library>
 	<library>winmm</library>
 	<library>dxguid</library>
+	<library>msvcrt</library>
 	<file>version.rc</file>
-	<file>buffer.c</file>
+	<file>buffer.c</file>	
 	<file>capture.c</file>
 	<file>dsound.c</file>
-	<file>dsound_convert.c</file>
 	<file>dsound_main.c</file>
 	<file>duplex.c</file>
 	<file>mixer.c</file>
@@ -27,4 +29,9 @@
 	<file>propset.c</file>
 	<file>regsvr.c</file>
 	<file>sound3d.c</file>
+	<file>dxroslayer/dxrosdrv_querydsounddesc.c</file>
+	<file>dxroslayer/dxrosdrv_querydsoundiface.c</file>
+	<file>dxroslayer/dxroslayer.c</file>
+	<file>dxroslayer/getguidfromstring.c</file>
+	<file>dsound.spec</file>
 </module>

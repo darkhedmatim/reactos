@@ -37,7 +37,7 @@ ForwardIrpAndWait(
 	KeInitializeEvent(&Event, NotificationEvent, FALSE);
 	IoCopyCurrentIrpStackLocationToNext(Irp);
 
-	TRACE_(SERIAL, "Calling lower device %p\n", LowerDevice);
+	DPRINT("Calling lower device %p\n", LowerDevice);
 	IoSetCompletionRoutine(Irp, ForwardIrpAndWaitCompletion, &Event, TRUE, TRUE, TRUE);
 
 	Status = IoCallDriver(LowerDevice, Irp);
@@ -85,7 +85,7 @@ SerialReceiveByte(
 	while (READ_PORT_UCHAR(SER_LSR(ComPortBase)) & SR_LSR_DATA_RECEIVED)
 	{
 		Byte = READ_PORT_UCHAR(SER_RBR(ComPortBase));
-		INFO_(SERIAL, "Byte received on COM%lu: 0x%02x\n",
+		DPRINT("Byte received on COM%lu: 0x%02x\n",
 			DeviceExtension->ComPort, Byte);
 		Status = PushCircularBufferEntry(&DeviceExtension->InputBuffer, Byte);
 		if (NT_SUCCESS(Status))
@@ -126,7 +126,7 @@ SerialSendByte(
 		if (!NT_SUCCESS(Status))
 			break;
 		WRITE_PORT_UCHAR(SER_THR(ComPortBase), Byte);
-		INFO_(SERIAL, "Byte sent to COM%lu: 0x%02x\n",
+		DPRINT("Byte sent to COM%lu: 0x%02x\n",
 			DeviceExtension->ComPort, Byte);
 		DeviceExtension->SerialPerfStats.TransmittedCount++;
 	}
@@ -178,7 +178,7 @@ SerialInterruptService(
 		case SR_IIR_MSR_CHANGE:
 		{
 			UCHAR MSR, IER;
-			TRACE_(SERIAL, "SR_IIR_MSR_CHANGE\n");
+			DPRINT("SR_IIR_MSR_CHANGE\n");
 
 			MSR = READ_PORT_UCHAR(SER_MSR(ComPortBase));
 			if (MSR & SR_MSR_CTS_CHANGED)
@@ -186,9 +186,7 @@ SerialInterruptService(
 				if (MSR & SR_MSR_CTS)
 					KeInsertQueueDpc(&DeviceExtension->SendByteDpc, NULL, NULL);
 				else
-				{
 					; /* FIXME: stop transmission */
-				}
 				Events |= SERIAL_EV_CTS;
 			}
 			if (MSR & SR_MSR_DSR_CHANGED)
@@ -196,19 +194,17 @@ SerialInterruptService(
 				if (MSR & SR_MSR_DSR)
 					KeInsertQueueDpc(&DeviceExtension->ReceivedByteDpc, NULL, NULL);
 				else
-				{
 					; /* FIXME: stop reception */
-				}
 				Events |= SERIAL_EV_DSR;
 			}
 			if (MSR & SR_MSR_RI_CHANGED)
 			{
-				INFO_(SERIAL, "SR_MSR_RI_CHANGED changed: now %d\n", MSR & SI_MSR_RI);
+				DPRINT("SR_MSR_RI_CHANGED changed: now %d\n", MSR & SI_MSR_RI);
 				Events |= SERIAL_EV_RING;
 			}
 			if (MSR & SR_MSR_DCD_CHANGED)
 			{
-				INFO_(SERIAL, "SR_MSR_DCD_CHANGED changed: now %d\n", MSR & SR_MSR_DCD);
+				DPRINT("SR_MSR_DCD_CHANGED changed: now %d\n", MSR & SR_MSR_DCD);
 				Events |= SERIAL_EV_RLSD;
 			}
 			IER = READ_PORT_UCHAR(SER_IER(ComPortBase));
@@ -219,7 +215,7 @@ SerialInterruptService(
 		}
 		case SR_IIR_THR_EMPTY:
 		{
-			TRACE_(SERIAL, "SR_IIR_THR_EMPTY\n");
+			DPRINT("SR_IIR_THR_EMPTY\n");
 
 			KeInsertQueueDpc(&DeviceExtension->SendByteDpc, NULL, NULL);
 			Events |= SERIAL_EV_TXEMPTY;
@@ -230,7 +226,7 @@ SerialInterruptService(
 		case SR_IIR_DATA_RECEIVED:
 		{
 			ULONG AlreadyReceivedBytes, Limit;
-			TRACE_(SERIAL, "SR_IIR_DATA_RECEIVED\n");
+			DPRINT("SR_IIR_DATA_RECEIVED\n");
 
 			KeInsertQueueDpc(&DeviceExtension->ReceivedByteDpc, NULL, NULL);
 			Events |= SERIAL_EV_RXCHAR;
@@ -251,7 +247,7 @@ SerialInterruptService(
 		case SR_IIR_ERROR:
 		{
 			UCHAR LSR;
-			TRACE_(SERIAL, "SR_IIR_ERROR\n");
+			DPRINT("SR_IIR_ERROR\n");
 
 			LSR = READ_PORT_UCHAR(SER_LSR(ComPortBase));
 			if (LSR & SR_LSR_OVERRUN_ERROR)

@@ -1,19 +1,17 @@
-/*
- * PROJECT:         ReactOS Kernel
- * LICENSE:         GPL - See COPYING in the top level directory
+/* $Id$
+ *
+ * COPYRIGHT:       See COPYING in the top level directory
+ * PROJECT:         ReactOS kernel
  * FILE:            ntoskrnl/po/power.c
  * PURPOSE:         Power Manager
+ *
  * PROGRAMMERS:     Casper S. Hornstrup (chorns@users.sourceforge.net)
  *                  Hervé Poussineau (hpoussin@reactos.com)
  */
 
-/* INCLUDES ******************************************************************/
-
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
-
-/* GLOBALS *******************************************************************/
+#include <internal/debug.h>
 
 extern ULONG ExpInitialiationPhase;
 
@@ -27,11 +25,50 @@ typedef struct _REQUEST_POWER_ITEM
 PDEVICE_NODE PopSystemPowerDeviceNode = NULL;
 BOOLEAN PopAcpiPresent = FALSE;
 
-/* PRIVATE FUNCTIONS *********************************************************/
+/*
+ * @implemented
+ */
+NTSTATUS
+STDCALL
+PoCallDriver(IN PDEVICE_OBJECT DeviceObject,
+             IN OUT PIRP Irp)
+{
+    NTSTATUS Status;
+
+    Status = IoCallDriver(DeviceObject, Irp);
+
+    return Status;
+}
+
+/*
+ * @unimplemented
+ */
+PULONG
+STDCALL
+PoRegisterDeviceForIdleDetection(IN PDEVICE_OBJECT DeviceObject,
+                                 IN ULONG ConservationIdleTime,
+                                 IN ULONG PerformanceIdleTime,
+                                 IN DEVICE_POWER_STATE State)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
+
+/*
+ * @unimplemented
+ */
+PVOID
+STDCALL
+PoRegisterSystemState(IN PVOID StateHandle,
+                      IN EXECUTION_STATE Flags)
+{
+    UNIMPLEMENTED;
+    return NULL;
+}
 
 static
 NTSTATUS
-NTAPI
+STDCALL
 PopRequestPowerIrpCompletion(IN PDEVICE_OBJECT DeviceObject,
                              IN PIRP Irp,
                              IN PVOID Context)
@@ -54,11 +91,148 @@ PopRequestPowerIrpCompletion(IN PDEVICE_OBJECT DeviceObject,
     return STATUS_SUCCESS;
 }
 
+/*
+ * @implemented
+ */
+NTSTATUS
+STDCALL
+PoRequestPowerIrp(IN PDEVICE_OBJECT DeviceObject,
+                  IN UCHAR MinorFunction,
+                  IN POWER_STATE PowerState,
+                  IN PREQUEST_POWER_COMPLETE CompletionFunction,
+                  IN PVOID Context,
+                  OUT PIRP *pIrp OPTIONAL)
+{
+    PDEVICE_OBJECT TopDeviceObject;
+    PIO_STACK_LOCATION Stack;
+    PIRP Irp;
+    PIO_STATUS_BLOCK IoStatusBlock;
+    PREQUEST_POWER_ITEM RequestPowerItem;
+    NTSTATUS Status;
+  
+    if (MinorFunction != IRP_MN_QUERY_POWER
+        && MinorFunction != IRP_MN_SET_POWER
+        && MinorFunction != IRP_MN_WAIT_WAKE)
+        return STATUS_INVALID_PARAMETER_2;
+  
+    RequestPowerItem = ExAllocatePool(NonPagedPool, sizeof(REQUEST_POWER_ITEM));
+    if (!RequestPowerItem)
+        return STATUS_INSUFFICIENT_RESOURCES;
+    IoStatusBlock = ExAllocatePool(NonPagedPool, sizeof(IO_STATUS_BLOCK));
+    if (!IoStatusBlock)
+    {
+        ExFreePool(RequestPowerItem);
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+  
+    /* Always call the top of the device stack */
+    TopDeviceObject = IoGetAttachedDeviceReference(DeviceObject);
+  
+    Irp = IoBuildSynchronousFsdRequest(IRP_MJ_PNP,
+                                       TopDeviceObject,
+                                       NULL,
+                                       0,
+                                       NULL,
+                                       NULL,
+                                       IoStatusBlock);
+    if (!Irp)
+    {
+        ExFreePool(RequestPowerItem);
+        ExFreePool(IoStatusBlock);
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+  
+    /* POWER IRPs are always initialized with a status code of
+       STATUS_NOT_IMPLEMENTED */
+    Irp->IoStatus.Status = STATUS_NOT_IMPLEMENTED;
+    Irp->IoStatus.Information = 0;
+  
+    Stack = IoGetNextIrpStackLocation(Irp);
+    Stack->MinorFunction = MinorFunction;
+    if (MinorFunction == IRP_MN_WAIT_WAKE)
+        Stack->Parameters.WaitWake.PowerState = PowerState.SystemState;
+    else
+        Stack->Parameters.WaitWake.PowerState = PowerState.DeviceState;
+  
+    RequestPowerItem->CompletionRoutine = CompletionFunction;
+    RequestPowerItem->PowerState = PowerState;
+    RequestPowerItem->Context = Context;
+  
+    if (pIrp != NULL)
+        *pIrp = Irp;
+  
+    IoSetCompletionRoutine(Irp, PopRequestPowerIrpCompletion, RequestPowerItem, TRUE, TRUE, TRUE);
+    Status = IoCallDriver(TopDeviceObject, Irp);
+  
+    /* Always return STATUS_PENDING. The completion routine
+     * will call CompletionFunction and complete the Irp.
+     */
+    return STATUS_PENDING;
+}
+
+#undef PoSetDeviceBusy
+VOID
+NTAPI
+PoSetDeviceBusy(IN PULONG IdlePointer)
+{
+    UNIMPLEMENTED;
+    *IdlePointer = 0;
+}
+
 VOID
 NTAPI
 PopCleanupPowerState(IN PPOWER_STATE PowerState)
 {
     //UNIMPLEMENTED;
+}
+
+/*
+ * @unimplemented
+ */
+POWER_STATE
+STDCALL
+PoSetPowerState(IN PDEVICE_OBJECT DeviceObject,
+                IN POWER_STATE_TYPE Type,
+                IN POWER_STATE State)
+{
+    POWER_STATE ps;
+
+    ASSERT_IRQL(DISPATCH_LEVEL);
+
+    ps.SystemState = PowerSystemWorking;  // Fully on
+    ps.DeviceState = PowerDeviceD0;       // Fully on
+
+    return ps;
+}
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+PoSetSystemState(IN EXECUTION_STATE Flags)
+{
+    UNIMPLEMENTED;
+}
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+PoStartNextPowerIrp(IN PIRP Irp)
+{
+    UNIMPLEMENTED;
+}
+
+/*
+ * @unimplemented
+ */
+VOID
+STDCALL
+PoUnregisterSystemState(IN PVOID StateHandle)
+{
+    UNIMPLEMENTED;
 }
 
 NTSTATUS
@@ -78,7 +252,7 @@ PopSetSystemPowerState(SYSTEM_POWER_STATE PowerState)
     Status = IopGetSystemPowerDeviceObject(&DeviceObject);
     if (!NT_SUCCESS(Status)) 
     {
-        DPRINT1("No system power driver available\n");
+        CPRINT("No system power driver available\n");
         return STATUS_UNSUCCESSFUL;
     }
 
@@ -214,275 +388,11 @@ PoInitializePrcb(IN PKPRCB Prcb)
     KeInitializeTimerEx(&Prcb->PowerState.PerfTimer, SynchronizationTimer);
 }
 
-/* PUBLIC FUNCTIONS **********************************************************/
-
 /*
  * @unimplemented
  */
 NTSTATUS
-NTAPI
-PoCancelDeviceNotify(IN PVOID NotifyBlock)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-NTAPI
-PoRegisterDeviceNotify(OUT PVOID Unknown0,
-                       IN ULONG Unknown1,
-                       IN ULONG Unknown2,
-                       IN ULONG Unknown3,
-                       IN PVOID Unknown4,
-                       IN PVOID Unknown5)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-NTAPI
-PoShutdownBugCheck(IN BOOLEAN LogError,
-                   IN ULONG BugCheckCode,
-                   IN ULONG_PTR BugCheckParameter1,
-                   IN ULONG_PTR BugCheckParameter2,
-                   IN ULONG_PTR BugCheckParameter3,
-                   IN ULONG_PTR BugCheckParameter4)
-{
-    DPRINT1("PoShutdownBugCheck called\n");
-
-    /* FIXME: Log error if requested */
-    /* FIXME: Initiate a shutdown */
-
-    /* Bugcheck the system */
-    KeBugCheckEx(BugCheckCode,
-                 BugCheckParameter1,
-                 BugCheckParameter2,
-                 BugCheckParameter3,
-                 BugCheckParameter4);
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-NTAPI
-PoRequestShutdownEvent(OUT PVOID *Event)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-NTAPI
-PoSetHiberRange(IN PVOID HiberContext,
-                IN ULONG Flags,
-                IN OUT PVOID StartPage,
-                IN ULONG Length,
-                IN ULONG PageTag)
-{
-    UNIMPLEMENTED;
-    return;
-}
-
-/*
- * @implemented
- */
-NTSTATUS
-NTAPI
-PoCallDriver(IN PDEVICE_OBJECT DeviceObject,
-             IN OUT PIRP Irp)
-{
-    NTSTATUS Status;
-
-    /* Forward to Io -- FIXME! */
-    Status = IoCallDriver(DeviceObject, Irp);
-
-    /* Return status */
-    return Status;
-}
-
-/*
- * @unimplemented
- */
-PULONG
-NTAPI
-PoRegisterDeviceForIdleDetection(IN PDEVICE_OBJECT DeviceObject,
-                                 IN ULONG ConservationIdleTime,
-                                 IN ULONG PerformanceIdleTime,
-                                 IN DEVICE_POWER_STATE State)
-{
-    UNIMPLEMENTED;
-    return NULL;
-}
-
-/*
- * @unimplemented
- */
-PVOID
-NTAPI
-PoRegisterSystemState(IN PVOID StateHandle,
-                      IN EXECUTION_STATE Flags)
-{
-    UNIMPLEMENTED;
-    return NULL;
-}
-
-/*
- * @implemented
- */
-NTSTATUS
-NTAPI
-PoRequestPowerIrp(IN PDEVICE_OBJECT DeviceObject,
-                  IN UCHAR MinorFunction,
-                  IN POWER_STATE PowerState,
-                  IN PREQUEST_POWER_COMPLETE CompletionFunction,
-                  IN PVOID Context,
-                  OUT PIRP *pIrp OPTIONAL)
-{
-    PDEVICE_OBJECT TopDeviceObject;
-    PIO_STACK_LOCATION Stack;
-    PIRP Irp;
-    PIO_STATUS_BLOCK IoStatusBlock;
-    PREQUEST_POWER_ITEM RequestPowerItem;
-    NTSTATUS Status;
-  
-    if (MinorFunction != IRP_MN_QUERY_POWER
-        && MinorFunction != IRP_MN_SET_POWER
-        && MinorFunction != IRP_MN_WAIT_WAKE)
-        return STATUS_INVALID_PARAMETER_2;
-  
-    RequestPowerItem = ExAllocatePool(NonPagedPool, sizeof(REQUEST_POWER_ITEM));
-    if (!RequestPowerItem)
-        return STATUS_INSUFFICIENT_RESOURCES;
-    IoStatusBlock = ExAllocatePool(NonPagedPool, sizeof(IO_STATUS_BLOCK));
-    if (!IoStatusBlock)
-    {
-        ExFreePool(RequestPowerItem);
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
-  
-    /* Always call the top of the device stack */
-    TopDeviceObject = IoGetAttachedDeviceReference(DeviceObject);
-  
-    Irp = IoBuildSynchronousFsdRequest(IRP_MJ_PNP,
-                                       TopDeviceObject,
-                                       NULL,
-                                       0,
-                                       NULL,
-                                       NULL,
-                                       IoStatusBlock);
-    if (!Irp)
-    {
-        ExFreePool(RequestPowerItem);
-        ExFreePool(IoStatusBlock);
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
-  
-    /* POWER IRPs are always initialized with a status code of
-       STATUS_NOT_IMPLEMENTED */
-    Irp->IoStatus.Status = STATUS_NOT_IMPLEMENTED;
-    Irp->IoStatus.Information = 0;
-  
-    Stack = IoGetNextIrpStackLocation(Irp);
-    Stack->MinorFunction = MinorFunction;
-    if (MinorFunction == IRP_MN_WAIT_WAKE)
-        Stack->Parameters.WaitWake.PowerState = PowerState.SystemState;
-    else
-        Stack->Parameters.WaitWake.PowerState = PowerState.DeviceState;
-  
-    RequestPowerItem->CompletionRoutine = CompletionFunction;
-    RequestPowerItem->PowerState = PowerState;
-    RequestPowerItem->Context = Context;
-  
-    if (pIrp != NULL)
-        *pIrp = Irp;
-  
-    IoSetCompletionRoutine(Irp, PopRequestPowerIrpCompletion, RequestPowerItem, TRUE, TRUE, TRUE);
-    Status = IoCallDriver(TopDeviceObject, Irp);
-  
-    /* Always return STATUS_PENDING. The completion routine
-     * will call CompletionFunction and complete the Irp.
-     */
-    return STATUS_PENDING;
-}
-
-/*
- * @unimplemented
- */
-POWER_STATE
-NTAPI
-PoSetPowerState(IN PDEVICE_OBJECT DeviceObject,
-                IN POWER_STATE_TYPE Type,
-                IN POWER_STATE State)
-{
-    POWER_STATE ps;
-
-    ASSERT_IRQL_LESS_OR_EQUAL(DISPATCH_LEVEL);
-
-    ps.SystemState = PowerSystemWorking;  // Fully on
-    ps.DeviceState = PowerDeviceD0;       // Fully on
-
-    return ps;
-}
-
-/*
- * @unimplemented
- */
-VOID
-NTAPI
-PoSetSystemState(IN EXECUTION_STATE Flags)
-{
-    UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-NTAPI
-PoStartNextPowerIrp(IN PIRP Irp)
-{
-    UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-VOID
-NTAPI
-PoUnregisterSystemState(IN PVOID StateHandle)
-{
-    UNIMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-NTAPI
-PoQueueShutdownWorkItem(IN PWORK_QUEUE_ITEM WorkItem)
-{
-    PAGED_CODE();
-
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
-
-/*
- * @unimplemented
- */
-NTSTATUS
-NTAPI
+STDCALL
 NtInitiatePowerAction (IN POWER_ACTION SystemAction,
                        IN SYSTEM_POWER_STATE MinSystemState,
                        IN ULONG Flags,
@@ -496,7 +406,7 @@ NtInitiatePowerAction (IN POWER_ACTION SystemAction,
  * @unimplemented
  */
 NTSTATUS
-NTAPI
+STDCALL
 NtPowerInformation(IN POWER_INFORMATION_LEVEL PowerInformationLevel,
                    IN PVOID InputBuffer  OPTIONAL,
                    IN ULONG InputBufferLength,
@@ -526,23 +436,7 @@ NtPowerInformation(IN POWER_INFORMATION_LEVEL PowerInformationLevel,
 
             /* Just zero the struct (and thus set BatteryState->BatteryPresent = FALSE) */
             RtlZeroMemory(BatteryState, sizeof(SYSTEM_BATTERY_STATE));
-            BatteryState->EstimatedTime = MAXULONG;
-
-            Status = STATUS_SUCCESS;
-            break;
-        }
-		case SystemPowerCapabilities:
-        {
-            PSYSTEM_POWER_CAPABILITIES PowerCapabilities = (PSYSTEM_POWER_CAPABILITIES)OutputBuffer;
-
-            if (InputBuffer != NULL)
-                return STATUS_INVALID_PARAMETER;
-            if (OutputBufferLength < sizeof(SYSTEM_POWER_CAPABILITIES))
-                return STATUS_BUFFER_TOO_SMALL;
-
-            /* Just zero the struct (and thus set BatteryState->BatteryPresent = FALSE) */
-            RtlZeroMemory(PowerCapabilities, sizeof(SYSTEM_POWER_CAPABILITIES));
-            //PowerCapabilities->SystemBatteriesPresent = 0;
+            BatteryState->EstimatedTime = (ULONG)-1;
 
             Status = STATUS_SUCCESS;
             break;
@@ -556,6 +450,18 @@ NtPowerInformation(IN POWER_INFORMATION_LEVEL PowerInformationLevel,
     }
 
     return Status;
+}
+
+
+NTSTATUS
+STDCALL
+PoQueueShutdownWorkItem(IN PWORK_QUEUE_ITEM WorkItem)
+{
+    PAGED_CODE();
+
+    DPRINT1("PoQueueShutdownWorkItem(%p)\n", WorkItem);
+
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 NTSTATUS
@@ -588,54 +494,8 @@ NTAPI
 NtSetThreadExecutionState(IN EXECUTION_STATE esFlags,
                           OUT EXECUTION_STATE *PreviousFlags)
 {
-    PKTHREAD Thread = KeGetCurrentThread();
-    KPROCESSOR_MODE PreviousMode = KeGetPreviousMode();
-    EXECUTION_STATE PreviousState;
-    PAGED_CODE();
-
-    /* Validate flags */
-    if (esFlags & ~(ES_CONTINUOUS | ES_USER_PRESENT))
-    {
-        /* Fail the request */
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    /* Check for user parameters */
-    if (PreviousMode != KernelMode)
-    {
-        /* Protect the probes */
-        _SEH2_TRY
-        {
-            /* Check if the pointer is valid */
-            ProbeForWriteUlong(PreviousFlags);
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            /* It isn't -- fail */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
-        }
-        _SEH2_END;
-    }
-
-    /* Save the previous state, always masking in the continous flag */
-    PreviousState = Thread->PowerState | ES_CONTINUOUS;
-
-    /* Check if we need to update the power state */
-    if (esFlags & ES_CONTINUOUS) Thread->PowerState = esFlags;
-
-    /* Protect the write back to user mode */
-    _SEH2_TRY
-    {
-        /* Return the previous flags */
-        *PreviousFlags = PreviousState;
-    }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
-    {
-        /* Something's wrong, fail */
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
-    }
-    _SEH2_END;
-
-    /* All is good */
-    return STATUS_SUCCESS;
+    UNIMPLEMENTED;
+    return STATUS_NOT_IMPLEMENTED;
 }
+
+/* EOF */

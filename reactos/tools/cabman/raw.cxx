@@ -8,6 +8,7 @@
  * REVISIONS:
  *   CSH 21/03-2001 Created
  *   CSH 15/08-2003 Made it portable
+ *   CF  04/05-2007 Reformatted the code to be more consistent and use TABs instead of spaces
  *   CF  04/05-2007 Made it compatible with 64-bit operating systems
  */
 #include "raw.h"
@@ -31,10 +32,10 @@ CRawCodec::~CRawCodec()
 }
 
 
-ULONG CRawCodec::Compress(void* OutputBuffer,
-                          void* InputBuffer,
-                          ULONG InputLength,
-                          PULONG OutputLength)
+uint32_t CRawCodec::Compress(void* OutputBuffer,
+                             void* InputBuffer,
+                             uint32_t InputLength,
+                             uint32_t* OutputLength)
 /*
  * FUNCTION: Compresses data in a buffer
  * ARGUMENTS:
@@ -44,15 +45,15 @@ ULONG CRawCodec::Compress(void* OutputBuffer,
  *     OutputLength = Address of buffer to place size of compressed data
  */
 {
-    memcpy(OutputBuffer, InputBuffer, InputLength);
-    *OutputLength = InputLength;
-    return CS_SUCCESS;
+	memcpy(OutputBuffer, InputBuffer, InputLength);
+	*OutputLength = InputLength;
+	return CS_SUCCESS;
 }
 
-ULONG CRawCodec::Uncompress(void* OutputBuffer,
-                            void* InputBuffer,
-                            ULONG InputLength,
-                            PULONG OutputLength)
+uint32_t CRawCodec::Uncompress(void* OutputBuffer,
+                               void* InputBuffer,
+                               uint32_t InputLength,
+                               uint32_t* OutputLength)
 /*
  * FUNCTION: Uncompresses data in a buffer
  * ARGUMENTS:
@@ -62,9 +63,9 @@ ULONG CRawCodec::Uncompress(void* OutputBuffer,
  *     OutputLength = Address of buffer to place size of uncompressed data
  */
 {
-    memcpy(OutputBuffer, InputBuffer, InputLength);
-    *OutputLength = InputLength;
-    return CS_SUCCESS;
+	memcpy(OutputBuffer, InputBuffer, InputLength);
+	*OutputLength = InputLength;
+	return CS_SUCCESS;
 }
 
 /* EOF */

@@ -17,9 +17,9 @@
 
 #include <k32.h>
 #include <malloc.h>
-#include <wine/debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(kernel32file);
+#define NDEBUG
+#include "../include/debug.h"
 
 /* GLOBALS *****************************************************************/
 
@@ -92,7 +92,7 @@ static BOOL add_boot_rename_entry( LPCWSTR source, LPCWSTR dest, DWORD flags )
     WCHAR *p;
     NTSTATUS Status;
 
-    TRACE("add_boot_rename_entry( %S, %S, %d ) \n", source, dest, flags);
+    DPRINT("add_boot_rename_entry( %S, %S, %d ) \n", source, dest, flags);
 
     if(dest)
         DestLen = wcslen(dest);
@@ -138,7 +138,7 @@ static BOOL add_boot_rename_entry( LPCWSTR source, LPCWSTR dest, DWORD flags )
 
     if (!NT_SUCCESS(Status))
     {
-        WARN("NtCreateKey() failed (Status 0x%lx)\n", Status);
+        DPRINT("NtCreateKey() failed (Status 0x%lx)\n", Status);
         if (source_name.Buffer)
             RtlFreeHeap(RtlGetProcessHeap(), 0, source_name.Buffer);
         if (dest_name.Buffer)
@@ -226,7 +226,7 @@ static BOOL add_boot_rename_entry( LPCWSTR source, LPCWSTR dest, DWORD flags )
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 MoveFileWithProgressW (
 	LPCWSTR			lpExistingFileName,
 	LPCWSTR			lpNewFileName,
@@ -235,80 +235,44 @@ MoveFileWithProgressW (
 	DWORD			dwFlags
 	)
 {
-	HANDLE hFile = NULL, hNewFile = NULL;
+	HANDLE hFile = NULL;
 	IO_STATUS_BLOCK IoStatusBlock;
-    OBJECT_ATTRIBUTES ObjectAttributes;
 	PFILE_RENAME_INFORMATION FileRename;
 	NTSTATUS errCode;
 	BOOL Result;
 	UNICODE_STRING DstPathU;
 	BOOL folder = FALSE;
 
-	TRACE("MoveFileWithProgressW()\n");
+	DPRINT("MoveFileWithProgressW()\n");
 
 	if (dwFlags & MOVEFILE_DELAY_UNTIL_REBOOT)
 		return add_boot_rename_entry( lpExistingFileName, lpNewFileName, dwFlags );
-
-//    if (dwFlags & MOVEFILE_WRITE_THROUGH)
-//        FIXME("MOVEFILE_WRITE_THROUGH unimplemented\n");
-
-    if (!lpNewFileName)
-        return DeleteFileW(lpExistingFileName);
-
-    /* validate & translate the filename */
-    if (!RtlDosPathNameToNtPathName_U (lpNewFileName,
-				           &DstPathU,
-				           NULL,
-				           NULL))
-    {
-        WARN("Invalid destination path\n");
-        SetLastError(ERROR_PATH_NOT_FOUND);
-        return FALSE;
-    }
-
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &DstPathU,
-                               OBJ_CASE_INSENSITIVE,
-                               NULL,
-                               NULL);
-
-    errCode = NtOpenFile( &hNewFile,
-                          GENERIC_READ | GENERIC_WRITE,
-                          &ObjectAttributes,
-                          &IoStatusBlock,
-                          0,
-                          FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT |
-                          ((dwFlags & MOVEFILE_WRITE_THROUGH) ? FILE_WRITE_THROUGH : 0) );
-
-    if (NT_SUCCESS(errCode)) /* Destination exists */
-    {
-        NtClose(hNewFile);
-
-        if (!(dwFlags & MOVEFILE_REPLACE_EXISTING))
-        {
-			SetLastError(ERROR_ALREADY_EXISTS);
-			return FALSE;
-	}
-	else if (GetFileAttributesW(lpNewFileName) & FILE_ATTRIBUTE_DIRECTORY)
-	{
-		SetLastError(ERROR_ACCESS_DENIED);
-		return FALSE;
-	}
-    }
 
 	hFile = CreateFileW (lpExistingFileName,
 	                     GENERIC_ALL,
 	                     FILE_SHARE_WRITE|FILE_SHARE_READ,
 	                     NULL,
 	                     OPEN_EXISTING,
-	                     FILE_FLAG_BACKUP_SEMANTICS |
-	                     ((dwFlags & MOVEFILE_WRITE_THROUGH) ? FILE_FLAG_WRITE_THROUGH : 0),
+	                     FILE_FLAG_BACKUP_SEMANTICS,
 	                     NULL);
 
 	if (hFile == INVALID_HANDLE_VALUE)
 	{
-	    return FALSE;
+	   return FALSE;
 	}
+
+	
+        /* validate & translate the filename */
+        if (!RtlDosPathNameToNtPathName_U (lpNewFileName,
+				           &DstPathU,
+				           NULL,
+				           NULL))
+        {
+           DPRINT("Invalid destination path\n");
+	   CloseHandle(hFile);
+           SetLastError(ERROR_PATH_NOT_FOUND);
+           return FALSE;
+        }
 
 	FileRename = RtlAllocateHeap(
 		RtlGetProcessHeap(),
@@ -405,7 +369,7 @@ MoveFileWithProgressW (
 		   }
 
 		   lpExistingFileName2 = (LPWSTR) HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,max_size * sizeof(WCHAR));
-		   if (lpExistingFileName2 == NULL)
+		   if (lpNewFileName2 == NULL)
 		   {		
 		     HeapFree(GetProcessHeap(),0,(VOID *)  lpNewFileName2);		  	  		    		
 		     HeapFree(GetProcessHeap(),0,(VOID *) lpDeleteFile);		
@@ -455,7 +419,7 @@ MoveFileWithProgressW (
 		           FindClose(hFile);			     
 
 				   /* delete folder */					  				 
-				   TRACE("MoveFileWithProgressW : Delete folder : %S\n",lpDeleteFile);
+				   DPRINT("MoveFileWithProgressW : Delete folder : %S\n",lpDeleteFile);
 
 				   /* remove system folder flag other wise we can not delete the folder */
 				   Attributes = GetFileAttributesW(lpExistingFileName2);
@@ -613,7 +577,7 @@ MoveFileWithProgressW (
 			   
 			    /* copy file */
 			   
-			   TRACE("MoveFileWithProgressW : Copy file : %S to %S\n",lpDeleteFile, lpNewFileName2);
+			   DPRINT("MoveFileWithProgressW : Copy file : %S to %S\n",lpDeleteFile, lpNewFileName2);
 			   RemoveReadOnlyAttributeW(lpDeleteFile);
 			   RemoveReadOnlyAttributeW(lpNewFileName2);
 			  
@@ -628,12 +592,12 @@ MoveFileWithProgressW (
                    break;
               
                /* delete file */               		            
-			   TRACE("MoveFileWithProgressW : remove readonly flag from file : %S\n",lpNewFileName2);
+			   DPRINT("MoveFileWithProgressW : remove readonly flag from file : %S\n",lpNewFileName2);
 			   Result = RemoveReadOnlyAttributeW(lpDeleteFile);
 			   if (Result == FALSE)
 			       break;
 
-               TRACE("MoveFileWithProgressW : Delete file : %S\n",lpDeleteFile);
+               DPRINT("MoveFileWithProgressW : Delete file : %S\n",lpDeleteFile);
 			   Result = DeleteFileW(lpDeleteFile);
                if (Result == FALSE)                               
                    break;
@@ -648,6 +612,7 @@ MoveFileWithProgressW (
 		   {
 		     DWORD Attributes;
 
+		     FindClose(hFile);				 
 			 Attributes = GetFileAttributesW(lpDeleteFile);
              if (Attributes != INVALID_FILE_ATTRIBUTES)
              {	
@@ -693,7 +658,7 @@ MoveFileWithProgressW (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 MoveFileWithProgressA (
 	LPCSTR			lpExistingFileName,
 	LPCSTR			lpNewFileName,
@@ -728,7 +693,7 @@ MoveFileWithProgressA (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 MoveFileW (
 	LPCWSTR	lpExistingFileName,
 	LPCWSTR	lpNewFileName
@@ -744,7 +709,7 @@ MoveFileW (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 MoveFileExW (
 	LPCWSTR	lpExistingFileName,
 	LPCWSTR	lpNewFileName,
@@ -763,7 +728,7 @@ MoveFileExW (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 MoveFileA (
 	LPCSTR	lpExistingFileName,
 	LPCSTR	lpNewFileName
@@ -779,7 +744,7 @@ MoveFileA (
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 MoveFileExA (
 	LPCSTR	lpExistingFileName,
 	LPCSTR	lpNewFileName,

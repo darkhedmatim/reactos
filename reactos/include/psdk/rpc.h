@@ -1,18 +1,13 @@
 
 #if !defined( RPC_NO_WINDOWS_H ) && !defined( MAC ) && !defined( _MAC )
-#if defined (_OLE32_)
-#ifndef RC_INVOKED
-#include <stdarg.h>
-#endif
-#include <windef.h>
-#include <winbase.h>
-#else
 #include <windows.h>
-#endif
 #endif
 
 #ifdef __GNUC__
-#include  <pseh/pseh2.h>
+    #ifndef _SEH_NO_NATIVE_NLG
+        /* FIXME ReactOS SEH support, we need remove this when gcc support native seh */
+        #include  <libs/pseh/pseh.h>
+    #endif
 #endif
 
 #ifndef __RPC_H__
@@ -27,12 +22,12 @@
 extern "C" {
 #endif
 
-#if defined( MAC ) || defined( _MAC ) || defined(__powerpc__) && !defined(__REACTOS__)
+#if defined( MAC ) || defined( _MAC ) || defined(__powerpc__)
     #define __RPC_MAC__
     #define __RPC_WIN32__
     #include <pshpack2.h>
 
-#else
+#else 
     #if defined(_M_IA64) || defined(_M_AMD64) || defined(_WIN64)
         #define __RPC_WIN64__
     #else
@@ -54,11 +49,7 @@ extern "C" {
 
 
 typedef void * I_RPC_HANDLE;
-#ifndef __ROS_LONG64__
 typedef long RPC_STATUS;
-#else
-typedef int RPC_STATUS;
-#endif
 #define __RPC_FAR
 
 #if defined(__RPC_WIN32__) || defined(__RPC_WIN64__)
@@ -87,18 +78,19 @@ typedef int RPC_STATUS;
     #if !defined(_RPCRT4_)
         #define RPCRTAPI DECLSPEC_IMPORT
     #else
-        #define RPCRTAPI
+        #define RPCRTAPI 
     #endif
 
     #if !defined(_RPCNS4_)
         #define RPCNSAPI DECLSPEC_IMPORT
     #else
-        #define RPCNSAPI
+        #define RPCNSAPI 
     #endif
 #else
-    #define RPCRTAPI
-    #define RPCNSAPI
+    #define RPCRTAPI 
+    #define RPCNSAPI 
 #endif
+
 
 #ifdef __RPC_MAC__
     #include <setjmp.h>
@@ -138,23 +130,38 @@ typedef int RPC_STATUS;
         #define RpcExceptionCode() GetExceptionCode()
         #define RpcAbnormalTermination() AbnormalTermination()
     #else
-        #define RpcTryExcept _SEH2_TRY
-        #define RpcExcept(expr) _SEH2_EXCEPT((expr))
-        #define RpcEndExcept _SEH2_END;
-        #define RpcTryFinally _SEH2_TRY
-        #define RpcFinally _SEH2_FINALLY
-        #define RpcEndFinally _SEH2_END;
-        #define RpcExceptionCode() _SEH2_GetExceptionCode()
-        #define RpcAbnormalTermination() (_SEH2_GetExceptionCode() != 0)
+        /* FIXME ReactOS SEH support, we need remove this when gcc support native seh */
+
+        #ifdef _SEH_NO_NATIVE_NLG
+            /* hack for  _SEH_NO_NATIVE_NLG */
+                #define RpcTryExcept if (1) {
+                #define RpcExcept(expr) } else {
+                #define RpcEndExcept }
+                #define RpcTryFinally
+                #define RpcFinally
+                #define RpcEndFinally
+                #define RpcExceptionCode() 0
+        #else
+            #define RpcTryExcept _SEH_TRY {
+            #define RpcExcept(expr) } _SEH_HANDLE { \
+                                      if (expr) \
+                                      {
+            #define RpcEndExcept } \
+                                 } \
+                                 _SEH_END;
+
+            #define RpcTryFinally
+            #define RpcFinally
+            #define RpcEndFinally
+            #define RpcExceptionCode() _SEH_GetExceptionCode()
+
+            /* #define RpcAbnormalTermination() abort() */
+        #endif
     #endif
 #endif
 
 #if defined(__RPC_WIN64__)
     #include <poppack.h>
-#endif
-
-#ifndef RPC_NO_WINDOWS_H
-#include <rpcasync.h>
 #endif
 
 #ifdef __cplusplus

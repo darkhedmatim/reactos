@@ -1,50 +1,51 @@
 LANGUAGE LANG_BULGARIAN, SUBLANG_DEFAULT
 
+IDD_PROPPAGEINSTALL DIALOGEX 0, 0, PROPSHEETWIDTH, PROPSHEETHEIGHT
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
+CAPTION "Слагане/премахване"
+FONT 8, "MS Shell Dlg", 0, 0, 0x0
+BEGIN
+  ICON            IDI_CPLSYSTEM,-1,PROPSHEETPADDING,18,16,16
+  LTEXT "За да сложите ново приложение, натиснете Слагане",-1,36,18,PROPSHEETWIDTH-48,8
+  PUSHBUTTON "&Слагане...", IDC_INSTALL, PROPSHEETWIDTH-(72), 36, 60, 14
+  LTEXT "", -1, PROPSHEETPADDING, 63, PROPSHEETWIDTH-12, 1, NOT WS_GROUP | SS_SUNKEN
+  
+  ICON            IDI_CPLSYSTEM,-1,PROPSHEETPADDING,76,16,16
+  CONTROL "&Показване на обновленията",IDC_SHOWUPDATES,"button",BS_AUTOCHECKBOX | WS_TABSTOP,PROPSHEETPADDING, 105, 119, 18
+  LTEXT "Следните приложения мога да бъдат премахнати сами. За да премахнете приложение или да промените сложените им съставки, изберете го от списъка и натинсете Добавяне/ премахване.",-1,36,72,PROPSHEETWIDTH-48,32
+  LISTBOX IDC_SOFTWARELIST, PROPSHEETPADDING, 123, PROPSHEETWIDTH-12, 75, LBS_STANDARD | WS_TABSTOP | LBS_NOINTEGRALHEIGHT
+  PUSHBUTTON "Промяна/пре&махване", IDC_ADDREMOVE, PROPSHEETWIDTH-72, 200, 60, 14
+END
+
+IDD_PROPPAGEROSSETUP DIALOGEX 0, 0, PROPSHEETWIDTH, PROPSHEETHEIGHT
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
+CAPTION "Настройка на РеактОС"
+FONT 8, "MS Shell Dlg", 0, 0, 0x0
+BEGIN
+
+END
+
 IDD_FIRSTPAGE DIALOGEX 0, 0, PROPSHEETWIDTH, PROPSHEETHEIGHT
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Създаване на връзка"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
-	LTEXT "Text1", -1, 115, 15, 160, 24
-	LTEXT "Text2", -1, 115, 35, 160, 17
+  LTEXT "Text1", -1, 115, 15, 160, 24
+  LTEXT "Text2", -1, 115, 35, 160, 17
 END
 
 IDD_SUBMIT_REPORT DIALOGEX 0, 0, PROPSHEETWIDTH, PROPSHEETHEIGHT
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Създаване на връзка"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
-	LTEXT "Text1",-1,10,0,225,40
-	LTEXT "Text2",-1,10,40,120,20
-	LTEXT "Text3",-1,10,55,120,20
-END
-
-IDD_SHORTCUT_LOCATION DIALOGEX 0, 0, 340, 200
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
-CAPTION "Създаване на препратка"
-FONT 8, "MS Shell Dlg", 0, 0, 0x0
-BEGIN
-  LTEXT "Вълшебникът ви помага за създаването на препратки към местни или мрежови приложения, файлове, папки, компютри или адреси в интернет.", -1, 120, 15, 200, 32
-  LTEXT "Напишете местоположението на предмета:", -1, 120, 50, 160, 10
-  EDITTEXT IDC_SHORTCUT_LOCATION, 120, 65, 150, 15, ES_LEFT
-  PUSHBUTTON "Обзор...", IDC_SHORTCUT_BROWSE, 275, 65, 55, 15, ES_LEFT
-  LTEXT "Натиснете ""Напред"" за продължаване.", -1, 120, 100, 160, 10
-END
-
-IDD_SHORTCUT_FINISH DIALOGEX 0, 0, 340, 200
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
-CAPTION "Изберете заглавие за приложението"
-FONT 8, "MS Shell Dlg", 0, 0, 0x0
-BEGIN
-  LTEXT "&Напишете име за препратката:", -1, 120, 15, 150, 10
-  EDITTEXT IDC_SHORTCUT_NAME, 120, 35, 150, 15, ES_LEFT
-  LTEXT "Натиснете ""Край"" за създаване на препратка.", -1, 120, 50, 170, 10
+  LTEXT "Text1",-1,10,0,225,40
+  LTEXT "Text2",-1,10,40,120,20
+  LTEXT "Text3",-1,10,55,120,20
 END
 
 STRINGTABLE 
 BEGIN
-	IDS_CPLSYSTEMNAME "Добавяне/премахване на приложения"
-	IDS_CPLSYSTEMDESCRIPTION "Слага приложения и създава препратки."
-    IDS_CREATE_SHORTCUT "Създаване на препратка"
-    IDS_ERROR_NOT_FOUND "Не бе открит файл %s."
+  IDS_CPLSYSTEMNAME "Добавяне/Премахване на програми"
+  IDS_CPLSYSTEMDESCRIPTION "Слага приложения и създава препратки."
 END

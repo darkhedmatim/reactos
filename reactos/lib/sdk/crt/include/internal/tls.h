@@ -12,7 +12,6 @@
 #include <windef.h>
 #include <winbase.h>
 #include <winnt.h>
-#include <time.h>
 
 #include <stddef.h>
 
@@ -28,11 +27,13 @@ typedef struct _ThreadData
 
   int fpecode;                  /* fp exception code */
 
-  EXCEPTION_RECORD *exc_record; /* Head of exception record list */
+  /* qsort variables */
+  int (*qcmp)(const void *, const void *);  /* the comparison routine */
+  int qsz;                      /* size of each record */
+  int thresh;                   /* THRESHold in chars */
+  int mthresh;                  /* MTHRESHold in chars */
 
-  struct tm tmbuf;              /* Used by gmtime, mktime, mkgmtime, localtime */
-  char asctimebuf[26];          /* Buffer for asctime and ctime */
-  wchar_t wasctimebuf[26];      /* Buffer for wasctime and wctime */
+  EXCEPTION_RECORD *exc_record; /* Head of exception record list */
 
 } THREADDATA, *PTHREADDATA;
 
@@ -46,3 +47,4 @@ PTHREADDATA GetThreadData(void);
 #endif /* __MSVCRT_INTERNAL_TLS_H */
 
 /* EOF */
+

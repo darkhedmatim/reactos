@@ -1,168 +1,78 @@
 /*
  * PROJECT:     ReactOS Services
  * LICENSE:     GPL - See COPYING in the top level directory
- * FILE:        base/applications/mscutils/servman/stop.c
- * PURPOSE:     Stops running a service
- * COPYRIGHT:   Copyright 2006-2009 Ged Murphy <gedmurphy@reactos.org>
+ * FILE:        base/system/servman/stop.c
+ * PURPOSE:     Stops a service
+ * COPYRIGHT:   Copyright 2005 - 2006 Ged Murphy <gedmurphy@gmail.com>
  *
  */
 
 #include "precomp.h"
 
-
-static BOOL
-StopService(PSTOP_INFO pStopInfo,
-            SC_HANDLE hService)
+BOOL DoStop(PMAIN_WND_INFO Info)
 {
-    SERVICE_STATUS_PROCESS ServiceStatus;
-    DWORD dwBytesNeeded;
-    DWORD dwStartTime;
-    DWORD dwTimeout;
     HWND hProgDlg;
-    BOOL bRet = FALSE;
+    TCHAR ProgDlgBuf[100];
 
-    dwStartTime = GetTickCount();
-    dwTimeout = 30000; // 30 secs
-
-    hProgDlg = CreateProgressDialog(pStopInfo->pInfo->hMainWnd,
-                                    pStopInfo->pInfo->pCurrentService->lpServiceName,
-                                    IDS_PROGRESS_INFO_STOP);
-    if (hProgDlg)
+    /* open the progress dialog */
+    hProgDlg = CreateDialog(hInstance,
+                            MAKEINTRESOURCE(IDD_DLG_PROGRESS),
+                            Info->hMainWnd,
+                            (DLGPROC)ProgressDialogProc);
+    if (hProgDlg != NULL)
     {
-        IncrementProgressBar(hProgDlg);
+        ShowWindow(hProgDlg,
+                   SW_SHOW);
 
-        if (ControlService(hService,
-                           SERVICE_CONTROL_STOP,
-                           (LPSERVICE_STATUS)&ServiceStatus))
-        {
-            while (ServiceStatus.dwCurrentState != SERVICE_STOPPED)
-            {
-                Sleep(ServiceStatus.dwWaitHint);
+        /* write the  info to the progress dialog */
+        LoadString(hInstance,
+                   IDS_PROGRESS_INFO_STOP,
+                   ProgDlgBuf,
+                   sizeof(ProgDlgBuf) / sizeof(TCHAR));
 
-                if (QueryServiceStatusEx(hService,
-                                         SC_STATUS_PROCESS_INFO,
-                                         (LPBYTE)&ServiceStatus,
-                                         sizeof(SERVICE_STATUS_PROCESS),
-                                         &dwBytesNeeded))
-                {
-                    if (GetTickCount() - dwStartTime > dwTimeout)
-                    {
-                        /* We exceeded our max wait time, give up */
-                        break;
-                    }
-                }
-            }
+        SendDlgItemMessage(hProgDlg,
+                           IDC_SERVCON_INFO,
+                           WM_SETTEXT,
+                           0,
+                           (LPARAM)ProgDlgBuf);
 
-            if (ServiceStatus.dwCurrentState == SERVICE_STOPPED)
-            {
-                bRet = TRUE;
-            }
-        }
-
-        CompleteProgressBar(hProgDlg);
-        Sleep(500);
-        DestroyWindow(hProgDlg);
+        /* write the service name to the progress dialog */
+        SendDlgItemMessage(hProgDlg,
+                           IDC_SERVCON_NAME,
+                           WM_SETTEXT,
+                           0,
+                           (LPARAM)Info->CurrentService->lpServiceName);
     }
 
-    return bRet;
-}
-
-static BOOL
-StopDependentServices(PSTOP_INFO pStopInfo,
-                      SC_HANDLE hService)
-{
-    LPENUM_SERVICE_STATUS lpDependencies;
-    SC_HANDLE hDepService;
-    DWORD dwCount;
-    BOOL bRet = FALSE;
-
-    lpDependencies = GetServiceDependents(hService, &dwCount);
-    if (lpDependencies)
+    if ( Control(Info, SERVICE_CONTROL_STOP) )
     {
-        LPENUM_SERVICE_STATUS lpEnumServiceStatus;
-        DWORD i;
+        LVITEM item;
+        TCHAR buf[25];
 
-        for (i = 0; i < dwCount; i++)
+        item.pszText = _T('\0');
+        item.iItem = Info->SelectedItem;
+        item.iSubItem = 2;
+        SendMessage(Info->hListView,
+                    LVM_SETITEMTEXT,
+                    item.iItem,
+                    (LPARAM) &item);
+
+        /* change dialog status */
+        if (Info->PropSheet != NULL)
         {
-            lpEnumServiceStatus = &lpDependencies[i];
+            LoadString(hInstance,
+                       IDS_SERVICES_STOPPED,
+                       buf,
+                       sizeof(buf) / sizeof(TCHAR));
 
-            hDepService = OpenService(pStopInfo->hSCManager,
-                                      lpEnumServiceStatus->lpServiceName,
-                                      SERVICE_STOP | SERVICE_QUERY_STATUS);
-            if (hDepService)
-            {
-                bRet = StopService(pStopInfo, hDepService);
-
-                CloseServiceHandle(hDepService);
-
-                if (!bRet)
-                {
-                    GetError();
-                    break;
-                }
-            }
-        }
-
-        HeapFree(GetProcessHeap(),
-                 0,
-                 lpDependencies);
-    }
-
-    return bRet;
-}
-
-
-BOOL
-DoStop(PMAIN_WND_INFO pInfo)
-{
-    STOP_INFO stopInfo;
-    SC_HANDLE hSCManager;
-    SC_HANDLE hService;
-    BOOL bRet = FALSE;
-
-    if (pInfo)
-    {
-        stopInfo.pInfo = pInfo;
-
-        hSCManager = OpenSCManager(NULL,
-                                   NULL,
-                                   SC_MANAGER_ALL_ACCESS);
-        if (hSCManager)
-        {
-            hService = OpenService(hSCManager,
-                                   pInfo->pCurrentService->lpServiceName,
-                                   SERVICE_STOP | SERVICE_QUERY_STATUS | SERVICE_ENUMERATE_DEPENDENTS);
-            if (hService)
-            {
-                stopInfo.hSCManager = hSCManager;
-                stopInfo.hMainService = hService;
-
-                if (HasDependentServices(hService))
-                {
-                    INT ret = DialogBoxParam(hInstance,
-                                             MAKEINTRESOURCE(IDD_DLG_DEPEND_STOP),
-                                             pInfo->hMainWnd,
-                                             StopDependsDialogProc,
-                                             (LPARAM)&stopInfo);
-                    if (ret == IDOK)
-                    {
-                        if (StopDependentServices(&stopInfo, hService))
-                        {
-                            bRet = StopService(&stopInfo, hService);
-                        }
-                    }
-                }
-                else
-                {
-                    bRet = StopService(&stopInfo, hService);
-                }
-
-                CloseServiceHandle(hService);
-            }
-
-            CloseServiceHandle(hSCManager);
+            SendDlgItemMessageW(Info->PropSheet->hwndGenDlg,
+                                IDC_SERV_STATUS, WM_SETTEXT,
+                                0,
+                                (LPARAM)buf);
         }
     }
 
-    return bRet;
+    SendMessage(hProgDlg, WM_DESTROY, 0, 0);
+
+    return TRUE;
 }

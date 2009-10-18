@@ -157,17 +157,17 @@ FONT 8, "MS Shell Dlg"
  LTEXT "&Muokatut v‰rit:",  1089, 4,   106, 140, 10
  LTEXT "V‰ri|&Tasainen",    1090, 150, 151,  48, 10
  LTEXT   "&Pun:", 726 /*1094*/,249,126,24,10
- EDITTEXT 706, 275,124,21,12, WS_BORDER | WS_GROUP | WS_TABSTOP
+ EDITTEXT 706, 275,124,18,12, WS_BORDER | WS_GROUP | WS_TABSTOP
  LTEXT   "&Vihr:",727/*1095*/,249,140,24,10
- EDITTEXT 707, 275,138,21,12, WS_BORDER | WS_GROUP | WS_TABSTOP
+ EDITTEXT 707, 275,138,18,12, WS_BORDER | WS_GROUP | WS_TABSTOP
  LTEXT   "Si&n:",728 /*1096*/,249,154,24,10
- EDITTEXT 708, 275,152,21,12, WS_BORDER | WS_GROUP | WS_TABSTOP
+ EDITTEXT 708, 275,152,18,12, WS_BORDER | WS_GROUP | WS_TABSTOP
  LTEXT  "&S‰vy:" ,723 /*1091*/,202,126,22,10
- EDITTEXT 703, 226,124,21,12, WS_BORDER | WS_GROUP | WS_TABSTOP
+ EDITTEXT 703, 226,124,18,12, WS_BORDER | WS_GROUP | WS_TABSTOP
  LTEXT  "&Kyll:" ,724 /*1092*/,202,140,22,10
- EDITTEXT 704, 226,138,21,12, WS_BORDER | WS_GROUP | WS_TABSTOP
+ EDITTEXT 704, 226,138,18,12, WS_BORDER | WS_GROUP | WS_TABSTOP
  LTEXT  "K&irkk:" ,725 /*1093*/,202,154,22,10
- EDITTEXT 705, 226,152,21,12, WS_BORDER | WS_GROUP | WS_TABSTOP
+ EDITTEXT 705, 226,152,18,12, WS_BORDER | WS_GROUP | WS_TABSTOP
  CONTROL "" ,720,"STATIC",SS_SIMPLE|WS_TABSTOP|WS_GROUP,4,14,140,86
  CONTROL "" ,721,"STATIC",SS_SIMPLE|WS_TABSTOP|WS_GROUP,4,116,140,28
  CONTROL "" ,710,"STATIC",WS_BORDER|SS_SIMPLE|WS_TABSTOP|WS_GROUP, 152,4,118,116
@@ -313,13 +313,13 @@ BEGIN
   AUTORADIOBUTTON "V&aaka",     rad2, 16, 190, 52, 12, BS_AUTORADIOBUTTON
   GROUPBOX        "Reunat",       grp4, 80, 156, 152, 56, BS_GROUPBOX
   LTEXT           "&Vasen:",      stc15, 88, 172, 21, 8
-  EDITTEXT                        edt4, 111, 170, 39, 12, WS_TABSTOP|WS_GROUP|WS_BORDER
+  EDITTEXT                        edt4, 111, 170, 39, 12, WS_TABSTOP|WS_GROUP|WS_BORDER|ES_NUMBER
   LTEXT           "&Oikea:",      stc16, 159, 172, 27, 8
-  EDITTEXT                        edt6, 187, 170, 39, 12, WS_TABSTOP|WS_GROUP|WS_BORDER
+  EDITTEXT                        edt6, 187, 170, 39, 12, WS_TABSTOP|WS_GROUP|WS_BORDER|ES_NUMBER
   LTEXT           "&Vasen:",      stc17, 88, 192, 21, 8
-  EDITTEXT                        edt5, 111, 190, 39, 12, WS_TABSTOP|WS_GROUP|WS_BORDER
+  EDITTEXT                        edt5, 111, 190, 39, 12, WS_TABSTOP|WS_GROUP|WS_BORDER|ES_NUMBER
   LTEXT           "&Pohja:",      stc18, 159, 192, 23, 8
-  EDITTEXT                        edt7, 187, 190, 39, 12, WS_TABSTOP|WS_GROUP|WS_BORDER
+  EDITTEXT                        edt7, 187, 190, 39, 12, WS_TABSTOP|WS_GROUP|WS_BORDER|ES_NUMBER
   DEFPUSHBUTTON   "OK",           IDOK, 71, 220, 50, 14, BS_PUSHBUTTON
   PUSHBUTTON      "Peruuta",      IDCANCEL, 126, 220, 50, 14
   PUSHBUTTON      "T&ulostin...", psh3, 184, 220, 48, 14
@@ -370,7 +370,7 @@ STRINGTABLE DISCARDABLE
     IDS_CREATEFILE          "Tiedostoa ei ole olemassa\nHaluatko luoda tiedoston"
     IDS_OVERWRITEFILE       "Tiedosto on jo olemassa.\nHaluatko ylikirjoitaa sen?"
     IDS_INVALID_FILENAME_TITLE "Kansio sis‰lt‰‰ ep‰kelpoja merkkej‰"
-    IDS_INVALID_FILENAME    "Tiedoston nimi ei voi sis‰lt‰‰ n‰it‰ merkkej‰:\n                          / : < > |"
+    IDS_INVALID_FILENAME    "Tiedoston nimi ei voi sis‰lt‰‰ n‰it‰ merkkej‰: \n                          / : < > |"
     IDS_PATHNOTEXISTING     "Kansiota ei ole"
     IDS_FILENOTEXISTING     "Tiedostoa ei ole"
 }
@@ -393,7 +393,7 @@ STRINGTABLE DISCARDABLE
     PD32_FROM_NOT_ABOVE_TO                "Alukuarvo ei voi olla suurempi kuin loppuarvo."
     PD32_MARGINS_OVERLAP                  "Marginaalit ovat p‰‰llek‰in tai ulkona paperin alueelta.\nM‰‰rit‰ marginaalit uudestaan."
     PD32_NR_OF_COPIES_EMPTY               "Kopioiden m‰‰r‰ t‰ytyy antaa."
-    PD32_TOO_LARGE_COPIES                 "Tulostin ei tue n‰in montaa kopiota.\nValitse arvo v‰lilt‰ 1 ja %d."
+    PD32_TOO_LARGE_COPIES                 "Tulostin ei tue n‰in montaa kopiota. \nValitse arvo v‰lilt‰ 1 ja %d."
     PD32_PRINT_ERROR                      "Tulostinvirhe."
     PD32_NO_DEFAULT_PRINTER               "Oletustulostinta ei ole m‰‰ritetty."
     PD32_CANT_FIND_PRINTER                "Tulostinta ei lˆydy."
@@ -407,8 +407,8 @@ Please install one and retry."
     PD32_DEFAULT_PRINTER                  "Oletustulostin; "
     PD32_NR_OF_DOCUMENTS_IN_QUEUE         "Jonossa on %d dokumenttia"
     PD32_MARGINS_IN_INCHES                "Marginaalit [inches]"
-    PD32_MARGINS_IN_MILLIMETERS           "Marginaalit [mm]"
-    PD32_MILLIMETERS                      "mm"
+    PD32_MARGINS_IN_MILIMETERS            "Marginaalit [mm]"
+    PD32_MILIMETERS                       "mm"
 
     PD32_PRINTER_STATUS_READY             "Valmis"
     PD32_PRINTER_STATUS_PAUSED            "Pys‰ytetty; "

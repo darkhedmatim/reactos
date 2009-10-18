@@ -13,11 +13,15 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef __WINE_MSIDEFS_H
 #define __WINE_MSIDEFS_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 enum msidbUpgradeAttributes {
     msidbUpgradeAttributesMigrateFeatures = 0x0000001,
@@ -164,12 +168,6 @@ enum msidbComponentAttributes
     msidbComponentAttributes64bit = 0x00000100
 };
 
-enum msidbODBCDataSourceRegistration
-{
-    msidbODBCDataSourceRegistrationPerMachine = 0x00000000,
-    msidbODBCDataSourceRegistrationPerUser = 0x00000001
-};
-
 enum msidbRegistryRoot
 {
     msidbRegistryRootClassesRoot = 0,
@@ -194,32 +192,6 @@ enum msidbServiceControlEvent
     msidbServiceControlEventUninstallStart = 0x00000010,
     msidbServiceControlEventUninstallStop = 0x00000020,
     msidbServiceControlEventUninstallDelete = 0x00000080,
-};
-
-enum msidbMoveFileOptions
-{
-    msidbMoveFileOptionsMove = 0x00000001,
-};
-
-enum msidbAssemblyAttributes
-{
-    msidbAssemblyAttributesURT = 0x00000000,
-    msidbAssemblyAttributesWin32 = 0x00000001,
-};
-
-enum msidbSumInfoSourceType
-{
-    msidbSumInfoSourceTypeSFN = 0x00000001,
-    msidbSumInfoSourceTypeCompressed = 0x00000002,
-    msidbSumInfoSourceTypeAdminImage = 0x00000004,
-    msidbSumInfoSourceTypeLUAPackage = 0x00000008,
-};
-
-enum msidbRemoveFileInstallMode
-{
-    msidbRemoveFileInstallModeOnInstall = 0x00000001,
-    msidbRemoveFileInstallModeOnRemove = 0x00000002,
-    msidbRemoveFileInstallModeOnBoth = 0x00000003,
 };
 
 /*
@@ -251,7 +223,7 @@ enum msidbRemoveFileInstallMode
 #define PID_TEMPLATE 7
 #define PID_LASTAUTHOR 8
 #define PID_REVNUMBER 9
-#define PID_EDITTIME 10
+#define PID_EDITTINE 10
 #define PID_LASTPRINTED 11
 #define PID_CREATE_DTM 12
 #define PID_LASTSAVE_DTM 13
@@ -264,5 +236,9 @@ enum msidbRemoveFileInstallMode
 #define PID_MSIVERSION PID_PAGECOUNT
 #define PID_MSISOURCE PID_WORDCOUNT
 #define PID_MSIRESTRICT PID_CHARCOUNT
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __WINE_MSIDEFS_H */

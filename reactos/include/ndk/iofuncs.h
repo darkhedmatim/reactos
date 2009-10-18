@@ -37,13 +37,6 @@ IoAssignDriveLetters(
     OUT PUCHAR NtSystemPath,
     OUT PSTRING NtSystemPathString
 );
-
-NTSTATUS
-NTAPI
-IoSynchronousInvalidateDeviceRelations(
-    IN PDEVICE_OBJECT DeviceObject,
-    IN DEVICE_RELATION_TYPE Type
-);
 #endif
 
 //

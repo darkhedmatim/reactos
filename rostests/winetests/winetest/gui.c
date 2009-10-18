@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <windows.h>
@@ -323,7 +323,7 @@ EditTagProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return CallWindowProcA (DefEditProc, hwnd, msg, wParam, lParam);
 }
 
-static INT_PTR CALLBACK
+static BOOL CALLBACK
 AskTagProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     int len;
@@ -376,7 +376,7 @@ qAsk (va_list ap)
     return MBdefault (va_arg (ap, int));
 }
 
-static INT_PTR CALLBACK
+static BOOL CALLBACK
 AboutProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch (msg) {
@@ -390,7 +390,7 @@ AboutProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return FALSE;
 }
 
-static INT_PTR CALLBACK
+static BOOL CALLBACK
 DlgProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     switch (msg) {

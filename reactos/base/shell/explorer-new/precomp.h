@@ -16,30 +16,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define USE_API_SHCREATEDESKTOP 1 /* Use SHCreateDesktop() */
+
 #include "resource.h"
 #include "comcsup.h"
 #include "todo.h"
-#include "initguid.h"
 #include "undoc.h"
 
-/* dynamic imports due to lack of support in msvc linker libs */
-typedef INT (APIENTRY *REGSHELLHOOK)(HWND, DWORD);
-#ifdef UNICODE
-#define PROC_NAME_DRAWCAPTIONTEMP "DrawCaptionTempW"
-typedef BOOL (APIENTRY *DRAWCAPTEMP)(HWND, HDC, const RECT*, HFONT, HICON, LPCWSTR, UINT);
-#else
-#define PROC_NAME_DRAWCAPTIONTEMP "DrawCaptionTempA"
-typedef BOOL (APIENTRY *DRAWCAPTEMP)(HWND, HDC, const RECT*, HFONT, HICON, LPCSTR, UINT);
-#endif
-typedef HRESULT (APIENTRY *SHINVDEFCMD)(HWND, IShellFolder*, LPCITEMIDLIST);
-typedef void (APIENTRY *RUNFILEDLG)(HWND, HICON, LPCWSTR, LPCWSTR, LPCWSTR, UINT);
-typedef void (APIENTRY *EXITWINDLG)(HWND);
-typedef HRESULT (APIENTRY *SHWINHELP)(HWND, LPWSTR, UINT, DWORD);
-
-/* Constants for RunFileDlg */
-#define RFF_CALCDIRECTORY   0x04    /* Calculates the working directory from the file name. */
-
-static __inline ULONG
+static ULONG __inline
 Win32DbgPrint(const char *filename, int line, const char *lpFormat, ...)
 {
     char szMsg[512];
@@ -81,10 +65,8 @@ Win32DbgPrint(const char *filename, int line, const char *lpFormat, ...)
     Win32DbgPrint(__FILE__, __LINE__, fmt, ##__VA_ARGS__);
 
 extern HINSTANCE hExplorerInstance;
-extern HMODULE hUser32;
 extern HANDLE hProcessHeap;
 extern HKEY hkExplorer;
-extern DRAWCAPTEMP DrawCapTemp;
 
 /*
  * dragdrop.c
@@ -240,6 +222,13 @@ DisplayTrayProperties(ITrayWindow *Tray);
 /*
  * desktop.c
  */
+
+#define SHCNRF_InterruptLevel   (0x0001)
+#define SHCNRF_ShellLevel   (0x0002)
+#define SHCNRF_RecursiveInterrupt   (0x1000)
+#define SHCNRF_NewDelivery  (0x8000)
+
+
 HANDLE
 DesktopCreateWindow(IN OUT ITrayWindow *Tray);
 
@@ -361,14 +350,12 @@ UpdateStartMenu(IN OUT IMenuPopup *pMenuPopup,
 
 /* TrayClockWnd */
 #define TCWM_GETMINIMUMSIZE (WM_USER + 0x100)
-#define TCWM_UPDATETIME     (WM_USER + 0x101)
+#define TCWM_UPDATETIME (WM_USER + 0x101)
 
 /* TrayNotifyWnd */
 #define TNWM_GETMINIMUMSIZE (WM_USER + 0x100)
-#define TNWM_UPDATETIME     (WM_USER + 0x101)
-#define TNWM_SHOWCLOCK      (WM_USER + 0x102)
-#define TNWM_SHOWTRAY       (WM_USER + 0x103)
-#define TNWM_CHANGETRAYPOS  (WM_USER + 0x104)
+#define TNWM_UPDATETIME (WM_USER + 0x101)
+#define TNWM_SHOWCLOCK  (WM_USER + 0x102)
 
 #define NTNWM_REALIGN   (0x1)
 

@@ -126,7 +126,6 @@ CsrPopulateDosDevicesDirectory(IN HANDLE hDosDevicesDirectory,
                 }
             }
         }
-        /* FIXME: Loop never ends! */
     }
 }
 
@@ -1222,14 +1221,11 @@ CsrPopulateDosDevices(VOID)
 
 BOOL
 NTAPI
-DllMainCRTStartup(HANDLE hDll,
-                  DWORD dwReason,
-                  LPVOID lpReserved)
+DllMain(HANDLE hDll,
+        DWORD dwReason,
+        LPVOID lpReserved)
 {
     /* We don't do much */
-    UNREFERENCED_PARAMETER(hDll);
-    UNREFERENCED_PARAMETER(dwReason);
-    UNREFERENCED_PARAMETER(lpReserved);
     return TRUE;
 }
 

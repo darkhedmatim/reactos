@@ -7,6 +7,7 @@
  * REVISIONS:
  *   CSH 01/09-2000 Created
  */
+#include <roscfg.h>
 #include <ws2_32.h>
 #include <catalog.h>
 #include <handle.h>
@@ -84,7 +85,7 @@ WPUCreateSocketHandle(IN  DWORD dwCatalogEntryId,
 /*
  * @unimplemented
  */
-int
+SOCKET
 WSPAPI
 WPUFDIsSet(IN  SOCKET s,
            IN  LPFD_SET set)

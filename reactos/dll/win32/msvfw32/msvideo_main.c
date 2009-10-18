@@ -1,7 +1,7 @@
 /*
  * Copyright 1998 Marcus Meissner
  * Copyright 2000 Bradley Baetz
- * Copyright 2003 Michael GÃ¼nnewig
+ * Copyright 2003 Michael Günnewig
  * Copyright 2005 Dmitry Timoshkov
  *
  * This library is free software; you can redistribute it and/or
@@ -87,7 +87,7 @@ BOOL WINAPI DllMain( HINSTANCE hinst, DWORD reason, LPVOID reserved )
     {
         case DLL_PROCESS_ATTACH:
             DisableThreadLibraryCalls(hinst);
-            MSVFW32_hModule = hinst;
+            MSVFW32_hModule = (HMODULE)hinst;
             break;
     }
     return TRUE;
@@ -102,13 +102,14 @@ static int compare_fourcc(DWORD fcc1, DWORD fcc2)
   return strncasecmp(fcc_str1, fcc_str2, 4);
 }
 
-typedef BOOL (*enum_handler_t)(const char*, unsigned int, void*);
+typedef BOOL (*enum_handler_t)(const char*, int, void*);
 
 static BOOL enum_drivers(DWORD fccType, enum_handler_t handler, void* param)
 {
     CHAR buf[2048], fccTypeStr[5], *s;
-    DWORD i, cnt = 0, lRet;
+    DWORD i, cnt = 0, bufLen, lRet;
     BOOL result = FALSE;
+    FILETIME lastWrite;
     HKEY hKey;
 
     fourcc_to_string(fccTypeStr, fccType);
@@ -118,17 +119,14 @@ static BOOL enum_drivers(DWORD fccType, enum_handler_t handler, void* param)
     lRet = RegOpenKeyExA(HKEY_LOCAL_MACHINE, HKLM_DRIVERS32, 0, KEY_QUERY_VALUE, &hKey);
     if (lRet == ERROR_SUCCESS) 
     {
-        DWORD name, data, type;
-        i = 0;
-        for (;;)
+	DWORD numkeys;
+	RegQueryInfoKeyA( hKey, 0, 0, 0, &numkeys, 0, 0, 0, 0, 0, 0, 0);
+	for (i = 0; i < numkeys; i++) 
 	{
-	    name = 10;
-	    data = sizeof buf - name;
-	    lRet = RegEnumValueA(hKey, i++, buf, &name, 0, &type, (LPBYTE)(buf+name), &data);
-	    if (lRet == ERROR_NO_MORE_ITEMS) break;
+	    bufLen = sizeof(buf) / sizeof(buf[0]);
+	    lRet = RegEnumKeyExA(hKey, i, buf, &bufLen, 0, 0, 0, &lastWrite);
 	    if (lRet != ERROR_SUCCESS) continue;
-	    if (name != 9 || strncasecmp(buf, fccTypeStr, 5)) continue;
-	    buf[name] = '=';
+	    if (strncasecmp(buf, fccTypeStr, 5) || buf[9] != '=') continue;
 	    if ((result = handler(buf, cnt++, param))) break;
 	}
     	RegCloseKey( hKey );
@@ -173,9 +171,9 @@ DWORD WINAPI VideoForWindowsVersion(void)
     return 0x040003B6; /* 4.950 */
 }
 
-static BOOL ICInfo_enum_handler(const char *drv, unsigned int nr, void *param)
+static BOOL ICInfo_enum_handler(const char *drv, int nr, void *param)
 {
-    ICINFO *lpicinfo = param;
+    ICINFO *lpicinfo = (ICINFO *)param;
     DWORD fccHandler = mmioStringToFOURCCA(drv + 5, 0);
 
     /* exact match of fccHandler or nth driver found */
@@ -327,7 +325,7 @@ HIC VFWAPI ICOpen(DWORD fccType, DWORD fccHandler, UINT wMode)
 
     if (driver && driver->proc)
 	/* The driver has been registered at runtime with its driverproc */
-        return MSVIDEO_OpenFunction(fccType, fccHandler, wMode, driver->proc, 0);
+        return MSVIDEO_OpenFunction(fccType, fccHandler, wMode, (DRIVERPROC)driver->proc, (DWORD)NULL);
   
     /* Well, lParam2 is in fact a LPVIDEO_OPEN_PARMS, but it has the
      * same layout as ICOPEN
@@ -519,9 +517,9 @@ static HIC try_driver(driver_info_t *info)
     return 0;
 }
 
-static BOOL ICLocate_enum_handler(const char *drv, unsigned int nr, void *param)
+static BOOL ICLocate_enum_handler(const char *drv, int nr, void *param)
 {
-    driver_info_t *info = param;
+    driver_info_t *info = (driver_info_t *)param;
     info->fccHandler = mmioStringToFOURCCA(drv + 5, 0);
     info->hic = try_driver(info);
     return info->hic != 0;
@@ -753,7 +751,7 @@ static BOOL enum_compressors(HWND list, COMPVARS *pcv, BOOL enum_all)
             idx = SendMessageW(list, CB_ADDSTRING, 0, (LPARAM)icinfo.szDescription);
 
             ic = HeapAlloc(GetProcessHeap(), 0, sizeof(struct codec_info));
-            ic->icinfo = icinfo;
+            memcpy(&ic->icinfo, &icinfo, sizeof(ICINFO));
             ic->hic = hic;
             SendMessageW(list, CB_SETITEMDATA, idx, (LPARAM)ic);
         }
@@ -1026,9 +1024,9 @@ void VFWAPI ICCompressorFree(PCOMPVARS pc)
 LRESULT MSVIDEO_SendMessage(WINE_HIC* whic, UINT msg, DWORD_PTR lParam1, DWORD_PTR lParam2)
 {
     LRESULT     ret;
-
-#define XX(x) case x: TRACE("(%p,"#x",0x%08lx,0x%08lx)\n",whic,lParam1,lParam2); break
-
+    
+#define XX(x) case x: TRACE("(%p,"#x",0x%08lx,0x%08lx)\n",whic,lParam1,lParam2); break;
+    
     switch (msg) {
         /* DRV_* */
         XX(DRV_LOAD);
@@ -1088,7 +1086,7 @@ LRESULT MSVIDEO_SendMessage(WINE_HIC* whic, UINT msg, DWORD_PTR lParam1, DWORD_P
         XX(ICM_DECOMPRESSEX_END);
         XX(ICM_SET_STATUS_PROC);
     default:
-        FIXME("(%p,0x%08x,0x%08lx,0x%08lx) unknown message\n",whic,msg,lParam1,lParam2);
+        FIXME("(%p,0x%08x,0x%08lx,0x%08lx) unknown message\n",whic,(DWORD)msg,lParam1,lParam2);
     }
     
 #undef XX
@@ -1296,10 +1294,11 @@ HANDLE VFWAPI ICImageDecompress(
 		cbHdr = ICDecompressGetFormatSize(hic,lpbiIn);
 		if ( cbHdr < sizeof(BITMAPINFOHEADER) )
 			goto err;
-		pHdr = HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,cbHdr+sizeof(RGBQUAD)*256);
+		pHdr = HeapAlloc(GetProcessHeap(),0,cbHdr+sizeof(RGBQUAD)*256);
 		if ( pHdr == NULL )
 			goto err;
-		if ( ICDecompressGetFormat( hic, lpbiIn, pHdr ) != ICERR_OK )
+		ZeroMemory( pHdr, cbHdr+sizeof(RGBQUAD)*256 );
+		if ( ICDecompressGetFormat( hic, lpbiIn, (BITMAPINFO*)pHdr ) != ICERR_OK )
 			goto err;
 		lpbiOut = (BITMAPINFO*)pHdr;
 		if ( lpbiOut->bmiHeader.biBitCount <= 8 &&
@@ -1337,7 +1336,7 @@ HANDLE VFWAPI ICImageDecompress(
 		WARN( "out of memory\n" );
 		goto err;
 	}
-	pMem = GlobalLock( hMem );
+	pMem = (BYTE*)GlobalLock( hMem );
 	if ( pMem == NULL )
 		goto err;
 	memcpy( pMem, lpbiOut, cbHdr );
@@ -1360,7 +1359,7 @@ err:
 		GlobalFree(hMem); hMem = NULL;
 	}
 
-	return hMem;
+	return (HANDLE)hMem;
 }
 
 /***********************************************************************
@@ -1368,7 +1367,7 @@ err:
  */
 LPVOID VFWAPI ICSeqCompressFrame(PCOMPVARS pc, UINT uiFlags, LPVOID lpBits, BOOL *pfKey, LONG *plSize)
 {
-    ICCOMPRESS* icComp = pc->lpState;
+    ICCOMPRESS* icComp = (ICCOMPRESS *)pc->lpState;
     DWORD ret;
     TRACE("(%p, 0x%08x, %p, %p, %p)\n", pc, uiFlags, lpBits, pfKey, plSize);
 
@@ -1449,7 +1448,7 @@ BOOL VFWAPI ICSeqCompressFrameStart(PCOMPVARS pc, LPBITMAPINFO lpbiIn)
     if (!pc->lpbiIn)
         return FALSE;
 
-    *pc->lpbiIn = *lpbiIn;
+    memcpy(pc->lpbiIn, lpbiIn, sizeof(BITMAPINFO));
     pc->lpBitsPrev = HeapAlloc(GetProcessHeap(), 0, pc->lpbiIn->bmiHeader.biSizeImage);
     if (!pc->lpBitsPrev)
     {
@@ -1490,7 +1489,7 @@ BOOL VFWAPI ICSeqCompressFrameStart(PCOMPVARS pc, LPBITMAPINFO lpbiIn)
     TRACE(" -- %x\n", ret);
     if (ret == ICERR_OK)
     {
-       ICCOMPRESS* icComp = pc->lpState;
+       ICCOMPRESS* icComp = (ICCOMPRESS *)pc->lpState;
        /* Initialise some variables */
        pc->lFrame = 0; pc->lKeyCount = 0;
 

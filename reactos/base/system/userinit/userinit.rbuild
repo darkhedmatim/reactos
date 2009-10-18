@@ -1,8 +1,10 @@
 <?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
-<module name="userinit" type="win32gui" installbase="system32" installname="userinit.exe" unicode="yes">
+<!DOCTYPE project SYSTEM "tools/rbuild/project.dtd">
+<module name="userinit" type="win32gui" installbase="system32" installname="userinit.exe">
 	<include base="userinit">.</include>
-	<library>wine</library>
+	<define name="UNICODE" />
+	<define name="_UNICODE" />
+	<define name="__USE_W32API" />
 	<library>ntdll</library>
 	<library>kernel32</library>
 	<library>user32</library>

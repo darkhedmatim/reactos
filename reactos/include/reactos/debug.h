@@ -4,7 +4,7 @@
  * FILE:            include/internal/debug.h
  * PURPOSE:         Useful debugging macros
  * PROGRAMMER:      David Welch (welch@mcmail.com)
- * UPDATE HISTORY:
+ * UPDATE HISTORY: 
  *                28/05/98: Created
  */
 
@@ -16,27 +16,19 @@
 #ifndef __INTERNAL_DEBUG
 #define __INTERNAL_DEBUG
 
-/* Define DbgPrint/DbgPrintEx/RtlAssert unless the NDK is used */
-#if !defined(_RTLFUNCS_H) && !defined(_NTDDK_)
-
-/* Make sure we have basic types (some people include us *before* SDK... */
-#if !defined(_NTDEF_) && !defined(_NTDEF_H) && !defined(_WINDEF_) && !defined(_WINDEF_H)
-#error Please include SDK first.
+/*  FIXME: should probably remove this later  */
+#if !defined(CHECKED) && !defined(NDEBUG)
+#define CHECKED
 #endif
 
+/* Define DbgPrint/RtlAssert unless the NDK is used */
+#if !defined(_RTLFUNCS_H) && (!defined(_NTDDK_) || !defined(__NTDDK_H))
+
+/* Make sure we have basic types (some people include us *before* SDK... */
+#if defined(_NTDEF_) || (defined _WINDEF_) || (defined _WINDEF_H)
 ULONG
 __cdecl
 DbgPrint(
-    IN PCCH  Format,
-    IN ...
-);
-
-NTSYSAPI
-ULONG
-__cdecl
-DbgPrintEx(
-    IN ULONG ComponentId,
-    IN ULONG Level,
     IN PCCH  Format,
     IN ...
 );
@@ -50,8 +42,9 @@ RtlAssert(
     ULONG LineNumber,
     PCHAR Message
 );
+#endif
 
-#endif /* !defined(_RTLFUNCS_H) && !defined(_NTDDK_) */
+#endif
 
 #ifndef assert
 #ifndef NASSERT
@@ -78,51 +71,68 @@ RtlAssert(
 #endif
 
 /* Print stuff only on Debug Builds*/
-#define DPFLTR_DEFAULT_ID -1
-#if DBG
-
+#ifdef DBG
+    
     /* These are always printed */
-    #define DPRINT1(fmt, ...) do { \
-        if (DbgPrint("(%s:%d) " fmt, __FILE__, __LINE__, ##__VA_ARGS__))  \
-            DbgPrint("(%s:%d) DbgPrint() failed!\n", __FILE__, __LINE__); \
-    } while (0)
+    #define DPRINT1 DbgPrint("(%s:%d) ",__FILE__,__LINE__), DbgPrint
+    #define CHECKPOINT1 do { DbgPrint("%s:%d\n",__FILE__,__LINE__); } while(0);
 
     /* These are printed only if NDEBUG is NOT defined */
     #ifndef NDEBUG
-
-        #define DPRINT(fmt, ...) do { \
-            if (DbgPrint("(%s:%d) " fmt, __FILE__, __LINE__, ##__VA_ARGS__))  \
-                DbgPrint("(%s:%d) DbgPrint() failed!\n", __FILE__, __LINE__); \
-        } while (0)
-
+    
+        #define DPRINT DbgPrint("(%s:%d) ",__FILE__,__LINE__), DbgPrint
+        #define CHECKPOINT do { DbgPrint("%s:%d\n",__FILE__,__LINE__); } while(0);
+    
     #else
-
-        #define DPRINT(...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
-
+        #ifdef _MSC_VER
+            static __inline void DPRINT ( const char* fmt, ... )
+            {
+                UNREFERENCED_PARAMETER(fmt);
+            }
+        #else
+            #define DPRINT(...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
+        #endif
+        #define CHECKPOINT
     #endif
 
-    #define UNIMPLEMENTED         DbgPrint("WARNING:  %s at %s:%d is UNIMPLEMENTED!\n",__FUNCTION__,__FILE__,__LINE__);
+    #define UNIMPLEMENTED \
+        DbgPrint("WARNING:  %s at %s:%d is UNIMPLEMENTED!\n",__FUNCTION__,__FILE__,__LINE__);
 
-    #define ERR_(ch, fmt, ...)    DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_ERROR_LEVEL, "(%s:%d) " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
-    #define WARN_(ch, fmt, ...)   DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_WARNING_LEVEL, "(%s:%d) " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
-    #define TRACE_(ch, fmt, ...)  DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_TRACE_LEVEL, "(%s:%d) " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
-    #define INFO_(ch, fmt, ...)   DbgPrintEx(DPFLTR_##ch##_ID, DPFLTR_INFO_LEVEL, "(%s:%d) " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
-#else /* not DBG */
+#else
 
     /* On non-debug builds, we never show these */
     #define DPRINT1(...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
     #define DPRINT(...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
 
+    #define CHECKPOINT1
+    #define CHECKPOINT
     #define UNIMPLEMENTED
+#endif
 
-    #define ERR_(ch, ...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
-    #define WARN_(ch, ...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
-    #define TRACE_(ch, ...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
-    #define INFO_(ch, ...) do { if(0) { DbgPrint(__VA_ARGS__); } } while(0)
-#endif /* not DBG */
+/*
+ * FUNCTION: Assert a maximum value for the current irql
+ * ARGUMENTS:
+ *        x = Maximum irql
+ */
+#define ASSERT_IRQL(x) assert(KeGetCurrentIrql()<=(x))
+#define assert_irql(x) assert(KeGetCurrentIrql()<=(x))
 
-#define ASSERT_IRQL_LESS_OR_EQUAL(x) ASSERT(KeGetCurrentIrql()<=(x))
-#define ASSERT_IRQL_EQUAL(x) ASSERT(KeGetCurrentIrql()==(x))
-#define ASSERT_IRQL_LESS(x) ASSERT(KeGetCurrentIrql()<(x))
+/* Macros expanding to the appropriate inline assembly to raise a breakpoint */
+#if defined(_M_IX86)
+#define ASM_BREAKPOINT "\nint $3\n"
+#elif defined(_M_ALPHA)
+#define ASM_BREAKPOINT "\ncall_pal bpt\n"
+#elif defined(_M_MIPS)
+#define ASM_BREAKPOINT "\nbreak\n"
+#elif defined(__x86_64__)
+#define ASM_BREAKPOINT "\nint $3\n"
+#else
+#error Unsupported architecture.
+#endif
+
+#ifndef KEBUGCHECK
+#define KEBUGCHECK(a) DbgPrint("KeBugCheck (0x%X) at %s:%i\n", a, __FILE__,__LINE__), KeBugCheck(a)
+#define KEBUGCHECKEX(a,b,c,d,e) DbgPrint("KeBugCheckEx (0x%X, 0x%X, 0x%X, 0x%X, 0x%X) at %s:%i\n", a, b, c, d, e, __FILE__,__LINE__), KeBugCheckEx(a,b,c,d,e)
+#endif
 
 #endif /* __INTERNAL_DEBUG */

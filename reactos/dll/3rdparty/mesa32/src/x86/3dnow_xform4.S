@@ -1,3 +1,4 @@
+/* $Id: 3dnow_xform4.S,v 1.4 2005/01/04 14:33:47 brianp Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -24,7 +25,6 @@
  */
 
 #ifdef USE_3DNOW_ASM
-#include "assyntax.h"
 #include "matypes.h"
 #include "xform_args.h"
 
@@ -563,8 +563,4 @@ LLBL( G3TPIR_2 ):
     POP_L     ( EDI )
     POP_L     ( ESI )
     RET
-#endif
-	
-#if defined (__ELF__) && defined (__linux__)
-	.section .note.GNU-stack,"",%progbits
 #endif

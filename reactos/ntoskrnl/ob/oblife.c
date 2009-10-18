@@ -1,7 +1,7 @@
 /*
  * PROJECT:         ReactOS Kernel
  * LICENSE:         GPL - See COPYING in the top level directory
- * FILE:            ntoskrnl/ob/oblife.c
+ * FILE:            ntoskrnl/ob/create.c
  * PURPOSE:         Manages the lifetime of an Object, including its creation,
  *                  and deletion, as well as setting or querying any of its
  *                  information while it is active. Since Object Types are also
@@ -15,14 +15,14 @@
 
 #include <ntoskrnl.h>
 #define NDEBUG
-#include <debug.h>
+#include <internal/debug.h>
 
 extern ULONG NtGlobalFlag;
 
 POBJECT_TYPE ObpTypeObjectType = NULL;
 KEVENT ObpDefaultObject;
 
-GENERAL_LOOKASIDE ObpNameBufferLookasideList, ObpCreateInfoLookasideList;
+NPAGED_LOOKASIDE_LIST ObpNmLookasideList, ObpCiLookasideList;
 
 WORK_QUEUE_ITEM ObpReaperWorkItem;
 volatile PVOID ObpReaperList;
@@ -80,7 +80,7 @@ ObpDeallocateObject(IN PVOID Object)
         if (Header->ObjectCreateInfo)
         {
             /* Free it */
-            ObpFreeObjectCreateInformation(Header->ObjectCreateInfo);
+            ObpFreeAndReleaseCapturedAttributes(Header->ObjectCreateInfo);
             Header->ObjectCreateInfo = NULL;
         }
     }
@@ -262,8 +262,8 @@ ObpSetPermanentObject(IN PVOID ObjectBody,
     /* Get the header */
     ObjectHeader = OBJECT_TO_OBJECT_HEADER(ObjectBody);
 
-    /* Acquire object lock */
-    ObpAcquireObjectLock(ObjectHeader);
+    /* Acquire object type lock */
+    ObpEnterObjectTypeMutex(ObjectHeader->Type);
 
     /* Check what we're doing to it */
     if (Permanent)
@@ -272,7 +272,7 @@ ObpSetPermanentObject(IN PVOID ObjectBody,
         ObjectHeader->Flags |= OB_FLAG_PERMANENT;
 
         /* Release the lock */
-        ObpReleaseObjectLock(ObjectHeader);
+        ObpLeaveObjectTypeMutex(ObjectHeader->Type);
     }
     else
     {
@@ -280,7 +280,7 @@ ObpSetPermanentObject(IN PVOID ObjectBody,
         ObjectHeader->Flags &= ~OB_FLAG_PERMANENT;
 
         /* Release the lock */
-        ObpReleaseObjectLock(ObjectHeader);
+        ObpLeaveObjectTypeMutex(ObjectHeader->Type);
 
         /* Check if we should delete the object now */
         ObpDeleteNameCheck(ObjectBody);
@@ -300,20 +300,9 @@ ObpAllocateObjectNameBuffer(IN ULONG Length,
     MaximumLength = Length + sizeof(UNICODE_NULL);
 
     /* Check if we should use the lookaside buffer */
-    if (!(UseLookaside) || (MaximumLength > OBP_NAME_LOOKASIDE_MAX_SIZE))
+    if (!(UseLookaside) || (MaximumLength > 248))
     {
         /* Nope, allocate directly from pool */
-        /* Since we later use MaximumLength to detect that we're not allocating
-         * from a list, we need at least MaximumLength + sizeof(UNICODE_NULL)
-         * here.
-         *
-         * People do call this with UseLookasideList FALSE so the distinction
-         * is critical.
-         */
-        if (MaximumLength <= OBP_NAME_LOOKASIDE_MAX_SIZE)
-        {
-            MaximumLength = OBP_NAME_LOOKASIDE_MAX_SIZE + sizeof(UNICODE_NULL);
-        }
         Buffer = ExAllocatePoolWithTag(PagedPool,
                                        MaximumLength,
                                        OB_NAME_TAG);
@@ -321,13 +310,13 @@ ObpAllocateObjectNameBuffer(IN ULONG Length,
     else
     {
         /* Allocate from the lookaside */
-        MaximumLength = OBP_NAME_LOOKASIDE_MAX_SIZE;
-        Buffer = ObpAllocateObjectCreateInfoBuffer(LookasideNameBufferList);
+        //MaximumLength = 248; <= hack, we should actually set this...!
+        Buffer = ObpAllocateCapturedAttributes(LookasideNameBufferList);
     }
 
     /* Setup the string */
-    ObjectName->MaximumLength = (USHORT)MaximumLength;
     ObjectName->Length = (USHORT)Length;
+    ObjectName->MaximumLength = (USHORT)MaximumLength;
     ObjectName->Buffer = Buffer;
     return Buffer;
 }
@@ -339,7 +328,7 @@ ObpFreeObjectNameBuffer(IN PUNICODE_STRING Name)
     PVOID Buffer = Name->Buffer;
 
     /* We know this is a pool-allocation if the size doesn't match */
-    if (Name->MaximumLength != OBP_NAME_LOOKASIDE_MAX_SIZE)
+    if (Name->MaximumLength != 248)
     {
         /* Free it from the pool */
         ExFreePool(Buffer);
@@ -368,13 +357,14 @@ ObpCaptureObjectName(IN OUT PUNICODE_STRING CapturedName,
     RtlInitEmptyUnicodeString(CapturedName, NULL, 0);
 
     /* Protect everything */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Check if we came from user mode */
         if (AccessMode != KernelMode)
         {
             /* First Probe the String */
-            LocalName = ProbeForReadUnicodeString(ObjectName);
+            ProbeForReadUnicodeString(ObjectName);
+            LocalName = *ObjectName;
             ProbeForRead(LocalName.Buffer, LocalName.Length, sizeof(WCHAR));
         }
         else
@@ -414,16 +404,13 @@ ObpCaptureObjectName(IN OUT PUNICODE_STRING CapturedName,
             }
         }
     }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
+    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
     {
         /* Handle exception and free the string buffer */
-        Status = _SEH2_GetExceptionCode();
-        if (StringBuffer)
-        {
-            ObpFreeObjectNameBuffer(CapturedName);
-        }
+        Status = _SEH_GetExceptionCode();
+        if (StringBuffer) ExFreePool(StringBuffer);
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return */
     return Status;
@@ -431,7 +418,7 @@ ObpCaptureObjectName(IN OUT PUNICODE_STRING CapturedName,
 
 NTSTATUS
 NTAPI
-ObpCaptureObjectCreateInformation(IN POBJECT_ATTRIBUTES ObjectAttributes,
+ObpCaptureObjectAttributes(IN POBJECT_ATTRIBUTES ObjectAttributes,
                            IN KPROCESSOR_MODE AccessMode,
                            IN BOOLEAN AllocateFromLookaside,
                            IN POBJECT_CREATE_INFORMATION ObjectCreateInfo,
@@ -447,7 +434,7 @@ ObpCaptureObjectCreateInformation(IN POBJECT_ATTRIBUTES ObjectAttributes,
     RtlZeroMemory(ObjectCreateInfo, sizeof(OBJECT_CREATE_INFORMATION));
 
     /* SEH everything here for protection */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Check if we got attributes */
         if (ObjectAttributes)
@@ -466,7 +453,8 @@ ObpCaptureObjectCreateInformation(IN POBJECT_ATTRIBUTES ObjectAttributes,
                 (ObjectAttributes->Attributes & ~OBJ_VALID_ATTRIBUTES))
             {
                 /* Invalid combination, fail */
-                _SEH2_YIELD(return STATUS_INVALID_PARAMETER);
+                Status = STATUS_INVALID_PARAMETER;
+                _SEH_LEAVE;
             }
 
             /* Set some Create Info */
@@ -486,11 +474,11 @@ ObpCaptureObjectCreateInformation(IN POBJECT_ATTRIBUTES ObjectAttributes,
                                                      TRUE,
                                                      &ObjectCreateInfo->
                                                      SecurityDescriptor);
-                if (!NT_SUCCESS(Status))
+                if(!NT_SUCCESS(Status))
                 {
                     /* Capture failed, quit */
                     ObjectCreateInfo->SecurityDescriptor = NULL;
-                    _SEH2_YIELD(return Status);
+                    _SEH_LEAVE;
                 }
 
                 /* Save the probe mode and security descriptor size */
@@ -522,39 +510,38 @@ ObpCaptureObjectCreateInformation(IN POBJECT_ATTRIBUTES ObjectAttributes,
             LocalObjectName = NULL;
         }
     }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
+    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
     {
-        /* Cleanup and return the exception code */
-        ObpReleaseObjectCreateInformation(ObjectCreateInfo);
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
+        /* Get the exception */
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
-    /* Now check if the Object Attributes had an Object Name */
-    if (LocalObjectName)
+    if (NT_SUCCESS(Status))
     {
-        Status = ObpCaptureObjectName(ObjectName,
-                                      LocalObjectName,
-                                      AccessMode,
-                                      AllocateFromLookaside);
-    }
-    else
-    {
-        /* Clear the string */
-        RtlInitEmptyUnicodeString(ObjectName, NULL, 0);
-
-        /* He can't have specified a Root Directory */
-        if (ObjectCreateInfo->RootDirectory)
+        /* Now check if the Object Attributes had an Object Name */
+        if (LocalObjectName)
         {
-            Status = STATUS_OBJECT_NAME_INVALID;
+            Status = ObpCaptureObjectName(ObjectName,
+                                          LocalObjectName,
+                                          AccessMode,
+                                          AllocateFromLookaside);
+        }
+        else
+        {
+            /* Clear the string */
+            RtlInitEmptyUnicodeString(ObjectName, NULL, 0);
+
+            /* He can't have specified a Root Directory */
+            if (ObjectCreateInfo->RootDirectory)
+            {
+                Status = STATUS_OBJECT_NAME_INVALID;
+            }
         }
     }
 
     /* Cleanup if we failed */
-    if (!NT_SUCCESS(Status))
-    {
-        ObpReleaseObjectCreateInformation(ObjectCreateInfo);
-    }
+    if (!NT_SUCCESS(Status)) ObpReleaseCapturedAttributes(ObjectCreateInfo);
 
     /* Return status to caller */
     return Status;
@@ -596,7 +583,7 @@ ObpAllocateObject(IN POBJECT_CREATE_INFORMATION ObjectCreateInfo,
     {
         /* Use default tag and non-paged pool */
         PoolType = NonPagedPool;
-        Tag = 'TjbO';
+        Tag = TAG('O', 'b', 'j', 'T');
     }
     else
     {
@@ -826,6 +813,9 @@ ObpAllocateObject(IN POBJECT_CREATE_INFORMATION ObjectCreateInfo,
                                                    HighWaterNumberOfObjects);
     }
 
+    /* OMG-Hack-Of-Doom */
+    RtlZeroMemory(&Header->Body, ObjectSize);
+
     /* Return Header */
     *ObjectHeader = Header;
     return STATUS_SUCCESS;
@@ -842,7 +832,7 @@ ObQueryTypeInfo(IN POBJECT_TYPE ObjectType,
     PWSTR InfoBuffer;
 
     /* Enter SEH */
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Set return length aligned to 4-byte boundary */
         *ReturnLength += sizeof(*ObjectTypeInfo) +
@@ -851,7 +841,7 @@ ObQueryTypeInfo(IN POBJECT_TYPE ObjectType,
         /* Check if thats too much though. */
         if (Length < *ReturnLength)
         {
-            _SEH2_YIELD(return STATUS_INFO_LENGTH_MISMATCH);
+            _SEH_YIELD(return STATUS_INFO_LENGTH_MISMATCH);
         }
 
         /* Build the data */
@@ -894,12 +884,12 @@ ObQueryTypeInfo(IN POBJECT_TYPE ObjectType,
         /* Null-terminate it */
         (InfoBuffer)[ObjectType->Name.Length / sizeof(WCHAR)] = UNICODE_NULL;
     }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
+    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
     {
         /* Otherwise, get the exception code */
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Return status to caller */
     return Status;
@@ -926,15 +916,15 @@ ObCreateObject(IN KPROCESSOR_MODE ProbeMode OPTIONAL,
     POBJECT_HEADER Header;
 
     /* Allocate a capture buffer */
-    ObjectCreateInfo = ObpAllocateObjectCreateInfoBuffer(LookasideCreateInfoList);
+    ObjectCreateInfo = ObpAllocateCapturedAttributes(LookasideCreateInfoList);
     if (!ObjectCreateInfo) return STATUS_INSUFFICIENT_RESOURCES;
 
     /* Capture all the info */
-    Status = ObpCaptureObjectCreateInformation(ObjectAttributes,
-                                               ProbeMode,
-                                               FALSE,
-                                               ObjectCreateInfo,
-                                               &ObjectName);
+    Status = ObpCaptureObjectAttributes(ObjectAttributes,
+                                        ProbeMode,
+                                        FALSE,
+                                        ObjectCreateInfo,
+                                        &ObjectName);
     if (NT_SUCCESS(Status))
     {
         /* Validate attributes */
@@ -994,7 +984,7 @@ ObCreateObject(IN KPROCESSOR_MODE ProbeMode OPTIONAL,
         }
 
         /* Release the Capture Info, we don't need it */
-        ObpFreeObjectCreateInformation(ObjectCreateInfo);
+        ObpReleaseCapturedAttributes(ObjectCreateInfo);
         if (ObjectName.Buffer) ObpFreeObjectNameBuffer(&ObjectName);
     }
 
@@ -1048,7 +1038,7 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
     }
 
     /* Setup a lookup context */
-    ObpInitializeLookupContext(&Context);
+    ObpInitializeDirectoryLookup(&Context);
 
     /* Check if we've already created the directory of types */
     if (ObpTypeDirectoryObject)
@@ -1064,7 +1054,7 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
                                     &Context))
         {
             /* We have already created it, so fail */
-            ObpReleaseLookupContext(&Context);
+            ObpCleanupDirectoryLookup(&Context);
             return STATUS_OBJECT_NAME_COLLISION;
         }
     }
@@ -1076,7 +1066,7 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
     if (!ObjectName.Buffer)
     {
         /* Out of memory, fail */
-        ObpReleaseLookupContext(&Context);
+        ObpCleanupDirectoryLookup(&Context);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
@@ -1094,7 +1084,7 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
     if (!NT_SUCCESS(Status))
     {
         /* Free the name and fail */
-        ObpReleaseLookupContext(&Context);
+        ObpCleanupDirectoryLookup(&Context);
         ExFreePool(ObjectName.Buffer);
         return Status;
     }
@@ -1119,7 +1109,7 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
 
         /* Set the hard-coded key and object count */
         LocalObjectType->TotalNumberOfObjects = 1;
-        LocalObjectType->Key = 'TjbO';
+        LocalObjectType->Key = TAG('O', 'b', 'j', 'T');
     }
     else
     {
@@ -1145,7 +1135,7 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
     /* Calculate how much space our header'll take up */
     HeaderSize = sizeof(OBJECT_HEADER) +
                  sizeof(OBJECT_HEADER_NAME_INFO) +
-                 (ObjectTypeInitializer->MaintainHandleCount ?
+                 (ObjectTypeInitializer->MaintainHandleCount ? 
                   sizeof(OBJECT_HEADER_HANDLE_INFO) : 0);
 
     /* Check the pool type */
@@ -1234,7 +1224,7 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
         }
 
         /* Cleanup the lookup context */
-        ObpReleaseLookupContext(&Context);
+        ObpCleanupDirectoryLookup(&Context);
 
         /* Return the object type and success */
         *ObjectType = LocalObjectType;
@@ -1242,26 +1232,8 @@ ObCreateObjectType(IN PUNICODE_STRING TypeName,
     }
 
     /* If we got here, then we failed */
-    ObpReleaseLookupContext(&Context);
+    ObpCleanupDirectoryLookup(&Context);
     return STATUS_INSUFFICIENT_RESOURCES;
-}
-
-VOID
-NTAPI
-ObpDeleteObjectType(IN PVOID Object)
-{
-    ULONG i;
-    POBJECT_TYPE ObjectType = (PVOID)Object;
-    
-    /* Loop our locks */
-    for (i = 0; i < 4; i++)
-    {
-        /* Delete each one */
-        ExDeleteResourceLite(&ObjectType->ObjectLocks[i]);
-    }
-    
-    /* Delete our main mutex */
-    ExDeleteResourceLite(&ObjectType->Mutex);
 }
 
 /*++
@@ -1408,7 +1380,7 @@ NtQueryObject(IN HANDLE ObjectHandle,
     POBJECT_BASIC_INFORMATION BasicInfo;
     ULONG InfoLength;
     PVOID Object = NULL;
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     KPROCESSOR_MODE PreviousMode = ExGetPreviousMode();
     PAGED_CODE();
 
@@ -1416,7 +1388,7 @@ NtQueryObject(IN HANDLE ObjectHandle,
     if (PreviousMode != KernelMode)
     {
         /* Protect validation with SEH */
-        _SEH2_TRY
+        _SEH_TRY
         {
             /* Probe the input structure */
             ProbeForWrite(ObjectInformation, Length, sizeof(UCHAR));
@@ -1424,19 +1396,22 @@ NtQueryObject(IN HANDLE ObjectHandle,
             /* If we have a result length, probe it too */
             if (ResultLength) ProbeForWriteUlong(ResultLength);
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            /* Get the exception code */
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        /* Fail if we raised an exception */
+        if (!NT_SUCCESS(Status)) return Status;
     }
 
     /*
      * Make sure this isn't a generic type query, since the caller doesn't
      * have to give a handle for it
      */
-    if (ObjectInformationClass != ObjectTypesInformation)
+    if (ObjectInformationClass != ObjectAllTypesInformation)
     {
         /* Reference the object */
         Status = ObReferenceObjectByHandle(ObjectHandle,
@@ -1451,7 +1426,7 @@ NtQueryObject(IN HANDLE ObjectHandle,
         ObjectHeader = OBJECT_TO_OBJECT_HEADER(Object);
     }
 
-    _SEH2_TRY
+    _SEH_TRY
     {
         /* Check the information class */
         switch (ObjectInformationClass)
@@ -1488,27 +1463,27 @@ NtQueryObject(IN HANDLE ObjectHandle,
                 }
 
                 /* Copy quota information */
-                BasicInfo->PagedPoolCharge = 0; /* FIXME*/
-                BasicInfo->NonPagedPoolCharge = 0; /* FIXME*/
+                BasicInfo->PagedPoolUsage = 0; /* FIXME*/
+                BasicInfo->NonPagedPoolUsage = 0; /* FIXME*/
 
                 /* Copy name information */
-                BasicInfo->NameInfoSize = 0; /* FIXME*/
-                BasicInfo->TypeInfoSize = 0; /* FIXME*/
+                BasicInfo->NameInformationLength = 0; /* FIXME*/
+                BasicInfo->TypeInformationLength = 0; /* FIXME*/
 
                 /* Copy security information */
-                BasicInfo->SecurityDescriptorSize = 0; /* FIXME*/
+                BasicInfo->SecurityDescriptorLength = 0; /* FIXME*/
 
                 /* Check if this is a symlink */
                 if (ObjectHeader->Type == ObSymbolicLinkType)
                 {
                     /* Return the creation time */
-                    BasicInfo->CreationTime.QuadPart =
+                    BasicInfo->CreateTime.QuadPart =
                         ((POBJECT_SYMBOLIC_LINK)Object)->CreationTime.QuadPart;
                 }
                 else
                 {
                     /* Otherwise return 0 */
-                    BasicInfo->CreationTime.QuadPart = (ULONGLONG)0;
+                    BasicInfo->CreateTime.QuadPart = (ULONGLONG)0;
                 }
 
                 /* Break out with success */
@@ -1538,13 +1513,13 @@ NtQueryObject(IN HANDLE ObjectHandle,
                 break;
 
             /* Information about all types */
-            case ObjectTypesInformation:
+            case ObjectAllTypesInformation:
                 DPRINT1("NOT IMPLEMENTED!\n");
                 Status = STATUS_NOT_IMPLEMENTED;
                 break;
 
             /* Information about the handle flags */
-            case ObjectHandleFlagInformation:
+            case ObjectHandleInformation:
 
                 /* Validate length */
                 InfoLength = sizeof (OBJECT_HANDLE_ATTRIBUTE_INFORMATION);
@@ -1582,12 +1557,12 @@ NtQueryObject(IN HANDLE ObjectHandle,
             *ResultLength = Length;
         }
     }
-    _SEH2_EXCEPT(ExSystemExceptionFilter())
+    _SEH_EXCEPT(_SEH_ExSystemExceptionFilter)
     {
         /* Otherwise, get the exception code */
-        Status = _SEH2_GetExceptionCode();
+        Status = _SEH_GetExceptionCode();
     }
-    _SEH2_END;
+    _SEH_END;
 
     /* Dereference the object if we had referenced it */
     if (Object) ObDereferenceObject (Object);
@@ -1626,7 +1601,7 @@ NtSetInformationObject(IN HANDLE ObjectHandle,
                        IN PVOID ObjectInformation,
                        IN ULONG Length)
 {
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_SUCCESS;
     OBP_SET_HANDLE_ATTRIBUTES_CONTEXT Context;
     PVOID ObjectTable;
     KAPC_STATE ApcState;
@@ -1634,7 +1609,7 @@ NtSetInformationObject(IN HANDLE ObjectHandle,
     PAGED_CODE();
 
     /* Validate the information class */
-    if (ObjectInformationClass != ObjectHandleFlagInformation)
+    if (ObjectInformationClass != ObjectHandleInformation)
     {
         /* Invalid class */
         return STATUS_INVALID_INFO_CLASS;
@@ -1647,35 +1622,30 @@ NtSetInformationObject(IN HANDLE ObjectHandle,
         return STATUS_INFO_LENGTH_MISMATCH;
     }
 
-    /* Save the previous mode */
+    /* Save the previous mode and actual information */
     Context.PreviousMode = ExGetPreviousMode();
 
-    /* Check if we were called from user mode */
     if (Context.PreviousMode != KernelMode)
     {
-        /* Enter SEH */
-        _SEH2_TRY
+        _SEH_TRY
         {
-            /* Probe and capture the attribute buffer */
             ProbeForRead(ObjectInformation,
                          sizeof(OBJECT_HANDLE_ATTRIBUTE_INFORMATION),
-                         sizeof(BOOLEAN));
+                         sizeof(ULONG));
             Context.Information = *(POBJECT_HANDLE_ATTRIBUTE_INFORMATION)
                                     ObjectInformation;
         }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+        _SEH_HANDLE
         {
-            /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            Status = _SEH_GetExceptionCode();
         }
-        _SEH2_END;
+        _SEH_END;
+
+        if (!NT_SUCCESS(Status)) return Status;
     }
     else
-    {
-        /* Just copy the buffer directly */
         Context.Information = *(POBJECT_HANDLE_ATTRIBUTE_INFORMATION)
                                 ObjectInformation;
-    }
 
     /* Check if this is a kernel handle */
     if (ObIsKernelHandle(ObjectHandle, Context.PreviousMode))
@@ -1706,11 +1676,6 @@ NtSetInformationObject(IN HANDLE ObjectHandle,
     {
         /* Some failure */
         Status = STATUS_ACCESS_DENIED;
-    }
-    else
-    {
-        /* We are done */
-        Status = STATUS_SUCCESS;
     }
 
     /* De-attach if we were attached, and return status */

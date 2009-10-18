@@ -1,18 +1,7 @@
-/*
- * COPYRIGHT:       See COPYING in the top level directory
- * PROJECT:         ReactOS system libraries
- * FILE:            dll/win32/kernel32/misc/actctx.c
- * PURPOSE:         Comm functions
- * PROGRAMMERS:     Jacek Caban for CodeWeavers
- *                  Eric Pouech
- *                  Jon Griffiths
- *                  Dmitry Chapyshev (dmitry@reactos.org)
- */
-
 #include <k32.h>
 
 #define NDEBUG
-#include <debug.h>
+#include "../include/debug.h"
 
 #define ACTCTX_FLAGS_ALL (\
  ACTCTX_FLAG_PROCESSOR_ARCHITECTURE_VALID |\
@@ -31,7 +20,7 @@
  * @implemented
  */
 BOOL
-WINAPI
+STDCALL
 FindActCtxSectionStringA(
     DWORD dwFlags,
     const GUID *lpExtensionGuid,
@@ -41,8 +30,8 @@ FindActCtxSectionStringA(
     )
 {
     BOOL bRetVal;
-    LPWSTR lpStringToFindW = NULL;
-
+    LPWSTR lpStringToFindW;
+    
     /* Convert lpStringToFind */
     if (lpStringToFind)
     {
@@ -51,15 +40,14 @@ FindActCtxSectionStringA(
     }
 
     /* Call the Unicode function */
-    bRetVal = FindActCtxSectionStringW(dwFlags,
+    bRetVal = FindActCtxSectionStringW(dwFlags, 
                                         lpExtensionGuid,
-                                        ulSectionId,
+                                        ulSectionId, 
                                         lpStringToFindW,
                                         ReturnedData);
 
     /* Clean up */
-    if (lpStringToFindW)
-        RtlFreeHeap(GetProcessHeap(), 0, (LPWSTR*) lpStringToFindW);
+    RtlFreeHeap(GetProcessHeap(), 0, (LPWSTR*) lpStringToFindW);
 
     return bRetVal;
 }
@@ -69,7 +57,7 @@ FindActCtxSectionStringA(
  * @implemented
  */
 HANDLE
-WINAPI
+STDCALL
 CreateActCtxA(
     PCACTCTXA pActCtx
     )
@@ -91,7 +79,7 @@ CreateActCtxA(
     {
         BasepAnsiStringToHeapUnicodeString(pActCtx->lpSource,
                                           (LPWSTR*) &pActCtxW.lpSource);
-    }
+    } 
     if (pActCtx->lpAssemblyDirectory)
     {
         BasepAnsiStringToHeapUnicodeString(pActCtx->lpAssemblyDirectory,
@@ -128,22 +116,15 @@ CreateActCtxA(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 ActivateActCtx(
     HANDLE hActCtx,
     ULONG_PTR *ulCookie
     )
 {
-    NTSTATUS Status;
-
     DPRINT("ActivateActCtx(%p %p)\n", hActCtx, ulCookie );
-
-    Status = RtlActivateActivationContext(0, hActCtx, ulCookie);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
+    if (ulCookie)
+        *ulCookie = ACTCTX_FAKE_COOKIE;
     return TRUE;
 }
 
@@ -151,55 +132,47 @@ ActivateActCtx(
  * @unimplemented
  */
 VOID
-WINAPI
+STDCALL
 AddRefActCtx(
     HANDLE hActCtx
     )
 {
     DPRINT("AddRefActCtx(%p)\n", hActCtx);
-    RtlAddRefActivationContext(hActCtx);
 }
 
 /*
  * @unimplemented
  */
 HANDLE
-WINAPI
+STDCALL
 CreateActCtxW(
     PCACTCTXW pActCtx
     )
 {
-    NTSTATUS    Status;
-    HANDLE      hActCtx;
-
     DPRINT("CreateActCtxW(%p %08lx)\n", pActCtx, pActCtx ? pActCtx->dwFlags : 0);
 
-    Status = RtlCreateActivationContext(&hActCtx, (PVOID*)&pActCtx);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
+    if (!pActCtx)
         return INVALID_HANDLE_VALUE;
-    }
-    return hActCtx;
+    if (pActCtx->cbSize != sizeof *pActCtx)
+        return INVALID_HANDLE_VALUE;
+    if (pActCtx->dwFlags & ~ACTCTX_FLAGS_ALL)
+        return INVALID_HANDLE_VALUE;
+    return ACTCTX_FAKE_HANDLE;
 }
 
 /*
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 DeactivateActCtx(
     DWORD dwFlags,
     ULONG_PTR ulCookie
     )
 {
-    NTSTATUS Status;
-
     DPRINT("DeactivateActCtx(%08lx %08lx)\n", dwFlags, ulCookie);
-    Status = RtlDeactivateActivationContext(dwFlags, ulCookie);
-
-    if (!NT_SUCCESS(Status)) return FALSE;
-
+    if (ulCookie != ACTCTX_FAKE_COOKIE)
+        return FALSE;
     return TRUE;
 }
 
@@ -207,7 +180,7 @@ DeactivateActCtx(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 FindActCtxSectionGuid(
     DWORD dwFlags,
     const GUID *lpExtensionGuid,
@@ -224,7 +197,7 @@ FindActCtxSectionGuid(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 FindActCtxSectionStringW(
     DWORD dwFlags,
     const GUID *lpExtensionGuid,
@@ -233,36 +206,20 @@ FindActCtxSectionStringW(
     PACTCTX_SECTION_KEYED_DATA ReturnedData
     )
 {
-    UNICODE_STRING us;
-    NTSTATUS Status;
-
-    RtlInitUnicodeString(&us, lpStringToFind);
-    Status = RtlFindActivationContextSectionString(dwFlags, lpExtensionGuid, ulSectionId, &us, ReturnedData);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
-    return TRUE;
+    DPRINT("%s() is UNIMPLEMENTED!\n", __FUNCTION__);
+    return FALSE;
 }
 
 /*
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 GetCurrentActCtx(
     HANDLE *phActCtx)
 {
-    NTSTATUS Status;
-
     DPRINT("GetCurrentActCtx(%p)\n", phActCtx);
-    Status = RtlGetActiveActivationContext(phActCtx);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
-        return FALSE;
-    }
+    *phActCtx = ACTCTX_FAKE_HANDLE;
     return TRUE;
 }
 
@@ -270,7 +227,7 @@ GetCurrentActCtx(
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 QueryActCtxW(
     DWORD dwFlags,
     HANDLE hActCtx,
@@ -291,33 +248,25 @@ QueryActCtxW(
  * @unimplemented
  */
 VOID
-WINAPI
+STDCALL
 ReleaseActCtx(
     HANDLE hActCtx
     )
 {
     DPRINT("ReleaseActCtx(%p)\n", hActCtx);
-    RtlReleaseActivationContext(hActCtx);
 }
 
 /*
  * @unimplemented
  */
 BOOL
-WINAPI
+STDCALL
 ZombifyActCtx(
     HANDLE hActCtx
     )
 {
-    NTSTATUS Status;
     DPRINT("ZombifyActCtx(%p)\n", hActCtx);
-
-    Status = RtlZombifyActivationContext(hActCtx);
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError(RtlNtStatusToDosError(Status));
+    if (hActCtx != ACTCTX_FAKE_HANDLE)
         return FALSE;
-    }
-
     return TRUE;
 }

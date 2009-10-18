@@ -19,22 +19,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include <stdarg.h>
-#include <string.h>
-#include "windef.h"
-#include "winbase.h"
-#include "winnls.h"
-#include "wingdi.h"
-#include "winuser.h"
-#include "commdlg.h"
-#include "cderr.h"
-#include "dlgs.h"
-#include "wine/debug.h"
+#include <precomp.h>
 
 WINE_DEFAULT_DEBUG_CHANNEL(commdlg);
-
-#include "cdlg.h"
-
 
 /*-----------------------------------------------------------------------*/
 
@@ -175,7 +162,7 @@ Replace:
  */
 static INT_PTR CALLBACK COMDLG32_FindReplaceDlgProc(HWND hDlgWnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
-	COMDLG32_FR_Data *pdata = GetPropA(hDlgWnd, (LPSTR)COMDLG32_Atom);
+	COMDLG32_FR_Data *pdata = (COMDLG32_FR_Data *)GetPropA(hDlgWnd, (LPSTR)COMDLG32_Atom);
 	INT_PTR retval = TRUE;
 
 	if(iMsg == WM_INITDIALOG)
@@ -299,8 +286,8 @@ static INT_PTR CALLBACK COMDLG32_FindReplaceDlgProc(HWND hDlgWnd, UINT iMsg, WPA
  *		FALSE: Failure
  */
 static BOOL COMDLG32_FR_CheckPartial(
-	const FINDREPLACEA *pfr,	/* [in] Find structure */
-	BOOL Replace			/* [in] True if called as replace */
+	LPFINDREPLACEA pfr,	/* [in] Find structure */
+        BOOL Replace		/* [in] True if called as replace */
 ) {
 	if(!pfr)
         {
@@ -374,7 +361,7 @@ static HWND COMDLG32_FR_DoFindReplace(
         DWORD error;
         LPDLGTEMPLATEW rcs;
 
-	TRACE("hInst=%p, Flags=%08x\n", pdata->fr.hInstance, pdata->fr.Flags);
+	TRACE("hInst=%p, Flags=%08lx\n", pdata->fr.hInstance, pdata->fr.Flags);
 
         if(!(pdata->fr.Flags & FR_ENABLETEMPLATEHANDLE))
         {
@@ -382,7 +369,7 @@ static HWND COMDLG32_FR_DoFindReplace(
 		HRSRC htemplate;
         	if(pdata->fr.Flags & FR_ENABLETEMPLATE)
 	        {
-			hmod = pdata->fr.hInstance;
+        		hmod = (HMODULE)pdata->fr.hInstance;
                         if(pdata->fr.Flags & FR_WINE_UNICODE)
                         {
 				htemplate = FindResourceW(hmod, (LPCWSTR)pdata->fr.lpTemplateName, (LPWSTR)RT_DIALOG);
@@ -408,7 +395,7 @@ static HWND COMDLG32_FR_DoFindReplace(
         }
         else
         {
-                loadrc = pdata->fr.hInstance;
+        	loadrc = (HGLOBAL)pdata->fr.hInstance;
         }
 
         if(!loadrc)
@@ -417,7 +404,7 @@ static HWND COMDLG32_FR_DoFindReplace(
 		goto cleanup;
 	}
 
-        if((rcs = LockResource(loadrc)) == NULL)
+        if((rcs = (LPDLGTEMPLATEW)LockResource(loadrc)) == NULL)
         {
 		error = CDERR_LOCKRESFAILURE;
 		goto cleanup;
@@ -453,7 +440,7 @@ HWND WINAPI FindTextA(
 	if(!COMDLG32_FR_CheckPartial(pfr, FALSE))
         	return 0;
 
-        if((pdata = COMDLG32_AllocMem(sizeof(COMDLG32_FR_Data))) == NULL)
+	if((pdata = (COMDLG32_FR_Data *)COMDLG32_AllocMem(sizeof(COMDLG32_FR_Data))) == NULL)
         	return 0; /* Error has been set */
 
         pdata->user_fr.fra = pfr;
@@ -476,7 +463,7 @@ HWND WINAPI ReplaceTextA(
 	if(!COMDLG32_FR_CheckPartial(pfr, TRUE))
         	return 0;
 
-        if((pdata = COMDLG32_AllocMem(sizeof(COMDLG32_FR_Data))) == NULL)
+	if((pdata = (COMDLG32_FR_Data *)COMDLG32_AllocMem(sizeof(COMDLG32_FR_Data))) == NULL)
         	return 0; /* Error has been set */
 
         pdata->user_fr.fra = pfr;
@@ -507,8 +494,8 @@ HWND WINAPI FindTextW(
 
         len = WideCharToMultiByte( CP_ACP, 0, pfr->lpstrFindWhat, pfr->wFindWhatLen,
                                    NULL, 0, NULL, NULL );
-        if((pdata = COMDLG32_AllocMem(sizeof(COMDLG32_FR_Data) + len)) == NULL)
-                return 0; /* Error has been set */
+        if((pdata = (COMDLG32_FR_Data *)COMDLG32_AllocMem(sizeof(COMDLG32_FR_Data) + len)) == NULL)
+            return 0; /* Error has been set */
 
         pdata->user_fr.frw = pfr;
         pdata->fr = *(LPFINDREPLACEA)pfr;	/* FINDREPLACEx have same size */
@@ -543,8 +530,9 @@ HWND WINAPI ReplaceTextW(
                                     NULL, 0, NULL, NULL );
         len2 = WideCharToMultiByte( CP_ACP, 0, pfr->lpstrReplaceWith, pfr->wReplaceWithLen,
                                     NULL, 0, NULL, NULL );
-        if((pdata = COMDLG32_AllocMem(sizeof(COMDLG32_FR_Data) + len1 + len2)) == NULL)
-                return 0; /* Error has been set */
+	if((pdata = (COMDLG32_FR_Data *)COMDLG32_AllocMem(sizeof(COMDLG32_FR_Data)
+                                                          + len1 + len2)) == NULL)
+            return 0; /* Error has been set */
 
         pdata->user_fr.frw = pfr;
         pdata->fr = *(LPFINDREPLACEA)pfr;	/* FINDREPLACEx have same size */

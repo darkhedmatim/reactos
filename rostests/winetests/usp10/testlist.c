@@ -1,5 +1,3 @@
-/* Automatically generated file; DO NOT EDIT!! */
-
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
@@ -7,6 +5,7 @@
 #include "wine/test.h"
 
 extern void func_usp10(void);
+
 
 const struct test winetest_testlist[] =
 {

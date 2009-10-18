@@ -1,6 +1,3 @@
-#ifndef _VGADDI_H_
-#define _VGADDI_H_
-
 #define _WINBASE_
 #define _WINDOWS_H
 #include <stdarg.h>
@@ -10,26 +7,19 @@
 #include <winddi.h>
 #include <winioctl.h>
 #include <ntddvdeo.h>
-#include <ioaccess.h>
-
-#include "vgavideo/vgavideo.h"
-#include "objects/brush.h"
-#include "objects/bitblt.h"
-
-#ifndef NDEBUG
-#define DPRINT DbgPrint
-#else
-#define DPRINT
-#endif
-#define DPRINT1 DbgPrint
 
 /* FIXME - what a headers mess.... */
 
+#define DDKAPI __stdcall
 #define DDKFASTAPI __fastcall
 #define FASTCALL __fastcall
 #define DDKCDECLAPI __cdecl
 
 ULONG DbgPrint(PCCH Format,...);
+VOID DDKAPI DbgBreakPoint(VOID);
+VOID DDKAPI WRITE_PORT_UCHAR(IN PUCHAR  Port, IN UCHAR  Value);
+VOID DDKAPI WRITE_REGISTER_UCHAR(IN PUCHAR  Register, IN UCHAR  Value);
+UCHAR DDKAPI READ_REGISTER_UCHAR(IN PUCHAR  Register);
 
 static __inline BOOLEAN
 RemoveEntryList(
@@ -66,6 +56,8 @@ InitializeListHead(
 }
 
 /***********************************************************/
+
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
 
 #define DS_SOLIDBRUSH  0x00000001
 #define DS_GREYBRUSH   0x00000002
@@ -247,7 +239,7 @@ BOOL InitVGA(PPDEV ppdev, BOOL bFirst); // screen.c: initialize VGA mode
 BOOL DeinitVGA(PPDEV ppdev); // screen.c: Free resources allocated in InitVGA
 
 #define DRIVER_EXTRA_SIZE 0
-#define ALLOC_TAG  'agvD' // Dvga tag
+#define ALLOC_TAG  TAG('D', 'v', 'g', 'a') // Dvga tag
 #define DLL_NAME  L"vga" // DLL name in Unicode
 
 #define MAX_SCAN_WIDTH              2048  // pixels
@@ -283,10 +275,8 @@ DWORD getAvailableModes(HANDLE Driver,
                         PVIDEO_MODE_INFORMATION *modeInformation,
                         DWORD *ModeSize);
 
-VOID FASTCALL
-vgaReadScan(int x, int y, int w, void *b);
+void FASTCALL
+vgaReadScan ( int x, int y, int w, void *b );
 
-VOID FASTCALL
-vgaWriteScan(int x, int y, int w, void *b);
-
-#endif /* _VGADDI_H_ */
+void FASTCALL
+vgaWriteScan ( int x, int y, int w, void *b );

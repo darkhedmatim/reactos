@@ -9,7 +9,6 @@
 #include <setupapi.h>
 #include <cfgmgr32.h>
 #include <commctrl.h>
-#include <dll/devmgr/devmgr.h>
 #include "resource.h"
 
 #ifdef _MSC_VER
@@ -34,7 +33,7 @@ typedef struct _MAIN_WND_INFO
 } MAIN_WND_INFO, *PMAIN_WND_INFO;
 
 
-INT_PTR CALLBACK AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+BOOL CALLBACK AboutDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 
 /* devmgmt.c */
@@ -54,6 +53,26 @@ HWND CreateMainWindow(LPCTSTR lpCaption, int nCmdShow);
 
 
 /* enumdevices.c */
+// undocumented API's from devmgr
+#ifdef _UNICODE
+#define DevicePropertiesEx DevicePropertiesExW
+INT_PTR
+WINAPI
+DevicePropertiesExW(IN HWND hWndParent  OPTIONAL,
+                    IN LPCWSTR lpMachineName  OPTIONAL,
+                    IN LPCWSTR lpDeviceID  OPTIONAL,
+                    IN DWORD dwFlags  OPTIONAL,
+                    IN BOOL bShowDevMgr);
+#else
+#define DevicePropertiesEx DevicePropertiesExA
+INT_PTR
+WINAPI
+DevicePropertiesExA(IN HWND hWndParent  OPTIONAL,
+                    IN LPCSTR lpMachineName  OPTIONAL,
+                    IN LPCSTR lpDeviceID  OPTIONAL,
+                    IN DWORD dwFlags  OPTIONAL,
+                    IN BOOL bShowDevMgr);
+#endif
 
 VOID FreeDeviceStrings(HWND hTreeView);
 VOID OpenPropSheet(HWND hTreeView, HTREEITEM hItem);

@@ -49,20 +49,20 @@ IDB_SDI                 BITMAP  MOVEABLE PURE   "res/sdi.bmp"
 // Accelerator
 //
 
-IDA_EXPLORER ACCELERATORS MOVEABLE PURE
+IDA_EXPLORER ACCELERATORS MOVEABLE PURE 
 BEGIN
-    "S",            ID_VIEW_FULLSCREEN,     VIRTKEY, SHIFT, CONTROL,
+    "S",            ID_VIEW_FULLSCREEN,     VIRTKEY, SHIFT, CONTROL, 
                                                     NOINVERT
     VK_F5,          ID_REFRESH,             VIRTKEY, NOINVERT
     "X",            ID_FILE_EXIT,           VIRTKEY, ALT, NOINVERT
 END
 
-IDA_SEARCH_PROGRAM ACCELERATORS MOVEABLE PURE
+IDA_SEARCH_PROGRAM ACCELERATORS MOVEABLE PURE 
 BEGIN
     VK_F5,          ID_REFRESH,             VIRTKEY, NOINVERT
 END
 
-IDA_TRAYNOTIFY ACCELERATORS MOVEABLE PURE
+IDA_TRAYNOTIFY ACCELERATORS MOVEABLE PURE 
 BEGIN
     VK_F5,          ID_REFRESH,             VIRTKEY, NOINVERT
 END
@@ -74,24 +74,24 @@ END
 // TEXTINCLUDE
 //
 
-1 TEXTINCLUDE MOVEABLE PURE
+1 TEXTINCLUDE MOVEABLE PURE 
 BEGIN
     "resource.h\0"
 END
 
-2 TEXTINCLUDE MOVEABLE PURE
+2 TEXTINCLUDE MOVEABLE PURE 
 BEGIN
     "#include <windows.h>\r\n"
     "\0"
 END
 
-3 TEXTINCLUDE MOVEABLE PURE
+3 TEXTINCLUDE MOVEABLE PURE 
 BEGIN
     "#ifndef ROSSHELL\r\n"
     "IDB_IMAGES BITMAP DISCARDABLE ""res/images.bmp""\r\n"
     "IDB_TOOLBAR BITMAP DISCARDABLE ""res/toolbar.bmp""\r\n"
     "#endif\r\n"
-    "#ifndef __REACTOS__\r\n"
+    "#ifndef _ROS_\r\n"
     "LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL\r\n"
     "STRINGTABLE DISCARDABLE \r\n"
     "BEGIN\r\n"
@@ -118,15 +118,12 @@ BEGIN
     "#include ""explorer-id.rc""\r\n"
     "#include ""explorer-it.rc""\r\n"
     "#include ""explorer-jp.rc""\r\n"
-    "#include ""explorer-ko.rc""\r\n"
-    "#include ""explorer-ko.rc""\r\n"
     "#include ""explorer-nl.rc""\r\n"
     "#include ""explorer-no.rc""\r\n"
     "#include ""explorer-pl.rc""\r\n"
     "#include ""explorer-pt.rc""\r\n"
     "#include ""explorer-ro.rc""\r\n"
     "#include ""explorer-ru.rc""\r\n"
-    "#include ""explorer-sk.rc""\r\n"
     "#include ""explorer-sv.rc""\r\n"
     "#include ""explorer-uk.rc""\r\n"
     "\r\n"
@@ -154,7 +151,6 @@ IDI_EXPLORER            ICON    DISCARDABLE     "res/explorer.ico"
 IDI_STARTMENU           ICON    DISCARDABLE     "res/startmenu.ico"
 IDI_LOGOFF              ICON    DISCARDABLE     "res/logoff.ico"
 IDI_SHUTDOWN            ICON    DISCARDABLE     "res/shutdown.ico"
-IDI_RESTART             ICON    DISCARDABLE     "res/restart.ico"
 IDI_ARROW               ICON    DISCARDABLE     "res/arrow.ico"
 IDI_ARROW_SELECTED      ICON    DISCARDABLE     "res/arrowsel.ico"
 IDI_APPICON             ICON    DISCARDABLE     "res/appicon.ico"
@@ -200,9 +196,9 @@ IDI_RECENT              ICON    DISCARDABLE     "res/recent-documents.ico"
 IDB_IMAGES BITMAP DISCARDABLE "res/images.bmp"
 IDB_TOOLBAR BITMAP DISCARDABLE "res/toolbar.bmp"
 #endif
-#ifndef __REACTOS__
+#ifndef _ROS_
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
-STRINGTABLE DISCARDABLE
+STRINGTABLE DISCARDABLE 
 BEGIN
 IDS_VERSION_STR ""
 #ifdef UNICODE
@@ -227,14 +223,12 @@ CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST DISCARDABLE PURE "explorer.exe.ma
 #include "explorer-id.rc"
 #include "explorer-it.rc"
 #include "explorer-jp.rc"
-#include "explorer-ko.rc"
 #include "explorer-nl.rc"
 #include "explorer-no.rc"
 #include "explorer-pl.rc"
 #include "explorer-pt.rc"
 #include "explorer-ro.rc"
 #include "explorer-ru.rc"
-#include "explorer-sk.rc"
 #include "explorer-sv.rc"
 #include "explorer-uk.rc"
 

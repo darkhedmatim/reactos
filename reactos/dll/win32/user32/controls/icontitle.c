@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <user32.h>
@@ -30,14 +30,14 @@
 static BOOL bMultiLineTitle;
 static HFONT hIconTitleFont;
 
-//static LRESULT WINAPI IconTitleWndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam );
+static LRESULT WINAPI IconTitleWndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam );
 
 /*********************************************************************
  * icon title class descriptor
  */
 const struct builtin_class_descr ICONTITLE_builtin_class =
 {
-    (LPCWSTR)ICONTITLE_CLASS_ATOM, /* name */
+    ICONTITLE_CLASS_ATOM, /* name */
     0,                    /* style */
     NULL,                 /* procA (winproc is Unicode only) */
     IconTitleWndProc,     /* procW */
@@ -59,17 +59,17 @@ HWND ICONTITLE_Create( HWND owner )
     LONG style = WS_CLIPSIBLINGS;
 
     if (!IsWindowEnabled(owner)) style |= WS_DISABLED;
-    if( GetWindowLongPtrA( owner, GWL_STYLE ) & WS_CHILD )
-	hWnd = CreateWindowExA( 0, (LPCSTR)ICONTITLE_CLASS_ATOM, NULL,
+    if( GetWindowLongA( owner, GWL_STYLE ) & WS_CHILD )
+	hWnd = CreateWindowExA( 0, ICONTITLE_CLASS_ATOM, NULL,
                                 style | WS_CHILD, 0, 0, 1, 1,
                                 GetParent(owner), 0, instance, NULL );
     else
-	hWnd = CreateWindowExA( 0, (LPCSTR)ICONTITLE_CLASS_ATOM, NULL,
+	hWnd = CreateWindowExA( 0, ICONTITLE_CLASS_ATOM, NULL,
                                 style, 0, 0, 1, 1,
                                 owner, 0, instance, NULL );
     WIN_SetOwner( hWnd, owner );  /* MDI depends on this */
-    SetWindowLongPtrW( hWnd, GWL_STYLE,
-                       GetWindowLongPtrW( hWnd, GWL_STYLE ) & ~(WS_CAPTION | WS_BORDER) );
+    SetWindowLongW( hWnd, GWL_STYLE,
+                    GetWindowLongW( hWnd, GWL_STYLE ) & ~(WS_CAPTION | WS_BORDER) );
     return hWnd;
 }
 #endif
@@ -142,7 +142,7 @@ static BOOL ICONTITLE_Paint( HWND hwnd, HWND owner, HDC hDC, BOOL bActive )
     }
     else
     {
-        if( GetWindowLongPtrA( hwnd, GWL_STYLE ) & WS_CHILD )
+        if( GetWindowLongA( hwnd, GWL_STYLE ) & WS_CHILD )
 	{
 	    hBrush = (HBRUSH) GetClassLongPtrW(hwnd, GCLP_HBRBACKGROUND);
 	    if( hBrush )
@@ -175,7 +175,7 @@ static BOOL ICONTITLE_Paint( HWND hwnd, HWND owner, HDC hDC, BOOL bActive )
     {
 	WCHAR buffer[80];
 
-        INT length = GetWindowTextW( owner, buffer, sizeof(buffer)/sizeof(buffer[0]) );
+        INT length = GetWindowTextW( owner, buffer, sizeof(buffer) );
         SetTextColor( hDC, textColor );
         SetBkMode( hDC, TRANSPARENT );
 
@@ -222,8 +222,8 @@ LRESULT WINAPI IconTitleWndProc( HWND hWnd, UINT msg,
             if (wParam) ICONTITLE_SetTitlePos( hWnd, owner );
 	     return 0;
 	case WM_ERASEBKGND:
-            if( GetWindowLongPtrW( owner, GWL_STYLE ) & WS_CHILD )
-                lParam = SendMessageW( owner, WM_ISACTIVEICON, 0, 0 );
+            if( GetWindowLongA( owner, GWL_STYLE ) & WS_CHILD )
+                lParam = SendMessageA( owner, WM_ISACTIVEICON, 0, 0 );
             else
                 lParam = (owner == GetActiveWindow());
             if( ICONTITLE_Paint( hWnd, owner, (HDC)wParam, (BOOL)lParam ) )

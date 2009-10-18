@@ -1,6 +1,6 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5
+ * Version:  6.3
  *
  * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
  *
@@ -42,11 +42,6 @@ _mesa_new_soft_renderbuffer(GLcontext *ctx, GLuint name);
 
 
 extern GLboolean
-_mesa_soft_renderbuffer_storage(GLcontext *ctx, struct gl_renderbuffer *rb,
-                                GLenum internalFormat,
-                                GLuint width, GLuint height);
-
-extern GLboolean
 _mesa_add_color_renderbuffers(GLcontext *ctx, struct gl_framebuffer *fb,
                               GLuint rgbBits, GLuint alphaBits,
                               GLboolean frontLeft, GLboolean backLeft,
@@ -63,9 +58,6 @@ _mesa_add_alpha_renderbuffers(GLcontext *ctx, struct gl_framebuffer *fb,
                               GLuint alphaBits,
                               GLboolean frontLeft, GLboolean backLeft,
                               GLboolean frontRight, GLboolean backRight);
-
-extern void
-_mesa_copy_soft_alpha_renderbuffers(GLcontext *ctx, struct gl_framebuffer *fb);
 
 extern GLboolean
 _mesa_add_depth_renderbuffer(GLcontext *ctx, struct gl_framebuffer *fb,
@@ -86,27 +78,7 @@ _mesa_add_aux_renderbuffers(GLcontext *ctx, struct gl_framebuffer *fb,
                             GLuint bits, GLuint numBuffers);
 
 extern void
-_mesa_add_soft_renderbuffers(struct gl_framebuffer *fb,
-                             GLboolean color,
-                             GLboolean depth,
-                             GLboolean stencil,
-                             GLboolean accum,
-                             GLboolean alpha,
-                             GLboolean aux);
-
-extern void
 _mesa_add_renderbuffer(struct gl_framebuffer *fb,
                        GLuint bufferName, struct gl_renderbuffer *rb);
-
-extern void
-_mesa_remove_renderbuffer(struct gl_framebuffer *fb, GLuint bufferName);
-
-extern void
-_mesa_reference_renderbuffer(struct gl_renderbuffer **ptr,
-                             struct gl_renderbuffer *rb);
-
-extern struct gl_renderbuffer *
-_mesa_new_depthstencil_renderbuffer(GLcontext *ctx, GLuint name);
-
 
 #endif /* RENDERBUFFER_H */

@@ -52,18 +52,19 @@ extern ATOM atDialogThemeEnabled;
 HRESULT WINAPI EnableThemeDialogTexture(HWND hwnd, DWORD dwFlags)
 {
     static const WCHAR szTab[] = { 'T','a','b',0 };
-    BOOL res;
+    HRESULT hr;
 
     TRACE("(%p,0x%08x\n", hwnd, dwFlags);
-    res = SetPropW (hwnd, (LPCWSTR)MAKEINTATOM(atDialogThemeEnabled), 
+    hr = SetPropW (hwnd, (LPCWSTR)MAKEINTATOM(atDialogThemeEnabled), 
         (HANDLE)(dwFlags|0x80000000)); 
         /* 0x80000000 serves as a "flags set" flag */
-    if (!res)
-          return HRESULT_FROM_WIN32(GetLastError());
+    if (FAILED(hr))
+          return hr;
     if (dwFlags & ETDT_USETABTEXTURE)
         return SetWindowTheme (hwnd, NULL, szTab);
     else
         return SetWindowTheme (hwnd, NULL, NULL);
+    return S_OK;
  }
 
 /***********************************************************************
@@ -100,7 +101,7 @@ HRESULT WINAPI DrawThemeParentBackground(HWND hwnd, HDC hdc, RECT *prc)
         hParent = hwnd;
     if(prc) {
         CopyRect(&rt, prc);
-        MapWindowPoints(hwnd, hParent, (LPPOINT)&rt, 2);
+        MapWindowPoints(hwnd, NULL, (LPPOINT)&rt, 2);
         
         clip = CreateRectRgn(0,0,1,1);
         hasClip = GetClipRgn(hdc, clip);
@@ -110,8 +111,8 @@ HRESULT WINAPI DrawThemeParentBackground(HWND hwnd, HDC hdc, RECT *prc)
             IntersectClipRect(hdc, prc->left, prc->top, prc->right, prc->bottom);
     }
     else {
-        GetClientRect(hwnd, &rt);
-        MapWindowPoints(hwnd, hParent, (LPPOINT)&rt, 2);
+        GetClientRect(hParent, &rt);
+        MapWindowPoints(hParent, NULL, (LPPOINT)&rt, 2);
     }
 
     OffsetViewportOrgEx(hdc, -rt.left, -rt.top, &org);
@@ -195,6 +196,7 @@ static PTHEME_PROPERTY UXTHEME_SelectImage(HTHEME hTheme, HDC hdc, int iPartId, 
                 WCHAR szPath[MAX_PATH];
                 int imagelayout = IL_HORIZONTAL;
                 int imagecount = 1;
+                int imagenum;
                 BITMAP bmp;
                 HBITMAP hBmp;
                 BOOL hasAlpha;
@@ -207,6 +209,7 @@ static PTHEME_PROPERTY UXTHEME_SelectImage(HTHEME hTheme, HDC hdc, int iPartId, 
                 GetThemeEnumValue(hTheme, iPartId, iStateId, TMT_IMAGELAYOUT, &imagelayout);
                 GetThemeInt(hTheme, iPartId, iStateId, TMT_IMAGECOUNT, &imagecount);
 
+                imagenum = max (min (imagecount, iStateId), 1) - 1;
                 GetObjectW(hBmp, sizeof(bmp), &bmp);
                 if(imagelayout == IL_VERTICAL) {
                     reqsize.x = bmp.bmWidth;
@@ -337,81 +340,27 @@ static inline BOOL UXTHEME_SizedBlt (HDC hdcDst, int nXOriginDst, int nYOriginDs
 {
     if (sizingtype == ST_TILE)
     {
-        HDC hdcTemp;
-        BOOL result = FALSE;
-
-        if (!nWidthSrc || !nHeightSrc) return TRUE;
-
-        /* For destination width/height less than or equal to source
-           width/height, do not bother with memory bitmap optimization */
-        if (nWidthSrc >= nWidthDst && nHeightSrc >= nHeightDst)
+        int yOfs = nYOriginDst;
+        int yRemaining = nHeightDst;
+        while (yRemaining > 0)
         {
-            int bltWidth = min (nWidthDst, nWidthSrc);
-            int bltHeight = min (nHeightDst, nHeightSrc);
-
-            return UXTHEME_Blt (hdcDst, nXOriginDst, nYOriginDst, bltWidth, bltHeight,
-                                hdcSrc, nXOriginSrc, nYOriginSrc,
-                                transparent, transcolor);
-        }
-
-        /* Create a DC with a bitmap consisting of a tiling of the source
-           bitmap, with standard GDI functions. This is faster than an
-           iteration with UXTHEME_Blt(). */
-        hdcTemp = CreateCompatibleDC(hdcSrc);
-        if (hdcTemp != 0)
-        {
-            HBITMAP bitmapTemp;
-            HBITMAP bitmapOrig;
-            int nWidthTemp, nHeightTemp;
-            int xOfs, xRemaining;
-            int yOfs, yRemaining;
-            int growSize;
-
-            /* Calculate temp dimensions of integer multiples of source dimensions */
-            nWidthTemp = ((nWidthDst + nWidthSrc - 1) / nWidthSrc) * nWidthSrc;
-            nHeightTemp = ((nHeightDst + nHeightSrc - 1) / nHeightSrc) * nHeightSrc;
-            bitmapTemp = CreateCompatibleBitmap(hdcSrc, nWidthTemp, nHeightTemp);
-            bitmapOrig = SelectObject(hdcTemp, bitmapTemp);
-
-            /* Initial copy of bitmap */
-            BitBlt(hdcTemp, 0, 0, nWidthSrc, nHeightSrc, hdcSrc, nXOriginSrc, nYOriginSrc, SRCCOPY);
-
-            /* Extend bitmap in the X direction. Growth of width is exponential */
-            xOfs = nWidthSrc;
-            xRemaining = nWidthTemp - nWidthSrc;
-            growSize = nWidthSrc;
+            int bltHeight = min (yRemaining, nHeightSrc);
+            int xOfs = nXOriginDst;
+            int xRemaining = nWidthDst;
             while (xRemaining > 0)
             {
-                growSize = min(growSize, xRemaining);
-                BitBlt(hdcTemp, xOfs, 0, growSize, nHeightSrc, hdcTemp, 0, 0, SRCCOPY);
-                xOfs += growSize;
-                xRemaining -= growSize;
-                growSize *= 2;
+                int bltWidth = min (xRemaining, nWidthSrc);
+                if (!UXTHEME_Blt (hdcDst, xOfs, yOfs, bltWidth, bltHeight,
+                                  hdcSrc, nXOriginSrc, nYOriginSrc, 
+                                  transparent, transcolor))
+                    return FALSE;
+                xOfs += nWidthSrc;
+                xRemaining -= nWidthSrc;
             }
-
-            /* Extend bitmap in the Y direction. Growth of height is exponential */
-            yOfs = nHeightSrc;
-            yRemaining = nHeightTemp - nHeightSrc;
-            growSize = nHeightSrc;
-            while (yRemaining > 0)
-            {
-                growSize = min(growSize, yRemaining);
-                BitBlt(hdcTemp, 0, yOfs, nWidthTemp, growSize, hdcTemp, 0, 0, SRCCOPY);
-                yOfs += growSize;
-                yRemaining -= growSize;
-                growSize *= 2;
-            }
-
-            /* Use temporary hdc for source */
-            result = UXTHEME_Blt (hdcDst, nXOriginDst, nYOriginDst, nWidthDst, nHeightDst,
-                          hdcTemp, 0, 0,
-                          transparent, transcolor);
-
-            SelectObject(hdcTemp, bitmapOrig);
-            DeleteObject(bitmapTemp);
+            yOfs += nHeightSrc;
+            yRemaining -= nHeightSrc;
         }
-        DeleteDC(hdcTemp);
-        return result;
+        return TRUE;
     }
     else
     {
@@ -904,7 +853,7 @@ static HRESULT UXTHEME_DrawBackgroundFill(HTHEME hTheme, HDC hdc, int iPartId,
         /* FIXME: This only accounts for 2 gradient colors (out of 5) and ignores
             the gradient ratios (no idea how those work)
             Few themes use this, and the ones I've seen only use 2 colors with
-            a gradient ratio of 0 and 255 respectively
+            a gradient ratio of 0 and 255 respectivly
         */
 
         COLORREF gradient1 = RGB(0,0,0);
@@ -1177,8 +1126,8 @@ static HRESULT draw_diag_edge (HDC hdc, HTHEME theme, int part, int state,
             + (LTRBOuterMono[uType & (BDR_INNER|BDR_OUTER)] != -1 ? 1 : 0);
 
     /* Init some vars */
-    OuterPen = InnerPen = GetStockObject(NULL_PEN);
-    SavePen = SelectObject(hdc, InnerPen);
+    OuterPen = InnerPen = (HPEN)GetStockObject(NULL_PEN);
+    SavePen = (HPEN)SelectObject(hdc, InnerPen);
     spx = spy = epx = epy = 0; /* Satisfy the compiler... */
 
     /* Determine the colors of the edges */
@@ -1373,8 +1322,8 @@ static HRESULT draw_diag_edge (HDC hdc, HTHEME theme, int part, int state,
         HPEN hpsave;
         HPEN hp = get_edge_pen ((uFlags & BF_MONO) ? EDGE_WINDOW : EDGE_FILL, 
             theme, part, state);
-        hbsave = SelectObject(hdc, hb);
-        hpsave = SelectObject(hdc, hp);
+        hbsave = (HBRUSH)SelectObject(hdc, hb);
+        hpsave = (HPEN)SelectObject(hdc, hp);
         Polygon(hdc, Points, 4);
         SelectObject(hdc, hbsave);
         SelectObject(hdc, hpsave);
@@ -1426,8 +1375,8 @@ static HRESULT draw_rect_edge (HDC hdc, HTHEME theme, int part, int state,
                       && !(uFlags & (BF_FLAT|BF_MONO)) ) ? E_FAIL : S_OK;
 
     /* Init some vars */
-    LTInnerPen = LTOuterPen = RBInnerPen = RBOuterPen = GetStockObject(NULL_PEN);
-    SavePen = SelectObject(hdc, LTInnerPen);
+    LTInnerPen = LTOuterPen = RBInnerPen = RBOuterPen = (HPEN)GetStockObject(NULL_PEN);
+    SavePen = (HPEN)SelectObject(hdc, LTInnerPen);
 
     /* Determine the colors of the edges */
     if(uFlags & BF_MONO)
@@ -1660,12 +1609,12 @@ HRESULT WINAPI GetThemeBackgroundContentRect(HTHEME hTheme, HDC hdc, int iPartId
     } else {
         /* otherwise, try to determine content rect from the background type and props */
         int bgtype = BT_BORDERFILL;
-        *pContentRect = *pBoundingRect;
+        memcpy(pContentRect, pBoundingRect, sizeof(RECT));
 
         GetThemeEnumValue(hTheme, iPartId, iStateId, TMT_BGTYPE, &bgtype);
         if(bgtype == BT_BORDERFILL) {
             int bordersize = 1;
-
+    
             GetThemeInt(hTheme, iPartId, iStateId, TMT_BORDERSIZE, &bordersize);
             InflateRect(pContentRect, -bordersize, -bordersize);
         } else if ((bgtype == BT_IMAGEFILE)
@@ -1708,12 +1657,12 @@ HRESULT WINAPI GetThemeBackgroundExtent(HTHEME hTheme, HDC hdc, int iPartId,
     } else {
         /* otherwise, try to determine content rect from the background type and props */
         int bgtype = BT_BORDERFILL;
-        *pExtentRect = *pContentRect;
+        memcpy(pExtentRect, pContentRect, sizeof(RECT));
 
         GetThemeEnumValue(hTheme, iPartId, iStateId, TMT_BGTYPE, &bgtype);
         if(bgtype == BT_BORDERFILL) {
             int bordersize = 1;
-
+    
             GetThemeInt(hTheme, iPartId, iStateId, TMT_BORDERSIZE, &bordersize);
             InflateRect(pExtentRect, bordersize, bordersize);
         } else if ((bgtype == BT_IMAGEFILE)

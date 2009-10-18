@@ -133,8 +133,6 @@ BOOL VFWAPI DrawDibEnd(HDRAWDIB hdd)
 
     TRACE("(%p)\n", hdd);
 
-    if (!whdd) return FALSE;
-
     whdd->hpal = 0; /* Do not free this */
     whdd->hdc = 0;
     HeapFree(GetProcessHeap(), 0, whdd->lpbi);
@@ -185,7 +183,7 @@ BOOL VFWAPI DrawDibBegin(HDRAWDIB hdd,
     WINE_HDD *whdd;
 
     TRACE("(%p,%p,%d,%d,%p,%d,%d,0x%08x)\n",
-          hdd, hdc, dxDst, dyDst, lpbi, dxSrc, dySrc, wFlags);
+          hdd, hdc, dxDst, dyDst, lpbi, dxSrc, dySrc, (DWORD)wFlags);
 
     TRACE("lpbi: %d,%d/%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
           lpbi->biSize, lpbi->biWidth, lpbi->biHeight, lpbi->biPlanes,
@@ -307,7 +305,7 @@ BOOL VFWAPI DrawDibDraw(HDRAWDIB hdd, HDC hdc,
     BOOL ret = TRUE;
 
     TRACE("(%p,%p,%d,%d,%d,%d,%p,%p,%d,%d,%d,%d,0x%08x)\n",
-          hdd, hdc, xDst, yDst, dxDst, dyDst, lpbi, lpBits, xSrc, ySrc, dxSrc, dySrc, wFlags);
+          hdd, hdc, xDst, yDst, dxDst, dyDst, lpbi, lpBits, xSrc, ySrc, dxSrc, dySrc, (DWORD)wFlags);
 
     whdd = MSVIDEO_GetHddPtr(hdd);
     if (!whdd) return FALSE;
@@ -315,7 +313,7 @@ BOOL VFWAPI DrawDibDraw(HDRAWDIB hdd, HDC hdc,
     TRACE("whdd=%p\n", whdd);
 
     if (wFlags & ~(DDF_SAME_HDC | DDF_SAME_DRAW | DDF_NOTKEYFRAME | DDF_UPDATE | DDF_DONTDRAW | DDF_BACKGROUNDPAL))
-        FIXME("wFlags == 0x%08x not handled\n", wFlags);
+        FIXME("wFlags == 0x%08x not handled\n", (DWORD)wFlags);
 
     if (!lpBits) 
     {
@@ -458,6 +456,7 @@ HPALETTE VFWAPI DrawDibGetPalette(HDRAWDIB hdd)
 UINT VFWAPI DrawDibRealize(HDRAWDIB hdd, HDC hdc, BOOL fBackground) 
 {
     WINE_HDD *whdd;
+    HPALETTE oldPal;
     UINT ret = 0;
 
     FIXME("(%p, %p, %d), stub\n", hdd, hdc, fBackground);
@@ -474,7 +473,7 @@ UINT VFWAPI DrawDibRealize(HDRAWDIB hdd, HDC hdc, BOOL fBackground)
     if (!whdd->hpal)
         whdd->hpal = CreateHalftonePalette(hdc);
 
-    SelectPalette(hdc, whdd->hpal, fBackground);
+    oldPal = SelectPalette(hdc, whdd->hpal, fBackground);
     ret = RealizePalette(hdc);
 
  out:

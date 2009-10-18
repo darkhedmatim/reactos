@@ -37,7 +37,7 @@
 
 /* FUNCTIONS ****************************************************************/
 
-NTSTATUS NTAPI
+NTSTATUS STDCALL
 MupCreate(PDEVICE_OBJECT DeviceObject,
 	  PIRP Irp)
 {

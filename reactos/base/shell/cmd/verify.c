@@ -19,6 +19,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_VERIFY
 
@@ -27,21 +28,33 @@
 static BOOL bVerify = FALSE;
 
 
-INT cmd_verify (LPTSTR param)
+INT cmd_verify (LPTSTR cmd, LPTSTR param)
 {
+	TCHAR szMsg[RC_STRING_MAX_SIZE];
+
 	if (!_tcsncmp (param, _T("/?"), 2))
 	{
 		ConOutResPaging(TRUE,STRING_VERIFY_HELP1);
 		return 0;
 	}
 
-	if (!OnOffCommand(param, &bVerify, STRING_VERIFY_HELP2))
+  nErrorLevel = 0;
+
+	if (!*param)
 	{
-		ConErrResPuts(STRING_VERIFY_HELP3);
-		return nErrorLevel = 1;
+		LoadString(CMD_ModuleHandle, STRING_VERIFY_HELP2, szMsg, RC_STRING_MAX_SIZE);
+		ConOutPrintf(szMsg, bVerify ? D_ON : D_OFF);
+	}
+	else if (_tcsicmp (param, D_OFF) == 0)
+		bVerify = FALSE;
+	else if (_tcsicmp (param, D_ON) == 0)
+		bVerify = TRUE;
+	else
+	{
+		ConOutResPuts(STRING_VERIFY_HELP3);
 	}
 
-	return nErrorLevel = 0;
+	return 0;
 }
 
 #endif

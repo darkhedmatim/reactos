@@ -122,21 +122,21 @@ static DWORD query_reg_path (HKEY hKey, LPCWSTR lpszValue,
       WCHAR cNull = '\0';
       nBytesToAlloc = dwUnExpDataLen;
 
-      szData = LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc);
+      szData = (LPWSTR) LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc);
       RegQueryValueExW (hKey, lpszValue, 0, NULL, (LPBYTE)szData, &nBytesToAlloc);
       dwExpDataLen = ExpandEnvironmentStringsW(szData, &cNull, 1);
       dwUnExpDataLen = max(nBytesToAlloc, dwExpDataLen);
-      LocalFree(szData);
+      LocalFree((HLOCAL) szData);
     }
     else
     {
       nBytesToAlloc = (lstrlenW(pvData) + 1) * sizeof(WCHAR);
-      szData = LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc );
+      szData = (LPWSTR) LocalAlloc(LMEM_ZEROINIT, nBytesToAlloc );
       lstrcpyW(szData, pvData);
       dwExpDataLen = ExpandEnvironmentStringsW(szData, pvData, MAX_PATH );
       if (dwExpDataLen > MAX_PATH) dwRet = ERROR_MORE_DATA;
       dwUnExpDataLen = max(nBytesToAlloc, dwExpDataLen);
-      LocalFree(szData);
+      LocalFree((HLOCAL) szData);
     }
   }
 
@@ -411,7 +411,7 @@ static void UXTHEME_RestoreSystemMetrics(void)
 		&type, (LPBYTE)&ncm, &count) == ERROR_SUCCESS)
 	    {
 		SystemParametersInfoW (SPI_SETNONCLIENTMETRICS, 
-                    count, &ncm, SPIF_UPDATEINIFILE);
+		    count, (LPVOID)&ncm, SPIF_UPDATEINIFILE);
 	    }
 	    
             count = sizeof(iconTitleFont);
@@ -420,7 +420,7 @@ static void UXTHEME_RestoreSystemMetrics(void)
 		&type, (LPBYTE)&iconTitleFont, &count) == ERROR_SUCCESS)
 	    {
 		SystemParametersInfoW (SPI_SETICONTITLELOGFONT, 
-                    count, &iconTitleFont, SPIF_UPDATEINIFILE);
+		    count, (LPVOID)&iconTitleFont, SPIF_UPDATEINIFILE);
 	    }
 	}
       
@@ -453,15 +453,17 @@ static void UXTHEME_SaveSystemMetrics(void)
     
     memset (&ncm, 0, sizeof (ncm));
     ncm.cbSize = sizeof (ncm);
-    SystemParametersInfoW (SPI_GETNONCLIENTMETRICS, sizeof (ncm), &ncm, 0);
-    SystemParametersInfoW (SPI_SETNONCLIENTMETRICS, sizeof (ncm), &ncm,
-        SPIF_UPDATEINIFILE);
+    SystemParametersInfoW (SPI_GETNONCLIENTMETRICS, 
+	sizeof (ncm), (LPVOID)&ncm, 0);
+    SystemParametersInfoW (SPI_SETNONCLIENTMETRICS, 
+	sizeof (ncm), (LPVOID)&ncm, SPIF_UPDATEINIFILE);
 
     memset (&iconTitleFont, 0, sizeof (iconTitleFont));
-    SystemParametersInfoW (SPI_GETICONTITLELOGFONT, sizeof (iconTitleFont),
-        &iconTitleFont, 0);
-    SystemParametersInfoW (SPI_SETICONTITLELOGFONT, sizeof (iconTitleFont),
-        &iconTitleFont, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
+    SystemParametersInfoW (SPI_GETICONTITLELOGFONT, 
+	sizeof (iconTitleFont), (LPVOID)&iconTitleFont, 0);
+    SystemParametersInfoW (SPI_SETICONTITLELOGFONT, 
+	sizeof (iconTitleFont), (LPVOID)&iconTitleFont, 
+	SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
 }
 
 /***********************************************************************
@@ -564,7 +566,6 @@ BOOL WINAPI IsAppThemed(void)
 BOOL WINAPI IsThemeActive(void)
 {
     TRACE("\n");
-    SetLastError(ERROR_SUCCESS);
     return bThemeActive;
 }
 
@@ -841,7 +842,7 @@ HRESULT WINAPI GetThemeDocumentationProperty(LPCWSTR pszThemeName,
  * RETURNS
  *     some kind of status flag
  */
-DWORD WINAPI QueryThemeServices(void)
+DWORD WINAPI QueryThemeServices()
 {
     FIXME("stub\n");
     return 3; /* This is what is returned under XP in most cases */
@@ -914,7 +915,7 @@ HRESULT WINAPI CloseThemeFile(HTHEMEFILE hThemeFile)
  * char b[] = "\0"; where \0 can be one or more of any character, makes no difference
  *   the theme is applied smoothly (screen does not flicker)
  * char *b = "\0" or NULL; where \0 can be zero or more of any character, makes no difference
- *   the function fails returning invalid parameter... very strange
+ *   the function fails returning invalid parameter...very strange
  */
 HRESULT WINAPI ApplyTheme(HTHEMEFILE hThemeFile, char *unknown, HWND hWnd)
 {
@@ -1170,7 +1171,7 @@ HRESULT WINAPI EnumThemeSizes(LPWSTR pszThemeFileName, LPWSTR pszColorName,
  *     0x800706488 (Unknown property) when enumeration is canceled from callback
  *
  * NOTES
- * When pszUnknown is NULL the callback is never called, the value does not seem to serve
+ * When pszUnknown is NULL the callback is never called, the value does not seem to surve
  * any other purpose
  */
 HRESULT WINAPI ParseThemeIniFile(LPCWSTR pszIniFileName, LPWSTR pszUnknown,

@@ -33,6 +33,7 @@
  */
 
 #include <precomp.h>
+#include "resource.h"
 
 #ifdef INCLUDE_CMD_ATTRIB
 
@@ -188,7 +189,7 @@ ChangeAttribute (LPTSTR pszPath, LPTSTR pszFile, DWORD dwMask,
 }
 
 
-INT CommandAttrib (LPTSTR param)
+INT CommandAttrib (LPTSTR cmd, LPTSTR param)
 {
 	LPTSTR *arg;
 	INT    argc, i;

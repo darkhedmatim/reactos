@@ -2,7 +2,6 @@
 #define _WIN32K_CLIPBOARD_H
 
 #include "window.h"
-#include <include/win32.h>
 
 VOID FASTCALL IntIncrementSequenceNumber(VOID);
 
@@ -15,15 +14,15 @@ typedef struct _ClipboardChainElement
 typedef struct _ClipboardElement
 {
     UINT                        format;
-    HANDLE                      hData;
-    DWORD                       size;   // data may be delayed o synth render
+    HANDLE                      hData;  
+    DWORD                       size;   // data may be delayed o synth render 
     struct _ClipboardElement   *next;
 } CLIPBOARDELEMENT, *PCLIPBOARDELEMENT;
 
 typedef struct _CLIPBOARDSYSTEM
 {
-    PTHREADINFO     ClipboardThread;
-    PTHREADINFO     ClipboardOwnerThread;
+    PW32THREAD      ClipboardThread;
+    PW32THREAD      ClipboardOwnerThread;
     PWINDOW_OBJECT  ClipboardWindow;
     PWINDOW_OBJECT  ClipboardViewerWindow;
     PWINDOW_OBJECT  ClipboardOwnerWindow;
@@ -32,19 +31,17 @@ typedef struct _CLIPBOARDSYSTEM
     BOOL            delayedRender;
     UINT            lastEnumClipboardFormats;
     DWORD           ClipboardSequenceNumber;
-
+    
     PCLIPBOARDCHAINELEMENT WindowsChain;
     PCLIPBOARDELEMENT      ClipboardData;
-
+    
     PCHAR synthesizedData;
     DWORD synthesizedDataSize;
-
+    
 } CLIPBOARDSYSTEM, *PCLIPBOARDSYSTEM;
 
-VOID FASTCALL
+VOID FASTCALL 
 IntClipboardFreeWindow(PWINDOW_OBJECT window);
-
-UINT APIENTRY IntEnumClipboardFormats(UINT format);
 
 /*
 UINT FASTCALL

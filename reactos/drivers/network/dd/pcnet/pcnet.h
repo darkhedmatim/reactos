@@ -60,8 +60,6 @@ typedef struct _ADAPTER
   ULONG_PTR PortOffset;
   NDIS_MINIPORT_INTERRUPT InterruptObject;
   NDIS_MEDIA_STATE MediaState;
-  UINT MediaSpeed;
-  BOOLEAN FullDuplex;
   NDIS_MINIPORT_TIMER MediaDetectionTimer;
   ULONG CurrentReceiveDescriptorIndex;
   ULONG CurrentPacketFilter;
@@ -101,7 +99,7 @@ typedef struct _ADAPTER
 
 /* forward declarations */
 NDIS_STATUS
-NTAPI
+STDCALL
 MiniportQueryInformation(
     IN NDIS_HANDLE MiniportAdapterContext,
     IN NDIS_OID Oid,
@@ -111,7 +109,7 @@ MiniportQueryInformation(
     OUT PULONG BytesNeeded);
 
 NDIS_STATUS
-NTAPI
+STDCALL
 MiniportSetInformation(
     IN NDIS_HANDLE MiniportAdapterContext,
     IN NDIS_OID Oid,
@@ -121,23 +119,15 @@ MiniportSetInformation(
     OUT PULONG BytesNeeded);
 
 NDIS_STATUS
-NTAPI
+STDCALL
 MiSetMulticast(
     PADAPTER Adapter,
     UCHAR *Addresses,
     UINT AddressCount);
 
 NDIS_MEDIA_STATE
-NTAPI
+STDCALL
 MiGetMediaState(PADAPTER Adapter);
-
-UINT
-NTAPI
-MiGetMediaSpeed(PADAPTER Adapter);
-
-BOOLEAN
-NTAPI
-MiGetMediaDuplex(PADAPTER Adapter);
 
 /* operational constants */
 #define NUMBER_OF_BUFFERS     0x20
@@ -156,7 +146,7 @@ MiGetMediaDuplex(PADAPTER Adapter);
 #endif
 
 /* memory pool tag */
-#define PCNET_TAG 'tNcP'
+#define PCNET_TAG 0xbaadf00d
 
 #endif // _PCNET_H_
 

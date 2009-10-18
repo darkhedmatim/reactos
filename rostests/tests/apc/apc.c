@@ -8,7 +8,7 @@
 HANDLE OutputHandle;
 HANDLE InputHandle;
 
-VOID WINAPI
+VOID STDCALL
 ApcRoutine(PVOID Context,
 	   PIO_STATUS_BLOCK IoStatus,
 	   ULONG Reserved)

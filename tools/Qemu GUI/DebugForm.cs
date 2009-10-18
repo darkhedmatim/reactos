@@ -1,13 +1,20 @@
 using System;
 using System.IO;
 using System.Diagnostics;
-using System.ComponentModel;
+using System.Threading;
 using System.Windows.Forms;
+using System.Runtime.InteropServices;
+
 
 namespace Qemu_GUI
 {
     public partial class DebugForm : Form
     {
+        string talker;
+        Process proc;
+        ThreadStart start;
+        Thread worker;
+
         public DebugForm()
         {
             InitializeComponent();
@@ -17,55 +24,95 @@ namespace Qemu_GUI
         {
             this.Close();
         }
-        public void Listen()
+        public void Listen(Process p, string Talker)
         {
-            this.Show();
+            proc = p;
+            talker = Talker;
 
-            BackgroundWorker work = new BackgroundWorker();
-            work.DoWork += new DoWorkEventHandler(work_DoWork);
-            work.RunWorkerAsync();
+            start = new ThreadStart(ThreadProc);
+            worker = new Thread(start);
+            worker.Priority = ThreadPriority.BelowNormal;//let other apps like qemu run before us.
+            this.Show();//show the dialog
+            worker.Start();
         }
-
-        void work_DoWork(object sender, DoWorkEventArgs e)
+        private void ThreadProc()
         {
-            NamedPipe pipe = new NamedPipe();
+            FileStream log;
+            txtDebug.Text = "";
+            string buffer = "";
+            string temp = "";
 
-            //it might take a while for qemu to launch and wait for a pipe
-            System.Threading.Thread.Sleep(1000);
-
-            pipe.CreateClientPipe("com_1");
-
-            pipe.PipeReceiveEvent += new PipeReceiveEventHandler(PipeRecievedHandler);
-            pipe.PipeErrorEvent += new PipeErrorEventHandler(PipeErrorHandler);
-
-            pipe.ReadLoop();
-        }
-
-        private void PipeErrorHandler(object sender, PipeErrorEventArgs args)
-        {
-            ErrorForm err = new ErrorForm();
-            err.txtError.Text += "PipeErrorHandler:" + Environment.NewLine;
-            err.txtError.Text += args.ErrorDesc;
-            err.Show();
-        }
-
-        private void PipeRecievedHandler(object sender, PipeReceiveEventArgs args)
-        {
-            WriteString(args.Received);
-        }
-
-
-        private delegate void WriteStringDelegate(string text);
-        public void WriteString(string text)
-        {
-            if (txtDebug.InvokeRequired)
-                txtDebug.Invoke(new WriteStringDelegate(WriteString), text);
-            else
+            /* fix me: writting to a form from a diferent thread, unsafe. */
+            try
             {
-                txtDebug.AppendText(text);
-                txtDebug.ScrollToCaret();
+                log = new FileStream(talker, FileMode.OpenOrCreate, FileAccess.Read, FileShare.ReadWrite);
+                while (!proc.HasExited)
+                {
+
+                    int data = log.ReadByte();
+                    if (data != -1)
+                    {
+                        buffer += Convert.ToChar(data);
+                    }
+                    else
+                        Thread.Sleep(250);//wait a 1/4 of a second for more data
+
+                    if (buffer.Contains("\n"))
+                    {
+                        temp = txtDebug.Text + buffer;
+                        txtDebug.Text = "";
+                        txtDebug.SelectedText = temp;
+                        buffer = "";
+                    }
+                }
+
+                temp = txtDebug.Text + buffer;
+                txtDebug.Text = "";
+                txtDebug.SelectedText = temp;
+
+                DeleteTalker();
+                log.Close();
+                //txtDebug.Text += "QEMU GUI: Exited listener!" + Environment.NewLine;
             }
+            catch (Exception e)
+            {
+                /* fix me: writting to a form from a diferent thread, unsafe. */
+                try
+                {
+                    txtDebug.Text += "QEMU GUI: Exited listener on exception!" + Environment.NewLine;
+                    txtDebug.Text += e.Message;
+                }
+                catch
+                {}
+                DeleteTalker();
+            }
+            DeleteTalker();
         }
+         private void DeleteTalker()
+         {
+             int attempts = 0;
+             /* sometimes it takes a while for qemu to free the handle to the file */
+             
+             while (File.Exists(talker))
+             {
+                 try
+                 {
+                     File.Delete(talker);
+                 }
+                 catch
+                 {
+                     // if (File.Exists(data.Debug.SerialPort.FileName))
+                     // MessageBox.Show("Warning temporary file still exists!");
+                 }
+                 attempts++;
+                 Thread.Sleep(150);
+                 if (attempts > 15)
+                 {
+                     break;//we've spent 2.25minutes here.. just give up.
+                 }
+             }
+             //MessageBox.Show("Temp File deleted!");
+         }
 
          private void tsbuttonCopy_Click(object sender, EventArgs e)
          {
@@ -92,7 +139,7 @@ namespace Qemu_GUI
                  {
                      error = new ErrorForm();
                      error.txtError.Text = "Exception while trying to save file!" + Environment.NewLine;
-                     error.txtError.Text =  ex.Message ;
+                     error.txtError.Text += ex.Message;
                      error.Show();
                  }
                  log.Close();

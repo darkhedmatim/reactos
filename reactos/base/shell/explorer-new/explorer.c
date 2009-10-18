@@ -21,13 +21,8 @@
 #include <precomp.h>
 
 HINSTANCE hExplorerInstance;
-HMODULE hUser32;
 HANDLE hProcessHeap;
 HKEY hkExplorer = NULL;
-DRAWCAPTEMP DrawCapTemp = NULL;
-
-/* undoc GUID */
-DEFINE_GUID(CLSID_RebarBandSite, 0xECD4FC4D, 0x521C, 0x11D0, 0xB7, 0x92, 0x00, 0xA0, 0xC9, 0x03, 0x12, 0xE1);
 
 LONG
 SetWindowStyle(IN HWND hWnd,
@@ -38,17 +33,17 @@ SetWindowStyle(IN HWND hWnd,
 
     ASSERT((~dwStyleMask & dwStyle) == 0);
 
-    PrevStyle = GetWindowLongPtr(hWnd,
-                                 GWL_STYLE);
+    PrevStyle = GetWindowLong(hWnd,
+                              GWL_STYLE);
     if (PrevStyle != 0 &&
         (PrevStyle & dwStyleMask) != dwStyle)
     {
         Style = PrevStyle & ~dwStyleMask;
         Style |= dwStyle;
 
-        PrevStyle = SetWindowLongPtr(hWnd,
-                                     GWL_STYLE,
-                                     Style);
+        PrevStyle = SetWindowLong(hWnd,
+                                  GWL_STYLE,
+                                  Style);
     }
 
     return PrevStyle;
@@ -63,17 +58,17 @@ SetWindowExStyle(IN HWND hWnd,
 
     ASSERT((~dwStyleMask & dwStyle) == 0);
 
-    PrevStyle = GetWindowLongPtr(hWnd,
-                                 GWL_EXSTYLE);
+    PrevStyle = GetWindowLong(hWnd,
+                              GWL_EXSTYLE);
     if (PrevStyle != 0 &&
         (PrevStyle & dwStyleMask) != dwStyle)
     {
         Style = PrevStyle & ~dwStyleMask;
         Style |= dwStyle;
 
-        PrevStyle = SetWindowLongPtr(hWnd,
-                                     GWL_EXSTYLE,
-                                     Style);
+        PrevStyle = SetWindowLong(hWnd,
+                                  GWL_EXSTYLE,
+                                  Style);
     }
 
     return PrevStyle;
@@ -251,6 +246,15 @@ GetExplorerRegValueSet(IN HKEY hKey,
 }
 
 
+#if 1
+/* FIXME: Should be implemented in shell32 */
+BOOL WINAPI IsUserAnAdmin(VOID)
+{
+    HRESULT WINAPI IsUserAdmin(void);
+    return (BOOL)IsUserAdmin();
+}
+#endif
+
 static BOOL
 SetShellReadyEvent(IN LPCTSTR lpEventName)
 {
@@ -290,13 +294,6 @@ _tWinMain(IN HINSTANCE hInstance,
 
     hExplorerInstance = hInstance;
     hProcessHeap = GetProcessHeap();
-
-    hUser32 = GetModuleHandle(TEXT("USER32.DLL"));
-    if (hUser32 != NULL)
-    {
-        DrawCapTemp = (DRAWCAPTEMP)GetProcAddress(hUser32,
-                                                  PROC_NAME_DRAWCAPTIONTEMP);
-    }
 
     InitCommonControls();
     OleInitialize(NULL);

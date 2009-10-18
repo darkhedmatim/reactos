@@ -14,20 +14,20 @@
 
 class CRawCodec : public CCABCodec {
 public:
-    /* Default constructor */
-    CRawCodec();
-    /* Default destructor */
-    virtual ~CRawCodec();
-    /* Compresses a data block */
-    virtual ULONG Compress(void* OutputBuffer,
-                           void* InputBuffer,
-                           ULONG InputLength,
-                           PULONG OutputLength);
-    /* Uncompresses a data block */
-    virtual ULONG Uncompress(void* OutputBuffer,
-                             void* InputBuffer,
-                             ULONG InputLength,
-                             PULONG OutputLength);
+	/* Default constructor */
+	CRawCodec();
+	/* Default destructor */
+	virtual ~CRawCodec();
+	/* Compresses a data block */
+	virtual uint32_t Compress(void* OutputBuffer,
+		                      void* InputBuffer,
+		                      uint32_t InputLength,
+		                      uint32_t* OutputLength);
+	/* Uncompresses a data block */
+	virtual uint32_t Uncompress(void* OutputBuffer,
+		                        void* InputBuffer,
+		                        uint32_t InputLength,
+		                        uint32_t* OutputLength);
 };
 
 #endif /* __RAW_H */

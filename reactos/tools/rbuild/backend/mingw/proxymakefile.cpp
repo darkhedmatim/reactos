@@ -33,18 +33,18 @@ ProxyMakefile::~ProxyMakefile ()
 }
 
 bool
-ProxyMakefile::GenerateProxyMakefile ( const Module& module )
+ProxyMakefile::GenerateProxyMakefile ( Module& module )
 {
-	return module.output->directory == OutputDirectory;
+	return module.GenerateInOutputTree ();
 }
 
 void
 ProxyMakefile::GenerateProxyMakefiles ( bool verbose,
                                         string outputTree )
 {
-	for ( std::map<std::string, Module*>::const_iterator p = project.modules.begin (); p != project.modules.end (); ++ p )
+	for ( size_t i = 0; i < project.modules.size (); i++ )
 	{
-		Module& module = *p->second;
+		Module& module = *project.modules[i];
 		if ( !module.enabled )
 			continue;
 		if ( !GenerateProxyMakefile ( module ) )
@@ -72,7 +72,7 @@ string
 ProxyMakefile::GetPathToTopDirectory ( Module& module )
 {
 	int numberOfDirectories = 1;
-	string basePath = module.output->relative_path;
+	string basePath = NormalizeFilename ( module.GetBasePath () );
 	for ( size_t i = 0; i < basePath.length (); i++ )
 	{
 		if ( basePath[i] == cSep )
@@ -99,12 +99,13 @@ ProxyMakefile::GenerateProxyMakefileForModule ( Module& module,
 	string pathToTopDirectory;
 	if ( outputTree.length () > 0 )
 	{
-		base = outputTree + sSep + module.output->relative_path;
+		base = outputTree + sSep + module.GetBasePath ();
+		Path path;
 		pathToTopDirectory = working_directory;
 	}
 	else
 	{
-		base = module.output->relative_path;
+		base = module.GetBasePath ();
 		pathToTopDirectory = GetPathToTopDirectory ( module );
 	}
 	string proxyMakefile = NormalizeFilename ( base + sSep + "GNUmakefile" );
@@ -121,7 +122,7 @@ ProxyMakefile::GenerateProxyMakefileForModule ( Module& module,
 	s = s + sprintf ( s, "DEFAULT = %s\n", defaultTarget.c_str () );
 	s = s + sprintf ( s, "include $(TOP)/proxy.mak\n" );
 
-	FileSupportCode::WriteIfChanged ( buf, proxyMakefile, true );
+	FileSupportCode::WriteIfChanged ( buf, proxyMakefile );
 
 	free ( buf );
 }

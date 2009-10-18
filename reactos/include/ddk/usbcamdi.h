@@ -23,6 +23,10 @@
 #ifndef __USBCAMDI_H
 #define __USBCAMDI_H
 
+#if __GNUC__ >=3
+#pragma GCC system_header
+#endif
+
 #if !defined(__USB_H) && !defined(__USBDI_H)
 #error include usb.h or usbdi.h before usbcamdi.h
 #else
@@ -34,7 +38,7 @@ extern "C" {
 #pragma pack(push,4)
 
 #if defined(_BATTERYCLASS_)
-  #define USBCAMAPI
+  #define USBCAMAPI DECLSPEC_EXPORT
 #else
   #define USBCAMAPI DECLSPEC_IMPORT
 #endif
@@ -74,23 +78,23 @@ typedef enum {
 	USBCAMD_CamControlFlag_EnableDeviceEvents = 8
 } USBCAMD_CamControlFlags;
 
-typedef NTSTATUS
-(DDKAPI *PCAM_ALLOCATE_BW_ROUTINE)(
+typedef NTSTATUS DDKAPI
+(*PCAM_ALLOCATE_BW_ROUTINE)(
   PDEVICE_OBJECT  BusDeviceObject,
   PVOID  DeviceContext,
   PULONG  RawFrameLength,
   PVOID  Format);
 
-typedef NTSTATUS
-(DDKAPI *PCAM_ALLOCATE_BW_ROUTINE_EX)(
+typedef NTSTATUS DDKAPI
+(*PCAM_ALLOCATE_BW_ROUTINE_EX)(
   PDEVICE_OBJECT  BusDeviceObject,
   PVOID  DeviceContext,
   PULONG  RawFrameLength,
   PVOID  Format,
   ULONG  StreamNumber);
 
-typedef NTSTATUS
-(DDKAPI *PCAM_CONFIGURE_ROUTINE)(
+typedef NTSTATUS DDKAPI
+(*PCAM_CONFIGURE_ROUTINE)(
   PDEVICE_OBJECT  BusDeviceObject,
   PVOID  DeviceContext,
   PUSBD_INTERFACE_INFORMATION  Interface,
@@ -98,8 +102,8 @@ typedef NTSTATUS
   PLONG  DataPipeIndex,
   PLONG  SyncPipeIndex);
 
-typedef NTSTATUS
-(DDKAPI *PCAM_CONFIGURE_ROUTINE_EX)(
+typedef NTSTATUS DDKAPI
+(*PCAM_CONFIGURE_ROUTINE_EX)(
   PDEVICE_OBJECT  BusDeviceObject,
   PVOID  DeviceContext,
   PUSBD_INTERFACE_INFORMATION  Interface,
@@ -108,36 +112,36 @@ typedef NTSTATUS
   PUSBCAMD_Pipe_Config_Descriptor  PipeConfig,
   PUSB_DEVICE_DESCRIPTOR  DeviceDescriptor);
 
-typedef NTSTATUS
-(DDKAPI *PCAM_FREE_BW_ROUTINE)(
+typedef NTSTATUS DDKAPI
+(*PCAM_FREE_BW_ROUTINE)(
   PDEVICE_OBJECT  BusDeviceObject,
   PVOID  DeviceContext);
 
-typedef NTSTATUS
-(DDKAPI *PCAM_FREE_BW_ROUTINE_EX)(
+typedef NTSTATUS DDKAPI
+(*PCAM_FREE_BW_ROUTINE_EX)(
   PDEVICE_OBJECT  BusDeviceObject,
   PVOID  DeviceContext,
   ULONG  StreamNumber);
 
-typedef NTSTATUS
-(DDKAPI *PCAM_INITIALIZE_ROUTINE)(
+typedef NTSTATUS DDKAPI
+(*PCAM_INITIALIZE_ROUTINE)(
   PDEVICE_OBJECT  BusDeviceObject,
   PVOID  DeviceContext);
 
-typedef VOID
-(DDKAPI *PCAM_NEW_FRAME_ROUTINE)(
+typedef VOID DDKAPI
+(*PCAM_NEW_FRAME_ROUTINE)(
   PVOID  DeviceContext,
   PVOID  FrameContext);
 
-typedef VOID
-(DDKAPI *PCAM_NEW_FRAME_ROUTINE_EX)(
+typedef VOID DDKAPI
+(*PCAM_NEW_FRAME_ROUTINE_EX)(
   PVOID  DeviceContext,
   PVOID  FrameContext,
   ULONG  StreamNumber,
   PULONG  FrameLength);
 
-typedef NTSTATUS
-(DDKAPI *PCAM_PROCESS_RAW_FRAME_ROUTINE)(
+typedef NTSTATUS DDKAPI
+(*PCAM_PROCESS_RAW_FRAME_ROUTINE)(
   PDEVICE_OBJECT  BusDeviceObject,
   PVOID  DeviceContext,
   PVOID  FrameContext,
@@ -148,8 +152,8 @@ typedef NTSTATUS
   ULONG  NumberOfPackets,
   PULONG  BytesReturned);
 
-typedef NTSTATUS
-(DDKAPI *PCAM_PROCESS_RAW_FRAME_ROUTINE_EX)(
+typedef NTSTATUS DDKAPI
+(*PCAM_PROCESS_RAW_FRAME_ROUTINE_EX)(
   PDEVICE_OBJECT  BusDeviceObject,
   PVOID  DeviceContext,
   PVOID  FrameContext,
@@ -162,8 +166,8 @@ typedef NTSTATUS
   ULONG  ActualRawFrameLength,
   ULONG  StreamNumber);
 
-typedef ULONG
-(DDKAPI *PCAM_PROCESS_PACKET_ROUTINE)(
+typedef ULONG DDKAPI
+(*PCAM_PROCESS_PACKET_ROUTINE)(
   PDEVICE_OBJECT  BusDeviceObject,
   PVOID  DeviceContext,
   PVOID  CurrentFrameContext,
@@ -174,8 +178,8 @@ typedef ULONG
   PBOOLEAN  FrameComplete,
   PBOOLEAN  NextFrameIsStill);
 
-typedef ULONG
-(DDKAPI *PCAM_PROCESS_PACKET_ROUTINE_EX)(
+typedef ULONG DDKAPI
+(*PCAM_PROCESS_PACKET_ROUTINE_EX)(
   PDEVICE_OBJECT  BusDeviceObject,
   PVOID  DeviceContext,
   PVOID  CurrentFrameContext,
@@ -187,29 +191,29 @@ typedef ULONG
   PULONG  PacketFlag,
   PULONG  ValidDataOffset);
 
-typedef NTSTATUS
-(DDKAPI *PCAM_STATE_ROUTINE)(
+typedef NTSTATUS DDKAPI
+(*PCAM_STATE_ROUTINE)(
   PDEVICE_OBJECT  BusDeviceObject,
   PVOID  DeviceContext);
 
-typedef NTSTATUS
-(DDKAPI *PCAM_START_CAPTURE_ROUTINE)(
+typedef NTSTATUS DDKAPI
+(*PCAM_START_CAPTURE_ROUTINE)(
   PDEVICE_OBJECT  BusDeviceObject,
   PVOID  DeviceContext);
 
-typedef NTSTATUS
-(DDKAPI *PCAM_START_CAPTURE_ROUTINE_EX)(
+typedef NTSTATUS DDKAPI
+(*PCAM_START_CAPTURE_ROUTINE_EX)(
   PDEVICE_OBJECT  BusDeviceObject,
   PVOID  DeviceContext,
   ULONG  StreamNumber);
 
-typedef NTSTATUS
-(DDKAPI *PCAM_STOP_CAPTURE_ROUTINE)(
+typedef NTSTATUS DDKAPI
+(*PCAM_STOP_CAPTURE_ROUTINE)(
   PDEVICE_OBJECT  BusDeviceObject,
   PVOID  DeviceContext);
 
-typedef NTSTATUS
-(DDKAPI *PCAM_STOP_CAPTURE_ROUTINE_EX)(
+typedef NTSTATUS DDKAPI
+(*PCAM_STOP_CAPTURE_ROUTINE_EX)(
   PDEVICE_OBJECT  BusDeviceObject,
   PVOID  DeviceContext,
   ULONG  StreamNumber);
@@ -255,14 +259,14 @@ USBCAMD_InitializeNewInterface(
   IN ULONG  Version,
   IN ULONG  CamControlFlag);
 
-typedef VOID
-(DDKAPI *PCOMMAND_COMPLETE_FUNCTION)(
+typedef VOID DDKAPI
+(*PCOMMAND_COMPLETE_FUNCTION)(
   PVOID  DeviceContext,
   PVOID  CommandContext,
   NTSTATUS  NtStatus);
 
-typedef NTSTATUS
-(DDKAPI *PFNUSBCAMD_BulkReadWrite)(
+typedef NTSTATUS DDKAPI
+(*PFNUSBCAMD_BulkReadWrite)(
   IN PVOID  DeviceContext,
   IN USHORT  PipeIndex,
   IN PVOID  Buffer,
@@ -270,23 +274,23 @@ typedef NTSTATUS
   IN PCOMMAND_COMPLETE_FUNCTION  CommandComplete,
   IN PVOID  CommandContext);
 
-typedef NTSTATUS
-(DDKAPI *PFNUSBCAMD_SetIsoPipeState)(
+typedef NTSTATUS DDKAPI
+(*PFNUSBCAMD_SetIsoPipeState)(
   IN PVOID  DeviceContext,
   IN ULONG  PipeStateFlags);
 
-typedef NTSTATUS
-(DDKAPI *PFNUSBCAMD_CancelBulkReadWrite)(
+typedef NTSTATUS DDKAPI
+(*PFNUSBCAMD_CancelBulkReadWrite)(
   IN PVOID  DeviceContext,
   IN ULONG  PipeIndex);
 
-typedef NTSTATUS
-(DDKAPI *PFNUSBCAMD_SetVideoFormat)(
+typedef NTSTATUS DDKAPI
+(*PFNUSBCAMD_SetVideoFormat)(
   IN PVOID  DeviceContext,
   IN PHW_STREAM_REQUEST_BLOCK  pSrb);
 
-typedef NTSTATUS
-(DDKAPI *PFNUSBCAMD_WaitOnDeviceEvent)(
+typedef NTSTATUS DDKAPI
+(*PFNUSBCAMD_WaitOnDeviceEvent)(
   IN PVOID  DeviceContext,
   IN ULONG  PipeIndex,
   IN PVOID  Buffer,
@@ -318,8 +322,8 @@ USBCAMD_ControlVendorCommand(
   IN PCOMMAND_COMPLETE_FUNCTION  CommandComplete,
   IN PVOID  CommandContext);
 
-typedef VOID
-(DDKAPI *PADAPTER_RECEIVE_PACKET_ROUTINE)(
+typedef VOID DDKAPI
+(*PADAPTER_RECEIVE_PACKET_ROUTINE)(
   IN PHW_STREAM_REQUEST_BLOCK  Srb);
 
 USBCAMAPI
@@ -360,8 +364,8 @@ typedef struct _USBCAMD_INTERFACE {
   PFNUSBCAMD_CancelBulkReadWrite  USBCAMD_CancelBulkReadWrite;
 } USBCAMD_INTERFACE, *PUSBCAMD_INTERFACE;
 
-typedef VOID
-(DDKAPI *PSTREAM_RECEIVE_PACKET)(
+typedef VOID DDKAPI
+(*PSTREAM_RECEIVE_PACKET)(
   IN PVOID  Srb,
   IN PVOID  DeviceContext,
   IN PBOOLEAN  Completed);

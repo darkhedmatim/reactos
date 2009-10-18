@@ -1,27 +1,13 @@
-<?xml version="1.0"?>
-<!DOCTYPE group SYSTEM "../../../tools/rbuild/project.dtd">
-<module name="kernel32" type="win32dll" crt="dll" baseaddress="${BASEADDRESS_KERNEL32}" installbase="system32" installname="kernel32.dll">
-	<importlibrary definition="kernel32.pspec" />
-	<include base="kernel32">.</include>
-	<include base="kernel32" root="intermediate">.</include>
-	<include base="kernel32">include</include>
+<module name="kernel32_base" type="objectlibrary" allowwarnings="true">
+	<include base="kernel32_base">.</include>
+	<include base="kernel32_base">include</include>
 	<include base="ReactOS">include/reactos/subsys</include>
-	<library>wine</library>
-	<library>pseh</library>
-	<library>normalize</library>
-	<library>ntdll</library>
-	<define name="_KERNEL32_" />
-	<redefine name="_WIN32_WINNT">0x0600</redefine>
-	<dependency>errcodes</dependency>
-	<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38269
+	<define name="_DISABLE_TIDENTS" />
+	<define name="__USE_W32API" />
+	<define name="_WIN32_WINNT">0x0600</define>
+	<define name="__NO_CTYPE_INLINES" />
+	<define name="WINVER">0x609</define>
 	<pch>k32.h</pch>
-	-->
-	<group compilerset="gcc">
-		<!-- See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=38054#c7 -->
-		<compilerflag>-fno-unit-at-a-time</compilerflag>
-		<compilerflag compiler="cxx">-fno-exceptions</compilerflag>
-		<compilerflag compiler="cxx">-fno-rtti</compilerflag>
-	</group>
 	<directory name="debug">
 		<file>debugger.c</file>
 		<file>output.c</file>
@@ -68,28 +54,22 @@
 		<file>actctx.c</file>
 		<file>atom.c</file>
 		<file>chartype.c</file>
-		<file>collation.c</file>
-		<file>casemap.c</file>
 		<file>comm.c</file>
-		<file>commdcb.c</file>
 		<file>computername.c</file>
 		<file>console.c</file>
 		<file>dllmain.c</file>
 		<file>env.c</file>
 		<file>error.c</file>
 		<file>errormsg.c</file>
-		<file>fold.c</file>
 		<file>handle.c</file>
 		<file>lang.c</file>
 		<file>ldr.c</file>
-		<file>lzexpand.c</file>
+		<file>lzexpand_main.c</file>
 		<file>muldiv.c</file>
 		<file>nls.c</file>
 		<file>perfcnt.c</file>
-		<file>power.c</file>
 		<file>recovery.c</file>
 		<file>res.c</file>
-		<file>sortkey.c</file>
 		<file>stubs.c</file>
 		<file>sysinfo.c</file>
 		<file>time.c</file>
@@ -128,15 +108,24 @@
 		<file>utils.c</file>
 	</directory>
 	<directory name="thread">
-		<if property="ARCH" value="i386">
-			<directory name="i386">
-				<file>fiber.S</file>
-				<file>thread.S</file>
-			</directory>
-		</if>
+		<directory name="i386">
+			<file>fiber.S</file>
+            		<file>thread.S</file>
+		</directory>
 	</directory>
-	<directory name="misc">
-		<file>icustubs.cpp</file>
-	</directory>
+</module>
+<module name="kernel32" type="win32dll" baseaddress="${BASEADDRESS_KERNEL32}" installbase="system32" installname="kernel32.dll">
+	<importlibrary definition="kernel32.def" />
+	<include base="kernel32">.</include>
+	<include base="kernel32">include</include>
+	<define name="_DISABLE_TIDENTS" />
+	<define name="__USE_W32API" />
+	<define name="WINVER">0x0500</define>
+	<library>kernel32_base</library>
+	<library>pseh</library>
+	<library>ntdll</library>
+	<linkerflag>-lgcc</linkerflag>
+	<linkerflag>-nostartfiles</linkerflag>
+	<linkerflag>-nostdlib</linkerflag>
 	<file>kernel32.rc</file>
 </module>

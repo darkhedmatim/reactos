@@ -31,8 +31,7 @@ RtlpCreateUserStack(IN HANDLE hProcess,
     PIMAGE_NT_HEADERS Headers;
     ULONG_PTR Stack = 0;
     BOOLEAN UseGuard = FALSE;
-    ULONG Dummy;
-    SIZE_T GuardPageSize;
+    ULONG Dummy, GuardPageSize;
 
     /* Get some memory information */
     Status = ZwQuerySystemInformation(SystemBasicInformation,
@@ -134,7 +133,7 @@ NTAPI
 RtlpFreeUserStack(IN HANDLE Process,
                   IN PINITIAL_TEB InitialTeb)
 {
-    SIZE_T Dummy = 0;
+    ULONG Dummy = 0;
     NTSTATUS Status;
 
     /* Free the Stack */
@@ -210,10 +209,7 @@ RtlCreateUserThread(IN HANDLE ProcessHandle,
     else
     {
         /* Return thread data */
-        if (ThreadHandle)
-            *ThreadHandle = Handle;
-        else
-            NtClose(Handle);
+        if (ThreadHandle) *ThreadHandle = Handle;
         if (ClientId) *ClientId = ThreadCid;
     }
 
@@ -246,7 +242,7 @@ RtlFreeUserThreadStack(HANDLE ProcessHandle,
 {
     NTSTATUS Status;
     THREAD_BASIC_INFORMATION ThreadBasicInfo;
-    SIZE_T Dummy, Size = 0;
+    ULONG Dummy, Size = 0;
     PVOID StackLocation;
 
     /* Query the Basic Info */
@@ -278,16 +274,4 @@ _NtCurrentTeb(VOID)
     return NtCurrentTeb();
 }
 
-NTSTATUS
-NTAPI
-RtlRemoteCall(IN HANDLE Process,
-              IN HANDLE Thread,
-              IN PVOID CallSite,
-              IN ULONG ArgumentCount,
-              IN PULONG Arguments,
-              IN BOOLEAN PassContext,
-              IN BOOLEAN AlreadySuspended)
-{
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
-}
+/* EOF */

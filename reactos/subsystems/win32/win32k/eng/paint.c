@@ -32,48 +32,39 @@
 #define NDEBUG
 #include <debug.h>
 
-static BOOL APIENTRY FillSolidUnlocked(SURFOBJ *pso, PRECTL pRect, ULONG iColor)
+BOOL STDCALL FillSolid(SURFOBJ *Surface, PRECTL pRect, ULONG iColor)
 {
   LONG y;
   ULONG LineWidth;
-  SURFACE *psurf;
+  BITMAPOBJ *BitmapObj;
 
-  ASSERT(pso);
-  ASSERT(pRect);
-  psurf = CONTAINING_RECORD(pso, SURFACE, SurfObj);
-  MouseSafetyOnDrawStart(pso, pRect->left, pRect->top, pRect->right, pRect->bottom);
+  ASSERT ( Surface );
+  ASSERT ( pRect );
+  BitmapObj = CONTAINING_RECORD(Surface, BITMAPOBJ, SurfObj);
+  BITMAPOBJ_LockBitmapBits(BitmapObj);
+  MouseSafetyOnDrawStart(Surface, pRect->left, pRect->top, pRect->right, pRect->bottom);
   LineWidth  = pRect->right - pRect->left;
   DPRINT(" LineWidth: %d, top: %d, bottom: %d\n", LineWidth, pRect->top, pRect->bottom);
   for (y = pRect->top; y < pRect->bottom; y++)
   {
-    DibFunctionsForBitmapFormat[pso->iBitmapFormat].DIB_HLine(
-      pso, pRect->left, pRect->right, y, iColor);
+    DibFunctionsForBitmapFormat[Surface->iBitmapFormat].DIB_HLine(
+      Surface, pRect->left, pRect->right, y, iColor);
   }
-  MouseSafetyOnDrawEnd(pso);
+  MouseSafetyOnDrawEnd(Surface);
+  BITMAPOBJ_UnlockBitmapBits(BitmapObj);
 
   return TRUE;
 }
 
-BOOL APIENTRY FillSolid(SURFOBJ *pso, PRECTL pRect, ULONG iColor)
-{
-  SURFACE *psurf;
-  BOOL Result;
-  psurf = CONTAINING_RECORD(pso, SURFACE, SurfObj);
-  SURFACE_LockBitmapBits(psurf);
-  Result = FillSolidUnlocked(pso, pRect, iColor);
-  SURFACE_UnlockBitmapBits(psurf);
-  return Result;
-}
-
-BOOL APIENTRY
-EngPaintRgn(SURFOBJ *pso, CLIPOBJ *ClipRegion, ULONG iColor, MIX Mix,
+BOOL STDCALL
+EngPaintRgn(SURFOBJ *Surface, CLIPOBJ *ClipRegion, ULONG iColor, MIX Mix,
             BRUSHOBJ *BrushObj, POINTL *BrushPoint)
 {
   RECT_ENUM RectEnum;
   BOOL EnumMore;
   ULONG i;
 
-  ASSERT(pso);
+  ASSERT(Surface);
   ASSERT(ClipRegion);
 
   DPRINT("ClipRegion->iMode:%d, ClipRegion->iDComplexity: %d\n Color: %d", ClipRegion->iMode, ClipRegion->iDComplexity, iColor);
@@ -87,7 +78,7 @@ EngPaintRgn(SURFOBJ *pso, CLIPOBJ *ClipRegion, ULONG iColor, MIX Mix,
 
     if (ClipRegion->iDComplexity == DC_RECT)
     {
-      FillSolidUnlocked(pso, &(ClipRegion->rclBounds), iColor);
+      FillSolid(Surface, &(ClipRegion->rclBounds), iColor);
     } else {
 
       /* Enumerate all the rectangles and draw them */
@@ -96,7 +87,7 @@ EngPaintRgn(SURFOBJ *pso, CLIPOBJ *ClipRegion, ULONG iColor, MIX Mix,
       do {
         EnumMore = CLIPOBJ_bEnum(ClipRegion, sizeof(RectEnum), (PVOID) &RectEnum);
         for (i = 0; i < RectEnum.c; i++) {
-          FillSolidUnlocked(pso, RectEnum.arcl + i, iColor);
+          FillSolid(Surface, RectEnum.arcl + i, iColor);
         }
       } while (EnumMore);
     }
@@ -111,8 +102,8 @@ EngPaintRgn(SURFOBJ *pso, CLIPOBJ *ClipRegion, ULONG iColor, MIX Mix,
 /*
  * @unimplemented
  */
-BOOL APIENTRY
-EngPaint(IN SURFOBJ *pso,
+BOOL STDCALL
+EngPaint(IN SURFOBJ *Surface,
 	 IN CLIPOBJ *ClipRegion,
 	 IN BRUSHOBJ *Brush,
 	 IN POINTL *BrushOrigin,
@@ -121,38 +112,38 @@ EngPaint(IN SURFOBJ *pso,
   BOOLEAN ret;
 
   // FIXME: We only support a brush's solid color attribute
-  ret = EngPaintRgn(pso, ClipRegion, Brush->iSolidColor, Mix, Brush, BrushOrigin);
+  ret = EngPaintRgn(Surface, ClipRegion, Brush->iSolidColor, Mix, Brush, BrushOrigin);
 
   return ret;
 }
 
-BOOL APIENTRY
-IntEngPaint(IN SURFOBJ *pso,
+BOOL STDCALL
+IntEngPaint(IN SURFOBJ *Surface,
             IN CLIPOBJ *ClipRegion,
             IN BRUSHOBJ *Brush,
             IN POINTL *BrushOrigin,
             IN MIX  Mix)
 {
-  SURFACE *psurf = CONTAINING_RECORD(pso, SURFACE, SurfObj);
+  BITMAPOBJ *BitmapObj = CONTAINING_RECORD(Surface, BITMAPOBJ, SurfObj);
   BOOL ret;
 
-  DPRINT("pso->iType == %d\n", pso->iType);
+  DPRINT("SurfGDI type: %d\n", Surface->iType);
   /* Is the surface's Paint function hooked? */
-  if((pso->iType!=STYPE_BITMAP) && (psurf->flHooks & HOOK_PAINT))
+  if((Surface->iType!=STYPE_BITMAP) && (BitmapObj->flHooks & HOOK_PAINT))
   {
     // Call the driver's DrvPaint
-    SURFACE_LockBitmapBits(psurf);
-    MouseSafetyOnDrawStart(pso, ClipRegion->rclBounds.left,
+    BITMAPOBJ_LockBitmapBits(BitmapObj);
+    MouseSafetyOnDrawStart(Surface, ClipRegion->rclBounds.left,
 	                         ClipRegion->rclBounds.top, ClipRegion->rclBounds.right,
 							 ClipRegion->rclBounds.bottom);
 
-    ret = GDIDEVFUNCS(pso).Paint(
-      pso, ClipRegion, Brush, BrushOrigin, Mix);
-    MouseSafetyOnDrawEnd(pso);
-    SURFACE_UnlockBitmapBits(psurf);
+    ret = GDIDEVFUNCS(Surface).Paint(
+      Surface, ClipRegion, Brush, BrushOrigin, Mix);
+    MouseSafetyOnDrawEnd(Surface);
+    BITMAPOBJ_UnlockBitmapBits(BitmapObj);
     return ret;
   }
-  return EngPaint(pso, ClipRegion, Brush, BrushOrigin, Mix );
+  return EngPaint( Surface, ClipRegion, Brush, BrushOrigin, Mix );
 
 }
 /* EOF */

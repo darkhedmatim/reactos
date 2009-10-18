@@ -13,7 +13,7 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// Български
+// English (U.S.) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
 #ifdef _WIN32
@@ -26,7 +26,7 @@ LANGUAGE LANG_BULGARIAN, SUBLANG_DEFAULT
 // Menu
 //
 
-IDM_MDIFRAME MENU DISCARDABLE
+IDM_MDIFRAME MENU DISCARDABLE 
 BEGIN
     POPUP "&Файл"
     BEGIN
@@ -67,7 +67,7 @@ BEGIN
     END
 END
 
-IDM_DESKTOPBAR MENU DISCARDABLE
+IDM_DESKTOPBAR MENU DISCARDABLE 
 BEGIN
     POPUP ""
     BEGIN
@@ -78,7 +78,7 @@ BEGIN
     END
 END
 
-IDM_VOLUME MENU DISCARDABLE
+IDM_VOLUME MENU DISCARDABLE 
 BEGIN
     POPUP ""
     BEGIN
@@ -87,20 +87,20 @@ BEGIN
     END
 END
 
-IDM_NOTIFYAREA MENU DISCARDABLE
+IDM_NOTIFYAREA MENU DISCARDABLE 
 BEGIN
     POPUP ""
     BEGIN
-        MENUITEM "&Показване на скрити значета",          ID_SHOW_HIDDEN_ICONS
-        MENUITEM "Показване на &копчета за значетата",           ID_SHOW_ICON_BUTTON
-        MENUITEM "На&стройка на уведомителката...", ID_CONFIG_NOTIFYAREA
+        MENUITEM "&Показване на скрити значки",          ID_SHOW_HIDDEN_ICONS
+        MENUITEM "Показване на &копчета за значките",           ID_SHOW_ICON_BUTTON
+        MENUITEM "На&стройка на известяването...", ID_CONFIG_NOTIFYAREA
         MENUITEM "Сверяване на дата/&време...",        ID_CONFIG_TIME
         MENUITEM SEPARATOR
         MENUITEM "&За изследователя...",          ID_ABOUT_EXPLORER
     END
 END
 
-IDM_SDIFRAME MENU DISCARDABLE
+IDM_SDIFRAME MENU DISCARDABLE 
 BEGIN
     POPUP "&Файл"
     BEGIN
@@ -136,8 +136,8 @@ END
 // Dialog
 //
 
-IDD_EXECUTE DIALOGEX DISCARDABLE  15, 13, 210, 63
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_EXECUTE DIALOG DISCARDABLE  15, 13, 210, 63
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Изпълняване"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -153,134 +153,134 @@ BEGIN
 END
 
 IDD_SEARCH_PROGRAM DIALOGEX 0, 0, 200, 65
-STYLE DS_SHELLFONT | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION |
+STYLE WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | 
     WS_SYSMENU | WS_THICKFRAME
 EXSTYLE WS_EX_APPWINDOW
-CAPTION "Търсене на приложение"
-FONT 8, "MS Shell Dlg", 0, 0, 0x1
+CAPTION "Търсене на приложение от пусковия изборник"
+FONT 8, "MS Sans Serif", 0, 0, 0x1
 BEGIN
-    LTEXT           "Пре&сяване:",IDC_STATIC,2,9,41,8
-    EDITTEXT        IDC_FILTER,43,7,100,14,ES_AUTOHSCROLL
-    CONTROL         "List1",IDC_PROGRAMS_FOUND,"SysListView32",LVS_REPORT |
-                    LVS_SHOWSELALWAYS | LVS_SORTASCENDING | WS_BORDER |
+    LTEXT           "Пре&сяване:",IDC_STATIC,7,9,18,8
+    EDITTEXT        IDC_FILTER,34,7,100,14,ES_AUTOHSCROLL
+    CONTROL         "List1",IDC_PROGRAMS_FOUND,"SysListView32",LVS_REPORT | 
+                    LVS_SHOWSELALWAYS | LVS_SORTASCENDING | WS_BORDER | 
                     WS_TABSTOP,7,25,186,33
-    PUSHBUTTON      "&Проверка",IDC_CHECK_ENTRIES,143,2,50,20
+    PUSHBUTTON      "&Проверка на попълненията",IDC_CHECK_ENTRIES,143,7,50,14
 END
 
-IDD_DESKBAR_DESKTOP DIALOGEX DISCARDABLE  0, 0, 212, 194
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+IDD_DESKBAR_DESKTOP DIALOG DISCARDABLE  0, 0, 212, 194
+STYLE WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Свойства на работната площ"
-FONT 7, "MS Shell Dlg"
+FONT 8, "MS Sans Serif"
 BEGIN
-    LTEXT           "Изберете начин на подреждане:",
+    LTEXT           "Изберете начин на подравняване:",
                     IDC_STATIC,7,7,166,8
-    CONTROL         "Горен ляв надолу",IDC_ICON_ALIGN_0,"Button",BS_OWNERDRAW |
-                    BS_BOTTOM | WS_TABSTOP,6,25,60,44
-    CONTROL         "Горен ляв надясно",IDC_ICON_ALIGN_1,"Button",BS_OWNERDRAW |
-                    BS_BOTTOM | WS_TABSTOP,67,25,60,44
-    CONTROL         "Горен десен наляво",IDC_ICON_ALIGN_2,"Button",BS_OWNERDRAW |
-                    BS_BOTTOM | WS_TABSTOP,127,25,60,44
-    CONTROL         "Горен десен надолу",IDC_ICON_ALIGN_3,"Button",BS_OWNERDRAW |
-                    BS_BOTTOM | WS_TABSTOP,188,25,60,44
-    CONTROL         "Долен ляв нагоре",IDC_ICON_ALIGN_4,"Button",BS_OWNERDRAW |
-                    BS_BOTTOM | WS_TABSTOP,6,73,60,44
-    CONTROL         "Долен ляв надясно",IDC_ICON_ALIGN_5,"Button",BS_OWNERDRAW |
-                    BS_BOTTOM | WS_TABSTOP,67,73,60,44
-    CONTROL         "Долен десен наляво",IDC_ICON_ALIGN_6,"Button",BS_OWNERDRAW |
-                    BS_BOTTOM | WS_TABSTOP,127,73,60,44
-    CONTROL         "Долен десен нагоре",IDC_ICON_ALIGN_7,"Button",BS_OWNERDRAW |
-                    BS_BOTTOM | WS_TABSTOP,188,73,60,44
-    CONTROL         "Странично надолу",IDC_ICON_ALIGN_8,"Button",BS_OWNERDRAW |
-                    BS_BOTTOM | WS_TABSTOP,6,121,60,44
-    CONTROL         "По ръбовете",IDC_ICON_ALIGN_9,"Button",BS_OWNERDRAW |
-                    BS_BOTTOM | WS_TABSTOP,67,121,60,44
-    CONTROL         "Кръгово",IDC_ICON_ALIGN_10,"Button",BS_OWNERDRAW |
-                    BS_BOTTOM | WS_TABSTOP,127,121,60,44
-    CONTROL         "",IDC_ICON_ALIGN_11,"Button",BS_OWNERDRAW | BS_BOTTOM |
-                    WS_TABSTOP,188,121,60,44
+    CONTROL         "left/top dwn",IDC_ICON_ALIGN_0,"Button",BS_OWNERDRAW | 
+                    BS_BOTTOM | WS_TABSTOP,7,25,46,44
+    CONTROL         "left/top right",IDC_ICON_ALIGN_1,"Button",BS_OWNERDRAW | 
+                    BS_BOTTOM | WS_TABSTOP,57,25,46,44
+    CONTROL         "right/top left",IDC_ICON_ALIGN_2,"Button",BS_OWNERDRAW | 
+                    BS_BOTTOM | WS_TABSTOP,110,25,46,44
+    CONTROL         "rig./top dwn",IDC_ICON_ALIGN_3,"Button",BS_OWNERDRAW | 
+                    BS_BOTTOM | WS_TABSTOP,159,25,46,44
+    CONTROL         "left/bot. up",IDC_ICON_ALIGN_4,"Button",BS_OWNERDRAW | 
+                    BS_BOTTOM | WS_TABSTOP,7,73,46,44
+    CONTROL         "left/bot. right",IDC_ICON_ALIGN_5,"Button",BS_OWNERDRAW | 
+                    BS_BOTTOM | WS_TABSTOP,57,73,46,44
+    CONTROL         "right/bot. left",IDC_ICON_ALIGN_6,"Button",BS_OWNERDRAW | 
+                    BS_BOTTOM | WS_TABSTOP,110,73,46,44
+    CONTROL         "rig./bot. dwn",IDC_ICON_ALIGN_7,"Button",BS_OWNERDRAW | 
+                    BS_BOTTOM | WS_TABSTOP,159,73,46,44
+    CONTROL         "border down",IDC_ICON_ALIGN_8,"Button",BS_OWNERDRAW | 
+                    BS_BOTTOM | WS_TABSTOP,7,121,46,44
+    CONTROL         "border H/V",IDC_ICON_ALIGN_9,"Button",BS_OWNERDRAW | 
+                    BS_BOTTOM | WS_TABSTOP,57,121,46,44
+    CONTROL         "кръгово",IDC_ICON_ALIGN_10,"Button",BS_OWNERDRAW | 
+                    BS_BOTTOM | WS_TABSTOP,110,121,46,44
+    CONTROL         "",IDC_ICON_ALIGN_11,"Button",BS_OWNERDRAW | BS_BOTTOM | 
+                    WS_TABSTOP,159,121,46,44
     CONTROL         "Показване на &версията",ID_DESKTOP_VERSION,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,7,177,120,10
+                    BS_AUTOCHECKBOX | WS_TABSTOP,7,177,91,10
 END
 
-IDD_DESKBAR_TASKBAR DIALOGEX DISCARDABLE  0, 0, 210, 194
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+IDD_DESKBAR_TASKBAR DIALOG DISCARDABLE  0, 0, 210, 194
+STYLE WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Свойства на задачната лента"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Sans Serif"
 BEGIN
-    CONTROL         "Показване на &часовника",ID_SHOW_CLOCK,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,7,152,100,10
-    CONTROL         "&Показване на неползваните значета",
-                    ID_HIDE_INACTIVE_ICONS,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,7,174,143,10
-    PUSHBUTTON      "У&ведомителка...",ID_CONFIG_NOTIFYAREA,150,173,62,14
+    CONTROL         "показване на &часовника",ID_SHOW_CLOCK,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,7,152,52,10
+    CONTROL         "&показване на неизползваните уведомителни значки",
+                    ID_HIDE_INACTIVE_ICONS,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,7,174,111,10
+    PUSHBUTTON      "Из&вестяване...",ID_CONFIG_NOTIFYAREA,153,173,50,14
 END
 
-IDD_DESKBAR_STARTMENU DIALOGEX DISCARDABLE  0, 0, 210, 194
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+IDD_DESKBAR_STARTMENU DIALOG DISCARDABLE  0, 0, 210, 194
+STYLE WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Свойства на пусковия изборник"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Sans Serif"
 BEGIN
 END
 
 IDD_NOTIFYAREA DIALOGEX 0, 0, 208, 174
-STYLE DS_SHELLFONT | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION |
+STYLE WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | 
     WS_SYSMENU | WS_THICKFRAME
 EXSTYLE WS_EX_APPWINDOW
-CAPTION "Настройка на уведомителните значета"
-FONT 8, "MS Shell Dlg", 0, 0, 0x1
+CAPTION "Настройка на уведомителните значки"
+FONT 8, "MS Sans Serif", 0, 0, 0x1
 BEGIN
-    CONTROL         "Tree1",IDC_NOTIFY_ICONS,"SysTreeView32",TVS_HASLINES |
+    CONTROL         "Tree1",IDC_NOTIFY_ICONS,"SysTreeView32",TVS_HASLINES | 
                     TVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP,7,7,194,31
     LTEXT           "&Подсказка:",IDC_LABEL1,7,44,40,8
     EDITTEXT        IDC_NOTIFY_TOOLTIP,58,42,143,14,ES_AUTOHSCROLL
     LTEXT           "&Заглавие на прозореца:",IDC_LABEL2,7,63,44,8
     EDITTEXT        IDC_NOTIFY_TITLE,58,60,143,14,ES_AUTOHSCROLL
-    LTEXT           "&Път:",IDC_LABEL3,7,81,43,8
+    LTEXT           "&Module Path:",IDC_LABEL3,7,81,43,8
     EDITTEXT        IDC_NOTIFY_MODULE,58,78,143,14,ES_AUTOHSCROLL
     GROUPBOX        "&Начин на изобразяване",IDC_LABEL4,7,96,157,28
-    CONTROL         "&показване",IDC_NOTIFY_SHOW,"Button",BS_AUTORADIOBUTTON |
-                    WS_TABSTOP,8,108,49,10
-    CONTROL         "&скриване",IDC_NOTIFY_HIDE,"Button",BS_AUTORADIOBUTTON,56,
-                    108,45,10
+    CONTROL         "&показване",IDC_NOTIFY_SHOW,"Button",BS_AUTORADIOBUTTON | 
+                    WS_TABSTOP,15,108,33,10
+    CONTROL         "&скриване",IDC_NOTIFY_HIDE,"Button",BS_AUTORADIOBUTTON,66,
+                    108,29,10
     CONTROL         "с&амоскриване",IDC_NOTIFY_AUTOHIDE,"Button",
-                    BS_AUTORADIOBUTTON,100,108,61,10
+                    BS_AUTORADIOBUTTON,112,108,43,10
     ICON            "",IDC_PICTURE,173,101,21,20
-    LTEXT           "&Променено на:",IDC_LABEL6,3,132,54,8
-    EDITTEXT        IDC_LAST_CHANGE,59,129,105,14,ES_AUTOHSCROLL |
+    LTEXT           "&Последна промяна:",IDC_LABEL6,7,132,43,8
+    EDITTEXT        IDC_LAST_CHANGE,59,129,105,14,ES_AUTOHSCROLL | 
                     ES_READONLY
-    CONTROL         "&Показване на скрити",ID_SHOW_HIDDEN_ICONS,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,2,154,85,10
+    CONTROL         "&показване на скритите",ID_SHOW_HIDDEN_ICONS,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,7,154,56,10
     DEFPUSHBUTTON   "&Добре",IDOK,91,153,50,14,WS_GROUP
     PUSHBUTTON      "&Отказ" ,IDCANCEL,151,153,50,14
 END
 
 IDD_MDI_SDI DIALOGEX 0, 0, 194, 157
-STYLE DS_SHELLFONT | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+STYLE WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_APPWINDOW
 CAPTION "Избор на прозоречен изглед на изследователя"
-FONT 8, "MS Shell Dlg", 0, 0, 0x1
+FONT 8, "MS Sans Serif", 0, 0, 0x1
 BEGIN
     LTEXT           "Изберете работен облик за изследователя:",
                     IDC_STATIC,7,7,160,8
-    CONTROL         "&МДИ (Многодокументен изглед)",IDC_MDI,"Button",
+    CONTROL         "&МПИ (Многопрозоречен изглед)",IDC_MDI,"Button",
                     BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,7,31,124,10
-    CONTROL         "&ЕДИ (Еднодокументен изглед)",IDC_SDI,"Button",
+    CONTROL         "&ЕПИ (Многопрозоречен изглед)",IDC_SDI,"Button",
                     BS_AUTORADIOBUTTON,7,62,118,10
     CONTROL         170,IDC_STATIC,"Static",SS_BITMAP,145,23,15,13
     CONTROL         171,IDC_STATIC,"Static",SS_BITMAP,145,57,15,13
     CONTROL         "Отваряне на подпапките в от&делни прозорци",
-                    IDC_SEPARATE_SUBFOLDERS,"Button",BS_AUTOCHECKBOX |
-                    WS_TABSTOP,7,90,180,10
+                    IDC_SEPARATE_SUBFOLDERS,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,7,90,135,10
     LTEXT           "Тази настройка вече ще бъде използвана по подразбиране за всички прозорци на изследователя.",
-                    IDC_STATIC,7,108,174,25
+                    IDC_STATIC,7,111,174,22
     DEFPUSHBUTTON   "&Добре",IDOK,29,136,50,14,WS_GROUP
     PUSHBUTTON      "&Отказ" ,IDCANCEL,106,136,50,14
 END
 
-IDD_ABOUT_EXPLORER DIALOGEX DISCARDABLE  0, 0, 199, 106
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_ABOUT_EXPLORER DIALOG DISCARDABLE  0, 0, 199, 106
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "За изследователя на РеактОС"
-FONT 8, "MS Shell Dlg"
+FONT 10, "MS Sans Serif"
 BEGIN
     LTEXT           "Изследовател на РеактОС",IDC_ROS_EXPLORER,91,13,104,11
     LTEXT           "в 0.9",IDC_VERSION_TXT,91,27,104,8
@@ -299,18 +299,18 @@ END
 // TEXTINCLUDE
 //
 
-1 TEXTINCLUDE MOVEABLE PURE
+1 TEXTINCLUDE MOVEABLE PURE 
 BEGIN
     "resource.h\0"
 END
 
-2 TEXTINCLUDE MOVEABLE PURE
+2 TEXTINCLUDE MOVEABLE PURE 
 BEGIN
     "#include <windows.h>\r\n"
     "\0"
 END
 
-3 TEXTINCLUDE MOVEABLE PURE
+3 TEXTINCLUDE MOVEABLE PURE 
 BEGIN
     "\r\n"
     "\0"
@@ -324,30 +324,29 @@ END
 // String Table
 //
 
-STRINGTABLE DISCARDABLE
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_TITLE               "Изследовател на РеактОС"
     IDS_START               "Пуск"
     IDS_LOGOFF              "Изход..."
     IDS_SHUTDOWN            "Изключване..."
-    IDS_RESTART             "Презапускане..."
-    IDS_LAUNCH              "Изпълняване..."
+    IDS_LAUNCH              "изпълняване..."
     IDS_START_HELP          "Помощ"
     IDS_SEARCH_FILES        "Търсене"
     IDS_DOCUMENTS           "Книжа"
     IDS_FAVORITES           "Любимки"
     IDS_PROGRAMS            "Приложения"
     IDS_SETTINGS            "Настройки"
-    IDS_EXPLORE             "Изследовател"
+    IDS_EXPLORE             "Изследване"
     IDS_EMPTY               "(Празно)"
     IDS_RECENT              "Скорошни книжа"
     IDS_ADMIN               "Управление"
 END
 
-STRINGTABLE DISCARDABLE
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_STARTMENU           "Пусков изборник"
-    IDS_MINIMIZE_ALL        "Смаляване на всички прозорци"
+    IDS_MINIMIZE_ALL        "смаляване на всички прозорци"
     IDS_DESKTOP_NUM         "Работна площ %d"
     IDS_VOLUME              "Сила на звука"
     IDS_ITEMS_CUR           "текущи предмети"
@@ -357,12 +356,12 @@ BEGIN
     IDS_NOTIFY_SHOW         "показване"
     IDS_NOTIFY_HIDE         "скриване"
     IDS_NOTIFY_AUTOHIDE     "самоскриване"
-    IDS_SHOW_HIDDEN_ICONS   "Показване на скритите значета"
-    IDS_HIDE_ICONS          "Скриване на значета"
+    IDS_SHOW_HIDDEN_ICONS   "Показване на скритите значки"
+    IDS_HIDE_ICONS          "Скриване на значки"
     IDS_TERMINATE           "Прекратяване на изследователя"
 END
 
-STRINGTABLE DISCARDABLE
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_NETWORK             "Мрежа"
     IDS_CONNECTIONS         "Мрежови връзки"
@@ -371,19 +370,16 @@ BEGIN
     IDS_SETTINGS_MENU       "Изборник за настройки"
     IDS_CONTROL_PANEL       "Крило за управление"
     IDS_PRINTERS            "Печатачи"
-    IDS_BROWSE              "Файлов обзор"
+    IDS_BROWSE              "Обзор към файлове"
     IDS_SEARCH_PRG          "Търсене на приложение..."
     IDS_ALL_USERS           "Всички потребители\\"
     IDS_SEARCH              "Търсене"
     IDS_ABOUT_EXPLORER      "&За изследователя..."
-    IDS_LAUNCH_MANY_PROGRAMS
+    IDS_LAUNCH_MANY_PROGRAMS 
                             "Избрали сте повече от едно приложение.\nСигурен ли сте, че искате да изпълните всичките?"
     IDS_DESKTOPBAR_SETTINGS "Настройки на работната площ"
     IDS_DESKTOP             "Работна площ"
     IDS_TASKBAR             "Задачна лента"
-    IDS_NAMECOLUMN          "Име"
-    IDS_PATHCOLUMN          "Път"
-    IDS_MENUCOLUMN          "Път на изборника"
 END
 
 #endif    // Bulgarian (Bg) resources
@@ -400,5 +396,4 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
-
 

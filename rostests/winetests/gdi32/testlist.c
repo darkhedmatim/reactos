@@ -13,11 +13,9 @@ extern void func_dc(void);
 extern void func_font(void);
 extern void func_gdiobj(void);
 extern void func_generated(void);
-extern void func_icm(void);
 extern void func_mapping(void);
 extern void func_metafile(void);
 extern void func_palette(void);
-extern void func_path(void);
 extern void func_pen(void);
 
 const struct test winetest_testlist[] =
@@ -28,12 +26,10 @@ const struct test winetest_testlist[] =
     { "dc", func_dc },
     { "font", func_font },
     { "gdiobj", func_gdiobj },
-    { "generated", func_generated },
-    { "icm", func_icm },
+//    { "generated", func_generated },
     { "mapping", func_mapping },
     { "metafile", func_metafile },
     { "palette", func_palette },
-    { "path", func_path },
-    { "pen", func_pen },
+//    { "pen", func_pen },
     { 0, 0 }
 };

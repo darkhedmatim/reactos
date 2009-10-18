@@ -2,16 +2,15 @@
 #include <kbdmou.h>
 #include <ntddkbd.h>
 #include <stdio.h>
-#include <pseh/pseh2.h>
-
+#include <pseh/pseh.h>
 #include <debug.h>
 
 #define MAX_PATH 260
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-#define CLASS_TAG 'CuoM'
-#define DPFLTR_CLASS_NAME_ID DPFLTR_MOUCLASS_ID
+#define TAG(A, B, C, D) (ULONG)(((A)<<0) + ((B)<<8) + ((C)<<16) + ((D)<<24))
+#define CLASS_TAG TAG('M', 'o', 'u', 'C')
 
 typedef enum
 {
@@ -60,7 +59,7 @@ typedef struct _CLASS_DEVICE_EXTENSION
 	LIST_ENTRY ListHead;
 	KSPIN_LOCK ListSpinLock;
 	KSPIN_LOCK SpinLock;
-	PIRP PendingIrp;
+	BOOLEAN ReadIsPending;
 	SIZE_T InputCount;
 	PMOUSE_INPUT_DATA PortData;
 	LPCWSTR DeviceName;

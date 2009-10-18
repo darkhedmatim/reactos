@@ -6,7 +6,7 @@
 typedef struct tagCURICON_PROCESS
 {
   LIST_ENTRY ListEntry;
-  PPROCESSINFO Process;
+  PW32PROCESS Process;
 } CURICON_PROCESS, *PCURICON_PROCESS;
 
 typedef struct _CURICON_OBJECT
@@ -41,16 +41,13 @@ typedef struct _CURSORACCELERATION_INFO
 typedef struct _SYSTEM_CURSORINFO
 {
   BOOL Enabled;
-  BOOL ClickLockActive;
-  DWORD ClickLockTime;
-//  BOOL SwapButtons;
+  BOOL SwapButtons;
   UINT ButtonsDown;
   CURSORCLIP_INFO CursorClipInfo;
   PCURICON_OBJECT CurrentCursorObject;
-  BYTE ShowingCursor;
-/*
   UINT WheelScroLines;
   UINT WheelScroChars;
+  BYTE ShowingCursor;
   UINT DblClickSpeed;
   UINT DblClickWidth;
   UINT DblClickHeight;
@@ -59,9 +56,9 @@ typedef struct _SYSTEM_CURSORINFO
   UINT MouseHoverWidth;
   UINT MouseHoverHeight;
 
-  UINT MouseSpeed;
-  CURSORACCELERATION_INFO CursorAccelerationInfo;
-*/
+  UINT MouseSpeed; 
+  CURSORACCELERATION_INFO CursorAccelerationInfo; 
+
   DWORD LastBtnDown;
   LONG LastBtnDownX;
   LONG LastBtnDownY;
@@ -72,39 +69,19 @@ typedef struct _SYSTEM_CURSORINFO
 HCURSOR FASTCALL IntSetCursor(PWINSTATION_OBJECT WinStaObject, PCURICON_OBJECT NewCursor, BOOL ForceChange);
 BOOL FASTCALL IntSetupCurIconHandles(PWINSTATION_OBJECT WinStaObject);
 PCURICON_OBJECT FASTCALL IntCreateCurIconHandle(PWINSTATION_OBJECT WinStaObject);
-VOID FASTCALL IntCleanupCurIcons(struct _EPROCESS *Process, PPROCESSINFO Win32Process);
+VOID FASTCALL IntCleanupCurIcons(struct _EPROCESS *Process, PW32PROCESS Win32Process);
 
 BOOL FASTCALL IntGetCursorLocation(PWINSTATION_OBJECT WinStaObject, POINT *loc);
 
-BOOL UserDrawIconEx(HDC hDc, INT xLeft, INT yTop, PCURICON_OBJECT pIcon, INT cxWidth,
+BOOL UserDrawIconEx(HDC hDc, INT xLeft, INT yTop, PCURICON_OBJECT pIcon, INT cxWidth, 
    INT cyHeight, UINT istepIfAniCur, HBRUSH hbrFlickerFreeDraw, UINT diFlags);
 PCURICON_OBJECT FASTCALL UserGetCurIconObject(HCURSOR hCurIcon);
-
-int APIENTRY UserShowCursor(BOOL bShow);
 
 #define IntGetSysCursorInfo(WinStaObj) \
   (PSYSTEM_CURSORINFO)((WinStaObj)->SystemCursor)
 
 #define IntReleaseCurIconObject(CurIconObj) \
-  UserDereferenceObject(CurIconObj)
-
-ULONG
-NTAPI
-GreSetPointerShape(
-    HDC hdc,
-    HBITMAP hbmMask,
-    HBITMAP hbmColor,
-    LONG xHot,
-    LONG yHot,
-    LONG x,
-    LONG y);
-
-VOID
-NTAPI
-GreMovePointer(
-    HDC hdc,
-    LONG x,
-    LONG y);
+  ObmDereferenceObject(CurIconObj)
 
 #endif /* _WIN32K_CURSORICON_H */
 

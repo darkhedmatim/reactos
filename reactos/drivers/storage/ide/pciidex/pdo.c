@@ -6,10 +6,10 @@
  * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
  */
 
-#include "pciidex.h"
-
 #define NDEBUG
 #include <debug.h>
+
+#include "pciidex.h"
 
 static NTSTATUS
 PciIdeXPdoQueryId(
@@ -111,7 +111,7 @@ PciIdeXPdoQueryId(
 			return STATUS_NOT_SUPPORTED;
 	}
 
-	Status = DuplicateUnicodeString(
+	Status = RtlDuplicateUnicodeString(
 		RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE,
 		&SourceString,
 		&String);

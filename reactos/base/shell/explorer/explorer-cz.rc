@@ -26,7 +26,7 @@ LANGUAGE LANG_CZECH, SUBLANG_DEFAULT
 // Menu
 //
 
-IDM_MDIFRAME MENU PRELOAD DISCARDABLE
+IDM_MDIFRAME MENU PRELOAD DISCARDABLE 
 BEGIN
     POPUP "&Soubor"
     BEGIN
@@ -38,7 +38,7 @@ BEGIN
     BEGIN
         MENUITEM "Panel &n·stroj˘",              ID_VIEW_TOOL_BAR
         MENUITEM "Panel &extra",                 ID_VIEW_EXTRA_BAR
-        MENUITEM "L&iöta disk˘",                 ID_VIEW_DRIVE_BAR
+        MENUITEM "L&iöta disk˘",                 ID_VIEW_DRIVE_BAR, CHECKED
         MENUITEM "&BoËnÌ panel",                 ID_VIEW_SIDE_BAR
         MENUITEM "&Stavov˝ ¯·dek",               ID_VIEW_STATUSBAR
         MENUITEM SEPARATOR
@@ -67,7 +67,7 @@ BEGIN
     END
 END
 
-IDM_DESKTOPBAR MENU DISCARDABLE
+IDM_DESKTOPBAR MENU DISCARDABLE 
 BEGIN
     POPUP ""
     BEGIN
@@ -78,7 +78,7 @@ BEGIN
     END
 END
 
-IDM_VOLUME MENU DISCARDABLE
+IDM_VOLUME MENU DISCARDABLE 
 BEGIN
     POPUP ""
     BEGIN
@@ -87,7 +87,7 @@ BEGIN
     END
 END
 
-IDM_NOTIFYAREA MENU DISCARDABLE
+IDM_NOTIFYAREA MENU DISCARDABLE 
 BEGIN
     POPUP ""
     BEGIN
@@ -100,7 +100,7 @@ BEGIN
     END
 END
 
-IDM_SDIFRAME MENU PRELOAD DISCARDABLE
+IDM_SDIFRAME MENU PRELOAD DISCARDABLE 
 BEGIN
     POPUP "&Soubor"
     BEGIN
@@ -136,8 +136,8 @@ END
 // Dialog
 //
 
-IDD_EXECUTE DIALOGEX DISCARDABLE  15, 13, 210, 63
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_EXECUTE DIALOG DISCARDABLE  15, 13, 210, 63
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Spustit"
 FONT 8, "MS Shell Dlg"
 BEGIN
@@ -153,83 +153,83 @@ BEGIN
 END
 
 IDD_SEARCH_PROGRAM DIALOGEX 0, 0, 200, 65
-STYLE DS_SHELLFONT | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION |
+STYLE WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | 
     WS_SYSMENU | WS_THICKFRAME
 EXSTYLE WS_EX_APPWINDOW
 CAPTION "Hledat program v nabÌdce Start"
-FONT 8, "MS Shell Dlg", 0, 0, 0x1
+FONT 8, "MS Sans Serif", 0, 0, 0x1
 BEGIN
     LTEXT           "&Filtr:",IDC_STATIC,7,9,18,8
     EDITTEXT        IDC_FILTER,34,7,100,14,ES_AUTOHSCROLL
-    CONTROL         "List1",IDC_PROGRAMS_FOUND,"SysListView32",LVS_REPORT |
-                    LVS_SHOWSELALWAYS | LVS_SORTASCENDING | WS_BORDER |
+    CONTROL         "List1",IDC_PROGRAMS_FOUND,"SysListView32",LVS_REPORT | 
+                    LVS_SHOWSELALWAYS | LVS_SORTASCENDING | WS_BORDER | 
                     WS_TABSTOP,7,25,186,33
     PUSHBUTTON      "&Vyhledat",IDC_CHECK_ENTRIES,143,7,50,14
 END
 
-IDD_DESKBAR_DESKTOP DIALOGEX DISCARDABLE  0, 0, 212, 194
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+IDD_DESKBAR_DESKTOP DIALOG DISCARDABLE  0, 0, 212, 194
+STYLE WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Vlastnosti plochy"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Sans Serif"
 BEGIN
     LTEXT           "ProsÌm zvolte si zp˘sob zarovn·nÌ ikon:",IDC_STATIC,7,7,
                     166,8
-    CONTROL         "vlevo/n. d.",IDC_ICON_ALIGN_0,"Button",BS_OWNERDRAW |
+    CONTROL         "vlevo/n. d.",IDC_ICON_ALIGN_0,"Button",BS_OWNERDRAW | 
                     BS_BOTTOM | WS_TABSTOP,7,25,46,44
-    CONTROL         "vlevo/n. p.",IDC_ICON_ALIGN_1,"Button",BS_OWNERDRAW |
+    CONTROL         "vlevo/n. p.",IDC_ICON_ALIGN_1,"Button",BS_OWNERDRAW | 
                     BS_BOTTOM | WS_TABSTOP,57,25,46,44
-    CONTROL         "vpravo/n. l.",IDC_ICON_ALIGN_2,"Button",BS_OWNERDRAW |
+    CONTROL         "vpravo/n. l.",IDC_ICON_ALIGN_2,"Button",BS_OWNERDRAW | 
                     BS_BOTTOM | WS_TABSTOP,110,25,46,44
-    CONTROL         "vpravo/d. d.",IDC_ICON_ALIGN_3,"Button",BS_OWNERDRAW |
+    CONTROL         "vpravo/d. d.",IDC_ICON_ALIGN_3,"Button",BS_OWNERDRAW | 
                     BS_BOTTOM | WS_TABSTOP,159,25,46,44
-    CONTROL         "vlevo/dole n.",IDC_ICON_ALIGN_4,"Button",BS_OWNERDRAW |
+    CONTROL         "vlevo/dole n.",IDC_ICON_ALIGN_4,"Button",BS_OWNERDRAW | 
                     BS_BOTTOM | WS_TABSTOP,7,73,46,44
-    CONTROL         "vlevo/dole p.",IDC_ICON_ALIGN_5,"Button",BS_OWNERDRAW |
+    CONTROL         "vlevo/dole p.",IDC_ICON_ALIGN_5,"Button",BS_OWNERDRAW | 
                     BS_BOTTOM | WS_TABSTOP,57,73,46,44
-    CONTROL         "vpravo/d. l.",IDC_ICON_ALIGN_6,"Button",BS_OWNERDRAW |
+    CONTROL         "vpravo/d. l.",IDC_ICON_ALIGN_6,"Button",BS_OWNERDRAW | 
                     BS_BOTTOM | WS_TABSTOP,110,73,46,44
-    CONTROL         "vpravo/d. n.",IDC_ICON_ALIGN_7,"Button",BS_OWNERDRAW |
+    CONTROL         "vpravo/d. n.",IDC_ICON_ALIGN_7,"Button",BS_OWNERDRAW | 
                     BS_BOTTOM | WS_TABSTOP,159,73,46,44
-    CONTROL         "na okraji d.",IDC_ICON_ALIGN_8,"Button",BS_OWNERDRAW |
+    CONTROL         "na okraji d.",IDC_ICON_ALIGN_8,"Button",BS_OWNERDRAW | 
                     BS_BOTTOM | WS_TABSTOP,7,121,46,44
-    CONTROL         "na okraji",IDC_ICON_ALIGN_9,"Button",BS_OWNERDRAW |
+    CONTROL         "na okraji",IDC_ICON_ALIGN_9,"Button",BS_OWNERDRAW | 
                     BS_BOTTOM | WS_TABSTOP,57,121,46,44
-    CONTROL         "dokola",IDC_ICON_ALIGN_10,"Button",BS_OWNERDRAW |
+    CONTROL         "dokola",IDC_ICON_ALIGN_10,"Button",BS_OWNERDRAW | 
                     BS_BOTTOM | WS_TABSTOP,110,121,46,44
-    CONTROL         "",IDC_ICON_ALIGN_11,"Button",BS_OWNERDRAW | BS_BOTTOM |
+    CONTROL         "",IDC_ICON_ALIGN_11,"Button",BS_OWNERDRAW | BS_BOTTOM | 
                     WS_TABSTOP,159,121,46,44
-//    CONTROL         "Zobrazit verzi",ID_DESKTOP_VERSION,"Button",
-//                    BS_AUTOCHECKBOX | WS_TABSTOP,7,177,91,10
+    CONTROL         "Zobrazit verzi",ID_DESKTOP_VERSION,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,7,177,91,10
 END
 
-IDD_DESKBAR_TASKBAR DIALOGEX DISCARDABLE  0, 0, 210, 194
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+IDD_DESKBAR_TASKBAR DIALOG DISCARDABLE  0, 0, 210, 194
+STYLE WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Vlastnosti panelu ˙loh"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Sans Serif"
 BEGIN
-    CONTROL         "&Zobrazit Ëas",ID_SHOW_CLOCK,"Button",BS_AUTOCHECKBOX |
+    CONTROL         "&Zobrazit Ëas",ID_SHOW_CLOCK,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,7,152,52,10
     CONTROL         "&Skr˝t neaktivnÌ ikony",
-                    ID_HIDE_INACTIVE_ICONS,"Button",BS_AUTOCHECKBOX |
+                    ID_HIDE_INACTIVE_ICONS,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,7,174,111,10
     PUSHBUTTON      "&UpozornÏnÌ...",ID_CONFIG_NOTIFYAREA,153,173,50,14
 END
 
-IDD_DESKBAR_STARTMENU DIALOGEX DISCARDABLE  0, 0, 210, 194
-STYLE DS_SHELLFONT | WS_CHILD | WS_DISABLED | WS_CAPTION
+IDD_DESKBAR_STARTMENU DIALOG DISCARDABLE  0, 0, 210, 194
+STYLE WS_CHILD | WS_DISABLED | WS_CAPTION
 CAPTION "Vlastnosti nabÌdky Start"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Sans Serif"
 BEGIN
 END
 
 IDD_NOTIFYAREA DIALOGEX 0, 0, 208, 174
-STYLE DS_SHELLFONT | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION |
+STYLE WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | 
     WS_SYSMENU | WS_THICKFRAME
 EXSTYLE WS_EX_APPWINDOW
 CAPTION "NastavenÌ ikon v oblasti upozorÚov·nÌ"
-FONT 8, "MS Shell Dlg", 0, 0, 0x1
+FONT 8, "MS Sans Serif", 0, 0, 0x1
 BEGIN
-    CONTROL         "Tree1",IDC_NOTIFY_ICONS,"SysTreeView32",TVS_HASLINES |
+    CONTROL         "Tree1",IDC_NOTIFY_ICONS,"SysTreeView32",TVS_HASLINES | 
                     TVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP,7,7,194,31
     LTEXT           "&Text popisku:",IDC_LABEL1,7,44,40,8
     EDITTEXT        IDC_NOTIFY_TOOLTIP,58,42,143,14,ES_AUTOHSCROLL
@@ -238,7 +238,7 @@ BEGIN
     LTEXT           "&Cesta:",IDC_LABEL3,7,81,80,8
     EDITTEXT        IDC_NOTIFY_MODULE,58,78,143,14,ES_AUTOHSCROLL
     GROUPBOX        "&ZobrazenÌ",IDC_LABEL4,7,96,157,28
-    CONTROL         "z&obrazit",IDC_NOTIFY_SHOW,"Button",BS_AUTORADIOBUTTON |
+    CONTROL         "z&obrazit",IDC_NOTIFY_SHOW,"Button",BS_AUTORADIOBUTTON | 
                     WS_TABSTOP,15,108,45,10
     CONTROL         "&skr˝t",IDC_NOTIFY_HIDE,"Button",BS_AUTORADIOBUTTON,66,
                     108,29,10
@@ -246,7 +246,7 @@ BEGIN
                     BS_AUTORADIOBUTTON,104,108,55,10
     ICON            "",IDC_PICTURE,173,101,21,20
     LTEXT           "&PoslednÌ zmÏna:",IDC_LABEL6,7,132,60,8
-    EDITTEXT        IDC_LAST_CHANGE,59,129,105,14,ES_AUTOHSCROLL |
+    EDITTEXT        IDC_LAST_CHANGE,59,129,105,14,ES_AUTOHSCROLL | 
                     ES_READONLY
     CONTROL         "zob&razit skrytÈ",ID_SHOW_HIDDEN_ICONS,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,7,158,57,10
@@ -255,10 +255,10 @@ BEGIN
 END
 
 IDD_MDI_SDI DIALOGEX 0, 0, 194, 157
-STYLE DS_SHELLFONT | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+STYLE WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_APPWINDOW
 CAPTION "Volba MDI / SDI mÛdu"
-FONT 8, "MS Shell Dlg", 0, 0, 0x1
+FONT 8, "MS Sans Serif", 0, 0, 0x1
 BEGIN
     LTEXT           "ProsÌm zvolte si V·mi up¯ednostÚovan˝ zp˘sob zobrazenÌ oken Pr˘zkumnÌka:",
                     IDC_STATIC,7,7,160,8
@@ -269,7 +269,7 @@ BEGIN
     CONTROL         170,IDC_STATIC,"Static",SS_BITMAP,145,23,15,13
     CONTROL         171,IDC_STATIC,"Static",SS_BITMAP,145,57,15,13
     CONTROL         "&OtevÌrat sloûky v novÈm oknÏ",
-                    IDC_SEPARATE_SUBFOLDERS,"Button",BS_AUTOCHECKBOX |
+                    IDC_SEPARATE_SUBFOLDERS,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,7,90,135,10
     LTEXT           "Toto nastavenÌ bude pouûito jako v˝chozÌ pro vöechna okna Pr˘zkumnÌka.",
                     IDC_STATIC,7,111,174,22
@@ -277,10 +277,10 @@ BEGIN
     PUSHBUTTON      "&Storno",IDCANCEL,106,136,50,14
 END
 
-IDD_ABOUT_EXPLORER DIALOGEX DISCARDABLE  0, 0, 199, 106
-STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_ABOUT_EXPLORER DIALOG DISCARDABLE  0, 0, 199, 106
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "O ReactOS Pr˘zkumnÌku"
-FONT 8, "MS Shell Dlg"
+FONT 10, "MS Sans Serif"
 BEGIN
     LTEXT           "ReactOS Pr˘zkumnÌk",IDC_ROS_EXPLORER,91,13,104,11
     LTEXT           "V 0.9",IDC_VERSION_TXT,91,27,104,8
@@ -299,18 +299,18 @@ END
 // TEXTINCLUDE
 //
 
-1 TEXTINCLUDE MOVEABLE PURE
+1 TEXTINCLUDE MOVEABLE PURE 
 BEGIN
     "resource.h\0"
 END
 
-2 TEXTINCLUDE MOVEABLE PURE
+2 TEXTINCLUDE MOVEABLE PURE 
 BEGIN
     "#include <windows.h>\r\n"
     "\0"
 END
 
-3 TEXTINCLUDE MOVEABLE PURE
+3 TEXTINCLUDE MOVEABLE PURE 
 BEGIN
     "\r\n"
     "\0"
@@ -324,13 +324,12 @@ END
 // String Table
 //
 
-STRINGTABLE DISCARDABLE
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_TITLE               "ReactOS Pr˘zkumnÌk"
     IDS_START               "Start"
     IDS_LOGOFF              "Odhl·sit se..."
     IDS_SHUTDOWN            "Vypnout..."
-    IDS_RESTART             "Restartovat..."
     IDS_LAUNCH              "Spustit..."
     IDS_START_HELP          "Pomoc"
     IDS_SEARCH_FILES        "Hledat"
@@ -344,7 +343,7 @@ BEGIN
     IDS_ADMIN               "SystÈmovÈ n·stroje"
 END
 
-STRINGTABLE DISCARDABLE
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_STARTMENU           "NabÌdka Start"
     IDS_MINIMIZE_ALL        "minimalizovat vöechna okna"
@@ -362,7 +361,7 @@ BEGIN
     IDS_TERMINATE           "UkonËit ReactOS Pr˘zkumnÌka"
 END
 
-STRINGTABLE DISCARDABLE
+STRINGTABLE DISCARDABLE 
 BEGIN
     IDS_NETWORK             "SÌù"
     IDS_CONNECTIONS         "SÌùovÈ spojenÌ"
@@ -376,14 +375,11 @@ BEGIN
     IDS_ALL_USERS           "Vöichni uûivatelÈ\\"
     IDS_SEARCH              "Hledat"
     IDS_ABOUT_EXPLORER      "&O Pr˘zkumnÌku"
-    IDS_LAUNCH_MANY_PROGRAMS
+    IDS_LAUNCH_MANY_PROGRAMS 
                             "Bylo vybr·no vÌce program˘.\nP¯ejete si je spustit vöechny?"
     IDS_DESKTOPBAR_SETTINGS "NastavenÌ plochy"
     IDS_DESKTOP             "Plocha"
     IDS_TASKBAR             "Panel ˙loh"
-    IDS_NAMECOLUMN          "N·zev"
-    IDS_PATHCOLUMN          "Cesta"
-    IDS_MENUCOLUMN          "Menu path"
 END
 
 #endif    // Czech resources
@@ -400,6 +396,5 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
-
 
 

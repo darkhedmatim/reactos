@@ -23,7 +23,7 @@ typedef struct _INFO
 
 static BOOL
 InitConnection(PINFO pInfo,
-               LPSTR lpAddress)
+                     LPSTR lpAddress)
 {
     WSADATA wsaData;
     HOSTENT *he;
@@ -75,7 +75,7 @@ GetTransmitTime(PTIMEPACKET ptp)
 static BOOL
 SendData(PINFO pInfo)
 {
-    TIMEPACKET tp = { 0, 0 };
+    TIMEPACKET tp = {0,};
     INT Ret;
 
     ZeroMemory(&pInfo->SendPacket, sizeof(pInfo->SendPacket));
@@ -134,7 +134,7 @@ RecieveData(PINFO pInfo)
 }
 
 
-ULONG
+ULONG 
 GetServerTime(LPWSTR lpAddress)
 {
     PINFO pInfo;
@@ -143,7 +143,7 @@ GetServerTime(LPWSTR lpAddress)
     ULONG ulTime = 0;
 
     pInfo = (PINFO)HeapAlloc(GetProcessHeap(),
-                             0,
+                             0, 
                              sizeof(INFO));
     lpAddr = (LPSTR)HeapAlloc(GetProcessHeap(),
                               0,

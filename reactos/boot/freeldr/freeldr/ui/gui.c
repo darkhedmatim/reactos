@@ -76,30 +76,3 @@ UCHAR GuiTextToFillStyle(PCSTR FillStyleText)
 {
 	return 0;
 }
-
-const UIVTBL GuiVtbl =
-{
-	/*GuiInitialize,
-	GuiUnInitialize,
-	GuiDrawBackdrop,
-	GuiFillArea,
-	GuiDrawShadow,
-	GuiDrawBox,
-	GuiDrawText,
-	GuiDrawCenteredText,
-	GuiDrawStatusText,
-	GuiUpdateDateTime,
-	GuiMessageBox,
-	GuiMessageBoxCritical,
-	GuiDrawProgressBarCenter,
-	GuiDrawProgressBar,
-	GuiEditBox,
-	GuiTextToColor,
-	GuiTextToFillStyle,
-	GuiFadeInBackdrop,
-	GuiFadeOut,
-	GuiDisplayMenu,*/
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL
-};

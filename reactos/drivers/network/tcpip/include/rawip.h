@@ -7,6 +7,8 @@
 #ifndef __RAWIP_H
 #define __RAWIP_H
 
+
+
 NTSTATUS RawIPSendDatagram(
     PADDRESS_FILE AddrFile,
     PTDI_CONNECTION_INFORMATION ConnInfo,
@@ -14,7 +16,7 @@ NTSTATUS RawIPSendDatagram(
     ULONG DataSize,
     PULONG DataUsed);
 
-VOID RawIpReceive(
+VOID RawIPReceive(
     PIP_INTERFACE Interface,
     PIP_PACKET IPPacket);
 
