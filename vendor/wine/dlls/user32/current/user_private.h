@@ -29,54 +29,8 @@
 #include "winreg.h"
 #include "winternl.h"
 #include "wine/windef16.h"
-#include "wine/winbase16.h"
 
 extern WORD USER_HeapSel DECLSPEC_HIDDEN;
-
-static inline HLOCAL16 LOCAL_Alloc( HANDLE16 ds, UINT16 flags, WORD size )
-{
-    STACK16FRAME* stack16 = MapSL(PtrToUlong(NtCurrentTeb()->WOW32Reserved));
-    HANDLE16 oldDS = stack16->ds;
-    HLOCAL16 ret;
-
-    stack16->ds = ds;
-    ret = LocalAlloc16 (flags, size);
-    stack16->ds = oldDS;
-    return ret;
-}
-
-static inline  HLOCAL16 LOCAL_ReAlloc( HANDLE16 ds, HLOCAL16 handle, WORD size, UINT16 flags )
-{
-    STACK16FRAME* stack16 = MapSL(PtrToUlong(NtCurrentTeb()->WOW32Reserved));
-    HANDLE16 oldDS = stack16->ds;
-    HLOCAL16 ret;
-
-    stack16->ds = ds;
-    ret = LocalReAlloc16 (handle, size, flags);
-    stack16->ds = oldDS;
-    return ret;
-}
-
-static inline HLOCAL16 LOCAL_Free( HANDLE16 ds, HLOCAL16 handle )
-{
-    STACK16FRAME* stack16 = MapSL(PtrToUlong(NtCurrentTeb()->WOW32Reserved));
-    HANDLE16 oldDS = stack16->ds;
-    HLOCAL16 ret;
-
-    stack16->ds = ds;
-    ret = LocalFree16 (handle);
-    stack16->ds = oldDS;
-    return ret;
-}
-
-#define USER_HEAP_ALLOC(size) \
-            ((HANDLE)(ULONG_PTR)LOCAL_Alloc( USER_HeapSel, LMEM_FIXED, (size) ))
-#define USER_HEAP_REALLOC(handle,size) \
-            ((HANDLE)(ULONG_PTR)LOCAL_ReAlloc( USER_HeapSel, LOWORD(handle), (size), LMEM_FIXED ))
-#define USER_HEAP_FREE(handle) \
-            LOCAL_Free( USER_HeapSel, LOWORD(handle) )
-#define USER_HEAP_LIN_ADDR(handle)  \
-         ((handle) ? MapSL(MAKESEGPTR(USER_HeapSel, LOWORD(handle))) : NULL)
 
 #define GET_WORD(ptr)  (*(const WORD *)(ptr))
 #define GET_DWORD(ptr) (*(const DWORD *)(ptr))
@@ -169,6 +123,27 @@ extern void USER_unload_driver(void) DECLSPEC_HIDDEN;
 
 struct received_message_info;
 struct hook16_queue_info;
+
+enum user_obj_type
+{
+    USER_WINDOW = 1,  /* window */
+    USER_MENU,        /* menu */
+    USER_ACCEL,       /* accelerator */
+    USER_DWP          /* DeferWindowPos structure */
+};
+
+struct user_object
+{
+    HANDLE             handle;
+    enum user_obj_type type;
+};
+
+#define OBJ_OTHER_PROCESS ((void *)1)  /* returned by get_user_handle_ptr on unknown handles */
+
+HANDLE alloc_user_handle( struct user_object *ptr, enum user_obj_type type ) DECLSPEC_HIDDEN;
+void *get_user_handle_ptr( HANDLE handle, enum user_obj_type type ) DECLSPEC_HIDDEN;
+void release_user_handle_ptr( void *ptr ) DECLSPEC_HIDDEN;
+void *free_user_handle( HANDLE handle, enum user_obj_type type ) DECLSPEC_HIDDEN;
 
 /* type of message-sending functions that need special WM_CHAR handling */
 enum wm_char_mapping
@@ -353,6 +328,7 @@ typedef struct
 #include "poppack.h"
 
 extern void CURSORICON_FreeModuleIcons( HMODULE16 hModule ) DECLSPEC_HIDDEN;
+extern BOOL get_icon_size( HICON handle, SIZE *size ) DECLSPEC_HIDDEN;
 
 /* Mingw's assert() imports MessageBoxA and gets confused by user32 exporting it */
 #ifdef __MINGW32__
