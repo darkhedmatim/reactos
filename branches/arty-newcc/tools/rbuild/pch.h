@@ -28,6 +28,7 @@
 #include <map>
 #include <set>
 #include <utility>
+#include <bitset>
 
 #ifdef WIN32
 #include <windows.h>
@@ -42,7 +43,7 @@ typedef LONG *PLONG;
 #endif//WIN32
 
 #include <stdarg.h>
-
+#include <stdio.h>
 
 #ifndef WIN32
 #include <string.h>
