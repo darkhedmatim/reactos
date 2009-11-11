@@ -11,9 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #ifndef __RBUILD_H
 #define __RBUILD_H
@@ -455,6 +455,7 @@ protected:
 	void ParseToolsets ( const Project& project, const XMLElement& node );
 
 public:
+	virtual ~ToolsetDirective() { }
 	bool IsEnabled () const;
 };
 
@@ -469,6 +470,7 @@ protected:
 
 public:
 	CompilerDirective (): enabled ( true ) { }
+	virtual ~CompilerDirective() { }
 	void SetCompiler ( CompilerType compiler );
 	void UnsetCompiler ( CompilerType compiler );
 	void SetAllCompilers ();
