@@ -13,7 +13,6 @@ DRIVERTYPE=FS
 # Creates a file used by Visual Studio to navigate the source code.
 BROWSER_INFO=TRUE
 RCNOFONTMAP=TRUE
-KMDF_VERSION=1
 
 C_DEFINES = $(C_DEFINES) /D__KERNEL__
 INCLUDES=..\include;

@@ -25,10 +25,12 @@ extern PEXT2_GLOBAL Ext2Global;
 
 NTSTATUS
 Ext2ExceptionFilter (
-             IN PEXT2_IRP_CONTEXT    IrpContext,
-             IN PEXCEPTION_POINTERS ExceptionPointer)
+    IN PEXT2_IRP_CONTEXT    IrpContext,
+    IN PEXCEPTION_POINTERS  ExceptionPointer
+    )
 {
-    NTSTATUS Status, ExceptionCode;
+    NTSTATUS Status = EXCEPTION_EXECUTE_HANDLER;
+    NTSTATUS ExceptionCode;
     PEXCEPTION_RECORD ExceptRecord;
 
     ExceptRecord = ExceptionPointer->ExceptionRecord;
@@ -36,9 +38,11 @@ Ext2ExceptionFilter (
 
     DbgPrint("-------------------------------------------------------------\n");
     DbgPrint("Exception happends in Ext2Fsd (code %xh):\n", ExceptionCode);
-    DbgPrint("  ExceptionRecord: .exr %p\n", ExceptionPointer->ExceptionRecord);
-    DbgPrint("  ContextRecord:   .cxr %p\n", ExceptionPointer->ContextRecord);
+    DbgPrint(".exr %p;.cxr %p;\n", ExceptionPointer->ExceptionRecord,
+              ExceptionPointer->ContextRecord);
     DbgPrint("-------------------------------------------------------------\n");
+
+    DbgBreak();
 
     //
     // Check IrpContext is valid or not
@@ -49,6 +53,14 @@ Ext2ExceptionFilter (
             (IrpContext->Identifier.Size != sizeof(EXT2_IRP_CONTEXT))) {
             DbgBreak();
             IrpContext = NULL;
+        } else if (IrpContext->DeviceObject) {
+            PEXT2_VCB Vcb = NULL;
+            Vcb = (PEXT2_VCB) IrpContext->DeviceObject->DeviceExtension;
+            if (Vcb->Identifier.Type == EXT2VCB) {
+                if (!IsMounted(Vcb)) {
+                    Status = EXCEPTION_EXECUTE_HANDLER;
+                }
+            }
         }
     } else {
         if (FsRtlIsNtstatusExpected(ExceptionCode)) {
@@ -64,7 +76,8 @@ Ext2ExceptionFilter (
         SetFlag(IrpContext->Flags, IRP_CONTEXT_FLAG_WAIT);
     }
 
-    if (FsRtlIsNtstatusExpected(ExceptionCode)) {
+    if ( Status == EXCEPTION_EXECUTE_HANDLER || 
+         FsRtlIsNtstatusExpected(ExceptionCode)) {
         //
         // If the exception is expected execute our handler
         //
@@ -127,13 +140,24 @@ Ext2ExceptionHandler (IN PEXT2_IRP_CONTEXT IrpContext)
             IrpSp = IoGetCurrentIrpStackLocation(Irp);
             Vcb = (PEXT2_VCB) IrpContext->DeviceObject->DeviceExtension;
 
-            /* queue it again if our request is at top level */
-            if (IrpContext->IsTopLevel &&
-                ((Status == STATUS_CANT_WAIT) ||
-                 ((Status == STATUS_VERIFY_REQUIRED) && 
-                  (KeGetCurrentIrql() >= APC_LEVEL)))) {
+            if (Vcb->Identifier.Type != EXT2VCB) {
+                Status = STATUS_INVALID_PARAMETER;
+            } else if (!IsMounted(Vcb)) {
+                if (IsFlagOn(Vcb->Flags, VCB_DEVICE_REMOVED)) {
+                    Status = STATUS_NO_SUCH_DEVICE;
+                } else {
+                    Status = STATUS_VOLUME_DISMOUNTED;
+                }
+            } else {
 
-                Status = Ext2QueueRequest(IrpContext);
+                /* queue it again if our request is at top level */
+                if (IrpContext->IsTopLevel &&
+                    ((Status == STATUS_CANT_WAIT) ||
+                     ((Status == STATUS_VERIFY_REQUIRED) && 
+                      (KeGetCurrentIrql() >= APC_LEVEL)))) {
+
+                    Status = Ext2QueueRequest(IrpContext);
+                }
             }
 
             if (Status == STATUS_PENDING) {
@@ -142,12 +166,6 @@ Ext2ExceptionHandler (IN PEXT2_IRP_CONTEXT IrpContext)
 
             Irp->IoStatus.Status = Status;
 
-#if 0
-            if (IsFlagOn(IrpContext->Flags, IRP_CONTEXT_FLAG_REQUEUED)) {
-                Ext2CompleteIrpContext(IrpContext, Status);
-                goto errorout;
-            }
-#endif
             if (IoIsErrorUserInduced(Status)) {
 
                 //
@@ -247,7 +265,7 @@ release_context:
 
     } else {
 
-        Status = STATUS_INSUFFICIENT_RESOURCES;
+        Status = STATUS_INVALID_PARAMETER;
     }
 
 errorout:

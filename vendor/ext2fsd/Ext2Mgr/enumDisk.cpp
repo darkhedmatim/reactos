@@ -5,6 +5,8 @@
 
 /* global management information */
 
+BOOLEAN g_bAutoMount = 0;
+
 ULONG g_nFlps     = 0;
 ULONG g_nDisks    = 0;
 ULONG g_nCdroms   = 0;
@@ -12,6 +14,8 @@ ULONG g_nVols     = 0;
 
 EXT2_LETTER drvLetters[26];
 EXT2_LETTER drvDigits[10];
+
+ULONGLONG Ext2DrvLetters[2];
 
 PEXT2_DISK      gDisks  = NULL;
 PEXT2_CDROM     gCdroms = NULL;
@@ -1986,6 +1990,7 @@ Ext2QueryVolumeFS(
             volume->FsaInfo.FileSystemName[3] = (WCHAR)'2';
             volume->EVP.bExt2 = TRUE;
         }
+        memcpy(&volume->EVP.UUID[0], &sb->s_uuid[0], 16);
         goto errorout;
     }
 
@@ -2011,11 +2016,23 @@ Ext2QueryExt2Property (
     PEXT2_VOLUME_PROPERTY2      EVP
     )
 {
-    ;
     NT::NTSTATUS                status;
     NT::IO_STATUS_BLOCK         iosb;
 
+    BOOLEAN                     bExt2, bExt3;
+    CHAR                        UUID[16];
+
+    if (!Ext2IsServiceStarted()) {
+        return FALSE;
+    }
+
+    bExt2 = EVP->bExt2;
+    bExt3 = EVP->bExt3;
+    memcpy(&UUID[0], &EVP->UUID[0], 16);
     memset(EVP, 0, sizeof(EXT2_VOLUME_PROPERTY2));
+    memcpy(&EVP->UUID[0], &UUID[0], 16);
+    EVP->bExt2 = bExt2;
+    EVP->bExt3 = bExt3;
     EVP->Magic = EXT2_VOLUME_PROPERTY_MAGIC;
     EVP->Command = APP_CMD_QUERY_PROPERTY2;
 
@@ -2056,7 +2073,7 @@ Ext2QueryPerfStat (
 }
 
 VOID
-Ext2StoreExt2PropertyinRegistry(PEXT2_VOLUME_PROPERTY2 EVP)
+Ext2StorePropertyinRegistry(PEXT2_VOLUME_PROPERTY2 EVP)
 {
     CHAR    UUID[50];
     HKEY    hKey;
@@ -2106,9 +2123,7 @@ Ext2StoreExt2PropertyinRegistry(PEXT2_VOLUME_PROPERTY2 EVP)
 
     if (EVP->bReadonly) {
         data += READING_ONLY";";
-    }
-
-    if (EVP->bExt3 && EVP->bExt3Writable) {
+    } else if (EVP->bExt3 && EVP->bExt3Writable) {
         data += EXT3_FORCEWRITING";";
     }
 
@@ -2148,6 +2163,108 @@ Ext2StoreExt2PropertyinRegistry(PEXT2_VOLUME_PROPERTY2 EVP)
     RegCloseKey(hKey);
 }
 
+BOOLEAN Ext2IsNullUuid (__u8 * uuid)
+{
+    int i;
+    for (i = 0; i < 16; i++) {
+        if (uuid[i]) {
+            break;
+        }
+    }
+
+    return (i >= 16);
+}
+
+BOOLEAN
+Ext2CheckVolumeRegistryProperty(PEXT2_VOLUME_PROPERTY2 EVP)
+{
+    CHAR    UUID[50];
+    HKEY    hKey;
+    CHAR    keyPath[MAX_PATH];
+    CHAR    content[MAX_PATH];
+    LONG    status, type = 0;
+
+    int     i;
+    int     len = 0;
+    BOOLEAN rc = TRUE;
+
+    if (Ext2IsNullUuid(&EVP->UUID[0])) {
+        return TRUE;
+    }
+
+    memset(UUID, 0, 50);
+    for (i=0; i < 16; i++) {
+        if (i == 0) {
+            sprintf(&UUID[len], "{%2.2X", EVP->UUID[i]);
+            len += 3;
+        } else if (i == 15) {
+            sprintf(&UUID[len], "-%2.2X}", EVP->UUID[i]);
+            len +=4;
+        } else {
+            sprintf(&UUID[len], "-%2.2X", EVP->UUID[i]);
+            len += 3;
+        }
+    }
+
+    /* Create or open ext2fsd volumes key */
+    strcpy (keyPath, "SYSTEM\\CurrentControlSet\\Services\\Ext2Fsd\\Volumes") ;
+    status = ::RegOpenKeyEx (HKEY_LOCAL_MACHINE,
+                            keyPath,
+                            0,
+                            KEY_ALL_ACCESS,
+                            &hKey) ;
+    if (status != ERROR_SUCCESS) {
+        rc = FALSE;
+        goto errorout;
+    }
+
+    /* Query volume parameters */
+    len = MAX_PATH;
+    status = RegQueryValueEx(hKey,
+                            &UUID[0],
+                            0,
+                            (LPDWORD)&type,
+                            (BYTE *)&content[0],
+                            (LPDWORD)&len);
+    if (status != ERROR_SUCCESS) {
+        rc = FALSE;
+    }
+
+    RegCloseKey(hKey);
+
+errorout:
+    return rc;
+}
+
+VOID
+Ext2SetDefaultVolumeRegistryProperty(PEXT2_VOLUME_PROPERTY2 EVP)
+{
+    ULONG   StartMode;
+    BOOLEAN AutoMount = 0;
+
+    if (Ext2IsNullUuid(&EVP->UUID[0])) {
+        return;
+    }
+
+    /* query global parameters */
+    Ext2QueryGlobalProperty(
+            &StartMode,
+            (BOOLEAN *)&EVP->bReadonly,
+            (BOOLEAN *)&EVP->bExt3Writable,
+            (CHAR *)EVP->Codepage,
+            (CHAR *)NULL,
+            (CHAR *)NULL,
+            (BOOLEAN *)&AutoMount
+            );
+
+    if (EVP->bExt3 && !EVP->bExt3Writable)
+        EVP->bReadonly = TRUE;
+
+    EVP->DrvLetter = 0x80;
+
+    Ext2StorePropertyinRegistry(EVP);
+}
+
 BOOLEAN
 Ext2SetExt2Property (
     HANDLE                Handle,
@@ -2179,13 +2296,45 @@ Ext2SetExt2Property (
 }
 
 BOOLEAN
+Ext2SetExt2Property3 (
+    HANDLE                Handle,
+    PEXT2_VOLUME_PROPERTY3 EVP
+    )
+{
+    NT::NTSTATUS                status;
+    NT::IO_STATUS_BLOCK         iosb;
+
+    ASSERT(EVP->Prop2.Magic == EXT2_VOLUME_PROPERTY_MAGIC);
+    EVP->Prop2.Command = APP_CMD_SET_PROPERTY3;
+
+    status = NT::ZwDeviceIoControlFile(
+                Handle, NULL, NULL, NULL, &iosb,
+                IOCTL_APP_VOLUME_PROPERTY,
+                EVP, sizeof(EXT2_VOLUME_PROPERTY3),
+                EVP, sizeof(EXT2_VOLUME_PROPERTY3)
+            );
+
+    if (NT_SUCCESS(status)) {
+        return TRUE;
+    } else {
+        CString s;
+        s.Format("Status = %xh\n", status);
+        AfxMessageBox(s);
+    }
+
+    return FALSE;
+}
+
+
+BOOLEAN
 Ext2QueryGlobalProperty(
     ULONG *     ulStartup,
     BOOLEAN *   bReadonly,
     BOOLEAN *   bExt3Writable,
     CHAR *      Codepage,
     CHAR *      sPrefix,
-    CHAR *      sSuffix
+    CHAR *      sSuffix,
+    BOOLEAN *   bAutoMount
     )
 {
     int     rc = TRUE;
@@ -2257,31 +2406,50 @@ Ext2QueryGlobalProperty(
         *bExt3Writable = (data != 0);
     }
 
-    /* query codepage */
-    len = CODEPAGE_MAXLEN;
+    /* query AutoMount */
+    len = sizeof(DWORD);
     status = RegQueryValueEx( hKey,
-                            "CodePage",
+                            "AutoMount",
                             0,
                             (LPDWORD)&type,
-                            (BYTE *)Codepage,
+                            (BYTE *)&data,
                             (LPDWORD)&len);
 
-    /* querying hidding filter patterns */
-    len = CODEPAGE_MAXLEN;
-    status = RegQueryValueEx( hKey,
-                            "HidingPrefix",
-                            0,
-                            (LPDWORD)&type,
-                            (BYTE *)sPrefix,
-                            (LPDWORD)&len);
+    if (status == ERROR_SUCCESS) {
+        *bAutoMount = (data != 0);
+    }
 
-    len = CODEPAGE_MAXLEN;
-    status = RegQueryValueEx( hKey,
-                            "HidingSuffix",
-                            0,
-                            (LPDWORD)&type,
-                            (BYTE *)sSuffix,
-                            (LPDWORD)&len);
+    if (Codepage) {
+        /* query codepage */
+        len = CODEPAGE_MAXLEN;
+        status = RegQueryValueEx( hKey,
+                                "CodePage",
+                                0,
+                                (LPDWORD)&type,
+                                (BYTE *)Codepage,
+                                (LPDWORD)&len);
+    }
+
+    if (sPrefix) {
+        /* querying hidding filter patterns */
+        len = CODEPAGE_MAXLEN;
+        status = RegQueryValueEx( hKey,
+                                "HidingPrefix",
+                                0,
+                                (LPDWORD)&type,
+                                (BYTE *)sPrefix,
+                                (LPDWORD)&len);
+    }
+
+    if (sSuffix) {
+        len = CODEPAGE_MAXLEN;
+        status = RegQueryValueEx( hKey,
+                                "HidingSuffix",
+                                0,
+                                (LPDWORD)&type,
+                                (BYTE *)sSuffix,
+                                (LPDWORD)&len);
+    }
 
     RegCloseKey(hKey);
 
@@ -2345,10 +2513,13 @@ Ext2SetGlobalProperty (
     BOOLEAN     bExt3Writable,
     CHAR *      Codepage,
     CHAR *      sPrefix,
-    CHAR *      sSuffix
+    CHAR *      sSuffix,
+    BOOLEAN     bAutoMount
     )
 {
     EXT2_VOLUME_PROPERTY2 EVP;
+    EXT2_VOLUME_PROPERTY3 EVP3;
+
     NT::NTSTATUS         status;
     HANDLE  Handle = NULL;
     int     rc = TRUE;
@@ -2423,6 +2594,16 @@ Ext2SetGlobalProperty (
                             REG_DWORD,
                             (BYTE *)&data,
                             sizeof(ULONG));
+    /* set AutoMount */
+    data = bAutoMount;
+    status = RegSetValueEx( hKey,
+                            "AutoMount",
+                            0,
+                            REG_DWORD,
+                            (BYTE *)&data,
+                            sizeof(ULONG));
+
+
     /* set codepage */
     status = RegSetValueEx( hKey,
                             "CodePage",
@@ -2453,9 +2634,17 @@ Ext2SetGlobalProperty (
         goto errorout;
     }
 
-    rc = Ext2SetExt2Property(Handle, &EVP);
+    memset(&EVP3, 0, sizeof(EXT2_VOLUME_PROPERTY3));
+    EVP3.Prop2 = EVP;
+    EVP3.Flags = EXT2_VPROP3_AUTOMOUNT;
+    EVP3.AutoMount = g_bAutoMount;
+
+    rc = Ext2SetExt2Property3(Handle, &EVP3);
     if (!rc) {
-        goto errorout;
+        rc = Ext2SetExt2Property(Handle, &EVP);
+        if (!rc) {
+            goto errorout;
+        }
     }
 
 errorout:
@@ -2513,6 +2702,26 @@ errorout:
     }
 
     return rc;
+}
+
+BOOLEAN
+Ext2IsRemovable(PEXT2_VOLUME volume)
+{
+    STORAGE_BUS_TYPE busType = BusTypeAta;
+    BOOLEAN bRemovableMedia = FALSE;
+
+    if (volume && volume->Part) {
+        busType = volume->Part->Disk->SDD.BusType;
+        bRemovableMedia = volume->Part->Disk->SDD.RemovableMedia;
+    }
+
+    if (busType == BusType1394 ||
+        busType == BusTypeUsb ||
+        bRemovableMedia  ) {
+        return TRUE;
+    }
+
+    return FALSE;
 }
 
 BOOLEAN
@@ -2576,8 +2785,6 @@ Ext2InitializeVolume(
             }
 
         } else {
-
-            volume->bRecognized = TRUE;
             if (Ext2QueryExt2Property(hVolume, &volume->EVP) &&
                 volume->EVP.DrvLetter != 0xFF &&
                 volume->EVP.DrvLetter != 0 ) {
@@ -2586,6 +2793,7 @@ Ext2InitializeVolume(
                     Ext2SetExt2Property(hVolume, &volume->EVP);
                 }
             }
+            volume->bRecognized = TRUE;
         }
 
         /* convert the unicode file system name to mbs */
@@ -2680,6 +2888,9 @@ Ext2LoadDiskPartitions(PEXT2_DISK Disk)
                 }
             }
 
+            sprintf(&Disk->DataParts[cnt].Name[0],
+                    "\\Device\\Harddisk%u\\Partition%u",
+                    Disk->OrderNo, cnt + 1);
             Disk->DataParts[cnt].Magic = EXT2_PART_MAGIC;
             Disk->DataParts[cnt].Disk = Disk;
             Disk->DataParts[cnt].Number = cnt + 1;
@@ -2722,6 +2933,31 @@ Ext2LoadAllDiskPartitions()
     for (ULONG i=0; i < g_nDisks; i++) {
         Ext2LoadDiskPartitions(&gDisks[i]);
     }
+}
+
+VOID
+Ext2MountingVolumes()
+{
+    PEXT2_VOLUME   volume = gVols;
+    int j;
+
+    if (!Ext2IsServiceStarted()) {
+        return;
+    }
+
+    for (j=0; (ULONG)j < g_nVols; j++) {
+        if ((volume->EVP.bExt2 || volume->EVP.bExt3) && !volume->bRecognized) {
+            if (Ext2IsRemovable(volume) || g_bAutoMount) {
+                if (!Ext2CheckVolumeRegistryProperty(&volume->EVP)) {
+                    Ext2SetDefaultVolumeRegistryProperty(&volume->EVP);
+                }
+                Ext2NotifyVolumePoint(volume, 0);
+            }
+        }
+
+        volume = volume->Next;
+    }
+
 }
 
 /*
@@ -2932,8 +3168,17 @@ VOID
 Ext2LoadAllVolumeDrvLetters()
 {
     PEXT2_VOLUME volume = gVols;
+    BOOLEAN      started = Ext2IsServiceStarted();
+
+    Ext2DrvLetters[0] = Ext2DrvLetters[1];
+    Ext2DrvLetters[1] = 0;
+
     while (volume) {
         volume->DrvLetters = Ext2QueryVolumeDrvLetters(volume);
+        if ( started && volume->bRecognized &&
+            (volume->EVP.bExt2 || volume->EVP.bExt3)) {
+            Ext2DrvLetters[1] |=  volume->DrvLetters;
+        }
         volume = volume->Next;
     }
 }
@@ -4148,24 +4393,19 @@ Ext2NotifyVolumePoint(
     )
 {
     BOOL rc = FALSE;
-    CHAR devPath[MAX_PATH];
+    PCHAR  Name = NULL;
 
     if (volume->Part) {
-
-        sprintf(devPath, "\\Device\\Harddisk%u\\Partition%u",
-                         volume->Part->Disk->OrderNo,
-                         volume->Part->Number);
-
-        Ext2VolumeArrivalNotify(devPath);
-        Sleep(1000);
+        Name = &volume->Part->Name[0];
+    } else {
+        Name = &volume->Name[0];
     }
-
-    rc = Ext2VolumeArrivalNotify(volume->Name);
+    rc = Ext2VolumeArrivalNotify(Name);
     Sleep(1000);
 
-    drvChar = Ext2QueryMountPoint(volume->Name);
+    drvChar = Ext2QueryMountPoint(Name);
     if (drvChar) {
-        Ext2InsertMountPoint(volume->Name, drvChar, FALSE);
+        Ext2InsertMountPoint(Name, drvChar, FALSE);
         rc = TRUE;
     }
 
@@ -4348,7 +4588,7 @@ BOOL g_bAutoRemoveDeadLetters = TRUE;
 VOID
 Ext2AutoRemoveDeadLetters()
 {
-    ULONGLONG   LetterMask = -1;
+    ULONGLONG   LetterMask = Ext2DrvLetters[0];
     DWORD       i, j;
     PEXT2_DISK      disk;
     PEXT2_PARTITION part;
@@ -4376,6 +4616,7 @@ Ext2AutoRemoveDeadLetters()
         if (drvDigits[i].bUsed && (drvDigits[i].Extent == NULL) &&
             (LetterMask & (((ULONGLONG) 1) << (i + 32)) ) ) {
             if (drvDigits[i].DrvType == DRIVE_FIXED) {
+                LetterMask &= (~(((ULONGLONG) 1) << (i + 32)));
                 Ext2RemoveMountPoint(&drvDigits[i], FALSE);
                 Ext2RemoveDosSymLink(drvDigits[i].Letter);
             }
@@ -4386,11 +4627,14 @@ Ext2AutoRemoveDeadLetters()
         if (drvLetters[i].bUsed && (drvLetters[i].Extent == NULL) &&
             (LetterMask & (((ULONGLONG) 1) << i)) ) {
             if (drvLetters[i].DrvType == DRIVE_FIXED) {
+                LetterMask &= (~(((ULONGLONG) 1) << i));
                 Ext2RemoveMountPoint(&drvLetters[i], FALSE);
                 Ext2RemoveDosSymLink(drvLetters[i].Letter);
             }
         }
     }
+
+    Ext2DrvLetters[0] = LetterMask;
 }
 
 BOOLEAN

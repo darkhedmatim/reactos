@@ -139,6 +139,16 @@ protected:
     HACCEL       m_hAccel;
     HDEVNOTIFY   m_hUsbNotify;
 
+    /* global parameters */
+    ULONG   m_nStartmode;
+	CString	m_Codepage;
+	BOOL	m_bExt3Writable;
+	BOOL	m_bReadonly;
+	CString	m_srvStatus;
+	CString	m_sPrefix;
+	CString	m_sSuffix;
+	BOOL	m_bAutoMount;
+
 	// Generated message map functions
 	//{{AFX_MSG(CExt2MgrDlg)
 	virtual BOOL OnInitDialog();

@@ -166,13 +166,15 @@ Ext2ProcessDirEntry(
             }
         }
 
-        FileAttributes = FILE_ATTRIBUTE_NORMAL;
+        if (S_ISDIR(Inode->i_mode)) {
+                FileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+        } else {
+                FileAttributes = FILE_ATTRIBUTE_NORMAL;
+        }
+
         if (Ext2IsReadOnly(Inode->i_mode)) {
             SetFlag(FileAttributes, FILE_ATTRIBUTE_READONLY);
         }
-
-        if (S_ISDIR(Inode->i_mode))
-                SetFlag(FileAttributes, FILE_ATTRIBUTE_DIRECTORY);
     }
 
     AllocationSize = CEILING_ALIGNED(ULONGLONG, FileSize, BLOCK_SIZE);
@@ -560,18 +562,17 @@ Ext2QueryDirectory (IN PEXT2_IRP_CONTEXT IrpContext)
         }
         
         Vcb = (PEXT2_VCB) DeviceObject->DeviceExtension;
-        
         ASSERT(Vcb != NULL);
-        
         ASSERT((Vcb->Identifier.Type == EXT2VCB) &&
             (Vcb->Identifier.Size == sizeof(EXT2_VCB)));
 
-        ASSERT(IsMounted(Vcb));
+        if (!IsMounted(Vcb)) {
+            Status = STATUS_VOLUME_DISMOUNTED;
+            __leave;
+        }
 
         FileObject = IrpContext->FileObject;
-        
         Fcb = (PEXT2_FCB) FileObject->FsContext;
-        
         if (Fcb == NULL) {
             Status = STATUS_INVALID_PARAMETER;
             __leave;
@@ -986,7 +987,6 @@ Ext2NotifyChangeDirectory (
     __try {
 
         ASSERT(IrpContext);
-
         ASSERT((IrpContext->Identifier.Type == EXT2ICX) &&
                (IrpContext->Identifier.Size == sizeof(EXT2_IRP_CONTEXT)));
 
@@ -1006,16 +1006,11 @@ Ext2NotifyChangeDirectory (
         Vcb = (PEXT2_VCB) DeviceObject->DeviceExtension;
 
         ASSERT(Vcb != NULL);
-
         ASSERT((Vcb->Identifier.Type == EXT2VCB) &&
                (Vcb->Identifier.Size == sizeof(EXT2_VCB)));
 
-        ASSERT(IsMounted(Vcb));
-
         FileObject = IrpContext->FileObject;
-
         Fcb = (PEXT2_FCB) FileObject->FsContext;
-
         ASSERT(Fcb);
 
         if (Fcb->Identifier.Type == EXT2VCB) {
@@ -1029,7 +1024,7 @@ Ext2NotifyChangeDirectory (
 
         if (!IsDirectory(Fcb)) {
             DbgBreak();
-            Status = STATUS_NOT_A_DIRECTORY;
+            Status = STATUS_INVALID_PARAMETER;
             __leave;
         }
 

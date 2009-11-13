@@ -29,6 +29,25 @@ Everyone can get to him at http://www.acc.umu.se/~bosse/.
  Revision history
 ======================
 
+40, V0.48:   2009-07-26
+
+Modifications from V0.47:
+
+    1, Acronis TrueImage compatible issue solved:
+       Verified with Acronis True Image Home 2009. Also verified with
+       FreeOFTE 3.0, TrueCrypt 6.2a.
+    2, Driver code-signed for Vista and Server 2008
+    3, Code improvements for FastIo routines and drive letter & mount
+       points management
+
+39, V0.47:   2009-06-01
+
+Modifications from V0.46:
+
+    1, Bo Branten's 5+ patches merged, lots ifstest failures resolved
+    2, Mount point automatic assignment for USB key and other removable
+       disks or removable media devices
+
 38, V0.46:   2008-05-24
 
 Modifications from V0.46:

@@ -67,6 +67,7 @@ Ext2Cleanup (IN PEXT2_IRP_CONTEXT IrpContext)
             Status = STATUS_SUCCESS;
             __leave;
         }
+        Ccb = (PEXT2_CCB) FileObject->FsContext2;
 
         if (IsFlagOn(FileObject->Flags, FO_CLEANUP_COMPLETE)) {
             Status = STATUS_SUCCESS;
@@ -83,15 +84,18 @@ Ext2Cleanup (IN PEXT2_IRP_CONTEXT IrpContext)
 
             if (IsFlagOn(Vcb->Flags, VCB_VOLUME_LOCKED) &&
                 (Vcb->LockFile == FileObject) ) {
+
                 ClearFlag(Vcb->Flags, VCB_VOLUME_LOCKED);
                 Vcb->LockFile = NULL;
-
                 Ext2ClearVpbFlag(Vcb->Vpb, VPB_LOCKED);
             }
 
-            Ext2DerefXcb(&Vcb->OpenHandleCount);
+            if (Ccb) {
+                Ext2DerefXcb(&Vcb->OpenHandleCount);
+                Ext2DerefXcb(&Vcb->OpenVolumeCount);
+            }
 
-            if (!Vcb->OpenHandleCount) {
+            if (!Vcb->OpenVolumeCount) {
                 IoRemoveShareAccess(FileObject, &Vcb->ShareAccess);
             }
 
@@ -101,8 +105,6 @@ Ext2Cleanup (IN PEXT2_IRP_CONTEXT IrpContext)
 
         ASSERT((Fcb->Identifier.Type == EXT2FCB) &&
             (Fcb->Identifier.Size == sizeof(EXT2_FCB)));
-
-        Ccb = (PEXT2_CCB) FileObject->FsContext2;
 
         if (IsFlagOn(FileObject->Flags, FO_CLEANUP_COMPLETE)) {
             if (IsFlagOn(FileObject->Flags, FO_FILE_MODIFIED) &&
@@ -151,7 +153,7 @@ Ext2Cleanup (IN PEXT2_IRP_CONTEXT IrpContext)
         ASSERT((Ccb->Identifier.Type == EXT2CCB) &&
             (Ccb->Identifier.Size == sizeof(EXT2_CCB)));        
 
-        Ext2DerefXcb(&Vcb->OpenFileHandleCount);
+        Ext2DerefXcb(&Vcb->OpenHandleCount);
         Ext2DerefXcb(&Fcb->OpenHandleCount);
 
         if (IsFlagOn(FileObject->Flags, FO_FILE_MODIFIED)) {
@@ -342,7 +344,7 @@ Ext2Cleanup (IN PEXT2_IRP_CONTEXT IrpContext)
                 CcPurgeCacheSection( &Fcb->SectionObject,
                                      NULL,
                                      0,
-                                     FALSE );
+                                     FALSE );   
             }
 
             CcUninitializeCacheMap(FileObject, NULL, NULL);

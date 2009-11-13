@@ -347,9 +347,6 @@ Ext2WriteVolume (IN PEXT2_IRP_CONTEXT IrpContext)
     
         if (Ccb != NULL && !PagingIo) {
 
-            ExAcquireResourceExclusiveLite(&Vcb->MainResource, TRUE);
-            MainResourceAcquired = TRUE;
-
             if (!FlagOn(Ccb->Flags, CCB_VOLUME_DASD_PURGE)) {
 
                 if (!IsFlagOn(Vcb->Flags, VCB_VOLUME_LOCKED)) {
@@ -364,9 +361,6 @@ Ext2WriteVolume (IN PEXT2_IRP_CONTEXT IrpContext)
                     Length = (ULONG)(Vcb->Header.FileSize.QuadPart - ByteOffset.QuadPart);
                 }
             }
-
-            ExReleaseResourceLite(&Vcb->MainResource);
-            MainResourceAcquired = FALSE;
 
         } else if (Nocache && !PagingIo && (Vcb->SectionObject.DataSectionObject != NULL))  {
 
@@ -1084,10 +1078,6 @@ Ext2WriteFile(IN PEXT2_IRP_CONTEXT IrpContext)
                 CcSetReadAheadGranularity(
                          FileObject,
                          READ_AHEAD_GRANULARITY );
-
-                CcSetFileSizes(
-                        FileObject, 
-                        (PCC_FILE_SIZES)(&(Fcb->Header.AllocationSize)));
             }
 
             CacheObject = FileObject;
@@ -1254,19 +1244,16 @@ Ext2WriteComplete (IN PEXT2_IRP_CONTEXT IrpContext)
     __try {
 
         ASSERT(IrpContext);
-        
         ASSERT((IrpContext->Identifier.Type == EXT2ICX) &&
             (IrpContext->Identifier.Size == sizeof(EXT2_IRP_CONTEXT)));
-        
+
         FileObject = IrpContext->FileObject;
-        
+
         Irp = IrpContext->Irp;
         IrpSp = IoGetCurrentIrpStackLocation(Irp);
-        
+
         CcMdlWriteComplete(FileObject, &(IrpSp->Parameters.Write.ByteOffset), Irp->MdlAddress);
-        
         Irp->MdlAddress = NULL;
-        
         Status = STATUS_SUCCESS;
 
     } __finally {
@@ -1343,8 +1330,8 @@ Ext2Write (IN PEXT2_IRP_CONTEXT IrpContext)
 
                 bCompleteRequest = FALSE;
             } else if (FcbOrVcb->Identifier.Type == EXT2FCB) {
-                Status = Ext2WriteFile(IrpContext);
 
+                Status = Ext2WriteFile(IrpContext);
                 if (!NT_SUCCESS(Status)) {
                     DbgBreak();
                 }

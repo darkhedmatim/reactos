@@ -47,12 +47,11 @@ Ext2QueryFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
     __try {
 
         ASSERT(IrpContext != NULL);
-        
         ASSERT((IrpContext->Identifier.Type == EXT2ICX) &&
             (IrpContext->Identifier.Size == sizeof(EXT2_IRP_CONTEXT)));
-        
+
         DeviceObject = IrpContext->DeviceObject;
-        
+
         //
         // This request is not allowed on the main device object
         //
@@ -60,10 +59,10 @@ Ext2QueryFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
             Status = STATUS_INVALID_DEVICE_REQUEST;
             __leave;
         }
-        
+
         FileObject = IrpContext->FileObject;
         Fcb = (PEXT2_FCB) FileObject->FsContext;
-        
+
         if (Fcb == NULL) {
             Status = STATUS_INVALID_PARAMETER;
             __leave;
@@ -76,7 +75,7 @@ Ext2QueryFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
             Status = STATUS_INVALID_PARAMETER;
             __leave;
         }
-        
+
         if(!((Fcb->Identifier.Type == EXT2FCB) &&
              (Fcb->Identifier.Size == sizeof(EXT2_FCB)))) {
             Status = STATUS_INVALID_PARAMETER;
@@ -99,9 +98,7 @@ Ext2QueryFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
         }
         
         Ccb = (PEXT2_CCB) FileObject->FsContext2;
-        
         ASSERT(Ccb != NULL);
-        
         ASSERT((Ccb->Identifier.Type == EXT2CCB) &&
             (Ccb->Identifier.Size == sizeof(EXT2_CCB)));
 
@@ -121,7 +118,7 @@ Ext2QueryFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
                 PFILE_BASIC_INFORMATION FileBasicInformation;
 
                 if (Length < sizeof(FILE_BASIC_INFORMATION)) {
-                    Status = STATUS_INFO_LENGTH_MISMATCH;
+                    Status = STATUS_BUFFER_OVERFLOW;
                     __leave;
                 }
 
@@ -147,7 +144,7 @@ Ext2QueryFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
                 PFILE_STANDARD_INFORMATION FSI;
                 
                 if (Length < sizeof(FILE_STANDARD_INFORMATION)) {
-                    Status = STATUS_INFO_LENGTH_MISMATCH;
+                    Status = STATUS_BUFFER_OVERFLOW;
                     __leave;
                 }
                 
@@ -175,13 +172,12 @@ Ext2QueryFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
             }
             break;
 
-           
             case FileInternalInformation:
             {
                 PFILE_INTERNAL_INFORMATION FileInternalInformation;
                 
                 if (Length < sizeof(FILE_INTERNAL_INFORMATION)) {
-                    Status = STATUS_INFO_LENGTH_MISMATCH;
+                    Status = STATUS_BUFFER_OVERFLOW;
                     __leave;
                 }
                 
@@ -201,12 +197,12 @@ Ext2QueryFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
                 PFILE_EA_INFORMATION FileEaInformation;
                 
                 if (Length < sizeof(FILE_EA_INFORMATION)) {
-                    Status = STATUS_INFO_LENGTH_MISMATCH;
+                    Status = STATUS_BUFFER_OVERFLOW;
                     __leave;
                 }
-                
+
                 FileEaInformation = (PFILE_EA_INFORMATION) Buffer;
-                
+
                 // Romfs doesn't have any extended attributes
                 FileEaInformation->EaSize = 0;
                 
@@ -218,48 +214,48 @@ Ext2QueryFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
             case FileNameInformation:
             {
                 PFILE_NAME_INFORMATION FileNameInformation;
+                ULONG   BytesToCopy = 0;
                 
-                if (Length < sizeof(FILE_NAME_INFORMATION) +
-                    Fcb->Mcb->ShortName.Length - sizeof(WCHAR)) {
-                    Status = STATUS_INFO_LENGTH_MISMATCH;
-                    __leave;
+                if (Length < (ULONG)FIELD_OFFSET(FILE_NAME_INFORMATION, FileName) + 
+                             Fcb->Mcb->FullName.Length) {
+                    BytesToCopy = Length - FIELD_OFFSET(FILE_NAME_INFORMATION, FileName);
+                    Status = STATUS_BUFFER_OVERFLOW;
+                } else {
+                    BytesToCopy = Fcb->Mcb->FullName.Length;
+                    Status = STATUS_SUCCESS;
                 }
-                
+
                 FileNameInformation = (PFILE_NAME_INFORMATION) Buffer;
-                
-                FileNameInformation->FileNameLength = Fcb->Mcb->ShortName.Length;
-                
+                FileNameInformation->FileNameLength = Fcb->Mcb->FullName.Length;
+
                 RtlCopyMemory(
                     FileNameInformation->FileName,
-                    Fcb->Mcb->ShortName.Buffer,
-                    Fcb->Mcb->ShortName.Length );
-                
-                Irp->IoStatus.Information = sizeof(FILE_NAME_INFORMATION) +
-                    Fcb->Mcb->ShortName.Length - sizeof(WCHAR);
-                Status = STATUS_SUCCESS;
+                    Fcb->Mcb->FullName.Buffer,
+                    BytesToCopy );
+
+                Irp->IoStatus.Information = BytesToCopy + 
+                     + FIELD_OFFSET(FILE_NAME_INFORMATION, FileName);
             }
             break;
-            
+
             case FilePositionInformation:
             {
                 PFILE_POSITION_INFORMATION FilePositionInformation;
                 
                 if (Length < sizeof(FILE_POSITION_INFORMATION)) {
-                    Status = STATUS_INFO_LENGTH_MISMATCH;
+                    Status = STATUS_BUFFER_OVERFLOW;
                     __leave;
                 }
-                
+
                 FilePositionInformation = (PFILE_POSITION_INFORMATION) Buffer;
-                
                 FilePositionInformation->CurrentByteOffset =
                     FileObject->CurrentByteOffset;
-                
+
                 Irp->IoStatus.Information = sizeof(FILE_POSITION_INFORMATION);
                 Status = STATUS_SUCCESS;
             }
             break;
 
-            
             case FileAllInformation:
             {
                 PFILE_ALL_INFORMATION       FileAllInformation;
@@ -271,7 +267,7 @@ Ext2QueryFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
                 PFILE_NAME_INFORMATION      FileNameInformation;
                 
                 if (Length < sizeof(FILE_ALL_INFORMATION)) {
-                    Status = STATUS_INFO_LENGTH_MISMATCH;
+                    Status = STATUS_BUFFER_OVERFLOW;
                     __leave;
                 }
                 
@@ -330,15 +326,21 @@ Ext2QueryFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
 
                 FilePositionInformation->CurrentByteOffset =
                     FileObject->CurrentByteOffset;
+
+                FileNameInformation->FileNameLength = Fcb->Mcb->ShortName.Length;
                 
                 if (Length < sizeof(FILE_ALL_INFORMATION) +
                     Fcb->Mcb->ShortName.Length - sizeof(WCHAR)) {
                     Irp->IoStatus.Information = sizeof(FILE_ALL_INFORMATION);
                     Status = STATUS_BUFFER_OVERFLOW;
+                    RtlCopyMemory(
+                        FileNameInformation->FileName,
+                        Fcb->Mcb->ShortName.Buffer,
+                        Length - FIELD_OFFSET(FILE_ALL_INFORMATION,
+                                              NameInformation.FileName)
+                        );
                     __leave;
                 }
-                
-                FileNameInformation->FileNameLength = Fcb->Mcb->ShortName.Length;
                 
                 RtlCopyMemory(
                     FileNameInformation->FileName,
@@ -367,7 +369,7 @@ Ext2QueryFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
                 PFILE_NETWORK_OPEN_INFORMATION PFNOI;
             
                 if (Length < sizeof(FILE_NETWORK_OPEN_INFORMATION)) {
-                    Status = STATUS_INFO_LENGTH_MISMATCH;
+                    Status = STATUS_BUFFER_OVERFLOW;
                     __leave;
                 }
 
@@ -404,15 +406,13 @@ Ext2QueryFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
                 PFILE_ATTRIBUTE_TAG_INFORMATION FATI;
                 
                 if (Length < sizeof(FILE_ATTRIBUTE_TAG_INFORMATION)) {
-                    Status = STATUS_INFO_LENGTH_MISMATCH;
+                    Status = STATUS_BUFFER_OVERFLOW;
                     __leave;
                 }
-                
+
                 FATI = (PFILE_ATTRIBUTE_TAG_INFORMATION) Buffer;
-                
                 FATI->FileAttributes = Fcb->Mcb->FileAttr;
                 FATI->ReparseTag = IO_REPARSE_TAG_RESERVED_ZERO;
-                
                 Irp->IoStatus.Information = sizeof(FILE_ATTRIBUTE_TAG_INFORMATION);
                 Status = STATUS_SUCCESS;
             }
@@ -656,6 +656,7 @@ Ext2SetFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
                     Fcb->Mcb->FileAttr = FBI->FileAttributes;
                     if (bIsDirectory) {
                         SetFlag(Fcb->Mcb->FileAttr, FILE_ATTRIBUTE_DIRECTORY);
+                        ClearFlag(Fcb->Mcb->FileAttr, FILE_ATTRIBUTE_NORMAL);
                     }
                 }
 
@@ -881,6 +882,12 @@ Ext2SetFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
                         /* free blocks from it's real size allocated in Ext2Create */
                         if (IsFlagOn(Fcb->Flags, FCB_ALLOC_IN_CREATE)) {
                             Fcb->Mcb->FileSize = AllocationSize;
+                        }
+
+                        if (!MmCanFileBeTruncated(&(Fcb->SectionObject), &AllocationSize)) {
+                            Status = STATUS_USER_MAPPED_FILE;
+                            DbgBreak();
+                            __leave;
                         }
 
                         /* truncate file blocks */

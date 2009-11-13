@@ -370,11 +370,7 @@ Ext2LookupFile (
                         }
 
                         /* allocate Mcb ... */
-                        Mcb = Ext2AllocateMcb(
-                                        Vcb, &FileName,
-                                        &Target->FullName,
-                                        FILE_ATTRIBUTE_NORMAL
-                                        );
+                        Mcb = Ext2AllocateMcb(Vcb, &FileName, &Target->FullName, 0);
                         if (!Mcb) {
                             Status = STATUS_INSUFFICIENT_RESOURCES;
                             Ext2DerefMcb(Parent);
@@ -396,6 +392,8 @@ Ext2LookupFile (
 
                         if (S_ISDIR(Mcb->Inode->i_mode)) {
                             SetFlag(Mcb->FileAttr, FILE_ATTRIBUTE_DIRECTORY);
+                        } else {
+                            SetFlag(Mcb->FileAttr, FILE_ATTRIBUTE_NORMAL);
                         }
 
                         /* process special files under root directory */
@@ -409,7 +407,6 @@ Ext2LookupFile (
                             }
                         }
 
-                        /* setup Mcb */
                         Mcb->CreationTime = Ext2NtTime(Mcb->Inode->i_ctime);
                         Mcb->LastAccessTime = Ext2NtTime(Mcb->Inode->i_atime);
                         Mcb->LastWriteTime = Ext2NtTime(Mcb->Inode->i_mtime);
@@ -817,6 +814,12 @@ Ext2CreateFile(
         RtlZeroMemory(FileName.Buffer, FileName.MaximumLength);
         RtlCopyMemory(FileName.Buffer, IrpSp->FileObject->FileName.Buffer, FileName.Length);
 
+        if (ParentFcb && FileName.Buffer[0] == L'\\') {
+            Status = STATUS_INVALID_PARAMETER;
+            Ext2DerefMcb(ParentMcb);
+            __leave;
+        }
+
         if ((FileName.Length > sizeof(WCHAR)) &&
             (FileName.Buffer[1] == L'\\') &&
             (FileName.Buffer[0] == L'\\')) {
@@ -943,6 +946,9 @@ Dissecting:
 
                 /* quit name resolving loop */
                 if (!NT_SUCCESS(Status)) {
+                    if (Status == STATUS_NO_SUCH_FILE && RemainName.Length != 0) {
+                        Status = STATUS_OBJECT_PATH_NOT_FOUND;
+                    }
                     __leave;
                 }
 
@@ -1430,7 +1436,7 @@ Openit:
                 }
             }
 
-            Ext2ReferXcb(&Vcb->OpenFileHandleCount);
+            Ext2ReferXcb(&Vcb->OpenHandleCount);
             Ext2ReferXcb(&Vcb->ReferenceCount);
             
             IrpSp->FileObject->FsContext = (void*)Fcb;
@@ -1566,7 +1572,7 @@ Openit:
                     }
                 }
 
-                Ext2DerefXcb(&Vcb->OpenFileHandleCount);
+                Ext2DerefXcb(&Vcb->OpenHandleCount);
                 Ext2DerefXcb(&Vcb->ReferenceCount);
             
                 IoRemoveShareAccess(IrpSp->FileObject, &Fcb->ShareAccess);
@@ -1639,6 +1645,7 @@ Ext2CreateVolume(PEXT2_IRP_CONTEXT IrpContext, PEXT2_VCB Vcb)
 {
     PIO_STACK_LOCATION  IrpSp;
     PIRP                Irp;
+    PEXT2_CCB           Ccb;
 
     NTSTATUS            Status;
 
@@ -1678,9 +1685,20 @@ Ext2CreateVolume(PEXT2_IRP_CONTEXT IrpContext, PEXT2_VCB Vcb)
         return STATUS_ACCESS_DENIED;
     }
 
+    if ( !FlagOn(ShareAccess, FILE_SHARE_READ) &&
+          Vcb->OpenVolumeCount  != 0 ) {
+        return STATUS_SHARING_VIOLATION;
+    }
+
+    Ccb = Ext2AllocateCcb(NULL);
+    if (Ccb == NULL) {
+        Status = STATUS_INSUFFICIENT_RESOURCES;
+        goto errorout;
+    }
+
     Status = STATUS_SUCCESS;
 
-    if (Vcb->OpenHandleCount > 0) {
+    if (Vcb->OpenVolumeCount > 0) {
         Status = IoCheckShareAccess( DesiredAccess, ShareAccess,
                                      IrpSp->FileObject,
                                      &(Vcb->ShareAccess), TRUE);
@@ -1699,24 +1717,16 @@ Ext2CreateVolume(PEXT2_IRP_CONTEXT IrpContext, PEXT2_VCB Vcb)
         Ext2FlushVolume(IrpContext, Vcb, FALSE);
     }
 
-    {
-        PEXT2_CCB   Ccb = Ext2AllocateCcb(NULL);
+    IrpSp->FileObject->Flags |= FO_NO_INTERMEDIATE_BUFFERING;
+    IrpSp->FileObject->FsContext  = Vcb;
+    IrpSp->FileObject->FsContext2 = Ccb;
+    IrpSp->FileObject->Vpb = Vcb->Vpb;
 
-        if (Ccb == NULL) {
-            Status = STATUS_INSUFFICIENT_RESOURCES;
-            goto errorout;
-        }
+    Ext2ReferXcb(&Vcb->ReferenceCount);
+    Ext2ReferXcb(&Vcb->OpenHandleCount);
+    Ext2ReferXcb(&Vcb->OpenVolumeCount);
 
-        IrpSp->FileObject->Flags |= FO_NO_INTERMEDIATE_BUFFERING;
-        IrpSp->FileObject->FsContext  = Vcb;
-        IrpSp->FileObject->FsContext2 = Ccb;
-        IrpSp->FileObject->Vpb = Vcb->Vpb;
-
-        Ext2ReferXcb(&Vcb->ReferenceCount);
-        Ext2ReferXcb(&Vcb->OpenHandleCount);
-
-        Irp->IoStatus.Information = FILE_OPENED;
-    }
+    Irp->IoStatus.Information = FILE_OPENED;
 
 errorout:
 
@@ -1758,8 +1768,17 @@ Ext2Create (IN PEXT2_IRP_CONTEXT IrpContext)
 
         Vcb = (PEXT2_VCB) DeviceObject->DeviceExtension;
         ASSERT(Vcb->Identifier.Type == EXT2VCB);
-        ASSERT(IsMounted(Vcb));
         IrpSp->FileObject->Vpb = Vcb->Vpb;
+
+        if (!IsMounted(Vcb)) {
+            DbgBreak();
+            if (IsFlagOn(Vcb->Flags, VCB_DEVICE_REMOVED)) {
+                Status = STATUS_NO_SUCH_DEVICE;
+            } else {
+                Status = STATUS_VOLUME_DISMOUNTED;
+            }
+            __leave;
+        }
 
         if (!ExAcquireResourceExclusiveLite(
                 &Vcb->MainResource, TRUE)) {
@@ -1793,7 +1812,7 @@ Ext2Create (IN PEXT2_IRP_CONTEXT IrpContext)
             ExReleaseResourceLite(&Vcb->MainResource);
         }
 
-        if (!IrpContext->ExceptionInProgress)  {
+        if (!IrpContext->ExceptionInProgress && !PostIrp)  {
             if ( Status == STATUS_PENDING ||
                  Status == STATUS_CANT_WAIT) {
                 Status = Ext2QueueRequest(IrpContext);

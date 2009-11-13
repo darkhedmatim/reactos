@@ -22,8 +22,8 @@ CSelectDrvLetter::CSelectDrvLetter(CWnd* pParent /*=NULL*/)
 	m_DrvLetter = _T("");
 	//}}AFX_DATA_INIT
 
-	m_bMountMgr = FALSE;
-	m_bRegistry = TRUE;
+	m_bMountMgr = TRUE;
+	m_bRegistry = FALSE;
 	m_bDosDev = FALSE;
 }
 

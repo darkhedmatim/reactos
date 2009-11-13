@@ -51,6 +51,7 @@
 #define IDC_COMBO_CODEPAGE              1016
 #define IDC_COMBO_DRVLETTER             1017
 #define IDC_COMBO_AUTOMP                1018
+#define IDC_EXT3_AUTOMOUNT              1018
 #define IDC_FORMAT_PROGRESS             1019
 #define IDC_COMBO_FS                    1020
 #define IDC_FORMAT_TITLE                1021

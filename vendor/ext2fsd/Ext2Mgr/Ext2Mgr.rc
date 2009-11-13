@@ -280,12 +280,12 @@ BEGIN
                     BS_LEFTTEXT | WS_TABSTOP,19,43,174,12
 END
 
-IDD_SERVICE_MANAGE DIALOG DISCARDABLE  0, 0, 238, 222
+IDD_SERVICE_MANAGE DIALOG DISCARDABLE  0, 0, 238, 236
 STYLE DS_MODALFRAME | DS_3DLOOK | WS_POPUP
 FONT 8, "MS Sans Serif"
 BEGIN
-    DEFPUSHBUTTON   "更改并退出",IDOK,170,201,47,17
-    GROUPBOX        "Ext2Fsd 驱动设置",IDC_STATIC,7,7,224,190
+    DEFPUSHBUTTON   "更改并退出",IDOK,170,215,47,17
+    GROUPBOX        "Ext2Fsd 驱动设置",IDC_STATIC,7,7,224,203
     GROUPBOX        "当前状态",IDC_STATIC,19,21,201,36,WS_GROUP
     EDITTEXT        IDC_SERVICE_STATUS,26,35,145,14,ES_READONLY
     PUSHBUTTON      "启用",IDC_START_SERVICE,179,33,34,17
@@ -295,18 +295,20 @@ BEGIN
     GROUPBOX        "全局语言编码",IDC_STATIC,141,63,78,38
     COMBOBOX        IDC_COMBO_CODEPAGE,149,81,60,111,CBS_DROPDOWN | CBS_SORT | 
                     WS_VSCROLL | WS_TABSTOP
-    GROUPBOX        "全局默认参数设置",IDC_STATIC,18,104,201,88,WS_GROUP
+    GROUPBOX        "全局默认参数设置",IDC_STATIC,18,104,201,102,WS_GROUP
     CONTROL         "以只读方式加载分区（分区可以有独立的设置）",
                     IDC_READ_ONLY,"Button",BS_AUTOCHECKBOX | WS_GROUP | 
                     WS_TABSTOP,32,120,181,10
     CONTROL         "支持Ext3的写操作(忽略日志及目录索引)",IDC_EXT3_WRITABLE,
                     "Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,32,136,
                     170,10
-    PUSHBUTTON      "取消",IDCANCEL,29,201,38,17
-    EDITTEXT        IDC_GLOBAL_PREFIX,100,152,107,14
-    EDITTEXT        IDC_GLOBAL_SUFFIX,99,172,108,14
-    LTEXT           "文件名隐藏前缀:",IDC_STATIC,32,154,67,13
-    LTEXT           "文件名隐藏后缀:",IDC_STATIC,32,173,62,13
+    PUSHBUTTON      "取消",IDCANCEL,29,215,38,17
+    EDITTEXT        IDC_GLOBAL_PREFIX,100,167,107,14
+    EDITTEXT        IDC_GLOBAL_SUFFIX,99,187,108,14
+    LTEXT           "文件名隐藏前缀:",IDC_STATIC,32,169,67,13
+    LTEXT           "文件名隐藏后缀:",IDC_STATIC,32,188,62,13
+    CONTROL         "自动分配盘符（在磁盘插入时）",IDC_EXT3_AUTOMOUNT,"Button",
+                    BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,32,151,170,10
 END
 
 
@@ -400,7 +402,7 @@ BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 231
         TOPMARGIN, 7
-        BOTTOMMARGIN, 218
+        BOTTOMMARGIN, 232
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -413,8 +415,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 2,2,8,5
- PRODUCTVERSION 2,2,8,5
+ FILEVERSION 2,4,7,1
+ PRODUCTVERSION 2,4,7,1
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -432,14 +434,14 @@ BEGIN
             VALUE "Comments", "\0"
             VALUE "CompanyName", "Ext2Fsd Group (www.ext2fsd.com)\0"
             VALUE "FileDescription", "Ext2 Volume Manager for Windows\0"
-            VALUE "FileVersion", "2, 2, 8, 5\0"
+            VALUE "FileVersion", "2, 4, 7, 1\0"
             VALUE "InternalName", "Ext2Mgr\0"
-            VALUE "LegalCopyright", "Copyright (C) 2008 Ext2Fsd Group\0"
+            VALUE "LegalCopyright", "Copyright (C) 2009 Ext2Fsd Group\0"
             VALUE "LegalTrademarks", "\0"
             VALUE "OriginalFilename", "Ext2Mgr.exe\0"
             VALUE "PrivateBuild", "\0"
             VALUE "ProductName", "Ext2 Volume Manager for Windows\0"
-            VALUE "ProductVersion", "2, 2, 8, 5\0"
+            VALUE "ProductVersion", "2, 4, 7, 1\0"
             VALUE "SpecialBuild", "\0"
         END
     END
@@ -661,22 +663,22 @@ BEGIN
                     WS_GROUP | WS_TABSTOP,5,115,395,149,WS_EX_CLIENTEDGE
 END
 
-IDD_SERVICE_MANAGE DIALOG DISCARDABLE  0, 0, 238, 222
+IDD_SERVICE_MANAGE DIALOG DISCARDABLE  0, 0, 238, 233
 STYLE DS_MODALFRAME | DS_3DLOOK | WS_POPUP
 FONT 8, "MS Sans Serif"
 BEGIN
-    DEFPUSHBUTTON   "Apply",IDOK,170,201,37,17
-    GROUPBOX        "Ext2Fsd Service Management",IDC_STATIC,7,7,224,190
+    DEFPUSHBUTTON   "Apply",IDOK,170,212,37,17
+    GROUPBOX        "Ext2Fsd Service Management",IDC_STATIC,7,7,224,203
     GROUPBOX        "Service status",IDC_STATIC,19,21,201,36,WS_GROUP
     EDITTEXT        IDC_SERVICE_STATUS,26,35,145,14,ES_READONLY
     PUSHBUTTON      "Start",IDC_START_SERVICE,179,33,34,17
-    GROUPBOX        "Service startup mode",IDC_STATIC,19,63,116,37
-    COMBOBOX        IDC_COMBO_STARTUP,29,80,101,88,CBS_DROPDOWN | WS_VSCROLL | 
+    GROUPBOX        "Service startup mode",IDC_STATIC,19,63,130,37
+    COMBOBOX        IDC_COMBO_STARTUP,29,80,115,88,CBS_DROPDOWN | WS_VSCROLL | 
                     WS_TABSTOP
-    GROUPBOX        "Global Codepage",IDC_STATIC,141,63,78,38
-    COMBOBOX        IDC_COMBO_CODEPAGE,149,81,60,111,CBS_DROPDOWN | CBS_SORT | 
+    GROUPBOX        "Global Codepage",IDC_STATIC,153,63,66,38
+    COMBOBOX        IDC_COMBO_CODEPAGE,160,81,54,111,CBS_DROPDOWN | CBS_SORT | 
                     WS_VSCROLL | WS_TABSTOP
-    GROUPBOX        "Global Volume Settings",IDC_STATIC,18,104,201,88,
+    GROUPBOX        "Global Volume Settings",IDC_STATIC,18,104,201,103,
                     WS_GROUP
     CONTROL         "Mount all volumes in read-only mode",IDC_READ_ONLY,
                     "Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,32,120,
@@ -684,11 +686,14 @@ BEGIN
     CONTROL         "Enable writing support for ext3 volumes",
                     IDC_EXT3_WRITABLE,"Button",BS_AUTOCHECKBOX | WS_GROUP | 
                     WS_TABSTOP,32,136,170,10
-    PUSHBUTTON      "Cancel",IDCANCEL,29,201,38,17
-    EDITTEXT        IDC_GLOBAL_PREFIX,137,152,70,14
-    EDITTEXT        IDC_GLOBAL_SUFFIX,137,172,70,14
-    LTEXT           "Hiding files with prefix:",IDC_STATIC,32,154,102,13
-    LTEXT           "Hiding files with suffix:",IDC_STATIC,32,173,100,13
+    PUSHBUTTON      "Cancel",IDCANCEL,29,212,38,17
+    EDITTEXT        IDC_GLOBAL_PREFIX,137,166,70,14
+    EDITTEXT        IDC_GLOBAL_SUFFIX,137,186,70,14
+    LTEXT           "Hiding files with prefix:",IDC_STATIC,32,168,102,13
+    LTEXT           "Hiding files with suffix:",IDC_STATIC,32,187,100,13
+    CONTROL         "Assign drive letter automatically",IDC_EXT3_AUTOMOUNT,
+                    "Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,32,151,
+                    170,10
 END
 
 IDD_FORMAT DIALOG DISCARDABLE  0, 0, 203, 198
@@ -925,7 +930,7 @@ BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 231
         TOPMARGIN, 7
-        BOTTOMMARGIN, 218
+        BOTTOMMARGIN, 229
     END
 
     IDD_FORMAT, DIALOG
@@ -999,8 +1004,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 2,2,8,5
- PRODUCTVERSION 2,2,8,5
+ FILEVERSION 2,4,7,1
+ PRODUCTVERSION 2,4,7,1
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -1018,14 +1023,14 @@ BEGIN
             VALUE "Comments", "\0"
             VALUE "CompanyName", "Ext2Fsd Group (www.ext2fsd.com)\0"
             VALUE "FileDescription", "Ext2 Volume Manager for Windows\0"
-            VALUE "FileVersion", "2, 2, 8, 5\0"
+            VALUE "FileVersion", "2, 4, 7, 1\0"
             VALUE "InternalName", "Ext2Mgr\0"
-            VALUE "LegalCopyright", "Copyright (C) 2008 Ext2Fsd Group\0"
+            VALUE "LegalCopyright", "Copyright (C) 2009 Ext2Fsd Group\0"
             VALUE "LegalTrademarks", "\0"
             VALUE "OriginalFilename", "Ext2Mgr.exe\0"
             VALUE "PrivateBuild", "\0"
             VALUE "ProductName", "Ext2 Volume Manager for Windows\0"
-            VALUE "ProductVersion", "2, 2, 8, 5\0"
+            VALUE "ProductVersion", "2, 4, 7, 1\0"
             VALUE "SpecialBuild", "\0"
         END
     END

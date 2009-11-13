@@ -71,29 +71,6 @@ BOOL CExt2Attribute::OnInitDialog()
     int i = 0;
     CString s;
 
-    NT::NTSTATUS status;
-    HANDLE  Handle = NULL;
-
-    status = Ext2Open(m_DevName.GetBuffer(m_DevName.GetLength()),
-                      &Handle, EXT2_DESIRED_ACCESS);
-
-    if (!NT_SUCCESS(status)) {
-
-        s.Format("Ext2Fsd service isn't started.\n");
-        AfxMessageBox(s, MB_OK | MB_ICONSTOP);
-
-    } else {
-
-        if (!Ext2QueryExt2Property(Handle, m_EVP)) {
-            Ext2Close(&Handle);
-            s.Format("Failed to query ext2 volume property with error code %x. "
-                     "Please confirm thatr Ext2Fsd is already started.\n", status);
-            AfxMessageBox(s, MB_OK | MB_ICONSTOP);
-        }
-
-        Ext2Close(&Handle);
-    }
-
 	CDialog::OnInitDialog();
 	
 	m_Codepage = m_EVP->Codepage;
@@ -276,7 +253,7 @@ void CExt2Attribute::OnOK()
             m_EVP->DrvLetter = 0;
         }
         m_EVP->DrvLetter |= 0x80;
-        Ext2StoreExt2PropertyinRegistry(m_EVP);
+        Ext2StorePropertyinRegistry(m_EVP);
 
         if (m_EVP->DrvLetter != 0xFF && m_sAutoMp.GetAt(0) != ' ' &&
             m_drvChar != m_sAutoMp.GetAt(0) ) {
@@ -288,7 +265,7 @@ void CExt2Attribute::OnOK()
         }
     } else {
         m_EVP->DrvLetter = 0;
-        Ext2StoreExt2PropertyinRegistry(m_EVP);
+        Ext2StorePropertyinRegistry(m_EVP);
     }
 
     status = Ext2Open(m_DevName.GetBuffer(m_DevName.GetLength()),

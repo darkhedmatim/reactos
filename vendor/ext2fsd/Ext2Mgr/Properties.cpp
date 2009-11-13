@@ -133,6 +133,10 @@ void CProperties::OnSdevChangeMp()
 
 void CProperties::OnSdevExt2Info() 
 {
+    NT::NTSTATUS status;
+    HANDLE  Handle = NULL;
+    CString s;
+
     CExt2Attribute EA;
     PEXT2_VOLUME_PROPERTY2 EVP = NULL;
 
@@ -142,7 +146,10 @@ void CProperties::OnSdevExt2Info()
         EA.m_DevName = m_cdrom->Name;
     } else if (m_volume) {
         EVP = &m_volume->EVP;
-        EA.m_DevName = m_volume->Name;
+        if (m_volume->Part)
+            EA.m_DevName = m_volume->Part->Name;
+        else
+            EA.m_DevName = m_volume->Name;
     } else if (m_part) {
         EVP = &m_part->Volume->EVP;
         EA.m_DevName = m_part->Volume->Name;
@@ -154,6 +161,26 @@ void CProperties::OnSdevExt2Info()
 
     EA.m_MainDlg = GetParent();
     EA.m_EVP = EVP;
+
+    status = Ext2Open(EA.m_DevName.GetBuffer(EA.m_DevName.GetLength()),
+                      &Handle, EXT2_DESIRED_ACCESS);
+
+    if (!NT_SUCCESS(status)) {
+
+        s.Format("Ext2Fsd service isn't started.\n");
+        AfxMessageBox(s, MB_OK | MB_ICONSTOP);
+
+    } else {
+
+        if (!Ext2QueryExt2Property(Handle, EVP)) {
+            Ext2Close(&Handle);
+            return;
+        }
+
+        Ext2Close(&Handle);
+    }
+
+
     if (EA.DoModal() == IDOK) {
         CExt2MgrDlg * Parent = (CExt2MgrDlg *)GetParent();
         if (m_cdrom) {

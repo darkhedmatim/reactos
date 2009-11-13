@@ -55,6 +55,7 @@ extern PEXT2_GLOBAL Ext2Global;
 #pragma alloc_text(PAGE, Ext2InitializeVcb)
 #pragma alloc_text(PAGE, Ext2FreeCcb)
 #pragma alloc_text(PAGE, Ext2AllocateCcb)
+#pragma alloc_text(PAGE, Ext2TearDownStream)
 #pragma alloc_text(PAGE, Ext2DestroyVcb)
 #pragma alloc_text(PAGE, Ext2SyncUninitializeCacheMap)
 #pragma alloc_text(PAGE, Ext2LinkHeadMcb)
@@ -233,6 +234,10 @@ Ext2FreeFcb (IN PEXT2_FCB Fcb)
            (Fcb->Identifier.Size == sizeof(EXT2_FCB)));
     ASSERT((Fcb->Mcb->Identifier.Type == EXT2MCB) &&
            (Fcb->Mcb->Identifier.Size == sizeof(EXT2_MCB)));
+
+#ifndef _WIN2K_TARGET_
+    FsRtlTeardownPerStreamContexts(&Fcb->Header);
+#endif
 
     if ((Fcb->Mcb->Identifier.Type == EXT2MCB) &&
         (Fcb->Mcb->Identifier.Size == sizeof(EXT2_MCB))) {
@@ -1748,6 +1753,7 @@ VOID
 Ext2RemoveVcb(PEXT2_VCB Vcb)
 {
     RemoveEntryList(&Vcb->Next);
+    InitializeListHead(&Vcb->Next);
 }
 
 NTSTATUS
@@ -1937,14 +1943,13 @@ Ext2ParseRegistryVolumeParams(
     }
 }
 
-VOID
+NTSTATUS
 Ext2PerformRegistryVolumeParams(IN PEXT2_VCB Vcb)
 {
     NTSTATUS        Status;
     UNICODE_STRING  VolumeParams;
 
     Status = Ext2QueryVolumeParams(Vcb, &VolumeParams);
-
     if (NT_SUCCESS(Status)) {
 
         /* set Vcb settings from registery */
@@ -1953,6 +1958,15 @@ Ext2PerformRegistryVolumeParams(IN PEXT2_VCB Vcb)
         Ext2ProcessVolumeProperty(Vcb, &Property);
 
     } else {
+
+        /* don't support auto mount */
+        if (IsFlagOn(Ext2Global->Flags, EXT2_AUTO_MOUNT)) {
+            Status = STATUS_SUCCESS;
+        } else {
+            Status = STATUS_UNSUCCESSFUL;
+            DbgBreak();
+            goto errorout;
+        }
 
         /* set Vcb settings from Ext2Global */
         if (IsFlagOn(Ext2Global->Flags, EXT2_SUPPORT_WRITING)) {
@@ -1993,9 +2007,13 @@ Ext2PerformRegistryVolumeParams(IN PEXT2_VCB Vcb)
         }        
     }
 
+errorout:
+
     if (VolumeParams.Buffer) {
         ExFreePoolWithTag(VolumeParams.Buffer, EXT2_PARAM_MAGIC);
     }
+
+    return Status;
 }
 
 NTSTATUS
@@ -2103,7 +2121,8 @@ Ext2InitializeVcb( IN PEXT2_IRP_CONTEXT IrpContext,
         Vcb->Header.IsFastIoPossible = FastIoIsNotPossible;
         Vcb->Header.Resource = &(Vcb->MainResource);
         Vcb->Header.PagingIoResource = &(Vcb->PagingIoResource);
-        Vcb->OpenFileHandleCount = 0;
+        Vcb->OpenVolumeCount = 0;
+        Vcb->OpenHandleCount = 0;
         Vcb->ReferenceCount = 0;
 
         /* initialize eresources */
@@ -2159,16 +2178,6 @@ Ext2InitializeVcb( IN PEXT2_IRP_CONTEXT IrpContext,
             DbgBreak();
         }
 
-        /* initialize UUID and serial number */
-        if (Ext2IsNullUuid(sb->s_uuid)) {
-            ExUuidCreate((UUID *)sb->s_uuid);
-        }
-
-        Vpb->SerialNumber = ((ULONG*)sb->s_uuid)[0] + 
-                            ((ULONG*)sb->s_uuid)[1] +
-                            ((ULONG*)sb->s_uuid)[2] +
-                            ((ULONG*)sb->s_uuid)[3];
-
         /* check device characteristics flags */
         if (IsFlagOn(Vpb->RealDevice->Characteristics, FILE_REMOVABLE_MEDIA)) {
             SetLongFlag(Vcb->Flags, VCB_REMOVABLE_MEDIA);
@@ -2190,6 +2199,23 @@ Ext2InitializeVcb( IN PEXT2_IRP_CONTEXT IrpContext,
         if (Ext2IsMediaWriteProtected(IrpContext, TargetDevice)) {
             SetFlag(Vcb->Flags, VCB_WRITE_PROTECTED);
         }
+
+        /* initialize UUID and serial number */
+        if (Ext2IsNullUuid(sb->s_uuid)) {
+            ExUuidCreate((UUID *)sb->s_uuid);
+        } else {
+            /* query parameters from registry */
+            if (!NT_SUCCESS(Ext2PerformRegistryVolumeParams(Vcb))) {
+                /* don't mount this volume */
+                Status = STATUS_UNRECOGNIZED_VOLUME;
+                __leave;
+            }
+        }
+
+        Vpb->SerialNumber = ((ULONG*)sb->s_uuid)[0] + 
+                            ((ULONG*)sb->s_uuid)[1] +
+                            ((ULONG*)sb->s_uuid)[2] +
+                            ((ULONG*)sb->s_uuid)[3];
 
         /* query partition size and disk geometry parameters */
         DiskSize =  Vcb->DiskGeometry.Cylinders.QuadPart *
@@ -2233,9 +2259,6 @@ Ext2InitializeVcb( IN PEXT2_IRP_CONTEXT IrpContext,
             __leave;
         }
         Vcb->ChangeCount = ChangeCount;
-
-        /* query parameters from registry */
-        Ext2PerformRegistryVolumeParams(Vcb);
 
         /* create the stream object for ext2 volume */
         Vcb->Volume = IoCreateStreamFileObject(NULL, Vcb->Vpb->RealDevice);
@@ -2332,6 +2355,7 @@ Ext2InitializeVcb( IN PEXT2_IRP_CONTEXT IrpContext,
                             FILE_ATTRIBUTE_DIRECTORY
                             );
         if (!Vcb->McbTree) {
+            DbgBreak();
             Status = STATUS_UNSUCCESSFUL;
             __leave;
         }
@@ -2347,6 +2371,10 @@ Ext2InitializeVcb( IN PEXT2_IRP_CONTEXT IrpContext,
         /* initializeroot node */
         Vcb->McbTree->FileSize.LowPart = Vcb->McbTree->Inode->i_size;
         Vcb->McbTree->FileSize.HighPart = 0;
+        Vcb->McbTree->CreationTime = Ext2NtTime(Vcb->McbTree->Inode->i_ctime);
+        Vcb->McbTree->LastAccessTime = Ext2NtTime(Vcb->McbTree->Inode->i_atime);
+        Vcb->McbTree->LastWriteTime = Ext2NtTime(Vcb->McbTree->Inode->i_mtime);
+        Vcb->McbTree->ChangeTime = Ext2NtTime(Vcb->McbTree->Inode->i_mtime);
 
         /* check bitmap if user specifies it */
         if (IsFlagOn(Ext2Global->Flags, EXT2_CHECKING_BITMAP)) {
@@ -2403,32 +2431,47 @@ Ext2InitializeVcb( IN PEXT2_IRP_CONTEXT IrpContext,
 
 
 VOID
-Ext2DestroyVcb (IN PEXT2_VCB Vcb )
+Ext2TearDownStream(IN PEXT2_VCB Vcb)
 {
+    PFILE_OBJECT    Stream = Vcb->Volume;
+    IO_STATUS_BLOCK IoStatus;
+
     ASSERT(Vcb != NULL);
-    
     ASSERT((Vcb->Identifier.Type == EXT2VCB) &&
         (Vcb->Identifier.Size == sizeof(EXT2_VCB)));
     
-    FsRtlNotifyUninitializeSync(&Vcb->NotifySync);
+    if (Stream) {
+
+        Vcb->Volume = NULL;
+
+        if (IsFlagOn(Stream->Flags, FO_FILE_MODIFIED)) {
+            CcFlushCache(&(Vcb->SectionObject), NULL, 0, &IoStatus);
+            ClearFlag(Stream->Flags, FO_FILE_MODIFIED);
+        }
+
+        if (Stream->PrivateCacheMap) {
+            Ext2SyncUninitializeCacheMap(Stream);
+        }
+
+        ObDereferenceObject(Stream);
+    }
+}
+
+VOID
+Ext2DestroyVcb (IN PEXT2_VCB Vcb)
+{
+    ASSERT(Vcb != NULL);
+    ASSERT((Vcb->Identifier.Type == EXT2VCB) &&
+        (Vcb->Identifier.Size == sizeof(EXT2_VCB)));
+
+    DEBUG(DL_FUN, ("Ext2DestroyVcb ...\n"));
 
     if (Vcb->Volume) {
-
-        if (IsFlagOn(Vcb->Volume->Flags, FO_FILE_MODIFIED)) {
-            IO_STATUS_BLOCK    IoStatus;
-            CcFlushCache(&(Vcb->SectionObject), NULL, 0, &IoStatus);
-            ClearFlag(Vcb->Volume->Flags, FO_FILE_MODIFIED);
-        }
-
-        if (Vcb->Volume->PrivateCacheMap) {
-            Ext2SyncUninitializeCacheMap(Vcb->Volume);
-        }
-
-        ObDereferenceObject(Vcb->Volume);
-        Vcb->Volume = NULL;
+        Ext2TearDownStream(Vcb);
     }
+    ASSERT(NULL == Vcb->Volume);
 
-    DEBUG(DL_EXT, ("Ext2DestroyVcb ...\n"));
+    FsRtlNotifyUninitializeSync(&Vcb->NotifySync);
     Ext2ListExtents(&Vcb->Extents);
     FsRtlUninitializeLargeMcb(&(Vcb->Extents));
 
@@ -2444,20 +2487,22 @@ Ext2DestroyVcb (IN PEXT2_VCB Vcb )
         Vcb->SuperBlock = NULL;
     }
 
-    ObDereferenceObject(Vcb->TargetDeviceObject);
-
     if (IsFlagOn(Vcb->Flags, VCB_NEW_VPB)) {
-        ExFreePoolWithTag(Vcb->Vpb, TAG_VPB);
-        DEC_MEM_COUNT(PS_VPB, Vcb->Vpb, sizeof(VPB));
+        ASSERT(Vcb->Vpb2 != NULL);
+        ExFreePoolWithTag(Vcb->Vpb2, TAG_VPB);
+        DEC_MEM_COUNT(PS_VPB, Vcb->Vpb2, sizeof(VPB));
+        Vcb->Vpb2 = NULL;
     }
 
-    ExDeleteNPagedLookasideList(&(Vcb->InodeLookasideList));
+    ObDereferenceObject(Vcb->TargetDeviceObject);
 
+    ExDeleteNPagedLookasideList(&(Vcb->InodeLookasideList));
     ExDeleteResourceLite(&Vcb->McbLock);
     ExDeleteResourceLite(&Vcb->MetaLock);
     ExDeleteResourceLite(&Vcb->PagingIoResource);
     ExDeleteResourceLite(&Vcb->MainResource);
 
+    DEBUG(DL_DBG, ("Ext2DestroyVcb: DevObject=%p Vcb=%p\n", Vcb->DeviceObject, Vcb));
     IoDeleteDevice(Vcb->DeviceObject);
     DEC_MEM_COUNT(PS_VCB, Vcb->DeviceObject, sizeof(EXT2_VCB));
 }

@@ -25,6 +25,7 @@ CServiceManage::CServiceManage(CWnd* pParent /*=NULL*/)
 	m_srvStatus = _T("");
 	m_sPrefix = _T("");
 	m_sSuffix = _T("");
+	m_bAutoMount = FALSE;
 	//}}AFX_DATA_INIT
 
     m_nStartmode = 0;
@@ -37,18 +38,7 @@ CServiceManage::CServiceManage(CWnd* pParent /*=NULL*/)
         m_srvStatus = _T("Ext2Fsd is NOT started.");
     }
 
-    m_bInited = 
-        Ext2QueryGlobalProperty(
-            &m_nStartmode,
-            (BOOLEAN *)&m_bReadonly,
-            (BOOLEAN *)&m_bExt3Writable,
-            (CHAR *)m_Codepage.GetBuffer(CODEPAGE_MAXLEN),
-            (CHAR *)m_sPrefix.GetBuffer(HIDINGPAT_LEN),
-            (CHAR *)m_sSuffix.GetBuffer(HIDINGPAT_LEN)
-            );
-    m_Codepage.ReleaseBuffer(-1);
-    m_sPrefix.ReleaseBuffer(-1);
-    m_sSuffix.ReleaseBuffer(-1);
+    m_bInited = TRUE;
 }
 
 
@@ -64,6 +54,7 @@ void CServiceManage::DoDataExchange(CDataExchange* pDX)
 	DDV_MaxChars(pDX, m_sPrefix, 31);
 	DDX_Text(pDX, IDC_GLOBAL_SUFFIX, m_sSuffix);
 	DDV_MaxChars(pDX, m_sSuffix, 31);
+	DDX_Check(pDX, IDC_EXT3_AUTOMOUNT, m_bAutoMount);
 	//}}AFX_DATA_MAP
 }
 
@@ -149,7 +140,8 @@ void CServiceManage::OnOK()
             m_bExt3Writable,
             m_Codepage.GetBuffer(CODEPAGE_MAXLEN),
             m_sPrefix.GetBuffer(HIDINGPAT_LEN),
-            m_sSuffix.GetBuffer(HIDINGPAT_LEN)
+            m_sSuffix.GetBuffer(HIDINGPAT_LEN),
+            m_bAutoMount
             );
 
     if (rc) {

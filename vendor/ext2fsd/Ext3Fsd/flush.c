@@ -203,7 +203,7 @@ Ext2Flush (IN PEXT2_IRP_CONTEXT IrpContext)
                 IsFlagOn(IrpContext->Flags, IRP_CONTEXT_FLAG_WAIT));
 
         ASSERT(MainResourceAcquired);
-        DEBUG(DL_USR, ("Ext2Flush-pre:  total mcb records=%u\n",
+        DEBUG(DL_INF, ("Ext2Flush-pre:  total mcb records=%u\n",
                            FsRtlNumberOfRunsInLargeMcb(&Vcb->Extents)));
 
         if (FcbOrVcb->Identifier.Type == EXT2VCB) {
@@ -233,7 +233,7 @@ Ext2Flush (IN PEXT2_IRP_CONTEXT IrpContext)
             }
         }
 
-        DEBUG(DL_USR, ("Ext2Flush-post: total mcb records=%u\n",
+        DEBUG(DL_INF, ("Ext2Flush-post: total mcb records=%u\n",
                         FsRtlNumberOfRunsInLargeMcb(&Vcb->Extents)));
 
 

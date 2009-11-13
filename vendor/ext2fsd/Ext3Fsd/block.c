@@ -50,6 +50,54 @@ Ext2MediaEjectControlCompletion (
 
 /* FUNCTIONS ***************************************************************/
 
+PMDL
+Ext2CreateMdl (
+        IN PVOID Buffer,
+        IN BOOLEAN bPaged,
+        IN ULONG Length,
+        IN LOCK_OPERATION Operation
+        )
+{
+        NTSTATUS Status;
+        PMDL Mdl = NULL;
+
+        ASSERT (Buffer != NULL);
+        Mdl = IoAllocateMdl (Buffer, Length, FALSE, FALSE, NULL);
+        if (Mdl == NULL) {
+                Status = STATUS_INSUFFICIENT_RESOURCES;
+        } else {
+                __try {
+                        if (bPaged) {
+                                MmProbeAndLockPages(Mdl, KernelMode, Operation);
+                        } else {
+                                MmBuildMdlForNonPagedPool (Mdl);
+                        }
+                        Status = STATUS_SUCCESS;
+                } __except (EXCEPTION_EXECUTE_HANDLER) {
+                        IoFreeMdl (Mdl);
+                        Mdl = NULL;
+                        DbgBreak();
+                        Status = STATUS_INVALID_USER_BUFFER;
+                }
+        }
+        return Mdl;
+}
+
+
+VOID
+Ext2DestroyMdl (IN PMDL Mdl)
+{
+        ASSERT (Mdl != NULL);
+        while (Mdl) {
+                PMDL Next;
+                Next = Mdl->Next;
+                if (IsFlagOn(Mdl->MdlFlags, MDL_PAGES_LOCKED)) {
+                        MmUnlockPages (Mdl);
+                }
+                IoFreeMdl (Mdl);
+                Mdl = Next;
+        }
+}
 
 NTSTATUS
 Ext2LockUserBuffer (IN PIRP     Irp,

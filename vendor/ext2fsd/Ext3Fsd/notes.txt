@@ -1,37 +1,26 @@
+
 ==================================
-Release Notes for Ext2Fsd V0.46
+Release Notes for Ext2Fsd V0.48
 ==================================
 
-Modifications from V0.45:
+Modifications from V0.46:
 
-    1, ext3 journal check and replay implemented. If the journal is
-       not empty ext2fsd will replay the journal and make the file
-       system consistent as an ext2 file system.
-
-    2, flexible-inode-size supported. recent Linux are using 256-byte
-       inode that fails 0.45 and before to show all the files.
-
-    3, FIXME: 2 minor issues that mislead EditPlus. EditPlus is always
-       trying to open any file with directory_only flag set to judge
-       whether the target is a directory or file, when the file isn't
-       a directory, the open request should be denied. But Ext2Fsd 0.45
-       and before doesn't. Another issue is that ext2 file time on disk
-       has different precision against windows (1 second vs 100 nano
-       second), which causes EditPlus thinks the file is being changed.
-
-    4, FIXME: a severe bug (likely happen on win2k system) which cause
-       dirty caches missed and slow down the whole system. 
-
-    5, many other minor changes: bulk block allocation/release, possible
-       inode allocation dead-loop when all inodes are used out, Ext2Mgr
-       win2k support, other performance improvements.
+    1, Acronis TrueImage compatible issue solved:
+       Verified with Acronis True Image Home 2009. Also verified with
+       FreeOFTE 3.0, TrueCrypt 6.2a.
+    2, Driver code-signed for Vista and Server 2008
+    3, Bo Branten's 5+ patches merged, lots ifstest failures resolved
+    4, Code improvements for FastIo routines and drive letter & mount
+       points management
+    5, Mount point automatic assignment for USB key and other removable
+       disks or removable media devices
 
 Features to be implemented in future:
 
-    1, LVM support
+    1, EXT3 features support (htree, journal)
     2, Documents improvement: clear and elaborate
-    3, Performance improvement, code optimization
-    4, EXT3 features support (htree, journal)
+    3, LVM support
+    4, Performance improvement, code optimization
     5, Automatic check & update of new versions
 
     Since 0.38, Ext2fsd is much stable even under heavy i/o loads,

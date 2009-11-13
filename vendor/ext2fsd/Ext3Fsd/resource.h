@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Developer Studio generated include file.
-// Used by Ext2Fsd.rc
+// Used by Ext3Fsd.rc
 //
 
 // Next default values for new objects

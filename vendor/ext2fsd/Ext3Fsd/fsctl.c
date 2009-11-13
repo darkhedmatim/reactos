@@ -47,9 +47,7 @@ Ext2SetVpbFlag (
     KIRQL OldIrql;
     
     IoAcquireVpbSpinLock(&OldIrql);
-    
     Vpb->Flags |= Flag;
-    
     IoReleaseVpbSpinLock(OldIrql);
 }
 
@@ -61,9 +59,7 @@ Ext2ClearVpbFlag (
     KIRQL OldIrql;
     
     IoAcquireVpbSpinLock(&OldIrql);
-    
     Vpb->Flags &= ~Flag;
-    
     IoReleaseVpbSpinLock(OldIrql);
 }
 
@@ -107,7 +103,7 @@ Ext2LockVcb (IN PEXT2_VCB    Vcb,
             __leave;
         }
         
-        if (Vcb->OpenFileHandleCount > (ULONG)(FileObject ? 1 : 0)) {
+        if (Vcb->OpenHandleCount > (ULONG)(FileObject ? 1 : 0)) {
             DEBUG(DL_INF, ( "Ext2LockVcb: There are still opened files.\n"));
             
             Status = STATUS_ACCESS_DENIED;
@@ -379,43 +375,6 @@ Ext2InvalidateVolumes ( IN PEXT2_IRP_CONTEXT IrpContext )
                 DEBUG(DL_DBG, ( "Ext2InvalidateVolumes: Got Vcb=%xh Vcb->Vpb=%xh "
                                      "Blink = %p &Vcb->Next = %p\n",
                                       Vcb, Vcb->Vpb, ListEntry->Blink, &Vcb->Next));
-
-                ExAcquireResourceExclusiveLite(&Vcb->MainResource, TRUE);
-
-                if (Vcb->Vpb == DeviceObject->Vpb) {
-
-                    KIRQL irql;
-                    IoAcquireVpbSpinLock(&irql);
-
-                    if (IsFlagOn(DeviceObject->Vpb->Flags, VPB_MOUNTED)) {
-
-                        PVPB NewVpb1 = ExAllocatePoolWithTag( NonPagedPool,
-                                                             VPB_SIZE,
-                                                             TAG_VPB);
-                        if (NewVpb1 == NULL) {
-                            DEBUG(DL_ERR, ( "Ex2InvalidateVolumes: failed to allocate NewVpb.\n"));
-                            Status = STATUS_INSUFFICIENT_RESOURCES;
-                            IoReleaseVpbSpinLock(irql);
-                            ExReleaseResourceLite(&Vcb->MainResource);
-                            __leave;
-                        }
-
-                        RtlZeroMemory( NewVpb1, sizeof(VPB));
-                        NewVpb1->Type = IO_TYPE_VPB;
-                        NewVpb1->Size = sizeof( VPB );
-                        NewVpb1->RealDevice = DeviceObject;
-                        NewVpb1->Flags = FlagOn(DeviceObject->Vpb->Flags, VPB_REMOVE_PENDING);
-                        DeviceObject->Vpb = NewVpb1;
-                    }
-
-                    IoReleaseVpbSpinLock(irql);
-
-                    DEBUG(DL_INF, ( "Ext2InvalidateVolumes: Ext2PurgeVolume...\n"));
-                    Ext2PurgeVolume(Vcb, FALSE);
-                }
-
-                ExReleaseResourceLite(&Vcb->MainResource);
-
                 /* dismount the volume */        
                 Ext2CheckDismount(IrpContext, Vcb, FALSE);
             }
@@ -1064,7 +1023,7 @@ Ext2GetRetrievalPointers (
         UsedSize = FIELD_OFFSET(RETRIEVAL_POINTERS_BUFFER, Extents[0]);
 
         /* request size beyonds whole file size ? */
-        DEBUG(DL_USR, ("Ext2GetRetrievalPointers: Startin from Vbn: %I64xh\n",
+        DEBUG(DL_DBG, ("Ext2GetRetrievalPointers: Startin from Vbn: %I64xh\n",
                         SVIB->StartingVcn.QuadPart));
         Vbn = (SVIB->StartingVcn.QuadPart << BLOCK_BITS);
         if (Vbn >= Fcb->Header.AllocationSize.QuadPart ) {
@@ -1415,12 +1374,10 @@ Ext2MountVolume (IN PEXT2_IRP_CONTEXT IrpContext)
         RtlZeroMemory(Vcb, sizeof(EXT2_VCB));
         Vcb->Identifier.Type = EXT2VCB;
         Vcb->Identifier.Size = sizeof(EXT2_VCB);
-
         Vcb->TargetDeviceObject = TargetDeviceObject;
         Vcb->DiskGeometry = DiskGeometry;
 
         Status = Ext2LoadSuper(Vcb, FALSE, &Ext2Sb);
-
         if (!NT_SUCCESS(Status)) {
             Vcb = NULL;
             Status = STATUS_UNRECOGNIZED_VOLUME;
@@ -1436,6 +1393,8 @@ Ext2MountVolume (IN PEXT2_IRP_CONTEXT IrpContext)
             Vcb = NULL;
             __leave;
         }
+
+        DEBUG(DL_DBG, ("Ext2MountVolume: DevObject=%p Vcb=%p\n", VolumeDeviceObject, Vcb));
 
         /* initialize Vcb structure */
         Status = Ext2InitializeVcb( IrpContext, Vcb, Ext2Sb, 
@@ -1501,7 +1460,7 @@ Ext2MountVolume (IN PEXT2_IRP_CONTEXT IrpContext)
             } else {
                 if (Ext2Sb) {
                     ExFreePoolWithTag(Ext2Sb, EXT2_SB_MAGIC);
-               }
+                }
                 if (VolumeDeviceObject) {
                     IoDeleteDevice(VolumeDeviceObject);
                     DEC_MEM_COUNT(PS_VCB, VolumeDeviceObject, sizeof(EXT2_VCB));
@@ -1711,7 +1670,14 @@ Ext2VerifyVolume (IN PEXT2_IRP_CONTEXT IrpContext)
         } else {
 
             Status = STATUS_WRONG_VOLUME;
+            if (VcbResourceAcquired) {
+                ExReleaseResourceLite(&Vcb->MainResource);
+                VcbResourceAcquired = FALSE;
+            }
             Ext2PurgeVolume(Vcb, FALSE);
+            VcbResourceAcquired =  
+                ExAcquireResourceExclusiveLite(&Vcb->MainResource, TRUE);
+
             SetLongFlag(Vcb->Flags, VCB_DISMOUNT_PENDING);
             ClearFlag(Vcb->TargetDeviceObject->Flags, DO_VERIFY_VOLUME);
             
@@ -1818,19 +1784,15 @@ Ext2DismountVolume (IN PEXT2_IRP_CONTEXT IrpContext)
         }
 */
         Ext2FlushFiles(IrpContext, Vcb, FALSE);
-
         Ext2FlushVolume(IrpContext, Vcb, FALSE);
 
-        Ext2PurgeVolume(Vcb, TRUE);
-
         ExReleaseResourceLite(&Vcb->MainResource);
-
         VcbResourceAcquired = FALSE;
 
+        Ext2PurgeVolume(Vcb, TRUE);
         Ext2CheckDismount(IrpContext, Vcb, TRUE);
 
         DEBUG(DL_INF, ( "Ext2Dismount: Volume dismount pending.\n"));
-
         Status = STATUS_SUCCESS;
 
     } __finally {
@@ -1855,7 +1817,7 @@ Ext2CheckDismount (
 {
     KIRQL   Irql;
     PVPB    Vpb = Vcb->Vpb, NewVpb = NULL;
-    BOOLEAN bDeleted = FALSE;
+    BOOLEAN bDeleted = FALSE, bTearDown = FALSE;
     ULONG   UnCleanCount = 0;
 
     NewVpb = ExAllocatePoolWithTag(NonPagedPool, VPB_SIZE, TAG_VPB);
@@ -1886,43 +1848,54 @@ Ext2CheckDismount (
                          Vpb, Vpb->ReferenceCount, Vpb->RealDevice));
     if (Vpb->ReferenceCount <= UnCleanCount) {
 
-        ClearFlag(Vpb->Flags, VPB_MOUNTED);
-        ClearFlag(Vpb->Flags, VPB_LOCKED);
+        if (!IsFlagOn(Vcb->Flags, VCB_DISMOUNT_PENDING)) {
 
-        if ((Vcb->RealDevice != Vpb->RealDevice) &&
-            (Vcb->RealDevice->Vpb == Vpb)) {
-            SetFlag(Vcb->RealDevice->Flags, DO_DEVICE_INITIALIZING);
-            SetFlag(Vpb->Flags, VPB_PERSISTENT );
+            ClearFlag(Vpb->Flags, VPB_MOUNTED);
+            ClearFlag(Vpb->Flags, VPB_LOCKED);
+
+            if ((Vcb->RealDevice != Vpb->RealDevice) &&
+                (Vcb->RealDevice->Vpb == Vpb)) {
+                SetFlag(Vcb->RealDevice->Flags, DO_DEVICE_INITIALIZING);
+                SetFlag(Vpb->Flags, VPB_PERSISTENT );
+            }
+
+            Ext2RemoveVcb(Vcb);
+            SetLongFlag(Vcb->Flags, VCB_DISMOUNT_PENDING);
         }
 
-        Ext2RemoveVcb(Vcb);
-
-        ClearFlag(Vpb->Flags, VPB_MOUNTED);
-        SetLongFlag(Vcb->Flags, VCB_DISMOUNT_PENDING);
-
-        Vpb->DeviceObject = NULL;
-        bDeleted = TRUE;
+        if (Vpb->ReferenceCount) {
+            bTearDown = TRUE;
+        } else {
+            bDeleted = TRUE;
+            Vpb->DeviceObject = NULL;
+        }
 
     } else if (bForce) {
 
         DEBUG(DL_DBG, ( "Ext2CheckDismount: NewVpb %p Realdevice = %p\n",
                                 NewVpb, Vpb->RealDevice));
 
+        Vcb->Vpb2 = Vcb->Vpb;
         NewVpb->Type = IO_TYPE_VPB;
-        NewVpb->Size = sizeof( VPB );
+        NewVpb->Size = sizeof(VPB);
+        NewVpb->Flags = Vpb->Flags & VPB_REMOVE_PENDING;
         NewVpb->RealDevice = Vpb->RealDevice;
         NewVpb->RealDevice->Vpb = NewVpb;
-        NewVpb->Flags = FlagOn(Vpb->Flags, VPB_REMOVE_PENDING);
         NewVpb = NULL;
-
-        SetFlag(Vcb->Flags, VCB_NEW_VPB);
-        ClearFlag(Vcb->Flags, VCB_MOUNTED);
+        ClearFlag(Vpb->Flags, VPB_MOUNTED);
+        SetLongFlag(Vcb->Flags, VCB_NEW_VPB);
+        ClearLongFlag(Vcb->Flags, VCB_MOUNTED);
     }
 
     IoReleaseVpbSpinLock(Irql);
 
     ExReleaseResourceLite(&Vcb->MainResource);
     ExReleaseResourceLite(&Ext2Global->Resource);
+
+    if (bTearDown) {
+        DEBUG(DL_DBG, ( "Ext2CheckDismount: Tearing vcb %p ...\n", Vcb));
+        Ext2TearDownStream(Vcb);
+    }
 
     if (bDeleted) {
         DEBUG(DL_DBG, ( "Ext2CheckDismount: Deleting vcb %p ...\n", Vcb));
@@ -1938,7 +1911,6 @@ Ext2CheckDismount (
     return bDeleted;
 }
 
-
 NTSTATUS
 Ext2PurgeVolume (IN PEXT2_VCB Vcb,
                  IN BOOLEAN  FlushBeforePurge )
@@ -1947,14 +1919,16 @@ Ext2PurgeVolume (IN PEXT2_VCB Vcb,
     LIST_ENTRY      FcbList;
     PLIST_ENTRY     ListEntry;
     PFCB_LIST_ENTRY FcbListEntry;
-   
+    BOOLEAN         VcbResourceAcquired = FALSE;
     __try {
 
         ASSERT(Vcb != NULL);
-        
         ASSERT((Vcb->Identifier.Type == EXT2VCB) &&
-            (Vcb->Identifier.Size == sizeof(EXT2_VCB)));
-        
+               (Vcb->Identifier.Size == sizeof(EXT2_VCB)));
+
+        VcbResourceAcquired =  
+                ExAcquireResourceExclusiveLite(&Vcb->MainResource, TRUE);
+
         if ( IsFlagOn(Vcb->Flags, VCB_READ_ONLY) ||
              IsFlagOn(Vcb->Flags, VCB_WRITE_PROTECTED)) {
             FlushBeforePurge = FALSE;
@@ -2011,7 +1985,6 @@ Ext2PurgeVolume (IN PEXT2_VCB Vcb,
         }
 
         if (FlushBeforePurge) {
-
             ExAcquireSharedStarveExclusive(&Vcb->PagingIoResource, TRUE);
             ExReleaseResourceLite(&Vcb->PagingIoResource);
 
@@ -2021,6 +1994,11 @@ Ext2PurgeVolume (IN PEXT2_VCB Vcb,
         if (Vcb->SectionObject.ImageSectionObject) {
             MmFlushImageSection(&Vcb->SectionObject, MmFlushForWrite);
         }
+
+        if (VcbResourceAcquired) {
+            ExReleaseResourceLite(&Vcb->MainResource);
+            VcbResourceAcquired = FALSE;
+        }
     
         if (Vcb->SectionObject.DataSectionObject) {
             CcPurgeCacheSection(&Vcb->SectionObject, NULL, 0, FALSE);
@@ -2029,7 +2007,10 @@ Ext2PurgeVolume (IN PEXT2_VCB Vcb,
         DEBUG(DL_INF, ( "Ext2PurgeVolume: Volume flushed and purged.\n"));
 
     } __finally {
-        // Nothing
+
+        if (VcbResourceAcquired) {
+            ExReleaseResourceLite(&Vcb->MainResource);
+        }
     }
 
     return STATUS_SUCCESS;

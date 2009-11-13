@@ -512,6 +512,7 @@ typedef struct _EXT2_PARTITION {
     PPARTITION_INFORMATION_EXT  Entry;
     ULONGLONG               DrvLetters;
     PEXT2_VOLUME            Volume;
+    CHAR                    Name[REGSTR_VAL_MAX_HCID_LEN];
 } EXT2_PARTITION;
 #define EXT2_PART_MAGIC 'EPRT'
 
@@ -533,6 +534,7 @@ typedef struct _EXT2_LETTER {
  * global definitions
  */
 
+extern BOOLEAN g_bAutoMount;
 extern ULONG g_nFlps;
 extern ULONG g_nDisks;
 extern ULONG g_nCdroms;
@@ -684,8 +686,19 @@ Ext2QueryPerfStat (
     PEXT2_PERF_STATISTICS       Stat
     );
 
+BOOLEAN Ext2IsNullUuid (__u8 * uuid);
+BOOLEAN
+Ext2CheckVolumeRegistryProperty(
+    PEXT2_VOLUME_PROPERTY2 EVP
+    );
+
 VOID
-Ext2StoreExt2PropertyinRegistry(
+Ext2SetDefaultVolumeRegistryProperty(
+    PEXT2_VOLUME_PROPERTY2 EVP
+    );
+
+VOID
+Ext2StorePropertyinRegistry(
     PEXT2_VOLUME_PROPERTY2 EVP
     );
 
@@ -702,7 +715,8 @@ Ext2QueryGlobalProperty(
     BOOLEAN *   bExt3Writable,
     CHAR *      Codepage,
     CHAR *      sPrefix,
-    CHAR *      sSuffix
+    CHAR *      sSuffix,
+    BOOLEAN *   bAutoMount
     );
 
 INT
@@ -719,7 +733,8 @@ Ext2SetGlobalProperty (
     BOOLEAN     bExt3Writable,
     CHAR *      Codepage,
     CHAR *      sPrefix,
-    CHAR *      sSuffix
+    CHAR *      sSuffix,
+    BOOLEAN     bAutoMount
     );
 
 BOOLEAN
@@ -751,6 +766,9 @@ Ext2LoadDiskPartitions(PEXT2_DISK Disk);
 
 VOID
 Ext2LoadAllDiskPartitions();
+
+VOID
+Ext2MountingVolumes();
 
 BOOLEAN
 Ext2LoadVolumes();

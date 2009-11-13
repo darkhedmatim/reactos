@@ -93,6 +93,8 @@ typedef struct _EXT2_PERF_STATISTICS {
 #define APP_CMD_SET_PROPERTY      0x00000003
 #define APP_CMD_QUERY_PROPERTY2   0x00000004
 #define APP_CMD_SET_PROPERTY2     0x00000005
+#define APP_CMD_QUERY_PROPERTY3   0x00000006
+#define APP_CMD_SET_PROPERTY3     0x00000007
 
 #define CODEPAGE_MAXLEN     0x20
 #define HIDINGPAT_LEN       0x20
@@ -133,6 +135,16 @@ typedef struct _EXT2_VOLUME_PROPERTY2 {
     CHAR                        sHidingSuffix[HIDINGPAT_LEN];
 
 } EXT2_VOLUME_PROPERTY2, *PEXT2_VOLUME_PROPERTY2;
+
+#define EXT2_VPROP3_AUTOMOUNT 0x0000000000000001
+
+typedef struct _EXT2_VOLUME_PROPERTY3 {
+    EXT2_VOLUME_PROPERTY2  Prop2;
+    unsigned __int64       Flags;
+    int                    AutoMount:1;
+    int                    Noused1:31;
+    int                    Noused2[31];
+} EXT2_VOLUME_PROPERTY3, *PEXT2_VOLUME_PROPERTY3;
 
 /* Ext2Fsd driver version and built time */
 typedef struct _EXT2_VOLUME_PROPERTY_VERSION {

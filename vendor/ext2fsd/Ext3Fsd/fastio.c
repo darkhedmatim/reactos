@@ -84,12 +84,7 @@ Ext2FastIoCheckIfPossible (
             }
 
             Fcb = (PEXT2_FCB) FileObject->FsContext;
-
-            if (Fcb == NULL) {
-                __leave;
-            }
-
-            if (Fcb->Identifier.Type == EXT2VCB) {
+            if (Fcb == NULL || Fcb->Identifier.Type == EXT2VCB) {
                 __leave;
             }
 
@@ -268,19 +263,12 @@ Ext2FastIoQueryBasicInfo (
 
             if (IsExt2FsDevice(DeviceObject)) {
                 IoStatus->Status = STATUS_INVALID_DEVICE_REQUEST;
-                Status = TRUE;
                 __leave;
             }
             
             Fcb = (PEXT2_FCB) FileObject->FsContext;
-            
-            if (Fcb == NULL) {
-                __leave;
-            }
-            
-            if (Fcb->Identifier.Type == EXT2VCB) {
+            if (Fcb == NULL || Fcb->Identifier.Type == EXT2VCB) {
                 IoStatus->Status = STATUS_INVALID_PARAMETER;
-                Status = TRUE;
                 __leave;
             }
             
@@ -298,7 +286,6 @@ Ext2FastIoQueryBasicInfo (
                 if (!ExAcquireResourceSharedLite(
                     &Fcb->MainResource,
                     Wait)) {
-                    Status = FALSE;
                     __leave;
                 }
                 FcbMainResourceAcquired = TRUE;
@@ -317,10 +304,8 @@ Ext2FastIoQueryBasicInfo (
             */
 
             if (IsRoot(Fcb)) {
-                Buffer->CreationTime =
-                Buffer->LastAccessTime =
-                Buffer->LastWriteTime =
-                Buffer->ChangeTime = Ext2NtTime(0);
+                Buffer->CreationTime = Buffer->LastAccessTime =
+                Buffer->LastWriteTime = Buffer->ChangeTime = Ext2NtTime(0);
             } else {
                 Buffer->CreationTime = Fcb->Mcb->CreationTime;
                 Buffer->LastAccessTime = Fcb->Mcb->LastAccessTime;
@@ -337,10 +322,9 @@ Ext2FastIoQueryBasicInfo (
             IoStatus->Status = STATUS_SUCCESS;
             
             Status =  TRUE;
-        } __except (EXCEPTION_EXECUTE_HANDLER) {
 
+        } __except (EXCEPTION_EXECUTE_HANDLER) {
             IoStatus->Status = GetExceptionCode();
-            Status = TRUE;
         }
 
     } __finally {
@@ -397,19 +381,12 @@ Ext2FastIoQueryStandardInfo (
 
             if (IsExt2FsDevice(DeviceObject)) {
                 IoStatus->Status = STATUS_INVALID_DEVICE_REQUEST;
-                Status = TRUE;
                 __leave;
             }
             
             Fcb = (PEXT2_FCB) FileObject->FsContext;
-            
-            if (Fcb == NULL) {
-                __leave;
-            }
-            
-            if (Fcb->Identifier.Type == EXT2VCB)  {
+            if (Fcb == NULL || Fcb->Identifier.Type == EXT2VCB)  {
                 IoStatus->Status = STATUS_INVALID_PARAMETER;
-                Status = TRUE;
                 __leave;
             }
             
@@ -429,7 +406,6 @@ Ext2FastIoQueryStandardInfo (
                 if (!ExAcquireResourceSharedLite(
                     &Fcb->MainResource,
                     Wait        )) {
-                    Status = FALSE;
                     __leave;
                 }
                 FcbMainResourceAcquired = TRUE;
@@ -474,9 +450,7 @@ Ext2FastIoQueryStandardInfo (
             Status =  TRUE;
 
         } __except (EXCEPTION_EXECUTE_HANDLER) {
-
             IoStatus->Status = GetExceptionCode();
-            Status = TRUE;
         }
 
     } __finally {
@@ -530,20 +504,12 @@ Ext2FastIoLock (
 
             if (IsExt2FsDevice(DeviceObject)) {
                 IoStatus->Status = STATUS_INVALID_DEVICE_REQUEST;
-                Status = TRUE;
                 __leave;
             }
             
             Fcb = (PEXT2_FCB) FileObject->FsContext;
-            
-            if (Fcb == NULL) {
-                __leave;
-            }
-            
-            if (Fcb->Identifier.Type == EXT2VCB) {
-
+            if (Fcb == NULL || Fcb->Identifier.Type == EXT2VCB) {
                 IoStatus->Status = STATUS_INVALID_PARAMETER;
-                Status = TRUE;
                 __leave;
             }
             
@@ -553,7 +519,6 @@ Ext2FastIoLock (
             if (IsDirectory(Fcb)) {
                 DbgBreak();
                 IoStatus->Status = STATUS_INVALID_PARAMETER;
-                Status = TRUE;
                 __leave;
             }
 #if EXT2_DEBUG
@@ -573,7 +538,6 @@ Ext2FastIoLock (
 #endif
 
             if (!FsRtlOplockIsFastIoPossible(&Fcb->Oplock)) {
-                Status = FALSE;
                 __leave;
             }
             
@@ -596,7 +560,6 @@ Ext2FastIoLock (
 
         } __except (EXCEPTION_EXECUTE_HANDLER) {
             IoStatus->Status = GetExceptionCode();
-            Status = FALSE;
         }
 
     } __finally {
@@ -647,20 +610,13 @@ Ext2FastIoUnlockSingle (
 
             if (IsExt2FsDevice(DeviceObject)) {
                 IoStatus->Status = STATUS_INVALID_DEVICE_REQUEST;
-                Status = TRUE;
                 __leave;
             }
             
             Fcb = (PEXT2_FCB) FileObject->FsContext;
-            
-            if (Fcb == NULL) {
-                __leave;
-            }
-
-            if (Fcb->Identifier.Type == EXT2VCB) {
+            if (Fcb == NULL || Fcb->Identifier.Type == EXT2VCB) {
                 DbgBreak();
                 IoStatus->Status = STATUS_INVALID_PARAMETER;
-                Status = TRUE;
                 __leave;
             }
             
@@ -668,10 +624,8 @@ Ext2FastIoUnlockSingle (
                 (Fcb->Identifier.Size == sizeof(EXT2_FCB)));
 
             if (IsDirectory(Fcb)) {
-
                 DbgBreak();
                 IoStatus->Status = STATUS_INVALID_PARAMETER;
-                Status = TRUE;
                 __leave;
             }
 
@@ -690,7 +644,6 @@ Ext2FastIoUnlockSingle (
 #endif
 
             if (!FsRtlOplockIsFastIoPossible(&Fcb->Oplock)) {
-                Status = FALSE;
                 __leave;
             }
  
@@ -711,7 +664,6 @@ Ext2FastIoUnlockSingle (
 
         } __except (EXCEPTION_EXECUTE_HANDLER) {
             IoStatus->Status = GetExceptionCode();
-            Status = FALSE;
         }
 
     } __finally {
@@ -757,20 +709,13 @@ Ext2FastIoUnlockAll (
 
             if (IsExt2FsDevice(DeviceObject)) {
                 IoStatus->Status = STATUS_INVALID_DEVICE_REQUEST;
-                Status = TRUE;
                 __leave;
             }
             
             Fcb = (PEXT2_FCB) FileObject->FsContext;
-
-            if (Fcb == NULL) {
-                __leave;
-            }
-
-            if (Fcb->Identifier.Type == EXT2VCB) {
+            if (Fcb == NULL || Fcb->Identifier.Type == EXT2VCB) {
                 DbgBreak();
                 IoStatus->Status = STATUS_INVALID_PARAMETER;
-                Status = TRUE;
                 __leave;
             }
             
@@ -780,7 +725,6 @@ Ext2FastIoUnlockAll (
             if (IsDirectory(Fcb)) {
                 DbgBreak();
                 IoStatus->Status = STATUS_INVALID_PARAMETER;
-                Status = TRUE;
                 __leave;
             }
 #if EXT2_DEBUG
@@ -793,7 +737,6 @@ Ext2FastIoUnlockAll (
 #endif
 
             if (!FsRtlOplockIsFastIoPossible(&Fcb->Oplock)) {
-                Status = FALSE;
                 __leave;
             }
             
@@ -810,7 +753,6 @@ Ext2FastIoUnlockAll (
 
         } __except (EXCEPTION_EXECUTE_HANDLER) {
             IoStatus->Status = GetExceptionCode();
-            Status = TRUE;
         }
 
     } __finally {
@@ -860,20 +802,13 @@ Ext2FastIoUnlockAllByKey (
 
             if (IsExt2FsDevice(DeviceObject)) {
                 IoStatus->Status = STATUS_INVALID_DEVICE_REQUEST;
-                Status = TRUE;
                 __leave;
             }
             
             Fcb = (PEXT2_FCB) FileObject->FsContext;
-
-            if (Fcb == NULL) {
-                __leave;
-            }
-
-            if (Fcb->Identifier.Type == EXT2VCB) {
+            if (Fcb == NULL || Fcb->Identifier.Type == EXT2VCB) {
                 DbgBreak();
                 IoStatus->Status = STATUS_INVALID_PARAMETER;
-                Status = TRUE;
                 __leave;
             }
             
@@ -881,10 +816,8 @@ Ext2FastIoUnlockAllByKey (
                 (Fcb->Identifier.Size == sizeof(EXT2_FCB)));
 
             if (IsDirectory(Fcb)) {
-
                 DbgBreak();
                 IoStatus->Status = STATUS_INVALID_PARAMETER;
-                Status = TRUE;
                 __leave;
             }
 
@@ -903,7 +836,6 @@ Ext2FastIoUnlockAllByKey (
 #endif
 
             if (!FsRtlOplockIsFastIoPossible(&Fcb->Oplock)) {
-                Status = FALSE;
                 __leave;
             }
             
@@ -921,9 +853,7 @@ Ext2FastIoUnlockAllByKey (
             Fcb->Header.IsFastIoPossible = Ext2IsFastIoPossible(Fcb);
 
         } __except (EXCEPTION_EXECUTE_HANDLER) {
-
             IoStatus->Status = GetExceptionCode();
-            Status = TRUE;
         }
 
     } __finally {
@@ -980,12 +910,7 @@ Ext2FastIoQueryNetworkOpenInfo (
         }
             
         Fcb = (PEXT2_FCB) FileObject->FsContext;
-            
-        if (Fcb == NULL) {
-            __leave;
-        }
-            
-        if (Fcb->Identifier.Type == EXT2VCB) {
+        if (Fcb == NULL || Fcb->Identifier.Type == EXT2VCB) {
             DbgBreak();
             IoStatus->Status = STATUS_INVALID_PARAMETER;
             __leave;

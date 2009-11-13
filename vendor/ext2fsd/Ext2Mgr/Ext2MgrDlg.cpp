@@ -122,7 +122,7 @@ BOOL CAboutDlg::OnInitDialog()
         s.Format("Ext2Fsd: < 0.42 (Dec 2007)");
     }
     SET_TEXT(IDC_DRIVER, s);
-    s  = "Ext2Mgr: 2.26 (";
+    s  = "Ext2Mgr: 2.47 (";
     s += __DATE__;
     s += ")";
     SET_TEXT(IDC_PROGRAM, s);
@@ -281,6 +281,11 @@ CExt2MgrDlg::CExt2MgrDlg(CWnd* pParent /*=NULL*/)
 
     m_hAccel = NULL;
     m_bFsStarted = FALSE;
+
+    m_nStartmode = 0;
+    m_bAutoMount = FALSE;
+	m_bExt3Writable = FALSE;
+	m_bReadonly = FALSE;
 }
 
 void CExt2MgrDlg::DoDataExchange(CDataExchange* pDX)
@@ -504,6 +509,7 @@ BOOL CExt2MgrDlg::OnInitDialog()
             Ext2LoadCdromDrvLetters();
             Ext2LoadAllVolumeDrvLetters();
             Ext2LoadAllDiskPartitions();
+            Ext2MountingVolumes();
         }
     } else {
         return FALSE;
@@ -536,6 +542,21 @@ BOOL CExt2MgrDlg::OnInitDialog()
         PostMessage(WM_COMMAND, ID_PERFSTAT, 0);
     }
 
+    /* query global parameters */
+    Ext2QueryGlobalProperty(
+            &m_nStartmode,
+            (BOOLEAN *)&m_bReadonly,
+            (BOOLEAN *)&m_bExt3Writable,
+            (CHAR *)m_Codepage.GetBuffer(CODEPAGE_MAXLEN),
+            (CHAR *)m_sPrefix.GetBuffer(HIDINGPAT_LEN),
+            (CHAR *)m_sSuffix.GetBuffer(HIDINGPAT_LEN),
+            (BOOLEAN *)&m_bAutoMount
+            );
+    g_bAutoMount = m_bAutoMount;
+    m_Codepage.ReleaseBuffer(-1);
+    m_sPrefix.ReleaseBuffer(-1);
+    m_sSuffix.ReleaseBuffer(-1);
+
     RegisterDeviceInterface(DiskClassGuid, &m_hUsbNotify);
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
@@ -549,7 +570,6 @@ void CExt2MgrDlg::OnSysCommand(UINT nID, LPARAM lParam)
 	} else if ((nID & 0xFFF0) ==  SC_MINIMIZE) {
 		m_Tray.ShowIcon();
 		ShowWindow(SW_HIDE);
-        m_bHide = FALSE;
 	} else if ((nID & 0xFFF0) ==  SC_CLOSE) {
         SendMessage(WM_COMMAND, ID_EXIT, 0);
 	} else if ((nID & 0xFFF0) == IDM_CLOSE_SPLASH) {
@@ -770,6 +790,7 @@ void CExt2MgrDlg::OnRefresh()
             Ext2LoadCdromDrvLetters();
             Ext2LoadAllVolumeDrvLetters();
             Ext2LoadAllDiskPartitions();
+            Ext2MountingVolumes();
             if (g_bAutoRemoveDeadLetters) {
                 Ext2AutoRemoveDeadLetters();
             }
@@ -796,7 +817,41 @@ void CExt2MgrDlg::OnService()
         return;
     }
 
-    SrvDlg.DoModal();
+    /* query global parameters */
+    Ext2QueryGlobalProperty(
+            &m_nStartmode,
+            (BOOLEAN *)&m_bReadonly,
+            (BOOLEAN *)&m_bExt3Writable,
+            (CHAR *)m_Codepage.GetBuffer(CODEPAGE_MAXLEN),
+            (CHAR *)m_sPrefix.GetBuffer(HIDINGPAT_LEN),
+            (CHAR *)m_sSuffix.GetBuffer(HIDINGPAT_LEN),
+            (BOOLEAN *)&m_bAutoMount
+            );
+    g_bAutoMount = m_bAutoMount;
+    m_Codepage.ReleaseBuffer(-1);
+    m_sPrefix.ReleaseBuffer(-1);
+    m_sSuffix.ReleaseBuffer(-1);
+
+    SrvDlg.m_nStartmode     = m_nStartmode;
+    SrvDlg.m_bReadonly      = m_bReadonly;
+    SrvDlg.m_bExt3Writable  = m_bExt3Writable;
+    SrvDlg.m_bAutoMount     = m_bAutoMount;
+    SrvDlg.m_Codepage       = m_Codepage;
+    SrvDlg.m_sPrefix        = m_sPrefix;
+    SrvDlg.m_sSuffix        = m_sSuffix;
+    if (IDOK == SrvDlg.DoModal()) {
+        /* query global parameters */
+        Ext2QueryGlobalProperty(
+                &m_nStartmode,
+                (BOOLEAN *)&m_bReadonly,
+                (BOOLEAN *)&m_bExt3Writable,
+                (CHAR *)m_Codepage.GetBuffer(CODEPAGE_MAXLEN),
+                (CHAR *)m_sPrefix.GetBuffer(HIDINGPAT_LEN),
+                (CHAR *)m_sSuffix.GetBuffer(HIDINGPAT_LEN),
+                (BOOLEAN *)&m_bAutoMount
+                );
+        g_bAutoMount = m_bAutoMount;
+    }
 }
 
 
@@ -829,16 +884,41 @@ void CExt2MgrDlg::OnChangeProperty()
         }
     }
 
-    if (EVP && (EVP->bExt2 || EVP->bExt3)) {
+    if (EVP) {
 
+        NT::NTSTATUS status;
+        HANDLE  Handle = NULL;
+        CString s;
+
+        EA.m_EVP = EVP;
         if (volume) {
-            EA.m_DevName = volume->Name;
+            if (volume->Part)
+                EA.m_DevName = volume->Part->Name;
+            else
+                EA.m_DevName = volume->Name;
         } else {
             EA.m_bCdrom = TRUE;
             EA.m_DevName = cdrom->Name;
         }
 
-        EA.m_EVP = EVP;
+        status = Ext2Open(EA.m_DevName.GetBuffer(EA.m_DevName.GetLength()),
+                          &Handle, EXT2_DESIRED_ACCESS);
+
+        if (!NT_SUCCESS(status)) {
+
+            s.Format("Ext2Fsd service isn't started.\n");
+            AfxMessageBox(s, MB_OK | MB_ICONSTOP);
+
+        } else {
+
+            if (!Ext2QueryExt2Property(Handle, EVP)) {
+                Ext2Close(&Handle);
+                return;
+            }
+
+            Ext2Close(&Handle);
+        }
+
         EA.m_MainDlg = (CWnd *)this;
         if (EA.DoModal() == IDOK) {
             if (volume) {
@@ -867,10 +947,9 @@ void CExt2MgrDlg::OnFormat()
 
 void CExt2MgrDlg::OnWindowPosChanging(WINDOWPOS* lpwndpos)
 {
-/*
     if(m_bHide)
         lpwndpos->flags &= ~SWP_SHOWWINDOW;
-*/
+
     CDialog::OnWindowPosChanging(lpwndpos);
 }
 
@@ -1563,8 +1642,8 @@ PVOID CExt2MgrDlg::QuerySelectedItem(PBOOLEAN bIsExt2)
             pTools->EnableMenuItem(ID_DRV_LETTER, MF_BYCOMMAND|MF_ENABLED);
             pTools->EnableMenuItem(ID_PROPERTY, MF_BYCOMMAND|MF_ENABLED);
 
-            if (bIsExt2) {
-                *bIsExt2 = Volume->EVP.bExt2 || Volume->EVP.bExt3;
+            if (bIsExt2 && Volume->bRecognized) {
+                    *bIsExt2 = Volume->EVP.bExt2 || Volume->EVP.bExt3;
             }
 
         } else if (Cdrom->Magic[0] == EXT2_CDROM_DEVICE_MAGIC) {
@@ -1644,7 +1723,7 @@ PVOID CExt2MgrDlg::QuerySelectedItem(PBOOLEAN bIsExt2)
                 if (!Volume->bDynamic) {
                     pTools->EnableMenuItem(ID_DRV_LETTER, MF_BYCOMMAND|MF_ENABLED);
                 }
-                if (bIsExt2) {
+                if (bIsExt2 && Volume->bRecognized) {
                     *bIsExt2 = Volume->EVP.bExt2 || Volume->EVP.bExt3;
                 }
             } else {
@@ -1760,7 +1839,8 @@ BOOL CExt2MgrDlg::PreTranslateMessage(MSG* pMsg)
 
 void CExt2MgrDlg::OnShowMain() 
 {
-	// TODO: Add your command handler code here
+    // TODO: Add your command handler code here
+    m_bHide = FALSE;
     ShowWindow(SW_SHOW);	
 }
 

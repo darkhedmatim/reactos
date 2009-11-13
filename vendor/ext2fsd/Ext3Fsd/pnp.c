@@ -173,16 +173,16 @@ Ext2PnpQueryRemove (
                             Vcb, IrpContext->FileObject));
         Status = Ext2LockVcb(Vcb, IrpContext->FileObject);
 
+        if (VcbAcquired) {
+            ExReleaseResourceLite(&Vcb->MainResource);
+            VcbAcquired = FALSE;
+        }
+
         DEBUG(DL_PNP, ("Ext2PnpQueryRemove: Ext2PurgeVolume ...\n"));
         Ext2PurgeVolume(Vcb, TRUE);
 
         if (!NT_SUCCESS(Status)) {
             __leave;
-        }
-
-        if (VcbAcquired) {
-            ExReleaseResourceLite(&Vcb->MainResource);
-            VcbAcquired = FALSE;
         }
 
         IoCopyCurrentIrpStackLocationToNext(IrpContext->Irp);
@@ -209,6 +209,7 @@ Ext2PnpQueryRemove (
         }
 
         if (NT_SUCCESS(Status)) {
+            ASSERT(!VcbAcquired);
             DEBUG(DL_PNP, ("Ext2PnpQueryRemove: Ext2CheckDismount ...\n"));
             bDeleted = Ext2CheckDismount(IrpContext, Vcb, TRUE);
             DEBUG(DL_PNP, ("Ext2PnpQueryRemove: Ext2FlushVolume bDelted=%xh ...\n", bDeleted));
@@ -247,9 +248,7 @@ Ext2PnpRemove (
         CcWaitForCurrentLazyWriterActivity();
         ExAcquireResourceExclusiveLite(
             &Vcb->MainResource,  TRUE );
-
         Status = Ext2LockVcb(Vcb, IrpContext->FileObject);
-
         ExReleaseResourceLite(&Vcb->MainResource);
 
         //
@@ -280,14 +279,12 @@ Ext2PnpRemove (
             Status = IrpContext->Irp->IoStatus.Status;
        }
 
-        ExAcquireResourceExclusiveLite(
-            &Vcb->MainResource, TRUE );
-
+        /* purge volume cache */
         Ext2PurgeVolume(Vcb, FALSE);
 
-        ExReleaseResourceLite(&Vcb->MainResource);
-
+        /* dismount volume */
         bDeleted = Ext2CheckDismount(IrpContext, Vcb, TRUE);
+        SetLongFlag(Vcb->Flags, VCB_DEVICE_REMOVED);
 
     } __finally {
 
@@ -352,14 +349,12 @@ Ext2PnpSurpriseRemove (
             Status = IrpContext->Irp->IoStatus.Status;
        }
 
-        ExAcquireResourceExclusiveLite(
-            &Vcb->MainResource, TRUE );
-
+        /* purge volume cache */
         Ext2PurgeVolume(Vcb, FALSE);
 
-        ExReleaseResourceLite(&Vcb->MainResource);
-
+        /* dismount volume */
         bDeleted = Ext2CheckDismount(IrpContext, Vcb, TRUE);
+        SetLongFlag(Vcb->Flags, VCB_DEVICE_REMOVED);
 
     } __finally {
 

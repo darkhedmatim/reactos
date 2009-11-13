@@ -289,7 +289,7 @@ BOOL CExt2MgrApp::InitInstance()
     CExt2MgrDlg theDlg;
 
     theDlg.m_bHide = bHide;
-    theDlg.m_bQuiet = bQuiet;
+    theDlg.m_bQuiet = bQuiet = bHide;
     theDlg.m_bService = bService;
     theDlg.m_bStat = bStat;
 

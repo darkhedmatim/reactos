@@ -80,11 +80,10 @@ CMountPoints::AddMountPoint(
     PEXT2_LETTER    drvLetter = NULL;
     ULONGLONG       letterMask = 0;
     BOOLEAN         rc = TRUE;
-    BOOLEAN         bExt2Mount = FALSE;
+    BOOLEAN         bFirstMount = FALSE;
 
-    EXT2_VOLUME_PROPERTY2   EVP;
+    PEXT2_VOLUME_PROPERTY2   EVP = NULL;
 
-    memset(&EVP, 0, sizeof(EXT2_VOLUME_PROPERTY2));
     memset(devPath, 0, MAX_PATH);
 
     if (drvChar >= '0' && drvChar <= '9') {
@@ -110,10 +109,12 @@ CMountPoints::AddMountPoint(
 
     if (m_Volume) {
         strcpy(devPath, m_Volume->Name);
+        EVP = &m_Volume->EVP;
     }
 
     if (m_Cdrom) {
         strcpy(devPath, m_Cdrom->Name);
+        EVP = &m_Cdrom->EVP;
     }
 
     if (bRegistry) {
@@ -133,15 +134,26 @@ CMountPoints::AddMountPoint(
 
         if ((m_Volume != NULL) && (m_Volume->DrvLetters == 0) &&
             (m_Volume->EVP.bExt2 || m_Volume->EVP.bExt3) ) {
-            bExt2Mount = TRUE;
+            bFirstMount = TRUE;
         } else if (m_Part != NULL && m_Part->Volume &&
               (m_Part->Volume->DrvLetters == 0) &&
               (m_Part->Volume->EVP.bExt2 || m_Part->Volume->EVP.bExt3) ) {
-            bExt2Mount = TRUE;
+            EVP = &m_Part->Volume->EVP;
+            bFirstMount = TRUE;
         }
     }
 
-    if (bExt2Mount) {
+
+    if (EVP) {
+        if (Ext2IsNullUuid(&EVP->UUID[0])) {
+            AfxMessageBox("UUID is 0.");
+        }
+        if (!Ext2CheckVolumeRegistryProperty(EVP)) {
+            Ext2SetDefaultVolumeRegistryProperty(EVP);
+        }
+    }
+
+    if (bFirstMount) {
 
         NT::NTSTATUS status;
         HANDLE  Handle = NULL;
@@ -154,19 +166,19 @@ CMountPoints::AddMountPoint(
             return FALSE;
         }
 
-        rc = Ext2QueryExt2Property(Handle, &EVP);
+        rc = Ext2QueryExt2Property(Handle, EVP);
         if (!rc) {
             goto errorout;
         }
 
-        EVP.DrvLetter = drvLetter->Letter | 0x80;
-        Ext2StoreExt2PropertyinRegistry(&EVP);
+        EVP->DrvLetter = drvLetter->Letter | 0x80;
+        Ext2StorePropertyinRegistry(EVP);
 
-        if (Ext2RefreshVolumePoint(devPath, EVP.DrvLetter)) {
-            EVP.DrvLetter = 0xFF;
+        if (Ext2RefreshVolumePoint(devPath, EVP->DrvLetter)) {
+            EVP->DrvLetter = 0xFF;
         }
 
-        rc = Ext2SetExt2Property(Handle, &EVP);
+        rc = Ext2SetExt2Property(Handle, EVP);
 
 errorout:
 
@@ -185,7 +197,7 @@ errorout:
 
     if (bMountMgr) {
 
-        if (!bExt2Mount) {
+        if (!bFirstMount) {
             Ext2RefreshVolumePoint(devPath, drvLetter->Letter);
         }
 

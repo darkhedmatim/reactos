@@ -106,6 +106,7 @@ Ext2QueryGlobalParameters( IN PUNICODE_STRING  RegistryPath)
     ULONG                       WritingSupport = 0;
     ULONG                       CheckingBitmap = 0;
     ULONG                       Ext3ForceWriting = 0;
+    ULONG                       AutoMount = 0;
 
     UNICODE_STRING              UniName;
     ANSI_STRING                 AnsiName;
@@ -178,6 +179,28 @@ Ext2QueryGlobalParameters( IN PUNICODE_STRING  RegistryPath)
         NULL        );
 
     DEBUG(DL_USR, ( "Ext2QueryParameters: Ext3ForceWriting=%xh\n", Ext3ForceWriting));
+
+
+    /* querying value of AutoMount */
+    RtlZeroMemory(&QueryTable[0], sizeof(RTL_QUERY_REGISTRY_TABLE) * 2);
+
+    QueryTable[0].Flags = RTL_QUERY_REGISTRY_DIRECT | RTL_QUERY_REGISTRY_REQUIRED;
+    QueryTable[0].Name = AUTO_MOUNT;
+    QueryTable[0].EntryContext = &AutoMount;
+
+    Status = RtlQueryRegistryValues(
+        RTL_REGISTRY_ABSOLUTE,
+        ParameterPath.Buffer,
+        &QueryTable[0],
+        NULL,
+        NULL        );
+
+    SetLongFlag(Ext2Global->Flags, EXT2_AUTO_MOUNT);
+    if (NT_SUCCESS(Status) && AutoMount == 0) {
+        ClearLongFlag(Ext2Global->Flags, EXT2_AUTO_MOUNT);
+    }
+
+    DEBUG(DL_USR, ( "Ext2QueryParameters: AutoMount=%xh\n", AutoMount));
 
     /* querying codepage */
     RtlZeroMemory(&QueryTable[0], sizeof(RTL_QUERY_REGISTRY_TABLE) * 2);
@@ -541,6 +564,13 @@ DriverEntry (
     FastIoDispatch->FastIoUnlockAll             = Ext2FastIoUnlockAll;
     FastIoDispatch->FastIoUnlockAllByKey        = Ext2FastIoUnlockAllByKey;
     FastIoDispatch->FastIoQueryNetworkOpenInfo  = Ext2FastIoQueryNetworkOpenInfo;
+    FastIoDispatch->AcquireForModWrite          = Ext2AcquireFileForModWrite;
+    FastIoDispatch->ReleaseForModWrite          = Ext2ReleaseFileForModWrite;
+    FastIoDispatch->AcquireForCcFlush           = Ext2AcquireFileForCcFlush;
+    FastIoDispatch->ReleaseForCcFlush           = Ext2ReleaseFileForCcFlush;
+    FastIoDispatch->AcquireFileForNtCreateSection = Ext2AcquireForCreateSection;
+    FastIoDispatch->ReleaseFileForNtCreateSection = Ext2ReleaseForCreateSection;
+
 
     DriverObject->FastIoDispatch = FastIoDispatch;
 

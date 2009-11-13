@@ -25,6 +25,7 @@ public:
 	CString	m_srvStatus;
 	CString	m_sPrefix;
 	CString	m_sSuffix;
+	BOOL	m_bAutoMount;
 	//}}AFX_DATA
     ULONG   m_nStartmode;
     BOOLEAN m_bInited;

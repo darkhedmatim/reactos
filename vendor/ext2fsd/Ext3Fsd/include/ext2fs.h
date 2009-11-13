@@ -24,9 +24,9 @@
 
 #if EXT2_DEBUG
 #if _X86_
-    #define DbgBreak()      /* __asm int 3 */
+    #define DbgBreak()      __asm int 3
 #else
-    #define DbgBreak()      /* KdBreakPoint() */
+    #define DbgBreak()      KdBreakPoint()
 #endif
 #else
     #define DbgBreak()
@@ -34,7 +34,7 @@
 
 /* STRUCTS & CONSTS******************************************************/
 
-#define EXT2FSD_VERSION  "0.46"
+#define EXT2FSD_VERSION  "0.48"
 
 
 //
@@ -105,6 +105,7 @@ typedef struct ext2_dir_entry_2 EXT2_DIR_ENTRY2, *PEXT2_DIR_ENTRY2;
 #define CODEPAGE_NAME       L"CodePage"
 #define HIDING_PREFIX       L"HidingPrefix"
 #define HIDING_SUFFIX       L"HidingSuffix"
+#define AUTO_MOUNT          L"AutoMount"
 #define MOUNT_POINT         L"MountPoint"
 
 #define DOS_DEVICE_NAME L"\\DosDevices\\Ext2Fsd"
@@ -216,10 +217,9 @@ Ext2ClearFlag(PULONG Flags, ULONG FlagBit)
 //
 
 #define FILE_WRITE_TO_END_OF_FILE       0xffffffff
-#define FILE_USE_FILE_POINTER_POSITION  0xfffffffe
 
 #define IsEndOfFile(Pos) ((Pos.LowPart == FILE_WRITE_TO_END_OF_FILE) && \
-                          (Pos.HighPart == FILE_USE_FILE_POINTER_POSITION ))
+                          (Pos.HighPart == -1 ))
 
 #define IsMcbReadonly(Mcb)  IsFlagOn(Mcb->FileAttr, FILE_ATTRIBUTE_READONLY)
 #define IsMcbDirectory(Mcb) IsFlagOn(Mcb->FileAttr, FILE_ATTRIBUTE_DIRECTORY)
@@ -247,7 +247,6 @@ Ext2ClearFlag(PULONG Flags, ULONG FlagBit)
 #define EXT2_FLIST_MAGIC        'LF2E'
 #define EXT2_PARAM_MAGIC        'PP2E'
 #define EXT2_RWC_MAGIC          'WR2E'
-
 
 //
 // Bug Check Codes Definitions
@@ -508,6 +507,7 @@ typedef struct _EXT2_GLOBAL {
 #define EXT2_SUPPORT_WRITING    0x00000002
 #define EXT3_FORCE_WRITING      0x00000004
 #define EXT2_CHECKING_BITMAP    0x00000008
+#define EXT2_AUTO_MOUNT         0x00000010
 
 //
 // Glboal Ext2Fsd Memory Block
@@ -596,21 +596,20 @@ typedef struct _EXT2_VCB {
     // Share Access for the file object
     SHARE_ACCESS                ShareAccess;
 
-    // Incremented on IRP_MJ_CREATE, decremented on IRP_MJ_CLEANUP
-    // for files on this volume.
-    ULONG                       OpenFileHandleCount;
-    
     // Incremented on IRP_MJ_CREATE, decremented on IRP_MJ_CLOSE
     // for both files on this volume and open instances of the
     // volume itself.
-    ULONG                       ReferenceCount;
-    ULONG                       OpenHandleCount;
+    ULONG                       ReferenceCount;     /* total ref count */
+    ULONG                       OpenHandleCount;    /* all handles */
+
+    ULONG                       OpenVolumeCount;    /* volume handle */
 
     // Disk change count
     ULONG                       ChangeCount;
     
     // Pointer to the VPB in the target device object
     PVPB                        Vpb;
+    PVPB                        Vpb2;
 
     // The FileObject of Volume used to lock the volume
     PFILE_OBJECT                LockFile;
@@ -695,6 +694,8 @@ typedef struct _EXT2_VCB {
 #define VCB_DISMOUNT_PENDING    0x00000008
 #define VCB_NEW_VPB             0x00000010
 #define VCB_BEING_CLOSED        0x00000020
+
+#define VCB_DEVICE_REMOVED      0x00008000
 #define VCB_JOURNAL_RECOVER     0x00080000
 #define VCB_ARRIVAL_NOTIFIED    0x00800000
 #define VCB_READ_ONLY           0x08000000
@@ -761,7 +762,6 @@ typedef struct _EXT2_FCB {
     LARGE_INTEGER                   RealSize;
 
 } EXT2_FCB, *PEXT2_FCB;
-
 
 //
 // Flags for EXT2_FCB
@@ -1048,6 +1048,17 @@ Ext2TraceIrpContext(BOOLEAN _n, PEXT2_IRP_CONTEXT IrpContext)
 // Block.c
 //
 
+PMDL
+Ext2CreateMdl (
+        IN PVOID Buffer,
+        IN BOOLEAN bPaged,
+        IN ULONG Length,
+        IN LOCK_OPERATION Operation
+        );
+
+VOID
+Ext2DestroyMdl (IN PMDL Mdl);
+
 NTSTATUS
 Ext2LockUserBuffer (
         IN PIRP             Irp,
@@ -1145,7 +1156,44 @@ Ext2NoOpAcquire (
         IN BOOLEAN Wait );
 
 VOID
-Ext2NoOpRelease (IN PVOID Fcb    );
+Ext2NoOpRelease (IN PVOID Fcb);
+
+VOID
+Ext2AcquireForCreateSection (
+    IN PFILE_OBJECT FileObject
+    );
+
+VOID
+Ext2ReleaseForCreateSection (
+    IN PFILE_OBJECT FileObject
+    );
+
+NTSTATUS
+Ext2AcquireFileForModWrite (
+    IN PFILE_OBJECT FileObject,
+    IN PLARGE_INTEGER EndingOffset,
+    OUT PERESOURCE *ResourceToRelease,
+    IN PDEVICE_OBJECT DeviceObject
+    );
+
+NTSTATUS
+Ext2ReleaseFileForModWrite (
+    IN PFILE_OBJECT FileObject,
+    IN PERESOURCE ResourceToRelease,
+    IN PDEVICE_OBJECT DeviceObject
+    );
+
+NTSTATUS
+Ext2AcquireFileForCcFlush (
+    IN PFILE_OBJECT FileObject,
+    IN PDEVICE_OBJECT DeviceObject
+    );
+
+NTSTATUS
+Ext2ReleaseFileForCcFlush (
+    IN PFILE_OBJECT FileObject,
+    IN PDEVICE_OBJECT DeviceObject
+    );
 
 
 //
@@ -1238,6 +1286,7 @@ Ext2SupersedeOrOverWriteFile(
 #define DL_INF 4
 #define DL_FUN 5
 #define DL_LOW 6
+#define DL_NVR 100
 
 
 #define DL_DEFAULT DL_USR
@@ -2263,7 +2312,10 @@ Ext2InitializeVcb(
             PVPB Vpb                   );
 
 VOID
-Ext2DestroyVcb (IN PEXT2_VCB Vcb );
+Ext2TearDownStream (IN PEXT2_VCB Vcb);
+
+VOID
+Ext2DestroyVcb (IN PEXT2_VCB Vcb);
 
 NTSTATUS
 Ext2CompleteIrpContext (

@@ -28,7 +28,7 @@ Ext2Close (IN PEXT2_IRP_CONTEXT IrpContext)
 {
     PDEVICE_OBJECT  DeviceObject;
     NTSTATUS        Status = STATUS_SUCCESS;
-    PEXT2_VCB       Vcb;
+    PEXT2_VCB       Vcb = NULL;
     BOOLEAN         VcbResourceAcquired = FALSE;
     PFILE_OBJECT    FileObject;
     PEXT2_FCB       Fcb;
@@ -47,6 +47,7 @@ Ext2Close (IN PEXT2_IRP_CONTEXT IrpContext)
         DeviceObject = IrpContext->DeviceObject;
         if (IsExt2FsDevice(DeviceObject)) {
             Status = STATUS_SUCCESS;
+            Vcb = NULL;
             __leave;
         }
         
@@ -59,7 +60,7 @@ Ext2Close (IN PEXT2_IRP_CONTEXT IrpContext)
             &Vcb->MainResource,
             IsFlagOn(IrpContext->Flags, IRP_CONTEXT_FLAG_WAIT) )) {
             DEBUG(DL_INF, ("Ext2Close: PENDING ... Vcb: %xh/%xh\n",
-                                 Vcb->OpenFileHandleCount, Vcb->ReferenceCount));
+                                 Vcb->OpenHandleCount, Vcb->ReferenceCount));
 
             Status = STATUS_PENDING;
             __leave;
@@ -97,11 +98,6 @@ Ext2Close (IN PEXT2_IRP_CONTEXT IrpContext)
                          bBeingClosed, Vcb, Vcb->ReferenceCount));
 
         if (Fcb->Identifier.Type == EXT2VCB) {
-
-            if ((!bBeingClosed) && (Vcb->ReferenceCount <= 1)&& 
-                (!IsMounted(Vcb) || IsDispending(Vcb))) {
-                bDeleteVcb = TRUE;
-            }
 
             if (Ccb) {
 
@@ -147,14 +143,6 @@ Ext2Close (IN PEXT2_IRP_CONTEXT IrpContext)
             __leave;
         }
 
-        Ext2DerefXcb(&Vcb->ReferenceCount);
-        
-        if ((!bBeingClosed) && !Vcb->ReferenceCount && 
-            (!IsMounted(Vcb) || IsDispending(Vcb))) {
-            bDeleteVcb = TRUE;
-            DEBUG(DL_DBG, ( "Ext2Close: Vcb is being released.\n"));
-        }
-
         DEBUG(DL_INF, ( "Ext2Close: Fcb = %p OpenHandleCount= %u ReferenceCount=%u NonCachedCount=%u %wZ\n",
                          Fcb, Fcb->OpenHandleCount, Fcb->ReferenceCount, Fcb->NonCachedOpenCount, &Fcb->Mcb->FullName ));
 
@@ -184,10 +172,19 @@ Ext2Close (IN PEXT2_IRP_CONTEXT IrpContext)
                 FileObject->FsContext = Fcb = NULL;
             }
         }
-        
+
+        Ext2DerefXcb(&Vcb->ReferenceCount);
         Status = STATUS_SUCCESS;
 
     } __finally {
+
+        if (NT_SUCCESS(Status) && Vcb != NULL) {
+            /* for Ext2Fsd driver open/close, Vcb is NULL */
+            if ((!bBeingClosed) && (Vcb->ReferenceCount == 0)&& 
+                (!IsMounted(Vcb) || IsDispending(Vcb))) {
+                bDeleteVcb = TRUE;
+            }
+        }
 
         if (bSkipLeave && !bBeingClosed) {
             ClearFlag(Vcb->Flags, VCB_BEING_CLOSED);
@@ -217,15 +214,7 @@ Ext2Close (IN PEXT2_IRP_CONTEXT IrpContext)
                     DEBUG(DL_DBG, ( "Ext2Close: Try to free Vcb %p and Vpb %p\n",
                                           Vcb, Vpb));
 
-                     if (Ext2CheckDismount(IrpContext, Vcb, FALSE)) {
-                        if ((Vpb->RealDevice->Vpb != Vpb) &&
-                            !IsFlagOn(Vpb->Flags, VPB_PERSISTENT)) {
-                            DEC_MEM_COUNT(PS_VPB, Vpb, sizeof(VPB));
-                            DEBUG(DL_DBG, ( "Ext2Close: freeing Vpb %p\n", Vpb));
-                            ExFreePoolWithTag(Vpb, TAG_VPB);
-                        }
-                        Ext2ClearVpbFlag(Vcb->Vpb, VPB_MOUNTED);
-                    }
+                    Ext2CheckDismount(IrpContext, Vcb, FALSE);
                 }
             }
         }

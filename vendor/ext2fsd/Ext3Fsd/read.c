@@ -514,7 +514,7 @@ Ext2ReadFile(IN PEXT2_IRP_CONTEXT IrpContext)
             DbgBreak();
             __leave;
         }
-     
+
         if (!PagingIo && Nocache && (FileObject->SectionObjectPointer->DataSectionObject != NULL)) {
             CcFlushCache( FileObject->SectionObjectPointer,
                           &ByteOffset,
@@ -612,6 +612,9 @@ Ext2ReadFile(IN PEXT2_IRP_CONTEXT IrpContext)
                         FALSE,
                         &Ext2Global->CacheManagerCallbacks,
                         Fcb );
+                    CcSetReadAheadGranularity(
+                             FileObject,
+                             READ_AHEAD_GRANULARITY );
                 }
 
                 CacheObject = FileObject;
@@ -813,18 +816,14 @@ Ext2ReadComplete (IN PEXT2_IRP_CONTEXT IrpContext)
     __try {
 
         ASSERT(IrpContext);
-        
         ASSERT((IrpContext->Identifier.Type == EXT2ICX) &&
             (IrpContext->Identifier.Size == sizeof(EXT2_IRP_CONTEXT)));
-        
+
         FileObject = IrpContext->FileObject;
-        
         Irp = IrpContext->Irp;
         
         CcMdlReadComplete(FileObject, Irp->MdlAddress);
-        
         Irp->MdlAddress = NULL;
-        
         Status = STATUS_SUCCESS;
 
     } __finally {

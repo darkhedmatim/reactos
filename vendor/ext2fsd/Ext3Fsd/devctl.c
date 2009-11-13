@@ -259,7 +259,8 @@ Ext2ProcessGlobalProperty(
 
     /* must be property query/set commands */
     if (Property->Command != APP_CMD_SET_PROPERTY &&
-        Property->Command != APP_CMD_SET_PROPERTY2 ) {
+        Property->Command != APP_CMD_SET_PROPERTY2 &&
+        Property->Command != APP_CMD_SET_PROPERTY3 ) {
         Status = STATUS_INVALID_PARAMETER;
         goto errorout;
     }
@@ -285,7 +286,9 @@ Ext2ProcessGlobalProperty(
         Ext2Global->Codepage.PageTable = PageTable;
     }
 
-    if (Property->Command == APP_CMD_SET_PROPERTY2) {
+    if (Property->Command == APP_CMD_SET_PROPERTY2 ||
+        Property->Command == APP_CMD_SET_PROPERTY3 ) {
+
         RtlZeroMemory(Ext2Global->sHidingPrefix, HIDINGPAT_LEN);
         if ((Ext2Global->bHidingPrefix = Property->bHidingPrefix)) {
             RtlCopyMemory( Ext2Global->sHidingPrefix,
@@ -297,6 +300,18 @@ Ext2ProcessGlobalProperty(
             RtlCopyMemory( Ext2Global->sHidingSuffix,
                            Property->sHidingSuffix,
                            HIDINGPAT_LEN - 1);
+        }
+    }
+
+    if (Property->Command == APP_CMD_SET_PROPERTY3) {
+
+        PEXT2_VOLUME_PROPERTY3 Prop3 = (PEXT2_VOLUME_PROPERTY3)Property;
+
+        if (Prop3->Flags & EXT2_VPROP3_AUTOMOUNT) {
+            if (Prop3->AutoMount)
+                SetLongFlag(Ext2Global->Flags, EXT2_AUTO_MOUNT);
+            else
+                ClearLongFlag(Ext2Global->Flags, EXT2_AUTO_MOUNT);
         }
     }
 
@@ -324,7 +339,7 @@ Ext2ProcessVolumeProperty(
     VcbResourceAcquired = TRUE;
 
     if (Property->Command == APP_CMD_SET_PROPERTY ||
-        Property->Command == APP_CMD_SET_PROPERTY2 ) {
+        Property->Command == APP_CMD_SET_PROPERTY2) {
 
         if (Property->bReadonly) {
 
@@ -339,6 +354,9 @@ Ext2ProcessVolumeProperty(
             } else if (!Vcb->IsExt3fs) {
                 ClearLongFlag(Vcb->Flags, VCB_READ_ONLY);
             } else if (!Property->bExt3Writable) {
+                SetLongFlag(Vcb->Flags, VCB_READ_ONLY);
+            } else if (IsFlagOn(Vcb->SuperBlock->s_feature_incompat,
+                                EXT3_FEATURE_INCOMPAT_META_BG)) {
                 SetLongFlag(Vcb->Flags, VCB_READ_ONLY);
             } else if (IsFlagOn(Vcb->Flags, VCB_JOURNAL_RECOVER)) {
                 ClearLongFlag(Vcb->Flags, VCB_READ_ONLY);
