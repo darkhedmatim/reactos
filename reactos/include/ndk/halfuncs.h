@@ -144,7 +144,7 @@ HalClearSoftwareInterrupt(
 );
 
 NTHALAPI
-VOID
+BOOLEAN
 NTAPI
 HalDisableSystemInterrupt(
     ULONG Vector,
@@ -203,15 +203,6 @@ HalHandleNMI(
     PVOID NmiInfo
 );
 
-NTHALAPI
-UCHAR
-FASTCALL
-HalSystemVectorDispatchEntry(
-    IN ULONG Vector,
-    OUT PKINTERRUPT_ROUTINE **FlatDispatch,
-    OUT PKINTERRUPT_ROUTINE *NoConnection
-);
-
 //
 // Environment Functions
 //
@@ -233,29 +224,6 @@ HalGetEnvironmentVariable(
     OUT PCH Buffer
 );
 #endif
-
-//
-// Profiling Functions
-//
-VOID
-NTAPI
-HalStartProfileInterrupt(
-    IN KPROFILE_SOURCE ProfileSource
-);
-
-NTHALAPI
-VOID
-NTAPI
-HalStopProfileInterrupt(
-    IN KPROFILE_SOURCE ProfileSource
-);
-
-NTHALAPI
-ULONG_PTR
-NTAPI
-HalSetProfileInterval(
-    IN ULONG_PTR Interval
-);
 
 //
 // Time Functions

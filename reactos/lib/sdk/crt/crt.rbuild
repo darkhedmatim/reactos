@@ -155,10 +155,9 @@
 				<file>fmod.c</file>
 				<file>ldexp.c</file>
 			</directory>
-			<!-- FIXME: we don't actually implement these... they recursively call themselves through an alias -->
-			<!--<file>j0_y0.c</file>
+			<file>j0_y0.c</file>
 			<file>j1_y1.c</file>
-			<file>jn_yn.c</file>-->
+			<file>jn_yn.c</file>
 		</if>
 		<if property="ARCH" value="amd64">
 			<directory name="i386">
@@ -167,10 +166,9 @@
 				<file>fmod.c</file>
 				<file>ldexp.c</file>
 			</directory>
-			<!-- FIXME: we don't actually implement these... they recursively call themselves through an alias -->
-			<!--<file>j0_y0.c</file>
+			<file>j0_y0.c</file>
 			<file>j1_y1.c</file>
-			<file>jn_yn.c</file>-->
+			<file>jn_yn.c</file>
 		</if>
 		<ifnot property="ARCH" value="i386">
 			<file>stubs.c</file>

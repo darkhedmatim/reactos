@@ -628,7 +628,6 @@ static void test_MsiSourceListGetInfo(void)
     RegDeleteKeyA(userkey, "");
     RegCloseKey(hkey);
     RegCloseKey(userkey);
-    LocalFree(usersid);
 }
 
 static void test_MsiSourceListAddSourceEx(void)
@@ -1606,7 +1605,6 @@ static void test_MsiSourceListEnumSources(void)
     RegCloseKey(source);
     RegDeleteKeyA(prodkey, "");
     RegCloseKey(prodkey);
-    LocalFree(usersid);
 }
 
 static void test_MsiSourceListSetInfo(void)
@@ -2017,7 +2015,6 @@ static void test_MsiSourceListSetInfo(void)
     RegCloseKey(source);
     RegDeleteKeyA(prodkey, "");
     RegCloseKey(prodkey);
-    LocalFree(usersid);
 }
 
 static void test_MsiSourceListAddMediaDisk(void)
@@ -2315,7 +2312,6 @@ static void test_MsiSourceListAddMediaDisk(void)
     RegCloseKey(source);
     RegDeleteKeyA(prodkey, "");
     RegCloseKey(prodkey);
-    LocalFree(usersid);
 }
 
 static void test_MsiSourceListEnumMediaDisks(void)
@@ -3118,7 +3114,6 @@ static void test_MsiSourceListEnumMediaDisks(void)
     RegCloseKey(source);
     RegDeleteKeyA(prodkey, "");
     RegCloseKey(prodkey);
-    LocalFree(usersid);
 }
 
 static void test_MsiSourceListAddSource(void)
@@ -3374,7 +3369,6 @@ static void test_MsiSourceListAddSource(void)
     RegCloseKey(source);
     RegDeleteKeyA(prodkey, "");
     RegCloseKey(prodkey);
-    LocalFree(usersid);
 }
 
 START_TEST(source)

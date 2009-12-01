@@ -16,7 +16,6 @@
 /* GLOBALS *******************************************************************/
 
 KSPIN_LOCK HalpSystemHardwareLock;
-UCHAR HalpCmosCenturyOffset;
 
 /* PRIVATE FUNCTIONS *********************************************************/
 
@@ -54,14 +53,13 @@ HalpGetCmosData(IN ULONG BusNumber,
     ULONG Address = SlotNumber;
     ULONG Len = Length;
 
+    /* FIXME: Acquire CMOS Lock */
+
     /* Do nothing if we don't have a length */
     if (!Length) return 0;
 
-    /* Acquire CMOS Lock */
-    HalpAcquireSystemHardwareSpinLock();
-
     /* Check if this is simple CMOS */
-    if (BusNumber == 0)
+    if (!BusNumber)
     {
         /* Loop the buffer up to 0xFF */
         while ((Len > 0) && (Address < 0x100))
@@ -90,8 +88,7 @@ HalpGetCmosData(IN ULONG BusNumber,
         }
     }
 
-    /* Release CMOS Lock */
-    HalpReleaseCmosSpinLock();
+    /* FIXME: Release the CMOS Lock */
 
     /* Return length read */
     return Length - Len;
@@ -108,14 +105,13 @@ HalpSetCmosData(IN ULONG BusNumber,
     ULONG Address = SlotNumber;
     ULONG Len = Length;
 
+    /* FIXME: Acquire CMOS Lock */
+
     /* Do nothing if we don't have a length */
     if (!Length) return 0;
 
-    /* Acquire CMOS Lock */
-    HalpAcquireSystemHardwareSpinLock();
-
     /* Check if this is simple CMOS */
-    if (BusNumber == 0)
+    if (!BusNumber)
     {
         /* Loop the buffer up to 0xFF */
         while ((Len > 0) && (Address < 0x100))
@@ -144,22 +140,10 @@ HalpSetCmosData(IN ULONG BusNumber,
         }
     }
 
-    /* Release CMOS Lock */
-    HalpReleaseCmosSpinLock();
+    /* FIXME: Release the CMOS Lock */
 
     /* Return length read */
     return Length - Len;
-}
-
-VOID
-NTAPI
-HalpInitializeCmos(VOID)
-{
-    /* Set default century offset byte */
-    HalpCmosCenturyOffset = 50;
-
-    /* No support for EISA or MCA */
-    ASSERT(HalpBusType == MACHINE_TYPE_ISA);
 }
 
 /* PUBLIC FUNCTIONS **********************************************************/
@@ -178,14 +162,12 @@ HalGetEnvironmentVariable(IN PCH Name,
     /* Only variable supported on x86 */
     if (_stricmp(Name, "LastKnownGood")) return ENOENT;
 
-    /* Acquire CMOS Lock */
-    HalpAcquireSystemHardwareSpinLock();
+    /* FIXME: Acquire CMOS Lock */
 
     /* Query the current value */
     Val = HalpReadCmos(RTC_REGISTER_B) & 0x01;
 
-    /* Release CMOS lock */
-    HalpReleaseCmosSpinLock();
+    /* FIXME: Release CMOS lock */
 
     /* Check the flag */
     if (Val)
@@ -219,16 +201,14 @@ HalSetEnvironmentVariable(IN PCH Name,
     /* Check if this is true or false */
     if (!_stricmp(Value, "TRUE"))
     {
-        /* It's true, acquire CMOS lock */
-        HalpAcquireSystemHardwareSpinLock();
+        /* It's true, acquire CMOS lock (FIXME) */
 
         /* Read the current value and add the flag */
         Val = HalpReadCmos(RTC_REGISTER_B) | 1;
     }
     else if (!_stricmp(Value, "FALSE"))
     {
-        /* It's false, acquire CMOS lock */
-        HalpAcquireSystemHardwareSpinLock();
+        /* It's false, acquire CMOS lock (FIXME) */
 
         /* Read the current value and mask out  the flag */
         Val = HalpReadCmos(RTC_REGISTER_B) & ~1;
@@ -243,7 +223,6 @@ HalSetEnvironmentVariable(IN PCH Name,
     HalpWriteCmos(RTC_REGISTER_B, Val);
 
     /* Release the lock and return success */
-    HalpReleaseCmosSpinLock();
     return ESUCCESS;
 }
 
@@ -254,8 +233,7 @@ BOOLEAN
 NTAPI
 HalQueryRealTimeClock(OUT PTIME_FIELDS Time)
 {
-    /* Acquire CMOS Lock */
-    HalpAcquireSystemHardwareSpinLock();
+    /* FIXME: Acquire CMOS Lock */
 
     /* Loop while update is in progress */
     while ((HalpReadCmos(RTC_REGISTER_A)) & RTC_REG_A_UIP);
@@ -275,8 +253,7 @@ HalQueryRealTimeClock(OUT PTIME_FIELDS Time)
     /* Compensate for the century field */
     Time->Year += (Time->Year > 80) ? 1900: 2000;
 
-    /* Release CMOS lock */
-    HalpReleaseCmosSpinLock();
+    /* FIXME: Release CMOS Lock */
 
     /* Always return TRUE */
     return TRUE;
@@ -289,8 +266,7 @@ BOOLEAN
 NTAPI
 HalSetRealTimeClock(IN PTIME_FIELDS Time)
 {
-    /* Acquire CMOS Lock */
-    HalpAcquireSystemHardwareSpinLock();
+    /* FIXME: Acquire CMOS Lock */
 
     /* Loop while update is in progress */
     while ((HalpReadCmos(RTC_REGISTER_A)) & RTC_REG_A_UIP);
@@ -306,9 +282,10 @@ HalSetRealTimeClock(IN PTIME_FIELDS Time)
 
     /* FIXME: Set the century byte */
 
-    /* Release CMOS lock */
-    HalpReleaseCmosSpinLock();
+    /* FIXME: Release the CMOS Lock */
 
     /* Always return TRUE */
     return TRUE;
 }
+
+/* EOF */

@@ -21,7 +21,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include <k32.h>
@@ -76,42 +76,6 @@ __inline static LPSTR HEAP_strdupWtoA( HANDLE heap, DWORD flags, LPCWSTR str )
  */
 
 /**********************************************************************
- *	load_messageW		(internal)
- */
-static LPWSTR load_messageW( HMODULE module, UINT id, WORD lang )
-{
-    PRTL_MESSAGE_RESOURCE_ENTRY mre;
-    WCHAR *buffer;
-    NTSTATUS Status;
-
-    TRACE("module = %p, id = %08x\n", module, id );
-
-    if (!module) module = GetModuleHandleW( NULL );
-    Status = RtlFindMessage( module, (ULONG) RT_MESSAGETABLE, lang, id, &mre );
-    if (!NT_SUCCESS(Status))
-    {
-        SetLastError( RtlNtStatusToDosError(Status) );
-        return NULL;
-    }
-
-    if (mre->Flags & MESSAGE_RESOURCE_UNICODE)
-    {
-        int len = (strlenW( (const WCHAR *)mre->Text ) + 1) * sizeof(WCHAR);
-        if (!(buffer = HeapAlloc( GetProcessHeap(), 0, len ))) return NULL;
-        memcpy( buffer, mre->Text, len );
-    }
-    else
-    {
-        int len = MultiByteToWideChar( CP_ACP, 0, (const char *)mre->Text, -1, NULL, 0 );
-        if (!(buffer = HeapAlloc( GetProcessHeap(), 0, len * sizeof(WCHAR) ))) return NULL;
-        MultiByteToWideChar( CP_ACP, 0, (const char*)mre->Text, -1, buffer, len );
-    }
-    //TRACE("returning %s\n", wine_dbgstr_w(buffer));
-    return buffer;
-}
-
-
-/**********************************************************************
  *      load_messageA           (internal)
  */
 
@@ -126,10 +90,7 @@ static LPSTR load_messageA( HMODULE module, UINT id, WORD lang )
     if (!module) module = GetModuleHandleW( NULL );
     Status = RtlFindMessage( module, (ULONG) RT_MESSAGETABLE, lang, id, &mre );
     if (!NT_SUCCESS(Status))
-    {
-        SetLastError( RtlNtStatusToDosError(Status) );
         return NULL;
-    }
 
     if (mre->Flags & MESSAGE_RESOURCE_UNICODE)
     {
@@ -147,6 +108,36 @@ static LPSTR load_messageA( HMODULE module, UINT id, WORD lang )
     return buffer;
 }
 
+
+
+static LPWSTR load_messageW( HMODULE module, UINT id, WORD lang )
+{
+    PRTL_MESSAGE_RESOURCE_ENTRY mre;
+    WCHAR *buffer;
+    NTSTATUS Status;
+
+    TRACE("module = %p, id = %08x\n", module, id );
+
+    if (!module) module = GetModuleHandleW( NULL );
+    Status = RtlFindMessage( module, (ULONG) RT_MESSAGETABLE, lang, id, &mre );
+    if (!NT_SUCCESS(Status))
+        return NULL;
+
+    if (mre->Flags & MESSAGE_RESOURCE_UNICODE)
+    {
+        int len = (strlenW( (const WCHAR *)mre->Text ) + 1) * sizeof(WCHAR);
+        if (!(buffer = HeapAlloc( GetProcessHeap(), 0, len ))) return NULL;
+        memcpy( buffer, mre->Text, len );
+    }
+    else
+    {
+        int len = MultiByteToWideChar( CP_ACP, 0, (const char *)mre->Text, -1, NULL, 0 );
+        if (!(buffer = HeapAlloc( GetProcessHeap(), 0, len * sizeof(WCHAR) ))) return NULL;
+        MultiByteToWideChar( CP_ACP, 0, (const char*)mre->Text, -1, buffer, len );
+    }
+    //TRACE("returning %s\n", wine_dbgstr_w(buffer));
+    return buffer;
+}
 
 /***********************************************************************
  *           FormatMessageA   (KERNEL32.@)
@@ -208,6 +199,7 @@ DWORD WINAPI FormatMessageA(
 
         if (!from)
         {
+            SetLastError (ERROR_RESOURCE_LANG_NOT_FOUND);
             return 0;
         }
     }
@@ -465,6 +457,7 @@ DWORD WINAPI FormatMessageW(
 
         if (!from)
         {
+            SetLastError (ERROR_RESOURCE_LANG_NOT_FOUND);
             return 0;
         }
     }
@@ -648,7 +641,7 @@ DWORD WINAPI FormatMessageW(
     if (dwFlags & FORMAT_MESSAGE_ALLOCATE_BUFFER) {
         /* nSize is the MINIMUM size */
         DWORD len = strlenW(target) + 1;
-        *((LPVOID*)lpBuffer) = LocalAlloc(LMEM_ZEROINIT,len*sizeof(WCHAR));
+        *((LPVOID*)lpBuffer) = (LPVOID)LocalAlloc(LMEM_ZEROINIT,len*sizeof(WCHAR));
         strcpyW(*(LPWSTR*)lpBuffer, target);
     }
     else lstrcpynW(lpBuffer, target, nSize);

@@ -81,7 +81,7 @@ typedef struct {
 
 #define MRUF_STRING_LIST 0
 
-typedef int (WINAPI *CREATEMRULISTPROCW)(
+typedef int (WINAPI *CREATEMRULISTW)(
     LPMRUINFO lpmi
 );
 
@@ -111,9 +111,9 @@ void LoadItemFromHKCR(POPEN_WITH_CONTEXT pContext, WCHAR * szExt);
 void InsertOpenWithItem(POPEN_WITH_CONTEXT pContext, WCHAR * szAppName);
 
 static HMODULE hModule = NULL;
-static CREATEMRULISTPROCW CreateMRUListProcW = NULL;
+static CREATEMRULISTW CreateMRUListW = NULL;
 static ENUMMRULISTW EnumMRUListW = NULL;
-static FREEMRULIST FreeMRUListProc = NULL;
+static FREEMRULIST FreeMRUList = NULL;
 static ADDMRUSTRINGW AddMRUStringW = NULL;
 
 
@@ -161,11 +161,11 @@ static HRESULT WINAPI SHEOWCm_fnQueryInterface(IContextMenu2 *iface, REFIID riid
         IsEqualIID(riid, &IID_IContextMenu) ||
         IsEqualIID(riid, &IID_IContextMenu2))
 	{
-	  *ppvObj = (void *)&This->lpVtblContextMenu;
+	  *ppvObj = &This->lpVtblContextMenu;
 	}
 	else if(IsEqualIID(riid, &IID_IShellExtInit))
 	{
-	  *ppvObj = (void *)&This->lpvtblShellExtInit;
+	  *ppvObj = &This->lpvtblShellExtInit;
 	}
 
 	if(*ppvObj)
@@ -451,7 +451,7 @@ StoreNewSettings(LPCWSTR szFileName, WCHAR *szAppName)
     result = (*AddMRUStringW)((HANDLE)hList, szAppName);
 
     /* close mru list */
-    (*FreeMRUListProc)((HANDLE)hList);
+    (*FreeMRUList)((HANDLE)hList);
     /* create mru list key */
     RegCloseKey(hKey);
 }
@@ -1008,12 +1008,12 @@ OpenMRUList(HKEY hKey)
         wcscat(szPath, L"comctl32.dll");
         hModule = LoadLibraryExW(szPath, NULL, 0);
     }
-    CreateMRUListProcW = (CREATEMRULISTPROCW)GetProcAddress(hModule, MAKEINTRESOURCEA(400));
+    CreateMRUListW = (CREATEMRULISTW)GetProcAddress(hModule, MAKEINTRESOURCEA(400));
     EnumMRUListW = (ENUMMRULISTW)GetProcAddress(hModule, MAKEINTRESOURCEA(403));
-    FreeMRUListProc = (FREEMRULIST)GetProcAddress(hModule, MAKEINTRESOURCEA(152));
+    FreeMRUList = (FREEMRULIST)GetProcAddress(hModule, MAKEINTRESOURCEA(152));
     AddMRUStringW = (ADDMRUSTRINGW)GetProcAddress(hModule, MAKEINTRESOURCEA(401));
 
-    if (!CreateMRUListProcW || !EnumMRUListW || !FreeMRUListProc || !AddMRUStringW)
+    if (!CreateMRUListW || !EnumMRUListW || !FreeMRUList || !AddMRUStringW)
         return 0;
 
     /* initialize mru list info */
@@ -1025,7 +1025,7 @@ OpenMRUList(HKEY hKey)
     info.lpfnCompare = NULL;
 
     /* load list */
-    return (*CreateMRUListProcW)(&info);
+    return (*CreateMRUListW)(&info);
 }
 
 void

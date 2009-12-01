@@ -38,7 +38,8 @@
 BOOLEAN
 NTAPI
 PoInitSystem(
-    IN ULONG BootPhase
+    IN ULONG BootPhase,
+    IN BOOLEAN HaveAcpiTable
 );
 
 VOID

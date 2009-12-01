@@ -10,9 +10,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 RBUILD_BASE = $(TOOLS_BASE_)rbuild
 RBUILD_BASE_ = $(RBUILD_BASE)$(SEP)
@@ -229,7 +229,6 @@ RBUILD_BACKEND_MSVC_BASE_SOURCES = $(addprefix $(RBUILD_MSVC_BASE_), \
 	msvc.cpp \
 	msvcmaker.cpp \
 	vcprojmaker.cpp \
-	vcxprojmaker.cpp \
 	)
 
 RBUILD_BACKEND_SOURCES = \
@@ -528,10 +527,6 @@ $(RBUILD_MSVC_INT_)msvcmaker.o: $(RBUILD_MSVC_BASE_)msvcmaker.cpp $(RBUILD_HEADE
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 
 $(RBUILD_MSVC_INT_)vcprojmaker.o: $(RBUILD_MSVC_BASE_)vcprojmaker.cpp $(RBUILD_HEADERS) | $(RBUILD_MSVC_INT)
-	$(ECHO_HOSTCC)
-	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
-
-$(RBUILD_MSVC_INT_)vcxprojmaker.o: $(RBUILD_MSVC_BASE_)vcxprojmaker.cpp $(RBUILD_HEADERS) | $(RBUILD_MSVC_INT)
 	$(ECHO_HOSTCC)
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 

@@ -555,28 +555,17 @@ NTSTATUS TCPShutdown(VOID)
 }
 
 NTSTATUS TCPTranslateError( int OskitError ) {
-    NTSTATUS Status;
+    NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
     switch( OskitError ) {
     case 0: Status = STATUS_SUCCESS; break;
-    case OSK_EADDRNOTAVAIL: Status = STATUS_INVALID_ADDRESS; break;
+    case OSK_EADDRNOTAVAIL:
     case OSK_EAFNOSUPPORT: Status = STATUS_INVALID_CONNECTION; break;
     case OSK_ECONNREFUSED:
     case OSK_ECONNRESET: Status = STATUS_REMOTE_NOT_LISTENING; break;
-    case OSK_EWOULDBLOCK:
-    case OSK_EINPROGRESS: Status = STATUS_PENDING; break;
-    case OSK_EINVAL: Status = STATUS_INVALID_PARAMETER; break;
-    case OSK_ENOMEM:
-    case OSK_ENOBUFS: Status = STATUS_INSUFFICIENT_RESOURCES; break;
-    case OSK_ESHUTDOWN: Status = STATUS_FILE_CLOSED; break;
-    case OSK_EMSGSIZE: Status = STATUS_BUFFER_TOO_SMALL; break;
-    case OSK_ETIMEDOUT: Status = STATUS_TIMEOUT; break;
-    case OSK_ENETUNREACH: Status = STATUS_NETWORK_UNREACHABLE; break;
-    case OSK_EFAULT: Status = STATUS_ACCESS_VIOLATION; break;
-    default:
-       DbgPrint("OskitTCP returned unhandled error code: %d\n", OskitError);
-       Status = STATUS_INVALID_CONNECTION;
-       break;
+    case OSK_EINPROGRESS:
+    case OSK_EAGAIN: Status = STATUS_PENDING; break;
+    default: Status = STATUS_INVALID_CONNECTION; break;
     }
 
     TI_DbgPrint(DEBUG_TCP,("Error %d -> %x\n", OskitError, Status));
@@ -632,6 +621,7 @@ NTSTATUS TCPConnect
 
     Status = TCPTranslateError
         ( OskitTCPBind( Connection->SocketContext,
+                        Connection,
                         &AddressToBind,
                         sizeof(AddressToBind) ) );
 
@@ -713,8 +703,6 @@ NTSTATUS TCPClose
     DrainSignals();
 
     Status = TCPTranslateError( OskitTCPClose( Connection->SocketContext ) );
-    if (Status == STATUS_SUCCESS)
-        Connection->SocketContext = NULL;
 
     TI_DbgPrint(DEBUG_TCP,("TCPClose finished %x\n", Status));
 
@@ -879,15 +867,13 @@ NTSTATUS TCPGetSockAddress
     OSK_UINT LocalAddress, RemoteAddress;
     OSK_UI16 LocalPort, RemotePort;
     PTA_IP_ADDRESS AddressIP = (PTA_IP_ADDRESS)Address;
-    NTSTATUS Status;
 
     ASSERT_LOCKED(&TCPLock);
 
-    Status = TCPTranslateError(OskitTCPGetAddress(Connection->SocketContext,
-                                                  &LocalAddress, &LocalPort,
-                                                  &RemoteAddress, &RemotePort));
-    if (!NT_SUCCESS(Status))
-        return Status;
+    OskitTCPGetAddress
+        ( Connection->SocketContext,
+          &LocalAddress, &LocalPort,
+          &RemoteAddress, &RemotePort );
 
     AddressIP->TAAddressCount = 1;
     AddressIP->Address[0].AddressLength = TDI_ADDRESS_LENGTH_IP;
@@ -895,7 +881,7 @@ NTSTATUS TCPGetSockAddress
     AddressIP->Address[0].Address[0].sin_port = GetRemote ? RemotePort : LocalPort;
     AddressIP->Address[0].Address[0].in_addr = GetRemote ? RemoteAddress : LocalAddress;
 
-    return Status;
+    return STATUS_SUCCESS;
 }
 
 VOID TCPRemoveIRP( PCONNECTION_ENDPOINT Endpoint, PIRP Irp ) {

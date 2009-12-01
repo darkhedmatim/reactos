@@ -52,17 +52,10 @@ RtlpCheckForActiveDebugger(VOID)
 
 BOOLEAN
 NTAPI
-RtlpSetInDbgPrint(VOID)
+RtlpSetInDbgPrint(IN BOOLEAN NewValue)
 {
-    /* Nothing to set in kernel mode */
+    /* This check is meaningless in kernel-mode */
     return FALSE;
-}
-
-VOID
-NTAPI
-RtlpClearInDbgPrint(VOID)
-{
-    /* Nothing to clear in kernel mode */
 }
 
 KPROCESSOR_MODE

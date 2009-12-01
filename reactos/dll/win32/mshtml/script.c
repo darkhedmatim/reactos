@@ -620,14 +620,11 @@ static void parse_text(ScriptHost *script_host, LPCWSTR text)
 
     VariantInit(&var);
     memset(&excepinfo, 0, sizeof(excepinfo));
-    TRACE(">>>\n");
     hres = IActiveScriptParse64_ParseScriptText(script_host->parse, text, windowW, NULL, script_endW,
                                               0, 0, SCRIPTTEXT_ISVISIBLE|SCRIPTTEXT_HOSTMANAGESSOURCE,
                                               &var, &excepinfo);
-    if(SUCCEEDED(hres))
-        TRACE("<<<\n");
-    else
-        WARN("<<< %08x\n", hres);
+    if(FAILED(hres))
+        WARN("ParseScriptText failed: %08x\n", hres);
 
 }
 
@@ -648,7 +645,7 @@ static void parse_extern_script(ScriptHost *script_host, LPCWSTR src)
     if(FAILED(hres))
         return;
 
-    hres = bind_mon_to_buffer(script_host->window->doc, mon, (void**)&buf, &size);
+    hres = bind_mon_to_buffer(&script_host->window->doc_obj->basedoc, mon, (void**)&buf, &size);
     IMoniker_Release(mon);
     if(FAILED(hres))
         return;

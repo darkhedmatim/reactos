@@ -22,8 +22,7 @@ VOID
 NTAPI
 Ki386VdmEnablePentiumExtentions(VOID)
 {
-    /* FIXME: Support this */
-    DPRINT1("VME support detected but not yet taken advantage of\n");
+    DPRINT("VME detected but not yet supported\n");
 }
 
 VOID

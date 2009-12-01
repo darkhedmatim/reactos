@@ -470,7 +470,7 @@ IopParseDevice(IN PVOID ParseObject,
         ((OpenPacket->RelatedFileObject) || (RemainingName->Length)) &&
         (!VolumeOpen))
     {
-        DPRINT("Fix Secure FSD support!!!\n");
+        DPRINT1("Fix Secure FSD support!!!\n");
     }
 
     /* Allocate the IRP */

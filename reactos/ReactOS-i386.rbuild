@@ -16,6 +16,7 @@
 
 	<define name="USE_COMPILER_EXCEPTIONS" />
 
+	<property name="NTOSKRNL_SHARED" value="-file-alignment=0x1000 -section-alignment=0x1000 -shared"/>
 	<property name="PLATFORM" value="PC"/>
 
 	<group compilerset="gcc">
@@ -29,8 +30,6 @@
 
 	<group linkerset="ld">
 		<linkerflag>-disable-stdcall-fixup</linkerflag>
-		<linkerflag>-file-alignment=0x1000</linkerflag>
-		<linkerflag>-section-alignment=0x1000</linkerflag>
 	</group>
 
 	<directory name="base">

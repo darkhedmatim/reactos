@@ -18,30 +18,19 @@
 
 typedef struct
 {
-    LIST_ENTRY Entry;
-    HANDLE hMixer;
-    ULONG NotificationType;
-    ULONG Value;
-}MIXER_EVENT, *PMIXER_EVENT;
-
-
-typedef struct
-{
     HANDLE Handle;
     SOUND_DEVICE_TYPE Type;
     ULONG FilterId;
     ULONG PinId;
-    PRKEVENT NotifyEvent;
 }WDMAUD_HANDLE, *PWDMAUD_HANDLE;
+
 
 typedef struct
 {
-    LIST_ENTRY Entry;
     HANDLE hProcess;
     ULONG NumPins;
     WDMAUD_HANDLE * hPins;
 
-    LIST_ENTRY MixerEventList;
 }WDMAUD_CLIENT, *PWDMAUD_CLIENT;
 
 typedef struct
@@ -78,7 +67,7 @@ typedef struct
 typedef struct
 {
     MIXERCAPSW    MixCaps;
-    ULONG DeviceIndex;
+
     LIST_ENTRY    LineList;
     ULONG ControlId;
 }MIXER_INFO, *LPMIXER_INFO;
@@ -126,7 +115,7 @@ typedef struct
     ULONG WaveOutDeviceCount;
     LIST_ENTRY WaveOutList;
 
-    LIST_ENTRY WdmAudClientList;
+
 }WDMAUD_DEVICE_EXTENSION, *PWDMAUD_DEVICE_EXTENSION;
 
 NTSTATUS
@@ -256,14 +245,6 @@ WdmAudSetControlDetails(
 
 NTSTATUS
 NTAPI
-WdmAudGetMixerEvent(
-    IN  PDEVICE_OBJECT DeviceObject,
-    IN  PIRP Irp,
-    IN  PWDMAUD_DEVICE_INFO DeviceInfo,
-    IN  PWDMAUD_CLIENT ClientInfo);
-
-NTSTATUS
-NTAPI
 WdmAudGetControlDetails(
     IN  PDEVICE_OBJECT DeviceObject,
     IN  PIRP Irp,
@@ -295,18 +276,5 @@ InsertPinHandle(
     IN  HANDLE PinHandle,
     IN  ULONG FreeIndex);
 
-
-NTSTATUS
-GetWaveInfoByIndexAndType(
-    IN  PDEVICE_OBJECT DeviceObject,
-    IN  ULONG DeviceIndex,
-    IN  SOUND_DEVICE_TYPE DeviceType,
-    OUT LPWAVE_INFO *OutWaveInfo);
-
-NTSTATUS
-GetSysAudioDevicePnpName(
-    IN  PDEVICE_OBJECT DeviceObject,
-    IN  ULONG DeviceIndex,
-    OUT LPWSTR * Device);
 
 #endif

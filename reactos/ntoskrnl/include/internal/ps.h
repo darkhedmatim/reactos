@@ -300,9 +300,8 @@ PspDestroyQuotaBlock(
     IN PEPROCESS Process
 );
 
-#if defined(_X86_)
 //
-// VDM and LDT Support
+// VDM Support
 //
 NTSTATUS
 NTAPI
@@ -315,16 +314,6 @@ NTAPI
 PspDeleteVdmObjects(
     IN PEPROCESS Process
 );
-
-NTSTATUS
-NTAPI
-PspQueryDescriptorThread(
-    IN PETHREAD Thread,
-    IN PVOID ThreadInformation,
-    IN ULONG ThreadInformationLength,
-    OUT PULONG ReturnLength OPTIONAL
-);
-#endif
 
 //
 // Job Routines
@@ -434,8 +423,6 @@ extern POBJECT_TYPE PsJobType;
 extern LARGE_INTEGER ShortPsLockDelay;
 extern UNICODE_STRING PsNtDllPathName;
 extern LIST_ENTRY PsLoadedModuleList;
-extern KSPIN_LOCK PsLoadedModuleSpinLock;
-extern ERESOURCE PsLoadedModuleResource;
 extern ULONG_PTR PsNtosImageBase;
 
 //

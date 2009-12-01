@@ -665,19 +665,22 @@ CPortPinWavePci::HandleKsStream(
     IN PIRP Irp)
 {
     NTSTATUS Status;
-    ULONG Data = 0;
     InterlockedIncrement((PLONG)&m_TotalPackets);
 
     DPRINT("IPortPinWaveCyclic_HandleKsStream entered Total %u State %x MinData %u\n", m_TotalPackets, m_State, m_IrpQueue->NumData());
 
-    Status = m_IrpQueue->AddMapping(Irp, &Data);
+    Status = m_IrpQueue->AddMapping(NULL, 0, Irp);
 
     if (NT_SUCCESS(Status))
     {
+
+        PKSSTREAM_HEADER Header = (PKSSTREAM_HEADER)Irp->AssociatedIrp.SystemBuffer;
+        PC_ASSERT(Header);
+
         if (m_Capture)
-            m_Position.WriteOffset += Data;
+            m_Position.WriteOffset += Header->FrameExtent;
         else
-            m_Position.WriteOffset += Data;
+            m_Position.WriteOffset += Header->DataUsed;
 
         return STATUS_PENDING;
     }

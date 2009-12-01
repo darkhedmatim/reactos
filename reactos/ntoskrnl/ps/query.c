@@ -1819,19 +1819,9 @@ NtQueryInformationThread(IN HANDLE ThreadHandle,
             KeLowerIrql(OldIrql);
             break;
 
-        /* LDT and GDT information */
         case ThreadDescriptorTableEntry:
-
-#if defined(_X86_)
-            /* Call the worker routine */
-            Status = PspQueryDescriptorThread(Thread,
-                                              ThreadInformation,
-                                              ThreadInformationLength,
-                                              ReturnLength);
-#else
-            /* Only implemented on x86 */
+            DPRINT1("NtQueryInformationThread(): case ThreadDescriptorTableEntry not implemented!\n");
             Status = STATUS_NOT_IMPLEMENTED;
-#endif
             break;
 
         case ThreadPriorityBoost:

@@ -111,26 +111,6 @@ HRESULT WINAPI DwmSetWindowAttribute(HWND hwnd, DWORD attributenum, LPCVOID attr
 }
 
 /**********************************************************************
- *           DwmGetGraphicsStreamClient         (DWMAPI.@)
- */
-HRESULT WINAPI DwmGetGraphicsStreamClient(UINT uIndex, UUID *pClientUuid)
-{
-    FIXME("(%d, %p) stub\n", uIndex, pClientUuid);
-
-    return E_NOTIMPL;
-}
-
-/**********************************************************************
- *           DwmGetTransportAttributes         (DWMAPI.@)
- */
-HRESULT WINAPI DwmGetTransportAttributes(BOOL *pfIsRemoting, BOOL *pfIsConnected, DWORD *pDwGeneration)
-{
-    FIXME("(%p, %p, %p) stub\n", pfIsRemoting, pfIsConnected, pDwGeneration);
-
-    return E_NOTIMPL;
-}
-
-/**********************************************************************
  *           DwmUnregisterThumbnail         (DWMAPI.@)
  */
 HRESULT WINAPI DwmUnregisterThumbnail(HTHUMBNAIL thumbnail)
@@ -148,14 +128,4 @@ HRESULT WINAPI DwmEnableMMCSS(BOOL enableMMCSS)
     FIXME("(%d) stub\n", enableMMCSS);
 
     return S_OK;
-}
-
-/**********************************************************************
- *           DwmGetGraphicsStreamTransformHint         (DWMAPI.@)
- */
-HRESULT WINAPI DwmGetGraphicsStreamTransformHint(UINT uIndex, MilMatrix3x2D *pTransform)
-{
-    FIXME("(%d, %p) stub\n", uIndex, pTransform);
-
-    return E_NOTIMPL;
 }

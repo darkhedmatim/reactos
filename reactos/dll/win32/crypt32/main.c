@@ -64,9 +64,8 @@ HCRYPTPROV CRYPT_GetDefaultProvider(void)
     {
         HCRYPTPROV prov;
 
-        if (!CryptAcquireContextW(&prov, NULL, MS_ENHANCED_PROV_W, PROV_RSA_FULL,
-         CRYPT_VERIFYCONTEXT))
-            return hDefProv;
+        CryptAcquireContextW(&prov, NULL, MS_ENHANCED_PROV_W, PROV_RSA_FULL,
+         CRYPT_VERIFYCONTEXT);
         InterlockedCompareExchangePointer((PVOID *)&hDefProv, (PVOID)prov,
          NULL);
         if (hDefProv != prov)

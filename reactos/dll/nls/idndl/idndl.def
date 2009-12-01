@@ -1,4 +1,4 @@
-LIBRARY	"idndl.dll"
+LIBRARY	"idndl"
 
 EXPORTS
 	DownlevelGetLocaleScripts    = DownlevelGetLocaleScripts@12 @1

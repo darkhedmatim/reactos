@@ -54,7 +54,7 @@ static HRESULT WINAPI ShellItem_QueryInterface(IShellItem *iface, REFIID riid,
     }
     else if (IsEqualIID(&IID_IPersist, riid) || IsEqualIID(&IID_IPersistIDList, riid))
     {
-        *ppv = (IPersistIDListVtbl *)&(This->lpIPersistIDListVtbl);
+        *ppv = &(This->lpIPersistIDListVtbl);
     }
     else {
         FIXME("not implemented for %s\n", shdebugstr_guid(riid));
@@ -337,13 +337,13 @@ HRESULT WINAPI SHCreateShellItem(LPCITEMIDLIST pidlParent,
         {
             IPersistFolder2* ppf2Parent;
 
-            if (FAILED(IPersistFolder2_QueryInterface(psfParent, &IID_IPersistFolder2, (void**)&ppf2Parent)))
+            if (!SUCCEEDED(IPersistFolder2_QueryInterface(psfParent, &IID_IPersistFolder2, (void**)&ppf2Parent)))
             {
                 FIXME("couldn't get IPersistFolder2 interface of parent\n");
                 return E_NOINTERFACE;
             }
 
-            if (FAILED(IPersistFolder2_GetCurFolder(ppf2Parent, &temp_parent)))
+            if (!SUCCEEDED(IPersistFolder2_GetCurFolder(ppf2Parent, &temp_parent)))
             {
                 FIXME("couldn't get parent PIDL\n");
                 IPersistFolder2_Release(ppf2Parent);

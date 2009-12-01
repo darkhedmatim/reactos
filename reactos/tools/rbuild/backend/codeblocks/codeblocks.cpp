@@ -11,9 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 #ifdef _MSC_VER
 #pragma warning ( disable : 4786 )
@@ -598,7 +598,7 @@ CBBackend::_generate_cbproj ( const Module& module )
 
 		if ( sys )
 		{
-			fprintf ( OUT, "\t\t\t\t\t<Add option=\"-Wl,--entry,%s%s\" />\r\n", "_", module.GetEntryPoint() == "" ? "DriverEntry@8" : module.GetEntryPoint().c_str ());
+			fprintf ( OUT, "\t\t\t\t\t<Add option=\"-Wl,--entry,%s%s\" />\r\n", "_", module.GetEntryPoint(false) == "" ? "DriverEntry@8" : module.GetEntryPoint(false).c_str ());
 			fprintf ( OUT, "\t\t\t\t\t<Add option=\"-Wl,--image-base,%s\" />\r\n", baseaddr == "" ? "0x10000" : baseaddr.c_str () );
 			fprintf ( OUT, "\t\t\t\t\t<Add option=\"-nostartfiles -Wl,--nostdlib\" />\r\n" );
 		}
@@ -623,7 +623,7 @@ CBBackend::_generate_cbproj ( const Module& module )
 		}
 		else if ( dll )
 		{
-			fprintf ( OUT, "\t\t\t\t\t<Add option=\"-Wl,--entry,%s%s\" />\r\n", "_", module.GetEntryPoint().c_str () );
+			fprintf ( OUT, "\t\t\t\t\t<Add option=\"-Wl,--entry,%s%s\" />\r\n", "_", module.GetEntryPoint(false).c_str () );
 			fprintf ( OUT, "\t\t\t\t\t<Add option=\"-Wl,--image-base,%s\" />\r\n", baseaddr == "" ? "0x40000" : baseaddr.c_str () );
 
 			if ( module.type == Win32DLL)

@@ -59,20 +59,12 @@ HAL_PRIVATE_DISPATCH HalPrivateDispatchTable =
     (pKdReleasePciDeviceForDebugging)NULL,
     (pKdGetAcpiTablePhase0)NULL,
     (pKdCheckPowerButton)NULL,
-    (pHalVectorToIDTEntry)xHalVectorToIDTEntry,
+    (pHalVectorToIDTEntry)NULL,
     (pKdMapPhysicalMemory64)NULL,
     (pKdUnmapVirtualAddress)NULL
 };
 
 /* FUNCTIONS *****************************************************************/
-
-UCHAR
-NTAPI
-xHalVectorToIDTEntry(IN ULONG Vector)
-{
-    /* Return the vector */
-    return Vector;
-}
 
 VOID
 NTAPI

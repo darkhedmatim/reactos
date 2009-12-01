@@ -65,7 +65,13 @@ HINSTANCE hWinMM32Instance;
 HANDLE psLastEvent;
 HANDLE psStopEvent;
 
-CRITICAL_SECTION WINMM_cs;
+static CRITICAL_SECTION_DEBUG critsect_debug =
+{
+    0, 0, &WINMM_cs,
+    { &critsect_debug.ProcessLocksList, &critsect_debug.ProcessLocksList },
+      0, 0, { (DWORD_PTR)(__FILE__ ": WINMM_cs") }
+};
+CRITICAL_SECTION WINMM_cs = { &critsect_debug, -1, 0, 0, 0, 0 };
 
 /**************************************************************************
  * 			WINMM_CreateIData			[internal]
@@ -75,7 +81,6 @@ static	BOOL	WINMM_CreateIData(HINSTANCE hInstDLL)
     hWinMM32Instance = hInstDLL;
     psStopEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
     psLastEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
-    InitializeCriticalSection(&WINMM_cs);
     return TRUE;
 }
 

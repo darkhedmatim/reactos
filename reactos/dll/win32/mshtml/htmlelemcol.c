@@ -397,7 +397,7 @@ static HRESULT HTMLElementCollection_invoke(IUnknown *iface, DISPID id, LCID lci
         return DISP_E_UNKNOWNNAME;
 
     switch(flags) {
-    case DISPATCH_PROPERTYGET:
+    case INVOKE_PROPERTYGET:
         V_VT(res) = VT_DISPATCH;
         V_DISPATCH(res) = (IDispatch*)HTMLELEM(This->elems[idx]);
         IHTMLElement_AddRef(HTMLELEM(This->elems[idx]));

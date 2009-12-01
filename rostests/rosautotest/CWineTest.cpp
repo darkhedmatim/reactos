@@ -227,7 +227,7 @@ CWineTest::GetNextTestInfo()
                 TestInfo->CommandLine += AsciiToUnicode(m_CurrentTest);
 
                 /* Store the Module name */
-                UnderscorePosition = m_CurrentFile.find_last_of('_');
+                UnderscorePosition = m_CurrentFile.find('_');
 
                 if(UnderscorePosition == m_CurrentFile.npos)
                 {

@@ -251,7 +251,7 @@ HalpGrowMapBuffers(
     * to prevent corruption.
     */
 
-   KeAcquireSpinLock(&AdapterObject->SpinLock, &OldIrql);
+   OldIrql = KfAcquireSpinLock(&AdapterObject->SpinLock);
 
    /*
     * Setup map register entries for the buffer allocated. Each entry has
@@ -315,7 +315,7 @@ HalpGrowMapBuffers(
       while (MapRegisterCount != 0);
    }
 
-   KeReleaseSpinLock(&AdapterObject->SpinLock, OldIrql);
+   KfReleaseSpinLock(&AdapterObject->SpinLock, OldIrql);
 
    return TRUE;
 }
@@ -1125,7 +1125,7 @@ HalAllocateAdapterChannel(
        *   PASSIVE_LEVEL and calling the ExecutionRoutine.
        */
 
-      KeAcquireSpinLock(&MasterAdapter->SpinLock, &OldIrql);
+      OldIrql = KfAcquireSpinLock(&MasterAdapter->SpinLock);
 
       if (IsListEmpty(&MasterAdapter->AdapterQueue))
       {
@@ -1151,7 +1151,7 @@ HalAllocateAdapterChannel(
             NonPagedPool, sizeof(GROW_WORK_ITEM), TAG_DMA);
          if (WorkItem == NULL)
          {
-            KeReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
+            KfReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
             AdapterObject->NumberOfMapRegisters = 0;
             IoFreeAdapterChannel(AdapterObject);
             return STATUS_INSUFFICIENT_RESOURCES;
@@ -1166,12 +1166,12 @@ HalAllocateAdapterChannel(
 
          ExQueueWorkItem(&WorkItem->WorkQueueItem, DelayedWorkQueue);
 
-         KeReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
+         KfReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
 
          return STATUS_SUCCESS;
       }
 
-      KeReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
+      KfReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
    }
    else
    {
@@ -1282,7 +1282,7 @@ IoFreeAdapterChannel(
       if (WaitContextBlock->NumberOfMapRegisters &&
           AdapterObject->MasterAdapter)
       {
-          KeAcquireSpinLock(&MasterAdapter->SpinLock, &OldIrql);
+         OldIrql = KfAcquireSpinLock(&MasterAdapter->SpinLock);
 
          if (IsListEmpty(&MasterAdapter->AdapterQueue))
          {
@@ -1306,11 +1306,11 @@ IoFreeAdapterChannel(
          if (Index == MAXULONG)
          {
             InsertTailList(&MasterAdapter->AdapterQueue, &AdapterObject->AdapterQueue);
-            KeReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
+            KfReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
             break;
          }
 
-         KeReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
+         KfReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
       }
       else
       {
@@ -1378,7 +1378,7 @@ IoFreeMapRegisters(
    if (MasterAdapter == NULL || MapRegisterBase == NULL)
       return;
 
-   KeAcquireSpinLock(&MasterAdapter->SpinLock, &OldIrql);
+   OldIrql = KfAcquireSpinLock(&MasterAdapter->SpinLock);
 
    if (NumberOfMapRegisters != 0)
    {
@@ -1412,7 +1412,7 @@ IoFreeMapRegisters(
          break;
       }
 
-      KeReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
+      KfReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
 
       AdapterObject->MapRegisterBase =
          MasterAdapter->MapRegisterBase + Index;
@@ -1439,12 +1439,12 @@ IoFreeMapRegisters(
          case DeallocateObject:
             if (AdapterObject->NumberOfMapRegisters)
             {
-               KeAcquireSpinLock(&MasterAdapter->SpinLock, &OldIrql);
+               OldIrql = KfAcquireSpinLock(&MasterAdapter->SpinLock);
                RtlClearBits(MasterAdapter->MapRegisters,
                             AdapterObject->MapRegisterBase -
                             MasterAdapter->MapRegisterBase,
                             AdapterObject->NumberOfMapRegisters);
-               KeReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
+               KfReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
             }
             IoFreeAdapterChannel(AdapterObject);
             break;
@@ -1453,10 +1453,10 @@ IoFreeMapRegisters(
             break;
       }
 
-      KeAcquireSpinLock(&MasterAdapter->SpinLock, &OldIrql);
+      OldIrql = KfAcquireSpinLock(&MasterAdapter->SpinLock);
    }
 
-   KeReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
+   KfReleaseSpinLock(&MasterAdapter->SpinLock, OldIrql);
 }
 
 /**
@@ -1865,7 +1865,7 @@ IoMapTransfer(
          TransferOffset >>= 1;
       }
 
-      KeAcquireSpinLock(&AdapterObject->MasterAdapter->SpinLock, &OldIrql);
+      OldIrql = KfAcquireSpinLock(&AdapterObject->MasterAdapter->SpinLock);
 
       if (AdapterObject->AdapterNumber == 1)
       {
@@ -1932,7 +1932,7 @@ IoMapTransfer(
                           AdapterObject->ChannelNumber | DMA_CLEARMASK);
       }
 
-      KeReleaseSpinLock(&AdapterObject->MasterAdapter->SpinLock, OldIrql);
+      KfReleaseSpinLock(&AdapterObject->MasterAdapter->SpinLock, OldIrql);
    }
 
    /*

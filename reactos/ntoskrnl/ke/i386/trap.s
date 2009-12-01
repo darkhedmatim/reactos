@@ -947,7 +947,6 @@ _KiTrap6:
     /* Enter V86 Trap */
     V86_TRAP_PROLOG kit6_a, kit6_v
 
-VdmOpCodeFault:
     /* Not yet supported (Invalid OPCODE from V86) */
     UNHANDLED_PATH
 
@@ -958,7 +957,6 @@ NotV86UD:
     /* Enter trap */
     TRAP_PROLOG kit6_a, kit6_t
 
-DispatchLockErrata:
     /* Check if this happened in kernel mode */
     test byte ptr [ebp+KTRAP_FRAME_CS], MODE_MASK
     jz KmodeOpcode
@@ -1951,21 +1949,14 @@ _KiTrap14:
 NoFixUp:
     mov edi, cr2
 
-    /* Check if this processor has the cmpxchg8b lock errata */
-    cmp byte ptr _KiI386PentiumLockErrataPresent, 0
-    jnz HandleLockErrata
-
-NotLockErrata:
-    /* HACK: Handle page faults with interrupts disabled */
+    /* REACTOS Mm Hack of Doom */
     test dword ptr [ebp+KTRAP_FRAME_EFLAGS], EFLAGS_INTERRUPT_MASK
     je HandlePf
 
     /* Enable interrupts and check if we got here with interrupts disabled */
     sti
-#ifdef HACK_ABOVE_FIXED
-    test dword ptr [ebp+KTRAP_FRAME_EFLAGS], EFLAGS_INTERRUPT_MASK
-    jz IllegalState
-#endif
+    /* test dword ptr [ebp+KTRAP_FRAME_EFLAGS], EFLAGS_INTERRUPT_MASK
+    jz IllegalState */
 
 HandlePf:
     /* Send trap frame and check if this is kernel-mode or usermode */
@@ -2084,33 +2075,6 @@ VdmAlertGpf:
 
     /* FIXME: NOT SUPPORTED */
     UNHANDLED_PATH
-
-HandleLockErrata:
-
-    /* Fail if this isn't a write fault */
-    test word ptr [ebp+KTRAP_FRAME_ERROR_CODE], 0x4
-    jnz NotLockErrata
-
-    /* Also make sure the page fault is for IDT entry 6 */
-    mov eax, PCR[KPCR_IDT]
-    add eax, 0x30
-    cmp eax, edi
-    jne NotLockErrata
-
-    /*
-     * This is a write fault to the Invalid Opcode handler entry.
-     * We assume this is the lock errata and not a real write fault.
-     */
-
-    /* Clear the error code */
-    and dword ptr [ebp+KTRAP_FRAME_ERROR_CODE], 0
-
-    /* Check if this happened in V86 mode */
-    test dword ptr [ebp+KTRAP_FRAME_EFLAGS], EFLAGS_V86_MASK
-    jnz VdmOpCodeFault
-
-    /* Dispatch this to the invalid opcode handler */
-    jmp DispatchLockErrata
 .endfunc
 
 .func KiTrap0F

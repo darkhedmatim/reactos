@@ -299,7 +299,7 @@ static ULONG ShellLink_Release( IShellLinkImpl *This )
     if (This->pPidl)
         ILFree(This->pPidl);
 
-    LocalFree(This);
+    LocalFree((HANDLE)This);
 
     return 0;
 }
@@ -308,7 +308,7 @@ static HRESULT ShellLink_GetClassID( IShellLinkImpl *This, CLSID *pclsid )
 {
     TRACE("%p %p\n", This, pclsid);
 
-    *pclsid = CLSID_ShellLink;
+    memcpy( pclsid, &CLSID_ShellLink, sizeof (CLSID) );
     return S_OK;
 }
 
@@ -1650,8 +1650,6 @@ static HRESULT WINAPI IShellLinkA_fnSetPath(IShellLinkA * iface, LPCSTR pszFile)
     IShellLinkImpl *This = (IShellLinkImpl *)iface;
 
     TRACE("(%p)->(path=%s)\n",This, pszFile);
-
-    if (!pszFile) return E_INVALIDARG;
 
     str = HEAP_strdupAtoW(GetProcessHeap(), 0, pszFile);
     if( !str )

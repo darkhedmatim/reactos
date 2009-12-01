@@ -12,9 +12,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 #ifndef __MSVC_H__
 #define __MSVC_H__
@@ -25,7 +25,6 @@
 
 #include "../backend.h"
 
-
 class FileUnit
 {
 	public:
@@ -35,28 +34,9 @@ class FileUnit
 
 enum OptimizationType
 {
-	RosBuild,
 	Debug,
 	Release,
-	Speed,
-};
-
-enum ConfigurationType
-{
-	ConfigUnknown,
-	ConfigApp,
-	ConfigDll,
-	ConfigEmpty,
-	ConfigLib
-};
-
-enum BinaryType
-{
-	BinUnknown,
-	Lib,
-	Dll,
-	Exe,
-	Sys
+	Speed
 };
 
 enum HeadersType
@@ -143,23 +123,7 @@ class MSVCBackend : public Backend
 
 		std::string _get_vc_dir ( void ) const;
 
-		// These are used in both _generate_vcproj and _generate_standard_configuration
-		std::vector<std::string> header_files;
-		std::vector<std::string> includes;
-		std::vector<std::string> includes_ros;
-		std::vector<std::string> libraries;
-		std::set<std::string> common_defines;
-		std::string baseaddr;
-
-		void _generate_standard_configuration(
-			FILE* OUT,
-			const Module& module,
-			const MSVCConfiguration& cfg,
-			BinaryType binaryType );
-		void _generate_makefile_configuration( FILE* OUT, const Module& module, const MSVCConfiguration& cfg );
-
 		void _generate_vcproj ( const Module& module );
-		void _generate_vcxproj ( const Module& module );
 
 		void _generate_sln_header ( FILE* OUT );
 		void _generate_sln_footer ( FILE* OUT );

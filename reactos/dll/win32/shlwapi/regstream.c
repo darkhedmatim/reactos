@@ -221,7 +221,7 @@ static HRESULT WINAPI IStream_fnSeek (IStream * iface, LARGE_INTEGER dlibMove, D
 	  return STG_E_INVALIDFUNCTION;
 
 	/* we cut off the high part here */
-	This->dwPos = tmp.u.LowPart;
+	This->dwPos = tmp.LowPart;
 
 	if (plibNewPosition)
 	  plibNewPosition->QuadPart = This->dwPos;
@@ -240,7 +240,7 @@ static HRESULT WINAPI IStream_fnSetSize (IStream * iface, ULARGE_INTEGER libNewS
 	TRACE("(%p, %s)\n", This, wine_dbgstr_longlong(libNewSize.QuadPart));
 
 	/* we cut off the high part here */
-	newLen = libNewSize.u.LowPart;
+	newLen = libNewSize.LowPart;
 	newBuf = HeapReAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, This->pbBuffer, newLen);
 	if (!newBuf)
 	  return STG_E_INSUFFICIENTMEMORY;

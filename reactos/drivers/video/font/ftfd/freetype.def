@@ -1,4 +1,4 @@
-LIBRARY ftfd.dll
+LIBRARY freetype
 EXPORTS
   FT_Done_Face
   FT_Done_Glyph

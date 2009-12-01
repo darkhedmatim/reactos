@@ -49,8 +49,10 @@ HalpReboot(VOID)
     /* Enable warm reboot */
     ((PUSHORT)ZeroPageMapping)[0x239] = 0x1234;
 
-    /* Lock CMOS Access (and disable interrupts) */
-    HalpAcquireSystemHardwareSpinLock();
+    /* FIXME: Lock CMOS Access */
+
+    /* Disable interrupts */
+    _disable();
 
     /* Setup control register B */
     WRITE_PORT_UCHAR((PUCHAR)0x70, 0x0B);

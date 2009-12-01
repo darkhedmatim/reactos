@@ -89,7 +89,6 @@ UninstallApplication(INT Index, BOOL bModify)
     INT ItemIndex;
     LVITEM Item;
     HKEY hKey;
-    PINSTALLED_INFO ItemInfo;
 
     if (!IS_INSTALLED_ENUM(SelectedEnumType))
         return FALSE;
@@ -115,8 +114,7 @@ UninstallApplication(INT Index, BOOL bModify)
     if (!ListView_GetItem(hListView, &Item))
         return FALSE;
 
-    ItemInfo = (PINSTALLED_INFO)Item.lParam;
-    hKey = ItemInfo->hSubKey;
+    hKey = (HKEY)Item.lParam;
 
     dwType = REG_SZ;
     dwSize = MAX_PATH;

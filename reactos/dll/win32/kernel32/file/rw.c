@@ -144,11 +144,6 @@ ReadFile(IN HANDLE hFile,
         *lpNumberOfBytesRead = 0;
      }
 
-   if (!nNumberOfBytesToRead)
-     {
-        return TRUE;
-     }
-
    hFile = TranslateStdHandle(hFile);
 
    if (IsConsoleHandle(hFile))

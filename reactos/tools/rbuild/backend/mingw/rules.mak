@@ -8,21 +8,20 @@ RBUILD_strip_prefixes=${subst >>>,,${subst >>>$(SEP),,>>>${call RBUILD_strip_pre
 
 #(source)
 RBUILD_intermediate_path_noext=${call RBUILD_intermediate_dir,$(1)}$(SEP)$(basename $(notdir $(1)))
-RBUILD_output_path_noext=${call RBUILD_output_dir,$(1)}$(SEP)$(basename $(notdir $(1)))
 
 #(module, source)
 RBUILD_intermediate_path_unique=${call RBUILD_intermediate_path_noext,$(2)}_$(1)
-RBUILD_output_dir=${call RBUILD_output_path_noext,$(2)}_$(1)
 
 #(source)
 RBUILD_intermediate_dir=${call RBUILD_fullpath,$(value INTERMEDIATE)$(SEP)$(dir ${call RBUILD_strip_prefixes,$(1)})}
-RBUILD_output_dir=${call RBUILD_fullpath,$(value OUTPUT)$(SEP)$(dir ${call RBUILD_strip_prefixes,$(1)})}
 
 #(source)
-RBUILD_name=$(basename $(notdir $(1)))
+RBUILD_source_name=$(basename $(notdir $(1)))
 
 #(source)
 RBUILD_dir=${call RBUILD_fullpath,$(dir ${call RBUILD_compress_prefixes,$(1)})}
+
+# FIXME: when RosBE stops hijacking HOST_CFLAGS etc., add CFLAGS etc.
 
 #(module, flags, includes, compiler, prefix)
 RBUILD_compiler_flags=\
@@ -30,12 +29,10 @@ $$(BUILTIN_$(5)$(4)FLAGS) \
 $$(PROJECT_$(5)$(4)FLAGS) \
 $$(MODULETYPE$($(1)_TYPE)_$(4)FLAGS) \
 $$($(1)_$(4)FLAGS) \
-$(2) \
-$$($(5)$(4)FLAGS)
+$(2)
 
 #(module, flags, includes, compiler, prefix)
 RBUILD_compiler_flags_with_cpp=\
-$$($(5)$(4)INCLUDES) $$(CPPINCLUDES) \
 $(3) \
 $$($(1)_$(4)INCLUDES) $$($(1)_CPPINCLUDES) \
 $$(MODULETYPE$($(1)_TYPE)_$(4)INCLUDES) $$(MODULETYPE$($(1)_TYPE)_CPPINCLUDES) \
@@ -45,12 +42,10 @@ $$(BUILTIN_$(5)CPPDEFINES) $$(BUILTIN_$(5)CPPFLAGS) $$(BUILTIN_$(5)$(4)DEFINES) 
 $$(PROJECT_$(5)CPPDEFINES) $$(PROJECT_$(5)CPPFLAGS) $$(PROJECT_$(5)$(4)DEFINES) $$(PROJECT_$(5)$(4)FLAGS) \
 $$(MODULETYPE$($(1)_TYPE)_CPPDEFINES) $$(MODULETYPE$($(1)_TYPE)_CPPFLAGS) $$(MODULETYPE$($(1)_TYPE)_$(4)DEFINES) $$(MODULETYPE$($(1)_TYPE)_$(4)FLAGS) \
 $$($(1)_CPPDEFINES) $$($(1)_CPPFLAGS) $$($(1)_$(4)DEFINES) $$($(1)_$(4)FLAGS) \
-$(2) \
-$$(CPPDEFINES) $$(CPPFLAGS) $$($(5)$(4)DEFINES) $$($(5)$(4)FLAGS)
+$(2)
 
 #(module, flags, includes, compiler, prefix)
 RBUILD_compiler_flags_builtin_cpp=\
-$$($(5)$(4)INCLUDES) $$(CPPINCLUDES) \
 $(3) \
 $$($(1)_$(4)INCLUDES) $$($(1)_CPPINCLUDES) \
 $$(MODULETYPE$($(1)_TYPE)_$(4)INCLUDES) $$(MODULETYPE$($(1)_TYPE)_CPPINCLUDES) \
@@ -60,12 +55,10 @@ $$(BUILTIN_$(5)CPPDEFINES) $$(BUILTIN_$(5)$(4)DEFINES) $$(BUILTIN_$(5)$(4)FLAGS)
 $$(PROJECT_$(5)CPPDEFINES) $$(PROJECT_$(5)$(4)DEFINES) $$(PROJECT_$(5)$(4)FLAGS) \
 $$(MODULETYPE$($(1)_TYPE)_CPPDEFINES) $$(MODULETYPE$($(1)_TYPE)_$(4)DEFINES) $$(MODULETYPE$($(1)_TYPE)_$(4)FLAGS) \
 $$($(1)_CPPDEFINES) $$($(1)_$(4)DEFINES) $$($(1)_$(4)FLAGS) \
-$(2) \
-$$(CPPDEFINES) $$($(5)$(4)DEFINES) $$($(5)$(4)FLAGS)
+$(2)
 
 #(module, flags, includes, compiler, prefix)
 RBUILD_compiler_flags_with_includes=\
-$$($(5)$(4)INCLUDES) \
 $(3) \
 $$($(1)_$(4)INCLUDES) $$($(1)_CPPINCLUDES) \
 $$(MODULETYPE$($(1)_TYPE)_$(4)INCLUDES) \
@@ -75,12 +68,10 @@ $$(BUILTIN_$(5)$(4)FLAGS) \
 $$(PROJECT_$(5)$(4)FLAGS) \
 $$(MODULETYPE$($(1)_TYPE)_$(4)FLAGS) \
 $$($(1)_$(4)FLAGS) \
-$(2) \
-$$($(5)$(4)FLAGS)
+$(2)
 
 #(module, flags, includes, compiler, prefix)
 RBUILD_compiler_flags_cpp=\
-$$($(5)$(4)INCLUDES) $$(CPPINCLUDES) \
 $(3) \
 $$($(1)_$(4)INCLUDES) $$($(1)_CPPINCLUDES) \
 $$(MODULETYPE$($(1)_TYPE)_$(4)INCLUDES) $$(MODULETYPE$($(1)_TYPE)_CPPINCLUDES) \
@@ -90,8 +81,7 @@ $$(BUILTIN_$(5)CPPFLAGS) $$(BUILTIN_$(5)CPPDEFINES) $$(BUILTIN_$(5)$(4)DEFINES) 
 $$(PROJECT_$(5)CPPFLAGS) $$(PROJECT_$(5)CPPDEFINES) $$(PROJECT_$(5)$(4)DEFINES) \
 $$(MODULETYPE$($(1)_TYPE)_CPPFLAGS) $$(MODULETYPE$($(1)_TYPE)_CPPDEFINES) $$(MODULETYPE$($(1)_TYPE)_$(4)DEFINES) \
 $$($(1)_CPPFLAGS) $$($(1)_CPPDEFINES) $$($(1)_$(4)DEFINES) \
-$(2) \
-$$(CPPFLAGS) $$(CPPDEFINES) $$($(5)$(4)DEFINES)
+$(2)
 
 #(module, flags, includes)
 RBUILD_cflags=${call RBUILD_compiler_flags_with_cpp,$(1),$(2),$(3),C}
@@ -106,7 +96,6 @@ RBUILD_spec_flags=${call RBUILD_compiler_flags,$(1),$(2),,SPEC}
 RBUILD_midlflags=${call RBUILD_compiler_flags_builtin_cpp,$(1),$(2),$(3),MIDL}
 RBUILD_host_cflags=${call RBUILD_compiler_flags_with_cpp,$(1),$(2),$(3),C,HOST_}
 RBUILD_host_cxxflags=${call RBUILD_compiler_flags_with_cpp,$(1),$(2),$(3),CXX,HOST_}
-RBUILD_ldflags=${call RBUILD_compiler_flags,$(1),$(2),,LD}
 
 RCFLAG_UNICODE:=-DUNICODE -D_UNICODE
 
@@ -161,18 +150,18 @@ endef
 #(module, source, dependencies, cflags, module_dllname, output)
 define RBUILD_WINEBUILD_DEF
 
-$(6): $(2) $$(winebuild_TARGET) | ${call RBUILD_intermediate_dir,$(6)}
+$(6): $(2) $$(WINEBUILD_TARGET) | ${call RBUILD_intermediate_dir,$(6)}
 	$$(ECHO_WINEBLD)
-	$$(Q)$$(winebuild_TARGET) $$(WINEBUILD_FLAGS) -o $$@ --def -E $$< --filename $(5) ${call RBUILD_spec_flags,$(1),$(4)}
+	$$(Q)$$(WINEBUILD_TARGET) $$(WINEBUILD_FLAGS) -o $$@ --def -E $$< --filename $(5) ${call RBUILD_spec_flags,$(1),$(4)}
 
 endef
 
 #(module, source, dependencies, cflags, module_dllname, output)
 define RBUILD_WINEBUILD_STUBS
 
-$(6): $(2) $$(winebuild_TARGET) | ${call RBUILD_intermediate_dir,$(6)}
+$(6): $(2) $$(WINEBUILD_TARGET) | ${call RBUILD_intermediate_dir,$(6)}
 	$$(ECHO_WINEBLD)
-	$$(Q)$$(winebuild_TARGET) $$(WINEBUILD_FLAGS) -o $$@ --pedll $$< --filename $(5) ${call RBUILD_spec_flags,$(1),$(4)}
+	$$(Q)$$(WINEBUILD_TARGET) $$(WINEBUILD_FLAGS) -o $$@ --pedll $$< --filename $(5) ${call RBUILD_spec_flags,$(1),$(4)}
 
 endef
 
@@ -218,15 +207,15 @@ ifeq ($$(ROS_BUILDDEPS),full)
 ${call RBUILD_DEPENDS,$(1),$(2),,${call RBUILD_rc_pp_flags,$(1),$(4)},${call RBUILD_intermediate_path_unique,$(1),$(2)}.res.d}
 -include ${call RBUILD_intermediate_path_unique,$(1),$(2)}.coff.d
 
-${call RBUILD_intermediate_path_unique,$(1),$(2)}.res: $(2) ${call RBUILD_intermediate_path_unique,$(1),$(2)}.res.d $(3) $$(wrc_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
+${call RBUILD_intermediate_path_unique,$(1),$(2)}.res: $(2) ${call RBUILD_intermediate_path_unique,$(1),$(2)}.res.d $(3) $$(WRC_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
 	$$(ECHO_RC)
-	${call RBUILD_PIPE_CPP,$$<,${call RBUILD_rc_pp_flags,$(1),$(4)}} | $$(wrc_TARGET) -o $$@ ${call RBUILD_rc_flags,$(1),$(4),-I${call RBUILD_dir,$(2)}}
+	${call RBUILD_PIPE_CPP,$$<,${call RBUILD_rc_pp_flags,$(1),$(4)}} | $$(WRC_TARGET) -o $$@ ${call RBUILD_rc_flags,$(1),$(4),-I${call RBUILD_dir,$(2)}}
 
 else
 
-${call RBUILD_intermediate_path_unique,$(1),$(2)}.res: $(2) $(3) $$(wrc_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
+${call RBUILD_intermediate_path_unique,$(1),$(2)}.res: $(2) $(3) $$(WRC_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
 	$$(ECHO_RC)
-	${call RBUILD_PIPE_CPP,$$<,${call RBUILD_rc_pp_flags,$(1),$(4)}} | $$(wrc_TARGET) -o $$@ ${call RBUILD_rc_flags,$(1),$(4),-I${call RBUILD_dir,$(2)}}
+	${call RBUILD_PIPE_CPP,$$<,${call RBUILD_rc_pp_flags,$(1),$(4)}} | $$(WRC_TARGET) -o $$@ ${call RBUILD_rc_flags,$(1),$(4),-I${call RBUILD_dir,$(2)}}
 
 endif
 
@@ -244,9 +233,9 @@ define RBUILD_WIDL_HEADER_RULE
 
 $(2): $${$(1)_precondition}
 
-${call RBUILD_intermediate_path_noext,$(2)}.h: $(2) $(3) $$(widl_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
+${call RBUILD_intermediate_path_noext,$(2)}.h: $(2) $(3) $$(WIDL_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
 	$$(ECHO_WIDL)
-	$$(Q)$$(widl_TARGET) ${call RBUILD_midlflags,$(1),$(4),-I${call RBUILD_dir,$(2)}} -h -H $$@ $$<
+	$$(Q)$$(WIDL_TARGET) ${call RBUILD_midlflags,$(1),$(4),-I${call RBUILD_dir,$(2)}} -h -H $$@ $$<
 
 endef
 
@@ -255,9 +244,9 @@ define RBUILD_WIDL_CLIENT_RULE
 
 $(2): $${$(1)_precondition}
 
-${call RBUILD_intermediate_path_noext,$(2)}_c.c ${call RBUILD_intermediate_path_noext,$(2)}_c.h: $(2) $(3) $$(widl_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
+${call RBUILD_intermediate_path_noext,$(2)}_c.c ${call RBUILD_intermediate_path_noext,$(2)}_c.h: $(2) $(3) $$(WIDL_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
 	$$(ECHO_WIDL)
-	$$(Q)$$(widl_TARGET) ${call RBUILD_midlflags,$(1),$(4),-I${call RBUILD_dir,$(2)}} -h -H ${call RBUILD_intermediate_path_noext,$(2)}_c.h -c -C ${call RBUILD_intermediate_path_noext,$(2)}_c.c $(2)
+	$$(Q)$$(WIDL_TARGET) ${call RBUILD_midlflags,$(1),$(4),-I${call RBUILD_dir,$(2)}} -h -H ${call RBUILD_intermediate_path_noext,$(2)}_c.h -c -C ${call RBUILD_intermediate_path_noext,$(2)}_c.c $(2)
 
 ${call RBUILD_CC,$(1),${call RBUILD_intermediate_path_noext,$(2)}_c.c,,-fno-unit-at-a-time,${call RBUILD_intermediate_path_noext,$(2)}_c.o}
 
@@ -268,9 +257,9 @@ define RBUILD_WIDL_SERVER_RULE
 
 $(2): $${$(1)_precondition}
 
-${call RBUILD_intermediate_path_noext,$(2)}_s.c ${call RBUILD_intermediate_path_noext,$(2)}_s.h: $(2) $(3) $$(widl_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
+${call RBUILD_intermediate_path_noext,$(2)}_s.c ${call RBUILD_intermediate_path_noext,$(2)}_s.h: $(2) $(3) $$(WIDL_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
 	$$(ECHO_WIDL)
-	$$(Q)$$(widl_TARGET) ${call RBUILD_midlflags,$(1),$(4),-I${call RBUILD_dir,$(2)}} -h -H ${call RBUILD_intermediate_path_noext,$(2)}_s.h -s -S ${call RBUILD_intermediate_path_noext,$(2)}_s.c $(2)
+	$$(Q)$$(WIDL_TARGET) ${call RBUILD_midlflags,$(1),$(4),-I${call RBUILD_dir,$(2)}} -h -H ${call RBUILD_intermediate_path_noext,$(2)}_s.h -s -S ${call RBUILD_intermediate_path_noext,$(2)}_s.c $(2)
 
 ${call RBUILD_CC,$(1),${call RBUILD_intermediate_path_noext,$(2)}_s.c,,-fno-unit-at-a-time,${call RBUILD_intermediate_path_noext,$(2)}_s.o}
 
@@ -281,9 +270,9 @@ define RBUILD_WIDL_PROXY_RULE
 
 $(2): $${$(1)_precondition}
 
-${call RBUILD_intermediate_path_noext,$(2)}_p.c ${call RBUILD_intermediate_path_noext,$(2)}_p.h: $(2) $(3) $$(widl_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
+${call RBUILD_intermediate_path_noext,$(2)}_p.c ${call RBUILD_intermediate_path_noext,$(2)}_p.h: $(2) $(3) $$(WIDL_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
 	$$(ECHO_WIDL)
-	$$(Q)$$(widl_TARGET) ${call RBUILD_midlflags,$(1),$(4),-I${call RBUILD_dir,$(2)}} -h -H ${call RBUILD_intermediate_path_noext,$(2)}_p.h -p -P ${call RBUILD_intermediate_path_noext,$(2)}_p.c $(2)
+	$$(Q)$$(WIDL_TARGET) ${call RBUILD_midlflags,$(1),$(4),-I${call RBUILD_dir,$(2)}} -h -H ${call RBUILD_intermediate_path_noext,$(2)}_p.h -p -P ${call RBUILD_intermediate_path_noext,$(2)}_p.c $(2)
 
 ${call RBUILD_CC,$(1),${call RBUILD_intermediate_path_noext,$(2)}_p.c,,-fno-unit-at-a-time,${call RBUILD_intermediate_path_noext,$(2)}_p.o}
 
@@ -294,9 +283,9 @@ define RBUILD_WIDL_INTERFACE_RULE
 
 $(2): $${$(1)_precondition}
 
-${call RBUILD_intermediate_path_noext,$(2)}_i.c: $(2) $(3) $$(widl_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
+${call RBUILD_intermediate_path_noext,$(2)}_i.c: $(2) $(3) $$(WIDL_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
 	$$(ECHO_WIDL)
-	$$(Q)$$(widl_TARGET) ${call RBUILD_midlflags,$(1),$(4),-I${call RBUILD_dir,$(2)}} -u -U $$@ $$<
+	$$(Q)$$(WIDL_TARGET) ${call RBUILD_midlflags,$(1),$(4),-I${call RBUILD_dir,$(2)}} -u -U $$@ $$<
 
 ${call RBUILD_CC,$(1),${call RBUILD_intermediate_path_noext,$(2)}_i.c,,-fno-unit-at-a-time,${call RBUILD_intermediate_path_noext,$(2)}_i.o}
 
@@ -306,9 +295,9 @@ endef
 #(module, source, dependencies, cflags, bare_dependencies)
 define RBUILD_WIDL_DLLDATA_RULE
 
-$(2): $(3) ${$(1)_precondition} $$(widl_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
+$(2): $(3) ${$(1)_precondition} $$(WIDL_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
 	$$(ECHO_WIDL)
-	$$(Q)$$(widl_TARGET) ${call RBUILD_midlflags,$(1),$(4)} --dlldata-only --dlldata=$(2) $(5)
+	$$(Q)$$(WIDL_TARGET) ${call RBUILD_midlflags,$(1),$(4)} --dlldata-only --dlldata=$(2) $(5)
 
 ${call RBUILD_CC,$(1),$(2),,,${call RBUILD_intermediate_path_noext,$(2)}.o}
 
@@ -319,9 +308,9 @@ define RBUILD_WIDL_TLB_RULE
 
 $(2): $${$(1)_precondition}
 
-${call RBUILD_intermediate_dir,$(2)}$$(SEP)$(1).tlb: $(2) $(3) $$(widl_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
+${call RBUILD_intermediate_dir,$(2)}$$(SEP)$(1).tlb: $(2) $(3) $$(WIDL_TARGET) | ${call RBUILD_intermediate_dir,$(2)}
 	$$(ECHO_WIDL)
-	$$(Q)$$(widl_TARGET) ${call RBUILD_midlflags,$(1),$(4),-I${call RBUILD_dir,$(2)}} -t -T $$@ $$<
+	$$(Q)$$(WIDL_TARGET) ${call RBUILD_midlflags,$(1),$(4),-I${call RBUILD_dir,$(2)}} -t -T $$@ $$<
 
 endef
 

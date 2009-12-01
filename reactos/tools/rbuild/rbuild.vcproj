@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="9.00"
+	Version="8,00"
 	Name="rbuild"
 	ProjectGUID="{D9305AFB-499E-49F1-A865-99DD7E19E762}"
 	RootNamespace="rbuild"
-	TargetFrameworkVersion="131072"
 	>
 	<Platforms>
 		<Platform
@@ -76,8 +75,6 @@
 				SuppressStartupBanner="true"
 				ProgramDatabaseFile=".\Release/rbuild.pdb"
 				SubSystem="1"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -97,6 +94,9 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -166,8 +166,6 @@
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\Debug/rbuild.pdb"
 				SubSystem="1"
-				RandomizedBaseAddress="1"
-				DataExecutionPrevention="0"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -187,6 +185,9 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -333,10 +334,6 @@
 							BasicRuntimeChecks="3"
 						/>
 					</FileConfiguration>
-				</File>
-				<File
-					RelativePath=".\backend\msvc\vcxprojmaker.cpp"
-					>
 				</File>
 			</Filter>
 			<Filter

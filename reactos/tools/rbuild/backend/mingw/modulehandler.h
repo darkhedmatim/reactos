@@ -11,9 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 #ifndef MINGW_MODULEHANDLER_H
 #define MINGW_MODULEHANDLER_H
@@ -113,9 +113,15 @@ protected:
 	std::string GetLinkerMacro () const;
 	static std::string GetDebugFormat ();
 	void GenerateCleanObjectsAsYouGoCode () const;
-	void GenerateLinkerCommand () const;
+	void GenerateRunRsymCode () const;
+	void GenerateRunStripCode () const;
+	void GenerateLinkerCommand ( const std::string& dependencies,
+	                             const std::string& linkerParameters,
+	                             const std::string& pefixupParameters );
+	void GeneratePhonyTarget() const;
 	void GenerateBuildMapCode ( const FileLocation *mapTarget = NULL );
 	void GenerateRules ();
+	void GenerateImportLibraryTarget (const FileLocation *defFilename, const FileLocation *library_target, bool delayimp);
 	void GenerateImportLibraryTargetIfNeeded ();
 	void GetDefinitionDependencies ( std::vector<FileLocation>& dependencies ) const;
 	std::string GetLinkingDependencies () const;

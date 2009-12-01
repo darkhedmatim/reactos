@@ -15,11 +15,6 @@
 
 /** Functions *****************************************************************/
 
-/*
-   flOpts :
-   GetTextExtentPoint32W = 0
-   GetTextExtentPointW   = 1
- */
 BOOL
 FASTCALL
 GreGetTextExtentW(
@@ -70,12 +65,6 @@ GreGetTextExtentW(
   return Result;
 } 
 
-
-/*
-   fl :
-   GetTextExtentExPointW = 0 and everything else that uses this.
-   GetTextExtentExPointI = 1
- */
 BOOL
 FASTCALL
 GreGetTextExtentExW(
@@ -246,12 +235,6 @@ NtGdiGetTextCharsetInfo(
   return Ret;
 }
 
-
-/*
-   fl :
-   GetTextExtentExPointW = 0 and everything else that uses this.
-   GetTextExtentExPointI = 1
- */
 W32KAPI
 BOOL
 APIENTRY
@@ -406,12 +389,6 @@ NtGdiGetTextExtentExW(
   return TRUE;
 }
 
-
-/*
-   flOpts :
-   GetTextExtentPoint32W = 0
-   GetTextExtentPointW   = 1
- */
 BOOL
 APIENTRY
 NtGdiGetTextExtent(HDC hdc,

@@ -24,7 +24,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 #ifndef O_BINARY
 #define O_BINARY 0
@@ -257,14 +259,14 @@ int main(int argc, char **argv)
       else if (!strcmp(argv[i], "-exports"))
          fixup_exports = 1;
       else
-         { fprintf(stderr, "Invalid option: %s\n", argv[i]); return 1; }
+         { printf("Invalid option: %s\n", argv[i]); return 1; }
    }
 
-   /*
-    * Nothing to do.
-    */
    if (fixup_sections == 0 && fixup_exports == 0)
+   {
+      printf("Nothing to do.\n");
       return 0;
+   }
 
    /*
     * Read the whole file to memory.
@@ -273,7 +275,7 @@ int main(int argc, char **argv)
    fd_in = open(argv[1], O_RDONLY | O_BINARY);
    if (fd_in == 0)
    {
-      fprintf(stderr, "Can't open input file.\n");
+      printf("Can't open input file.\n");
       return 1;
    }
 
@@ -288,7 +290,7 @@ int main(int argc, char **argv)
    if (len < sizeof(IMAGE_DOS_HEADER))
    {
       close(fd_in);
-      fprintf(stderr, "'%s' isn't a PE image (too short)\n", argv[1]);
+      printf("'%s' isn't a PE image (too short)\n", argv[1]);
       return 1;
    }
 
@@ -298,7 +300,7 @@ int main(int argc, char **argv)
    if (buffer == NULL)
    {
       close(fd_in);
-      fprintf(stderr, "Not enough memory available.\n");
+      printf("Not enough memory available.\n");
       return 1;
    }
 
@@ -321,7 +323,7 @@ int main(int argc, char **argv)
    if (dtohs(dos_header->e_magic) != IMAGE_DOS_SIGNATURE ||
        dtohl(nt_header->Signature) != IMAGE_NT_SIGNATURE)
    {
-      fprintf(stderr, "'%s' isn't a PE image (bad headers)\n", argv[1]);
+      printf("'%s' isn't a PE image (bad headers)\n", argv[1]);
       free(buffer);
       return 1;
    }
@@ -343,7 +345,7 @@ int main(int argc, char **argv)
             exports = malloc(sizeof(export_t) * dtohl(export_directory->NumberOfNames));
             if (exports == NULL)
             {
-               fprintf(stderr, "Not enough memory.\n");
+               printf("Not enough memory.\n");
                free(buffer);
                return 1;
             }

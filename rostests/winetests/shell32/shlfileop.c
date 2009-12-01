@@ -48,8 +48,8 @@
        "Expected %d, got %d\n", ret, retval)
 
 static CHAR CURR_DIR[MAX_PATH];
-static const WCHAR UNICODE_PATH[] = {'c',':','\\',0x00ae,'\0','\0'};
-    /* "c:\®" can be used in all codepages */
+static const WCHAR UNICODE_PATH[] = {'c',':','\\',0x00c4,'\0','\0'};
+    /* "c:\Ä", or "c:\A" with diaeresis */
     /* Double-null termination needed for pFrom field of SHFILEOPSTRUCT */
 
 static HMODULE hshell32;
@@ -207,11 +207,11 @@ static void test_get_file_info(void)
         memset(&shfiw, 0xcf, sizeof(shfiw));
         memset(&unset_icon, 0xcf, sizeof(unset_icon));
         rc=pSHGetFileInfoW(NULL, 0, &shfiw, sizeof(shfiw), 0);
-        ok(!rc, "SHGetFileInfoW(NULL | 0) should fail\n");
+        todo_wine ok(!rc, "SHGetFileInfoW(NULL | 0) should fail\n");
         ok(shfiw.hIcon == unset_icon, "SHGetFileInfoW(NULL | 0) should not clear hIcon\n");
-        ok(shfiw.szDisplayName[0] == 0xcfcf, "SHGetFileInfoW(NULL | 0) should not clear szDisplayName[0]\n");
-        ok(shfiw.szTypeName[0] == 0xcfcf, "SHGetFileInfoW(NULL | 0) should not clear szTypeName[0]\n");
-        ok(shfiw.iIcon == 0xcfcfcfcf, "SHGetFileInfoW(NULL | 0) should not clear iIcon\n");
+        todo_wine ok(shfiw.szDisplayName[0] == 0xcfcf, "SHGetFileInfoW(NULL | 0) should not clear szDisplayName[0]\n");
+        todo_wine ok(shfiw.szTypeName[0] == 0xcfcf, "SHGetFileInfoW(NULL | 0) should not clear szTypeName[0]\n");
+        todo_wine ok(shfiw.iIcon == 0xcfcfcfcf, "SHGetFileInfoW(NULL | 0) should not clear iIcon\n");
         ok(shfiw.dwAttributes == 0xcfcfcfcf, "SHGetFileInfoW(NULL | 0) should not clear dwAttributes\n");
     }
     else
@@ -1042,13 +1042,10 @@ static void test_copy(void)
     shfo.pTo = "testdir2\\a.txt\0testdir2\\b.txt\0testdir2\\c.txt\0";
     shfo.fAnyOperationsAborted = FALSE;
     retval = SHFileOperation(&shfo);
-    ok(retval == ERROR_SUCCESS ||
-       broken(retval == 0x100a1), /* WinMe */
-       "Expected ERROR_SUCCESS, got %d\n", retval);
+    ok(retval == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", retval);
     ok(DeleteFile("testdir2\\a.txt"), "Expected testdir2\\a.txt to exist\n");
     ok(DeleteFile("testdir2\\b.txt"), "Expected testdir2\\b.txt to exist\n");
-    if (retval == ERROR_SUCCESS)
-        ok(RemoveDirectory("testdir2\\c.txt"), "Expected testdir2\\c.txt to exist\n");
+    ok(RemoveDirectory("testdir2\\c.txt"), "Expected testdir2\\c.txt to exist\n");
 
     /* try many dest files without FOF_MULTIDESTFILES flag */
     shfo.pFrom = "test1.txt\0test2.txt\0test3.txt\0";
@@ -1076,9 +1073,7 @@ static void test_copy(void)
     shfo.pTo = "testdir2\0";
     shfo.fFlags &= ~FOF_MULTIDESTFILES;
     retval = SHFileOperation(&shfo);
-    ok(retval == ERROR_SUCCESS ||
-       broken(retval == 0x100a1), /* WinMe */
-       "Expected ERROR_SUCCESS, got %d\n", retval);
+    ok(retval == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", retval);
     ok(file_exists("testdir2\\test1.txt"), "Expected testdir2\\test1.txt to exist\n");
 
     /* try a glob with FOF_FILESONLY */
@@ -1195,28 +1190,18 @@ static void test_copy(void)
     shfo.fFlags &= ~FOF_MULTIDESTFILES;
     shfo.fAnyOperationsAborted = FALSE;
     retval = SHFileOperation(&shfo);
-    ok(retval == ERROR_SUCCESS ||
-       broken(retval == 0x100a1), /* WinMe */
-       "Expected ERROR_SUCCESS, got %d\n", retval);
-    if (retval == ERROR_SUCCESS)
-    {
-        ok(DeleteFile("testdir2\\test1.txt"), "Expected testdir2\\test1.txt to exist\n");
-        ok(DeleteFile("testdir2\\test4.txt\\a.txt"), "Expected a.txt to exist\n");
-        ok(RemoveDirectory("testdir2\\test4.txt"), "Expected testdir2\\test4.txt to exist\n");
-    }
+    ok(retval == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", retval);
+    ok(DeleteFile("testdir2\\test1.txt"), "Expected testdir2\\test1.txt to exist\n");
+    ok(DeleteFile("testdir2\\test4.txt\\a.txt"), "Expected a.txt to exist\n");
+    ok(RemoveDirectory("testdir2\\test4.txt"), "Expected testdir2\\test4.txt to exist\n");
 
     /* copy one directory and a file in that dir to another dir */
     shfo.pFrom = "test4.txt\0test4.txt\\a.txt\0";
     shfo.pTo = "testdir2\0";
     retval = SHFileOperation(&shfo);
-    ok(retval == ERROR_SUCCESS ||
-       broken(retval == 0x100a1), /* WinMe */
-       "Expected ERROR_SUCCESS, got %d\n", retval);
-    if (retval == ERROR_SUCCESS)
-    {
-        ok(DeleteFile("testdir2\\test4.txt\\a.txt"), "Expected a.txt to exist\n");
-        ok(DeleteFile("testdir2\\a.txt"), "Expected testdir2\\a.txt to exist\n");
-    }
+    ok(retval == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", retval);
+    ok(DeleteFile("testdir2\\test4.txt\\a.txt"), "Expected a.txt to exist\n");
+    ok(DeleteFile("testdir2\\a.txt"), "Expected testdir2\\a.txt to exist\n");
 
     /* copy a file in a directory first, and then the directory to a nonexistent dir */
     shfo.pFrom = "test4.txt\\a.txt\0test4.txt\0";
@@ -1377,21 +1362,13 @@ static void test_copy(void)
     createTestFile("test4.txt\\test1.txt");
     shfo.pFrom = "test4.txt\0";
     shfo.pTo = "testdir2\0";
-    /* WinMe needs FOF_NOERRORUI */
-    shfo.fFlags = FOF_NOCONFIRMATION | FOF_NOERRORUI;
-    retval = SHFileOperation(&shfo);
-    ok(retval == ERROR_SUCCESS ||
-       broken(retval == 0x100a1), /* WinMe */
-       "Expected ERROR_SUCCESS, got %d\n", retval);
     shfo.fFlags = FOF_NOCONFIRMATION;
-    if (ERROR_SUCCESS)
-    {
-        createTestFile("test4.txt\\.\\test1.txt"); /* modify the content of the file */
-        /* without FOF_NOCONFIRMATION the confirmation is "This folder already contains a folder named ..." */
-        retval = SHFileOperation(&shfo);
-        ok(retval == 0, "Expected 0, got %d\n", retval);
-        ok(file_has_content("testdir2\\test4.txt\\test1.txt", "test4.txt\\.\\test1.txt\n"), "The file was not copied\n");
-    }
+    ok(!SHFileOperation(&shfo), "First SHFileOperation failed\n");
+    createTestFile("test4.txt\\.\\test1.txt"); /* modify the content of the file */
+    /* without FOF_NOCONFIRMATION the confirmation is "This folder already contains a folder named ..." */
+    retval = SHFileOperation(&shfo);
+    ok(retval == 0, "Expected 0, got %d\n", retval);
+    ok(file_has_content("testdir2\\test4.txt\\test1.txt", "test4.txt\\.\\test1.txt\n"), "The file was not copied\n");
 
     createTestFile("one.txt");
 
@@ -1978,7 +1955,6 @@ static void test_sh_path_prepare(void)
 {
     HRESULT res;
     CHAR path[MAX_PATH];
-    CHAR UNICODE_PATH_A[MAX_PATH];
 
     if(!pSHPathPrepareForWriteA)
     {
@@ -2011,14 +1987,12 @@ static void test_sh_path_prepare(void)
     set_curr_dir_path(path, "test1.txt\0");
     res = pSHPathPrepareForWriteA(0, 0, path, SHPPFW_NONE);
     ok(res == HRESULT_FROM_WIN32(ERROR_DIRECTORY) ||
-       res == HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND) || /* WinMe */
        res == HRESULT_FROM_WIN32(ERROR_INVALID_NAME), /* Vista */
        "Unexpected result : 0x%08x\n", res);
 
     /* file exists, SHPPFW_DIRCREATE */
     res = pSHPathPrepareForWriteA(0, 0, path, SHPPFW_DIRCREATE);
     ok(res == HRESULT_FROM_WIN32(ERROR_DIRECTORY) ||
-       res == HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND) || /* WinMe */
        res == HRESULT_FROM_WIN32(ERROR_INVALID_NAME), /* Vista */
        "Unexpected result : 0x%08x\n", res);
 
@@ -2026,7 +2000,6 @@ static void test_sh_path_prepare(void)
     set_curr_dir_path(path, "test1.txt\\\0");
     res = pSHPathPrepareForWriteA(0, 0, path, SHPPFW_NONE);
     ok(res == HRESULT_FROM_WIN32(ERROR_DIRECTORY) ||
-       res == HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND) || /* WinMe */
        res == HRESULT_FROM_WIN32(ERROR_INVALID_NAME), /* Vista */
        "Unexpected result : 0x%08x\n", res);
 
@@ -2067,22 +2040,19 @@ static void test_sh_path_prepare(void)
 
     if(!pSHPathPrepareForWriteW)
     {
-        win_skip("Skipping SHPathPrepareForWriteW tests\n");
+        skip("Skipping SHPathPrepareForWriteW tests\n");
         return;
     }
-    WideCharToMultiByte(CP_ACP, 0, UNICODE_PATH, -1, UNICODE_PATH_A, sizeof(UNICODE_PATH_A), NULL, NULL);
-
     /* unicode directory doesn't exist, SHPPFW_NONE */
-    RemoveDirectoryA(UNICODE_PATH_A);
     res = pSHPathPrepareForWriteW(0, 0, UNICODE_PATH, SHPPFW_NONE);
     ok(res == HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND), "res == %08x, expected HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND)\n", res);
-    ok(!file_exists(UNICODE_PATH_A), "unicode path was created but shouldn't be\n");
-    RemoveDirectoryA(UNICODE_PATH_A);
+    ok(!file_existsW(UNICODE_PATH), "unicode path was created but shouldn't be\n");
+    RemoveDirectoryW(UNICODE_PATH);
 
     /* unicode directory doesn't exist, SHPPFW_DIRCREATE */
     res = pSHPathPrepareForWriteW(0, 0, UNICODE_PATH, SHPPFW_DIRCREATE);
     ok(res == S_OK, "res == %08x, expected S_OK\n", res);
-    ok(file_exists(UNICODE_PATH_A), "unicode path should've been created\n");
+    ok(file_existsW(UNICODE_PATH), "unicode path should've been created\n");
 
     /* unicode directory exists, SHPPFW_NONE */
     res = pSHPathPrepareForWriteW(0, 0, UNICODE_PATH, SHPPFW_NONE);
@@ -2091,7 +2061,7 @@ static void test_sh_path_prepare(void)
     /* unicode directory exists, SHPPFW_DIRCREATE */
     res = pSHPathPrepareForWriteW(0, 0, UNICODE_PATH, SHPPFW_DIRCREATE);
     ok(res == S_OK, "ret == %08x, expected S_OK\n", res);
-    RemoveDirectoryA(UNICODE_PATH_A);
+    RemoveDirectoryW(UNICODE_PATH);
 }
 
 static void test_sh_new_link_info(void)

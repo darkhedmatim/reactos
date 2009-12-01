@@ -15,9 +15,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 #ifdef _MSC_VER
 #pragma warning ( disable : 4786 )
@@ -70,7 +70,6 @@ void MSVCBackend::Process()
 	m_configurations.push_back ( new MSVCConfiguration( Debug ));
 	m_configurations.push_back ( new MSVCConfiguration( Release ));
 	m_configurations.push_back ( new MSVCConfiguration( Speed ));
-	m_configurations.push_back ( new MSVCConfiguration( RosBuild ));
 
 	if (!only_msvc_headers)
 	{
@@ -124,8 +123,6 @@ void MSVCBackend::ProcessModules()
 
 		if (configuration.VSProjectVersion == "6.00")
 			_generate_dsp ( module );
-		else if (configuration.VSProjectVersion == "10.00")
-			_generate_vcxproj ( module );
 		else
 			_generate_vcproj ( module );
 	}
@@ -288,12 +285,10 @@ std::string MSVCBackend::_get_vc_dir ( void ) const
 		return "vc70";
 	else if ( configuration.VSProjectVersion == "7.10" )
 		return "vc71";
-	else if ( configuration.VSProjectVersion == "8.00" )
-		return "vc8";
-	else if ( configuration.VSProjectVersion == "10.00" )
-		return "vc10";
-	else /* default to VS2008 */
+	else if ( configuration.VSProjectVersion == "9.00" )
 		return "vc9";
+	else /* must be VS2005 */
+		return "vc8";
 
 
 }

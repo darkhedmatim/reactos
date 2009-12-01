@@ -124,10 +124,11 @@ WinLdrLoadSystemHive(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
 	return TRUE;
 }
 
-BOOLEAN WinLdrInitSystemHive(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
-                             IN LPCSTR DirectoryPath)
+BOOLEAN WinLdrLoadAndScanSystemHive(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
+                                    IN LPCSTR DirectoryPath)
 {
 	CHAR SearchPath[1024];
+	CHAR AnsiName[256], OemName[256], LangName[256];
 	BOOLEAN Status;
 
 	// There is a simple logic here: try to load usual hive (system), if it
@@ -159,16 +160,6 @@ BOOLEAN WinLdrInitSystemHive(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
 		UiMessageBox("Initializing CurrentControlSet link failed!");
 		return FALSE;
 	}
-
-	return TRUE;
-}
-
-BOOLEAN WinLdrScanSystemHive(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
-                             IN LPCSTR DirectoryPath)
-{
-	CHAR SearchPath[1024];
-	CHAR AnsiName[256], OemName[256], LangName[256];
-	BOOLEAN Status;
 
 	// Scan registry and prepare boot drivers list
 	WinLdrScanRegistry(LoaderBlock, DirectoryPath);

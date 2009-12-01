@@ -184,13 +184,9 @@ static void *CRYPT_MemEnumCert(PWINECRYPT_CERTSTORE store, void *pPrev)
 static BOOL CRYPT_MemDeleteCert(PWINECRYPT_CERTSTORE store, void *pCertContext)
 {
     WINE_MEMSTORE *ms = (WINE_MEMSTORE *)store;
-    BOOL ret;
 
-    if (ContextList_Remove(ms->certs, pCertContext))
-        ret = CertFreeCertificateContext(pCertContext);
-    else
-        ret = TRUE;
-    return ret;
+    ContextList_Delete(ms->certs, pCertContext);
+    return TRUE;
 }
 
 static BOOL CRYPT_MemAddCrl(PWINECRYPT_CERTSTORE store, void *crl,
@@ -229,13 +225,9 @@ static void *CRYPT_MemEnumCrl(PWINECRYPT_CERTSTORE store, void *pPrev)
 static BOOL CRYPT_MemDeleteCrl(PWINECRYPT_CERTSTORE store, void *pCrlContext)
 {
     WINE_MEMSTORE *ms = (WINE_MEMSTORE *)store;
-    BOOL ret;
 
-    if (ContextList_Remove(ms->crls, pCrlContext))
-        ret = CertFreeCRLContext(pCrlContext);
-    else
-        ret = TRUE;
-    return ret;
+    ContextList_Delete(ms->crls, pCrlContext);
+    return TRUE;
 }
 
 static BOOL CRYPT_MemAddCtl(PWINECRYPT_CERTSTORE store, void *ctl,
@@ -274,20 +266,9 @@ static void *CRYPT_MemEnumCtl(PWINECRYPT_CERTSTORE store, void *pPrev)
 static BOOL CRYPT_MemDeleteCtl(PWINECRYPT_CERTSTORE store, void *pCtlContext)
 {
     WINE_MEMSTORE *ms = (WINE_MEMSTORE *)store;
-    BOOL ret;
 
-    if (ContextList_Remove(ms->ctls, pCtlContext))
-        ret = CertFreeCTLContext(pCtlContext);
-    else
-        ret = TRUE;
-    return ret;
-}
-
-static BOOL WINAPI CRYPT_MemControl(HCERTSTORE hCertStore, DWORD dwFlags,
- DWORD dwCtrlType, void const *pvCtrlPara)
-{
-    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
-    return FALSE;
+    ContextList_Delete(ms->ctls, pCtlContext);
+    return TRUE;
 }
 
 static void WINAPI CRYPT_MemCloseStore(HCERTSTORE hCertStore, DWORD dwFlags)
@@ -333,7 +314,7 @@ static WINECRYPT_CERTSTORE *CRYPT_MemOpenStore(HCRYPTPROV hCryptProv,
             store->hdr.ctls.addContext     = CRYPT_MemAddCtl;
             store->hdr.ctls.enumContext    = CRYPT_MemEnumCtl;
             store->hdr.ctls.deleteContext  = CRYPT_MemDeleteCtl;
-            store->hdr.control             = CRYPT_MemControl;
+            store->hdr.control             = NULL;
             store->certs = ContextList_Create(pCertInterface,
              sizeof(CERT_CONTEXT));
             store->crls = ContextList_Create(pCRLInterface,
@@ -985,7 +966,10 @@ BOOL WINAPI CertDeleteCertificateFromStore(PCCERT_CONTEXT pCertContext)
     if (!pCertContext)
         ret = TRUE;
     else if (!pCertContext->hCertStore)
-        ret = CertFreeCertificateContext(pCertContext);
+    {
+        ret = TRUE;
+        CertFreeCertificateContext(pCertContext);
+    }
     else
     {
         PWINECRYPT_CERTSTORE hcs = pCertContext->hCertStore;
@@ -995,7 +979,7 @@ BOOL WINAPI CertDeleteCertificateFromStore(PCCERT_CONTEXT pCertContext)
         else
             ret = hcs->certs.deleteContext(hcs, (void *)pCertContext);
         if (ret)
-            ret = CertFreeCertificateContext(pCertContext);
+            CertFreeCertificateContext(pCertContext);
     }
     return ret;
 }
@@ -1121,7 +1105,10 @@ BOOL WINAPI CertDeleteCRLFromStore(PCCRL_CONTEXT pCrlContext)
     if (!pCrlContext)
         ret = TRUE;
     else if (!pCrlContext->hCertStore)
-        ret = CertFreeCRLContext(pCrlContext);
+    {
+        ret = TRUE;
+        CertFreeCRLContext(pCrlContext);
+    }
     else
     {
         PWINECRYPT_CERTSTORE hcs = pCrlContext->hCertStore;
@@ -1130,8 +1117,7 @@ BOOL WINAPI CertDeleteCRLFromStore(PCCRL_CONTEXT pCrlContext)
             ret = FALSE;
         else
             ret = hcs->crls.deleteContext(hcs, (void *)pCrlContext);
-        if (ret)
-            ret = CertFreeCRLContext(pCrlContext);
+        CertFreeCRLContext(pCrlContext);
     }
     return ret;
 }
@@ -1175,8 +1161,6 @@ BOOL WINAPI CertCloseStore(HCERTSTORE hCertStore, DWORD dwFlags)
     if ( hcs->dwMagic != WINE_CRYPTCERTSTORE_MAGIC )
         return FALSE;
 
-    if (hcs->ref <= 0)
-        ERR("%p's ref count is %d\n", hcs, hcs->ref);
     if (InterlockedDecrement(&hcs->ref) == 0)
     {
         TRACE("%p's ref count is 0, freeing\n", hcs);

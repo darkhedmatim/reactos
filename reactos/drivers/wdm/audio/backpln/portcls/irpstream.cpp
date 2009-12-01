@@ -35,11 +35,11 @@ public:
     virtual ~CIrpQueue(){}
 
 protected:
-    volatile ULONG m_CurrentOffset;
+    ULONG m_CurrentOffset;
     LONG m_NumMappings;
     ULONG m_NumDataAvailable;
     BOOL m_StartStream;
-    PKSPIN_CONNECT m_ConnectDetails;
+    KSPIN_CONNECT * m_ConnectDetails;
     PKSDATAFORMAT_WAVEFORMATEX m_DataFormat;
 
     KSPIN_LOCK m_IrpListLock;
@@ -110,8 +110,9 @@ CIrpQueue::Init(
 NTSTATUS
 NTAPI
 CIrpQueue::AddMapping(
-    IN PIRP Irp,
-    OUT PULONG Data)
+    IN PUCHAR Buffer,
+    IN ULONG BufferSize,
+    IN PIRP Irp)
 {
     PKSSTREAM_HEADER Header;
     NTSTATUS Status = STATUS_SUCCESS;
@@ -123,6 +124,8 @@ CIrpQueue::AddMapping(
 
     // get current irp stack location
     IoStack = IoGetCurrentIrpStackLocation(Irp);
+
+    PC_ASSERT(!Buffer);
 
     if (!Irp->MdlAddress)
     {
@@ -145,14 +148,7 @@ CIrpQueue::AddMapping(
     }
 
     // get first stream header
-
-   if (Irp->RequestorMode == UserMode)
-       Header = (PKSSTREAM_HEADER)Irp->AssociatedIrp.SystemBuffer;
-   else
-       Header = (PKSSTREAM_HEADER)Irp->UserBuffer;
-
-    // sanity check
-    PC_ASSERT(Header);
+    Header = (PKSSTREAM_HEADER)Irp->AssociatedIrp.SystemBuffer;
 
     // calculate num headers
     NumHeaders = IoStack->Parameters.DeviceIoControl.OutputBufferLength / Header->Size;
@@ -163,8 +159,7 @@ CIrpQueue::AddMapping(
 
     // get first audio buffer
     Mdl = Irp->MdlAddress;
-    // sanity check
-    PC_ASSERT(Mdl);
+
 
     // store the current stream header
     Irp->Tail.Overlay.DriverContext[OFFSET_STREAMHEADER] = (PVOID)Header;
@@ -174,31 +169,29 @@ CIrpQueue::AddMapping(
     // store current header index
     Irp->Tail.Overlay.DriverContext[OFFSET_HEADERINDEX] = UlongToPtr(0);
 
+
     NumData = 0;
     // prepare all headers
-    for(Index = 0; Index < NumHeaders; Index++)
-    {
+	for(Index = 0; Index < NumHeaders; Index++)
+	{
         // sanity checks
         PC_ASSERT(Header);
         PC_ASSERT(Mdl);
 
-        if (Irp->RequestorMode == UserMode)
-        {
-            Header->Data = MmGetSystemAddressForMdlSafe(Mdl, NormalPagePriority);
-        }
+        Header->Data = MmGetSystemAddressForMdlSafe(Mdl, NormalPagePriority);
 
         if (!Header->Data)
-        {
+		{
             // insufficient resources
             ExFreePool(Irp->AssociatedIrp.SystemBuffer);
             Irp->AssociatedIrp.SystemBuffer = NULL;
-            // complete and forget request
+			// complete and forget request
             Irp->IoStatus.Status = STATUS_INSUFFICIENT_RESOURCES;
             Irp->IoStatus.Information = 0;
 
             IoCompleteRequest(Irp, IO_NO_INCREMENT); 
             return STATUS_INSUFFICIENT_RESOURCES;
-        }
+		}
 
         // increment num mappings
         InterlockedIncrement(&m_NumMappings);
@@ -214,10 +207,10 @@ CIrpQueue::AddMapping(
         
         // move to next mdl
         Mdl = Mdl->Next;
-    }
+	}
 
     DPRINT("StreamHeaders %u NumData %u FrameSize %u NumDataAvailable %u\n", NumHeaders, NumData, m_MaxFrameSize, m_NumDataAvailable);
-    *Data = NumData;
+
 
     // mark irp as pending
     IoMarkIrpPending(Irp);
@@ -322,7 +315,7 @@ CIrpQueue::UpdateMapping(
    // ASSERT(StreamHeader);
 
     // add to current offset
-    InterlockedExchangeAdd((volatile PLONG)&m_CurrentOffset, (LONG)BytesWritten);
+    m_CurrentOffset += BytesWritten;
 
     // decrement available data counter
     m_NumDataAvailable -= BytesWritten;
@@ -337,7 +330,7 @@ CIrpQueue::UpdateMapping(
     if (m_CurrentOffset >= Size)
     {
         if (STREAMHEADER_INDEX(m_Irp) + 1 < STREAMHEADER_COUNT(m_Irp))
-        {
+		{
             // the irp has at least one more stream header
             m_Irp->Tail.Overlay.DriverContext[OFFSET_HEADERINDEX] = UlongToPtr(STREAMHEADER_INDEX(m_Irp) + 1);
 
@@ -352,19 +345,16 @@ CIrpQueue::UpdateMapping(
 
             // done
             return;
-        }
+		}
 
-       // irp has been processed completly
+        // irp has been processed completly
 
         NumData = 0;
-        if (m_Irp->RequestorMode == KernelMode)
-            StreamHeader = (PKSSTREAM_HEADER)m_Irp->UserBuffer;
-        else
-            StreamHeader = (PKSSTREAM_HEADER)m_Irp->AssociatedIrp.SystemBuffer;
+        StreamHeader = (PKSSTREAM_HEADER)m_Irp->AssociatedIrp.SystemBuffer;
 
         // loop all stream headers
         for(Index = 0; Index < STREAMHEADER_COUNT(m_Irp); Index++)
-        {
+		{
             PC_ASSERT(StreamHeader);
 
             // add size of buffer
@@ -379,29 +369,19 @@ CIrpQueue::UpdateMapping(
 
             // get next stream header
             StreamHeader = (PKSSTREAM_HEADER)((ULONG_PTR)StreamHeader + StreamHeader->Size);
-        }
-
-        if (m_ConnectDetails->Interface.Id == KSINTERFACE_STANDARD_LOOPED_STREAMING)
-        {
-            // looped streaming repeat the buffers untill
-            // the caller decides to stop the streams
-
-            // reset stream header index
-            m_Irp->Tail.Overlay.DriverContext[OFFSET_HEADERINDEX] = UlongToPtr(0);
-            // re-insert irp
-            KsAddIrpToCancelableQueue(&m_IrpList, &m_IrpListLock, m_Irp, KsListEntryTail, NULL);
-            // clear current irp
-            m_Irp = NULL;
-            // reset offset
-            m_CurrentOffset = 0;
-            // increment available data
-            InterlockedExchangeAdd((PLONG)&m_NumDataAvailable, NumData);
-            // done
-            return;
-        }
+		}
 
         m_Irp->IoStatus.Status = STATUS_SUCCESS;
         m_Irp->IoStatus.Information = NumData;
+
+#if 0
+        PC_ASSERT_IRQL(DISPATCH_LEVEL);
+        MmUnlockPages(m_Irp->MdlAddress);
+        IoFreeMdl(m_Irp->MdlAddress);
+        m_Irp->MdlAddress = NULL;
+        ExFreePool(m_Irp->AssociatedIrp.SystemBuffer);
+        m_Irp->AssociatedIrp.SystemBuffer = NULL;
+#endif
 
         // complete the request
         IoCompleteRequest(m_Irp, IO_SOUND_INCREMENT);
@@ -454,20 +434,8 @@ BOOL
 NTAPI
 CIrpQueue::CancelBuffers()
 {
-    // is there an active irp
-    if (m_Irp)
-    {
-        // re-insert it to cancelable queue
-        KsAddIrpToCancelableQueue(&m_IrpList, &m_IrpListLock, m_Irp, KsListEntryTail, NULL);
-        //set it to zero
-        m_Irp = NULL;
-    }
 
-    // cancel all irps
-    KsCancelIo(&m_IrpList, &m_IrpListLock);
-    // reset stream start flag
     m_StartStream = FALSE;
-    // done
     return TRUE;
 }
 
@@ -584,12 +552,11 @@ CIrpQueue::HasLastMappingFailed()
     return m_OutOfMapping;
 }
 
-ULONG
+VOID
 NTAPI
-CIrpQueue::GetCurrentIrpOffset()
+CIrpQueue::PrintQueueStatus()
 {
 
-    return m_CurrentOffset;
 }
 
 VOID

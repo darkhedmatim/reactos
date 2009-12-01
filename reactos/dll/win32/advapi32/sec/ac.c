@@ -581,11 +581,6 @@ SetEntriesInAclW(ULONG cCountOfExplicitEntries,
 {
     DWORD ErrorCode;
 
-    if (!NewAcl)
-    {
-        return ERROR_INVALID_PARAMETER;
-    }
-
     ErrorCode = CheckNtMartaPresent();
     if (ErrorCode == ERROR_SUCCESS)
     {

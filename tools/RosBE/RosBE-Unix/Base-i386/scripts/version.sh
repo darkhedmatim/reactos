@@ -6,7 +6,7 @@
 #
 # Released under GNU GPL v2 or any later version.
 
-source "$_ROSBE_ROSSCRIPTDIR/setuplibrary.sh"
+source "$_ROSBE_ROSSCRIPTDIR/rosbelibrary.sh"
 
 # Display RosBE version
 echo "This is the ReactOS Build Environment for Unix-based Operating Systems"
@@ -14,10 +14,10 @@ echo "Version $_ROSBE_VERSION"
 echo
 
 # Environment Information
-rs_boldmsg "Environment Information"
+boldmsg "Environment Information"
 echo "Selected Target Architecture: $_ROSBE_ARCH"
 echo
 
 # Display tool versions
-rs_boldmsg "Build Tools"
+boldmsg "Build Tools"
 source "$_ROSBE_ROSSCRIPTDIR/$_ROSBE_ARCH/version.sh"

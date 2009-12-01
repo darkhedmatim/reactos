@@ -981,25 +981,25 @@ static MUI_ENTRY deDEBootLoaderEntries[] =
     {
         6,
         8,
-        "Setup installiert nun den Boot-Loader.",
+        "Setup installiert nun den Boot-Sektor.",
         TEXT_STYLE_NORMAL
     },
     {
         8,
         12,
-        "Boot-Loader auf der Festplatte installieren (Boot-Sektor).",
+        "Boot-Sektor im MBR installieren.",
         TEXT_STYLE_NORMAL
     },
     {
         8,
         13,
-        "Boot-Loader auf einer Diskette installieren.",
+        "Boot-Sektor auf einer Diskette installieren.",
         TEXT_STYLE_NORMAL
     },
     {
         8,
         14,
-        "Boot-Loader nicht installieren.",
+        "Boot-Sektor nicht installieren.",
         TEXT_STYLE_NORMAL
     },
     {

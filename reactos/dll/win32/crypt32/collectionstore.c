@@ -255,19 +255,11 @@ static BOOL CRYPT_CollectionDeleteCert(PWINECRYPT_CERTSTORE store,
  void *pCertContext)
 {
     BOOL ret;
-    PCCERT_CONTEXT linked;
 
     TRACE("(%p, %p)\n", store, pCertContext);
 
-    /* Deleting the linked context results in its ref count getting
-     * decreased, but the caller of this (CertDeleteCertificateFromStore) also
-     * decreases pCertContext's ref count, by calling
-     * CertFreeCertificateContext.  Increase ref count of linked context to
-     * compensate.
-     */
-    linked = Context_GetLinkedContext(pCertContext, sizeof(CERT_CONTEXT));
-    CertDuplicateCertificateContext(linked);
-    ret = CertDeleteCertificateFromStore(linked);
+    ret = CertDeleteCertificateFromStore(
+     Context_GetLinkedContext(pCertContext, sizeof(CERT_CONTEXT)));
     return ret;
 }
 
@@ -341,18 +333,11 @@ static BOOL CRYPT_CollectionDeleteCRL(PWINECRYPT_CERTSTORE store,
  void *pCrlContext)
 {
     BOOL ret;
-    PCCRL_CONTEXT linked;
 
     TRACE("(%p, %p)\n", store, pCrlContext);
 
-    /* Deleting the linked context results in its ref count getting
-     * decreased, but the caller of this (CertDeleteCRLFromStore) also
-     * decreases pCrlContext's ref count, by calling CertFreeCRLContext.
-     * Increase ref count of linked context to compensate.
-     */
-    linked = Context_GetLinkedContext(pCrlContext, sizeof(CRL_CONTEXT));
-    CertDuplicateCRLContext(linked);
-    ret = CertDeleteCRLFromStore(linked);
+    ret = CertDeleteCRLFromStore(
+     Context_GetLinkedContext(pCrlContext, sizeof(CRL_CONTEXT)));
     return ret;
 }
 
@@ -426,57 +411,11 @@ static BOOL CRYPT_CollectionDeleteCTL(PWINECRYPT_CERTSTORE store,
  void *pCtlContext)
 {
     BOOL ret;
-    PCCTL_CONTEXT linked;
 
     TRACE("(%p, %p)\n", store, pCtlContext);
 
-    /* Deleting the linked context results in its ref count getting
-     * decreased, but the caller of this (CertDeleteCTLFromStore) also
-     * decreases pCtlContext's ref count, by calling CertFreeCTLContext.
-     * Increase ref count of linked context to compensate.
-     */
-    linked = Context_GetLinkedContext(pCtlContext, sizeof(CTL_CONTEXT));
-    CertDuplicateCTLContext(linked);
-    ret = CertDeleteCTLFromStore(linked);
-    return ret;
-}
-
-static BOOL WINAPI CRYPT_CollectionControl(HCERTSTORE hCertStore, DWORD dwFlags,
- DWORD dwCtrlType, void const *pvCtrlPara)
-{
-    BOOL ret;
-    PWINE_COLLECTIONSTORE store = hCertStore;
-    PWINE_STORE_LIST_ENTRY entry;
-
-    TRACE("(%p, %08x, %d, %p)\n", hCertStore, dwFlags, dwCtrlType,
-     pvCtrlPara);
-
-    if (!store)
-        return TRUE;
-    if (store->hdr.dwMagic != WINE_CRYPTCERTSTORE_MAGIC)
-    {
-        SetLastError(E_INVALIDARG);
-        return FALSE;
-    }
-    if (store->hdr.type != StoreTypeCollection)
-    {
-        SetLastError(E_INVALIDARG);
-        return FALSE;
-    }
-
-    ret = TRUE;
-    EnterCriticalSection(&store->cs);
-    LIST_FOR_EACH_ENTRY(entry, &store->stores, WINE_STORE_LIST_ENTRY, entry)
-    {
-        if (entry->store->control)
-        {
-            ret = entry->store->control(entry->store, dwFlags, dwCtrlType,
-             pvCtrlPara);
-            if (!ret)
-                break;
-        }
-    }
-    LeaveCriticalSection(&store->cs);
+    ret = CertDeleteCTLFromStore(
+     Context_GetLinkedContext(pCtlContext, sizeof(CTL_CONTEXT)));
     return ret;
 }
 
@@ -507,7 +446,6 @@ PWINECRYPT_CERTSTORE CRYPT_CollectionOpenStore(HCRYPTPROV hCryptProv,
             store->hdr.ctls.addContext     = CRYPT_CollectionAddCTL;
             store->hdr.ctls.enumContext    = CRYPT_CollectionEnumCTL;
             store->hdr.ctls.deleteContext  = CRYPT_CollectionDeleteCTL;
-            store->hdr.control             = CRYPT_CollectionControl;
             InitializeCriticalSection(&store->cs);
             store->cs.DebugInfo->Spare[0] = (DWORD_PTR)(__FILE__ ": PWINE_COLLECTIONSTORE->cs");
             list_init(&store->stores);

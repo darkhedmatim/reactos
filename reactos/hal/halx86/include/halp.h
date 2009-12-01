@@ -23,60 +23,17 @@
 #define TIMER_BOTH              0x30
 #define TIMER_MD2               0x4
 
-/* Usage flags */
-#define IDT_REGISTERED          0x01
-#define IDT_LATCHED             0x02
-#define IDT_INTERNAL            0x11
-#define IDT_DEVICE              0x21
-
 /* Conversion functions */
 #define BCD_INT(bcd)            \
     (((bcd & 0xF0) >> 4) * 10 + (bcd & 0x0F))
 #define INT_BCD(int)            \
     (UCHAR)(((int / 10) << 4) + (int % 10))
 
-typedef struct _IDTUsageFlags
-{
-    UCHAR Flags;
-} IDTUsageFlags;
-
-typedef struct
-{
-    KIRQL Irql;
-    UCHAR BusReleativeVector;
-} IDTUsage;
-
-typedef struct _HalAddressUsage
-{
-    struct _HalAddressUsage *Next;
-    CM_RESOURCE_TYPE Type;
-    UCHAR Flags;
-    struct
-    {
-        ULONG Start;
-        ULONG Length;
-    } Element[];
-} ADDRESS_USAGE, *PADDRESS_USAGE;
-
 /* adapter.c */
 PADAPTER_OBJECT NTAPI HalpAllocateAdapterEx(ULONG NumberOfMapRegisters,BOOLEAN IsMaster, BOOLEAN Dma32BitAddresses);
 
-/* sysinfo.c */
-VOID
-NTAPI
-HalpRegisterVector(IN UCHAR Flags,
-                   IN ULONG BusVector,
-                   IN ULONG SystemVector,
-                   IN KIRQL Irql);
-
-VOID
-NTAPI
-HalpEnableInterruptHandler(IN UCHAR Flags,
-                           IN ULONG BusVector,
-                           IN ULONG SystemVector,
-                           IN KIRQL Irql,
-                           IN PVOID Handler,
-                           IN KINTERRUPT_MODE Mode);
+/* bus.c */
+VOID NTAPI HalpInitNonBusHandler (VOID);
 
 /* irql.c */
 VOID NTAPI HalpInitPICs(VOID);
@@ -88,6 +45,12 @@ VOID
 NTAPI
 HalpCalibrateStallExecution(VOID);
 
+ULONG
+NTAPI
+HalpQuery8254Counter(
+    VOID
+);
+
 /* pci.c */
 VOID HalpInitPciBus (VOID);
 
@@ -98,7 +61,6 @@ VOID HalpInitDma (VOID);
 VOID HalpInitPhase0 (PLOADER_PARAMETER_BLOCK LoaderBlock);
 VOID HalpInitPhase1(VOID);
 VOID NTAPI HalpClockInterrupt(VOID);
-VOID NTAPI HalpProfileInterrupt(VOID);
 
 //
 // KD Support
@@ -211,30 +173,6 @@ HaliHaltSystem(
     VOID
 );
 
-//
-// CMOS initialization
-//
-VOID
-NTAPI
-HalpInitializeCmos(
-    VOID
-);
-
-//
-// Spinlock for protecting CMOS access
-//
-VOID
-NTAPI
-HalpAcquireSystemHardwareSpinLock(
-    VOID
-);
-
-VOID
-NTAPI
-HalpReleaseCmosSpinLock(
-    VOID
-);
-
 #ifdef _M_AMD64
 #define KfLowerIrql KeLowerIrql
 #ifndef CONFIG_SMP
@@ -249,10 +187,6 @@ HalpReleaseCmosSpinLock(
 extern PVOID HalpRealModeStart;
 extern PVOID HalpRealModeEnd;
 
-extern ADDRESS_USAGE HalpDefaultIoSpace;
-
 extern KSPIN_LOCK HalpSystemHardwareLock;
-
-extern PADDRESS_USAGE HalpAddressUsageList;
 
 #endif /* __INTERNAL_HAL_HAL_H */

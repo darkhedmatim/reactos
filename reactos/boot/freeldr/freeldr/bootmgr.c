@@ -12,9 +12,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License along
- *  with this program; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include <freeldr.h>
@@ -22,7 +22,6 @@
 VOID RunLoader(VOID)
 {
 	CHAR	SettingValue[80];
-	CHAR BootType[80];
 	ULONG_PTR	SectionId;
 	ULONG		OperatingSystemCount;
 	PCSTR	*OperatingSystemSectionNames;
@@ -99,49 +98,53 @@ VOID RunLoader(VOID)
 		if (IniOpenSection(SectionName, &SectionId))
 		{
 			// Try to read the boot type
-			IniReadSettingByName(SectionId, "BootType", BootType, sizeof(BootType));
+			IniReadSettingByName(SectionId, "BootType", SettingValue, sizeof(SettingValue));
 		}
-		else
-			BootType[0] = ANSI_NULL;
 
-		if (BootType[0] == ANSI_NULL && SectionName[0] != ANSI_NULL)
+		if (SettingValue[0] == ANSI_NULL && SectionName[0] != ANSI_NULL)
 		{
 			// Try to infere boot type value
 #ifdef __i386__
-			ULONG FileId;
-			if (ArcOpen((CHAR*)SectionName, OpenReadOnly, &FileId) == ESUCCESS)
+			CHAR LastChar;
+			LastChar = SectionName[strlen(SectionName) - 1];
+			if (LastChar == '\\' ||
+			    (strstr(SectionName, ")partition(") != NULL &&
+			     strstr(SectionName, ")partition(0)") == NULL))
 			{
-				ArcClose(FileId);
-				strcpy(BootType, "BootSector");
+				strcpy(SettingValue, "Partition");
+			}
+			else if (LastChar == ')' || LastChar == ':')
+			{
+				strcpy(SettingValue, "Drive");
+			}
+			else if (TRUE)
+			{
+				strcpy(SettingValue, "BootSector");
 			}
 			else
 #endif
 			{
-				strcpy(BootType, "Windows");
+				strcpy(SettingValue, "Windows2003");
 			}
 		}
-
-		// Get OS setting value
-		IniOpenSection("Operating Systems", &SectionId);
-		IniReadSettingByName(SectionId, SectionName, SettingValue, sizeof(SettingValue));
 
 		// Install the drive mapper according to this sections drive mappings
 #ifdef __i386__
 		DriveMapMapDrivesInSection(SectionName);
 #endif
-		if (_stricmp(BootType, "ReactOS") == 0)
+		if (_stricmp(SettingValue, "ReactOS") == 0)
 		{
 			LoadAndBootReactOS(SectionName);
 		}
 #ifdef FREELDR_REACTOS_SETUP
-		else if (_stricmp(BootType, "ReactOSSetup") == 0)
+		else if (_stricmp(SettingValue, "ReactOSSetup") == 0)
 		{
 			// In future we could pass the selected OS details through this
 			// to have different install methods, etc.
 			LoadReactOSSetup();
 		}
 #ifdef __i386__
-		else if (_stricmp(BootType, "ReactOSSetup2") == 0)
+		else if (_stricmp(SettingValue, "ReactOSSetup2") == 0)
 		{
 			// WinLdr-style boot
 			LoadReactOSSetup2();
@@ -149,31 +152,27 @@ VOID RunLoader(VOID)
 #endif
 #endif
 #ifdef __i386__
-		else if (_stricmp(BootType, "Windows") == 0)
+		else if (_stricmp(SettingValue, "WindowsNT40") == 0)
 		{
-			LoadAndBootWindows(SectionName, SettingValue, 0);
+			LoadAndBootWindows(SectionName, _WIN32_WINNT_NT4);
 		}
-		else if (_stricmp(BootType, "WindowsNT40") == 0)
+		else if (_stricmp(SettingValue, "Windows2003") == 0)
 		{
-			LoadAndBootWindows(SectionName, SettingValue, _WIN32_WINNT_NT4);
+			LoadAndBootWindows(SectionName, _WIN32_WINNT_WS03);
 		}
-		else if (_stricmp(BootType, "Windows2003") == 0)
-		{
-			LoadAndBootWindows(SectionName, SettingValue, _WIN32_WINNT_WS03);
-		}
-		else if (_stricmp(BootType, "Linux") == 0)
+		else if (_stricmp(SettingValue, "Linux") == 0)
 		{
 			LoadAndBootLinux(SectionName, OperatingSystemDisplayNames[SelectedOperatingSystem]);
 		}
-		else if (_stricmp(BootType, "BootSector") == 0)
+		else if (_stricmp(SettingValue, "BootSector") == 0)
 		{
 			LoadAndBootBootSector(SectionName);
 		}
-		else if (_stricmp(BootType, "Partition") == 0)
+		else if (_stricmp(SettingValue, "Partition") == 0)
 		{
 			LoadAndBootPartition(SectionName);
 		}
-		else if (_stricmp(BootType, "Drive") == 0)
+		else if (_stricmp(SettingValue, "Drive") == 0)
 		{
 			LoadAndBootDrive(SectionName);
 		}

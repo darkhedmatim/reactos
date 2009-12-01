@@ -213,12 +213,15 @@ HalCalibratePerformanceCounter(
 }
 
 
-VOID
+BOOLEAN
 NTAPI
-HalDisableSystemInterrupt(ULONG Vector,
-                          KIRQL Irql)
+HalDisableSystemInterrupt(
+  ULONG Vector,
+  KIRQL Irql)
 {
-    UNIMPLEMENTED;
+  UNIMPLEMENTED;
+
+  return TRUE;
 }
 
 
@@ -581,13 +584,15 @@ HalStartNextProcessor(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
 }
 
 
-UCHAR
+ULONG
 FASTCALL
-HalSystemVectorDispatchEntry(IN ULONG Vector,
-                             OUT PKINTERRUPT_ROUTINE **FlatDispatch,
-                             OUT PKINTERRUPT_ROUTINE *NoConnection)
+HalSystemVectorDispatchEntry(
+  ULONG Unknown1,
+  ULONG Unknown2,
+  ULONG Unknown3)
 {
   UNIMPLEMENTED;
+
   return 0;
 }
 

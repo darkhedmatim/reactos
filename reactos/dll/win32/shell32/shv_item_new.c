@@ -579,11 +579,11 @@ static HRESULT WINAPI INewItem_fnQueryInterface(INewMenuImpl * This, REFIID riid
         IsEqualIID(riid, &IID_IContextMenu) ||
         IsEqualIID(riid, &IID_IContextMenu2))
      {
-         *ppvObj = (void *)&This->lpVtblContextMenu;
+         *ppvObj = &This->lpVtblContextMenu;
      }
      else if(IsEqualIID(riid, &IID_IShellExtInit))
      {
-         *ppvObj = (void *)&This->lpvtblShellExtInit;
+         *ppvObj = &This->lpvtblShellExtInit;
      }
 
 

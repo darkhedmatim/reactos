@@ -2778,8 +2778,7 @@ static struct expr * EXPR_column( void *info, const column_info *column )
     if( e )
     {
         e->type = EXPR_COLUMN;
-        e->u.column.column = column->column;
-        e->u.column.table = column->table;
+        e->u.sval = column->column;
     }
     return e;
 }

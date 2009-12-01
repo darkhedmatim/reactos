@@ -888,10 +888,6 @@ ProbeMdl:
             goto ProbeMdl;
     }
 
-#if 0
-    // HACK for MS PORTCLS
-	HeaderSize = Length;
-#endif
     /* probe user mode buffers */
     if (Length && ( (!HeaderSize) || (Length % HeaderSize == 0) || ((ProbeFlags & KSPROBE_ALLOWFORMATCHANGE) && (Length == sizeof(KSSTREAM_HEADER))) ) )
     {
@@ -1240,7 +1236,6 @@ KsCancelIo(
     PDRIVER_CANCEL OldDriverCancel;
     PIO_STACK_LOCATION IoStack;
     PLIST_ENTRY Entry;
-    PLIST_ENTRY NextEntry;
     PIRP Irp;
     KIRQL OldLevel;
 
@@ -1253,9 +1248,6 @@ KsCancelIo(
     {
         /* get irp offset */
         Irp = (PIRP)CONTAINING_RECORD(Entry, IRP, Tail.Overlay.ListEntry);
-
-        /* get next entry */
-        NextEntry = Entry->Flink;
 
         /* set cancelled bit */
         Irp->Cancel = TRUE;
@@ -1279,9 +1271,8 @@ KsCancelIo(
             /* re-acquire spinlock */
             KeAcquireSpinLock(SpinLock, &OldLevel);
         }
-
         /* move on to next entry */
-        Entry = NextEntry;
+        Entry = Entry->Flink;
     }
 
     /* the irp has already been canceled */
@@ -1791,7 +1782,6 @@ KspCreate(
     NTSTATUS Status;
 
     DPRINT("KS / CREATE\n");
-
     /* get current stack location */
     IoStack = IoGetCurrentIrpStackLocation(Irp);
     /* get device extension */
@@ -1843,6 +1833,7 @@ KspCreate(
         }
         return Status;
     }
+
 
     Irp->IoStatus.Information = 0;
     /* set return status */
@@ -1949,7 +1940,7 @@ KsSetMajorFunctionHandler(
     IN  ULONG MajorFunction)
 {
     DPRINT("KsSetMajorFunctionHandler Function %x\n", MajorFunction);
-#if 1
+#if 0
     // HACK
     // for MS PORTCLS
     //

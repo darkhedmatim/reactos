@@ -14,9 +14,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include <w32k.h>
@@ -444,7 +444,7 @@ NtGdiSetDIBitsToDeviceInternal(
     SIZEL SourceSize;
     EXLATEOBJ exlo;
     PPALETTE ppalDDB = NULL, ppalDIB = NULL;
-    HPALETTE hpalDDB, hpalDIB = NULL;
+    HPALETTE DDBPalette, DIBPalette = NULL;
     ULONG DIBPaletteType;
 
     if (!Bits) return 0;
@@ -478,13 +478,13 @@ NtGdiSetDIBitsToDeviceInternal(
     }
 
     /* Use destination palette obtained from the DC by default */
-    hpalDDB = pDC->ppdev->devinfo.hpalDefault;
+    DDBPalette = pDC->ppdev->devinfo.hpalDefault;
 
     /* Try to use hDIBPalette if it exists */
     pSurf = pDC->dclevel.pSurface;
     if (pSurf && pSurf->hDIBPalette)
     {
-        hpalDDB = pSurf->hDIBPalette;
+        DDBPalette = pSurf->hDIBPalette;
     }
 
     pDestSurf = pSurf ? &pSurf->SurfObj : NULL;
@@ -526,7 +526,7 @@ NtGdiSetDIBitsToDeviceInternal(
     }
 
     /* Obtain destination palette */
-    ppalDDB = PALETTE_LockPalette(hpalDDB);
+    ppalDDB = PALETTE_LockPalette(DDBPalette);
     if (!ppalDDB)
     {
         SetLastWin32Error(ERROR_INVALID_HANDLE);
@@ -534,21 +534,11 @@ NtGdiSetDIBitsToDeviceInternal(
         goto Exit;
     }
 
-    /* Create a palette for the DIB */
-    hpalDIB = BuildDIBPalette(bmi, (PINT)&DIBPaletteType);
-    if (!hpalDIB)
+    DIBPalette = BuildDIBPalette(bmi, (PINT)&DIBPaletteType);
+    if (!DIBPalette)
     {
         SetLastWin32Error(ERROR_NO_SYSTEM_RESOURCES);
         Status = STATUS_NO_MEMORY;
-        goto Exit;
-    }
-
-    /* Lock the DIB palette */
-    ppalDIB = PALETTE_LockPalette(hpalDIB);
-    if (!ppalDDB)
-    {
-        SetLastWin32Error(ERROR_INVALID_HANDLE);
-        Status = STATUS_UNSUCCESSFUL;
         goto Exit;
     }
 
@@ -583,7 +573,7 @@ Exit:
 
     if (pSourceSurf) EngUnlockSurface(pSourceSurf);
     if (hSourceBitmap) EngDeleteSurface((HSURF)hSourceBitmap);
-    if (hpalDIB) PALETTE_FreePaletteByHandle(hpalDIB);
+    if (DIBPalette) PALETTE_FreePaletteByHandle(DIBPalette);
     DC_UnlockDc(pDC);
 
     return ret;

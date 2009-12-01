@@ -4,7 +4,7 @@
 	<include base="ReactOS">include/reactos/libs/sound</include>
 	<include base="wdmaud_kernel">.</include>
 	<include base="libsamplerate">.</include>
-	<define name="NDEBUG">1</define>
+	<define name="DEBUG_NT4" /><!-- Use custom debug routines -->
 	<!-- <define name="USERMODE_MIXER" /> Enable this line to for usermode mixing support -->
 	<library>mmebuddy</library>
 	<library>ntdll</library>

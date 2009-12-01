@@ -425,18 +425,14 @@ const void *CRYPT_ReadSerializedElement(const BYTE *pbElement, DWORD cbElement,
 
 static const BYTE fileHeader[] = { 0, 0, 0, 0, 'C','E','R','T' };
 
-typedef BOOL (*read_serialized_func)(void *handle, void *buffer,
- DWORD bytesToRead, DWORD *bytesRead);
-
-static BOOL CRYPT_ReadSerializedStore(void *handle,
- read_serialized_func read_func, HCERTSTORE store)
+BOOL CRYPT_ReadSerializedStoreFromFile(HANDLE file, HCERTSTORE store)
 {
     BYTE fileHeaderBuf[sizeof(fileHeader)];
     DWORD read;
     BOOL ret;
 
     /* Failure reading is non-critical, we'll leave the store empty */
-    ret = read_func(handle, fileHeaderBuf, sizeof(fileHeaderBuf), &read);
+    ret = ReadFile(file, fileHeaderBuf, sizeof(fileHeaderBuf), &read, NULL);
     if (ret)
     {
         if (!read)
@@ -452,7 +448,7 @@ static BOOL CRYPT_ReadSerializedStore(void *handle,
             DWORD bufSize = 0;
 
             do {
-                ret = read_func(handle, &propHdr, sizeof(propHdr), &read);
+                ret = ReadFile(file, &propHdr, sizeof(propHdr), &read, NULL);
                 if (ret && read == sizeof(propHdr))
                 {
                     if (contextInterface && context &&
@@ -474,7 +470,7 @@ static BOOL CRYPT_ReadSerializedStore(void *handle,
                     }
                     if (buf)
                     {
-                        ret = read_func(handle, buf, propHdr.cb, &read);
+                        ret = ReadFile(file, buf, propHdr.cb, &read, NULL);
                         if (ret && read == propHdr.cb)
                         {
                             if (propHdr.propID == CERT_CERT_PROP_ID)
@@ -499,18 +495,8 @@ static BOOL CRYPT_ReadSerializedStore(void *handle,
                                  CERT_STORE_ADD_NEW, &context);
                             }
                             else
-                            {
-                                if (!contextInterface)
-                                {
-                                    WARN("prop id %d before a context id\n",
-                                     propHdr.propID);
-                                    ret = FALSE;
-                                }
-                                else
-                                    ret = CRYPT_ReadContextProp(
-                                     contextInterface, context, &propHdr, buf,
-                                     read);
-                            }
+                                ret = CRYPT_ReadContextProp(contextInterface,
+                                 context, &propHdr, buf, read);
                         }
                     }
                     else
@@ -531,48 +517,6 @@ static BOOL CRYPT_ReadSerializedStore(void *handle,
     else
         ret = TRUE;
     return ret;
-}
-
-static BOOL read_file_wrapper(void *handle, void *buffer, DWORD bytesToRead,
- DWORD *bytesRead)
-{
-    return ReadFile(handle, buffer, bytesToRead, bytesRead, NULL);
-}
-
-BOOL CRYPT_ReadSerializedStoreFromFile(HANDLE file, HCERTSTORE store)
-{
-    return CRYPT_ReadSerializedStore(file, read_file_wrapper, store);
-}
-
-struct BlobReader
-{
-    const CRYPT_DATA_BLOB *blob;
-    DWORD current;
-};
-
-static BOOL read_blob_wrapper(void *handle, void *buffer, DWORD bytesToRead,
- DWORD *bytesRead)
-{
-    struct BlobReader *reader = handle;
-    BOOL ret;
-
-    if (reader->current < reader->blob->cbData)
-    {
-        *bytesRead = min(bytesToRead, reader->blob->cbData - reader->current);
-        memcpy(buffer, reader->blob->pbData + reader->current, *bytesRead);
-        ret = TRUE;
-    }
-    else
-        ret = FALSE;
-    return ret;
-}
-
-BOOL CRYPT_ReadSerializedStoreFromBlob(const CRYPT_DATA_BLOB *blob,
- HCERTSTORE store)
-{
-    struct BlobReader reader = { blob, 0 };
-
-    return CRYPT_ReadSerializedStore(&reader, read_blob_wrapper, store);
 }
 
 static BOOL WINAPI CRYPT_SerializeCertNoHash(PCCERT_CONTEXT pCertContext,

@@ -42,19 +42,23 @@ static HWND VisibleDesktopWindow = NULL;
 static LRESULT CALLBACK
 DtbgWindowProc(HWND Wnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
-  PAINTSTRUCT PS;
-  HDC hDC;
-
-    switch(Msg)
+  switch(Msg)
     {
       case WM_ERASEBKGND:
-        PaintDesktop((HDC)wParam);
         return 1;
 
       case WM_PAINT:
       {
-        if((hDC = BeginPaint(Wnd, &PS)))
+        PAINTSTRUCT PS;
+        RECT rc;
+        HDC hDC;
+
+        if(GetUpdateRect(Wnd, &rc, FALSE) &&
+           (hDC = BeginPaint(Wnd, &PS)))
+        {
+          PaintDesktop(hDC);
           EndPaint(Wnd, &PS);
+        }
         return 0;
       }
 
@@ -65,9 +69,6 @@ DtbgWindowProc(HWND Wnd, UINT Msg, WPARAM wParam, LPARAM lParam)
         return (LRESULT) TRUE;
 
       case WM_CREATE:
-        return 0;
-
-      case WM_CLOSE:
         return 0;
 
       case WM_NOTIFY:
@@ -110,9 +111,6 @@ DtbgWindowProc(HWND Wnd, UINT Msg, WPARAM wParam, LPARAM lParam)
             return 0;
         }
       }
-
-      default:
-        return DefWindowProcW(Wnd, Msg, wParam, lParam);
     }
 
   return 0;

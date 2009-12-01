@@ -445,8 +445,7 @@ static UINT ACTION_AppSearchReg(MSIPACKAGE *package, LPWSTR *appValue, MSISIGNAT
     if (sz == 0)
         goto end;
 
-    if ((regType == REG_SZ || regType == REG_EXPAND_SZ) &&
-        (ptr = strchrW((LPWSTR)value, '"')) && (end = strchrW(++ptr, '"')))
+    if ((ptr = strchrW((LPWSTR)value, '"')) && (end = strchrW(++ptr, '"')))
         *end = '\0';
     else
         ptr = (LPWSTR)value;

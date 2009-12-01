@@ -270,11 +270,9 @@ PspDeleteProcess(IN PVOID ObjectBody)
         Process->SectionObject = NULL;
     }
 
-#if defined(_X86_)
-    /* Clean Ldt and Vdm objects */
+    /* Clean LDT and VDM_OBJECTS */
     PspDeleteLdt(Process);
     PspDeleteVdmObjects(Process);
-#endif
 
     /* Delete the Object Table */
     if (Process->ObjectTable)

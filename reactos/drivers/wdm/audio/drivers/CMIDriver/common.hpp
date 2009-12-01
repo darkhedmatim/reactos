@@ -41,7 +41,8 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cmireg.hpp"
 
 class CCMIAdapter : public ICMIAdapter,
-                    public IAdapterPowerManagement
+                    public IAdapterPowerManagement,
+                    public CUnknown
 {
 private:
     PDEVICE_OBJECT		DeviceObject;
@@ -55,25 +56,8 @@ private:
     void resetController();
 
 public:
-    STDMETHODIMP QueryInterface( REFIID InterfaceId, PVOID* Interface);
-    STDMETHODIMP_(ULONG) AddRef()
-    {
-        InterlockedIncrement(&m_Ref);
-        return m_Ref;
-    }
-    STDMETHODIMP_(ULONG) Release()
-    {
-        InterlockedDecrement(&m_Ref);
-
-        if (!m_Ref)
-        {
-            delete this;
-            return 0;
-        }
-        return m_Ref;
-    }
-
-    CCMIAdapter(IUnknown *OuterUnknown){}
+    DECLARE_STD_UNKNOWN();
+    DEFINE_STD_CONSTRUCTOR(CCMIAdapter);
     ~CCMIAdapter();
 
     IMP_IAdapterPowerManagement;
@@ -104,7 +88,7 @@ public:
 
     STDMETHODIMP_(void)		resetMixer();
 
-    static NTSTATUS NTAPI			InterruptServiceRoutine(PINTERRUPTSYNC InterruptSync, PVOID StaticContext);
+    static NTSTATUS			InterruptServiceRoutine(PINTERRUPTSYNC InterruptSync, PVOID StaticContext);
 
     STDMETHODIMP_(PCMI8738Info) getCMI8738Info(void)
     {
@@ -121,9 +105,6 @@ public:
     };
 
     friend NTSTATUS NewCCMIAdapter(PCMIADAPTER* OutCMIAdapter, PRESOURCELIST ResourceList);
-
-    LONG m_Ref;
-
 };
 
 NTSTATUS NewCMIAdapter(PUNKNOWN* Unknown, REFCLSID, PUNKNOWN UnknownOuter, POOL_TYPE PoolType);

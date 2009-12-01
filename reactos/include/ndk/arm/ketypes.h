@@ -47,7 +47,7 @@ Author:
 //
 // HAL Variables
 //
-#define INITIAL_STALL_COUNT     100
+#define INITIAL_STALL_COUNT     0x64
 
 //
 // Static Kernel-Mode Address start (use MM_KSEG0_BASE for actual)
@@ -83,17 +83,6 @@ typedef struct _KTRAP_FRAME
     ULONG PreviousMode;
     ULONG PreviousTrapFrame;
 } KTRAP_FRAME, *PKTRAP_FRAME;
-
-//
-// Defines the Callback Stack Layout for User Mode Callbacks
-//
-// Just a stub with some required members for now
-//
-typedef struct _KCALLOUT_FRAME
-{
-    ULONG CallbackStack;
-    ULONG DummyFramePointer;
-} KCALLOUT_FRAME, *PKCALLOUT_FRAME;
 
 #ifndef NTOS_MODE_USER
 

@@ -11,9 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 #ifndef __RBUILD_H
 #define __RBUILD_H
@@ -378,6 +378,8 @@ public:
 	ImportLibrary* delayImportLibrary;
 	Metadata* metadata;
 	Bootsector* bootSector;
+	bool mangledSymbols;
+	bool underscoreSymbols;
 	bool isUnicode;
 	bool isDefaultEntryPoint;
 	Bootstrap* bootstrap;
@@ -418,7 +420,7 @@ public:
 	bool IsDLL () const;
 	std::string GetPathWithPrefix ( const std::string& prefix ) const; // "path/prefixfoo.exe"
 	std::string GetPathToBaseDir() const; // "../" offset to rootdirectory
-	std::string GetEntryPoint() const;
+	std::string GetEntryPoint(bool leadingUnderscore) const;
 	void GetTargets ( string_list& ) const;
 	std::string GetInvocationTarget ( const int index ) const;
 	bool HasFileWithExtension ( const IfableData&, const std::string& extension ) const;

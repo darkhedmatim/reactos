@@ -17,7 +17,7 @@ Pin_fnDeviceIoControl(
     PDISPATCH_CONTEXT Context;
     NTSTATUS Status;
     ULONG BytesReturned;
-    PFILE_OBJECT FileObject = NULL;
+    PFILE_OBJECT FileObject;
     PIO_STACK_LOCATION IoStack;
 
     DPRINT("Pin_fnDeviceIoControl called DeviceObject %p Irp %p\n", DeviceObject, Irp);
@@ -131,7 +131,7 @@ Pin_fnClose(
     PDISPATCH_CONTEXT Context;
     PIO_STACK_LOCATION IoStack;
 
-    //DPRINT("Pin_fnClose called DeviceObject %p Irp %p\n", DeviceObject, Irp);
+    DPRINT("Pin_fnClose called DeviceObject %p Irp %p\n", DeviceObject, Irp);
 
     /* Get current stack location */
     IoStack = IoGetCurrentIrpStackLocation(Irp);
@@ -143,11 +143,7 @@ Pin_fnClose(
     {
         ZwClose(Context->Handle);
     }
-
-    if (Context->hMixerPin)
-    {
-        ZwClose(Context->hMixerPin);
-    }
+    ZwClose(Context->hMixerPin);
 
     ExFreePool(Context);
 
@@ -221,7 +217,7 @@ CreateMixerPinAndSetFormat(
 {
     NTSTATUS Status;
     HANDLE PinHandle;
-    PFILE_OBJECT FileObject = NULL;
+    PFILE_OBJECT FileObject;
 
     Status = KsCreatePin(KMixerHandle, PinConnect, GENERIC_READ | GENERIC_WRITE, &PinHandle);
 
@@ -246,7 +242,6 @@ CreateMixerPinAndSetFormat(
     {
         ObDereferenceObject(FileObject);
         ZwClose(PinHandle);
-        return Status;
     }
 
     ObDereferenceObject(FileObject);
@@ -305,13 +300,6 @@ InstantiatePins(
 
     if (!NT_SUCCESS(Status))
     {
-        /* FIXME disable kmixer
-         */
-        return STATUS_UNSUCCESSFUL;
-    }
-#if 0
-    if (!NT_SUCCESS(Status))
-    {
         /* the audio irp pin didnt accept the input format
          * let's compute a compatible format
          */
@@ -352,7 +340,6 @@ InstantiatePins(
             return Status;
         }
     }
-#endif
 
     DeviceEntry->Pins[Connect->PinId].References = 0;
 
@@ -361,8 +348,6 @@ InstantiatePins(
     DispatchContext->PinId = Connect->PinId;
     DispatchContext->AudioEntry = DeviceEntry;
 
-
-    DPRINT("RealPinHandle %p\n", RealPinHandle);
 
     /* Do we need to transform the audio stream */
     if (OutputFormat != NULL)

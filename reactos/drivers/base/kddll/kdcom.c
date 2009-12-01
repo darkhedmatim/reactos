@@ -204,7 +204,6 @@ KdDebuggerInitialize0(
 
     /* Get base address */
     ComPortBase = UlongToPtr(BaseArray[ComPortNumber]);
-    KdComPortInUse = ComPortBase;
 
     /* Initialize the port */
     return KdpPortInitialize();
@@ -217,11 +216,6 @@ KdpSendByte(IN BYTE Byte)
     /* Wait for the port to be ready */
     while ((READ_PORT_UCHAR(ComPortBase + COM_LSR) & LSR_TBE) == 0);
 
-    /* This is needed due to subtle timing issues */
-    READ_PORT_UCHAR(ComPortBase + COM_MSR);
-    while ((READ_PORT_UCHAR(ComPortBase + COM_LSR) & LSR_TBE) == 0);
-    READ_PORT_UCHAR(ComPortBase + COM_MSR);
-
     /* Send the byte */
     WRITE_PORT_UCHAR(ComPortBase + COM_DAT, Byte);
 }
@@ -230,8 +224,6 @@ KDP_STATUS
 NTAPI
 KdpPollByte(OUT PBYTE OutByte)
 {
-    READ_PORT_UCHAR(ComPortBase + COM_MSR); // Timing
-
     /* Check if data is available */
     if ((READ_PORT_UCHAR(ComPortBase + COM_LSR) & LSR_DR))
     {

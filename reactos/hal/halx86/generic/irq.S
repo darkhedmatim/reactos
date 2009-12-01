@@ -20,7 +20,7 @@ PICInitTable:
 
     /* Master PIC */
     .short 0x20                         /* Port */
-    .byte 0x11                          /* Edge, cascade, CAI 8, ICW4 */
+    .byte 0x11                          /* Edge,, cascade, CAI 8, ICW4 */
     .byte PRIMARY_VECTOR_BASE           /* Base */
     .byte 4                             /* IRQ 4 connected to slave */
     .byte 1                             /* Non buffered, not nested, 8086 */
@@ -69,73 +69,25 @@ KiI8259MaskTable:
     .long 0xFFFFFFFB                    /* IRQL 30 */
     .long 0xFFFFFFFB                    /* IRQL 31 */
 
-FindHigherIrqlMask:
-    .long 0xFFFFFFFE                    /* IRQL  0 */
-    .long 0xFFFFFFFC                    /* IRQL 1 */
-    .long 0xFFFFFFF8                    /* IRQL 2 */
-    .long 0xFFFFFFF0                    /* IRQL 3 */
-    .long 0x7FFFFF0                     /* IRQL 4 */
-    .long 0x3FFFFF0                     /* IRQL 5 */
-    .long 0x1FFFFF0                     /* IRQL 6 */
-    .long 0x0FFFFF0                     /* IRQL 7 */
-    .long 0x7FFFF0                      /* IRQL 8 */
-    .long 0x3FFFF0                      /* IRQL 9 */
-    .long 0x1FFFF0                      /* IRQL 10 */
-    .long 0x0FFFF0                      /* IRQL 11 */
-    .long 0x7FFF0                       /* IRQL 12 */
-    .long 0x3FFF0                       /* IRQL 13 */
-    .long 0x1FFF0                       /* IRQL 14 */
-    .long 0x0FFF0                       /* IRQL 15 */
-    .long 0x7FF0                        /* IRQL 16 */
-    .long 0x3FF0                        /* IRQL 17 */
-    .long 0x1FF0                        /* IRQL 18 */
-    .long 0x1FF0                        /* IRQL 19 */
-    .long 0x17F0                        /* IRQL 20 */
-    .long 0x13F0                        /* IRQL 21 */
-    .long 0x11F0                        /* IRQL 22 */
-    .long 0x10F0                        /* IRQL 23 */
-    .long 0x1070                        /* IRQL 24 */
-    .long 0x1030                        /* IRQL 25 */
-    .long 0x1010                        /* IRQL 26 */
-    .long 0x10                          /* IRQL 27 */
-    .long 0                             /* IRQL 28 */
-    .long 0                             /* IRQL 29 */
-    .long 0                             /* IRQL 30 */
-    .long 0                             /* IRQL 31 */
-
-HalpSpecialDismissTable:
-    .rept 7
+HalpSysIntHandler:
+.rept 7
     .long GenericIRQ                    /* IRQ 0-7 */
-    .endr
+.endr
     .long IRQ7                          /* IRQ 7 */
-    .rept 5
-    .long GenericIRQ                    /* IRQ 8-12 */
-    .endr
-    .long IRQ13                         /* IRQ 13 */
-    .long GenericIRQ                    /* IRQ 14 */
+.rept 7
+    .long GenericIRQ                    /* IRQ 8-15 */
+.endr
     .long IRQ15                         /* IRQ 15 */
-    .rept 20
+.rept 20
     .long GenericIRQ                    /* IRQ 16-35 */
-    .endr
+.endr
 #if DBG
 .rept 172
     .long InvalidIRQ                    /* IRQ 36-207 */
 .endr
 #endif
 
-HalpSpecialDismissLevelTable:
-    .rept 7
-    .long GenericIRQLevel               /* IRQ 0-7 */
-    .endr
-    .long IRQ7Level                     /* IRQ 7 */
-    .rept 5
-    .long GenericIRQLevel               /* IRQ 8-12 */
-    .endr
-    .long IRQ13Level                    /* IRQ 13 */
-    .long GenericIRQLevel               /* IRQ 14 */
-    .long IRQ15Level                    /* IRQ 15 */
-
-SWInterruptLookUpTable:
+SoftIntByteTable:
     .byte PASSIVE_LEVEL                 /* IRR 0 */
     .byte PASSIVE_LEVEL                 /* IRR 1 */
     .byte APC_LEVEL                     /* IRR 2 */
@@ -145,12 +97,12 @@ SWInterruptLookUpTable:
     .byte DISPATCH_LEVEL                /* IRR 6 */
     .byte DISPATCH_LEVEL                /* IRR 7 */
 
-SWInterruptHandlerTable:
+SoftIntHandlerTable:
     .long _KiUnexpectedInterrupt        /* PASSIVE_LEVEL */
     .long _HalpApcInterrupt             /* APC_LEVEL */
     .long _HalpDispatchInterrupt        /* DISPATCH_LEVEL */
 
-SWInterruptHandlerTable2:
+SoftIntHandlerTable2:
     .long _KiUnexpectedInterrupt        /* PASSIVE_LEVEL */
     .long _HalpApcInterrupt2ndEntry     /* APC_LEVEL */
     .long _HalpDispatchInterrupt2ndEntry /* DISPATCH_LEVEL */
@@ -159,39 +111,6 @@ _UnhandledMsg:
     .asciz "\n\x7\x7!!! Unhandled or Unexpected Code at line: %lx!!!\n"
 
 /* FUNCTIONS *****************************************************************/
-
-/* HAL interrupt handlers */
-GENERATE_HAL_INT_HANDLERS
-
-.globl _HalpHardwareInterruptLevel
-.func HalpHardwareInterruptLevel
-_HalpHardwareInterruptLevel:
-
-    /* Get IRQL and check for pending interrupts */
-    mov eax, PCR[KPCR_IRQL]
-    mov ecx, PCR[KPCR_IRR]
-    and ecx, FindHigherIrqlMask[eax*4]
-    jz NothingHardware
-
-    /* Check the active IRR */
-    test dword ptr PCR[KPCR_IRR_ACTIVE], 0xFFFFFFF0
-    jnz NothingHardware
-
-    /* Check for pending software interrupts */
-    mov eax, ecx
-    bsr ecx, eax
-    mov eax, 1
-    shl eax, cl
-
-    /* Clear IRR */
-    xor PCR[KPCR_IRR], eax
-
-    /* Now dispatch the interrupt */
-    call SWInterruptHandlerTable[ecx*4]
-
-NothingHardware:
-    ret
-.endfunc
 
 .globl _HalpInitPICs@0
 .func HalpInitPICs@0
@@ -231,23 +150,7 @@ InitLoop:
     cmp ax, 0
     jnz InitLoop
 
-    /* Read EISA Edge/Level Register */
-    mov edx, 0x4D1
-    in al, dx
-    mov ah, al
-    dec edx
-    in al, dx
-
-    /* Clear reserved bits and see if there's anything there */
-    and eax, 0xDEF8
-    cmp eax, 0xDEF8
-    jz NoEisa
-
-    /* FIXME */
-    //UNHANDLED_PATH
-
-/* Restore interrupts and return */
-NoEisa:
+    /* Restore interrupts and return */
     popf
     pop esi
     ret
@@ -289,12 +192,12 @@ NoEisa:
 
     /* Get highest pending software interrupt and check if it's higher */
     xor edx, edx
-    mov dl, SWInterruptLookUpTable[eax]
+    mov dl, SoftIntByteTable[eax]
     cmp dl, cl
     jbe AfterCall
 
     /* Call the pending interrupt */
-    call SWInterruptHandlerTable[edx*4]
+    call SoftIntHandlerTable[edx*4]
 
 AfterCall:
 
@@ -346,53 +249,38 @@ _HalEnableSystemInterrupt@12:
     cmp ecx, CLOCK2_LEVEL
     jnb Invalid
 
-#if 0
-    /* Is PCI IRQ Routing enabled? */
-    cmp byte ptr _HalpIrqMiniportInitialized, 0
-    jz NoMiniport
+    /* Get the current PCI Edge/Level control registers */
+    mov edx, 0x4D1
+    in al, dx
+    shl ax, 8
+    mov edx, 0x4D0
+    in al, dx
+    mov dx, 1
+    shl dx, cl
+    and dx, 0xDEF8
 
-    /* UNHANDLED */
-    UNHANDLED_PATH
-
-NoMiniport:
-    /* Check if this is an EISA IRQ */
-    bt _HalpEisaIrqIgnore, ecx
-    jb IgnoredIrq
-
-    /* Clear the EISA Edge/Level Control Register */
-    btr _HalpEisaELCR, ecx
-
-    /* Get the interrupt type */
-    mov al, [esp+12]
-    cmp al, 0
+    /* Check if this is a latched interrupt */
+    cmp dword ptr [esp+12], 0
     jnz Latched
 
-    /* Check the register again */
-    bt _HalpEisaELCR, ecx
-    jb Dismiss
-
-    /* Check if the miniport is active */
-    cmp byte ptr _HalpIrqMiniportInitialized, 0
-    jz Dismiss
-
-    /* Update the EISA Edge/Level Control Register */
-    bts _HalpEisaELCR, ecx
-
-Dismiss:
-    /* Use the level hardware interrupt handler */
-    mov dword ptr SWInterruptHandlerTableHardware[ecx*4], offset _HalpHardwareInterruptLevel
-    mov edx, HalpSpecialDismissLevelTable[ecx*4]
-    mov HalpSpecialDismissTable[ecx*4], edx
-
+    /* Use OR for edge interrupt */
+    or ax, dx
+    jmp AfterMask
 Latched:
-    /* Is PCI IRQ Routing enabled? */
-    cmp byte ptr _HalpIrqMiniportInitialized, 0
-    jz IgnoredIrq
 
-    /* UNHANDLED */
-    UNHANDLED_PATH
-#endif
-IgnoredIrq:
+    /* Mask it out for level interrupt */
+    not dx
+    and ax, dx
+
+AfterMask:
+
+    /* Set the PCI Edge/Level control registers */
+    mov edx, 0x4D0
+    out dx, al
+    shr ax, 8
+    mov edx, 0x4D1
+    out dx, al
+
     /* Calculate the new IDR */
     mov eax, 1
     shl eax, cl
@@ -428,10 +316,9 @@ Invalid:
 _HalBeginSystemInterrupt@12:
 
     /* Convert to IRQ and call the handler */
-    xor ecx, ecx
-    mov cl, byte ptr [esp+8]
-    sub ecx, PRIMARY_VECTOR_BASE
-    jmp HalpSpecialDismissTable[ecx*4]
+    movzx ebx, byte ptr [esp+8]
+    sub ebx, PRIMARY_VECTOR_BASE
+    jmp HalpSysIntHandler[ebx*4]
 
 IRQ15:
     /* This is IRQ 15, check if it's spurious */
@@ -443,7 +330,6 @@ IRQ15:
     jnz GenericIRQ
 
     /* Cascaded interrupt... dismiss it and return FALSE */
-CascadedInterrupt:
     mov al, 0x62
     out 0x20, al
     mov eax, 0
@@ -462,21 +348,15 @@ IRQ7:
     mov eax, 0
     ret 12
 
-IRQ13:
-    /* AT 80287 latch clear */
-    xor al, al
-    out 0xF0, al
-
 GenericIRQ:
-    /* Get current and new IRQL */
-    xor eax, eax
-    mov al, byte ptr [esp+4]
-    mov ebx, PCR[KPCR_IRQL]
+    /* Return the current IRQL */
+    mov eax, [esp+12]
+    mov ecx, PCR[KPCR_IRQL]
+    mov [eax], cl
 
-    /* Set and save old */
+    /* Set the new IRQL */
+    movzx eax, byte ptr [esp+4]
     mov PCR[KPCR_IRQL], eax
-    mov edx, [esp+12]
-    mov [edx], bl
 
     /* Set IRQ mask in the PIC */
     mov eax, KiI8259MaskTable[eax*4]
@@ -486,18 +366,14 @@ GenericIRQ:
     out 0xA1, al
 
     /* Check to which PIC the EOI was sent */
-    mov eax, ecx
+    mov eax, ebx
     cmp eax, 8
     jnb Pic1
 
     /* Write mask to master PIC */
     or al, 0x60
     out 0x20, al
-
-    /* Enable interrupts and return TRUE */
-    sti
-    mov eax, 1
-    ret 12
+    jmp DoneBegin
 
 Pic1:
     /* Write mask to slave PIC */
@@ -506,7 +382,9 @@ Pic1:
     mov al, 0x62
     out 0x20, al
 
+DoneBegin:
     /* Enable interrupts and return TRUE */
+    in al, 0x21
     sti
     mov eax, 1
     ret 12
@@ -519,111 +397,12 @@ InvalidIRQ:
 #endif
 .endfunc
 
-IRQ15Level:
-    /* This is IRQ 15, check if it's spurious */
-    mov al, 0xB
-    out 0xA0, al
-    jmp $+2
-    in al, 0xA0
-    test al, 0x80
-    jnz GenericIRQLevel
-    jmp CascadedInterrupt
-
-IRQ7Level:
-    /* This is IRQ 7, check if it's spurious */
-    mov al, 0xB
-    out 0x20, al
-    jmp $+2
-    in al, 0x20
-    test al, 0x80
-    jnz GenericIRQLevel
-
-    /* It is, return FALSE */
-SpuriousInterrupt:
-    mov eax, 0
-    ret 12
-
-IRQ13Level:
-    /* AT 80287 latch clear */
-    xor al, al
-    out 0xF0, al
-
-GenericIRQLevel:
-    /* Save IRQL */
-    xor eax, eax
-    mov al, [esp+4]
-
-    /* Set IRQ mask in the PIC */
-    mov eax, KiI8259MaskTable[eax*4]
-    or eax, PCR[KPCR_IDR]
-    out 0x21, al
-    shr eax, 8
-    out 0xA1, al
-
-    /* Compute new IRR */
-    mov eax, ecx
-    mov ebx, 1
-    add ecx, 4
-    shl ebx, cl
-    or PCR[KPCR_IRR], ebx
-
-    /* Get IRQLs */
-    mov cl, [esp+4]
-    mov bl, PCR[KPCR_IRQL]
-    mov edx, [esp+12]
-
-    /* Check to which PIC the EOI was sent */
-    cmp eax, 8
-    jnb Pic1Level
-
-    /* Write mask to master PIC */
-    or al, 0x60
-    out 0x20, al
-
-    /* Check for spurious */
-    cmp cl, bl
-    jbe SpuriousInterrupt
-
-    /* Write IRQL values */
-    movzx ecx, cl
-    mov PCR[KPCR_IRQL], ecx
-    mov [edx], bl
-
-    /* Enable interrupts and return TRUE */
-    sti
-    mov eax, 1
-    ret 12
-
-Pic1Level:
-    /* Write mask to slave and master PIC */
-    add al, 0x58
-    out 0xA0, al
-    mov al, 0x62
-    out 0x20, al
-
-    /* Was this a lower interrupt? */
-    cmp cl, bl
-    jbe SpuriousInterrupt
-
-    /* Write IRQL values */
-    movzx ecx, cl
-    mov PCR[KPCR_IRQL], ecx
-    mov [edx], bl
-
-    /* Enable interrupts and return TRUE */
-    sti
-    mov eax, 1
-    ret 12
-
 .globl _HalEndSystemInterrupt@8
 .func HalEndSystemInterrupt@8
 _HalEndSystemInterrupt@8:
 
-    /* Read IRQL */
-    xor ecx, ecx
-    mov cl, [esp+4]
-
-    /* Check if it's a software interrupt */
+    /* Get the IRQL and check if it's a software interrupt */
+    movzx ecx, byte ptr [esp+4]
     cmp dword ptr PCR[KPCR_IRQL], DISPATCH_LEVEL
     jbe SkipMask2
 
@@ -639,7 +418,7 @@ SkipMask2:
     /* Set IRQL and check if there are pending software interrupts */
     mov PCR[KPCR_IRQL], ecx
     mov eax, PCR[KPCR_IRR]
-    mov al, SWInterruptLookUpTable[eax]
+    mov al, SoftIntByteTable[eax]
     cmp al, cl
     ja DoCall
     ret 8
@@ -648,7 +427,7 @@ DoCall:
 
     /* There are pending software interrupts, call their handlers */
     add esp, 12
-    jmp SWInterruptHandlerTable2[eax*4]
+    jmp SoftIntHandlerTable2[eax*4]
 .endfunc
 
 .globl @KfLowerIrql@4
@@ -656,21 +435,19 @@ DoCall:
 _@KfLowerIrql@4:
 @KfLowerIrql@4:
 
-    /* Cleanup IRQL */
-    and ecx, 0xFF
-
-    /* Validate IRQL */
-    #if DBG
-    cmp cl, PCR[KPCR_IRQL]
-    ja InvalidIrql
-    #endif
-
     /* Save flags since we'll disable interrupts */
     pushf
-    cli
+
+    /* Validate IRQL */
+    movzx ecx, cl
+#if DBG
+    cmp cl, PCR[KPCR_IRQL]
+    ja InvalidIrql
+#endif
 
     /* Disable interrupts and check if IRQL is below DISPATCH_LEVEL */
     cmp dword ptr PCR[KPCR_IRQL], DISPATCH_LEVEL
+    cli
     jbe SkipMask
 
     /* Clear interrupt masks since there's a pending hardware interrupt */
@@ -685,7 +462,7 @@ SkipMask:
     /* Set the new IRQL and check if there's a pending software interrupt */
     mov PCR[KPCR_IRQL], ecx
     mov eax, PCR[KPCR_IRR]
-    mov al, SWInterruptLookUpTable[eax]
+    mov al, SoftIntByteTable[eax]
     cmp al, cl
     ja DoCall3
 
@@ -710,7 +487,7 @@ InvalidIrql:
 
 DoCall3:
     /* There is, call it */
-    call SWInterruptHandlerTable[eax*4]
+    call SoftIntHandlerTable[eax*4]
 
     /* Restore interrupts and return */
     popf
@@ -722,9 +499,9 @@ DoCall3:
 _@KfRaiseIrql@4:
 @KfRaiseIrql@4:
 
-    /* Get the IRQL */
-    movzx ecx, cl
+    /* Get the IRQL  */
     mov eax, PCR[KPCR_IRQL]
+    movzx ecx, cl
 
 #if DBG
     /* Validate it */
@@ -744,7 +521,7 @@ _@KfRaiseIrql@4:
     cli
 
     /* Set the new IRQL */
-    mov PCR[KPCR_IRQL], ecx
+    mov PCR[KPCR_IRQL], cl
 
     /* Mask the interrupts in the PIC */
     mov eax, KiI8259MaskTable[ecx*4]
@@ -759,6 +536,7 @@ _@KfRaiseIrql@4:
     ret
 
 SetIrql:
+
     /* Set the IRQL and return */
     mov PCR[KPCR_IRQL], ecx
     ret
@@ -798,7 +576,7 @@ _KeRaiseIrqlToDpcLevel@0:
     mov dword ptr PCR[KPCR_IRQL], DISPATCH_LEVEL
 
 #if DBG
-    /* Make sure we were not higher then synch */
+    /* Make sure we were not higher then dispatch */
     cmp eax, DISPATCH_LEVEL
     ja InvalidRaise
 #endif
@@ -820,17 +598,29 @@ InvalidRaise:
 .func KeRaiseIrqlToSynchLevel@0
 _KeRaiseIrqlToSynchLevel@0:
 
-    /* Get the current IRQL */
-    mov eax, PCR[KPCR_IRQL]
+    /* Disable interrupts */
+    pushf
+    cli
 
-    /* Set SYNCH_LEVEL */
+    /* Mask out interrupts */
+    mov eax, KiI8259MaskTable[SYNCH_LEVEL*4]
+    or eax, PCR[KPCR_IDR]
+    out 0x21, al
+    shr eax, 8
+    out 0xA1, al
+
+    /* Return the old IRQL, enable interrupts and set to SYNCH */
+    mov eax, PCR[KPCR_IRQL]
     mov dword ptr PCR[KPCR_IRQL], SYNCH_LEVEL
+    popf
 
 #if DBG
-    /* Make sure we were not higher then dispatch */
+    /* Validate raise */
     cmp eax, SYNCH_LEVEL
     ja InvalidSyRaise
 #endif
+
+    /* Return */
     ret
 
 #if DBG
@@ -947,7 +737,7 @@ SoftwareInt:
     /* Check if there are pending software interrupts */
     mov PCR[KPCR_IRQL], ecx
     mov eax, PCR[KPCR_IRR]
-    mov al, SWInterruptLookUpTable[eax]
+    mov al, SoftIntByteTable[eax]
     cmp al, cl
     ja DoCall2
     ret 4
@@ -955,5 +745,5 @@ SoftwareInt:
 DoCall2:
     /* There are pending softwate interrupts, call their handlers */
     add esp, 8
-    jmp SWInterruptHandlerTable2[eax*4]
+    jmp SoftIntHandlerTable2[eax*4]
 .endfunc

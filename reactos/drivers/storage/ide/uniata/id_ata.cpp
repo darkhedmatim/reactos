@@ -493,10 +493,10 @@ WaitOnBusy(
 {
     ULONG i;
     UCHAR Status;
-    for (i=0; i<200; i++) {
+    for (i=0; i<20000; i++) {
         GetStatus(chan, Status);
         if (Status & IDE_STATUS_BUSY) {
-            AtapiStallExecution(10);
+            AtapiStallExecution(150);
             continue;
         } else {
             break;
@@ -537,10 +537,10 @@ WaitOnBaseBusy(
 {
     ULONG i;
     UCHAR Status;
-    for (i=0; i<200; i++) {
+    for (i=0; i<20000; i++) {
         GetBaseStatus(chan, Status);
         if (Status & IDE_STATUS_BUSY) {
-            AtapiStallExecution(10);
+            AtapiStallExecution(150);
             continue;
         } else {
             break;
@@ -640,11 +640,11 @@ WaitForDrq(
     for (i=0; i<1000; i++) {
         GetStatus(chan, Status);
         if (Status & IDE_STATUS_BUSY) {
-            AtapiStallExecution(10);
+            AtapiStallExecution(100);
         } else if (Status & IDE_STATUS_DRQ) {
             break;
         } else {
-            AtapiStallExecution(10);
+            AtapiStallExecution(200);
         }
     }
     return Status;
@@ -661,11 +661,11 @@ WaitShortForDrq(
     for (i=0; i<2; i++) {
         GetStatus(chan, Status);
         if (Status & IDE_STATUS_BUSY) {
-            AtapiStallExecution(10);
+            AtapiStallExecution(100);
         } else if (Status & IDE_STATUS_DRQ) {
             break;
         } else {
-            AtapiStallExecution(10);
+            AtapiStallExecution(100);
         }
     }
     return Status;
@@ -679,7 +679,7 @@ AtapiSoftReset(
     )
 {
     //ULONG c = chan->lChannel;
-    ULONG i = 1000 * 1000;
+    ULONG i;
     UCHAR dma_status = 0;
     KdPrint2((PRINT_PREFIX "AtapiSoftReset:\n"));
     UCHAR statusByte2;
@@ -689,10 +689,8 @@ AtapiSoftReset(
     SelectDrive(chan, DeviceNumber);
     AtapiStallExecution(10000);
     AtapiWritePort1(chan, IDX_IO1_o_Command, IDE_COMMAND_ATAPI_RESET);
-    while ((AtapiReadPort1(chan, IDX_IO1_i_Status) & IDE_STATUS_BUSY) &&
-           i--)
-    {
-        AtapiStallExecution(30);
+    for (i = 0; i < 1000; i++) {
+        AtapiStallExecution(999);
     }
     SelectDrive(chan, DeviceNumber);
     WaitOnBusy(chan);

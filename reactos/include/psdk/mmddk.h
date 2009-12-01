@@ -19,7 +19,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  *****************************************************************************
  */
@@ -416,10 +416,9 @@ typedef struct {
 typedef struct tMIXEROPENDESC
 {
 	HMIXEROBJ		hmx;
-	LPVOID			pReserved0;
-	DWORD_PTR			dwCallback;
-	DWORD_PTR			dwInstance;
-	DWORD_PTR			dnDevNode;
+        LPVOID			pReserved0;
+	DWORD			dwCallback;
+	DWORD			dwInstance;
 } MIXEROPENDESC, *LPMIXEROPENDESC;
 
 typedef struct {

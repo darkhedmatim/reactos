@@ -1902,12 +1902,10 @@ INSTALLUI_HANDLERA WINAPI MsiSetExternalUIA(INSTALLUI_HANDLERA puiHandler,
 {
     INSTALLUI_HANDLERA prev = gUIHandlerA;
 
-    TRACE("%p %08x %p\n", puiHandler, dwMessageFilter, pvContext);
-
+    TRACE("%p %x %p\n",puiHandler, dwMessageFilter,pvContext);
     gUIHandlerA = puiHandler;
-    gUIHandlerW = NULL;
-    gUIFilter   = dwMessageFilter;
-    gUIContext  = pvContext;
+    gUIFilter = dwMessageFilter;
+    gUIContext = pvContext;
 
     return prev;
 }
@@ -1917,12 +1915,10 @@ INSTALLUI_HANDLERW WINAPI MsiSetExternalUIW(INSTALLUI_HANDLERW puiHandler,
 {
     INSTALLUI_HANDLERW prev = gUIHandlerW;
 
-    TRACE("%p %08x %p\n", puiHandler, dwMessageFilter, pvContext);
-
-    gUIHandlerA = NULL;
+    TRACE("%p %x %p\n",puiHandler,dwMessageFilter,pvContext);
     gUIHandlerW = puiHandler;
-    gUIFilter   = dwMessageFilter;
-    gUIContext  = pvContext;
+    gUIFilter = dwMessageFilter;
+    gUIContext = pvContext;
 
     return prev;
 }
@@ -3595,20 +3591,13 @@ UINT WINAPI MsiIsProductElevatedA( LPCSTR szProduct, BOOL *pfElevated )
 /***********************************************************************
  * MsiSetExternalUIRecord     [MSI.@]
  */
-UINT WINAPI MsiSetExternalUIRecord( INSTALLUI_HANDLER_RECORD handler,
-                                    DWORD filter, LPVOID context,
-                                    PINSTALLUI_HANDLER_RECORD prev )
+UINT WINAPI MsiSetExternalUIRecord( INSTALLUI_HANDLER_RECORD puiHandler,
+                                    DWORD dwMessageFilter, LPVOID pvContext,
+                                    PINSTALLUI_HANDLER_RECORD ppuiPrevHandler)
 {
-    TRACE("%p %08x %p %p\n", handler, filter, context, prev);
-
-    if (prev)
-        *prev = gUIHandlerRecord;
-
-    gUIHandlerRecord = handler;
-    gUIFilter        = filter;
-    gUIContext       = context;
-
-    return ERROR_SUCCESS;
+    FIXME("%p %08x %p %p\n", puiHandler, dwMessageFilter ,pvContext,
+                             ppuiPrevHandler);
+    return ERROR_CALL_NOT_IMPLEMENTED;
 }
 
 /***********************************************************************

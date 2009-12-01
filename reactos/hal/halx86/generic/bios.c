@@ -107,6 +107,17 @@ NTAPI
 HalpSwitchToRealModeTrapHandlers(VOID)
 {
     ULONG Handler;
+    PHARDWARE_PTE IdtPte;
+
+    /* On i586, the first 7 entries of IDT are write-protected, unprotect them. */ // Nasty hto hack
+    if (KeGetCurrentPrcb()->CpuType == 5)
+    {
+        IdtPte = GetPteAddress(((PKIPCR)KeGetPcr())->IDT);
+        IdtPte->Write = 1;
+
+        /* Flush the TLB by resetting CR3 */
+        __writecr3(__readcr3());
+    }
 
     /* Save the current Invalid Opcode and General Protection Fault Handlers */
     HalpGpfHandler = ((((PKIPCR)KeGetPcr())->IDT[13].ExtendedOffset << 16) &
@@ -186,7 +197,7 @@ HalpUnmapRealModeMemory(VOID)
         Pte = GetPteAddress((PVOID)i);
         Pte->Valid = 0;
         Pte->Write = 0;
-        Pte->Owner = 0;
+        //Pte->Owner = 0; // Missing this?
         Pte->PageFrameNumber = 0;
     }
     
@@ -204,8 +215,6 @@ NTAPI
 HalpBiosDisplayReset(VOID)
 {
     ULONG Flags;
-    PHARDWARE_PTE IdtPte;
-    BOOLEAN RestoreWriteProtection = FALSE;
 
     /* Disable interrupts */
     Flags = __readeflags();
@@ -213,24 +222,6 @@ HalpBiosDisplayReset(VOID)
 
     /* Map memory available to the V8086 real-mode code */
     HalpMapRealModeMemory();
-
-    /* 
-     * On P5, the first 7 entries of the IDT are write protected to work around
-     * the cmpxchg8b lock errata. Unprotect them here so we can set our custom
-     * invalid op-code handler.
-     */
-    if (KeGetCurrentPrcb()->CpuType == 5)
-    {
-        /* Get the PTE and check if it is has been write protected yet  */
-        IdtPte = GetPteAddress(((PKIPCR)KeGetPcr())->IDT);
-        if (IdtPte->Write == 0)
-        {
-            /* Remove the protection and flush the TLB */
-            IdtPte->Write = 1;
-            __writecr3(__readcr3());
-            RestoreWriteProtection = TRUE;
-        }
-    }
 
     /* Use special invalid opcode and GPF trap handlers */
     HalpSwitchToRealModeTrapHandlers();
@@ -243,15 +234,6 @@ HalpBiosDisplayReset(VOID)
 
     /* Restore kernel trap handlers */
     HalpRestoreTrapHandlers();
-
-    /* Check if we removed the write protection before */
-    if (RestoreWriteProtection)
-    {
-        /* Get the PTE, restore the write protection and flush the TLB */
-        IdtPte = GetPteAddress(((PKIPCR)KeGetPcr())->IDT);
-        IdtPte->Write = 0;
-        __writecr3(__readcr3());
-    }
     
     /* Restore TSS and IOPM */
     HalpRestoreIoPermissionsAndTask();

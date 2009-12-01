@@ -1,6 +1,6 @@
 /* $Id$
  *
- * COPYRIGHT:            This file is in the public domain.
+ * COPYRIGHT:            See COPYING in the top level directory
  * PROJECT:              ReactOS kernel
  * FILE:
  * PURPOSE:

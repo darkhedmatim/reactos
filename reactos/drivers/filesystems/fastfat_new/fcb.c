@@ -195,7 +195,7 @@ FatiOpenExistingFcb(IN PFAT_IRP_CONTEXT IrpContext,
     BOOLEAN Hidden;
     BOOLEAN System;
     PCCB Ccb = NULL;
-    NTSTATUS Status, StatusPrev;
+    NTSTATUS Status;
 
     /* Acquire exclusive FCB lock */
     (VOID)FatAcquireExclusiveFcb(IrpContext, Fcb);
@@ -367,7 +367,7 @@ FatiOpenExistingFcb(IN PFAT_IRP_CONTEXT IrpContext,
         }
 
         /* Set up file object */
-        Ccb = FatCreateCcb();
+        Ccb = FatCreateCcb(IrpContext);
         FatSetFileObject(FileObject,
                          UserFileOpen,
                          Fcb,
@@ -383,27 +383,8 @@ FatiOpenExistingFcb(IN PFAT_IRP_CONTEXT IrpContext,
              (CreateDisposition == FILE_OVERWRITE) ||
              (CreateDisposition == FILE_OVERWRITE_IF))
     {
-        /* Remember previous status */
-        StatusPrev = Iosb.Status;
-
-        // TODO: Check system security access
-
-        /* Perform overwrite operation */
-        Iosb = FatiOverwriteFile(IrpContext,
-                                 FileObject,
-                                 Fcb,
-                                 AllocationSize,
-                                 EaBuffer,
-                                 EaLength,
-                                 FileAttributes,
-                                 CreateDisposition,
-                                 NoEaKnowledge);
-
-        /* Restore previous status in case of success */
-        if (Iosb.Status == STATUS_SUCCESS)
-            Iosb.Status = StatusPrev;
-
-        /* Fall down to completion */
+        UNIMPLEMENTED;
+        ASSERT(FALSE);
     }
     else
     {

@@ -208,7 +208,7 @@ static HRESULT HTMLDOMChildrenCollection_invoke(IUnknown *iface, DISPID id, LCID
     TRACE("(%p)->(%x %x %x %p %p %p %p)\n", This, id, lcid, flags, params, res, ei, caller);
 
     switch(flags) {
-    case DISPATCH_PROPERTYGET: {
+    case INVOKE_PROPERTYGET: {
         IDispatch *disp = NULL;
         HRESULT hres;
 
@@ -729,19 +729,8 @@ static HRESULT WINAPI HTMLDOMNode_get_previousSibling(IHTMLDOMNode *iface, IHTML
 static HRESULT WINAPI HTMLDOMNode_get_nextSibling(IHTMLDOMNode *iface, IHTMLDOMNode **p)
 {
     HTMLDOMNode *This = HTMLDOMNODE_THIS(iface);
-    nsIDOMNode *nssibling = NULL;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    nsIDOMNode_GetNextSibling(This->nsnode, &nssibling);
-    if(nssibling) {
-        *p = HTMLDOMNODE(get_node(This->doc, nssibling, TRUE));
-        IHTMLDOMNode_AddRef(*p);
-    }else {
-        *p = NULL;
-    }
-
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 #undef HTMLDOMNODE_THIS
@@ -836,13 +825,8 @@ static HRESULT WINAPI HTMLDOMNode2_get_ownerDocument(IHTMLDOMNode2 *iface, IDisp
 
     TRACE("(%p)->(%p)\n", This, p);
 
-    /* FIXME: Better check for document node */
-    if(This == &This->doc->node) {
-        *p = NULL;
-    }else {
-        *p = (IDispatch*)HTMLDOC(&This->doc->basedoc);
-        IDispatch_AddRef(*p);
-    }
+    *p = (IDispatch*)HTMLDOC(&This->doc->basedoc);
+    IDispatch_AddRef(*p);
     return S_OK;
 }
 
@@ -916,8 +900,7 @@ void HTMLDOMNode_Init(HTMLDocumentNode *doc, HTMLDOMNode *node, nsIDOMNode *nsno
     node->ref = 1;
     node->doc = doc;
 
-    if(nsnode)
-        nsIDOMNode_AddRef(nsnode);
+    nsIDOMNode_AddRef(nsnode);
     node->nsnode = nsnode;
 
     node->next = doc->nodes;

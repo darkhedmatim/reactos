@@ -1,6 +1,5 @@
-LIBRARY mesa32.dll
 DESCRIPTION 'Mesa (OpenGL driver) for Win32'
-; VERSION 7.4
+VERSION 7.4
 
 EXPORTS
 ;

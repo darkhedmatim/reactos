@@ -11,9 +11,7 @@
 		<library>hal_generic_up</library>
 		<library>ntoskrnl</library>
 		<directory name="generic">
-			<directory name="bus">
-				<file>pcibus.c</file>
-			</directory>
+			<file>pci.c</file>
 		</directory>
 		<directory name="xbox">
 			<file>halinit_xbox.c</file>

@@ -12,9 +12,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License along
- *  with this program; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 /* $Id$
  *
@@ -26,8 +26,14 @@
 #include <debug.h>
 
 
-extern LIST_ENTRY GlobalDriverListHead;
+typedef struct _DRIVERS
+{
+	LIST_ENTRY ListEntry;
+	HANDLE ImageHandle;
+	UNICODE_STRING DriverName;
+}DRIVERS, *PDRIVERS;
 
+extern LIST_ENTRY GlobalDriverListHead;
 
 /*
  * Blatantly stolen from ldr/utils.c in ntdll.  I can't link ntdll from
@@ -174,7 +180,7 @@ EngFindImageProcAddress(IN HANDLE Module,
       return NULL;
     }
   RtlInitAnsiString(&ProcNameString, ProcName);
-  Status = LdrGetProcedureAddress(((PDRIVERS)Module)->BaseAddress,
+  Status = LdrGetProcedureAddress(Module,
 				  &ProcNameString,
 				  0,
 				  &Function);
@@ -193,8 +199,8 @@ HANDLE
 APIENTRY
 EngLoadImage (LPWSTR DriverName)
 {
+	HANDLE hImageHandle = NULL;
 	SYSTEM_GDI_DRIVER_INFORMATION GdiDriverInfo;
-	PDRIVERS DriverInfo = NULL;
 	NTSTATUS Status;
 
 	RtlInitUnicodeString(&GdiDriverInfo.DriverName, DriverName);
@@ -207,14 +213,14 @@ EngLoadImage (LPWSTR DriverName)
 		{
 			Current = CONTAINING_RECORD(CurrentEntry, DRIVERS, ListEntry);
 			if( Current && (0 == RtlCompareUnicodeString(&GdiDriverInfo.DriverName, &Current->DriverName, FALSE)) ) {
-				DriverInfo = Current;
+				hImageHandle = Current->ImageHandle;
 				break;
 			}
 			CurrentEntry = CurrentEntry->Flink;
 		};
 	}
 
-	if( !DriverInfo )
+	if( !hImageHandle )
 	{
 		/* the driver was not loaded before, so let's do that */
 		Status = ZwSetSystemInformation(SystemLoadGdiDriverInformation, &GdiDriverInfo, sizeof(SYSTEM_GDI_DRIVER_INFORMATION));
@@ -222,18 +228,19 @@ EngLoadImage (LPWSTR DriverName)
 			DPRINT1("ZwSetSystemInformation failed with Status 0x%lx\n", Status);
 		}
 		else {
+            PDRIVERS DriverInfo;
+			hImageHandle = (HANDLE)GdiDriverInfo.ImageAddress;
 			DriverInfo = ExAllocatePool(PagedPool, sizeof(DRIVERS));
 			DriverInfo->DriverName.MaximumLength = GdiDriverInfo.DriverName.MaximumLength;
 			DriverInfo->DriverName.Length = GdiDriverInfo.DriverName.Length;
 			DriverInfo->DriverName.Buffer = ExAllocatePool(PagedPool, GdiDriverInfo.DriverName.MaximumLength);
 			RtlCopyUnicodeString(&DriverInfo->DriverName, &GdiDriverInfo.DriverName);
-			DriverInfo->SectionPointer = GdiDriverInfo.SectionPointer;
-            DriverInfo->BaseAddress = GdiDriverInfo.ImageAddress;
+			DriverInfo->ImageHandle = hImageHandle;
 			InsertHeadList(&GlobalDriverListHead, &DriverInfo->ListEntry);
 		}
 	}
 
-	return DriverInfo;
+	return hImageHandle;
 }
 
 VOID
@@ -241,12 +248,11 @@ APIENTRY
 EngUnloadImage ( IN HANDLE hModule )
 {
   NTSTATUS Status;
-  PDRIVERS DriverInfo = (PDRIVERS)hModule;
 
   DPRINT("hModule 0x%x\n", hModule);
 
   Status = ZwSetSystemInformation(SystemUnloadGdiDriverInformation,
-    DriverInfo->SectionPointer, sizeof(PVOID));
+    &hModule, sizeof(HANDLE));
 
   if(!NT_SUCCESS(Status))
   {
@@ -255,9 +261,27 @@ EngUnloadImage ( IN HANDLE hModule )
   }
   else
   {
-    ExFreePool(DriverInfo->DriverName.Buffer);
-    RemoveEntryList(&DriverInfo->ListEntry);
-    ExFreePool(DriverInfo);
+	  /* remove from the list */
+	  if( !IsListEmpty(&GlobalDriverListHead) )
+	  {
+		  PLIST_ENTRY CurrentEntry = GlobalDriverListHead.Flink;
+		  PDRIVERS Current;
+		  /* probably the driver was already loaded, let's try to find it out */
+		  while( CurrentEntry != &GlobalDriverListHead )
+		  {
+			  Current = CONTAINING_RECORD(CurrentEntry, DRIVERS, ListEntry);
+
+			  if( Current ) {
+				  if(Current->ImageHandle == hModule) {
+					  ExFreePool(Current->DriverName.Buffer);
+					  RemoveEntryList(&Current->ListEntry);
+					  ExFreePool(Current);
+					  break;
+				  }
+			  }
+			  CurrentEntry = CurrentEntry->Flink;
+		  };
+	  }
   }
 }
 

@@ -59,5 +59,5 @@ NTAPI
 KiInitializePAT(VOID)
 {
     /* FIXME: Support this */
-    DPRINT1("PAT support detected but not yet taken advantage of\n");
+    DPRINT("Advanced Memory features detected but not yet taken advantage of.\n");
 }

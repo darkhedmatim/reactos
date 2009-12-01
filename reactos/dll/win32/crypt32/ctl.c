@@ -309,7 +309,10 @@ BOOL WINAPI CertDeleteCTLFromStore(PCCTL_CONTEXT pCtlContext)
     if (!pCtlContext)
         ret = TRUE;
     else if (!pCtlContext->hCertStore)
-        ret = CertFreeCTLContext(pCtlContext);
+    {
+        ret = TRUE;
+        CertFreeCTLContext(pCtlContext);
+    }
     else
     {
         PWINECRYPT_CERTSTORE hcs = pCtlContext->hCertStore;
@@ -318,8 +321,7 @@ BOOL WINAPI CertDeleteCTLFromStore(PCCTL_CONTEXT pCtlContext)
             ret = FALSE;
         else
             ret = hcs->ctls.deleteContext(hcs, (void *)pCtlContext);
-        if (ret)
-            ret = CertFreeCTLContext(pCtlContext);
+        CertFreeCTLContext(pCtlContext);
     }
     return ret;
 }
@@ -453,8 +455,7 @@ end:
 PCCTL_CONTEXT WINAPI CertDuplicateCTLContext(PCCTL_CONTEXT pCtlContext)
 {
     TRACE("(%p)\n", pCtlContext);
-    if (pCtlContext)
-        Context_AddRef((void *)pCtlContext, sizeof(CTL_CONTEXT));
+    Context_AddRef((void *)pCtlContext, sizeof(CTL_CONTEXT));
     return pCtlContext;
 }
 
@@ -470,14 +471,12 @@ static void CTLDataContext_Free(void *context)
 
 BOOL WINAPI CertFreeCTLContext(PCCTL_CONTEXT pCTLContext)
 {
-    BOOL ret = TRUE;
-
     TRACE("(%p)\n", pCTLContext);
 
     if (pCTLContext)
-        ret = Context_Release((void *)pCTLContext, sizeof(CTL_CONTEXT),
+        Context_Release((void *)pCTLContext, sizeof(CTL_CONTEXT),
          CTLDataContext_Free);
-    return ret;
+    return TRUE;
 }
 
 DWORD WINAPI CertEnumCTLContextProperties(PCCTL_CONTEXT pCTLContext,

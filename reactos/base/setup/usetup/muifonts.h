@@ -59,18 +59,18 @@ MUI_SUBFONT HebrewFonts[] =
     { NULL, NULL }
 };
 
-MUI_SUBFONT CJKFonts[] =
+MUI_SUBFONT JapaneseFonts[] =
 {
     { L"Arial",           L"Liberation Sans" },
     { L"Courier",         L"FreeMono" },
     { L"Courier New",     L"FreeMono" },
     { L"Times New Roman", L"Liberation Serif" },
-    { L"Tahoma",          L"Droid Sans Fallback" },
+    { L"Tahoma",          L"Systema" },
     { L"MS Sans Serif",   L"Tahoma" },
-    { L"MS Shell Dlg",    L"Droid Sans Fallback" },
-    { L"MS Shell Dlg 2",  L"Droid Sans Fallback" },
-    { L"MS UI Gothic",    L"Droid Sans Fallback" },
-    { L"MS UI Gothic 2",  L"Droid Sans Fallback" },
+    { L"MS Shell Dlg",    L"Systema" },
+    { L"MS Shell Dlg 2",  L"Systema" },
+    { L"MS UI Gothic",    L"Systema" },
+    { L"MS UI Gothic 2",  L"Systema" },
     { L"Helv",            L"Tahoma" },
     { NULL, NULL }
 };

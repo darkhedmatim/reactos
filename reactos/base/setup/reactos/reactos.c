@@ -12,9 +12,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License along
- *  with this program; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 /* $Id$
  *
@@ -102,8 +102,6 @@ typedef struct _IMGINFO
 TCHAR abort_msg[512], abort_title[64];
 HINSTANCE hInstance;
 BOOL isUnattend;
-
-LONG LoadGenentry(HINF hinf,PCTSTR name,PGENENTRY gen,PINFCONTEXT context);
 
 /* FUNCTIONS ****************************************************************/
 
@@ -997,12 +995,13 @@ void LoadSetupData()
     if (hTxtsetupSif != INVALID_HANDLE_VALUE)
     {
         // get language list
-        SetupData.LangCount = SetupGetLineCount(hTxtsetupSif, _T("Language"));
-        if (SetupData.LangCount > 0)
+        Count = SetupGetLineCount(hTxtsetupSif, _T("Language"));
+        if (Count > 0)
         {
-            SetupData.pLanguages = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(LANG) * SetupData.LangCount);
+            SetupData.pLanguages = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(LANG) * Count);
             if (SetupData.pLanguages != NULL)
             {
+                SetupData.LangCount = Count;
                 Count = 0;
                 if (SetupFindFirstLine(hTxtsetupSif, _T("Language"), NULL, &InfContext))
                 {
@@ -1021,18 +1020,19 @@ void LoadSetupData()
                                             &LineLength);
                         ++Count;
                     }
-                    while (SetupFindNextLine(&InfContext, &InfContext) && Count < SetupData.LangCount);
+                while (SetupFindNextLine(&InfContext, &InfContext) && Count < SetupData.LangCount);
                 }
             }
         }
 
         // get keyboard layout list
-        SetupData.KbLayoutCount = SetupGetLineCount(hTxtsetupSif, _T("KeyboardLayout"));
-        if (SetupData.KbLayoutCount > 0)
+        Count = SetupGetLineCount(hTxtsetupSif, _T("KeyboardLayout"));
+        if (Count > 0)
         {
-            SetupData.pKbLayouts = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(KBLAYOUT) * SetupData.KbLayoutCount);
+            SetupData.pKbLayouts = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(KBLAYOUT) * Count);
             if (SetupData.pKbLayouts != NULL)
             {
+                SetupData.KbLayoutCount = Count;
                 Count = 0;
                 if (SetupFindFirstLine(hTxtsetupSif, _T("KeyboardLayout"), NULL, &InfContext))
                 {
@@ -1051,7 +1051,7 @@ void LoadSetupData()
                                             &LineLength);
                         ++Count;
                     }
-                    while (SetupFindNextLine(&InfContext, &InfContext) && Count < SetupData.KbLayoutCount);
+                    while (SetupFindNextLine(&InfContext, &InfContext) && Count < SetupData.LangCount);
                 }
             }
         }
@@ -1084,13 +1084,99 @@ void LoadSetupData()
         }
 
         // get computers list
-        SetupData.CompCount = LoadGenentry(hTxtsetupSif,_T("Computer"),SetupData.pComputers,&InfContext);
+        Count = SetupGetLineCount(hTxtsetupSif, _T("Computer"));
+        if (Count > 0)
+        {
+            SetupData.pComputers = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(GENENTRY) * Count);
+            if (SetupData.pComputers != NULL)
+            {
+                SetupData.CompCount = Count;
+                Count = 0;
+                if (SetupFindFirstLine(hTxtsetupSif, _T("Computer"), NULL, &InfContext))
+                {
+                    do
+                    {
+                        SetupGetStringField(&InfContext,
+                                            0,
+                                            SetupData.pComputers[Count].Id,
+                                            sizeof(SetupData.pComputers[Count].Id) / sizeof(TCHAR),
+                                            &LineLength);
+
+                        SetupGetStringField(&InfContext,
+                                            1,
+                                            SetupData.pComputers[Count].Value,
+                                            sizeof(SetupData.pComputers[Count].Value) / sizeof(TCHAR),
+                                            &LineLength);
+                        ++Count;
+                    }
+                    while (SetupFindNextLine(&InfContext, &InfContext) && Count < SetupData.CompCount);
+                }
+            }
+        }
 
         // get display list
-        SetupData.DispCount = LoadGenentry(hTxtsetupSif,_T("Display"),SetupData.pDisplays,&InfContext);
+        Count = SetupGetLineCount(hTxtsetupSif, _T("Display"));
+        if (Count > 0)
+        {
+            SetupData.pDisplays = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(GENENTRY) * Count);
+            if (SetupData.pDisplays != NULL)
+            {
+                SetupData.DispCount = Count;
+                Count = 0;
+
+                if (SetupFindFirstLine(hTxtsetupSif, _T("Display"), NULL, &InfContext))
+                {
+                    do
+                    {
+                        SetupGetStringField(&InfContext,
+                                            0,
+                                            SetupData.pDisplays[Count].Id,
+                                            sizeof(SetupData.pDisplays[Count].Id) / sizeof(TCHAR),
+                                            &LineLength);
+
+                        SetupGetStringField(&InfContext,
+                                            1,
+                                            SetupData.pDisplays[Count].Value,
+                                            sizeof(SetupData.pDisplays[Count].Value) / sizeof(TCHAR),
+                                            &LineLength);
+                        ++Count;
+                    }
+                    while (SetupFindNextLine(&InfContext, &InfContext) && Count < SetupData.DispCount);
+                }
+            }
+        }
 
         // get keyboard list
-        SetupData.KeybCount = LoadGenentry(hTxtsetupSif, _T("Keyboard"),SetupData.pKeyboards,&InfContext);
+        Count = SetupGetLineCount(hTxtsetupSif, _T("Keyboard"));
+        if (Count > 0)
+        {
+            SetupData.pKeyboards = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(GENENTRY) * Count);
+            if (SetupData.pKeyboards != NULL)
+            {
+                SetupData.KeybCount = Count;
+                Count = 0;
+
+                if (SetupFindFirstLine(hTxtsetupSif, _T("Keyboard"), NULL, &InfContext))
+                {
+                    do
+                    {
+                        SetupGetStringField(&InfContext,
+                                            0,
+                                            SetupData.pKeyboards[Count].Id,
+                                            sizeof(SetupData.pKeyboards[Count].Id) / sizeof(TCHAR),
+                                            &LineLength);
+
+                        SetupGetStringField(&InfContext,
+                                            1,
+                                            SetupData.pKeyboards[Count].Value,
+                                            sizeof(SetupData.pKeyboards[Count].Value) / sizeof(TCHAR),
+                                            &LineLength);
+                        ++Count;
+                    }
+                    while (SetupFindNextLine(&InfContext, &InfContext) && Count < SetupData.KeybCount);
+                }
+            }
+        }
 
         // get install directory
         if (SetupFindFirstLine(hTxtsetupSif, _T("SetupData"), _T("DefaultPath"), &InfContext))
@@ -1103,42 +1189,6 @@ void LoadSetupData()
         }
         SetupCloseInfFile(hTxtsetupSif);
     }
-}
-
-LONG LoadGenentry(HINF hinf,PCTSTR name,PGENENTRY gen,PINFCONTEXT context)
-{
-    LONG TotalCount;
-
-    TotalCount = SetupGetLineCount(hinf, name);
-    if (TotalCount > 0)
-    {
-        gen = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(GENENTRY) * TotalCount);
-        if (gen != NULL)
-        {
-            if (SetupFindFirstLine(hinf, name, NULL, context))
-            {
-                LONG Count = 0;
-                do
-                {
-                    SetupGetStringField(context,
-                                        0,
-                                        gen[Count].Id,
-                                        sizeof(gen[Count].Id) / sizeof(TCHAR),
-                                        NULL);
-
-                    SetupGetStringField(context,
-                                        1,
-                                        gen[Count].Value,
-                                        sizeof(gen[Count].Value) / sizeof(TCHAR),
-                                        NULL);
-                    Count++;
-                }
-                while (SetupFindNextLine(context, context) && Count < TotalCount);
-            }
-        }
-    }
-
-    return TotalCount;
 }
 
 BOOL isUnattendSetup()

@@ -1894,26 +1894,21 @@ BOOL WINAPI SetupGetIntField( PINFCONTEXT context, DWORD index, PINT result )
     char *end, *buffer = localbuff;
     DWORD required;
     INT res;
-    BOOL ret;
+    BOOL ret = FALSE;
 
-    if (!(ret = SetupGetStringFieldA( context, index, localbuff, sizeof(localbuff), &required )))
+    if (!SetupGetStringFieldA( context, index, localbuff, sizeof(localbuff), &required ))
     {
         if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) return FALSE;
         if (!(buffer = HeapAlloc( GetProcessHeap(), 0, required ))) return FALSE;
-        if (!(ret = SetupGetStringFieldA( context, index, buffer, required, NULL ))) goto done;
+        if (!SetupGetStringFieldA( context, index, buffer, required, NULL )) goto done;
     }
-    /* The call to SetupGetStringFieldA succeeded. If buffer is empty we have an optional field */
-    if (!*buffer) *result = 0;
-    else
+    res = strtol( buffer, &end, 0 );
+    if (end != buffer && !*end)
     {
-        res = strtol( buffer, &end, 0 );
-        if (end != buffer && !*end) *result = res;
-        else
-        {
-            SetLastError( ERROR_INVALID_DATA );
-            ret = FALSE;
-        }
+        *result = res;
+        ret = TRUE;
     }
+    else SetLastError( ERROR_INVALID_DATA );
 
  done:
     if (buffer != localbuff) HeapFree( GetProcessHeap(), 0, buffer );

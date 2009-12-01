@@ -86,7 +86,7 @@ WdmAudControlDeviceState(
     ULONG BytesReturned;
     PFILE_OBJECT FileObject;
 
-    DPRINT("WdmAudControlDeviceState\n");
+    //DPRINT1("WdmAudControlDeviceState\n");
 
     Status = ObReferenceObjectByHandle(DeviceInfo->hDevice, GENERIC_READ | GENERIC_WRITE, IoFileObjectType, KernelMode, (PVOID*)&FileObject, NULL);
     if (!NT_SUCCESS(Status))
@@ -105,7 +105,7 @@ WdmAudControlDeviceState(
 
     ObDereferenceObject(FileObject);
 
-    DPRINT("WdmAudControlDeviceState Status %x\n", Status);
+    //DPRINT1("WdmAudControlDeviceState Status %x\n", Status);
     return SetIrpIoStatus(Irp, Status, sizeof(WDMAUD_DEVICE_INFO));
 }
 
@@ -155,14 +155,6 @@ WdmAudIoctlClose(
             SetIrpIoStatus(Irp, STATUS_SUCCESS, sizeof(WDMAUD_DEVICE_INFO));
             return STATUS_SUCCESS;
         }
-        else if (ClientInfo->hPins[Index].Handle == DeviceInfo->hDevice && ClientInfo->hPins[Index].Type == MIXER_DEVICE_TYPE)
-        {
-            if (ClientInfo->hPins[Index].NotifyEvent)
-            {
-                ObDereferenceObject(ClientInfo->hPins[Index].NotifyEvent);
-                ClientInfo->hPins[Index].NotifyEvent = NULL;
-            }
-        }
     }
 
     SetIrpIoStatus(Irp, STATUS_INVALID_PARAMETER, sizeof(WDMAUD_DEVICE_INFO));
@@ -211,142 +203,6 @@ WdmAudFrameSize(
 
 }
 
-NTSTATUS
-NTAPI
-WdmAudGetDeviceInterface(
-    IN  PDEVICE_OBJECT DeviceObject,
-    IN  PIRP Irp,
-    IN  PWDMAUD_DEVICE_INFO DeviceInfo)
-{
-    PWDMAUD_DEVICE_EXTENSION DeviceExtension;
-    NTSTATUS Status;
-    LPWSTR Device;
-    LPWAVE_INFO WaveInfo;
-    ULONG Size, Length;
-
-    /* get device extension */
-    DeviceExtension = (PWDMAUD_DEVICE_EXTENSION)DeviceObject->DeviceExtension;
-
-    /* get device interface string input length */
-    Size = DeviceInfo->u.Interface.DeviceInterfaceStringSize;
-
-    if (DeviceInfo->DeviceType == WAVE_IN_DEVICE_TYPE || DeviceInfo->DeviceType == WAVE_OUT_DEVICE_TYPE)
-    {
-        /* get wave info */
-        Status = GetWaveInfoByIndexAndType(DeviceObject, DeviceInfo->DeviceIndex, DeviceInfo->DeviceType, &WaveInfo);
-
-        /* check for success */
-        if (!NT_SUCCESS(Status))
-        {
-            /* invalid device id */
-            return SetIrpIoStatus(Irp, Status, sizeof(WDMAUD_DEVICE_INFO));
-        }
-
-        Status = GetSysAudioDevicePnpName(DeviceObject, WaveInfo->FilterId, &Device);
-        /* check for success */
-        if (!NT_SUCCESS(Status))
-        {
-            /* invalid device id */
-            return SetIrpIoStatus(Irp, Status, sizeof(WDMAUD_DEVICE_INFO));
-        }
-
-        /* calculate length */
-        Length = (wcslen(Device)+1) * sizeof(WCHAR);
-
-        if (!Size)
-        {
-            /* store device interface size */
-            DeviceInfo->u.Interface.DeviceInterfaceStringSize = Length;
-        }
-        else if (Size < Length)
-        {
-            /* buffer too small */
-            DeviceInfo->u.Interface.DeviceInterfaceStringSize = Length;
-            return SetIrpIoStatus(Irp, STATUS_BUFFER_OVERFLOW, sizeof(WDMAUD_DEVICE_INFO));
-        }
-        else
-        {
-            //FIXME SEH
-            RtlMoveMemory(DeviceInfo->u.Interface.DeviceInterfaceString, Device, Length);
-        }
-
-        ExFreePool(Device);
-        return SetIrpIoStatus(Irp, STATUS_SUCCESS, sizeof(WDMAUD_DEVICE_INFO));
-    }
-    else if (DeviceInfo->DeviceType == MIXER_DEVICE_TYPE)
-    {
-        if (DeviceInfo->DeviceIndex >= DeviceExtension->MixerInfoCount)
-        {
-            /* invalid device id */
-            return SetIrpIoStatus(Irp, STATUS_INVALID_PARAMETER, sizeof(WDMAUD_DEVICE_INFO));
-        }
-
-        Status = GetSysAudioDevicePnpName(DeviceObject, DeviceExtension->MixerInfo[DeviceInfo->DeviceIndex].DeviceIndex, &Device);
-        /* check for success */
-        if (!NT_SUCCESS(Status))
-        {
-            /* invalid device id */
-            return SetIrpIoStatus(Irp, Status, sizeof(WDMAUD_DEVICE_INFO));
-        }
-
-        /* calculate length */
-        Length = (wcslen(Device)+1) * sizeof(WCHAR);
-
-        if (!Size)
-        {
-            /* store device interface size */
-            DeviceInfo->u.Interface.DeviceInterfaceStringSize = Length;
-        }
-        else if (Size < Length)
-        {
-            /* buffer too small */
-            DeviceInfo->u.Interface.DeviceInterfaceStringSize = Length;
-            return SetIrpIoStatus(Irp, STATUS_BUFFER_OVERFLOW, sizeof(WDMAUD_DEVICE_INFO));
-        }
-        else
-        {
-            //FIXME SEH
-            RtlMoveMemory(DeviceInfo->u.Interface.DeviceInterfaceString, Device, Length);
-        }
-
-        ExFreePool(Device);
-        return SetIrpIoStatus(Irp, STATUS_SUCCESS, sizeof(WDMAUD_DEVICE_INFO));
-    }
-
-    return SetIrpIoStatus(Irp, STATUS_INVALID_DEVICE_REQUEST, sizeof(WDMAUD_DEVICE_INFO));
-}
-
-NTSTATUS
-NTAPI
-WdmAudResetStream(
-    IN  PDEVICE_OBJECT DeviceObject,
-    IN  PIRP Irp,
-    IN  PWDMAUD_DEVICE_INFO DeviceInfo)
-{
-    KSRESET ResetStream;
-    NTSTATUS Status;
-    ULONG BytesReturned;
-    PFILE_OBJECT FileObject;
-
-    DPRINT("WdmAudResetStream\n");
-
-    Status = ObReferenceObjectByHandle(DeviceInfo->hDevice, GENERIC_READ | GENERIC_WRITE, IoFileObjectType, KernelMode, (PVOID*)&FileObject, NULL);
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Error: invalid device handle provided %p Type %x\n", DeviceInfo->hDevice, DeviceInfo->DeviceType);
-        return SetIrpIoStatus(Irp, STATUS_UNSUCCESSFUL, 0);
-    }
-
-    ResetStream = DeviceInfo->u.ResetStream;
-    ASSERT(ResetStream == KSRESET_BEGIN || ResetStream == KSRESET_END);
-
-    Status = KsSynchronousIoControlDevice(FileObject, KernelMode, IOCTL_KS_RESET_STATE, (PVOID)&ResetStream, sizeof(KSRESET), NULL, 0, &BytesReturned);
-
-    ObDereferenceObject(FileObject);
-
-    DPRINT("WdmAudResetStream Status %x\n", Status);
-    return SetIrpIoStatus(Irp, Status, sizeof(WDMAUD_DEVICE_INFO));
-}
 
 NTSTATUS
 NTAPI
@@ -410,12 +266,6 @@ WdmAudDeviceControl(
             return WdmAudSetControlDetails(DeviceObject, Irp, DeviceInfo, ClientInfo);
         case IOCTL_GETCONTROLDETAILS:
             return WdmAudGetControlDetails(DeviceObject, Irp, DeviceInfo, ClientInfo);
-        case IOCTL_QUERYDEVICEINTERFACESTRING:
-            return WdmAudGetDeviceInterface(DeviceObject, Irp, DeviceInfo);
-        case IOCTL_GET_MIXER_EVENT:
-            return WdmAudGetMixerEvent(DeviceObject, Irp, DeviceInfo, ClientInfo);
-        case IOCTL_RESET_STREAM:
-            return WdmAudResetStream(DeviceObject, Irp, DeviceInfo);
         case IOCTL_GETPOS:
         case IOCTL_GETDEVID:
         case IOCTL_GETVOLUME:

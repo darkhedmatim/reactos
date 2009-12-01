@@ -490,18 +490,17 @@ static UINT WHERE_get_dimensions( struct tagMSIVIEW *view, UINT *rows, UINT *col
 }
 
 static UINT WHERE_get_column_info( struct tagMSIVIEW *view,
-                UINT n, LPWSTR *name, UINT *type, BOOL *temporary,
-                LPWSTR *table_name)
+                UINT n, LPWSTR *name, UINT *type, BOOL *temporary )
 {
     MSIWHEREVIEW *wv = (MSIWHEREVIEW*)view;
 
-    TRACE("%p %d %p %p %p %p\n", wv, n, name, type, temporary, table_name );
+    TRACE("%p %d %p %p %p\n", wv, n, name, type, temporary );
 
     if( !wv->table )
          return ERROR_FUNCTION_FAILED;
 
     return wv->table->ops->get_column_info( wv->table, n, name,
-                                            type, temporary, table_name );
+                                            type, temporary );
 }
 
 static UINT WHERE_modify( struct tagMSIVIEW *view, MSIMODIFY eModifyMode,
@@ -598,13 +597,11 @@ static UINT WHERE_VerifyCondition( MSIDATABASE *db, MSIVIEW *table, struct expr 
     switch( cond->type )
     {
     case EXPR_COLUMN:
-        r = VIEW_find_column( table, cond->u.column.column,
-                              cond->u.column.table, &val );
+        r = VIEW_find_column( table, cond->u.column, &val );
         if( r == ERROR_SUCCESS )
         {
             UINT type = 0;
-            r = table->ops->get_column_info( table, val, NULL, &type,
-                                             NULL, NULL );
+            r = table->ops->get_column_info( table, val, NULL, &type, NULL );
             if( r == ERROR_SUCCESS )
             {
                 if (type&MSITYPE_STRING)
@@ -622,7 +619,7 @@ static UINT WHERE_VerifyCondition( MSIDATABASE *db, MSIVIEW *table, struct expr 
         else
         {
             *valid = 0;
-            WARN("Couldn't find column %s.%s\n", debugstr_w( cond->u.column.table ), debugstr_w( cond->u.column.column ) );
+            WARN("Couldn't find column %s\n", debugstr_w( cond->u.column ) );
         }
         break;
     case EXPR_COMPLEX:

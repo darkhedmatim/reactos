@@ -493,7 +493,6 @@ GetW32ThreadInfo(VOID)
         pci->ppi = ppi;
         pci->fsHooks = pti->fsHooks;
         if (pti->KeyboardLayout) pci->hKL = pti->KeyboardLayout->hkl;
-        pci->dwTIFlags = pti->TIF_flags;
         /* CI may not have been initialized. */
         if (!pci->pDeskInfo && pti->pDeskInfo)
         {

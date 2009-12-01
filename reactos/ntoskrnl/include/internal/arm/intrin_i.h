@@ -3,7 +3,7 @@
 
 FORCEINLINE
 VOID
-KeArmHaltProcessor(VOID)
+KeArmHaltProcessor(void)
 {
     //
     // Enter Wait-For-Interrupt Mode

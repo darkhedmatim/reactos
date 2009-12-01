@@ -12,9 +12,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 #include "pch.h"
 #include <assert.h>
@@ -342,6 +342,14 @@ Module::Module ( const Project& project,
 		baseaddress = att->value;
 	else
 		baseaddress = GetDefaultModuleBaseaddress ();
+
+	mangledSymbols = GetBooleanAttribute ( moduleNode, "mangledsymbols" );
+
+	att = moduleNode.GetAttribute ( "underscoresymbols", false );
+	if ( att != NULL )
+		underscoreSymbols = att->value == "true";
+	else
+		underscoreSymbols = false;
 
 	isStartupLib = GetBooleanAttribute ( moduleNode, "isstartuplib" );
 	isCRT = GetBooleanAttribute ( moduleNode, "iscrt", GetDefaultModuleIsCRT () );
@@ -1351,13 +1359,12 @@ Module::GetInvocationTarget ( const int index ) const
 }
 
 string
-Module::GetEntryPoint() const
+Module::GetEntryPoint(bool leadingUnderscore) const
 {
 	string result = "";
 	if (entrypoint == "0" || entrypoint == "0x0")
 		return "0";
-	
-	if (Environment::GetArch() != "arm")
+	if (leadingUnderscore)
 		result = "_";
 
 	result += entrypoint;
@@ -1867,6 +1874,10 @@ ImportLibrary::ImportLibrary ( const Project& project,
 
 	if ( dllname )
 		this->dllname = dllname->value;
+	else if ( module->type == StaticLibrary || module->type == HostStaticLibrary )
+		throw XMLInvalidBuildFileException (
+		    node.location,
+		    "<importlibrary> dllname attribute required." );
 
 	size_t index = definition->value.find_last_of ( "/\\" );
 	if ( index == string::npos )

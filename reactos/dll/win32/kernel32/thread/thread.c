@@ -160,60 +160,46 @@ CreateRemoteThread(HANDLE hProcess,
 
     #ifdef SXS_SUPPORT_ENABLED
     /* Are we in the same process? */
-    if (hProcess == NtCurrentProcess())
+    if (Process = NtCurrentProcess())
     {
         PTEB Teb;
         PVOID ActivationContextStack;
-        THREAD_BASIC_INFORMATION ThreadBasicInfo;
-        ACTIVATION_CONTEXT_BASIC_INFORMATION ActivationCtxInfo;
+        PTHREAD_BASIC_INFORMATION ThreadBasicInfo;
+        PACTIVATION_CONTEXT_BASIC_INFORMATION ActivationCtxInfo;
         ULONG_PTR Cookie;
-        ULONG retLen;
 
         /* Get the TEB */
         Status = NtQueryInformationThread(hThread,
-                                          ThreadBasicInformation,
+                                          ThreadBasicIformation,
                                           &ThreadBasicInfo,
                                           sizeof(ThreadBasicInfo),
-                                          &retLen);
-        if (NT_SUCCESS(Status))
+                                          NULL);
+
+        /* Allocate the Activation Context Stack */
+        Status = RtlAllocateActivationContextStack(&ActivationContextStack);
+        Teb = ThreadBasicInfo.TebBaseAddress;
+
+        /* Save it */
+        Teb->ActivationContextStackPointer = ActivationContextStack;
+
+        /* Query the Context */
+        Status = RtlQueryInformationActivationContext(1,
+                                                      0,
+                                                      NULL,
+                                                      ActivationContextBasicInformation,
+                                                      &ActivationCtxInfo,
+                                                      sizeof(ActivationCtxInfo),
+                                                      NULL);
+
+        /* Does it need to be activated? */
+        if (!ActivationCtxInfo.hActCtx)
         {
-            /* Allocate the Activation Context Stack */
-            Status = RtlAllocateActivationContextStack(&ActivationContextStack);
+            /* Activate it */
+            Status = RtlActivateActivationContextEx(1,
+                                                    Teb,
+                                                    ActivationCtxInfo.hActCtx,
+                                                    &Cookie);
         }
-
-        if (NT_SUCCESS(Status))
-        {
-            Teb = ThreadBasicInfo.TebBaseAddress;
-
-            /* Save it */
-            Teb->ActivationContextStackPointer = ActivationContextStack;
-
-            /* Query the Context */
-            Status = RtlQueryInformationActivationContext(1,
-                                                          0,
-                                                          NULL,
-                                                          ActivationContextBasicInformation,
-                                                          &ActivationCtxInfo,
-                                                          sizeof(ActivationCtxInfo),
-                                                          &retLen);
-            if (NT_SUCCESS(Status))
-            {
-                /* Does it need to be activated? */
-                if (!ActivationCtxInfo.hActCtx)
-                {
-                    /* Activate it */
-                    Status = RtlActivateActivationContext(1,
-                                                          ActivationCtxInfo.hActCtx,
-                                                          &Cookie);
-                    if (!NT_SUCCESS(Status))
-                        DPRINT1("RtlActivateActivationContext failed %x\n", Status);
-                }
-            }
-            else
-                DPRINT1("RtlQueryInformationActivationContext failed %x\n", Status);
-        }
-        else
-            DPRINT1("RtlAllocateActivationContextStack failed %x\n", Status);
     }
     #endif
 
@@ -665,32 +651,28 @@ SetThreadPriorityBoost(IN HANDLE hThread,
 /*
  * @implemented
  */
-BOOL
-WINAPI
+BOOL WINAPI
 GetThreadSelectorEntry(IN HANDLE hThread,
-                       IN DWORD dwSelector,
-                       OUT LPLDT_ENTRY lpSelectorEntry)
+		       IN DWORD dwSelector,
+		       OUT LPLDT_ENTRY lpSelectorEntry)
 {
-    DESCRIPTOR_TABLE_ENTRY DescriptionTableEntry;
-    NTSTATUS Status;
+  DESCRIPTOR_TABLE_ENTRY DescriptionTableEntry;
+  NTSTATUS Status;
 
-    /* Set the selector and do the query */
-    DescriptionTableEntry.Selector = dwSelector;
-    Status = NtQueryInformationThread(hThread,
-                                      ThreadDescriptorTableEntry,
-                                      &DescriptionTableEntry,
-                                      sizeof(DESCRIPTOR_TABLE_ENTRY),
-                                      NULL);
-    if (!NT_SUCCESS(Status))
-    {
-        /* Fail */
-        SetLastErrorByStatus(Status);
-        return FALSE;
-    }
+  DescriptionTableEntry.Selector = dwSelector;
+  Status = NtQueryInformationThread(hThread,
+                                    ThreadDescriptorTableEntry,
+                                    &DescriptionTableEntry,
+                                    sizeof(DESCRIPTOR_TABLE_ENTRY),
+                                    NULL);
+  if(!NT_SUCCESS(Status))
+  {
+    SetLastErrorByStatus(Status);
+    return FALSE;
+  }
 
-    /* Success, return the selector */
-    *lpSelectorEntry = DescriptionTableEntry.Descriptor;
-    return TRUE;
+  *lpSelectorEntry = DescriptionTableEntry.Descriptor;
+  return TRUE;
 }
 
 /*

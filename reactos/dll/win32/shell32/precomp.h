@@ -22,10 +22,8 @@
 #include <windows.h>
 
 #include <shlguid.h>
-#include <shlguid_undoc.h>
 #include <shlwapi.h>
 #include <shlobj.h>
-#include <shlobj_undoc.h>
 #include <shldisp.h>
 #include <commdlg.h>
 #include <commctrl.h>

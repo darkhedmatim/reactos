@@ -38,35 +38,6 @@ WINE_DEFAULT_DEBUG_CHANNEL(mshtml);
 
 #define HTMLELEM_THIS(iface) DEFINE_THIS(HTMLElement, HTMLElement, iface)
 
-HRESULT create_nselem(HTMLDocumentNode *doc, const WCHAR *tag, nsIDOMHTMLElement **ret)
-{
-    nsIDOMElement *nselem;
-    nsAString tag_str;
-    nsresult nsres;
-
-    if(!doc->nsdoc) {
-        WARN("NULL nsdoc\n");
-        return E_UNEXPECTED;
-    }
-
-    nsAString_Init(&tag_str, tag);
-    nsres = nsIDOMDocument_CreateElement(doc->nsdoc, &tag_str, &nselem);
-    nsAString_Finish(&tag_str);
-    if(NS_FAILED(nsres)) {
-        ERR("CreateElement failed: %08x\n", nsres);
-        return E_FAIL;
-    }
-
-    nsres = nsIDOMElement_QueryInterface(nselem, &IID_nsIDOMHTMLElement, (void**)ret);
-    nsIDOMElement_Release(nselem);
-    if(NS_FAILED(nsres)) {
-        ERR("Could not get nsIDOMHTMLElement iface: %08x\n", nsres);
-        return E_FAIL;
-    }
-
-    return S_OK;
-}
-
 #define HTMLELEM_NODE_THIS(iface) DEFINE_THIS2(HTMLElement, node, iface)
 
 static HRESULT WINAPI HTMLElement_QueryInterface(IHTMLElement *iface,
@@ -879,7 +850,7 @@ static HRESULT WINAPI HTMLElement_put_innerText(IHTMLElement *iface, BSTR v)
     }
 
     nsAString_Init(&text_str, v);
-    nsres = nsIDOMHTMLDocument_CreateTextNode(This->node.doc->nsdoc, &text_str, &text_node);
+    nsres = nsIDOMHTMLDocument_CreateTextNode(This->node.doc->basedoc.nsdoc, &text_str, &text_node);
     nsAString_Finish(&text_str);
     if(NS_FAILED(nsres)) {
         ERR("CreateTextNode failed: %08x\n", nsres);
@@ -1035,12 +1006,12 @@ static HRESULT WINAPI HTMLElement_insertAdjacentHTML(IHTMLElement *iface, BSTR w
 
     TRACE("(%p)->(%s %s)\n", This, debugstr_w(where), debugstr_w(html));
 
-    if(!This->node.doc->nsdoc) {
+    if(!This->node.doc->basedoc.nsdoc) {
         WARN("NULL nsdoc\n");
         return E_UNEXPECTED;
     }
 
-    nsres = nsIDOMDocument_QueryInterface(This->node.doc->nsdoc, &IID_nsIDOMDocumentRange, (void **)&nsdocrange);
+    nsres = nsIDOMDocument_QueryInterface(This->node.doc->basedoc.nsdoc, &IID_nsIDOMDocumentRange, (void **)&nsdocrange);
     if(NS_FAILED(nsres))
     {
         ERR("getting nsIDOMDocumentRange failed: %08x\n", nsres);
@@ -1093,14 +1064,14 @@ static HRESULT WINAPI HTMLElement_insertAdjacentText(IHTMLElement *iface, BSTR w
 
     TRACE("(%p)->(%s %s)\n", This, debugstr_w(where), debugstr_w(text));
 
-    if(!This->node.doc->nsdoc) {
+    if(!This->node.doc->basedoc.nsdoc) {
         WARN("NULL nsdoc\n");
         return E_UNEXPECTED;
     }
 
 
     nsAString_Init(&ns_text, text);
-    nsres = nsIDOMDocument_CreateTextNode(This->node.doc->nsdoc, &ns_text, (nsIDOMText **)&nsnode);
+    nsres = nsIDOMDocument_CreateTextNode(This->node.doc->basedoc.nsdoc, &ns_text, (nsIDOMText **)&nsnode);
     nsAString_Finish(&ns_text);
 
     if(NS_FAILED(nsres) || !nsnode)
@@ -1132,10 +1103,8 @@ static HRESULT WINAPI HTMLElement_get_isTextEdit(IHTMLElement *iface, VARIANT_BO
 static HRESULT WINAPI HTMLElement_click(IHTMLElement *iface)
 {
     HTMLElement *This = HTMLELEM_THIS(iface);
-
-    TRACE("(%p)\n", This);
-
-    return call_event(&This->node, EVENTID_CLICK);
+    FIXME("(%p)\n", This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLElement_get_filters(IHTMLElement *iface,
@@ -1489,22 +1458,16 @@ static dispex_static_data_t HTMLElement_dispex = {
     HTMLElement_iface_tids
 };
 
-void HTMLElement_Init(HTMLElement *This, HTMLDocumentNode *doc, nsIDOMHTMLElement *nselem, dispex_static_data_t *dispex_data)
+void HTMLElement_Init(HTMLElement *This, dispex_static_data_t *dispex_data)
 {
     This->lpHTMLElementVtbl = &HTMLElementVtbl;
+
+    ConnectionPointContainer_Init(&This->cp_container, (IUnknown*)HTMLELEM(This));
 
     HTMLElement2_Init(This);
     HTMLElement3_Init(This);
 
     init_dispex(&This->node.dispex, (IUnknown*)HTMLELEM(This), dispex_data ? dispex_data : &HTMLElement_dispex);
-
-    if(nselem)
-        nsIDOMHTMLElement_AddRef(nselem);
-    This->nselem = nselem;
-
-    HTMLDOMNode_Init(doc, &This->node, (nsIDOMNode*)nselem);
-
-    ConnectionPointContainer_Init(&This->cp_container, (IUnknown*)HTMLELEM(This));
 }
 
 HTMLElement *HTMLElement_Create(HTMLDocumentNode *doc, nsIDOMNode *nsnode, BOOL use_generic)
@@ -1537,40 +1500,42 @@ HTMLElement *HTMLElement_Create(HTMLDocumentNode *doc, nsIDOMNode *nsnode, BOOL 
     nsAString_GetData(&class_name_str, &class_name);
 
     if(!strcmpW(class_name, wszA))
-        ret = HTMLAnchorElement_Create(doc, nselem);
+        ret = HTMLAnchorElement_Create(nselem);
     else if(!strcmpW(class_name, wszBODY))
-        ret = HTMLBodyElement_Create(doc, nselem);
+        ret = HTMLBodyElement_Create(nselem);
     else if(!strcmpW(class_name, wszIFRAME))
-        ret = HTMLIFrame_Create(doc, nselem, NULL);
+        ret = HTMLIFrame_Create(nselem);
     else if(!strcmpW(class_name, wszIMG))
-        ret = HTMLImgElement_Create(doc, nselem);
+        ret = HTMLImgElement_Create(nselem);
     else if(!strcmpW(class_name, wszINPUT))
-        ret = HTMLInputElement_Create(doc, nselem);
+        ret = HTMLInputElement_Create(nselem);
     else if(!strcmpW(class_name, wszOPTION))
-        ret = HTMLOptionElement_Create(doc, nselem);
+        ret = HTMLOptionElement_Create(nselem);
     else if(!strcmpW(class_name, wszSCRIPT))
-        ret = HTMLScriptElement_Create(doc, nselem);
+        ret = HTMLScriptElement_Create(nselem);
     else if(!strcmpW(class_name, wszSELECT))
-        ret = HTMLSelectElement_Create(doc, nselem);
+        ret = HTMLSelectElement_Create(nselem);
     else if(!strcmpW(class_name, wszTABLE))
-        ret = HTMLTable_Create(doc, nselem);
+        ret = HTMLTable_Create(nselem);
     else if(!strcmpW(class_name, wszTR))
-        ret = HTMLTableRow_Create(doc, nselem);
+        ret = HTMLTableRow_Create(nselem);
     else if(!strcmpW(class_name, wszTEXTAREA))
-        ret = HTMLTextAreaElement_Create(doc, nselem);
+        ret = HTMLTextAreaElement_Create(nselem);
     else if(use_generic)
-        ret = HTMLGenericElement_Create(doc, nselem);
+        ret = HTMLGenericElement_Create(nselem);
 
     if(!ret) {
         ret = heap_alloc_zero(sizeof(HTMLElement));
-        HTMLElement_Init(ret, doc, nselem, NULL);
+        HTMLElement_Init(ret, NULL);
         ret->node.vtbl = &HTMLElementImplVtbl;
     }
 
     TRACE("%s ret %p\n", debugstr_w(class_name), ret);
 
-    nsIDOMElement_Release(nselem);
     nsAString_Finish(&class_name_str);
+
+    ret->nselem = nselem;
+    HTMLDOMNode_Init(doc, &ret->node, (nsIDOMNode*)nselem);
 
     return ret;
 }

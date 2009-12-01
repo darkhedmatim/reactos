@@ -21,6 +21,8 @@
 MM_DRIVER_VERIFIER_DATA MmVerifierData;
 LIST_ENTRY MiVerifierDriverAddedThunkListHead;
 ULONG MiActiveVerifierThunks;
+extern KMUTANT MmSystemLoadLock;
+extern LIST_ENTRY PsLoadedModuleList;
 
 /* PRIVATE FUNCTIONS *********************************************************/
 

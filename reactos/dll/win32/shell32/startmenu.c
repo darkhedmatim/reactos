@@ -103,15 +103,15 @@ static HRESULT WINAPI StartMenu_QueryInterface(IMenuPopup *iface, REFIID iid, LP
     if (IsEqualIID(iid, &IID_IUnknown) || IsEqualIID(iid, &IID_IOleWindow)
      || IsEqualIID(iid, &IID_IDeskBar) || IsEqualIID(iid, &IID_IMenuPopup))
     {
-        *ppvOut = (void *)&This->vtbl;
+        *ppvOut = &This->vtbl;
     }
     else if (IsEqualIID(iid, &IID_IObjectWithSite))
     {
-        *ppvOut = (void *)&This->objectSiteVtbl;
+        *ppvOut = &This->objectSiteVtbl;
     }
     else if (IsEqualIID(iid, &IID_IInitializeObject))
     {
-        *ppvOut = (void *)&This->initObjectVtbl;
+        *ppvOut = &This->initObjectVtbl;
     }
 
     if (*ppvOut)

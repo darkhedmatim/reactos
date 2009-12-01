@@ -209,11 +209,6 @@ typedef struct
     ULONG FilterPropertySetCount;
     PKSPROPERTY_SET FilterPropertySet;
 
-    ULONG EventSetCount;
-    PKSEVENT_SET EventSet;
-    PLIST_ENTRY EventList;
-    PKSPIN_LOCK EventListLock;
-
     PPCFILTER_DESCRIPTOR DeviceDescriptor;
     KSTOPOLOGY*  Topology;
     LIST_ENTRY SymbolicLinkList;
@@ -327,8 +322,9 @@ DECLARE_INTERFACE_(IIrpQueue, IUnknown)
         IN PVOID SilenceBuffer) PURE;
 
     STDMETHOD_(NTSTATUS, AddMapping)(THIS_
-        IN PIRP Irp,
-        OUT PULONG Data) PURE;
+        IN PUCHAR Buffer,
+        IN ULONG BufferSize,
+        IN PIRP Irp) PURE;
 
     STDMETHOD_(NTSTATUS, GetMapping)(THIS_
         OUT PUCHAR * Buffer,
@@ -359,7 +355,7 @@ DECLARE_INTERFACE_(IIrpQueue, IUnknown)
         IN PVOID Tag) PURE;
 
     STDMETHOD_(BOOL, HasLastMappingFailed)(THIS) PURE;
-    STDMETHOD_(ULONG, GetCurrentIrpOffset)(THIS) PURE;
+    STDMETHOD_(VOID, PrintQueueStatus)(THIS) PURE;
     STDMETHOD_(VOID, SetMinimumDataThreshold)(THIS_
         IN ULONG MinimumDataThreshold) PURE;
     STDMETHOD_(ULONG, GetMinimumDataThreshold)(THIS) PURE;
@@ -376,8 +372,9 @@ DECLARE_INTERFACE_(IIrpQueue, IUnknown)
         IN PVOID SilenceBuffer);                       \
                                                        \
     STDMETHODIMP_(NTSTATUS) AddMapping(THIS_           \
-        IN PIRP Irp,                                   \
-        OUT PULONG Data);                              \
+        IN PUCHAR Buffer,                              \
+        IN ULONG BufferSize,                           \
+        IN PIRP Irp);                                  \
                                                        \
     STDMETHODIMP_(NTSTATUS) GetMapping(THIS_           \
         OUT PUCHAR * Buffer,                           \
@@ -408,7 +405,7 @@ DECLARE_INTERFACE_(IIrpQueue, IUnknown)
         IN PVOID Tag);                                 \
                                                        \
     STDMETHODIMP_(BOOL) HasLastMappingFailed(THIS);    \
-    STDMETHODIMP_(ULONG) GetCurrentIrpOffset(THIS);    \
+    STDMETHODIMP_(VOID) PrintQueueStatus(THIS);        \
     STDMETHODIMP_(VOID) SetMinimumDataThreshold(       \
         IN ULONG MinimumDataThreshold);                \
     STDMETHODIMP_(ULONG) GetMinimumDataThreshold(VOID)

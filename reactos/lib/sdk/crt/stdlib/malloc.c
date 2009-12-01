@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Note: Win32 heap operations are MT safe. We only lock the new
  *       handler and non atomic heap operations
@@ -34,6 +34,8 @@
 /* round to 16 bytes + alloc at minimum 16 bytes */
 #define ROUND_SIZE(size) (max(16, ROUND_UP(size, 16)))
 
+extern HANDLE hHeap;
+
 /*
  * @implemented
  */
@@ -44,7 +46,7 @@ void* malloc(size_t _size)
    if (nSize<_size)
        return NULL;
 
-   return HeapAlloc(GetProcessHeap(), 0, nSize);
+   return HeapAlloc(hHeap, 0, nSize);
 }
 
 /*
@@ -52,7 +54,7 @@ void* malloc(size_t _size)
  */
 void free(void* _ptr)
 {
-   HeapFree(GetProcessHeap(),0,_ptr);
+   HeapFree(hHeap,0,_ptr);
 }
 
 /*
@@ -66,7 +68,7 @@ void* calloc(size_t _nmemb, size_t _size)
    if ( (_nmemb > ((size_t)-1 / _size))  || (cSize<nSize))
       return NULL;
 
-   return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, cSize );
+   return HeapAlloc(hHeap, HEAP_ZERO_MEMORY, cSize );
 }
 
 /*
@@ -91,7 +93,7 @@ void* realloc(void* _ptr, size_t _size)
    if (nSize<_size)
        return NULL;
 
-   return HeapReAlloc(GetProcessHeap(), 0, _ptr, nSize);
+   return HeapReAlloc(hHeap, 0, _ptr, nSize);
 }
 
 /*
@@ -106,7 +108,7 @@ void* _expand(void* _ptr, size_t _size)
    if (nSize<_size)
        return NULL;
 
-   return HeapReAlloc(GetProcessHeap(), HEAP_REALLOC_IN_PLACE_ONLY, _ptr, nSize);
+   return HeapReAlloc(hHeap, HEAP_REALLOC_IN_PLACE_ONLY, _ptr, nSize);
 }
 
 /*
@@ -114,7 +116,7 @@ void* _expand(void* _ptr, size_t _size)
  */
 size_t _msize(void* _ptr)
 {
-   return HeapSize(GetProcessHeap(), 0, _ptr);
+   return HeapSize(hHeap, 0, _ptr);
 }
 
 /*
@@ -122,7 +124,7 @@ size_t _msize(void* _ptr)
  */
 int	_heapchk(void)
 {
-	if (!HeapValidate(GetProcessHeap(), 0, NULL))
+	if (!HeapValidate(hHeap, 0, NULL))
 		return -1;
 	return 0;
 }
@@ -132,7 +134,7 @@ int	_heapchk(void)
  */
 int	_heapmin(void)
 {
-	if (!HeapCompact(GetProcessHeap(), 0))
+	if (!HeapCompact(hHeap, 0))
 		return -1;
 	return 0;
 }

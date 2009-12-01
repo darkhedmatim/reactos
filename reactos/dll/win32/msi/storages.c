@@ -289,16 +289,14 @@ static UINT STORAGES_get_dimensions(struct tagMSIVIEW *view, UINT *rows, UINT *c
 }
 
 static UINT STORAGES_get_column_info(struct tagMSIVIEW *view, UINT n,
-                                     LPWSTR *name, UINT *type, BOOL *temporary,
-                                     LPWSTR *table_name)
+                                     LPWSTR *name, UINT *type, BOOL *temporary)
 {
     LPCWSTR name_ptr = NULL;
 
     static const WCHAR Name[] = {'N','a','m','e',0};
     static const WCHAR Data[] = {'D','a','t','a',0};
 
-    TRACE("(%p, %d, %p, %p, %p, %p)\n", view, n, name, type, temporary,
-          table_name);
+    TRACE("(%p, %d, %p, %p, %p)\n", view, n, name, type, temporary);
 
     if (n == 0 || n > NUM_STORAGES_COLS)
         return ERROR_INVALID_PARAMETER;

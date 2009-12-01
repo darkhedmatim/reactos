@@ -10,7 +10,6 @@
 
 <module name="kdserial" type="staticlibrary">
 	<include base="kdserial">.</include>
-	<library>ntoskrnl</library>
 	<file>kdserial.c</file>
 </module>
 

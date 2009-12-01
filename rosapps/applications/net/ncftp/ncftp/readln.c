@@ -649,7 +649,7 @@ SaveHistory(void)
 
 	gl_strlen = Vt100VisibleStrlen;
 	gl_histsavefile(pathName);
-	(void) _chmod(pathName, 00600);
+	(void) chmod(pathName, 00600);
 }	/* SaveHistory */
 
 

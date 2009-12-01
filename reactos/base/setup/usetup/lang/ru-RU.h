@@ -987,7 +987,7 @@ static MUI_ENTRY ruRUBootLoaderEntries[] =
     {
         8,
         12,
-        "Установка на жесткий диск (загрузочный сектор).",
+        "Установка на жесткий диск (MBR).",
         TEXT_STYLE_NORMAL
     },
     {

@@ -4888,6 +4888,7 @@ static UINT ACTION_InstallODBC( MSIPACKAGE *package )
 static LONG env_set_flags( LPCWSTR *name, LPCWSTR *value, DWORD *flags )
 {
     LPCWSTR cptr = *name;
+    LPCWSTR ptr = *value;
 
     static const WCHAR prefix[] = {'[','~',']',0};
     static const int prefix_len = 3;
@@ -4918,22 +4919,18 @@ static LONG env_set_flags( LPCWSTR *name, LPCWSTR *value, DWORD *flags )
         return ERROR_FUNCTION_FAILED;
     }
 
-    if (*value)
+    if (!strncmpW(ptr, prefix, prefix_len))
     {
-        LPCWSTR ptr = *value;
-        if (!strncmpW(ptr, prefix, prefix_len))
+        *flags |= ENV_MOD_APPEND;
+        *value += lstrlenW(prefix);
+    }
+    else if (lstrlenW(*value) >= prefix_len)
+    {
+        ptr += lstrlenW(ptr) - prefix_len;
+        if (!lstrcmpW(ptr, prefix))
         {
-            *flags |= ENV_MOD_APPEND;
-            *value += lstrlenW(prefix);
-        }
-        else if (lstrlenW(*value) >= prefix_len)
-        {
-            ptr += lstrlenW(ptr) - prefix_len;
-            if (!lstrcmpW(ptr, prefix))
-            {
-                *flags |= ENV_MOD_PREFIX;
-                /* the "[~]" will be removed by deformat_string */;
-            }
+            *flags |= ENV_MOD_PREFIX;
+            /* the "[~]" will be removed by deformat_string */;
         }
     }
 
@@ -4981,7 +4978,8 @@ static UINT ITERATE_WriteEnvironmentString( MSIRECORD *rec, LPVOID param )
     if (res != ERROR_SUCCESS)
        goto done;
 
-    if (value && !deformat_string(package, value, &deformatted))
+    deformat_string(package, value, &deformatted);
+    if (!deformatted)
     {
         res = ERROR_OUTOFMEMORY;
         goto done;
@@ -5068,7 +5066,7 @@ static UINT ITERATE_WriteEnvironmentString( MSIRECORD *rec, LPVOID param )
             }
         }
     }
-    else if (value)
+    else
     {
         size = (lstrlenW(value) + 1) * sizeof(WCHAR);
         newval = msi_alloc(size);
@@ -5081,13 +5079,8 @@ static UINT ITERATE_WriteEnvironmentString( MSIRECORD *rec, LPVOID param )
         lstrcpyW(newval, value);
     }
 
-    if (newval)
-    {
-        TRACE("setting %s to %s\n", debugstr_w(name), debugstr_w(newval));
-        res = RegSetValueExW(env, name, 0, type, (LPVOID)newval, size);
-    }
-    else
-        res = ERROR_SUCCESS;
+    TRACE("setting %s to %s\n", debugstr_w(name), debugstr_w(newval));
+    res = RegSetValueExW(env, name, 0, type, (LPVOID)newval, size);
 
 done:
     if (env) RegCloseKey(env);

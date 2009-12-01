@@ -987,7 +987,7 @@ static MUI_ENTRY itITBootLoaderEntries[] =
     {
         8,
         12,
-        "Installazione del bootloader sul disco fisso (settore di avvio).",
+        "Installazione del bootloader sul disco fisso (MBR).",
         TEXT_STYLE_NORMAL
     },
     {

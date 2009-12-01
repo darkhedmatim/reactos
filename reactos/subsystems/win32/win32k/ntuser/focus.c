@@ -12,9 +12,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  */
 
@@ -77,10 +77,8 @@ co_IntSendActivateMessages(HWND hWndPrev, HWND hWnd, BOOL MouseActivate)
       /* Send palette messages */
       if (co_IntPostOrSendMessage(hWnd, WM_QUERYNEWPALETTE, 0, 0))
       {
-         UserPostMessage( HWND_BROADCAST,
-                          WM_PALETTEISCHANGING,
-                         (WPARAM)hWnd,
-                          0);
+         co_IntPostOrSendMessage(HWND_BROADCAST, WM_PALETTEISCHANGING,
+                                 (WPARAM)hWnd, 0);
       }
 
       if (UserGetWindow(hWnd, GW_HWNDPREV) != NULL)

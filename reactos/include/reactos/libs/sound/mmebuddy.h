@@ -242,18 +242,6 @@ typedef MMRESULT(*MMSETSTATE_FUNC)(
     IN  BOOL bStart);
 
 
-typedef MMRESULT(*MMQUERYDEVICEINTERFACESTRING_FUNC)(
-    IN  MMDEVICE_TYPE DeviceType,
-    IN  DWORD DeviceId,
-    IN  LPWSTR Interface,
-    IN  DWORD  InterfaceLength,
-    OUT  DWORD * InterfaceSize);
-
-typedef MMRESULT(*MMRESETSTREAM_FUNC)(
-    IN  struct _SOUND_DEVICE_INSTANCE* SoundDeviceInstance,
-    IN  MMDEVICE_TYPE DeviceType,
-    IN  BOOLEAN bStartReset);
-
 typedef struct _MMFUNCTION_TABLE
 {
     union
@@ -277,8 +265,6 @@ typedef struct _MMFUNCTION_TABLE
 
     MMGETPOS_FUNC                   GetPos;
     MMSETSTATE_FUNC                 SetState;
-    MMQUERYDEVICEINTERFACESTRING_FUNC     GetDeviceInterfaceString;
-    MMRESETSTREAM_FUNC               ResetStream;
 
     // Redundant
     //MMWAVEHEADER_FUNC               PrepareWaveHeader;
@@ -339,8 +325,8 @@ typedef struct _SOUND_DEVICE_INSTANCE
     {
         HDRVR Handle;
         DWORD Flags;
-        DWORD_PTR ClientCallback;
-        DWORD_PTR ClientCallbackInstanceData;
+        DWORD ClientCallback;
+        DWORD ClientCallbackInstanceData;
     } WinMM;
 
     /* DO NOT TOUCH THESE OUTSIDE OF THE SOUND THREAD */
@@ -362,8 +348,6 @@ typedef struct _SOUND_DEVICE_INSTANCE
     DWORD FrameSize;
     DWORD BufferCount;
     WAVEFORMATEX WaveFormatEx;
-    HANDLE hNotifyEvent;
-    HANDLE hStopEvent;
 } SOUND_DEVICE_INSTANCE, *PSOUND_DEVICE_INSTANCE;
 
 /* This lives in WAVEHDR.reserved */
@@ -429,15 +413,6 @@ MmeGetPosition(
     IN  DWORD PrivateHandle,
     IN  MMTIME* Time,
     IN  DWORD Size);
-
-MMRESULT
-MmeGetDeviceInterfaceString(
-    IN  MMDEVICE_TYPE DeviceType,
-    IN  DWORD DeviceId,
-    IN  LPWSTR Interface,
-    IN  DWORD  InterfaceLength,
-    OUT  DWORD * InterfaceSize);
-
 
 MMRESULT
 MmeSetState(
@@ -568,8 +543,8 @@ MMRESULT
 SetSoundDeviceInstanceMmeData(
     IN  PSOUND_DEVICE_INSTANCE SoundDeviceInstance,
     IN  HDRVR MmeHandle,
-    IN  DWORD_PTR ClientCallback,
-    IN  DWORD_PTR ClientCallbackData,
+    IN  DWORD ClientCallback,
+    IN  DWORD ClientCallbackData,
     IN  DWORD Flags);
 
 

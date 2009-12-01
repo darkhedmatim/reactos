@@ -14,9 +14,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License along
- *  with this program; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include <freeldr.h>
@@ -383,34 +383,11 @@ PVOID WinLdrLoadModule(PCSTR ModuleName, ULONG *Size,
 }
 
 
-USHORT
-WinLdrDetectVersion()
-{
-	LONG rc;
-	FRLDRHKEY hKey;
-
-	rc = RegOpenKey(
-		NULL,
-		L"\\Registry\\Machine\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server",
-		&hKey);
-	if (rc != ERROR_SUCCESS)
-	{
-		// Key doesn't exist; assume NT 4.0
-		return _WIN32_WINNT_NT4;
-	}
-
-	// We may here want to read the value of ProductVersion
-	return _WIN32_WINNT_WS03;
-}
-
-
 VOID
-LoadAndBootWindows(PCSTR OperatingSystemName,
-                   PSTR SettingsValue,
-                   USHORT OperatingSystemVersion)
+LoadAndBootWindows(PCSTR OperatingSystemName, USHORT OperatingSystemVersion)
 {
-	BOOLEAN HasSection;
-	char  FullPath[MAX_PATH], SystemRoot[MAX_PATH], BootPath[MAX_PATH];
+	CHAR  MsgBuffer[256];
+	CHAR  FullPath[MAX_PATH], SystemRoot[MAX_PATH], BootPath[MAX_PATH];
 	CHAR  FileName[MAX_PATH];
 	CHAR  BootOptions[256];
 	PCHAR File;
@@ -426,18 +403,27 @@ LoadAndBootWindows(PCSTR OperatingSystemName,
 	ULONG PcrBasePage=0;
 	ULONG TssBasePage=0;
 
+	//sprintf(MsgBuffer,"Booting Microsoft(R) Windows(R) OS version '%04x' is not implemented yet", OperatingSystemVersion);
+	//UiMessageBox(MsgBuffer);
+
 	// Open the operating system section
 	// specified in the .ini file
-	HasSection = IniOpenSection(OperatingSystemName, &SectionId);
+	if (!IniOpenSection(OperatingSystemName, &SectionId))
+	{
+		sprintf(MsgBuffer,"Operating System section '%s' not found in freeldr.ini", OperatingSystemName);
+		UiMessageBox(MsgBuffer);
+		return;
+	}
 
 	UiDrawBackdrop();
 	UiDrawStatusText("Detecting Hardware...");
-	UiDrawProgressBarCenter(1, 100, "Loading NT...");
+	UiDrawProgressBarCenter(1, 100, "Loading Windows...");
 
-	/* Read the system path is set in the .ini file */
-	if (!HasSection || !IniReadSettingByName(SectionId, "SystemPath", FullPath, sizeof(FullPath)))
+	/* Make sure the system path is set in the .ini file */
+	if (!IniReadSettingByName(SectionId, "SystemPath", FullPath, sizeof(FullPath)))
 	{
-		strcpy(FullPath, OperatingSystemName);
+		UiMessageBox("System path not specified for selected operating system.");
+		return;
 	}
 
 	/* Special case for LiveCD */
@@ -454,16 +440,10 @@ LoadAndBootWindows(PCSTR OperatingSystemName,
 	strcat(SystemRoot, "\\");
 
 	/* Read booting options */
-	if (!HasSection || !IniReadSettingByName(SectionId, "Options", BootOptions, sizeof(BootOptions)))
+	if (!IniReadSettingByName(SectionId, "Options", BootOptions, sizeof(BootOptions)))
 	{
-		/* Get options after the title */
-		const CHAR*p = SettingsValue;
-		while (*p == ' ' || *p == '"')
-			p++;
-		while (*p != '\0' && *p != '"')
-			p++;
-		strcpy(BootOptions, p);
-		DPRINTM(DPRINT_WINDOWS,"BootOptions: '%s'\n", BootOptions);
+		/* Nothing read, make the string empty */
+		strcpy(BootOptions, "");
 	}
 
 	//
@@ -506,13 +486,6 @@ LoadAndBootWindows(PCSTR OperatingSystemName,
 	UseRealHeap = TRUE;
 	LoaderBlock->ConfigurationRoot = MachHwDetect();
 
-	/* Load Hive */
-	Status = WinLdrInitSystemHive(LoaderBlock, BootPath);
-	DPRINTM(DPRINT_WINDOWS, "SYSTEM hive loaded with status %d\n", Status);
-
-	if (OperatingSystemVersion == 0)
-		OperatingSystemVersion = WinLdrDetectVersion();
-
 	/* Load kernel */
 	strcpy(FileName, BootPath);
 	strcat(FileName, "SYSTEM32\\NTOSKRNL.EXE");
@@ -553,9 +526,9 @@ LoadAndBootWindows(PCSTR OperatingSystemName,
 	if (KdComDTE)
 		WinLdrScanImportDescriptorTable(LoaderBlock, FileName, KdComDTE);
 
-	/* Load NLS data, OEM font, and prepare boot drivers list */
-	Status = WinLdrScanSystemHive(LoaderBlock, BootPath);
-	DPRINTM(DPRINT_WINDOWS, "SYSTEM hive scanned with status %d\n", Status);
+	/* Load Hive, and then NLS data, OEM font, and prepare boot drivers list */
+	Status = WinLdrLoadAndScanSystemHive(LoaderBlock, BootPath);
+	DPRINTM(DPRINT_WINDOWS, "SYSTEM hive loaded and scanned with status %d\n", Status);
 
 	/* Load boot drivers */
 	Status = WinLdrLoadBootDrivers(LoaderBlock, BootPath);

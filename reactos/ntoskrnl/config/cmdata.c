@@ -780,20 +780,10 @@ CM_SYSTEM_CONTROL_VECTOR CmControlVector[] =
     {
         L"Session Manager",
         L"Debugger Retries",
-        &KdpContext.KdpDefaultRetries,
+        &DummyData,
         NULL,
         NULL
     },
-
-    {
-        L"Session Manager\\Debug Print Filter",
-        L"WIN2000",
-        &Kd_WIN2000_Mask,
-        NULL,
-        NULL
-    },
-
-    /* TODO: Add the other masks */
 
     {
         L"WMI",

@@ -17,41 +17,6 @@ WINE_DEFAULT_DEBUG_CHANNEL(shell);
 /*
  * Unimplemented
  */
-HLOCAL
-WINAPI
-SHLocalAlloc(UINT uFlags, SIZE_T uBytes)
-{
-    FIXME("SHLocalAlloc() stub\n");
-    return NULL;
-}
-
-/*
- * Unimplemented
- */
-HLOCAL
-WINAPI
-SHLocalFree(HLOCAL hMem)
-{
-    FIXME("SHLocalFree() stub\n");
-    return NULL;
-}
-
-/*
- * Unimplemented
- */
-HLOCAL
-WINAPI
-SHLocalReAlloc(HLOCAL hMem,
-               SIZE_T uBytes,
-               UINT uFlags)
-{
-    FIXME("SHLocalReAlloc() stub\n");
-    return NULL;
-}
-
-/*
- * Unimplemented
- */
 LPWSTR
 WINAPI
 AddCommasW(DWORD dwUnknown, LPWSTR lpNumber)
@@ -128,32 +93,6 @@ SHCreateFileExtractIconW(LPCWSTR pszPath,
                          LPVOID lpUnknown2)
 {
     FIXME("SHCreateFileExtractIconW() stub\n");
-    return E_FAIL;
-}
-
-HRESULT
-WINAPI
-SHGetUnreadMailCountW(HKEY hKeyUser,
-                      LPCWSTR pszMailAddress,
-                      DWORD *pdwCount,
-                      FILETIME *pFileTime,
-                      LPCWSTR pszShellExecuteCommand,
-                      int cchShellExecuteCommand)
-{
-    FIXME("SHGetUnreadMailCountW() stub\n");
-    return E_FAIL;
-}
-
-/*
- * Unimplemented
- */
-HRESULT
-WINAPI
-SHSetUnreadMailCountW(LPCWSTR pszMailAddress,
-                      DWORD dwCount,
-                      LPCWSTR pszShellExecuteCommand)
-{
-    FIXME("SHSetUnreadMailCountW() stub\n");
     return E_FAIL;
 }
 
@@ -962,7 +901,7 @@ PifMgr_CloseProperties(HANDLE hHandle, UINT uUnknown)
 BOOL
 WINAPI
 DAD_DragEnterEx2(HWND hwndTarget,
-                 POINT ptStart,
+                 const POINT ptStart,
                  IDataObject *pdtObject)
 {
     FIXME("DAD_DragEnterEx2() stub\n");

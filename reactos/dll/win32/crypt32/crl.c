@@ -228,8 +228,7 @@ PCCRL_CONTEXT WINAPI CertGetCRLFromStore(HCERTSTORE hCertStore,
 PCCRL_CONTEXT WINAPI CertDuplicateCRLContext(PCCRL_CONTEXT pCrlContext)
 {
     TRACE("(%p)\n", pCrlContext);
-    if (pCrlContext)
-        Context_AddRef((void *)pCrlContext, sizeof(CRL_CONTEXT));
+    Context_AddRef((void *)pCrlContext, sizeof(CRL_CONTEXT));
     return pCrlContext;
 }
 
@@ -243,14 +242,12 @@ static void CrlDataContext_Free(void *context)
 
 BOOL WINAPI CertFreeCRLContext( PCCRL_CONTEXT pCrlContext)
 {
-    BOOL ret = TRUE;
-
     TRACE("(%p)\n", pCrlContext);
 
     if (pCrlContext)
-        ret = Context_Release((void *)pCrlContext, sizeof(CRL_CONTEXT),
+        Context_Release((void *)pCrlContext, sizeof(CRL_CONTEXT),
          CrlDataContext_Free);
-    return ret;
+    return TRUE;
 }
 
 DWORD WINAPI CertEnumCRLContextProperties(PCCRL_CONTEXT pCRLContext,
