@@ -5,6 +5,7 @@
 	<library>wine</library>
 	<library>msacm32</library>
 	<library>ntdll</library>
+	<library>kernel32</library>
 	<library>user32</library>
 	<library>winmm</library>
 	<file>wavemap.c</file>

@@ -21,9 +21,6 @@
 #ifndef __I386_I386_H_
 #define __I386_I386_H_
 
-// This is needed because headers define wrong one for ReactOS
-#undef KIP0PCRADDRESS
-#define KIP0PCRADDRESS                      0xffdff000
 
 
 #endif /* __I386_I386_H_ */

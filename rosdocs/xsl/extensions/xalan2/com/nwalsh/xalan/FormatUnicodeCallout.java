@@ -9,7 +9,7 @@ import org.apache.xml.utils.AttList;
 /**
  * <p>Utility class for the Verbatim extension (ignore this).</p>
  *
- * <p>$Id: FormatUnicodeCallout.java,v 1.1 2002/06/13 20:32:18 chorns Exp $</p>
+ * <p>$Id$</p>
  *
  * <p>Copyright (C) 2000, 2001 Norman Walsh.</p>
  *
@@ -24,7 +24,7 @@ import org.apache.xml.utils.AttList;
  *
  * @see Verbatim
  *
- * @version $Id: FormatUnicodeCallout.java,v 1.1 2002/06/13 20:32:18 chorns Exp $
+ * @version $Id$
  **/
 
 public class FormatUnicodeCallout extends FormatCallout {

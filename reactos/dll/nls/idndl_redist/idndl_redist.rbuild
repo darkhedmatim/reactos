@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="idndl_redist" type="win32dll" installname="idndl_redist.dll" crt="libcntpr">
+	<library>kernel32</library>
 	<library>scripts</library>
 	<group compilerset="gcc">
 		<compilerflag compiler="cxx">-fno-exceptions</compilerflag>

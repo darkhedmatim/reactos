@@ -1032,23 +1032,23 @@ NtUserCreateDesktop(
    DesktopInfoSize = FIELD_OFFSET(DESKTOPINFO,
                                   szDesktopName[(lpszDesktopName->Length / sizeof(WCHAR)) + 1]);
 
-   DesktopObject->pDeskInfo = RtlAllocateHeap(DesktopObject->pheapDesktop,
+   DesktopObject->DesktopInfo = RtlAllocateHeap(DesktopObject->pheapDesktop,
                                                 HEAP_NO_SERIALIZE,
                                                 DesktopInfoSize);
 
-   if (DesktopObject->pDeskInfo == NULL)
+   if (DesktopObject->DesktopInfo == NULL)
    {
        ObDereferenceObject(DesktopObject);
        DPRINT1("Failed to create the DESKTOP structure!\n");
        RETURN(NULL);
    }
 
-   RtlZeroMemory(DesktopObject->pDeskInfo,
+   RtlZeroMemory(DesktopObject->DesktopInfo,
                  DesktopInfoSize);
 
-   DesktopObject->pDeskInfo->pvDesktopBase = DesktopHeapSystemBase;
-   DesktopObject->pDeskInfo->pvDesktopLimit = (PVOID)((ULONG_PTR)DesktopHeapSystemBase + HeapSize);
-   RtlCopyMemory(DesktopObject->pDeskInfo->szDesktopName,
+   DesktopObject->DesktopInfo->pvDesktopBase = DesktopHeapSystemBase;
+   DesktopObject->DesktopInfo->pvDesktopLimit = (PVOID)((ULONG_PTR)DesktopHeapSystemBase + HeapSize);
+   RtlCopyMemory(DesktopObject->DesktopInfo->szDesktopName,
                  lpszDesktopName->Buffer,
                  lpszDesktopName->Length);
 
@@ -1684,23 +1684,18 @@ NtUserSwitchDesktop(HDESK hDesktop)
       RETURN(FALSE);
    }
 
-   if(DesktopObject->WindowStation != InputWindowStation)
-   {
-      ObDereferenceObject(DesktopObject);
-      DPRINT1("Switching desktop 0x%x denied because desktop doesn't belong to the interactive winsta!\n", hDesktop);
-      RETURN(FALSE);
-   }
-
+   /* FIXME: Fail if the desktop belong to an invisible window station */
    /* FIXME: Fail if the process is associated with a secured
              desktop such as Winlogon or Screen-Saver */
    /* FIXME: Connect to input device */
 
    /* Set the active desktop in the desktop's window station. */
-   InputWindowStation->ActiveDesktop = DesktopObject;
+   DesktopObject->WindowStation->ActiveDesktop = DesktopObject;
 
    /* Set the global state. */
    InputDesktop = DesktopObject;
    InputDesktopHandle = hDesktop;
+   InputWindowStation = DesktopObject->WindowStation;
 
    ObDereferenceObject(DesktopObject);
 
@@ -1933,7 +1928,7 @@ IntMapDesktopView(IN PDESKTOP DesktopObject)
         if (GetWin32ClientInfo()->pDeskInfo == NULL)
         {
            GetWin32ClientInfo()->pDeskInfo = 
-                (PVOID)((ULONG_PTR)DesktopObject->pDeskInfo - 
+                (PVOID)((ULONG_PTR)DesktopObject->DesktopInfo - 
                                           GetWin32ClientInfo()->ulClientDelta);
         }
     }
@@ -1984,7 +1979,7 @@ IntSetThreadDesktop(IN PDESKTOP DesktopObject,
             pci->ulClientDelta = DesktopHeapGetUserDelta();
             if (DesktopObject)
             {
-                pci->pDeskInfo = (PVOID)((ULONG_PTR)DesktopObject->pDeskInfo - pci->ulClientDelta);
+                pci->pDeskInfo = (PVOID)((ULONG_PTR)DesktopObject->DesktopInfo - pci->ulClientDelta);
             }
         }
 

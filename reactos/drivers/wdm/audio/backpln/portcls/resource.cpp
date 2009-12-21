@@ -360,11 +360,7 @@ PcNewResourceList(
 
     if (!NT_SUCCESS(Status))
     {
-        //
-        // Ouch, FIX ME
-        //
         delete NewList;
-        return STATUS_INVALID_PARAMETER;
     }
 
     if (!TranslatedResourceList)

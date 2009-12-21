@@ -1,6 +1,7 @@
 <module name="template_dialog" type="win32cui" installname="dialog.exe" allowwarnings="true">
 	<include base="template_dialog">.</include>
 	<library>ntdll</library>
+	<library>kernel32</library>
 	<library>user32</library>
 	<library>gdi32</library>
 	<library>comctl32</library>

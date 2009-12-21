@@ -5,6 +5,7 @@
 	<importlibrary definition="ksproxy.spec" />
 	<include base="ksproxy">.</include>
 	<library>advapi32</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 	<file>ksproxy.c</file>
 	<file>ksproxy.rc</file>

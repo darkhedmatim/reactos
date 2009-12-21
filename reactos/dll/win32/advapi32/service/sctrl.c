@@ -237,7 +237,7 @@ ScConnectControlPipe(HANDLE *hPipe)
                          NULL);
     if (*hPipe == INVALID_HANDLE_VALUE)
     {
-        ERR("CreateFileW() failed for pipe %S (Error %lu)\n", NtControlPipeName, GetLastError());
+        ERR("CreateFileW() failed (Error %lu)\n", GetLastError());
         return ERROR_FAILED_SERVICE_CONTROLLER_CONNECT;
     }
 

@@ -4,6 +4,7 @@
 	<compilerflag compiler="cxx" compilerset="gcc">-fno-rtti</compilerflag>
 	<include base="rosautotest">.</include>
 	<library>advapi32</library>
+	<library>kernel32</library>
 	<library>shell32</library>
 	<library>user32</library>
 	<library>wininet</library>

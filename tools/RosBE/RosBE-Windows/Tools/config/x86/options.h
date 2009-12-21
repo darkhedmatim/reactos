@@ -5,7 +5,6 @@
  * PURPOSE:     Configuring RosBE
  * COPYRIGHT:   Copyright 2007 Maarten Bosma
  *              Copyright 2007 Pierre Schweitzer
- *              Copyright 2009 Daniel Reimer
  *
  */
 
@@ -15,8 +14,6 @@
 #include <wchar.h>
 #include "resources.h"
 
-#define MINGWVERSION64 L"\\amd64"
-#define MINGWVERSIONARM L"\\arm"
 #define MINGWVERSION L"\\i386"
 
 typedef struct _SETTINGS
@@ -41,5 +38,3 @@ typedef struct _SETTINGS
 SETTINGS, *PSETTINGS;
 
 wchar_t *wcsset(wchar_t *string, wchar_t c);
-BOOL amd64 = FALSE;
-BOOL arm = FALSE;

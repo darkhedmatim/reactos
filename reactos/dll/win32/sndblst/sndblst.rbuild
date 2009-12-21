@@ -8,6 +8,7 @@
     <library>mment4</library>
     <library>mmebuddy</library>
 	<library>ntdll</library>
+	<library>kernel32</library>
 	<library>user32</library>
 	<library>winmm</library>
     <library>advapi32</library>

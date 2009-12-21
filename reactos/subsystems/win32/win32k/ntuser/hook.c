@@ -104,6 +104,8 @@ IntAddHook(PETHREAD Thread, int HookId, BOOLEAN Global, PWINSTATION_OBJECT WinSt
         return NULL;
     }
 
+//    Hook->head.pti =?
+//    Hook->head.rpdesk
     Hook->head.h = Handle;
     Hook->Thread = Thread;
     Hook->HookId = HookId;
@@ -114,11 +116,7 @@ IntAddHook(PETHREAD Thread, int HookId, BOOLEAN Global, PWINSTATION_OBJECT WinSt
         ASSERT(W32Thread != NULL);
         W32Thread->fsHooks |= HOOKID_TO_FLAG(HookId);
 
-        if (W32Thread->pClientInfo)
-           W32Thread->pClientInfo->fsHooks = W32Thread->fsHooks;
-
-        Hook->head.pti = W32Thread;
-        Hook->head.rpdesk = W32Thread->Desktop;
+        GetWin32ClientInfo()->fsHooks = W32Thread->fsHooks;
     }
 
     RtlInitUnicodeString(&Hook->ModuleName, NULL);
@@ -349,7 +347,6 @@ co_HOOK_CallHooks(INT HookId, INT Code, WPARAM wParam, LPARAM lParam)
 
     if ((Hook->Thread != PsGetCurrentThread()) && (Hook->Thread != NULL))
     {
-        DPRINT1("\nHook found by Id and posted to Thread! %d\n",HookId );
         /* Post it in message queue. */
         return IntCallLowLevelHook(Hook, Code, wParam, lParam);
     }

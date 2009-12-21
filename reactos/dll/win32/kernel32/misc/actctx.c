@@ -2,282 +2,322 @@
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
  * FILE:            dll/win32/kernel32/misc/actctx.c
- * PURPOSE:         Activation contexts
+ * PURPOSE:         Comm functions
  * PROGRAMMERS:     Jacek Caban for CodeWeavers
  *                  Eric Pouech
  *                  Jon Griffiths
  *                  Dmitry Chapyshev (dmitry@reactos.org)
- *                  Samuel Serapión 
  */
-
-/* synched with wine 1.1.26 */
 
 #include <k32.h>
 
-#include "wine/debug.h"
+#define NDEBUG
+#include <debug.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(actctx);
+#define ACTCTX_FLAGS_ALL (\
+ ACTCTX_FLAG_PROCESSOR_ARCHITECTURE_VALID |\
+ ACTCTX_FLAG_LANGID_VALID |\
+ ACTCTX_FLAG_ASSEMBLY_DIRECTORY_VALID |\
+ ACTCTX_FLAG_RESOURCE_NAME_VALID |\
+ ACTCTX_FLAG_SET_PROCESS_DEFAULT |\
+ ACTCTX_FLAG_APPLICATION_NAME_VALID |\
+ ACTCTX_FLAG_SOURCE_IS_ASSEMBLYREF |\
+ ACTCTX_FLAG_HMODULE_VALID )
 
 #define ACTCTX_FAKE_HANDLE ((HANDLE) 0xf00baa)
+#define ACTCTX_FAKE_COOKIE ((ULONG_PTR) 0xf00bad)
 
-/***********************************************************************
- * CreateActCtxA (KERNEL32.@)
- *
- * Create an activation context.
+/*
+ * @implemented
  */
-HANDLE WINAPI CreateActCtxA(PCACTCTXA pActCtx)
+BOOL
+WINAPI
+FindActCtxSectionStringA(
+    DWORD dwFlags,
+    const GUID *lpExtensionGuid,
+    ULONG ulSectionId,
+    LPCSTR lpStringToFind,
+    PACTCTX_SECTION_KEYED_DATA ReturnedData
+    )
 {
-    ACTCTXW     actw;
-    SIZE_T      len;
-    HANDLE      ret = INVALID_HANDLE_VALUE;
-    LPWSTR      src = NULL, assdir = NULL, resname = NULL, appname = NULL;
+    BOOL bRetVal;
+    LPWSTR lpStringToFindW = NULL;
 
-    TRACE("%p %08x\n", pActCtx, pActCtx ? pActCtx->dwFlags : 0);
-
-    if (!pActCtx || pActCtx->cbSize != sizeof(*pActCtx))
+    /* Convert lpStringToFind */
+    if (lpStringToFind)
     {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return INVALID_HANDLE_VALUE;
+        BasepAnsiStringToHeapUnicodeString(lpStringToFind,
+                                            (LPWSTR*) &lpStringToFindW);
     }
 
-    actw.cbSize = sizeof(actw);
-    actw.dwFlags = pActCtx->dwFlags;
-    if (pActCtx->lpSource)
-    {
-        len = MultiByteToWideChar(CP_ACP, 0, pActCtx->lpSource, -1, NULL, 0);
-        src = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-        if (!src) return INVALID_HANDLE_VALUE;
-        MultiByteToWideChar(CP_ACP, 0, pActCtx->lpSource, -1, src, len);
-    }
-    actw.lpSource = src;
+    /* Call the Unicode function */
+    bRetVal = FindActCtxSectionStringW(dwFlags,
+                                        lpExtensionGuid,
+                                        ulSectionId,
+                                        lpStringToFindW,
+                                        ReturnedData);
 
-    if (actw.dwFlags & ACTCTX_FLAG_PROCESSOR_ARCHITECTURE_VALID)
-        actw.wProcessorArchitecture = pActCtx->wProcessorArchitecture;
-    if (actw.dwFlags & ACTCTX_FLAG_LANGID_VALID)
-        actw.wLangId = pActCtx->wLangId;
-    if (actw.dwFlags & ACTCTX_FLAG_ASSEMBLY_DIRECTORY_VALID)
-    {
-        len = MultiByteToWideChar(CP_ACP, 0, pActCtx->lpAssemblyDirectory, -1, NULL, 0);
-        assdir = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-        if (!assdir) goto done;
-        MultiByteToWideChar(CP_ACP, 0, pActCtx->lpAssemblyDirectory, -1, assdir, len);
-        actw.lpAssemblyDirectory = assdir;
-    }
-    if (actw.dwFlags & ACTCTX_FLAG_RESOURCE_NAME_VALID)
-    {
-        if ((ULONG_PTR)pActCtx->lpResourceName >> 16)
-        {
-            len = MultiByteToWideChar(CP_ACP, 0, pActCtx->lpResourceName, -1, NULL, 0);
-            resname = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-            if (!resname) goto done;
-            MultiByteToWideChar(CP_ACP, 0, pActCtx->lpResourceName, -1, resname, len);
-            actw.lpResourceName = resname;
-        }
-        else actw.lpResourceName = (LPCWSTR)pActCtx->lpResourceName;
-    }
-    if (actw.dwFlags & ACTCTX_FLAG_APPLICATION_NAME_VALID)
-    {
-        len = MultiByteToWideChar(CP_ACP, 0, pActCtx->lpApplicationName, -1, NULL, 0);
-        appname = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-        if (!appname) goto done;
-        MultiByteToWideChar(CP_ACP, 0, pActCtx->lpApplicationName, -1, appname, len);
-        actw.lpApplicationName = appname;
-    }
-    if (actw.dwFlags & ACTCTX_FLAG_HMODULE_VALID)
-        actw.hModule = pActCtx->hModule;
+    /* Clean up */
+    if (lpStringToFindW)
+        RtlFreeHeap(GetProcessHeap(), 0, (LPWSTR*) lpStringToFindW);
 
-    ret = CreateActCtxW(&actw);
-
-done:
-    HeapFree(GetProcessHeap(), 0, src);
-    HeapFree(GetProcessHeap(), 0, assdir);
-    HeapFree(GetProcessHeap(), 0, resname);
-    HeapFree(GetProcessHeap(), 0, appname);
-    return ret;
+    return bRetVal;
 }
 
-/***********************************************************************
- * CreateActCtxW (KERNEL32.@)
- *
- * Create an activation context.
+
+/*
+ * @implemented
  */
-HANDLE WINAPI CreateActCtxW(PCACTCTXW pActCtx)
+HANDLE
+WINAPI
+CreateActCtxA(
+    PCACTCTXA pActCtx
+    )
 {
-    NTSTATUS    status;
+    ACTCTXW pActCtxW;
+    HANDLE hRetVal;
+
+    ZeroMemory(&pActCtxW, sizeof(ACTCTXW));
+    pActCtxW.cbSize = sizeof(ACTCTXW);
+    pActCtxW.dwFlags = pActCtx->dwFlags;
+    pActCtxW.wLangId = pActCtx->wLangId;
+    pActCtxW.hModule = pActCtx->hModule;
+    pActCtxW.wProcessorArchitecture = pActCtx->wProcessorArchitecture;
+
+    pActCtxW.hModule = pActCtx->hModule;
+
+    /* Convert ActCtx Strings */
+    if (pActCtx->lpSource)
+    {
+        BasepAnsiStringToHeapUnicodeString(pActCtx->lpSource,
+                                          (LPWSTR*) &pActCtxW.lpSource);
+    }
+    if (pActCtx->lpAssemblyDirectory)
+    {
+        BasepAnsiStringToHeapUnicodeString(pActCtx->lpAssemblyDirectory,
+                                          (LPWSTR*) &pActCtxW.lpAssemblyDirectory);
+    }
+    if (HIWORD(pActCtx->lpResourceName))
+    {
+        BasepAnsiStringToHeapUnicodeString(pActCtx->lpResourceName,
+                                          (LPWSTR*) &pActCtxW.lpResourceName);
+    }
+    else
+    {
+        pActCtxW.lpResourceName = (LPWSTR) pActCtx->lpResourceName;
+    }
+    if (pActCtx->lpApplicationName)
+    {
+        BasepAnsiStringToHeapUnicodeString(pActCtx->lpApplicationName,
+                                          (LPWSTR*) &pActCtxW.lpApplicationName);
+    }
+    /* Call the Unicode function */
+    hRetVal = CreateActCtxW(&pActCtxW);
+
+    /* Clean up */
+    RtlFreeHeap(GetProcessHeap(), 0, (LPWSTR*) pActCtxW.lpSource);
+    RtlFreeHeap(GetProcessHeap(), 0, (LPWSTR*) pActCtxW.lpAssemblyDirectory);
+    if (HIWORD(pActCtx->lpResourceName))
+        RtlFreeHeap(GetProcessHeap(), 0, (LPWSTR*) pActCtxW.lpResourceName);
+    RtlFreeHeap(GetProcessHeap(), 0, (LPWSTR*) pActCtxW.lpApplicationName);
+
+    return hRetVal;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+ActivateActCtx(
+    HANDLE hActCtx,
+    ULONG_PTR *ulCookie
+    )
+{
+    NTSTATUS Status;
+
+    DPRINT("ActivateActCtx(%p %p)\n", hActCtx, ulCookie );
+
+    Status = RtlActivateActivationContext(0, hActCtx, ulCookie);
+    if (!NT_SUCCESS(Status))
+    {
+        SetLastError(RtlNtStatusToDosError(Status));
+        return FALSE;
+    }
+    return TRUE;
+}
+
+/*
+ * @unimplemented
+ */
+VOID
+WINAPI
+AddRefActCtx(
+    HANDLE hActCtx
+    )
+{
+    DPRINT("AddRefActCtx(%p)\n", hActCtx);
+    RtlAddRefActivationContext(hActCtx);
+}
+
+/*
+ * @unimplemented
+ */
+HANDLE
+WINAPI
+CreateActCtxW(
+    PCACTCTXW pActCtx
+    )
+{
+    NTSTATUS    Status;
     HANDLE      hActCtx;
 
-    TRACE("%p %08x\n", pActCtx, pActCtx ? pActCtx->dwFlags : 0);
+    DPRINT("CreateActCtxW(%p %08lx)\n", pActCtx, pActCtx ? pActCtx->dwFlags : 0);
 
-    if ((status = RtlCreateActivationContext(&hActCtx, (PVOID*)pActCtx)))
+    Status = RtlCreateActivationContext(&hActCtx, (PVOID*)&pActCtx);
+    if (!NT_SUCCESS(Status))
     {
-        SetLastError(RtlNtStatusToDosError(status));
+        SetLastError(RtlNtStatusToDosError(Status));
         return INVALID_HANDLE_VALUE;
     }
     return hActCtx;
 }
 
-/***********************************************************************
- * ActivateActCtx (KERNEL32.@)
- *
- * Activate an activation context.
+/*
+ * @unimplemented
  */
-BOOL WINAPI ActivateActCtx(HANDLE hActCtx, ULONG_PTR *ulCookie)
+BOOL
+WINAPI
+DeactivateActCtx(
+    DWORD dwFlags,
+    ULONG_PTR ulCookie
+    )
 {
-    NTSTATUS status;
+    NTSTATUS Status;
 
-    if ((status = RtlActivateActivationContext( 0, hActCtx, ulCookie )))
+    DPRINT("DeactivateActCtx(%08lx %08lx)\n", dwFlags, ulCookie);
+    Status = RtlDeactivateActivationContext(dwFlags, ulCookie);
+
+    if (!NT_SUCCESS(Status)) return FALSE;
+
+    return TRUE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+FindActCtxSectionGuid(
+    DWORD dwFlags,
+    const GUID *lpExtensionGuid,
+    ULONG ulSectionId,
+    const GUID *lpGuidToFind,
+    PACTCTX_SECTION_KEYED_DATA ReturnedData
+    )
+{
+    DPRINT("%s() is UNIMPLEMENTED!\n", __FUNCTION__);
+    return FALSE;
+}
+
+/*
+ * @unimplemented
+ */
+BOOL
+WINAPI
+FindActCtxSectionStringW(
+    DWORD dwFlags,
+    const GUID *lpExtensionGuid,
+    ULONG ulSectionId,
+    LPCWSTR lpStringToFind,
+    PACTCTX_SECTION_KEYED_DATA ReturnedData
+    )
+{
+    UNICODE_STRING us;
+    NTSTATUS Status;
+
+    RtlInitUnicodeString(&us, lpStringToFind);
+    Status = RtlFindActivationContextSectionString(dwFlags, lpExtensionGuid, ulSectionId, &us, ReturnedData);
+    if (!NT_SUCCESS(Status))
     {
-        SetLastError(RtlNtStatusToDosError(status));
+        SetLastError(RtlNtStatusToDosError(Status));
         return FALSE;
     }
     return TRUE;
 }
 
-/***********************************************************************
- * DeactivateActCtx (KERNEL32.@)
- *
- * Deactivate an activation context.
+/*
+ * @unimplemented
  */
-BOOL WINAPI DeactivateActCtx(DWORD dwFlags, ULONG_PTR ulCookie)
+BOOL
+WINAPI
+GetCurrentActCtx(
+    HANDLE *phActCtx)
 {
-    RtlDeactivateActivationContext( dwFlags, ulCookie );
-    return TRUE;
-}
+    NTSTATUS Status;
 
-/***********************************************************************
- * GetCurrentActCtx (KERNEL32.@)
- *
- * Get the current activation context.
- */
-BOOL WINAPI GetCurrentActCtx(HANDLE* phActCtx)
-{
-    NTSTATUS status;
-
-    if ((status = RtlGetActiveActivationContext(phActCtx)))
+    DPRINT("GetCurrentActCtx(%p)\n", phActCtx);
+    Status = RtlGetActiveActivationContext(phActCtx);
+    if (!NT_SUCCESS(Status))
     {
-        SetLastError(RtlNtStatusToDosError(status));
+        SetLastError(RtlNtStatusToDosError(Status));
         return FALSE;
     }
     return TRUE;
 }
 
-/***********************************************************************
- * AddRefActCtx (KERNEL32.@)
- *
- * Add a reference to an activation context.
+/*
+ * @unimplemented
  */
-void WINAPI AddRefActCtx(HANDLE hActCtx)
+BOOL
+WINAPI
+QueryActCtxW(
+    DWORD dwFlags,
+    HANDLE hActCtx,
+    PVOID pvSubInstance,
+    ULONG ulInfoClass,
+    PVOID pvBuffer,
+    SIZE_T cbBuffer OPTIONAL,
+    SIZE_T *pcbWrittenOrRequired OPTIONAL
+    )
 {
-    RtlAddRefActivationContext(hActCtx);
+    DPRINT("%s() is UNIMPLEMENTED!\n", __FUNCTION__);
+    /* this makes Adobe Photoshop 7.0 happy */
+    SetLastError( ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
 }
 
-/***********************************************************************
- * ReleaseActCtx (KERNEL32.@)
- *
- * Release a reference to an activation context.
+/*
+ * @unimplemented
  */
-void WINAPI ReleaseActCtx(HANDLE hActCtx)
+VOID
+WINAPI
+ReleaseActCtx(
+    HANDLE hActCtx
+    )
 {
+    DPRINT("ReleaseActCtx(%p)\n", hActCtx);
     RtlReleaseActivationContext(hActCtx);
 }
 
-/***********************************************************************
- * ZombifyActCtx (KERNEL32.@)
- *
- * Release a reference to an activation context.
+/*
+ * @unimplemented
  */
-BOOL WINAPI ZombifyActCtx(HANDLE hActCtx)
+BOOL
+WINAPI
+ZombifyActCtx(
+    HANDLE hActCtx
+    )
 {
-  FIXME("%p\n", hActCtx);
-  if (hActCtx != ACTCTX_FAKE_HANDLE)
-    return FALSE;
-  return TRUE;
-}
+    NTSTATUS Status;
+    DPRINT("ZombifyActCtx(%p)\n", hActCtx);
 
-/***********************************************************************
- * FindActCtxSectionStringA (KERNEL32.@)
- *
- * Find information about a GUID in an activation context.
- */
-BOOL WINAPI FindActCtxSectionStringA(DWORD dwFlags, const GUID* lpExtGuid,
-                                    ULONG ulId, LPCSTR lpSearchStr,
-                                    PACTCTX_SECTION_KEYED_DATA pInfo)
-{
-    LPWSTR  search_str;
-    DWORD   len;
-    BOOL    ret;
-
-    TRACE("%08x %s %u %s %p\n", dwFlags, debugstr_guid(lpExtGuid),
-          ulId, debugstr_a(lpSearchStr), pInfo);
-
-    if (!lpSearchStr)
+    Status = RtlZombifyActivationContext(hActCtx);
+    if (!NT_SUCCESS(Status))
     {
-        SetLastError(ERROR_INVALID_PARAMETER);
+        SetLastError(RtlNtStatusToDosError(Status));
         return FALSE;
     }
 
-    len = MultiByteToWideChar(CP_ACP, 0, lpSearchStr, -1, NULL, 0);
-    search_str = HeapAlloc(GetProcessHeap(), 0, len * sizeof(WCHAR));
-    MultiByteToWideChar(CP_ACP, 0, lpSearchStr, -1, search_str, len);
-
-    ret = FindActCtxSectionStringW(dwFlags, lpExtGuid, ulId, search_str, pInfo);
-
-    HeapFree(GetProcessHeap(), 0, search_str);
-    return ret;
-}
-
-/***********************************************************************
- * FindActCtxSectionStringW (KERNEL32.@)
- *
- * Find information about a GUID in an activation context.
- */
-BOOL WINAPI FindActCtxSectionStringW(DWORD dwFlags, const GUID* lpExtGuid,
-                                    ULONG ulId, LPCWSTR lpSearchStr,
-                                    PACTCTX_SECTION_KEYED_DATA pInfo)
-{
-    UNICODE_STRING us;
-    NTSTATUS status;
-
-    RtlInitUnicodeString(&us, lpSearchStr);
-    if ((status = RtlFindActivationContextSectionString(dwFlags, lpExtGuid, ulId, &us, pInfo)))
-    {
-        SetLastError(RtlNtStatusToDosError(status));
-        return FALSE;
-    }
-    return TRUE;
-}
-
-/***********************************************************************
- * FindActCtxSectionGuid (KERNEL32.@)
- *
- * Find information about a GUID in an activation context.
- */
-BOOL WINAPI FindActCtxSectionGuid(DWORD dwFlags, const GUID* lpExtGuid,
-                                  ULONG ulId, const GUID* lpSearchGuid,
-                                  PACTCTX_SECTION_KEYED_DATA pInfo)
-{
-  FIXME("%08x %s %u %s %p\n", dwFlags, debugstr_guid(lpExtGuid),
-       ulId, debugstr_guid(lpSearchGuid), pInfo);
-  SetLastError( ERROR_CALL_NOT_IMPLEMENTED);
-  return FALSE;
-}
-
-/***********************************************************************
- * QueryActCtxW (KERNEL32.@)
- *
- * Get information about an activation context.
- */
-BOOL WINAPI QueryActCtxW(DWORD dwFlags, HANDLE hActCtx, PVOID pvSubInst,
-                         ULONG ulClass, PVOID pvBuff, SIZE_T cbBuff,
-                         SIZE_T *pcbLen)
-{
-    NTSTATUS status;
-
-    if ((status = RtlQueryInformationActivationContext( dwFlags, hActCtx, pvSubInst, ulClass,
-                                                        pvBuff, cbBuff, pcbLen )))
-    {
-        SetLastError(RtlNtStatusToDosError(status));
-        return FALSE;
-    }
     return TRUE;
 }

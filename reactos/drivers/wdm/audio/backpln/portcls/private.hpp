@@ -328,10 +328,7 @@ PcHandleDisableEventWithTable(
     IN PIRP Irp,
     IN PSUBDEVICE_DESCRIPTOR Descriptor);
 
-IIrpTarget *
-NTAPI
-KsoGetIrpTargetFromIrp(
-    PIRP Irp);
+
 
 #define DEFINE_KSPROPERTY_CONNECTIONSET(PinSet,\
     PropStateHandler, PropDataFormatHandler, PropAllocatorFraming)\
@@ -392,9 +389,6 @@ typedef struct
     LIST_ENTRY TimerList;
     KSPIN_LOCK TimerListLock;
 
-    DEVICE_POWER_STATE DevicePowerState;
-    SYSTEM_POWER_STATE  SystemPowerState;
-
 } PCLASS_DEVICE_EXTENSION, *PPCLASS_DEVICE_EXTENSION;
 
 
@@ -411,12 +405,5 @@ typedef struct
     PIO_TIMER_ROUTINE pTimerRoutine;
     PVOID Context;
 }TIMER_CONTEXT, *PTIMER_CONTEXT;
-
-typedef struct
-{
-    KSOBJECT_HEADER ObjectHeader;
-    IIrpTarget * Target;
-    PKSOBJECT_CREATE_ITEM CreateItem;
-}DISPATCH_CONTEXT, *PDISPATCH_CONTEXT;
 
 #endif

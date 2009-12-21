@@ -156,7 +156,7 @@ Section -BaseFiles SEC01
     ${Endif}
     SetOutPath "$INSTDIR\Tools"
     SetOverwrite try
-    File /r Components\Tools\make.exe
+    File /r Components\Tools\mingw32-make.exe
     File /r Components\Tools\libintl3.dll
     File /r Components\Tools\libiconv2.dll
     File /r Components\Tools\regex2.dll
@@ -270,7 +270,6 @@ Section "relAddr2Line Tool" SEC08
     SetOverwrite try
     File /r Components\Tools\echoh.exe
     File /r Components\Tools\raddr2line.exe
-    File /r Components\Tools\log2lines.exe
     File /r Components\Tools\chkslash.exe
 SectionEnd
 
@@ -305,7 +304,7 @@ Section "Update Script" SEC10
     ${Endif}
 SectionEnd
 
-Section "PowerShell (XP, Vista) / CMD (win7) Version" SEC11
+Section "PowerShell/CMD RosBE Version" SEC11
 SetShellVarContext current
     ${If} $R4 = '6.1'
         SetOutPath "$INSTDIR"

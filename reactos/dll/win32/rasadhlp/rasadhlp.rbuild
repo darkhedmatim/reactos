@@ -4,6 +4,7 @@
 	<importlibrary definition="rasadhlp.spec" />
 	<include base="ReactOS">include/reactos/winsock</include>
 	<include base="rasadhlp">.</include>
+	<library>kernel32</library>
 	<library>ntdll</library>
 	<library>ws2_32</library>
 	<file>autodial.c</file>

@@ -545,7 +545,7 @@ RemoveDirectoryW (
         TRACE("NtPathU '%S'\n", NtPathU.Buffer);
 
         Status = NtOpenFile(&DirectoryHandle,
-                            DELETE | SYNCHRONIZE,
+                            DELETE,
                             &ObjectAttributes,
                             &IoStatusBlock,
                             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,

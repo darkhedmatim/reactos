@@ -733,33 +733,6 @@ CmpFindSubKeyByName(IN PHHIVE Hive,
             /* Check if this is another index root */
             if (IndexRoot->Signature == CM_KEY_INDEX_ROOT)
             {
-
-#ifndef SOMEONE_WAS_NICE_ENOUGH_TO_MAKE_OUR_CELLS_LEXICALLY_SORTED
-                /* CmpFindSubKeyInRoot is useless for actually finding the correct leaf when keys are not sorted */
-                LONG ii;
-                PCM_KEY_INDEX Leaf;
-                /* Loop through each leaf in the index root */
-                for (ii=0; ii<IndexRoot->Count; ii++)
-                {
-                    Leaf = HvGetCell(Hive, IndexRoot->List[ii]);
-                    if (Leaf)
-                    {
-                        Found = CmpFindSubKeyInLeaf(Hive, Leaf, SearchName, &SubKey);
-                        HvReleaseCell(Hive, IndexRoot->List[ii]);
-                        if (Found & 0x80000000)
-                        {
-                            HvReleaseCell(Hive, CellToRelease);
-                            return HCELL_NIL;
-                        }
-
-                        if (SubKey != HCELL_NIL)
-                        {
-                            HvReleaseCell(Hive, CellToRelease);
-                            return SubKey;
-                        }
-                    }
-                 }
-#endif
                 /* Lookup the name in the root */
                 Found = CmpFindSubKeyInRoot(Hive,
                                             IndexRoot,
@@ -1294,8 +1267,8 @@ CmpSplitLeaf(IN PHHIVE Hive,
     {
         RtlMoveMemory(&IndexKey->List[RootSelect + 2],
                       &IndexKey->List[RootSelect + 1],
-                      (IndexKey->Count -
-                      (RootSelect + 1)) * sizeof(HCELL_INDEX));
+                      IndexKey->Count -
+                      (RootSelect + 1) * sizeof(HCELL_INDEX));
     }
 
     /* Make sure both old and new computed counts are valid */

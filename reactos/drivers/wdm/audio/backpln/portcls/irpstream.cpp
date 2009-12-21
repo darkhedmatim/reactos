@@ -145,14 +145,7 @@ CIrpQueue::AddMapping(
     }
 
     // get first stream header
-
-   if (Irp->RequestorMode == UserMode)
-       Header = (PKSSTREAM_HEADER)Irp->AssociatedIrp.SystemBuffer;
-   else
-       Header = (PKSSTREAM_HEADER)Irp->UserBuffer;
-
-    // sanity check
-    PC_ASSERT(Header);
+    Header = (PKSSTREAM_HEADER)Irp->AssociatedIrp.SystemBuffer;
 
     // calculate num headers
     NumHeaders = IoStack->Parameters.DeviceIoControl.OutputBufferLength / Header->Size;
@@ -163,8 +156,7 @@ CIrpQueue::AddMapping(
 
     // get first audio buffer
     Mdl = Irp->MdlAddress;
-    // sanity check
-    PC_ASSERT(Mdl);
+
 
     // store the current stream header
     Irp->Tail.Overlay.DriverContext[OFFSET_STREAMHEADER] = (PVOID)Header;
@@ -174,6 +166,7 @@ CIrpQueue::AddMapping(
     // store current header index
     Irp->Tail.Overlay.DriverContext[OFFSET_HEADERINDEX] = UlongToPtr(0);
 
+
     NumData = 0;
     // prepare all headers
     for(Index = 0; Index < NumHeaders; Index++)
@@ -182,10 +175,7 @@ CIrpQueue::AddMapping(
         PC_ASSERT(Header);
         PC_ASSERT(Mdl);
 
-        if (Irp->RequestorMode == UserMode)
-        {
-            Header->Data = MmGetSystemAddressForMdlSafe(Mdl, NormalPagePriority);
-        }
+        Header->Data = MmGetSystemAddressForMdlSafe(Mdl, NormalPagePriority);
 
         if (!Header->Data)
         {
@@ -354,13 +344,10 @@ CIrpQueue::UpdateMapping(
             return;
         }
 
-       // irp has been processed completly
+        // irp has been processed completly
 
         NumData = 0;
-        if (m_Irp->RequestorMode == KernelMode)
-            StreamHeader = (PKSSTREAM_HEADER)m_Irp->UserBuffer;
-        else
-            StreamHeader = (PKSSTREAM_HEADER)m_Irp->AssociatedIrp.SystemBuffer;
+        StreamHeader = (PKSSTREAM_HEADER)m_Irp->AssociatedIrp.SystemBuffer;
 
         // loop all stream headers
         for(Index = 0; Index < STREAMHEADER_COUNT(m_Irp); Index++)

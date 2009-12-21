@@ -717,10 +717,19 @@ BOOL WINAPI MsiGetMode(MSIHANDLE hInstall, MSIRUNMODE iRunMode)
 /***********************************************************************
  *           MsiSetMode    (MSI.@)
  */
-UINT WINAPI MsiSetMode(MSIHANDLE hInstall, MSIRUNMODE iRunMode, BOOL fState)
+BOOL WINAPI MsiSetMode(MSIHANDLE hInstall, MSIRUNMODE iRunMode, BOOL fState)
 {
-    FIXME("%d %d %d\n", hInstall, iRunMode, fState);
-    return ERROR_SUCCESS;
+    switch (iRunMode)
+    {
+    case MSIRUNMODE_RESERVED11:
+    case MSIRUNMODE_WINDOWS9X:
+    case MSIRUNMODE_RESERVED14:
+    case MSIRUNMODE_RESERVED15:
+        return FALSE;
+    default:
+        FIXME("%d %d %d\n", hInstall, iRunMode, fState);
+    }
+    return TRUE;
 }
 
 /***********************************************************************

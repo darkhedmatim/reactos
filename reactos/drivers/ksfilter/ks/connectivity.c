@@ -217,7 +217,7 @@ KspReadMediaCategory(
     /* open the key */
     Status = ZwOpenKey(&hKey, GENERIC_READ, &ObjectAttributes);
 
-    DPRINT("ZwOpenKey() status 0x%08lx %S\n", Status, Path.Buffer);
+        DPRINT1("ZwOpenKey() status 0x%08lx %S\n", Status, Path.Buffer);
 
     /* free path buffer */
     ExFreePool(Path.Buffer);
@@ -335,44 +335,17 @@ KsPinPropertyHandler(
                 Size += Descriptor[Pin->PinId].DataRanges[Index]->FormatSize;
             }
 
-            if (IoStack->Parameters.DeviceIoControl.OutputBufferLength == 0)
+            if (IoStack->Parameters.DeviceIoControl.OutputBufferLength < Size)
             {
-                /* buffer too small */
                 Irp->IoStatus.Information = Size;
-                Status = STATUS_BUFFER_OVERFLOW;
+                Status = STATUS_MORE_ENTRIES;
                 break;
             }
 
             Item = (KSMULTIPLE_ITEM*)Buffer;
-
-            if (IoStack->Parameters.DeviceIoControl.OutputBufferLength == sizeof(ULONG))
-            {
-                /* store the result size */
-                Item->Size = Size;
-                Irp->IoStatus.Information = sizeof(ULONG);
-                Status = STATUS_SUCCESS;
-                break;
-            }
-
-            if (IoStack->Parameters.DeviceIoControl.OutputBufferLength < sizeof(KSMULTIPLE_ITEM))
-            {
-                /* buffer too small */
-                Status = STATUS_BUFFER_TOO_SMALL;
-                break;
-            }
-
-            /* store descriptor size */
             Item->Size = Size;
             Item->Count = Descriptor[Pin->PinId].DataRangesCount;
 
-            if (IoStack->Parameters.DeviceIoControl.OutputBufferLength == sizeof(KSMULTIPLE_ITEM))
-            {
-                Irp->IoStatus.Information = sizeof(KSMULTIPLE_ITEM);
-                Status = STATUS_SUCCESS;
-                break;
-            }
-
-            /* now copy all dataranges */
             Data = (PUCHAR)(Item +1);
             for (Index = 0; Index < Descriptor[Pin->PinId].DataRangesCount; Index++)
             {
@@ -429,16 +402,33 @@ KsPinPropertyHandler(
                 break;
             }
 
+            /* calculate size */
+            Size = sizeof(KSMULTIPLE_ITEM);
+            Size += max(1, Descriptor[Pin->PinId].MediumsCount) * sizeof(KSPIN_MEDIUM);
+
+            if (IoStack->Parameters.DeviceIoControl.OutputBufferLength < Size)
+            {
+                Irp->IoStatus.Information = Size;
+                Status = STATUS_MORE_ENTRIES;
+                break;
+            }
+
+            Item = (KSMULTIPLE_ITEM*)Buffer;
+            Item->Size = Size;
+
             if (Descriptor[Pin->PinId].MediumsCount)
             {
-                /* use mediums provided by driver */
-                return KsHandleSizedListQuery(Irp, Descriptor[Pin->PinId].MediumsCount, sizeof(KSPIN_MEDIUM), Descriptor[Pin->PinId].Mediums);
+                Item->Count = Descriptor[Pin->PinId].MediumsCount;
+                RtlMoveMemory((PVOID)(Item + 1), Descriptor[Pin->PinId].Mediums, Descriptor[Pin->PinId].MediumsCount * sizeof(KSPIN_MEDIUM));
             }
             else
             {
-                /* use standard medium */
-                return KsHandleSizedListQuery(Irp, 1, sizeof(KSPIN_MEDIUM), &StandardPinMedium);
+                Item->Count = 1;
+                RtlMoveMemory((PVOID)(Item + 1), &StandardPinMedium, sizeof(KSPIN_MEDIUM));
             }
+
+            Status = STATUS_SUCCESS;
+            Irp->IoStatus.Information = Size;
             break;
 
         case KSPROPERTY_PIN_COMMUNICATION:
@@ -705,58 +695,28 @@ KsHandleSizedListQuery(
     /* get current irp stack location */
     IoStack = IoGetCurrentIrpStackLocation(Irp);
 
-    /* calculate size */
     Size = DataItemSize * DataItemsCount + sizeof(KSMULTIPLE_ITEM);
 
-    /* get multiple item */
-    Item = (PKSMULTIPLE_ITEM)Irp->UserBuffer;
 
-    if (IoStack->Parameters.DeviceIoControl.OutputBufferLength == 0)
+    if (IoStack->Parameters.DeviceIoControl.InputBufferLength < Size)
     {
         /* buffer too small */
+        Irp->IoStatus.Status = STATUS_BUFFER_TOO_SMALL;
         Irp->IoStatus.Information = Size;
-
-        return STATUS_BUFFER_OVERFLOW;
-    }
-
-    if (IoStack->Parameters.DeviceIoControl.OutputBufferLength == sizeof(ULONG))
-    {
-        /* store just the size */
-        Item->Size = Size;
-        Irp->IoStatus.Information = sizeof(ULONG);
-
-        return STATUS_SUCCESS;
-    }
-
-
-    if (IoStack->Parameters.DeviceIoControl.OutputBufferLength < sizeof(KSMULTIPLE_ITEM))
-    {
-        /* buffer too small */
         return STATUS_BUFFER_TOO_SMALL;
     }
+
+    /* get multiple item */
+    Item = (PKSMULTIPLE_ITEM)IoStack->Parameters.DeviceIoControl.Type3InputBuffer;
 
     Item->Count = DataItemsCount;
     Item->Size = DataItemSize;
-
-    if (IoStack->Parameters.DeviceIoControl.OutputBufferLength == sizeof(KSMULTIPLE_ITEM))
-    {
-        /* buffer can only hold the length descriptor */
-        return STATUS_SUCCESS;
-    }
-
-    if (IoStack->Parameters.DeviceIoControl.OutputBufferLength >= Size)
-    {
-        /* copy items */
-        RtlMoveMemory((PVOID)(Item + 1), DataItems, DataItemSize * DataItemsCount);
-        /* store result */
-        Irp->IoStatus.Information = Size;
-        /* done */
-        return STATUS_SUCCESS;
-    }
-    else
-    {
-        /* buffer too small */
-        return STATUS_BUFFER_TOO_SMALL;
-    }
+    /* copy items */
+    RtlMoveMemory((PVOID)(Item + 1), DataItems, DataItemSize * DataItemsCount);
+    /* store result */
+    Irp->IoStatus.Status = STATUS_SUCCESS;
+    Irp->IoStatus.Information = Size;
+    /* done */
+    return STATUS_SUCCESS;
 }
 

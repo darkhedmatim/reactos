@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
- * FILE:       drivers/filesystems/msfs/msfs.h
+ * FILE:       services/fs/ms/msfs.h
  * PURPOSE:    Mailslot filesystem
  * PROGRAMMER: Eric Kohl
  */

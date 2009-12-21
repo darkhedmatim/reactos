@@ -29,6 +29,7 @@ typedef struct _WINSTATION_OBJECT
     LIST_ENTRY DesktopListHead;
     PRTL_ATOM_TABLE AtomTable;
     HANDLE SystemMenuTemplate;
+    PVOID SystemCursor;
     UINT CaretBlinkRate;
     HANDLE ShellWindow;
     HANDLE ShellListView;

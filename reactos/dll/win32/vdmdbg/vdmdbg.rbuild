@@ -2,6 +2,7 @@
 	<importlibrary definition="vdmdbg.spec" />
 	<include base="vdmdbg">.</include>
 	<library>ntdll</library>
+	<library>kernel32</library>
 	<file>vdmdbg.c</file>
 	<pch>vdmdbg.h</pch>
 </module>

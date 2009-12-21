@@ -18,7 +18,7 @@
 <xsl:strip-space elements="xsl:stylesheet"/>
 
 <!-- ********************************************************************
-     $Id: xsl2jref.xsl,v 1.1 2002/06/13 20:31:57 chorns Exp $
+     $Id$
      ********************************************************************
 
      This file is part of the XSL DocBook Stylesheet distribution.

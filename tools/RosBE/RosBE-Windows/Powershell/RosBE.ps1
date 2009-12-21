@@ -25,12 +25,11 @@ if ("$args" -eq "") {
 }
 if ("$ENV:ROS_ARCH" -eq "amd64") {
     (Get-Host).UI.RawUI.ForegroundColor = 0xB
-} elseif ("$ENV:ROS_ARCH" -eq "arm") {
-    (Get-Host).UI.RawUI.ForegroundColor = 0x9
+    (Get-Host).UI.RawUI.BackgroundColor = 0x0
 } else {
     (Get-Host).UI.RawUI.ForegroundColor = 0xA
+    (Get-Host).UI.RawUI.BackgroundColor = 0x0
 }
-(Get-Host).UI.RawUI.BackgroundColor = 0x0
 clear-host
 
 $global:0 = $myInvocation.MyCommand.Definition
@@ -103,7 +102,7 @@ function LoadAliases {
 
     set-alias HELP "$_ROSBE_BASEDIR\Help.ps1" -scope Global
     set-alias MAKE "$_ROSBE_BASEDIR\Build.ps1" -scope Global
-    function global:MAKEX {IEX "&'$_ROSBE_BASEDIR\Build.ps1' multi $args"}
+    function global:MAKEX {IEX "&'$_ROSBE_BASEDIR\Build.ps1' multi $args}"}
 
     if (Test-Path "$_ROSBE_BASEDIR\reladdr2line.ps1") {
         set-alias RADDR2LINE "$_ROSBE_BASEDIR\reladdr2line.ps1" -scope Global

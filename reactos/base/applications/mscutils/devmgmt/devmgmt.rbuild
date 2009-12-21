@@ -5,6 +5,7 @@
 	<library>ntdll</library>
 	<library>setupapi</library>
 	<library>gdi32</library>
+	<library>kernel32</library>
 	<library>user32</library>
 	<library>comctl32</library>
 	<library>advapi32</library>

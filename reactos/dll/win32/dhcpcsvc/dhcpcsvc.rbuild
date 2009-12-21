@@ -2,6 +2,7 @@
 	<importlibrary definition="dhcpcsvc.spec" />
 	<include base="dhcpcsvc">include</include>
 	<library>ntdll</library>
+	<library>kernel32</library>
 	<library>ws2_32</library>
 	<library>iphlpapi</library>
 	<file>dhcpcsvc.c</file>

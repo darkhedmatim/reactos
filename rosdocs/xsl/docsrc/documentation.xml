@@ -12,7 +12,7 @@
 <book>
 <bookinfo>
 <title>DocBook XSL Stylesheet Documentation</title>
-<!-- $Id: documentation.xml,v 1.1 2002/06/13 20:31:59 chorns Exp $ -->
+<!-- $Id$ -->
 
 <authorgroup>
 <author><surname>Walsh</surname>

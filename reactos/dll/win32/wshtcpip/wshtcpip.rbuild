@@ -4,6 +4,7 @@
 	<importlibrary definition="wshtcpip.spec" />
 	<include base="wshtcpip">.</include>
 	<library>ntdll</library>
+	<library>kernel32</library>
 	<library>ws2_32</library>
 	<file>wshtcpip.c</file>
 	<file>wshtcpip.rc</file>

@@ -8,6 +8,7 @@
 	<define name="__WINESRC__" />
 	<library>wine</library>
 	<library>oleaut32</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 	<file>olepro32stubs.c</file>
 	<file>version.rc</file>

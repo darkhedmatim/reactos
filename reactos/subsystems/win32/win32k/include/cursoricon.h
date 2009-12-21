@@ -69,20 +69,21 @@ typedef struct _SYSTEM_CURSORINFO
   BOOL ScreenSaverRunning;
 } SYSTEM_CURSORINFO, *PSYSTEM_CURSORINFO;
 
-BOOL FASTCALL InitCursorImpl();
-PCURICON_OBJECT FASTCALL IntCreateCurIconHandle();
+HCURSOR FASTCALL IntSetCursor(PWINSTATION_OBJECT WinStaObject, PCURICON_OBJECT NewCursor, BOOL ForceChange);
+BOOL FASTCALL IntSetupCurIconHandles(PWINSTATION_OBJECT WinStaObject);
+PCURICON_OBJECT FASTCALL IntCreateCurIconHandle(PWINSTATION_OBJECT WinStaObject);
 VOID FASTCALL IntCleanupCurIcons(struct _EPROCESS *Process, PPROCESSINFO Win32Process);
+
+BOOL FASTCALL IntGetCursorLocation(PWINSTATION_OBJECT WinStaObject, POINT *loc);
 
 BOOL UserDrawIconEx(HDC hDc, INT xLeft, INT yTop, PCURICON_OBJECT pIcon, INT cxWidth,
    INT cyHeight, UINT istepIfAniCur, HBRUSH hbrFlickerFreeDraw, UINT diFlags);
 PCURICON_OBJECT FASTCALL UserGetCurIconObject(HCURSOR hCurIcon);
 
-BOOL FASTCALL UserSetCursorPos( INT x, INT y);
-
 int APIENTRY UserShowCursor(BOOL bShow);
 
-PSYSTEM_CURSORINFO FASTCALL
-IntGetSysCursorInfo();
+#define IntGetSysCursorInfo(WinStaObj) \
+  (PSYSTEM_CURSORINFO)((WinStaObj)->SystemCursor)
 
 #define IntReleaseCurIconObject(CurIconObj) \
   UserDereferenceObject(CurIconObj)

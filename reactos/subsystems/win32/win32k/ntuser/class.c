@@ -385,8 +385,6 @@ IntSetClassWndProc(IN OUT PCLS Class,
       Class->Unicode = !Ansi;
    }
 
-   if (!WndProc) WndProc = Class->lpfnWndProc;
-
    chWndProc = WndProc;
 
    // Check if CallProc handle and retrieve previous call proc address and set.
@@ -508,18 +506,10 @@ IntGetClassForDesktop(IN OUT PCLS BaseClass,
         if (Class != NULL)
         {
             /* simply clone the class */
-            RtlCopyMemory( Class, BaseClass, ClassSize);
-
+            RtlCopyMemory(Class,
+                          BaseClass,
+                          ClassSize);
             DPRINT("Clone Class 0x%x hM 0x%x\n %S\n",Class, Class->hModule, Class->lpszClientUnicodeMenuName);
-
-            /* restore module address if default user class Ref: Bug 4778 */
-            if ( Class->hModule != hModClient &&
-                 Class->fnid <= FNID_GHOST    &&
-                 Class->fnid >= FNID_BUTTON )
-            {
-               Class->hModule = hModClient;
-               DPRINT("Clone Class 0x%x Reset hM 0x%x\n",Class, Class->hModule);
-            }
 
             /* update some pointers and link the class */
             Class->rpdeskParent = Desktop;
@@ -1164,7 +1154,7 @@ IntGetClassAtom(IN PUNICODE_STRING ClassName,
                              &pi->pclsPrivateList,
                              Link);
         if (Class != NULL)
-        {  DPRINT("Step 1: 0x%x\n",Class );
+        {
             goto FoundClass;
         }
 
@@ -1175,7 +1165,7 @@ IntGetClassAtom(IN PUNICODE_STRING ClassName,
                              &pi->pclsPublicList,
                              Link);
         if (Class != NULL)
-        { DPRINT("Step 2: 0x%x 0x%x\n",Class, Class->hModule);
+        {
             goto FoundClass;
         }
 
@@ -1185,7 +1175,7 @@ IntGetClassAtom(IN PUNICODE_STRING ClassName,
                              &pi->pclsPrivateList,
                              Link);
         if (Class != NULL)
-        { DPRINT("Step 3: 0x%x\n",Class );
+        {
             goto FoundClass;
         }
 
@@ -1198,7 +1188,7 @@ IntGetClassAtom(IN PUNICODE_STRING ClassName,
         {
             SetLastWin32Error(ERROR_CLASS_DOES_NOT_EXIST);
             return (RTL_ATOM)0;
-        }else{DPRINT("Step 4: 0x%x\n",Class );}
+        }
 
 FoundClass:
         *BaseClass = Class;
@@ -1239,7 +1229,7 @@ UserRegisterClass(IN CONST WNDCLASSEXW* lpwcx,
        if (Class != NULL && !Class->Global)
        {
           // local class already exists
-          DPRINT("Local Class 0x%p does already exist!\n", ClassAtom);
+          DPRINT1("Local Class 0x%p does already exist!\n", ClassAtom);
           SetLastWin32Error(ERROR_CLASS_ALREADY_EXISTS);
           return (RTL_ATOM)0;
        }
@@ -1253,7 +1243,7 @@ UserRegisterClass(IN CONST WNDCLASSEXW* lpwcx,
 
           if (Class != NULL && Class->Global)
           {
-             DPRINT("Global Class 0x%p does already exist!\n", ClassAtom);
+             DPRINT1("Global Class 0x%p does already exist!\n", ClassAtom);
              SetLastWin32Error(ERROR_CLASS_ALREADY_EXISTS);
              return (RTL_ATOM)0;
           }
@@ -1314,7 +1304,7 @@ UserUnregisterClass(IN PUNICODE_STRING ClassName,
                                 &Link);
     if (ClassAtom == (RTL_ATOM)0)
     {
-        DPRINT("UserUnregisterClass: No Class found.\n");
+        DPRINT1("UserUnregisterClass: No Class found.\n");
         return FALSE;
     }
 
@@ -2128,12 +2118,12 @@ InvalidParameter:
         SetLastNtError(_SEH2_GetExceptionCode());
     }
     _SEH2_END;
-/*
+
     if (!Ret)
     {
        DPRINT1("NtUserRegisterClassExWOW Null Return!\n");
     }
- */
+
     UserLeave();
 
     return Ret;
@@ -2195,7 +2185,7 @@ NtUserSetClassLong(HWND hWnd,
     Window = UserGetWindowObject(hWnd);
     if (Window != NULL)
     {
-        if (Window->pti->ppi != pi)
+        if (Window->ti->ppi != pi)
         {
             SetLastWin32Error(ERROR_ACCESS_DENIED);
             goto Cleanup;
@@ -2412,7 +2402,6 @@ InvalidParameter:
 
    if (Ret)
    {
-      DPRINT("GetClassInfo(%wZ, 0x%x)\n", ClassName, hInstance);
       ClassAtom = IntGetClassAtom( &SafeClassName,
                                     hInstance,
                                     ppi,

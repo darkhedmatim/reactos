@@ -15,6 +15,7 @@
 	<define name="write">_write</define>
 	<define name="lseek">_lseek</define>
 
+	<library>kernel32</library>
 	<library>ws2_32</library>
 	<library>iphlpapi</library>
 	<file>cmds.c</file>

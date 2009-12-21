@@ -11,7 +11,7 @@ import org.apache.xalan.extensions.ExpressionContext;
 /**
  * <p>Saxon extension to examine intrinsic size of images</p>
  *
- * <p>$Id: ImageIntrinsics.java,v 1.1 2002/06/13 20:32:18 chorns Exp $</p>
+ * <p>$Id$</p>
  *
  * <p>Copyright (C) 2002 Norman Walsh.</p>
  *
@@ -28,7 +28,7 @@ import org.apache.xalan.extensions.ExpressionContext;
  * @author Norman Walsh
  * <a href="mailto:ndw@nwalsh.com">ndw@nwalsh.com</a>
  *
- * @version $Id: ImageIntrinsics.java,v 1.1 2002/06/13 20:32:18 chorns Exp $
+ * @version $Id$
  *
  */
 public class ImageIntrinsics implements ImageObserver {

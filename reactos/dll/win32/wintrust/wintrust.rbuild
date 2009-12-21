@@ -9,6 +9,7 @@
 	<library>cryptui</library>
 	<library>user32</library>
 	<library>advapi32</library>
+	<library>kernel32</library>
 	<library>imagehlp</library>
 	<library>ntdll</library>
 	<library>pseh</library>

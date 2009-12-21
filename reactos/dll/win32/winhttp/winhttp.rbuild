@@ -18,6 +18,7 @@
 	<library>shlwapi</library>
 	<library>wininet</library>
 	<library>ws2_32</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 </module>
 </group>

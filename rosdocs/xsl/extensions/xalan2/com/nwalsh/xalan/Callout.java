@@ -5,7 +5,7 @@ import org.w3c.dom.*;
 /**
  * <p>Utility class for the Verbatim extension (ignore this).</p>
  *
- * <p>$Id: Callout.java,v 1.1 2002/06/13 20:32:17 chorns Exp $</p>
+ * <p>$Id$</p>
  *
  * <p>Copyright (C) 2000 Norman Walsh.</p>
  *
@@ -28,7 +28,7 @@ import org.w3c.dom.*;
  *
  * @see Verbatim
  *
- * @version $Id: Callout.java,v 1.1 2002/06/13 20:32:17 chorns Exp $
+ * @version $Id$
  * */
 public class Callout implements Comparable {
   /** The callout number. */

@@ -353,7 +353,6 @@ ifeq ($(HOST),mingw32-linux)
 	endif
 	export SEP = /
 	mkdir = -$(Q)mkdir -p
-	checkpoint = $(Q)touch
 	rm = $(Q)rm -f
 	cp = $(Q)cp
 	NUL = /dev/null
@@ -362,7 +361,6 @@ else # mingw32-windows
 	ROS_EMPTY =
 	export SEP = \$(ROS_EMPTY)
 	mkdir = -$(Q)mkdir
-	checkpoint = $(Q)copy /y NUL
 	rm = $(Q)del /f /q
 	cp = $(Q)copy /y
 	NUL = NUL
@@ -531,11 +529,6 @@ msvc9: $(ROS_BUILDENGINE)
 	$(ECHO_RBUILD)
 	$(Q)$(ROS_BUILDENGINE) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -vs9.00 -voversionconfiguration msvc
 
-.PHONY: msvc10
-msvc10: $(ROS_BUILDENGINE)
-	$(ECHO_RBUILD)
-	$(Q)$(ROS_BUILDENGINE) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -vs10.00 -voversionconfiguration msvc
-
 .PHONY: msvc6_clean
 msvc6_clean: $(ROS_BUILDENGINE)
 	$(ECHO_RBUILD)
@@ -560,11 +553,6 @@ msvc8_clean: $(ROS_BUILDENGINE)
 msvc9_clean: $(ROS_BUILDENGINE)
 	$(ECHO_RBUILD)
 	$(Q)$(ROS_BUILDENGINE) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -c -vs9.00 -voversionconfiguration msvc
-
-.PHONY: msvc10_clean
-msvc10_clean: $(ROS_BUILDENGINE)
-	$(ECHO_RBUILD)
-	$(Q)$(ROS_BUILDENGINE) $(RBUILD_FLAGS) $(ROS_RBUILDFLAGS) -c -vs10.00 -voversionconfiguration msvc
 
 .PHONY: msvc_clean
 msvc_clean: $(ROS_BUILDENGINE)

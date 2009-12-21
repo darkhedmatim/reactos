@@ -1,7 +1,8 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
- * FILE:       drivers/filesystems/msfs/msfs.c
+ * FILE:       services/fs/ms/msfs.c
  * PURPOSE:    Mailslot filesystem
  * PROGRAMMER: Eric Kohl
  */

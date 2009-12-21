@@ -2,21 +2,20 @@
 
 [Section]
 Name = AbiWord
-Version = 2.6.8
+Version = 2.6.4
 Licence = GPL
 Description = Word processor.
-Size = 5.6MB
+Size = 5.9MB 
 Category = 6
 URLSite = http://www.abisource.com/
-URLDownload = http://www.abisource.com/downloads/abiword/2.6.8/Windows/abiword-setup-2.6.8.exe
+URLDownload = http://www.abisource.com/downloads/abiword/2.6.4/Windows/abiword-setup-2.6.4.exe
 CDPath = none
 
 [Section.0407]
-Description = Textverarbeitung.
-
-[Section.040a]
-Description = Procesador de textos.
+Description = Textverarbeitung
 
 [Section.0415]
-Description = Edytor tekstu.
+Description = Edytor tekstu
 
+[Section.040a]
+Description = Procesador de texto

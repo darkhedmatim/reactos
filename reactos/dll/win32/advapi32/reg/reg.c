@@ -3989,11 +3989,10 @@ RegQueryValueExA(HKEY hKey,
 {
     UNICODE_STRING ValueName;
     UNICODE_STRING ValueData;
+    ANSI_STRING AnsiString;
     LONG ErrorCode;
     DWORD Length;
     DWORD Type;
-    NTSTATUS Status;
-    ULONG Index;
 
     TRACE("hKey 0x%X  lpValueName %s  lpData 0x%X  lpcbData %d\n",
           hKey, lpValueName, lpData, lpcbData ? *lpcbData : 0);
@@ -4042,23 +4041,16 @@ RegQueryValueExA(HKEY hKey,
         ErrorCode == ERROR_MORE_DATA)
     {
 
-        if (is_string(Type))
+        if ((Type == REG_SZ) || (Type == REG_MULTI_SZ) || (Type == REG_EXPAND_SZ))
         {
             if (ErrorCode == ERROR_SUCCESS && ValueData.Buffer != NULL)
             {
-                Status = RtlUnicodeToMultiByteN((PCHAR)lpData, *lpcbData, &Index, (PWCHAR)ValueData.Buffer, Length);
-                if (NT_SUCCESS(Status))
-                {
-                    PCHAR szData = (PCHAR)lpData;
-                    if(&szData[Index] < (PCHAR)(lpData + *lpcbData))
-                    {
-                        szData[Index] = '\0';
-                    }
-                }
-                else
-                {
-                    ErrorCode = RtlNtStatusToDosError(Status);
-                }
+                RtlInitAnsiString(&AnsiString, NULL);
+                AnsiString.Buffer = (LPSTR)lpData;
+                AnsiString.MaximumLength = *lpcbData;
+                ValueData.Length = Length;
+                ValueData.MaximumLength = ValueData.Length + sizeof(WCHAR);
+                RtlUnicodeStringToAnsiString(&AnsiString, &ValueData, FALSE);
             }
 
             Length = Length / sizeof(WCHAR);
@@ -4143,7 +4135,7 @@ RegQueryValueExW(HKEY hkeyorg,
 
     status = NtQueryValueKey( hkey, &name_str, KeyValuePartialInformation,
                               buffer, total_size, &total_size );
-    if (!NT_SUCCESS(status) && status != STATUS_BUFFER_OVERFLOW) goto done;
+    if (status && status != STATUS_BUFFER_OVERFLOW) goto done;
 
     if (data)
     {
@@ -4161,12 +4153,12 @@ RegQueryValueExW(HKEY hkeyorg,
                                       buf_ptr, total_size, &total_size );
         }
 
-        if (NT_SUCCESS(status))
+        if (!status)
         {
             memcpy( data, buf_ptr + info_size, total_size - info_size );
             /* if the type is REG_SZ and data is not 0-terminated
              * and there is enough space in the buffer NT appends a \0 */
-            if (is_string(info->Type) && total_size - info_size <= *count-sizeof(WCHAR))
+            if (total_size - info_size <= *count-sizeof(WCHAR) && is_string(info->Type))
             {
                 WCHAR *ptr = (WCHAR *)(data + total_size - info_size);
                 if (ptr > (WCHAR *)data && ptr[-1]) *ptr = 0;
@@ -4751,16 +4743,12 @@ RegSetValueExA(HKEY hKey,
     LONG ErrorCode;
     LPBYTE pData;
     DWORD DataSize;
-    NTSTATUS Status;
 
-    /* Convert SubKey name to Unicode */
-    if (lpValueName != NULL && lpValueName[0] != '\0')
+    if (lpValueName != NULL &&
+        strlen(lpValueName) != 0)
     {
-        BOOL bConverted;
-        bConverted = RtlCreateUnicodeStringFromAsciiz(&ValueName,
-                                                  (PSTR)lpValueName);
-        if(!bConverted)
-            return ERROR_NOT_ENOUGH_MEMORY;
+        RtlCreateUnicodeStringFromAsciiz(&ValueName,
+                                         (PSTR)lpValueName);
     }
     else
     {
@@ -4769,32 +4757,32 @@ RegSetValueExA(HKEY hKey,
 
     pValueName = (LPWSTR)ValueName.Buffer;
 
-
-    if (is_string(dwType) && (cbData != 0))
+    if (((dwType == REG_SZ) ||
+         (dwType == REG_MULTI_SZ) ||
+         (dwType == REG_EXPAND_SZ)) &&
+        (cbData != 0))
     {
-        /* Convert ANSI string Data to Unicode */
-        /* If last character NOT zero then increment length */
-        LONG bNoNulledStr = ((lpData[cbData-1] != '\0') ? 1 : 0);
+        /* NT adds one if the caller forgot the NULL-termination character */
+        if (lpData[cbData - 1] != '\0')
+        {
+            cbData++;
+        }
+
+        RtlInitAnsiString(&AnsiString,
+                          NULL);
         AnsiString.Buffer = (PSTR)lpData;
-        AnsiString.Length = cbData + bNoNulledStr;
-        AnsiString.MaximumLength = cbData + bNoNulledStr;
-        Status = RtlAnsiStringToUnicodeString(&Data,
+        AnsiString.Length = cbData - 1;
+        AnsiString.MaximumLength = cbData;
+        RtlAnsiStringToUnicodeString(&Data,
                                      &AnsiString,
                                      TRUE);
-
-        if (!NT_SUCCESS(Status))
-        {
-            if (pValueName != NULL)
-                RtlFreeUnicodeString(&ValueName);
-
-            return RtlNtStatusToDosError(Status);
-        }
         pData = (LPBYTE)Data.Buffer;
         DataSize = cbData * sizeof(WCHAR);
     }
     else
     {
-        Data.Buffer = NULL;
+        RtlInitUnicodeString(&Data,
+                             NULL);
         pData = (LPBYTE)lpData;
         DataSize = cbData;
     }
@@ -4805,12 +4793,19 @@ RegSetValueExA(HKEY hKey,
                                dwType,
                                pData,
                                DataSize);
-
     if (pValueName != NULL)
-        RtlFreeUnicodeString(&ValueName);
+    {
+        RtlFreeHeap(ProcessHeap,
+                    0,
+                    ValueName.Buffer);
+    }
 
     if (Data.Buffer != NULL)
-        RtlFreeUnicodeString(&Data);
+    {
+        RtlFreeHeap(ProcessHeap,
+                    0,
+                    Data.Buffer);
+    }
 
     return ErrorCode;
 }
@@ -4852,16 +4847,13 @@ RegSetValueExW(HKEY hKey,
     }
     pValueName = &ValueName;
 
-    if (is_string(dwType) && (cbData != 0))
+    if (((dwType == REG_SZ) ||
+         (dwType == REG_MULTI_SZ) ||
+         (dwType == REG_EXPAND_SZ)) &&
+        (cbData != 0) && (*(((PWCHAR)lpData) + (cbData / sizeof(WCHAR)) - 1) != L'\0'))
     {
-        PWSTR pwsData = (PWSTR)lpData;
-
-        if((pwsData[cbData / sizeof(WCHAR) - 1] != L'\0') &&
-            (pwsData[cbData / sizeof(WCHAR)] == L'\0'))
-        {
-            /* Increment length if last character is not zero and next is zero */
-            cbData += sizeof(WCHAR);
-        }
+        /* NT adds one if the caller forgot the NULL-termination character */
+        cbData += sizeof(WCHAR);
     }
 
     Status = NtSetValueKey(KeyHandle,

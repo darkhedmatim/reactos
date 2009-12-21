@@ -1,4 +1,4 @@
-/*  $Id: rdel.c,v 1.1 2002/06/13 20:37:17 chorns Exp $  
+/*  $Id$  
  * COPYRIGHT:             See COPYING in the top level directory
  * PROGRAMMER:            Rex Jolliff (rex@lvcablemodem.com)
  * PURPOSE:               Platform independant delete command

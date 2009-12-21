@@ -11,6 +11,7 @@
 	<library>wine</library>
 	<library>actxprxy_interface</library>
 	<library>actxprxy_proxy</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 	<library>rpcrt4</library>
 	<library>pseh</library>

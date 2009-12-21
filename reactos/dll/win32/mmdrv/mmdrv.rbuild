@@ -3,6 +3,7 @@
 	<include base="mmdrv">.</include>
 	<define name="NDEBUG" />
 	<library>ntdll</library>
+	<library>kernel32</library>
 	<library>user32</library>
 	<library>winmm</library>
 	<file>entry.c</file>

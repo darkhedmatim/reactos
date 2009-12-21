@@ -352,7 +352,6 @@ typedef struct _KPRCB
     LARGE_INTEGER IoReadTransferCount;
     LARGE_INTEGER IoWriteTransferCount;
     LARGE_INTEGER IoOtherTransferCount;
-    ULONG KeContextSwitches;
     PP_LOOKASIDE_LIST PPLookasideList[16];
     PP_LOOKASIDE_LIST PPNPagedLookasideList[32];
     PP_LOOKASIDE_LIST PPPagedLookasideList[32];

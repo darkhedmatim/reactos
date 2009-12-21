@@ -5,7 +5,7 @@
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:src="http://nwalsh.com/xmlns/litprog/fragment" exclude-result-prefixes="src" version="1.0">
 
 <!-- ********************************************************************
-     $Id: param.xsl,v 1.1 2002/06/13 20:32:38 chorns Exp $
+     $Id$
      ********************************************************************
 
      This file is part of the XSL DocBook Stylesheet distribution.

@@ -51,7 +51,7 @@ UpdateGroupsList(HWND hwndListView)
     PLOCALGROUP_INFO_1 pBuffer;
     DWORD entriesread;
     DWORD totalentries;
-    DWORD_PTR resume_handle = 0;
+    DWORD resume_handle = 0;
     DWORD i;
     LV_ITEM lvi;
     INT iItem;

@@ -96,7 +96,7 @@ HKCU,"Control Panel\Desktop","ScreenSaveActive",2,"1"
 HKCU,"Control Panel\Desktop","ScreenSaverIsSecure",2,"1"
 HKCU,"Control Panel\Desktop","ScreenSaveTimeOut",0,"600"
 HKCU,"Control Panel\Desktop","WaitToKillAppTimeout",2,"20000"
-HKCU,"Control Panel\Desktop","Wallpaper",0x00000000,""
+HKCU,"Control Panel\Desktop","Wallpaper",0x00000000,"%SystemRoot%\Angelus_02_ROSWP.bmp"
 HKCU,"Control Panel\Desktop","FontSmoothing",2,"0"
 HKCU,"Control Panel\Desktop","FontSmoothingOrientation",0x00010003,0x00000001
 HKCU,"Control Panel\Desktop","FontSmoothingType",0x00010003,0x00000001
@@ -1646,10 +1646,6 @@ HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons",,0x00
 HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu",,0x00000012
 HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu","{208D2C60-3AEA-1069-A2D7-08002B30309D}",0x00010001,0x00000000
 HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CLSID\{20D04FE0-3AEA-1069-A2D8-08002B30309D}",,0x00000012
-
-; default shell
-HKCU,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon",,0x00000012
-HKCU,"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon","Shell",0x00020000,"%SystemRoot%\explorer.exe"
 
 HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies",,0x00000012
 HKCU,"SOFTWARE\Microsoft\Windows\CurrentVersion\Run",,0x00000012

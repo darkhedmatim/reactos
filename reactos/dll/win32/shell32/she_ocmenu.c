@@ -81,7 +81,7 @@ typedef struct {
 
 #define MRUF_STRING_LIST 0
 
-typedef HANDLE (WINAPI *CREATEMRULISTPROCW)(
+typedef int (WINAPI *CREATEMRULISTPROCW)(
     LPMRUINFO lpmi
 );
 
@@ -105,7 +105,7 @@ static const IContextMenu2Vtbl cmvt;
 static HRESULT WINAPI SHEOWCm_fnQueryInterface(IContextMenu2 *iface, REFIID riid, LPVOID *ppvObj);
 static ULONG WINAPI SHEOWCm_fnRelease(IContextMenu2 *iface);
 
-HANDLE OpenMRUList(HKEY hKey);
+int OpenMRUList(HKEY hKey);
 void LoadItemFromHKCU(POPEN_WITH_CONTEXT pContext, WCHAR * szExt);
 void LoadItemFromHKCR(POPEN_WITH_CONTEXT pContext, WCHAR * szExt);
 void InsertOpenWithItem(POPEN_WITH_CONTEXT pContext, WCHAR * szAppName);
@@ -424,7 +424,7 @@ StoreNewSettings(LPCWSTR szFileName, WCHAR *szAppName)
     WCHAR * pFileExt;
     HKEY hKey;
     LONG result;
-    HANDLE hList;
+    int hList;
 
     /* get file extension */
     pFileExt = wcsrchr(szFileName, L'.');
@@ -448,7 +448,7 @@ StoreNewSettings(LPCWSTR szFileName, WCHAR *szAppName)
     }
 
     /* insert the entry */
-    result = (*AddMRUStringW)(hList, szAppName);
+    result = (*AddMRUStringW)((HANDLE)hList, szAppName);
 
     /* close mru list */
     (*FreeMRUListProc)((HANDLE)hList);
@@ -623,7 +623,7 @@ ExecuteOpenItem(POPEN_ITEM_CONTEXT pItemContext, LPCWSTR FileName)
 }
 
 
-static INT_PTR CALLBACK OpenWithProgrammDlg(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+static BOOL CALLBACK OpenWithProgrammDlg(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     LPMEASUREITEMSTRUCT lpmis; 
     LPDRAWITEMSTRUCT lpdis; 
@@ -994,7 +994,7 @@ AddItemFromProgIDList(POPEN_WITH_CONTEXT pContext, HKEY hKey)
    FIXME("implement me :)))\n");
 }
 
-HANDLE
+int
 OpenMRUList(HKEY hKey)
 {
     MRUINFO info;
@@ -1031,7 +1031,7 @@ OpenMRUList(HKEY hKey)
 void
 AddItemFromMRUList(POPEN_WITH_CONTEXT pContext, HKEY hKey)
 {
-    HANDLE hList;
+    int hList;
     int nItem, nCount, nResult;
     WCHAR szBuffer[MAX_PATH];
 

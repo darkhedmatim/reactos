@@ -71,13 +71,10 @@ static BOOL
 StopDependentServices(PSTOP_INFO pStopInfo,
                       SC_HANDLE hService)
 {
-    //LPENUM_SERVICE_STATUS lpDependencies;
-    //SC_HANDLE hDepService;
-    //DWORD dwCount;
+    LPENUM_SERVICE_STATUS lpDependencies;
+    SC_HANDLE hDepService;
+    DWORD dwCount;
     BOOL bRet = FALSE;
-
-    MessageBox(NULL, L"Rewrite StopDependentServices", NULL, 0);
-    /*
 
     lpDependencies = GetServiceDependents(hService, &dwCount);
     if (lpDependencies)
@@ -109,7 +106,7 @@ StopDependentServices(PSTOP_INFO pStopInfo,
         HeapFree(GetProcessHeap(),
                  0,
                  lpDependencies);
-    }*/
+    }
 
     return bRet;
 }
@@ -119,34 +116,14 @@ BOOL
 DoStop(PMAIN_WND_INFO pInfo)
 {
     STOP_INFO stopInfo;
-    //SC_HANDLE hSCManager;
-    SC_HANDLE hService = NULL;
+    SC_HANDLE hSCManager;
+    SC_HANDLE hService;
     BOOL bRet = FALSE;
 
     if (pInfo)
     {
-        //stopInfo.pInfo = pInfo;
+        stopInfo.pInfo = pInfo;
 
-        if (TRUE /*HasDependentServices(pInfo->pCurrentService->lpServiceName)*/)
-        {
-            INT ret = DialogBoxParam(hInstance,
-                                     MAKEINTRESOURCE(IDD_DLG_DEPEND_STOP),
-                                     pInfo->hMainWnd,
-                                     StopDependsDialogProc,
-                                     (LPARAM)&stopInfo);
-            if (ret == IDOK)
-            {
-                if (StopDependentServices(&stopInfo, hService))
-                {
-                    bRet = StopService(&stopInfo, hService);
-                }
-            }
-        }
-        else
-        {
-            bRet = StopService(&stopInfo, hService);
-        }
-/*
         hSCManager = OpenSCManager(NULL,
                                    NULL,
                                    SC_MANAGER_ALL_ACCESS);
@@ -160,11 +137,31 @@ DoStop(PMAIN_WND_INFO pInfo)
                 stopInfo.hSCManager = hSCManager;
                 stopInfo.hMainService = hService;
 
+                if (HasDependentServices(hService))
+                {
+                    INT ret = DialogBoxParam(hInstance,
+                                             MAKEINTRESOURCE(IDD_DLG_DEPEND_STOP),
+                                             pInfo->hMainWnd,
+                                             StopDependsDialogProc,
+                                             (LPARAM)&stopInfo);
+                    if (ret == IDOK)
+                    {
+                        if (StopDependentServices(&stopInfo, hService))
+                        {
+                            bRet = StopService(&stopInfo, hService);
+                        }
+                    }
+                }
+                else
+                {
+                    bRet = StopService(&stopInfo, hService);
+                }
+
                 CloseServiceHandle(hService);
             }
 
             CloseServiceHandle(hSCManager);
-        }*/
+        }
     }
 
     return bRet;

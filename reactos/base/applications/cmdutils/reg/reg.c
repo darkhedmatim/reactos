@@ -255,8 +255,7 @@ static int reg_delete(WCHAR *key_name, WCHAR *value_name, BOOL value_empty,
         /* FIXME:  Prompt for delete */
     }
 
-    /* Delete subtree only if no /v* option is given */
-    if (!value_name && !value_empty && !value_all)
+    if (!value_name)
     {
         if (RegDeleteTreeW(root,p)!=ERROR_SUCCESS)
         {
@@ -280,6 +279,13 @@ static int reg_delete(WCHAR *key_name, WCHAR *value_name, BOOL value_empty,
         DWORD count;
         LONG rc;
 
+        if (value_name)
+        {
+            RegCloseKey(subkey);
+            reg_message(STRING_INVALID_CMDLINE);
+            return 1;
+        }
+
         rc = RegQueryInfoKeyW(subkey, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
             &maxValue, NULL, NULL, NULL);
         if (rc != ERROR_SUCCESS)
@@ -294,10 +300,10 @@ static int reg_delete(WCHAR *key_name, WCHAR *value_name, BOOL value_empty,
         while (1)
         {
             count = maxValue;
-            rc = RegEnumValueW(subkey, 0, szValue, &count, NULL, NULL, NULL, NULL);
+            rc = RegEnumValueW(subkey, 0, value_name, &count, NULL, NULL, NULL, NULL);
             if (rc == ERROR_SUCCESS)
             {
-                rc = RegDeleteValueW(subkey, szValue);
+                rc = RegDeleteValueW(subkey,value_name);
                 if (rc != ERROR_SUCCESS)
                     break;
             }

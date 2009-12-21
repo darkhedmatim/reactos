@@ -12,7 +12,7 @@
 <bookinfo>
 <title>DocBook XSL Stylesheet Reference Documentation</title>
 <releaseinfo role="meta">
-$Id: reference.xml,v 1.1 2002/06/13 20:31:58 chorns Exp $
+$Id$
 </releaseinfo>
 <author><surname>Walsh</surname>
 <firstname>Norman</firstname></author>

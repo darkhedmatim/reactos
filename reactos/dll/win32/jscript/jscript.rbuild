@@ -9,6 +9,7 @@
 	<define name="RPC_NO_WINDOWS_H" />
 	<dependency>jsglobal</dependency>
 	<library>wine</library>
+	<library>kernel32</library>
 	<library>user32</library>
 	<library>ole32</library>
 	<library>oleaut32</library>
@@ -38,3 +39,4 @@
 	<dependency>stdole2</dependency>
 	<file>jsglobal.idl</file>
 </module>
+</group>

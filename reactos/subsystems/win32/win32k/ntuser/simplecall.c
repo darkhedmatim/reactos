@@ -203,34 +203,54 @@ NtUserCallOneParam(
       case ONEPARAM_ROUTINE_CREATECURICONHANDLE:
          {
             PCURICON_OBJECT CurIcon;
+            PWINSTATION_OBJECT WinSta;
 
-            if (!(CurIcon = IntCreateCurIconHandle()))
+            WinSta = IntGetWinStaObj();
+            if(WinSta == NULL)
             {
-               SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
                RETURN(0);
             }
 
+            if (!(CurIcon = IntCreateCurIconHandle(WinSta)))
+            {
+               SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
+               ObDereferenceObject(WinSta);
+               RETURN(0);
+            }
+
+            ObDereferenceObject(WinSta);
             RETURN((DWORD)CurIcon->Self);
          }
 
       case ONEPARAM_ROUTINE_GETCURSORPOSITION:
          {
-             BOOL ret = TRUE;
+            PWINSTATION_OBJECT WinSta;
+            NTSTATUS Status;
+            POINT Pos;
 
+            if(!Param)
+               RETURN( (DWORD)FALSE);
+            Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
+                                                    KernelMode,
+                                                    0,
+                                                    &WinSta);
+            if (!NT_SUCCESS(Status))
+               RETURN( (DWORD)FALSE);
 
-            _SEH2_TRY
+            /* FIXME - check if process has WINSTA_READATTRIBUTES */
+            IntGetCursorLocation(WinSta, &Pos);
+
+            Status = MmCopyToCaller((PPOINT)Param, &Pos, sizeof(POINT));
+            if(!NT_SUCCESS(Status))
             {
-               ProbeForWrite((POINT*)Param,sizeof(POINT),1);
-               RtlCopyMemory((POINT*)Param,&gpsi->ptCursor,sizeof(POINT));
+               ObDereferenceObject(WinSta);
+               SetLastNtError(Status);
+               RETURN( FALSE);
             }
-            _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-            {
-                SetLastNtError(_SEH2_GetExceptionCode());
-                ret = FALSE;
-            }
-            _SEH2_END;
 
-            RETURN (ret);
+            ObDereferenceObject(WinSta);
+
+            RETURN( (DWORD)TRUE);
          }
 
       case ONEPARAM_ROUTINE_ISWINDOWINDESTROY:

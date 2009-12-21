@@ -89,6 +89,8 @@
 	<group compilerset="gcc">
 		<compilerflag>-Wall</compilerflag>
 		<compilerflag compiler="cxx">-Wno-non-virtual-dtor</compilerflag>
+		<compilerflag compiler="cc,cxx">-gstabs+</compilerflag>
+		<compilerflag compiler="as">-gstabs+</compilerflag>
 	</group>
 
 	<group compilerset="msc">
@@ -154,4 +156,5 @@
 		<compilerflag>/GS-</compilerflag>
 	</group>
 
+	<define name="_USE_32BIT_TIME_T" />
 </group>

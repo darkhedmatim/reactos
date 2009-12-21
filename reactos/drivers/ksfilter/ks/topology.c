@@ -152,6 +152,7 @@ KsTopologyPropertyHandler(
     UNICODE_STRING GuidString;
     UNICODE_STRING KeyName;
     OBJECT_ATTRIBUTES ObjectAttributes;
+    KSMULTIPLE_ITEM * Item;
     KSP_NODE * Node;
     PIO_STACK_LOCATION IoStack;
     ULONG Size;
@@ -173,13 +174,69 @@ KsTopologyPropertyHandler(
     switch(Property->Id)
     {
         case KSPROPERTY_TOPOLOGY_CATEGORIES:
-            return KsHandleSizedListQuery(Irp, Topology->CategoriesCount, sizeof(GUID), Topology->Categories);
+            Size = sizeof(KSMULTIPLE_ITEM) + Topology->CategoriesCount * sizeof(GUID);
+            if (IoStack->Parameters.DeviceIoControl.OutputBufferLength < Size)
+            {
+                Irp->IoStatus.Information = Size;
+                Status = STATUS_MORE_ENTRIES;
+                break;
+            }
+
+            Item = (KSMULTIPLE_ITEM*)Irp->UserBuffer;
+            Item->Size = Size;
+            Item->Count = Topology->CategoriesCount;
+
+            if (Topology->CategoriesCount)
+            {
+                RtlMoveMemory((PVOID)(Item + 1), (PVOID)Topology->Categories, Topology->CategoriesCount * sizeof(GUID));
+            }
+            Irp->IoStatus.Information = Size;
+            Status = STATUS_SUCCESS;
+            break;
 
         case KSPROPERTY_TOPOLOGY_NODES:
-            return KsHandleSizedListQuery(Irp, Topology->TopologyNodesCount, sizeof(GUID), Topology->TopologyNodes);
+            Size = sizeof(KSMULTIPLE_ITEM) + Topology->TopologyNodesCount * sizeof(GUID);
+            if (IoStack->Parameters.DeviceIoControl.OutputBufferLength < Size)
+            {
+                Irp->IoStatus.Information = Size;
+                Status = STATUS_MORE_ENTRIES;
+                break;
+            }
+
+            Item = (KSMULTIPLE_ITEM*)Irp->UserBuffer;
+            Item->Size = Size;
+            Item->Count = Topology->TopologyNodesCount;
+
+            RtlMoveMemory((PVOID)(Item + 1), (PVOID)Topology->TopologyNodes, Topology->TopologyNodesCount * sizeof(GUID));
+            if (Topology->TopologyNodesCount)
+            {
+                RtlMoveMemory((PVOID)(Item + 1), (PVOID)Topology->TopologyNodes, Topology->TopologyNodesCount * sizeof(GUID));
+            }
+            Irp->IoStatus.Information = Size;
+            Status = STATUS_SUCCESS;
+            break;
 
         case KSPROPERTY_TOPOLOGY_CONNECTIONS:
-            return KsHandleSizedListQuery(Irp, Topology->TopologyConnectionsCount, sizeof(KSTOPOLOGY_CONNECTION), Topology->TopologyConnections);
+            Size = sizeof(KSMULTIPLE_ITEM) + Topology->TopologyConnectionsCount  * sizeof(KSTOPOLOGY_CONNECTION);
+            if (IoStack->Parameters.DeviceIoControl.OutputBufferLength < Size)
+            {
+                Irp->IoStatus.Information = Size;
+                Status = STATUS_MORE_ENTRIES;
+                break;
+            }
+
+            Item = (KSMULTIPLE_ITEM*)Irp->UserBuffer;
+            Item->Size = Size;
+            Item->Count = Topology->TopologyConnectionsCount;
+
+            if (Topology->TopologyConnections)
+            {
+                RtlMoveMemory((PVOID)(Item + 1), (PVOID)Topology->TopologyConnections, Topology->TopologyConnectionsCount * sizeof(KSTOPOLOGY_CONNECTION));
+            }
+
+            Irp->IoStatus.Information = Size;
+            Status = STATUS_SUCCESS;
+            break;
 
         case KSPROPERTY_TOPOLOGY_NAME:
             Node = (KSP_NODE*)Property;
@@ -251,7 +308,7 @@ KsTopologyPropertyHandler(
             if (KeyInfo->DataLength + sizeof(WCHAR) > IoStack->Parameters.DeviceIoControl.OutputBufferLength)
             {
                 Irp->IoStatus.Information = KeyInfo->DataLength + sizeof(WCHAR);
-                Status = STATUS_MORE_ENTRIES;
+                Status = STATUS_BUFFER_TOO_SMALL;
                 ExFreePool(KeyInfo);
                 break;
             }

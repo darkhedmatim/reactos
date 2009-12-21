@@ -520,7 +520,7 @@
 @ stdcall SetupSetFileQueueAlternatePlatformA(ptr ptr str)
 @ stdcall SetupSetFileQueueAlternatePlatformW(ptr ptr wstr)
 @ stdcall SetupSetFileQueueFlags(long long long)
-@ stdcall SetupSetNonInteractiveMode(long)
+@ stub SetupSetNonInteractiveMode
 @ stub SetupSetPlatformPathOverrideA
 @ stub SetupSetPlatformPathOverrideW
 @ stdcall SetupSetSourceListA(long ptr long)

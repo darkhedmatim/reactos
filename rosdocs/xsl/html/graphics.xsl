@@ -11,7 +11,7 @@
                 version='1.0'>
 
 <!-- ********************************************************************
-     $Id: graphics.xsl,v 1.1 2002/06/13 20:32:36 chorns Exp $
+     $Id$
      ********************************************************************
 
      This file is part of the XSL DocBook Stylesheet distribution.

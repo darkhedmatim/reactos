@@ -36,6 +36,7 @@
 	<library>wininet</library>
 	<library>user32</library>
 	<library>advapi32</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 </module>
 <module name="urlmon_local_interface" type="idlinterface">

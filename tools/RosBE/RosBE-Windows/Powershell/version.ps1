@@ -16,7 +16,7 @@ $TARGETGCC = "$global:_ROSBE_PREFIX" + "gcc"
 remove-item gcctvers.tmp
 
 # LD
-$run = "$_ROSBE_TARGET_MINGWPATH\bin\$_ROSBE_PREFIX" + "ld"
+$run = "$_ROSBE_TARGET_MINGWPATH\bin\$global:_ROSBE_PREFIX" + "ld"
 & "$run" -v
 
 # NASM or YASM
@@ -30,4 +30,4 @@ if (Test-Path "$_ROSBE_HOST_MINGWPATH\bin\nasm.exe") {
 & bison '--version' | select-string "GNU Bison"
 $fver = (& flex '--version') -replace ".*version ((\d|\.)+).*",'$1'
 "flex $fver"
-& make.exe -v | & find "GNU Make"
+& mingw32-make -v | & find "GNU Make"

@@ -83,6 +83,7 @@
 	<library>user32</library>
 	<library>gdi32</library>
 	<library>advapi32</library>
+	<library>kernel32</library>
 	<library>wininet</library>
 	<library>ntdll</library>
 	<dependency>mshtml_nsiface_header</dependency>

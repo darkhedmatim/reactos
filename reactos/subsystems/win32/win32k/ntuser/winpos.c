@@ -161,7 +161,7 @@ co_WinPosActivateOtherWindow(PWINDOW_OBJECT Window)
    WndTo = Window;
    for (;;)
    {
-      if (!(WndTo = WndTo->spwndNext)) break;
+      if (!(WndTo = WndTo->NextSibling)) break;
       if (can_activate_window( WndTo )) break;
    }
 
@@ -260,7 +260,7 @@ WinPosInitInternalPos(PWINDOW_OBJECT Window, POINT *pt, RECTL *RestoreRect)
       PTHREADINFO pti = PsGetCurrentThreadWin32Thread();
       PDESKTOP Desktop = pti->Desktop; /* Or rather get it from the window? */
 
-      Parent = Window->spwndParent;
+      Parent = Window->Parent;
       if(Parent)
       {
          if(IntIsDesktopWindow(Parent))
@@ -325,12 +325,12 @@ co_WinPosMinMaximize(PWINDOW_OBJECT Window, UINT ShowFlag, RECT* NewPos)
             {
                if (Wnd->style & WS_MAXIMIZE)
                {
-                  Window->state |= WINDOWOBJECT_RESTOREMAX;
+                  Window->Flags |= WINDOWOBJECT_RESTOREMAX;
                   Wnd->style &= ~WS_MAXIMIZE;
                }
                else
                {
-                  Window->state &= ~WINDOWOBJECT_RESTOREMAX;
+                  Window->Flags &= ~WINDOWOBJECT_RESTOREMAX;
                }
                co_UserRedrawWindow(Window, NULL, 0, RDW_VALIDATE | RDW_NOERASE |
                                    RDW_NOINTERNALPAINT);
@@ -364,7 +364,7 @@ co_WinPosMinMaximize(PWINDOW_OBJECT Window, UINT ShowFlag, RECT* NewPos)
                if (Wnd->style & WS_MINIMIZE)
                {
                   Wnd->style &= ~WS_MINIMIZE;
-                  if (Window->state & WINDOWOBJECT_RESTOREMAX)
+                  if (Window->Flags & WINDOWOBJECT_RESTOREMAX)
                   {
                      co_WinPosGetMinMaxInfo(Window, &Size,
                                             &Wnd->InternalPos.MaxPos, NULL, NULL);
@@ -519,7 +519,7 @@ co_WinPosDoNCCALCSize(PWINDOW_OBJECT Window, PWINDOWPOS WinPos,
       params.rgrc[0] = *WindowRect;
       params.rgrc[1] = Window->Wnd->rcWindow;
       params.rgrc[2] = Window->Wnd->rcClient;
-      Parent = Window->spwndParent;
+      Parent = Window->Parent;
       if (0 != (Wnd->style & WS_CHILD) && Parent)
       {
          RECTL_vOffsetRect(&(params.rgrc[0]), - Parent->Wnd->rcClient.left,
@@ -608,7 +608,7 @@ co_WinPosDoWinPosChanging(PWINDOW_OBJECT Window,
       PWINDOW_OBJECT Parent;
       X = WinPos->x;
       Y = WinPos->y;
-      Parent = Window->spwndParent;
+      Parent = Window->Parent;
       if ((0 != (Wnd->style & WS_CHILD)) && Parent)
       {
          X += Parent->Wnd->rcClient.left;
@@ -733,7 +733,7 @@ WinPosInternalMoveWindow(PWINDOW_OBJECT Window, INT MoveX, INT MoveY)
 {
    PWINDOW_OBJECT Child;
 
-   ASSERT(Window != Window->spwndChild);
+   ASSERT(Window != Window->FirstChild);
 
    Window->Wnd->rcWindow.left += MoveX;
    Window->Wnd->rcWindow.right += MoveX;
@@ -745,7 +745,7 @@ WinPosInternalMoveWindow(PWINDOW_OBJECT Window, INT MoveX, INT MoveY)
    Window->Wnd->rcClient.top += MoveY;
    Window->Wnd->rcClient.bottom += MoveY;
 
-   for(Child = Window->spwndChild; Child; Child = Child->spwndNext)
+   for(Child = Window->FirstChild; Child; Child = Child->NextSibling)
    {
       WinPosInternalMoveWindow(Child, MoveX, MoveY);
    }
@@ -839,7 +839,7 @@ WinPosFixupFlags(WINDOWPOS *WinPos, PWINDOW_OBJECT Window)
             && HWND_NOTOPMOST != WinPos->hwndInsertAfter
             && HWND_BOTTOM != WinPos->hwndInsertAfter)
       {
-         PWINDOW_OBJECT InsAfterWnd, Parent = Window->spwndParent;
+         PWINDOW_OBJECT InsAfterWnd, Parent = Window->Parent;
 
          InsAfterWnd = UserGetWindowObject(WinPos->hwndInsertAfter);
 
@@ -979,7 +979,7 @@ co_WinPosSetWindowPos(
       PWINDOW_OBJECT Sibling;
       PWINDOW_OBJECT InsertAfterWindow;
 
-      if ((ParentWindow = Window->spwndParent))
+      if ((ParentWindow = Window->Parent))
       {
          if (HWND_TOPMOST == WinPos.hwndInsertAfter)
          {
@@ -989,11 +989,11 @@ co_WinPosSetWindowPos(
                   || HWND_NOTOPMOST == WinPos.hwndInsertAfter)
          {
             InsertAfterWindow = NULL;
-            Sibling = ParentWindow->spwndChild;
+            Sibling = ParentWindow->FirstChild;
             while (NULL != Sibling && 0 != (Sibling->Wnd->ExStyle & WS_EX_TOPMOST))
             {
                InsertAfterWindow = Sibling;
-               Sibling = Sibling->spwndNext;
+               Sibling = Sibling->NextSibling;
             }
             if (NULL != InsertAfterWindow)
             {
@@ -1002,17 +1002,10 @@ co_WinPosSetWindowPos(
          }
          else if (WinPos.hwndInsertAfter == HWND_BOTTOM)
          {
-            if(ParentWindow->spwndChild)
+            if(ParentWindow->LastChild)
             {
-               InsertAfterWindow = ParentWindow->spwndChild;
-
-               if(InsertAfterWindow)
-               {
-                  while (InsertAfterWindow->spwndNext)
-                     InsertAfterWindow = InsertAfterWindow->spwndNext;
-               }
-
-               UserReferenceObject(InsertAfterWindow);
+               UserReferenceObject(ParentWindow->LastChild);
+               InsertAfterWindow = ParentWindow->LastChild;
             }
             else
                InsertAfterWindow = NULL;
@@ -1030,10 +1023,10 @@ co_WinPosSetWindowPos(
             UserDereferenceObject(InsertAfterWindow);
          if ((HWND_TOPMOST == WinPos.hwndInsertAfter)
                || (0 != (Window->Wnd->ExStyle & WS_EX_TOPMOST)
-                   && NULL != Window->spwndPrev
-                   && 0 != (Window->spwndPrev->Wnd->ExStyle & WS_EX_TOPMOST))
-               || (NULL != Window->spwndNext
-                   && 0 != (Window->spwndNext->Wnd->ExStyle & WS_EX_TOPMOST)))
+                   && NULL != Window->PrevSibling
+                   && 0 != (Window->PrevSibling->Wnd->ExStyle & WS_EX_TOPMOST))
+               || (NULL != Window->NextSibling
+                   && 0 != (Window->NextSibling->Wnd->ExStyle & WS_EX_TOPMOST)))
          {
             Window->Wnd->ExStyle |= WS_EX_TOPMOST;
          }
@@ -1081,7 +1074,7 @@ co_WinPosSetWindowPos(
       co_UserRedrawWindow(Window, NULL, 0, RDW_VALIDATE | RDW_NOFRAME |
                           RDW_NOERASE | RDW_NOINTERNALPAINT | RDW_ALLCHILDREN);
       if ((Window->Wnd->style & WS_VISIBLE) &&
-          Window->spwndParent == UserGetDesktopWindow())
+          Window->Parent == UserGetDesktopWindow())
       {
          co_IntShellHookNotify(HSHELL_WINDOWDESTROYED, (LPARAM)Window->hSelf);
       }
@@ -1090,7 +1083,7 @@ co_WinPosSetWindowPos(
    else if (WinPos.flags & SWP_SHOWWINDOW)
    {
       if (!(Window->Wnd->style & WS_VISIBLE) &&
-          Window->spwndParent == UserGetDesktopWindow())
+          Window->Parent == UserGetDesktopWindow())
       {
          co_IntShellHookNotify(HSHELL_WINDOWCREATED, (LPARAM)Window->hSelf);
       }
@@ -1244,7 +1237,7 @@ co_WinPosSetWindowPos(
          GreDeleteObject(DirtyRgn);
          */
 
-            PWINDOW_OBJECT Parent = Window->spwndParent;
+            PWINDOW_OBJECT Parent = Window->Parent;
 
             NtGdiOffsetRgn(DirtyRgn,
                            Window->Wnd->rcWindow.left,
@@ -1479,18 +1472,18 @@ co_WinPosShowWindow(PWINDOW_OBJECT Window, INT Cmd)
             IntIsChildWindow(Window, ThreadFocusWindow)))
       {
          //faxme: as long as we have ref on Window, we also, indirectly, have ref on parent...
-         co_UserSetFocus(Window->spwndParent);
+         co_UserSetFocus(Window->Parent);
       }
    }
 
    /* FIXME: Check for window destruction. */
 
-   if ((Window->state & WINDOWOBJECT_NEED_SIZE) &&
-       !(Window->state & WINDOWSTATUS_DESTROYING))
+   if ((Window->Flags & WINDOWOBJECT_NEED_SIZE) &&
+       !(Window->Status & WINDOWSTATUS_DESTROYING))
    {
       WPARAM wParam = SIZE_RESTORED;
 
-      Window->state &= ~WINDOWOBJECT_NEED_SIZE;
+      Window->Flags &= ~WINDOWOBJECT_NEED_SIZE;
       if (Wnd->style & WS_MAXIMIZE)
       {
          wParam = SIZE_MAXIMIZED;
@@ -1528,10 +1521,10 @@ co_WinPosShowWindow(PWINDOW_OBJECT Window, INT Cmd)
 /* find child of 'parent' that contains the given point (in parent-relative coords) */
 PWINDOW_OBJECT child_window_from_point(PWINDOW_OBJECT parent, int x, int y )
 {
-    PWINDOW_OBJECT Wnd;// = parent->spwndChild;
+    PWINDOW_OBJECT Wnd;// = parent->FirstChild;
 
 //    LIST_FOR_EACH_ENTRY( Wnd, &parent->children, struct window, entry )
-    for (Wnd = parent->spwndChild; Wnd; Wnd = Wnd->spwndNext)
+    for (Wnd = parent->FirstChild; Wnd; Wnd = Wnd->NextSibling)
     {
         if (!IntPtInWindow( Wnd, x, y )) continue;  /* skip it */
 

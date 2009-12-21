@@ -5,6 +5,7 @@
 	<library>dxguid</library>
 	<library>winmm</library>
 	<library>user32</library>
+	<library>kernel32</library>
 	<file>capture.c</file>
 	<file>mci.c</file>
 	<file>mixer.c</file>

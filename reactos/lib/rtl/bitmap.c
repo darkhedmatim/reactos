@@ -1,9 +1,8 @@
-/*
- * COPYRIGHT:       See COPYING in the top level directory
+/* COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/rtl/bitmap.c
  * PURPOSE:         Bitmap functions
- * PROGRAMMER:      Timo Kreuzer (timo.kreuzer@reactos.org)
+ * PROGRAMMER:      Eric Kohl
  */
 
 /* INCLUDES *****************************************************************/
@@ -13,761 +12,965 @@
 #define NDEBUG
 #include <debug.h>
 
+/* MACROS *******************************************************************/
 
-/* DATA *********************************************************************/
+/* Bits set from LSB to MSB; used as mask for runs < 8 bits */
+static const BYTE NTDLL_maskBits[8] = { 0, 1, 3, 7, 15, 31, 63, 127 };
 
-/* Number of set bits per byte value */
-static const
-UCHAR
-BitCountTable[256] =
-{
-    /* x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 xA xB xC xD xE xF */
-       0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, /* 0x */
-       1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, /* 1x */
-       1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, /* 2x */
-       2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, /* 3x */
-       1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, /* 4x */
-       2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, /* 5x */
-       2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, /* 6c */
-       3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, /* 7x */
-       1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, /* 8x */
-       2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, /* 9x */
-       2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, /* Ax */
-       3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, /* Bx */
-       2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, /* Cx */
-       3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, /* Dx */
-       3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, /* Ex */
-       4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8  /* Fx */
+/* Number of set bits for each value of a nibble; used for counting */
+static const BYTE NTDLL_nibbleBitCount[16] = {
+  0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4
 };
 
+/* First set bit in a nibble; used for determining least significant bit */
+static const BYTE NTDLL_leastSignificant[16] = {
+  0, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0
+};
 
-/* PRIVATE FUNCTIONS ********************************************************/
+/* Last set bit in a nibble; used for determining most significant bit */
+static const signed char NTDLL_mostSignificant[16] = {
+  -1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3
+};
 
-static __inline__
-ULONG
-RtlpGetLengthOfRunClear(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG StartingIndex,
-    IN ULONG MaxLength)
+/* PRIVATE FUNCTIONS *********************************************************/
+
+static
+int
+__cdecl
+NTDLL_RunSortFn(const void *lhs,
+                const void *rhs)
 {
-    ULONG Value, BitPos, Length;
-    PULONG Buffer, MaxBuffer;
-
-    /* Calculate positions */
-    Buffer = BitMapHeader->Buffer + StartingIndex / 32;
-    BitPos = StartingIndex & 31;
-
-    /* Calculate the maximum length */
-    MaxLength = min(MaxLength, BitMapHeader->SizeOfBitMap - StartingIndex);
-    MaxBuffer = Buffer + (BitPos + MaxLength + 31) / 32;
-
-    /* Clear the bits that don't belong to this run */
-    Value = *Buffer++ >> BitPos << BitPos;
-
-    /* Skip all clear ULONGs */
-    while (Value == 0 && Buffer < MaxBuffer)
-    {
-        Value = *Buffer++;
-    }
-
-    /* Did we reach the end? */
-    if (Value == 0)
-    {
-        /* Return maximum length */
-        return MaxLength;
-    }
-
-    /* We hit a set bit, check how many clear bits are left */
-    BitScanForward(&BitPos, Value);
-
-    /* Calculate length up to where we read */
-    Length = (Buffer - BitMapHeader->Buffer) * 32 - StartingIndex;
-    Length += BitPos - 32;
-
-    /* Make sure we don't go past the last bit */
-    if (Length > BitMapHeader->SizeOfBitMap - StartingIndex)
-        Length = BitMapHeader->SizeOfBitMap - StartingIndex;
-
-    /* Return the result */
-    return Length;
-}
-
-static __inline__
-ULONG
-RtlpGetLengthOfRunSet(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG StartingIndex,
-    IN ULONG MaxLength)
-{
-    ULONG InvValue, BitPos, Length;
-    PULONG Buffer, MaxBuffer;
-
-    /* Calculate positions */
-    Buffer = BitMapHeader->Buffer + StartingIndex / 32;
-    BitPos = StartingIndex & 31;
-
-    /* Calculate the maximum length */
-    MaxLength = min(MaxLength, BitMapHeader->SizeOfBitMap - StartingIndex);
-    MaxBuffer = Buffer + (BitPos + MaxLength + 31) / 32;
-
-    /* Get the inversed value, clear bits that don't belong to the run */
-    InvValue = ~(*Buffer++) >> BitPos << BitPos;
-
-    /* Skip all set ULONGs */
-    while (InvValue == 0 && Buffer < MaxBuffer)
-    {
-        InvValue = ~(*Buffer++);
-    }
-
-    /* Did we reach the end? */
-    if (InvValue == 0)
-    {
-        /* Yes, return maximum */
-        return MaxLength;
-    }
-
-    /* We hit a clear bit, check how many set bits are left */
-    BitScanForward(&BitPos, InvValue);
-
-    /* Calculate length up to where we read */
-    Length = (Buffer - BitMapHeader->Buffer) * 32 - StartingIndex;
-    Length += BitPos - 32;
-
-    /* Make sure we don't go past the last bit */
-    if (Length > BitMapHeader->SizeOfBitMap - StartingIndex)
-        Length = BitMapHeader->SizeOfBitMap - StartingIndex;
-
-    /* Return the result */
-    return Length;
-}
-
-
-/* PUBLIC FUNCTIONS **********************************************************/
-
-CCHAR
-NTAPI
-RtlFindMostSignificantBit(ULONGLONG Value)
-{
-    ULONG Position;
-
-    if (BitScanReverse(&Position, Value >> 32))
-    {
-        return Position + 32;
-    }
-    else if (BitScanReverse(&Position, (ULONG)Value))
-    {
-        return Position;
-    }
-
+  if (((const RTL_BITMAP_RUN*)lhs)->NumberOfBits > ((const RTL_BITMAP_RUN*)rhs)->NumberOfBits)
     return -1;
+  return 1;
 }
 
-CCHAR
-NTAPI
-RtlFindLeastSignificantBit(ULONGLONG Value)
+static
+ULONG
+WINAPI
+NTDLL_FindRuns(PRTL_BITMAP lpBits,
+               PRTL_BITMAP_RUN lpSeries,
+               ULONG ulCount,
+               BOOLEAN bLongest,
+               ULONG (*fn)(PRTL_BITMAP,ULONG,PULONG))
 {
-    ULONG Position;
+  BOOL bNeedSort = ulCount > 1 ? TRUE : FALSE;
+  ULONG ulPos = 0, ulRuns = 0;
 
-    if (BitScanForward(&Position, (ULONG)Value))
-    {
-        return Position;
-    }
-    else if (BitScanForward(&Position, Value >> 32))
-    {
-        return Position + 32;
-    }
+  if (!ulCount)
+    return MAXULONG;
 
-    return -1;
+  while (ulPos < lpBits->SizeOfBitMap)
+  {
+    /* Find next set/clear run */
+    ULONG ulSize, ulNextPos = fn(lpBits, ulPos, &ulSize);
+
+    if (ulNextPos == MAXULONG)
+      break;
+
+    if (bLongest && ulRuns == ulCount)
+    {
+      /* Sort runs with shortest at end, if they are out of order */
+      if (bNeedSort)
+        qsort(lpSeries, ulRuns, sizeof(RTL_BITMAP_RUN), NTDLL_RunSortFn);
+
+      /* Replace last run if this one is bigger */
+      if (ulSize > lpSeries[ulRuns - 1].NumberOfBits)
+      {
+        lpSeries[ulRuns - 1].StartingIndex = ulNextPos;
+        lpSeries[ulRuns - 1].NumberOfBits = ulSize;
+
+        /* We need to re-sort the array, _if_ we didn't leave it sorted */
+        if (ulRuns > 1 && ulSize > lpSeries[ulRuns - 2].NumberOfBits)
+          bNeedSort = TRUE;
+      }
+    }
+    else
+    {
+      /* Append to found runs */
+      lpSeries[ulRuns].StartingIndex = ulNextPos;
+      lpSeries[ulRuns].NumberOfBits = ulSize;
+      ulRuns++;
+
+      if (!bLongest && ulRuns == ulCount)
+        break;
+    }
+    ulPos = ulNextPos + ulSize;
+  }
+  return ulRuns;
 }
 
+static
+ULONG
+NTDLL_FindSetRun(PRTL_BITMAP lpBits,
+                 ULONG ulStart,
+                 PULONG lpSize)
+{
+  LPBYTE lpOut;
+  ULONG ulFoundAt = 0, ulCount = 0;
+
+  /* FIXME: It might be more efficient/cleaner to manipulate four bytes
+   * at a time. But beware of the pointer arithmetics...
+   */
+  lpOut = ((BYTE*)lpBits->Buffer) + (ulStart >> 3u);
+
+  while (1)
+  {
+    /* Check bits in first byte */
+    const BYTE bMask = (0xff << (ulStart & 7)) & 0xff;
+    const BYTE bFirst = *lpOut & bMask;
+
+    if (bFirst)
+    {
+      /* Have a set bit in first byte */
+      if (bFirst != bMask)
+      {
+        /* Not every bit is set */
+        ULONG ulOffset;
+
+        if (bFirst & 0x0f)
+          ulOffset = NTDLL_leastSignificant[bFirst & 0x0f];
+        else
+          ulOffset = 4 + NTDLL_leastSignificant[bFirst >> 4];
+        ulStart += ulOffset;
+        ulFoundAt = ulStart;
+        for (;ulOffset < 8; ulOffset++)
+        {
+          if (!(bFirst & (1 << ulOffset)))
+          {
+            *lpSize = ulCount;
+            return ulFoundAt; /* Set from start, but not until the end */
+          }
+          ulCount++;
+          ulStart++;
+        }
+        /* Set to the end - go on to count further bits */
+        lpOut++;
+        break;
+      }
+      /* every bit from start until the end of the byte is set */
+      ulFoundAt = ulStart;
+      ulCount = 8 - (ulStart & 7);
+      ulStart = (ulStart & ~7u) + 8;
+      lpOut++;
+      break;
+    }
+    ulStart = (ulStart & ~7u) + 8;
+    lpOut++;
+    if (ulStart >= lpBits->SizeOfBitMap)
+      return MAXULONG;
+  }
+
+  /* Count blocks of 8 set bits */
+  while (*lpOut == 0xff)
+  {
+    ulCount += 8;
+    ulStart += 8;
+    if (ulStart >= lpBits->SizeOfBitMap)
+    {
+      *lpSize = ulCount - (ulStart - lpBits->SizeOfBitMap);
+      return ulFoundAt;
+    }
+    lpOut++;
+  }
+
+  /* Count remaining contiguous bits, if any */
+  if (*lpOut & 1)
+  {
+    ULONG ulOffset = 0;
+
+    for (;ulOffset < 7u; ulOffset++)
+    {
+      if (!(*lpOut & (1 << ulOffset)))
+        break;
+      ulCount++;
+    }
+  }
+  *lpSize = ulCount;
+  return ulFoundAt;
+}
+
+static
+ULONG
+NTDLL_FindClearRun(PRTL_BITMAP lpBits,
+                   ULONG ulStart,
+                   PULONG lpSize)
+{
+  LPBYTE lpOut;
+  ULONG ulFoundAt = 0, ulCount = 0;
+
+  /* FIXME: It might be more efficient/cleaner to manipulate four bytes
+   * at a time. But beware of the pointer arithmetics...
+   */
+  lpOut = ((BYTE*)lpBits->Buffer) + (ulStart >> 3u);
+
+  while (1)
+  {
+    /* Check bits in first byte */
+    const BYTE bMask = (0xff << (ulStart & 7)) & 0xff;
+    const BYTE bFirst = (~*lpOut) & bMask;
+
+    if (bFirst)
+    {
+      /* Have a clear bit in first byte */
+      if (bFirst != bMask)
+      {
+        /* Not every bit is clear */
+        ULONG ulOffset;
+
+        if (bFirst & 0x0f)
+          ulOffset = NTDLL_leastSignificant[bFirst & 0x0f];
+        else
+          ulOffset = 4 + NTDLL_leastSignificant[bFirst >> 4];
+        ulStart += ulOffset;
+        ulFoundAt = ulStart;
+        for (;ulOffset < 8; ulOffset++)
+        {
+          if (!(bFirst & (1 << ulOffset)))
+          {
+            *lpSize = ulCount;
+            return ulFoundAt; /* Clear from start, but not until the end */
+          }
+          ulCount++;
+          ulStart++;
+        }
+        /* Clear to the end - go on to count further bits */
+        lpOut++;
+        break;
+      }
+      /* Every bit from start until the end of the byte is clear */
+      ulFoundAt = ulStart;
+      ulCount = 8 - (ulStart & 7);
+      ulStart = (ulStart & ~7u) + 8;
+      lpOut++;
+      break;
+    }
+    ulStart = (ulStart & ~7u) + 8;
+    lpOut++;
+    if (ulStart >= lpBits->SizeOfBitMap)
+      return MAXULONG;
+  }
+
+  /* Count blocks of 8 clear bits */
+  while (!*lpOut)
+  {
+    ulCount += 8;
+    ulStart += 8;
+    if (ulStart >= lpBits->SizeOfBitMap)
+    {
+      *lpSize = ulCount - (ulStart - lpBits->SizeOfBitMap);
+      return ulFoundAt;
+    }
+    lpOut++;
+  }
+
+  /* Count remaining contiguous bits, if any */
+  if (!(*lpOut & 1))
+  {
+    ULONG ulOffset = 0;
+
+    for (;ulOffset < 7u; ulOffset++)
+    {
+      if (*lpOut & (1 << ulOffset))
+        break;
+      ulCount++;
+    }
+  }
+  *lpSize = ulCount;
+  return ulFoundAt;
+}
+
+/* FUNCTIONS ****************************************************************/
+
+/*
+ * @implemented
+ */
 VOID
 NTAPI
-RtlInitializeBitMap(
-    IN PRTL_BITMAP BitMapHeader,
-    IN PULONG BitMapBuffer,
-    IN ULONG SizeOfBitMap)
+RtlInitializeBitMap(IN PRTL_BITMAP BitMapHeader,
+                    IN PULONG BitMapBuffer,
+                    IN ULONG SizeOfBitMap)
 {
-    // FIXME: some bugger here!
-    //ASSERT(SizeOfBitMap > 0);
-
     /* Setup the bitmap header */
     BitMapHeader->SizeOfBitMap = SizeOfBitMap;
     BitMapHeader->Buffer = BitMapBuffer;
 }
 
-VOID
-NTAPI
-RtlClearAllBits(
-    IN OUT PRTL_BITMAP BitMapHeader)
-{
-    ULONG LengthInUlongs;
-
-    LengthInUlongs = (BitMapHeader->SizeOfBitMap + 31) >> 5;
-    RtlFillMemoryUlong(BitMapHeader->Buffer, LengthInUlongs << 2, 0);
-}
-
-VOID
-NTAPI
-RtlSetAllBits(
-    IN OUT PRTL_BITMAP BitMapHeader)
-{
-    ULONG LengthInUlongs;
-    
-    LengthInUlongs = (BitMapHeader->SizeOfBitMap + 31) >> 5;
-    RtlFillMemoryUlong(BitMapHeader->Buffer, LengthInUlongs << 2, ~0);
-}
-
-VOID
-NTAPI
-RtlClearBit(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG BitNumber)
-{
-    ASSERT(BitNumber <= BitMapHeader->SizeOfBitMap);
-    BitMapHeader->Buffer[BitNumber >> 5] &= ~(1 << (BitNumber & 31));
-}
-
-VOID
-NTAPI
-RtlSetBit(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG BitNumber)
-{
-    ASSERT(BitNumber <= BitMapHeader->SizeOfBitMap);
-    BitMapHeader->Buffer[BitNumber >> 5] |= (1 << (BitNumber & 31));
-}
-
-VOID
-NTAPI
-RtlClearBits(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG StartingIndex,
-    IN ULONG NumberToClear)
-{
-    ULONG Bits, Mask;
-    PULONG Buffer;
-
-    ASSERT(StartingIndex + NumberToClear <= BitMapHeader->SizeOfBitMap);
-
-    /* Calculate buffer start and first bit index */
-    Buffer = &BitMapHeader->Buffer[StartingIndex >> 5];
-    Bits = StartingIndex & 31;
-
-    /* Are we unaligned? */
-    if (Bits)
-    {
-        /* Create an inverse mask by shifting MAXULONG */
-        Mask = MAXULONG << Bits;
-
-        /* This is what's left in the first ULONG */
-        Bits = 32 - Bits;
-
-        /* Even less bits to clear? */
-        if (NumberToClear < Bits)
-        {
-            /* Calculate how many bits are left */
-            Bits -= NumberToClear;
-
-            /* Fixup the mask on the high side */
-            Mask = Mask << Bits >> Bits;
-
-            /* Clear bits and return */
-            *Buffer &= ~Mask;
-            return;
-        }
-
-        /* Clear bits */
-        *Buffer &= ~Mask;
-
-        /* Update buffer and left bits */
-        Buffer++;
-        NumberToClear -= Bits;
-    }
-
-    /* Clear all full ULONGs */
-    RtlFillMemoryUlong(Buffer, NumberToClear >> 3, 0);
-    Buffer += NumberToClear >> 5;
-
-    /* Clear what's left */
-    NumberToClear &= 31;
-    Mask = MAXULONG << NumberToClear;
-    *Buffer &= Mask;
-}
-
-VOID
-NTAPI
-RtlSetBits(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG StartingIndex,
-    IN ULONG NumberToSet)
-{
-    ULONG Bits, Mask;
-    PULONG Buffer;
-
-    ASSERT(StartingIndex + NumberToSet <= BitMapHeader->SizeOfBitMap);
-
-    /* Calculate buffer start and first bit index */
-    Buffer = &BitMapHeader->Buffer[StartingIndex >> 5];
-    Bits = StartingIndex & 31;
-
-    /* Are we unaligned? */
-    if (Bits)
-    {
-        /* Create a mask by shifting MAXULONG */
-        Mask = MAXULONG << Bits;
-
-        /* This is what's left in the first ULONG */
-        Bits = 32 - Bits;
-
-        /* Even less bits to clear? */
-        if (NumberToSet < Bits)
-        {
-            /* Calculate how many bits are left */
-            Bits -= NumberToSet;
-
-            /* Fixup the mask on the high side */
-            Mask = Mask << Bits >> Bits;
-
-            /* Set bits and return */
-            *Buffer |= Mask;
-            return;
-        }
-
-        /* Set bits */
-        *Buffer |= Mask;
-
-        /* Update buffer and left bits */
-        Buffer++;
-        NumberToSet -= Bits;
-    }
-
-    /* Set all full ULONGs */
-    RtlFillMemoryUlong(Buffer, NumberToSet >> 3, MAXULONG);
-    Buffer += NumberToSet >> 5;
-
-    /* Set what's left */
-    NumberToSet &= 31;
-    Mask = MAXULONG << NumberToSet;
-    *Buffer |= ~Mask;
-}
-
+/*
+ * @implemented
+ */
 BOOLEAN
 NTAPI
-RtlTestBit(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG BitNumber)
+RtlAreBitsClear(IN PRTL_BITMAP BitMapHeader,
+                IN ULONG StartingIndex,
+                IN ULONG Length)
 {
-    ASSERT(BitNumber < BitMapHeader->SizeOfBitMap);
-    return (BitMapHeader->Buffer[BitNumber >> 5] >> (BitNumber & 31)) & 1;
+  LPBYTE lpOut;
+  ULONG ulRemainder;
+
+  if (!BitMapHeader || !Length ||
+      StartingIndex >= BitMapHeader->SizeOfBitMap ||
+      Length > BitMapHeader->SizeOfBitMap - StartingIndex)
+    return FALSE;
+
+  /* FIXME: It might be more efficient/cleaner to manipulate four bytes
+   * at a time. But beware of the pointer arithmetics...
+   */
+  lpOut = ((BYTE*)BitMapHeader->Buffer) + (StartingIndex >> 3u);
+
+  /* Check bits in first byte, if StartingIndex isn't a byte boundary */
+  if (StartingIndex & 7)
+  {
+    if (Length > 7)
+    {
+      /* Check from start bit to the end of the byte */
+      if (*lpOut & ((0xff << (StartingIndex & 7)) & 0xff))
+        return FALSE;
+      lpOut++;
+      Length -= (8 - (StartingIndex & 7));
+    }
+    else
+    {
+      /* Check from the start bit, possibly into the next byte also */
+      USHORT initialWord = NTDLL_maskBits[Length] << (StartingIndex & 7);
+
+      if (*lpOut & (initialWord & 0xff))
+        return FALSE;
+      if ((initialWord & 0xff00) && (lpOut[1] & (initialWord >> 8)))
+        return FALSE;
+      return TRUE;
+    }
+  }
+
+  /* Check bits in blocks of 8 bytes */
+  ulRemainder = Length & 7;
+  Length >>= 3;
+  while (Length--)
+  {
+    if (*lpOut++)
+      return FALSE;
+  }
+
+  /* Check remaining bits, if any */
+  if (ulRemainder && *lpOut & NTDLL_maskBits[ulRemainder])
+    return FALSE;
+  return TRUE;
 }
 
-BOOLEAN
-NTAPI
-RtlAreBitsClear(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG StartingIndex,
-    IN ULONG Length)
+
+/*
+ * @implemented
+ */
+BOOLEAN NTAPI
+RtlAreBitsSet(PRTL_BITMAP BitMapHeader,
+	      ULONG StartingIndex,
+	      ULONG Length)
 {
-    return RtlpGetLengthOfRunClear(BitMapHeader, StartingIndex, Length) >= Length;
+  LPBYTE lpOut;
+  ULONG ulRemainder;
+
+
+  if (!BitMapHeader || !Length ||
+      StartingIndex >= BitMapHeader->SizeOfBitMap ||
+      Length > BitMapHeader->SizeOfBitMap - StartingIndex)
+    return FALSE;
+
+  /* FIXME: It might be more efficient/cleaner to manipulate four bytes
+   * at a time. But beware of the pointer arithmetics...
+   */
+  lpOut = ((BYTE*)BitMapHeader->Buffer) + (StartingIndex >> 3u);
+
+  /* Check bits in first byte, if StartingIndex isn't a byte boundary */
+  if (StartingIndex & 7)
+  {
+    if (Length > 7)
+    {
+      /* Check from start bit to the end of the byte */
+      if ((*lpOut &
+          ((0xff << (StartingIndex & 7))) & 0xff) != ((0xff << (StartingIndex & 7) & 0xff)))
+        return FALSE;
+      lpOut++;
+      Length -= (8 - (StartingIndex & 7));
+    }
+    else
+    {
+      /* Check from the start bit, possibly into the next byte also */
+      USHORT initialWord = NTDLL_maskBits[Length] << (StartingIndex & 7);
+
+      if ((*lpOut & (initialWord & 0xff)) != (initialWord & 0xff))
+        return FALSE;
+      if ((initialWord & 0xff00) &&
+          ((lpOut[1] & (initialWord >> 8)) != (initialWord >> 8)))
+        return FALSE;
+      return TRUE;
+    }
+  }
+
+  /* Check bits in blocks of 8 bytes */
+  ulRemainder = Length & 7;
+  Length >>= 3;
+  while (Length--)
+  {
+    if (*lpOut++ != 0xff)
+      return FALSE;
+  }
+
+  /* Check remaining bits, if any */
+  if (ulRemainder &&
+      (*lpOut & NTDLL_maskBits[ulRemainder]) != NTDLL_maskBits[ulRemainder])
+    return FALSE;
+  return TRUE;
 }
 
-BOOLEAN
-NTAPI
-RtlAreBitsSet(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG StartingIndex,
-    IN ULONG Length)
+
+/*
+ * @implemented
+ */
+VOID NTAPI
+RtlClearAllBits(IN OUT PRTL_BITMAP BitMapHeader)
 {
-    return RtlpGetLengthOfRunSet(BitMapHeader, StartingIndex, Length) >= Length;
+    memset(BitMapHeader->Buffer, 0, ((BitMapHeader->SizeOfBitMap + 31) & ~31) >> 3);
 }
 
-ULONG
+/*
+ * @implemented
+ */
+VOID
 NTAPI
-RtlNumberOfSetBits(
-    IN PRTL_BITMAP BitMapHeader)
+RtlClearBit(PRTL_BITMAP BitMapHeader,
+            ULONG BitNumber)
 {
-    PUCHAR Byte, MaxByte;
-    ULONG BitCount = 0;
+    PUCHAR Ptr;
 
-    Byte = (PUCHAR)BitMapHeader->Buffer;
-    MaxByte = Byte + (BitMapHeader->SizeOfBitMap + 7) / 8;
+    if (BitNumber >= BitMapHeader->SizeOfBitMap) return;
 
-    do
-    {
-        BitCount += BitCountTable[*Byte++];
-    }
-    while (Byte <= MaxByte);
-
-    return BitCount;
+    Ptr = (PUCHAR)BitMapHeader->Buffer + (BitNumber / 8);
+    *Ptr &= ~(1 << (BitNumber % 8));
 }
 
-ULONG
+/*
+ * @implemented
+ */
+VOID
 NTAPI
-RtlNumberOfClearBits(
-    IN PRTL_BITMAP BitMapHeader)
+RtlClearBits(IN PRTL_BITMAP BitMapHeader,
+             IN ULONG StartingIndex,
+             IN ULONG NumberToClear)
 {
-    /* Do some math */
-    return BitMapHeader->SizeOfBitMap - RtlNumberOfSetBits(BitMapHeader);
+  LPBYTE lpOut;
+
+  if (!BitMapHeader || !NumberToClear ||
+      StartingIndex >= BitMapHeader->SizeOfBitMap ||
+      NumberToClear > BitMapHeader->SizeOfBitMap - StartingIndex)
+    return;
+
+  /* FIXME: It might be more efficient/cleaner to manipulate four bytes
+   * at a time. But beware of the pointer arithmetics...
+   */
+  lpOut = ((BYTE*)BitMapHeader->Buffer) + (StartingIndex >> 3u);
+
+  /* Clear bits in first byte, if StartingIndex isn't a byte boundary */
+  if (StartingIndex & 7)
+  {
+    if (NumberToClear > 7)
+    {
+      /* Clear from start bit to the end of the byte */
+      *lpOut++ &= ~(0xff << (StartingIndex & 7));
+      NumberToClear -= (8 - (StartingIndex & 7));
+    }
+    else
+    {
+      /* Clear from the start bit, possibly into the next byte also */
+      USHORT initialWord = ~(NTDLL_maskBits[NumberToClear] << (StartingIndex & 7));
+
+      *lpOut++ &= (initialWord & 0xff);
+      *lpOut &= (initialWord >> 8);
+      return;
+    }
+  }
+
+  /* Clear bits (in blocks of 8) on whole byte boundaries */
+  if (NumberToClear >> 3)
+  {
+    memset(lpOut, 0, NumberToClear >> 3);
+    lpOut = lpOut + (NumberToClear >> 3);
+  }
+
+  /* Clear remaining bits, if any */
+  if (NumberToClear & 0x7)
+    *lpOut &= ~NTDLL_maskBits[NumberToClear & 0x7];
 }
 
-ULONG
-NTAPI
-RtlFindClearBits(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG NumberToFind,
-    IN ULONG HintIndex)
+
+/*
+ * @implemented
+ */
+ULONG NTAPI
+RtlFindClearBits(PRTL_BITMAP BitMapHeader,
+		 ULONG NumberToFind,
+		 ULONG HintIndex)
 {
-    ULONG CurrentBit, Margin, CurrentLength;
+  ULONG ulPos, ulEnd;
 
-    /* Check for valid parameters */
-    if (!BitMapHeader || NumberToFind > BitMapHeader->SizeOfBitMap)
-    {
-        return MAXULONG;
-    }
-
-    /* Check for trivial case */
-    if (NumberToFind == 0)
-    {
-        return HintIndex;
-    }
-
-    /* First margin is end of bitmap */
-    Margin = BitMapHeader->SizeOfBitMap;
-
-retry:
-    /* Start with hint index, length is 0 */
-    CurrentBit = HintIndex;
-
-    /* Loop until something is found or the end is reached */
-    while (CurrentBit + NumberToFind < Margin)
-    {
-        /* Search for the next clear run, by skipping a set run */
-        CurrentBit += RtlpGetLengthOfRunSet(BitMapHeader,
-                                            CurrentBit,
-                                            MAXULONG);
-
-        /* Get length of the clear bit run */
-        CurrentLength = RtlpGetLengthOfRunClear(BitMapHeader,
-                                                CurrentBit,
-                                                NumberToFind);
-
-        /* Is this long enough? */
-        if (CurrentLength >= NumberToFind)
-        {
-            /* It is */
-            return CurrentBit;
-        }
-
-        CurrentBit += CurrentLength;
-    }
-
-    /* Did we start at a hint? */
-    if (HintIndex)
-    {
-        /* Retry at the start */
-        Margin = min(HintIndex + NumberToFind, BitMapHeader->SizeOfBitMap);
-        HintIndex = 0;
-        goto retry;
-    }
-
-    /* Nothing found */
+  if (!BitMapHeader || !NumberToFind || NumberToFind > BitMapHeader->SizeOfBitMap)
     return MAXULONG;
+
+  ulEnd = BitMapHeader->SizeOfBitMap;
+
+  if (HintIndex + NumberToFind > BitMapHeader->SizeOfBitMap)
+    HintIndex = 0;
+
+  ulPos = HintIndex;
+
+  while (ulPos < ulEnd)
+  {
+    /* FIXME: This could be made a _lot_ more efficient */
+    if (RtlAreBitsClear(BitMapHeader, ulPos, NumberToFind))
+      return ulPos;
+
+    /* Start from the beginning if we hit the end and started from HintIndex */
+    if (ulPos == ulEnd - 1 && HintIndex)
+    {
+      ulEnd = HintIndex;
+      ulPos = HintIndex = 0;
+    }
+    else
+      ulPos++;
+  }
+  return MAXULONG;
 }
 
-ULONG
-NTAPI
-RtlFindSetBits(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG NumberToFind,
-    IN ULONG HintIndex)
+/*
+ * @implemented
+ */
+ULONG NTAPI
+RtlFindClearRuns(PRTL_BITMAP BitMapHeader,
+		 PRTL_BITMAP_RUN RunArray,
+		 ULONG SizeOfRunArray,
+		 BOOLEAN LocateLongestRuns)
 {
-    ULONG CurrentBit, CurrentLength;
+    return NTDLL_FindRuns(BitMapHeader, RunArray, SizeOfRunArray, LocateLongestRuns, NTDLL_FindClearRun);
+}
 
-    /* Check for valid parameters */
-    if (!BitMapHeader || NumberToFind > BitMapHeader->SizeOfBitMap)
+/*
+ * @unimplemented
+ */
+ULONG NTAPI
+RtlFindLastBackwardRunClear(IN PRTL_BITMAP BitMapHeader,
+			    IN ULONG FromIndex,
+			    IN PULONG StartingRunIndex)
+{
+  UNIMPLEMENTED;
+  return 0;
+}
+
+/*
+ * @implemented
+ */
+ULONG NTAPI
+RtlFindNextForwardRunClear(IN PRTL_BITMAP BitMapHeader,
+			   IN ULONG FromIndex,
+			   IN PULONG StartingRunIndex)
+{
+  ULONG ulSize = 0;
+
+  if (BitMapHeader && FromIndex < BitMapHeader->SizeOfBitMap && StartingRunIndex)
+    *StartingRunIndex = NTDLL_FindClearRun(BitMapHeader, FromIndex, &ulSize);
+
+  return ulSize;
+}
+
+/*
+ * @implemented
+ */
+ULONG NTAPI
+RtlFindFirstRunSet(IN PRTL_BITMAP BitMapHeader,
+		   IN PULONG StartingIndex)
+{
+  ULONG Size;
+  ULONG Index;
+  ULONG Count;
+  PULONG Ptr;
+  ULONG  Mask;
+
+  Size = BitMapHeader->SizeOfBitMap;
+  if (*StartingIndex > Size)
+  {
+    *StartingIndex = MAXULONG;
+    return 0;
+  }
+
+  Index = *StartingIndex;
+  Ptr = (PULONG)BitMapHeader->Buffer + (Index / 32);
+  Mask = 1 << (Index & 0x1F);
+
+  /* Skip clear bits */
+  for (; Index < Size && ~*Ptr & Mask; Index++)
+  {
+    Mask <<= 1;
+
+    if (Mask == 0)
     {
-        return MAXULONG;
+      Mask = 1;
+      Ptr++;
     }
+  }
 
-    /* Check for trivial case */
-    if (NumberToFind == 0)
+  /* Return index of first set bit */
+  if (Index >= Size)
+  {
+    *StartingIndex = MAXULONG;
+    return 0;
+  }
+  else
+  {
+    *StartingIndex = Index;
+  }
+
+  /* Count set bits */
+  for (Count = 0; Index < Size && *Ptr & Mask; Index++)
+  {
+    Count++;
+    Mask <<= 1;
+
+    if (Mask == 0)
     {
-        return HintIndex;
+      Mask = 1;
+      Ptr++;
     }
+  }
 
-    /* Start with hint index, length is 0 */
-    CurrentBit = HintIndex;
-    CurrentLength = 0;
+  return Count;
+}
 
-    /* Loop until something is found or the end is reached */
-    while (CurrentBit + NumberToFind <= BitMapHeader->SizeOfBitMap)
-    {
-        /* Search for the next set run, by skipping a clear run */
-        CurrentBit += RtlpGetLengthOfRunClear(BitMapHeader,
-                                              CurrentBit,
-                                              MAXULONG);
 
-        /* Get length of the set bit run */
-        CurrentLength = RtlpGetLengthOfRunSet(BitMapHeader,
-                                              CurrentBit,
-                                              NumberToFind);
+/*
+ * @implemented
+ */
+ULONG NTAPI
+RtlFindLongestRunClear(PRTL_BITMAP BitMapHeader,
+		       PULONG StartingIndex)
+{
+  /* GCC complaints that it may be used uninitialized */
+  RTL_BITMAP_RUN br = { 0, 0 };
 
-        /* Is this long enough? */
-        if (CurrentLength >= NumberToFind)
-        {
-            /* It is */
-            return CurrentBit;
-        }
+  if (RtlFindClearRuns(BitMapHeader, &br, 1, TRUE) == 1)
+  {
+    if (StartingIndex)
+      *StartingIndex = br.StartingIndex;
+    return br.NumberOfBits;
+  }
+  return 0;
+}
 
-        CurrentBit += CurrentLength;
-    }
 
-    /* Nothing found */
+/*
+ * @implemented
+ */
+ULONG NTAPI
+RtlFindLongestRunSet(PRTL_BITMAP BitMapHeader,
+		     PULONG StartingIndex)
+{
+  /* GCC complaints that it may be used uninitialized */
+  RTL_BITMAP_RUN br = { 0, 0 };
+
+  if (NTDLL_FindRuns(BitMapHeader, &br, 1, TRUE, NTDLL_FindSetRun) == 1)
+  {
+    if (StartingIndex)
+      *StartingIndex = br.StartingIndex;
+    return br.NumberOfBits;
+  }
+  return 0;
+}
+
+
+/*
+ * @implemented
+ */
+ULONG NTAPI
+RtlFindSetBits(PRTL_BITMAP BitMapHeader,
+	       ULONG NumberToFind,
+	       ULONG HintIndex)
+{
+  ULONG ulPos, ulEnd;
+
+  if (!BitMapHeader || !NumberToFind || NumberToFind > BitMapHeader->SizeOfBitMap)
     return MAXULONG;
+
+  ulEnd = BitMapHeader->SizeOfBitMap;
+
+  if (HintIndex + NumberToFind > BitMapHeader->SizeOfBitMap)
+    HintIndex = 0;
+
+  ulPos = HintIndex;
+
+  while (ulPos < ulEnd)
+  {
+    /* FIXME: This could be made a _lot_ more efficient */
+    if (RtlAreBitsSet(BitMapHeader, ulPos, NumberToFind))
+      return ulPos;
+
+    /* Start from the beginning if we hit the end and had a hint */
+    if (ulPos == ulEnd - 1 && HintIndex)
+    {
+      ulEnd = HintIndex;
+      ulPos = HintIndex = 0;
+    }
+    else
+      ulPos++;
+  }
+  return MAXULONG;
 }
 
-ULONG
-NTAPI
-RtlFindClearBitsAndSet(
-    PRTL_BITMAP BitMapHeader,
-    ULONG NumberToFind,
-    ULONG HintIndex)
+
+/*
+ * @implemented
+ */
+ULONG NTAPI
+RtlFindSetBitsAndClear(PRTL_BITMAP BitMapHeader,
+		       ULONG NumberToFind,
+		       ULONG HintIndex)
 {
-    ULONG Position;
+  ULONG ulPos;
 
-    /* Try to find clear bits */
-    Position = RtlFindClearBits(BitMapHeader, NumberToFind, HintIndex);
+  ulPos = RtlFindSetBits(BitMapHeader, NumberToFind, HintIndex);
+  if (ulPos != MAXULONG)
+    RtlClearBits(BitMapHeader, ulPos, NumberToFind);
+  return ulPos;
+}
 
-    /* Did we get something? */
-    if (Position != MAXULONG)
+
+/*
+ * @implemented
+ */
+ULONG NTAPI
+RtlNumberOfSetBits(PRTL_BITMAP BitMapHeader)
+{
+  ULONG ulSet = 0;
+
+  if (BitMapHeader)
+  {
+    LPBYTE lpOut = (BYTE *)BitMapHeader->Buffer;
+    ULONG Length, ulRemainder;
+    BYTE bMasked;
+
+    Length = BitMapHeader->SizeOfBitMap >> 3;
+    ulRemainder = BitMapHeader->SizeOfBitMap & 0x7;
+
+    while (Length--)
     {
-        /* Yes, set the bits */
-        RtlSetBits(BitMapHeader, Position, NumberToFind);
+      ulSet += NTDLL_nibbleBitCount[*lpOut >> 4];
+      ulSet += NTDLL_nibbleBitCount[*lpOut & 0xf];
+      lpOut++;
     }
 
-    /* Return what we found */
-    return Position;
-}
-
-ULONG
-NTAPI
-RtlFindSetBitsAndClear(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG NumberToFind,
-    IN ULONG HintIndex)
-{
-    ULONG Position;
-
-    /* Try to find set bits */
-    Position = RtlFindSetBits(BitMapHeader, NumberToFind, HintIndex);
-
-    /* Did we get something? */
-    if (Position != MAXULONG)
+    if (ulRemainder)
     {
-        /* Yes, clear the bits */
-        RtlClearBits(BitMapHeader, Position, NumberToFind);
+      bMasked = *lpOut & NTDLL_maskBits[ulRemainder];
+      ulSet += NTDLL_nibbleBitCount[bMasked >> 4];
+      ulSet += NTDLL_nibbleBitCount[bMasked & 0xf];
     }
-
-    /* Return what we found */
-    return Position;
+  }
+  return ulSet;
 }
 
-ULONG
-NTAPI
-RtlFindNextForwardRunClear(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG FromIndex,
-    IN PULONG StartingRunIndex)
+
+/*
+ * @implemented
+ */
+VOID NTAPI
+RtlSetAllBits(IN OUT PRTL_BITMAP BitMapHeader)
 {
-    ULONG Length;
-
-    /* Assume a set run first, count it's length */
-    Length = RtlpGetLengthOfRunSet(BitMapHeader, FromIndex, MAXULONG);
-    *StartingRunIndex = FromIndex + Length;
-
-    /* Now return the length of the run */
-    return RtlpGetLengthOfRunClear(BitMapHeader, FromIndex + Length, MAXULONG);
+  memset(BitMapHeader->Buffer, 0xff, ((BitMapHeader->SizeOfBitMap + 31) & ~31) >> 3);
 }
 
-ULONG
-NTAPI
-RtlFindNextForwardRunSet(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG FromIndex,
-    IN PULONG StartingRunIndex)
+
+/*
+ * @implemented
+ */
+VOID NTAPI
+RtlSetBit(PRTL_BITMAP BitMapHeader,
+	  ULONG BitNumber)
 {
-    ULONG Length;
+  PUCHAR Ptr;
 
-    /* Assume a clear run first, count it's length */
-    Length = RtlpGetLengthOfRunClear(BitMapHeader, FromIndex, MAXULONG);
-    *StartingRunIndex = FromIndex;
+  if (BitNumber >= BitMapHeader->SizeOfBitMap)
+    return;
 
-    /* Now return the length of the run */
-    return RtlpGetLengthOfRunSet(BitMapHeader, FromIndex, MAXULONG);
+  Ptr = (PUCHAR)BitMapHeader->Buffer + (BitNumber / 8);
+
+  *Ptr |= (1 << (BitNumber % 8));
 }
 
-ULONG
-NTAPI
-RtlFindFirstRunClear(
-    IN PRTL_BITMAP BitMapHeader,
-    IN PULONG StartingIndex)
+
+/*
+ * @implemented
+ */
+VOID NTAPI
+RtlSetBits(PRTL_BITMAP BitMapHeader,
+	   ULONG StartingIndex,
+	   ULONG NumberToSet)
+{
+  LPBYTE lpOut;
+
+  if (!BitMapHeader || !NumberToSet ||
+      StartingIndex >= BitMapHeader->SizeOfBitMap ||
+      NumberToSet > BitMapHeader->SizeOfBitMap - StartingIndex)
+    return;
+
+  /* FIXME: It might be more efficient/cleaner to manipulate four bytes
+   * at a time. But beware of the pointer arithmetics...
+   */
+  lpOut = ((BYTE*)BitMapHeader->Buffer) + (StartingIndex >> 3u);
+
+  /* Set bits in first byte, if StartingIndex isn't a byte boundary */
+  if (StartingIndex & 7)
+  {
+    if (NumberToSet > 7)
+    {
+      /* Set from start bit to the end of the byte */
+      *lpOut++ |= 0xff << (StartingIndex & 7);
+      NumberToSet -= (8 - (StartingIndex & 7));
+    }
+    else
+    {
+      /* Set from the start bit, possibly into the next byte also */
+      USHORT initialWord = NTDLL_maskBits[NumberToSet] << (StartingIndex & 7);
+
+      *lpOut++ |= (initialWord & 0xff);
+      *lpOut |= (initialWord >> 8);
+      return;
+    }
+  }
+
+  /* Set bits up to complete byte count */
+  if (NumberToSet >> 3)
+  {
+    memset(lpOut, 0xff, NumberToSet >> 3);
+    lpOut = lpOut + (NumberToSet >> 3);
+  }
+
+  /* Set remaining bits, if any */
+  if (NumberToSet & 0x7)
+    *lpOut |= NTDLL_maskBits[NumberToSet & 0x7];
+}
+
+
+/*
+ * @implemented
+ */
+BOOLEAN NTAPI
+RtlTestBit(PRTL_BITMAP BitMapHeader,
+	   ULONG BitNumber)
+{
+  PUCHAR Ptr;
+
+  if (BitNumber >= BitMapHeader->SizeOfBitMap)
+    return FALSE;
+
+  Ptr = (PUCHAR)BitMapHeader->Buffer + (BitNumber / 8);
+
+  return (BOOLEAN)(*Ptr & (1 << (BitNumber % 8)));
+}
+
+/*
+ * @implemented
+ */
+ULONG NTAPI
+RtlFindFirstRunClear(PRTL_BITMAP BitMapHeader,
+		     PULONG StartingIndex)
 {
     return RtlFindNextForwardRunClear(BitMapHeader, 0, StartingIndex);
 }
 
-ULONG
-NTAPI
-RtlFindLastBackwardRunClear(
-    IN PRTL_BITMAP BitMapHeader,
-    IN ULONG FromIndex,
-    IN PULONG StartingRunIndex)
+/*
+ * @implemented
+ */
+ULONG NTAPI
+RtlNumberOfClearBits(PRTL_BITMAP BitMapHeader)
 {
-    UNIMPLEMENTED;
-    return 0;
+
+  if (BitMapHeader)
+    return BitMapHeader->SizeOfBitMap - RtlNumberOfSetBits(BitMapHeader);
+  return 0;
 }
 
-
-ULONG
-NTAPI
-RtlFindClearRuns(
-    IN PRTL_BITMAP BitMapHeader,
-    IN PRTL_BITMAP_RUN RunArray,
-    IN ULONG SizeOfRunArray,
-    IN BOOLEAN LocateLongestRuns)
+/*
+ * @implemented
+ */
+ULONG NTAPI
+RtlFindClearBitsAndSet(PRTL_BITMAP BitMapHeader,
+		       ULONG NumberToFind,
+		       ULONG HintIndex)
 {
-    ULONG StartingIndex, NumberOfBits, Run, FromIndex = 0, SmallestRun = 0;
+  ULONG ulPos;
 
-    /* Loop the runs */
-    for (Run = 0; Run < SizeOfRunArray; Run++)
-    {
-        /* Look for a run */
-        NumberOfBits = RtlFindNextForwardRunClear(BitMapHeader, 
-                                                  FromIndex,
-                                                  &StartingIndex);
-
-        /* Nothing more found? Quit looping. */
-        if (NumberOfBits == 0) break;
-
-        /* Add another run */
-        RunArray[Run].StartingIndex = StartingIndex;
-        RunArray[Run].NumberOfBits = NumberOfBits;
-
-        /* Update smallest run */
-        if (NumberOfBits < RunArray[SmallestRun].NumberOfBits)
-        {
-            SmallestRun = Run;
-        }
-
-        /* Advance bits */
-        FromIndex = StartingIndex + NumberOfBits;
-    }
-
-    /* Check if we are finished */
-    if (Run < SizeOfRunArray || !LocateLongestRuns)
-    {
-        /* Return the number of found runs */
-        return Run;
-    }
-
-    while (1)
-    {
-        /* Look for a run */
-        NumberOfBits = RtlFindNextForwardRunClear(BitMapHeader, 
-                                                  FromIndex,
-                                                  &StartingIndex);
-
-        /* Nothing more found? Quit looping. */
-        if (NumberOfBits == 0) break;
-
-        /* Check if we have something to update */
-        if (NumberOfBits > RunArray[SmallestRun].NumberOfBits)
-        {
-            /* Update smallest run */
-            RunArray[SmallestRun].StartingIndex = StartingIndex;
-            RunArray[SmallestRun].NumberOfBits = NumberOfBits;
-
-            /* Loop all runs */
-            for (Run = 0; Run < SizeOfRunArray; Run++)
-            {
-                /*Is this the new smallest run? */
-                if (NumberOfBits < RunArray[SmallestRun].NumberOfBits)
-                {
-                    /* Set it as new smallest run */
-                    SmallestRun = Run;
-                }
-            }
-        }
-
-        /* Advance bits */
-        FromIndex += NumberOfBits;
-    }
-
-    return Run;
+  ulPos = RtlFindClearBits(BitMapHeader, NumberToFind, HintIndex);
+  if (ulPos != MAXULONG)
+    RtlSetBits(BitMapHeader, ulPos, NumberToFind);
+  return ulPos;
 }
 
-ULONG
-NTAPI
-RtlFindLongestRunClear(
-    IN PRTL_BITMAP BitMapHeader,
-    IN PULONG StartingIndex)
+/*
+ * @implemented
+ */
+CCHAR WINAPI RtlFindMostSignificantBit(ULONGLONG ulLong)
 {
-    ULONG NumberOfBits, Index, MaxNumberOfBits = 0, FromIndex = 0;
+    signed char ret = 32;
+    DWORD dw;
 
-    while (1)
+    if (!(dw = (DWORD)(ulLong >> 32)))
     {
-        /* Look for a run */
-        NumberOfBits = RtlFindNextForwardRunClear(BitMapHeader, 
-                                                  FromIndex,
-                                                  &Index);
-
-        /* Nothing more found? Quit looping. */
-        if (NumberOfBits == 0) break;
-
-        /* Was that the longest run? */
-        if (NumberOfBits > MaxNumberOfBits)
-        {
-            /* Update values */
-            MaxNumberOfBits = NumberOfBits;
-            *StartingIndex = Index;
-        }
-
-        /* Advance bits */
-        FromIndex += NumberOfBits;
+        ret = 0;
+        dw = (DWORD)ulLong;
     }
-
-    return MaxNumberOfBits;
+    if (dw & 0xffff0000)
+    {
+        dw >>= 16;
+        ret += 16;
+    }
+    if (dw & 0xff00)
+    {
+        dw >>= 8;
+        ret += 8;
+    }
+    if (dw & 0xf0)
+    {
+        dw >>= 4;
+        ret += 4;
+    }
+    return ret + NTDLL_mostSignificant[dw];
 }
 
-ULONG
-NTAPI
-RtlFindLongestRunSet(
-    IN PRTL_BITMAP BitMapHeader,
-    IN PULONG StartingIndex)
+/*
+ * @implemented
+ */
+CCHAR WINAPI RtlFindLeastSignificantBit(ULONGLONG ulLong)
 {
-    ULONG NumberOfBits, Index, MaxNumberOfBits = 0, FromIndex = 0;
+    signed char ret = 0;
+    DWORD dw;
 
-    while (1)
+    if (!(dw = (DWORD)ulLong))
     {
-        /* Look for a run */
-        NumberOfBits = RtlFindNextForwardRunSet(BitMapHeader, 
-                                                FromIndex,
-                                                &Index);
-
-        /* Nothing more found? Quit looping. */
-        if (NumberOfBits == 0) break;
-
-        /* Was that the longest run? */
-        if (NumberOfBits > MaxNumberOfBits)
-        {
-            /* Update values */
-            MaxNumberOfBits = NumberOfBits;
-            *StartingIndex = Index;
-        }
-
-        /* Advance bits */
-        FromIndex += NumberOfBits;
+        ret = 32;
+        if (!(dw = (DWORD)(ulLong >> 32))) return -1;
     }
-
-    return MaxNumberOfBits;
+    if (!(dw & 0xffff))
+    {
+        dw >>= 16;
+        ret += 16;
+    }
+    if (!(dw & 0xff))
+    {
+        dw >>= 8;
+        ret += 8;
+    }
+    if (!(dw & 0x0f))
+    {
+        dw >>= 4;
+        ret += 4;
+    }
+    return ret + NTDLL_leastSignificant[dw & 0x0f];
 }
 
+/* EOF */

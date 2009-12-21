@@ -1,7 +1,8 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
- * FILE:       drivers/filesystems/msfs/create.c
+ * FILE:       drivers/filesystems/ms/create.c
  * PURPOSE:    Mailslot filesystem
  * PROGRAMMER: Eric Kohl
  */
@@ -16,7 +17,6 @@
 
 /* FUNCTIONS *****************************************************************/
 
-/* Creates the client side */
 NTSTATUS DEFAULTAPI
 MsfsCreate(PDEVICE_OBJECT DeviceObject,
            PIRP Irp)
@@ -100,7 +100,6 @@ MsfsCreate(PDEVICE_OBJECT DeviceObject,
 }
 
 
-/* Creates the server side */
 NTSTATUS DEFAULTAPI
 MsfsCreateMailslot(PDEVICE_OBJECT DeviceObject,
                    PIRP Irp)
@@ -199,14 +198,7 @@ MsfsCreateMailslot(PDEVICE_OBJECT DeviceObject,
         ExFreePool(Fcb->Name.Buffer);
         ExFreePool(Fcb);
 
-        KeUnlockMutex(&DeviceExtension->FcbListLock);
-
-        Irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
-        Irp->IoStatus.Information = 0;
-
-        IoCompleteRequest(Irp, IO_NO_INCREMENT);
-
-        return STATUS_UNSUCCESSFUL;
+        Fcb = current;
     }
     else
     {
@@ -303,7 +295,7 @@ MsfsClose(PDEVICE_OBJECT DeviceObject,
 
     if (Fcb->ReferenceCount == 0)
     {
-        DPRINT("ReferenceCount == 0: Deleting mailslot data\n");
+        DPRINT1("ReferenceCount == 0: Deleting mailslot data\n");
         RemoveEntryList(&Fcb->FcbListEntry);
         ExFreePool(Fcb->Name.Buffer);
         ExFreePool(Fcb);

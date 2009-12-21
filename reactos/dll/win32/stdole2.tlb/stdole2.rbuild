@@ -12,6 +12,7 @@
 	<include base="ReactOS">include/reactos/wine</include>
 	<dependency>std_ole_v2</dependency>
 	<define name="__WINESRC__" />
+	<library>kernel32</library>
 	<file>rsrc.rc</file>
 </module>
 </group>

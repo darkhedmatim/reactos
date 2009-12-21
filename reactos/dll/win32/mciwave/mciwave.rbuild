@@ -8,5 +8,6 @@
 	<library>wine</library>
 	<library>winmm</library>
 	<library>user32</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 </module>

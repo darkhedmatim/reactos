@@ -261,10 +261,10 @@ int wmain (int argc, WCHAR *argvW[])
     WINE_TRACE("Destination : '%s'\n", wine_dbgstr_w(supplieddestination));
 
     /* Extract required information from source specification */
-    XCOPY_ProcessSourceParm(suppliedsource, sourcestem, sourcespec, flags);
+    rc = XCOPY_ProcessSourceParm(suppliedsource, sourcestem, sourcespec, flags);
 
     /* Extract required information from destination specification */
-    XCOPY_ProcessDestParm(supplieddestination, destinationstem,
+    rc = XCOPY_ProcessDestParm(supplieddestination, destinationstem,
                                destinationspec, sourcespec, flags);
 
     /* Trace out the resulting information */

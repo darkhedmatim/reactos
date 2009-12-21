@@ -213,7 +213,7 @@ static void test_cryptunprotectdata(void)
     plain.cbData=0;
 }
 
-static void test_simpleroundtrip(const char *plaintext)
+static void test_simpleroundtrip(const char *plaintext, int wine_fails)
 {
     DATA_BLOB input;
     DATA_BLOB encrypted;
@@ -234,9 +234,17 @@ static void test_simpleroundtrip(const char *plaintext)
     }
 
     res = pCryptUnprotectData(&encrypted, NULL, NULL, NULL, NULL, 0, &output);
-    ok(res != 0, "can't unprotect; last error %u\n", GetLastError());
-    ok(output.cbData == strlen(plaintext), "output wrong length %d for input '%s', wanted %d\n", output.cbData, plaintext, strlen(plaintext));
-    ok(!memcmp(plaintext, (char *)output.pbData, output.cbData), "output wrong contents for input '%s'\n", plaintext);
+    if (wine_fails) {
+      todo_wine
+        ok(res != 0, "can't unprotect; last error %u\n", GetLastError());
+    } else {
+      ok(res != 0, "can't unprotect; last error %u\n", GetLastError());
+    }
+
+    if (res) {
+      ok(output.cbData == strlen(plaintext), "output wrong length %d for input '%s', wanted %d\n", output.cbData, plaintext, strlen(plaintext));
+      ok(!memcmp(plaintext, (char *)output.pbData, output.cbData), "output wrong contents for input '%s'\n", plaintext);
+    }
 }
 
 START_TEST(protectdata)
@@ -254,8 +262,8 @@ START_TEST(protectdata)
     protected=FALSE;
     test_cryptprotectdata();
     test_cryptunprotectdata();
-    test_simpleroundtrip("");
-    test_simpleroundtrip("hello");
+    test_simpleroundtrip("", 1);
+    test_simpleroundtrip("hello", 0);
 
     /* deinit globals here */
     if (cipher.pbData) LocalFree(cipher.pbData);

@@ -6,7 +6,7 @@
 <xsl:include href="../common/table.xsl"/>
 
 <!-- ********************************************************************
-     $Id: table.xsl,v 1.1 2002/06/13 20:33:07 chorns Exp $
+     $Id$
      ********************************************************************
 
      This file is part of the XSL DocBook Stylesheet distribution.

@@ -6,6 +6,7 @@
 	<define name="ANONYMOUSUNIONS" />
 	<library>lz32</library>
 	<library>user32</library>
+	<library>kernel32</library>
 	<file>expand.c</file>
 	<file>expand.rc</file>
 </module>

@@ -127,7 +127,7 @@ typedef struct _SessionInfo
     struct _SessionInfo* next;
 
     DeviceType device_type;
-    UINT device_id;
+    DWORD device_id;
 
     HANDLE kernel_device_handle;
 
@@ -143,8 +143,8 @@ typedef struct _SessionInfo
     BOOL is_paused;
 
     /* Stuff passed to us from winmm */
-    DWORD_PTR app_user_data;
-    DWORD_PTR callback;
+    DWORD app_user_data;
+    DWORD callback;
 
     DWORD flags;
 
@@ -181,8 +181,8 @@ BOOL
 NotifyClient(
     SessionInfo* session_info,
     DWORD message,
-    DWORD_PTR parameter1,
-    DWORD_PTR parameter2);
+    DWORD parameter1,
+    DWORD parameter2);
 
 
 /*
@@ -198,13 +198,13 @@ ErrorToMmResult(UINT error_code);
 MMRESULT
 CobbleDeviceName(
     DeviceType device_type,
-    UINT device_id,
+    DWORD device_id,
     PWCHAR out_device_name);
 
 MMRESULT
 OpenKernelDevice(
     DeviceType device_type,
-    UINT device_id,
+    DWORD device_id,
     DWORD access,
     HANDLE* handle);
 
@@ -231,7 +231,7 @@ GetDeviceData(
 MMRESULT
 CreateSession(
     DeviceType device_type,
-    UINT device_id,
+    DWORD device_id,
     SessionInfo** session_info);
 
 VOID
@@ -240,7 +240,7 @@ DestroySession(SessionInfo* session);
 SessionInfo*
 GetSession(
     DeviceType device_type,
-    UINT device_id);
+    DWORD device_id);
 
 MMRESULT
 StartSessionThread(SessionInfo* session_info);
@@ -253,9 +253,9 @@ CallSessionThread(
 
 DWORD
 HandleBySessionThread(
-    DWORD_PTR private_handle,
-    DWORD_PTR message,
-    DWORD_PTR parameter);
+    DWORD private_handle,
+    DWORD message,
+    DWORD parameter);
 
 
 /* General */
@@ -266,21 +266,21 @@ GetDeviceCount(DeviceType device_type);
 DWORD
 GetDeviceCapabilities(
     DeviceType device_type,
-    UINT device_id,
-    DWORD_PTR capabilities,
+    DWORD device_id,
+    PVOID capabilities,
     DWORD capabilities_size);
 
 DWORD
 OpenDevice(
     DeviceType device_type,
-    UINT device_id,
+    DWORD device_id,
     PVOID open_descriptor,
     DWORD flags,
-    DWORD_PTR private_handle);
+    DWORD private_handle);
 
 DWORD
 CloseDevice(
-    DWORD_PTR private_handle);
+    DWORD private_handle);
 
 DWORD
 PauseDevice(
@@ -310,7 +310,7 @@ QueryWaveFormat(
 
 DWORD
 WriteWaveBuffer(
-    DWORD_PTR private_handle,
+    DWORD private_handle,
     PWAVEHDR wave_header,
     DWORD wave_header_size);
 

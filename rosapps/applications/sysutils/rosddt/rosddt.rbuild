@@ -2,6 +2,7 @@
 
 	<library>setupapi</library>
 	<library>wininet</library>
+	<library>kernel32</library>
 	<library>user32</library>
 
 	<file>http.c</file>

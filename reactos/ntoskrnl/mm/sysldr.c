@@ -704,7 +704,7 @@ MiSnapThunk(IN PVOID DllBase,
                     ForwardName->Hint = 0;
 
                     /* Set the new address */
-                    ForwardThunk.u1.AddressOfData = (ULONG_PTR)ForwardName;
+                    *(PULONG)&ForwardThunk.u1.AddressOfData = (ULONG)ForwardName;
 
                     /* Snap the forwarder */
                     Status = MiSnapThunk(LdrEntry->DllBase,

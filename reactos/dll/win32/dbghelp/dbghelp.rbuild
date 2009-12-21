@@ -29,6 +29,7 @@
 	<file>type.c</file>
 	<library>wine</library>
 	<library>psapi</library>
+	<library>kernel32</library>
 	<library>version</library>
 	<library>ntdll</library>
 	<library>pseh</library>

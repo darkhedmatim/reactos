@@ -4585,32 +4585,6 @@ typedef struct _NT_TIB {
     struct _NT_TIB *Self;
 } NT_TIB, *PNT_TIB;
 
-typedef struct _NT_TIB32 {
-	ULONG ExceptionList;
-	ULONG StackBase;
-	ULONG StackLimit;
-	ULONG SubSystemTib;
-	union {
-		ULONG FiberData;
-		ULONG Version;
-	};
-	ULONG ArbitraryUserPointer;
-	ULONG Self;
-} NT_TIB32,*PNT_TIB32;
-
-typedef struct _NT_TIB64 {
-	ULONG64 ExceptionList;
-	ULONG64 StackBase;
-	ULONG64 StackLimit;
-	ULONG64 SubSystemTib;
-	union {
-		ULONG64 FiberData;
-		ULONG Version;
-	};
-	ULONG64 ArbitraryUserPointer;
-	ULONG64 Self;
-} NT_TIB64,*PNT_TIB64;
-
 typedef enum _PROCESSINFOCLASS {
   ProcessBasicInformation,
   ProcessQuotaLimits,
@@ -5262,7 +5236,7 @@ typedef struct DECLSPEC_ALIGN(16) _CONTEXT {
     USHORT SegFs;
     USHORT SegGs;
     USHORT SegSs;
-    ULONG EFlags;
+    USHORT EFlags;
 
     /* Debug */
     ULONG64 Dr0;
@@ -8994,19 +8968,6 @@ MmAllocatePagesForMdl(
   IN PHYSICAL_ADDRESS  SkipBytes,
   IN SIZE_T  TotalBytes);
 
-#if (NTDDI_VERSION >= NTDDI_WS03SP1)
-NTKERNELAPI
-PMDL
-NTAPI
-MmAllocatePagesForMdlEx(
-  IN PHYSICAL_ADDRESS LowAddress,
-  IN PHYSICAL_ADDRESS HighAddress,
-  IN PHYSICAL_ADDRESS SkipBytes,
-  IN SIZE_T TotalBytes,
-  IN MEMORY_CACHING_TYPE CacheType,
-  IN ULONG Flags);
-#endif
-
 NTKERNELAPI
 VOID
 NTAPI
@@ -9390,7 +9351,7 @@ MmSecureVirtualMemory(
   IN ULONG  ProbeMode);
 
 NTKERNELAPI
-SIZE_T
+ULONG
 NTAPI
 MmSizeOfMdl(
   IN PVOID  Base,

@@ -7,5 +7,6 @@
 	<library>wine</library>
 	<library>shell32</library>
 	<library>shlwapi</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 </module>

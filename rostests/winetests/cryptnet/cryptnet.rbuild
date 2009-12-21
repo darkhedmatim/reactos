@@ -6,5 +6,6 @@
 	<library>wine</library>
 	<library>cryptnet</library>
 	<library>crypt32</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 </module>

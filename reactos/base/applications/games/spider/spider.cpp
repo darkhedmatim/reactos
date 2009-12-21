@@ -50,7 +50,7 @@ void MakePath(TCHAR *szDest, UINT nDestLen, const TCHAR *szExt)
     lstrcpy(ptr + 1, szExt);
 }
 
-INT_PTR CALLBACK DifficultyDlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+BOOL CALLBACK DifficultyDlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -239,7 +239,7 @@ CardImageWndProc(HWND hwnd,
 }
 
 
-INT_PTR CALLBACK CardBackDlgProc(HWND hDlg,
+BOOL CALLBACK CardBackDlgProc(HWND hDlg,
                               UINT uMsg,
                               WPARAM wParam,
                               LPARAM lParam)

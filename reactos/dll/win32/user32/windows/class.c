@@ -981,7 +981,7 @@ RegisterClassExWOWW(WNDCLASSEXW *lpwcx,
        lpwcx->cbClsExtra < 0 || lpwcx->cbWndExtra < 0 ||
        lpwcx->lpszClassName == NULL)
    {
-      TRACE("RegisterClassExWOWW Invalid Parameter Error!\n");
+      ERR("RegisterClassExWOWW Invalid Parameter Error!\n");
       SetLastError(ERROR_INVALID_PARAMETER);
       return 0;
    }
@@ -1002,7 +1002,7 @@ RegisterClassExWOWW(WNDCLASSEXW *lpwcx,
     */
    if (lpwcx->hInstance == User32Instance)
    {
-      TRACE("RegisterClassExWOWW User32Instance!\n");
+      ERR("RegisterClassExWOWW User32Instance!\n");
       SetLastError(ERROR_INVALID_PARAMETER);
       return 0;
    }

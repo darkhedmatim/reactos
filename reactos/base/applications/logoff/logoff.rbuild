@@ -4,6 +4,7 @@
 	<include base="logoff">.</include>
 	<library>advapi32</library>
 	<library>user32</library>
+	<library>kernel32</library>
 	<file>misc.c</file>
 	<file>logoff.c</file>
 	<file>logoff.rc</file>

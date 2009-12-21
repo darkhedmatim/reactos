@@ -12,7 +12,7 @@ import java.text.ParseException;
 /**
  * <p>Saxon extension to convert CVS date strings into local time</p>
  *
- * <p>$Id: CVS.java,v 1.1 2002/06/13 20:32:18 chorns Exp $</p>
+ * <p>$Id$</p>
  *
  * <p>Copyright (C) 2000 Norman Walsh.</p>
  *
@@ -37,7 +37,7 @@ import java.text.ParseException;
  * @author Norman Walsh
  * <a href="mailto:ndw@nwalsh.com">ndw@nwalsh.com</a>
  *
- * @version $Id: CVS.java,v 1.1 2002/06/13 20:32:18 chorns Exp $
+ * @version $Id$
  *
  */
 public class CVS {
@@ -57,7 +57,7 @@ public class CVS {
    * @return The date, converted to local time and reformatted.
    */
   public String localTime (String cvsDate) {
-    // A cvsDate has the following form "$Date: 2002/06/13 20:32:18 $"
+    // A cvsDate has the following form "$Date$"
     if (!cvsDate.startsWith("$Date: ")) {
       return cvsDate;
     }

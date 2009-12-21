@@ -8,7 +8,7 @@
 <xsl:output method="html"/>
 
 <!-- ********************************************************************
-     $Id: profile-javahelp.xsl,v 1.1 2002/06/13 20:32:52 chorns Exp $
+     $Id$
      ********************************************************************
 
      This file is part of the XSL DocBook Stylesheet distribution.

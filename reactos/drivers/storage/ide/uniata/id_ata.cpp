@@ -493,10 +493,10 @@ WaitOnBusy(
 {
     ULONG i;
     UCHAR Status;
-    for (i=0; i<200; i++) {
+    for (i=0; i<20000; i++) {
         GetStatus(chan, Status);
         if (Status & IDE_STATUS_BUSY) {
-            AtapiStallExecution(10);
+            AtapiStallExecution(150);
             continue;
         } else {
             break;
@@ -537,10 +537,10 @@ WaitOnBaseBusy(
 {
     ULONG i;
     UCHAR Status;
-    for (i=0; i<200; i++) {
+    for (i=0; i<20000; i++) {
         GetBaseStatus(chan, Status);
         if (Status & IDE_STATUS_BUSY) {
-            AtapiStallExecution(10);
+            AtapiStallExecution(150);
             continue;
         } else {
             break;
@@ -640,11 +640,11 @@ WaitForDrq(
     for (i=0; i<1000; i++) {
         GetStatus(chan, Status);
         if (Status & IDE_STATUS_BUSY) {
-            AtapiStallExecution(10);
+            AtapiStallExecution(100);
         } else if (Status & IDE_STATUS_DRQ) {
             break;
         } else {
-            AtapiStallExecution(10);
+            AtapiStallExecution(200);
         }
     }
     return Status;
@@ -661,11 +661,11 @@ WaitShortForDrq(
     for (i=0; i<2; i++) {
         GetStatus(chan, Status);
         if (Status & IDE_STATUS_BUSY) {
-            AtapiStallExecution(10);
+            AtapiStallExecution(100);
         } else if (Status & IDE_STATUS_DRQ) {
             break;
         } else {
-            AtapiStallExecution(10);
+            AtapiStallExecution(100);
         }
     }
     return Status;
@@ -689,17 +689,11 @@ AtapiSoftReset(
     SelectDrive(chan, DeviceNumber);
     AtapiStallExecution(10000);
     AtapiWritePort1(chan, IDX_IO1_o_Command, IDE_COMMAND_ATAPI_RESET);
-
-    // ReactOS modification: Already stop looping when we know that the drive has finished resetting.
-    // Not all controllers clear the IDE_STATUS_BUSY flag (e.g. not the VMware one), so ensure that
-    // the maximum waiting time (30 * i = 0.9 seconds) does not exceed the one of the original
-    // implementation. (which is around 1 second)
     while ((AtapiReadPort1(chan, IDX_IO1_i_Status) & IDE_STATUS_BUSY) &&
            i--)
     {
         AtapiStallExecution(30);
     }
-
     SelectDrive(chan, DeviceNumber);
     WaitOnBusy(chan);
     GetBaseStatus(chan, statusByte2);

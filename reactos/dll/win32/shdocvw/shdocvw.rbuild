@@ -11,6 +11,7 @@
 	<library>wine</library>
 	<library>uuid</library>
 	<library>ntdll</library>
+	<library>kernel32</library>
 	<library>advapi32</library>
 	<library>user32</library>
 	<library>ole32</library>
@@ -42,6 +43,6 @@
 	<file>shdocvw.rc</file>
 </module>
 <module name="shdocvw_v1" type="embeddedtypelib" allowwarnings="true">
-	<dependency>stdole2</dependency>
 	<file>shdocvw_v1.idl</file>
 </module>
+</group>

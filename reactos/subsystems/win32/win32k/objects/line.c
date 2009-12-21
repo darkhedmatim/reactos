@@ -30,8 +30,7 @@ BOOL FASTCALL
 IntGdiMoveToEx(DC      *dc,
                int     X,
                int     Y,
-               LPPOINT Point,
-               BOOL    BypassPath)
+               LPPOINT Point)
 {
     BOOL  PathIsOpen;
     PDC_ATTR pdcattr = dc->pdcattr;
@@ -54,8 +53,6 @@ IntGdiMoveToEx(DC      *dc,
     pdcattr->ptfxCurrent = pdcattr->ptlCurrent;
     CoordLPtoDP(dc, &pdcattr->ptfxCurrent); // Update fx
     pdcattr->ulDirty_ &= ~(DIRTY_PTLCURRENT|DIRTY_PTFXCURRENT|DIRTY_STYLESTATE);
-
-    if (BypassPath) return TRUE;
 
     PathIsOpen = PATH_IsPathOpen(dc->dclevel);
 
@@ -440,7 +437,7 @@ NtGdiPolyDraw(
         {
             if ( lpbTypes[i] == PT_MOVETO )
             {
-                IntGdiMoveToEx( dc, lppt[i].x, lppt[i].y, NULL, FALSE );
+                IntGdiMoveToEx( dc, lppt[i].x, lppt[i].y, NULL );
                 lastmove.x = pdcattr->ptlCurrent.x;
                 lastmove.y = pdcattr->ptlCurrent.y;
             }

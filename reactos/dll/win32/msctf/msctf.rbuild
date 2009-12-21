@@ -24,6 +24,7 @@
 	<library>oleaut32</library>
 	<library>user32</library>
 	<library>advapi32</library>
+	<library>kernel32</library>
 	<library>msctf_local_interface</library>
 	<library>textstor_local_interface</library>
 	<library>ntdll</library>

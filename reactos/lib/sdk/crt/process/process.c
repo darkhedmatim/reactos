@@ -128,7 +128,7 @@ argvtosT(const _TCHAR* const* argv, _TCHAR delim)
       len += _tcslen(argv[i]) + 1;
    }
 
-   str = ptr = (_TCHAR*) malloc((len + 1) * sizeof(_TCHAR));
+   str = ptr = (_TCHAR*) malloc(len + 1);
    if (str == NULL)
       return NULL;
 
@@ -163,7 +163,7 @@ valisttosT(const _TCHAR* arg0, va_list alist, _TCHAR delim)
    }
    while(ptr != NULL);
 
-   str = (_TCHAR*) malloc((len + 1) * sizeof(_TCHAR));
+   str = (_TCHAR*) malloc(len + 1);
    if (str == NULL)
       return NULL;
 

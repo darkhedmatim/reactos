@@ -11,7 +11,7 @@
 <xsl:include href="../common/table.xsl"/>
 
 <!-- ********************************************************************
-     $Id: table.xsl,v 1.1 2002/06/13 20:32:24 chorns Exp $
+     $Id$
      ********************************************************************
 
      This file is part of the XSL DocBook Stylesheet distribution.
@@ -23,7 +23,7 @@
 <doc:reference xmlns="">
 <referenceinfo>
 <releaseinfo role="meta">
-$Id: table.xsl,v 1.1 2002/06/13 20:32:24 chorns Exp $
+$Id$
 </releaseinfo>
 <author><surname>Walsh</surname>
 <firstname>Norman</firstname></author>

@@ -42,24 +42,6 @@ extern ULONG Ke386CacheAlignment;
     ((Context)->Eax = (ReturnValue))
 
 //
-// Macro to get trap and exception frame from a thread stack
-//
-#define KeGetTrapFrame(Thread) \
-    (PKTRAP_FRAME)((ULONG_PTR)((Thread)->InitialStack) - \
-                   sizeof(KTRAP_FRAME) - \
-                   sizeof(FX_SAVE_AREA))
-
-#define KeGetExceptionFrame(Thread) \
-    NULL
-
-//
-// Macro to get context switches from the PRCB
-// All architectures but x86 have it in the PRCB's KeContextSwitches
-//
-#define KeGetContextSwitches(Prcb)  \
-    CONTAINING_RECORD(Prcb, KIPCR, PrcbData)->ContextSwitches
-
-//
 // Returns the Interrupt State from a Trap Frame.
 // ON = TRUE, OFF = FALSE
 //
@@ -75,39 +57,6 @@ KeInvalidateTlbEntry(IN PVOID Address)
 {
     /* Invalidate the TLB entry for this address */
     __invlpg(Address);
-}
-
-FORCEINLINE
-VOID
-KeFlushProcessTb(VOID)
-{
-    /* Flush the TLB by resetting CR3 */
-    __writecr3(__readcr3());
-}
-
-FORCEINLINE
-PRKTHREAD
-KeGetCurrentThread(VOID)
-{
-    /* Return the current thread */
-    return ((PKIPCR)KeGetPcr())->PrcbData.CurrentThread;
-}
-
-FORCEINLINE
-VOID
-KiRundownThread(IN PKTHREAD Thread)
-{
-#ifndef CONFIG_SMP
-    /* Check if this is the NPX Thread */
-    if (KeGetCurrentPrcb()->NpxThread == Thread)
-    {
-        /* Clear it */
-        KeGetCurrentPrcb()->NpxThread = NULL;
-        Ke386FnInit();
-    }
-#else
-    /* Nothing to do */
-#endif
 }
 
 VOID

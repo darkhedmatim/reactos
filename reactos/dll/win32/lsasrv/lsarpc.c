@@ -37,7 +37,7 @@ ReferencePolicyHandle(
     RtlEnterCriticalSection(&PolicyHandleTableLock);
 
     if (RtlIsValidIndexHandle(&PolicyHandleTable,
-                              HandleToUlong(ObjectHandle),
+                              (ULONG)ObjectHandle,
                               (PRTL_HANDLE_TABLE_ENTRY*)&ReferencedPolicy) &&
         !(ReferencedPolicy->Flags & POLICY_DELETE))
     {
