@@ -162,6 +162,10 @@ static inline int epoll_wait( int epfd, struct epoll_event *events, int maxevent
 
 #endif /* linux && __i386__ && HAVE_STDINT_H */
 
+#if defined(HAVE_PORT_H) && defined(HAVE_PORT_CREATE)
+# include <port.h>
+# define USE_EVENT_PORTS
+#endif /* HAVE_PORT_H && HAVE_PORT_CREATE */
 
 /* Because of the stupid Posix locking semantics, we need to keep
  * track of all file descriptors referencing a given file, and not
@@ -672,6 +676,107 @@ static inline void main_loop_epoll(void)
             long user = (long)events[i].udata;
             if (pollfd[user].revents) fd_poll_event( poll_users[user], pollfd[user].revents );
             pollfd[user].revents = 0;
+        }
+    }
+}
+
+#elif defined(USE_EVENT_PORTS)
+
+static int port_fd = -1;
+
+static inline void init_epoll(void)
+{
+    port_fd = port_create();
+}
+
+static inline void set_fd_epoll_events( struct fd *fd, int user, int events )
+{
+    int ret;
+
+    if (port_fd == -1) return;
+
+    if (events == -1)  /* stop waiting on this fd completely */
+    {
+        if (pollfd[user].fd == -1) return;  /* already removed */
+        port_dissociate( port_fd, PORT_SOURCE_FD, fd->unix_fd );
+    }
+    else if (pollfd[user].fd == -1)
+    {
+        if (pollfd[user].events) return;  /* stopped waiting on it, don't restart */
+        ret = port_associate( port_fd, PORT_SOURCE_FD, fd->unix_fd, events, (void *)user );
+    }
+    else
+    {
+        if (pollfd[user].events == events) return;  /* nothing to do */
+        ret = port_associate( port_fd, PORT_SOURCE_FD, fd->unix_fd, events, (void *)user );
+    }
+
+    if (ret == -1)
+    {
+        if (errno == ENOMEM)  /* not enough memory, give up on port_associate */
+        {
+            close( port_fd );
+            port_fd = -1;
+        }
+        else perror( "port_associate" );  /* should not happen */
+    }
+}
+
+static inline void remove_epoll_user( struct fd *fd, int user )
+{
+    if (port_fd == -1) return;
+
+    if (pollfd[user].fd != -1)
+    {
+        port_dissociate( port_fd, PORT_SOURCE_FD, fd->unix_fd );
+    }
+}
+
+static inline void main_loop_epoll(void)
+{
+    int i, nget, ret, timeout;
+    port_event_t events[128];
+
+    if (port_fd == -1) return;
+
+    while (active_users)
+    {
+        timeout = get_next_timeout();
+        nget = 1;
+
+        if (!active_users) break;  /* last user removed by a timeout */
+        if (port_fd == -1) break;  /* an error occurred with event completion */
+
+        if (timeout != -1)
+        {
+            struct timespec ts;
+
+            ts.tv_sec = timeout / 1000;
+            ts.tv_nsec = (timeout % 1000) * 1000000;
+            ret = port_getn( port_fd, events, sizeof(events)/sizeof(events[0]), &nget, &ts );
+        }
+        else ret = port_getn( port_fd, events, sizeof(events)/sizeof(events[0]), &nget, NULL );
+
+	if (ret == -1) break;  /* an error occurred with event completion */
+
+        set_current_time();
+
+        /* put the events into the pollfd array first, like poll does */
+        for (i = 0; i < nget; i++)
+        {
+            long user = (long)events[i].portev_user;
+            pollfd[user].revents = events[i].portev_events;
+        }
+
+        /* read events from the pollfd array, as set_fd_events may modify them */
+        for (i = 0; i < nget; i++)
+        {
+            long user = (long)events[i].portev_user;
+            if (pollfd[user].revents) fd_poll_event( poll_users[user], pollfd[user].revents );
+            /* if we are still interested, reassociate the fd */
+            if (pollfd[user].fd != -1) {
+                port_associate( port_fd, PORT_SOURCE_FD, pollfd[user].fd, pollfd[user].events, (void *)user );
+            }
         }
     }
 }
@@ -1488,6 +1593,59 @@ struct fd *alloc_pseudo_fd( const struct fd_ops *fd_user_ops, struct object *use
     return fd;
 }
 
+/* duplicate an fd object for a different user */
+struct fd *dup_fd_object( struct fd *orig, unsigned int access, unsigned int sharing, unsigned int options )
+{
+    struct fd *fd = alloc_object( &fd_ops );
+
+    if (!fd) return NULL;
+
+    fd->fd_ops     = NULL;
+    fd->user       = NULL;
+    fd->inode      = NULL;
+    fd->closed     = NULL;
+    fd->access     = access;
+    fd->options    = options;
+    fd->sharing    = sharing;
+    fd->unix_fd    = -1;
+    fd->signaled   = 0;
+    fd->fs_locks   = 0;
+    fd->poll_index = -1;
+    fd->read_q     = NULL;
+    fd->write_q    = NULL;
+    fd->wait_q     = NULL;
+    fd->completion = NULL;
+    list_init( &fd->inode_entry );
+    list_init( &fd->locks );
+
+    if (!(fd->unix_name = mem_alloc( strlen(orig->unix_name) + 1 ))) goto failed;
+    strcpy( fd->unix_name, orig->unix_name );
+    if ((fd->poll_index = add_poll_user( fd )) == -1) goto failed;
+
+    if (orig->inode)
+    {
+        struct closed_fd *closed = mem_alloc( sizeof(*closed) );
+        if (!closed) goto failed;
+        if ((fd->unix_fd = dup( orig->unix_fd )) == -1)
+        {
+            free( closed );
+            goto failed;
+        }
+        closed->unix_fd = fd->unix_fd;
+        closed->unlink[0] = 0;
+        fd->closed = closed;
+        fd->inode = (struct inode *)grab_object( orig->inode );
+        list_add_head( &fd->inode->open, &fd->inode_entry );
+    }
+    else if ((fd->unix_fd = dup( orig->unix_fd )) == -1) goto failed;
+
+    return fd;
+
+failed:
+    release_object( fd );
+    return NULL;
+}
+
 /* set the status to return when the fd has no associated unix fd */
 void set_no_fd_status( struct fd *fd, unsigned int status )
 {
@@ -1496,14 +1654,13 @@ void set_no_fd_status( struct fd *fd, unsigned int status )
 
 /* check if the desired access is possible without violating */
 /* the sharing mode of other opens of the same file */
-static int check_sharing( struct fd *fd, unsigned int access, unsigned int sharing )
+static unsigned int check_sharing( struct fd *fd, unsigned int access, unsigned int sharing,
+                                   unsigned int open_flags, unsigned int options )
 {
     unsigned int existing_sharing = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
     unsigned int existing_access = 0;
     struct list *ptr;
 
-    /* if access mode is 0, sharing mode is ignored */
-    if (!access) sharing = existing_sharing;
     fd->access = access;
     fd->sharing = sharing;
 
@@ -1512,18 +1669,29 @@ static int check_sharing( struct fd *fd, unsigned int access, unsigned int shari
         struct fd *fd_ptr = LIST_ENTRY( ptr, struct fd, inode_entry );
         if (fd_ptr != fd)
         {
-            existing_sharing &= fd_ptr->sharing;
+            /* if access mode is 0, sharing mode is ignored */
+            if (fd_ptr->access) existing_sharing &= fd_ptr->sharing;
             existing_access  |= fd_ptr->access;
         }
     }
 
-    if ((access & FILE_UNIX_READ_ACCESS) && !(existing_sharing & FILE_SHARE_READ)) return 0;
-    if ((access & FILE_UNIX_WRITE_ACCESS) && !(existing_sharing & FILE_SHARE_WRITE)) return 0;
-    if ((access & DELETE) && !(existing_sharing & FILE_SHARE_DELETE)) return 0;
-    if ((existing_access & FILE_UNIX_READ_ACCESS) && !(sharing & FILE_SHARE_READ)) return 0;
-    if ((existing_access & FILE_UNIX_WRITE_ACCESS) && !(sharing & FILE_SHARE_WRITE)) return 0;
-    if ((existing_access & DELETE) && !(sharing & FILE_SHARE_DELETE)) return 0;
-    return 1;
+    if (((access & FILE_UNIX_READ_ACCESS) && !(existing_sharing & FILE_SHARE_READ)) ||
+        ((access & FILE_UNIX_WRITE_ACCESS) && !(existing_sharing & FILE_SHARE_WRITE)) ||
+        ((access & DELETE) && !(existing_sharing & FILE_SHARE_DELETE)))
+        return STATUS_SHARING_VIOLATION;
+    if (((existing_access & FILE_MAPPING_WRITE) && !(sharing & FILE_SHARE_WRITE)) ||
+        ((existing_access & FILE_MAPPING_IMAGE) && (access & FILE_SHARE_WRITE)))
+        return STATUS_SHARING_VIOLATION;
+    if ((existing_access & FILE_MAPPING_IMAGE) && (options & FILE_DELETE_ON_CLOSE))
+        return STATUS_CANNOT_DELETE;
+    if ((existing_access & FILE_MAPPING_ACCESS) && (open_flags & O_TRUNC))
+        return STATUS_USER_MAPPED_FILE;
+    if (!access) return 0;  /* if access mode is 0, sharing mode is ignored (except for mappings) */
+    if (((existing_access & FILE_UNIX_READ_ACCESS) && !(sharing & FILE_SHARE_READ)) ||
+        ((existing_access & FILE_UNIX_WRITE_ACCESS) && !(sharing & FILE_SHARE_WRITE)) ||
+        ((existing_access & DELETE) && !(sharing & FILE_SHARE_DELETE)))
+        return STATUS_SHARING_VIOLATION;
+    return 0;
 }
 
 /* sets the user of an fd that previously had no user */
@@ -1534,17 +1702,38 @@ void set_fd_user( struct fd *fd, const struct fd_ops *user_ops, struct object *u
     fd->user   = user;
 }
 
+static char *dup_fd_name( struct fd *root, const char *name )
+{
+    char *ret;
+
+    if (!root) return strdup( name );
+    if (!root->unix_name) return NULL;
+
+    /* skip . prefix */
+    if (name[0] == '.' && (!name[1] || name[1] == '/')) name++;
+
+    if ((ret = malloc( strlen(root->unix_name) + strlen(name) + 2 )))
+    {
+        strcpy( ret, root->unix_name );
+        if (name[0] && name[0] != '/') strcat( ret, "/" );
+        strcat( ret, name );
+    }
+    return ret;
+}
+
 /* open() wrapper that returns a struct fd with no fd user set */
-struct fd *open_fd( const char *name, int flags, mode_t *mode, unsigned int access,
+struct fd *open_fd( struct fd *root, const char *name, int flags, mode_t *mode, unsigned int access,
                     unsigned int sharing, unsigned int options )
 {
     struct stat st;
     struct closed_fd *closed_fd;
     struct fd *fd;
     const char *unlink_name = "";
+    int root_fd = -1;
     int rw_mode;
 
-    if ((options & FILE_DELETE_ON_CLOSE) && !(access & DELETE))
+    if (((options & FILE_DELETE_ON_CLOSE) && !(access & DELETE)) ||
+        ((options & FILE_DIRECTORY_FILE) && (flags & O_TRUNC)))
     {
         set_error( STATUS_INVALID_PARAMETER );
         return NULL;
@@ -1558,6 +1747,17 @@ struct fd *open_fd( const char *name, int flags, mode_t *mode, unsigned int acce
     {
         release_object( fd );
         return NULL;
+    }
+
+    if (root)
+    {
+        if ((root_fd = get_unix_fd( root )) == -1) goto error;
+        if (fchdir( root_fd ) == -1)
+        {
+            file_set_error();
+            root_fd = -1;
+            goto error;
+        }
     }
 
     /* create the directory if needed */
@@ -1581,15 +1781,18 @@ struct fd *open_fd( const char *name, int flags, mode_t *mode, unsigned int acce
     }
     else rw_mode = O_RDONLY;
 
-    if (!(fd->unix_name = mem_alloc( strlen(name) + 1 ))) goto error;
-    strcpy( fd->unix_name, name );
+    fd->unix_name = dup_fd_name( root, name );
 
     if ((fd->unix_fd = open( name, rw_mode | (flags & ~O_TRUNC), *mode )) == -1)
     {
         /* if we tried to open a directory for write access, retry read-only */
-        if (errno != EISDIR ||
-            !(access & FILE_UNIX_WRITE_ACCESS) ||
-            (fd->unix_fd = open( name, O_RDONLY | (flags & ~(O_TRUNC | O_CREAT | O_EXCL)), *mode )) == -1)
+        if (errno == EISDIR)
+        {
+            if ((access & FILE_UNIX_WRITE_ACCESS) || (flags & O_CREAT))
+                fd->unix_fd = open( name, O_RDONLY | (flags & ~(O_TRUNC | O_CREAT | O_EXCL)), *mode );
+        }
+
+        if (fd->unix_fd == -1)
         {
             file_set_error();
             goto error;
@@ -1604,6 +1807,7 @@ struct fd *open_fd( const char *name, int flags, mode_t *mode, unsigned int acce
     /* only bother with an inode for normal files and directories */
     if (S_ISREG(st.st_mode) || S_ISDIR(st.st_mode))
     {
+        unsigned int err;
         struct inode *inode = get_inode( st.st_dev, st.st_ino, fd->unix_fd );
 
         if (!inode)
@@ -1630,14 +1834,23 @@ struct fd *open_fd( const char *name, int flags, mode_t *mode, unsigned int acce
             set_error( STATUS_FILE_IS_A_DIRECTORY );
             return NULL;
         }
-        if (!check_sharing( fd, access, sharing ))
+        if ((err = check_sharing( fd, access, sharing, flags, options )))
         {
             release_object( fd );
-            set_error( STATUS_SHARING_VIOLATION );
+            set_error( err );
             return NULL;
         }
         strcpy( closed_fd->unlink, unlink_name );
-        if (flags & O_TRUNC) ftruncate( fd->unix_fd, 0 );
+        if (flags & O_TRUNC)
+        {
+            if (S_ISDIR(st.st_mode))
+            {
+                release_object( fd );
+                set_error( STATUS_OBJECT_NAME_COLLISION );
+                return NULL;
+            }
+            ftruncate( fd->unix_fd, 0 );
+        }
     }
     else  /* special file */
     {
@@ -1658,6 +1871,7 @@ struct fd *open_fd( const char *name, int flags, mode_t *mode, unsigned int acce
 error:
     release_object( fd );
     free( closed_fd );
+    if (root_fd != -1) fchdir( server_dir_fd ); /* go back to the server dir */
     return NULL;
 }
 
@@ -1839,6 +2053,11 @@ void fd_reselect_async( struct fd *fd, struct async_queue *queue )
     fd->fd_ops->reselect_async( fd, queue );
 }
 
+void no_fd_queue_async( struct fd *fd, const async_data_t *data, int type, int count )
+{
+    set_error( STATUS_OBJECT_TYPE_MISMATCH );
+}
+
 void default_fd_queue_async( struct fd *fd, const async_data_t *data, int type, int count )
 {
     struct async *async;
@@ -1925,6 +2144,13 @@ static void unmount_device( struct fd *device_fd )
     list_remove( &device->entry );
     list_init( &device->entry );
     release_object( device );
+}
+
+obj_handle_t no_fd_ioctl( struct fd *fd, ioctl_code_t code, const async_data_t *async,
+                          int blocking, const void *data, data_size_t size )
+{
+    set_error( STATUS_OBJECT_TYPE_MISMATCH );
+    return 0;
 }
 
 /* default ioctl() routine */

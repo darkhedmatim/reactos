@@ -3426,15 +3426,16 @@ static void dump_access_check_reply( const struct access_check_reply *req )
     dump_varargs_LUID_AND_ATTRIBUTES( ", privileges=", cur_size );
 }
 
-static void dump_get_token_user_request( const struct get_token_user_request *req )
+static void dump_get_token_sid_request( const struct get_token_sid_request *req )
 {
     fprintf( stderr, " handle=%04x", req->handle );
+    fprintf( stderr, ", which_sid=%08x", req->which_sid );
 }
 
-static void dump_get_token_user_reply( const struct get_token_user_reply *req )
+static void dump_get_token_sid_reply( const struct get_token_sid_reply *req )
 {
-    fprintf( stderr, " user_len=%u", req->user_len );
-    dump_varargs_SID( ", user=", cur_size );
+    fprintf( stderr, " sid_len=%u", req->sid_len );
+    dump_varargs_SID( ", sid=", cur_size );
 }
 
 static void dump_get_token_groups_request( const struct get_token_groups_request *req )
@@ -4012,7 +4013,7 @@ static const dump_func req_dumpers[REQ_NB_REQUESTS] = {
     (dump_func)dump_check_token_privileges_request,
     (dump_func)dump_duplicate_token_request,
     (dump_func)dump_access_check_request,
-    (dump_func)dump_get_token_user_request,
+    (dump_func)dump_get_token_sid_request,
     (dump_func)dump_get_token_groups_request,
     (dump_func)dump_get_token_default_dacl_request,
     (dump_func)dump_set_token_default_dacl_request,
@@ -4256,7 +4257,7 @@ static const dump_func reply_dumpers[REQ_NB_REQUESTS] = {
     (dump_func)dump_check_token_privileges_reply,
     (dump_func)dump_duplicate_token_reply,
     (dump_func)dump_access_check_reply,
-    (dump_func)dump_get_token_user_reply,
+    (dump_func)dump_get_token_sid_reply,
     (dump_func)dump_get_token_groups_reply,
     (dump_func)dump_get_token_default_dacl_reply,
     NULL,
@@ -4500,7 +4501,7 @@ static const char * const req_names[REQ_NB_REQUESTS] = {
     "check_token_privileges",
     "duplicate_token",
     "access_check",
-    "get_token_user",
+    "get_token_sid",
     "get_token_groups",
     "get_token_default_dacl",
     "set_token_default_dacl",
@@ -4554,6 +4555,7 @@ static const struct
     { "BUFFER_OVERFLOW",             STATUS_BUFFER_OVERFLOW },
     { "BUFFER_TOO_SMALL",            STATUS_BUFFER_TOO_SMALL },
     { "CANCELLED",                   STATUS_CANCELLED },
+    { "CANNOT_DELETE",               STATUS_CANNOT_DELETE },
     { "CANT_OPEN_ANONYMOUS",         STATUS_CANT_OPEN_ANONYMOUS },
     { "CHILD_MUST_BE_VOLATILE",      STATUS_CHILD_MUST_BE_VOLATILE },
     { "DEBUGGER_INACTIVE",           STATUS_DEBUGGER_INACTIVE },
@@ -4628,6 +4630,7 @@ static const struct
     { "TOO_MANY_OPENED_FILES",       STATUS_TOO_MANY_OPENED_FILES },
     { "UNSUCCESSFUL",                STATUS_UNSUCCESSFUL },
     { "USER_APC",                    STATUS_USER_APC },
+    { "USER_MAPPED_FILE",            STATUS_USER_MAPPED_FILE },
     { "VOLUME_DISMOUNTED",           STATUS_VOLUME_DISMOUNTED },
     { "WAS_LOCKED",                  STATUS_WAS_LOCKED },
     { NULL, 0 }

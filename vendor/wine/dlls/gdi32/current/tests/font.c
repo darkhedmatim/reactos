@@ -2977,6 +2977,39 @@ static void test_GetTextMetrics2(const char *fontname, int font_height)
     ok(ratio >= 90 && ratio <= 110, "expected width/height ratio 90-110, got %d\n", ratio);
 }
 
+static void test_CreateFontIndirect(void)
+{
+    LOGFONTA lf, getobj_lf;
+    int ret, i;
+    HFONT hfont;
+    char TestName[][16] = {"Arial", "Arial Bold", "Arial Italic", "Arial Baltic"};
+
+    memset(&lf, 0, sizeof(lf));
+    lf.lfCharSet = ANSI_CHARSET;
+    lf.lfClipPrecision = CLIP_DEFAULT_PRECIS;
+    lf.lfHeight = 16;
+    lf.lfWidth = 16;
+    lf.lfQuality = DEFAULT_QUALITY;
+    lf.lfItalic = FALSE;
+    lf.lfWeight = FW_DONTCARE;
+
+    for (i = 0; i < sizeof(TestName)/sizeof(TestName[0]); i++)
+    {
+        lstrcpyA(lf.lfFaceName, TestName[i]);
+        hfont = CreateFontIndirectA(&lf);
+        ok(hfont != 0, "CreateFontIndirectA failed\n");
+        ret = GetObject(hfont, sizeof(getobj_lf), &getobj_lf);
+        ok(lf.lfItalic == getobj_lf.lfItalic, "lfItalic: expect %02x got %02x\n", lf.lfItalic, getobj_lf.lfItalic);
+        ok(lf.lfWeight == getobj_lf.lfWeight ||
+           broken((SHORT)lf.lfWeight == getobj_lf.lfWeight), /* win9x */
+           "lfWeight: expect %08x got %08x\n", lf.lfWeight, getobj_lf.lfWeight);
+        ok(!lstrcmpA(lf.lfFaceName, getobj_lf.lfFaceName) ||
+           broken(!memcmp(lf.lfFaceName, getobj_lf.lfFaceName, LF_FACESIZE-1)), /* win9x doesn't ensure '\0' termination */
+           "font names don't match: %s != %s\n", lf.lfFaceName, getobj_lf.lfFaceName);
+        DeleteObject(hfont);
+    }
+}
+
 START_TEST(font)
 {
     init();
@@ -3020,4 +3053,5 @@ START_TEST(font)
     test_GetTextMetrics2("Arial", -11);
     test_GetTextMetrics2("Arial", -55);
     test_GetTextMetrics2("Arial", -110);
+    test_CreateFontIndirect();
 }

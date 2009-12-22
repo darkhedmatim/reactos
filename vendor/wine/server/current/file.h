@@ -54,10 +54,12 @@ struct fd_ops
 extern struct fd *alloc_pseudo_fd( const struct fd_ops *fd_user_ops, struct object *user,
                                    unsigned int options );
 extern void set_no_fd_status( struct fd *fd, unsigned int status );
-extern struct fd *open_fd( const char *name, int flags, mode_t *mode, unsigned int access,
-                           unsigned int sharing, unsigned int options );
+extern struct fd *open_fd( struct fd *root, const char *name, int flags, mode_t *mode,
+                           unsigned int access, unsigned int sharing, unsigned int options );
 extern struct fd *create_anonymous_fd( const struct fd_ops *fd_user_ops,
                                        int unix_fd, struct object *user, unsigned int options );
+extern struct fd *dup_fd_object( struct fd *orig, unsigned int access, unsigned int sharing,
+                                 unsigned int options );
 extern void *get_fd_user( struct fd *fd );
 extern void set_fd_user( struct fd *fd, const struct fd_ops *ops, struct object *user );
 extern unsigned int get_fd_options( struct fd *fd );
@@ -79,8 +81,11 @@ extern void default_poll_event( struct fd *fd, int event );
 extern struct async *fd_queue_async( struct fd *fd, const async_data_t *data, int type );
 extern void fd_async_wake_up( struct fd *fd, int type, unsigned int status );
 extern void fd_reselect_async( struct fd *fd, struct async_queue *queue );
+extern obj_handle_t no_fd_ioctl( struct fd *fd, ioctl_code_t code, const async_data_t *async,
+                                 int blocking, const void *data, data_size_t size );
 extern obj_handle_t default_fd_ioctl( struct fd *fd, ioctl_code_t code, const async_data_t *async,
                                       int blocking, const void *data, data_size_t size );
+extern void no_fd_queue_async( struct fd *fd, const async_data_t *data, int type, int count );
 extern void default_fd_queue_async( struct fd *fd, const async_data_t *data, int type, int count );
 extern void default_fd_reselect_async( struct fd *fd, struct async_queue *queue );
 extern void default_fd_cancel_async( struct fd *fd, struct process *process, struct thread *thread, client_ptr_t iosb );
@@ -109,9 +114,8 @@ extern struct file *get_file_obj( struct process *process, obj_handle_t handle,
                                   unsigned int access );
 extern int get_file_unix_fd( struct file *file );
 extern int is_same_file( struct file *file1, struct file *file2 );
+extern struct file *create_file_for_fd( int fd, unsigned int access, unsigned int sharing );
 extern struct file *grab_file_unless_removable( struct file *file );
-extern int grow_file( struct file *file, file_pos_t size );
-extern struct file *create_temp_file( int access );
 extern void file_set_error(void);
 extern struct security_descriptor *mode_to_sd( mode_t mode, const SID *user, const SID *group );
 extern mode_t sd_to_mode( const struct security_descriptor *sd, const SID *owner );
@@ -121,6 +125,7 @@ extern mode_t sd_to_mode( const struct security_descriptor *sd, const SID *owner
 extern void do_change_notify( int unix_fd );
 extern void sigio_callback(void);
 extern struct object *create_dir_obj( struct fd *fd, unsigned int access, mode_t mode );
+extern struct dir *get_dir_obj( struct process *process, obj_handle_t handle, unsigned int access );
 
 /* completion */
 
@@ -154,5 +159,10 @@ extern void fd_copy_completion( struct fd *src, struct fd *dst );
 
 /* access rights that require Unix write permission */
 #define FILE_UNIX_WRITE_ACCESS (FILE_WRITE_DATA|FILE_WRITE_ATTRIBUTES|FILE_WRITE_EA)
+
+/* magic file access rights for mappings */
+#define FILE_MAPPING_IMAGE  0x80000000  /* set for SEC_IMAGE mappings */
+#define FILE_MAPPING_WRITE  0x40000000  /* set for writable shared mappings */
+#define FILE_MAPPING_ACCESS 0x20000000  /* set for all mappings */
 
 #endif  /* __WINE_SERVER_FILE_H */

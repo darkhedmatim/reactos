@@ -22,6 +22,10 @@
 #include "wownt32.h"
 #include "win.h"
 #include "user_private.h"
+#include "wine/server.h"
+
+/* size of buffer needed to store an atom string */
+#define ATOM_BUFFER_SIZE 256
 
 /* handle <--> handle16 conversions */
 #define HANDLE_16(h32)		(LOWORD(h32))
@@ -155,6 +159,64 @@ HANDLE16 WINAPI GetProp16( HWND16 hwnd, LPCSTR str )
 BOOL16 WINAPI SetProp16( HWND16 hwnd, LPCSTR str, HANDLE16 handle )
 {
     return SetPropA( WIN_Handle32(hwnd), str, HANDLE_32(handle) );
+}
+
+
+/***********************************************************************
+ *              EnumProps   (USER.27)
+ */
+INT16 WINAPI EnumProps16( HWND16 hwnd, PROPENUMPROC16 func )
+{
+    int ret = -1, i, count, total = 32;
+    property_data_t *list;
+
+    while (total)
+    {
+        if (!(list = HeapAlloc( GetProcessHeap(), 0, total * sizeof(*list) ))) break;
+        count = 0;
+        SERVER_START_REQ( get_window_properties )
+        {
+            req->window = wine_server_user_handle( HWND_32(hwnd) );
+            wine_server_set_reply( req, list, total * sizeof(*list) );
+            if (!wine_server_call( req )) count = reply->total;
+        }
+        SERVER_END_REQ;
+
+        if (count && count <= total)
+        {
+            char string[ATOM_BUFFER_SIZE];
+            SEGPTR segptr = MapLS( string );
+            WORD args[4];
+            DWORD result;
+
+            for (i = 0; i < count; i++)
+            {
+                if (list[i].string)  /* it was a string originally */
+                {
+                    if (!GlobalGetAtomNameA( list[i].atom, string, ATOM_BUFFER_SIZE )) continue;
+                    args[3] = hwnd;
+                    args[2] = SELECTOROF(segptr);
+                    args[1] = OFFSETOF(segptr);
+                    args[0] = LOWORD(list[i].data);
+                }
+                else
+                {
+                    args[3] = hwnd;
+                    args[2] = 0;
+                    args[1] = list[i].atom;
+                    args[0] = LOWORD(list[i].data);
+                }
+                WOWCallback16Ex( (DWORD)func, WCB16_PASCAL, sizeof(args), args, &result );
+                if (!(ret = LOWORD(result))) break;
+            }
+            UnMapLS( segptr );
+            HeapFree( GetProcessHeap(), 0, list );
+            break;
+        }
+        HeapFree( GetProcessHeap(), 0, list );
+        total = count;  /* restart with larger buffer */
+    }
+    return ret;
 }
 
 
@@ -302,6 +364,19 @@ BOOL16 WINAPI EndPaint16( HWND16 hwnd, const PAINTSTRUCT16* lps )
 
     ps.hdc = HDC_32(lps->hdc);
     return EndPaint( WIN_Handle32(hwnd), &ps );
+}
+
+
+/***********************************************************************
+ *		CreateWindow (USER.41)
+ */
+HWND16 WINAPI CreateWindow16( LPCSTR className, LPCSTR windowName,
+                              DWORD style, INT16 x, INT16 y, INT16 width,
+                              INT16 height, HWND16 parent, HMENU16 menu,
+                              HINSTANCE16 instance, LPVOID data )
+{
+    return CreateWindowEx16( 0, className, windowName, style,
+                             x, y, width, height, parent, menu, instance, data );
 }
 
 
@@ -716,6 +791,85 @@ WORD WINAPI GetWindowWord16( HWND16 hwnd, INT16 offset )
 WORD WINAPI SetWindowWord16( HWND16 hwnd, INT16 offset, WORD newval )
 {
     return SetWindowWord( WIN_Handle32(hwnd), offset, newval );
+}
+
+
+/**********************************************************************
+ *		GetWindowLong (USER.135)
+ */
+LONG WINAPI GetWindowLong16( HWND16 hwnd, INT16 offset )
+{
+    WND *wndPtr;
+    LONG_PTR retvalue;
+    BOOL is_winproc = (offset == GWLP_WNDPROC);
+
+    if (offset >= 0)
+    {
+        if (!(wndPtr = WIN_GetPtr( WIN_Handle32(hwnd) )))
+        {
+            SetLastError( ERROR_INVALID_WINDOW_HANDLE );
+            return 0;
+        }
+        if (wndPtr != WND_OTHER_PROCESS && wndPtr != WND_DESKTOP)
+        {
+            if (offset > (int)(wndPtr->cbWndExtra - sizeof(LONG)))
+            {
+                /*
+                 * Some programs try to access last element from 16 bit
+                 * code using illegal offset value. Hopefully this is
+                 * what those programs really expect.
+                 */
+                if (wndPtr->cbWndExtra >= 4 && offset == wndPtr->cbWndExtra - sizeof(WORD))
+                {
+                    offset = wndPtr->cbWndExtra - sizeof(LONG);
+                }
+                else
+                {
+                    WIN_ReleasePtr( wndPtr );
+                    SetLastError( ERROR_INVALID_INDEX );
+                    return 0;
+                }
+            }
+            is_winproc = ((offset == DWLP_DLGPROC) && (wndPtr->flags & WIN_ISDIALOG));
+            WIN_ReleasePtr( wndPtr );
+        }
+    }
+    retvalue = GetWindowLongA( WIN_Handle32(hwnd), offset );
+    if (is_winproc) retvalue = (LONG_PTR)WINPROC_GetProc16( (WNDPROC)retvalue, FALSE );
+    return retvalue;
+}
+
+
+/**********************************************************************
+ *		SetWindowLong (USER.136)
+ */
+LONG WINAPI SetWindowLong16( HWND16 hwnd, INT16 offset, LONG newval )
+{
+    WND *wndPtr;
+    BOOL is_winproc = (offset == GWLP_WNDPROC);
+
+    if (offset == DWLP_DLGPROC)
+    {
+        if (!(wndPtr = WIN_GetPtr( WIN_Handle32(hwnd) )))
+        {
+            SetLastError( ERROR_INVALID_WINDOW_HANDLE );
+            return 0;
+        }
+        if (wndPtr != WND_OTHER_PROCESS && wndPtr != WND_DESKTOP)
+        {
+            is_winproc = ((wndPtr->cbWndExtra - sizeof(LONG_PTR) >= DWLP_DLGPROC) &&
+                          (wndPtr->flags & WIN_ISDIALOG));
+            WIN_ReleasePtr( wndPtr );
+        }
+    }
+
+    if (is_winproc)
+    {
+        WNDPROC new_proc = WINPROC_AllocProc16( (WNDPROC16)newval );
+        WNDPROC old_proc = (WNDPROC)SetWindowLongPtrA( WIN_Handle32(hwnd), offset, (LONG_PTR)new_proc );
+        return (LONG)WINPROC_GetProc16( old_proc, FALSE );
+    }
+    else return SetWindowLongA( WIN_Handle32(hwnd), offset, newval );
 }
 
 
