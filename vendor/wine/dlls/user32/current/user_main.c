@@ -38,14 +38,14 @@ WINE_DEFAULT_DEBUG_CHANNEL(graphics);
 
 HMODULE user32_module = 0;
 
-static SYSLEVEL USER_SysLevel;
+static CRITICAL_SECTION user_section;
 static CRITICAL_SECTION_DEBUG critsect_debug =
 {
-    0, 0, &USER_SysLevel.crst,
+    0, 0, &user_section,
     { &critsect_debug.ProcessLocksList, &critsect_debug.ProcessLocksList },
-      0, 0, { (DWORD_PTR)(__FILE__ ": USER_SysLevel") }
+      0, 0, { (DWORD_PTR)(__FILE__ ": user_section") }
 };
-static SYSLEVEL USER_SysLevel = { { &critsect_debug, -1, 0, 0, 0, 0 }, 2 };
+static CRITICAL_SECTION user_section = { &critsect_debug, -1, 0, 0, 0, 0 };
 
 static HPALETTE (WINAPI *pfnGDISelectPalette)( HDC hdc, HPALETTE hpal, WORD bkgnd );
 static UINT (WINAPI *pfnGDIRealizePalette)( HDC hdc );
@@ -61,7 +61,7 @@ extern void WDML_NotifyThreadDetach(void);
  */
 void USER_Lock(void)
 {
-    _EnterSysLevel( &USER_SysLevel );
+    EnterCriticalSection( &user_section );
 }
 
 
@@ -70,7 +70,7 @@ void USER_Lock(void)
  */
 void USER_Unlock(void)
 {
-    _LeaveSysLevel( &USER_SysLevel );
+    LeaveCriticalSection( &user_section );
 }
 
 
@@ -81,7 +81,11 @@ void USER_Unlock(void)
  */
 void USER_CheckNotLock(void)
 {
-    _CheckNotSysLevel( &USER_SysLevel );
+    if (user_section.OwningThread == ULongToHandle(GetCurrentThreadId()) && user_section.RecursionCount)
+    {
+        ERR( "BUG: holding USER lock\n" );
+        DebugBreak();
+    }
 }
 
 
@@ -266,11 +270,6 @@ static void winstation_init(void)
  */
 static BOOL process_attach(void)
 {
-    LoadLibrary16( "user.exe" );
-
-    /* some Win9x dlls expect keyboard to be loaded */
-    if (GetVersion() & 0x80000000) LoadLibrary16( "keyboard.drv" );
-
     winstation_init();
 
     /* Initialize system colors and metrics */
@@ -278,6 +277,8 @@ static BOOL process_attach(void)
 
     /* Setup palette function pointers */
     palette_init();
+
+    LoadLibraryA( "user.exe16" );
 
     /* Initialize built-in window classes */
     CLASS_RegisterBuiltinClasses();
