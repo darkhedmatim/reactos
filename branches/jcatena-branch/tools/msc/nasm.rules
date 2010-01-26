@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<VisualStudioToolFile
+	Name="nasm"
+	Version="8.00"
+	>
+	<Rules>
+		<CustomBuildRule
+			Name="nasm"
+			DisplayName="nasm"
+			CommandLine="nasm -f coff -Xvc [AllOptions] $(InputPath)"
+			Outputs="[$nasmOutF]"
+			FileExtensions="*.asm"
+			ExecutionDescription="Assembling "
+			>
+			<Properties>
+				<StringProperty
+					Name="nasmOutF"
+					DisplayName="Obj File"
+					Description="Obj File (-o [file])"
+					Switch="&quot;[value]&quot;"
+					DefaultValue="$(IntDir)\$(InputName).obj"
+				/>
+				<StringProperty
+					Name="nasmIncPaths"
+					DisplayName="Inc Paths"
+					Description="Include serach paths (/I [path])"
+					Switch="-I &quot;[value]&quot;"
+					Delimited="true"
+					Inheritable="true"
+				/>
+				<StringProperty
+					Name="nasmPPDefs"
+					DisplayName="Preproc Defs"
+					Description="Preprocessor Definitions (/D [symbol])"
+					Switch="-D &quot;[value]&quot;"
+					Delimited="true"
+					Inheritable="true"
+				/>
+			</Properties>
+		</CustomBuildRule>
+	</Rules>
+</VisualStudioToolFile>
