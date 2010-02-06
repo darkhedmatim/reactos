@@ -143,6 +143,7 @@ void *get_user_handle_ptr( HANDLE handle, enum user_obj_type type )
  */
 void release_user_handle_ptr( void *ptr )
 {
+    assert( ptr && ptr != OBJ_OTHER_PROCESS );
     USER_Unlock();
 }
 
@@ -2700,6 +2701,12 @@ HWND WINAPI SetParent( HWND hwnd, HWND parent )
     if (!(full_handle = WIN_IsCurrentThread( hwnd )))
         return (HWND)SendMessageW( hwnd, WM_WINE_SETPARENT, (WPARAM)parent, 0 );
 
+    if (full_handle == parent)
+    {
+        SetLastError( ERROR_INVALID_PARAMETER );
+        return 0;
+    }
+
     /* Windows hides the window first, then shows it again
      * including the WM_SHOWWINDOW messages and all */
     was_visible = ShowWindow( hwnd, SW_HIDE );
@@ -3309,7 +3316,7 @@ BOOL WINAPI GetWindowInfo( HWND hwnd, PWINDOWINFO pwi)
  */
 BOOL WINAPI SwitchDesktop( HDESK hDesktop)
 {
-    FIXME("SwitchDesktop(hwnd %p) stub!\n", hDesktop);
+    FIXME("(hwnd %p) stub!\n", hDesktop);
     return TRUE;
 }
 

@@ -445,6 +445,12 @@ static void test_parent_owner(void)
     ret = SetParent( test, child );
     ok( ret == desktop, "SetParent return value %p expected %p\n", ret, desktop );
     check_parents( test, child, child, 0, 0, hwndMain, test );
+
+    ShowWindow( test, SW_SHOW );
+    ret = SetParent( test, test );
+    ok( ret == NULL, "SetParent return value %p expected %p\n", ret, NULL );
+    ok( GetWindowLongA( test, GWL_STYLE ) & WS_VISIBLE, "window is not visible after SetParent\n" );
+    check_parents( test, child, child, 0, 0, hwndMain, test );
     DestroyWindow( test );
 
     /* owned popup */
@@ -2720,11 +2726,17 @@ static LRESULT CALLBACK test_capture_4_proc(HWND hWnd, UINT msg, WPARAM wParam, 
 
             /* check that re-setting the capture for the menu fails */
             set_cap_wnd = SetCapture(cap_wnd);
-            ok(!set_cap_wnd, "SetCapture should have failed!\n");
+            ok(!set_cap_wnd || broken(set_cap_wnd == cap_wnd), /* nt4 */
+               "SetCapture should have failed!\n");
+            if (set_cap_wnd)
+            {
+                DestroyWindow(hWnd);
+                break;
+            }
 
             /* check that SetCapture fails for another window and that it does not touch the error code */
             set_cap_wnd = SetCapture(hWnd);
-            ok(!set_cap_wnd, "ReleaseCapture should have failed!\n");
+            ok(!set_cap_wnd, "SetCapture should have failed!\n");
 
             /* check that ReleaseCapture fails and does not touch the error code */
             status = ReleaseCapture();
@@ -2764,8 +2776,10 @@ static void test_capture_4(void)
     HINSTANCE hInstance = GetModuleHandleA( NULL );
 
     if (!pGetGUIThreadInfo)
+    {
         win_skip("GetGUIThreadInfo is not available\n");
-
+        return;
+    }
     wclass.lpszClassName = "TestCapture4Class";
     wclass.style         = CS_HREDRAW | CS_VREDRAW;
     wclass.lpfnWndProc   = test_capture_4_proc;
@@ -2980,6 +2994,7 @@ static void test_mouse_input(HWND hwnd)
         if (msg.message == WM_TIMER || ignore_message(msg.message)) continue;
         ok(msg.hwnd == popup && msg.message == WM_MOUSEMOVE,
            "hwnd %p message %04x\n", msg.hwnd, msg.message);
+        DispatchMessage(&msg);
     }
     ret = peek_message(&msg);
     ok( !ret, "message %04x available\n", msg.message);
