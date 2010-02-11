@@ -11,7 +11,7 @@
 
 #include "rsym.h"
 
-#define LOG2LINES_VERSION   "1.11"
+#define LOG2LINES_VERSION   "1.9"
 
 /* Assume if an offset > ABS_TRESHOLD, then it must be absolute */
 #define ABS_TRESHOLD    0x00400000L
@@ -27,8 +27,6 @@
 #define CACHEFILE       "log2lines.cache"
 #define TRKBUILDPREFIX  "bootcd-"
 #define SVN_PREFIX      "/trunk/reactos/"
-#define KDBG_PROMPT     "kdbg>"
-#define PIPEREAD_CMD    "piperead -c"
 
 #if defined (__DJGPP__) || defined (__WIN32__)
 
@@ -98,13 +96,13 @@ struct entry_struct
     struct entry_struct *pnext;
 };
 
-typedef struct entry_struct LIST_MEMBER;
+typedef struct entry_struct LIST_ENTRY;
 
 struct list_struct
 {
     off_t st_size;
-    LIST_MEMBER *phead;
-    LIST_MEMBER *ptail;
+    LIST_ENTRY *phead;
+    LIST_ENTRY *ptail;
 };
 
 struct summ_struct
@@ -151,7 +149,7 @@ static SUMM summ;
 static LINEINFO lastLine;
 static REVINFO revinfo;
 
-static char *optchars       = "bcd:fFhl:mMP:rR:sS:tTuUvz:";
+static char *optchars       = "bcd:fFhl:mMrR:sS:tTuUvz:";
 static int   opt_buffered   = 0;        // -b
 static int   opt_help       = 0;        // -h
 static int   opt_force      = 0;        // -f
@@ -160,7 +158,6 @@ static int   opt_verbose    = 0;        // -v
 static int   opt_console    = 0;        // -c
 static int   opt_mark       = 0;        // -m
 static int   opt_Mark       = 0;        // -M
-static char *opt_Pipe       = NULL;     // -P
 static int   opt_raw        = 0;        // -r
 static int   opt_stats      = 0;        // -s
 static int   opt_Source     = 0;        // -S <opt_Source>[+<opt_SrcPlus>][,<sources_path>]
@@ -175,8 +172,6 @@ static char  opt_logFile[MAX_PATH];     // -l <opt_logFile>
 static char  opt_7z[MAX_PATH];          // -z <opt_7z>
 static char  opt_scanned[LINESIZE];     // all scanned options
 static FILE *logFile        = NULL;
-static FILE *stdIn          = NULL;
-static FILE *stdOut         = NULL;
 
 static char *cache_name;
 static char *tmp_name;
@@ -225,7 +220,6 @@ mkPath(char *path, int isDir)
     return res;
 }
 
-#if 0
 static FILE *
 rfopen(char *path, char *mode)
 {
@@ -238,13 +232,12 @@ rfopen(char *path, char *mode)
         f = fopen(tmppath, mode);
     return f;
 }
-#endif
 
-static LIST_MEMBER *
+static LIST_ENTRY *
 entry_lookup(LIST *list, char *name)
 {
-    LIST_MEMBER *pprev = NULL;
-    LIST_MEMBER *pnext;
+    LIST_ENTRY *pprev = NULL;
+    LIST_ENTRY *pnext;
 
     if (!name || !name[0])
         return NULL;
@@ -268,8 +261,8 @@ entry_lookup(LIST *list, char *name)
     return NULL;
 }
 
-static LIST_MEMBER *
-entry_delete(LIST_MEMBER *pentry)
+static LIST_ENTRY *
+entry_delete(LIST_ENTRY *pentry)
 {
     if (!pentry)
         return NULL;
@@ -279,8 +272,8 @@ entry_delete(LIST_MEMBER *pentry)
     return NULL;
 }
 
-static LIST_MEMBER *
-entry_insert(LIST *list, LIST_MEMBER *pentry)
+static LIST_ENTRY *
+entry_insert(LIST *list, LIST_ENTRY *pentry)
 {
     if (!pentry)
         return NULL;
@@ -293,10 +286,10 @@ entry_insert(LIST *list, LIST_MEMBER *pentry)
 }
 
 #if 0
-static LIST_MEMBER *
-entry_remove(LIST *list, LIST_MEMBER *pentry)
+static LIST_ENTRY *
+entry_remove(LIST *list, LIST_ENTRY *pentry)
 {
-    LIST_MEMBER *pprev = NULL, *p = NULL;
+    LIST_ENTRY *pprev = NULL, *p = NULL;
 
     if (!pentry)
         return NULL;
@@ -327,17 +320,17 @@ entry_remove(LIST *list, LIST_MEMBER *pentry)
 }
 #endif
 
-static LIST_MEMBER *
+static LIST_ENTRY *
 cache_entry_create(char *Line)
 {
-    LIST_MEMBER *pentry;
+    LIST_ENTRY *pentry;
     char *s = NULL;
     int l;
 
     if (!Line)
         return NULL;
 
-    pentry = malloc(sizeof(LIST_MEMBER));
+    pentry = malloc(sizeof(LIST_ENTRY));
     if (!pentry)
         return NULL;
 
@@ -379,10 +372,10 @@ cache_entry_create(char *Line)
 }
 
 
-static LIST_MEMBER *
+static LIST_ENTRY *
 sources_entry_create(LIST *list, char *path, char *prefix)
 {
-    LIST_MEMBER *pentry;
+    LIST_ENTRY *pentry;
     char *s = NULL;
     int l;
 
@@ -391,7 +384,7 @@ sources_entry_create(LIST *list, char *path, char *prefix)
     if (!prefix)
         prefix = "";
 
-    pentry = malloc(sizeof(LIST_MEMBER));
+    pentry = malloc(sizeof(LIST_ENTRY));
     if (!pentry)
         return NULL;
 
@@ -995,7 +988,7 @@ static int
 read_cache(void)
 {
     FILE *fr;
-    LIST_MEMBER *pentry;
+    LIST_ENTRY *pentry;
     char *Line = NULL;
     int result = 0;
 
@@ -1124,7 +1117,7 @@ static int
 translate_file(const char *cpath, size_t offset, char *toString)
 {
     size_t base = 0;
-    LIST_MEMBER *pentry = NULL;
+    LIST_ENTRY *pentry = NULL;
     int res = 0;
     char *path, *dpath;
 
@@ -1559,11 +1552,6 @@ static char *verboseUsage =
 "  -m   Prefix (mark) each translated line with '* '.\n\n"
 "  -M   Prefix (mark) each NOT translated line with '? '.\n"
 "       ( Only for lines of the form: <IMAGENAME:ADDRESS> )\n\n"
-"  -P <cmd line>\n"
-"       Pipeline command line. Spawn <cmd line> and pipeline its output to\n"
-"       log2lines (as stdin). This is for shells lacking support of (one of):\n"
-"       - Input file redirection.\n"
-"       - Pipelining byte streams, needed for the -c option.\n\n"
 "  -r   Raw output without translation.\n\n"
 "  -R <cmd>\n"
 "       Revision commands interfacing with SVN. <cmd> is one of:\n"
@@ -1644,8 +1632,6 @@ static char *verboseUsage =
 "       log2lines -c < \\\\.\\pipe\\kdbg\n\n"
 "  Use kdbg debugger via console, and append copy to logFile:\n"
 "       log2lines -c -l dbg.log < \\\\.\\pipe\\kdbg\n\n"
-"  Same as above, but for PowerShell:\n"
-"       log2lines -c -l dbg.log -P \"piperead -c \\\\.\\pipe\\kdbg\"\n\n"
 "  Use kdbg debugger to send output to logfile:\n"
 "       log2lines < \\\\.\\pipe\\kdbg > dbg.log\n\n"
 "  Re-translate a debug log:\n"
@@ -1882,8 +1868,6 @@ main(int argc, const char **argv)
     int i;
     char *s;
 
-    stdIn = stdin;
-    stdOut = stdout;
     strcpy(opt_dir, "");
     strcpy(sources_path, "");
     if ((s = getenv(SOURCES_ENV)))
@@ -1892,20 +1876,9 @@ main(int argc, const char **argv)
     strcpy(opt_scanned, "");
     for (i = 1; i < argc; i++)
     {
-        if (strcmp(argv[i],"-P")==0)
-        {
-            //Because its argument can contain spaces we cant use getopt(), a known bug:
-            if (i+1 < argc)
-            {
-                free(opt_Pipe);
-                opt_Pipe = malloc(LINESIZE);
-                strcpy(opt_Pipe, argv[i+1]);
-            }
-        }
         strcat(opt_scanned, argv[i]);
         strcat(opt_scanned, " ");
     }
-    l2l_dbg(4,"opt_scanned=[%s]\n",opt_scanned);
     strcpy(opt_logFile, "");
     strcpy(opt_7z, CMD_7Z);
 
@@ -1954,13 +1927,8 @@ main(int argc, const char **argv)
         case 'r':
             opt_raw++;
             break;
-        case 'P':
-            optCount++;
-            //just count, see above
-            break;
         case 'R':
             optCount++;
-            free(opt_Revision);
             opt_Revision = malloc(LINESIZE);
             sscanf(optarg, "%s", opt_Revision);
             break;
@@ -2033,7 +2001,8 @@ main(int argc, const char **argv)
         return 0;
 
     read_cache();
-    l2l_dbg(4, "Cache read complete\n");
+
+    l2l_dbg(3, "Cache read complete\n");
 
     if (*opt_logFile)
     {
@@ -2055,22 +2024,6 @@ main(int argc, const char **argv)
             return 2;
         }
     }
-    l2l_dbg(4, "opt_logFile processed\n");
-
-    if (opt_Pipe)
-    {
-        l2l_dbg(3, "Command line: \"%s\"\n",opt_Pipe);
-
-        if (!(stdIn = POPEN(opt_Pipe, "r")))
-        {
-            stdIn = stdin; //restore
-            l2l_dbg(0, "Could not popen '%s' (%s)\n", opt_Pipe, strerror(errno));
-            free(opt_Pipe); opt_Pipe = NULL;
-        }
-
-        free(opt_Pipe); opt_Pipe = NULL;
-    }
-    l2l_dbg(4, "opt_Pipe processed\n");
 
     if (argc > 1)
     {   // translate {<exefile> <offset>}
@@ -2090,7 +2043,7 @@ main(int argc, const char **argv)
                     l2l_dbg(2, "translating %s %s\n", exefile, offset);
                     translate_file(exefile, my_atoi(offset), Line);
                     printf("%s\n", Line);
-                    report(stdOut);
+                    report(stdout);
                 }
                 else
                 {
@@ -2108,14 +2061,11 @@ main(int argc, const char **argv)
     }
     else
     {   // translate logging from stdin
-        translate_files(stdIn, stdOut);
+        translate_files(stdin, stdout);
     }
 
     if (logFile)
         fclose(logFile);
-
-    if (opt_Pipe)
-        PCLOSE(stdIn);
 
     return res;
 }
