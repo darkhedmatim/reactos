@@ -1113,7 +1113,8 @@ Module::GetDefaultModuleEntrypoint () const
 	switch ( type )
 	{
 		case Kernel:
-			return "KiSystemStartup";
+			if (Environment::GetArch() == "arm") return "KiSystemStartup";
+            return "KiSystemStartup@4";
 		case KeyboardLayout:
 		case KernelModeDLL:
 		case KernelModeDriver:
@@ -1428,6 +1429,24 @@ Module::GetDllName () const
 	else
 		throw new InvalidOperationException ( __FILE__, __LINE__, "Module %s has no dllname." );
 }
+
+SpecFileType
+Module::IsSpecDefinitionFile () const
+{
+	if(!importLibrary)
+		return None;
+
+	std::string ext = GetExtension ( *importLibrary->source );
+
+	if ( ext == ".spec" )
+		return Spec;
+
+	if ( ext == ".pspec" )
+		return PSpec;
+
+	return None;
+}
+
 
 File::File ( DirectoryLocation directory,
              const string& relative_path,
