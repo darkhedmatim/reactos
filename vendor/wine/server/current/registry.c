@@ -83,6 +83,7 @@ struct key
 #define KEY_VOLATILE 0x0001  /* key is volatile (not saved to disk) */
 #define KEY_DELETED  0x0002  /* key has been deleted */
 #define KEY_DIRTY    0x0004  /* key has been modified */
+#define KEY_SYMLINK  0x0008  /* key is a symbolic link */
 
 /* a key value */
 struct key_value
@@ -107,7 +108,12 @@ static const timeout_t ticks_1601_to_1970 = (timeout_t)86400 * (369 * 365 + 89) 
 static const timeout_t save_period = 30 * -TICKS_PER_SEC;  /* delay between periodic saves */
 static struct timeout_user *save_timeout_user;  /* saving timer */
 
+static const WCHAR root_name[] = { '\\','R','e','g','i','s','t','r','y','\\' };
+static const WCHAR symlink_value[] = {'S','y','m','b','o','l','i','c','L','i','n','k','V','a','l','u','e'};
+static const struct unicode_str symlink_str = { symlink_value, sizeof(symlink_value) };
+
 static void set_periodic_save_timer(void);
+static struct key_value *find_value( const struct key *key, const struct unicode_str *name, int *index );
 
 /* information about where to save a registry branch */
 struct save_branch_info
@@ -240,13 +246,20 @@ static void save_subkeys( const struct key *key, const struct key *base, FILE *f
     int i;
 
     if (key->flags & KEY_VOLATILE) return;
-    /* save key if it has either some values or no subkeys */
+    /* save key if it has either some values or no subkeys, or needs special options */
     /* keys with no values but subkeys are saved implicitly by saving the subkeys */
-    if ((key->last_value >= 0) || (key->last_subkey == -1))
+    if ((key->last_value >= 0) || (key->last_subkey == -1) || key->class || (key->flags & KEY_SYMLINK))
     {
         fprintf( f, "\n[" );
         if (key != base) dump_path( key, base, f );
         fprintf( f, "] %u\n", (unsigned int)((key->modif - ticks_1601_to_1970) / TICKS_PER_SEC) );
+        if (key->class)
+        {
+            fprintf( f, "#class=\"" );
+            dump_strW( key->class, key->classlen / sizeof(WCHAR), f, "\"\"" );
+            fprintf( f, "\"\n" );
+        }
+        if (key->flags & KEY_SYMLINK) fputs( "#link\n", f );
         for (i = 0; i <= key->last_value; i++) dump_value( &key->values[i], f );
     }
     for (i = 0; i <= key->last_subkey; i++) save_subkeys( key->subkeys[i], base, f );
@@ -351,8 +364,6 @@ static void key_destroy( struct object *obj )
 /* get the request vararg as registry path */
 static inline void get_req_path( struct unicode_str *str, int skip_root )
 {
-    static const WCHAR root_name[] = { '\\','R','e','g','i','s','t','r','y','\\' };
-
     str->str = get_req_data();
     str->len = (get_req_data_size() / sizeof(WCHAR)) * sizeof(WCHAR);
 
@@ -576,8 +587,38 @@ static struct key *find_subkey( const struct key *key, const struct unicode_str 
     return NULL;
 }
 
+/* follow a symlink and return the resolved key */
+static struct key *follow_symlink( struct key *key, int iteration )
+{
+    struct unicode_str path, token;
+    struct key_value *value;
+    int index;
+
+    if (iteration > 16) return NULL;
+    if (!(key->flags & KEY_SYMLINK)) return key;
+    if (!(value = find_value( key, &symlink_str, &index ))) return NULL;
+
+    path.str = value->data;
+    path.len = (value->len / sizeof(WCHAR)) * sizeof(WCHAR);
+    if (path.len <= sizeof(root_name)) return NULL;
+    if (memicmpW( path.str, root_name, sizeof(root_name)/sizeof(WCHAR) )) return NULL;
+    path.str += sizeof(root_name) / sizeof(WCHAR);
+    path.len -= sizeof(root_name);
+
+    key = root_key;
+    token.str = NULL;
+    if (!get_path_token( &path, &token )) return NULL;
+    while (token.len)
+    {
+        if (!(key = find_subkey( key, &token, &index ))) break;
+        if (!(key = follow_symlink( key, iteration + 1 ))) break;
+        get_path_token( &path, &token );
+    }
+    return key;
+}
+
 /* open a subkey */
-static struct key *open_key( struct key *key, const struct unicode_str *name )
+static struct key *open_key( struct key *key, const struct unicode_str *name, unsigned int attributes )
 {
     int index;
     struct unicode_str token;
@@ -589,19 +630,31 @@ static struct key *open_key( struct key *key, const struct unicode_str *name )
         if (!(key = find_subkey( key, &token, &index )))
         {
             set_error( STATUS_OBJECT_NAME_NOT_FOUND );
-            break;
+            return NULL;
         }
         get_path_token( name, &token );
+        if (!token.len) break;
+        if (!(key = follow_symlink( key, 0 )))
+        {
+            set_error( STATUS_OBJECT_NAME_NOT_FOUND );
+            return NULL;
+        }
     }
 
+    if (!(attributes & OBJ_OPENLINK) && !(key = follow_symlink( key, 0 )))
+    {
+        set_error( STATUS_OBJECT_NAME_NOT_FOUND );
+        return NULL;
+    }
     if (debug_level > 1) dump_operation( key, NULL, "Open" );
-    if (key) grab_object( key );
+    grab_object( key );
     return key;
 }
 
 /* create a subkey */
 static struct key *create_key( struct key *key, const struct unicode_str *name,
-                               const struct unicode_str *class, int flags, timeout_t modif, int *created )
+                               const struct unicode_str *class, int flags, unsigned int options,
+                               unsigned int attributes, timeout_t modif, int *created )
 {
     struct key *base;
     int index;
@@ -622,12 +675,35 @@ static struct key *create_key( struct key *key, const struct unicode_str *name,
         if (!(subkey = find_subkey( key, &token, &index ))) break;
         key = subkey;
         get_path_token( name, &token );
+        if (!token.len) break;
+        if (!(subkey = follow_symlink( subkey, 0 )))
+        {
+            set_error( STATUS_OBJECT_NAME_NOT_FOUND );
+            return NULL;
+        }
     }
 
     /* create the remaining part */
 
-    if (!token.len) goto done;
-    if (!(flags & KEY_VOLATILE) && (key->flags & KEY_VOLATILE))
+    if (!token.len)
+    {
+        if (options & REG_OPTION_CREATE_LINK)
+        {
+            set_error( STATUS_OBJECT_NAME_COLLISION );
+            return NULL;
+        }
+        if (!(attributes & OBJ_OPENLINK) && !(key = follow_symlink( key, 0 )))
+        {
+            set_error( STATUS_OBJECT_NAME_NOT_FOUND );
+            return NULL;
+        }
+        goto done;
+    }
+    if (options & REG_OPTION_VOLATILE)
+    {
+        flags = (flags & ~KEY_DIRTY) | KEY_VOLATILE;
+    }
+    else if (key->flags & KEY_VOLATILE)
     {
         set_error( STATUS_CHILD_MUST_BE_VOLATILE );
         return NULL;
@@ -648,6 +724,7 @@ static struct key *create_key( struct key *key, const struct unicode_str *name,
             return NULL;
         }
     }
+    if (options & REG_OPTION_CREATE_LINK) key->flags |= KEY_SYMLINK;
 
  done:
     if (debug_level > 1) dump_operation( key, NULL, "Create" );
@@ -875,6 +952,16 @@ static void set_value( struct key *key, const struct unicode_str *name,
             value->data && !memcmp( value->data, data, len ))
         {
             if (debug_level > 1) dump_operation( key, value, "Skip setting" );
+            return;
+        }
+    }
+
+    if (key->flags & KEY_SYMLINK)
+    {
+        if (type != REG_LINK || name->len != symlink_str.len ||
+            memicmpW( name->str, symlink_str.str, name->len / sizeof(WCHAR) ))
+        {
+            set_error( STATUS_ACCESS_DENIED );
             return;
         }
     }
@@ -1140,7 +1227,29 @@ static struct key *load_key( struct key *base, const char *buffer, int flags,
     }
     name.str = p;
     name.len = len - (p - info->tmp + 1) * sizeof(WCHAR);
-    return create_key( base, &name, NULL, flags, modif, &res );
+    return create_key( base, &name, NULL, flags, 0, 0, modif, &res );
+}
+
+/* load a key option from the input file */
+static int load_key_option( struct key *key, const char *buffer, struct file_load_info *info )
+{
+    const char *p;
+    data_size_t len;
+
+    if (!strncmp( buffer, "#class=", 7 ))
+    {
+        p = buffer + 7;
+        if (*p++ != '"') return 0;
+        if (!get_file_tmp_space( info, strlen(p) * sizeof(WCHAR) )) return 0;
+        len = info->tmplen;
+        if (parse_strW( info->tmp, &len, p, '\"' ) == -1) return 0;
+        free( key->class );
+        if (!(key->class = memdup( info->tmp, len ))) len = 0;
+        key->classlen = len;
+    }
+    if (!strncmp( buffer, "#link", 5 )) key->flags |= KEY_SYMLINK;
+    /* ignore unknown options */
+    return 1;
 }
 
 /* parse a comma-separated list of hex digits */
@@ -1339,7 +1448,9 @@ static void load_keys( struct key *key, const char *filename, FILE *f, int prefi
             if (subkey) load_value( subkey, p, &info );
             else file_read_error( "Value without key", &info );
             break;
-        case '#':   /* comment */
+        case '#':   /* option */
+            if (subkey) load_key_option( subkey, p, &info );
+            break;
         case ';':   /* comment */
         case 0:     /* empty line */
             break;
@@ -1448,7 +1559,7 @@ void init_registry(void)
 
     /* load system.reg into Registry\Machine */
 
-    if (!(key = create_key( root_key, &HKLM_name, NULL, 0, current_time, &dummy )))
+    if (!(key = create_key( root_key, &HKLM_name, NULL, 0, 0, 0, current_time, &dummy )))
         fatal_error( "could not create Machine registry key\n" );
 
     load_init_registry_from_file( "system.reg", key );
@@ -1456,7 +1567,7 @@ void init_registry(void)
 
     /* load userdef.reg into Registry\User\.Default */
 
-    if (!(key = create_key( root_key, &HKU_name, NULL, 0, current_time, &dummy )))
+    if (!(key = create_key( root_key, &HKU_name, NULL, 0, 0, 0, current_time, &dummy )))
         fatal_error( "could not create User\\.Default registry key\n" );
 
     load_init_registry_from_file( "userdef.reg", key );
@@ -1467,7 +1578,7 @@ void init_registry(void)
     /* FIXME: match default user in token.c. should get from process token instead */
     current_user_path = format_user_registry_path( security_interactive_sid, &current_user_str );
     if (!current_user_path ||
-        !(key = create_key( root_key, &current_user_str, NULL, 0, current_time, &dummy )))
+        !(key = create_key( root_key, &current_user_str, NULL, 0, 0, 0, current_time, &dummy )))
         fatal_error( "could not create HKEY_CURRENT_USER registry key\n" );
     free( current_user_path );
     load_init_registry_from_file( "user.reg", key );
@@ -1660,9 +1771,8 @@ DECL_HANDLER(create_key)
     /* NOTE: no access rights are required from the parent handle to create a key */
     if ((parent = get_parent_hkey_obj( req->parent )))
     {
-        int flags = (req->options & REG_OPTION_VOLATILE) ? KEY_VOLATILE : KEY_DIRTY;
-
-        if ((key = create_key( parent, &name, &class, flags, current_time, &reply->created )))
+        if ((key = create_key( parent, &name, &class, KEY_DIRTY, req->options,
+                               req->attributes, current_time, &reply->created )))
         {
             reply->hkey = alloc_handle( current->process, key, access, req->attributes );
             release_object( key );
@@ -1683,7 +1793,7 @@ DECL_HANDLER(open_key)
     if ((parent = get_parent_hkey_obj( req->parent )))
     {
         get_req_path( &name, !req->parent );
-        if ((key = open_key( parent, &name )))
+        if ((key = open_key( parent, &name, req->attributes )))
         {
             reply->hkey = alloc_handle( current->process, key, access, req->attributes );
             release_object( key );
@@ -1817,7 +1927,7 @@ DECL_HANDLER(load_registry)
     {
         int dummy;
         get_req_path( &name, !req->hkey );
-        if ((key = create_key( parent, &name, NULL, KEY_DIRTY, current_time, &dummy )))
+        if ((key = create_key( parent, &name, NULL, KEY_DIRTY, 0, 0, current_time, &dummy )))
         {
             load_registry( key, req->file );
             release_object( key );

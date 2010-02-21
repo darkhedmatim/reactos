@@ -63,6 +63,8 @@ static const char* szAWRClass = "Winsize";
 static HMENU hmenu;
 static DWORD our_pid;
 
+static BOOL is_win9x = FALSE;
+
 #define COUNTOF(arr) (sizeof(arr)/sizeof(arr[0]))
 
 static void dump_minmax_info( const MINMAXINFO *minmax )
@@ -446,11 +448,16 @@ static void test_parent_owner(void)
     ok( ret == desktop, "SetParent return value %p expected %p\n", ret, desktop );
     check_parents( test, child, child, 0, 0, hwndMain, test );
 
-    ShowWindow( test, SW_SHOW );
-    ret = SetParent( test, test );
-    ok( ret == NULL, "SetParent return value %p expected %p\n", ret, NULL );
-    ok( GetWindowLongA( test, GWL_STYLE ) & WS_VISIBLE, "window is not visible after SetParent\n" );
-    check_parents( test, child, child, 0, 0, hwndMain, test );
+    if (!is_win9x)
+    {
+        ShowWindow( test, SW_SHOW );
+        ret = SetParent( test, test );
+        ok( ret == NULL, "SetParent return value %p expected %p\n", ret, NULL );
+        ok( GetWindowLongA( test, GWL_STYLE ) & WS_VISIBLE, "window is not visible after SetParent\n" );
+        check_parents( test, child, child, 0, 0, hwndMain, test );
+    }
+    else
+        win_skip( "Test crashes on Win9x/WinMe\n" );
     DestroyWindow( test );
 
     /* owned popup */
@@ -646,7 +653,6 @@ static LRESULT WINAPI main_window_procA(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 	}
 	case WM_WINDOWPOSCHANGING:
 	{
-	    BOOL is_win9x = GetWindowLongPtrW(hwnd, GWLP_WNDPROC) == 0;
 	    WINDOWPOS *winpos = (WINDOWPOS *)lparam;
 	    trace("main: WM_WINDOWPOSCHANGING %p after %p, x %d, y %d, cx %d, cy %d flags %08x\n",
 		   winpos->hwnd, winpos->hwndInsertAfter,
@@ -855,7 +861,6 @@ static void test_nonclient_area(HWND hwnd)
     DWORD style, exstyle;
     RECT rc_window, rc_client, rc;
     BOOL menu;
-    BOOL is_win9x = GetWindowLongPtrW(hwnd, GWLP_WNDPROC) == 0;
     LRESULT ret;
 
     style = GetWindowLongA(hwnd, GWL_STYLE);
@@ -1039,9 +1044,9 @@ static void test_shell_window(void)
     HWND hwnd1, hwnd2, hwnd3, hwnd4, hwnd5;
     HWND shellWindow, nextWnd;
 
-    if (!GetWindowLongW(GetDesktopWindow(), GWL_STYLE))
+    if (is_win9x)
     {
-        trace("Skipping shell window test on Win9x\n");
+        win_skip("Skipping shell window test on Win9x\n");
         return;
     }
 
@@ -1906,7 +1911,6 @@ static void test_SetWindowPos(HWND hwnd)
 {
     RECT orig_win_rc, rect;
     LONG_PTR old_proc;
-    BOOL is_win9x = GetWindowLongPtrW(hwnd, GWLP_WNDPROC) == 0;
 
     SetRect(&rect, 111, 222, 333, 444);
     ok(!GetWindowRect(0, &rect), "GetWindowRect succeeded\n");
@@ -1969,7 +1973,6 @@ static void test_SetMenu(HWND parent)
 {
     HWND child;
     HMENU hMenu, ret;
-    BOOL is_win9x = GetWindowLongPtrW(parent, GWLP_WNDPROC) == 0;
     BOOL retok;
     DWORD style;
 
@@ -2156,7 +2159,7 @@ static void check_z_order_debug(HWND hwnd, HWND next, HWND prev, HWND owner,
         /*trace("skipping next %p (%p)\n", test, UlongToHandle(GetWindowLongPtr(test, GWLP_HINSTANCE)));*/
         test = GetWindow(test, GW_HWNDNEXT);
     }
-    ok_(file, line)(next == test, "expected next %p, got %p\n", next, test);
+    ok_(file, line)(next == test, "%p: expected next %p, got %p\n", hwnd, next, test);
 
     test = GetWindow(hwnd, GW_HWNDPREV);
     /* skip foreign windows */
@@ -2168,13 +2171,14 @@ static void check_z_order_debug(HWND hwnd, HWND next, HWND prev, HWND owner,
         /*trace("skipping prev %p (%p)\n", test, UlongToHandle(GetWindowLongPtr(test, GWLP_HINSTANCE)));*/
         test = GetWindow(test, GW_HWNDPREV);
     }
-    ok_(file, line)(prev == test, "expected prev %p, got %p\n", prev, test);
+    ok_(file, line)(prev == test, "%p: expected prev %p, got %p\n", hwnd, prev, test);
 
     test = GetWindow(hwnd, GW_OWNER);
-    ok_(file, line)(owner == test, "expected owner %p, got %p\n", owner, test);
+    ok_(file, line)(owner == test, "%p: expected owner %p, got %p\n", hwnd, owner, test);
 
     ex_style = GetWindowLong(hwnd, GWL_EXSTYLE);
-    ok_(file, line)(!(ex_style & WS_EX_TOPMOST) == !topmost, "expected %stopmost\n", topmost ? "" : "NOT ");
+    ok_(file, line)(!(ex_style & WS_EX_TOPMOST) == !topmost, "%p: expected %stopmost\n",
+                    hwnd, topmost ? "" : "NOT ");
 }
 
 static void test_popup_zorder(HWND hwnd_D, HWND hwnd_E)
@@ -2255,6 +2259,20 @@ static void test_popup_zorder(HWND hwnd_D, HWND hwnd_E)
     check_z_order(hwnd_A, hwnd_D, 0, 0, TRUE);
 #endif
 
+    /* make hwnd_C owned by a topmost window */
+    DestroyWindow( hwnd_C );
+    hwnd_C = CreateWindowEx(0, "MainWindowClass", NULL,
+                            WS_POPUP,
+                            100, 100, 100, 100,
+                            hwnd_A, 0, GetModuleHandle(0), NULL);
+    trace("hwnd_C %p\n", hwnd_C);
+    check_z_order(hwnd_E, 0, hwnd_D, 0, FALSE);
+    check_z_order(hwnd_D, hwnd_E, hwnd_F, 0, FALSE);
+    check_z_order(hwnd_F, hwnd_D, hwnd_B, 0, FALSE);
+    check_z_order(hwnd_B, hwnd_F, hwnd_A, hwnd_F, TRUE);
+    check_z_order(hwnd_A, hwnd_B, hwnd_C, 0, TRUE);
+    check_z_order(hwnd_C, hwnd_A, 0, hwnd_A, TRUE);
+
     DestroyWindow(hwnd_A);
     DestroyWindow(hwnd_B);
     DestroyWindow(hwnd_C);
@@ -2272,7 +2290,7 @@ static void test_vis_rgn( HWND hwnd )
     ok( GetRandomRgn( hdc, hrgn, SYSRGN ) != 0, "GetRandomRgn failed\n" );
     GetWindowRect( hwnd, &win_rect );
     GetRgnBox( hrgn, &rgn_rect );
-    if (GetVersion() & 0x80000000)
+    if (is_win9x)
     {
         trace("win9x, mapping to screen coords\n");
         MapWindowPoints( hwnd, 0, (POINT *)&rgn_rect, 2 );
@@ -2804,7 +2822,7 @@ static void test_capture_4(void)
     /* set main window to have initial capture */
     SetCapture(hwnd);
 
-    if (!GetWindowLongW(GetDesktopWindow(), GWL_STYLE))
+    if (is_win9x)
     {
         win_skip("TrackPopupMenu test crashes on Win9x/WinMe\n");
     }
@@ -3220,6 +3238,7 @@ static void test_SetParent(void)
     BOOL ret;
     HWND desktop = GetDesktopWindow();
     HMENU hMenu;
+    /* FIXME: This detection is not correct as it also covers (all?) XP+ */
     BOOL is_win9x = GetWindowLongPtrW(desktop, GWLP_WNDPROC) == 0;
     HWND parent, child1, child2, child3, child4, sibling;
 
@@ -3280,6 +3299,8 @@ static void test_SetParent(void)
         check_parents(child3, child2, child2, child2, 0, child2, parent);
         check_parents(child4, desktop, child2, child2, child2, child4, parent);
     }
+    else
+        skip("Win9x/WinMe crash\n");
 
     hMenu = CreateMenu();
     sibling = CreateWindowExA(0, "static", NULL, WS_OVERLAPPEDWINDOW,
@@ -5917,6 +5938,10 @@ START_TEST(win)
     pGetGUIThreadInfo = (void *)GetProcAddress( user32, "GetGUIThreadInfo" );
 
     if (!RegisterWindowClasses()) assert(0);
+
+    SetLastError(0xdeafbeef);
+    GetWindowLongPtrW(GetDesktopWindow(), GWLP_WNDPROC);
+    is_win9x = (GetLastError() == ERROR_CALL_NOT_IMPLEMENTED);
 
     hhook = SetWindowsHookExA(WH_CBT, cbt_hook_proc, 0, GetCurrentThreadId());
     if (!hhook) win_skip( "Cannot set CBT hook, skipping some tests\n" );
