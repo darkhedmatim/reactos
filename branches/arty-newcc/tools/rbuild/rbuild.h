@@ -15,8 +15,8 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef __RBUILD_H
-#define __RBUILD_H
+
+#pragma once
 
 #include "pch.h"
 
@@ -167,6 +167,13 @@ enum LinkerSet
 	MicrosoftLink
 };
 
+enum SpecFileType
+{
+    None,
+    Spec = 1,
+    PSpec = 2
+};
+
 class Configuration
 {
 public:
@@ -197,6 +204,7 @@ public:
 	static std::string GetArch ();
 	static std::string GetIntermediatePath ();
 	static std::string GetOutputPath ();
+	static std::string GetSourcePath ();
 	static std::string GetCdOutputPath ();
 	static std::string GetInstallPath ();
 	static std::string GetAutomakeFile ( const std::string& defaultFile );
@@ -425,6 +433,7 @@ public:
 	void InvokeModule () const;
 	void ProcessXML ();
 	std::string GetDllName() const;
+	SpecFileType IsSpecDefinitionFile () const;
 private:
 	void SetImportLibrary ( ImportLibrary* importLibrary );
 	void SetDelayImportLibrary ( ImportLibrary* importLibrary );
@@ -1086,5 +1095,3 @@ NormalizeFilename ( const std::string& filename );
 
 extern std::string
 ToLower ( std::string filename );
-
-#endif /* __RBUILD_H */
