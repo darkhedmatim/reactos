@@ -24,7 +24,8 @@
  * PROGRAMMER:      Eric Kohl
  */
 
-#pragma once
+#ifndef __GENLIST_H__
+#define __GENLIST_H__
 
 struct _GENERIC_LIST_ENTRY;
 typedef struct _GENERIC_LIST_ENTRY *PGENERIC_LIST_ENTRY;
@@ -95,5 +96,7 @@ RestoreGenericListState(PGENERIC_LIST List);
 
 VOID
 GenericListKeyPress (PGENERIC_LIST List, CHAR AsciChar);
+
+#endif /* __GENLIST_H__ */
 
 /* EOF */

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __CPL_SYSDM_H
+#define __CPL_SYSDM_H
 
 typedef LONG (CALLBACK *APPLET_INITPROC)(VOID);
 
@@ -57,5 +58,7 @@ INT_PTR CALLBACK GeneralPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM 
 INT_PTR CALLBACK KeyboardPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
 INT_PTR CALLBACK MousePageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
 INT_PTR CALLBACK SoundPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+#endif /* __CPL_SYSDM_H */
 
 /* EOF */

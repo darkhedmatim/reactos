@@ -25,7 +25,8 @@
  *     - this assumes 32-bit physical addresses
  */
 
-#pragma once
+#ifndef _PCNET_H_
+#define _PCNET_H_
 
 /* statistics struct */
 typedef struct _ADAPTER_STATS
@@ -159,3 +160,6 @@ MiGetMediaDuplex(PADAPTER Adapter);
 
 /* memory pool tag */
 #define PCNET_TAG 'tNcP'
+
+#endif // _PCNET_H_
+

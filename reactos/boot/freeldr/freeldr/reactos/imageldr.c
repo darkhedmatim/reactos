@@ -1,4 +1,3 @@
-#ifndef _M_ARM
 #include <freeldr.h>
 #include <debug.h>
 
@@ -781,5 +780,5 @@ FrLdrMapImage(IN PFILE Image,
     /* Return the final mapped address */
     return LoadBase;
 }
-#endif
+
 /* EOF */

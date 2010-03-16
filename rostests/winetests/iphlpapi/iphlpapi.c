@@ -775,12 +775,11 @@ GetBestRoute
 IpReleaseAddress
 IpRenewAddress
 */
-static DWORD CALLBACK testWin98Functions(void *p)
+static void testWin98Functions(void)
 {
   testGetInterfaceInfo();
   testGetAdaptersInfo();
   testGetNetworkParams();
-  return 0;
 }
 
 static void testGetPerAdapterInfo(void)
@@ -840,7 +839,6 @@ static void test_GetAdaptersAddresses(void)
     ret = gGetAdaptersAddresses(AF_UNSPEC, 0, NULL, NULL, NULL);
     ok(ret == ERROR_INVALID_PARAMETER, "expected ERROR_INVALID_PARAMETER got %u\n", ret);
 
-    size = 0;
     ret = gGetAdaptersAddresses(AF_UNSPEC, 0, NULL, NULL, &size);
     ok(ret == ERROR_BUFFER_OVERFLOW, "expected ERROR_BUFFER_OVERFLOW, got %u\n", ret);
     if (ret != ERROR_BUFFER_OVERFLOW) return;
@@ -851,16 +849,16 @@ static void test_GetAdaptersAddresses(void)
 
     while (!ret && winetest_debug > 1 && aa)
     {
-        trace("Length:                %u\n", S(U(*aa)).Length);
-        trace("IfIndex:               %u\n", S(U(*aa)).IfIndex);
+        trace("Length:                %u\n", aa->Length);
+        trace("IfIndex:               %u\n", aa->IfIndex);
         trace("Next:                  %p\n", aa->Next);
         trace("AdapterName:           %s\n", aa->AdapterName);
         trace("FirstUnicastAddress:   %p\n", aa->FirstUnicastAddress);
         ua = aa->FirstUnicastAddress;
         while (ua)
         {
-            trace("\tLength:                  %u\n", S(U(*ua)).Length);
-            trace("\tFlags:                   0x%08x\n", S(U(*ua)).Flags);
+            trace("\tLength:                  %u\n", ua->Length);
+            trace("\tFlags:                   0x%08x\n", ua->Flags);
             trace("\tNext:                    %p\n", ua->Next);
             trace("\tAddress.lpSockaddr:      %p\n", ua->Address.lpSockaddr);
             trace("\tAddress.iSockaddrLength: %d\n", ua->Address.iSockaddrLength);
@@ -896,16 +894,9 @@ START_TEST(iphlpapi)
 
   loadIPHlpApi();
   if (hLibrary) {
-    HANDLE thread;
-
     testWin98OnlyFunctions();
     testWinNT4Functions();
-
-    /* run testGetXXXX in two threads at once to make sure we don't crash in that case */
-    thread = CreateThread(NULL, 0, testWin98Functions, NULL, 0, NULL);
-    testWin98Functions(NULL);
-    WaitForSingleObject(thread, INFINITE);
-
+    testWin98Functions();
     testWin2KFunctions();
     test_GetAdaptersAddresses();
     freeIPHlpApi();

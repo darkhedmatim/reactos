@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __TNCLIP_H
+#define __TNCLIP_H
 
 #include <windows.h>
 #include "tnetwork.h"
@@ -15,3 +16,5 @@ public:
 	void Copy(HGLOBAL clipboard_data);
 	void Paste();
 };
+
+#endif

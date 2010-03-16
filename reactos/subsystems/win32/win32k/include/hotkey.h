@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_HOTKEY_H
+#define _WIN32K_HOTKEY_H
 
 #include <include/winsta.h>
 #include <include/window.h>
@@ -31,5 +32,7 @@ UnregisterWindowHotKeys(PWINDOW_OBJECT Window);
 
 VOID FASTCALL
 UnregisterThreadHotKeys(struct _ETHREAD *Thread);
+
+#endif /* _WIN32K_HOTKEY_H */
 
 /* EOF */

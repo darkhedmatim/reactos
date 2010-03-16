@@ -11,7 +11,6 @@
 	<library>cmlib</library>
 	<library>rtl</library>
 	<library>libcntpr</library>
-	<library>mini_hal</library>
 	<group linkerset="ld">
 		<linkerflag>-nostartfiles</linkerflag>
 		<linkerflag>-nostdlib</linkerflag>

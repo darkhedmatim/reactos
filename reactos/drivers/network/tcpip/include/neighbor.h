@@ -4,8 +4,9 @@
  * FILE:        include/neighbor.h
  * PURPOSE:     Neighbor definitions
  */
+#ifndef __NEIGHBOR_H
+#define __NEIGHBOR_H
 
-#pragma once
 
 #define NB_HASHMASK 0xF /* Hash mask for neighbor cache */
 
@@ -26,6 +27,7 @@ typedef struct NEIGHBOR_CACHE_TABLE {
 
 /* Information about a neighbor */
 typedef struct NEIGHBOR_CACHE_ENTRY {
+    DEFINE_TAG
     struct NEIGHBOR_CACHE_ENTRY *Next;  /* Pointer to next entry */
     UCHAR State;                        /* State of NCE */
     UINT EventTimer;                    /* Ticks since last event */
@@ -101,5 +103,7 @@ ULONG NBCopyNeighbors(
 
 VOID NBResetNeighborTimeout(
     PIP_ADDRESS Address);
+
+#endif /* __NEIGHBOR_H */
 
 /* EOF */

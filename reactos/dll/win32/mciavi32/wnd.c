@@ -154,7 +154,6 @@ DWORD	MCIAVI_mciPut(UINT wDevID, DWORD dwFlags, LPMCI_DGV_PUT_PARMS lpParms)
 
     if (lpParms == NULL)	return MCIERR_NULL_PARAMETER_BLOCK;
     if (wma == NULL)		return MCIERR_INVALID_DEVICE_ID;
-    if (dwFlags & MCI_TEST)	return 0;
 
     EnterCriticalSection(&wma->cs);
 
@@ -212,7 +211,6 @@ DWORD	MCIAVI_mciWhere(UINT wDevID, DWORD dwFlags, LPMCI_DGV_RECT_PARMS lpParms)
 
     if (lpParms == NULL)	return MCIERR_NULL_PARAMETER_BLOCK;
     if (wma == NULL)		return MCIERR_INVALID_DEVICE_ID;
-    /* Ignore MCI_TEST flag. */
 
     EnterCriticalSection(&wma->cs);
 
@@ -285,7 +283,6 @@ DWORD	MCIAVI_mciWindow(UINT wDevID, DWORD dwFlags, LPMCI_DGV_WINDOW_PARMSW lpPar
 
     if (lpParms == NULL)	return MCIERR_NULL_PARAMETER_BLOCK;
     if (wma == NULL)		return MCIERR_INVALID_DEVICE_ID;
-    if (dwFlags & MCI_TEST)	return 0;
 
     EnterCriticalSection(&wma->cs);
 

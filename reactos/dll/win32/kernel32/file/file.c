@@ -239,6 +239,7 @@ OpenFile(LPCSTR lpFileName,
 		return HFILE_ERROR;
 	}
 
+    lpReOpenBuff->cBytes = sizeof(OFSTRUCT);
     lpReOpenBuff->nErrCode = 0;
 
 	if (uStyle & OF_REOPEN) lpFileName = lpReOpenBuff->szPathName;
@@ -281,11 +282,10 @@ OpenFile(LPCSTR lpFileName,
                 return -1;
 
             default:
-                lpReOpenBuff->cBytes = sizeof(OFSTRUCT);
                 return 1;
         }
     }
-    lpReOpenBuff->cBytes = sizeof(OFSTRUCT);
+
 	if ((uStyle & OF_CREATE) == OF_CREATE)
 	{
 		DWORD Sharing;
@@ -1905,14 +1905,13 @@ ReplaceFileW(
     LPVOID  lpReserved
     )
 {
-    HANDLE hReplaced = NULL, hReplacement = NULL;
+    HANDLE hReplaced = NULL, hReplacement = NULL, hBackup = NULL;
     UNICODE_STRING NtReplacedName, NtReplacementName;
     DWORD Error = ERROR_SUCCESS;
     NTSTATUS Status;
     BOOL Ret = FALSE;
     IO_STATUS_BLOCK IoStatusBlock;
     OBJECT_ATTRIBUTES ObjectAttributes;
-    PVOID Buffer = NULL ;
 
     if (dwReplaceFlags)
         FIXME("Ignoring flags %x\n", dwReplaceFlags);
@@ -1922,16 +1921,6 @@ ReplaceFileW(
     {
         SetLastError(ERROR_INVALID_PARAMETER);
         return FALSE;
-    }
-
-    /* Back it up */
-    if(lpBackupFileName)
-    {
-        if(!CopyFileW(lpReplacedFileName, lpBackupFileName, FALSE))
-        {
-            Error = GetLastError();
-            goto Cleanup ;
-        }
     }
 
     /* Open the "replaced" file for reading and writing */
@@ -1948,7 +1937,7 @@ ReplaceFileW(
                                NULL);
 
     Status = NtOpenFile(&hReplaced,
-                        GENERIC_READ | GENERIC_WRITE | DELETE | SYNCHRONIZE | WRITE_DAC,
+                        GENERIC_READ | GENERIC_WRITE | DELETE | SYNCHRONIZE,
                         &ObjectAttributes,
                         &IoStatusBlock,
                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -1963,12 +1952,9 @@ ReplaceFileW(
         goto Cleanup;
     }
 
-    /* Blank it */
-    SetEndOfFile(hReplaced) ;
-
     /*
      * Open the replacement file for reading, writing, and deleting
-     * (deleting is needed when finished)
+     * (writing and deleting are needed when finished)
      */
     if (!(RtlDosPathNameToNtPathName_U(lpReplacementFileName, &NtReplacementName, NULL, NULL)))
     {
@@ -1983,11 +1969,11 @@ ReplaceFileW(
                                NULL);
 
     Status = NtOpenFile(&hReplacement,
-                        GENERIC_READ | DELETE | SYNCHRONIZE,
+                        GENERIC_READ | GENERIC_WRITE | DELETE | WRITE_DAC | SYNCHRONIZE,
                         &ObjectAttributes,
                         &IoStatusBlock,
                         0,
-                        FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE | FILE_DELETE_ON_CLOSE);
+                        FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE);
 
     if (!NT_SUCCESS(Status))
     {
@@ -1995,39 +1981,15 @@ ReplaceFileW(
         goto Cleanup;
     }
 
-    Buffer = RtlAllocateHeap(RtlGetProcessHeap(), HEAP_ZERO_MEMORY, 0x10000) ;
-    if (!Buffer)
-    {
-        Error = ERROR_NOT_ENOUGH_MEMORY;
-        goto Cleanup ;
-    }
-    while (Status != STATUS_END_OF_FILE)
-    {
-        Status = NtReadFile(hReplacement, NULL, NULL, NULL, &IoStatusBlock, Buffer, 0x10000, NULL, NULL) ;
-        if (NT_SUCCESS(Status))
-        {
-            Status = NtWriteFile(hReplaced, NULL, NULL, NULL, &IoStatusBlock, Buffer,
-                    IoStatusBlock.Information, NULL, NULL) ;
-            if (!NT_SUCCESS(Status))
-            {
-                Error = RtlNtStatusToDosError(Status);
-                goto Cleanup;
-            }
-        }
-        else if (Status != STATUS_END_OF_FILE)
-        {
-            Error = RtlNtStatusToDosError(Status);
-            goto Cleanup;
-        }
-    }
-
+    /* Not success :( */
+    FIXME("ReplaceFileW not implemented, but it is returned TRUE!\n");
     Ret = TRUE;
 
     /* Perform resource cleanup */
 Cleanup:
+    if (hBackup) NtClose(hBackup);
     if (hReplaced) NtClose(hReplaced);
     if (hReplacement) NtClose(hReplacement);
-    if (Buffer) RtlFreeHeap(RtlGetProcessHeap(), 0, Buffer);
 
     RtlFreeUnicodeString(&NtReplacementName);
     RtlFreeUnicodeString(&NtReplacedName);

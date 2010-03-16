@@ -368,14 +368,12 @@ static const MSIVIEWOPS select_ops =
     NULL,
 };
 
-static UINT SELECT_AddColumn( MSISELECTVIEW *sv, LPCWSTR name,
-                              LPCWSTR table_name )
+static UINT SELECT_AddColumn( MSISELECTVIEW *sv, LPCWSTR name )
 {
     UINT r, n=0;
     MSIVIEW *table;
 
-    TRACE("%p adding %s.%s\n", sv, debugstr_w( table_name ),
-          debugstr_w( name ));
+    TRACE("%p adding %s\n", sv, debugstr_w( name ) );
 
     if( sv->view.ops != &select_ops )
         return ERROR_FUNCTION_FAILED;
@@ -391,7 +389,7 @@ static UINT SELECT_AddColumn( MSISELECTVIEW *sv, LPCWSTR name,
     if( sv->num_cols >= sv->max_cols )
         return ERROR_FUNCTION_FAILED;
 
-    r = VIEW_find_column( table, name, table_name, &n );
+    r = VIEW_find_column( table, name, NULL, &n );
     if( r != ERROR_SUCCESS )
         return r;
 
@@ -435,7 +433,7 @@ UINT SELECT_CreateView( MSIDATABASE *db, MSIVIEW **view, MSIVIEW *table,
 
     while( columns )
     {
-        r = SELECT_AddColumn( sv, columns->column, columns->table );
+        r = SELECT_AddColumn( sv, columns->column );
         if( r )
             break;
         columns = columns->next;

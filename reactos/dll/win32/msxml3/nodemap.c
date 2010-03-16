@@ -62,7 +62,7 @@ static HRESULT WINAPI xmlnodemap_QueryInterface(
     REFIID riid, void** ppvObject )
 {
     xmlnodemap *This = impl_from_IXMLDOMNamedNodeMap( iface );
-    TRACE("(%p)->(%s %p)\n", iface, debugstr_guid(riid), ppvObject);
+    TRACE("%p %s %p\n", iface, debugstr_guid(riid), ppvObject);
 
     if( IsEqualGUID( riid, &IID_IUnknown ) ||
         IsEqualGUID( riid, &IID_IDispatch ) ||
@@ -102,7 +102,7 @@ static ULONG WINAPI xmlnodemap_Release(
     if ( ref == 0 )
     {
         IXMLDOMNode_Release( This->node );
-        heap_free( This );
+        HeapFree( GetProcessHeap(), 0, This );
     }
 
     return ref;
@@ -191,7 +191,7 @@ xmlChar *xmlChar_from_wchar( LPWSTR str )
     xmlChar *xmlstr;
 
     len = WideCharToMultiByte( CP_UTF8, 0, str, -1, NULL, 0, NULL, NULL );
-    xmlstr = heap_alloc( len );
+    xmlstr = HeapAlloc( GetProcessHeap(), 0, len );
     if ( xmlstr )
         WideCharToMultiByte( CP_UTF8, 0, str, -1, (LPSTR) xmlstr, len, NULL, NULL );
     return xmlstr;
@@ -207,7 +207,7 @@ static HRESULT WINAPI xmlnodemap_getNamedItem(
     xmlAttrPtr attr;
     xmlNodePtr node;
 
-    TRACE("(%p)->(%s %p)\n", This, debugstr_w(name), namedItem );
+    TRACE("%p %s %p\n", This, debugstr_w(name), namedItem );
 
     if ( !namedItem )
         return E_INVALIDARG;
@@ -218,7 +218,7 @@ static HRESULT WINAPI xmlnodemap_getNamedItem(
 
     element_name = xmlChar_from_wchar( name );
     attr = xmlHasNsProp( node, element_name, NULL );
-    heap_free( element_name );
+    HeapFree( GetProcessHeap(), 0, element_name );
 
     if ( !attr )
     {
@@ -242,7 +242,7 @@ static HRESULT WINAPI xmlnodemap_setNamedItem(
     IXMLDOMNode *pAttr = NULL;
     xmlNodePtr node;
 
-    TRACE("(%p)->(%p %p)\n", This, newItem, namedItem );
+    TRACE("%p %p %p\n", This, newItem, namedItem );
 
     if(!newItem)
         return E_INVALIDARG;
@@ -292,7 +292,7 @@ static HRESULT WINAPI xmlnodemap_removeNamedItem(
     xmlAttrPtr attr;
     xmlNodePtr node;
 
-    TRACE("(%p)->(%s %p)\n", This, debugstr_w(name), namedItem );
+    TRACE("%p %s %p\n", This, debugstr_w(name), namedItem );
 
     if ( !name)
         return E_INVALIDARG;
@@ -303,7 +303,7 @@ static HRESULT WINAPI xmlnodemap_removeNamedItem(
 
     element_name = xmlChar_from_wchar( name );
     attr = xmlHasNsProp( node, element_name, NULL );
-    heap_free( element_name );
+    HeapFree( GetProcessHeap(), 0, element_name );
 
     if ( !attr )
     {
@@ -337,7 +337,7 @@ static HRESULT WINAPI xmlnodemap_get_item(
     xmlAttrPtr curr;
     LONG attrIndex;
 
-    TRACE("(%p)->(%d %p)\n", This, index, listItem);
+    TRACE("%p %d\n", This, index);
 
     *listItem = NULL;
 
@@ -370,7 +370,7 @@ static HRESULT WINAPI xmlnodemap_get_length(
 
     xmlnodemap *This = impl_from_IXMLDOMNamedNodeMap( iface );
 
-    TRACE("(%p)->(%p)\n", This, listLength);
+    TRACE("%p\n", This);
 
     if( !listLength )
         return E_INVALIDARG;
@@ -402,8 +402,7 @@ static HRESULT WINAPI xmlnodemap_getQualifiedItem(
     BSTR namespaceURI,
     IXMLDOMNode** qualifiedItem)
 {
-    xmlnodemap *This = impl_from_IXMLDOMNamedNodeMap( iface );
-    FIXME("(%p)->(%s %s %p)\n", This, debugstr_w(baseName), debugstr_w(namespaceURI), qualifiedItem);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -413,8 +412,7 @@ static HRESULT WINAPI xmlnodemap_removeQualifiedItem(
     BSTR namespaceURI,
     IXMLDOMNode** qualifiedItem)
 {
-    xmlnodemap *This = impl_from_IXMLDOMNamedNodeMap( iface );
-    FIXME("(%p)->(%s %s %p)\n", This, debugstr_w(baseName), debugstr_w(namespaceURI), qualifiedItem);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -427,7 +425,7 @@ static HRESULT WINAPI xmlnodemap_nextNode(
     xmlAttrPtr curr;
     LONG attrIndex;
 
-    TRACE("(%p)->(%p: %d)\n", This, nextItem, This->iterator);
+    TRACE("%p %d\n", This, This->iterator);
 
     *nextItem = NULL;
 
@@ -453,7 +451,7 @@ static HRESULT WINAPI xmlnodemap_reset(
 {
     xmlnodemap *This = impl_from_IXMLDOMNamedNodeMap( iface );
 
-    TRACE("(%p: %d)\n", This, This->iterator);
+    TRACE("%p %d\n", This, This->iterator);
 
     This->iterator = 0;
 
@@ -464,8 +462,7 @@ static HRESULT WINAPI xmlnodemap__newEnum(
     IXMLDOMNamedNodeMap *iface,
     IUnknown** ppUnk)
 {
-    xmlnodemap *This = impl_from_IXMLDOMNamedNodeMap( iface );
-    FIXME("(%p)->(%p)\n", This, ppUnk);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -534,7 +531,7 @@ IXMLDOMNamedNodeMap *create_nodemap( IXMLDOMNode *node )
 {
     xmlnodemap *nodemap;
 
-    nodemap = heap_alloc( sizeof *nodemap );
+    nodemap = HeapAlloc( GetProcessHeap(), 0, sizeof *nodemap );
     if ( !nodemap )
         return NULL;
 

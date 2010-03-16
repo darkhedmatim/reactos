@@ -4,7 +4,8 @@
  *
  */
 
-#pragma once
+#ifndef _BATCH_H_INCLUDED_
+#define _BATCH_H_INCLUDED_
 
 typedef struct tagBATCHCONTEXT
 {
@@ -49,3 +50,5 @@ VOID   ExitBatch ();
 INT    Batch (LPTSTR, LPTSTR, LPTSTR, PARSED_COMMAND *);
 LPTSTR ReadBatchLine();
 VOID AddBatchRedirection(REDIRECTION **);
+
+#endif /* _BATCH_H_INCLUDED_ */

@@ -226,7 +226,7 @@ KiSystemService(IN PKTHREAD Thread,
             //
             // Forcibly put us in a sane state
             //
-            KeGetPcr()->Irql = 0;
+            KeGetPcr()->CurrentIrql = 0;
             _disable();
             
             //

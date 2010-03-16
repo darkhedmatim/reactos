@@ -75,8 +75,8 @@ PVOID MmAllocateMemoryWithType(ULONG MemorySize, TYPE_OF_MEMORY MemoryType)
 #endif // DBG
 
 	// Update LoaderPagesSpanned count
-	if ((((ULONG_PTR)MemPointer + MemorySize + PAGE_SIZE - 1) >> PAGE_SHIFT) > LoaderPagesSpanned)
-		LoaderPagesSpanned = (((ULONG_PTR)MemPointer + MemorySize + PAGE_SIZE - 1) >> PAGE_SHIFT);
+	if ((((ULONG_PTR)MemPointer + MemorySize) >> PAGE_SHIFT) > LoaderPagesSpanned)
+		LoaderPagesSpanned = (((ULONG_PTR)MemPointer + MemorySize) >> PAGE_SHIFT);
 
 	// Now return the pointer
 	return MemPointer;
@@ -175,8 +175,8 @@ PVOID MmAllocateMemoryAtAddress(ULONG MemorySize, PVOID DesiredAddress, TYPE_OF_
 #endif // DBG
 
 	// Update LoaderPagesSpanned count
-	if ((((ULONG_PTR)MemPointer + MemorySize + PAGE_SIZE - 1) >> PAGE_SHIFT) > LoaderPagesSpanned)
-		LoaderPagesSpanned = (((ULONG_PTR)MemPointer + MemorySize + PAGE_SIZE - 1) >> PAGE_SHIFT);
+	if ((((ULONG_PTR)MemPointer + MemorySize) >> PAGE_SHIFT) > LoaderPagesSpanned)
+		LoaderPagesSpanned = (((ULONG_PTR)MemPointer + MemorySize) >> PAGE_SHIFT);
 
 	// Now return the pointer
 	return MemPointer;
@@ -337,6 +337,11 @@ VOID DumpMemoryAllocMap(VOID)
 }
 #endif // DBG
 
+ULONG GetSystemMemorySize(VOID)
+{
+	return (TotalPagesInLookupTable * MM_PAGE_SIZE);
+}
+
 PPAGE_LOOKUP_TABLE_ITEM MmGetMemoryMap(ULONG *NoEntries)
 {
 	PPAGE_LOOKUP_TABLE_ITEM		RealPageLookupTable = (PPAGE_LOOKUP_TABLE_ITEM)PageLookupTableAddress;
@@ -344,55 +349,4 @@ PPAGE_LOOKUP_TABLE_ITEM MmGetMemoryMap(ULONG *NoEntries)
 	*NoEntries = TotalPagesInLookupTable;
 
 	return RealPageLookupTable;
-}
-
-#undef ExAllocatePoolWithTag
-NTKERNELAPI
-PVOID
-NTAPI
-ExAllocatePoolWithTag(
-    IN POOL_TYPE PoolType,
-    IN SIZE_T NumberOfBytes,
-    IN ULONG Tag)
-{
-    return MmHeapAlloc(NumberOfBytes);
-}
-
-#undef ExFreePool
-NTKERNELAPI
-VOID
-NTAPI
-ExFreePool(
-    IN PVOID P)
-{
-    MmHeapFree(P);
-}
-
-PVOID
-NTAPI
-RtlAllocateHeap(
-    IN PVOID HeapHandle,
-    IN ULONG Flags,
-    IN SIZE_T Size)
-{
-    PVOID ptr;
-
-    ptr = MmHeapAlloc(Size);
-    if (ptr && (Flags & HEAP_ZERO_MEMORY))
-    {
-        RtlZeroMemory(ptr, Size);
-    }
-
-    return ptr;
-}
-
-BOOLEAN
-NTAPI
-RtlFreeHeap(
-    IN PVOID HeapHandle,
-    IN ULONG Flags,
-    IN PVOID HeapBase)
-{
-    MmHeapFree(HeapBase);
-    return TRUE;
 }

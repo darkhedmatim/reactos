@@ -14,6 +14,7 @@
 	<library>eventlog_client</library>
 	<library>rpcrt4</library>
 	<library>wine</library>
+	<library>kernel32</library>
 	<library>pseh</library>
 	<library>ntdll</library>
 	<pch>advapi32.h</pch>

@@ -2,7 +2,7 @@
 #
 # ReactOS Build Environment for Windows - Script for building a binutils/GCC/mingw-runtime/w32api toolchain for Windows
 # Partly based on RosBE-Unix' "RosBE-Builder.sh"
-# Copyright 2009-2010 Colin Finck <colin@reactos.org>
+# Copyright 2009 Colin Finck <colin@reactos.org>
 #
 # Released under GNU GPL v2 or any later version.
 
@@ -10,14 +10,14 @@
 # Package "rosbe_1.5"
 #
 # This script was built for the following toolchain versions:
-# - binutils 2.20.51-20091222 (snapshot)
-# - gcc 4.4.3
+# - binutils 2.20.51-20091017 (snapshot)
+# - gcc 4.4.2
 #   patched with:
 #      * http://gcc.gnu.org/bugzilla/attachment.cgi?id=18882&action=view (committed in GCC r153606)
-# - gmp 4.3.2
-# - mingw-runtime 3.17
-# - mpfr 2.4.2
-# - w32api 3.14
+# - gmp 4.3.1
+# - mingw-runtime 3.16
+# - mpfr 2.4.2-rc1
+# - w32api 3.13
 #
 # These tools have to be compiled under MSYS with "gcc version 3.4.5 (mingw-vista special r3)"
 #
@@ -27,10 +27,10 @@
 
 
 # RosBE Setup Variables
-rs_host_cflags="-pipe -fno-common -O2 -march=pentium3 -mfpmath=sse"   # -fno-common needed for native builds due to GCC 4.4 bug according to Dmitry Gorbachev
-rs_needed_tools="bison flex gcc g++ grep makeinfo"                    # GNU Make has a special check
+rs_host_cflags="-pipe -fno-common -O3 -march=pentium3 -mfpmath=sse"
+rs_needed_tools="bison flex gcc g++ grep makeinfo"        # GNU Make has a special check
 rs_target="mingw32"
-rs_target_cflags="-pipe -gstabs+ -O2 -march=pentium -mtune=i686"
+rs_target_cflags="-pipe -gstabs+ -O3 -march=pentium -mtune=i686"
 
 # Get the absolute path to the script directory
 cd `dirname $0`
@@ -61,7 +61,7 @@ fi
 
 # We don't want too less parameters
 if [ "$2" == "" ]; then
-	echo -n "Syntax: ./buildtoolchain.sh <sources> <workdir> [make_dev]"
+	echo -n "Syntax: ./buildtoolchain.sh <sources> <workdir>"
 	
 	for module in $MODULES; do
 		echo -n " [$module]"
@@ -72,9 +72,6 @@ if [ "$2" == "" ]; then
 	echo " sources  - Path to the directory containing RosBE-Unix toolchain packages (.tar.bz2 files)"
 	echo " workdir  - Path to the directory used for building. Will contain the final executables and"
 	echo "            temporary files."
-	echo " make_dev - Pass 1 here if you want to build the \"mingw_runtime_dev\" package required for"
-	echo "            RosBE-Unix. All following options will be ignored in this case."
-	echo "            Otherwise pass 0, which is the default option."
 	echo
 	echo "The rest of the arguments are optional. You specify them if you want to prevent a component"
 	echo "from being (re)built. Do this by passing 0 as the argument of the appropriate component."
@@ -110,41 +107,16 @@ shift
 rs_prefixdir="$rs_workdir/mingw"
 rs_supportprefixdir="$rs_workdir/support"
 
-# Find out if we just want to build the "mingw_runtime_dev" package
-if [ "$1" = "1" ]; then
-	make_dev_package=true
-else
-	make_dev_package=false
-fi
-
-shift
-
-if $make_dev_package; then
-	# Disable processing all modules
-	for module in $MODULES; do
+# Set the rs_process_* variables based on the parameters
+for module in $MODULES; do
+	if [ "$1" = "0" ]; then
 		eval "rs_process_$module=false"
-	done
-
-	# Only process w32api and mingw_runtime
-	rs_process_w32api=true
-	rs_process_mingw_runtime=true
-
-	# Set a prefix different to the one used for w32api, so that we can later package the built files
-	mingw_runtime_prefix="$rs_prefixdir/mingw_runtime_dev"
-else
-	# Set the rs_process_* variables based on the parameters
-	for module in $MODULES; do
-		if [ "$1" = "0" ]; then
-			eval "rs_process_$module=false"
-		else
-			eval "rs_process_$module=true"
-		fi
-		
-		shift
-	done
-
-	mingw_runtime_prefix="$rs_prefixdir/$rs_target"
-fi
+	else
+		eval "rs_process_$module=true"
+	fi
+	
+	shift
+done
 
 rs_mkdir_empty "$SYSHEADERDIR"
 
@@ -154,7 +126,6 @@ rs_boldmsg "Building..."
 
 rs_mkdir_if_not_exists "$rs_prefixdir/$rs_target"
 rs_mkdir_if_not_exists "$rs_supportprefixdir"
-rs_mkdir_if_not_exists "$mingw_runtime_prefix"
 
 rs_extract_module "w32api" "$rs_prefixdir/$rs_target"
 
@@ -165,7 +136,7 @@ if rs_prepare_module "mingw_runtime"; then
 	export CFLAGS="$rs_target_cflags"
 	export C_INCLUDE_PATH="$rs_prefixdir/$rs_target/include"
 	
-	rs_do_command ../mingw_runtime/configure --prefix="$mingw_runtime_prefix" --host="$rs_target" --build="$rs_target" --disable-werror
+	rs_do_command ../mingw_runtime/configure --prefix="$rs_prefixdir/$rs_target" --host="$rs_target" --build="$rs_target"
 	rs_do_command $rs_makecmd -j $rs_cpucount
 	rs_do_command $rs_makecmd install
 	
@@ -174,20 +145,26 @@ if rs_prepare_module "mingw_runtime"; then
 	# As we use MinGW's libmingwex.a, but our own libmsvcrt.a, linking to MinGW's libmingwex.a will fail by default. Therefore we have to create an archive for the compiled
 	# _get_output_format stub, copy it to our "lib" directory and include it when linking to libmingwex.a.
 	ar r ofmt_stub.a ofmt_stub.o >& /dev/null
-	cp ofmt_stub.a "$mingw_runtime_prefix/lib"
+	cp ofmt_stub.a "$rs_prefixdir/$rs_target/lib"
 	
 	rs_clean_module "mingw_runtime"
 	
-	unset CFLAGS
-	unset C_INCLUDE_PATH
+	# The "mingw_runtime_dev" package needed for RosBE-Unix is manually created from the result of this build.
+
+	export CFLAGS=""
+	export C_INCLUDE_PATH=""
 fi
 
 if rs_prepare_module "gmp"; then
-	rs_do_command ../gmp/configure --prefix="$rs_supportprefixdir" --host="$rs_target" --build="$rs_target" --disable-shared --disable-werror
+	export CFLAGS="$rs_host_cflags"
+	
+	rs_do_command ../gmp/configure ABI=32 --prefix="$rs_supportprefixdir" --host="$rs_target" --build="$rs_target" --disable-shared
 	rs_do_command $rs_makecmd -j $rs_cpucount
 	rs_do_command $rs_makecmd check
 	rs_do_command $rs_makecmd install
 	rs_clean_module "gmp"
+	
+	export CFLAGS=""
 fi
 
 if rs_prepare_module "mpfr"; then
@@ -199,18 +176,18 @@ if rs_prepare_module "mpfr"; then
 	rs_do_command $rs_makecmd install
 	rs_clean_module "mpfr"
 	
-	unset CFLAGS
+	export CFLAGS=""
 fi
 
 if rs_prepare_module "binutils"; then
 	export CFLAGS="$rs_host_cflags"
 	
-	rs_do_command ../binutils/configure --prefix="$rs_prefixdir" --host="$rs_target" --build="$rs_target" --target="$rs_target" --disable-nls --disable-werror
+	rs_do_command ../binutils/configure --prefix="$rs_prefixdir" --host="$rs_target" --build="$rs_target" --target="$rs_target" --disable-nls
 	rs_do_command $rs_makecmd -j $rs_cpucount
 	rs_do_command $rs_makecmd install
 	rs_clean_module "binutils"
 	
-	unset CFLAGS
+	export CFLAGS=""
 fi
 
 if rs_prepare_module "gcc"; then
@@ -221,17 +198,17 @@ if rs_prepare_module "gcc"; then
 	export C_INCLUDE_PATH="$rs_prefixdir/$rs_target/include"
 	export LIBRARY_PATH="$rs_prefixdir/$rs_target/lib"
 	
-	rs_do_command ../gcc/configure --prefix="$rs_prefixdir" --host="$rs_target" --build="$rs_target" --target="$rs_target" --with-gmp="$rs_supportprefixdir" --with-mpfr="$rs_supportprefixdir" --with-pkgversion="RosBE-Windows" --enable-languages=c,c++ --enable-checking=release --enable-version-specific-runtime-libs --disable-win32-registry --disable-shared --disable-nls --disable-werror
+	rs_do_command ../gcc/configure --prefix="$rs_prefixdir" --host="$rs_target" --build="$rs_target" --target="$rs_target" --with-gmp="$rs_supportprefixdir" --with-mpfr="$rs_supportprefixdir" --enable-languages=c,c++ --enable-checking=release --enable-version-specific-runtime-libs --enable-threads=win32 --disable-win32-registry --disable-shared --disable-nls
 	rs_do_command $rs_makecmd profiledbootstrap
 	rs_do_command $rs_makecmd install
 	rs_clean_module "gcc"
 	
-	unset STAGE1_CFLAGS
-	unset BOOT_CFLAGS
-	unset CFLAGS_FOR_TARGET
-	unset CXXFLAGS_FOR_TARGET
-	unset C_INCLUDE_PATH
-	unset LIBRARY_PATH
+	export STAGE1_CFLAGS=""
+	export BOOT_CFLAGS=""
+	export CFLAGS_FOR_TARGET=""
+	export CXXFLAGS_FOR_TARGET=""
+	export C_INCLUDE_PATH=""
+	export LIBRARY_PATH=""
 fi
 
 # Final actions
@@ -246,13 +223,9 @@ rm -f bin/c++.exe bin/gccbug bin/$rs_target-*
 
 echo "Removing debugging symbols..."
 find -executable -type f -exec strip -s {} ";" >& /dev/null
+find -name "*.a" -type f -exec strip -d {} ";"
+find -name "*.o" -type f -exec strip -d {} ";"
 ##### END almost shared buildtoolchain/RosBE-Unix building part ###############
 
-# Create the package out of the built files if we want to build the "mingw_runtime_dev" package
-if $make_dev_package; then
-	echo "Creating the \"mingw_runtime_dev.tar.bz2\" archive..."
-	cd "$mingw_runtime_prefix"
-	tar -cjf "mingw_runtime_dev.tar.bz2" include lib
-fi
 
 echo "Finished!"

@@ -3,7 +3,7 @@
 :: LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 :: FILE:        Root/version.cmd
 :: PURPOSE:     Display the current version of GCC, NASM, ld and make.
-:: COPYRIGHT:   Copyright 2010 Daniel Reimer <reimer.daniel@freenet.de>
+:: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
 ::                             Colin Finck <colin@reactos.org>
 ::
 
@@ -17,7 +17,7 @@ ver
 
 :: GCC
 "%_ROSBE_TARGET_MINGWPATH%\bin\%_ROSBE_PREFIX%gcc" -v 2>&1 | find "gcc version"
-echo gcc target^: %ROS_ARCH%
+echo gcc target^: %_ROSBE_TARGET_GCCTARGET%
 
 :: LD
 "%_ROSBE_TARGET_MINGWPATH%\bin\%_ROSBE_PREFIX%ld" -v
@@ -32,4 +32,4 @@ if exist "%_ROSBE_HOST_MINGWPATH%\bin\nasm.exe" (
 :: Bison, Flex and Make
 bison --version | find "GNU Bison"
 flex --version
-make.exe -v | find "GNU Make"
+mingw32-make -v | find "GNU Make"

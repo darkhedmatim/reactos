@@ -52,7 +52,6 @@ public:
 
     PINTERRUPTSYNCROUTINE m_SyncRoutine;
     PVOID m_DynamicContext;
-    NTSTATUS m_Status;
 
     LONG m_Ref;
 
@@ -98,10 +97,10 @@ CInterruptSynchronizedRoutine(
     IN PVOID  ServiceContext)
 {
     CInterruptSync * This = (CInterruptSync*)ServiceContext;
-    This->m_Status = This->m_SyncRoutine(This, This->m_DynamicContext);
+    NTSTATUS Status = This->m_SyncRoutine(This, This->m_DynamicContext);
 
-    DPRINT("CInterruptSynchronizedRoutine this %p SyncRoutine %p Context %p Status %x\n", This, This->m_SyncRoutine, This->m_DynamicContext, This->m_Status);
-    return TRUE;
+    DPRINT("CInterruptSynchronizedRoutine this %p SyncRoutine %p Context %p Status %x\n", This, This->m_SyncRoutine, This->m_DynamicContext, Status);
+    return NT_SUCCESS(Status);
 }
 
 NTSTATUS
@@ -113,7 +112,7 @@ CInterruptSync::CallSynchronizedRoutine(
     KIRQL OldIrql;
 
     DPRINT("CInterruptSync::CallSynchronizedRoutine this %p Routine %p DynamicContext %p Irql %x Interrupt %p\n", this, Routine, DynamicContext, KeGetCurrentIrql(), m_Interrupt);
-    
+
     if (!m_Interrupt)
     {
         DPRINT("CInterruptSync_CallSynchronizedRoutine %p no interrupt connected\n", this);
@@ -126,14 +125,14 @@ CInterruptSync::CallSynchronizedRoutine(
         CInterruptSynchronizedRoutine((PVOID)this);
         KeReleaseSpinLock(&m_Lock, OldIrql);
 
-        return m_Status;
+        return STATUS_SUCCESS;
     }
 
     m_SyncRoutine = Routine;
     m_DynamicContext = DynamicContext;
 
     if (KeSynchronizeExecution(m_Interrupt, CInterruptSynchronizedRoutine, (PVOID)this))
-        return m_Status;
+        return STATUS_SUCCESS;
     else
         return STATUS_UNSUCCESSFUL;
 }
@@ -231,8 +230,6 @@ CInterruptSync::Connect()
 
     if (IsListEmpty(&m_ServiceRoutines))
         return STATUS_UNSUCCESSFUL;
-
-    DPRINT("Vector %u Level %u Flags %x Affinity %x\n", Descriptor->u.Interrupt.Vector, Descriptor->u.Interrupt.Level, Descriptor->Flags, Descriptor->u.Interrupt.Affinity);
 
     Status = IoConnectInterrupt(&m_Interrupt, 
                                 IInterruptServiceRoutine,

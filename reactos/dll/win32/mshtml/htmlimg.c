@@ -39,7 +39,7 @@ typedef struct {
     nsIDOMHTMLImageElement *nsimg;
 } HTMLImgElement;
 
-#define HTMLIMG(x)  ((IHTMLImgElement*)  &(x)->lpHTMLImgElementVtbl)
+#define HTMLIMG(x)  (&(x)->lpHTMLImgElementVtbl)
 
 #define HTMLIMG_THIS(iface) DEFINE_THIS(HTMLImgElement, HTMLImgElement, iface)
 
@@ -228,7 +228,7 @@ static HRESULT WINAPI HTMLImgElement_put_alt(IHTMLImgElement *iface, BSTR v)
 
     TRACE("(%p)->(%s)\n", This, debugstr_w(v));
 
-    nsAString_InitDepend(&alt_str, v);
+    nsAString_Init(&alt_str, v);
     nsres = nsIDOMHTMLImageElement_SetAlt(This->nsimg, &alt_str);
     nsAString_Finish(&alt_str);
     if(NS_FAILED(nsres))
@@ -268,7 +268,7 @@ static HRESULT WINAPI HTMLImgElement_put_src(IHTMLImgElement *iface, BSTR v)
 
     TRACE("(%p)->(%s)\n", This, debugstr_w(v));
 
-    nsAString_InitDepend(&src_str, v);
+    nsAString_Init(&src_str, v);
     nsres = nsIDOMHTMLImageElement_SetSrc(This->nsimg, &src_str);
     nsAString_Finish(&src_str);
     if(NS_FAILED(nsres))
@@ -437,92 +437,36 @@ static HRESULT WINAPI HTMLImgElement_put_name(IHTMLImgElement *iface, BSTR v)
 static HRESULT WINAPI HTMLImgElement_get_name(IHTMLImgElement *iface, BSTR *p)
 {
     HTMLImgElement *This = HTMLIMG_THIS(iface);
-    nsAString strName;
-    nsresult nsres;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    nsAString_Init(&strName, NULL);
-    nsres = nsIDOMHTMLImageElement_GetName(This->nsimg, &strName);
-    if(NS_SUCCEEDED(nsres)) {
-        const PRUnichar *str;
-
-        nsAString_GetData(&strName, &str);
-        *p = *str ? SysAllocString(str) : NULL;
-    }else {
-        ERR("GetName failed: %08x\n", nsres);
-    }
-    nsAString_Finish(&strName);
-
-    return NS_SUCCEEDED(nsres) ? S_OK : E_FAIL;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLImgElement_put_width(IHTMLImgElement *iface, LONG v)
 {
     HTMLImgElement *This = HTMLIMG_THIS(iface);
-    nsresult nsres;
-
-    TRACE("(%p)->(%d)\n", This, v);
-
-    nsres = nsIDOMHTMLImageElement_SetWidth(This->nsimg, v);
-    if(NS_FAILED(nsres)) {
-        ERR("SetWidth failed: %08x\n", nsres);
-        return E_FAIL;
-    }
-
-    return S_OK;
+    FIXME("(%p)->(%d)\n", This, v);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLImgElement_get_width(IHTMLImgElement *iface, LONG *p)
 {
     HTMLImgElement *This = HTMLIMG_THIS(iface);
-    PRInt32 width;
-    nsresult nsres;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    nsres = nsIDOMHTMLImageElement_GetWidth(This->nsimg, &width);
-    if(NS_FAILED(nsres)) {
-        ERR("GetWidth failed: %08x\n", nsres);
-        return E_FAIL;
-    }
-
-    *p = width;
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLImgElement_put_height(IHTMLImgElement *iface, LONG v)
 {
     HTMLImgElement *This = HTMLIMG_THIS(iface);
-    nsresult nsres;
-
-    TRACE("(%p)->(%d)\n", This, v);
-
-    nsres = nsIDOMHTMLImageElement_SetHeight(This->nsimg, v);
-    if(NS_FAILED(nsres)) {
-        ERR("SetHeight failed: %08x\n", nsres);
-        return E_FAIL;
-    }
-
-    return S_OK;
+    FIXME("(%p)->(%d)\n", This, v);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLImgElement_get_height(IHTMLImgElement *iface, LONG *p)
 {
     HTMLImgElement *This = HTMLIMG_THIS(iface);
-    PRInt32 height;
-    nsresult nsres;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    nsres = nsIDOMHTMLImageElement_GetHeight(This->nsimg, &height);
-    if(NS_FAILED(nsres)) {
-        ERR("GetHeight failed: %08x\n", nsres);
-        return E_FAIL;
-    }
-
-    *p = height;
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLImgElement_put_start(IHTMLImgElement *iface, BSTR v)
@@ -628,28 +572,19 @@ static void HTMLImgElement_destructor(HTMLDOMNode *iface)
     HTMLElement_destructor(&This->element.node);
 }
 
-static HRESULT HTMLImgElement_get_readystate(HTMLDOMNode *iface, BSTR *p)
-{
-    HTMLImgElement *This = HTMLIMG_NODE_THIS(iface);
-
-    return IHTMLImgElement_get_readyState(HTMLIMG(This), p);
-}
-
 #undef HTMLIMG_NODE_THIS
 
 static const NodeImplVtbl HTMLImgElementImplVtbl = {
     HTMLImgElement_QI,
-    HTMLImgElement_destructor,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    HTMLImgElement_get_readystate
+    HTMLImgElement_destructor
 };
 
 static const tid_t HTMLImgElement_iface_tids[] = {
-    HTMLELEMENT_TIDS,
+    IHTMLDOMNode_tid,
+    IHTMLDOMNode2_tid,
+    IHTMLElement_tid,
+    IHTMLElement2_tid,
+    IHTMLElement3_tid,
     IHTMLImgElement_tid,
     0
 };
@@ -764,38 +699,12 @@ static HRESULT WINAPI HTMLImageElementFactory_Invoke(IHTMLImageElementFactory *i
     return E_NOTIMPL;
 }
 
-static LONG var_to_size(const VARIANT *v)
-{
-    switch(V_VT(v)) {
-    case VT_EMPTY:
-        return 0;
-    case VT_I4:
-        return V_I4(v);
-    case VT_BSTR: {
-        LONG ret;
-        HRESULT hres;
-
-        hres = VarI4FromStr(V_BSTR(v), 0, 0, &ret);
-        if(FAILED(hres)) {
-            FIXME("VarI4FromStr failed: %08x\n", hres);
-            return 0;
-        }
-        return ret;
-    }
-    default:
-        FIXME("unsupported size %s\n", debugstr_variant(v));
-    }
-    return 0;
-}
-
 static HRESULT WINAPI HTMLImageElementFactory_create(IHTMLImageElementFactory *iface,
         VARIANT width, VARIANT height, IHTMLImgElement **img_elem)
 {
     HTMLImageElementFactory *This = HTMLIMGFACTORY_THIS(iface);
-    IHTMLImgElement *img;
     HTMLElement *elem;
     nsIDOMHTMLElement *nselem;
-    LONG l;
     HRESULT hres;
 
     static const PRUnichar imgW[] = {'I','M','G',0};
@@ -820,7 +729,7 @@ static HRESULT WINAPI HTMLImageElementFactory_create(IHTMLImageElementFactory *i
         return E_FAIL;
     }
 
-    hres = IHTMLElement_QueryInterface(HTMLELEM(elem), &IID_IHTMLImgElement, (void**)&img);
+    hres = IHTMLElement_QueryInterface(HTMLELEM(elem), &IID_IHTMLImgElement, (void**)img_elem);
     if(FAILED(hres)) {
         ERR("IHTMLElement_QueryInterface failed: 0x%08x\n", hres);
         return hres;
@@ -828,14 +737,9 @@ static HRESULT WINAPI HTMLImageElementFactory_create(IHTMLImageElementFactory *i
 
     nsIDOMHTMLElement_Release(nselem);
 
-    l = var_to_size(&width);
-    if(l)
-        IHTMLImgElement_put_width(img, l);
-    l = var_to_size(&height);
-    if(l)
-        IHTMLImgElement_put_height(img, l);
+    if(V_VT(&width) != VT_EMPTY || V_VT(&height) != VT_EMPTY)
+        FIXME("Not setting image dimensions\n");
 
-    *img_elem = img;
     return S_OK;
 }
 

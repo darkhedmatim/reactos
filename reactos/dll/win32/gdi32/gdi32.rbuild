@@ -3,6 +3,7 @@
 	<include base="gdi32">include</include>
 	<define name="LANGPACK" />
 	<library>user32</library>
+	<library>kernel32</library>
 	<library>advapi32</library>
 	<library>win32ksys</library>
 	<library>pseh</library>

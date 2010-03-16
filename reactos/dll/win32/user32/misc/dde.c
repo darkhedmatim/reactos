@@ -1456,11 +1456,6 @@ BOOL WINAPI DdeUnaccessData(HDDEDATA hData)
 BOOL WINAPI DdeFreeDataHandle(HDDEDATA hData)
 {
     TRACE("(%p)\n", hData);
-
-    /* 1 is the handle value returned by an asynchronous operation. */
-    if (hData == (HDDEDATA)1)
-       return TRUE;
-
     return GlobalFree(hData) == 0;
 }
 
@@ -1976,13 +1971,7 @@ WDML_CONV*	WDML_GetConv(HCONV hConv, BOOL checkConnected)
     /* FIXME: should do better checking */
     if (pConv == NULL || pConv->magic != WDML_CONV_MAGIC) return NULL;
 
-    if (!pConv->instance)
-    {
-        WARN("wrong thread ID, no instance\n");
-	return NULL;
-    }
-
-    if (pConv->instance->threadID != GetCurrentThreadId())
+    if (!pConv->instance || pConv->instance->threadID != GetCurrentThreadId())
     {
         WARN("wrong thread ID\n");
         pConv->instance->lastError = DMLERR_INVALIDPARAMETER; /* FIXME: check */

@@ -5,15 +5,6 @@
 #include <windef.h>
 #include <ks.h>
 
-/* Helper macro to enable gcc's extension.  */
-#ifndef __GNU_EXTENSION
-#ifdef __GNUC__
-#define __GNU_EXTENSION __extension__
-#else
-#define __GNU_EXTENSION
-#endif
-#endif
-
 #define STREAMAPI __stdcall
 #define STREAM_SYSTEM_TIME_MASK   ((STREAM_SYSTEM_TIME)0x00000001FFFFFFFF)
 
@@ -46,8 +37,8 @@ typedef enum
 #endif
 
 typedef PHYSICAL_ADDRESS STREAM_PHYSICAL_ADDRESS, *PSTREAM_PHYSICAL_ADDRESS;
-__GNU_EXTENSION typedef unsigned __int64 STREAM_SYSTEM_TIME, *PSTREAM_SYSTEM_TIME;
-__GNU_EXTENSION typedef unsigned __int64 STREAM_TIMESTAMP, *PSTREAM_TIMESTAMP;
+typedef unsigned __int64 STREAM_SYSTEM_TIME, *PSTREAM_SYSTEM_TIME;
+typedef unsigned __int64 STREAM_TIMESTAMP, *PSTREAM_TIMESTAMP;
 
 typedef enum
 {
@@ -70,7 +61,7 @@ typedef struct _HW_EVENT_DESCRIPTOR
     BOOLEAN Enable;
     PKSEVENT_ENTRY EventEntry;
     PKSEVENTDATA EventData;
-    __GNU_EXTENSION union
+    union
     {
         struct _HW_STREAM_OBJECT * StreamObject;
         struct _HW_DEVICE_EXTENSION *DeviceExtension;
@@ -294,7 +285,7 @@ typedef struct _HW_STREAM_REQUEST_BLOCK
     ULONG           Flags;
     PVOID       HwInstanceExtension;
 
-    __GNU_EXTENSION union
+    union
 	{
         ULONG           NumberOfBytesToTransfer;
         ULONG           ActualBytesTransferred;
@@ -385,11 +376,11 @@ typedef enum _STREAM_MINIDRIVER_DEVICE_NOTIFICATION_TYPE
 
 typedef struct _HW_INITIALIZATION_DATA {
 #if (NTDDI_VERSION >= NTDDI_WINXP)
-    __GNU_EXTENSION union
-    {
-        ULONG           HwInitializationDataSize;
-        __GNU_EXTENSION struct
+    union
 	{
+        ULONG           HwInitializationDataSize;
+        struct
+		{
             USHORT      SizeOfThisPacket;
             USHORT      StreamClassVersion;
         };

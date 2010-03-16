@@ -16,8 +16,8 @@
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-
-#pragma once
+#ifndef __NTOSKRNL_INCLUDE_INTERNAL_POWERPC_KE_H
+#define __NTOSKRNL_INCLUDE_INTERNAL_POWERPC_KE_H
 
 #include <ndk/powerpc/ketypes.h>
 
@@ -77,29 +77,6 @@ FORCEINLINE struct _KPCR * NTHALAPI KeGetCurrentKPCR(
     return (struct _KPCR *)__readfsdword(0x1c);
 }
 
-FORCEINLINE
-VOID
-KeFlushProcessTb(VOID)
-{
-    /* Flush the TLB */
-    __asm__("sync\n\tisync\n\t");
-}
-
-FORCEINLINE
-PRKTHREAD
-KeGetCurrentThread(VOID)
-{
-    /* Return the current thread */
-    return KeGetCurrentPrcb()->CurrentThread;
-}
-
-FORCEINLINE
-VOID
-KiRundownThread(IN PKTHREAD Thread)
-{
-    /* FIXME */
-}
-
 #ifdef _NTOSKRNL_ /* FIXME: Move flags above to NDK instead of here */
 VOID
 NTAPI
@@ -111,5 +88,7 @@ KiThreadStartup(PKSYSTEM_ROUTINE SystemRoutine,
 #endif
 
 #endif /* __ASM__ */
+
+#endif /* __NTOSKRNL_INCLUDE_INTERNAL_POWERPC_KE_H */
 
 /* EOF */

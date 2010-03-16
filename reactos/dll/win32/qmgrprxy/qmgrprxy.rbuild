@@ -11,6 +11,7 @@
 	<library>wine</library>
 	<library>qmgrprxy_interface</library>
 	<library>qmgrprxy_proxy</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 	<library>rpcrt4</library>
 	<library>pseh</library>

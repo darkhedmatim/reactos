@@ -53,6 +53,7 @@ HRESULT WINAPI DllRegisterServer(void)
  */
 HRESULT WINAPI DllCanUnloadNow(void)
 {
+	FIXME("stub\n");
 	return S_OK;
 }
 

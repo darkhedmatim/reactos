@@ -4,6 +4,7 @@
 	<importlibrary definition="samsrv.spec" />
 	<include base="samsrv">.</include>
 	<library>ntdll</library>
+	<library>kernel32</library>
 	<file>samsrv.c</file>
 	<file>samsrv.rc</file>
 </module>

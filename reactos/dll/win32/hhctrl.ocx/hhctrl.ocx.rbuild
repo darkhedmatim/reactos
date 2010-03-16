@@ -14,10 +14,7 @@
 	<file>content.c</file>
 	<file>help.c</file>
 	<file>hhctrl.c</file>
-	<file>index.c</file>
 	<file>regsvr.c</file>
-	<file>search.c</file>
-	<file>stream.c</file>
 	<file>webbrowser.c</file>
 	<file>hhctrl.rc</file>
 	<library>wine</library>
@@ -28,6 +25,7 @@
 	<library>oleaut32</library>
 	<library>user32</library>
 	<library>gdi32</library>
+	<library>kernel32</library>
 	<library>uuid</library>
 	<library>ntdll</library>
 </module>

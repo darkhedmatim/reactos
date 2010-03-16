@@ -3,7 +3,8 @@
 //                   - keeped in an array container    //
 /////////////////////////////////////////////////////////
 
-#pragma once
+#ifndef __TKEYDEF_H
+#define __TKEYDEF_H
 
 #include <windows.h>
 
@@ -66,3 +67,5 @@ public:
 	DWORD GetCodeKey() { return vk_code; }
 
 };
+
+#endif

@@ -12,6 +12,10 @@
 #define NDEBUG
 #include <debug.h>
 
+/* GLOBALS *******************************************************************/
+
+ULONG Ke386GlobalPagesEnabled;
+
 /* FUNCTIONS *****************************************************************/
 
 ULONG_PTR
@@ -42,8 +46,8 @@ Ki386EnableGlobalPage(IN volatile ULONG_PTR Context)
     __writecr3(Cr3);
 
     /* Now enable PGE */
-    DPRINT1("Global page support detected but not yet taken advantage of\n");
-    //__writecr4(Cr4 | CR4_PGE);
+    __writecr4(Cr4 | CR4_PGE);
+    Ke386GlobalPagesEnabled = TRUE;
 
     /* Restore interrupts */
     _enable();

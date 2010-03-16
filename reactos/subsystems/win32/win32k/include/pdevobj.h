@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __WIN32K_PDEVOBJ_H
+#define __WIN32K_PDEVOBJ_H
 
 #include <drivers/directx/directxint.h>
 
@@ -32,6 +33,7 @@ typedef struct _GDIPOINTER /* should stay private to ENG? No, part of PDEVOBJ ak
   SURFACE  *psurfColor;
   SURFACE  *psurfMask;
   SURFACE  *psurfSave;
+  int      ShowPointer; /* counter negtive  do not show the mouse postive show the mouse */
 
   /* public pointer information */
   RECTL    Exclude; /* required publicly for SPS_ACCEPT_EXCLUDE */
@@ -142,3 +144,5 @@ typedef struct _PDEVEDD
 } PDEVEDD, *PPDEVEDD;
 
 extern ULONG gdwDirectDrawContext;
+
+#endif /* !__WIN32K_PDEVOBJ_H */

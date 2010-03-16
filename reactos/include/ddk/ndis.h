@@ -32,15 +32,6 @@
 #ifndef __NDIS_H
 #define __NDIS_H
 
-/* Helper macro to enable gcc's extension.  */
-#ifndef __GNU_EXTENSION
-#ifdef __GNUC__
-#define __GNU_EXTENSION __extension__
-#else
-#define __GNU_EXTENSION
-#endif
-#endif
-
 #include "ntddk.h"
 #include "ntddndis.h"
 #include "netpnp.h"
@@ -247,8 +238,8 @@ typedef union _NDIS_RW_LOCK_REFCOUNT {
 } NDIS_RW_LOCK_REFCOUNT;
 
 typedef struct _NDIS_RW_LOCK {
-  __GNU_EXTENSION union {
-    __GNU_EXTENSION struct {
+  union {
+    struct {
       KSPIN_LOCK  SpinLock;
       PVOID  Context;
     };
@@ -389,16 +380,16 @@ typedef struct _NDIS_PACKET_PRIVATE {
 
 typedef struct _NDIS_PACKET {
   NDIS_PACKET_PRIVATE  Private;
-  __GNU_EXTENSION union {
-    __GNU_EXTENSION struct {
+  union {
+    struct {
       UCHAR  MiniportReserved[2 * sizeof(PVOID)];
       UCHAR  WrapperReserved[2 * sizeof(PVOID)];
     };
-    __GNU_EXTENSION struct {
+    struct {
       UCHAR  MiniportReservedEx[3 * sizeof(PVOID)];
       UCHAR  WrapperReservedEx[sizeof(PVOID)];
     };
-    __GNU_EXTENSION struct {
+    struct {
       UCHAR  MacReserved[4 * sizeof(PVOID)];
     };
   };
@@ -483,7 +474,7 @@ typedef struct _NDIS_REQUEST {
  } DATA;
 #if (defined(NDIS50) || defined(NDIS51))
   UCHAR  NdisReserved[9 * sizeof(PVOID)];
-  __GNU_EXTENSION union {
+  union {
     UCHAR  CallMgrReserved[2 * sizeof(PVOID)];
     UCHAR  ProtocolReserved[2 * sizeof(PVOID)];
   };
@@ -2010,10 +2001,34 @@ NdisQueryPacketLength(
     IN PNDIS_PACKET  Packet,
     OUT PUINT  TotalPacketLength  OPTIONAL)
 {
-  if (!(Packet)->Private.ValidCounts)                                     \
-    NdisQueryPacket(Packet, NULL, NULL, NULL, TotalPacketLength);         \
-  else                                                                    \
-    *(TotalPacketLength) = (Packet)->Private.TotalLength;                 \
+  if ((TotalPacketLength))                                                \
+  {                                                                       \
+    if (!(Packet)->Private.ValidCounts) {                                 \
+      UINT _Offset;                                                       \
+      UINT _PacketLength;                                                 \
+      PNDIS_BUFFER _NdisBuffer;                                           \
+      UINT _PhysicalBufferCount = 0;                                      \
+      UINT _TotalPacketLength   = 0;                                      \
+      UINT _Count               = 0;                                      \
+                                                                          \
+      for (_NdisBuffer = (Packet)->Private.Head;                          \
+        _NdisBuffer != (PNDIS_BUFFER)NULL;                                \
+        _NdisBuffer = _NdisBuffer->Next)                                  \
+      {                                                                   \
+        _PhysicalBufferCount += NDIS_BUFFER_TO_SPAN_PAGES(_NdisBuffer);   \
+        NdisQueryBufferOffset(_NdisBuffer, &_Offset, &_PacketLength);     \
+        _TotalPacketLength += _PacketLength;                              \
+        _Count++;                                                         \
+      }                                                                   \
+      (Packet)->Private.PhysicalCount = _PhysicalBufferCount;             \
+      (Packet)->Private.TotalLength   = _TotalPacketLength;               \
+      (Packet)->Private.Count         = _Count;                           \
+      (Packet)->Private.ValidCounts   = TRUE;                             \
+  }                                                                       \
+                                                                          \
+  if (TotalPacketLength)                                                  \
+      *((PUINT)TotalPacketLength) = (Packet)->Private.TotalLength;        \
+  } \
 }
 
 

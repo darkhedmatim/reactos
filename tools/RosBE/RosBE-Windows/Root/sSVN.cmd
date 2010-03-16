@@ -3,7 +3,7 @@
 :: LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 :: FILE:        Root/sSVN.cmd
 :: PURPOSE:     Integrated SVN Client.
-:: COPYRIGHT:   Copyright 2010 Daniel Reimer <reimer.daniel@freenet.de>
+:: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
 ::
 
 @echo off
@@ -32,7 +32,7 @@ if /i "%1" == "update" (
 if /i "%1" == "cleanup" (
     title SVN Cleaning...
 
-    svn.exe cleanup
+    "%_ROSBE_BASEDIR%\Tools\svn.exe" cleanup
 
     goto :EOC
 )
@@ -48,9 +48,9 @@ if /i "%1" == "create" (
     dir /b 2>nul | findstr "." >nul
     if errorlevel 1 (
         if "%ROS_ARCH%" == "amd64" (
-            svn.exe checkout http://svn.reactos.org/reactos/branches/ros-amd64-bringup/reactos .
+            "%_ROSBE_BASEDIR%\Tools\svn.exe" checkout svn://svn.reactos.org/reactos/branches/ros-amd64-bringup/reactos .
         ) else (
-            svn.exe checkout http://svn.reactos.org/reactos/trunk/reactos .
+            "%_ROSBE_BASEDIR%\Tools\svn.exe" checkout svn://svn.reactos.org/reactos/trunk/reactos .
         )
     ) else (
         echo ERROR: Folder is not empty. Continuing is dangerous and can cause errors. ABORTED
@@ -72,9 +72,9 @@ if /i "%1" == "rosapps" (
     dir /b 2>nul | findstr "." >nul
     if errorlevel 1 (
         if "%ROS_ARCH%" == "amd64" (
-            svn.exe checkout http://svn.reactos.org/reactos/branches/ros-amd64-bringup/rosapps .
+            "%_ROSBE_BASEDIR%\Tools\svn.exe" checkout svn://svn.reactos.org/reactos/branches/ros-amd64-bringup/rosapps .
         ) else (
-            svn.exe checkout http://svn.reactos.org/reactos/trunk/rosapps .
+            "%_ROSBE_BASEDIR%\Tools\svn.exe" checkout svn://svn.reactos.org/reactos/trunk/rosapps .
         )
     ) else (
         echo ERROR: Folder is not empty. Continuing is dangerous and can cause errors. ABORTED
@@ -97,9 +97,9 @@ if /i "%1" == "rostests" (
     dir /b 2>nul | findstr "." >nul
     if errorlevel 1 (
         if "%ROS_ARCH%" == "amd64" (
-            svn.exe checkout http://svn.reactos.org/reactos/branches/ros-amd64-bringup/rostests .
+            "%_ROSBE_BASEDIR%\Tools\svn.exe" checkout svn://svn.reactos.org/reactos/branches/ros-amd64-bringup/rostests .
         ) else (
-            svn.exe checkout http://svn.reactos.org/reactos/trunk/rostests .
+            "%_ROSBE_BASEDIR%\Tools\svn.exe" checkout svn://svn.reactos.org/reactos/trunk/rostests .
         )
     ) else (
         echo ERROR: Folder is not empty. Continuing is dangerous and can cause errors. ABORTED
@@ -123,11 +123,11 @@ if not "%1" == "" (
 )
 
 :UP
-    for /f "usebackq tokens=2" %%i in (`"svn.exe info | find "Revision:""`) do set OFFSVN=%%i
+    for /f "usebackq tokens=2" %%i in (`""%_ROSBE_BASEDIR%\Tools\svn.exe" info | find "Revision:""`) do set OFFSVN=%%i
     if "%ROS_ARCH%" == "amd64" (
-        for /f "usebackq tokens=2" %%j in (`"svn.exe info http://svn.reactos.org/reactos/branches/ros-amd64-bringup/reactos | find "Revision:""`) do set ONSVN=%%j
+        for /f "usebackq tokens=2" %%j in (`""%_ROSBE_BASEDIR%\Tools\svn.exe" info svn://svn.reactos.org/reactos/branches/ros-amd64-bringup/reactos | find "Revision:""`) do set ONSVN=%%j
     ) else (
-        for /f "usebackq tokens=2" %%j in (`"svn.exe info http://svn.reactos.org/reactos/trunk/reactos | find "Revision:""`) do set ONSVN=%%j
+        for /f "usebackq tokens=2" %%j in (`""%_ROSBE_BASEDIR%\Tools\svn.exe" info svn://svn.reactos.org/reactos/trunk/reactos | find "Revision:""`) do set ONSVN=%%j
     )
 
     echo Local Revision: !OFFSVN!
@@ -142,31 +142,31 @@ if not "%1" == "" (
         )
         if "!_ROSBE_SSVN_JOB!" == "update" (
             if not "%2" == "" (
-                svn.exe update -r %2
+                "%_ROSBE_BASEDIR%\Tools\svn.exe" update -r %2
                 if exist "modules\rosapps\." (
                     cd modules\rosapps
                     echo Updating RosApps...
-                    svn.exe update -r %2
+                    "%_ROSBE_BASEDIR%\Tools\svn.exe" update -r %2
                     cd "%_ROSBE_ROSSOURCEDIR%"
                 )
                 if exist "modules\rostests\." (
                     cd modules\rostests
                     echo Updating RosTests...
-                    svn.exe update -r %2
+                    "%_ROSBE_BASEDIR%\Tools\svn.exe" update -r %2
                     cd "%_ROSBE_ROSSOURCEDIR%"
                 )
             ) else (
-                svn.exe update
+                "%_ROSBE_BASEDIR%\Tools\svn.exe" update
                 if exist "modules\rosapps\." (
                     cd modules\rosapps
                     echo Updating RosApps...
-                    svn.exe update
+                    "%_ROSBE_BASEDIR%\Tools\svn.exe" update
                     cd "%_ROSBE_ROSSOURCEDIR%"
                 )
                 if exist "modules\rostests\." (
                     cd modules\rostests
                     echo Updating RosTests...
-                    svn.exe update
+                    "%_ROSBE_BASEDIR%\Tools\svn.exe" update
                     cd "%_ROSBE_ROSSOURCEDIR%"
                 )
             )
@@ -174,7 +174,7 @@ if not "%1" == "" (
         echo Do you want to see the changelog?
         set /p CL="Please enter 'yes' or 'no': "
         if /i "!CL!"=="yes" (
-            svn.exe log -r !OFFSVN!:!ONSVN!
+            "%_ROSBE_BASEDIR%\Tools\svn.exe" log -r !OFFSVN!:!ONSVN!
         )
     )
     if !OFFSVN! equ !ONSVN! (

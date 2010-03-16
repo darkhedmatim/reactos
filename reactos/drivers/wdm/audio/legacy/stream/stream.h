@@ -1,4 +1,5 @@
-#pragma once
+#ifndef STREAM_H__
+#define STREAM_H__
 
 #include <strmini.h>
 #define YDEBUG
@@ -135,3 +136,5 @@ CompleteIrp(
     IN PIRP Irp,
     IN NTSTATUS Status,
     IN ULONG_PTR Information);
+
+#endif

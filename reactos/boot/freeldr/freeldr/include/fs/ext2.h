@@ -17,7 +17,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#pragma once
+#ifndef __EXT2_H
+#define __EXT2_H
 
 /*
  *  grub/fs/ext2.c
@@ -236,3 +237,5 @@ typedef struct
 } EXT2_FILE_INFO, * PEXT2_FILE_INFO;
 
 const DEVVTBL* Ext2Mount(ULONG DeviceId);
+
+#endif // #defined __EXT2_H

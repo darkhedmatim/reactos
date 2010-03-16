@@ -94,756 +94,34 @@ GpStatus WINGDIPAPI GdipBitmapCreateApplyEffect(GpBitmap** inputBitmaps,
     return NotImplemented;
 }
 
-static inline void getpixel_1bppIndexed(BYTE *index, const BYTE *row, UINT x)
-{
-    *index = (row[x/8]>>(7-x%8)) & 1;
-}
-
-static inline void getpixel_4bppIndexed(BYTE *index, const BYTE *row, UINT x)
-{
-    if (x & 1)
-        *index = row[x/2]&0xf;
-    else
-        *index = row[x/2]>>4;
-}
-
-static inline void getpixel_8bppIndexed(BYTE *index, const BYTE *row, UINT x)
-{
-    *index = row[x];
-}
-
-static inline void getpixel_16bppGrayScale(BYTE *r, BYTE *g, BYTE *b, BYTE *a,
-    const BYTE *row, UINT x)
-{
-    *r = *g = *b = row[x*2+1];
-    *a = 255;
-}
-
-static inline void getpixel_16bppRGB555(BYTE *r, BYTE *g, BYTE *b, BYTE *a,
-    const BYTE *row, UINT x)
-{
-    WORD pixel = *((WORD*)(row)+x);
-    *r = (pixel>>7&0xf8)|(pixel>>12&0x7);
-    *g = (pixel>>2&0xf8)|(pixel>>6&0x7);
-    *b = (pixel<<3&0xf8)|(pixel>>2&0x7);
-    *a = 255;
-}
-
-static inline void getpixel_16bppRGB565(BYTE *r, BYTE *g, BYTE *b, BYTE *a,
-    const BYTE *row, UINT x)
-{
-    WORD pixel = *((WORD*)(row)+x);
-    *r = (pixel>>8&0xf8)|(pixel>>13&0x7);
-    *g = (pixel>>3&0xfc)|(pixel>>9&0x3);
-    *b = (pixel<<3&0xf8)|(pixel>>2&0x7);
-    *a = 255;
-}
-
-static inline void getpixel_16bppARGB1555(BYTE *r, BYTE *g, BYTE *b, BYTE *a,
-    const BYTE *row, UINT x)
-{
-    WORD pixel = *((WORD*)(row)+x);
-    *r = (pixel>>7&0xf8)|(pixel>>12&0x7);
-    *g = (pixel>>2&0xf8)|(pixel>>6&0x7);
-    *b = (pixel<<3&0xf8)|(pixel>>2&0x7);
-    if ((pixel&0x8000) == 0x8000)
-        *a = 255;
-    else
-        *a = 0;
-}
-
-static inline void getpixel_24bppRGB(BYTE *r, BYTE *g, BYTE *b, BYTE *a,
-    const BYTE *row, UINT x)
-{
-    *r = row[x*3+2];
-    *g = row[x*3+1];
-    *b = row[x*3];
-    *a = 255;
-}
-
-static inline void getpixel_32bppRGB(BYTE *r, BYTE *g, BYTE *b, BYTE *a,
-    const BYTE *row, UINT x)
-{
-    *r = row[x*4+2];
-    *g = row[x*4+1];
-    *b = row[x*4];
-    *a = 255;
-}
-
-static inline void getpixel_32bppARGB(BYTE *r, BYTE *g, BYTE *b, BYTE *a,
-    const BYTE *row, UINT x)
-{
-    *r = row[x*4+2];
-    *g = row[x*4+1];
-    *b = row[x*4];
-    *a = row[x*4+3];
-}
-
-static inline void getpixel_32bppPARGB(BYTE *r, BYTE *g, BYTE *b, BYTE *a,
-    const BYTE *row, UINT x)
-{
-    *a = row[x*4+3];
-    if (*a == 0)
-        *r = *g = *b = 0;
-    else
-    {
-        *r = row[x*4+2] * 255 / *a;
-        *g = row[x*4+1] * 255 / *a;
-        *b = row[x*4] * 255 / *a;
-    }
-}
-
-static inline void getpixel_48bppRGB(BYTE *r, BYTE *g, BYTE *b, BYTE *a,
-    const BYTE *row, UINT x)
-{
-    *r = row[x*6+5];
-    *g = row[x*6+3];
-    *b = row[x*6+1];
-    *a = 255;
-}
-
-static inline void getpixel_64bppARGB(BYTE *r, BYTE *g, BYTE *b, BYTE *a,
-    const BYTE *row, UINT x)
-{
-    *r = row[x*8+5];
-    *g = row[x*8+3];
-    *b = row[x*8+1];
-    *a = row[x*8+7];
-}
-
-static inline void getpixel_64bppPARGB(BYTE *r, BYTE *g, BYTE *b, BYTE *a,
-    const BYTE *row, UINT x)
-{
-    *a = row[x*8+7];
-    if (*a == 0)
-        *r = *g = *b = 0;
-    else
-    {
-        *r = row[x*8+5] * 255 / *a;
-        *g = row[x*8+3] * 255 / *a;
-        *b = row[x*8+1] * 255 / *a;
-    }
-}
-
 GpStatus WINGDIPAPI GdipBitmapGetPixel(GpBitmap* bitmap, INT x, INT y,
     ARGB *color)
 {
-    BYTE r, g, b, a;
-    BYTE index;
-    BYTE *row;
+    static int calls;
     TRACE("%p %d %d %p\n", bitmap, x, y, color);
 
-    if(!bitmap || !color ||
-       x < 0 || y < 0 || x >= bitmap->width || y >= bitmap->height)
+    if(!bitmap || !color)
         return InvalidParameter;
 
-    row = bitmap->bits+bitmap->stride*y;
+    if(!(calls++))
+        FIXME("not implemented\n");
 
-    switch (bitmap->format)
-    {
-        case PixelFormat1bppIndexed:
-            getpixel_1bppIndexed(&index,row,x);
-            break;
-        case PixelFormat4bppIndexed:
-            getpixel_4bppIndexed(&index,row,x);
-            break;
-        case PixelFormat8bppIndexed:
-            getpixel_8bppIndexed(&index,row,x);
-            break;
-        case PixelFormat16bppGrayScale:
-            getpixel_16bppGrayScale(&r,&g,&b,&a,row,x);
-            break;
-        case PixelFormat16bppRGB555:
-            getpixel_16bppRGB555(&r,&g,&b,&a,row,x);
-            break;
-        case PixelFormat16bppRGB565:
-            getpixel_16bppRGB565(&r,&g,&b,&a,row,x);
-            break;
-        case PixelFormat16bppARGB1555:
-            getpixel_16bppARGB1555(&r,&g,&b,&a,row,x);
-            break;
-        case PixelFormat24bppRGB:
-            getpixel_24bppRGB(&r,&g,&b,&a,row,x);
-            break;
-        case PixelFormat32bppRGB:
-            getpixel_32bppRGB(&r,&g,&b,&a,row,x);
-            break;
-        case PixelFormat32bppARGB:
-            getpixel_32bppARGB(&r,&g,&b,&a,row,x);
-            break;
-        case PixelFormat32bppPARGB:
-            getpixel_32bppPARGB(&r,&g,&b,&a,row,x);
-            break;
-        case PixelFormat48bppRGB:
-            getpixel_48bppRGB(&r,&g,&b,&a,row,x);
-            break;
-        case PixelFormat64bppARGB:
-            getpixel_64bppARGB(&r,&g,&b,&a,row,x);
-            break;
-        case PixelFormat64bppPARGB:
-            getpixel_64bppPARGB(&r,&g,&b,&a,row,x);
-            break;
-        default:
-            FIXME("not implemented for format 0x%x\n", bitmap->format);
-            return NotImplemented;
-    }
+    *color = 0xdeadbeef;
 
-    if (bitmap->format & PixelFormatIndexed)
-        *color = bitmap->image.palette_entries[index];
-    else
-        *color = a<<24|r<<16|g<<8|b;
-
-    return Ok;
-}
-
-static inline void setpixel_16bppGrayScale(BYTE r, BYTE g, BYTE b, BYTE a,
-    BYTE *row, UINT x)
-{
-    *((WORD*)(row)+x) = (r+g+b)*85;
-}
-
-static inline void setpixel_16bppRGB555(BYTE r, BYTE g, BYTE b, BYTE a,
-    BYTE *row, UINT x)
-{
-    *((WORD*)(row)+x) = (r<<7&0x7c00)|
-                        (g<<2&0x03e0)|
-                        (b>>3&0x001f);
-}
-
-static inline void setpixel_16bppRGB565(BYTE r, BYTE g, BYTE b, BYTE a,
-    BYTE *row, UINT x)
-{
-    *((WORD*)(row)+x) = (r<<8&0xf800)|
-                         (g<<3&0x07e0)|
-                         (b>>3&0x001f);
-}
-
-static inline void setpixel_16bppARGB1555(BYTE r, BYTE g, BYTE b, BYTE a,
-    BYTE *row, UINT x)
-{
-    *((WORD*)(row)+x) = (a<<8&0x8000)|
-                        (r<<7&0x7c00)|
-                        (g<<2&0x03e0)|
-                        (b>>3&0x001f);
-}
-
-static inline void setpixel_24bppRGB(BYTE r, BYTE g, BYTE b, BYTE a,
-    BYTE *row, UINT x)
-{
-    row[x*3+2] = r;
-    row[x*3+1] = g;
-    row[x*3] = b;
-}
-
-static inline void setpixel_32bppRGB(BYTE r, BYTE g, BYTE b, BYTE a,
-    BYTE *row, UINT x)
-{
-    *((DWORD*)(row)+x) = (r<<16)|(g<<8)|b;
-}
-
-static inline void setpixel_32bppARGB(BYTE r, BYTE g, BYTE b, BYTE a,
-    BYTE *row, UINT x)
-{
-    *((DWORD*)(row)+x) = (a<<24)|(r<<16)|(g<<8)|b;
-}
-
-static inline void setpixel_32bppPARGB(BYTE r, BYTE g, BYTE b, BYTE a,
-    BYTE *row, UINT x)
-{
-    r = r * a / 255;
-    g = g * a / 255;
-    b = b * a / 255;
-    *((DWORD*)(row)+x) = (a<<24)|(r<<16)|(g<<8)|b;
-}
-
-static inline void setpixel_48bppRGB(BYTE r, BYTE g, BYTE b, BYTE a,
-    BYTE *row, UINT x)
-{
-    row[x*6+5] = row[x*6+4] = r;
-    row[x*6+3] = row[x*6+2] = g;
-    row[x*6+1] = row[x*6] = b;
-}
-
-static inline void setpixel_64bppARGB(BYTE r, BYTE g, BYTE b, BYTE a,
-    BYTE *row, UINT x)
-{
-    UINT64 a64=a, r64=r, g64=g, b64=b;
-    *((UINT64*)(row)+x) = (a64<<56)|(a64<<48)|(r64<<40)|(r64<<32)|(g64<<24)|(g64<<16)|(b64<<8)|b64;
-}
-
-static inline void setpixel_64bppPARGB(BYTE r, BYTE g, BYTE b, BYTE a,
-    BYTE *row, UINT x)
-{
-    UINT64 a64, r64, g64, b64;
-    a64 = a * 257;
-    r64 = r * a / 255;
-    g64 = g * a / 255;
-    b64 = b * a / 255;
-    *((UINT64*)(row)+x) = (a64<<48)|(r64<<32)|(g64<<16)|b64;
+    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipBitmapSetPixel(GpBitmap* bitmap, INT x, INT y,
     ARGB color)
 {
-    BYTE a, r, g, b;
-    BYTE *row;
+    static int calls;
     TRACE("bitmap:%p, x:%d, y:%d, color:%08x\n", bitmap, x, y, color);
 
-    if(!bitmap || x < 0 || y < 0 || x >= bitmap->width || y >= bitmap->height)
+    if(!bitmap)
         return InvalidParameter;
 
-    a = color>>24;
-    r = color>>16;
-    g = color>>8;
-    b = color;
-
-    row = bitmap->bits + bitmap->stride * y;
-
-    switch (bitmap->format)
-    {
-        case PixelFormat16bppGrayScale:
-            setpixel_16bppGrayScale(r,g,b,a,row,x);
-            break;
-        case PixelFormat16bppRGB555:
-            setpixel_16bppRGB555(r,g,b,a,row,x);
-            break;
-        case PixelFormat16bppRGB565:
-            setpixel_16bppRGB565(r,g,b,a,row,x);
-            break;
-        case PixelFormat16bppARGB1555:
-            setpixel_16bppARGB1555(r,g,b,a,row,x);
-            break;
-        case PixelFormat24bppRGB:
-            setpixel_24bppRGB(r,g,b,a,row,x);
-            break;
-        case PixelFormat32bppRGB:
-            setpixel_32bppRGB(r,g,b,a,row,x);
-            break;
-        case PixelFormat32bppARGB:
-            setpixel_32bppARGB(r,g,b,a,row,x);
-            break;
-        case PixelFormat32bppPARGB:
-            setpixel_32bppPARGB(r,g,b,a,row,x);
-            break;
-        case PixelFormat48bppRGB:
-            setpixel_48bppRGB(r,g,b,a,row,x);
-            break;
-        case PixelFormat64bppARGB:
-            setpixel_64bppARGB(r,g,b,a,row,x);
-            break;
-        case PixelFormat64bppPARGB:
-            setpixel_64bppPARGB(r,g,b,a,row,x);
-            break;
-        default:
-            FIXME("not implemented for format 0x%x\n", bitmap->format);
-            return NotImplemented;
-    }
-
-    return Ok;
-}
-
-GpStatus convert_pixels(UINT width, UINT height,
-    INT dst_stride, BYTE *dst_bits, PixelFormat dst_format,
-    INT src_stride, const BYTE *src_bits, PixelFormat src_format, ARGB *src_palette)
-{
-    UINT x, y;
-
-    if (src_format == dst_format ||
-        (dst_format == PixelFormat32bppRGB && PIXELFORMATBPP(src_format) == 32))
-    {
-        UINT widthbytes = PIXELFORMATBPP(src_format) * width / 8;
-        for (y=0; y<height; y++)
-            memcpy(dst_bits+dst_stride*y, src_bits+src_stride*y, widthbytes);
-        return Ok;
-    }
-
-#define convert_indexed_to_rgb(getpixel_function, setpixel_function) do { \
-    for (x=0; x<width; x++) \
-        for (y=0; y<height; y++) { \
-            BYTE index; \
-            BYTE *color; \
-            getpixel_function(&index, src_bits+src_stride*y, x); \
-            color = (BYTE*)(&src_palette[index]); \
-            setpixel_function(color[2], color[1], color[0], color[3], dst_bits+dst_stride*y, x); \
-        } \
-    return Ok; \
-} while (0);
-
-#define convert_rgb_to_rgb(getpixel_function, setpixel_function) do { \
-    for (x=0; x<width; x++) \
-        for (y=0; y<height; y++) { \
-            BYTE r, g, b, a; \
-            getpixel_function(&r, &g, &b, &a, src_bits+src_stride*y, x); \
-            setpixel_function(r, g, b, a, dst_bits+dst_stride*y, x); \
-        } \
-    return Ok; \
-} while (0);
-
-    switch (src_format)
-    {
-    case PixelFormat1bppIndexed:
-        switch (dst_format)
-        {
-        case PixelFormat16bppGrayScale:
-            convert_indexed_to_rgb(getpixel_1bppIndexed, setpixel_16bppGrayScale);
-        case PixelFormat16bppRGB555:
-            convert_indexed_to_rgb(getpixel_1bppIndexed, setpixel_16bppRGB555);
-        case PixelFormat16bppRGB565:
-            convert_indexed_to_rgb(getpixel_1bppIndexed, setpixel_16bppRGB565);
-        case PixelFormat16bppARGB1555:
-            convert_indexed_to_rgb(getpixel_1bppIndexed, setpixel_16bppARGB1555);
-        case PixelFormat24bppRGB:
-            convert_indexed_to_rgb(getpixel_1bppIndexed, setpixel_24bppRGB);
-        case PixelFormat32bppRGB:
-            convert_indexed_to_rgb(getpixel_1bppIndexed, setpixel_32bppRGB);
-        case PixelFormat32bppARGB:
-            convert_indexed_to_rgb(getpixel_1bppIndexed, setpixel_32bppARGB);
-        case PixelFormat32bppPARGB:
-            convert_indexed_to_rgb(getpixel_1bppIndexed, setpixel_32bppPARGB);
-        case PixelFormat48bppRGB:
-            convert_indexed_to_rgb(getpixel_1bppIndexed, setpixel_48bppRGB);
-        case PixelFormat64bppARGB:
-            convert_indexed_to_rgb(getpixel_1bppIndexed, setpixel_64bppARGB);
-        default:
-            break;
-        }
-        break;
-    case PixelFormat4bppIndexed:
-        switch (dst_format)
-        {
-        case PixelFormat16bppGrayScale:
-            convert_indexed_to_rgb(getpixel_4bppIndexed, setpixel_16bppGrayScale);
-        case PixelFormat16bppRGB555:
-            convert_indexed_to_rgb(getpixel_4bppIndexed, setpixel_16bppRGB555);
-        case PixelFormat16bppRGB565:
-            convert_indexed_to_rgb(getpixel_4bppIndexed, setpixel_16bppRGB565);
-        case PixelFormat16bppARGB1555:
-            convert_indexed_to_rgb(getpixel_4bppIndexed, setpixel_16bppARGB1555);
-        case PixelFormat24bppRGB:
-            convert_indexed_to_rgb(getpixel_4bppIndexed, setpixel_24bppRGB);
-        case PixelFormat32bppRGB:
-            convert_indexed_to_rgb(getpixel_4bppIndexed, setpixel_32bppRGB);
-        case PixelFormat32bppARGB:
-            convert_indexed_to_rgb(getpixel_4bppIndexed, setpixel_32bppARGB);
-        case PixelFormat32bppPARGB:
-            convert_indexed_to_rgb(getpixel_4bppIndexed, setpixel_32bppPARGB);
-        case PixelFormat48bppRGB:
-            convert_indexed_to_rgb(getpixel_4bppIndexed, setpixel_48bppRGB);
-        case PixelFormat64bppARGB:
-            convert_indexed_to_rgb(getpixel_4bppIndexed, setpixel_64bppARGB);
-        default:
-            break;
-        }
-        break;
-    case PixelFormat8bppIndexed:
-        switch (dst_format)
-        {
-        case PixelFormat16bppGrayScale:
-            convert_indexed_to_rgb(getpixel_8bppIndexed, setpixel_16bppGrayScale);
-        case PixelFormat16bppRGB555:
-            convert_indexed_to_rgb(getpixel_8bppIndexed, setpixel_16bppRGB555);
-        case PixelFormat16bppRGB565:
-            convert_indexed_to_rgb(getpixel_8bppIndexed, setpixel_16bppRGB565);
-        case PixelFormat16bppARGB1555:
-            convert_indexed_to_rgb(getpixel_8bppIndexed, setpixel_16bppARGB1555);
-        case PixelFormat24bppRGB:
-            convert_indexed_to_rgb(getpixel_8bppIndexed, setpixel_24bppRGB);
-        case PixelFormat32bppRGB:
-            convert_indexed_to_rgb(getpixel_8bppIndexed, setpixel_32bppRGB);
-        case PixelFormat32bppARGB:
-            convert_indexed_to_rgb(getpixel_8bppIndexed, setpixel_32bppARGB);
-        case PixelFormat32bppPARGB:
-            convert_indexed_to_rgb(getpixel_8bppIndexed, setpixel_32bppPARGB);
-        case PixelFormat48bppRGB:
-            convert_indexed_to_rgb(getpixel_8bppIndexed, setpixel_48bppRGB);
-        case PixelFormat64bppARGB:
-            convert_indexed_to_rgb(getpixel_8bppIndexed, setpixel_64bppARGB);
-        default:
-            break;
-        }
-        break;
-    case PixelFormat16bppGrayScale:
-        switch (dst_format)
-        {
-        case PixelFormat16bppRGB555:
-            convert_rgb_to_rgb(getpixel_16bppGrayScale, setpixel_16bppRGB555);
-        case PixelFormat16bppRGB565:
-            convert_rgb_to_rgb(getpixel_16bppGrayScale, setpixel_16bppRGB565);
-        case PixelFormat16bppARGB1555:
-            convert_rgb_to_rgb(getpixel_16bppGrayScale, setpixel_16bppARGB1555);
-        case PixelFormat24bppRGB:
-            convert_rgb_to_rgb(getpixel_16bppGrayScale, setpixel_24bppRGB);
-        case PixelFormat32bppRGB:
-            convert_rgb_to_rgb(getpixel_16bppGrayScale, setpixel_32bppRGB);
-        case PixelFormat32bppARGB:
-            convert_rgb_to_rgb(getpixel_16bppGrayScale, setpixel_32bppARGB);
-        case PixelFormat32bppPARGB:
-            convert_rgb_to_rgb(getpixel_16bppGrayScale, setpixel_32bppPARGB);
-        case PixelFormat48bppRGB:
-            convert_rgb_to_rgb(getpixel_16bppGrayScale, setpixel_48bppRGB);
-        case PixelFormat64bppARGB:
-            convert_rgb_to_rgb(getpixel_16bppGrayScale, setpixel_64bppARGB);
-        default:
-            break;
-        }
-        break;
-    case PixelFormat16bppRGB555:
-        switch (dst_format)
-        {
-        case PixelFormat16bppGrayScale:
-            convert_rgb_to_rgb(getpixel_16bppRGB555, setpixel_16bppGrayScale);
-        case PixelFormat16bppRGB565:
-            convert_rgb_to_rgb(getpixel_16bppRGB555, setpixel_16bppRGB565);
-        case PixelFormat16bppARGB1555:
-            convert_rgb_to_rgb(getpixel_16bppRGB555, setpixel_16bppARGB1555);
-        case PixelFormat24bppRGB:
-            convert_rgb_to_rgb(getpixel_16bppRGB555, setpixel_24bppRGB);
-        case PixelFormat32bppRGB:
-            convert_rgb_to_rgb(getpixel_16bppRGB555, setpixel_32bppRGB);
-        case PixelFormat32bppARGB:
-            convert_rgb_to_rgb(getpixel_16bppRGB555, setpixel_32bppARGB);
-        case PixelFormat32bppPARGB:
-            convert_rgb_to_rgb(getpixel_16bppRGB555, setpixel_32bppPARGB);
-        case PixelFormat48bppRGB:
-            convert_rgb_to_rgb(getpixel_16bppRGB555, setpixel_48bppRGB);
-        case PixelFormat64bppARGB:
-            convert_rgb_to_rgb(getpixel_16bppRGB555, setpixel_64bppARGB);
-        default:
-            break;
-        }
-        break;
-    case PixelFormat16bppRGB565:
-        switch (dst_format)
-        {
-        case PixelFormat16bppGrayScale:
-            convert_rgb_to_rgb(getpixel_16bppRGB565, setpixel_16bppGrayScale);
-        case PixelFormat16bppRGB555:
-            convert_rgb_to_rgb(getpixel_16bppRGB565, setpixel_16bppRGB555);
-        case PixelFormat16bppARGB1555:
-            convert_rgb_to_rgb(getpixel_16bppRGB565, setpixel_16bppARGB1555);
-        case PixelFormat24bppRGB:
-            convert_rgb_to_rgb(getpixel_16bppRGB565, setpixel_24bppRGB);
-        case PixelFormat32bppRGB:
-            convert_rgb_to_rgb(getpixel_16bppRGB565, setpixel_32bppRGB);
-        case PixelFormat32bppARGB:
-            convert_rgb_to_rgb(getpixel_16bppRGB565, setpixel_32bppARGB);
-        case PixelFormat32bppPARGB:
-            convert_rgb_to_rgb(getpixel_16bppRGB565, setpixel_32bppPARGB);
-        case PixelFormat48bppRGB:
-            convert_rgb_to_rgb(getpixel_16bppRGB565, setpixel_48bppRGB);
-        case PixelFormat64bppARGB:
-            convert_rgb_to_rgb(getpixel_16bppRGB565, setpixel_64bppARGB);
-        default:
-            break;
-        }
-        break;
-    case PixelFormat16bppARGB1555:
-        switch (dst_format)
-        {
-        case PixelFormat16bppGrayScale:
-            convert_rgb_to_rgb(getpixel_16bppARGB1555, setpixel_16bppGrayScale);
-        case PixelFormat16bppRGB555:
-            convert_rgb_to_rgb(getpixel_16bppARGB1555, setpixel_16bppRGB555);
-        case PixelFormat16bppRGB565:
-            convert_rgb_to_rgb(getpixel_16bppARGB1555, setpixel_16bppRGB565);
-        case PixelFormat24bppRGB:
-            convert_rgb_to_rgb(getpixel_16bppARGB1555, setpixel_24bppRGB);
-        case PixelFormat32bppRGB:
-            convert_rgb_to_rgb(getpixel_16bppARGB1555, setpixel_32bppRGB);
-        case PixelFormat32bppARGB:
-            convert_rgb_to_rgb(getpixel_16bppARGB1555, setpixel_32bppARGB);
-        case PixelFormat32bppPARGB:
-            convert_rgb_to_rgb(getpixel_16bppARGB1555, setpixel_32bppPARGB);
-        case PixelFormat48bppRGB:
-            convert_rgb_to_rgb(getpixel_16bppARGB1555, setpixel_48bppRGB);
-        case PixelFormat64bppARGB:
-            convert_rgb_to_rgb(getpixel_16bppARGB1555, setpixel_64bppARGB);
-        default:
-            break;
-        }
-        break;
-    case PixelFormat24bppRGB:
-        switch (dst_format)
-        {
-        case PixelFormat16bppGrayScale:
-            convert_rgb_to_rgb(getpixel_24bppRGB, setpixel_16bppGrayScale);
-        case PixelFormat16bppRGB555:
-            convert_rgb_to_rgb(getpixel_24bppRGB, setpixel_16bppRGB555);
-        case PixelFormat16bppRGB565:
-            convert_rgb_to_rgb(getpixel_24bppRGB, setpixel_16bppRGB565);
-        case PixelFormat16bppARGB1555:
-            convert_rgb_to_rgb(getpixel_24bppRGB, setpixel_16bppARGB1555);
-        case PixelFormat32bppRGB:
-            convert_rgb_to_rgb(getpixel_24bppRGB, setpixel_32bppRGB);
-        case PixelFormat32bppARGB:
-            convert_rgb_to_rgb(getpixel_24bppRGB, setpixel_32bppARGB);
-        case PixelFormat32bppPARGB:
-            convert_rgb_to_rgb(getpixel_24bppRGB, setpixel_32bppPARGB);
-        case PixelFormat48bppRGB:
-            convert_rgb_to_rgb(getpixel_24bppRGB, setpixel_48bppRGB);
-        case PixelFormat64bppARGB:
-            convert_rgb_to_rgb(getpixel_24bppRGB, setpixel_64bppARGB);
-        default:
-            break;
-        }
-        break;
-    case PixelFormat32bppRGB:
-        switch (dst_format)
-        {
-        case PixelFormat16bppGrayScale:
-            convert_rgb_to_rgb(getpixel_32bppRGB, setpixel_16bppGrayScale);
-        case PixelFormat16bppRGB555:
-            convert_rgb_to_rgb(getpixel_32bppRGB, setpixel_16bppRGB555);
-        case PixelFormat16bppRGB565:
-            convert_rgb_to_rgb(getpixel_32bppRGB, setpixel_16bppRGB565);
-        case PixelFormat16bppARGB1555:
-            convert_rgb_to_rgb(getpixel_32bppRGB, setpixel_16bppARGB1555);
-        case PixelFormat24bppRGB:
-            convert_rgb_to_rgb(getpixel_32bppRGB, setpixel_24bppRGB);
-        case PixelFormat32bppARGB:
-            convert_rgb_to_rgb(getpixel_32bppRGB, setpixel_32bppARGB);
-        case PixelFormat32bppPARGB:
-            convert_rgb_to_rgb(getpixel_32bppRGB, setpixel_32bppPARGB);
-        case PixelFormat48bppRGB:
-            convert_rgb_to_rgb(getpixel_32bppRGB, setpixel_48bppRGB);
-        case PixelFormat64bppARGB:
-            convert_rgb_to_rgb(getpixel_32bppRGB, setpixel_64bppARGB);
-        default:
-            break;
-        }
-        break;
-    case PixelFormat32bppARGB:
-        switch (dst_format)
-        {
-        case PixelFormat16bppGrayScale:
-            convert_rgb_to_rgb(getpixel_32bppARGB, setpixel_16bppGrayScale);
-        case PixelFormat16bppRGB555:
-            convert_rgb_to_rgb(getpixel_32bppARGB, setpixel_16bppRGB555);
-        case PixelFormat16bppRGB565:
-            convert_rgb_to_rgb(getpixel_32bppARGB, setpixel_16bppRGB565);
-        case PixelFormat16bppARGB1555:
-            convert_rgb_to_rgb(getpixel_32bppARGB, setpixel_16bppARGB1555);
-        case PixelFormat24bppRGB:
-            convert_rgb_to_rgb(getpixel_32bppARGB, setpixel_24bppRGB);
-        case PixelFormat32bppPARGB:
-            convert_32bppARGB_to_32bppPARGB(width, height, dst_bits, dst_stride, src_bits, src_stride);
-            return Ok;
-        case PixelFormat48bppRGB:
-            convert_rgb_to_rgb(getpixel_32bppARGB, setpixel_48bppRGB);
-        case PixelFormat64bppARGB:
-            convert_rgb_to_rgb(getpixel_32bppARGB, setpixel_64bppARGB);
-        default:
-            break;
-        }
-        break;
-    case PixelFormat32bppPARGB:
-        switch (dst_format)
-        {
-        case PixelFormat16bppGrayScale:
-            convert_rgb_to_rgb(getpixel_32bppPARGB, setpixel_16bppGrayScale);
-        case PixelFormat16bppRGB555:
-            convert_rgb_to_rgb(getpixel_32bppPARGB, setpixel_16bppRGB555);
-        case PixelFormat16bppRGB565:
-            convert_rgb_to_rgb(getpixel_32bppPARGB, setpixel_16bppRGB565);
-        case PixelFormat16bppARGB1555:
-            convert_rgb_to_rgb(getpixel_32bppPARGB, setpixel_16bppARGB1555);
-        case PixelFormat24bppRGB:
-            convert_rgb_to_rgb(getpixel_32bppPARGB, setpixel_24bppRGB);
-        case PixelFormat32bppRGB:
-            convert_rgb_to_rgb(getpixel_32bppPARGB, setpixel_32bppRGB);
-        case PixelFormat32bppARGB:
-            convert_rgb_to_rgb(getpixel_32bppPARGB, setpixel_32bppARGB);
-        case PixelFormat48bppRGB:
-            convert_rgb_to_rgb(getpixel_32bppPARGB, setpixel_48bppRGB);
-        case PixelFormat64bppARGB:
-            convert_rgb_to_rgb(getpixel_32bppPARGB, setpixel_64bppARGB);
-        default:
-            break;
-        }
-        break;
-    case PixelFormat48bppRGB:
-        switch (dst_format)
-        {
-        case PixelFormat16bppGrayScale:
-            convert_rgb_to_rgb(getpixel_48bppRGB, setpixel_16bppGrayScale);
-        case PixelFormat16bppRGB555:
-            convert_rgb_to_rgb(getpixel_48bppRGB, setpixel_16bppRGB555);
-        case PixelFormat16bppRGB565:
-            convert_rgb_to_rgb(getpixel_48bppRGB, setpixel_16bppRGB565);
-        case PixelFormat16bppARGB1555:
-            convert_rgb_to_rgb(getpixel_48bppRGB, setpixel_16bppARGB1555);
-        case PixelFormat24bppRGB:
-            convert_rgb_to_rgb(getpixel_48bppRGB, setpixel_24bppRGB);
-        case PixelFormat32bppRGB:
-            convert_rgb_to_rgb(getpixel_48bppRGB, setpixel_32bppRGB);
-        case PixelFormat32bppARGB:
-            convert_rgb_to_rgb(getpixel_48bppRGB, setpixel_32bppARGB);
-        case PixelFormat32bppPARGB:
-            convert_rgb_to_rgb(getpixel_48bppRGB, setpixel_32bppPARGB);
-        case PixelFormat64bppARGB:
-            convert_rgb_to_rgb(getpixel_48bppRGB, setpixel_64bppARGB);
-        default:
-            break;
-        }
-        break;
-    case PixelFormat64bppARGB:
-        switch (dst_format)
-        {
-        case PixelFormat16bppGrayScale:
-            convert_rgb_to_rgb(getpixel_64bppARGB, setpixel_16bppGrayScale);
-        case PixelFormat16bppRGB555:
-            convert_rgb_to_rgb(getpixel_64bppARGB, setpixel_16bppRGB555);
-        case PixelFormat16bppRGB565:
-            convert_rgb_to_rgb(getpixel_64bppARGB, setpixel_16bppRGB565);
-        case PixelFormat16bppARGB1555:
-            convert_rgb_to_rgb(getpixel_64bppARGB, setpixel_16bppARGB1555);
-        case PixelFormat24bppRGB:
-            convert_rgb_to_rgb(getpixel_64bppARGB, setpixel_24bppRGB);
-        case PixelFormat32bppRGB:
-            convert_rgb_to_rgb(getpixel_64bppARGB, setpixel_32bppRGB);
-        case PixelFormat32bppARGB:
-            convert_rgb_to_rgb(getpixel_64bppARGB, setpixel_32bppARGB);
-        case PixelFormat32bppPARGB:
-            convert_rgb_to_rgb(getpixel_64bppARGB, setpixel_32bppPARGB);
-        case PixelFormat48bppRGB:
-            convert_rgb_to_rgb(getpixel_64bppARGB, setpixel_48bppRGB);
-        default:
-            break;
-        }
-        break;
-    case PixelFormat64bppPARGB:
-        switch (dst_format)
-        {
-        case PixelFormat16bppGrayScale:
-            convert_rgb_to_rgb(getpixel_64bppPARGB, setpixel_16bppGrayScale);
-        case PixelFormat16bppRGB555:
-            convert_rgb_to_rgb(getpixel_64bppPARGB, setpixel_16bppRGB555);
-        case PixelFormat16bppRGB565:
-            convert_rgb_to_rgb(getpixel_64bppPARGB, setpixel_16bppRGB565);
-        case PixelFormat16bppARGB1555:
-            convert_rgb_to_rgb(getpixel_64bppPARGB, setpixel_16bppARGB1555);
-        case PixelFormat24bppRGB:
-            convert_rgb_to_rgb(getpixel_64bppPARGB, setpixel_24bppRGB);
-        case PixelFormat32bppRGB:
-            convert_rgb_to_rgb(getpixel_64bppPARGB, setpixel_32bppRGB);
-        case PixelFormat32bppARGB:
-            convert_rgb_to_rgb(getpixel_64bppPARGB, setpixel_32bppARGB);
-        case PixelFormat32bppPARGB:
-            convert_rgb_to_rgb(getpixel_64bppPARGB, setpixel_32bppPARGB);
-        case PixelFormat48bppRGB:
-            convert_rgb_to_rgb(getpixel_64bppPARGB, setpixel_48bppRGB);
-        case PixelFormat64bppARGB:
-            convert_rgb_to_rgb(getpixel_64bppPARGB, setpixel_64bppARGB);
-        default:
-            break;
-        }
-        break;
-    default:
-        break;
-    }
-
-#undef convert_indexed_to_rgb
-#undef convert_rgb_to_rgb
+    if(!(calls++))
+        FIXME("not implemented\n");
 
     return NotImplemented;
 }
@@ -857,13 +135,16 @@ GpStatus convert_pixels(UINT width, UINT height,
 GpStatus WINGDIPAPI GdipBitmapLockBits(GpBitmap* bitmap, GDIPCONST GpRect* rect,
     UINT flags, PixelFormat format, BitmapData* lockeddata)
 {
+    BOOL bm_is_selected;
     INT stride, bitspp = PIXELFORMATBPP(format);
+    HDC hdc;
+    HBITMAP hbm, old = NULL;
+    BITMAPINFO *pbmi;
     BYTE *buff = NULL;
     UINT abs_height;
     GpRect act_rect; /* actual rect to be used */
-    GpStatus stat;
 
-    TRACE("%p %p %d 0x%x %p\n", bitmap, rect, flags, format, lockeddata);
+    TRACE("%p %p %d %d %p\n", bitmap, rect, flags, format, lockeddata);
 
     if(!lockeddata || !bitmap)
         return InvalidParameter;
@@ -882,17 +163,10 @@ GpStatus WINGDIPAPI GdipBitmapLockBits(GpBitmap* bitmap, GDIPCONST GpRect* rect,
     }
 
     if(flags & ImageLockModeUserInputBuf)
-    {
-        static int fixme=0;
-        if (!fixme++) FIXME("ImageLockModeUserInputBuf not implemented\n");
         return NotImplemented;
-    }
 
     if(bitmap->lockmode)
-    {
-        WARN("bitmap is already locked and cannot be locked again\n");
         return WrongState;
-    }
 
     if (bitmap->bits && bitmap->format == format)
     {
@@ -911,77 +185,83 @@ GpStatus WINGDIPAPI GdipBitmapLockBits(GpBitmap* bitmap, GDIPCONST GpRect* rect,
         return Ok;
     }
 
-    /* Make sure we can convert to the requested format. */
-    stat = convert_pixels(0, 0, 0, NULL, format, 0, NULL, bitmap->format, NULL);
-    if (stat == NotImplemented)
-    {
-        FIXME("cannot read bitmap from %x to %x\n", bitmap->format, format);
-        return NotImplemented;
+    hbm = bitmap->hbitmap;
+    hdc = bitmap->hdc;
+    bm_is_selected = (hdc != 0);
+
+    pbmi = GdipAlloc(sizeof(BITMAPINFOHEADER) + 256 * sizeof(RGBQUAD));
+    if (!pbmi)
+        return OutOfMemory;
+    pbmi->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    pbmi->bmiHeader.biBitCount = 0;
+
+    if(!bm_is_selected){
+        hdc = CreateCompatibleDC(0);
+        old = SelectObject(hdc, hbm);
     }
 
-    /* If we're opening for writing, make sure we'll be able to write back in
-     * the original format. */
-    if (flags & ImageLockModeWrite)
-    {
-        stat = convert_pixels(0, 0, 0, NULL, bitmap->format, 0, NULL, format, NULL);
-        if (stat == NotImplemented)
-        {
-            FIXME("cannot write bitmap from %x to %x\n", format, bitmap->format);
-            return NotImplemented;
-        }
-    }
+    /* fill out bmi */
+    GetDIBits(hdc, hbm, 0, 0, NULL, pbmi, DIB_RGB_COLORS);
 
-    abs_height = bitmap->height;
-    stride = (bitmap->width * bitspp + 7) / 8;
+    abs_height = abs(pbmi->bmiHeader.biHeight);
+    stride = pbmi->bmiHeader.biWidth * bitspp / 8;
     stride = (stride + 3) & ~3;
 
     buff = GdipAlloc(stride * abs_height);
 
-    if (!buff) return OutOfMemory;
+    pbmi->bmiHeader.biBitCount = bitspp;
 
-    stat = convert_pixels(bitmap->width, bitmap->height,
-        stride, buff, format,
-        bitmap->stride, bitmap->bits, bitmap->format, bitmap->image.palette_entries);
+    if(buff)
+        GetDIBits(hdc, hbm, 0, abs_height, buff, pbmi, DIB_RGB_COLORS);
 
-    if (stat != Ok)
-    {
-        GdipFree(buff);
-        return stat;
+    if(!bm_is_selected){
+        SelectObject(hdc, old);
+        DeleteDC(hdc);
+    }
+
+    if(!buff){
+        GdipFree(pbmi);
+        return OutOfMemory;
     }
 
     lockeddata->Width  = act_rect.Width;
     lockeddata->Height = act_rect.Height;
     lockeddata->PixelFormat = format;
     lockeddata->Reserved = flags;
-    lockeddata->Stride = stride;
-    lockeddata->Scan0  = buff + (bitspp / 8) * act_rect.X + stride * act_rect.Y;
+
+    if(pbmi->bmiHeader.biHeight > 0){
+        lockeddata->Stride = -stride;
+        lockeddata->Scan0  = buff + (bitspp / 8) * act_rect.X +
+                             stride * (abs_height - 1 - act_rect.Y);
+    }
+    else{
+        lockeddata->Stride = stride;
+        lockeddata->Scan0  = buff + (bitspp / 8) * act_rect.X + stride * act_rect.Y;
+    }
 
     bitmap->lockmode = flags;
     bitmap->numlocks++;
+
     bitmap->bitmapbits = buff;
 
+    GdipFree(pbmi);
     return Ok;
 }
 
 GpStatus WINGDIPAPI GdipBitmapSetResolution(GpBitmap* bitmap, REAL xdpi, REAL ydpi)
 {
-    TRACE("(%p, %.2f, %.2f)\n", bitmap, xdpi, ydpi);
+    FIXME("(%p, %.2f, %.2f)\n", bitmap, xdpi, ydpi);
 
-    if (!bitmap || xdpi == 0.0 || ydpi == 0.0)
-        return InvalidParameter;
-
-    bitmap->image.xres = xdpi;
-    bitmap->image.yres = ydpi;
-
-    return Ok;
+    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipBitmapUnlockBits(GpBitmap* bitmap,
     BitmapData* lockeddata)
 {
-    GpStatus stat;
-
-    TRACE("(%p,%p)\n", bitmap, lockeddata);
+    HDC hdc;
+    HBITMAP hbm, old = NULL;
+    BOOL bm_is_selected;
+    BITMAPINFO *pbmi;
 
     if(!bitmap || !lockeddata)
         return InvalidParameter;
@@ -1005,97 +285,54 @@ GpStatus WINGDIPAPI GdipBitmapUnlockBits(GpBitmap* bitmap,
     {
         /* we passed a direct reference; no need to do anything */
         bitmap->lockmode = 0;
-        bitmap->numlocks = 0;
         return Ok;
     }
 
-    stat = convert_pixels(bitmap->width, bitmap->height,
-        bitmap->stride, bitmap->bits, bitmap->format,
-        lockeddata->Stride, bitmap->bitmapbits, lockeddata->PixelFormat, NULL);
+    hbm = bitmap->hbitmap;
+    hdc = bitmap->hdc;
+    bm_is_selected = (hdc != 0);
 
-    if (stat != Ok)
-    {
-        ERR("failed to convert pixels; this should never happen\n");
+    pbmi = GdipAlloc(sizeof(BITMAPINFOHEADER) + 256 * sizeof(RGBQUAD));
+    pbmi->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    pbmi->bmiHeader.biBitCount = 0;
+
+    if(!bm_is_selected){
+        hdc = CreateCompatibleDC(0);
+        old = SelectObject(hdc, hbm);
     }
 
+    GetDIBits(hdc, hbm, 0, 0, NULL, pbmi, DIB_RGB_COLORS);
+    pbmi->bmiHeader.biBitCount = PIXELFORMATBPP(lockeddata->PixelFormat);
+    SetDIBits(hdc, hbm, 0, abs(pbmi->bmiHeader.biHeight),
+              bitmap->bitmapbits, pbmi, DIB_RGB_COLORS);
+
+    if(!bm_is_selected){
+        SelectObject(hdc, old);
+        DeleteDC(hdc);
+    }
+
+    GdipFree(pbmi);
     GdipFree(bitmap->bitmapbits);
     bitmap->bitmapbits = NULL;
     bitmap->lockmode = 0;
-    bitmap->numlocks = 0;
 
-    return stat;
+    return Ok;
 }
 
 GpStatus WINGDIPAPI GdipCloneBitmapArea(REAL x, REAL y, REAL width, REAL height,
     PixelFormat format, GpBitmap* srcBitmap, GpBitmap** dstBitmap)
 {
-    BitmapData lockeddata_src, lockeddata_dst;
-    int i;
-    UINT row_size;
-    Rect area;
-    GpStatus stat;
+    FIXME("(%f,%f,%f,%f,%i,%p,%p): stub\n", x, y, width, height, format, srcBitmap, dstBitmap);
 
-    TRACE("(%f,%f,%f,%f,0x%x,%p,%p)\n", x, y, width, height, format, srcBitmap, dstBitmap);
-
-    if (!srcBitmap || !dstBitmap || srcBitmap->image.type != ImageTypeBitmap ||
-        x < 0 || y < 0 ||
-        x + width > srcBitmap->width || y + height > srcBitmap->height)
-    {
-        TRACE("<-- InvalidParameter\n");
-        return InvalidParameter;
-    }
-
-    if (format == PixelFormatDontCare)
-        format = srcBitmap->format;
-
-    area.X = roundr(x);
-    area.Y = roundr(y);
-    area.Width = roundr(width);
-    area.Height = roundr(height);
-
-    stat = GdipBitmapLockBits(srcBitmap, &area, ImageLockModeRead, format,
-        &lockeddata_src);
-    if (stat != Ok) return stat;
-
-    stat = GdipCreateBitmapFromScan0(lockeddata_src.Width, lockeddata_src.Height,
-        0, lockeddata_src.PixelFormat, NULL, dstBitmap);
-    if (stat == Ok)
-    {
-        stat = GdipBitmapLockBits(*dstBitmap, NULL, ImageLockModeWrite,
-            lockeddata_src.PixelFormat, &lockeddata_dst);
-
-        if (stat == Ok)
-        {
-            /* copy the image data */
-            row_size = (lockeddata_src.Width * PIXELFORMATBPP(lockeddata_src.PixelFormat) +7)/8;
-            for (i=0; i<lockeddata_src.Height; i++)
-                memcpy((BYTE*)lockeddata_dst.Scan0+lockeddata_dst.Stride*i,
-                       (BYTE*)lockeddata_src.Scan0+lockeddata_src.Stride*i,
-                       row_size);
-
-            GdipBitmapUnlockBits(*dstBitmap, &lockeddata_dst);
-        }
-
-        if (stat != Ok)
-            GdipDisposeImage((GpImage*)*dstBitmap);
-    }
-
-    GdipBitmapUnlockBits(srcBitmap, &lockeddata_src);
-
-    if (stat != Ok)
-    {
-        *dstBitmap = NULL;
-    }
-
-    return stat;
+    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipCloneBitmapAreaI(INT x, INT y, INT width, INT height,
     PixelFormat format, GpBitmap* srcBitmap, GpBitmap** dstBitmap)
 {
-    TRACE("(%i,%i,%i,%i,0x%x,%p,%p)\n", x, y, width, height, format, srcBitmap, dstBitmap);
+    FIXME("(%i,%i,%i,%i,%i,%p,%p): stub\n", x, y, width, height, format, srcBitmap, dstBitmap);
 
-    return GdipCloneBitmapArea(x, y, width, height, format, srcBitmap, dstBitmap);
+    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipCloneImage(GpImage *image, GpImage **cloneImage)
@@ -1168,18 +405,14 @@ GpStatus WINGDIPAPI GdipCloneImage(GpImage *image, GpImage **cloneImage)
                 GdipBitmapUnlockBits((GpBitmap*)*cloneImage, &lockeddata_dst);
             }
 
-            if (stat != Ok)
-                GdipDisposeImage(*cloneImage);
+            GdipBitmapUnlockBits(bitmap, &lockeddata_src);
         }
-
-        GdipBitmapUnlockBits(bitmap, &lockeddata_src);
 
         if (stat != Ok)
         {
+            GdipDisposeImage(*cloneImage);
             *cloneImage = NULL;
         }
-        else memcpy(&(*cloneImage)->format, &image->format, sizeof(GUID));
-
         return stat;
     }
     else
@@ -1359,9 +592,6 @@ GpStatus WINGDIPAPI GdipConvertToEmfPlus(const GpGraphics* ref,
 {
     static int calls;
 
-    TRACE("(%p,%p,%p,%u,%s,%p)\n", ref, metafile, succ, emfType,
-        debugstr_w(description), out_metafile);
-
     if(!ref || !metafile || !out_metafile)
         return InvalidParameter;
 
@@ -1415,7 +645,11 @@ GpStatus WINGDIPAPI GdipCreateBitmapFromHICON(HICON hicon, GpBitmap** bitmap)
     TRACE("%p, %p\n", hicon, bitmap);
 
     if(!bitmap || !GetIconInfo(hicon, &iinfo))
+    {
+        DeleteObject(iinfo.hbmColor);
+        DeleteObject(iinfo.hbmMask);
         return InvalidParameter;
+    }
 
     /* get the size of the icon */
     ret = GetObjectA(iinfo.hbmColor ? iinfo.hbmColor : iinfo.hbmMask, sizeof(bm), &bm);
@@ -1559,71 +793,17 @@ GpStatus WINGDIPAPI GdipCreateBitmapFromHICON(HICON hicon, GpBitmap** bitmap)
     return Ok;
 }
 
-static void generate_halftone_palette(ARGB *entries, UINT count)
-{
-    static const BYTE halftone_values[6]={0x00,0x33,0x66,0x99,0xcc,0xff};
-    UINT i;
-
-    for (i=0; i<8 && i<count; i++)
-    {
-        entries[i] = 0xff000000;
-        if (i&1) entries[i] |= 0x800000;
-        if (i&2) entries[i] |= 0x8000;
-        if (i&4) entries[i] |= 0x80;
-    }
-
-    if (8 < count)
-        entries[i] = 0xffc0c0c0;
-
-    for (i=9; i<16 && i<count; i++)
-    {
-        entries[i] = 0xff000000;
-        if (i&1) entries[i] |= 0xff0000;
-        if (i&2) entries[i] |= 0xff00;
-        if (i&4) entries[i] |= 0xff;
-    }
-
-    for (i=16; i<40 && i<count; i++)
-    {
-        entries[i] = 0;
-    }
-
-    for (i=40; i<256 && i<count; i++)
-    {
-        entries[i] = 0xff000000;
-        entries[i] |= halftone_values[(i-40)%6];
-        entries[i] |= halftone_values[((i-40)/6)%6] << 8;
-        entries[i] |= halftone_values[((i-40)/36)%6] << 16;
-    }
-}
-
-static GpStatus get_screen_resolution(REAL *xres, REAL *yres)
-{
-    HDC screendc = GetDC(0);
-
-    if (!screendc) return GenericError;
-
-    *xres = (REAL)GetDeviceCaps(screendc, LOGPIXELSX);
-    *yres = (REAL)GetDeviceCaps(screendc, LOGPIXELSY);
-
-    ReleaseDC(0, screendc);
-
-    return Ok;
-}
-
 GpStatus WINGDIPAPI GdipCreateBitmapFromScan0(INT width, INT height, INT stride,
     PixelFormat format, BYTE* scan0, GpBitmap** bitmap)
 {
-    BITMAPINFO* pbmi;
+    BITMAPINFOHEADER bmih;
     HBITMAP hbitmap;
     INT row_size, dib_stride;
     HDC hdc;
     BYTE *bits;
     int i;
-    REAL xres, yres;
-    GpStatus stat;
 
-    TRACE("%d %d %d 0x%x %p %p\n", width, height, stride, format, scan0, bitmap);
+    TRACE("%d %d %d %d %p %p\n", width, height, stride, format, scan0, bitmap);
 
     if (!bitmap) return InvalidParameter;
 
@@ -1635,42 +815,32 @@ GpStatus WINGDIPAPI GdipCreateBitmapFromScan0(INT width, INT height, INT stride,
     if(scan0 && !stride)
         return InvalidParameter;
 
-    stat = get_screen_resolution(&xres, &yres);
-    if (stat != Ok) return stat;
-
     row_size = (width * PIXELFORMATBPP(format)+7) / 8;
     dib_stride = (row_size + 3) & ~3;
 
     if(stride == 0)
         stride = dib_stride;
 
-    pbmi = GdipAlloc(sizeof(BITMAPINFOHEADER) + 256 * sizeof(RGBQUAD));
-    if (!pbmi)
-        return OutOfMemory;
-
-    pbmi->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    pbmi->bmiHeader.biWidth = width;
-    pbmi->bmiHeader.biHeight = -height;
-    pbmi->bmiHeader.biPlanes = 1;
+    bmih.biSize = sizeof(BITMAPINFOHEADER);
+    bmih.biWidth = width;
+    bmih.biHeight = -height;
+    bmih.biPlanes = 1;
     /* FIXME: use the rest of the data from format */
-    pbmi->bmiHeader.biBitCount = PIXELFORMATBPP(format);
-    pbmi->bmiHeader.biCompression = BI_RGB;
-    pbmi->bmiHeader.biSizeImage = 0;
-    pbmi->bmiHeader.biXPelsPerMeter = 0;
-    pbmi->bmiHeader.biYPelsPerMeter = 0;
-    pbmi->bmiHeader.biClrUsed = 0;
-    pbmi->bmiHeader.biClrImportant = 0;
+    bmih.biBitCount = PIXELFORMATBPP(format);
+    bmih.biCompression = BI_RGB;
+    bmih.biSizeImage = 0;
+    bmih.biXPelsPerMeter = 0;
+    bmih.biYPelsPerMeter = 0;
+    bmih.biClrUsed = 0;
+    bmih.biClrImportant = 0;
 
     hdc = CreateCompatibleDC(NULL);
-    if (!hdc) {
-        GdipFree(pbmi);
-        return GenericError;
-    }
+    if (!hdc) return GenericError;
 
-    hbitmap = CreateDIBSection(hdc, pbmi, DIB_RGB_COLORS, (void**)&bits, NULL, 0);
+    hbitmap = CreateDIBSection(hdc, (BITMAPINFO*)&bmih, DIB_RGB_COLORS, (void**)&bits,
+        NULL, 0);
 
     DeleteDC(hdc);
-    GdipFree(pbmi);
 
     if (!hbitmap) return GenericError;
 
@@ -1688,14 +858,7 @@ GpStatus WINGDIPAPI GdipCreateBitmapFromScan0(INT width, INT height, INT stride,
     }
 
     (*bitmap)->image.type = ImageTypeBitmap;
-    memcpy(&(*bitmap)->image.format, &ImageFormatMemoryBMP, sizeof(GUID));
     (*bitmap)->image.flags = ImageFlagsNone;
-    (*bitmap)->image.palette_flags = 0;
-    (*bitmap)->image.palette_count = 0;
-    (*bitmap)->image.palette_size = 0;
-    (*bitmap)->image.palette_entries = NULL;
-    (*bitmap)->image.xres = xres;
-    (*bitmap)->image.yres = yres;
     (*bitmap)->width = width;
     (*bitmap)->height = height;
     (*bitmap)->format = format;
@@ -1704,38 +867,6 @@ GpStatus WINGDIPAPI GdipCreateBitmapFromScan0(INT width, INT height, INT stride,
     (*bitmap)->hdc = NULL;
     (*bitmap)->bits = bits;
     (*bitmap)->stride = dib_stride;
-
-    if (format == PixelFormat1bppIndexed ||
-        format == PixelFormat4bppIndexed ||
-        format == PixelFormat8bppIndexed)
-    {
-        (*bitmap)->image.palette_size = (*bitmap)->image.palette_count = 1 << PIXELFORMATBPP(format);
-        (*bitmap)->image.palette_entries = GdipAlloc(sizeof(ARGB) * ((*bitmap)->image.palette_size));
-
-        if (!(*bitmap)->image.palette_entries)
-        {
-            GdipDisposeImage(&(*bitmap)->image);
-            *bitmap = NULL;
-            return OutOfMemory;
-        }
-
-        if (format == PixelFormat1bppIndexed)
-        {
-            (*bitmap)->image.palette_flags = PaletteFlagsGrayScale;
-            (*bitmap)->image.palette_entries[0] = 0xff000000;
-            (*bitmap)->image.palette_entries[1] = 0xffffffff;
-        }
-        else
-        {
-            if (format == PixelFormat8bppIndexed)
-                (*bitmap)->image.palette_flags = PaletteFlagsHalftone;
-
-            generate_halftone_palette((*bitmap)->image.palette_entries,
-                (*bitmap)->image.palette_count);
-        }
-    }
-
-    TRACE("<-- %p\n", *bitmap);
 
     return Ok;
 }
@@ -1844,9 +975,7 @@ GpStatus WINGDIPAPI GdipDisposeImage(GpImage *image)
     {
         GdipFree(((GpBitmap*)image)->bitmapbits);
         DeleteDC(((GpBitmap*)image)->hdc);
-        DeleteObject(((GpBitmap*)image)->hbitmap);
     }
-    GdipFree(image->palette_entries);
     GdipFree(image);
 
     return Ok;
@@ -1854,27 +983,8 @@ GpStatus WINGDIPAPI GdipDisposeImage(GpImage *image)
 
 GpStatus WINGDIPAPI GdipFindFirstImageItem(GpImage *image, ImageItemData* item)
 {
-    static int calls;
-
-    TRACE("(%p,%p)\n", image, item);
-
     if(!image || !item)
         return InvalidParameter;
-
-    if (!(calls++))
-        FIXME("not implemented\n");
-
-    return NotImplemented;
-}
-
-GpStatus WINGDIPAPI GdipGetImageItemData(GpImage *image, ImageItemData *item)
-{
-    static int calls;
-
-    TRACE("(%p,%p)\n", image, item);
-
-    if (!(calls++))
-        FIXME("not implemented\n");
 
     return NotImplemented;
 }
@@ -1995,31 +1105,25 @@ GpStatus WINGDIPAPI GdipGetImageHeight(GpImage *image, UINT *height)
 
 GpStatus WINGDIPAPI GdipGetImageHorizontalResolution(GpImage *image, REAL *res)
 {
+    static int calls;
+
     if(!image || !res)
         return InvalidParameter;
 
-    *res = image->xres;
+    if(!(calls++))
+        FIXME("not implemented\n");
 
-    TRACE("(%p) <-- %0.2f\n", image, *res);
-
-    return Ok;
+    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipGetImagePaletteSize(GpImage *image, INT *size)
 {
-    TRACE("%p %p\n", image, size);
+    FIXME("%p %p\n", image, size);
 
     if(!image || !size)
         return InvalidParameter;
 
-    if (image->palette_count == 0)
-        *size = sizeof(ColorPalette);
-    else
-        *size = sizeof(UINT)*2 + sizeof(ARGB)*image->palette_count;
-
-    TRACE("<-- %u\n", *size);
-
-    return Ok;
+    return NotImplemented;
 }
 
 /* FIXME: test this function for non-bitmap types */
@@ -2040,11 +1144,23 @@ GpStatus WINGDIPAPI GdipGetImagePixelFormat(GpImage *image, PixelFormat *format)
 
 GpStatus WINGDIPAPI GdipGetImageRawFormat(GpImage *image, GUID *format)
 {
+    static int calls;
+
     if(!image || !format)
         return InvalidParameter;
 
-    memcpy(format, &image->format, sizeof(GUID));
+    if(!(calls++))
+        FIXME("stub\n");
 
+    /* FIXME: should be detected from embedded picture or stored separately */
+    switch (image->type)
+    {
+    case ImageTypeBitmap:   *format = ImageFormatBMP; break;
+    case ImageTypeMetafile: *format = ImageFormatEMF; break;
+    default:
+        WARN("unknown type %u\n", image->type);
+        *format = ImageFormatUndefined;
+    }
     return Ok;
 }
 
@@ -2062,14 +1178,15 @@ GpStatus WINGDIPAPI GdipGetImageType(GpImage *image, ImageType *type)
 
 GpStatus WINGDIPAPI GdipGetImageVerticalResolution(GpImage *image, REAL *res)
 {
+    static int calls;
+
     if(!image || !res)
         return InvalidParameter;
 
-    *res = image->yres;
+    if(!(calls++))
+        FIXME("not implemented\n");
 
-    TRACE("(%p) <-- %0.2f\n", image, *res);
-
-    return Ok;
+    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipGetImageWidth(GpImage *image, UINT *width)
@@ -2173,33 +1290,16 @@ GpStatus WINGDIPAPI GdipGetPropertySize(GpImage *image, UINT* size, UINT* num)
 {
     static int calls;
 
-    TRACE("(%p,%p,%p)\n", image, size, num);
-
     if(!(calls++))
         FIXME("not implemented\n");
 
     return InvalidParameter;
 }
 
-struct image_format_dimension
-{
-    const GUID *format;
-    const GUID *dimension;
-};
-
-struct image_format_dimension image_format_dimensions[] =
-{
-    {&ImageFormatGIF, &FrameDimensionTime},
-    {&ImageFormatIcon, &FrameDimensionResolution},
-    {NULL}
-};
-
 GpStatus WINGDIPAPI GdipImageGetFrameCount(GpImage *image,
     GDIPCONST GUID* dimensionID, UINT* count)
 {
     static int calls;
-
-    TRACE("(%p,%s,%p)\n", image, debugstr_guid(dimensionID), count);
 
     if(!image || !dimensionID || !count)
         return InvalidParameter;
@@ -2213,12 +1313,12 @@ GpStatus WINGDIPAPI GdipImageGetFrameCount(GpImage *image,
 GpStatus WINGDIPAPI GdipImageGetFrameDimensionsCount(GpImage *image,
     UINT* count)
 {
-    /* Native gdiplus 1.1 does not yet support multiple frame dimensions. */
-
     if(!image || !count)
         return InvalidParameter;
 
     *count = 1;
+
+    FIXME("stub\n");
 
     return Ok;
 }
@@ -2226,27 +1326,13 @@ GpStatus WINGDIPAPI GdipImageGetFrameDimensionsCount(GpImage *image,
 GpStatus WINGDIPAPI GdipImageGetFrameDimensionsList(GpImage* image,
     GUID* dimensionIDs, UINT count)
 {
-    int i;
-    const GUID *result=NULL;
+    static int calls;
 
-    TRACE("(%p,%p,%u)\n", image, dimensionIDs, count);
-
-    if(!image || !dimensionIDs || count != 1)
+    if(!image || !dimensionIDs)
         return InvalidParameter;
 
-    for (i=0; image_format_dimensions[i].format; i++)
-    {
-        if (IsEqualGUID(&image->format, image_format_dimensions[i].format))
-        {
-            result = image_format_dimensions[i].dimension;
-            break;
-        }
-    }
-
-    if (!result)
-        result = &FrameDimensionPage;
-
-    memcpy(dimensionIDs, result, sizeof(GUID));
+    if(!(calls++))
+        FIXME("not implemented\n");
 
     return Ok;
 }
@@ -2421,37 +1507,105 @@ static GpStatus decode_image_icon(IStream* stream, REFCLSID clsid, GpImage **ima
     return decode_image_wic(stream, &CLSID_WICIcoDecoder, image);
 }
 
-static GpStatus decode_image_bmp(IStream* stream, REFCLSID clsid, GpImage **image)
-{
-    GpStatus status;
-    GpBitmap* bitmap;
-
-    status = decode_image_wic(stream, &CLSID_WICBmpDecoder, image);
-
-    bitmap = (GpBitmap*)*image;
-
-    if (status == Ok && bitmap->format == PixelFormat32bppARGB)
-    {
-        /* WIC supports bmp files with alpha, but gdiplus does not */
-        bitmap->format = PixelFormat32bppRGB;
-    }
-
-    return status;
-}
-
 static GpStatus decode_image_jpeg(IStream* stream, REFCLSID clsid, GpImage **image)
 {
     return decode_image_wic(stream, &CLSID_WICJpegDecoder, image);
 }
 
-static GpStatus decode_image_png(IStream* stream, REFCLSID clsid, GpImage **image)
-{
-    return decode_image_wic(stream, &CLSID_WICPngDecoder, image);
-}
-
 static GpStatus decode_image_gif(IStream* stream, REFCLSID clsid, GpImage **image)
 {
     return decode_image_wic(stream, &CLSID_WICGifDecoder, image);
+}
+
+static GpStatus decode_image_olepicture_bitmap(IStream* stream, REFCLSID clsid, GpImage **image)
+{
+    IPicture *pic;
+    BITMAPINFO *pbmi;
+    BITMAPCOREHEADER* bmch;
+    HBITMAP hbm;
+    HDC hdc;
+
+    TRACE("%p %p\n", stream, image);
+
+    if(!stream || !image)
+        return InvalidParameter;
+
+    if(OleLoadPicture(stream, 0, FALSE, &IID_IPicture,
+        (LPVOID*) &pic) != S_OK){
+        TRACE("Could not load picture\n");
+        return GenericError;
+    }
+
+    pbmi = GdipAlloc(sizeof(BITMAPINFOHEADER) + 256 * sizeof(RGBQUAD));
+    if (!pbmi)
+        return OutOfMemory;
+    *image = GdipAlloc(sizeof(GpBitmap));
+    if(!*image){
+        GdipFree(pbmi);
+        return OutOfMemory;
+    }
+    (*image)->type = ImageTypeBitmap;
+
+    (*((GpBitmap**) image))->width = ipicture_pixel_width(pic);
+    (*((GpBitmap**) image))->height = ipicture_pixel_height(pic);
+
+    /* get the pixel format */
+    IPicture_get_Handle(pic, (OLE_HANDLE*)&hbm);
+    IPicture_get_CurDC(pic, &hdc);
+
+    (*((GpBitmap**) image))->hbitmap = hbm;
+    (*((GpBitmap**) image))->hdc = hdc;
+    (*((GpBitmap**) image))->bits = NULL;
+
+    bmch = (BITMAPCOREHEADER*) (&pbmi->bmiHeader);
+    bmch->bcSize = sizeof(BITMAPCOREHEADER);
+
+    if(!hdc){
+        HBITMAP old;
+        hdc = CreateCompatibleDC(0);
+        old = SelectObject(hdc, hbm);
+        GetDIBits(hdc, hbm, 0, 0, NULL, pbmi, DIB_RGB_COLORS);
+        SelectObject(hdc, old);
+        DeleteDC(hdc);
+    }
+    else
+        GetDIBits(hdc, hbm, 0, 0, NULL, pbmi, DIB_RGB_COLORS);
+
+    switch(bmch->bcBitCount)
+    {
+        case 1:
+            (*((GpBitmap**) image))->format = PixelFormat1bppIndexed;
+            break;
+        case 4:
+            (*((GpBitmap**) image))->format = PixelFormat4bppIndexed;
+            break;
+        case 8:
+            (*((GpBitmap**) image))->format = PixelFormat8bppIndexed;
+            break;
+        case 16:
+            (*((GpBitmap**) image))->format = PixelFormat16bppRGB565;
+            break;
+        case 24:
+            (*((GpBitmap**) image))->format = PixelFormat24bppRGB;
+            break;
+        case 32:
+            (*((GpBitmap**) image))->format = PixelFormat32bppRGB;
+            break;
+        case 48:
+            (*((GpBitmap**) image))->format = PixelFormat48bppRGB;
+            break;
+        default:
+            FIXME("Bit depth %d is not fully supported yet\n", bmch->bcBitCount);
+            (*((GpBitmap**) image))->format = (bmch->bcBitCount << 8) | PixelFormatGDI;
+            break;
+    }
+
+    GdipFree(pbmi);
+
+    (*image)->picture = pic;
+    (*image)->flags   = ImageFlagsNone;
+
+    return Ok;
 }
 
 static GpStatus decode_image_olepicture_metafile(IStream* stream, REFCLSID clsid, GpImage **image)
@@ -2475,12 +1629,6 @@ static GpStatus decode_image_olepicture_metafile(IStream* stream, REFCLSID clsid
     (*image)->type = ImageTypeMetafile;
     (*image)->picture = pic;
     (*image)->flags   = ImageFlagsNone;
-    (*image)->palette_flags = 0;
-    (*image)->palette_count = 0;
-    (*image)->palette_size = 0;
-    (*image)->palette_entries = NULL;
-
-    TRACE("<-- %p\n", *image);
 
     return Ok;
 }
@@ -2567,15 +1715,7 @@ GpStatus WINGDIPAPI GdipLoadImageFromStream(IStream* stream, GpImage **image)
     if (FAILED(hr)) return hresult_to_status(hr);
 
     /* call on the image decoder to do the real work */
-    stat = codec->decode_func(stream, &codec->info.Clsid, image);
-
-    /* take note of the original data format */
-    if (stat == Ok)
-    {
-        memcpy(&(*image)->format, &codec->info.FormatID, sizeof(GUID));
-    }
-
-    return stat;
+    return codec->decode_func(stream, &codec->info.Clsid, image);
 }
 
 /* FIXME: no ICM */
@@ -2590,8 +1730,6 @@ GpStatus WINGDIPAPI GdipRemovePropertyItem(GpImage *image, PROPID propId)
 {
     static int calls;
 
-    TRACE("(%p,%u)\n", image, propId);
-
     if(!image)
         return InvalidParameter;
 
@@ -2604,8 +1742,6 @@ GpStatus WINGDIPAPI GdipRemovePropertyItem(GpImage *image, PROPID propId)
 GpStatus WINGDIPAPI GdipSetPropertyItem(GpImage *image, GDIPCONST PropertyItem* item)
 {
     static int calls;
-
-    TRACE("(%p,%p)\n", image, item);
 
     if(!(calls++))
         FIXME("not implemented\n");
@@ -2779,12 +1915,6 @@ static GpStatus encode_image_BMP(GpImage *image, IStream* stream,
     return encode_image_WIC(image, stream, &CLSID_WICBmpEncoder, params);
 }
 
-static GpStatus encode_image_png(GpImage *image, IStream* stream,
-    GDIPCONST CLSID* clsid, GDIPCONST EncoderParameters* params)
-{
-    return encode_image_WIC(image, stream, &CLSID_WICPngEncoder, params);
-}
-
 /*****************************************************************************
  * GdipSaveImageToStream [GDIPLUS.@]
  */
@@ -2820,22 +1950,15 @@ GpStatus WINGDIPAPI GdipSaveImageToStream(GpImage *image, IStream* stream,
  */
 GpStatus WINGDIPAPI GdipGetImagePalette(GpImage *image, ColorPalette *palette, INT size)
 {
-    TRACE("(%p,%p,%i)\n", image, palette, size);
+    static int calls = 0;
 
-    if (!image || !palette)
+    if(!image)
         return InvalidParameter;
 
-    if (size < (sizeof(UINT)*2+sizeof(ARGB)*image->palette_count))
-    {
-        TRACE("<-- InsufficientBuffer\n");
-        return InsufficientBuffer;
-    }
+    if(!(calls++))
+        FIXME("not implemented\n");
 
-    palette->Flags = image->palette_flags;
-    palette->Count = image->palette_count;
-    memcpy(palette->Entries, image->palette_entries, sizeof(ARGB)*image->palette_count);
-
-    return Ok;
+    return NotImplemented;
 }
 
 /*****************************************************************************
@@ -2844,28 +1967,15 @@ GpStatus WINGDIPAPI GdipGetImagePalette(GpImage *image, ColorPalette *palette, I
 GpStatus WINGDIPAPI GdipSetImagePalette(GpImage *image,
     GDIPCONST ColorPalette *palette)
 {
-    TRACE("(%p,%p)\n", image, palette);
+    static int calls;
 
-    if(!image || !palette || palette->Count > 256)
+    if(!image || !palette)
         return InvalidParameter;
 
-    if (palette->Count > image->palette_size)
-    {
-        ARGB *new_palette;
+    if(!(calls++))
+        FIXME("not implemented\n");
 
-        new_palette = GdipAlloc(sizeof(ARGB) * palette->Count);
-        if (!new_palette) return OutOfMemory;
-
-        GdipFree(image->palette_entries);
-        image->palette_entries = new_palette;
-        image->palette_size = palette->Count;
-    }
-
-    image->palette_flags = palette->Flags;
-    image->palette_count = palette->Count;
-    memcpy(image->palette_entries, palette->Entries, sizeof(ARGB)*palette->Count);
-
-    return Ok;
+    return NotImplemented;
 }
 
 /*************************************************************************
@@ -2941,7 +2051,7 @@ static const struct image_codec codecs[NUM_CODECS] = {
             /* SigMask */            bmp_sig_mask,
         },
         encode_image_BMP,
-        decode_image_bmp
+        decode_image_olepicture_bitmap
     },
     {
         { /* JPEG */
@@ -3028,15 +2138,15 @@ static const struct image_codec codecs[NUM_CODECS] = {
             /* FormatDescription */  png_format,
             /* FilenameExtension */  png_extension,
             /* MimeType */           png_mimetype,
-            /* Flags */              ImageCodecFlagsEncoder | ImageCodecFlagsDecoder | ImageCodecFlagsSupportBitmap | ImageCodecFlagsBuiltin,
+            /* Flags */              ImageCodecFlagsDecoder | ImageCodecFlagsSupportBitmap | ImageCodecFlagsBuiltin,
             /* Version */            1,
             /* SigCount */           1,
             /* SigSize */            8,
             /* SigPattern */         png_sig_pattern,
             /* SigMask */            png_sig_mask,
         },
-        encode_image_png,
-        decode_image_png
+        NULL,
+        decode_image_olepicture_bitmap
     },
     {
         { /* ICO */
@@ -3169,8 +2279,7 @@ GpStatus WINGDIPAPI GdipCreateBitmapFromHBITMAP(HBITMAP hbm, HPALETTE hpal, GpBi
     BITMAP bm;
     GpStatus retval;
     PixelFormat format;
-    BitmapData lockeddata;
-    INT y;
+    BYTE* bits;
 
     TRACE("%p %p %p\n", hbm, hpal, bitmap);
 
@@ -3211,75 +2320,16 @@ GpStatus WINGDIPAPI GdipCreateBitmapFromHBITMAP(HBITMAP hbm, HPALETTE hpal, GpBi
             return InvalidParameter;
     }
 
-    retval = GdipCreateBitmapFromScan0(bm.bmWidth, bm.bmHeight, 0,
-        format, NULL, bitmap);
-
-    if (retval == Ok)
+    if (bm.bmBits)
+        bits = (BYTE*)bm.bmBits + (bm.bmHeight - 1) * bm.bmWidthBytes;
+    else
     {
-        retval = GdipBitmapLockBits(*bitmap, NULL, ImageLockModeWrite,
-            format, &lockeddata);
-        if (retval == Ok)
-        {
-            if (bm.bmBits)
-            {
-                for (y=0; y<bm.bmHeight; y++)
-                {
-                    memcpy((BYTE*)lockeddata.Scan0+lockeddata.Stride*y,
-                           (BYTE*)bm.bmBits+bm.bmWidthBytes*(bm.bmHeight-1-y),
-                           bm.bmWidthBytes);
-                }
-            }
-            else
-            {
-                HDC hdc;
-                HBITMAP oldhbm;
-                BITMAPINFO *pbmi;
-                INT src_height, dst_stride;
-                BYTE *dst_bits;
-
-                hdc = CreateCompatibleDC(NULL);
-                oldhbm = SelectObject(hdc, hbm);
-
-                pbmi = GdipAlloc(sizeof(BITMAPINFOHEADER) + 256 * sizeof(RGBQUAD));
-
-                if (pbmi)
-                {
-                    pbmi->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-                    pbmi->bmiHeader.biBitCount = 0;
-
-                    GetDIBits(hdc, hbm, 0, 0, NULL, pbmi, DIB_RGB_COLORS);
-
-                    src_height = abs(pbmi->bmiHeader.biHeight);
-
-                    if (pbmi->bmiHeader.biHeight > 0)
-                    {
-                        dst_bits = (BYTE*)lockeddata.Scan0+lockeddata.Stride*(src_height-1);
-                        dst_stride = -lockeddata.Stride;
-                    }
-                    else
-                    {
-                        dst_bits = lockeddata.Scan0;
-                        dst_stride = lockeddata.Stride;
-                    }
-
-                    for (y=0; y<src_height; y++)
-                    {
-                        GetDIBits(hdc, hbm, y, 1, dst_bits+dst_stride*y,
-                            pbmi, DIB_RGB_COLORS);
-                    }
-
-                    GdipFree(pbmi);
-                }
-                else
-                    retval = OutOfMemory;
-
-                SelectObject(hdc, oldhbm);
-                DeleteDC(hdc);
-            }
-
-            GdipBitmapUnlockBits(*bitmap, &lockeddata);
-        }
+        FIXME("can only get image data from DIB sections\n");
+        bits = NULL;
     }
+
+    retval = GdipCreateBitmapFromScan0(bm.bmWidth, bm.bmHeight, -bm.bmWidthBytes,
+        format, bits, bitmap);
 
     return retval;
 }
@@ -3299,8 +2349,6 @@ GpStatus WINGDIPAPI GdipSetEffectParameters(CGpEffect *effect,
     const VOID *params, const UINT size)
 {
     static int calls;
-
-    TRACE("(%p,%p,%u)\n", effect, params, size);
 
     if(!(calls++))
         FIXME("not implemented\n");

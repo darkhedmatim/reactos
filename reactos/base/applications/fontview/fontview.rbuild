@@ -3,6 +3,7 @@
 	<library>gdi32</library>
 	<library>user32</library>
 	<library>shell32</library>
+	<library>kernel32</library>
 	<file>fontview.c</file>
 	<file>display.c</file>
 	<file>fontview.rc</file>

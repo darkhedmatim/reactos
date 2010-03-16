@@ -320,6 +320,8 @@ DECLARE_INTERFACE_(IIrpQueue, IUnknown)
 
     STDMETHOD_(NTSTATUS, Init)(THIS_
         IN KSPIN_CONNECT *ConnectDetails,
+        IN PKSDATAFORMAT DataFormat,
+        IN PDEVICE_OBJECT DeviceObject,
         IN ULONG FrameSize,
         IN ULONG Alignment,
         IN PVOID SilenceBuffer) PURE;
@@ -335,9 +337,16 @@ DECLARE_INTERFACE_(IIrpQueue, IUnknown)
     STDMETHOD_(VOID, UpdateMapping)(THIS_
         IN ULONG BytesWritten) PURE;
 
+    STDMETHOD_(ULONG, NumMappings)(THIS) PURE;
+
     STDMETHOD_(ULONG, NumData)(THIS) PURE;
 
+    STDMETHOD_(BOOL, MinimumDataAvailable)(THIS) PURE;
+
     STDMETHOD_(BOOL, CancelBuffers)(THIS) PURE;
+
+    STDMETHOD_(VOID, UpdateFormat)(THIS_
+        IN PKSDATAFORMAT DataFormat) PURE;
 
     STDMETHOD_(NTSTATUS, GetMappingWithTag)(THIS_
         IN PVOID Tag,
@@ -349,19 +358,19 @@ DECLARE_INTERFACE_(IIrpQueue, IUnknown)
     STDMETHOD_(NTSTATUS, ReleaseMappingWithTag)(THIS_
         IN PVOID Tag) PURE;
 
-    STDMETHOD_(BOOLEAN, HasLastMappingFailed)(THIS) PURE;
+    STDMETHOD_(BOOL, HasLastMappingFailed)(THIS) PURE;
     STDMETHOD_(ULONG, GetCurrentIrpOffset)(THIS) PURE;
-
-    STDMETHOD_(BOOLEAN, GetAcquiredTagRange)(THIS_
-        IN PVOID * FirstTag,
-        IN PVOID * LastTag);
-
+    STDMETHOD_(VOID, SetMinimumDataThreshold)(THIS_
+        IN ULONG MinimumDataThreshold) PURE;
+    STDMETHOD_(ULONG, GetMinimumDataThreshold)(THIS) PURE;
 };
 
 
 #define IMP_IIrpQueue                                  \
     STDMETHODIMP_(NTSTATUS) Init(THIS_                 \
         IN KSPIN_CONNECT *ConnectDetails,              \
+        IN PKSDATAFORMAT DataFormat,                   \
+        IN PDEVICE_OBJECT DeviceObject,                \
         IN ULONG FrameSize,                            \
         IN ULONG Alignment,                            \
         IN PVOID SilenceBuffer);                       \
@@ -377,9 +386,16 @@ DECLARE_INTERFACE_(IIrpQueue, IUnknown)
     STDMETHODIMP_(VOID) UpdateMapping(THIS_            \
         IN ULONG BytesWritten);                        \
                                                        \
+    STDMETHODIMP_(ULONG) NumMappings(THIS);            \
+                                                       \
     STDMETHODIMP_(ULONG) NumData(THIS);                \
                                                        \
+    STDMETHODIMP_(BOOL) MinimumDataAvailable(THIS);    \
+                                                       \
     STDMETHODIMP_(BOOL) CancelBuffers(THIS);           \
+                                                       \
+    STDMETHODIMP_(VOID) UpdateFormat(THIS_             \
+        IN PKSDATAFORMAT DataFormat);                  \
                                                        \
     STDMETHODIMP_(NTSTATUS) GetMappingWithTag(THIS_    \
         IN PVOID Tag,                                  \
@@ -391,13 +407,11 @@ DECLARE_INTERFACE_(IIrpQueue, IUnknown)
     STDMETHODIMP_(NTSTATUS) ReleaseMappingWithTag(     \
         IN PVOID Tag);                                 \
                                                        \
-    STDMETHODIMP_(BOOLEAN) HasLastMappingFailed(THIS); \
+    STDMETHODIMP_(BOOL) HasLastMappingFailed(THIS);    \
     STDMETHODIMP_(ULONG) GetCurrentIrpOffset(THIS);    \
-    STDMETHODIMP_(BOOLEAN) GetAcquiredTagRange(THIS_      \
-        IN PVOID * FirstTag,                           \
-        IN PVOID * LastTag);
-
-
+    STDMETHODIMP_(VOID) SetMinimumDataThreshold(       \
+        IN ULONG MinimumDataThreshold);                \
+    STDMETHODIMP_(ULONG) GetMinimumDataThreshold(VOID)
 
 /*****************************************************************************
  * IKsWorkSink

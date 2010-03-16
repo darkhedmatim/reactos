@@ -19,7 +19,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#pragma once
+#ifndef _aclmulti_h
+#define _aclmulti_h
 
 class CACLMulti :
 	public CComCoClass<CACLMulti, &CLSID_ACLMulti>,
@@ -72,3 +73,5 @@ BEGIN_COM_MAP(CACLMulti)
 	COM_INTERFACE_ENTRY_IID(IID_IObjMgr, IObjMgr)
 END_COM_MAP()
 };
+
+#endif // _aclmulti_h

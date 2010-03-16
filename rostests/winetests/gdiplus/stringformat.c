@@ -29,7 +29,7 @@ static void test_constructor(void)
 {
     GpStringFormat *format;
     GpStatus stat;
-    INT n, count;
+    INT n;
     StringAlignment align, valign;
     StringTrimming trimming;
     StringDigitSubstitute digitsub;
@@ -43,7 +43,6 @@ static void test_constructor(void)
     GdipGetStringFormatHotkeyPrefix(format, &n);
     GdipGetStringFormatTrimming(format, &trimming);
     GdipGetStringFormatDigitSubstitution(format, &digitlang, &digitsub);
-    GdipGetStringFormatMeasurableCharacterRangeCount(format, &count);
 
     expect(HotkeyPrefixNone, n);
     expect(StringAlignmentNear, align);
@@ -51,7 +50,6 @@ static void test_constructor(void)
     expect(StringTrimmingCharacter, trimming);
     expect(StringDigitSubstituteUser, digitsub);
     expect(LANG_NEUTRAL, digitlang);
-    expect(0, count);
 
     stat = GdipDeleteStringFormat(format);
     expect(Ok, stat);
@@ -66,19 +64,14 @@ static void test_characterrange(void)
 
     stat = GdipCreateStringFormat(0, LANG_NEUTRAL, &format);
     expect(Ok, stat);
-    stat = GdipSetStringFormatMeasurableCharacterRanges(NULL, 3, ranges);
-    expect(InvalidParameter, stat);
-    stat = GdipSetStringFormatMeasurableCharacterRanges(format, 0, ranges);
-    expect(Ok, stat);
-    stat = GdipSetStringFormatMeasurableCharacterRanges(format, 3, NULL);
-    expect(InvalidParameter, stat);
-
+todo_wine
+{
     stat = GdipSetStringFormatMeasurableCharacterRanges(format, 3, ranges);
     expect(Ok, stat);
     stat = GdipGetStringFormatMeasurableCharacterRangeCount(format, &count);
     expect(Ok, stat);
     if (stat == Ok) expect(3, count);
-
+}
     stat= GdipDeleteStringFormat(format);
     expect(Ok, stat);
 }

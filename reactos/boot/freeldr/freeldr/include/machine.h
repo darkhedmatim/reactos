@@ -17,7 +17,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#pragma once
+#ifndef __MACHINE_H_
+#define __MACHINE_H_
 
 #ifndef __DISK_H
 #include "disk.h"
@@ -99,6 +100,9 @@ BOOLEAN MachDiskNormalizeSystemPath(char *SystemPath, unsigned Size);
 BOOLEAN MachDiskReadLogicalSectors(ULONG DriveNumber, ULONGLONG SectorNumber, ULONG SectorCount, PVOID Buffer);
 BOOLEAN MachDiskGetDriveGeometry(ULONG DriveNumber, PGEOMETRY DriveGeometry);
 ULONG MachDiskGetCacheableBlockCount(ULONG DriveNumber);
+TIMEINFO* ArcGetTime(VOID);
+ULONG ArcGetRelativeTime(VOID);
+VOID MachHwDetect(VOID);
 VOID MachPrepareForReactOS(IN BOOLEAN Setup);
 
 #define MachConsPutChar(Ch)			MachVtbl.ConsPutChar(Ch)
@@ -124,5 +128,7 @@ VOID MachPrepareForReactOS(IN BOOLEAN Setup);
 #define MachDiskGetDriveGeometry(Drive, Geom)	MachVtbl.DiskGetDriveGeometry((Drive), (Geom))
 #define MachDiskGetCacheableBlockCount(Drive)	MachVtbl.DiskGetCacheableBlockCount(Drive)
 #define MachHwDetect()				MachVtbl.HwDetect()
+
+#endif /* __MACHINE_H_ */
 
 /* EOF */

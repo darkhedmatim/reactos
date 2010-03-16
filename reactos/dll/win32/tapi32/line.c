@@ -53,21 +53,12 @@ DWORD WINAPI lineAccept(HCALL hCall, LPCSTR lpsUserUserInfo, DWORD dwSize)
 }
 
 /***********************************************************************
- *		lineAddProviderA (TAPI32.@)
+ *		lineAddProvider (TAPI32.@)
  */
 DWORD WINAPI lineAddProviderA(LPCSTR lpszProviderName, HWND hwndOwner, LPDWORD lpdwPermanentProviderID)
 {
     FIXME("(%s, %p, %p): stub.\n", lpszProviderName, hwndOwner, lpdwPermanentProviderID);
-    return LINEERR_OPERATIONFAILED;
-}
-
-/***********************************************************************
- *		lineAddProviderW (TAPI32.@)
- */
-DWORD WINAPI lineAddProviderW(LPCWSTR lpszProviderName, HWND hwndOwner, LPDWORD lpdwPermanentProviderID)
-{
-    FIXME("(%s, %p, %p): stub.\n", wine_dbgstr_w(lpszProviderName), hwndOwner, lpdwPermanentProviderID);
-    return LINEERR_OPERATIONFAILED;
+    return 1;
 }
 
 /***********************************************************************
@@ -466,25 +457,12 @@ DWORD WINAPI lineGetCountryA(DWORD dwCountryID, DWORD dwAPIVersion, LPLINECOUNTR
 }
 
 /***********************************************************************
- *		lineGetDevCapsW (TAPI32.@)
+ *		lineGetDevCaps (TAPI32.@)
  */
-DWORD WINAPI lineGetDevCapsW(HLINEAPP hLineApp, DWORD dwDeviceID, DWORD dwAPIVersion,
-                             DWORD dwExtVersion, LPLINEDEVCAPS lpLineDevCaps)
+DWORD WINAPI lineGetDevCapsA(HLINEAPP hLineApp, DWORD dwDeviceID, DWORD dwAPIVersion, DWORD dwExtVersion, LPLINEDEVCAPS lpLineDevCaps)
 {
-    FIXME("(%p, %08x, %08x, %08x, %p): stub.\n", hLineApp, dwDeviceID, dwAPIVersion,
-                                                 dwExtVersion, lpLineDevCaps);
-    return LINEERR_OPERATIONFAILED;
-}
-
-/***********************************************************************
- *		lineGetDevCapsA (TAPI32.@)
- */
-DWORD WINAPI lineGetDevCapsA(HLINEAPP hLineApp, DWORD dwDeviceID, DWORD dwAPIVersion,
-                             DWORD dwExtVersion, LPLINEDEVCAPS lpLineDevCaps)
-{
-    FIXME("(%p, %08x, %08x, %08x, %p): stub.\n", hLineApp, dwDeviceID, dwAPIVersion,
-                                                 dwExtVersion, lpLineDevCaps);
-    return LINEERR_OPERATIONFAILED;
+    FIXME("(%p, %08x, %08x, %08x, %p): stub.\n", hLineApp, dwDeviceID, dwAPIVersion, dwExtVersion, lpLineDevCaps);
+    return 0;
 }
 
 /***********************************************************************
@@ -497,26 +475,12 @@ DWORD WINAPI lineGetDevConfigA(DWORD dwDeviceID, LPVARSTRING lpDeviceConfig, LPC
 }
 
 /***********************************************************************
- *		lineGetIDW (TAPI32.@)
+ *		lineGetID (TAPI32.@)
  */
-DWORD WINAPI lineGetIDW(HLINE hLine, DWORD dwAddressID, HCALL hCall, DWORD dwSelect,
-                        LPVARSTRING lpDeviceID, LPCWSTR lpszDeviceClass)
+DWORD WINAPI lineGetIDA(HLINE hLine, DWORD dwAddressID, HCALL hCall, DWORD dwSelect, LPVARSTRING lpDeviceID, LPCSTR lpszDeviceClass)
 {
-    FIXME("(%p, %08x, %p, %08x, %p, %s): stub.\n", hLine, dwAddressID, hCall,
-                                                   dwSelect, lpDeviceID,
-                                                   debugstr_w(lpszDeviceClass));
-    return LINEERR_OPERATIONFAILED;
-}
-
-/***********************************************************************
- *		lineGetIDA (TAPI32.@)
- */
-DWORD WINAPI lineGetIDA(HLINE hLine, DWORD dwAddressID, HCALL hCall, DWORD dwSelect,
-                        LPVARSTRING lpDeviceID, LPCSTR lpszDeviceClass)
-{
-    FIXME("(%p, %08x, %p, %08x, %p, %s): stub.\n", hLine, dwAddressID, hCall,
-                                                   dwSelect, lpDeviceID, lpszDeviceClass);
-    return LINEERR_OPERATIONFAILED;
+    FIXME("(%p, %08x, %p, %08x, %p, %s): stub.\n", hLine, dwAddressID, hCall, dwSelect, lpDeviceID, lpszDeviceClass);
+    return 0;
 }
 
 /***********************************************************************
@@ -556,21 +520,12 @@ DWORD WINAPI lineGetNumRings(HLINE hLine, DWORD dwAddressID, LPDWORD lpdwNumRing
 }
 
 /***********************************************************************
- *		lineGetProviderListA (TAPI32.@)
+ *		lineGetProviderList (TAPI32.@)
  */
 DWORD WINAPI lineGetProviderListA(DWORD dwAPIVersion, LPLINEPROVIDERLIST lpProviderList)
 {
     FIXME("(%08x, %p): stub.\n", dwAPIVersion, lpProviderList);
-    return LINEERR_OPERATIONFAILED;
-}
-
-/***********************************************************************
- *		lineGetProviderListW (TAPI32.@)
- */
-DWORD WINAPI lineGetProviderListW(DWORD dwAPIVersion, LPLINEPROVIDERLIST lpProviderList)
-{
-    FIXME("(%08x, %p): stub.\n", dwAPIVersion, lpProviderList);
-    return LINEERR_OPERATIONFAILED;
+    return 0;
 }
 
 /***********************************************************************
@@ -1019,25 +974,12 @@ LONG WINAPI lineInitializeExA(LPHLINEAPP lphLineApp, HINSTANCE hInstance, LINECA
 }
 
 /***********************************************************************
- *		lineMakeCallW (TAPI32.@)
+ *		lineMakeCall (TAPI32.@)
  */
-DWORD WINAPI lineMakeCallW(HLINE hLine, LPHCALL lphCall, LPCWSTR lpszDestAddress,
-                           DWORD dwCountryCode, LPLINECALLPARAMS lpCallParams)
+DWORD WINAPI lineMakeCallA(HLINE hLine, LPHCALL lphCall, LPCSTR lpszDestAddress, DWORD dwCountryCode, LPLINECALLPARAMS lpCallParams)
 {
-    FIXME("(%p, %p, %s, %08x, %p): stub.\n", hLine, lphCall, debugstr_w(lpszDestAddress),
-                                             dwCountryCode, lpCallParams);
-    return LINEERR_OPERATIONFAILED;
-}
-
-/***********************************************************************
- *		lineMakeCallA (TAPI32.@)
- */
-DWORD WINAPI lineMakeCallA(HLINE hLine, LPHCALL lphCall, LPCSTR lpszDestAddress,
-                           DWORD dwCountryCode, LPLINECALLPARAMS lpCallParams)
-{
-    FIXME("(%p, %p, %s, %08x, %p): stub.\n", hLine, lphCall, lpszDestAddress,
-                                             dwCountryCode, lpCallParams);
-    return LINEERR_OPERATIONFAILED;
+    FIXME("(%p, %p, %s, %08x, %p): stub.\n", hLine, lphCall, lpszDestAddress, dwCountryCode, lpCallParams);
+    return 1;
 }
 
 /***********************************************************************

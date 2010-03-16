@@ -1674,14 +1674,6 @@ UINT WINAPI SHAddFromPropSheetExtArray(HPSXA hpsxa, LPFNADDPROPSHEETPAGE lpfnAdd
 }
 
 /*************************************************************************
- *      SHCreatePropSheetExtArray	[SHELL32.168]
- */
-HPSXA WINAPI SHCreatePropSheetExtArray(HKEY hKey, LPCWSTR pszSubKey, UINT max_iface)
-{
-    return SHCreatePropSheetExtArrayEx(hKey, pszSubKey, max_iface, NULL);
-}
-
-/*************************************************************************
  *      SHCreatePropSheetExtArrayEx	[SHELL32.194]
  */
 HPSXA WINAPI SHCreatePropSheetExtArrayEx(HKEY hKey, LPCWSTR pszSubKey, UINT max_iface, IDataObject *pDataObj)
@@ -1787,6 +1779,15 @@ HPSXA WINAPI SHCreatePropSheetExtArrayEx(HKEY hKey, LPCWSTR pszSubKey, UINT max_
 
     return (HPSXA)psxa;
 }
+
+/*************************************************************************
+ *      SHCreatePropSheetExtArray	[SHELL32.168]
+ */
+HPSXA WINAPI SHCreatePropSheetExtArray(HKEY hKey, LPCWSTR pszSubKey, UINT max_iface)
+{
+    return SHCreatePropSheetExtArrayEx(hKey, pszSubKey, max_iface, NULL);
+}
+
 
 /*************************************************************************
  *      SHReplaceFromPropSheetExtArray	[SHELL32.170]
@@ -2243,21 +2244,12 @@ LPITEMIDLIST *ppidl, SFGAOF sfgaoIn, SFGAOF *psfgaoOut)
     HRESULT         hr=E_FAIL;
     ULONG           dwAttr=sfgaoIn;
 
-    if(!ppidl)
+    if (!pszName || !ppidl || !psfgaoOut)
         return E_INVALIDARG;
-
-    if (!pszName || !psfgaoOut)
-    {
-        *ppidl = NULL;
-        return E_INVALIDARG;
-    }
 
     hr = SHGetDesktopFolder(&psfDesktop);
     if (FAILED(hr))
-    {
-        *ppidl = NULL;
         return hr;
-    }
 
     hr = IShellFolder_ParseDisplayName(psfDesktop, (HWND)NULL, pbc, (LPOLESTR)pszName, (ULONG *)NULL, ppidl, &dwAttr);
 
@@ -2265,8 +2257,6 @@ LPITEMIDLIST *ppidl, SFGAOF sfgaoIn, SFGAOF *psfgaoOut)
 
     if (SUCCEEDED(hr))
         *psfgaoOut = dwAttr;
-    else
-        *ppidl = NULL;
 
     return hr;
 }

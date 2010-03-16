@@ -364,10 +364,7 @@ static BOOL MSSTYLES_ParseIniSectionName(LPCWSTR lpSection, DWORD dwLen, LPWSTR 
             lstrcpynW(part, comp, sizeof(part)/sizeof(part[0]));
             comp = tmp;
             /* now get the state */
-            tmp = strchrW(comp, ')');
-            if (!tmp)
-                return FALSE;
-            *tmp = 0;
+            *strchrW(comp, ')') = 0;
             lstrcpynW(state, comp, sizeof(state)/sizeof(state[0]));
         }
         else {
@@ -381,10 +378,7 @@ static BOOL MSSTYLES_ParseIniSectionName(LPCWSTR lpSection, DWORD dwLen, LPWSTR 
             lstrcpynW(szClassName, comp, MAX_THEME_CLASS_NAME);
             comp = tmp;
             /* now get the state */
-            tmp = strchrW(comp, ')');
-            if (!tmp)
-                return FALSE;
-            *tmp = 0;
+            *strchrW(comp, ')') = 0;
             lstrcpynW(state, comp, sizeof(state)/sizeof(state[0]));
         }
         else {
@@ -1093,7 +1087,7 @@ static BOOL prepare_alpha (HBITMAP bmp, BOOL* hasAlpha)
 
     *hasAlpha = TRUE;
     p = dib.dsBm.bmBits;
-    n = dib.dsBmih.biHeight * dib.dsBmih.biWidth;
+    n = abs(dib.dsBmih.biHeight) * dib.dsBmih.biWidth;
     /* AlphaBlend() wants premultiplied alpha, so do that now */
     while (n-- > 0)
     {

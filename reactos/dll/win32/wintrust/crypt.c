@@ -1028,18 +1028,7 @@ static BOOL WINTRUST_GetSignedMsgFromPEFile(SIP_SUBJECTINFO *pSubjectInfo,
         /* app hasn't passed buffer, just get the length */
         ret = ImageGetCertificateHeader(pSubjectInfo->hFile, dwIndex, &cert);
         if (ret)
-        {
-            switch (cert.wCertificateType)
-            {
-            case WIN_CERT_TYPE_X509:
-            case WIN_CERT_TYPE_PKCS_SIGNED_DATA:
-                *pcbSignedDataMsg = cert.dwLength;
-                break;
-            default:
-                WARN("unknown certificate type %d\n", cert.wCertificateType);
-                ret = FALSE;
-            }
-        }
+            *pcbSignedDataMsg = cert.dwLength;
     }
     else
     {
@@ -1076,10 +1065,9 @@ static BOOL WINTRUST_GetSignedMsgFromPEFile(SIP_SUBJECTINFO *pSubjectInfo,
                 *pdwEncodingType = X509_ASN_ENCODING | PKCS_7_ASN_ENCODING;
                 break;
             default:
-                WARN("don't know what to do for encoding type %d\n",
+                FIXME("don't know what to do for encoding type %d\n",
                  pCert->wCertificateType);
                 *pdwEncodingType = 0;
-                ret = FALSE;
             }
         }
     }

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _FREELDR_ARCH_COMPAT_H
+#define _FREELDR_ARCH_COMPAT_H
 
 #define __init
 #define __initdata
@@ -103,3 +104,5 @@ void *ioremap(__u32 phys, __u32 size);
 void iounmap(void *logical);
 
 __u32 GetPVR();
+
+#endif/*_FREELDR_ARCH_COMPAT_H*/

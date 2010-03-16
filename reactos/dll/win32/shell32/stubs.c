@@ -381,7 +381,7 @@ CDefFolderMenu_MergeMenu(HINSTANCE hInstance,
  */
 HRESULT
 WINAPI
-CDefFolderMenu_Create(LPITEMIDLIST pidlFolder,
+CDefFolderMenu_Create(PCIDLIST_ABSOLUTE pidlFolder,
                       HWND hwnd,
                       UINT uidl,
                       PCUITEMID_CHILD_ARRAY *apidl,

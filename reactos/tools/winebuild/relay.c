@@ -28,16 +28,29 @@
 #include <ctype.h>
 #include <stdarg.h>
 
+#define __WINESRC__  /* FIXME: for WINE_VM86_TEB_INFO */
+#include "winternl.h"
+#include "wine/winbase16.h"
+
 #include "build.h"
 
+/* offset of a structure field relative to the start of the struct */
+#define STRUCTOFFSET(type,field) ((int)FIELD_OFFSET(type,field))
+
+/* offset of register relative to the start of the CONTEXT struct */
+#define CONTEXTOFFSET(reg)  STRUCTOFFSET(CONTEXT86,reg)
+
+/* offset of register relative to the start of the STACK16FRAME struct */
+#define STACK16OFFSET(reg)  STRUCTOFFSET(STACK16FRAME,reg)
+
+/* offset of register relative to the start of the STACK32FRAME struct */
+#define STACK32OFFSET(reg)  STRUCTOFFSET(STACK32FRAME,reg)
+
 /* offset of the stack pointer relative to %fs:(0) */
-#define STACKOFFSET 0xc0  /* FIELD_OFFSET(TEB,WOW32Reserved) */
+#define STACKOFFSET 0xc0  /* STRUCTOFFSET(TEB,WOW32Reserved) */
 
 /* fix this if the ntdll_thread_regs structure is changed */
-#define GS_OFFSET  0x1d8  /* FIELD_OFFSET(TEB,SystemReserved2) + FIELD_OFFSET(ntdll_thread_data,gs) */
-
-#define DPMI_VIF_OFFSET      (0x1fc + 0) /* FIELD_OFFSET(TEB,GdiTebBatch) + FIELD_OFFSET(WINE_VM86_TEB_INFO,dpmi_vif) */
-#define VM86_PENDING_OFFSET  (0x1fc + 4) /* FIELD_OFFSET(TEB,GdiTebBatch) + FIELD_OFFSET(WINE_VM86_TEB_INFO,vm86_pending) */
+#define GS_OFFSET  0x1d8  /* STRUCTOFFSET(TEB,SystemReserved2) + STRUCTOFFSET(ntdll_thread_data,gs) */
 
 static void function_header( const char *name )
 {
@@ -180,7 +193,7 @@ static void BuildCallFrom16Core( int reg_func, int thunk )
     output( "\tpushl %%ds\n" );
     output( "\tpopl %%ss\n" );
     output( "\tmovl %%ebp, %%esp\n" );
-    output( "\taddl $0x20,%%ebp\n");  /* FIELD_OFFSET(STACK32FRAME,ebp) */
+    output( "\taddl $%d, %%ebp\n", STACK32OFFSET(ebp) );
 
 
     /* At this point:
@@ -197,10 +210,10 @@ static void BuildCallFrom16Core( int reg_func, int thunk )
     if ( thunk )
     {
         /* Set up registers as expected and call thunk */
-        output( "\tleal 0x1a(%%edx),%%ebx\n" );  /* sizeof(STACK16FRAME)-22 */
+        output( "\tleal %d(%%edx), %%ebx\n", (int)sizeof(STACK16FRAME)-22 );
         output( "\tleal -4(%%esp), %%ebp\n" );
 
-        output( "\tcall *0x26(%%edx)\n");  /* FIELD_OFFSET(STACK16FRAME,entry_point) */
+        output( "\tcall *%d(%%edx)\n", STACK16OFFSET(entry_point) );
 
         /* Switch stack back */
         output( "\t.byte 0x64\n\tmovw (%d), %%ss\n", STACKOFFSET+2 );
@@ -231,43 +244,43 @@ static void BuildCallFrom16Core( int reg_func, int thunk )
     /* Build register CONTEXT */
     if ( reg_func )
     {
-        output( "\tsubl $0x2cc,%%esp\n" );       /* sizeof(CONTEXT86) */
+        output( "\tsubl $%d, %%esp\n", (int)sizeof(CONTEXT86) );
 
-        output( "\tmovl %%ecx,0xc0(%%esp)\n" );  /* EFlags */
+        output( "\tmovl %%ecx, %d(%%esp)\n", CONTEXTOFFSET(EFlags) );
 
-        output( "\tmovl %%eax,0xb0(%%esp)\n" );  /* Eax */
-        output( "\tmovl %%ebx,0xa4(%%esp)\n" );  /* Ebx */
-        output( "\tmovl %%esi,0xa0(%%esp)\n" );  /* Esi */
-        output( "\tmovl %%edi,0x9c(%%esp)\n" );  /* Edi */
+        output( "\tmovl %%eax, %d(%%esp)\n", CONTEXTOFFSET(Eax) );
+        output( "\tmovl %%ebx, %d(%%esp)\n", CONTEXTOFFSET(Ebx) );
+        output( "\tmovl %%esi, %d(%%esp)\n", CONTEXTOFFSET(Esi) );
+        output( "\tmovl %%edi, %d(%%esp)\n", CONTEXTOFFSET(Edi) );
 
-        output( "\tmovl 0x0c(%%edx),%%eax\n");   /* FIELD_OFFSET(STACK16FRAME,ebp) */
-        output( "\tmovl %%eax,0xb4(%%esp)\n" );  /* Ebp */
-        output( "\tmovl 0x08(%%edx),%%eax\n");   /* FIELD_OFFSET(STACK16FRAME,ecx) */
-        output( "\tmovl %%eax,0xac(%%esp)\n" );  /* Ecx */
-        output( "\tmovl 0x04(%%edx),%%eax\n");   /* FIELD_OFFSET(STACK16FRAME,edx) */
-        output( "\tmovl %%eax,0xa8(%%esp)\n" );  /* Edx */
+        output( "\tmovl %d(%%edx), %%eax\n", STACK16OFFSET(ebp) );
+        output( "\tmovl %%eax, %d(%%esp)\n", CONTEXTOFFSET(Ebp) );
+        output( "\tmovl %d(%%edx), %%eax\n", STACK16OFFSET(ecx) );
+        output( "\tmovl %%eax, %d(%%esp)\n", CONTEXTOFFSET(Ecx) );
+        output( "\tmovl %d(%%edx), %%eax\n", STACK16OFFSET(edx) );
+        output( "\tmovl %%eax, %d(%%esp)\n", CONTEXTOFFSET(Edx) );
 
-        output( "\tmovzwl 0x10(%%edx),%%eax\n"); /* FIELD_OFFSET(STACK16FRAME,ds) */
-        output( "\tmovl %%eax,0x98(%%esp)\n" );  /* SegDs */
-        output( "\tmovzwl 0x12(%%edx),%%eax\n"); /* FIELD_OFFSET(STACK16FRAME,es) */
-        output( "\tmovl %%eax,0x94(%%esp)\n" );  /* SegEs */
-        output( "\tmovzwl 0x14(%%edx),%%eax\n"); /* FIELD_OFFSET(STACK16FRAME,fs) */
-        output( "\tmovl %%eax,0x90(%%esp)\n" );  /* SegFs */
-        output( "\tmovzwl 0x16(%%edx),%%eax\n"); /* FIELD_OFFSET(STACK16FRAME,gs) */
-        output( "\tmovl %%eax,0x8c(%%esp)\n" );  /* SegGs */
+        output( "\tmovzwl %d(%%edx), %%eax\n", STACK16OFFSET(ds) );
+        output( "\tmovl %%eax, %d(%%esp)\n", CONTEXTOFFSET(SegDs) );
+        output( "\tmovzwl %d(%%edx), %%eax\n", STACK16OFFSET(es) );
+        output( "\tmovl %%eax, %d(%%esp)\n", CONTEXTOFFSET(SegEs) );
+        output( "\tmovzwl %d(%%edx), %%eax\n", STACK16OFFSET(fs) );
+        output( "\tmovl %%eax, %d(%%esp)\n", CONTEXTOFFSET(SegFs) );
+        output( "\tmovzwl %d(%%edx), %%eax\n", STACK16OFFSET(gs) );
+        output( "\tmovl %%eax, %d(%%esp)\n", CONTEXTOFFSET(SegGs) );
 
-        output( "\tmovzwl 0x2e(%%edx),%%eax\n"); /* FIELD_OFFSET(STACK16FRAME,cs) */
-        output( "\tmovl %%eax,0xbc(%%esp)\n" );  /* SegCs */
-        output( "\tmovzwl 0x2c(%%edx),%%eax\n"); /* FIELD_OFFSET(STACK16FRAME,ip) */
-        output( "\tmovl %%eax,0xb8(%%esp)\n" );  /* Eip */
+        output( "\tmovzwl %d(%%edx), %%eax\n", STACK16OFFSET(cs) );
+        output( "\tmovl %%eax, %d(%%esp)\n", CONTEXTOFFSET(SegCs) );
+        output( "\tmovzwl %d(%%edx), %%eax\n", STACK16OFFSET(ip) );
+        output( "\tmovl %%eax, %d(%%esp)\n", CONTEXTOFFSET(Eip) );
 
         output( "\t.byte 0x64\n\tmovzwl (%d), %%eax\n", STACKOFFSET+2 );
-        output( "\tmovl %%eax,0xc8(%%esp)\n" );  /* SegSs */
+        output( "\tmovl %%eax, %d(%%esp)\n", CONTEXTOFFSET(SegSs) );
         output( "\t.byte 0x64\n\tmovzwl (%d), %%eax\n", STACKOFFSET );
-        output( "\taddl $0x2c,%%eax\n");         /* FIELD_OFFSET(STACK16FRAME,ip) */
-        output( "\tmovl %%eax,0xc4(%%esp)\n" );  /* Esp */
+        output( "\taddl $%d, %%eax\n", STACK16OFFSET(ip) );
+        output( "\tmovl %%eax, %d(%%esp)\n", CONTEXTOFFSET(Esp) );
 #if 0
-        output( "\tfsave 0x1c(%%esp)\n" ); /* FloatSave */
+        output( "\tfsave %d(%%esp)\n", CONTEXTOFFSET(FloatSave) );
 #endif
 
         /* Push address of CONTEXT86 structure -- popped by the relay routine */
@@ -284,14 +297,14 @@ static void BuildCallFrom16Core( int reg_func, int thunk )
     }
 
     /* Call relay routine (which will call the API entry point) */
-    output( "\tleal 0x30(%%edx),%%eax\n" ); /* sizeof(STACK16FRAME) */
+    output( "\tleal %d(%%edx), %%eax\n", (int)sizeof(STACK16FRAME) );
     output( "\tpushl %%eax\n" );
-    output( "\tpushl 0x26(%%edx)\n");  /* FIELD_OFFSET(STACK16FRAME,entry_point) */
-    output( "\tcall *0x20(%%edx)\n");  /* FIELD_OFFSET(STACK16FRAME,relay) */
+    output( "\tpushl %d(%%edx)\n", STACK16OFFSET(entry_point) );
+    output( "\tcall *%d(%%edx)\n", STACK16OFFSET(relay) );
 
     if ( reg_func )
     {
-        output( "\tleal -748(%%ebp),%%ebx\n" ); /* sizeof(CONTEXT) + FIELD_OFFSET(STACK32FRAME,ebp) */
+        output( "\tleal -%d(%%ebp), %%ebx\n", (int)sizeof(CONTEXT) + STACK32OFFSET(ebp) );
 
         /* Switch stack back */
         output( "\t.byte 0x64\n\tmovw (%d), %%ss\n", STACKOFFSET+2 );
@@ -299,36 +312,36 @@ static void BuildCallFrom16Core( int reg_func, int thunk )
         output( "\t.byte 0x64\n\tpopl (%d)\n", STACKOFFSET );
 
         /* Get return address to CallFrom16 stub */
-        output( "\taddw $0x14,%%sp\n" ); /* FIELD_OFFSET(STACK16FRAME,callfrom_ip)-4 */
+        output( "\taddw $%d, %%sp\n", STACK16OFFSET(callfrom_ip)-4 );
         output( "\tpopl %%eax\n" );
         output( "\tpopl %%edx\n" );
 
         /* Restore all registers from CONTEXT */
-        output( "\tmovw 0xc8(%%ebx),%%ss\n");   /* SegSs */
-        output( "\tmovl 0xc4(%%ebx),%%esp\n");  /* Esp */
+        output( "\tmovw %d(%%ebx), %%ss\n", CONTEXTOFFSET(SegSs) );
+        output( "\tmovl %d(%%ebx), %%esp\n", CONTEXTOFFSET(Esp) );
         output( "\taddl $4, %%esp\n" );  /* room for final return address */
 
-        output( "\tpushw 0xbc(%%ebx)\n");  /* SegCs */
-        output( "\tpushw 0xb8(%%ebx)\n");  /* Eip */
+        output( "\tpushw %d(%%ebx)\n", CONTEXTOFFSET(SegCs) );
+        output( "\tpushw %d(%%ebx)\n", CONTEXTOFFSET(Eip) );
         output( "\tpushl %%edx\n" );
         output( "\tpushl %%eax\n" );
-        output( "\tpushl 0xc0(%%ebx)\n");  /* EFlags */
-        output( "\tpushl 0x98(%%ebx)\n");  /* SegDs */
+        output( "\tpushl %d(%%ebx)\n", CONTEXTOFFSET(EFlags) );
+        output( "\tpushl %d(%%ebx)\n", CONTEXTOFFSET(SegDs) );
 
-        output( "\tpushl 0x94(%%ebx)\n");  /* SegEs */
+        output( "\tpushl %d(%%ebx)\n", CONTEXTOFFSET(SegEs) );
         output( "\tpopl %%es\n" );
-        output( "\tpushl 0x90(%%ebx)\n");  /* SegFs */
+        output( "\tpushl %d(%%ebx)\n", CONTEXTOFFSET(SegFs) );
         output( "\tpopl %%fs\n" );
-        output( "\tpushl 0x8c(%%ebx)\n");  /* SegGs */
+        output( "\tpushl %d(%%ebx)\n", CONTEXTOFFSET(SegGs) );
         output( "\tpopl %%gs\n" );
 
-        output( "\tmovl 0xb4(%%ebx),%%ebp\n");  /* Ebp */
-        output( "\tmovl 0xa0(%%ebx),%%esi\n");  /* Esi */
-        output( "\tmovl 0x9c(%%ebx),%%edi\n");  /* Edi */
-        output( "\tmovl 0xb0(%%ebx),%%eax\n");  /* Eax */
-        output( "\tmovl 0xa8(%%ebx),%%edx\n");  /* Edx */
-        output( "\tmovl 0xac(%%ebx),%%ecx\n");  /* Ecx */
-        output( "\tmovl 0xa4(%%ebx),%%ebx\n");  /* Ebx */
+        output( "\tmovl %d(%%ebx), %%ebp\n", CONTEXTOFFSET(Ebp) );
+        output( "\tmovl %d(%%ebx), %%esi\n", CONTEXTOFFSET(Esi) );
+        output( "\tmovl %d(%%ebx), %%edi\n", CONTEXTOFFSET(Edi) );
+        output( "\tmovl %d(%%ebx), %%eax\n", CONTEXTOFFSET(Eax) );
+        output( "\tmovl %d(%%ebx), %%edx\n", CONTEXTOFFSET(Edx) );
+        output( "\tmovl %d(%%ebx), %%ecx\n", CONTEXTOFFSET(Ecx) );
+        output( "\tmovl %d(%%ebx), %%ebx\n", CONTEXTOFFSET(Ebx) );
 
         output( "\tpopl %%ds\n" );
         output( "\tpopfl\n" );
@@ -429,15 +442,15 @@ static void BuildCallTo16Core( int reg_func )
          *        at the cost of a somewhat less efficient return path.]
          */
 
-        output( "\tmovl 0x14(%%esp),%%edi\n" ); /* FIELD_OFFSET(STACK32FRAME,target) - FIELD_OFFSET(STACK32FRAME,edi) */
+        output( "\tmovl %d(%%esp), %%edi\n", STACK32OFFSET(target) - STACK32OFFSET(edi));
                 /* everything above edi has been popped already */
 
-        output( "\tmovl %%eax,0xb0(%%edi)\n");  /* Eax */
-        output( "\tmovl %%ebx,0xa4(%%edi)\n");  /* Ebx */
-        output( "\tmovl %%ecx,0xac(%%edi)\n");  /* Ecx */
-        output( "\tmovl %%edx,0xa8(%%edi)\n");  /* Edx */
-        output( "\tmovl %%ebp,0xb4(%%edi)\n");  /* Ebp */
-        output( "\tmovl %%esi,0xc4(%%edi)\n");  /* Esp */
+        output( "\tmovl %%eax, %d(%%edi)\n", CONTEXTOFFSET(Eax) );
+        output( "\tmovl %%ebx, %d(%%edi)\n", CONTEXTOFFSET(Ebx) );
+        output( "\tmovl %%ecx, %d(%%edi)\n", CONTEXTOFFSET(Ecx) );
+        output( "\tmovl %%edx, %d(%%edi)\n", CONTEXTOFFSET(Edx) );
+        output( "\tmovl %%ebp, %d(%%edi)\n", CONTEXTOFFSET(Ebp) );
+        output( "\tmovl %%esi, %d(%%edi)\n", CONTEXTOFFSET(Esp) );
                  /* The return glue code saved %esp into %esi */
     }
 
@@ -463,33 +476,33 @@ static void BuildCallTo16Core( int reg_func )
 
     /* Make %bp point to the previous stackframe (built by CallFrom16) */
     output( "\tmovzwl %%sp,%%ebp\n" );
-    output( "\tleal 0x2a(%%ebp),%%ebp\n");  /* FIELD_OFFSET(STACK16FRAME,bp) */
+    output( "\tleal %d(%%ebp),%%ebp\n", STACK16OFFSET(bp) );
 
     /* Add the specified offset to the new sp */
-    output( "\tsubw 0x2c(%%edx), %%sp\n");  /* FIELD_OFFSET(STACK32FRAME,nb_args) */
+    output( "\tsubw %d(%%edx), %%sp\n", STACK32OFFSET(nb_args) );
 
     if (reg_func)
     {
         /* Push the called routine address */
-        output( "\tmovl 0x28(%%edx),%%edx\n");  /* FIELD_OFFSET(STACK32FRAME,target) */
-        output( "\tpushw 0xbc(%%edx)\n");  /* SegCs */
-        output( "\tpushw 0xb8(%%edx)\n");  /* Eip */
+        output( "\tmovl %d(%%edx),%%edx\n", STACK32OFFSET(target) );
+        output( "\tpushw %d(%%edx)\n", CONTEXTOFFSET(SegCs) );
+        output( "\tpushw %d(%%edx)\n", CONTEXTOFFSET(Eip) );
 
         /* Get the registers */
-        output( "\tpushw 0x98(%%edx)\n");  /* SegDs */
-        output( "\tpushl 0x94(%%edx)\n");  /* SegEs */
+        output( "\tpushw %d(%%edx)\n", CONTEXTOFFSET(SegDs) );
+        output( "\tpushl %d(%%edx)\n", CONTEXTOFFSET(SegEs) );
         output( "\tpopl %%es\n" );
-        output( "\tpushl 0x90(%%edx)\n");  /* SegFs */
+        output( "\tpushl %d(%%edx)\n", CONTEXTOFFSET(SegFs) );
         output( "\tpopl %%fs\n" );
-        output( "\tpushl 0x8c(%%edx)\n");  /* SegGs */
+        output( "\tpushl %d(%%edx)\n", CONTEXTOFFSET(SegGs) );
         output( "\tpopl %%gs\n" );
-        output( "\tmovl 0xb4(%%edx),%%ebp\n");  /* Ebp */
-        output( "\tmovl 0xa0(%%edx),%%esi\n");  /* Esi */
-        output( "\tmovl 0x9c(%%edx),%%edi\n");  /* Edi */
-        output( "\tmovl 0xb0(%%edx),%%eax\n");  /* Eax */
-        output( "\tmovl 0xa4(%%edx),%%ebx\n");  /* Ebx */
-        output( "\tmovl 0xac(%%edx),%%ecx\n");  /* Ecx */
-        output( "\tmovl 0xa8(%%edx),%%edx\n");  /* Edx */
+        output( "\tmovl %d(%%edx),%%ebp\n", CONTEXTOFFSET(Ebp) );
+        output( "\tmovl %d(%%edx),%%esi\n", CONTEXTOFFSET(Esi) );
+        output( "\tmovl %d(%%edx),%%edi\n", CONTEXTOFFSET(Edi) );
+        output( "\tmovl %d(%%edx),%%eax\n", CONTEXTOFFSET(Eax) );
+        output( "\tmovl %d(%%edx),%%ebx\n", CONTEXTOFFSET(Ebx) );
+        output( "\tmovl %d(%%edx),%%ecx\n", CONTEXTOFFSET(Ecx) );
+        output( "\tmovl %d(%%edx),%%edx\n", CONTEXTOFFSET(Edx) );
 
         /* Get the 16-bit ds */
         output( "\tpopw %%ds\n" );
@@ -497,12 +510,12 @@ static void BuildCallTo16Core( int reg_func )
     else  /* not a register function */
     {
         /* Push the called routine address */
-        output( "\tpushl 0x28(%%edx)\n"); /* FIELD_OFFSET(STACK32FRAME,target) */
+        output( "\tpushl %d(%%edx)\n", STACK32OFFSET(target) );
 
         /* Set %fs and %gs to the value saved by the last CallFrom16 */
-        output( "\tpushw -22(%%ebp)\n" ); /* FIELD_OFFSET(STACK16FRAME,fs)-FIELD_OFFSET(STACK16FRAME,bp) */
+        output( "\tpushw %d(%%ebp)\n", STACK16OFFSET(fs)-STACK16OFFSET(bp) );
         output( "\tpopw %%fs\n" );
-        output( "\tpushw -20(%%ebp)\n" ); /* FIELD_OFFSET(STACK16FRAME,gs)-FIELD_OFFSET(STACK16FRAME,bp) */
+        output( "\tpushw %d(%%ebp)\n", STACK16OFFSET(gs)-STACK16OFFSET(bp) );
         output( "\tpopw %%gs\n" );
 
         /* Set %ds and %es (and %ax just in case) equal to %ss */
@@ -646,7 +659,7 @@ static void BuildRet16Func(void)
  * (ebp+4)   ret addr
  * (ebp)     ebp
  */
-static void BuildCallTo32CBClient( int isEx )
+static void BuildCallTo32CBClient( BOOL isEx )
 {
     function_header( isEx ? "CALL32_CBClientEx" : "CALL32_CBClient" );
 
@@ -748,7 +761,7 @@ static void BuildCallTo32CBClient( int isEx )
  */
 static void BuildCallFrom32Regs(void)
 {
-    static const int STACK_SPACE = 128 + 0x2cc /* sizeof(CONTEXT86) */;
+    static const int STACK_SPACE = 128 + sizeof(CONTEXT86);
 
     /* Function header */
 
@@ -762,37 +775,38 @@ static void BuildCallFrom32Regs(void)
 
     /* Build the context structure */
 
-    output( "\tmovl %%eax,0xb0(%%esp)\n" );  /* Eax */
+    output( "\tmovl %%eax,%d(%%ebp)\n", CONTEXTOFFSET(Eax) - STACK_SPACE );
     output( "\tpushfl\n" );
     output( "\tpopl %%eax\n" );
-    output( "\tmovl %%eax,0xc0(%%esp)\n");  /* EFlags */
+    output( "\tmovl %%eax,%d(%%ebp)\n", CONTEXTOFFSET(EFlags) - STACK_SPACE );
     output( "\tmovl 0(%%ebp),%%eax\n" );
-    output( "\tmovl %%eax,0xb4(%%esp)\n");  /* Ebp */
-    output( "\tmovl %%ebx,0xa4(%%esp)\n");  /* Ebx */
-    output( "\tmovl %%ecx,0xac(%%esp)\n");  /* Ecx */
-    output( "\tmovl %%edx,0xa8(%%esp)\n");  /* Edx */
-    output( "\tmovl %%esi,0xa0(%%esp)\n");  /* Esi */
-    output( "\tmovl %%edi,0x9c(%%esp)\n");  /* Edi */
+    output( "\tmovl %%eax,%d(%%ebp)\n", CONTEXTOFFSET(Ebp) - STACK_SPACE );
+    output( "\tmovl %%ebx,%d(%%ebp)\n", CONTEXTOFFSET(Ebx) - STACK_SPACE );
+    output( "\tmovl %%ecx,%d(%%ebp)\n", CONTEXTOFFSET(Ecx) - STACK_SPACE );
+    output( "\tmovl %%edx,%d(%%ebp)\n", CONTEXTOFFSET(Edx) - STACK_SPACE );
+    output( "\tmovl %%esi,%d(%%ebp)\n", CONTEXTOFFSET(Esi) - STACK_SPACE );
+    output( "\tmovl %%edi,%d(%%ebp)\n", CONTEXTOFFSET(Edi) - STACK_SPACE );
 
     output( "\txorl %%eax,%%eax\n" );
     output( "\tmovw %%cs,%%ax\n" );
-    output( "\tmovl %%eax,0xbc(%%esp)\n");  /* SegCs */
+    output( "\tmovl %%eax,%d(%%ebp)\n", CONTEXTOFFSET(SegCs) - STACK_SPACE );
     output( "\tmovw %%es,%%ax\n" );
-    output( "\tmovl %%eax,0x94(%%esp)\n");  /* SegEs */
+    output( "\tmovl %%eax,%d(%%ebp)\n", CONTEXTOFFSET(SegEs) - STACK_SPACE );
     output( "\tmovw %%fs,%%ax\n" );
-    output( "\tmovl %%eax,0x90(%%esp)\n");  /* SegFs */
+    output( "\tmovl %%eax,%d(%%ebp)\n", CONTEXTOFFSET(SegFs) - STACK_SPACE );
     output( "\tmovw %%gs,%%ax\n" );
-    output( "\tmovl %%eax,0x8c(%%esp)\n");  /* SegGs */
+    output( "\tmovl %%eax,%d(%%ebp)\n", CONTEXTOFFSET(SegGs) - STACK_SPACE );
     output( "\tmovw %%ss,%%ax\n" );
-    output( "\tmovl %%eax,0xc8(%%esp)\n");  /* SegSs */
+    output( "\tmovl %%eax,%d(%%ebp)\n", CONTEXTOFFSET(SegSs) - STACK_SPACE );
     output( "\tmovw %%ds,%%ax\n" );
-    output( "\tmovl %%eax,0x98(%%esp)\n");  /* SegDs */
+    output( "\tmovl %%eax,%d(%%ebp)\n", CONTEXTOFFSET(SegDs) - STACK_SPACE );
     output( "\tmovw %%ax,%%es\n" );  /* set %es equal to %ds just in case */
 
-    output( "\tmovl $0x10007,0(%%esp)\n");  /* ContextFlags */
+    output( "\tmovl $0x%x,%%eax\n", CONTEXT86_FULL );
+    output( "\tmovl %%eax,%d(%%ebp)\n", CONTEXTOFFSET(ContextFlags) - STACK_SPACE );
 
     output( "\tmovl 16(%%ebp),%%eax\n" ); /* Get %eip at time of call */
-    output( "\tmovl %%eax,0xb8(%%esp)\n");  /* Eip */
+    output( "\tmovl %%eax,%d(%%ebp)\n", CONTEXTOFFSET(Eip) - STACK_SPACE );
 
     /* Transfer the arguments */
 
@@ -808,7 +822,7 @@ static void BuildCallFrom32Regs(void)
     output( "\trep\n\tmovsl\n" );  /* copy args */
     output( "1:\tleal %d(%%ebp),%%eax\n", -STACK_SPACE );  /* get addr of context struct */
     output( "\tmovl %%eax,(%%edi)\n" );    /* and pass it as extra arg */
-    output( "\tmovl %%esi,%d(%%ebp)\n", 0xc4 /* Esp */ - STACK_SPACE );
+    output( "\tmovl %%esi,%d(%%ebp)\n", CONTEXTOFFSET(Esp) - STACK_SPACE );
 
     /* Call the entry point */
 
@@ -819,29 +833,29 @@ static void BuildCallFrom32Regs(void)
 
     /* Restore the context structure */
 
-    output( "2:\tpushl 0x94(%%ecx)\n");     /* SegEs */
+    output( "2:\tpushl %d(%%ecx)\n", CONTEXTOFFSET(SegEs) );
     output( "\tpopl %%es\n" );
-    output( "\tpushl 0x90(%%ecx)\n");       /* SegFs */
+    output( "\tpushl %d(%%ecx)\n", CONTEXTOFFSET(SegFs) );
     output( "\tpopl %%fs\n" );
-    output( "\tpushl 0x8c(%%ecx)\n");       /* SegGs */
+    output( "\tpushl %d(%%ecx)\n", CONTEXTOFFSET(SegGs) );
     output( "\tpopl %%gs\n" );
 
-    output( "\tmovl 0x9c(%%ecx),%%edi\n");  /* Edi */
-    output( "\tmovl 0xa0(%%ecx),%%esi\n");  /* Esi */
-    output( "\tmovl 0xa8(%%ecx),%%edx\n");  /* Edx */
-    output( "\tmovl 0xa4(%%ecx),%%ebx\n");  /* Ebx */
-    output( "\tmovl 0xb0(%%ecx),%%eax\n");  /* Eax */
-    output( "\tmovl 0xb4(%%ecx),%%ebp\n");  /* Ebp */
+    output( "\tmovl %d(%%ecx),%%edi\n", CONTEXTOFFSET(Edi) );
+    output( "\tmovl %d(%%ecx),%%esi\n", CONTEXTOFFSET(Esi) );
+    output( "\tmovl %d(%%ecx),%%edx\n", CONTEXTOFFSET(Edx) );
+    output( "\tmovl %d(%%ecx),%%ebx\n", CONTEXTOFFSET(Ebx) );
+    output( "\tmovl %d(%%ecx),%%eax\n", CONTEXTOFFSET(Eax) );
+    output( "\tmovl %d(%%ecx),%%ebp\n", CONTEXTOFFSET(Ebp) );
 
-    output( "\tpushl 0xc8(%%ecx)\n");       /* SegSs */
+    output( "\tpushl %d(%%ecx)\n", CONTEXTOFFSET(SegSs) );
     output( "\tpopl %%ss\n" );
-    output( "\tmovl 0xc4(%%ecx),%%esp\n");  /* Esp */
+    output( "\tmovl %d(%%ecx),%%esp\n", CONTEXTOFFSET(Esp) );
 
-    output( "\tpushl 0xc0(%%ecx)\n");       /* EFlags */
-    output( "\tpushl 0xbc(%%ecx)\n");       /* SegCs */
-    output( "\tpushl 0xb8(%%ecx)\n");       /* Eip */
-    output( "\tpushl 0x98(%%ecx)\n");       /* SegDs */
-    output( "\tmovl 0xac(%%ecx),%%ecx\n");  /* Ecx */
+    output( "\tpushl %d(%%ecx)\n", CONTEXTOFFSET(EFlags) );
+    output( "\tpushl %d(%%ecx)\n", CONTEXTOFFSET(SegCs) );
+    output( "\tpushl %d(%%ecx)\n", CONTEXTOFFSET(Eip) );
+    output( "\tpushl %d(%%ecx)\n", CONTEXTOFFSET(SegDs) );
+    output( "\tmovl %d(%%ecx),%%ecx\n", CONTEXTOFFSET(Ecx) );
 
     output( "\tpopl %%ds\n" );
     output( "\tiret\n" );
@@ -878,9 +892,11 @@ static void BuildPendingEventCheck(void)
 
     /* Check for pending events. */
 
-    output( "\t.byte 0x64\n\ttestl $0xffffffff,(%d)\n", VM86_PENDING_OFFSET );
+    output( "\t.byte 0x64\n\ttestl $0xffffffff,(%d)\n",
+            STRUCTOFFSET(TEB,GdiTebBatch) + STRUCTOFFSET(WINE_VM86_TEB_INFO,vm86_pending) );
     output( "\tje %s\n", asm_name("DPMI_PendingEventCheck_Cleanup") );
-    output( "\t.byte 0x64\n\ttestl $0xffffffff,(%d)\n", DPMI_VIF_OFFSET );
+    output( "\t.byte 0x64\n\ttestl $0xffffffff,(%d)\n",
+            STRUCTOFFSET(TEB,GdiTebBatch) + STRUCTOFFSET(WINE_VM86_TEB_INFO,dpmi_vif) );
     output( "\tje %s\n", asm_name("DPMI_PendingEventCheck_Cleanup") );
 
     /* Process pending events. */
@@ -924,13 +940,13 @@ void BuildRelays16(void)
     output( "%s\n", asm_globl("__wine_call16_start") );
 
     /* Standard CallFrom16 routine */
-    BuildCallFrom16Core( 0, 0 );
+    BuildCallFrom16Core( FALSE, FALSE );
 
     /* Register CallFrom16 routine */
-    BuildCallFrom16Core( 1, 0 );
+    BuildCallFrom16Core( TRUE, FALSE );
 
     /* C16ThkSL CallFrom16 routine */
-    BuildCallFrom16Core( 0, 1 );
+    BuildCallFrom16Core( FALSE, TRUE );
 
     /* Standard CallTo16 routine */
     BuildCallTo16Core( 0 );
@@ -942,10 +958,10 @@ void BuildRelays16(void)
     BuildRet16Func();
 
     /* CBClientThunkSL routine */
-    BuildCallTo32CBClient( 0 );
+    BuildCallTo32CBClient( FALSE );
 
     /* CBClientThunkSLEx routine */
-    BuildCallTo32CBClient( 1  );
+    BuildCallTo32CBClient( TRUE  );
 
     /* Pending DPMI events check stub */
     BuildPendingEventCheck();
@@ -987,62 +1003,55 @@ void BuildRelays16(void)
 static void build_call_from_regs_x86_64(void)
 {
     static const int STACK_SPACE = 128 + 0x4d0; /* size of x86_64 context */
-    int i;
 
     /* Function header */
 
     function_header( "__wine_call_from_regs" );
 
-    output( "\t.cfi_startproc\n" );
     output( "\tsubq $%u,%%rsp\n", STACK_SPACE );
-    output( "\t.cfi_adjust_cfa_offset %u\n", STACK_SPACE );
 
     /* save registers into the context */
 
     output( "\tmovq %%rax,0x78(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%rax,0x78\n" );
     output( "\tmovq %u(%%rsp),%%rax\n", STACK_SPACE + 16 );  /* saved %rcx on stack */
     output( "\tmovq %%rax,0x80(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%rcx,0x80\n" );
     output( "\tmovq %u(%%rsp),%%rax\n", STACK_SPACE + 24 );  /* saved %rdx on stack */
-    output( "\t.cfi_rel_offset %%rdx,0x88\n" );
     output( "\tmovq %%rax,0x88(%%rsp)\n" );
     output( "\tmovq %%rbx,0x90(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%rbx,0x90\n" );
     output( "\tleaq %u(%%rsp),%%rax\n", STACK_SPACE + 16 );
     output( "\tmovq %%rax,0x98(%%rsp)\n" );
     output( "\tmovq %%rbp,0xa0(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%rbp,0xa0\n" );
     output( "\tmovq %%rsi,0xa8(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%rsi,0xa8\n" );
     output( "\tmovq %%rdi,0xb0(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%rdi,0xb0\n" );
     output( "\tmovq %%r8,0xb8(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%r8,0xb8\n" );
     output( "\tmovq %%r9,0xc0(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%r9,0xc0\n" );
     output( "\tmovq %%r10,0xc8(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%r10,0xc8\n" );
     output( "\tmovq %%r11,0xd0(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%r11,0xd0\n" );
     output( "\tmovq %%r12,0xd8(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%r12,0xd8\n" );
     output( "\tmovq %%r13,0xe0(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%r13,0xe0\n" );
     output( "\tmovq %%r14,0xe8(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%r14,0xe8\n" );
     output( "\tmovq %%r15,0xf0(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%r15,0xf0\n" );
     output( "\tmovq %u(%%rsp),%%rax\n", STACK_SPACE + 8 );
     output( "\tmovq %%rax,0xf8(%%rsp)\n" );
 
     output( "\tstmxcsr 0x34(%%rsp)\n" );
     output( "\tfxsave 0x100(%%rsp)\n" );
-    for (i = 0; i < 16; i++)
-    {
-        output( "\tmovdqa %%xmm%u,0x%x(%%rsp)\n", i, 0x1a0 + 16 * i );
-        output( "\t.cfi_rel_offset %%xmm%u,0x%x\n", i, 0x1a0 + 16 * i );
-    }
+    output( "\tmovdqa %%xmm0,0x1a0(%%rsp)\n" );
+    output( "\tmovdqa %%xmm1,0x1b0(%%rsp)\n" );
+    output( "\tmovdqa %%xmm2,0x1c0(%%rsp)\n" );
+    output( "\tmovdqa %%xmm3,0x1d0(%%rsp)\n" );
+    output( "\tmovdqa %%xmm4,0x1e0(%%rsp)\n" );
+    output( "\tmovdqa %%xmm5,0x1f0(%%rsp)\n" );
+    output( "\tmovdqa %%xmm6,0x200(%%rsp)\n" );
+    output( "\tmovdqa %%xmm7,0x210(%%rsp)\n" );
+    output( "\tmovdqa %%xmm8,0x220(%%rsp)\n" );
+    output( "\tmovdqa %%xmm9,0x230(%%rsp)\n" );
+    output( "\tmovdqa %%xmm10,0x240(%%rsp)\n" );
+    output( "\tmovdqa %%xmm11,0x250(%%rsp)\n" );
+    output( "\tmovdqa %%xmm12,0x260(%%rsp)\n" );
+    output( "\tmovdqa %%xmm13,0x270(%%rsp)\n" );
+    output( "\tmovdqa %%xmm14,0x280(%%rsp)\n" );
+    output( "\tmovdqa %%xmm15,0x290(%%rsp)\n" );
 
     output( "\tmovw %%cs,0x38(%%rsp)\n" );
     output( "\tmovw %%ds,0x3a(%%rsp)\n" );
@@ -1065,7 +1074,6 @@ static void build_call_from_regs_x86_64(void)
     output( "\tcmpq %%rax,%%rcx\n" );
     output( "\tcmovgq %%rcx,%%rax\n" );
     output( "\tmovq %%rsp,%%rbx\n" );
-    output( "\t.cfi_def_cfa_register %%rbx\n" );
     output( "\tleaq 16(,%%rax,8),%%rax\n" );  /* add 8 for context arg and 8 for rounding */
     output( "\tandq $~15,%%rax\n" );
     output( "\tsubq %%rax,%%rsp\n" );
@@ -1087,62 +1095,57 @@ static void build_call_from_regs_x86_64(void)
     /* restore the context structure */
 
     output( "1:\tmovq 0x80(%%rbx),%%rcx\n" );
-    output( "\t.cfi_same_value %%rcx\n" );
     output( "\tmovq 0x88(%%rbx),%%rdx\n" );
-    output( "\t.cfi_same_value %%rdx\n" );
     output( "\tmovq 0xa0(%%rbx),%%rbp\n" );
-    output( "\t.cfi_same_value %%rbp\n" );
     output( "\tmovq 0xa8(%%rbx),%%rsi\n" );
-    output( "\t.cfi_same_value %%rsi\n" );
     output( "\tmovq 0xb0(%%rbx),%%rdi\n" );
-    output( "\t.cfi_same_value %%rdi\n" );
     output( "\tmovq 0xb8(%%rbx),%%r8\n" );
-    output( "\t.cfi_same_value %%r8\n" );
     output( "\tmovq 0xc0(%%rbx),%%r9\n" );
-    output( "\t.cfi_same_value %%r9\n" );
     output( "\tmovq 0xc8(%%rbx),%%r10\n" );
-    output( "\t.cfi_same_value %%r10\n" );
     output( "\tmovq 0xd0(%%rbx),%%r11\n" );
-    output( "\t.cfi_same_value %%r11\n" );
     output( "\tmovq 0xd8(%%rbx),%%r12\n" );
-    output( "\t.cfi_same_value %%r12\n" );
     output( "\tmovq 0xe0(%%rbx),%%r13\n" );
-    output( "\t.cfi_same_value %%r13\n" );
     output( "\tmovq 0xe8(%%rbx),%%r14\n" );
-    output( "\t.cfi_same_value %%r14\n" );
     output( "\tmovq 0xf0(%%rbx),%%r15\n" );
-    output( "\t.cfi_same_value %%r15\n" );
 
-    for (i = 0; i < 16; i++)
-    {
-        output( "\tmovdqa 0x%x(%%rbx),%%xmm%u\n", 0x1a0 + 16 * i, i );
-        output( "\t.cfi_same_value %%xmm%u\n", i );
-    }
+    output( "\tmovdqa 0x1a0(%%rbx),%%xmm0\n" );
+    output( "\tmovdqa 0x1b0(%%rbx),%%xmm1\n" );
+    output( "\tmovdqa 0x1c0(%%rbx),%%xmm2\n" );
+    output( "\tmovdqa 0x1d0(%%rbx),%%xmm3\n" );
+    output( "\tmovdqa 0x1e0(%%rbx),%%xmm4\n" );
+    output( "\tmovdqa 0x1f0(%%rbx),%%xmm5\n" );
+    output( "\tmovdqa 0x200(%%rbx),%%xmm6\n" );
+    output( "\tmovdqa 0x210(%%rbx),%%xmm7\n" );
+    output( "\tmovdqa 0x220(%%rbx),%%xmm8\n" );
+    output( "\tmovdqa 0x230(%%rbx),%%xmm9\n" );
+    output( "\tmovdqa 0x240(%%rbx),%%xmm10\n" );
+    output( "\tmovdqa 0x250(%%rbx),%%xmm11\n" );
+    output( "\tmovdqa 0x260(%%rbx),%%xmm12\n" );
+    output( "\tmovdqa 0x270(%%rbx),%%xmm13\n" );
+    output( "\tmovdqa 0x280(%%rbx),%%xmm14\n" );
+    output( "\tmovdqa 0x290(%%rbx),%%xmm15\n" );
     output( "\tfxrstor 0x100(%%rbx)\n" );
     output( "\tldmxcsr 0x34(%%rbx)\n" );
 
-    output( "\tmovq 0xf8(%%rbx),%%rax\n" );  /* rip */
-    output( "\tmovq %%rax,0(%%rsp)\n" );
-    output( "\tmovw 0x38(%%rbx),%%ax\n" );   /* cs */
-    output( "\tmovq %%rax,0x8(%%rsp)\n" );
-    output( "\tmovl 0x44(%%rbx),%%eax\n" );  /* flags */
-    output( "\tmovq %%rax,0x10(%%rsp)\n" );
-    output( "\tmovq 0x98(%%rbx),%%rax\n" );  /* rsp */
-    output( "\tmovq %%rax,0x18(%%rsp)\n" );
-    output( "\tmovw 0x42(%%rbx),%%ax\n" );   /* ss */
-    output( "\tmovq %%rax,0x20(%%rsp)\n" );
-    output( "\tmovq 0x78(%%rbx),%%rax\n" );
+    output( "\tmovl 0x44(%%rbx),%%eax\n" );
+    output( "\tpushq %%rax\n" );
+    output( "\tpopfq\n" );
+
+    output( "\tmovq 0x98(%%rbx),%%rax\n" );  /* stack pointer */
+    output( "\tpushq 0xf8(%%rbx)\n" );  /* return address */
+    output( "\tpopq -8(%%rax)\n" );
+    output( "\tpushq 0x78(%%rbx)\n" );  /* rax */
+    output( "\tpopq -16(%%rax)\n" );
     output( "\tmovq 0x90(%%rbx),%%rbx\n" );
-    output( "\tiretq\n" );
-    output( "\t.cfi_endproc\n" );
+    output( "\tleaq -16(%%rax),%%rsp\n" );
+    output( "\tpopq %%rax\n" );
+    output( "\tret\n" );
 
     output_function_size( "__wine_call_from_regs" );
 
     function_header( "__wine_restore_regs" );
-    output( "\t.cfi_startproc\n" );
     output( "\tmovq %%rcx,%%rbx\n" );
     output( "\tjmp 1b\n" );
-    output( "\t.cfi_endproc\n" );
     output_function_size( "__wine_restore_regs" );
 }
 

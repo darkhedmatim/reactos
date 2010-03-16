@@ -17,7 +17,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#pragma once
+#ifndef __I386_MACHXBOX_H_
+#define __I386_MACHXBOX_H_
 
 #ifndef __MEMORY_H
 #include "mm.h"
@@ -61,5 +62,8 @@ TIMEINFO* XboxGetTime(VOID);
 PCONFIGURATION_COMPONENT_DATA XboxHwDetect(VOID);
 
 VOID XboxSetLED(PCSTR Pattern);
+
+
+#endif /* __I386_HWXBOX_H_ */
 
 /* EOF */

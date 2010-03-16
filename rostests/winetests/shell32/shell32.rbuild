@@ -13,12 +13,12 @@
 	<library>user32</library>
 	<library>gdi32</library>
 	<library>advapi32</library>
+	<library>kernel32</library>
 	<library>uuid</library>
 	<library>ntdll</library>
 	<file>appbar.c</file>
 	<file>autocomplete.c</file>
 	<file>generated.c</file>
-	<file>progman_dde.c</file>
 	<file>shelllink.c</file>
 	<file>shellpath.c</file>
 	<file>shlexec.c</file>

@@ -13,7 +13,7 @@ import com.icl.saxon.tree.AttributeCollection;
 /**
  * <p>Saxon extension to decorate a result tree fragment with callouts.</p>
  *
- * <p>$Id: CalloutEmitter.java,v 1.1 2002/06/13 20:32:15 chorns Exp $</p>
+ * <p>$Id$</p>
  *
  * <p>Copyright (C) 2000 Norman Walsh.</p>
  *
@@ -41,7 +41,7 @@ import com.icl.saxon.tree.AttributeCollection;
  * @author Norman Walsh
  * <a href="mailto:ndw@nwalsh.com">ndw@nwalsh.com</a>
  *
- * @version $Id: CalloutEmitter.java,v 1.1 2002/06/13 20:32:15 chorns Exp $
+ * @version $Id$
  *
  */
 public class CalloutEmitter extends CopyEmitter {

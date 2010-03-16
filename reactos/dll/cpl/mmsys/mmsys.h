@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __CPL_MMSYS_H
+#define __CPL_MMSYS_H
 
 //typedef LONG (CALLBACK *APPLET_PROC)(VOID);
 
@@ -62,5 +63,7 @@ AudioDlgProc(HWND hwndDlg,
              UINT uMsg,
              WPARAM wParam,
              LPARAM lParam);
+
+#endif /* __CPL_MMSYS_H */
 
 /* EOF */

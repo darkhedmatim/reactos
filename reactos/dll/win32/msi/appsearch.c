@@ -463,7 +463,7 @@ static UINT ACTION_AppSearchReg(MSIPACKAGE *package, LPWSTR *appValue, MSISIGNAT
         ACTION_ConvertRegValue(regType, value, sz, appValue);
         break;
     default:
-        FIXME("unimplemented for type %d (key path %s, value %s)\n",
+        FIXME("AppSearch unimplemented for type %d (key path %s, value %s)\n",
               type, debugstr_w(keyPath), debugstr_w(valueName));
     }
 end:
@@ -739,7 +739,6 @@ static UINT ACTION_RecurseSearchDirectory(MSIPACKAGE *package, LPWSTR *appValue,
     size_t dirLen = lstrlenW(dir), fileLen = lstrlenW(sig->File);
     WCHAR subpath[MAX_PATH];
     WCHAR *buf;
-    DWORD len;
 
     static const WCHAR starDotStarW[] = { '*','.','*',0 };
 
@@ -754,8 +753,7 @@ static UINT ACTION_RecurseSearchDirectory(MSIPACKAGE *package, LPWSTR *appValue,
      * here.  Add two because we might need to add a backslash if the dir name
      * isn't backslash-terminated.
      */
-    len = dirLen + max(fileLen, strlenW(starDotStarW)) + 2;
-    buf = msi_alloc(len * sizeof(WCHAR));
+    buf = msi_alloc( (dirLen + max(fileLen, strlenW(starDotStarW)) + 2) * sizeof(WCHAR));
     if (!buf)
         return ERROR_OUTOFMEMORY;
 
@@ -817,7 +815,7 @@ static UINT ACTION_RecurseSearchDirectory(MSIPACKAGE *package, LPWSTR *appValue,
         }
     }
 
-    if (*appValue != buf)
+    if (!*appValue)
         msi_free(buf);
 
     return rc;
@@ -1026,15 +1024,13 @@ static UINT ACTION_AppSearchSigName(MSIPACKAGE *package, LPCWSTR sigName,
 static UINT iterate_appsearch(MSIRECORD *row, LPVOID param)
 {
     MSIPACKAGE *package = param;
-    LPCWSTR propName, sigName;
-    LPWSTR value = NULL;
+    LPWSTR propName, sigName, value = NULL;
     MSISIGNATURE sig;
-    MSIRECORD *uirow;
     UINT r;
 
     /* get property and signature */
-    propName = MSI_RecordGetString(row, 1);
-    sigName = MSI_RecordGetString(row, 2);
+    propName = msi_dup_record_field(row,1);
+    sigName = msi_dup_record_field(row,2);
 
     TRACE("%s %s\n", debugstr_w(propName), debugstr_w(sigName));
 
@@ -1045,12 +1041,8 @@ static UINT iterate_appsearch(MSIRECORD *row, LPVOID param)
         msi_free(value);
     }
     ACTION_FreeSignature(&sig);
-
-    uirow = MSI_CreateRecord( 2 );
-    MSI_RecordSetStringW( uirow, 1, propName );
-    MSI_RecordSetStringW( uirow, 2, sigName );
-    ui_actiondata( package, szAppSearch, uirow );
-    msiobj_release( &uirow->hdr );
+    msi_free(propName);
+    msi_free(sigName);
 
     return r;
 }

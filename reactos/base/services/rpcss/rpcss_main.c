@@ -58,7 +58,7 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
-HANDLE exit_event;
+static HANDLE exit_event;
 
 //extern HANDLE __wine_make_process_system(void);
 

@@ -56,7 +56,7 @@ HRESULT WINAPI EnableThemeDialogTexture(HWND hwnd, DWORD dwFlags)
 
     TRACE("(%p,0x%08x\n", hwnd, dwFlags);
     res = SetPropW (hwnd, (LPCWSTR)MAKEINTATOM(atDialogThemeEnabled), 
-                    UlongToHandle(dwFlags|0x80000000));
+        (HANDLE)(dwFlags|0x80000000)); 
         /* 0x80000000 serves as a "flags set" flag */
     if (!res)
           return HRESULT_FROM_WIN32(GetLastError());
@@ -74,7 +74,8 @@ BOOL WINAPI IsThemeDialogTextureEnabled(HWND hwnd)
     DWORD dwDialogTextureFlags;
     TRACE("(%p)\n", hwnd);
 
-    dwDialogTextureFlags = HandleToUlong( GetPropW( hwnd, (LPCWSTR)MAKEINTATOM(atDialogThemeEnabled) ));
+    dwDialogTextureFlags = (DWORD)GetPropW (hwnd, 
+        (LPCWSTR)MAKEINTATOM(atDialogThemeEnabled));
     if (dwDialogTextureFlags == 0) 
         /* Means EnableThemeDialogTexture wasn't called for this dialog */
         return TRUE;

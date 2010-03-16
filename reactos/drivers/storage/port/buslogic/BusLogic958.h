@@ -34,7 +34,8 @@
 
 // Prototype for functions
 
-#pragma once
+#ifndef _BT958_H_
+#define _BT958_H_
 
 #include <ntddk.h>
 #include <srb.h>
@@ -1181,3 +1182,5 @@ BusLogic_IncrementErrorCounter(unsigned short *ErrorCounter)
   if (*ErrorCounter < 65535) (*ErrorCounter)++;
 }
 //____________________________________________________________________________________________
+
+#endif  // _BT958_H_

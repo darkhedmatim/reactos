@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _DISPLAY_H
+#define _DISPLAY_H
 
 /* Messages for the display class */
 #define FVM_SETTYPEFACE WM_USER
@@ -13,3 +14,5 @@ extern const WCHAR g_szFontDisplayClassName[];
 
 /* Public function */
 BOOL Display_InitClass(HINSTANCE hInstance);
+
+#endif // _DISPLAY_H

@@ -87,7 +87,6 @@ static const struct {
     {&CLSID_TF_ThreadMgr, ThreadMgr_Constructor},
     {&CLSID_TF_InputProcessorProfiles, InputProcessorProfiles_Constructor},
     {&CLSID_TF_CategoryMgr, CategoryMgr_Constructor},
-    {&CLSID_TF_LangBarMgr, LangBarMgr_Constructor},
     {NULL, NULL}
 };
 
@@ -352,7 +351,7 @@ HRESULT add_active_textservice(TF_LANGUAGEPROFILE *lp)
     ActivatedTextService *actsvr;
     ITfCategoryMgr *catmgr;
     AtsEntry *entry;
-    ITfThreadMgr *tm = TlsGetValue(tlsIndex);
+    ITfThreadMgr *tm = (ITfThreadMgr*)TlsGetValue(tlsIndex);
     ITfClientId *clientid;
 
     if (!tm) return E_UNEXPECTED;
@@ -608,22 +607,4 @@ HRESULT WINAPI TF_CreateInputProcessorProfiles(
                         ITfInputProcessorProfiles **ppipr)
 {
     return InputProcessorProfiles_Constructor(NULL,(IUnknown**)ppipr);
-}
-
-/***********************************************************************
- *              TF_InvalidAssemblyListCacheIfExist(MSCTF.@)
- */
-HRESULT WINAPI TF_InvalidAssemblyListCacheIfExist(void)
-{
-    FIXME("Stub\n");
-    return S_OK;
-}
-
-/***********************************************************************
- *              TF_CreateLangBarMgr (MSCTF.@)
- */
-HRESULT WINAPI TF_CreateLangBarMgr(ITfLangBarMgr **pppbm)
-{
-    TRACE("\n");
-    return LangBarMgr_Constructor(NULL,(IUnknown**)pppbm);
 }

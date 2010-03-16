@@ -31,10 +31,9 @@
 
 #include "wine/test.h"
 
-static const char *msifile = "winetest-db.msi";
-static const char *msifile2 = "winetst2-db.msi";
-static const char *mstfile = "winetst-db.mst";
-static const WCHAR msifileW[] = {'w','i','n','e','t','e','s','t','-','d','b','.','m','s','i',0};
+static const char *msifile = "winetest.msi";
+static const char *msifile2 = "winetst2.msi";
+static const char *mstfile = "winetst.mst";
 
 static void test_msidatabase(void)
 {
@@ -683,30 +682,6 @@ static void test_msibadqueries(void)
     r = try_query( hdb, "select * from 'c'");
     ok(r == ERROR_BAD_QUERY_SYNTAX, "query failed\n");
 
-    r = try_query( hdb, "CREATE TABLE `\5a` (`b` CHAR NOT NULL PRIMARY KEY `b`)" );
-    ok( r == ERROR_SUCCESS , "query failed: %u\n", r );
-
-    r = try_query( hdb, "SELECT * FROM \5a" );
-    ok( r == ERROR_SUCCESS , "query failed: %u\n", r );
-
-    r = try_query( hdb, "CREATE TABLE `a\5` (`b` CHAR NOT NULL PRIMARY KEY `b`)" );
-    ok( r == ERROR_SUCCESS , "query failed: %u\n", r );
-
-    r = try_query( hdb, "SELECT * FROM a\5" );
-    ok( r == ERROR_SUCCESS , "query failed: %u\n", r );
-
-    r = try_query( hdb, "CREATE TABLE `-a` (`b` CHAR NOT NULL PRIMARY KEY `b`)" );
-    ok( r == ERROR_SUCCESS , "query failed: %u\n", r );
-
-    r = try_query( hdb, "SELECT * FROM -a" );
-    todo_wine ok( r == ERROR_SUCCESS , "query failed: %u\n", r );
-
-    r = try_query( hdb, "CREATE TABLE `a-` (`b` CHAR NOT NULL PRIMARY KEY `b`)" );
-    ok( r == ERROR_SUCCESS , "query failed: %u\n", r );
-
-    r = try_query( hdb, "SELECT * FROM a-" );
-    ok( r == ERROR_SUCCESS , "query failed: %u\n", r );
-
     r = MsiCloseHandle( hdb );
     ok(r == ERROR_SUCCESS , "Failed to close database transact\n");
 
@@ -946,8 +921,6 @@ static void test_viewmodify(void)
     r = MsiViewModify(hview, MSIMODIFY_INSERT_TEMPORARY, hrec );
     ok(r == ERROR_SUCCESS, "MsiViewModify failed\n");
 
-    r = MsiCloseHandle(hrec);
-    ok(r == ERROR_SUCCESS, "MsiCloseHandle failed\n");
     r = MsiViewClose(hview);
     ok(r == ERROR_SUCCESS, "MsiViewClose failed\n");
     r = MsiCloseHandle(hview);
@@ -1411,7 +1384,7 @@ static void create_file_data(LPCSTR name, LPCSTR data, DWORD size)
  
 static void test_streamtable(void)
 {
-    MSIHANDLE hdb = 0, rec, view, hsi;
+    MSIHANDLE hdb = 0, rec, view;
     char file[MAX_PATH];
     char buf[MAX_PATH];
     DWORD size;
@@ -1456,46 +1429,6 @@ static void test_streamtable(void)
 
     MsiCloseHandle( rec );
 
-    r = MsiDatabaseOpenView( hdb,
-            "SELECT * FROM `_Streams` WHERE `Name` = '\5SummaryInformation'", &view );
-    ok( r == ERROR_SUCCESS, "Failed to open database view: %u\n", r );
-
-    r = MsiViewExecute( view, 0 );
-    ok( r == ERROR_SUCCESS, "Failed to execute view: %u\n", r );
-
-    r = MsiViewFetch( view, &rec );
-    ok( r == ERROR_NO_MORE_ITEMS, "Unexpected result: %u\n", r );
-
-    MsiCloseHandle( rec );
-    MsiViewClose( view );
-    MsiCloseHandle( view );
-
-    /* create a summary information stream */
-    r = MsiGetSummaryInformationA( hdb, NULL, 1, &hsi );
-    ok( r == ERROR_SUCCESS, "Failed to get summary information handle: %u\n", r );
-
-    r = MsiSummaryInfoSetPropertyA( hsi, PID_SECURITY, VT_I4, 2, NULL, NULL );
-    ok( r == ERROR_SUCCESS, "Failed to set property: %u\n", r );
-
-    r = MsiSummaryInfoPersist( hsi );
-    ok( r == ERROR_SUCCESS, "Failed to save summary information: %u\n", r );
-
-    MsiCloseHandle( hsi );
-
-    r = MsiDatabaseOpenView( hdb,
-            "SELECT * FROM `_Streams` WHERE `Name` = '\5SummaryInformation'", &view );
-    ok( r == ERROR_SUCCESS, "Failed to open database view: %u\n", r );
-
-    r = MsiViewExecute( view, 0 );
-    ok( r == ERROR_SUCCESS, "Failed to execute view: %u\n", r );
-
-    r = MsiViewFetch( view, &rec );
-    ok( r == ERROR_SUCCESS, "Unexpected result: %u\n", r );
-
-    MsiCloseHandle( rec );
-    MsiViewClose( view );
-    MsiCloseHandle( view );
-
     /* insert a file into the _Streams table */
     create_file( "test.txt" );
 
@@ -1518,30 +1451,8 @@ static void test_streamtable(void)
     MsiViewClose( view );
     MsiCloseHandle( view );
 
-    /* insert another one */
-    create_file( "test1.txt" );
-
-    rec = MsiCreateRecord( 2 );
-    MsiRecordSetString( rec, 1, "data1" );
-
-    r = MsiRecordSetStream( rec, 2, "test1.txt" );
-    ok( r == ERROR_SUCCESS, "Failed to add stream data to the record: %d\n", r);
-
-    DeleteFile("test1.txt");
-
     r = MsiDatabaseOpenView( hdb,
-            "INSERT INTO `_Streams` ( `Name`, `Data` ) VALUES ( ?, ? )", &view );
-    ok( r == ERROR_SUCCESS, "Failed to open database view: %d\n", r);
-
-    r = MsiViewExecute( view, rec );
-    ok( r == ERROR_SUCCESS, "Failed to execute view: %d\n", r);
-
-    MsiCloseHandle( rec );
-    MsiViewClose( view );
-    MsiCloseHandle( view );
-
-    r = MsiDatabaseOpenView( hdb,
-            "SELECT `Name`, `Data` FROM `_Streams` WHERE `Name` = 'data'", &view );
+            "SELECT `Name`, `Data` FROM `_Streams`", &view );
     ok( r == ERROR_SUCCESS, "Failed to open database view: %d\n", r);
 
     r = MsiViewExecute( view, 0 );
@@ -1562,76 +1473,10 @@ static void test_streamtable(void)
     ok( !lstrcmp(buf, "test.txt\n"), "Expected 'test.txt\\n', got %s\n", buf);
 
     MsiCloseHandle( rec );
-    MsiViewClose( view );
-    MsiCloseHandle( view );
-
-    r = MsiDatabaseOpenView( hdb,
-            "SELECT `Name`, `Data` FROM `_Streams` WHERE `Name` = 'data1'", &view );
-    ok( r == ERROR_SUCCESS, "Failed to open database view: %d\n", r);
-
-    r = MsiViewExecute( view, 0 );
-    ok( r == ERROR_SUCCESS, "Failed to execute view: %d\n", r);
 
     r = MsiViewFetch( view, &rec );
-    ok( r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", r);
+    ok( r == ERROR_NO_MORE_ITEMS, "Expected ERROR_NO_MORE_ITEMS, got %d\n", r);
 
-    size = MAX_PATH;
-    r = MsiRecordGetString( rec, 1, file, &size );
-    ok( r == ERROR_SUCCESS, "Failed to get string: %d\n", r);
-    ok( !lstrcmp(file, "data1"), "Expected 'data1', got %s\n", file);
-
-    size = MAX_PATH;
-    memset(buf, 0, MAX_PATH);
-    r = MsiRecordReadStream( rec, 2, buf, &size );
-    ok( r == ERROR_SUCCESS, "Failed to get stream: %d\n", r);
-    ok( !lstrcmp(buf, "test1.txt\n"), "Expected 'test1.txt\\n', got %s\n", buf);
-
-    MsiCloseHandle( rec );
-    MsiViewClose( view );
-    MsiCloseHandle( view );
-
-    /* perform an update */
-    create_file( "test2.txt" );
-    rec = MsiCreateRecord( 1 );
-
-    r = MsiRecordSetStream( rec, 1, "test2.txt" );
-    ok( r == ERROR_SUCCESS, "Failed to add stream data to the record: %d\n", r);
-
-    DeleteFile("test2.txt");
-
-    r = MsiDatabaseOpenView( hdb,
-            "UPDATE `_Streams` SET `Data` = ? WHERE `Name` = 'data1'", &view );
-    ok( r == ERROR_SUCCESS, "Failed to open database view: %d\n", r);
-
-    r = MsiViewExecute( view, rec );
-    ok( r == ERROR_SUCCESS, "Failed to execute view: %d\n", r);
-
-    MsiCloseHandle( rec );
-    MsiViewClose( view );
-    MsiCloseHandle( view );
-
-    r = MsiDatabaseOpenView( hdb,
-            "SELECT `Name`, `Data` FROM `_Streams` WHERE `Name` = 'data1'", &view );
-    ok( r == ERROR_SUCCESS, "Failed to open database view: %d\n", r);
-
-    r = MsiViewExecute( view, 0 );
-    ok( r == ERROR_SUCCESS, "Failed to execute view: %d\n", r);
-
-    r = MsiViewFetch( view, &rec );
-    ok( r == ERROR_SUCCESS, "Failed to fetch record: %d\n", r);
-
-    size = MAX_PATH;
-    r = MsiRecordGetString( rec, 1, file, &size );
-    ok( r == ERROR_SUCCESS, "Failed to get string: %d\n", r);
-    ok( !lstrcmp(file, "data1"), "Expected 'data1', got %s\n", file);
-
-    size = MAX_PATH;
-    memset(buf, 0, MAX_PATH);
-    r = MsiRecordReadStream( rec, 2, buf, &size );
-    ok( r == ERROR_SUCCESS, "Failed to get stream: %d\n", r);
-    todo_wine ok( !lstrcmp(buf, "test2.txt\n"), "Expected 'test2.txt\\n', got %s\n", buf);
-
-    MsiCloseHandle( rec );
     MsiViewClose( view );
     MsiCloseHandle( view );
     MsiCloseHandle( hdb );
@@ -1913,30 +1758,6 @@ static void test_where(void)
     query = "SELECT * FROM `Media` WHERE `DiskPrompt` IS NULL";
     r = do_query(hdb, query, &rec);
     ok( r == ERROR_SUCCESS, "query failed: %d\n", r );
-    MsiCloseHandle( rec );
-
-    rec = 0;
-    query = "SELECT * FROM `Media` WHERE `DiskPrompt` < 'Cabinet'";
-    r = do_query(hdb, query, &rec);
-    ok( r == ERROR_BAD_QUERY_SYNTAX, "query failed: %d\n", r );
-    MsiCloseHandle( rec );
-
-    rec = 0;
-    query = "SELECT * FROM `Media` WHERE `DiskPrompt` > 'Cabinet'";
-    r = do_query(hdb, query, &rec);
-    ok( r == ERROR_BAD_QUERY_SYNTAX, "query failed: %d\n", r );
-    MsiCloseHandle( rec );
-
-    rec = 0;
-    query = "SELECT * FROM `Media` WHERE `DiskPrompt` <> 'Cabinet'";
-    r = do_query(hdb, query, &rec);
-    todo_wine ok( r == ERROR_SUCCESS, "query failed: %d\n", r );
-    MsiCloseHandle( rec );
-
-    rec = 0;
-    query = "SELECT * FROM `Media` WHERE `DiskPrompt` = 'Cabinet'";
-    r = do_query(hdb, query, &rec);
-    ok( r == ERROR_NO_MORE_ITEMS, "query failed: %d\n", r );
     MsiCloseHandle( rec );
 
     rec = MsiCreateRecord(1);
@@ -3796,63 +3617,6 @@ static void test_join(void)
     r = MsiDatabaseOpenView(hdb, query, &hview);
     ok( r == ERROR_BAD_QUERY_SYNTAX,
         "Expected ERROR_BAD_QUERY_SYNTAX, got %d\n", r );
-
-    /* try updating a row in a join table */
-    query = "SELECT `Component`.`ComponentId`, `FeatureComponents`.`Feature_` "
-            "FROM `Component`, `FeatureComponents` "
-            "WHERE `Component`.`Component` = `FeatureComponents`.`Component_` "
-            "ORDER BY `Feature_`";
-    r = MsiDatabaseOpenView(hdb, query, &hview);
-    ok( r == ERROR_SUCCESS, "failed to open view: %d\n", r );
-
-    r = MsiViewExecute(hview, 0);
-    ok( r == ERROR_SUCCESS, "failed to execute view: %d\n", r );
-
-    r = MsiViewFetch(hview, &hrec);
-    ok( r == ERROR_SUCCESS, "failed to fetch view: %d\n", r );
-
-    r = MsiRecordSetString( hrec, 1, "epicranius" );
-    ok( r == ERROR_SUCCESS, "failed to set string: %d\n", r );
-
-    r = MsiViewModify(hview, MSIMODIFY_UPDATE, hrec);
-    ok( r == ERROR_SUCCESS, "failed to update row: %d\n", r );
-
-    /* try another valid operation for joins */
-    r = MsiViewModify(hview, MSIMODIFY_REFRESH, hrec);
-    todo_wine ok( r == ERROR_SUCCESS, "failed to refresh row: %d\n", r );
-
-    /* try an invalid operation for joins */
-    r = MsiViewModify(hview, MSIMODIFY_DELETE, hrec);
-    ok( r == ERROR_FUNCTION_FAILED, "unexpected result: %d\n", r );
-
-    r = MsiRecordSetString( hrec, 2, "epicranius" );
-    ok( r == ERROR_SUCCESS, "failed to set string: %d\n", r );
-
-    /* primary key cannot be updated */
-    r = MsiViewModify(hview, MSIMODIFY_UPDATE, hrec);
-    todo_wine ok( r == ERROR_FUNCTION_FAILED, "failed to update row: %d\n", r );
-
-    MsiCloseHandle(hrec);
-    MsiViewClose(hview);
-    MsiCloseHandle(hview);
-
-    r = MsiDatabaseOpenView(hdb, query, &hview);
-    ok(r == ERROR_SUCCESS, "MsiDatabaseOpenView failed\n");
-
-    r = MsiViewExecute(hview, 0);
-    ok(r == ERROR_SUCCESS, "MsiViewExecute failed\n");
-
-    r = MsiViewFetch(hview, &hrec);
-    ok(r == ERROR_SUCCESS, "MsiViewFetch failed\n");
-
-    size = MAX_PATH;
-    r = MsiRecordGetString( hrec, 1, buf, &size );
-    ok( r == ERROR_SUCCESS, "failed to get record string: %d\n", r );
-    ok( !lstrcmp( buf, "epicranius" ), "expected 'epicranius', got %s\n", buf );
-
-    MsiCloseHandle(hrec);
-    MsiViewClose(hview);
-    MsiCloseHandle(hview);
 
     MsiCloseHandle(hdb);
     DeleteFile(msifile);
@@ -5775,8 +5539,6 @@ static void enum_stream_names(IStorage *stg)
         ok(hr == S_OK, "Expected S_OK, got %08x\n", hr);
         ok(stm != NULL, "Expected non-NULL stream\n");
 
-        CoTaskMemFree(stat.pwcsName);
-
         sz = MAX_PATH;
         memset(data, 'a', MAX_PATH);
         hr = IStream_Read(stm, data, sz, &count);
@@ -5806,6 +5568,8 @@ static void test_defaultdatabase(void)
     HRESULT hr;
     MSIHANDLE hdb;
     IStorage *stg = NULL;
+
+    static const WCHAR msifileW[] = {'w','i','n','e','t','e','s','t','.','m','s','i',0};
 
     DeleteFile(msifile);
 
@@ -8137,80 +7901,6 @@ static void test_dbmerge(void)
     DeleteFileA("binary.dat");
 }
 
-static void test_select_with_tablenames(void)
-{
-    MSIHANDLE hdb, view, rec;
-    LPCSTR query;
-    UINT r;
-    int i;
-
-    int vals[4][2] = {
-        {1,12},
-        {4,12},
-        {1,15},
-        {4,15}};
-
-    hdb = create_db();
-    ok(hdb, "failed to create db\n");
-
-    /* Build a pair of tables with the same column names, but unique data */
-    query = "CREATE TABLE `T1` ( `A` SHORT, `B` SHORT PRIMARY KEY `A`)";
-    r = run_query(hdb, 0, query);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", r);
-
-    query = "INSERT INTO `T1` ( `A`, `B` ) VALUES ( 1, 2 )";
-    r = run_query(hdb, 0, query);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", r);
-
-    query = "INSERT INTO `T1` ( `A`, `B` ) VALUES ( 4, 5 )";
-    r = run_query(hdb, 0, query);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", r);
-
-    query = "CREATE TABLE `T2` ( `A` SHORT, `B` SHORT PRIMARY KEY `A`)";
-    r = run_query(hdb, 0, query);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", r);
-
-    query = "INSERT INTO `T2` ( `A`, `B` ) VALUES ( 11, 12 )";
-    r = run_query(hdb, 0, query);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", r);
-
-    query = "INSERT INTO `T2` ( `A`, `B` ) VALUES ( 14, 15 )";
-    r = run_query(hdb, 0, query);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", r);
-
-
-    /* Test that selection based on prefixing the column with the table
-     * actually selects the right data */
-
-    query = "SELECT T1.A, T2.B FROM T1,T2";
-    r = MsiDatabaseOpenView(hdb, query, &view);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", r);
-    r = MsiViewExecute(view, 0);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", r);
-
-    for (i = 0; i < 4; i++)
-    {
-        r = MsiViewFetch(view, &rec);
-        ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", r);
-
-        r = MsiRecordGetInteger(rec, 1);
-        ok(r == vals[i][0], "Expected %d, got %d\n", vals[i][0], r);
-
-        r = MsiRecordGetInteger(rec, 2);
-        ok(r == vals[i][1], "Expected %d, got %d\n", vals[i][1], r);
-
-        MsiCloseHandle(rec);
-    }
-
-    r = MsiViewFetch(view, &rec);
-    ok(r == ERROR_NO_MORE_ITEMS, "Expected ERROR_NO_MORE_ITEMS, got %d\n", r);
-
-    MsiViewClose(view);
-    MsiCloseHandle(view);
-    MsiCloseHandle(hdb);
-    DeleteFileA(msifile);
-}
-
 UINT ordervals[6][3] =
 {
     { MSI_NULL_INTEGER, 12, 13 },
@@ -8889,7 +8579,6 @@ START_TEST(db)
     test_dbtopackage();
     test_droptable();
     test_dbmerge();
-    test_select_with_tablenames();
     test_insertorder();
     test_columnorder();
     test_suminfo_import();

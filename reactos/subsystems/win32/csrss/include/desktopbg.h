@@ -6,7 +6,8 @@
  * PURPOSE:         CSRSS internal desktop background window interface
  */
 
-#pragma once
+#ifndef DESKTOPBG_H_INCLUDED
+#define DESKTOPBG_H_INCLUDED
 
 #include "api.h"
 
@@ -18,4 +19,7 @@ CSR_API(CsrRegisterSystemClasses);
 
 BOOL FASTCALL DtbgIsDesktopVisible(VOID);
 
+#endif /* DESKTOPBG_H_INCLUDED */
+
 /* EOF */
+

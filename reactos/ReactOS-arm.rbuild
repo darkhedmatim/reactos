@@ -29,8 +29,6 @@
 			<compilerflag>-ftracer</compilerflag>
 		</if>
         <compilerflag>-Wno-attributes</compilerflag>
-        <compilerflag>-U_UNICODE</compilerflag>
-        <compilerflag>-UUNICODE</compilerflag>
 	</group>
 
 
@@ -111,7 +109,17 @@
 		<xi:include href="ntoskrnl/ntoskrnl.rbuild" />
 	</directory>
 	<directory name="hal">
-		<xi:include href="hal/hal.rbuild" />
+		<directory name="halarm">
+			<directory name="generic">
+				<xi:include href="hal/halarm/generic/generic.rbuild" />
+			</directory>
+			<directory name="up">
+				<xi:include href="hal/halarm/up/halup.rbuild" />
+			</directory>
+		</directory>
+		<directory name="hal">
+			<xi:include href="hal/hal/hal.rbuild" />
+		</directory>
 	</directory>
 	<directory name="boot">
 		<xi:include href="boot/boot.rbuild" />

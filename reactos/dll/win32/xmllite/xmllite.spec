@@ -1,6 +1,6 @@
-@ stdcall CreateXmlReader(ptr ptr ptr)
+@ stub CreateXmlReader
 @ stub CreateXmlReaderInputWithEncodingCodePage
-@ stdcall CreateXmlReaderInputWithEncodingName(ptr ptr ptr long ptr ptr)
+@ stub CreateXmlReaderInputWithEncodingName
 @ stub CreateXmlWriter
 @ stub CreateXmlWriterOutputWithEncodingCodePage
 @ stub CreateXmlWriterOutputWithEncodingName

@@ -64,7 +64,7 @@ typedef struct _DSDRIVERDESC
     DWORD      	dwFlags;
     TCHAR	szDesc[256];
     TCHAR	szDrvname[256];
-    DWORD_PTR	dnDevNode;
+    DWORD	dnDevNode;
     WORD	wVxdId;
     WORD	wReserved;
     ULONG	ulDeviceNum;
@@ -120,7 +120,7 @@ typedef union _DSPROPERTY
 	GUID	Set;
 	ULONG	Id;
 	ULONG	Flags;
-	ULONG_PTR	InstanceId;
+	ULONG	InstanceId;
     } DUMMYSTRUCTNAME;
     ULONGLONG	Alignment;
 } DSPROPERTY,*PDSPROPERTY;

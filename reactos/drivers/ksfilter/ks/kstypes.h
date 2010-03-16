@@ -1,4 +1,5 @@
-#pragma once
+#ifndef KSTYPES_H__
+#define KSTYPES_H__
 
 #include <ntddk.h>
 #include <ks.h>
@@ -157,3 +158,6 @@ typedef struct
 
     WCHAR BusIdentifier[1];
 }BUS_ENUM_DEVICE_EXTENSION, *PBUS_ENUM_DEVICE_EXTENSION;
+
+
+#endif

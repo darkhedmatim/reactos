@@ -19,7 +19,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#pragma once
+#ifndef _statreg_h
+#define _statreg_h
 
 class IRegistrarBase : public IUnknown
 {
@@ -674,3 +675,5 @@ private:
 };
 
 }; //namespace ATL
+
+#endif // _statreg_h

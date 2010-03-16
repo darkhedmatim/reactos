@@ -329,26 +329,6 @@ static BOOL check_list(struct FILELIST **node, const char *filename, BOOL do_ext
     return TRUE;
 }
 
-static void free_file_node(struct FILELIST *node)
-{
-    HeapFree(GetProcessHeap(), 0, node->FileName);
-    HeapFree(GetProcessHeap(), 0, node);
-}
-
-static void free_file_list(SESSION* session)
-{
-    struct FILELIST *next, *curr = session->FileList;
-
-    while (curr)
-    {
-        next = curr->next;
-        free_file_node(curr);
-        curr = next;
-    }
-
-    session->FileList = NULL;
-}
-
 static void test_Extract(void)
 {
     SESSION session;
@@ -390,7 +370,6 @@ static void test_Extract(void)
     ok(check_list(&node, "testdir\\c.txt", FALSE), "list entry wrong\n");
     ok(check_list(&node, "b.txt", FALSE), "list entry wrong\n");
     ok(check_list(&node, "a.txt", FALSE), "list entry wrong\n");
-    free_file_list(&session);
 
     /* try fill file list operation */
     ZeroMemory(&session, sizeof(SESSION));
@@ -475,10 +454,7 @@ static void test_Extract(void)
     ok(check_list(&node, "a.txt", FALSE), "list entry wrong\n");
 
     /* remove two of the files in the list */
-    node = session.FileList->next;
     session.FileList->next = session.FileList->next->next;
-    free_file_node(node);
-    free_file_node(session.FileList->next->next);
     session.FileList->next->next = NULL;
     session.FilterList = NULL;
     CreateDirectoryA("dest", NULL);
@@ -506,7 +482,6 @@ static void test_Extract(void)
     ok(!check_list(&node, "testdir\\c.txt", FALSE), "list entry wrong\n");
     ok(check_list(&node, "b.txt", FALSE), "list entry wrong\n");
     ok(!check_list(&node, "a.txt", FALSE), "list entry wrong\n");
-    free_file_list(&session);
 
     session.Operation = EXTRACT_FILLFILELIST;
     session.FileList = NULL;
@@ -589,7 +564,6 @@ static void test_Extract(void)
     ok(check_list(&node, "testdir\\c.txt", FALSE), "list entry wrong\n");
     ok(check_list(&node, "b.txt", FALSE), "list entry wrong\n");
     ok(check_list(&node, "a.txt", FALSE), "list entry wrong\n");
-    free_file_list(&session);
 
     /* cabinet does not exist */
     ZeroMemory(&session, sizeof(SESSION));
@@ -619,7 +593,6 @@ static void test_Extract(void)
     ok(!check_list(&node, "testdir\\c.txt", FALSE), "list entry should not exist\n");
     ok(!check_list(&node, "b.txt", FALSE), "list entry should not exist\n");
     ok(!check_list(&node, "a.txt", FALSE), "list entry should not exist\n");
-    free_file_list(&session);
 
     /* first file exists */
     createTestFile("dest\\a.txt");
@@ -658,7 +631,6 @@ static void test_Extract(void)
         ok(!check_list(&node, "b.txt", FALSE), "list entry should not exist\n");
     }
     ok(!check_list(&node, "a.txt", FALSE), "list entry should not exist\n");
-    free_file_list(&session);
 
     SetFileAttributesA("dest\\a.txt", FILE_ATTRIBUTE_NORMAL);
     DeleteFileA("dest\\a.txt");
@@ -670,7 +642,6 @@ static void test_Extract(void)
     lstrcpyA(session.Destination, "dest");
     session.Operation = EXTRACT_FILLFILELIST | EXTRACT_EXTRACTFILES;
     res = pExtract(&session, "extract.cab");
-    node = session.FileList;
     todo_wine
     {
         ok(res == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED) || res == E_FAIL,
@@ -695,12 +666,11 @@ static void test_Extract(void)
     todo_wine
     {
         ok(!DeleteFileA("dest\\testdir\\d.txt"), "Expected dest\\testdir\\d.txt to not exist\n");
-        ok(!check_list(&node, "testdir\\d.txt", FALSE), "list entry should not exist\n");
     }
+    ok(!check_list(&node, "testdir\\d.txt", FALSE), "list entry should not exist\n");
     ok(!check_list(&node, "testdir\\c.txt", FALSE), "list entry wrong\n");
     ok(!check_list(&node, "b.txt", FALSE), "list entry wrong\n");
-    ok(!check_list(&node, "a.txt", TRUE), "list entry wrong\n");
-    free_file_list(&session);
+    ok(check_list(&node, "a.txt", TRUE), "list entry wrong\n");
 
     SetFileAttributesA("dest\\testdir\\c.txt", FILE_ATTRIBUTE_NORMAL);
     DeleteFileA("dest\\testdir\\c.txt");

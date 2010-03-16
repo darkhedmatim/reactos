@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_XFORMOBJ_H_
+#define _WIN32K_XFORMOBJ_H_
 
 ULONG
 INTERNAL_CALL
@@ -26,3 +27,5 @@ INTERNAL_CALL
 XFORMOBJ_Inverse(
 	OUT XFORMOBJ *pxoDst,
 	IN XFORMOBJ *pxoSrc);
+
+#endif /* not _WIN32K_XFORMOBJ_H_ */

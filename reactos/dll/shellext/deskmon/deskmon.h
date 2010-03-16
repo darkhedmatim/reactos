@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __DESKMON__H
+#define __DESKMON__H
 
 typedef struct _DESKMONINFO
 {
@@ -78,3 +79,5 @@ IDeskMonitor_ReplacePage(PDESKMONITOR This,
 static const GUID CLSID_IDeskMonitor = {0x42071713,0x76d4,0x11d1,{0x8b,0x24,0x00,0xa0,0xc9,0x06,0x8f,0xf3}};
 
 ULONG __cdecl DbgPrint(PCCH Format,...);
+
+#endif /* __DESKMON__H */

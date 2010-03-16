@@ -4,7 +4,8 @@
  * PURPOSE:         Registry code
  */
 
-#pragma once
+#ifndef __REGISTRY_H__
+#define __REGISTRY_H__
 
 typedef struct _REG_VALUE
 {
@@ -121,4 +122,9 @@ RegGetValueCount (HKEY Key);
 VOID
 RegInitializeRegistry(VOID);
 
+#endif /* __REGISTRY_H__ */
+
 /* EOF */
+
+
+

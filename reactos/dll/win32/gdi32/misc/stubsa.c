@@ -1,5 +1,6 @@
-/*
- * dll/win32/gdi32/misc/stubsa.c
+/* $Id$
+ *
+ * reactos/lib/gdi32/misc/stubs.c
  *
  * GDI32.DLL Stubs for ANSI functions
  *
@@ -9,8 +10,8 @@
  */
 
 #include "precomp.h"
-#include <debug.h>
 
+#define UNIMPLEMENTED DbgPrint("GDI32: %s is unimplemented, please try again later.\n", __FUNCTION__);
 
 /*
  * @unimplemented

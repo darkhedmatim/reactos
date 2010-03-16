@@ -23,11 +23,14 @@
  * PROGRAMMER:      Tinus
  */
 
-#pragma once
+#ifndef __KEYTRANS_H__
+#define __KEYTRANS_H__
 
 #include <ntddkbd.h>
 
 NTSTATUS
 IntTranslateKey(PKEYBOARD_INPUT_DATA InputData, KEY_EVENT_RECORD *Event);
+
+#endif /* __KEYTRANS_H__ */
 
 /* EOF */

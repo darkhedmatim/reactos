@@ -6,8 +6,8 @@
  * DEFINES:     DBG     - Enable debug output
  *              NASSERT - Disable assertions
  */
-
-#pragma once
+#ifndef __DEBUG_H
+#define __DEBUG_H
 
 #define NORMAL_MASK    0x000000FF
 #define SPECIAL_MASK   0xFFFFFF00
@@ -47,5 +47,7 @@ extern unsigned long debug_trace_level;
 #define DH_DbgPrint(_t_, _x_)
 
 #endif /* DBG */
+
+#endif /* __DEBUG_H */
 
 /* EOF */

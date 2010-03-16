@@ -21,14 +21,6 @@
 #ifndef __DDKMAPI_INCLUDED__
 #define __DDKMAPI_INCLUDED__
 
-/* Helper macro to enable gcc's extension.  */
-#ifndef __GNU_EXTENSION
-#ifdef __GNUC__
-#define __GNU_EXTENSION __extension__
-#else
-#define __GNU_EXTENSION
-#endif
-#endif
 
 #if defined(_DXAPI_)
   #define DXAPI
@@ -227,17 +219,17 @@ typedef struct _DDLOCKOUT
   DWORD  dwFormatFlags;
   DWORD  dwFormatFourCC;
   DWORD  dwFormatBitCount;
-  __GNU_EXTENSION union
+  union
   {
     DWORD  dwRBitMask;
     DWORD  dwYBitMask;
   };
-  __GNU_EXTENSION union
+  union
   {
     DWORD  dwGBitMask;
     DWORD  dwUBitMask;
   };
-  __GNU_EXTENSION union
+  union
   {
     DWORD  dwBBitMask;
     DWORD  dwVBitMask;

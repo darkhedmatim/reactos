@@ -91,10 +91,8 @@ HalInitSystem(IN ULONG BootPhase,
             KeBugCheckEx(MISMATCHED_HAL, 1, Prcb->MajorVersion, 1, 0);
         }
 
-#ifndef _MINIHAL_
         /* Initialize the PICs */
-        HalpInitializePICs(TRUE);
-#endif
+        HalpInitPICs();
 
         /* Force initial PIC state */
         KfRaiseIrql(KeGetCurrentIrql());
@@ -109,17 +107,9 @@ HalInitSystem(IN ULONG BootPhase,
         HalQuerySystemInformation = HaliQuerySystemInformation;
         HalSetSystemInformation = HaliSetSystemInformation;
         HalInitPnpDriver = NULL; // FIXME: TODO
-#ifndef _MINIHAL_
         HalGetDmaAdapter = HalpGetDmaAdapter;
-#else
-        HalGetDmaAdapter = NULL;
-#endif
         HalGetInterruptTranslator = NULL;  // FIXME: TODO
-#ifndef _MINIHAL_
         HalResetDisplay = HalpBiosDisplayReset;
-#else
-        HalResetDisplay = NULL;
-#endif
         HalHaltSystem = HaliHaltSystem;
 
         /* Register IRQ 2 */
@@ -135,10 +125,8 @@ HalInitSystem(IN ULONG BootPhase,
         /* Setup busy waiting */
         HalpCalibrateStallExecution();
 
-#ifndef _MINIHAL_
         /* Initialize the clock */
         HalpInitializeClock();
-#endif
 
         /*
          * We could be rebooting with a pending profile interrupt,
@@ -154,7 +142,6 @@ HalInitSystem(IN ULONG BootPhase,
         /* Initialize bus handlers */
         HalpInitBusHandler();
 
-#ifndef _MINIHAL_
         /* Enable IRQ 0 */
         HalpEnableInterruptHandler(IDT_DEVICE,
                                    0,
@@ -173,7 +160,6 @@ HalInitSystem(IN ULONG BootPhase,
 
         /* Initialize DMA. NT does this in Phase 0 */
         HalpInitDma();
-#endif
 
         /* Do some HAL-specific initialization */
         HalpInitPhase1();

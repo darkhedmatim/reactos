@@ -72,8 +72,10 @@ PspUserThreadStartup(IN PKSTART_ROUTINE StartRoutine,
         KeRaiseIrql(APC_LEVEL, &OldIrql);
 
         /* Queue the User APC */
-        KiInitializeUserApc(KeGetExceptionFrame(&Thread->Tcb),
-                            KeGetTrapFrame(&Thread->Tcb),
+        KiInitializeUserApc(NULL,
+                            (PVOID)((ULONG_PTR)Thread->Tcb.InitialStack -
+                            sizeof(KTRAP_FRAME) -
+                            SIZEOF_FX_SAVE_AREA),
                             PspSystemDllEntryPoint,
                             NULL,
                             PspSystemDllBase,

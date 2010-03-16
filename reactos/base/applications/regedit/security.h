@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _REGEXP_SECURITY_H
+#define _REGEXP_SECURITY_H
 
 BOOL
 InitializeAclUiDll(VOID);
@@ -152,5 +153,7 @@ typedef struct _CRegKeySecurity
     HKEY hRootKey;
     TCHAR szRegKey[1];
 } CRegKeySecurity, *PCRegKeySecurity;
+
+#endif /* _REGEXP_SECURITY_H */
 
 /* EOF */

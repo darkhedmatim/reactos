@@ -9,90 +9,120 @@
 
 #include "rpcss.h"
 
-#define NDEBUG
-#include <debug.h>
+BOOL RPCSS_Initialize(void);
+BOOL RPCSS_Shutdown(void);
 
-extern BOOL RPCSS_Initialize(void);
-extern BOOL RPCSS_Shutdown(void);
-extern HANDLE exit_event;
-
-static VOID WINAPI ServiceMain(DWORD, LPWSTR *);
 static WCHAR ServiceName[] = L"RpcSs";
-SERVICE_TABLE_ENTRYW ServiceTable[] =
-{
-    { ServiceName, ServiceMain },
-    { NULL,        NULL }
-};
 
-static SERVICE_STATUS ServiceStatus;
-static SERVICE_STATUS_HANDLE ServiceStatusHandle;
-
-DWORD WINAPI
-ServiceControlHandler(DWORD dwControl,
-                      DWORD dwEventType,
-                      LPVOID lpEventData,
-                      LPVOID lpContext)
+typedef struct _ServiceInfo
 {
+    SERVICE_STATUS servStatus;
+    SERVICE_STATUS_HANDLE hStatus;
+} SERVICEINFO, *PSERVICEINFO;
+
+
+static VOID
+UpdateStatus(PSERVICEINFO pServInfo,
+             DWORD NewStatus,
+             DWORD Check)
+{
+    if (Check > 0)
+    {
+        pServInfo->servStatus.dwCheckPoint += Check;
+    }
+    else
+    {
+        pServInfo->servStatus.dwCheckPoint = Check;
+    }
+
+    if (NewStatus > 0)
+    {
+        pServInfo->servStatus.dwCurrentState = NewStatus;
+    }
+
+    SetServiceStatus(pServInfo->hStatus, &pServInfo->servStatus);
+}
+
+
+static BOOL
+RunService(PSERVICEINFO pServInfo)
+{
+    return RPCSS_Initialize();
+}
+
+VOID WINAPI
+ServerCtrlHandler(DWORD dwControl,
+                  DWORD dwEventType,
+                  LPVOID lpEventData,
+                  LPVOID lpContext)
+{
+    PSERVICEINFO pServInfo = (PSERVICEINFO)lpContext;
+
     switch (dwControl)
     {
         case SERVICE_CONTROL_SHUTDOWN:
         case SERVICE_CONTROL_STOP:
-            SetEvent(exit_event);
-            return NO_ERROR;
-
-        case SERVICE_CONTROL_INTERROGATE:
-            return NO_ERROR;
+            RPCSS_Shutdown();
+            pServInfo->servStatus.dwWin32ExitCode = 0;
+            pServInfo->servStatus.dwWaitHint = 0;
+            UpdateStatus(pServInfo, SERVICE_STOP_PENDING, 1);
+            break;
 
         default:
-            return ERROR_CALL_NOT_IMPLEMENTED;
+            break;
     }
 }
 
 VOID WINAPI
 ServiceMain(DWORD argc, LPWSTR argv[])
 {
-    DWORD dwError;
+    SERVICEINFO servInfo;
+    HANDLE hThread;
+    DWORD dwThreadId;
 
-    ServiceStatusHandle = RegisterServiceCtrlHandlerExW(ServiceName,
-                                                        ServiceControlHandler,
-                                                        NULL);
-    if (!ServiceStatusHandle)
-    {
-        dwError = GetLastError();
-        DPRINT1("RegisterServiceCtrlHandlerW() failed! (Error %lu)\n", dwError);
-        return;
-    }
+    servInfo.servStatus.dwServiceType      = SERVICE_WIN32_OWN_PROCESS;
+    servInfo.servStatus.dwCurrentState     = SERVICE_STOPPED;
+    servInfo.servStatus.dwControlsAccepted = SERVICE_ACCEPT_SHUTDOWN;
+    servInfo.servStatus.dwWin32ExitCode    = ERROR_SERVICE_SPECIFIC_ERROR;
+    servInfo.servStatus.dwServiceSpecificExitCode = 0;
+    servInfo.servStatus.dwCheckPoint       = 0;
+    servInfo.servStatus.dwWaitHint         = 1000;
 
-    ServiceStatus.dwServiceType      = SERVICE_WIN32_OWN_PROCESS;
-    ServiceStatus.dwCurrentState     = SERVICE_START_PENDING;
-    ServiceStatus.dwControlsAccepted = 0;
-    ServiceStatus.dwWin32ExitCode    = NO_ERROR;
-    ServiceStatus.dwServiceSpecificExitCode = 0;
-    ServiceStatus.dwCheckPoint       = 0;
-    ServiceStatus.dwWaitHint         = 1000;
-    SetServiceStatus(ServiceStatusHandle, &ServiceStatus);
+    servInfo.hStatus = RegisterServiceCtrlHandlerExW(ServiceName,
+                                                     (LPHANDLER_FUNCTION_EX)ServerCtrlHandler,
+                                                     &servInfo);
+    if (!servInfo.hStatus) return;
 
-    if (RPCSS_Initialize())
-    {
-        ServiceStatus.dwCurrentState = SERVICE_RUNNING;
-        ServiceStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SHUTDOWN;
-        SetServiceStatus(ServiceStatusHandle, &ServiceStatus);
+    UpdateStatus(&servInfo, SERVICE_START_PENDING, 1);
 
-        WaitForSingleObject(exit_event, INFINITE);
+    /* Create worker thread */
+    hThread = CreateThread(NULL,
+                           0,
+                           (LPTHREAD_START_ROUTINE)RunService,
+                           &servInfo,
+                           0,
+                           &dwThreadId);
+    if (!hThread) return;
 
-        ServiceStatus.dwCurrentState = SERVICE_STOPPED;
-        SetServiceStatus(ServiceStatusHandle, &ServiceStatus);
-        RPCSS_Shutdown();
-    }
+    /* Set service status to running */
+    UpdateStatus(&servInfo, SERVICE_RUNNING, 0);
+
+    /* Wait until thread has terminated */
+    WaitForSingleObject(hThread, INFINITE);
+
+    CloseHandle(hThread);
+
+    UpdateStatus(&servInfo, SERVICE_STOPPED, 0);
 }
 
-int wmain(int argc, LPWSTR argv[])
-{
-    if (!StartServiceCtrlDispatcherW(ServiceTable))
-    {
-        DPRINT1("StartServiceCtrlDispatcherW() failed\n");
-        return 1;
-    }
 
-    return 0;
+int wmain(int argc, LPWSTR argv [])
+{
+    SERVICE_TABLE_ENTRYW ServiceTable[] =
+    {
+        {ServiceName, ServiceMain},
+        {NULL,        NULL }
+    };
+
+    return (int)(StartServiceCtrlDispatcherW(ServiceTable) != TRUE);
 }

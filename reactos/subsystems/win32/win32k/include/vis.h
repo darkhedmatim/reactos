@@ -8,7 +8,8 @@
  *
  */
 
-#pragma once
+#ifndef _WIN32K_VIS_H
+#define _WIN32K_VIS_H
 
 #include <include/window.h>
 
@@ -19,4 +20,7 @@ VIS_ComputeVisibleRegion(PWINDOW_OBJECT Window, BOOLEAN ClientArea,
 VOID FASTCALL
 co_VIS_WindowLayoutChanged(PWINDOW_OBJECT Window, HRGN UncoveredRgn);
 
+#endif /* ! defined(_WIN32K_VIS_H) */
+
 /* EOF */
+

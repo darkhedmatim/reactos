@@ -5,7 +5,8 @@
  * PURPOSE:     Definitions for routines used by NDIS protocol drivers
  */
 
-#pragma once
+#ifndef __PROTOCOL_H
+#define __PROTOCOL_H
 
 typedef struct _PROTOCOL_BINDING {
     LIST_ENTRY                    ListEntry;        /* Entry on global list */
@@ -69,4 +70,7 @@ NdisIPnPCancelStopDevice(
 NDIS_STATUS
 proSendPacketToMiniport(PLOGICAL_ADAPTER Adapter, PNDIS_PACKET Packet);
 
+#endif /* __PROTOCOL_H */
+
 /* EOF */
+

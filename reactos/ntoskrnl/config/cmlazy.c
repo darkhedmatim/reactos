@@ -298,12 +298,4 @@ CmpShutdownWorkers(VOID)
     KeCancelTimer(&CmpLazyFlushTimer);
 }
 
-VOID
-NTAPI
-CmSetLazyFlushState(IN BOOLEAN Enable)
-{
-    /* Set state for lazy flusher */
-    CmpHoldLazyFlush = !Enable;
-}
-
 /* EOF */

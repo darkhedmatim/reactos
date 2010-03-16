@@ -33,6 +33,8 @@
 #define  CACHEPAGESIZE(pDeviceExt) ((pDeviceExt)->FatInfo.BytesPerCluster > PAGE_SIZE ? \
                                     (pDeviceExt)->FatInfo.BytesPerCluster : PAGE_SIZE)
 
+#define VOLUME_IS_DIRTY 0x00000001
+
 static NTSTATUS
 VfatHasFileSystem(PDEVICE_OBJECT DeviceToMount,
                   PBOOLEAN RecognizedFS,
@@ -423,7 +425,7 @@ VfatMount (PVFAT_IRP_CONTEXT IrpContext)
                            ROUND_UP(sizeof (DEVICE_EXTENSION), sizeof(ULONG)) + sizeof(HASHENTRY*) * HashTableSize,
                            NULL,
                            FILE_DEVICE_DISK_FILE_SYSTEM,
-                           DeviceToMount->Characteristics,
+                           0,
                            FALSE,
                            &DeviceObject);
    if (!NT_SUCCESS(Status))

@@ -15,8 +15,8 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-
-#pragma once
+#ifndef MINGW_MODULEHANDLER_H
+#define MINGW_MODULEHANDLER_H
 
 #include "../backend.h"
 #include "mingw.h"
@@ -31,6 +31,13 @@ extern std::string
 PrefixFilename (
 	const std::string& filename,
 	const std::string& prefix );
+
+enum SpecFileType
+{
+    None,
+    Spec = 1,
+    PSpec = 2
+};
 
 class MingwModuleHandler
 {
@@ -370,3 +377,5 @@ public:
 	MingwElfExecutableModuleHandler ( const Module& module );
 	virtual void Process ();
 };
+
+#endif /* MINGW_MODULEHANDLER_H */

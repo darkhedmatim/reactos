@@ -684,7 +684,7 @@ static HRESULT WINAPI OLEPictureImpl_Render(IPicture *iface, HDC hdc,
     break;
   case PICTYPE_ICON:
     FIXME("Not quite correct implementation of rendering icons...\n");
-    DrawIconEx(hdc, x, y, This->desc.u.icon.hicon, cx, cy, 0, NULL, DI_NORMAL);
+    DrawIcon(hdc,x,y,This->desc.u.icon.hicon);
     break;
 
   case PICTYPE_METAFILE:

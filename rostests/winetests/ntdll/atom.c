@@ -34,7 +34,6 @@
 #include "winbase.h"
 #include "winreg.h"
 #include "winnls.h"
-#include "winuser.h"
 #include "wine/test.h"
 #include "winternl.h"
 

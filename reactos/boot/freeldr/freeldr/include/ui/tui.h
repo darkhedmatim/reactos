@@ -17,7 +17,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#pragma once
+#ifndef __TUI_H
+#define __TUI_H
 
 #define	TUI_SCREEN_MEM				0xB8000
 #define TUI_TITLE_BOX_CHAR_HEIGHT	5
@@ -79,6 +80,12 @@ VOID	NTAPI TuiDrawMenuItem(PUI_MENU_INFO MenuInfo, ULONG MenuItemNumber);
 ULONG	NTAPI TuiProcessMenuKeyboardEvent(PUI_MENU_INFO MenuInfo, UiMenuKeyPressFilterCallback KeyPressFilter);
 BOOLEAN TuiDisplayMenu(PCSTR MenuItemList[], ULONG MenuItemCount, ULONG DefaultMenuItem, LONG MenuTimeOut, ULONG* SelectedMenuItem, BOOLEAN CanEscape, UiMenuKeyPressFilterCallback KeyPressFilter);
 
+
+
+
+
+
+
 /* Definitions for corners, depending on HORIZ and VERT */
 #define UL		(0xda)
 #define UR		(0xbf)  /* HORZ and VERT */
@@ -101,3 +108,5 @@ BOOLEAN TuiDisplayMenu(PCSTR MenuItemList[], ULONG MenuItemCount, ULONG DefaultM
 #define VD_LR	(0xbd)
 
 extern const UIVTBL TuiVtbl;
+
+#endif // #defined __TUI_H

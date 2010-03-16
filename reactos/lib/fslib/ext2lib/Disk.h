@@ -5,10 +5,15 @@
  * HOMEPAGE:         http://ext2.yeah.net
  */
 
-#pragma once
+#ifndef _DISK_H_
+#define _DISK_H_
 
 /* INCLUDES **************************************************************/
 
 #include "Stdafx.h"
 
 /* DEFINITIONS ***********************************************************/
+
+
+
+#endif /* _DISK_H_ */

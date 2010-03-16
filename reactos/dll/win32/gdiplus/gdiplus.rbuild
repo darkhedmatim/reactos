@@ -26,6 +26,7 @@
 	<library>ole32</library>
 	<library>user32</library>
 	<library>gdi32</library>
+	<library>kernel32</library>
 	<library>windowscodecs</library>
 	<library>ntdll</library>
 </module>

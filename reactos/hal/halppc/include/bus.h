@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __INTERNAL_HAL_BUS_H
+#define __INTERNAL_HAL_BUS_H
 
 //
 // Helper Macros
@@ -288,4 +289,8 @@ extern BOOLEAN HalpPCIConfigInitialized;
 extern BUS_HANDLER HalpFakePciBusHandler;
 extern ULONG HalpMinPciBus, HalpMaxPciBus;
 
+#endif /* __INTERNAL_HAL_BUS_H */
+
 /* EOF */
+
+

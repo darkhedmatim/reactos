@@ -31,97 +31,7 @@ ULONG MmSpecialPoolTag;
 
 VOID
 NTAPI
-MiInitializeNonPagedPoolThresholds(VOID)
-{
-    PFN_NUMBER Size = MmMaximumNonPagedPoolInPages;
-
-    /* Default low threshold of 8MB or one third of nonpaged pool */
-    MiLowNonPagedPoolThreshold = (8 * _1MB) >> PAGE_SHIFT;
-    MiLowNonPagedPoolThreshold = min(MiLowNonPagedPoolThreshold, Size / 3);
-
-    /* Default high threshold of 20MB or 50% */
-    MiHighNonPagedPoolThreshold = (20 * _1MB) >> PAGE_SHIFT;
-    MiHighNonPagedPoolThreshold = min(MiHighNonPagedPoolThreshold, Size / 2);
-    ASSERT(MiLowNonPagedPoolThreshold < MiHighNonPagedPoolThreshold);
-}
-
-VOID
-NTAPI
-MiInitializePoolEvents(VOID)
-{
-    KIRQL OldIrql;
-    PFN_NUMBER FreePoolInPages;
-
-    /* Lock paged pool */
-    KeAcquireGuardedMutex(&MmPagedPoolMutex);
-
-    /* Total size of the paged pool minus the allocated size, is free */
-    FreePoolInPages = MmSizeOfPagedPoolInPages - MmPagedPoolInfo.AllocatedPagedPool;
-
-    /* Check the initial state high state */
-    if (FreePoolInPages >= MiHighPagedPoolThreshold)
-    {
-        /* We have plenty of pool */
-        KeSetEvent(MiHighPagedPoolEvent, 0, FALSE);
-    }
-    else
-    {
-        /* We don't */
-        KeClearEvent(MiHighPagedPoolEvent);
-    }
-
-    /* Check the initial low state */
-    if (FreePoolInPages <= MiLowPagedPoolThreshold)
-    {
-        /* We're very low in free pool memory */
-        KeSetEvent(MiLowPagedPoolEvent, 0, FALSE);
-    }
-    else
-    {
-        /* We're not */
-        KeClearEvent(MiLowPagedPoolEvent);
-    }
-
-    /* Release the paged pool lock */
-    KeReleaseGuardedMutex(&MmPagedPoolMutex);
-
-    /* Now it's time for the nonpaged pool lock */
-    OldIrql = KeAcquireQueuedSpinLock(LockQueueMmNonPagedPoolLock);
-
-    /* Free pages are the maximum minus what's been allocated */
-    FreePoolInPages = MmMaximumNonPagedPoolInPages - MmAllocatedNonPagedPool;
-
-    /* Check if we have plenty */
-    if (FreePoolInPages >= MiHighNonPagedPoolThreshold)
-    {
-        /* We do, set the event */
-        KeSetEvent(MiHighNonPagedPoolEvent, 0, FALSE);
-    }
-    else
-    {
-        /* We don't, clear the event */
-        KeClearEvent(MiHighNonPagedPoolEvent);
-    }
-
-    /* Check if we have very little */
-    if (FreePoolInPages <= MiLowNonPagedPoolThreshold)
-    {
-        /* We do, set the event */
-        KeSetEvent(MiLowNonPagedPoolEvent, 0, FALSE);
-    }
-    else
-    {
-        /* We don't, clear it */
-        KeClearEvent(MiLowNonPagedPoolEvent);
-    }
-
-    /* We're done, release the nonpaged pool lock */
-    KeReleaseQueuedSpinLock(LockQueueMmNonPagedPoolLock, OldIrql);
-}
-
-VOID
-NTAPI
-MiInitializeNonPagedPool(VOID)
+MiInitializeArmPool(VOID)
 {
     ULONG i;
     PFN_NUMBER PoolPages;
@@ -231,7 +141,7 @@ MiAllocatePoolPages(IN POOL_TYPE PoolType,
     PMMPTE PointerPte, StartPte;
     MMPTE TempPte;
     PMMPFN Pfn1;
-    PVOID BaseVa, BaseVaStart;
+    PVOID BaseVa;
     PMMFREE_POOL_ENTRY FreeEntry;
     PKSPIN_LOCK_QUEUE LockQueue;
     
@@ -259,133 +169,11 @@ MiAllocatePoolPages(IN POOL_TYPE PoolType,
         if (i == 0xFFFFFFFF)
         {
             //
-            // Get the page bit count
+            // Out of memory!
             //
-            i = ((SizeInPages - 1) / 1024) + 1;
-            
-            //
-            // Check if there is enougn paged pool expansion space left
-            //
-            if (MmPagedPoolInfo.NextPdeForPagedPoolExpansion >
-                MiAddressToPte(MmPagedPoolInfo.LastPteForPagedPool))
-            {
-                //
-                // Out of memory!
-                //
-                DPRINT1("OUT OF PAGED POOL!!!\n");
-                KeReleaseGuardedMutex(&MmPagedPoolMutex);
-                return NULL;
-            }
-            
-            //
-            // Check if we'll have to expand past the last PTE we have available
-            //            
-            if (((i - 1) + MmPagedPoolInfo.NextPdeForPagedPoolExpansion) >
-                 MiAddressToPte(MmPagedPoolInfo.LastPteForPagedPool))
-            {
-                //
-                // We can only support this much then
-                //
-                SizeInPages = MiAddressToPte(MmPagedPoolInfo.LastPteForPagedPool) - 
-                              MmPagedPoolInfo.NextPdeForPagedPoolExpansion +
-                              1;
-                ASSERT(SizeInPages < i);
-                i = SizeInPages;
-            }
-            else
-            {
-                //
-                // Otherwise, there is plenty of space left for this expansion
-                //
-                SizeInPages = i;
-            }
-            
-            //
-            // Get the template PTE we'll use to expand
-            //
-            TempPte = ValidKernelPte;
-            
-            //
-            // Get the first PTE in expansion space
-            //
-            PointerPte = MmPagedPoolInfo.NextPdeForPagedPoolExpansion;
-            BaseVa = MiPteToAddress(PointerPte);
-            BaseVaStart = BaseVa;
-            
-            //
-            // Lock the PFN database and loop pages
-            //            
-            OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);          
-            do
-            {
-                //
-                // It should not already be valid
-                //
-                ASSERT(PointerPte->u.Hard.Valid == 0);
-                
-                //
-                // Request a paged pool page and write the PFN for it
-                //
-                PageFrameNumber = MmAllocPage(MC_PPOOL);
-                TempPte.u.Hard.PageFrameNumber = PageFrameNumber;
-                
-                //
-                // Save it into our double-buffered system page directory
-                //
-                MmSystemPagePtes[(ULONG_PTR)PointerPte & (PAGE_SIZE - 1) /
-                                 sizeof(MMPTE)] = TempPte;
-                            
-                //
-                // Write the actual PTE now
-                //
-                *PointerPte++ = TempPte;
-                
-                //
-                // Move on to the next expansion address
-                //
-                BaseVa = (PVOID)((ULONG_PTR)BaseVa + PAGE_SIZE);
-            } while (--i > 0);
-            
-            //
-            // Release the PFN database lock
-            //            
-            KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
-            
-            //
-            // These pages are now available, clear their availablity bits
-            //
-            RtlClearBits(MmPagedPoolInfo.PagedPoolAllocationMap,
-                         (MmPagedPoolInfo.NextPdeForPagedPoolExpansion -
-                          MiAddressToPte(MmPagedPoolInfo.FirstPteForPagedPool)) *
-                         1024,
-                         SizeInPages * 1024);
-                        
-            //
-            // Update the next expansion location
-            //
-            MmPagedPoolInfo.NextPdeForPagedPoolExpansion += SizeInPages;
-            
-            //
-            // Zero out the newly available memory
-            //
-            RtlZeroMemory(BaseVaStart, SizeInPages * PAGE_SIZE);
-            
-            //
-            // Now try consuming the pages again
-            //
-            SizeInPages = BYTES_TO_PAGES(SizeInBytes);
-            i = RtlFindClearBitsAndSet(MmPagedPoolInfo.PagedPoolAllocationMap,
-                                       SizeInPages,
-                                       0);
-            if (i == 0xFFFFFFFF) 
-            {
-                //
-                // Out of memory!
-                //
-                DPRINT1("OUT OF PAGED POOL!!!\n");
-                KeReleaseGuardedMutex(&MmPagedPoolMutex);
-                return NULL;
-            }
+            DPRINT1("OUT OF PAGED POOL!!!\n");
+            KeReleaseGuardedMutex(&MmPagedPoolMutex);
+            return NULL;
         }
         
         //
@@ -583,13 +371,13 @@ MiAllocatePoolPages(IN POOL_TYPE PoolType,
     //
     // Loop the pages
     //
-    TempPte = ValidKernelPte;
+    TempPte = HyperTemplatePte;
     do
     {
         //
         // Allocate a page
         //
-        PageFrameNumber = MmAllocPage(MC_NPPOOL);
+        PageFrameNumber = MmAllocPage(MC_NPPOOL, 0);
         
         //
         // Get the PFN entry for it

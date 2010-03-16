@@ -4,7 +4,7 @@
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:doc="http://nwalsh.com/xsl/documentation/1.0" xmlns:exsl="http://exslt.org/common" xmlns:set="http://exslt.org/sets" xmlns:exslt="http://exslt.org/common" exslt:dummy="dummy" extension-element-prefixes="exslt" version="1.0" exclude-result-prefixes="doc exsl set exslt">
 
 <!-- ********************************************************************
-     $Id: profile-htmlhelp.xsl,v 1.1 2002/06/13 20:32:51 chorns Exp $
+     $Id$
      ******************************************************************** 
 
      This file is used by htmlhelp.xsl if you want to generate source

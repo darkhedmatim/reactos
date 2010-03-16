@@ -294,12 +294,6 @@ static struct regsvr_coclass const coclass_list[] = {
         "qedit.dll",
         "Both"
     },
-    {   &CLSID_SampleGrabber,
-        "Sample Grabber",
-        NULL,
-        "qedit.dll",
-        "Both"
-    },
     { NULL }                    /* list terminator */
 };
 

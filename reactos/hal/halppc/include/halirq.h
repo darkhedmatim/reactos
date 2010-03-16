@@ -2,7 +2,8 @@
  * $Id: halirq.h 23669 2006-08-23 16:58:43Z ion $
  */
 
-#pragma once
+#ifndef __INCLUDE_HAL_HALIRQ
+#define __INCLUDE_HAL_HALIRQ
 
 #ifdef CONFIG_SMP
 
@@ -30,3 +31,5 @@
 #define IRQ2VECTOR(irq)		((irq) + IRQ_BASE)
 
 #endif
+
+#endif /* __INCLUDE_HAL_HALIRQ */

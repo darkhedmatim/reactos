@@ -8,7 +8,7 @@ import org.xml.sax.SAXException;
 /**
  * <p>Saxon extension element factory
  *
- * <p>$Id: TextFactory.java,v 1.1 2002/06/13 20:32:16 chorns Exp $</p>
+ * <p>$Id$</p>
  *
  * <p>Copyright (C) 2000 Norman Walsh.</p>
  *
@@ -26,7 +26,7 @@ import org.xml.sax.SAXException;
  * @author Norman Walsh
  * <a href="mailto:ndw@nwalsh.com">ndw@nwalsh.com</a>
  *
- * @version $Id: TextFactory.java,v 1.1 2002/06/13 20:32:16 chorns Exp $
+ * @version $Id$
  *
  * @see Text
  *

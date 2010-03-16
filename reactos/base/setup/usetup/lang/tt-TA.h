@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_TT_TA_H__
+#define LANG_TT_TA_H__
 
 MUI_LAYOUTS ttTALayouts[] =
 {
@@ -7,3 +8,5 @@ MUI_LAYOUTS ttTALayouts[] =
     { L"0419", L"00000419" },
     { NULL, NULL }
 };
+
+#endif

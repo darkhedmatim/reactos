@@ -20,7 +20,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#pragma once
+#ifndef __TASKMGR_H__
+#define __TASKMGR_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -123,3 +124,5 @@ LPTSTR GetLastErrorText( LPTSTR lpszBuf, DWORD dwSize );
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* __TASKMGR_H__ */

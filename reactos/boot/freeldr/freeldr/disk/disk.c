@@ -17,7 +17,6 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _M_ARM
 #include <freeldr.h>
 #include <debug.h>
 
@@ -168,5 +167,3 @@ DiskNormalizeSystemPath(char *SystemPath, unsigned Size)
 
 // This function is in arch/i386/i386disk.c
 //ULONG DiskGetCacheableBlockCount(ULONG DriveNumber)
-
-#endif

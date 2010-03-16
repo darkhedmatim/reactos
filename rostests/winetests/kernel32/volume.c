@@ -1,5 +1,5 @@
 /*
- * Unit test suite for volume functions
+ * Unit test suite
  *
  * Copyright 2006 Stefan Leichter
  *
@@ -155,11 +155,8 @@ static void test_GetVolumeNameForVolumeMountPointA(void)
              GetLastError());
 
     /* Try on a arbitrary directory */
-    /* On FAT filesystems it seems that GetLastError() is set to
-       ERROR_INVALID_FUNCTION. */
     ret = pGetVolumeNameForVolumeMountPointA(temp_path, volume, len);
-    ok(ret == FALSE && (GetLastError() == ERROR_NOT_A_REPARSE_POINT ||
-        GetLastError() == ERROR_INVALID_FUNCTION),
+    ok(ret == FALSE && GetLastError() == ERROR_NOT_A_REPARSE_POINT,
         "GetVolumeNameForVolumeMountPointA failed on %s, last=%d\n",
         temp_path, GetLastError());
 

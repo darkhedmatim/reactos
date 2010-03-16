@@ -2,7 +2,7 @@
  * PROJECT:         ReactOS system libraries
  * FILE:            lib/rtl/message.c
  * PURPOSE:         Message table functions
- * PROGRAMMERS:     Eric Kohl
+ * PROGRAMMERS:     Eric Kohl <ekohl@zr-online.de>
  */
 
 /* INCLUDES *****************************************************************/

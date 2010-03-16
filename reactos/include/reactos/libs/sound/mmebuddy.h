@@ -249,10 +249,6 @@ typedef MMRESULT(*MMQUERYDEVICEINTERFACESTRING_FUNC)(
     IN  DWORD  InterfaceLength,
     OUT  DWORD * InterfaceSize);
 
-typedef MMRESULT(*MMRESETSTREAM_FUNC)(
-    IN  struct _SOUND_DEVICE_INSTANCE* SoundDeviceInstance,
-    IN  MMDEVICE_TYPE DeviceType,
-    IN  BOOLEAN bStartReset);
 
 typedef struct _MMFUNCTION_TABLE
 {
@@ -278,7 +274,6 @@ typedef struct _MMFUNCTION_TABLE
     MMGETPOS_FUNC                   GetPos;
     MMSETSTATE_FUNC                 SetState;
     MMQUERYDEVICEINTERFACESTRING_FUNC     GetDeviceInterfaceString;
-    MMRESETSTREAM_FUNC               ResetStream;
 
     // Redundant
     //MMWAVEHEADER_FUNC               PrepareWaveHeader;

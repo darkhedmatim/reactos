@@ -23,9 +23,17 @@
 
 /* INCLUDES *******************************************************************/
 
-#include "ntdef.h"
-#include "dderror.h"
+#ifdef _MSC_VER
+#pragma message ("INVESTIGATE ME")
+#endif
+
+#if 0 //#ifdef _MSC_VER
 #include "devioctl.h"
+#else
+#include <ntddk.h>
+#endif
+
+#include "dderror.h"
 #include "miniport.h"
 #include "ntddvdeo.h"
 #include "video.h"

@@ -93,9 +93,11 @@ static ULONG WINAPI bsc_Release(
     TRACE("(%p) ref=%d\n", This, ref);
 
     if(!ref) {
-        if (This->binding)   IBinding_Release(This->binding);
-        if (This->memstream) IStream_Release(This->memstream);
-        heap_free(This);
+        if(This->binding)
+            IBinding_Release(This->binding);
+        if(This->memstream)
+            IStream_Release(This->memstream);
+        HeapFree(GetProcessHeap(), 0, This);
     }
 
     return ref;
@@ -268,7 +270,7 @@ HRESULT bind_url(LPCWSTR url, HRESULT (*onDataAvailable)(void*,char*,DWORD), voi
     if(FAILED(hr))
         return hr;
 
-    bsc = heap_alloc(sizeof(bsc_t));
+    bsc = HeapAlloc(GetProcessHeap(), 0, sizeof(bsc_t));
 
     bsc->lpVtbl = &bsc_vtbl;
     bsc->ref = 1;

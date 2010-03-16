@@ -3,7 +3,7 @@
 :: LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 :: FILE:        Root/Config.cmd
 :: PURPOSE:     A Basic Config.rbuild Creator for ReactOS.
-:: COPYRIGHT:   Copyright 2010 Daniel Reimer <reimer.daniel@freenet.de>
+:: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
 ::
 
 @echo off
@@ -234,7 +234,7 @@ if /i "%1" == "rbuild" (
 )
 
 if not "%1" == "" (
-    echo Unknown parameter specified. Try 'help config'.
+    echo Unknown parameter specified. Try 'help [COMMAND]'.
     goto :NOK
 )
 
@@ -260,7 +260,7 @@ goto :NOK
 :: Check if config.template.rbuild is newer than config.rbuild, if it is then
 :: inform the user and offer an update.
 if exist ".\config.rbuild" (
-    chknewer.exe config.template.rbuild config.rbuild
+    "%_ROSBE_BASEDIR%\Tools\chknewer.exe" ".\config.template.rbuild" ".\config.rbuild"
     if !errorlevel! == 1 (
         echo.
         echo *** config.template.rbuild is newer than working config.rbuild ***

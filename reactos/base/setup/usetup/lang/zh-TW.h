@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_ZH_TW_H__
+#define LANG_ZH_TW_H__
 
 MUI_LAYOUTS zhTWLayouts[] =
 {
@@ -8,3 +9,5 @@ MUI_LAYOUTS zhTWLayouts[] =
     { L"0404", L"E0010404" },
     { NULL, NULL }
 };
+
+#endif

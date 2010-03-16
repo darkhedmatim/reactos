@@ -4,7 +4,8 @@
  * UPDATED:     2008-06-05
  */
 
-#pragma once
+#ifndef LANG_CS_CZ_H__
+#define LANG_CS_CZ_H__
 
 MUI_LAYOUTS csCZLayouts[] =
 {
@@ -1701,3 +1702,5 @@ MUI_STRING csCZStrings[] =
     "Pýid v m rozlo§en¡ kl ves"},
     {0, 0}
 };
+
+#endif

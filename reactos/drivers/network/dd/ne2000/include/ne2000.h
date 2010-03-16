@@ -4,8 +4,8 @@
  * FILE:        include/ne2000.h
  * PURPOSE:     NE2000 driver definitions
  */
-
-#pragma once
+#ifndef __NE2000_H
+#define __NE2000_H
 
 #define NDIS_MINIPORT_DRIVER 1
 #define NDIS_LEGACY_MINIPORT 1
@@ -245,5 +245,7 @@ VOID NICWriteData(
 
 VOID NICTransmit(
     PNIC_ADAPTER Adapter);
+
+#endif /* __NE2000_H */
 
 /* EOF */

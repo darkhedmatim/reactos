@@ -13,7 +13,7 @@
 @ stub TF_CreateDisplayAttributeMgr
 @ stdcall TF_CreateInputProcessorProfiles(ptr)
 @ stub TF_CreateLangBarItemMgr
-@ stdcall TF_CreateLangBarMgr(ptr)
+@ stub TF_CreateLangBarMgr
 @ stdcall TF_CreateThreadMgr(ptr)
 @ stub TF_DllDetachInOther
 @ stub TF_GetGlobalCompartment
@@ -27,7 +27,7 @@
 @ stub TF_InitMlngInfo
 @ stub TF_InitSystem
 @ stub TF_InvalidAssemblyListCache
-@ stdcall TF_InvalidAssemblyListCacheIfExist()
+@ stub TF_InvalidAssemblyListCacheIfExist
 @ stub TF_IsCtfmonRunning
 @ stub TF_IsInMarshaling
 @ stub TF_MlngInfoCount

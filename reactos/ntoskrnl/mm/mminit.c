@@ -109,7 +109,7 @@ MiInitSystemMemoryAreas()
     //
     // Protect the PFN database
     //
-    BaseAddress = MmPfnDatabase[0];
+    BaseAddress = MmPfnDatabase;
     Status = MmCreateMemoryArea(MmGetKernelAddressSpace(),
                                 MEMORY_AREA_OWNED_BY_ARM3 | MEMORY_AREA_STATIC,
                                 &BaseAddress,
@@ -292,8 +292,8 @@ MiDbgDumpAddressSpace(VOID)
             (ULONG_PTR)MmPagedPoolBase + MmPagedPoolSize,
             "Paged Pool");
     DPRINT1("          0x%p - 0x%p\t%s\n",
-            MmPfnDatabase[0],
-            (ULONG_PTR)MmPfnDatabase[0] + (MxPfnAllocation << PAGE_SHIFT),
+            MmPfnDatabase,
+            (ULONG_PTR)MmPfnDatabase + (MxPfnAllocation << PAGE_SHIFT),
             "PFN Database");
     DPRINT1("          0x%p - 0x%p\t%s\n",
             MmNonPagedPoolStart,
@@ -349,16 +349,14 @@ MiDbgDumpMemoryDescriptors(VOID)
     DPRINT1("Total: %08lX (%d MB)\n", TotalPages, (TotalPages * PAGE_SIZE) / 1024 / 1024);
 }
 
-VOID NTAPI MiInitializeUserPfnBitmap(VOID);
-
 BOOLEAN
 NTAPI
 MmInitSystem(IN ULONG Phase,
              IN PLOADER_PARAMETER_BLOCK LoaderBlock)
 {
-    extern MMPTE ValidKernelPte;
+    extern MMPTE HyperTemplatePte;
     PMMPTE PointerPte;
-    MMPTE TempPte = ValidKernelPte;
+    MMPTE TempPte = HyperTemplatePte;
     PFN_NUMBER PageFrameNumber;
     
     if (Phase == 0)
@@ -375,6 +373,14 @@ MmInitSystem(IN ULONG Phase,
         // Initialize ARM³ in phase 0
         //
         MmArmInitSystem(0, KeLoaderBlock);    
+        
+        /* Initialize the page list */
+        MmInitializePageList();
+        
+        //
+        // Initialize ARM³ in phase 1
+        //
+        MmArmInitSystem(1, KeLoaderBlock);
 
 #if defined(_WINKD_)
         //
@@ -391,7 +397,66 @@ MmInitSystem(IN ULONG Phase,
         
         /* Intialize system memory areas */
         MiInitSystemMemoryAreas();
-
+        
+        //
+        // STEP 1: Allocate and free a single page, repeatedly
+        // We should always get the same address back
+        //
+        if (1)
+        {
+            PULONG Test, OldTest;
+            ULONG i;
+        
+            OldTest = Test = MiAllocatePoolPages(PagedPool, PAGE_SIZE);
+            ASSERT(Test);
+            for (i = 0; i < 16; i++)
+            {
+                MiFreePoolPages(Test);
+                Test = MiAllocatePoolPages(PagedPool, PAGE_SIZE);
+                ASSERT(OldTest == Test);
+            }
+            MiFreePoolPages(Test);
+        }
+        
+        //
+        // STEP 2: Allocate 2048 pages without freeing them
+        // We should run out of space at 1024 pages, since we don't support
+        // expansion yet.
+        //
+        if (1)
+        {
+            PULONG Test[2048];
+            ULONG i;
+            
+            for (i = 0; i < 2048; i++)
+            {
+                Test[i] = MiAllocatePoolPages(PagedPool, PAGE_SIZE);
+                if (!Test[i]) 
+                {
+                    ASSERT(i == 1024);
+                    break;
+                }
+            }
+            
+            //
+            // Cleanup
+            //
+            while (--i) if (Test[i]) MiFreePoolPages(Test[i]);
+        }
+        
+        //
+        // STEP 3: Allocate a page and touch it.
+        // We should get an ARM3 page fault and it should handle the fault
+        //
+        if (1)
+        {
+            PULONG Test;
+            
+            Test = MiAllocatePoolPages(PagedPool, PAGE_SIZE);
+            ASSERT(*Test == 0);
+            MiFreePoolPages(Test);
+        }
+        
         /* Dump the address space */
         MiDbgDumpAddressSpace();
         
@@ -399,14 +464,27 @@ MmInitSystem(IN ULONG Phase,
         MmInitializePagedPool();
         
         /* Initialize working sets */
-        MiInitializeUserPfnBitmap();
         MmInitializeMemoryConsumer(MC_USER, MmTrimUserMemory);
+
+        /* Initialize the user mode image list */
+        InitializeListHead(&MmLoadedUserImageList);
+
+        /* Initialize the Loader Lock */
+        KeInitializeMutant(&MmSystemLoadLock, FALSE);
 
         /* Reload boot drivers */
         MiReloadBootLoadedDrivers(LoaderBlock);
 
         /* Initialize the loaded module list */
         MiInitializeLoadedModuleList(LoaderBlock);
+
+        /* Setup shared user data settings that NT does as well */
+        ASSERT(SharedUserData->NumberOfPhysicalPages == 0);
+        SharedUserData->NumberOfPhysicalPages = MmNumberOfPhysicalPages;
+        SharedUserData->LargePageMinimum = 0;
+        
+        /* 0.3.11-CLT2010 backport: Assume that we're always a workstation! */
+        SharedUserData->NtProductType = NtProductWinNt;
     }
     else if (Phase == 1)
     {
@@ -439,9 +517,6 @@ MmInitSystem(IN ULONG Phase,
         MI_MAKE_OWNER_PAGE(&TempPte);
         TempPte.u.Hard.PageFrameNumber = PageFrameNumber;
         *MmSharedUserDataPte = TempPte;
-        
-        /* Setup the memory threshold events */
-        if (!MiInitializeMemoryEvents()) return FALSE;
         
         /*
          * Unmap low memory

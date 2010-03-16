@@ -528,7 +528,6 @@ NtQueryTimer(IN HANDLE TimerHandle,
                                          TimerInformation,
                                          TimerInformationLength,
                                          ReturnLength,
-                                         NULL,
                                          PreviousMode);
     if (!NT_SUCCESS(Status)) return Status;
 

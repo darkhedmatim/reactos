@@ -1,5 +1,3 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <group>
 <module name="msxml3" type="win32dll" baseaddress="${BASEADDRESS_MSXML3}" installbase="system32" installname="msxml3.dll" allowwarnings="true" crt="msvcrt">
 	<autoregister infsection="OleControlDlls" type="DllRegisterServer" />
@@ -30,6 +28,7 @@
 	<library>user32</library>
 	<library>gdi32</library>
 	<library>advapi32</library>
+	<library>kernel32</library>
 	<library>uuid</library>
 	<library>ntdll</library>
 	<file>attribute.c</file>

@@ -29,6 +29,7 @@ DWORD WINAPI RpcThreadRoutine(LPVOID lpParameter)
     }
 
     Status = RpcServerRegisterIf(eventlog_v0_0_s_ifspec, NULL, NULL);
+
     if (Status != RPC_S_OK)
     {
         DPRINT("RpcServerRegisterIf() failed (Status %lx)\n", Status);
@@ -36,6 +37,7 @@ DWORD WINAPI RpcThreadRoutine(LPVOID lpParameter)
     }
 
     Status = RpcServerListen(1, RPC_C_LISTEN_MAX_CALLS_DEFAULT, FALSE);
+
     if (Status != RPC_S_OK)
     {
         DPRINT("RpcServerListen() failed (Status %lx)\n", Status);
@@ -480,29 +482,45 @@ NTSTATUS ElfrOpenELA(
     DWORD MinorVersion,
     IELF_HANDLE *LogHandle)
 {
-    UNICODE_STRING ModuleNameW;
+    UNICODE_STRING UNCServerNameW = { 0, 0, NULL };
+    UNICODE_STRING ModuleNameW    = { 0, 0, NULL };
+    UNICODE_STRING RegModuleNameW = { 0, 0, NULL };
+    NTSTATUS Status;
 
-    if ((MajorVersion != 1) || (MinorVersion != 1))
-        return STATUS_INVALID_PARAMETER;
-
-    /* RegModuleName must be an empty string */
-    if (RegModuleName->Length > 0)
-        return STATUS_INVALID_PARAMETER;
-
-    RtlAnsiStringToUnicodeString(&ModuleNameW, (PANSI_STRING)ModuleName, TRUE);
-
-    /* FIXME: Must verify that caller has read access */
-
-    *LogHandle = ElfCreateEventLogHandle(ModuleNameW.Buffer, FALSE);
-
-    RtlFreeUnicodeString(&ModuleNameW);
-
-    if (*LogHandle == NULL)
+    if (UNCServerName &&
+        !RtlCreateUnicodeStringFromAsciiz(&UNCServerNameW, UNCServerName))
     {
-        return STATUS_INVALID_PARAMETER;
+        return STATUS_NO_MEMORY;
     }
 
-    return STATUS_SUCCESS;
+    if (ModuleName &&
+        !RtlAnsiStringToUnicodeString(&ModuleNameW, (PANSI_STRING)ModuleName, TRUE))
+    {
+        RtlFreeUnicodeString(&UNCServerNameW);
+        return STATUS_NO_MEMORY;
+    }
+
+    if (RegModuleName &&
+        !RtlAnsiStringToUnicodeString(&RegModuleNameW, (PANSI_STRING)RegModuleName, TRUE))
+    {
+        RtlFreeUnicodeString(&UNCServerNameW);
+        RtlFreeUnicodeString(&ModuleNameW);
+        return STATUS_NO_MEMORY;
+    }
+
+    Status = ElfrOpenELW(
+        UNCServerName ? UNCServerNameW.Buffer : NULL,
+        ModuleName ? (PRPC_UNICODE_STRING)&ModuleNameW : NULL,
+        RegModuleName ? (PRPC_UNICODE_STRING)&RegModuleNameW : NULL,
+        MajorVersion,
+        MinorVersion,
+        LogHandle);
+
+    RtlFreeUnicodeString(&UNCServerNameW);
+    RtlFreeUnicodeString(&ModuleNameW);
+    RtlFreeUnicodeString(&RegModuleNameW);
+
+    return Status;
 }
 
 
@@ -515,35 +533,8 @@ NTSTATUS ElfrRegisterEventSourceA(
     DWORD MinorVersion,
     IELF_HANDLE *LogHandle)
 {
-    UNICODE_STRING ModuleNameW    = { 0, 0, NULL };
-
-    if (ModuleName &&
-        !RtlAnsiStringToUnicodeString(&ModuleNameW, (PANSI_STRING)ModuleName, TRUE))
-    {
-        return STATUS_NO_MEMORY;
-    }
-
-    /* RegModuleName must be an empty string */
-    if (RegModuleName->Length > 0)
-    {
-        RtlFreeUnicodeString(&ModuleNameW);
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    if ((MajorVersion != 1) || (MinorVersion != 1))
-    {
-        RtlFreeUnicodeString(&ModuleNameW);
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    /* FIXME: Must verify that caller has write access */
-
-    *LogHandle = ElfCreateEventLogHandle(ModuleNameW.Buffer,
-                                         TRUE);
-
-    RtlFreeUnicodeString(&ModuleNameW);
-
-    return STATUS_SUCCESS;
+    UNIMPLEMENTED;
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 
@@ -632,32 +623,8 @@ NTSTATUS ElfrGetLogInformation(
     DWORD cbBufSize,
     DWORD *pcbBytesNeeded)
 {
-    NTSTATUS Status = STATUS_SUCCESS;
-
-    /* FIXME: check handle first */
-
-    switch (InfoLevel)
-    {
-        case EVENTLOG_FULL_INFO:
-            {
-                LPEVENTLOG_FULL_INFORMATION efi = (LPEVENTLOG_FULL_INFORMATION)Buffer;
-
-                *pcbBytesNeeded = sizeof(EVENTLOG_FULL_INFORMATION);
-                if (cbBufSize < sizeof(EVENTLOG_FULL_INFORMATION))
-                {
-                    return STATUS_BUFFER_TOO_SMALL;
-                }
-
-                efi->dwFull = 0; /* FIXME */
-            }
-            break;
-
-        default:
-            Status = STATUS_INVALID_LEVEL;
-            break;
-    }
-
-    return Status;
+    UNIMPLEMENTED;
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 

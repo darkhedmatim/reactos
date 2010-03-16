@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __CPL_INTL_H
+#define __CPL_INTL_H
 
 #include <cpl.h>
 
@@ -101,5 +102,7 @@ SetupApplet(HWND hwndDlg, LCID lcid);
 
 /* kblayouts.c */
 VOID AddNewKbLayoutsByLcid(LCID Lcid);
+
+#endif /* __CPL_INTL_H */
 
 /* EOF */

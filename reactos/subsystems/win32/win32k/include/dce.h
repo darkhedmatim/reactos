@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_DCE_H
+#define _WIN32K_DCE_H
 
 /* Ported from WINE by Jason Filby */
 
@@ -27,16 +28,11 @@ typedef struct tagDCE
     LIST_ENTRY   List;
     HDC          hDC;
     HWND         hwndCurrent;
-    PWND         pwndOrg;
-    PWND         pwndClip;
-    PWND         pwndRedirect;
-    HRGN         hrgnClip;
-    HRGN         hrgnClipPublic;
-    HRGN         hrgnSavedVis;
+    HWND         hwndDC;
+    HRGN         hClipRgn;
     DWORD        DCXFlags;
-    PTHREADINFO  ptiOwner;
-    PPROCESSINFO ppiOwner;
-    struct _MONITOR* pMonitor;
+    PEPROCESS    pProcess;
+    HANDLE       Self;
 } DCE;  /* PDCE already declared at top of file */
 
 /* internal DCX flags, see psdk/winuser.h for the rest */
@@ -47,7 +43,6 @@ typedef struct tagDCE
 #define DCX_DCPOWNED		0x00008000
 #define DCX_NOCLIPCHILDREN	0x00080000
 #define DCX_NORECOMPUTE		0x00100000
-#define DCX_INDESTROY           0x00400000
 
 BOOL FASTCALL DCE_Cleanup(PDCE pDce);
 PDCE FASTCALL DceAllocDCE(PWINDOW_OBJECT Window, DCE_TYPE Type);
@@ -57,9 +52,10 @@ INT  FASTCALL DCE_ExcludeRgn(HDC, HWND, HRGN);
 BOOL FASTCALL DCE_InvalidateDCE(HWND, const PRECTL);
 HWND FASTCALL IntWindowFromDC(HDC hDc);
 PDCE FASTCALL DceFreeDCE(PDCE dce, BOOLEAN Force);
+void FASTCALL DceFreeWindowDCE(PWINDOW_OBJECT Window);
 void FASTCALL DceEmptyCache(void);
 VOID FASTCALL DceResetActiveDCEs(PWINDOW_OBJECT Window);
 void FASTCALL DceFreeClassDCE(HDC);
 HWND FASTCALL UserGethWnd(HDC,PWNDOBJ*);
-void FASTCALL DceFreeWindowDCE(PWINDOW_OBJECT);
-void FASTCALL DceFreeThreadDCE(PTHREADINFO);
+
+#endif /* _WIN32K_DCE_H */

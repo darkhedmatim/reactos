@@ -1,16 +1,12 @@
 <?xml version="1.0"?>
 <!DOCTYPE module SYSTEM "../../tools/rbuild/project.dtd">
-<group>
 <module name="psdk" type="idlheader">
 	<file>activaut.idl</file>
 	<file>activdbg.idl</file>
 	<file>activscp.idl</file>
-	<file>bdaiface.idl</file>
 	<file>bits1_5.idl</file>
 	<file>bits.idl</file>
-	<file>commoncontrols.idl</file>
 	<file>control.idl</file>
-	<file>ctfutb.idl</file>
 	<file>ctxtcall.idl</file>
 	<file>dimm.idl</file>
 	<file>dispex.idl</file>
@@ -52,7 +48,6 @@
 	<file>shtypes.idl</file>
 	<file>strmif.idl</file>
 	<file>textstor.idl</file>
-	<file>tuner.idl</file>
 	<file>tom.idl</file>
 	<file>unknwn.idl</file>
 	<file>urlhist.idl</file>
@@ -67,9 +62,7 @@
 	<file>comcat.idl</file>
 	<file>xmldso.idl</file>
 	<file>xmldom.idl</file>
-	<file>xmllite.idl</file>
 </module>
 <module name="stdole2" type="embeddedtypelib">
 	<file>stdole2.idl</file>
 </module>
-</group>

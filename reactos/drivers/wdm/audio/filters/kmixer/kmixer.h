@@ -1,4 +1,5 @@
-#pragma once
+#ifndef KMIXER_H__
+#define KMIXER_H__
 
 #include <ntddk.h>
 #include <portcls.h>
@@ -34,3 +35,6 @@ KMixAllocateDeviceHeader(
 NTSTATUS
 CreatePin(
     IN PIRP Irp);
+
+
+#endif

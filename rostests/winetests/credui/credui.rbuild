@@ -5,5 +5,6 @@
 	<file>testlist.c</file>
 	<library>wine</library>
 	<library>credui</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 </module>

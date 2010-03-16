@@ -18,7 +18,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#pragma once
+#ifndef _addresseditbox_h
+#define _addresseditbox_h
 
 class CAddressEditBox :
 	public CWindowImpl<CAddressEditBox, CWindow, CControlWinTraits>,
@@ -107,3 +108,5 @@ BEGIN_COM_MAP(CAddressEditBox)
 	COM_INTERFACE_ENTRY_IID(IID_IPersistStream, IPersistStream)
 END_COM_MAP()
 };
+
+#endif // _addresseditbox_h

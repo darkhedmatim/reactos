@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MUP_H
+#define MUP_H
 
 #define ROUND_UP(N, S) ((((N) + (S) - 1) / (S)) * (S))
 
@@ -23,3 +24,5 @@ MupCreate(PDEVICE_OBJECT DeviceObject,
 NTSTATUS NTAPI
 DriverEntry(PDRIVER_OBJECT DriverObject,
 	    PUNICODE_STRING RegistryPath);
+
+#endif /* MUP_H */

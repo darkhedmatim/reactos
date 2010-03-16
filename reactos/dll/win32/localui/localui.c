@@ -503,6 +503,7 @@ static BOOL WINAPI localui_AddPortUI(PCWSTR pName, HWND hWnd, PCWSTR pMonitorNam
 {
     addportui_t data;
     HANDLE  hXcv;
+    LPWSTR  ptr = NULL;
     DWORD   needed;
     DWORD   dummy;
     DWORD   status;
@@ -528,11 +529,14 @@ static BOOL WINAPI localui_AddPortUI(PCWSTR pName, HWND hWnd, PCWSTR pMonitorNam
                             (PBYTE) &dummy, 0, &needed, &status);
 
             TRACE("got %u with status %u\n", res, status);
-            if (res && (status == ERROR_SUCCESS) && ppPortName) {
+            if (res && (status == ERROR_SUCCESS)) {
                 /* Native localui uses GlobalAlloc also.
                    The caller must GlobalFree the buffer */
-                *ppPortName = GlobalAlloc(GPTR, (lstrlenW(data.portname)+1) * sizeof(WCHAR));
-                if (*ppPortName) lstrcpyW(*ppPortName, data.portname);
+                ptr = GlobalAlloc(GPTR, (lstrlenW(data.portname)+1) * sizeof(WCHAR));
+                if (ptr) {
+                    lstrcpyW(ptr, data.portname);
+                    if (ppPortName) *ppPortName = ptr;
+                }
             }
 
             if (res && (status == ERROR_ALREADY_EXISTS)) {

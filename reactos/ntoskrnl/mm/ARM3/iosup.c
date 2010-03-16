@@ -122,7 +122,7 @@ MmMapIoSpace(IN PHYSICAL_ADDRESS PhysicalAddress,
     //
     // Get the template and configure caching
     //
-    TempPte = ValidKernelPte;
+    TempPte = HyperTemplatePte;
     switch (CacheAttribute)
     {
         case MiNonCached:

@@ -24,7 +24,7 @@
 
 #include "wine/test.h"
 
-static const char *msifile = "winetest-record.msi";
+static const char *msifile = "winetest.msi";
 
 static BOOL create_temp_file(char *name)
 {
@@ -334,6 +334,7 @@ static void test_msirecord(void)
     ok(r == ERROR_SUCCESS, "failed to add stream to record\n");
     r = MsiRecordReadStream(h, 1, buf, NULL);
     ok(r == ERROR_INVALID_PARAMETER, "should return error\n");
+    /* http://test.winehq.org/data/200503181000/98_jmelgarejo98casa/msi:record.txt */
     DeleteFile(filename); /* Windows 98 doesn't like this at all, so don't check return. */
     r = MsiRecordReadStream(h, 1, NULL, NULL);
     ok(r == ERROR_INVALID_PARAMETER, "should return error\n");
@@ -603,9 +604,6 @@ static void test_fieldzero(void)
     r = MsiRecordIsNull(rec, 0);
     ok(r == FALSE, "Expected FALSE, got %d\n", r);
 
-    r = MsiCloseHandle(hview);
-    ok(r == ERROR_SUCCESS, "MsiCloseHandle failed\n");
-    MsiCloseHandle(rec);
     MsiCloseHandle(hdb);
     DeleteFileA(msifile);
 }

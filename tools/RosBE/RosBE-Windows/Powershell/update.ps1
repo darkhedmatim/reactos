@@ -3,7 +3,7 @@
 # LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 # FILE:        Root/update.ps1
 # PURPOSE:     RosBE Updater.
-# COPYRIGHT:   Copyright 2010 Daniel Reimer <reimer.daniel@freenet.de>
+# COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
 #
 
 $host.ui.RawUI.WindowTitle = "Updating..."
@@ -49,7 +49,7 @@ function UPDCHECK {
             }
             if (Test-Path "$_ROSBE_VERSION-$_ROSBE_STATCOUNT.7z") {
                 remove-item "$_ROSBE_VERSION-$_ROSBE_STATCOUNT\*.*" -force -EA SilentlyContinue
-                IEX "& 7z.exe x '$_ROSBE_VERSION-$_ROSBE_STATCOUNT.7z'"
+                IEX "&'$_ROSBE_BASEDIR\Tools\7z.exe' x '$_ROSBE_VERSION-$_ROSBE_STATCOUNT.7z'"
                 set-location "$_ROSBE_VERSION-$_ROSBE_STATCOUNT"
                 IEX "& .\$_ROSBE_VERSION-$_ROSBE_STATCOUNT.ps1"
                 return
@@ -57,7 +57,7 @@ function UPDCHECK {
                 "ERROR: This Update does not seem to exist or the Internet connection is not working correctly."
                 return
             }
-        } elseif (("$YESNO" -eq "no") -or ("$YESNO" -eq "n")) {
+        } elseif ("$YESNO" -eq "no") {
             "Do you want to be asked again to install this update?"
             $YESNO = Read-Host "(yes), (no)"
             if (("$YESNO" -eq "yes") -or ("$YESNO" -eq "y")) {
@@ -75,10 +75,16 @@ function UPDCHECK {
 }
 
 # The Update Server.
-$_ROSBE_URL = "http://dreimer.bplaced.net/rosbe"
+$_ROSBE_URL = "http://dreimer.dr.funpic.org/rosbe"
 
 # Save the recent dir to cd back there at the end.
 $_ROSBE_OPATH = "$pwd"
+
+if (!(Test-Path "$_ROSBE_BASEDIR\Tools\7z.exe")) {
+    set-location "$_ROSBE_BASEDIR\Tools"
+    get-webfile $_ROSBE_URL/7z.exe $PWD\7z.exe
+    set-location $_ROSBE_OPATH
+}
 
 set-location $_ROSBE_BASEDIR
 
@@ -105,20 +111,16 @@ if ("$($args[2])" -eq "") {
         UPDCHECK
         $_ROSBE_STATCOUNT += 1
     }
-    "Update finished..."
 } elseif ("$($args[2])" -eq "reset") {
     remove-item "$ENV:APPDATA\RosBE\Updates\*.*" -force -recurse -EA SilentlyContinue
     remove-item "$ENV:APPDATA\RosBE\Updates\tmp\*.*" -force -recurse -EA SilentlyContinue
-    "Update Statistics resetted..."
 } elseif ("$($args[2])" -eq "nr") {
     $_ROSBE_STATCOUNT = $($args[3])
     UPDCHECK
-    echo Update Nr:$($args[3]) installed...
 } elseif ("$($args[2])" -eq "delete") {
     $_ROSBE_STATCOUNT = $($args[3])
     remove-item "$ENV:APPDATA\RosBE\Updates\$_ROSBE_VERSION-$_ROSBE_STATCOUNT.*" -force -recurse -EA SilentlyContinue
     remove-item "$ENV:APPDATA\RosBE\Updates\tmp\$_ROSBE_VERSION-$_ROSBE_STATCOUNT.*" -force -recurse -EA SilentlyContinue
-    "Update-$($args[3]) Statistics resetted..."
 } elseif ("$($args[2])" -eq "info") {
     $_ROSBE_STATCOUNT = $($args[3])
     set-location tmp

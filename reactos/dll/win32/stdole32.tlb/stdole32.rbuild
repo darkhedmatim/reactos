@@ -1,5 +1,3 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <group>
 <module name="std_ole_v1" type="embeddedtypelib">
 	<include base="std_ole_v1">.</include>
@@ -14,6 +12,7 @@
 	<include base="ReactOS">include/reactos/wine</include>
 	<dependency>std_ole_v1</dependency>
 	<define name="__WINESRC__" />
+	<library>kernel32</library>
 	<file>rsrc.rc</file>
 </module>
 </group>

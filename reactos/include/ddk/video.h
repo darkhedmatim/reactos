@@ -1139,13 +1139,6 @@ VideoPortQuerySystemTime(
 VPAPI
 BOOLEAN
 DDKAPI
-VideoPortIsNoVesa(
-    VOID
-);
-
-VPAPI
-BOOLEAN
-DDKAPI
 VideoPortQueueDpc(
   IN PVOID  HwDeviceExtension,
   IN PMINIPORT_DPC_ROUTINE  CallbackRoutine,

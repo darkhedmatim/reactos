@@ -21,7 +21,8 @@
  * Modified for use in ReactOS by arty
  */
 
-#pragma once
+#ifndef UDICT_H
+#define UDICT_H
 
 #include <limits.h>
 
@@ -121,3 +122,5 @@ udict_node_t *udict_first(udict_t *);
 udict_node_t *udict_last(udict_t *);
 udict_node_t *udict_next(udict_t *, udict_node_t *);
 udict_node_t *udict_prev(udict_t *, udict_node_t *);
+
+#endif

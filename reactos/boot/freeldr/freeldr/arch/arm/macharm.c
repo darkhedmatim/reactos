@@ -9,134 +9,106 @@
 /* INCLUDES *******************************************************************/
 
 #include <freeldr.h>
-#include <internal/arm/intrin_i.h>
 
 /* GLOBALS ********************************************************************/
 
+UCHAR BootStack[0x4000];
+PUCHAR BootStackEnd = &BootStack[0x3FFF];
 PARM_BOARD_CONFIGURATION_BLOCK ArmBoardBlock;
-ULONG gDiskReadBuffer, gFileSysBuffer;
-BOOLEAN ArmHwDetectRan;
-PCONFIGURATION_COMPONENT_DATA RootNode;
-
-ULONG FirstLevelDcacheSize;
-ULONG FirstLevelDcacheFillSize;
-ULONG FirstLevelIcacheSize;
-ULONG FirstLevelIcacheFillSize;
-ULONG SecondLevelDcacheSize;
-ULONG SecondLevelDcacheFillSize;
-ULONG SecondLevelIcacheSize;
-ULONG SecondLevelIcacheFillSize;
-  
-ARC_DISK_SIGNATURE reactos_arc_disk_info;
-ULONG reactos_disk_count;
-CHAR reactos_arc_hardware_data[256];
-
-ULONG SizeBits[] =
-{
-    -1,      // INVALID
-    -1,      // INVALID
-    1 << 12, // 4KB
-    1 << 13, // 8KB
-    1 << 14, // 16KB
-    1 << 15, // 32KB
-    1 << 16, // 64KB
-    1 << 17  // 128KB
-};
-
-ULONG AssocBits[] =
-{
-    -1,      // INVALID
-    -1,      // INVALID
-    4        // 4-way associative
-};
-
-ULONG LenBits[] =
-{
-    -1,      // INVALID
-    -1,      // INVALID
-    8        // 8 words per line (32 bytes)
-};
+ULONG BootDrive, BootPartition;
+VOID ArmPrepareForReactOS(IN BOOLEAN Setup);
+ADDRESS_RANGE ArmBoardMemoryMap[16];
+ULONG ArmBoardMemoryMapRangeCount;
 
 /* FUNCTIONS ******************************************************************/
 
 VOID
 ArmInit(IN PARM_BOARD_CONFIGURATION_BLOCK BootContext)
 {
-    /* Remember the pointer */
+    ULONG i;
+
+    //
+    // Remember the pointer
+    //
     ArmBoardBlock = BootContext;
     
-    /* Let's make sure we understand the LLB */
+    //
+    // Let's make sure we understand the boot-loader
+    //
     ASSERT(ArmBoardBlock->MajorVersion == ARM_BOARD_CONFIGURATION_MAJOR_VERSION);
     ASSERT(ArmBoardBlock->MinorVersion == ARM_BOARD_CONFIGURATION_MINOR_VERSION);
     
-    /* This should probably go away once we support more boards */
+    //
+    // This should probably go away once we support more boards
+    //
     ASSERT((ArmBoardBlock->BoardType == MACH_TYPE_FEROCEON) ||
            (ArmBoardBlock->BoardType == MACH_TYPE_VERSATILE_PB) ||
            (ArmBoardBlock->BoardType == MACH_TYPE_OMAP3_BEAGLE));
 
-    /* Call FreeLDR's portable entrypoint with our command-line */
+    //
+    // Save data required for memory initialization
+    //
+    ArmBoardMemoryMapRangeCount = ArmBoardBlock->MemoryMapEntryCount;
+    ASSERT(ArmBoardMemoryMapRangeCount != 0);
+    ASSERT(ArmBoardMemoryMapRangeCount < 16);
+    for (i = 0; i < ArmBoardMemoryMapRangeCount; i++)
+    {
+        //
+        // Copy each entry
+        //
+        RtlCopyMemory(&ArmBoardMemoryMap[i],
+                      &ArmBoardBlock->MemoryMap[i],
+                      sizeof(ADDRESS_RANGE));
+    }
+
+    //
+    // Call FreeLDR's portable entrypoint with our command-line
+    //
     BootMain(ArmBoardBlock->CommandLine);
 }
 
-VOID
-ArmPrepareForReactOS(IN BOOLEAN Setup)
+BOOLEAN
+ArmDiskGetDriveGeometry(IN ULONG DriveNumber,
+                        OUT PGEOMETRY Geometry)
 {
-    return;
+    return FALSE;
 }
 
 BOOLEAN
-ArmDiskGetBootPath(OUT PCHAR BootPath,
-                   IN unsigned Size)
+ArmDiskReadLogicalSectors(IN ULONG DriveNumber,
+                          IN ULONGLONG SectorNumber,
+                          IN ULONG SectorCount,
+                          IN PVOID Buffer)
 {
-    PCCH Path = "ramdisk(0)";
-    
-    /* Make sure enough space exists */
-    if (Size < sizeof(Path)) return FALSE;
-    
-    /* On ARM platforms, the loader is always in RAM */
-    strcpy(BootPath, Path);
-    return TRUE;
+    return FALSE;
+}
+
+ULONG
+ArmDiskGetCacheableBlockCount(IN ULONG DriveNumber)
+{
+    return 0;
 }
 
 PCONFIGURATION_COMPONENT_DATA
 ArmHwDetect(VOID)
 {
-    ARM_CACHE_REGISTER CacheReg;
+    PCONFIGURATION_COMPONENT_DATA RootNode;
     
-    /* Create the root node */
-    if (ArmHwDetectRan++) return RootNode;
+    //
+    // Create the root node
+    //
     FldrCreateSystemKey(&RootNode);
     
-    /*
-     * TODO:
-     * There's no such thing as "PnP" on embedded hardware.
-     * The boot loader will send us a device tree, similar to ACPI
-     * or OpenFirmware device trees, and we will convert it to ARC.
-     */
+    //
+    // TODO:
+    // There's no such thing as "PnP" on embedded hardware.
+    // The boot loader will send us a device tree, similar to ACPI
+    // or OpenFirmware device trees, and we will convert it to ARC.
+    //
     
-    /* Get cache information */
-    CacheReg = KeArmCacheRegisterGet();   
-    FirstLevelDcacheSize = SizeBits[CacheReg.DSize];
-    FirstLevelDcacheFillSize = LenBits[CacheReg.DLength];
-    FirstLevelDcacheFillSize <<= 2;
-    FirstLevelIcacheSize = SizeBits[CacheReg.ISize];
-    FirstLevelIcacheFillSize = LenBits[CacheReg.ILength];
-    FirstLevelIcacheFillSize <<= 2;
-    SecondLevelDcacheSize =
-    SecondLevelDcacheFillSize =
-    SecondLevelIcacheSize =
-    SecondLevelIcacheFillSize = 0;
-    
-    /* Register RAMDISK Device */
-    RamDiskInitialize();
-    
-    /* Fill out the ARC disk block */
-    reactos_arc_disk_info.Signature = 0xBADAB00F;
-    reactos_arc_disk_info.CheckSum = 0xDEADBABE;
-    reactos_arc_disk_info.ArcName = "ramdisk(0)";
-    reactos_disk_count = 1;
-    
-    /* Return the root node */
+    //
+    // Return the root node
+    //
     return RootNode;
 }
 
@@ -144,59 +116,93 @@ ULONG
 ArmMemGetMemoryMap(OUT PBIOS_MEMORY_MAP BiosMemoryMap,
                    IN ULONG MaxMemoryMapSize)
 {
-    /* Return whatever the board returned to us (CS0 Base + Size and FLASH0) */
-    memcpy(BiosMemoryMap,
-           ArmBoardBlock->MemoryMap,
-           ArmBoardBlock->MemoryMapEntryCount * sizeof(BIOS_MEMORY_MAP));
+    //
+    // Return whatever the board returned to us (CS0 Base + Size and FLASH0)
+    //
+    RtlCopyMemory(BiosMemoryMap,
+                  ArmBoardBlock->MemoryMap,
+                  ArmBoardBlock->MemoryMapEntryCount * sizeof(BIOS_MEMORY_MAP));
     return ArmBoardBlock->MemoryMapEntryCount;
 }
 
 VOID
 MachInit(IN PCCH CommandLine)
 {
-    /* Setup board-specific ARM routines */
+    //
+    // Setup board-specific ARM routines
+    //
     switch (ArmBoardBlock->BoardType)
     {
-        /* Check for Feroceon-base boards */
+            //
+            // Check for Feroceon-base boards
+            //
         case MACH_TYPE_FEROCEON:
-            TuiPrintf("Not implemented\n");
-            while (TRUE);
+            
+            //
+            // These boards use a UART16550. Set us up for 115200 bps
+            //
+            ArmFeroSerialInit(115200);
+            MachVtbl.ConsPutChar = ArmFeroPutChar;
+            MachVtbl.ConsKbHit = ArmFeroKbHit;
+            MachVtbl.ConsGetCh = ArmFeroGetCh;
             break;
             
-        /* Check for ARM Versatile PB boards */
+            //
+            // Check for ARM Versatile PB boards
+            //
         case MACH_TYPE_VERSATILE_PB:
             
-            /* Copy Machine Routines from Firmware Table */
-            MachVtbl.ConsPutChar = ArmBoardBlock->ConsPutChar;
-            MachVtbl.ConsKbHit = ArmBoardBlock->ConsKbHit;
-            MachVtbl.ConsGetCh = ArmBoardBlock->ConsGetCh;
-            MachVtbl.VideoClearScreen = ArmBoardBlock->VideoClearScreen;
-            MachVtbl.VideoSetDisplayMode = ArmBoardBlock->VideoSetDisplayMode;
-            MachVtbl.VideoGetDisplaySize = ArmBoardBlock->VideoGetDisplaySize;
-            MachVtbl.VideoPutChar = ArmBoardBlock->VideoPutChar;
-            MachVtbl.GetTime = ArmBoardBlock->GetTime;
-                        
-            /* Setup the disk and file system buffers */
-            gDiskReadBuffer = 0x00090000;
-            gFileSysBuffer = 0x00090000;
+            //
+            // These boards use a PrimeCell UART (PL011)
+            //
+            ArmVersaSerialInit(115200);
+            MachVtbl.ConsPutChar = ArmVersaPutChar;
+            MachVtbl.ConsKbHit = ArmVersaKbHit;
+            MachVtbl.ConsGetCh = ArmVersaGetCh;
             break;
             
-        /* 
-         * Check for TI OMAP3 boards
-         * For now that means only Beagle, but ZOOM and others should be ok too
-         */
+        //
+        // Check for TI OMAP3 boards
+        // For now that means only Beagle, but ZOOM and others should be ok too
+        //
         case MACH_TYPE_OMAP3_BEAGLE:
-            TuiPrintf("Not implemented\n");
-            while (TRUE);
+            
+            //
+            // These boards use a UART16550
+            //
+            ArmOmap3SerialInit(115200);
+            MachVtbl.ConsPutChar = ArmOmap3PutChar;
+            MachVtbl.ConsKbHit = ArmOmap3KbHit;
+            MachVtbl.ConsGetCh = ArmOmap3GetCh;
             break;
             
         default:
             ASSERT(FALSE);
     }
         
-    /* Setup generic ARM routines for all boards */
+    //
+    // Setup generic ARM routines for all boards
+    //
     MachVtbl.PrepareForReactOS = ArmPrepareForReactOS;
     MachVtbl.GetMemoryMap = ArmMemGetMemoryMap;
     MachVtbl.HwDetect = ArmHwDetect;
-    MachVtbl.DiskGetBootPath = ArmDiskGetBootPath;
+    
+    //
+    // Setup disk I/O routines
+    //
+    MachVtbl.DiskReadLogicalSectors = ArmDiskReadLogicalSectors;
+    MachVtbl.DiskGetDriveGeometry = ArmDiskGetDriveGeometry;
+    MachVtbl.DiskGetCacheableBlockCount = ArmDiskGetCacheableBlockCount;
+    
+    //
+    // Now set default disk handling routines -- we don't need to override
+    //
+    MachVtbl.DiskGetBootPath = DiskGetBootPath;
+    MachVtbl.DiskNormalizeSystemPath = DiskNormalizeSystemPath;
+    
+    //
+    // We can now print to the console
+    //
+    TuiPrintf("%s for ARM\n", GetFreeLoaderVersionString());
+    TuiPrintf("Bootargs: %s\n", CommandLine);
 }

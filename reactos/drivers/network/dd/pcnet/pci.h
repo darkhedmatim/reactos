@@ -23,7 +23,8 @@
  *     01-Sept-2003 vizzini - Created
  */
 
-#pragma once
+#ifndef _PCI_
+#define _PCI_
 
 /* PCI Config Space Offset Definitions */
 #define PCI_PCIID    0x0        /* pci id - query 32 bits */
@@ -66,3 +67,5 @@
 #define PCI_RTABORT  0x1000     /* received target abort */
 #define PCI_SERR     0x2000     /* signalled error */
 #define PCI_PERR     0x4000     /* parity error */
+
+#endif /* _PCI_ */

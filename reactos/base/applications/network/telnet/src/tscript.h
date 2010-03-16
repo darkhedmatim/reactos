@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __TSCRIPT_H
+#define __TSCRIPT_H
 
 #include <windows.h>
 #include <stdio.h>
@@ -15,3 +16,5 @@ private:
 	char *script;
 	TNetwork &Network;
 };
+
+#endif

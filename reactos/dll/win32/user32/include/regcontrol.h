@@ -8,7 +8,8 @@
  * REVISION HISTORY: 2003/06/16 GvG Created
  * NOTES:
  */
-#pragma once
+#ifndef ROS_REGCONTROL_H
+#define ROS_REGCONTROL_H
 
 #define IS_ATOM(x) \
   (((ULONG_PTR)(x) > 0x0) && ((ULONG_PTR)(x) < 0x10000))
@@ -43,3 +44,5 @@ extern const struct builtin_class_descr SCROLL_builtin_class;
 extern const struct builtin_class_descr STATIC_builtin_class;
 
 ATOM WINAPI RegisterClassExWOWW(WNDCLASSEXW *,LPDWORD,WORD,DWORD,BOOL);
+
+#endif /* ROS_REGCONTROL_H */

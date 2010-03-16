@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __CPL_SAMPLE_H
+#define __CPL_SAMPLE_H
 
 #include <windows.h>
 #include <windowsx.h>
@@ -110,5 +111,7 @@ typedef struct _NMMCCAUTOUPDATE
 
 BOOL RegisterMonthCalControl(IN HINSTANCE hInstance);
 VOID UnregisterMonthCalControl(IN HINSTANCE hInstance);
+
+#endif /* __CPL_SAMPLE_H */
 
 /* EOF */

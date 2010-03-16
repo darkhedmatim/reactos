@@ -226,13 +226,6 @@ struct ClassImageList
     INT* IconIndexes;
 };
 
-struct FileLog /* HSPFILELOG */
-{
-    DWORD ReadOnly;
-    DWORD SystemLog;
-    LPWSTR LogName;
-};
-
 extern HINSTANCE hInstance;
 #define RC_STRING_MAX_SIZE 256
 
@@ -340,10 +333,6 @@ DWORD
 FreeFunctionPointer(
     IN HMODULE ModulePointer,
     IN PVOID FunctionPointer);
-
-DWORD
-WINAPI
-pSetupStringFromGuid(LPGUID lpGUID, PWSTR pString, DWORD dwStringLen);
 
 DWORD WINAPI CaptureAndConvertAnsiArg(LPCSTR pSrc, LPWSTR *pDst);
 

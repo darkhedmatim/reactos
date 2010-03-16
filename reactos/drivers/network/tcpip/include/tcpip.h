@@ -11,8 +11,8 @@
  *                - Neighbor cache lock
  *                - Route cache lock
  */
-
-#pragma once
+#ifndef __TCPIP_H
+#define __TCPIP_H
 
 #ifdef _MSC_VER
 #include <basetsd.h>
@@ -179,5 +179,7 @@ extern ULONG EntityMax;
 
 extern NTSTATUS TiGetProtocolNumber( PUNICODE_STRING FileName,
 				     PULONG Protocol );
+
+#endif /* __TCPIP_H */
 
 /* EOF */

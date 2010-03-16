@@ -108,7 +108,7 @@ MmAllocateNonCachedMemory(IN ULONG NumberOfBytes)
     //
     // Setup the template PTE
     //
-    TempPte = ValidKernelPte;
+    TempPte = HyperTemplatePte;
     
     //
     // Now check what kind of caching we should use

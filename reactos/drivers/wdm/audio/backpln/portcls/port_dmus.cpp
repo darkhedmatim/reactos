@@ -107,7 +107,6 @@ CPortDMus::QueryInterface(
 
     if (IsEqualGUIDAligned(refiid, IID_IPortDMus) ||
         IsEqualGUIDAligned(refiid, IID_IPortMidi) ||
-        IsEqualGUIDAligned(refiid, IID_IPort) ||
         IsEqualGUIDAligned(refiid, IID_IUnknown))
     {
         *Output = PVOID(PUNKNOWN((IPortDMus*)this));

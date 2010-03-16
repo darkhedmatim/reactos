@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_DIB_H
+#define _WIN32K_DIB_H
 
 #include "dc.h"
 
@@ -17,3 +18,5 @@ DIB_MapPaletteColors(PDC dc, CONST BITMAPINFO* lpbmi);
 
 HPALETTE FASTCALL
 BuildDIBPalette (CONST BITMAPINFO *bmi, PINT paletteType);
+
+#endif /* _WIN32K_DIB_H */

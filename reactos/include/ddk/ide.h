@@ -23,15 +23,6 @@
 #ifndef __IDE_H
 #define __IDE_H
 
-/* Helper macro to enable gcc's extension.  */
-#ifndef __GNU_EXTENSION
-#ifdef __GNUC__
-#define __GNU_EXTENSION __extension__
-#else
-#define __GNU_EXTENSION
-#endif
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -113,7 +104,7 @@ typedef struct _EXTENDED_IDENTIFY_DATA {
   USHORT UnformattedBytesPerTrack;   /* 08 */
   USHORT UnformattedBytesPerSector;  /* 10 */
   USHORT NumSectorsPerTrack;         /* 12 */
-  __GNU_EXTENSION union
+  union
   {
     USHORT VendorUnique1[3];         /* 14 */
     struct

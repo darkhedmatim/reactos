@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _RESOURCE_H__
+#define _RESOURCE_H__
 
 /* Icons */
 #define IDI_MAIN                 10
@@ -151,3 +152,5 @@
 #ifndef IDC_STATIC
 #define IDC_STATIC               -1
 #endif
+
+#endif /* _RESOURCE_H__ */

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PRECOMP_H__
+#define PRECOMP_H__
 
 #include <ntddk.h>
 #include <portcls.h>
@@ -64,3 +65,6 @@ typedef struct
     ULONG BytesAvailable;
     ULONG BytesProcessed;
 }PIN_CONTEXT, *PPIN_CONTEXT;
+
+
+#endif

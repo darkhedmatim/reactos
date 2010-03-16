@@ -333,7 +333,6 @@ BOOL MCIAVI_GetInfo(WINE_MCIAVI* wma)
                 if (!MCIAVI_GetInfoVideo(wma, &mmckList, &mmckStream))
                     return FALSE;
                 wma->video_stream_n = stream_n;
-                wma->dwSet |= 4;
             }
         }
         else if (strh.fccType == streamtypeAUDIO)
@@ -348,7 +347,6 @@ BOOL MCIAVI_GetInfo(WINE_MCIAVI* wma)
                 if (!MCIAVI_GetInfoAudio(wma, &mmckList, &mmckStream))
                     return FALSE;
                 wma->audio_stream_n = stream_n;
-                wma->dwSet |= 3;
             }
         }
         else

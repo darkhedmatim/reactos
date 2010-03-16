@@ -33,7 +33,7 @@ void WINAPI DebugSetMute(void) {
     /* nothing to do */
 }
 
-IDirect3D9* WINAPI DECLSPEC_HOTPATCH Direct3DCreate9(UINT SDKVersion) {
+IDirect3D9* WINAPI Direct3DCreate9(UINT SDKVersion) {
     IDirect3D9Impl* object = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IDirect3D9Impl));
 
     object->lpVtbl = &Direct3D9_Vtbl;
@@ -53,7 +53,7 @@ IDirect3D9* WINAPI DECLSPEC_HOTPATCH Direct3DCreate9(UINT SDKVersion) {
     return (IDirect3D9*) object;
 }
 
-HRESULT WINAPI DECLSPEC_HOTPATCH Direct3DCreate9Ex(UINT SDKVersion, IDirect3D9Ex **direct3d9ex) {
+HRESULT WINAPI Direct3DCreate9Ex(UINT SDKVersion, IDirect3D9Ex **direct3d9ex) {
     IDirect3D9 *ret;
     IDirect3D9Impl* object;
 
@@ -78,9 +78,7 @@ HRESULT WINAPI DECLSPEC_HOTPATCH Direct3DCreate9Ex(UINT SDKVersion, IDirect3D9Ex
  */
 void* WINAPI Direct3DShaderValidatorCreate9(void)
 {
-    static int once;
-
-    if (!once++) FIXME("stub\n");
+    FIXME("stub\n");
     return NULL;
 }
 
@@ -101,7 +99,7 @@ BOOL WINAPI DllMain(HINSTANCE hInstDLL, DWORD fdwReason, LPVOID lpv)
  *              D3DPERF_BeginEvent (D3D9.@)
  */
 int WINAPI D3DPERF_BeginEvent(D3DCOLOR color, LPCWSTR name) {
-    TRACE("(color %#x, name %s) : stub\n", color, debugstr_w(name));
+    FIXME("(color %#x, name %s) : stub\n", color, debugstr_w(name));
 
     return D3DPERF_event_level++;
 }
@@ -110,7 +108,7 @@ int WINAPI D3DPERF_BeginEvent(D3DCOLOR color, LPCWSTR name) {
  *              D3DPERF_EndEvent (D3D9.@)
  */
 int WINAPI D3DPERF_EndEvent(void) {
-    TRACE("(void) : stub\n");
+    FIXME("(void) : stub\n");
 
     return --D3DPERF_event_level;
 }

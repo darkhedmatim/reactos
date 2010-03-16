@@ -176,7 +176,7 @@ WPUCloseSocketHandle(IN SOCKET s,
 SOCKET
 WSPAPI
 WPUCreateSocketHandle(IN DWORD dwCatalogEntryId,
-                      IN DWORD_PTR dwContext,
+                      IN DWORD dwContext,
                       OUT LPINT lpErrno)
 {
     UNIMPLEMENTED;
@@ -277,7 +277,7 @@ WPUModifyIFSHandle(IN DWORD dwCatalogEntryId,
 INT
 WSPAPI
 WPUQuerySocketHandleContext(IN SOCKET s,
-                            OUT PDWORD_PTR lpContext,
+                            OUT LPDWORD lpContext,
                             OUT LPINT lpErrno)
 {
     UNIMPLEMENTED;

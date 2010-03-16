@@ -647,28 +647,6 @@ static UINT get_action_info( const GUID *guid, INT *type, MSIHANDLE *handle,
     return ERROR_SUCCESS;
 }
 
-#ifdef __i386__
-extern UINT CUSTOMPROC_wrapper( MsiCustomActionEntryPoint proc, MSIHANDLE handle );
-__ASM_GLOBAL_FUNC( CUSTOMPROC_wrapper,
-	"pushl %ebp\n\t"
-	__ASM_CFI(".cfi_adjust_cfa_offset 4\n\t")
-	__ASM_CFI(".cfi_rel_offset %ebp,0\n\t")
-	"movl %esp,%ebp\n\t"
-	__ASM_CFI(".cfi_def_cfa_register %ebp\n\t")
-	"pushl 12(%ebp)\n\t"
-	"movl 8(%ebp),%eax\n\t"
-	"call *%eax\n\t"
-	"leave\n\t"
-	__ASM_CFI(".cfi_def_cfa %esp,4\n\t")
-	__ASM_CFI(".cfi_same_value %ebp\n\t")
-	"ret" )
-#else
-static inline UINT CUSTOMPROC_wrapper( MsiCustomActionEntryPoint proc, MSIHANDLE handle )
-{
-	return proc(handle);
-}
-#endif
-
 static DWORD ACTION_CallDllFunction( const GUID *guid )
 {
     MsiCustomActionEntryPoint fn;
@@ -707,7 +685,7 @@ static DWORD ACTION_CallDllFunction( const GUID *guid )
 
             __TRY
             {
-                r = CUSTOMPROC_wrapper( fn, hPackage );
+                r = fn( hPackage );
             }
             __EXCEPT_PAGE_FAULT
             {
@@ -1120,44 +1098,38 @@ static UINT HANDLE_CustomType50(MSIPACKAGE *package, LPCWSTR source,
 static UINT HANDLE_CustomType34(MSIPACKAGE *package, LPCWSTR source,
                                 LPCWSTR target, const INT type, LPCWSTR action)
 {
-    LPWSTR workingdir, filename;
+    LPWSTR filename, deformated;
     STARTUPINFOW si;
     PROCESS_INFORMATION info;
     BOOL rc;
 
-    memset(&si, 0, sizeof(STARTUPINFOW));
+    memset(&si,0,sizeof(STARTUPINFOW));
 
-    workingdir = resolve_folder(package, source, FALSE, FALSE, TRUE, NULL);
-
-    if (!workingdir)
-        return ERROR_FUNCTION_FAILED;
-
-    deformat_string(package, target, &filename);
+    filename = resolve_folder(package, source, FALSE, FALSE, TRUE, NULL);
 
     if (!filename)
-    {
-        msi_free(workingdir);
         return ERROR_FUNCTION_FAILED;
-    }
 
-    TRACE("executing exe %s with working directory %s\n",
-          debugstr_w(filename), debugstr_w(workingdir));
+    SetCurrentDirectoryW(filename);
+    msi_free(filename);
 
-    rc = CreateProcessW(NULL, filename, NULL, NULL, FALSE, 0, NULL,
-                        workingdir, &si, &info);
+    deformat_string(package,target,&deformated);
+
+    if (!deformated)
+        return ERROR_FUNCTION_FAILED;
+
+    TRACE("executing exe %s\n", debugstr_w(deformated));
+
+    rc = CreateProcessW(NULL, deformated, NULL, NULL, FALSE, 0, NULL,
+                  c_collen, &si, &info);
 
     if ( !rc )
     {
-        ERR("Unable to execute command %s with working directory %s\n",
-            debugstr_w(filename), debugstr_w(workingdir));
-        msi_free(filename);
-        msi_free(workingdir);
+        ERR("Unable to execute command %s\n", debugstr_w(deformated));
+        msi_free(deformated);
         return ERROR_SUCCESS;
     }
-
-    msi_free(filename);
-    msi_free(workingdir);
-
+    msi_free(deformated);
     CloseHandle( info.hThread );
 
     return wait_process_handle(package, type, info.hProcess, action);

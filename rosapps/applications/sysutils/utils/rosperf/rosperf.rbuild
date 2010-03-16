@@ -7,6 +7,7 @@
 	<library>shell32</library>
 	<library>advapi32</library>
 	<library>user32</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 	<file>rosperf.c</file>
 	<file>lines.c</file>

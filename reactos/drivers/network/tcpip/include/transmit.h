@@ -4,8 +4,8 @@
  * FILE:        include/transmit.h
  * PURPOSE:     Internet Protocol transmit prototypes
  */
-
-#pragma once
+#ifndef __TRANSMIT_H
+#define __TRANSMIT_H
 
 typedef VOID (*PIP_TRANSMIT_COMPLETE)( PVOID Context,
 				       PNDIS_PACKET Packet,
@@ -32,5 +32,7 @@ typedef struct IPFRAGMENT_CONTEXT {
 
 NTSTATUS IPSendDatagram(PIP_PACKET IPPacket, PNEIGHBOR_CACHE_ENTRY NCE,
 			PIP_TRANSMIT_COMPLETE Complete, PVOID Context);
+
+#endif /* __TRANSMIT_H */
 
 /* EOF */

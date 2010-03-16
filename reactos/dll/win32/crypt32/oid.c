@@ -170,7 +170,7 @@ static char *CRYPT_GetKeyName(DWORD dwEncodingType, LPCSTR pszFuncName,
      * "EncodingType 2" would be expected if it were a mask.  Instead native
      * stores values in "EncodingType 3".
      */
-    if (IS_INTOID(pszOID))
+    if (!HIWORD(pszOID))
     {
         snprintf(numericOID, sizeof(numericOID), "#%d", LOWORD(pszOID));
         oid = numericOID;
@@ -255,7 +255,7 @@ BOOL WINAPI CryptInstallOIDFunctionAddress(HMODULE hModule,
         {
             struct OIDFunction *func;
 
-            if (!IS_INTOID(rgFuncEntry[i].pszOID))
+            if (HIWORD(rgFuncEntry[i].pszOID))
                 func = CryptMemAlloc(sizeof(struct OIDFunction)
                  + strlen(rgFuncEntry[i].pszOID) + 1);
             else
@@ -263,7 +263,7 @@ BOOL WINAPI CryptInstallOIDFunctionAddress(HMODULE hModule,
             if (func)
             {
                 func->encoding = GET_CERT_ENCODING_TYPE(dwEncodingType);
-                if (!IS_INTOID(rgFuncEntry[i].pszOID))
+                if (HIWORD(rgFuncEntry[i].pszOID))
                 {
                     LPSTR oid;
 
@@ -402,9 +402,9 @@ BOOL WINAPI CryptGetOIDFunctionAddress(HCRYPTOIDFUNCSET hFuncSet,
         {
             if (function->encoding == GET_CERT_ENCODING_TYPE(dwEncodingType))
             {
-                if (!IS_INTOID(pszOID))
+                if (HIWORD(pszOID))
                 {
-                    if (!IS_INTOID(function->entry.pszOID) &&
+                    if (HIWORD(function->entry.pszOID) &&
                      !strcasecmp(function->entry.pszOID, pszOID))
                     {
                         *ppvFuncAddr = function->entry.pvFuncAddr;
@@ -881,11 +881,9 @@ static BOOL CRYPT_RemoveStringFromMultiString(LPWSTR multi, LPCWSTR toRemove)
         }
         else
         {
-            LPCWSTR nextStr = spotToRemove + lstrlenW(toRemove) + 1;
-
             /* Copy remainder of string "left" */
-            memmove(spotToRemove, nextStr,
-             (len - (nextStr - multi)) * sizeof(WCHAR));
+            memmove(spotToRemove, spotToRemove + lstrlenW(toRemove) + 1,
+             (len - (spotToRemove - multi)) * sizeof(WCHAR));
         }
         ret = TRUE;
     }
@@ -1398,7 +1396,7 @@ static void init_oid_info(void)
     for (i = 0; i < sizeof(oidInfoConstructors) /
      sizeof(oidInfoConstructors[0]); i++)
     {
-        if (!IS_INTRESOURCE(oidInfoConstructors[i].pwszName))
+        if (HIWORD(oidInfoConstructors[i].pwszName))
         {
             struct OIDInfo *info;
 

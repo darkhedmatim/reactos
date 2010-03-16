@@ -105,6 +105,11 @@ typedef struct tagLookInInfo
   UINT uSelectedItem;
 } LookInInfos;
 
+typedef struct tagFD32_PRIVATE
+{
+    OPENFILENAMEA *ofnA; /* original structure if 32bits ansi dialog */
+} FD32_PRIVATE, *PFD32_PRIVATE;
+
 
 /***********************************************************************
  * Defines and global variables
@@ -265,13 +270,6 @@ static BOOL GetFileName95(FileOpenDlgInfos *fodInfos)
         COMDLG32_SetCommDlgExtendedError(CDERR_LOADRESFAILURE);
         return FALSE;
     }
-
-    /* msdn: explorer style dialogs permit sizing by default.
-     * The OFN_ENABLESIZING flag is only needed when a hook or
-     * custom tmeplate is provided */
-    if( (fodInfos->ofnInfos->Flags & OFN_EXPLORER) &&
-            !(fodInfos->ofnInfos->Flags & ( OFN_ENABLEHOOK | OFN_ENABLETEMPLATE | OFN_ENABLETEMPLATEHANDLE)))
-        fodInfos->ofnInfos->Flags |= OFN_ENABLESIZING;
 
     if (fodInfos->ofnInfos->Flags & OFN_ENABLESIZING)
     {
@@ -1322,16 +1320,15 @@ static LRESULT FILEDLG95_InitControls(HWND hwnd)
    {VIEW_LIST,         FCIDM_TB_SMALLICON,  TBSTATE_ENABLED, BTNS_BUTTON, {0, 0}, 0, 0 },
    {VIEW_DETAILS,      FCIDM_TB_REPORTVIEW, TBSTATE_ENABLED, BTNS_BUTTON, {0, 0}, 0, 0 },
   };
-  static const TBADDBITMAP tba = {HINST_COMMCTRL, IDB_VIEW_SMALL_COLOR};
-
+  TBADDBITMAP tba[2];
   RECT rectTB;
   RECT rectlook;
-
-  HIMAGELIST toolbarImageList;
-  SHFILEINFOA shFileInfo;
-  ITEMIDLIST *desktopPidl;
-
   FileOpenDlgInfos *fodInfos = GetPropA(hwnd,FileOpenDlgInfosStr);
+
+  tba[0].hInst = HINST_COMMCTRL;
+  tba[0].nID   = IDB_VIEW_SMALL_COLOR;
+  tba[1].hInst = COMDLG32_hInstance;
+  tba[1].nID   = 800;
 
   TRACE("%p\n", fodInfos);
 
@@ -1381,19 +1378,9 @@ static LRESULT FILEDLG95_InitControls(HWND hwnd)
 /* FIXME: use TB_LOADIMAGES when implemented */
 /*  SendMessageW(fodInfos->DlgInfos.hwndTB, TB_LOADIMAGES, IDB_VIEW_SMALL_COLOR, HINST_COMMCTRL);*/
   SendMessageW(fodInfos->DlgInfos.hwndTB, TB_SETMAXTEXTROWS, 0, 0);
-  SendMessageW(fodInfos->DlgInfos.hwndTB, TB_ADDBITMAP, 12, (LPARAM) &tba);
+  SendMessageW(fodInfos->DlgInfos.hwndTB, TB_ADDBITMAP, 12, (LPARAM) &tba[0]);
+  SendMessageW(fodInfos->DlgInfos.hwndTB, TB_ADDBITMAP, 1, (LPARAM) &tba[1]);
 
-  /* Retrieve and add desktop icon to the toolbar */
-  toolbarImageList = (HIMAGELIST)SendMessageW(fodInfos->DlgInfos.hwndTB, TB_GETIMAGELIST, 0, 0L);
-  SHGetSpecialFolderLocation(hwnd, CSIDL_DESKTOP, &desktopPidl);
-  SHGetFileInfoA((LPCSTR)desktopPidl, 0, &shFileInfo, sizeof(shFileInfo),
-    SHGFI_PIDL | SHGFI_ICON | SHGFI_SMALLICON);
-  ImageList_AddIcon(toolbarImageList, shFileInfo.hIcon);
-
-  DestroyIcon(shFileInfo.hIcon);
-  CoTaskMemFree(desktopPidl);
-
-  /* Finish Toolbar Construction */
   SendMessageW(fodInfos->DlgInfos.hwndTB, TB_ADDBUTTONSW, 9, (LPARAM) tbb);
   SendMessageW(fodInfos->DlgInfos.hwndTB, TB_AUTOSIZE, 0, 0);
 
@@ -1522,11 +1509,12 @@ static LRESULT FILEDLG95_InitControls(HWND hwnd)
       if ( win98plus && handledPath == FALSE &&
            fodInfos->filter && *fodInfos->filter) {
 
+         BOOL   searchMore = TRUE;
          LPCWSTR lpstrPos = fodInfos->filter;
          WIN32_FIND_DATAW FindFileData;
          HANDLE hFind;
 
-         while (1)
+         while (searchMore)
          {
            /* filter is a list...  title\0ext\0......\0\0 */
 
@@ -1544,6 +1532,7 @@ static LRESULT FILEDLG95_InitControls(HWND hwnd)
                lpstrPos += lstrlenW(lpstrPos) + 1;
 
            } else {
+               searchMore = FALSE;
 
                MemFree(fodInfos->initdir);
                fodInfos->initdir = MemAlloc(MAX_PATH*sizeof(WCHAR));
@@ -1552,7 +1541,6 @@ static LRESULT FILEDLG95_InitControls(HWND hwnd)
                handledPath = TRUE;
                TRACE("No initial dir specified, but files of type %s found in current, so using it\n",
                  debugstr_w(lpstrPos));
-               FindClose(hFind);
                break;
            }
          }
@@ -1989,15 +1977,15 @@ BOOL FILEDLG95_OnOpen(HWND hwnd)
 
   TRACE("hwnd=%p\n", hwnd);
 
-  /* try to browse the selected item */
-  if(BrowseSelectedFolder(hwnd))
-      return FALSE;
-
   /* get the files from the edit control */
   nFileCount = FILEDLG95_FILENAME_GetFileNames(hwnd, &lpstrFileList, &sizeUsed);
 
+  /* try if the user selected a folder in the shellview */
   if(nFileCount == 0)
+  {
+      BrowseSelectedFolder(hwnd);
       return FALSE;
+  }
 
   if(nFileCount > 1)
   {
@@ -3201,7 +3189,7 @@ static int FILEDLG95_LOOKIN_RemoveMostExpandedItem(HWND hwnd)
   if(liInfos->iMaxIndentation <= 2)
     return -1;
 
-  if((iItemPos = FILEDLG95_LOOKIN_SearchItem(hwnd,liInfos->iMaxIndentation,SEARCH_EXP)) >=0)
+  if((iItemPos = FILEDLG95_LOOKIN_SearchItem(hwnd,(WPARAM)liInfos->iMaxIndentation,SEARCH_EXP)) >=0)
   {
     SFOLDER *tmpFolder = (LPSFOLDER) CBGetItemDataPtr(hwnd,iItemPos);
     COMDLG32_SHFree(tmpFolder->pidlItem);
@@ -3252,7 +3240,6 @@ static int FILEDLG95_LOOKIN_SearchItem(HWND hwnd,WPARAM searchArg,int iSearchMet
 static void FILEDLG95_LOOKIN_Clean(HWND hwnd)
 {
     FileOpenDlgInfos *fodInfos = GetPropA(hwnd,FileOpenDlgInfosStr);
-    LookInInfos *liInfos = GetPropA(fodInfos->DlgInfos.hwndLookInCB,LookInInfosStr);
     int iPos;
     int iCount = CBGetCount(fodInfos->DlgInfos.hwndLookInCB);
 
@@ -3271,10 +3258,9 @@ static void FILEDLG95_LOOKIN_Clean(HWND hwnd)
     }
 
     /* LookInInfos structure */
-    MemFree(liInfos);
     RemovePropA(fodInfos->DlgInfos.hwndLookInCB,LookInInfosStr);
-}
 
+}
 /***********************************************************************
  * FILEDLG95_FILENAME_FillFromSelection
  *
@@ -3358,7 +3344,7 @@ void FILEDLG95_FILENAME_FillFromSelection (HWND hwnd)
       SetWindowTextW( fodInfos->DlgInfos.hwndFileName, lpstrAllFile );
        
       /* Select the file name like Windows does */ 
-      SendMessageW(fodInfos->DlgInfos.hwndFileName, EM_SETSEL, 0, -1);
+      SendMessageW(fodInfos->DlgInfos.hwndFileName, EM_SETSEL, 0, (LPARAM)-1);
     }
     HeapFree(GetProcessHeap(),0, lpstrAllFile );
 }
@@ -3740,10 +3726,10 @@ static void MemFree(void *mem)
  * by a 32 bits application
  *
  */
-BOOL FD32_GetTemplate(PFD31_DATA lfs)
+static BOOL FD32_GetTemplate(PFD31_DATA lfs)
 {
     LPOPENFILENAMEW ofnW = lfs->ofnW;
-    LPOPENFILENAMEA ofnA = lfs->ofnA;
+    PFD32_PRIVATE priv = (PFD32_PRIVATE) lfs->private1632;
     HANDLE hDlgTmpl;
 
     if (ofnW->Flags & OFN_ENABLETEMPLATEHANDLE)
@@ -3757,9 +3743,9 @@ BOOL FD32_GetTemplate(PFD31_DATA lfs)
     else if (ofnW->Flags & OFN_ENABLETEMPLATE)
     {
 	HRSRC hResInfo;
-        if (ofnA)
-	    hResInfo = FindResourceA(ofnA->hInstance,
-				 ofnA->lpTemplateName,
+        if (priv->ofnA)
+	    hResInfo = FindResourceA(priv->ofnA->hInstance,
+				 priv->ofnA->lpTemplateName,
                                  (LPSTR)RT_DIALOG);
         else
 	    hResInfo = FindResourceW(ofnW->hInstance,
@@ -3795,6 +3781,151 @@ BOOL FD32_GetTemplate(PFD31_DATA lfs)
     return TRUE;
 }
 
+
+/************************************************************************
+ *                              FD32_Init          [internal]
+ *      called from the common 16/32 code to initialize 32 bit data
+ */
+static BOOL CALLBACK FD32_Init(LPARAM lParam, PFD31_DATA lfs, DWORD data)
+{
+    BOOL IsUnicode = (BOOL) data;
+    PFD32_PRIVATE priv;
+
+    priv = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(FD32_PRIVATE));
+    lfs->private1632 = priv;
+    if (NULL == lfs->private1632) return FALSE;
+    if (IsUnicode)
+    {
+        lfs->ofnW = (LPOPENFILENAMEW) lParam;
+        if (lfs->ofnW->Flags & OFN_ENABLEHOOK)
+            if (lfs->ofnW->lpfnHook)
+                lfs->hook = TRUE;
+    }
+    else
+    {
+        priv->ofnA = (LPOPENFILENAMEA) lParam;
+        if (priv->ofnA->Flags & OFN_ENABLEHOOK)
+            if (priv->ofnA->lpfnHook)
+                lfs->hook = TRUE;
+        lfs->ofnW = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*lfs->ofnW));
+        FD31_MapOfnStructA(priv->ofnA, lfs->ofnW, lfs->open);
+    }
+
+    if (! FD32_GetTemplate(lfs)) return FALSE;
+
+    return TRUE;
+}
+
+/***********************************************************************
+ *                              FD32_CallWindowProc          [internal]
+ *
+ *      called from the common 16/32 code to call the appropriate hook
+ */
+static BOOL CALLBACK FD32_CallWindowProc(const FD31_DATA *lfs, UINT wMsg, WPARAM wParam,
+                                 LPARAM lParam)
+{
+    BOOL ret;
+    PFD32_PRIVATE priv = (PFD32_PRIVATE) lfs->private1632;
+
+    if (priv->ofnA)
+    {
+        TRACE("Call hookA %p (%p, %04x, %08lx, %08lx)\n",
+               priv->ofnA->lpfnHook, lfs->hwnd, wMsg, wParam, lParam);
+        ret = priv->ofnA->lpfnHook(lfs->hwnd, wMsg, wParam, lParam);
+        TRACE("ret hookA %p (%p, %04x, %08lx, %08lx)\n",
+               priv->ofnA->lpfnHook, lfs->hwnd, wMsg, wParam, lParam);
+        return ret;
+    }
+
+    TRACE("Call hookW %p (%p, %04x, %08lx, %08lx)\n",
+           lfs->ofnW->lpfnHook, lfs->hwnd, wMsg, wParam, lParam);
+    ret = lfs->ofnW->lpfnHook(lfs->hwnd, wMsg, wParam, lParam);
+    TRACE("Ret hookW %p (%p, %04x, %08lx, %08lx)\n",
+           lfs->ofnW->lpfnHook, lfs->hwnd, wMsg, wParam, lParam);
+    return ret;
+}
+
+/***********************************************************************
+ *                              FD32_UpdateResult            [internal]
+ *          update the real client structures if any
+ */
+static void CALLBACK FD32_UpdateResult(const FD31_DATA *lfs)
+{
+    PFD32_PRIVATE priv = (PFD32_PRIVATE) lfs->private1632;
+    LPOPENFILENAMEW ofnW = lfs->ofnW;
+
+    if (priv->ofnA)
+    {
+        LPSTR lpszTemp;
+        if (ofnW->nMaxFile &&
+            !WideCharToMultiByte( CP_ACP, 0, ofnW->lpstrFile, -1,
+                                  priv->ofnA->lpstrFile, ofnW->nMaxFile, NULL, NULL ))
+            priv->ofnA->lpstrFile[ofnW->nMaxFile-1] = 0;
+
+        /* offsets are not guaranteed to be the same in WCHAR to MULTIBYTE conversion */
+        /* set filename offset */
+        lpszTemp = PathFindFileNameA(priv->ofnA->lpstrFile);
+        priv->ofnA->nFileOffset = (lpszTemp - priv->ofnA->lpstrFile);
+
+        /* set extension offset */
+        lpszTemp = PathFindExtensionA(priv->ofnA->lpstrFile);
+        priv->ofnA->nFileExtension = (*lpszTemp) ? (lpszTemp - priv->ofnA->lpstrFile) + 1 : 0;
+    }
+}
+
+/***********************************************************************
+ *                              FD32_UpdateFileTitle            [internal]
+ *          update the real client structures if any
+ */
+static void CALLBACK FD32_UpdateFileTitle(const FD31_DATA *lfs)
+{
+    PFD32_PRIVATE priv = (PFD32_PRIVATE) lfs->private1632;
+    LPOPENFILENAMEW ofnW = lfs->ofnW;
+
+    if (priv->ofnA)
+    {
+        if (!WideCharToMultiByte( CP_ACP, 0, ofnW->lpstrFileTitle, -1,
+                                  priv->ofnA->lpstrFileTitle, ofnW->nMaxFileTitle, NULL, NULL ))
+            priv->ofnA->lpstrFileTitle[ofnW->nMaxFileTitle-1] = 0;
+    }
+}
+
+
+/***********************************************************************
+ *                              FD32_SendLbGetCurSel         [internal]
+ *          retrieve selected listbox item
+ */
+static LRESULT CALLBACK FD32_SendLbGetCurSel(const FD31_DATA *lfs)
+{
+    return SendDlgItemMessageW(lfs->hwnd, lst1, LB_GETCURSEL, 0, 0);
+}
+
+
+/************************************************************************
+ *                              FD32_Destroy          [internal]
+ *      called from the common 16/32 code to cleanup 32 bit data
+ */
+static void CALLBACK FD32_Destroy(const FD31_DATA *lfs)
+{
+    PFD32_PRIVATE priv = (PFD32_PRIVATE) lfs->private1632;
+
+    /* if ofnW has been allocated, have to free everything in it */
+    if (NULL != priv && NULL != priv->ofnA)
+    {
+        FD31_FreeOfnW(lfs->ofnW);
+        HeapFree(GetProcessHeap(), 0, lfs->ofnW);
+    }
+}
+
+static void FD32_SetupCallbacks(PFD31_CALLBACKS callbacks)
+{
+    callbacks->Init = FD32_Init;
+    callbacks->CWP = FD32_CallWindowProc;
+    callbacks->UpdateResult = FD32_UpdateResult;
+    callbacks->UpdateFileTitle = FD32_UpdateFileTitle;
+    callbacks->SendLbGetCurSel = FD32_SendLbGetCurSel;
+    callbacks->Destroy = FD32_Destroy;
+}
 
 /***********************************************************************
  *                              FD32_WMMeasureItem           [internal]
@@ -3867,16 +3998,20 @@ static BOOL GetFileName31A(LPOPENFILENAMEA lpofn, /* address of structure with d
                            UINT dlgType /* type dialogue : open/save */
                            )
 {
+    HINSTANCE hInst;
     BOOL bRet = FALSE;
     PFD31_DATA lfs;
+    FD31_CALLBACKS callbacks;
 
     if (!lpofn || !FD31_Init()) return FALSE;
 
     TRACE("ofn flags %08x\n", lpofn->Flags);
-    lfs = FD31_AllocPrivate((LPARAM) lpofn, dlgType, FALSE);
+    FD32_SetupCallbacks(&callbacks);
+    lfs = FD31_AllocPrivate((LPARAM) lpofn, dlgType, &callbacks, (DWORD) FALSE);
     if (lfs)
     {
-        bRet = DialogBoxIndirectParamA( COMDLG32_hInstance, lfs->template, lpofn->hwndOwner,
+        hInst = (HINSTANCE)GetWindowLongPtrW( lpofn->hwndOwner, GWLP_HINSTANCE );
+        bRet = DialogBoxIndirectParamA( hInst, lfs->template, lpofn->hwndOwner,
                                         FD32_FileOpenDlgProc, (LPARAM)lfs);
         FD31_DestroyPrivate(lfs);
     }
@@ -3894,15 +4029,19 @@ static BOOL GetFileName31W(LPOPENFILENAMEW lpofn, /* address of structure with d
                            UINT dlgType /* type dialogue : open/save */
                            )
 {
+    HINSTANCE hInst;
     BOOL bRet = FALSE;
     PFD31_DATA lfs;
+    FD31_CALLBACKS callbacks;
 
     if (!lpofn || !FD31_Init()) return FALSE;
 
-    lfs = FD31_AllocPrivate((LPARAM) lpofn, dlgType, TRUE);
+    FD32_SetupCallbacks(&callbacks);
+    lfs = FD31_AllocPrivate((LPARAM) lpofn, dlgType, &callbacks, (DWORD) TRUE);
     if (lfs)
     {
-        bRet = DialogBoxIndirectParamW( COMDLG32_hInstance, lfs->template, lpofn->hwndOwner,
+        hInst = (HINSTANCE)GetWindowLongPtrW( lpofn->hwndOwner, GWLP_HINSTANCE );
+        bRet = DialogBoxIndirectParamW( hInst, lfs->template, lpofn->hwndOwner,
                                         FD32_FileOpenDlgProc, (LPARAM)lfs);
         FD31_DestroyPrivate(lfs);
     }

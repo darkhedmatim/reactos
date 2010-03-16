@@ -31,45 +31,22 @@
 static HMODULE hMapi32 = 0;
 
 static SCODE (WINAPI *pScInitMapiUtil)(ULONG);
-static void  (WINAPI *pDeinitMapiUtil)(void);
 static void  (WINAPI *pSwapPword)(PUSHORT,ULONG);
 static void  (WINAPI *pSwapPlong)(PULONG,ULONG);
 static void  (WINAPI *pHexFromBin)(LPBYTE,int,LPWSTR);
-static BOOL  (WINAPI *pFBinFromHex)(LPWSTR,LPBYTE);
+static void  (WINAPI *pFBinFromHex)(LPWSTR,LPBYTE);
 static UINT  (WINAPI *pUFromSz)(LPCSTR);
 static ULONG (WINAPI *pUlFromSzHex)(LPCSTR);
 static ULONG (WINAPI *pCbOfEncoded)(LPCSTR);
 static BOOL  (WINAPI *pIsBadBoundedStringPtr)(LPCSTR,ULONG);
-static SCODE (WINAPI *pMAPIInitialize)(LPVOID);
-static void  (WINAPI *pMAPIUninitialize)(void);
-
-static void init_function_pointers(void)
-{
-    hMapi32 = LoadLibraryA("mapi32.dll");
-
-    pScInitMapiUtil = (void*)GetProcAddress(hMapi32, "ScInitMapiUtil@4");
-    pDeinitMapiUtil = (void*)GetProcAddress(hMapi32, "DeinitMapiUtil@0");
-    pSwapPword = (void*)GetProcAddress(hMapi32, "SwapPword@8");
-    pSwapPlong = (void*)GetProcAddress(hMapi32, "SwapPlong@8");
-    pHexFromBin = (void*)GetProcAddress(hMapi32, "HexFromBin@12");
-    pFBinFromHex = (void*)GetProcAddress(hMapi32, "FBinFromHex@8");
-    pUFromSz = (void*)GetProcAddress(hMapi32, "UFromSz@4");
-    pUlFromSzHex = (void*)GetProcAddress(hMapi32, "UlFromSzHex@4");
-    pCbOfEncoded = (void*)GetProcAddress(hMapi32, "CbOfEncoded@4");
-    pIsBadBoundedStringPtr = (void*)GetProcAddress(hMapi32, "IsBadBoundedStringPtr@8");
-    pMAPIInitialize = (void*)GetProcAddress(hMapi32, "MAPIInitialize");
-    pMAPIUninitialize = (void*)GetProcAddress(hMapi32, "MAPIUninitialize");
-}
 
 static void test_SwapPword(void)
 {
     USHORT shorts[3];
 
+    pSwapPword = (void*)GetProcAddress(hMapi32, "SwapPword@8");
     if (!pSwapPword)
-    {
-        win_skip("SwapPword is not available\n");
         return;
-    }
 
     shorts[0] = 0xff01;
     shorts[1] = 0x10ff;
@@ -84,11 +61,9 @@ static void test_SwapPlong(void)
 {
     ULONG longs[3];
 
+    pSwapPlong = (void*)GetProcAddress(hMapi32, "SwapPlong@8");
     if (!pSwapPlong)
-    {
-        win_skip("SwapPlong is not available\n");
         return;
-    }
 
     longs[0] = 0xffff0001;
     longs[1] = 0x1000ffff;
@@ -114,11 +89,10 @@ static void test_HexFromBin(void)
     BOOL bOk;
     int i;
 
+    pHexFromBin = (void*)GetProcAddress(hMapi32, "HexFromBin@12");
+    pFBinFromHex = (void*)GetProcAddress(hMapi32, "FBinFromHex@8");
     if (!pHexFromBin || !pFBinFromHex)
-    {
-        win_skip("Hexadecimal conversion functions are not available\n");
         return;
-    }
 
     for (i = 0; i < 255; i++)
         data[i] = i;
@@ -138,11 +112,9 @@ static void test_HexFromBin(void)
 
 static void test_UFromSz(void)
 {
+    pUFromSz = (void*)GetProcAddress(hMapi32, "UFromSz@4");
     if (!pUFromSz)
-    {
-        win_skip("UFromSz is not available\n");
         return;
-    }
 
     ok(pUFromSz("105679") == 105679u,
        "UFromSz: expected 105679, got %d\n", pUFromSz("105679"));
@@ -153,11 +125,9 @@ static void test_UFromSz(void)
 
 static void test_UlFromSzHex(void)
 {
+    pUlFromSzHex = (void*)GetProcAddress(hMapi32, "UlFromSzHex@4");
     if (!pUlFromSzHex)
-    {
-        win_skip("UlFromSzHex is not available\n");
         return;
-    }
 
     ok(pUlFromSzHex("fF") == 0xffu,
        "UlFromSzHex: expected 0xff, got 0x%x\n", pUlFromSzHex("fF"));
@@ -171,11 +141,9 @@ static void test_CbOfEncoded(void)
     char buff[129];
     unsigned int i;
 
+    pCbOfEncoded = (void*)GetProcAddress(hMapi32, "CbOfEncoded@4");
     if (!pCbOfEncoded)
-    {
-        win_skip("CbOfEncoded is not available\n");
         return;
-    }
 
     for (i = 0; i < sizeof(buff) - 1; i++)
     {
@@ -192,11 +160,9 @@ static void test_CbOfEncoded(void)
 
 static void test_IsBadBoundedStringPtr(void)
 {
+    pIsBadBoundedStringPtr = (void*)GetProcAddress(hMapi32, "IsBadBoundedStringPtr@8");
     if (!pIsBadBoundedStringPtr)
-    {
-        win_skip("IsBadBoundedStringPtr is not available\n");
         return;
-    }
 
     ok(pIsBadBoundedStringPtr(NULL, 0) == TRUE, "IsBadBoundedStringPtr: expected TRUE\n");
     ok(pIsBadBoundedStringPtr("TEST", 4) == TRUE, "IsBadBoundedStringPtr: expected TRUE\n");
@@ -213,11 +179,13 @@ START_TEST(util)
         return;
     }
 
-    init_function_pointers();
+    hMapi32 = LoadLibraryA("mapi32.dll");
 
-    if (!pScInitMapiUtil || !pDeinitMapiUtil)
+    pScInitMapiUtil = (void*)GetProcAddress(hMapi32, "ScInitMapiUtil@4");
+
+    if (!pScInitMapiUtil)
     {
-        win_skip("MAPI utility initialization functions are not available\n");
+        win_skip("ScInitMapiUtil is not available\n");
         FreeLibrary(hMapi32);
         return;
     }
@@ -239,22 +207,11 @@ START_TEST(util)
 
     test_SwapPword();
     test_SwapPlong();
-
-    /* We call MAPIInitialize here for the benefit of native extended MAPI
-     * providers which crash in the HexFromBin tests when MAPIInitialize has
-     * not been called. Since MAPIInitialize is irrelevant for HexFromBin on
-     * Wine, we do not care whether MAPIInitialize succeeds. */
-    if (pMAPIInitialize)
-        ret = pMAPIInitialize(NULL);
     test_HexFromBin();
-    if (pMAPIUninitialize && ret == S_OK)
-        pMAPIUninitialize();
-
     test_UFromSz();
     test_UlFromSzHex();
     test_CbOfEncoded();
     test_IsBadBoundedStringPtr();
 
-    pDeinitMapiUtil();
     FreeLibrary(hMapi32);
 }

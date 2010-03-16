@@ -55,7 +55,7 @@ static HRESULT WINAPI entityref_QueryInterface(
     void** ppvObject )
 {
     entityref *This = impl_from_IXMLDOMEntityReference( iface );
-    TRACE("(%p)->(%s %p)\n", This, debugstr_guid(riid), ppvObject);
+    TRACE("%p %s %p\n", This, debugstr_guid(riid), ppvObject);
 
     if ( IsEqualGUID( riid, &IID_IXMLDOMEntityReference ) ||
          IsEqualGUID( riid, &IID_IDispatch ) ||
@@ -94,7 +94,7 @@ static ULONG WINAPI entityref_Release(
     if ( ref == 0 )
     {
         destroy_xmlnode(&This->node);
-        heap_free( This );
+        HeapFree( GetProcessHeap(), 0, This );
     }
 
     return ref;
@@ -518,7 +518,7 @@ IUnknown* create_doc_entity_ref( xmlNodePtr entity )
 {
     entityref *This;
 
-    This = heap_alloc( sizeof *This );
+    This = HeapAlloc( GetProcessHeap(), 0, sizeof *This );
     if ( !This )
         return NULL;
 

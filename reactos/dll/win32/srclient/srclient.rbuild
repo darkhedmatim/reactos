@@ -4,5 +4,6 @@
 	<importlibrary definition="srclient.spec" />
 	<include base="srclient">.</include>
 	<library>ntdll</library>
+	<library>kernel32</library>
 	<file>srclient_main.c</file>
 </module>

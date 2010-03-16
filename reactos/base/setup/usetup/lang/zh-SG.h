@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_ZH_SG_H__
+#define LANG_ZH_SG_H__
 
 MUI_LAYOUTS zhSGLayouts[] =
 {
@@ -9,3 +10,5 @@ MUI_LAYOUTS zhSGLayouts[] =
     { L"0804", L"E0040804" },
     { NULL, NULL }
 };
+
+#endif

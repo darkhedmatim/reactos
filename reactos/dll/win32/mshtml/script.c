@@ -758,9 +758,9 @@ static BOOL get_script_guid(nsIDOMHTMLScriptElement *nsscript, GUID *guid)
         ERR("GetType failed: %08x\n", nsres);
     }
 
-    nsAString_InitDepend(&attr_str, languageW);
+    nsAString_Init(&attr_str, languageW);
+
     nsres = nsIDOMHTMLScriptElement_GetAttribute(nsscript, &attr_str, &val_str);
-    nsAString_Finish(&attr_str);
     if(NS_SUCCEEDED(nsres)) {
         const PRUnichar *language;
 
@@ -776,6 +776,7 @@ static BOOL get_script_guid(nsIDOMHTMLScriptElement *nsscript, GUID *guid)
         ERR("GetAttribute(language) failed: %08x\n", nsres);
     }
 
+    nsAString_Finish(&attr_str);
     nsAString_Finish(&val_str);
 
     return ret;
@@ -894,7 +895,7 @@ BOOL find_global_prop(HTMLWindow *window, BSTR name, DWORD flags, ScriptHost **r
 
         hres = IDispatch_QueryInterface(disp, &IID_IDispatchEx, (void**)&dispex);
         if(SUCCEEDED(hres)) {
-            hres = IDispatchEx_GetDispID(dispex, name, flags & (~fdexNameEnsure), ret_id);
+            hres = IDispatchEx_GetDispID(dispex, name, flags, ret_id);
             IDispatchEx_Release(dispex);
         }else {
             FIXME("No IDispatchEx\n");

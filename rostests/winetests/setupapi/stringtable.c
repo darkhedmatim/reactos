@@ -301,7 +301,6 @@ static void test_StringTableLookUpStringEx(void)
     ok(!memcmp(buffer, &data, 4), "unexpected data\n");
 
     pStringTableDestroy(table);
-    pStringTableDestroy(table2);
 }
 
 static void test_StringTableStringFromId(void)

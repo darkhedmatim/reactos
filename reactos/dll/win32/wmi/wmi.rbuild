@@ -3,6 +3,7 @@
 	<importlibrary definition="wmi.spec" />
 	<include base="wmi">.</include>
 	<library>advapi32</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 	<file>wmi.rc</file>
 </module>

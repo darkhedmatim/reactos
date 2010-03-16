@@ -17,7 +17,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#pragma once
+#ifndef __I386_DRIVEMAP_H
+#define __I386_DRIVEMAP_H
 
 #include <pshpack1.h>
 typedef struct
@@ -37,3 +38,5 @@ extern PVOID			DriveMapInt13HandlerStart;
 extern PVOID			DriveMapInt13HandlerEnd;
 extern ULONG				DriveMapOldInt13HandlerAddress;
 extern DRIVE_MAP_LIST	DriveMapInt13HandlerMapList;
+
+#endif // #defined __I386_DRIVEMAP_H

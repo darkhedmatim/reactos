@@ -20,7 +20,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#pragma once
+#ifndef __GRAPH_H
+#define __GRAPH_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,3 +41,5 @@ INT_PTR CALLBACK	Graph_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
 #ifdef __cplusplus
 };
 #endif
+
+#endif /* __GRAPH_H */

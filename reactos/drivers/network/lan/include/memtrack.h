@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MEMTRACK_H
+#define MEMTRACK_H
 
 #ifndef FOURCC
 #define FOURCC(a,b,c,d) (((a)<<24)|((b)<<16)|((c)<<8)|(d))
@@ -18,3 +19,5 @@
 #define exFreePool(x) ExFreePool(x)
 #define TrackWithTag(w,x,y,z)
 #define UntrackFL(x,y,z)
+
+#endif/*MEMMTRAC_H*/

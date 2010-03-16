@@ -2,7 +2,7 @@
       xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 <bookinfo>
 <title>XSL Library Template Reference</title>
-<releaseinfo role="cvs">$Id: lib.xweb,v 1.1 2002/06/13 20:32:53 chorns Exp $
+<releaseinfo role="cvs">$Id$
 </releaseinfo>
 <corpauthor>DocBook Open Repository Team</corpauthor>
 <copyright>
@@ -663,7 +663,7 @@ around these functions.</para>
 <src:fragment id="top" mundane-result-prefixes="xsl">
 
 <!-- ********************************************************************
-     $Id: lib.xweb,v 1.1 2002/06/13 20:32:53 chorns Exp $
+     $Id$
      ********************************************************************
 
      This file is part of the XSL DocBook Stylesheet distribution.

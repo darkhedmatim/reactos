@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __CPL_RESOURCE_H
+#define __CPL_RESOURCE_H
 
 #define IDC_FLAGS                         2
 
@@ -74,5 +75,7 @@
 #define IDS_CPLDESCRIPTION                1001
 #define IDS_CUSTOMIZE_TITLE               1002
 #define IDS_SPAIN                         1003
+
+#endif /* __CPL_RESOURCE_H */
 
 /* EOF */

@@ -8,7 +8,8 @@
 
 /* INCLUDES ******************************************************************/
 
-#pragma once
+#ifndef USER32_PRIVATE_H
+#define USER32_PRIVATE_H
 
 /* Private User32 Headers */
 #include "accel.h"
@@ -37,31 +38,31 @@
   (BOOL)NtUserCallNoParam(NOPARAM_ROUTINE_ANYPOPUP)
 
 #define NtUserValidateRgn(hWnd, hRgn) \
-  (BOOL)NtUserCallTwoParam((DWORD_PTR)hWnd, (DWORD_PTR)hRgn, TWOPARAM_ROUTINE_VALIDATERGN)
+  (BOOL)NtUserCallTwoParam((DWORD)hWnd, (DWORD)hRgn, TWOPARAM_ROUTINE_VALIDATERGN)
 
 #define NtUserSetWindowContextHelpId(hWnd, dwContextHelpId) \
   (BOOL)NtUserCallHwndParam(hWnd, dwContextHelpId, HWNDPARAM_ROUTINE_SETWNDCONTEXTHLPID)
 
 #define NtUserSetCaretPos(X, Y) \
-  (BOOL)NtUserCallTwoParam((DWORD_PTR)X, (DWORD_PTR)Y, TWOPARAM_ROUTINE_SETCARETPOS)
+  (BOOL)NtUserCallTwoParam((DWORD)X, (DWORD)Y, TWOPARAM_ROUTINE_SETCARETPOS)
 
 #define NtUserSetGUIThreadHandle(field, hwnd) \
-  (BOOL)NtUserCallTwoParam((DWORD_PTR)field, (DWORD_PTR)hwnd, TWOPARAM_ROUTINE_SETGUITHRDHANDLE)
+  (BOOL)NtUserCallTwoParam((DWORD)field, (DWORD)hwnd, TWOPARAM_ROUTINE_SETGUITHRDHANDLE)
 
 #define NtUserSetMenuBarHeight(menu, height) \
-  (BOOL)NtUserCallTwoParam((DWORD_PTR)menu, (DWORD_PTR)height, TWOPARAM_ROUTINE_SETMENUBARHEIGHT)
+  (BOOL)NtUserCallTwoParam((DWORD)menu, (DWORD)height, TWOPARAM_ROUTINE_SETMENUBARHEIGHT)
 
 #define NtUserRegisterLogonProcess(hproc, x) \
-  (BOOL)NtUserCallTwoParam((DWORD_PTR)hproc, (DWORD_PTR)x, TWOPARAM_ROUTINE_REGISTERLOGONPROC)
+  (BOOL)NtUserCallTwoParam((DWORD)hproc, (DWORD)x, TWOPARAM_ROUTINE_REGISTERLOGONPROC)
 
 #define NtUserGetSysColorBrushes(HBrushes, count) \
-  (BOOL)NtUserCallTwoParam((DWORD_PTR)(HBrushes), (DWORD_PTR)(count), TWOPARAM_ROUTINE_GETSYSCOLORBRUSHES)
+  (BOOL)NtUserCallTwoParam((DWORD)(HBrushes), (DWORD)(count), TWOPARAM_ROUTINE_GETSYSCOLORBRUSHES)
 
 #define NtUserGetSysColors(ColorRefs, count) \
-  (BOOL)NtUserCallTwoParam((DWORD_PTR)(ColorRefs), (DWORD_PTR)(count), TWOPARAM_ROUTINE_GETSYSCOLORS)
+  (BOOL)NtUserCallTwoParam((DWORD)(ColorRefs), (DWORD)(count), TWOPARAM_ROUTINE_GETSYSCOLORS)
 
 #define NtUserSetCaretBlinkTime(uMSeconds) \
-  (BOOL)NtUserCallOneParam((DWORD_PTR)uMSeconds, ONEPARAM_ROUTINE_SETCARETBLINKTIME)
+  (BOOL)NtUserCallOneParam((DWORD)uMSeconds, ONEPARAM_ROUTINE_SETCARETBLINKTIME)
 
 /*
 #define NtUserEnumClipboardFormats(format) \
@@ -69,37 +70,34 @@
 */
 
 #define NtUserWindowFromDC(hDC) \
-  (HWND)NtUserCallOneParam((DWORD_PTR)hDC, ONEPARAM_ROUTINE_WINDOWFROMDC)
+  (HWND)NtUserCallOneParam((DWORD)hDC, ONEPARAM_ROUTINE_WINDOWFROMDC)
 
 #define NtUserSwitchCaretShowing(CaretInfo) \
-  (BOOL)NtUserCallOneParam((DWORD_PTR)CaretInfo, ONEPARAM_ROUTINE_SWITCHCARETSHOWING)
+  (BOOL)NtUserCallOneParam((DWORD)CaretInfo, ONEPARAM_ROUTINE_SWITCHCARETSHOWING)
 
 #define NtUserSwapMouseButton(fSwap) \
-  (BOOL)NtUserCallOneParam((DWORD_PTR)fSwap, ONEPARAM_ROUTINE_SWAPMOUSEBUTTON)
+  (BOOL)NtUserCallOneParam((DWORD)fSwap, ONEPARAM_ROUTINE_SWAPMOUSEBUTTON)
 
 #define NtUserSetMessageExtraInfo(lParam) \
-  (LPARAM)NtUserCallOneParam((DWORD_PTR)lParam, ONEPARAM_ROUTINE_SETMESSAGEEXTRAINFO)
+  (LPARAM)NtUserCallOneParam((DWORD)lParam, ONEPARAM_ROUTINE_SETMESSAGEEXTRAINFO)
 
 #define NtUserGetWindowContextHelpId(hwnd) \
-  NtUserCallOneParam((DWORD_PTR)hwnd, ONEPARAM_ROUTINE_GETWNDCONTEXTHLPID)
+  NtUserCallOneParam((DWORD)hwnd, ONEPARAM_ROUTINE_GETWNDCONTEXTHLPID)
 
 #define NtUserGetCursorPos(lpPoint) \
-  (BOOL)NtUserCallOneParam((DWORD_PTR)lpPoint, ONEPARAM_ROUTINE_GETCURSORPOSITION)
+  (BOOL)NtUserCallOneParam((DWORD)lpPoint, ONEPARAM_ROUTINE_GETCURSORPOSITION)
 
 #define NtUserIsWindowInDestroy(hWnd) \
-  (BOOL)NtUserCallOneParam((DWORD_PTR)hWnd, ONEPARAM_ROUTINE_ISWINDOWINDESTROY)
+  (BOOL)NtUserCallOneParam((DWORD)hWnd, ONEPARAM_ROUTINE_ISWINDOWINDESTROY)
 
 #define NtUserEnableProcessWindowGhosting(bEnable) \
-  NtUserCallOneParam((DWORD_PTR)bEnable, ONEPARAM_ROUTINE_ENABLEPROCWNDGHSTING)
+  NtUserCallOneParam((DWORD)bEnable, ONEPARAM_ROUTINE_ENABLEPROCWNDGHSTING)
 
 #define NtUserShowCursor(bShow) \
-  NtUserCallOneParam((DWORD_PTR)bShow, ONEPARAM_ROUTINE_SHOWCURSOR)
+  NtUserCallOneParam((DWORD)bShow, ONEPARAM_ROUTINE_SHOWCURSOR)
 
 #define NtUserGetDesktopMapping(Ptr) \
   (PVOID)NtUserCallOneParam((DWORD)Ptr, ONEPARAM_ROUTINE_GETDESKTOPMAPPING)
-
-#define NtUserSetCursorPos(x, y) \
-  (BOOL)NtUserCallTwoParam((DWORD)x, (DWORD)y, TWOPARAM_ROUTINE_SETCURSORPOS)
 
 #define ShowCaret(hwnd) \
   NtUserShowCaret(hwnd)
@@ -127,6 +125,10 @@ typedef struct _USER32_THREAD_DATA
 } USER32_THREAD_DATA, *PUSER32_THREAD_DATA;
 
 PUSER32_THREAD_DATA User32GetThreadData();
+
+DEVMODEW *
+WINAPI
+GdiConvertToDevmodeW(DEVMODEA *dm);
 
 /* FIXME: Belongs to some header. */
 BOOL WINAPI GdiDllInitialize(HANDLE, DWORD, LPVOID);
@@ -175,8 +177,6 @@ extern int SPY_Init(void);
 #define USER_BODY_TO_HEADER(ObjectBody) \
   ((PUSER_OBJECT_HEADER)(((PUSER_OBJECT_HEADER)ObjectBody) - 1))
 
-#define HANDLEENTRY_INDESTROY 1
-
 typedef struct _USER_HANDLE_ENTRY
 {
     void          *ptr;          /* pointer to object */
@@ -186,8 +186,7 @@ typedef struct _USER_HANDLE_ENTRY
         PTHREADINFO pti;          // pointer to Win32ThreadInfo
         PPROCESSINFO ppi;         // pointer to W32ProcessInfo
     };
-    unsigned char  type;         /* object type (0 if free) */
-    unsigned char  flags;
+    unsigned short type;         /* object type (0 if free) */
     unsigned short generation;   /* generation counter */
 } USER_HANDLE_ENTRY, * PUSER_HANDLE_ENTRY;
 
@@ -230,4 +229,5 @@ PVOID FASTCALL ValidateHandle(HANDLE, UINT);
 #define __EXCEPT_PAGE_FAULT else
 #define __ENDTRY
 
+#endif
 /* EOF */

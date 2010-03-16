@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __ISAPNP_H
+#define __ISAPNP_H
 
 #include <ntddk.h>
 
@@ -336,3 +337,5 @@ DriverEntry(
 #ifdef __cplusplus
 }
 #endif
+
+#endif  /*  __ISAPNP_H  */

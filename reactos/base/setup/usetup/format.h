@@ -24,11 +24,14 @@
  * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
  */
 
-#pragma once
+#ifndef __FORMAT_H__
+#define __FORMAT_H__
 
 NTSTATUS
 FormatPartition(
     IN PUNICODE_STRING DriveRoot,
     IN PFILE_SYSTEM_ITEM FileSystem);
+
+#endif /* __FILESUP_H__ */
 
 /* EOF */

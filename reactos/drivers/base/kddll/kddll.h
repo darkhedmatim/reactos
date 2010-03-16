@@ -6,7 +6,8 @@
  * PROGRAMMER:      Timo Kreuzer (timo.kreuzer@ewactos.org)
  */
 
-#pragma once
+#ifndef _KDDLL_H_
+#define _KDDLL_H_
 
 #define NOEXTAPI
 #include <ntddk.h>
@@ -79,3 +80,6 @@ NTAPI
 KdDebuggerInitialize0(
     IN PLOADER_PARAMETER_BLOCK LoaderBlock OPTIONAL);
 #endif
+
+
+#endif /* !_KDDLL_H_ */

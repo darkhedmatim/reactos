@@ -23,10 +23,27 @@ BOOL
 FASTCALL
 InitMetrics(VOID)
 {
+    NTSTATUS Status;
+    PWINSTATION_OBJECT WinStaObject;
+    ULONG Width = 640, Height = 480;
+    PSYSTEM_CURSORINFO CurInfo;
     INT *piSysMet;
 
-    ULONG Width = pPrimarySurface->gdiinfo.ulHorzRes;
-    ULONG Height = pPrimarySurface->gdiinfo.ulVertRes;
+    Width = pPrimarySurface->gdiinfo.ulHorzRes;
+    Height = pPrimarySurface->gdiinfo.ulVertRes;
+
+    Status = IntValidateWindowStationHandle(PsGetCurrentProcess()->Win32WindowStation,
+                                            KernelMode,
+                                            0,
+                                            &WinStaObject);
+    if (NT_SUCCESS(Status))
+    {
+        CurInfo = IntGetSysCursorInfo(WinStaObject);
+    }
+    else
+    {
+        CurInfo = NULL;
+    }
 
     piSysMet = gpsi->aiSysMet;
 
@@ -157,6 +174,11 @@ InitMetrics(VOID)
 
     gpsi->dwSRVIFlags |= SRVINFO_METRICS;
     Setup = TRUE;
+
+    if (NT_SUCCESS(Status))
+    {
+        ObDereferenceObject(WinStaObject);
+    }
 
     return TRUE;
 }

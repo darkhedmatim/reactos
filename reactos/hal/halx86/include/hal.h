@@ -14,13 +14,11 @@
 /* WDK HAL Compilation hack */
 #include <excpt.h>
 #include <ntdef.h>
-#ifndef _MINIHAL_
+#undef _NTHAL_
+#undef DECLSPEC_IMPORT
+#define DECLSPEC_IMPORT
 #undef NTSYSAPI
 #define NTSYSAPI __declspec(dllimport)
-#else
-#undef NTSYSAPI
-#define NTSYSAPI
-#endif
 
 /* IFS/DDK/NDK Headers */
 #include <ntifs.h>
@@ -31,9 +29,6 @@
 
 /* Internal kernel headers */
 #include "internal/pci.h"
-#define KeGetCurrentThread _KeGetCurrentThread
-#include <internal/i386/ke.h>
-#include <internal/i386/mm.h>
 #ifdef _M_AMD64
 #include "internal/amd64/intrin_i.h"
 #else

@@ -15,7 +15,6 @@
 	<define name="TARGET_i386" host="true" />
 
 	<define name="USE_COMPILER_EXCEPTIONS" />
-	<define name="_USE_32BIT_TIME_T" />
 
 	<property name="PLATFORM" value="PC"/>
 
@@ -24,11 +23,8 @@
 			<compilerflag>-ftracer</compilerflag>
 			<compilerflag>-momit-leaf-frame-pointer</compilerflag>
 		</if>
-		<compilerflag>-fms-extensions</compilerflag>
 		<compilerflag>-mpreferred-stack-boundary=2</compilerflag>
 		<compilerflag compiler="midl">-m32 --win32</compilerflag>
-		<compilerflag compiler="cc,cxx">-gstabs+</compilerflag>
-		<compilerflag compiler="as">-gstabs+</compilerflag>
 	</group>
 
 	<group linkerset="ld">

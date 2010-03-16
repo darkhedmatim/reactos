@@ -55,7 +55,7 @@ static HRESULT WINAPI domfrag_QueryInterface(
     void** ppvObject )
 {
     domfrag *This = impl_from_IXMLDOMDocumentFragment( iface );
-    TRACE("(%p)->(%s %p)\n", This, debugstr_guid(riid), ppvObject);
+    TRACE("%p %s %p\n", This, debugstr_guid(riid), ppvObject);
 
     if ( IsEqualGUID( riid, &IID_IXMLDOMDocumentFragment ) ||
          IsEqualGUID( riid, &IID_IDispatch ) ||
@@ -94,7 +94,7 @@ static ULONG WINAPI domfrag_Release(
     if ( ref == 0 )
     {
         destroy_xmlnode(&This->node);
-        heap_free( This );
+        HeapFree( GetProcessHeap(), 0, This );
     }
 
     return ref;
@@ -519,7 +519,7 @@ IUnknown* create_doc_fragment( xmlNodePtr fragment )
 {
     domfrag *This;
 
-    This = heap_alloc( sizeof *This );
+    This = HeapAlloc( GetProcessHeap(), 0, sizeof *This );
     if ( !This )
         return NULL;
 

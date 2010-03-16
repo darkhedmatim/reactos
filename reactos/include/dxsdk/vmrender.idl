@@ -168,7 +168,8 @@ typedef struct _NORMALIZEDRECT
 
 typedef struct tagVMRGUID
 {
-    struct _GUID *pGUID, GUID;
+    GUID* pGUID;
+    GUID GUID;
 } VMRGUID;
 
 typedef struct tagVMRMONITORINFO

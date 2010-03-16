@@ -8,6 +8,9 @@
  *   25/05/2008 Created
  */
 
-#pragma once
+#ifndef _ACDAPI_H
+#define _ACDAPI_H
 
 #define FILE_DEVICE_RASACD 0xf1
+
+#endif /* _ACDAPI_H */

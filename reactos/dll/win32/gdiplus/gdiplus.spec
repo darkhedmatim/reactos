@@ -290,7 +290,7 @@
 @ stdcall GdipGetImageGraphicsContext(ptr ptr)
 @ stdcall GdipGetImageHeight(ptr ptr)
 @ stdcall GdipGetImageHorizontalResolution(ptr ptr)
-@ stdcall GdipGetImageItemData(ptr ptr)
+@ stub GdipGetImageItemData
 @ stdcall GdipGetImagePalette(ptr ptr long)
 @ stdcall GdipGetImagePaletteSize(ptr ptr)
 @ stdcall GdipGetImagePixelFormat(ptr ptr)
@@ -304,8 +304,8 @@
 @ stdcall GdipGetLineBlendCount(ptr ptr)
 @ stdcall GdipGetLineColors(ptr ptr)
 @ stdcall GdipGetLineGammaCorrection(ptr ptr)
-@ stdcall GdipGetLinePresetBlend(ptr ptr ptr long)
-@ stdcall GdipGetLinePresetBlendCount(ptr ptr)
+@ stub GdipGetLinePresetBlend
+@ stub GdipGetLinePresetBlendCount
 @ stdcall GdipGetLineRect(ptr ptr)
 @ stdcall GdipGetLineRectI(ptr ptr)
 @ stdcall GdipGetLineSpacing(ptr long ptr)
@@ -381,7 +381,7 @@
 @ stdcall GdipGetRegionDataSize(ptr ptr)
 @ stdcall GdipGetRegionHRgn(ptr ptr ptr)
 @ stub GdipGetRegionScans
-@ stdcall GdipGetRegionScansCount(ptr ptr ptr)
+@ stub GdipGetRegionScansCount
 @ stub GdipGetRegionScansI
 @ stub GdipGetRenderingOrigin
 @ stdcall GdipGetSmoothingMode(ptr ptr)
@@ -397,7 +397,7 @@
 @ stdcall GdipGetStringFormatTrimming(ptr ptr)
 @ stdcall GdipGetTextContrast(ptr ptr)
 @ stdcall GdipGetTextRenderingHint(ptr ptr)
-@ stdcall GdipGetTextureImage(ptr ptr)
+@ stub GdipGetTextureImage
 @ stdcall GdipGetTextureTransform(ptr ptr)
 @ stdcall GdipGetTextureWrapMode(ptr ptr)
 @ stdcall GdipGetVisibleClipBounds(ptr ptr)
@@ -424,7 +424,7 @@
 @ stdcall GdipIsOutlineVisiblePathPoint(ptr long long ptr ptr ptr)
 @ stdcall GdipIsOutlineVisiblePathPointI(ptr long long ptr ptr ptr)
 @ stdcall GdipIsStyleAvailable(ptr long ptr)
-@ stdcall GdipIsVisibleClipEmpty(ptr ptr)
+@ stub GdipIsVisibleClipEmpty
 @ stdcall GdipIsVisiblePathPoint(ptr long long ptr ptr)
 @ stdcall GdipIsVisiblePathPointI(ptr long long ptr ptr)
 @ stdcall GdipIsVisiblePoint(ptr long long ptr)
@@ -476,7 +476,7 @@
 @ stdcall GdipRemovePropertyItem(ptr long)
 @ stdcall GdipResetClip(ptr)
 @ stub GdipResetImageAttributes
-@ stdcall GdipResetLineTransform(ptr)
+@ stub GdipResetLineTransform
 @ stub GdipResetPageTransform
 @ stdcall GdipResetPath(ptr)
 @ stub GdipResetPathGradientTransform
@@ -496,7 +496,7 @@
 @ stdcall GdipSaveGraphics(ptr ptr)
 @ stdcall GdipSaveImageToFile(ptr ptr ptr ptr)
 @ stdcall GdipSaveImageToStream(ptr ptr ptr ptr)
-@ stdcall GdipScaleLineTransform(ptr long long long)
+@ stub GdipScaleLineTransform
 @ stdcall GdipScaleMatrix(ptr long long long)
 @ stub GdipScalePathGradientTransform
 @ stdcall GdipScalePenTransform(ptr long long long)

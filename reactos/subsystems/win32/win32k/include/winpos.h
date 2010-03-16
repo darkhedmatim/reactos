@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_WINPOS_H
+#define _WIN32K_WINPOS_H
 
 /* Undocumented flags. */
 #define SWP_NOCLIENTMOVE          0x0800
@@ -9,8 +10,8 @@
    (x) < (WndObject)->Wnd->rcWindow.right && \
    (y) >= (WndObject)->Wnd->rcWindow.top && \
    (y) < (WndObject)->Wnd->rcWindow.bottom && \
-   (!(WndObject)->hrgnClip || ((WndObject)->Wnd->style & WS_MINIMIZE) || \
-    NtGdiPtInRegion((WndObject)->hrgnClip, (INT)((x) - (WndObject)->Wnd->rcWindow.left), \
+   (!(WndObject)->WindowRegion || ((WndObject)->Wnd->style & WS_MINIMIZE) || \
+    NtGdiPtInRegion((WndObject)->WindowRegion, (INT)((x) - (WndObject)->Wnd->rcWindow.left), \
                     (INT)((y) - (WndObject)->Wnd->rcWindow.top))))
 
 UINT
@@ -36,3 +37,5 @@ VOID FASTCALL co_WinPosActivateOtherWindow(PWINDOW_OBJECT Window);
 
 VOID FASTCALL WinPosInitInternalPos(PWINDOW_OBJECT WindowObject,
                                     POINT *pt, RECTL *RestoreRect);
+
+#endif /* _WIN32K_WINPOS_H */

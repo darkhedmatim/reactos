@@ -4,18 +4,13 @@
 * FILE:            ntoskrnl/mm/sysldr.c
 * PURPOSE:         Contains the Kernel Loader (SYSLDR) for loading PE files.
 * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
-*                  ReactOS Portable Systems Group
 */
 
-/* INCLUDES *******************************************************************/
+/* INCLUDES ******************************************************************/
 
 #include <ntoskrnl.h>
 #define NDEBUG
 #include <debug.h>
-
-#line 16 "ARM³::LOADER"
-#define MODULE_INVOLVED_IN_ARM3
-#include "./ARM3/miarm.h"
 
 /* GCC's incompetence strikes again */
 __inline
@@ -30,7 +25,7 @@ sprintf_nt(IN PCHAR Buffer,
     va_end(ap);
 }
 
-/* GLOBALS ********************************************************************/
+/* GLOBALS *******************************************************************/
 
 LIST_ENTRY PsLoadedModuleList;
 LIST_ENTRY MmLoadedUserImageList;
@@ -44,7 +39,7 @@ PVOID MmLastUnloadedDrivers;
 PVOID MmTriageActionTaken;
 PVOID KernelVerifier;
 
-/* FUNCTIONS ******************************************************************/
+/* FUNCTIONS *****************************************************************/
 
 PVOID
 NTAPI
@@ -73,6 +68,25 @@ MiCacheImageSymbols(IN PVOID BaseAddress)
     return DebugDirectory;
 }
 
+VOID
+NTAPI
+MiFreeBootDriverMemory(PVOID BaseAddress,
+                       ULONG Length)
+{
+    ULONG i;
+
+    /* Loop each page */
+    for (i = 0; i < PAGE_ROUND_UP(Length) / PAGE_SIZE; i++)
+    {
+        /* Free the page */
+        MmDeleteVirtualMapping(NULL,
+                               (PVOID)((ULONG_PTR)BaseAddress + i * PAGE_SIZE),
+                               TRUE,
+                               NULL,
+                               NULL);
+    }
+}
+
 NTSTATUS
 NTAPI
 MiLoadImageSection(IN OUT PVOID *SectionPtr,
@@ -89,10 +103,8 @@ MiLoadImageSection(IN OUT PVOID *SectionPtr,
     KAPC_STATE ApcState;
     LARGE_INTEGER SectionOffset = {{0, 0}};
     BOOLEAN LoadSymbols = FALSE;
-    PFN_NUMBER PteCount;
-    PMMPTE PointerPte, LastPte;
+    ULONG DriverSize;
     PVOID DriverBase;
-    MMPTE TempPte;
     PAGED_CODE();
 
     /* Detect session load */
@@ -105,7 +117,7 @@ MiLoadImageSection(IN OUT PVOID *SectionPtr,
 
     /* Not session load, shouldn't have an entry */
     ASSERT(LdrEntry == NULL);
-    
+
     /* Attach to the system process */
     KeStackAttachProcess(&PsInitialSystemProcess->Pcb, &ApcState);
 
@@ -147,37 +159,16 @@ MiLoadImageSection(IN OUT PVOID *SectionPtr,
         KeUnstackDetachProcess(&ApcState);
         return Status;
     }
-    
-    /* Reserve system PTEs needed */
-    PteCount = ROUND_TO_PAGES(Section->ImageSection->ImageSize) >> PAGE_SHIFT;
-    PointerPte = MiReserveSystemPtes(PteCount, SystemPteSpace);
-    if (!PointerPte) return STATUS_INSUFFICIENT_RESOURCES;
-    
-    /* New driver base */
-    LastPte = PointerPte + PteCount;
-    DriverBase = MiPteToAddress(PointerPte);
 
-    /* The driver is here */
+    /* Get the driver size */
+    DriverSize = Section->ImageSection->ImageSize;
+
+    /*  Allocate a virtual section for the module  */
+    DriverBase = MmAllocateSection(DriverSize, NULL);
     *ImageBase = DriverBase;
 
-    /* Loop the new driver PTEs */
-    TempPte = ValidKernelPte;
-    while (PointerPte < LastPte)
-    {
-        /* Allocate a page */
-        TempPte.u.Hard.PageFrameNumber = MmAllocPage(MC_NPPOOL);
-        
-        /* Write it */
-        ASSERT(PointerPte->u.Hard.Valid == 0);
-        ASSERT(TempPte.u.Hard.Valid == 1);
-        *PointerPte = TempPte;
-        
-        /* Move on */
-        PointerPte++;
-    }
-        
     /* Copy the image */
-    RtlCopyMemory(DriverBase, Base, PteCount << PAGE_SHIFT);
+    RtlCopyMemory(DriverBase, Base, DriverSize);
 
     /* Now unmap the view */
     Status = MmUnmapViewOfSection(Process, Base);
@@ -713,7 +704,7 @@ MiSnapThunk(IN PVOID DllBase,
                     ForwardName->Hint = 0;
 
                     /* Set the new address */
-                    ForwardThunk.u1.AddressOfData = (ULONG_PTR)ForwardName;
+                    *(PULONG)&ForwardThunk.u1.AddressOfData = (ULONG)ForwardName;
 
                     /* Snap the forwarder */
                     Status = MiSnapThunk(LdrEntry->DllBase,
@@ -1219,10 +1210,6 @@ MiReloadBootLoadedDrivers(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     PIMAGE_DATA_DIRECTORY DataDirectory;
     PVOID DllBase, NewImageAddress;
     NTSTATUS Status;
-    PMMPTE PointerPte, StartPte, LastPte;
-    PFN_NUMBER PteCount;
-    PMMPFN Pfn1;
-    MMPTE TempPte, OldPte;
 
     /* Loop driver list */
     for (NextEntry = LoaderBlock->LoadOrderListHead.Flink;
@@ -1279,70 +1266,29 @@ MiReloadBootLoadedDrivers(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
 
         /* Remember the original address */
         DllBase = LdrEntry->DllBase;
-        
-        /* Get the first PTE and the number of PTEs we'll need */
-        PointerPte = StartPte = MiAddressToPte(LdrEntry->DllBase);
-        PteCount = ROUND_TO_PAGES(LdrEntry->SizeOfImage) >> PAGE_SHIFT;
-        LastPte = StartPte + PteCount;
-        
-        /* Loop the PTEs */
-        while (PointerPte < LastPte)
-        {
-            /* Mark the page modified in the PFN database */
-            ASSERT(PointerPte->u.Hard.Valid == 1);
-            Pfn1 = MiGetPfnEntry(PFN_FROM_PTE(PointerPte));
-            ASSERT(Pfn1->u3.e1.Rom == 0);
-            Pfn1->u3.e1.Modified = TRUE;
-            
-            /* Next */
-            PointerPte++;
-        }
-        
-        /* Now reserve system PTEs for the image */
-        PointerPte = MiReserveSystemPtes(PteCount, SystemPteSpace);
-        if (!PointerPte)
+
+        /*  Allocate a virtual section for the module  */
+        NewImageAddress = MmAllocateSection(LdrEntry->SizeOfImage, NULL);
+        if (!NewImageAddress)
         {
             /* Shouldn't happen */
             DPRINT1("[Mm0]: Couldn't allocate driver section!\n");
             while (TRUE);
         }
-        
-        /* This is the new virtual address for the module */
-        LastPte = PointerPte + PteCount;
-        NewImageAddress = MiPteToAddress(PointerPte);
 
         /* Sanity check */
         DPRINT("[Mm0]: Copying from: %p to: %p\n", DllBase, NewImageAddress);
         ASSERT(ExpInitializationPhase == 0);
-        
-        /* Loop the new driver PTEs */
-        TempPte = ValidKernelPte;
-        while (PointerPte < LastPte)
-        {
-            /* Copy the old data */
-            OldPte = *StartPte;
-            ASSERT(OldPte.u.Hard.Valid == 1);
-            
-            /* Set page number from the loader's memory */
-            TempPte.u.Hard.PageFrameNumber = OldPte.u.Hard.PageFrameNumber;
-            
-            /* Write it */
-            ASSERT(PointerPte->u.Hard.Valid == 0);
-            ASSERT(TempPte.u.Hard.Valid == 1);
-            *PointerPte = TempPte;
-            
-            /* Move on */
-            PointerPte++;
-            StartPte++;
-        }
-        
-        /* Update position */
-        PointerPte -= PteCount;
+
+        /* Now copy the entire driver over */
+        RtlCopyMemory(NewImageAddress, DllBase, LdrEntry->SizeOfImage);
 
         /* Sanity check */
         ASSERT(*(PULONG)NewImageAddress == *(PULONG)DllBase);
 
         /* Set the image base to the address where the loader put it */
+        NtHeader->OptionalHeader.ImageBase = (ULONG_PTR)DllBase;
+        NtHeader = RtlImageNtHeader(NewImageAddress);
         NtHeader->OptionalHeader.ImageBase = (ULONG_PTR)DllBase;
 
         /* Check if we had relocations */
@@ -1377,9 +1323,10 @@ MiReloadBootLoadedDrivers(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
         LdrEntry->Flags |= LDRP_SYSTEM_MAPPED;
         LdrEntry->EntryPoint = (PVOID)((ULONG_PTR)NewImageAddress +
                                 NtHeader->OptionalHeader.AddressOfEntryPoint);
-        LdrEntry->SizeOfImage = PteCount << PAGE_SHIFT;
-        
-        /* FIXME: We'll need to fixup the PFN linkage when switching to ARM3 */
+        LdrEntry->SizeOfImage = LdrEntry->SizeOfImage;
+
+        /* Free the old copy */
+        MiFreeBootDriverMemory(DllBase, LdrEntry->SizeOfImage);
     }
 }
 

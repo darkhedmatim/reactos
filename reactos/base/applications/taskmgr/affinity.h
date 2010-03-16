@@ -20,6 +20,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#pragma once
+#ifndef __AFFINITY_H
+#define __AFFINITY_H
 
 void ProcessPage_OnSetAffinity(void);
+
+#endif /* __AFFINITY_H */

@@ -6,5 +6,6 @@
 	<file>main.c</file>
 	<library>wine</library>
 	<library>setupapi</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 </module>

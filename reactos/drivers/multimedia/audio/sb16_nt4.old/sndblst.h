@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SNDBLST_H
+#define SNDBLST_H
 
 #include <debug.h>
 #include <ntddk.h>
@@ -150,3 +151,5 @@ StartSoundOutput(
 NTSTATUS
 EnableIrq(
     PDEVICE_OBJECT DeviceObject);
+
+#endif

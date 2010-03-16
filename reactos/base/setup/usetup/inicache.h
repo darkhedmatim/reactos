@@ -25,7 +25,9 @@
  *                  Eric Kohl
  */
 
-#pragma once
+#ifndef __INICACHE_H__
+#define __INICACHE_H__
+
 
 typedef struct _INICACHEKEY
 {
@@ -123,5 +125,8 @@ IniCacheSave(PINICACHE Cache,
 PINICACHESECTION
 IniCacheAppendSection(PINICACHE Cache,
 		      PWCHAR Name);
+
+
+#endif /* __INICACHE_H__ */
 
 /* EOF */

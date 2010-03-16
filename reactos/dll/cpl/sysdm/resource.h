@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __CPL_RESOURCE_H
+#define __CPL_RESOURCE_H
 
 #define IDC_STATIC  -1
 
@@ -55,16 +56,12 @@
 
 /* propsheet - advanced */
 #define IDD_PROPPAGEADVANCED            400
-#define IDC_SYSSETTINGS                 401
-#define IDC_ENVVAR                      402
-#define IDC_STAREC                      403
-#define IDC_PERFOR                      404
-#define IDC_USERPROFILE                 405
-#define IDC_ERRORREPORT                 406
+#define IDC_ENVVAR                      401
+#define IDC_STAREC                      402
+#define IDC_PERFOR                      403
+#define IDC_USERPROFILE                 404
+#define IDC_ERRORREPORT                 405
 
-/* system settings */
-#define IDD_SYSSETTINGS                 800
-#define IDC_REPORTASWORKSTATION         801
 
 /* user profiles */
 #define IDD_USERPROFILE                 500
@@ -155,4 +152,5 @@
 #define RC_LICENSE                      1502
 #define RTDATA                          1503
 
-#define IDS_DEVS                        2000
+
+#endif /* __CPL_RESOURCE_H */

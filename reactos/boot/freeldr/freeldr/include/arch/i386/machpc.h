@@ -19,7 +19,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#pragma once
+#ifndef __I386_MACHPC_H_
+#define __I386_MACHPC_H_
 
 #ifndef __MEMORY_H
 #include "mm.h"
@@ -56,5 +57,7 @@ ULONG PcDiskGetCacheableBlockCount(ULONG DriveNumber);
 TIMEINFO* PcGetTime(VOID);
 
 PCONFIGURATION_COMPONENT_DATA PcHwDetect(VOID);
+
+#endif /* __I386_MACHPC_H_ */
 
 /* EOF */

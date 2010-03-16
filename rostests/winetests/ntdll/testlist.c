@@ -8,7 +8,6 @@
 
 extern void func_atom(void);
 extern void func_change(void);
-extern void func_directory(void);
 extern void func_env(void);
 extern void func_error(void);
 extern void func_exception(void);
@@ -30,7 +29,6 @@ const struct test winetest_testlist[] =
 {
     { "atom", func_atom },
     { "change", func_change },
-    { "directory", func_directory },
     { "env", func_env },
     { "error", func_error },
     { "exception", func_exception },

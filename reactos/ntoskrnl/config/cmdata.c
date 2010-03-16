@@ -11,12 +11,11 @@
 #include "ntoskrnl.h"
 #define NDEBUG
 #include "debug.h"
- 
+
 /* GLOBALS *******************************************************************/
 
 ULONG DummyData;
 ULONG CmNtGlobalFlag;
-extern ULONG MmProductType;
 
 WCHAR CmDefaultLanguageId[12];
 ULONG CmDefaultLanguageIdLength = sizeof(CmDefaultLanguageId);
@@ -252,6 +251,14 @@ CM_SYSTEM_CONTROL_VECTOR CmControlVector[] =
     {
         L"Session Manager\\Memory Management",
         L"DynamicMemory",
+        &DummyData,
+        NULL,
+        NULL
+    },
+
+    {
+        L"Session Manager\\Memory Management",
+        L"Mirroring",
         &DummyData,
         NULL,
         NULL
@@ -660,7 +667,7 @@ CM_SYSTEM_CONTROL_VECTOR CmControlVector[] =
     {
         L"ProductOptions",
         L"ProductType",
-        &MmProductType,
+        &DummyData,
         NULL,
         NULL
     },

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _I8042PRT_H_
+#define _I8042PRT_H_
 
 #include <ntifs.h>
 #include <kbdmou.h>
@@ -451,3 +452,5 @@ NTSTATUS
 i8042AddLegacyKeyboard(
 	IN PDRIVER_OBJECT DriverObject,
 	IN PUNICODE_STRING RegistryPath);
+
+#endif // _I8042PRT_H_

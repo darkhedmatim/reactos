@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __SLAYER_H
+#define __SLAYER_H
 
 extern HINSTANCE hInstance;
 
@@ -118,5 +119,8 @@ HRESULT STDMETHODCALLTYPE ICompatibilityPage_fnCreateInstance(LPCOMPATIBILITYPAG
                                                               PVOID *ppvObject);
 HRESULT STDMETHODCALLTYPE ICompatibilityPage_fnLockServer(LPCOMPATIBILITYPAGE this,
                                                           BOOL fLock);
+
+
+#endif /* __SLAYER_H */
 
 /* EOF */

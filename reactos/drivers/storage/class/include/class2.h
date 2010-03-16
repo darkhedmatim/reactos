@@ -4,10 +4,11 @@
  * PROJECT:         ReactOS kernel
  * FILE:            services/storage/include/class2.h
  * PURPOSE:         SCSI class driver definitions
- * PROGRAMMER:      Eric Kohl
+ * PROGRAMMER:      Eric Kohl (ekohl@rz-online.de)
  */
 
-#pragma once
+#ifndef __INCLUDE_DDK_CLASS2_H
+#define __INCLUDE_DDK_CLASS2_H
 
 #include "ntddscsi.h"
 #include "srb.h"
@@ -263,5 +264,8 @@ ScsiClassCheckVerifyComplete(
     IN PIRP Irp,
     IN PVOID Context
     );
+
+
+#endif /* __INCLUDE_DDK_CLASS2_H */
 
 /* EOF */

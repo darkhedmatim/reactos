@@ -34,7 +34,6 @@
 WINE_DEFAULT_DEBUG_CHANNEL(mapi);
 
 LONG MAPI_ObjectCount = 0;
-HINSTANCE hInstMAPI32;
 
 /***********************************************************************
  *              DllMain (MAPI32.init)
@@ -46,7 +45,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID fImpLoad)
     switch (fdwReason)
     {
     case DLL_PROCESS_ATTACH:
-        hInstMAPI32 = hinstDLL;
         DisableThreadLibraryCalls(hinstDLL);
         load_mapi_providers();
         break;
@@ -91,15 +89,7 @@ HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID iid, LPVOID *ppv)
  */
 HRESULT WINAPI DllCanUnloadNow(void)
 {
-    HRESULT ret = S_OK;
-
-    if (mapiFunctions.DllCanUnloadNow)
-    {
-        ret = mapiFunctions.DllCanUnloadNow();
-        TRACE("(): provider returns %d\n", ret);
-    }
-
-    return MAPI_ObjectCount == 0 ? ret : S_FALSE;
+    return MAPI_ObjectCount == 0 ? S_OK : S_FALSE;
 }
 
 /***********************************************************************
@@ -177,9 +167,6 @@ HRESULT WINAPI MAPILogonEx(ULONG_PTR uiparam, LPWSTR profile,
 
 HRESULT WINAPI MAPIOpenLocalFormContainer(LPVOID *ppfcnt)
 {
-    if (mapiFunctions.MAPIOpenLocalFormContainer)
-        return mapiFunctions.MAPIOpenLocalFormContainer(ppfcnt);
-
     FIXME("(%p) Stub\n", ppfcnt);
     return E_FAIL;
 }
@@ -202,9 +189,6 @@ VOID WINAPI MAPIUninitialize(void)
 
 HRESULT WINAPI MAPIAdminProfiles(ULONG ulFlags,  LPPROFADMIN *lppProfAdmin)
 {
-    if (mapiFunctions.MAPIAdminProfiles)
-        return mapiFunctions.MAPIAdminProfiles(ulFlags, lppProfAdmin);
-
     FIXME("(%u, %p): stub\n", ulFlags, lppProfAdmin);
     *lppProfAdmin = NULL;
     return E_FAIL;

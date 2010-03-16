@@ -558,7 +558,11 @@ static const NodeImplVtbl HTMLTableImplVtbl = {
 };
 
 static const tid_t HTMLTable_iface_tids[] = {
-    HTMLELEMENT_TIDS,
+    IHTMLDOMNode_tid,
+    IHTMLDOMNode2_tid,
+    IHTMLElement_tid,
+    IHTMLElement2_tid,
+    IHTMLElement3_tid,
     IHTMLTable_tid,
     0
 };
@@ -580,7 +584,7 @@ HTMLElement *HTMLTable_Create(HTMLDocumentNode *doc, nsIDOMHTMLElement *nselem)
 
     HTMLElement_Init(&ret->element, doc, nselem, &HTMLTable_dispex);
 
-    ConnectionPoint_Init(&ret->cp, &ret->element.cp_container, &DIID_HTMLTableEvents, NULL);
+    ConnectionPoint_Init(&ret->cp, &ret->element.cp_container, &DIID_HTMLTableEvents);
 
     nsres = nsIDOMHTMLElement_QueryInterface(nselem, &IID_nsIDOMHTMLTableElement, (void**)&ret->nstable);
     if(NS_FAILED(nsres))

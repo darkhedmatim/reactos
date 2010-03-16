@@ -16,7 +16,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#pragma once
+#ifndef MINGW_RULE_H
+#define MINGW_RULE_H
 
 #include "mingw.h"
 
@@ -45,3 +46,5 @@ private:
 	const std::string command;
 	string_list generatedFiles;
 };
+
+#endif

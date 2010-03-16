@@ -56,7 +56,7 @@ static HRESULT WINAPI domtext_QueryInterface(
     void** ppvObject )
 {
     domtext *This = impl_from_IXMLDOMText( iface );
-    TRACE("(%p)->(%s %p)\n", This, debugstr_guid(riid), ppvObject);
+    TRACE("%p %s %p\n", This, debugstr_guid(riid), ppvObject);
 
     if ( IsEqualGUID( riid, &IID_IXMLDOMText ) ||
          IsEqualGUID( riid, &IID_IXMLDOMCharacterData) ||
@@ -103,7 +103,7 @@ static ULONG WINAPI domtext_Release(
     if ( ref == 0 )
     {
         destroy_xmlnode(&This->node);
-        heap_free( This );
+        HeapFree( GetProcessHeap(), 0, This );
     }
 
     return ref;
@@ -482,7 +482,7 @@ static HRESULT WINAPI domtext_get_data(
     BSTR *p)
 {
     domtext *This = impl_from_IXMLDOMText( iface );
-    HRESULT hr;
+    HRESULT hr = E_FAIL;
     VARIANT vRet;
 
     if(!p)
@@ -502,14 +502,17 @@ static HRESULT WINAPI domtext_put_data(
     BSTR data)
 {
     domtext *This = impl_from_IXMLDOMText( iface );
+    HRESULT hr = E_FAIL;
     VARIANT val;
 
-    TRACE("(%p)->(%s)\n", This, debugstr_w(data) );
+    TRACE("%p %s\n", This, debugstr_w(data) );
 
     V_VT(&val) = VT_BSTR;
     V_BSTR(&val) = data;
 
-    return IXMLDOMNode_put_nodeValue( IXMLDOMNode_from_impl(&This->node), val );
+    hr = IXMLDOMNode_put_nodeValue( IXMLDOMNode_from_impl(&This->node), val );
+
+    return hr;
 }
 
 static HRESULT WINAPI domtext_get_length(
@@ -517,22 +520,24 @@ static HRESULT WINAPI domtext_get_length(
     LONG *len)
 {
     domtext *This = impl_from_IXMLDOMText( iface );
-    HRESULT hr;
-    BSTR data;
+    xmlChar *pContent;
+    LONG nLength = 0;
 
-    TRACE("(%p)->(%p)\n", This, len);
+    TRACE("%p\n", iface);
 
     if(!len)
         return E_INVALIDARG;
 
-    hr = IXMLDOMText_get_data(iface, &data);
-    if(hr == S_OK)
+    pContent = xmlNodeGetContent(This->node.node);
+    if(pContent)
     {
-        *len = SysStringLen(data);
-        SysFreeString(data);
+        nLength = xmlStrlen(pContent);
+        xmlFree(pContent);
     }
 
-    return hr;
+    *len = nLength;
+
+    return S_OK;
 }
 
 static HRESULT WINAPI domtext_substringData(
@@ -540,10 +545,11 @@ static HRESULT WINAPI domtext_substringData(
     LONG offset, LONG count, BSTR *p)
 {
     domtext *This = impl_from_IXMLDOMText( iface );
-    HRESULT hr;
-    BSTR data;
+    xmlChar *pContent;
+    LONG nLength = 0;
+    HRESULT hr = S_FALSE;
 
-    TRACE("(%p)->(%d %d %p)\n", This, offset, count, p);
+    TRACE("%p\n", iface);
 
     if(!p)
         return E_INVALIDARG;
@@ -553,24 +559,26 @@ static HRESULT WINAPI domtext_substringData(
         return E_INVALIDARG;
 
     if(count == 0)
-        return S_FALSE;
+        return hr;
 
-    hr = IXMLDOMText_get_data(iface, &data);
-    if(hr == S_OK)
+    pContent = xmlNodeGetContent(This->node.node);
+    if(pContent)
     {
-        LONG len = SysStringLen(data);
+        nLength = xmlStrlen(pContent);
 
-        if(offset < len)
+        if( offset < nLength)
         {
-            if(offset + count > len)
-                *p = SysAllocString(&data[offset]);
+            BSTR sContent = bstr_from_xmlChar(pContent);
+            if(offset + count > nLength)
+                *p = SysAllocString(&sContent[offset]);
             else
-                *p = SysAllocStringLen(&data[offset], count);
-        }
-        else
-            hr = S_FALSE;
+                *p = SysAllocStringLen(&sContent[offset], count);
 
-        SysFreeString(data);
+            SysFreeString(sContent);
+            hr = S_OK;
+        }
+
+        xmlFree(pContent);
     }
 
     return hr;
@@ -581,30 +589,26 @@ static HRESULT WINAPI domtext_appendData(
     BSTR p)
 {
     domtext *This = impl_from_IXMLDOMText( iface );
-    HRESULT hr;
-    BSTR data;
-    LONG p_len;
+    xmlChar *pContent;
+    HRESULT hr = S_FALSE;
 
-    TRACE("(%p)->(%s)\n", This, debugstr_w(p));
+    TRACE("%p\n", iface);
 
     /* Nothing to do if NULL or an Empty string passed in. */
-    if((p_len = SysStringLen(p)) == 0) return S_OK;
+    if(p == NULL || SysStringLen(p) == 0)
+        return S_OK;
 
-    hr = IXMLDOMText_get_data(iface, &data);
-    if(hr == S_OK)
+    pContent = xmlChar_from_wchar( p );
+    if(pContent)
     {
-        LONG len = SysStringLen(data);
-        BSTR str = SysAllocStringLen(NULL, p_len + len);
-
-        memcpy(str, data, len*sizeof(WCHAR));
-        memcpy(&str[len], p, p_len*sizeof(WCHAR));
-        str[len+p_len] = 0;
-
-        hr = IXMLDOMText_put_data(iface, str);
-
-        SysFreeString(str);
-        SysFreeString(data);
+        if(xmlTextConcat(This->node.node, pContent, SysStringLen(p)) == 0)
+            hr = S_OK;
+        else
+            hr = E_FAIL;
+        HeapFree( GetProcessHeap(), 0, pContent );
     }
+    else
+        hr = E_FAIL;
 
     return hr;
 }
@@ -614,14 +618,16 @@ static HRESULT WINAPI domtext_insertData(
     LONG offset, BSTR p)
 {
     domtext *This = impl_from_IXMLDOMText( iface );
-    HRESULT hr;
-    BSTR data;
-    LONG p_len;
+    xmlChar *pXmlContent;
+    BSTR sNewString;
+    HRESULT hr = S_FALSE;
+    LONG nLength = 0, nLengthP = 0;
+    xmlChar *str = NULL;
 
-    TRACE("(%p)->(%d %s)\n", This, offset, debugstr_w(p));
+    TRACE("%p\n", This);
 
     /* If have a NULL or empty string, don't do anything. */
-    if((p_len = SysStringLen(p)) == 0)
+    if(SysStringLen(p) == 0)
         return S_OK;
 
     if(offset < 0)
@@ -629,29 +635,48 @@ static HRESULT WINAPI domtext_insertData(
         return E_INVALIDARG;
     }
 
-    hr = IXMLDOMText_get_data(iface, &data);
-    if(hr == S_OK)
+    pXmlContent = xmlNodeGetContent(This->node.node);
+    if(pXmlContent)
     {
-        LONG len = SysStringLen(data);
-        BSTR str;
+        BSTR sContent = bstr_from_xmlChar( pXmlContent );
+        nLength = SysStringLen(sContent);
+        nLengthP = SysStringLen(p);
 
-        if(len < offset)
+        if(nLength < offset)
         {
-            SysFreeString(data);
+            SysFreeString(sContent);
+            xmlFree(pXmlContent);
+
             return E_INVALIDARG;
         }
 
-        str = SysAllocStringLen(NULL, len + p_len);
-        /* start part, supplied string and end part */
-        memcpy(str, data, offset*sizeof(WCHAR));
-        memcpy(&str[offset], p, p_len*sizeof(WCHAR));
-        memcpy(&str[offset+p_len], &data[offset], (len-offset)*sizeof(WCHAR));
-        str[len+p_len] = 0;
+        sNewString = SysAllocStringLen(NULL, nLength + nLengthP + 1);
+        if(sNewString)
+        {
+            if(offset > 0)
+                memcpy(sNewString, sContent, offset * sizeof(WCHAR));
 
-        hr = IXMLDOMText_put_data(iface, str);
+            memcpy(&sNewString[offset], p, nLengthP * sizeof(WCHAR));
 
-        SysFreeString(str);
-        SysFreeString(data);
+            if(offset+nLengthP < nLength)
+                memcpy(&sNewString[offset+nLengthP], &sContent[offset], (nLength-offset) * sizeof(WCHAR));
+
+            sNewString[nLengthP + nLength] = 0;
+
+            str = xmlChar_from_wchar(sNewString);
+            if(str)
+            {
+                xmlNodeSetContent(This->node.node, str);
+                hr = S_OK;
+            }
+            HeapFree(GetProcessHeap(), 0, str);
+
+            SysFreeString(sNewString);
+        }
+
+        SysFreeString(sContent);
+
+        xmlFree(pXmlContent);
     }
 
     return hr;
@@ -661,72 +686,23 @@ static HRESULT WINAPI domtext_deleteData(
     IXMLDOMText *iface,
     LONG offset, LONG count)
 {
-    HRESULT hr;
-    LONG len = -1;
-    BSTR str;
-
-    TRACE("(%p)->(%d %d)\n", iface, offset, count);
-
-    hr = IXMLDOMText_get_length(iface, &len);
-    if(hr != S_OK) return hr;
-
-    if((offset < 0) || (offset > len) || (count < 0))
-        return E_INVALIDARG;
-
-    if(len == 0) return S_OK;
-
-    /* cutting start or end */
-    if((offset == 0) || ((count + offset) >= len))
-    {
-        if(offset == 0)
-            IXMLDOMText_substringData(iface, count, len - count, &str);
-        else
-            IXMLDOMText_substringData(iface, 0, offset, &str);
-        hr = IXMLDOMText_put_data(iface, str);
-    }
-    else
-    /* cutting from the inside */
-    {
-        BSTR str_end;
-
-        IXMLDOMText_substringData(iface, 0, offset, &str);
-        IXMLDOMText_substringData(iface, offset + count, len - count, &str_end);
-
-        hr = IXMLDOMText_put_data(iface, str);
-        if(hr == S_OK)
-            hr = IXMLDOMText_appendData(iface, str_end);
-
-        SysFreeString(str_end);
-    }
-
-    SysFreeString(str);
-
-    return hr;
+    FIXME("\n");
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI domtext_replaceData(
     IXMLDOMText *iface,
     LONG offset, LONG count, BSTR p)
 {
-    domtext *This = impl_from_IXMLDOMText( iface );
-    HRESULT hr;
-
-    TRACE("(%p)->(%d %d %s)\n", This, offset, count, debugstr_w(p));
-
-    hr = IXMLDOMText_deleteData(iface, offset, count);
-
-    if (hr == S_OK)
-       hr = IXMLDOMText_insertData(iface, offset, p);
-
-    return hr;
+    FIXME("\n");
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI domtext_splitText(
     IXMLDOMText *iface,
     LONG offset, IXMLDOMText **txtNode)
 {
-    domtext *This = impl_from_IXMLDOMText( iface );
-    FIXME("(%p)->(%d %p)\n", This, offset, txtNode);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -791,7 +767,7 @@ IUnknown* create_text( xmlNodePtr text )
 {
     domtext *This;
 
-    This = heap_alloc( sizeof *This );
+    This = HeapAlloc( GetProcessHeap(), 0, sizeof *This );
     if ( !This )
         return NULL;
 

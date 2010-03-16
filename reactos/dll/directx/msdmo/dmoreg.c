@@ -787,11 +787,11 @@ HRESULT read_types(HKEY root, LPCWSTR key, ULONG *supplied, ULONG requested, DMO
  * DMOGetTypes (MSDMO.@)
  */
 HRESULT WINAPI DMOGetTypes(REFCLSID clsidDMO,
-               ULONG ulInputTypesRequested,
-               ULONG* pulInputTypesSupplied,
+               unsigned long ulInputTypesRequested,
+               unsigned long* pulInputTypesSupplied,
                DMO_PARTIAL_MEDIATYPE* pInputTypes,
-               ULONG ulOutputTypesRequested,
-               ULONG* pulOutputTypesSupplied,
+               unsigned long ulOutputTypesRequested,
+               unsigned long* pulOutputTypesSupplied,
                DMO_PARTIAL_MEDIATYPE* pOutputTypes)
 {
   HKEY root,hkey;
@@ -815,7 +815,7 @@ HRESULT WINAPI DMOGetTypes(REFCLSID clsidDMO,
 
   if (ulInputTypesRequested > 0)
   {
-    ret = read_types(hkey, szDMOInputType, pulInputTypesSupplied, ulInputTypesRequested, pInputTypes );
+    ret = read_types(hkey, szDMOInputType, (ULONG*)pulInputTypesSupplied, ulInputTypesRequested, pInputTypes );
   }
   else
     *pulInputTypesSupplied = 0;
@@ -823,7 +823,7 @@ HRESULT WINAPI DMOGetTypes(REFCLSID clsidDMO,
   if (ulOutputTypesRequested > 0)
   {
     HRESULT ret2;
-    ret2 = read_types(hkey, szDMOOutputType, pulOutputTypesSupplied, ulOutputTypesRequested, pOutputTypes );
+    ret2 = read_types(hkey, szDMOOutputType, (ULONG*)pulOutputTypesSupplied, ulOutputTypesRequested, pOutputTypes );
 
     if (ret == S_OK)
         ret = ret2;

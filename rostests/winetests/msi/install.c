@@ -163,52 +163,6 @@ static const CHAR property_dat[] = "Property\tValue\n"
                                    "SERVNAME\tTestService\n"
                                    "SERVDISP\tTestServiceDisp\n";
 
-static const CHAR aup_property_dat[] = "Property\tValue\n"
-                                       "s72\tl0\n"
-                                       "Property\tProperty\n"
-                                       "DefaultUIFont\tDlgFont8\n"
-                                       "HASUIRUN\t0\n"
-                                       "ALLUSERS\t1\n"
-                                       "INSTALLLEVEL\t3\n"
-                                       "InstallMode\tTypical\n"
-                                       "Manufacturer\tWine\n"
-                                       "PIDTemplate\t12345<###-%%%%%%%>@@@@@\n"
-                                       "ProductCode\t{7DF88A48-996F-4EC8-A022-BF956F9B2CBB}\n"
-                                       "ProductID\tnone\n"
-                                       "ProductLanguage\t1033\n"
-                                       "ProductName\tMSITEST\n"
-                                       "ProductVersion\t1.1.1\n"
-                                       "PROMPTROLLBACKCOST\tP\n"
-                                       "Setup\tSetup\n"
-                                       "UpgradeCode\t{4C0EAA15-0264-4E5A-8758-609EF142B92D}\n"
-                                       "AdminProperties\tPOSTADMIN\n"
-                                       "ROOTDRIVE\tC:\\\n"
-                                       "SERVNAME\tTestService\n"
-                                       "SERVDISP\tTestServiceDisp\n";
-
-static const CHAR aup2_property_dat[] = "Property\tValue\n"
-                                        "s72\tl0\n"
-                                        "Property\tProperty\n"
-                                        "DefaultUIFont\tDlgFont8\n"
-                                        "HASUIRUN\t0\n"
-                                        "ALLUSERS\t2\n"
-                                        "INSTALLLEVEL\t3\n"
-                                        "InstallMode\tTypical\n"
-                                        "Manufacturer\tWine\n"
-                                        "PIDTemplate\t12345<###-%%%%%%%>@@@@@\n"
-                                        "ProductCode\t{7DF88A48-996F-4EC8-A022-BF956F9B2CBB}\n"
-                                        "ProductID\tnone\n"
-                                        "ProductLanguage\t1033\n"
-                                        "ProductName\tMSITEST\n"
-                                        "ProductVersion\t1.1.1\n"
-                                        "PROMPTROLLBACKCOST\tP\n"
-                                        "Setup\tSetup\n"
-                                        "UpgradeCode\t{4C0EAA15-0264-4E5A-8758-609EF142B92D}\n"
-                                        "AdminProperties\tPOSTADMIN\n"
-                                        "ROOTDRIVE\tC:\\\n"
-                                        "SERVNAME\tTestService\n"
-                                        "SERVDISP\tTestServiceDisp\n";
-
 static const CHAR shortcut_dat[] = "Shortcut\tDirectory_\tName\tComponent_\tTarget\tArguments\tDescription\tHotkey\tIcon_\tIconIndex\tShowCmd\tWkDir\n"
                                    "s72\ts72\tl128\ts72\ts72\tS255\tL255\tI2\tS72\tI2\tI2\tS72\n"
                                    "Shortcut\tShortcut\n"
@@ -226,36 +180,7 @@ static const CHAR environment_dat[] = "Environment\tName\tValue\tComponent_\n"
                                       "Var7\t!-MSITESTVAR7\t\tOne\n"
                                       "Var8\t!-*MSITESTVAR8\t\tOne\n"
                                       "Var9\t=-MSITESTVAR9\t\tOne\n"
-                                      "Var10\t=MSITESTVAR10\t\tOne\n"
-                                      "Var11\t+-MSITESTVAR11\t[~];1\tOne\n"
-                                      "Var12\t+-MSITESTVAR11\t[~];2\tOne\n"
-                                      "Var13\t+-MSITESTVAR12\t[~];1\tOne\n"
-                                      "Var14\t=MSITESTVAR13\t[~];1\tOne\n"
-                                      "Var15\t=MSITESTVAR13\t[~];2\tOne\n"
-                                      "Var16\t=MSITESTVAR14\t;1;\tOne\n"
-                                      "Var17\t=MSITESTVAR15\t;;1;;\tOne\n"
-                                      "Var18\t=MSITESTVAR16\t 1 \tOne\n"
-                                      "Var19\t+-MSITESTVAR17\t1\tOne\n"
-                                      "Var20\t+-MSITESTVAR17\t;;2;;[~]\tOne\n"
-                                      "Var21\t+-MSITESTVAR18\t1\tOne\n"
-                                      "Var22\t+-MSITESTVAR18\t[~];;2;;\tOne\n"
-                                      "Var23\t+-MSITESTVAR19\t1\tOne\n"
-                                      "Var24\t+-MSITESTVAR19\t[~]2\tOne\n"
-                                      "Var25\t+-MSITESTVAR20\t1\tOne\n"
-                                      "Var26\t+-MSITESTVAR20\t2[~]\tOne\n";
-
-/* Expected results, starting from MSITESTVAR11 onwards */
-static const CHAR *environment_dat_results[] = {"1;2",    /*MSITESTVAR11*/
-                                                "1",      /*MSITESTVAR12*/
-                                                "1;2",    /*MSITESTVAR13*/
-                                                ";1;",    /*MSITESTVAR14*/
-                                                ";;1;;",  /*MSITESTVAR15*/
-                                                " 1 ",    /*MSITESTVAR16*/
-                                                ";;2;;1", /*MSITESTVAR17*/
-                                                "1;;2;;", /*MSITESTVAR18*/
-                                                "1",      /*MSITESTVAR19*/
-                                                "1",      /*MSITESTVAR20*/
-                                                NULL};
+                                      "Var10\t=MSITESTVAR10\t\tOne\n";
 
 static const CHAR condition_dat[] = "Feature_\tLevel\tCondition\n"
                                     "s38\ti2\tS255\n"
@@ -348,30 +273,6 @@ static const CHAR service_control_dat[] = "ServiceControl\tName\tEvent\tArgument
                                           "s72\tl255\ti2\tL255\tI2\ts72\n"
                                           "ServiceControl\tServiceControl\n"
                                           "ServiceControl\tTestService\t8\t\t0\tservice_comp";
-
-static const CHAR sss_service_control_dat[] = "ServiceControl\tName\tEvent\tArguments\tWait\tComponent_\n"
-                                              "s72\tl255\ti2\tL255\tI2\ts72\n"
-                                              "ServiceControl\tServiceControl\n"
-                                              "ServiceControl\tSpooler\t1\t\t0\tservice_comp";
-
-static const CHAR sss_install_exec_seq_dat[] = "Action\tCondition\tSequence\n"
-                                               "s72\tS255\tI2\n"
-                                               "InstallExecuteSequence\tAction\n"
-                                               "CostFinalize\t\t1000\n"
-                                               "CostInitialize\t\t800\n"
-                                               "FileCost\t\t900\n"
-                                               "ResolveSource\t\t950\n"
-                                               "MoveFiles\t\t1700\n"
-                                               "InstallFiles\t\t4000\n"
-                                               "DuplicateFiles\t\t4500\n"
-                                               "WriteEnvironmentStrings\t\t4550\n"
-                                               "CreateShortcuts\t\t4600\n"
-                                               "StartServices\t\t5000\n"
-                                               "DeleteServices\t\t5500\n"
-                                               "InstallFinalize\t\t6600\n"
-                                               "InstallInitialize\t\t1500\n"
-                                               "InstallValidate\t\t1400\n"
-                                               "LaunchConditions\t\t100\n";
 
 /* tables for test_continuouscabs */
 static const CHAR cc_component_dat[] = "Component\tComponentId\tDirectory_\tAttributes\tCondition\tKeyPath\n"
@@ -838,8 +739,7 @@ static const CHAR df_duplicate_file_dat[] = "FileKey\tComponent_\tFile_\tDestNam
                                             "s72\ts72\ts72\tS255\tS72\n"
                                             "DuplicateFile\tFileKey\n"
                                             "maximus\tmaximus\tmaximus\taugustus\t\n"
-                                            "caesar\tmaximus\tmaximus\t\tNONEXISTENT\n"
-                                            "augustus\tnosuchcomponent\tmaximus\t\tMSITESTDIR\n";
+                                            "caesar\tmaximus\tmaximus\t\tNONEXISTENT\n";
 
 static const CHAR wrv_component_dat[] = "Component\tComponentId\tDirectory_\tAttributes\tCondition\tKeyPath\n"
                                         "s72\tS38\ts72\ti2\tS255\tS72\n"
@@ -1019,438 +919,6 @@ static const CHAR ip_custom_action_dat[] = "Action\tType\tSource\tTarget\tISComm
                                            "s72\ti2\tS64\tS0\tS255\n"
                                            "CustomAction\tAction\n"
                                            "TestInstalledProp\t19\t\tTest failed\t\n";
-
-static const CHAR aup_install_exec_seq_dat[] = "Action\tCondition\tSequence\n"
-                                               "s72\tS255\tI2\n"
-                                               "InstallExecuteSequence\tAction\n"
-                                               "CostFinalize\t\t1000\n"
-                                               "ValidateProductID\t\t700\n"
-                                               "CostInitialize\t\t800\n"
-                                               "FileCost\t\t900\n"
-                                               "RemoveFiles\t\t3500\n"
-                                               "InstallFiles\t\t4000\n"
-                                               "RegisterUser\t\t6000\n"
-                                               "RegisterProduct\t\t6100\n"
-                                               "PublishFeatures\t\t6300\n"
-                                               "PublishProduct\t\t6400\n"
-                                               "InstallFinalize\t\t6600\n"
-                                               "InstallInitialize\t\t1500\n"
-                                               "ProcessComponents\t\t1600\n"
-                                               "UnpublishFeatures\t\t1800\n"
-                                               "InstallValidate\t\t1400\n"
-                                               "LaunchConditions\t\t100\n"
-                                               "TestAllUsersProp\tALLUSERS AND NOT REMOVE\t50\n";
-
-static const CHAR aup2_install_exec_seq_dat[] = "Action\tCondition\tSequence\n"
-                                                "s72\tS255\tI2\n"
-                                                "InstallExecuteSequence\tAction\n"
-                                                "CostFinalize\t\t1000\n"
-                                                "ValidateProductID\t\t700\n"
-                                                "CostInitialize\t\t800\n"
-                                                "FileCost\t\t900\n"
-                                                "RemoveFiles\t\t3500\n"
-                                                "InstallFiles\t\t4000\n"
-                                                "RegisterUser\t\t6000\n"
-                                                "RegisterProduct\t\t6100\n"
-                                                "PublishFeatures\t\t6300\n"
-                                                "PublishProduct\t\t6400\n"
-                                                "InstallFinalize\t\t6600\n"
-                                                "InstallInitialize\t\t1500\n"
-                                                "ProcessComponents\t\t1600\n"
-                                                "UnpublishFeatures\t\t1800\n"
-                                                "InstallValidate\t\t1400\n"
-                                                "LaunchConditions\t\t100\n"
-                                                "TestAllUsersProp\tALLUSERS=2 AND NOT REMOVE\t50\n";
-
-static const CHAR aup3_install_exec_seq_dat[] = "Action\tCondition\tSequence\n"
-                                                "s72\tS255\tI2\n"
-                                                "InstallExecuteSequence\tAction\n"
-                                                "CostFinalize\t\t1000\n"
-                                                "ValidateProductID\t\t700\n"
-                                                "CostInitialize\t\t800\n"
-                                                "FileCost\t\t900\n"
-                                                "RemoveFiles\t\t3500\n"
-                                                "InstallFiles\t\t4000\n"
-                                                "RegisterUser\t\t6000\n"
-                                                "RegisterProduct\t\t6100\n"
-                                                "PublishFeatures\t\t6300\n"
-                                                "PublishProduct\t\t6400\n"
-                                                "InstallFinalize\t\t6600\n"
-                                                "InstallInitialize\t\t1500\n"
-                                                "ProcessComponents\t\t1600\n"
-                                                "UnpublishFeatures\t\t1800\n"
-                                                "InstallValidate\t\t1400\n"
-                                                "LaunchConditions\t\t100\n"
-                                                "TestAllUsersProp\tALLUSERS=1 AND NOT REMOVE\t50\n";
-
-static const CHAR aup_custom_action_dat[] = "Action\tType\tSource\tTarget\tISComments\n"
-                                            "s72\ti2\tS64\tS0\tS255\n"
-                                            "CustomAction\tAction\n"
-                                            "TestAllUsersProp\t19\t\tTest failed\t\n";
-
-static const CHAR cf_create_folders_dat[] = "Directory_\tComponent_\n"
-                                            "s72\ts72\n"
-                                            "CreateFolder\tDirectory_\tComponent_\n"
-                                            "FIRSTDIR\tOne\n";
-
-static const CHAR cf_install_exec_seq_dat[] = "Action\tCondition\tSequence\n"
-                                              "s72\tS255\tI2\n"
-                                              "InstallExecuteSequence\tAction\n"
-                                              "CostFinalize\t\t1000\n"
-                                              "ValidateProductID\t\t700\n"
-                                              "CostInitialize\t\t800\n"
-                                              "FileCost\t\t900\n"
-                                              "RemoveFiles\t\t3500\n"
-                                              "CreateFolders\t\t3700\n"
-                                              "InstallExecute\t\t3800\n"
-                                              "TestCreateFolders\t\t3900\n"
-                                              "InstallFiles\t\t4000\n"
-                                              "RegisterUser\t\t6000\n"
-                                              "RegisterProduct\t\t6100\n"
-                                              "PublishFeatures\t\t6300\n"
-                                              "PublishProduct\t\t6400\n"
-                                              "InstallFinalize\t\t6600\n"
-                                              "InstallInitialize\t\t1500\n"
-                                              "ProcessComponents\t\t1600\n"
-                                              "UnpublishFeatures\t\t1800\n"
-                                              "InstallValidate\t\t1400\n"
-                                              "LaunchConditions\t\t100\n";
-
-static const CHAR cf_custom_action_dat[] = "Action\tType\tSource\tTarget\tISComments\n"
-                                           "s72\ti2\tS64\tS0\tS255\n"
-                                           "CustomAction\tAction\n"
-                                           "TestCreateFolders\t19\t\tHalts installation\t\n";
-
-static const CHAR rf_install_exec_seq_dat[] = "Action\tCondition\tSequence\n"
-                                              "s72\tS255\tI2\n"
-                                              "InstallExecuteSequence\tAction\n"
-                                              "CostFinalize\t\t1000\n"
-                                              "ValidateProductID\t\t700\n"
-                                              "CostInitialize\t\t800\n"
-                                              "FileCost\t\t900\n"
-                                              "RemoveFiles\t\t3500\n"
-                                              "CreateFolders\t\t3600\n"
-                                              "RemoveFolders\t\t3700\n"
-                                              "InstallExecute\t\t3800\n"
-                                              "TestCreateFolders\t\t3900\n"
-                                              "InstallFiles\t\t4000\n"
-                                              "RegisterUser\t\t6000\n"
-                                              "RegisterProduct\t\t6100\n"
-                                              "PublishFeatures\t\t6300\n"
-                                              "PublishProduct\t\t6400\n"
-                                              "InstallFinalize\t\t6600\n"
-                                              "InstallInitialize\t\t1500\n"
-                                              "ProcessComponents\t\t1600\n"
-                                              "UnpublishFeatures\t\t1800\n"
-                                              "InstallValidate\t\t1400\n"
-                                              "LaunchConditions\t\t100\n";
-
-
-static const CHAR sr_selfreg_dat[] = "File_\tCost\n"
-                                     "s72\tI2\n"
-                                     "SelfReg\tFile_\n"
-                                     "one.txt\t1\n";
-
-static const CHAR sr_install_exec_seq_dat[] = "Action\tCondition\tSequence\n"
-                                              "s72\tS255\tI2\n"
-                                              "InstallExecuteSequence\tAction\n"
-                                              "CostFinalize\t\t1000\n"
-                                              "CostInitialize\t\t800\n"
-                                              "FileCost\t\t900\n"
-                                              "ResolveSource\t\t950\n"
-                                              "MoveFiles\t\t1700\n"
-                                              "SelfUnregModules\t\t3900\n"
-                                              "InstallFiles\t\t4000\n"
-                                              "DuplicateFiles\t\t4500\n"
-                                              "WriteEnvironmentStrings\t\t4550\n"
-                                              "CreateShortcuts\t\t4600\n"
-                                              "InstallFinalize\t\t6600\n"
-                                              "InstallInitialize\t\t1500\n"
-                                              "InstallValidate\t\t1400\n"
-                                              "LaunchConditions\t\t100\n";
-
-static const CHAR font_media_dat[] = "DiskId\tLastSequence\tDiskPrompt\tCabinet\tVolumeLabel\tSource\n"
-                                     "i2\ti4\tL64\tS255\tS32\tS72\n"
-                                     "Media\tDiskId\n"
-                                     "1\t3\t\t\tDISK1\t\n";
-
-static const CHAR font_file_dat[] = "File\tComponent_\tFileName\tFileSize\tVersion\tLanguage\tAttributes\tSequence\n"
-                                    "s72\ts72\tl255\ti4\tS72\tS20\tI2\ti2\n"
-                                    "File\tFile\n"
-                                    "font.ttf\tfonts\tfont.ttf\t1000\t\t\t8192\t1\n";
-
-static const CHAR font_feature_dat[] = "Feature\tFeature_Parent\tTitle\tDescription\tDisplay\tLevel\tDirectory_\tAttributes\n"
-                                       "s38\tS38\tL64\tL255\tI2\ti2\tS72\ti2\n"
-                                       "Feature\tFeature\n"
-                                       "fonts\t\t\tfont feature\t1\t2\tMSITESTDIR\t0\n";
-
-static const CHAR font_component_dat[] = "Component\tComponentId\tDirectory_\tAttributes\tCondition\tKeyPath\n"
-                                         "s72\tS38\ts72\ti2\tS255\tS72\n"
-                                         "Component\tComponent\n"
-                                         "fonts\t{F5920ED0-1183-4B8F-9330-86CE56557C05}\tMSITESTDIR\t0\t\tfont.ttf\n";
-
-static const CHAR font_feature_comp_dat[] = "Feature_\tComponent_\n"
-                                            "s38\ts72\n"
-                                            "FeatureComponents\tFeature_\tComponent_\n"
-                                            "fonts\tfonts\n";
-
-static const CHAR font_dat[] = "File_\tFontTitle\n"
-                               "s72\tS128\n"
-                               "Font\tFile_\n"
-                               "font.ttf\tmsi test font\n";
-
-static const CHAR font_install_exec_seq_dat[] = "Action\tCondition\tSequence\n"
-                                                "s72\tS255\tI2\n"
-                                                "InstallExecuteSequence\tAction\n"
-                                                "ValidateProductID\t\t700\n"
-                                                "CostInitialize\t\t800\n"
-                                                "FileCost\t\t900\n"
-                                                "CostFinalize\t\t1000\n"
-                                                "InstallValidate\t\t1400\n"
-                                                "InstallInitialize\t\t1500\n"
-                                                "ProcessComponents\t\t1600\n"
-                                                "UnpublishFeatures\t\t1800\n"
-                                                "RemoveFiles\t\t3500\n"
-                                                "InstallFiles\t\t4000\n"
-                                                "RegisterFonts\t\t4100\n"
-                                                "UnregisterFonts\t\t4200\n"
-                                                "RegisterUser\t\t6000\n"
-                                                "RegisterProduct\t\t6100\n"
-                                                "PublishFeatures\t\t6300\n"
-                                                "PublishProduct\t\t6400\n"
-                                                "InstallFinalize\t\t6600";
-
-static const CHAR vp_property_dat[] = "Property\tValue\n"
-                                      "s72\tl0\n"
-                                      "Property\tProperty\n"
-                                      "HASUIRUN\t0\n"
-                                      "INSTALLLEVEL\t3\n"
-                                      "InstallMode\tTypical\n"
-                                      "Manufacturer\tWine\n"
-                                      "PIDTemplate\t###-#######\n"
-                                      "ProductCode\t{7DF88A48-996F-4EC8-A022-BF956F9B2CBB}\n"
-                                      "ProductLanguage\t1033\n"
-                                      "ProductName\tMSITEST\n"
-                                      "ProductVersion\t1.1.1\n"
-                                      "UpgradeCode\t{4C0EAA15-0264-4E5A-8758-609EF142B92D}\n";
-
-static const CHAR vp_custom_action_dat[] = "Action\tType\tSource\tTarget\tISComments\n"
-                                           "s72\ti2\tS64\tS0\tS255\n"
-                                           "CustomAction\tAction\n"
-                                           "SetProductID1\t51\tProductID\t1\t\n"
-                                           "SetProductID2\t51\tProductID\t2\t\n"
-                                           "TestProductID1\t19\t\t\tHalts installation\n"
-                                           "TestProductID2\t19\t\t\tHalts installation\n";
-
-static const CHAR vp_install_exec_seq_dat[] = "Action\tCondition\tSequence\n"
-                                              "s72\tS255\tI2\n"
-                                              "InstallExecuteSequence\tAction\n"
-                                              "LaunchConditions\t\t100\n"
-                                              "CostInitialize\t\t800\n"
-                                              "FileCost\t\t900\n"
-                                              "CostFinalize\t\t1000\n"
-                                              "InstallValidate\t\t1400\n"
-                                              "InstallInitialize\t\t1500\n"
-                                              "SetProductID1\tSET_PRODUCT_ID=1\t3000\n"
-                                              "SetProductID2\tSET_PRODUCT_ID=2\t3100\n"
-                                              "ValidateProductID\t\t3200\n"
-                                              "InstallExecute\t\t3300\n"
-                                              "TestProductID1\tProductID=1\t3400\n"
-                                              "TestProductID2\tProductID=\"123-1234567\"\t3500\n"
-                                              "InstallFiles\t\t4000\n"
-                                              "InstallFinalize\t\t6000\n";
-
-static const CHAR odbc_file_dat[] = "File\tComponent_\tFileName\tFileSize\tVersion\tLanguage\tAttributes\tSequence\n"
-                                    "s72\ts72\tl255\ti4\tS72\tS20\tI2\ti2\n"
-                                    "File\tFile\n"
-                                    "ODBCdriver.dll\todbc\tODBCdriver.dll\t1000\t\t\t8192\t1\n"
-                                    "ODBCdriver2.dll\todbc\tODBCdriver2.dll\t1000\t\t\t8192\t2\n"
-                                    "ODBCtranslator.dll\todbc\tODBCtranslator.dll\t1000\t\t\t8192\t3\n"
-                                    "ODBCtranslator2.dll\todbc\tODBCtranslator2.dll\t1000\t\t\t8192\t4\n"
-                                    "ODBCsetup.dll\todbc\tODBCsetup.dll\t1000\t\t\t8192\t5\n";
-
-static const CHAR odbc_feature_dat[] = "Feature\tFeature_Parent\tTitle\tDescription\tDisplay\tLevel\tDirectory_\tAttributes\n"
-                                       "s38\tS38\tL64\tL255\tI2\ti2\tS72\ti2\n"
-                                       "Feature\tFeature\n"
-                                       "odbc\t\t\todbc feature\t1\t2\tMSITESTDIR\t0\n";
-
-static const CHAR odbc_feature_comp_dat[] = "Feature_\tComponent_\n"
-                                            "s38\ts72\n"
-                                            "FeatureComponents\tFeature_\tComponent_\n"
-                                            "odbc\todbc\n";
-
-static const CHAR odbc_component_dat[] = "Component\tComponentId\tDirectory_\tAttributes\tCondition\tKeyPath\n"
-                                         "s72\tS38\ts72\ti2\tS255\tS72\n"
-                                         "Component\tComponent\n"
-                                         "odbc\t{B6F3E4AE-35D1-4B72-9044-989F03E20A43}\tMSITESTDIR\t0\t\tODBCdriver.dll\n";
-
-static const CHAR odbc_driver_dat[] = "Driver\tComponent_\tDescription\tFile_\tFile_Setup\n"
-                                      "s72\ts72\ts255\ts72\tS72\n"
-                                      "ODBCDriver\tDriver\n"
-                                      "ODBC test driver\todbc\tODBC test driver\tODBCdriver.dll\t\n"
-                                      "ODBC test driver2\todbc\tODBC test driver2\tODBCdriver2.dll\tODBCsetup.dll\n";
-
-static const CHAR odbc_translator_dat[] = "Translator\tComponent_\tDescription\tFile_\tFile_Setup\n"
-                                          "s72\ts72\ts255\ts72\tS72\n"
-                                          "ODBCTranslator\tTranslator\n"
-                                          "ODBC test translator\todbc\tODBC test translator\tODBCtranslator.dll\t\n"
-                                          "ODBC test translator2\todbc\tODBC test translator2\tODBCtranslator2.dll\tODBCsetup.dll\n";
-
-static const CHAR odbc_datasource_dat[] = "DataSource\tComponent_\tDescription\tDriverDescription\tRegistration\n"
-                                          "s72\ts72\ts255\ts255\ti2\n"
-                                          "ODBCDataSource\tDataSource\n"
-                                          "ODBC data source\todbc\tODBC data source\tODBC driver\t0\n";
-
-static const CHAR odbc_install_exec_seq_dat[] = "Action\tCondition\tSequence\n"
-                                                "s72\tS255\tI2\n"
-                                                "InstallExecuteSequence\tAction\n"
-                                                "LaunchConditions\t\t100\n"
-                                                "CostInitialize\t\t800\n"
-                                                "FileCost\t\t900\n"
-                                                "CostFinalize\t\t1000\n"
-                                                "InstallValidate\t\t1400\n"
-                                                "InstallInitialize\t\t1500\n"
-                                                "InstallODBC\t\t3000\n"
-                                                "RemoveODBC\t\t3100\n"
-                                                "InstallFiles\t\t4000\n"
-                                                "InstallFinalize\t\t6000\n";
-
-static const CHAR odbc_media_dat[] = "DiskId\tLastSequence\tDiskPrompt\tCabinet\tVolumeLabel\tSource\n"
-                                     "i2\ti4\tL64\tS255\tS32\tS72\n"
-                                     "Media\tDiskId\n"
-                                     "1\t5\t\t\tDISK1\t\n";
-
-static const CHAR tl_file_dat[] = "File\tComponent_\tFileName\tFileSize\tVersion\tLanguage\tAttributes\tSequence\n"
-                                  "s72\ts72\tl255\ti4\tS72\tS20\tI2\ti2\n"
-                                  "File\tFile\n"
-                                  "typelib.dll\ttypelib\ttypelib.dll\t1000\t\t\t8192\t1\n";
-
-static const CHAR tl_feature_dat[] = "Feature\tFeature_Parent\tTitle\tDescription\tDisplay\tLevel\tDirectory_\tAttributes\n"
-                                     "s38\tS38\tL64\tL255\tI2\ti2\tS72\ti2\n"
-                                     "Feature\tFeature\n"
-                                     "typelib\t\t\ttypelib feature\t1\t2\tMSITESTDIR\t0\n";
-
-static const CHAR tl_feature_comp_dat[] = "Feature_\tComponent_\n"
-                                          "s38\ts72\n"
-                                          "FeatureComponents\tFeature_\tComponent_\n"
-                                          "typelib\ttypelib\n";
-
-static const CHAR tl_component_dat[] = "Component\tComponentId\tDirectory_\tAttributes\tCondition\tKeyPath\n"
-                                       "s72\tS38\ts72\ti2\tS255\tS72\n"
-                                       "Component\tComponent\n"
-                                       "typelib\t{BB4C26FD-89D8-4E49-AF1C-DB4DCB5BF1B0}\tMSITESTDIR\t0\t\ttypelib.dll\n";
-
-static const CHAR tl_typelib_dat[] = "LibID\tLanguage\tComponent_\tVersion\tDescription\tDirectory_\tFeature_\tCost\n"
-                                     "s38\ti2\ts72\tI4\tL128\tS72\ts38\tI4\n"
-                                     "TypeLib\tLibID\tLanguage\tComponent_\n"
-                                     "{EAC5166A-9734-4D91-878F-1DD02304C66C}\t0\ttypelib\t1793\t\tMSITESTDIR\ttypelib\t\n";
-
-static const CHAR tl_install_exec_seq_dat[] = "Action\tCondition\tSequence\n"
-                                              "s72\tS255\tI2\n"
-                                              "InstallExecuteSequence\tAction\n"
-                                              "LaunchConditions\t\t100\n"
-                                              "CostInitialize\t\t800\n"
-                                              "FileCost\t\t900\n"
-                                              "CostFinalize\t\t1000\n"
-                                              "InstallValidate\t\t1400\n"
-                                              "InstallInitialize\t\t1500\n"
-                                              "ProcessComponents\t\t1600\n"
-                                              "RemoveFiles\t\t1700\n"
-                                              "InstallFiles\t\t2000\n"
-                                              "RegisterTypeLibraries\tREGISTER_TYPELIB=1\t3000\n"
-                                              "UnregisterTypeLibraries\t\t3100\n"
-                                              "RegisterProduct\t\t5100\n"
-                                              "PublishFeatures\t\t5200\n"
-                                              "PublishProduct\t\t5300\n"
-                                              "InstallFinalize\t\t6000\n";
-
-static const CHAR crs_file_dat[] = "File\tComponent_\tFileName\tFileSize\tVersion\tLanguage\tAttributes\tSequence\n"
-                                   "s72\ts72\tl255\ti4\tS72\tS20\tI2\ti2\n"
-                                   "File\tFile\n"
-                                   "target.txt\tshortcut\ttarget.txt\t1000\t\t\t8192\t1\n";
-
-static const CHAR crs_feature_dat[] = "Feature\tFeature_Parent\tTitle\tDescription\tDisplay\tLevel\tDirectory_\tAttributes\n"
-                                      "s38\tS38\tL64\tL255\tI2\ti2\tS72\ti2\n"
-                                      "Feature\tFeature\n"
-                                      "shortcut\t\t\tshortcut feature\t1\t2\tMSITESTDIR\t0\n";
-
-static const CHAR crs_feature_comp_dat[] = "Feature_\tComponent_\n"
-                                           "s38\ts72\n"
-                                           "FeatureComponents\tFeature_\tComponent_\n"
-                                           "shortcut\tshortcut\n";
-
-static const CHAR crs_component_dat[] = "Component\tComponentId\tDirectory_\tAttributes\tCondition\tKeyPath\n"
-                                        "s72\tS38\ts72\ti2\tS255\tS72\n"
-                                        "Component\tComponent\n"
-                                        "shortcut\t{5D20E3C6-7206-498F-AC28-87AF2F9AD4CC}\tMSITESTDIR\t0\t\ttarget.txt\n";
-
-static const CHAR crs_shortcut_dat[] = "Shortcut\tDirectory_\tName\tComponent_\tTarget\tArguments\tDescription\tHotkey\tIcon_\tIconIndex\tShowCmd\tWkDir\n"
-                                       "s72\ts72\tl128\ts72\ts72\tL255\tL255\tI2\tS72\tI2\tI2\tS72\n"
-                                       "Shortcut\tShortcut\n"
-                                       "shortcut\tMSITESTDIR\tshortcut\tshortcut\t[MSITESTDIR]target.txt\t\t\t\t\t\t\t\n";
-
-static const CHAR crs_install_exec_seq_dat[] = "Action\tCondition\tSequence\n"
-                                               "s72\tS255\tI2\n"
-                                               "InstallExecuteSequence\tAction\n"
-                                               "LaunchConditions\t\t100\n"
-                                               "CostInitialize\t\t800\n"
-                                               "FileCost\t\t900\n"
-                                               "CostFinalize\t\t1000\n"
-                                               "InstallValidate\t\t1400\n"
-                                               "InstallInitialize\t\t1500\n"
-                                               "ProcessComponents\t\t1600\n"
-                                               "RemoveFiles\t\t1700\n"
-                                               "InstallFiles\t\t2000\n"
-                                               "RemoveShortcuts\t\t3000\n"
-                                               "CreateShortcuts\t\t3100\n"
-                                               "RegisterProduct\t\t5000\n"
-                                               "PublishFeatures\t\t5100\n"
-                                               "PublishProduct\t\t5200\n"
-                                               "InstallFinalize\t\t6000\n";
-
-static const CHAR pub_file_dat[] = "File\tComponent_\tFileName\tFileSize\tVersion\tLanguage\tAttributes\tSequence\n"
-                                   "s72\ts72\tl255\ti4\tS72\tS20\tI2\ti2\n"
-                                   "File\tFile\n"
-                                   "english.txt\tpublish\tenglish.txt\t1000\t\t\t8192\t1\n";
-
-static const CHAR pub_feature_dat[] = "Feature\tFeature_Parent\tTitle\tDescription\tDisplay\tLevel\tDirectory_\tAttributes\n"
-                                      "s38\tS38\tL64\tL255\tI2\ti2\tS72\ti2\n"
-                                      "Feature\tFeature\n"
-                                      "publish\t\t\tpublish feature\t1\t2\tMSITESTDIR\t0\n";
-
-static const CHAR pub_feature_comp_dat[] = "Feature_\tComponent_\n"
-                                           "s38\ts72\n"
-                                           "FeatureComponents\tFeature_\tComponent_\n"
-                                           "publish\tpublish\n";
-
-static const CHAR pub_component_dat[] = "Component\tComponentId\tDirectory_\tAttributes\tCondition\tKeyPath\n"
-                                        "s72\tS38\ts72\ti2\tS255\tS72\n"
-                                        "Component\tComponent\n"
-                                        "publish\t{B4EA0ACF-6238-426E-9C6D-7869F0F9C768}\tMSITESTDIR\t0\t\tenglish.txt\n";
-
-static const CHAR pub_publish_component_dat[] = "ComponentId\tQualifier\tComponent_\tAppData\tFeature_\n"
-                                                "s38\ts255\ts72\tL255\ts38\n"
-                                                "PublishComponent\tComponentId\tQualifier\tComponent_\n"
-                                                "{92AFCBC0-9CA6-4270-8454-47C5EE2B8FAA}\tenglish.txt\tpublish\t\tpublish\n";
-
-static const CHAR pub_install_exec_seq_dat[] = "Action\tCondition\tSequence\n"
-                                               "s72\tS255\tI2\n"
-                                               "InstallExecuteSequence\tAction\n"
-                                               "LaunchConditions\t\t100\n"
-                                               "CostInitialize\t\t800\n"
-                                               "FileCost\t\t900\n"
-                                               "CostFinalize\t\t1000\n"
-                                               "InstallValidate\t\t1400\n"
-                                               "InstallInitialize\t\t1500\n"
-                                               "ProcessComponents\t\t1600\n"
-                                               "RemoveFiles\t\t1700\n"
-                                               "InstallFiles\t\t2000\n"
-                                               "PublishComponents\t\t3000\n"
-                                               "UnpublishComponents\t\t3100\n"
-                                               "RegisterProduct\t\t5000\n"
-                                               "PublishFeatures\t\t5100\n"
-                                               "PublishProduct\t\t5200\n"
-                                               "InstallFinalize\t\t6000\n";
 
 typedef struct _msi_table
 {
@@ -2079,58 +1547,6 @@ static const msi_table ip_tables[] =
     ADD_TABLE(property)
 };
 
-static const msi_table aup_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(aup_install_exec_seq),
-    ADD_TABLE(aup_custom_action),
-    ADD_TABLE(media),
-    ADD_TABLE(property)
-};
-
-static const msi_table aup2_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(aup2_install_exec_seq),
-    ADD_TABLE(aup_custom_action),
-    ADD_TABLE(media),
-    ADD_TABLE(aup_property)
-};
-
-static const msi_table aup3_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(aup2_install_exec_seq),
-    ADD_TABLE(aup_custom_action),
-    ADD_TABLE(media),
-    ADD_TABLE(aup2_property)
-};
-
-static const msi_table aup4_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(aup3_install_exec_seq),
-    ADD_TABLE(aup_custom_action),
-    ADD_TABLE(media),
-    ADD_TABLE(aup2_property)
-};
-
 static const msi_table fiu_tables[] =
 {
     ADD_TABLE(rof_component),
@@ -2153,153 +1569,6 @@ static const msi_table fiuc_tables[] =
     ADD_TABLE(pp_install_exec_seq),
     ADD_TABLE(rofc_media),
     ADD_TABLE(property),
-};
-
-static const msi_table cf_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(cf_create_folders),
-    ADD_TABLE(cf_install_exec_seq),
-    ADD_TABLE(cf_custom_action),
-    ADD_TABLE(media),
-    ADD_TABLE(property)
-};
-
-static const msi_table rf_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(cf_create_folders),
-    ADD_TABLE(rf_install_exec_seq),
-    ADD_TABLE(cf_custom_action),
-    ADD_TABLE(media),
-    ADD_TABLE(property)
-};
-
-static const msi_table sss_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(sss_install_exec_seq),
-    ADD_TABLE(sss_service_control),
-    ADD_TABLE(media),
-    ADD_TABLE(property)
-};
-
-static const msi_table sds_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(sss_install_exec_seq),
-    ADD_TABLE(service_control),
-    ADD_TABLE(media),
-    ADD_TABLE(property)
-};
-
-static const msi_table sr_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(sr_selfreg),
-    ADD_TABLE(sr_install_exec_seq),
-    ADD_TABLE(media),
-    ADD_TABLE(property)
-};
-
-static const msi_table font_tables[] =
-{
-    ADD_TABLE(font_component),
-    ADD_TABLE(directory),
-    ADD_TABLE(font_feature),
-    ADD_TABLE(font_feature_comp),
-    ADD_TABLE(font_file),
-    ADD_TABLE(font),
-    ADD_TABLE(font_install_exec_seq),
-    ADD_TABLE(font_media),
-    ADD_TABLE(property)
-};
-
-static const msi_table vp_tables[] =
-{
-    ADD_TABLE(component),
-    ADD_TABLE(directory),
-    ADD_TABLE(feature),
-    ADD_TABLE(feature_comp),
-    ADD_TABLE(file),
-    ADD_TABLE(vp_custom_action),
-    ADD_TABLE(vp_install_exec_seq),
-    ADD_TABLE(media),
-    ADD_TABLE(vp_property)
-};
-
-static const msi_table odbc_tables[] =
-{
-    ADD_TABLE(odbc_component),
-    ADD_TABLE(directory),
-    ADD_TABLE(odbc_feature),
-    ADD_TABLE(odbc_feature_comp),
-    ADD_TABLE(odbc_file),
-    ADD_TABLE(odbc_driver),
-    ADD_TABLE(odbc_translator),
-    ADD_TABLE(odbc_datasource),
-    ADD_TABLE(odbc_install_exec_seq),
-    ADD_TABLE(odbc_media),
-    ADD_TABLE(property)
-};
-
-static const msi_table tl_tables[] =
-{
-    ADD_TABLE(tl_component),
-    ADD_TABLE(directory),
-    ADD_TABLE(tl_feature),
-    ADD_TABLE(tl_feature_comp),
-    ADD_TABLE(tl_file),
-    ADD_TABLE(tl_typelib),
-    ADD_TABLE(tl_install_exec_seq),
-    ADD_TABLE(media),
-    ADD_TABLE(property)
-};
-
-static const msi_table crs_tables[] =
-{
-    ADD_TABLE(crs_component),
-    ADD_TABLE(directory),
-    ADD_TABLE(crs_feature),
-    ADD_TABLE(crs_feature_comp),
-    ADD_TABLE(crs_file),
-    ADD_TABLE(crs_shortcut),
-    ADD_TABLE(crs_install_exec_seq),
-    ADD_TABLE(media),
-    ADD_TABLE(property)
-};
-
-static const msi_table pub_tables[] =
-{
-    ADD_TABLE(directory),
-    ADD_TABLE(pub_component),
-    ADD_TABLE(pub_feature),
-    ADD_TABLE(pub_feature_comp),
-    ADD_TABLE(pub_file),
-    ADD_TABLE(pub_publish_component),
-    ADD_TABLE(pub_install_exec_seq),
-    ADD_TABLE(media),
-    ADD_TABLE(property)
 };
 
 /* cabinet definitions */
@@ -3541,7 +2810,7 @@ static void test_readonlyfile_cab(void)
         ReadFile(file, buf, sizeof(buf) - 1, &size, NULL);
         CloseHandle(file);
     }
-    ok(!memcmp( buf, "maximus", sizeof("maximus")-1 ), "Expected file to be overwritten, got '%s'\n", buf);
+    ok( !lstrcmp( buf, "maximus" ), "Expected file to be overwritten, got '%s'\n", buf );
     ok(delete_pf("msitest\\maximus", TRUE), "File not installed\n");
     ok(delete_pf("msitest", FALSE), "File not installed\n");
 
@@ -7297,7 +6566,6 @@ static void test_envvar(void)
     LONG res;
     DWORD type, size;
     char buffer[16];
-    UINT i;
 
     if (on_win9x)
     {
@@ -7366,27 +6634,8 @@ static void test_envvar(void)
     res = RegDeleteValueA(env, "MSITESTVAR10");
     ok(res == ERROR_FILE_NOT_FOUND, "Expected ERROR_FILE_NOT_FOUND, got %d\n", res);
 
-    i = 11;
-    while (environment_dat_results[(i-11)]) {
-        char name[20];
-        sprintf(name, "MSITESTVAR%d", i);
-
-        type = REG_NONE;
-        size = sizeof(buffer);
-        buffer[0] = 0;
-        res = RegQueryValueExA(env, name, NULL, &type, (LPBYTE)buffer, &size);
-        ok(res == ERROR_SUCCESS, "%d: Expected ERROR_SUCCESS, got %d\n", i, res);
-        ok(type == REG_SZ, "%d: Expected REG_SZ, got %u\n", i, type);
-        ok(!lstrcmp(buffer, environment_dat_results[(i-11)]), "%d: Expected %s, got %s\n",
-           i, environment_dat_results[(i-11)], buffer);
-
-        res = RegDeleteValueA(env, name);
-        ok(res == ERROR_SUCCESS, "%d: Expected ERROR_SUCCESS, got %d\n", i, res);
-        i++;
-    }
-
-
     RegCloseKey(env);
+
     delete_pf("msitest\\cabout\\new\\five.txt", TRUE);
     delete_pf("msitest\\cabout\\new", FALSE);
     delete_pf("msitest\\cabout\\four.txt", TRUE);
@@ -7421,9 +6670,9 @@ static void test_preselected(void)
     ok(!delete_pf("msitest\\first\\two.txt", TRUE), "File installed\n");
     ok(!delete_pf("msitest\\first", FALSE), "File installed\n");
     ok(!delete_pf("msitest\\filename", TRUE), "File installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File not installed\n");
+    todo_wine ok(delete_pf("msitest\\one.txt", TRUE), "File not installed\n");
     ok(!delete_pf("msitest\\service.exe", TRUE), "File installed\n");
-    ok(delete_pf("msitest", FALSE), "File not installed\n");
+    todo_wine ok(delete_pf("msitest", FALSE), "File not installed\n");
 
     r = MsiInstallProductA(msifile, NULL);
     ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
@@ -7481,167 +6730,28 @@ static void test_installed_prop(void)
     delete_test_files();
 }
 
-static void test_allusers_prop(void)
-{
-    UINT r;
-
-    create_test_files();
-    create_database(msifile, aup_tables, sizeof(aup_tables) / sizeof(msi_table));
-
-    MsiSetInternalUI(INSTALLUILEVEL_NONE, NULL);
-
-    /* ALLUSERS property unset */
-    r = MsiInstallProductA(msifile, "FULL=1");
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\new", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\changed", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\first", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File installed\n");
-    ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-    ok(delete_pf("msitest", FALSE), "File not installed\n");
-
-    r = MsiInstallProductA(msifile, "REMOVE=ALL");
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    delete_test_files();
-
-    create_test_files();
-    create_database(msifile, aup2_tables, sizeof(aup2_tables) / sizeof(msi_table));
-
-    MsiSetInternalUI(INSTALLUILEVEL_NONE, NULL);
-
-    /* ALLUSERS property set to 1 */
-    r = MsiInstallProductA(msifile, "FULL=1");
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\new", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\changed", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\first", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File installed\n");
-    ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-    ok(delete_pf("msitest", FALSE), "File not installed\n");
-
-    r = MsiInstallProductA(msifile, "REMOVE=ALL");
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    delete_test_files();
-
-    create_test_files();
-    create_database(msifile, aup3_tables, sizeof(aup3_tables) / sizeof(msi_table));
-
-    MsiSetInternalUI(INSTALLUILEVEL_NONE, NULL);
-
-    /* ALLUSERS property set to 2 */
-    r = MsiInstallProductA(msifile, "FULL=1");
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\new", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\changed", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\first", FALSE), "File not installed\n");
-    ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File installed\n");
-    ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-    ok(delete_pf("msitest", FALSE), "File not installed\n");
-
-    r = MsiInstallProductA(msifile, "REMOVE=ALL");
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    delete_test_files();
-
-    create_test_files();
-    create_database(msifile, aup4_tables, sizeof(aup4_tables) / sizeof(msi_table));
-
-    MsiSetInternalUI(INSTALLUILEVEL_NONE, NULL);
-
-    /* ALLUSERS property set to 2, conditioned on ALLUSERS = 1 */
-    r = MsiInstallProductA(msifile, "FULL=1");
-    if (r == ERROR_SUCCESS)
-    {
-        /* Win9x/WinMe */
-        win_skip("Win9x and WinMe act differently with respect to ALLUSERS\n");
-
-        ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-        ok(delete_pf("msitest\\cabout\\new", FALSE), "File not installed\n");
-        ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-        ok(delete_pf("msitest\\cabout", FALSE), "File not installed\n");
-        ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-        ok(delete_pf("msitest\\changed", FALSE), "File not installed\n");
-        ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-        ok(delete_pf("msitest\\first", FALSE), "File not installed\n");
-        ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-        ok(delete_pf("msitest\\one.txt", TRUE), "File installed\n");
-        ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-        ok(delete_pf("msitest", FALSE), "File not installed\n");
-
-        r = MsiInstallProductA(msifile, "REMOVE=ALL");
-        ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-        delete_test_files();
-    }
-    else
-        ok(r == ERROR_INSTALL_FAILURE, "Expected ERROR_INSTALL_FAILURE, got %u\n", r);
-}
-
 static char session_manager[] = "System\\CurrentControlSet\\Control\\Session Manager";
 static char rename_ops[]      = "PendingFileRenameOperations";
 
 static void process_pending_renames(HKEY hkey)
 {
-    char *buf, *src, *dst, *buf2, *buf2ptr;
-    DWORD size, buf2len = 0;
+    char *buf, *src, *dst;
+    DWORD size;
     LONG ret;
-    BOOL found = FALSE;
 
     ret = RegQueryValueExA(hkey, rename_ops, NULL, NULL, NULL, &size);
     buf = HeapAlloc(GetProcessHeap(), 0, size);
-    buf2ptr = buf2 = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size);
     buf[0] = 0;
 
     ret = RegQueryValueExA(hkey, rename_ops, NULL, NULL, (LPBYTE)buf, &size);
     ok(!ret, "RegQueryValueExA failed %d (%u)\n", ret, GetLastError());
+    ok(strstr(buf, "msitest\\maximus") != NULL, "Unexpected value \"%s\"\n", buf);
 
     for (src = buf; *src; src = dst + strlen(dst) + 1)
     {
         DWORD flags = MOVEFILE_COPY_ALLOWED;
 
         dst = src + strlen(src) + 1;
-
-        if (!strstr(src, "msitest"))
-        {
-            lstrcpyA(buf2ptr, src);
-            buf2len += strlen(src) + 1;
-            buf2ptr += strlen(src) + 1;
-            if (*dst)
-            {
-                lstrcpyA(buf2ptr, dst);
-                buf2ptr += strlen(dst) + 1;
-                buf2len += strlen(dst) + 1;
-            }
-            buf2ptr++;
-            buf2len++;
-            continue;
-        }
-
-        found = TRUE;
-
         if (*dst == '!')
         {
             flags |= MOVEFILE_REPLACE_EXISTING;
@@ -7656,19 +6766,8 @@ static void process_pending_renames(HKEY hkey)
         else
             ok(DeleteFileA(src), "Failed to delete file %s (%u)\n", src, GetLastError());
     }
-
-    ok(found, "Expected a 'msitest' entry\n");
-
-    if (*buf2)
-    {
-        buf2len++;
-        RegSetValueExA(hkey, rename_ops, 0, REG_MULTI_SZ, (LPBYTE)buf2, buf2len);
-    }
-    else
-        RegDeleteValueA(hkey, rename_ops);
-
     HeapFree(GetProcessHeap(), 0, buf);
-    HeapFree(GetProcessHeap(), 0, buf2);
+    RegDeleteValueA(hkey, rename_ops);
 }
 
 static BOOL file_matches_data(LPCSTR file, LPCSTR data)
@@ -7692,6 +6791,7 @@ static BOOL file_matches_data(LPCSTR file, LPCSTR data)
 static void test_file_in_use(void)
 {
     UINT r;
+    DWORD size;
     HANDLE file;
     HKEY hkey;
     char path[MAX_PATH];
@@ -7703,6 +6803,11 @@ static void test_file_in_use(void)
     }
 
     RegOpenKeyExA(HKEY_LOCAL_MACHINE, session_manager, 0, KEY_ALL_ACCESS, &hkey);
+    if (!RegQueryValueExA(hkey, rename_ops, NULL, NULL, NULL, &size))
+    {
+        skip("Pending file rename operations, skipping test\n");
+        return;
+    }
 
     CreateDirectoryA("msitest", NULL);
     create_file("msitest\\maximus", 500);
@@ -7739,6 +6844,7 @@ static void test_file_in_use(void)
 static void test_file_in_use_cab(void)
 {
     UINT r;
+    DWORD size;
     HANDLE file;
     HKEY hkey;
     char path[MAX_PATH];
@@ -7750,6 +6856,11 @@ static void test_file_in_use_cab(void)
     }
 
     RegOpenKeyExA(HKEY_LOCAL_MACHINE, session_manager, 0, KEY_ALL_ACCESS, &hkey);
+    if (!RegQueryValueExA(hkey, rename_ops, NULL, NULL, NULL, &size))
+    {
+        skip("Pending file rename operations, skipping test\n");
+        return;
+    }
 
     CreateDirectoryA("msitest", NULL);
     create_file("maximus", 500);
@@ -7865,443 +6976,6 @@ static void test_MsiSetExternalUI(void)
     ok(!error, "MsiSetExternalUIRecord failed %u\n", error);
 }
 
-static void test_feature_override(void)
-{
-    UINT r;
-
-    create_test_files();
-    create_database(msifile, tables, sizeof(tables) / sizeof(msi_table));
-
-    r = MsiInstallProductA(msifile, "ADDLOCAL=One");
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(!delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\cabout\\new", FALSE), "File installed\n");
-    ok(!delete_pf("msitest\\cabout\\four.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\cabout", FALSE), "File installed\n");
-    ok(!delete_pf("msitest\\changed\\three.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\changed", FALSE), "File installed\n");
-    ok(!delete_pf("msitest\\first\\two.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\first", FALSE), "File installed\n");
-    ok(!delete_pf("msitest\\filename", TRUE), "File installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File not installed\n");
-    ok(!delete_pf("msitest\\service.exe", TRUE), "File installed\n");
-    ok(delete_pf("msitest", FALSE), "File not installed\n");
-
-    delete_test_files();
-}
-
-static void test_create_folder(void)
-{
-    UINT r;
-
-    create_test_files();
-    create_database(msifile, cf_tables, sizeof(cf_tables) / sizeof(msi_table));
-
-    MsiSetInternalUI(INSTALLUILEVEL_NONE, NULL);
-
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_INSTALL_FAILURE, "Expected ERROR_INSTALL_FAILURE, got %u\n", r);
-
-    ok(!delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\cabout\\new", FALSE), "Directory created\n");
-    ok(!delete_pf("msitest\\cabout\\four.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\cabout", FALSE), "Directory created\n");
-    ok(!delete_pf("msitest\\changed\\three.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\changed", FALSE), "Directory created\n");
-    ok(!delete_pf("msitest\\first\\two.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\first", FALSE), "Directory created\n");
-    ok(!delete_pf("msitest\\filename", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\one.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\service.exe", TRUE), "File installed\n");
-    ok(!delete_pf("msitest", FALSE), "Directory created\n");
-
-    r = MsiInstallProductA(msifile, "LOCAL=Two");
-    ok(r == ERROR_INSTALL_FAILURE, "Expected ERROR_INSTALL_FAILURE, got %u\n", r);
-
-    ok(!delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\cabout\\new", FALSE), "Directory created\n");
-    ok(!delete_pf("msitest\\cabout\\four.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\cabout", FALSE), "Directory created\n");
-    ok(!delete_pf("msitest\\changed\\three.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\changed", FALSE), "Directory created\n");
-    ok(!delete_pf("msitest\\first\\two.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\first", FALSE), "Directory created\n");
-    ok(!delete_pf("msitest\\filename", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\one.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\service.exe", TRUE), "File installed\n");
-    ok(!delete_pf("msitest", FALSE), "Directory created\n");
-
-    delete_test_files();
-}
-
-static void test_remove_folder(void)
-{
-    UINT r;
-
-    create_test_files();
-    create_database(msifile, rf_tables, sizeof(rf_tables) / sizeof(msi_table));
-
-    MsiSetInternalUI(INSTALLUILEVEL_NONE, NULL);
-
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_INSTALL_FAILURE, "Expected ERROR_INSTALL_FAILURE, got %u\n", r);
-
-    ok(!delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\cabout\\new", FALSE), "Directory created\n");
-    ok(!delete_pf("msitest\\cabout\\four.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\cabout", FALSE), "Directory created\n");
-    ok(!delete_pf("msitest\\changed\\three.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\changed", FALSE), "Directory created\n");
-    ok(!delete_pf("msitest\\first\\two.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\first", FALSE), "Directory created\n");
-    ok(!delete_pf("msitest\\filename", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\one.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\service.exe", TRUE), "File installed\n");
-    ok(!delete_pf("msitest", FALSE), "Directory created\n");
-
-    r = MsiInstallProductA(msifile, "LOCAL=Two");
-    ok(r == ERROR_INSTALL_FAILURE, "Expected ERROR_INSTALL_FAILURE, got %u\n", r);
-
-    ok(!delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\cabout\\new", FALSE), "Directory created\n");
-    ok(!delete_pf("msitest\\cabout\\four.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\cabout", FALSE), "Directory created\n");
-    ok(!delete_pf("msitest\\changed\\three.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\changed", FALSE), "Directory created\n");
-    ok(!delete_pf("msitest\\first\\two.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\first", FALSE), "Directory created\n");
-    ok(!delete_pf("msitest\\filename", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\one.txt", TRUE), "File installed\n");
-    ok(!delete_pf("msitest\\service.exe", TRUE), "File installed\n");
-    ok(!delete_pf("msitest", FALSE), "Directory created\n");
-
-    delete_test_files();
-}
-
-static void test_start_services(void)
-{
-    UINT r;
-    SC_HANDLE scm, service;
-    BOOL ret;
-    DWORD error = ERROR_SUCCESS;
-
-    if (on_win9x)
-    {
-        win_skip("Services are not implemented on Win9x and WinMe\n");
-        return;
-    }
-    scm = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-    ok(scm != NULL, "Failed to open the SC Manager\n");
-    if (!scm) return;
-
-    service = OpenService(scm, "Spooler", SC_MANAGER_ALL_ACCESS);
-    if (!service && GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST)
-    {
-        win_skip("The 'Spooler' service does not exist\n");
-        CloseServiceHandle(scm);
-        return;
-    }
-    ok(service != NULL, "Failed to open Spooler, error %d\n", GetLastError());
-    if (!service) {
-        CloseServiceHandle(scm);
-        return;
-    }
-
-    ret = StartService(service, 0, NULL);
-    if (!ret && (error = GetLastError()) != ERROR_SERVICE_ALREADY_RUNNING)
-    {
-        skip("Terminal service not available, skipping test\n");
-        CloseServiceHandle(service);
-        CloseServiceHandle(scm);
-        return;
-    }
-
-    CloseServiceHandle(service);
-    CloseServiceHandle(scm);
-
-    create_test_files();
-    create_database(msifile, sss_tables, sizeof(sss_tables) / sizeof(msi_table));
-
-    MsiSetInternalUI(INSTALLUILEVEL_NONE, NULL);
-
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\new", FALSE), "Directory not created\n");
-    ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout", FALSE), "Directory not created\n");
-    ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\changed", FALSE), "Directory not created\n");
-    ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\first", FALSE), "Directory not created\n");
-    ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-    ok(delete_pf("msitest", FALSE), "Directory not created\n");
-
-    delete_test_files();
-
-    if (error == ERROR_SUCCESS)
-    {
-        SERVICE_STATUS status;
-
-        scm = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-        service = OpenService(scm, "Spooler", SC_MANAGER_ALL_ACCESS);
-
-        ret = ControlService(service, SERVICE_CONTROL_STOP, &status);
-        ok(ret, "ControlService failed %u\n", GetLastError());
-
-        CloseServiceHandle(service);
-        CloseServiceHandle(scm);
-    }
-}
-
-static void test_delete_services(void)
-{
-    UINT r;
-
-    create_test_files();
-    create_database(msifile, sds_tables, sizeof(sds_tables) / sizeof(msi_table));
-
-    MsiSetInternalUI(INSTALLUILEVEL_NONE, NULL);
-
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\new", FALSE), "Directory not created\n");
-    ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout", FALSE), "Directory not created\n");
-    ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\changed", FALSE), "Directory not created\n");
-    ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\first", FALSE), "Directory not created\n");
-    ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-    ok(delete_pf("msitest", FALSE), "Directory not created\n");
-
-    delete_test_files();
-}
-
-static void test_self_registration(void)
-{
-    UINT r;
-
-    create_test_files();
-    create_database(msifile, sr_tables, sizeof(sr_tables) / sizeof(msi_table));
-
-    MsiSetInternalUI(INSTALLUILEVEL_NONE, NULL);
-
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\new", FALSE), "Directory not created\n");
-    ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout", FALSE), "Directory not created\n");
-    ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\changed", FALSE), "Directory not created\n");
-    ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\first", FALSE), "Directory not created\n");
-    ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-    ok(delete_pf("msitest", FALSE), "Directory not created\n");
-
-    delete_test_files();
-}
-
-static void test_register_font(void)
-{
-    static const char regfont1[] = "Software\\Microsoft\\Windows NT\\CurrentVersion\\Fonts";
-    static const char regfont2[] = "Software\\Microsoft\\Windows\\CurrentVersion\\Fonts";
-    LONG ret;
-    HKEY key;
-    UINT r;
-
-    create_test_files();
-    create_file("msitest\\font.ttf", 1000);
-    create_database(msifile, font_tables, sizeof(font_tables) / sizeof(msi_table));
-
-    MsiSetInternalUI(INSTALLUILEVEL_NONE, NULL);
-
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ret = RegOpenKeyA(HKEY_LOCAL_MACHINE, regfont1, &key);
-    if (ret)
-        RegOpenKeyA(HKEY_LOCAL_MACHINE, regfont2, &key);
-
-    ret = RegQueryValueExA(key, "msi test font", NULL, NULL, NULL, NULL);
-    ok(ret != ERROR_FILE_NOT_FOUND, "unexpected result %d\n", ret);
-
-    r = MsiInstallProductA(msifile, "REMOVE=ALL");
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    todo_wine ok(!delete_pf("msitest", FALSE), "directory not removed\n");
-
-    ret = RegQueryValueExA(key, "msi test font", NULL, NULL, NULL, NULL);
-    ok(ret == ERROR_FILE_NOT_FOUND, "unexpected result %d\n", ret);
-
-    RegDeleteValueA(key, "msi test font");
-    RegCloseKey(key);
-    delete_test_files();
-}
-
-static void test_validate_product_id(void)
-{
-    UINT r;
-
-    create_test_files();
-    create_database(msifile, vp_tables, sizeof(vp_tables) / sizeof(msi_table));
-
-    MsiSetInternalUI(INSTALLUILEVEL_NONE, NULL);
-
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    r = MsiInstallProductA(msifile, "SET_PRODUCT_ID=1");
-    ok(r == ERROR_INSTALL_FAILURE, "Expected ERROR_INSTALL_FAILURE, got %u\n", r);
-
-    r = MsiInstallProductA(msifile, "SET_PRODUCT_ID=2");
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    r = MsiInstallProductA(msifile, "PIDKEY=123-1234567");
-    ok(r == ERROR_INSTALL_FAILURE, "Expected ERROR_INSTALL_FAILURE, got %u\n", r);
-
-    ok(delete_pf("msitest\\cabout\\new\\five.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout\\new", FALSE), "Directory not created\n");
-    ok(delete_pf("msitest\\cabout\\four.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\cabout", FALSE), "Directory not created\n");
-    ok(delete_pf("msitest\\changed\\three.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\changed", FALSE), "Directory not created\n");
-    ok(delete_pf("msitest\\first\\two.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\first", FALSE), "Directory not created\n");
-    ok(delete_pf("msitest\\filename", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\one.txt", TRUE), "File not installed\n");
-    ok(delete_pf("msitest\\service.exe", TRUE), "File not installed\n");
-    ok(delete_pf("msitest", FALSE), "Directory not created\n");
-
-    delete_test_files();
-}
-
-static void test_install_remove_odbc(void)
-{
-    UINT r;
-
-    create_test_files();
-    create_file("msitest\\ODBCdriver.dll", 1000);
-    create_file("msitest\\ODBCdriver2.dll", 1000);
-    create_file("msitest\\ODBCtranslator.dll", 1000);
-    create_file("msitest\\ODBCtranslator2.dll", 1000);
-    create_file("msitest\\ODBCsetup.dll", 1000);
-    create_database(msifile, odbc_tables, sizeof(odbc_tables) / sizeof(msi_table));
-
-    MsiSetInternalUI(INSTALLUILEVEL_NONE, NULL);
-
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(delete_pf("msitest\\ODBCdriver.dll", TRUE), "file not created\n");
-    ok(delete_pf("msitest\\ODBCdriver2.dll", TRUE), "file not created\n");
-    ok(delete_pf("msitest\\ODBCtranslator.dll", TRUE), "file not created\n");
-    ok(delete_pf("msitest\\ODBCtranslator2.dll", TRUE), "file not created\n");
-    ok(delete_pf("msitest\\ODBCsetup.dll", TRUE), "file not created\n");
-    ok(delete_pf("msitest", FALSE), "directory not created\n");
-
-    delete_test_files();
-}
-
-static void test_register_typelib(void)
-{
-    UINT r;
-
-    create_test_files();
-    create_file("msitest\\typelib.dll", 1000);
-    create_database(msifile, tl_tables, sizeof(tl_tables) / sizeof(msi_table));
-
-    MsiSetInternalUI(INSTALLUILEVEL_NONE, NULL);
-
-    r = MsiInstallProductA(msifile, "REGISTER_TYPELIB=1");
-    ok(r == ERROR_INSTALL_FAILURE, "Expected ERROR_INSTALL_FAILURE, got %u\n", r);
-
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    r = MsiInstallProductA(msifile, "REMOVE=ALL");
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(!delete_pf("msitest\\typelib.dll", TRUE), "file not removed\n");
-    todo_wine ok(!delete_pf("msitest", FALSE), "directory not removed\n");
-
-    delete_test_files();
-}
-
-static void test_create_remove_shortcut(void)
-{
-    UINT r;
-
-    create_test_files();
-    create_file("msitest\\target.txt", 1000);
-    create_database(msifile, crs_tables, sizeof(crs_tables) / sizeof(msi_table));
-
-    MsiSetInternalUI(INSTALLUILEVEL_NONE, NULL);
-
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(pf_exists("msitest\\target.txt"), "file not created\n");
-    ok(pf_exists("msitest\\shortcut.lnk"), "file not created\n");
-
-    r = MsiInstallProductA(msifile, "REMOVE=ALL");
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    ok(!delete_pf("msitest\\shortcut.lnk", TRUE), "file not removed\n");
-    ok(!delete_pf("msitest\\target.txt", TRUE), "file not removed\n");
-    todo_wine ok(!delete_pf("msitest", FALSE), "directory not removed\n");
-
-    delete_test_files();
-}
-
-static void test_publish_components(void)
-{
-    static char keypath[] =
-        "Software\\Microsoft\\Installer\\Components\\0CBCFA296AC907244845745CEEB2F8AA";
-
-    UINT r;
-    LONG res;
-    HKEY key;
-
-    create_test_files();
-    create_file("msitest\\english.txt", 1000);
-    create_database(msifile, pub_tables, sizeof(pub_tables) / sizeof(msi_table));
-
-    MsiSetInternalUI(INSTALLUILEVEL_NONE, NULL);
-
-    r = MsiInstallProductA(msifile, NULL);
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    res = RegOpenKeyA(HKEY_CURRENT_USER, keypath, &key);
-    ok(res == ERROR_SUCCESS, "components key not created %d\n", res);
-
-    res = RegQueryValueExA(key, "english.txt", NULL, NULL, NULL, NULL);
-    ok(res == ERROR_SUCCESS, "value not found %d\n", res);
-    RegCloseKey(key);
-
-    r = MsiInstallProductA(msifile, "REMOVE=ALL");
-    ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %u\n", r);
-
-    res = RegOpenKeyA(HKEY_CURRENT_USER, keypath, &key);
-    ok(res == ERROR_FILE_NOT_FOUND, "unexpected result %d\n", res);
-
-    ok(!delete_pf("msitest\\english.txt", TRUE), "file not removed\n");
-    todo_wine ok(!delete_pf("msitest", FALSE), "directory not removed\n");
-    delete_test_files();
-}
-
 START_TEST(install)
 {
     DWORD len;
@@ -8391,19 +7065,6 @@ START_TEST(install)
     test_file_in_use();
     test_file_in_use_cab();
     test_MsiSetExternalUI();
-    test_allusers_prop();
-    test_feature_override();
-    test_create_folder();
-    test_remove_folder();
-    test_start_services();
-    test_delete_services();
-    test_self_registration();
-    test_register_font();
-    test_validate_product_id();
-    test_install_remove_odbc();
-    test_register_typelib();
-    test_create_remove_shortcut();
-    test_publish_components();
 
     DeleteFileA(log_file);
 

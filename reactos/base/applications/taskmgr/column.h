@@ -20,7 +20,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#pragma once
+#ifndef __COLUMN_H
+#define __COLUMN_H
 
 #define COLUMN_IMAGENAME            0
 #define COLUMN_PID                  1
@@ -109,3 +110,5 @@ void ProcessPage_OnViewSelectColumns(void);
 void AddColumns(void);
 void SaveColumnSettings(void);
 void UpdateColumnDataHints(void);
+
+#endif /* __COLUMN_H */

@@ -24,7 +24,6 @@
 #include "windef.h"
 #include "winbase.h"
 #include "winnls.h"
-#include "winioctl.h"
 #include "winnetwk.h"
 #include "npapi.h"
 #include "winreg.h"
@@ -635,10 +634,7 @@ DWORD WINAPI WNetOpenEnumA( DWORD dwScope, DWORD dwType, DWORD dwUsage,
     if (!lphEnum)
         ret = WN_BAD_POINTER;
     else if (!providerTable || providerTable->numProviders == 0)
-    {
-        lphEnum = NULL;
         ret = WN_NO_NETWORK;
-    }
     else
     {
         if (lpNet)
@@ -727,10 +723,7 @@ DWORD WINAPI WNetOpenEnumW( DWORD dwScope, DWORD dwType, DWORD dwUsage,
     if (!lphEnum)
         ret = WN_BAD_POINTER;
     else if (!providerTable || providerTable->numProviders == 0)
-    {
-        lphEnum = NULL;
         ret = WN_NO_NETWORK;
-    }
     else
     {
         switch (dwScope)
@@ -1930,7 +1923,7 @@ DWORD WINAPI WNetGetUniversalNameW ( LPCWSTR lpLocalPath, DWORD dwInfoLevel,
         break;
     }
 
-    if (err != WN_NO_ERROR) SetLastError(err);
+    SetLastError(err);
     return err;
 }
 

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_IS_IS_H__
+#define LANG_IS_IS_H__
 
 MUI_LAYOUTS isISLayouts[] =
 {
@@ -6,3 +7,5 @@ MUI_LAYOUTS isISLayouts[] =
     { L"0409", L"00000409" },
     { NULL, NULL }
 };
+
+#endif

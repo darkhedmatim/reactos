@@ -9,15 +9,6 @@
 #include <d3dtypes.h>
 #include <d3dcaps.h>
 
-/* Helper macro to enable gcc's extension.  */
-#ifndef __GNU_EXTENSION
-#ifdef __GNUC__
-#define __GNU_EXTENSION __extension__
-#else
-#define __GNU_EXTENSION
-#endif
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -31,17 +22,17 @@ DEFINE_GUID(GUID_DDStereoMode,                   0xF828169C, 0xA8E8, 0x11D2, 0xA
 
 typedef struct _D3DNTHAL_CONTEXTCREATEDATA
 {
-    __GNU_EXTENSION union
+    union
     {
         PDD_DIRECTDRAW_GLOBAL lpDDGbl;
         PDD_DIRECTDRAW_LOCAL lpDDLcl;
     };
-    __GNU_EXTENSION union
+    union
     {
         PDD_SURFACE_LOCAL lpDDS;
         PDD_SURFACE_LOCAL lpDDSLcl;
     };
-    __GNU_EXTENSION union
+    union
     {
         PDD_SURFACE_LOCAL lpDDSZ;
         PDD_SURFACE_LOCAL lpDDSZLcl;
@@ -232,7 +223,7 @@ typedef struct _D3DNTHAL_DRAWPRIMITIVES2DATA
     PDD_SURFACE_LOCAL lpDDCommands;
     DWORD dwCommandOffset;
     DWORD dwCommandLength;
-    __GNU_EXTENSION union
+    union
     {
         PDD_SURFACE_LOCAL lpDDVertex;
         LPVOID lpVertices;
@@ -242,7 +233,7 @@ typedef struct _D3DNTHAL_DRAWPRIMITIVES2DATA
     DWORD dwReqVertexBufSize;
     DWORD dwReqCommandBufSize;
     LPDWORD lpdwRStates;
-    __GNU_EXTENSION union
+    union
     {
         DWORD dwVertexSize;
         HRESULT ddrval;

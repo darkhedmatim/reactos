@@ -6,7 +6,8 @@
  * PROGRAMMERS:     Hervé Poussineau
  */
 
-#pragma once
+#ifndef __MINITUI_H
+#define __MINITUI_H
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //
@@ -28,3 +29,5 @@ VOID MiniTuiDrawProgressBar(ULONG Left, ULONG Top, ULONG Right, ULONG Bottom, UL
 VOID MiniTuiDrawMenu(PUI_MENU_INFO MenuInfo);
 
 extern const UIVTBL MiniTuiVtbl;
+
+#endif // #defined __TUI_H

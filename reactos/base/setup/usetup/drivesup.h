@@ -24,11 +24,14 @@
  * PROGRAMMER:      Eric Kohl
  */
 
-#pragma once
+#ifndef __DRIVESUP_H__
+#define __DRIVESUP_H__
 
 NTSTATUS
 GetSourcePaths(PUNICODE_STRING SourcePath,
 	       PUNICODE_STRING SourceRootPath,
 	       PUNICODE_STRING SourceRootDir);
+
+#endif /* __DRIVESUP_H__ */
 
 /* EOF */

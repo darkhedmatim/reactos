@@ -17,7 +17,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#pragma once
+#ifndef __VIDEO_H
+#define __VIDEO_H
 
 #include <pshpack1.h>
 typedef struct
@@ -42,3 +43,6 @@ VOID	VideoRestorePaletteState(PPALETTE_ENTRY Palette, ULONG ColorCount);
 VOID	VideoSetAllColorsToBlack(ULONG ColorCount);
 VOID	VideoFadeIn(PPALETTE_ENTRY Palette, ULONG ColorCount);
 VOID	VideoFadeOut(ULONG ColorCount);
+
+
+#endif  // defined __VIDEO_H

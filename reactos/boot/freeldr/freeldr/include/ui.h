@@ -17,7 +17,9 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#pragma once
+#ifndef __UI_H
+#define __UI_H
+
 
 extern	ULONG		UiScreenWidth;									// Screen Width
 extern	ULONG		UiScreenHeight;									// Screen Height
@@ -174,3 +176,5 @@ extern UIVTBL UiVtbl;
 #define D_HORZ	(0xcd)  /* Double horizontal line.*/
 #define VERT    (0xb3)  /* Single vertical line   */
 #define D_VERT  (0xba)  /* Double vertical line.  */
+
+#endif // #defined __UI_H

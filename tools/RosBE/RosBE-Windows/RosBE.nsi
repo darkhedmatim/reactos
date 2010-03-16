@@ -22,8 +22,8 @@ VIAddVersionKey /LANG=1033 "ProductVersion" "${PRODUCT_VERSION}"
 VIAddVersionKey /LANG=1033 "ProductName" "${PRODUCT_NAME}"
 VIAddVersionKey /LANG=1033 "Comments" "This installer was written by Peter Ward and Daniel Reimer using Nullsoft Scriptable Install System (http://nsis.sourceforge.net/)"
 VIAddVersionKey /LANG=1033 "CompanyName" "ReactOS Team"
-VIAddVersionKey /LANG=1033 "LegalTrademarks" "Copyright © 2010 ReactOS Team"
-VIAddVersionKey /LANG=1033 "LegalCopyright" "Copyright © 2010 ReactOS Team"
+VIAddVersionKey /LANG=1033 "LegalTrademarks" "Copyright © 2009 ReactOS Team"
+VIAddVersionKey /LANG=1033 "LegalCopyright" "Copyright © 2009 ReactOS Team"
 VIAddVersionKey /LANG=1033 "FileDescription" "${PRODUCT_NAME} Setup"
 VIProductVersion "1.5.0.0"
 
@@ -118,32 +118,45 @@ Section -BaseFiles SEC01
     File /r Root\README.pdf
     File /r Root\changelog.txt
     File /r Root\LICENSE.txt
-    File /r Root\Basedir.cmd
-    File /r Root\Build-Shared.cmd
-    File /r Root\charch.cmd
-    File /r Root\chdefgcc.cmd
-    File /r Root\Clean.cmd
-    File /r Root\Help.cmd
-    File /r Root\Make.cmd
-    File /r Root\Makex.cmd
-    File /r Root\Remake.cmd
-    File /r Root\Remakex.cmd
-    File /r Root\Renv.cmd
-    File /r Root\RosBE.cmd
-    File /r Root\rosbe-gcc-env.cmd
-    File /r Root\TimeDate.cmd
-    File /r Root\version.cmd
+    ${If} $R4 = '6.1'
+        File /r Components\Powershell\Build.ps1
+        File /r Components\Powershell\charch.ps1
+        File /r Components\Powershell\chdefgcc.ps1
+        File /r Components\Powershell\Clean.ps1
+        File /r Components\Powershell\Help.ps1
+        File /r Components\Powershell\Remake.ps1
+        File /r Components\Powershell\RosBE.ps1
+        File /r Components\Powershell\rosbe-gcc-env.ps1
+        File /r Components\Powershell\version.ps1
+        WriteRegStr HKLM "Software\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell" "ExecutionPolicy" "RemoteSigned"
+    ${else}
+        File /r Root\Basedir.cmd
+        File /r Root\Build-Shared.cmd
+        File /r Root\charch.cmd
+        File /r Root\chdefgcc.cmd
+        File /r Root\Clean.cmd
+        File /r Root\Help.cmd
+        File /r Root\Make.cmd
+        File /r Root\Makex.cmd
+        File /r Root\Remake.cmd
+        File /r Root\Renv.cmd
+        File /r Root\RosBE.cmd
+        File /r Root\rosbe-gcc-env.cmd
+        File /r Root\TimeDate.cmd
+        File /r Root\version.cmd
+        SetOutPath "$INSTDIR\Tools"
+        SetOverwrite try
+        File /r Components\Tools\flash.exe
+        File /r Components\Tools\buildtime.exe
+        File /r Components\Tools\chknewer.exe
+        File /r Components\Tools\cpucount.exe
+        File /r Components\Tools\getdate.exe
+        File /r Components\Tools\rquote.exe
+        File /r Components\Tools\tee.exe
+    ${Endif}
     SetOutPath "$INSTDIR\Tools"
     SetOverwrite try
-    File /r Components\Tools\flash.exe
-    File /r Components\Tools\buildtime.exe
-    File /r Components\Tools\chknewer.exe
-    File /r Components\Tools\cpucount.exe
-    File /r Components\Tools\getdate.exe
-    File /r Components\Tools\getincludes.exe
-    File /r Components\Tools\rquote.exe
-    File /r Components\Tools\tee.exe
-    File /r Components\Tools\make.exe
+    File /r Components\Tools\mingw32-make.exe
     File /r Components\Tools\libintl3.dll
     File /r Components\Tools\libiconv2.dll
     File /r Components\Tools\regex2.dll
@@ -165,7 +178,11 @@ Section "RosBE Configurator (options)" SEC03
     SetShellVarContext current
     SetOutPath "$INSTDIR"
     SetOverwrite try
-    File /r Root\options.cmd
+    ${If} $R4 = '6.1'
+        File /r Components\Powershell\options.ps1
+    ${else}
+        File /r Root\options.cmd
+    ${Endif}
     SetOutPath "$INSTDIR\Tools"
     SetOverwrite try
     File /r Components\Tools\options.exe
@@ -181,7 +198,11 @@ Section "Subversion Tools (svn, ssvn)" SEC04
     SetShellVarContext current
     SetOutPath "$INSTDIR"
     SetOverwrite try
-    File /r Root\sSVN.cmd
+    ${If} $R4 = '6.1'
+        File /r Components\Powershell\sSVN.ps1
+    ${else}
+        File /r Root\sSVN.cmd
+    ${Endif}
     SetOutPath "$INSTDIR\Tools"
     SetOverwrite try
     File /r Components\Tools\svn.exe
@@ -190,7 +211,7 @@ Section "Subversion Tools (svn, ssvn)" SEC04
     File /r Components\Tools\libeay32.dll
     File /r Components\Tools\ssleay32.dll
     File /r Components\Tools\libaprutil-1.dll
-    File /r Components\Tools\libdb41.dll
+    File /r Components\Tools\libdb44.dll
     File /r Components\Tools\libapriconv-1.dll
     File /r Components\Tools\libsasl.dll
     File /r Components\Tools\libsvn_client-1.dll
@@ -210,7 +231,11 @@ Section "Shortcut Tool (scut)" SEC05
     SetShellVarContext current
     SetOutPath "$INSTDIR"
     SetOverwrite try
-    File /r Root\scut.cmd
+    ${If} $R4 = '6.1'
+        File /r Components\Powershell\scut.ps1
+    ${else}
+        File /r Root\scut.cmd
+    ${Endif}
     SetOutPath "$INSTDIR\Tools"
     SetOverwrite try
     File /r Components\Tools\scut.exe
@@ -232,17 +257,19 @@ Section "GDB - The GNU Project Debugger" SEC07
     File /r Components\Tools\gdbserver.exe
 SectionEnd
 
-Section "relAddr2Line / kdbg Tools" SEC08
+Section "relAddr2Line Tool" SEC08
     SetShellVarContext current
     SetOutPath "$INSTDIR"
     SetOverwrite try
-    File /r Root\raddr2line.cmd
-    File /r Root\kdbg.cmd
+    ${If} $R4 = '6.1'
+        File /r Components\Powershell\reladdr2line.ps1
+    ${else}
+        File /r Root\raddr2line.cmd
+    ${Endif}
     SetOutPath "$INSTDIR\Tools"
     SetOverwrite try
     File /r Components\Tools\echoh.exe
-    File /r Components\Tools\log2lines.exe
-    File /r Components\Tools\piperead.exe
+    File /r Components\Tools\raddr2line.exe
     File /r Components\Tools\chkslash.exe
 SectionEnd
 
@@ -250,8 +277,13 @@ Section "Other Tools (chdefdir and config)" SEC09
     SetShellVarContext current
     SetOutPath "$INSTDIR"
     SetOverwrite try
-    File /r Root\chdefdir.cmd
-    File /r Root\Config.cmd
+    ${If} $R4 = '6.1'
+        File /r Components\Powershell\chdefdir.ps1
+        File /r Components\Powershell\Config.ps1
+    ${else}
+        File /r Root\chdefdir.cmd
+        File /r Root\Config.cmd
+    ${Endif}
 SectionEnd
 
 Section "Update Script" SEC10
@@ -265,38 +297,70 @@ Section "Update Script" SEC10
     File /r Components\Tools\elevate.exe
     SetOutPath "$INSTDIR"
     SetOverwrite try
-    File /r Root\update.cmd
+    ${If} $R4 = '6.1'
+        File /r Components\Powershell\update.ps1
+    ${else}
+        File /r Root\update.cmd
+    ${Endif}
 SectionEnd
 
-Section "PowerShell Version" SEC11
+Section "PowerShell/CMD RosBE Version" SEC11
 SetShellVarContext current
-    SetOutPath "$INSTDIR"
-    SetOverwrite try
-    File /r Components\Powershell\Build.ps1
-    File /r Components\Powershell\RosBE.ps1
-    File /r Components\Powershell\rosbe-gcc-env.ps1
-    File /r Components\Powershell\Help.ps1
-    File /r Components\Powershell\chdefgcc.ps1
-    File /r Components\Powershell\Clean.ps1
-    File /r Components\Powershell\version.ps1
-    File /r Components\Powershell\charch.ps1
-    File /r Components\Powershell\chdefdir.ps1
-    File /r Components\Powershell\Config.ps1
-    File /r Components\Powershell\options.ps1
-    File /r Components\Powershell\Remake.ps1
-    File /r Components\Powershell\Remakex.ps1
-    File /r Components\Powershell\kdbg.ps1
-    File /r Components\Powershell\reladdr2line.ps1
-    File /r Components\Powershell\scut.ps1
-    File /r Components\Powershell\sSVN.ps1
-    File /r Components\Powershell\update.ps1
-    WriteRegStr HKLM "SOFTWARE\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell" "ExecutionPolicy" "RemoteSigned"
-    WriteRegStr HKLM "SOFTWARE\Wow6432Node\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell" "ExecutionPolicy" "RemoteSigned"
-    SetOutPath "$DESKTOP"
-    SetOverwrite try
-    File /r "Components\Powershell\RosBE PS - PostInstall.reg"
-    MessageBox MB_ICONINFORMATION|MB_OK \
-               "A REG-File was generated on your desktop. Please use it with Admin Rights to set Powershell's execution rights correctly if your RosBE Powershell Version fails to run after install. Otherwise, just delete it."
+    ${If} $R4 = '6.1'
+        SetOutPath "$INSTDIR"
+        SetOverwrite try
+        File /r Root\Basedir.cmd
+        File /r Root\Build-Shared.cmd
+        File /r Root\chdefgcc.cmd
+        File /r Root\Clean.cmd
+        File /r Root\Help.cmd
+        File /r Root\Make.cmd
+        File /r Root\Makex.cmd
+        File /r Root\Renv.cmd
+        File /r Root\RosBE.cmd
+        File /r Root\rosbe-gcc-env.cmd
+        File /r Root\TimeDate.cmd
+        File /r Root\version.cmd
+        File /r Root\charch.cmd
+        File /r Root\chdefdir.cmd
+        File /r Root\Config.cmd
+        File /r Root\options.cmd
+        File /r Root\Remake.cmd
+        File /r Root\raddr2line.cmd
+        File /r Root\scut.cmd
+        File /r Root\sSVN.cmd
+        File /r Root\update.cmd
+        SetOutPath "$INSTDIR\Tools"
+        SetOverwrite try
+        File /r Components\Tools\buildtime.exe
+        File /r Components\Tools\flash.exe
+        File /r Components\Tools\chknewer.exe
+        File /r Components\Tools\cpucount.exe
+        File /r Components\Tools\getdate.exe
+        File /r Components\Tools\rquote.exe
+        File /r Components\Tools\tee.exe
+        File /r Components\Tools\elevate.exe
+    ${else}
+        SetOutPath "$INSTDIR"
+        SetOverwrite try
+        File /r Components\Powershell\Build.ps1
+        File /r Components\Powershell\RosBE.ps1
+        File /r Components\Powershell\rosbe-gcc-env.ps1
+        File /r Components\Powershell\Help.ps1
+        File /r Components\Powershell\chdefgcc.ps1
+        File /r Components\Powershell\Clean.ps1
+        File /r Components\Powershell\version.ps1
+        File /r Components\Powershell\charch.ps1
+        File /r Components\Powershell\chdefdir.ps1
+        File /r Components\Powershell\Config.ps1
+        File /r Components\Powershell\options.ps1
+        File /r Components\Powershell\Remake.ps1
+        File /r Components\Powershell\reladdr2line.ps1
+        File /r Components\Powershell\scut.ps1
+        File /r Components\Powershell\sSVN.ps1
+        File /r Components\Powershell\update.ps1
+        WriteRegStr HKLM "Software\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell" "ExecutionPolicy" "RemoteSigned"
+    ${Endif}
 SectionEnd
 
 Section -StartMenuShortcuts SEC12
@@ -351,7 +415,11 @@ SectionEnd
 
 Section -Post SEC15
     WriteUninstaller "$INSTDIR\Uninstall-${PRODUCT_VERSION}.exe"
-    WriteRegStr HKCU "${PRODUCT_DIR_REGKEY}" "" "$INSTDIR\RosBE.cmd"
+    ${If} $R4 = '6.1'
+        WriteRegStr HKCU "${PRODUCT_DIR_REGKEY}" "" "$INSTDIR\RosBE.ps1"
+    ${else}
+        WriteRegStr HKCU "${PRODUCT_DIR_REGKEY}" "" "$INSTDIR\RosBE.cmd"
+    ${Endif}
     WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayName" "$(^Name)"
     WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "UninstallString" "$INSTDIR\Uninstall-${PRODUCT_VERSION}.exe"
     WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
@@ -422,11 +490,7 @@ Section Uninstall
     Delete /REBOOTOK "$INSTDIR\reladdr2line.ps1"
     Delete /REBOOTOK "$INSTDIR\Renv.cmd"
     Delete /REBOOTOK "$INSTDIR\Remake.cmd"
-    Delete /REBOOTOK "$INSTDIR\Remakex.cmd"
     Delete /REBOOTOK "$INSTDIR\Remake.ps1"
-    Delete /REBOOTOK "$INSTDIR\Remakex.ps1"
-    Delete /REBOOTOK "$INSTDIR\kdbg.cmd"
-    Delete /REBOOTOK "$INSTDIR\kdbg.ps1"
     Delete /REBOOTOK "$INSTDIR\RosBE.cmd"
     Delete /REBOOTOK "$INSTDIR\RosBE.ps1"
     Delete /REBOOTOK "$INSTDIR\rosbe-gcc-env.cmd"

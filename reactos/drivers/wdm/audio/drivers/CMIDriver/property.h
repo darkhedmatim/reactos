@@ -25,7 +25,8 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#pragma once
+#ifndef _PROPERTY_H_
+#define _PROPERTY_H_
 
 //GUID for the private property
 // {2B81CDBB-EE6C-4ECC-8AA5-9A188B023DFF}
@@ -83,3 +84,5 @@ typedef struct
 	UInt32  formatMask;
 	UInt32  enableSPDI;
 } CMIDATA;
+
+#endif //_PROPERTY_H_

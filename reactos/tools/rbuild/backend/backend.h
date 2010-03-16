@@ -15,8 +15,8 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-
-#pragma once
+#ifndef __BACKEND_H
+#define __BACKEND_H
 
 #include "../rbuild.h"
 
@@ -75,3 +75,5 @@ public:
 	Project& ProjectNode;
 	Configuration& configuration;
 };
+
+#endif /* __BACKEND_H */

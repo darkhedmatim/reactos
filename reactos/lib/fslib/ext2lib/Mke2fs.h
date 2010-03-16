@@ -5,7 +5,9 @@
  * HOMEPAGE:         http://ext2.yeah.net
  */
 
-#pragma once
+#ifndef __MKE2FS__INCLUDE__
+#define __MKE2FS__INCLUDE__
+
 
 /* INCLUDES **************************************************************/
 
@@ -404,3 +406,5 @@ ULONG ext2_unix_time (LONGLONG n_time);
  */
 
 void uuid_generate(__u8 * uuid);
+
+#endif //__MKE2FS__INCLUDE__

@@ -3,7 +3,8 @@
  *
  */
 
-#pragma once
+#ifndef __WIN32K_GDIOBJ_H
+#define __WIN32K_GDIOBJ_H
 
 /* Public GDI Object/Handle definitions */
 #include <win32k/ntgdihdl.h>
@@ -81,10 +82,9 @@ PVOID   INTERNAL_CALL GDI_MapHandleTable(PSECTION_OBJECT SectionObject, PEPROCES
 #define GDIOBJFLAG_IGNOREPID 	(0x1)
 #define GDIOBJFLAG_IGNORELOCK 	(0x2)
 
-BOOL FASTCALL GreDeleteObject(HGDIOBJ hObject);
-BOOL FASTCALL IsObjectDead(HGDIOBJ);
-BOOL FASTCALL IntGdiSetDCOwnerEx( HDC, DWORD, BOOL);
-BOOL FASTCALL IntGdiSetRegionOwner(HRGN,DWORD);
+BOOL FASTCALL  GreDeleteObject(HGDIOBJ hObject);
+BOOL FASTCALL  IsObjectDead(HGDIOBJ);
+BOOL FASTCALL  IntGdiSetDCOwnerEx( HDC, DWORD, BOOL);
 
 /*!
  * Release GDI object. Every object locked by GDIOBJ_LockObj() must be unlocked. 
@@ -131,3 +131,5 @@ GDIOBJ_IncrementShareCount(POBJ Object)
 #endif
 
 INT FASTCALL GreGetObjectOwner(HGDIOBJ, GDIOBJTYPE);
+
+#endif

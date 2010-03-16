@@ -3,7 +3,7 @@
 :: LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 :: FILE:        Root/TimeDate.cmd
 :: PURPOSE:     Get the current date and time for use in our build log's file name.
-:: COPYRIGHT:   Copyright 2010 Daniel Reimer <reimer.daniel@freenet.de>
+:: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
 ::                             Peter Ward <dralnix@gmail.com>
 ::                             Colin Finck <colin@reactos.org>
 ::
@@ -15,7 +15,7 @@ if %_ROSBE_DEBUG% == 1 (
 )
 
 :: Get the raw date and time.
-for /f "usebackq tokens=1" %%u in (`getdate.exe`) do set DATERAW=%%u
+for /f "usebackq tokens=1" %%u in (`"%_ROSBE_BASEDIR%\Tools\getdate.exe"`) do set DATERAW=%%u
 for /f "usebackq tokens=1" %%u in (`time /t`) do set TIMERAW=%%u
 
 :: Check if we need to pad the time with a zero.

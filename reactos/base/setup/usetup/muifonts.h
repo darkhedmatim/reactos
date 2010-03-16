@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_MUI_FONTS_H__
+#define LANG_MUI_FONTS_H__
 
 MUI_SUBFONT LatinFonts[] =
 {
@@ -87,3 +88,5 @@ MUI_SUBFONT UnicodeFonts[] =
     { L"Helv",            L"DejaVu Sans" },
     { NULL, NULL }
 };
+
+#endif

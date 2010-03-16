@@ -1214,18 +1214,16 @@ IofCompleteRequest(IN PIRP Irp,
     if (LastStackPtr->Control & SL_ERROR_RETURNED)
     {
         /* Get the error code */
-        ErrorCode = PtrToUlong(LastStackPtr->Parameters.Others.Argument4);
+        ErrorCode = (NTSTATUS)LastStackPtr->Parameters.Others.Argument4;
     }
 
-    /* Get the Current Stack */
+    /* Get the Current Stack and skip it */
     StackPtr = IoGetCurrentIrpStackLocation(Irp);
+    IoSkipCurrentIrpStackLocation(Irp);
 
     /* Loop the Stacks and complete the IRPs */
     do
     {
-        /* Skip current stack location */
-        IoSkipCurrentIrpStackLocation(Irp);
-
         /* Set Pending Returned */
         Irp->PendingReturned = StackPtr->Control & SL_PENDING_RETURNED;
 
@@ -1238,7 +1236,7 @@ IofCompleteRequest(IN PIRP Irp,
                 /* Update the error for the current stack */
                 ErrorCode = Irp->IoStatus.Status;
                 StackPtr->Control |= SL_ERROR_RETURNED;
-                LastStackPtr->Parameters.Others.Argument4 = UlongToPtr(ErrorCode);
+                LastStackPtr->Parameters.Others.Argument4 = (PVOID)ErrorCode;
                 LastStackPtr->Control |= SL_ERROR_RETURNED;
             }
         }
@@ -1288,9 +1286,10 @@ IofCompleteRequest(IN PIRP Irp,
             IopClearStackLocation(StackPtr);
         }
 
-        /* Move pointer to next stack location */
+        /* Move to next stack location and pointer */
+        IoSkipCurrentIrpStackLocation(Irp);
         StackPtr++;
-    } while (Irp->CurrentLocation <= Irp->StackCount);
+    } while (Irp->CurrentLocation <= (Irp->StackCount + 1));
 
     /* Check if the IRP is an associated IRP */
     if (Irp->Flags & IRP_ASSOCIATED_IRP)
@@ -1611,7 +1610,7 @@ NTAPI
 IoGetRequestorProcessId(IN PIRP Irp)
 {
     /* Return the requestor process' id */
-    return PtrToUlong(IoGetRequestorProcess(Irp)->UniqueProcessId);
+    return (ULONG)(IoGetRequestorProcess(Irp)->UniqueProcessId);
 }
 
 /*
@@ -1783,5 +1782,5 @@ NTAPI
 IoSetTopLevelIrp(IN PIRP Irp)
 {
     /* Set the IRP */
-    PsGetCurrentThread()->TopLevelIrp = (ULONG_PTR)Irp;
+    PsGetCurrentThread()->TopLevelIrp = (ULONG)Irp;
 }

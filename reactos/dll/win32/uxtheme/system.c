@@ -393,7 +393,8 @@ static void UXTHEME_RestoreSystemMetrics(void)
             if (RegQueryValueExW (hKey, bsp->keyName, 0,
                 &type, (LPBYTE)&value, &count) == ERROR_SUCCESS)
             {
-                SystemParametersInfoW (bsp->spiSet, 0, UlongToPtr(value), SPIF_UPDATEINIFILE);
+                SystemParametersInfoW (bsp->spiSet, 0, (LPVOID)value,
+                    SPIF_UPDATEINIFILE);
             }
         
             bsp++;
@@ -444,7 +445,9 @@ static void UXTHEME_SaveSystemMetrics(void)
         DWORD value;
         
         SystemParametersInfoW (bsp->spiGet, 0, &value, 0);
-        SystemParametersInfoW (bsp->spiSet, 0, UlongToPtr(value), SPIF_UPDATEINIFILE);
+        SystemParametersInfoW (bsp->spiSet, 0, (LPVOID)value,
+            SPIF_UPDATEINIFILE);
+    
         bsp++;
     }
     

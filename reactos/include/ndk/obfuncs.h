@@ -75,27 +75,10 @@ ObCreateObjectType(
 );
 
 NTKERNELAPI
-VOID
-NTAPI
-ObDereferenceSecurityDescriptor(
-  PSECURITY_DESCRIPTOR SecurityDescriptor,
-  ULONG Count
-);
-
-NTKERNELAPI
 ULONG
 NTAPI
 ObGetObjectPointerCount(
     IN PVOID Object
-);
-
-NTKERNELAPI
-NTSTATUS
-NTAPI
-ObLogSecurityDescriptor(
-    IN PSECURITY_DESCRIPTOR InputSecurityDescriptor,
-    OUT PSECURITY_DESCRIPTOR *OutputSecurityDescriptor,
-    IN ULONG RefBias
 );
 
 NTKERNELAPI
@@ -123,14 +106,6 @@ ObReferenceObjectByName(
     IN KPROCESSOR_MODE AccessMode,
     IN OUT PVOID ParseContext OPTIONAL,
     OUT PVOID *Object
-);
-
-NTKERNELAPI
-VOID
-NTAPI
-ObReferenceSecurityDescriptor(
-    IN PSECURITY_DESCRIPTOR SecurityDescriptor,
-    IN ULONG Count
 );
 
 NTKERNELAPI

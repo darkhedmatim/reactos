@@ -125,13 +125,13 @@ ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)$$(SEP)$(notdir $(2)).gch.d:
 
 ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)$$(SEP)$(notdir $(2)).gch: $(2) ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)$$(SEP)$(notdir $(2)).gch.d $(3) | ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)
 	$$(ECHO_PCH)
-	$${gcc} -o $$@ ${call RBUILD_cflags,$(1),$(4)} -x c-header $$<
+	$${gcc} -MF $$@ ${call RBUILD_cflags,$(1),$(4)} -x c-header -M -MP -MT $$@ $$<
 
 else
 
 ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)$$(SEP)$(notdir $(2)).gch: $(2) $(3) | ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)
 	$$(ECHO_PCH)
-	$${gcc} -o $$@ ${call RBUILD_cflags,$(1),$(4)} -x c-header $$<
+	$${gcc} -MF $$@ ${call RBUILD_cflags,$(1),$(4)} -x c-header -M -MP -MT $$@ $$<
 
 endif
 
@@ -152,13 +152,13 @@ ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)$$(SEP)$(notdir $(2)).gch.d:
 
 ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)$$(SEP)$(notdir $(2)).gch: $(2) ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)$$(SEP)$(notdir $(2)).gch.d $(3) | ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)
 	$$(ECHO_PCH)
-	$${gpp} -o $$@ ${call RBUILD_cxxflags,$(1),$(4)} -x c++-header $$<
+	$${gpp} -MF $$@ ${call RBUILD_cxxflags,$(1),$(4)} -x c++-header -M -MP -MT $$@ $$<
 
 else
 
 ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)$$(SEP)$(notdir $(2)).gch: $(2) $(3) | ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)
 	$$(ECHO_PCH)
-	$${gpp} -o $$@ ${call RBUILD_cxxflags,$(1),$(4)} -x c++-header $$<
+	$${gpp} -MF $$@ ${call RBUILD_cxxflags,$(1),$(4)} -x c++-header -M -MP -MT $$@ $$<
 
 endif
 

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_TAGS_H
+#define _WIN32K_TAGS_H
 
 #define TAG_STRING      ' RTS' /* string */
 #define TAG_RTLREGISTRY 'vrqR' /* RTL registry */
@@ -343,3 +344,5 @@
 #define USERTAG_WOWTDB 'owsU'
 #define USERTAG_WOWPROCESSINFO 'pwsU'
 #define USERTAG_WOWTHREADINFO 'twsU'
+
+#endif /* _WIN32K_TAGS_H */

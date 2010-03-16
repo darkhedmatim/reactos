@@ -348,8 +348,7 @@ IDirect3DDeviceImpl_7_Release(IDirect3DDevice7 *iface)
              * vanish soon.
              */
             IWineD3DDevice_SetRenderTarget(This->wineD3DDevice, 0,
-                                           This->ddraw->d3d_target->WineD3DSurface,
-                                           FALSE);
+                                           This->ddraw->d3d_target->WineD3DSurface);
             /* This->target is the offscreen target.
              * This->ddraw->d3d_target is the target used by DDraw
              */
@@ -1705,13 +1704,13 @@ IDirect3DDeviceImpl_7_EndScene(IDirect3DDevice7 *iface)
     else return D3DERR_SCENE_NOT_IN_SCENE;
 }
 
-static HRESULT WINAPI DECLSPEC_HOTPATCH
+static HRESULT WINAPI
 IDirect3DDeviceImpl_7_EndScene_FPUSetup(IDirect3DDevice7 *iface)
 {
     return IDirect3DDeviceImpl_7_EndScene(iface);
 }
 
-static HRESULT WINAPI DECLSPEC_HOTPATCH
+static HRESULT WINAPI
 IDirect3DDeviceImpl_7_EndScene_FPUPreserve(IDirect3DDevice7 *iface)
 {
     HRESULT hr;
@@ -1724,7 +1723,7 @@ IDirect3DDeviceImpl_7_EndScene_FPUPreserve(IDirect3DDevice7 *iface)
     return hr;
 }
 
-static HRESULT WINAPI DECLSPEC_HOTPATCH
+static HRESULT WINAPI
 Thunk_IDirect3DDeviceImpl_3_EndScene(IDirect3DDevice3 *iface)
 {
     IDirect3DDeviceImpl *This = device_from_device3(iface);
@@ -1732,7 +1731,7 @@ Thunk_IDirect3DDeviceImpl_3_EndScene(IDirect3DDevice3 *iface)
     return IDirect3DDevice7_EndScene((IDirect3DDevice7 *)This);
 }
 
-static HRESULT WINAPI DECLSPEC_HOTPATCH
+static HRESULT WINAPI
 Thunk_IDirect3DDeviceImpl_2_EndScene(IDirect3DDevice2 *iface)
 {
     IDirect3DDeviceImpl *This = device_from_device2(iface);
@@ -1740,7 +1739,7 @@ Thunk_IDirect3DDeviceImpl_2_EndScene(IDirect3DDevice2 *iface)
     return IDirect3DDevice7_EndScene((IDirect3DDevice7 *)This);
 }
 
-static HRESULT WINAPI DECLSPEC_HOTPATCH
+static HRESULT WINAPI
 Thunk_IDirect3DDeviceImpl_1_EndScene(IDirect3DDevice *iface)
 {
     IDirect3DDeviceImpl *This = device_from_device1(iface);
@@ -1985,8 +1984,7 @@ IDirect3DDeviceImpl_7_SetRenderTarget(IDirect3DDevice7 *iface,
 
     hr = IWineD3DDevice_SetRenderTarget(This->wineD3DDevice,
                                         0,
-                                        Target ? Target->WineD3DSurface : NULL,
-                                        FALSE);
+                                        Target ? Target->WineD3DSurface : NULL);
     if(hr != D3D_OK)
     {
         LeaveCriticalSection(&ddraw_cs);
@@ -2580,8 +2578,7 @@ IDirect3DDeviceImpl_3_GetRenderState(IDirect3DDevice3 *iface,
                 }
 
                 if (!(colorop == WINED3DTOP_MODULATE && colorarg1 == WINED3DTA_TEXTURE && colorarg2 == WINED3DTA_CURRENT &&
-                      alphaop == (tex_alpha ? WINED3DTOP_SELECTARG1 : WINED3DTOP_SELECTARG2) &&
-                      alphaarg1 == WINED3DTA_TEXTURE && alphaarg2 == WINED3DTA_CURRENT))
+                      alphaop == WINED3DTOP_SELECTARG1 && alphaarg1 == (tex_alpha ? WINED3DTA_TEXTURE : WINED3DTA_CURRENT)))
                 {
                     ERR("Unexpected texture stage state setup, returning D3DTBLEND_MODULATE - likely erroneous\n");
                 }
@@ -2853,12 +2850,16 @@ IDirect3DDeviceImpl_3_SetRenderState(IDirect3DDevice3 *iface,
                         IWineD3DBaseTexture_Release(tex);
                     }
 
+                    IWineD3DDevice_SetTextureStageState(This->wineD3DDevice, 0, WINED3DTSS_ALPHAOP, WINED3DTOP_SELECTARG1);
                     if (tex_alpha)
-                        IWineD3DDevice_SetTextureStageState(This->wineD3DDevice, 0, WINED3DTSS_ALPHAOP, WINED3DTOP_SELECTARG1);
+                    {
+                        IWineD3DDevice_SetTextureStageState(This->wineD3DDevice, 0, WINED3DTSS_ALPHAARG1, WINED3DTA_TEXTURE);
+                    }
                     else
-                        IWineD3DDevice_SetTextureStageState(This->wineD3DDevice, 0, WINED3DTSS_ALPHAOP, WINED3DTOP_SELECTARG2);
-                    IWineD3DDevice_SetTextureStageState(This->wineD3DDevice, 0, WINED3DTSS_ALPHAARG1, WINED3DTA_TEXTURE);
-                    IWineD3DDevice_SetTextureStageState(This->wineD3DDevice, 0, WINED3DTSS_ALPHAARG2, WINED3DTA_CURRENT);
+                    {
+                        IWineD3DDevice_SetTextureStageState(This->wineD3DDevice, 0, WINED3DTSS_ALPHAARG1, WINED3DTA_CURRENT);
+                    }
+
                     IWineD3DDevice_SetTextureStageState(This->wineD3DDevice, 0, WINED3DTSS_COLORARG1, WINED3DTA_TEXTURE);
                     IWineD3DDevice_SetTextureStageState(This->wineD3DDevice, 0, WINED3DTSS_COLORARG2, WINED3DTA_CURRENT);
                     IWineD3DDevice_SetTextureStageState(This->wineD3DDevice, 0, WINED3DTSS_COLOROP, WINED3DTOP_MODULATE);
@@ -4661,11 +4662,15 @@ IDirect3DDeviceImpl_3_SetTexture(IDirect3DDevice3 *iface,
             IWineD3DBaseTexture_Release(tex);
         }
 
-        /* Arg 1/2 are already set to WINED3DTA_TEXTURE/WINED3DTA_CURRENT in case of D3DTBLEND_MODULATE */
+        /* alphaop is WINED3DTOP_SELECTARG1 if it's D3DTBLEND_MODULATE, so only modify alphaarg1 */
         if (tex_alpha)
-            IWineD3DDevice_SetTextureStageState(This->wineD3DDevice, 0, WINED3DTSS_ALPHAOP, WINED3DTOP_SELECTARG1);
+        {
+            IWineD3DDevice_SetTextureStageState(This->wineD3DDevice, 0, WINED3DTSS_ALPHAARG1, WINED3DTA_TEXTURE);
+        }
         else
-            IWineD3DDevice_SetTextureStageState(This->wineD3DDevice, 0, WINED3DTSS_ALPHAOP, WINED3DTOP_SELECTARG2);
+        {
+            IWineD3DDevice_SetTextureStageState(This->wineD3DDevice, 0, WINED3DTSS_ALPHAARG1, WINED3DTA_CURRENT);
+        }
     }
 
     LeaveCriticalSection(&ddraw_cs);

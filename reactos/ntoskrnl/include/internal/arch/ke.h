@@ -16,8 +16,8 @@
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-
-#pragma once
+#ifndef __NTOSKRNL_INCLUDE_INTERNAL_ARCH_KE_H
+#define __NTOSKRNL_INCLUDE_INTERNAL_ARCH_KE_H
 
 #ifdef _M_IX86
 #include "../i386/ke.h"
@@ -30,5 +30,7 @@
 #else
 #error "Unknown processor"
 #endif
+
+#endif /* __NTOSKRNL_INCLUDE_INTERNAL_ARCH_KE_H */
 
 /* EOF */

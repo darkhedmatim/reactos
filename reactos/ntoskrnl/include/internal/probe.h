@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __INCLUDE_INTERNAL_PROBE_H
+#define __INCLUDE_INTERNAL_PROBE_H
 
 #include <reactos/probe.h>
 
@@ -62,7 +63,6 @@ DefaultQueryInfoBufferCheck(ULONG Class,
                             PVOID Buffer,
                             ULONG BufferLength,
                             PULONG ReturnLength,
-                            PULONG_PTR ReturnLengthPtr,
                             KPROCESSOR_MODE PreviousMode)
 {
     NTSTATUS Status = STATUS_SUCCESS;
@@ -99,10 +99,6 @@ DefaultQueryInfoBufferCheck(ULONG Class,
                     {
                         ProbeForWriteUlong(ReturnLength);
                     }
-                    if (ReturnLengthPtr != NULL)
-                    {
-                        ProbeForWrite(ReturnLengthPtr, sizeof(ULONG_PTR), sizeof(ULONG_PTR));
-                    }
                 }
                 _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
                 {
@@ -117,3 +113,5 @@ DefaultQueryInfoBufferCheck(ULONG Class,
 
     return Status;
 }
+
+#endif

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __CPL_RESOURCE_H
+#define __CPL_RESOURCE_H
 
 /* icons */
 #define IDI_CPLSYSTEM	102
@@ -37,5 +38,7 @@
 #define IDC_INC_POINT_CHECKBOX		1072
 #define IDC_CONTROLLER_NAME_EDIT	1056
 #define IDC_PREFERRED_DEV_COMBO		8195
+
+#endif /* __CPL_RESOURCE_H */
 
 /* EOF */

@@ -18,7 +18,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#pragma once
+#ifndef _brandband_h
+#define _brandband_h
 
 class CBrandBand :
 	public CWindowImpl<CBrandBand, CWindow, CControlWinTraits>,
@@ -127,3 +128,5 @@ BEGIN_COM_MAP(CBrandBand)
 	COM_INTERFACE_ENTRY_IID(IID_IDispatch, IDispatch)
 END_COM_MAP()
 };
+
+#endif // _brandband_h

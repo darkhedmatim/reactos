@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __SNDVOL_RESOURCES_H
+#define __SNDVOL_RESOURCES_H
 
 #define IDM_MAINMENU 101
 
@@ -21,3 +22,5 @@
 
 #define IDS_SNDVOL32 100
 #define IDS_NOMIXERDEVICES 101
+
+#endif /* __SNDVOL_RESOURCES_H */

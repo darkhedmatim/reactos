@@ -27,12 +27,9 @@
 #include "windef.h"
 #include "winbase.h"
 #include "winuser.h"
-#include "winreg.h"
 #include "ole2.h"
 #include "hlguids.h"
 #include "shlguid.h"
-#include "wininet.h"
-#include "shlwapi.h"
 
 #include "wine/debug.h"
 #include "wine/unicode.h"
@@ -43,6 +40,8 @@ WINE_DEFAULT_DEBUG_CHANNEL(mshtml);
 
 #define CONTENT_LENGTH "Content-Length"
 #define UTF16_STR "utf-16"
+
+static WCHAR emptyW[] = {0};
 
 typedef struct {
     const nsIInputStreamVtbl *lpInputStreamVtbl;
@@ -717,11 +716,8 @@ HRESULT start_binding(HTMLWindow *window, HTMLDocumentNode *doc, BSCallback *bsc
 
     /* NOTE: IE7 calls IsSystemMoniker here*/
 
-    if(window) {
-        if(bscallback->mon != window->mon)
-            set_current_mon(window, bscallback->mon);
+    if(window)
         call_docview_84(window->doc_obj);
-    }
 
     if(bctx) {
         RegisterBindStatusCallback(bctx, STATUSCLB(bscallback), NULL, 0);
@@ -955,21 +951,6 @@ static HRESULT read_stream_data(nsChannelBSC *This, IStream *stream)
                && (BYTE)This->nsstream->buf[1] == 0xfe)
                 This->nschannel->charset = heap_strdupA(UTF16_STR);
 
-            if(!This->nschannel->content_type) {
-                WCHAR *mime;
-
-                hres = FindMimeFromData(NULL, NULL, This->nsstream->buf, This->nsstream->buf_size, NULL, 0, &mime, 0);
-                if(FAILED(hres))
-                    return hres;
-
-                TRACE("Found MIME %s\n", debugstr_w(mime));
-
-                This->nschannel->content_type = heap_strdupWtoA(mime);
-                CoTaskMemFree(mime);
-                if(!This->nschannel->content_type)
-                    return E_OUTOFMEMORY;
-            }
-
             on_start_nsrequest(This);
 
             if(This->window)
@@ -1085,12 +1066,6 @@ static HRESULT nsChannelBSC_on_progress(BSCallback *bsc, ULONG status_code, LPCW
 
         heap_free(This->nschannel->content_type);
         This->nschannel->content_type = heap_strdupWtoA(status_text);
-        break;
-    case BINDSTATUS_REDIRECTING:
-        TRACE("redirect to %s\n", debugstr_w(status_text));
-
-        /* FIXME: We should find a better way to handle this */
-        set_wine_url(This->nschannel->uri, status_text);
     }
 
     return S_OK;
@@ -1116,38 +1091,13 @@ static const BSCallbackVtbl nsChannelBSCVtbl = {
     nsChannelBSC_on_response
 };
 
-HRESULT create_channelbsc(IMoniker *mon, WCHAR *headers, BYTE *post_data, DWORD post_data_size, nsChannelBSC **retval)
+nsChannelBSC *create_channelbsc(IMoniker *mon)
 {
-    nsChannelBSC *ret;
-
-    ret = heap_alloc_zero(sizeof(*ret));
-    if(!ret)
-        return E_OUTOFMEMORY;
+    nsChannelBSC *ret = heap_alloc_zero(sizeof(*ret));
 
     init_bscallback(&ret->bsc, &nsChannelBSCVtbl, mon, BINDF_ASYNCHRONOUS | BINDF_ASYNCSTORAGE | BINDF_PULLDATA);
 
-    if(headers) {
-        ret->bsc.headers = heap_strdupW(headers);
-        if(!ret->bsc.headers) {
-            IBindStatusCallback_Release(STATUSCLB(&ret->bsc));
-            return E_OUTOFMEMORY;
-        }
-    }
-
-    if(post_data) {
-        ret->bsc.post_data = GlobalAlloc(0, post_data_size);
-        if(!ret->bsc.post_data) {
-            heap_free(ret->bsc.headers);
-            IBindStatusCallback_Release(STATUSCLB(&ret->bsc));
-            return E_OUTOFMEMORY;
-        }
-
-        memcpy(ret->bsc.post_data, post_data, post_data_size);
-        ret->bsc.post_data_len = post_data_size;
-    }
-
-    *retval = ret;
-    return S_OK;
+    return ret;
 }
 
 IMoniker *get_channelbsc_mon(nsChannelBSC *This)
@@ -1174,36 +1124,6 @@ void set_window_bscallback(HTMLWindow *window, nsChannelBSC *callback)
         IBindStatusCallback_AddRef(STATUSCLB(&callback->bsc));
         callback->bsc.doc = window->doc;
     }
-}
-
-typedef struct {
-    task_t header;
-    HTMLWindow *window;
-    nsChannelBSC *bscallback;
-} start_doc_binding_task_t;
-
-static void start_doc_binding_proc(task_t *_task)
-{
-    start_doc_binding_task_t *task = (start_doc_binding_task_t*)_task;
-
-    start_binding(task->window, NULL, (BSCallback*)task->bscallback, NULL);
-    IBindStatusCallback_Release(STATUSCLB(&task->bscallback->bsc));
-}
-
-HRESULT async_start_doc_binding(HTMLWindow *window, nsChannelBSC *bscallback)
-{
-    start_doc_binding_task_t *task;
-
-    task = heap_alloc(sizeof(start_doc_binding_task_t));
-    if(!task)
-        return E_OUTOFMEMORY;
-
-    task->window = window;
-    task->bscallback = bscallback;
-    IBindStatusCallback_AddRef(STATUSCLB(&bscallback->bsc));
-
-    push_task(&task->header, start_doc_binding_proc, window->task_magic);
-    return S_OK;
 }
 
 void abort_document_bindings(HTMLDocumentNode *doc)
@@ -1254,43 +1174,37 @@ void channelbsc_set_channel(nsChannelBSC *This, nsChannel *channel, nsIStreamLis
 }
 
 HRESULT hlink_frame_navigate(HTMLDocument *doc, LPCWSTR url,
-        nsIInputStream *post_data_stream, DWORD hlnf, BOOL *cancel)
+        nsIInputStream *post_data_stream, DWORD hlnf)
 {
     IHlinkFrame *hlink_frame;
-    nsChannelBSC *callback;
     IServiceProvider *sp;
+    BSCallback *callback;
     IBindCtx *bindctx;
     IMoniker *mon;
     IHlink *hlink;
     HRESULT hres;
 
-    *cancel = FALSE;
-
     hres = IOleClientSite_QueryInterface(doc->doc_obj->client, &IID_IServiceProvider,
             (void**)&sp);
     if(FAILED(hres))
-        return S_OK;
+        return hres;
 
     hres = IServiceProvider_QueryService(sp, &IID_IHlinkFrame, &IID_IHlinkFrame,
             (void**)&hlink_frame);
     IServiceProvider_Release(sp);
     if(FAILED(hres))
-        return S_OK;
-
-    hres = create_channelbsc(NULL, NULL, NULL, 0, &callback);
-    if(FAILED(hres)) {
-        IHlinkFrame_Release(hlink_frame);
         return hres;
-    }
+
+    callback = &create_channelbsc(NULL)->bsc;
 
     if(post_data_stream) {
-        parse_post_data(post_data_stream, &callback->bsc.headers, &callback->bsc.post_data,
-                        &callback->bsc.post_data_len);
-        TRACE("headers = %s post_data = %s\n", debugstr_w(callback->bsc.headers),
-              debugstr_an(callback->bsc.post_data, callback->bsc.post_data_len));
+        parse_post_data(post_data_stream, &callback->headers, &callback->post_data,
+                        &callback->post_data_len);
+        TRACE("headers = %s post_data = %s\n", debugstr_w(callback->headers),
+              debugstr_an(callback->post_data, callback->post_data_len));
     }
 
-    hres = CreateAsyncBindCtx(0, STATUSCLB(&callback->bsc), NULL, &bindctx);
+    hres = CreateAsyncBindCtx(0, STATUSCLB(callback), NULL, &bindctx);
     if(SUCCEEDED(hres))
         hres = CoCreateInstance(&CLSID_StdHlink, NULL, CLSCTX_INPROC_SERVER,
                 &IID_IHlink, (LPVOID*)&hlink);
@@ -1306,67 +1220,36 @@ HRESULT hlink_frame_navigate(HTMLDocument *doc, LPCWSTR url,
             IHlink_SetTargetFrameName(hlink, wszBlank); /* FIXME */
         }
 
-        hres = IHlinkFrame_Navigate(hlink_frame, hlnf, bindctx, STATUSCLB(&callback->bsc), hlink);
+        hres = IHlinkFrame_Navigate(hlink_frame, hlnf, bindctx, STATUSCLB(callback), hlink);
+
         IMoniker_Release(mon);
-        *cancel = hres == S_OK;
-        hres = S_OK;
     }
 
     IHlinkFrame_Release(hlink_frame);
     IBindCtx_Release(bindctx);
-    IBindStatusCallback_Release(STATUSCLB(&callback->bsc));
+    IBindStatusCallback_Release(STATUSCLB(callback));
     return hres;
 }
 
-HRESULT navigate_url(HTMLWindow *window, const WCHAR *new_url, const WCHAR *base_url)
+HRESULT navigate_url(HTMLDocumentNode *doc, OLECHAR *url)
 {
-    WCHAR url[INTERNET_MAX_URL_LENGTH];
-    nsWineURI *uri;
+    OLECHAR *translated_url = NULL;
     HRESULT hres;
 
-    if(!new_url) {
-        *url = 0;
-    }else if(base_url) {
-        DWORD len = 0;
+    if(!url)
+        url = emptyW;
 
-        hres = CoInternetCombineUrl(base_url, new_url, URL_ESCAPE_SPACES_ONLY|URL_DONT_ESCAPE_EXTRA_INFO,
-                url, sizeof(url)/sizeof(WCHAR), &len, 0);
-        if(FAILED(hres))
-            return hres;
-    }else {
-        strcpyW(url, new_url);
-    }
-
-    if(window->doc_obj && window->doc_obj->hostui) {
-        OLECHAR *translated_url = NULL;
-
-        hres = IDocHostUIHandler_TranslateUrl(window->doc_obj->hostui, 0, url,
+    if(doc->basedoc.doc_obj->hostui) {
+        hres = IDocHostUIHandler_TranslateUrl(doc->basedoc.doc_obj->hostui, 0, url,
                 &translated_url);
-        if(hres == S_OK) {
-            TRACE("%08x %s -> %s\n", hres, debugstr_w(url), debugstr_w(translated_url));
-            strcpyW(url, translated_url);
-            CoTaskMemFree(translated_url);
-        }
+        if(hres == S_OK)
+            url = translated_url;
     }
 
-    if(window->doc_obj && window == window->doc_obj->basedoc.window) {
-        BOOL cancel;
-
-        hres = hlink_frame_navigate(&window->doc->basedoc, url, NULL, 0, &cancel);
-        if(FAILED(hres))
-            return hres;
-
-        if(cancel) {
-            TRACE("Navigation handled by hlink frame\n");
-            return S_OK;
-        }
-    }
-
-    hres = create_doc_uri(window, url, &uri);
+    hres = hlink_frame_navigate(&doc->basedoc, url, NULL, 0);
     if(FAILED(hres))
-        return hres;
+        FIXME("hlink_frame_navigate failed: %08x\n", hres);
 
-    hres = load_nsuri(window, uri, NULL, LOAD_FLAGS_NONE);
-    nsISupports_Release((nsISupports*)uri);
+    CoTaskMemFree(translated_url);
     return hres;
 }

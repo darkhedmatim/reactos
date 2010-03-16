@@ -187,8 +187,7 @@ IntInt10CallBios(
 
     /* Detach and return status */
     IntDetachFromCSRSS(&CallingProcess, &ApcState);
-    if (NT_SUCCESS(Status)) return NO_ERROR;
-    return ERROR_INVALID_PARAMETER;
+    return Status;
 }
 
 /* PUBLIC FUNCTIONS ***********************************************************/
@@ -241,6 +240,6 @@ VideoPortInt10(
 
     /* Detach from CSRSS */
     IntDetachFromCSRSS(&CallingProcess, &ApcState);
-    if (NT_SUCCESS(Status)) return NO_ERROR;
-    return ERROR_INVALID_PARAMETER;
+
+    return Status;
 }

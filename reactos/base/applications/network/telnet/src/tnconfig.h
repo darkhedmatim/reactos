@@ -6,7 +6,8 @@
 // It does not store any information about the current settings, only default
 // or recommended settings.
 
-#pragma once
+#ifndef __TNCONFIG_H
+#define __TNCONFIG_H
 
 // Ioannou 2 June 98:  Borland needs them - quick hack
 #ifdef __BORLANDC__
@@ -206,3 +207,5 @@ private:
 };
 
 extern TConfig ini;
+
+#endif

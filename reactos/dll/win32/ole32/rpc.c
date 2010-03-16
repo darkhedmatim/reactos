@@ -1358,7 +1358,7 @@ void RPC_ExecuteCall(struct dispatch_params *params)
 
         handlecall = IMessageFilter_HandleInComingCall(COM_CurrentApt()->filter,
                                                        calltype,
-                                                       UlongToHandle(GetCurrentProcessId()),
+                                                       (HTASK)GetCurrentProcessId(),
                                                        0 /* FIXME */,
                                                        &interface_info);
         TRACE("IMessageFilter_HandleInComingCall returned %d\n", handlecall);

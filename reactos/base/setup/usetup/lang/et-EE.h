@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_ET_EE_H__
+#define LANG_ET_EE_H__
 
 MUI_LAYOUTS etEELayouts[] =
 {
@@ -1690,3 +1691,5 @@ MUI_STRING etEEStrings[] =
     "Klaviatuuriasetuste lisamine"},
     {0, 0}
 };
+
+#endif

@@ -183,21 +183,17 @@ LPTSTR GetConnectionType(LPTSTR lpClass)
             ConType = (LPTSTR)HeapAlloc(ProcessHeap,
                                         0,
                                         dwDataSize);
-            if (ConType)
-            {
-                if(RegQueryValueEx(hKey,
-                                   _T("Name"),
-                                   NULL,
-                                   &dwType,
-                                   (PBYTE)ConType,
-                                   &dwDataSize) != ERROR_SUCCESS)
-                {
-                    HeapFree(ProcessHeap,
-                             0,
-                             ConType);
+            if (ConType == NULL)
+                return NULL;
 
-                    ConType = NULL;
-                }
+            if(RegQueryValueEx(hKey,
+                               _T("Name"),
+                               NULL,
+                               &dwType,
+                               (PBYTE)ConType,
+                               &dwDataSize) != ERROR_SUCCESS)
+            {
+                ConType = NULL;
             }
         }
     }
@@ -460,9 +456,7 @@ VOID ShowInfo(BOOL bAll)
 
         if (bAll)
         {
-            LPTSTR lpDesc = GetConnectionDescription(pAdapter->AdapterName);
-            _tprintf(_T("\tDescription . . . . . . . . . . . : %s\n"), lpDesc);
-            HeapFree(ProcessHeap, 0, lpDesc);
+            _tprintf(_T("\tDescription . . . . . . . . . . . : %s\n"), GetConnectionDescription(pAdapter->AdapterName));
             _tprintf(_T("\tPhysical Address. . . . . . . . . : %s\n"), PrintMacAddr(pAdapter->Address));
             if (pAdapter->DhcpEnabled)
                 _tprintf(_T("\tDHCP Enabled. . . . . . . . . . . : Yes\n"));
@@ -699,7 +693,7 @@ int main(int argc, char *argv[])
     ProcessHeap = GetProcessHeap();
 
     /* Parse command line for options we have been given. */
-    if ( (argc > 1)&&(argv[1][0]=='/' || argv[1][0]=='-') )
+    if ( (argc > 1)&&(argv[1][0]=='/') )
     {
         if( !_tcsicmp( &argv[1][1], _T("?") ))
         {

@@ -57,6 +57,15 @@ DEFINE_EXPECT(IsSystemMoniker);
 DEFINE_EXPECT(BindToStorage);
 DEFINE_EXPECT(GetDisplayName);
 
+static const char *debugstr_w(LPCWSTR str)
+{
+    static char buf[1024];
+    if(!str)
+        return "(null)";
+    WideCharToMultiByte(CP_ACP, 0, str, -1, buf, sizeof(buf), NULL, NULL);
+    return buf;
+}
+
 static const char *debugstr_guid(REFIID riid)
 {
     static char buf[50];
@@ -71,7 +80,7 @@ static const char *debugstr_guid(REFIID riid)
 
 static void test_HlinkIsShortcut(void)
 {
-    UINT i;
+    int i;
     HRESULT hres;
 
     static const WCHAR file0[] = {'f','i','l','e',0};
@@ -135,16 +144,11 @@ static void test_reference(void)
     ok(r == S_OK, "failed\n");
     CoTaskMemFree(str);
 
-    r = IHlink_GetStringReference(lnk, -1, NULL, NULL);
-    ok(r == S_OK, "failed, r=%08x\n", r);
-
-    r = IHlink_GetStringReference(lnk, -1, NULL, &str);
-    ok(r == S_OK, "failed, r=%08x\n", r);
-    ok(str == NULL, "string should be null\n");
-
     r = IHlink_GetStringReference(lnk, HLINKGETREF_DEFAULT, &str, NULL);
     ok(r == S_OK, "failed\n");
+    todo_wine {
     ok(!lstrcmpW(str, url2), "url wrong\n");
+    }
     CoTaskMemFree(str);
 
     r = IHlink_GetStringReference(lnk, HLINKGETREF_DEFAULT, NULL, NULL);
@@ -593,13 +597,13 @@ static void test_HlinkCreateExtensionServices(void)
     hres = IHttpNegotiate_BeginningTransaction(http_negotiate, (void*)0xdeadbeef, (void*)0xdeadbeef,
                                                0, &headers);
     ok(hres == S_OK, "BeginningTransaction failed: %08x\n", hres);
-    ok(!lstrcmpW(headers, headersexW), "unexpected headers %s\n", wine_dbgstr_w(headers));
+    ok(!lstrcmpW(headers, headersexW), "unexpected headers \"%s\"\n", debugstr_w(headers));
     CoTaskMemFree(headers);
 
     headers = (void*)0xdeadbeef;
     hres = IHttpNegotiate_OnResponse(http_negotiate, 200, (void*)0xdeadbeef, (void*)0xdeadbeef, &headers);
     ok(hres == S_OK, "OnResponse failed: %08x\n", hres);
-    ok(headers == NULL, "unexpected headers %s\n", wine_dbgstr_w(headers));
+    ok(headers == NULL, "unexpected headers \"%s\"\n", debugstr_w(headers));
 
     IHttpNegotiate_Release(http_negotiate);
     IAuthenticate_Release(authenticate);
@@ -631,7 +635,7 @@ static void test_HlinkParseDisplayName(void)
 
     hres = IMoniker_GetDisplayName(mon, bctx, 0, &name);
     ok(hres == S_OK, "GetDiasplayName failed: %08x\n", hres);
-    ok(!lstrcmpW(name, winehq_urlW), "wrong display name %s\n", wine_dbgstr_w(name));
+    ok(!lstrcmpW(name, winehq_urlW), "wrong display name %s\n", debugstr_w(name));
     CoTaskMemFree(name);
 
     hres = IMoniker_IsSystemMoniker(mon, &issys);
@@ -658,14 +662,13 @@ static void test_HlinkParseDisplayName(void)
 
     hres = IMoniker_GetDisplayName(mon, bctx, 0, &name);
     ok(hres == S_OK, "GetDiasplayName failed: %08x\n", hres);
-    ok(!lstrcmpW(name, invalid_urlW), "wrong display name %s\n", wine_dbgstr_w(name));
+    ok(!lstrcmpW(name, invalid_urlW), "wrong display name %s\n", debugstr_w(name));
     CoTaskMemFree(name);
 
     hres = IMoniker_IsSystemMoniker(mon, &issys);
     ok(hres == S_OK, "IsSystemMoniker failed: %08x\n", hres);
     ok(issys == MKSYS_FILEMONIKER, "issys=%x\n", issys);
 
-    IMoniker_Release(mon);
     IBindCtx_Release(bctx);
 }
 
@@ -1022,347 +1025,6 @@ static void test_HlinkResolveMonikerForData(void)
     IBindCtx_Release(bctx);
 }
 
-static void test_HlinkGetSetMonikerReference(void)
-{
-    IMoniker *found_trgt, *dummy, *dummy2;
-    IHlink *hlink;
-    HRESULT hres;
-    const WCHAR one[] = {'1',0};
-    const WCHAR two[] = {'2',0};
-    const WCHAR name[] = {'a',0};
-    WCHAR *found_loc;
-
-    /* create two dummy monikers to use as targets */
-    hres = CreateItemMoniker(one, one, &dummy);
-    ok(hres == S_OK, "CreateItemMoniker failed: 0x%08x\n", hres);
-
-    hres = CreateItemMoniker(two, two, &dummy2);
-    ok(hres == S_OK, "CreateItemMoniker failed: 0x%08x\n", hres);
-
-    /* create a new hlink: target => dummy, location => one */
-    hres = HlinkCreateFromMoniker(dummy, one, name, NULL, 0, NULL, &IID_IHlink, (void**)&hlink);
-    ok(hres == S_OK, "HlinkCreateFromMoniker failed: 0x%08x\n", hres);
-
-    /* validate the target and location */
-    hres = IHlink_GetMonikerReference(hlink, HLINKGETREF_DEFAULT, &found_trgt, &found_loc);
-    ok(hres == S_OK, "IHlink_GetMonikerReference failed: 0x%08x\n", hres);
-    ok(found_trgt == dummy, "Found target should've been %p, was: %p\n", dummy, found_trgt);
-    ok(lstrcmpW(found_loc, one) == 0, "Found location should've been %s, was: %s\n", wine_dbgstr_w(one), wine_dbgstr_w(found_loc));
-    IMoniker_Release(found_trgt);
-    CoTaskMemFree(found_loc);
-
-    /* set location => two */
-    hres = IHlink_SetMonikerReference(hlink, HLINKSETF_LOCATION, dummy2, two);
-    ok(hres == S_OK, "IHlink_SetMonikerReference failed: 0x%08x\n", hres);
-
-    hres = IHlink_GetMonikerReference(hlink, HLINKGETREF_DEFAULT, &found_trgt, &found_loc);
-    ok(found_trgt == dummy, "Found target should've been %p, was: %p\n", dummy, found_trgt);
-    ok(lstrcmpW(found_loc, two) == 0, "Found location should've been %s, was: %s\n", wine_dbgstr_w(two), wine_dbgstr_w(found_loc));
-    IMoniker_Release(found_trgt);
-    CoTaskMemFree(found_loc);
-
-    /* set target => dummy2 */
-    hres = IHlink_SetMonikerReference(hlink, HLINKSETF_TARGET, dummy2, one);
-    ok(hres == S_OK, "IHlink_SetMonikerReference failed: 0x%08x\n", hres);
-
-    hres = IHlink_GetMonikerReference(hlink, HLINKGETREF_DEFAULT, &found_trgt, &found_loc);
-    ok(found_trgt == dummy2, "Found target should've been %p, was: %p\n", dummy2, found_trgt);
-    ok(lstrcmpW(found_loc, two) == 0, "Found location should've been %s, was: %s\n", wine_dbgstr_w(two), wine_dbgstr_w(found_loc));
-    IMoniker_Release(found_trgt);
-    CoTaskMemFree(found_loc);
-
-    /* set target => dummy, location => one */
-    hres = IHlink_SetMonikerReference(hlink, HLINKSETF_TARGET | HLINKSETF_LOCATION, dummy, one);
-    ok(hres == S_OK, "IHlink_SetMonikerReference failed: 0x%08x\n", hres);
-
-    hres = IHlink_GetMonikerReference(hlink, HLINKGETREF_DEFAULT, &found_trgt, &found_loc);
-    ok(found_trgt == dummy, "Found target should've been %p, was: %p\n", dummy, found_trgt);
-    ok(lstrcmpW(found_loc, one) == 0, "Found location should've been %s, was: %s\n", wine_dbgstr_w(one), wine_dbgstr_w(found_loc));
-    IMoniker_Release(found_trgt);
-    CoTaskMemFree(found_loc);
-
-    /* no HLINKSETF flags */
-    hres = IHlink_SetMonikerReference(hlink, 0, dummy2, two);
-    ok(hres == E_INVALIDARG, "IHlink_SetMonikerReference should've failed with E_INVALIDARG (0x%08x), failed with 0x%08x\n", E_INVALIDARG, hres);
-
-    hres = IHlink_GetMonikerReference(hlink, HLINKGETREF_DEFAULT, &found_trgt, &found_loc);
-    ok(found_trgt == dummy, "Found target should've been %p, was: %p\n", dummy, found_trgt);
-    ok(lstrcmpW(found_loc, one) == 0, "Found location should've been %s, was: %s\n", wine_dbgstr_w(one), wine_dbgstr_w(found_loc));
-    IMoniker_Release(found_trgt);
-    CoTaskMemFree(found_loc);
-
-    /* invalid HLINKSETF flags */
-    hres = IHlink_SetMonikerReference(hlink, 12, dummy2, two);
-    ok(hres == 12, "IHlink_SetMonikerReference should've failed with 0x%08x, failed with 0x%08x\n", 12, hres);
-
-    hres = IHlink_GetMonikerReference(hlink, HLINKGETREF_DEFAULT, &found_trgt, &found_loc);
-    ok(found_trgt == dummy, "Found target should've been %p, was: %p\n", dummy, found_trgt);
-    ok(lstrcmpW(found_loc, one) == 0, "Found location should've been %s, was: %s\n", wine_dbgstr_w(one), wine_dbgstr_w(found_loc));
-    IMoniker_Release(found_trgt);
-    CoTaskMemFree(found_loc);
-
-    /* valid & invalid HLINKSETF flags */
-    hres = IHlink_SetMonikerReference(hlink, 12 | HLINKSETF_TARGET, dummy2, two);
-    ok(hres == S_OK, "IHlink_SetMonikerReference failed: 0x%08x\n", hres);
-
-    hres = IHlink_GetMonikerReference(hlink, HLINKGETREF_DEFAULT, &found_trgt, &found_loc);
-    ok(found_trgt == dummy2, "Found target should've been %p, was: %p\n", dummy2, found_trgt);
-    ok(lstrcmpW(found_loc, one) == 0, "Found location should've been %s, was: %s\n", wine_dbgstr_w(one), wine_dbgstr_w(found_loc));
-    IMoniker_Release(found_trgt);
-    CoTaskMemFree(found_loc);
-
-    /* NULL args */
-    hres = IHlink_SetMonikerReference(hlink, HLINKSETF_TARGET | HLINKSETF_LOCATION, NULL, NULL);
-    ok(hres == S_OK, "IHlink_SetMonikerReference failed: 0x%08x\n", hres);
-
-    hres = IHlink_GetMonikerReference(hlink, HLINKGETREF_DEFAULT, &found_trgt, &found_loc);
-    ok(found_trgt == NULL, "Found target should've been %p, was: %p\n", NULL, found_trgt);
-    ok(found_loc == NULL, "Found location should've been %s, was: %s\n", wine_dbgstr_w(NULL), wine_dbgstr_w(found_loc));
-    if(found_trgt)
-        IMoniker_Release(found_trgt);
-
-    IHlink_Release(hlink);
-    IMoniker_Release(dummy2);
-    IMoniker_Release(dummy);
-}
-
-static void test_HlinkGetSetStringReference(void)
-{
-    IHlink *link;
-    static const WCHAR one[] = {'1',0};
-    static const WCHAR two[] = {'2',0};
-    static const WCHAR three[] = {'3',0};
-    static const WCHAR empty[] = {0};
-    WCHAR *fnd_tgt, *fnd_loc;
-    HRESULT hres;
-
-    /* create a new hlink: target => NULL, location => one */
-    hres = HlinkCreateFromMoniker(NULL, one, empty, NULL, 0, NULL, &IID_IHlink, (void**)&link);
-    ok(hres == S_OK, "HlinkCreateFromMoniker failed: 0x%08x\n", hres);
-
-    /* test setting/getting location */
-    hres = IHlink_GetStringReference(link, HLINKGETREF_DEFAULT, &fnd_tgt, &fnd_loc);
-    ok(hres == S_OK, "IHlink_GetStringReference failed: 0x%08x\n", hres);
-    ok(fnd_tgt == NULL, "Found target should have been NULL, was: %s\n", wine_dbgstr_w(fnd_tgt));
-    ok(!lstrcmpW(fnd_loc, one), "Found location should have been %s, was: %s\n", wine_dbgstr_w(one), wine_dbgstr_w(fnd_loc));
-    CoTaskMemFree(fnd_tgt);
-    CoTaskMemFree(fnd_loc);
-
-    hres = IHlink_SetStringReference(link, HLINKSETF_LOCATION, one, two);
-    ok(hres == S_OK, "IHlink_SetStringReference failed: 0x%08x\n", hres);
-
-    hres = IHlink_GetStringReference(link, HLINKGETREF_DEFAULT, &fnd_tgt, &fnd_loc);
-    ok(hres == S_OK, "IHlink_GetStringReference failed: 0x%08x\n", hres);
-    ok(fnd_tgt == NULL, "Found target should have been NULL, was: %s\n", wine_dbgstr_w(fnd_tgt));
-    ok(!lstrcmpW(fnd_loc, two), "Found location should have been %s, was: %s\n", wine_dbgstr_w(two), wine_dbgstr_w(fnd_loc));
-    CoTaskMemFree(fnd_tgt);
-    CoTaskMemFree(fnd_loc);
-
-    hres = IHlink_SetStringReference(link, -HLINKSETF_LOCATION, two, one);
-    ok(hres == S_OK, "IHlink_SetStringReference failed: 0x%08x\n", hres);
-
-    hres = IHlink_GetStringReference(link, HLINKGETREF_DEFAULT, &fnd_tgt, &fnd_loc);
-    ok(hres == S_OK, "IHlink_GetStringReference failed: 0x%08x\n", hres);
-    ok(fnd_tgt == NULL, "Found target should have been NULL, was: %s\n", wine_dbgstr_w(fnd_tgt));
-    ok(!lstrcmpW(fnd_loc, one), "Found location should have been %s, was: %s\n", wine_dbgstr_w(one), wine_dbgstr_w(fnd_loc));
-    CoTaskMemFree(fnd_tgt);
-    CoTaskMemFree(fnd_loc);
-
-    /* test setting/getting target */
-    hres = IHlink_SetStringReference(link, HLINKSETF_TARGET, two, three);
-    ok(hres == S_OK, "IHlink_SetStringReference failed: 0x%08x\n", hres);
-
-    hres = IHlink_GetStringReference(link, HLINKGETREF_DEFAULT, &fnd_tgt, &fnd_loc);
-    ok(hres == S_OK, "IHlink_GetStringReference failed: 0x%08x\n", hres);
-    ok(!lstrcmpW(fnd_tgt, two), "Found target should have been %s, was: %s\n", wine_dbgstr_w(two), wine_dbgstr_w(fnd_tgt));
-    ok(!lstrcmpW(fnd_loc, one), "Found location should have been %s, was: %s\n", wine_dbgstr_w(one), wine_dbgstr_w(fnd_loc));
-    CoTaskMemFree(fnd_tgt);
-    CoTaskMemFree(fnd_loc);
-
-    hres = IHlink_SetStringReference(link, -HLINKSETF_TARGET, three, two);
-    ok(hres == S_OK, "IHlink_SetStringReference failed: 0x%08x\n", hres);
-
-    hres = IHlink_GetStringReference(link, HLINKGETREF_DEFAULT, &fnd_tgt, &fnd_loc);
-    ok(hres == S_OK, "IHlink_GetStringReference failed: 0x%08x\n", hres);
-    ok(!lstrcmpW(fnd_tgt, three), "Found target should have been %s, was: %s\n", wine_dbgstr_w(three), wine_dbgstr_w(fnd_tgt));
-    ok(!lstrcmpW(fnd_loc, two), "Found location should have been %s, was: %s\n", wine_dbgstr_w(two), wine_dbgstr_w(fnd_loc));
-    CoTaskMemFree(fnd_tgt);
-    CoTaskMemFree(fnd_loc);
-
-    /* test setting/getting both */
-    hres = IHlink_SetStringReference(link, HLINKSETF_TARGET | HLINKSETF_LOCATION, one, two);
-    ok(hres == S_OK, "IHlink_SetStringReference failed: 0x%08x\n", hres);
-
-    hres = IHlink_GetStringReference(link, HLINKGETREF_DEFAULT, &fnd_tgt, &fnd_loc);
-    ok(hres == S_OK, "IHlink_GetStringReference failed: 0x%08x\n", hres);
-    ok(!lstrcmpW(fnd_tgt, one), "Found target should have been %s, was: %s\n", wine_dbgstr_w(one), wine_dbgstr_w(fnd_tgt));
-    ok(!lstrcmpW(fnd_loc, two), "Found location should have been %s, was: %s\n", wine_dbgstr_w(two), wine_dbgstr_w(fnd_loc));
-    CoTaskMemFree(fnd_tgt);
-    CoTaskMemFree(fnd_loc);
-
-    hres = IHlink_SetStringReference(link, -(HLINKSETF_TARGET | HLINKSETF_LOCATION), three, one);
-    ok(hres == S_OK, "IHlink_SetStringReference failed: 0x%08x\n", hres);
-
-    hres = IHlink_GetStringReference(link, HLINKGETREF_DEFAULT, &fnd_tgt, &fnd_loc);
-    ok(hres == S_OK, "IHlink_GetStringReference failed: 0x%08x\n", hres);
-    ok(!lstrcmpW(fnd_tgt, three), "Found target should have been %s, was: %s\n", wine_dbgstr_w(three), wine_dbgstr_w(fnd_tgt));
-    ok(!lstrcmpW(fnd_loc, two), "Found location should have been %s, was: %s\n", wine_dbgstr_w(two), wine_dbgstr_w(fnd_loc));
-    CoTaskMemFree(fnd_tgt);
-    CoTaskMemFree(fnd_loc);
-
-    /* test invalid flags/params */
-    hres = IHlink_GetStringReference(link, 4, &fnd_tgt, &fnd_loc);
-    ok(hres == E_INVALIDARG, "IHlink_GetStringReference should have failed "
-           "with E_INVALIDARG (0x%08x), instead: 0x%08x\n", E_INVALIDARG, hres);
-    ok(fnd_tgt == NULL, "Found target should have been NULL, was: %s\n", wine_dbgstr_w(fnd_tgt));
-    ok(fnd_loc == NULL, "Found location should have been NULL, was: %s\n", wine_dbgstr_w(fnd_loc));
-    CoTaskMemFree(fnd_tgt);
-    CoTaskMemFree(fnd_loc);
-
-    hres = IHlink_GetStringReference(link, -1, &fnd_tgt, NULL);
-    todo_wine ok(hres == E_FAIL, "IHlink_GetStringReference should have failed "
-           "with E_FAIL (0x%08x), instead: 0x%08x\n", E_FAIL, hres);
-    CoTaskMemFree(fnd_tgt);
-
-    hres = IHlink_GetStringReference(link, -1, NULL, NULL);
-    ok(hres == S_OK, "failed, hres=%08x\n", hres);
-
-    hres = IHlink_GetStringReference(link, -1, NULL, &fnd_loc);
-    ok(hres == S_OK, "failed, hres=%08x\n", hres);
-    CoTaskMemFree(fnd_loc);
-
-    hres = IHlink_GetStringReference(link, -1, &fnd_tgt, &fnd_loc);
-    todo_wine ok(hres == E_FAIL, "IHlink_GetStringReference should have failed "
-           "with E_FAIL (0x%08x), instead: 0x%08x\n", E_FAIL, hres);
-    CoTaskMemFree(fnd_tgt);
-    CoTaskMemFree(fnd_loc);
-
-    hres = IHlink_GetStringReference(link, -2, &fnd_tgt, &fnd_loc);
-    ok(hres == E_INVALIDARG, "IHlink_GetStringReference should have failed "
-           "with E_INVALIDARG (0x%08x), instead: 0x%08x\n", E_INVALIDARG, hres);
-    CoTaskMemFree(fnd_tgt);
-    CoTaskMemFree(fnd_loc);
-
-    hres = IHlink_SetStringReference(link, 4, NULL, NULL);
-    ok(hres == 4, "IHlink_SetStringReference should have failed with 0x4, instead: 0x%08x\n", hres);
-
-    hres = IHlink_SetStringReference(link, -4, NULL, NULL);
-    ok(hres == -4, "IHlink_SetStringReference should have failed with 0xFFFFFFFC, instead: 0x%08x\n", hres);
-
-    IHlink_Release(link);
-}
-
-#define setStringRef(h,f,t,l) r_setStringRef(__LINE__,h,f,t,l)
-static void r_setStringRef(unsigned line, IHlink *hlink, DWORD flags, const WCHAR *tgt, const WCHAR *loc)
-{
-    HRESULT hres;
-    hres = IHlink_SetStringReference(hlink, flags, tgt, loc);
-    ok_(__FILE__,line) (hres == S_OK, "IHlink_SetStringReference failed: 0x%08x\n", hres);
-}
-
-#define getStringRef(h,t,l) r_getStringRef(__LINE__,h,t,l)
-static void r_getStringRef(unsigned line, IHlink *hlink, const WCHAR *exp_tgt, const WCHAR *exp_loc)
-{
-    HRESULT hres;
-    WCHAR *fnd_tgt, *fnd_loc;
-
-    hres = IHlink_GetStringReference(hlink, HLINKGETREF_DEFAULT, &fnd_tgt, &fnd_loc);
-    ok_(__FILE__,line) (hres == S_OK, "IHlink_GetStringReference failed: 0x%08x\n", hres);
-
-    if(exp_tgt)
-        ok_(__FILE__,line) (!lstrcmpW(fnd_tgt, exp_tgt), "Found string target should have been %s, was: %s\n", wine_dbgstr_w(exp_tgt), wine_dbgstr_w(fnd_tgt));
-    else
-        ok_(__FILE__,line) (exp_tgt == NULL, "Found string target should have been NULL, was: %s\n", wine_dbgstr_w(fnd_tgt));
-
-    if(exp_loc)
-        ok_(__FILE__,line) (!lstrcmpW(fnd_loc, exp_loc), "Found string location should have been %s, was: %s\n", wine_dbgstr_w(exp_loc), wine_dbgstr_w(fnd_loc));
-    else
-        ok_(__FILE__,line) (exp_loc == NULL, "Found string location should have been NULL, was: %s\n", wine_dbgstr_w(fnd_loc));
-
-    CoTaskMemFree(fnd_tgt);
-    CoTaskMemFree(fnd_loc);
-}
-
-#define setMonikerRef(h,f,t,l) r_setMonikerRef(__LINE__,h,f,t,l)
-static void r_setMonikerRef(unsigned line, IHlink *hlink, DWORD flags, IMoniker *tgt, const WCHAR *loc)
-{
-    HRESULT hres;
-    hres = IHlink_SetMonikerReference(hlink, flags, tgt, loc);
-    ok_(__FILE__,line) (hres == S_OK, "IHlink_SetMonikerReference failed: 0x%08x\n", hres);
-}
-
-/* passing 0xFFFFFFFF as exp_tgt will return the retrieved target & not test it */
-#define getMonikerRef(h,t,l) r_getMonikerRef(__LINE__,h,t,l)
-static IMoniker *r_getMonikerRef(unsigned line, IHlink *hlink, IMoniker *exp_tgt, const WCHAR *exp_loc)
-{
-    HRESULT hres;
-    IMoniker *fnd_tgt;
-    WCHAR *fnd_loc;
-
-    hres = IHlink_GetMonikerReference(hlink, HLINKGETREF_DEFAULT, &fnd_tgt, &fnd_loc);
-    ok_(__FILE__,line) (hres == S_OK, "IHlink_GetMonikerReference failed: 0x%08x\n", hres);
-
-    if(exp_loc)
-        ok_(__FILE__,line) (!lstrcmpW(fnd_loc, exp_loc), "Found string location should have been %s, was: %s\n", wine_dbgstr_w(exp_loc), wine_dbgstr_w(fnd_loc));
-    else
-        ok_(__FILE__,line) (exp_loc == NULL, "Found string location should have been NULL, was: %s\n", wine_dbgstr_w(fnd_loc));
-
-    CoTaskMemFree(fnd_loc);
-
-    if(exp_tgt == (IMoniker*)0xFFFFFFFF)
-        return fnd_tgt;
-
-    ok_(__FILE__,line) (fnd_tgt == exp_tgt, "Found moniker target should have been %p, was: %p\n", exp_tgt, fnd_tgt);
-
-    if(fnd_tgt)
-        IMoniker_Release(fnd_tgt);
-
-    return NULL;
-}
-
-static void test_HlinkMoniker(void)
-{
-    IHlink *hlink;
-    IMoniker *aMon, *file_mon;
-    static const WCHAR emptyW[] = {0};
-    static const WCHAR wordsW[] = {'w','o','r','d','s',0};
-    static const WCHAR aW[] = {'a',0};
-    static const WCHAR bW[] = {'b',0};
-    HRESULT hres;
-
-    hres = HlinkCreateFromString(NULL, NULL, NULL, NULL, 0, NULL, &IID_IHlink, (void**)&hlink);
-    ok(hres == S_OK, "HlinkCreateFromString failed: 0x%08x\n", hres);
-    getStringRef(hlink, NULL, NULL);
-    getMonikerRef(hlink, NULL, NULL);
-
-    /* setting a string target creates a moniker reference */
-    setStringRef(hlink, HLINKSETF_TARGET | HLINKSETF_LOCATION, aW, wordsW);
-    getStringRef(hlink, aW, wordsW);
-    aMon = getMonikerRef(hlink, (IMoniker*)0xFFFFFFFF, wordsW);
-    ok(aMon != NULL, "Moniker from %s target should not be NULL\n", wine_dbgstr_w(aW));
-    if(aMon)
-        IMoniker_Release(aMon);
-
-    /* setting target & location to the empty string deletes the moniker
-     * reference */
-    setStringRef(hlink, HLINKSETF_TARGET | HLINKSETF_LOCATION, emptyW, emptyW);
-    getStringRef(hlink, NULL, NULL);
-    getMonikerRef(hlink, NULL, NULL);
-
-    /* setting a moniker target also sets the target string to that moniker's
-     * display name */
-    hres = CreateFileMoniker(bW, &file_mon);
-    ok(hres == S_OK, "CreateFileMoniker failed: 0x%08x\n", hres);
-
-    setMonikerRef(hlink, HLINKSETF_TARGET | HLINKSETF_LOCATION, file_mon, wordsW);
-    getStringRef(hlink, bW, wordsW);
-    getMonikerRef(hlink, file_mon, wordsW);
-
-    IMoniker_Release(file_mon);
-
-    IHlink_Release(hlink);
-}
-
 START_TEST(hlink)
 {
     CoInitialize(NULL);
@@ -1374,9 +1036,6 @@ START_TEST(hlink)
     test_HlinkCreateExtensionServices();
     test_HlinkParseDisplayName();
     test_HlinkResolveMonikerForData();
-    test_HlinkGetSetMonikerReference();
-    test_HlinkGetSetStringReference();
-    test_HlinkMoniker();
 
     CoUninitialize();
 }

@@ -20,7 +20,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#pragma once
+#ifndef __ENDPROC_H
+#define __ENDPROC_H
 
 void ProcessPage_OnEndProcess(void);
 void ProcessPage_OnEndProcessTree(void);
+
+#endif /* __ENDPROC_H */

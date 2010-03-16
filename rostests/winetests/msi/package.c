@@ -30,7 +30,7 @@
 
 #include "wine/test.h"
 
-static const char msifile[] = "winetest-package.msi";
+static const char msifile[] = "winetest.msi";
 char CURR_DIR[MAX_PATH];
 
 static UINT (WINAPI *pMsiApplyMultiplePatchesA)(LPCSTR, LPCSTR, LPCSTR);
@@ -1046,14 +1046,6 @@ static void test_settargetpath(void)
     r = MsiGetTargetPath( hpkg, "TestParent", buffer, &sz );
     ok( r == ERROR_SUCCESS, "failed to get target path: %d\n", r);
     ok( !lstrcmpi(buffer, "C:\\one\\two\\"), "Expected C:\\one\\two\\, got %s\n", buffer);
-
-    r = MsiSetTargetPath( hpkg, "TestParent", "C:\\one\\two\\three" );
-    ok( r == ERROR_SUCCESS, "MsiSetTargetPath returned %d\n", r );
-
-    sz = sizeof buffer - 1;
-    r = MsiGetTargetPath( hpkg, "TestParent", buffer, &sz );
-    ok( r == ERROR_SUCCESS, "failed to get target path: %d\n", r);
-    ok( !lstrcmpi(buffer, "C:\\one\\two\\three\\"), "Expected C:\\one\\two\\three\\, got %s\n", buffer);
 
     MsiCloseHandle( hpkg );
 }
@@ -2349,9 +2341,9 @@ static void test_states(void)
     MSIHANDLE hdb;
     INSTALLSTATE state, action;
 
-    static const CHAR msifile2[] = "winetest2-package.msi";
-    static const CHAR msifile3[] = "winetest3-package.msi";
-    static const CHAR msifile4[] = "winetest4-package.msi";
+    static const CHAR msifile2[] = "winetest2.msi";
+    static const CHAR msifile3[] = "winetest3.msi";
+    static const CHAR msifile4[] = "winetest4.msi";
 
     hdb = create_package_db();
     ok ( hdb, "failed to create package database\n" );
@@ -11609,8 +11601,7 @@ static void test_MsiGetProductProperty(void)
     ok(res == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", res);
 
     lstrcpyA(val, path);
-    lstrcatA(val, "\\");
-    lstrcatA(val, msifile);
+    lstrcatA(val, "\\winetest.msi");
     res = RegSetValueExA(props, "LocalPackage", 0, REG_SZ,
                          (const BYTE *)val, lstrlenA(val) + 1);
     ok(res == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", res);

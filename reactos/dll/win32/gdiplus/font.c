@@ -158,8 +158,6 @@ GpStatus WINGDIPAPI GdipCreateFont(GDIPCONST GpFontFamily *fontFamily,
     (*font)->height = tmw->ntmSizeEM;
     (*font)->line_spacing = tmw->tmAscent + tmw->tmDescent + tmw->tmExternalLeading;
 
-    TRACE("<-- %p\n", *font);
-
     return Ok;
 }
 
@@ -206,8 +204,6 @@ GpStatus WINGDIPAPI GdipCreateFontFromLogfontW(HDC hdc,
 
     SelectObject(hdc, oldfont);
     DeleteObject(hfont);
-
-    TRACE("<-- %p\n", *font);
 
     return Ok;
 }
@@ -587,8 +583,6 @@ GpStatus WINGDIPAPI GdipCreateFontFamilyFromName(GDIPCONST WCHAR *name,
 
     *FontFamily = ffamily;
 
-    TRACE("<-- %p\n", ffamily);
-
     return Ok;
 }
 
@@ -616,8 +610,6 @@ GpStatus WINGDIPAPI GdipCloneFontFamily(GpFontFamily* FontFamily, GpFontFamily**
 
     (*clonedFontFamily)->tmw = FontFamily->tmw;
     lstrcpyW((*clonedFontFamily)->FamilyName, FontFamily->FamilyName);
-
-    TRACE("<-- %p\n", *clonedFontFamily);
 
     return Ok;
 }
@@ -853,9 +845,6 @@ GpStatus WINGDIPAPI GdipNewPrivateFontCollection(GpFontCollection** fontCollecti
     (*fontCollection)->FontFamilies = NULL;
     (*fontCollection)->count = 0;
     (*fontCollection)->allocated = 0;
-
-    TRACE("<-- %p\n", *fontCollection);
-
     return Ok;
 }
 

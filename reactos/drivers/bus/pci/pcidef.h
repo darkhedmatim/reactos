@@ -17,7 +17,8 @@
  *    Casper S. Hornstrup (chorns@users.sourceforge.net)
  */
 
-#pragma once
+#ifndef _PCIDEF_H
+#define _PCIDEF_H
 
 /*
  * Under PCI, each device has 256 bytes of configuration address space,
@@ -299,3 +300,5 @@
 #define PCI_NUM_RESOURCES 11
 
 #define PCI_REGION_FLAG_MASK 0x0f	/* These bits of resource flags tell us the PCI region flags */
+
+#endif /* _PCIDEF_H */

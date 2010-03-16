@@ -279,7 +279,6 @@ SeDefaultObjectMethod(IN PVOID Object,
     return STATUS_SUCCESS;
 }
 
-ULONG SidInTokenCalls = 0;
 
 static BOOLEAN
 SepSidInToken(PACCESS_TOKEN _Token,
@@ -290,9 +289,6 @@ SepSidInToken(PACCESS_TOKEN _Token,
 
     PAGED_CODE();
 
-    SidInTokenCalls++;
-    if (!(SidInTokenCalls % 10000)) DPRINT1("SidInToken Calls: %d\n", SidInTokenCalls);
-    
     if (Token->UserAndGroupCount == 0)
     {
         return FALSE;
@@ -302,7 +298,7 @@ SepSidInToken(PACCESS_TOKEN _Token,
     {
         if (RtlEqualSid(Sid, Token->UserAndGroups[i].Sid))
         {
-            if ((i == 0)|| (Token->UserAndGroups[i].Attributes & SE_GROUP_ENABLED))
+            if (Token->UserAndGroups[i].Attributes & SE_GROUP_ENABLED)
             {
                 return TRUE;
             }
@@ -474,16 +470,7 @@ SepAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
             SeUnlockSubjectContext(SubjectSecurityContext);
         }
 
-        if (DesiredAccess & MAXIMUM_ALLOWED)
-        {
-            *GrantedAccess = GenericMapping->GenericAll;
-            *GrantedAccess |= (DesiredAccess & ~MAXIMUM_ALLOWED);
-        }
-        else
-        {
-            *GrantedAccess = DesiredAccess | PreviouslyGrantedAccess;
-        }
-        
+        *GrantedAccess = DesiredAccess;
         *AccessStatus = STATUS_SUCCESS;
         return TRUE;
     }

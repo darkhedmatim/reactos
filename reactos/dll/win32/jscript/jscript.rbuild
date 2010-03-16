@@ -1,5 +1,3 @@
-<?xml version="1.0"?>
-<!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <group>
 <module name="jscript" type="win32dll" baseaddress="${BASEADDRESS_JSCRIPT}" installbase="system32" installname="jscript.dll" allowwarnings="true" crt="msvcrt">
 	<autoregister infsection="OleControlDlls" type="DllRegisterServer" />
@@ -11,6 +9,7 @@
 	<define name="RPC_NO_WINDOWS_H" />
 	<dependency>jsglobal</dependency>
 	<library>wine</library>
+	<library>kernel32</library>
 	<library>user32</library>
 	<library>ole32</library>
 	<library>oleaut32</library>

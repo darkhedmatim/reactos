@@ -13,89 +13,20 @@
 
 /* GLOBALS ******************************************************************/
 
-static VOID CALLBACK ServiceMain(DWORD, LPWSTR *);
-static WCHAR ServiceName[] = L"EventLog";
-static SERVICE_TABLE_ENTRYW ServiceTable[2] =
+VOID CALLBACK ServiceMain(DWORD argc, LPTSTR * argv);
+
+SERVICE_TABLE_ENTRY ServiceTable[2] =
 {
-    { ServiceName, ServiceMain },
+    { L"EventLog", (LPSERVICE_MAIN_FUNCTION) ServiceMain },
     { NULL, NULL }
 };
-
-SERVICE_STATUS ServiceStatus;
-SERVICE_STATUS_HANDLE ServiceStatusHandle;
 
 BOOL onLiveCD = FALSE;  // On livecd events will go to debug output only
 HANDLE MyHeap = NULL;
 
 /* FUNCTIONS ****************************************************************/
 
-static VOID
-UpdateServiceStatus(DWORD dwState)
-{
-    ServiceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
-    ServiceStatus.dwCurrentState = dwState;
-    ServiceStatus.dwControlsAccepted = 0;
-    ServiceStatus.dwWin32ExitCode = 0;
-    ServiceStatus.dwServiceSpecificExitCode = 0;
-    ServiceStatus.dwCheckPoint = 0;
-
-    if (dwState == SERVICE_START_PENDING ||
-        dwState == SERVICE_STOP_PENDING ||
-        dwState == SERVICE_PAUSE_PENDING ||
-        dwState == SERVICE_CONTINUE_PENDING)
-        ServiceStatus.dwWaitHint = 10000;
-    else
-        ServiceStatus.dwWaitHint = 0;
-
-    SetServiceStatus(ServiceStatusHandle,
-                     &ServiceStatus);
-}
-
-static DWORD WINAPI
-ServiceControlHandler(DWORD dwControl,
-                      DWORD dwEventType,
-                      LPVOID lpEventData,
-                      LPVOID lpContext)
-{
-    DPRINT("ServiceControlHandler() called\n");
-
-    switch (dwControl)
-    {
-        case SERVICE_CONTROL_STOP:
-            DPRINT("  SERVICE_CONTROL_STOP received\n");
-            UpdateServiceStatus(SERVICE_STOPPED);
-            return ERROR_SUCCESS;
-
-        case SERVICE_CONTROL_PAUSE:
-            DPRINT("  SERVICE_CONTROL_PAUSE received\n");
-            UpdateServiceStatus(SERVICE_PAUSED);
-            return ERROR_SUCCESS;
-
-        case SERVICE_CONTROL_CONTINUE:
-            DPRINT("  SERVICE_CONTROL_CONTINUE received\n");
-            UpdateServiceStatus(SERVICE_RUNNING);
-            return ERROR_SUCCESS;
-
-        case SERVICE_CONTROL_INTERROGATE:
-            DPRINT("  SERVICE_CONTROL_INTERROGATE received\n");
-            SetServiceStatus(ServiceStatusHandle,
-                             &ServiceStatus);
-            return ERROR_SUCCESS;
-
-        case SERVICE_CONTROL_SHUTDOWN:
-            DPRINT("  SERVICE_CONTROL_SHUTDOWN received\n");
-            UpdateServiceStatus(SERVICE_STOPPED);
-            return ERROR_SUCCESS;
-
-        default :
-            DPRINT1("  Control %lu received\n");
-            return ERROR_CALL_NOT_IMPLEMENTED;
-    }
-}
-
-
-static DWORD
-ServiceInit(VOID)
+VOID CALLBACK ServiceMain(DWORD argc, LPTSTR * argv)
 {
     HANDLE hThread;
 
@@ -108,10 +39,7 @@ ServiceInit(VOID)
                            NULL);
 
     if (!hThread)
-    {
         DPRINT("Can't create PortThread\n");
-        return GetLastError();
-    }
     else
         CloseHandle(hThread);
 
@@ -124,55 +52,10 @@ ServiceInit(VOID)
                            NULL);
 
     if (!hThread)
-    {
         DPRINT("Can't create RpcThread\n");
-        return GetLastError();
-    }
     else
         CloseHandle(hThread);
-
-    return ERROR_SUCCESS;
 }
-
-
-static VOID CALLBACK
-ServiceMain(DWORD argc,
-            LPWSTR *argv)
-{
-    DWORD dwError;
-
-    UNREFERENCED_PARAMETER(argc);
-    UNREFERENCED_PARAMETER(argv);
-
-    DPRINT("ServiceMain() called\n");
-
-    ServiceStatusHandle = RegisterServiceCtrlHandlerExW(ServiceName,
-                                                        ServiceControlHandler,
-                                                        NULL);
-    if (!ServiceStatusHandle)
-    {
-        dwError = GetLastError();
-        DPRINT1("RegisterServiceCtrlHandlerW() failed! (Error %lu)\n", dwError);
-        return;
-    }
-
-    UpdateServiceStatus(SERVICE_START_PENDING);
-
-    dwError = ServiceInit();
-    if (dwError != ERROR_SUCCESS)
-    {
-        DPRINT("Service stopped (dwError: %lu\n", dwError);
-        UpdateServiceStatus(SERVICE_START_PENDING);
-    }
-    else
-    {
-        DPRINT("Service started\n");
-        UpdateServiceStatus(SERVICE_RUNNING);
-    }
-
-    DPRINT("ServiceMain() done\n");
-}
-
 
 BOOL LoadLogFile(HKEY hKey, WCHAR * LogName)
 {

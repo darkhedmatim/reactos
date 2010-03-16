@@ -1478,7 +1478,7 @@ RtlUpcaseUnicodeToOemN(
     PCHAR OemString,
     ULONG OemSize,
     PULONG ResultSize,
-    PCWCH UnicodeString,
+    PWCHAR UnicodeString,
     ULONG UnicodeSize
 );
 
@@ -1508,7 +1508,7 @@ RtlUnicodeToOemN(
     PCHAR OemString,
     ULONG OemSize,
     PULONG ResultSize,
-    PCWCH UnicodeString,
+    PWCHAR UnicodeString,
     ULONG UnicodeSize
 );
 
@@ -1533,7 +1533,7 @@ RtlUpcaseUnicodeToMultiByteN(
     PCHAR MbString,
     ULONG MbSize,
     PULONG ResultSize,
-    PCWCH UnicodeString,
+    PWCHAR UnicodeString,
     ULONG UnicodeSize
 );
 
@@ -1542,7 +1542,7 @@ NTSTATUS
 NTAPI
 RtlUnicodeToMultiByteSize(
     PULONG MbSize,
-    PCWCH UnicodeString,
+    PWCHAR UnicodeString,
     ULONG UnicodeSize
 );
 
@@ -1570,7 +1570,7 @@ RtlOemToUnicodeN(
     PWSTR UnicodeString,
     ULONG MaxBytesInUnicodeString,
     PULONG BytesInUnicodeString,
-    IN PCCH OemString,
+    IN PCHAR OemString,
     ULONG BytesInOemString
 );
 
@@ -2652,7 +2652,6 @@ DbgPrintEx(
     IN ...
 );
 
-NTSYSAPI
 ULONG
 NTAPI
 DbgPrompt(
@@ -2915,21 +2914,16 @@ NTSYSAPI
 VOID
 NTAPI
 RtlReleaseActivationContext(
-    IN HANDLE handle
+    IN PVOID *Context
 );
 
 NTSYSAPI
 NTSTATUS
 NTAPI
 RtlDeactivateActivationContext(
-    ULONG dwFlags,
+    DWORD dwFlags,
     ULONG_PTR ulCookie
 );
-
-NTSYSAPI
-VOID
-NTAPI
-RtlFreeThreadActivationContextStack(void);
 
 NTSYSAPI
 NTSTATUS

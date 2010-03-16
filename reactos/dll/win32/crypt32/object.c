@@ -2525,7 +2525,7 @@ static CryptFormatObjectFunc CRYPT_GetBuiltinFormatFunction(DWORD encodingType,
         SetLastError(ERROR_FILE_NOT_FOUND);
         return NULL;
     }
-    if (IS_INTOID(lpszStructType))
+    if (!HIWORD(lpszStructType))
     {
         switch (LOWORD(lpszStructType))
         {

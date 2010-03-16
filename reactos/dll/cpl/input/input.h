@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __CPL_INPUT_H
+#define __CPL_INPUT_H
 
 #include <windows.h>
 #include <commctrl.h>
@@ -64,5 +65,7 @@ BOOL
 GetHotkeys(LPTSTR szHotkey, LPTSTR szLangHotkey, LPTSTR szLayoutHotkey);
 
 void ShowLastWin32Error(HWND hWndOwner);
+
+#endif /* __CPL_INPUT_H */
 
 /* EOF */

@@ -22,6 +22,8 @@ int __argc = 0;
 
 extern wchar_t **__winitenv;
 
+extern HANDLE hHeap;
+
 char* strndup(char* name, size_t len)
 {
    char *s = malloc(len + 1);
@@ -177,7 +179,7 @@ int aexpand(char* name, int expand_wildcards)
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 void __getmainargs(int* argc, char*** argv, char*** env, int expand_wildcards, int* new_mode)
 {
@@ -241,7 +243,7 @@ void __getmainargs(int* argc, char*** argv, char*** env, int expand_wildcards, i
       aexpand(strndup(_acmdln+afterlastspace, i - afterlastspace), doexpand);
    }
 
-   HeapValidate(GetProcessHeap(), 0, NULL);
+   HeapValidate(hHeap, 0, NULL);
 
    *argc = __argc;
    if (__argv == NULL)
@@ -257,7 +259,7 @@ void __getmainargs(int* argc, char*** argv, char*** env, int expand_wildcards, i
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 void __wgetmainargs(int* argc, wchar_t*** wargv, wchar_t*** wenv,
                     int expand_wildcards, int* new_mode)
@@ -321,7 +323,7 @@ void __wgetmainargs(int* argc, wchar_t*** wargv, wchar_t*** wenv,
       wexpand(wcsndup(_wcmdln+afterlastspace, i - afterlastspace), doexpand);
    }
 
-   HeapValidate(GetProcessHeap(), 0, NULL);
+   HeapValidate(hHeap, 0, NULL);
 
    *argc = __argc;
    if (__wargv == NULL)

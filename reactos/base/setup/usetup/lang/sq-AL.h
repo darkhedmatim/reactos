@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_SQ_AL_H__
+#define LANG_SQ_AL_H__
 
 MUI_LAYOUTS sqALLayouts[] =
 {
@@ -6,3 +7,5 @@ MUI_LAYOUTS sqALLayouts[] =
     { L"0409", L"00000409" },
     { NULL, NULL }
 };
+
+#endif

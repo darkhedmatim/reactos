@@ -285,7 +285,7 @@ RtlWalkFrameChain(OUT PVOID *Callers,
     ULONG Eip;
     BOOLEAN Result, StopSearch = FALSE;
     ULONG i = 0;
-    PETHREAD Thread = PsGetCurrentThread();
+    PKTHREAD Thread = KeGetCurrentThread();
     PTEB Teb;
     PKTRAP_FRAME TrapFrame;
 
@@ -326,12 +326,14 @@ RtlWalkFrameChain(OUT PVOID *Callers,
         if (Flags == 1)
         {
             /* Get the trap frame and TEB */
-            TrapFrame = KeGetTrapFrame(&Thread->Tcb);
-            Teb = Thread->Tcb.Teb;
+            TrapFrame = Thread->TrapFrame;
+            Teb = Thread->Teb;
 
             /* Make sure we can trust the TEB and trap frame */
             if (!(Teb) ||
-                !(Thread->SystemThread) ||
+                !((PVOID)((ULONG_PTR)TrapFrame & 0x80000000)) ||
+                ((PVOID)TrapFrame <= (PVOID)Thread->StackLimit) ||
+                ((PVOID)TrapFrame >= (PVOID)Thread->StackBase) ||
                 (KeIsAttachedProcess()) ||
                 (KeGetCurrentIrql() >= DISPATCH_LEVEL))
             {
@@ -388,7 +390,7 @@ RtlWalkFrameChain(OUT PVOID *Callers,
             if ((StackBegin < Eip) && (Eip < StackEnd)) break;
 
             /* Check if we reached a user-mode address */
-            if (!(Flags) && !(Eip & 0x80000000)) break; // FIXME: 3GB breakage
+            if (!(Flags) && !(Eip & 0x80000000)) break;
 
             /* Save this frame */
             Callers[i] = (PVOID)Eip;

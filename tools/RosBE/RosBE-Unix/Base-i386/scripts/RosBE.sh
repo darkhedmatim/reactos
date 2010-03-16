@@ -2,19 +2,25 @@
 #
 # Script for initializing RosBE
 # Part of RosBE for Unix-based Operating Systems
-# Copyright 2007-2010 Colin Finck <colin@reactos.org>
+# Copyright 2007-2009 Colin Finck <colin@reactos.org>
 #
 # Released under GNU GPL v2 or any later version.
 
 # Save the ReactOS source directory
-export _ROSBE_ROSSOURCEDIR="${1:-$PWD}"
+if [ "$1" = "" ]; then
+	_ROSBE_ROSSOURCEDIR="$PWD"
+else
+	_ROSBE_ROSSOURCEDIR="$1"
+fi
+
+export _ROSBE_ROSSOURCEDIR
 
 # Get the absolute path to the script directory
 cd `dirname $0`
 export _ROSBE_ROSSCRIPTDIR="$PWD"
 
 # Save the current PATH variable
-export _ROSBE_OLDPATH="$_ROSBE_ROSSCRIPTDIR/bin:$PATH"
+export _ROSBE_OLDPATH="$PATH"
 
 # Make sure that some important variables are clean
 export HOST=
@@ -38,8 +44,15 @@ fi
 # Set the architecture to build for
 source "$_ROSBE_ROSSCRIPTDIR/rosbelibrary.sh"
 
-# Try to set the architecture to the one specified or fallback to "i386"
-change_architecture "${3:-i386}"
+if [ "$3" = "" ]; then
+	# No architecture specified, fall back to i386 without any message
+	export _ROSBE_ARCH="i386"
+else
+	# Try to set the architecture to the one specified
+	change_architecture $3
+fi
+
+source "$_ROSBE_ROSSCRIPTDIR/$_ROSBE_ARCH/setvars.sh"
 
 # Display banner
 echo "*******************************************************************************"

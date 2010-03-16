@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_INTGDI_H
+#define _WIN32K_INTGDI_H
 
 #include "region.h"
 
@@ -66,8 +67,7 @@ BOOL FASTCALL
 IntGdiMoveToEx(DC      *dc,
                int     X,
                int     Y,
-               LPPOINT Point,
-               BOOL    BypassPath);
+               LPPOINT Point);
 
 BOOL FASTCALL
 IntGdiPolyBezier(DC      *dc,
@@ -257,6 +257,7 @@ GreStretchBltMask(IN HDC hdcDst,
                   IN INT cySrc,
                   IN DWORD dwRop,
                   IN DWORD dwBackColor,
-                  IN HDC hdcMask,
-                  IN INT xMask,
-                  IN INT yMask);
+                  IN HDC hdcMask);
+
+#endif /* _WIN32K_INTGDI_H */
+

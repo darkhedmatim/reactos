@@ -70,8 +70,7 @@ GetDeviceManufacturerString(IN HDEVINFO DeviceInfoSet,
                             IN DWORD BufferSize);
 
 BOOL
-GetDeviceLocationString(IN HDEVINFO DeviceInfoSet,
-                        IN PSP_DEVINFO_DATA DeviceInfoData,
+GetDeviceLocationString(IN DEVINST dnDevInst  OPTIONAL,
                         IN DEVINST dnParentDevInst  OPTIONAL,
                         OUT LPWSTR szBuffer,
                         IN DWORD BufferSize);

@@ -3,7 +3,7 @@
 :: LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 :: FILE:        Root/chdefgcc.cmd
 :: PURPOSE:     Tool to change the current gcc in RosBE.
-:: COPYRIGHT:   Copyright 2010 Daniel Reimer <reimer.daniel@freenet.de>
+:: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
 ::                             Peter Ward <dralnix@gmail.com>
 ::                             Colin Finck <colin@reactos.org>
 ::
@@ -26,7 +26,7 @@ if "%1" == "" (
         goto :EOC
     )
 ) else (
-    for /f "usebackq tokens=*" %%i in (`"rquote.exe %1"`) do set TOOLPATH=%%i
+    for /f "usebackq tokens=*" %%i in (`""%_ROSBE_BASEDIR%\Tools\rquote.exe" %1"`) do set TOOLPATH=%%i
 )
 
 if "%2" == "" (

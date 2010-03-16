@@ -1301,7 +1301,7 @@ CmpCreateEvent(
 PVOID
 NTAPI
 CmpAllocate(
-    IN SIZE_T Size,
+    IN ULONG Size,
     IN BOOLEAN Paged,
     IN ULONG Tag
 );
@@ -1452,12 +1452,6 @@ VOID
 NTAPI
 CmShutdownSystem(
     VOID
-);
-
-VOID
-NTAPI
-CmSetLazyFlushState(
-    IN BOOLEAN Enable
 );
 
 //

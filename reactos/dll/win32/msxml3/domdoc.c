@@ -47,17 +47,6 @@ WINE_DEFAULT_DEBUG_CHANNEL(msxml);
 
 #ifdef HAVE_LIBXML2
 
-#include <libxml/xmlsave.h>
-
-/* not defined in older versions */
-#define XML_SAVE_FORMAT     1
-#define XML_SAVE_NO_DECL    2
-#define XML_SAVE_NO_EMPTY   4
-#define XML_SAVE_NO_XHTML   8
-#define XML_SAVE_XHTML     16
-#define XML_SAVE_AS_XML    32
-#define XML_SAVE_AS_HTML   64
-
 static const WCHAR SZ_PROPERTY_SELECTION_LANGUAGE[] = {'S','e','l','e','c','t','i','o','n','L','a','n','g','u','a','g','e',0};
 static const WCHAR SZ_VALUE_XPATH[] = {'X','P','a','t','h',0};
 static const WCHAR SZ_VALUE_XSLPATTERN[] = {'X','S','L','P','a','t','t','e','r','n',0};
@@ -130,7 +119,7 @@ static inline xmldoc_priv * priv_from_xmlDocPtr(xmlDocPtr doc)
 static xmldoc_priv * create_priv(void)
 {
     xmldoc_priv *priv;
-    priv = heap_alloc( sizeof (*priv) );
+    priv = HeapAlloc( GetProcessHeap(), 0, sizeof (*priv) );
 
     if(priv)
     {
@@ -175,9 +164,9 @@ LONG xmldoc_release(xmlDocPtr doc)
         LIST_FOR_EACH_ENTRY_SAFE( orphan, orphan2, &priv->orphans, orphan_entry, entry )
         {
             xmlFreeNode( orphan->node );
-            heap_free( orphan );
+            HeapFree( GetProcessHeap(), 0, orphan );
         }
-        heap_free(doc->_private);
+        HeapFree(GetProcessHeap(), 0, doc->_private);
 
         xmlFreeDoc(doc);
     }
@@ -190,7 +179,7 @@ HRESULT xmldoc_add_orphan(xmlDocPtr doc, xmlNodePtr node)
     xmldoc_priv *priv = priv_from_xmlDocPtr(doc);
     orphan_entry *entry;
 
-    entry = heap_alloc( sizeof (*entry) );
+    entry = HeapAlloc( GetProcessHeap(), 0, sizeof (*entry) );
     if(!entry)
         return E_OUTOFMEMORY;
 
@@ -209,7 +198,7 @@ HRESULT xmldoc_remove_orphan(xmlDocPtr doc, xmlNodePtr node)
         if( entry->node == node )
         {
             list_remove( &entry->entry );
-            heap_free( entry );
+            HeapFree( GetProcessHeap(), 0, entry );
             return S_OK;
         }
     }
@@ -301,7 +290,7 @@ static HRESULT WINAPI xmldoc_IPersistStream_IsDirty(
 {
     domdoc *This = impl_from_IPersistStream(iface);
 
-    FIXME("(%p): stub!\n", This);
+    FIXME("(%p->%p): stub!\n", iface, This);
 
     return S_FALSE;
 }
@@ -317,7 +306,7 @@ static HRESULT WINAPI xmldoc_IPersistStream_Load(
     char *ptr;
     xmlDocPtr xmldoc = NULL;
 
-    TRACE("(%p)->(%p)\n", This, pStm);
+    TRACE("(%p, %p)\n", iface, pStm);
 
     if (!pStm)
         return E_INVALIDARG;
@@ -366,7 +355,7 @@ static HRESULT WINAPI xmldoc_IPersistStream_Save(
     HRESULT hr;
     BSTR xmlString;
 
-    TRACE("(%p)->(%p %d)\n", This, pStm, fClearDirty);
+    TRACE("(%p, %p, %d)\n", iface, pStm, fClearDirty);
 
     hr = IXMLDOMNode_get_xml( IXMLDOMNode_from_impl(&This->node), &xmlString );
     if(hr == S_OK)
@@ -387,8 +376,7 @@ static HRESULT WINAPI xmldoc_IPersistStream_Save(
 static HRESULT WINAPI xmldoc_IPersistStream_GetSizeMax(
     IPersistStream *iface, ULARGE_INTEGER *pcbSize)
 {
-    domdoc *This = impl_from_IPersistStream(iface);
-    TRACE("(%p)->(%p): stub!\n", This, pcbSize);
+    TRACE("(%p, %p): stub!\n", iface, pcbSize);
     return E_NOTIMPL;
 }
 
@@ -448,7 +436,7 @@ static HRESULT WINAPI domdoc_QueryInterface( IXMLDOMDocument2 *iface, REFIID rii
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
 
-    TRACE("(%p)->(%s %p)\n", This, debugstr_guid( riid ), ppvObject );
+    TRACE("%p %s %p\n", This, debugstr_guid( riid ), ppvObject );
 
     *ppvObject = NULL;
 
@@ -470,10 +458,6 @@ static HRESULT WINAPI domdoc_QueryInterface( IXMLDOMDocument2 *iface, REFIID rii
     else if (IsEqualGUID(&IID_IObjectWithSite, riid))
     {
         *ppvObject = &(This->lpvtblIObjectWithSite);
-    }
-    else if (IsEqualGUID(&IID_IObjectSafety, riid))
-    {
-        *ppvObject = &(This->lpvtblIObjectSafety);
     }
     else if( IsEqualGUID( riid, &IID_ISupportErrorInfo ))
     {
@@ -956,8 +940,7 @@ static HRESULT WINAPI domdoc_get_doctype(
     IXMLDOMDocument2 *iface,
     IXMLDOMDocumentType** documentType )
 {
-    domdoc *This = impl_from_IXMLDOMDocument2(iface);
-    FIXME("(%p)\n", This);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -966,10 +949,6 @@ static HRESULT WINAPI domdoc_get_implementation(
     IXMLDOMDocument2 *iface,
     IXMLDOMImplementation** impl )
 {
-    domdoc *This = impl_from_IXMLDOMDocument2(iface);
-
-    TRACE("(%p)->(%p)\n", This, impl);
-
     if(!impl)
         return E_INVALIDARG;
 
@@ -988,7 +967,7 @@ static HRESULT WINAPI domdoc_get_documentElement(
     IXMLDOMNode *element_node;
     HRESULT hr;
 
-    TRACE("(%p)->(%p)\n", This, DOMElement);
+    TRACE("%p\n", This);
 
     if(!DOMElement)
         return E_INVALIDARG;
@@ -1048,55 +1027,52 @@ static HRESULT WINAPI domdoc_createElement(
     BSTR tagname,
     IXMLDOMElement** element )
 {
+    xmlNodePtr xmlnode;
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
-    IXMLDOMNode *node;
-    VARIANT type;
+    xmlChar *xml_name;
+    IUnknown *elem_unk;
     HRESULT hr;
 
-    TRACE("(%p)->(%s %p)\n", This, debugstr_w(tagname), element);
+    TRACE("%p->(%s,%p)\n", iface, debugstr_w(tagname), element);
 
-    if (!element || !tagname) return E_INVALIDARG;
+    xml_name = xmlChar_from_wchar(tagname);
+    xmlnode = xmlNewDocNode(get_doc(This), NULL, xml_name, NULL);
+    xmldoc_add_orphan(xmlnode->doc, xmlnode);
 
-    V_VT(&type) = VT_I1;
-    V_I1(&type) = NODE_ELEMENT;
+    TRACE("created xmlptr %p\n", xmlnode);
+    elem_unk = create_element(xmlnode);
+    HeapFree(GetProcessHeap(), 0, xml_name);
 
-    hr = IXMLDOMDocument_createNode(iface, type, tagname, NULL, &node);
-    if (hr == S_OK)
-    {
-        IXMLDOMNode_QueryInterface(node, &IID_IXMLDOMElement, (void**)element);
-        IXMLDOMNode_Release(node);
-    }
-
+    hr = IUnknown_QueryInterface(elem_unk, &IID_IXMLDOMElement, (void **)element);
+    IUnknown_Release(elem_unk);
+    TRACE("returning %p\n", *element);
     return hr;
 }
 
 
 static HRESULT WINAPI domdoc_createDocumentFragment(
     IXMLDOMDocument2 *iface,
-    IXMLDOMDocumentFragment** frag )
+    IXMLDOMDocumentFragment** docFrag )
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
-    IXMLDOMNode *node;
-    VARIANT type;
-    HRESULT hr;
+    xmlNodePtr xmlnode;
 
-    TRACE("(%p)->(%p)\n", This, frag);
+    TRACE("%p\n", iface);
 
-    if (!frag) return E_INVALIDARG;
+    if(!docFrag)
+        return E_INVALIDARG;
 
-    *frag = NULL;
+    *docFrag = NULL;
 
-    V_VT(&type) = VT_I1;
-    V_I1(&type) = NODE_DOCUMENT_FRAGMENT;
+    xmlnode = xmlNewDocFragment(get_doc( This ) );
 
-    hr = IXMLDOMDocument_createNode(iface, type, NULL, NULL, &node);
-    if (hr == S_OK)
-    {
-        IXMLDOMNode_QueryInterface(node, &IID_IXMLDOMDocumentFragment, (void**)frag);
-        IXMLDOMNode_Release(node);
-    }
+    if(!xmlnode)
+        return E_FAIL;
 
-    return hr;
+    xmldoc_add_orphan(xmlnode->doc, xmlnode);
+    *docFrag = (IXMLDOMDocumentFragment*)create_doc_fragment(xmlnode);
+
+    return S_OK;
 }
 
 
@@ -1106,28 +1082,29 @@ static HRESULT WINAPI domdoc_createTextNode(
     IXMLDOMText** text )
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
-    IXMLDOMNode *node;
-    VARIANT type;
-    HRESULT hr;
+    xmlNodePtr xmlnode;
+    xmlChar *xml_content;
 
-    TRACE("(%p)->(%s %p)\n", This, debugstr_w(data), text);
+    TRACE("%p->(%s %p)\n", iface, debugstr_w(data), text);
 
-    if (!text) return E_INVALIDARG;
+    if(!text)
+        return E_INVALIDARG;
 
     *text = NULL;
 
-    V_VT(&type) = VT_I1;
-    V_I1(&type) = NODE_TEXT;
+    xml_content = xmlChar_from_wchar(data);
+    xmlnode = xmlNewText(xml_content);
+    HeapFree(GetProcessHeap(), 0, xml_content);
 
-    hr = IXMLDOMDocument2_createNode(iface, type, NULL, NULL, &node);
-    if (hr == S_OK)
-    {
-        IXMLDOMNode_QueryInterface(node, &IID_IXMLDOMText, (void**)text);
-        IXMLDOMNode_Release(node);
-        hr = IXMLDOMText_put_data(*text, data);
-    }
+    if(!xmlnode)
+        return E_FAIL;
 
-    return hr;
+    xmlnode->doc = get_doc( This );
+    xmldoc_add_orphan(xmlnode->doc, xmlnode);
+
+    *text = (IXMLDOMText*)create_text(xmlnode);
+
+    return S_OK;
 }
 
 
@@ -1137,28 +1114,29 @@ static HRESULT WINAPI domdoc_createComment(
     IXMLDOMComment** comment )
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
-    VARIANT type;
-    HRESULT hr;
-    IXMLDOMNode *node;
+    xmlNodePtr xmlnode;
+    xmlChar *xml_content;
 
-    TRACE("(%p)->(%s %p)\n", This, debugstr_w(data), comment);
+    TRACE("%p->(%s %p)\n", iface, debugstr_w(data), comment);
 
-    if (!comment) return E_INVALIDARG;
+    if(!comment)
+        return E_INVALIDARG;
 
     *comment = NULL;
 
-    V_VT(&type) = VT_I1;
-    V_I1(&type) = NODE_COMMENT;
+    xml_content = xmlChar_from_wchar(data);
+    xmlnode = xmlNewComment(xml_content);
+    HeapFree(GetProcessHeap(), 0, xml_content);
 
-    hr = IXMLDOMDocument2_createNode(iface, type, NULL, NULL, &node);
-    if (hr == S_OK)
-    {
-        IXMLDOMNode_QueryInterface(node, &IID_IXMLDOMComment, (void**)comment);
-        IXMLDOMNode_Release(node);
-        hr = IXMLDOMComment_put_data(*comment, data);
-    }
+    if(!xmlnode)
+        return E_FAIL;
 
-    return hr;
+    xmlnode->doc = get_doc( This );
+    xmldoc_add_orphan(xmlnode->doc, xmlnode);
+
+    *comment = (IXMLDOMComment*)create_comment(xmlnode);
+
+    return S_OK;
 }
 
 
@@ -1168,28 +1146,29 @@ static HRESULT WINAPI domdoc_createCDATASection(
     IXMLDOMCDATASection** cdata )
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
-    IXMLDOMNode *node;
-    VARIANT type;
-    HRESULT hr;
+    xmlNodePtr xmlnode;
+    xmlChar *xml_content;
 
-    TRACE("(%p)->(%s %p)\n", This, debugstr_w(data), cdata);
+    TRACE("%p->(%s %p)\n", iface, debugstr_w(data), cdata);
 
-    if (!cdata) return E_INVALIDARG;
+    if(!cdata)
+        return E_INVALIDARG;
 
     *cdata = NULL;
 
-    V_VT(&type) = VT_I1;
-    V_I1(&type) = NODE_CDATA_SECTION;
+    xml_content = xmlChar_from_wchar(data);
+    xmlnode = xmlNewCDataBlock(get_doc( This ), xml_content, strlen( (char*)xml_content) );
+    HeapFree(GetProcessHeap(), 0, xml_content);
 
-    hr = IXMLDOMDocument2_createNode(iface, type, NULL, NULL, &node);
-    if (hr == S_OK)
-    {
-        IXMLDOMNode_QueryInterface(node, &IID_IXMLDOMCDATASection, (void**)cdata);
-        IXMLDOMNode_Release(node);
-        hr = IXMLDOMCDATASection_put_data(*cdata, data);
-    }
+    if(!xmlnode)
+        return E_FAIL;
 
-    return hr;
+    xmlnode->doc = get_doc( This );
+    xmldoc_add_orphan(xmlnode->doc, xmlnode);
+
+    *cdata = (IXMLDOMCDATASection*)create_cdata(xmlnode);
+
+    return S_OK;
 }
 
 
@@ -1199,36 +1178,35 @@ static HRESULT WINAPI domdoc_createProcessingInstruction(
     BSTR data,
     IXMLDOMProcessingInstruction** pi )
 {
+#ifdef HAVE_XMLNEWDOCPI
+    xmlNodePtr xmlnode;
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
-    IXMLDOMNode *node;
-    VARIANT type;
-    HRESULT hr;
+    xmlChar *xml_target, *xml_content;
 
-    TRACE("(%p)->(%s %s %p)\n", This, debugstr_w(target), debugstr_w(data), pi);
+    TRACE("%p->(%s %s %p)\n", iface, debugstr_w(target), debugstr_w(data), pi);
 
-    if (!pi) return E_INVALIDARG;
+    if(!pi)
+        return E_INVALIDARG;
 
-    *pi = NULL;
+    if(!target || lstrlenW(target) == 0)
+        return E_FAIL;
 
-    V_VT(&type) = VT_I1;
-    V_I1(&type) = NODE_PROCESSING_INSTRUCTION;
+    xml_target = xmlChar_from_wchar(target);
+    xml_content = xmlChar_from_wchar(data);
 
-    hr = IXMLDOMDocument2_createNode(iface, type, target, NULL, &node);
-    if (hr == S_OK)
-    {
-        VARIANT v_data;
+    xmlnode = xmlNewDocPI(get_doc(This), xml_target, xml_content);
+    xmldoc_add_orphan(xmlnode->doc, xmlnode);
+    TRACE("created xmlptr %p\n", xmlnode);
+    *pi = (IXMLDOMProcessingInstruction*)create_pi(xmlnode);
 
-        /* this is to bypass check in ::put_data() that blocks "<?xml" PIs */
-        V_VT(&v_data)   = VT_BSTR;
-        V_BSTR(&v_data) = data;
+    HeapFree(GetProcessHeap(), 0, xml_content);
+    HeapFree(GetProcessHeap(), 0, xml_target);
 
-        hr = IXMLDOMNode_put_nodeValue( node, v_data );
-
-        IXMLDOMNode_QueryInterface(node, &IID_IXMLDOMProcessingInstruction, (void**)pi);
-        IXMLDOMNode_Release(node);
-    }
-
-    return hr;
+    return S_OK;
+#else
+    FIXME("Libxml 2.6.15 or greater required.\n");
+    return E_NOTIMPL;
+#endif
 }
 
 
@@ -1238,55 +1216,61 @@ static HRESULT WINAPI domdoc_createAttribute(
     IXMLDOMAttribute** attribute )
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
-    IXMLDOMNode *node;
-    VARIANT type;
-    HRESULT hr;
+    xmlNodePtr xmlnode;
+    xmlChar *xml_name;
 
-    TRACE("(%p)->(%s %p)\n", This, debugstr_w(name), attribute);
+    TRACE("%p->(%s %p)\n", iface, debugstr_w(name), attribute);
 
-    if (!attribute || !name) return E_INVALIDARG;
+    if(!attribute)
+        return E_INVALIDARG;
 
-    V_VT(&type) = VT_I1;
-    V_I1(&type) = NODE_ATTRIBUTE;
+    *attribute = NULL;
 
-    hr = IXMLDOMDocument_createNode(iface, type, name, NULL, &node);
-    if (hr == S_OK)
-    {
-        IXMLDOMNode_QueryInterface(node, &IID_IXMLDOMAttribute, (void**)attribute);
-        IXMLDOMNode_Release(node);
-    }
+    xml_name = xmlChar_from_wchar(name);
+    xmlnode = (xmlNode *)xmlNewProp(NULL, xml_name, NULL);
+    HeapFree(GetProcessHeap(), 0, xml_name);
 
-    return hr;
+    if(!xmlnode)
+        return E_FAIL;
+
+    xmlnode->doc = get_doc( This );
+    xmldoc_add_orphan(xmlnode->doc, xmlnode);
+
+    *attribute = (IXMLDOMAttribute*)create_attribute(xmlnode);
+
+    return S_OK;
 }
 
 
 static HRESULT WINAPI domdoc_createEntityReference(
     IXMLDOMDocument2 *iface,
     BSTR name,
-    IXMLDOMEntityReference** entityref )
+    IXMLDOMEntityReference** entityRef )
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
-    IXMLDOMNode *node;
-    VARIANT type;
-    HRESULT hr;
+    xmlNodePtr xmlnode;
+    xmlChar *xml_name;
 
-    TRACE("(%p)->(%s %p)\n", This, debugstr_w(name), entityref);
+    TRACE("%p\n", iface);
 
-    if (!entityref) return E_INVALIDARG;
+    if(!entityRef)
+        return E_INVALIDARG;
 
-    *entityref = NULL;
+    *entityRef = NULL;
 
-    V_VT(&type) = VT_I1;
-    V_I1(&type) = NODE_ENTITY_REFERENCE;
+    xml_name = xmlChar_from_wchar(name);
+    xmlnode = xmlNewReference(get_doc( This ), xml_name );
+    HeapFree(GetProcessHeap(), 0, xml_name);
 
-    hr = IXMLDOMDocument2_createNode(iface, type, name, NULL, &node);
-    if (hr == S_OK)
-    {
-        IXMLDOMNode_QueryInterface(node, &IID_IXMLDOMEntityReference, (void**)entityref);
-        IXMLDOMNode_Release(node);
-    }
+    if(!xmlnode)
+        return E_FAIL;
 
-    return hr;
+    xmlnode->doc = get_doc( This );
+    xmldoc_add_orphan(xmlnode->doc, xmlnode);
+
+    *entityRef = (IXMLDOMEntityReference*)create_doc_entity_ref(xmlnode);
+
+    return S_OK;
 }
 
 
@@ -1295,28 +1279,17 @@ static HRESULT WINAPI domdoc_getElementsByTagName(
     BSTR tagName,
     IXMLDOMNodeList** resultList )
 {
-    static const WCHAR xpathformat[] =
-            { '/','/','*','[','l','o','c','a','l','-','n','a','m','e','(',')','=','\'','%','s','\'',']',0 };
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
     LPWSTR szPattern;
     HRESULT hr;
-    TRACE("(%p)->(%s %p)\n", This, debugstr_w(tagName), resultList);
+    TRACE("(%p)->(%s, %p)\n", This, debugstr_w(tagName), resultList);
 
-    if (tagName[0] == '*' && tagName[1] == 0)
-    {
-        szPattern = heap_alloc(sizeof(WCHAR)*4);
-        szPattern[0] = szPattern[1] = '/';
-        szPattern[2] = '*';
-        szPattern[3] = 0;
-    }
-    else
-    {
-        szPattern = heap_alloc(sizeof(WCHAR)*(20+lstrlenW(tagName)+1));
-        wsprintfW(szPattern, xpathformat, tagName);
-    }
+    szPattern = HeapAlloc(GetProcessHeap(), 0, sizeof(WCHAR)*(2+lstrlenW(tagName)+1));
+    szPattern[0] = szPattern[1] = '/';
+    lstrcpyW(szPattern + 2, tagName);
 
     hr = queryresult_create((xmlNodePtr)get_doc(This), szPattern, resultList);
-    heap_free(szPattern);
+    HeapFree(GetProcessHeap(), 0, szPattern);
 
     return hr;
 }
@@ -1345,33 +1318,20 @@ static HRESULT WINAPI domdoc_createNode(
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
     DOMNodeType node_type;
-    xmlNodePtr xmlnode;
+    xmlNodePtr xmlnode = NULL;
     xmlChar *xml_name;
     HRESULT hr;
 
-    TRACE("(%p)->(%s %s %p)\n", This, debugstr_w(name), debugstr_w(namespaceURI), node);
-
-    if(!node) return E_INVALIDARG;
+    TRACE("(%p)->(type,%s,%s,%p)\n", This, debugstr_w(name), debugstr_w(namespaceURI), node);
 
     if(namespaceURI && namespaceURI[0])
         FIXME("nodes with namespaces currently not supported.\n");
 
     hr = get_node_type(Type, &node_type);
-    if(FAILED(hr)) return hr;
+    if(FAILED(hr))
+        return hr;
 
     TRACE("node_type %d\n", node_type);
-
-    /* exit earlier for types that need name */
-    switch(node_type)
-    {
-    case NODE_ELEMENT:
-    case NODE_ATTRIBUTE:
-    case NODE_ENTITY_REFERENCE:
-    case NODE_PROCESSING_INSTRUCTION:
-        if (!name || SysStringLen(name) == 0) return E_FAIL;
-    default:
-        break;
-    }
 
     xml_name = xmlChar_from_wchar(name);
 
@@ -1379,52 +1339,30 @@ static HRESULT WINAPI domdoc_createNode(
     {
     case NODE_ELEMENT:
         xmlnode = xmlNewDocNode(get_doc(This), NULL, xml_name, NULL);
+        *node = create_node(xmlnode);
+        TRACE("created %p\n", xmlnode);
         break;
     case NODE_ATTRIBUTE:
-        xmlnode = (xmlNodePtr)xmlNewDocProp(get_doc(This), xml_name, NULL);
+        xmlnode = (xmlNode *)xmlNewProp(NULL, xml_name, NULL);
+        if(xmlnode)
+        {
+            xmlnode->doc = get_doc( This );
+
+            *node = (IXMLDOMNode*)create_attribute(xmlnode);
+        }
+
+        TRACE("created %p\n", xmlnode);
         break;
-    case NODE_TEXT:
-        xmlnode = (xmlNodePtr)xmlNewDocText(get_doc(This), NULL);
-        break;
-    case NODE_CDATA_SECTION:
-        xmlnode = xmlNewCDataBlock(get_doc(This), NULL, 0);
-        break;
-    case NODE_ENTITY_REFERENCE:
-        xmlnode = xmlNewReference(get_doc(This), xml_name);
-        break;
-    case NODE_PROCESSING_INSTRUCTION:
-#ifdef HAVE_XMLNEWDOCPI
-        xmlnode = xmlNewDocPI(get_doc(This), xml_name, NULL);
-#else
-        FIXME("xmlNewDocPI() not supported, use libxml2 2.6.15 or greater\n");
-        xmlnode = NULL;
-#endif
-        break;
-    case NODE_COMMENT:
-        xmlnode = xmlNewDocComment(get_doc(This), NULL);
-        break;
-    case NODE_DOCUMENT_FRAGMENT:
-        xmlnode = xmlNewDocFragment(get_doc(This));
-        break;
-    /* unsupported types */
-    case NODE_DOCUMENT:
-    case NODE_DOCUMENT_TYPE:
-    case NODE_ENTITY:
-    case NODE_NOTATION:
-        heap_free(xml_name);
-        return E_INVALIDARG;
+
     default:
         FIXME("unhandled node type %d\n", node_type);
-        xmlnode = NULL;
         break;
     }
 
-    *node = create_node(xmlnode);
-    heap_free(xml_name);
+    HeapFree(GetProcessHeap(), 0, xml_name);
 
-    if(*node)
+    if(xmlnode && *node)
     {
-        TRACE("created node (%d, %p, %p)\n", node_type, *node, xmlnode);
         xmldoc_add_orphan(xmlnode->doc, xmlnode);
         return S_OK;
     }
@@ -1437,8 +1375,7 @@ static HRESULT WINAPI domdoc_nodeFromID(
     BSTR idString,
     IXMLDOMNode** node )
 {
-    domdoc *This = impl_from_IXMLDOMDocument2(iface);
-    FIXME("(%p)->(%s %p)\n", This, debugstr_w(idString), node);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -1484,7 +1421,7 @@ static HRESULT WINAPI domdoc_load(
     IStream *pStream = NULL;
     xmlDocPtr xmldoc;
 
-    TRACE("(%p)->type %d\n", This, V_VT(&xmlSource) );
+    TRACE("type %d\n", V_VT(&xmlSource) );
 
     *isSuccessful = VARIANT_FALSE;
 
@@ -1580,8 +1517,7 @@ static HRESULT WINAPI domdoc_get_readyState(
     IXMLDOMDocument2 *iface,
     LONG *value )
 {
-    domdoc *This = impl_from_IXMLDOMDocument2(iface);
-    FIXME("(%p)->(%p)\n", This, value);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -1609,8 +1545,7 @@ static HRESULT WINAPI domdoc_get_url(
     IXMLDOMDocument2 *iface,
     BSTR* urlString )
 {
-    domdoc *This = impl_from_IXMLDOMDocument2(iface);
-    FIXME("(%p)->(%p)\n", This, urlString);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -1621,7 +1556,7 @@ static HRESULT WINAPI domdoc_get_async(
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
 
-    TRACE("(%p)->(%p: %d)\n", This, isAsync, This->async);
+    TRACE("%p <- %d\n", isAsync, This->async);
     *isAsync = This->async;
     return S_OK;
 }
@@ -1633,7 +1568,7 @@ static HRESULT WINAPI domdoc_put_async(
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
 
-    TRACE("(%p)->(%d)\n", This, isAsync);
+    TRACE("%d\n", isAsync);
     This->async = isAsync;
     return S_OK;
 }
@@ -1642,8 +1577,7 @@ static HRESULT WINAPI domdoc_put_async(
 static HRESULT WINAPI domdoc_abort(
     IXMLDOMDocument2 *iface )
 {
-    domdoc *This = impl_from_IXMLDOMDocument2(iface);
-    FIXME("%p\n", This);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -1654,7 +1588,7 @@ static BOOL bstr_to_utf8( BSTR bstr, char **pstr, int *plen )
     LPSTR str;
 
     len = WideCharToMultiByte( CP_UTF8, 0, bstr, blen, NULL, 0, NULL, NULL );
-    str = heap_alloc( len );
+    str = HeapAlloc( GetProcessHeap(), 0, len );
     if ( !str )
         return FALSE;
     WideCharToMultiByte( CP_UTF8, 0, bstr, blen, str, len, NULL, NULL );
@@ -1674,7 +1608,7 @@ static HRESULT WINAPI domdoc_loadXML(
     int len;
     HRESULT hr = S_FALSE, hr2;
 
-    TRACE("(%p)->(%s %p)\n", This, debugstr_w( bstrXML ), isSuccessful );
+    TRACE("%p %s %p\n", This, debugstr_w( bstrXML ), isSuccessful );
 
     assert ( &This->node );
 
@@ -1685,7 +1619,7 @@ static HRESULT WINAPI domdoc_loadXML(
         if ( bstrXML  && bstr_to_utf8( bstrXML, &str, &len ) )
         {
             xmldoc = doparse( str, len );
-            heap_free( str );
+            HeapFree( GetProcessHeap(), 0, str );
             if ( !xmldoc )
                 This->error = E_FAIL;
             else
@@ -1706,24 +1640,6 @@ static HRESULT WINAPI domdoc_loadXML(
     return hr;
 }
 
-static int XMLCALL domdoc_save_writecallback(void *ctx, const char *buffer,
-                                             int len)
-{
-    DWORD written = -1;
-
-    if(!WriteFile(ctx, buffer, len, &written, NULL))
-    {
-        WARN("write error\n");
-        return -1;
-    }
-    else
-        return written;
-}
-
-static int XMLCALL domdoc_save_closecallback(void *ctx)
-{
-    return CloseHandle(ctx) ? 0 : -1;
-}
 
 static HRESULT WINAPI domdoc_save(
     IXMLDOMDocument2 *iface,
@@ -1731,8 +1647,10 @@ static HRESULT WINAPI domdoc_save(
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
     HANDLE handle;
-    xmlSaveCtxtPtr ctx;
+    xmlChar *mem, *p;
+    int size;
     HRESULT ret = S_OK;
+    DWORD written;
 
     TRACE("(%p)->(var(vt %d, %s))\n", This, V_VT(&destination),
           V_VT(&destination) == VT_BSTR ? debugstr_w(V_BSTR(&destination)) : NULL);
@@ -1778,19 +1696,31 @@ static HRESULT WINAPI domdoc_save(
         return S_FALSE;
     }
 
-    /* disable top XML declaration */
-    ctx = xmlSaveToIO(domdoc_save_writecallback, domdoc_save_closecallback,
-                      handle, NULL, XML_SAVE_NO_DECL);
-    if (!ctx)
-    {
-        CloseHandle(handle);
-        return S_FALSE;
+    xmlDocDumpMemory(get_doc(This), &mem, &size);
+
+    /*
+     * libxml2 always adds XML declaration on top of the file and one for each processing instruction node in DOM tree.
+     * MSXML adds XML declaration only for processing instruction nodes.
+     * We skip the first XML declaration generated by libxml2 to get exactly what we need.
+     */
+    p = mem;
+    if(size > 2 && p[0] == '<' && p[1] == '?') {
+        while(p < mem+size && (p[0] != '?' || p[1] != '>'))
+            p++;
+        p += 2;
+        while(p < mem+size && isspace(*p))
+            p++;
+        size -= p-mem;
     }
 
-    if (xmlSaveDoc(ctx, get_doc(This)) == -1) ret = S_FALSE;
-    /* will close file through close callback */
-    xmlSaveClose(ctx);
+    if(!WriteFile(handle, p, (DWORD)size, &written, NULL) || written != (DWORD)size)
+    {
+        WARN("write error\n");
+        ret = S_FALSE;
+    }
 
+    xmlFree(mem);
+    CloseHandle(handle);
     return ret;
 }
 
@@ -1800,7 +1730,7 @@ static HRESULT WINAPI domdoc_get_validateOnParse(
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
 
-    TRACE("(%p)->(%p: %d)\n", This, isValidating, This->validating);
+    TRACE("%p <- %d\n", isValidating, This->validating);
     *isValidating = This->validating;
     return S_OK;
 }
@@ -1812,7 +1742,7 @@ static HRESULT WINAPI domdoc_put_validateOnParse(
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
 
-    TRACE("(%p)->(%d)\n", This, isValidating);
+    TRACE("%d\n", isValidating);
     This->validating = isValidating;
     return S_OK;
 }
@@ -1824,7 +1754,7 @@ static HRESULT WINAPI domdoc_get_resolveExternals(
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
 
-    TRACE("(%p)->(%p: %d)\n", This, isResolving, This->resolving);
+    TRACE("%p <- %d\n", isResolving, This->resolving);
     *isResolving = This->resolving;
     return S_OK;
 }
@@ -1836,7 +1766,7 @@ static HRESULT WINAPI domdoc_put_resolveExternals(
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
 
-    TRACE("(%p)->(%d)\n", This, isResolving);
+    TRACE("%d\n", isResolving);
     This->resolving = isResolving;
     return S_OK;
 }
@@ -1848,7 +1778,7 @@ static HRESULT WINAPI domdoc_get_preserveWhiteSpace(
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
 
-    TRACE("(%p)->(%p: %d)\n", This, isPreserving, This->preserving);
+    TRACE("%p <- %d\n", isPreserving, This->preserving);
     *isPreserving = This->preserving;
     return S_OK;
 }
@@ -1860,7 +1790,7 @@ static HRESULT WINAPI domdoc_put_preserveWhiteSpace(
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
 
-    TRACE("(%p)->(%d)\n", This, isPreserving);
+    TRACE("%d\n", isPreserving);
     This->preserving = isPreserving;
     return S_OK;
 }
@@ -1870,8 +1800,7 @@ static HRESULT WINAPI domdoc_put_onReadyStateChange(
     IXMLDOMDocument2 *iface,
     VARIANT readyStateChangeSink )
 {
-    domdoc *This = impl_from_IXMLDOMDocument2( iface );
-    FIXME("%p\n", This);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -1880,8 +1809,7 @@ static HRESULT WINAPI domdoc_put_onDataAvailable(
     IXMLDOMDocument2 *iface,
     VARIANT onDataAvailableSink )
 {
-    domdoc *This = impl_from_IXMLDOMDocument2( iface );
-    FIXME("%p\n", This);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -1889,8 +1817,7 @@ static HRESULT WINAPI domdoc_put_onTransformNode(
     IXMLDOMDocument2 *iface,
     VARIANT onTransformNodeSink )
 {
-    domdoc *This = impl_from_IXMLDOMDocument2( iface );
-    FIXME("%p\n", This);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -1898,8 +1825,7 @@ static HRESULT WINAPI domdoc_get_namespaces(
     IXMLDOMDocument2* iface,
     IXMLDOMSchemaCollection** schemaCollection )
 {
-    domdoc *This = impl_from_IXMLDOMDocument2( iface );
-    FIXME("(%p)->(%p)\n", This, schemaCollection);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -1966,8 +1892,7 @@ static HRESULT WINAPI domdoc_validate(
     IXMLDOMDocument2* iface,
     IXMLDOMParseError** err)
 {
-    domdoc *This = impl_from_IXMLDOMDocument2( iface );
-    FIXME("(%p)->(%p)\n", This, err);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -1977,8 +1902,6 @@ static HRESULT WINAPI domdoc_setProperty(
     VARIANT var)
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
-
-    TRACE("(%p)->(%s)\n", This, debugstr_w(p));
 
     if (lstrcmpiW(p, SZ_PROPERTY_SELECTION_LANGUAGE) == 0)
     {
@@ -2018,8 +1941,6 @@ static HRESULT WINAPI domdoc_getProperty(
     VARIANT* var)
 {
     domdoc *This = impl_from_IXMLDOMDocument2( iface );
-
-    TRACE("(%p)->(%p)\n", This, debugstr_w(p));
 
     if (var == NULL)
         return E_INVALIDARG;
@@ -2150,7 +2071,7 @@ xmldoc_GetSite( IObjectWithSite *iface, REFIID iid, void ** ppvSite )
 {
     domdoc *This = impl_from_IObjectWithSite(iface);
 
-    TRACE("(%p)->(%s %p)\n", This, debugstr_guid( iid ), ppvSite );
+    TRACE("%p %s %p\n", This, debugstr_guid( iid ), ppvSite );
 
     if ( !This->site )
         return E_FAIL;
@@ -2163,7 +2084,7 @@ xmldoc_SetSite( IObjectWithSite *iface, IUnknown *punk )
 {
     domdoc *This = impl_from_IObjectWithSite(iface);
 
-    TRACE("(%p)->(%p)\n", iface, punk);
+    TRACE("%p %p\n", iface, punk);
 
     if(!punk)
     {
@@ -2214,7 +2135,7 @@ static ULONG WINAPI xmldoc_Safety_Release(IObjectSafety *iface)
     return IXMLDocument_Release((IXMLDocument *)This);
 }
 
-#define SAFETY_SUPPORTED_OPTIONS (INTERFACESAFE_FOR_UNTRUSTED_CALLER|INTERFACESAFE_FOR_UNTRUSTED_DATA|INTERFACE_USES_SECURITY_MANAGER)
+#define SUPPORTED_OPTIONS (INTERFACESAFE_FOR_UNTRUSTED_CALLER|INTERFACESAFE_FOR_UNTRUSTED_DATA|INTERFACE_USES_SECURITY_MANAGER)
 
 static HRESULT WINAPI xmldoc_Safety_GetInterfaceSafetyOptions(IObjectSafety *iface, REFIID riid,
         DWORD *pdwSupportedOptions, DWORD *pdwEnabledOptions)
@@ -2226,7 +2147,7 @@ static HRESULT WINAPI xmldoc_Safety_GetInterfaceSafetyOptions(IObjectSafety *ifa
     if(!pdwSupportedOptions || !pdwEnabledOptions)
         return E_POINTER;
 
-    *pdwSupportedOptions = SAFETY_SUPPORTED_OPTIONS;
+    *pdwSupportedOptions = SUPPORTED_OPTIONS;
     *pdwEnabledOptions = This->safeopt;
 
     return S_OK;
@@ -2236,12 +2157,13 @@ static HRESULT WINAPI xmldoc_Safety_SetInterfaceSafetyOptions(IObjectSafety *ifa
         DWORD dwOptionSetMask, DWORD dwEnabledOptions)
 {
     domdoc *This = impl_from_IObjectSafety(iface);
+
     TRACE("(%p)->(%s %x %x)\n", This, debugstr_guid(riid), dwOptionSetMask, dwEnabledOptions);
 
-    if ((dwOptionSetMask & ~SAFETY_SUPPORTED_OPTIONS) != 0)
+    if(dwOptionSetMask & ~SUPPORTED_OPTIONS)
         return E_FAIL;
 
-    This->safeopt = dwEnabledOptions & dwOptionSetMask & SAFETY_SUPPORTED_OPTIONS;
+    This->safeopt = dwEnabledOptions & dwEnabledOptions;
     return S_OK;
 }
 
@@ -2271,7 +2193,7 @@ HRESULT DOMDocument_create_from_xmldoc(xmlDocPtr xmldoc, IXMLDOMDocument2 **docu
 {
     domdoc *doc;
 
-    doc = heap_alloc( sizeof (*doc) );
+    doc = HeapAlloc( GetProcessHeap(), 0, sizeof (*doc) );
     if( !doc )
         return E_OUTOFMEMORY;
 

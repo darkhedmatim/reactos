@@ -17,7 +17,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#pragma once
+#ifndef __STDLIB_H
+#define __STDLIB_H
 
 #include <freeldr.h>
 
@@ -27,3 +28,5 @@ char *	convert_i64_to_ascii(char *buf, int c, unsigned long long num);
 void	PcBeep(void);
 void	delay(unsigned msec);
 void	sound(int freq);
+
+#endif  // defined __STDLIB_H

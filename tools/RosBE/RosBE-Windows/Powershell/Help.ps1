@@ -3,7 +3,7 @@
 # LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 # FILE:        Root/Help.ps1
 # PURPOSE:     Display help for the commands included with the ReactOS Build Environment.
-# COPYRIGHT:   Copyright 2010 Daniel Reimer <reimer.daniel@freenet.de>
+# COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
 #
 
 # Check if we are displaying help on all commands, if so, display it.
@@ -44,11 +44,6 @@ if ("$args" -eq "") {
     "    help [COMMAND]       - Display the available commands or give help on a"
     "                           specific command."
 
-    if (Test-Path "$_ROSBE_BASEDIR\kdbg.ps1") {
-        "    kdbg [OPTIONS]       - Outputs KDBG Debug Output and lets you give"
-        "                           debug commands to it."
-    }
-
     if (Test-Path "$_ROSBE_BASEDIR\reladdr2line.ps1") {
         "    raddr2line [OPTIONS] - Translates program addresses into file names and"
         "                           line numbers to assist developers with finding"
@@ -58,12 +53,6 @@ if ("$args" -eq "") {
     if (Test-Path "$_ROSBE_BASEDIR\Remake.ps1") {
         "    remake [OPTIONS]     - Cleans one or several specific modules and"
         "                           immediately rebuilds it cleanly."
-    }
-
-    if (Test-Path "$_ROSBE_BASEDIR\Remakex.ps1") {
-        "    remakex [OPTIONS]    - Cleans one or several specific modules and"
-        "                           immediately rebuilds it cleanly and multi-"
-        "                           threaded."
     }
 
     if (Test-Path "$_ROSBE_BASEDIR\scut.ps1") {
@@ -107,7 +96,7 @@ if ("$args" -eq "") {
         "                       appropiate name."
         "    depends          - Does a full dependency check on the ReactOS Source"
         "                       and generates a new makefile. This will take a while."
-        "    ""module""_depends - Does a dependency check for one module with the"
+        "    ""module""-depends - Does a dependency check for one module with the"
         "                       appropiate name."
 } elseif ("$args" -eq "makex") {
     " Usage: makex [OPTIONS]"
@@ -129,9 +118,9 @@ if ("$args" -eq "") {
         "                       appropiate name."
         "    depends          - Does a full dependency check on the ReactOS Source"
         "                       and generates a new makefile. This will take a while."
-        "    ""module""_depends - Does a dependency check for one module with the"
+        "    ""module""-depends - Does a dependency check for one module with the"
         "                       appropiate name."
-    " NOTE: The number makex uses can be modified by editing Build.ps1"
+    " NOTE: The number makex uses can be modified by editing Build.cmd"
     "       located in the RosBE directory, instructions for doing so are"
     "       contained within the file."
 } elseif ("$args" -eq "basedir") {
@@ -181,15 +170,6 @@ if ("$args" -eq "") {
 } elseif ("$args" -eq "help") {
     " Usage: help [COMMAND]"
     " Shows help for the specified command or lists all available commands."
-
-} elseif ("$args" -eq "kdbg") {
-    if (Test-Path "$_ROSBE_BASEDIR\kdbg.ps1") {
-        " Usage: kdbg [LOGFILE] [PIPE]"
-        " Outputs KDBG Debug Output and lets you give debug commands to it."
-        ""
-        " WRITELOG - Outputs the Log File to "".\DBG-%DATE%-%TIME%.txt""."
-        ""
-    }
 } elseif ("$args" -eq "raddr2line") {
     if (Test-Path "$_ROSBE_BASEDIR\reladdr2line.ps1") {
         " Usage: raddr2line [FILE] [ADDRESS]"
@@ -205,23 +185,15 @@ if ("$args" -eq "") {
         ""
     }
 } elseif ("$args" -eq "Remake") {
-    if (Test-Path "$_ROSBE_BASEDIR\Remake.ps1") {
+    if (Test-Path "$_ROSBE_BASEDIR\Remake.cmd") {
         "    Usage: remake [OPTIONS]"
         "    Cleans one or several specific modules and immediately rebuilds it cleanly."
         ""
         "    OPTIONS - One or more Module names to rebuild."
     }
-} elseif ("$args" -eq "Remakex") {
-    if (Test-Path "$_ROSBE_BASEDIR\Remakex.ps1") {
-        "    Usage: remakex [OPTIONS]"
-        "    Cleans one or several specific modules and immediately rebuilds it cleanly"
-        "    and multithreaded."
-        ""
-        "    OPTIONS - One or more Module names to rebuild."
-    }
 } elseif  ("$args" -eq "scut") {
     if (Test-Path "$_ROSBE_BASEDIR\scut.ps1") {
-        IEX "& scut.exe --help"
+        IEX "&'$_ROSBE_BASEDIR\Tools\scut.exe' --help"
     }
 } elseif  ("$args" -eq "ssvn") {
     if (Test-Path "$_ROSBE_BASEDIR\sSVN.ps1") {

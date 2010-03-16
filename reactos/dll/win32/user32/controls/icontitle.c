@@ -30,6 +30,8 @@
 static BOOL bMultiLineTitle;
 static HFONT hIconTitleFont;
 
+//static LRESULT WINAPI IconTitleWndProc( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam );
+
 /*********************************************************************
  * icon title class descriptor
  */

@@ -1,4 +1,6 @@
-#pragma once
+#ifndef __CPL_RESOURCE_H
+#define __CPL_RESOURCE_H
+
 
 #define IDC_CPLICON             1
 
@@ -36,3 +38,5 @@
 #define IDS_INETTIMENEXTSYNC    1007
 #define IDS_INETTIMESYNCING     1008
 #define IDS_INETTIMEERROR       1009
+
+#endif /* __CPL_RESOURCE_H */

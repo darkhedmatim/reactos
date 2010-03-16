@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_INTENG_H
+#define _WIN32K_INTENG_H
 
 typedef ULONG HCLIP;
 
@@ -189,3 +190,5 @@ IntEngCopyBits(SURFOBJ *psoDest,
 	    XLATEOBJ *pxlo,
 	    RECTL *prclDest,
 	    POINTL *ptlSource);
+
+#endif /* _WIN32K_INTENG_H */

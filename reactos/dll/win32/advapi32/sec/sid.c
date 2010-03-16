@@ -805,9 +805,6 @@ static BOOL ParseStringSidToSid(LPCWSTR StringSid, PSID pSid, LPDWORD cBytes)
         return FALSE;
     }
 
-    while (*StringSid == ' ')
-        StringSid++;
-
     *cBytes = ComputeStringSidSize(StringSid);
     if (!pisid) /* Simply compute the size */
     {

@@ -106,6 +106,17 @@ SwitchToThisWindow(HWND hwnd, BOOL fUnknown)
 /*
  * @implemented
  */
+WORD
+WINAPI
+CascadeChildWindows ( HWND hWndParent, WORD wFlags )
+{
+  return CascadeWindows(hWndParent, wFlags, NULL, 0, NULL);
+}
+
+
+/*
+ * @implemented
+ */
 HWND WINAPI
 ChildWindowFromPoint(HWND hWndParent,
                      POINT Point)
@@ -1013,36 +1024,8 @@ GetWindow(HWND hWnd,
                     FoundWnd = DesktopPtrToUser(Wnd->spwndOwner);
                 break;
 
-            case GW_HWNDFIRST:
-                if(Wnd->spwndParent != NULL)
-                {
-                    FoundWnd = DesktopPtrToUser(Wnd->spwndParent);
-                    if (FoundWnd->spwndChild != NULL)
-                        FoundWnd = DesktopPtrToUser(FoundWnd->spwndChild);
-                }
-                break;
-            case GW_HWNDNEXT:
-                if (Wnd->spwndNext != NULL)
-                    FoundWnd = DesktopPtrToUser(Wnd->spwndNext);
-                break;
-
-            case GW_HWNDPREV:
-                if (Wnd->spwndPrev != NULL)
-                    FoundWnd = DesktopPtrToUser(Wnd->spwndPrev);
-                break;
-   
-            case GW_CHILD:
-                if (Wnd->spwndChild != NULL)
-                    FoundWnd = DesktopPtrToUser(Wnd->spwndChild);
-                break;
-
-            case GW_HWNDLAST:
-                FoundWnd = Wnd;
-                while ( FoundWnd->spwndNext != NULL)
-                    FoundWnd = DesktopPtrToUser(FoundWnd->spwndNext);
-                break;
-
             default:
+                /* FIXME: Optimize! Fall back to NtUserGetWindow for now... */
                 Wnd = NULL;
                 break;
         }
@@ -1055,6 +1038,9 @@ GetWindow(HWND hWnd,
         /* Do nothing */
     }
     _SEH2_END;
+
+    if (!Wnd) /* Fall back to win32k... */
+        Ret = NtUserGetWindow(hWnd, uCmd);
 
     return Ret;
 }
@@ -1684,7 +1670,7 @@ BOOL WINAPI
 ShowOwnedPopups(HWND hWnd,
                 BOOL fShow)
 {
-    return (BOOL)NtUserCallTwoParam((DWORD_PTR)hWnd, fShow, TWOPARAM_ROUTINE_SHOWOWNEDPOPUPS);
+    return (BOOL)NtUserCallTwoParam((DWORD)hWnd, fShow, TWOPARAM_ROUTINE_SHOWOWNEDPOPUPS);
 }
 
 
@@ -1969,6 +1955,16 @@ ScrollWindowEx(HWND hWnd,
                                 hrgnUpdate,
                                 prcUpdate,
                                 flags);
+}
+
+/*
+ * @implemented
+ */
+WORD
+WINAPI
+TileChildWindows(HWND hWndParent, WORD wFlags)
+{
+    return TileWindows(hWndParent, wFlags, NULL, 0, NULL);
 }
 
 /*

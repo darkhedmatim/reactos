@@ -9,13 +9,14 @@
 (get-WmiObject Win32_OperatingSystem).caption
 
 # GCC
-[regex]$GCCVer = "4.[0-9].[0-9]"
-$_ROSBE_GCC_TARGET_VERSION = $GCCVer.matches($ENV:ROSBE_TARGET_CXXFLAGS)[0].value
-"gcc version - $_ROSBE_GCC_TARGET_VERSION"
-"gcc target - $ENV:ROS_ARCH"
+$TARGETGCC = "$global:_ROSBE_PREFIX" + "gcc"
+& $TARGETGCC -v 2> gcctvers.tmp
+(select-string -path .\gcctvers.tmp "gcc version") -replace ".*:(.*?)\b",'$1'
+"gcc target - $_ROSBE_TARGET_GCCTARGET"
+remove-item gcctvers.tmp
 
 # LD
-$run = "$_ROSBE_TARGET_MINGWPATH\bin\$_ROSBE_PREFIX" + "ld"
+$run = "$_ROSBE_TARGET_MINGWPATH\bin\$global:_ROSBE_PREFIX" + "ld"
 & "$run" -v
 
 # NASM or YASM
@@ -29,4 +30,4 @@ if (Test-Path "$_ROSBE_HOST_MINGWPATH\bin\nasm.exe") {
 & bison '--version' | select-string "GNU Bison"
 $fver = (& flex '--version') -replace ".*version ((\d|\.)+).*",'$1'
 "flex $fver"
-& make.exe -v | & find "GNU Make"
+& mingw32-make -v | & find "GNU Make"

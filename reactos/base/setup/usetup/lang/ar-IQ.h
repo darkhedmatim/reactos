@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_AR_IQ_H__
+#define LANG_AR_IQ_H__
 
 MUI_LAYOUTS arIQLayouts[] =
 {
@@ -6,3 +7,5 @@ MUI_LAYOUTS arIQLayouts[] =
     { L"0409", L"00000409" },
     { NULL, NULL }
 };
+
+#endif

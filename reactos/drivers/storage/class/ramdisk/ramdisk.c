@@ -10,7 +10,6 @@
 
 #include <initguid.h>
 #include <ntddk.h>
-#include <ntifs.h>
 #include <ntdddisk.h>
 #include <ntddcdrm.h>
 #include <scsi.h>
@@ -27,8 +26,6 @@
 #include <stdio.h>
 #define NDEBUG
 #include <debug.h>
-
-#define DO_XIP   0x00020000
 
 /* GLOBALS ********************************************************************/
 

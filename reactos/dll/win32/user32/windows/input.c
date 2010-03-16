@@ -16,9 +16,10 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-/*
+/* $Id$
+ *
  * PROJECT:         ReactOS user32.dll
- * FILE:            dll/win32/user32/windows/input.c
+ * FILE:            lib/user32/windows/input.c
  * PURPOSE:         Input
  * PROGRAMMER:      Casper S. Hornstrup (chorns@users.sourceforge.net)
  * UPDATE HISTORY:
@@ -109,39 +110,30 @@ BOOL WINAPI
 EnableWindow(HWND hWnd,
 	     BOOL bEnable)
 {
-    // This will soon be moved to win32k.
-    BOOL Update;
     LONG Style = GetWindowLongPtrW(hWnd, GWL_STYLE);
     /* check if updating is needed */
     UINT bIsDisabled = (Style & WS_DISABLED);
-    Update = bIsDisabled;
-
-    if (bEnable)
+    if ( (bIsDisabled && bEnable) || (!bIsDisabled && !bEnable) )
     {
-       Style &= ~WS_DISABLED;
-    }
-    else
-    {
-       Update = !bIsDisabled;
+        if (bEnable)
+        {
+            Style &= ~WS_DISABLED;
+        }
+        else
+        {
+            Style |= WS_DISABLED;
+            /* Remove keyboard focus from that window if it had focus */
+            if (hWnd == GetFocus())
+            {
+               SetFocus(NULL);
+            }
+        }
+        NtUserSetWindowLong(hWnd, GWL_STYLE, Style, FALSE);
 
-       SendMessageW( hWnd, WM_CANCELMODE, 0, 0);
-
-       /* Remove keyboard focus from that window if it had focus */
-       if (hWnd == GetFocus())
-       {
-          SetFocus(NULL);
-       }
-       Style |= WS_DISABLED;
-    }
-
-    NtUserSetWindowLong(hWnd, GWL_STYLE, Style, FALSE);
-    
-    if (Update)
-    {
-        SendMessageW(hWnd, WM_ENABLE, (LPARAM)bEnable, 0);
+        SendMessageA(hWnd, WM_ENABLE, (LPARAM) IsWindowEnabled(hWnd), 0);
     }
     // Return nonzero if it was disabled, or zero if it wasn't:
-    return bIsDisabled;
+    return IsWindowEnabled(hWnd);
 }
 
 
@@ -163,7 +155,7 @@ GetAsyncKeyState(int vKey)
 HKL WINAPI
 GetKeyboardLayout(DWORD idThread)
 {
-  return (HKL)NtUserCallOneParam((DWORD_PTR) idThread,  ONEPARAM_ROUTINE_GETKEYBOARDLAYOUT);
+  return (HKL)NtUserCallOneParam((DWORD) idThread,  ONEPARAM_ROUTINE_GETKEYBOARDLAYOUT);
 }
 
 
@@ -257,7 +249,7 @@ GetKeyboardLayoutNameW(LPWSTR pwszKLID)
 int WINAPI
 GetKeyboardType(int nTypeFlag)
 {
-return (int)NtUserCallOneParam((DWORD_PTR) nTypeFlag,  ONEPARAM_ROUTINE_GETKEYBOARDTYPE);
+return (int)NtUserCallOneParam((DWORD) nTypeFlag,  ONEPARAM_ROUTINE_GETKEYBOARDTYPE);
 }
 
 

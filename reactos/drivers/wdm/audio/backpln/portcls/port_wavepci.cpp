@@ -161,9 +161,8 @@ CPortWavePci::QueryInterface(
 
     DPRINT("IPortWavePci_fnQueryInterface entered\n");
 
-    if (IsEqualGUIDAligned(refiid, IID_IPortWavePci) ||
-        IsEqualGUIDAligned(refiid, IID_IUnknown) ||
-        IsEqualGUIDAligned(refiid, IID_IPort))
+    if (IsEqualGUIDAligned(refiid, IID_IPortWavePci) || 
+        IsEqualGUIDAligned(refiid, IID_IUnknown))
     {
         *Output = PVOID(PPORTWAVEPCI(this));
         PUNKNOWN(*Output)->AddRef();
@@ -172,7 +171,7 @@ CPortWavePci::QueryInterface(
     else if (IsEqualGUIDAligned(refiid, IID_IServiceSink))
     {
         *Output = PVOID(PSERVICESINK(this));
-        PUNKNOWN(*Output)->AddRef();
+		PUNKNOWN(*Output)->AddRef();
         return STATUS_SUCCESS;
     }
     else if (IsEqualGUIDAligned(refiid, IID_IPortEvents))
@@ -184,7 +183,7 @@ CPortWavePci::QueryInterface(
     else if (IsEqualGUIDAligned(refiid, IID_ISubdevice))
     {
         *Output = PVOID(PSUBDEVICE(this));
-        PUNKNOWN(*Output)->AddRef();
+		PUNKNOWN(*Output)->AddRef();
         return STATUS_SUCCESS;
     }
     else if (IsEqualGUIDAligned(refiid, IID_IPortClsVersion))

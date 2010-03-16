@@ -176,51 +176,67 @@ KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
                     IN BOOLEAN FirstChance)
 {
     CONTEXT Context;
-
-    /* Increase number of Exception Dispatches */
+    
+    //
+    // Increase number of Exception Dispatches
+    //
     KeGetCurrentPrcb()->KeExceptionDispatchCount++;
-
-    /* Set the context flags */
+    
+    //
+    // Set the context flags
+    //
     Context.ContextFlags = CONTEXT_FULL;
     
-    /* Check if User Mode or if the kernel debugger is enabled */
-    if ((PreviousMode == UserMode) || (KeGetPcr()->KdVersionBlock))
-    {
-        /* FIXME-V6: VFP Support */
-    }
-
-    /* Get a Context */
+    //
+    // FIXME-V6: VFP Support
+    //
+    
+    //
+    // Get a Context
+    //
     KeTrapFrameToContext(TrapFrame, ExceptionFrame, &Context);
-
-    /* Look at our exception code */
+    
+    //
+    // Look at our exception code
+    //
     switch (ExceptionRecord->ExceptionCode)
     {
-        /* Breakpoint */
+        //
+        // Breakpoint
+        //
         case STATUS_BREAKPOINT:
-
-            /* Decrement PC by four */
+            
+            //
+            // We want the instruction right before the int 3
+            //
             Context.Pc -= sizeof(ULONG);
             break;
-
-        /* Internal exception */
+            
+        //
+        // Internal exception
+        //
         case KI_EXCEPTION_ACCESS_VIOLATION:
-
-            /* Set correct code */
+            
+            //
+            // Set correct code
+            //
             ExceptionRecord->ExceptionCode = STATUS_ACCESS_VIOLATION;
-            if (PreviousMode == UserMode)
-            {
-                /* FIXME: Handle no execute */
-            }
             break;
     }
-
-    /* Handle kernel-mode first, it's simpler */
+       
+    //
+    // Handle kernel-mode first, it's simpler
+    //
     if (PreviousMode == KernelMode)
     {
-        /* Check if this is a first-chance exception */
+        //
+        // Check if this is a first-chance exception
+        //
         if (FirstChance == TRUE)
         {
-            /* Break into the debugger for the first time */
+            //
+            // Break into the debugger for the first time
+            //
             if (KiDebugRoutine(TrapFrame,
                                ExceptionFrame,
                                ExceptionRecord,
@@ -228,15 +244,21 @@ KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
                                PreviousMode,
                                FALSE))
             {
-                /* Exception was handled */
+                //
+                // Exception was handled
+                //
                 goto Handled;
             }
-
-            /* If the Debugger couldn't handle it, dispatch the exception */
+            
+            //
+            // If the Debugger couldn't handle it, dispatch the exception
+            //
             if (RtlDispatchException(ExceptionRecord, &Context)) goto Handled;
         }
-
-        /* This is a second-chance exception, only for the debugger */
+        
+        //
+        // This is a second-chance exception, only for the debugger
+        //
         if (KiDebugRoutine(TrapFrame,
                            ExceptionFrame,
                            ExceptionRecord,
@@ -244,11 +266,15 @@ KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
                            PreviousMode,
                            TRUE))
         {
-            /* Exception was handled */
+            //
+            // Exception was handled
+            //
             goto Handled;
         }
-
-        /* Third strike; you're out */
+        
+        //
+        // Third strike; you're out
+        //
         KeBugCheckEx(KMODE_EXCEPTION_NOT_HANDLED,
                      ExceptionRecord->ExceptionCode,
                      (ULONG_PTR)ExceptionRecord->ExceptionAddress,
@@ -257,27 +283,19 @@ KiDispatchException(IN PEXCEPTION_RECORD ExceptionRecord,
     }
     else
     {
-        /* FIXME: TODO */
-        /* 3rd strike, kill the process */
-        DPRINT1("Kill %.16s, ExceptionCode: %lx, ExceptionAddress: %lx\n",
-                PsGetCurrentProcess()->ImageFileName,
-                ExceptionRecord->ExceptionCode,
-                ExceptionRecord->ExceptionAddress);
-
-        ZwTerminateProcess(NtCurrentProcess(), ExceptionRecord->ExceptionCode);
-        KeBugCheckEx(KMODE_EXCEPTION_NOT_HANDLED,
-                     ExceptionRecord->ExceptionCode,
-                     (ULONG_PTR)ExceptionRecord->ExceptionAddress,
-                     (ULONG_PTR)TrapFrame,
-                     0);
+        //
+        // FIXME-USER: Do user-mode exception handling
+        //
+        ASSERT(FALSE);
     }
-
+    
 Handled:
-    /* Convert the context back into Trap/Exception Frames */
+    //
+    // Convert the context back into Trap/Exception Frames
+    //
     KeContextToTrapFrame(&Context,
                          ExceptionFrame,
                          TrapFrame,
                          Context.ContextFlags,
                          PreviousMode);
-    return;
 }

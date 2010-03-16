@@ -32,7 +32,6 @@
 #define NTOSAPI
 #define printf TuiPrintf
 #include <ntddk.h>
-#include <ntifs.h>
 #include <ioaccess.h>
 #include <arc/arc.h>
 #include <ketypes.h>
@@ -40,12 +39,10 @@
 #include <ndk/asm.h>
 #include <ndk/rtlfuncs.h>
 #include <ndk/ldrtypes.h>
-#include <ndk/halfuncs.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <rosldr.h>
-#include <arcemul.h>
 #include <arch.h>
 #include <rtl.h>
 #include <disk.h>
@@ -62,8 +59,6 @@
 #include <reactos.h>
 #include <registry.h>
 #include <winldr.h>
-#include <ntdddisk.h>
-#include <internal/hal.h>
 /* file system headers */
 #include <fs/ext2.h>
 #include <fs/fat.h>
@@ -84,6 +79,7 @@
 #include <arch/i386/machxbox.h>
 #include <arch/i386/miscboot.h>
 #include <internal/i386/intrin_i.h>
+#include <internal/i386/ke.h>
 #elif defined(_M_PPC)
 #include <arch/powerpc/hardware.h>
 #elif defined(_M_ARM)
@@ -93,7 +89,6 @@
 #elif defined(_M_AMD64)
 #include <arch/amd64/hardware.h>
 #include <arch/amd64/machpc.h>
-#include <internal/amd64/intrin_i.h>
 #endif
 /* misc files */
 #include <keycodes.h>
@@ -102,6 +97,7 @@
 #include <bget.h>
 #include <winerror.h>
 /* Needed by boot manager */
+#include <bootmgr.h>
 #include <oslist.h>
 #include <options.h>
 #include <linux.h>

@@ -4,6 +4,7 @@
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
 	<library>ntdll</library>
+	<library>kernel32</library>
 	<library>wine</library>
 	<file>main.c</file>
 	<file>snmpapi.c</file>

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_UZ_UZ_H__
+#define LANG_UZ_UZ_H__
 
 MUI_LAYOUTS uzUZLayouts[] =
 {
@@ -7,3 +8,5 @@ MUI_LAYOUTS uzUZLayouts[] =
     { L"0419", L"00000419" },
     { NULL, NULL }
 };
+
+#endif

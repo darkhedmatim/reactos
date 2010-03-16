@@ -1,17 +1,17 @@
 #!/bin/bash
 #
 # ReactOS Build Environment for Unix-based Operating Systems - Builder Tool for the Base package
-# Copyright 2007-2010 Colin Finck <colin@reactos.org>
+# Copyright 2007-2009 Colin Finck <colin@reactos.org>
 # partially based on the BuildMingwCross script (http://www.mingw.org/MinGWiki/index.php/BuildMingwCross)
 #
 # Released under GNU GPL v2 or any later version.
 
 
 # RosBE Setup Variables
-rs_host_cflags="-pipe -O2"
+rs_host_cflags="-pipe -fno-common -O3 -march=pentium3 -mfpmath=sse"
 rs_needed_tools="bison flex gcc g++ grep makeinfo"        # GNU Make has a special check
 rs_target="mingw32"
-rs_target_cflags="-pipe -gstabs+ -O2 -march=pentium -mtune=i686"
+rs_target_cflags="-pipe -gstabs+ -O3 -march=pentium -mtune=i686"
 
 # Get the absolute path to the script directory
 cd `dirname $0`
@@ -21,8 +21,8 @@ rs_sourcedir="$rs_scriptdir/sources"
 
 # RosBE-Unix Constants
 DEFAULT_INSTALL_DIR="/usr/local/RosBE"
-KNOWN_ROSBE_VERSIONS="0.3.6 1.1 1.4 1.4.2 1.5"
-ROSBE_VERSION="1.5"
+KNOWN_ROSBE_VERSIONS="0.3.6 1.1 1.4 1.4.2 1.5-RC1"
+ROSBE_VERSION="1.5-RC1"
 TARGET_ARCH="i386"
 
 source "$rs_scriptdir/scripts/rosbelibrary.sh"
@@ -169,7 +169,7 @@ if [ "$1" = "" ]; then
 	rs_boldmsg "Ready to start"
 
 	echo "Ready to build and install the ReactOS Build Environment."
-	echo "Press Return to continue or Ctrl+C to exit."
+	echo "Press any key to continue or Ctrl+C to exit."
 	read
 else
 	installdir=`eval echo $1`
@@ -227,17 +227,6 @@ rs_boldmsg "Building..."
 rs_mkdir_if_not_exists "$rs_prefixdir/$rs_target"
 rs_mkdir_if_not_exists "$rs_supportprefixdir"
 
-# Use -march=native if the host compiler supports it
-echo -n "Checking if the host compiler supports -march=native... "
-
-if `gcc -march=native -o "$rs_workdir/dummy" "$rs_scriptdir/tools/dummy.c" >& /dev/null`; then
-	echo "yes"
-	rs_host_cflags+=" -march=native"
-	rm "$rs_workdir/dummy"
-else
-	echo "no"
-fi
-
 rs_extract_module "mingw_runtime_dev" "$rs_prefixdir/$rs_target"
 rs_extract_module "w32api" "$rs_prefixdir/$rs_target"
 
@@ -260,11 +249,15 @@ if $rs_process_scut; then
 fi
 
 if rs_prepare_module "gmp"; then
-	rs_do_command ../gmp/configure --prefix="$rs_supportprefixdir" --disable-shared --disable-werror
+	export CFLAGS="$rs_host_cflags"
+
+	rs_do_command ../gmp/configure ABI=32 --prefix="$rs_supportprefixdir" --disable-shared
 	rs_do_command $rs_makecmd -j $rs_cpucount
 	rs_do_command $rs_makecmd check
 	rs_do_command $rs_makecmd install
 	rs_clean_module "gmp"
+
+	export CFLAGS=""
 fi
 
 if rs_prepare_module "mpfr"; then
@@ -276,18 +269,19 @@ if rs_prepare_module "mpfr"; then
 	rs_do_command $rs_makecmd install
 	rs_clean_module "mpfr"
 
-	unset CFLAGS
+	export CFLAGS=""
 fi
 
 if rs_prepare_module "binutils"; then
-	export CFLAGS="$rs_host_cflags"
+	# At least the GCC 4.4.1 in Ubuntu 9.10 incorrectly warns about a potentially uninitialized variable, so don't count this as an error.
+	export CFLAGS="$rs_host_cflags -Wno-error=uninitialized"
 	
-	rs_do_command ../binutils/configure --prefix="$rs_prefixdir" --target="$rs_target" --disable-nls --disable-werror
+	rs_do_command ../binutils/configure --prefix="$rs_prefixdir" --target="$rs_target" --disable-nls
 	rs_do_command $rs_makecmd -j $rs_cpucount
 	rs_do_command $rs_makecmd install
 	rs_clean_module "binutils"
 	
-	unset CFLAGS
+	export CFLAGS=""
 fi
 
 if rs_prepare_module "gcc"; then
@@ -295,25 +289,25 @@ if rs_prepare_module "gcc"; then
 	export CFLAGS_FOR_TARGET="$rs_target_cflags"
 	export CXXFLAGS_FOR_TARGET="$rs_target_cflags"
 	
-	rs_do_command ../gcc/configure --prefix="$rs_prefixdir" --target="$rs_target" --with-gmp="$rs_supportprefixdir" --with-mpfr="$rs_supportprefixdir" --with-pkgversion="RosBE-Unix" --enable-languages=c,c++ --enable-checking=release --enable-version-specific-runtime-libs --disable-shared --disable-nls --disable-werror
+	rs_do_command ../gcc/configure --prefix="$rs_prefixdir" --target="$rs_target" --with-gmp="$rs_supportprefixdir" --with-mpfr="$rs_supportprefixdir" --enable-languages=c,c++ --enable-checking=release --enable-version-specific-runtime-libs --enable-threads=win32 --disable-win32-registry --disable-shared --disable-nls
 	rs_do_command $rs_makecmd -j $rs_cpucount
 	rs_do_command $rs_makecmd install
 	rs_clean_module "gcc"
 	
-	unset CFLAGS
-	unset CFLAGS_FOR_TARGET
-	unset CXXFLAGS_FOR_TARGET
+	export CFLAGS=""
+	export CFLAGS_FOR_TARGET=""
+	export CXXFLAGS_FOR_TARGET=""
 fi
 
 if rs_prepare_module "make"; then
 	export CFLAGS="$rs_host_cflags"
 
-	rs_do_command ../make/configure --prefix="$installdir" --disable-dependency-tracking --disable-nls --enable-case-insensitive-file-system --disable-job-server --disable-rpath --disable-werror
+	rs_do_command ../make/configure --prefix="$installdir" --disable-dependency-tracking --disable-nls --enable-case-insensitive-file-system --disable-job-server --disable-rpath
 	rs_do_command $rs_makecmd -j $rs_cpucount
 	rs_do_command $rs_makecmd install
 	rs_clean_module "make"
 
-	unset CFLAGS
+	export CFLAGS=""
 fi
 
 # NASM doesn't compile in a dedicated build directory, so just extract it
@@ -326,7 +320,7 @@ if rs_extract_module "nasm" "$rs_workdir"; then
 	rs_do_command $rs_makecmd install
 	rs_clean_module "nasm"
 
-	unset CFLAGS
+	export CFLAGS=""
 fi
 
 # Final actions

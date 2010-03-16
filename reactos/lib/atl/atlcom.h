@@ -18,7 +18,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#pragma once
+#ifndef _atlcom_h
+#define _atlcom_h
 
 namespace ATL
 {
@@ -32,7 +33,7 @@ class CComEnum;
 class CComObjectRootBase
 {
 public:
-	LONG									m_dwRef;
+	long									m_dwRef;
 public:
 	CComObjectRootBase()
 	{
@@ -98,13 +99,13 @@ public:
 	ULONG InternalAddRef()
 	{
 		ATLASSERT(m_dwRef >= 0);
-		return ThreadModel::Increment(&m_dwRef);
+		return ThreadModel::Increment(reinterpret_cast<int *>(&m_dwRef));
 	}
 
 	ULONG InternalRelease()
 	{
 		ATLASSERT(m_dwRef > 0);
-		return ThreadModel::Decrement(&m_dwRef);
+		return ThreadModel::Decrement(reinterpret_cast<int *>(&m_dwRef));
 	}
 
 	void Lock()
@@ -1128,3 +1129,5 @@ public:
 	offsetofclass(ATL::IConnectionPointContainerImpl<_atl_conn_classtype>, _atl_conn_classtype)},
 
 }; // namespace ATL
+
+#endif // _atlcom_h

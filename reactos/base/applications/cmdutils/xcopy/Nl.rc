@@ -79,3 +79,4 @@ Parameters:\n\
 \t\tdatum. Als geen detum wordt gegeven, copiëer alleen als bron nieuwer is.\n\n"
 
 }
+#pragma code_page(default)

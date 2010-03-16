@@ -81,3 +81,4 @@ Kur:\n\
 \t\tsenesnis už šaltinio failą\n\n"
 
 }
+#pragma code_page(default)

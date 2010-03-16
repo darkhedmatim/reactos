@@ -1,8 +1,8 @@
-@ stdcall D3DXAssembleShader(ptr long ptr ptr long ptr ptr)
-@ stdcall D3DXAssembleShaderFromFileA(str ptr ptr long ptr ptr)
-@ stdcall D3DXAssembleShaderFromFileW(wstr ptr ptr long ptr ptr)
-@ stdcall D3DXAssembleShaderFromResourceA(long str ptr ptr long ptr ptr)
-@ stdcall D3DXAssembleShaderFromResourceW(long wstr ptr ptr long ptr ptr)
+@ stub D3DXAssembleShader
+@ stub D3DXAssembleShaderFromFileA
+@ stub D3DXAssembleShaderFromFileW
+@ stub D3DXAssembleShaderFromResourceA
+@ stub D3DXAssembleShaderFromResourceW
 @ stdcall D3DXBoxBoundProbe(ptr ptr ptr ptr)
 @ stub D3DXCheckCubeTextureRequirements
 @ stub D3DXCheckTextureRequirements
@@ -11,7 +11,7 @@
 @ stub D3DXCleanMesh
 @ stdcall D3DXColorAdjustContrast(ptr ptr long)
 @ stdcall D3DXColorAdjustSaturation(ptr ptr long)
-@ stdcall D3DXCompileShader(ptr long ptr ptr ptr ptr long ptr ptr ptr)
+@ stub D3DXCompileShader
 @ stub D3DXCompileShaderFromFileA
 @ stub D3DXCompileShaderFromFileW
 @ stub D3DXCompileShaderFromResourceA
@@ -92,7 +92,7 @@
 @ stub D3DXCreateTeapot
 @ stub D3DXCreateTextA
 @ stub D3DXCreateTextW
-@ stdcall D3DXCreateTexture(ptr long long long long long long ptr)
+@ stub D3DXCreateTexture
 @ stub D3DXCreateTextureFromFileA
 @ stub D3DXCreateTextureFromFileExA
 @ stub D3DXCreateTextureFromFileExW
@@ -129,7 +129,7 @@
 @ stub D3DXFillVolumeTexture
 @ stub D3DXFillVolumeTextureTX
 @ stub D3DXFilterTexture
-@ stdcall D3DXFindShaderComment(ptr long ptr ptr)
+@ stub D3DXFindShaderComment
 @ stub D3DXFloat16To32Array
 @ stub D3DXFloat32To16Array
 @ stub D3DXFrameAppendChild
@@ -157,8 +157,8 @@
 @ stdcall D3DXGetImageInfoFromResourceA(long str ptr)
 @ stdcall D3DXGetImageInfoFromResourceW(long wstr ptr)
 @ stdcall D3DXGetPixelShaderProfile(ptr)
-@ stdcall D3DXGetShaderConstantTable(ptr ptr)
-@ stdcall D3DXGetShaderConstantTableEx(ptr long ptr)
+@ stub D3DXGetShaderConstantTable
+@ stub D3DXGetShaderConstantTableEx
 @ stub D3DXGetShaderInputSemantics
 @ stub D3DXGetShaderOutputSemantics
 @ stub D3DXGetShaderSamplers

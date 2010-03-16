@@ -3,6 +3,7 @@
 <module name="circles" type="win32scr" installbase="system32" unicode="true">
 	<include base="circles">.</include>
 	<library>scrnsave</library>
+	<library>kernel32</library>
 	<library>user32</library>
 	<library>gdi32</library>
 

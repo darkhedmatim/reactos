@@ -98,7 +98,6 @@ struct Binding {
     LPWSTR mime;
     UINT clipboard_format;
     LPWSTR url;
-    LPWSTR redirect_url;
     IID iid;
     BOOL report_mime;
     DWORD state;
@@ -830,7 +829,6 @@ static ULONG WINAPI Binding_Release(IBinding *iface)
         This->section.DebugInfo->Spare[0] = 0;
         DeleteCriticalSection(&This->section);
         heap_free(This->mime);
-        heap_free(This->redirect_url);
         heap_free(This->url);
 
         heap_free(This);
@@ -968,11 +966,6 @@ static HRESULT WINAPI InternetProtocolSink_ReportProgress(IInternetProtocolSink 
         break;
     case BINDSTATUS_CONNECTING:
         on_progress(This, 0, 0, BINDSTATUS_CONNECTING, szStatusText);
-        break;
-    case BINDSTATUS_REDIRECTING:
-        heap_free(This->redirect_url);
-        This->redirect_url = heap_strdupW(szStatusText);
-        on_progress(This, 0, 0, BINDSTATUS_REDIRECTING, szStatusText);
         break;
     case BINDSTATUS_BEGINDOWNLOADDATA:
         fill_stgmed_buffer(This->stgmed_buf);
@@ -1481,8 +1474,6 @@ static HRESULT start_binding(IMoniker *mon, Binding *binding_ctx, LPCWSTR url, I
 
     if(binding_ctx) {
         set_binding_sink(binding->protocol, PROTSINK(binding));
-        if(binding_ctx->redirect_url)
-            IBindStatusCallback_OnProgress(binding->callback, 0, 0, BINDSTATUS_REDIRECTING, binding_ctx->redirect_url);
         report_data(binding, 0, 0, 0);
     }else {
         hres = IInternetProtocol_Start(binding->protocol, url, PROTSINK(binding),

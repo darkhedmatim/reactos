@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __ACLEDITINT_H
+#define __ACLEDITINT_H
 
 extern HINSTANCE hDllInstance;
 
@@ -53,5 +54,7 @@ typedef DWORD (CALLBACK *PACL_CHANGE)(HWND hWnd,
                                       BOOL bApplyToSubContainers,
                                       BOOL bApplyToSubObjects,
                                       LPDWORD lpdwChangeContextStatus);
+
+#endif /* __ACLEDITINT_H */
 
 /* EOF */

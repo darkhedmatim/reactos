@@ -1,9 +1,9 @@
-#pragma once
+#ifndef _TDI_PROTO_H
+#define _TDI_PROTO_H
 
 NTSTATUS TdiConnect( PIRP *PendingIrp,
 		     PFILE_OBJECT ConnectionObject,
-		     PTDI_CONNECTION_INFORMATION ConnectionCallInfo,
-		     PTDI_CONNECTION_INFORMATION ConnectionReturnInfo,
+		     PTDI_CONNECTION_INFORMATION RemoteAddress,
 		     PIO_STATUS_BLOCK Iosb,
 		     PIO_COMPLETION_ROUTINE CompletionRoutine,
 		     PVOID CompletionContext );
@@ -44,3 +44,5 @@ NTSTATUS TdiQueryDeviceControl(
     PVOID OutputBuffer,
     ULONG OutputBufferLength,
     PULONG Return);
+
+#endif/*_TDI_PROTO_H*/

@@ -348,7 +348,6 @@ static void init_session(BOOL init)
 HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv)
 {
     unsigned int i;
-    HRESULT hr;
     
     TRACE("(%s,%s,%p)\n", debugstr_guid(rclsid), debugstr_guid(riid), ppv);
     
@@ -357,10 +356,6 @@ HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID *ppv)
 	if (IsEqualGUID(object_creation[i].clsid, rclsid))
 	    return IClassFactory_QueryInterface(object_creation[i].cf, riid, ppv);
     }
-
-    hr = URLMON_DllGetClassObject(rclsid, riid, ppv);
-    if(SUCCEEDED(hr))
-        return hr;
 
     FIXME("%s: no class found.\n", debugstr_guid(rclsid));
     return CLASS_E_CLASSNOTAVAILABLE;

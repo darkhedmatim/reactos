@@ -310,6 +310,42 @@ SymGetHomeDirectoryW(DWORD dwType,
 }
 
 BOOL WINAPI
+SymGetLineFromName64(HANDLE hProcess,  
+                     PCSTR pszModuleName,  
+                     PCSTR pszFileName,  
+                     DWORD dwLineNumber,  
+                     PLONG plDisplacement,  
+                     PIMAGEHLP_LINE64 Line)
+{
+    UNIMPLEMENTED;
+	return FALSE;
+}
+
+BOOL WINAPI
+SymGetLineFromName(HANDLE hProcess,
+                   PCSTR pszModuleName,
+                   PCSTR pszFileName,
+                   DWORD dwLineNumber,
+                   PLONG plDisplacement,
+                   PIMAGEHLP_LINE Line)
+{
+    UNIMPLEMENTED;
+	return FALSE;
+}
+
+BOOL WINAPI
+SymGetLineFromNameW64(HANDLE hProcess,
+                           PCWSTR pszModuleName,
+                           PCWSTR pszFileName,
+                           DWORD dwLineNumber,
+                           PLONG lpDisplacement,
+                           PIMAGEHLP_LINEW64 Line)
+{
+    UNIMPLEMENTED;
+	return FALSE;
+}
+
+BOOL WINAPI
 SymGetLineNextW64(HANDLE hProcess,
                   PIMAGEHLP_LINEW64 Line)
 {
@@ -424,6 +460,31 @@ SymGetSourceVarFromTokenW(
 }
 
 BOOL WINAPI
+SymGetSymFromName64(HANDLE hProcess,  
+                    PCSTR pszName,  
+                    PIMAGEHLP_SYMBOL64 Symbol)
+{
+    UNIMPLEMENTED;
+	return FALSE;
+}
+
+BOOL WINAPI
+SymGetSymNext64(HANDLE hProcess,  
+                PIMAGEHLP_SYMBOL64 Symbol)
+{
+    UNIMPLEMENTED;
+	return FALSE;
+}
+
+BOOL WINAPI
+SymGetSymPrev64(HANDLE hProcess,
+                PIMAGEHLP_SYMBOL64 Symbol)
+{
+    UNIMPLEMENTED;
+	return FALSE;
+}
+
+BOOL WINAPI
 SymGetSymbolFile(HANDLE hProcess,
                  PCSTR pszSymPath,
                  PCSTR pszImageFile,
@@ -519,6 +580,16 @@ SymPrevW(HANDLE hProcess,
     UNIMPLEMENTED;
 	return FALSE;
 }
+
+BOOL
+WINAPI
+SymRefreshModuleList(
+    HANDLE hProcess)
+{
+    UNIMPLEMENTED;
+	return FALSE;
+}
+
 
 PCHAR WINAPI
 SymSetHomeDirectory(HANDLE hProcess,
@@ -693,6 +764,15 @@ SymSrvStoreSupplementW(HANDLE hProcess,
 {
     UNIMPLEMENTED;
 	return NULL;
+}
+
+BOOL WINAPI
+SymUnDName64(PIMAGEHLP_SYMBOL64 Symbol,
+             PSTR pszUndecoratedName,
+             DWORD dwUndecoratedNameLength)
+{
+    UNIMPLEMENTED;
+	return FALSE;
 }
 
 DWORD WINAPI

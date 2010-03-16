@@ -1,5 +1,5 @@
 /*
- * Unit test suite for thread functions.
+ * Unit test suite for directory functions.
  *
  * Copyright 2002 Geoffrey Hausheer
  *
@@ -54,17 +54,26 @@
 # endif
 #endif
 
-static BOOL (WINAPI *pGetThreadPriorityBoost)(HANDLE,PBOOL);
-static HANDLE (WINAPI *pOpenThread)(DWORD,BOOL,DWORD);
-static BOOL (WINAPI *pQueueUserWorkItem)(LPTHREAD_START_ROUTINE,PVOID,ULONG);
-static DWORD (WINAPI *pSetThreadIdealProcessor)(HANDLE,DWORD);
-static BOOL (WINAPI *pSetThreadPriorityBoost)(HANDLE,BOOL);
-static BOOL (WINAPI *pRegisterWaitForSingleObject)(PHANDLE,HANDLE,WAITORTIMERCALLBACK,PVOID,ULONG,ULONG);
-static BOOL (WINAPI *pUnregisterWait)(HANDLE);
-static BOOL (WINAPI *pIsWow64Process)(HANDLE,PBOOL);
-static BOOL (WINAPI *pSetThreadErrorMode)(DWORD,PDWORD);
-static DWORD (WINAPI *pGetThreadErrorMode)(void);
-static DWORD (WINAPI *pRtlGetThreadErrorMode)(void);
+typedef BOOL (WINAPI *GetThreadPriorityBoost_t)(HANDLE,PBOOL);
+static GetThreadPriorityBoost_t pGetThreadPriorityBoost=NULL;
+
+typedef HANDLE (WINAPI *OpenThread_t)(DWORD,BOOL,DWORD);
+static OpenThread_t pOpenThread=NULL;
+
+typedef BOOL (WINAPI *QueueUserWorkItem_t)(LPTHREAD_START_ROUTINE,PVOID,ULONG);
+static QueueUserWorkItem_t pQueueUserWorkItem=NULL;
+
+typedef DWORD (WINAPI *SetThreadIdealProcessor_t)(HANDLE,DWORD);
+static SetThreadIdealProcessor_t pSetThreadIdealProcessor=NULL;
+
+typedef BOOL (WINAPI *SetThreadPriorityBoost_t)(HANDLE,BOOL);
+static SetThreadPriorityBoost_t pSetThreadPriorityBoost=NULL;
+
+typedef BOOL (WINAPI *RegisterWaitForSingleObject_t)(PHANDLE,HANDLE,WAITORTIMERCALLBACK,PVOID,ULONG,ULONG);
+static RegisterWaitForSingleObject_t pRegisterWaitForSingleObject=NULL;
+
+typedef BOOL (WINAPI *UnregisterWait_t)(HANDLE);
+static UnregisterWait_t pUnregisterWait=NULL;
 
 static HANDLE create_target_process(const char *arg)
 {
@@ -421,17 +430,7 @@ static VOID test_CreateThread_basic(void)
          "Thread did not execute successfully\n");
     ok(CloseHandle(thread[i])!=0,"CloseHandle failed\n");
   }
-
-  SetLastError(0xCAFEF00D);
-  ok(TlsFree(tlsIndex)!=0,"TlsFree failed: %08x\n", GetLastError());
-  ok(GetLastError()==0xCAFEF00D,
-     "GetLastError: expected 0xCAFEF00D, got %08x\n", GetLastError());
-
-  /* Test freeing an already freed TLS index */
-  SetLastError(0xCAFEF00D);
-  ok(TlsFree(tlsIndex)==0,"TlsFree succeeded\n");
-  ok(GetLastError()==ERROR_INVALID_PARAMETER,
-     "GetLastError: expected ERROR_INVALID_PARAMETER, got %08x\n", GetLastError());
+  ok(TlsFree(tlsIndex)!=0,"TlsFree failed\n");
 
   /* Test how passing NULL as a pointer to threadid works */
   SetLastError(0xFACEaBAD);
@@ -790,12 +789,9 @@ static VOID test_GetThreadTimes(void)
 static VOID test_thread_processor(void)
 {
    HANDLE curthread,curproc;
-   DWORD_PTR processMask,systemMask,retMask;
+   DWORD_PTR processMask,systemMask;
    SYSTEM_INFO sysInfo;
    int error=0;
-   BOOL is_wow64;
-
-   if (!pIsWow64Process || !pIsWow64Process( GetCurrentProcess(), &is_wow64 )) is_wow64 = FALSE;
 
    sysInfo.dwNumberOfProcessors=0;
    GetSystemInfo(&sysInfo);
@@ -813,10 +809,6 @@ static VOID test_thread_processor(void)
       "SetThreadAffinityMask failed\n");
    ok(SetThreadAffinityMask(curthread,processMask+1)==0,
       "SetThreadAffinityMask passed for an illegal processor\n");
-/* NOTE: Pre-Vista does not recognize the "all processors" flag (all bits set) */
-   retMask = SetThreadAffinityMask(curthread,~0UL);
-   ok(broken(retMask==0) || retMask==processMask,
-      "SetThreadAffinityMask(thread,-1) failed to request all processors.\n");
 /* NOTE: This only works on WinNT/2000/XP) */
    if (pSetThreadIdealProcessor) {
      SetLastError(0xdeadbeef);
@@ -828,27 +820,12 @@ static VOID test_thread_processor(void)
      }
      ok(error!=-1, "SetThreadIdealProcessor failed\n");
 
-     if (is_wow64)
-     {
-         SetLastError(0xdeadbeef);
-         error=pSetThreadIdealProcessor(curthread,MAXIMUM_PROCESSORS+1);
-         todo_wine
-         ok(error!=-1, "SetThreadIdealProcessor failed for %u on Wow64\n", MAXIMUM_PROCESSORS+1);
-
-         SetLastError(0xdeadbeef);
-         error=pSetThreadIdealProcessor(curthread,65);
-         ok(error==-1, "SetThreadIdealProcessor succeeded with an illegal processor #\n");
-         ok(GetLastError()==ERROR_INVALID_PARAMETER,
-            "Expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
-     }
-     else
-     {
-         SetLastError(0xdeadbeef);
-         error=pSetThreadIdealProcessor(curthread,MAXIMUM_PROCESSORS+1);
-         ok(error==-1, "SetThreadIdealProcessor succeeded with an illegal processor #\n");
-         ok(GetLastError()==ERROR_INVALID_PARAMETER,
-            "Expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
-     }
+     SetLastError(0xdeadbeef);
+     error=pSetThreadIdealProcessor(curthread,MAXIMUM_PROCESSORS+1);
+     ok(error==-1,
+        "SetThreadIdealProcessor succeeded with an illegal processor #\n");
+     ok(GetLastError()==ERROR_INVALID_PARAMETER,
+        "Expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
 
      error=pSetThreadIdealProcessor(curthread,MAXIMUM_PROCESSORS);
      ok(error==0, "SetThreadIdealProcessor returned an incorrect value\n");
@@ -1226,103 +1203,9 @@ static void test_TLS(void)
   cleanup_thread_sync_helpers();
 }
 
-static void test_ThreadErrorMode(void)
-{
-    DWORD oldmode;
-    DWORD mode;
-    DWORD rtlmode;
-    BOOL ret;
-
-    if (!pSetThreadErrorMode || !pGetThreadErrorMode)
-    {
-        win_skip("SetThreadErrorMode and/or GetThreadErrorMode unavailable (added in Windows 7)\n");
-        return;
-    }
-
-    if (!pRtlGetThreadErrorMode) {
-        win_skip("RtlGetThreadErrorMode not available\n");
-        return;
-    }
-
-    oldmode = pGetThreadErrorMode();
-
-    ret = pSetThreadErrorMode(0, &mode);
-    ok(ret, "SetThreadErrorMode failed\n");
-    ok(mode == oldmode,
-       "SetThreadErrorMode returned old mode 0x%x, expected 0x%x\n",
-       mode, oldmode);
-    mode = pGetThreadErrorMode();
-    ok(mode == 0, "GetThreadErrorMode returned mode 0x%x, expected 0\n", mode);
-    rtlmode = pRtlGetThreadErrorMode();
-    ok(rtlmode == 0,
-       "RtlGetThreadErrorMode returned mode 0x%x, expected 0\n", mode);
-
-    ret = pSetThreadErrorMode(SEM_FAILCRITICALERRORS, &mode);
-    ok(ret, "SetThreadErrorMode failed\n");
-    ok(mode == 0,
-       "SetThreadErrorMode returned old mode 0x%x, expected 0\n", mode);
-    mode = pGetThreadErrorMode();
-    ok(mode == SEM_FAILCRITICALERRORS,
-       "GetThreadErrorMode returned mode 0x%x, expected SEM_FAILCRITICALERRORS\n",
-       mode);
-    rtlmode = pRtlGetThreadErrorMode();
-    ok(rtlmode == 0x10,
-       "RtlGetThreadErrorMode returned mode 0x%x, expected 0x10\n", mode);
-
-    ret = pSetThreadErrorMode(SEM_NOGPFAULTERRORBOX, &mode);
-    ok(ret, "SetThreadErrorMode failed\n");
-    ok(mode == SEM_FAILCRITICALERRORS,
-       "SetThreadErrorMode returned old mode 0x%x, expected SEM_FAILCRITICALERRORS\n",
-       mode);
-    mode = pGetThreadErrorMode();
-    ok(mode == SEM_NOGPFAULTERRORBOX,
-       "GetThreadErrorMode returned mode 0x%x, expected SEM_NOGPFAULTERRORBOX\n",
-       mode);
-    rtlmode = pRtlGetThreadErrorMode();
-    ok(rtlmode == 0x20,
-       "RtlGetThreadErrorMode returned mode 0x%x, expected 0x20\n", mode);
-
-    ret = pSetThreadErrorMode(SEM_NOOPENFILEERRORBOX, NULL);
-    ok(ret, "SetThreadErrorMode failed\n");
-    mode = pGetThreadErrorMode();
-    ok(mode == SEM_NOOPENFILEERRORBOX,
-       "GetThreadErrorMode returned mode 0x%x, expected SEM_NOOPENFILEERRORBOX\n",
-       mode);
-    rtlmode = pRtlGetThreadErrorMode();
-    ok(rtlmode == 0x40,
-       "RtlGetThreadErrorMode returned mode 0x%x, expected 0x40\n", rtlmode);
-
-    for (mode = 1; mode; mode <<= 1)
-    {
-        ret = pSetThreadErrorMode(mode, NULL);
-        if (mode & (SEM_FAILCRITICALERRORS |
-                    SEM_NOGPFAULTERRORBOX |
-                    SEM_NOOPENFILEERRORBOX))
-        {
-            ok(ret,
-               "SetThreadErrorMode(0x%x,NULL) failed with error %d\n",
-               mode, GetLastError());
-        }
-        else
-        {
-            DWORD GLE = GetLastError();
-            ok(!ret,
-               "SetThreadErrorMode(0x%x,NULL) succeeded, expected failure\n",
-               mode);
-            ok(GLE == ERROR_INVALID_PARAMETER,
-               "SetThreadErrorMode(0x%x,NULL) failed with %d, "
-               "expected ERROR_INVALID_PARAMETER\n",
-               mode, GLE);
-        }
-    }
-
-    pSetThreadErrorMode(oldmode, NULL);
-}
-
 START_TEST(thread)
 {
    HINSTANCE lib;
-   HINSTANCE ntdll;
    int argc;
    char **argv;
    argc = winetest_get_mainargs( &argv );
@@ -1331,22 +1214,13 @@ START_TEST(thread)
 */
    lib=GetModuleHandleA("kernel32.dll");
    ok(lib!=NULL,"Couldn't get a handle for kernel32.dll\n");
-   pGetThreadPriorityBoost=(void *)GetProcAddress(lib,"GetThreadPriorityBoost");
-   pOpenThread=(void *)GetProcAddress(lib,"OpenThread");
-   pQueueUserWorkItem=(void *)GetProcAddress(lib,"QueueUserWorkItem");
-   pSetThreadIdealProcessor=(void *)GetProcAddress(lib,"SetThreadIdealProcessor");
-   pSetThreadPriorityBoost=(void *)GetProcAddress(lib,"SetThreadPriorityBoost");
-   pRegisterWaitForSingleObject=(void *)GetProcAddress(lib,"RegisterWaitForSingleObject");
-   pUnregisterWait=(void *)GetProcAddress(lib,"UnregisterWait");
-   pIsWow64Process=(void *)GetProcAddress(lib,"IsWow64Process");
-   pSetThreadErrorMode=(void *)GetProcAddress(lib,"SetThreadErrorMode");
-   pGetThreadErrorMode=(void *)GetProcAddress(lib,"GetThreadErrorMode");
-
-   ntdll=GetModuleHandleA("ntdll.dll");
-   if (ntdll)
-   {
-       pRtlGetThreadErrorMode=(void *)GetProcAddress(ntdll,"RtlGetThreadErrorMode");
-   }
+   pGetThreadPriorityBoost=(GetThreadPriorityBoost_t)GetProcAddress(lib,"GetThreadPriorityBoost");
+   pOpenThread=(OpenThread_t)GetProcAddress(lib,"OpenThread");
+   pQueueUserWorkItem=(QueueUserWorkItem_t)GetProcAddress(lib,"QueueUserWorkItem");
+   pSetThreadIdealProcessor=(SetThreadIdealProcessor_t)GetProcAddress(lib,"SetThreadIdealProcessor");
+   pSetThreadPriorityBoost=(SetThreadPriorityBoost_t)GetProcAddress(lib,"SetThreadPriorityBoost");
+   pRegisterWaitForSingleObject=(RegisterWaitForSingleObject_t)GetProcAddress(lib,"RegisterWaitForSingleObject");
+   pUnregisterWait=(UnregisterWait_t)GetProcAddress(lib,"UnregisterWait");
 
    if (argc >= 3)
    {
@@ -1390,5 +1264,4 @@ START_TEST(thread)
    test_QueueUserWorkItem();
    test_RegisterWaitForSingleObject();
    test_TLS();
-   test_ThreadErrorMode();
 }

@@ -20,6 +20,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#pragma once
+#ifndef __PRIORITY_H
+#define __PRIORITY_H
 
 void DoSetPriority(DWORD priority);
+
+#endif /* __PRIORITY_H */

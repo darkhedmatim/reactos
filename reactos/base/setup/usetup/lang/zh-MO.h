@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_ZH_MO_H__
+#define LANG_ZH_MO_H__
 
 MUI_LAYOUTS zhMOLayouts[] =
 {
@@ -8,3 +9,5 @@ MUI_LAYOUTS zhMOLayouts[] =
     { L"0404", L"E0080404" },
     { NULL, NULL }
 };
+
+#endif

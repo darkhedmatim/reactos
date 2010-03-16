@@ -4,6 +4,7 @@
 	<importlibrary definition="ksuser.spec" />
 	<include base="ksuser">.</include>
 	<library>advapi32</library>	
+	<library>kernel32</library>
 	<library>ntdll</library>
 	<file>ksuser.c</file>
 	<file>ksuser.rc</file>

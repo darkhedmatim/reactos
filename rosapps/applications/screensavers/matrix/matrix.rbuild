@@ -2,6 +2,7 @@
 <!DOCTYPE module SYSTEM "../../../../tools/rbuild/project.dtd">
 <module name="matrix" type="win32scr" installbase="system32" installname="matrix.scr" allowwarnings="true" unicode="true">
 	<include base="matrix">.</include>
+	<library>kernel32</library>
 	<library>user32</library>
 	<library>gdi32</library>
 	<library>winspool</library>

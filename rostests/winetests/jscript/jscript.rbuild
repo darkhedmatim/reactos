@@ -3,16 +3,15 @@
 <group>
 <module name="jscript_winetest" type="win32cui" installbase="bin" installname="jscript_winetest.exe" allowwarnings="true">
 	<include base="jscript_winetest">.</include>
-	<define name="__ROS_LONG64__" />
-	<file>activex.c</file>
+    <define name="__ROS_LONG64__" />
 	<file>jscript.c</file>
 	<file>run.c</file>
 	<file>testlist.c</file>
 	<file>rsrc.rc</file>
 	<library>wine</library>
 	<library>ole32</library>
-	<library>advapi32</library>
 	<library>oleaut32</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 </module>
 </group>

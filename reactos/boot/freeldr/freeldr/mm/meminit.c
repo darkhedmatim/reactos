@@ -102,11 +102,8 @@ VOID MmInitializeHeap(PVOID PageLookupTable)
 {
 	ULONG PagesNeeded;
 	ULONG HeapStart;
-	MEMORY_TYPE Type;
-	PPAGE_LOOKUP_TABLE_ITEM RealPageLookupTable = (PPAGE_LOOKUP_TABLE_ITEM)PageLookupTable;
-	
+
 	// HACK: Make it so it doesn't overlap kernel space
-	Type = RealPageLookupTable[0x100].PageAllocated;
 	MmMarkPagesInLookupTable(PageLookupTableAddress, 0x100, 0xFF, LoaderSystemCode);
 
 	// Find contigious memory block for HEAP:STACK
@@ -114,7 +111,7 @@ VOID MmInitializeHeap(PVOID PageLookupTable)
 	HeapStart = MmFindAvailablePages(PageLookupTable, TotalPagesInLookupTable, PagesNeeded, FALSE);
 
 	// Unapply the hack
-	MmMarkPagesInLookupTable(PageLookupTableAddress, 0x100, 0xFF, Type);
+	MmMarkPagesInLookupTable(PageLookupTableAddress, 0x100, 0xFF, LoaderFree);
 
 	if (HeapStart == 0)
 	{

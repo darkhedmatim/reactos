@@ -1264,11 +1264,13 @@ static HRESULT VARIANT_FormatNumber(LPVARIANT pVarIn, LPOLESTR lpszFormat,
       /* Exponent format: length of the integral number part is fixed and
          specified by the format. */
       pad = need_int - have_int;
-      exponent -= pad;
-      if (pad < 0)
+      if (pad >= 0)
+        exponent -= pad;
+      else
       {
         have_int = need_int;
         have_frac -= pad;
+        exponent -= pad;
         pad = 0;
       }
     }
@@ -1282,14 +1284,6 @@ static HRESULT VARIANT_FormatNumber(LPVARIANT pVarIn, LPOLESTR lpszFormat,
         have_int += pad;
         have_frac = -pad;
         pad = 0;
-      }
-      if(exponent < 0 && exponent > (-256 + have_int + have_frac))
-      {
-        /* Remove exponent notation */
-        memmove(rgbDig - exponent, rgbDig, have_int + have_frac);
-        ZeroMemory(rgbDig, -exponent);
-        have_frac -= exponent;
-        exponent = 0;
       }
     }
 
@@ -1319,10 +1313,10 @@ static HRESULT VARIANT_FormatNumber(LPVARIANT pVarIn, LPOLESTR lpszFormat,
         }
         else
           (*prgbDig)++;
+        /* We converted trailing digits to zeroes => have_frac has changed */
+        while (have_frac > 0 && rgbDig[have_int + have_frac - 1] == 0)
+          have_frac--;
       }
-      /* We converted trailing digits to zeroes => have_frac has changed */
-      while (have_frac > 0 && rgbDig[have_int + have_frac - 1] == 0)
-        have_frac--;
     }
     TRACE("have_int=%d,need_int=%d,have_frac=%d,need_frac=%d,pad=%d,exp=%d\n",
           have_int, need_int, have_frac, need_frac, pad, exponent);
@@ -1963,7 +1957,7 @@ static HRESULT VARIANT_FormatString(LPVARIANT pVarIn, LPOLESTR lpszFormat,
     if (FAILED(hRes))
       return hRes;
 
-    if (V_BSTR(&vStr)[0] == '\0')
+    if (V_BSTR(pVarIn)[0] == '\0')
       strHeader = (FMT_STRING_HEADER*)(rgbTok + FmtGetNegative(header));
     else
       strHeader = (FMT_STRING_HEADER*)(rgbTok + FmtGetPositive(header));

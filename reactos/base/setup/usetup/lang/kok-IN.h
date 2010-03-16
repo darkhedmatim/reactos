@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_KOK_IN_H__
+#define LANG_KOK_IN_H__
 
 MUI_LAYOUTS kokINLayouts[] =
 {
@@ -6,3 +7,5 @@ MUI_LAYOUTS kokINLayouts[] =
     { L"0457", L"00000439" },
     { NULL, NULL }
 };
+
+#endif

@@ -61,7 +61,7 @@ extern BOOL lengthen_path(GpPath *path, INT len);
 extern GpStatus trace_path(GpGraphics *graphics, GpPath *path);
 
 typedef struct region_element region_element;
-extern void delete_element(region_element *element);
+extern inline void delete_element(region_element *element);
 
 static inline INT roundr(REAL x)
 {
@@ -80,14 +80,8 @@ static inline REAL deg2rad(REAL degrees)
 
 extern const char *debugstr_rectf(CONST RectF* rc);
 
-extern const char *debugstr_pointf(CONST PointF* pt);
-
 extern void convert_32bppARGB_to_32bppPARGB(UINT width, UINT height,
     BYTE *dst_bits, INT dst_stride, const BYTE *src_bits, INT src_stride);
-
-extern GpStatus convert_pixels(UINT width, UINT height,
-    INT dst_stride, BYTE *dst_bits, PixelFormat dst_format,
-    INT src_stride, const BYTE *src_bits, PixelFormat src_format, ARGB *src_palette);
 
 struct GpPen{
     UINT style;
@@ -172,15 +166,11 @@ struct GpLineGradient{
     REAL* blendfac;  /* blend factors */
     REAL* blendpos;  /* blend positions */
     INT blendcount;
-    ARGB* pblendcolor; /* preset blend colors */
-    REAL* pblendpos; /* preset blend positions */
-    INT pblendcount;
 };
 
 struct GpTexture{
     GpBrush brush;
     GpMatrix *transform;
-    GpImage *image;
     WrapMode wrap;  /* not used yet */
 };
 
@@ -218,13 +208,7 @@ struct GpAdustableArrowCap{
 struct GpImage{
     IPicture* picture;
     ImageType type;
-    GUID format;
     UINT flags;
-    UINT palette_flags;
-    UINT palette_count;
-    UINT palette_size;
-    ARGB *palette_entries;
-    REAL xres, yres;
 };
 
 struct GpMetafile{
@@ -257,26 +241,9 @@ struct color_key{
     ARGB high;
 };
 
-struct color_matrix{
-    BOOL enabled;
-    ColorMatrixFlags flags;
-    ColorMatrix colormatrix;
-    ColorMatrix graymatrix;
-};
-
-struct color_remap_table{
-    BOOL enabled;
-    INT mapsize;
-    GDIPCONST ColorMap *colormap;
-};
-
 struct GpImageAttributes{
     WrapMode wrap;
     struct color_key colorkeys[ColorAdjustTypeCount];
-    struct color_matrix colormatrices[ColorAdjustTypeCount];
-    struct color_remap_table colorremaptables[ColorAdjustTypeCount];
-    BOOL gamma_enabled[ColorAdjustTypeCount];
-    REAL gamma[ColorAdjustTypeCount];
 };
 
 struct GpFont{
@@ -299,8 +266,6 @@ struct GpStringFormat{
     INT tabcount;
     REAL firsttab;
     REAL *tabs;
-    CharacterRange *character_ranges;
-    INT range_count;
 };
 
 struct GpFontCollection{

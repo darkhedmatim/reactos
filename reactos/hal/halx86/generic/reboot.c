@@ -4,7 +4,7 @@
  * FILE:            hal/halx86/generic/reboot.c
  * PURPOSE:         Reboot functions
  * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
- *                  Eric Kohl
+ *                  Eric Kohl (ekohl@abo.rhein-zeitung.de)
  */
 
 /* INCLUDES ******************************************************************/
@@ -98,10 +98,8 @@ HalReturnToFirmware(IN FIRMWARE_REENTRY Action)
         case HalHaltRoutine:
         case HalRebootRoutine:
 
-#ifndef _MINIHAL_
             /* Acquire the display */
             InbvAcquireDisplayOwnership();
-#endif
 
             /* Call the internal reboot function */
             HalpReboot();

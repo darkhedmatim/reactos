@@ -10,6 +10,7 @@
 	<file>winhttp.c</file>
 	<library>wine</library>
 	<library>winhttp</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 </module>
 </group>

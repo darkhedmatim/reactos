@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_MUI_LANGUAGES_H__
+#define LANG_MUI_LANGUAGES_H__
 
 #include "lang/af-ZA.h"
 #include "lang/ar-AE.h"
@@ -280,3 +281,5 @@ const MUI_LANGUAGE LanguageList[] =
   {L"00000435", L"1252", L"850", L"10000", L"Zulu",                         L"1",   enUSPages, enUSErrorEntries, enUSStrings, LatinFonts,    enUSLayouts },
   {NULL, NULL, NULL, NULL, NULL, NULL}
 };
+
+#endif

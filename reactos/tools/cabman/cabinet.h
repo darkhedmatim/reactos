@@ -4,8 +4,8 @@
  * FILE:        tools/cabman/cabinet.h
  * PURPOSE:     Cabinet definitions
  */
-
-#pragma once
+#ifndef __CABINET_H
+#define __CABINET_H
 
 #if defined(WIN32)
 #include <windows.h>
@@ -495,5 +495,7 @@ private:
     ULONG NextFolderNumber;     // Zero based folder number
 #endif /* CAB_READ_ONLY */
 };
+
+#endif /* __CABINET_H */
 
 /* EOF */

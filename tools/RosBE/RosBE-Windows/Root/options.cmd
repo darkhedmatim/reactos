@@ -3,7 +3,7 @@
 :: LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 :: FILE:        Root/options.cmd
 :: PURPOSE:     Starts options.exe and restarts RosBE afterwards.
-:: COPYRIGHT:   Copyright 2010 Daniel Reimer <reimer.daniel@freenet.de>
+:: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
 ::
 
 @echo off
@@ -14,18 +14,18 @@ if %_ROSBE_DEBUG% == 1 (
 
 title Options
 
-if not "%ROS_ARCH%" == "i386" (
-    set param=%ROS_ARCH%
-    set cfgfile=%APPDATA%\RosBE\rosbe-options-%ROS_ARCH%.cmd
+if "%ROS_ARCH%" == "amd64" (
+    set options=%_ROSBE_BASEDIR%\Tools\options64.exe
+    set cfgfile=%APPDATA%\RosBE\rosbe-options-amd64.cmd
 ) else (
-    set param=
+    set options=%_ROSBE_BASEDIR%\Tools\options.exe
     set cfgfile=%APPDATA%\RosBE\rosbe-options.cmd
 )
 
 :: Run options.exe
-if exist "%_ROSBE_BASEDIR%\Tools\options.exe" (
+if exist "%options%" (
     pushd "%_ROSBE_BASEDIR%"
-    call options.exe %param%
+    call "%options%"
     popd
 
     if exist "%cfgfile%" (

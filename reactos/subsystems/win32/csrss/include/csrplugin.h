@@ -16,7 +16,8 @@
  * subsystem.
  */
 
-#pragma once
+#ifndef CSRPLUGIN_H_INCLUDED
+#define CSRPLUGIN_H_INCLUDED
 
 #include <windows.h>
 #include "api.h"
@@ -56,5 +57,7 @@ typedef BOOL (WINAPI *CSRPLUGIN_INITIALIZE_PROC)(PCSRSS_API_DEFINITION *ApiDefin
                                                   CSRPLUGIN_HARDERROR_PROC *HardErrorProc,
                                                   PCSRSS_EXPORTED_FUNCS Exports,
                                                   HANDLE CsrssApiHeap);
+
+#endif /* CSRPLUGIN_H_INCLUDED */
 
 /* EOF */

@@ -4,13 +4,15 @@
  * FILE:        include/fileobjs.h
  * PURPOSE:     File object routine prototypes
  */
+#ifndef __FILEOBJS_H
+#define __FILEOBJS_H
 
-#pragma once
 
 extern LIST_ENTRY AddressFileListHead;
 extern KSPIN_LOCK AddressFileListLock;
 extern LIST_ENTRY ConnectionEndpointListHead;
 extern KSPIN_LOCK ConnectionEndpointListLock;
+
 
 NTSTATUS FileOpenAddress(
   PTDI_REQUEST Request,
@@ -25,6 +27,8 @@ NTSTATUS FileOpenConnection(
   PTDI_REQUEST Request,
   PVOID ClientContext);
 
+PCONNECTION_ENDPOINT FileFindConnectionByContext( PVOID Context );
+
 NTSTATUS FileCloseConnection(
   PTDI_REQUEST Request);
 
@@ -33,5 +37,7 @@ NTSTATUS FileOpenControlChannel(
 
 NTSTATUS FileCloseControlChannel(
   PTDI_REQUEST Request);
+
+#endif /* __FILEOBJS_H */
 
 /* EOF */

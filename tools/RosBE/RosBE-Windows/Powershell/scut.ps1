@@ -3,11 +3,11 @@
 # LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 # FILE:        Root/scut.ps1
 # PURPOSE:     Manages named shortcuts to ReactOS source directories.
-# COPYRIGHT:   Copyright 2010 Daniel Reimer <reimer.daniel@freenet.de>
+# COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
 #
 
 function paramcall($arg) {
-    IEX "& scut.exe $arg"
+    IEX "&'$_ROSBE_BASEDIR\Tools\scut.exe' $arg"
 }
 
 function parse($arg) {

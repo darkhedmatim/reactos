@@ -464,6 +464,7 @@ static BOOL OnTestDlgCreate (HWND hwnd, LPCREATESTRUCT lpcs)
 static LRESULT CALLBACK main_window_procA (HWND hwnd, UINT uiMsg, WPARAM wParam,
         LPARAM lParam)
 {
+    LRESULT result;
     switch (uiMsg)
     {
         /* Add blank case statements for these to ensure we don't use them
@@ -484,19 +485,20 @@ static LRESULT CALLBACK main_window_procA (HWND hwnd, UINT uiMsg, WPARAM wParam,
             break;
     }
 
-    return DefWindowProcA (hwnd, uiMsg, wParam, lParam);
+    result=DefWindowProcA (hwnd, uiMsg, wParam, lParam);
+    return result;
 }
 
 static LRESULT CALLBACK disabled_test_proc (HWND hwnd, UINT uiMsg,
         WPARAM wParam, LPARAM lParam)
 {
+    LRESULT result;
+    DWORD dw;
+    HWND hwndOk;
+
     switch (uiMsg)
     {
         case WM_INITDIALOG:
-        {
-            DWORD dw;
-            HWND hwndOk;
-
             dw = SendMessage(hwnd, DM_GETDEFID, 0, 0);
             assert(DC_HASDEFID == HIWORD(dw));
             hwndOk = GetDlgItem(hwnd, LOWORD(dw));
@@ -506,7 +508,6 @@ static LRESULT CALLBACK disabled_test_proc (HWND hwnd, UINT uiMsg,
             PostMessage(hwnd, WM_KEYDOWN, VK_RETURN, 0);
             PostMessage(hwnd, WM_COMMAND, IDCANCEL, 0);
             break;
-        }
         case WM_COMMAND:
             if (wParam == IDOK)
             {
@@ -522,12 +523,14 @@ static LRESULT CALLBACK disabled_test_proc (HWND hwnd, UINT uiMsg,
             break;
     }
 
-    return DefWindowProcA (hwnd, uiMsg, wParam, lParam);
+    result=DefWindowProcA (hwnd, uiMsg, wParam, lParam);
+    return result;
 }
 
 static LRESULT CALLBACK testDlgWinProc (HWND hwnd, UINT uiMsg, WPARAM wParam,
         LPARAM lParam)
 {
+    LRESULT result;
     switch (uiMsg)
     {
         /* Add blank case statements for these to ensure we don't use them
@@ -541,7 +544,8 @@ static LRESULT CALLBACK testDlgWinProc (HWND hwnd, UINT uiMsg, WPARAM wParam,
                     (LPCREATESTRUCTA) lParam) ? 0 : (LRESULT) -1);
     }
 
-    return DefDlgProcA (hwnd, uiMsg, wParam, lParam);
+    result=DefWindowProcA (hwnd, uiMsg, wParam, lParam);
+    return result;
 }
 
 static BOOL RegisterWindowClasses (void)
@@ -852,8 +856,8 @@ static void InitialFocusTest (void)
     ok ((g_hwndInitialFocusT1 == g_hwndButton2),
        "Error in initial focus when WM_INITDIALOG returned TRUE: "
        "Expected the second button (%p), got %s (%p).\n",
-       g_hwndButton2, GetHwndString(g_hwndInitialFocusT1),
-       g_hwndInitialFocusT1);
+       g_hwndButton2, GetHwndString(g_hwndInitialFocusT2),
+       g_hwndInitialFocusT2);
 
     ok ((g_hwndInitialFocusT2 == g_hwndButton2),
        "Error after first SetFocus() when WM_INITDIALOG returned TRUE: "
@@ -926,21 +930,6 @@ static INT_PTR CALLBACK DestroyOnCloseDlgWinProc (HWND hDlg, UINT uiMsg,
     return FALSE;
 }
 
-static INT_PTR CALLBACK TestInitDialogHandleProc (HWND hDlg, UINT uiMsg,
-        WPARAM wParam, LPARAM lParam)
-{
-    if (uiMsg == WM_INITDIALOG)
-    {
-        HWND expected = GetNextDlgTabItem(hDlg, NULL, FALSE);
-        ok(expected == (HWND)wParam,
-           "Expected wParam to be the handle to the first tabstop control (%p), got %p\n",
-           expected, (HWND)wParam);
-
-        EndDialog(hDlg, LOWORD(SendMessage(hDlg, DM_GETDEFID, 0, 0)));
-        return TRUE;
-    }
-    return FALSE;
-}
 
 static INT_PTR CALLBACK TestDefButtonDlgProc (HWND hDlg, UINT uiMsg,
                                               WPARAM wParam, LPARAM lParam)
@@ -992,9 +981,6 @@ static void test_DialogBoxParamA(void)
     ok(GetLastError() == ERROR_INVALID_WINDOW_HANDLE ||
        broken(GetLastError() == 0xdeadbeef),
        "got %d, expected ERROR_INVALID_WINDOW_HANDLE\n", GetLastError());
-
-    ret = DialogBoxParamA(GetModuleHandle(NULL), "TEST_EMPTY_DIALOG", 0, TestInitDialogHandleProc, 0);
-    ok(ret == IDOK, "Expected IDOK\n");
 
     ret = DialogBoxParamA(GetModuleHandle(NULL), "TEST_EMPTY_DIALOG", 0, TestDefButtonDlgProc, 0);
     ok(ret == IDOK, "Expected IDOK\n");
@@ -1157,55 +1143,6 @@ static void test_SaveRestoreFocus(void)
     DestroyWindow(hDlg);
 }
 
-static INT_PTR CALLBACK timer_message_dlg_proc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam)
-{
-    static int count;
-    BOOL visible;
-
-    switch (msg)
-    {
-        case WM_INITDIALOG:
-            visible = GetWindowLong(wnd, GWL_STYLE) & WS_VISIBLE;
-            ok(!visible, "Dialog should not be visible.\n");
-            SetTimer(wnd, 1, 100, NULL);
-            Sleep(200);
-            return FALSE;
-
-        case WM_COMMAND:
-            if (LOWORD(wparam) != IDCANCEL) return FALSE;
-            EndDialog(wnd, LOWORD(wparam));
-            return TRUE;
-
-        case WM_TIMER:
-            if (wparam != 1) return FALSE;
-            visible = GetWindowLong(wnd, GWL_STYLE) & WS_VISIBLE;
-            if (!count++)
-            {
-                ok(!visible, "Dialog should not be visible.\n");
-                PostMessage(wnd, WM_USER, 0, 0);
-            }
-            else
-            {
-                ok(visible, "Dialog should be visible.\n");
-                PostMessage(wnd, WM_COMMAND, IDCANCEL, 0);
-            }
-            return TRUE;
-
-        case WM_USER:
-            visible = GetWindowLong(wnd, GWL_STYLE) & WS_VISIBLE;
-            ok(visible, "Dialog should be visible.\n");
-            return TRUE;
-
-        default:
-            return FALSE;
-    }
-}
-
-static void test_timer_message(void)
-{
-    DialogBoxA(g_hinst, "RADIO_TEST_DIALOG", NULL, timer_message_dlg_proc);
-}
-
 START_TEST(dialog)
 {
     g_hinst = GetModuleHandleA (0);
@@ -1221,5 +1158,4 @@ START_TEST(dialog)
     test_DisabledDialogTest();
     test_MessageBoxFontTest();
     test_SaveRestoreFocus();
-    test_timer_message();
 }

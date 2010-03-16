@@ -7,7 +7,6 @@
 			<library>freeldr_startup</library>
 			<library>freeldr_base64k</library>
 			<library>freeldr_base</library>
-			<library>mini_hal</library>
 			<library>freeldr_arch</library>
 			<library>freeldr_main</library>
 			<library>rossym</library>
@@ -33,14 +32,8 @@
 			<library>rtl</library>
 			<library>libcntpr</library>
 			<group linkerset="ld">
-			    <linkerflag>-static</linkerflag>
 				<linkerflag>-lgcc</linkerflag>
-			    <if property="SARCH" value="omap3">
-			        <linkerflag>-Wl,--image-base=0x80FFF000</linkerflag>
-			    </if>
-                <if property="SARCH" value="versatile">
-			        <linkerflag>-Wl,--image-base=0x0001F000</linkerflag>
-			    </if>				
+				<linkerflag>-Wl,--image-base=0x80FFF000</linkerflag>
 			</group>
 		</module>
 	</if>

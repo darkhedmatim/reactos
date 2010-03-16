@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __INCLUDE_INTERNAL_KERNEL_DEBUGGER_H
+#define __INCLUDE_INTERNAL_KERNEL_DEBUGGER_H
 
 #ifdef _M_PPC
 #define KdDebuggerEnabled _KdDebuggerEnabled
@@ -363,3 +364,4 @@ extern KD_CONTEXT KdpContext;
 extern ULONG Kd_WIN2000_Mask;
 
 #endif
+#endif /* __INCLUDE_INTERNAL_KERNEL_DEBUGGER_H */

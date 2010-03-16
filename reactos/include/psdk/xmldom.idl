@@ -21,6 +21,10 @@
 
 import "ocidl.idl";
 
+cpp_quote("#ifndef __xmldom_h__")
+cpp_quote("#define __xmldom_h__")
+cpp_quote("#endif")
+
 interface IXMLDOMImplementation;
 interface IXMLDOMNode;
 interface IXMLDOMDocumentFragment;
@@ -264,7 +268,7 @@ interface IXMLDOMDocument : IXMLDOMNode
                   [out,retval] VARIANT_BOOL *isSuccessful );
 
     [propget, id(DISPID_READYSTATE)]
-    HRESULT readyState( [out,retval] LONG *value );
+    HRESULT readyState( [out,retval] long *value );
 
     [propget, id(DISPID_XMLDOM_DOCUMENT_PARSEERROR)]
     HRESULT parseError( [out,retval] IXMLDOMParseError **errorObj );
@@ -330,11 +334,11 @@ pointer_default(unique)
 interface IXMLDOMNodeList : IDispatch
 {
     [propget, id(DISPID_VALUE)]
-    HRESULT item( [in] LONG index,
+    HRESULT item( [in] long index,
                   [out,retval] IXMLDOMNode **listItem );
 
     [propget, id(DISPID_DOM_NODELIST_LENGTH)]
-    HRESULT length( [out,retval] LONG *listLength );
+    HRESULT length( [out,retval] long *listLength );
 
     [id(DISPID_XMLDOM_NODELIST_NEXTNODE)]
     HRESULT nextNode( [out,retval] IXMLDOMNode **nextItem );
@@ -371,11 +375,11 @@ interface IXMLDOMNamedNodeMap : IDispatch
                              [out,retval] IXMLDOMNode **namedItem );
 
     [propget, id(DISPID_VALUE)]
-    HRESULT item( [in] LONG index,
+    HRESULT item( [in] long index,
                   [out,retval] IXMLDOMNode **listItem );
 
     [propget, id(DISPID_DOM_NODELIST_LENGTH)]
-    HRESULT length( [out,retval] LONG *listLength );
+    HRESULT length( [out,retval] long *listLength );
 
     [id(DISPID_XMLDOM_NAMEDNODEMAP_GETQUALIFIEDITEM)]
     HRESULT getQualifiedItem( [in] BSTR baseName,
@@ -431,27 +435,27 @@ interface IXMLDOMCharacterData : IXMLDOMNode
     HRESULT data( [in] BSTR data );
 
     [propget, id(DISPID_DOM_DATA_LENGTH)]
-    HRESULT length( [out,retval] LONG *dataLength );
+    HRESULT length( [out,retval] long *dataLength );
 
     [id(DISPID_DOM_DATA_SUBSTRING)]
-    HRESULT substringData( [in] LONG offset,
-                           [in] LONG count,
+    HRESULT substringData( [in] long offset,
+                           [in] long count,
                            [out,retval] BSTR *data );
 
     [id(DISPID_DOM_DATA_APPEND)]
     HRESULT appendData( [in] BSTR data );
 
     [id(DISPID_DOM_DATA_INSERT)]
-    HRESULT insertData( [in] LONG offset,
+    HRESULT insertData( [in] long offset,
                         [in] BSTR data );
 
     [id(DISPID_DOM_DATA_DELETE)]
-    HRESULT deleteData( [in] LONG offset,
-                        [in] LONG count );
+    HRESULT deleteData( [in] long offset,
+                        [in] long count );
 
     [id(DISPID_DOM_DATA_REPLACE)]
-    HRESULT replaceData( [in] LONG offset,
-                         [in] LONG count,
+    HRESULT replaceData( [in] long offset,
+                         [in] long count,
                          [in] BSTR data );
 }
 
@@ -536,7 +540,7 @@ pointer_default(unique)
 interface IXMLDOMText : IXMLDOMCharacterData
 {
     [id(DISPID_DOM_TEXT_SPLITTEXT)]
-    HRESULT splitText( [in] LONG offset,
+    HRESULT splitText( [in] long offset,
                        [out,retval] IXMLDOMText **rightHandTextNode );
 }
 
@@ -699,7 +703,7 @@ uuid (3efaa426-272f-11d2-836f-0000f87a7782)
 interface IXMLDOMParseError : IDispatch
 {
     [propget, id(DISPID_VALUE)]
-    HRESULT errorCode([retval, out] LONG *errCode);
+    HRESULT errorCode([retval, out] long *errCode);
 
     [propget, id(DISPID_DOM_ERROR_URL)]
     HRESULT url([retval, out] BSTR *p);
@@ -711,13 +715,13 @@ interface IXMLDOMParseError : IDispatch
     HRESULT srcText([retval, out] BSTR *p);
 
     [propget, id(DISPID_DOM_ERROR_LINE)]
-    HRESULT line([retval, out] LONG *lineNo);
+    HRESULT line([retval, out] long *lineNo);
 
     [propget, id(DISPID_DOM_ERROR_LINEPOS)]
-    HRESULT linepos([retval, out] LONG * linePos);
+    HRESULT linepos([retval, out] long * linePos);
 
     [propget, id(DISPID_DOM_ERROR_FILEPOS)]
-    HRESULT filepos([retval, out] LONG * filePos);
+    HRESULT filepos([retval, out] long * filePos);
 }
 
 [
@@ -784,7 +788,7 @@ interface IXMLHttpRequest : IDispatch
     HRESULT abort();
 
     [propget, id(7)]
-    HRESULT status([out, retval] LONG *plStatus);
+    HRESULT status([out, retval] long *plStatus);
 
     [propget, id(8)]
     HRESULT statusText([out, retval] BSTR *bstrStatus);
@@ -802,7 +806,7 @@ interface IXMLHttpRequest : IDispatch
     HRESULT responseStream([out, retval] VARIANT *pvarBody);
 
     [propget, id(13)]
-    HRESULT readyState([out, retval] LONG *plState);
+    HRESULT readyState([out, retval] long *plState);
 
     [propput, id(14)]
     HRESULT onreadystatechange([in] IDispatch *pReadyStateSink);

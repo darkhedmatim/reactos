@@ -6,7 +6,8 @@
  * PURPOSE:         CSRSS internal console I/O interface
  */
 
-#pragma once
+#ifndef CONIO_H_INCLUDED
+#define CONIO_H_INCLUDED
 
 #include "api.h"
 #include "win32csr.h"
@@ -175,4 +176,8 @@ CSR_API(CsrGetAllConsoleAliasesLength);
 CSR_API(CsrGetConsoleAliasesExes);
 CSR_API(CsrGetConsoleAliasesExesLength);
 
+
+#endif /* CONIO_H_INCLUDED */
+
 /* EOF */
+

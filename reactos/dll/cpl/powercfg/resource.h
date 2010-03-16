@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __CPL_RESOURCE_H
+#define __CPL_RESOURCE_H
 
 /* metrics */
 #define PROPSHEETWIDTH  246
@@ -122,5 +123,7 @@
 #define IDS_UNKNOWN								719
 
 #define IDS_CPLDESCRIPTION_1	        901
+
+#endif /* __CPL_RESOURCE_H */
 
 /* EOF */

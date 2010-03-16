@@ -4,8 +4,8 @@
  * FILE:        include/loopback.h
  * PURPOSE:     Loopback adapter definitions
  */
-
-#pragma once
+#ifndef __LOOPBACK_H
+#define __LOOPBACK_H
 
 #include <lan.h>
 
@@ -17,5 +17,7 @@ NDIS_STATUS LoopRegisterAdapter(
 
 NDIS_STATUS LoopUnregisterAdapter(
     PLAN_ADAPTER Adapter);
+
+#endif /* __LOOPBACK_H */
 
 /* EOF */

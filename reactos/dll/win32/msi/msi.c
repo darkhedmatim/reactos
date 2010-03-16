@@ -901,7 +901,7 @@ static UINT MSI_GetProductInfo(LPCWSTR szProduct, LPCWSTR szAttribute,
     WCHAR packagecode[GUID_SIZE];
     BOOL badconfig = FALSE;
     LONG res;
-    DWORD type = REG_NONE;
+    DWORD save, type = REG_NONE;
 
     static WCHAR empty[] = {0};
     static const WCHAR sourcelist[] = {
@@ -1036,26 +1036,22 @@ static UINT MSI_GetProductInfo(LPCWSTR szProduct, LPCWSTR szAttribute,
 
     if (pcchValueBuf)
     {
-        /* If szBuffer (szValue->str) is NULL, there's no need to copy the value
-         * out.  Also, *pcchValueBuf may be uninitialized in this case, so we
-         * can't rely on its value.
-         */
-        if (szValue->str.a || szValue->str.w)
-        {
-            DWORD size = *pcchValueBuf;
-            if (strlenW(val) < size)
-                r = msi_strcpy_to_awstring(val, szValue, &size);
-            else
-            {
-                r = ERROR_MORE_DATA;
-            }
-        }
+        save = *pcchValueBuf;
+
+        if (strlenW(val) < *pcchValueBuf)
+            r = msi_strcpy_to_awstring(val, szValue, pcchValueBuf);
+        else if (szValue->str.a || szValue->str.w)
+            r = ERROR_MORE_DATA;
 
         if (!badconfig)
             *pcchValueBuf = lstrlenW(val);
+        else if (r == ERROR_SUCCESS)
+        {
+            *pcchValueBuf = save;
+            r = ERROR_BAD_CONFIGURATION;
+        }
     }
-
-    if (badconfig)
+    else if (badconfig)
         r = ERROR_BAD_CONFIGURATION;
 
     if (val != empty)
@@ -1611,93 +1607,6 @@ done:
     RegCloseKey(udprod);
 
     return r;
-}
-
-UINT WINAPI MsiGetPatchInfoA( LPCSTR patch, LPCSTR attr, LPSTR buffer, LPDWORD buflen )
-{
-    UINT r = ERROR_OUTOFMEMORY;
-    DWORD size;
-    LPWSTR patchW = NULL, attrW = NULL, bufferW = NULL;
-
-    TRACE("%s %s %p %p\n", debugstr_a(patch), debugstr_a(attr), buffer, buflen);
-
-    if (!patch || !attr)
-        return ERROR_INVALID_PARAMETER;
-
-    if (!(patchW = strdupAtoW( patch )))
-        goto done;
-
-    if (!(attrW = strdupAtoW( attr )))
-        goto done;
-
-    size = 0;
-    r = MsiGetPatchInfoW( patchW, attrW, NULL, &size );
-    if (r != ERROR_SUCCESS)
-        goto done;
-
-    size++;
-    if (!(bufferW = msi_alloc( size * sizeof(WCHAR) )))
-    {
-        r = ERROR_OUTOFMEMORY;
-        goto done;
-    }
-
-    r = MsiGetPatchInfoW( patchW, attrW, bufferW, &size );
-    if (r == ERROR_SUCCESS)
-    {
-        int len = WideCharToMultiByte( CP_ACP, 0, bufferW, -1, NULL, 0, NULL, NULL );
-        if (len > *buflen)
-            r = ERROR_MORE_DATA;
-        else if (buffer)
-            WideCharToMultiByte( CP_ACP, 0, bufferW, -1, buffer, *buflen, NULL, NULL );
-
-        *buflen = len - 1;
-    }
-
-done:
-    msi_free( patchW );
-    msi_free( attrW );
-    msi_free( bufferW );
-    return r;
-}
-
-UINT WINAPI MsiGetPatchInfoW( LPCWSTR patch, LPCWSTR attr, LPWSTR buffer, LPDWORD buflen )
-{
-    UINT r;
-    WCHAR product[GUID_SIZE];
-    DWORD index;
-
-    TRACE("%s %s %p %p\n", debugstr_w(patch), debugstr_w(attr), buffer, buflen);
-
-    if (!patch || !attr)
-        return ERROR_INVALID_PARAMETER;
-
-    if (strcmpW( INSTALLPROPERTY_LOCALPACKAGEW, attr ))
-        return ERROR_UNKNOWN_PROPERTY;
-
-    index = 0;
-    while (1)
-    {
-        r = MsiEnumProductsW( index, product );
-        if (r != ERROR_SUCCESS)
-            break;
-
-        r = MsiGetPatchInfoExW( patch, product, NULL, MSIINSTALLCONTEXT_USERMANAGED, attr, buffer, buflen );
-        if (r == ERROR_SUCCESS || r == ERROR_MORE_DATA)
-            return r;
-
-        r = MsiGetPatchInfoExW( patch, product, NULL, MSIINSTALLCONTEXT_USERUNMANAGED, attr, buffer, buflen );
-        if (r == ERROR_SUCCESS || r == ERROR_MORE_DATA)
-            return r;
-
-        r = MsiGetPatchInfoExW( patch, product, NULL, MSIINSTALLCONTEXT_MACHINE, attr, buffer, buflen );
-        if (r == ERROR_SUCCESS || r == ERROR_MORE_DATA)
-            return r;
-
-        index++;
-    }
-
-    return ERROR_UNKNOWN_PRODUCT;
 }
 
 UINT WINAPI MsiEnableLogA(DWORD dwLogMode, LPCSTR szLogFile, DWORD attributes)

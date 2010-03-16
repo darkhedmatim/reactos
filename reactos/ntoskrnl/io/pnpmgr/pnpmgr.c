@@ -1893,7 +1893,7 @@ IopActionConfigureChildServices(PDEVICE_NODE DeviceNode,
       RtlInitUnicodeString(&ClassGUID, NULL);
 
       QueryTable[0].Name = L"Service";
-      QueryTable[0].Flags = RTL_QUERY_REGISTRY_DIRECT;
+      QueryTable[0].Flags = RTL_QUERY_REGISTRY_DIRECT | RTL_QUERY_REGISTRY_REQUIRED;
       QueryTable[0].EntryContext = Service;
 
       QueryTable[1].Name = L"ClassGUID";
@@ -3236,7 +3236,7 @@ IoGetDeviceProperty(IN PDEVICE_OBJECT DeviceObject,
         * always contains the enumerator name followed by \\ */
         Ptr = wcschr(DeviceNode->InstancePath.Buffer, L'\\');
         ASSERT(Ptr);
-        Length = (Ptr - DeviceNode->InstancePath.Buffer) * sizeof(WCHAR);
+        Length = (Ptr - DeviceNode->InstancePath.Buffer + 1) * sizeof(WCHAR);
         Data = DeviceNode->InstancePath.Buffer;
         break;
 

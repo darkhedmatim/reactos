@@ -2,6 +2,7 @@
 <!DOCTYPE module SYSTEM "../../../tools/rbuild/project.dtd">
 <module name="dxdiag" type="win32gui" installbase="system32" installname="dxdiag.exe" unicode="yes">
 	<include base="dxdiag">.</include>
+	<library>kernel32</library>
 	<library>user32</library>
 	<library>advapi32</library>
 	<library>comctl32</library>

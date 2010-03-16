@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_FR_BE_H__
+#define LANG_FR_BE_H__
 
 MUI_LAYOUTS frBELayouts[] =
 {
@@ -6,3 +7,5 @@ MUI_LAYOUTS frBELayouts[] =
     { L"0409", L"00000409" },
     { NULL, NULL }
 };
+
+#endif

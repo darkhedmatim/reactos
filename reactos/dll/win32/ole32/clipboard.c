@@ -1608,8 +1608,6 @@ void OLEClipbrd_UnInitialize(void)
         }
 
         IStream_Release(clipbrd->marshal_data);
-        if (clipbrd->src_data) IDataObject_Release(clipbrd->src_data);
-        HeapFree(GetProcessHeap(), 0, clipbrd->cached_enum);
         HeapFree(GetProcessHeap(), 0, clipbrd);
         theOleClipboard = NULL;
     }
@@ -1701,11 +1699,7 @@ static HRESULT set_clipboard_formats(ole_clipbrd *clipbrd, IDataObject *data)
             td_offs_to_ptr(clipbrd->cached_enum, (DWORD_PTR)clipbrd->cached_enum->entries[idx].fmtetc.ptd);
 
     GlobalUnlock(priv_data_handle);
-    if(!SetClipboardData(ole_private_data_clipboard_format, priv_data_handle))
-    {
-        GlobalFree(priv_data_handle);
-        return CLIPBRD_E_CANT_SET;
-    }
+    SetClipboardData(ole_private_data_clipboard_format, priv_data_handle);
 
     return S_OK;
 }
@@ -1763,11 +1757,7 @@ static HRESULT expose_marshalled_dataobject(ole_clipbrd *clipbrd, IDataObject *d
 
     if(!h) return E_OUTOFMEMORY;
 
-    if(!SetClipboardData(wine_marshal_clipboard_format, h))
-    {
-        GlobalFree(h);
-        return CLIPBRD_E_CANT_SET;
-    }
+    SetClipboardData(wine_marshal_clipboard_format, h);
     return S_OK;
 }
 

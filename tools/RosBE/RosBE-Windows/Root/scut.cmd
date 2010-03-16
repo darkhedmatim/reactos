@@ -3,7 +3,7 @@
 :: LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 :: FILE:        Root/scut.cmd
 :: PURPOSE:     Manages named shortcuts to ReactOS source directories.
-:: COPYRIGHT:   Copyright 2010 Colin Finck <mail@colinfinck.de>
+:: COPYRIGHT:   Copyright 2009 Colin Finck <mail@colinfinck.de>
 ::                             Daniel Reimer <reimer.daniel@freenet.de>
 ::                             Peter Ward <dralnix@gmail.com>
 ::
@@ -25,7 +25,7 @@ if /i "%1" == "-h"     goto paramcall
 if /i "%1" == "--help" goto paramcall
 
 :: It's a shortcut name, so change the directory
-for /f "usebackq tokens=*" %%i in (`"scut.exe %*"`) do (
+for /f "usebackq tokens=*" %%i in (`""%_ROSBE_BASEDIR%\Tools\scut.exe" %*"`) do (
     if /i not "%%i" == "Default" (
         if exist "%%i\." (
             cd /d %%i
@@ -36,7 +36,7 @@ for /f "usebackq tokens=*" %%i in (`"scut.exe %*"`) do (
 goto :EOC
 
 :paramcall
-call scut.exe "%1" %2 %3
+call "%_ROSBE_BASEDIR%\Tools\scut.exe" "%1" %2 %3
 
 :EOC
 title ReactOS Build Environment %_ROSBE_VERSION%

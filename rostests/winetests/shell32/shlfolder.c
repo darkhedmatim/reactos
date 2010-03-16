@@ -54,7 +54,7 @@ static void (WINAPI *pILFree)(LPITEMIDLIST);
 static BOOL (WINAPI *pILIsEqual)(LPCITEMIDLIST, LPCITEMIDLIST);
 static HRESULT (WINAPI *pSHCreateShellItem)(LPCITEMIDLIST,IShellFolder*,LPCITEMIDLIST,IShellItem**);
 static LPITEMIDLIST (WINAPI *pILCombine)(LPCITEMIDLIST,LPCITEMIDLIST);
-static HRESULT (WINAPI *pSHParseDisplayName)(LPCWSTR,IBindCtx*,LPITEMIDLIST*,SFGAOF,SFGAOF*);
+
 
 static void init_function_pointers(void)
 {
@@ -62,24 +62,17 @@ static void init_function_pointers(void)
     HRESULT hr;
 
     hmod = GetModuleHandleA("shell32.dll");
-
-#define MAKEFUNC(f) (p##f = (void*)GetProcAddress(hmod, #f))
-    MAKEFUNC(SHBindToParent);
-    MAKEFUNC(SHCreateShellItem);
-    MAKEFUNC(SHGetFolderPathA);
-    MAKEFUNC(SHGetFolderPathAndSubDirA);
-    MAKEFUNC(SHGetPathFromIDListW);
-    MAKEFUNC(SHGetSpecialFolderPathA);
-    MAKEFUNC(SHGetSpecialFolderPathW);
-    MAKEFUNC(SHParseDisplayName);
-#undef MAKEFUNC
-
-#define MAKEFUNC_ORD(f, ord) (p##f = (void*)GetProcAddress(hmod, (LPSTR)(ord)))
-    MAKEFUNC_ORD(ILFindLastID, 16);
-    MAKEFUNC_ORD(ILIsEqual, 21);
-    MAKEFUNC_ORD(ILCombine, 25);
-    MAKEFUNC_ORD(ILFree, 155);
-#undef MAKEFUNC_ORD
+    pSHBindToParent = (void*)GetProcAddress(hmod, "SHBindToParent");
+    pSHGetFolderPathA = (void*)GetProcAddress(hmod, "SHGetFolderPathA");
+    pSHGetFolderPathAndSubDirA = (void*)GetProcAddress(hmod, "SHGetFolderPathAndSubDirA");
+    pSHGetPathFromIDListW = (void*)GetProcAddress(hmod, "SHGetPathFromIDListW");
+    pSHGetSpecialFolderPathA = (void*)GetProcAddress(hmod, "SHGetSpecialFolderPathA");
+    pSHGetSpecialFolderPathW = (void*)GetProcAddress(hmod, "SHGetSpecialFolderPathW");
+    pILFindLastID = (void *)GetProcAddress(hmod, (LPCSTR)16);
+    pILFree = (void*)GetProcAddress(hmod, (LPSTR)155);
+    pILIsEqual = (void*)GetProcAddress(hmod, (LPSTR)21);
+    pSHCreateShellItem = (void*)GetProcAddress(hmod, "SHCreateShellItem");
+    pILCombine = (void*)GetProcAddress(hmod, (LPSTR)25);
 
     hmod = GetModuleHandleA("shlwapi.dll");
     pStrRetToBufW = (void*)GetProcAddress(hmod, "StrRetToBufW");
@@ -103,24 +96,6 @@ static void test_ParseDisplayName(void)
 
     hr = SHGetDesktopFolder(&IDesktopFolder);
     if(hr != S_OK) return;
-
-    /* Tests crash on W2K and below (SHCreateShellItem available as of XP) */
-    if (pSHCreateShellItem)
-    {
-        /* null name and pidl */
-        hr = IShellFolder_ParseDisplayName(IDesktopFolder,
-            NULL, NULL, NULL, NULL, NULL, 0);
-        ok(hr == E_INVALIDARG, "returned %08x, expected E_INVALIDARG\n", hr);
-
-        /* null name */
-        newPIDL = (ITEMIDLIST*)0xdeadbeef;
-        hr = IShellFolder_ParseDisplayName(IDesktopFolder,
-            NULL, NULL, NULL, NULL, &newPIDL, 0);
-        ok(newPIDL == 0, "expected null, got %p\n", newPIDL);
-        ok(hr == E_INVALIDARG, "returned %08x, expected E_INVALIDARG\n", hr);
-    }
-    else
-        win_skip("Tests would crash on W2K and below\n");
 
     MultiByteToWideChar(CP_ACP, 0, cInetTestA, -1, cTestDirW, MAX_PATH);
     hr = IShellFolder_ParseDisplayName(IDesktopFolder,
@@ -356,12 +331,11 @@ static void test_BindToObject(void)
     hr = IShellFolder_BindToObject(psfMyComputer, pidlEmpty, NULL, &IID_IShellFolder, (LPVOID*)&psfChild);
     ok (hr == E_INVALIDARG, "MyComputers's BindToObject should fail, when called with empty pidl! hr = %08x\n", hr);
 
-if (0)
-{
+#if 0
     /* this call segfaults on 98SE */
     hr = IShellFolder_BindToObject(psfMyComputer, NULL, NULL, &IID_IShellFolder, (LPVOID*)&psfChild);
     ok (hr == E_INVALIDARG, "MyComputers's BindToObject should fail, when called with NULL pidl! hr = %08x\n", hr);
-}
+#endif
 
     cChars = GetSystemDirectoryA(szSystemDir, MAX_PATH);
     ok (cChars > 0 && cChars < MAX_PATH, "GetSystemDirectoryA failed! LastError: %u\n", GetLastError());
@@ -387,14 +361,13 @@ if (0)
     hr = IShellFolder_BindToObject(psfSystemDir, pidlEmpty, NULL, &IID_IShellFolder, (LPVOID*)&psfChild);
     ok (hr == E_INVALIDARG, 
         "FileSystem ShellFolder's BindToObject should fail, when called with empty pidl! hr = %08x\n", hr);
-
-if (0)
-{
+    
+#if 0
     /* this call segfaults on 98SE */
     hr = IShellFolder_BindToObject(psfSystemDir, NULL, NULL, &IID_IShellFolder, (LPVOID*)&psfChild);
-    ok (hr == E_INVALIDARG,
+    ok (hr == E_INVALIDARG, 
         "FileSystem ShellFolder's BindToObject should fail, when called with NULL pidl! hr = %08x\n", hr);
-}
+#endif
 
     IShellFolder_Release(psfSystemDir);
 }
@@ -499,8 +472,7 @@ static void test_GetDisplayName(void)
     /* WinXP and up store the filenames as both ANSI and UNICODE in the pidls */
     if (pidlLast->mkid.cb >= 76) {
         ok(!lstrcmpW((WCHAR*)&pidlLast->mkid.abID[46], wszFileName) ||
-            (pidlLast->mkid.cb >= 94 && !lstrcmpW((WCHAR*)&pidlLast->mkid.abID[64], wszFileName)) ||  /* Vista */
-            (pidlLast->mkid.cb >= 98 && !lstrcmpW((WCHAR*)&pidlLast->mkid.abID[68], wszFileName)), /* Win7 */
+            (pidlLast->mkid.cb >= 94 && !lstrcmpW((WCHAR*)&pidlLast->mkid.abID[64], wszFileName)), /* Vista */
             "Filename should be stored as wchar-string at this position!\n");
     }
     
@@ -613,7 +585,6 @@ static void test_GetDisplayName(void)
         ok (!lstrcmpiW(wszTestFile, wszTestFile2), "GetDisplayNameOf returns incorrect path!\n");
     }
     
-    ILFree(pidlTestFile);
     IShellFolder_Release(psfDesktop);
     IShellFolder_Release(psfPersonal);
 }
@@ -675,12 +646,8 @@ static void test_CallForAttributes(void)
      * key. So the test will return at this point, if run on wine. 
      */
     lResult = RegOpenKeyExW(HKEY_CLASSES_ROOT, wszMyDocumentsKey, 0, KEY_WRITE|KEY_READ, &hKey);
-    ok (lResult == ERROR_SUCCESS ||
-        lResult == ERROR_ACCESS_DENIED,
-        "RegOpenKeyEx failed! result: %08x\n", lResult);
+    ok (lResult == ERROR_SUCCESS, "RegOpenKeyEx failed! result: %08x\n", lResult);
     if (lResult != ERROR_SUCCESS) {
-        if (lResult == ERROR_ACCESS_DENIED)
-            skip("Not enough rights to open the registry key\n");
         IMalloc_Free(ppM, pidlMyDocuments);
         IShellFolder_Release(psfDesktop);
         return;
@@ -1557,41 +1524,21 @@ static void test_ITEMIDLIST_format(void) {
                     pFileStructA->uFileTime == pFileStructW->uTime,
                     "Last write time should match creation time!\n");
 
-                /* On FAT filesystems the last access time is midnight
-                   local time, so the values of uDate2 and uTime2 will
-                   depend on the local timezone.  If the times are exactly
-                   equal then the dates should be identical for both FAT
-                   and NTFS as no timezone is more than 1 day away from UTC.
-                */
-                if (pFileStructA->uFileTime == pFileStructW->uTime2)
-                {
-                    ok (pFileStructA->uFileDate == pFileStructW->uDate2,
-                        "Last write date and time should match last access date and time!\n");
-                }
-                else
-                {
-                    /* Filesystem may be FAT. Check date within 1 day
-                       and seconds are zero. */
-                    trace ("Filesystem may be FAT. Performing less strict atime test.\n");
-                    ok ((pFileStructW->uTime2 & 0x1F) == 0,
-                        "Last access time on FAT filesystems should have zero seconds.\n");
-                    /* TODO: Perform check for date being within one day.*/
-                }
+                ok (pFileStructA->uFileDate == pFileStructW->uDate2 &&
+                    pFileStructA->uFileTime == pFileStructW->uTime2,
+                    "Last write time should match last access time!\n");
 
                 ok (!lstrcmpW(wszFile[i], pFileStructW->wszName) ||
-                    !lstrcmpW(wszFile[i], (WCHAR *)(pFileStructW->abFooBar2 + 22)) || /* Vista */
-                    !lstrcmpW(wszFile[i], (WCHAR *)(pFileStructW->abFooBar2 + 26)), /* Win7 */
+                    !lstrcmpW(wszFile[i], (WCHAR *)(pFileStructW->abFooBar2 + 22)), /* Vista */
                     "The filename should be stored in unicode at this position!\n");
             }
         }
 
         pILFree(pidlFile);
     }
-
-    IShellFolder_Release(psfPersonal);
 }
 
-static void test_SHGetFolderPathAndSubDirA(void)
+static void testSHGetFolderPathAndSubDirA(void)
 {
     HRESULT ret;
     BOOL delret;
@@ -1602,12 +1549,6 @@ static void test_SHGetFolderPathAndSubDirA(void)
     static char appdata[MAX_PATH];
     static char testpath[MAX_PATH];
     static char toolongpath[MAX_PATH+1];
-
-    if(!pSHGetFolderPathAndSubDirA)
-    {
-        win_skip("SHGetFolderPathAndSubDirA not present!\n");
-        return;
-    }
 
     if(!pSHGetFolderPathA) {
         win_skip("SHGetFolderPathA not present!\n");
@@ -1830,12 +1771,6 @@ static void test_SHCreateShellItem(void)
 
     GetCurrentDirectoryA(MAX_PATH, curdirA);
 
-    if (!pSHCreateShellItem)
-    {
-        win_skip("SHCreateShellItem isn't available\n");
-        return;
-    }
-
     if (!lstrlenA(curdirA))
     {
         win_skip("GetCurrentDirectoryA returned empty string, skipping test_SHCreateShellItem\n");
@@ -1981,69 +1916,6 @@ static void test_SHCreateShellItem(void)
     IShellFolder_Release(desktopfolder);
 }
 
-static void test_SHParseDisplayName(void)
-{
-    static const WCHAR prefixW[] = {'w','t',0};
-    LPITEMIDLIST pidl1, pidl2;
-    IShellFolder *desktop;
-    WCHAR dirW[MAX_PATH];
-    WCHAR nameW[10];
-    HRESULT hr;
-    BOOL ret;
-
-    if (!pSHParseDisplayName)
-    {
-        win_skip("SHParseDisplayName isn't available\n");
-        return;
-    }
-
-if (0)
-{
-    /* crashes on native */
-    hr = pSHParseDisplayName(NULL, NULL, NULL, 0, NULL);
-    nameW[0] = 0;
-    hr = pSHParseDisplayName(nameW, NULL, NULL, 0, NULL);
-}
-
-    pidl1 = (LPITEMIDLIST)0xdeadbeef;
-    hr = pSHParseDisplayName(NULL, NULL, &pidl1, 0, NULL);
-    ok(broken(hr == E_OUTOFMEMORY) /* < Vista */ ||
-       hr == E_INVALIDARG, "failed %08x\n", hr);
-    ok(pidl1 == 0, "expected null ptr, got %p\n", pidl1);
-
-    /* dummy name */
-    nameW[0] = 0;
-    hr = pSHParseDisplayName(nameW, NULL, &pidl1, 0, NULL);
-    ok(hr == S_OK, "failed %08x\n", hr);
-    hr = SHGetDesktopFolder(&desktop);
-    ok(hr == S_OK, "failed %08x\n", hr);
-    hr = IShellFolder_ParseDisplayName(desktop, NULL, NULL, nameW, NULL, &pidl2, NULL);
-    ok(hr == S_OK, "failed %08x\n", hr);
-    ret = pILIsEqual(pidl1, pidl2);
-    ok(ret == TRUE, "expected equal idls\n");
-    pILFree(pidl1);
-    pILFree(pidl2);
-
-    /* with path */
-    GetTempPathW(sizeof(dirW)/sizeof(WCHAR), dirW);
-    GetTempFileNameW(dirW, prefixW, 0, dirW);
-    CreateFileW(dirW, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
-
-    hr = pSHParseDisplayName(dirW, NULL, &pidl1, 0, NULL);
-    ok(hr == S_OK, "failed %08x\n", hr);
-    hr = IShellFolder_ParseDisplayName(desktop, NULL, NULL, dirW, NULL, &pidl2, NULL);
-    ok(hr == S_OK, "failed %08x\n", hr);
-
-    ret = pILIsEqual(pidl1, pidl2);
-    ok(ret == TRUE, "expected equal idls\n");
-    pILFree(pidl1);
-    pILFree(pidl2);
-
-    DeleteFileW(dirW);
-
-    IShellFolder_Release(desktop);
-}
-
 START_TEST(shlfolder)
 {
     init_function_pointers();
@@ -2052,7 +1924,6 @@ START_TEST(shlfolder)
     OleInitialize(NULL);
 
     test_ParseDisplayName();
-    test_SHParseDisplayName();
     test_BindToObject();
     test_EnumObjects_and_CompareIDs();
     test_GetDisplayName();
@@ -2061,9 +1932,15 @@ START_TEST(shlfolder)
     test_CallForAttributes();
     test_FolderShortcut();
     test_ITEMIDLIST_format();
-    test_SHGetFolderPathAndSubDirA();
+    if(pSHGetFolderPathAndSubDirA)
+        testSHGetFolderPathAndSubDirA();
+    else
+        win_skip("SHGetFolderPathAndSubDirA not present\n");
     test_LocalizedNames();
-    test_SHCreateShellItem();
+    if(pSHCreateShellItem)
+        test_SHCreateShellItem();
+    else
+        win_skip("SHCreateShellItem not present\n");
 
     OleUninitialize();
 }

@@ -31,8 +31,8 @@
 @ stub CreateDebuggingInterfaceFromVersion
 @ stdcall -private DllCanUnloadNow()
 @ stdcall -private DllGetClassObject(ptr ptr ptr)
-@ stdcall -private DllRegisterServer()
-@ stdcall -private DllUnregisterServer()
+@ stub DllRegisterServer
+@ stub DllUnregisterServer
 @ stub EEDllGetClassObjectFromClass
 @ stub EEDllRegisterServer
 @ stub EEDllUnregisterServer

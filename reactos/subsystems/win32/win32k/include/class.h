@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_CLASS_H
+#define _WIN32K_CLASS_H
 
 #include <include/win32.h>
 #include <include/desktop.h>
@@ -27,11 +28,11 @@ DestroyCallProc(IN PDESKTOPINFO Desktop,
                 IN OUT PCALLPROCDATA CallProc);
 
 PCALLPROCDATA
-CloneCallProc(IN PDESKTOP Desktop,
+CloneCallProc(IN PDESKTOPINFO Desktop,
               IN PCALLPROCDATA CallProc);
 
 PCALLPROCDATA
-CreateCallProc(IN PDESKTOP Desktop,
+CreateCallProc(IN PDESKTOPINFO Desktop,
                IN WNDPROC WndProc,
                IN BOOL Unicode,
                IN PPROCESSINFO pi);
@@ -104,5 +105,7 @@ IntCheckProcessDesktopClasses(IN PDESKTOP Desktop,
 BOOL FASTCALL LookupFnIdToiCls(int, int * );
 WNDPROC FASTCALL IntGetClassWndProc(PCLS, BOOL);
 ULONG_PTR FASTCALL UserGetCPD(PVOID,GETCPD,ULONG_PTR);
+
+#endif /* _WIN32K_CLASS_H */
 
 /* EOF */

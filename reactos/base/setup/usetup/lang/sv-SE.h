@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_SV_SE_H__
+#define LANG_SV_SE_H__
 
 MUI_LAYOUTS svSELayouts[] =
 {
@@ -1693,3 +1694,5 @@ MUI_STRING svSEStrings[] =
     "Adding keyboard layouts"},
     {0, 0}
 };
+
+#endif

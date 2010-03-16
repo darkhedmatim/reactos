@@ -4,8 +4,8 @@
  * FILE:        include/info.h
  * PURPOSE:     TdiQueryInformation definitions
  */
-
-#pragma once
+#ifndef __INFO_H
+#define __INFO_H
 
 #include <tcpioctl.h>
 
@@ -193,5 +193,7 @@ VOID AddEntity(ULONG EntityType,
                ULONG Flags);
 
 VOID RemoveEntityByContext(PVOID Context);
+
+#endif /* __INFO_H */
 
 /* EOF */

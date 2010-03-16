@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __TSCROLL_H
+#define __TSCROLL_H
 
 #include "tconsole.h"
 #include "tmouse.h"
@@ -21,3 +22,5 @@ public:
 	TScroller(TMouse &M, int size=20000);
 	~TScroller();
 };
+
+#endif

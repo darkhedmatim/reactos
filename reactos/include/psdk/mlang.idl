@@ -25,6 +25,11 @@ interface IStream;
 cpp_quote("#define CPIOD_PEEK          0x40000000")
 cpp_quote("#define CPIOD_FORCE_PROMPT  0x80000000")
 
+/* FIXME: LANGID is defined in winnt.h and mlang.h in the platform SDK */
+cpp_quote("#ifndef _WINNT_H")
+typedef WORD LANGID;
+cpp_quote("#endif")
+
 [
   object,
   uuid(359f3443-bd4a-11d0-b188-00aa0038c969),
@@ -37,10 +42,10 @@ interface IMLangCodePages : IUnknown
         [out] DWORD *pdwCodePages);
     HRESULT GetStrCodePages(      
         [in, size_is(cchSrc)] const WCHAR *pszSrc,
-        [in] LONG cchSrc,
+        [in] long cchSrc,
         [in] DWORD dwPriorityCodePages,
         [out] DWORD *pdwCodePages,
-        [out] LONG *pcchCodePages);
+        [out] long *pcchCodePages);
     HRESULT CodePageToCodePages(      
         [in] UINT uCodePage,
         [out] DWORD *pdwCodePages);
@@ -228,11 +233,11 @@ interface IMLangString : IUnknown
 {
 #ifdef NEWMLSTR
     HRESULT LockMLStr(
-        [in] LONG lPos,
+        [in] long lPos,
         [in] DWORD dwFlags,
         [out] DWORD* pdwCookie,
-        [out] LONG* plActualPos,
-        [out] LONG* plActualLen);
+        [out] long* plActualPos,
+        [out] long* plActualLen);
 
     HRESULT UnlockMLStr(
         [in] DWORD dwCookie);
@@ -241,13 +246,13 @@ interface IMLangString : IUnknown
         [in] BOOL fNoAccess);
 #endif
     HRESULT GetLength(
-        [out, retval] LONG* plLen);
+        [out, retval] long* plLen);
     HRESULT SetMLStr(
-        [in] LONG lDestPos,
-        [in] LONG lDestLen,
+        [in] long lDestPos,
+        [in] long lDestLen,
         [in] IUnknown *pSrcMLStr,
-        [in] LONG lSrcPos,
-        [in] LONG lSrcLen);
+        [in] long lSrcPos,
+        [in] long lSrcLen);
 #ifdef NEWMLSTR
     HRESULT RegisterAttr(
         [in] IUnknown *pUnk,
@@ -262,14 +267,14 @@ interface IMLangString : IUnknown
         [out] IUnknown **ppUnk);
 #else
     HRESULT GetMLStr(
-        [in] LONG lSrcPos,
-        [in] LONG lSrcLen,
+        [in] long lSrcPos,
+        [in] long lSrcLen,
         [in] IUnknown *pUnkOuter,
         [in] DWORD dwClsContext,
         [in] const IID* piid,
         [out] IUnknown** ppDestMLStr,
-        [out] LONG* plDestPos,
-        [out] LONG* plDestLen);
+        [out] long* plDestPos,
+        [out] long* plDestLen);
 #endif
 }
 
@@ -282,29 +287,29 @@ interface IMLangLineBreakConsole : IUnknown
 {
     HRESULT BreakLineML(
         [in] IMLangString* pSrcMLStr,
-        [in] LONG lSrcPos,
-        [in] LONG lSrcLen,
-        [in] LONG cMinColumns,
-        [in] LONG cMaxColumns,
-        [out] LONG* plLineLen,
-        [out] LONG* plSkipLen);
+        [in] long lSrcPos,
+        [in] long lSrcLen,
+        [in] long cMinColumns,
+        [in] long cMaxColumns,
+        [out] long* plLineLen,
+        [out] long* plSkipLen);
 
     HRESULT BreakLineW(
         [in] LCID locale,
         [in, size_is(cchSrc)] const WCHAR* pszSrc,
-        [in] LONG cchSrc,
-        [in] LONG cMaxColumns,
-        [out] LONG* pcchLine,
-        [out] LONG* pcchSkip );
+        [in] long cchSrc,
+        [in] long cMaxColumns,
+        [out] long* pcchLine,
+        [out] long* pcchSkip );
 
     HRESULT BreakLineA(
         [in] LCID locale,
         [in] UINT uCodePage,
         [in, size_is(cchSrc)] const CHAR* pszSrc,
-        [in] LONG cchSrc,
-        [in] LONG cMaxColumns,
-        [out] LONG* pcchLine,
-        [out] LONG* pcchSkip);
+        [in] long cchSrc,
+        [in] long cMaxColumns,
+        [out] long* pcchLine,
+        [out] long* pcchSkip);
 }
 
 [

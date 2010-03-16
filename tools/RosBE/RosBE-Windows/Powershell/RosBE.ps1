@@ -3,8 +3,8 @@
 # LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 # FILE:        Root/RosBE.ps1
 # PURPOSE:     This script provides/sets up various build environments for
-#              ReactOS. Currently it provides a GCC 4.4.3 build environment.
-# COPYRIGHT:   Copyright 2010 Daniel Reimer <reimer.daniel@freenet.de>
+#              ReactOS. Currently it provides a GCC 4.1.3 build environment.
+# COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
 #
 
 $host.ui.RawUI.WindowTitle = "ReactOS Build Environment $_ROSBE_VERSION"
@@ -25,12 +25,11 @@ if ("$args" -eq "") {
 }
 if ("$ENV:ROS_ARCH" -eq "amd64") {
     (Get-Host).UI.RawUI.ForegroundColor = 0xB
-} elseif ("$ENV:ROS_ARCH" -eq "arm") {
-    (Get-Host).UI.RawUI.ForegroundColor = 0xE
+    (Get-Host).UI.RawUI.BackgroundColor = 0x0
 } else {
     (Get-Host).UI.RawUI.ForegroundColor = 0xA
+    (Get-Host).UI.RawUI.BackgroundColor = 0x0
 }
-(Get-Host).UI.RawUI.BackgroundColor = 0x0
 clear-host
 
 $global:0 = $myInvocation.MyCommand.Definition
@@ -45,19 +44,14 @@ $global:_ROSBE_SHOWVERSION = 0
 $global:_ROSBE_LOGDIR = "$pwd\RosBE-Logs"
 $global:_ROSBE_HOST_MINGWPATH = "$_ROSBE_BASEDIR\i386"
 $global:_ROSBE_TARGET_MINGWPATH = "$_ROSBE_BASEDIR\$ENV:ROS_ARCH"
-
-if ("$ENV:_ROSBE_NOSYSPATH" -eq "1") {
-    $global:_ROSBE_ORIGINALPATH = "$_ROSBE_BASEDIR;$_ROSBE_BASEDIR\Tools;$ENV:SystemRoot\system32;$ENV:SystemRoot;$ENV:SystemRoot\System32\Wbem;$ENV:SYSTEMROOT\System32\WindowsPowerShell\v1.0\"
-} else {
-    $global:_ROSBE_ORIGINALPATH = "$_ROSBE_BASEDIR;$_ROSBE_BASEDIR\Tools;$ENV:PATH"
-}
+$global:_ROSBE_ORIGINALPATH = "$_ROSBE_BASEDIR;$_ROSBE_BASEDIR\Tools;$_ROSBE_HOST_MINGWPATH\bin;$ENV:PATH"
 
 # Fix Bison package path (just in case RosBE is installed in a path which contains spaces)
 $ENV:BISON_PKGDATADIR = ((New-Object -ComObject Scripting.FileSystemObject).GetFolder("$_ROSBE_HOST_MINGWPATH\share\bison")).ShortPath
 
 # Get the number of CPUs in the system so we know how many jobs to execute.
 # To modify the number used, see the cpucount usage for getting to know about the possible options
-$global:_ROSBE_MAKEX_JOBS = (gwmi win32_processor).numberofcores + 1
+$_ROSBE_MAKEX_JOBS = (gwmi win32_processor).numberofcores + 1
 
 $ENV:CCACHE_DIR = "$ENV:APPDATA\RosBE\.ccache"
 $ENV:C_INCLUDE_PATH = $null
@@ -108,7 +102,7 @@ function LoadAliases {
 
     set-alias HELP "$_ROSBE_BASEDIR\Help.ps1" -scope Global
     set-alias MAKE "$_ROSBE_BASEDIR\Build.ps1" -scope Global
-    function global:MAKEX {IEX "&'$_ROSBE_BASEDIR\Build.ps1' multi $args"}
+    function global:MAKEX {IEX "&'$_ROSBE_BASEDIR\Build.ps1' multi $args}"}
 
     if (Test-Path "$_ROSBE_BASEDIR\reladdr2line.ps1") {
         set-alias RADDR2LINE "$_ROSBE_BASEDIR\reladdr2line.ps1" -scope Global
@@ -118,20 +112,13 @@ function LoadAliases {
         set-alias REMAKE "$_ROSBE_BASEDIR\Remake.ps1" -scope Global
     }
 
-    if (Test-Path "$_ROSBE_BASEDIR\Remakex.ps1") {
-        set-alias REMAKEX "$_ROSBE_BASEDIR\Remakex.ps1" -scope Global
-    }
-
     if (Test-Path "$_ROSBE_BASEDIR\scut.ps1") {
         set-alias SCUT "$_ROSBE_BASEDIR\scut.ps1" -scope Global
     }
 
-    if (Test-Path "$_ROSBE_BASEDIR\kdbg.ps1") {
-        set-alias KDBG "$_ROSBE_BASEDIR\kdbg.ps1" -scope Global
-    }
-
     if (Test-Path "$_ROSBE_BASEDIR\sSVN.ps1") {
         set-alias SSVN "$_ROSBE_BASEDIR\sSVN.ps1" -scope Global
+        set-alias SVN "$_ROSBE_BASEDIR\Tools\svn.exe" -scope Global
     }
     function global:UPDATE {IEX "&'$_ROSBE_BASEDIR\Tools\Elevate.exe' '$pshome\powershell.exe' -noexit {&'$_ROSBE_BASEDIR\update.ps1' $_ROSBE_VERSION '$_ROSBE_BASEDIR' $args}"}
 

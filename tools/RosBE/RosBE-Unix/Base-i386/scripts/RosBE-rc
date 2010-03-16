@@ -1,3 +1,7 @@
+# Set path
+source "$_ROSBE_ROSSCRIPTDIR/rosbelibrary.sh"
+set_path_variable
+
 # Set aliases
 alias basedir="source $_ROSBE_ROSSCRIPTDIR/basedir.sh"
 alias charch="source $_ROSBE_ROSSCRIPTDIR/charch.sh"

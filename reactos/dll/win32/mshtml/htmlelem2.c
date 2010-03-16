@@ -451,7 +451,7 @@ static HRESULT WINAPI HTMLElement2_focus(IHTMLElement2 *iface)
 
     nsres = nsIDOMHTMLElement_QueryInterface(This->nselem, &IID_nsIDOMNSHTMLElement, (void**)&nselem);
     if(NS_SUCCEEDED(nsres)) {
-        nsIDOMNSHTMLElement_Focus(nselem);
+        nsIDOMNSHTMLElement_focus(nselem);
         nsIDOMNSHTMLElement_Release(nselem);
     }else {
         ERR("Could not get nsIDOMHTMLNSElement: %08x\n", nsres);
@@ -655,43 +655,22 @@ static HRESULT WINAPI HTMLElement2_attachEvent(IHTMLElement2 *iface, BSTR event,
 static HRESULT WINAPI HTMLElement2_detachEvent(IHTMLElement2 *iface, BSTR event, IDispatch *pDisp)
 {
     HTMLElement *This = HTMLELEM2_THIS(iface);
-
-    TRACE("(%p)->(%s %p)\n", This, debugstr_w(event), pDisp);
-
-    return detach_event(*get_node_event_target(&This->node), &This->node.doc->basedoc, event, pDisp);
+    FIXME("(%p)->(%s %p)\n", This, debugstr_w(event), pDisp);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLElement2_get_readyState(IHTMLElement2 *iface, VARIANT *p)
 {
     HTMLElement *This = HTMLELEM2_THIS(iface);
-    BSTR str;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    if(This->node.vtbl->get_readystate) {
-        HRESULT hres;
-
-        hres = This->node.vtbl->get_readystate(&This->node, &str);
-        if(FAILED(hres))
-            return hres;
-    }else {
-        static const WCHAR completeW[] = {'c','o','m','p','l','e','t','e',0};
-
-        str = SysAllocString(completeW);
-        if(!str)
-            return E_OUTOFMEMORY;
-    }
-
-    V_VT(p) = VT_BSTR;
-    V_BSTR(p) = str;
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLElement2_put_onreadystatechange(IHTMLElement2 *iface, VARIANT v)
 {
     HTMLElement *This = HTMLELEM2_THIS(iface);
 
-    TRACE("(%p)->(%s)\n", This, debugstr_variant(&v));
+    FIXME("(%p)->(%s): semi-stub\n", This, debugstr_variant(&v));
 
     return set_node_event(&This->node, EVENTID_READYSTATECHANGE, &v);
 }
@@ -1089,7 +1068,7 @@ static HRESULT WINAPI HTMLElement2_getElementsByTagName(IHTMLElement2 *iface, BS
 
     TRACE("(%p)->(%s %p)\n", This, debugstr_w(v), pelColl);
 
-    nsAString_InitDepend(&tag_str, v);
+    nsAString_Init(&tag_str, v);
     nsres = nsIDOMHTMLElement_GetElementsByTagName(This->nselem, &tag_str, &nslist);
     nsAString_Finish(&tag_str);
     if(NS_FAILED(nsres)) {

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef KSUSER_H__
+#define KSUSER_H__
 
 #define _KSDDK_
 
@@ -9,8 +10,18 @@
 
 #include <ks.h>
 
+LPVOID
+__stdcall
+HeapAlloc(
+  HANDLE hHeap,
+  DWORD dwFlags,
+  DWORD dwBytes
+);
+
 #define ROUND_DOWN(n, align) \
     (((ULONG)n) & ~((align) - 1l))
 
 #define ROUND_UP(n, align) \
     ROUND_DOWN(((ULONG)n) + (align) - 1, (align))
+
+#endif

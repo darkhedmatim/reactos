@@ -2501,7 +2501,7 @@ static HRESULT EnumRfc1766_create(LANGID LangId, IEnumRfc1766 **ppEnum)
     if (!data.info)
     {
         HeapFree(GetProcessHeap(), 0, rfc);
-        return E_OUTOFMEMORY;
+        return S_FALSE;
     }
 
     TlsSetValue(MLANG_tls_index, &data);
@@ -2514,7 +2514,7 @@ static HRESULT EnumRfc1766_create(LANGID LangId, IEnumRfc1766 **ppEnum)
     {
         HeapFree(GetProcessHeap(), 0, data.info);
         HeapFree(GetProcessHeap(), 0, rfc);
-        return E_FAIL;
+        return FALSE;
     }
 
     rfc->info = data.info;
@@ -3007,6 +3007,9 @@ exit:
     return hr;
 }
 
+/*
+ * TODO: handle dwFlag and lpFallBack
+*/
 static HRESULT WINAPI fnIMultiLanguage2_ConvertStringToUnicodeEx(
     IMultiLanguage3* iface,
     DWORD* pdwMode,
@@ -3018,10 +3021,7 @@ static HRESULT WINAPI fnIMultiLanguage2_ConvertStringToUnicodeEx(
     DWORD dwFlag,
     WCHAR* lpFallBack)
 {
-    if (dwFlag || lpFallBack)
-        FIXME("Ignoring dwFlag (0x%x/%d) and lpFallBack (%p)\n",
-                dwFlag, dwFlag, lpFallBack);
-
+    FIXME("\n");
     return ConvertINetMultiByteToUnicode(pdwMode, dwEncoding,
         pSrcStr, (LPINT)pcSrcSize, pDstStr, (LPINT)pcDstSize);
 }

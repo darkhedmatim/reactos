@@ -3,8 +3,8 @@
 :: LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 :: FILE:        Root/RosBE.cmd
 :: PURPOSE:     This script provides/sets up various build environments for
-::              ReactOS. Currently it provides a GCC 4.4.3 build environment.
-:: COPYRIGHT:   Copyright 2010 Daniel Reimer <reimer.daniel@freenet.de>
+::              ReactOS. Currently it provides a GCC 4.1.3 build environment.
+:: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
 ::                             Peter Ward <dralnix@gmail.com>
 ::                             Colin Finck <colin@reactos.org>
 ::
@@ -39,12 +39,7 @@ set _ROSBE_LOGDIR=%CD%\RosBE-Logs
 set _ROSBE_SHOWVERSION=0
 set _ROSBE_HOST_MINGWPATH=%_ROSBE_BASEDIR%\i386
 set _ROSBE_TARGET_MINGWPATH=%_ROSBE_BASEDIR%\%ROS_ARCH%
-
-if "%_ROSBE_NOSYSPATH%" == "1" (
-    set _ROSBE_ORIGINALPATH=%_ROSBE_BASEDIR%;%_ROSBE_BASEDIR%\Tools;%SystemRoot%\system32;%SystemRoot%;%SystemRoot%\System32\Wbem
-) else (
-    set _ROSBE_ORIGINALPATH=%_ROSBE_BASEDIR%;%_ROSBE_BASEDIR%\Tools;%PATH%
-)
+set _ROSBE_ORIGINALPATH=%_ROSBE_BASEDIR%;%_ROSBE_BASEDIR%\Tools;%_ROSBE_HOST_MINGWPATH%\bin;%PATH%
 
 :: Fix Bison package path (just in case RosBE is installed in a path which contains spaces)
 set BISON_PKGDATADIR=%~ds0%~sp0%i386\share\bison
@@ -60,8 +55,6 @@ set LIBRARY_PATH=
 
 if "%ROS_ARCH%" == "amd64" (
     color 0B
-) else if "%ROS_ARCH%" == "arm" (
-    color 0E
 )
 :: Load the user's options if any
 if "%ROS_ARCH%" == "i386" (

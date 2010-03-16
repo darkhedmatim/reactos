@@ -1,6 +1,7 @@
 /* rsym.h */
 
-#pragma once
+#ifndef RSYM_H
+#define RSYM_H
 
 #define IMAGE_NT_OPTIONAL_HDR32_MAGIC 0x010b
 #define IMAGE_NT_OPTIONAL_HDR64_MAGIC 0x020b
@@ -372,3 +373,5 @@ convert_path(const char* origpath);
 
 extern void*
 load_file ( const char* file_name, size_t* file_size );
+
+#endif/*RSYM_H*/

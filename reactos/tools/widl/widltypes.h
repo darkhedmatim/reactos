@@ -195,7 +195,6 @@ enum expr_type
     EXPR_POS,
     EXPR_STRLIT,
     EXPR_WSTRLIT,
-    EXPR_CHARCONST,
 };
 
 enum type_kind

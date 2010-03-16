@@ -18,7 +18,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#pragma once
+#ifndef __MAIN_H__
+#define __MAIN_H__
 
 #include "resource.h"
 
@@ -123,3 +124,5 @@ extern void DestroyMainMenu( void );
 /* edit.c */
 extern BOOL ModifyValue(HWND hwnd, HKEY hKey, LPCTSTR valueName, BOOL EditBin);
 extern BOOL DeleteKey(HWND hwnd, HKEY hKeyRoot, LPCTSTR keyPath);
+
+#endif /* __MAIN_H__ */

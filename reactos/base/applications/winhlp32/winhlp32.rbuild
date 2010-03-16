@@ -13,6 +13,7 @@
 	<library>wine</library>
 	<library>user32</library>
 	<library>gdi32</library>
+	<library>kernel32</library>
 	<library>shell32</library>
 	<library>comctl32</library>
 	<library>comdlg32</library>

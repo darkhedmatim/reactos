@@ -47,7 +47,6 @@
 @ fastcall VideoPortInterlockedDecrement(ptr) NTOSKRNL.InterlockedDecrement
 @ fastcall VideoPortInterlockedExchange(ptr long) NTOSKRNL.InterlockedExchange
 @ fastcall VideoPortInterlockedIncrement(ptr) NTOSKRNL.InterlockedIncrement
-@ stdcall VideoPortIsNoVesa()
 @ stdcall VideoPortLockBuffer(ptr ptr long long)
 @ stdcall VideoPortLockPages(ptr ptr ptr ptr long)
 @ stdcall VideoPortLogError(ptr ptr long long)

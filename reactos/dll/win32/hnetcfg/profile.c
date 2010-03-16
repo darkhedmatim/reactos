@@ -261,8 +261,8 @@ static HRESULT WINAPI fw_profile_get_GloballyOpenPorts(
 {
     fw_profile *This = impl_from_INetFwProfile( iface );
 
-    TRACE("%p, %p\n", This, openPorts);
-    return NetFwOpenPorts_create( NULL, (void **)openPorts );
+    FIXME("%p, %p\n", This, openPorts);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI fw_profile_get_Services(
@@ -271,8 +271,8 @@ static HRESULT WINAPI fw_profile_get_Services(
 {
     fw_profile *This = impl_from_INetFwProfile( iface );
 
-    TRACE("%p, %p\n", This, Services);
-    return NetFwServices_create( NULL, (void **)Services );
+    FIXME("%p, %p\n", This, Services);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI fw_profile_get_AuthorizedApplications(

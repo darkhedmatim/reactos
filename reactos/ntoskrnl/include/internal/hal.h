@@ -5,8 +5,8 @@
  * PURPOSE:         Internal header for the I/O HAL Functions (Fstub)
  * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
  */
-
-#pragma once
+#ifndef _HAL_
+#define _HAL_
 
 //
 // Default implementations of HAL dispatch table
@@ -51,18 +51,6 @@ VOID
 NTAPI
 xHalHaltSystem(
     VOID
-);
-
-VOID
-NTAPI
-xHalEndOfBoot(
-    VOID
-);
-
-VOID
-NTAPI
-xHalSetWakeEnable(
-    IN BOOLEAN Enable
 );
 
 UCHAR
@@ -168,3 +156,5 @@ typedef struct _PTE
     ULONG StartingSector;
     ULONG PartitionLength;
 } PTE, *PPTE;
+
+#endif

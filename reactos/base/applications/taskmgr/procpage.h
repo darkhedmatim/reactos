@@ -20,7 +20,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#pragma once
+#ifndef __PROCESSPAGE_H
+#define __PROCESSPAGE_H
 
 extern	HWND		hProcessPage;				/* Process List Property Page */
 extern	HWND		hProcessPageListCtrl;			/* Process ListCtrl Window */
@@ -31,3 +32,5 @@ extern	HWND		hProcessPageShowAllProcessesButton;	/* Process Show All Processes c
 INT_PTR CALLBACK	ProcessPageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 void				RefreshProcessPage(void);
 DWORD               GetSelectedProcessId(void);
+
+#endif /* __PROCESSPAGE_H */

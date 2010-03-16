@@ -45,6 +45,4 @@ void pop_import(void);
 
 int is_type(const char *name);
 
-extern char *temp_name;
-
 #endif

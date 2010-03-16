@@ -24,7 +24,8 @@
  * PROGRAMMER:      Eric Kohl
  */
 
-#pragma once
+#ifndef __USETUP_H__
+#define __USETUP_H__
 
 /* C Headers */
 #include <ctype.h>
@@ -121,6 +122,12 @@ typedef enum _PAGE_NUMBER
 #define POPUP_WAIT_ANY_KEY 1
 #define POPUP_WAIT_ENTER   2
 
+#define ROUND_DOWN(n, align) \
+    (((ULONG)n) & ~((align) - 1l))
+
+#define ROUND_UP(n, align) \
+    ROUND_DOWN(((ULONG)n) + (align) - 1, (align))
+
 #define LIST_FOR_EACH(elem, list, type, field) \
     for ((elem) = CONTAINING_RECORD((list)->Flink, type, field); \
          &(elem)->field != (list) || (elem == NULL); \
@@ -143,5 +150,7 @@ typedef enum _PAGE_NUMBER
 \
   InsertTailList(current, &((NewEntry)->ListEntryField));\
 }
+
+#endif /* __USETUP_H__*/
 
 /* EOF */

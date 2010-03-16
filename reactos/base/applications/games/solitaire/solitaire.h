@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SOLITAIRE_INCLUDED
+#define SOLITAIRE_INCLUDED
 
 extern CardWindow SolWnd;
 extern TCHAR szAppName[];
@@ -53,3 +54,5 @@ void CARDLIBPROC DeckClickProc(CardRegion &stackobj, int iNumClicked);
 void CARDLIBPROC PileDblClickProc(CardRegion &stackobj, int iNumClicked);
 
 void CARDLIBPROC PileRemoveProc(CardRegion &stackobj, int iRemoved);
+
+#endif

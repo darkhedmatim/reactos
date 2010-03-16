@@ -24,7 +24,8 @@
  *                  Hervé Poussineau
  */
 
-#pragma once
+#ifndef __MKHIVE_H__
+#define __MKHIVE_H__
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,10 +46,6 @@
 #define STATUS_OBJECT_NAME_NOT_FOUND     ((NTSTATUS)0xC0000034)
 #define STATUS_INVALID_PARAMETER_2       ((NTSTATUS)0xC00000F0)
 #define STATUS_BUFFER_OVERFLOW           ((NTSTATUS)0x80000005)
-
-unsigned char BitScanForward(ULONG * Index, const unsigned long Mask);
-unsigned char BitScanReverse(ULONG * const Index, const unsigned long Mask);
-#define RtlFillMemoryUlong(dst, len, val) memset(dst, val, len)
 
 NTSTATUS NTAPI
 RtlAnsiStringToUnicodeString(
@@ -101,5 +98,7 @@ extern LIST_ENTRY CmiHiveListHead;
 #else//_MSC_VER
 #define GCC_PACKED __attribute__((packed))
 #endif//_MSC_VER
+
+#endif /* __MKHIVE_H__ */
 
 /* EOF */

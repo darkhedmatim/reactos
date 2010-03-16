@@ -6,7 +6,8 @@
  * PROGRAMMERS:     ReactOS Portable Systems Group
  */
 
-#pragma once
+#ifndef _RAMDISK_
+#define _RAMDISK_
 
 //
 // Ramdisk Routines
@@ -17,11 +18,7 @@ RamDiskLoadVirtualFile(
     IN PCHAR FileName
 );
 
-VOID
-NTAPI
-RamDiskInitialize(
-    VOID
-);
-
 extern PVOID gRamDiskBase;
 extern ULONG gRamDiskSize;
+
+#endif

@@ -85,7 +85,7 @@ SetUserEnvironmentVariable (LPVOID *Environment,
    {
       if (!GetShortPathNameW(DstValue.Buffer, ShortName, MAX_PATH))
       {
-         DPRINT1("GetShortPathNameW() failed for %S (Error %lu)\n", DstValue.Buffer, GetLastError());
+         DPRINT1("GetShortPathNameW() failed (Error %lu)\n", GetLastError());
          if (Buffer) LocalFree(Buffer);
          return FALSE;
       }
@@ -379,6 +379,9 @@ CreateEnvironmentBlock (LPVOID *lpEnvironment,
 				 L"USERPROFILE",
 				 Buffer,
 				 FALSE);
+
+      wcscat(Buffer, L"\\Application Data");
+      SetUserEnvironmentVariable(lpEnvironment, L"APPDATA", Buffer, FALSE);
     }
 
   /* FIXME: Set 'USERDOMAIN' variable */

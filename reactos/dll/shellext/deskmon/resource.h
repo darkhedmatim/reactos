@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __RESOURCE__H
+#define __RESOURCE__H
 
 #define IDD_MONITOR  100
 
@@ -12,3 +13,5 @@
 
 #define IDS_USEDEFFRQUENCY 101
 #define IDS_FREQFMT 102
+
+#endif /* __RESOURCE__H */

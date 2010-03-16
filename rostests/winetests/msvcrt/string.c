@@ -51,7 +51,6 @@ static int (__cdecl *pstrcpy_s)(char *dst, size_t len, const char *src);
 static int (__cdecl *pstrcat_s)(char *dst, size_t len, const char *src);
 static int (__cdecl *p_mbsnbcpy_s)(unsigned char * dst, size_t size, const unsigned char * src, size_t count);
 static int (__cdecl *p_wcscpy_s)(wchar_t *wcDest, size_t size, const wchar_t *wcSrc);
-static int (__cdecl *p_wcsupr_s)(wchar_t *str, size_t size);
 static int *p__mb_cur_max;
 static unsigned char *p_mbctype;
 
@@ -345,29 +344,6 @@ static void test_mbcp(void)
     else
         skip("Current locale has double-byte charset - could leave to false positives\n");
 
-    _setmbcp(1361);
-    expect_eq(_ismbblead(0x80), 0, int, "%d");
-    todo_wine {
-      expect_eq(_ismbblead(0x81), 1, int, "%d");
-      expect_eq(_ismbblead(0x83), 1, int, "%d");
-    }
-    expect_eq(_ismbblead(0x84), 1, int, "%d");
-    expect_eq(_ismbblead(0xd3), 1, int, "%d");
-    expect_eq(_ismbblead(0xd7), 0, int, "%d");
-    todo_wine {
-      expect_eq(_ismbblead(0xd8), 1, int, "%d");
-    }
-    expect_eq(_ismbblead(0xd9), 1, int, "%d");
-
-    expect_eq(_ismbbtrail(0x30), 0, int, "%d");
-    expect_eq(_ismbbtrail(0x31), 1, int, "%d");
-    expect_eq(_ismbbtrail(0x7e), 1, int, "%d");
-    expect_eq(_ismbbtrail(0x7f), 0, int, "%d");
-    expect_eq(_ismbbtrail(0x80), 0, int, "%d");
-    expect_eq(_ismbbtrail(0x81), 1, int, "%d");
-    expect_eq(_ismbbtrail(0xfe), 1, int, "%d");
-    expect_eq(_ismbbtrail(0xff), 0, int, "%d");
-
     _setmbcp(curr_mbcp);
 }
 
@@ -621,93 +597,6 @@ static void test_wcscpy_s(void)
     ok(szDestShort[0] == 0, "szDestShort[0] not 0\n");
 }
 
-static void test__wcsupr_s(void)
-{
-    static const WCHAR mixedString[] = {'M', 'i', 'X', 'e', 'D', 'l', 'o', 'w',
-                                        'e', 'r', 'U', 'P', 'P', 'E', 'R', 0};
-    static const WCHAR expectedString[] = {'M', 'I', 'X', 'E', 'D', 'L', 'O',
-                                           'W', 'E', 'R', 'U', 'P', 'P', 'E',
-                                           'R', 0};
-    WCHAR testBuffer[2*sizeof(mixedString)/sizeof(WCHAR)];
-    int ret;
-
-    if (!p_wcsupr_s)
-    {
-        win_skip("_wcsupr_s not found\n");
-        return;
-    }
-
-    /* Test NULL input string and invalid size. */
-    errno = EBADF;
-    ret = p_wcsupr_s(NULL, 0);
-    ok(ret == EINVAL, "Expected _wcsupr_s to fail with EINVAL, got %d\n", ret);
-    ok(errno == EINVAL, "Expected errno to be EINVAL, got %d\n", errno);
-
-    /* Test NULL input string and valid size. */
-    errno = EBADF;
-    ret = p_wcsupr_s(NULL, sizeof(testBuffer)/sizeof(WCHAR));
-    ok(ret == EINVAL, "Expected _wcsupr_s to fail with EINVAL, got %d\n", ret);
-    ok(errno == EINVAL, "Expected errno to be EINVAL, got %d\n", errno);
-
-    /* Test empty string with zero size. */
-    errno = EBADF;
-    testBuffer[0] = '\0';
-    ret = p_wcsupr_s(testBuffer, 0);
-    ok(ret == EINVAL, "Expected _wcsupr_s to fail with EINVAL, got %d\n", ret);
-    ok(errno == EINVAL, "Expected errno to be EINVAL, got %d\n", errno);
-    ok(testBuffer[0] == '\0', "Expected the buffer to be unchanged\n");
-
-    /* Test empty string with size of one. */
-    testBuffer[0] = '\0';
-    ret = p_wcsupr_s(testBuffer, 1);
-    ok(ret == 0, "Expected _wcsupr_s to succeed, got %d\n", ret);
-    ok(testBuffer[0] == '\0', "Expected the buffer to be unchanged\n");
-
-    /* Test one-byte buffer with zero size. */
-    errno = EBADF;
-    testBuffer[0] = 'x';
-    ret = p_wcsupr_s(testBuffer, 0);
-    ok(ret == EINVAL, "Expected _wcsupr_s to fail with EINVAL, got %d\n", ret);
-    ok(errno == EINVAL, "Expected errno to be EINVAL, got %d\n", errno);
-    ok(testBuffer[0] == '\0', "Expected the first buffer character to be null\n");
-
-    /* Test one-byte buffer with size of one. */
-    errno = EBADF;
-    testBuffer[0] = 'x';
-    ret = p_wcsupr_s(testBuffer, 1);
-    ok(ret == EINVAL, "Expected _wcsupr_s to fail with EINVAL, got %d\n", ret);
-    ok(errno == EINVAL, "Expected errno to be EINVAL, got %d\n", errno);
-    ok(testBuffer[0] == '\0', "Expected the first buffer character to be null\n");
-
-    /* Test invalid size. */
-    wcscpy(testBuffer, mixedString);
-    errno = EBADF;
-    ret = p_wcsupr_s(testBuffer, 0);
-    ok(ret == EINVAL, "Expected _wcsupr_s to fail with EINVAL, got %d\n", ret);
-    ok(errno == EINVAL, "Expected errno to be EINVAL, got %d\n", errno);
-    ok(testBuffer[0] == '\0', "Expected the first buffer character to be null\n");
-
-    /* Test normal string uppercasing. */
-    wcscpy(testBuffer, mixedString);
-    ret = p_wcsupr_s(testBuffer, sizeof(mixedString)/sizeof(WCHAR));
-    ok(ret == 0, "Expected _wcsupr_s to succeed, got %d\n", ret);
-    ok(!wcscmp(testBuffer, expectedString), "Expected the string to be fully upper-case\n");
-
-    /* Test uppercasing with a shorter buffer size count. */
-    wcscpy(testBuffer, mixedString);
-    errno = EBADF;
-    ret = p_wcsupr_s(testBuffer, sizeof(mixedString)/sizeof(WCHAR) - 1);
-    ok(ret == EINVAL, "Expected _wcsupr_s to fail with EINVAL, got %d\n", ret);
-    ok(errno == EINVAL, "Expected errno to be EINVAL, got %d\n", errno);
-    ok(testBuffer[0] == '\0', "Expected the first buffer character to be null\n");
-
-    /* Test uppercasing with a longer buffer size count. */
-    wcscpy(testBuffer, mixedString);
-    ret = p_wcsupr_s(testBuffer, sizeof(testBuffer)/sizeof(WCHAR));
-    ok(ret == 0, "Expected _wcsupr_s to succeed, got %d\n", ret);
-    ok(!wcscmp(testBuffer, expectedString), "Expected the string to be fully upper-case\n");
-}
-
 static void test_mbcjisjms(void)
 {
     /* List of value-pairs to test. The test assumes the last pair to be {0, ..} */
@@ -728,103 +617,6 @@ static void test_mbcjisjms(void)
 
         ok(ret == exp, "Expected 0x%x, got 0x%x\n", exp, ret);
     } while(jisjms[i++][0] != 0);
-}
-
-static void test_mbctombb(void)
-{
-    static const unsigned int mbcmbb_932[][2] = {
-        {0x829e, 0x829e}, {0x829f, 0xa7}, {0x82f1, 0xdd}, {0x82f2, 0x82f2},
-        {0x833f, 0x833f}, {0x8340, 0xa7}, {0x837e, 0xd0}, {0x837f, 0x837f},
-        {0x8380, 0xd1}, {0x8396, 0xb9}, {0x8397, 0x8397}, {0x813f, 0x813f},
-        {0x8140, 0x20}, {0x814c, 0x814c}, {0x814f, 0x5e}, {0x8197, 0x40},
-        {0x8198, 0x8198}, {0x8258, 0x39}, {0x8259, 0x8259}, {0x825f, 0x825f},
-        {0x8260, 0x41}, {0x82f1, 0xdd}, {0x82f2, 0x82f2}, {0,0}};
-    unsigned int exp, ret, i;
-    unsigned int prev_cp = _getmbcp();
-
-    _setmbcp(932);
-    for (i = 0; mbcmbb_932[i][0] != 0; i++)
-    {
-        ret = _mbctombb(mbcmbb_932[i][0]);
-        exp = mbcmbb_932[i][1];
-        ok(ret == exp, "Expected 0x%x, got 0x%x\n", exp, ret);
-    }
-    _setmbcp(prev_cp);
-}
-
-static void test_ismbclegal(void) {
-    unsigned int prev_cp = _getmbcp();
-    int ret, exp, err;
-    unsigned int i;
-
-    _setmbcp(932); /* Japanese */
-    err = 0;
-    for(i = 0; i < 0x10000; i++) {
-        ret = _ismbclegal(i);
-        exp = ((HIBYTE(i) >= 0x81 && HIBYTE(i) <= 0x9F) ||
-               (HIBYTE(i) >= 0xE0 && HIBYTE(i) <= 0xFC)) &&
-              ((LOBYTE(i) >= 0x40 && LOBYTE(i) <= 0x7E) ||
-               (LOBYTE(i) >= 0x80 && LOBYTE(i) <= 0xFC));
-        if(ret != exp) {
-            err = 1;
-            break;
-        }
-    }
-    ok(!err, "_ismbclegal (932) : Expected 0x%x, got 0x%x (0x%x)\n", exp, ret, i);
-    _setmbcp(936); /* Chinese (GBK) */
-    err = 0;
-    for(i = 0; i < 0x10000; i++) {
-        ret = _ismbclegal(i);
-        exp = HIBYTE(i) >= 0x81 && HIBYTE(i) <= 0xFE &&
-              LOBYTE(i) >= 0x40 && LOBYTE(i) <= 0xFE;
-        if(ret != exp) {
-            err = 1;
-            break;
-        }
-    }
-    ok(!err, "_ismbclegal (936) : Expected 0x%x, got 0x%x (0x%x)\n", exp, ret, i);
-    _setmbcp(949); /* Korean */
-    err = 0;
-    for(i = 0; i < 0x10000; i++) {
-        ret = _ismbclegal(i);
-        exp = HIBYTE(i) >= 0x81 && HIBYTE(i) <= 0xFE &&
-              LOBYTE(i) >= 0x41 && LOBYTE(i) <= 0xFE;
-        if(ret != exp) {
-            err = 1;
-            break;
-        }
-    }
-    ok(!err, "_ismbclegal (949) : Expected 0x%x, got 0x%x (0x%x)\n", exp, ret, i);
-    _setmbcp(950); /* Chinese (Big5) */
-    err = 0;
-    for(i = 0; i < 0x10000; i++) {
-        ret = _ismbclegal(i);
-        exp = HIBYTE(i) >= 0x81 && HIBYTE(i) <= 0xFE &&
-            ((LOBYTE(i) >= 0x40 && LOBYTE(i) <= 0x7E) ||
-             (LOBYTE(i) >= 0xA1 && LOBYTE(i) <= 0xFE));
-        if(ret != exp) {
-            err = 1;
-            break;
-        }
-    }
-    ok(!err, "_ismbclegal (950) : Expected 0x%x, got 0x%x (0x%x)\n", exp, ret, i);
-    _setmbcp(1361); /* Korean (Johab) */
-    err = 0;
-    for(i = 0; i < 0x10000; i++) {
-        ret = _ismbclegal(i);
-        exp = ((HIBYTE(i) >= 0x81 && HIBYTE(i) <= 0xD3) ||
-               (HIBYTE(i) >= 0xD8 && HIBYTE(i) <= 0xF9)) &&
-              ((LOBYTE(i) >= 0x31 && LOBYTE(i) <= 0x7E) ||
-               (LOBYTE(i) >= 0x81 && LOBYTE(i) <= 0xFE)) &&
-                HIBYTE(i) != 0xDF;
-        if(ret != exp) {
-            err = 1;
-            break;
-        }
-    }
-    todo_wine ok(!err, "_ismbclegal (1361) : Expected 0x%x, got 0x%x (0x%x)\n", exp, ret, i);
-
-    _setmbcp(prev_cp);
 }
 
 static const struct {
@@ -929,7 +721,6 @@ START_TEST(string)
     pstrcat_s = (void *)GetProcAddress( hMsvcrt,"strcat_s" );
     p_mbsnbcpy_s = (void *)GetProcAddress( hMsvcrt,"_mbsnbcpy_s" );
     p_wcscpy_s = (void *)GetProcAddress( hMsvcrt,"wcscpy_s" );
-    p_wcsupr_s = (void *)GetProcAddress( hMsvcrt,"_wcsupr_s" );
 
     /* MSVCRT memcpy behaves like memmove for overlapping moves,
        MFC42 CString::Insert seems to rely on that behaviour */
@@ -953,10 +744,7 @@ START_TEST(string)
     test_strcat_s();
     test__mbsnbcpy_s();
     test_mbcjisjms();
-    test_mbctombb();
-    test_ismbclegal();
     test_strtok();
     test_wcscpy_s();
-    test__wcsupr_s();
     test_strtol();
 }

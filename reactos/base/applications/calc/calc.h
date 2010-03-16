@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __CALC_H__
+#define __CALC_H__
 
 #include <windows.h>
 #include <tchar.h>
@@ -235,3 +236,5 @@ INT_PTR CALLBACK AboutDlgProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp);
 void ConvExecute(HWND hWnd);
 void ConvAdjust(HWND hWnd, int n_cat);
 void ConvInit(HWND hWnd);
+
+#endif

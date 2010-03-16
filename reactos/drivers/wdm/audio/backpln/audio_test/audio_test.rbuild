@@ -5,6 +5,7 @@
 	<include base="ReactOS">include/reactos/libs/sound</include>
 	<include base="wdmaud_kernel">.</include>
 	<include base="libsamplerate">.</include>
+	<library>kernel32</library>
 	<library>setupapi</library>
 	<library>libsamplerate</library>
 	<library>ksuser</library>

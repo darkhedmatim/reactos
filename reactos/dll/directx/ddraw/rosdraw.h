@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __DDRAW_PRIVATE
+#define __DDRAW_PRIVATE
 
 /********* Includes  *********/
 #include <windows.h>
@@ -282,3 +283,5 @@ VOID Hal_DirectDraw_Release (LPDIRECTDRAW7);
     #define DX_STUB_str(x) //
 
 #endif
+
+#endif /* __DDRAW_PRIVATE */

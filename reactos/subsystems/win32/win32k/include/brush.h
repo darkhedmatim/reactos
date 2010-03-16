@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __WIN32K_BRUSH_H
+#define __WIN32K_BRUSH_H
 
 #include "gdiobj.h"
 
@@ -127,8 +128,4 @@ PVOID
 NTAPI
 EBRUSHOBJ_pvGetEngBrush(EBRUSHOBJ *pebo);
 
-PVOID FASTCALL AllocateObjectAttr(VOID);
-
-VOID FASTCALL FreeObjectAttr(PVOID);
-
-BOOL FASTCALL IntGdiSetBrushOwner(PBRUSH,DWORD);
+#endif

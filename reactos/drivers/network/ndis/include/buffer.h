@@ -4,8 +4,8 @@
  * FILE:        include/buffer.h
  * PURPOSE:     Buffer management routine definitions
  */
-
-#pragma once
+#ifndef __BUFFER_H
+#define __BUFFER_H
 
 #include "ndissys.h"
 
@@ -56,5 +56,7 @@ UINT CopyPacketToBufferChain(
     PNDIS_PACKET SrcPacket,
     UINT SrcOffset,
     UINT Length);
+
+#endif /* __BUFFER_H */
 
 /* EOF */

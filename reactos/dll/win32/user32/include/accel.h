@@ -1,7 +1,8 @@
 /* $Id$
 */
 
-#pragma once
+#ifndef __USER32_ACCEL_H_INCLUDED__
+#define __USER32_ACCEL_H_INCLUDED__
 
 /* ACCELERATOR TABLES CACHE */
 /* Cache entry */
@@ -22,5 +23,7 @@ extern U32_ACCEL_CACHE_ENTRY * U32AccelCache;
 
 extern U32_ACCEL_CACHE_ENTRY ** WINAPI U32AccelCacheFind(HANDLE, HGLOBAL);
 extern void WINAPI U32AccelCacheAdd(HACCEL, HGLOBAL);
+
+#endif
 
 /* EOF */

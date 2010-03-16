@@ -334,7 +334,7 @@ KiSelectNextThread(IN PKPRCB Prcb)
     return Thread;
 }
 
-LONG_PTR
+NTSTATUS
 FASTCALL
 KiSwapThread(IN PKTHREAD CurrentThread,
              IN PKPRCB Prcb)

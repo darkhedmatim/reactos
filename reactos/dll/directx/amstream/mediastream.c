@@ -29,14 +29,13 @@
 #include "wingdi.h"
 
 #include "amstream_private.h"
-#include "amstream.h"
-
 #include "ddstream.h"
+#include "amstream.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(amstream);
 
 typedef struct {
-    const IMediaStreamVtbl *lpVtbl;
+    IMediaStream lpVtbl;
     LONG ref;
     IMultiMediaStream* Parent;
     MSPID PurposeId;
@@ -44,7 +43,7 @@ typedef struct {
 } IMediaStreamImpl;
 
 typedef struct {
-    const IDirectDrawMediaStreamVtbl *lpVtbl;
+    IDirectDrawMediaStream lpVtbl;
     LONG ref;
     IMultiMediaStream* Parent;
     MSPID PurposeId;
@@ -58,7 +57,7 @@ HRESULT MediaStream_create(IMultiMediaStream* Parent, const MSPID* pPurposeId, S
 {
     IMediaStreamImpl* object; 
 
-    TRACE("(%p,%s,%p)\n", Parent, debugstr_guid(pPurposeId), ppMediaStream);
+    TRACE("(%p,%p,%p)\n", Parent, pPurposeId, ppMediaStream);
 
     object = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IMediaStreamImpl));
     if (!object)
@@ -67,7 +66,7 @@ HRESULT MediaStream_create(IMultiMediaStream* Parent, const MSPID* pPurposeId, S
         return E_OUTOFMEMORY;
     }
 
-    object->lpVtbl = &MediaStream_Vtbl;
+    object->lpVtbl.lpVtbl = &MediaStream_Vtbl;
     object->ref = 1;
 
     object->Parent = Parent;
@@ -198,7 +197,7 @@ HRESULT DirectDrawMediaStream_create(IMultiMediaStream* Parent, const MSPID* pPu
 {
     IDirectDrawMediaStreamImpl* object;
 
-    TRACE("(%p,%s,%p)\n", Parent, debugstr_guid(pPurposeId), ppMediaStream);
+    TRACE("(%p,%p,%p)\n", Parent, pPurposeId, ppMediaStream);
 
     object = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IMediaStreamImpl));
     if (!object)
@@ -207,7 +206,7 @@ HRESULT DirectDrawMediaStream_create(IMultiMediaStream* Parent, const MSPID* pPu
         return E_OUTOFMEMORY;
     }
 
-    object->lpVtbl = &DirectDrawMediaStream_Vtbl;
+    object->lpVtbl.lpVtbl = &DirectDrawMediaStream_Vtbl;
     object->ref = 1;
 
     object->Parent = Parent;

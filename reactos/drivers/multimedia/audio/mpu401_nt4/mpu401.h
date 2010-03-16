@@ -9,7 +9,8 @@
  *                       Sept 26, 2003: Created
  */
 
-#pragma once
+#ifndef __INCLUDES_MPU401_H__
+#define __INCLUDES_MPU401_H__
 
 //#include <mmsystem.h>
 //#include <mmddk.h>
@@ -150,3 +151,5 @@ NTSTATUS NTAPI LoadSettings(
 NTSTATUS NTAPI
 DriverEntry(PDRIVER_OBJECT DriverObject,
 	    PUNICODE_STRING RegistryPath);
+
+#endif

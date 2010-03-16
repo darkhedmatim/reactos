@@ -47,7 +47,7 @@
 #include "wine/debug.h"
 #include "wine/unicode.h"
 
-WINE_DEFAULT_DEBUG_CHANNEL(msxml);
+WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
 /*
  * Near the bottom of this file are the exported DllRegisterServer and
@@ -702,7 +702,7 @@ static struct progid const progid_list[] = {
 };
 
 /***********************************************************************
- *		DllRegisterServer (MSXML3.@)
+ *		DllRegisterServer (OLEAUT32.@)
  */
 HRESULT WINAPI DllRegisterServer(void)
 {
@@ -729,7 +729,7 @@ HRESULT WINAPI DllRegisterServer(void)
 }
 
 /***********************************************************************
- *		DllUnregisterServer (MSXML3.@)
+ *		DllUnregisterServer (OLEAUT32.@)
  */
 HRESULT WINAPI DllUnregisterServer(void)
 {

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __TTELHNDL_H
+#define __TTELHNDL_H
 
 #include "tparser.h"
 #include "tnetwork.h"
@@ -46,3 +47,5 @@ public:
 
 	int get_term() {return iTermSet;}
 };
+
+#endif

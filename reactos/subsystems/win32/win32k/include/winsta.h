@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_WINSTA_H
+#define _WIN32K_WINSTA_H
 
 #include "window.h"
 #include "clipboard.h"
@@ -28,6 +29,7 @@ typedef struct _WINSTATION_OBJECT
     LIST_ENTRY DesktopListHead;
     PRTL_ATOM_TABLE AtomTable;
     HANDLE SystemMenuTemplate;
+    PVOID SystemCursor;
     UINT CaretBlinkRate;
     HANDLE ShellWindow;
     HANDLE ShellListView;
@@ -102,5 +104,7 @@ IntGetFullWindowStationName(
    IN OPTIONAL PUNICODE_STRING DesktopName);
 
 PWINSTATION_OBJECT FASTCALL IntGetWinStaObj(VOID);
+
+#endif /* _WIN32K_WINSTA_H */
 
 /* EOF */

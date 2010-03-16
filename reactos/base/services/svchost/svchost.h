@@ -5,8 +5,8 @@
  * PURPOSE:			Provide dll service loader
  * PROGRAMMERS:		Gregor Brunmar (gregor.brunmar@home.se)
  */
-
-#pragma once
+#ifndef __SVCHOST_H__
+#define __SVCHOST_H__
 
 /* INCLUDES ******************************************************************/
 
@@ -32,4 +32,7 @@ typedef struct _SERVICE {
 
 /* FUNCTIONS *****************************************************************/
 
+#endif /* __SVCHOST_H__ */
+
 /* EOF */
+

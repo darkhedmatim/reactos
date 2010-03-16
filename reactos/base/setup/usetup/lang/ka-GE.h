@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_KA_GE_H__
+#define LANG_KA_GE_H__
 
 MUI_LAYOUTS kaGELayouts[] =
 {
@@ -7,3 +8,5 @@ MUI_LAYOUTS kaGELayouts[] =
     { L"0419", L"00000419" },
     { NULL, NULL }
 };
+
+#endif

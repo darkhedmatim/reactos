@@ -23,11 +23,14 @@
  * PROGRAMMER:      Hervé Poussineau
  */
 
-#pragma once
+#ifndef __BINHIVE_H__
+#define __BINHIVE_H__
 
 BOOL
 ExportBinaryHive(
 	IN PCSTR FileName,
 	IN PCMHIVE Hive);
+
+#endif /* __BINHIVE_H__ */
 
 /* EOF */

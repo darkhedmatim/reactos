@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_PAINTING_H
+#define _WIN32K_PAINTING_H
 
 #include <include/class.h>
 #include <include/msgqueue.h>
@@ -13,3 +14,5 @@ IntGetPaintMessage(PWINDOW_OBJECT Window, UINT MsgFilterMin, UINT MsgFilterMax, 
                    MSG *Message, BOOL Remove);
 INT FASTCALL UserRealizePalette(HDC);
 INT FASTCALL co_UserGetUpdateRgn(PWINDOW_OBJECT, HRGN, BOOL);
+
+#endif /* _WIN32K_PAINTING_H */

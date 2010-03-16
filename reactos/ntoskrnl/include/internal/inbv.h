@@ -1,4 +1,5 @@
-#pragma once
+#ifndef NTOSKRNL_INBV_H
+#define NTOSKRNL_INBV_H
 
 typedef struct _InbvProgressState
 {
@@ -72,3 +73,7 @@ InbvIndicateProgress(
 );
            
 extern BOOLEAN InbvBootDriverInstalled;
+
+#endif /* NTOSKRNL_INBV_H */
+
+

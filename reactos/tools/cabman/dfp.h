@@ -4,8 +4,8 @@
  * FILE:        tools/cabman/dfp.h
  * PURPOSE:     Directive file parser header
  */
-
-#pragma once
+#ifndef __DFP_H
+#define __DFP_H
 
 #include "cabinet.h"
 
@@ -137,5 +137,7 @@ private:
     FILEHANDLE InfFileHandle;
     bool InfModeEnabled;
 };
+
+#endif /* __DFP_H */
 
 /* EOF */

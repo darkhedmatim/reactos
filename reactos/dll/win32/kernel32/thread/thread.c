@@ -17,12 +17,6 @@
 
 /* FIXME: NDK */
 #define HIGH_PRIORITY 31
-#define SXS_SUPPORT_FIXME
-
-NTSTATUS
-WINAPI
-BasepNotifyCsrOfThread(IN HANDLE ThreadHandle,
-                       IN PCLIENT_ID ClientId);
 
 /* FUNCTIONS *****************************************************************/
 static
@@ -164,73 +158,53 @@ CreateRemoteThread(HANDLE hProcess,
         return NULL;
     }
 
+    #ifdef SXS_SUPPORT_ENABLED
     /* Are we in the same process? */
-    if (hProcess == NtCurrentProcess())
+    if (Process = NtCurrentProcess())
     {
         PTEB Teb;
         PVOID ActivationContextStack;
-        THREAD_BASIC_INFORMATION ThreadBasicInfo;
-#ifndef SXS_SUPPORT_FIXME
-        ACTIVATION_CONTEXT_BASIC_INFORMATION ActivationCtxInfo;
+        PTHREAD_BASIC_INFORMATION ThreadBasicInfo;
+        PACTIVATION_CONTEXT_BASIC_INFORMATION ActivationCtxInfo;
         ULONG_PTR Cookie;
-#endif
-        ULONG retLen;
 
         /* Get the TEB */
         Status = NtQueryInformationThread(hThread,
-                                          ThreadBasicInformation,
+                                          ThreadBasicIformation,
                                           &ThreadBasicInfo,
                                           sizeof(ThreadBasicInfo),
-                                          &retLen);
-        if (NT_SUCCESS(Status))
+                                          NULL);
+
+        /* Allocate the Activation Context Stack */
+        Status = RtlAllocateActivationContextStack(&ActivationContextStack);
+        Teb = ThreadBasicInfo.TebBaseAddress;
+
+        /* Save it */
+        Teb->ActivationContextStackPointer = ActivationContextStack;
+
+        /* Query the Context */
+        Status = RtlQueryInformationActivationContext(1,
+                                                      0,
+                                                      NULL,
+                                                      ActivationContextBasicInformation,
+                                                      &ActivationCtxInfo,
+                                                      sizeof(ActivationCtxInfo),
+                                                      NULL);
+
+        /* Does it need to be activated? */
+        if (!ActivationCtxInfo.hActCtx)
         {
-            /* Allocate the Activation Context Stack */
-            Status = RtlAllocateActivationContextStack(&ActivationContextStack);
+            /* Activate it */
+            Status = RtlActivateActivationContextEx(1,
+                                                    Teb,
+                                                    ActivationCtxInfo.hActCtx,
+                                                    &Cookie);
         }
-
-        if (NT_SUCCESS(Status))
-        {
-            Teb = ThreadBasicInfo.TebBaseAddress;
-
-            /* Save it */
-            Teb->ActivationContextStackPointer = ActivationContextStack;
-#ifndef SXS_SUPPORT_FIXME
-            /* Query the Context */
-            Status = RtlQueryInformationActivationContext(1,
-                                                          0,
-                                                          NULL,
-                                                          ActivationContextBasicInformation,
-                                                          &ActivationCtxInfo,
-                                                          sizeof(ActivationCtxInfo),
-                                                          &retLen);
-            if (NT_SUCCESS(Status))
-            {
-                /* Does it need to be activated? */
-                if (!ActivationCtxInfo.hActCtx)
-                {
-                    /* Activate it */
-                    Status = RtlActivateActivationContext(1,
-                                                          ActivationCtxInfo.hActCtx,
-                                                          &Cookie);
-                    if (!NT_SUCCESS(Status))
-                        DPRINT1("RtlActivateActivationContext failed %x\n", Status);
-                }
-            }
-            else
-                DPRINT1("RtlQueryInformationActivationContext failed %x\n", Status);
-#endif
-        }
-        else
-            DPRINT1("RtlAllocateActivationContextStack failed %x\n", Status);
     }
+    #endif
 
-    /* Notify CSR */
-    Status = BasepNotifyCsrOfThread(hThread, &ClientId);
-    if (!NT_SUCCESS(Status))
-    {
-        ASSERT(FALSE);
-    }
-    
+    /* FIXME: Notify CSR */
+
     /* Success */
     if(lpThreadId) *lpThreadId = (DWORD)ClientId.UniqueThread;
 
@@ -252,7 +226,7 @@ WINAPI
 ExitThread(DWORD uExitCode)
 {
     NTSTATUS Status;
-    ULONG LastThread;
+    BOOLEAN LastThread;
 
     /*
      * Terminate process if this is the last thread
@@ -261,7 +235,7 @@ ExitThread(DWORD uExitCode)
     Status = NtQueryInformationThread(NtCurrentThread(),
                                       ThreadAmILastThread,
                                       &LastThread,
-                                      sizeof(LastThread),
+                                      sizeof(BOOLEAN),
                                       NULL);
     if (NT_SUCCESS(Status) && LastThread)
     {
@@ -276,9 +250,8 @@ ExitThread(DWORD uExitCode)
     NtCurrentTeb()->FreeStackOnTermination = TRUE;
     NtTerminateThread(NULL, uExitCode);
 
-    /* We should never reach this place */
-    DPRINT1("It should not happen\n");
-    while (TRUE) ;
+    /* We will never reach this place. This silences the compiler */
+    ExitThread(uExitCode);
 }
 
 /*

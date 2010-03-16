@@ -44,36 +44,13 @@
 static PAGED_LOOKASIDE_LIST gProcessLookasideList;
 static LIST_ENTRY gCurIconList;
 
-SYSTEM_CURSORINFO gSysCursorInfo;
-
 BOOL FASTCALL
-InitCursorImpl()
+IntGetCursorLocation(PWINSTATION_OBJECT WinSta, POINT *loc)
 {
-    ExInitializePagedLookasideList(&gProcessLookasideList,
-                                   NULL,
-                                   NULL,
-                                   0,
-                                   sizeof(CURICON_PROCESS),
-                                   TAG_DIB,
-                                   128);
-    InitializeListHead(&gCurIconList);
-
-     gSysCursorInfo.Enabled = FALSE;
-     gSysCursorInfo.ButtonsDown = 0;
-     gSysCursorInfo.CursorClipInfo.IsClipped = FALSE;
-     gSysCursorInfo.LastBtnDown = 0;
-     gSysCursorInfo.CurrentCursorObject = NULL;
-     gSysCursorInfo.ShowingCursor = 0;
-     gSysCursorInfo.ClickLockActive = FALSE;
-     gSysCursorInfo.ClickLockTime = 0;
+    loc->x = gpsi->ptCursor.x;
+    loc->y = gpsi->ptCursor.y;
 
     return TRUE;
-}
-
-PSYSTEM_CURSORINFO FASTCALL
-IntGetSysCursorInfo()
-{
-    return &gSysCursorInfo;
 }
 
 /* This function creates a reference for the object! */
@@ -95,13 +72,14 @@ PCURICON_OBJECT FASTCALL UserGetCurIconObject(HCURSOR hCurIcon)
         return NULL;
     }
 
-    ASSERT(CurIcon->head.cLockObj >= 1);
+    ASSERT(USER_BODY_TO_HEADER(CurIcon)->RefCount >= 1);
     return CurIcon;
 }
 
 HCURSOR
 FASTCALL
-UserSetCursor(
+IntSetCursor(
+    PWINSTATION_OBJECT WinSta,
     PCURICON_OBJECT NewCursor,
     BOOL ForceChange)
 {
@@ -110,9 +88,8 @@ UserSetCursor(
     HCURSOR hOldCursor = (HCURSOR)0;
     HDC hdcScreen;
     BOOL bResult;
-	
-	CurInfo = IntGetSysCursorInfo();
 
+    CurInfo = IntGetSysCursorInfo(WinSta);
     OldCursor = CurInfo->CurrentCursorObject;
     if (OldCursor)
     {
@@ -137,7 +114,7 @@ UserSetCursor(
     {
         UserReferenceObject(NewCursor);
 
-        CurInfo->ShowingCursor = 1;
+        CurInfo->ShowingCursor = CURSOR_SHOWING;
         CurInfo->CurrentCursorObject = NewCursor;
 
         /* Call GDI to set the new screen cursor */
@@ -175,99 +152,20 @@ UserSetCursor(
     return hOldCursor;
 }
 
-BOOL UserSetCursorPos( INT x, INT y)
+
+BOOL FASTCALL
+IntSetupCurIconHandles(PWINSTATION_OBJECT WinSta)
 {
-    PWINDOW_OBJECT DesktopWindow;
-    PSYSTEM_CURSORINFO CurInfo;
-    HDC hDC;
-    MSG Msg;
-
-    if(!(hDC = IntGetScreenDC()))
-    {
-        return FALSE;
-    }
-
-    CurInfo = IntGetSysCursorInfo();
-
-    DesktopWindow = UserGetDesktopWindow();
-
-    if (DesktopWindow)
-    {
-        if(x >= DesktopWindow->Wnd->rcClient.right)
-            x = DesktopWindow->Wnd->rcClient.right - 1;
-        if(y >= DesktopWindow->Wnd->rcClient.bottom)
-            y = DesktopWindow->Wnd->rcClient.bottom - 1;
-    }
-
-    if(x < 0)
-        x = 0;
-    if(y < 0)
-        y = 0;
-
-    //Clip cursor position
-    if(CurInfo->CursorClipInfo.IsClipped)
-    {
-       if(x >= (LONG)CurInfo->CursorClipInfo.Right)
-           x = (LONG)CurInfo->CursorClipInfo.Right - 1;
-       if(x < (LONG)CurInfo->CursorClipInfo.Left)
-           x = (LONG)CurInfo->CursorClipInfo.Left;
-       if(y >= (LONG)CurInfo->CursorClipInfo.Bottom)
-           y = (LONG)CurInfo->CursorClipInfo.Bottom - 1;
-       if(y < (LONG)CurInfo->CursorClipInfo.Top)
-           y = (LONG)CurInfo->CursorClipInfo.Top;
-    }
-
-    //Store the new cursor position
-    gpsi->ptCursor.x = x;
-    gpsi->ptCursor.y = y;
-
-    //Move the mouse pointer
-    GreMovePointer(hDC, x, y);
-
-    //Generate a mouse move message
-    Msg.message = WM_MOUSEMOVE;
-    Msg.wParam = CurInfo->ButtonsDown;
-    Msg.lParam = MAKELPARAM(x, y);
-    Msg.pt = gpsi->ptCursor;
-    MsqInsertSystemMessage(&Msg);
+    ExInitializePagedLookasideList(&gProcessLookasideList,
+                                   NULL,
+                                   NULL,
+                                   0,
+                                   sizeof(CURICON_PROCESS),
+                                   TAG_DIB,
+                                   128);
+    InitializeListHead(&gCurIconList);
 
     return TRUE;
-}
-
-/* Called from NtUserCallOneParam with Routine ONEPARAM_ROUTINE_SHOWCURSOR
- * User32 macro NtUserShowCursor */
-int UserShowCursor(BOOL bShow)
-{
-    PSYSTEM_CURSORINFO CurInfo = IntGetSysCursorInfo();
-    HDC hdcScreen;
-
-    if (!(hdcScreen = IntGetScreenDC()))
-    {
-        return 0; /* No mouse */
-    }
-
-    if (bShow == FALSE)
-    {
-        /* Check if were diplaying a cursor */
-        if (CurInfo->ShowingCursor == 1)
-        {
-            /* Remove the pointer */
-            GreMovePointer(hdcScreen, -1, -1);
-            DPRINT("Removing pointer!\n");
-        }
-        CurInfo->ShowingCursor--;
-    }
-    else
-    {
-        if (CurInfo->ShowingCursor == 0)
-        {
-            /*Show the pointer*/
-            GreMovePointer(hdcScreen, gpsi->ptCursor.x, gpsi->ptCursor.y);
-        }
-        CurInfo->ShowingCursor++;
-    }
-
-    return CurInfo->ShowingCursor;
 }
 
 /*
@@ -309,7 +207,7 @@ ReferenceCurIconByProcess(PCURICON_OBJECT CurIcon)
 }
 
 PCURICON_OBJECT FASTCALL
-IntFindExistingCurIconObject(HMODULE hModule,
+IntFindExistingCurIconObject(PWINSTATION_OBJECT WinSta, HMODULE hModule,
                              HRSRC hRsrc, LONG cx, LONG cy)
 {
     PCURICON_OBJECT CurIcon;
@@ -343,12 +241,12 @@ IntFindExistingCurIconObject(HMODULE hModule,
 }
 
 PCURICON_OBJECT FASTCALL
-IntCreateCurIconHandle()
+IntCreateCurIconHandle(PWINSTATION_OBJECT WinSta)
 {
     PCURICON_OBJECT CurIcon;
     HANDLE hCurIcon;
 
-    CurIcon = UserCreateObject(gHandleTable, NULL, &hCurIcon, otCursorIcon, sizeof(CURICON_OBJECT));
+    CurIcon = UserCreateObject(gHandleTable, &hCurIcon, otCursorIcon, sizeof(CURICON_OBJECT));
 
     if (!CurIcon)
     {
@@ -373,7 +271,7 @@ IntCreateCurIconHandle()
 }
 
 BOOLEAN FASTCALL
-IntDestroyCurIconObject(PCURICON_OBJECT CurIcon, BOOL ProcessCleanup)
+IntDestroyCurIconObject(PWINSTATION_OBJECT WinSta, PCURICON_OBJECT CurIcon, BOOL ProcessCleanup)
 {
     PSYSTEM_CURSORINFO CurInfo;
     HBITMAP bmpMask, bmpColor;
@@ -423,12 +321,12 @@ IntDestroyCurIconObject(PCURICON_OBJECT CurIcon, BOOL ProcessCleanup)
         RemoveEntryList(&CurIcon->ListEntry);
     }
 
-    CurInfo = IntGetSysCursorInfo();
+    CurInfo = IntGetSysCursorInfo(WinSta);
 
     if (CurInfo->CurrentCursorObject == CurIcon)
     {
         /* Hide the cursor if we're destroying the current cursor */
-        UserSetCursor(NULL, TRUE);
+        IntSetCursor(WinSta, NULL, TRUE);
     }
 
     bmpMask = CurIcon->IconInfo.hbmMask;
@@ -458,8 +356,15 @@ IntDestroyCurIconObject(PCURICON_OBJECT CurIcon, BOOL ProcessCleanup)
 VOID FASTCALL
 IntCleanupCurIcons(struct _EPROCESS *Process, PPROCESSINFO Win32Process)
 {
+    PWINSTATION_OBJECT WinSta;
     PCURICON_OBJECT CurIcon, tmp;
     PCURICON_PROCESS ProcessData;
+
+    WinSta = IntGetWinStaObj();
+    if (WinSta == NULL)
+    {
+        return;
+    }
 
     LIST_FOR_EACH_SAFE(CurIcon, tmp, &gCurIconList, CURICON_OBJECT, ListEntry)
     {
@@ -471,7 +376,7 @@ IntCleanupCurIcons(struct _EPROCESS *Process, PPROCESSINFO Win32Process)
                 if (Win32Process == ProcessData->Process)
                 {
                     RemoveEntryList(&CurIcon->ListEntry);
-                    IntDestroyCurIconObject(CurIcon, TRUE);
+                    IntDestroyCurIconObject(WinSta, CurIcon, TRUE);
                     CurIcon = NULL;
                     break;
                 }
@@ -486,6 +391,7 @@ IntCleanupCurIcons(struct _EPROCESS *Process, PPROCESSINFO Win32Process)
         }
     }
 
+    ObDereferenceObject(WinSta);
 }
 
 /*
@@ -496,6 +402,7 @@ APIENTRY
 NtUserCreateCursorIconHandle(PICONINFO IconInfo OPTIONAL, BOOL Indirect)
 {
     PCURICON_OBJECT CurIcon;
+    PWINSTATION_OBJECT WinSta;
     PSURFACE psurfBmp;
     NTSTATUS Status;
     HANDLE Ret;
@@ -504,9 +411,16 @@ NtUserCreateCursorIconHandle(PICONINFO IconInfo OPTIONAL, BOOL Indirect)
     DPRINT("Enter NtUserCreateCursorIconHandle\n");
     UserEnterExclusive();
 
-    if (!(CurIcon = IntCreateCurIconHandle()))
+    WinSta = IntGetWinStaObj();
+    if (WinSta == NULL)
+    {
+        RETURN((HANDLE)0);
+    }
+
+    if (!(CurIcon = IntCreateCurIconHandle(WinSta)))
     {
         SetLastWin32Error(ERROR_NOT_ENOUGH_MEMORY);
+        ObDereferenceObject(WinSta);
         RETURN((HANDLE)0);
     }
 
@@ -559,6 +473,7 @@ NtUserCreateCursorIconHandle(PICONINFO IconInfo OPTIONAL, BOOL Indirect)
     }
 
     UserDereferenceObject(CurIcon);
+    ObDereferenceObject(WinSta);
     RETURN(Ret);
 
 CLEANUP:
@@ -728,6 +643,7 @@ NtUserGetCursorInfo(
 {
     CURSORINFO SafeCi;
     PSYSTEM_CURSORINFO CurInfo;
+    PWINSTATION_OBJECT WinSta;
     NTSTATUS Status = STATUS_SUCCESS;
     PCURICON_OBJECT CurIcon;
     BOOL Ret = FALSE;
@@ -736,14 +652,20 @@ NtUserGetCursorInfo(
     DPRINT("Enter NtUserGetCursorInfo\n");
     UserEnterExclusive();
 
-    CurInfo = IntGetSysCursorInfo();
+    WinSta = IntGetWinStaObj();
+    if (WinSta == NULL)
+    {
+        RETURN(FALSE);
+    }
+
+    CurInfo = IntGetSysCursorInfo(WinSta);
     CurIcon = (PCURICON_OBJECT)CurInfo->CurrentCursorObject;
 
     SafeCi.cbSize = sizeof(CURSORINFO);
     SafeCi.flags = ((CurInfo->ShowingCursor && CurIcon) ? CURSOR_SHOWING : 0);
     SafeCi.hCursor = (CurIcon ? (HCURSOR)CurIcon->Self : (HCURSOR)0);
 
-    SafeCi.ptScreenPos = gpsi->ptCursor;
+    IntGetCursorLocation(WinSta, &SafeCi.ptScreenPos);
 
     _SEH2_TRY
     {
@@ -768,6 +690,7 @@ NtUserGetCursorInfo(
         SetLastNtError(Status);
     }
 
+    ObDereferenceObject(WinSta);
     RETURN(Ret);
 
 CLEANUP:
@@ -786,40 +709,61 @@ NtUserClipCursor(
     RECTL *UnsafeRect)
 {
     /* FIXME - check if process has WINSTA_WRITEATTRIBUTES */
+
+    PWINSTATION_OBJECT WinSta;
     PSYSTEM_CURSORINFO CurInfo;
     RECTL Rect;
     PWINDOW_OBJECT DesktopWindow = NULL;
+    POINT MousePos = {0};
     DECLARE_RETURN(BOOL);
 
     DPRINT("Enter NtUserClipCursor\n");
     UserEnterExclusive();
 
+    WinSta = IntGetWinStaObj();
+    if (WinSta == NULL)
+    {
+        RETURN(FALSE);
+    }
+
     if (NULL != UnsafeRect && ! NT_SUCCESS(MmCopyFromCaller(&Rect, UnsafeRect, sizeof(RECT))))
     {
+        ObDereferenceObject(WinSta);
         SetLastWin32Error(ERROR_INVALID_PARAMETER);
         RETURN(FALSE);
     }
 
-    CurInfo = IntGetSysCursorInfo();
+    CurInfo = IntGetSysCursorInfo(WinSta);
+    IntGetCursorLocation(WinSta, &MousePos);
 
-    DesktopWindow = UserGetDesktopWindow();
+    if (WinSta->ActiveDesktop)
+        DesktopWindow = UserGetWindowObject(WinSta->ActiveDesktop->DesktopWindow);
 
     if ((Rect.right > Rect.left) && (Rect.bottom > Rect.top)
             && DesktopWindow && UnsafeRect != NULL)
     {
+        MOUSEINPUT mi;
 
         CurInfo->CursorClipInfo.IsClipped = TRUE;
         CurInfo->CursorClipInfo.Left = max(Rect.left, DesktopWindow->Wnd->rcWindow.left);
         CurInfo->CursorClipInfo.Top = max(Rect.top, DesktopWindow->Wnd->rcWindow.top);
-        CurInfo->CursorClipInfo.Right = min(Rect.right, DesktopWindow->Wnd->rcWindow.right);
-        CurInfo->CursorClipInfo.Bottom = min(Rect.bottom, DesktopWindow->Wnd->rcWindow.bottom);
+        CurInfo->CursorClipInfo.Right = min(Rect.right - 1, DesktopWindow->Wnd->rcWindow.right - 1);
+        CurInfo->CursorClipInfo.Bottom = min(Rect.bottom - 1, DesktopWindow->Wnd->rcWindow.bottom - 1);
 
-        UserSetCursorPos(gpsi->ptCursor.x, gpsi->ptCursor.y);
+        mi.dx = MousePos.x;
+        mi.dy = MousePos.y;
+        mi.mouseData = 0;
+        mi.dwFlags = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE;
+        mi.time = 0;
+        mi.dwExtraInfo = 0;
+        IntMouseInput(&mi);
 
         RETURN(TRUE);
     }
 
     CurInfo->CursorClipInfo.IsClipped = FALSE;
+    ObDereferenceObject(WinSta);
+
     RETURN(TRUE);
 
 CLEANUP:
@@ -838,6 +782,7 @@ NtUserDestroyCursor(
     HANDLE hCurIcon,
     DWORD Unknown)
 {
+    PWINSTATION_OBJECT WinSta;
     PCURICON_OBJECT CurIcon;
     BOOL ret;
     DECLARE_RETURN(BOOL);
@@ -845,14 +790,22 @@ NtUserDestroyCursor(
     DPRINT("Enter NtUserDestroyCursorIcon\n");
     UserEnterExclusive();
 
-    if (!(CurIcon = UserGetCurIconObject(hCurIcon)))
+    WinSta = IntGetWinStaObj();
+    if (WinSta == NULL)
     {
         RETURN(FALSE);
     }
 
-    ret = IntDestroyCurIconObject(CurIcon, FALSE);
+    if (!(CurIcon = UserGetCurIconObject(hCurIcon)))
+    {
+        ObDereferenceObject(WinSta);
+        RETURN(FALSE);
+    }
+
+    ret = IntDestroyCurIconObject(WinSta, CurIcon, FALSE);
     /* Note: IntDestroyCurIconObject will remove our reference for us! */
 
+    ObDereferenceObject(WinSta);
     RETURN(ret);
 
 CLEANUP:
@@ -874,22 +827,31 @@ NtUserFindExistingCursorIcon(
     LONG cy)
 {
     PCURICON_OBJECT CurIcon;
+    PWINSTATION_OBJECT WinSta;
     HANDLE Ret = (HANDLE)0;
     DECLARE_RETURN(HICON);
 
     DPRINT("Enter NtUserFindExistingCursorIcon\n");
     UserEnterExclusive();
 
-    CurIcon = IntFindExistingCurIconObject(hModule, hRsrc, cx, cy);
+    WinSta = IntGetWinStaObj();
+    if (WinSta == NULL)
+    {
+        RETURN(Ret);
+    }
+
+    CurIcon = IntFindExistingCurIconObject(WinSta, hModule, hRsrc, cx, cy);
     if (CurIcon)
     {
         Ret = CurIcon->Self;
 
 //      IntReleaseCurIconObject(CurIcon);//faxme: is this correct? does IntFindExistingCurIconObject add a ref?
+        ObDereferenceObject(WinSta);
         RETURN(Ret);
     }
 
     SetLastWin32Error(ERROR_INVALID_CURSOR_HANDLE);
+    ObDereferenceObject(WinSta);
     RETURN((HANDLE)0);
 
 CLEANUP:
@@ -909,6 +871,7 @@ NtUserGetClipCursor(
 {
     /* FIXME - check if process has WINSTA_READATTRIBUTES */
     PSYSTEM_CURSORINFO CurInfo;
+    PWINSTATION_OBJECT WinSta;
     RECTL Rect;
     NTSTATUS Status;
     DECLARE_RETURN(BOOL);
@@ -919,7 +882,13 @@ NtUserGetClipCursor(
     if (!lpRect)
         RETURN(FALSE);
 
-    CurInfo = IntGetSysCursorInfo();
+    WinSta = IntGetWinStaObj();
+    if (WinSta == NULL)
+    {
+        RETURN(FALSE);
+    }
+
+    CurInfo = IntGetSysCursorInfo(WinSta);
     if (CurInfo->CursorClipInfo.IsClipped)
     {
         Rect.left = CurInfo->CursorClipInfo.Left;
@@ -938,9 +907,12 @@ NtUserGetClipCursor(
     Status = MmCopyToCaller(lpRect, &Rect, sizeof(RECT));
     if (!NT_SUCCESS(Status))
     {
+        ObDereferenceObject(WinSta);
         SetLastNtError(Status);
         RETURN(FALSE);
     }
+
+    ObDereferenceObject(WinSta);
 
     RETURN(TRUE);
 
@@ -961,15 +933,23 @@ NtUserSetCursor(
 {
     PCURICON_OBJECT CurIcon;
     HICON OldCursor;
+    PWINSTATION_OBJECT WinSta;
     DECLARE_RETURN(HCURSOR);
 
     DPRINT("Enter NtUserSetCursor\n");
     UserEnterExclusive();
 
+    WinSta = IntGetWinStaObj();
+    if (WinSta == NULL)
+    {
+        RETURN(NULL);
+    }
+
     if (hCursor)
     {
         if (!(CurIcon = UserGetCurIconObject(hCursor)))
         {
+            ObDereferenceObject(WinSta);
             RETURN(NULL);
         }
     }
@@ -978,12 +958,13 @@ NtUserSetCursor(
         CurIcon = NULL;
     }
 
-    OldCursor = UserSetCursor(CurIcon, FALSE);
+    OldCursor = IntSetCursor(WinSta, CurIcon, FALSE);
 
     if (CurIcon)
     {
         UserDereferenceObject(CurIcon);
     }
+    ObDereferenceObject(WinSta);
 
     RETURN(OldCursor);
 
@@ -1006,6 +987,7 @@ NtUserSetCursorContents(
     PCURICON_OBJECT CurIcon;
     ICONINFO IconInfo;
     PSURFACE psurfBmp;
+    PWINSTATION_OBJECT WinSta;
     NTSTATUS Status;
     BOOL Ret = FALSE;
     DECLARE_RETURN(BOOL);
@@ -1013,8 +995,15 @@ NtUserSetCursorContents(
     DPRINT("Enter NtUserSetCursorContents\n");
     UserEnterExclusive();
 
+    WinSta = IntGetWinStaObj();
+    if (WinSta == NULL)
+    {
+        RETURN(FALSE);
+    }
+
     if (!(CurIcon = UserGetCurIconObject(hCurIcon)))
     {
+        ObDereferenceObject(WinSta);
         RETURN(FALSE);
     }
 
@@ -1068,6 +1057,7 @@ done:
     {
         UserDereferenceObject(CurIcon);
     }
+    ObDereferenceObject(WinSta);
     RETURN(Ret);
 
 CLEANUP:
@@ -1090,6 +1080,7 @@ NtUserSetCursorIconData(
     PICONINFO pIconInfo)
 {
     PCURICON_OBJECT CurIcon;
+    PWINSTATION_OBJECT WinSta;
     PSURFACE psurfBmp;
     NTSTATUS Status = STATUS_SUCCESS;
     BOOL Ret = FALSE;
@@ -1098,8 +1089,15 @@ NtUserSetCursorIconData(
     DPRINT("Enter NtUserSetCursorIconData\n");
     UserEnterExclusive();
 
+    WinSta = IntGetWinStaObj();
+    if (WinSta == NULL)
+    {
+        RETURN(FALSE);
+    }
+
     if (!(CurIcon = UserGetCurIconObject(Handle)))
     {
+        ObDereferenceObject(WinSta);
         RETURN(FALSE);
     }
 
@@ -1151,6 +1149,7 @@ NtUserSetCursorIconData(
         Ret = TRUE;
 
     UserDereferenceObject(CurIcon);
+    ObDereferenceObject(WinSta);
     RETURN(Ret);
 
 CLEANUP:
@@ -1170,6 +1169,7 @@ NtUserSetCursorIconData(
     HRSRC hGroupRsrc)
 {
     PCURICON_OBJECT CurIcon;
+    PWINSTATION_OBJECT WinSta;
     NTSTATUS Status;
     POINT SafeHotspot;
     BOOL Ret = FALSE;
@@ -1178,8 +1178,15 @@ NtUserSetCursorIconData(
     DPRINT("Enter NtUserSetCursorIconData\n");
     UserEnterExclusive();
 
+    WinSta = IntGetWinStaObj();
+    if (WinSta == NULL)
+    {
+        RETURN(FALSE);
+    }
+
     if (!(CurIcon = UserGetCurIconObject(hCurIcon)))
     {
+        ObDereferenceObject(WinSta);
         RETURN(FALSE);
     }
 
@@ -1224,6 +1231,7 @@ NtUserSetCursorIconData(
 
 done:
     UserDereferenceObject(CurIcon);
+    ObDereferenceObject(WinSta);
     RETURN(Ret);
 
 
@@ -1450,14 +1458,13 @@ UserDrawIconEx(
                           cyHeight,
                           hdcImage ? hdcImage : hdcMask,
                           0,
-                          0,
+                          ((diFlags & DI_MASK && !(diFlags & DI_IMAGE)) ||
+                           (diFlags & DI_IMAGE && hbmColor) ? 0 : IconSize.cy),
                           IconSize.cx,
                           IconSize.cy,
                           SRCCOPY,
                           0,
-                          hdcMask,
-                          0,
-                          hdcImage ? 0 : IconSize.cy);
+                          hdcImage ? hdcMask : NULL);
     }
 
     if (hOldMask) NtGdiSelectBitmap(hdcMask, hOldMask);
@@ -1563,8 +1570,8 @@ NtUserDrawIconEx(
     UINT istepIfAniCur,
     HBRUSH hbrFlickerFreeDraw,
     UINT diFlags,
-    BOOL bMetaHDC, // When TRUE, GDI functions need to be handled in User32!
-    PVOID pDIXData)
+    DWORD Unknown0,
+    DWORD Unknown1)
 {
     PCURICON_OBJECT pIcon;
     BOOL Ret;
@@ -1595,3 +1602,92 @@ NtUserDrawIconEx(
     return Ret;
 }
 
+/* Called from NtUserCallOneParam with Routine ONEPARAM_ROUTINE_SHOWCURSOR
+ * User32 macro NtUserShowCursor */
+int
+APIENTRY
+UserShowCursor(BOOL bShow)
+{
+    PTHREADINFO pti = PsGetCurrentThreadWin32Thread();
+    PWINSTATION_OBJECT WinSta = pti->Desktop->WindowStation;
+    PSYSTEM_CURSORINFO CurInfo;
+
+    HDC Screen;
+    PDC dc;
+    SURFOBJ *SurfObj;
+    SURFACE *psurfDc;
+    PDEVOBJ *ppdev;
+    GDIPOINTER *pgp;
+    int showpointer=0;
+
+    if (!(Screen = IntGetScreenDC()))
+    {
+        return showpointer; /* No mouse */
+    }
+
+    dc = DC_LockDc(Screen);
+
+    if (!dc)
+    {
+        return showpointer; /* No mouse */
+    }
+
+    psurfDc = dc->dclevel.pSurface;
+
+    if (!psurfDc)
+    {
+        DC_UnlockDc(dc);
+        return showpointer; /* No Mouse */
+    }
+
+    SurfObj = &psurfDc->SurfObj;
+    if (SurfObj == NULL)
+    {
+        DC_UnlockDc(dc);
+        return showpointer; /* No mouse */
+    }
+
+    ppdev = GDIDEV(SurfObj);
+
+    if (ppdev == NULL)
+    {
+        DC_UnlockDc(dc);
+        return showpointer; /* No mouse */
+    }
+
+    pgp = &ppdev->Pointer;
+
+    CurInfo = IntGetSysCursorInfo(WinSta);
+
+    if (bShow == FALSE)
+    {
+        pgp->ShowPointer--;
+        showpointer = pgp->ShowPointer;
+
+        if (showpointer >= 0)
+        {
+            //ppdev->SafetyRemoveCount = 1;
+            //ppdev->SafetyRemoveLevel = 1;
+            IntEngMovePointer(SurfObj,-1,-1,NULL);
+            CurInfo->ShowingCursor = 0;
+        }
+
+    }
+    else
+    {
+        pgp->ShowPointer++;
+        showpointer = pgp->ShowPointer;
+
+        /* Show Cursor */
+        if (showpointer < 0)
+        {
+            //ppdev->SafetyRemoveCount = 0;
+            //ppdev->SafetyRemoveLevel = 0;
+            IntEngMovePointer(SurfObj,-1,-1,NULL);
+            CurInfo->ShowingCursor = CURSOR_SHOWING;
+        }
+    }
+
+    DC_UnlockDc(dc);
+    return showpointer;
+}

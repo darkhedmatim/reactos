@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_MOUSE_H
+#define _WIN32K_MOUSE_H
 
 #include <include/winsta.h>
 
@@ -17,3 +18,5 @@ INT  INTERNAL_CALL MouseSafetyOnDrawEnd(SURFOBJ *SurfObj);
 #ifndef MOUSEEVENTF_XUP
 #define MOUSEEVENTF_XUP	(0x100)
 #endif
+
+#endif /* _WIN32K_MOUSE_H */

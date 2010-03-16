@@ -4,6 +4,6 @@
 	<include base="ReactOS">include/reactos/wine</include>
 	<define name="__WINESRC__" />
 	<library>wine</library>
-	<file>reader.c</file>
+	<library>kernel32</library>
 	<file>xmllite_main.c</file>
 </module>

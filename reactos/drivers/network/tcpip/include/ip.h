@@ -4,8 +4,8 @@
  * FILE:        include/ip.h
  * PURPOSE:     Internet Protocol related definitions
  */
-
-#pragma once
+#ifndef __IP_H
+#define __IP_H
 
 typedef VOID (*OBJECT_FREE_ROUTINE)(PVOID Object);
 
@@ -21,6 +21,7 @@ typedef IPv6_RAW_ADDRESS *PIPv6_RAW_ADDRESS;
 
 /* IP style address */
 typedef struct IP_ADDRESS {
+    DEFINE_TAG
     UCHAR Type;                      /* Type of IP address */
     union {
         IPv4_RAW_ADDRESS IPv4Address;/* IPv4 address (in network byte order) */
@@ -75,6 +76,7 @@ typedef VOID (*PACKET_COMPLETION_ROUTINE)(
 
 /* Structure for an IP packet */
 typedef struct _IP_PACKET {
+    DEFINE_TAG
     OBJECT_FREE_ROUTINE Free;           /* Routine used to free resources for the object */
     UCHAR Type;                         /* Type of IP packet (see IP_ADDRESS_xx above) */
     UCHAR Flags;                        /* Flags for packet (see IP_PACKET_FLAG_xx below)*/
@@ -148,6 +150,7 @@ typedef struct _SEND_RECV_STATS {
 
 /* Information about an IP interface */
 typedef struct _IP_INTERFACE {
+    DEFINE_TAG
     LIST_ENTRY ListEntry;         /* Entry on list */
     OBJECT_FREE_ROUTINE Free;     /* Routine used to free resources used by the object */
     KSPIN_LOCK Lock;              /* Spin lock for this object */
@@ -245,5 +248,9 @@ VOID IPRegisterProtocol(
 NTSTATUS IPStartup(PUNICODE_STRING RegistryPath);
 
 NTSTATUS IPShutdown(VOID);
+
+
+
+#endif /* __IP_H */
 
 /* EOF */

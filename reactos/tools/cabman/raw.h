@@ -4,8 +4,8 @@
  * FILE:        tools/cabman/raw.h
  * PURPOSE:     CAB codec for uncompressed data
  */
-
-#pragma once
+#ifndef __RAW_H
+#define __RAW_H
 
 #include "cabinet.h"
 
@@ -29,5 +29,7 @@ public:
                              ULONG InputLength,
                              PULONG OutputLength);
 };
+
+#endif /* __RAW_H */
 
 /* EOF */

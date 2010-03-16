@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SYSAUDIO_H__
+#define SYSAUDIO_H__
 
 #include <ntifs.h>
 #include <ntddk.h>
@@ -132,3 +133,6 @@ ComputeCompatibleFormat(
     IN ULONG PinId,
     IN PKSDATAFORMAT_WAVEFORMATEX ClientFormat,
     OUT PKSDATAFORMAT_WAVEFORMATEX MixerFormat);
+
+
+#endif

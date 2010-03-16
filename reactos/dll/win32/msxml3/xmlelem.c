@@ -48,7 +48,6 @@ typedef struct _xmlelem
     const IXMLElementVtbl *lpVtbl;
     LONG ref;
     xmlNodePtr node;
-    BOOL own;
 } xmlelem;
 
 static inline xmlelem *impl_from_IXMLElement(IXMLElement *iface)
@@ -95,8 +94,7 @@ static ULONG WINAPI xmlelem_Release(IXMLElement *iface)
     ref = InterlockedDecrement(&This->ref);
     if (ref == 0)
     {
-        if (This->own) xmlFreeNode(This->node);
-        heap_free(This);
+        HeapFree(GetProcessHeap(), 0, This);
     }
 
     return ref;
@@ -173,17 +171,31 @@ static HRESULT WINAPI xmlelem_Invoke(IXMLElement *iface, DISPID dispIdMember,
     return hr;
 }
 
+static inline BSTR str_dup_upper(BSTR str)
+{
+    INT len = (lstrlenW(str) + 1) * sizeof(WCHAR);
+    BSTR p = SysAllocStringLen(NULL, len);
+    if (p)
+    {
+        memcpy(p, str, len);
+        CharUpperW(p);
+    }
+    return p;
+}
+
 static HRESULT WINAPI xmlelem_get_tagName(IXMLElement *iface, BSTR *p)
 {
     xmlelem *This = impl_from_IXMLElement(iface);
+    BSTR temp;
 
     TRACE("(%p, %p)\n", iface, p);
 
     if (!p)
         return E_INVALIDARG;
 
-    *p = bstr_from_xmlChar(This->node->name);
-    CharUpperBuffW(*p, SysStringLen(*p));
+    temp = bstr_from_xmlChar(This->node->name);
+    *p = str_dup_upper(temp);
+    SysFreeString(temp);
 
     TRACE("returning %s\n", debugstr_w(*p));
 
@@ -214,7 +226,7 @@ static HRESULT WINAPI xmlelem_get_parent(IXMLElement *iface, IXMLElement **paren
     if (!This->node->parent)
         return S_FALSE;
 
-    return XMLElement_create((IUnknown *)iface, This->node->parent, (LPVOID *)parent, FALSE);
+    return XMLElement_create((IUnknown *)iface, This->node->parent, (LPVOID *)parent);
 }
 
 static HRESULT WINAPI xmlelem_setAttribute(IXMLElement *iface, BSTR strPropertyName,
@@ -233,8 +245,8 @@ static HRESULT WINAPI xmlelem_setAttribute(IXMLElement *iface, BSTR strPropertyN
     value = xmlChar_from_wchar(V_BSTR(&PropertyValue));
     attr = xmlSetProp(This->node, name, value);
 
-    heap_free(name);
-    heap_free(value);
+    HeapFree(GetProcessHeap(), 0, name);
+    HeapFree(GetProcessHeap(), 0, value);
     return (attr) ? S_OK : S_FALSE;
 }
 
@@ -275,7 +287,7 @@ static HRESULT WINAPI xmlelem_getAttribute(IXMLElement *iface, BSTR strPropertyN
         V_BSTR(PropertyValue) = bstr_from_xmlChar(val);
     }
 
-    heap_free(name);
+    HeapFree(GetProcessHeap(), 0, name);
     xmlFree(val);
     TRACE("returning %s\n", debugstr_w(V_BSTR(PropertyValue)));
     return (val) ? S_OK : S_FALSE;
@@ -305,7 +317,7 @@ static HRESULT WINAPI xmlelem_removeAttribute(IXMLElement *iface, BSTR strProper
         hr = S_OK;
 
 done:
-    heap_free(name);
+    HeapFree(GetProcessHeap(), 0, name);
     return hr;
 }
 
@@ -318,7 +330,7 @@ static HRESULT WINAPI xmlelem_get_children(IXMLElement *iface, IXMLElementCollec
     if (!p)
         return E_INVALIDARG;
 
-    return XMLElementCollection_create((IUnknown *)iface, This->node, (LPVOID *)p);
+    return XMLElementCollection_create((IUnknown *)iface, This->node->children, (LPVOID *)p);
 }
 
 static LONG type_libxml_to_msxml(xmlElementType type)
@@ -390,7 +402,7 @@ static HRESULT WINAPI xmlelem_put_text(IXMLElement *iface, BSTR p)
     content = xmlChar_from_wchar(p);
     xmlNodeSetContent(This->node, content);
 
-    heap_free(content);
+    HeapFree( GetProcessHeap(), 0, content);
 
     return S_OK;
 }
@@ -409,31 +421,13 @@ static HRESULT WINAPI xmlelem_addChild(IXMLElement *iface, IXMLElement *pChildEl
     else
         child = xmlAddNextSibling(This->node, childElem->node->last);
 
-    /* parent is responsible for child data */
-    if (child) childElem->own = FALSE;
-
     return (child) ? S_OK : S_FALSE;
 }
 
 static HRESULT WINAPI xmlelem_removeChild(IXMLElement *iface, IXMLElement *pChildElem)
 {
-    xmlelem *This = impl_from_IXMLElement(iface);
-    xmlelem *childElem = impl_from_IXMLElement(pChildElem);
-
-    TRACE("(%p, %p)\n", This, childElem);
-
-    if (!pChildElem)
-        return E_INVALIDARG;
-
-    /* only supported for This is childElem parent case */
-    if (This->node != childElem->node->parent)
-        return E_INVALIDARG;
-
-    xmlUnlinkNode(childElem->node);
-    /* standalone element now */
-    childElem->own = TRUE;
-
-    return S_OK;
+    FIXME("(%p, %p): stub\n", iface, pChildElem);
+    return E_NOTIMPL;
 }
 
 static const struct IXMLElementVtbl xmlelem_vtbl =
@@ -459,7 +453,7 @@ static const struct IXMLElementVtbl xmlelem_vtbl =
     xmlelem_removeChild
 };
 
-HRESULT XMLElement_create(IUnknown *pUnkOuter, xmlNodePtr node, LPVOID *ppObj, BOOL own)
+HRESULT XMLElement_create(IUnknown *pUnkOuter, xmlNodePtr node, LPVOID *ppObj)
 {
     xmlelem *elem;
 
@@ -470,14 +464,13 @@ HRESULT XMLElement_create(IUnknown *pUnkOuter, xmlNodePtr node, LPVOID *ppObj, B
 
     *ppObj = NULL;
 
-    elem = heap_alloc(sizeof (*elem));
+    elem = HeapAlloc(GetProcessHeap(), 0, sizeof (*elem));
     if(!elem)
         return E_OUTOFMEMORY;
 
     elem->lpVtbl = &xmlelem_vtbl;
     elem->ref = 1;
     elem->node = node;
-    elem->own  = own;
 
     *ppObj = &elem->lpVtbl;
 
@@ -499,19 +492,6 @@ typedef struct _xmlelem_collection
     /* IEnumVARIANT members */
     xmlNodePtr current;
 } xmlelem_collection;
-
-static inline LONG xmlelem_collection_updatelength(xmlelem_collection *collection)
-{
-    xmlNodePtr ptr = collection->node->children;
-
-    collection->length = 0;
-    while (ptr)
-    {
-        collection->length++;
-        ptr = ptr->next;
-    }
-    return collection->length;
-}
 
 static inline xmlelem_collection *impl_from_IXMLElementCollection(IXMLElementCollection *iface)
 {
@@ -566,7 +546,7 @@ static ULONG WINAPI xmlelem_collection_Release(IXMLElementCollection *iface)
     ref = InterlockedDecrement(&This->ref);
     if (ref == 0)
     {
-        heap_free(This);
+        HeapFree(GetProcessHeap(), 0, This);
     }
 
     return ref;
@@ -617,7 +597,7 @@ static HRESULT WINAPI xmlelem_collection_get_length(IXMLElementCollection *iface
     if (!p)
         return E_INVALIDARG;
 
-    *p = xmlelem_collection_updatelength(This);
+    *p = This->length;
     return S_OK;
 }
 
@@ -639,7 +619,7 @@ static HRESULT WINAPI xmlelem_collection_item(IXMLElementCollection *iface, VARI
                                               VARIANT var2, IDispatch **ppDisp)
 {
     xmlelem_collection *This = impl_from_IXMLElementCollection(iface);
-    xmlNodePtr ptr = This->node->children;
+    xmlNodePtr ptr = This->node;
     int index, i;
 
     TRACE("(%p, %p)\n", iface, ppDisp);
@@ -652,15 +632,13 @@ static HRESULT WINAPI xmlelem_collection_item(IXMLElementCollection *iface, VARI
     index = V_I4(&var1);
     if (index < 0)
         return E_INVALIDARG;
-
-    xmlelem_collection_updatelength(This);
     if (index >= This->length)
         return E_FAIL;
 
     for (i = 0; i < index; i++)
         ptr = ptr->next;
 
-    return XMLElement_create((IUnknown *)iface, ptr, (LPVOID *)ppDisp, FALSE);
+    return XMLElement_create((IUnknown *)iface, ptr, (LPVOID *)ppDisp);
 }
 
 static const struct IXMLElementCollectionVtbl xmlelem_collection_vtbl =
@@ -720,7 +698,7 @@ static HRESULT WINAPI xmlelem_collection_IEnumVARIANT_Next(
     This->current = This->current->next;
 
     V_VT(rgVar) = VT_DISPATCH;
-    return XMLElement_create((IUnknown *)iface, ptr, (LPVOID *)&V_DISPATCH(rgVar), FALSE);
+    return XMLElement_create((IUnknown *)iface, ptr, (LPVOID *)&V_DISPATCH(rgVar));
 }
 
 static HRESULT WINAPI xmlelem_collection_IEnumVARIANT_Skip(
@@ -734,7 +712,7 @@ static HRESULT WINAPI xmlelem_collection_IEnumVARIANT_Reset(
     IEnumVARIANT *iface)
 {
     xmlelem_collection *This = impl_from_IEnumVARIANT(iface);
-    This->current = This->node->children;
+    This->current = This->node;
     return S_OK;
 }
 
@@ -759,15 +737,16 @@ static const struct IEnumVARIANTVtbl xmlelem_collection_IEnumVARIANTvtbl =
 static HRESULT XMLElementCollection_create(IUnknown *pUnkOuter, xmlNodePtr node, LPVOID *ppObj)
 {
     xmlelem_collection *collection;
+    xmlNodePtr ptr;
 
     TRACE("(%p,%p)\n", pUnkOuter, ppObj);
 
     *ppObj = NULL;
 
-    if (!node->children)
+    if (!node)
         return S_FALSE;
 
-    collection = heap_alloc(sizeof (*collection));
+    collection = HeapAlloc(GetProcessHeap(), 0, sizeof (*collection));
     if(!collection)
         return E_OUTOFMEMORY;
 
@@ -776,8 +755,14 @@ static HRESULT XMLElementCollection_create(IUnknown *pUnkOuter, xmlNodePtr node,
     collection->ref = 1;
     collection->length = 0;
     collection->node = node;
-    collection->current = node->children;
-    xmlelem_collection_updatelength(collection);
+    collection->current = node;
+
+    ptr = node;
+    while (ptr)
+    {
+        collection->length++;
+        ptr = ptr->next;
+    }
 
     *ppObj = &collection->lpVtbl;
 

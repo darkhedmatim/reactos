@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _LINUX_LP_H
+#define _LINUX_LP_H
 
 /*
  * usr/include/linux/lp.h c.1991-1992 James Wiegand
@@ -132,3 +133,5 @@
  * It is used only in the lp_init() routine.
  */
 #define LP_DELAY 	150000
+
+#endif

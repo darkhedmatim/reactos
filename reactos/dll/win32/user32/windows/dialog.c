@@ -560,12 +560,6 @@ INT DIALOG_DoDialogBox( HWND hwnd, HWND owner )
                 DispatchMessageW( &msg );
             }
             if (dlgInfo->flags & DF_END) break;
-
-            if (bFirstEmpty && msg.message == WM_TIMER)
-            {
-                ShowWindow( hwnd, SW_SHOWNORMAL );
-                bFirstEmpty = FALSE;
-            }
         }
     }
     if (dlgInfo->flags & DF_OWNERENABLED) DIALOG_EnableOwner( owner );
@@ -586,10 +580,10 @@ static LPCSTR DIALOG_ParseTemplate32( LPCSTR template, DLG_TEMPLATE * result )
     WORD signature;
     WORD dlgver;
 
-    dlgver = GET_WORD(p); p++;
     signature = GET_WORD(p); p++;
+    dlgver = GET_WORD(p); p++;
 
-    if (dlgver == 1 && signature == 0xffff)  /* DIALOGEX resource */
+    if (signature == 1 && dlgver == 0xffff)  /* DIALOGEX resource */
     {
         result->dialogEx = TRUE;
         result->helpId   = GET_DWORD(p); p += 2;
@@ -974,13 +968,10 @@ static HWND DIALOG_CreateIndirect( HINSTANCE hInst, LPCVOID dlgTemplate,
 
         if (dlgProc)
         {
-            HWND focus = GetNextDlgTabItem( hwnd, 0, FALSE );
-            if (SendMessageW( hwnd, WM_INITDIALOG, (WPARAM)focus, param ) &&
+            if (SendMessageW( hwnd, WM_INITDIALOG, (WPARAM)dlgInfo->hwndFocus, param ) &&
                 ((~template.style & DS_CONTROL) || (template.style & WS_VISIBLE)))
             {
-                /* By returning TRUE, app has requested a default focus assignment.
-                 * WM_INITDIALOG may have changed the tab order, so find the first
-                 * tabstop control again. */
+                /* By returning TRUE, app has requested a default focus assignment */
                 dlgInfo->hwndFocus = GetNextDlgTabItem( hwnd, 0, FALSE);
                 if( dlgInfo->hwndFocus )
                     SetFocus( dlgInfo->hwndFocus );

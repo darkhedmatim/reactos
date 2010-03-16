@@ -37,7 +37,6 @@ extern char reactos_arc_strings[32][256];
 
 extern BOOLEAN UseRealHeap;
 extern ULONG LoaderPagesSpanned;
-extern BOOLEAN AcpiPresent;
 
 BOOLEAN
 WinLdrCheckForLoadedDll(IN OUT PLOADER_PARAMETER_BLOCK WinLdrBlock,
@@ -197,13 +196,6 @@ WinLdrInitializePhase1(PLOADER_PARAMETER_BLOCK LoaderBlock,
 	Extension->MinorVersion = VersionToBoot & 0xFF;
 	Extension->Profile.Status = 2;
 
-	/* Check if ACPI is present */
-	if (AcpiPresent)
-	{
-		/* See KiRosFrldrLpbToNtLpb for details */
-		Extension->AcpiTable = (PVOID)1;
-	}
-
 	/* Load drivers database */
 	strcpy(MiscFiles, BootPath);
 	strcat(MiscFiles, "AppPatch\\drvmain.sdb");
@@ -232,7 +224,7 @@ WinLdrLoadDeviceDriver(PLOADER_PARAMETER_BLOCK LoaderBlock,
 	PVOID DriverBase;
 
 	// Separate the path to file name and directory path
-	snprintf(DriverPath, sizeof(DriverPath), "%wZ", FilePath);
+	sprintf(DriverPath, "%S", FilePath->Buffer);
 	DriverNamePos = strrchr(DriverPath, '\\');
 	if (DriverNamePos != NULL)
 	{
@@ -261,7 +253,7 @@ WinLdrLoadDeviceDriver(PLOADER_PARAMETER_BLOCK LoaderBlock,
 	}
 
 	// It's not loaded, we have to load it
-	snprintf(FullPath, sizeof(FullPath), "%s%wZ", BootPath, FilePath);
+	sprintf(FullPath,"%s%S", BootPath, FilePath->Buffer);
 	Status = WinLdrLoadImage(FullPath, LoaderBootDriver, &DriverBase);
 	if (!Status)
 		return FALSE;
@@ -324,7 +316,6 @@ WinLdrLoadBootDrivers(PLOADER_PARAMETER_BLOCK LoaderBlock,
 
 		// Convert the RegistryPath and DTE addresses to VA since we are not going to use it anymore
 		BootDriver->RegistryPath.Buffer = PaToVa(BootDriver->RegistryPath.Buffer);
-		BootDriver->FilePath.Buffer = PaToVa(BootDriver->FilePath.Buffer);
 		BootDriver->LdrEntry = PaToVa(BootDriver->LdrEntry);
 
 		NextBd = BootDriver->Link.Flink;
@@ -426,7 +417,7 @@ LoadAndBootWindows(PCSTR OperatingSystemName,
 	PCHAR PathSeparator;
 	PVOID NtosBase = NULL, HalBase = NULL, KdComBase = NULL;
 	BOOLEAN Status;
-	ULONG_PTR SectionId;
+	ULONG SectionId;
 	PLOADER_PARAMETER_BLOCK LoaderBlock, LoaderBlockVA;
 	KERNEL_ENTRY_POINT KiSystemStartup;
 	PLDR_DATA_TABLE_ENTRY KernelDTE, HalDTE, KdComDTE = NULL;
@@ -593,7 +584,7 @@ LoadAndBootWindows(PCSTR OperatingSystemName,
 	WinLdrTurnOnPaging(LoaderBlock, PcrBasePage, TssBasePage, GdtIdt);
 
 	/* Save final value of LoaderPagesSpanned */
-	LoaderBlockVA->Extension->LoaderPagesSpanned = LoaderPagesSpanned;
+	LoaderBlock->Extension->LoaderPagesSpanned = LoaderPagesSpanned;
 
 	DPRINTM(DPRINT_WINDOWS, "Hello from paged mode, KiSystemStartup %p, LoaderBlockVA %p!\n",
 		KiSystemStartup, LoaderBlockVA);

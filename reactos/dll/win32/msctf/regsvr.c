@@ -462,13 +462,6 @@ static struct regsvr_coclass const coclass_list[] = {
         "msctf.dll",
         "Apartment"
     },
-    {
-        &CLSID_TF_LangBarMgr,
-        "TF_LangBarMgr",
-        NULL,
-        "msctf.dll",
-        "Apartment"
-    },
     { NULL }			/* list terminator */
 };
 
@@ -481,7 +474,7 @@ static struct regsvr_interface const interface_list[] = {
 };
 
 /***********************************************************************
- *		DllRegisterServer (MSCTF.@)
+ *		DllRegisterServer (HHCTRL.@)
  */
 HRESULT WINAPI DllRegisterServer(void)
 {
@@ -496,7 +489,7 @@ HRESULT WINAPI DllRegisterServer(void)
 }
 
 /***********************************************************************
- *		DllUnregisterServer (MSCTF.@)
+ *		DllUnregisterServer (HHCTRL.@)
  */
 HRESULT WINAPI DllUnregisterServer(void)
 {

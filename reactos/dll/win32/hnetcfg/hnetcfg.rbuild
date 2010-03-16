@@ -8,12 +8,11 @@
 	<library>wine</library>
 	<library>ole32</library>
 	<library>advapi32</library>
+	<library>kernel32</library>
 	<file>apps.c</file>
 	<file>hnetcfg.c</file>
 	<file>manager.c</file>
 	<file>policy.c</file>
-	<file>port.c</file>
 	<file>profile.c</file>
 	<file>regsvr.c</file>
-	<file>service.c</file>
 </module>

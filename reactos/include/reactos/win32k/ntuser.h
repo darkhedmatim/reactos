@@ -6,21 +6,6 @@ typedef struct _THREADINFO *PTHREADINFO;
 struct _DESKTOP;
 struct _WND;
 
-typedef enum _USERTHREADINFOCLASS
-{
-    UserThreadShutdownInformation,
-    UserThreadFlags,
-    UserThreadTaskName,
-    UserThreadWOWInformation,
-    UserThreadHungStatus,
-    UserThreadInitiateShutdown,
-    UserThreadEndShutdown,
-    UserThreadUseActiveDesktop,
-    UserThreadUseDesktop,
-    UserThreadRestoreDesktop,
-    UserThreadCsrApiPort,
-} USERTHREADINFOCLASS;
-
 typedef struct _LARGE_UNICODE_STRING
 {
   ULONG Length;
@@ -55,13 +40,13 @@ typedef struct _DESKTOPINFO
 {
     PVOID pvDesktopBase;
     PVOID pvDesktopLimit;
-    struct _WND *spwnd;
-    DWORD fsHooks;
-    struct tagHOOK * aphkStart[16];
 
+    HANDLE hKernelHeap;
+    ULONG_PTR HeapLimit;
     HWND hTaskManWindow;
     HWND hProgmanWindow;
     HWND hShellWindow;
+    struct _WND *Wnd;
 
     union
     {
@@ -109,18 +94,12 @@ typedef struct _THRDESKHEAD
 
 typedef struct _PROCDESKHEAD
 {
-  HEAD;
+  HANDLE h;
+  DWORD  cLockObj;  
   DWORD hTaskWow;
   struct _DESKTOP *rpdesk;
   PVOID       pSelf;
 } PROCDESKHEAD, *PPROCDESKHEAD;
-
-typedef struct _PROCMARKHEAD
-{
-  HEAD;
-  ULONG hTaskWow;
-  PPROCESSINFO ppi;
-} PROCMARKHEAD, *PPROCMARKHEAD;
 
 #define UserHMGetHandle(obj) ((obj)->head.h)
 
@@ -220,69 +199,6 @@ typedef struct _CLIENTINFO
 C_ASSERT(sizeof(CLIENTINFO) == FIELD_OFFSET(TEB, glDispatchTable) - FIELD_OFFSET(TEB, Win32ClientInfo));
 
 #define GetWin32ClientInfo() ((PCLIENTINFO)(NtCurrentTeb()->Win32ClientInfo))
-
-/* Menu Item fType. */
-#define MFT_RTOL 0x6000
-
-typedef struct tagITEM
-{
-    UINT fType;
-    UINT fState;
-    UINT wID;
-    struct tagMENU* spSubMenu; /* Pop-up menu. */
-    HANDLE hbmpChecked;
-    HANDLE hbmpUnchecked;
-    USHORT* lpstr; /* Item text pointer. */
-    ULONG cch;
-    DWORD_PTR dwItemData;
-    ULONG xItem;   /* Item position. left */
-    ULONG yItem;   /*     "          top */
-    ULONG cxItem;  /* Item Size Width */
-    ULONG cyItem;  /*     "     Height */
-    ULONG dxTab;   /* X position of text after Tab */
-    ULONG ulX;     /* underline.. start position */
-    ULONG ulWidth; /* underline.. width */
-    HBITMAP hbmp;  /* bitmap */
-    INT cxBmp;     /* Width Maximum size of the bitmap items in MIIM_BITMAP state */
-    INT cyBmp;     /* Height " */
-} ITEM, *PITEM;
-
-typedef struct tagMENULIST
-{
-   struct tagMENULIST* pNext;
-   struct tagMENU*     pMenu;
-} MENULIST, *PMENULIST;
-
-/* Menu fFlags, upper byte is MNS_X style flags. */
-#define MNF_POPUP       0x0001
-#define MNF_UNDERLINE   0x0004
-#define MNF_INACTIVE    0x0010
-#define MNF_RTOL        0x0020
-#define MNF_DESKTOPMN   0x0040
-#define MNF_SYSDESKMN   0x0080
-#define MNF_SYSSUBMENU  0x0100
-
-typedef struct tagMENU
-{
-    PROCDESKHEAD head;
-    ULONG fFlags;             /* [Style flags | Menu flags] */
-    INT iItem;                /* nPos of selected item, if -1 not selected. */
-    UINT cAlloced;            /* Number of allocated items. Inc's of 8 */
-    UINT cItems;              /* Number of items in the menu */
-    ULONG cxMenu;             /* Width of the whole menu */
-    ULONG cyMenu;             /* Height of the whole menu */
-    ULONG cxTextAlign;        /* Offset of text when items have both bitmaps and text */
-    struct _WND *spwndNotify; /* window receiving the messages for ownerdraw */
-    PITEM rgItems;            /* Array of menu items */
-    struct tagMENULIST* pParentMenus; /* If this is SubMenu, list of parents. */
-    DWORD dwContextHelpId;
-    ULONG cyMax;              /* max height of the whole menu, 0 is screen height */
-    DWORD_PTR dwMenuData;     /* application defined value */
-    HBRUSH hbrBack;           /* brush for menu background */
-    INT iTop;                 /* Current scroll position Top */
-    INT iMaxTop;              /* Current scroll position Max Top */
-    DWORD dwArrowsOn:2;       /* Arrows: 0 off, 1 on, 2 to the top, 3 to the bottom. */
-} MENU, *PMENU;
 
 typedef struct _REGISTER_SYSCLASS
 {
@@ -853,8 +769,6 @@ typedef struct _USERCONNECT
 //
 #define DCX_USESTYLE     0x00010000
 #define DCX_KEEPCLIPRGN  0x00040000
-#define DCX_KEEPLAYOUT   0x40000000
-#define DCX_PROCESSOWNED 0x80000000
 
 //
 // Non SDK Queue message types.
@@ -1332,22 +1246,22 @@ NtUserCallNextHookEx(
   LPARAM lParam,
   BOOL Ansi);
 
-DWORD_PTR
+DWORD
 NTAPI
 NtUserCallNoParam(
   DWORD Routine);
 
-DWORD_PTR
+DWORD
 NTAPI
 NtUserCallOneParam(
-  DWORD_PTR Param,
+  DWORD Param,
   DWORD Routine);
 
-DWORD_PTR
+DWORD
 NTAPI
 NtUserCallTwoParam(
-  DWORD_PTR Param1,
-  DWORD_PTR Param2,
+  DWORD Param1,
+  DWORD Param2,
   DWORD Routine);
 
 BOOL
@@ -1626,15 +1540,6 @@ NtUserDrawCaptionTemp(
   const PUNICODE_STRING str,
   UINT uFlags);
 
-// Used with NtUserDrawIconEx, last parameter.
-typedef struct _DRAWICONEXDATA
-{
-  HBITMAP hbmMask;
-  HBITMAP hbmColor;
-  int cx;
-  int cy;
-} DRAWICONEXDATA, *PDRAWICONEXDATA;
-
 BOOL
 NTAPI
 NtUserDrawIconEx(
@@ -1647,8 +1552,8 @@ NtUserDrawIconEx(
   UINT istepIfAniCur,
   HBRUSH hbrFlickerFreeDraw,
   UINT diFlags,
-  BOOL bMetaHDC,
-  PVOID pDIXData);
+  DWORD Unknown0,
+  DWORD Unknown1);
 
 DWORD
 NTAPI
@@ -2105,7 +2010,7 @@ enum ThreadStateRoutines
     THREADSTATE_GETINPUTSTATE
 };
 
-DWORD_PTR
+DWORD
 NTAPI
 NtUserGetThreadState(
   DWORD Routine);
@@ -2554,13 +2459,13 @@ NTAPI
 NtUserResolveDesktopForWOW(
   DWORD Unknown0);
 
-BOOL
+DWORD
 NTAPI
 NtUserSBGetParms(
-  HWND hwnd,
-  int fnBar,
-  PSBDATA pSBData,
-  LPSCROLLINFO lpsi);
+  DWORD Unknown0,
+  DWORD Unknown1,
+  DWORD Unknown2,
+  DWORD Unknown3);
 
 BOOL
 NTAPI
@@ -2696,14 +2601,13 @@ NtUserSetInformationProcess(
     DWORD dwUnknown3,
     DWORD dwUnknown4);
 
-NTSTATUS
+DWORD
 NTAPI
 NtUserSetInformationThread(
-    IN HANDLE ThreadHandle,
-    IN USERTHREADINFOCLASS ThreadInformationClass,
-    IN PVOID ThreadInformation,
-    IN ULONG ThreadInformationLength
-);
+    DWORD dwUnknown1,
+    DWORD dwUnknown2,
+    DWORD dwUnknown3,
+    DWORD dwUnknown4);
 
 DWORD
 NTAPI
@@ -3225,6 +3129,22 @@ NtUserGetMonitorInfo(
   OUT LPMONITORINFO pMonitorInfo);
 
 /* Should be done in usermode */
+BOOL
+NTAPI
+NtUserGetScrollInfo(
+  HWND hwnd,
+  int fnBar,
+  LPSCROLLINFO lpsi);
+
+HWND
+NTAPI
+NtUserGetWindow(HWND hWnd, UINT Relationship);
+
+/* Should be done in usermode and use NtUserGetCPD. */
+LONG
+NTAPI
+NtUserGetWindowLong(HWND hWnd, DWORD Index, BOOL Ansi);
+
 
 /* (other FocusedItem values give the position of the focused item) */
 #define NO_SELECTED_ITEM  0xffff

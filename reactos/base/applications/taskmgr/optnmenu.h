@@ -24,7 +24,8 @@
  * Menu item handlers for the options menu.
  */
 
-#pragma once
+#ifndef __OPTNMENU_H
+#define __OPTNMENU_H
 
 #define OPTIONS_MENU_INDEX    1
 
@@ -32,3 +33,5 @@ void TaskManager_OnOptionsAlwaysOnTop(void);
 void TaskManager_OnOptionsMinimizeOnUse(void);
 void TaskManager_OnOptionsHideWhenMinimized(void);
 void TaskManager_OnOptionsShow16BitTasks(void);
+
+#endif /* __OPTNMENU_H */

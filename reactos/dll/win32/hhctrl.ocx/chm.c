@@ -38,13 +38,12 @@ static LPCSTR GetChmString(CHMInfo *chm, DWORD offset)
         return NULL;
 
     if(chm->strings_size <= (offset >> BLOCK_BITS)) {
-        chm->strings_size = (offset >> BLOCK_BITS)+1;
         if(chm->strings)
             chm->strings = heap_realloc_zero(chm->strings,
-                    chm->strings_size*sizeof(char*));
+                    chm->strings_size = ((offset >> BLOCK_BITS)+1)*sizeof(char*));
         else
             chm->strings = heap_alloc_zero(
-                    chm->strings_size*sizeof(char*));
+                    chm->strings_size = ((offset >> BLOCK_BITS)+1)*sizeof(char*));
 
     }
 
@@ -389,6 +388,7 @@ CHMInfo *OpenCHM(LPCWSTR szFile)
         WARN("Could not open storage: %08x\n", hres);
         return CloseCHM(ret);
     }
+
     hres = IStorage_OpenStream(ret->pStorage, wszSTRINGS, NULL, STGM_READ, 0,
             &ret->strings_stream);
     if(FAILED(hres)) {

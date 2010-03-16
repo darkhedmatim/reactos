@@ -2,7 +2,8 @@
  *
  */
 
-#pragma once
+#ifndef __INTERNAL_HAL_HAL_H
+#define __INTERNAL_HAL_HAL_H
 
 /* Temporary hack */
 #define KPCR_BASE   0xFF000000
@@ -124,3 +125,5 @@ typedef struct tagHALP_HOOKS
 
 extern HALP_HOOKS HalpHooks;
 extern KSPIN_LOCK HalpSystemHardwareLock;
+
+#endif /* __INTERNAL_HAL_HAL_H */

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _RAPPS_H__
+#define _RAPPS_H__
 
 #include <windows.h>
 #include <commctrl.h>
@@ -184,3 +185,5 @@ VOID ToolBarOnGetDispInfo(LPTOOLTIPTEXT lpttt);
 extern HWND hTreeView;
 BOOL CreateTreeView(HWND hwnd);
 HTREEITEM TreeViewAddItem(HTREEITEM hParent, LPWSTR lpText, INT Image, INT SelectedImage, LPARAM lParam);
+
+#endif /* _RAPPS_H__ */

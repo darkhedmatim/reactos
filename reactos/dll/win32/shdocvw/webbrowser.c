@@ -269,9 +269,8 @@ static HRESULT WINAPI WebBrowser_Navigate(IWebBrowser2 *iface, BSTR szUrl,
 {
     WebBrowser *This = WEBBROWSER_THIS(iface);
 
-    TRACE("(%p)->(%s %s %s %s %s)\n", This, debugstr_w(szUrl), debugstr_variant(Flags),
-          debugstr_variant(TargetFrameName), debugstr_variant(PostData),
-          debugstr_variant(Headers));
+    TRACE("(%p)->(%s %p %p %p %p)\n", This, debugstr_w(szUrl), Flags, TargetFrameName,
+          PostData, Headers);
 
     return navigate_url(&This->doc_host, szUrl, Flags, TargetFrameName, PostData, Headers);
 }
@@ -286,7 +285,7 @@ static HRESULT WINAPI WebBrowser_Refresh(IWebBrowser2 *iface)
 static HRESULT WINAPI WebBrowser_Refresh2(IWebBrowser2 *iface, VARIANT *Level)
 {
     WebBrowser *This = WEBBROWSER_THIS(iface);
-    FIXME("(%p)->(%s)\n", This, debugstr_variant(Level));
+    FIXME("(%p)->(%p)\n", This, Level);
     return E_NOTIMPL;
 }
 
@@ -517,28 +516,22 @@ static HRESULT WINAPI WebBrowser_ClientToWindow(IWebBrowser2 *iface, int *pcx, i
 static HRESULT WINAPI WebBrowser_PutProperty(IWebBrowser2 *iface, BSTR szProperty, VARIANT vtValue)
 {
     WebBrowser *This = WEBBROWSER_THIS(iface);
-    FIXME("(%p)->(%s %s)\n", This, debugstr_w(szProperty), debugstr_variant(&vtValue));
+    FIXME("(%p)->(%s)\n", This, debugstr_w(szProperty));
     return E_NOTIMPL;
 }
 
 static HRESULT WINAPI WebBrowser_GetProperty(IWebBrowser2 *iface, BSTR szProperty, VARIANT *pvtValue)
 {
     WebBrowser *This = WEBBROWSER_THIS(iface);
-    FIXME("(%p)->(%s %s)\n", This, debugstr_w(szProperty), debugstr_variant(pvtValue));
+    FIXME("(%p)->(%s %p)\n", This, debugstr_w(szProperty), pvtValue);
     return E_NOTIMPL;
 }
 
 static HRESULT WINAPI WebBrowser_get_Name(IWebBrowser2 *iface, BSTR *Name)
 {
-    static const WCHAR sName[] = {'M','i','c','r','o','s','o','f','t',' ','W','e','b',
-                                  ' ','B','r','o','w','s','e','r',' ','C','o','n','t','r','o','l',0};
     WebBrowser *This = WEBBROWSER_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", This, Name);
-
-    *Name = SysAllocString(sName);
-
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, Name);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI WebBrowser_get_HWND(IWebBrowser2 *iface, LONG *pHWND)
@@ -733,8 +726,7 @@ static HRESULT WINAPI WebBrowser_Navigate2(IWebBrowser2 *iface, VARIANT *URL, VA
     WebBrowser *This = WEBBROWSER_THIS(iface);
     LPCWSTR url;
 
-    TRACE("(%p)->(%s %s %s %s %s)\n", This, debugstr_variant(URL), debugstr_variant(Flags),
-          debugstr_variant(TargetFrameName), debugstr_variant(PostData), debugstr_variant(Headers));
+    TRACE("(%p)->(%p %p %p %p %p)\n", This, URL, Flags, TargetFrameName, PostData, Headers);
 
     if(!This->client)
         return E_FAIL;
@@ -769,7 +761,7 @@ static HRESULT WINAPI WebBrowser_ExecWB(IWebBrowser2 *iface, OLECMDID cmdID,
         OLECMDEXECOPT cmdexecopt, VARIANT *pvaIn, VARIANT *pvaOut)
 {
     WebBrowser *This = WEBBROWSER_THIS(iface);
-    FIXME("(%p)->(%d %d %s %p)\n", This, cmdID, cmdexecopt, debugstr_variant(pvaIn), pvaOut);
+    FIXME("(%p)->(%d %d %p %p)\n", This, cmdID, cmdexecopt, pvaIn, pvaOut);
     return E_NOTIMPL;
 }
 
@@ -777,8 +769,7 @@ static HRESULT WINAPI WebBrowser_ShowBrowserBar(IWebBrowser2 *iface, VARIANT *pv
         VARIANT *pvarShow, VARIANT *pvarSize)
 {
     WebBrowser *This = WEBBROWSER_THIS(iface);
-    FIXME("(%p)->(%s %s %s)\n", This, debugstr_variant(pvaClsid), debugstr_variant(pvarShow),
-          debugstr_variant(pvarSize));
+    FIXME("(%p)->(%p %p %p)\n", This, pvaClsid, pvarShow, pvarSize);
     return E_NOTIMPL;
 }
 

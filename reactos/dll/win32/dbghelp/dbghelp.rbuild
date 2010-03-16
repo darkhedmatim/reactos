@@ -9,15 +9,10 @@
 	<define name="_WINE" />
 	<define name="HAVE_REGEX_H" />
 	<file>coff.c</file>
-	<file>cpu_i386.c</file>
-	<file>cpu_ppc.c</file>
-	<file>cpu_x86_64.c</file>
-	<file>crc32.c</file>
 	<file>dbghelp.c</file>
 	<file>dwarf.c</file>
 	<file>elf_module.c</file>
 	<file>image.c</file>
-	<file>macho_module.c</file>
 	<file>memory.c</file>
 	<file>minidump.c</file>
 	<file>module.c</file>
@@ -32,9 +27,9 @@
 	<file>storage.c</file>
 	<file>symbol.c</file>
 	<file>type.c</file>
-	<file>version.rc</file>
 	<library>wine</library>
 	<library>psapi</library>
+	<library>kernel32</library>
 	<library>version</library>
 	<library>ntdll</library>
 	<library>pseh</library>

@@ -661,8 +661,6 @@ BOOL WINAPI MsiGetMode(MSIHANDLE hInstall, MSIRUNMODE iRunMode)
     MSIPACKAGE *package;
     BOOL r = FALSE;
 
-    TRACE("%d %d\n", hInstall, iRunMode);
-
     package = msihandle2msiinfo(hInstall, MSIHANDLETYPE_PACKAGE);
     if (!package)
     {
@@ -708,16 +706,8 @@ BOOL WINAPI MsiGetMode(MSIHANDLE hInstall, MSIRUNMODE iRunMode)
         r = package->commit_action_running;
         break;
 
-    case MSIRUNMODE_MAINTENANCE:
-        r = msi_get_property_int( package, szInstalled, 0 ) != 0;
-        break;
-
-    case MSIRUNMODE_REBOOTATEND:
-        r = package->need_reboot;
-        break;
-
     default:
-        FIXME("unimplemented run mode: %d\n", iRunMode);
+        FIXME("%d %d\n", hInstall, iRunMode);
         r = TRUE;
     }
 
@@ -727,54 +717,19 @@ BOOL WINAPI MsiGetMode(MSIHANDLE hInstall, MSIRUNMODE iRunMode)
 /***********************************************************************
  *           MsiSetMode    (MSI.@)
  */
-UINT WINAPI MsiSetMode(MSIHANDLE hInstall, MSIRUNMODE iRunMode, BOOL fState)
+BOOL WINAPI MsiSetMode(MSIHANDLE hInstall, MSIRUNMODE iRunMode, BOOL fState)
 {
-    MSIPACKAGE *package;
-    UINT r;
-
-    TRACE("%d %d %d\n", hInstall, iRunMode, fState);
-
-    package = msihandle2msiinfo( hInstall, MSIHANDLETYPE_PACKAGE );
-    if (!package)
-    {
-        HRESULT hr;
-        IWineMsiRemotePackage *remote_package;
-
-        remote_package = (IWineMsiRemotePackage *)msi_get_remote( hInstall );
-        if (!remote_package)
-            return FALSE;
-
-        hr = IWineMsiRemotePackage_SetMode( remote_package, iRunMode, fState );
-        IWineMsiRemotePackage_Release( remote_package );
-
-        if (FAILED(hr))
-        {
-            if (HRESULT_FACILITY(hr) == FACILITY_WIN32)
-                return HRESULT_CODE(hr);
-
-            return ERROR_FUNCTION_FAILED;
-        }
-
-        return ERROR_SUCCESS;
-    }
-
     switch (iRunMode)
     {
-    case MSIRUNMODE_REBOOTATEND:
-        package->need_reboot = 1;
-        r = ERROR_SUCCESS;
-        break;
-
-    case MSIRUNMODE_REBOOTNOW:
-        FIXME("unimplemented run mode: %d\n", iRunMode);
-        r = ERROR_FUNCTION_FAILED;
-        break;
-
+    case MSIRUNMODE_RESERVED11:
+    case MSIRUNMODE_WINDOWS9X:
+    case MSIRUNMODE_RESERVED14:
+    case MSIRUNMODE_RESERVED15:
+        return FALSE;
     default:
-        r = ERROR_ACCESS_DENIED;
+        FIXME("%d %d %d\n", hInstall, iRunMode, fState);
     }
-
-    return r;
+    return TRUE;
 }
 
 /***********************************************************************

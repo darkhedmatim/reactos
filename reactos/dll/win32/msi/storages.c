@@ -296,7 +296,6 @@ static UINT STORAGES_get_column_info(struct tagMSIVIEW *view, UINT n,
 
     static const WCHAR Name[] = {'N','a','m','e',0};
     static const WCHAR Data[] = {'D','a','t','a',0};
-    static const WCHAR _Storages[] = {'_','S','t','o','r','a','g','e','s',0};
 
     TRACE("(%p, %d, %p, %p, %p, %p)\n", view, n, name, type, temporary,
           table_name);
@@ -321,16 +320,6 @@ static UINT STORAGES_get_column_info(struct tagMSIVIEW *view, UINT n,
     {
         *name = strdupW(name_ptr);
         if (!*name) return ERROR_FUNCTION_FAILED;
-    }
-
-    if (table_name)
-    {
-        *table_name = strdupW(_Storages);
-        if (!*table_name)
-        {
-            msi_free(name);
-            return ERROR_FUNCTION_FAILED;
-        }
     }
 
     if (temporary)
@@ -437,13 +426,11 @@ static UINT STORAGES_delete(struct tagMSIVIEW *view)
         if (sv->storages[i]->storage)
             IStorage_Release(sv->storages[i]->storage);
 
-        msi_free(sv->storages[i]->name);
         msi_free(sv->storages[i]);
     }
 
     msi_free(sv->storages);
     sv->storages = NULL;
-    msi_free(sv);
 
     return ERROR_SUCCESS;
 }
@@ -452,7 +439,7 @@ static UINT STORAGES_find_matching_rows(struct tagMSIVIEW *view, UINT col,
                                        UINT val, UINT *row, MSIITERHANDLE *handle)
 {
     MSISTORAGESVIEW *sv = (MSISTORAGESVIEW *)view;
-    UINT index = PtrToUlong(*handle);
+    UINT index = (UINT)*handle;
 
     TRACE("(%d, %d): %d\n", *row, col, val);
 
@@ -470,7 +457,7 @@ static UINT STORAGES_find_matching_rows(struct tagMSIVIEW *view, UINT col,
         index++;
     }
 
-    *handle = UlongToPtr(++index);
+    *handle = (MSIITERHANDLE)++index;
     if (index >= sv->num_rows)
         return ERROR_NO_MORE_ITEMS;
 

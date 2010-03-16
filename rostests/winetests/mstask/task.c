@@ -28,6 +28,33 @@ static ITaskScheduler *test_task_scheduler;
 static ITask *test_task;
 static const WCHAR empty[] = {0};
 
+/* allocate some tmp string space */
+/* FIXME: this is not 100% thread-safe */
+static char *get_tmp_space(int size)
+{
+    static char *list[16];
+    static long pos;
+    char *ret;
+    int idx;
+
+    idx = ++pos % (sizeof(list)/sizeof(list[0]));
+    if ((ret = realloc(list[idx], size)))
+        list[idx] = ret;
+    return ret;
+}
+
+static const char *dbgstr_w(LPCWSTR str)
+{
+    char *buf;
+    int len;
+    if(!str)
+        return "(null)";
+    len = lstrlenW(str) + 1;
+    buf = get_tmp_space(len);
+    WideCharToMultiByte(CP_ACP, 0, str, -1, buf, len, NULL, NULL);
+    return buf;
+}
+
 static BOOL setup_task(void)
 {
     HRESULT hres;
@@ -95,7 +122,7 @@ static void test_SetApplicationName_GetApplicationName(void)
     if (hres == S_OK)
     {
         ok(!lstrcmpiW(stored_name, empty),
-                "Got %s, expected empty string\n", wine_dbgstr_w(stored_name));
+                "Got %s, expected empty string\n", dbgstr_w(stored_name));
         CoTaskMemFree(stored_name);
     }
 
@@ -103,14 +130,14 @@ static void test_SetApplicationName_GetApplicationName(void)
      * the application name that is actually stored */
     hres = ITask_SetApplicationName(test_task, non_application_name);
     ok(hres == S_OK, "Failed setting name %s: %08x\n",
-            wine_dbgstr_w(non_application_name), hres);
+            dbgstr_w(non_application_name), hres);
     hres = ITask_GetApplicationName(test_task, &stored_name);
     ok(hres == S_OK, "GetApplicationName failed: %08x\n", hres);
     if (hres == S_OK)
     {
         full_name = path_resolve_name(non_application_name);
         ok(!lstrcmpiW(stored_name, full_name), "Got %s, expected %s\n",
-                wine_dbgstr_w(stored_name), wine_dbgstr_w(full_name));
+                dbgstr_w(stored_name), dbgstr_w(full_name));
         CoTaskMemFree(stored_name);
     }
 
@@ -118,21 +145,21 @@ static void test_SetApplicationName_GetApplicationName(void)
      * get the stored name */
     hres = ITask_SetApplicationName(test_task, notepad_exe);
     ok(hres == S_OK, "Failed setting name %s: %08x\n",
-            wine_dbgstr_w(notepad_exe), hres);
+            dbgstr_w(notepad_exe), hres);
     hres = ITask_GetApplicationName(test_task, &stored_name);
     ok(hres == S_OK, "GetApplicationName failed: %08x\n", hres);
     if (hres == S_OK)
     {
         full_name = path_resolve_name(notepad_exe);
         ok(!lstrcmpiW(stored_name, full_name), "Got %s, expected %s\n",
-                wine_dbgstr_w(stored_name), wine_dbgstr_w(full_name));
+                dbgstr_w(stored_name), dbgstr_w(full_name));
         CoTaskMemFree(stored_name);
     }
 
     /* Set a valid application name without program type extension and
      * then get the stored name */
     hres = ITask_SetApplicationName(test_task, notepad);
-    ok(hres == S_OK, "Failed setting name %s: %08x\n", wine_dbgstr_w(notepad), hres);
+    ok(hres == S_OK, "Failed setting name %s: %08x\n", dbgstr_w(notepad), hres);
     hres = ITask_GetApplicationName(test_task, &stored_name);
     ok(hres == S_OK, "GetApplicationName failed: %08x\n", hres);
     if (hres == S_OK)
@@ -142,7 +169,7 @@ static void test_SetApplicationName_GetApplicationName(void)
         {
             full_name = path_resolve_name(notepad);
             ok(!lstrcmpiW(stored_name, full_name), "Got %s, expected %s\n",
-               wine_dbgstr_w(stored_name), wine_dbgstr_w(full_name));
+               dbgstr_w(stored_name), dbgstr_w(full_name));
         }
         CoTaskMemFree(stored_name);
     }
@@ -152,26 +179,26 @@ static void test_SetApplicationName_GetApplicationName(void)
      * actually stored */
     hres = ITask_SetApplicationName(test_task, non_application_name);
     ok(hres == S_OK, "Failed setting name %s: %08x\n",
-            wine_dbgstr_w(non_application_name), hres);
+            dbgstr_w(non_application_name), hres);
     hres = ITask_GetApplicationName(test_task, &stored_name);
     ok(hres == S_OK, "GetApplicationName failed: %08x\n", hres);
     if (hres == S_OK)
     {
         full_name = path_resolve_name(non_application_name);
         ok(!lstrcmpiW(stored_name, full_name), "Got %s, expected %s\n",
-                wine_dbgstr_w(stored_name), wine_dbgstr_w(full_name));
+                dbgstr_w(stored_name), dbgstr_w(full_name));
         CoTaskMemFree(stored_name);
     }
 
     /* Clear application name */
     hres = ITask_SetApplicationName(test_task, empty);
-    ok(hres == S_OK, "Failed setting name %s: %08x\n", wine_dbgstr_w(empty), hres);
+    ok(hres == S_OK, "Failed setting name %s: %08x\n", dbgstr_w(empty), hres);
     hres = ITask_GetApplicationName(test_task, &stored_name);
     ok(hres == S_OK, "GetApplicationName failed: %08x\n", hres);
     if (hres == S_OK)
     {
         ok(!lstrcmpiW(stored_name, empty),
-                "Got %s, expected empty string\n", wine_dbgstr_w(stored_name));
+                "Got %s, expected empty string\n", dbgstr_w(stored_name));
         CoTaskMemFree(stored_name);
     }
 
@@ -230,46 +257,46 @@ static void test_SetParameters_GetParameters(void)
     if (hres == S_OK)
     {
         ok(!lstrcmpW(parameters, empty),
-                "Got %s, expected empty string\n", wine_dbgstr_w(parameters));
+                "Got %s, expected empty string\n", dbgstr_w(parameters));
         CoTaskMemFree(parameters);
     }
 
     /* Set parameters to a simple string */
     hres = ITask_SetParameters(test_task, parameters_a);
     ok(hres == S_OK, "Failed setting parameters %s: %08x\n",
-            wine_dbgstr_w(parameters_a), hres);
+            dbgstr_w(parameters_a), hres);
     hres = ITask_GetParameters(test_task, &parameters);
     ok(hres == S_OK, "GetParameters failed: %08x\n", hres);
     if (hres == S_OK)
     {
         ok(!lstrcmpW(parameters, parameters_a), "Got %s, expected %s\n",
-                wine_dbgstr_w(parameters), wine_dbgstr_w(parameters_a));
+                dbgstr_w(parameters), dbgstr_w(parameters_a));
         CoTaskMemFree(parameters);
     }
 
     /* Update parameters to a different simple string */
     hres = ITask_SetParameters(test_task, parameters_b);
     ok(hres == S_OK, "Failed setting parameters %s: %08x\n",
-            wine_dbgstr_w(parameters_b), hres);
+            dbgstr_w(parameters_b), hres);
     hres = ITask_GetParameters(test_task, &parameters);
     ok(hres == S_OK, "GetParameters failed: %08x\n", hres);
     if (hres == S_OK)
     {
         ok(!lstrcmpW(parameters, parameters_b), "Got %s, expected %s\n",
-                wine_dbgstr_w(parameters), wine_dbgstr_w(parameters_b));
+                dbgstr_w(parameters), dbgstr_w(parameters_b));
         CoTaskMemFree(parameters);
     }
 
     /* Clear parameters */
     hres = ITask_SetParameters(test_task, empty);
     ok(hres == S_OK, "Failed setting parameters %s: %08x\n",
-            wine_dbgstr_w(empty), hres);
+            dbgstr_w(empty), hres);
     hres = ITask_GetParameters(test_task, &parameters);
     ok(hres == S_OK, "GetParameters failed: %08x\n", hres);
     if (hres == S_OK)
     {
         ok(!lstrcmpW(parameters, empty),
-                "Got %s, expected empty string\n", wine_dbgstr_w(parameters));
+                "Got %s, expected empty string\n", dbgstr_w(parameters));
         CoTaskMemFree(parameters);
     }
 
@@ -300,46 +327,46 @@ static void test_SetComment_GetComment(void)
     if (hres == S_OK)
     {
         ok(!lstrcmpW(comment, empty),
-                "Got %s, expected empty string\n", wine_dbgstr_w(comment));
+                "Got %s, expected empty string\n", dbgstr_w(comment));
         CoTaskMemFree(comment);
     }
 
     /* Set comment to a simple string */
     hres = ITask_SetComment(test_task, comment_a);
     ok(hres == S_OK, "Failed setting comment %s: %08x\n",
-            wine_dbgstr_w(comment_a), hres);
+            dbgstr_w(comment_a), hres);
     hres = ITask_GetComment(test_task, &comment);
     ok(hres == S_OK, "GetComment failed: %08x\n", hres);
     if (hres == S_OK)
     {
         ok(!lstrcmpW(comment, comment_a), "Got %s, expected %s\n",
-                wine_dbgstr_w(comment), wine_dbgstr_w(comment_a));
+                dbgstr_w(comment), dbgstr_w(comment_a));
         CoTaskMemFree(comment);
     }
 
     /* Update comment to a different simple string */
     hres = ITask_SetComment(test_task, comment_b);
     ok(hres == S_OK, "Failed setting comment %s: %08x\n",
-            wine_dbgstr_w(comment_b), hres);
+            dbgstr_w(comment_b), hres);
     hres = ITask_GetComment(test_task, &comment);
     ok(hres == S_OK, "GetComment failed: %08x\n", hres);
     if (hres == S_OK)
     {
         ok(!lstrcmpW(comment, comment_b), "Got %s, expected %s\n",
-                wine_dbgstr_w(comment), wine_dbgstr_w(comment_b));
+                dbgstr_w(comment), dbgstr_w(comment_b));
         CoTaskMemFree(comment);
     }
 
     /* Clear comment */
     hres = ITask_SetComment(test_task, empty);
     ok(hres == S_OK, "Failed setting comment %s: %08x\n",
-            wine_dbgstr_w(empty), hres);
+            dbgstr_w(empty), hres);
     hres = ITask_GetComment(test_task, &comment);
     ok(hres == S_OK, "GetComment failed: %08x\n", hres);
     if (hres == S_OK)
     {
         ok(!lstrcmpW(comment, empty),
-                "Got %s, expected empty string\n", wine_dbgstr_w(comment));
+                "Got %s, expected empty string\n", dbgstr_w(comment));
         CoTaskMemFree(comment);
     }
 
@@ -450,8 +477,8 @@ static void test_SetAccountInformation_GetAccountInformation(void)
     if (hres == S_OK)
     {
         ok(!lstrcmpW(account_name, dummy_account_name),
-                "Got %s, expected %s\n", wine_dbgstr_w(account_name),
-                wine_dbgstr_w(dummy_account_name));
+                "Got %s, expected %s\n", dbgstr_w(account_name),
+                dbgstr_w(dummy_account_name));
         CoTaskMemFree(account_name);
     }
 
@@ -469,8 +496,8 @@ static void test_SetAccountInformation_GetAccountInformation(void)
     if (hres == S_OK)
     {
         ok(!lstrcmpW(account_name, dummy_account_name_b),
-                "Got %s, expected %s\n", wine_dbgstr_w(account_name),
-                wine_dbgstr_w(dummy_account_name_b));
+                "Got %s, expected %s\n", dbgstr_w(account_name),
+                dbgstr_w(dummy_account_name_b));
         CoTaskMemFree(account_name);
     }
 
@@ -485,7 +512,7 @@ static void test_SetAccountInformation_GetAccountInformation(void)
     if (hres == S_OK)
     {
         ok(!lstrcmpW(account_name, empty),
-                "Got %s, expected empty string\n", wine_dbgstr_w(account_name));
+                "Got %s, expected empty string\n", dbgstr_w(account_name));
         CoTaskMemFree(account_name);
     }
 

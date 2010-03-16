@@ -1,4 +1,5 @@
-#pragma once
+#ifndef KSIFACE_H__
+#define KSIFACE_H__
 
 #include <ntddk.h>
 #include <ks.h>
@@ -307,3 +308,5 @@ DECLARE_INTERFACE_(IKsDevice, IUnknown)
     STDMETHOD_(NTSTATUS, CheckIoCapability)(THIS_
         IN ULONG Unknown)PURE;
 };
+
+#endif

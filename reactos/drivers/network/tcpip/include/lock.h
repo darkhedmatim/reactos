@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _LOCK_H
+#define _LOCK_H
 
 extern KIRQL TcpipGetCurrentIrql();
 extern VOID TcpipInitializeSpinLock( PKSPIN_LOCK SpinLock );
@@ -11,3 +12,9 @@ extern VOID TcpipInterlockedInsertTailList( PLIST_ENTRY ListHead,
 					    PKSPIN_LOCK Lock );
 extern VOID TcpipAcquireFastMutex( PFAST_MUTEX Mutex );
 extern VOID TcpipReleaseFastMutex( PFAST_MUTEX Mutex );
+extern VOID TcpipRecursiveMutexInit( PRECURSIVE_MUTEX RecMutex );
+extern VOID TcpipRecursiveMutexEnter( PRECURSIVE_MUTEX RecMutex,
+				      BOOLEAN ToWrite );
+extern VOID TcpipRecursiveMutexLeave( PRECURSIVE_MUTEX RecMutex );
+
+#endif/*_LOCK_H*/

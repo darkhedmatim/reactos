@@ -384,8 +384,8 @@ typedef JOYDEVMSGPROC *LPJOYDEVMSGPROC;
 #define MAKEMCIRESOURCE(wRet, wRes) MAKELRESULT((wRet), (wRes))
 
 typedef struct {
-	DWORD_PTR		dwCallback;
-	DWORD_PTR		dwInstance;
+	DWORD   		dwCallback;
+	DWORD   		dwInstance;
 	HMIDIOUT		hMidi;
 	DWORD   		dwFlags;
 } PORTALLOC, *LPPORTALLOC;
@@ -396,7 +396,7 @@ typedef struct {
 	DWORD_PTR		dwCallback;
 	DWORD_PTR		dwInstance;
 	UINT			uMappedDeviceID;
-	DWORD_PTR		dnDevNode;
+	DWORD			dnDevNode;
 } WAVEOPENDESC, *LPWAVEOPENDESC;
 
 typedef struct {
@@ -406,9 +406,9 @@ typedef struct {
 
 typedef struct {
 	HMIDI			hMidi;
-	DWORD_PTR		dwCallback;
-	DWORD_PTR		dwInstance;
-	DWORD_PTR		dnDevNode;
+	DWORD			dwCallback;
+	DWORD			dwInstance;
+        DWORD          		dnDevNode;
         DWORD          		cIds;
         MIDIOPENSTRMID 		rgIds;
 } MIDIOPENDESC, *LPMIDIOPENDESC;
@@ -436,8 +436,8 @@ typedef struct {
 	UINT			wType;			/* driver type (filled in by the driver) */
 } MCI_OPEN_DRIVER_PARMSW, *LPMCI_OPEN_DRIVER_PARMSW;
 
-DWORD_PTR		WINAPI	mciGetDriverData(UINT uDeviceID);
-BOOL			WINAPI	mciSetDriverData(UINT uDeviceID, DWORD_PTR dwData);
+DWORD 			WINAPI	mciGetDriverData(UINT uDeviceID);
+BOOL			WINAPI	mciSetDriverData(UINT uDeviceID, DWORD dwData);
 UINT			WINAPI	mciDriverYield(UINT uDeviceID);
 BOOL			WINAPI	mciDriverNotify(HWND hwndCallback, UINT uDeviceID,
 						UINT uStatus);
@@ -460,7 +460,7 @@ typedef void (*LPTASKCALLBACK)(DWORD dwInst);
 
 #define TASKERR_NOTASKSUPPORT 1
 #define TASKERR_OUTOFMEMORY   2
-UINT WINAPI mmTaskCreate(LPTASKCALLBACK, HANDLE*, DWORD_PTR);
+MMRESULT WINAPI mmTaskCreate(LPTASKCALLBACK, HANDLE*, DWORD);
 void     WINAPI mmTaskBlock(DWORD);
 BOOL     WINAPI mmTaskSignal(DWORD);
 void     WINAPI mmTaskYield(void);

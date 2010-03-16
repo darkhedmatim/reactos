@@ -4,6 +4,7 @@
 	<include base="explorer_new">.</include>
 	<define name="WIN32" />
 	<library>advapi32</library>
+	<library>kernel32</library>
 	<library>gdi32</library>
 	<library>user32</library>
 	<library>comctl32</library>

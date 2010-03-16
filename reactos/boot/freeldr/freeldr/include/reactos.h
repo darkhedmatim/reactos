@@ -17,7 +17,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#pragma once
+#ifndef __REACTOS_H
+#define __REACTOS_H
 
 /* Base Addres of Kernel in Physical Memory */
 #define KERNEL_BASE_PHYS 0x800000
@@ -73,14 +74,6 @@ VOID ReactOSRunSetupLoader(VOID);
 // ARC Path Functions
 //
 ///////////////////////////////////////////////////////////////////////////////////////
-BOOLEAN
-DissectArcPath2(
-    IN CHAR* ArcPath,
-    OUT ULONG* x,
-    OUT ULONG* y,
-    OUT ULONG* z,
-    OUT ULONG* Partition,
-    OUT ULONG *PathSyntax);
 BOOLEAN DissectArcPath(CHAR *ArcPath, CHAR *BootPath, ULONG* BootDrive, ULONG* BootPartition);
 VOID ConstructArcPath(PCHAR ArcPath, PCHAR SystemFolder, ULONG Disk, ULONG Partition);
 ULONG ConvertArcNameToBiosDriveNumber(PCHAR ArcPath);
@@ -110,7 +103,7 @@ ULONG_PTR NTAPI FrLdrCreateModule(LPCSTR ModuleName);
 ULONG_PTR NTAPI FrLdrLoadModule(PFILE ModuleImage, LPCSTR ModuleName, PULONG ModuleSize);
 BOOLEAN NTAPI FrLdrCloseModule(ULONG_PTR ModuleBase, ULONG dwModuleSize);
 VOID NTAPI FrLdrStartup(ULONG Magic);
-typedef VOID (NTAPI *ROS_KERNEL_ENTRY_POINT)(IN PROS_LOADER_PARAMETER_BLOCK LoaderBlock);
+typedef VOID (FASTCALL *ROS_KERNEL_ENTRY_POINT)(ULONG Magic, PROS_LOADER_PARAMETER_BLOCK LoaderBlock);
 
 PVOID
 NTAPI
@@ -135,3 +128,5 @@ FrLdrLoadImage(
     IN INT nPos,
     IN ULONG ImageType
 );
+
+#endif // defined __REACTOS_H

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_BG_BG_H__
+#define LANG_BG_BG_H__
 
 MUI_LAYOUTS bgBGLayouts[] =
 {
@@ -995,7 +996,7 @@ static MUI_ENTRY bgBGBootLoaderEntries[] =
     {
         8,
         12,
-        "Слагане на зареждач на твърдия диск (в MBR).",
+        "Слагане на зареждач на твърдия диск (MBR).",
         TEXT_STYLE_NORMAL
     },
     {
@@ -1705,3 +1706,5 @@ MUI_STRING bgBGStrings[] =
     "Добавяне на клавиатурни подредби"},
     {0, 0}
 };
+
+#endif

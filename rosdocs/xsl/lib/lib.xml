@@ -6,7 +6,7 @@
 <book xmlns:src="http://nwalsh.com/xmlns/litprog/fragment" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 <bookinfo>
 <title>XSL Library Template Reference</title>
-<releaseinfo role="cvs">$Id: lib.xml,v 1.1 2002/06/13 20:32:53 chorns Exp $
+<releaseinfo role="cvs">$Id$
 </releaseinfo>
 <corpauthor>DocBook Open Repository Team</corpauthor>
 <copyright>
@@ -667,7 +667,7 @@ around these functions.</para>
 
 <src:fragment id="top">
 &lt;!-- ********************************************************************
-     $Id: lib.xml,v 1.1 2002/06/13 20:32:53 chorns Exp $
+     $Id$
      ********************************************************************
 
      This file is part of the XSL DocBook Stylesheet distribution.

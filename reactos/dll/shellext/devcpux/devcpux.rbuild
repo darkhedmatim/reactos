@@ -2,6 +2,7 @@
 	<importlibrary definition="devcpux.spec" />
 	<include base="devcpux">.</include>
 	<include base="ReactOS">include/reactos/wine</include>
+	<library>kernel32</library>
 	<library>user32</library>
 	<library>ntdll</library>
 	<library>powrprof</library>

@@ -4,7 +4,8 @@
  * FILE:        apps/cabman/cabinet.h
  * PURPOSE:     Cabinet definitions
  */
-#pragma once
+#ifndef __CABINET_H
+#define __CABINET_H
 
 #include <string.h>
 
@@ -203,3 +204,5 @@ VOID CabinetSetEventHandlers(PCABINET_OVERWRITE Overwrite,
   PCABINET_DISK_CHANGE DiskChange);
 /* Get pointer to cabinet reserved area. NULL if none */
 PVOID CabinetGetCabinetReservedArea(PULONG Size);
+
+#endif /* __CABINET_H */

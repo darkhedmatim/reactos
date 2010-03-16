@@ -24,7 +24,8 @@
  * PROGRAMMER:      
  */
 
-#pragma once
+#ifndef __ERROR_CODE_H__
+#define __ERROR_CODE_H__
 
 typedef enum
 {
@@ -69,4 +70,7 @@ typedef enum
     ERROR_LAST_ERROR_CODE
 }ERROR_NUMBER;
 
+#endif /* __ERROR_CODE_H__ */
+
 /* EOF */
+

@@ -4,6 +4,7 @@
 	<importlibrary definition="desk.spec" />
 	<include base="desk">.</include>
 	<define name="_WIN32" />
+	<library>kernel32</library>
 	<library>user32</library>
 	<library>advapi32</library>
 	<library>gdi32</library>

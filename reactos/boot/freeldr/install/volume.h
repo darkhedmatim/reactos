@@ -18,9 +18,12 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#pragma once
+#ifndef __VOLUME_H
+#define __VOLUME_H
 
 BOOL	OpenVolume(LPCTSTR lpszVolumeName);
 void	CloseVolume(void);
 BOOL	ReadVolumeSector(ULONG SectorNumber, PVOID SectorBuffer);
 BOOL	WriteVolumeSector(ULONG SectorNumber, PVOID SectorBuffer);
+
+#endif // defined __VOLUME_H

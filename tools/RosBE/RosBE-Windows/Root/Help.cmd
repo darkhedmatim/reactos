@@ -3,7 +3,7 @@
 :: LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 :: FILE:        Root/Help.cmd
 :: PURPOSE:     Display help for the commands included with the ReactOS Build Environment.
-:: COPYRIGHT:   Copyright 2010 Daniel Reimer <reimer.daniel@freenet.de>
+:: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
 ::                             Peter Ward <dralnix@gmail.com>
 ::                             Colin Finck <colin@reactos.org>
 ::
@@ -52,11 +52,6 @@ if "%1" == "" (
     echo    help [COMMAND]       - Display the available commands or give help on a
     echo                           specific command.
 
-    if exist "%_ROSBE_BASEDIR%\kdbg.cmd" (
-        echo    kdbg [OPTIONS]       - Outputs KDBG Debug Output and lets you give
-        echo                           debug commands to it.
-    )
-
     if exist "%_ROSBE_BASEDIR%\raddr2line.cmd" (
         echo    raddr2line [OPTIONS] - Translates program addresses into file names and
         echo                           line numbers to assist developers with finding
@@ -66,12 +61,6 @@ if "%1" == "" (
     if exist "%_ROSBE_BASEDIR%\Remake.cmd" (
         echo    remake [OPTIONS]     - Cleans one or several specific modules and
         echo                           immediately rebuilds it cleanly.
-    )
-
-    if exist "%_ROSBE_BASEDIR%\Remakex.cmd" (
-        echo    remakex [OPTIONS]    - Cleans one or several specific modules and
-        echo                           immediately rebuilds it cleanly and multi-
-        echo                           threaded.
     )
 
     if exist "%_ROSBE_BASEDIR%\scut.cmd" (
@@ -114,7 +103,7 @@ if "%1" == "" (
         echo                       appropiate name.
         echo    depends          - Does a full dependency check on the ReactOS Source
         echo                       and generates a new makefile. This will take a while.
-        echo    "module"_depends - Does a dependency check for one module with the
+        echo    "module"-depends - Does a dependency check for one module with the
         echo                       appropiate name.
 ) else if /i "%1" == "makex" (
     echo Usage: makex [OPTIONS]
@@ -136,7 +125,7 @@ if "%1" == "" (
         echo                       appropiate name.
         echo    depends          - Does a full dependency check on the ReactOS Source
         echo                       and generates a new makefile. This will take a while.
-        echo    "module"_depends - Does a dependency check for one module with the
+        echo    "module"-depends - Does a dependency check for one module with the
         echo                       appropiate name.
     echo NOTE: The number makex uses can be modified by editing Build.cmd
     echo       located in the RosBE directory, instructions for doing so are
@@ -188,14 +177,6 @@ if "%1" == "" (
 ) else if /i "%1" == "help" (
     echo Usage: help [COMMAND]
     echo Shows help for the specified command or lists all available commands.
-) else if /i "%1" == "kdbg" (
-    if exist "%_ROSBE_BASEDIR%\kdbg.cmd" (
-        echo Usage: kdbg [LOGFILE] [PIPE]
-        echo Outputs KDBG Debug Output and lets you give debug commands to it.
-        echo.
-        echo WRITELOG - Outputs the Log File to ".\DBG-%DATE%-%TIME%.txt".
-        echo.
-    )
 ) else if /i "%1" == "raddr2line" (
     if exist "%_ROSBE_BASEDIR%\raddr2line.cmd" (
         echo Usage: raddr2line [FILE] [ADDRESS]
@@ -217,17 +198,9 @@ if "%1" == "" (
         echo.
         echo    OPTIONS - One or more Module names to rebuild.
     )
-) else if /i "%1" == "Remakex" (
-    if exist "%_ROSBE_BASEDIR%\Remakex.cmd" (
-        echo    Usage: remakex [OPTIONS]
-        echo    Cleans one or several specific modules and immediately rebuilds it cleanly
-        echo    and multithreaded.
-        echo.
-        echo    OPTIONS - One or more Module names to rebuild.
-    )
 ) else if /i "%1" == "scut" (
     if exist "%_ROSBE_BASEDIR%\scut.cmd" (
-        scut.exe --help
+        "%_ROSBE_BASEDIR%\Tools\scut.exe" --help
     )
 ) else if /i "%1" == "ssvn" (
     if exist "%_ROSBE_BASEDIR%\sSVN.cmd" (

@@ -19,10 +19,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "resource.h"
-
-#pragma code_page(65001)
-
 LANGUAGE LANG_GERMAN, SUBLANG_NEUTRAL
 
 STRINGTABLE
@@ -37,14 +33,14 @@ STRINGTABLE
 BEGIN
     IDTB_EXPAND      "Anzeigen"
     IDTB_CONTRACT    "Verstecken"
-    IDTB_STOP        "Stopp"
+    IDTB_STOP        "Stop"
     IDTB_REFRESH     "Aktualisieren"
-    IDTB_BACK        "ZurÃ¼ck"
+    IDTB_BACK        "Zurück"
     IDTB_HOME        "Startseite"
     IDTB_SYNC        "Synchronisieren"
     IDTB_PRINT       "Drucken"
     IDTB_OPTIONS     "Einstellungen"
-    IDTB_FORWARD     "VorwÃ¤rts"
+    IDTB_FORWARD     "Vorwärts"
     IDTB_NOTES       "IDTB_NOTES"
     IDTB_BROWSE_FWD  "IDTB_BROWSE_FWD"
     IDTB_BROWSE_BACK "IDT_BROWSE_BACK"
@@ -56,7 +52,7 @@ BEGIN
     IDTB_JUMP1       "Sprung1"
     IDTB_JUMP2       "Sprung2"
     IDTB_CUSTOMIZE   "Anpassen"
-    IDTB_ZOOM        "VergrÃ¶ÃŸern"
+    IDTB_ZOOM        "Vergrößern"
     IDTB_TOC_NEXT    "IDTB_TOC_NEXT"
     IDTB_TOC_PREV    "IDTB_TOC_PREV"
 END

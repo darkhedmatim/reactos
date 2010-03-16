@@ -17,7 +17,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#pragma once
+#ifndef __NTFS_H
+#define __NTFS_H
 
 #define NTFS_FILE_MFT				0
 #define NTFS_FILE_MFTMIRR			1
@@ -225,3 +226,5 @@ typedef struct
 #include <poppack.h>
 
 const DEVVTBL* NtfsMount(ULONG DeviceId);
+
+#endif // #defined __NTFS_H

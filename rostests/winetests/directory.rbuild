@@ -37,9 +37,6 @@
 	<directory name="dnsapi">
 		<xi:include href="dnsapi/dnsapi.rbuild" />
 	</directory>
-	<directory name="dsound">
-		<xi:include href="dsound/dsound.rbuild" />
-	</directory>
 	<directory name="fusion">
 		<xi:include href="fusion/fusion.rbuild" />
 	</directory>
@@ -249,8 +246,5 @@
 	</directory-->
 	<directory name="winmm">
 		<xi:include href="winmm/winmm.rbuild" />
-	</directory>
-	<directory name="xmllite">
-		<xi:include href="xmllite/xmllite.rbuild" />
 	</directory>
 </group>

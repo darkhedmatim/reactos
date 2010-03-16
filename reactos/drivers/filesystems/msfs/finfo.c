@@ -1,7 +1,8 @@
-/*
+/* $Id$
+ *
  * COPYRIGHT:  See COPYING in the top level directory
  * PROJECT:    ReactOS kernel
- * FILE:       drivers/filesystems/msfs/finfo.c
+ * FILE:       drivers/filesystems/ms/finfo.c
  * PURPOSE:    Mailslot filesystem
  * PROGRAMMER: Eric Kohl
  */
@@ -42,10 +43,8 @@ MsfsQueryMailslotInformation(PMSFS_FCB Fcb,
     }
     else
     {
-        PMSFS_MESSAGE Message = CONTAINING_RECORD(Fcb->MessageListHead.Flink,
-                                                  MSFS_MESSAGE,
-                                                  MessageListEntry);
-        Buffer->NextMessageSize = Message->Size;
+        /* FIXME: read size of first message (head) */
+        Buffer->NextMessageSize = 0;
     }
     KeReleaseSpinLock(&Fcb->MessageListLock, oldIrql);
 

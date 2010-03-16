@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_NL_NL_H__
+#define LANG_NL_NL_H__
 
 MUI_LAYOUTS nlNLLayouts[] =
 {
@@ -1012,7 +1013,7 @@ static MUI_ENTRY nlNLBootLoaderEntries[] =
     {
         8,
         12,
-        "Installeer de bootloader op de harde schijf (bootsector).",
+        "Installeer de bootloader op de harde schijf (MBR).",
         TEXT_STYLE_NORMAL
     },
     {
@@ -1721,3 +1722,6 @@ MUI_STRING nlNLStrings[] =
     "Toevoegen toetsenbord indelingen"},
     {0, 0}
 };
+
+
+#endif

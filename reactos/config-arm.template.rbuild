@@ -18,7 +18,7 @@
 		kurobox versatile omap3
 		
 -->
-<property name="SARCH" value="versatile" />
+<property name="SARCH" value="omap3" />
 
 
 <!--

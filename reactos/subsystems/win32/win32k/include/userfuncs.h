@@ -1,10 +1,15 @@
-#pragma once
+#ifndef _WIN32K_USERFUNCS_H
+#define _WIN32K_USERFUNCS_H
+
+
+
+
 
 PMENU_OBJECT FASTCALL UserGetMenuObject(HMENU hMenu);
 
 #define ASSERT_REFS_CO(_obj_) \
 { \
-   LONG ref = ((PHEAD)_obj_)->cLockObj;\
+   LONG ref = USER_BODY_TO_HEADER(_obj_)->RefCount;\
    if (!(ref >= 1)){ \
       DPRINT1("ASSERT: obj 0x%x, refs %i\n", _obj_, ref); \
       ASSERT(FALSE); \
@@ -16,7 +21,7 @@ PMENU_OBJECT FASTCALL UserGetMenuObject(HMENU hMenu);
 { \
    PSINGLE_LIST_ENTRY e; \
    BOOL gotit=FALSE; \
-   LONG ref = ((PHEAD)_obj_)->cLockObj;\
+   LONG ref = USER_BODY_TO_HEADER(_obj_)->RefCount;\
    if (!(ref >= 1)){ \
       DPRINT1("obj 0x%x, refs %i\n", _obj_, ref); \
       ASSERT(FALSE); \
@@ -33,7 +38,7 @@ PMENU_OBJECT FASTCALL UserGetMenuObject(HMENU hMenu);
 }
 #endif
 
-#define DUMP_REFS(obj) DPRINT1("obj 0x%x, refs %i\n",obj, ((PHEAD)obj)->cLockObj)
+#define DUMP_REFS(obj) DPRINT1("obj 0x%x, refs %i\n",obj, USER_BODY_TO_HEADER(obj)->RefCount)
 
 PWINDOW_OBJECT FASTCALL IntGetWindowObject(HWND hWnd);
 
@@ -153,5 +158,8 @@ BOOL FASTCALL UserDestroyMenu(HMENU hMenu);
 
 DWORD FASTCALL
 co_UserShowScrollBar(PWINDOW_OBJECT Window, int wBar, DWORD bShow);
+
+
+#endif /* _WIN32K_USERFUNCS_H */
 
 /* EOF */

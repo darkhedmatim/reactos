@@ -489,7 +489,6 @@ DefWndNCPaint(HWND hWnd, HRGN hRgn, BOOL Active)
    }
 
    ReleaseDC(hWnd, hDC);
-   DeleteObject(hRgn); // We use DCX_KEEPCLIPRGN
 
    return 0;
 }

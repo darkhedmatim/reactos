@@ -34,16 +34,14 @@ WINE_DEFAULT_DEBUG_CHANNEL(dbghelp);
 
 struct pool_arena
 {
-    struct list entry;
-    char       *current;
-    char       *end;
+    struct pool_arena*  next;
+    char*               current;
 };
 
-void pool_init(struct pool* a, size_t arena_size)
+void pool_init(struct pool* a, unsigned arena_size)
 {
-    list_init( &a->arena_list );
-    list_init( &a->arena_full );
     a->arena_size = arena_size;
+    a->first = NULL;
 }
 
 void pool_destroy(struct pool* pool)
@@ -52,73 +50,58 @@ void pool_destroy(struct pool* pool)
     struct pool_arena*  next;
 
 #ifdef USE_STATS
-    size_t alloc, used, num;
-
+    unsigned    alloc, used, num;
+    
     alloc = used = num = 0;
-    LIST_FOR_EACH_ENTRY( arena, &pool->arena_list, struct pool_arena, entry )
+    arena = pool->first;
+    while (arena)
     {
-        alloc += arena->end - (char *)arena;
+        alloc += pool->arena_size;
         used += arena->current - (char*)arena;
         num++;
-    }
-    LIST_FOR_EACH_ENTRY( arena, &pool->arena_full, struct pool_arena, entry )
-    {
-        alloc += arena->end - (char *)arena;
-        used += arena->current - (char*)arena;
-        num++;
+        arena = arena->next;
     }
     if (alloc == 0) alloc = 1;      /* avoid division by zero */
-    FIXME("STATS: pool %p has allocated %u kbytes, used %u kbytes in %u arenas, non-allocation ratio: %.2f%%\n",
-          pool, (unsigned)(alloc >> 10), (unsigned)(used >> 10), (unsigned)num,
-          100.0 - (float)used / (float)alloc * 100.0);
+    FIXME("STATS: pool %p has allocated %u kbytes, used %u kbytes in %u arenas,\n"
+          "\t\t\t\tnon-allocation ratio: %.2f%%\n",
+          pool, alloc >> 10, used >> 10, num, 100.0 - (float)used / (float)alloc * 100.0);
 #endif
 
-    LIST_FOR_EACH_ENTRY_SAFE( arena, next, &pool->arena_list, struct pool_arena, entry )
+    arena = pool->first;
+    while (arena)
     {
-        list_remove( &arena->entry );
+        next = arena->next;
         HeapFree(GetProcessHeap(), 0, arena);
+        arena = next;
     }
-    LIST_FOR_EACH_ENTRY_SAFE( arena, next, &pool->arena_full, struct pool_arena, entry )
-    {
-        list_remove( &arena->entry );
-        HeapFree(GetProcessHeap(), 0, arena);
-    }
+    pool_init(pool, 0);
 }
 
-void* pool_alloc(struct pool* pool, size_t len)
+void* pool_alloc(struct pool* pool, unsigned len)
 {
     struct pool_arena*  arena;
     void*               ret;
-    size_t size;
 
     len = (len + 3) & ~3; /* round up size on DWORD boundary */
+    assert(sizeof(struct pool_arena) + len <= pool->arena_size && len);
 
-    LIST_FOR_EACH_ENTRY( arena, &pool->arena_list, struct pool_arena, entry )
+    for (arena = pool->first; arena; arena = arena->next)
     {
-        if (arena->end - arena->current >= len)
+        if ((char*)arena + pool->arena_size - arena->current >= len)
         {
             ret = arena->current;
             arena->current += len;
-            if (arena->current + 16 >= arena->end)
-            {
-                list_remove( &arena->entry );
-                list_add_tail( &pool->arena_full, &arena->entry );
-            }
             return ret;
         }
     }
 
-    size = max( pool->arena_size, len );
-    arena = HeapAlloc(GetProcessHeap(), 0, size + sizeof(struct pool_arena));
-    if (!arena) return NULL;
+    arena = HeapAlloc(GetProcessHeap(), 0, pool->arena_size);
+    if (!arena) {ERR("OOM\n");return NULL;}
 
-    ret = arena + 1;
+    ret = (char*)arena + sizeof(*arena);
+    arena->next = pool->first;
+    pool->first = arena;
     arena->current = (char*)ret + len;
-    arena->end = (char*)ret + size;
-    if (arena->current + 16 >= arena->end)
-        list_add_tail( &pool->arena_full, &arena->entry );
-    else
-        list_add_head( &pool->arena_list, &arena->entry );
     return ret;
 }
 
@@ -315,7 +298,7 @@ unsigned sparse_array_length(const struct sparse_array* sa)
     return sa->elements.num_elts;
 }
 
-static unsigned hash_table_hash(const char* name, unsigned num_buckets)
+unsigned hash_table_hash(const char* name, unsigned num_buckets)
 {
     unsigned    hash = 0;
     while (*name)

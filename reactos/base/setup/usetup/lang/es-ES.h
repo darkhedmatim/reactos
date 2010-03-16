@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_ES_ES_H__
+#define LANG_ES_ES_H__
 
 MUI_LAYOUTS esESLayouts[] =
 {
@@ -1693,3 +1694,5 @@ MUI_STRING esESStrings[] =
     "Adding keyboard layouts"},
     {0, 0}
 };
+
+#endif

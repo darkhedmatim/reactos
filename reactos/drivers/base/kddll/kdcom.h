@@ -6,7 +6,8 @@
  * PROGRAMMER:      Timo Kreuzer (timo.kreuzer@ewactos.org)
  */
 
-#pragma once
+#ifndef _KDCOM_H_
+#define _KDCOM_H_
 
 #define COM_DAT 0x00
 #define COM_IEN 0x01 /* interrupt enable register */
@@ -52,3 +53,5 @@
 #define MSR_DSR  0x20 /* (complemented) state of data set ready (DSR). */
 #define MSR_RI   0x40 /* (complemented) state of ring indicator (RI). */
 #define MSR_DCD  0x80 /* (complemented) state of data carrier detect (DCD). */
+
+#endif /* !_KDCOM_H_ */

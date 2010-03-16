@@ -22,9 +22,6 @@
 	<directory name="dxdiag">
 		<xi:include href="dxdiag/dxdiag.rbuild" />
 	</directory>
-	<directory name="extrac32">
-		<xi:include href="extrac32/extrac32.rbuild" />
-	</directory>
 	<directory name="fontview">
 		<xi:include href="fontview/fontview.rbuild" />
 	</directory>
@@ -81,9 +78,6 @@
 	</directory>
 	<directory name="shutdown">
 		<xi:include href="shutdown/shutdown.rbuild" />
-	</directory>
-	<directory name="sndrec32">
-		<xi:include href="sndrec32/sndrec32.rbuild" />
 	</directory>
 	<directory name="sndvol32">
 		<xi:include href="sndvol32/sndvol32.rbuild" />

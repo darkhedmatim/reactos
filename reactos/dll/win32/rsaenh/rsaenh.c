@@ -1219,8 +1219,6 @@ static void destroy_key_container(OBJECTHDR *pObjectHdr)
         store_key_container_permissions(pKeyContainer);
         release_key_container_keys(pKeyContainer);
     }
-    else
-        release_key_container_keys(pKeyContainer);
     HeapFree( GetProcessHeap(), 0, pKeyContainer );
 }
 
@@ -1380,18 +1378,12 @@ static HCRYPTPROV read_key_container(PCHAR pszContainerName, DWORD dwFlags, cons
                            (OBJECTHDR**)&pKeyContainer))
             return (HCRYPTPROV)INVALID_HANDLE_VALUE;
     
-        /* read_key_value calls import_key, which calls import_private_key,
-         * which implicitly installs the key value into the appropriate key
-         * container key.  Thus the ref count is incremented twice, once for
-         * the output key value, and once for the implicit install, and needs
-         * to be decremented to balance the two.
-         */
         if (read_key_value(hKeyContainer, hKey, AT_KEYEXCHANGE,
             dwProtectFlags, &hCryptKey))
-            release_handle(&handle_table, hCryptKey, RSAENH_MAGIC_KEY);
+            pKeyContainer->hKeyExchangeKeyPair = hCryptKey;
         if (read_key_value(hKeyContainer, hKey, AT_SIGNATURE,
             dwProtectFlags, &hCryptKey))
-            release_handle(&handle_table, hCryptKey, RSAENH_MAGIC_KEY);
+            pKeyContainer->hSignatureKeyPair = hCryptKey;
     }
 
     return hKeyContainer;
@@ -2332,7 +2324,7 @@ BOOL WINAPI RSAENH_CPDecrypt(HCRYPTPROV hProv, HCRYPTKEY hKey, HCRYPTHASH hHash,
         if (Final) {
             if (pbData[*pdwDataLen-1] &&
              pbData[*pdwDataLen-1] <= pCryptKey->dwBlockLen &&
-             pbData[*pdwDataLen-1] <= *pdwDataLen) {
+             pbData[*pdwDataLen-1] < *pdwDataLen) {
                 BOOL padOkay = TRUE;
 
                 /* check that every bad byte has the same value */
@@ -3073,9 +3065,9 @@ BOOL WINAPI RSAENH_CPGenKey(HCRYPTPROV hProv, ALG_ID Algid, DWORD dwFlags, HCRYP
             if (pCryptKey) { 
                 new_key_impl(pCryptKey->aiAlgid, &pCryptKey->context, pCryptKey->dwKeyLen);
                 setup_key(pCryptKey);
-                release_and_install_key(hProv, *phKey,
-                                        &pKeyContainer->hSignatureKeyPair,
-                                        FALSE);
+                RSAENH_CPDestroyKey(hProv, pKeyContainer->hSignatureKeyPair);
+                copy_handle(&handle_table, *phKey, RSAENH_MAGIC_KEY,
+                            &pKeyContainer->hSignatureKeyPair);
             }
             break;
 
@@ -3085,9 +3077,9 @@ BOOL WINAPI RSAENH_CPGenKey(HCRYPTPROV hProv, ALG_ID Algid, DWORD dwFlags, HCRYP
             if (pCryptKey) { 
                 new_key_impl(pCryptKey->aiAlgid, &pCryptKey->context, pCryptKey->dwKeyLen);
                 setup_key(pCryptKey);
-                release_and_install_key(hProv, *phKey,
-                                        &pKeyContainer->hKeyExchangeKeyPair,
-                                        FALSE);
+                RSAENH_CPDestroyKey(hProv, pKeyContainer->hKeyExchangeKeyPair);
+                copy_handle(&handle_table, *phKey, RSAENH_MAGIC_KEY,
+                            &pKeyContainer->hKeyExchangeKeyPair);
             }
             break;
             
@@ -4170,12 +4162,11 @@ BOOL WINAPI RSAENH_CPSignHash(HCRYPTPROV hProv, HCRYPTHASH hHash, DWORD dwKeySpe
                               LPCWSTR sDescription, DWORD dwFlags, BYTE *pbSignature, 
                               DWORD *pdwSigLen)
 {
-    HCRYPTKEY hCryptKey = (HCRYPTKEY)INVALID_HANDLE_VALUE;
+    HCRYPTKEY hCryptKey;
     CRYPTKEY *pCryptKey;
     DWORD dwHashLen;
     BYTE abHashValue[RSAENH_MAX_HASH_SIZE];
     ALG_ID aiAlgid;
-    BOOL ret = FALSE;
 
     TRACE("(hProv=%08lx, hHash=%08lx, dwKeySpec=%08x, sDescription=%s, dwFlags=%08x, "
         "pbSignature=%p, pdwSigLen=%p)\n", hProv, hHash, dwKeySpec, debugstr_w(sDescription),
@@ -4192,19 +4183,18 @@ BOOL WINAPI RSAENH_CPSignHash(HCRYPTPROV hProv, HCRYPTHASH hHash, DWORD dwKeySpe
                        (OBJECTHDR**)&pCryptKey))
     {
         SetLastError(NTE_NO_KEY);
-        goto out;
+        return FALSE;
     }
 
     if (!pbSignature) {
         *pdwSigLen = pCryptKey->dwKeyLen;
-        ret = TRUE;
-        goto out;
+        return TRUE;
     }
     if (pCryptKey->dwKeyLen > *pdwSigLen)
     {
         SetLastError(ERROR_MORE_DATA);
         *pdwSigLen = pCryptKey->dwKeyLen;
-        goto out;
+        return FALSE;
     }
     *pdwSigLen = pCryptKey->dwKeyLen;
 
@@ -4212,25 +4202,22 @@ BOOL WINAPI RSAENH_CPSignHash(HCRYPTPROV hProv, HCRYPTHASH hHash, DWORD dwKeySpe
         if (!RSAENH_CPHashData(hProv, hHash, (CONST BYTE*)sDescription, 
                                 (DWORD)lstrlenW(sDescription)*sizeof(WCHAR), 0))
         {
-            goto out;
+            return FALSE;
         }
     }
     
     dwHashLen = sizeof(DWORD);
-    if (!RSAENH_CPGetHashParam(hProv, hHash, HP_ALGID, (BYTE*)&aiAlgid, &dwHashLen, 0)) goto out;
+    if (!RSAENH_CPGetHashParam(hProv, hHash, HP_ALGID, (BYTE*)&aiAlgid, &dwHashLen, 0)) return FALSE;
     
     dwHashLen = RSAENH_MAX_HASH_SIZE;
-    if (!RSAENH_CPGetHashParam(hProv, hHash, HP_HASHVAL, abHashValue, &dwHashLen, 0)) goto out;
+    if (!RSAENH_CPGetHashParam(hProv, hHash, HP_HASHVAL, abHashValue, &dwHashLen, 0)) return FALSE;
  
 
     if (!build_hash_signature(pbSignature, *pdwSigLen, aiAlgid, abHashValue, dwHashLen, dwFlags)) {
-        goto out;
+        return FALSE;
     }
 
-    ret = encrypt_block_impl(pCryptKey->aiAlgid, PK_PRIVATE, &pCryptKey->context, pbSignature, pbSignature, RSAENH_ENCRYPT);
-out:
-    RSAENH_CPDestroyKey(hProv, hCryptKey);
-    return ret;
+    return encrypt_block_impl(pCryptKey->aiAlgid, PK_PRIVATE, &pCryptKey->context, pbSignature, pbSignature, RSAENH_ENCRYPT);
 }
 
 /******************************************************************************

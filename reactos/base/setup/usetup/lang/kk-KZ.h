@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_KK_KZ_H__
+#define LANG_KK_KZ_H__
 
 MUI_LAYOUTS kkKZLayouts[] =
 {
@@ -7,3 +8,5 @@ MUI_LAYOUTS kkKZLayouts[] =
     { L"0419", L"00000419" },
     { NULL, NULL }
 };
+
+#endif

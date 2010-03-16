@@ -39,7 +39,7 @@ typedef struct {
     nsIDOMHTMLScriptElement *nsscript;
 } HTMLScriptElement;
 
-#define HTMLSCRIPT(x)  ((IHTMLScriptElement*)  &(x)->lpHTMLScriptElementVtbl)
+#define HTMLSCRIPT(x)  (&(x)->lpHTMLScriptElementVtbl)
 
 #define HTMLSCRIPT_THIS(iface) DEFINE_THIS(HTMLScriptElement, HTMLScriptElement, iface)
 
@@ -214,18 +214,8 @@ static HRESULT WINAPI HTMLScriptElement_get_onerror(IHTMLScriptElement *iface, V
 static HRESULT WINAPI HTMLScriptElement_put_type(IHTMLScriptElement *iface, BSTR v)
 {
     HTMLScriptElement *This = HTMLSCRIPT_THIS(iface);
-    nsAString nstype_str;
-    nsresult nsres;
-
-    TRACE("(%p)->(%s)\n", This, debugstr_w(v));
-
-    nsAString_Init(&nstype_str, v);
-    nsres = nsIDOMHTMLScriptElement_SetType(This->nsscript, &nstype_str);
-    if (NS_FAILED(nsres))
-        ERR("SetType failed: %08x\n", nsres);
-    nsAString_Finish (&nstype_str);
-
-    return S_OK;
+    FIXME("(%p)->(%s)\n", This, debugstr_w(v));
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLScriptElement_get_type(IHTMLScriptElement *iface, BSTR *p)
@@ -309,37 +299,11 @@ static void HTMLScriptElement_destructor(HTMLDOMNode *iface)
     HTMLElement_destructor(&This->element.node);
 }
 
-static HRESULT HTMLScriptElement_get_readystate(HTMLDOMNode *iface, BSTR *p)
-{
-    HTMLScriptElement *This = HTMLSCRIPT_NODE_THIS(iface);
-
-    return IHTMLScriptElement_get_readyState(HTMLSCRIPT(This), p);
-}
-
 #undef HTMLSCRIPT_NODE_THIS
 
 static const NodeImplVtbl HTMLScriptElementImplVtbl = {
     HTMLScriptElement_QI,
-    HTMLScriptElement_destructor,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    HTMLScriptElement_get_readystate
-};
-
-static const tid_t HTMLScriptElement_iface_tids[] = {
-    HTMLELEMENT_TIDS,
-    IHTMLScriptElement_tid,
-    0
-};
-
-static dispex_static_data_t HTMLScriptElement_dispex = {
-    NULL,
-    DispHTMLScriptElement_tid,
-    NULL,
-    HTMLScriptElement_iface_tids
+    HTMLScriptElement_destructor
 };
 
 HTMLElement *HTMLScriptElement_Create(HTMLDocumentNode *doc, nsIDOMHTMLElement *nselem)
@@ -350,7 +314,7 @@ HTMLElement *HTMLScriptElement_Create(HTMLDocumentNode *doc, nsIDOMHTMLElement *
     ret->lpHTMLScriptElementVtbl = &HTMLScriptElementVtbl;
     ret->element.node.vtbl = &HTMLScriptElementImplVtbl;
 
-    HTMLElement_Init(&ret->element, doc, nselem, &HTMLScriptElement_dispex);
+    HTMLElement_Init(&ret->element, doc, nselem, NULL);
 
     nsres = nsIDOMHTMLElement_QueryInterface(nselem, &IID_nsIDOMHTMLScriptElement, (void**)&ret->nsscript);
     if(NS_FAILED(nsres))

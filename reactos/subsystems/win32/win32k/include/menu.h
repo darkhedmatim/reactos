@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_MENU_H
+#define _WIN32K_MENU_H
 
 #define IS_ATOM(x) \
   (((ULONG_PTR)(x) > 0x0) && ((ULONG_PTR)(x) < 0x10000))
@@ -28,7 +29,6 @@ typedef struct _MENU_ITEM
 
 typedef struct _MENU_OBJECT
 {
-  PROCDESKHEAD head;
   PEPROCESS Process;
   LIST_ENTRY ListEntry;
   PMENU_ITEM MenuItemList;
@@ -109,3 +109,5 @@ InitMenuImpl(VOID);
 
 NTSTATUS FASTCALL
 CleanupMenuImpl(VOID);
+
+#endif /* _WIN32K_MENU_H */

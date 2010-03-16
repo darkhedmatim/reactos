@@ -26,7 +26,6 @@
 #include "windef.h"
 #include "winbase.h"
 #include "winuser.h"
-#include "wininet.h"
 #include "ole2.h"
 #include "perhist.h"
 #include "mshtmdid.h"
@@ -348,7 +347,7 @@ static HRESULT WINAPI HTMLDocument_put_title(IHTMLDocument2 *iface, BSTR v)
         return E_UNEXPECTED;
     }
 
-    nsAString_InitDepend(&nsstr, v);
+    nsAString_Init(&nsstr, v);
     nsres = nsIDOMHTMLDocument_SetTitle(This->doc_node->nsdoc, &nsstr);
     nsAString_Finish(&nsstr);
     if(NS_FAILED(nsres))
@@ -611,58 +610,15 @@ static HRESULT WINAPI HTMLDocument_get_domain(IHTMLDocument2 *iface, BSTR *p)
 static HRESULT WINAPI HTMLDocument_put_cookie(IHTMLDocument2 *iface, BSTR v)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-    BOOL bret;
-
-    TRACE("(%p)->(%s)\n", This, debugstr_w(v));
-
-    bret = InternetSetCookieExW(This->window->url, NULL, v, 0, 0);
-    if(!bret) {
-        FIXME("InternetSetCookieExW failed: %u\n", GetLastError());
-        return HRESULT_FROM_WIN32(GetLastError());
-    }
-
-    return S_OK;
+    FIXME("(%p)->(%s)\n", This, debugstr_w(v));
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_get_cookie(IHTMLDocument2 *iface, BSTR *p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-    DWORD size;
-    BOOL bret;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    size = 0;
-    bret = InternetGetCookieExW(This->window->url, NULL, NULL, &size, 0, NULL);
-    if(!bret) {
-        switch(GetLastError()) {
-        case ERROR_INSUFFICIENT_BUFFER:
-            break;
-        case ERROR_NO_MORE_ITEMS:
-            *p = NULL;
-            return S_OK;
-        default:
-            FIXME("InternetGetCookieExW failed: %u\n", GetLastError());
-            return HRESULT_FROM_WIN32(GetLastError());
-        }
-    }
-
-    if(!size) {
-        *p = NULL;
-        return S_OK;
-    }
-
-    *p = SysAllocStringLen(NULL, size-1);
-    if(!*p)
-        return E_OUTOFMEMORY;
-
-    bret = InternetGetCookieExW(This->window->url, NULL, *p, &size, 0, NULL);
-    if(!bret) {
-        ERR("InternetGetCookieExW failed: %u\n", GetLastError());
-        return E_FAIL;
-    }
-
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_put_expando(IHTMLDocument2 *iface, VARIANT_BOOL v)
@@ -775,9 +731,6 @@ static HRESULT document_write(HTMLDocument *This, SAFEARRAY *psarray, BOOL ln)
         WARN("NULL nsdoc\n");
         return E_UNEXPECTED;
     }
-
-    if (!psarray)
-        return S_OK;
 
     if(psarray->cDims != 1) {
         FIXME("cDims=%d\n", psarray->cDims);
@@ -1075,37 +1028,29 @@ static HRESULT WINAPI HTMLDocument_get_onkeypress(IHTMLDocument2 *iface, VARIANT
 static HRESULT WINAPI HTMLDocument_put_onmouseup(IHTMLDocument2 *iface, VARIANT v)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%s)\n", This, debugstr_variant(&v));
-
-    return set_doc_event(This, EVENTID_MOUSEUP, &v);
+    FIXME("(%p)\n", This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_get_onmouseup(IHTMLDocument2 *iface, VARIANT *p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    return get_doc_event(This, EVENTID_MOUSEUP, p);
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_put_onmousedown(IHTMLDocument2 *iface, VARIANT v)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->()\n", This);
-
-    return set_doc_event(This, EVENTID_MOUSEDOWN, &v);
+    FIXME("(%p)\n", This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_get_onmousedown(IHTMLDocument2 *iface, VARIANT *p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    return get_doc_event(This, EVENTID_MOUSEDOWN, p);
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_put_onmousemove(IHTMLDocument2 *iface, VARIANT v)
@@ -1125,19 +1070,15 @@ static HRESULT WINAPI HTMLDocument_get_onmousemove(IHTMLDocument2 *iface, VARIAN
 static HRESULT WINAPI HTMLDocument_put_onmouseout(IHTMLDocument2 *iface, VARIANT v)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%s)\n", This, debugstr_variant(&v));
-
-    return set_doc_event(This, EVENTID_MOUSEOUT, &v);
+    FIXME("(%p)\n", This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_get_onmouseout(IHTMLDocument2 *iface, VARIANT *p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    return get_doc_event(This, EVENTID_MOUSEOUT, p);
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_put_onmouseover(IHTMLDocument2 *iface, VARIANT v)
@@ -1161,19 +1102,15 @@ static HRESULT WINAPI HTMLDocument_get_onmouseover(IHTMLDocument2 *iface, VARIAN
 static HRESULT WINAPI HTMLDocument_put_onreadystatechange(IHTMLDocument2 *iface, VARIANT v)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%s)\n", This, debugstr_variant(&v));
-
-    return set_doc_event(This, EVENTID_READYSTATECHANGE, &v);
+    FIXME("(%p)\n", This);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_get_onreadystatechange(IHTMLDocument2 *iface, VARIANT *p)
 {
     HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    return get_doc_event(This, EVENTID_READYSTATECHANGE, p);
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLDocument_put_onafterupdate(IHTMLDocument2 *iface, VARIANT v)
@@ -1469,16 +1406,6 @@ static const IHTMLDocument2Vtbl HTMLDocumentVtbl = {
     HTMLDocument_createStyleSheet
 };
 
-static void HTMLDocument_on_advise(IUnknown *iface, cp_static_data_t *cp)
-{
-    HTMLDocument *This = HTMLDOC_THIS(iface);
-
-    if(This->window)
-        update_cp_events(This->window, cp);
-}
-
-#undef HTMLDOC_THIS
-
 #define SUPPINFO_THIS(iface) DEFINE_THIS(HTMLDocument, SupportErrorInfo, iface)
 
 static HRESULT WINAPI SupportErrorInfo_QueryInterface(ISupportErrorInfo *iface, REFIID riid, void **ppv)
@@ -1722,9 +1649,6 @@ static BOOL htmldoc_qi(HTMLDocument *This, REFIID riid, void **ppv)
     }else if(IsEqualGUID(&IID_IViewObject2, riid)) {
         TRACE("(%p)->(IID_IViewObject2, %p)\n", This, ppv);
         *ppv = VIEWOBJ2(This);
-    }else if(IsEqualGUID(&IID_IViewObjectEx, riid)) {
-        TRACE("(%p)->(IID_IViewObjectEx, %p)\n", This, ppv);
-        *ppv = VIEWOBJEX(This);
     }else if(IsEqualGUID(&IID_IOleWindow, riid)) {
         TRACE("(%p)->(IID_IOleWindow, %p)\n", This, ppv);
         *ppv = OLEWIN(This);
@@ -1773,15 +1697,6 @@ static BOOL htmldoc_qi(HTMLDocument *This, REFIID riid, void **ppv)
     }else if(IsEqualGUID(&IID_IMarshal, riid)) {
         TRACE("(%p)->(IID_IMarshal %p) returning NULL\n", This, ppv);
         *ppv = NULL;
-    }else if(IsEqualGUID(&IID_IExternalConnection, riid)) {
-        TRACE("(%p)->(IID_IExternalConnection %p) returning NULL\n", This, ppv);
-        *ppv = NULL;
-    }else if(IsEqualGUID(&IID_IStdMarshalInfo, riid)) {
-        TRACE("(%p)->(IID_IStdMarshalInfo %p) returning NULL\n", This, ppv);
-        *ppv = NULL;
-    }else if(IsEqualGUID(&IID_IObjectWithSite, riid)) {
-        TRACE("(%p)->(IID_IObjectWithSite %p)\n", This, ppv);
-        *ppv = OBJSITE(This);
     }else {
         return FALSE;
     }
@@ -1790,8 +1705,6 @@ static BOOL htmldoc_qi(HTMLDocument *This, REFIID riid, void **ppv)
         IUnknown_AddRef((IUnknown*)*ppv);
     return TRUE;
 }
-
-static cp_static_data_t HTMLDocumentEvents_data = { HTMLDocumentEvents_tid, HTMLDocument_on_advise };
 
 static void init_doc(HTMLDocument *doc, IUnknown *unk_impl, IDispatchEx *dispex)
 {
@@ -1814,10 +1727,9 @@ static void init_doc(HTMLDocument *doc, IUnknown *unk_impl, IDispatchEx *dispex)
     HTMLDocument_Hlink_Init(doc);
 
     ConnectionPointContainer_Init(&doc->cp_container, (IUnknown*)HTMLDOC(doc));
-    ConnectionPoint_Init(&doc->cp_dispatch, &doc->cp_container, &IID_IDispatch, NULL);
-    ConnectionPoint_Init(&doc->cp_propnotif, &doc->cp_container, &IID_IPropertyNotifySink, NULL);
-    ConnectionPoint_Init(&doc->cp_htmldocevents, &doc->cp_container, &DIID_HTMLDocumentEvents, &HTMLDocumentEvents_data);
-    ConnectionPoint_Init(&doc->cp_htmldocevents2, &doc->cp_container, &DIID_HTMLDocumentEvents2, NULL);
+    ConnectionPoint_Init(&doc->cp_propnotif, &doc->cp_container, &IID_IPropertyNotifySink);
+    ConnectionPoint_Init(&doc->cp_htmldocevents, &doc->cp_container, &DIID_HTMLDocumentEvents);
+    ConnectionPoint_Init(&doc->cp_htmldocevents2, &doc->cp_container, &DIID_HTMLDocumentEvents2);
 }
 
 static void destroy_htmldoc(HTMLDocument *This)
@@ -1851,12 +1763,8 @@ static void HTMLDocumentNode_destructor(HTMLDOMNode *iface)
 {
     HTMLDocumentNode *This = HTMLDOCNODE_NODE_THIS(iface);
 
-    if(This->body_event_target)
-        release_event_target(This->body_event_target);
     if(This->nsevent_listener)
         release_nsevents(This);
-    if(This->catmgr)
-        ICatInformation_Release(This->catmgr);
     if(This->secmgr)
         IInternetSecurityManager_Release(This->secmgr);
 
@@ -1915,8 +1823,6 @@ HRESULT create_doc_from_nsdoc(nsIDOMHTMLDocument *nsdoc, HTMLDocumentObj *doc_ob
     doc->ref = 1;
 
     doc->basedoc.window = window;
-    if(window == doc_obj->basedoc.window)
-        doc->basedoc.cp_container.forward_container = &doc_obj->basedoc.cp_container;
 
     nsIDOMHTMLDocument_AddRef(nsdoc);
     doc->nsdoc = nsdoc;
@@ -1929,7 +1835,6 @@ HRESULT create_doc_from_nsdoc(nsIDOMHTMLDocument *nsdoc, HTMLDocumentObj *doc_ob
 
     HTMLDOMNode_Init(doc, &doc->node, (nsIDOMNode*)nsdoc);
     doc->node.vtbl = &HTMLDocumentNodeImplVtbl;
-    doc->node.cp_container = &doc->basedoc.cp_container;
 
     hres = CoInternetCreateSecurityManager(NULL, &doc->secmgr, 0);
     if(FAILED(hres)) {
@@ -1995,11 +1900,7 @@ static ULONG WINAPI CustomDoc_Release(ICustomDoc *iface)
             This->basedoc.window->doc_obj = NULL;
             IHTMLWindow2_Release(HTMLWINDOW2(This->basedoc.window));
         }
-        if(This->basedoc.advise_holder)
-            IOleAdviseHolder_Release(This->basedoc.advise_holder);
 
-        if(This->view_sink)
-            IAdviseSink_Release(This->view_sink);
         if(This->client)
             IOleObject_SetClientSite(OLEOBJ(&This->basedoc), NULL);
         if(This->in_place_active)

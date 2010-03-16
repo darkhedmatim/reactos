@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_INPUT_H
+#define _WIN32K_INPUT_H
 
 #include <internal/kbd.h>
 
@@ -42,9 +43,10 @@ BOOL FASTCALL IntKeyboardInput(KEYBDINPUT *ki);
 BOOL UserInitDefaultKeyboardLayout();
 PKBL UserHklToKbl(HKL hKl);
 BOOL FASTCALL UserAttachThreadInput(PTHREADINFO,PTHREADINFO,BOOL);
-BOOL FASTCALL IntConnectThreadInput(PTHREADINFO,PTHREADINFO*,PUSER_MESSAGE_QUEUE*);
 
 #define ThreadHasInputAccess(W32Thread) \
   (TRUE)
 
 extern PTHREADINFO ptiRawInput;
+
+#endif /* _WIN32K_INPUT_H */

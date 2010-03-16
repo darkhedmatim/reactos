@@ -15,8 +15,8 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-
-#pragma once
+#ifndef __EXCEPTION_H
+#define __EXCEPTION_H
 
 #include "pch.h"
 #include "xml.h"
@@ -144,3 +144,5 @@ public:
 	std::string BuildTool;
 	std::string Version;
 };
+
+#endif /* __EXCEPTION_H */

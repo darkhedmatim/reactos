@@ -24,7 +24,8 @@
  * PROGRAMMER:      Eric Kohl
  */
 
-#pragma once
+#ifndef _UTILS_CONSOLE_H_
+#define _UTILS_CONSOLE_H_
 
 BOOL WINAPI
 AllocConsole(VOID);
@@ -111,5 +112,7 @@ BOOL WINAPI
 SetConsoleOutputCP(
 	IN UINT wCodePageID
 );
+
+#endif /* _UTILS_CONSOLE_H_ */
 
 /* EOF */

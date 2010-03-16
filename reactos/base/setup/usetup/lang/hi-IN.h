@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_HI_IN_H__
+#define LANG_HI_IN_H__
 
 MUI_LAYOUTS hiINLayouts[] =
 {
@@ -7,3 +8,5 @@ MUI_LAYOUTS hiINLayouts[] =
     { L"0439", L"00000439" },
     { NULL, NULL }
 };
+
+#endif

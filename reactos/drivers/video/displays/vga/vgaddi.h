@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _VGADDI_H_
+#define _VGADDI_H_
 
 #define _WINBASE_
 #define _WINDOWS_H
@@ -287,3 +288,5 @@ vgaReadScan(int x, int y, int w, void *b);
 
 VOID FASTCALL
 vgaWriteScan(int x, int y, int w, void *b);
+
+#endif /* _VGADDI_H_ */

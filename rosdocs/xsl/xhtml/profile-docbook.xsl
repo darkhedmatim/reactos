@@ -6,7 +6,7 @@
 <xsl:output method="xml" encoding="ISO-8859-1" indent="no" doctype-public="-//W3C//DTD XHTML 1.0 Transitional//EN" doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"/>
 
 <!-- ********************************************************************
-     $Id: profile-docbook.xsl,v 1.1 2002/06/13 20:33:11 chorns Exp $
+     $Id$
      ********************************************************************
 
      This file is part of the XSL DocBook Stylesheet distribution.

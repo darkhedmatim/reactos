@@ -1,20 +1,28 @@
 /* Program for computing the build time.
 
-   Developed by Colin Finck <colin@reactos.org>
+   Developed by Colin Finck <mail@colinfinck.de>
    Derived from "buildtime.c" of RosBE for Windows
    Released under GNU GPL v2 or any later version.
 */
 
 #include <stdio.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
-#include <unistd.h>
 
 int
 main(int argc, char* argv[])
 {
-	pid_t ProcessId;
+	char* CommandLine;
+	double TotalTime;
+	int i;
+	int CommandLineLength = 0;
+	int Hour;
+	int Minute;
+	int Ret;
+	int Second;
+	time_t StartTime;
+	time_t FinishTime;
 
 	/* Do we have command line arguments? */
 	if(argc <= 1)
@@ -23,52 +31,50 @@ main(int argc, char* argv[])
 		return 1;
 	}
 
-	ProcessId = fork();
-	if(ProcessId < 0)
+	/* First compute the memory size to allocate */
+	for(i = 1; i < argc; i++)
 	{
-		/* Error */
-		fprintf(stderr, "buildtime: fork() failed!\n");
+		/* Every argument is enclosed between quotes and followed by a space.
+		   The last argument is followed by a terminating null character instead of a space. */
+		CommandLineLength += 3 + strlen(argv[i]);
+	}
+
+	/* Now allocate the needed memory */
+	CommandLine = malloc(CommandLineLength + 1);
+	if(!CommandLine)
+	{
+		fprintf(stderr, "buildtime: Unable to allocate memory!\n");
 		return 1;
 	}
-	else if(ProcessId == 0)
+
+	memset(CommandLine, 0, CommandLineLength + 1);
+
+	/* Put the command line into the variable */
+	for(i = 1; i < argc; i++)
 	{
-		/* Child process */
-		execvp(argv[1], &argv[1]);
-		
-		/* If this function returned, an error occured */
-		fprintf(stderr, "execvp() failed!\n");
-		return 1;
+		strcat(CommandLine, "\"");
+		strcat(CommandLine, argv[i]);
+		strcat(CommandLine, "\" ");
 	}
-	else
-	{
-		/* Parent process */
-		double TotalTime;
-		int Hour;
-		int Minute;
-		int Ret;
-		int Second;
-		time_t StartTime;
-		time_t FinishTime;
-		
-		time(&StartTime);
 
-		if(wait(&Ret) != ProcessId)
-		{
-			fprintf(stderr, "buildtime: wait() failed!\n");
-			return 1;
-		}
-		
-		time(&FinishTime);
+	CommandLine[CommandLineLength] = 0;
 
-		/* Compute the needed time and print it */
-		TotalTime = difftime(FinishTime, StartTime);
+	/* Get the timestamps and execute the command line */
+	time(&StartTime);
+	Ret = system(CommandLine);
+	time(&FinishTime);
 
-		Second = (int)TotalTime % 60;
-		TotalTime = TotalTime / 60;
-		Minute = (int)TotalTime % 60;
-		Hour = TotalTime / 60;
+	/* Compute the needed time and print it */
+	TotalTime = difftime(FinishTime, StartTime);
 
-		printf("\nTotal Build Time: %02d:%02d:%02d\n", Hour, Minute, Second);
-		return WEXITSTATUS(Ret);
-	}
+	Second = (int)TotalTime % 60;
+	TotalTime = TotalTime / 60;
+	Minute = (int)TotalTime % 60;
+	Hour = TotalTime / 60;
+
+	printf("\nTotal Build Time: %02d:%02d:%02d\n", Hour, Minute, Second);
+
+	/* Final actions */
+	free(CommandLine);
+	return Ret;
 }

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_SYSPARAMS_H
+#define _WIN32K_SYSPARAMS_H
 
 #include "cursoricon.h"
 
@@ -177,3 +178,5 @@ typedef union _SPIBUFFER
 } SPIBUFFER;
 
 extern SPIVALUES gspv;
+
+#endif /* _WIN32K_SYSPARAMS_H */

@@ -6,6 +6,7 @@
 	<file>mciqtz.c</file>
 	<file>version.rc</file>
 	<library>wine</library>
+	<library>kernel32</library>
 	<library>oleaut32</library>
 	<library>ole32</library>
 	<library>winmm</library>

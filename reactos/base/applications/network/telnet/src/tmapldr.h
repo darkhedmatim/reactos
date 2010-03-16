@@ -68,7 +68,8 @@
 //                                                               //
 ///////////////////////////////////////////////////////////////////
 
-#pragma once
+#ifndef __TLOADMAP_H
+#define __TLOADMAP_H
 
 #include "keytrans.h"
 #include "tcharmap.h"
@@ -100,3 +101,5 @@ private:
 	int LoadCharMap(string buf);
 
 };
+
+#endif

@@ -7,7 +7,6 @@
 	<define name="_NTOSKRNL_" />
 	<define name="_NTSYSTEM_" />
 	<define name="_IN_KERNEL_" />
-	<define name="NTDDI_VERSION">0x05020400</define>
 	<if property="_WINKD_" value="1">
 		<define name="_WINKD_" />
 	</if>
@@ -37,9 +36,9 @@
 	<directory name="ke">
 		<if property="ARCH" value="i386">
 			<directory name="i386">
+				<file first="true">boot.S</file>
 				<file>abios.c</file>
 				<file>cpu.c</file>
-				<file>context.c</file>
 				<file>ctxswitch.S</file>
 				<file>exp.c</file>
 				<file>irqobj.c</file>
@@ -47,12 +46,13 @@
 				<file>ldt.c</file>
 				<file>mtrr.c</file>
 				<file>patpge.c</file>
+				<file>systimer.S</file>
 				<file>thrdini.c</file>
 				<file>trap.s</file>
-				<file>traphdlr.c</file>
 				<file>usercall_asm.S</file>
 				<file>usercall.c</file>
 				<file>v86vdm.c</file>
+				<file>v86m_sup.S</file>
 			</directory>
 		</if>
 		<if property="ARCH" value="arm">
@@ -64,6 +64,7 @@
 				<file>kiinit.c</file>
 				<file>stubs_asm.s</file>
 				<file>thrdini.c</file>
+				<file>time.c</file>
 				<file>trap.s</file>
 				<file>trapc.c</file>
 				<file>usercall.c</file>
@@ -104,7 +105,6 @@
 		<file>queue.c</file>
 		<file>semphobj.c</file>
 		<file>spinlock.c</file>
-		<file>time.c</file>
 		<file>thrdschd.c</file>
 		<file>thrdobj.c</file>
 		<file>timerobj.c</file>
@@ -364,7 +364,7 @@
 		</if>
 		<if property="ARCH" value="arm">
 			<directory name="arm">
-				<file>page.c</file>
+				<file>stubs.c</file>
 			</directory>
 		</if>
 		<if property="ARCH" value="powerpc">
@@ -391,11 +391,9 @@
 			<file>hypermap.c</file>
 			<file>iosup.c</file>
 			<file>mdlsup.c</file>
-			<file>mminit.c</file>
 			<file>mmsup.c</file>
 			<file>ncache.c</file>
 			<file>pagfault.c</file>
-			<file>pfnlist.c</file>
 			<file>pool.c</file>
 			<file>procsup.c</file>
 			<file>syspte.c</file>
@@ -403,6 +401,7 @@
 		</directory>
 		<file>anonmem.c</file>
 		<file>balance.c</file>
+		<file>dbgpool.c</file>
 		<file>freelist.c</file>
 		<file>marea.c</file>
 		<if property="_WINKD_" value ="1">
@@ -414,6 +413,7 @@
 		<file>pagefile.c</file>
 		<file>pageop.c</file>
 		<file>pe.c</file>
+		<file>pool.c</file>
 		<file>ppool.c</file>
 		<file>procsup.c</file>
 		<file>region.c</file>
@@ -439,10 +439,8 @@
 		<file>obwait.c</file>
 	</directory>
 	<directory name="po">
-	    <file>events.c</file>
 		<file>power.c</file>
-		<file>poshtdwn.c</file>
-		<file>povolume.c</file>
+		<file>events.c</file>
 	</directory>
 	<directory name="ps">
 		<if property="ARCH" value="i386">

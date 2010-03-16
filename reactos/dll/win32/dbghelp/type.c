@@ -304,21 +304,6 @@ struct symt_array* symt_new_array(struct module* module, int min, int max,
     return sym;
 }
 
-static inline DWORD symt_array_count(struct module* module, const struct symt_array* array)
-{
-    if (array->end < 0)
-    {
-        DWORD64 elem_size;
-        /* One could want to also set the array->end field in array, but we won't do it
-         * as long as all the get_type() helpers use const objects
-         */
-        if (symt_get_info(module, array->base_type, TI_GET_LENGTH, &elem_size) && elem_size)
-            return -array->end / (DWORD)elem_size;
-        return 0;
-    }
-    return array->end - array->start + 1;
-}
-
 struct symt_function_signature* symt_new_function_signature(struct module* module, 
                                                             struct symt* ret_type,
                                                             enum CV_call_e call_conv)
@@ -415,9 +400,9 @@ BOOL WINAPI SymEnumTypes(HANDLE hProcess, ULONG64 BaseOfDll,
     for (i=0; i<vector_length(&pair.effective->vtypes); i++)
     {
         type = *(struct symt**)vector_at(&pair.effective->vtypes, i);
-        sym_info->TypeIndex = symt_ptr2index(pair.effective, type);
+        sym_info->TypeIndex = (DWORD)type;
         sym_info->info = 0; /* FIXME */
-        symt_get_info(pair.effective, type, TI_GET_LENGTH, &size);
+        symt_get_info(type, TI_GET_LENGTH, &size);
         sym_info->Size = size;
         sym_info->ModBase = pair.requested->module.BaseOfImage;
         sym_info->Flags = 0; /* FIXME */
@@ -477,8 +462,8 @@ BOOL WINAPI SymEnumTypesW(HANDLE hProcess, ULONG64 BaseOfDll,
  *
  * Retrieves information about a symt (either symbol or type)
  */
-BOOL symt_get_info(struct module* module, const struct symt* type,
-                   IMAGEHLP_SYMBOL_TYPE_INFO req, void* pInfo)
+BOOL symt_get_info(const struct symt* type, IMAGEHLP_SYMBOL_TYPE_INFO req, 
+                   void* pInfo)
 {
     unsigned            len;
 
@@ -510,7 +495,7 @@ BOOL symt_get_info(struct module* module, const struct symt* type,
             for (i = 0; i < tifp->Count; i++)
             {
                 if (!(pt = vector_at(v, tifp->Start + i))) return FALSE;
-                tifp->ChildId[i] = symt_ptr2index(module, *pt);
+                tifp->ChildId[i] = (DWORD)*pt;
             }
         }
         break;
@@ -537,7 +522,7 @@ BOOL symt_get_info(struct module* module, const struct symt* type,
         case SymTagFuncDebugStart:
         case SymTagFuncDebugEnd:
         case SymTagLabel:
-            if (!symt_get_info(module, ((const struct symt_hierarchy_point*)type)->parent,
+            if (!symt_get_info(((const struct symt_hierarchy_point*)type)->parent,
                                req, pInfo))
                 return FALSE;
             X(ULONG64) += ((const struct symt_hierarchy_point*)type)->loc.offset;
@@ -612,7 +597,8 @@ BOOL symt_get_info(struct module* module, const struct symt* type,
         switch (type->tag)
         {
         case SymTagArrayType:
-            X(DWORD) = symt_array_count(module, (const struct symt_array*)type);
+            X(DWORD) = ((const struct symt_array*)type)->end - 
+                ((const struct symt_array*)type)->start + 1;
             break;
         case SymTagFunctionType:
             /* this seems to be wrong for (future) C++ methods, where 'this' parameter
@@ -653,17 +639,18 @@ BOOL symt_get_info(struct module* module, const struct symt* type,
                 return FALSE;
             X(DWORD64) = ((const struct symt_data*)type)->u.member.length;
             break;
-        case SymTagArrayType:
-            if (!symt_get_info(module, ((const struct symt_array*)type)->base_type,
+        case SymTagArrayType:   
+            if (!symt_get_info(((const struct symt_array*)type)->base_type, 
                                TI_GET_LENGTH, pInfo))
                 return FALSE;
-            X(DWORD64) *= symt_array_count(module, (const struct symt_array*)type);
+            X(DWORD64) *= ((const struct symt_array*)type)->end - 
+                ((const struct symt_array*)type)->start + 1;
             break;
         case SymTagPublicSymbol:
             X(DWORD64) = ((const struct symt_public*)type)->size;
             break;
         case SymTagTypedef:
-            return symt_get_info(module, ((const struct symt_typedef*)type)->type, TI_GET_LENGTH, pInfo);
+            return symt_get_info(((const struct symt_typedef*)type)->type, TI_GET_LENGTH, pInfo);
         case SymTagThunk:
             X(DWORD64) = ((const struct symt_thunk*)type)->size;
             break;
@@ -683,19 +670,19 @@ BOOL symt_get_info(struct module* module, const struct symt* type,
         switch (type->tag)
         {
         case SymTagBlock:
-            X(DWORD) = symt_ptr2index(module, ((const struct symt_block*)type)->container);
+            X(DWORD) = (DWORD)((const struct symt_block*)type)->container;
             break;
         case SymTagData:
-            X(DWORD) = symt_ptr2index(module, ((const struct symt_data*)type)->container);
+            X(DWORD) = (DWORD)((const struct symt_data*)type)->container;
             break;
         case SymTagFunction:
-            X(DWORD) = symt_ptr2index(module, ((const struct symt_function*)type)->container);
+            X(DWORD) = (DWORD)((const struct symt_function*)type)->container;
             break;
         case SymTagThunk:
-            X(DWORD) = symt_ptr2index(module, ((const struct symt_thunk*)type)->container);
+            X(DWORD) = (DWORD)((const struct symt_thunk*)type)->container;
             break;
         case SymTagFunctionArgType:
-            X(DWORD) = symt_ptr2index(module, ((const struct symt_function_arg_type*)type)->container);
+            X(DWORD) = (DWORD)((const struct symt_function_arg_type*)type)->container;
             break;
         default:
             FIXME("Unsupported sym-tag %s for get-lexical-parent\n", 
@@ -763,29 +750,29 @@ BOOL symt_get_info(struct module* module, const struct symt* type,
         {
             /* hierarchical => hierarchical */
         case SymTagArrayType:
-            X(DWORD) = symt_ptr2index(module, ((const struct symt_array*)type)->base_type);
+            X(DWORD) = (DWORD)((const struct symt_array*)type)->base_type;
             break;
         case SymTagPointerType:
-            X(DWORD) = symt_ptr2index(module, ((const struct symt_pointer*)type)->pointsto);
+            X(DWORD) = (DWORD)((const struct symt_pointer*)type)->pointsto;
             break;
         case SymTagFunctionType:
-            X(DWORD) = symt_ptr2index(module, ((const struct symt_function_signature*)type)->rettype);
+            X(DWORD) = (DWORD)((const struct symt_function_signature*)type)->rettype;
             break;
         case SymTagTypedef:
-            X(DWORD) = symt_ptr2index(module, ((const struct symt_typedef*)type)->type);
+            X(DWORD) = (DWORD)((const struct symt_typedef*)type)->type;
             break;
             /* lexical => hierarchical */
         case SymTagData:
-            X(DWORD) = symt_ptr2index(module, ((const struct symt_data*)type)->type);
+            X(DWORD) = (DWORD)((const struct symt_data*)type)->type; 
             break;
         case SymTagFunction:
-            X(DWORD) = symt_ptr2index(module, ((const struct symt_function*)type)->type);
+            X(DWORD) = (DWORD)((const struct symt_function*)type)->type;
             break;
         case SymTagEnum:
-            X(DWORD) = symt_ptr2index(module, ((const struct symt_enum*)type)->base_type);
+            X(DWORD) = (DWORD)((const struct symt_enum*)type)->base_type;
             break;
         case SymTagFunctionArgType:
-            X(DWORD) = symt_ptr2index(module, ((const struct symt_function_arg_type*)type)->arg_type);
+            X(DWORD) = (DWORD)((const struct symt_function_arg_type*)type)->arg_type;
             break;
         default:
             FIXME("Unsupported sym-tag %s for get-type\n", 
@@ -819,7 +806,7 @@ BOOL symt_get_info(struct module* module, const struct symt* type,
         break;
     case TI_GET_ARRAYINDEXTYPEID:
         if (type->tag != SymTagArrayType) return FALSE;
-        X(DWORD) = symt_ptr2index(module, ((const struct symt_array*)type)->index_type);
+        X(DWORD) = (DWORD)((const struct symt_array*)type)->index_type;
         break;
 
     case TI_GET_CLASSPARENTID:
@@ -867,7 +854,7 @@ BOOL WINAPI SymGetTypeInfo(HANDLE hProcess, DWORD64 ModBase,
         return FALSE;
     }
 
-    return symt_get_info(pair.effective, symt_index2ptr(pair.effective, TypeId), GetType, pInfo);
+    return symt_get_info((struct symt*)TypeId, GetType, pInfo);
 }
 
 /******************************************************************
@@ -878,15 +865,15 @@ BOOL WINAPI SymGetTypeFromName(HANDLE hProcess, ULONG64 BaseOfDll,
                                PCSTR Name, PSYMBOL_INFO Symbol)
 {
     struct process*     pcs = process_find_by_handle(hProcess);
-    struct module_pair  pair;
+    struct module*      module;
     struct symt*        type;
 
     if (!pcs) return FALSE;
-    pair.requested = module_find_by_addr(pcs, BaseOfDll, DMT_UNKNOWN);
-    if (!module_get_debug(&pair)) return FALSE;
-    type = symt_find_type_by_name(pair.effective, SymTagNull, Name);
+    module = module_find_by_addr(pcs, BaseOfDll, DMT_UNKNOWN);
+    if (!module) return FALSE;
+    type = symt_find_type_by_name(module, SymTagNull, Name);
     if (!type) return FALSE;
-    Symbol->TypeIndex = symt_ptr2index(pair.effective, type);
+    Symbol->TypeIndex = (DWORD)type;
 
     return TRUE;
 }

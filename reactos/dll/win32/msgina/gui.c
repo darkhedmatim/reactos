@@ -29,7 +29,7 @@ GUIInitialize(
 	return TRUE;
 }
 
-static INT_PTR CALLBACK
+static BOOL CALLBACK
 StatusMessageWindowProc(
 	IN HWND hwndDlg,
 	IN UINT uMsg,

@@ -19,6 +19,7 @@
 		<library>rpcrt4_winetest_server</library>
 		<library>rpcrt4_winetest_client</library>
 		<library>rpcrt4</library>
+		<library>kernel32</library>
 		<library>ntdll</library>
 		<file>cstub.c</file>
 		<file>generated.c</file>

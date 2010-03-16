@@ -4,8 +4,9 @@
  * FILE:        include/routines.h
  * PURPOSE:     Common routine prototypes
  */
+#ifndef __ROUTINES_H
+#define __ROUTINES_H
 
-#pragma once
 
 UINT Random(VOID);
 
@@ -48,10 +49,9 @@ UINT ResizePacket(
     PNDIS_PACKET Packet,
     UINT Size);
 
-NDIS_STATUS AllocatePacketWithBuffer( PNDIS_PACKET *NdisPacket,
-				       PCHAR Data, UINT Len );
-
-VOID FreeNdisPacket( PNDIS_PACKET Packet );
+NDIS_STATUS AllocatePacketWithBufferX( PNDIS_PACKET *NdisPacket,
+				       PCHAR Data, UINT Len,
+				       PCHAR File, UINT Line );
 
 void GetDataPtr( PNDIS_PACKET Packet,
 		 UINT Offset,
@@ -69,5 +69,7 @@ VOID DisplayTCPPacket(
 #define DISPLAY_IP_PACKET(x)
 #define DISPLAY_TCP_PACKET(x)
 #endif /* DBG */
+
+#endif /* __ROUTINES_H */
 
 /* EOF */

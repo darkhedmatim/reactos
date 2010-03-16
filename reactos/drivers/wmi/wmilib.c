@@ -11,7 +11,6 @@
 
 #include <stdio.h>
 #include <ntddk.h>
-#include <wmlib.h>
 
 #define NDEBUG
 #include <debug.h>

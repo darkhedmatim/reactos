@@ -1655,7 +1655,7 @@ typedef struct tagEMRBITBLT {
 typedef struct tagLOGBRUSH {
 	UINT lbStyle;
 	COLORREF lbColor;
-	ULONG_PTR lbHatch;
+	LONG lbHatch;
 } LOGBRUSH,*PLOGBRUSH,*LPLOGBRUSH;
 typedef LOGBRUSH PATTERN,*PPATTERN,*LPPATTERN;
 typedef struct tagLOGBRUSH32 {
@@ -2917,7 +2917,6 @@ BOOL WINAPI FlattenPath(HDC);
 BOOL WINAPI FloodFill(HDC,int,int,COLORREF);
 BOOL WINAPI GdiAlphaBlend(HDC,int,int,int,int,HDC,int,int,int,int,BLENDFUNCTION);
 BOOL WINAPI GdiComment(HDC,UINT,const BYTE*);
-DEVMODEW* WINAPI GdiConvertToDevmodeW(const DEVMODEA *);
 BOOL WINAPI GdiFlush(void);
 DWORD WINAPI GdiGetBatchLimit(void);
 DWORD WINAPI GdiSetBatchLimit(DWORD);

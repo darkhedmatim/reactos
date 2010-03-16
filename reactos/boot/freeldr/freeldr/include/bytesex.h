@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __BYTESEX_H_
+#define __BYTESEX_H_
 
 #ifdef _PPC_
 #define SWAPD(x) ((((x)&0xff)<<24)|(((x)&0xff00)<<8)|(((x)>>8)&0xff00)|(((x)>>24)&0xff))
@@ -9,3 +10,5 @@
 #endif
 #define SD(Object,Field) Object->Field = SWAPD(Object->Field)
 #define SW(Object,Field) Object->Field = SWAPW(Object->Field)
+
+#endif/*__BYTESEX_H_*/

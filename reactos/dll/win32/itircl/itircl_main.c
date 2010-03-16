@@ -71,5 +71,6 @@ HRESULT WINAPI DllUnregisterServer(void)
  */
 HRESULT WINAPI DllCanUnloadNow(void)
 {
+    FIXME("stub\n");
     return S_FALSE;
 }

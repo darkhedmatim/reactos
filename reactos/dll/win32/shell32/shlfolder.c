@@ -554,7 +554,7 @@ HRESULT WINAPI SHCreateLinks( HWND hWnd, LPCSTR lpszDir, LPDATAOBJECT lpDataObje
  */
 HRESULT
 WINAPI
-SHOpenFolderAndSelectItems(LPITEMIDLIST pidlFolder,
+SHOpenFolderAndSelectItems(PCIDLIST_ABSOLUTE pidlFolder,
                            UINT cidl,
                            PCUITEMID_CHILD_ARRAY *apidl,
                            DWORD dwFlags)

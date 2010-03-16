@@ -12,7 +12,7 @@
 	<file>filedlg.c</file>
 	<file>filedlg31.c</file>
 	<file>filedlgbrowser.c</file>
-	<file>finddlg.c</file>
+	<file>finddlg32.c</file>
 	<file>fontdlg.c</file>
 	<file>printdlg.c</file>
 	<file>rsrc.rc</file>
@@ -25,6 +25,7 @@
 	<library>user32</library>
 	<library>gdi32</library>
 	<library>advapi32</library>
+	<library>kernel32</library>
 	<library>ole32</library>
 	<library>ntdll</library>
 </module>

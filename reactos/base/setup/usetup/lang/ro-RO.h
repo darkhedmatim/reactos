@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_RO_RO_H__
+#define LANG_RO_RO_H__
 
 MUI_LAYOUTS roROLayouts[] =
 {
@@ -6,3 +7,5 @@ MUI_LAYOUTS roROLayouts[] =
     { L"0409", L"00000409" },
     { NULL, NULL }
 };
+
+#endif

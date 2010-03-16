@@ -170,9 +170,11 @@ unsigned char * __RPC_USER CLIPFORMAT_UserMarshal(ULONG *pFlags, unsigned char *
         pBuffer += sizeof(UINT);
         *(UINT *)pBuffer = len;
         pBuffer += sizeof(UINT);
-        TRACE("marshaling format name %s\n", debugstr_w(format));
-        memcpy(pBuffer, format, len * sizeof(WCHAR));
+        TRACE("marshaling format name %s\n", debugstr_wn(format, len-1));
+        lstrcpynW((LPWSTR)pBuffer, format, len);
         pBuffer += len * sizeof(WCHAR);
+        *(WCHAR *)pBuffer = '\0';
+        pBuffer += sizeof(WCHAR);
     }
     else
     {
@@ -236,11 +238,11 @@ unsigned char * __RPC_USER CLIPFORMAT_UserUnmarshal(ULONG *pFlags, unsigned char
         if (*(UINT *)pBuffer != len)
             RaiseException(RPC_S_INVALID_BOUND, 0, 0, NULL);
         pBuffer += sizeof(UINT);
-        if (((WCHAR *)pBuffer)[len - 1] != '\0')
+        if (((WCHAR *)pBuffer)[len] != '\0')
             RaiseException(RPC_S_INVALID_BOUND, 0, 0, NULL);
         TRACE("unmarshaling clip format %s\n", debugstr_w((LPCWSTR)pBuffer));
         cf = RegisterClipboardFormatW((LPCWSTR)pBuffer);
-        pBuffer += len * sizeof(WCHAR);
+        pBuffer += (len + 1) * sizeof(WCHAR);
         if (!cf)
             RaiseException(DV_E_CLIPFORMAT, 0, 0, NULL);
         *pCF = cf;

@@ -4,6 +4,7 @@
 	<importlibrary definition="hdwwiz.spec" />
 	<include base="hdwwiz">.</include>
 	<library>setupapi</library>
+	<library>kernel32</library>
 	<library>advapi32</library>
 	<library>comctl32</library>
 	<library>rpcrt4</library>

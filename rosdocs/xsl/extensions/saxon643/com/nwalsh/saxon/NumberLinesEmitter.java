@@ -14,7 +14,7 @@ import com.icl.saxon.expr.FragmentValue;
 /**
  * <p>Saxon extension to decorate a result tree fragment with line numbers.</p>
  *
- * <p>$Id: NumberLinesEmitter.java,v 1.1 2002/06/13 20:32:16 chorns Exp $</p>
+ * <p>$Id$</p>
  *
  * <p>Copyright (C) 2000 Norman Walsh.</p>
  *
@@ -44,7 +44,7 @@ import com.icl.saxon.expr.FragmentValue;
  * @author Norman Walsh
  * <a href="mailto:ndw@nwalsh.com">ndw@nwalsh.com</a>
  *
- * @version $Id: NumberLinesEmitter.java,v 1.1 2002/06/13 20:32:16 chorns Exp $
+ * @version $Id$
  *
  */
 public class NumberLinesEmitter extends CopyEmitter {

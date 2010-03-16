@@ -1,5 +1,5 @@
 /*
- * Unit test suite for timer functions
+ * Unit test suite for time functions
  *
  * Copyright 2004 Mike McCormack
  *

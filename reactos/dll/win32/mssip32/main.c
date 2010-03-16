@@ -44,21 +44,3 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
     }
     return TRUE;
 }
-
-/*****************************************************
- *    DllRegisterServer (MSSIP32.@)
- */
-HRESULT WINAPI DllRegisterServer(void)
-{
-    FIXME("Not implemented.\n");
-    return E_UNEXPECTED;
-}
-
-/*****************************************************
- *    DllUnregisterServer (MSSIP32.@)
- */
-HRESULT WINAPI DllUnregisterServer(void)
-{
-    FIXME("Not implemented.\n");
-    return E_UNEXPECTED;
-}

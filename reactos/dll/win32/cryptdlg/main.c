@@ -535,7 +535,7 @@ static BOOL CRYPT_FormatCPS(DWORD dwCertEncodingType,
      pbEncoded, cbEncoded, CRYPT_DECODE_ALLOC_FLAG, NULL, &cpsValue, &size)))
     {
         LPCWSTR headingSep, sep;
-        DWORD sepLen;
+        DWORD headingSepLen, sepLen;
 
         if (dwFormatStrType & CRYPT_FORMAT_STR_MULTI_LINE)
         {
@@ -547,8 +547,8 @@ static BOOL CRYPT_FormatCPS(DWORD dwCertEncodingType,
             headingSep = colonSpace;
             sep = commaSep;
         }
-
         sepLen = strlenW(sep);
+        headingSepLen = strlenW(headingSep);
 
         if (dwFormatStrType & CRYPT_FORMAT_STR_MULTI_LINE)
         {

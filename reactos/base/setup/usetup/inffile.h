@@ -24,7 +24,8 @@
  * PROGRAMMER:      Hervé Poussineau
  */
 
-#pragma once
+#ifndef __INFFILE_H__
+#define __INFFILE_H__
 
 #ifndef __REACTOS__
 
@@ -136,5 +137,7 @@ INF_OpenBufferedFileA(
 
 VOID INF_SetHeap(
 	IN PVOID Heap);
+
+#endif /* __INFFILE_H__*/
 
 /* EOF */

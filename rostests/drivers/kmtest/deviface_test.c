@@ -22,7 +22,7 @@
 
 /* INCLUDES *******************************************************************/
 
-#include <ddk/ntifs.h>
+#include <ddk/ntddk.h>
 #include <ndk/iotypes.h>
 #include "kmtest.h"
 

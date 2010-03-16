@@ -207,7 +207,6 @@ static void test_get_set(void)
         }
         if (ret)
             ok(lstrcmpi(buffer,str)==0, "GetIDList returned '%s'\n", buffer);
-        pILFree(tmp_pidl);
     }
 
     pidl=path_to_pidl(mypath);
@@ -215,8 +214,6 @@ static void test_get_set(void)
 
     if (pidl)
     {
-        LPITEMIDLIST second_pidl;
-
         r = IShellLinkA_SetIDList(sl, pidl);
         ok(SUCCEEDED(r), "SetIDList failed (0x%08x)\n", r);
 
@@ -226,14 +223,7 @@ static void test_get_set(void)
         ok(tmp_pidl && pILIsEqual(pidl, tmp_pidl),
            "GetIDList returned an incorrect pidl\n");
 
-        r = IShellLinkA_GetIDList(sl, &second_pidl);
-        ok(SUCCEEDED(r), "GetIDList failed (0x%08x)\n", r);
-        ok(second_pidl && pILIsEqual(pidl, second_pidl),
-           "GetIDList returned an incorrect pidl\n");
-        ok(second_pidl != tmp_pidl, "pidls are the same\n");
-
-        pILFree(second_pidl);
-        pILFree(tmp_pidl);
+        /* tmp_pidl is owned by IShellLink so we don't free it */
         pILFree(pidl);
 
         strcpy(buffer,"garbage");
@@ -284,20 +274,6 @@ static void test_get_set(void)
     r = IShellLinkA_GetArguments(sl, buffer, sizeof(buffer));
     ok(SUCCEEDED(r), "GetArguments failed (0x%08x)\n", r);
     ok(lstrcmp(buffer,str)==0, "GetArguments returned '%s'\n", buffer);
-
-    strcpy(buffer,"garbage");
-    r = IShellLinkA_SetArguments(sl, NULL);
-    ok(SUCCEEDED(r), "SetArguments failed (0x%08x)\n", r);
-    r = IShellLinkA_GetArguments(sl, buffer, sizeof(buffer));
-    ok(SUCCEEDED(r), "GetArguments failed (0x%08x)\n", r);
-    ok(!buffer[0] || lstrcmp(buffer,str)==0, "GetArguments returned '%s'\n", buffer);
-
-    strcpy(buffer,"garbage");
-    r = IShellLinkA_SetArguments(sl, "");
-    ok(SUCCEEDED(r), "SetArguments failed (0x%08x)\n", r);
-    r = IShellLinkA_GetArguments(sl, buffer, sizeof(buffer));
-    ok(SUCCEEDED(r), "GetArguments failed (0x%08x)\n", r);
-    ok(!buffer[0], "GetArguments returned '%s'\n", buffer);
 
     /* Test Getting / Setting showcmd */
     i=0xdeadbeef;

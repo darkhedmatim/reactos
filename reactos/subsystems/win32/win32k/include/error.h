@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_ERROR_H
+#define _WIN32K_ERROR_H
 
 VOID FASTCALL
 SetLastNtError(
@@ -10,5 +11,7 @@ SetLastWin32Error(
 
 NTSTATUS FASTCALL
 GetLastNtError(VOID);
+
+#endif /* _WIN32K_ERROR_H */
 
 /* EOF */

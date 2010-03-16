@@ -214,7 +214,7 @@ ExpAllocateExclusiveWaiterEvent(IN PERESOURCE Resource,
             KeInitializeEvent(Event, SynchronizationEvent, FALSE);
 
             /* Set it */
-            if (InterlockedCompareExchangePointer((PVOID*)&Resource->ExclusiveWaiters,
+            if (InterlockedCompareExchangePointer(&Resource->ExclusiveWaiters,
                                                   Event,
                                                   NULL))
             {
@@ -274,7 +274,7 @@ ExpAllocateSharedWaiterSemaphore(IN PERESOURCE Resource,
             KeInitializeSemaphore(Semaphore, 0, MAXLONG);
 
             /* Set it */
-            if (InterlockedCompareExchangePointer((PVOID*)&Resource->SharedWaiters,
+            if (InterlockedCompareExchangePointer(&Resource->SharedWaiters,
                                                   Semaphore,
                                                   NULL))
             {

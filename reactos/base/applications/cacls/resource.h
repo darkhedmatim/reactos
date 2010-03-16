@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _CACLS_RESOURCE_H
+#define _CACLS_RESOURCE_H
 
 #define IDS_HELP                        101
 #define IDS_ABBR_CI                     102
@@ -39,3 +40,5 @@
 #define IDS_READ_CONTROL                137
 #define IDS_DELETE                      138
 #define IDS_STANDARD_RIGHTS_ALL         139
+
+#endif /* _CACLS_RESOURCE_H */

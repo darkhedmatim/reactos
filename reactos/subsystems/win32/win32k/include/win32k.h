@@ -7,8 +7,8 @@
  */
 
 /* INCLUDES ******************************************************************/
-
-#pragma once
+#ifndef __WIN32K_H
+#define __WIN32K_H
 #define INTERNAL_CALL APIENTRY
 
 /* Internal Win32k Headers */
@@ -79,3 +79,5 @@
 #include <include/engobjects.h>
 #include <include/engevent.h>
 #include <dib/dib.h>
+
+#endif /* __WIN32K_H */

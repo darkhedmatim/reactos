@@ -5,7 +5,8 @@
  * PURPOSE:     Definitions for routines used by NDIS miniport drivers
  */
 
-#pragma once
+#ifndef __MINIPORT_H
+#define __MINIPORT_H
 
 #include <ndis.h>
 #include <ndissys.h>
@@ -196,4 +197,7 @@ VOID
 MiniDoAddressingReset(
     PLOGICAL_ADAPTER Adapter);
 
+#endif /* __MINIPORT_H */
+
 /* EOF */
+

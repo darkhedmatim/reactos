@@ -209,8 +209,6 @@ static void test_CreateAssemblyEnum(void)
     ok(hr == E_INVALIDARG, "Expected E_INVALIDARG, got %08x\n", hr);
     ok(asmenum == (IAssemblyEnum *)0xdeadbeef,
        "Expected asmenum to be unchanged, got %p\n", asmenum);
-
-    IAssemblyName_Release(asmname);
 }
 
 typedef struct _tagASMNAME

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __INCLUDE_HAL_MPS
+#define __INCLUDE_HAL_MPS
 
 /* 
  * FIXME: This does not work if we have more than 24 IRQs (ie. more than one 
@@ -196,5 +197,8 @@ typedef struct _MP_CONFIGURATION_INTLOCAL
 /* Prototypes */
 
 VOID HalpInitMPS(VOID);
+
+
+#endif /* __INCLUDE_HAL_MPS */
 
 /* EOF */

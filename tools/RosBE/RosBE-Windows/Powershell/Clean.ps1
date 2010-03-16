@@ -3,7 +3,7 @@
 # LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 # FILE:        Root/Clean.ps1
 # PURPOSE:     Clean the ReactOS source directory.
-# COPYRIGHT:   Copyright 2010 Daniel Reimer <reimer.daniel@freenet.de>
+# COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
 #
 
 $host.ui.RawUI.WindowTitle = "Cleaning..."
@@ -20,42 +20,47 @@ function remlog {
 }
 
 function rembin {
-    # Check if we have any binaries to clean, if so, clean them.
+    # Check if we have something to clean, if so, clean it.
 
-    # Check if the user set any custom filenames or pathes, otherwise locally set the appropriate variables.
+    # Apply modified obj and out paths for deletion.
 
-    if ("$ENV:ROS_AUTOMAKE" -eq "") {
-        $ROS_AUTOMAKE = "makefile-$ENV:ROS_ARCH.auto"
+    if ("$_ROSBE_OBJPATH" -eq "") {
+        $OBJCLEANPATH = "$_ROSBE_ROSSOURCEDIR\obj-$ENV:ROS_ARCH"
     } else {
-        $ROS_AUTOMAKE = $ENV:ROS_AUTOMAKE
-    }
-    if ("$ENV:ROS_INTERMEDIATE" -eq "") {
-        $ROS_INTERMEDIATE = "obj-$ENV:ROS_ARCH"
-    } else {
-        $ROS_INTERMEDIATE = $ENV:ROS_INTERMEDIATE
-    }
-    if ("$ENV:ROS_OUTPUT" -eq "") {
-        $ROS_OUTPUT = "output-$ENV:ROS_ARCH"
-    } else {
-        $ROS_OUTPUT = $ENV:ROS_OUTPUT
-    }
-    if ("$ENV:ROS_CDOUTPUT" -eq "") {
-        $ROS_CDOUTPUT = "reactos"
-    } else {
-        $ROS_CDOUTPUT = $ENV:ROS_CDOUTPUT
+        $OBJCLEANPATH = "$_ROSBE_OBJPATH"
     }
 
-    if ((Test-Path "$ROS_INTERMEDIATE\.") -and (Test-Path "$ROS_OUTPUT\.")) {
+    if ("$_ROSBE_OUTPATH" -eq "") {
+        $OUTCLEANPATH = "$_ROSBE_ROSSOURCEDIR\output-$ENV:ROS_ARCH"
+    } else {
+        $OUTCLEANPATH = "$_ROSBE_OUTPATH"
+    }
+
+    if ("$ENV:ROS_ARCH" -eq "i386") {
+        $MAKEFILE = "$_ROSBE_ROSSOURCEDIR\makefile.auto"
+    } else {
+        $MAKEFILE = "$_ROSBE_ROSSOURCEDIR\makefile-$ENV:ROS_ARCH.auto"
+    }
+
+    if (Test-Path "$MAKEFILE") {
+        $null = (Remove-Item "$MAKEFILE" -force)
+    }
+
+    if (Test-Path "$OBJCLEANPATH\.") {
         "Cleaning ReactOS $ENV:ROS_ARCH source directory..."
-
-            $null = (Remove-Item "$ROS_AUTOMAKE" -force)
-            $null = (Remove-Item "$ROS_INTERMEDIATE" -recurse -force)
-            $null = (Remove-Item "$ROS_OUTPUT" -recurse -force)
-            $null = (Remove-Item "$ROS_CDOUTPUT" -recurse -force)
-
+        if (Test-Path "$OBJCLEANPATH\.") {
+            $null = (Remove-Item "$OBJCLEANPATH" -recurse -force)
+        }
+        if (Test-Path "$OUTCLEANPATH\.") {
+            $null = (Remove-Item "$OUTCLEANPATH" -recurse -force)
+        }
         "Done cleaning ReactOS $ENV:ROS_ARCH source directory."
     } else {
-        "ERROR: This directory contains no $ENV:ROS_ARCH compiler output to clean."
+        "ERROR: There is no $ENV:ROS_ARCH compiler output to clean."
+    }
+
+    if (Test-Path "$_ROSBE_ROSSOURCEDIR\reactos") {
+        $null = (Remove-Item "$_ROSBE_ROSSOURCEDIR\reactos" -recurse -force)
     }
 }
 
@@ -66,13 +71,16 @@ function end {
 
 if ("$args" -eq "") {
     rembin
+    end
 }
 elseif ("$args" -eq "logs") {
     remlog
+    end
 }
 elseif ("$args" -eq "all") {
     rembin
     remlog
+    end
 }
 elseif ("$args" -ne "") {
     $argindex = 0
@@ -82,5 +90,5 @@ elseif ("$args" -ne "") {
         $argindex += 1
     }
     remove-variable cl
+    end
 }
-end

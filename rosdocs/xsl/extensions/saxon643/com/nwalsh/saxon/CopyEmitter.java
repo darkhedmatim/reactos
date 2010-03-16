@@ -18,7 +18,7 @@ import com.icl.saxon.tree.*;
 /**
  * <p>A Saxon 6.0 Emitter that clones its input.</p>
  *
- * <p>$Id: CopyEmitter.java,v 1.1 2002/06/13 20:32:16 chorns Exp $</p>
+ * <p>$Id$</p>
  *
  * <p>Copyright (C) 2000 Norman Walsh.</p>
  *
@@ -43,7 +43,7 @@ import com.icl.saxon.tree.*;
  * @author Norman Walsh
  * <a href="mailto:ndw@nwalsh.com">ndw@nwalsh.com</a>
  *
- * @version $Id: CopyEmitter.java,v 1.1 2002/06/13 20:32:16 chorns Exp $
+ * @version $Id$
  *
  */
 public class CopyEmitter extends com.icl.saxon.output.Emitter {

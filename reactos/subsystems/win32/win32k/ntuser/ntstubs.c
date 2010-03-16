@@ -505,10 +505,25 @@ NtUserQueryUserCounters(
    return 0;
 }
 
+
 DWORD
 APIENTRY
 NtUserRegisterTasklist(
    DWORD Unknown0)
+{
+   UNIMPLEMENTED
+
+   return 0;
+}
+
+
+DWORD
+APIENTRY
+NtUserSBGetParms(
+   DWORD Unknown0,
+   DWORD Unknown1,
+   DWORD Unknown2,
+   DWORD Unknown3)
 {
    UNIMPLEMENTED
 
@@ -1029,28 +1044,16 @@ NtUserSetInformationProcess(
     return 0;
 }
 
-NTSTATUS
+DWORD
 APIENTRY
-NtUserSetInformationThread(IN HANDLE ThreadHandle,
-                           IN USERTHREADINFOCLASS ThreadInformationClass,
-                           IN PVOID ThreadInformation,
-                           IN ULONG ThreadInformationLength)
-
+NtUserSetInformationThread(
+    DWORD dwUnknown1,
+    DWORD dwUnknown2,
+    DWORD dwUnknown3,
+    DWORD dwUnknown4)
 {
-    if (ThreadInformationClass == UserThreadInitiateShutdown)
-    {
-        DPRINT1("Shutdown initiated\n");
-    }
-    else if (ThreadInformationClass == UserThreadEndShutdown)
-    {
-        DPRINT1("Shutdown ended\n");
-    }
-    else
-    {
-        UNIMPLEMENTED;
-    }
-
-    return STATUS_SUCCESS;
+    UNIMPLEMENTED;
+    return 0;
 }
 
 DWORD
@@ -1123,6 +1126,18 @@ NtUserGetLayeredWindowAttributes(
     COLORREF *pcrKey,
     BYTE *pbAlpha,
     DWORD *pdwFlags)
+{
+    UNIMPLEMENTED;
+    return 0;
+}
+
+/* ValidateRect gets redirected to NtUserValidateRect:
+   http://blog.csdn.net/ntdll/archive/2005/10/19/509299.aspx */
+BOOL
+APIENTRY
+NtUserValidateRect(
+    HWND hWnd,
+    const RECT *lpRect)
 {
     UNIMPLEMENTED;
     return 0;

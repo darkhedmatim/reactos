@@ -2,6 +2,7 @@
 	<importlibrary definition="rasman.spec" />
 	<include base="rasman">.</include>
 	<library>wine</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 	<library>uuid</library>
 	<file>rasman.c</file>

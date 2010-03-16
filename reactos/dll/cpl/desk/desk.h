@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __CPL_DESK_H__
+#define __CPL_DESK_H__
 
 #define COBJMACROS
 #include <windows.h>
@@ -95,3 +96,6 @@ HPSXA WINAPI SHCreatePropSheetExtArrayEx(HKEY,LPCWSTR,UINT,IDataObject*);
 
 INT_PTR CALLBACK
 AdvGeneralPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+#endif /* __CPL_DESK_H__ */
+

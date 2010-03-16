@@ -249,7 +249,6 @@ GpStatus WINGDIPAPI GdipCombineRegionPath(GpRegion *region, GpPath *path, Combin
     if(mode == CombineModeReplace){
         delete_element(&region->node);
         memcpy(region, path_region, sizeof(GpRegion));
-        GdipFree(path_region);
         return Ok;
     }
 
@@ -296,7 +295,6 @@ GpStatus WINGDIPAPI GdipCombineRegionRect(GpRegion *region,
     if(mode == CombineModeReplace){
         delete_element(&region->node);
         memcpy(region, rect_region, sizeof(GpRegion));
-        GdipFree(rect_region);
         return Ok;
     }
 
@@ -1305,16 +1303,4 @@ GpStatus WINGDIPAPI GdipTranslateRegionI(GpRegion *region, INT dx, INT dy)
     TRACE("(%p, %d, %d)\n", region, dx, dy);
 
     return GdipTranslateRegion(region, (REAL)dx, (REAL)dy);
-}
-
-GpStatus WINGDIPAPI GdipGetRegionScansCount(GpRegion *region, UINT *count, GpMatrix *matrix)
-{
-    static int calls;
-
-    TRACE("(%p, %p, %p)\n", region, count, matrix);
-
-    if (!(calls++))
-        FIXME("not implemented\n");
-
-    return NotImplemented;
 }

@@ -116,7 +116,7 @@ static LPFMINFO FM_SetMenuParameter(
 static int FM_InitMenuPopup(HMENU hmenu, LPCITEMIDLIST pAlternatePidl)
 {	IShellFolder	*lpsf, *lpsf2;
 	ULONG		ulItemAttr = SFGAO_FOLDER;
-	UINT		uID, uEnumFlags;
+	UINT		uID, uFlags, uEnumFlags;
 	LPFNFMCALLBACK	lpfnCallback;
 	LPCITEMIDLIST	pidl;
 	WCHAR		sTemp[MAX_PATH];
@@ -148,6 +148,7 @@ static int FM_InitMenuPopup(HMENU hmenu, LPCITEMIDLIST pAlternatePidl)
 	  return 0;
 
 	uID = menudata->uID;
+	uFlags = menudata->uFlags;
 	uEnumFlags = menudata->uEnumFlags;
 	lpfnCallback = menudata->lpfnCallback;
 	menudata->bInitialized = FALSE;
@@ -156,7 +157,7 @@ static int FM_InitMenuPopup(HMENU hmenu, LPCITEMIDLIST pAlternatePidl)
 
 	if (SUCCEEDED (SHGetDesktopFolder(&lpsf)))
 	{
-	  if (SUCCEEDED(IShellFolder_BindToObject(lpsf, pidl,0,&IID_IShellFolder,(LPVOID *)&lpsf2)))
+	  if (SUCCEEDED(IShellFolder_BindToObject(lpsf, pidl,0,(REFIID)&IID_IShellFolder,(LPVOID *)&lpsf2)))
 	  {
 	    IEnumIDList	*lpe = NULL;
 
@@ -313,9 +314,9 @@ static BOOL FileMenu_AppendItemW(
 
 	if (lpText != FM_SEPARATOR)
 	{
-	  int len = strlenW (lpText);
-          myItem = SHAlloc(sizeof(FMITEM) + len*sizeof(WCHAR));
-	  strcpyW (myItem->szItemText, lpText);
+	  int len = wcslen (lpText);
+	  myItem = (LPFMITEM) SHAlloc( sizeof(FMITEM) + len*sizeof(WCHAR));
+	  wcscpy (myItem->szItemText, lpText);
 	  myItem->cchItemText = len;
 	  myItem->iIconIndex = icon;
 	  myItem->hMenu = hMenu;
@@ -376,15 +377,12 @@ BOOL WINAPI FileMenu_AppendItemAW(
 {
 	BOOL ret;
 
-        if (!lpText) return FALSE;
-
-	if (SHELL_OsIsUnicode() || lpText == FM_SEPARATOR)
+	if ((SHELL_OsIsUnicode() && (lpText!=FM_SEPARATOR)) || (lpText == NULL))
 	  ret = FileMenu_AppendItemW(hMenu, lpText, uID, icon, hMenuPopup, nItemHeight);
         else
 	{
 	  DWORD len = MultiByteToWideChar( CP_ACP, 0, lpText, -1, NULL, 0 );
 	  LPWSTR lpszText = HeapAlloc ( GetProcessHeap(), 0, len*sizeof(WCHAR) );
-	  if (!lpszText) return FALSE;
 	  MultiByteToWideChar( CP_ACP, 0, lpText, -1, lpszText, len );
 	  ret = FileMenu_AppendItemW(hMenu, lpszText, uID, icon, hMenuPopup, nItemHeight);
 	  HeapFree( GetProcessHeap(), 0, lpszText );
@@ -579,7 +577,7 @@ LRESULT WINAPI FileMenu_DrawItem(
 	COLORREF clrPrevText, clrPrevBkgnd;
 	int xi,yi,xt,yt;
 	HIMAGELIST hImageList;
-	RECT TextRect;
+	RECT TextRect, BorderRect;
 	LPFMINFO menuinfo;
 
 	TRACE("%p %p %s\n", hWnd, lpdis, debugstr_w(pMyItem->szItemText));
@@ -602,6 +600,9 @@ LRESULT WINAPI FileMenu_DrawItem(
 	if (menuinfo->nBorderWidth)
 	  TextRect.left += menuinfo->nBorderWidth;
 
+	BorderRect.right = menuinfo->nBorderWidth;
+/*	FillRect(lpdis->hDC, &BorderRect, CreateSolidBrush( menuinfo->crBorderColor));
+*/
 	TextRect.left += FM_LEFTBORDER;
 	xi = TextRect.left + FM_SPACE1;
 	yi = TextRect.top + FM_Y_SPACE/2;
@@ -842,7 +843,8 @@ static BOOL _SHIsMenuSeparator(HMENU hm, int i)
  * Shell_MergeMenus				[SHELL32.67]
  */
 HRESULT WINAPI Shell_MergeMenus (HMENU hmDst, HMENU hmSrc, UINT uInsert, UINT uIDAdjust, UINT uIDAdjustMax, ULONG uFlags)
-{	int		nItem;
+{
+	INT			nItem;
 	HMENU		hmSubMenu;
 	BOOL		bAlreadySeparated;
 	MENUITEMINFOW	miiSrc;
@@ -853,11 +855,10 @@ HRESULT WINAPI Shell_MergeMenus (HMENU hmDst, HMENU hmSrc, UINT uInsert, UINT uI
 		 hmDst, hmSrc, uInsert, uIDAdjust, uIDAdjustMax, uFlags);
 
 	if (!hmDst || !hmSrc)
-	  return uIDMax;
+	{ return uIDMax;
+	}
 
 	nItem = GetMenuItemCount(hmDst);
-        if (nItem == -1)
-	  return uIDMax;
 
 	if (uInsert >= (UINT)nItem)	/* insert position inside menu? */
 	{
@@ -891,6 +892,7 @@ HRESULT WINAPI Shell_MergeMenus (HMENU hmDst, HMENU hmSrc, UINT uInsert, UINT uI
 
 	  if (!GetMenuItemInfoW(hmSrc, nItem, TRUE, &miiSrc))
 	  {
+MessageBoxW(NULL, L"GetMenuItemInfoW failed", NULL, MB_OK);
 	    continue;
 	  }
 
@@ -900,8 +902,10 @@ HRESULT WINAPI Shell_MergeMenus (HMENU hmDst, HMENU hmSrc, UINT uInsert, UINT uI
 	  {
 	    /* This is a separator; don't put two of them in a row */
 	    if (bAlreadySeparated)
+		{
+MessageBoxW(NULL, L"bAlreadySeparated failed", NULL, MB_OK);
 	      continue;
-
+		}
 	    bAlreadySeparated = TRUE;
 	  }
 	  else if (miiSrc.hSubMenu)
@@ -910,9 +914,10 @@ HRESULT WINAPI Shell_MergeMenus (HMENU hmDst, HMENU hmSrc, UINT uInsert, UINT uI
 	    {
 	      miiSrc.wID += uIDAdjust;			/* add uIDAdjust to the ID */
 
-	      if (uIDAdjustMax != 0xFFFF && miiSrc.wID > uIDAdjustMax)		/* skip ID's higher uIDAdjustMax */
+		  if (miiSrc.wID > uIDAdjustMax)		/* skip ID's higher uIDAdjustMax */
+		  {MessageBoxW(NULL, L"uIDAdjustMax 111 failed", NULL, MB_OK);
 	        continue;
-
+		  }
 	      if (uIDMax <= miiSrc.wID)			/* remember the highest ID */
 	        uIDMax = miiSrc.wID + 1;
 	    }
@@ -937,9 +942,10 @@ HRESULT WINAPI Shell_MergeMenus (HMENU hmDst, HMENU hmSrc, UINT uInsert, UINT uI
 	  {
 	    miiSrc.wID += uIDAdjust;			/* add uIDAdjust to the ID */
 
-	    if (uIDAdjustMax != 0xFFFF && miiSrc.wID > uIDAdjustMax)		/* skip ID's higher uIDAdjustMax */
+		if (miiSrc.wID > uIDAdjustMax)		/* skip ID's higher uIDAdjustMax */{
+MessageBoxW(NULL, L"uIDAdjustMax max 222 failed", NULL, MB_OK);
 	      continue;
-
+		}
 	    if (uIDMax <= miiSrc.wID)			/* remember the highest ID */
 	      uIDMax = miiSrc.wID + 1;
 
@@ -950,6 +956,7 @@ HRESULT WINAPI Shell_MergeMenus (HMENU hmDst, HMENU hmSrc, UINT uInsert, UINT uI
 */
 	  if (!InsertMenuItemW(hmDst, uInsert, TRUE, &miiSrc))
 	  {
+MessageBoxW(NULL, L"InsertMenuItemW failed", NULL, MB_OK);
 	    return(uIDMax);
 	  }
 	}

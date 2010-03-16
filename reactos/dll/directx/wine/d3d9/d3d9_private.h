@@ -158,6 +158,16 @@ typedef struct IDirect3D9Impl
 
 void filter_caps(D3DCAPS9* pCaps) DECLSPEC_HIDDEN;
 
+/* ---------------- */
+/* IDirect3DDevice9 */
+/* ---------------- */
+
+/*****************************************************************************
+ * Predeclare the interface implementation structures
+ */
+extern const IDirect3DDevice9ExVtbl Direct3DDevice9_Vtbl DECLSPEC_HIDDEN;
+extern const IWineD3DDeviceParentVtbl d3d9_wined3d_device_parent_vtbl DECLSPEC_HIDDEN;
+
 /*****************************************************************************
  * IDirect3DDevice9 implementation structure
  */
@@ -180,13 +190,18 @@ typedef struct IDirect3DDevice9Impl
     BOOL                          notreset;
 } IDirect3DDevice9Impl;
 
-HRESULT device_init(IDirect3DDevice9Impl *device, IWineD3D *wined3d, UINT adapter, D3DDEVTYPE device_type,
-        HWND focus_window, DWORD flags, D3DPRESENT_PARAMETERS *parameters) DECLSPEC_HIDDEN;
 
 /* IDirect3DDevice9: */
+extern HRESULT WINAPI IDirect3DDevice9Impl_CreateAdditionalSwapChain(IDirect3DDevice9Ex *iface,
+        D3DPRESENT_PARAMETERS *pPresentationParameters, IDirect3DSwapChain9 **pSwapChain) DECLSPEC_HIDDEN;
 extern HRESULT WINAPI IDirect3DDevice9Impl_GetSwapChain(IDirect3DDevice9Ex *iface,
         UINT iSwapChain, IDirect3DSwapChain9 **pSwapChain) DECLSPEC_HIDDEN;
 extern UINT WINAPI IDirect3DDevice9Impl_GetNumberOfSwapChains(IDirect3DDevice9Ex *iface) DECLSPEC_HIDDEN;
+extern HRESULT WINAPI IDirect3DDevice9Impl_CreateStateBlock(IDirect3DDevice9Ex *iface,
+        D3DSTATEBLOCKTYPE Type, IDirect3DStateBlock9 **ppSB) DECLSPEC_HIDDEN;
+extern HRESULT WINAPI IDirect3DDevice9Impl_BeginStateBlock(IDirect3DDevice9Ex *iface) DECLSPEC_HIDDEN;
+extern HRESULT WINAPI IDirect3DDevice9Impl_EndStateBlock(IDirect3DDevice9Ex *iface,
+        IDirect3DStateBlock9 **ppSB) DECLSPEC_HIDDEN;
 extern HRESULT WINAPI IDirect3DDevice9Impl_SetVertexDeclaration(IDirect3DDevice9Ex *iface,
         IDirect3DVertexDeclaration9 *pDecl) DECLSPEC_HIDDEN;
 extern HRESULT WINAPI IDirect3DDevice9Impl_GetVertexDeclaration(IDirect3DDevice9Ex *iface,
@@ -223,6 +238,9 @@ extern HRESULT WINAPI IDirect3DDevice9Impl_SetPixelShaderConstantB(IDirect3DDevi
         UINT StartRegister, const BOOL *pConstantData, UINT BoolCount) DECLSPEC_HIDDEN;
 extern HRESULT WINAPI IDirect3DDevice9Impl_GetPixelShaderConstantB(IDirect3DDevice9Ex *iface,
         UINT StartRegister, BOOL *pConstantData, UINT BoolCount) DECLSPEC_HIDDEN;
+extern HRESULT WINAPI IDirect3DDevice9Impl_CreateQuery(IDirect3DDevice9Ex *iface,
+        D3DQUERYTYPE Type, IDirect3DQuery9 **ppQuery) DECLSPEC_HIDDEN;
+
 
 /* ---------------- */
 /* IDirect3DVolume9 */
@@ -272,9 +290,6 @@ typedef struct IDirect3DSwapChain9Impl
     /* Flags an implicit swap chain */
     BOOL                        isImplicit;
 } IDirect3DSwapChain9Impl;
-
-HRESULT swapchain_init(IDirect3DSwapChain9Impl *swapchain, IDirect3DDevice9Impl *device,
-        D3DPRESENT_PARAMETERS *present_parameters) DECLSPEC_HIDDEN;
 
 /* ----------------- */
 /* IDirect3DSurface9 */
@@ -462,8 +477,6 @@ typedef struct  IDirect3DStateBlock9Impl {
     LPDIRECT3DDEVICE9EX       parentDevice;
 } IDirect3DStateBlock9Impl;
 
-HRESULT stateblock_init(IDirect3DStateBlock9Impl *stateblock, IDirect3DDevice9Impl *device,
-        D3DSTATEBLOCKTYPE type, IWineD3DStateBlock *wined3d_stateblock) DECLSPEC_HIDDEN;
 
 /* --------------------------- */
 /* IDirect3DVertexDeclaration9 */
@@ -558,7 +571,8 @@ typedef struct IDirect3DQuery9Impl {
     LPDIRECT3DDEVICE9EX    parentDevice;
 } IDirect3DQuery9Impl;
 
-HRESULT query_init(IDirect3DQuery9Impl *query, IDirect3DDevice9Impl *device,
-        D3DQUERYTYPE type) DECLSPEC_HIDDEN;
+
+/* Callbacks */
+extern ULONG WINAPI D3D9CB_DestroySwapChain (IWineD3DSwapChain *pSwapChain) DECLSPEC_HIDDEN;
 
 #endif /* __WINE_D3D9_PRIVATE_H */

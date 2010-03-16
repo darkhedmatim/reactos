@@ -17,7 +17,9 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#pragma once
+#ifndef __KEYCODES_H
+#define __KEYCODES_H
+
 
 // Key codes
 #define KEY_EXTENDED	0x00
@@ -39,3 +41,6 @@
 #define KEY_F8			0x42
 #define KEY_F9			0x43
 #define KEY_F10			0x44
+
+
+#endif // #defined __KEYCODES_H

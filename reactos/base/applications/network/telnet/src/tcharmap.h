@@ -1,7 +1,8 @@
 // This is a simple class to handle character maps
 // (Paul Brannan 6/25/98)
 
-#pragma once
+#ifndef __TCHARMAP_H
+#define __TCHARMAP_H
 
 class TCharmap {
 private:
@@ -36,3 +37,5 @@ public:
 
 	int enabled;
 };
+
+#endif

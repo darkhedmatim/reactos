@@ -151,7 +151,7 @@ interface IHlink: IUnknown
 }
 
 /*****************************************************************************
- *    IHlinkSite interface
+ *    IHlink interface
  */
 [
     object,

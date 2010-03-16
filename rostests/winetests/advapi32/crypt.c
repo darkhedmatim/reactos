@@ -64,7 +64,6 @@ static BOOL (WINAPI *pCryptSetHashParam)(HCRYPTKEY, DWORD, BYTE*, DWORD);
 static BOOL (WINAPI *pCryptSetKeyParam)(HCRYPTKEY, DWORD, BYTE*, DWORD);
 static BOOL (WINAPI *pCryptSetProvParam)(HCRYPTPROV, DWORD, BYTE*, DWORD);
 static BOOL (WINAPI *pCryptVerifySignatureW)(HCRYPTHASH, BYTE*, DWORD, HCRYPTKEY, LPCWSTR, DWORD);
-static BOOL (WINAPI *pSystemFunction036)(PVOID, ULONG);
 
 static void init_function_pointers(void)
 {
@@ -100,7 +99,6 @@ static void init_function_pointers(void)
     pCryptSetKeyParam = (void*)GetProcAddress(hadvapi32, "CryptSetKeyParam");
     pCryptSetProvParam = (void*)GetProcAddress(hadvapi32, "CryptSetProvParam");
     pCryptVerifySignatureW = (void*)GetProcAddress(hadvapi32, "CryptVerifySignatureW");
-    pSystemFunction036 = (void*)GetProcAddress(hadvapi32, "SystemFunction036");
 }
 
 static void init_environment(void)
@@ -236,7 +234,6 @@ static void test_incorrect_api_usage(void)
     result = pCryptCreateHash(hProv, CALG_SHA, 0, 0, &hHash);
     ok (result, "%d\n", GetLastError());
     if (!result) return;
-    pCryptDestroyHash(hHash);
 
     result = pCryptGenKey(hProv, CALG_RC4, 0, &hKey);
     ok (result, "%d\n", GetLastError());
@@ -560,7 +557,6 @@ static void test_enum_providers(void)
 	    ok(!strcmp(pszProvName, provider), "expected %s, got %s\n", pszProvName, provider);
 	ok(cbName==providerLen, "expected %d, got %d\n", cbName, providerLen);
 
-	LocalFree(pszProvName);
 	LocalFree(provider);
 }
 
@@ -848,7 +844,6 @@ static void test_get_default_provider(void)
 	    ok(!strcmp(pszProvName, provName), "expected %s, got %s\n", pszProvName, provName);
 	ok(provNameSize==cbProvName, "expected %d, got %d\n", cbProvName, provNameSize);
 
-	LocalFree(pszProvName);
 	LocalFree(provName);
 }
 
@@ -938,189 +933,20 @@ static void test_machine_guid(void)
    RegCloseKey(key);
 }
 
-#define key_length 16
-
-static const unsigned char key[key_length] =
-    { 0xbf, 0xf6, 0x83, 0x4b, 0x3e, 0xa3, 0x23, 0xdd,
-      0x96, 0x78, 0x70, 0x8e, 0xa1, 0x9d, 0x3b, 0x40 };
-
-static void test_rc2_keylen(void)
-{
-    struct KeyBlob
-    {
-        BLOBHEADER header;
-        DWORD key_size;
-        BYTE key_data[2048];
-    } key_blob;
-
-    HCRYPTPROV provider;
-    HCRYPTKEY hkey = 0;
-    BOOL ret;
-
-    SetLastError(0xdeadbeef);
-    ret = pCryptAcquireContextA(&provider, NULL, NULL,
-                                PROV_RSA_FULL, CRYPT_VERIFYCONTEXT);
-    ok(ret, "CryptAcquireContext error %u\n", GetLastError());
-    if (ret)
-    {
-        key_blob.header.bType = PLAINTEXTKEYBLOB;
-        key_blob.header.bVersion = CUR_BLOB_VERSION;
-        key_blob.header.reserved = 0;
-        key_blob.header.aiKeyAlg = CALG_RC2;
-        key_blob.key_size = sizeof(key);
-        memcpy(key_blob.key_data, key, key_length);
-
-        /* Importing a 16-byte key works with the default provider. */
-        SetLastError(0xdeadbeef);
-        ret = pCryptImportKey(provider, (BYTE*)&key_blob,
-                          sizeof(BLOBHEADER)+sizeof(DWORD)+key_blob.key_size,
-                          0, CRYPT_IPSEC_HMAC_KEY, &hkey);
-        /* CRYPT_IPSEC_HMAC_KEY is not supported on W2K and lower */
-        todo_wine
-        ok(ret ||
-           broken(!ret && GetLastError() == NTE_BAD_FLAGS),
-           "CryptImportKey error %08x\n", GetLastError());
-
-        if (ret)
-            pCryptDestroyKey(hkey);
-        pCryptReleaseContext(provider, 0);
-    }
-
-    SetLastError(0xdeadbeef);
-    ret = pCryptAcquireContextA(&provider, NULL, MS_DEF_PROV,
-                                PROV_RSA_FULL, CRYPT_VERIFYCONTEXT);
-    ok(ret, "CryptAcquireContext error %08x\n", GetLastError());
-
-    if (ret)
-    {
-        /* Importing a 16-byte key doesn't work with the base provider.. */
-        SetLastError(0xdeadbeef);
-        ret = pCryptImportKey(provider, (BYTE*)&key_blob,
-                              sizeof(BLOBHEADER)+sizeof(DWORD)+key_blob.key_size,
-                              0, 0, &hkey);
-        ok(!ret && (GetLastError() == NTE_BAD_DATA ||
-                    GetLastError() == NTE_BAD_LEN || /* Win7 */
-                    GetLastError() == NTE_BAD_TYPE || /* W2K */
-                    GetLastError() == NTE_PERM), /* Win9x, WinMe and NT4 */
-           "unexpected error %08x\n", GetLastError());
-        /* but importing an 56-bit (7-byte) key does.. */
-        key_blob.key_size = 7;
-        SetLastError(0xdeadbeef);
-        ret = pCryptImportKey(provider, (BYTE*)&key_blob,
-                              sizeof(BLOBHEADER)+sizeof(DWORD)+key_blob.key_size,
-                              0, 0, &hkey);
-        ok(ret ||
-           broken(!ret && GetLastError() == NTE_BAD_TYPE) || /* W2K */
-           broken(!ret && GetLastError() == NTE_PERM), /* Win9x, WinMe and NT4 */
-           "CryptAcquireContext error %08x\n", GetLastError());
-        if (ret)
-            pCryptDestroyKey(hkey);
-        /* as does importing a 16-byte key with the base provider when
-         * CRYPT_IPSEC_HMAC_KEY is specified.
-         */
-        key_blob.key_size = sizeof(key);
-        SetLastError(0xdeadbeef);
-        ret = pCryptImportKey(provider, (BYTE*)&key_blob,
-                              sizeof(BLOBHEADER)+sizeof(DWORD)+key_blob.key_size,
-                              0, CRYPT_IPSEC_HMAC_KEY, &hkey);
-        /* CRYPT_IPSEC_HMAC_KEY is not supported on W2K and lower */
-        todo_wine
-        ok(ret ||
-           broken(!ret && GetLastError() == NTE_BAD_FLAGS),
-           "CryptImportKey error %08x\n", GetLastError());
-        if (ret)
-            pCryptDestroyKey(hkey);
-
-        pCryptReleaseContext(provider, 0);
-    }
-
-    key_blob.key_size = sizeof(key);
-    SetLastError(0xdeadbeef);
-    ret = pCryptAcquireContextA(&provider, NULL, NULL,
-                                PROV_RSA_FULL, CRYPT_VERIFYCONTEXT);
-    ok(ret, "CryptAcquireContext error %08x\n", GetLastError());
-
-    if (ret)
-    {
-        /* Importing a 16-byte key also works with the default provider when
-         * CRYPT_IPSEC_HMAC_KEY is specified.
-         */
-        SetLastError(0xdeadbeef);
-        ret = pCryptImportKey(provider, (BYTE*)&key_blob,
-                              sizeof(BLOBHEADER)+sizeof(DWORD)+key_blob.key_size,
-                              0, CRYPT_IPSEC_HMAC_KEY, &hkey);
-        todo_wine
-        ok(ret ||
-           broken(!ret && GetLastError() == NTE_BAD_FLAGS),
-           "CryptImportKey error %08x\n", GetLastError());
-        if (ret)
-            pCryptDestroyKey(hkey);
-
-        /* There is no apparent limit to the size of the input key when
-         * CRYPT_IPSEC_HMAC_KEY is specified.
-         */
-        key_blob.key_size = sizeof(key_blob.key_data);
-        SetLastError(0xdeadbeef);
-        ret = pCryptImportKey(provider, (BYTE*)&key_blob,
-                              sizeof(BLOBHEADER)+sizeof(DWORD)+key_blob.key_size,
-                              0, CRYPT_IPSEC_HMAC_KEY, &hkey);
-        todo_wine
-        ok(ret ||
-           broken(!ret && GetLastError() == NTE_BAD_FLAGS),
-           "CryptImportKey error %08x\n", GetLastError());
-        if (ret)
-            pCryptDestroyKey(hkey);
-
-        pCryptReleaseContext(provider, 0);
-    }
-}
-
-static void test_SystemFunction036(void)
-{
-    BOOL ret;
-    int test;
-
-    if (!pSystemFunction036)
-    {
-        win_skip("SystemFunction036 is not available\n");
-        return;
-    }
-
-    ret = pSystemFunction036(NULL, 0);
-    ok(ret == TRUE, "Expected SystemFunction036 to return TRUE, got %d\n", ret);
-
-    /* Test crashes on Windows. */
-    if (0)
-    {
-        SetLastError(0xdeadbeef);
-        ret = pSystemFunction036(NULL, 5);
-        trace("ret = %d, GetLastError() = %d\n", ret, GetLastError());
-    }
-
-    ret = pSystemFunction036(&test, 0);
-    ok(ret == TRUE, "Expected SystemFunction036 to return TRUE, got %d\n", ret);
-
-    ret = pSystemFunction036(&test, sizeof(int));
-    ok(ret == TRUE, "Expected SystemFunction036 to return TRUE, got %d\n", ret);
-}
-
 START_TEST(crypt)
 {
-    init_function_pointers();
-    if (pCryptAcquireContextA && pCryptReleaseContext)
-    {
-	test_rc2_keylen();
+	init_function_pointers();
+	if(pCryptAcquireContextA && pCryptReleaseContext) {
 	init_environment();
 	test_acquire_context();
 	test_incorrect_api_usage();
 	test_verify_sig();
 	test_machine_guid();
 	clean_up_environment();
-    }
+	}
 	
 	test_enum_providers();
 	test_enum_provider_types();
 	test_get_default_provider();
 	test_set_provider_ex();
-	test_SystemFunction036();
 }

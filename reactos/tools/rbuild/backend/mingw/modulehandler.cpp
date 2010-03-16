@@ -1021,7 +1021,7 @@ MingwModuleHandler::GenerateObjectMacros (
 	}
 	CleanupCompilationUnitVector ( sourceCompilationUnits );
 
-	if ( module.IsSpecDefinitionFile() )
+	if ( IsSpecDefinitionFile() )
 	{
 		const FileLocation *stubs_file = new FileLocation(
 			IntermediateDirectory,
@@ -1820,7 +1820,7 @@ MingwModuleHandler::GenerateRules ()
 	}
 
 
-    spec = module.IsSpecDefinitionFile();
+    spec = IsSpecDefinitionFile();
 
     if(spec)
 	{
@@ -1979,6 +1979,23 @@ MingwModuleHandler::GeneratePreconditionDependencies ()
 	fprintf ( fMakefile, "\n" );
 }
 
+SpecFileType
+MingwModuleHandler::IsSpecDefinitionFile () const
+{
+    if(!module.importLibrary)
+        return None;
+
+	std::string ext = GetExtension ( *module.importLibrary->source );
+
+    if ( ext == ".spec" )
+        return Spec;
+
+    if ( ext == ".pspec" )
+        return PSpec;
+
+    return None;
+}
+
 /* caller needs to delete the returned object */
 const FileLocation*
 MingwModuleHandler::GetDefinitionFilename () const
@@ -1986,7 +2003,7 @@ MingwModuleHandler::GetDefinitionFilename () const
 	if ( module.importLibrary == NULL )
 		return NULL;
 
-	if ( module.IsSpecDefinitionFile () )
+	if ( IsSpecDefinitionFile () )
 	{
 		return new FileLocation ( IntermediateDirectory,
 								  module.importLibrary->source->relative_path,

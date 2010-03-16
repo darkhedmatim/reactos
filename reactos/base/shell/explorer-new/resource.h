@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __RESOURCE_H
+#define __RESOURCE_H
 
 #define IDC_STATIC -1
 
@@ -97,3 +98,5 @@
 #define IDC_TASKBARPROP_DESKBANDLIST 2301
 
 #define IDS_TASKBAR_STARTMENU_PROP_CAPTION 2200
+
+#endif /* __RESOURCE_H */

@@ -35,6 +35,8 @@
     .globl _lowmem_pagetable
     .globl _kernel_pagetable
     .globl _apic_pagetable
+    .globl _kpcr_pagetable
+    .globl _kuser_pagetable
 
     .globl _PageDirectoryEnd
 
@@ -63,5 +65,11 @@ _kernel_pagetable:
 
 _apic_pagetable:
 	.fill 4096, 1, 0
+
+_kpcr_pagetable:
+	.fill 4096, 1, 0   
+
+_kuser_pagetable:
+	.fill 4096, 1, 0   
 
 _PageDirectoryEnd:

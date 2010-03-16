@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __NTOSKRNL_INCLUDE_INTERNAL_SE_H
+#define __NTOSKRNL_INCLUDE_INTERNAL_SE_H
 
 extern POBJECT_TYPE SepTokenObjectType;
 
@@ -348,5 +349,7 @@ SeQuerySecurityAccessMask(IN SECURITY_INFORMATION SecurityInformation,
 VOID NTAPI
 SeSetSecurityAccessMask(IN SECURITY_INFORMATION SecurityInformation,
                         OUT PACCESS_MASK DesiredAccess);
+
+#endif /* __NTOSKRNL_INCLUDE_INTERNAL_SE_H */
 
 /* EOF */

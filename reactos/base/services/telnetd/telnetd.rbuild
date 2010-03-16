@@ -3,6 +3,7 @@
 	<include base="telnetd">..</include>
 
 	<library>ntdll</library>
+	<library>kernel32</library>
 	<library>advapi32</library>
 	<library>ws2_32</library>
 	<library>wine</library>

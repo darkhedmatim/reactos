@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __CPL_SAMPLE_H
+#define __CPL_SAMPLE_H
 
 typedef struct
 {
@@ -9,5 +10,7 @@ typedef struct
 } APPLET, *PAPPLET;
 
 extern HINSTANCE hApplet;
+
+#endif /* __CPL_SAMPLE_H */
 
 /* EOF */

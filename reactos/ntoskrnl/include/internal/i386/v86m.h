@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __V86M_
+#define __V86M_
 
 #include "ketypes.h"
 
@@ -56,3 +57,5 @@ typedef struct _KV86M_TRAP_FRAME
     struct _KV86M_REGISTERS* regs;
     ULONG orig_ebp;
 } KV86M_TRAP_FRAME, *PKV86M_TRAP_FRAME;
+
+#endif

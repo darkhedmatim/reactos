@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LANG_FR_FR_H__
+#define LANG_FR_FR_H__
 
 MUI_LAYOUTS frFRLayouts[] =
 {
@@ -1706,3 +1707,5 @@ MUI_STRING frFRStrings[] =
     "Adding keyboard layouts"},
     {0, 0}
 };
+
+#endif

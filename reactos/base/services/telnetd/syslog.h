@@ -29,7 +29,8 @@
  *	@(#)syslog.h	8.1 (Berkeley) 6/2/93
  */
 
-#pragma once
+#ifndef _SYS_SYSLOG_H
+#define _SYS_SYSLOG_H 1
 
 #include <stdarg.h>
 
@@ -192,3 +193,5 @@ extern const char* set_syslog_conf_dir( const char* dir );
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* syslog.h */

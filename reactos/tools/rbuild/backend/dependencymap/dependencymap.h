@@ -15,8 +15,8 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-
-#pragma once
+#ifndef __DEPMAP_H__
+#define __DEPMAP_H__
 
 #include <fstream>
 #include <vector>
@@ -62,3 +62,7 @@ class DepMapBackend : public Backend
 		};
 
 };
+
+
+#endif // __DEPMAP_H__
+

@@ -18,7 +18,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#pragma once
+#ifndef _atlin_h
+#define _atlwin_h
 
 #ifdef __GNUC__
 #define GCCU(x)	x __attribute__((unused))
@@ -171,39 +172,8 @@ public:
 	}
 };
 
-#elif _AMD64_ //WARNING: NOT VERIFIED
-#pragma pack(push,1)
-struct thunkCode
-{
-	DWORD_PTR								m_mov;
-	DWORD_PTR								m_this;
-	BYTE									m_jmp;
-	DWORD_PTR								m_relproc;
-};
-#pragma pack(pop)
-
-class CWndProcThunk
-{
-public:
-	thunkCode								m_thunk;
-	_AtlCreateWndData						cd;
-public:
-	BOOL Init(WNDPROC proc, void *pThis)
-	{
-		m_thunk.m_mov = 0xffff8000042444C7LL;
-		m_thunk.m_this = (DWORD_PTR)pThis;
-		m_thunk.m_jmp = 0xe9;
-		m_thunk.m_relproc = DWORD_PTR(reinterpret_cast<char *>(proc) - (reinterpret_cast<char *>(this) + sizeof(thunkCode)));
-		return TRUE;
-	}
-
-	WNDPROC GetWNDPROC()
-	{
-		return reinterpret_cast<WNDPROC>(&m_thunk);
-	}
-};
 #else
-#error ARCH not supported
+#error Only X86 supported
 #endif
 
 class CMessageMap
@@ -777,3 +747,5 @@ struct _ATL_WNDCLASSINFOW
 };
 
 }; // namespace ATL
+
+#endif // _atlwin_h

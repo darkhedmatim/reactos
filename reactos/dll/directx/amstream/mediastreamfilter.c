@@ -36,7 +36,7 @@
 WINE_DEFAULT_DEBUG_CHANNEL(amstream);
 
 typedef struct {
-    const IMediaStreamFilterVtbl *lpVtbl;
+    IMediaStreamFilter lpVtbl;
     LONG ref;
     CRITICAL_SECTION csFilter;
     FILTER_STATE state;
@@ -63,7 +63,7 @@ HRESULT MediaStreamFilter_create(IUnknown *pUnkOuter, LPVOID *ppObj)
         return E_OUTOFMEMORY;
     }
 
-    object->lpVtbl = &MediaStreamFilter_Vtbl;
+    object->lpVtbl.lpVtbl = &MediaStreamFilter_Vtbl;
     object->ref = 1;
 
     *ppObj = object;
@@ -120,7 +120,7 @@ static ULONG WINAPI MediaStreamFilterImpl_Release(IMediaStreamFilter * iface)
 
     if (!refCount)
     {
-        This->lpVtbl = NULL;
+        This->lpVtbl.lpVtbl = NULL;
         HeapFree(GetProcessHeap(), 0, This);
     }
 

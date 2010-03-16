@@ -121,12 +121,6 @@ IDirectSound8_fnCreateSoundBuffer(
             return DSERR_INVALIDPARAM;
         }
 
-        if (lpcDSBufferDesc->dwBufferBytes != 0)
-        {
-            /* buffer size must be zero for primary sound buffer */
-            return DSERR_INVALIDPARAM;
-        }
-
         if (This->PrimaryBuffer)
         {
             /* primary buffer already exists */
@@ -135,7 +129,7 @@ IDirectSound8_fnCreateSoundBuffer(
             return S_OK;
         }
 
-        hResult = NewPrimarySoundBuffer((LPLPDIRECTSOUNDBUFFER8)lplpDirectSoundBuffer, This->Filter, This->dwLevel, lpcDSBufferDesc->dwFlags);
+        hResult = NewPrimarySoundBuffer((LPLPDIRECTSOUNDBUFFER8)lplpDirectSoundBuffer, This->Filter, This->dwLevel);
         if (SUCCEEDED(hResult))
         {
             /* store primary buffer */
@@ -151,15 +145,9 @@ IDirectSound8_fnCreateSoundBuffer(
             return DSERR_INVALIDPARAM;
         }
 
-        if (lpcDSBufferDesc->dwBufferBytes < DSBSIZE_MIN || lpcDSBufferDesc->dwBufferBytes > DSBSIZE_MAX)
-        {
-            /* buffer size must be within bounds for secondary sound buffer*/
-            return DSERR_INVALIDPARAM;
-        }
-
         if (!This->PrimaryBuffer)
         {
-            hResult = NewPrimarySoundBuffer((LPLPDIRECTSOUNDBUFFER8)lplpDirectSoundBuffer, This->Filter, This->dwLevel, lpcDSBufferDesc->dwFlags);
+            hResult = NewPrimarySoundBuffer((LPLPDIRECTSOUNDBUFFER8)lplpDirectSoundBuffer, This->Filter, This->dwLevel);
             if (SUCCEEDED(hResult))
             {
                 /* store primary buffer */

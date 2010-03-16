@@ -4,8 +4,8 @@
  * FILE:        tools/cabman/cabman.h
  * PURPOSE:     Cabinet manager header
  */
-
-#pragma once
+#ifndef __CABMAN_H
+#define __CABMAN_H
 
 #include "cabinet.h"
 #include "dfp.h"
@@ -40,5 +40,7 @@ private:
     bool PromptOnOverwrite;
     char FileName[MAX_PATH];
 };
+
+#endif /* __CABMAN_H */
 
 /* EOF */

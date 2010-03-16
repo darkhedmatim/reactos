@@ -4,8 +4,8 @@
  * FILE:        include/datagram.h
  * PURPOSE:     Datagram types and constants
  */
-
-#pragma once
+#ifndef __DATAGRAM_H
+#define __DATAGRAM_H
 
 #include <titypes.h>
 
@@ -21,7 +21,7 @@ NTSTATUS DGReceiveDatagram(
     PVOID Context,
     PIRP Irp);
 
-BOOLEAN DGRemoveIRP(
+VOID DGRemoveIRP(
     PADDRESS_FILE AddrFile,
     PIRP Irp);
 
@@ -33,5 +33,7 @@ VOID DGDeliverData(
   USHORT DstPort,
   PIP_PACKET IPPacket,
   UINT DataSize);
+
+#endif /* __DATAGRAM_H */
 
 /* EOF */

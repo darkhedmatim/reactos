@@ -869,14 +869,6 @@ static void test_edit_control_3(void)
     ok(lstrlenA(str) == len, "text shouldn't have been truncated\n");
     test_notify(1, 0, 1);
 
-    len = SendMessageA(hWnd, EM_GETSEL, 0, 0);
-    ok(LOWORD(len)==0, "Unexpected start position for selection %d\n", LOWORD(len));
-    ok(HIWORD(len)==0, "Unexpected end position for selection %d\n", HIWORD(len));
-    SendMessage(hParent, WM_SETFOCUS, 0, (LPARAM)hWnd);
-    len = SendMessageA(hWnd, EM_GETSEL, 0, 0);
-    ok(LOWORD(len)==0, "Unexpected start position for selection %d\n", LOWORD(len));
-    ok(HIWORD(len)==0, "Unexpected end position for selection %d\n", HIWORD(len));
-
     SendMessageA(hWnd, EM_SETLIMITTEXT, 5, 0);
 
     SendMessageA(hWnd, WM_SETTEXT, 0, (LPARAM)"");
@@ -1078,11 +1070,11 @@ static void test_edit_control_4(void)
     mid = lo + (hi - lo) / 2;
 
     for (i = lo; i < mid; i++) {
-       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, i));
+       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, (LPARAM) i));
        ok(0 == ret, "expected 0 got %d\n", ret);
     }
     for (i = mid; i <= hi; i++) {
-       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, i));
+       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, (LPARAM) i));
        ok(1 == ret, "expected 1 got %d\n", ret);
     }
     ret = SendMessage(hwEdit, EM_POSFROMCHAR, 2, 0);
@@ -1096,11 +1088,11 @@ static void test_edit_control_4(void)
     mid = lo + (hi - lo) / 2;
 
     for (i = lo; i < mid; i++) {
-       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, i));
+       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, (LPARAM) i));
        ok(0 == ret, "expected 0 got %d\n", ret);
     }
     for (i = mid; i <= hi; i++) {
-       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, i));
+       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, (LPARAM) i));
        ok(1 == ret, "expected 1 got %d\n", ret);
     }
     ret = SendMessage(hwEdit, EM_POSFROMCHAR, 2, 0);
@@ -1114,11 +1106,11 @@ static void test_edit_control_4(void)
     mid = lo + (hi - lo) / 2;
 
     for (i = lo; i < mid; i++) {
-       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, i));
+       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, (LPARAM) i));
        ok(0 == ret, "expected 0 got %d\n", ret);
     }
     for (i = mid; i <= hi; i++) {
-       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, i));
+       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, (LPARAM) i));
        ok(1 == ret, "expected 1 got %d\n", ret);
     }
     ret = SendMessage(hwEdit, EM_POSFROMCHAR, 2, 0);
@@ -1132,11 +1124,11 @@ static void test_edit_control_4(void)
     mid = lo + (hi - lo) / 2 +1;
 
     for (i = lo; i < mid; i++) {
-       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, i));
+       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, (LPARAM) i));
        ok((0 == ret || 1 == ret /* Vista */), "expected 0 or 1 got %d\n", ret);
     }
     for (i = mid; i <= hi; i++) {
-       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, i));
+       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, (LPARAM) i));
        ok(1 == ret, "expected 1 got %d\n", ret);
     }
     ret = SendMessage(hwEdit, EM_POSFROMCHAR, 2, 0);
@@ -1150,11 +1142,11 @@ static void test_edit_control_4(void)
     mid = lo + (hi - lo) / 2 +1;
 
     for (i = lo; i < mid; i++) {
-       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, i));
+       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, (LPARAM) i));
        ok((0 == ret || 1 == ret /* Vista */), "expected 0 or 1 got %d\n", ret);
     }
     for (i = mid; i <= hi; i++) {
-       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, i));
+       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, (LPARAM) i));
        ok(1 == ret, "expected 1 got %d\n", ret);
     }
     ret = SendMessage(hwEdit, EM_POSFROMCHAR, 2, 0);
@@ -1168,11 +1160,11 @@ static void test_edit_control_4(void)
     mid = lo + (hi - lo) / 2 +1;
 
     for (i = lo; i < mid; i++) {
-       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, i));
+       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, (LPARAM) i));
        ok((0 == ret || 1 == ret /* Vista */), "expected 0 or 1 got %d\n", ret);
     }
     for (i = mid; i <= hi; i++) {
-       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, i));
+       ret = LOWORD(SendMessage(hwEdit, EM_CHARFROMPOS, 0, (LPARAM) i));
        ok(1 == ret, "expected 1 got %d\n", ret);
     }
     ret = SendMessage(hwEdit, EM_POSFROMCHAR, 2, 0);
@@ -1247,45 +1239,6 @@ static void test_edit_control_5(void)
     DestroyWindow(hWnd);
 }
 
-/* Test WM_GETTEXT processing
- * after destroy messages
- */
-static void test_edit_control_6(void)
-{
-    static const char *str = "test\r\ntest";
-    char buf[MAXLEN];
-    LONG ret;
-    HWND hWnd;
-
-    hWnd = CreateWindowEx(0,
-              "EDIT",
-              "Test",
-              0,
-              10, 10, 1, 1,
-              NULL, NULL, hinst, NULL);
-    assert(hWnd);
-
-    ret = SendMessageA(hWnd, WM_SETTEXT, 0, (LPARAM)str);
-    ok(ret == TRUE, "Expected %d, got %d\n", TRUE, ret);
-    ret = SendMessageA(hWnd, WM_GETTEXT, MAXLEN, (LPARAM)buf);
-    ok(ret == lstrlen(str), "Expected %s, got len %d\n", str, ret);
-    ok(!lstrcmp(buf, str), "Expected %s, got %s\n", str, buf);
-    buf[0] = 0;
-    ret = SendMessageA(hWnd, WM_DESTROY, 0, 0);
-    ok(ret == 0, "Expected 0, got %d\n", ret);
-    ret = SendMessageA(hWnd, WM_GETTEXT, MAXLEN, (LPARAM)buf);
-    ok(ret == lstrlen(str), "Expected %s, got len %d\n", str, ret);
-    ok(!lstrcmp(buf, str), "Expected %s, got %s\n", str, buf);
-    buf[0] = 0;
-    ret = SendMessageA(hWnd, WM_NCDESTROY, 0, 0);
-    ok(ret == 0, "Expected 0, got %d\n", ret);
-    ret = SendMessageA(hWnd, WM_GETTEXT, MAXLEN, (LPARAM)buf);
-    ok(ret == 0, "Expected 0, got len %d\n", ret);
-    ok(!lstrcmp(buf, ""), "Expected empty string, got %s\n", buf);
-
-    DestroyWindow(hWnd);
-}
-
 static void test_edit_control_limittext(void)
 {
     HWND hwEdit;
@@ -1314,57 +1267,6 @@ static void test_edit_control_limittext(void)
     ok( (r == 65535) || (r == 4294967295UL),
         "got limit %u (expected 65535 or 4294967295)\n", r);
     DestroyWindow(hwEdit);
-}
-
-/* Test EM_SCROLL */
-static void test_edit_control_scroll(void)
-{
-    static const char *single_line_str = "a";
-    static const char *multiline_str = "Test\r\nText";
-    HWND hwEdit;
-    LONG ret;
-
-    /* Check the return value when EM_SCROLL doesn't scroll
-     * anything. Should not return true unless any lines were actually
-     * scrolled. */
-    hwEdit = CreateWindow(
-              "EDIT",
-              single_line_str,
-              WS_VSCROLL | ES_MULTILINE,
-              1, 1, 100, 100,
-              NULL, NULL, hinst, NULL);
-
-    assert(hwEdit);
-
-    ret = SendMessage(hwEdit, EM_SCROLL, SB_PAGEDOWN, 0);
-    ok(!ret, "Returned %x, expected 0.\n", ret);
-
-    ret = SendMessage(hwEdit, EM_SCROLL, SB_PAGEUP, 0);
-    ok(!ret, "Returned %x, expected 0.\n", ret);
-
-    ret = SendMessage(hwEdit, EM_SCROLL, SB_LINEUP, 0);
-    ok(!ret, "Returned %x, expected 0.\n", ret);
-
-    ret = SendMessage(hwEdit, EM_SCROLL, SB_LINEDOWN, 0);
-    ok(!ret, "Returned %x, expected 0.\n", ret);
-
-    DestroyWindow (hwEdit);
-
-    /* SB_PAGEDOWN while at the beginning of a buffer with few lines
-       should not cause EM_SCROLL to return a negative value of
-       scrolled lines that would put us "before" the beginning. */
-    hwEdit = CreateWindow(
-                "EDIT",
-                multiline_str,
-                WS_VSCROLL | ES_MULTILINE,
-                0, 0, 100, 100,
-                NULL, NULL, hinst, NULL);
-    assert(hwEdit);
-
-    ret = SendMessage(hwEdit, EM_SCROLL, SB_PAGEDOWN, 0);
-    ok(!ret, "Returned %x, expected 0.\n", ret);
-
-    DestroyWindow (hwEdit);
 }
 
 static void test_margins(void)
@@ -1583,7 +1485,7 @@ static void test_text_position_style(DWORD style)
     /* Edit controls that are in a parent window */
        
     hwEdit = create_child_editcontrol(style | WS_VISIBLE, 0);
-    SendMessage(hwEdit, WM_SETFONT, (WPARAM) font, FALSE);
+    SendMessage(hwEdit, WM_SETFONT, (WPARAM) font, (LPARAM) FALSE);
     if (single_line)
     check_pos(hwEdit, metrics.tmHeight -  1, 0, metrics.tmHeight - 1, 0);
     check_pos(hwEdit, metrics.tmHeight     , 0, metrics.tmHeight    , 0);
@@ -1593,7 +1495,7 @@ static void test_text_position_style(DWORD style)
     destroy_child_editcontrol(hwEdit);
 
     hwEdit = create_child_editcontrol(style | WS_BORDER | WS_VISIBLE, 0);
-    SendMessage(hwEdit, WM_SETFONT, (WPARAM) font, FALSE);
+    SendMessage(hwEdit, WM_SETFONT, (WPARAM) font, (LPARAM) FALSE);
     if (single_line)
     check_pos(hwEdit, metrics.tmHeight -  1, 0, metrics.tmHeight - 1, b);
     check_pos(hwEdit, metrics.tmHeight     , 0, metrics.tmHeight    , b);
@@ -1604,7 +1506,7 @@ static void test_text_position_style(DWORD style)
     destroy_child_editcontrol(hwEdit);
 
     hwEdit = create_child_editcontrol(style | WS_VISIBLE, WS_EX_CLIENTEDGE);
-    SendMessage(hwEdit, WM_SETFONT, (WPARAM) font, FALSE);
+    SendMessage(hwEdit, WM_SETFONT, (WPARAM) font, (LPARAM) FALSE);
     if (single_line)
     check_pos(hwEdit, metrics.tmHeight -  1, 0, metrics.tmHeight - 1, 1);
     check_pos(hwEdit, metrics.tmHeight     , 0, metrics.tmHeight    , 1);
@@ -1614,7 +1516,7 @@ static void test_text_position_style(DWORD style)
     destroy_child_editcontrol(hwEdit);
 
     hwEdit = create_child_editcontrol(style | WS_BORDER | WS_VISIBLE, WS_EX_CLIENTEDGE);
-    SendMessage(hwEdit, WM_SETFONT, (WPARAM) font, FALSE);
+    SendMessage(hwEdit, WM_SETFONT, (WPARAM) font, (LPARAM) FALSE);
     if (single_line)
     check_pos(hwEdit, metrics.tmHeight -  1, 0, metrics.tmHeight - 1, 1);
     check_pos(hwEdit, metrics.tmHeight     , 0, metrics.tmHeight    , 1);
@@ -1627,7 +1529,7 @@ static void test_text_position_style(DWORD style)
     /* Edit controls that are popup windows */
     
     hwEdit = create_editcontrol(style | WS_POPUP, 0);
-    SendMessage(hwEdit, WM_SETFONT, (WPARAM) font, FALSE);
+    SendMessage(hwEdit, WM_SETFONT, (WPARAM) font, (LPARAM) FALSE);
     if (single_line)
     check_pos(hwEdit, metrics.tmHeight -  1, 0, metrics.tmHeight - 1, 0);
     check_pos(hwEdit, metrics.tmHeight     , 0, metrics.tmHeight    , 0);
@@ -1637,7 +1539,7 @@ static void test_text_position_style(DWORD style)
     DestroyWindow(hwEdit);
 
     hwEdit = create_editcontrol(style | WS_POPUP | WS_BORDER, 0);
-    SendMessage(hwEdit, WM_SETFONT, (WPARAM) font, FALSE);
+    SendMessage(hwEdit, WM_SETFONT, (WPARAM) font, (LPARAM) FALSE);
     if (single_line)
     check_pos(hwEdit, metrics.tmHeight -  1, 0, metrics.tmHeight - 1, b);
     check_pos(hwEdit, metrics.tmHeight     , 0, metrics.tmHeight    , b);
@@ -1648,7 +1550,7 @@ static void test_text_position_style(DWORD style)
     DestroyWindow(hwEdit);
 
     hwEdit = create_editcontrol(style | WS_POPUP, WS_EX_CLIENTEDGE);
-    SendMessage(hwEdit, WM_SETFONT, (WPARAM) font, FALSE);
+    SendMessage(hwEdit, WM_SETFONT, (WPARAM) font, (LPARAM) FALSE);
     if (single_line)
     check_pos(hwEdit, metrics.tmHeight -  1, 0, metrics.tmHeight - 1, 1);
     check_pos(hwEdit, metrics.tmHeight     , 0, metrics.tmHeight    , 1);
@@ -1658,7 +1560,7 @@ static void test_text_position_style(DWORD style)
     DestroyWindow(hwEdit);
 
     hwEdit = create_editcontrol(style | WS_POPUP | WS_BORDER, WS_EX_CLIENTEDGE);
-    SendMessage(hwEdit, WM_SETFONT, (WPARAM) font, FALSE);
+    SendMessage(hwEdit, WM_SETFONT, (WPARAM) font, (LPARAM) FALSE);
     if (single_line)
     check_pos(hwEdit, metrics.tmHeight -  1, 0, metrics.tmHeight - 1, 1);
     check_pos(hwEdit, metrics.tmHeight     , 0, metrics.tmHeight    , 1);
@@ -2238,7 +2140,7 @@ static void test_dialogmode(void)
     len = SendMessage(hwEdit, WM_GETTEXTLENGTH, 0, 0);
     ok(11 == len, "expected 11, got %d\n", len);
 
-    r = SendMessage(hwEdit, WM_GETDLGCODE, 0, 0);
+    r = SendMessage(hwEdit, WM_GETDLGCODE, (WPARAM)NULL, (LPARAM)NULL);
     ok(0x8d == r, "expected 0x8d, got 0x%x\n", r);
 
     r = SendMessage(hwEdit, WM_CHAR, VK_RETURN, 0x1c0001);
@@ -2246,7 +2148,7 @@ static void test_dialogmode(void)
     len = SendMessage(hwEdit, WM_GETTEXTLENGTH, 0, 0);
     ok(13 == len, "expected 13, got %d\n", len);
 
-    r = SendMessage(hwEdit, WM_GETDLGCODE, 0, (LPARAM)&msg);
+    r = SendMessage(hwEdit, WM_GETDLGCODE, (WPARAM)NULL, (LPARAM)&msg);
     ok(0x8d == r, "expected 0x8d, got 0x%x\n", r);
     r = SendMessage(hwEdit, WM_CHAR, VK_RETURN, 0x1c0001);
     ok(1 == r, "expected 1, got %d\n", r);
@@ -2368,9 +2270,7 @@ START_TEST(edit)
     test_edit_control_3();
     test_edit_control_4();
     test_edit_control_5();
-    test_edit_control_6();
     test_edit_control_limittext();
-    test_edit_control_scroll();
     test_margins();
     test_margins_font_change();
     test_text_position();

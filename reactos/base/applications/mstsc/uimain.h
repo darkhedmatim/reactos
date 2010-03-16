@@ -18,7 +18,8 @@
    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#pragma once
+#ifndef __UIMAIN_MSTSC_H
+#define __UIMAIN_MSTSC_H
 
 /* in uimain.c */
 int
@@ -76,3 +77,5 @@ ui_set_modifier_state(int code);
 #define UI_MAX(a, b)  (((a) > (b)) ? (a) : (b))
 #undef UI_MIN
 #define UI_MIN(a, b)  (((a) < (b)) ? (a) : (b))
+
+#endif /* __UIMAIN_MSTSC_H */

@@ -3,7 +3,7 @@
 :: LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 :: FILE:        Root/Clean.cmd
 :: PURPOSE:     Clean the ReactOS source directory.
-:: COPYRIGHT:   Copyright 2010 Daniel Reimer <reimer.daniel@freenet.de>
+:: COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
 ::                             Peter Ward <dralnix@gmail.com>
 ::                             Colin Finck <colin@reactos.org>
 ::
@@ -18,23 +18,26 @@ setlocal enabledelayedexpansion
 title Cleaning...
 
 if "%1" == "" (
-    call :BIN
+    call :DEL
+    goto :EOC
 ) else if /i "%1" == "logs" (
     call :LOG
+    goto :EOC
 ) else if /i "%1" == "all" (
-    call :BIN
+    call :DEL
     call :LOG
+    goto :EOC
 ) else (
-    call :MODULE %*
+    call :WHILE %*
 )
 goto :EOC
 
-:MODULE
+:WHILE
     if "%1" == "" goto :EOF
     call "%_ROSBE_BASEDIR%\Make.cmd" %1_clean
     shift /1
     echo.
-    GOTO :MODULE %*
+    GOTO :WHILE %*
 
 :: Check if we have any logs to clean, if so, clean them.
 :LOG
@@ -48,43 +51,53 @@ if exist "%_ROSBE_LOGDIR%\*.txt" (
 goto :EOF
 
 
-:: Check if we have any binaries to clean, if so, clean them.
-:BIN
+:: Check if we have something to clean, if so, clean it.
+:DEL
 
-:: Check if the user set any custom filenames or pathes, otherwise locally set the appropriate variables.
-if "%ROS_AUTOMAKE%"     == "" (set ROS_AUTOMAKE=makefile-%ROS_ARCH%.auto)
-if "%ROS_INTERMEDIATE%" == "" (set ROS_INTERMEDIATE=obj-%ROS_ARCH%)
-if "%ROS_OUTPUT%"       == "" (set ROS_OUTPUT=output-%ROS_ARCH%)
-if "%ROS_CDOUTPUT%"     == "" (set ROS_CDOUTPUT=reactos)
+:: Apply modified obj and out paths for deletion.
+if "%_ROSBE_OBJPATH%" == "" (
+    set OBJCLEANPATH=%_ROSBE_ROSSOURCEDIR%\obj-%ROS_ARCH%
+) else (
+    set OBJCLEANPATH=%_ROSBE_OBJPATH%
+)
 
-:: Do some basic sanity checks to verify that we are working in a ReactOS source tree.
-:: Consider that we also want to clean half-complete builds, so don't depend on too many existing files.
-set IS_SOURCE_DIRECTORY=1
-call :BIN_CHECKEXISTENCE "%ROS_INTERMEDIATE%\." "%ROS_OUTPUT%\."
+if "%_ROSBE_OUTPATH%" == "" (
+    set OUTCLEANPATH=%_ROSBE_ROSSOURCEDIR%\output-%ROS_ARCH%
+) else (
+    set OUTCLEANPATH=%_ROSBE_OUTPATH%
+)
 
-if "%IS_SOURCE_DIRECTORY%" == "1" (
+if /i "%ROS_ARCH%" == "i386" (
+    set MAKEFILE=%_ROSBE_ROSSOURCEDIR%\makefile.auto
+) else (
+    set MAKEFILE=%_ROSBE_ROSSOURCEDIR%\makefile-%ROS_ARCH%.auto
+)
+
+if exist "%MAKEFILE%" (
+    del "%MAKEFILE%" 1> NUL 2> NUL
+)
+
+if exist "%OBJCLEANPATH%\." (
     echo Cleaning ReactOS %ROS_ARCH% source directory...
-    
-    del "%ROS_AUTOMAKE%" 1>NUL 2>NUL
-    rd /s /q "%ROS_INTERMEDIATE%" 1>NUL 2>NUL
-    rd /s /q "%ROS_OUTPUT%" 1>NUL 2>NUL
-    rd /s /q "%ROS_CDOUTPUT%" 1>NUL 2>NUL
-    
+
+    if exist "%OBJCLEANPATH%\." (
+        rd /s /q "%OBJCLEANPATH%" 1> NUL 2> NUL
+    )
+
+    if exist "%OUTCLEANPATH%\." (
+        rd /s /q "%OUTCLEANPATH%" 1> NUL 2> NUL
+    )
+
     echo Done cleaning ReactOS %ROS_ARCH% source directory.
 ) else (
-    echo ERROR: This directory contains no %ROS_ARCH% compiler output to clean.
+    echo ERROR: There is no %ROS_ARCH% compiler output to clean.
 )
-goto :EOF
 
-:: Check if all given files exist. If one does not, set IS_SOURCE_DIRECTORY to 0.
-:BIN_CHECKEXISTENCE
-if "%1" == "" (goto :EOF)
-if not exist "%1" (
-    set IS_SOURCE_DIRECTORY=0
-    goto :EOF
+if exist "%_ROSBE_ROSSOURCEDIR%\reactos\." (
+    rd /s /q "%_ROSBE_ROSSOURCEDIR%\reactos" 1> NUL 2> NUL
 )
-shift /1
-goto :BIN_CHECKEXISTENCE %*
+
+goto :EOF
 
 :EOC
 title ReactOS Build Environment %_ROSBE_VERSION%

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_SURFACE_H
+#define _WIN32K_SURFACE_H
 
 #include "win32.h"
 #include "gdiobj.h"
@@ -74,3 +75,5 @@ void INTERNAL_CALL SURFACE_CleanupBitsLock(SURFACE *pBMObj);
 
 INT   FASTCALL BitsPerFormat (ULONG Format);
 ULONG FASTCALL BitmapFormat (WORD Bits, DWORD Compression);
+
+#endif /* _WIN32K_SURFACE_H */

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _TILISTS_H
+#define _TILISTS_H
 
 #define TIPASTE(x,y) x ## y
 
@@ -22,3 +23,5 @@
 			    TIPASTE(n,Entry->Flink))); \
      TIPASTE(n,Entry) = TIPASTE(n,Entry)->Flink; \
 }
+
+#endif/*_TILISTS_H*/

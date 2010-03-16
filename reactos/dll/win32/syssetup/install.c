@@ -20,7 +20,7 @@
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS system libraries
  * PURPOSE:           System setup
- * FILE:              dll/win32/syssetup/install.c
+ * FILE:              lib/syssetup/install.c
  * PROGRAMER:         Eric Kohl
  */
 
@@ -481,18 +481,14 @@ EnableUserModePnpManager(VOID)
     if (hSCManager == NULL)
         goto cleanup;
 
-    hService = OpenServiceW(hSCManager,
-                            L"PlugPlay",
-                            SERVICE_CHANGE_CONFIG | SERVICE_START);
+    hService = OpenServiceW(hSCManager, L"PlugPlay", SERVICE_CHANGE_CONFIG | SERVICE_START);
     if (hService == NULL)
         goto cleanup;
 
-    ret = ChangeServiceConfigW(hService,
-                               SERVICE_NO_CHANGE,
-                               SERVICE_AUTO_START,
-                               SERVICE_NO_CHANGE,
-                               NULL, NULL, NULL,
-                               NULL, NULL, NULL, NULL);
+    ret = ChangeServiceConfigW(
+        hService,
+        SERVICE_NO_CHANGE, SERVICE_AUTO_START, SERVICE_NO_CHANGE,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL);
     if (!ret)
         goto cleanup;
 
@@ -760,6 +756,7 @@ CreateShortcuts(VOID)
 
     /* Create desktop shortcuts */
     CreateShortcut(CSIDL_DESKTOP, NULL, IDS_SHORT_CMD, _T("%SystemRoot%\\system32\\cmd.exe"), IDS_CMT_CMD, TRUE);
+    CreateShortcut(CSIDL_DESKTOP, NULL, IDS_SHORT_DOWNLOADER, _T("%SystemRoot%\\system32\\rapps.exe"), IDS_CMT_DOWNLOADER, TRUE);
 
     /* Create program startmenu shortcuts */
     CreateShortcut(CSIDL_PROGRAMS, NULL, IDS_SHORT_EXPLORER, _T("%SystemRoot%\\explorer.exe"), IDS_CMT_EXPLORER, TRUE);
@@ -803,7 +800,6 @@ CreateShortcuts(VOID)
     {
         CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_MPLAY32, _T("%SystemRoot%\\system32\\mplay32.exe"), IDS_CMT_MPLAY32, TRUE);
         CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_SNDVOL32, _T("%SystemRoot%\\system32\\sndvol32.exe"), IDS_CMT_SNDVOL32, TRUE);
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_SNDREC32, _T("%SystemRoot%\\system32\\sndrec32.exe"), IDS_CMT_SNDREC32, TRUE);
     }
 
     /* Create Games subfolder and fill if the exe is available */

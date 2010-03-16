@@ -17,6 +17,7 @@
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#define _NTSYSTEM_
 #include <freeldr.h>
 
 #define NDEBUG
@@ -27,9 +28,10 @@ extern PAGE_DIRECTORY_X86 startup_pagedirectory;
 extern PAGE_DIRECTORY_X86 lowmem_pagetable;
 extern PAGE_DIRECTORY_X86 kernel_pagetable;
 extern PAGE_DIRECTORY_X86 apic_pagetable;
+extern PAGE_DIRECTORY_X86 kpcr_pagetable;
+extern PAGE_DIRECTORY_X86 kuser_pagetable;
 extern ULONG_PTR KernelBase;
 extern ROS_KERNEL_ENTRY_POINT KernelEntryPoint;
-
 /* FUNCTIONS *****************************************************************/
 
 /*++
@@ -95,7 +97,7 @@ FrLdrSetupPae(ULONG Magic)
     __writecr0(__readcr0() | CR0_PG | CR0_WP);
 
     /* Jump to Kernel */
-    (*KernelEntryPoint)(&LoaderBlock);
+    (*KernelEntryPoint)(Magic, &LoaderBlock);
 }
 
 /*++

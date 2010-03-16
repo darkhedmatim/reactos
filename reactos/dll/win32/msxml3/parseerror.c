@@ -56,7 +56,7 @@ static HRESULT WINAPI parseError_QueryInterface(
     REFIID riid,
     void** ppvObject )
 {
-    TRACE("(%p)->(%s %p)\n", iface, debugstr_guid(riid), ppvObject);
+    TRACE("%p %s %p\n", iface, debugstr_guid(riid), ppvObject);
 
     if ( IsEqualGUID( riid, &IID_IUnknown ) ||
          IsEqualGUID( riid, &IID_IDispatch ) ||
@@ -97,7 +97,7 @@ static ULONG WINAPI parseError_Release(
         SysFreeString(This->url);
         SysFreeString(This->reason);
         SysFreeString(This->srcText);
-        heap_free( This );
+        HeapFree( GetProcessHeap(), 0, This );
     }
 
     return ref;
@@ -208,8 +208,7 @@ static HRESULT WINAPI parseError_get_url(
     IXMLDOMParseError *iface,
     BSTR *url )
 {
-    parse_error_t *This = impl_from_IXMLDOMParseError( iface );
-    FIXME("(%p)->(%p)\n", This, url);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -233,8 +232,7 @@ static HRESULT WINAPI parseError_get_srcText(
     IXMLDOMParseError *iface,
     BSTR *srcText )
 {
-    parse_error_t *This = impl_from_IXMLDOMParseError( iface );
-    FIXME("(%p)->(%p)\n", This, srcText);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -242,8 +240,7 @@ static HRESULT WINAPI parseError_get_line(
     IXMLDOMParseError *iface,
     LONG *line )
 {
-    parse_error_t *This = impl_from_IXMLDOMParseError( iface );
-    FIXME("(%p)->(%p)\n", This, line);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -251,8 +248,7 @@ static HRESULT WINAPI parseError_get_linepos(
     IXMLDOMParseError *iface,
     LONG *linepos )
 {
-    parse_error_t *This = impl_from_IXMLDOMParseError( iface );
-    FIXME("(%p)->(%p)\n", This, linepos);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -260,8 +256,7 @@ static HRESULT WINAPI parseError_get_filepos(
     IXMLDOMParseError *iface,
     LONG *filepos )
 {
-    parse_error_t *This = impl_from_IXMLDOMParseError( iface );
-    FIXME("(%p)->(%p)\n", This, filepos);
+    FIXME("\n");
     return E_NOTIMPL;
 }
 
@@ -288,7 +283,7 @@ IXMLDOMParseError *create_parseError( LONG code, BSTR url, BSTR reason, BSTR src
 {
     parse_error_t *This;
 
-    This = heap_alloc( sizeof(*This) );
+    This = HeapAlloc( GetProcessHeap(), 0, sizeof(*This) );
     if ( !This )
         return NULL;
 

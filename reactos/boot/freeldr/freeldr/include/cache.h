@@ -18,7 +18,8 @@
  */
 
 
-#pragma once
+#ifndef __CACHE_H
+#define __CACHE_H
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //
@@ -89,3 +90,5 @@ VOID	CacheInvalidateCacheData(VOID);
 BOOLEAN	CacheReadDiskSectors(ULONG DiskNumber, ULONG StartSector, ULONG SectorCount, PVOID Buffer);
 BOOLEAN	CacheForceDiskSectorsIntoCache(ULONG DiskNumber, ULONG StartSector, ULONG SectorCount);
 BOOLEAN	CacheReleaseMemory(ULONG MinimumAmountToRelease);
+
+#endif // defined __CACHE_H

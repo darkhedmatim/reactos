@@ -6,7 +6,7 @@
 #3 stub IsJITInProgress
 
 @ stub AsyncGetClassBits
-@ stdcall AsyncInstallDistributionUnit(ptr ptr ptr long long ptr ptr ptr long)
+@ stub AsyncInstallDistributionUnit
 @ stdcall BindAsyncMoniker(ptr long ptr ptr ptr)
 @ stdcall CoGetClassObjectFromURL(ptr wstr long long wstr ptr long ptr ptr ptr)
 @ stub CoInstall
@@ -15,7 +15,7 @@
 @ stdcall CoInternetCreateSecurityManager(ptr ptr long)
 @ stdcall CoInternetCreateZoneManager(ptr ptr long)
 @ stub CoInternetGetProtocolFlags
-@ stdcall CoInternetGetSecurityUrl(ptr ptr long long)
+@ stub CoInternetGetSecurityUrl
 @ stdcall CoInternetGetSession(long ptr long)
 @ stdcall CoInternetParseUrl(wstr long long wstr long ptr long)
 @ stdcall CoInternetQueryInfo(ptr long long ptr long ptr long)
@@ -26,7 +26,6 @@
 @ stdcall CreateAsyncBindCtx(long ptr ptr ptr)
 @ stdcall CreateAsyncBindCtxEx(ptr long ptr ptr ptr long)
 @ stdcall CreateFormatEnumerator(long ptr ptr)
-@ stdcall CreateUri(wstr long long ptr)
 @ stdcall CreateURLMoniker(ptr wstr ptr)
 @ stdcall CreateURLMonikerEx(ptr wstr ptr long)
 @ stdcall -private DllCanUnloadNow()

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_ENG_H
+#define _WIN32K_ENG_H
 
 BOOL APIENTRY  EngIntersectRect (PRECTL prcDst, PRECTL prcSrc1, PRECTL prcSrc2);
 VOID FASTCALL EngDeleteXlate (XLATEOBJ *XlateObj);
@@ -21,3 +22,5 @@ IntEngWindowChanged(
 VOID FASTCALL IntGdiAcquireSemaphore ( HSEMAPHORE hsem );
 VOID FASTCALL IntGdiReleaseSemaphore ( HSEMAPHORE hsem );
 ULONGLONG APIENTRY EngGetTickCount(VOID);
+
+#endif /* _WIN32K_ENG_H */

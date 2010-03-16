@@ -6,7 +6,9 @@
  * PURPOSE:         Interface to win32csr.dll
  */
 
-#pragma once
+
+#ifndef WIN32CSR_H_INCLUDED
+#define WIN32CSR_H_INCLUDED
 
 #include <windows.h>
 #include <commctrl.h>
@@ -35,5 +37,7 @@ NTSTATUS FASTCALL Win32CsrReleaseObject(PCSRSS_PROCESS_DATA ProcessData,
                                         HANDLE Object);
 NTSTATUS FASTCALL Win32CsrEnumProcesses(CSRSS_ENUM_PROCESS_PROC EnumProc,
                                         PVOID Context);
+
+#endif /* WIN32CSR_H_INCLUDED */
 
 /* EOF */

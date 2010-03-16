@@ -3,7 +3,7 @@
 # LICENSE:     GNU General Public License v2. (see LICENSE.txt)
 # FILE:        Root/reladdr2line.ps1
 # PURPOSE:     Converts a value to hex and displays it.
-# COPYRIGHT:   Copyright 2010 Daniel Reimer <reimer.daniel@freenet.de>
+# COPYRIGHT:   Copyright 2009 Daniel Reimer <reimer.daniel@freenet.de>
 #
 
 $host.ui.RawUI.WindowTitle = "reladdr2line..."
@@ -32,7 +32,14 @@ if ("$FILEPATH" -eq "") {
 if ("$ADDRESS" -eq "") {
     "ERROR: You must specify a address to analyze."
 }
-
-IEX "& log2lines.exe '$FILEPATH' '$ADDRESS'"
+$baseaddr = (objdump -p $FILEPATH | select-string "ImageBase").tostring().split()
+$baseaddr = "0x" + ($baseaddr.get($baseaddr.length - 1))
+if ($baseaddr -lt $ADDRESS) {
+    IEX "& '$_ROSBE_BASEDIR\Tools\raddr2line.exe' '$FILEPATH' '$ADDRESS'"
+} else {
+    $baseaddr = ($baseaddr | % {[Convert]::ToInt32($_,16)}) + ($ADDRESS | % {[Convert]::ToInt32($_,16)})
+    $relbase = "0x" + ("{0:X}" -f $baseaddr)
+    IEX "& '$_ROSBE_BASEDIR\Tools\raddr2line.exe' '$FILEPATH' '$relbase'"
+}
 
 $host.ui.RawUI.WindowTitle = "ReactOS Build Environment $_ROSBE_VERSION"

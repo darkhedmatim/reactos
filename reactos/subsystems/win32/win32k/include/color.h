@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _WIN32K_COLOR_H
+#define _WIN32K_COLOR_H
 
 #ifndef CLR_INVALID
 #define CLR_INVALID         0xffffffff
@@ -39,3 +40,5 @@ INT APIENTRY COLOR_PaletteLookupPixel(PALETTEENTRY *palPalEntry, INT size, XLATE
 UINT FASTCALL IntGdiRealizePalette (HDC);
 HCOLORSPACE FASTCALL IntGdiCreateColorSpace(PLOGCOLORSPACEEXW);
 BOOL FASTCALL IntGdiDeleteColorSpace(HCOLORSPACE);
+
+#endif /* _WIN32K_COLOR_H */

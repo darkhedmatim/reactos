@@ -6,8 +6,8 @@
  * DEFINES:     DBG     - Enable debug output
  *              NASSERT - Disable assertions
  */
-
-#pragma once
+#ifndef __DEBUG_H
+#define __DEBUG_H
 
 #define MIN_TRACE      ((1 << DPFLTR_WARNING_LEVEL))
 #define MID_TRACE      ((1 << DPFLTR_WARNING_LEVEL) | (1 << DPFLTR_TRACE_LEVEL))
@@ -71,8 +71,12 @@
 
 #define CP CHECKPOINT
 
+#include <memtrack.h>
+
 #define ASSERT_KM_POINTER(_x) \
    ASSERT(((PVOID)_x) != (PVOID)0xcccccccc); \
    ASSERT(((PVOID)_x) >= (PVOID)0x80000000);
+
+#endif /* __DEBUG_H */
 
 /* EOF */

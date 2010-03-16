@@ -390,9 +390,8 @@ static void test_subpopup_locked_by_menu(void)
             ok( ret == itemid , "TrackPopupMenu returned %d error is %d\n", ret, gle);
         }
         ok( gle == 0 ||
-            broken(gle == 0xdeadbeef) || /* wow64 */
-            broken(gle == ERROR_INVALID_PARAMETER), /* win2k0 */
-            "Last error is %d\n", gle);
+                broken( gle ==  ERROR_INVALID_PARAMETER), /* win2k0 */
+                "Last error is %d\n", gle);
     }
     /* clean up */
     DestroyMenu( hmenu);
@@ -1890,10 +1889,8 @@ static struct menu_mouse_tests_s {
     { INPUT_KEYBOARD, {{0}}, {'D', 0}, FALSE, FALSE },
     { INPUT_KEYBOARD, {{0}}, {VK_MENU, 'M', 'P', 0}, TRUE, FALSE },
     { INPUT_KEYBOARD, {{0}}, {'E', 0}, FALSE, FALSE },
-    { INPUT_KEYBOARD, {{0}}, {VK_F10, 0}, TRUE, FALSE },
-    { INPUT_KEYBOARD, {{0}}, {VK_F10, 0}, FALSE, FALSE },
 
-    { INPUT_MOUSE, {{1, 2}, {0}}, {0}, TRUE, TRUE }, /* test 20 */
+    { INPUT_MOUSE, {{1, 2}, {0}}, {0}, TRUE, TRUE }, /* test 18 */
     { INPUT_MOUSE, {{1, 1}, {0}}, {0}, FALSE, FALSE },
     { INPUT_MOUSE, {{1, 0}, {0}}, {0}, TRUE, TRUE },
     { INPUT_MOUSE, {{1, 1}, {0}}, {0}, FALSE, FALSE },
@@ -3218,7 +3215,7 @@ START_TEST(menu)
 
     test_menu_hilitemenuitem();
     test_menu_trackpopupmenu();
-//    test_menu_cancelmode();
+    test_menu_cancelmode();
     test_menu_maxdepth();
     test_menu_circref();
 }

@@ -63,14 +63,6 @@ Environment::GetIntermediatePath ()
 }
 
 /* static */ string
-Environment::GetSourcePath ()
-{
-	char temp[_MAX_PATH];
-	getcwd(temp, _MAX_PATH);
-	return string(temp);
-}
-
-string
 Environment::GetOutputPath ()
 {
 	string defaultOutput =

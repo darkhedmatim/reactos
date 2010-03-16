@@ -5,6 +5,7 @@
     <define name="__ROS_LONG64__" />
 	<library>wine</library>
 	<library>advapi32</library>
+	<library>kernel32</library>
 	<library>ntdll</library>
 	<file>rsabase.c</file>
 	<file>testlist.c</file>

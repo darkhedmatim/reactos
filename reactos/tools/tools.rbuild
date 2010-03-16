@@ -7,14 +7,8 @@
 <directory name="cdmake">
 	<xi:include href="cdmake/cdmake.rbuild" />
 </directory>
-<directory name="hpp">
-	<xi:include href="hpp/hpp.rbuild" />
-</directory>
 <directory name="kbdtool">
 	<xi:include href="kbdtool/kbdtool.rbuild" />
-</directory>
-<directory name="nandflash">
-	<xi:include href="nandflash/nandflash.rbuild" />
 </directory>
 <directory name="mkhive">
 	<xi:include href="mkhive/mkhive.rbuild" />

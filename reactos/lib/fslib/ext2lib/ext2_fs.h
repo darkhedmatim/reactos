@@ -13,7 +13,8 @@
  *  Copyright f(C) 1991, 1992  Linus Torvalds
  */
 
-#pragma once
+#ifndef _LINUX_EXT2_FS_H
+#define _LINUX_EXT2_FS_H
 
 #include "types.h"		/* Changed from linux/types.h */
 
@@ -652,3 +653,5 @@ extern struct inode_operations ext2_fast_symlink_inode_operations;
 extern struct address_space_operations ext2_aops;
 
 #endif	/* __KERNEL__ */
+
+#endif	/* _LINUX_EXT2_FS_H */

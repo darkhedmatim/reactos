@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __VMWINST_H
+#define __VMWINST_H
 
 #ifndef PSCB_BUTTONPRESSED
 #define PSCB_BUTTONPRESSED	(3)
@@ -66,3 +67,5 @@
 #define IDD_SELECTDRIVERSUBTITLE		352
 #define IDD_DOUNINSTALLTITLE			361
 #define IDD_DOUNINSTALLSUBTITLE			362
+
+#endif /* __VMWINST_H */

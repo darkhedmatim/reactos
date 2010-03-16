@@ -17,10 +17,6 @@ typedef struct
 
     LPFILTERINFO Filter;
     DWORD dwLevel;
-    DWORD dwFlags;
-    DWORD dwFrequency;
-    LONG Volume;
-    LONG VolumePan;
     WAVEFORMATEX Format;
     HANDLE hPin;
     CRITICAL_SECTION Lock;
@@ -98,29 +94,8 @@ PrimaryDirectSoundBuffer8Impl_fnGetCaps(
     LPDIRECTSOUNDBUFFER8 iface,
     LPDSBCAPS pDSBufferCaps)
 {
-    LPCDirectSoundBuffer This = (LPCDirectSoundBuffer)CONTAINING_RECORD(iface, CDirectSoundBuffer, lpVtbl);
-
-    DPRINT("PrimaryDirectSoundBuffer8Impl_fnGetCaps\n");
-
-    if (!pDSBufferCaps)
-    {
-        /* invalid parameter */
-        return DSERR_INVALIDPARAM;
-    }
-
-    if (pDSBufferCaps->dwSize < sizeof(DSBCAPS))
-    {
-        /* invalid buffer size */
-        return DSERR_INVALIDPARAM;
-    }
-
-    /* get buffer details */
-    pDSBufferCaps->dwUnlockTransferRate = 0;
-    pDSBufferCaps->dwPlayCpuOverhead = 0;
-    pDSBufferCaps->dwSize = 0; //FIXME
-    pDSBufferCaps->dwFlags = This->dwFlags;
-
-    return DS_OK;
+    UNIMPLEMENTED
+    return DSERR_INVALIDPARAM;
 }
 
 HRESULT
@@ -130,23 +105,7 @@ PrimaryDirectSoundBuffer8Impl_fnGetCurrentPosition(
     LPDWORD pdwCurrentPlayCursor,
     LPDWORD pdwCurrentWriteCursor)
 {
-    LPCDirectSoundBuffer This = (LPCDirectSoundBuffer)CONTAINING_RECORD(iface, CDirectSoundBuffer, lpVtbl);
-
-    DPRINT("PrimaryDirectSoundBuffer8Impl_fnGetCurrentPosition\n");
-
-    if (This->dwLevel < DSSCL_PRIORITY)
-    {
-        /* needs priority level */
-        return DSERR_PRIOLEVELNEEDED;
-    }
-
-    if (!pdwCurrentPlayCursor && !pdwCurrentWriteCursor)
-    {
-        /* all parameters are null */
-        return DSERR_INVALIDPARAM;
-    }
-
-    UNIMPLEMENTED;
+    UNIMPLEMENTED
     return DSERR_INVALIDPARAM;
 }
 
@@ -160,8 +119,6 @@ PrimaryDirectSoundBuffer8Impl_fnGetFormat(
 {
     DWORD FormatSize;
     LPCDirectSoundBuffer This = (LPCDirectSoundBuffer)CONTAINING_RECORD(iface, CDirectSoundBuffer, lpVtbl);
-
-    DPRINT("PrimaryDirectSoundBuffer8Impl_fnGetFormat\n");
 
     FormatSize = sizeof(WAVEFORMATEX) + This->Format.cbSize;
 
@@ -203,20 +160,8 @@ PrimaryDirectSoundBuffer8Impl_fnGetVolume(
     LPDIRECTSOUNDBUFFER8 iface,
     LPLONG plVolume)
 {
-    LPCDirectSoundBuffer This = (LPCDirectSoundBuffer)CONTAINING_RECORD(iface, CDirectSoundBuffer, lpVtbl);
-
-    DPRINT("PrimaryDirectSoundBuffer8Impl_fnGetVolume\n");
-
-    if (!plVolume)
-    {
-        /* invalid parameter */
-        return DSERR_INVALIDPARAM;
-    }
-
-    /* get volume */
-    *plVolume = This->Volume;
-
-    return DS_OK;
+    UNIMPLEMENTED
+    return DSERR_INVALIDPARAM;
 }
 
 HRESULT
@@ -225,20 +170,8 @@ PrimaryDirectSoundBuffer8Impl_fnGetPan(
     LPDIRECTSOUNDBUFFER8 iface,
     LPLONG plPan)
 {
-    LPCDirectSoundBuffer This = (LPCDirectSoundBuffer)CONTAINING_RECORD(iface, CDirectSoundBuffer, lpVtbl);
-
-    DPRINT("PrimaryDirectSoundBuffer8Impl_fnGetPan\n");
-
-    if (!plPan)
-    {
-        /* invalid parameter */
-        return DSERR_INVALIDPARAM;
-    }
-
-    /* get frequency */
-    *plPan = This->VolumePan;
-
-    return DS_OK;
+    UNIMPLEMENTED
+    return DSERR_INVALIDPARAM;
 }
 
 HRESULT
@@ -247,20 +180,8 @@ PrimaryDirectSoundBuffer8Impl_fnGetFrequency(
     LPDIRECTSOUNDBUFFER8 iface,
     LPDWORD pdwFrequency)
 {
-    LPCDirectSoundBuffer This = (LPCDirectSoundBuffer)CONTAINING_RECORD(iface, CDirectSoundBuffer, lpVtbl);
-
-    DPRINT("PrimaryDirectSoundBuffer8Impl_fnGetFrequency\n");
-
-    if (!pdwFrequency)
-    {
-        /* invalid parameter */
-        return DSERR_INVALIDPARAM;
-    }
-
-    /* get frequency */
-    *pdwFrequency = This->dwFrequency;
-
-    return DS_OK;
+    UNIMPLEMENTED
+    return DSERR_INVALIDPARAM;
 }
 
 HRESULT
@@ -269,24 +190,8 @@ PrimaryDirectSoundBuffer8Impl_fnGetStatus(
     LPDIRECTSOUNDBUFFER8 iface,
     LPDWORD pdwStatus)
 {
-    LPCDirectSoundBuffer This = (LPCDirectSoundBuffer)CONTAINING_RECORD(iface, CDirectSoundBuffer, lpVtbl);
-
-    DPRINT("PrimaryDirectSoundBuffer8Impl_fnGetStatus\n");
-
-    if (!pdwStatus)
-    {
-        /* invalid parameter */
-        return DSERR_INVALIDPARAM;
-    }
-
-    *pdwStatus = 0;
-    if (This->State == KSSTATE_RUN || This->State == KSSTATE_ACQUIRE)
-    {
-        /* buffer is playing */
-        *pdwStatus |= DSBSTATUS_PLAYING | DSBSTATUS_LOOPING;
-    }
-
-    return DS_OK;
+    UNIMPLEMENTED
+    return DSERR_INVALIDPARAM;
 }
 
 HRESULT
@@ -296,8 +201,8 @@ PrimaryDirectSoundBuffer8Impl_fnInitialize(
     LPDIRECTSOUND pDirectSound,
     LPCDSBUFFERDESC pcDSBufferDesc)
 {
-    /* RTFM */
-    return DSERR_ALREADYINITIALIZED;
+    UNIMPLEMENTED
+    return DSERR_INVALIDPARAM;
 }
 
 HRESULT
@@ -324,39 +229,8 @@ PrimaryDirectSoundBuffer8Impl_fnPlay(
     DWORD dwPriority,
     DWORD dwFlags)
 {
-    LPCDirectSoundBuffer This = (LPCDirectSoundBuffer)CONTAINING_RECORD(iface, CDirectSoundBuffer, lpVtbl);
-
-    DPRINT("PrimaryDirectSoundBuffer8Impl_fnPlay dwFlags %x\n", dwFlags);
-
-    if (dwReserved1 != 0 || !(dwFlags & DSBPLAY_LOOPING))
-    {
-        /* invalid parameter */
-        return DSERR_INVALIDPARAM;
-    }
-
-    PrimaryDirectSoundBuffer_AcquireLock(iface);
-
-    if (This->State == KSSTATE_STOP)
-    {
-        PrimaryDirectSoundBuffer_SetState(iface, KSSTATE_ACQUIRE);
-        ASSERT(This->State == KSSTATE_ACQUIRE);
-    }
-
-    if (This->State == KSSTATE_ACQUIRE)
-    {
-        PrimaryDirectSoundBuffer_SetState(iface, KSSTATE_PAUSE);
-        ASSERT(This->State == KSSTATE_PAUSE);
-    }
-
-    if (This->State == KSSTATE_PAUSE)
-    {
-        PrimaryDirectSoundBuffer_SetState(iface, KSSTATE_RUN);
-        ASSERT(This->State == KSSTATE_RUN);
-    }
-
-    PrimaryDirectSoundBuffer_ReleaseLock(iface);
-
-    return DS_OK;
+    UNIMPLEMENTED
+    return DSERR_INVALIDPARAM;
 }
 
 HRESULT
@@ -365,8 +239,8 @@ PrimaryDirectSoundBuffer8Impl_fnSetCurrentPosition(
     LPDIRECTSOUNDBUFFER8 iface,
     DWORD dwNewPosition)
 {
-    /* The position of a primary buffer can't be set */
-    return DSERR_INVALIDCALL;
+    UNIMPLEMENTED
+    return DSERR_INVALIDPARAM;
 }
 
 HRESULT
@@ -400,20 +274,8 @@ PrimaryDirectSoundBuffer8Impl_fnSetVolume(
     LPDIRECTSOUNDBUFFER8 iface,
     LONG lVolume)
 {
-    LPCDirectSoundBuffer This = (LPCDirectSoundBuffer)CONTAINING_RECORD(iface, CDirectSoundBuffer, lpVtbl);
-
-    if (lVolume < DSBVOLUME_MIN || lVolume > DSBVOLUME_MAX)
-    {
-        /* invalid parameter */
-        return DSERR_INVALIDPARAM;
-    }
-
-    /* TODO: call volume node */
-
-    /* Store volume */
-    This->Volume = lVolume;
-
-    return DS_OK;
+    UNIMPLEMENTED
+    return DSERR_INVALIDPARAM;
 }
 
 HRESULT
@@ -422,20 +284,8 @@ PrimaryDirectSoundBuffer8Impl_fnSetPan(
     LPDIRECTSOUNDBUFFER8 iface,
     LONG lPan)
 {
-    LPCDirectSoundBuffer This = (LPCDirectSoundBuffer)CONTAINING_RECORD(iface, CDirectSoundBuffer, lpVtbl);
-
-    if (lPan < DSBPAN_LEFT || lPan > DSBPAN_RIGHT)
-    {
-        /* invalid parameter */
-        return DSERR_INVALIDPARAM;
-    }
-
-    /* TODO: call volume node */
-
-    /* Store volume pan */
-    This->VolumePan = lPan;
-
-    return DS_OK;
+    UNIMPLEMENTED
+    return DSERR_INVALIDPARAM;
 }
 
 HRESULT
@@ -444,16 +294,8 @@ PrimaryDirectSoundBuffer8Impl_fnSetFrequency(
     LPDIRECTSOUNDBUFFER8 iface,
     DWORD dwFrequency)
 {
-    LPCDirectSoundBuffer This = (LPCDirectSoundBuffer)CONTAINING_RECORD(iface, CDirectSoundBuffer, lpVtbl);
-
-    if (This->dwLevel < DSSCL_PRIORITY)
-    {
-        /* needs priority level */
-        return DSERR_PRIOLEVELNEEDED;
-    }
-
-    /* invalid request */
-    return DSERR_CONTROLUNAVAIL;
+    UNIMPLEMENTED
+    return DSERR_INVALIDPARAM;
 }
 
 HRESULT
@@ -461,33 +303,8 @@ WINAPI
 PrimaryDirectSoundBuffer8Impl_fnStop(
     LPDIRECTSOUNDBUFFER8 iface)
 {
-    LPCDirectSoundBuffer This = (LPCDirectSoundBuffer)CONTAINING_RECORD(iface, CDirectSoundBuffer, lpVtbl);
-
-    DPRINT("PrimaryDirectSoundBuffer8Impl_fnStop\n");
-
-    PrimaryDirectSoundBuffer_AcquireLock(iface);
-
-    if (This->State == KSSTATE_RUN)
-    {
-        PrimaryDirectSoundBuffer_SetState(iface, KSSTATE_PAUSE);
-        ASSERT(This->State == KSSTATE_PAUSE);
-    }
-
-    if (This->State == KSSTATE_PAUSE)
-    {
-        PrimaryDirectSoundBuffer_SetState(iface, KSSTATE_ACQUIRE);
-        ASSERT(This->State == KSSTATE_ACQUIRE);
-    }
-
-    if (This->State == KSSTATE_ACQUIRE)
-    {
-        PrimaryDirectSoundBuffer_SetState(iface, KSSTATE_STOP);
-        ASSERT(This->State == KSSTATE_STOP);
-    }
-
-    PrimaryDirectSoundBuffer_ReleaseLock(iface);
-
-    return DS_OK;
+    UNIMPLEMENTED
+    return DSERR_INVALIDPARAM;
 }
 
 
@@ -503,6 +320,8 @@ PrimaryDirectSoundBuffer8Impl_fnUnlock(
     UNIMPLEMENTED
     return DSERR_INVALIDPARAM;
 }
+
+
 
 
 HRESULT
@@ -649,9 +468,8 @@ PrimaryDirectSoundBuffer_GetPosition(
     KSAUDIO_POSITION Position;
     KSPROPERTY Request;
     DWORD Result;
-    LPCDirectSoundBuffer This = (LPCDirectSoundBuffer)CONTAINING_RECORD(iface, CDirectSoundBuffer, lpVtbl);
 
-    //DPRINT("PrimaryDirectSoundBuffer_GetPosition\n");
+    LPCDirectSoundBuffer This = (LPCDirectSoundBuffer)CONTAINING_RECORD(iface, CDirectSoundBuffer, lpVtbl);
 
     if (!This->hPin)
     {
@@ -723,10 +541,7 @@ PrimaryDirectSoundBuffer_SetFormat(
         Result = OpenPin(This->Filter->hFilter, PinId, (LPWAVEFORMATEX)pcfxFormat, &This->hPin, bLooped);
         DPRINT("PinId %u Result %u\n", PinId, Result);
         if (Result == ERROR_SUCCESS)
-        {
-            This->dwFrequency = pcfxFormat->nSamplesPerSec;
             break;
-        }
 
         This->hPin = NULL;
         DeviceId++;
@@ -768,8 +583,7 @@ HRESULT
 NewPrimarySoundBuffer(
     LPDIRECTSOUNDBUFFER8 *OutBuffer,
     LPFILTERINFO Filter,
-    DWORD dwLevel,
-    DWORD dwFlags)
+    DWORD dwLevel)
 {
     LPCDirectSoundBuffer This = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(CDirectSoundBuffer));
 
@@ -783,20 +597,7 @@ NewPrimarySoundBuffer(
     This->lpVtbl = &vt_DirectSoundBuffer8;
     This->Filter = Filter;
     This->dwLevel = dwLevel;
-    This->dwFlags = dwFlags;
-    This->dwFrequency = 0;
-    This->Volume = DSBVOLUME_MAX;
-    This->VolumePan = DSBPAN_CENTER;
     This->hPin = NULL;
-
-    /* FIXME: determine default format for audio device */
-    This->Format.cbSize = sizeof(WAVEFORMATEX);
-    This->Format.nChannels = 2;
-    This->Format.nSamplesPerSec = 44100;
-    This->Format.wBitsPerSample = 16;
-    This->Format.wFormatTag = WAVE_FORMAT_PCM;
-    This->Format.nBlockAlign = (This->Format.nChannels * This->Format.wBitsPerSample) / 8;
-    This->Format.nAvgBytesPerSec = (This->Format.nChannels * This->Format.nSamplesPerSec * This->Format.wBitsPerSample) / 8;
 
     InitializeCriticalSection(&This->Lock);
 
