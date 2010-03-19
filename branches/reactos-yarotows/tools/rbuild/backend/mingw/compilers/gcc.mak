@@ -12,6 +12,12 @@ CPPFLAG_UNICODE:=-DUNICODE -D_UNICODE
 BUILTIN_CFLAGS+= -fno-optimize-sibling-calls
 BUILTIN_CXXFLAGS+= -fno-optimize-sibling-calls
 
+# Add -fno-set-stack-executable required for x86/MinGW
+ifneq (,$(filter $(ARCH),amd64 i386))
+	BUILTIN_CFLAGS+= -fno-set-stack-executable
+	BUILTIN_CXXFLAGS+= -fno-set-stack-executable
+endif
+
 #(module, source, dependencies, cflags, output)
 define RBUILD_DEPENDS
 
@@ -119,13 +125,13 @@ ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)$$(SEP)$(notdir $(2)).gch.d:
 
 ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)$$(SEP)$(notdir $(2)).gch: $(2) ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)$$(SEP)$(notdir $(2)).gch.d $(3) | ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)
 	$$(ECHO_PCH)
-	$${gcc} -MF $$@ ${call RBUILD_cflags,$(1),$(4)} -x c-header -M -MP -MT $$@ $$<
+	$${gcc} -o $$@ ${call RBUILD_cflags,$(1),$(4)} -x c-header $$<
 
 else
 
 ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)$$(SEP)$(notdir $(2)).gch: $(2) $(3) | ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)
 	$$(ECHO_PCH)
-	$${gcc} -MF $$@ ${call RBUILD_cflags,$(1),$(4)} -x c-header -M -MP -MT $$@ $$<
+	$${gcc} -o $$@ ${call RBUILD_cflags,$(1),$(4)} -x c-header $$<
 
 endif
 
@@ -146,13 +152,13 @@ ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)$$(SEP)$(notdir $(2)).gch.d:
 
 ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)$$(SEP)$(notdir $(2)).gch: $(2) ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)$$(SEP)$(notdir $(2)).gch.d $(3) | ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)
 	$$(ECHO_PCH)
-	$${gpp} -MF $$@ ${call RBUILD_cxxflags,$(1),$(4)} -x c++-header -M -MP -MT $$@ $$<
+	$${gpp} -o $$@ ${call RBUILD_cxxflags,$(1),$(4)} -x c++-header $$<
 
 else
 
 ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)$$(SEP)$(notdir $(2)).gch: $(2) $(3) | ${call RBUILD_intermediate_dir,$(2)}$$(SEP).gch_$(1)
 	$$(ECHO_PCH)
-	$${gpp} -MF $$@ ${call RBUILD_cxxflags,$(1),$(4)} -x c++-header -M -MP -MT $$@ $$<
+	$${gpp} -o $$@ ${call RBUILD_cxxflags,$(1),$(4)} -x c++-header $$<
 
 endif
 

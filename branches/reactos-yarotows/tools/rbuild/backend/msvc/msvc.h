@@ -16,8 +16,8 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef __MSVC_H__
-#define __MSVC_H__
+
+#pragma once
 
 #include <fstream>
 #include <vector>
@@ -179,6 +179,7 @@ class VCProjMaker : public ProjMaker
 	private:
 		void _generate_standard_configuration( const Module& module, const MSVCConfiguration& cfg, BinaryType binaryType );
 		void _generate_makefile_configuration( const Module& module, const MSVCConfiguration& cfg );
+		std::string _get_file_path( FileLocation* file, std::string relative_path);
 };
 
 class VCXProjMaker : public ProjMaker
@@ -222,4 +223,33 @@ class SlnMaker
 		void _generate_sln_configurations ( std::string vcproj_guid );
 };
 
-#endif // __MSVC_H__
+class PropsMaker
+{
+	public:
+		PropsMaker ( Configuration& buildConfig, 
+			 Project* ProjectNode,  
+			 std::string filename_props,
+			 MSVCConfiguration* msvc_configs);
+
+		~PropsMaker ();
+
+		void _generate_props ( std::string solution_version, std::string studio_version );
+
+	private:
+		Configuration m_configuration;
+		Project* m_ProjectNode;
+		FILE* OUT;
+		MSVCConfiguration* m_msvc_config;
+		bool debug;
+		bool release;
+		bool speed;
+		bool use_ros_headers;
+
+		void _generate_header();
+		void _generate_tools_defaults();
+		void _generate_macro(std::string Name, std::string Value, bool EvairomentVariable);
+		void _generate_global_includes();
+		void _generate_global_definitions();
+		void _generate_footer();
+
+};
