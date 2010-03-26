@@ -1,17 +1,23 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
- #ifdef _WIN64
+#include <_mingw_mac.h>
+
 	.file	"floorl.S"
 	.text
-	.align 16
-.globl _floorl
-	.def	_floorl;	.scl	2;	.type	32;	.endef
-_floorl:
+#ifdef _WIN64
+	.align 8
+#else
+	.align 4
+#endif
+.globl __MINGW_USYMBOL(floorl)
+	.def	__MINGW_USYMBOL(floorl);	.scl	2;	.type	32;	.endef
+__MINGW_USYMBOL(floorl):
+#ifdef _WIN64
 	fldt	(%rdx)
-	subq	$16,%rsp
+	subq	$24,%rsp
 
 	fstcw	8(%rsp)			/* store fpu control word */
 
@@ -28,18 +34,12 @@ _floorl:
 
 	fldcw	8(%rsp)			/* restore original control word */
 
-	addq	$16,%rsp
+	addq	$24,%rsp
 	movq	%rcx,%rax
 	movq	$0,8(%rcx)
 	fstpt	(%rcx)
 	ret
 #else
-	.file	"floorl.S"
-	.text
-	.align 4
-.globl _floorl
-	.def	_floorl;	.scl	2;	.type	32;	.endef
-_floorl:
 	fldt	4(%esp)
 	subl	$8,%esp
 

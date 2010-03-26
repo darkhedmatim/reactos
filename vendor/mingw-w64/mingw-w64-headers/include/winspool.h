@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _WINSPOOL_
 #define _WINSPOOL_
@@ -1263,7 +1263,7 @@ extern "C" {
       LPWSTR sData;
       FLOAT fData;
       BINARY_CONTAINER biData;
-    }u;
+    } u;
   } BIDI_DATA,*PBIDI_DATA,*LPBIDI_DATA;
 
   typedef struct _BIDI_REQUEST_DATA{

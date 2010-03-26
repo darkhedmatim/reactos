@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 
 #include <windows.h>
@@ -18,6 +18,10 @@ static int free_Msvcrt = 0;
 typedef void __cdecl flongjmp(jmp_buf _Buf,int _Value);
 
 flongjmp *fctMsvcrtLongJmp = NULL;
+
+void __do_global_dtors (void);
+void __do_global_ctors (void);
+void __main (void);
 
 void
 __do_global_dtors (void)

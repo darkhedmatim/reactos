@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -274,8 +274,11 @@ typedef struct IAsyncOperation IAsyncOperation;
 extern "C" {
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
   extern RPC_IF_HANDLE __MIDL_itf_shldisp_0000_v0_0_c_ifspec;
   extern RPC_IF_HANDLE __MIDL_itf_shldisp_0000_v0_0_s_ifspec;
@@ -283,17 +286,20 @@ extern "C" {
 #ifndef __Shell32_LIBRARY_DEFINED__
 #define __Shell32_LIBRARY_DEFINED__
   typedef enum SearchCommandExecuteErrors {
-    SCEE_PATHNOTFOUND = 1,SCEE_MAXFILESFOUND = SCEE_PATHNOTFOUND + 1,SCEE_INDEXSEARCH = SCEE_MAXFILESFOUND + 1,SCEE_CONSTRAINT = SCEE_INDEXSEARCH + 1,
-    SCEE_SCOPEMISMATCH = SCEE_CONSTRAINT + 1,SCEE_CASESENINDEX = SCEE_SCOPEMISMATCH + 1,SCEE_INDEXNOTCOMPLETE = SCEE_CASESENINDEX + 1
+    SCEE_PATHNOTFOUND = 1,
+    SCEE_MAXFILESFOUND,SCEE_INDEXSEARCH,SCEE_CONSTRAINT,SCEE_SCOPEMISMATCH,
+    SCEE_CASESENINDEX,SCEE_INDEXNOTCOMPLETE
   } SearchCommandExecuteErrors;
 
   typedef enum OfflineFolderStatus {
-    OFS_INACTIVE = -1,OFS_ONLINE = OFS_INACTIVE + 1,OFS_OFFLINE = OFS_ONLINE + 1,OFS_SERVERBACK = OFS_OFFLINE + 1,OFS_DIRTYCACHE = OFS_SERVERBACK + 1
+    OFS_INACTIVE = -1,OFS_ONLINE = 0,
+    OFS_OFFLINE,OFS_SERVERBACK,OFS_DIRTYCACHE
   } OfflineFolderStatus;
 
   typedef enum ShellFolderViewOptions {
-    SFVVO_SHOWALLOBJECTS = 0x1,SFVVO_SHOWEXTENSIONS = 0x2,SFVVO_SHOWCOMPCOLOR = 0x8,SFVVO_SHOWSYSFILES = 0x20,SFVVO_WIN95CLASSIC = 0x40,
-    SFVVO_DOUBLECLICKINWEBVIEW = 0x80,SFVVO_DESKTOPHTML = 0x200
+    SFVVO_SHOWALLOBJECTS = 0x1,SFVVO_SHOWEXTENSIONS = 0x2,SFVVO_SHOWCOMPCOLOR = 0x8,
+    SFVVO_SHOWSYSFILES = 0x20,SFVVO_WIN95CLASSIC = 0x40,SFVVO_DOUBLECLICKINWEBVIEW = 0x80,
+    SFVVO_DESKTOPHTML = 0x200
   } ShellFolderViewOptions;
 
   typedef enum ShellSpecialFolderConstants {

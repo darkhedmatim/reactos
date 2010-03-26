@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _INC_COMMCTRL
 #define _INC_COMMCTRL
@@ -10,7 +10,8 @@
 #ifndef _WIN32_IE
 #define _WIN32_IE 0x0501
 #else
-#if (_WIN32_IE < 0x0501)
+/* FIXME: This really must be 0x0501 !!! */
+#if (_WIN32_IE < 0x0500)
 #error _WIN32_IE setting conflicts
 #endif
 #endif
@@ -3331,7 +3332,7 @@ extern "C" {
   typedef struct tagTVINSERTSTRUCTA {
     HTREEITEM hParent;
     HTREEITEM hInsertAfter;
-    union {
+    __MINGW_EXTENSION union {
       TVITEMEXA itemex;
       TV_ITEMA item;
     } DUMMYUNIONNAME;
@@ -3340,7 +3341,7 @@ extern "C" {
   typedef struct tagTVINSERTSTRUCTW {
     HTREEITEM hParent;
     HTREEITEM hInsertAfter;
-    union {
+    __MINGW_EXTENSION union {
       TVITEMEXW itemex;
       TV_ITEMW item;
     } DUMMYUNIONNAME;

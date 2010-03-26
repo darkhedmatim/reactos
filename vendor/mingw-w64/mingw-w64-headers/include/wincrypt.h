@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __WINCRYPT_H__
 #define __WINCRYPT_H__
@@ -42,16 +42,16 @@ extern "C" {
 #define CONST const
 #endif
 
+#ifndef _NO_W32_PSEUDO_MODIFIERS
 #ifndef IN
 #define IN
 #endif
-
 #ifndef OUT
 #define OUT
 #endif
-
 #ifndef OPTIONAL
 #define OPTIONAL
+#endif
 #endif
 
 #define WINCRYPT32API WINIMPM
@@ -1255,6 +1255,9 @@ extern "C" {
 #define X509_DH_PARAMETERS ((LPCSTR) 47)
 #define PKCS_ATTRIBUTES ((LPCSTR) 48)
 #define PKCS_SORTED_CTL ((LPCSTR) 49)
+
+#define X509_ECC_SIGNATURE ((LPCSTR) 47)
+
 #define X942_DH_PARAMETERS ((LPCSTR) 50)
 #define X509_BITS_WITHOUT_TRAILING_ZEROES ((LPCSTR) 51)
 #define X942_OTHER_INFO ((LPCSTR) 52)
@@ -1270,6 +1273,19 @@ extern "C" {
 #define CMC_ADD_EXTENSIONS ((LPCSTR) 62)
 #define CMC_ADD_ATTRIBUTES ((LPCSTR) 63)
 #define X509_CERTIFICATE_TEMPLATE ((LPCSTR) 64)
+#define OCSP_SIGNED_REQUEST ((LPCSTR) 65)
+#define OCSP_REQUEST ((LPCSTR) 66)
+#define OCSP_RESPONSE ((LPCSTR) 67)
+#define OCSP_BASIC_SIGNED_RESPONSE ((LPCSTR) 68)
+#define OCSP_BASIC_RESPONSE ((LPCSTR) 69)
+#define X509_LOGOTYPE_EXT ((LPCSTR) 70)
+#define X509_BIOMETRIC_EXT ((LPCSTR) 71)
+#define CNG_RSA_PUBLIC_KEY_BLOB ((LPCSTR) 72)
+#define X509_OBJECT_IDENTIFIER ((LPCSTR) 73)
+#define X509_ALGORITHM_IDENTIFIER ((LPCSTR) 74)
+#define PKCS_RSA_SSA_PSS_PARAMETERS ((LPCSTR) 75)
+#define PKCS_RSAES_OAEP_PARAMETERS ((LPCSTR) 76)
+#define ECC_CMS_SHARED_INFO ((LPCSTR) 77)
 #define PKCS7_SIGNER_INFO ((LPCSTR) 500)
 #define CMS_SIGNER_INFO ((LPCSTR) 501)
 #define szOID_AUTHORITY_KEY_IDENTIFIER "2.5.29.1"
@@ -1279,6 +1295,8 @@ extern "C" {
 #define szOID_SUBJECT_ALT_NAME "2.5.29.7"
 #define szOID_ISSUER_ALT_NAME "2.5.29.8"
 #define szOID_BASIC_CONSTRAINTS "2.5.29.10"
+/* szOID_KEY_USAGE is defined incorrectly in msdn as 2.5.29.4 --
+   http://www.oid-info.com/get/2.5.29.15 RFC3280 */
 #define szOID_KEY_USAGE "2.5.29.15"
 #define szOID_PRIVATEKEY_USAGE_PERIOD "2.5.29.16"
 #define szOID_BASIC_CONSTRAINTS2 "2.5.29.19"
@@ -1300,6 +1318,10 @@ extern "C" {
 #define szOID_POLICY_MAPPINGS "2.5.29.33"
 #define szOID_LEGACY_POLICY_MAPPINGS "2.5.29.5"
 #define szOID_POLICY_CONSTRAINTS "2.5.29.36"
+#define szOID_ECC_PUBLIC_KEY "1.2.840.10045.2.1"
+#define szOID_ECDSA_SPECIFIED "1.2.840.10045.4.3"
+#define szOID_RSA_SSA_PSS "1.2.840.113549.1.1.10"
+#define szOID_RSAES_OAEP "1.2.840.113549.1.1.7"
 #define szOID_RENEWAL_CERTIFICATE "1.3.6.1.4.1.311.13.1"
 #define szOID_ENROLLMENT_NAME_VALUE_PAIR "1.3.6.1.4.1.311.13.2.1"
 #define szOID_ENROLLMENT_CSP_PROVIDER "1.3.6.1.4.1.311.13.2.2"
@@ -1308,6 +1330,8 @@ extern "C" {
 #define szOID_PKIX "1.3.6.1.5.5.7"
 #define szOID_PKIX_PE "1.3.6.1.5.5.7.1"
 #define szOID_AUTHORITY_INFO_ACCESS "1.3.6.1.5.5.7.1.1"
+#define szOID_BIOMETRIC_EXT "1.3.6.1.5.5.7.1.2"
+#define szOID_LOGOTYPE_EXT "1.3.6.1.5.5.7.1.12"
 #define szOID_CERT_EXTENSIONS "1.3.6.1.4.1.311.2.1.14"
 #define szOID_NEXT_UPDATE_LOCATION "1.3.6.1.4.1.311.10.2"
 #define szOID_REMOVE_CERTIFICATE "1.3.6.1.4.1.311.10.8.1"
@@ -1484,11 +1508,22 @@ extern "C" {
 
   typedef struct _CERT_ALT_NAME_ENTRY {
     DWORD dwAltNameChoice;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       PCERT_OTHER_NAME pOtherName;
       LPWSTR pwszRfc822Name;
       LPWSTR pwszDNSName;
+      /* CERT_DATA_BLOB is not documented, and x400Address is documented
+       * to be not implemented; commented out to prevent compile errors
+       * see http://msdn.microsoft.com/en-us/library/aa377173.aspx for
+       * CERT_ALT_NAME_ENTRY documentation where this is specified.
+      CERT_DATA_BLOB x400Address;
+       */
       CERT_NAME_BLOB DirectoryName;
+      /* pEdiPartyName is not implemented, either. see:
+       * http://msdn.microsoft.com/en-us/library/aa924681.aspx or
+       * http://msdn.microsoft.com/en-us/library/aa377173.aspx
+      LPWSTR pEdiPartyName;
+       */
       LPWSTR pwszURL;
       CRYPT_DATA_BLOB IPAddress;
       LPSTR pszRegisteredID;
@@ -1589,7 +1624,6 @@ extern "C" {
   typedef struct _CERT_POLICY_CONSTRAINTS_INFO {
     WINBOOL fRequireExplicitPolicy;
     DWORD dwRequireExplicitPolicySkipCerts;
-
     WINBOOL fInhibitPolicyMapping;
     DWORD dwInhibitPolicyMappingSkipCerts;
   } CERT_POLICY_CONSTRAINTS_INFO,*PCERT_POLICY_CONSTRAINTS_INFO;
@@ -1642,7 +1676,7 @@ extern "C" {
 
   typedef struct _CRL_DIST_POINT_NAME {
     DWORD dwDistPointNameChoice;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       CERT_ALT_NAME_INFO FullName;
     };
   } CRL_DIST_POINT_NAME,*PCRL_DIST_POINT_NAME;
@@ -1849,7 +1883,7 @@ extern "C" {
 
   typedef struct _CMC_TAGGED_REQUEST {
     DWORD dwTaggedRequestChoice;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       PCMC_TAGGED_CERT_REQUEST pTaggedCertRequest;
     };
   } CMC_TAGGED_REQUEST,*PCMC_TAGGED_REQUEST;
@@ -1898,7 +1932,7 @@ extern "C" {
     DWORD *rgdwBodyList;
     LPWSTR pwszStatusString;
     DWORD dwOtherInfoChoice;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       DWORD dwFailInfo;
       PCMC_PEND_INFO pPendInfo;
     };
@@ -2012,7 +2046,7 @@ extern "C" {
     LPCSTR pszOID;
     LPCWSTR pwszName;
     DWORD dwGroupId;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       DWORD dwValue;
       ALG_ID Algid;
       DWORD dwLength;
@@ -2093,7 +2127,7 @@ extern "C" {
 
   typedef struct _CERT_ID {
     DWORD dwIdChoice;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       CERT_ISSUER_SERIAL_NUMBER IssuerSerialNumber;
       CRYPT_HASH_BLOB KeyId;
       CRYPT_HASH_BLOB HashId;
@@ -2184,7 +2218,7 @@ extern "C" {
     HCRYPTPROV hCryptProv;
     DWORD dwKeySpec;
     DWORD dwKeyChoice;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       PCRYPT_ALGORITHM_IDENTIFIER pEphemeralAlgorithm;
       PCERT_ID pSenderId;
     };
@@ -2202,7 +2236,7 @@ extern "C" {
     void *pvKeyEncryptionAuxInfo;
     HCRYPTPROV hCryptProv;
     DWORD dwKeyChoice;
-    __extension__ union {
+    __MINGW_EXTENSION union {
 
       HCRYPTKEY hKeyEncryptionKey;
       void *pvKeyEncryptionKey;
@@ -2216,7 +2250,7 @@ extern "C" {
 
   struct _CMSG_RECIPIENT_ENCODE_INFO {
     DWORD dwRecipientChoice;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       PCMSG_KEY_TRANS_RECIPIENT_ENCODE_INFO pKeyTrans;
       PCMSG_KEY_AGREE_RECIPIENT_ENCODE_INFO pKeyAgree;
       PCMSG_MAIL_LIST_RECIPIENT_ENCODE_INFO pMailList;
@@ -2391,7 +2425,7 @@ extern "C" {
   typedef struct _CMSG_KEY_AGREE_RECIPIENT_INFO {
     DWORD dwVersion;
     DWORD dwOriginatorChoice;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       CERT_ID OriginatorCertId;
       CERT_PUBLIC_KEY_INFO OriginatorPublicKeyInfo;
     };
@@ -2415,7 +2449,7 @@ extern "C" {
 
   typedef struct _CMSG_CMS_RECIPIENT_INFO {
     DWORD dwRecipientChoice;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       PCMSG_KEY_TRANS_RECIPIENT_INFO pKeyTrans;
       PCMSG_KEY_AGREE_RECIPIENT_INFO pKeyAgree;
       PCMSG_MAIL_LIST_RECIPIENT_INFO pMailList;
@@ -2496,7 +2530,7 @@ extern "C" {
     PCMSG_MAIL_LIST_RECIPIENT_INFO pMailList;
     DWORD dwRecipientIndex;
     DWORD dwKeyChoice;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       HCRYPTKEY hKeyEncryptionKey;
       void *pvKeyEncryptionKey;
     };
@@ -2579,7 +2613,7 @@ extern "C" {
     CRYPT_ALGORITHM_IDENTIFIER KeyEncryptionAlgorithm;
     CRYPT_DATA_BLOB UserKeyingMaterial;
     DWORD dwOriginatorChoice;
-    __extension__ union {
+    __MINGW_EXTENSION union {
 
       CERT_ID OriginatorCertId;
 
@@ -2807,11 +2841,11 @@ extern "C" {
 #define CERT_SYSTEM_STORE_RELOCATE_FLAG 0x80000000
 
   typedef struct _CERT_SYSTEM_STORE_RELOCATE_PARA {
-    __extension__ union {
+    __MINGW_EXTENSION union {
       HKEY hKeyBase;
       void *pvBase;
     };
-    __extension__ union {
+    __MINGW_EXTENSION union {
       void *pvSystemStore;
       LPCSTR pszSystemStore;
       LPCWSTR pwszSystemStore;
@@ -3438,7 +3472,6 @@ extern "C" {
 #define CRYPT_ACQUIRE_CACHE_FLAG 0x1
 #define CRYPT_ACQUIRE_USE_PROV_INFO_FLAG 0x2
 #define CRYPT_ACQUIRE_COMPARE_KEY_FLAG 0x4
-
 #define CRYPT_ACQUIRE_SILENT_FLAG 0x40
 
   WINIMPM WINBOOL WINAPI CryptFindCertificateKeyProvInfo(PCCERT_CONTEXT pCert,DWORD dwFlags,void *pvReserved);
@@ -4184,7 +4217,7 @@ extern "C" {
 #define AUTHTYPE_SERVER 2
 
   typedef struct _HTTPSPolicyCallbackData {
-    __extension__ union {
+    __MINGW_EXTENSION union {
       DWORD cbStruct;
       DWORD cbSize;
     };
@@ -4237,4 +4270,4 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
-#endif
+#endif /* __WINCRYPT_H__ */

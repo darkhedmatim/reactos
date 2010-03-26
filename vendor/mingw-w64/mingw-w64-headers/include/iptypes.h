@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef IP_TYPES_INCLUDED
 #define IP_TYPES_INCLUDED
@@ -72,9 +72,9 @@ extern "C" {
   } IP_DAD_STATE;
 
   typedef struct _IP_ADAPTER_UNICAST_ADDRESS {
-    union {
+    __MINGW_EXTENSION union {
       ULONGLONG Alignment;
-      struct {
+      __MINGW_EXTENSION struct {
 	ULONG Length;
 	DWORD Flags;
       };
@@ -90,9 +90,9 @@ extern "C" {
   } IP_ADAPTER_UNICAST_ADDRESS,*PIP_ADAPTER_UNICAST_ADDRESS;
 
   typedef struct _IP_ADAPTER_ANYCAST_ADDRESS {
-    union {
+    __MINGW_EXTENSION union {
       ULONGLONG Alignment;
-      struct {
+      __MINGW_EXTENSION struct {
 	ULONG Length;
 	DWORD Flags;
       };
@@ -102,9 +102,9 @@ extern "C" {
   } IP_ADAPTER_ANYCAST_ADDRESS,*PIP_ADAPTER_ANYCAST_ADDRESS;
 
   typedef struct _IP_ADAPTER_MULTICAST_ADDRESS {
-    union {
+    __MINGW_EXTENSION union {
       ULONGLONG Alignment;
-      struct {
+      __MINGW_EXTENSION struct {
 	ULONG Length;
 	DWORD Flags;
       };
@@ -118,9 +118,9 @@ extern "C" {
 #define IP_ADAPTER_ADDRESS_PRIMARY 0x04
 
   typedef struct _IP_ADAPTER_DNS_SERVER_ADDRESS {
-    union {
+    __MINGW_EXTENSION union {
       ULONGLONG Alignment;
-      struct {
+      __MINGW_EXTENSION struct {
 	ULONG Length;
 	DWORD Reserved;
       };
@@ -130,9 +130,9 @@ extern "C" {
   } IP_ADAPTER_DNS_SERVER_ADDRESS,*PIP_ADAPTER_DNS_SERVER_ADDRESS;
 
   typedef struct _IP_ADAPTER_PREFIX {
-    union {
+    __MINGW_EXTENSION union {
       ULONGLONG Alignment;
-      struct {
+      __MINGW_EXTENSION struct {
 	ULONG Length;
 	DWORD Flags;
       };
@@ -159,9 +159,9 @@ extern "C" {
   } SCOPE_LEVEL;
 
   typedef struct _IP_ADAPTER_ADDRESSES {
-    union {
+    __MINGW_EXTENSION union {
       ULONGLONG Alignment;
-      struct {
+      __MINGW_EXTENSION struct {
 	ULONG Length;
 	DWORD IfIndex;
       };

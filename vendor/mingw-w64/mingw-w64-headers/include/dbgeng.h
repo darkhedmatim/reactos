@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __DBGENG_H__
 #define __DBGENG_H__
@@ -664,11 +664,11 @@ extern "C" {
 #define DEBUG_VALUE_TYPES 12
 
   typedef struct _DEBUG_VALUE {
-    union {
+    __MINGW_EXTENSION union {
       UCHAR I8;
       USHORT I16;
       ULONG I32;
-      struct {
+      __MINGW_EXTENSION struct {
 	ULONG64 I64;
 	WINBOOL Nat;
       };
@@ -1820,7 +1820,7 @@ extern "C" {
 #define DEBUG_CMDEX_ADD_EVENT_STRING 0x00000001
 #define DEBUG_CMDEX_RESET_EVENT_STRINGS 0x00000002
 
-#ifndef DEBUG_NO_IMPLEMENTATION
+#if !defined(DEBUG_NO_IMPLEMENTATION) && !defined(__CRT__NO_INLINE)
   __CRT_INLINE void DebugCommandException(ULONG Command,ULONG ArgSize,PVOID Arg) {
     ULONG_PTR ExArgs[4];
     ExArgs[0] = DEBUG_COMMAND_EXCEPTION_ID;

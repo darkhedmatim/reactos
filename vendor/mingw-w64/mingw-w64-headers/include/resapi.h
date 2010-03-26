@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _RESAPI_DEFINES_
 #define _RESAPI_DEFINES_
@@ -15,8 +15,17 @@
 extern "C" {
 #endif
 
+#ifndef _NO_W32_PSEUDO_MODIFIERS
+#ifndef IN
 #define IN
+#endif
+#ifndef OUT
 #define OUT
+#endif
+#ifndef OPTIONAL
+#define OPTIONAL
+#endif
+#endif
 
 #define STARTUP_ROUTINE "Startup"
 
@@ -82,7 +91,7 @@ extern "C" {
   typedef struct CLRES_FUNCTION_TABLE {
     DWORD TableSize;
     DWORD Version;
-    union {
+    __MINGW_EXTENSION union {
       CLRES_V1_FUNCTIONS V1Functions;
     };
   } CLRES_FUNCTION_TABLE,*PCLRES_FUNCTION_TABLE;
@@ -111,7 +120,7 @@ extern "C" {
     LPWSTR Name;
     LPWSTR KeyName;
     DWORD Format;
-    union {
+    __MINGW_EXTENSION union {
       DWORD_PTR DefaultPtr;
       DWORD Default;
       LPVOID lpDefault;
@@ -170,7 +179,12 @@ extern "C" {
   DWORD WINAPI ResUtilGetBinaryValue(HKEY hkeyClusterKey,LPCWSTR pszValueName,LPBYTE *ppbOutValue,LPDWORD pcbOutValueSize);
   LPWSTR WINAPI ResUtilGetSzValue(HKEY hkeyClusterKey,LPCWSTR pszValueName);
   LPWSTR WINAPI ResUtilGetExpandSzValue(HKEY hkeyClusterKey,LPCWSTR pszValueName,WINBOOL bExpand);
-  __CRT_INLINE DWORD WINAPI ResUtilGetMultiSzValue(HKEY hkeyClusterKey,LPCWSTR pszValueName,LPWSTR *ppszOutValue,LPDWORD pcbOutValueSize) { return ResUtilGetBinaryValue(hkeyClusterKey,pszValueName,(LPBYTE *) ppszOutValue,pcbOutValueSize); }
+#ifndef __CRT__NO_INLINE
+  __CRT_INLINE DWORD WINAPI ResUtilGetMultiSzValue(HKEY hkeyClusterKey,LPCWSTR pszValueName,LPWSTR *ppszOutValue,LPDWORD pcbOutValueSize)
+  {
+   return ResUtilGetBinaryValue(hkeyClusterKey,pszValueName,(LPBYTE *)ppszOutValue,pcbOutValueSize);
+  }
+#endif /* !__CRT__NO_INLINE */
   DWORD WINAPI ResUtilGetDwordValue(HKEY hkeyClusterKey,LPCWSTR pszValueName,LPDWORD pdwOutValue,DWORD dwDefaultValue);
   DWORD WINAPI ResUtilSetBinaryValue(HKEY hkeyClusterKey,LPCWSTR pszValueName,const LPBYTE pbNewValue,DWORD cbNewValueSize,LPBYTE *ppbOutValue,LPDWORD pcbOutValueSize);
   DWORD WINAPI ResUtilSetSzValue(HKEY hkeyClusterKey,LPCWSTR pszValueName,LPCWSTR pszNewValue,LPWSTR *ppszOutString);

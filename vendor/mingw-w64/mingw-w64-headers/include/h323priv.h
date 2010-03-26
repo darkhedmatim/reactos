@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -38,11 +38,14 @@ typedef struct IKeyFrameControl IKeyFrameControl;
 extern "C"{
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
   typedef enum H245_CAPABILITY {
-    HC_G711 = 0,HC_G723 = HC_G711 + 1,HC_H263QCIF = HC_G723 + 1,HC_H261QCIF = HC_H263QCIF + 1
+    HC_G711 = 0,HC_G723,HC_H263QCIF,HC_H261QCIF
   } H245_CAPABILITY;
 
   extern RPC_IF_HANDLE __MIDL_itf_h323priv_0000_v0_0_c_ifspec;

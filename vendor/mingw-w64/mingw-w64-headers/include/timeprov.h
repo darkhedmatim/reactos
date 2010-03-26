@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef TIMEPROV_H
 #define TIMEPROV_H
@@ -72,11 +72,11 @@ extern "C" {
   typedef struct TimeSample {
     DWORD dwSize;
     DWORD dwRefid;
-    signed __int64 toOffset;
-    signed __int64 toDelay;
-    unsigned __int64 tpDispersion;
-    unsigned __int64 nSysTickCount;
-    signed __int64 nSysPhaseOffset;
+    __MINGW_EXTENSION signed __int64 toOffset;
+    __MINGW_EXTENSION signed __int64 toDelay;
+    __MINGW_EXTENSION unsigned __int64 tpDispersion;
+    __MINGW_EXTENSION unsigned __int64 nSysTickCount;
+    __MINGW_EXTENSION signed __int64 nSysPhaseOffset;
     BYTE nLeapFlags;
     BYTE nStratum;
     DWORD dwTSFlags;

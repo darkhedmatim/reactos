@@ -1,10 +1,12 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __SSPI_H__
 #define __SSPI_H__
+
+#include <ntsecapi.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -87,7 +89,7 @@ extern "C" {
   typedef PSecHandle PCtxtHandle;
 
 #ifdef WIN32_CHICAGO
-  typedef unsigned __int64 QWORD;
+  __MINGW_EXTENSION typedef unsigned __int64 QWORD;
   typedef QWORD SECURITY_INTEGER,*PSECURITY_INTEGER;
 #define SEC_SUCCESS(Status) ((Status) >= 0)
 #elif defined(_NTDEF_) || defined(_WINNT_)

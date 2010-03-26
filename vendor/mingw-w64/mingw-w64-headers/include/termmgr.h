@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -88,8 +88,11 @@ typedef struct PluggableTerminalRegistration PluggableTerminalRegistration;
 extern "C" {
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
   typedef enum __MIDL___MIDL_itf_termmgr_0000_0001 {
     TMGR_TD_CAPTURE = 1,TMGR_TD_RENDER = 2,TMGR_TD_BOTH = 3

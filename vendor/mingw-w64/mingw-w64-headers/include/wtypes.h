@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -24,8 +24,11 @@
 extern "C" {
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
   extern RPC_IF_HANDLE __MIDL_itf_wtypes_0000_v0_0_c_ifspec;
   extern RPC_IF_HANDLE __MIDL_itf_wtypes_0000_v0_0_s_ifspec;
@@ -147,13 +150,13 @@ extern "C" {
 
 #ifndef _DWORDLONG_
 #define _DWORDLONG_
-  typedef unsigned __int64 DWORDLONG;
+  __MINGW_EXTENSION typedef unsigned __int64 DWORDLONG;
   typedef DWORDLONG *PDWORDLONG;
 #endif
 
 #ifndef _ULONGLONG_
-  typedef __int64 LONGLONG;
-  typedef unsigned __int64 ULONGLONG;
+  __MINGW_EXTENSION typedef __int64 LONGLONG;
+  __MINGW_EXTENSION typedef unsigned __int64 ULONGLONG;
   typedef LONGLONG *PLONGLONG;
   typedef ULONGLONG *PULONGLONG;
 #endif
@@ -410,7 +413,7 @@ extern "C" {
     union __MIDL_IWinTypes_0003 {
       long hInproc;
       FLAGGED_BYTE_BLOB *hRemote;
-      __int64 hInproc64;
+      __MINGW_EXTENSION __int64 hInproc64;
     } u;
   } userHGLOBAL;
 
@@ -421,7 +424,7 @@ extern "C" {
     union __MIDL_IWinTypes_0004 {
       long hInproc;
       BYTE_BLOB *hRemote;
-      __int64 hInproc64;
+      __MINGW_EXTENSION __int64 hInproc64;
     } u;
   } userHMETAFILE;
 
@@ -437,7 +440,7 @@ extern "C" {
     union __MIDL_IWinTypes_0005 {
       long hInproc;
       remoteMETAFILEPICT *hRemote;
-      __int64 hInproc64;
+      __MINGW_EXTENSION __int64 hInproc64;
     } u;
   } userHMETAFILEPICT;
 
@@ -446,7 +449,7 @@ extern "C" {
     union __MIDL_IWinTypes_0006 {
       long hInproc;
       BYTE_BLOB *hRemote;
-      __int64 hInproc64;
+      __MINGW_EXTENSION __int64 hInproc64;
     } u;
   } userHENHMETAFILE;
 
@@ -466,7 +469,7 @@ extern "C" {
     union __MIDL_IWinTypes_0007 {
       long hInproc;
       userBITMAP *hRemote;
-      __int64 hInproc64;
+      __MINGW_EXTENSION __int64 hInproc64;
     } u;
   } userHBITMAP;
 
@@ -475,7 +478,7 @@ extern "C" {
     union __MIDL_IWinTypes_0008 {
       long hInproc;
       LOGPALETTE *hRemote;
-      __int64 hInproc64;
+      __MINGW_EXTENSION __int64 hInproc64;
     } u;
   } userHPALETTE;
 
@@ -542,7 +545,7 @@ extern "C" {
 #define _tagCY_DEFINED
 #define _CY_DEFINED
   typedef union tagCY {
-    __extension__ struct {
+    __MINGW_EXTENSION struct {
       unsigned long Lo;
       long Hi;
     };
@@ -554,16 +557,16 @@ extern "C" {
 
   typedef struct tagDEC {
     USHORT wReserved;
-    __extension__ union {
-      __extension__ struct {
+    __MINGW_EXTENSION union {
+      __MINGW_EXTENSION struct {
 	BYTE scale;
 	BYTE sign;
       };
       USHORT signscale;
     };
     ULONG Hi32;
-    __extension__ union {
-      __extension__ struct {
+    __MINGW_EXTENSION union {
+      __MINGW_EXTENSION struct {
 	ULONG Lo32;
 	ULONG Mid32;
       };
@@ -671,8 +674,9 @@ extern "C" {
   } QUERYCONTEXT;
 
   typedef enum tagTYSPEC {
-    TYSPEC_CLSID = 0,TYSPEC_FILEEXT = TYSPEC_CLSID + 1,TYSPEC_MIMETYPE = TYSPEC_FILEEXT + 1,TYSPEC_FILENAME = TYSPEC_MIMETYPE + 1,
-    TYSPEC_PROGID = TYSPEC_FILENAME + 1,TYSPEC_PACKAGENAME = TYSPEC_PROGID + 1,TYSPEC_OBJECTID = TYSPEC_PACKAGENAME + 1
+    TYSPEC_CLSID = 0,
+    TYSPEC_FILEEXT,TYSPEC_MIMETYPE,TYSPEC_FILENAME,TYSPEC_PROGID,TYSPEC_PACKAGENAME,
+    TYSPEC_OBJECTID
   } TYSPEC;
 
   typedef struct __MIDL___MIDL_itf_wtypes_0003_0001 {

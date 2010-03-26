@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef WINTRUST_H
 #define WINTRUST_H
@@ -65,7 +65,7 @@ extern "C"
     DWORD dwUIChoice;
     DWORD fdwRevocationChecks;
     DWORD dwUnionChoice;
-    union {
+    __MINGW_EXTENSION union {
       struct WINTRUST_FILE_INFO_ *pFile;
       struct WINTRUST_CATALOG_INFO_ *pCatalog;
       struct WINTRUST_BLOB_INFO_ *pBlob;
@@ -235,7 +235,7 @@ extern "C"
     DWORD csProvPrivData;
     struct _CRYPT_PROVIDER_PRIVDATA *pasProvPrivData;
     DWORD dwSubjectChoice;
-    union {
+    __MINGW_EXTENSION union {
       struct _PROVDATA_SIP *pPDSip;
     };
     char *pszUsageOID;
@@ -480,7 +480,7 @@ extern "C"
 
   typedef struct SPC_LINK_ {
     DWORD dwLinkChoice;
-    union {
+    __MINGW_EXTENSION union {
       LPWSTR pwszUrl;
       SPC_SERIALIZED_OBJECT Moniker;
       LPWSTR pwszFile;

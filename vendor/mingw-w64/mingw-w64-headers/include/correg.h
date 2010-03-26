@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _CORREG_H_
 #define _CORREG_H_
@@ -139,7 +139,7 @@ extern "C" {
 #define MAX_CLASS_NAME 255
 #define MAX_PACKAGE_NAME 255
 
-  typedef unsigned __int64 CLASSVERSION;
+  __MINGW_EXTENSION typedef unsigned __int64 CLASSVERSION;
 
 #ifndef DECLSPEC_SELECT_ANY
 #define DECLSPEC_SELECT_ANY __declspec(selectany)

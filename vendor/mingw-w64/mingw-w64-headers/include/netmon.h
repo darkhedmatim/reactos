@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -43,8 +43,11 @@ typedef struct IStats IStats;
 extern "C"{
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
 #include <winerror.h>
 #include <winerror.h>
@@ -82,7 +85,7 @@ extern "C"{
 #define TRANSMITSTATS_SIZE (sizeof(TRANSMITSTATS))
 
   typedef struct _STATISTICS {
-    __int64 TimeElapsed;
+    __MINGW_EXTENSION __int64 TimeElapsed;
     DWORD TotalFramesCaptured;
     DWORD TotalBytesCaptured;
     DWORD TotalFramesFiltered;
@@ -97,7 +100,7 @@ extern "C"{
     DWORD TotalFramesDroppedFromBuffer;
     DWORD MacFramesReceived;
     DWORD MacCRCErrors;
-    __int64 MacBytesReceivedEx;
+    __MINGW_EXTENSION __int64 MacBytesReceivedEx;
     DWORD MacFramesDropped_NoBuffers;
     DWORD MacMulticastsReceived;
     DWORD MacBroadcastsReceived;
@@ -200,7 +203,7 @@ extern "C"{
 
   typedef struct _ADDRESS2 {
     DWORD Type;
-    union {
+    __MINGW_EXTENSION union {
       BYTE MACAddress[MAC_ADDRESS_SIZE];
       BYTE IPAddress[IP_ADDRESS_SIZE];
       BYTE IP6Address[IP6_ADDRESS_SIZE];
@@ -393,7 +396,7 @@ extern "C"{
 #define CAPTUREFILTER_SIZE sizeof(CAPTUREFILTER)
 
   typedef struct _FRAME {
-    __int64 TimeStamp;
+    __MINGW_EXTENSION __int64 TimeStamp;
     DWORD FrameLength;
     DWORD nBytesAvail;
     BYTE MacFrame[1];
@@ -412,7 +415,7 @@ extern "C"{
 
   typedef struct _FRAME_DESCRIPTOR {
     LPBYTE FramePointer;
-    __int64 TimeStamp;
+    __MINGW_EXTENSION __int64 TimeStamp;
     DWORD FrameLength;
     DWORD nBytesAvail;
     WORD Etype;
@@ -560,16 +563,16 @@ extern "C"{
 #define UPDATE_ACTION_PAUSE_CAPTURE (0x3)
 #define UPDATE_ACTION_RTC_BUFFER_SWITCH (0x4)
 
-  typedef struct _UPDATE_EVENT {
+  __MINGW_EXTENSION typedef struct _UPDATE_EVENT {
     USHORT Event;
     DWORD Action;
     DWORD Status;
     DWORD Value;
-    __int64 TimeStamp;
+    __MINGW_EXTENSION __int64 TimeStamp;
     DWORD_PTR lpUserContext;
     DWORD_PTR lpReserved;
     UINT FramesDropped;
-    union {
+    __MINGW_EXTENSION union {
       DWORD Reserved;
       LPFRAMETABLE lpFrameTable;
       DWORD_PTR lpPacketQueue;
@@ -655,7 +658,7 @@ extern "C"{
 
 #pragma pack(push,1)
   typedef struct _CAPTUREFILE_HEADER {
-    union {
+    __MINGW_EXTENSION union {
       CAPTUREFILE_HEADER_VALUES ActualHeader;
       BYTE Buffer[72];
     };
@@ -715,7 +718,7 @@ extern "C"{
 #define DEFAULT_FDDI_FC (0x10)
 
   typedef struct _FDDISTATFRAME {
-    __int64 TimeStamp;
+    __MINGW_EXTENSION __int64 TimeStamp;
     DWORD FrameLength;
     DWORD nBytesAvail;
     FDDIFRAMEHDR FrameHeader;
@@ -740,7 +743,7 @@ extern "C"{
   } ATMFRAMEHDR;
 
   typedef struct _ATMSTATFRAME {
-    __int64 TimeStamp;
+    __MINGW_EXTENSION __int64 TimeStamp;
     DWORD FrameLength;
     DWORD nBytesAvail;
     ATMFRAMEHDR FrameHeader;
@@ -758,7 +761,7 @@ extern "C"{
 #define ATMSTATFRAME_SIZE (sizeof(ATMSTATFRAME))
 
   typedef struct _TRSTATFRAME {
-    __int64 TimeStamp;
+    __MINGW_EXTENSION __int64 TimeStamp;
     DWORD FrameLength;
     DWORD nBytesAvail;
     TRFRAMEHDR FrameHeader;
@@ -776,7 +779,7 @@ extern "C"{
 #define TRSTATFRAME_SIZE (sizeof(TRSTATFRAME))
 
   typedef struct _ESTATFRAME {
-    __int64 TimeStamp;
+    __MINGW_EXTENSION __int64 TimeStamp;
     DWORD FrameLength;
     DWORD nBytesAvail;
     EFRAMEHDR FrameHeader;
@@ -803,7 +806,7 @@ extern "C"{
 
   typedef struct _ADDRESS {
     DWORD Type;
-    union {
+    __MINGW_EXTENSION union {
       BYTE MACAddress[MAC_ADDRESS_SIZE];
       BYTE IPAddress[IP_ADDRESS_SIZE];
       BYTE IPXRawAddress[IPX_ADDR_SIZE];
@@ -874,12 +877,10 @@ extern "C"{
 #pragma pack(push,8)
 
   typedef enum __MIDL___MIDL_itf_netmon_0000_0005 {
-    NMCOLUMNTYPE_UINT8 = 0,NMCOLUMNTYPE_SINT8 = NMCOLUMNTYPE_UINT8 + 1,NMCOLUMNTYPE_UINT16 = NMCOLUMNTYPE_SINT8 + 1,
-    NMCOLUMNTYPE_SINT16 = NMCOLUMNTYPE_UINT16 + 1,NMCOLUMNTYPE_UINT32 = NMCOLUMNTYPE_SINT16 + 1,NMCOLUMNTYPE_SINT32 = NMCOLUMNTYPE_UINT32 + 1,
-    NMCOLUMNTYPE_FLOAT64 = NMCOLUMNTYPE_SINT32 + 1,NMCOLUMNTYPE_FRAME = NMCOLUMNTYPE_FLOAT64 + 1,NMCOLUMNTYPE_YESNO = NMCOLUMNTYPE_FRAME + 1,
-    NMCOLUMNTYPE_ONOFF = NMCOLUMNTYPE_YESNO + 1,NMCOLUMNTYPE_TRUEFALSE = NMCOLUMNTYPE_ONOFF + 1,NMCOLUMNTYPE_MACADDR = NMCOLUMNTYPE_TRUEFALSE + 1,
-    NMCOLUMNTYPE_IPXADDR = NMCOLUMNTYPE_MACADDR + 1,NMCOLUMNTYPE_IPADDR = NMCOLUMNTYPE_IPXADDR + 1,NMCOLUMNTYPE_VARTIME = NMCOLUMNTYPE_IPADDR + 1,
-    NMCOLUMNTYPE_STRING = NMCOLUMNTYPE_VARTIME + 1
+    NMCOLUMNTYPE_UINT8 = 0,
+    NMCOLUMNTYPE_SINT8,NMCOLUMNTYPE_UINT16,NMCOLUMNTYPE_SINT16,NMCOLUMNTYPE_UINT32,NMCOLUMNTYPE_SINT32,
+    NMCOLUMNTYPE_FLOAT64,NMCOLUMNTYPE_FRAME,NMCOLUMNTYPE_YESNO,NMCOLUMNTYPE_ONOFF,NMCOLUMNTYPE_TRUEFALSE,
+    NMCOLUMNTYPE_MACADDR,NMCOLUMNTYPE_IPXADDR,NMCOLUMNTYPE_IPADDR,NMCOLUMNTYPE_VARTIME,NMCOLUMNTYPE_STRING
   } NMCOLUMNTYPE;
 
   typedef struct _NMCOLUMNVARIANT {
@@ -944,9 +945,9 @@ extern "C"{
 #define NMEVENTFLAG_DO_NOT_DISPLAY_FIXED_COLUMNS (0xfe000000)
 
   enum _NMEVENT_SEVERITIES {
-    NMEVENT_SEVERITY_INFORMATIONAL = 0,NMEVENT_SEVERITY_WARNING = NMEVENT_SEVERITY_INFORMATIONAL + 1,
-    NMEVENT_SEVERITY_STRONG_WARNING = NMEVENT_SEVERITY_WARNING + 1,NMEVENT_SEVERITY_ERROR = NMEVENT_SEVERITY_STRONG_WARNING + 1,
-    NMEVENT_SEVERITY_SEVERE_ERROR = NMEVENT_SEVERITY_ERROR + 1,NMEVENT_SEVERITY_CRITICAL_ERROR = NMEVENT_SEVERITY_SEVERE_ERROR + 1
+    NMEVENT_SEVERITY_INFORMATIONAL = 0,NMEVENT_SEVERITY_WARNING,
+    NMEVENT_SEVERITY_STRONG_WARNING,NMEVENT_SEVERITY_ERROR,
+    NMEVENT_SEVERITY_SEVERE_ERROR,NMEVENT_SEVERITY_CRITICAL_ERROR
   };
 
   typedef struct __MIDL___MIDL_itf_netmon_0000_0007 {
@@ -1250,7 +1251,7 @@ extern "C"{
 
   typedef struct _SET {
     DWORD nEntries;
-    union {
+    __MINGW_EXTENSION union {
       LPVOID lpVoidTable;
       LPBYTE lpByteTable;
       LPWORD lpWordTable;
@@ -1298,7 +1299,7 @@ extern "C"{
     LPSTR Comment;
     BYTE DataType;
     BYTE DataQualifier;
-    union {
+    __MINGW_EXTENSION union {
       LPVOID lpExtendedInfo;
       LPRANGE lpRange;
       LPSET lpSet;
@@ -1317,7 +1318,7 @@ extern "C"{
     WORD Length;
     WORD LengthEx;
     ULPVOID lpData;
-    union {
+    __MINGW_EXTENSION union {
       BYTE Byte[1];
       WORD Word[1];
       DWORD Dword[1];
@@ -1334,7 +1335,7 @@ extern "C"{
   typedef struct _PROPERTYINST {
     LPPROPERTYINFO lpPropertyInfo;
     LPSTR szPropertyText;
-    union {
+    __MINGW_EXTENSION union {
       LPVOID lpData;
       ULPBYTE lpByte;
       ULPWORD lpWord;
@@ -1644,7 +1645,7 @@ extern "C"{
   typedef struct _FILTEROBJECT2 {
     FILTERACTIONTYPE Action;
     HPROPERTY hProperty;
-    union {
+    __MINGW_EXTENSION union {
       VALUETYPE Value;
       HPROTOCOL hProtocol;
       LPVOID lpArray;
@@ -1654,7 +1655,7 @@ extern "C"{
       ULPTIME lpTime;
       LPOBJECT_IDENTIFIER lpOID;
     };
-    union {
+    __MINGW_EXTENSION union {
       WORD ByteCount;
       WORD ByteOffset;
     };
@@ -1682,7 +1683,7 @@ extern "C"{
   typedef struct _FILTEROBJECT {
     FILTERACTIONTYPE Action;
     HPROPERTY hProperty;
-    union {
+    __MINGW_EXTENSION union {
       VALUETYPE Value;
       HPROTOCOL hProtocol;
       LPVOID lpArray;
@@ -1692,7 +1693,7 @@ extern "C"{
       ULPTIME lpTime;
       LPOBJECT_IDENTIFIER lpOID;
     };
-    union {
+    __MINGW_EXTENSION union {
       WORD ByteCount;
       WORD ByteOffset;
     };
@@ -1802,7 +1803,7 @@ extern "C"{
   typedef struct _ETHERNET {
     BYTE DstAddr[MAX_ADDR_LENGTH];
     BYTE SrcAddr[MAX_ADDR_LENGTH];
-    union {
+    __MINGW_EXTENSION union {
       WORD Length;
       WORD Type;
     };
@@ -1849,7 +1850,7 @@ extern "C"{
     BYTE FrameCtrl;
     BYTE DstAddr[MAX_ADDR_LENGTH];
     BYTE SrcAddr[MAX_ADDR_LENGTH];
-    union {
+    __MINGW_EXTENSION union {
       BYTE Info[0];
       WORD RoutingInfo[0];
     };
@@ -1899,11 +1900,11 @@ extern "C"{
     BYTE dsap;
     BYTE ssap;
     struct {
-      union {
+      __MINGW_EXTENSION union {
 	BYTE Command;
 	BYTE NextSend;
       };
-      union {
+      __MINGW_EXTENSION union {
 	BYTE NextRecv;
 	BYTE Data[1];
       };
@@ -2199,9 +2200,8 @@ extern "C"{
 #define FLAGS_ATTACH_PROPERTIES (0x2)
 
   typedef enum __MIDL___MIDL_itf_netmon_0000_0016 {
-    EXPERTSTATUS_INACTIVE = 0,EXPERTSTATUS_STARTING = EXPERTSTATUS_INACTIVE + 1,EXPERTSTATUS_RUNNING = EXPERTSTATUS_STARTING + 1,
-    EXPERTSTATUS_PROBLEM = EXPERTSTATUS_RUNNING + 1,EXPERTSTATUS_ABORTED = EXPERTSTATUS_PROBLEM + 1,
-    EXPERTSTATUS_DONE = EXPERTSTATUS_ABORTED + 1
+    EXPERTSTATUS_INACTIVE = 0,EXPERTSTATUS_STARTING,EXPERTSTATUS_RUNNING,
+    EXPERTSTATUS_PROBLEM,EXPERTSTATUS_ABORTED,EXPERTSTATUS_DONE
   } EXPERTSTATUSENUMERATION;
 
 #define EXPERTSUBSTATUS_ABORTED_USER (0x1)
@@ -2243,9 +2243,9 @@ extern "C"{
   DWORD WINAPI GetFrameMacType(HFRAME hFrame);
   DWORD WINAPI GetFrameMacHeaderLength(HFRAME hFrame);
   DWORD WINAPI GetFrameNumber(HFRAME hFrame);
-  __int64 WINAPI GetFrameTimeStamp(HFRAME hFrame);
+  __MINGW_EXTENSION __int64 WINAPI GetFrameTimeStamp(HFRAME hFrame);
   ULPFRAME WINAPI GetFrameFromFrameHandle(HFRAME hFrame);
-  HFRAME WINAPI ModifyFrame(HCAPTURE hCapture,DWORD FrameNumber,LPBYTE FrameData,DWORD FrameLength,__int64 TimeStamp);
+  __MINGW_EXTENSION HFRAME WINAPI ModifyFrame(HCAPTURE hCapture,DWORD FrameNumber,LPBYTE FrameData,DWORD FrameLength,__int64 TimeStamp);
   HFRAME WINAPI FindNextFrame(HFRAME hCurrentFrame,LPSTR ProtocolName,LPADDRESS2 lpDestAddress,LPADDRESS2 lpSrcAddress,LPWORD ProtocolOffset,DWORD OriginalFrameNumber,DWORD nHighestFrame);
   HFRAME WINAPI FindPreviousFrame(HFRAME hCurrentFrame,LPSTR ProtocolName,LPADDRESS2 lpDstAddress,LPADDRESS2 lpSrcAddress,LPWORD ProtocolOffset,DWORD OriginalFrameNumber,DWORD nLowestFrame);
   HCAPTURE WINAPI GetFrameCaptureHandle(HFRAME);
@@ -2273,7 +2273,7 @@ extern "C"{
   DWORD WINAPI GetCaptureCommentFromFilename(LPSTR lpFilename,LPSTR lpComment,DWORD BufferSize);
   int WINAPI CompareAddresses(LPADDRESS2 lpAddress1,LPADDRESS2 lpAddress2);
   DWORD WINAPIV FormatPropertyInstance(LPPROPERTYINST lpPropertyInst,...);
-  SYSTEMTIME *WINAPI AdjustSystemTime(SYSTEMTIME *SystemTime,__int64 TimeDelta);
+  __MINGW_EXTENSION SYSTEMTIME *WINAPI AdjustSystemTime(SYSTEMTIME *SystemTime,__int64 TimeDelta);
   LPSTR WINAPI NMRtlIpv6AddressToStringA(const BYTE IP6Addr[],LPSTR S);
   LPWSTR WINAPI NMRtlIpv6AddressToStringW(const BYTE IP6Addr[],LPWSTR S);
   ULONG WINAPI NMRtlIpv6StringToAddressA(LPCSTR S,LPCSTR *Terminator,BYTE IP6Addr[]);
@@ -2451,14 +2451,14 @@ extern "C"{
 #pragma pack(push,1)
 
   typedef struct _IP {
-    union {
+    __MINGW_EXTENSION union {
       BYTE Version;
       BYTE HdrLen;
     };
     BYTE ServiceType;
     WORD TotalLen;
     WORD ID;
-    union {
+    __MINGW_EXTENSION union {
       WORD Flags;
       WORD FragOff;
     };
@@ -2510,11 +2510,13 @@ extern "C"{
 
 #define IP_CHKSUM_OFF 10
 
+#ifndef __CRT__NO_INLINE
   INLINE BYTE IP_Version(ULPIP pIP) { return (pIP->Version & IP_VERSION_MASK) >> IP_VERSION_SHIFT; }
   INLINE DWORD IP_HdrLen(ULPIP pIP) { return ((pIP->HdrLen & IP_HDRLEN_MASK) >> IP_HDRLEN_SHIFT) << 2; }
   INLINE WORD IP_FragOff(ULPIP pIP) { return (XCHG(pIP->FragOff) & IP_FRAGOFF_MASK) << IP_FRAGOFF_SHIFT; }
   INLINE DWORD IP_TotalLen(ULPIP pIP) { return XCHG(pIP->TotalLen); }
   INLINE DWORD IP_MoreFragments(ULPIP pIP) { return (pIP->Flags & IP_MF_MASK) >> IP_MF_SHIFT; }
+#endif
 
 #define PORT_TCPMUX 1
 #define PORT_RJE 5
@@ -2768,14 +2770,14 @@ extern "C"{
     BYTE Type;
     BYTE Code;
     WORD Checksum;
-    union {
+    __MINGW_EXTENSION union {
       DWORD Unused;
       DWORD Address;
       ReqReply RR;
       ParmProb PP;
       RouterAH RAH;
     };
-    union {
+    __MINGW_EXTENSION union {
       TS Time;
       IP IP;
       RouterAE RAE[0];
@@ -2862,9 +2864,11 @@ extern "C"{
 
   typedef TCP UNALIGNED *ULPTCP;
 
+#ifndef __CRT__NO_INLINE
   INLINE DWORD TCP_HdrLen(ULPTCP pTCP) { return (pTCP->DataOff & 0xf0) >> 2; }
   INLINE DWORD TCP_SrcPort(ULPTCP pTCP) { return XCHG(pTCP->SrcPort); }
   INLINE DWORD TCP_DstPort(ULPTCP pTCP) { return XCHG(pTCP->DstPort); }
+#endif
 
 #define TCP_OPTION_ENDOFOPTIONS (0)
 #define TCP_OPTION_NOP (1)

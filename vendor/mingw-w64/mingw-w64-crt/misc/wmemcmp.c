@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 /*	This source code was extracted from the Q8 package created and placed
     in the PUBLIC DOMAIN by Doug Gwyn <gwyn@arl.mil>
@@ -15,6 +15,7 @@
 
 */
 
+#define __CRT__NO_INLINE
 #include	<wchar.h>
 
 #if 0
@@ -23,7 +24,7 @@ wmemcmp(s1, s2, n)
 	register const wchar_t	*s1;
 	register const wchar_t	*s2;
 	size_t				n;
-	{
+{
 	if ( n == 0 || s1 == s2 )
 		return 0;		/* even for NULL pointers */
 
@@ -35,5 +36,21 @@ wmemcmp(s1, s2, n)
 			return *s1 - *s2;
 
 	return 0;
-	}
+}
 #endif
+
+int __cdecl wmemcmp(const wchar_t *_S1,const wchar_t *_S2,size_t _N)
+{
+	if (_N == 0 || _S1 == _S2)
+		return 0;	/* even for NULL pointers */
+
+	if ((_S1 != NULL) != (_S2 != NULL))
+		return _S2 == NULL ? 1 : -1;	/* robust */
+
+	for ( ; 0 < _N; ++_S1, ++_S2, --_N)
+		if (*_S1 != *_S2)
+			return (*_S1 < *_S2 ? -1 : +1);
+
+	return 0;
+}
+

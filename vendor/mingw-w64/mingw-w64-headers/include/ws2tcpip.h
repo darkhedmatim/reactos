@@ -1,16 +1,25 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
-#ifndef _WS2TCPIP_H
-#define _WS2TCPIP_H
+#ifndef _WS2TCPIP_H_
+#define _WS2TCPIP_H_
 
 #if __GNUC__ >=3
 #pragma GCC system_header
 #endif
 
-#include <ws2ipdef.h>
+struct ip_mreq {
+  struct in_addr imr_multiaddr;
+  struct in_addr imr_interface;
+};
+
+struct ip_mreq_source {
+  struct in_addr imr_multiaddr;
+  struct in_addr imr_sourceaddr;
+  struct in_addr imr_interface;
+};
 
 struct ip_msfilter {
   struct in_addr imsf_multiaddr;
@@ -73,7 +82,7 @@ struct ip_msfilter {
 #ifndef s6_addr
 
 struct in6_addr {
-  union {
+  __MINGW_EXTENSION union {
     u_char Byte[16];
     u_short Word[8];
   } u;
@@ -135,6 +144,27 @@ extern "C" {
 
 #define WS2TCPIP_INLINE __CRT_INLINE
 
+int IN6_ADDR_EQUAL(const struct in6_addr *,const struct in6_addr *);
+int IN6_IS_ADDR_UNSPECIFIED(const struct in6_addr *);
+int IN6_IS_ADDR_LOOPBACK(const struct in6_addr *);
+int IN6_IS_ADDR_MULTICAST(const struct in6_addr *);
+int IN6_IS_ADDR_LINKLOCAL(const struct in6_addr *);
+int IN6_IS_ADDR_SITELOCAL(const struct in6_addr *);
+int IN6_IS_ADDR_V4MAPPED(const struct in6_addr *);
+int IN6_IS_ADDR_V4COMPAT(const struct in6_addr *);
+int IN6_IS_ADDR_MC_NODELOCAL(const struct in6_addr *);
+int IN6_IS_ADDR_MC_LINKLOCAL(const struct in6_addr *);
+int IN6_IS_ADDR_MC_SITELOCAL(const struct in6_addr *);
+int IN6_IS_ADDR_MC_ORGLOCAL(const struct in6_addr *);
+int IN6_IS_ADDR_MC_GLOBAL(const struct in6_addr *);
+int IN6ADDR_ISANY(const struct sockaddr_in6 *);
+int IN6ADDR_ISLOOPBACK(const struct sockaddr_in6 *);
+void IN6_SET_ADDR_UNSPECIFIED(struct in6_addr *);
+void IN6_SET_ADDR_LOOPBACK(struct in6_addr *);
+void IN6ADDR_SETANY(struct sockaddr_in6 *);
+void IN6ADDR_SETLOOPBACK(struct sockaddr_in6 *);
+
+#ifndef __CRT__NO_INLINE
 WS2TCPIP_INLINE int IN6_ADDR_EQUAL(const struct in6_addr *a,const struct in6_addr *b) { return (memcmp(a,b,sizeof(struct in6_addr))==0); }
 WS2TCPIP_INLINE int IN6_IS_ADDR_UNSPECIFIED(const struct in6_addr *a) { return ((a->s6_words[0]==0) && (a->s6_words[1]==0) && (a->s6_words[2]==0) && (a->s6_words[3]==0) && (a->s6_words[4]==0) && (a->s6_words[5]==0) && (a->s6_words[6]==0) && (a->s6_words[7]==0)); }
 WS2TCPIP_INLINE int IN6_IS_ADDR_LOOPBACK(const struct in6_addr *a) { return ((a->s6_words[0]==0) && (a->s6_words[1]==0) && (a->s6_words[2]==0) && (a->s6_words[3]==0) && (a->s6_words[4]==0) && (a->s6_words[5]==0) && (a->s6_words[6]==0) && (a->s6_words[7]==0x0100)); }
@@ -169,6 +199,7 @@ WS2TCPIP_INLINE void IN6ADDR_SETLOOPBACK(struct sockaddr_in6 *a) {
   IN6_SET_ADDR_LOOPBACK(&a->sin6_addr);
   a->sin6_scope_id = 0;
 }
+#endif /* !__CRT__NO_INLINE */
 
 typedef union sockaddr_gen {
   struct sockaddr Address;
@@ -308,9 +339,6 @@ extern "C" {
 #endif
 #endif
 
-#pragma push_macro("socklen_t")
-#undef socklen_t
-
   typedef int socklen_t;
 
 #ifdef UNICODE
@@ -337,8 +365,6 @@ extern "C" {
 #endif
 #endif
 
-#pragma pop_macro("socklen_t")
-
 #ifdef UNICODE
 #define gai_strerror gai_strerrorW
 #else
@@ -347,19 +373,8 @@ extern "C" {
 
 #define GAI_STRERROR_BUFFER_SIZE 1024
 
-  WS2TCPIP_INLINE char *gai_strerrorA(int ecode) {
-    DWORD dwMsgLen;
-    static char buff[GAI_STRERROR_BUFFER_SIZE + 1];
-    dwMsgLen = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS|FORMAT_MESSAGE_MAX_WIDTH_MASK,NULL,ecode,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),(LPSTR)buff,GAI_STRERROR_BUFFER_SIZE,NULL);
-    return buff;
-  }
-
-  WS2TCPIP_INLINE WCHAR *gai_strerrorW(int ecode) {
-    DWORD dwMsgLen;
-    static WCHAR buff[GAI_STRERROR_BUFFER_SIZE + 1];
-    dwMsgLen = FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS|FORMAT_MESSAGE_MAX_WIDTH_MASK,NULL,ecode,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),(LPWSTR)buff,GAI_STRERROR_BUFFER_SIZE,NULL);
-    return buff;
-  }
+char *gai_strerrorA (int);
+WCHAR *gai_strerrorW(int);
 
 #define NI_MAXHOST 1025
 #define NI_MAXSERV 32
@@ -377,4 +392,4 @@ extern "C" {
 }
 #endif
 
-#endif
+#endif /* _WS2TCPIP_H_ */

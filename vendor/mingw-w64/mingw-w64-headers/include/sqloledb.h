@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _SQLOLEDB_H_
 #define _SQLOLEDB_H_
@@ -197,7 +197,7 @@ struct SSVARIANT {
   SSVARTYPE vt;
   DWORD dwReserved1;
   DWORD dwReserved2;
-  union {
+  __MINGW_EXTENSION union {
     BYTE bTinyIntVal;
     SHORT sShortIntVal;
     LONG lIntVal;
@@ -299,8 +299,11 @@ extern "C" {
 
 #include "unknwn.h"
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
   typedef struct tagSSErrorInfo {
     LPOLESTR pwszMessage;
@@ -392,7 +395,8 @@ extern "C" {
   typedef DWORD LOCKMODE;
 
   enum LOCKMODEENUM {
-    LOCKMODE_INVALID = 0,LOCKMODE_EXCLUSIVE = LOCKMODE_INVALID + 1,LOCKMODE_SHARED = LOCKMODE_EXCLUSIVE + 1
+    LOCKMODE_INVALID = 0,
+    LOCKMODE_EXCLUSIVE,LOCKMODE_SHARED
   };
 
   extern RPC_IF_HANDLE __MIDL_itf_sqloledb_0007_v0_0_c_ifspec;

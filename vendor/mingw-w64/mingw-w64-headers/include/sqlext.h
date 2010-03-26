@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __SQLEXT
 #define __SQLEXT
@@ -1511,11 +1511,11 @@ extern "C" {
   typedef struct tagODBC_VS_ARGS {
     const GUID *pguidEvent;
     DWORD dwFlags;
-    union {
+    __MINGW_EXTENSION union {
       WCHAR *wszArg;
       CHAR *szArg;
     };
-    union {
+    __MINGW_EXTENSION union {
       WCHAR *wszCorrelation;
       CHAR *szCorrelation;
     };

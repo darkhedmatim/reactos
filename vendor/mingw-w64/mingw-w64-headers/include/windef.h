@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _WINDEF_
 #define _WINDEF_
@@ -33,7 +33,11 @@ extern "C" {
 
 #ifndef NULL
 #ifdef __cplusplus
+#ifndef _WIN64
 #define NULL 0
+#else
+#define NULL 0LL
+#endif  /* W64 */
 #else
 #define NULL ((void *)0)
 #endif
@@ -47,16 +51,16 @@ extern "C" {
 #define TRUE 1
 #endif
 
+#ifndef _NO_W32_PSEUDO_MODIFIERS
 #ifndef IN
 #define IN
 #endif
-
 #ifndef OUT
 #define OUT
 #endif
-
 #ifndef OPTIONAL
 #define OPTIONAL
+#endif
 #endif
 
 #undef far
@@ -112,7 +116,7 @@ extern "C" {
   typedef DWORD *PDWORD;
   typedef DWORD *LPDWORD;
   typedef void *LPVOID;
-  #ifndef _LPCVOID_DEFINED
+#ifndef _LPCVOID_DEFINED
 #define _LPCVOID_DEFINED
 typedef CONST void *LPCVOID;
 #endif

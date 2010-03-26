@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -131,8 +131,11 @@ typedef struct CMultiLanguage CMultiLanguage;
 extern "C"{
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
   extern RPC_IF_HANDLE __MIDL_itf_mlang_0000_v0_0_c_ifspec;
   extern RPC_IF_HANDLE __MIDL_itf_mlang_0000_v0_0_s_ifspec;
@@ -635,18 +638,20 @@ extern "C"{
 #define MAX_SCRIPT_NAME (48)
 
   typedef BYTE SCRIPT_ID;
-  typedef __int64 SCRIPT_IDS;
+  __MINGW_EXTENSION typedef __int64 SCRIPT_IDS;
 
   typedef enum tagSCRIPTCONTF {
-    sidDefault = 0,sidMerge = sidDefault + 1,sidAsciiSym = sidMerge + 1,sidAsciiLatin = sidAsciiSym + 1,sidLatin = sidAsciiLatin + 1,
-    sidGreek = sidLatin + 1,sidCyrillic = sidGreek + 1,sidArmenian = sidCyrillic + 1,sidHebrew = sidArmenian + 1,sidArabic = sidHebrew + 1,
-    sidDevanagari = sidArabic + 1,sidBengali = sidDevanagari + 1,sidGurmukhi = sidBengali + 1,sidGujarati = sidGurmukhi + 1,sidOriya = sidGujarati + 1,
-    sidTamil = sidOriya + 1,sidTelugu = sidTamil + 1,sidKannada = sidTelugu + 1,sidMalayalam = sidKannada + 1,sidThai = sidMalayalam + 1,
-    sidLao = sidThai + 1,sidTibetan = sidLao + 1,sidGeorgian = sidTibetan + 1,sidHangul = sidGeorgian + 1,sidKana = sidHangul + 1,
-    sidBopomofo = sidKana + 1,sidHan = sidBopomofo + 1,sidEthiopic = sidHan + 1,sidCanSyllabic = sidEthiopic + 1,sidCherokee = sidCanSyllabic + 1,
-    sidYi = sidCherokee + 1,sidBraille = sidYi + 1,sidRunic = sidBraille + 1,sidOgham = sidRunic + 1,sidSinhala = sidOgham + 1,
-    sidSyriac = sidSinhala + 1,sidBurmese = sidSyriac + 1,sidKhmer = sidBurmese + 1,sidThaana = sidKhmer + 1,sidMongolian = sidThaana + 1,
-    sidUserDefined = sidMongolian + 1,sidLim = sidUserDefined + 1,sidFEFirst = sidHangul,sidFELast = sidHan
+    sidDefault = 0,sidMerge,sidAsciiSym,sidAsciiLatin,sidLatin,
+    sidGreek,sidCyrillic,sidArmenian,sidHebrew,sidArabic,
+    sidDevanagari,sidBengali,sidGurmukhi,sidGujarati,sidOriya,
+    sidTamil,sidTelugu,sidKannada,sidMalayalam,sidThai,
+    sidLao,sidTibetan,sidGeorgian,
+    sidHangul,sidKana,sidBopomofo,sidHan,
+    sidEthiopic,sidCanSyllabic,sidCherokee,
+    sidYi,sidBraille,sidRunic,sidOgham,sidSinhala,
+    sidSyriac,sidBurmese,sidKhmer,sidThaana,sidMongolian,
+    sidUserDefined,sidLim,
+    sidFEFirst = sidHangul,sidFELast = sidHan
   } SCRIPTCONTF;
 
   typedef struct tagSCRIPTINFO {

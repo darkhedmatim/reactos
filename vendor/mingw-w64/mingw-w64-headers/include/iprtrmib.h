@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __ROUTING_IPRTRMIB_H__
 #define __ROUTING_IPRTRMIB_H__
@@ -180,8 +180,8 @@ typedef struct _MIB_UDPROW_OWNER_MODULE {
   DWORD dwLocalPort;
   DWORD dwOwningPid;
   LARGE_INTEGER liCreateTimestamp;
-  union {
-    struct {
+  __MINGW_EXTENSION union {
+    __MINGW_EXTENSION struct {
       DWORD SpecificPortBind : 1;
     };
     DWORD dwFlags;
@@ -202,8 +202,8 @@ typedef struct _MIB_UDP6ROW_OWNER_MODULE {
   DWORD dwLocalPort;
   DWORD dwOwningPid;
   LARGE_INTEGER liCreateTimestamp;
-  union {
-    struct {
+  __MINGW_EXTENSION union {
+    __MINGW_EXTENSION struct {
       DWORD SpecificPortBind : 1;
     };
     DWORD dwFlags;
@@ -273,6 +273,18 @@ typedef struct _MIB_TCPSTATS {
 #define MIB_TCP_RTO_VANJ 4
 
 #define MIB_TCP_MAXCONN_DYNAMIC (DWORD)-1
+
+typedef enum _TCP_TABLE_CLASS {
+  TCP_TABLE_BASIC_LISTENER,
+  TCP_TABLE_BASIC_CONNECTIONS,
+  TCP_TABLE_BASIC_ALL,
+  TCP_TABLE_OWNER_PID_LISTENER,
+  TCP_TABLE_OWNER_PID_CONNECTIONS,
+  TCP_TABLE_OWNER_PID_ALL,
+  TCP_TABLE_OWNER_MODULE_LISTENER,
+  TCP_TABLE_OWNER_MODULE_CONNECTIONS,
+  TCP_TABLE_OWNER_MODULE_ALL
+} TCP_TABLE_CLASS, *PTCP_TABLE_CLASS;
 
 typedef struct _MIB_TCPROW {
   DWORD dwState;
@@ -713,7 +725,7 @@ typedef struct _MIB_ROUTESTATE {
 
 typedef struct _MIB_OPAQUE_INFO {
   DWORD dwId;
-  union {
+  __MINGW_EXTENSION union {
     ULONGLONG ullAlign;
     BYTE rgbyData[1];
   };

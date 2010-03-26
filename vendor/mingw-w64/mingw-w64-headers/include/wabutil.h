@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #if !defined(_MAPIUTIL_H) && !defined(_WABUTIL_H)
 #define _WABUTIL_H
@@ -153,7 +153,7 @@ extern "C" {
   typedef struct {
     ULONG cctl;
     LPTSTR lpszResourceName;
-    union {
+    __MINGW_EXTENSION union {
       LPTSTR lpszComponent;
       ULONG ulItemID;
     };

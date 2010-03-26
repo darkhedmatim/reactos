@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _HTTPFILT_H_
 #define _HTTPFILT_H_
@@ -11,7 +11,7 @@ extern "C" {
 #endif
 
 #ifdef _WIN64
-  typedef unsigned __int64 ULONG_PTR,*PULONG_PTR;
+  __MINGW_EXTENSION typedef unsigned __int64 ULONG_PTR,*PULONG_PTR;
 #else
   typedef unsigned long ULONG_PTR,*PULONG_PTR;
 #endif

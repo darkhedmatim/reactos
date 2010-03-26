@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 
 #undef CRTDLL
@@ -28,6 +28,8 @@ extern _CRTIMP _onexit_t __dllonexit (_onexit_t, _PVFV**, _PVFV**);
 extern _onexit_t (__cdecl * __MINGW_IMP_SYMBOL(_onexit)) (_onexit_t func);
 
 /* Choose a different name to prevent name conflicts. The CRT one works fine.  */
+_onexit_t __cdecl mingw_onexit(_onexit_t func);
+
 _onexit_t __cdecl mingw_onexit(_onexit_t func)
 {
   _PVFV *onexitbegin;

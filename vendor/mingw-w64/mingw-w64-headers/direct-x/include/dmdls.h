@@ -112,7 +112,13 @@ struct _DMUS_REGION {
 	ULONG    ulFirstExtCkIdx;
 	WAVELINK WaveLink;
 	WSMPL    WSMP;
+/* WLOOP is a struct typedef, leads to
+ * a compiler error if __cplusplus . */
+#ifdef __cplusplus
+	WLOOP   WWLOOP[1];
+#else
 	WLOOP    WLOOP[1];
+#endif
 };
 
 struct _DMUS_LFOPARAMS {

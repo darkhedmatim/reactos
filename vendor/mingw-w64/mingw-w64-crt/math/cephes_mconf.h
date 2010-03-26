@@ -1,8 +1,3 @@
-/**
- * This file has no copyright assigned and is placed in the Public Domain.
- * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
- */
 #include <math.h>
 #include <errno.h>
 
@@ -14,7 +9,7 @@
 #define NANS 1
 #define DENORMAL 1
 #define VOLATILE
-#define mtherr(fname, code) 
+#define mtherr(fname, code)
 #define XPD 0,
 #ifdef _WIN64
 #define XPD_SHORT 0, 0,
@@ -25,13 +20,13 @@
 #endif
 
 #if UNK
-typedef union uLD { long double ld; } uLD;
-typedef union uD { double d; } uD;
+typedef union uLD { long double ld; unsigned short sh[8]; long lo[4]; } uLD;
+typedef union uD { double d; unsigned short sh[4]; } uD;
 #elif IBMPC
-typedef union uLD { const unsigned short sh[8]; const long double ld; } uLD;
-typedef union uD { const unsigned short sh[4]; const double d; } uD;
+typedef union uLD { unsigned short sh[8]; long double ld; long lo[4]; } uLD;
+typedef union uD { unsigned short sh[4]; double d; } uD;
 #elif MIEEE
-typedef union uLD { long lo[4]; long double ld; } uLD;
+typedef union uLD { long lo[4]; long double ld; unsigned short sh[8]; } uLD;
 typedef union uD { unsigned short sh[4]; double d; } uD;
 #else
 #error Unknown uLD/uD type definition
@@ -186,40 +181,37 @@ Direct inquiries to 30 Frost Street, Cambridge, MA 02140
 /* Polynomial evaluator:
  *  P[0] x^n  +  P[1] x^(n-1)  +  ...  +  P[n]
  */
-static  __inline__ double polevl(double x, const uD *p, int n)
+static __inline__ double polevl(double x, const uD *p, int n)
 {
-  register double y;
+	register double y;
 
-  y = p->d; p++;
-  do
-  {
-    y = y * x + p->d; p++;
-  }
-  while( --n );
-  return(y);
+	y = p->d;
+	p++;
+	do
+	{
+		y = y * x + p->d;
+		p++;
+	}
+	while (--n);
+	return (y);
 }
-
 
 
 /* Polynomial evaluator:
  *  x^n  +  P[0] x^(n-1)  +  P[1] x^(n-2)  +  ...  +  P[n]
  */
-static __inline__  double p1evl( x, p, n )
-double x;
-const void *p;
-int n;
+static __inline__  double p1evl(double x, const uD *p, int n)
 {
-register double y;
-register double *P = (double *)p;
+	register double y;
 
-n -= 1;
-y = x + *P++;
-do
+	n -= 1;
+	y = x + p->d; p++;
+	do
 	{
-	y = y * x + *P++;
+		y = y * x + p->d; p++;
 	}
-while( --n );
-return( y );
+	while (--n);
+	return (y);
 }
 
 
@@ -278,17 +270,19 @@ Direct inquiries to 30 Frost Street, Cambridge, MA 02140
 /* Polynomial evaluator:
  *  P[0] x^n  +  P[1] x^(n-1)  +  ...  +  P[n]
  */
-static  __inline__ long double polevll(long double x,const uLD *p, int n)
+static __inline__ long double polevll(long double x, const uLD *p, int n)
 {
-  register long double y;
+	register long double y;
 
-  y = p->ld; p++;
-  do
-    {
-      y = y * x + p->ld; p++;
-    }
-  while( --n );
-  return y;
+	y = p->ld;
+	p++;
+	do
+	{
+		y = y * x + p->ld;
+		p++;
+	}
+	while (--n);
+	return y;
 }
 
 
@@ -298,17 +292,19 @@ static  __inline__ long double polevll(long double x,const uLD *p, int n)
  */
 static __inline__ long double p1evll(long double x, const uLD *p, int n)
 {
-register long double y;
+	register long double y;
 
-n -= 1;
-y = x + p->ld; p++;
+	n -= 1;
+	y = x + p->ld;
+	p++;
 
-do
+	do
 	{
-	y = y * x + p->ld; p++;
+		y = y * x + p->ld;
+		p++;
 	}
-while( --n );
-return( y );
+	while (--n);
+	return (y);
 }
 
 /* Float version */
@@ -363,26 +359,26 @@ Copyright 1984, 1987, 1988 by Stephen L. Moshier
 Direct inquiries to 30 Frost Street, Cambridge, MA 02140
 */
 
-static __inline__ float polevlf(float x, const float* coef, int N )
+static __inline__ float polevlf(float x, const float* coef, int N)
 {
-float ans;
-float *p;
-int i;
+	float ans;
+	float *p;
+	int i;
 
-p = (float*)coef;
-ans = *p++;
+	p = (float*)coef;
+	ans = *p++;
 
-/*
-for( i=0; i<N; i++ )
-	ans = ans * x  +  *p++;
-*/
+	/*
+	for (i = 0; i < N; i++)
+		ans = ans * x  +  *p++;
+	*/
 
-i = N;
-do
-	ans = ans * x  +  *p++;
-while( --i );
+	i = N;
+	do
+		ans = ans * x  +  *p++;
+	while (--i);
 
-return( ans );
+	return (ans);
 }
 
 /*							p1evl()	*/
@@ -391,19 +387,20 @@ return( ans );
  * Otherwise same as polevl.
  */
 
-static __inline__ float p1evlf( float x, const float *coef, int N )
+static __inline__ float p1evlf(float x, const float *coef, int N)
 {
-float ans;
-float *p;
-int i;
+	float ans;
+	float *p;
+	int i;
 
-p = (float*)coef;
-ans = x + *p++;
-i = N-1;
+	p = (float*)coef;
+	ans = x + *p++;
+	i = N - 1;
 
-do
-	ans = ans * x  + *p++;
-while( --i );
+	do
+		ans = ans * x  + *p++;
+	while (--i);
 
-return( ans );
+	return (ans);
 }
+

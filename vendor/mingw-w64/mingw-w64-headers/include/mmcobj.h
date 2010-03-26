@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -161,8 +161,11 @@ typedef struct Property Property;
 extern "C"{
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
 #ifndef MMC_VER
 #define MMC_VER 0x0200
@@ -221,7 +224,7 @@ extern "C"{
 #ifndef __ISnapinProperties_INTERFACE_DEFINED__
 #define __ISnapinProperties_INTERFACE_DEFINED__
   typedef enum _MMC_PROPERTY_ACTION {
-    MMC_PROPACT_DELETING = 1,MMC_PROPACT_CHANGING = MMC_PROPACT_DELETING + 1,MMC_PROPACT_INITIALIZED = MMC_PROPACT_CHANGING + 1
+    MMC_PROPACT_DELETING = 1,MMC_PROPACT_CHANGING,MMC_PROPACT_INITIALIZED
   } MMC_PROPERTY_ACTION;
 
   typedef struct _MMC_SNAPIN_PROPERTY {
@@ -310,8 +313,7 @@ extern "C"{
 #ifndef __MMC20_LIBRARY_DEFINED__
 #define __MMC20_LIBRARY_DEFINED__
   typedef enum DocumentMode {
-    DocumentMode_Author = 0,DocumentMode_User = DocumentMode_Author + 1,DocumentMode_User_MDI = DocumentMode_User + 1,
-    DocumentMode_User_SDI = DocumentMode_User_MDI + 1
+    DocumentMode_Author = 0,DocumentMode_User,DocumentMode_User_MDI,DocumentMode_User_SDI
   } _DocumentMode;
 
   typedef enum DocumentMode DOCUMENTMODE;
@@ -319,8 +321,8 @@ extern "C"{
   typedef enum DocumentMode **PPDOCUMENTMODE;
 
   typedef enum ListViewMode {
-    ListMode_Small_Icons = 0,ListMode_Large_Icons = ListMode_Small_Icons + 1,ListMode_List = ListMode_Large_Icons + 1,
-    ListMode_Detail = ListMode_List + 1,ListMode_Filtered = ListMode_Detail + 1
+    ListMode_Small_Icons = 0,ListMode_Large_Icons,ListMode_List,ListMode_Detail,
+    ListMode_Filtered
   } _ListViewMode;
 
   typedef enum ListViewMode LISTVIEWMODE;

@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #include <math.h>
 #include <limits.h>
@@ -11,7 +11,7 @@ long long
 llroundl (long double x)
 {
   long double res;
-  
+
   if (x >= 0.0L)
     {
       res = ceill (x);
@@ -35,3 +35,4 @@ llroundl (long double x)
     }
   return (long long) res;
 }
+

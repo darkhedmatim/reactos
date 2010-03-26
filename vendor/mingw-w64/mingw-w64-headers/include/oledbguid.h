@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __oledbguid_h__
 #define __oledbguid_h__
@@ -17,8 +17,8 @@
 typedef unsigned long DBKIND;
 
 enum DBKINDENUM {
-  DBKIND_GUID_NAME = 0,DBKIND_GUID_PROPID = DBKIND_GUID_NAME + 1,DBKIND_NAME = DBKIND_GUID_PROPID + 1,DBKIND_PGUID_NAME = DBKIND_NAME + 1,
-  DBKIND_PGUID_PROPID = DBKIND_PGUID_NAME + 1,DBKIND_PROPID = DBKIND_PGUID_PROPID + 1,DBKIND_GUID = DBKIND_PROPID + 1
+  DBKIND_GUID_NAME = 0,DBKIND_GUID_PROPID,DBKIND_NAME,DBKIND_PGUID_NAME,
+  DBKIND_PGUID_PROPID,DBKIND_PROPID,DBKIND_GUID
 };
 
 typedef struct tagDBID {

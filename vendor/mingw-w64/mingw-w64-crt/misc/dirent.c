@@ -1,3 +1,7 @@
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -6,7 +10,6 @@
 #include <direct.h>
 #include <dirent.h>
 
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 #include <tchar.h>
@@ -100,7 +103,6 @@ _topendir (const _TCHAR *szPath)
   nd->dd_dir.d_ino = 0;
   nd->dd_dir.d_reclen = 0;
   nd->dd_dir.d_namlen = 0;
-  nd->dd_dir.d_name = nd->dd_dta.name;
   memset (nd->dd_dir.d_name,0,FILENAME_MAX);
 
   return nd;

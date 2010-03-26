@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #include <math.h>
 
@@ -16,7 +16,7 @@ and sets C1 flag (signbit) if neg */
 
 int __fpclassify (double _x){
   unsigned short sw;
-  __asm__ (
+  __asm__ __volatile__ (
 	"fxam; fstsw %%ax;"
 	: "=a" (sw)
 	: "t" (_x)

@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef VER_H
 #define VER_H
@@ -150,8 +150,8 @@ extern "C" {
   WINBOOL WINAPI GetFileVersionInfoW(LPCWSTR lptstrFilename,DWORD dwHandle,DWORD dwLen,LPVOID lpData);
   DWORD WINAPI VerLanguageNameA(DWORD wLang,LPSTR szLang,DWORD nSize);
   DWORD WINAPI VerLanguageNameW(DWORD wLang,LPWSTR szLang,DWORD nSize);
-  WINBOOL WINAPI VerQueryValueA(const LPVOID pBlock,LPSTR lpSubBlock,LPVOID *lplpBuffer,PUINT puLen);
-  WINBOOL WINAPI VerQueryValueW(const LPVOID pBlock,LPWSTR lpSubBlock,LPVOID *lplpBuffer,PUINT puLen);
+  WINBOOL WINAPI VerQueryValueA(const LPVOID pBlock,LPCSTR lpSubBlock,LPVOID *lplpBuffer,PUINT puLen);
+  WINBOOL WINAPI VerQueryValueW(const LPVOID pBlock,LPCWSTR lpSubBlock,LPVOID *lplpBuffer,PUINT puLen);
 #endif
 
 #ifdef __cplusplus

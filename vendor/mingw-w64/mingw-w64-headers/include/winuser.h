@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _WINUSER_
 #define _WINUSER_
@@ -17,6 +17,7 @@ extern "C" {
 #endif
 
 #include <stdarg.h>
+#include <guiddef.h>
 
 #ifndef NOUSER
   typedef HANDLE HDWP;
@@ -1221,6 +1222,10 @@ extern "C" {
 #define PBT_APMRESUMEAUTOMATIC 0x0012
 #endif
 
+#if (_WIN32_WINNT >= 0x0600)
+#define PBT_POWERSETTINGCHANGE 32787
+#endif
+
 #define WM_DEVICECHANGE 0x0219
 
 #define WM_MDICREATE 0x0220
@@ -1944,8 +1949,32 @@ extern "C" {
 #define GetClassInfoEx GetClassInfoExA
 #endif
 
+#if (_WIN32_WINNT >= 0x0600)
+  typedef HANDLE HPOWERNOTIFY;
+
+  typedef struct {
+    GUID PowerSetting;
+    DWORD DataLength;
+    UCHAR Data[1];
+  } POWERBROADCAST_SETTING, *PPOWERBROADCAST_SETTING;
+
+  extern const GUID GUID_POWERSCHEME_PERSONALITY;
+  extern const GUID GUID_MIN_POWER_SAVINGS;
+  extern const GUID GUID_MAX_POWER_SAVINGS;
+  extern const GUID GUID_TYPICAL_POWER_SAVINGS;
+  extern const GUID GUID_ACDC_POWER_SOURCE;
+  extern const GUID GUID_BATTERY_PERCENTAGE_REMAINING;
+  extern const GUID GUID_IDLE_BACKGROUND_TASK;
+  extern const GUID GUID_SYSTEM_AWAYMODE;
+  extern const GUID GUID_MONITOR_POWER_ON;
+#endif
+
   WINUSERAPI HDEVNOTIFY WINAPI RegisterDeviceNotificationA(HANDLE hRecipient,LPVOID NotificationFilter,DWORD Flags);
   WINUSERAPI HDEVNOTIFY WINAPI RegisterDeviceNotificationW(HANDLE hRecipient,LPVOID NotificationFilter,DWORD Flags);
+#if (_WIN32_WINNT >= 0x0600)
+  WINUSERAPI HPOWERNOTIFY WINAPI RegisterPowerSettingNotification(HANDLE,LPCGUID,DWORD);
+  WINUSERAPI WINBOOL WINAPI UnregisterPowerSettingNotification(HPOWERNOTIFY);
+#endif
   WINUSERAPI WINBOOL WINAPI UnregisterDeviceNotification(HDEVNOTIFY Handle);
   WINUSERAPI WINBOOL WINAPI PostMessageA(HWND hWnd,UINT Msg,WPARAM wParam,LPARAM lParam);
   WINUSERAPI WINBOOL WINAPI PostMessageW(HWND hWnd,UINT Msg,WPARAM wParam,LPARAM lParam);
@@ -2443,7 +2472,7 @@ extern "C" {
 
   typedef struct tagINPUT {
     DWORD type;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       MOUSEINPUT mi;
       KEYBDINPUT ki;
       HARDWAREINPUT hi;
@@ -5129,7 +5158,7 @@ extern "C" {
 #endif
 #else
   typedef struct tagMONITORINFOEXA {
-    __extension__ struct {
+    __MINGW_EXTENSION struct {
       DWORD cbSize;
       RECT rcMonitor;
       RECT rcWork;
@@ -5139,7 +5168,7 @@ extern "C" {
   } MONITORINFOEXA,*LPMONITORINFOEXA;
 
   typedef struct tagMONITORINFOEXW {
-    __extension__ struct {
+    __MINGW_EXTENSION struct {
       DWORD cbSize;
       RECT rcMonitor;
       RECT rcWork;
@@ -5490,9 +5519,9 @@ extern "C" {
 
   typedef struct tagRAWMOUSE {
     USHORT usFlags;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       ULONG ulButtons;
-      __extension__ struct {
+      __MINGW_EXTENSION struct {
 	USHORT usButtonFlags;
 	USHORT usButtonData;
       };
@@ -5605,7 +5634,7 @@ extern "C" {
   typedef struct tagRID_DEVICE_INFO {
     DWORD cbSize;
     DWORD dwType;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       RID_DEVICE_INFO_MOUSE mouse;
       RID_DEVICE_INFO_KEYBOARD keyboard;
       RID_DEVICE_INFO_HID hid;
@@ -5641,6 +5670,45 @@ extern "C" {
 #define RIDEV_APPKEYS 0x00000400
 #define RIDEV_EXMODEMASK 0x000000F0
 #define RIDEV_EXMODE(mode) ((mode) & RIDEV_EXMODEMASK)
+
+#if (_WIN32_WINNT >= 0x0601)
+#define WM_TOUCHMOVE 576
+#define WM_TOUCHDOWN 577
+#define WM_TOUCHUP 578
+
+#define TOUCHEVENTF_DOWN        0x0001
+#define TOUCHEVENTF_INRANGE     0x0008
+#define TOUCHEVENTF_MOVE        0x0002
+#define TOUCHEVENTF_NOCOALESCE  0x0020
+#define TOUCHEVENTF_PALM        0x0080
+#define TOUCHEVENTF_PEN         0x0040
+#define TOUCHEVENTF_PRIMARY     0x0010
+#define TOUCHEVENTF_UP          0x0004
+
+#define TOUCHEVENTMASKF_CONTACTAREA     0x0004
+#define TOUCHEVENTMASKF_EXTRAINFO       0x0002
+#define TOUCHEVENTMASKF_TIMEFROMSYSTEM  0x0001
+
+  typedef struct _TOUCHINPUT {
+    LONG x;
+    LONG y;
+    HANDLE hSource;
+    DWORD dwID;
+    DWORD dwFlags;
+    DWORD wMask;
+    DWORD dwTime;
+    ULONG_PTR dwExtraInfo;
+    DWORD cxContact;
+    DWORD cyContact;
+  } TOUCHINPUT,*PTOUCHINPUT;
+
+  WINUSERAPI WINBOOL WINAPI CloseTouchInputHandle(HANDLE hTouchInput);
+  WINUSERAPI WINBOOL WINAPI GetTouchInputInfo(HANDLE hTouchInput, UINT cInputs, PTOUCHINPUT pInputs, int cbSize);
+  WINUSERAPI WINBOOL WINAPI IsTouchWindow(HWND hWnd,PULONG pulFlags);
+  WINUSERAPI WINBOOL WINAPI RegisterTouchWindow(HWND hWnd,ULONG ulFlags);
+  WINUSERAPI WINBOOL WINAPI UnregisterTouchWindow(HWND hWnd);
+
+#endif
 
   WINUSERAPI WINBOOL WINAPI RegisterRawInputDevices(PCRAWINPUTDEVICE pRawInputDevices,UINT uiNumDevices,UINT cbSize);
   WINUSERAPI UINT WINAPI GetRegisteredRawInputDevices(PRAWINPUTDEVICE pRawInputDevices,PUINT puiNumDevices,UINT cbSize);

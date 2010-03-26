@@ -1,34 +1,35 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
- #ifdef _WIN64
+#include <_mingw_mac.h>
+
 	.file	"fma.S"
 	.text
-	.align 2
+#ifdef _WIN64
+	.align 8
+#else
+	.align 4
+#endif
 	.p2align 4,,15
-.globl _fma
-	.def	_fma;	.scl	2;	.type	32;	.endef
-_fma:
-	movsd	%xmm0,-16(%rsp)
-	movsd	%xmm1,-24(%rsp)
-	movsd	%xmm2,-32(%rsp)
-	fldl	-16(%rsp)
-	fmull	-24(%rsp)
-	fldl	-32(%rsp)
+.globl __MINGW_USYMBOL(fma)
+	.def	__MINGW_USYMBOL(fma);	.scl	2;	.type	32;	.endef
+__MINGW_USYMBOL(fma):
+#ifdef _WIN64
+	subq	$56, %rsp
+	movsd	%xmm0,(%rsp)
+	movsd	%xmm1,16(%rsp)
+	movsd	%xmm2,32(%rsp)
+	fldl	(%rsp)
+	fmull	16(%rsp)
+	fldl	32(%rsp)
 	faddp
-	fstpl	-16(%rsp)
-	movsd	-16(%rsp),%xmm0
+	fstpl	(%rsp)
+	movsd	(%rsp),%xmm0
+	addq	$56, %rsp
 	ret
 #else
-	.file	"fma.S"
-	.text
-	.align 2
-	.p2align 4,,15
-.globl _fma
-	.def	_fma;	.scl	2;	.type	32;	.endef
-_fma:
 	fldl	4(%esp)
 	fmull	12(%esp)
 	fldl	20(%esp)

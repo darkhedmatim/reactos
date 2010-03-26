@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _SHLOBJ_H_
 #define _SHLOBJ_H_
@@ -10,7 +10,8 @@
 #ifndef _WIN32_IE
 #define _WIN32_IE 0x0501
 #else
-#if (_WIN32_IE < 0x0501)
+/* FIXME: This really must be 0x0501 !!! */
+#if (_WIN32_IE < 0x0500)
 #error _WIN32_IE setting conflicts
 #endif
 #endif
@@ -379,6 +380,7 @@ extern "C" {
 #define IDO_SHGIOI_SHARE 0x0FFFFFFF
 #define IDO_SHGIOI_LINK 0x0FFFFFFE
 #define IDO_SHGIOI_SLOWFILE 0x0FFFFFFFD
+#define IDO_SHGIOI_DEFAULT 0x0FFFFFFC
   SHSTDAPI_(int) SHGetIconOverlayIndexA(LPCSTR pszIconPath,int iIconIndex);
   SHSTDAPI_(int) SHGetIconOverlayIndexW(LPCWSTR pszIconPath,int iIconIndex);
 #ifdef UNICODE
@@ -405,7 +407,7 @@ extern "C" {
     DATABLOCK_HEADER dbh;
 #else
 /*  DATABLOCK_HEADER; */
-    __extension__ struct {
+    __MINGW_EXTENSION struct {
       DWORD cbSize;
       DWORD dwSignature;
     };
@@ -438,7 +440,7 @@ extern "C" {
     DATABLOCK_HEADER dbh;
 #else
 /*  DATABLOCK_HEADER; */
-    __extension__ struct {
+    __MINGW_EXTENSION struct {
       DWORD cbSize;
       DWORD dwSignature;
     };
@@ -452,7 +454,7 @@ extern "C" {
     DATABLOCK_HEADER dbh;
 #else
 /*  DATABLOCK_HEADER; */
-    __extension__ struct {
+    __MINGW_EXTENSION struct {
       DWORD cbSize;
       DWORD dwSignature;
     };
@@ -1958,9 +1960,16 @@ extern "C" {
 #define QIF_CACHED 0x00000001
 #define QIF_DONTEXPANDFOLDER 0x00000002
 
-#define SHARD_PIDL 0x00000001L
-#define SHARD_PATHA 0x00000002L
-#define SHARD_PATHW 0x00000003L
+  typedef enum enum_SHARD{
+    SHARD_PIDL = 0x00000001,
+    SHARD_PATHA = 0x00000002,
+    SHARD_PATHW = 0x00000003,
+    SHARD_APPIDINFO = 0x00000004,
+    SHARD_APPIDINFOIDLIST = 0x00000005,
+    SHARD_LINK = 0x00000006,
+    SHARD_APPIDINFOLINK = 0x00000007,
+    SHARD_SHELLITEM = 0x00000008
+  } SHARD;
 
 #ifdef UNICODE
 #define SHARD_PATH SHARD_PATHW

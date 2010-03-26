@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _WININET_
 #define _WININET_
@@ -1416,7 +1416,7 @@ extern "C" {
     LPSTR lpHeaderInfo;
     DWORD dwHeaderInfoSize;
     LPSTR lpszFileExtension;
-    union {
+    __MINGW_EXTENSION union {
       DWORD dwReserved;
       DWORD dwExemptDelta;
     };
@@ -1438,7 +1438,7 @@ extern "C" {
     LPWSTR lpHeaderInfo;
     DWORD dwHeaderInfoSize;
     LPWSTR lpszFileExtension;
-    union {
+    __MINGW_EXTENSION union {
       DWORD dwReserved;
       DWORD dwExemptDelta;
     };

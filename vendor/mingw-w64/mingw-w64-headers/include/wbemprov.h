@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -191,8 +191,11 @@ typedef struct IWbemEventSink IWbemEventSink;
 extern "C" {
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
   typedef VARIANT WBEM_VARIANT;
   typedef WCHAR *WBEM_WSTR;
@@ -611,8 +614,12 @@ extern "C" {
 #endif
 
   typedef enum tag_WBEM_EXTRA_RETURN_CODES {
-    WBEM_S_INITIALIZED = 0,WBEM_S_LIMITED_SERVICE = 0x43001,WBEM_S_INDIRECTLY_UPDATED = WBEM_S_LIMITED_SERVICE + 1,
-    WBEM_S_SUBJECT_TO_SDS = WBEM_S_INDIRECTLY_UPDATED + 1,WBEM_E_RETRY_LATER = 0x80043001,WBEM_E_RESOURCE_CONTENTION = WBEM_E_RETRY_LATER + 1
+    WBEM_S_INITIALIZED = 0,
+    WBEM_S_LIMITED_SERVICE = 0x43001,
+    WBEM_S_INDIRECTLY_UPDATED = 0x43002,
+    WBEM_S_SUBJECT_TO_SDS = 0x43003,
+    WBEM_E_RETRY_LATER = 0x80043001,
+    WBEM_E_RESOURCE_CONTENTION = 0x80043002
   } WBEM_EXTRA_RETURN_CODES;
 
   typedef enum tag_WBEM_PROVIDER_FLAGS {

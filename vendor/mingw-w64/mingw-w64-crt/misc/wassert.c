@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #include <windows.h>
 #include <stdio.h>
@@ -25,8 +25,10 @@ static void cpy_wstr (char *buf, const wchar_t *src, size_t max)
   *buf = 0;
 }
 
+void __cdecl _wassert (const wchar_t *, const wchar_t *,unsigned);
+
 void __cdecl
-_wassert(const wchar_t *_Message,const wchar_t *_File,unsigned _Line)
+_wassert (const wchar_t *_Message, const wchar_t *_File, unsigned _Line)
 {
   char *msgbuf = (char *) malloc (8192);
   char fn[MAX_PATH + 1], msg[MAX_PATH + 1], iFile[MAX_PATH + 1];
@@ -41,14 +43,14 @@ _wassert(const wchar_t *_Message,const wchar_t *_File,unsigned _Line)
   fn[MAX_PATH] = 0;
   if (! GetModuleFileName (NULL, fn, MAX_PATH))
     strcpy (fn, "<unknown>");
-  sprintf (msgbuf, "Assertation failed!\n\nProgram: %s\nFile: %s, Line %u\n\nExpression: %s",
+  sprintf (msgbuf, "Assertion failed!\n\nProgram: %s\nFile: %s, Line %u\n\nExpression: %s",
       	   fn, iFile,_Line,msg);
   if (mingw_app_type == 0)
     {
       fprintf (stderr, "%s\n", msgbuf);
       abort ();
     }
-  nCode = MessageBoxA (NULL, msgbuf, "MinGW Runtime Assertation", MB_ABORTRETRYIGNORE|
+  nCode = MessageBoxA (NULL, msgbuf, "MinGW Runtime Assertion", MB_ABORTRETRYIGNORE|
     MB_ICONHAND|MB_SETFOREGROUND|MB_TASKMODAL);
   if (nCode == IDABORT)
     {

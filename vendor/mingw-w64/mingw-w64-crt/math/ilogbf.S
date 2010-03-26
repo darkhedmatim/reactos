@@ -1,17 +1,24 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
- #ifdef _WIN64
+#include <_mingw_mac.h>
+
 	.file	"ilogbf.S"
 	.text
+#ifdef _WIN64
+	.align 8
+#else
 	.align 4
-.globl _ilogbf
-	.def	_ilogbf;	.scl	2;	.type	32;	.endef
-_ilogbf:
-	movss	%xmm0,-12(%rsp)
-	flds	-12(%rsp)
+#endif
+.globl __MINGW_USYMBOL(ilogbf)
+	.def	__MINGW_USYMBOL(ilogbf);	.scl	2;	.type	32;	.endef
+__MINGW_USYMBOL(ilogbf):
+#ifdef _WIN64
+	subq	$24, %rsp
+	movss	%xmm0,(%rsp)
+	flds	(%rsp)
 	fxam			/* Is NaN or +-Inf?  */
 	fstsw   %ax
 	movb    $0x45, %dh
@@ -27,18 +34,14 @@ _ilogbf:
 	fwait
 	popq	%rax
 
+	addq	$24, %rsp
 	ret
 
 1:	fstp	%st
 	movl	$0x7fffffff, %eax
+	addq	$24, %rsp
 	ret
 #else
-	.file	"ilogbf.S"
-	.text
-	.align 4
-.globl _ilogbf
-	.def	_ilogbf;	.scl	2;	.type	32;	.endef
-_ilogbf:
 	flds	4(%esp)
 /* I added the following ugly construct because ilogb(+-Inf) is
    required to return INT_MAX in ISO C99.

@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef NETCONS_INCLUDED
 
@@ -100,7 +100,11 @@
 
 #ifndef NULL
 #ifdef __cplusplus
+#ifndef _WIN64
 #define NULL 0
+#else
+#define NULL 0LL
+#endif  /* W64 */
 #else
 #define NULL ((void *)0)
 #endif
@@ -110,16 +114,16 @@
 #define API_RET_TYPE NET_API_STATUS
 #define NET_API_FUNCTION WINAPI
 
+#ifndef _NO_W32_PSEUDO_MODIFIERS
 #ifndef IN
 #define IN
 #endif
-
+#ifndef OUT
+#define OUT
+#endif
 #ifndef OPTIONAL
 #define OPTIONAL
 #endif
-
-#ifndef OUT
-#define OUT
 #endif
 
 #define PLATFORM_ID_DOS 300

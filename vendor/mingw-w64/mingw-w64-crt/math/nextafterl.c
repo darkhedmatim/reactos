@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 /*
    nextafterl.c
@@ -19,10 +19,11 @@ nextafterl (long double x, long double y)
   union {
       long double ld;
       struct {
+        /* packed attribute is unnecessary on x86/x64 for these three variables */
         unsigned long long mantissa;
         unsigned short expn;
         unsigned short pad;
-      } __attribute__ ((packed)) parts; 
+      } parts; 
   } u;
 
   /* The normal bit is explicit for long doubles, unlike
@@ -58,7 +59,6 @@ nextafterl (long double x, long double y)
 
   /* If we have updated the expn of a normal number,
      or moved from denormal to normal, [re]set the normal bit.  */ 
-     
   if (u.parts.expn & 0x7fff)
     u.parts.mantissa |=  normal_bit;
 
@@ -68,3 +68,4 @@ nextafterl (long double x, long double y)
 /* nexttowardl is the same function with a different name.  */
 long double
 nexttowardl (long double, long double) __attribute__ ((alias("nextafterl")));
+

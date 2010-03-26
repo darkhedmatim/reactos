@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _WINNT_
 #define _WINNT_
@@ -90,7 +90,7 @@ extern "C" {
 #endif
 
 #ifndef DECLSPEC_ALIGN
-#define DECLSPEC_ALIGN(x) __attribute__ ((aligned(x)))
+#define DECLSPEC_ALIGN(x) __attribute__ ((__aligned__ (x)))
 #endif
 
 #ifndef SYSTEM_CACHE_ALIGNMENT_SIZE
@@ -126,7 +126,7 @@ extern "C" {
 #endif
 
 #ifndef FORCEINLINE
-#define FORCEINLINE static __inline__
+#define FORCEINLINE __inline__ __attribute__((always_inline))
 #endif
 
 #ifndef DECLSPEC_DEPRECATED
@@ -172,8 +172,8 @@ extern "C" {
 #ifdef UNICODE
 #ifndef _TCHAR_DEFINED
 #define _TCHAR_DEFINED
-  typedef WCHAR TCHAR,*PTCHAR;
-  typedef WCHAR TBYTE ,*PTBYTE;
+  typedef WCHAR TCHAR, *PTCHAR;
+  typedef WCHAR TBYTE, *PTBYTE;
 #endif
 
   typedef LPWSTR LPTCH,PTCH;
@@ -186,8 +186,8 @@ extern "C" {
 #else
 #ifndef _TCHAR_DEFINED
 #define _TCHAR_DEFINED
-  typedef char TCHAR,*PTCHAR;
-  typedef unsigned char TBYTE ,*PTBYTE;
+  typedef char TCHAR, *PTCHAR;
+  typedef unsigned char TBYTE, *PTBYTE;
 #endif
 
   typedef LPSTR LPTCH,PTCH;
@@ -253,23 +253,17 @@ typedef DWORD LCID;
   __declspec(align(16))
 #endif
     typedef struct _FLOAT128 {
-      __int64 LowPart;
-      __int64 HighPart;
+      __MINGW_EXTENSION __int64 LowPart;
+      __MINGW_EXTENSION __int64 HighPart;
   } FLOAT128;
 
   typedef FLOAT128 *PFLOAT128;
 
 #define _ULONGLONG_
-#if((!(defined(_X86_) && !defined(__x86_64)) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 64)))
-  typedef __int64 LONGLONG;
-  typedef unsigned __int64 ULONGLONG;
+  __MINGW_EXTENSION typedef __int64 LONGLONG;
+  __MINGW_EXTENSION typedef unsigned __int64 ULONGLONG;
 
 #define MAXLONGLONG (0x7fffffffffffffff)
-#else
-
-  typedef double LONGLONG;
-  typedef double ULONGLONG;
-#endif
 
   typedef LONGLONG *PLONGLONG;
   typedef ULONGLONG *PULONGLONG;
@@ -277,7 +271,7 @@ typedef DWORD LCID;
   typedef LONGLONG USN;
 
   typedef union _LARGE_INTEGER {
-    __extension__ struct {
+    __MINGW_EXTENSION struct {
       DWORD LowPart;
       LONG HighPart;
     };
@@ -291,7 +285,7 @@ typedef DWORD LCID;
   typedef LARGE_INTEGER *PLARGE_INTEGER;
 
   typedef union _ULARGE_INTEGER {
-    __extension__ struct {
+    __MINGW_EXTENSION struct {
       DWORD LowPart;
       DWORD HighPart;
     };
@@ -347,17 +341,30 @@ typedef DWORD LCID;
     unsigned short __cdecl _rotl16(unsigned short Value,unsigned char Shift);
     unsigned char __cdecl _rotr8(unsigned char Value,unsigned char Shift);
     unsigned short __cdecl _rotr16(unsigned short Value,unsigned char Shift);
-#endif
+#endif /* __x86_64 */
 
 #define RotateLeft32 _rotl
 #define RotateLeft64 _rotl64
 #define RotateRight32 _rotr
 #define RotateRight64 _rotr64
 
+#pragma push_macro ("_rotl")
+#pragma push_macro ("_rotr")
+#undef _rotl
+#undef _rotr
     unsigned int __cdecl _rotl(unsigned int Value,int Shift);
-    unsigned __int64 __cdecl _rotl64(unsigned __int64 Value,int Shift);
     unsigned int __cdecl _rotr(unsigned int Value,int Shift);
-    unsigned __int64 __cdecl _rotr64(unsigned __int64 Value,int Shift);
+#pragma pop_macro ("_rotr")
+#pragma pop_macro ("_rotl")
+#pragma push_macro ("_rotr64")
+#pragma push_macro ("_rotl64")
+#undef _rotl64
+#undef _rotr64
+    __MINGW_EXTENSION unsigned __int64 __cdecl _rotl64(unsigned __int64 Value,int Shift);
+    __MINGW_EXTENSION unsigned __int64 __cdecl _rotr64(unsigned __int64 Value,int Shift);
+#pragma pop_macro ("_rotl64")
+#pragma pop_macro ("_rotr64")
+
 #ifdef __cplusplus
   }
 #endif
@@ -461,36 +468,82 @@ typedef DWORD LCID;
 #define VER_SUITE_SECURITY_APPLIANCE 0x00001000
 #define VER_SUITE_STORAGE_SERVER 0x00002000
 #define VER_SUITE_COMPUTE_SERVER 0x00004000
+#define VER_SUITE_WH_SERVER 0x00008000
 
-#define PRODUCT_UNDEFINED                       0x0
+#define PRODUCT_UNDEFINED                         0x0
 
-#define PRODUCT_ULTIMATE                        0x1
-#define PRODUCT_HOME_BASIC                      0x2
-#define PRODUCT_HOME_PREMIUM                    0x3
-#define PRODUCT_ENTERPRISE                      0x4
-#define PRODUCT_HOME_BASIC_N                    0x5
-#define PRODUCT_BUSINESS                        0x6
-#define PRODUCT_STANDARD_SERVER                 0x7
-#define PRODUCT_DATACENTER_SERVER               0x8
-#define PRODUCT_SMALLBUSINESS_SERVER            0x9
-#define PRODUCT_ENTERPRISE_SERVER               0xa
-#define PRODUCT_STARTER                         0xb
-#define PRODUCT_DATACENTER_SERVER_CORE          0xc
-#define PRODUCT_STANDARD_SERVER_CORE            0xd
-#define PRODUCT_ENTERPRISE_SERVER_CORE          0xe
-#define PRODUCT_ENTERPRISE_SERVER_IA64          0xf
-#define PRODUCT_BUSINESS_N                      0x10
-#define PRODUCT_WEB_SERVER                      0x11
-#define PRODUCT_CLUSTER_SERVER                  0x12
-#define PRODUCT_HOME_SERVER                     0x13
-#define PRODUCT_STORAGE_EXPRESS_SERVER          0x14
-#define PRODUCT_STORAGE_STANDARD_SERVER         0x15
-#define PRODUCT_STORAGE_WORKGROUP_SERVER        0x16
-#define PRODUCT_STORAGE_ENTERPRISE_SERVER       0x17
-#define PRODUCT_SERVER_FOR_SMALLBUSINESS        0x18
-#define PRODUCT_SMALLBUSINESS_SERVER_PREMIUM    0x19
+#define PRODUCT_ULTIMATE                          0x1
+#define PRODUCT_HOME_BASIC                        0x2
+#define PRODUCT_HOME_PREMIUM                      0x3
+#define PRODUCT_ENTERPRISE                        0x4
+#define PRODUCT_HOME_BASIC_N                      0x5
+#define PRODUCT_BUSINESS                          0x6
+#define PRODUCT_STANDARD_SERVER                   0x7
+#define PRODUCT_DATACENTER_SERVER                 0x8
+#define PRODUCT_SMALLBUSINESS_SERVER              0x9
+#define PRODUCT_ENTERPRISE_SERVER                 0xa
+#define PRODUCT_STARTER                           0xb
+#define PRODUCT_DATACENTER_SERVER_CORE            0xc
+#define PRODUCT_STANDARD_SERVER_CORE              0xd
+#define PRODUCT_ENTERPRISE_SERVER_CORE            0xe
+#define PRODUCT_ENTERPRISE_SERVER_IA64            0xf
+#define PRODUCT_BUSINESS_N                        0x10
+#define PRODUCT_WEB_SERVER                        0x11
+#define PRODUCT_CLUSTER_SERVER                    0x12
+#define PRODUCT_HOME_SERVER                       0x13
+#define PRODUCT_STORAGE_EXPRESS_SERVER            0x14
+#define PRODUCT_STORAGE_STANDARD_SERVER           0x15
+#define PRODUCT_STORAGE_WORKGROUP_SERVER          0x16
+#define PRODUCT_STORAGE_ENTERPRISE_SERVER         0x17
+#define PRODUCT_SERVER_FOR_SMALLBUSINESS          0x18
+#define PRODUCT_SMALLBUSINESS_SERVER_PREMIUM      0x19
+#define PRODUCT_HOME_PREMIUM_N                    0x1a
+#define PRODUCT_ENTERPRISE_N                      0x1b
+#define PRODUCT_ULTIMATE_N                        0x1c
+#define PRODUCT_WEB_SERVER_CORE                   0x1d
+#define PRODUCT_MEDIUMBUSINESS_SERVER_MANAGEMENT  0x1e
+#define PRODUCT_MEDIUMBUSINESS_SERVER_SECURITY    0x1f
+#define PRODUCT_MEDIUMBUSINESS_SERVER_MESSAGING   0x20
+#define PRODUCT_SERVER_FOUNDATION                 0x21
+#define PRODUCT_HOME_PREMIUM_SERVER               0x22
+#define PRODUCT_SERVER_FOR_SMALLBUSINESS_V        0x23
+#define PRODUCT_STANDARD_SERVER_V                 0x24
+#define PRODUCT_DATACENTER_SERVER_V               0x25
+#define PRODUCT_ENTERPRISE_SERVER_V               0x26
+#define PRODUCT_DATACENTER_SERVER_CORE_V          0x27
+#define PRODUCT_STANDARD_SERVER_CORE_V            0x28
+#define PRODUCT_ENTERPRISE_SERVER_CORE_V          0x29
+#define PRODUCT_HYPERV                            0x2a
+#define PRODUCT_STORAGE_EXPRESS_SERVER_CORE       0x2b
+#define PRODUCT_STORAGE_STANDARD_SERVER_CORE      0x2c
+#define PRODUCT_STORAGE_WORKGROUP_SERVER_CORE     0x2d
+#define PRODUCT_STORAGE_ENTERPRISE_SERVER_CORE    0x2e
+#define PRODUCT_STARTER_N                         0x2f
+#define PRODUCT_PROFESSIONAL                      0x30
+#define PRODUCT_PROFESSIONAL_N                    0x31
+#define PRODUCT_SB_SOLUTION_SERVER                0x32
+#define PRODUCT_SERVER_FOR_SB_SOLUTIONS           0x33
+#define PRODUCT_STANDARD_SERVER_SOLUTIONS         0x34
+#define PRODUCT_STANDARD_SERVER_SOLUTIONS_CORE    0x35
+#define PRODUCT_SB_SOLUTION_SERVER_EM             0x36
+#define PRODUCT_SERVER_FOR_SB_SOLUTIONS_EM        0x37
+#define PRODUCT_SOLUTION_EMBEDDEDSERVER           0x38
+#define PRODUCT_SOLUTION_EMBEDDEDSERVER_CORE      0x39
+#define PRODUCT_ESSENTIALBUSINESS_SERVER_MGMT     0x3B
+#define PRODUCT_ESSENTIALBUSINESS_SERVER_ADDL     0x3C
+#define PRODUCT_ESSENTIALBUSINESS_SERVER_MGMTSVC  0x3D
+#define PRODUCT_ESSENTIALBUSINESS_SERVER_ADDLSVC  0x3E
+#define PRODUCT_SMALLBUSINESS_SERVER_PREMIUM_CORE 0x3f
+#define PRODUCT_CLUSTER_SERVER_V                  0x40
+#define PRODUCT_EMBEDDED                          0x41
+#define PRODUCT_STARTER_E                         0x42
+#define PRODUCT_HOME_BASIC_E                      0x43
+#define PRODUCT_HOME_PREMIUM_E                    0x44
+#define PRODUCT_PROFESSIONAL_E                    0x45
+#define PRODUCT_ENTERPRISE_E                      0x46
+#define PRODUCT_ULTIMATE_E                        0x47
 
-#define PRODUCT_UNLICENSED                      0xabcdabcd
+#define PRODUCT_UNLICENSED                        0xabcdabcd
 
 #define LANG_NEUTRAL 0x00
 #define LANG_INVARIANT 0x7f
@@ -771,7 +824,8 @@ typedef DWORD LCID;
 
 #define LOCALE_INVARIANT (MAKELCID(MAKELANGID(LANG_INVARIANT,SUBLANG_NEUTRAL),SORT_DEFAULT))
 
-#define UNREFERENCED_PARAMETER(P) (P)
+#define UNREFERENCED_PARAMETER(P) {(P) = (P);}
+#define UNREFERENCED_LOCAL_VARIABLE(V) {(V) = (V);}
 #define DBG_UNREFERENCED_PARAMETER(P) (P)
 #define DBG_UNREFERENCED_LOCAL_VARIABLE(V) (V)
 
@@ -789,16 +843,21 @@ typedef DWORD LCID;
 #define DBG_TERMINATE_THREAD ((DWORD)0x40010003L)
 #define DBG_TERMINATE_PROCESS ((DWORD)0x40010004L)
 #define DBG_CONTROL_C ((DWORD)0x40010005L)
+#define DBG_PRINTEXCEPTION_C ((DWORD)0x40010006L)
+#define DBG_RIPEXCEPTION ((DWORD)0x40010007L)
 #define DBG_CONTROL_BREAK ((DWORD)0x40010008L)
 #define DBG_COMMAND_EXCEPTION ((DWORD)0x40010009L)
 #define STATUS_GUARD_PAGE_VIOLATION ((DWORD)0x80000001L)
 #define STATUS_DATATYPE_MISALIGNMENT ((DWORD)0x80000002L)
 #define STATUS_BREAKPOINT ((DWORD)0x80000003L)
 #define STATUS_SINGLE_STEP ((DWORD)0x80000004L)
+#define STATUS_LONGJUMP ((DWORD)0x80000026L)    
+#define STATUS_UNWIND_CONSOLIDATE ((DWORD)0x80000029L)    
 #define DBG_EXCEPTION_NOT_HANDLED ((DWORD)0x80010001L)
 #define STATUS_ACCESS_VIOLATION ((DWORD)0xC0000005L)
 #define STATUS_IN_PAGE_ERROR ((DWORD)0xC0000006L)
 #define STATUS_INVALID_HANDLE ((DWORD)0xC0000008L)
+#define STATUS_INVALID_PARAMETER ((DWORD)0xC000000DL)
 #define STATUS_NO_MEMORY ((DWORD)0xC0000017L)
 #define STATUS_ILLEGAL_INSTRUCTION ((DWORD)0xC000001DL)
 #define STATUS_NONCONTINUABLE_EXCEPTION ((DWORD)0xC0000025L)
@@ -815,10 +874,17 @@ typedef DWORD LCID;
 #define STATUS_INTEGER_OVERFLOW ((DWORD)0xC0000095L)
 #define STATUS_PRIVILEGED_INSTRUCTION ((DWORD)0xC0000096L)
 #define STATUS_STACK_OVERFLOW ((DWORD)0xC00000FDL)
+#define STATUS_DLL_NOT_FOUND ((DWORD)0xC0000135L)
+#define STATUS_ORDINAL_NOT_FOUND ((DWORD)0xC0000138L)
+#define STATUS_ENTRYPOINT_NOT_FOUND ((DWORD)0xC0000139L)
 #define STATUS_CONTROL_C_EXIT ((DWORD)0xC000013AL)
+#define STATUS_DLL_INIT_FAILED ((DWORD)0xC0000142L)
 #define STATUS_FLOAT_MULTIPLE_FAULTS ((DWORD)0xC00002B4L)
 #define STATUS_FLOAT_MULTIPLE_TRAPS ((DWORD)0xC00002B5L)
 #define STATUS_REG_NAT_CONSUMPTION ((DWORD)0xC00002C9L)
+#define STATUS_STACK_BUFFER_OVERRUN ((DWORD)0xC0000409L)
+#define STATUS_INVALID_CRUNTIME_PARAMETER ((DWORD)0xC0000417L)
+#define STATUS_ASSERTION_FAILURE ((DWORD)0xC0000420L)
 #define STATUS_SXS_EARLY_DEACTIVATION ((DWORD)0xC015000FL)
 #define STATUS_SXS_INVALID_DEACTIVATION ((DWORD)0xC0150010L)
 #endif
@@ -850,6 +916,10 @@ typedef DWORD LCID;
 #define InterlockedBitTestAndSet64 _interlockedbittestandset64
 #define InterlockedBitTestAndReset64 _interlockedbittestandreset64
 
+    BOOLEAN _bittest(LONG const *Base,LONG Offset);
+    BOOLEAN _bittestandcomplement(LONG *Base,LONG Offset);
+
+#ifndef __CRT__NO_INLINE
     __CRT_INLINE BOOLEAN _bittest(LONG const *Base,LONG Offset) {
       int old = 0;
       __asm__ __volatile__("btl %2,%1\n\tsbbl %0,%0 "
@@ -864,6 +934,20 @@ typedef DWORD LCID;
 	:"Ir" (Offset));
       return (BOOLEAN) (old!=0);
     }
+#endif /* __CRT__NO_INLINE */
+
+    BOOLEAN InterlockedBitTestAndComplement(LONG *Base,LONG Bit);
+    BOOLEAN _bittestandset(LONG *Base,LONG Offset);
+    BOOLEAN _bittestandreset(LONG *Base,LONG Offset);
+    BOOLEAN _interlockedbittestandset(LONG *Base,LONG Offset);
+    BOOLEAN _interlockedbittestandreset(LONG *Base,LONG Offset);
+    BOOLEAN _bittest64(LONG64 const *Base,LONG64 Offset);
+    BOOLEAN _bittestandcomplement64(LONG64 *Base,LONG64 Offset);
+    BOOLEAN _bittestandset64(LONG64 *Base,LONG64 Offset);
+    BOOLEAN _bittestandreset64(LONG64 *Base,LONG64 Offset);
+    BOOLEAN _interlockedbittestandset64(LONG64 *Base,LONG64 Offset);
+    BOOLEAN _interlockedbittestandreset64(LONG64 *Base,LONG64 Offset);
+#ifndef __CRT__NO_INLINE
     __CRT_INLINE BOOLEAN InterlockedBitTestAndComplement(LONG *Base,LONG Bit) {
       int old = 0;
       __asm__ __volatile__("lock ; btcl %2,%1\n\tsbbl %0,%0 "
@@ -902,50 +986,58 @@ typedef DWORD LCID;
     __CRT_INLINE BOOLEAN _bittest64(LONG64 const *Base,LONG64 Offset) {
       int old = 0;
       __asm__ __volatile__("btq %2,%1\n\tsbbl %0,%0 "
-	:"=r" (old),"=m" ((*(volatile long long *) Base))
+	:"=r" (old),"=m" ((*(volatile LONG64 *) Base))
 	:"Ir" (Offset));
       return (BOOLEAN) (old!=0);
     }
     __CRT_INLINE BOOLEAN _bittestandcomplement64(LONG64 *Base,LONG64 Offset) {
       int old = 0;
       __asm__ __volatile__("btcq %2,%1\n\tsbbl %0,%0 "
-	:"=r" (old),"=m" ((*(volatile long long *) Base))
+	:"=r" (old),"=m" ((*(volatile LONG64 *) Base))
 	:"Ir" (Offset));
       return (BOOLEAN) (old!=0);
     }
     __CRT_INLINE BOOLEAN _bittestandset64(LONG64 *Base,LONG64 Offset) {
       int old = 0;
       __asm__ __volatile__("btsq %2,%1\n\tsbbl %0,%0 "
-	:"=r" (old),"=m" ((*(volatile long long *) Base))
+	:"=r" (old),"=m" ((*(volatile LONG64 *) Base))
 	:"Ir" (Offset));
       return (BOOLEAN) (old!=0);
     }
     __CRT_INLINE BOOLEAN _bittestandreset64(LONG64 *Base,LONG64 Offset) {
       int old = 0;
       __asm__ __volatile__("btrq %2,%1\n\tsbbl %0,%0 "
-	:"=r" (old),"=m" ((*(volatile long long *) Base))
+	:"=r" (old),"=m" ((*(volatile LONG64 *) Base))
 	:"Ir" (Offset));
       return (BOOLEAN) (old!=0);
     }
     __CRT_INLINE BOOLEAN _interlockedbittestandset64(LONG64 *Base,LONG64 Offset) {
       int old = 0;
       __asm__ __volatile__("lock ; btsq %2,%1\n\tsbbl %0,%0 "
-	:"=r" (old),"=m" ((*(volatile long long *) Base))
+	:"=r" (old),"=m" ((*(volatile LONG64 *) Base))
 	:"Ir" (Offset));
       return (BOOLEAN) (old!=0);
     }
     __CRT_INLINE BOOLEAN _interlockedbittestandreset64(LONG64 *Base,LONG64 Offset) {
       int old = 0;
       __asm__ __volatile__("lock ; btrq %2,%1\n\tsbbl %0,%0 "
-	:"=r" (old),"=m" ((*(volatile long long *) Base))
+	:"=r" (old),"=m" ((*(volatile LONG64 *) Base))
 	:"Ir" (Offset));
       return (BOOLEAN) (old!=0);
     }
+#endif /* !__CRT__NO_INLINE */
+
 #define BitScanForward _BitScanForward
 #define BitScanReverse _BitScanReverse
 #define BitScanForward64 _BitScanForward64
 #define BitScanReverse64 _BitScanReverse64
 
+    BOOLEAN _BitScanForward(DWORD *Index,DWORD Mask);
+    BOOLEAN _BitScanReverse(DWORD *Index,DWORD Mask);
+    BOOLEAN _BitScanForward64(DWORD *Index,DWORD64 Mask);
+    BOOLEAN _BitScanReverse64(DWORD *Index,DWORD64 Mask);
+
+#ifndef __CRT__NO_INLINE
     __CRT_INLINE BOOLEAN _BitScanForward(DWORD *Index,DWORD Mask) {
       __asm__ __volatile__("bsfl %1,%0" : "=r" (Mask),"=m" ((*(volatile long *)Index)));
       return Mask!=0;
@@ -955,13 +1047,14 @@ typedef DWORD LCID;
       return Mask!=0;
     }
     __CRT_INLINE BOOLEAN _BitScanForward64(DWORD *Index,DWORD64 Mask) {
-      __asm__ __volatile__("bsfq %1,%0" : "=r" (Mask),"=m" ((*(volatile long long *)Index)));
+      __asm__ __volatile__("bsfq %1,%0" : "=r" (Mask),"=m" ((*(volatile LONG64 *)Index)));
       return Mask!=0;
     }
     __CRT_INLINE BOOLEAN _BitScanReverse64(DWORD *Index,DWORD64 Mask) {
-      __asm__ __volatile__("bsrq %1,%0" : "=r" (Mask),"=m" ((*(volatile long long *)Index)));
+      __asm__ __volatile__("bsrq %1,%0" : "=r" (Mask),"=m" ((*(volatile LONG64 *)Index)));
       return Mask!=0;
     }
+#endif /* !__CRT__NO_INLINE */
 
 #define InterlockedIncrement16 _InterlockedIncrement16
 #define InterlockedDecrement16 _InterlockedDecrement16
@@ -1007,23 +1100,35 @@ typedef DWORD LCID;
 #define InterlockedIncrementSizeT(a) InterlockedIncrement64((LONG64 *)a)
 #define InterlockedDecrementSizeT(a) InterlockedDecrement64((LONG64 *)a)
 
+    SHORT InterlockedIncrement16(SHORT volatile *Addend);
+    SHORT InterlockedDecrement16(SHORT volatile *Addend);
+    SHORT InterlockedCompareExchange16(SHORT volatile *Destination,SHORT ExChange,SHORT Comperand);
+    LONG InterlockedAnd(LONG volatile *Destination,LONG Value);
+    LONG InterlockedOr(LONG volatile *Destination,LONG Value);
+    LONG InterlockedXor(LONG volatile *Destination,LONG Value);
+    LONG InterlockedIncrement(LONG volatile *Addend);
+    LONG InterlockedDecrement(LONG volatile *Addend);
+    LONG InterlockedExchange(LONG volatile *Target,LONG Value);
+    LONG64 InterlockedAnd64(LONG64 volatile *Destination,LONG64 Value);
+    LONG64 InterlockedOr64(LONG64 volatile *Destination,LONG64 Value);
+    LONG64 InterlockedXor64(LONG64 volatile *Destination,LONG64 Value);
+
+#ifndef __CRT__NO_INLINE
     __CRT_INLINE SHORT InterlockedIncrement16(SHORT volatile *Addend) {
-      unsigned char c;
-      unsigned char s;
-      __asm__ __volatile__(
-	"lock ; addw $1,%0; sete %1 ; sets %2"
-	:"=m" (*Addend), "=qm" (c), "=qm" (s)
-	:"m" (*Addend) : "memory");
-      return (c != 0 ? 0 : (s != 0 ? -1 : 1));
+      SHORT ret = 1;
+      __asm__ __volatile__("lock\n\t"
+		   "xaddw %0,%1"
+		   : "+r" (ret), "+m" (*Addend)
+		   : : "memory");
+      return ret + 1;
     }
     __CRT_INLINE SHORT InterlockedDecrement16(SHORT volatile *Addend) {
-      unsigned char c;
-      unsigned char s;
-      __asm__ __volatile__(
-	"lock ; subw $1,%0; sete %1 ; sets %2"
-	:"=m" (*Addend), "=qm" (c), "=qm" (s)
-	:"m" (*Addend) : "memory");
-      return (c != 0 ? 0 : (s != 0 ? -1 : 1));
+      SHORT ret = -1;
+      __asm__ __volatile__("lock\n\t"
+		   "xaddw %0,(%1)"
+		   : "+r" (ret), "+m" (*Addend)
+		   : : "memory");
+      return ret - 1;
     }
     __CRT_INLINE SHORT InterlockedCompareExchange16(SHORT volatile *Destination,SHORT ExChange,SHORT Comperand) {
       SHORT prev;
@@ -1049,7 +1154,29 @@ typedef DWORD LCID;
 	: : "r"(Value),"m"(*Destination) : "memory");
       return *Destination;
     }
-    //		$$$$
+    __CRT_INLINE LONG InterlockedIncrement(LONG volatile *Addend) {
+      LONG ret = 1;
+      __asm__ __volatile__ ("lock\n\t"
+	       "xaddl %0,%1"
+	       : "+r" (ret), "+m" (*Addend)
+	       : : "memory");
+      return ret + 1;
+    }
+    __CRT_INLINE LONG InterlockedDecrement(LONG volatile *Addend) {
+      LONG ret = -1;
+      __asm__ __volatile__ ("lock\n\t"
+	       "xaddl %0,%1"
+	       : "+r" (ret), "+m" (*Addend)
+	       : : "memory");
+      return ret - 1;
+    }
+    __CRT_INLINE LONG InterlockedExchange(LONG volatile *Target,LONG Value) {
+      __asm__ __volatile__ ("lock ; xchgl %0,%1"
+	: "=r"(Value)
+	: "m"(*Target),"0"(Value)
+	: "memory");
+      return Value;
+    }
     __CRT_INLINE LONG64 InterlockedAnd64(LONG64 volatile *Destination,LONG64 Value) {
       __asm__ __volatile__("lock ; andq %0,%1"
 	: : "r"(Value),"m"(*Destination) : "memory");
@@ -1065,58 +1192,37 @@ typedef DWORD LCID;
 	: : "r"(Value),"m"(*Destination) : "memory");
       return *Destination;
     }
-    __CRT_INLINE LONG InterlockedIncrement(LONG volatile *Addend) {
-      unsigned char c;
-      unsigned char s;
-      __asm__ __volatile__(
-	"lock ; addl $1,%0; sete %1 ; sets %2"
-	:"=m" (*Addend), "=qm" (c), "=qm" (s)
-	:"m" (*Addend) : "memory");
-      return (c != 0 ? 0 : (s != 0 ? -1 : 1));
-    }
-    __CRT_INLINE LONG InterlockedDecrement(LONG volatile *Addend) {
-      unsigned char c;
-      unsigned char s;
-      __asm__ __volatile__(
-	"lock ; subl $1,%0; sete %1 ; sets %2"
-	:"=m" (*Addend), "=qm" (c), "=qm" (s)
-	:"m" (*Addend) : "memory");
-      return (c != 0 ? 0 : (s != 0 ? -1 : 1));
-    }
-    __CRT_INLINE LONG InterlockedExchange(LONG volatile *Target,LONG Value) {
-      __asm__ __volatile("lock ; xchgl %0,%1"
-	: "=r"(Value)
-	: "m"(*Target),"0"(Value)
-	: "memory");
-      return Value;
-    }
-    LONG InterlockedExchangeAdd(LONG volatile *Addend,LONG Value);
+#endif /* !__CRT__NO_INLINE */
 
-#ifndef _X86AMD64_
+    LONG InterlockedExchangeAdd(LONG volatile *Addend,LONG Value);
+    LONG InterlockedCompareExchange(LONG volatile *Destination,LONG ExChange,LONG Comperand);
+    LONG InterlockedAdd(LONG volatile *Addend,LONG Value);
+    LONG64 InterlockedIncrement64(LONG64 volatile *Addend);
+    LONG64 InterlockedDecrement64(LONG64 volatile *Addend);
+    LONG64 InterlockedExchange64(LONG64 volatile *Target,LONG64 Value);
+
+#ifndef __CRT__NO_INLINE
     __CRT_INLINE LONG InterlockedAdd(LONG volatile *Addend,LONG Value) { return InterlockedExchangeAdd(Addend,Value) + Value; }
-#endif
     __CRT_INLINE LONG InterlockedCompareExchange(LONG volatile *Destination,LONG ExChange,LONG Comperand) {
       LONG prev;
       __asm__ __volatile__("lock ; cmpxchgl %1,%2" : "=a" (prev) : "q" (ExChange),"m" (*Destination), "0" (Comperand) : "memory");
       return prev;
     }
     __CRT_INLINE LONG64 InterlockedIncrement64(LONG64 volatile *Addend) {
-      unsigned char c;
-      unsigned char s;
-      __asm__ __volatile__(
-	"lock ; addq $1,%0; sete %1 ; sets %2"
-	:"=m" (*Addend), "=qm" (c), "=qm" (s)
-	:"m" (*Addend) : "memory");
-      return (c != 0 ? 0 : (s != 0 ? -1 : 1));
+      LONG64 ret = 1LL;
+      __asm__ __volatile__ ("lock\n\t"
+	       "xaddq %0,(%1)"
+	       : "+r" (ret), "+m" (*Addend)
+	       : : "memory");
+      return ret + 1LL;
     }
     __CRT_INLINE LONG64 InterlockedDecrement64(LONG64 volatile *Addend) {
-      unsigned char c;
-      unsigned char s;
-      __asm__ __volatile__(
-	"lock ; subq $1,%0; sete %1 ; sets %2"
-	:"=m" (*Addend), "=qm" (c), "=qm" (s)
-	:"m" (*Addend) : "memory");
-      return (c != 0 ? 0 : (s != 0 ? -1 : 1));
+      LONG64 ret = -1LL;
+      __asm__ __volatile__ ("lock\n\t"
+	       "xaddq %0,%1"
+	       : "+r" (ret), "+m" (*Addend)
+	       : : "memory");
+      return ret - 1LL;
     }
     __CRT_INLINE LONG64 InterlockedExchange64(LONG64 volatile *Target,LONG64 Value) {
       __asm__ __volatile("lock ; xchgq %0,%1"
@@ -1125,12 +1231,16 @@ typedef DWORD LCID;
 	: "memory");
       return Value;
     }
+#endif /* !__CRT__NO_INLINE */
+
     LONG64 InterlockedExchangeAdd64(LONG64 volatile *Addend,LONG64 Value);
+    LONG64 InterlockedAdd64(LONG64 volatile *Addend,LONG64 Value);
+    LONG64 InterlockedCompareExchange64(LONG64 volatile *Destination,LONG64 ExChange,LONG64 Comperand);
+    PVOID InterlockedCompareExchangePointer(PVOID volatile *Destination,PVOID ExChange,PVOID Comperand);
+    PVOID InterlockedExchangePointer(PVOID volatile *Target,PVOID Value);
 
-#ifndef _X86AMD64_
+#ifndef __CRT__NO_INLINE
     __CRT_INLINE LONG64 InterlockedAdd64(LONG64 volatile *Addend,LONG64 Value) { return InterlockedExchangeAdd64(Addend,Value) + Value; }
-#endif
-
     __CRT_INLINE LONG64 InterlockedCompareExchange64(LONG64 volatile *Destination,LONG64 ExChange,LONG64 Comperand) {
       LONG64 prev;
       __asm__ __volatile__("lock ; cmpxchgq %1,%2" : "=a" (prev) : "q" (ExChange),"m" (*Destination), "0" (Comperand) : "memory");
@@ -1148,23 +1258,24 @@ typedef DWORD LCID;
 	: "memory");
       return Value;
     }
+#endif /* !__CRT__NO_INLINE */
 
 #define CacheLineFlush(Address) _mm_clflush(Address)
 
     VOID _ReadWriteBarrier(VOID);
 
-#define FastFence __faststorefence
+#define FastFence __faststorefence		/* FIXME: implement proprely */
 #define LoadFence _mm_lfence
 #define MemoryFence _mm_mfence
 #define StoreFence _mm_sfence
 
-    VOID __faststorefence(VOID);
-    VOID _m_prefetchw(volatile CONST VOID *Source);
+    void __faststorefence(void);
+    void _m_prefetchw(void *Source);
 
 #include <intrin.h>
 
 #define YieldProcessor _mm_pause
-#define MemoryBarrier __faststorefence
+#define MemoryBarrier __faststorefence		/* FIXME: implement proprely */
 #define PreFetchCacheLine(l,a) _mm_prefetch((CHAR CONST *) a,l)
 #define PrefetchForWrite(p) _m_prefetchw(p)
 #define ReadForWriteAccess(p) (_m_prefetchw(p),*(p))
@@ -1190,7 +1301,7 @@ typedef DWORD LCID;
 
 #define ReadTimeStampCounter() __rdtsc()
 
-    DWORD64 __rdtsc(VOID);
+    __MINGW_EXTENSION unsigned __int64 __rdtsc(void);
     VOID __movsb(PBYTE Destination,BYTE const *Source,SIZE_T Count);
     VOID __movsw(PWORD Destination,WORD const *Source,SIZE_T Count);
     VOID __movsd(PDWORD Destination,DWORD const *Source,SIZE_T Count);
@@ -1199,6 +1310,45 @@ typedef DWORD LCID;
     VOID __stosw(PWORD Destination,WORD Value,SIZE_T Count);
     VOID __stosd(PDWORD Destination,DWORD Value,SIZE_T Count);
     VOID __stosq(PDWORD64 Destination,DWORD64 Value,SIZE_T Count);
+
+#ifndef __CRT__NO_INLINE
+    __CRT_INLINE VOID __stosb(PBYTE Dest,BYTE Data,SIZE_T Count)
+    {
+      __asm__ __volatile__
+      (
+        "rep; stosb" :
+        [Dest] "=D" (Dest), [Count] "=c" (Count) :
+        "[Dest]" (Dest), "a" (Data), "[Count]" (Count)
+      );
+    }
+    __CRT_INLINE VOID __stosw(PWORD Dest,WORD Data,SIZE_T Count)
+    {
+      __asm__ __volatile__
+      (
+        "rep; stosw" :
+        [Dest] "=D" (Dest), [Count] "=c" (Count) :
+        "[Dest]" (Dest), "a" (Data), "[Count]" (Count)
+      );
+    }
+    __CRT_INLINE VOID __stosd(PDWORD Dest,DWORD Data,SIZE_T Count)
+    {
+      __asm__ __volatile__
+      (
+        "rep; stosl" :
+        [Dest] "=D" (Dest), [Count] "=c" (Count) :
+        "[Dest]" (Dest), "a" (Data), "[Count]" (Count)
+      );
+    }
+    __CRT_INLINE VOID __stosq(PDWORD64 Dest,DWORD64 Data,SIZE_T Count)
+    {
+      __asm__ __volatile__
+      (
+        "rep; stosq" :
+        [Dest] "=D" (Dest), [Count] "=c" (Count) :
+        "[Dest]" (Dest), "a" (Data), "[Count]" (Count)
+      );
+    }
+#endif /* __CRT__NO_INLINE */
 
 #define MultiplyHigh __mulh
 #define UnsignedMultiplyHigh __umulh
@@ -1212,14 +1362,18 @@ typedef DWORD LCID;
     DWORD64 ShiftLeft128(DWORD64 LowPart,DWORD64 HighPart,BYTE Shift);
     DWORD64 ShiftRight128(DWORD64 LowPart,DWORD64 HighPart,BYTE Shift);
 
-#define Multiply128 _mul128
+#define Multiply128 _mul128			/* FIXME: implement proprely */
 
     LONG64 Multiply128(LONG64 Multiplier,LONG64 Multiplicand,LONG64 *HighProduct);
 
-#define UnsignedMultiply128 _umul128
+#define UnsignedMultiply128 _umul128		/* FIXME: implement proprely */
 
     DWORD64 UnsignedMultiply128(DWORD64 Multiplier,DWORD64 Multiplicand,DWORD64 *HighProduct);
 
+    LONG64 MultiplyExtract128(LONG64 Multiplier,LONG64 Multiplicand,BYTE Shift);
+    DWORD64 UnsignedMultiplyExtract128(DWORD64 Multiplier,DWORD64 Multiplicand,BYTE Shift);
+
+#ifndef __CRT__NO_INLINE
     __CRT_INLINE LONG64 MultiplyExtract128(LONG64 Multiplier,LONG64 Multiplicand,BYTE Shift) {
       LONG64 extractedProduct;
       LONG64 highProduct;
@@ -1278,11 +1432,12 @@ typedef DWORD LCID;
       __asm__ volatile ("movq	%0,%%gs:%1"
 	: "=r" (Data) ,"=m" ((*(volatile long *) (DWORD64) Offset)));
     }
+#endif /* !__CRT__NO_INLINE */
 
 #ifdef __cplusplus
   }
 #endif
-#endif
+#endif /* defined(__x86_64) && !defined(RC_INVOKED) */
 
 #define EXCEPTION_READ_FAULT 0
 #define EXCEPTION_WRITE_FAULT 1
@@ -1305,7 +1460,7 @@ typedef DWORD LCID;
 #define CONTEXT_SERVICE_ACTIVE 0x10000000
 #define CONTEXT_EXCEPTION_REQUEST 0x40000000
 #define CONTEXT_EXCEPTION_REPORTING 0x80000000
-#endif
+#endif /* !defined(RC_INVOKED) */
 
 #define INITIAL_MXCSR 0x1f80
 #define INITIAL_FPCSR 0x027f
@@ -1375,10 +1530,10 @@ typedef DWORD LCID;
     DWORD64 R14;
     DWORD64 R15;
     DWORD64 Rip;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       XMM_SAVE_AREA32 FltSave;
       XMM_SAVE_AREA32 FloatSave;
-      __extension__ struct {
+      __MINGW_EXTENSION struct {
 	M128A Header[2];
 	M128A Legacy[8];
 	M128A Xmm0;
@@ -1425,7 +1580,8 @@ typedef DWORD LCID;
   NTSYSAPI BOOLEAN __cdecl RtlAddFunctionTable(PRUNTIME_FUNCTION FunctionTable,DWORD EntryCount,DWORD64 BaseAddress);
   NTSYSAPI BOOLEAN __cdecl RtlInstallFunctionTableCallback(DWORD64 TableIdentifier,DWORD64 BaseAddress,DWORD Length,PGET_RUNTIME_FUNCTION_CALLBACK Callback,PVOID Context,PCWSTR OutOfProcessCallbackDll);
   NTSYSAPI BOOLEAN __cdecl RtlDeleteFunctionTable(PRUNTIME_FUNCTION FunctionTable);
-#endif
+
+#endif /* end of _AMD64_ */
 
 #ifdef I_X86_
 #if(defined(_X86_) && !defined(__x86_64)) && !defined(RC_INVOKED)
@@ -1433,6 +1589,34 @@ typedef DWORD LCID;
   extern "C" {
 #endif
 
+#define BitTest _bittest
+#define BitTestAndComplement _bittestandcomplement
+#define BitTestAndSet _bittestandset
+#define BitTestAndReset _bittestandreset
+#define InterlockedBitTestAndSet _interlockedbittestandset
+#define InterlockedBitTestAndReset _interlockedbittestandreset
+
+#define BitScanForward _BitScanForward
+#define BitScanReverse _BitScanReverse
+
+#define InterlockedIncrement16 _InterlockedIncrement16
+#define InterlockedDecrement16 _InterlockedDecrement16
+#define InterlockedCompareExchange16 _InterlockedCompareExchange16
+
+#define InterlockedAnd _InterlockedAnd
+#define InterlockedOr _InterlockedOr
+#define InterlockedXor _InterlockedXor
+#define InterlockedIncrement _InterlockedIncrement
+#define InterlockedIncrementAcquire InterlockedIncrement
+#define InterlockedIncrementRelease InterlockedIncrement
+#define InterlockedDecrement _InterlockedDecrement
+#define InterlockedExchange _InterlockedExchange
+#define InterlockedExchangeAdd _InterlockedExchangeAdd
+#define InterlockedCompareExchange _InterlockedCompareExchange
+
+    BOOLEAN InterlockedBitTestAndSet(LONG *Base,LONG Bit);
+    BOOLEAN InterlockedBitTestAndReset(LONG *Base,LONG Bit);
+#ifndef __CRT__NO_INLINE
     __CRT_INLINE BOOLEAN InterlockedBitTestAndSet(LONG *Base,LONG Bit) {
       int old = 0;
       __asm__ __volatile__("lock ; btsl %2,%1\n\tsbbl %0,%0 "
@@ -1448,7 +1632,10 @@ typedef DWORD LCID;
 	:"Ir" (Bit));
       return (BOOLEAN) (old!=0);
     }
+#endif /* __CRT__NO_INLINE */
 
+    BOOLEAN InterlockedBitTestAndComplement(LONG *Base,LONG Bit);
+#ifndef __CRT__NO_INLINE
     __CRT_INLINE BOOLEAN InterlockedBitTestAndComplement(LONG *Base,LONG Bit) {
       int old = 0;
       __asm__ __volatile__("lock ; btcl %2,%1\n\tsbbl %0,%0 "
@@ -1456,6 +1643,7 @@ typedef DWORD LCID;
 	:"Ir" (Bit));
       return (BOOLEAN) (old!=0);
     }
+#endif /* !__CRT__NO_INLINE */
 
 #ifdef _PREFIX_
     BYTE __readfsbyte(DWORD Offset);
@@ -1469,15 +1657,11 @@ typedef DWORD LCID;
 #ifdef __cplusplus
   }
 #endif
-#endif
+#endif /* (defined(_X86_) && !defined(__x86_64)) && !defined(RC_INVOKED) */
 
 #if(defined(_X86_) && !defined(__x86_64))
-  __CRT_INLINE VOID MemoryBarrier(VOID) {
-    LONG Barrier;
-    __asm__ __volatile__("xchgl %eax,%0 "
-      :"=r" (Barrier));
-  }
-#define YieldProcessor() __asm__ __volatile__("rep nop ");
+
+#define YieldProcessor() __asm__ __volatile__("rep; nop");
 
 #define PreFetchCacheLine(l,a)
 #define ReadForWriteAccess(p) (*(p))
@@ -1485,10 +1669,36 @@ typedef DWORD LCID;
 #define PF_TEMPORAL_LEVEL_1
 #define PF_NON_TEMPORAL_LEVEL_ALL
 
-  __CRT_INLINE VOID DbgRaiseAssertionFailure(void) {
-    __asm__ __volatile__("int 0x2c ");
-  }
+#define PcTeb 0x18
+  struct _TEB *NtCurrentTeb(void);
   PVOID GetCurrentFiber(void);
+  PVOID GetFiberData(void);
+  VOID MemoryBarrier(VOID);
+
+#ifdef __CRT__NO_INLINE
+# define DbgRaiseAssertionFailure() __asm__ __volatile__("int $0x2c");
+#else
+  VOID DbgRaiseAssertionFailure(void);
+  __CRT_INLINE VOID DbgRaiseAssertionFailure(void) {
+    __asm__ __volatile__("int $0x2c");
+  }
+#endif
+
+#ifndef __CRT__NO_INLINE
+  __CRT_INLINE VOID MemoryBarrier(VOID)
+  {
+    LONG Barrier = 0;
+    __asm__ __volatile__("xchgl %%eax,%0 "
+      :"=r" (Barrier));
+  }
+
+  __CRT_INLINE struct _TEB *NtCurrentTeb(void)
+  {
+    struct _TEB *ret;
+    __asm__ volatile ("movl	%%fs:0x18,%0"
+	: "=r" (ret));
+    return ret;
+  }
   __CRT_INLINE PVOID GetCurrentFiber(void)
   {
     void *ret;
@@ -1496,7 +1706,6 @@ typedef DWORD LCID;
 	: "=r" (ret));
     return ret;
   }
-  PVOID GetFiberData(void);
   __CRT_INLINE PVOID GetFiberData(void)
   {
     void *ret;
@@ -1505,7 +1714,8 @@ typedef DWORD LCID;
 	: "=r" (ret));
     return ret;
   }
-#endif
+#endif /* !__CRT__NO_INLINE */
+#endif /* (defined(_X86_) && !defined(__x86_64)) */
 
 #define EXCEPTION_READ_FAULT 0
 #define EXCEPTION_WRITE_FAULT 1
@@ -1528,7 +1738,7 @@ typedef DWORD LCID;
 #define CONTEXT_FULL (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS)
 
 #define CONTEXT_ALL (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS | CONTEXT_FLOATING_POINT | CONTEXT_DEBUG_REGISTERS | CONTEXT_EXTENDED_REGISTERS)
-#endif
+#endif /* !defined(RC_INVOKED) */
 
 #define MAXIMUM_SUPPORTED_EXTENSION 512
 
@@ -1576,7 +1786,8 @@ typedef DWORD LCID;
     } CONTEXT;
 
     typedef CONTEXT *PCONTEXT;
-#endif
+
+#endif /* end of I_X86_ */
 
 #ifndef _LDT_ENTRY_DEFINED
 #define _LDT_ENTRY_DEFINED
@@ -1605,7 +1816,7 @@ typedef DWORD LCID;
 	} Bits;
       } HighWord;
     } LDT_ENTRY,*PLDT_ENTRY;
-#endif
+#endif /* _LDT_ENTRY_DEFINED */
 
 #if defined(__ia64__) && !defined(RC_INVOKED)
 
@@ -1619,7 +1830,7 @@ typedef DWORD LCID;
 #ifdef __cplusplus
     }
 #endif
-#endif
+#endif /* defined(__ia64__) && !defined(RC_INVOKED) */
 
 #if !defined(GENUTIL) && !defined(_GENIA64_) && defined(_IA64_)
 
@@ -1663,10 +1874,10 @@ typedef DWORD LCID;
 #define UnsignedMultiplyHigh __UMULH
 
     ULONGLONG UnsignedMultiplyHigh(ULONGLONG Multiplier,ULONGLONG Multiplicand);
-#else
+#else  /* __ia64__ */
     struct _TEB *NtCurrentTeb(void);
-#endif
-#endif
+#endif /* __ia64__ */
+#endif /* !defined(GENUTIL) && !defined(_GENIA64_) && defined(_IA64_) */
 
 #ifdef _IA64_
 
@@ -1693,7 +1904,7 @@ typedef DWORD LCID;
 #define CONTEXT_SERVICE_ACTIVE 0x10000000
 #define CONTEXT_EXCEPTION_REQUEST 0x40000000
 #define CONTEXT_EXCEPTION_REPORTING 0x80000000
-#endif
+#endif /* !defined(RC_INVOKED) */
 
     typedef struct _CONTEXT {
       DWORD ContextFlags;
@@ -1927,7 +2138,7 @@ typedef DWORD LCID;
     BOOLEAN RtlDeleteFunctionTable(PRUNTIME_FUNCTION FunctionTable);
     VOID RtlRestoreContext (PCONTEXT ContextRecord,struct _EXCEPTION_RECORD *ExceptionRecord);
     VOID __jump_unwind(ULONGLONG TargetMsFrame,ULONGLONG TargetBsFrame,ULONGLONG TargetPc);
-#endif
+#endif /* end of _IA64_ */
 
 #define EXCEPTION_NONCONTINUABLE 0x1
 #define EXCEPTION_MAXIMUM_PARAMETERS 15
@@ -2020,7 +2231,7 @@ typedef DWORD LCID;
     typedef struct _SID_IDENTIFIER_AUTHORITY {
       BYTE Value[6];
     } SID_IDENTIFIER_AUTHORITY,*PSID_IDENTIFIER_AUTHORITY;
-#endif
+#endif /* SID_IDENTIFIER_AUTHORITY_DEFINED */
 
 #ifndef SID_DEFINED
 #define SID_DEFINED
@@ -2030,7 +2241,7 @@ typedef DWORD LCID;
       SID_IDENTIFIER_AUTHORITY IdentifierAuthority;
       DWORD SubAuthority[ANYSIZE_ARRAY];
     } SID,*PISID;
-#endif
+#endif /* SID_DEFINED */
 
 #define SID_REVISION (1)
 #define SID_MAX_SUB_AUTHORITIES (15)
@@ -2293,6 +2504,18 @@ typedef DWORD LCID;
     } SYSTEM_ALARM_ACE;
     typedef SYSTEM_ALARM_ACE *PSYSTEM_ALARM_ACE;
 
+    typedef struct _SYSTEM_MANDATORY_LABEL_ACE {
+      ACE_HEADER Header;
+      ACCESS_MASK Mask;
+      DWORD SidStart;
+    } SYSTEM_MANDATORY_LABEL_ACE, *PSYSTEM_MANDATORY_LABEL_ACE;
+
+#define SYSTEM_MANDATORY_LABEL_NO_WRITE_UP 0x1
+#define SYSTEM_MANDATORY_LABEL_NO_READ_UP 0x2
+#define SYSTEM_MANDATORY_LABEL_NO_EXECUTE_UP 0x4
+
+#define SYSTEM_MANDATORY_LABEL_VALID_MASK (SYSTEM_MANDATORY_LABEL_NO_WRITE_UP | SYSTEM_MANDATORY_LABEL_NO_READ_UP | SYSTEM_MANDATORY_LABEL_NO_EXECUTE_UP)
+
     typedef struct _ACCESS_ALLOWED_OBJECT_ACE {
       ACE_HEADER Header;
       ACCESS_MASK Mask;
@@ -2487,6 +2710,8 @@ typedef DWORD LCID;
 #define SE_PRIVILEGE_REMOVED (0X00000004L)
 #define SE_PRIVILEGE_USED_FOR_ACCESS (0x80000000L)
 
+#define SE_PRIVILEGE_VALID_ATTRIBUTES (SE_PRIVILEGE_ENABLED_BY_DEFAULT | SE_PRIVILEGE_ENABLED | SE_PRIVILEGE_REMOVED | SE_PRIVILEGE_USED_FOR_ACCESS)
+
 #define PRIVILEGE_SET_ALL_NECESSARY (1)
 
     typedef struct _PRIVILEGE_SET {
@@ -2525,6 +2750,11 @@ typedef DWORD LCID;
 #define SE_MANAGE_VOLUME_NAME TEXT("SeManageVolumePrivilege")
 #define SE_IMPERSONATE_NAME TEXT("SeImpersonatePrivilege")
 #define SE_CREATE_GLOBAL_NAME TEXT("SeCreateGlobalPrivilege")
+#define SE_TRUSTED_CREDMAN_ACCESS_NAME TEXT("SeTrustedCredManAccessPrivilege")
+#define SE_RELABEL_NAME TEXT("SeRelabelPrivilege")
+#define SE_INC_WORKING_SET_NAME TEXT("SeIncreaseWorkingSetPrivilege")
+#define SE_TIME_ZONE_NAME TEXT("SeTimeZonePrivilege")
+#define SE_CREATE_SYMBOLIC_LINK_NAME TEXT("SeCreateSymbolicLinkPrivilege")
 
     typedef enum _SECURITY_IMPERSONATION_LEVEL {
       SecurityAnonymous,SecurityIdentification,SecurityImpersonation,SecurityDelegation
@@ -2559,9 +2789,14 @@ typedef DWORD LCID;
     typedef TOKEN_TYPE *PTOKEN_TYPE;
 
     typedef enum _TOKEN_INFORMATION_CLASS {
-      TokenUser = 1,TokenGroups,TokenPrivileges,TokenOwner,TokenPrimaryGroup,TokenDefaultDacl,TokenSource,TokenType,TokenImpersonationLevel,
-      TokenStatistics,TokenRestrictedSids,TokenSessionId,TokenGroupsAndPrivileges,TokenSessionReference,TokenSandBoxInert,TokenAuditPolicy,
-      TokenOrigin,MaxTokenInfoClass
+      TokenUser = 1, TokenGroups, TokenPrivileges, TokenOwner, TokenPrimaryGroup,
+      TokenDefaultDacl, TokenSource, TokenType, TokenImpersonationLevel,
+      TokenStatistics, TokenRestrictedSids, TokenSessionId, TokenGroupsAndPrivileges,
+      TokenSessionReference, TokenSandBoxInert, TokenAuditPolicy, TokenOrigin,
+      TokenElevationType, TokenLinkedToken, TokenElevation, TokenHasRestrictions,
+      TokenAccessInformation, TokenVirtualizationAllowed, TokenIntegrityLevel,
+      TokenUIAccess, TokenMandatoryPolicy, TokenLogonSid,
+      MaxTokenInfoClass
     } TOKEN_INFORMATION_CLASS,*PTOKEN_INFORMATION_CLASS;
 
     typedef struct _TOKEN_USER {
@@ -2676,6 +2911,8 @@ typedef DWORD LCID;
 
 #define DISABLE_MAX_PRIVILEGE 0x1
 #define SANDBOX_INERT 0x2
+#define LUA_TOKEN 0x4
+#define WRITE_RESTRICTED 0x8
 
     typedef DWORD SECURITY_INFORMATION,*PSECURITY_INFORMATION;
 
@@ -2683,6 +2920,7 @@ typedef DWORD LCID;
 #define GROUP_SECURITY_INFORMATION (0x00000002L)
 #define DACL_SECURITY_INFORMATION (0x00000004L)
 #define SACL_SECURITY_INFORMATION (0x00000008L)
+#define LABEL_SECURITY_INFORMATION (0x00000010L)
 
 #define PROTECTED_DACL_SECURITY_INFORMATION (0x80000000L)
 #define PROTECTED_SACL_SECURITY_INFORMATION (0x40000000L)
@@ -2701,6 +2939,7 @@ typedef DWORD LCID;
 #define PROCESS_SET_INFORMATION (0x0200)
 #define PROCESS_QUERY_INFORMATION (0x0400)
 #define PROCESS_SUSPEND_RESUME (0x0800)
+#define PROCESS_QUERY_LIMITED_INFORMATION (0x1000)
 #define PROCESS_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0xFFF)
 
 #ifdef _WIN64
@@ -2718,6 +2957,8 @@ typedef DWORD LCID;
 #define THREAD_SET_THREAD_TOKEN (0x0080)
 #define THREAD_IMPERSONATE (0x0100)
 #define THREAD_DIRECT_IMPERSONATION (0x0200)
+#define THREAD_SET_LIMITED_INFORMATION (0x0400)
+#define THREAD_QUERY_LIMITED_INFORMATION (0x0800)
 
 #define THREAD_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x3FF)
 
@@ -2739,12 +2980,12 @@ typedef DWORD LCID;
 
 #ifndef _NT_TIB_DEFINED
 #define _NT_TIB_DEFINED
-    __extension__ typedef struct _NT_TIB {
+    __MINGW_EXTENSION typedef struct _NT_TIB {
       struct _EXCEPTION_REGISTRATION_RECORD *ExceptionList;
       PVOID StackBase;
       PVOID StackLimit;
       PVOID SubSystemTib;
-      __extension__ union {
+      __MINGW_EXTENSION union {
 	PVOID FiberData;
 	DWORD Version;
       };
@@ -2752,14 +2993,14 @@ typedef DWORD LCID;
       struct _NT_TIB *Self;
     } NT_TIB;
     typedef NT_TIB *PNT_TIB;
-#endif
+#endif /* _NT_TIB_DEFINED */
 
-    __extension__ typedef struct _NT_TIB32 {
+    __MINGW_EXTENSION typedef struct _NT_TIB32 {
       DWORD ExceptionList;
       DWORD StackBase;
       DWORD StackLimit;
       DWORD SubSystemTib;
-      __extension__ union {
+      __MINGW_EXTENSION union {
 	DWORD FiberData;
 	DWORD Version;
       };
@@ -2767,12 +3008,12 @@ typedef DWORD LCID;
       DWORD Self;
     } NT_TIB32,*PNT_TIB32;
 
-    __extension__ typedef struct _NT_TIB64 {
+    __MINGW_EXTENSION typedef struct _NT_TIB64 {
       DWORD64 ExceptionList;
       DWORD64 StackBase;
       DWORD64 StackLimit;
       DWORD64 SubSystemTib;
-      __extension__ union {
+      __MINGW_EXTENSION union {
 	DWORD64 FiberData;
 	DWORD Version;
       };
@@ -2802,6 +3043,15 @@ typedef DWORD LCID;
 #define QUOTA_LIMITS_HARDWS_MIN_DISABLE 0x00000002
 #define QUOTA_LIMITS_HARDWS_MAX_ENABLE 0x00000004
 #define QUOTA_LIMITS_HARDWS_MAX_DISABLE 0x00000008
+#define QUOTA_LIMITS_USE_DEFAULT_LIMITS 0x00000010
+
+    typedef union _RATE_QUOTA_LIMIT {
+      DWORD RateData;
+      __MINGW_EXTENSION struct {
+        DWORD RatePercent : 7;
+        DWORD Reserved0   : 25;
+      } DUMMYSTRUCTNAME;
+    } RATE_QUOTA_LIMIT, *PRATE_QUOTA_LIMIT;
 
     typedef struct _QUOTA_LIMITS_EX {
       SIZE_T PagedPoolLimit;
@@ -2810,12 +3060,12 @@ typedef DWORD LCID;
       SIZE_T MaximumWorkingSetSize;
       SIZE_T PagefileLimit;
       LARGE_INTEGER TimeLimit;
-      SIZE_T Reserved1;
+      SIZE_T WorkingSetLimit;
       SIZE_T Reserved2;
       SIZE_T Reserved3;
       SIZE_T Reserved4;
       DWORD Flags;
-      DWORD Reserved5;
+      RATE_QUOTA_LIMIT CpuRateLimit;
     } QUOTA_LIMITS_EX,*PQUOTA_LIMITS_EX;
 
     typedef struct _IO_COUNTERS {
@@ -2827,6 +3077,14 @@ typedef DWORD LCID;
       ULONGLONG OtherTransferCount;
     } IO_COUNTERS;
     typedef IO_COUNTERS *PIO_COUNTERS;
+
+#define MAX_HW_COUNTERS 16
+#define THREAD_PROFILING_FLAG_DISPATCH 0x1
+
+    typedef enum _HARDWARE_COUNTER_TYPE {
+      PMCCounter,
+      MaxHardwareCounterType
+    } HARDWARE_COUNTER_TYPE, *PHARDWARE_COUNTER_TYPE;
 
     typedef struct _JOBOBJECT_BASIC_ACCOUNTING_INFORMATION {
       LARGE_INTEGER TotalUserTime;
@@ -2925,7 +3183,7 @@ typedef DWORD LCID;
 #define JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK 0x00001000
 #define JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE 0x00002000
 
-#define JOB_OBJECT_LIMIT_RESERVED2 0x00004000
+#define JOB_OBJECT_LIMIT_SUBSET_AFFINITY 0x00004000
 #define JOB_OBJECT_LIMIT_RESERVED3 0x00008000
 #define JOB_OBJECT_LIMIT_RESERVED4 0x00010000
 #define JOB_OBJECT_LIMIT_RESERVED5 0x00020000
@@ -2934,7 +3192,7 @@ typedef DWORD LCID;
 #define JOB_OBJECT_LIMIT_VALID_FLAGS 0x0007ffff
 
 #define JOB_OBJECT_BASIC_LIMIT_VALID_FLAGS 0x000000ff
-#define JOB_OBJECT_EXTENDED_LIMIT_VALID_FLAGS 0x00003fff
+#define JOB_OBJECT_EXTENDED_LIMIT_VALID_FLAGS 0x00007fff
 #define JOB_OBJECT_RESERVED_LIMIT_VALID_FLAGS 0x0007ffff
 
 #define JOB_OBJECT_UILIMIT_NONE 0x00000000
@@ -2960,9 +3218,13 @@ typedef DWORD LCID;
 #define JOB_OBJECT_SECURITY_VALID_FLAGS 0x0000000f
 
     typedef enum _JOBOBJECTINFOCLASS {
-      JobObjectBasicAccountingInformation = 1,JobObjectBasicLimitInformation,JobObjectBasicProcessIdList,JobObjectBasicUIRestrictions,
-      JobObjectSecurityLimitInformation,JobObjectEndOfJobTimeInformation,JobObjectAssociateCompletionPortInformation,
-      JobObjectBasicAndIoAccountingInformation,JobObjectExtendedLimitInformation,JobObjectJobSetInformation,MaxJobObjectInfoClass
+      JobObjectBasicAccountingInformation = 1, JobObjectBasicLimitInformation,
+      JobObjectBasicProcessIdList, JobObjectBasicUIRestrictions,
+      JobObjectSecurityLimitInformation, JobObjectEndOfJobTimeInformation,
+      JobObjectAssociateCompletionPortInformation, JobObjectBasicAndIoAccountingInformation,
+      JobObjectExtendedLimitInformation, JobObjectJobSetInformation,
+      JobObjectGroupInformation,
+      MaxJobObjectInfoClass
     } JOBOBJECTINFOCLASS;
 
 #define EVENT_MODIFY_STATE 0x0002
@@ -2984,7 +3246,8 @@ typedef DWORD LCID;
 #define TIME_ZONE_ID_DAYLIGHT 2
 
     typedef enum _LOGICAL_PROCESSOR_RELATIONSHIP {
-      RelationProcessorCore,RelationNumaNode,RelationCache
+      RelationProcessorCore,RelationNumaNode,RelationCache,
+      RelationProcessorPackage,RelationGroup,RelationAll=0xffff
     } LOGICAL_PROCESSOR_RELATIONSHIP;
 
 #define LTP_PC_SMT 0x1
@@ -3006,7 +3269,7 @@ typedef DWORD LCID;
     typedef struct _SYSTEM_LOGICAL_PROCESSOR_INFORMATION {
       ULONG_PTR ProcessorMask;
       LOGICAL_PROCESSOR_RELATIONSHIP Relationship;
-      __extension__ union {
+      __MINGW_EXTENSION union {
 	struct {
 	  BYTE Flags;
 	} ProcessorCore;
@@ -3069,6 +3332,11 @@ typedef DWORD LCID;
 #define PF_XMMI64_INSTRUCTIONS_AVAILABLE 10
 #define PF_SSE_DAZ_MODE_AVAILABLE 11
 #define PF_NX_ENABLED 12
+#define PF_SSE3_INSTRUCTIONS_AVAILABLE 13
+#define PF_COMPARE_EXCHANGE128 14
+#define PF_COMPARE64_EXCHANGE128 15
+#define PF_CHANNELS_ENABLED 16
+#define PF_XSAVE_ENABLED 17
 
     typedef struct _MEMORY_BASIC_INFORMATION {
       PVOID BaseAddress;
@@ -3110,6 +3378,12 @@ typedef DWORD LCID;
 #define SECTION_MAP_EXECUTE_EXPLICIT 0x0020
 
 #define SECTION_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED|SECTION_QUERY| SECTION_MAP_WRITE | SECTION_MAP_READ | SECTION_MAP_EXECUTE | SECTION_EXTEND_SIZE)
+
+#define SESSION_QUERY_ACCESS 0x1
+#define SESSION_MODIFY_ACCESS 0x2
+
+#define SESSION_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED | SESSION_QUERY_ACCESS | SESSION_MODIFY_ACCESS)
+
 #define PAGE_NOACCESS 0x01
 #define PAGE_READONLY 0x02
 #define PAGE_READWRITE 0x04
@@ -3132,13 +3406,16 @@ typedef DWORD LCID;
 #define MEM_TOP_DOWN 0x100000
 #define MEM_WRITE_WATCH 0x200000
 #define MEM_PHYSICAL 0x400000
+#define MEM_ROTATE 0x800000
 #define MEM_LARGE_PAGES 0x20000000
 #define MEM_4MB_PAGES 0x80000000
 #define SEC_FILE 0x800000
 #define SEC_IMAGE 0x1000000
+#define SEC_PROTECTED_IMAGE 0x2000000
 #define SEC_RESERVE 0x4000000
 #define SEC_COMMIT 0x8000000
 #define SEC_NOCACHE 0x10000000
+#define SEC_WRITECOMBINE 0x40000000
 #define SEC_LARGE_PAGES 0x80000000
 #define MEM_IMAGE SEC_IMAGE
 #define WRITE_WATCH_FLAG_RESET 0x01
@@ -3188,6 +3465,7 @@ typedef DWORD LCID;
 #define FILE_ATTRIBUTE_OFFLINE 0x00001000
 #define FILE_ATTRIBUTE_NOT_CONTENT_INDEXED 0x00002000
 #define FILE_ATTRIBUTE_ENCRYPTED 0x00004000
+#define FILE_ATTRIBUTE_VIRTUAL 0x00010000
 #define FILE_NOTIFY_CHANGE_FILE_NAME 0x00000001
 #define FILE_NOTIFY_CHANGE_DIR_NAME 0x00000002
 #define FILE_NOTIFY_CHANGE_ATTRIBUTES 0x00000004
@@ -3217,6 +3495,12 @@ typedef DWORD LCID;
 #define FILE_SUPPORTS_ENCRYPTION 0x00020000
 #define FILE_NAMED_STREAMS 0x00040000
 #define FILE_READ_ONLY_VOLUME 0x00080000
+#define FILE_SEQUENTIAL_WRITE_ONCE 0x00100000
+#define FILE_SUPPORTS_TRANSACTIONS 0x00200000
+#define FILE_SUPPORTS_HARD_LINKS 0x00400000
+#define FILE_SUPPORTS_EXTENDED_ATTRIBUTES 0x00800000
+#define FILE_SUPPORTS_OPEN_BY_FILE_ID 0x01000000
+#define FILE_SUPPORTS_USN_JOURNAL 0x02000000
 
     typedef struct _FILE_NOTIFY_INFORMATION {
       DWORD NextEntryOffset;
@@ -3254,38 +3538,52 @@ typedef DWORD LCID;
 
 #define IO_REPARSE_TAG_MOUNT_POINT (0xA0000003L)
 #define IO_REPARSE_TAG_HSM (0xC0000004L)
+#define IO_REPARSE_TAG_HSM2 (0x80000006L)
 #define IO_REPARSE_TAG_SIS (0x80000007L)
+#define IO_REPARSE_TAG_WIM (0x80000008L)
+#define IO_REPARSE_TAG_CSV (0x80000009L)
 #define IO_REPARSE_TAG_DFS (0x8000000AL)
 #define IO_REPARSE_TAG_FILTER_MANAGER (0x8000000BL)
+#define IO_REPARSE_TAG_DFSR (0x80000012L)
+#define IO_REPARSE_TAG_SYMLINK (0xA000000CL)
+
 #define IO_COMPLETION_MODIFY_STATE 0x0002
 #define IO_COMPLETION_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED|SYNCHRONIZE|0x3)
 #define DUPLICATE_CLOSE_SOURCE 0x00000001
 #define DUPLICATE_SAME_ACCESS 0x00000002
 
-    typedef enum _SYSTEM_POWER_STATE {
-      PowerSystemUnspecified = 0,PowerSystemWorking = 1,PowerSystemSleeping1 = 2,PowerSystemSleeping2 = 3,PowerSystemSleeping3 = 4,PowerSystemHibernate = 5,PowerSystemShutdown = 6,PowerSystemMaximum = 7
-    } SYSTEM_POWER_STATE,*PSYSTEM_POWER_STATE;
+  typedef enum _SYSTEM_POWER_STATE {
+    PowerSystemUnspecified = 0,PowerSystemWorking = 1,PowerSystemSleeping1 = 2,PowerSystemSleeping2 = 3,PowerSystemSleeping3 = 4,PowerSystemHibernate = 5,PowerSystemShutdown = 6,PowerSystemMaximum = 7
+  } SYSTEM_POWER_STATE,*PSYSTEM_POWER_STATE;
 
 #define POWER_SYSTEM_MAXIMUM 7
 
-    typedef enum {
-      PowerActionNone = 0,PowerActionReserved,PowerActionSleep,PowerActionHibernate,PowerActionShutdown,PowerActionShutdownReset,PowerActionShutdownOff,PowerActionWarmEject
-    } POWER_ACTION,*PPOWER_ACTION;
+  typedef enum {
+    PowerActionNone = 0, PowerActionReserved, PowerActionSleep, PowerActionHibernate,
+    PowerActionShutdown, PowerActionShutdownReset, PowerActionShutdownOff,
+    PowerActionWarmEject
+  } POWER_ACTION,*PPOWER_ACTION;
 
-    typedef enum _DEVICE_POWER_STATE {
-      PowerDeviceUnspecified = 0,PowerDeviceD0,PowerDeviceD1,PowerDeviceD2,PowerDeviceD3,PowerDeviceMaximum
-    } DEVICE_POWER_STATE,*PDEVICE_POWER_STATE;
+  typedef enum _DEVICE_POWER_STATE {
+    PowerDeviceUnspecified = 0, PowerDeviceD0, PowerDeviceD1, PowerDeviceD2, PowerDeviceD3,
+    PowerDeviceMaximum
+  } DEVICE_POWER_STATE,*PDEVICE_POWER_STATE;
+
+  typedef enum _MONITOR_DISPLAY_STATE {
+    PowerMonitorOff = 0, PowerMonitorOn, PowerMonitorDim
+  } MONITOR_DISPLAY_STATE, *PMONITOR_DISPLAY_STATE;
 
 #define ES_SYSTEM_REQUIRED ((DWORD)0x00000001)
 #define ES_DISPLAY_REQUIRED ((DWORD)0x00000002)
 #define ES_USER_PRESENT ((DWORD)0x00000004)
+#define ES_AWAYMODE_REQUIRED ((DWORD)0x00000040)
 #define ES_CONTINUOUS ((DWORD)0x80000000)
 
-    typedef DWORD EXECUTION_STATE;
+  typedef DWORD EXECUTION_STATE;
 
-    typedef enum {
-      LT_DONT_CARE,LT_LOWEST_LATENCY
-    } LATENCY_TIME;
+  typedef enum {
+    LT_DONT_CARE,LT_LOWEST_LATENCY
+  } LATENCY_TIME;
 
 #define PDCAP_D0_SUPPORTED 0x00000001
 #define PDCAP_D1_SUPPORTED 0x00000002
@@ -3326,6 +3624,7 @@ typedef DWORD LCID;
 #define POWER_ACTION_QUERY_ALLOWED 0x00000001
 #define POWER_ACTION_UI_ALLOWED 0x00000002
 #define POWER_ACTION_OVERRIDE_APPS 0x00000004
+#define POWER_ACTION_PSEUDO_TRANSITION 0x08000000
 #define POWER_ACTION_LIGHTEST_FIRST 0x10000000
 #define POWER_ACTION_LOCK_CONSOLE 0x20000000
 #define POWER_ACTION_DISABLE_WAKES 0x40000000
@@ -3336,6 +3635,7 @@ typedef DWORD LCID;
 #define POWER_LEVEL_USER_NOTIFY_EXEC 0x00000004
 #define POWER_USER_NOTIFY_BUTTON 0x00000008
 #define POWER_USER_NOTIFY_SHUTDOWN 0x00000010
+#define POWER_USER_NOTIFY_FORCED_SHUTDOWN 0x00000020
 #define POWER_FORCE_TRIGGER_RESET 0x80000000
 
     typedef struct {
@@ -3436,7 +3736,8 @@ typedef DWORD LCID;
       BOOLEAN ProcessorThrottle;
       BYTE ProcessorMinThrottle;
       BYTE ProcessorMaxThrottle;
-      BYTE spare2[4];
+      BOOLEAN FastSystemS4;
+      BYTE spare2[3];
       BOOLEAN DiskSpinDown;
       BYTE spare3[8];
       BOOLEAN SystemBatteriesPresent;
@@ -3747,12 +4048,12 @@ typedef DWORD LCID;
     typedef PIMAGE_OPTIONAL_HEADER64 PIMAGE_OPTIONAL_HEADER;
 #define IMAGE_SIZEOF_NT_OPTIONAL_HEADER IMAGE_SIZEOF_NT_OPTIONAL64_HEADER
 #define IMAGE_NT_OPTIONAL_HDR_MAGIC IMAGE_NT_OPTIONAL_HDR64_MAGIC
-#else
+#else  /* _WIN64 */
     typedef IMAGE_OPTIONAL_HEADER32 IMAGE_OPTIONAL_HEADER;
     typedef PIMAGE_OPTIONAL_HEADER32 PIMAGE_OPTIONAL_HEADER;
 #define IMAGE_SIZEOF_NT_OPTIONAL_HEADER IMAGE_SIZEOF_NT_OPTIONAL32_HEADER
 #define IMAGE_NT_OPTIONAL_HDR_MAGIC IMAGE_NT_OPTIONAL_HDR32_MAGIC
-#endif
+#endif /* _WIN64 */
 
     typedef struct _IMAGE_NT_HEADERS64 {
       DWORD Signature;
@@ -3774,10 +4075,10 @@ typedef DWORD LCID;
 #ifdef _WIN64
     typedef IMAGE_NT_HEADERS64 IMAGE_NT_HEADERS;
     typedef PIMAGE_NT_HEADERS64 PIMAGE_NT_HEADERS;
-#else
+#else  /* _WIN64 */
     typedef IMAGE_NT_HEADERS32 IMAGE_NT_HEADERS;
     typedef PIMAGE_NT_HEADERS32 PIMAGE_NT_HEADERS;
-#endif
+#endif /* _WIN64 */
 
 #define IMAGE_FIRST_SECTION(ntheader) ((PIMAGE_SECTION_HEADER) ((ULONG_PTR)ntheader + FIELD_OFFSET(IMAGE_NT_HEADERS,OptionalHeader) + ((PIMAGE_NT_HEADERS)(ntheader))->FileHeader.SizeOfOptionalHeader))
 
@@ -3794,7 +4095,11 @@ typedef DWORD LCID;
 #define IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER 12
 #define IMAGE_SUBSYSTEM_EFI_ROM 13
 #define IMAGE_SUBSYSTEM_XBOX 14
+#define IMAGE_SUBSYSTEM_WINDOWS_BOOT_APPLICATION 16
 
+#define IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE 0x0040
+#define IMAGE_DLLCHARACTERISTICS_FORCE_INTEGRITY 0x0080
+#define IMAGE_DLLCHARACTERISTICS_NX_COMPAT 0x0100
 #define IMAGE_DLLCHARACTERISTICS_NO_ISOLATION 0x0200
 #define IMAGE_DLLCHARACTERISTICS_NO_SEH 0x0400
 #define IMAGE_DLLCHARACTERISTICS_NO_BIND 0x0800
@@ -3918,6 +4223,7 @@ typedef DWORD LCID;
 #define IMAGE_SYM_ABSOLUTE (SHORT)-1
 #define IMAGE_SYM_DEBUG (SHORT)-2
 #define IMAGE_SYM_SECTION_MAX 0xFEFF
+#define IMAGE_SYM_SECTION_MAX_EX MAXLONG
 
 #define IMAGE_SYM_TYPE_NULL 0x0000
 #define IMAGE_SYM_TYPE_VOID 0x0001
@@ -4070,7 +4376,7 @@ typedef DWORD LCID;
 #define IMAGE_WEAK_EXTERN_SEARCH_ALIAS 3
 
     typedef struct _IMAGE_RELOCATION {
-      __extension__ union {
+      __MINGW_EXTENSION union {
 	DWORD VirtualAddress;
 	DWORD RelocCount;
       };
@@ -4298,6 +4604,12 @@ typedef DWORD LCID;
 #define IMAGE_REL_M32R_SECREL32 0x000D
 #define IMAGE_REL_M32R_TOKEN 0x000E
 
+#define IMAGE_REL_EBC_ABSOLUTE 0x0000
+#define IMAGE_REL_EBC_ADDR32NB 0x0001
+#define IMAGE_REL_EBC_REL32 0x0002
+#define IMAGE_REL_EBC_SECTION 0x0003
+#define IMAGE_REL_EBC_SECREL 0x0004
+
 #define EXT_IMM64(Value,Address,Size,InstPos,ValPos) Value |= (((ULONGLONG)((*(Address) >> InstPos) & (((ULONGLONG)1 << Size) - 1))) << ValPos)
 #define INS_IMM64(Value,Address,Size,InstPos,ValPos) *(PDWORD)Address = (*(PDWORD)Address & ~(((1 << Size) - 1) << InstPos)) | ((DWORD)((((ULONGLONG)Value >> ValPos) & (((ULONGLONG)1 << Size) - 1))) << InstPos)
 
@@ -4523,7 +4835,7 @@ typedef DWORD LCID;
 #define IMAGE_SNAP_BY_ORDINAL(Ordinal) IMAGE_SNAP_BY_ORDINAL64(Ordinal)
     typedef IMAGE_TLS_DIRECTORY64 IMAGE_TLS_DIRECTORY;
     typedef PIMAGE_TLS_DIRECTORY64 PIMAGE_TLS_DIRECTORY;
-#else
+#else  /* _WIN64 */
 #define IMAGE_ORDINAL_FLAG IMAGE_ORDINAL_FLAG32
 #define IMAGE_ORDINAL(Ordinal) IMAGE_ORDINAL32(Ordinal)
     typedef IMAGE_THUNK_DATA32 IMAGE_THUNK_DATA;
@@ -4531,10 +4843,10 @@ typedef DWORD LCID;
 #define IMAGE_SNAP_BY_ORDINAL(Ordinal) IMAGE_SNAP_BY_ORDINAL32(Ordinal)
     typedef IMAGE_TLS_DIRECTORY32 IMAGE_TLS_DIRECTORY;
     typedef PIMAGE_TLS_DIRECTORY32 PIMAGE_TLS_DIRECTORY;
-#endif
+#endif /* _WIN64 */
 
     typedef struct _IMAGE_IMPORT_DESCRIPTOR {
-      __extension__ union {
+      __MINGW_EXTENSION union {
 	DWORD Characteristics;
 	DWORD OriginalFirstThunk;
       };
@@ -4571,17 +4883,17 @@ typedef DWORD LCID;
 #define IMAGE_RESOURCE_DATA_IS_DIRECTORY 0x80000000
 
     typedef struct _IMAGE_RESOURCE_DIRECTORY_ENTRY {
-      __extension__ union {
-	__extension__ struct {
+      __MINGW_EXTENSION union {
+	__MINGW_EXTENSION struct {
 	  DWORD NameOffset:31;
 	  DWORD NameIsString:1;
 	};
 	DWORD Name;
 	WORD Id;
       };
-      __extension__  union {
+      __MINGW_EXTENSION union {
 	DWORD OffsetToData;
-	__extension__ struct {
+	__MINGW_EXTENSION struct {
 	  DWORD OffsetToDirectory:31;
 	  DWORD DataIsDirectory:1;
 	};
@@ -4654,10 +4966,10 @@ typedef DWORD LCID;
 #ifdef _WIN64
     typedef IMAGE_LOAD_CONFIG_DIRECTORY64 IMAGE_LOAD_CONFIG_DIRECTORY;
     typedef PIMAGE_LOAD_CONFIG_DIRECTORY64 PIMAGE_LOAD_CONFIG_DIRECTORY;
-#else
+#else  /* _WIN64 */
     typedef IMAGE_LOAD_CONFIG_DIRECTORY32 IMAGE_LOAD_CONFIG_DIRECTORY;
     typedef PIMAGE_LOAD_CONFIG_DIRECTORY32 PIMAGE_LOAD_CONFIG_DIRECTORY;
-#endif
+#endif /* _WIN64 */
 
     typedef struct _IMAGE_CE_RUNTIME_FUNCTION_ENTRY {
       DWORD FuncStart;
@@ -4768,7 +5080,7 @@ typedef DWORD LCID;
     typedef struct _IMAGE_FUNCTION_ENTRY64 {
       ULONGLONG StartingAddress;
       ULONGLONG EndingAddress;
-      __extension__ union {
+      __MINGW_EXTENSION union {
 	ULONGLONG EndOfPrologue;
 	ULONGLONG UnwindInfoAddress;
       };
@@ -4833,7 +5145,7 @@ typedef DWORD LCID;
       WORD Machine;
       DWORD TimeDateStamp;
       DWORD SizeOfData;
-      __extension__ union {
+      __MINGW_EXTENSION union {
 	WORD Ordinal;
 	WORD Hint;
       };
@@ -4887,12 +5199,12 @@ typedef DWORD LCID;
     typedef struct DECLSPEC_ALIGN(16) _SLIST_ENTRY {
       PSLIST_ENTRY Next;
     } SLIST_ENTRY;
-#else
+#else  /* _WIN64 */
 
 #define SLIST_ENTRY SINGLE_LIST_ENTRY
 #define _SLIST_ENTRY _SINGLE_LIST_ENTRY
 #define PSLIST_ENTRY PSINGLE_LIST_ENTRY
-#endif
+#endif /* _WIN64 */
 
 #if defined(_WIN64)
 
@@ -4902,7 +5214,7 @@ typedef DWORD LCID;
     } SLIST_HEADER;
 
     typedef struct _SLIST_HEADER *PSLIST_HEADER;
-#else
+#else  /* _WIN64 */
 
     typedef union _SLIST_HEADER {
       ULONGLONG Alignment;
@@ -4912,8 +5224,8 @@ typedef DWORD LCID;
 	WORD Sequence;
       };
     } SLIST_HEADER,*PSLIST_HEADER;
-#endif
-#endif
+#endif /* _WIN64 */
+#endif /* _SLIST_HEADER_ */
 
     NTSYSAPI VOID NTAPI RtlInitializeSListHead(PSLIST_HEADER ListHead);
     NTSYSAPI PSLIST_ENTRY NTAPI RtlFirstEntrySList(const SLIST_HEADER *ListHead);
@@ -4969,6 +5281,7 @@ typedef DWORD LCID;
 #define COMPRESSION_ENGINE_MAXIMUM (0x0100)
 #define COMPRESSION_ENGINE_HIBER (0x0200)
 
+#ifndef __CRT__NO_INLINE
 #if _DBG_MEMCPY_INLINE_ && !defined(_MEMCPY_INLINE_) && !defined(_CRTBLD)
 #define _MEMCPY_INLINE_
     __CRT_INLINE PVOID __cdecl memcpy_inline(void *dst,const void *src,size_t size) {
@@ -4978,9 +5291,12 @@ typedef DWORD LCID;
       return memcpy(dst,src,size);
     }
 #define memcpy memcpy_inline
-#endif
+#endif /* _DBG_MEMCPY_INLINE_ && !defined(_MEMCPY_INLINE_) && !defined(_CRTBLD) */
+#endif /* !__CRT__NO_INLINE */
 
     NTSYSAPI SIZE_T NTAPI RtlCompareMemory(const VOID *Source1,const VOID *Source2,SIZE_T Length);
+
+    void WINAPI RtlUnwind(PVOID TargetFrame,PVOID TargetIp,PEXCEPTION_RECORD ExceptionRecord,PVOID ReturnValue);
 
 #define RtlEqualMemory(Destination,Source,Length) (!memcmp((Destination),(Source),(Length)))
 #define RtlMoveMemory(Destination,Source,Length) memmove((Destination),(Source),(Length))
@@ -4988,7 +5304,9 @@ typedef DWORD LCID;
 #define RtlFillMemory(Destination,Length,Fill) memset((Destination),(Fill),(Length))
 #define RtlZeroMemory(Destination,Length) memset((Destination),0,(Length))
 
-    __CRT_INLINE PVOID RtlSecureZeroMemory(PVOID ptr,SIZE_T cnt) {
+    PVOID WINAPI RtlSecureZeroMemory(PVOID ptr,SIZE_T cnt);
+#ifndef __CRT__NO_INLINE
+    __CRT_INLINE PVOID WINAPI RtlSecureZeroMemory(PVOID ptr,SIZE_T cnt) {
       volatile char *vptr =(volatile char *)ptr;
 #ifdef __x86_64
       __stosb((PBYTE)((DWORD64)vptr),0,cnt);
@@ -4998,9 +5316,10 @@ typedef DWORD LCID;
 	vptr++;
 	cnt--;
       }
-#endif
+#endif /* __x86_64 */
       return ptr;
     }
+#endif /* !__CRT__NO_INLINE */
 
     typedef struct _MESSAGE_RESOURCE_ENTRY {
       WORD Length;
@@ -5125,11 +5444,21 @@ typedef DWORD LCID;
       LIST_ENTRY ProcessLocksList;
       DWORD EntryCount;
       DWORD ContentionCount;
-      DWORD Spare[2];
+      DWORD Flags;
+      WORD CreatorBackTraceIndexHigh;
+      WORD SpareWORD;
     } RTL_CRITICAL_SECTION_DEBUG,*PRTL_CRITICAL_SECTION_DEBUG,RTL_RESOURCE_DEBUG,*PRTL_RESOURCE_DEBUG;
 
 #define RTL_CRITSECT_TYPE 0
 #define RTL_RESOURCE_TYPE 1
+
+#define RTL_CRITICAL_SECTION_FLAG_NO_DEBUG_INFO 0x01000000
+#define RTL_CRITICAL_SECTION_FLAG_DYNAMIC_SPIN 0x02000000
+#define RTL_CRITICAL_SECTION_FLAG_STATIC_INIT 0x04000000
+#define RTL_CRITICAL_SECTION_ALL_FLAG_BITS 0xFF000000
+#define RTL_CRITICAL_SECTION_FLAG_RESERVED (RTL_CRITICAL_SECTION_ALL_FLAG_BITS & (~(RTL_CRITICAL_SECTION_FLAG_NO_DEBUG_INFO | RTL_CRITICAL_SECTION_FLAG_DYNAMIC_SPIN | RTL_CRITICAL_SECTION_FLAG_STATIC_INIT)))
+
+#define RTL_CRITICAL_SECTION_DEBUG_FLAG_STATIC_INIT 0x00000001
 
     typedef struct _RTL_CRITICAL_SECTION {
       PRTL_CRITICAL_SECTION_DEBUG DebugInfo;
@@ -5736,21 +6065,16 @@ typedef DWORD LCID;
     } TAPE_DRIVE_PROBLEM_TYPE;
 
 #if defined(__x86_64)
+    struct _TEB *NtCurrentTeb(VOID);
+    PVOID GetCurrentFiber(VOID);
+    PVOID GetFiberData(VOID);
+#ifndef __CRT__NO_INLINE
     __CRT_INLINE struct _TEB *NtCurrentTeb(VOID) { return (struct _TEB *)__readgsqword(FIELD_OFFSET(NT_TIB,Self)); }
     __CRT_INLINE PVOID GetCurrentFiber(VOID) { return(PVOID)__readgsqword(FIELD_OFFSET(NT_TIB,FiberData)); }
     __CRT_INLINE PVOID GetFiberData(VOID) {
       return *(PVOID *)GetCurrentFiber();
     }
-#endif
-
-#if(defined(_X86_) && !defined(__x86_64))
-#define PcTeb 0x18
-    __CRT_INLINE struct _TEB *NtCurrentTeb(void) {
-      struct _TEB *ret;
-      __asm__ volatile ("movl	%%fs:0x18,%0"
-	: "=r" (ret));
-      return ret;
-    }
+#endif /* !__CRT__NO_INLINE */
 #endif
 
 #define ACTIVATION_CONTEXT_SECTION_ASSEMBLY_INFORMATION (1)
@@ -5767,4 +6091,6 @@ typedef DWORD LCID;
 #ifdef __cplusplus
   }
 #endif
-#endif
+
+#endif /* _WINNT_ */
+

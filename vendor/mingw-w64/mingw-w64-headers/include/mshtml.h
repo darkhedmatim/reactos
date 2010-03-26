@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #if !defined(__cplusplus) || defined(CINTERFACE)
 #include "mshtmlc.h"
@@ -3237,8 +3237,11 @@ typedef struct IHostBehaviorInit IHostBehaviorInit;
 extern "C" {
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
 #include <olectl.h>
   EXTERN_C const GUID CMDSETID_Forms3;

@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -277,8 +277,11 @@ typedef struct IResultData2 IResultData2;
 extern "C" {
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
 #ifndef MMC_VER
 #define MMC_VER 0x0200
@@ -400,7 +403,7 @@ extern "C" {
 #define MMC_PSO_NO_PROPTITLE (0x8)
 
   typedef enum _MMC_CONTROL_TYPE {
-    TOOLBAR = 0,MENUBUTTON = TOOLBAR + 1,COMBOBOXBAR = MENUBUTTON + 1
+    TOOLBAR = 0,MENUBUTTON,COMBOBOXBAR
   } MMC_CONTROL_TYPE;
 
   typedef enum _MMC_CONSOLE_VERB {
@@ -1951,9 +1954,8 @@ extern "C" {
 #endif
 
   typedef enum _MMC_TASK_DISPLAY_TYPE {
-    MMC_TASK_DISPLAY_UNINITIALIZED = 0,MMC_TASK_DISPLAY_TYPE_SYMBOL = MMC_TASK_DISPLAY_UNINITIALIZED + 1,
-    MMC_TASK_DISPLAY_TYPE_VANILLA_GIF = MMC_TASK_DISPLAY_TYPE_SYMBOL + 1,MMC_TASK_DISPLAY_TYPE_CHOCOLATE_GIF = MMC_TASK_DISPLAY_TYPE_VANILLA_GIF + 1,
-    MMC_TASK_DISPLAY_TYPE_BITMAP = MMC_TASK_DISPLAY_TYPE_CHOCOLATE_GIF + 1
+    MMC_TASK_DISPLAY_UNINITIALIZED = 0,MMC_TASK_DISPLAY_TYPE_SYMBOL,MMC_TASK_DISPLAY_TYPE_VANILLA_GIF,
+    MMC_TASK_DISPLAY_TYPE_CHOCOLATE_GIF,MMC_TASK_DISPLAY_TYPE_BITMAP
   } MMC_TASK_DISPLAY_TYPE;
 
   typedef struct _MMC_TASK_DISPLAY_SYMBOL {
@@ -1969,15 +1971,14 @@ extern "C" {
 
   typedef struct _MMC_TASK_DISPLAY_OBJECT {
     MMC_TASK_DISPLAY_TYPE eDisplayType;
-    union {
+    __MINGW_EXTENSION union {
       MMC_TASK_DISPLAY_BITMAP uBitmap;
       MMC_TASK_DISPLAY_SYMBOL uSymbol;
     };
   } MMC_TASK_DISPLAY_OBJECT;
 
   typedef enum _MMC_ACTION_TYPE {
-    MMC_ACTION_UNINITIALIZED = -1,MMC_ACTION_ID = MMC_ACTION_UNINITIALIZED + 1,MMC_ACTION_LINK = MMC_ACTION_ID + 1,
-    MMC_ACTION_SCRIPT = MMC_ACTION_LINK + 1
+    MMC_ACTION_UNINITIALIZED = -1,MMC_ACTION_ID = 0,MMC_ACTION_LINK,MMC_ACTION_SCRIPT
   } MMC_ACTION_TYPE;
 
   typedef struct _MMC_TASK {
@@ -1985,7 +1986,7 @@ extern "C" {
     LPOLESTR szText;
     LPOLESTR szHelpString;
     MMC_ACTION_TYPE eActionType;
-    union {
+    __MINGW_EXTENSION union {
       LONG_PTR nCommandID;
       LPOLESTR szActionURL;
       LPOLESTR szScript;
@@ -2483,7 +2484,7 @@ extern "C" {
 
 #if (MMC_VER >= 0x0200)
   typedef enum _MMC_VIEW_TYPE {
-    MMC_VIEW_TYPE_LIST = 0,MMC_VIEW_TYPE_HTML = MMC_VIEW_TYPE_LIST + 1,MMC_VIEW_TYPE_OCX = MMC_VIEW_TYPE_HTML + 1
+    MMC_VIEW_TYPE_LIST = 0,MMC_VIEW_TYPE_HTML,MMC_VIEW_TYPE_OCX
   } MMC_VIEW_TYPE;
 
 #define RVTI_MISC_OPTIONS_NOLISTVIEWS (0x1)
@@ -2505,13 +2506,13 @@ extern "C" {
     LPOLESTR pstrPersistableViewDescription;
     MMC_VIEW_TYPE eViewType;
     DWORD dwMiscOptions;
-    union {
+    __MINGW_EXTENSION union {
       DWORD dwListOptions;
-      struct {
+      __MINGW_EXTENSION struct {
 	DWORD dwHTMLOptions;
 	LPOLESTR pstrURL;
       };
-      struct {
+      __MINGW_EXTENSION struct {
 	DWORD dwOCXOptions;
 	LPUNKNOWN pUnkControl;
       };

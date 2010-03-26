@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 
 #undef CRTDLL
@@ -32,7 +32,7 @@ extern char *** __MINGW_IMP_SYMBOL(__initenv);
 #endif
 
 /* Hack, for bug in ld.  Will be removed soon.  */
-#define __ImageBase _image_base__
+#define __ImageBase __MINGW_LSYMBOL(_image_base__)
 /* This symbol is defined by ld.  */
 extern IMAGE_DOS_HEADER __ImageBase;
 
@@ -62,6 +62,7 @@ extern _CRTALLOC(".CRT$XIZ") _PIFV __xi_z[];
 extern _CRTALLOC(".CRT$XCA") _PVFV __xc_a[];
 extern _CRTALLOC(".CRT$XCZ") _PVFV __xc_z[];
 
+/* TLS initialization hook.  */
 extern const PIMAGE_TLS_CALLBACK __dyn_tls_init_callback;
 
 extern _PVFV *__onexitbegin;
@@ -91,7 +92,7 @@ static _startupinfo startinfo;
 static LPTOP_LEVEL_EXCEPTION_FILTER __mingw_oldexcpt_handler = NULL;
 
 extern void _pei386_runtime_relocator (void);
-static CALLBACK long _gnu_exception_handler (EXCEPTION_POINTERS * exception_data);
+static long CALLBACK _gnu_exception_handler (EXCEPTION_POINTERS * exception_data);
 #ifdef WPRFLAG
 static void duplicate_ppstrings (int ac, wchar_t ***av);
 #else
@@ -151,12 +152,20 @@ pre_cpp_init (void)
 
 static int __tmainCRTStartup (void);
 
+int WinMainCRTStartup (void);
+
 int WinMainCRTStartup (void)
 {
   mingw_app_type = 1;
   __security_init_cookie ();
   return __tmainCRTStartup ();
 }
+
+int mainCRTStartup (void);
+
+#ifdef _WIN64
+int __mingw_init_ehandler (void);
+#endif
 
 int mainCRTStartup (void)
 {
@@ -165,13 +174,13 @@ int mainCRTStartup (void)
   return __tmainCRTStartup ();
 }
 
-
+static
 __declspec(noinline) int
 __tmainCRTStartup (void)
 {
   _TCHAR *lpszCommandLine = NULL;
   STARTUPINFO StartupInfo;
-  BOOL inDoubleQuote = FALSE;
+  WINBOOL inDoubleQuote = FALSE;
   memset (&StartupInfo, 0, sizeof (STARTUPINFO));
   
   if (mingw_app_type)
@@ -211,16 +220,13 @@ __tmainCRTStartup (void)
     if (! nested)
       (VOID)InterlockedExchangePointer ((volatile PVOID *) &__native_startup_lock, 0);
     
-    if (__dyn_tls_init_callback != NULL && _IsNonwritableInCurrentImage ((PBYTE) &__dyn_tls_init_callback))
+    if (__dyn_tls_init_callback != NULL)
       __dyn_tls_init_callback (NULL, DLL_THREAD_ATTACH, NULL);
     
     _pei386_runtime_relocator ();
     __mingw_oldexcpt_handler = SetUnhandledExceptionFilter (_gnu_exception_handler);
 #ifdef _WIN64
-   AddVectoredContinueHandler
-	(1, (PVECTORED_EXCEPTION_HANDLER)_gnu_exception_handler);
-   AddVectoredExceptionHandler
-	(1, (PVECTORED_EXCEPTION_HANDLER)_gnu_exception_handler);
+    __mingw_init_ehandler ();
 #endif
     __mingw_prepare_except_for_msvcr80_and_higher ();
     
@@ -317,7 +323,7 @@ check_managed_app (void)
   return 0;
 }
 
-static CALLBACK long
+static long CALLBACK
 _gnu_exception_handler (EXCEPTION_POINTERS *exception_data)
 {
   void (*old_handler) (int);
@@ -405,13 +411,6 @@ _gnu_exception_handler (EXCEPTION_POINTERS *exception_data)
 
   if (action == EXCEPTION_CONTINUE_SEARCH && __mingw_oldexcpt_handler)
     action = (*__mingw_oldexcpt_handler)(exception_data);
-#ifdef _WIN64
-  if (action == EXCEPTION_CONTINUE_SEARCH)
-    {
-      SetUnhandledExceptionFilter (NULL);
-      action = UnhandledExceptionFilter (exception_data);
-    }
-#endif
   return action;
 }
 
@@ -460,7 +459,11 @@ static void duplicate_ppstrings (int ac, char ***av)
 #endif
 
 static void
-__mingw_invalidParameterHandler (const wchar_t *expression, const wchar_t *function, const wchar_t *file, unsigned int line, uintptr_t pReserved)
+__mingw_invalidParameterHandler (const wchar_t *expression __attribute__ ((__unused__)),
+				 const wchar_t *function __attribute__ ((__unused__)),
+				 const wchar_t *file __attribute__ ((__unused__)),
+				 unsigned int line __attribute__ ((__unused__)),
+				 uintptr_t pReserved __attribute__ ((__unused__)))
 {
 #ifdef __MINGW_SHOW_INVALID_PARAMETER_EXCEPTION
    wprintf(L"Invalid parameter detected in function %s. File: %s Line: %d\n", function, file, line);

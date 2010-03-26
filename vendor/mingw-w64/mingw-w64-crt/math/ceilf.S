@@ -1,14 +1,16 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
+#include <_mingw_mac.h>
+
 	.file	"ceilf.S"
 	.text
 	.align 4
-.globl _ceilf
-	.def	_ceilf;	.scl	2;	.type	32;	.endef
-_ceilf:
+.globl __MINGW_USYMBOL(ceilf)
+	.def	__MINGW_USYMBOL(ceilf);	.scl	2;	.type	32;	.endef
+__MINGW_USYMBOL(ceilf):
 #ifdef _WIN64
 	subq	$24,%rsp
 	movss	%xmm0,8(%rsp)
@@ -17,7 +19,7 @@ _ceilf:
 	fstcw	4(%rsp)			/* store fpu control word */
 
 	movl	$0x0800,%edx		/* round towards +oo */
-	orl		4(%rsp),%edx
+	orl	4(%rsp),%edx
 	andl	$0xfbff,%edx
 	movl	%edx,(%rsp)
 	fldcw	(%rsp)			/* load modified control word */

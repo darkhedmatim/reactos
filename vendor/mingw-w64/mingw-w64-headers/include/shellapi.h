@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _INC_SHELLAPI
 #define _INC_SHELLAPI
@@ -306,7 +306,7 @@ extern "C" {
     LPCSTR lpClass;
     HKEY hkeyClass;
     DWORD dwHotKey;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       HANDLE hIcon;
       HANDLE hMonitor;
     } DUMMYUNIONNAME;
@@ -327,7 +327,7 @@ extern "C" {
     LPCWSTR lpClass;
     HKEY hkeyClass;
     DWORD dwHotKey;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       HANDLE hIcon;
       HANDLE hMonitor;
     } DUMMYUNIONNAME;
@@ -374,8 +374,8 @@ extern "C" {
 
   typedef struct _SHQUERYRBINFO {
     DWORD cbSize;
-    __int64 i64Size;
-    __int64 i64NumItems;
+    __MINGW_EXTENSION __int64 i64Size;
+    __MINGW_EXTENSION __int64 i64NumItems;
   } SHQUERYRBINFO,*LPSHQUERYRBINFO;
 
 #define SHERB_NOCONFIRMATION 0x00000001
@@ -406,7 +406,7 @@ extern "C" {
     DWORD dwState;
     DWORD dwStateMask;
     CHAR szInfo[256];
-    __extension__ union {
+    __MINGW_EXTENSION union {
       UINT uTimeout;
       UINT uVersion;
     } DUMMYUNIONNAME;
@@ -428,7 +428,7 @@ extern "C" {
     DWORD dwState;
     DWORD dwStateMask;
     WCHAR szInfo[256];
-    __extension__ union {
+    __MINGW_EXTENSION union {
       UINT uTimeout;
       UINT uVersion;
     } DUMMYUNIONNAME;

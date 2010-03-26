@@ -364,7 +364,8 @@ clearerr
 clock
 cos
 cosh
-ctime
+ctime DATA
+;_ctime32 = ctime
 difftime
 div
 exit
@@ -400,7 +401,8 @@ getc
 getchar
 getenv
 gets
-gmtime
+gmtime DATA
+;_gmtime32 = gmtime
 is_wctype
 isalnum
 isalpha
@@ -431,7 +433,8 @@ labs
 ldexp
 ldiv
 localeconv
-localtime
+localtime DATA
+;_localtime32 = localtime
 log
 log10
 malloc
@@ -443,7 +446,8 @@ memcmp
 memcpy
 memmove
 memset
-mktime
+mktime DATA
+;_mktime32 = mktime
 modf
 perror
 pow
@@ -495,7 +499,8 @@ swscanf
 system
 tan
 tanh
-time
+time DATA
+;_time32 = time
 tmpfile
 tmpnam
 tolower

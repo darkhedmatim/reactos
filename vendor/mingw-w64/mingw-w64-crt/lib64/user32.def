@@ -74,6 +74,7 @@ ClientToScreen
 ClipCursor
 CloseClipboard
 CloseDesktop
+CloseTouchInputHandle
 CloseWindow
 CloseWindowStation
 CopyAcceleratorTableA
@@ -364,6 +365,7 @@ GetTaskmanWindow
 GetThreadDesktop
 GetTitleBarInfo
 GetTopWindow
+GetTouchInputInfo
 GetUpdateRect
 GetUpdateRgn
 GetUserObjectInformationA
@@ -437,6 +439,7 @@ IsProcess16Bit
 IsRectEmpty
 IsSETEnabled
 IsServerSideWindow
+IsTouchWindow
 IsWinEventHookInstalled
 IsWindow
 IsWindowEnabled
@@ -554,11 +557,13 @@ RegisterDeviceNotificationW
 RegisterHotKey
 RegisterLogonProcess
 RegisterMessagePumpHook
+RegisterPowerSettingNotification
 RegisterRawInputDevices
 RegisterServicesProcess
 RegisterShellHookWindow
 RegisterSystemThread
 RegisterTasklist
+RegisterTouchWindow
 RegisterUserApiHook
 RegisterWindowMessageA
 RegisterWindowMessageW
@@ -709,6 +714,8 @@ UnregisterClassW
 UnregisterDeviceNotification
 UnregisterHotKey
 UnregisterMessagePumpHook
+UnregisterPowerSettingNotification
+UnregisterTouchWindow
 UnregisterUserApiHook
 UpdateLayeredWindow
 UpdateLayeredWindowIndirect

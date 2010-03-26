@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _NTDDSCRD_H2_
 #define _NTDDSCRD_H2_
@@ -175,7 +175,7 @@ extern "C" {
   typedef struct {
     SCARD_IO_REQUEST ioRequest;
     BYTE bSw1,bSw2;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       SCARD_T0_COMMAND CmdBytes;
       BYTE rgbHeader[5];
     };

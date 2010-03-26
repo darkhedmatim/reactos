@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 /*
   wctype.c
@@ -58,7 +58,7 @@ static const struct {
 wctype_t wctype (const char *property)
 {
   int i;
-  for (i = 0; i < NCMAP; ++i)
+  for (i = 0; i < (int) NCMAP; ++i)
     if (strcmp (property, cmap[i].name) == 0)
       return cmap[i].flags;
   return 0;

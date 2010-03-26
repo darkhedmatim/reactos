@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __SQLTYPES
 #define __SQLTYPES
@@ -96,9 +96,6 @@ extern "C" {
   typedef short int SWORD;
   typedef unsigned long int UDWORD;
   typedef unsigned short int UWORD;
-#ifndef _WIN64
-  typedef UDWORD SQLUINTEGER;
-#endif
 
   typedef signed long SLONG;
   typedef signed short SSHORT;
@@ -183,11 +180,9 @@ extern "C" {
 #endif
 
 #if (ODBCVER >= 0x0300)
-#define ODBCINT64 __int64
-#ifdef ODBCINT64
-  typedef ODBCINT64 SQLBIGINT;
-  typedef unsigned ODBCINT64 SQLUBIGINT;
-#endif
+#define ODBCINT64 /* __MINGW_EXTENSION */ __int64
+  __MINGW_EXTENSION typedef ODBCINT64 SQLBIGINT;
+  __MINGW_EXTENSION typedef unsigned ODBCINT64 SQLUBIGINT;
 #endif
 
 #if (ODBCVER >= 0x0300)

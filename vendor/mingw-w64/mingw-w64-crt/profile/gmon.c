@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -59,7 +55,8 @@ static char rcsid[] = "$OpenBSD: gmon.c,v 1.8 1997/07/23 21:11:27 kstailey Exp $
 #define bzero(ptr,size) memset (ptr, 0, size);
 #endif
 
-struct gmonparam _gmonparam = { GMON_PROF_OFF };
+struct gmonparam _gmonparam = { GMON_PROF_OFF, NULL, 0, NULL, 0, NULL, 0, 0L,
+  0, 0, 0, 0};
 
 static int	s_scale;
 /* see profil(2) where this is describe (incorrectly) */
@@ -75,12 +72,12 @@ fake_sbrk(int size)
     return malloc(size);
 }
 
+void monstartup (size_t, size_t);
+
 void
-monstartup(lowpc, highpc)
-	size_t lowpc;
-	size_t highpc;
+monstartup (size_t lowpc, size_t highpc)
 {
-	register int o;
+	register size_t o;
 	char *cp;
 	struct gmonparam *p = &_gmonparam;
 
@@ -142,8 +139,9 @@ monstartup(lowpc, highpc)
 	moncontrol(1);
 }
 
+void _mcleanup (void);
 void
-_mcleanup()
+_mcleanup(void)
 {
 	int fd;
 	int hz;
@@ -269,8 +267,7 @@ _mcleanup()
  *	all the data structures are ready.
  */
 void
-moncontrol(mode)
-	int mode;
+moncontrol(int mode)
 {
 	struct gmonparam *p = &_gmonparam;
 

@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -114,13 +114,16 @@ typedef struct IWEExtendWizard97 IWEExtendWizard97;
 extern "C"{
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
   typedef enum _CLUADMEX_OBJECT_TYPE {
-    CLUADMEX_OT_NONE = 0,CLUADMEX_OT_CLUSTER = CLUADMEX_OT_NONE + 1,CLUADMEX_OT_NODE = CLUADMEX_OT_CLUSTER + 1,CLUADMEX_OT_GROUP = CLUADMEX_OT_NODE + 1,
-    CLUADMEX_OT_RESOURCE = CLUADMEX_OT_GROUP + 1,CLUADMEX_OT_RESOURCETYPE = CLUADMEX_OT_RESOURCE + 1,CLUADMEX_OT_NETWORK = CLUADMEX_OT_RESOURCETYPE + 1,
-    CLUADMEX_OT_NETINTERFACE = CLUADMEX_OT_NETWORK + 1
+    CLUADMEX_OT_NONE = 0,CLUADMEX_OT_CLUSTER,CLUADMEX_OT_NODE,CLUADMEX_OT_GROUP,
+    CLUADMEX_OT_RESOURCE,CLUADMEX_OT_RESOURCETYPE,CLUADMEX_OT_NETWORK,
+    CLUADMEX_OT_NETINTERFACE
   } CLUADMEX_OBJECT_TYPE;
 
   extern RPC_IF_HANDLE __MIDL_itf_cluadmex_0000_v0_0_c_ifspec;

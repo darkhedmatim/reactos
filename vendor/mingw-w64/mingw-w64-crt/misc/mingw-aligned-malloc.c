@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 /*
   __mingw_aligned_malloc and friends, implemented using Microsoft's public
@@ -35,6 +35,8 @@
 /* Pointer must sometimes be aligned; assume sizeof(void*) is a power of two. */
 #define ORIG_PTR(p) (*(((void **) (UI(p) & (~UI(sizeof(void*) - 1)))) - 1))
 
+void *__mingw_aligned_offset_malloc (size_t, size_t, size_t);
+
 void *
 __mingw_aligned_offset_malloc (size_t size, size_t alignment, size_t offset)
 {
@@ -61,6 +63,11 @@ __mingw_aligned_offset_malloc (size_t size, size_t alignment, size_t offset)
   ORIG_PTR (p) = p0;
   return p;
 }
+
+void * __mingw_aligned_malloc (size_t, size_t);
+void __mingw_aligned_free (void *);
+void * __mingw_aligned_offset_realloc (void *, size_t, size_t, size_t);
+void * __mingw_aligned_realloc (void *, size_t, size_t);
 
 void *
 __mingw_aligned_malloc (size_t size, size_t alignment)

@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -278,17 +278,21 @@ typedef struct AsyncIClusCfgEvictNotify AsyncIClusCfgEvictNotify;
 extern "C"{
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
   typedef enum __MIDL___MIDL_itf_cluscfgserver_0000_0001 {
-    dluUNKNOWN = 0,dluNO_ROOT_DIRECTORY = dluUNKNOWN + 1,dluREMOVABLE_DISK = dluNO_ROOT_DIRECTORY + 1,dluFIXED_DISK = dluREMOVABLE_DISK + 1,
-    dluNETWORK_DRIVE = dluFIXED_DISK + 1,dluCOMPACT_DISC = dluNETWORK_DRIVE + 1,dluRAM_DISK = dluCOMPACT_DISC + 1,dluSYSTEM = dluRAM_DISK + 1,
-    dluUNUSED = dluSYSTEM + 1,dluSTART_OF_SYSTEM_BUS = 50,dluNO_ROOT_DIRECTORY_SYSTEM_BUS = dluSTART_OF_SYSTEM_BUS + 1,
-    dluREMOVABLE_DISK_SYSTEM_BUS = dluNO_ROOT_DIRECTORY_SYSTEM_BUS + 1,dluFIXED_DISK_SYSTEM_BUS = dluREMOVABLE_DISK_SYSTEM_BUS + 1,
-    dluNETWORK_DRIVE_SYSTEM_BUS = dluFIXED_DISK_SYSTEM_BUS + 1,dluCOMPACT_DISC_SYSTEM_BUS = dluNETWORK_DRIVE_SYSTEM_BUS + 1,
-    dluRAM_DISK_SYSTEM_BUS = dluCOMPACT_DISC_SYSTEM_BUS + 1,dluSYSTEM_SYSTEM_BUS = dluRAM_DISK_SYSTEM_BUS + 1,
-    dluUNUSED_SYSTEM_BUS = dluSYSTEM_SYSTEM_BUS + 1,dluMAX = dluUNUSED_SYSTEM_BUS + 1
+    dluUNKNOWN = 0,dluNO_ROOT_DIRECTORY,dluREMOVABLE_DISK,dluFIXED_DISK,
+    dluNETWORK_DRIVE,dluCOMPACT_DISC,dluRAM_DISK,dluSYSTEM,
+    dluUNUSED,
+    dluSTART_OF_SYSTEM_BUS = 50,dluNO_ROOT_DIRECTORY_SYSTEM_BUS = 51,
+    dluREMOVABLE_DISK_SYSTEM_BUS = 52,dluFIXED_DISK_SYSTEM_BUS = 53,
+    dluNETWORK_DRIVE_SYSTEM_BUS = 54,dluCOMPACT_DISC_SYSTEM_BUS =  55,
+    dluRAM_DISK_SYSTEM_BUS = 56,dluSYSTEM_SYSTEM_BUS = 57,
+    dluUNUSED_SYSTEM_BUS = 58,dluMAX = 59
   } EDriveLetterUsage;
 
   typedef struct _DRIVELETTERMAPPING {
@@ -296,8 +300,8 @@ extern "C"{
   } SDriveLetterMapping;
 
   typedef enum __MIDL___MIDL_itf_cluscfgserver_0000_0002 {
-    cmUNKNOWN = 0,cmCREATE_CLUSTER = cmUNKNOWN + 1,cmADD_NODE_TO_CLUSTER = cmCREATE_CLUSTER + 1,cmCLEANUP_NODE_AFTER_EVICT = cmADD_NODE_TO_CLUSTER + 1,
-    cmMAX = cmCLEANUP_NODE_AFTER_EVICT + 1
+    cmUNKNOWN = 0,cmCREATE_CLUSTER,cmADD_NODE_TO_CLUSTER,cmCLEANUP_NODE_AFTER_EVICT,
+    cmMAX
   } ECommitMode;
 
   typedef enum EClusCfgCleanupReason {

@@ -1,14 +1,15 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  *
  * This file is derived from Microsoft implementation file delayhlp.cpp, which
  * is free for users to modify and derive.
  */
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
-
 #include <delayimp.h>
 
 static size_t __strlen(const char *sz)
@@ -46,7 +47,7 @@ static unsigned IndexFromPImgThunkData(PCImgThunkData pitdCur,PCImgThunkData pit
   return (unsigned) (pitdCur - pitdBase);
 }
 
-#define __ImageBase _image_base__
+#define __ImageBase __MINGW_LSYMBOL(_image_base__)
 extern IMAGE_DOS_HEADER __ImageBase;
 
 #define PtrFromRVA(RVA)   (((PBYTE)&__ImageBase) + (RVA))
@@ -131,6 +132,8 @@ static int WINAPI FLoadedAtPreferredAddress(PIMAGE_NT_HEADERS pinh,HMODULE hmod)
 /*typedef unsigned long *PULONG_PTR;*/
 #endif
 
+FARPROC WINAPI __delayLoadHelper2(PCImgDelayDescr pidd,FARPROC *ppfnIATEntry);
+
 FARPROC WINAPI __delayLoadHelper2(PCImgDelayDescr pidd,FARPROC *ppfnIATEntry)
 {
   InternalImgDelayDescr idd = {
@@ -139,7 +142,7 @@ FARPROC WINAPI __delayLoadHelper2(PCImgDelayDescr pidd,FARPROC *ppfnIATEntry)
     (PCImgThunkData) PtrFromRVA(pidd->rvaBoundIAT), (PCImgThunkData) PtrFromRVA(pidd->rvaUnloadIAT),
     pidd->dwTimeStamp};
   DelayLoadInfo dli = {
-    sizeof(DelayLoadInfo),pidd,ppfnIATEntry,idd.szName,{ 0},0,0,0
+    sizeof(DelayLoadInfo),pidd,ppfnIATEntry,idd.szName,{ 0, { NULL } },0,0,0
   };
   HMODULE hmod;
   unsigned iIAT, iINT;

@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef I_SIMPDC_H_
 #define I_SIMPDC_H_
@@ -25,8 +25,11 @@ extern "C" {
 #include "oaidl.h"
 #include "ocidl.h"
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
 #ifndef __ISimpleDataConverter_INTERFACE_DEFINED__
 #define __ISimpleDataConverter_INTERFACE_DEFINED__

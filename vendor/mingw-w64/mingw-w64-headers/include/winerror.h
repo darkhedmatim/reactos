@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _WINERROR_
 #define _WINERROR_
@@ -1742,6 +1742,9 @@
 #ifndef WSA_QOS_EUNKNOWNPSOBJ
 #define WSA_QOS_EUNKNOWNPSOBJ 11024L
 #endif
+#ifndef WSA_QOS_EUNKOWNPSOBJ
+#define WSA_QOS_EUNKOWNPSOBJ WSA_QOS_EUNKNOWNPSOBJ
+#endif
 #ifndef WSA_QOS_EPOLICYOBJ
 #define WSA_QOS_EPOLICYOBJ 11025L
 #endif
@@ -1974,7 +1977,9 @@
 #define _HRESULT_DEFINED
 typedef long HRESULT;
 #endif
+#ifndef __CRT__NO_INLINE
 __CRT_INLINE HRESULT HRESULT_FROM_WIN32(long x) { return x <= 0 ? (HRESULT)x : (HRESULT) (((x) & 0x0000FFFF) | (FACILITY_WIN32 << 16) | 0x80000000);}
+#endif /* !__CRT__NO_INLINE */
 #else
 #define HRESULT_FROM_WIN32(x) __HRESULT_FROM_WIN32(x)
 #endif

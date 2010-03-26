@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 /*	This source code was extracted from the Q8 package created and placed
     in the PUBLIC DOMAIN by Doug Gwyn <gwyn@arl.mil>
@@ -15,11 +15,18 @@
 
 */
 
+#define __CRT__NO_INLINE
 #include	<wchar.h>
+
 #if 0
 int mbsinit(const mbstate_t *ps)
-	{
+{
 	return 1;			/* don't have shift states */
-	}
-
+}
 #endif
+
+int __cdecl mbsinit(const mbstate_t *_P)
+{
+	return (!_P || *_P == 0);
+}
+

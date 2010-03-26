@@ -854,7 +854,8 @@ char *__pformat_fcvt( long double x, int precision, int *dp, int *sign )
 /* TODO: end of conditional to be removed. */
 #endif
 
-static __inline__
+/* Can't be inlined, as it uses alloca.  */
+static
 void __pformat_emit_radix_point( __pformat_t *stream )
 {
   /* Helper to place a localised representation of the radix point
@@ -1468,7 +1469,7 @@ void __pformat_emit_xfloat( __pformat_fpreg_t value, __pformat_t *stream )
     /* taking the rightmost digit in each pass...
      */
     int c = value.__pformat_fpreg_mantissa & 0xF;
-    if( c == value.__pformat_fpreg_mantissa )
+    if( c == (int) value.__pformat_fpreg_mantissa )
     {
       /* inserting the radix point, when we reach the last,
        * (i.e. the most significant digit), unless we found no
@@ -1549,7 +1550,7 @@ void __pformat_emit_xfloat( __pformat_fpreg_t value, __pformat_t *stream )
    * consistency with `%e', `%f' and `%g' styles.
    */
     int min_width = p - buf;
-    int exponent = value.__pformat_fpreg_exponent;
+    int expo = value.__pformat_fpreg_exponent;
 
     /* If we have not yet queued sufficient digits to fulfil the
      * requested precision, then we must adjust the minimum width
@@ -1563,7 +1564,7 @@ void __pformat_emit_xfloat( __pformat_fpreg_t value, __pformat_t *stream )
      * sign, radix indicator and at least one exponent digit...
      */
     min_width += stream->flags & PFORMAT_SIGNED ? 6 : 5;
-    while( (exponent = exponent / 10) != 0 )
+    while( (expo = expo / 10) != 0 )
     {
       /* and increase as required, if additional exponent digits
        * are needed, also saving the exponent field width adjustment,

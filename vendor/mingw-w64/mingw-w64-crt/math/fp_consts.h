@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _FP_CONSTS_H
 #define _FP_CONSTS_H
@@ -38,16 +38,17 @@ for float and double. MSVC however, does not have long doubles.
    Padded to 96 bits
  */
 #define __LONG_DOUBLE_INF_REP { 0, 0, 0, 0x8000, 0x7fff, 0 }
-#define __LONG_DOUBLE_QNAN_REP { 0, 0, 0, 0xc000, 0xffff, 0 } 
+#define __LONG_DOUBLE_QNAN_REP { 0, 0, 0, 0xc000, 0xffff, 0 }
 #define __LONG_DOUBLE_SNAN_REP { 0, 0, 0, 0x8000, 0xffff, 0 }
 #define __LONG_DOUBLE_DENORM_REP {1, 0, 0, 0, 0, 0}
 
 union _ieee_rep
 {
-  unsigned short rep[6];
-  float float_val;
-  double double_val;
-  long double ldouble_val;
-} ;
+	unsigned short rep[6];
+	float float_val;
+	double double_val;
+	long double ldouble_val;
+};
 
-#endif
+#endif	/* _FP_CONSTS_H */
+

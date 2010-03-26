@@ -12,10 +12,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -40,80 +36,18 @@
  * The differences should be within __MINGW32__ guard.
  */
 /* If compiler doesn't inline, at least avoid passing args on the stack. */
+#ifndef _WIN64
 #define _MCOUNT_CALL __attribute__ ((regparm (2)))
-#define _MCOUNT_DECL static __inline__  void _MCOUNT_CALL _mcount
+#else
+#define _MCOUNT_CALL
+#endif
+
+#define _MCOUNT_DECL __attribute__((gnu_inline)) __inline__ void _MCOUNT_CALL _mcount
 
 /* FIXME: This works, but it would be cleaner to convert mcount into an
    assembler stub that calls an extern  _mcount.
    Older versions of GCC (pre-4.1) will still fail with regparm since the
    compiler used %edx to store an unneeded counter variable.  */
 
-#ifndef _WIN64
-#define	MCOUNT \
-void									\
-mcount()								\
-{									\
-	size_t selfpc, frompcindex;					\
-	/*								\
-	 * Save registers, since this may be called from		\
-	 * the prologue of a regparm function.				\
-	 */								\
-	__asm __volatile__ ("pushl %eax\n\t"				\
-			    "pushl %ecx\n\t"				\
-		 	    "pushl %edx");				\
-	/*								\
-	 * find the return address for mcount,				\
-	 * and the return address for mcount's caller.			\
-	 *								\
-	 * selfpc = pc pushed by mcount call				\
-	 */								\
-	/* __asm  ("movl 4(%%ebp),%0" : "=r" (selfpc));	*/		\
-	selfpc = (size_t) __builtin_return_address (0);			\
-	/*								\
-	 * frompcindex = pc pushed by call into self.			\
-	 */								\
-	/*  __asm ("movl (%%ebp),%0;movl 4(%0),%0" : "=r" (frompcindex)); */  \
-	frompcindex = (size_t) __builtin_return_address (1);		\
-	_mcount(frompcindex, selfpc);					\
-	/*								\
-	 * Restore registers.						\
-	 */								\
-	__asm __volatile__ ("popl %edx\n\t"				\
-			    "popl %ecx\n\t"				\
-			    "popl %eax");				\
-}
-#else
-#define	MCOUNT \
-void									\
-mcount()								\
-{									\
-	size_t selfpc, frompcindex;					\
-	/*								\
-	 * Save registers, since this may be called from		\
-	 * the prologue of a regparm function.				\
-	 */								\
-	__asm __volatile__ ("pushq %rax\n\t"				\
-			    "pushq %rcx\n\t"				\
-		 	    "pushq %rdx");				\
-	/*								\
-	 * find the return address for mcount,				\
-	 * and the return address for mcount's caller.			\
-	 *								\
-	 * selfpc = pc pushed by mcount call				\
-	 */								\
-	/* __asm  ("movl 4(%%ebp),%0" : "=r" (selfpc));	*/		\
-	selfpc = (size_t) __builtin_return_address (0);			\
-	/*								\
-	 * frompcindex = pc pushed by call into self.			\
-	 */								\
-	/*  __asm ("movl (%%ebp),%0;movl 4(%0),%0" : "=r" (frompcindex)); */  \
-	frompcindex = (size_t) __builtin_return_address (1);		\
-	_mcount(frompcindex, selfpc);					\
-	/*								\
-	 * Restore registers.						\
-	 */								\
-	__asm __volatile__ ("popq %rdx\n\t"				\
-			    "popq %rcx\n\t"				\
-			    "popq %rax");				\
-}
-#endif
+#define	MCOUNT
+

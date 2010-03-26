@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #include <windows.h>
 #include <stdio.h>
@@ -11,6 +11,8 @@
 #define ZEROBLOCKSIZE 512
 static int __mingw_fseek_called;
 
+int __mingw_fseek (FILE *fp, int offset, int whence);
+
 int
 __mingw_fseek (FILE *fp, int offset, int whence)
 {
@@ -18,6 +20,8 @@ __mingw_fseek (FILE *fp, int offset, int whence)
   __mingw_fseek_called = 1;
   return fseek (fp, offset, whence);
 }
+
+int __mingw_fseeko64 (FILE *fp, long offset, int whence);
 
 int
 __mingw_fseeko64 (FILE *fp, long offset, int whence)
@@ -27,6 +31,8 @@ __mingw_fseeko64 (FILE *fp, long offset, int whence)
   return fseeko64 (fp, offset, whence);
 }
 
+size_t __mingw_fwrite (const void *buffer, size_t size, size_t count, FILE *fp);
+
 size_t
 __mingw_fwrite (const void *buffer, size_t size, size_t count, FILE *fp)
 {
@@ -34,7 +40,9 @@ __mingw_fwrite (const void *buffer, size_t size, size_t count, FILE *fp)
   if ((_osver & 0x8000) &&  __mingw_fseek_called)
     {
       ULARGE_INTEGER actual_length;
-      LARGE_INTEGER current_position = {{0LL}};
+      LARGE_INTEGER current_position;
+
+      memset (&current_position, 0, sizeof (LARGE_INTEGER));
       __mingw_fseek_called = 0;
       fflush (fp);
       actual_length.LowPart = GetFileSize ((HANDLE) _get_osfhandle (fileno (fp)), 
@@ -46,7 +54,7 @@ __mingw_fwrite (const void *buffer, size_t size, size_t count, FILE *fp)
                                          	 current_position.LowPart,
 					 	 &current_position.HighPart,
 						 FILE_CURRENT);
-      if (current_position.LowPart == 0xFFFFFFFF 
+      if (current_position.LowPart == 0xFFFFFFFF
           && GetLastError() != NO_ERROR )
         return -1;
 
@@ -54,7 +62,7 @@ __mingw_fwrite (const void *buffer, size_t size, size_t count, FILE *fp)
       printf ("__mingw_fwrite: current %I64u, actual %I64u\n", 
 	      current_position.QuadPart, actual_length.QuadPart);
 #endif /* DEBUG */
-      if (current_position.QuadPart > actual_length.QuadPart)
+      if ((size_t)current_position.QuadPart > (size_t)actual_length.QuadPart)
 	{
 	  static char __mingw_zeros[ZEROBLOCKSIZE];
 	  long long numleft;

@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _NTDDNDIS_
 #define _NTDDNDIS_
@@ -820,7 +820,7 @@ extern "C" {
   typedef struct _NDIS_802_11_TEST {
     ULONG Length;
     ULONG Type;
-    union {
+    __MINGW_EXTENSION union {
       NDIS_802_11_AUTHENTICATION_EVENT AuthenticationEvent;
       NDIS_802_11_RSSI RssiTrigger;
     };
@@ -1222,7 +1222,7 @@ extern "C" {
 
   typedef struct _NDIS_GUID {
     GUID Guid;
-    union {
+    __MINGW_EXTENSION union {
       NDIS_OID Oid;
       NDIS_STATUS Status;
     };

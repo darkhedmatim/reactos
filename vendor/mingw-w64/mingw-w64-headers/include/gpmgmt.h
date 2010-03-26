@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -458,11 +458,14 @@ typedef struct GPOReportProvider GPOReportProvider;
 extern "C"{
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
   typedef enum __MIDL___MIDL_itf_gpmgmt_0000_0001 {
-    rsopUnknown = 0,rsopPlanning = rsopUnknown + 1,rsopLogging = rsopPlanning + 1
+    rsopUnknown = 0,rsopPlanning,rsopLogging
   } GPMRSOPMode;
 
   typedef enum __MIDL___MIDL_itf_gpmgmt_0000_0002 {
@@ -472,13 +475,13 @@ extern "C"{
   } GPMPermissionType;
 
   typedef enum __MIDL___MIDL_itf_gpmgmt_0000_0003 {
-    gpoPermissions = 0,gpoEffectivePermissions = gpoPermissions + 1,gpoDisplayName = gpoEffectivePermissions + 1,gpoWMIFilter = gpoDisplayName + 1,
-    gpoID = gpoWMIFilter + 1,gpoComputerExtensions = gpoID + 1,gpoUserExtensions = gpoComputerExtensions + 1,somLinks = gpoUserExtensions + 1,
-    gpoDomain = somLinks + 1,backupMostRecent = gpoDomain + 1
+    gpoPermissions = 0,gpoEffectivePermissions,gpoDisplayName,gpoWMIFilter,
+    gpoID,gpoComputerExtensions,gpoUserExtensions,somLinks,gpoDomain,
+    backupMostRecent
   } GPMSearchProperty;
 
   typedef enum __MIDL___MIDL_itf_gpmgmt_0000_0004 {
-    opEquals = 0,opContains = opEquals + 1,opNotContains = opContains + 1,opNotEquals = opNotContains + 1
+    opEquals = 0,opContains,opNotContains,opNotEquals
   } GPMSearchOperation;
 
   typedef enum __MIDL___MIDL_itf_gpmgmt_0000_0005 {
@@ -486,13 +489,13 @@ extern "C"{
   } GPMReportType;
 
   typedef enum __MIDL___MIDL_itf_gpmgmt_0000_0006 {
-    typeUser = 0,typeComputer = typeUser + 1,typeLocalGroup = typeComputer + 1,typeGlobalGroup = typeLocalGroup + 1,
-    typeUniversalGroup = typeGlobalGroup + 1,typeUNCPath = typeUniversalGroup + 1,typeUnknown = typeUNCPath + 1
+    typeUser = 0,typeComputer,typeLocalGroup,typeGlobalGroup,
+    typeUniversalGroup,typeUNCPath,typeUnknown
   } GPMEntryType;
 
   typedef enum __MIDL___MIDL_itf_gpmgmt_0000_0007 {
-    opDestinationSameAsSource = 0,opDestinationNone = opDestinationSameAsSource + 1,opDestinationByRelativeName = opDestinationNone + 1,
-    opDestinationSet = opDestinationByRelativeName + 1
+    opDestinationSameAsSource = 0,opDestinationNone,opDestinationByRelativeName,
+    opDestinationSet
   } GPMDestinationOption;
 
 #define GPM_USE_PDC (0)
@@ -1158,7 +1161,7 @@ extern "C"{
 #ifndef __IGPMSOM_INTERFACE_DEFINED__
 #define __IGPMSOM_INTERFACE_DEFINED__
   typedef enum __MIDL_IGPMSOM_0001 {
-    somSite = 0,somDomain = somSite + 1,somOU = somDomain + 1
+    somSite = 0,somDomain,somOU
   } GPMSOMType;
 
   EXTERN_C const IID IID_IGPMSOM;

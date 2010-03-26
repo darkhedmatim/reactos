@@ -1,17 +1,24 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
-#ifdef _WIN64
+#include <_mingw_mac.h>
+
 	.file	"exp2.S"
 	.text
+#ifdef _WIN64
+	.align 8
+#else
 	.align 4
-.globl _exp2
-	.def	_exp2;	.scl	2;	.type	32;	.endef
-_exp2:
-	movsd	%xmm0,-16(%rsp)
-	fldl	-16(%rsp)
+#endif
+.globl __MINGW_USYMBOL(exp2)
+	.def	__MINGW_USYMBOL(exp2);	.scl	2;	.type	32;	.endef
+__MINGW_USYMBOL(exp2):
+#ifdef _WIN64
+	subq	$24, %rsp
+	movsd	%xmm0,(%rsp)
+	fldl	(%rsp)
 	fxam				/* Is NaN or +-Inf?  */
 	fstsw	%ax
 	movb	$0x45, %dh
@@ -27,24 +34,20 @@ _exp2:
 	faddp				/* 2^(fract(x)) */
 	fscale				/* e^x */
 	fstp	%st(1)
-	fstpl	-16(%rsp)
-	movsd	-16(%rsp),%xmm0
+	fstpl	(%rsp)
+	movsd	(%rsp),%xmm0
+	addq	$24, %rsp
 	ret
 
 1:	testl	$0x200, %eax		/* Test sign.  */
 	jz	2f			/* If positive, jump.  */
 	fstp	%st
 	fldz				/* Set result to 0.  */
-2:	fstpl	-16(%rsp)
-	movsd	-16(%rsp),%xmm0
+2:	fstpl	(%rsp)
+	movsd	(%rsp),%xmm0
+	addq	$24,%rsp
 	ret
 #else
-	.file	"exp2.S"
-	.text
-	.align 4
-.globl _exp2
-	.def	_exp2;	.scl	2;	.type	32;	.endef
-_exp2:
 	fldl	4(%esp)
 /* I added the following ugly construct because exp(+-Inf) resulted
    in NaN.  The ugliness results from the bright minds at Intel.

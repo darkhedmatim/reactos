@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 
 #include <fenv.h> 
@@ -19,12 +19,12 @@ extern int __mingw_has_sse (void);
 int fetestexcept (int excepts)
 {
   unsigned short _sw;
-  __asm__ ("fnstsw %%ax" : "=a" (_sw));
+  __asm__ __volatile__ ("fnstsw %%ax" : "=a" (_sw));
 
   if (__mingw_has_sse ())
     {
       int sse_sw;
-      __asm__ volatile ("stmxcsr %0;" : "=m" (sse_sw));
+      __asm__ __volatile__ ("stmxcsr %0;" : "=m" (sse_sw));
       _sw |= sse_sw;
     }
 

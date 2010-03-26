@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -49,8 +49,11 @@ typedef struct IEnumSTATPROPSETSTG IEnumSTATPROPSETSTG;
 extern "C"{
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
   typedef struct tagVersionedStream {
     GUID guidVersion;
@@ -184,13 +187,13 @@ extern "C"{
 #define tag_inner_PROPVARIANT
 
   struct tagPROPVARIANT {
-    __extension__ union {
-      __extension__ struct tag_inner_PROPVARIANT {
+    __MINGW_EXTENSION union {
+      __MINGW_EXTENSION struct tag_inner_PROPVARIANT {
 	VARTYPE vt;
 	PROPVAR_PAD1 wReserved1;
 	PROPVAR_PAD2 wReserved2;
 	PROPVAR_PAD3 wReserved3;
-	__extension__ union {
+	__MINGW_EXTENSION union {
 	  CHAR cVal;
 	  UCHAR bVal;
 	  SHORT iVal;
@@ -333,9 +336,9 @@ extern "C"{
 #define PIDMSI_COPYRIGHT 0x0000000BL
 
   enum PIDMSI_STATUS_VALUE {
-    PIDMSI_STATUS_NORMAL = 0,PIDMSI_STATUS_NEW = PIDMSI_STATUS_NORMAL + 1,PIDMSI_STATUS_PRELIM = PIDMSI_STATUS_NEW + 1,
-    PIDMSI_STATUS_DRAFT = PIDMSI_STATUS_PRELIM + 1,PIDMSI_STATUS_INPROGRESS = PIDMSI_STATUS_DRAFT + 1,PIDMSI_STATUS_EDIT = PIDMSI_STATUS_INPROGRESS + 1,
-    PIDMSI_STATUS_REVIEW = PIDMSI_STATUS_EDIT + 1,PIDMSI_STATUS_PROOF = PIDMSI_STATUS_REVIEW + 1,PIDMSI_STATUS_FINAL = PIDMSI_STATUS_PROOF + 1,
+    PIDMSI_STATUS_NORMAL = 0,PIDMSI_STATUS_NEW,PIDMSI_STATUS_PRELIM,
+    PIDMSI_STATUS_DRAFT,PIDMSI_STATUS_INPROGRESS,PIDMSI_STATUS_EDIT,
+    PIDMSI_STATUS_REVIEW,PIDMSI_STATUS_PROOF,PIDMSI_STATUS_FINAL,
     PIDMSI_STATUS_OTHER = 0x7fff
   };
 #define PRSPEC_INVALID (0xffffffff)
@@ -344,7 +347,7 @@ extern "C"{
 
   typedef struct tagPROPSPEC {
     ULONG ulKind;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       PROPID propid;
       LPOLESTR lpwstr;
     };

@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _WINBASE_
 #define _WINBASE_
@@ -134,8 +134,8 @@ extern "C" {
   typedef struct _OVERLAPPED {
     ULONG_PTR Internal;
     ULONG_PTR InternalHigh;
-    __extension__ union {
-      __extension__ struct {
+    __MINGW_EXTENSION union {
+      __MINGW_EXTENSION struct {
 	DWORD Offset;
 	DWORD OffsetHigh;
       };
@@ -370,9 +370,9 @@ extern "C" {
   } COMMCONFIG,*LPCOMMCONFIG;
 
   typedef struct _SYSTEM_INFO {
-    __extension__ union {
+    __MINGW_EXTENSION union {
       DWORD dwOemId;
-      __extension__ struct {
+      __MINGW_EXTENSION struct {
 	WORD wProcessorArchitecture;
 	WORD wReserved;
       };
@@ -815,6 +815,7 @@ extern "C" {
   PVOID __cdecl InterlockedCompareExchangePointerAcquire(PVOID volatile *Destination,PVOID Exchange,PVOID Comperand);
   PVOID __cdecl InterlockedCompareExchangePointerRelease(PVOID volatile *Destination,PVOID Exchange,PVOID Comperand);
 
+#ifndef __CRT__NO_INLINE
 #ifndef InterlockedAnd
 #define InterlockedAnd InterlockedAnd_Inline
   __CRT_INLINE LONG InterlockedAnd_Inline(LONG volatile *Target,LONG Set) {
@@ -924,6 +925,7 @@ extern "C" {
     return (BOOLEAN)((InterlockedXor(&Base[Bit/(sizeof(*Base)*8)],tBit)&tBit)!=0);
   }
 #endif
+#endif /* !__CRT__NO_INLINE */
 #elif defined(__x86_64) && !defined(RC_INVOKED)
 
 #define InterlockedIncrement _InterlockedIncrement
@@ -977,7 +979,14 @@ extern "C" {
   LONG InterlockedExchangeAdd(LONG volatile *Addend,LONG Value);
   LONG InterlockedCompareExchange(LONG volatile *Destination,LONG Exchange,LONG Comperand);
   LONGLONG InterlockedCompareExchange64(LONGLONG volatile *Destination,LONGLONG Exchange,LONGLONG Comperand);
-
+  LONGLONG InterlockedAnd64 (LONGLONG volatile *Destination,LONGLONG Value);
+  LONGLONG InterlockedOr64 (LONGLONG volatile *Destination,LONGLONG Value);
+  LONGLONG InterlockedXor64 (LONGLONG volatile *Destination,LONGLONG Value);
+  LONGLONG InterlockedIncrement64(LONGLONG volatile *Addend);
+  LONGLONG InterlockedDecrement64(LONGLONG volatile *Addend);
+  LONGLONG InterlockedExchange64(LONGLONG volatile *Target,LONGLONG Value);
+  LONGLONG InterlockedExchangeAdd64(LONGLONG volatile *Addend,LONGLONG Value);
+#ifndef __CRT__NO_INLINE
   __CRT_INLINE LONGLONG InterlockedAnd64 (LONGLONG volatile *Destination,LONGLONG Value) {
     LONGLONG Old;
     do {
@@ -1034,8 +1043,9 @@ extern "C" {
     } while(InterlockedCompareExchange64(Addend,Old + Value,Old)!=Old);
     return Old;
   }
+#endif /* !__CRT__NO_INLINE */
 
-#ifdef __cplusplus
+#if defined(__cplusplus) && !defined(__CRT__NO_INLINE)
   __CRT_INLINE PVOID __cdecl __InlineInterlockedCompareExchangePointer(PVOID volatile *Destination,PVOID ExChange,PVOID Comperand) {
     return((PVOID)(LONG_PTR)InterlockedCompareExchange((LONG volatile *)Destination,(LONG)(LONG_PTR)ExChange,(LONG)(LONG_PTR)Comperand));
   }
@@ -1076,11 +1086,9 @@ extern "C" {
 #define MAKEINTATOM(i) (LPTSTR)((ULONG_PTR)((WORD)(i)))
 #define INVALID_ATOM ((ATOM)0)
 
-#ifndef UNICODE
   int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR lpCmdLine,int nShowCmd);
-#else
-  int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPWSTR lpCmdLine,int nShowCmd);
-#endif
+  int WINAPI wWinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPWSTR lpCmdLine,int nShowCmd);
+/* Unicode entry point is wWinMain, WinMain is just the ANSI version.  */
 
   WINBASEAPI WINBOOL WINAPI FreeLibrary(HMODULE hLibModule);
   WINBASEAPI DECLSPEC_NORETURN VOID WINAPI FreeLibraryAndExitThread(HMODULE hLibModule,DWORD dwExitCode);
@@ -1156,7 +1164,7 @@ extern "C" {
     BYTE cbOverhead;
     BYTE iRegionIndex;
     WORD wFlags;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       struct {
 	HANDLE hMem;
 	DWORD dwReserved[3];

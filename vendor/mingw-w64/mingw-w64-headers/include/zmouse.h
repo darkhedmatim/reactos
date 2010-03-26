@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifdef UNICODE
 #define MSH_MOUSEWHEEL L"MSWHEEL_ROLLMSG"
@@ -46,6 +46,7 @@
 #define SPI_SETWHEELSCROLLLINES 105
 #endif
 
+#ifndef __CRT__NO_INLINE
 __CRT_INLINE HWND HwndMSWheel(PUINT puiMsh_MsgMouseWheel,PUINT puiMsh_Msg3DSupport,PUINT puiMsh_MsgScrollLines,PBOOL pf3DSupport,PINT piScrollLines) {
   HWND hdlMsWheel;
   hdlMsWheel = FindWindow(MSH_WHEELMODULE_CLASS,MSH_WHEELMODULE_TITLE);
@@ -58,3 +59,5 @@ __CRT_INLINE HWND HwndMSWheel(PUINT puiMsh_MsgMouseWheel,PUINT puiMsh_Msg3DSuppo
   else *piScrollLines = 3;
   return(hdlMsWheel);
 }
+#endif /* !__CRT__NO_INLINE */
+

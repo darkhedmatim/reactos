@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 //  By aaronwl 2003-01-28 for mingw-msvcrt.
 //  Public domain: all copyrights disclaimed, absolutely no warranties.
@@ -13,7 +13,7 @@
 int vsscanf(const char * __restrict__ s, const char * __restrict__ format, va_list arg) {
   int ret;
 #ifdef _WIN64
-  __asm__(
+  __asm__ __volatile__ (
 
     // allocate stack (esp += frame - arg3 - (8[arg1,2] + 12))
     "movq	%%rsp, %%rbx\n\t"
@@ -49,7 +49,7 @@ int vsscanf(const char * __restrict__ s, const char * __restrict__ format, va_li
       "a"(&ret)
     : "rbx", "rdi");
 #else
-  __asm__(
+  __asm__ __volatile__ (
 
     // allocate stack (esp += frame - arg3 - (8[arg1,2] + 12))
     "movl	%%esp, %%ebx\n\t"

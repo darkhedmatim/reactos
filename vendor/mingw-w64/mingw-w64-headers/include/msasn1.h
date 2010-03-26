@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __MS_ASN1_H__
 #define __MS_ASN1_H__
@@ -139,7 +139,7 @@ extern "C" {
 
   typedef struct tagASN1open_t {
     ASN1uint32_t length;
-    union {
+    __MINGW_EXTENSION union {
       void *encoded;
       void *value;
     };
@@ -204,7 +204,7 @@ extern "C" {
     ASN1uint32_t cPDUs;
     const ASN1FreeFun_t *apfnFreeMemory;
     const ASN1uint32_t *acbStructSize;
-    union {
+    __MINGW_EXTENSION union {
       ASN1PerFunArr_t PER;
       ASN1BerFunArr_t BER;
     };
@@ -275,7 +275,7 @@ extern "C" {
 
   typedef struct tagASN1optionparam_t {
     ASN1option_e eOption;
-    union {
+    __MINGW_EXTENSION union {
       ASN1encodingrule_e eRule;
       ASN1uint32_t cbRequiredDecodedBufSize;
       struct {

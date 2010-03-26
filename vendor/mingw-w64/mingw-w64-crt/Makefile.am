@@ -20,10 +20,18 @@ else
   withsys=
 endif
 
+if UNDERSCORES
+  cflags_underscores=
+  dlltool_underscores=
+else
+  cflags_underscores=-fno-leading-underscore
+  dlltool_underscores=--no-leading-underscore
+endif
 
 AM_CPPFLAGS=-D_CRTBLD $(sysincludes)
-AM_CFLAGS=-pipe $(vistasupport) -Wall -Wno-strict-aliasing -std=gnu99
-AM_DLLTOOLFLAGS=-k --as=$(AS) --output-lib $@
+AM_CFLAGS=$(cflags_underscores) -pipe -std=gnu99 @ADD_C_CXX_WARNING_FLAGS@ @ADD_C_ONLY_WARNING_FLAGS@
+AM_CXXFLAGS=@ADD_C_CXX_WARNING_FLAGS@ @ADD_CXX_ONLY_WARNING_FLAGS@
+AM_DLLTOOLFLAGS=$(dlltool_underscores) -k --as=$(AS) --output-lib $@
 DTDEF=$(DLLTOOL) $(AM_DLLTOOLFLAGS) --def
 DTLIB=$(DTDEF) $(top_srcdir)/`echo $@ | $(SED) 's|/lib|/|;s|\.a|.def|'`
 extra_include=-I$(top_srcdir)/include
@@ -32,7 +40,6 @@ extra_include=-I$(top_srcdir)/include
 BUILT_SOURCES = _libm_dummy.c
 _libm_dummy.c:
 	echo "static int __attribute__((unused)) __mingw_libm_dummy;" > _libm_dummy.c
-
 
 src_libm=_libm_dummy.c
 src_libshell32=libsrc/shell32.c
@@ -49,8 +56,9 @@ src_libmingw32=include/oscalls.h include/internal.h include/sect_attribs.h \
   crt/charmax.c   crt/crt0_w.c    crt/dllargv.c   crt/gs_support.c    crt/_newmode.c       crt/tlssup.c             crt/xncommod.c  \
   crt/cinitexe.c  crt/crt0_w.c    crt/dllentry.c  crt/merr.c          crt/pesect.c         crt/udllargc.c           crt/xthdloc.c   \
   crt/crt0_c.c    crt/CRT_fp10.c  crt/dllmain.c   crt/mingw_custom.c  crt/mingw_helpers.c  crt/pseudo-reloc.c       crt/udll_argv.c \
-  crt/xtxtmode.c  \
-  libsrc/dummy_mingwthrd.c
+  crt/xtxtmode.c  crt/crt_handler.c \
+  crt/tlsthrd.c crt/tlsmthread.c crt/tlsmcrt.c
+
 src_libmoldname=crt/isascii.c crt/iscsym.c crt/iscsymf.c crt/toascii.c crt/strcasecmp.c crt/strncasecmp.c crt/wcscmpi.c
 src_libscrnsave=libsrc/scrnsave.c
 src_libscrnsavw=libsrc/scrnsave.c
@@ -60,9 +68,39 @@ src_libuuid=libsrc/uuid.c libsrc/devguid.c \
   libsrc/ativscp-uuid.c libsrc/cguid-uuid.c    libsrc/comcat-uuid.c \
   libsrc/docobj-uuid.c  libsrc/exdisp-uuid.c   libsrc/extras-uuid.c libsrc/hlguids-uuid.c  libsrc/hlink-uuid.c   libsrc/mlang-uuid.c \
   libsrc/mshtml-uuid.c  libsrc/msxml-uuid.c    libsrc/oaidl-uuid.c  libsrc/objidl-uuid.c   libsrc/objsafe-uuid.c libsrc/ocidl-uuid.c \
-  libsrc/oleacc-uuid.c  libsrc/olectlid-uuid.c libsrc/oleidl-uuid.c libsrc/servprov-uuid.c libsrc/unknwn-uuid.c  libsrc/urlmon-uuid.c
-src_libws2_32=libsrc/ws2_32.c libsrc/wspiapi.c
+  libsrc/oleacc-uuid.c  libsrc/olectlid-uuid.c libsrc/oleidl-uuid.c libsrc/servprov-uuid.c \
+  libsrc/unknwn-uuid.c  libsrc/urlmon-uuid.c libsrc/wia-uuid.c
+src_libws2_32=libsrc/ws2_32.c \
+  \
+  libsrc/ws2tcpip/in6_addr_equal.c           libsrc/ws2tcpip/in6addr_isany.c           libsrc/ws2tcpip/in6addr_isloopback.c       \
+  libsrc/ws2tcpip/in6addr_setany.c           libsrc/ws2tcpip/in6addr_setloopback.c     libsrc/ws2tcpip/in6_is_addr_linklocal.c    \
+  libsrc/ws2tcpip/in6_is_addr_loopback.c     libsrc/ws2tcpip/in6_is_addr_mc_global.c   libsrc/ws2tcpip/in6_is_addr_mc_linklocal.c \
+  libsrc/ws2tcpip/in6_is_addr_mc_nodelocal.c libsrc/ws2tcpip/in6_is_addr_mc_orglocal.c libsrc/ws2tcpip/in6_is_addr_mc_sitelocal.c \
+  libsrc/ws2tcpip/in6_is_addr_multicast.c    libsrc/ws2tcpip/in6_is_addr_sitelocal.c   libsrc/ws2tcpip/in6_is_addr_unspecified.c  \
+  libsrc/ws2tcpip/in6_is_addr_v4compat.c     libsrc/ws2tcpip/in6_is_addr_v4mapped.c    libsrc/ws2tcpip/in6_set_addr_loopback.c    \
+  libsrc/ws2tcpip/in6_set_addr_unspecified.c libsrc/ws2tcpip/gai_strerrorA.c           libsrc/ws2tcpip/gai_strerrorW.c            \
+  \
+  libsrc/wspiapi/WspiapiStrdup.c             libsrc/wspiapi/WspiapiParseV4Address.c    libsrc/wspiapi/WspiapiNewAddrInfo.c        \
+  libsrc/wspiapi/WspiapiQueryDNS.c           libsrc/wspiapi/WspiapiLookupNode.c        libsrc/wspiapi/WspiapiClone.c              \
+  libsrc/wspiapi/WspiapiLegacyFreeAddrInfo.c libsrc/wspiapi/WspiapiLegacyGetAddrInfo.c libsrc/wspiapi/WspiapiLegacyGetNameInfo.c  \
+  libsrc/wspiapi/WspiapiLoad.c               libsrc/wspiapi/WspiapiGetAddrInfo.c       libsrc/wspiapi/WspiapiGetNameInfo.c        \
+  libsrc/wspiapi/WspiapiFreeAddrInfo.c
 src_libmingwex=\
+  \
+  intrincs/inbyte.c     intrincs/inbytestring.c   intrincs/indword.c   intrincs/indwordstring.c                \
+  intrincs/inword.c     intrincs/inwordstring.c   intrincs/outbyte.c   intrincs/outbytestring.c                \
+  intrincs/outdword.c   intrincs/outdwordstring.c intrincs/outword.c   intrincs/outwordstring.c                \
+  intrincs/readcr0.c    intrincs/readcr2.c        intrincs/readcr3.c   intrincs/readcr4.c  intrincs/readcr8.c  \
+  intrincs/writecr0.c   intrincs/writecr2.c       intrincs/writecr3.c  intrincs/writecr4.c intrincs/writecr8.c \
+  intrincs/readmsr.c    intrincs/writemsr.c       intrincs/rdtsc.c     intrincs/cpuid.c \
+  \
+  intrincs/bittest.c    intrincs/bittestc.c    intrincs/bittestci.c intrincs/bittestr.c intrincs/bittestri.c     \
+  intrincs/bittests.c   intrincs/bittestsi.c   intrincs/bitscanfwd.c intrincs/bitscanrev.c intrincs/ilockinc16.c \
+  intrincs/ilockdec16.c intrincs/ilockcxch16.c intrincs/ilockexchadd.c intrincs/ilockand.c intrincs/ilockor.c    \
+  intrincs/ilockxor.c   intrincs/ilockinc.c    intrincs/ilockdec.c intrincs/ilockexch.c intrincs/ilockcxch.c     \
+  intrincs/__stosb.c    intrincs/__stosw.c     intrincs/__stosd.c     \
+  intrincs/currentteb.c intrincs/currentfiber.c intrincs/fiberdata.c  \
+  \
   complex/cabs.c     complex/cabsf.c    complex/cabsl.c   complex/cacos.c    complex/cacosf.c   complex/cacosh.c \
   complex/cacoshf.c  complex/cacoshl.c  complex/cacosl.c  complex/carg.c     complex/cargf.c    complex/cargl.c  \
   complex/casin.c    complex/casinf.c   complex/casinh.c  complex/casinhf.c  complex/casinhl.c  complex/casinl.c \
@@ -81,8 +119,8 @@ src_libmingwex=\
   gdtoa/misc.c      gdtoa/qnan.c     gdtoa/smisc.c  gdtoa/strtodg.c  gdtoa/strtodnrp.c  gdtoa/strtof.c     \
   gdtoa/strtopx.c   gdtoa/sum.c      gdtoa/ulp.c    \
   \
-  math/cephes_emath.h  math/cephes_mconf.h  math/fastmath.h  math/fp_consts.h \
-  math/ceill.S       math/copysignl.S    math/cosl.S       math/exp2f.S       math/exp2l.S       math/exp2.S       math/floorl.S  \
+  math/cephes_emath.h  math/cephes_mconf.h  math/fastmath.h  math/fp_consts.h math/ceill.S \
+  math/_chgsignl.S   math/copysignl.S    math/cosl.S       math/exp2f.S       math/exp2l.S       math/exp2.S       math/floorl.S  \
   math/fmaf.S        math/fma.S          math/frexpl.S     math/ilogbf.S      math/ilogbl.S      math/ilogb.S      math/log10l.S  \
   math/log1pf.S      math/log1pl.S       math/log1p.S      math/log2f.S       math/log2l.S       math/log2.S       math/logl.S    \
   math/nearbyintf.S  math/nearbyintl.S   math/nearbyint.S  math/remainderf.S  math/remainderl.S  math/remainder.S  math/remquof.S \
@@ -107,7 +145,7 @@ src_libmingwex=\
   math/s_erf.c        math/sf_erf.c       math/signbit.c      math/signbitf.c      math/signbitl.c    math/sinf.c        \
   math/sinhf.c        math/sinhl.c        math/sqrtf.c        math/sqrtl.c         math/tanf.c        math/tanhf.c       \
   math/tanhl.c        math/tgamma.c       math/tgammaf.c      math/tgammal.c       math/trunc.c       math/truncf.c      \
-  math/truncl.c       \
+  math/truncl.c       math/cossin.c       \
   \
   misc/mb_wc_common.h \
   misc/mingw_getsp.S  \
@@ -117,25 +155,50 @@ src_libmingwex=\
   misc/fegetround.c    misc/feholdexcept.c  misc/feraiseexcept.c         misc/fesetenv.c        misc/fesetexceptflag.c \
   misc/fesetround.c    misc/fetestexcept.c  misc/feupdateenv.c           misc/ftruncate.c       misc/fwide.c           \
   misc/getlogin.c      misc/getopt.c        misc/gettimeofday.c          misc/gmtime.c          misc/imaxabs.c         \
-  misc/imaxdiv.c       misc/io_intrin.c     misc/isblank.c               misc/iswblank.c        misc/localtime.c       \
+  misc/imaxdiv.c       misc/isblank.c       misc/iswblank.c              misc/localtime.c       \
   misc/mbrtowc.c       misc/mbsinit.c       misc/mingw-aligned-malloc.c  misc/mingw-fseek.c     misc/_mkgmtime.c       \
   misc/mktime.c        misc/seterrno.c      misc/sleep.c                 misc/spawnv.c          misc/spawnve.c         \
   misc/spawnvp.c       misc/spawnvpe.c      misc/strtoimax.c             misc/strtold.c         misc/strtoumax.c       \
   misc/time.c          misc/wassert.c       misc/wcrtomb.c               misc/wcstoimax.c       misc/wcstold.c         \
   misc/wcstoumax.c     misc/wctob.c         misc/wctrans.c               misc/wctype.c          misc/wdirent.c         \
-  misc/winbs_uint64.c  misc/winbs_ulong.c   misc/winbs_ushort.c          misc/wininterlocked.c  misc/wmemchr.c         \
-  misc/wmemcmp.c       misc/wmemcpy.c       misc/wmemmove.c              misc/wmemset.c         \
-  misc/mingw_usleep.c  misc/mingw_output_format.c \
+  misc/winbs_uint64.c  misc/winbs_ulong.c   misc/winbs_ushort.c          misc/wmemchr.c         misc/wmemcmp.c         \
+  misc/wmemcpy.c       misc/wmemmove.c      misc/wmemset.c \
+  misc/mingw_usleep.c  misc/mingw_output_format.c misc/_wctime32.c \
+  misc/_ctime32.c misc/_localtime32.c misc/_gmtime32.c misc/_wctime.c \
+  misc/_time32.c misc/_mkgmtime32.c misc/_mktime32.c \
+  misc/basename.c misc/dirname.c \
+  misc/tdelete.c misc/tfind.c misc/tsearch.c misc/twalk.c \
   \
   stdio/mingw_pformat.h \
-  stdio/atoll.c           stdio/_Exit.c          stdio/_findfirst64i32.c  stdio/_findnext64i32.c  stdio/fopen64.c          \
-  stdio/fseeko64.c        stdio/_fstat64i32.c    stdio/ftello64.c         stdio/_fwstat64i32.c    stdio/lltoa.c            \
-  stdio/lltow.c           stdio/lseek64.c        stdio/mingw_fprintf.c    stdio/mingw_pformat.c   stdio/mingw_printf.c     \
-  stdio/mingw_snprintf.c  stdio/mingw_sprintf.c  stdio/mingw_vfprintf.c   stdio/mingw_vprintf.c   stdio/mingw_vsnprintf.c  \
-  stdio/mingw_vsprintf.c  stdio/snprintf.c       stdio/snwprintf.c        stdio/strtof.c          stdio/ulltoa.c           \
-  stdio/ulltow.c          stdio/vfscanf.c        stdio/vfwscanf.c         stdio/vscanf.c          stdio/vsnprintf.c        \
-  stdio/vsnwprintf.c      stdio/vsscanf.c        stdio/vswscanf.c         stdio/vwscanf.c         stdio/wcstof.c           \
-  stdio/wtoll.c libsrc/mingwthrd_nomt.c
+  stdio/atoll.c           stdio/_Exit.c          stdio/_findfirst64i32.c  stdio/_wfindfirst64i32.c stdio/_findnext64i32.c  \
+  stdio/_wfindnext64i32.c stdio/fopen64.c        stdio/fseeko64.c         stdio/_fstat64i32.c     stdio/_fstat.c           \
+  stdio/_stat64i32.c      stdio/_stat.c          stdio/ftello64.c         stdio/_wstat64i32.c     stdio/_wstat.c           \
+  stdio/_ftime.c \
+  stdio/lltoa.c           stdio/lltow.c          stdio/lseek64.c          \
+  stdio/mingw_fprintf.c   stdio/mingw_pformat.c  stdio/mingw_printf.c     stdio/mingw_snprintf.c  stdio/mingw_sprintf.c    \
+  stdio/mingw_vfprintf.c  stdio/mingw_vprintf.c  stdio/mingw_vsnprintf.c  stdio/mingw_vsprintf.c  stdio/snprintf.c         \
+  stdio/snwprintf.c       \
+  stdio/strtof.c          stdio/ulltoa.c         stdio/ulltow.c           \
+  stdio/vfscanf.c         stdio/vfwscanf.c       stdio/vscanf.c           stdio/vsnprintf.c       stdio/vsnwprintf.c       \
+  stdio/vsscanf.c         \
+  stdio/vswscanf.c        stdio/vwscanf.c        stdio/wcstof.c           stdio/wtoll.c 
+
+# these only go into the 64 bit version:
+src_libmingwex64=\
+  \
+  intrincs/bittest64.c   intrincs/bittestc64.c   intrincs/bittestr64.c   intrincs/bittestri64.c    intrincs/bittests64.c  \
+  intrincs/bittestsi64.c intrincs/bitscanfwd64.c intrincs/bitscanrev64.c intrincs/ilockexchadd64.c intrincs/ilockand64.c  \
+  intrincs/ilockor64.c   intrincs/ilockxor64.c   intrincs/ilockinc64.c   intrincs/ilockdec64.c     intrincs/ilockexch64.c \
+  intrincs/ilockcxch64.c intrincs/ilockexchptr.c intrincs/ilockcxchptr.c intrincs/ilockadd.c       intrincs/ilockadd64.c  \
+  intrincs/readgsbyte.c  intrincs/readgsword.c   intrincs/readgsdword.c  intrincs/readgsqword.c    intrincs/writegsword.c \
+  intrincs/writegsbyte.c \
+  intrincs/writegsdword.c intrincs/writegsqword.c intrincs/mul128ex.c    intrincs/umul128ex.c \
+  intrincs/__stosq.c
+
+src_libmingwex32=\
+  intrincs/readfsbyte.c intrincs/readfsword.c intrincs/readfsdword.c \
+  intrincs/writefsbyte.c intrincs/writefsword.c intrincs/writefsdword.c \
+  intrincs/membarrier.c
 
 
 if LIB32
@@ -146,10 +209,10 @@ if LIB32
 lib32dir=$(prefix)/$(host)/@LIB32SUFFIXDIR@
 crt32dir=$(lib32dir)
 
-crt32_SCRIPTS = \
+crt32_DATA = \
   lib32/crt1.o    lib32/crt2.o     lib32/crt1u.o   lib32/crt2u.o   lib32/dllcrt1.o lib32/dllcrt2.o \
   lib32/CRT_fp8.o lib32/CRT_fp10.o lib32/txtmode.o lib32/binmode.o lib32/crtbegin.o lib32/crtend.o \
-  lib32/gcrt0.o   lib32/gcrt1.o    lib32/gcrt2.o   lib32/CRT_glob.o
+  lib32/gcrt0.o   lib32/gcrt1.o    lib32/gcrt2.o   lib32/CRT_glob.o lib32/CRT_noglob.o
 
 COMPILE32=$(COMPILE) -m32 $(extra_include) -D_SYSCRT=1 -DCRTDLL=1
 lib32/crt1.o: crt/crtexe.c
@@ -186,6 +249,14 @@ test.c
 lib32_LIBRARIES = lib32/libm.a
 nodist_lib32_libm_a_SOURCES = $(src_libm)
 lib32_libm_a_CPPFLAGS=-m32
+
+lib32_LIBRARIES += lib32/libgmon.a
+lib32_libgmon_a_SOURCES = profile/mcount.c \
+  profile/profil.h profile/profil.c        \
+  profile/gmon.h   profile/gmon.c \
+  profile/mcountFunc.S
+lib32_libgmon_a_AR = $(DTLIB) -m i386 --as-flags=--32; $(AR) $(ARFLAGS)
+lib32_libgmon_a_CPPFLAGS=-m32
 
 lib32_LIBRARIES += lib32/libshell32.a
 lib32_libshell32_a_SOURCES = $(src_libshell32)
@@ -233,7 +304,7 @@ lib32_libmingw32_a_SOURCES = $(src_libmingw32)
 
 lib32_LIBRARIES += lib32/libmingwex.a
 lib32_libmingwex_a_CPPFLAGS=-m32 $(extra_include) $(AM_CPPFLAGS)
-lib32_libmingwex_a_SOURCES = $(src_libmingwex)
+lib32_libmingwex_a_SOURCES = $(src_libmingwex) $(src_libmingwex32)
 
 lib32_LIBRARIES += lib32/libmoldname.a
 lib32_libmoldname_a_CPPFLAGS=-m32 $(extra_include) $(AM_CPPFLAGS)
@@ -269,7 +340,8 @@ lib32_libws2_32_a_AR = $(DTLIB) -m i386 --as-flags=--32; $(AR) $(ARFLAGS)
 
 #These defs have no accompanying sources.  Look into using the rule below to run the dlltool command
 #for all libraries, including those with sources.
-lib32_SCRIPTS = \
+lib32_DATA = \
+  lib32/libwinusb.a \
   lib32/libaclui.a     lib32/libadvapi32.a  lib32/libapcups.a    lib32/libavicap32.a  lib32/libavifil32.a \
   lib32/libcap.a       lib32/libcfgmgr32.a  lib32/libcomctl32.a  lib32/libcomdlg32.a  lib32/libcrypt32.a  \
   lib32/libctl3d32.a   lib32/libd3d8.a      lib32/libd3d9.a      lib32/libd3dim.a     lib32/libd3drm.a    \
@@ -297,6 +369,9 @@ lib32_SCRIPTS = \
   lib32/libwinstrm.a   lib32/libwldap32.a   lib32/libwow32.a     lib32/libwsnmp32.a   \
   lib32/libwsock32.a   lib32/libwst.a       lib32/libwtsapi32.a  lib32/libnormaliz.a \
   \
+  lib32/libgpapi.a lib32/libgpedit.a lib32/libgpprefcl.a lib32/libgpscript.a \
+  lib32/libgptext.a lib32/libmshtml.a lib32/libmshtmled.a \
+  \
   lib32/libcrtdll.a    lib32/libmsvcrt.a   lib32/libmsvcr80.a
 
 # combine these two rules with the ones for lib64
@@ -322,12 +397,12 @@ if LIB64
 lib64dir=$(prefix)/$(host)/@LIB64SUFFIXDIR@
 crt64dir=$(lib64dir)
 
-crt64_SCRIPTS = \
+crt64_DATA = \
   lib64/crt1.o    lib64/crt2.o     lib64/crt1u.o   lib64/crt2u.o   lib64/dllcrt1.o lib64/dllcrt2.o \
   lib64/CRT_fp8.o lib64/CRT_fp10.o lib64/txtmode.o lib64/binmode.o lib64/crtbegin.o lib64/crtend.o \
-  lib64/gcrt0.o   lib64/gcrt1.o    lib64/gcrt2.o   lib64/CRT_glob.o
+  lib64/gcrt0.o   lib64/gcrt1.o    lib64/gcrt2.o   lib64/CRT_glob.o lib64/CRT_noglob.o
 
-COMPILE64=$(COMPILE) $(extra_include) -D_SYSCRT=1 -DCRTDLL=1
+COMPILE64=$(COMPILE) -m64 $(extra_include) -D_SYSCRT=1 -DCRTDLL=1
 lib64/crt1.o: crt/crtexe.c
 	$(COMPILE64) -c $< -o $@ -D__CRTDLL__ -U__MSVCRT__
 lib64/crt2.o: crt/crtexe.c
@@ -342,89 +417,109 @@ lib64/dllcrt2.o: crt/crtdll.c
 	$(COMPILE64) -c $< -o $@ -U__CRTDLL__ -D__MSVCRT__
 
 lib64/gcrt0.o: profile/gcrt0.c
-	$(COMPILE) -c $< -o $@ 
+	$(COMPILE) -m64 -c $< -o $@ 
 lib64/gcrt1.o: profile/gcrt0.c
-	$(COMPILE) -c $< -o $@ -U__MSVCRT__
+	$(COMPILE) -m64 -c $< -o $@ -U__MSVCRT__
 lib64/gcrt2.o: profile/gcrt0.c
-	$(COMPILE) -c $< -o $@ -D__MSVCRT__
+	$(COMPILE) -m64 -c $< -o $@ -D__MSVCRT__
 
 lib64/%.o: crt/%.c
-	$(COMPILE) -c $< -o $@
+	$(COMPILE) -m64 -c $< -o $@
 
 lib64_LIBRARIES = lib64/libm.a
 nodist_lib64_libm_a_SOURCES = $(src_libm)
+lib64_libm_a_CPPFLAGS=-m64
 
 lib64_LIBRARIES += lib64/libshell32.a
 lib64_libshell32_a_SOURCES = $(src_libshell32)
-lib64_libshell32_a_AR = $(DTLIB) -m i386:x86-64; $(AR) $(ARFLAGS)
+lib64_libshell32_a_CPPFLAGS=-m64
+lib64_libshell32_a_AR = $(DTLIB) -m i386:x86-64 --as-flags=--64; $(AR) $(ARFLAGS)
 
 lib64_LIBRARIES += lib64/libdinput.a
 lib64_libdinput_a_SOURCES = $(src_libdinput)
-lib64_libdinput_a_AR = $(DTLIB) -m i386:x86-64; $(AR) $(ARFLAGS)
+lib64_libdinput_a_CPPFLAGS=-m64
+lib64_libdinput_a_AR = $(DTLIB) -m i386:x86-64 --as-flags=--64; $(AR) $(ARFLAGS)
 
 lib64_LIBRARIES += lib64/libdinput8.a
 lib64_libdinput8_a_SOURCES = $(src_libdinput8)
-lib64_libdinput8_a_AR = $(DTLIB) -m i386:x86-64; $(AR) $(ARFLAGS)
+lib64_libdinput8_a_CPPFLAGS=-m64
+lib64_libdinput8_a_AR = $(DTLIB) -m i386:x86-64 --as-flags=--64; $(AR) $(ARFLAGS)
 
 lib64_LIBRARIES += lib64/libdmoguids.a
 lib64_libdmoguids_a_SOURCES = $(src_libdmoguids)
+lib64_libdmoguids_a_CPPFLAGS=-m64
 
 lib64_LIBRARIES += lib64/libdxerr8.a
 lib64_libdxerr8_a_SOURCES = $(src_libdxerr8)
+lib64_libdxerr8_a_CPPFLAGS=-m64
 
 lib64_LIBRARIES += lib64/libdxerr9.a
 lib64_libdxerr9_a_SOURCES = $(src_libdxerr9)
+lib64_libdxerr9_a_CPPFLAGS=-m64
 
 lib64_LIBRARIES += lib64/libdxguid.a
 lib64_libdxguid_a_SOURCES = $(src_libdxguid)
+lib64_libdxguid_a_CPPFLAGS=-m64
 
 lib64_LIBRARIES += lib64/libgmon.a
 lib64_libgmon_a_SOURCES = profile/mcount.c \
   profile/profil.h profile/profil.c        \
-  profile/gmon.h   profile/gmon.c
+  profile/gmon.h   profile/gmon.c \
+  profile/mcountFunc.S
+lib64_libgmon_a_CPPFLAGS=-m64
+lib64_libgmon_a_AR = $(DTLIB) -m i386:x86-64 --as-flags=--64; $(AR) $(ARFLAGS)
 
 lib64_LIBRARIES += lib64/libksuser.a
 lib64_libksuser_a_SOURCES = $(src_libksuser)
-lib64_libksuser_a_AR = $(DTLIB) -m i386:x86-64; $(AR) $(ARFLAGS)
+lib64_libksuser_a_CPPFLAGS=-m64
+lib64_libksuser_a_AR = $(DTLIB) -m i386:x86-64 --as-flags=--64; $(AR) $(ARFLAGS)
 
 lib64_LIBRARIES += lib64/liblargeint.a
 lib64_liblargeint_a_SOURCES = $(src_liblargeint)
+lib64_liblargeint_a_CPPFLAGS=-m64
 
 lib64_LIBRARIES += lib64/libscrnsave.a
 lib64_libscrnsave_a_SOURCES = $(src_libscrnsave)
+lib64_libscrnsave_a_CPPFLAGS=-m64
 
 lib64_LIBRARIES += lib64/libscrnsavw.a
 lib64_libscrnsavw_a_SOURCES = libsrc/scrnsave.c
+lib64_libscrnsavw_a_CPPFLAGS=-m64
 lib64_libscrnsavw_a_CFLAGS = -DUNICODE
 
 lib64_LIBRARIES += lib64/libstrmiids.a
 lib64_libstrmiids_a_SOURCES = $(src_libstrmiids)
+lib64_libstrmiids_a_CPPFLAGS=-m64
 
 lib64_LIBRARIES += lib64/libmingw32.a
-lib64_libmingw32_a_CPPFLAGS=-D_SYSCRT=1 -DCRTDLL=1 $(extra_include) $(AM_CPPFLAGS)
+lib64_libmingw32_a_CPPFLAGS=-m64 -D_SYSCRT=1 -DCRTDLL=1 $(extra_include) $(AM_CPPFLAGS)
 lib64_libmingw32_a_SOURCES = $(src_libmingw32)
 
 lib64_LIBRARIES += lib64/libmingwex.a
-lib64_libmingwex_a_CPPFLAGS=$(extra_include) $(AM_CPPFLAGS)
-lib64_libmingwex_a_SOURCES = $(src_libmingwex)
+lib64_libmingwex_a_CPPFLAGS=-m64 $(extra_include) $(AM_CPPFLAGS)
+lib64_libmingwex_a_SOURCES = $(src_libmingwex) $(src_libmingwex64)
 
 lib64_LIBRARIES += lib64/libmoldname.a
-lib64_libmoldname_a_CPPFLAGS=$(extra_include) $(AM_CPPFLAGS)
+lib64_libmoldname_a_CPPFLAGS=-m64 $(extra_include) $(AM_CPPFLAGS)
 lib64_libmoldname_a_SOURCES = $(src_libmoldname)
-lib64_libmoldname_a_AR = $(DTDEF) $(top_srcdir)/lib64/moldname-msvcrt.def -U --dllname msvcrt.dll -m i386:x86-64; $(AR) $(ARFLAGS)
+lib64_libmoldname_a_AR = $(DTDEF) $(top_srcdir)/lib64/moldname-msvcrt.def -U --dllname msvcrt.dll -m i386:x86-64 --as-flags=--64; $(AR) $(ARFLAGS)
 
 lib64_LIBRARIES += lib64/libmingwthrd.a
 lib64_libmingwthrd_a_SOURCES = $(src_libmingwthrd)
+lib64_libmingwthrd_a_CPPFLAGS=-m64
 
 lib64_LIBRARIES += lib64/libuuid.a
 lib64_libuuid_a_SOURCES = $(src_libuuid)
+lib64_libuuid_a_CPPFLAGS=-m64
 
 lib64_LIBRARIES += lib64/libws2_32.a
 lib64_libws2_32_a_SOURCES = $(src_libws2_32)
-lib64_libws2_32_a_AR = $(DTLIB) -m i386:x86-64; $(AR) $(ARFLAGS)
+lib64_libws2_32_a_CPPFLAGS=-m64
+lib64_libws2_32_a_AR = $(DTLIB) -m i386:x86-64 --as-flags=--64; $(AR) $(ARFLAGS)
 
 
-lib64_SCRIPTS = \
+lib64_DATA = \
+  lib64/libwinusb.a \
   lib64/lib6to4svc.a    lib64/libaaaamon.a    lib64/libacgen64.a      lib64/libacledit.a    lib64/libaclui.a         \
   lib64/libactiveds.a   lib64/libactxprxy.a   lib64/libadmparse.a     lib64/libadmwprox.a   lib64/libadptif.a        \
   lib64/libadrot.a      lib64/libadsiis.a     lib64/libadsiisex.a     lib64/libadsldpc.a    lib64/libadsldp.a        \
@@ -830,7 +925,7 @@ lib64_SCRIPTS = \
   lib64/libwsensapi.a   lib64/libwsenscfg.a   lib64/libwsens.a        lib64/libwseo.a       lib64/libwserialui.a     \
   lib64/libwservdeps.a  lib64/libwserwvdrv.a  lib64/libwsetupapi.a    lib64/libwsfc.a       lib64/libwsfcfiles.a     \
   lib64/libwsfc_os.a    lib64/libwsfmapi.a    lib64/libwshatm.a       lib64/libwshbth.a     lib64/libwshcon.a        \
-  lib64/libwwdmaud.a    lib64/libwwinspool.a  lib64/libzoneoc.a       lib64/libnormaliz.a \
+  lib64/libwsock32.a    lib64/libwwdmaud.a    lib64/libwwinspool.a    lib64/libzoneoc.a     lib64/libnormaliz.a      \
   \
   lib64/libkernel32.a   lib64/libdwmapi.a     lib64/libntoskrnl.a     lib64/libuxtheme.a      \
   \
@@ -840,10 +935,10 @@ lib64_SCRIPTS = \
 # This is cleaner for watching make output, but is only in GNU Make:
 # $(DTDEF) $(top_srcdir)/$(subst .a,.def,$(subst /lib,/,$@)) --dllname $(subst .a,.dll,$(subst lib,,$(@F)))
 lib64/libcrtdll.a lib64/libmsvcrt.a lib64/libmsvcr80.a:
-	$(DTLIB) --dllname `echo $@ | $(SED) 's|lib64/lib||;s|\.a|.dll|'` -m i386:x86-64
+	$(DTLIB) --dllname `echo $@ | $(SED) 's|lib64/lib||;s|\.a|.dll|'` -m i386:x86-64 --as-flags=--64
 
 lib64/lib%.a:
-	$(DTDEF) $(top_srcdir)/lib64/$*.def -m i386:x86-64
+	$(DTDEF) $(top_srcdir)/lib64/$*.def -m i386:x86-64 --as-flags=--64
 
 
 endif
@@ -860,12 +955,13 @@ noinst_HEADERS = libsrc/dxerr.c \
 # Cleaning options
 #
 
-CLEANFILES = $(BUILT_SOURCES) $(crt64_SCRIPTS) $(lib64_SCRIPTS) $(crt32_SCRIPTS) $(lib32_SCRIPTS)
+CLEANFILES = $(BUILT_SOURCES) $(crt64_DATA) $(lib64_DATA) $(crt32_DATA) $(lib32_DATA)
 
 # Distribution options
 #
 
-EXTRA_DIST = DISCLAIMER
+
+EXTRA_DIST = ChangeLog-2009
 EXTRA_DIST += revstamp.h \
   $(top_srcdir)/lib64/*.def \
   $(top_srcdir)/lib32/*.def \
@@ -877,6 +973,7 @@ EXTRA_DIST += revstamp.h \
   crt/CRT_fp8.c \
   crt/CRT_fp10.c \
   crt/CRT_glob.c \
+  crt/CRT_noglob.c \
   crt/txtmode.c \
   crt/ucrtexe.c \
   profile/gcrt0.c \
@@ -889,31 +986,42 @@ dist-hook:
 
 
 # Testsuite options
-#
-#  testcases/t_float.c             testcases/t_setjmp.c      testcases/tstmain.cpp        testcases/tstwassert_win.c \
-#  testcases/t_matherr.c           testcases/t_speed_powl.c  testcases/tstmain_sys_xxx.c  testcases/tstwinmain.c     \
-#  testcases/t_nullptrexception.c  testcases/tstmain.c       testcases/tstwassert.c       testcases/t_trycatch.cpp
+
+#old
+#  testcases/tstwassert_win \
+#  testcases/tstwinmain \
+#  testcases/tstwassert \
+#  testcases_tstwinmain_LDADD = -lgdi32
+
 check_PROGRAMS = \
-  testcases/t_float  \
-  testcases/t_setjmp \
-  testcases/tstwassert_win \
-  testcases/t_matherr \
-  testcases/t_speed_powl \
-  testcases/tstmain_sys_xxx \
-  testcases/tstwinmain \
-  testcases/t_nullptrexception \
-  testcases/tstwassert \
-  testcases/t_trycatch \
-  testcases/tstmaincpp \
   testcases/tstmainc \
-  testcases/t_municode \
-  testcases/t_tmain \
+  testcases/tstmaincpp \
+  testcases/tstmain_sys_xxx \
+  testcases/t_ansi_io \
+  testcases/t_float  \
+  testcases/t_fstat \
+  testcases/t_intrinc \
+  testcases/t_matherr \
+  testcases/t_nullptrexception \
+  testcases/t_readdir \
+  testcases/t_setjmp \
+  testcases/t_sigv \
+  testcases/t_speed_powl \
+  testcases/t_stat \
+  testcases/t_stdint \
+  testcases/t_time \
   testcases/t_tls1 \
-  testcases/t_sigv
-testcases_tstwinmain_LDADD = -lgdi32
+  testcases/t_trycatch \
+  testcases/t_wreaddir
+
 testcases_tstmaincpp_SOURCES = testcases/tstmaincpp.cpp
 testcases_t_trycatch_SOURCES = testcases/t_trycatch.cpp
-testcases_t_municode_CFLAGS = -municode
-testcases_t_tmain_CFLAGS = -municode
+testcases_t_intrinc_CFLAGS = -std=c99
+
+if ENABLE_TESTS_UNICODE
+  check_PROGRAMS += testcases/t_municode testcases/t_tmain
+  testcases_t_municode_CFLAGS = -municode
+  testcases_t_tmain_CFLAGS = -municode -D_UNICODE
+endif
 
 TESTS = $(check_PROGRAMS)

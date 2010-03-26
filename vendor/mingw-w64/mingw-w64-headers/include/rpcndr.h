@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __RPCNDR_H_VERSION__
 #define __RPCNDR_H_VERSION__ (475)
@@ -53,13 +53,8 @@ extern "C" {
 
 #ifndef _HYPER_DEFINED
 #define _HYPER_DEFINED
-#if (!(defined(_X86_) && !defined(__x86_64)) || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 64))
-#define hyper __int64
-#define MIDL_uhyper unsigned __int64
-#else
-  typedef double hyper;
-  typedef double MIDL_uhyper;
-#endif
+#define hyper /* __MINGW_EXTENSION */ __int64
+#define MIDL_uhyper /* __MINGW_EXTENSION */ unsigned __int64
 #endif
 
 #ifndef _WCHAR_T_DEFINED
@@ -71,11 +66,7 @@ extern "C" {
 #define _SIZE_T_DEFINED
 #undef size_t
 #ifdef _WIN64
-#if defined(__GNUC__) && defined(__STRICT_ANSI__)
-  typedef unsigned int size_t __attribute__ ((mode (DI)));
-#else
-  typedef unsigned __int64 size_t;
-#endif
+  __MINGW_EXTENSION typedef unsigned __int64 size_t;
 #else
   typedef unsigned int size_t;
 #endif
@@ -85,11 +76,7 @@ extern "C" {
 #define _SSIZE_T_DEFINED
 #undef ssize_t
 #ifdef _WIN64
-#if defined(__GNUC__) && defined(__STRICT_ANSI__)
-  typedef int ssize_t __attribute__ ((mode (DI)));
-#else
-  typedef __int64 ssize_t;
-#endif
+  __MINGW_EXTENSION typedef __int64 ssize_t;
 #else
   typedef int ssize_t;
 #endif
@@ -105,8 +92,11 @@ extern "C" {
 #define midl_user_free MIDL_user_free
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
 #define RPC_VAR_ENTRY __cdecl
 
@@ -120,7 +110,7 @@ extern "C" {
 
   typedef void *NDR_CCONTEXT;
 
-  typedef struct {
+  typedef struct _NDR_SCONTEXT {
     void *pad[2];
     void *userContext;
   } *NDR_SCONTEXT;
@@ -268,16 +258,16 @@ typedef unsigned long error_status_t;
     struct _FULL_PTR_XLAT_TABLES *FullPtrXlatTables;
     unsigned long FullPtrRefId;
     unsigned long PointerLength;
-    int fInDontFree :1;
-    int fDontCallFreeInst :1;
-    int fInOnlyParam :1;
-    int fHasReturn :1;
-    int fHasExtensions :1;
-    int fHasNewCorrDesc :1;
-    int fIsOicfServer :1;
-    int fHasMemoryValidateCallback: 1;
-    int fUnused :8;
-    int fUnused2 :16;
+    int fInDontFree : 1;
+    int fDontCallFreeInst : 1;
+    int fInOnlyParam : 1;
+    int fHasReturn : 1;
+    int fHasExtensions : 1;
+    int fHasNewCorrDesc : 1;
+    int fIsOicfServer : 1;
+    int fHasMemoryValidateCallback : 1;
+    int fUnused : 8;
+    int fUnused2 : 16;
     unsigned long dwDestContext;
     void *pvDestContext;
     NDR_SCONTEXT *SavedContextHandles;
@@ -757,7 +747,7 @@ typedef unsigned long error_status_t;
 
   typedef struct _NDR_USER_MARSHAL_INFO {
     unsigned long InformationLevel;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       NDR_USER_MARSHAL_INFO_LEVEL1 Level1;
     };
   } NDR_USER_MARSHAL_INFO;

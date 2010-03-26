@@ -1,9 +1,8 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
-#if 0
 #ifndef _WINSOCKAPI_
 #define _WINSOCKAPI_
 
@@ -246,7 +245,7 @@ struct ip_mreq {
   struct in_addr imr_interface;
 };
 
-#define INVALID_SOCKET(SOCKET)(~0)
+#define INVALID_SOCKET (SOCKET)(~0)
 #define SOCKET_ERROR (-1)
 
 #define SOCK_STREAM 1
@@ -606,7 +605,4 @@ typedef struct timeval *LPTIMEVAL;
 #ifdef IPV6STRICT
 #error WINSOCK2 required.
 #endif
-#endif
-#else
-#include <winsock2.h>
 #endif

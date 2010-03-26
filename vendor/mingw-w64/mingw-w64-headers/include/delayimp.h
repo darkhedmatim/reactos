@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #define _DELAY_IMP_VER 2
 
@@ -39,7 +39,7 @@ enum {
 
 typedef struct DelayLoadProc {
   WINBOOL fImportByName;
-  union {
+  __MINGW_EXTENSION union {
     LPCSTR szProcName;
     DWORD dwOrdinal;
   };

@@ -1,40 +1,41 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
- #ifdef _WIN64
+#include <_mingw_mac.h>
+
 	.file	"scalbn.S"
 	.text
+#ifdef _WIN64
+	.align 8
+#else
 	.align 4
-.globl _scalbn
-	.def	_scalbn;	.scl	2;	.type	32;	.endef
-_scalbn:
-	movq	%rdx,-16(%rsp)
-	fildl	-16(%rsp)
-	movsd	%xmm0,-16(%rsp)
-	fldl	-16(%rsp)
+#endif
+.globl __MINGW_USYMBOL(scalbn)
+	.def	__MINGW_USYMBOL(scalbn);	.scl	2;	.type	32;	.endef
+__MINGW_USYMBOL(scalbn):
+#ifdef _WIN64
+	subq	$24, %rsp
+	movq	%rdx,(%rsp)
+	fildl	(%rsp)
+	movsd	%xmm0,(%rsp)
+	fldl	(%rsp)
 	fscale
 	fstp	%st(1)
-	fstpl	-16(%rsp)
-	movsd	-16(%rsp),%xmm0
+	fstpl	(%rsp)
+	movsd	(%rsp),%xmm0
+	addq	$24, %rsp
 	ret
 
-.globl _scalbln
-	.set	_scalbln,_scalbn
 #else
-	.file	"scalbn.S"
-	.text
-	.align 4
-.globl _scalbn
-	.def	_scalbn;	.scl	2;	.type	32;	.endef
-_scalbn:
 	fildl	12(%esp)
 	fldl	4(%esp)
 	fscale
 	fstp	%st(1)
 	ret
-
-.globl _scalbln
-	.set	_scalbln,_scalbn
 #endif
+
+.globl __MINGW_USYMBOL(scalbln)
+	.set	__MINGW_USYMBOL(scalbln),__MINGW_USYMBOL(scalbn)
+

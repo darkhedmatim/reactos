@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 /*
    wctrans.c 
@@ -45,7 +45,7 @@ wctrans_t
 wctrans (const char* property)
 {
   int i;
-  for ( i = 0; i < NTMAP; ++i )
+  for ( i = 0; i < (int) NTMAP; ++i )
     if (strcmp (property, tmap[i].name) == 0)
       return tmap[i].val;
    return 0;

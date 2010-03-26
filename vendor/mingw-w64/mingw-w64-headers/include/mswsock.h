@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _MSWSOCK_
 #define _MSWSOCK_
@@ -74,8 +74,8 @@ extern "C" {
 #define TP_ELEMENT_FILE 2
 #define TP_ELEMENT_EOP 4
     ULONG cLength;
-    union {
-      struct {
+    __MINGW_EXTENSION union {
+      __MINGW_EXTENSION struct {
 	LARGE_INTEGER nFileOffset;
 	HANDLE hFile;
       };

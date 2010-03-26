@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -43,8 +43,11 @@ typedef struct WiaVideo WiaVideo;
 extern "C" {
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
   typedef enum __MIDL___MIDL_itf_wiavideo_0000_0001 {
     WIAVIDEO_NO_VIDEO = 1,WIAVIDEO_CREATING_VIDEO = 2,WIAVIDEO_VIDEO_CREATED = 3,WIAVIDEO_VIDEO_PLAYING = 4,WIAVIDEO_VIDEO_PAUSED = 5,

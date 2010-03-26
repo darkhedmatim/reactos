@@ -428,7 +428,8 @@ _mbsupr
 _memccpy
 _memicmp
 _mkdir
-_mkgmtime
+_mkgmtime DATA
+;_mkgmtime32 = _mkgmtime
 _mkgmtime64
 _mktemp
 _mktime64
@@ -559,7 +560,8 @@ _wcsset
 _wcstoi64
 _wcstoui64
 _wcsupr
-_wctime
+_wctime DATA
+;_wctime32 = _wctime
 _wctime64
 _wctype
 _wenviron DATA
@@ -633,14 +635,14 @@ _yn
 abort
 abs
 acos
-acosf
+;acosf
 asctime
 asin
-asinf
+;asinf
 atan
 atan2
-atan2f
-atanf
+;atan2f
+;atanf
 atexit DATA
 atof
 atoi
@@ -648,20 +650,21 @@ atol
 bsearch
 calloc
 ceil
-ceilf
+;ceilf
 clearerr
 clock
 cos
-cosf
+;cosf
 cosh
-coshf
-ctime
+;coshf
+ctime DATA
+;_ctime32 = ctime
 difftime
 div
 exit
 exp
-expf
-fabs
+;expf
+;fabs
 fclose
 feof
 ferror
@@ -672,9 +675,9 @@ fgets
 fgetwc
 fgetws
 floor
-floorf
+;floorf
 fmod
-fmodf
+;fmodf
 fopen
 fprintf
 fputc
@@ -698,7 +701,8 @@ getenv
 gets
 getwc
 getwchar
-gmtime
+gmtime DATA
+;_gmtime32 = gmtime
 is_wctype
 isalnum
 isalpha
@@ -729,11 +733,13 @@ labs
 ldexp
 ldiv
 localeconv
-localtime
+localtime DATA
+;_localtime32 = localtime
 log
 log10
-log10f
-logf
+;log10f
+;logf
+longjmp DATA
 malloc
 mblen
 mbstowcs
@@ -743,12 +749,13 @@ memcmp
 memcpy
 memmove
 memset
-mktime
+mktime DATA
+;_mktime32 = mktime
 modf
-modff
+;modff
 perror
-pow
-powf
+;pow
+;powf
 printf
 putc
 putchar
@@ -758,6 +765,7 @@ putwchar
 qsort
 raise
 rand
+rand_s
 realloc
 remove
 rename
@@ -769,12 +777,12 @@ setlocale
 setvbuf
 signal
 sin
-sinf
+;sinf
 sinh
-sinhf
+;sinhf
 sprintf
 sqrt
-sqrtf
+;sqrtf
 srand
 sscanf
 strcat
@@ -802,9 +810,10 @@ swprintf
 swscanf
 system
 tan
-tanf
+;tanf
 tanh
-time
+time DATA
+;_time32 = time
 tmpfile
 tmpnam
 tolower

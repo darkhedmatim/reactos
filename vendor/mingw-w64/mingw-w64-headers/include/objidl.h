@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -473,8 +473,11 @@ typedef struct IInitializeSpy IInitializeSpy;
 extern "C" {
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
   typedef struct _COSERVERINFO {
     DWORD dwReserved1;
@@ -2169,7 +2172,8 @@ extern "C" {
   typedef IAdviseSink *LPADVISESINK;
 
   typedef enum tagTYMED {
-    TYMED_HGLOBAL = 1,TYMED_FILE = 2,TYMED_ISTREAM = 4,TYMED_ISTORAGE = 8,TYMED_GDI = 16,TYMED_MFPICT = 32,TYMED_ENHMF = 64,TYMED_NULL = 0
+    TYMED_HGLOBAL = 1,TYMED_FILE = 2,TYMED_ISTREAM = 4,TYMED_ISTORAGE = 8,
+    TYMED_GDI = 16,TYMED_MFPICT = 32,TYMED_ENHMF = 64,TYMED_NULL = 0
   } TYMED;
 
   typedef struct tagRemSTGMEDIUM {
@@ -2198,7 +2202,7 @@ extern "C" {
 #else
   typedef struct tagSTGMEDIUM {
     DWORD tymed;
-    __extension__ union {
+    __MINGW_EXTENSION union {
       HBITMAP hBitmap;
       HMETAFILEPICT hMetaFilePict;
       HENHMETAFILE hEnhMetaFile;

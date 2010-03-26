@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef _NTSECAPI_
 #define _NTSECAPI_
@@ -94,16 +94,16 @@ extern "C" {
   typedef OBJECT_ATTRIBUTES LSA_OBJECT_ATTRIBUTES,*PLSA_OBJECT_ATTRIBUTES;
 #else
 
+#ifndef _NO_W32_PSEUDO_MODIFIERS
 #ifndef IN
 #define IN
 #endif
-
 #ifndef OUT
 #define OUT
 #endif
-
 #ifndef OPTIONAL
 #define OPTIONAL
+#endif
 #endif
 
   typedef struct _LSA_UNICODE_STRING {
@@ -563,8 +563,14 @@ extern "C" {
   } NEGOTIATE_CALLER_NAME_RESPONSE,*PNEGOTIATE_CALLER_NAME_RESPONSE;
 
 #ifndef _NTDEF_
+#ifndef __UNICODE_STRING_DEFINED
+#define __UNICODE_STRING_DEFINED
   typedef LSA_UNICODE_STRING UNICODE_STRING,*PUNICODE_STRING;
+#endif
+#ifndef __STRING_DEFINED
+#define __STRING_DEFINED
   typedef LSA_STRING STRING,*PSTRING;
+#endif
 #endif
 
 #ifndef _DOMAIN_PASSWORD_INFORMATION_DEFINED

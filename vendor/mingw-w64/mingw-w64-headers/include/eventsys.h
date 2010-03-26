@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -158,8 +158,11 @@ typedef struct EventObjectChange2 EventObjectChange2;
 extern "C"{
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
 #define PROGID_EventSystem OLESTR("EventSystem.EventSystem")
 #define PROGID_EventPublisher OLESTR("EventSystem.EventPublisher")
@@ -851,7 +854,7 @@ extern "C"{
     CONST_VTBL struct IMultiInterfacePublisherFilterVtbl *lpVtbl;
   };
 #ifdef COBJMACROS
-  define IMultiInterfacePublisherFilter_QueryInterface(This,riid,ppvObject) (This)->lpVtbl->QueryInterface(This,riid,ppvObject)
+#define IMultiInterfacePublisherFilter_QueryInterface(This,riid,ppvObject) (This)->lpVtbl->QueryInterface(This,riid,ppvObject)
 #define IMultiInterfacePublisherFilter_AddRef(This) (This)->lpVtbl->AddRef(This)
 #define IMultiInterfacePublisherFilter_Release(This) (This)->lpVtbl->Release(This)
 #define IMultiInterfacePublisherFilter_Initialize(This,pEIC) (This)->lpVtbl->Initialize(This,pEIC)
@@ -866,9 +869,8 @@ extern "C"{
 
 #ifndef __IEventObjectChange_INTERFACE_DEFINED__
 #define __IEventObjectChange_INTERFACE_DEFINED__
-  typedef
-    enum __MIDL_IEventObjectChange_0001 {
-      EOC_NewObject = 0,EOC_ModifiedObject = EOC_NewObject + 1,EOC_DeletedObject = EOC_ModifiedObject + 1
+  typedef enum __MIDL_IEventObjectChange_0001 {
+    EOC_NewObject = 0,EOC_ModifiedObject,EOC_DeletedObject
   } EOC_ChangeType;
   EXTERN_C const IID IID_IEventObjectChange;
 #if defined(__cplusplus) && !defined(CINTERFACE)

@@ -1,7 +1,7 @@
 /**
  * This file has no copyright assigned and is placed in the Public Domain.
  * This file is part of the w64 mingw-runtime package.
- * No warranty is given; refer to the file DISCLAIMER within this package.
+ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
  */
 #ifndef __REQUIRED_RPCNDR_H_VERSION__
 #define __REQUIRED_RPCNDR_H_VERSION__ 475
@@ -76,8 +76,11 @@ typedef struct COMAdminCatalogCollection COMAdminCatalogCollection;
 extern "C"{
 #endif
 
+#ifndef __MIDL_user_allocate_free_DEFINED__
+#define __MIDL_user_allocate_free_DEFINED__
   void *__RPC_API MIDL_user_allocate(size_t);
   void __RPC_API MIDL_user_free(void *);
+#endif
 
 #include <objbase.h>
 
@@ -706,10 +709,9 @@ extern "C"{
   } COMAdminTransactionOptions;
 
   typedef enum COMAdminTxIsolationLevelOptions {
-    COMAdminTxIsolationLevelAny = 0,COMAdminTxIsolationLevelReadUnCommitted = COMAdminTxIsolationLevelAny + 1,
-    COMAdminTxIsolationLevelReadCommitted = COMAdminTxIsolationLevelReadUnCommitted + 1,
-    COMAdminTxIsolationLevelRepeatableRead = COMAdminTxIsolationLevelReadCommitted + 1,
-    COMAdminTxIsolationLevelSerializable = COMAdminTxIsolationLevelRepeatableRead + 1
+    COMAdminTxIsolationLevelAny = 0,COMAdminTxIsolationLevelReadUnCommitted,
+    COMAdminTxIsolationLevelReadCommitted,COMAdminTxIsolationLevelRepeatableRead,
+    COMAdminTxIsolationLevelSerializable
   } COMAdminTxIsolationLevelOptions;
 
   typedef enum COMAdminSynchronizationOptions {
@@ -753,10 +755,9 @@ extern "C"{
   } COMAdminServiceOptions;
 
   typedef enum COMAdminServiceStatusOptions {
-    COMAdminServiceStopped = 0,COMAdminServiceStartPending = COMAdminServiceStopped + 1,COMAdminServiceStopPending = COMAdminServiceStartPending + 1,
-    COMAdminServiceRunning = COMAdminServiceStopPending + 1,COMAdminServiceContinuePending = COMAdminServiceRunning + 1,
-    COMAdminServicePausePending = COMAdminServiceContinuePending + 1,COMAdminServicePaused = COMAdminServicePausePending + 1,
-    COMAdminServiceUnknownState = COMAdminServicePaused + 1
+    COMAdminServiceStopped = 0,COMAdminServiceStartPending,COMAdminServiceStopPending,
+    COMAdminServiceRunning,COMAdminServiceContinuePending,COMAdminServicePausePending,
+    COMAdminServicePaused,COMAdminServiceUnknownState
   } COMAdminServiceStatusOptions;
 
   typedef enum COMAdminQCMessageAuthenticateOptions {
