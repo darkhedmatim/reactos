@@ -100,8 +100,8 @@ struct key_value
 #define MIN_SUBKEYS  8   /* min. number of allocated subkeys per key */
 #define MIN_VALUES   8   /* min. number of allocated values per key */
 
-#define MAX_NAME_LEN  MAX_PATH  /* max. length of a key name */
-#define MAX_VALUE_LEN MAX_PATH  /* max. length of a value name */
+#define MAX_NAME_LEN  255    /* max. length of a key name */
+#define MAX_VALUE_LEN 16383  /* max. length of a value name */
 
 /* the root of the registry tree */
 static struct key *root_key;
@@ -537,7 +537,8 @@ static struct key *alloc_subkey( struct key *parent, const struct unicode_str *n
         for (i = ++parent->last_subkey; i > index; i--)
             parent->subkeys[i] = parent->subkeys[i-1];
         parent->subkeys[index] = key;
-        if (is_wow6432node( key->name, key->namelen )) parent->flags |= KEY_WOW64;
+        if (is_wow6432node( key->name, key->namelen ) && !is_wow6432node( parent->name, parent->namelen ))
+            parent->flags |= KEY_WOW64;
     }
     return key;
 }
@@ -710,12 +711,6 @@ static struct key *create_key( struct key *key, const struct unicode_str *name,
 {
     int index;
     struct unicode_str token, next;
-
-    if (key->flags & KEY_DELETED) /* we cannot create a subkey under a deleted key */
-    {
-        set_error( STATUS_KEY_DELETED );
-        return NULL;
-    }
 
     *created = 0;
     if (!(key = open_key_prefix( key, name, access, &token, &index ))) return NULL;
@@ -901,7 +896,7 @@ static void enum_key( const struct key *key, int index, int info_class,
 static int delete_key( struct key *key, int recurse )
 {
     int index;
-    struct key *parent;
+    struct key *parent = key->parent;
 
     /* must find parent and index */
     if (key == root_key)
@@ -909,11 +904,7 @@ static int delete_key( struct key *key, int recurse )
         set_error( STATUS_ACCESS_DENIED );
         return -1;
     }
-    if (!(parent = key->parent) || (key->flags & KEY_DELETED))
-    {
-        set_error( STATUS_KEY_DELETED );
-        return -1;
-    }
+    assert( parent );
 
     while (recurse && (key->last_subkey>=0))
         if (0 > delete_key(key->subkeys[key->last_subkey], 1))
@@ -1164,16 +1155,24 @@ static void delete_value( struct key *key, const struct unicode_str *name )
 }
 
 /* get the registry key corresponding to an hkey handle */
-static inline struct key *get_hkey_obj( obj_handle_t hkey, unsigned int access )
+static struct key *get_hkey_obj( obj_handle_t hkey, unsigned int access )
 {
-    return (struct key *)get_handle_obj( current->process, hkey, access, &key_ops );
+    struct key *key = (struct key *)get_handle_obj( current->process, hkey, access, &key_ops );
+
+    if (key && key->flags & KEY_DELETED)
+    {
+        set_error( STATUS_KEY_DELETED );
+        release_object( key );
+        key = NULL;
+    }
+    return key;
 }
 
 /* get the registry key corresponding to a parent key handle */
 static inline struct key *get_parent_hkey_obj( obj_handle_t hkey )
 {
     if (!hkey) return (struct key *)grab_object( root_key );
-    return (struct key *)get_handle_obj( current->process, hkey, 0, &key_ops );
+    return get_hkey_obj( hkey, 0 );
 }
 
 /* read a line from the input file */
@@ -1697,11 +1696,6 @@ static void save_registry( struct key *key, obj_handle_t handle )
     struct file *file;
     int fd;
 
-    if (key->flags & KEY_DELETED)
-    {
-        set_error( STATUS_KEY_DELETED );
-        return;
-    }
     if (!(file = get_file_obj( current->process, handle, FILE_WRITE_DATA ))) return;
     fd = dup( get_file_unix_fd( file ) );
     release_object( file );
