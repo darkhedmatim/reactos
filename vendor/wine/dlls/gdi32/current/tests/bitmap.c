@@ -411,7 +411,7 @@ static void test_dib_bits_access( HBITMAP hdib, void *bits )
     char bmibuf[sizeof(BITMAPINFO) + 256 * sizeof(RGBQUAD)];
     DWORD data[256];
     BITMAPINFO *pbmi = (BITMAPINFO *)bmibuf;
-    HDC hdc = GetDC(0);
+    HDC hdc;
     char filename[MAX_PATH];
     HANDLE file;
     DWORD written;
@@ -435,10 +435,14 @@ static void test_dib_bits_access( HBITMAP hdib, void *bits )
     pbmi->bmiHeader.biPlanes = 1;
     pbmi->bmiHeader.biCompression = BI_RGB;
 
+    hdc = GetDC(0);
+
     ret = SetDIBits( hdc, hdib, 0, 16, data, pbmi, DIB_RGB_COLORS );
     ok(ret == 16 ||
        broken(ret == 0), /* win9x */
        "SetDIBits failed: expected 16 got %d\n", ret);
+
+    ReleaseDC(0, hdc);
 
     ok(VirtualQuery(bits, &info, sizeof(info)) == sizeof(info),
         "VirtualQuery failed\n");
@@ -864,8 +868,8 @@ static void test_dibsections(void)
     DeleteObject(hdib);
     DeleteObject(hpal);
 
-
     DeleteDC(hdcmem);
+    DeleteDC(hdcmem2);
     ReleaseDC(0, hdc);
 }
 
@@ -2848,6 +2852,54 @@ static void test_clipping(void)
     DeleteDC( hdcSrc );
 }
 
+static void test_32bit_bitmap_blt(void)
+{
+    BITMAPINFO biDst;
+    HBITMAP bmpSrc, bmpDst;
+    HBITMAP oldSrc, oldDst;
+    HDC hdcSrc, hdcDst, hdcScreen;
+    UINT32 *dstBuffer;
+    DWORD colorSrc = 0x11223344;
+
+    memset(&biDst, 0, sizeof(BITMAPINFO));
+    biDst.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    biDst.bmiHeader.biWidth = 2;
+    biDst.bmiHeader.biHeight = -2;
+    biDst.bmiHeader.biPlanes = 1;
+    biDst.bmiHeader.biBitCount = 32;
+    biDst.bmiHeader.biCompression = BI_RGB;
+
+    hdcScreen = CreateCompatibleDC(0);
+    if(GetDeviceCaps(hdcScreen, BITSPIXEL) != 32)
+    {
+        DeleteDC(hdcScreen);
+        trace("Skipping 32-bit DDB test\n");
+        return;
+    }
+
+    hdcSrc = CreateCompatibleDC(hdcScreen);
+    bmpSrc = CreateBitmap(1, 1, 1, 32, &colorSrc);
+    oldSrc = SelectObject(hdcSrc, bmpSrc);
+
+    hdcDst = CreateCompatibleDC(hdcScreen);
+    bmpDst = CreateDIBSection(hdcDst, &biDst, DIB_RGB_COLORS, (void**)&dstBuffer, NULL, 0);
+    oldDst = SelectObject(hdcDst, bmpDst);
+
+    StretchBlt(hdcDst, 0, 0, 1, 1, hdcSrc, 0, 0, 1, 1, SRCCOPY);
+    ok(dstBuffer[0] == colorSrc, "Expected color=%x, received color=%x\n", colorSrc, dstBuffer[0]);
+
+    /* Tidy up */
+    SelectObject(hdcDst, oldDst);
+    DeleteObject(bmpDst);
+    DeleteDC(hdcDst);
+
+    SelectObject(hdcSrc, oldSrc);
+    DeleteObject(bmpSrc);
+    DeleteDC(hdcSrc);
+
+    DeleteDC(hdcScreen);
+}
+
 START_TEST(bitmap)
 {
     HMODULE hdll;
@@ -2874,6 +2926,7 @@ START_TEST(bitmap)
     test_StretchBlt();
     test_StretchDIBits();
     test_GdiAlphaBlend();
+    test_32bit_bitmap_blt();
     test_bitmapinfoheadersize();
     test_get16dibits();
     test_clipping();
