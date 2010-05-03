@@ -148,30 +148,31 @@ PropsMaker::_generate_global_includes()
 	const vector<Include*>& incs = data.includes;
 	for ( i = 0; i < incs.size(); i++ )
 	{
-		if ((incs[i]->directory->relative_path == "include\\crt" ||
-		     incs[i]->directory->relative_path == "include\\ddk" ||
-		     incs[i]->directory->relative_path == "include\\GL" ||
-		     incs[i]->directory->relative_path == "include\\psdk") &&
+		if ((strncmp(incs[i]->directory->relative_path.c_str(), "include\\crt", 11 ) ||
+		     strncmp(incs[i]->directory->relative_path.c_str(), "include\\ddk", 11 ) ||
+		     strncmp(incs[i]->directory->relative_path.c_str(), "include\\GL", 10 ) ||
+		     strncmp(incs[i]->directory->relative_path.c_str(), "include\\psdk", 12 ) ||
+		     strncmp(incs[i]->directory->relative_path.c_str(), "include\\reactos\\wine", 20 )) &&
 			 ! use_ros_headers)
 		{
 			continue;
 		}
 
 		if(incs[i]->directory->directory == SourceDirectory)
-			fprintf ( OUT, "$(RootSrcDir)\\");
+			fprintf ( OUT, "&quot;$(src)\\");
 		else if (incs[i]->directory->directory == IntermediateDirectory)
-			fprintf ( OUT, "$(RootIntDir)\\");
+			fprintf ( OUT, "&quot;$(obj)\\");
 		else if (incs[i]->directory->directory == OutputDirectory)
-			fprintf ( OUT, "$(RootOutDir)\\");
+			fprintf ( OUT, "&quot;$(out)\\");
 		else 
 			continue;
 
 		fprintf ( OUT, incs[i]->directory->relative_path.c_str()); 
-		fprintf ( OUT, " ; ");
+		fprintf ( OUT, "&quot; ; ");
 	}
 
-	fprintf ( OUT, "$(RootIntDir)\\include ; ");
-	fprintf ( OUT, "$(RootIntDir)\\include\\reactos ; ");
+	fprintf ( OUT, "&quot;$(obj)\\include&quot; ; ");
+	fprintf ( OUT, "&quot;$(obj)\\include\\reactos&quot; ; ");
 
 	if ( !use_ros_headers )
 	{
@@ -179,9 +180,9 @@ PropsMaker::_generate_global_includes()
 		if (getenv ( "BASEDIR" ) != NULL)
 		{
 			string WdkBase = getenv ( "BASEDIR" );
-			fprintf ( OUT, "%s\\inc\\api ; ", WdkBase.c_str());
-			fprintf ( OUT, "%s\\inc\\crt ; ", WdkBase.c_str());
-			fprintf ( OUT, "%s\\inc\\ddk ; ", WdkBase.c_str());
+			fprintf ( OUT, "&quot;%s\\inc\\api&quot; ; ", WdkBase.c_str());
+			fprintf ( OUT, "&quot;%s\\inc\\crt&quot; ; ", WdkBase.c_str());
+			fprintf ( OUT, "&quot;%s\\inc\\ddk&quot; ; ", WdkBase.c_str());
 		}
 	}
 	fprintf ( OUT, "\"\r\n");
@@ -192,6 +193,9 @@ PropsMaker::_generate_global_includes()
 void
 PropsMaker::_generate_global_definitions()
 {
+
+	string global_defines = "";
+
 	fprintf ( OUT, "\t<UserMacro\r\n");
 	fprintf ( OUT, "\t\tName=\"globalDefines\"\r\n");
 	fprintf ( OUT, "\t\tValue=\"");
@@ -258,10 +262,10 @@ PropsMaker::_generate_props ( std::string solution_version,
 		outdir = srcdir + "\\output-i386";
 
 	//Generate global macros
-	_generate_macro("RootSrcDir", srcdir, true);
-	_generate_macro("RootOutDir", outdir, true);
-	_generate_macro("RootIntDir", intdir, true);
-	_generate_macro("Tools", "$(RootOutDir)\\tools", true);
+	_generate_macro("src", srcdir, true);
+	_generate_macro("out", outdir, true);
+	_generate_macro("obj", intdir, true);
+	_generate_macro("Tools", "$(out)\\tools", true);
 	_generate_macro("RosBE", rosbedir, true);
 
 	_generate_global_includes();

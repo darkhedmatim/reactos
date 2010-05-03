@@ -25,9 +25,9 @@
 
 /*
  * TODO:
- *	- Implement RegDeleteKeyW()
+ *	- Implement RegDeleteKey()
  *	- Implement RegEnumValue()
- *	- Implement RegQueryValueExW()
+ *	- Implement RegQueryValueExA()
  */
 
 #include <stdlib.h>
@@ -127,7 +127,7 @@ RegpOpenOrCreateKey(
 	LocalKeyName = (PWSTR)KeyName;
 	for (;;)
 	{
-		End = (PWSTR)strchrW(LocalKeyName, '\\');
+		End = (PWSTR) utf16_wcschr(LocalKeyName, '\\');
 		if (End)
 		{
 			KeyString.Buffer = LocalKeyName;
@@ -138,9 +138,9 @@ RegpOpenOrCreateKey(
 			RtlInitUnicodeString(&KeyString, LocalKeyName);
 
 		/* Redirect from 'CurrentControlSet' to 'ControlSet001' */
-		if (!strncmpW(LocalKeyName, L"CurrentControlSet", 17) &&
-		    ParentKey->NameSize == 12 &&
-		    !memcmp(ParentKey->Name, L"SYSTEM", 12))
+		if (!utf16_wcsncmp(LocalKeyName, L"CurrentControlSet", 17) &&
+                           ParentKey->NameSize == 12 &&
+                           !memcmp(ParentKey->Name, L"SYSTEM", 12))
 			RtlInitUnicodeString(&KeyString, L"ControlSet001");
 
 		/* Check subkey in memory structure */
@@ -246,38 +246,15 @@ RegCreateKeyA(
 }
 
 LONG WINAPI
-RegDeleteKeyW(
-	IN HKEY hKey,
-	IN LPCWSTR lpSubKey)
+RegDeleteKeyA(HKEY Key,
+	     LPCSTR Name)
 {
-	DPRINT1("FIXME!\n");
-	return ERROR_SUCCESS;
-}
+  if (Name != NULL && strchr(Name, '\\') != NULL)
+    return(ERROR_INVALID_PARAMETER);
 
-LONG WINAPI
-RegDeleteKeyA(
-	IN HKEY hKey,
-	IN LPCSTR lpSubKey)
-{
-	PWSTR lpSubKeyW = NULL;
-	LONG rc;
+  DPRINT1("FIXME!\n");
 
-	if (lpSubKey != NULL && strchr(lpSubKey, '\\') != NULL)
-		return ERROR_INVALID_PARAMETER;
-
-	if (lpSubKey)
-	{
-		lpSubKeyW = MultiByteToWideChar(lpSubKey);
-		if (!lpSubKeyW)
-			return ERROR_OUTOFMEMORY;
-	}
-
-	rc = RegDeleteKeyW(hKey, lpSubKeyW);
-
-	if (lpSubKey)
-		free(lpSubKeyW);
-
-	return rc;
+  return(ERROR_SUCCESS);
 }
 
 LONG WINAPI

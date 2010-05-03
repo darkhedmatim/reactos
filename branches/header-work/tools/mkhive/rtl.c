@@ -59,7 +59,7 @@ RtlInitUnicodeString(
 
 	if(SourceString)
 	{
-		DestSize = strlenW(SourceString) * sizeof(WCHAR);
+		DestSize = utf16_wcslen(SourceString) * sizeof(WCHAR);
 		DestinationString->Length = (USHORT)DestSize;
 		DestinationString->MaximumLength = (USHORT)DestSize + sizeof(WCHAR);
 	}
