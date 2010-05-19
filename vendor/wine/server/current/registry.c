@@ -43,6 +43,7 @@
 #include "file.h"
 #include "handle.h"
 #include "request.h"
+#include "process.h"
 #include "unicode.h"
 #include "security.h"
 
@@ -109,6 +110,7 @@ static struct key *root_key;
 static const timeout_t ticks_1601_to_1970 = (timeout_t)86400 * (369 * 365 + 89) * TICKS_PER_SEC;
 static const timeout_t save_period = 30 * -TICKS_PER_SEC;  /* delay between periodic saves */
 static struct timeout_user *save_timeout_user;  /* saving timer */
+static enum prefix_type { PREFIX_UNKNOWN, PREFIX_32BIT, PREFIX_64BIT } prefix_type;
 
 static const WCHAR root_name[] = { '\\','R','e','g','i','s','t','r','y','\\' };
 static const WCHAR wow6432node[] = {'W','o','w','6','4','3','2','N','o','d','e'};
@@ -1305,6 +1307,35 @@ static struct key *load_key( struct key *base, const char *buffer,
     return create_key_recursive( base, &name, modif );
 }
 
+/* load a global option from the input file */
+static int load_global_option( const char *buffer, struct file_load_info *info )
+{
+    const char *p;
+
+    if (!strncmp( buffer, "#arch=", 6 ))
+    {
+        enum prefix_type type;
+        p = buffer + 6;
+        if (!strcmp( p, "win32" )) type = PREFIX_32BIT;
+        else if (!strcmp( p, "win64" )) type = PREFIX_64BIT;
+        else
+        {
+            file_read_error( "Unknown architecture", info );
+            set_error( STATUS_NOT_REGISTRY_FILE );
+            return 0;
+        }
+        if (prefix_type == PREFIX_UNKNOWN) prefix_type = type;
+        else if (type != prefix_type)
+        {
+            file_read_error( "Mismatched architecture", info );
+            set_error( STATUS_NOT_REGISTRY_FILE );
+            return 0;
+        }
+    }
+    /* ignore unknown options */
+    return 1;
+}
+
 /* load a key option from the input file */
 static int load_key_option( struct key *key, const char *buffer, struct file_load_info *info )
 {
@@ -1525,6 +1556,7 @@ static void load_keys( struct key *key, const char *filename, FILE *f, int prefi
             break;
         case '#':   /* option */
             if (subkey) load_key_option( subkey, p, &info );
+            else if (!load_global_option( p, &info )) goto done;
             break;
         case ';':   /* comment */
         case 0:     /* empty line */
@@ -1563,7 +1595,7 @@ static void load_registry( struct key *key, obj_handle_t handle )
 }
 
 /* load one of the initial registry files */
-static void load_init_registry_from_file( const char *filename, struct key *key )
+static int load_init_registry_from_file( const char *filename, struct key *key )
 {
     FILE *f;
 
@@ -1574,7 +1606,7 @@ static void load_init_registry_from_file( const char *filename, struct key *key 
         if (get_error() == STATUS_NOT_REGISTRY_FILE)
         {
             fprintf( stderr, "%s is not a valid registry file\n", filename );
-            return;
+            return 1;
         }
     }
 
@@ -1583,6 +1615,7 @@ static void load_init_registry_from_file( const char *filename, struct key *key 
     save_branch_info[save_branch_count].path = filename;
     save_branch_info[save_branch_count++].key = (struct key *)grab_object( key );
     make_object_static( &key->obj );
+    return (f != NULL);
 }
 
 static WCHAR *format_user_registry_path( const SID *sid, struct unicode_str *path )
@@ -1606,6 +1639,34 @@ static WCHAR *format_user_registry_path( const SID *sid, struct unicode_str *pat
     path->len = (p - buffer) * sizeof(WCHAR);
     path->str = p = memdup( buffer, path->len );
     return p;
+}
+
+/* get the cpu architectures that can be supported in the current prefix */
+unsigned int get_prefix_cpu_mask(void)
+{
+    /* Allowed server/client/prefix combinations:
+     *
+     *              prefix
+     *            32     64
+     *  server +------+------+ client
+     *         |  ok  | fail | 32
+     *      32 +------+------+---
+     *         | fail | fail | 64
+     *      ---+------+------+---
+     *         |  ok  |  ok  | 32
+     *      64 +------+------+---
+     *         | fail |  ok  | 64
+     *      ---+------+------+---
+     */
+    switch (prefix_type)
+    {
+    case PREFIX_64BIT:
+        /* 64-bit prefix requires 64-bit server */
+        return sizeof(void *) > sizeof(int) ? ~0 : 0;
+    case PREFIX_32BIT:
+    default:
+        return ~CPU_64BIT_MASK;  /* only 32-bit cpus supported on 32-bit prefix */
+    }
 }
 
 /* registry initialisation */
@@ -1639,7 +1700,10 @@ void init_registry(void)
     if (!(hklm = create_key_recursive( root_key, &HKLM_name, current_time )))
         fatal_error( "could not create Machine registry key\n" );
 
-    load_init_registry_from_file( "system.reg", hklm );
+    if (!load_init_registry_from_file( "system.reg", hklm ))
+        prefix_type = sizeof(void *) > sizeof(int) ? PREFIX_64BIT : PREFIX_32BIT;
+    else if (prefix_type == PREFIX_UNKNOWN)
+        prefix_type = PREFIX_32BIT;
 
     /* load userdef.reg into Registry\User\.Default */
 
@@ -1660,7 +1724,7 @@ void init_registry(void)
     load_init_registry_from_file( "user.reg", hkcu );
 
     /* set the shared flag on Software\Classes\Wow6432Node */
-    if (sizeof(void *) > sizeof(int))
+    if (prefix_type == PREFIX_64BIT)
     {
         if ((key = create_key_recursive( hklm, &classes_name, current_time )))
         {
@@ -1687,6 +1751,17 @@ static void save_all_subkeys( struct key *key, FILE *f )
     fprintf( f, ";; All keys relative to " );
     dump_path( key, NULL, f );
     fprintf( f, "\n" );
+    switch (prefix_type)
+    {
+    case PREFIX_32BIT:
+        fprintf( f, "\n#arch=win32\n" );
+        break;
+    case PREFIX_64BIT:
+        fprintf( f, "\n#arch=win64\n" );
+        break;
+    default:
+        break;
+    }
     save_subkeys( key, key, f );
 }
 
@@ -1825,6 +1900,12 @@ void flush_registry(void)
         }
     }
     if (fchdir( server_dir_fd ) == -1) fatal_perror( "chdir to server dir" );
+}
+
+/* determine if the thread is wow64 (32-bit client running on 64-bit prefix) */
+static int is_wow64_thread( struct thread *thread )
+{
+    return (prefix_type == PREFIX_64BIT && !(CPU_FLAG(thread->process->cpu) & CPU_64BIT_MASK));
 }
 
 

@@ -700,7 +700,7 @@ static const unsigned char pngimage[285] = {
 
 /* 1x1 pixel bmp */
 static const unsigned char bmpimage[66] = {
-0x42,0x4d,0x42,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x3e,0x00,0x00,0x00,0x28,0x00,
+0x42,0x4d,0x42,0x00,0x00,0x00,0xDE,0xAD,0xBE,0xEF,0x3e,0x00,0x00,0x00,0x28,0x00,
 0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x00,0x01,0x00,0x00,0x00,
 0x00,0x00,0x04,0x00,0x00,0x00,0x12,0x0b,0x00,0x00,0x12,0x0b,0x00,0x00,0x02,0x00,
 0x00,0x00,0x02,0x00,0x00,0x00,0xff,0xff,0xff,0x00,0xff,0xff,0xff,0x00,0x00,0x00,
@@ -1005,11 +1005,9 @@ static BOOL color_match(COLORREF a, COLORREF b)
 static void check_alpha_draw(HDC hdc, BOOL drawiconex, BOOL alpha, int bpp, int line)
 {
     HICON hicon;
-    UINT32 mask;
     UINT32 color[2];
     COLORREF modern_expected, legacy_expected, result;
 
-    mask = 0x00000000;
     color[0] = 0x00A0B0C0;
     color[1] = alpha ? 0xFF000000 : 0x00000000;
     modern_expected = alpha ? 0x00FFFFFF : 0x00C0B0A0;
@@ -1192,15 +1190,12 @@ static void test_DrawIconEx(void)
     check_DrawIconEx(hdcDst, FALSE, 0x80A0B0C0, 32, DI_MASK, 0x00FFFFFF, 0x00000000, 0x00000000, __LINE__);
     check_DrawIconEx(hdcDst, TRUE, 0x80A0B0C0, 32, DI_MASK, 0x00FFFFFF, 0x00FFFFFF, 0x00FFFFFF, __LINE__);
 
-    todo_wine
-    {
-        check_DrawIconEx(hdcDst, FALSE, 0x00A0B0C0, 32, DI_IMAGE, 0x00FFFFFF, 0x00C0B0A0, 0x00C0B0A0, __LINE__);
-        check_DrawIconEx(hdcDst, TRUE, 0x00A0B0C0, 32, DI_IMAGE, 0x00FFFFFF, 0x00C0B0A0, 0x00C0B0A0, __LINE__);
-    }
+    check_DrawIconEx(hdcDst, FALSE, 0x00A0B0C0, 32, DI_IMAGE, 0x00FFFFFF, 0x00C0B0A0, 0x00C0B0A0, __LINE__);
+    check_DrawIconEx(hdcDst, TRUE, 0x00A0B0C0, 32, DI_IMAGE, 0x00FFFFFF, 0x00C0B0A0, 0x00C0B0A0, __LINE__);
 
     /* Test normal drawing */
     check_DrawIconEx(hdcDst, FALSE, 0x00A0B0C0, 32, DI_NORMAL, 0x00FFFFFF, 0x00C0B0A0, 0x00C0B0A0, __LINE__);
-    todo_wine check_DrawIconEx(hdcDst, TRUE, 0x00A0B0C0, 32, DI_NORMAL, 0x00FFFFFF, 0x003F4F5F, 0x003F4F5F, __LINE__);
+    check_DrawIconEx(hdcDst, TRUE, 0x00A0B0C0, 32, DI_NORMAL, 0x00FFFFFF, 0x003F4F5F, 0x003F4F5F, __LINE__);
     check_DrawIconEx(hdcDst, FALSE, 0xFFA0B0C0, 32, DI_NORMAL, 0x00FFFFFF, 0x00C0B0A0, 0x00C0B0A0, __LINE__);
 
     /* Test alpha blending */
@@ -1641,13 +1636,12 @@ static void test_DestroyCursor(void)
          * ERROR_INVALID_CURSOR_HANDLE.  This happens because we called
          * DestroyCursor() 2+ times after calling SetCursor().  The calls to
          * GetCursor() and SetCursor(NULL) in between make no difference. */
+        SetLastError(0xdeadbeef);
         ret = DestroyCursor(cursor);
-        todo_wine {
-            ok(!ret, "DestroyCursor succeeded.\n");
-            error = GetLastError();
-            ok(error == ERROR_INVALID_CURSOR_HANDLE || error == 0xdeadbeef, /* vista */
-               "Last error: 0x%08x\n", error);
-        }
+        todo_wine ok(!ret, "DestroyCursor succeeded.\n");
+        error = GetLastError();
+        ok(error == ERROR_INVALID_CURSOR_HANDLE || error == 0xdeadbeef, /* vista */
+           "Last error: 0x%08x\n", error);
     }
 
     DeleteObject(cursorInfo.hbmMask);
@@ -1666,9 +1660,7 @@ static void test_DestroyCursor(void)
     SetLastError(0xdeadbeef);
     SetCursor(cursor);
     error = GetLastError();
-    todo_wine {
-        ok(error == 0xdeadbeef, "Last error: 0x%08x\n", error);
-    }
+    ok(error == 0xdeadbeef, "Last error: 0x%08x\n", error);
 
     /* Check if LoadCursor() returns the same handle with the same icon. */
     cursor2 = LoadCursor(NULL, IDC_ARROW);

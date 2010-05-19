@@ -53,7 +53,6 @@
 #include "security.h"
 
 
-#define CPU_FLAG(cpu) (1 << (cpu))
 #ifdef __i386__
 static const unsigned int supported_cpus = CPU_FLAG(CPU_x86);
 #elif defined(__x86_64__)
@@ -67,7 +66,6 @@ static const unsigned int supported_cpus = CPU_FLAG(CPU_SPARC);
 #else
 #error Unsupported CPU
 #endif
-#define CPU_64BIT_MASK CPU_FLAG(CPU_x86_64)
 
 /* thread queues */
 
@@ -407,12 +405,6 @@ struct thread *get_thread_from_pid( int pid )
         if (thread->unix_pid == pid) return thread;
     }
     return NULL;
-}
-
-/* determine if the thread is wow64 (32-bit client running on 64-bit server) */
-int is_wow64_thread( struct thread *thread )
-{
-    return (supported_cpus & CPU_64BIT_MASK) && !(CPU_FLAG(thread->process->cpu) & CPU_64BIT_MASK);
 }
 
 int set_thread_affinity( struct thread *thread, affinity_t affinity )
@@ -1106,6 +1098,7 @@ DECL_HANDLER(new_thread)
 /* initialize a new thread */
 DECL_HANDLER(init_thread)
 {
+    unsigned int prefix_cpu_mask = get_prefix_cpu_mask();
     struct process *process = current->process;
     int reply_fd = thread_get_inflight_fd( current, req->reply_fd );
     int wait_fd = thread_get_inflight_fd( current, req->wait_fd );
@@ -1142,9 +1135,12 @@ DECL_HANDLER(init_thread)
 
     if (!process->peb)  /* first thread, initialize the process too */
     {
-        if (!CPU_FLAG(req->cpu) || !(supported_cpus & CPU_FLAG(req->cpu)))
+        if (!CPU_FLAG(req->cpu) || !(supported_cpus & prefix_cpu_mask & CPU_FLAG(req->cpu)))
         {
-            set_error( STATUS_NOT_SUPPORTED );
+            if (!(supported_cpus & CPU_64BIT_MASK))
+                set_error( STATUS_NOT_SUPPORTED );
+            else
+                set_error( STATUS_NOT_REGISTRY_FILE );  /* server supports it but not the prefix */
             return;
         }
         process->unix_pid = current->unix_pid;
@@ -1171,7 +1167,7 @@ DECL_HANDLER(init_thread)
     reply->tid     = get_thread_id( current );
     reply->version = SERVER_PROTOCOL_VERSION;
     reply->server_start = server_start_time;
-    reply->all_cpus     = supported_cpus;
+    reply->all_cpus     = supported_cpus & prefix_cpu_mask;
     return;
 
  error:
