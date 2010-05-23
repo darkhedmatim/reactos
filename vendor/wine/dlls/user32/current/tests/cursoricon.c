@@ -225,6 +225,14 @@ static void test_child_process(void)
     SendMessage(child, WM_USER+1, 0, (LPARAM) cursor);
 }
 
+static BOOL color_match(COLORREF a, COLORREF b)
+{
+    /* 5-bit accuracy is a sufficient test. This will match as long as
+     * colors are never truncated to less that 3x5-bit accuracy i.e.
+     * palettized. */
+    return (a & 0x00F8F8F8) == (b & 0x00F8F8F8);
+}
+
 static void test_CopyImage_Check(HBITMAP bitmap, UINT flags, INT copyWidth, INT copyHeight,
                                   INT expectedWidth, INT expectedHeight, WORD expectedDepth, BOOL dibExpected)
 {
@@ -659,14 +667,14 @@ static void test_CreateIcon(void)
 
 /* Shamelessly ripped from dlls/oleaut32/tests/olepicture.c */
 /* 1x1 pixel gif */
-static const unsigned char gifimage[35] = {
+static unsigned char gifimage[35] = {
 0x47,0x49,0x46,0x38,0x37,0x61,0x01,0x00,0x01,0x00,0x80,0x00,0x00,0xff,0xff,0xff,
 0xff,0xff,0xff,0x2c,0x00,0x00,0x00,0x00,0x01,0x00,0x01,0x00,0x00,0x02,0x02,0x44,
 0x01,0x00,0x3b
 };
 
 /* 1x1 pixel jpg */
-static const unsigned char jpgimage[285] = {
+static unsigned char jpgimage[285] = {
 0xff,0xd8,0xff,0xe0,0x00,0x10,0x4a,0x46,0x49,0x46,0x00,0x01,0x01,0x01,0x01,0x2c,
 0x01,0x2c,0x00,0x00,0xff,0xdb,0x00,0x43,0x00,0x05,0x03,0x04,0x04,0x04,0x03,0x05,
 0x04,0x04,0x04,0x05,0x05,0x05,0x06,0x07,0x0c,0x08,0x07,0x07,0x07,0x07,0x0f,0x0b,
@@ -688,7 +696,7 @@ static const unsigned char jpgimage[285] = {
 };
 
 /* 1x1 pixel png */
-static const unsigned char pngimage[285] = {
+static unsigned char pngimage[285] = {
 0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00,0x00,0x00,0x0d,0x49,0x48,0x44,0x52,
 0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x08,0x02,0x00,0x00,0x00,0x90,0x77,0x53,
 0xde,0x00,0x00,0x00,0x09,0x70,0x48,0x59,0x73,0x00,0x00,0x0b,0x13,0x00,0x00,0x0b,
@@ -698,23 +706,47 @@ static const unsigned char pngimage[285] = {
 0xe7,0x00,0x00,0x00,0x00,0x49,0x45,0x4e,0x44,0xae,0x42,0x60,0x82
 };
 
-/* 1x1 pixel bmp */
-static const unsigned char bmpimage[66] = {
-0x42,0x4d,0x42,0x00,0x00,0x00,0xDE,0xAD,0xBE,0xEF,0x3e,0x00,0x00,0x00,0x28,0x00,
+/* 1x1 pixel bmp with gap between palette and bitmap. Correct bitmap contains only
+   zeroes, gap is 0xFF. */
+static unsigned char bmpimage[70] = {
+0x42,0x4d,0x46,0x00,0x00,0x00,0xDE,0xAD,0xBE,0xEF,0x42,0x00,0x00,0x00,0x28,0x00,
 0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x00,0x01,0x00,0x00,0x00,
 0x00,0x00,0x04,0x00,0x00,0x00,0x12,0x0b,0x00,0x00,0x12,0x0b,0x00,0x00,0x02,0x00,
-0x00,0x00,0x02,0x00,0x00,0x00,0xff,0xff,0xff,0x00,0xff,0xff,0xff,0x00,0x00,0x00,
-0x00,0x00
+0x00,0x00,0x02,0x00,0x00,0x00,0xff,0xff,0xff,0x00,0x55,0x55,0x55,0x00,0xFF,0xFF,
+0xFF,0xFF,0x00,0x00,0x00,0x00
 };
 
 /* 2x2 pixel gif */
-static const unsigned char gif4pixel[42] = {
+static unsigned char gif4pixel[42] = {
 0x47,0x49,0x46,0x38,0x37,0x61,0x02,0x00,0x02,0x00,0xa1,0x00,0x00,0x00,0x00,0x00,
 0x39,0x62,0xfc,0xff,0x1a,0xe5,0xff,0xff,0xff,0x2c,0x00,0x00,0x00,0x00,0x02,0x00,
 0x02,0x00,0x00,0x02,0x03,0x14,0x16,0x05,0x00,0x3b
 };
 
-static void test_LoadImageFile(const unsigned char * image_data,
+static void test_LoadImageBitmap(HBITMAP hbm)
+{
+    BITMAP bm;
+    BITMAPINFO bmi;
+    DWORD ret, pixel = 0;
+    HDC hdc = GetDC(NULL);
+
+    ret = GetObject(hbm, sizeof(bm), &bm);
+    ok(ret == sizeof(bm), "GetObject returned %d\n", ret);
+
+    memset(&bmi, 0, sizeof(bmi));
+    bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
+    bmi.bmiHeader.biWidth = bm.bmWidth;
+    bmi.bmiHeader.biHeight = bm.bmHeight;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount= 24;
+    bmi.bmiHeader.biCompression= BI_RGB;
+    ret = GetDIBits(hdc, hbm, 0, bm.bmHeight, &pixel, &bmi, DIB_RGB_COLORS);
+    ok(ret == bm.bmHeight, "%d lines were converted, not %d\n", ret, bm.bmHeight);
+
+    ok(color_match(pixel, 0x00ffffff), "Pixel is 0x%08x\n", pixel);
+}
+
+static void test_LoadImageFile(unsigned char * image_data,
     unsigned int image_size, const char * ext, BOOL expect_success)
 {
     HANDLE handle;
@@ -730,7 +762,7 @@ static void test_LoadImageFile(const unsigned char * image_data,
         FILE_ATTRIBUTE_NORMAL, NULL);
     ok(handle != INVALID_HANDLE_VALUE, "CreateFileA failed. %u\n", GetLastError());
     ret = WriteFile(handle, image_data, image_size, &bytes_written, NULL);
-    ok(bytes_written == image_size, "test file created improperly.\n");
+    ok(ret && bytes_written == image_size, "test file created improperly.\n");
     CloseHandle(handle);
 
     /* Load as cursor. For all tested formats, this should fail */
@@ -755,18 +787,21 @@ static void test_LoadImageFile(const unsigned char * image_data,
         "Last error: %u\n", error);
     if (handle != NULL) DestroyIcon(handle);
 
-    /* Load as bitmap. Should succeed if bmp, fail for everything else */
+    /* Load as bitmap. Should succeed for correct bmp, fail for everything else */
     SetLastError(0xdeadbeef);
     handle = LoadImageA(NULL, filename, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
-    if (expect_success)
-	ok(handle != NULL, "LoadImage(%s) as IMAGE_BITMAP failed.\n", ext);
-    else ok(handle == NULL, "LoadImage(%s) as IMAGE_BITMAP succeeded incorrectly.\n", ext);
     error = GetLastError();
     ok(error == 0 ||
         error == 0xdeadbeef, /* Win9x, WinMe */
         "Last error: %u\n", error);
-    if (handle != NULL) DeleteObject(handle);
 
+    if (expect_success) {
+        ok(handle != NULL, "LoadImage(%s) as IMAGE_BITMAP failed.\n", ext);
+        if (handle != NULL) test_LoadImageBitmap(handle);
+    }
+    else ok(handle == NULL, "LoadImage(%s) as IMAGE_BITMAP succeeded incorrectly.\n", ext);
+
+    if (handle != NULL) DeleteObject(handle);
     DeleteFileA(filename);
 }
 
@@ -817,7 +852,7 @@ static void test_LoadImage(void)
         FILE_ATTRIBUTE_NORMAL, NULL);
     ok(handle != INVALID_HANDLE_VALUE, "CreateFileA failed. %u\n", GetLastError());
     ret = WriteFile(handle, icon_data, ICON_SIZE, &bytes_written, NULL);
-    ok(bytes_written == ICON_SIZE, "icon.ico created improperly.\n");
+    ok(ret && bytes_written == ICON_SIZE, "icon.ico created improperly.\n");
     CloseHandle(handle);
 
     /* Test loading an icon as a cursor. */
@@ -862,6 +897,13 @@ static void test_LoadImage(void)
     test_LoadImageFile(gif4pixel, sizeof(gif4pixel), "gif", 0);
     test_LoadImageFile(jpgimage, sizeof(jpgimage), "jpg", 0);
     test_LoadImageFile(pngimage, sizeof(pngimage), "png", 0);
+    /* Check failure for broken BMP images */
+    bmpimage[0x14]++; /* biHeight > 65535 */
+    test_LoadImageFile(bmpimage, sizeof(bmpimage), "bmp", 0);
+    bmpimage[0x14]--;
+    bmpimage[0x18]++; /* biWidth > 65535 */
+    test_LoadImageFile(bmpimage, sizeof(bmpimage), "bmp", 0);
+    bmpimage[0x18]--;
 }
 
 static void test_CreateIconFromResource(void)
@@ -992,14 +1034,6 @@ static HICON create_test_icon(HDC hdc, int width, int height, int bpp,
     memcpy(buffer, color, colorSize);
 
     return CreateIconIndirect(&iconInfo);
-}
-
-static BOOL color_match(COLORREF a, COLORREF b)
-{
-    /* 5-bit accuracy is a sufficient test. This will match, so long as
-     * colors are never truncated to less that 3x5-bit accuracy i.e.
-     * paletized. */
-    return (a & 0x00F8F8F8) == (b & 0x00F8F8F8);
 }
 
 static void check_alpha_draw(HDC hdc, BOOL drawiconex, BOOL alpha, int bpp, int line)

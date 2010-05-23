@@ -1040,7 +1040,6 @@ static void test_shell_window(void)
     DWORD error;
     HMODULE hinst, hUser32;
     BOOL (WINAPI*SetShellWindow)(HWND);
-    BOOL (WINAPI*SetShellWindowEx)(HWND, HWND);
     HWND hwnd1, hwnd2, hwnd3, hwnd4, hwnd5;
     HWND shellWindow, nextWnd;
 
@@ -1055,7 +1054,6 @@ static void test_shell_window(void)
     hUser32 = GetModuleHandleA("user32");
 
     SetShellWindow = (void *)GetProcAddress(hUser32, "SetShellWindow");
-    SetShellWindowEx = (void *)GetProcAddress(hUser32, "SetShellWindowEx");
 
     trace("previous shell window: %p\n", shellWindow);
 
@@ -5189,14 +5187,14 @@ static LRESULT CALLBACK TestExposedRegion_WndProc(HWND hwnd, UINT msg, WPARAM wP
 
 static void test_Expose(void)
 {
-    ATOM atom;
     WNDCLASSA cls;
     HWND mw;
+
     memset(&cls, 0, sizeof(WNDCLASSA));
     cls.lpfnWndProc = TestExposedRegion_WndProc;
     cls.hbrBackground = GetStockObject(WHITE_BRUSH);
     cls.lpszClassName = "TestExposeClass";
-    atom = RegisterClassA(&cls);
+    RegisterClassA(&cls);
 
     mw = CreateWindowA("TestExposeClass", "MainWindow", WS_VISIBLE|WS_OVERLAPPEDWINDOW,
                             0, 0, 200, 100, NULL, NULL, 0, NULL);

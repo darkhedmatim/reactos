@@ -254,41 +254,15 @@ static int sock_reselect( struct sock *sock )
     return ev;
 }
 
-/* After POLLHUP is received, the socket will no longer be in the main select loop.
-   This function is used to signal pending events nevertheless */
-static void sock_try_event( struct sock *sock, int event )
-{
-    event = check_fd_events( sock->fd, event );
-    if (event)
-    {
-        if ( debug_level ) fprintf( stderr, "sock_try_event: %x\n", event );
-        sock_poll_event( sock->fd, event );
-    }
-}
-
 /* wake anybody waiting on the socket event or send the associated message */
-static void sock_wake_up( struct sock *sock, int pollev )
+static void sock_wake_up( struct sock *sock )
 {
     unsigned int events = sock->pmask & sock->mask;
     int i;
-    int async_active = 0;
-
-    if ( pollev & (POLLIN|POLLPRI|POLLERR|POLLHUP) && async_waiting( sock->read_q ))
-    {
-        if (debug_level) fprintf( stderr, "activating read queue for socket %p\n", sock );
-        async_wake_up( sock->read_q, STATUS_ALERTED );
-        async_active = 1;
-    }
-    if ( pollev & (POLLOUT|POLLERR|POLLHUP) && async_waiting( sock->write_q ))
-    {
-        if (debug_level) fprintf( stderr, "activating write queue for socket %p\n", sock );
-        async_wake_up( sock->write_q, STATUS_ALERTED );
-        async_active = 1;
-    }
 
     /* Do not signal events if there are still pending asynchronous IO requests */
     /* We need this to delay FD_CLOSE events until all pending overlapped requests are processed */
-    if ( !events || async_active ) return;
+    if ( !events || async_queued( sock->read_q ) || async_queued( sock->write_q ) ) return;
 
     if (sock->event)
     {
@@ -321,6 +295,23 @@ static inline int sock_error( struct fd *fd )
     return optval;
 }
 
+static void sock_dispatch_asyncs( struct sock *sock, int event )
+{
+    if ( sock->flags & WSA_FLAG_OVERLAPPED )
+    {
+        if ( event & (POLLIN|POLLPRI|POLLERR|POLLHUP) && async_waiting( sock->read_q ))
+        {
+            if (debug_level) fprintf( stderr, "activating read queue for socket %p\n", sock );
+            async_wake_up( sock->read_q, STATUS_ALERTED );
+        }
+        if ( event & (POLLOUT|POLLERR|POLLHUP) && async_waiting( sock->write_q ))
+        {
+            if (debug_level) fprintf( stderr, "activating write queue for socket %p\n", sock );
+            async_wake_up( sock->write_q, STATUS_ALERTED );
+        }
+    }
+}
+
 static void sock_poll_event( struct fd *fd, int event )
 {
     struct sock *sock = get_fd_user( fd );
@@ -329,6 +320,10 @@ static void sock_poll_event( struct fd *fd, int event )
     assert( sock->obj.ops == &sock_ops );
     if (debug_level)
         fprintf(stderr, "socket %p select event: %x\n", sock, event);
+
+    /* we may change event later, remove from loop here */
+    if (event & (POLLERR|POLLHUP)) set_fd_events( sock->fd, -1 );
+
     if (sock->state & FD_CONNECT)
     {
         /* connecting */
@@ -381,44 +376,32 @@ static void sock_poll_event( struct fd *fd, int event )
             /* Linux 2.4 doesn't report POLLHUP if only one side of the socket
              * has been closed, so we need to check for it explicitly here */
             nr  = recv( get_unix_fd( fd ), &dummy, 1, MSG_PEEK );
-            if ( nr > 0 )
+            if ( nr == 0 )
             {
-                /* incoming data */
-                sock->pmask |= FD_READ;
-                sock->hmask |= (FD_READ|FD_CLOSE);
-                sock->errors[FD_READ_BIT] = 0;
-                if (debug_level)
-                    fprintf(stderr, "socket %p is readable\n", sock );
-            }
-            else if ( nr == 0 )
                 hangup_seen = 1;
-            else
+                event &= ~POLLIN;
+            }
+            else if ( nr < 0 )
             {
+                event &= ~POLLIN;
                 /* EAGAIN can happen if an async recv() falls between the server's poll()
                    call and the invocation of this routine */
-                if ( errno == EAGAIN )
-                    event &= ~POLLIN;
-                else
+                if ( errno != EAGAIN )
                 {
                     if ( debug_level )
                         fprintf( stderr, "recv error on socket %p: %d\n", sock, errno );
-                    event = POLLERR;
+                    event |= POLLERR;
                 }
             }
+        }
 
-        }
-        else if ( sock_shutdown_type == SOCK_SHUTDOWN_POLLHUP && (event & POLLHUP) )
-        {
-            hangup_seen = 1;
-        }
-        else if ( event & POLLIN ) /* POLLIN for non-stream socket */
+        if ( event & POLLIN )
         {
             sock->pmask |= FD_READ;
-            sock->hmask |= (FD_READ|FD_CLOSE);
+            sock->hmask |= FD_READ;
             sock->errors[FD_READ_BIT] = 0;
             if (debug_level)
                 fprintf(stderr, "socket %p is readable\n", sock );
-
         }
 
         if (event & POLLOUT)
@@ -437,36 +420,35 @@ static void sock_poll_event( struct fd *fd, int event )
             if (debug_level)
                 fprintf(stderr, "socket %p got OOB data\n", sock);
         }
-        /* According to WS2 specs, FD_CLOSE is only delivered when there is
-           no more data to be read (i.e. hangup_seen = 1) */
-        else if ( hangup_seen && (sock->state & (FD_READ|FD_WRITE) ))
+
+        if ( (hangup_seen || event & (POLLHUP|POLLERR)) && (sock->state & (FD_READ|FD_WRITE)) )
         {
             sock->errors[FD_CLOSE_BIT] = sock_error( fd );
             if ( (event & POLLERR) || ( sock_shutdown_type == SOCK_SHUTDOWN_EOF && (event & POLLHUP) ))
                 sock->state &= ~FD_WRITE;
+            sock->state &= ~FD_READ;
+
             sock->pmask |= FD_CLOSE;
             sock->hmask |= FD_CLOSE;
             if (debug_level)
                 fprintf(stderr, "socket %p aborted by error %d, event: %x - removing from select loop\n",
                         sock, sock->errors[FD_CLOSE_BIT], event);
         }
+
+        if (hangup_seen)
+            event |= POLLHUP;
     }
 
-    if ( sock->pmask & FD_CLOSE || event & (POLLERR|POLLHUP) )
-    {
-        if ( debug_level )
-            fprintf( stderr, "removing socket %p from select loop\n", sock );
-        set_fd_events( sock->fd, -1 );
-    }
-    else
-        sock_reselect( sock );
+    sock_dispatch_asyncs( sock, event );
 
     /* wake up anyone waiting for whatever just happened */
-    if ( sock->pmask & sock->mask || sock->flags & WSA_FLAG_OVERLAPPED ) sock_wake_up( sock, event );
+    sock_wake_up( sock );
 
     /* if anyone is stupid enough to wait on the socket object itself,
      * maybe we should wake them up too, just in case? */
     wake_up( &sock->obj, 0 );
+
+    sock_reselect( sock );
 }
 
 static void sock_dump( struct object *obj, int verbose )
@@ -489,7 +471,8 @@ static int sock_signaled( struct object *obj, struct thread *thread )
 static int sock_get_poll_events( struct fd *fd )
 {
     struct sock *sock = get_fd_user( fd );
-    unsigned int mask = sock->mask & sock->state & ~sock->hmask;
+    unsigned int mask = sock->mask & ~sock->hmask;
+    unsigned int smask = sock->state & mask;
     int ev = 0;
 
     assert( sock->obj.ops == &sock_ops );
@@ -499,13 +482,25 @@ static int sock_get_poll_events( struct fd *fd )
         return POLLOUT;
     if (sock->state & FD_WINE_LISTENING)
         /* listening, wait for readable */
-        return (sock->hmask & FD_ACCEPT) ? 0 : POLLIN;
+        return (mask & FD_ACCEPT) ? POLLIN : 0;
 
-    if (mask & FD_READ  || async_waiting( sock->read_q )) ev |= POLLIN | POLLPRI;
-    if (mask & FD_WRITE || async_waiting( sock->write_q )) ev |= POLLOUT;
+    if ( async_queued( sock->read_q ) )
+    {
+        if ( async_waiting( sock->read_q ) ) ev |= POLLIN | POLLPRI;
+    }
+    else if (smask & FD_READ)
+        ev |= POLLIN | POLLPRI;
     /* We use POLLIN with 0 bytes recv() as FD_CLOSE indication for stream sockets. */
-    if ( sock->type == SOCK_STREAM && ( sock->mask & ~sock->hmask & FD_CLOSE) )
+    else if ( sock->type == SOCK_STREAM && sock->state & FD_READ && mask & FD_CLOSE &&
+              !(sock->hmask & FD_READ) )
         ev |= POLLIN;
+
+    if ( async_queued( sock->write_q ) )
+    {
+        if ( async_waiting( sock->write_q ) ) ev |= POLLOUT;
+    }
+    else if (smask & FD_WRITE)
+        ev |= POLLOUT;
 
     return ev;
 }
@@ -519,7 +514,6 @@ static void sock_queue_async( struct fd *fd, const async_data_t *data, int type,
 {
     struct sock *sock = get_fd_user( fd );
     struct async_queue *queue;
-    int pollev;
 
     assert( sock->obj.ops == &sock_ops );
 
@@ -528,7 +522,6 @@ static void sock_queue_async( struct fd *fd, const async_data_t *data, int type,
     case ASYNC_TYPE_READ:
         if (!sock->read_q && !(sock->read_q = create_async_queue( sock->fd ))) return;
         queue = sock->read_q;
-        sock->hmask &= ~FD_CLOSE;
         break;
     case ASYNC_TYPE_WRITE:
         if (!sock->write_q && !(sock->write_q = create_async_queue( sock->fd ))) return;
@@ -552,15 +545,13 @@ static void sock_queue_async( struct fd *fd, const async_data_t *data, int type,
         set_error( STATUS_PENDING );
     }
 
-    pollev = sock_reselect( sock );
-    if ( pollev ) sock_try_event( sock, pollev );
+    sock_reselect( sock );
 }
 
 static void sock_reselect_async( struct fd *fd, struct async_queue *queue )
 {
     struct sock *sock = get_fd_user( fd );
-    int events = sock_reselect( sock );
-    if (events) sock_try_event( sock, events );
+    sock_reselect( sock );
 }
 
 static void sock_cancel_async( struct fd *fd, struct process *process, struct thread *thread, client_ptr_t iosb )
@@ -894,7 +885,6 @@ DECL_HANDLER(set_socket_event)
     if (debug_level && sock->event) fprintf(stderr, "event ptr: %p\n", sock->event);
 
     pollev = sock_reselect( sock );
-    if ( pollev ) sock_try_event( sock, pollev );
 
     if (sock->mask)
         sock->state |= FD_WINE_NONBLOCKING;
@@ -903,7 +893,7 @@ DECL_HANDLER(set_socket_event)
        it is possible that FD_CONNECT or FD_ACCEPT network events has happened
        before a WSAEventSelect() was done on it.
        (when dealing with Asynchronous socket)  */
-    if (sock->pmask & sock->mask) sock_wake_up( sock, pollev );
+    sock_wake_up( sock );
 
     if (old_event) release_object( old_event ); /* we're through with it */
     release_object( &sock->obj );
@@ -954,7 +944,6 @@ DECL_HANDLER(get_socket_event)
 DECL_HANDLER(enable_socket_event)
 {
     struct sock *sock;
-    int pollev;
 
     if (!(sock = (struct sock*)get_handle_obj( current->process, req->handle,
                                                FILE_WRITE_ATTRIBUTES, &sock_ops)))
@@ -962,14 +951,11 @@ DECL_HANDLER(enable_socket_event)
 
     sock->pmask &= ~req->mask; /* is this safe? */
     sock->hmask &= ~req->mask;
-    if ( req->mask & FD_READ )
-        sock->hmask &= ~FD_CLOSE;
     sock->state |= req->sstate;
     sock->state &= ~req->cstate;
     if ( sock->type != SOCK_STREAM ) sock->state &= ~STREAM_FLAG_MASK;
 
-    pollev = sock_reselect( sock );
-    if ( pollev ) sock_try_event( sock, pollev );
+    sock_reselect( sock );
 
     release_object( &sock->obj );
 }
