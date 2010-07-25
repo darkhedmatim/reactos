@@ -1,0 +1,21 @@
+if(NOT CMAKE_CROSSCOMPILING)
+
+add_library(xml xml.cpp ssprintf.cpp)
+
+add_executable(bin2c bin2c.c)
+add_executable(pefixup pefixup.c)
+
+add_subdirectory(buildno)
+add_subdirectory(gendib)
+add_subdirectory(rsym)
+add_subdirectory(nci)
+add_subdirectory(winebuild)
+add_subdirectory(unicode)
+add_subdirectory(wpp)
+add_subdirectory(widl)
+add_subdirectory(wrc)
+
+else()
+
+
+endif()
