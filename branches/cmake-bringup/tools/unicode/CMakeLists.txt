@@ -1,7 +1,8 @@
 
 file(GLOB_RECURSE SOURCE "*.c")
-string(REGEX REPLACE "fold.c" "" SOURCE "${SOURCE}")
-string(REGEX REPLACE "sortkey.c" "" SOURCE "${SOURCE}")
+
+LIST(REMOVE_ITEM SOURCE "fold.c")
+LIST(REMOVE_ITEM SOURCE "sortkey.c")
 
 add_definitions(-DWINE_UNICODE_API= )
 
