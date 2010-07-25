@@ -12,6 +12,7 @@ add_subdirectory(nci)
 add_subdirectory(winebuild)
 add_subdirectory(unicode)
 add_subdirectory(wpp)
+add_subdirectory(wmc)
 add_subdirectory(widl)
 add_subdirectory(wrc)
 
