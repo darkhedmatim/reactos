@@ -35,14 +35,12 @@
 #include "build.h"
 
 typedef unsigned short WCHAR;
-typedef unsigned short WORD;
-typedef unsigned int DWORD;
 
 /* Unicode string or integer id */
 struct string_id
 {
     WCHAR *str;  /* ptr to Unicode string */
-    WORD   id;   /* integer id if str is NULL */
+    unsigned short id;   /* integer id if str is NULL */
 };
 
 /* descriptor for a resource */
@@ -197,7 +195,7 @@ static void dump_res_data( const struct resource *res )
 /* all values must be zero except header size */
 static int check_header(void)
 {
-    DWORD size;
+    unsigned int size;
 
     if (get_dword()) return 0;        /* data size */
     size = get_dword();               /* header size */
@@ -216,14 +214,18 @@ static int check_header(void)
 /* load the next resource from the current file */
 static void load_next_resource( DLLSPEC *spec )
 {
-    DWORD hdr_size;
+    unsigned int hdr_size;
     struct resource *res = add_resource( spec );
 
     res->data_size = get_dword();
     hdr_size = get_dword();
     if (hdr_size & 3) fatal_error( "%s header size not aligned\n", input_buffer_filename );
+    if (hdr_size < 32) fatal_error( "%s invalid header size %u\n", input_buffer_filename, hdr_size );
 
-    res->data = input_buffer + input_buffer_pos - 2*sizeof(DWORD) + hdr_size;
+    res->data = input_buffer + input_buffer_pos - 2*sizeof(unsigned int) + hdr_size;
+    if ((const unsigned char *)res->data < input_buffer ||
+        (const unsigned char *)res->data >= input_buffer + input_buffer_size)
+        fatal_error( "%s invalid header size %u\n", input_buffer_filename, hdr_size );
     get_string( &res->type );
     get_string( &res->name );
     if (input_buffer_pos & 2) get_word();  /* align to dword boundary */
@@ -654,13 +656,14 @@ void output_res_o_file( DLLSPEC *spec )
 
     if (res_file)
     {
-        const char *prog = get_windres_command();
+        char *prog = find_tool( "windres", NULL );
         char *cmd = xmalloc( strlen(prog) + strlen(res_file) + strlen(output_file_name) + 9 );
         sprintf( cmd, "%s -i %s -o %s", prog, res_file, output_file_name );
         if (verbose) fprintf( stderr, "%s\n", cmd );
         err = system( cmd );
         if (err) fatal_error( "%s failed with status %d\n", prog, err );
         free( cmd );
+        free( prog );
     }
     output_file_name = NULL;  /* so we don't try to assemble it */
 }

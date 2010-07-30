@@ -74,28 +74,6 @@ int has_relays( DLLSPEC *spec )
 }
 
 /*******************************************************************
- *         make_internal_name
- *
- * Generate an internal name for an entry point. Used for stubs etc.
- */
-static const char *make_internal_name( const ORDDEF *odp, DLLSPEC *spec, const char *prefix )
-{
-    static char buffer[256];
-    if (odp->name || odp->export_name)
-    {
-        char *p;
-        sprintf( buffer, "__wine_%s_%s_%s", prefix, spec->file_name,
-                 odp->name ? odp->name : odp->export_name );
-        /* make sure name is a legal C identifier */
-        for (p = buffer; *p; p++) if (!isalnum(*p) && *p != '_') break;
-        if (!*p) return buffer;
-    }
-    sprintf( buffer, "__wine_%s_%s_%d", prefix, make_c_identifier(spec->file_name), odp->ordinal );
-    return buffer;
-}
-
-
-/*******************************************************************
  *         output_relay_debug
  *
  * Output entry points for relay debugging
@@ -363,44 +341,6 @@ void output_exports( DLLSPEC *spec )
 
 
 /*******************************************************************
- *         output_stub_funcs
- *
- * Output the functions for stub entry points
- */
-static void output_stub_funcs( DLLSPEC *spec )
-{
-    int i;
-
-#if 0
-    for (i = 0; i < spec->nb_entry_points; i++)
-    {
-        ORDDEF *odp = &spec->entry_points[i];
-        if (odp->type != TYPE_STUB) continue;
-        fprintf( outfile, "#ifdef __GNUC__\n" );
-        fprintf( outfile, "extern void __wine_spec_unimplemented_stub( const char *module, const char *func ) __attribute__((noreturn));\n" );
-        fprintf( outfile, "#else\n" );
-        fprintf( outfile, "extern void __wine_spec_unimplemented_stub( const char *module, const char *func );\n" );
-        fprintf( outfile, "#endif\n\n" );
-        break;
-    }
-#endif
-
-    for (i = 0; i < spec->nb_entry_points; i++)
-    {
-        const ORDDEF *odp = &spec->entry_points[i];
-        if (odp->type != TYPE_STUB) continue;
-        output( "void %s(void) ", make_internal_name( odp, spec, "stub" ) );
-        if (odp->name)
-            output( "{ __wine_spec_unimplemented_stub(__wine_spec_file_name, \"%s\"); }\n", odp->name );
-        else if (odp->export_name)
-            output( "{ __wine_spec_unimplemented_stub(__wine_spec_file_name, \"%s\"); }\n", odp->export_name );
-        else
-            output( "{ __wine_spec_unimplemented_stub(__wine_spec_file_name, \"%d\"); }\n", odp->ordinal );
-    }
-}
-
-
-/*******************************************************************
  *         output_asm_constructor
  *
  * Output code for calling a dll constructor.
@@ -614,6 +554,7 @@ void BuildSpec32File( DLLSPEC *spec )
     output_stubs( spec );
     output_exports( spec );
     output_imports( spec );
+    if (is_undefined( "__wine_call_from_regs" )) output_asm_relays();
     output_resources( spec );
     output_gnu_stack_note();
 }
@@ -822,14 +763,22 @@ void output_fake_module( DLLSPEC *spec )
 
 
 /*******************************************************************
- *         BuildDef32File
+ *         output_def_file
  *
  * Build a Win32 def file from a spec file.
  */
-void BuildDef32File( DLLSPEC *spec )
+void output_def_file( DLLSPEC *spec, int include_private )
 {
+    DLLSPEC *spec32 = NULL;
     const char *name;
     int i, total;
+
+    if (spec->type == SPEC_WIN16)
+    {
+        spec32 = alloc_dll_spec();
+        add_16bit_exports( spec32, spec );
+        spec = spec32;
+    }
 
     if (spec_file_name)
         output( "; File generated automatically from %s; do not edit!\n\n",
@@ -854,6 +803,11 @@ void BuildDef32File( DLLSPEC *spec )
         else continue;
 
         if (!(odp->flags & FLAG_PRIVATE)) total++;
+        else if (!include_private) continue;
+
+        if (odp->type == TYPE_STUB) continue;
+
+        output( "  %s", name );
 
         switch(odp->type)
         {
@@ -863,14 +817,12 @@ void BuildDef32File( DLLSPEC *spec )
         case TYPE_VARARGS:
         case TYPE_CDECL:
             /* try to reduce output */
-            output( "  %s", name );
             if(strcmp(name, odp->link_name) || (odp->flags & FLAG_FORWARD))
                 output( "=%s", odp->link_name );
             break;
         case TYPE_STDCALL:
         {
             int at_param = strlen(odp->u.func.arg_types) * get_ptr_size();
-            output( "  %s", name );
             if (!kill_at && target_cpu == CPU_x86) output( "@%d", at_param );
             if  (odp->flags & FLAG_FORWARD)
             {
@@ -880,50 +832,6 @@ void BuildDef32File( DLLSPEC *spec )
             {
                 output( "=%s", odp->link_name );
                 if (!kill_at && target_cpu == CPU_x86) output( "@%d", at_param );
-            }
-            break;
-        }
-        case TYPE_FASTCALL:
-        {
-            int at_param = strlen(odp->u.func.arg_types) * get_ptr_size();
-            output( "  " );
-            if (!kill_at) output( "@" );
-            output( "%s", name );
-            if (!kill_at) output( "@%d", at_param );
-            if  (odp->flags & FLAG_FORWARD)
-            {
-                output( "=" );
-                output( "%s", odp->link_name );
-            }
-            else if (strcmp(name, odp->link_name)) /* try to reduce output */
-            {
-                output( "=" );
-                if (!kill_at) output( "@" );
-                output( "%s", odp->link_name );
-                if (!kill_at) output( "@%d", at_param );
-            }
-            break;
-        }
-        case TYPE_STUB:
-        {
-            output( "  %s", name );
-            if (!kill_at)
-            {
-                const char *check = name + strlen(name);
-                while (name != check &&
-                       '0' <= check[-1] && check[-1] <= '9')
-                {
-                    check--;
-                }
-                if (name != check && check != name + strlen(name) &&
-                    '@' == check[-1])
-                {
-                    output("%s", check - 1);
-                }
-            }
-            if (odp->name || odp->export_name)
-            {
-                output("=%s", make_internal_name( odp, spec, "stub" ));
             }
             break;
         }
@@ -937,53 +845,5 @@ void BuildDef32File( DLLSPEC *spec )
         output( "\n" );
     }
     if (!total) warning( "%s: Import library doesn't export anything\n", spec->file_name );
-}
-
-
-/*******************************************************************
- *         BuildPedllFile
- *
- * Build a PE DLL C file from a spec file.
- */
-void BuildPedllFile( DLLSPEC *spec )
-{
-    int i, has_stubs = 0;
-
-    output_standard_file_header();
-
-    for (i = 0; i < spec->nb_entry_points; i++)
-    {
-        const ORDDEF *odp = &spec->entry_points[i];
-        if (odp->type == TYPE_STUB)
-        {
-            has_stubs = 1;
-            break;
-        }
-    }
-
-    if (!has_stubs)
-    {
-        output( "/* This file is intentionally left blank */\n");
-        return;
-    }
-
-    output( "#include <stdarg.h>\n");
-    output( "#include \"windef.h\"\n");
-    output( "#include \"winbase.h\"\n");
-    output( "#include \"wine/config.h\"\n");
-    output( "#include \"wine/exception.h\"\n\n");
-
-    output( "void __wine_spec_unimplemented_stub( const char *module, const char *function )\n");
-    output( "{\n");
-    output( "    ULONG_PTR args[2];\n");
-    output( "\n");
-    output( "    args[0] = (ULONG_PTR)module;\n");
-    output( "    args[1] = (ULONG_PTR)function;\n");
-    output( "    RaiseException( EXCEPTION_WINE_STUB, EH_NONCONTINUABLE, 2, args );\n");
-    output( "}\n\n");
-
-    output( "static const char __wine_spec_file_name[] = \"%s\";\n\n", spec->file_name );
-
-    /* Output the stub functions */
-    output_stub_funcs( spec );
+    if (spec32) free_dll_spec( spec32 );
 }

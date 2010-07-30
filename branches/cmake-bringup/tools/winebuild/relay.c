@@ -386,13 +386,20 @@ static void BuildCallTo16Core( int reg_func )
     function_header( name );
 
     /* Function entry sequence */
+    output_cfi( ".cfi_startproc" );
     output( "\tpushl %%ebp\n" );
+    output_cfi( ".cfi_adjust_cfa_offset 4" );
+    output_cfi( ".cfi_rel_offset %%ebp,0" );
     output( "\tmovl %%esp, %%ebp\n" );
+    output_cfi( ".cfi_def_cfa_register %%ebp" );
 
     /* Save the 32-bit registers */
     output( "\tpushl %%ebx\n" );
+    output_cfi( ".cfi_rel_offset %%ebx,-4" );
     output( "\tpushl %%esi\n" );
+    output_cfi( ".cfi_rel_offset %%esi,-8" );
     output( "\tpushl %%edi\n" );
+    output_cfi( ".cfi_rel_offset %%edi,-12" );
     output( "\t.byte 0x64\n\tmov %%gs,(%d)\n", GS_OFFSET );
 
     /* Setup exception frame */
@@ -443,12 +450,18 @@ static void BuildCallTo16Core( int reg_func )
 
     /* Restore the 32-bit registers */
     output( "\tpopl %%edi\n" );
+    output_cfi( ".cfi_same_value %%edi" );
     output( "\tpopl %%esi\n" );
+    output_cfi( ".cfi_same_value %%esi" );
     output( "\tpopl %%ebx\n" );
+    output_cfi( ".cfi_same_value %%ebx" );
 
     /* Function exit sequence */
     output( "\tpopl %%ebp\n" );
+    output_cfi( ".cfi_def_cfa %%esp,4" );
+    output_cfi( ".cfi_same_value %%ebp" );
     output( "\tret $12\n" );
+    output_cfi( ".cfi_endproc" );
 
 
     /* Start of the actual CallTo16 routine */
@@ -652,11 +665,18 @@ static void BuildCallTo32CBClient( int isEx )
 
     /* Entry code */
 
+    output_cfi( ".cfi_startproc" );
     output( "\tpushl %%ebp\n" );
+    output_cfi( ".cfi_adjust_cfa_offset 4" );
+    output_cfi( ".cfi_rel_offset %%ebp,0" );
     output( "\tmovl %%esp,%%ebp\n" );
+    output_cfi( ".cfi_def_cfa_register %%ebp" );
     output( "\tpushl %%edi\n" );
+    output_cfi( ".cfi_rel_offset %%edi,-4" );
     output( "\tpushl %%esi\n" );
+    output_cfi( ".cfi_rel_offset %%esi,-8" );
     output( "\tpushl %%ebx\n" );
+    output_cfi( ".cfi_rel_offset %%ebx,-12" );
 
     /* Get pointer to temporary area and save the 32-bit stack pointer */
 
@@ -694,10 +714,16 @@ static void BuildCallTo32CBClient( int isEx )
     /* Restore registers and return */
 
     output( "\tpopl %%ebx\n" );
+    output_cfi( ".cfi_same_value %%ebx" );
     output( "\tpopl %%esi\n" );
+    output_cfi( ".cfi_same_value %%esi" );
     output( "\tpopl %%edi\n" );
+    output_cfi( ".cfi_same_value %%edi" );
     output( "\tpopl %%ebp\n" );
+    output_cfi( ".cfi_def_cfa %%esp,4" );
+    output_cfi( ".cfi_same_value %%ebp" );
     output( "\tret\n" );
+    output_cfi( ".cfi_endproc" );
     output_function_size( isEx ? "CALL32_CBClientEx" : "CALL32_CBClient" );
 
     /* '16-bit' return stub */
@@ -721,7 +747,7 @@ static void BuildCallTo32CBClient( int isEx )
 
 
 /*******************************************************************
- *         BuildCallFrom32Regs
+ *         build_call_from_regs_x86
  *
  * Build a 32-bit-to-Wine call-back function for a 'register' function.
  * 'args' is the number of dword arguments.
@@ -746,18 +772,23 @@ static void BuildCallTo32CBClient( int isEx )
  * pointer on return (with the return address and arguments already
  * removed).
  */
-static void BuildCallFrom32Regs(void)
+static void build_call_from_regs_x86(void)
 {
     static const int STACK_SPACE = 128 + 0x2cc /* sizeof(CONTEXT86) */;
 
     /* Function header */
 
-    function_header( "__wine_call_from_32_regs" );
+    output( "\t.text\n" );
+    function_header( "__wine_call_from_regs" );
 
     /* Allocate some buffer space on the stack */
 
+    output_cfi( ".cfi_startproc" );
     output( "\tpushl %%ebp\n" );
-    output( "\tmovl %%esp,%%ebp\n ");
+    output_cfi( ".cfi_adjust_cfa_offset 4" );
+    output_cfi( ".cfi_rel_offset %%ebp,0" );
+    output( "\tmovl %%esp,%%ebp\n" );
+    output_cfi( ".cfi_def_cfa_register %%ebp" );
     output( "\tleal -%d(%%esp),%%esp\n", STACK_SPACE );
 
     /* Build the context structure */
@@ -845,12 +876,15 @@ static void BuildCallFrom32Regs(void)
 
     output( "\tpopl %%ds\n" );
     output( "\tiret\n" );
-    output_function_size( "__wine_call_from_32_regs" );
+    output_cfi( ".cfi_endproc" );
+    output_function_size( "__wine_call_from_regs" );
 
-    function_header( "__wine_call_from_32_restore_regs" );
+    function_header( "__wine_restore_regs" );
+    output_cfi( ".cfi_startproc" );
     output( "\tmovl 4(%%esp),%%ecx\n" );
     output( "\tjmp 2b\n" );
-    output_function_size( "__wine_call_from_32_restore_regs" );
+    output_cfi( ".cfi_endproc" );
+    output_function_size( "__wine_restore_regs" );
 }
 
 
@@ -902,23 +936,15 @@ static void BuildPendingEventCheck(void)
 
 
 /*******************************************************************
- *         BuildRelays16
+ *         output_asm_relays16
  *
  * Build all the 16-bit relay callbacks
  */
-void BuildRelays16(void)
+void output_asm_relays16(void)
 {
-    if (target_cpu != CPU_x86)
-    {
-        output( "/* File not used with this architecture. Do not edit! */\n\n" );
-        return;
-    }
-
     /* File header */
 
-    output( "/* File generated automatically. Do not edit! */\n\n" );
     output( "\t.text\n" );
-
     output( "%s:\n\n", asm_name("__wine_spec_thunk_text_16") );
 
     output( "%s\n", asm_globl("__wine_call16_start") );
@@ -957,14 +983,11 @@ void BuildRelays16(void)
     output( "\n\t.data\n\t.align %d\n", get_alignment(4) );
     output( "%s\n\t.long 0\n", asm_globl("CallTo16_DataSelector") );
     output( "%s\n\t.long 0\n", asm_globl("CallTo16_TebSelector") );
-    if (UsePIC) output( "wine_ldt_copy_ptr:\t.long %s\n", asm_name("wine_ldt_copy") );
 
     output( "\t.text\n" );
-    output( "%s:\n\n", asm_name("__wine_spec_thunk_text_32") );
-    BuildCallFrom32Regs();
+    output( "%s:\n", asm_name("__wine_spec_thunk_text_32") );
+    build_call_from_regs_x86();
     output_function_size( "__wine_spec_thunk_text_32" );
-
-    output_gnu_stack_note();
 }
 
 
@@ -991,48 +1014,49 @@ static void build_call_from_regs_x86_64(void)
 
     /* Function header */
 
+    output( "\t.text\n" );
     function_header( "__wine_call_from_regs" );
 
-    output( "\t.cfi_startproc\n" );
+    output_cfi( ".cfi_startproc" );
     output( "\tsubq $%u,%%rsp\n", STACK_SPACE );
-    output( "\t.cfi_adjust_cfa_offset %u\n", STACK_SPACE );
+    output_cfi( ".cfi_adjust_cfa_offset %u", STACK_SPACE );
 
     /* save registers into the context */
 
     output( "\tmovq %%rax,0x78(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%rax,0x78\n" );
+    output_cfi( ".cfi_rel_offset %%rax,0x78" );
     output( "\tmovq %u(%%rsp),%%rax\n", STACK_SPACE + 16 );  /* saved %rcx on stack */
     output( "\tmovq %%rax,0x80(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%rcx,0x80\n" );
+    output_cfi( ".cfi_rel_offset %%rcx,0x80" );
     output( "\tmovq %u(%%rsp),%%rax\n", STACK_SPACE + 24 );  /* saved %rdx on stack */
-    output( "\t.cfi_rel_offset %%rdx,0x88\n" );
+    output_cfi( ".cfi_rel_offset %%rdx,0x88" );
     output( "\tmovq %%rax,0x88(%%rsp)\n" );
     output( "\tmovq %%rbx,0x90(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%rbx,0x90\n" );
+    output_cfi( ".cfi_rel_offset %%rbx,0x90" );
     output( "\tleaq %u(%%rsp),%%rax\n", STACK_SPACE + 16 );
     output( "\tmovq %%rax,0x98(%%rsp)\n" );
     output( "\tmovq %%rbp,0xa0(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%rbp,0xa0\n" );
+    output_cfi( ".cfi_rel_offset %%rbp,0xa0" );
     output( "\tmovq %%rsi,0xa8(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%rsi,0xa8\n" );
+    output_cfi( ".cfi_rel_offset %%rsi,0xa8" );
     output( "\tmovq %%rdi,0xb0(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%rdi,0xb0\n" );
+    output_cfi( ".cfi_rel_offset %%rdi,0xb0" );
     output( "\tmovq %%r8,0xb8(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%r8,0xb8\n" );
+    output_cfi( ".cfi_rel_offset %%r8,0xb8" );
     output( "\tmovq %%r9,0xc0(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%r9,0xc0\n" );
+    output_cfi( ".cfi_rel_offset %%r9,0xc0" );
     output( "\tmovq %%r10,0xc8(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%r10,0xc8\n" );
+    output_cfi( ".cfi_rel_offset %%r10,0xc8" );
     output( "\tmovq %%r11,0xd0(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%r11,0xd0\n" );
+    output_cfi( ".cfi_rel_offset %%r11,0xd0" );
     output( "\tmovq %%r12,0xd8(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%r12,0xd8\n" );
+    output_cfi( ".cfi_rel_offset %%r12,0xd8" );
     output( "\tmovq %%r13,0xe0(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%r13,0xe0\n" );
+    output_cfi( ".cfi_rel_offset %%r13,0xe0" );
     output( "\tmovq %%r14,0xe8(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%r14,0xe8\n" );
+    output_cfi( ".cfi_rel_offset %%r14,0xe8" );
     output( "\tmovq %%r15,0xf0(%%rsp)\n" );
-    output( "\t.cfi_rel_offset %%r15,0xf0\n" );
+    output_cfi( ".cfi_rel_offset %%r15,0xf0" );
     output( "\tmovq %u(%%rsp),%%rax\n", STACK_SPACE + 8 );
     output( "\tmovq %%rax,0xf8(%%rsp)\n" );
 
@@ -1041,7 +1065,7 @@ static void build_call_from_regs_x86_64(void)
     for (i = 0; i < 16; i++)
     {
         output( "\tmovdqa %%xmm%u,0x%x(%%rsp)\n", i, 0x1a0 + 16 * i );
-        output( "\t.cfi_rel_offset %%xmm%u,0x%x\n", i, 0x1a0 + 16 * i );
+        output_cfi( ".cfi_rel_offset %%xmm%u,0x%x", i, 0x1a0 + 16 * i );
     }
 
     output( "\tmovw %%cs,0x38(%%rsp)\n" );
@@ -1065,7 +1089,7 @@ static void build_call_from_regs_x86_64(void)
     output( "\tcmpq %%rax,%%rcx\n" );
     output( "\tcmovgq %%rcx,%%rax\n" );
     output( "\tmovq %%rsp,%%rbx\n" );
-    output( "\t.cfi_def_cfa_register %%rbx\n" );
+    output_cfi( ".cfi_def_cfa_register %%rbx" );
     output( "\tleaq 16(,%%rax,8),%%rax\n" );  /* add 8 for context arg and 8 for rounding */
     output( "\tandq $~15,%%rax\n" );
     output( "\tsubq %%rax,%%rsp\n" );
@@ -1087,36 +1111,36 @@ static void build_call_from_regs_x86_64(void)
     /* restore the context structure */
 
     output( "1:\tmovq 0x80(%%rbx),%%rcx\n" );
-    output( "\t.cfi_same_value %%rcx\n" );
+    output_cfi( ".cfi_same_value %%rcx" );
     output( "\tmovq 0x88(%%rbx),%%rdx\n" );
-    output( "\t.cfi_same_value %%rdx\n" );
+    output_cfi( ".cfi_same_value %%rdx" );
     output( "\tmovq 0xa0(%%rbx),%%rbp\n" );
-    output( "\t.cfi_same_value %%rbp\n" );
+    output_cfi( ".cfi_same_value %%rbp" );
     output( "\tmovq 0xa8(%%rbx),%%rsi\n" );
-    output( "\t.cfi_same_value %%rsi\n" );
+    output_cfi( ".cfi_same_value %%rsi" );
     output( "\tmovq 0xb0(%%rbx),%%rdi\n" );
-    output( "\t.cfi_same_value %%rdi\n" );
+    output_cfi( ".cfi_same_value %%rdi" );
     output( "\tmovq 0xb8(%%rbx),%%r8\n" );
-    output( "\t.cfi_same_value %%r8\n" );
+    output_cfi( ".cfi_same_value %%r8" );
     output( "\tmovq 0xc0(%%rbx),%%r9\n" );
-    output( "\t.cfi_same_value %%r9\n" );
+    output_cfi( ".cfi_same_value %%r9" );
     output( "\tmovq 0xc8(%%rbx),%%r10\n" );
-    output( "\t.cfi_same_value %%r10\n" );
+    output_cfi( ".cfi_same_value %%r10" );
     output( "\tmovq 0xd0(%%rbx),%%r11\n" );
-    output( "\t.cfi_same_value %%r11\n" );
+    output_cfi( ".cfi_same_value %%r11" );
     output( "\tmovq 0xd8(%%rbx),%%r12\n" );
-    output( "\t.cfi_same_value %%r12\n" );
+    output_cfi( ".cfi_same_value %%r12" );
     output( "\tmovq 0xe0(%%rbx),%%r13\n" );
-    output( "\t.cfi_same_value %%r13\n" );
+    output_cfi( ".cfi_same_value %%r13" );
     output( "\tmovq 0xe8(%%rbx),%%r14\n" );
-    output( "\t.cfi_same_value %%r14\n" );
+    output_cfi( ".cfi_same_value %%r14" );
     output( "\tmovq 0xf0(%%rbx),%%r15\n" );
-    output( "\t.cfi_same_value %%r15\n" );
+    output_cfi( ".cfi_same_value %%r15" );
 
     for (i = 0; i < 16; i++)
     {
         output( "\tmovdqa 0x%x(%%rbx),%%xmm%u\n", 0x1a0 + 16 * i, i );
-        output( "\t.cfi_same_value %%xmm%u\n", i );
+        output_cfi( ".cfi_same_value %%xmm%u", i );
     }
     output( "\tfxrstor 0x100(%%rbx)\n" );
     output( "\tldmxcsr 0x34(%%rbx)\n" );
@@ -1134,49 +1158,35 @@ static void build_call_from_regs_x86_64(void)
     output( "\tmovq 0x78(%%rbx),%%rax\n" );
     output( "\tmovq 0x90(%%rbx),%%rbx\n" );
     output( "\tiretq\n" );
-    output( "\t.cfi_endproc\n" );
+    output_cfi( ".cfi_endproc" );
 
     output_function_size( "__wine_call_from_regs" );
 
     function_header( "__wine_restore_regs" );
-    output( "\t.cfi_startproc\n" );
+    output_cfi( ".cfi_startproc" );
     output( "\tmovq %%rcx,%%rbx\n" );
     output( "\tjmp 1b\n" );
-    output( "\t.cfi_endproc\n" );
+    output_cfi( ".cfi_endproc" );
     output_function_size( "__wine_restore_regs" );
 }
 
 
 /*******************************************************************
- *         BuildRelays32
+ *         output_asm_relays
  *
- * Build all the 32-bit relay callbacks
+ * Build all the assembly relay callbacks
  */
-void BuildRelays32(void)
+void output_asm_relays(void)
 {
     switch (target_cpu)
     {
     case CPU_x86:
-        output( "/* File generated automatically. Do not edit! */\n\n" );
-        output( "\t.text\n" );
-        output( "%s:\n\n", asm_name("__wine_spec_thunk_text_32") );
-
-        /* 32-bit register entry point */
-        BuildCallFrom32Regs();
-
-        output_function_size( "__wine_spec_thunk_text_32" );
-        output_gnu_stack_note();
+        build_call_from_regs_x86();
         break;
-
     case CPU_x86_64:
-        output( "/* File generated automatically. Do not edit! */\n\n" );
-        output( "\t.text\n" );
         build_call_from_regs_x86_64();
-        output_gnu_stack_note();
         break;
-
     default:
-        output( "/* File not used with this architecture. Do not edit! */\n\n" );
-        return;
+        break;
     }
 }

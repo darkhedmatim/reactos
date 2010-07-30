@@ -47,10 +47,11 @@ int verbose = 0;
 int save_temps = 0;
 int link_ext_symbols = 0;
 int force_pointer_size = 0;
+int unwind_tables = 0;
 
-#if defined(TARGET_i386)
+#ifdef __i386__
 enum target_cpu target_cpu = CPU_x86;
-#elif defined(TARGET_amd64)
+#elif defined(__x86_64__)
 enum target_cpu target_cpu = CPU_x86_64;
 #elif defined(__sparc__)
 enum target_cpu target_cpu = CPU_SPARC;
@@ -58,7 +59,7 @@ enum target_cpu target_cpu = CPU_SPARC;
 enum target_cpu target_cpu = CPU_ALPHA;
 #elif defined(__powerpc__)
 enum target_cpu target_cpu = CPU_POWERPC;
-#elif defined(TARGET_arm)
+#elif defined(__arm__)
 enum target_cpu target_cpu = CPU_ARM;
 #else
 #error Unsupported CPU
@@ -100,10 +101,8 @@ enum exec_mode_values
     MODE_DLL,
     MODE_EXE,
     MODE_DEF,
-    MODE_RELAY16,
-    MODE_RELAY32,
-    MODE_RESOURCES,
-    MODE_PEDLL
+    MODE_IMPLIB,
+    MODE_RESOURCES
 };
 
 static enum exec_mode_values exec_mode = MODE_NONE;
@@ -118,6 +117,7 @@ static const struct
     { "darwin",  PLATFORM_APPLE },
     { "freebsd", PLATFORM_FREEBSD },
     { "solaris", PLATFORM_SOLARIS },
+    { "mingw32", PLATFORM_WINDOWS },
     { "windows", PLATFORM_WINDOWS },
     { "winnt",   PLATFORM_WINDOWS }
 };
@@ -136,6 +136,23 @@ static void set_dll_file_name( const char *name, DLLSPEC *spec )
     if ((p = strrchr( spec->file_name, '.' )))
     {
         if (!strcmp( p, ".spec" ) || !strcmp( p, ".def" )) *p = 0;
+    }
+}
+
+/* set the dll name from the file name */
+static void init_dll_name( DLLSPEC *spec )
+{
+    if (!spec->file_name)
+    {
+        char *p;
+        spec->file_name = xstrdup( output_file_name );
+        if ((p = strrchr( spec->file_name, '.' ))) *p = 0;
+    }
+    if (!spec->dll_name)  /* set default name from file name */
+    {
+        char *p;
+        spec->dll_name = xstrdup( spec->file_name );
+        if ((p = strrchr( spec->dll_name, '.' ))) *p = 0;
     }
 }
 
@@ -221,7 +238,7 @@ static const char usage_str[] =
 "   -e, --entry=FUNC          Set the DLL entry point function (default: DllMain)\n"
 "   -E, --export=FILE         Export the symbols defined in the .spec or .def file\n"
 "       --external-symbols    Allow linking to external symbols\n"
-"   -f FLAGS                  Compiler flags (only -fPIC is supported)\n"
+"   -f FLAGS                  Compiler flags (-fPIC and -fasynchronous-unwind-tables are supported)\n"
 "   -F, --filename=DLLFILE    Set the DLL filename (default: from input file name)\n"
 "       --fake-module         Create a fake binary module\n"
 "   -h, --help                Display this help message\n"
@@ -234,7 +251,7 @@ static const char usage_str[] =
 "       --ld-cmd=LD           Command to use for linking (default: ld)\n"
 "   -l, --library=LIB         Import the specified library\n"
 "   -L, --library-path=DIR    Look for imports libraries in DIR\n"
-"   -m32, -m64                Force building 32-bit resp. 64-bit code\n"
+"   -m16, -m32, -m64          Force building 16-bit, 32-bit resp. 64-bit code\n"
 "   -M, --main-module=MODULE  Set the name of the main module for a Win16 dll\n"
 "       --nm-cmd=NM           Command to use to get undefined symbols (default: nm)\n"
 "       --nxcompat=y|n        Set the NX compatibility flag (default: yes)\n"
@@ -251,10 +268,8 @@ static const char usage_str[] =
 "       --dll                 Build a .c file from a .spec or .def file\n"
 "       --def                 Build a .def file from a .spec file\n"
 "       --exe                 Build a .c file for an executable\n"
-"       --relay16             Build the 16-bit relay assembly routines\n"
-"       --relay32             Build the 32-bit relay assembly routines\n"
+"       --implib              Build an import library\n"
 "       --resources           Build a .o file for the resource files\n\n"
-"       --pedll              Build a .c file for PE dll\n\n"
 "The mode options are mutually exclusive; you must specify one and only one.\n\n";
 
 enum long_options_values
@@ -262,6 +277,7 @@ enum long_options_values
     LONG_OPT_DLL = 1,
     LONG_OPT_DEF,
     LONG_OPT_EXE,
+    LONG_OPT_IMPLIB,
     LONG_OPT_ASCMD,
     LONG_OPT_EXTERNAL_SYMS,
     LONG_OPT_FAKE_MODULE,
@@ -269,13 +285,10 @@ enum long_options_values
     LONG_OPT_LDCMD,
     LONG_OPT_NMCMD,
     LONG_OPT_NXCOMPAT,
-    LONG_OPT_RELAY16,
-    LONG_OPT_RELAY32,
     LONG_OPT_RESOURCES,
     LONG_OPT_SAVE_TEMPS,
     LONG_OPT_SUBSYSTEM,
-    LONG_OPT_VERSION,
-    LONG_OPT_PEDLL
+    LONG_OPT_VERSION
 };
 
 static const char short_options[] = "C:D:E:F:H:I:K:L:M:N:b:d:e:f:hi:kl:m:o:r:u:vw";
@@ -285,6 +298,7 @@ static const struct option long_options[] =
     { "dll",           0, 0, LONG_OPT_DLL },
     { "def",           0, 0, LONG_OPT_DEF },
     { "exe",           0, 0, LONG_OPT_EXE },
+    { "implib",        0, 0, LONG_OPT_IMPLIB },
     { "as-cmd",        1, 0, LONG_OPT_ASCMD },
     { "external-symbols", 0, 0, LONG_OPT_EXTERNAL_SYMS },
     { "fake-module",   0, 0, LONG_OPT_FAKE_MODULE },
@@ -292,13 +306,10 @@ static const struct option long_options[] =
     { "ld-cmd",        1, 0, LONG_OPT_LDCMD },
     { "nm-cmd",        1, 0, LONG_OPT_NMCMD },
     { "nxcompat",      1, 0, LONG_OPT_NXCOMPAT },
-    { "relay16",       0, 0, LONG_OPT_RELAY16 },
-    { "relay32",       0, 0, LONG_OPT_RELAY32 },
     { "resources",     0, 0, LONG_OPT_RESOURCES },
     { "save-temps",    0, 0, LONG_OPT_SAVE_TEMPS },
     { "subsystem",     1, 0, LONG_OPT_SUBSYSTEM },
     { "version",       0, 0, LONG_OPT_VERSION },
-    { "pedll",         1, 0, LONG_OPT_PEDLL },
     /* aliases for short options */
     { "target",        1, 0, 'b' },
     { "delay-lib",     1, 0, 'd' },
@@ -371,9 +382,10 @@ static char **parse_options( int argc, char **argv, DLLSPEC *spec )
             lib_path[nb_lib_paths++] = xstrdup( optarg );
             break;
         case 'm':
-            if (strcmp( optarg, "32" ) && strcmp( optarg, "64" ))
-                fatal_error( "Invalid -m option '%s', expected -m32 or -m64\n", optarg );
-            if (!strcmp( optarg, "32" )) force_pointer_size = 4;
+            if (strcmp( optarg, "16" ) && strcmp( optarg, "32" ) && strcmp( optarg, "64" ))
+                fatal_error( "Invalid -m option '%s', expected -m16, -m32 or -m64\n", optarg );
+            if (!strcmp( optarg, "16" )) spec->type = SPEC_WIN16;
+            else if (!strcmp( optarg, "32" )) force_pointer_size = 4;
             else force_pointer_size = 8;
             break;
         case 'M':
@@ -394,6 +406,8 @@ static char **parse_options( int argc, char **argv, DLLSPEC *spec )
             break;
         case 'f':
             if (!strcmp( optarg, "PIC") || !strcmp( optarg, "pic")) UsePIC = 1;
+            else if (!strcmp( optarg, "asynchronous-unwind-tables")) unwind_tables = 1;
+            else if (!strcmp( optarg, "no-asynchronous-unwind-tables")) unwind_tables = 0;
             /* ignore all other flags */
             break;
         case 'h':
@@ -461,6 +475,9 @@ static char **parse_options( int argc, char **argv, DLLSPEC *spec )
             set_exec_mode( MODE_EXE );
             if (!spec->subsystem) spec->subsystem = IMAGE_SUBSYSTEM_WINDOWS_GUI;
             break;
+        case LONG_OPT_IMPLIB:
+            set_exec_mode( MODE_IMPLIB );
+            break;
         case LONG_OPT_ASCMD:
             as_command = xstrdup( optarg );
             break;
@@ -483,12 +500,6 @@ static char **parse_options( int argc, char **argv, DLLSPEC *spec )
             if (optarg[0] == 'n' || optarg[0] == 'N')
                 spec->dll_characteristics &= ~IMAGE_DLLCHARACTERISTICS_NX_COMPAT;
             break;
-        case LONG_OPT_RELAY16:
-            set_exec_mode( MODE_RELAY16 );
-            break;
-        case LONG_OPT_RELAY32:
-            set_exec_mode( MODE_RELAY32 );
-            break;
         case LONG_OPT_RESOURCES:
             set_exec_mode( MODE_RESOURCES );
             break;
@@ -501,11 +512,6 @@ static char **parse_options( int argc, char **argv, DLLSPEC *spec )
         case LONG_OPT_VERSION:
             printf( "winebuild version " PACKAGE_VERSION "\n" );
             exit(0);
-        case LONG_OPT_PEDLL:
-            set_exec_mode( MODE_PEDLL );
-            spec_file_name = xstrdup( optarg );
-            set_dll_file_name( optarg, spec );
-            break;
         case '?':
             usage(1);
             break;
@@ -514,6 +520,7 @@ static char **parse_options( int argc, char **argv, DLLSPEC *spec )
 
     if (spec->file_name && !strchr( spec->file_name, '.' ))
         strcat( spec->file_name, exec_mode == MODE_EXE ? ".exe" : ".dll" );
+    init_dll_name( spec );
 
     switch (target_cpu)
     {
@@ -615,14 +622,6 @@ int main(int argc, char **argv)
     case MODE_DLL:
         if (spec->subsystem != IMAGE_SUBSYSTEM_NATIVE)
             spec->characteristics |= IMAGE_FILE_DLL;
-        if (!spec_file_name) fatal_error( "missing .spec file\n" );
-        if (spec->type == SPEC_WIN32 && spec->main_module)  /* embedded 16-bit module */
-        {
-            spec->type = SPEC_WIN16;
-            load_resources( argv, spec );
-            if (parse_input_file( spec )) BuildSpec16File( spec );
-            break;
-        }
         /* fall through */
     case MODE_EXE:
         load_resources( argv, spec );
@@ -648,23 +647,14 @@ int main(int argc, char **argv)
         break;
     case MODE_DEF:
         if (argv[0]) fatal_error( "file argument '%s' not allowed in this mode\n", argv[0] );
-        if (spec->type == SPEC_WIN16) fatal_error( "Cannot yet build .def file for 16-bit dlls\n" );
         if (!spec_file_name) fatal_error( "missing .spec file\n" );
         if (!parse_input_file( spec )) break;
-        BuildDef32File( spec );
+        output_def_file( spec, 1 );
         break;
-    case MODE_RELAY16:
-        if (argv[0]) fatal_error( "file argument '%s' not allowed in this mode\n", argv[0] );
-        BuildRelays16();
-        break;
-    case MODE_RELAY32:
-        if (argv[0]) fatal_error( "file argument '%s' not allowed in this mode\n", argv[0] );
-        BuildRelays32();
-        break;
-    case MODE_PEDLL:
-        if (argv[0]) fatal_error( "file argument '%s' not allowed in this mode\n", argv[0] );
+    case MODE_IMPLIB:
+        if (!spec_file_name) fatal_error( "missing .spec file\n" );
         if (!parse_input_file( spec )) break;
-        BuildPedllFile( spec );
+        output_import_lib( spec, argv );
         break;
     case MODE_RESOURCES:
         load_resources( argv, spec );
