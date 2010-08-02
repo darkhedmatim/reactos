@@ -12,18 +12,23 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef __MSVC_H__
-#define __MSVC_H__
+
+#pragma once
 
 #include <fstream>
 #include <vector>
 #include <string>
 
 #include "../backend.h"
+
+#ifdef OUT
+#undef OUT
+#endif//OUT
+
 
 class FileUnit
 {
@@ -34,9 +39,28 @@ class FileUnit
 
 enum OptimizationType
 {
+	RosBuild,
 	Debug,
 	Release,
-	Speed
+	Speed,
+};
+
+enum ConfigurationType
+{
+	ConfigUnknown,
+	ConfigApp,
+	ConfigDll,
+	ConfigEmpty,
+	ConfigLib
+};
+
+enum BinaryType
+{
+	BinUnknown,
+	Lib,
+	Dll,
+	Exe,
+	Sys
 };
 
 enum HeadersType
@@ -78,12 +102,11 @@ class MSVCBackend : public Backend
 		void OutputFolders();
 		void OutputFileUnits();
 
-		std::string DspFileName ( const Module& module ) const;
 		std::string VcprojFileName ( const Module& module ) const;
-		std::string DswFileName ( const Module& module ) const;
+		std::string VcxprojFileName ( const Module& module ) const;
 		std::string SlnFileName ( const Module& module ) const;
-		std::string OptFileName ( const Module& module ) const;
 		std::string SuoFileName ( const Module& module ) const;
+		std::string UserFileName ( const Module& module, std::string vcproj_file ) const;
 		std::string NcbFileName ( const Module& module ) const;
 
 		std::vector<MSVCConfiguration*> m_configurations;
@@ -93,52 +116,12 @@ class MSVCBackend : public Backend
 
 		int m_unitCount;
 
-		FILE* m_dswFile;
-		FILE* m_slnFile;
-		FILE* m_rulesFile;
+		std::string _gen_guid();
 
-		// functions in msvcmaker.cpp:
-
-		void _generate_dsp ( const Module& module );
-		void _generate_dsw_header ( FILE* OUT );
-		void _generate_dsw_project (
-			FILE* OUT,
-			const Module& module,
-			std::string dsp_file,
-			const std::vector<Dependency*>& dependencies );
-
-		void _generate_dsw_footer ( FILE* OUT );
-		void _generate_wine_dsw ( FILE* OUT );
-
-		// functions in vcprojmaker.cpp:
-
-		std::string _strip_gcc_deffile(std::string Filename, std::string sourcedir, std::string objdir);
 		std::string _get_solution_version ( void );
 		std::string _get_studio_version ( void );
-		std::string _gen_guid();
-		std::string _replace_str(
-			std::string string1,
-			const std::string &find_str,
-			const std::string &replace_str);
-
 		std::string _get_vc_dir ( void ) const;
 
-		void _generate_vcproj ( const Module& module );
-
-		void _generate_sln_header ( FILE* OUT );
-		void _generate_sln_footer ( FILE* OUT );
-		void _generate_sln ( FILE* OUT );
-		//void _generate_rules_file ( FILE* OUT );
-		void _generate_sln_project (
-			FILE* OUT,
-			const Module& module,
-			std::string vcproj_file,
-			std::string sln_guid,
-			std::string vcproj_guid,
-			const std::vector<Library*>& libraries );
-		void _generate_sln_configurations (
-			FILE* OUT,
-			std::string vcproj_guid );
 		void _clean_project_files ( void );
 		void _get_object_files ( const Module& module, std::vector<std::string>& out ) const;
 		void _get_def_files ( const Module& module, std::vector<std::string>& out ) const;
@@ -147,4 +130,153 @@ class MSVCBackend : public Backend
 		const Property* _lookup_property ( const Module& module, const std::string& name ) const;
 };
 
-#endif // __MSVC_H__
+
+// Abstract class
+class ProjMaker
+{
+	public:
+		ProjMaker ( );
+		ProjMaker ( Configuration& buildConfig, const std::vector<MSVCConfiguration*>& msvc_configs, std::string filename );
+		virtual ~ProjMaker() {}
+
+		virtual void _generate_proj_file ( const Module& module ) = 0;
+		virtual void _generate_user_configuration ();
+
+		std::string VcprojFileName ( const Module& module ) const;
+
+	protected:
+		Configuration configuration;
+		std::vector<MSVCConfiguration*> m_configurations;
+		std::string vcproj_file;
+		FILE* OUT;
+
+		std::vector<std::string> header_files;
+		std::vector<std::string> source_files;
+		std::vector<std::string> resource_files;
+		std::vector<std::string> generated_files;
+		std::vector<std::string> defines;
+		std::vector<std::string> includes;
+		std::vector<std::string> libraries;
+
+		std::string baseaddr;
+		BinaryType binaryType;
+
+		std::string _get_vc_dir ( void ) const;
+		std::string _strip_gcc_deffile(std::string Filename, std::string sourcedir, std::string objdir);
+		std::string _get_solution_version ( void );
+		std::string _get_studio_version ( void );
+		std::string _replace_str( std::string string1, const std::string &find_str, const std::string &replace_str);
+		std::string _get_file_path( FileLocation* file, std::string relative_path);
+
+		void _collect_files(const Module& module);
+		void _generate_standard_configuration( const Module& module, const MSVCConfiguration& cfg, BinaryType binaryType );
+		void _generate_makefile_configuration( const Module& module, const MSVCConfiguration& cfg );
+};
+
+class VCProjMaker : public ProjMaker
+{
+	public:
+		VCProjMaker ( );
+		VCProjMaker ( Configuration& buildConfig, const std::vector<MSVCConfiguration*>& msvc_configs, std::string filename, const Module& module );
+		virtual ~VCProjMaker ();
+
+		void _generate_proj_file ( const Module& module );
+		void _generate_user_configuration ();
+
+	private:
+
+		void _generate_standard_configuration( const Module& module, const MSVCConfiguration& cfg, BinaryType binaryType );
+		void _generate_makefile_configuration( const Module& module, const MSVCConfiguration& cfg );
+		std::string _get_file_path( FileLocation* file, std::string relative_path);
+};
+
+class VCXProjMaker : public ProjMaker
+{
+	public:
+		VCXProjMaker ( );
+		VCXProjMaker ( Configuration& buildConfig, const std::vector<MSVCConfiguration*>& msvc_configs, std::string filename, const Module& module );
+		virtual ~VCXProjMaker ();
+
+		void _generate_proj_file ( const Module& module );
+		void _generate_user_configuration ();
+
+	private:
+		std::string _get_configuration_type ();
+		void _generate_item_group (std::vector<std::string>);
+		void _generate_standard_configuration( const Module& module, const MSVCConfiguration& cfg, BinaryType binaryType );
+		void _generate_makefile_configuration( const Module& module, const MSVCConfiguration& cfg );
+};
+
+class SlnMaker
+{
+	public:
+		SlnMaker ( Configuration& buildConfig, const std::vector<MSVCConfiguration*>& configurations, std::string filename_sln, std::string solution_version, std::string studio_version);
+		~SlnMaker ();
+
+		void _add_project(ProjMaker &project, Module &module);
+	private:
+		Configuration m_configuration;
+		std::vector<MSVCConfiguration*> m_configurations;
+		FILE* OUT;
+		std::vector<Module*> modules;
+
+		void _generate_sln_header ( std::string solution_version, std::string studio_version );
+		void _generate_sln_footer ( );
+		void _generate_sln_configurations ( std::string vcproj_guid );
+};
+
+class VSPropsMaker
+{
+	public:
+		VSPropsMaker ( Configuration& buildConfig, 
+			 Project* ProjectNode,  
+			 std::string filename_props,
+			 MSVCConfiguration* msvc_configs);
+
+		~VSPropsMaker ();
+
+		void _generate_props ( std::string solution_version, std::string studio_version );
+
+	private:
+		Configuration m_configuration;
+		Project* m_ProjectNode;
+		FILE* OUT;
+		MSVCConfiguration* m_msvc_config;
+		bool debug;
+		bool release;
+		bool speed;
+		bool use_ros_headers;
+
+		void _generate_header();
+		void _generate_tools_defaults();
+		void _generate_macro(std::string Name, std::string Value, bool EvairomentVariable);
+		void _generate_global_includes();
+		void _generate_global_definitions();
+		void _generate_footer();
+
+};
+
+
+class PropsMaker
+{
+	public:
+		PropsMaker ( Project* ProjectNode,  
+					 std::string filename_props,
+					 std::vector<MSVCConfiguration*> configurations);
+
+		~PropsMaker ();
+
+		void _generate_props ( std::string solution_version, std::string studio_version );
+
+	private:
+		Project* m_ProjectNode;
+		FILE* OUT;
+		std::vector<MSVCConfiguration*> m_configurations;
+
+		void _generate_macro(std::string Name, std::string Value);
+		void _generate_global_includes(bool debug, bool use_ros_headers);
+		void _generate_global_definitions(bool debug, bool use_ros_headers);
+		void _generate_header();
+		void _generate_footer();
+
+};

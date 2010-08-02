@@ -27,18 +27,18 @@ extern int is_ptrchain_attr(const var_t *var, enum attr_type t);
 extern int is_aliaschain_attr(const type_t *var, enum attr_type t);
 extern int is_attr(const attr_list_t *list, enum attr_type t);
 extern void *get_attrp(const attr_list_t *list, enum attr_type t);
-extern unsigned long get_attrv(const attr_list_t *list, enum attr_type t);
+extern unsigned int get_attrv(const attr_list_t *list, enum attr_type t);
 extern int is_void(const type_t *t);
 extern int is_conformant_array(const type_t *t);
 extern int is_declptr(const type_t *t);
 extern const char* get_name(const var_t *v);
 extern void write_type_left(FILE *h, type_t *t, int declonly);
 extern void write_type_right(FILE *h, type_t *t, int is_field);
-extern void write_type_def_or_decl(FILE *h, type_t *t, int is_field, const char *fmt, ...);
-extern void write_type_decl(FILE *f, type_t *t, const char *fmt, ...);
+extern void write_type_def_or_decl(FILE *h, type_t *t, int is_field, const char *name);
+extern void write_type_decl(FILE *f, type_t *t, const char *name);
 extern void write_type_decl_left(FILE *f, type_t *t);
 extern int needs_space_after(type_t *t);
-extern int is_object(const attr_list_t *list);
+extern int is_object(const type_t *iface);
 extern int is_local(const attr_list_t *list);
 extern int need_stub(const type_t *iface);
 extern int need_proxy(const type_t *iface);
@@ -75,7 +75,9 @@ static inline int is_string_type(const attr_list_t *attrs, const type_t *type)
 static inline int is_context_handle(const type_t *type)
 {
     const type_t *t;
-    for (t = type; is_ptr(t); t = type_pointer_get_ref(t))
+    for (t = type;
+         is_ptr(t) || type_is_alias(t);
+         t = type_is_alias(t) ? type_alias_get_aliasee(t) : type_pointer_get_ref(t))
         if (is_attr(t->attrs, ATTR_CONTEXTHANDLE))
             return 1;
     return 0;

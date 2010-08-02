@@ -11,9 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #ifdef _MSC_VER
 #pragma warning ( disable : 4786 )
@@ -141,8 +141,13 @@ MsBuildBackend::_generate_sources ( const Module& module )
 
 	if (module_type == ".sys")
 		fprintf ( OUT, "TARGETTYPE=DRIVER\r\n" );
-	if (module_type == ".dll")
+	else if (module_type == ".dll")
+	{
 		fprintf ( OUT, "TARGETTYPE=LIBRARY\r\n" );
+
+	}
+	else if (module_type == ".exe")
+		fprintf ( OUT, "TARGETTYPE=PROGRAM\r\n" );
 
 	fprintf ( OUT, "\r\nMSC_WARNING_LEVEL=/W3 /WX\r\n\r\n" );
 

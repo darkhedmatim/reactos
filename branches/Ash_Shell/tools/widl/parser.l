@@ -37,10 +37,12 @@ double	[0-9]+\.[0-9]+([eE][+-]?[0-9]+)*
 %x WSTRQUOTE
 %x ATTR
 %x PP_LINE
+%x SQUOTE
 
 %{
 
 #include "config.h"
+#include "wine/port.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,8 +65,6 @@ double	[0-9]+\.[0-9]+([eE][+-]?[0-9]+)*
 
 #include "parser.tab.h"
 
-extern char *temp_name;
-
 static void addcchar(char c);
 static char *get_buffered_cstring(void);
 
@@ -86,15 +86,15 @@ int import_stack_ptr = 0;
 
 /* converts an integer in string form to an unsigned long and prints an error
  * on overflow */
-static unsigned long xstrtoul(const char *nptr, char **endptr, int base)
+static unsigned int xstrtoul(const char *nptr, char **endptr, int base)
 {
-    unsigned long l;
+    unsigned long val;
 
     errno = 0;
-    l = strtoul(nptr, endptr, base);
-    if (l == ULONG_MAX && errno == ERANGE)
+    val = strtoul(nptr, endptr, base);
+    if ((val == ULONG_MAX && errno == ERANGE) || ((unsigned int)val != val))
         error_loc("integer constant %s is too large\n", nptr);
-    return l;
+    return val;
 }
 
 UUID *parse_uuid(const char *u)
@@ -151,16 +151,23 @@ UUID *parse_uuid(const char *u)
 				parser_lval.str = get_buffered_cstring();
 				return aSTRING;
 			}
-<INITIAL,ATTR>L\"	yy_push_state(WSTRQUOTE);
+<INITIAL,ATTR>L\"	yy_push_state(WSTRQUOTE); cbufidx = 0;
 <WSTRQUOTE>\"		{
 				yy_pop_state();
 				parser_lval.str = get_buffered_cstring();
 				return aWSTRING;
 			}
-<QUOTE,WSTRQUOTE>\\\\	|
+<INITIAL,ATTR>\'	yy_push_state(SQUOTE); cbufidx = 0;
+<SQUOTE>\'		{
+				yy_pop_state();
+				parser_lval.str = get_buffered_cstring();
+				return aSQSTRING;
+			}
+<QUOTE,WSTRQUOTE,SQUOTE>\\\\	|
 <QUOTE,WSTRQUOTE>\\\"	addcchar(yytext[1]);
-<QUOTE,WSTRQUOTE>\\.	addcchar('\\'); addcchar(yytext[1]);
-<QUOTE,WSTRQUOTE>.	addcchar(yytext[0]);
+<SQUOTE>\\\'	addcchar(yytext[1]);
+<QUOTE,WSTRQUOTE,SQUOTE>\\.	addcchar('\\'); addcchar(yytext[1]);
+<QUOTE,WSTRQUOTE,SQUOTE>.	addcchar(yytext[0]);
 <INITIAL,ATTR>\[	yy_push_state(ATTR); return '[';
 <ATTR>\]		yy_pop_state(); return ']';
 <ATTR>{cident}		return attr_token(yytext);
@@ -193,6 +200,7 @@ SAFEARRAY{ws}*/\(	return tSAFEARRAY;
 <INITIAL,ATTR>\<=	return LESSEQUAL;
 <INITIAL,ATTR>\|\|	return LOGICALOR;
 <INITIAL,ATTR>&&	return LOGICALAND;
+<INITIAL,ATTR>\.\.\.	return ELLIPSIS;
 <INITIAL,ATTR>.		return yytext[0];
 <<EOF>>			{
 				if (import_stack_ptr)
@@ -220,6 +228,7 @@ static const struct keyword keywords[] = {
 	{"TRUE",			tTRUE},
 	{"__cdecl",			tCDECL},
 	{"__fastcall",			tFASTCALL},
+	{"__int3264",			tINT3264},
 	{"__int64",			tINT64},
 	{"__pascal",			tPASCAL},
 	{"__stdcall",			tSTDCALL},
@@ -279,6 +288,7 @@ static const struct keyword attr_keywords[] =
 {
         {"aggregatable",                tAGGREGATABLE},
         {"allocate",                    tALLOCATE},
+        {"annotation",                  tANNOTATION},
         {"appobject",                   tAPPOBJECT},
         {"async",                       tASYNC},
         {"async_uuid",                  tASYNCUUID},
@@ -341,7 +351,6 @@ static const struct keyword attr_keywords[] =
         {"requestedit",                 tREQUESTEDIT},
         {"restricted",                  tRESTRICTED},
         {"retval",                      tRETVAL},
-        {"single",                      tSINGLE},
         {"size_is",                     tSIZEIS},
         {"source",                      tSOURCE},
         {"strict_context_handle",       tSTRICTCONTEXTHANDLE},
@@ -434,10 +443,10 @@ struct imports {
 int do_import(char *fname)
 {
 	FILE *f;
-	char *path;
+	char *path, *name;
 	struct imports *import;
 	int ptr = import_stack_ptr;
-	int ret;
+	int ret, fd;
 
 	import = first_import;
 	while (import && strcmp(import->name, fname))
@@ -452,7 +461,7 @@ int do_import(char *fname)
         /* don't search for a file name with a path in the include directories,
          * for compatibility with MIDL */
         if (strchr( fname, '/' ) || strchr( fname, '\\' ))
-            path = strdup( fname );
+            path = xstrdup( fname );
         else if (!(path = wpp_find_include( fname, input_name )))
             error_loc("Unable to open include file %s\n", fname);
 
@@ -463,7 +472,16 @@ int do_import(char *fname)
         input_name = path;
         line_number = 1;
 
-        ret = wpp_parse_temp( path, NULL, &temp_name );
+        name = xstrdup( "widl.XXXXXX" );
+        if((fd = mkstemps( name, 0 )) == -1)
+            error("Could not generate a temp name from %s\n", name);
+
+        temp_name = name;
+        if (!(f = fdopen(fd, "wt")))
+            error("Could not open fd %s for writing\n", name);
+
+        ret = wpp_parse( path, f );
+        fclose( f );
         if (ret) exit(1);
 
 	if((f = fopen(temp_name, "r")) == NULL)

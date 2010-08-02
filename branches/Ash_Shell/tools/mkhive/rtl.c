@@ -59,7 +59,7 @@ RtlInitUnicodeString(
 
 	if(SourceString)
 	{
-		DestSize = utf16_wcslen(SourceString) * sizeof(WCHAR);
+		DestSize = strlenW(SourceString) * sizeof(WCHAR);
 		DestinationString->Length = (USHORT)DestSize;
 		DestinationString->MaximumLength = (USHORT)DestSize + sizeof(WCHAR);
 	}
@@ -184,4 +184,26 @@ RtlAssert(PVOID FailedAssertion,
    }
 
    //DbgBreakPoint();
+}
+
+unsigned char BitScanForward(ULONG * Index, unsigned long Mask)
+{
+    *Index = 0;
+    while (Mask && ((Mask & 1) == 0))
+    {
+        Mask >>= 1;
+        ++(*Index);
+    }
+    return Mask ? 1 : 0;
+}
+
+unsigned char BitScanReverse(ULONG * const Index, unsigned long Mask)
+{
+    *Index = 0;
+    while (Mask && ((Mask & (1 << 31)) == 0))
+    {
+        Mask <<= 1;
+        ++(*Index);
+    }
+    return Mask ? 1 : 0;
 }

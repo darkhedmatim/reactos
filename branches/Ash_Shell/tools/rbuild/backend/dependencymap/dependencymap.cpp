@@ -11,9 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #ifdef _MSC_VER
 #pragma warning ( disable : 4786 )
@@ -98,9 +98,7 @@ DepMapBackend::_generate_depmap ( FILE* OUT )
 	{
 		Module& module = *p->second;
 		if ((module.type != Iso) &&
-			(module.type != LiveIso) &&
-			(module.type != IsoRegTest) &&
-			(module.type != LiveIsoRegTest))
+			(module.type != LiveIso))
 		{
 			vector<const IfableData*> ifs_list;
 			ifs_list.push_back ( &module.project.non_if_data );

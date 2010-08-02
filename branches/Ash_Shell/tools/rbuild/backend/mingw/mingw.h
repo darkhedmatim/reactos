@@ -11,12 +11,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef MINGW_H
-#define MINGW_H
+
+#pragma once
 
 #include "../backend.h"
 
@@ -45,10 +45,12 @@ public:
 	std::string AddDirectoryTarget ( const std::string& directory,
 	                                 Directory* directoryTree );
 	const Module& GetAliasedModuleOrModule ( const Module& module ) const;
+	bool compilerNeedsHelper;
 	std::string compilerPrefix;
 	std::string compilerCommand;
 	std::string nasmCommand;
 	std::string binutilsPrefix;
+	bool binutilsNeedsHelper;
 	std::string binutilsCommand;
 	bool usePipe, manualBinutilsSetting;
 	Directory* intermediateDirectory;
@@ -62,15 +64,9 @@ private:
 	void CreateMakefile ();
 	void CloseMakefile () const;
 	void GenerateHeader () const;
-	void GenerateProjectCFlagsMacro ( const char* assignmentOperation,
-	                                  const IfableData& data ) const;
-	void GenerateGlobalCFlagsAndProperties ( const char* op,
-	                                         const IfableData& data ) const;
-	void GenerateProjectGccOptionsMacro ( const char* assignmentOperation,
-	                                      IfableData& data ) const;
-	void GenerateProjectGccOptions ( const char* assignmentOperation,
-	                                 IfableData& data ) const;
-	std::string GenerateProjectLFLAGS () const;
+	void GenerateGlobalProperties ( const char* assignmentOperation,
+									  const IfableData& data ) const;
+	std::string GenerateProjectLDFLAGS () const;
 	void GenerateDirectories ();
 	void GenerateGlobalVariables () const;
 	bool IncludeInAllTarget ( const Module& module ) const;
@@ -121,6 +117,8 @@ private:
 	void GenerateDirectoryTargets ();
 	FILE* fMakefile;
 	bool use_pch;
+	bool DetectMicrosoftCompiler ( std::string& version, std::string& path );
+	bool DetectMicrosoftLinker ( std::string& version, std::string& path );
 };
 
 
@@ -151,5 +149,3 @@ struct ModuleHandlerInformations
 };
 
 extern const struct ModuleHandlerInformations ModuleHandlerInformations[];
-
-#endif /* MINGW_H */

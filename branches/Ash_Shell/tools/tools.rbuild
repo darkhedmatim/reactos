@@ -7,6 +7,15 @@
 <directory name="cdmake">
 	<xi:include href="cdmake/cdmake.rbuild" />
 </directory>
+<directory name="hpp">
+	<xi:include href="hpp/hpp.rbuild" />
+</directory>
+<directory name="kbdtool">
+	<xi:include href="kbdtool/kbdtool.rbuild" />
+</directory>
+<directory name="nandflash">
+	<xi:include href="nandflash/nandflash.rbuild" />
+</directory>
 <directory name="mkhive">
 	<xi:include href="mkhive/mkhive.rbuild" />
 </directory>
@@ -33,5 +42,8 @@
 </directory>
 <directory name="utf16le">
 	<xi:include href="utf16le/utf16le.rbuild" />
+</directory>
+<directory name="rbuild_helper">
+	<xi:include href="rbuild_helper/rbuild_helper.rbuild" />
 </directory>
 </group>

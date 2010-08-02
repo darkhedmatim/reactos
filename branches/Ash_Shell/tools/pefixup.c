@@ -24,9 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
-#ifndef _WIN32
 #include <unistd.h>
-#endif
 
 #ifndef O_BINARY
 #define O_BINARY 0
@@ -39,6 +37,7 @@ typedef unsigned char BYTE, *PBYTE;
 typedef unsigned short WORD;
 typedef unsigned int DWORD;
 typedef int LONG;
+typedef long LONG_PTR;
 
 #define IMAGE_NUMBEROF_DIRECTORY_ENTRIES 16
 #define IMAGE_SIZEOF_SHORT_NAME 8
@@ -46,7 +45,7 @@ typedef int LONG;
 #define IMAGE_NT_SIGNATURE 0x00004550
 #define IMAGE_SCN_MEM_DISCARDABLE 0x2000000
 #define IMAGE_SCN_MEM_NOT_PAGED 0x8000000
-#define FIELD_OFFSET(t,f) ((LONG)&(((t*)0)->f))
+#define FIELD_OFFSET(t,f) ((LONG)(LONG_PTR)&(((t*)0)->f))
 #define IMAGE_FIRST_SECTION(h) ((PIMAGE_SECTION_HEADER) ((unsigned long)h+FIELD_OFFSET(IMAGE_NT_HEADERS,OptionalHeader)+((PIMAGE_NT_HEADERS)(h))->FileHeader.SizeOfOptionalHeader))
 #define IMAGE_DIRECTORY_ENTRY_EXPORT 0
 
@@ -258,14 +257,14 @@ int main(int argc, char **argv)
       else if (!strcmp(argv[i], "-exports"))
          fixup_exports = 1;
       else
-         { printf("Invalid option: %s\n", argv[i]); return 1; }
+         { fprintf(stderr, "Invalid option: %s\n", argv[i]); return 1; }
    }
 
+   /*
+    * Nothing to do.
+    */
    if (fixup_sections == 0 && fixup_exports == 0)
-   {
-      printf("Nothing to do.\n");
       return 0;
-   }
 
    /*
     * Read the whole file to memory.
@@ -274,7 +273,7 @@ int main(int argc, char **argv)
    fd_in = open(argv[1], O_RDONLY | O_BINARY);
    if (fd_in == 0)
    {
-      printf("Can't open input file.\n");
+      fprintf(stderr, "Can't open input file.\n");
       return 1;
    }
 
@@ -289,7 +288,7 @@ int main(int argc, char **argv)
    if (len < sizeof(IMAGE_DOS_HEADER))
    {
       close(fd_in);
-      printf("'%s' isn't a PE image (too short)\n", argv[1]);
+      fprintf(stderr, "'%s' isn't a PE image (too short)\n", argv[1]);
       return 1;
    }
 
@@ -299,7 +298,7 @@ int main(int argc, char **argv)
    if (buffer == NULL)
    {
       close(fd_in);
-      printf("Not enough memory available.\n");
+      fprintf(stderr, "Not enough memory available.\n");
       return 1;
    }
 
@@ -322,7 +321,7 @@ int main(int argc, char **argv)
    if (dtohs(dos_header->e_magic) != IMAGE_DOS_SIGNATURE ||
        dtohl(nt_header->Signature) != IMAGE_NT_SIGNATURE)
    {
-      printf("'%s' isn't a PE image (bad headers)\n", argv[1]);
+      fprintf(stderr, "'%s' isn't a PE image (bad headers)\n", argv[1]);
       free(buffer);
       return 1;
    }
@@ -344,7 +343,7 @@ int main(int argc, char **argv)
             exports = malloc(sizeof(export_t) * dtohl(export_directory->NumberOfNames));
             if (exports == NULL)
             {
-               printf("Not enough memory.\n");
+               fprintf(stderr, "Not enough memory.\n");
                free(buffer);
                return 1;
             }

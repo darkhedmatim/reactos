@@ -100,7 +100,7 @@ void *get_attrp(const attr_list_t *list, enum attr_type t)
     return NULL;
 }
 
-unsigned long get_attrv(const attr_list_t *list, enum attr_type t)
+unsigned int get_attrv(const attr_list_t *list, enum attr_type t)
 {
     const attr_t *attr;
     if (list) LIST_FOR_EACH_ENTRY( attr, list, const attr_t, entry )
@@ -149,7 +149,7 @@ static void write_field(FILE *h, var_t *v)
   if (!v) return;
   if (v->type) {
     indent(h, 0);
-    write_type_def_or_decl(h, v->type, TRUE, "%s", v->name);
+    write_type_def_or_decl(h, v->type, TRUE, v->name);
     fprintf(h, ";\n");
   }
 }
@@ -183,7 +183,7 @@ static void write_enums(FILE *h, var_list_t *enums)
 int needs_space_after(type_t *t)
 {
   return (type_is_alias(t) ||
-          (!is_ptr(t) && (!is_conformant_array(t) || t->declarray || (is_array(t) && t->name))));
+          (!is_ptr(t) && (!is_array(t) || !type_array_is_decl_as_ptr(t) || t->name)));
 }
 
 void write_type_left(FILE *h, type_t *t, int declonly)
@@ -191,21 +191,13 @@ void write_type_left(FILE *h, type_t *t, int declonly)
   if (!h) return;
 
   if (is_attr(t->attrs, ATTR_CONST) &&
-      (type_is_alias(t) || t->declarray || !is_ptr(t)))
+      (type_is_alias(t) || !is_ptr(t)))
     fprintf(h, "const ");
 
   if (type_is_alias(t)) fprintf(h, "%s", t->name);
-  else if (t->declarray) write_type_left(h, type_array_get_element(t), declonly);
   else {
-    if (t->sign > 0) fprintf(h, "signed ");
-    else if (t->sign < 0) fprintf(h, "unsigned ");
-
-    if (is_array(t) && !t->name) {
-      write_type_left(h, type_array_get_element(t), declonly);
-      fprintf(h, "%s*", needs_space_after(type_array_get_element(t)) ? " " : "");
-    } else switch (t->type) {
-      case RPC_FC_ENUM16:
-      case RPC_FC_ENUM32:
+    switch (type_get_type_detect_alias(t)) {
+      case TYPE_ENUM:
         if (!declonly && t->defined && !t->written) {
           if (t->name) fprintf(h, "enum %s {\n", t->name);
           else fprintf(h, "enum {\n");
@@ -217,19 +209,14 @@ void write_type_left(FILE *h, type_t *t, int declonly)
         }
         else fprintf(h, "enum %s", t->name ? t->name : "");
         break;
-      case RPC_FC_STRUCT:
-      case RPC_FC_CVSTRUCT:
-      case RPC_FC_CPSTRUCT:
-      case RPC_FC_CSTRUCT:
-      case RPC_FC_PSTRUCT:
-      case RPC_FC_BOGUS_STRUCT:
-      case RPC_FC_ENCAPSULATED_UNION:
+      case TYPE_STRUCT:
+      case TYPE_ENCAPSULATED_UNION:
         if (!declonly && t->defined && !t->written) {
           if (t->name) fprintf(h, "struct %s {\n", t->name);
           else fprintf(h, "struct {\n");
           t->written = TRUE;
           indentation++;
-          if (t->type == RPC_FC_ENCAPSULATED_UNION)
+          if (type_get_type(t) != TYPE_STRUCT)
             write_fields(h, type_encapsulated_union_get_fields(t));
           else
             write_fields(h, type_struct_get_fields(t));
@@ -238,7 +225,7 @@ void write_type_left(FILE *h, type_t *t, int declonly)
         }
         else fprintf(h, "struct %s", t->name ? t->name : "");
         break;
-      case RPC_FC_NON_ENCAPSULATED_UNION:
+      case TYPE_UNION:
         if (!declonly && t->defined && !t->written) {
           if (t->name) fprintf(h, "union %s {\n", t->name);
           else fprintf(h, "union {\n");
@@ -250,16 +237,78 @@ void write_type_left(FILE *h, type_t *t, int declonly)
         }
         else fprintf(h, "union %s", t->name ? t->name : "");
         break;
-      case RPC_FC_RP:
-      case RPC_FC_UP:
-      case RPC_FC_FP:
-      case RPC_FC_OP:
+      case TYPE_POINTER:
         write_type_left(h, type_pointer_get_ref(t), declonly);
         fprintf(h, "%s*", needs_space_after(type_pointer_get_ref(t)) ? " " : "");
         if (is_attr(t->attrs, ATTR_CONST)) fprintf(h, "const ");
         break;
-      default:
+      case TYPE_ARRAY:
+        if (t->name && type_array_is_decl_as_ptr(t))
+          fprintf(h, "%s", t->name);
+        else
+        {
+          write_type_left(h, type_array_get_element(t), declonly);
+          if (type_array_is_decl_as_ptr(t))
+            fprintf(h, "%s*", needs_space_after(type_array_get_element(t)) ? " " : "");
+        }
+        break;
+      case TYPE_BASIC:
+        if (type_basic_get_type(t) != TYPE_BASIC_INT32 &&
+            type_basic_get_type(t) != TYPE_BASIC_INT64 &&
+            type_basic_get_type(t) != TYPE_BASIC_HYPER)
+        {
+          if (type_basic_get_sign(t) < 0) fprintf(h, "signed ");
+          else if (type_basic_get_sign(t) > 0) fprintf(h, "unsigned ");
+        }
+        switch (type_basic_get_type(t))
+        {
+        case TYPE_BASIC_INT8: fprintf(h, "small"); break;
+        case TYPE_BASIC_INT16: fprintf(h, "short"); break;
+        case TYPE_BASIC_INT: fprintf(h, "int"); break;
+        case TYPE_BASIC_INT3264: fprintf(h, "__int3264"); break;
+        case TYPE_BASIC_BYTE: fprintf(h, "byte"); break;
+        case TYPE_BASIC_CHAR: fprintf(h, "char"); break;
+        case TYPE_BASIC_WCHAR: fprintf(h, "wchar_t"); break;
+        case TYPE_BASIC_FLOAT: fprintf(h, "float"); break;
+        case TYPE_BASIC_DOUBLE: fprintf(h, "double"); break;
+        case TYPE_BASIC_ERROR_STATUS_T: fprintf(h, "error_status_t"); break;
+        case TYPE_BASIC_HANDLE: fprintf(h, "handle_t"); break;
+        case TYPE_BASIC_INT32:
+          if (type_basic_get_sign(t) > 0)
+            fprintf(h, "ULONG");
+          else
+            fprintf(h, "LONG");
+          break;
+        case TYPE_BASIC_INT64:
+          if (type_basic_get_sign(t) > 0)
+            fprintf(h, "UINT64");
+          else
+            fprintf(h, "INT64");
+          break;
+        case TYPE_BASIC_HYPER:
+          if (type_basic_get_sign(t) > 0)
+            fprintf(h, "MIDL_uhyper");
+          else
+            fprintf(h, "hyper");
+          break;
+        }
+        break;
+      case TYPE_INTERFACE:
+      case TYPE_MODULE:
+      case TYPE_COCLASS:
         fprintf(h, "%s", t->name);
+        break;
+      case TYPE_VOID:
+        fprintf(h, "void");
+        break;
+      case TYPE_BITFIELD:
+        write_type_left(h, type_bitfield_get_field(t), declonly);
+        break;
+      case TYPE_ALIAS:
+      case TYPE_FUNCTION:
+        /* handled elsewhere */
+        assert(0);
+        break;
     }
   }
 }
@@ -268,68 +317,93 @@ void write_type_right(FILE *h, type_t *t, int is_field)
 {
   if (!h) return;
 
-  if (t->declarray) {
-    if (is_conformant_array(t)) {
-      fprintf(h, "[%s]", is_field ? "1" : "");
-      t = type_array_get_element(t);
+  switch (type_get_type(t))
+  {
+  case TYPE_ARRAY:
+    if (!type_array_is_decl_as_ptr(t))
+    {
+      if (is_conformant_array(t))
+      {
+        fprintf(h, "[%s]", is_field ? "1" : "");
+        t = type_array_get_element(t);
+      }
+      for ( ;
+           type_get_type(t) == TYPE_ARRAY && !type_array_is_decl_as_ptr(t);
+           t = type_array_get_element(t))
+        fprintf(h, "[%u]", type_array_get_dim(t));
     }
-    for ( ; t->declarray; t = type_array_get_element(t))
-      fprintf(h, "[%lu]", type_array_get_dim(t));
+    break;
+  case TYPE_BITFIELD:
+    fprintf(h, " : %u", type_bitfield_get_bits(t)->cval);
+    break;
+  case TYPE_VOID:
+  case TYPE_BASIC:
+  case TYPE_ENUM:
+  case TYPE_STRUCT:
+  case TYPE_ENCAPSULATED_UNION:
+  case TYPE_UNION:
+  case TYPE_ALIAS:
+  case TYPE_MODULE:
+  case TYPE_COCLASS:
+  case TYPE_FUNCTION:
+  case TYPE_INTERFACE:
+  case TYPE_POINTER:
+    break;
   }
 }
 
-void write_type_v(FILE *h, type_t *t, int is_field, int declonly,
-                  const char *fmt, va_list args)
+static void write_type_v(FILE *h, type_t *t, int is_field, int declonly, const char *name)
 {
-  type_t *pt;
+  type_t *pt = NULL;
   int ptr_level = 0;
 
   if (!h) return;
 
-  for (pt = t; is_ptr(pt); pt = type_pointer_get_ref(pt), ptr_level++)
-    ;
+  if (t) {
+    for (pt = t; is_ptr(pt); pt = type_pointer_get_ref(pt), ptr_level++)
+      ;
 
-  if (pt->type == RPC_FC_FUNCTION) {
-    int i;
-    const char *callconv = get_attrp(pt->attrs, ATTR_CALLCONV);
-    if (!callconv) callconv = "";
-    if (is_attr(pt->attrs, ATTR_INLINE)) fprintf(h, "inline ");
-    write_type_left(h, type_function_get_rettype(pt), declonly);
-    fputc(' ', h);
-    if (ptr_level) fputc('(', h);
-    fprintf(h, "%s ", callconv);
-    for (i = 0; i < ptr_level; i++)
-      fputc('*', h);
-  } else
-    write_type_left(h, t, declonly);
-  if (fmt) {
-    if (needs_space_after(t))
+    if (type_get_type_detect_alias(pt) == TYPE_FUNCTION) {
+      int i;
+      const char *callconv = get_attrp(pt->attrs, ATTR_CALLCONV);
+      if (!callconv) callconv = "";
+      if (is_attr(pt->attrs, ATTR_INLINE)) fprintf(h, "inline ");
+      write_type_left(h, type_function_get_rettype(pt), declonly);
       fputc(' ', h);
-    vfprintf(h, fmt, args);
+      if (ptr_level) fputc('(', h);
+      fprintf(h, "%s ", callconv);
+      for (i = 0; i < ptr_level; i++)
+        fputc('*', h);
+    } else
+      write_type_left(h, t, declonly);
   }
-  if (pt->type == RPC_FC_FUNCTION) {
-    if (ptr_level) fputc(')', h);
-    fputc('(', h);
-    write_args(h, type_function_get_args(pt), NULL, 0, FALSE);
-    fputc(')', h);
-  } else
-    write_type_right(h, t, is_field);
+
+  if (name) fprintf(h, "%s%s", !t || needs_space_after(t) ? " " : "", name );
+
+  if (t) {
+    if (type_get_type_detect_alias(pt) == TYPE_FUNCTION) {
+      const var_list_t *args = type_function_get_args(pt);
+
+      if (ptr_level) fputc(')', h);
+      fputc('(', h);
+      if (args)
+          write_args(h, args, NULL, 0, FALSE);
+      else
+          fprintf(h, "void");
+      fputc(')', h);
+    } else
+      write_type_right(h, t, is_field);
+  }
 }
 
-void write_type_def_or_decl(FILE *f, type_t *t, int field, const char *fmt, ...)
+void write_type_def_or_decl(FILE *f, type_t *t, int field, const char *name)
 {
-  va_list args;
-  va_start(args, fmt);
-  write_type_v(f, t, field, FALSE, fmt, args);
-  va_end(args);
+  write_type_v(f, t, field, FALSE, name);
 }
 
-void write_type_decl(FILE *f, type_t *t, const char *fmt, ...)
+void write_type_decl(FILE *f, type_t *t, const char *name)
 {
-  va_list args;
-  va_start(args, fmt);
-  write_type_v(f, t, FALSE, TRUE, fmt, args);
-  va_end(args);
+  write_type_v(f, t, FALSE, TRUE, name);
 }
 
 void write_type_decl_left(FILE *f, type_t *t)
@@ -389,7 +463,9 @@ void check_for_additional_prototype_types(const var_list_t *list)
         /* don't carry on parsing fields within this type */
         break;
       }
-      if (type->type != RPC_FC_BIND_PRIMITIVE && is_attr(type->attrs, ATTR_HANDLE)) {
+      if ((type_get_type(type) != TYPE_BASIC ||
+           type_basic_get_type(type) != TYPE_BASIC_HANDLE) &&
+          is_attr(type->attrs, ATTR_HANDLE)) {
         if (!generic_handle_registered(name))
         {
           generic_handle_t *gh = xmalloc(sizeof(*gh));
@@ -412,13 +488,22 @@ void check_for_additional_prototype_types(const var_list_t *list)
       }
       else if (type_is_complete(type))
       {
-        var_list_t *vars = NULL;
-        if (type->type == RPC_FC_ENUM16 || type->type == RPC_FC_ENUM32)
+        var_list_t *vars;
+        switch (type_get_type_detect_alias(type))
+        {
+        case TYPE_ENUM:
           vars = type_enum_get_values(type);
-        else if (is_struct(type->type))
+          break;
+        case TYPE_STRUCT:
           vars = type_struct_get_fields(type);
-        else if (is_union(type->type))
+          break;
+        case TYPE_UNION:
           vars = type_union_get_cases(type);
+          break;
+        default:
+          vars = NULL;
+          break;
+        }
         check_for_additional_prototype_types(vars);
       }
 
@@ -471,7 +556,7 @@ static void write_generic_handle_routines(FILE *header)
 static void write_typedef(FILE *header, type_t *type)
 {
   fprintf(header, "typedef ");
-  write_type_def_or_decl(header, type_alias_get_aliasee(type), FALSE, "%s", type->name);
+  write_type_def_or_decl(header, type_alias_get_aliasee(type), FALSE, type->name);
   fprintf(header, ";\n");
 }
 
@@ -515,7 +600,7 @@ static void write_declaration(FILE *header, const var_t *v)
         fprintf(header, "extern ");
         break;
     }
-    write_type_def_or_decl(header, v->type, FALSE, "%s", v->name);
+    write_type_def_or_decl(header, v->type, FALSE, v->name);
     fprintf(header, ";\n\n");
   }
 }
@@ -537,26 +622,24 @@ const var_t* get_explicit_handle_var(const var_t *func)
         return NULL;
 
     LIST_FOR_EACH_ENTRY( var, type_get_function_args(func->type), const var_t, entry )
-        if (var->type->type == RPC_FC_BIND_PRIMITIVE)
+    {
+        const type_t *type = var->type;
+        if (type_get_type(type) == TYPE_BASIC && type_basic_get_type(type) == TYPE_BASIC_HANDLE)
             return var;
+    }
 
     return NULL;
 }
 
 const type_t* get_explicit_generic_handle_type(const var_t* var)
 {
-    const type_t *t = var->type;
-
-    if (t->type == RPC_FC_BIND_PRIMITIVE)
-        return NULL;
-
-    if (!is_ptr(t) && is_attr(t->attrs, ATTR_HANDLE))
-        return t;
-    else
-        for (; is_ptr(t); t = t->ref)
-            if (t->type != RPC_FC_BIND_PRIMITIVE && is_attr(t->attrs, ATTR_HANDLE))
-                return t;
-
+    const type_t *t;
+    for (t = var->type;
+         is_ptr(t) || type_is_alias(t);
+         t = type_is_alias(t) ? type_alias_get_aliasee(t) : type_pointer_get_ref(t))
+        if ((type_get_type_detect_alias(t) != TYPE_BASIC || type_basic_get_type(t) != TYPE_BASIC_HANDLE) &&
+            is_attr(t->attrs, ATTR_HANDLE))
+            return t;
     return NULL;
 }
 
@@ -608,10 +691,12 @@ int has_out_arg_or_return(const var_t *func)
 
 /********** INTERFACES **********/
 
-int is_object(const attr_list_t *list)
+int is_object(const type_t *iface)
 {
     const attr_t *attr;
-    if (list) LIST_FOR_EACH_ENTRY( attr, list, const attr_t, entry )
+    if (type_is_defined(iface) && type_iface_get_inherit(iface))
+        return 1;
+    if (iface->attrs) LIST_FOR_EACH_ENTRY( attr, iface->attrs, const attr_t, entry )
         if (attr->type == ATTR_OBJECT || attr->type == ATTR_ODL) return 1;
     return 0;
 }
@@ -685,7 +770,7 @@ void write_args(FILE *h, const var_list_t *args, const char *name, int method, i
         }
         else fprintf(h, ",");
     }
-    write_type_decl(h, arg->type, "%s", arg->name);
+    write_type_decl(h, arg->type, arg->name);
     count++;
   }
   if (do_indent) indentation--;
@@ -783,7 +868,7 @@ static void write_locals(FILE *fp, const type_t *iface, int body)
     = "/* WIDL-generated stub.  You must provide an implementation for this.  */";
   const statement_t *stmt;
 
-  if (!is_object(iface->attrs))
+  if (!is_object(iface))
     return;
 
   STATEMENTS_FOR_EACH_FUNC(stmt, type_iface_get_stmts(iface)) {
@@ -808,7 +893,7 @@ static void write_locals(FILE *fp, const type_t *iface, int body)
           fprintf(fp, "    %s\n", comment);
           if (rt->name && strcmp(rt->name, "HRESULT") == 0)
             fprintf(fp, "    return E_NOTIMPL;\n");
-          else if (rt->type) {
+          else if (type_get_type(rt) != TYPE_VOID) {
             fprintf(fp, "    ");
             write_type_decl(fp, rt, "rv");
             fprintf(fp, ";\n");
@@ -841,7 +926,7 @@ static void write_local_stubs_stmts(FILE *local_stubs, const statement_list_t *s
   const statement_t *stmt;
   if (stmts) LIST_FOR_EACH_ENTRY( stmt, stmts, const statement_t, entry )
   {
-    if (stmt->type == STMT_TYPE && stmt->u.type->type == RPC_FC_IP)
+    if (stmt->type == STMT_TYPE && type_get_type(stmt->u.type) == TYPE_INTERFACE)
       write_locals(local_stubs, stmt->u.type, TRUE);
     else if (stmt->type == STMT_LIBRARY)
       write_local_stubs_stmts(local_stubs, stmt->u.lib->stmts);
@@ -998,7 +1083,7 @@ static void write_rpc_interface_start(FILE *header, const type_t *iface)
   if (!allocate_written)
   {
     allocate_written = 1;
-    fprintf(header, "void * __RPC_USER MIDL_user_allocate(size_t);\n");
+    fprintf(header, "void * __RPC_USER MIDL_user_allocate(SIZE_T);\n");
     fprintf(header, "void __RPC_USER MIDL_user_free(void *);\n\n");
   }
 
@@ -1064,7 +1149,7 @@ static void write_imports(FILE *header, const statement_list_t *stmts)
     switch (stmt->type)
     {
       case STMT_TYPE:
-        if (stmt->u.type->type == RPC_FC_IP)
+        if (type_get_type(stmt->u.type) == TYPE_INTERFACE)
           write_imports(header, type_iface_get_stmts(stmt->u.type));
         break;
       case STMT_TYPEREF:
@@ -1095,12 +1180,12 @@ static void write_forward_decls(FILE *header, const statement_list_t *stmts)
     switch (stmt->type)
     {
       case STMT_TYPE:
-        if (stmt->u.type->type == RPC_FC_IP)
+        if (type_get_type(stmt->u.type) == TYPE_INTERFACE)
         {
-          if (is_object(stmt->u.type->attrs) || is_attr(stmt->u.type->attrs, ATTR_DISPINTERFACE))
+          if (is_object(stmt->u.type) || is_attr(stmt->u.type->attrs, ATTR_DISPINTERFACE))
             write_forward(header, stmt->u.type);
         }
-        else if (stmt->u.type->type == RPC_FC_COCLASS)
+        else if (type_get_type(stmt->u.type) == TYPE_COCLASS)
           write_coclass_forward(header, stmt->u.type);
         break;
       case STMT_TYPEREF:
@@ -1129,10 +1214,10 @@ static void write_header_stmts(FILE *header, const statement_list_t *stmts, cons
     switch (stmt->type)
     {
       case STMT_TYPE:
-        if (stmt->u.type->type == RPC_FC_IP)
+        if (type_get_type(stmt->u.type) == TYPE_INTERFACE)
         {
           type_t *iface = stmt->u.type;
-          if (is_attr(stmt->u.type->attrs, ATTR_DISPINTERFACE) || is_object(stmt->u.type->attrs))
+          if (is_attr(stmt->u.type->attrs, ATTR_DISPINTERFACE) || is_object(stmt->u.type))
           {
             write_com_interface_start(header, iface);
             write_header_stmts(header, type_iface_get_stmts(iface), stmt->u.type, TRUE);
@@ -1145,7 +1230,7 @@ static void write_header_stmts(FILE *header, const statement_list_t *stmts, cons
             write_rpc_interface_end(header, iface);
           }
         }
-        else if (stmt->u.type->type == RPC_FC_COCLASS)
+        else if (type_get_type(stmt->u.type) == TYPE_COCLASS)
           write_coclass(header, stmt->u.type);
         else
         {
@@ -1156,7 +1241,7 @@ static void write_header_stmts(FILE *header, const statement_list_t *stmts, cons
       case STMT_TYPEREF:
         /* FIXME: shouldn't write out forward declarations for undefined
         * interfaces but a number of our IDL files depend on this */
-        if (stmt->u.type->type == RPC_FC_IP && !stmt->u.type->written)
+        if (type_get_type(stmt->u.type) == TYPE_INTERFACE && !stmt->u.type->written)
           write_forward(header, stmt->u.type);
         break;
       case STMT_IMPORTLIB:
@@ -1181,7 +1266,7 @@ static void write_header_stmts(FILE *header, const statement_list_t *stmts, cons
         fprintf(header, "%s\n", stmt->u.str);
         break;
       case STMT_DECLARATION:
-        if (iface && stmt->u.var->type->type == RPC_FC_FUNCTION)
+        if (iface && type_get_type(stmt->u.var->type) == TYPE_FUNCTION)
         {
           if (!ignore_funcs)
           {

@@ -9,9 +9,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 // For character conversion functions like "wctomb" and "alloca" under Unix
@@ -41,7 +41,12 @@ inline int iswdigit ( wchar_t c )
 }
 #endif
 
-#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__CYGWIN__)
+#if defined(__sun__)
+#include <alloca.h>
+#include <ieee.h>
+#endif
+
+#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__sun__) || defined(__CYGWIN__)
 # define __isnan isnan
 # define __finite finite
 # define powl __builtin_powl

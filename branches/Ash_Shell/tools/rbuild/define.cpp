@@ -11,9 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include "pch.h"
 #include <assert.h>
@@ -45,7 +45,8 @@ Define::Define ( const Project& project,
 Define::Define ( const Project& project,
                  const Module* module,
                  const std::string& name_,
-                 const std::string& backend_)
+                 const std::string& backend_,
+                 bool redefine_)
 	: project(project),
 	  module(module),
 	  node(NULL)
@@ -53,6 +54,7 @@ Define::Define ( const Project& project,
 	name = name_;
 	value = "";
 	backend = backend_;
+	redefine = redefine_;
 }
 
 Define::~Define ()
@@ -66,22 +68,27 @@ Define::~Define ()
 void
 Define::Initialize()
 {
+	redefine = node->name == "redefine";
+
 	const XMLAttribute* att = node->GetAttribute ( "name", true );
 
 	att = node->GetAttribute ( "name", true );
 	assert(att);
-	name = att->value;
+
+	size_t name_len = att->value.find ( '(' );
+
+	name = att->value.substr ( 0, name_len );
+
+	if ( name_len != std::string::npos )
+		arguments = att->value.substr ( att->value.find ( '(' ) );
+
 	value = node->value;
 
 	att = node->GetAttribute ( "backend", false );
 	if ( att )
 		backend = att->value;
 
-	att = node->GetAttribute ( "overridable", false );
-	if ( att )
-		overridable = ( att->value == "true" || att->value == "yes" );
-	else
-		overridable = false;
+	ParseCompilers ( *node, "cpp" );
 }
 
 void

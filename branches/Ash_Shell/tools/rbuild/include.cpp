@@ -11,9 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include "pch.h"
 #include <assert.h>
@@ -30,6 +30,7 @@ Include::Include ( const Project& project,
 	  node ( includeNode ),
 	  module ( NULL )
 {
+	Initialize ();
 }
 
 Include::Include ( const Project& project,
@@ -40,6 +41,7 @@ Include::Include ( const Project& project,
 	  node ( includeNode ),
 	  module ( module )
 {
+	Initialize ();
 }
 
 Include::Include ( const Project& project,
@@ -126,4 +128,10 @@ Include::GetDefaultDirectoryTree ( const Module* module ) const
 		return IntermediateDirectory;
 	else
 		return SourceDirectory;
+}
+
+void
+Include::Initialize ()
+{
+	ParseCompilers ( *node, "cpp" );
 }

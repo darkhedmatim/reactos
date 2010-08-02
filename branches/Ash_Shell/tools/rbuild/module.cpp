@@ -12,9 +12,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include "pch.h"
 #include <assert.h>
@@ -138,7 +138,7 @@ GetSubPath (
 	return FixSeparator(path + cSep + att_value);
 }
 
-static string
+string
 GetExtension ( const string& filename )
 {
 	size_t index = filename.find_last_of ( '/' );
@@ -260,6 +260,7 @@ Module::Module ( const Project& project,
 	: project (project),
 	  node (moduleNode),
 	  importLibrary (NULL),
+	  delayImportLibrary (NULL),
 	  metadata (NULL),
 	  bootSector (NULL),
 	  bootstrap (NULL),
@@ -341,14 +342,6 @@ Module::Module ( const Project& project,
 		baseaddress = att->value;
 	else
 		baseaddress = GetDefaultModuleBaseaddress ();
-
-	mangledSymbols = GetBooleanAttribute ( moduleNode, "mangledsymbols" );
-
-	att = moduleNode.GetAttribute ( "underscoresymbols", false );
-	if ( att != NULL )
-		underscoreSymbols = att->value == "true";
-	else
-		underscoreSymbols = false;
 
 	isStartupLib = GetBooleanAttribute ( moduleNode, "isstartuplib" );
 	isCRT = GetBooleanAttribute ( moduleNode, "iscrt", GetDefaultModuleIsCRT () );
@@ -524,6 +517,8 @@ Module::~Module ()
 		delete linkerFlags[i];
 	for ( i = 0; i < stubbedComponents.size(); i++ )
 		delete stubbedComponents[i];
+	for ( i = 0; i < cdfiles.size (); i++ )
+		delete cdfiles[i];
 	if ( linkerScript )
 		delete linkerScript;
 	if ( pch )
@@ -601,6 +596,48 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 	                           const string& relative_path,
                                ParseContext& parseContext )
 {
+	const XMLAttribute* att;
+
+	att = e.GetAttribute ( "compilerset", false );
+
+	if ( att )
+	{
+		CompilerSet compilerSet;
+
+		if ( att->value == "msc" )
+			compilerSet = MicrosoftC;
+		else if ( att->value == "gcc" )
+			compilerSet = GnuGcc;
+		else
+			throw InvalidAttributeValueException (
+				e.location,
+				"compilerset",
+				att->value );
+
+		if ( compilerSet != project.configuration.Compiler )
+			return;
+	}
+
+	att = e.GetAttribute ( "linkerset", false );
+
+	if ( att )
+	{
+		LinkerSet linkerSet;
+
+		if ( att->value == "mslink" )
+			linkerSet = MicrosoftLink;
+		else if ( att->value == "ld" )
+			linkerSet = GnuLd;
+		else
+			throw InvalidAttributeValueException (
+				e.location,
+				"linkerset",
+				att->value );
+
+		if ( linkerSet != project.configuration.Linker )
+			return;
+	}
+
 	CompilationUnit* pOldCompilationUnit = parseContext.compilationUnit;
 	bool subs_invalid = false;
 	string subpath ( relative_path );
@@ -673,7 +710,10 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 	}
 	else if ( e.name == "library" && e.value.size () )
 	{
+		const XMLAttribute* att = e.GetAttribute ( "delayimport", false );
 		Library* pLibrary = new Library ( e, *this, e.value );
+		if ( att && !stricmp ( att->value.c_str(), "true" ) )
+			pLibrary->delayimp = true;
 		non_if_data.libraries.push_back ( pLibrary );
 		subs_invalid = true;
 	}
@@ -704,7 +744,7 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 		non_if_data.includes.push_back ( include );
 		subs_invalid = true;
 	}
-	else if ( e.name == "define" )
+	else if ( e.name == "define" || e.name == "redefine" )
 	{
 		Define* pDefine = new Define ( project, this, e );
 		non_if_data.defines.push_back ( pDefine );
@@ -738,7 +778,8 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 				e.location,
 				"Only one <importlibrary> is valid per module" );
 		}
-		SetImportLibrary ( new ImportLibrary ( project, e, this ) );
+		SetImportLibrary ( new ImportLibrary ( project, e, this, false ) );
+		SetDelayImportLibrary ( new ImportLibrary ( project, e, this, true ) );
 		subs_invalid = true;
 	}
 	else if ( e.name == "if" || e.name == "ifnot" )
@@ -870,6 +911,12 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 		autoRegister = new AutoRegister ( project, this, e );
 		subs_invalid = true;
 	}
+	else if ( e.name == "cdfile" )
+	{
+		CDFile* cdfile = new CDFile ( project, e, subpath );
+		cdfiles.push_back ( cdfile );
+		subs_invalid = true;
+	}
 	if ( subs_invalid && e.subElements.size() > 0 )
 	{
 		throw XMLInvalidBuildFileException (
@@ -877,6 +924,8 @@ Module::ProcessXMLSubElement ( const XMLElement& e,
 			"<%s> cannot have sub-elements",
 			e.name.c_str() );
 	}
+	for ( size_t i = 0; i < cdfiles.size (); i++ )
+		cdfiles[i]->ProcessXML ();
 	for ( size_t i = 0; i < e.subElements.size (); i++ )
 		ProcessXMLSubElement ( *e.subElements[i], subdirectory, subpath, parseContext );
 	parseContext.compilationUnit = pOldCompilationUnit;
@@ -925,10 +974,6 @@ Module::GetModuleType ( const string& location, const XMLAttribute& attribute )
 		return Iso;
 	if ( attribute.value == "liveiso" )
 		return LiveIso;
-	if ( attribute.value == "isoregtest" )
-		return IsoRegTest;
-	if ( attribute.value == "liveisoregtest" )
-		return LiveIsoRegTest;
 	if ( attribute.value == "test" )
 		return Test;
 	if ( attribute.value == "rpcserver" )
@@ -979,8 +1024,6 @@ Module::GetTargetDirectoryTree () const
 		case BootProgram:
 		case Iso:
 		case LiveIso:
-		case IsoRegTest:
-		case LiveIsoRegTest:
 		case ElfExecutable:
 		case Cabinet:
 			return OutputDirectory;
@@ -1042,8 +1085,6 @@ Module::GetDefaultModuleExtension () const
 			return ".o";
 		case Iso:
 		case LiveIso:
-		case IsoRegTest:
-		case LiveIsoRegTest:
 			return ".iso";
 		case Test:
 			return ".exe";
@@ -1072,24 +1113,26 @@ Module::GetDefaultModuleEntrypoint () const
 	switch ( type )
 	{
 		case Kernel:
-			return "KiSystemStartup";
+			if (Environment::GetArch() == "i386") return "KiSystemStartup@4";
+            return "KiSystemStartup";
 		case KeyboardLayout:
 		case KernelModeDLL:
 		case KernelModeDriver:
-            if (Environment::GetArch() == "arm") return "DriverEntry";
-			return "DriverEntry@8";
+            if (Environment::GetArch() == "i386") return "DriverEntry@8";
+			return "DriverEntry";
 		case NativeDLL:
-            if (Environment::GetArch() == "arm") return "DllMainCRTStartup";
-            return "DllMainCRTStartup@12";
+            if (Environment::GetArch() == "i386") return "DllMainCRTStartup@12";
+            return "DllMainCRTStartup";
 		case NativeCUI:
-            if (Environment::GetArch() == "arm") return "NtProcessStartup";
-            return "NtProcessStartup@4";
+            if (Environment::GetArch() == "i386") return "NtProcessStartup@4";
+            return "NtProcessStartup";
 		case Win32DLL:
 		case Win32OCX:
-            if (Environment::GetArch() == "arm") return "DllMain";
-			return "DllMain@12";
+            if (Environment::GetArch() == "i386") return "DllMain@12";
+			return "DllMain";
 		case Win32CUI:
 		case Test:
+		case BootLoader:
 			return "mainCRTStartup";
 		case Win32SCR:
 		case Win32GUI:
@@ -1098,12 +1141,9 @@ Module::GetDefaultModuleEntrypoint () const
 		case StaticLibrary:
 		case HostStaticLibrary:
 		case ObjectLibrary:
-		case BootLoader:
 		case BootSector:
 		case Iso:
 		case LiveIso:
-		case IsoRegTest:
-		case LiveIsoRegTest:
 		case RpcServer:
 		case RpcClient:
 		case RpcProxy:
@@ -1147,16 +1187,15 @@ Module::GetDefaultModuleBaseaddress () const
 			return "0x00010000";
 		case ElfExecutable:
 			return "0xe00000";
+		case BootLoader:
+			return "0x8000";
 		case BuildTool:
 		case StaticLibrary:
 		case HostStaticLibrary:
 		case ObjectLibrary:
-		case BootLoader:
 		case BootSector:
 		case Iso:
 		case LiveIso:
-		case IsoRegTest:
-		case LiveIsoRegTest:
 		case RpcServer:
 		case RpcClient:
 		case RpcProxy:
@@ -1212,8 +1251,6 @@ Module::GetDefaultModuleCRT () const
 		case BootSector:
 		case Iso:
 		case LiveIso:
-		case IsoRegTest:
-		case LiveIsoRegTest:
 		case RpcServer:
 		case RpcClient:
 		case RpcProxy:
@@ -1270,8 +1307,6 @@ Module::IsDLL () const
 		case BootProgram:
 		case Iso:
 		case LiveIso:
-		case IsoRegTest:
-		case LiveIsoRegTest:
 		case RpcServer:
 		case RpcClient:
 		case RpcProxy:
@@ -1318,12 +1353,13 @@ Module::GetInvocationTarget ( const int index ) const
 }
 
 string
-Module::GetEntryPoint(bool leadingUnderscore) const
+Module::GetEntryPoint() const
 {
 	string result = "";
 	if (entrypoint == "0" || entrypoint == "0x0")
 		return "0";
-	if (leadingUnderscore)
+	
+	if (Environment::GetArch() != "arm" && Environment::GetArch() != "amd64")
 		result = "_";
 
 	result += entrypoint;
@@ -1378,6 +1414,12 @@ Module::SetImportLibrary ( ImportLibrary* importLibrary )
 	                                HasImportLibrary () ? "lib" + name + ".a" : output->name );
 }
 
+void
+Module::SetDelayImportLibrary ( ImportLibrary* importLibrary )
+{
+	this->delayImportLibrary = importLibrary;
+}
+
 std::string
 Module::GetDllName () const
 {
@@ -1388,6 +1430,24 @@ Module::GetDllName () const
 	else
 		throw new InvalidOperationException ( __FILE__, __LINE__, "Module %s has no dllname." );
 }
+
+SpecFileType
+Module::IsSpecDefinitionFile () const
+{
+	if(!importLibrary)
+		return None;
+
+	std::string ext = GetExtension ( *importLibrary->source );
+
+	if ( ext == ".spec" )
+		return Spec;
+
+	if ( ext == ".pspec" )
+		return PSpec;
+
+	return None;
+}
+
 
 File::File ( DirectoryLocation directory,
              const string& relative_path,
@@ -1440,7 +1500,8 @@ Library::Library ( const XMLElement& _node,
 	: node(&_node),
 	  module(_module),
 	  name(_name),
-	  importedModule(_module.project.LocateModule(_name))
+	  importedModule(_module.project.LocateModule(_name)),
+	  delayimp(false)
 {
 	if ( module.name == name )
 	{
@@ -1464,7 +1525,8 @@ Library::Library ( const Module& _module,
 	: node(NULL),
 	  module(_module),
 	  name(_name),
-	  importedModule(_module.project.LocateModule(_name))
+	  importedModule(_module.project.LocateModule(_name)),
+	  delayimp(false)
 {
 	if ( !importedModule )
 	{
@@ -1707,9 +1769,7 @@ bool
 Bootsector::IsSupportedModuleType ( ModuleType type )
 {
 	if ( type == Iso ||
-	     type == LiveIso ||
- 	     type == IsoRegTest ||
-		 type == LiveIsoRegTest )
+	     type == LiveIso )
 	{
 		return true;
 	}
@@ -1775,12 +1835,14 @@ Metadata::Metadata ( const XMLElement& _node,
 ImportLibrary::~ImportLibrary ()
 {
 	delete source;
+	delete target;
 }
 
 
 ImportLibrary::ImportLibrary ( const Project& project,
                                const XMLElement& node,
-                               const Module* module )
+                               const Module* module,
+                               bool delayimp )
 	: XmlNode ( project, node ),
 	  module (module)
 {
@@ -1825,10 +1887,6 @@ ImportLibrary::ImportLibrary ( const Project& project,
 
 	if ( dllname )
 		this->dllname = dllname->value;
-	else if ( module->type == StaticLibrary || module->type == HostStaticLibrary )
-		throw XMLInvalidBuildFileException (
-		    node.location,
-		    "<importlibrary> dllname attribute required." );
 
 	size_t index = definition->value.find_last_of ( "/\\" );
 	if ( index == string::npos )
@@ -1847,6 +1905,11 @@ ImportLibrary::ImportLibrary ( const Project& project,
 		                            name,
 		                            &node );
 	}
+
+	target = new FileLocation ( IntermediateDirectory,
+	                            base->output->relative_path,
+	                            "lib" + module->name + (delayimp ? ".delayimp.a" :  ".a" ));
+
 }
 
 

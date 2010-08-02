@@ -10,9 +10,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 RBUILD_BASE = $(TOOLS_BASE_)rbuild
 RBUILD_BASE_ = $(RBUILD_BASE)$(SEP)
@@ -83,42 +83,6 @@ $(RBUILD_TESTS_OUT): | $(RBUILD_OUT)
 	$(ECHO_MKDIR)
 	${mkdir} $@
 endif
-
-
-RBUILD_DEVCPP_BASE = $(RBUILD_BACKEND_BASE_)devcpp
-RBUILD_DEVCPP_BASE_ = $(RBUILD_DEVCPP_BASE)$(SEP)
-RBUILD_DEVCPP_INT = $(INTERMEDIATE_)$(RBUILD_DEVCPP_BASE)
-RBUILD_DEVCPP_INT_ = $(RBUILD_DEVCPP_INT)$(SEP)
-RBUILD_DEVCPP_OUT = $(OUTPUT_)$(RBUILD_DEVCPP_BASE)
-RBUILD_DEVCPP_OUT_ = $(RBUILD_DEVCPP_OUT)$(SEP)
-
-$(RBUILD_DEVCPP_INT): | $(RBUILD_BACKEND_INT)
-	$(ECHO_MKDIR)
-	${mkdir} $@
-
-ifneq ($(INTERMEDIATE),$(OUTPUT))
-$(RBUILD_DEVCPP_OUT): | $(RBUILD_BACKEND_OUT)
-	$(ECHO_MKDIR)
-	${mkdir} $@
-endif
-
-RBUILD_CODEBLOCKS_BASE = $(RBUILD_BACKEND_BASE_)codeblocks
-RBUILD_CODEBLOCKS_BASE_ = $(RBUILD_CODEBLOCKS_BASE)$(SEP)
-RBUILD_CODEBLOCKS_INT = $(INTERMEDIATE_)$(RBUILD_CODEBLOCKS_BASE)
-RBUILD_CODEBLOCKS_INT_ = $(RBUILD_CODEBLOCKS_INT)$(SEP)
-RBUILD_CODEBLOCKS_OUT = $(OUTPUT_)$(RBUILD_CODEBLOCKS_BASE)
-RBUILD_CODEBLOCKS_OUT_ = $(RBUILD_CODEBLOCKS_OUT)$(SEP)
-
-$(RBUILD_CODEBLOCKS_INT): | $(RBUILD_BACKEND_INT)
-	$(ECHO_MKDIR)
-	${mkdir} $@
-
-ifneq ($(INTERMEDIATE),$(OUTPUT))
-$(RBUILD_CODEBLOCKS_OUT): | $(RBUILD_BACKEND_OUT)
-	$(ECHO_MKDIR)
-	${mkdir} $@
-endif
-
 
 RBUILD_MSBUILD_BASE = $(RBUILD_BACKEND_BASE_)msbuild
 RBUILD_MSBUILD_BASE_ = $(RBUILD_MSBUILD_BASE)$(SEP)
@@ -199,16 +163,9 @@ RBUILD_TEST_TARGET = \
 RBUILD_BACKEND_MINGW_BASE_SOURCES = $(addprefix $(RBUILD_MINGW_BASE_), \
 	mingw.cpp \
 	modulehandler.cpp \
+	mstools_detection.cpp \
 	proxymakefile.cpp \
 	rule.cpp \
-	)
-
-RBUILD_BACKEND_DEVCPP_BASE_SOURCES = $(addprefix $(RBUILD_DEVCPP_BASE_), \
-	devcpp.cpp \
-	)
-
-RBUILD_BACKEND_CODEBLOCKS_BASE_SOURCES = $(addprefix $(RBUILD_CODEBLOCKS_BASE_), \
-	codeblocks.cpp \
 	)
 
 RBUILD_BACKEND_DEPMAP_BASE_SOURCES = $(addprefix $(RBUILD_DEPMAP_BASE_), \
@@ -226,15 +183,17 @@ RBUILD_BACKEND_MSBUILD_BASE_SOURCES = $(addprefix $(RBUILD_MSBUILD_BASE_), \
 RBUILD_BACKEND_MSVC_BASE_SOURCES = $(addprefix $(RBUILD_MSVC_BASE_), \
 	genguid.cpp \
 	msvc.cpp \
-	msvcmaker.cpp \
+	projmaker.cpp \
+	propsmaker.cpp \
+	slnmaker.cpp \
 	vcprojmaker.cpp \
+	vcxprojmaker.cpp \
+	vspropsmaker.cpp \
 	)
 
 RBUILD_BACKEND_SOURCES = \
 	$(RBUILD_BACKEND_MINGW_BASE_SOURCES) \
-	$(RBUILD_BACKEND_DEVCPP_BASE_SOURCES) \
 	$(RBUILD_BACKEND_MSVC_BASE_SOURCES) \
-	$(RBUILD_BACKEND_CODEBLOCKS_BASE_SOURCES) \
 	$(RBUILD_BACKEND_DEPMAP_BASE_SOURCES) \
 	$(RBUILD_BACKEND_VREPORT_BASE_SOURCES) \
 	$(RBUILD_BACKEND_MSBUILD_BASE_SOURCES) \
@@ -250,6 +209,7 @@ RBUILD_SOURCES = \
 		cdfile.cpp \
 		compilationunit.cpp \
 		compilationunitsupportcode.cpp \
+		compilerdirective.cpp \
 		compilerflag.cpp \
 		configuration.cpp \
 		define.cpp \
@@ -272,14 +232,8 @@ RBUILD_SOURCES = \
 RBUILD_OBJECTS = \
 	$(addprefix $(INTERMEDIATE_), $(RBUILD_SOURCES:.cpp=.o))
 
-RBUILD_BACKEND_DEVCPP_HEADERS = \
-	devcpp.h
-
 RBUILD_BACKEND_MSVCCPP_HEADERS = \
 	msvc.h
-
-RBUILD_BACKEND_CODEBLOCKS_HEADERS = \
-	codeblocks.h
 
 RBUILD_BACKEND_DEPMAP_HEADERS = \
 	dependencymap.h
@@ -297,10 +251,8 @@ RBUILD_BACKEND_MINGW_HEADERS = \
 
 RBUILD_BACKEND_HEADERS = \
 	backend.h \
-	$(addprefix devcpp$(SEP), $(RBUILD_BACKEND_DEVCPP_HEADERS)) \
 	$(addprefix msvc$(SEP), $(RBUILD_BACKEND_MSVC_HEADERS)) \
 	$(addprefix mingw$(SEP), $(RBUILD_BACKEND_MINGW_HEADERS)) \
-	$(addprefix codeblocks$(SEP), $(RBUILD_BACKEND_CODEBLOCKS_HEADERS)) \
 	$(addprefix msbuild$(SEP), $(RBUILD_BACKEND_MSBUILD_HEADERS)) \
 	$(addprefix versionreport$(SEP), $(RBUILD_BACKEND_VREPORT_HEADERS)) \
 	$(addprefix dependencymap$(SEP), $(RBUILD_BACKEND_DEPMAP_HEADERS))
@@ -348,6 +300,10 @@ RBUILD_HOST_CXXFLAGS = -I$(RBUILD_BASE) -I$(TOOLS_BASE) -I$(INFLIB_BASE) $(TOOLS
 
 RBUILD_HOST_LFLAGS = $(TOOLS_LFLAGS)
 
+ifeq ($(HOST),mingw32-windows)
+RBUILD_HOST_LFLAGS += -loleaut32 -lole32 -luuid
+endif
+
 .PHONY: rbuild
 rbuild: $(RBUILD_TARGET)
 host_gpp += -g
@@ -381,6 +337,10 @@ $(RBUILD_INT_)compilationunit.o: $(RBUILD_BASE_)compilationunit.cpp $(RBUILD_HEA
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 
 $(RBUILD_INT_)compilationunitsupportcode.o: $(RBUILD_BASE_)compilationunitsupportcode.cpp $(RBUILD_HEADERS) | $(RBUILD_INT)
+	$(ECHO_HOSTCC)
+	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
+
+$(RBUILD_INT_)compilerdirective.o: $(RBUILD_BASE_)compilerdirective.cpp $(RBUILD_HEADERS) | $(RBUILD_INT)
 	$(ECHO_HOSTCC)
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 
@@ -472,19 +432,15 @@ $(RBUILD_MINGW_INT_)modulehandler.o: $(RBUILD_MINGW_BASE_)modulehandler.cpp $(RB
 	$(ECHO_HOSTCC)
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 
+$(RBUILD_MINGW_INT_)mstools_detection.o: $(RBUILD_MINGW_BASE_)mstools_detection.cpp $(RBUILD_HEADERS) | $(RBUILD_MINGW_INT)
+	$(ECHO_HOSTCC)
+	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
+
 $(RBUILD_MINGW_INT_)proxymakefile.o: $(RBUILD_MINGW_BASE_)proxymakefile.cpp $(RBUILD_HEADERS) | $(RBUILD_MINGW_INT)
 	$(ECHO_HOSTCC)
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 
 $(RBUILD_MINGW_INT_)rule.o: $(RBUILD_MINGW_BASE_)rule.cpp $(RBUILD_HEADERS) | $(RBUILD_MINGW_INT)
-	$(ECHO_HOSTCC)
-	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
-
-$(RBUILD_DEVCPP_INT_)devcpp.o: $(RBUILD_DEVCPP_BASE_)devcpp.cpp $(RBUILD_HEADERS) | $(RBUILD_DEVCPP_INT)
-	$(ECHO_HOSTCC)
-	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
-
-$(RBUILD_CODEBLOCKS_INT_)codeblocks.o: $(RBUILD_CODEBLOCKS_BASE_)codeblocks.cpp $(RBUILD_HEADERS) | $(RBUILD_CODEBLOCKS_INT)
 	$(ECHO_HOSTCC)
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 
@@ -507,12 +463,28 @@ $(RBUILD_MSVC_INT_)genguid.o: $(RBUILD_MSVC_BASE_)genguid.cpp $(RBUILD_HEADERS) 
 $(RBUILD_MSVC_INT_)msvc.o: $(RBUILD_MSVC_BASE_)msvc.cpp $(RBUILD_HEADERS) | $(RBUILD_MSVC_INT)
 	$(ECHO_HOSTCC)
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
+	
+$(RBUILD_MSVC_INT_)projmaker.o: $(RBUILD_MSVC_BASE_)projmaker.cpp $(RBUILD_HEADERS) | $(RBUILD_MSVC_INT)
+	$(ECHO_HOSTCC)
+	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 
-$(RBUILD_MSVC_INT_)msvcmaker.o: $(RBUILD_MSVC_BASE_)msvcmaker.cpp $(RBUILD_HEADERS) | $(RBUILD_MSVC_INT)
+$(RBUILD_MSVC_INT_)vspropsmaker.o: $(RBUILD_MSVC_BASE_)vspropsmaker.cpp $(RBUILD_HEADERS) | $(RBUILD_MSVC_INT)
+	$(ECHO_HOSTCC)
+	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
+
+$(RBUILD_MSVC_INT_)propsmaker.o: $(RBUILD_MSVC_BASE_)propsmaker.cpp $(RBUILD_HEADERS) | $(RBUILD_MSVC_INT)
+	$(ECHO_HOSTCC)
+	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
+
+$(RBUILD_MSVC_INT_)slnmaker.o: $(RBUILD_MSVC_BASE_)slnmaker.cpp $(RBUILD_HEADERS) | $(RBUILD_MSVC_INT)
 	$(ECHO_HOSTCC)
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 
 $(RBUILD_MSVC_INT_)vcprojmaker.o: $(RBUILD_MSVC_BASE_)vcprojmaker.cpp $(RBUILD_HEADERS) | $(RBUILD_MSVC_INT)
+	$(ECHO_HOSTCC)
+	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
+
+$(RBUILD_MSVC_INT_)vcxprojmaker.o: $(RBUILD_MSVC_BASE_)vcxprojmaker.cpp $(RBUILD_HEADERS) | $(RBUILD_MSVC_INT)
 	$(ECHO_HOSTCC)
 	${host_gpp} $(RBUILD_HOST_CXXFLAGS) -c $< -o $@
 

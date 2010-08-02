@@ -12,9 +12,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include "../../pch.h"
 
@@ -38,16 +38,16 @@ const struct ModuleHandlerInformations ModuleHandlerInformations[] = {
 	{ HostTrue, "", "", "" }, // BuildTool
 	{ HostFalse, "", "", "" }, // StaticLibrary
 	{ HostFalse, "", "", "" }, // ObjectLibrary
-	{ HostFalse, "", "", "" }, // Kernel
-	{ HostFalse, "", "", "" }, // KernelModeDLL
-	{ HostFalse, "-D__NTDRIVER__", "", "" }, // KernelModeDriver
-	{ HostFalse, "", "", "" }, // NativeDLL
-	{ HostFalse, "-D__NTAPP__", "", "" }, // NativeCUI
-	{ HostFalse, "", "", "" }, // Win32DLL
-	{ HostFalse, "", "", "" }, // Win32OCX
-	{ HostFalse, "", "", "" }, // Win32CUI
-	{ HostFalse, "", "", "" }, // Win32GUI
-	{ HostFalse, "", "", "-nostartfiles -nostdlib" }, // BootLoader
+	{ HostFalse, "", "", "$(LDFLAG_DRIVER)" }, // Kernel
+	{ HostFalse, "", "", "$(LDFLAG_DRIVER)" }, // KernelModeDLL
+	{ HostFalse, "-D__NTDRIVER__", "", "$(LDFLAG_DRIVER)" }, // KernelModeDriver
+	{ HostFalse, "", "", "$(LDFLAG_DLL)" }, // NativeDLL
+	{ HostFalse, "-D__NTAPP__", "", "$(LDFLAG_NATIVE)" }, // NativeCUI
+	{ HostFalse, "", "", "$(LDFLAG_DLL)" }, // Win32DLL
+	{ HostFalse, "", "", "$(LDFLAG_DLL)" }, // Win32OCX
+	{ HostFalse, "", "", "$(LDFLAG_CONSOLE)" }, // Win32CUI
+	{ HostFalse, "", "", "$(LDFLAG_WINDOWS)" }, // Win32GUI
+	{ HostFalse, "", "", "$(LDFLAG_DRIVER)" }, // BootLoader
 	{ HostFalse, "", "-f bin", "" }, // BootSector
 	{ HostFalse, "", "", "" }, // Iso
 	{ HostFalse, "", "", "" }, // LiveIso
@@ -55,20 +55,21 @@ const struct ModuleHandlerInformations ModuleHandlerInformations[] = {
 	{ HostFalse, "", "", "" }, // RpcServer
 	{ HostFalse, "", "", "" }, // RpcClient
 	{ HostFalse, "", "", "" }, // Alias
-	{ HostFalse, "", "", "-nostartfiles -nostdlib" }, // BootProgram
-	{ HostFalse, "", "", "" }, // Win32SCR
+	{ HostFalse, "", "", "" }, // BootProgram
+	{ HostFalse, "", "", "$(LDFLAG_WINDOWS)" }, // Win32SCR
 	{ HostFalse, "", "", "" }, // IdlHeader
 	{ HostFalse, "", "", "" }, // IdlInterface
-	{ HostFalse, "", "", "" }, // IsoRegTest
-	{ HostFalse, "", "", "" }, // LiveIsoRegTest
 	{ HostFalse, "", "", "" }, // EmbeddedTypeLib
 	{ HostFalse, "", "", "" }, // ElfExecutable
 	{ HostFalse, "", "", "" }, // RpcProxy
 	{ HostTrue, "", "", "" }, // HostStaticLibrary
 	{ HostFalse, "", "", "" }, // Cabinet
-	{ HostFalse, "", "", "" }, // KeyboardLayout
+	{ HostFalse, "", "", "$(LDFLAG_DLL)" }, // KeyboardLayout
 	{ HostFalse, "", "", "" }, // MessageHeader
 };
+
+static std::string mscPath;
+static std::string mslinkPath;
 
 string
 MingwBackend::GetFullPath ( const FileLocation& file ) const
@@ -161,7 +162,10 @@ v2s ( const Backend* backend, const vector<FileLocation>& files, int wrap_at )
 	{
 		const FileLocation& file = files[i];
 		if ( wrap_at > 0 && wrap_count++ == wrap_at )
+		{
 			s += " \\\n\t\t";
+			wrap_count = 1;
+		}
 		else if ( s.size() )
 			s += " ";
 		s += backend->GetFullName ( file );
@@ -182,7 +186,10 @@ v2s ( const string_list& v, int wrap_at )
 		if ( !v[i].size() )
 			continue;
 		if ( wrap_at > 0 && wrap_count++ == wrap_at )
+		{
 			s += " \\\n\t\t";
+			wrap_count = 1;
+		}
 		else if ( s.size() )
 			s += " ";
 		s += v[i];
@@ -255,6 +262,9 @@ MingwBackend::ProcessModules ()
 
 	vector<MingwModuleHandler*> v;
 	size_t i;
+
+	for ( std::map<std::string, Module*>::iterator p = ProjectNode.modules.begin (); p != ProjectNode.modules.end (); ++ p )
+		fprintf ( fMakefile, "%s_TYPE:=%u\n", p->second->name.c_str(), p->second->type );
 
 	for ( std::map<std::string, Module*>::iterator p = ProjectNode.modules.begin (); p != ProjectNode.modules.end (); ++ p )
 	{
@@ -385,28 +395,7 @@ MingwBackend::GenerateHeader () const
 }
 
 void
-MingwBackend::GenerateProjectCFlagsMacro ( const char* assignmentOperation,
-                                           const IfableData& data ) const
-{
-	set<string> used_defs;
-
-	if ( data.includes.size () > 0 )
-		fprintf (
-			fMakefile,
-			"PROJECT_CINCLUDES %s %s\n",
-			assignmentOperation,
-			MingwModuleHandler::GenerateGccIncludeParametersFromVector ( data.includes ).c_str ());
-
-	if ( data.defines.size () > 0 )
-		fprintf (
-			fMakefile,
-			"PROJECT_CDEFINES %s %s\n",
-			assignmentOperation,
-			MingwModuleHandler::GenerateGccDefineParametersFromVector ( data.defines, used_defs ).c_str ());
-}
-
-void
-MingwBackend::GenerateGlobalCFlagsAndProperties (
+MingwBackend::GenerateGlobalProperties (
 	const char* assignmentOperation,
 	const IfableData& data ) const
 {
@@ -421,106 +410,34 @@ MingwBackend::GenerateGlobalCFlagsAndProperties (
 				prop.value.c_str() );
 		}
 	}
-
-	if ( data.includes.size() || data.defines.size() )
-	{
-		GenerateProjectCFlagsMacro ( assignmentOperation,
-		                             data );
-	}
-}
-
-void
-MingwBackend::GenerateProjectGccOptionsMacro ( const char* assignmentOperation,
-                                               IfableData& data ) const
-{
-	size_t i;
-
-	fprintf (
-		fMakefile,
-		"PROJECT_GCCOPTIONS %s",
-		assignmentOperation );
-
-	for ( i = 0; i < data.compilerFlags.size(); i++ )
-	{
-		if ( data.compilerFlags[i]->compiler == CompilerTypeDontCare )
-		{
-			fprintf (
-				fMakefile,
-				" %s",
-				data.compilerFlags[i]->flag.c_str() );
-		}
-	}
-
-	fputs ( "\n", fMakefile );
-
-	// TODO: reference these from somewhere
-	fprintf (
-		fMakefile,
-		"PROJECT_GCC_CFLAGS %s",
-		assignmentOperation );
-
-	for ( i = 0; i < data.compilerFlags.size(); i++ )
-	{
-		if ( data.compilerFlags[i]->compiler == CompilerTypeCC )
-		{
-			fprintf (
-				fMakefile,
-				" %s",
-				data.compilerFlags[i]->flag.c_str() );
-		}
-	}
-
-	fputs ( "\n", fMakefile );
-
-	fprintf (
-		fMakefile,
-		"PROJECT_GCC_CXXFLAGS %s",
-		assignmentOperation );
-
-	for ( i = 0; i < data.compilerFlags.size(); i++ )
-	{
-		if ( data.compilerFlags[i]->compiler == CompilerTypeCPP )
-		{
-			fprintf (
-				fMakefile,
-				" %s",
-				data.compilerFlags[i]->flag.c_str() );
-		}
-	}
-
-	fputs ( "\n", fMakefile );
-}
-
-void
-MingwBackend::GenerateProjectGccOptions (
-	const char* assignmentOperation,
-	IfableData& data ) const
-{
-	if ( data.compilerFlags.size() )
-	{
-		GenerateProjectGccOptionsMacro ( assignmentOperation,
-		                                 data );
-	}
 }
 
 string
-MingwBackend::GenerateProjectLFLAGS () const
+MingwBackend::GenerateProjectLDFLAGS () const
 {
-	string lflags;
+	string ldflags;
 	for ( size_t i = 0; i < ProjectNode.linkerFlags.size (); i++ )
 	{
 		LinkerFlag& linkerFlag = *ProjectNode.linkerFlags[i];
-		if ( lflags.length () > 0 )
-			lflags += " ";
-		lflags += linkerFlag.flag;
+		if ( ldflags.length () > 0 )
+			ldflags += " ";
+		ldflags += linkerFlag.flag;
 	}
-	return lflags;
+	return ldflags;
 }
 
 void
 MingwBackend::GenerateGlobalVariables () const
 {
 	fputs ( "include tools$(SEP)rbuild$(SEP)backend$(SEP)mingw$(SEP)rules.mak\n", fMakefile );
+	fprintf ( fMakefile, "include tools$(SEP)rbuild$(SEP)backend$(SEP)mingw$(SEP)linkers$(SEP)%s.mak\n", ProjectNode.GetLinkerSet ().c_str () );
+	fprintf ( fMakefile, "include tools$(SEP)rbuild$(SEP)backend$(SEP)mingw$(SEP)compilers$(SEP)%s.mak\n", ProjectNode.GetCompilerSet ().c_str () );
+
+	if ( mscPath.length() )
+		fprintf ( fMakefile, "export RBUILD_CL_PATH=%s\n", mscPath.c_str () );
+
+	if ( mslinkPath.length() )
+		fprintf ( fMakefile, "export RBUILD_LINK_PATH=%s\n", mslinkPath.c_str () );
 
 	if ( configuration.Dependencies == FullDependencies )
 	{
@@ -535,30 +452,90 @@ MingwBackend::GenerateGlobalVariables () const
 	          "PREFIX := %s\n",
 	          compilerPrefix.c_str () );
 	fprintf ( fMakefile,
-	          "nasm := %s\n",
+	          "nasm := $(Q)%s\n",
 	          nasmCommand.c_str () );
 
-	GenerateGlobalCFlagsAndProperties ( "=", ProjectNode.non_if_data );
-	GenerateProjectGccOptions ( "=", ProjectNode.non_if_data );
+	GenerateGlobalProperties ( "=", ProjectNode.non_if_data );
 
-	fprintf ( fMakefile, "PROJECT_RCFLAGS := $(PROJECT_CINCLUDES) $(PROJECT_CDEFINES)\n" );
-	fprintf ( fMakefile, "PROJECT_WIDLFLAGS := $(PROJECT_CINCLUDES) $(PROJECT_CDEFINES)\n" );
-	fprintf ( fMakefile, "PROJECT_LFLAGS := '$(shell ${TARGET_CC} -print-libgcc-file-name)' %s\n", GenerateProjectLFLAGS ().c_str () );
-	fprintf ( fMakefile, "PROJECT_LPPFLAGS := '$(shell ${TARGET_CPP} -print-file-name=libstdc++.a)' '$(shell ${TARGET_CPP} -print-file-name=libgcc.a)' '$(shell ${TARGET_CPP} -print-file-name=libmingw32.a)' '$(shell ${TARGET_CPP} -print-file-name=libmingwex.a)' '$(shell ${TARGET_CPP} -print-file-name=libcoldname.a)'\n" );
-	/* hack to get libgcc_eh.a, should check mingw version or something */
-	if (Environment::GetArch() == "amd64")
+	if ( ProjectNode.configuration.Compiler == GnuGcc )
 	{
-	    fprintf ( fMakefile, "PROJECT_LPPFLAGS += '$(shell ${TARGET_CPP} -print-file-name=libgcc_eh.a)'\n" );
+		fprintf ( fMakefile, "ifneq ($(OARCH),)\n" );
+		fprintf ( fMakefile, "PROJECT_ASFLAGS += -march=$(OARCH)\n" );
+		fprintf ( fMakefile, "PROJECT_CFLAGS += -march=$(OARCH)\n" );
+		fprintf ( fMakefile, "PROJECT_CXXFLAGS += -march=$(OARCH)\n" );
+		fprintf ( fMakefile, "endif\n" );
+		fprintf ( fMakefile, "ifneq ($(TUNE),)\n" );
+		fprintf ( fMakefile, "PROJECT_CFLAGS += -mtune=$(TUNE)\n" );
+		fprintf ( fMakefile, "PROJECT_CXXFLAGS += -mtune=$(TUNE)\n" );
+		fprintf ( fMakefile, "endif\n" );
+
+		if ( usePipe )
+		{
+			fprintf ( fMakefile, "PROJECT_CFLAGS += -pipe\n" );
+			fprintf ( fMakefile, "PROJECT_CXXFLAGS += -pipe\n" );
+			fprintf ( fMakefile, "PROJECT_ASFLAGS += -pipe\n" );
+		}
+
+		// Would be nice to have our own C++ runtime
+		fputs ( "BUILTIN_CXXINCLUDES+= $(TARGET_CPPFLAGS)\n", fMakefile );
+
+		fprintf ( fMakefile, "PROJECT_CCLIBS := \"$(shell ${TARGET_CC} -print-libgcc-file-name)\"\n" );
+
+		fprintf ( fMakefile, "PROJECT_CXXLIBS := \"$(shell ${TARGET_CPP} -print-file-name=libsupc++.a)\" \"$(shell ${TARGET_CPP} -print-file-name=libstdc++.a)\" \"$(shell ${TARGET_CPP} -print-libgcc-file-name)\" \"$(shell ${TARGET_CPP} -print-file-name=libmingw32.a)\" \"$(shell ${TARGET_CPP} -print-file-name=libmingwex.a)\"" );
+		
+		/* hack to get _get_output_format, needed by libmingwex */
+		if (Environment::GetArch() == "i386")
+			fprintf ( fMakefile, " \"$(shell ${TARGET_CPP} -print-file-name=libcoldname.a)\" ");
+		fprintf ( fMakefile,"\n");
 	}
-	fprintf ( fMakefile, "PROJECT_GCCOPTIONS += -Wall\n" );
-	fprintf ( fMakefile, "ifneq ($(OARCH),)\n" );
-	fprintf ( fMakefile, "PROJECT_GCCOPTIONS += -march=$(OARCH)\n" );
-	fprintf ( fMakefile, "endif\n" );
-	fprintf ( fMakefile, "ifneq ($(TUNE),)\n" );
-	fprintf ( fMakefile, "PROJECT_GCCOPTIONS += -mtune=$(TUNE)\n" );
-	fprintf ( fMakefile, "endif\n" );
-	fprintf ( fMakefile, "PROJECT_CFLAGS = $(PROJECT_GCCOPTIONS) $(PROJECT_GCC_CFLAGS)\n" );
-	fprintf ( fMakefile, "PROJECT_CXXFLAGS = $(PROJECT_GCCOPTIONS) $(PROJECT_GCC_CXXFLAGS)\n" );
+	MingwModuleHandler::GenerateParameters ( "PROJECT", "+=", ProjectNode.non_if_data );
+	MingwModuleHandler::GenerateParameters ( "PROJECT_HOST", "+=", ProjectNode.host_non_if_data );
+
+	fprintf ( fMakefile, "PROJECT_LDFLAGS := %s\n", GenerateProjectLDFLAGS ().c_str () );
+
+	// TODO: use symbolic names for module types
+	for ( size_t i = 0; i < sizeof(ModuleHandlerInformations) / sizeof(ModuleHandlerInformations[0]); ++ i )
+	{
+		if ( ModuleHandlerInformations[i].cflags && ModuleHandlerInformations[i].cflags[0] )
+		{
+				fprintf ( fMakefile,
+						  "MODULETYPE%d_%sFLAGS:=%s\n",
+						  (int)i,
+						  "C",
+						  ModuleHandlerInformations[i].cflags );
+		}
+
+		if ( ModuleHandlerInformations[i].nasmflags && ModuleHandlerInformations[i].nasmflags[0] )
+		{
+				fprintf ( fMakefile,
+						  "MODULETYPE%d_%sFLAGS:=%s\n",
+						  (int)i,
+						  "NASM",
+						  ModuleHandlerInformations[i].nasmflags );
+		}
+
+		if ( ModuleHandlerInformations[i].linkerflags && ModuleHandlerInformations[i].linkerflags[0] )
+		{
+				fprintf ( fMakefile,
+						  "MODULETYPE%d_%sFLAGS:=%s\n",
+						  (int)i,
+						  "LD",
+						  ModuleHandlerInformations[i].linkerflags );
+		}
+	}
+
+	fprintf ( fMakefile,
+			  "MODULETYPE%d_KMODE:=yes\n",
+			  (int)Kernel );
+
+	fprintf ( fMakefile,
+			  "MODULETYPE%d_KMODE:=yes\n",
+			  (int)KernelModeDLL );
+
+	fprintf ( fMakefile,
+			  "MODULETYPE%d_KMODE:=yes\n",
+			  (int)KernelModeDriver );
+
 	fprintf ( fMakefile, "\n" );
 }
 
@@ -572,10 +549,6 @@ MingwBackend::IncludeInAllTarget ( const Module& module ) const
 	if ( module.type == Iso )
 		return false;
 	if ( module.type == LiveIso )
-		return false;
-	if ( module.type == IsoRegTest )
-		return false;
-	if ( module.type == LiveIsoRegTest )
 		return false;
 	if ( module.type == Test )
 		return false;
@@ -770,32 +743,60 @@ MingwBackend::DetectCompiler ()
 	printf ( "Detecting compiler..." );
 
 	bool detectedCompiler = false;
-	const string& ROS_PREFIXValue = Environment::GetVariable ( "ROS_PREFIX" );
-	if ( ROS_PREFIXValue.length () > 0 )
+	bool supportedCompiler = false;
+	string compilerVersion;
+
+	if ( ProjectNode.configuration.Compiler == GnuGcc )
 	{
-		compilerPrefix = ROS_PREFIXValue;
-		compilerCommand = compilerPrefix + "-gcc";
-		detectedCompiler = TryToDetectThisCompiler ( compilerCommand );
-	}
+		const string& TARGET_CCValue = Environment::GetVariable ( "TARGET_CC" );
+		const string& ROS_PREFIXValue = Environment::GetVariable ( "ROS_PREFIX" );
+
+		if ( TARGET_CCValue.length () > 0 )
+		{
+			compilerPrefix = "";
+			compilerCommand = TARGET_CCValue;
+			detectedCompiler = TryToDetectThisCompiler ( compilerCommand );
+		}
+
+		if ( !detectedCompiler )
+		{
+			if ( ROS_PREFIXValue.length () > 0 )
+			{
+				compilerPrefix = ROS_PREFIXValue;
+				compilerCommand = compilerPrefix + "-gcc";
+				detectedCompiler = TryToDetectThisCompiler ( compilerCommand );
+			}
+		}
 #if defined(WIN32)
-	if ( !detectedCompiler )
-	{
-		compilerPrefix = "";
-		compilerCommand = "gcc";
-		detectedCompiler = TryToDetectThisCompiler ( compilerCommand );
-	}
+		if ( !detectedCompiler )
+		{
+			compilerPrefix = "";
+			compilerCommand = "gcc";
+			detectedCompiler = TryToDetectThisCompiler ( compilerCommand );
+		}
 #endif
-	if ( !detectedCompiler )
+		if ( !detectedCompiler )
+		{
+			compilerPrefix = "mingw32";
+			compilerCommand = compilerPrefix + "-gcc";
+			detectedCompiler = TryToDetectThisCompiler ( compilerCommand );
+		}
+
+		if ( detectedCompiler )
+			compilerVersion = GetCompilerVersion ( compilerCommand );
+
+		supportedCompiler = IsSupportedCompilerVersion ( compilerVersion );
+	}
+	else if ( ProjectNode.configuration.Compiler == MicrosoftC )
 	{
-		compilerPrefix = "mingw32";
-		compilerCommand = compilerPrefix + "-gcc";
-		detectedCompiler = TryToDetectThisCompiler ( compilerCommand );
+		compilerCommand = "cl";
+		detectedCompiler = DetectMicrosoftCompiler ( compilerVersion, mscPath );
+		supportedCompiler = true; // TODO
 	}
 
 	if ( detectedCompiler )
 	{
-		string compilerVersion = GetCompilerVersion ( compilerCommand );
-		if ( IsSupportedCompilerVersion ( compilerVersion ) )
+		if ( supportedCompiler )
 			printf ( "detected (%s %s)\n", compilerCommand.c_str (), compilerVersion.c_str() );
 		else
 		{
@@ -842,7 +843,7 @@ MingwBackend::GetVersionString ( const string& versionCommand )
 	buffer[i] = '\0';
 	pclose ( fp );
 
-	char separators[] = " ()";
+	char separators[] = " ()\n";
 	char *token;
 	char *prevtoken = NULL;
 
@@ -886,7 +887,7 @@ MingwBackend::GetNetwideAssemblerVersion ( const string& nasmCommand )
 string
 MingwBackend::GetCompilerVersion ( const string& compilerCommand )
 {
-	string versionCommand = ssprintf ( "%s --version gcc",
+	string versionCommand = ssprintf ( "%s --version",
 	                                   compilerCommand.c_str (),
 	                                   NUL,
 	                                   NUL );
@@ -906,7 +907,7 @@ MingwBackend::GetBinutilsVersion ( const string& binutilsCommand )
 bool
 MingwBackend::IsSupportedCompilerVersion ( const string& compilerVersion )
 {
-	if ( strcmp ( compilerVersion.c_str (), "3.4.2") < 0 )
+	if ( strcmp ( compilerVersion.c_str (), "4.4.0") < 0 )
 		return false;
 	else
 		return true;
@@ -968,27 +969,32 @@ MingwBackend::GetBinutilsVersionDate ( const string& binutilsCommand )
 bool
 MingwBackend::IsSupportedBinutilsVersion ( const string& binutilsVersion )
 {
-	if ( manualBinutilsSetting ) return true;
-
-	/* linux */
-	if ( binutilsVersion.find('.') != std::string::npos )
-	{
-		/* TODO: blacklist versions on version number instead of date */
-		return true;
-	}
-
-	/*
-	 * - Binutils older than 2003/10/01 have broken windres which can't handle
-	 *   icons with alpha channel.
-	 * - Binutils between 2004/09/02 and 2004/10/08 have broken handling of
-	 *   forward exports in dlltool.
-	 */
-	if ( ( ( strcmp ( binutilsVersion.c_str (), "20040902") >= 0 ) &&
-	       ( strcmp ( binutilsVersion.c_str (), "20041008") <= 0 ) ) ||
-	       ( strcmp ( binutilsVersion.c_str (), "20031001") < 0 ) )
+	int digit = binutilsVersion.find_last_of(".");
+	if(digit == -1)
+ 	{
+		printf("Unable to detect binutils version!\n");
 		return false;
+	}
+	
+	string date = string(binutilsVersion, digit + 1);
+	if(date.length() == 8)
+	{
+		/* This is a real date in the format YYYYMMDD.
+		   Check whether we have at least Binutils 20091016 (the oldest one
+		   we were still using after upgrading to RosBE 1.5). */
+		if(strcmp(date.c_str(), "20091016") < 0)
+			return false;
+	}
 	else
-		return true;
+	{
+		/* This is no date, so binutilsVersion should just contain the version
+		   number.
+		   Binutils 2.20 will hopefully contain the required features. */
+		if(strcmp(binutilsVersion.c_str(), "2.20") < 0)
+			return false;
+	}
+	
+	return true;
 }
 
 void
@@ -997,34 +1003,51 @@ MingwBackend::DetectBinutils ()
 	printf ( "Detecting binutils..." );
 
 	bool detectedBinutils = false;
-	const string& ROS_PREFIXValue = Environment::GetVariable ( "ROS_PREFIX" );
+	bool supportedBinutils = false;
+	string binutilsVersion;
 
-	if ( ROS_PREFIXValue.length () > 0 )
+	if ( ProjectNode.configuration.Linker == GnuLd )
 	{
-		binutilsPrefix = ROS_PREFIXValue;
-		binutilsCommand = binutilsPrefix + "-ld";
-		manualBinutilsSetting = true;
-		detectedBinutils = true;
-	}
+		const string& ROS_PREFIXValue = Environment::GetVariable ( "ROS_PREFIX" );
+
+		if ( ROS_PREFIXValue.length () > 0 )
+		{
+			binutilsPrefix = ROS_PREFIXValue;
+			binutilsCommand = binutilsPrefix + "-ld";
+			manualBinutilsSetting = true;
+			detectedBinutils = true;
+		}
 #if defined(WIN32)
-	if ( !detectedBinutils )
-	{
-		binutilsPrefix = "";
-		binutilsCommand = "ld";
-		detectedBinutils = TryToDetectThisBinutils ( binutilsCommand );
-	}
+		if ( !detectedBinutils )
+		{
+			binutilsPrefix = "";
+			binutilsCommand = "ld";
+			detectedBinutils = TryToDetectThisBinutils ( binutilsCommand );
+		}
 #endif
-	if ( !detectedBinutils )
-	{
-		binutilsPrefix = "mingw32";
-		binutilsCommand = binutilsPrefix + "-ld";
-		detectedBinutils = TryToDetectThisBinutils ( binutilsCommand );
+		if ( !detectedBinutils )
+		{
+			binutilsPrefix = "mingw32";
+			binutilsCommand = binutilsPrefix + "-ld";
+			detectedBinutils = TryToDetectThisBinutils ( binutilsCommand );
+		}
+		if ( detectedBinutils )
+		{
+			binutilsVersion = GetBinutilsVersionDate ( binutilsCommand );
+			supportedBinutils = IsSupportedBinutilsVersion ( binutilsVersion );
+		}
 	}
+	else if ( ProjectNode.configuration.Linker == MicrosoftLink )
+	{
+		compilerCommand = "link";
+		detectedBinutils = DetectMicrosoftLinker ( binutilsVersion, mslinkPath );
+		supportedBinutils = true; // TODO
+	}
+
 	if ( detectedBinutils )
 	{
-		string binutilsVersion = GetBinutilsVersionDate ( binutilsCommand );
-		if ( IsSupportedBinutilsVersion ( binutilsVersion ) )
-			printf ( "detected (%s %s)\n", binutilsCommand.c_str (), GetBinutilsVersion( binutilsCommand ).c_str() );
+		if ( supportedBinutils )
+			printf ( "detected (%s %s)\n", binutilsCommand.c_str (), binutilsVersion.c_str() );
 		else
 		{
 			printf ( "detected (%s), but with unsupported version (%s)\n",
@@ -1066,33 +1089,38 @@ MingwBackend::DetectNetwideAssembler ()
 void
 MingwBackend::DetectPipeSupport ()
 {
-	printf ( "Detecting compiler -pipe support..." );
-
-	string pipe_detection = "tools" + sSep + "rbuild" + sSep + "backend" + sSep + "mingw" + sSep + "pipe_detection.c";
-	string pipe_detectionObjectFilename = ReplaceExtension ( pipe_detection,
-	                                                         ".o" );
-	string command = ssprintf (
-		"%s -pipe -c %s -o %s 1>%s 2>%s",
-		FixSeparatorForSystemCommand(compilerCommand).c_str (),
-		pipe_detection.c_str (),
-		pipe_detectionObjectFilename.c_str (),
-		NUL,
-		NUL );
-	int exitcode = system ( command.c_str () );
-	FILE* f = fopen ( pipe_detectionObjectFilename.c_str (), "rb" );
-	if ( f )
+	if ( ProjectNode.configuration.Compiler == GnuGcc )
 	{
-		usePipe = (exitcode == 0);
-		fclose ( f );
-		unlink ( pipe_detectionObjectFilename.c_str () );
+		printf ( "Detecting compiler -pipe support..." );
+
+		string pipe_detection = "tools" + sSep + "rbuild" + sSep + "backend" + sSep + "mingw" + sSep + "pipe_detection.c";
+		string pipe_detectionObjectFilename = ReplaceExtension ( pipe_detection,
+																 ".o" );
+		string command = ssprintf (
+			"%s -pipe -c %s -o %s 1>%s 2>%s",
+			FixSeparatorForSystemCommand(compilerCommand).c_str (),
+			pipe_detection.c_str (),
+			pipe_detectionObjectFilename.c_str (),
+			NUL,
+			NUL );
+		int exitcode = system ( command.c_str () );
+		FILE* f = fopen ( pipe_detectionObjectFilename.c_str (), "rb" );
+		if ( f )
+		{
+			usePipe = (exitcode == 0);
+			fclose ( f );
+			unlink ( pipe_detectionObjectFilename.c_str () );
+		}
+		else
+			usePipe = false;
+
+		if ( usePipe )
+			printf ( "detected\n" );
+		else
+			printf ( "not detected\n" );
 	}
 	else
 		usePipe = false;
-
-	if ( usePipe )
-		printf ( "detected\n" );
-	else
-		printf ( "not detected\n" );
 }
 
 void
@@ -1100,7 +1128,7 @@ MingwBackend::DetectPCHSupport ()
 {
 	printf ( "Detecting compiler pre-compiled header support..." );
 
-	if ( configuration.PrecompiledHeadersEnabled )
+	if ( configuration.PrecompiledHeadersEnabled && ProjectNode.configuration.Compiler == GnuGcc )
 	{
 		string path = "tools" + sSep + "rbuild" + sSep + "backend" + sSep + "mingw" + sSep + "pch_detection.h";
 		string cmd = ssprintf (
@@ -1260,14 +1288,14 @@ MingwBackend::OutputRegistryInstallTarget ()
 	          "install_registry: %s\n",
 	          registryTargetFiles.c_str () );
 	fprintf ( fMakefile,
-	          "%s: %s %s $(MKHIVE_TARGET)\n",
+	          "%s: %s %s $(mkhive_TARGET)\n",
 	          registryTargetFiles.c_str (),
 	          registrySourceFiles.c_str (),
 	          GetFullPath ( system32 ).c_str () );
 	fprintf ( fMakefile,
 	          "\t$(ECHO_MKHIVE)\n" );
 	fprintf ( fMakefile,
-	          "\t$(MKHIVE_TARGET) boot%cbootdata %s $(ARCH) boot%cbootdata%chiveinst_$(ARCH).inf\n",
+	          "\t$(mkhive_TARGET) boot%cbootdata %s $(ARCH) boot%cbootdata%chiveinst_$(ARCH).inf\n",
 	          cSep, GetFullPath ( system32 ).c_str (),
 	          cSep, cSep );
 	fprintf ( fMakefile,

@@ -4,8 +4,8 @@
  * FILE:        tools/cabman/cabinet.h
  * PURPOSE:     Cabinet definitions
  */
-#ifndef __CABINET_H
-#define __CABINET_H
+
+#pragma once
 
 #if defined(WIN32)
 #include <windows.h>
@@ -48,8 +48,6 @@
 
 /* Debugging */
 
-#define DBG
-
 #define NORMAL_MASK    0x000000FF
 #define SPECIAL_MASK   0xFFFFFF00
 #define MIN_TRACE      0x00000001
@@ -58,7 +56,7 @@
 
 #define DEBUG_MEMORY   0x00000100
 
-#ifdef DBG
+#if DBG
 
 extern ULONG DebugTraceLevel;
 
@@ -497,7 +495,5 @@ private:
     ULONG NextFolderNumber;     // Zero based folder number
 #endif /* CAB_READ_ONLY */
 };
-
-#endif /* __CABINET_H */
 
 /* EOF */

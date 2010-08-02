@@ -21,9 +21,9 @@
 #ifndef __WIDL_WIDLTYPES_H
 #define __WIDL_WIDLTYPES_H
 
-#define S_OK           0
-#define S_FALSE        1
-#define E_OUTOFMEMORY  ((HRESULT)0x8007000EL)
+#define S_OK           0 	 
+#define S_FALSE        1 	 
+#define E_OUTOFMEMORY  ((HRESULT)0x8007000EL) 	 
 #define TYPE_E_IOERROR ((HRESULT)0x80028CA2L)
 
 #define max(a, b) ((a) > (b) ? a : b)
@@ -39,23 +39,15 @@
 typedef GUID UUID;
 #endif
 
-#ifndef TRUE
 #define TRUE 1
-#endif
 #define FALSE 0
-
-#define RPC_FC_MODULE   0xfc
-#define RPC_FC_COCLASS  0xfd
-#define RPC_FC_FUNCTION 0xfe
 
 typedef struct _loc_info_t loc_info_t;
 typedef struct _attr_t attr_t;
 typedef struct _expr_t expr_t;
 typedef struct _type_t type_t;
-typedef struct _typeref_t typeref_t;
 typedef struct _var_t var_t;
 typedef struct _declarator_t declarator_t;
-typedef struct _func_t func_t;
 typedef struct _ifref_t ifref_t;
 typedef struct _typelib_entry_t typelib_entry_t;
 typedef struct _importlib_t importlib_t;
@@ -68,7 +60,6 @@ typedef struct _statement_t statement_t;
 
 typedef struct list attr_list_t;
 typedef struct list str_list_t;
-typedef struct list func_list_t;
 typedef struct list expr_list_t;
 typedef struct list var_list_t;
 typedef struct list declarator_list_t;
@@ -81,6 +72,7 @@ typedef struct list statement_list_t;
 enum attr_type
 {
     ATTR_AGGREGATABLE,
+    ATTR_ANNOTATION,
     ATTR_APPOBJECT,
     ATTR_ASYNC,
     ATTR_AUTO_HANDLE,
@@ -129,6 +121,7 @@ enum attr_type
     ATTR_OLEAUTOMATION,
     ATTR_OPTIONAL,
     ATTR_OUT,
+    ATTR_PARAMLCID,
     ATTR_POINTERDEFAULT,
     ATTR_POINTERTYPE,
     ATTR_PROPGET,
@@ -193,6 +186,7 @@ enum expr_type
     EXPR_POS,
     EXPR_STRLIT,
     EXPR_WSTRLIT,
+    EXPR_CHARCONST,
 };
 
 enum type_kind
@@ -230,6 +224,28 @@ enum statement_type
     STMT_CPPQUOTE
 };
 
+enum type_basic_type
+{
+    TYPE_BASIC_INT8 = 1,
+    TYPE_BASIC_INT16,
+    TYPE_BASIC_INT32,
+    TYPE_BASIC_INT64,
+    TYPE_BASIC_INT,
+    TYPE_BASIC_INT3264,
+    TYPE_BASIC_CHAR,
+    TYPE_BASIC_HYPER,
+    TYPE_BASIC_BYTE,
+    TYPE_BASIC_WCHAR,
+    TYPE_BASIC_FLOAT,
+    TYPE_BASIC_DOUBLE,
+    TYPE_BASIC_ERROR_STATUS_T,
+    TYPE_BASIC_HANDLE,
+};
+
+#define TYPE_BASIC_MAX TYPE_BASIC_HANDLE
+#define TYPE_BASIC_INT_MIN TYPE_BASIC_INT8
+#define TYPE_BASIC_INT_MAX TYPE_BASIC_HYPER
+
 struct _loc_info_t
 {
     const char *input_name;
@@ -246,7 +262,7 @@ struct str_list_entry_t
 struct _attr_t {
   enum attr_type type;
   union {
-    unsigned long ival;
+    unsigned int ival;
     void *pval;
   } u;
   /* parser-internal */
@@ -257,7 +273,7 @@ struct _expr_t {
   enum expr_type type;
   const expr_t *ref;
   union {
-    long lval;
+    int lval;
     double dval;
     const char *sval;
     const expr_t *ext;
@@ -265,7 +281,7 @@ struct _expr_t {
   } u;
   const expr_t *ext2;
   int is_const;
-  long cval;
+  int cval;
   /* parser-internal */
   struct list entry;
 };
@@ -283,31 +299,54 @@ struct enumeration_details
 struct func_details
 {
   var_list_t *args;
+  struct _type_t *rettype;
   int idx;
 };
 
 struct iface_details
 {
   statement_list_t *stmts;
-  func_list_t *disp_methods;
+  var_list_t *disp_methods;
   var_list_t *disp_props;
+  struct _type_t *inherit;
 };
 
 struct module_details
 {
   statement_list_t *stmts;
-  func_list_t *funcs;
 };
 
 struct array_details
 {
-  unsigned long dim;
-  expr_t *size_is, *length_is;
+  expr_t *size_is;
+  expr_t *length_is;
+  struct _type_t *elem;
+  unsigned int dim;
+  unsigned char ptr_def_fc;
+  unsigned char declptr; /* if declared as a pointer */
 };
 
 struct coclass_details
 {
   ifref_list_t *ifaces;
+};
+
+struct basic_details
+{
+  enum type_basic_type type;
+  int sign;
+};
+
+struct pointer_details
+{
+  struct _type_t *ref;
+  unsigned char def_fc;
+};
+
+struct bitfield_details
+{
+  struct _type_t *field;
+  const expr_t *bits;
 };
 
 enum type_type
@@ -325,12 +364,12 @@ enum type_type
     TYPE_INTERFACE,
     TYPE_POINTER,
     TYPE_ARRAY,
+    TYPE_BITFIELD,
 };
 
 struct _type_t {
   const char *name;
-  unsigned char type;
-  struct _type_t *ref;
+  enum type_type type_type;
   attr_list_t *attrs;
   union
   {
@@ -341,13 +380,15 @@ struct _type_t {
     struct module_details *module;
     struct array_details array;
     struct coclass_details coclass;
+    struct basic_details basic;
+    struct pointer_details pointer;
+    struct bitfield_details bitfield;
   } details;
   type_t *orig;                   /* dup'd types */
   unsigned int typestring_offset;
   unsigned int ptrdesc;           /* used for complex structs */
   int typelib_idx;
   loc_info_t loc_info;
-  unsigned int declarray : 1;     /* if declared as an array */
   unsigned int ignore : 1;
   unsigned int defined : 1;
   unsigned int written : 1;
@@ -355,7 +396,6 @@ struct _type_t {
   unsigned int tfswrite : 1;   /* if the type needs to be written to the TFS */
   unsigned int checked : 1;
   unsigned int is_alias : 1; /* is the type an alias? */
-  int sign : 2;
 };
 
 struct _var_t {
@@ -376,13 +416,7 @@ struct _declarator_t {
   type_t *type;
   type_t *func_type;
   array_dims_t *array;
-
-  /* parser-internal */
-  struct list entry;
-};
-
-struct _func_t {
-  var_t *def;
+  expr_t *bits;
 
   /* parser-internal */
   struct list entry;
@@ -458,8 +492,14 @@ struct _statement_t {
     } u;
 };
 
-extern unsigned char pointer_default;
+typedef enum {
+    SYS_WIN16,
+    SYS_WIN32,
+    SYS_MAC,
+    SYS_WIN64
+} syskind_t;
 
+extern syskind_t typelib_kind;
 extern user_type_list_t user_type_list;
 void check_for_additional_prototype_types(const var_list_t *list);
 
@@ -472,12 +512,20 @@ int is_ptr(const type_t *t);
 int is_array(const type_t *t);
 int is_var_ptr(const var_t *v);
 int cant_be_null(const var_t *v);
-int is_struct(unsigned char tc);
-int is_union(unsigned char tc);
+
+#define tsENUM   1
+#define tsSTRUCT 2
+#define tsUNION  3
 
 var_t *find_const(const char *name, int f);
 type_t *find_type(const char *name, int t);
-type_t *make_type(unsigned char type, type_t *ref);
+type_t *make_type(enum type_type type);
+type_t *get_type(enum type_type type, char *name, int t);
+type_t *reg_type(type_t *type, const char *name, int t);
+void add_incomplete(type_t *t);
+
+var_t *make_var(char *name);
+var_list_t *append_var(var_list_t *list, var_t *var);
 
 void init_loc_info(loc_info_t *);
 
@@ -490,65 +538,7 @@ static inline enum type_type type_get_type_detect_alias(const type_t *type)
 {
     if (type->is_alias)
         return TYPE_ALIAS;
-    switch (type->type)
-    {
-    case 0:
-        return TYPE_VOID;
-    case RPC_FC_BYTE:
-    case RPC_FC_CHAR:
-    case RPC_FC_USMALL:
-    case RPC_FC_SMALL:
-    case RPC_FC_WCHAR:
-    case RPC_FC_USHORT:
-    case RPC_FC_SHORT:
-    case RPC_FC_ULONG:
-    case RPC_FC_LONG:
-    case RPC_FC_HYPER:
-    case RPC_FC_IGNORE:
-    case RPC_FC_FLOAT:
-    case RPC_FC_DOUBLE:
-    case RPC_FC_ERROR_STATUS_T:
-    case RPC_FC_BIND_PRIMITIVE:
-        return TYPE_BASIC;
-    case RPC_FC_ENUM16:
-    case RPC_FC_ENUM32:
-        return TYPE_ENUM;
-    case RPC_FC_RP:
-    case RPC_FC_UP:
-    case RPC_FC_FP:
-    case RPC_FC_OP:
-        return TYPE_POINTER;
-    case RPC_FC_STRUCT:
-    case RPC_FC_PSTRUCT:
-    case RPC_FC_CSTRUCT:
-    case RPC_FC_CPSTRUCT:
-    case RPC_FC_CVSTRUCT:
-    case RPC_FC_BOGUS_STRUCT:
-        return TYPE_STRUCT;
-    case RPC_FC_ENCAPSULATED_UNION:
-        return TYPE_ENCAPSULATED_UNION;
-    case RPC_FC_NON_ENCAPSULATED_UNION:
-        return TYPE_UNION;
-    case RPC_FC_SMFARRAY:
-    case RPC_FC_LGFARRAY:
-    case RPC_FC_SMVARRAY:
-    case RPC_FC_LGVARRAY:
-    case RPC_FC_CARRAY:
-    case RPC_FC_CVARRAY:
-    case RPC_FC_BOGUS_ARRAY:
-        return TYPE_ARRAY;
-    case RPC_FC_FUNCTION:
-        return TYPE_FUNCTION;
-    case RPC_FC_COCLASS:
-        return TYPE_COCLASS;
-    case RPC_FC_IP:
-        return TYPE_INTERFACE;
-    case RPC_FC_MODULE:
-        return TYPE_MODULE;
-    default:
-        assert(0);
-        return 0;
-    }
+    return type->type_type;
 }
 
 #define STATEMENTS_FOR_EACH_FUNC(stmt, stmts) \

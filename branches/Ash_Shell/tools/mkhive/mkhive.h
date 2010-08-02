@@ -12,9 +12,9 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 /* COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS hive maker
@@ -24,8 +24,7 @@
  *                  Hervé Poussineau
  */
 
-#ifndef __MKHIVE_H__
-#define __MKHIVE_H__
+#pragma once
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,6 +45,10 @@
 #define STATUS_OBJECT_NAME_NOT_FOUND     ((NTSTATUS)0xC0000034)
 #define STATUS_INVALID_PARAMETER_2       ((NTSTATUS)0xC00000F0)
 #define STATUS_BUFFER_OVERFLOW           ((NTSTATUS)0x80000005)
+
+unsigned char BitScanForward(ULONG * Index, const unsigned long Mask);
+unsigned char BitScanReverse(ULONG * const Index, const unsigned long Mask);
+#define RtlFillMemoryUlong(dst, len, val) memset(dst, val, len)
 
 NTSTATUS NTAPI
 RtlAnsiStringToUnicodeString(
@@ -98,7 +101,5 @@ extern LIST_ENTRY CmiHiveListHead;
 #else//_MSC_VER
 #define GCC_PACKED __attribute__((packed))
 #endif//_MSC_VER
-
-#endif /* __MKHIVE_H__ */
 
 /* EOF */

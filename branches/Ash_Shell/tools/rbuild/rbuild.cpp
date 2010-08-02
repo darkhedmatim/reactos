@@ -11,9 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include "pch.h"
 #include <typeinfo>
@@ -134,6 +134,11 @@ ParseVCProjectSwitch (
 			if (configuration.VSProjectVersion.length() == 3) //7.1
 				configuration.VSProjectVersion.append("0");
 
+			//We should set this here because in the end we will use
+			//msc sompiler so we need to parse msc specidic
+			//definitions and includes
+			configuration.Compiler = MicrosoftC;
+
 			break;
 		case 'c':
 			configuration.VSConfigurationType = string (&switchStart[3]);
@@ -157,6 +162,58 @@ ParseVCProjectSwitch (
 			         switchChar2 );
 			return false;
 	}
+	return true;
+}
+
+bool
+ParseMingwSwitch ( char* switchStart )
+{
+	switchStart += 2;
+
+	if ( *switchStart == 'c' )
+	{
+		++ switchStart;
+
+		if ( strcmp ( switchStart, "msc" ) == 0 )
+			configuration.Compiler = MicrosoftC;
+		else if ( strcmp ( switchStart, "gcc" ) == 0 )
+			configuration.Compiler = GnuGcc;
+		else
+		{
+			printf ( "Unknown value of -Mc: %s\n", switchStart );
+			return false;
+		}
+	}
+	else if ( *switchStart == 'l' )
+	{
+		++ switchStart;
+
+		if ( strcmp ( switchStart, "mslink" ) == 0 )
+			configuration.Linker = MicrosoftLink;
+		else if ( strcmp ( switchStart, "ld" ) == 0 )
+			configuration.Linker = GnuLd;
+		else
+		{
+			printf ( "Unknown value of -Ml: %s\n", switchStart );
+			return false;
+		}
+	}
+	else if ( strcmp ( switchStart, "microsoft" ) == 0 )
+	{
+		configuration.Compiler = MicrosoftC;
+		configuration.Linker = MicrosoftLink;
+	}
+	else if ( strcmp ( switchStart, "gnu" ) == 0 )
+	{
+		configuration.Compiler = GnuGcc;
+		configuration.Linker = GnuLd;
+	}
+	else
+	{
+		printf ( "Unknown value of -M: %s\n", switchStart );
+		return false;
+	}
+
 	return true;
 }
 
@@ -252,6 +309,8 @@ ParseSwitch ( int argc, char** argv, int index )
 			break;
 		case 'm':
 			return ParseMakeSwitch ( switchChar2 );
+		case 'M':
+			return ParseMingwSwitch ( argv[index] );
 		case 'p':
 			return ParseProxyMakefileSwitch ( switchChar2 );
 		case 'D':
@@ -309,6 +368,14 @@ main ( int argc, char** argv )
 		printf ( "                tree.\n" );
 		printf ( "  -vs{version}  Version of MS VS project files. Default is %s.\n", MS_VS_DEF_VERSION );
 		printf ( "  -vo{version|configuration} Adds subdirectory path to the default Intermediate-Outputdirectory.\n" );
+		printf ( "  -Mc{compiler} Compiler to use for mingw backend. Can be one of:\n" );
+		printf ( "                %-10s %s (default)\n", "gcc", "GNU compiler collection (gcc, g++)\n");
+		printf ( "                %-10s %s\n", "msc", "Microsoft Visual C++ (cl)\n");
+		printf ( "  -Ml{compiler} Linker to use for mingw backend. Can be one of:\n" );
+		printf ( "                %-10s %s (default)\n", "ld", "GNU binutils (ld, dlltool)\n");
+		printf ( "                %-10s %s\n", "mslink", "Microsoft Linker (link, lib)\n");
+		printf ( "  -Mmicrosoft   Same as -Mcmsc -Mlmslink\n" );
+		printf ( "  -Mgnu         Same as -Mcgcc -Mlld\n" );
 		printf ( "  -Dvar=val     Set the value of 'var' variable to 'val'.\n" );
 		printf ( "\n" );
 		printf ( "  buildsystem   Target build system. Can be one of:\n" );

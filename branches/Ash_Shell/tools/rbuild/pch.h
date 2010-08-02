@@ -11,12 +11,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-#ifndef PCH_H
-#define PCH_H
+
+#pragma once
 
 #ifdef _MSC_VER
 #pragma warning ( disable : 4786 ) // identifier was truncated to '255' characters in the debug information
@@ -28,6 +28,7 @@
 #include <map>
 #include <set>
 #include <utility>
+#include <bitset>
 
 #ifdef WIN32
 #include <windows.h>
@@ -42,7 +43,7 @@ typedef LONG *PLONG;
 #endif//WIN32
 
 #include <stdarg.h>
-
+#include <stdio.h>
 
 #ifndef WIN32
 #include <string.h>
@@ -78,5 +79,3 @@ inline char *strupr(char *x)
 #define MAX_PATH PATH_MAX
 #define _MAX_PATH PATH_MAX
 #endif
-
-#endif//PCH_H
