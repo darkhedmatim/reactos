@@ -19,9 +19,11 @@
  */
 
 #include "config.h"
+#include "wine/port.h"
 
 #include <assert.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -211,28 +213,17 @@ static int wait4_thread( struct thread *thread, int signal )
 static inline int tkill( int tgid, int pid, int sig )
 {
 #ifdef __linux__
-    int ret = -ENOSYS;
 # ifdef __i386__
-    __asm__( "pushl %%ebx\n\t"
-             "movl %2,%%ebx\n\t"
-             "int $0x80\n\t"
-             "popl %%ebx\n\t"
-             : "=a" (ret)
-             : "0" (270) /*SYS_tgkill*/, "r" (tgid), "c" (pid), "d" (sig) );
-    if (ret == -ENOSYS)
-        __asm__( "pushl %%ebx\n\t"
-                 "movl %2,%%ebx\n\t"
-                 "int $0x80\n\t"
-                 "popl %%ebx\n\t"
-                 : "=a" (ret)
-                 : "0" (238) /*SYS_tkill*/, "r" (pid), "c" (sig) );
+    int ret = syscall(270 /*SYS_tgkill*/, tgid, pid, sig);
+    if (ret < 0 && errno == -ENOSYS)
+        ret = syscall(238 /*SYS_tkill*/, pid, sig);
+    return ret;
 # elif defined(__x86_64__)
-    __asm__( "syscall" : "=a" (ret)
-             : "0" (200) /*SYS_tkill*/, "D" (pid), "S" (sig) );
-# endif
-    if (ret >= 0) return ret;
-    errno = -ret;
+    return syscall(234 /*SYS_tgkill*/, tgid, pid, sig);
+# else
+    errno = ENOSYS;
     return -1;
+# endif
 #elif defined(__FreeBSD__) && defined(HAVE_THR_KILL2)
     return thr_kill2( tgid, pid, sig );
 #else
@@ -377,6 +368,24 @@ int read_process_memory( struct process *process, client_ptr_t ptr, data_size_t 
 
     if (suspend_for_ptrace( thread ))
     {
+        if (len > 3)  /* /proc/pid/mem should be faster for large sizes */
+        {
+            char procmem[24];
+            int fd;
+
+            sprintf( procmem, "/proc/%u/mem", process->unix_pid );
+            if ((fd = open( procmem, O_RDONLY )) != -1)
+            {
+                ssize_t ret = pread( fd, dest, size, ptr );
+                close( fd );
+                if (ret == size)
+                {
+                    len = 0;
+                    goto done;
+                }
+            }
+        }
+
         if (len > 1)
         {
             if (read_thread_long( thread, addr++, &data ) == -1) goto done;

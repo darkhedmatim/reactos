@@ -260,9 +260,7 @@ static void sock_wake_up( struct sock *sock )
     unsigned int events = sock->pmask & sock->mask;
     int i;
 
-    /* Do not signal events if there are still pending asynchronous IO requests */
-    /* We need this to delay FD_CLOSE events until all pending overlapped requests are processed */
-    if ( !events || async_queued( sock->read_q ) || async_queued( sock->write_q ) ) return;
+    if ( !events ) return;
 
     if (sock->event)
     {
@@ -295,27 +293,89 @@ static inline int sock_error( struct fd *fd )
     return optval;
 }
 
-static void sock_dispatch_asyncs( struct sock *sock, int event )
+static int sock_dispatch_asyncs( struct sock *sock, int event, int error )
 {
     if ( sock->flags & WSA_FLAG_OVERLAPPED )
     {
-        if ( event & (POLLIN|POLLPRI|POLLERR|POLLHUP) && async_waiting( sock->read_q ))
+        if ( event & (POLLIN|POLLPRI) && async_waiting( sock->read_q ) )
         {
             if (debug_level) fprintf( stderr, "activating read queue for socket %p\n", sock );
             async_wake_up( sock->read_q, STATUS_ALERTED );
+            event &= ~(POLLIN|POLLPRI);
         }
-        if ( event & (POLLOUT|POLLERR|POLLHUP) && async_waiting( sock->write_q ))
+        if ( event & POLLOUT && async_waiting( sock->write_q ) )
         {
             if (debug_level) fprintf( stderr, "activating write queue for socket %p\n", sock );
             async_wake_up( sock->write_q, STATUS_ALERTED );
+            event &= ~POLLOUT;
+        }
+        if ( event & (POLLERR|POLLHUP) )
+        {
+            int status = sock_get_ntstatus( error );
+
+            if ( !(sock->state & FD_READ) )
+                async_wake_up( sock->read_q, status );
+            if ( !(sock->state & FD_WRITE) )
+                async_wake_up( sock->write_q, status );
         }
     }
+    return event;
+}
+
+static void sock_dispatch_events( struct sock *sock, int prevstate, int event, int error )
+{
+    if (prevstate & FD_CONNECT)
+    {
+        sock->pmask |= FD_CONNECT;
+        sock->hmask |= FD_CONNECT;
+        sock->errors[FD_CONNECT_BIT] = error;
+        goto end;
+    }
+    if (prevstate & FD_WINE_LISTENING)
+    {
+        sock->pmask |= FD_ACCEPT;
+        sock->hmask |= FD_ACCEPT;
+        sock->errors[FD_ACCEPT_BIT] = error;
+        goto end;
+    }
+
+    if (event & POLLIN)
+    {
+        sock->pmask |= FD_READ;
+        sock->hmask |= FD_READ;
+        sock->errors[FD_READ_BIT] = 0;
+    }
+
+    if (event & POLLOUT)
+    {
+        sock->pmask |= FD_WRITE;
+        sock->hmask |= FD_WRITE;
+        sock->errors[FD_WRITE_BIT] = 0;
+    }
+
+    if (event & POLLPRI)
+    {
+        sock->pmask |= FD_OOB;
+        sock->hmask |= FD_OOB;
+        sock->errors[FD_OOB_BIT] = 0;
+    }
+
+    if (event & (POLLERR|POLLHUP))
+    {
+        sock->pmask |= FD_CLOSE;
+        sock->hmask |= FD_CLOSE;
+        sock->errors[FD_CLOSE_BIT] = error;
+    }
+end:
+    sock_wake_up( sock );
 }
 
 static void sock_poll_event( struct fd *fd, int event )
 {
     struct sock *sock = get_fd_user( fd );
     int hangup_seen = 0;
+    int prevstate = sock->state;
+    int error = 0;
 
     assert( sock->obj.ops == &sock_ops );
     if (debug_level)
@@ -332,38 +392,19 @@ static void sock_poll_event( struct fd *fd, int event )
             /* we got connected */
             sock->state |= FD_WINE_CONNECTED|FD_READ|FD_WRITE;
             sock->state &= ~FD_CONNECT;
-            sock->pmask |= FD_CONNECT;
-            sock->errors[FD_CONNECT_BIT] = 0;
-            if (debug_level)
-                fprintf(stderr, "socket %p connection success\n", sock);
         }
         else if (event & (POLLERR|POLLHUP))
         {
             /* we didn't get connected? */
             sock->state &= ~FD_CONNECT;
-            sock->pmask |= FD_CONNECT;
-            sock->errors[FD_CONNECT_BIT] = sock_error( fd );
-            if (debug_level)
-                fprintf(stderr, "socket %p connection failure\n", sock);
+            error = sock_error( fd );
         }
     }
     else if (sock->state & FD_WINE_LISTENING)
     {
         /* listening */
-        if (event & POLLIN)
-        {
-            /* incoming connection */
-            sock->pmask |= FD_ACCEPT;
-            sock->errors[FD_ACCEPT_BIT] = 0;
-            sock->hmask |= FD_ACCEPT;
-        }
-        else if (event & (POLLERR|POLLHUP))
-        {
-            /* failed incoming connection? */
-            sock->pmask |= FD_ACCEPT;
-            sock->errors[FD_ACCEPT_BIT] = sock_error( fd );
-            sock->hmask |= FD_ACCEPT;
-        }
+        if (event & (POLLERR|POLLHUP))
+            error = sock_error( fd );
     }
     else
     {
@@ -388,61 +429,31 @@ static void sock_poll_event( struct fd *fd, int event )
                    call and the invocation of this routine */
                 if ( errno != EAGAIN )
                 {
+                    error = errno;
+                    event |= POLLERR;
                     if ( debug_level )
                         fprintf( stderr, "recv error on socket %p: %d\n", sock, errno );
-                    event |= POLLERR;
                 }
             }
         }
 
-        if ( event & POLLIN )
-        {
-            sock->pmask |= FD_READ;
-            sock->hmask |= FD_READ;
-            sock->errors[FD_READ_BIT] = 0;
-            if (debug_level)
-                fprintf(stderr, "socket %p is readable\n", sock );
-        }
-
-        if (event & POLLOUT)
-        {
-            sock->pmask |= FD_WRITE;
-            sock->hmask |= FD_WRITE;
-            sock->errors[FD_WRITE_BIT] = 0;
-            if (debug_level)
-                fprintf(stderr, "socket %p is writable\n", sock);
-        }
-        if (event & POLLPRI)
-        {
-            sock->pmask |= FD_OOB;
-            sock->hmask |= FD_OOB;
-            sock->errors[FD_OOB_BIT] = 0;
-            if (debug_level)
-                fprintf(stderr, "socket %p got OOB data\n", sock);
-        }
-
         if ( (hangup_seen || event & (POLLHUP|POLLERR)) && (sock->state & (FD_READ|FD_WRITE)) )
         {
-            sock->errors[FD_CLOSE_BIT] = sock_error( fd );
+            error = error ? error : sock_error( fd );
             if ( (event & POLLERR) || ( sock_shutdown_type == SOCK_SHUTDOWN_EOF && (event & POLLHUP) ))
                 sock->state &= ~FD_WRITE;
             sock->state &= ~FD_READ;
 
-            sock->pmask |= FD_CLOSE;
-            sock->hmask |= FD_CLOSE;
             if (debug_level)
-                fprintf(stderr, "socket %p aborted by error %d, event: %x - removing from select loop\n",
-                        sock, sock->errors[FD_CLOSE_BIT], event);
+                fprintf(stderr, "socket %p aborted by error %d, event: %x\n", sock, error, event);
         }
 
         if (hangup_seen)
             event |= POLLHUP;
     }
 
-    sock_dispatch_asyncs( sock, event );
-
-    /* wake up anyone waiting for whatever just happened */
-    sock_wake_up( sock );
+    event = sock_dispatch_asyncs( sock, event, error );
+    sock_dispatch_events( sock, prevstate, event, error );
 
     /* if anyone is stupid enough to wait on the socket object itself,
      * maybe we should wake them up too, just in case? */
@@ -950,7 +961,9 @@ DECL_HANDLER(enable_socket_event)
                                                FILE_WRITE_ATTRIBUTES, &sock_ops)))
         return;
 
-    sock->pmask &= ~req->mask; /* is this safe? */
+    /* for event-based notification, windows erases stale events */
+    sock->pmask &= ~req->mask;
+
     sock->hmask &= ~req->mask;
     sock->state |= req->sstate;
     sock->state &= ~req->cstate;
