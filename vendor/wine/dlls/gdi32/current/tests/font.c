@@ -44,6 +44,8 @@ DWORD (WINAPI *pGetGlyphIndicesA)(HDC hdc, LPCSTR lpstr, INT count, LPWORD pgi, 
 DWORD (WINAPI *pGetGlyphIndicesW)(HDC hdc, LPCWSTR lpstr, INT count, LPWORD pgi, DWORD flags);
 BOOL  (WINAPI *pGdiRealizationInfo)(HDC hdc, DWORD *);
 HFONT (WINAPI *pCreateFontIndirectExA)(const ENUMLOGFONTEXDV *);
+HANDLE (WINAPI *pAddFontMemResourceEx)(PVOID, DWORD, PVOID, DWORD *);
+BOOL  (WINAPI *pRemoveFontMemResourceEx)(HANDLE);
 
 static HMODULE hgdi32 = 0;
 
@@ -59,6 +61,8 @@ static void init(void)
     pGetGlyphIndicesW = (void *)GetProcAddress(hgdi32, "GetGlyphIndicesW");
     pGdiRealizationInfo = (void *)GetProcAddress(hgdi32, "GdiRealizationInfo");
     pCreateFontIndirectExA = (void *)GetProcAddress(hgdi32, "CreateFontIndirectExA");
+    pAddFontMemResourceEx = (void *)GetProcAddress(hgdi32, "AddFontMemResourceEx");
+    pRemoveFontMemResourceEx = (void *)GetProcAddress(hgdi32, "RemoveFontMemResourceEx");
 }
 
 static INT CALLBACK is_truetype_font_installed_proc(const LOGFONT *elf, const TEXTMETRIC *ntm, DWORD type, LPARAM lParam)
@@ -3142,6 +3146,162 @@ static void test_CreateFontIndirectEx(void)
     DeleteObject(hfont);
 }
 
+static void free_font(void *font)
+{
+    UnmapViewOfFile(font);
+}
+
+static void *load_font(const char *font_name, DWORD *font_size)
+{
+    char file_name[MAX_PATH];
+    HANDLE file, mapping;
+    void *font;
+
+    if (!GetWindowsDirectory(file_name, sizeof(file_name))) return NULL;
+    strcat(file_name, "\\fonts\\");
+    strcat(file_name, font_name);
+
+    file = CreateFile(file_name, GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, 0);
+    if (file == INVALID_HANDLE_VALUE) return NULL;
+
+    *font_size = GetFileSize(file, NULL);
+
+    mapping = CreateFileMapping(file, NULL, PAGE_READONLY, 0, 0, NULL);
+    if (!mapping)
+    {
+        CloseHandle(file);
+        return NULL;
+    }
+
+    font = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
+
+    CloseHandle(file);
+    CloseHandle(mapping);
+    return font;
+}
+
+static void test_AddFontMemResource(void)
+{
+    void *font;
+    DWORD font_size, num_fonts;
+    HANDLE ret;
+    DEVMODEA dmA;
+    BOOL is_winxp;
+
+    if (!pAddFontMemResourceEx || !pRemoveFontMemResourceEx)
+    {
+        win_skip("AddFontMemResourceEx is not available on this platform\n");
+        return;
+    }
+
+    font = load_font("sserife.fon", &font_size);
+    if (!font)
+    {
+        skip("Unable to locate and load font sserife.fon\n");
+        return;
+    }
+
+    is_winxp = EnumDisplaySettingsA(NULL, ENUM_CURRENT_SETTINGS, &dmA) &&
+               (dmA.dmFields & DM_DISPLAYORIENTATION);
+
+    if (is_winxp)
+    {
+        SetLastError(0xdeadbeef);
+        ret = pAddFontMemResourceEx(NULL, 0, NULL, NULL);
+        ok(!ret, "AddFontMemResourceEx should fail\n");
+        ok(GetLastError() == ERROR_INVALID_PARAMETER,
+           "Expected GetLastError() to return ERROR_INVALID_PARAMETER, got %u\n",
+           GetLastError());
+
+        SetLastError(0xdeadbeef);
+        ret = pAddFontMemResourceEx(NULL, 10, NULL, NULL);
+        ok(!ret, "AddFontMemResourceEx should fail\n");
+        ok(GetLastError() == ERROR_INVALID_PARAMETER,
+           "Expected GetLastError() to return ERROR_INVALID_PARAMETER, got %u\n",
+           GetLastError());
+
+        SetLastError(0xdeadbeef);
+        ret = pAddFontMemResourceEx(NULL, 0, NULL, &num_fonts);
+        ok(!ret, "AddFontMemResourceEx should fail\n");
+        ok(GetLastError() == ERROR_INVALID_PARAMETER,
+           "Expected GetLastError() to return ERROR_INVALID_PARAMETER, got %u\n",
+           GetLastError());
+
+        SetLastError(0xdeadbeef);
+        ret = pAddFontMemResourceEx(NULL, 10, NULL, &num_fonts);
+        ok(!ret, "AddFontMemResourceEx should fail\n");
+        ok(GetLastError() == ERROR_INVALID_PARAMETER,
+           "Expected GetLastError() to return ERROR_INVALID_PARAMETER, got %u\n",
+           GetLastError());
+
+        SetLastError(0xdeadbeef);
+        ret = pAddFontMemResourceEx(font, 0, NULL, NULL);
+        ok(!ret, "AddFontMemResourceEx should fail\n");
+        ok(GetLastError() == ERROR_INVALID_PARAMETER,
+           "Expected GetLastError() to return ERROR_INVALID_PARAMETER, got %u\n",
+           GetLastError());
+
+        SetLastError(0xdeadbeef);
+        ret = pAddFontMemResourceEx(font, 10, NULL, NULL);
+        ok(!ret, "AddFontMemResourceEx should fail\n");
+        ok(GetLastError() == ERROR_INVALID_PARAMETER,
+           "Expected GetLastError() to return ERROR_INVALID_PARAMETER, got %u\n",
+           GetLastError());
+
+        num_fonts = 0xdeadbeef;
+        SetLastError(0xdeadbeef);
+        ret = pAddFontMemResourceEx(font, 0, NULL, &num_fonts);
+        ok(!ret, "AddFontMemResourceEx should fail\n");
+        ok(GetLastError() == ERROR_INVALID_PARAMETER,
+           "Expected GetLastError() to return ERROR_INVALID_PARAMETER, got %u\n",
+           GetLastError());
+        ok(num_fonts == 0xdeadbeef, "number of loaded fonts should be 0xdeadbeef\n");
+
+        num_fonts = 0xdeadbeef;
+        SetLastError(0xdeadbeef);
+        ret = pAddFontMemResourceEx(font, 10, NULL, &num_fonts);
+        ok(!ret, "AddFontMemResourceEx should fail\n");
+        ok(GetLastError() == 0xdeadbeef,
+           "Expected GetLastError() to return 0xdeadbeef, got %u\n",
+           GetLastError());
+        ok(num_fonts == 0xdeadbeef, "number of loaded fonts should be 0xdeadbeef\n");
+    }
+    else
+        win_skip("AddFontMemResourceEx invalid parameter tests are problematic on Win2k\n");
+
+    num_fonts = 0xdeadbeef;
+    SetLastError(0xdeadbeef);
+    ret = pAddFontMemResourceEx(font, font_size, NULL, &num_fonts);
+    ok(ret != 0, "AddFontMemResourceEx error %d\n", GetLastError());
+    ok(num_fonts != 0xdeadbeef, "number of loaded fonts should not be 0xdeadbeef\n");
+    ok(num_fonts != 0, "number of loaded fonts should not be 0\n");
+
+    free_font(font);
+
+    SetLastError(0xdeadbeef);
+    ok(pRemoveFontMemResourceEx(ret), "RemoveFontMemResourceEx error %d\n", GetLastError());
+
+    /* test invalid pointer to number of loaded fonts */
+    font = load_font("sserife.fon", &font_size);
+    ok(font != NULL, "Unable to locate and load font sserife.fon\n");
+
+    SetLastError(0xdeadbeef);
+    ret = pAddFontMemResourceEx(font, font_size, NULL, (void *)0xdeadbeef);
+    ok(!ret, "AddFontMemResourceEx should fail\n");
+    ok(GetLastError() == 0xdeadbeef,
+       "Expected GetLastError() to return 0xdeadbeef, got %u\n",
+       GetLastError());
+
+    SetLastError(0xdeadbeef);
+    ret = pAddFontMemResourceEx(font, font_size, NULL, NULL);
+    ok(!ret, "AddFontMemResourceEx should fail\n");
+    ok(GetLastError() == ERROR_INVALID_PARAMETER,
+       "Expected GetLastError() to return ERROR_INVALID_PARAMETER, got %u\n",
+       GetLastError());
+
+    free_font(font);
+}
+
 START_TEST(font)
 {
     init();
@@ -3162,6 +3322,7 @@ START_TEST(font)
     test_nonexistent_font();
     test_orientation();
     test_height_selection();
+    test_AddFontMemResource();
 
     /* On Windows Arial has a lot of default charset aliases such as Arial Cyr,
      * I'd like to avoid them in this test.
