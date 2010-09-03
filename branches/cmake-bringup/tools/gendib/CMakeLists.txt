@@ -1,3 +1,2 @@
 
-file(GLOB_RECURSE SOURCE "*.c")
-add_executable(gendib ${SOURCE})
+add_executable(gendib gendib.c)
