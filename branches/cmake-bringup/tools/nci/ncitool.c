@@ -86,6 +86,18 @@
                             "        call [ecx]\n" \
                             "        ret %xh\n" \
                             "    }\n"
+
+#define UserModeStub_amd64  "    mov eax, %xh\n" \
+                            "    mov r10, rcx\n" \
+                            "    syscall\n" \
+                            "    ret %xh\n\n"
+
+#define UserModeStub_ppc    "    \n"
+
+#define UserModeStub_mips   "    \n"
+
+#define UserModeStub_arm    "    \n"
+
 #else
 #error Unknown compiler for inline assembler
 #endif
@@ -125,6 +137,17 @@
                             "        call _KiSystemService\n" \
                             "        ret %xh\n" \
                             "    }\n"
+
+#define KernelModeStub_amd64 "   mov eax, %xh\n" \
+                            "    call KiSystemService\n" \
+                            "    ret %xh\n\n"
+
+#define KernelModeStub_ppc  "    \n"
+
+#define KernelModeStub_mips "    \n"
+
+#define KernelModeStub_arm  "    \n"
+
 #else
 #error Unknown compiler for inline assembler
 #endif
@@ -670,7 +693,7 @@ void usage(char * argv0)
 
 int main(int argc, char* argv[])
 {
-    FILE * Files[Arguments] = { };
+    FILE * Files[Arguments] = {0};
     int FileNumber, ArgOffset = 1;
     char * OpenType = "r";
 
