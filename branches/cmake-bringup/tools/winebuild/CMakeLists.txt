@@ -1,8 +1,4 @@
 
-add_definitions(-DEXEEXT=".exe")
-add_definitions(-Dpclose=_pclose)
-add_definitions(-Dpopen=_popen)
-
 list(APPEND SOURCE
     import.c
     main.c
@@ -16,6 +12,11 @@ list(APPEND SOURCE
     utils.c
 )
 
+add_definitions(-DEXEEXT=".exe")
+if(NOT UNIX)
+add_definitions(-Dpclose=_pclose)
+add_definitions(-Dpopen=_popen)
+endif()
 if(MSVC)
     list(APPEND SOURCE getopt.c)
     include_directories(include)
