@@ -18,7 +18,7 @@ add_definitions(-Dpclose=_pclose)
 add_definitions(-Dpopen=_popen)
 endif()
 if(MSVC)
-    list(APPEND SOURCE getopt.c)
+    list(APPEND SOURCE getopt.c getpid.c)
     include_directories(include)
 endif()
 
