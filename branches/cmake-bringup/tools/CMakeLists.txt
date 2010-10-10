@@ -1,4 +1,4 @@
-add_library(xml xml.cpp ssprintf.cpp)
+add_library(xml xml.cpp)
 
 add_executable(bin2c bin2c.c)
 #add_executable(pefixup pefixup.c)
