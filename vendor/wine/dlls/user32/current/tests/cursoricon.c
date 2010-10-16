@@ -65,6 +65,10 @@ static HANDLE child_process;
 #define PROC_INIT (WM_USER+1)
 
 static BOOL (WINAPI *pGetCursorInfo)(CURSORINFO *);
+static BOOL (WINAPI *pGetIconInfoExA)(HICON,ICONINFOEXA *);
+static BOOL (WINAPI *pGetIconInfoExW)(HICON,ICONINFOEXW *);
+
+static const int is_win64 = (sizeof(void *) > sizeof(int));
 
 static LRESULT CALLBACK callback_child(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -78,7 +82,7 @@ static LRESULT CALLBACK callback_child(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             SetLastError(0xdeadbeef);
             ret = DestroyCursor((HCURSOR) lParam);
             error = GetLastError();
-            todo_wine ok(!ret || broken(ret) /* win9x */, "DestroyCursor on the active cursor succeeded.\n");
+            ok(!ret || broken(ret) /* win9x */, "DestroyCursor on the active cursor succeeded.\n");
             ok(error == ERROR_DESTROY_OBJECT_OF_OTHER_THREAD ||
                error == 0xdeadbeef,  /* vista */
                 "Last error: %u\n", error);
@@ -504,6 +508,37 @@ static void test_icon_info_dbg(HICON hIcon, UINT exp_cx, UINT exp_cy, UINT exp_b
         ok_(__FILE__, line)(bmMask.bmWidth == exp_cx, "bmMask.bmWidth = %d\n", bmMask.bmWidth);
         ok_(__FILE__, line)(bmMask.bmHeight == exp_cy * 2, "bmMask.bmHeight = %d\n", bmMask.bmHeight);
     }
+    if (pGetIconInfoExA)
+    {
+        ICONINFOEXA infoex;
+
+        memset( &infoex, 0xcc, sizeof(infoex) );
+        SetLastError( 0xdeadbeef );
+        infoex.cbSize = sizeof(infoex) - 1;
+        ret = pGetIconInfoExA( hIcon, &infoex );
+        ok_(__FILE__, line)(!ret, "GetIconInfoEx succeeded\n");
+        ok_(__FILE__, line)(GetLastError() == ERROR_INVALID_PARAMETER, "wrong error %d\n", GetLastError());
+
+        SetLastError( 0xdeadbeef );
+        infoex.cbSize = sizeof(infoex) + 1;
+        ret = pGetIconInfoExA( hIcon, &infoex );
+        ok_(__FILE__, line)(!ret, "GetIconInfoEx succeeded\n");
+        ok_(__FILE__, line)(GetLastError() == ERROR_INVALID_PARAMETER, "wrong error %d\n", GetLastError());
+
+        SetLastError( 0xdeadbeef );
+        infoex.cbSize = sizeof(infoex);
+        ret = pGetIconInfoExA( (HICON)0xdeadbabe, &infoex );
+        ok_(__FILE__, line)(!ret, "GetIconInfoEx succeeded\n");
+        ok_(__FILE__, line)(GetLastError() == ERROR_INVALID_CURSOR_HANDLE,
+                            "wrong error %d\n", GetLastError());
+
+        infoex.cbSize = sizeof(infoex);
+        ret = pGetIconInfoExA( hIcon, &infoex );
+        ok_(__FILE__, line)(ret, "GetIconInfoEx failed err %d\n", GetLastError());
+        ok_(__FILE__, line)(infoex.wResID == 0, "GetIconInfoEx wrong resid %x\n", infoex.wResID);
+        ok_(__FILE__, line)(infoex.szModName[0] == 0, "GetIconInfoEx wrong module %s\n", infoex.szModName);
+        ok_(__FILE__, line)(infoex.szResName[0] == 0, "GetIconInfoEx wrong name %s\n", infoex.szResName);
+    }
 }
 
 #define test_icon_info(a,b,c,d) test_icon_info_dbg((a),(b),(c),(d),__LINE__)
@@ -889,6 +924,18 @@ static void test_LoadImage(void)
         ok(icon_info.hbmMask != NULL, "No hbmMask!\n");
     }
 
+    if (pGetIconInfoExA)
+    {
+        ICONINFOEXA infoex;
+        infoex.cbSize = sizeof(infoex);
+        ret = pGetIconInfoExA( handle, &infoex );
+        ok( ret, "GetIconInfoEx failed err %d\n", GetLastError() );
+        ok( infoex.wResID == 0, "GetIconInfoEx wrong resid %x\n", infoex.wResID );
+        ok( infoex.szModName[0] == 0, "GetIconInfoEx wrong module %s\n", infoex.szModName );
+        ok( infoex.szResName[0] == 0, "GetIconInfoEx wrong name %s\n", infoex.szResName );
+    }
+    else win_skip( "GetIconInfoEx not available\n" );
+
     /* Clean up. */
     SetLastError(0xdeadbeef);
     ret = DestroyCursor(handle);
@@ -898,6 +945,35 @@ static void test_LoadImage(void)
 
     HeapFree(GetProcessHeap(), 0, icon_data);
     DeleteFileA("icon.ico");
+
+    /* Test a system icon */
+    handle = LoadIcon( 0, IDI_HAND );
+    ok(handle != NULL, "LoadImage() failed.\n");
+    if (pGetIconInfoExA)
+    {
+        ICONINFOEXA infoexA;
+        ICONINFOEXW infoexW;
+        infoexA.cbSize = sizeof(infoexA);
+        ret = pGetIconInfoExA( handle, &infoexA );
+        ok( ret, "GetIconInfoEx failed err %d\n", GetLastError() );
+        ok( infoexA.wResID == (UINT_PTR)IDI_HAND, "GetIconInfoEx wrong resid %x\n", infoexA.wResID );
+        /* the A version is broken on 64-bit, it truncates the string after the first char */
+        if (is_win64 && infoexA.szModName[0] && infoexA.szModName[1] == 0)
+            trace( "GetIconInfoExA broken on Win64\n" );
+        else
+            ok( GetModuleHandleA(infoexA.szModName) == GetModuleHandleA("user32.dll"),
+                "GetIconInfoEx wrong module %s\n", infoexA.szModName );
+        ok( infoexA.szResName[0] == 0, "GetIconInfoEx wrong name %s\n", infoexA.szResName );
+        infoexW.cbSize = sizeof(infoexW);
+        ret = pGetIconInfoExW( handle, &infoexW );
+        ok( ret, "GetIconInfoEx failed err %d\n", GetLastError() );
+        ok( infoexW.wResID == (UINT_PTR)IDI_HAND, "GetIconInfoEx wrong resid %x\n", infoexW.wResID );
+        ok( GetModuleHandleW(infoexW.szModName) == GetModuleHandleA("user32.dll"),
+            "GetIconInfoEx wrong module %s\n", wine_dbgstr_w(infoexW.szModName) );
+        ok( infoexW.szResName[0] == 0, "GetIconInfoEx wrong name %s\n", wine_dbgstr_w(infoexW.szResName) );
+    }
+    SetLastError(0xdeadbeef);
+    DestroyIcon(handle);
 
     test_LoadImageFile("BMP", bmpimage, sizeof(bmpimage), "bmp", 1);
     test_LoadImageFile("BMP (coreinfo)", bmpcoreimage, sizeof(bmpcoreimage), "bmp", 1);
@@ -966,6 +1042,17 @@ static void test_CreateIconFromResource(void)
         ok(icon_info.hbmColor != NULL || broken(!icon_info.hbmColor) /* no color cursor support */,
            "No hbmColor!\n");
         ok(icon_info.hbmMask != NULL, "No hbmMask!\n");
+    }
+
+    if (pGetIconInfoExA)
+    {
+        ICONINFOEXA infoex;
+        infoex.cbSize = sizeof(infoex);
+        ret = pGetIconInfoExA( handle, &infoex );
+        ok( ret, "GetIconInfoEx failed err %d\n", GetLastError() );
+        ok( infoex.wResID == 0, "GetIconInfoEx wrong resid %x\n", infoex.wResID );
+        ok( infoex.szModName[0] == 0, "GetIconInfoEx wrong module %s\n", infoex.szModName );
+        ok( infoex.szResName[0] == 0, "GetIconInfoEx wrong name %s\n", infoex.szResName );
     }
 
     /* Clean up. */
@@ -1644,8 +1731,8 @@ static void test_ShowCursor(void)
 static void test_DestroyCursor(void)
 {
     static const BYTE bmp_bits[4096];
-    ICONINFO cursorInfo;
-    HCURSOR cursor, cursor2;
+    ICONINFO cursorInfo, new_info;
+    HCURSOR cursor, cursor2, new_cursor;
     BOOL ret;
     DWORD error;
     UINT display_bpp;
@@ -1673,23 +1760,85 @@ static void test_DestroyCursor(void)
     ok(!ret || broken(ret)  /* succeeds on win9x */, "DestroyCursor on the active cursor succeeded\n");
     error = GetLastError();
     ok(error == 0xdeadbeef, "Last error: %u\n", error);
-    if (!ret)
-    {
-        cursor2 = GetCursor();
-        ok(cursor2 == cursor, "Active was set to %p when trying to destroy it\n", cursor2);
-        SetCursor(NULL);
 
-        /* Trying to destroy the cursor properly fails now with
-         * ERROR_INVALID_CURSOR_HANDLE.  This happens because we called
-         * DestroyCursor() 2+ times after calling SetCursor().  The calls to
-         * GetCursor() and SetCursor(NULL) in between make no difference. */
+    new_cursor = GetCursor();
+    if (ret)  /* win9x replaces cursor by another one on destroy */
+        ok(new_cursor != cursor, "GetCursor returned %p/%p\n", new_cursor, cursor);
+    else
+        ok(new_cursor == cursor, "GetCursor returned %p/%p\n", new_cursor, cursor);
+
+    SetLastError(0xdeadbeef);
+    ret = GetIconInfo( cursor, &new_info );
+    ok( !ret || broken(ret), /* nt4 */ "GetIconInfo succeeded\n" );
+    ok( GetLastError() == ERROR_INVALID_CURSOR_HANDLE ||
+        broken(GetLastError() == 0xdeadbeef), /* win9x */
+        "wrong error %u\n", GetLastError() );
+
+    if (ret)  /* nt4 delays destruction until cursor changes */
+    {
+        DeleteObject( new_info.hbmColor );
+        DeleteObject( new_info.hbmMask );
+
         SetLastError(0xdeadbeef);
-        ret = DestroyCursor(cursor);
-        todo_wine ok(!ret, "DestroyCursor succeeded.\n");
-        error = GetLastError();
-        ok(error == ERROR_INVALID_CURSOR_HANDLE || error == 0xdeadbeef, /* vista */
-           "Last error: 0x%08x\n", error);
+        ret = DestroyCursor( cursor );
+        ok( !ret, "DestroyCursor succeeded\n" );
+        ok( GetLastError() == ERROR_INVALID_CURSOR_HANDLE || GetLastError() == 0xdeadbeef,
+            "wrong error %u\n", GetLastError() );
+
+        SetLastError(0xdeadbeef);
+        cursor2 = SetCursor( cursor );
+        ok( cursor2 == cursor, "SetCursor returned %p/%p\n", cursor2, cursor);
+        ok( GetLastError() == ERROR_INVALID_CURSOR_HANDLE || GetLastError() == 0xdeadbeef,
+            "wrong error %u\n", GetLastError() );
     }
+    else
+    {
+        SetLastError(0xdeadbeef);
+        cursor2 = CopyCursor( cursor );
+        ok(!cursor2, "CopyCursor succeeded\n" );
+        ok( GetLastError() == ERROR_INVALID_CURSOR_HANDLE ||
+            broken(GetLastError() == 0xdeadbeef), /* win9x */
+            "wrong error %u\n", GetLastError() );
+
+        SetLastError(0xdeadbeef);
+        ret = DestroyCursor( cursor );
+        if (new_cursor != cursor)  /* win9x */
+            ok( ret, "DestroyCursor succeeded\n" );
+        else
+            ok( !ret, "DestroyCursor succeeded\n" );
+        ok( GetLastError() == ERROR_INVALID_CURSOR_HANDLE || GetLastError() == 0xdeadbeef,
+            "wrong error %u\n", GetLastError() );
+
+        SetLastError(0xdeadbeef);
+        cursor2 = SetCursor( cursor );
+        ok(!cursor2, "SetCursor returned %p/%p\n", cursor2, cursor);
+        ok( GetLastError() == ERROR_INVALID_CURSOR_HANDLE || GetLastError() == 0xdeadbeef,
+            "wrong error %u\n", GetLastError() );
+    }
+
+    cursor2 = GetCursor();
+    ok(cursor2 == new_cursor, "GetCursor returned %p/%p\n", cursor2, new_cursor);
+
+    SetLastError(0xdeadbeef);
+    cursor2 = SetCursor( 0 );
+    if (new_cursor != cursor)  /* win9x */
+        ok(cursor2 == new_cursor, "SetCursor returned %p/%p\n", cursor2, cursor);
+    else
+        ok(!cursor2, "SetCursor returned %p/%p\n", cursor2, cursor);
+    ok( GetLastError() == 0xdeadbeef, "wrong error %u\n", GetLastError() );
+
+    cursor2 = GetCursor();
+    ok(!cursor2, "GetCursor returned %p/%p\n", cursor2, cursor);
+
+    SetLastError(0xdeadbeef);
+    ret = DestroyCursor(cursor);
+    if (new_cursor != cursor)  /* win9x */
+        ok( ret, "DestroyCursor succeeded\n" );
+    else
+        ok( !ret, "DestroyCursor succeeded\n" );
+    error = GetLastError();
+    ok( GetLastError() == ERROR_INVALID_CURSOR_HANDLE || GetLastError() == 0xdeadbeef,
+        "wrong error %u\n", GetLastError() );
 
     DeleteObject(cursorInfo.hbmMask);
     DeleteObject(cursorInfo.hbmColor);
@@ -1721,6 +1870,8 @@ static void test_DestroyCursor(void)
 START_TEST(cursoricon)
 {
     pGetCursorInfo = (void *)GetProcAddress( GetModuleHandleA("user32.dll"), "GetCursorInfo" );
+    pGetIconInfoExA = (void *)GetProcAddress( GetModuleHandleA("user32.dll"), "GetIconInfoExA" );
+    pGetIconInfoExW = (void *)GetProcAddress( GetModuleHandleA("user32.dll"), "GetIconInfoExW" );
     test_argc = winetest_get_mainargs(&test_argv);
 
     if (test_argc >= 3)

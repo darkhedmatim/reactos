@@ -63,6 +63,8 @@ static const unsigned int supported_cpus = CPU_FLAG(CPU_ALPHA);
 static const unsigned int supported_cpus = CPU_FLAG(CPU_POWERPC);
 #elif defined(__sparc__)
 static const unsigned int supported_cpus = CPU_FLAG(CPU_SPARC);
+#elif defined(__arm__)
+static const unsigned int supported_cpus = CPU_FLAG(CPU_ARM);
 #else
 #error Unsupported CPU
 #endif
@@ -1000,6 +1002,7 @@ static unsigned int get_context_system_regs( enum cpu_type cpu )
     case CPU_x86_64:  return SERVER_CTX_DEBUG_REGISTERS;
     case CPU_ALPHA:   return 0;
     case CPU_POWERPC: return 0;
+    case CPU_ARM:     return 0;
     case CPU_SPARC:   return 0;
     }
     return 0;
@@ -1032,6 +1035,9 @@ void break_thread( struct thread *thread )
         break;
     case CPU_SPARC:
         data.exception.address = thread->context->ctl.sparc_regs.pc;
+        break;
+    case CPU_ARM:
+        data.exception.address = thread->context->ctl.arm_regs.pc;
         break;
     }
     generate_debug_event( thread, EXCEPTION_DEBUG_EVENT, &data );
@@ -1102,8 +1108,18 @@ DECL_HANDLER(init_thread)
 {
     unsigned int prefix_cpu_mask = get_prefix_cpu_mask();
     struct process *process = current->process;
-    int reply_fd = thread_get_inflight_fd( current, req->reply_fd );
-    int wait_fd = thread_get_inflight_fd( current, req->wait_fd );
+    int wait_fd, reply_fd;
+
+    if ((reply_fd = thread_get_inflight_fd( current, req->reply_fd )) == -1)
+    {
+        set_error( STATUS_TOO_MANY_OPENED_FILES );
+        return;
+    }
+    if ((wait_fd = thread_get_inflight_fd( current, req->wait_fd )) == -1)
+    {
+        set_error( STATUS_TOO_MANY_OPENED_FILES );
+        goto error;
+    }
 
     if (current->reply_fd)  /* already initialised */
     {
@@ -1111,19 +1127,11 @@ DECL_HANDLER(init_thread)
         goto error;
     }
 
-    if (reply_fd == -1 || fcntl( reply_fd, F_SETFL, O_NONBLOCK ) == -1) goto error;
+    if (fcntl( reply_fd, F_SETFL, O_NONBLOCK ) == -1) goto error;
 
     current->reply_fd = create_anonymous_fd( &thread_fd_ops, reply_fd, &current->obj, 0 );
-    reply_fd = -1;
-    if (!current->reply_fd) goto error;
-
-    if (wait_fd == -1)
-    {
-        set_error( STATUS_TOO_MANY_OPENED_FILES );  /* most likely reason */
-        return;
-    }
-    if (!(current->wait_fd  = create_anonymous_fd( &thread_fd_ops, wait_fd, &current->obj, 0 )))
-        return;
+    current->wait_fd  = create_anonymous_fd( &thread_fd_ops, wait_fd, &current->obj, 0 );
+    if (!current->reply_fd || !current->wait_fd) return;
 
     if (!is_valid_address(req->teb))
     {

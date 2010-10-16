@@ -569,6 +569,14 @@ static void dump_varargs_context( const char *prefix, data_size_t size )
             fprintf( stderr, ",fpscr=%g", ctx.fp.powerpc_regs.fpscr );
         }
         break;
+    case CPU_ARM:
+        if (ctx.flags & SERVER_CTX_CONTROL)
+            fprintf( stderr, ",sp=%08x,lr=%08x,pc=%08x,cpsr=%08x",
+                     ctx.ctl.arm_regs.sp, ctx.ctl.arm_regs.lr,
+                     ctx.ctl.arm_regs.pc, ctx.ctl.arm_regs.cpsr );
+        if (ctx.flags & SERVER_CTX_INTEGER)
+            for (i = 0; i < 13; i++) fprintf( stderr, ",r%u=%08x", i, ctx.integer.arm_regs.r[i] );
+        break;
     case CPU_SPARC:
         if (ctx.flags & SERVER_CTX_CONTROL)
             fprintf( stderr, ",psr=%08x,pc=%08x,npc=%08x,y=%08x,wim=%08x,tbr=%08x",
@@ -1475,7 +1483,7 @@ static void dump_get_handle_fd_request( const struct get_handle_fd_request *req 
 static void dump_get_handle_fd_reply( const struct get_handle_fd_reply *req )
 {
     fprintf( stderr, " type=%d", req->type );
-    fprintf( stderr, ", removable=%d", req->removable );
+    fprintf( stderr, ", cacheable=%d", req->cacheable );
     fprintf( stderr, ", access=%08x", req->access );
     fprintf( stderr, ", options=%08x", req->options );
 }
@@ -1539,6 +1547,12 @@ static void dump_accept_socket_reply( const struct accept_socket_reply *req )
     fprintf( stderr, " handle=%04x", req->handle );
 }
 
+static void dump_accept_into_socket_request( const struct accept_into_socket_request *req )
+{
+    fprintf( stderr, " lhandle=%04x", req->lhandle );
+    fprintf( stderr, ", ahandle=%04x", req->ahandle );
+}
+
 static void dump_set_socket_event_request( const struct set_socket_event_request *req )
 {
     fprintf( stderr, " handle=%04x", req->handle );
@@ -1582,6 +1596,7 @@ static void dump_alloc_console_request( const struct alloc_console_request *req 
     fprintf( stderr, " access=%08x", req->access );
     fprintf( stderr, ", attributes=%08x", req->attributes );
     fprintf( stderr, ", pid=%04x", req->pid );
+    fprintf( stderr, ", input_fd=%d", req->input_fd );
 }
 
 static void dump_alloc_console_reply( const struct alloc_console_reply *req )
@@ -1634,6 +1649,7 @@ static void dump_get_console_mode_request( const struct get_console_mode_request
 static void dump_get_console_mode_reply( const struct get_console_mode_reply *req )
 {
     fprintf( stderr, " mode=%d", req->mode );
+    fprintf( stderr, ", is_bare=%d", req->is_bare );
 }
 
 static void dump_set_console_mode_request( const struct set_console_mode_request *req )
@@ -1697,6 +1713,7 @@ static void dump_create_console_output_request( const struct create_console_outp
     fprintf( stderr, ", access=%08x", req->access );
     fprintf( stderr, ", attributes=%08x", req->attributes );
     fprintf( stderr, ", share=%08x", req->share );
+    fprintf( stderr, ", fd=%d", req->fd );
 }
 
 static void dump_create_console_output_reply( const struct create_console_output_reply *req )
@@ -2786,6 +2803,7 @@ static void dump_set_window_pos_reply( const struct set_window_pos_reply *req )
 static void dump_get_window_rectangles_request( const struct get_window_rectangles_request *req )
 {
     fprintf( stderr, " handle=%08x", req->handle );
+    fprintf( stderr, ", relative=%d", req->relative );
 }
 
 static void dump_get_window_rectangles_reply( const struct get_window_rectangles_reply *req )
@@ -2821,6 +2839,7 @@ static void dump_get_windows_offset_reply( const struct get_windows_offset_reply
 {
     fprintf( stderr, " x=%d", req->x );
     fprintf( stderr, ", y=%d", req->y );
+    fprintf( stderr, ", mirror=%d", req->mirror );
 }
 
 static void dump_get_visible_region_request( const struct get_visible_region_request *req )
@@ -3874,6 +3893,7 @@ static const dump_func req_dumpers[REQ_NB_REQUESTS] = {
     (dump_func)dump_unlock_file_request,
     (dump_func)dump_create_socket_request,
     (dump_func)dump_accept_socket_request,
+    (dump_func)dump_accept_into_socket_request,
     (dump_func)dump_set_socket_event_request,
     (dump_func)dump_get_socket_event_request,
     (dump_func)dump_enable_socket_event_request,
@@ -4120,6 +4140,7 @@ static const dump_func reply_dumpers[REQ_NB_REQUESTS] = {
     (dump_func)dump_create_socket_reply,
     (dump_func)dump_accept_socket_reply,
     NULL,
+    NULL,
     (dump_func)dump_get_socket_event_reply,
     NULL,
     NULL,
@@ -4364,6 +4385,7 @@ static const char * const req_names[REQ_NB_REQUESTS] = {
     "unlock_file",
     "create_socket",
     "accept_socket",
+    "accept_into_socket",
     "set_socket_event",
     "get_socket_event",
     "enable_socket_event",

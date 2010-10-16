@@ -145,7 +145,7 @@ typedef union
 /* supported CPU types */
 enum cpu_type
 {
-    CPU_x86, CPU_x86_64, CPU_ALPHA, CPU_POWERPC, CPU_SPARC
+    CPU_x86, CPU_x86_64, CPU_ALPHA, CPU_POWERPC, CPU_ARM, CPU_SPARC
 };
 typedef int cpu_type_t;
 
@@ -162,6 +162,7 @@ typedef struct
         struct { unsigned __int64 fir;
                  unsigned int psr, __pad; } alpha_regs;
         struct { unsigned int iar, msr, ctr, lr, dar, dsisr, trap, __pad; } powerpc_regs;
+        struct { unsigned int sp, lr, pc, cpsr; } arm_regs;
         struct { unsigned int psr, pc, npc, y, wim, tbr; } sparc_regs;
     } ctl;  /* selected by SERVER_CTX_CONTROL */
     union
@@ -172,6 +173,7 @@ typedef struct
         struct { unsigned __int64 v0, t0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12,
                                   s0, s1, s2, s3, s4, s5, s6, a0, a1, a2, a3, a4, a5, at; } alpha_regs;
         struct { unsigned int gpr[32], cr, xer; } powerpc_regs;
+        struct { unsigned int r[13]; } arm_regs;
         struct { unsigned int g[8], o[8], l[8], i[8]; } sparc_regs;
     } integer;  /* selected by SERVER_CTX_INTEGER */
     union
@@ -1018,7 +1020,7 @@ enum event_op { PULSE_EVENT, SET_EVENT, RESET_EVENT };
     obj_handle_t handle;        /* handle to the file */
 @REPLY
     int          type;          /* file type (see below) */
-    int          removable;     /* is file removable? */
+    int          cacheable;     /* can fd be cached in the client? */
     unsigned int access;        /* file access rights */
     unsigned int options;       /* file open options */
 @END
@@ -1089,6 +1091,13 @@ enum server_fd_type
 @END
 
 
+/* Accept into an initialized socket */
+@REQ(accept_into_socket)
+    obj_handle_t lhandle;       /* handle to the listening socket */
+    obj_handle_t ahandle;       /* handle to the accepting socket */
+@END
+
+
 /* Set socket event parameters */
 @REQ(set_socket_event)
     obj_handle_t  handle;        /* handle to the socket */
@@ -1130,6 +1139,7 @@ enum server_fd_type
     unsigned int access;        /* wanted access rights */
     unsigned int attributes;    /* object attributes */
     process_id_t pid;           /* pid of process which shall be attached to the console */
+    int          input_fd;      /* if pid=-1 (bare console to current process), fd for input */
 @REPLY
     obj_handle_t handle_in;     /* handle to console input */
     obj_handle_t event;         /* handle to renderer events change notification */
@@ -1216,6 +1226,7 @@ struct console_renderer_event
     obj_handle_t handle;        /* handle to the console */
 @REPLY
     int          mode;          /* console mode */
+    int          is_bare;       /* whether the console has an evt_queue */
 @END
 
 
@@ -1287,6 +1298,7 @@ struct console_renderer_event
     unsigned int access;        /* wanted access rights */
     unsigned int attributes;    /* object attributes */
     unsigned int share;         /* sharing credentials */
+    int          fd;            /* for bare consoles, fd the screen-buffer is attached to */
 @REPLY
     obj_handle_t handle_out;    /* handle to the screen buffer */
 @END
@@ -2322,9 +2334,9 @@ enum message_type
     unsigned int   flags;         /* SWP_* flags */
     user_handle_t  handle;        /* handle to the window */
     user_handle_t  previous;      /* previous window in Z order */
-    rectangle_t    window;        /* window rectangle */
-    rectangle_t    client;        /* client rectangle */
-    VARARG(valid,rectangles);     /* valid rectangles from WM_NCCALCSIZE */
+    rectangle_t    window;        /* window rectangle (in parent coords) */
+    rectangle_t    client;        /* client rectangle (in parent coords) */
+    VARARG(valid,rectangles);     /* valid rectangles from WM_NCCALCSIZE (in parent coords) */
 @REPLY
     unsigned int   new_style;     /* new window style */
     unsigned int   new_ex_style;  /* new window extended style */
@@ -2334,11 +2346,19 @@ enum message_type
 /* Get the window and client rectangles of a window */
 @REQ(get_window_rectangles)
     user_handle_t  handle;        /* handle to the window */
+    int            relative;      /* coords relative to (see below) */
 @REPLY
     rectangle_t    window;        /* window rectangle */
     rectangle_t    visible;       /* visible part of the window rectangle */
     rectangle_t    client;        /* client rectangle */
 @END
+enum coords_relative
+{
+    COORDS_CLIENT,   /* relative to client area */
+    COORDS_WINDOW,   /* relative to whole window area */
+    COORDS_PARENT,   /* relative to parent's client area */
+    COORDS_SCREEN    /* relative to screen origin */
+};
 
 
 /* Get the window text */
@@ -2363,6 +2383,7 @@ enum message_type
 @REPLY
     int            x;             /* x coordinate offset */
     int            y;             /* y coordinate offset */
+    int            mirror;        /* whether to mirror the x coordinate */
 @END
 
 
@@ -2384,7 +2405,7 @@ enum message_type
     user_handle_t  window;        /* handle to the window */
 @REPLY
     data_size_t    total_size;    /* total size of the resulting region */
-    VARARG(region,rectangles);    /* list of rectangles for the region */
+    VARARG(region,rectangles);    /* list of rectangles for the region (in window coords) */
 @END
 
 
@@ -2392,7 +2413,7 @@ enum message_type
 @REQ(set_window_region)
     user_handle_t  window;        /* handle to the window */
     int            redraw;        /* redraw the window? */
-    VARARG(region,rectangles);    /* list of rectangles for the region */
+    VARARG(region,rectangles);    /* list of rectangles for the region (in window coords) */
 @END
 
 
@@ -2405,7 +2426,7 @@ enum message_type
     user_handle_t  child;         /* child to repaint (or window itself) */
     unsigned int   flags;         /* resulting update flags (see below) */
     data_size_t    total_size;    /* total size of the resulting region */
-    VARARG(region,rectangles);    /* list of rectangles for the region */
+    VARARG(region,rectangles);    /* list of rectangles for the region (in screen coords) */
 @END
 #define UPDATE_NONCLIENT       0x01  /* get region for repainting non-client area */
 #define UPDATE_ERASE           0x02  /* get region for erasing client area */
@@ -2420,7 +2441,7 @@ enum message_type
 /* Update the z order of a window so that a given rectangle is fully visible */
 @REQ(update_window_zorder)
     user_handle_t  window;        /* handle to the window */
-    rectangle_t    rect;          /* rectangle that must be visible */
+    rectangle_t    rect;          /* rectangle that must be visible (in client coords) */
 @END
 
 
@@ -2428,7 +2449,7 @@ enum message_type
 @REQ(redraw_window)
     user_handle_t  window;        /* handle to the window */
     unsigned int   flags;         /* RDW_* flags */
-    VARARG(region,rectangles);    /* list of rectangles for the region */
+    VARARG(region,rectangles);    /* list of rectangles for the region (in window coords) */
 @END
 
 
