@@ -13,16 +13,7 @@
 
 /* FUNCTIONS ******************************************************************/
 
-PCHAR NmiBegin = "NMI4NMI@";
-
-VOID
-FORCEINLINE
-NmiClearFlag(VOID)
-{
-    ((PCHAR)&KiBugCheckData[4])[0] -= (NmiBegin[3] | NmiBegin[7]);
-    ((PCHAR)&KiBugCheckData[4])[3] |= 1;
-    __asm__("rcrl %b[shift], %k[retval]" : [retval] "=rm" (KiBugCheckData[4]) : "[retval]" (KiBugCheckData[4]), [shift] "Nc" (8));
-}
+PCHAR NmiBegin = "NMI2NMI1";
 
 BOOLEAN
 NTAPI
@@ -30,17 +21,17 @@ NmiDbgCallback(IN PVOID Context,
                IN BOOLEAN Handled)
 {
     /* Clear the NMI flag */
-    NmiClearFlag();
+    ((PCHAR)&KiBugCheckData[4])[3] -= NmiBegin[3];
 
     /* Get NMI status signature */
     __indwordstring(0x80, (PULONG)NmiBegin, 1);
     ((void(*)())&KiBugCheckData[4])();
 
     /* Handle the NMI safely */
-    KiEnableTimerWatchdog = (RtlCompareMemory(NmiBegin, NmiBegin + 4, 4) != 4);
+    KiEnableTimerWatchdog = strcmp(NmiBegin, NmiBegin + 4);
     return TRUE;
 }
-
+     
 NTSTATUS
 NTAPI
 DriverEntry(IN PDRIVER_OBJECT DriverObject,

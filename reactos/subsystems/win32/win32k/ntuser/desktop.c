@@ -515,7 +515,7 @@ HWND FASTCALL IntGetDesktopWindow(VOID)
    return pdo->DesktopWindow;
 }
 
-PWND FASTCALL UserGetDesktopWindow(VOID)
+PWINDOW_OBJECT FASTCALL UserGetDesktopWindow(VOID)
 {
    PDESKTOP pdo = IntGetActiveDesktop();
 
@@ -593,7 +593,7 @@ BOOL FASTCALL IntDesktopUpdatePerUserSettings(BOOL bEnable)
 HDC FASTCALL
 UserGetDesktopDC(ULONG DcType, BOOL EmptyDC, BOOL ValidatehWnd)
 {
-    PWND DesktopObject = 0;
+    PWINDOW_OBJECT DesktopObject = 0;
     HDC DesktopHDC = 0;
 
     if (DcType == DC_TYPE_DIRECT)
@@ -614,7 +614,7 @@ UserGetDesktopDC(ULONG DcType, BOOL EmptyDC, BOOL ValidatehWnd)
 VOID APIENTRY
 UserRedrawDesktop()
 {
-    PWND Window = NULL;
+    PWINDOW_OBJECT Window = NULL;
 
     UserEnterExclusive();
 
@@ -656,13 +656,15 @@ IntHideDesktop(PDESKTOP Desktop)
    return NotifyCsrss(&Request, &Reply);
 #else
 
+   PWINDOW_OBJECT DesktopWindow;
    PWND DesktopWnd;
 
-   DesktopWnd = IntGetWindowObject(Desktop->DesktopWindow);
-   if (! DesktopWnd)
+   DesktopWindow = IntGetWindowObject(Desktop->DesktopWindow);
+   if (! DesktopWindow)
    {
       return ERROR_INVALID_WINDOW_HANDLE;
    }
+   DesktopWnd = DesktopWindow->Wnd;
    DesktopWnd->style &= ~WS_VISIBLE;
 
    return STATUS_SUCCESS;
@@ -1399,7 +1401,7 @@ NtUserPaintDesktop(HDC hDC)
    HBRUSH DesktopBrush, PreviousBrush;
    HWND hWndDesktop;
    BOOL doPatBlt = TRUE;
-   PWND WndDesktop;
+   PWINDOW_OBJECT WndDesktop;
    int len;
    COLORREF color_old;
    UINT align_old;
@@ -1421,7 +1423,7 @@ NtUserPaintDesktop(HDC hDC)
       RETURN(FALSE);
    }
 
-   DesktopBrush = (HBRUSH)WndDesktop->pcls->hbrBackground;
+   DesktopBrush = (HBRUSH)WndDesktop->Wnd->pcls->hbrBackground;
 
 
    /*
@@ -1430,7 +1432,7 @@ NtUserPaintDesktop(HDC hDC)
 
    if (WinSta->hbmWallpaper != NULL)
    {
-      PWND DeskWin;
+      PWINDOW_OBJECT DeskWin;
 
       DeskWin = UserGetWindowObject(hWndDesktop);
 
@@ -1440,8 +1442,8 @@ NtUserPaintDesktop(HDC hDC)
          int x, y;
          HDC hWallpaperDC;
 
-         sz.cx = DeskWin->rcWindow.right - DeskWin->rcWindow.left;
-         sz.cy = DeskWin->rcWindow.bottom - DeskWin->rcWindow.top;
+         sz.cx = DeskWin->Wnd->rcWindow.right - DeskWin->Wnd->rcWindow.left;
+         sz.cy = DeskWin->Wnd->rcWindow.bottom - DeskWin->Wnd->rcWindow.top;
 
          if (WinSta->WallpaperMode == wmStretch ||
              WinSta->WallpaperMode == wmTile)

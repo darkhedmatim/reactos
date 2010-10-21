@@ -17,6 +17,44 @@ extern ATOM AtomWndObj; /* WNDOBJ list */
 
 BOOL FASTCALL UserUpdateUiState(PWND Wnd, WPARAM wParam);
 
+typedef struct _WINDOW_OBJECT
+{
+  THRDESKHEAD head;
+  PWND Wnd;
+
+  /* Pointer to the thread information */
+  PTHREADINFO pti; // Use Wnd->head.pti
+  /* system menu handle. */
+  HMENU SystemMenu;
+  /* Handle for the window. */
+  HWND hSelf; // Use Wnd->head.h
+  /* Window flags. */
+  ULONG state;
+  /* Handle of region of the window to be updated. */
+  HANDLE hrgnUpdate;
+  /* Handle of the window region. */
+  HANDLE hrgnClip;
+  struct _WINDOW_OBJECT* spwndChild;
+  struct _WINDOW_OBJECT* spwndNext;
+  struct _WINDOW_OBJECT* spwndPrev;
+  struct _WINDOW_OBJECT* spwndParent;
+  struct _WINDOW_OBJECT* spwndOwner;
+
+  /* Scrollbar info */
+  PSBINFOEX pSBInfo; // convert to PSBINFO
+  /* Entry in the list of thread windows. */
+  LIST_ENTRY ThreadListEntry;
+} WINDOW_OBJECT; /* PWINDOW_OBJECT already declared at top of file */
+
+/* Window flags. */
+#define WINDOWOBJECT_NEED_SIZE            WNDS_SENDSIZEMOVEMSGS
+#define WINDOWOBJECT_NEED_ERASEBKGND      WNDS_ERASEBACKGROUND
+#define WINDOWOBJECT_NEED_NCPAINT         WNDS_SENDNCPAINT
+#define WINDOWOBJECT_RESTOREMAX           (0x00000020) // Set/Clr WS_MAXIMIZE && Clr/Set WS_EX2_VERTICALLYMAXIMIZEDLEFT/RIGHT
+
+#define WINDOWSTATUS_DESTROYING         WNDS2_INDESTROY
+#define WINDOWSTATUS_DESTROYED          WNDS_DESTROYED
+
 #define HAS_DLGFRAME(Style, ExStyle) \
             (((ExStyle) & WS_EX_DLGMODALFRAME) || \
             (((Style) & WS_DLGFRAME) && (!((Style) & WS_THICKFRAME))))
@@ -36,19 +74,23 @@ BOOL FASTCALL UserUpdateUiState(PWND Wnd, WPARAM wParam);
 
 
 #define IntWndBelongsToThread(WndObj, W32Thread) \
-  ((WndObj->head.pti) && (WndObj->head.pti == W32Thread))
+  (((WndObj->pti->pEThread && WndObj->pti->pEThread->Tcb.Win32Thread)) && \
+   (WndObj->pti->pEThread->Tcb.Win32Thread == W32Thread))
+//  ((WndObj->head.pti) && (WndObj->head.pti == W32Thread))
 
 #define IntGetWndThreadId(WndObj) \
-  WndObj->head.pti->pEThread->Cid.UniqueThread
+  WndObj->pti->pEThread->Cid.UniqueThread
+//  WndObj->head.pti->pEThread->Cid.UniqueThread
 
 #define IntGetWndProcessId(WndObj) \
-  WndObj->head.pti->pEThread->ThreadsProcess->UniqueProcessId
+  WndObj->pti->pEThread->ThreadsProcess->UniqueProcessId
+//  WndObj->head.pti->pEThread->ThreadsProcess->UniqueProcessId
 
 BOOL FASTCALL
 IntIsWindow(HWND hWnd);
 
 HWND* FASTCALL
-IntWinListChildren(PWND Window);
+IntWinListChildren(PWINDOW_OBJECT Window);
 
 NTSTATUS FASTCALL
 InitWindowImpl (VOID);
@@ -57,52 +99,49 @@ NTSTATUS FASTCALL
 CleanupWindowImpl (VOID);
 
 VOID FASTCALL
-IntGetClientRect (PWND WindowObject, RECTL *Rect);
+IntGetClientRect (PWINDOW_OBJECT WindowObject, RECTL *Rect);
 
 HWND FASTCALL
 IntGetActiveWindow (VOID);
 
 BOOL FASTCALL
-IntIsWindowVisible (PWND Window);
+IntIsWindowVisible (PWINDOW_OBJECT Window);
 
 BOOL FASTCALL
-IntIsChildWindow (PWND Parent, PWND Child);
+IntIsChildWindow (PWINDOW_OBJECT Parent, PWINDOW_OBJECT Child);
 
 VOID FASTCALL
-IntUnlinkWindow(PWND Wnd);
+IntUnlinkWindow(PWINDOW_OBJECT Wnd);
 
 VOID FASTCALL
-IntLinkWindow(PWND Wnd, PWND WndPrevSibling);
+IntLinkWindow(PWINDOW_OBJECT Wnd, PWINDOW_OBJECT WndParent, PWINDOW_OBJECT WndPrevSibling);
 
-VOID FASTCALL 
-IntLinkHwnd(PWND Wnd, HWND hWndPrev);
+PWINDOW_OBJECT FASTCALL
+IntGetAncestor(PWINDOW_OBJECT Wnd, UINT Type);
 
-PWND FASTCALL
-IntGetAncestor(PWND Wnd, UINT Type);
-
-PWND FASTCALL
-IntGetParent(PWND Wnd);
+PWINDOW_OBJECT FASTCALL
+IntGetParent(PWINDOW_OBJECT Wnd);
 
 INT FASTCALL
-IntGetWindowRgn(PWND Window, HRGN hRgn);
+IntGetWindowRgn(PWINDOW_OBJECT Window, HRGN hRgn);
 
 INT FASTCALL
-IntGetWindowRgnBox(PWND Window, RECTL *Rect);
+IntGetWindowRgnBox(PWINDOW_OBJECT Window, RECTL *Rect);
 
 BOOL FASTCALL
-IntGetWindowInfo(PWND WindowObject, PWINDOWINFO pwi);
+IntGetWindowInfo(PWINDOW_OBJECT WindowObject, PWINDOWINFO pwi);
 
 VOID FASTCALL
-IntGetWindowBorderMeasures(PWND WindowObject, UINT *cx, UINT *cy);
+IntGetWindowBorderMeasures(PWINDOW_OBJECT WindowObject, UINT *cx, UINT *cy);
 
 BOOL FASTCALL
-IntIsWindowInDestroy(PWND Window);
+IntIsWindowInDestroy(PWINDOW_OBJECT Window);
 
 BOOL FASTCALL
-IntShowOwnedPopups( PWND owner, BOOL fShow );
+IntShowOwnedPopups( PWINDOW_OBJECT owner, BOOL fShow );
 
 LRESULT FASTCALL
-IntDefWindowProc( PWND Window, UINT Msg, WPARAM wParam, LPARAM lParam, BOOL Ansi);
+IntDefWindowProc( PWINDOW_OBJECT Window, UINT Msg, WPARAM wParam, LPARAM lParam, BOOL Ansi);
 
 VOID FASTCALL IntNotifyWinEvent(DWORD, PWND, LONG, LONG);
 

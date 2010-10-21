@@ -48,6 +48,8 @@
 MEMORY_AREA MiStaticMemoryAreas[MI_STATIC_MEMORY_AREAS];
 ULONG MiStaticMemoryAreaCount;
 
+/* #define VALIDATE_MEMORY_AREAS */
+
 /* FUNCTIONS *****************************************************************/
 
 /**
@@ -156,6 +158,56 @@ static PMEMORY_AREA MmIteratePrevNode(PMEMORY_AREA Node)
    return Node;
 }
 
+#ifdef VALIDATE_MEMORY_AREAS
+static VOID MmVerifyMemoryAreas(PMMSUPPORT AddressSpace)
+{
+   PMEMORY_AREA Node;
+
+   ASSERT(AddressSpace != NULL);
+
+   /* Special case for empty tree. */
+   if (AddressSpace->WorkingSetExpansionLinks.Flink == NULL)
+      return;
+
+   /* Traverse the tree from left to right. */
+   for (Node = MmIterateFirstNode(AddressSpace->WorkingSetExpansionLinks.Flink);
+        Node != NULL;
+        Node = MmIterateNextNode(Node))
+   {
+      /* FiN: The starting address can be NULL if someone explicitely asks
+       * for NULL address. */
+      ASSERT(Node->StartingAddress == NULL);
+      ASSERT(Node->EndingAddress >= Node->StartingAddress);
+   }
+}
+#else
+#define MmVerifyMemoryAreas(x)
+#endif
+
+VOID NTAPI
+MmDumpMemoryAreas(PMMSUPPORT AddressSpace)
+{
+   PMEMORY_AREA Node;
+
+   DbgPrint("MmDumpMemoryAreas()\n");
+
+   /* Special case for empty tree. */
+   if (AddressSpace->WorkingSetExpansionLinks.Flink == NULL)
+      return;
+
+   /* Traverse the tree from left to right. */
+   for (Node = MmIterateFirstNode((PMEMORY_AREA)AddressSpace->WorkingSetExpansionLinks.Flink);
+        Node != NULL;
+        Node = MmIterateNextNode(Node))
+   {
+      DbgPrint("Start %p End %p Protect %x Flags %x\n",
+               Node->StartingAddress, Node->EndingAddress,
+               Node->Protect, Node->Flags);
+   }
+
+   DbgPrint("Finished MmDumpMemoryAreas()\n");
+}
+
 PMEMORY_AREA NTAPI
 MmLocateMemoryAreaByAddress(
    PMMSUPPORT AddressSpace,
@@ -165,6 +217,8 @@ MmLocateMemoryAreaByAddress(
 
    DPRINT("MmLocateMemoryAreaByAddress(AddressSpace %p, Address %p)\n",
            AddressSpace, Address);
+
+   MmVerifyMemoryAreas(AddressSpace);
 
    while (Node != NULL)
    {
@@ -192,6 +246,8 @@ MmLocateMemoryAreaByRegion(
 {
    PMEMORY_AREA Node;
    PVOID Extent = (PVOID)((ULONG_PTR)Address + Length);
+
+   MmVerifyMemoryAreas(AddressSpace);
 
    /* Special case for empty tree. */
    if (AddressSpace->WorkingSetExpansionLinks.Flink == NULL)
@@ -351,17 +407,6 @@ MmRebalanceTree(
    }
 }
 
-VOID
-NTAPI
-MiInsertVad(IN PMMVAD Vad,
-IN PEPROCESS Process);
-
-ULONG
-NTAPI
-MiMakeProtectionMask(
-    IN ULONG Protect
-);
-
 static VOID
 MmInsertMemoryArea(
    PMMSUPPORT AddressSpace,
@@ -371,38 +416,7 @@ MmInsertMemoryArea(
    PMEMORY_AREA PreviousNode;
    ULONG Depth = 0;
 
-   /* Build a lame VAD if this is a user-space allocation */
-   if ((marea->EndingAddress < MmSystemRangeStart) && (marea->Type != MEMORY_AREA_OWNED_BY_ARM3))
-   {
-       ASSERT(marea->Type == MEMORY_AREA_VIRTUAL_MEMORY || marea->Type == MEMORY_AREA_SECTION_VIEW);
-       PMMVAD Vad;
-       Vad = ExAllocatePoolWithTag(NonPagedPool, sizeof(MMVAD), 'Fake');
-       ASSERT(Vad);
-       RtlZeroMemory(Vad, sizeof(MMVAD));
-       Vad->StartingVpn = PAGE_ROUND_DOWN(marea->StartingAddress) >> PAGE_SHIFT;
-       /*
-        * For some strange reason, it is perfectly valid to create a MAREA from 0x1000 to... 0x1000.
-        * In a normal OS/Memory Manager, this would be retarded, but ReactOS allows this (how it works
-        * I don't even want to know).
-        */
-        if (marea->EndingAddress != marea->StartingAddress)
-        {
-            Vad->EndingVpn = PAGE_ROUND_DOWN((ULONG_PTR)marea->EndingAddress - 1) >> PAGE_SHIFT;
-        }
-        else
-        {
-            Vad->EndingVpn = Vad->StartingVpn;
-        }
-       Vad->u.VadFlags.Spare = 1;
-       Vad->u.VadFlags.PrivateMemory = 1;
-       Vad->u.VadFlags.Protection = MiMakeProtectionMask(marea->Protect);
-       MiInsertVad(Vad, MmGetAddressSpaceOwner(AddressSpace));
-       marea->Vad = Vad;
-   }
-   else
-   {
-       marea->Vad = NULL;
-   }
+   MmVerifyMemoryAreas(AddressSpace);
 
    if (AddressSpace->WorkingSetExpansionLinks.Flink == NULL)
    {
@@ -462,6 +476,8 @@ MmFindGapBottomUp(
    PMEMORY_AREA Node;
    PMEMORY_AREA FirstNode;
    PMEMORY_AREA PreviousNode;
+
+   MmVerifyMemoryAreas(AddressSpace);
 
    DPRINT("LowestAddress: %p HighestAddress: %p\n",
           LowestAddress, HighestAddress);
@@ -537,6 +553,8 @@ MmFindGapTopDown(
    PVOID AlignedAddress;
    PMEMORY_AREA Node;
    PMEMORY_AREA PreviousNode;
+
+   MmVerifyMemoryAreas(AddressSpace);
 
    DPRINT("LowestAddress: %p HighestAddress: %p\n",
           LowestAddress, HighestAddress);
@@ -633,6 +651,8 @@ MmFindGapAtAddress(
    PVOID HighestAddress = MmGetAddressSpaceOwner(AddressSpace) ?
                           (PVOID)((ULONG_PTR)MmSystemRangeStart - 1) : (PVOID)MAXULONG_PTR;
 
+   MmVerifyMemoryAreas(AddressSpace);
+
    Address = MM_ROUND_DOWN(Address, PAGE_SIZE);
 
    if (LowestAddress < MmSystemRangeStart)
@@ -682,10 +702,6 @@ MmFindGapAtAddress(
    }
 }
 
-VOID
-NTAPI
-MiRemoveNode(IN PMMADDRESS_NODE Node,
-IN PMM_AVL_TABLE Table);
 
 /**
  * @name MmFreeMemoryArea
@@ -733,6 +749,12 @@ MmFreeMemoryArea(
             Address < (ULONG_PTR)EndAddress;
             Address += PAGE_SIZE)
        {
+          if (MemoryArea->Type == MEMORY_AREA_IO_MAPPING)
+          {
+             MmRawDeleteVirtualMapping((PVOID)Address);
+          }
+          else
+          {
              BOOLEAN Dirty = FALSE;
              SWAPENTRY SwapEntry = 0;
              PFN_NUMBER Page = 0;
@@ -750,28 +772,13 @@ MmFreeMemoryArea(
                 FreePage(FreePageContext, MemoryArea, (PVOID)Address,
                          Page, SwapEntry, (BOOLEAN)Dirty);
              }
+          }
        }
 
        if (Process != NULL &&
            Process != CurrentProcess)
        {
           KeDetachProcess();
-       }
-
-       if (MemoryArea->Vad)
-       {
-           ASSERT(MemoryArea->EndingAddress < MmSystemRangeStart);
-           ASSERT(MemoryArea->Type == MEMORY_AREA_VIRTUAL_MEMORY || MemoryArea->Type == MEMORY_AREA_SECTION_VIEW);
-           
-           /* MmCleanProcessAddressSpace might have removed it (and this would be MmDeleteProcessAdressSpace) */
-           ASSERT(((PMMVAD)MemoryArea->Vad)->u.VadFlags.Spare != 0);
-           if (((PMMVAD)MemoryArea->Vad)->u.VadFlags.Spare == 1)
-           {
-               MiRemoveNode(MemoryArea->Vad, &Process->VadRoot);
-           }
-           
-           ExFreePool(MemoryArea->Vad);
-           MemoryArea->Vad = NULL;
        }
     }
 
@@ -837,6 +844,57 @@ MmFreeMemoryArea(
 }
 
 /**
+ * @name MmFreeMemoryAreaByPtr
+ *
+ * Free an existing memory area given a pointer inside it.
+ *
+ * @param AddressSpace
+ *        Address space to free the area from.
+ * @param BaseAddress
+ *        Address in the memory area we're about to free.
+ * @param FreePage
+ *        Callback function for each freed page.
+ * @param FreePageContext
+ *        Context passed to the callback function.
+ *
+ * @return Status
+ *
+ * @see MmFreeMemoryArea
+ *
+ * @todo Should we require the BaseAddress to be really the starting
+ *       address of the memory area or is the current relaxed check
+ *       (BaseAddress can point anywhere in the memory area) acceptable?
+ *
+ * @remarks Lock the address space before calling this function.
+ */
+
+NTSTATUS NTAPI
+MmFreeMemoryAreaByPtr(
+   PMMSUPPORT AddressSpace,
+   PVOID BaseAddress,
+   PMM_FREE_PAGE_FUNC FreePage,
+   PVOID FreePageContext)
+{
+   PMEMORY_AREA MemoryArea;
+
+   DPRINT("MmFreeMemoryArea(AddressSpace %p, BaseAddress %p, "
+          "FreePageContext %p)\n", AddressSpace, BaseAddress,
+          FreePageContext);
+
+   MmVerifyMemoryAreas(AddressSpace);
+
+   MemoryArea = MmLocateMemoryAreaByAddress(AddressSpace,
+                                            BaseAddress);
+   if (MemoryArea == NULL)
+   {
+      KeBugCheck(MEMORY_MANAGEMENT);
+      return(STATUS_UNSUCCESSFUL);
+   }
+
+   return MmFreeMemoryArea(AddressSpace, MemoryArea, FreePage, FreePageContext);
+}
+
+/**
  * @name MmCreateMemoryArea
  *
  * Create a memory area.
@@ -883,6 +941,8 @@ MmCreateMemoryArea(PMMSUPPORT AddressSpace,
           "FixedAddress %x, Result %p)\n",
           Type, BaseAddress, *BaseAddress, Length, AllocationFlags,
           FixedAddress, Result);
+
+   MmVerifyMemoryAreas(AddressSpace);
 
    Granularity = (MEMORY_AREA_VIRTUAL_MEMORY == Type ? MM_VIRTMEM_GRANULARITY : PAGE_SIZE);
    if ((*BaseAddress) == 0 && !FixedAddress)
@@ -1004,51 +1064,36 @@ MmMapMemoryArea(PVOID BaseAddress,
    }
 }
 
-NTSTATUS
-NTAPI
-MmDeleteProcessAddressSpace(PEPROCESS Process)
+
+VOID NTAPI
+MmReleaseMemoryAreaIfDecommitted(PEPROCESS Process,
+                                 PMMSUPPORT AddressSpace,
+                                 PVOID BaseAddress)
 {
-   PVOID Address;
    PMEMORY_AREA MemoryArea;
+   PLIST_ENTRY Entry;
+   PMM_REGION Region;
+   BOOLEAN Reserved;
 
-   DPRINT("MmDeleteProcessAddressSpace(Process %x (%s))\n", Process,
-          Process->ImageFileName);
+   MmVerifyMemoryAreas(AddressSpace);
 
-   RemoveEntryList(&Process->MmProcessLinks);
-
-   MmLockAddressSpace(&Process->Vm);
-
-   while ((MemoryArea = (PMEMORY_AREA)Process->Vm.WorkingSetExpansionLinks.Flink) != NULL)
+   MemoryArea = MmLocateMemoryAreaByAddress(AddressSpace, BaseAddress);
+   if (MemoryArea != NULL)
    {
-      switch (MemoryArea->Type)
+      Entry = MemoryArea->Data.VirtualMemoryData.RegionListHead.Flink;
+      Reserved = TRUE;
+      while (Reserved && Entry != &MemoryArea->Data.VirtualMemoryData.RegionListHead)
       {
-         case MEMORY_AREA_SECTION_VIEW:
-             Address = (PVOID)MemoryArea->StartingAddress;
-             MmUnlockAddressSpace(&Process->Vm);
-             MmUnmapViewOfSection(Process, Address);
-             MmLockAddressSpace(&Process->Vm);
-             break;
+         Region = CONTAINING_RECORD(Entry, MM_REGION, RegionListEntry);
+         Reserved = (MEM_RESERVE == Region->Type);
+         Entry = Entry->Flink;
+      }
 
-         case MEMORY_AREA_VIRTUAL_MEMORY:
-             MmFreeVirtualMemory(Process, MemoryArea);
-             break;
-
-         case MEMORY_AREA_OWNED_BY_ARM3:
-             MmFreeMemoryArea(&Process->Vm,
-                              MemoryArea,
-                              NULL,
-                              NULL);
-             break;
-
-         default:
-            KeBugCheck(MEMORY_MANAGEMENT);
+      if (Reserved)
+      {
+         MmFreeVirtualMemory(Process, MemoryArea);
       }
    }
-
-   MmUnlockAddressSpace(&Process->Vm);
-
-   DPRINT("Finished MmReleaseMmInfo()\n");
-   return(STATUS_SUCCESS);
 }
 
 /* EOF */

@@ -345,12 +345,12 @@
 @ stub LookupSecurityDescriptorPartsA
 @ stub LookupSecurityDescriptorPartsW
 @ stdcall LsaAddAccountRights(ptr ptr ptr long)
-@ stdcall LsaAddPrivilegesToAccount(ptr ptr)
+@ stub LsaAddPrivilegesToAccount
 @ stub LsaClearAuditLog
 @ stdcall LsaClose(ptr)
-@ stdcall LsaCreateAccount(ptr ptr long ptr)
+@ stub LsaCreateAccount
 @ stub LsaCreateSecret
-@ stdcall LsaCreateTrustedDomain(ptr ptr long ptr)
+@ stub LsaCreateTrustedDomain
 @ stdcall LsaCreateTrustedDomainEx(ptr ptr ptr long ptr)
 @ stdcall LsaDelete(ptr)
 @ stdcall LsaDeleteTrustedDomain(ptr ptr)
@@ -377,8 +377,8 @@
 @ stdcall LsaLookupPrivilegeValue(ptr ptr ptr)
 @ stdcall LsaLookupSids(ptr long ptr ptr ptr)
 @ stdcall LsaNtStatusToWinError(long)
-@ stdcall LsaOpenAccount(ptr ptr long ptr)
-@ stdcall LsaOpenPolicy(ptr ptr long ptr)
+@ stub LsaOpenAccount
+@ stdcall LsaOpenPolicy(long long long long)
 @ stub LsaOpenPolicySce
 @ stub LsaOpenSecret
 @ stub LsaOpenTrustedDomain
@@ -395,9 +395,10 @@
 @ stdcall LsaRemoveAccountRights(ptr ptr long ptr long)
 @ stub LsaRemovePrivilegesFromAccount
 @ stdcall LsaRetrievePrivateData(ptr ptr ptr)
-@ stdcall LsaSetDomainInformationPolicy(ptr long ptr)
-@ stub LsaSetForestTrustInformation
+# @ stub LsaSetDomainInformationPolicy
+# @ stub LsaSetForestTrustInformation
 @ stdcall LsaSetInformationPolicy(long long ptr)
+@ stub LsaSetForestTrustInformation
 @ stub LsaSetInformationTrustedDomain
 @ stub LsaSetQuotasForAccount
 @ stdcall LsaSetSecret(ptr ptr ptr)

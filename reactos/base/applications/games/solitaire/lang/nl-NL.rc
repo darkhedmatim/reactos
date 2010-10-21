@@ -5,6 +5,8 @@
  * PURPOSE:     Dutch Language Resource File for Solitaire
  * TRANSLATOR: Wouter De Vlieger
  */
+#include "resource.h"
+
 LANGUAGE LANG_DUTCH, SUBLANG_NEUTRAL
 
 

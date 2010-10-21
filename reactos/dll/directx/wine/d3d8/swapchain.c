@@ -83,28 +83,23 @@ static HRESULT WINAPI IDirect3DSwapChain8Impl_Present(LPDIRECT3DSWAPCHAIN8 iface
     return hr;
 }
 
-static HRESULT WINAPI IDirect3DSwapChain8Impl_GetBackBuffer(IDirect3DSwapChain8 *iface,
-        UINT iBackBuffer, D3DBACKBUFFER_TYPE Type, IDirect3DSurface8 **ppBackBuffer)
-{
+static HRESULT WINAPI IDirect3DSwapChain8Impl_GetBackBuffer(LPDIRECT3DSWAPCHAIN8 iface, UINT iBackBuffer, D3DBACKBUFFER_TYPE Type, IDirect3DSurface8** ppBackBuffer) {
     IDirect3DSwapChain8Impl *This = (IDirect3DSwapChain8Impl *)iface;
+    HRESULT hrc = D3D_OK;
     IWineD3DSurface *mySurface = NULL;
-    HRESULT hr;
 
     TRACE("iface %p, backbuffer_idx %u, backbuffer_type %#x, backbuffer %p.\n",
             iface, iBackBuffer, Type, ppBackBuffer);
 
     wined3d_mutex_lock();
-    hr = IWineD3DSwapChain_GetBackBuffer(This->wineD3DSwapChain, iBackBuffer,
-            (WINED3DBACKBUFFER_TYPE)Type, &mySurface);
-    if (SUCCEEDED(hr) && mySurface)
-    {
-        *ppBackBuffer = IWineD3DSurface_GetParent(mySurface);
-        IDirect3DSurface8_AddRef(*ppBackBuffer);
-        IWineD3DSurface_Release(mySurface);
+    hrc = IWineD3DSwapChain_GetBackBuffer(This->wineD3DSwapChain, iBackBuffer, (WINED3DBACKBUFFER_TYPE )Type, &mySurface);
+    if (hrc == D3D_OK && NULL != mySurface) {
+       IWineD3DSurface_GetParent(mySurface, (IUnknown **)ppBackBuffer);
+       IWineD3DSurface_Release(mySurface);
     }
     wined3d_mutex_unlock();
 
-    return hr;
+    return hrc;
 }
 
 static const IDirect3DSwapChain8Vtbl Direct3DSwapChain8_Vtbl =
@@ -143,7 +138,7 @@ HRESULT swapchain_init(IDirect3DSwapChain8Impl *swapchain, IDirect3DDevice8Impl 
 
     wined3d_mutex_lock();
     hr = IWineD3DDevice_CreateSwapChain(device->WineD3DDevice, &wined3d_parameters,
-            SURFACE_OPENGL, swapchain, &swapchain->wineD3DSwapChain);
+            &swapchain->wineD3DSwapChain, (IUnknown *)swapchain, SURFACE_OPENGL);
     wined3d_mutex_unlock();
 
     present_parameters->BackBufferWidth = wined3d_parameters.BackBufferWidth;

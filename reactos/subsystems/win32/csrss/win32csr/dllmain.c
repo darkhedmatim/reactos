@@ -145,13 +145,6 @@ Win32CsrInitComplete(void)
     return TRUE;
 }
 
-VOID
-WINAPI
-PrivateCsrssManualGuiCheck(LONG Check)
-{
-  NtUserCallOneParam(Check, ONEPARAM_ROUTINE_CSRSS_GUICHECK);
-}
-
 BOOL WINAPI
 Win32CsrInitialization(PCSRSS_API_DEFINITION *ApiDefinitions,
                        PCSRPLUGIN_SERVER_PROCS ServerProcs,

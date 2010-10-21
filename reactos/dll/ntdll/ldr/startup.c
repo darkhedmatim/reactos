@@ -71,13 +71,11 @@ LoadImageFileExecutionOptions(PPEB Peb)
 {
     NTSTATUS Status = STATUS_SUCCESS;
     ULONG Value = 0;
+    UNICODE_STRING ValueString;
     UNICODE_STRING ImageName;
     UNICODE_STRING ImagePathName;
+    WCHAR ValueBuffer[64];
     ULONG ValueSize;
-    extern ULONG RtlpPageHeapGlobalFlags, RtlpPageHeapSizeRangeStart, RtlpPageHeapSizeRangeEnd;
-    extern ULONG RtlpPageHeapDllRangeStart, RtlpPageHeapDllRangeEnd;
-    extern WCHAR RtlpPageHeapTargetDlls[512];
-    extern BOOLEAN RtlpPageHeapEnabled;
 
     if (Peb->ProcessParameters &&
         Peb->ProcessParameters->ImagePathName.Length > 0)
@@ -108,84 +106,26 @@ LoadImageFileExecutionOptions(PPEB Peb)
         /* global flag */
         Status = LdrQueryImageFileExecutionOptions(&ImageName,
                                                    L"GlobalFlag",
-                                                   REG_DWORD,
-                                                   (PVOID)&Value,
-                                                   sizeof(Value),
+                                                   REG_SZ,
+                                                   (PVOID)ValueBuffer,
+                                                   sizeof(ValueBuffer),
                                                    &ValueSize);
         if (NT_SUCCESS(Status))
         {
-            Peb->NtGlobalFlag = Value;
-            DPRINT("GlobalFlag: Value=0x%lx\n", Value);
-        }
-        else
-        {
-            /* Add debugging flags if there is no GlobalFlags override */
-            if (Peb->BeingDebugged)
+            ValueString.Buffer = ValueBuffer;
+            ValueString.Length = ValueSize - sizeof(WCHAR);
+            ValueString.MaximumLength = sizeof(ValueBuffer);
+            Status = RtlUnicodeStringToInteger(&ValueString, 16, &Value);
+            if (NT_SUCCESS(Status))
             {
-                Peb->NtGlobalFlag |= FLG_HEAP_VALIDATE_PARAMETERS |
-                                     FLG_HEAP_ENABLE_FREE_CHECK |
-                                     FLG_HEAP_ENABLE_TAIL_CHECK;
+                Peb->NtGlobalFlag |= Value;
+                DPRINT("GlobalFlag: Key='%S', Value=0x%lx\n", ValueBuffer, Value);
             }
         }
-
-        /* Handle the case when page heap is enabled */
-        if (Peb->NtGlobalFlag & FLG_HEAP_PAGE_ALLOCS)
-        {
-            /* Disable all heap debugging flags so that no heap call goes via page heap branch */
-            Peb->NtGlobalFlag &= ~(FLG_HEAP_VALIDATE_PARAMETERS |
-                                   FLG_HEAP_VALIDATE_ALL |
-                                   FLG_HEAP_ENABLE_FREE_CHECK |
-                                   FLG_HEAP_ENABLE_TAIL_CHECK |
-                                   FLG_USER_STACK_TRACE_DB |
-                                   FLG_HEAP_ENABLE_TAGGING |
-                                   FLG_HEAP_ENABLE_TAG_BY_DLL);
-
-            /* Get page heap flags without checking return value */
-            LdrQueryImageFileExecutionOptions(&ImageName,
-                                              L"PageHeapFlags",
-                                              REG_DWORD,
-                                              (PVOID)&RtlpPageHeapGlobalFlags,
-                                              sizeof(RtlpPageHeapGlobalFlags),
-                                              &ValueSize);
-
-            LdrQueryImageFileExecutionOptions(&ImageName,
-                                              L"PageHeapSizeRangeStart",
-                                              REG_DWORD,
-                                              (PVOID)&RtlpPageHeapSizeRangeStart,
-                                              sizeof(RtlpPageHeapSizeRangeStart),
-                                              &ValueSize);
-
-            LdrQueryImageFileExecutionOptions(&ImageName,
-                                              L"PageHeapSizeRangeEnd",
-                                              REG_DWORD,
-                                              (PVOID)&RtlpPageHeapSizeRangeEnd,
-                                              sizeof(RtlpPageHeapSizeRangeEnd),
-                                              &ValueSize);
-
-            LdrQueryImageFileExecutionOptions(&ImageName,
-                                              L"PageHeapDllRangeStart",
-                                              REG_DWORD,
-                                              (PVOID)&RtlpPageHeapDllRangeStart,
-                                              sizeof(RtlpPageHeapDllRangeStart),
-                                              &ValueSize);
-
-            LdrQueryImageFileExecutionOptions(&ImageName,
-                                              L"PageHeapDllRangeEnd",
-                                              REG_DWORD,
-                                              (PVOID)&RtlpPageHeapDllRangeEnd,
-                                              sizeof(RtlpPageHeapDllRangeEnd),
-                                              &ValueSize);
-
-            LdrQueryImageFileExecutionOptions(&ImageName,
-                                              L"PageHeapTargetDlls",
-                                              REG_SZ,
-                                              (PVOID)RtlpPageHeapTargetDlls,
-                                              sizeof(RtlpPageHeapTargetDlls),
-                                              &ValueSize);
-
-            /* Now when all parameters are read, enable page heap */
-            RtlpPageHeapEnabled = TRUE;
-        }
+        /*
+         *  FIXME:
+         *   read more options
+         */
     }
 }
 
@@ -383,9 +323,6 @@ LdrpInit2(PCONTEXT Context,
     /* Initialize Critical Section Data */
     RtlpInitDeferedCriticalSection();
 
-    /* Load execution options */
-    LoadImageFileExecutionOptions(Peb);
-
     /* create process heap */
     RtlInitializeHeapManager();
     Peb->ProcessHeap = RtlCreateHeap(HEAP_GROWABLE,
@@ -450,6 +387,9 @@ LdrpInit2(PCONTEXT Context,
     /* Load compatibility settings */
     LoadCompatibilitySettings(Peb);
 
+    /* Load execution options */
+    LoadImageFileExecutionOptions(Peb);
+
     /* build full ntdll path */
     wcscpy(FullNtDllPath, SharedUserData->NtSystemRoot);
     wcscat(FullNtDllPath, L"\\system32\\ntdll.dll");
@@ -489,7 +429,7 @@ LdrpInit2(PCONTEXT Context,
     /* add entry for executable (becomes first list entry) */
     ExeModule = (PLDR_DATA_TABLE_ENTRY)
                  RtlAllocateHeap(Peb->ProcessHeap,
-                                 HEAP_ZERO_MEMORY,
+                                 0,
                                  sizeof(LDR_DATA_TABLE_ENTRY));
     if (ExeModule == NULL)
     {

@@ -47,13 +47,16 @@
 #define ioctlsocket ioctl
 #endif /* __MINGW32__ */
 
+/* ReactOS-specific definitions */
+#undef CP_UNIXCP
+#define CP_UNIXCP   CP_THREAD_ACP
+
 /* used for netconnection.c stuff */
 typedef struct
 {
     BOOL useSSL;
     int socketFD;
     void *ssl_s;
-    DWORD security_flags;
 } WININET_NETCONNECTION;
 
 static inline LPWSTR heap_strdupW(LPCWSTR str)
@@ -67,27 +70,6 @@ static inline LPWSTR heap_strdupW(LPCWSTR str)
         ret = HeapAlloc(GetProcessHeap(), 0, size);
         if(ret)
             memcpy(ret, str, size);
-    }
-
-    return ret;
-}
-
-static inline LPWSTR heap_strndupW(LPCWSTR str, UINT max_len)
-{
-    LPWSTR ret;
-    UINT len;
-
-    if(!str)
-        return NULL;
-
-    for(len=0; len<max_len; len++)
-        if(str[len] == '\0')
-            break;
-
-    ret = HeapAlloc(GetProcessHeap(), 0, sizeof(WCHAR)*(len+1));
-    if(ret) {
-        memcpy(ret, str, sizeof(WCHAR)*len);
-        ret[len] = '\0';
     }
 
     return ret;
@@ -170,8 +152,6 @@ typedef struct {
     DWORD (*FindNextFileW)(object_header_t*,void*);
 } object_vtbl_t;
 
-#define INTERNET_HANDLE_IN_USE 1
-
 struct _object_header_t
 {
     WH_TYPE htype;
@@ -180,7 +160,6 @@ struct _object_header_t
     DWORD  dwFlags;
     DWORD_PTR dwContext;
     DWORD  dwError;
-    ULONG  ErrorMask;
     DWORD  dwInternalFlags;
     LONG   refs;
     INTERNET_STATUS_CALLBACK lpfnStatusCB;
@@ -413,7 +392,7 @@ object_header_t *WININET_AddRef( object_header_t *info );
 BOOL WININET_Release( object_header_t *info );
 BOOL WININET_FreeHandle( HINTERNET hinternet );
 
-DWORD INET_QueryOption( object_header_t *, DWORD, void *, DWORD *, BOOL );
+DWORD INET_QueryOption(DWORD,void*,DWORD*,BOOL);
 
 time_t ConvertTimeString(LPCWSTR asctime);
 
@@ -460,9 +439,8 @@ DWORD NETCON_recv(WININET_NETCONNECTION *connection, void *buf, size_t len, int 
 		int *recvd /* out */);
 BOOL NETCON_query_data_available(WININET_NETCONNECTION *connection, DWORD *available);
 LPCVOID NETCON_GetCert(WININET_NETCONNECTION *connection);
-int NETCON_GetCipherStrength(WININET_NETCONNECTION *connection);
 DWORD NETCON_set_timeout(WININET_NETCONNECTION *connection, BOOL send, int value);
-#define sock_get_error(x) WSAGetLastError()
+int sock_get_error(int);
 
 extern void URLCacheContainers_CreateDefaults(void);
 extern void URLCacheContainers_DeleteAll(void);

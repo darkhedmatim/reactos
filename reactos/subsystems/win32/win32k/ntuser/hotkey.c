@@ -102,13 +102,13 @@ GetHotKey (UINT fsModifiers,
 
 
 VOID FASTCALL
-UnregisterWindowHotKeys(PWND Window)
+UnregisterWindowHotKeys(PWINDOW_OBJECT Window)
 {
    PHOT_KEY_ITEM HotKeyItem, tmp;
 
    LIST_FOR_EACH_SAFE(HotKeyItem, tmp, &gHotkeyList, HOT_KEY_ITEM, ListEntry)
    {
-      if (HotKeyItem->hWnd == Window->head.h)
+      if (HotKeyItem->hWnd == Window->hSelf)
       {
          RemoveEntryList (&HotKeyItem->ListEntry);
          ExFreePool (HotKeyItem);
@@ -164,7 +164,7 @@ NtUserRegisterHotKey(HWND hWnd,
                      UINT vk)
 {
    PHOT_KEY_ITEM HotKeyItem;
-   PWND Window;
+   PWINDOW_OBJECT Window;
    PETHREAD HotKeyThread;
    DECLARE_RETURN(BOOL);
 
@@ -181,7 +181,7 @@ NtUserRegisterHotKey(HWND hWnd,
       {
          RETURN( FALSE);
       }
-      HotKeyThread = Window->head.pti->pEThread;
+      HotKeyThread = Window->pti->pEThread;
    }
 
    /* Check for existing hotkey */
@@ -217,7 +217,7 @@ BOOL APIENTRY
 NtUserUnregisterHotKey(HWND hWnd, int id)
 {
    PHOT_KEY_ITEM HotKeyItem;
-   PWND Window;
+   PWINDOW_OBJECT Window;
    DECLARE_RETURN(BOOL);
 
    DPRINT("Enter NtUserUnregisterHotKey\n");

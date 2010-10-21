@@ -73,15 +73,11 @@ FindBitmapResource(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
         if (NT_SUCCESS(Status))
         {
             /* Access the resource */
-            ULONG Size = 0;
             Status = LdrAccessResource(LdrEntry->DllBase,
                                        ResourceDataEntry,
                                        &Data,
-                                       &Size);
-            if ((Data) && (ResourceId < 3))
-            {
-                KiBugCheckData[4] ^= RtlComputeCrc32(0, Data, Size);
-            }
+                                       NULL);
+            if (Data) KiBugCheckData[4] ^= RtlComputeCrc32(0, Data, PAGE_SIZE);
             if (!NT_SUCCESS(Status)) Data = NULL;
         }
     }
@@ -119,8 +115,8 @@ InbvDriverInitialize(IN PLOADER_PARAMETER_BLOCK LoaderBlock,
         VidResetDisplay(CustomLogo);
         
         /* Find bitmap resources in the kernel */
-        ResourceCount = min(IDB_CLUSTER_SERVER, Count);
-        for (i = 1; i <= Count; i++)
+        ResourceCount = Count;
+        for (i = 0; i < Count; i++)
         {
             /* Do the lookup */
             ResourceList[i] = FindBitmapResource(LoaderBlock, i);

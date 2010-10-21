@@ -2102,7 +2102,7 @@ NtUserSetClassLong(HWND hWnd,
                    BOOL Ansi)
 {
     PPROCESSINFO pi;
-    PWND Window;
+    PWINDOW_OBJECT Window;
     ULONG_PTR Ret = 0;
 
     UserEnterExclusive();
@@ -2112,7 +2112,7 @@ NtUserSetClassLong(HWND hWnd,
     Window = UserGetWindowObject(hWnd);
     if (Window != NULL)
     {
-        if (Window->head.pti->ppi != pi)
+        if (Window->pti->ppi != pi)
         {
             SetLastWin32Error(ERROR_ACCESS_DENIED);
             goto Cleanup;
@@ -2154,7 +2154,7 @@ InvalidParameter:
                 dwNewLong = (ULONG_PTR)&Value;
             }
 
-            Ret = UserSetClassLongPtr(Window->pcls,
+            Ret = UserSetClassLongPtr(Window->Wnd->pcls,
                                       Offset,
                                       dwNewLong,
                                       Ansi);
@@ -2274,9 +2274,7 @@ NtUserGetClassInfo(
 
       if (CapturedClassName.Length & 1)
       {
-         SetLastWin32Error(ERROR_INVALID_PARAMETER);
-         Ret = FALSE;
-         _SEH2_LEAVE;
+         goto InvalidParameter;
       }
 
       if (CapturedClassName.Length != 0)
@@ -2299,14 +2297,20 @@ NtUserGetClassInfo(
          if (!IS_ATOM(CapturedClassName.Buffer))
          {
             ERR("NtUserGetClassInfo() got ClassName instead of Atom!\n");
-            SetLastWin32Error(ERROR_INVALID_PARAMETER);
-            Ret = FALSE;
-            _SEH2_LEAVE;
+            goto InvalidParameter;
          }
 
          SafeClassName.Buffer = CapturedClassName.Buffer;
          SafeClassName.Length = 0;
          SafeClassName.MaximumLength = 0;
+      }
+
+      if (ProbeForReadUint(&lpWndClassEx->cbSize) != sizeof(WNDCLASSEXW))
+      {
+InvalidParameter:
+         SetLastWin32Error(ERROR_INVALID_PARAMETER);
+         Ret = FALSE;
+         _SEH2_LEAVE;
       }
 
       ProbeForWrite( lpWndClassEx, sizeof(WNDCLASSEXW), sizeof(ULONG));
@@ -2315,7 +2319,7 @@ NtUserGetClassInfo(
    }
    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
    {
-      SetLastNtError(_SEH2_GetExceptionCode());
+      SetLastWin32Error(ERROR_CLASS_DOES_NOT_EXIST);
       Ret = FALSE;
    }
    _SEH2_END;
@@ -2379,7 +2383,7 @@ NtUserGetClassName (IN HWND hWnd,
                     OUT PUNICODE_STRING ClassName,
                     IN BOOL Ansi)
 {
-    PWND Window;
+    PWINDOW_OBJECT Window;
     UNICODE_STRING CapturedClassName;
     INT Ret = 0;
 
@@ -2394,7 +2398,7 @@ NtUserGetClassName (IN HWND hWnd,
             CapturedClassName = *ClassName;
 
             /* get the class name */
-            Ret = UserGetClassName(Window->pcls,
+            Ret = UserGetClassName(Window->Wnd->pcls,
                                    &CapturedClassName,
                                    Ansi);
 

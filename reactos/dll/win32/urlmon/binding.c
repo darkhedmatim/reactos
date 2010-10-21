@@ -1077,11 +1077,8 @@ static void report_data(Binding *This, DWORD bscf, ULONG progress, ULONG progres
     }
 
     if(This->to_object) {
-        if(!(This->state & BINDING_OBJAVAIL)) {
-            IBinding_AddRef(BINDING(This));
+        if(!(This->state & BINDING_OBJAVAIL))
             create_object(This);
-            IBinding_Release(BINDING(This));
-        }
     }else {
         STGMEDIUM stgmed;
         HRESULT hres;
@@ -1522,7 +1519,7 @@ static HRESULT start_binding(IMoniker *mon, Binding *binding_ctx, LPCWSTR url, I
     }
 
     if(binding_ctx) {
-        set_binding_sink(binding->protocol, PROTSINK(binding), BINDINF(binding));
+        set_binding_sink(binding->protocol, PROTSINK(binding));
         if(binding_ctx->redirect_url)
             IBindStatusCallback_OnProgress(binding->callback, 0, 0, BINDSTATUS_REDIRECTING, binding_ctx->redirect_url);
         report_data(binding, 0, 0, 0);

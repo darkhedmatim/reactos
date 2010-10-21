@@ -113,33 +113,33 @@ RtlGetNtGlobalFlags(VOID)
 NTSTATUS
 NTAPI
 RtlDeleteHeapLock(
-    PHEAP_LOCK Lock)
+    PRTL_CRITICAL_SECTION CriticalSection)
 {
-    return RtlDeleteCriticalSection(&Lock->CriticalSection);
+    return RtlDeleteCriticalSection(CriticalSection);
 }
 
 NTSTATUS
 NTAPI
 RtlEnterHeapLock(
-    PHEAP_LOCK Lock)
+    PRTL_CRITICAL_SECTION CriticalSection)
 {
-    return RtlEnterCriticalSection(&Lock->CriticalSection);
+    return RtlEnterCriticalSection(CriticalSection);
 }
 
 NTSTATUS
 NTAPI
 RtlInitializeHeapLock(
-    PHEAP_LOCK Lock)
+    PRTL_CRITICAL_SECTION CriticalSection)
 {
-     return RtlInitializeCriticalSection(&Lock->CriticalSection);
+     return RtlInitializeCriticalSection(CriticalSection);
 }
 
 NTSTATUS
 NTAPI
 RtlLeaveHeapLock(
-    PHEAP_LOCK Lock)
+    PRTL_CRITICAL_SECTION CriticalSection)
 {
-    return RtlLeaveCriticalSection(&Lock->CriticalSection);
+    return RtlLeaveCriticalSection(CriticalSection );
 }
 
 PVOID

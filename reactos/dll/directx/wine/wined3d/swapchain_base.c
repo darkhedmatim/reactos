@@ -53,32 +53,30 @@ ULONG WINAPI IWineD3DBaseSwapChainImpl_AddRef(IWineD3DSwapChain *iface) {
     return refCount;
 }
 
-/* Do not call while under the GL lock. */
-ULONG WINAPI IWineD3DBaseSwapChainImpl_Release(IWineD3DSwapChain *iface)
-{
+ULONG WINAPI IWineD3DBaseSwapChainImpl_Release(IWineD3DSwapChain *iface) {
     IWineD3DSwapChainImpl *This = (IWineD3DSwapChainImpl *)iface;
     DWORD refCount;
     refCount = InterlockedDecrement(&This->ref);
     TRACE("(%p) : ReleaseRef to %d\n", This, refCount);
-
-    if (!refCount) IWineD3DSwapChain_Destroy(iface);
-
+    if (refCount == 0) {
+        IWineD3DSwapChain_Destroy(iface);
+    }
     return refCount;
 }
 
-void * WINAPI IWineD3DBaseSwapChainImpl_GetParent(IWineD3DSwapChain *iface)
-{
-    TRACE("iface %p.\n", iface);
-
-    return ((IWineD3DSwapChainImpl *)iface)->parent;
+HRESULT WINAPI IWineD3DBaseSwapChainImpl_GetParent(IWineD3DSwapChain *iface, IUnknown ** ppParent){
+    IWineD3DSwapChainImpl *This = (IWineD3DSwapChainImpl *)iface;
+    *ppParent = This->parent;
+    IUnknown_AddRef(*ppParent);
+    TRACE("(%p) returning %p\n", This , *ppParent);
+    return WINED3D_OK;
 }
 
-HRESULT WINAPI IWineD3DBaseSwapChainImpl_GetFrontBufferData(IWineD3DSwapChain *iface, IWineD3DSurface *dst_surface)
-{
+HRESULT WINAPI IWineD3DBaseSwapChainImpl_GetFrontBufferData(IWineD3DSwapChain *iface, IWineD3DSurface *pDestSurface) {
     IWineD3DSwapChainImpl *This = (IWineD3DSwapChainImpl *)iface;
     POINT start;
 
-    TRACE("iface %p, dst_surface %p.\n", iface, dst_surface);
+    TRACE("(%p) : iface(%p) pDestSurface(%p)\n", This, iface, pDestSurface);
 
     start.x = 0;
     start.y = 0;
@@ -87,54 +85,53 @@ HRESULT WINAPI IWineD3DBaseSwapChainImpl_GetFrontBufferData(IWineD3DSwapChain *i
         MapWindowPoints(This->win_handle, NULL, &start, 1);
     }
 
-    IWineD3DSurface_BltFast(dst_surface, start.x, start.y, (IWineD3DSurface *)This->front_buffer, NULL, 0);
+    IWineD3DSurface_BltFast(pDestSurface, start.x, start.y, (IWineD3DSurface *)This->front_buffer, NULL, 0);
     return WINED3D_OK;
 }
 
-HRESULT WINAPI IWineD3DBaseSwapChainImpl_GetBackBuffer(IWineD3DSwapChain *iface,
-        UINT back_buffer_idx, WINED3DBACKBUFFER_TYPE type, IWineD3DSurface **back_buffer)
-{
-    IWineD3DSwapChainImpl *swapchain = (IWineD3DSwapChainImpl *)iface;
+HRESULT WINAPI IWineD3DBaseSwapChainImpl_GetBackBuffer(IWineD3DSwapChain *iface, UINT iBackBuffer, WINED3DBACKBUFFER_TYPE Type, IWineD3DSurface **ppBackBuffer) {
 
-    TRACE("iface %p, back_buffer_idx %u, type %#x, back_buffer %p.\n",
-            iface, back_buffer_idx, type, back_buffer);
+    IWineD3DSwapChainImpl *This = (IWineD3DSwapChainImpl *)iface;
 
-    /* Return invalid if there is no backbuffer array, otherwise it will
-     * crash when ddraw is used (there swapchain->back_buffers is always NULL).
-     * We need this because this function is called from
-     * IWineD3DStateBlockImpl_InitStartupStateBlock() to get the default
-     * scissorrect dimensions. */
-    if (!swapchain->back_buffers || back_buffer_idx >= swapchain->presentParms.BackBufferCount)
-    {
-        WARN("Invalid back buffer index.\n");
+    if (iBackBuffer > This->presentParms.BackBufferCount - 1) {
+        TRACE("Back buffer count out of range\n");
         /* Native d3d9 doesn't set NULL here, just as wine's d3d9. But set it
-         * here in wined3d to avoid problems in other libs. */
-        *back_buffer = NULL;
+         * here in wined3d to avoid problems in other libs
+         */
+        *ppBackBuffer = NULL;
         return WINED3DERR_INVALIDCALL;
     }
 
-    *back_buffer = (IWineD3DSurface *)swapchain->back_buffers[back_buffer_idx];
-    if (*back_buffer) IWineD3DSurface_AddRef(*back_buffer);
+    /* Return invalid if there is no backbuffer array, otherwise it will crash when ddraw is
+     * used (there This->backBuffer is always NULL). We need this because this function has
+     * to be called from IWineD3DStateBlockImpl_InitStartupStateBlock to get the default
+     * scissorrect dimensions. */
+    if (!This->back_buffers)
+    {
+        *ppBackBuffer = NULL;
+        return WINED3DERR_INVALIDCALL;
+    }
 
-    TRACE("Returning back buffer %p.\n", *back_buffer);
+    *ppBackBuffer = (IWineD3DSurface *)This->back_buffers[iBackBuffer];
+    TRACE("(%p) : BackBuf %d Type %d  returning %p\n", This, iBackBuffer, Type, *ppBackBuffer);
 
+    /* Note inc ref on returned surface */
+    if(*ppBackBuffer) IWineD3DSurface_AddRef(*ppBackBuffer);
     return WINED3D_OK;
+
 }
 
 HRESULT WINAPI IWineD3DBaseSwapChainImpl_GetRasterStatus(IWineD3DSwapChain *iface, WINED3DRASTER_STATUS *pRasterStatus) {
     static BOOL warned;
-    /* No OpenGL equivalent */
+    pRasterStatus->InVBlank = TRUE;
+    pRasterStatus->ScanLine = 0;
+    /* No openGL equivalent */
     if (!warned)
     {
         FIXME("iface %p, raster_status %p stub!\n", iface, pRasterStatus);
         warned = TRUE;
     }
-    /* Obtaining the raster status is a widely implemented but optional feature.
-     * When this method returns OK then the application Starcraft 2 expects that
-     * the pRasterStatus->InVBlank value differs over time. To prevent Starcraft 2
-     * from running in an infinite loop at startup this method returns INVALIDCALL.
-     */
-    return WINED3DERR_INVALIDCALL;
+    return WINED3D_OK;
 }
 
 HRESULT WINAPI IWineD3DBaseSwapChainImpl_GetDisplayMode(IWineD3DSwapChain *iface, WINED3DDISPLAYMODE*pMode) {

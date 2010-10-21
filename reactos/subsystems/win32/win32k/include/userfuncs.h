@@ -35,7 +35,7 @@ PMENU_OBJECT FASTCALL UserGetMenuObject(HMENU hMenu);
 
 #define DUMP_REFS(obj) DPRINT1("obj 0x%x, refs %i\n",obj, ((PHEAD)obj)->cLockObj)
 
-PWND FASTCALL IntGetWindowObject(HWND hWnd);
+PWINDOW_OBJECT FASTCALL IntGetWindowObject(HWND hWnd);
 
 /*************** WINSTA.C ***************/
 
@@ -44,7 +44,7 @@ HWINSTA FASTCALL UserGetProcessWindowStation(VOID);
 /*************** WINPOS.C ***************/
 
 BOOL FASTCALL
-UserGetClientOrigin(PWND Window, LPPOINT Point);
+UserGetClientOrigin(PWINDOW_OBJECT Window, LPPOINT Point);
 
 /*************** FOCUS.C ***************/
 
@@ -52,18 +52,18 @@ HWND FASTCALL UserGetActiveWindow(VOID);
 
 HWND FASTCALL UserGetForegroundWindow(VOID);
 
-HWND FASTCALL co_UserSetFocus(PWND Window);
+HWND FASTCALL co_UserSetFocus(PWINDOW_OBJECT Window);
 
 /*************** WINDC.C ***************/
 
 INT FASTCALL
-UserReleaseDC(PWND Window, HDC hDc, BOOL EndPaint);
+UserReleaseDC(PWINDOW_OBJECT Window, HDC hDc, BOOL EndPaint);
 
 HDC FASTCALL
-UserGetDCEx(PWND Window OPTIONAL, HANDLE ClipRegion, ULONG Flags);
+UserGetDCEx(PWINDOW_OBJECT Window OPTIONAL, HANDLE ClipRegion, ULONG Flags);
 
 HDC FASTCALL
-UserGetWindowDC(PWND Wnd);
+UserGetWindowDC(PWINDOW_OBJECT Wnd);
 
 
 /*************** SESSION.C ***************/
@@ -110,12 +110,12 @@ UserPostMessage(HWND Wnd,
 
 /*************** PAINTING.C ***************/
 
-BOOL FASTCALL co_UserValidateRgn(PWND Window, HRGN hRgn);
+BOOL FASTCALL co_UserValidateRgn(PWINDOW_OBJECT Window, HRGN hRgn);
 
 
 /*************** WINDOW.C ***************/
 
-PWND FASTCALL UserGetWindowObject(HWND hWnd);
+PWINDOW_OBJECT FASTCALL UserGetWindowObject(HWND hWnd);
 
 VOID FASTCALL
 co_DestroyThreadWindows(struct _ETHREAD *Thread);
@@ -123,11 +123,11 @@ co_DestroyThreadWindows(struct _ETHREAD *Thread);
 HWND FASTCALL UserGetShellWindow(VOID);
 
 HDC FASTCALL
-UserGetDCEx(PWND Window OPTIONAL, HANDLE ClipRegion, ULONG Flags);
+UserGetDCEx(PWINDOW_OBJECT Window OPTIONAL, HANDLE ClipRegion, ULONG Flags);
 
-BOOLEAN FASTCALL co_UserDestroyWindow(PWND Wnd);
+BOOLEAN FASTCALL co_UserDestroyWindow(PWINDOW_OBJECT Wnd);
 
-PWND FASTCALL UserGetAncestor(PWND Wnd, UINT Type);
+PWINDOW_OBJECT FASTCALL UserGetAncestor(PWINDOW_OBJECT Wnd, UINT Type);
 
 /*************** MENU.C ***************/
 
@@ -148,6 +148,6 @@ BOOL FASTCALL UserDestroyMenu(HMENU hMenu);
 /*************** SCROLLBAR.C ***************/
 
 DWORD FASTCALL
-co_UserShowScrollBar(PWND Window, int wBar, DWORD bShow);
+co_UserShowScrollBar(PWINDOW_OBJECT Window, int wBar, DWORD bShow);
 
 /* EOF */

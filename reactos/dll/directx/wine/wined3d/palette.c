@@ -74,7 +74,7 @@ static ULONG  WINAPI IWineD3DPaletteImpl_Release(IWineD3DPalette *iface) {
 }
 
 /* Not called from the vtable */
-static WORD IWineD3DPaletteImpl_Size(DWORD dwFlags)
+static DWORD IWineD3DPaletteImpl_Size(DWORD dwFlags)
 {
     switch (dwFlags & SIZE_BITS) {
         case WINEDDPCAPS_1BIT: return 2;
@@ -92,7 +92,7 @@ static HRESULT  WINAPI IWineD3DPaletteImpl_GetEntries(IWineD3DPalette *iface, DW
 
     TRACE("(%p)->(%08x,%d,%d,%p)\n",This,Flags,Start,Count,PalEnt);
 
-    if (Flags) return WINED3DERR_INVALIDCALL; /* unchecked */
+    if (Flags != 0) return WINED3DERR_INVALIDCALL; /* unchecked */
     if (Start + Count > IWineD3DPaletteImpl_Size(This->Flags))
         return WINED3DERR_INVALIDCALL;
 
@@ -149,8 +149,8 @@ static HRESULT  WINAPI IWineD3DPaletteImpl_SetEntries(IWineD3DPalette *iface,
 #if 0
     /* Now, if we are in 'depth conversion mode', update the screen palette */
     /* FIXME: we need to update the image or we won't get palette fading. */
-    if (This->ddraw->d->palette_convert)
-            This->ddraw->d->palette_convert(palent,This->screen_palents,start,count);
+    if (This->ddraw->d->palette_convert != NULL)
+        This->ddraw->d->palette_convert(palent,This->screen_palents,start,count);
 #endif
 
     /* If the palette is attached to the render target, update all render targets */
@@ -175,11 +175,13 @@ static HRESULT  WINAPI IWineD3DPaletteImpl_GetCaps(IWineD3DPalette *iface, DWORD
     return WINED3D_OK;
 }
 
-static void * WINAPI IWineD3DPaletteImpl_GetParent(IWineD3DPalette *iface)
-{
-    TRACE("iface %p.\n", iface);
+static HRESULT  WINAPI IWineD3DPaletteImpl_GetParent(IWineD3DPalette *iface, IUnknown **Parent) {
+    IWineD3DPaletteImpl *This = (IWineD3DPaletteImpl *)iface;
+    TRACE("(%p)->(%p)\n", This, Parent);
 
-    return ((IWineD3DPaletteImpl *)iface)->parent;
+    *Parent = This->parent;
+    IUnknown_AddRef(This->parent);
+    return WINED3D_OK;
 }
 
 static const IWineD3DPaletteVtbl IWineD3DPalette_Vtbl =
@@ -196,7 +198,7 @@ static const IWineD3DPaletteVtbl IWineD3DPalette_Vtbl =
 };
 
 HRESULT wined3d_palette_init(IWineD3DPaletteImpl *palette, IWineD3DDeviceImpl *device,
-        DWORD flags, const PALETTEENTRY *entries, void *parent)
+        DWORD flags, const PALETTEENTRY *entries, IUnknown *parent)
 {
     HRESULT hr;
 

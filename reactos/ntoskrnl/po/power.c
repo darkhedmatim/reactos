@@ -659,7 +659,6 @@ NtSetSystemPowerState(IN POWER_ACTION SystemAction,
     KPROCESSOR_MODE PreviousMode = KeGetPreviousMode();
     POP_POWER_ACTION Action = {0};
     NTSTATUS Status;
-    ULONG Dummy;
 
     /* Check for invalid parameter combinations */
     if ((MinSystemState >= PowerSystemMaximum) ||
@@ -743,12 +742,9 @@ NtSetSystemPowerState(IN POWER_ACTION SystemAction,
 
         /* Check if we're still in an invalid status */
         if (!NT_SUCCESS(Status)) break;
-        
-        /* Flush dirty cache pages */
-        CcRosFlushDirtyPages(-1, &Dummy);
 
         /* Flush all volumes and the registry */
-        DPRINT1("Flushing volumes, cache flushed %d pages\n", Dummy);
+        DPRINT1("Flushing volumes\n");
         PopFlushVolumes(PopAction.Shutdown);
 
         /* Set IRP for drivers */

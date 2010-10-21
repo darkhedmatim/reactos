@@ -56,136 +56,7 @@ typedef enum {
     ACTION_UNDEF, ACTION_ADD, ACTION_EXPORT, ACTION_DELETE
 } REGEDIT_ACTION;
 
-
-const CHAR *getAppName(void)
-{
-    return "regedit";
-}
-
-/******************************************************************************
- * Copies file name from command line string to the buffer.
- * Rewinds the command line string pointer to the next non-space character
- * after the file name.
- * Buffer contains an empty string if no filename was found;
- *
- * params:
- * command_line - command line current position pointer
- *      where *s[0] is the first symbol of the file name.
- * file_name - buffer to write the file name to.
- */
-void get_file_name(LPWSTR *command_line, LPWSTR file_name)
-{
-    WCHAR *s = *command_line;
-    int pos = 0;                /* position of pointer "s" in *command_line */
-    file_name[0] = 0;
-
-    if (!s[0]) {
-        return;
-    }
-
-    if (s[0] == L'"') {
-        s++;
-        (*command_line)++;
-        while(s[0] != L'"') {
-            if (!s[0]) {
-                fprintf(stderr, "%s: Unexpected end of file name!\n", getAppName());
-                exit(1);
-            }
-            s++;
-            pos++;
-        }
-    } else {
-        while(s[0] && !iswspace(s[0])) {
-            s++;
-            pos++;
-        }
-    }
-    memcpy(file_name, *command_line, pos * sizeof((*command_line)[0]));
-    /* remove the last backslash */
-    if (file_name[pos - 1] == L'\\') {
-        file_name[pos - 1] = L'\0';
-    } else {
-        file_name[pos] = L'\0';
-    }
-
-    if (s[0]) {
-        s++;
-        pos++;
-    }
-    while(s[0] && iswspace(s[0])) {
-        s++;
-        pos++;
-    }
-    (*command_line) += pos;
-}
-
-BOOL PerformRegAction(REGEDIT_ACTION action, LPWSTR s)
-{
-    switch (action) {
-    case ACTION_ADD: {
-            WCHAR filename[MAX_PATH];
-            FILE *fp;
-
-            get_file_name(&s, filename);
-            if (!filename[0]) {
-                fprintf(stderr, "%s: No file name is specified\n", getAppName());
-                fprintf(stderr, usage);
-                exit(4);
-            }
-
-            while(filename[0]) {
-                fp = _wfopen(filename, L"r");
-                if (fp == NULL)
-                {
-                    LPSTR p = GetMultiByteString(filename);
-                    perror("");
-                    fprintf(stderr, "%s: Can't open file \"%s\"\n", getAppName(), p);
-                    HeapFree(GetProcessHeap(), 0, p);
-                    exit(5);
-                }
-                import_registry_file(fp);
-                get_file_name(&s, filename);
-            }
-            break;
-        }
-    case ACTION_DELETE: {
-            WCHAR reg_key_name[KEY_MAX_LEN];
-            get_file_name(&s, reg_key_name);
-            if (!reg_key_name[0]) {
-                fprintf(stderr, "%s: No registry key is specified for removal\n", getAppName());
-                fprintf(stderr, usage);
-                exit(6);
-            }
-            delete_registry_key(reg_key_name);
-            break;
-        }
-    case ACTION_EXPORT: {
-            WCHAR filename[MAX_PATH];
-
-            filename[0] = _T('\0');
-            get_file_name(&s, filename);
-            if (!filename[0]) {
-                fprintf(stderr, "%s: No file name is specified\n", getAppName());
-                fprintf(stderr, usage);
-                exit(7);
-            }
-
-            if (s[0]) {
-                WCHAR reg_key_name[KEY_MAX_LEN];
-                get_file_name(&s, reg_key_name);
-                export_registry_key(filename, reg_key_name, REG_FORMAT_4);
-            } else {
-                export_registry_key(filename, NULL, REG_FORMAT_4);
-            }
-            break;
-        }
-    default:
-        fprintf(stderr, "%s: Unhandled action!\n", getAppName());
-        exit(8);
-        break;
-    }
-    return TRUE;
-}
+BOOL PerformRegAction(REGEDIT_ACTION action, LPSTR s);
 
 /**
  * Process unknown switch.
@@ -194,47 +65,46 @@ BOOL PerformRegAction(REGEDIT_ACTION action, LPWSTR s)
  *   chu - the switch character in upper-case.
  *   s - the command line string where s points to the switch character.
  */
-static void error_unknown_switch(WCHAR chu, LPWSTR s)
+static void error_unknown_switch(char chu, char *s)
 {
-    if (iswalpha(chu)) {
-        fprintf(stderr, "%s: Undefined switch /%c!\n", getAppName(), chu);
+    if (isalpha(chu)) {
+        fprintf(stderr,"%s: Undefined switch /%c!\n", getAppName(), chu);
     } else {
-        fprintf(stderr, "%s: Alphabetic character is expected after '%c' "
+        fprintf(stderr,"%s: Alphabetic character is expected after '%c' "
                 "in swit ch specification\n", getAppName(), *(s - 1));
     }
     exit(1);
 }
 
-BOOL ProcessCmdLine(LPWSTR lpCmdLine)
+BOOL ProcessCmdLine(LPSTR lpCmdLine)
 {
     REGEDIT_ACTION action = ACTION_UNDEF;
-    LPWSTR s = lpCmdLine;       /* command line pointer */
-    WCHAR ch = *s;              /* current character */
+    LPSTR s = lpCmdLine;        /* command line pointer */
+    CHAR ch = *s;               /* current character */
 
-    while (ch && ((ch == L'-') || (ch == L'/')))
-    {
-        WCHAR chu;
-        WCHAR ch2;
+    setAppName("regedit");
+    while (ch && ((ch == '-') || (ch == '/'))) {
+        char chu;
+        char ch2;
 
         s++;
         ch = *s;
-        ch2 = *(s + 1);
-        chu = (WCHAR)towupper(ch);
-        if (!ch2 || iswspace(ch2)) {
-            if (chu == L'S' || chu == L'V')
-            {
+        ch2 = *(s+1);
+        chu = (CHAR) toupper(ch);
+        if (!ch2 || isspace(ch2)) {
+            if (chu == 'S' || chu == 'V') {
                 /* ignore these switches */
             } else {
                 switch (chu) {
-                case L'D':
+                case 'D':
                     action = ACTION_DELETE;
                     break;
-                case L'E':
+                case 'E':
                     action = ACTION_EXPORT;
                     break;
-                case L'?':
-                    fprintf(stderr, usage);
-                    exit(3);
+                case '?':
+                    fprintf(stderr,usage);
+                    exit(0);
                     break;
                 default:
                     error_unknown_switch(chu, s);
@@ -243,13 +113,13 @@ BOOL ProcessCmdLine(LPWSTR lpCmdLine)
             }
             s++;
         } else {
-            if (ch2 == L':') {
+            if (ch2 == ':') {
                 switch (chu) {
-                case L'L':
+                case 'L':
                     /* fall through */
-                case L'R':
+                case 'R':
                     s += 2;
-                    while (*s && !iswspace(*s)) {
+                    while (*s && !isspace(*s)) {
                         s++;
                     }
                     break;
@@ -265,7 +135,7 @@ BOOL ProcessCmdLine(LPWSTR lpCmdLine)
         }
         /* skip spaces to the next parameter */
         ch = *s;
-        while (ch && iswspace(ch)) {
+        while (ch && isspace(ch)) {
             s++;
             ch = *s;
         }
@@ -278,4 +148,86 @@ BOOL ProcessCmdLine(LPWSTR lpCmdLine)
         return FALSE;
 
     return PerformRegAction(action, s);
+}
+
+BOOL PerformRegAction(REGEDIT_ACTION action, LPSTR s)
+{
+    switch (action) {
+    case ACTION_ADD: {
+            CHAR filename[MAX_PATH];
+            FILE *reg_file;
+
+            get_file_name(&s, filename);
+            if (!filename[0]) {
+                fprintf(stderr,"%s: No file name is specified\n", getAppName());
+                fprintf(stderr,usage);
+                exit(1);
+            }
+
+            while(filename[0]) {
+                reg_file = fopen(filename, "r");
+                if (reg_file) {
+                    processRegLines(reg_file, doSetValue);
+                    fclose(reg_file);
+                } else {
+                    perror("");
+                    fprintf(stderr,"%s: Can't open file \"%s\"\n", getAppName(), filename);
+                    exit(1);
+                }
+                get_file_name(&s, filename);
+            }
+            break;
+        }
+    case ACTION_DELETE: {
+            CHAR reg_key_name[KEY_MAX_LEN];
+
+            get_file_name(&s, reg_key_name);
+            if (!reg_key_name[0]) {
+                fprintf(stderr,"%s: No registry key is specified for removal\n",
+                        getAppName());
+                fprintf(stderr,usage);
+                exit(1);
+            }
+            delete_registry_key(reg_key_name);
+            break;
+        }
+    case ACTION_EXPORT: {
+            CHAR filename[MAX_PATH];
+            LPCTSTR pszFilename;
+#ifdef UNICODE
+            WCHAR filename_wide[MAX_PATH];
+#endif
+
+            filename[0] = '\0';
+            get_file_name(&s, filename);
+            if (!filename[0]) {
+                fprintf(stderr,"%s: No file name is specified\n", getAppName());
+                fprintf(stderr,usage);
+                exit(1);
+            }
+
+#ifdef UNICODE
+            MultiByteToWideChar(CP_ACP, 0, filename, -1, filename_wide,
+                sizeof(filename_wide) / sizeof(filename_wide[0]));
+            pszFilename = filename_wide;
+#else
+            pszFilename = filename;
+#endif
+
+            if (s[0]) {
+                CHAR reg_key_name[KEY_MAX_LEN];
+
+                get_file_name(&s, reg_key_name);
+                export_registry_key(pszFilename, reg_key_name);
+            } else {
+                export_registry_key(pszFilename, NULL);
+            }
+            break;
+        }
+    default:
+        fprintf(stderr,"%s: Unhandled action!\n", getAppName());
+        exit(1);
+        break;
+    }
+    return TRUE;
 }

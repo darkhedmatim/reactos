@@ -486,6 +486,12 @@ IntPrepareDriver(VOID)
             RtlZeroMemory( PrimarySurface.pEDDgpl ,sizeof(EDD_DIRECTDRAW_GLOBAL));
             ret = TRUE;
         }
+
+        gpsi->aiSysMet[SM_CXSCREEN] = PrimarySurface.gdiinfo.ulHorzRes;
+        gpsi->aiSysMet[SM_CYSCREEN] = PrimarySurface.gdiinfo.ulVertRes;
+        gpsi->aiSysMet[SM_CXVIRTUALSCREEN] = PrimarySurface.gdiinfo.ulHorzRes;
+        gpsi->aiSysMet[SM_CYVIRTUALSCREEN] = PrimarySurface.gdiinfo.ulVertRes;
+
         goto cleanup;
     }
 
@@ -1357,7 +1363,7 @@ IntChangeDisplaySettings(
         {
             WCHAR szBuffer[MAX_DRIVER_NAME];
             PDC DC;
-            PWND Wnd=NULL;
+            PWINDOW_OBJECT Wnd=NULL;
             HWND hWnd;
             HDC hDC;
 
@@ -1478,7 +1484,7 @@ GetDisplayNumberFromDeviceName(
 
     if (pDeviceName == NULL || pDeviceName->Length == 0)
     {
-        PWND DesktopObject;
+        PWINDOW_OBJECT DesktopObject;
         HDC DesktopHDC;
         PDC pDC;
 

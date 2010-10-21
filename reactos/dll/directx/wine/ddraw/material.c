@@ -22,9 +22,28 @@
 #include "config.h"
 #include "wine/port.h"
 
-#include "ddraw_private.h"
+#include <assert.h>
+#include <stdarg.h>
+#include <string.h>
+#include <stdlib.h>
 
-WINE_DEFAULT_DEBUG_CHANNEL(ddraw);
+#define COBJMACROS
+#define NONAMELESSUNION
+
+#include "windef.h"
+#include "winbase.h"
+#include "winerror.h"
+#include "wingdi.h"
+#include "wine/exception.h"
+
+#include "ddraw.h"
+#include "d3d.h"
+
+#include "ddraw_private.h"
+#include "wine/debug.h"
+
+WINE_DEFAULT_DEBUG_CHANNEL(d3d7);
+WINE_DECLARE_DEBUG_CHANNEL(ddraw_thunk);
 
 static void dump_material(const D3DMATERIAL *mat)
 {
@@ -66,34 +85,33 @@ IDirect3DMaterialImpl_QueryInterface(IDirect3DMaterial3 *iface,
                                      LPVOID* obp)
 {
     IDirect3DMaterialImpl *This = (IDirect3DMaterialImpl *)iface;
-
-    TRACE("iface %p, riid %s, object %p.\n", iface, debugstr_guid(riid), obp);
+    TRACE("(%p)->(%s,%p)\n", This, debugstr_guid(riid), obp);
 
     *obp = NULL;
 
     if ( IsEqualGUID( &IID_IUnknown,  riid ) ) {
         IUnknown_AddRef(iface);
-        *obp = iface;
-        TRACE("  Creating IUnknown interface at %p.\n", *obp);
-        return S_OK;
+	*obp = iface;
+	TRACE("  Creating IUnknown interface at %p.\n", *obp);
+	return S_OK;
     }
     if ( IsEqualGUID( &IID_IDirect3DMaterial, riid ) ) {
         IDirect3DMaterial_AddRef((IDirect3DMaterial *)&This->IDirect3DMaterial_vtbl);
         *obp = &This->IDirect3DMaterial_vtbl;
-        TRACE("  Creating IDirect3DMaterial interface %p\n", *obp);
-        return S_OK;
+	TRACE("  Creating IDirect3DMaterial interface %p\n", *obp);
+	return S_OK;
     }
     if ( IsEqualGUID( &IID_IDirect3DMaterial2, riid ) ) {
         IDirect3DMaterial_AddRef((IDirect3DMaterial2 *)&This->IDirect3DMaterial2_vtbl);
         *obp = &This->IDirect3DMaterial2_vtbl;
-        TRACE("  Creating IDirect3DMaterial2 interface %p\n", *obp);
-        return S_OK;
+	TRACE("  Creating IDirect3DMaterial2 interface %p\n", *obp);
+	return S_OK;
     }
     if ( IsEqualGUID( &IID_IDirect3DMaterial3, riid ) ) {
         IDirect3DMaterial3_AddRef((IDirect3DMaterial3 *)This);
         *obp = This;
-        TRACE("  Creating IDirect3DMaterial3 interface %p\n", *obp);
-        return S_OK;
+	TRACE("  Creating IDirect3DMaterial3 interface %p\n", *obp);
+	return S_OK;
     }
     FIXME("(%p): interface for IID %s NOT found!\n", This, debugstr_guid(riid));
     return E_NOINTERFACE;
@@ -114,7 +132,7 @@ IDirect3DMaterialImpl_AddRef(IDirect3DMaterial3 *iface)
     IDirect3DMaterialImpl *This = (IDirect3DMaterialImpl *)iface;
     ULONG ref = InterlockedIncrement(&This->ref);
 
-    TRACE("%p increasing refcount to %u.\n", This, ref);
+    TRACE("(%p)->() incrementing from %u.\n", This, ref - 1);
 
     return ref;
 }
@@ -135,14 +153,15 @@ IDirect3DMaterialImpl_Release(IDirect3DMaterial3 *iface)
     IDirect3DMaterialImpl *This = (IDirect3DMaterialImpl *)iface;
     ULONG ref = InterlockedDecrement(&This->ref);
 
-    TRACE("%p decreasing refcount to %u.\n", This, ref);
+    TRACE("(%p)->() decrementing from %u.\n", This, ref + 1);
 
     if (!ref)
     {
         if(This->Handle)
         {
             EnterCriticalSection(&ddraw_cs);
-            ddraw_free_handle(&This->ddraw->d3ddevice->handle_table, This->Handle - 1, DDRAW_HANDLE_MATERIAL);
+            This->ddraw->d3ddevice->Handles[This->Handle - 1].ptr = NULL;
+            This->ddraw->d3ddevice->Handles[This->Handle - 1].type = DDrawHandle_Unknown;
             LeaveCriticalSection(&ddraw_cs);
         }
 
@@ -172,7 +191,9 @@ static HRESULT WINAPI
 IDirect3DMaterialImpl_Initialize(IDirect3DMaterial *iface,
                                   IDirect3D *Direct3D)
 {
-    TRACE("iface %p, d3d %p.\n", iface, Direct3D);
+    IDirect3DMaterialImpl *This = material_from_material1(iface);
+
+    TRACE("(%p)->(%p) no-op...!\n", This, Direct3D);
 
     return D3D_OK;
 }
@@ -190,7 +211,8 @@ IDirect3DMaterialImpl_Initialize(IDirect3DMaterial *iface,
 static HRESULT WINAPI
 IDirect3DMaterialImpl_Reserve(IDirect3DMaterial *iface)
 {
-    TRACE("iface %p.\n", iface);
+    IDirect3DMaterialImpl *This = material_from_material1(iface);
+    TRACE("(%p)->() not implemented\n", This);
 
     return DDERR_UNSUPPORTED;
 }
@@ -207,7 +229,8 @@ IDirect3DMaterialImpl_Reserve(IDirect3DMaterial *iface)
 static HRESULT WINAPI
 IDirect3DMaterialImpl_Unreserve(IDirect3DMaterial *iface)
 {
-    TRACE("iface %p.\n", iface);
+    IDirect3DMaterialImpl *This = material_from_material1(iface);
+    TRACE("(%p)->() not implemented.\n", This);
 
     return DDERR_UNSUPPORTED;
 }
@@ -230,9 +253,8 @@ IDirect3DMaterialImpl_SetMaterial(IDirect3DMaterial3 *iface,
                                   D3DMATERIAL *lpMat)
 {
     IDirect3DMaterialImpl *This = (IDirect3DMaterialImpl *)iface;
-
-    TRACE("iface %p, material %p.\n", iface, lpMat);
-    if (TRACE_ON(ddraw))
+    TRACE("(%p)->(%p)\n", This, lpMat);
+    if (TRACE_ON(d3d7))
         dump_material(lpMat);
 
     /* Stores the material */
@@ -263,10 +285,8 @@ IDirect3DMaterialImpl_GetMaterial(IDirect3DMaterial3 *iface,
 {
     IDirect3DMaterialImpl *This = (IDirect3DMaterialImpl *)iface;
     DWORD dwSize;
-
-    TRACE("iface %p, material %p.\n", iface, lpMat);
-    if (TRACE_ON(ddraw))
-    {
+    TRACE("(%p)->(%p)\n", This, lpMat);
+    if (TRACE_ON(d3d7)) {
         TRACE("  Returning material : ");
         dump_material(&This->mat);
     }
@@ -302,22 +322,21 @@ IDirect3DMaterialImpl_GetHandle(IDirect3DMaterial3 *iface,
 {
     IDirect3DMaterialImpl *This = (IDirect3DMaterialImpl *)iface;
     IDirect3DDeviceImpl *device = device_from_device3(lpDirect3DDevice3);
-
-    TRACE("iface %p, device %p, handle %p.\n", iface, lpDirect3DDevice3, lpHandle);
+    TRACE("(%p/%p)->(%p,%p)\n", This, iface, device, lpHandle);
 
     EnterCriticalSection(&ddraw_cs);
     This->active_device = device;
     if(!This->Handle)
     {
-        DWORD h = ddraw_allocate_handle(&device->handle_table, This, DDRAW_HANDLE_MATERIAL);
-        if (h == DDRAW_INVALID_HANDLE)
+        This->Handle = IDirect3DDeviceImpl_CreateHandle(device);
+        if(!This->Handle)
         {
-            ERR("Failed to allocate a material handle.\n");
+            ERR("Error creating a handle\n");
             LeaveCriticalSection(&ddraw_cs);
             return DDERR_INVALIDPARAMS;   /* Unchecked */
         }
-
-        This->Handle = h + 1;
+        device->Handles[This->Handle - 1].ptr = This;
+        device->Handles[This->Handle - 1].type = DDrawHandle_Material;
     }
     *lpHandle = This->Handle;
     TRACE(" returning handle %08x.\n", *lpHandle);
@@ -326,20 +345,22 @@ IDirect3DMaterialImpl_GetHandle(IDirect3DMaterial3 *iface,
     return D3D_OK;
 }
 
-static HRESULT WINAPI Thunk_IDirect3DMaterialImpl_2_GetHandle(IDirect3DMaterial2 *iface,
-        IDirect3DDevice2 *lpDirect3DDevice2, D3DMATERIALHANDLE *lpHandle)
+static HRESULT WINAPI
+Thunk_IDirect3DMaterialImpl_2_GetHandle(LPDIRECT3DMATERIAL2 iface,
+					LPDIRECT3DDEVICE2 lpDirect3DDevice2,
+					LPD3DMATERIALHANDLE lpHandle)
 {
-    TRACE("iface %p, device %p, handle %p.\n", iface, lpDirect3DDevice2, lpHandle);
-
+    TRACE_(ddraw_thunk)("(%p)->(%p,%p) thunking to IDirect3DMaterial3 interface.\n", iface, lpDirect3DDevice2, lpHandle);
     return IDirect3DMaterial3_GetHandle((IDirect3DMaterial3 *)material_from_material2(iface), lpDirect3DDevice2 ?
             (IDirect3DDevice3 *)&device_from_device2(lpDirect3DDevice2)->IDirect3DDevice3_vtbl : NULL, lpHandle);
 }
 
-static HRESULT WINAPI Thunk_IDirect3DMaterialImpl_1_GetHandle(IDirect3DMaterial *iface,
-        IDirect3DDevice *lpDirect3DDevice, D3DMATERIALHANDLE *lpHandle)
+static HRESULT WINAPI
+Thunk_IDirect3DMaterialImpl_1_GetHandle(LPDIRECT3DMATERIAL iface,
+					LPDIRECT3DDEVICE lpDirect3DDevice,
+					LPD3DMATERIALHANDLE lpHandle)
 {
-    TRACE("iface %p, device %p, handle %p.\n", iface, lpDirect3DDevice, lpHandle);
-
+    TRACE_(ddraw_thunk)("(%p)->(%p,%p) thunking to IDirect3DMaterial3 interface.\n", iface, lpDirect3DDevice, lpHandle);
     return IDirect3DMaterial3_GetHandle((IDirect3DMaterial3 *)material_from_material1(iface), lpDirect3DDevice ?
             (IDirect3DDevice3 *)&device_from_device1(lpDirect3DDevice)->IDirect3DDevice3_vtbl : NULL, lpHandle);
 }
@@ -349,8 +370,7 @@ Thunk_IDirect3DMaterialImpl_2_QueryInterface(LPDIRECT3DMATERIAL2 iface,
                                              REFIID riid,
                                              LPVOID* obp)
 {
-    TRACE("iface %p, riid %s, object %p.\n", iface, debugstr_guid(riid), obp);
-
+    TRACE_(ddraw_thunk)("(%p)->(%s,%p) thunking to IDirect3DMaterial3 interface.\n", iface, debugstr_guid(riid), obp);
     return IDirect3DMaterial3_QueryInterface((IDirect3DMaterial3 *)material_from_material2(iface), riid, obp);
 }
 
@@ -359,40 +379,35 @@ Thunk_IDirect3DMaterialImpl_1_QueryInterface(LPDIRECT3DMATERIAL iface,
                                              REFIID riid,
                                              LPVOID* obp)
 {
-    TRACE("iface %p, riid %s, object %p.\n", iface, debugstr_guid(riid), obp);
-
+    TRACE_(ddraw_thunk)("(%p)->(%s,%p) thunking to IDirect3DMaterial3 interface.\n", iface, debugstr_guid(riid), obp);
     return IDirect3DMaterial3_QueryInterface((IDirect3DMaterial3 *)material_from_material1(iface), riid, obp);
 }
 
 static ULONG WINAPI
 Thunk_IDirect3DMaterialImpl_2_AddRef(LPDIRECT3DMATERIAL2 iface)
 {
-    TRACE("iface %p.\n", iface);
-
+    TRACE_(ddraw_thunk)("(%p)->() thunking to IDirect3DMaterial3 interface.\n", iface);
     return IDirect3DMaterial3_AddRef((IDirect3DMaterial3 *)material_from_material2(iface));
 }
 
 static ULONG WINAPI
 Thunk_IDirect3DMaterialImpl_1_AddRef(LPDIRECT3DMATERIAL iface)
 {
-    TRACE("iface %p.\n", iface);
-
+    TRACE_(ddraw_thunk)("(%p)->() thunking to IDirect3DMaterial3 interface.\n", iface);
     return IDirect3DMaterial3_AddRef((IDirect3DMaterial3 *)material_from_material1(iface));
 }
 
 static ULONG WINAPI
 Thunk_IDirect3DMaterialImpl_2_Release(LPDIRECT3DMATERIAL2 iface)
 {
-    TRACE("iface %p.\n", iface);
-
+    TRACE_(ddraw_thunk)("(%p)->() thunking to IDirect3DMaterial3 interface.\n", iface);
     return IDirect3DMaterial3_Release((IDirect3DMaterial3 *)material_from_material2(iface));
 }
 
 static ULONG WINAPI
 Thunk_IDirect3DMaterialImpl_1_Release(LPDIRECT3DMATERIAL iface)
 {
-    TRACE("iface %p.\n", iface);
-
+    TRACE_(ddraw_thunk)("(%p)->() thunking to IDirect3DMaterial3 interface.\n", iface);
     return IDirect3DMaterial3_Release((IDirect3DMaterial3 *)material_from_material1(iface));
 }
 
@@ -400,8 +415,7 @@ static HRESULT WINAPI
 Thunk_IDirect3DMaterialImpl_2_SetMaterial(LPDIRECT3DMATERIAL2 iface,
                                           LPD3DMATERIAL lpMat)
 {
-    TRACE("iface %p, material %p.\n", iface, lpMat);
-
+    TRACE_(ddraw_thunk)("(%p)->(%p) thunking to IDirect3DMaterial3 interface.\n", iface, lpMat);
     return IDirect3DMaterial3_SetMaterial((IDirect3DMaterial3 *)material_from_material2(iface), lpMat);
 }
 
@@ -409,8 +423,7 @@ static HRESULT WINAPI
 Thunk_IDirect3DMaterialImpl_1_SetMaterial(LPDIRECT3DMATERIAL iface,
                                           LPD3DMATERIAL lpMat)
 {
-    TRACE("iface %p, material %p.\n", iface, lpMat);
-
+    TRACE_(ddraw_thunk)("(%p)->(%p) thunking to IDirect3DMaterial3 interface.\n", iface, lpMat);
     return IDirect3DMaterial3_SetMaterial((IDirect3DMaterial3 *)material_from_material1(iface), lpMat);
 }
 
@@ -418,8 +431,7 @@ static HRESULT WINAPI
 Thunk_IDirect3DMaterialImpl_2_GetMaterial(LPDIRECT3DMATERIAL2 iface,
                                           LPD3DMATERIAL lpMat)
 {
-    TRACE("iface %p, material %p.\n", iface, lpMat);
-
+    TRACE_(ddraw_thunk)("(%p)->(%p) thunking to IDirect3DMaterial3 interface.\n", iface, lpMat);
     return IDirect3DMaterial3_GetMaterial((IDirect3DMaterial3 *)material_from_material2(iface), lpMat);
 }
 
@@ -427,8 +439,7 @@ static HRESULT WINAPI
 Thunk_IDirect3DMaterialImpl_1_GetMaterial(LPDIRECT3DMATERIAL iface,
                                           LPD3DMATERIAL lpMat)
 {
-    TRACE("iface %p, material %p.\n", iface, lpMat);
-
+    TRACE_(ddraw_thunk)("(%p)->(%p) thunking to IDirect3DMaterial3 interface.\n", iface, lpMat);
     return IDirect3DMaterial3_GetMaterial((IDirect3DMaterial3 *)material_from_material1(iface), lpMat);
 }
 
@@ -456,7 +467,7 @@ void material_activate(IDirect3DMaterialImpl* This)
     IDirect3DDevice7_SetMaterial((IDirect3DDevice7 *)This->active_device, &d3d7mat);
 }
 
-static const struct IDirect3DMaterial3Vtbl d3d_material3_vtbl =
+const IDirect3DMaterial3Vtbl IDirect3DMaterial3_Vtbl =
 {
     /*** IUnknown Methods ***/
     IDirect3DMaterialImpl_QueryInterface,
@@ -468,7 +479,7 @@ static const struct IDirect3DMaterial3Vtbl d3d_material3_vtbl =
     IDirect3DMaterialImpl_GetHandle,
 };
 
-static const struct IDirect3DMaterial2Vtbl d3d_material2_vtbl =
+const IDirect3DMaterial2Vtbl IDirect3DMaterial2_Vtbl =
 {
     /*** IUnknown Methods ***/
     Thunk_IDirect3DMaterialImpl_2_QueryInterface,
@@ -480,7 +491,7 @@ static const struct IDirect3DMaterial2Vtbl d3d_material2_vtbl =
     Thunk_IDirect3DMaterialImpl_2_GetHandle,
 };
 
-static const struct IDirect3DMaterialVtbl d3d_material1_vtbl =
+const IDirect3DMaterialVtbl IDirect3DMaterial_Vtbl =
 {
     /*** IUnknown Methods ***/
     Thunk_IDirect3DMaterialImpl_1_QueryInterface,
@@ -494,12 +505,3 @@ static const struct IDirect3DMaterialVtbl d3d_material1_vtbl =
     IDirect3DMaterialImpl_Reserve,
     IDirect3DMaterialImpl_Unreserve
 };
-
-void d3d_material_init(IDirect3DMaterialImpl *material, IDirectDrawImpl *ddraw)
-{
-    material->lpVtbl = &d3d_material3_vtbl;
-    material->IDirect3DMaterial2_vtbl = &d3d_material2_vtbl;
-    material->IDirect3DMaterial_vtbl = &d3d_material1_vtbl;
-    material->ref = 1;
-    material->ddraw = ddraw;
-}

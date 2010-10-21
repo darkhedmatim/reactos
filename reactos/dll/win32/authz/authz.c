@@ -170,7 +170,7 @@ AuthzInitializeContextFromToken(IN DWORD Flags,
  */
 AUTHZAPI
 BOOL
-WINAPIV
+WINAPI
 AuthzInitializeObjectAccessAuditEvent(IN DWORD Flags,
                                       IN AUTHZ_AUDIT_EVENT_TYPE_HANDLE hAuditEventType,
                                       IN PWSTR szOperationType,
@@ -178,8 +178,7 @@ AuthzInitializeObjectAccessAuditEvent(IN DWORD Flags,
                                       IN PWSTR szObjectName,
                                       IN PWSTR szAdditionalInfo,
                                       OUT PAUTHZ_AUDIT_EVENT_HANDLE phAuditEvent,
-                                      IN DWORD dwAdditionalParamCount,
-                                      ...)
+                                      IN DWORD dwAdditionalParamCount)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -191,7 +190,7 @@ AuthzInitializeObjectAccessAuditEvent(IN DWORD Flags,
  */
 AUTHZAPI
 BOOL
-WINAPIV
+WINAPI
 AuthzInitializeObjectAccessAuditEvent2(IN DWORD Flags,
                                        IN AUTHZ_AUDIT_EVENT_TYPE_HANDLE hAuditEventType,
                                        IN PWSTR szOperationType,
@@ -200,8 +199,7 @@ AuthzInitializeObjectAccessAuditEvent2(IN DWORD Flags,
                                        IN PWSTR szAdditionalInfo,
                                        IN PWSTR szAdditionalInfo2,
                                        OUT PAUTHZ_AUDIT_EVENT_HANDLE phAuditEvent,
-                                       IN DWORD dwAdditionalParameterCount,
-                                       ...)
+                                       IN DWORD dwAdditionalParameterCount)
 {
     UNIMPLEMENTED;
     return FALSE;
@@ -262,7 +260,7 @@ AuthzRegisterSecurityEventSource(IN DWORD dwFlags,
  */
 AUTHZAPI
 BOOL
-WINAPIV
+WINAPI
 AuthzReportSecurityEvent(IN DWORD dwFlags,
                          IN AUTHZ_SECURITY_EVENT_PROVIDER_HANDLE hEventProvider,
                          IN DWORD dwAuditId,

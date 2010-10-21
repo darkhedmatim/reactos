@@ -14,10 +14,8 @@
 
 typedef struct
 {
-    LIST_ENTRY Entry;
     PDMA_ADAPTER Adapter;
     ULONG MapRegisters;
-    PVOID HwDeviceExtension;
 
 }VIP_DMA_ADAPTER, *PVIP_DMA_ADAPTER;
 
@@ -48,14 +46,7 @@ VideoPortAllocateCommonBuffer(IN PVOID HwDeviceExtension,
 {
     PVIP_DMA_ADAPTER Adapter = (PVIP_DMA_ADAPTER)VpDmaAdapter;
 
-    /* check for valid arguments */
-    if (!Adapter || !Adapter->Adapter)
-    {
-        /* invalid parameter */
-        return NULL;
-    }
 
-    /* allocate common buffer */
     return Adapter->Adapter->DmaOperations->AllocateCommonBuffer(Adapter->Adapter, DesiredLength, LogicalAddress, CacheEnabled);
 }
 
@@ -73,14 +64,6 @@ VideoPortReleaseCommonBuffer(IN PVOID HwDeviceExtension,
 {
     PVIP_DMA_ADAPTER Adapter = (PVIP_DMA_ADAPTER)VpDmaAdapter;
 
-    /* check for valid arguments */
-    if (!Adapter || !Adapter->Adapter)
-    {
-        /* invalid parameter */
-        return;
-    }
-
-    /* release common buffer */
     Adapter->Adapter->DmaOperations->FreeCommonBuffer(Adapter->Adapter, Length, LogicalAddress, VirtualAddress, CacheEnabled);
 }
 
@@ -92,22 +75,9 @@ NTAPI
 VideoPortPutDmaAdapter(IN PVOID HwDeviceExtension,
                        IN PVP_DMA_ADAPTER VpDmaAdapter)
 {
-    PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension;
     PVIP_DMA_ADAPTER Adapter = (PVIP_DMA_ADAPTER)VpDmaAdapter;
 
-    /* get hw device extension */
-    DeviceExtension = VIDEO_PORT_GET_DEVICE_EXTENSION(HwDeviceExtension);
-
-    /* sanity check */
-    ASSERT(!IsListEmpty(&DeviceExtension->DmaAdapterList));
-
-    /* remove dma adapter from list */
-    RemoveEntryList(&Adapter->Entry);
-
-    /* release dma adapter */
     Adapter->Adapter->DmaOperations->PutDmaAdapter(Adapter->Adapter);
-
-    /* free memory */
     ExFreePool(Adapter);
 }
 
@@ -125,21 +95,13 @@ VideoPortGetDmaAdapter(IN PVOID HwDeviceExtension,
     PVIP_DMA_ADAPTER Adapter;
     PDMA_ADAPTER DmaAdapter;
 
-    /* allocate private adapter structure */
-    Adapter = ExAllocatePool(NonPagedPool, sizeof(VIP_DMA_ADAPTER));
-    if (!Adapter)
-    {
-        /* failed to allocate adapter structure */
-        return NULL;
-    }
-
     /* Zero the structure */
     RtlZeroMemory(&DeviceDescription,
                   sizeof(DEVICE_DESCRIPTION));
 
     /* Initialize the structure */
     DeviceDescription.Version = DEVICE_DESCRIPTION_VERSION;
-    DeviceDescription.Master = TRUE;
+    DeviceDescription.Master = TRUE /* ?? */;
     DeviceDescription.DmaWidth = Width8Bits;
     DeviceDescription.DmaSpeed = Compatible;
 
@@ -153,28 +115,21 @@ VideoPortGetDmaAdapter(IN PVOID HwDeviceExtension,
     DeviceDescription.BusNumber = DeviceExtension->SystemIoBusNumber;
     DeviceDescription.InterfaceType = DeviceExtension->AdapterInterfaceType;
 
-    /* acquire dma adapter */
+    Adapter = ExAllocatePool(NonPagedPool, sizeof(VIP_DMA_ADAPTER));
+    if (!Adapter)
+        return NULL;
+
+
     DmaAdapter = IoGetDmaAdapter(DeviceExtension->PhysicalDeviceObject, &DeviceDescription, &NumberOfMapRegisters);
     if (!DmaAdapter)
     {
-        /* failed to acquire dma */
         ExFreePool(Adapter);
         return NULL;
     }
 
-    /* store dma adapter */
     Adapter->Adapter = DmaAdapter;
-
-    /* store map register count */
     Adapter->MapRegisters = NumberOfMapRegisters;
 
-    /* store hw device extension */
-    Adapter->HwDeviceExtension = HwDeviceExtension;
-
-    /* store in dma adapter list */
-    InsertTailList(&DeviceExtension->DmaAdapterList, &Adapter->Entry);
-
-    /* return result */
     return (PVP_DMA_ADAPTER)Adapter;
 }
 
@@ -189,26 +144,21 @@ VideoPortFreeCommonBuffer(IN PVOID HwDeviceExtension,
                           IN PHYSICAL_ADDRESS LogicalAddress,
                           IN BOOLEAN CacheEnabled)
 {
-    PVIP_DMA_ADAPTER VpDmaAdapter;
-    PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension = VIDEO_PORT_GET_DEVICE_EXTENSION(HwDeviceExtension);
+    DEVICE_DESCRIPTION DeviceDescription;
+    PVP_DMA_ADAPTER VpDmaAdapter;
 
-    /* sanity check */
-    ASSERT(!IsListEmpty(&DeviceExtension->DmaAdapterList));
-
-    /* grab first dma adapter */
-    VpDmaAdapter = (PVIP_DMA_ADAPTER)CONTAINING_RECORD(DeviceExtension->DmaAdapterList.Flink, VIP_DMA_ADAPTER, Entry);
-
-    /* sanity checks */
-    ASSERT(VpDmaAdapter->HwDeviceExtension == HwDeviceExtension);
-    ASSERT(VpDmaAdapter->Adapter != NULL);
-    ASSERT(VpDmaAdapter->MapRegisters != 0);
-
-    return VideoPortReleaseCommonBuffer(HwDeviceExtension, (PVP_DMA_ADAPTER)VpDmaAdapter, Length, LogicalAddress, VirtualAddress, CacheEnabled);
-
+    /* FIXME: Broken code*/
+    VpDmaAdapter = VideoPortGetDmaAdapter(HwDeviceExtension,
+                                          (PVP_DEVICE_DESCRIPTION)&DeviceDescription);
+    HalFreeCommonBuffer((PADAPTER_OBJECT)VpDmaAdapter,
+                        Length,
+                        LogicalAddress,
+                        VirtualAddress,
+                        CacheEnabled);
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 PVOID
 NTAPI
@@ -219,44 +169,8 @@ VideoPortGetCommonBuffer(IN PVOID HwDeviceExtension,
                          OUT PULONG pActualLength,
                          IN BOOLEAN CacheEnabled)
 {
-    PVOID Result;
-    PVIP_DMA_ADAPTER VpDmaAdapter;
-    PVIDEO_PORT_DEVICE_EXTENSION DeviceExtension = VIDEO_PORT_GET_DEVICE_EXTENSION(HwDeviceExtension);
-
-    /* maximum palette size */
-    if (DesiredLength > 262144) 
-    {
-        /* size exceeded */
-        return NULL;
-    }
-
-    /* sanity check */
-    ASSERT(!IsListEmpty(&DeviceExtension->DmaAdapterList));
-
-    /* grab first dma adapter */
-    VpDmaAdapter = (PVIP_DMA_ADAPTER)CONTAINING_RECORD(DeviceExtension->DmaAdapterList.Flink, VIP_DMA_ADAPTER, Entry);
-
-    /* sanity checks */
-    ASSERT(VpDmaAdapter->HwDeviceExtension == HwDeviceExtension);
-    ASSERT(VpDmaAdapter->Adapter != NULL);
-    ASSERT(VpDmaAdapter->MapRegisters != 0);
-
-
-    /* allocate common buffer */
-    Result = VideoPortAllocateCommonBuffer(HwDeviceExtension, (PVP_DMA_ADAPTER)VpDmaAdapter, DesiredLength, LogicalAddress, CacheEnabled, NULL);
-
-    if (Result)
-    {
-        /* store length */
-        *pActualLength = DesiredLength;
-    }
-    else
-    {
-        /* failed to allocate common buffer */
-        *pActualLength = 0;
-    }
-
-    return Result;
+    UNIMPLEMENTED;
+	return NULL;
 }
 
 /*
@@ -271,7 +185,7 @@ VideoPortUnmapDmaMemory(
     PDMA  BoardMemoryHandle)
 {
     /* Deprecated */
-    return FALSE;
+	return FALSE;
 }
 
 /*
@@ -289,7 +203,7 @@ VideoPortMapDmaMemory(IN PVOID HwDeviceExtension,
                       IN OUT PVOID *VirtualAddress)
 {
     /* Deprecated */
-    return NULL;
+	return NULL;
 }
 
 /*
@@ -302,7 +216,7 @@ VideoPortSetDmaContext(IN PVOID HwDeviceExtension,
                        IN PVOID InstanceContext)
 {
     /* Deprecated */
-    return;
+	return;
 }
 
 /*
@@ -314,7 +228,7 @@ VideoPortSignalDmaComplete(IN PVOID HwDeviceExtension,
                            IN PDMA pDmaHandle)
 {
     /* Deprecated */
-    return FALSE;
+	return FALSE;
 }
 
 
@@ -413,7 +327,7 @@ VideoPortGetDmaContext(IN PVOID HwDeviceExtension,
                        IN PDMA pDma)
 {
     /* Deprecated */
-    return NULL;
+	return NULL;
 }
 
 /*
@@ -430,7 +344,7 @@ VideoPortDoDma(IN PVOID HwDeviceExtension,
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 PDMA
 NTAPI
@@ -439,8 +353,8 @@ VideoPortAssociateEventsWithDmaHandle(IN PVOID HwDeviceExtension,
                                       IN PVOID MappedUserEvent,
                                       IN PVOID DisplayDriverEvent)
 {
-    /* Deprecated */
-    return NULL;
+    UNIMPLEMENTED;
+	return NULL;
 }
 
 /*

@@ -760,6 +760,7 @@ CreateShortcuts(VOID)
 
     /* Create desktop shortcuts */
     CreateShortcut(CSIDL_DESKTOP, NULL, IDS_SHORT_CMD, _T("%SystemRoot%\\system32\\cmd.exe"), IDS_CMT_CMD, TRUE);
+    CreateShortcut(CSIDL_DESKTOP, NULL, IDS_SHORT_DOWNLOADER, _T("%SystemRoot%\\system32\\rapps.exe"), IDS_CMT_DOWNLOADER, TRUE);
 
     /* Create program startmenu shortcuts */
     CreateShortcut(CSIDL_PROGRAMS, NULL, IDS_SHORT_EXPLORER, _T("%SystemRoot%\\explorer.exe"), IDS_CMT_EXPLORER, TRUE);
@@ -810,7 +811,7 @@ CreateShortcuts(VOID)
     if (CreateShortcutFolder(CSIDL_PROGRAMS, IDS_GAMES, szFolder, sizeof(szFolder)/sizeof(szFolder[0])))
     {
         CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_SOLITAIRE, _T("%SystemRoot%\\system32\\sol.exe"), IDS_CMT_SOLITAIRE, TRUE);
-        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_WINEMINE, _T("%SystemRoot%\\system32\\winmine.exe"), IDS_CMT_WINEMINE, TRUE);
+        CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_WINEMINE, _T("%SystemRoot%\\system32\\winemine.exe"), IDS_CMT_WINEMINE, TRUE);
         CreateShortcut(CSIDL_PROGRAMS, szFolder, IDS_SHORT_SPIDER, _T("%SystemRoot%\\system32\\spider.exe"), IDS_CMT_SPIDER, TRUE);
     }
 

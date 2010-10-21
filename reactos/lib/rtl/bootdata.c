@@ -541,7 +541,9 @@ Cleanup:
 */
 NTSTATUS
 NTAPI
-RtlCreateSystemVolumeInformationFolder(IN PUNICODE_STRING VolumeRootPath)
+RtlCreateSystemVolumeInformationFolder(
+	IN PUNICODE_STRING VolumeRootPath
+	)
 {
     OBJECT_ATTRIBUTES ObjectAttributes;
     IO_STATUS_BLOCK IoStatusBlock;
@@ -677,8 +679,8 @@ NTSTATUS
 NTAPI
 RtlCreateBootStatusDataFile(VOID)
 {
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
 }
 
 /*
@@ -686,15 +688,17 @@ RtlCreateBootStatusDataFile(VOID)
 */
 NTSTATUS
 NTAPI
-RtlGetSetBootStatusData(HANDLE Filehandle,
-                        BOOLEAN WriteMode,
-                        DWORD DataClass,
-                        PVOID Buffer,
-                        ULONG BufferSize,
-                        DWORD DataClass2)
+RtlGetSetBootStatusData(
+	HANDLE Filehandle,
+	BOOLEAN WriteMode,
+	DWORD DataClass,
+	PVOID Buffer,
+	ULONG BufferSize,
+	DWORD DataClass2
+	)
 {
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
 }
 
 /*
@@ -702,10 +706,12 @@ RtlGetSetBootStatusData(HANDLE Filehandle,
 */
 NTSTATUS
 NTAPI
-RtlLockBootStatusData(OUT PHANDLE Filehandle)
+RtlLockBootStatusData(
+	HANDLE Filehandle
+	)
 {
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
 }
 
 /*
@@ -713,10 +719,12 @@ RtlLockBootStatusData(OUT PHANDLE Filehandle)
 */
 NTSTATUS
 NTAPI
-RtlUnlockBootStatusData(IN HANDLE Filehandle)
+RtlUnlockBootStatusData(
+	HANDLE Filehandle
+	)
 {
-    UNIMPLEMENTED;
-    return STATUS_NOT_IMPLEMENTED;
+	UNIMPLEMENTED;
+	return STATUS_NOT_IMPLEMENTED;
 }
 
 /* EOF */

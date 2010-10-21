@@ -15,7 +15,7 @@ IntEngMaskBlt(SURFOBJ *psoDest,
 
 VOID FASTCALL
 IntEngWindowChanged(
-        PWND Window,
+        PWINDOW_OBJECT Window,
         FLONG flChanged);
 
 VOID FASTCALL IntGdiAcquireSemaphore ( HSEMAPHORE hsem );

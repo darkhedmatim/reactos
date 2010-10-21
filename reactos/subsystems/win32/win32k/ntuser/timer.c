@@ -114,7 +114,7 @@ RemoveTimer(PTIMER pTmr)
 
 PTIMER
 FASTCALL
-FindTimer(PWND Window,
+FindTimer(PWINDOW_OBJECT Window,
           UINT_PTR nID,
           UINT flags)
 {
@@ -167,10 +167,11 @@ FindSystemTimer(PMSG pMsg)
 BOOL
 FASTCALL
 ValidateTimerCallback(PTHREADINFO pti,
+                      PWINDOW_OBJECT Window,
+                      WPARAM wParam,
                       LPARAM lParam)
 {
   PLIST_ENTRY pLE;
-  BOOL Ret = FALSE;
   PTIMER pTmr = FirstpTmr;
 
   if (!pTmr) return FALSE;
@@ -179,22 +180,22 @@ ValidateTimerCallback(PTHREADINFO pti,
   do
   {
     if ( (lParam == (LPARAM)pTmr->pfn) &&
-        !(pTmr->flags & (TMRF_SYSTEM|TMRF_RIT)) &&
+         (pTmr->flags & (TMRF_SYSTEM|TMRF_RIT)) &&
          (pTmr->pti->ppi == pti->ppi) )
-    {
-       Ret = TRUE;
        break;
-    }
+
     pLE = pTmr->ptmrList.Flink;
     pTmr = CONTAINING_RECORD(pLE, TIMER, ptmrList);
   } while (pTmr != FirstpTmr);
   TimerLeave();
 
-  return Ret;
+  if (!pTmr) return FALSE;
+
+  return TRUE;
 }
 
 UINT_PTR FASTCALL
-IntSetTimer( PWND Window,
+IntSetTimer( PWINDOW_OBJECT Window,
                   UINT_PTR IDEvent,
                   UINT Elapse,
                   TIMERPROC TimerFunc,
@@ -262,7 +263,7 @@ IntSetTimer( PWND Window,
      if (!pTmr) return 0;
 
      if (Window && (Type & TMRF_TIFROMWND))
-        pTmr->pti = Window->head.pti->pEThread->Tcb.Win32Thread;
+        pTmr->pti = Window->pti->pEThread->Tcb.Win32Thread;
      else
      {
         if (Type & TMRF_RIT)
@@ -316,12 +317,12 @@ StartTheTimers(VOID)
 
 UINT_PTR
 FASTCALL
-SystemTimerSet( PWND Window,
+SystemTimerSet( PWINDOW_OBJECT Window,
                 UINT_PTR nIDEvent,
                 UINT uElapse,
                 TIMERPROC lpTimerFunc)
 {
-  if (Window && Window->head.pti->pEThread->ThreadsProcess != PsGetCurrentProcess())
+  if (Window && Window->pti->pEThread->ThreadsProcess != PsGetCurrentProcess())
   {
      SetLastWin32Error(ERROR_ACCESS_DENIED);
      DPRINT("SysemTimerSet: Access Denied!\n");
@@ -332,7 +333,7 @@ SystemTimerSet( PWND Window,
 
 BOOL
 FASTCALL
-PostTimerMessages(PWND Window)
+PostTimerMessages(PWINDOW_OBJECT Window)
 {
   PLIST_ENTRY pLE;
   PUSER_MESSAGE_QUEUE ThreadQueue;
@@ -354,7 +355,7 @@ PostTimerMessages(PWND Window)
           (pTmr->pti == pti) &&
           ((pTmr->pWnd == Window) || (Window == NULL)) )
         {
-           Msg.hwnd    = (pTmr->pWnd) ? pTmr->pWnd->head.h : 0;
+           Msg.hwnd    = (pTmr->pWnd) ? pTmr->pWnd->hSelf : 0;
            Msg.message = (pTmr->flags & TMRF_SYSTEM) ? WM_SYSTIMER : WM_TIMER;
            Msg.wParam  = (WPARAM) pTmr->nID;
            Msg.lParam  = (LPARAM) pTmr->pfn;
@@ -455,7 +456,7 @@ ProcessTimers(VOID)
 }
 
 BOOL FASTCALL
-DestroyTimersForWindow(PTHREADINFO pti, PWND Window)
+DestroyTimersForWindow(PTHREADINFO pti, PWINDOW_OBJECT Window)
 {
    PLIST_ENTRY pLE;
    PTIMER pTmr = FirstpTmr;
@@ -509,7 +510,7 @@ DestroyTimersForThread(PTHREADINFO pti)
 }
 
 BOOL FASTCALL
-IntKillTimer(PWND Window, UINT_PTR IDEvent, BOOL SystemTimer)
+IntKillTimer(PWINDOW_OBJECT Window, UINT_PTR IDEvent, BOOL SystemTimer)
 {
    PTIMER pTmr = NULL;
    DPRINT("IntKillTimer Window %x id %p systemtimer %s\n",
@@ -561,7 +562,7 @@ NtUserSetTimer
    TIMERPROC lpTimerFunc
 )
 {
-   PWND Window;
+   PWINDOW_OBJECT Window;
    DECLARE_RETURN(UINT_PTR);
 
    DPRINT("Enter NtUserSetTimer\n");
@@ -586,7 +587,7 @@ NtUserKillTimer
    UINT_PTR uIDEvent
 )
 {
-   PWND Window;
+   PWINDOW_OBJECT Window;
    DECLARE_RETURN(BOOL);
 
    DPRINT("Enter NtUserKillTimer\n");
@@ -615,7 +616,8 @@ NtUserSetSystemTimer(
 
    DPRINT("Enter NtUserSetSystemTimer\n");
 
-   RETURN(IntSetTimer(UserGetWindowObject(hWnd), nIDEvent, uElapse, NULL, TMRF_SYSTEM));
+   // This is wrong, lpTimerFunc is NULL!
+   RETURN(IntSetTimer(UserGetWindowObject(hWnd), nIDEvent, uElapse, lpTimerFunc, TMRF_SYSTEM));
 
 CLEANUP:
    DPRINT("Leave NtUserSetSystemTimer, ret=%i\n", _ret_);

@@ -69,7 +69,10 @@ MAIN_MENU MENU
    MENUITEM "&Utiliser l'aide", MNID_HELP_HELPON
    MENUITEM "&Toujours visible", MNID_HELP_HELPTOP
    MENUITEM SEPARATOR
-   MENUITEM "&A propos de l'Aide de Wine", MNID_HELP_ABOUT
+   MENUITEM "&Info...", MNID_HELP_ABOUT
+#ifdef WINELIB
+   MENUITEM "À &propos de Wine", MNID_HELP_WINE
+#endif
  }
 }
 

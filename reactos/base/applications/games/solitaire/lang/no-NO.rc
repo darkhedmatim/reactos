@@ -5,6 +5,9 @@
  * PURPOSE:     Norwegian Language File for Solitaire
  * TRANSLATOR:  LMH1
  */
+
+#include "resource.h"
+
 LANGUAGE LANG_NORWEGIAN, SUBLANG_NEUTRAL
 
 

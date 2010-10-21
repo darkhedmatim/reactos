@@ -189,7 +189,6 @@ CcRosFlushDirtyPages(ULONG Target, PULONG Count)
     
     (*Count) = 0;
     
-    KeEnterCriticalRegion();
     KeAcquireGuardedMutex(&ViewLock);
     
     WriteCount[0] = WriteCount[1];
@@ -279,7 +278,6 @@ CcRosFlushDirtyPages(ULONG Target, PULONG Count)
     }
     
     KeReleaseGuardedMutex(&ViewLock);
-    KeLeaveCriticalRegion();
     
     DPRINT("CcRosFlushDirtyPages() finished\n");
     return(STATUS_SUCCESS);
@@ -687,7 +685,7 @@ CcRosCreateCacheSegment(PBCB Bcb,
   MmLockAddressSpace(MmGetKernelAddressSpace());
   current->BaseAddress = NULL;
   Status = MmCreateMemoryArea(MmGetKernelAddressSpace(),
-			      0, // nothing checks for cache_segment mareas, so set to 0
+			      MEMORY_AREA_CACHE_SEGMENT,
 			      &current->BaseAddress,
 			      Bcb->CacheSegmentSize,
 			      PAGE_READWRITE,

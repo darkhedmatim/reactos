@@ -6,6 +6,8 @@
  * TRANSLATOR:  Sumath Aowsakulsutthi
 */
 
+#include "resource.h"
+
 LANGUAGE LANG_THAI, SUBLANG_DEFAULT
 
 

@@ -1,5 +1,7 @@
 // Russian language resource file (Dmitry Chapyshev, 2007-06-10)
 
+#include "resource.h"
+
 LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
 
 

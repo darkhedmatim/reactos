@@ -222,7 +222,7 @@ typedef struct _SCSI_PORT_DEVICE_EXTENSION
   KSPIN_LOCK IrqLock; /* Used when there are 2 irqs */
   ULONG SequenceNumber; /* Global sequence number for packets */
   KSPIN_LOCK SpinLock;
-  PKINTERRUPT Interrupt[2];
+  PKINTERRUPT Interrupt;
   PIRP                   CurrentIrp;
   ULONG IrpFlags;
 
@@ -281,15 +281,13 @@ typedef struct _SCSI_PORT_DEVICE_EXTENSION
 
   PHYSICAL_ADDRESS PhysicalAddress;
   ULONG CommonBufferLength;
-  ULONG InterruptLevel[2];
+  ULONG InterruptLevel;
   ULONG IoAddress;
 
   BOOLEAN NeedSrbExtensionAlloc;
   BOOLEAN NeedSrbDataAlloc;
 
   ULONG RequestsNumber;
-
-  ULONG InterruptCount;
 
   UCHAR MiniPortDeviceExtension[1]; /* must be the last entry */
 } SCSI_PORT_DEVICE_EXTENSION, *PSCSI_PORT_DEVICE_EXTENSION;

@@ -36,6 +36,17 @@ WINE_DEFAULT_DEBUG_CHANNEL(user32);
 /* FUNCTIONS *****************************************************************/
 
 /*
+ * Private calls for CSRSS
+ */
+VOID
+WINAPI
+PrivateCsrssManualGuiCheck(LONG Check)
+{
+  NtUserCallOneParam(Check, ONEPARAM_ROUTINE_CSRSS_GUICHECK);
+}
+
+
+/*
  * @implemented
  */
 BOOL
@@ -304,7 +315,7 @@ GetUser32Handle(HANDLE handle)
 static const BOOL g_ObjectHeapTypeShared[VALIDATE_TYPE_EVENT + 1] =
 {
     FALSE, /* VALIDATE_TYPE_FREE (not used) */
-    FALSE, /* VALIDATE_TYPE_WIN  FALSE */
+    TRUE, /* VALIDATE_TYPE_WIN  FALSE */
     TRUE, /* VALIDATE_TYPE_MENU  FALSE */
     TRUE, /* VALIDATE_TYPE_CURSOR */
     TRUE, /* VALIDATE_TYPE_MWPOS */
@@ -427,6 +438,12 @@ ValidateCallProc(HANDLE hCallProc)
   return NULL;
 }
 
+// HACK HACK HACK!
+typedef struct _WNDX
+{
+    THRDESKHEAD head;
+    PWND pWnd;
+} WNDX, *PWNDX;
 
 //
 // Validate a window handle and return the pointer to the object.
@@ -441,12 +458,24 @@ ValidateHwnd(HWND hwnd)
 
     /* See if the window is cached */
     if (hwnd == ClientInfo->CallbackWnd.hWnd)
-        return ClientInfo->CallbackWnd.pWnd;
+        return ClientInfo->CallbackWnd.pvWnd;
 
     Wnd = ValidateHandle((HANDLE)hwnd, VALIDATE_TYPE_WIN);
     if (Wnd != NULL)
     {
+#if 0
         return Wnd;
+#else
+        /* HACK HACK HACK! This needs to be done until WINDOW_OBJECT is completely
+           superseded by the WINDOW structure. We *ASSUME* a pointer to the WINDOW
+           structure to be at the beginning of the WINDOW_OBJECT structure!!!
+
+           !!! REMOVE AS SOON AS WINDOW_OBJECT NO LONGER EXISTS !!!
+         */
+
+        if ( ((PWNDX)Wnd)->pWnd != NULL)
+            return DesktopPtrToUser( ((PWNDX)Wnd)->pWnd );
+#endif
     }
 
     return NULL;
@@ -465,12 +494,24 @@ ValidateHwndNoErr(HWND hwnd)
 
     /* See if the window is cached */
     if (hwnd == ClientInfo->CallbackWnd.hWnd)
-        return ClientInfo->CallbackWnd.pWnd;
+        return ClientInfo->CallbackWnd.pvWnd;
 
     Wnd = ValidateHandleNoErr((HANDLE)hwnd, VALIDATE_TYPE_WIN);
     if (Wnd != NULL)
     {
+#if 0
         return Wnd;
+#else
+        /* HACK HACK HACK! This needs to be done until WINDOW_OBJECT is completely
+           superseded by the WINDOW structure. We *ASSUME* a pointer to the WINDOW
+           structure to be at the beginning of the WINDOW_OBJECT structure!!!
+
+           !!! REMOVE AS SOON AS WINDOW_OBJECT NO LONGER EXISTS !!!
+         */
+
+        if ( ((PWNDX)Wnd)->pWnd != NULL)
+            return DesktopPtrToUser( ((PWNDX)Wnd)->pWnd );
+#endif
     }
 
     return NULL;

@@ -66,6 +66,9 @@ MAIN_MENU MENU
    MENUITEM "Всегда &сверху", MNID_HELP_HELPTOP
    MENUITEM SEPARATOR
    MENUITEM "&Информация...", MNID_HELP_ABOUT
+#ifdef WINELIB
+   MENUITEM "&О Wine", MNID_HELP_WINE
+#endif
  }
 }
 
@@ -88,7 +91,7 @@ CAPTION "Поиск"
 /* Strings */
 STRINGTABLE
 {
-STID_WINE_HELP, 	"Справка Wine"
+STID_WINE_HELP, 	"Справка WINE"
 STID_WHERROR, 		"ОШИБКА"
 STID_WARNING,  		"ВНИМАНИЕ"
 STID_INFO,  		"Информация"

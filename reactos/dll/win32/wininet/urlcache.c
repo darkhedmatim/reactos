@@ -2184,17 +2184,14 @@ BOOL WINAPI CreateUrlCacheEntryA(
 )
 {
     WCHAR *url_name;
-    WCHAR *file_extension = NULL;
+    WCHAR *file_extension;
     WCHAR file_name[MAX_PATH];
     BOOL bSuccess = FALSE;
     DWORD dwError = 0;
 
-    TRACE("(%s %d %s %p %d)\n", debugstr_a(lpszUrlName), dwExpectedFileSize,
-            debugstr_a(lpszFileExtension), lpszFileName, dwReserved);
-
     if (lpszUrlName && (url_name = heap_strdupAtoW(lpszUrlName)))
     {
-	if (!lpszFileExtension || (file_extension = heap_strdupAtoW(lpszFileExtension)))
+	if (lpszFileExtension && (file_extension = heap_strdupAtoW(lpszFileExtension)))
 	{
 	    if (CreateUrlCacheEntryW(url_name, dwExpectedFileSize, file_extension, file_name, dwReserved))
 	    {
@@ -2271,12 +2268,6 @@ BOOL WINAPI CreateUrlCacheEntryW(
     if (((lpszUrlEnd - lpszUrlName) > 1) && (*(lpszUrlEnd - 1) == '/' || *(lpszUrlEnd - 1) == '\\'))
         lpszUrlEnd--;
 
-    lpszUrlPart = memchrW(lpszUrlName, '?', lpszUrlEnd - lpszUrlName);
-    if (!lpszUrlPart)
-        lpszUrlPart = memchrW(lpszUrlName, '#', lpszUrlEnd - lpszUrlName);
-    if (lpszUrlPart)
-        lpszUrlEnd = lpszUrlPart;
-
     for (lpszUrlPart = lpszUrlEnd; 
         (lpszUrlPart >= lpszUrlName); 
         lpszUrlPart--)
@@ -2286,6 +2277,10 @@ BOOL WINAPI CreateUrlCacheEntryW(
             bFound = TRUE;
             lpszUrlPart++;
             break;
+        }
+        else if(*lpszUrlPart == '?' || *lpszUrlPart == '#')
+        {
+            lpszUrlEnd = lpszUrlPart;
         }
     }
     if (!lstrcmpW(lpszUrlPart, szWWW))
@@ -2332,13 +2327,7 @@ BOOL WINAPI CreateUrlCacheEntryW(
     CacheDir = (BYTE)(rand() % pHeader->DirectoryCount);
 
     lBufferSize = MAX_PATH * sizeof(WCHAR);
-    if (!URLCache_LocalFileNameToPathW(pContainer, pHeader, szFile, CacheDir, lpszFileName, &lBufferSize))
-    {
-        WARN("Failed to get full path for filename %s, needed %u bytes.\n",
-                debugstr_a(szFile), lBufferSize);
-        URLCacheContainer_UnlockIndex(pContainer, pHeader);
-        return FALSE;
-    }
+    URLCache_LocalFileNameToPathW(pContainer, pHeader, szFile, CacheDir, lpszFileName, &lBufferSize);
 
     URLCacheContainer_UnlockIndex(pContainer, pHeader);
 
@@ -2446,6 +2435,7 @@ static BOOL CommitUrlCacheEntryInternal(
     DWORD dwFileSizeLow = 0;
     DWORD dwFileSizeHigh = 0;
     BYTE cDirectory = 0;
+    int len;
     char achFile[MAX_PATH];
     LPSTR lpszUrlNameA = NULL;
     LPSTR lpszFileExtensionA = NULL;
@@ -2566,6 +2556,7 @@ static BOOL CommitUrlCacheEntryInternal(
     dwBytesNeeded = DWORD_ALIGN(dwBytesNeeded + strlen(lpszUrlNameA) + 1);
     if (lpszLocalFileName)
     {
+        len = WideCharToMultiByte(CP_ACP, 0, lpszUrlName, -1, NULL, 0, NULL, NULL);
         dwOffsetLocalFileName = dwBytesNeeded;
         dwBytesNeeded = DWORD_ALIGN(dwBytesNeeded + strlen(pchLocalFileName) + 1);
     }

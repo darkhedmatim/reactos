@@ -17,8 +17,8 @@ HWND APIENTRY IntGetCapture(VOID);
 HWND FASTCALL UserGetActiveWindow(VOID);
 
 BOOL FASTCALL
-co_IntMouseActivateWindow(PWND Window);
+co_IntMouseActivateWindow(PWINDOW_OBJECT Window);
 BOOL FASTCALL
-co_IntSetForegroundWindow(PWND Window);
+co_IntSetForegroundWindow(PWINDOW_OBJECT Window);
 HWND FASTCALL
-co_IntSetActiveWindow(PWND Window);
+co_IntSetActiveWindow(PWINDOW_OBJECT Window);

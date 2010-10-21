@@ -805,7 +805,7 @@ CreateProcessInternalW(HANDLE hToken,
 
     if (lpCommandLine)
     {
-        /* Search for escape sequences */
+        /* Serach for escape sequences */
         ScanString = lpCommandLine;
         while (NULL != (ScanString = wcschr(ScanString, L'^')))
         {

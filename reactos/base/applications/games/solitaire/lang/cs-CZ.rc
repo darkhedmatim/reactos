@@ -4,6 +4,8 @@
  * UPDATED:     2008-11-30 by Kario
  */
 
+#include "resource.h"
+
 LANGUAGE LANG_CZECH, SUBLANG_DEFAULT
 
 

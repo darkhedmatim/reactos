@@ -98,7 +98,7 @@ HRESULT WINAPI ValidateVertexShader(DWORD* vertexshader, DWORD* reserved1, DWORD
             ret=S_OK;
             break;
         default:
-            WARN("Invalid shader version token %#x.\n", *vertexshader);
+            ERR("vertexshader version mismatch\n");
             ret=E_FAIL;
         }
 
@@ -136,7 +136,7 @@ HRESULT WINAPI ValidatePixelShader(DWORD* pixelshader, DWORD* reserved1, BOOL bo
             ret=S_OK;
             break;
         default:
-            WARN("Invalid shader version token %#x.\n", *pixelshader);
+            ERR("pixelshader version mismatch\n");
             ret=E_FAIL;
         }
   return ret;

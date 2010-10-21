@@ -23,11 +23,10 @@
 
 #include "notepad_res.h"
 
-#define EDIT_STYLE_WRAP (WS_CHILD | WS_VSCROLL \
+#define EDIT_STYLE_WRAP (WS_CHILD | WS_VISIBLE | WS_VSCROLL \
     | ES_AUTOVSCROLL | ES_MULTILINE | ES_NOHIDESEL)
 #define EDIT_STYLE (EDIT_STYLE_WRAP | WS_HSCROLL | ES_AUTOHSCROLL)
-
-#define EDIT_CLASS          _T("EDIT")
+#define EDIT_EXSTYLE (WS_EX_CLIENTEDGE)
 
 #define MAX_STRING_LEN      255
 
@@ -48,7 +47,6 @@ typedef struct
   HWND       hEdit;
   HWND       hStatusBar;
   HFONT      hFont; /* Font used by the edit control */
-  HMENU      hMenu;
   LOGFONT    lfFont;
   BOOL       bWrapLongLines;
   BOOL       bShowStatusBar;

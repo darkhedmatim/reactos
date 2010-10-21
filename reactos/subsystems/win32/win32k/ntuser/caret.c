@@ -239,14 +239,14 @@ co_IntDrawCaret(HWND hWnd)
 
 
 
-BOOL FASTCALL co_UserHideCaret(PWND Window OPTIONAL)
+BOOL FASTCALL co_UserHideCaret(PWINDOW_OBJECT Window OPTIONAL)
 {
    PTHREADINFO pti;
    PUSER_MESSAGE_QUEUE ThreadQueue;
 
    if (Window) ASSERT_REFS_CO(Window);
 
-   if(Window && Window->head.pti->pEThread != PsGetCurrentThread())
+   if(Window && Window->pti->pEThread != PsGetCurrentThread())
    {
       SetLastWin32Error(ERROR_ACCESS_DENIED);
       return FALSE;
@@ -255,7 +255,7 @@ BOOL FASTCALL co_UserHideCaret(PWND Window OPTIONAL)
    pti = PsGetCurrentThreadWin32Thread();
    ThreadQueue = pti->MessageQueue;
 
-   if(Window && ThreadQueue->CaretInfo->hWnd != Window->head.h)
+   if(Window && ThreadQueue->CaretInfo->hWnd != Window->hSelf)
    {
       SetLastWin32Error(ERROR_ACCESS_DENIED);
       return FALSE;
@@ -274,14 +274,14 @@ BOOL FASTCALL co_UserHideCaret(PWND Window OPTIONAL)
 }
 
 
-BOOL FASTCALL co_UserShowCaret(PWND Window OPTIONAL)
+BOOL FASTCALL co_UserShowCaret(PWINDOW_OBJECT Window OPTIONAL)
 {
    PTHREADINFO pti;
    PUSER_MESSAGE_QUEUE ThreadQueue;
 
    if (Window) ASSERT_REFS_CO(Window);
 
-   if(Window && Window->head.pti->pEThread != PsGetCurrentThread())
+   if(Window && Window->pti->pEThread != PsGetCurrentThread())
    {
       SetLastWin32Error(ERROR_ACCESS_DENIED);
       return FALSE;
@@ -290,7 +290,7 @@ BOOL FASTCALL co_UserShowCaret(PWND Window OPTIONAL)
    pti = PsGetCurrentThreadWin32Thread();
    ThreadQueue = pti->MessageQueue;
 
-   if(Window && ThreadQueue->CaretInfo->hWnd != Window->head.h)
+   if(Window && ThreadQueue->CaretInfo->hWnd != Window->hSelf)
    {
       SetLastWin32Error(ERROR_ACCESS_DENIED);
       return FALSE;
@@ -320,7 +320,7 @@ NtUserCreateCaret(
    int nWidth,
    int nHeight)
 {
-   PWND Window;
+   PWINDOW_OBJECT Window;
    PTHREADINFO pti;
    PUSER_MESSAGE_QUEUE ThreadQueue;
    DECLARE_RETURN(BOOL);
@@ -333,7 +333,7 @@ NtUserCreateCaret(
       RETURN(FALSE);
    }
 
-   if(Window->head.pti->pEThread != PsGetCurrentThread())
+   if(Window->pti->pEThread != PsGetCurrentThread())
    {
       SetLastWin32Error(ERROR_ACCESS_DENIED);
       RETURN(FALSE);
@@ -431,7 +431,7 @@ BOOL
 APIENTRY
 NtUserShowCaret(HWND hWnd OPTIONAL)
 {
-   PWND Window = NULL;
+   PWINDOW_OBJECT Window = NULL;
    USER_REFERENCE_ENTRY Ref;
    DECLARE_RETURN(BOOL);
    BOOL ret;
@@ -462,7 +462,7 @@ BOOL
 APIENTRY
 NtUserHideCaret(HWND hWnd OPTIONAL)
 {
-   PWND Window = NULL;
+   PWINDOW_OBJECT Window = NULL;
    USER_REFERENCE_ENTRY Ref;
    DECLARE_RETURN(BOOL);
    BOOL ret;

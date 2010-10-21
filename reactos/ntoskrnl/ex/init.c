@@ -14,14 +14,6 @@
 #include <debug.h>
 #include "ntstrsafe.h"
 
-/* Temporary hack */
-BOOLEAN
-NTAPI
-MmArmInitSystem(
-    IN ULONG Phase,
-    IN PLOADER_PARAMETER_BLOCK LoaderBlock
-);
-
 typedef struct _INIT_BUFFER
 {
     WCHAR DebugBuffer[256];
@@ -1053,7 +1045,7 @@ ExpInitializeExecutive(IN ULONG Cpu,
     if (!ExInitSystem()) KeBugCheck(PHASE0_INITIALIZATION_FAILED);
 
     /* Initialize the memory manager at phase 0 */
-    if (!MmArmInitSystem(0, LoaderBlock)) KeBugCheck(PHASE0_INITIALIZATION_FAILED);
+    if (!MmInitSystem(0, LoaderBlock)) KeBugCheck(PHASE0_INITIALIZATION_FAILED);
 
     /* Load boot symbols */
     ExpLoadBootSymbols(LoaderBlock);
@@ -1277,6 +1269,8 @@ ExpInitializeExecutive(IN ULONG Cpu,
     SharedUserData->ImageNumberLow = IMAGE_FILE_MACHINE_ARCHITECTURE;
     SharedUserData->ImageNumberHigh = IMAGE_FILE_MACHINE_ARCHITECTURE;
 }
+
+extern BOOLEAN AllowPagedPool;
 
 VOID
 NTAPI
@@ -1585,7 +1579,7 @@ Phase1InitializationDiscard(IN PVOID Context)
     if (!MmInitSystem(1, LoaderBlock)) KeBugCheck(MEMORY1_INITIALIZATION_FAILED);
 
     /* Create NLS section */
-    ExpInitNls(LoaderBlock);
+    ExpInitNls(KeLoaderBlock);
 
     /* Initialize Cache Views */
     if (!CcInitializeCacheManager()) KeBugCheck(CACHE_INITIALIZATION_FAILED);
@@ -1870,8 +1864,8 @@ Phase1InitializationDiscard(IN PVOID Context)
         NtClose(OptionHandle);
     }
 
-    /* FIXME: This doesn't do anything for now */
-    MmArmInitSystem(2, LoaderBlock);
+    /* Unmap Low memory, and initialize the MPW and Balancer Thread */
+    MmInitSystem(2, LoaderBlock);
 
     /* Update progress bar */
     InbvUpdateProgressBar(80);
@@ -1896,6 +1890,9 @@ Phase1InitializationDiscard(IN PVOID Context)
 
     /* Update progress bar */
     InbvUpdateProgressBar(90);
+
+    /* Enough fun for now */
+    AllowPagedPool = FALSE;
 
     /* Launch initial process */
     ProcessInfo = &InitBuffer->ProcessInfo;
@@ -1954,5 +1951,5 @@ Phase1Initialization(IN PVOID Context)
     Phase1InitializationDiscard(Context);
 
     /* Jump into zero page thread */
-    MmZeroPageThread();
+    MmZeroPageThreadMain(NULL);
 }

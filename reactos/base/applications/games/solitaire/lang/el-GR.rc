@@ -5,6 +5,8 @@
  * PURPOSE:     Greek Language File for Solitaire
  * PROGRAMMERS: Daniel "EmuandCo" Reimer (reimer.daniel@freenet.de)
  */
+#include "resource.h"
+
 LANGUAGE LANG_GREEK, SUBLANG_DEFAULT
 
 

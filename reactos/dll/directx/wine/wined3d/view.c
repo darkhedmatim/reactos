@@ -74,11 +74,14 @@ static ULONG STDMETHODCALLTYPE rendertarget_view_Release(IWineD3DRendertargetVie
 
 /* IWineD3DBase methods */
 
-static void * STDMETHODCALLTYPE rendertarget_view_GetParent(IWineD3DRendertargetView *iface)
+static HRESULT STDMETHODCALLTYPE rendertarget_view_GetParent(IWineD3DRendertargetView *iface, IUnknown **parent)
 {
-    TRACE("iface %p.\n", iface);
+    struct wined3d_rendertarget_view *This = (struct wined3d_rendertarget_view *)iface;
 
-    return ((struct wined3d_rendertarget_view *)iface)->parent;
+    IUnknown_AddRef(This->parent);
+    *parent = This->parent;
+
+    return WINED3D_OK;
 }
 
 /* IWineD3DRendertargetView methods */
@@ -107,7 +110,7 @@ static const struct IWineD3DRendertargetViewVtbl wined3d_rendertarget_view_vtbl 
 };
 
 void wined3d_rendertarget_view_init(struct wined3d_rendertarget_view *view,
-        IWineD3DResource *resource, void *parent)
+        IWineD3DResource *resource, IUnknown *parent)
 {
     view->vtbl = &wined3d_rendertarget_view_vtbl;
     view->refcount = 1;

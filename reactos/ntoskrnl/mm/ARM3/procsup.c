@@ -16,9 +16,7 @@
 #define MODULE_INVOLVED_IN_ARM3
 #include "../ARM3/miarm.h"
 
-/* GLOBALS ********************************************************************/
-
-ULONG MmProcessColorSeed = 0x12345678;
+extern MM_SYSTEMSIZE MmSystemSize;
 
 /* PRIVATE FUNCTIONS **********************************************************/
 
@@ -29,14 +27,14 @@ MiRosTakeOverPebTebRanges(IN PEPROCESS Process)
     NTSTATUS Status;
     PMEMORY_AREA MemoryArea;
     PHYSICAL_ADDRESS BoundaryAddressMultiple;
-    PVOID AllocatedBase = (PVOID)USER_SHARED_DATA;
+    PVOID AllocatedBase = (PVOID)MI_LOWEST_VAD_ADDRESS;
     BoundaryAddressMultiple.QuadPart = 0;
 
     Status = MmCreateMemoryArea(&Process->Vm,
                                 MEMORY_AREA_OWNED_BY_ARM3,
                                 &AllocatedBase,
                                 ((ULONG_PTR)MM_HIGHEST_USER_ADDRESS - 1) -
-                                (ULONG_PTR)USER_SHARED_DATA,
+                                (ULONG_PTR)MI_LOWEST_VAD_ADDRESS,
                                 PAGE_READWRITE,
                                 &MemoryArea,
                                 TRUE,
@@ -125,7 +123,7 @@ MiCreatePebOrTeb(IN PEPROCESS Process,
     
     /* Build the rest of the VAD now */
     Vad->StartingVpn = (*Base) >> PAGE_SHIFT;
-    Vad->EndingVpn = ((*Base) + Size - 1) >> PAGE_SHIFT;
+    Vad->EndingVpn =  ((*Base) + Size - 1) >> PAGE_SHIFT;
     Vad->u3.Secured.StartVpn = *Base;
     Vad->u3.Secured.EndVpn = (Vad->EndingVpn << PAGE_SHIFT) | (PAGE_SIZE - 1);
     Vad->u1.Parent = NULL;
@@ -139,10 +137,6 @@ MiCreatePebOrTeb(IN PEPROCESS Process,
     /* Insert the VAD */
     ASSERT(Vad->EndingVpn >= Vad->StartingVpn);
     Process->VadRoot.NodeHint = Vad;
-    Vad->ControlArea = NULL; // For Memory-Area hack
-    Vad->FirstPrototypePte = NULL;
-    DPRINT("VAD: %p\n", Vad);
-    DPRINT("Allocated PEB/TEB at: 0x%p for %16s\n", *Base, Process->ImageFileName);
     MiInsertNode(&Process->VadRoot, (PVOID)Vad, Parent, Result);
 
     /* Release the working set */
@@ -152,6 +146,7 @@ MiCreatePebOrTeb(IN PEPROCESS Process,
     KeReleaseGuardedMutex(&Process->AddressCreationLock);
 
     /* Return the status */
+    DPRINT("Allocated PEB/TEB at: 0x%p for %16s\n", *Base, Process->ImageFileName);
     return Status;
 }
 
@@ -261,7 +256,7 @@ MmDeleteKernelStack(IN PVOID StackBase,
             MiDecrementShareCount(Pfn2, PageTableFrameNumber);
 #endif
             /* Set the special pending delete marker */
-            MI_SET_PFN_DELETED(Pfn1);
+            Pfn1->PteAddress = (PMMPTE)((ULONG_PTR)Pfn1->PteAddress | 1);
             
             /* And now delete the actual stack page */
             MiDecrementShareCount(Pfn1, PageFrameNumber);
@@ -362,7 +357,7 @@ MmCreateKernelStack(IN BOOLEAN GuiStack,
         PointerPte++;
         
         /* Get a page and write the current invalid PTE */
-        PageFrameIndex = MiRemoveAnyPage(MI_GET_NEXT_COLOR());
+        PageFrameIndex = MiRemoveAnyPage(0);
         MI_WRITE_INVALID_PTE(PointerPte, InvalidPte);
 
         /* Initialize the PFN entry for this page */
@@ -372,6 +367,9 @@ MmCreateKernelStack(IN BOOLEAN GuiStack,
         TempPte.u.Hard.PageFrameNumber = PageFrameIndex;
         MI_WRITE_VALID_PTE(PointerPte, TempPte);
     }
+
+    // Bug #4835
+    (VOID)InterlockedExchangeAddUL(&MiMemoryConsumers[MC_NPPOOL].PagesUsed, StackPages);
 
     //
     // Release the PFN lock
@@ -446,7 +444,7 @@ MmGrowKernelStackEx(IN PVOID StackPointer,
     while (LimitPte >= NewLimitPte)
     {
         /* Get a page and write the current invalid PTE */
-        PageFrameIndex = MiRemoveAnyPage(MI_GET_NEXT_COLOR());
+        PageFrameIndex = MiRemoveAnyPage(0);
         MI_WRITE_INVALID_PTE(LimitPte, InvalidPte);
 
         /* Initialize the PFN entry for this page */
@@ -1060,10 +1058,9 @@ MmCreateProcessAddressSpace(IN ULONG MinWs,
     MMPTE TempPte, PdePte;
     ULONG PdeOffset;
     PMMPTE SystemTable;
-    ULONG Color;
 
-    /* Choose a process color */
-    Process->NextPageColor = RtlRandom(&MmProcessColorSeed);
+    /* No page colors yet */
+    Process->NextPageColor = 0;
     
     /* Setup the hyperspace lock */
     KeInitializeSpinLock(&Process->HyperSpaceLock);
@@ -1071,37 +1068,16 @@ MmCreateProcessAddressSpace(IN ULONG MinWs,
     /* Lock PFN database */
     OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
     
-    /* Get a zero page for the PDE, if possible */
-    Color = MI_GET_NEXT_PROCESS_COLOR(Process);
-    PdeIndex = MiRemoveZeroPageSafe(Color);
-    if (!PdeIndex)
-    {
-        /* No zero pages, grab a free one */
-        PdeIndex = MiRemoveAnyPage(Color);
-        
-        /* Zero it outside the PFN lock */
-        KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
-        MiZeroPhysicalPage(PdeIndex);
-        OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
-    }
-    
-    /* Get a zero page for hyperspace, if possible */
-    Color = MI_GET_NEXT_PROCESS_COLOR(Process);
-    HyperIndex = MiRemoveZeroPageSafe(Color);
-    if (!HyperIndex)
-    {
-        /* No zero pages, grab a free one */
-        HyperIndex = MiRemoveAnyPage(Color);
-        
-        /* Zero it outside the PFN lock */
-        KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
-        MiZeroPhysicalPage(HyperIndex);
-    }
-    else
-    {
-        /* Release the PFN lock */
-        KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
-    }
+    /* Get a page for the PDE */
+    PdeIndex = MiRemoveAnyPage(0);
+    KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
+    MiZeroPhysicalPage(PdeIndex);
+    OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
+
+    /* Get a page for hyperspace */
+    HyperIndex = MiRemoveAnyPage(0);
+    KeReleaseQueuedSpinLock(LockQueuePfnLock, OldIrql);
+    MiZeroPhysicalPage(HyperIndex);
 
     /* Switch to phase 1 initialization */
     ASSERT(Process->AddressSpaceInitialized == 0);
@@ -1136,6 +1112,7 @@ MmCreateProcessAddressSpace(IN ULONG MinWs,
 
     /* Copy all the kernel mappings */
     PdeOffset = MiGetPdeOffset(MmSystemRangeStart);
+
     RtlCopyMemory(&SystemTable[PdeOffset],
                   MiAddressToPde(MmSystemRangeStart),
                   PAGE_SIZE - PdeOffset * sizeof(MMPTE));
@@ -1174,6 +1151,7 @@ MmCleanProcessAddressSpace(IN PEPROCESS Process)
     
     /* Enumerate the VADs */
     VadTree = &Process->VadRoot;
+    DPRINT("Cleaning up VADs: %d\n", VadTree->NumberGenericTableElements);
     while (VadTree->NumberGenericTableElements)
     {
         /* Grab the current VAD */
@@ -1185,34 +1163,14 @@ MmCleanProcessAddressSpace(IN PEPROCESS Process)
         /* Remove this VAD from the tree */
         ASSERT(VadTree->NumberGenericTableElements >= 1);
         MiRemoveNode((PMMADDRESS_NODE)Vad, VadTree);
+        DPRINT("Moving on: %d\n", VadTree->NumberGenericTableElements);
 
-        /* Only regular VADs supported for now */
+        /* Only PEB/TEB VADs supported for now */
+        ASSERT(Vad->u.VadFlags.PrivateMemory == 1);
         ASSERT(Vad->u.VadFlags.VadType == VadNone);
         
-        /* Check if this is a section VAD */
-        if (!(Vad->u.VadFlags.PrivateMemory) && (Vad->ControlArea))
-        {
-            /* Remove the view */
-            MiRemoveMappedView(Process, Vad);
-        }
-        else
-        {
-            /* Delete the addresses */
-            MiDeleteVirtualAddresses(Vad->StartingVpn << PAGE_SHIFT,
-                                     (Vad->EndingVpn << PAGE_SHIFT) | (PAGE_SIZE - 1),
-                                     Vad);
-        
-            /* Release the working set */
-            MiUnlockProcessWorkingSet(Process, Thread);
-        }
-        
-        /* Skip ARM3 fake VADs, they'll be freed by MmDeleteProcessAddresSpace */
-        if (Vad->u.VadFlags.Spare == 1)
-        {
-            /* Set a flag so MmDeleteMemoryArea knows to free, but not to remove */
-            Vad->u.VadFlags.Spare = 2;
-            continue;
-        }
+        /* Release the working set */
+        MiUnlockProcessWorkingSet(Process, Thread);
         
         /* Free the VAD memory */
         ExFreePool(Vad);

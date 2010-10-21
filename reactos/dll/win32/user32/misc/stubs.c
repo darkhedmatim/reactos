@@ -538,11 +538,12 @@ BOOL WINAPI CliImmSetHotKey(DWORD dwID, UINT uModifiers, UINT uVirtualKey, HKL h
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 DWORD WINAPI GetMenuIndex(HMENU hMenu, HMENU hSubMenu)
 {
-  return NtUserGetMenuIndex(hMenu, hSubMenu);
+  UNIMPLEMENTED;
+  return 0;
 }
 
 /*

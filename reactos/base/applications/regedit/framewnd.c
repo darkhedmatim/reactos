@@ -95,7 +95,7 @@ static void OnInitMenu(HWND hWnd)
     dwIndex = 0;
     do
     {
-        cbValueName = COUNT_OF(szValueName);
+        cbValueName = sizeof(szValueName) / sizeof(szValueName[0]);
         cbValueData = sizeof(abValueData);
         lResult = RegEnumValue(hKey, dwIndex, szValueName, &cbValueName, NULL, &dwType, abValueData, &cbValueData);
         if ((lResult == ERROR_SUCCESS) && (dwType == REG_SZ))
@@ -278,7 +278,6 @@ static BOOL InitOpenFileName(HWND hWnd, OPENFILENAME* pofn)
     pofn->lpstrFileTitle = FileTitleBuffer;
     pofn->nMaxFileTitle = _MAX_PATH;
     pofn->Flags = OFN_HIDEREADONLY;
-    pofn->lpstrDefExt = TEXT("reg");
     return TRUE;
 }
 
@@ -286,33 +285,38 @@ static BOOL ImportRegistryFile(HWND hWnd)
 {
     OPENFILENAME ofn;
     TCHAR Caption[128];
-    LPCTSTR pszKeyPath;
-    HKEY hRootKey;
 
     InitOpenFileName(hWnd, &ofn);
-    LoadString(hInst, IDS_IMPORT_REG_FILE, Caption, COUNT_OF(Caption));
+    LoadString(hInst, IDS_IMPORT_REG_FILE, Caption, sizeof(Caption)/sizeof(TCHAR));
     ofn.lpstrTitle = Caption;
-    ofn.Flags |= OFN_ENABLESIZING;
     /*    ofn.lCustData = ;*/
     if (GetOpenFileName(&ofn)) {
-        FILE *fp = _wfopen(ofn.lpstrFile, L"r");
-        if (fp == NULL || !import_registry_file(fp)) {
-            LPSTR p = GetMultiByteString(ofn.lpstrFile);
-            fprintf(stderr, "Can't open file \"%s\"\n", p);
-            HeapFree(GetProcessHeap(), 0, p);
-            if (fp != NULL)
-                fclose(fp);
+        /* FIXME - convert to ascii */
+	if (!import_registry_file(ofn.lpstrFile)) {
+            /*printf("Can't open file \"%s\"\n", ofn.lpstrFile);*/
             return FALSE;
         }
-        fclose(fp);
+#if 0
+        get_file_name(&s, filename, MAX_PATH);
+        if (!filename[0]) {
+            printf("No file name is specified\n%s", usage);
+            return FALSE;
+            /*exit(1);*/
+        }
+        while (filename[0]) {
+            if (!import_registry_file(filename)) {
+                perror("");
+                printf("Can't open file \"%s\"\n", filename);
+                return FALSE;
+                /*exit(1);*/
+            }
+            get_file_name(&s, filename, MAX_PATH);
+        }
+#endif
+
     } else {
         CheckCommDlgError(hWnd);
     }
-
-    RefreshTreeView(g_pChildWnd->hTreeWnd);
-    pszKeyPath = GetItemPath(g_pChildWnd->hTreeWnd, 0, &hRootKey);
-    RefreshListView(g_pChildWnd->hListWnd, hRootKey, pszKeyPath);
-
     return TRUE;
 }
 
@@ -380,7 +384,8 @@ BOOL ExportRegistryFile(HWND hWnd)
 
     /* Figure out which key path we are exporting */
     pszKeyPath = GetItemPath(g_pChildWnd->hTreeWnd, 0, &hKeyRoot);
-    GetKeyName(ExportKeyPath, COUNT_OF(ExportKeyPath), hKeyRoot, pszKeyPath);
+    RegKeyGetName(ExportKeyPath, sizeof(ExportKeyPath) / sizeof(ExportKeyPath[0]),
+        hKeyRoot, pszKeyPath);
 
     InitOpenFileName(hWnd, &ofn);
     LoadString(hInst, IDS_EXPORT_REG_FILE, Caption, sizeof(Caption)/sizeof(TCHAR));
@@ -391,24 +396,44 @@ BOOL ExportRegistryFile(HWND hWnd)
     {
         ofn.lCustData = (LPARAM) ExportKeyPath;
     }
-    ofn.Flags = OFN_ENABLETEMPLATE | OFN_EXPLORER | OFN_ENABLEHOOK | OFN_OVERWRITEPROMPT;
+    ofn.Flags = OFN_ENABLETEMPLATE | OFN_EXPLORER | OFN_ENABLEHOOK;
     ofn.lpfnHook = ExportRegistryFile_OFNHookProc;
     ofn.lpTemplateName = MAKEINTRESOURCE(IDD_EXPORTRANGE);
     if (GetSaveFileName(&ofn)) {
         BOOL result;
-        DWORD format;
- 
-        if (ofn.nFilterIndex == 1)
-            format = REG_FORMAT_5;
-        else
-            format = REG_FORMAT_4;
-        result = export_registry_key(ofn.lpstrFile, ExportKeyPath, format);
+        LPSTR pszExportKeyPath;
+#ifdef UNICODE
+        CHAR buffer[_MAX_PATH];
+
+        WideCharToMultiByte(CP_ACP, 0, ExportKeyPath, -1, buffer, sizeof(buffer), NULL, NULL);
+        pszExportKeyPath = buffer;
+#else
+        pszExportKeyPath = ExportKeyPath;
+#endif
+
+        result = export_registry_key(ofn.lpstrFile, pszExportKeyPath);
         if (!result) {
-            LPSTR p = GetMultiByteString(ofn.lpstrFile);
-            fprintf(stderr, "Can't open file \"%s\"\n", p);
-            HeapFree(GetProcessHeap(), 0, p);
+            /*printf("Can't open file \"%s\"\n", ofn.lpstrFile);*/
             return FALSE;
         }
+#if 0
+        TCHAR filename[MAX_PATH];
+        filename[0] = '\0';
+        get_file_name(&s, filename, MAX_PATH);
+        if (!filename[0]) {
+            printf("No file name is specified\n%s", usage);
+            return FALSE;
+            /*exit(1);*/
+        }
+        if (s[0]) {
+            TCHAR reg_key_name[KEY_MAX_LEN];
+            get_file_name(&s, reg_key_name, KEY_MAX_LEN);
+            export_registry_key((CHAR)filename, reg_key_name);
+        } else {
+            export_registry_key(filename, NULL);
+        }
+#endif
+
     } else {
         CheckCommDlgError(hWnd);
     }
@@ -518,10 +543,10 @@ BOOL CopyKeyName(HWND hWnd, HKEY hRootKey, LPCTSTR keyName)
     if (!EmptyClipboard())
         goto done;
 
-    if (!GetKeyName(szBuffer, COUNT_OF(szBuffer), hRootKey, keyName))
+    if (!RegKeyGetName(szBuffer, sizeof(szBuffer) / sizeof(szBuffer[0]), hRootKey, keyName))
         goto done;
 
-    hGlobal = GlobalAlloc(GMEM_MOVEABLE, (lstrlen(szBuffer) + 1) * sizeof(TCHAR));
+    hGlobal = GlobalAlloc(GMEM_MOVEABLE, (_tcslen(szBuffer) + 1) * sizeof(TCHAR));
     if (!hGlobal)
         goto done;
 
@@ -553,18 +578,21 @@ static BOOL CreateNewValue(HKEY hRootKey, LPCTSTR pszKeyPath, DWORD dwType)
     HKEY hKey;
     LVFINDINFO lvfi;
 
-    if (RegOpenKeyEx(hRootKey, pszKeyPath, 0, KEY_QUERY_VALUE | KEY_SET_VALUE,
-                     &hKey) != ERROR_SUCCESS)
+    if (RegOpenKey(hRootKey, pszKeyPath, &hKey) != ERROR_SUCCESS)
         return FALSE;
 
-    LoadString(hInst, IDS_NEW_VALUE, szNewValueFormat, COUNT_OF(szNewValueFormat));
+    LoadString(hInst, IDS_NEW_VALUE, szNewValueFormat, sizeof(szNewValueFormat)
+        / sizeof(szNewValueFormat[0]));
 
     do
     {
-        wsprintf(szNewValue, szNewValueFormat, iIndex++);
+        _sntprintf(szNewValue, sizeof(szNewValue) / sizeof(szNewValue[0]),
+            szNewValueFormat, iIndex++);
+
         cbData = sizeof(data);
         lResult = RegQueryValueEx(hKey, szNewValue, NULL, &dwExistingType, data, &cbData);
-    } while(lResult == ERROR_SUCCESS);
+    }
+    while(lResult == ERROR_SUCCESS);
 
     switch(dwType) {
     case REG_DWORD:
@@ -586,11 +614,8 @@ static BOOL CreateNewValue(HKEY hRootKey, LPCTSTR pszKeyPath, DWORD dwType)
     }
     memset(data, 0, cbData);
     lResult = RegSetValueEx(hKey, szNewValue, 0, dwType, data, cbData);
-    RegCloseKey(hKey);
     if (lResult != ERROR_SUCCESS)
-    {
         return FALSE;
-    }
 
     RefreshListView(g_pChildWnd->hListWnd, hRootKey, pszKeyPath);
 
@@ -862,7 +887,7 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
             }
         }
-        else if (GetFocus() == g_pChildWnd->hTreeWnd)
+        if (GetFocus() == g_pChildWnd->hTreeWnd)
         {
             /* Get focused entry of treeview (if any) */
             HTREEITEM hItem = TreeView_GetSelection(g_pChildWnd->hTreeWnd);
@@ -905,8 +930,8 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
               }
             }
           }
-        }
-        else if (GetFocus() == g_pChildWnd->hTreeWnd)
+        } else
+        if (GetFocus() == g_pChildWnd->hTreeWnd)
         {
           if (keyPath == 0 || *keyPath == 0)
           {
@@ -918,8 +943,7 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             RefreshTreeView(g_pChildWnd->hTreeWnd);
           }
         }
-        break;
-    }
+	break;
     case ID_EDIT_NEW_STRINGVALUE:
         CreateNewValue(hKeyRoot, keyPath, REG_SZ);
         break;
@@ -929,12 +953,14 @@ static BOOL _CmdWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case ID_EDIT_NEW_DWORDVALUE:
         CreateNewValue(hKeyRoot, keyPath, REG_DWORD);
         break;
-    case ID_EDIT_NEW_MULTISTRINGVALUE:
+	case ID_EDIT_NEW_MULTISTRINGVALUE:
         CreateNewValue(hKeyRoot, keyPath, REG_MULTI_SZ);
         break;
-    case ID_EDIT_NEW_EXPANDABLESTRINGVALUE:
+	case ID_EDIT_NEW_EXPANDABLESTRINGVALUE:
         CreateNewValue(hKeyRoot, keyPath, REG_EXPAND_SZ);
         break;
+
+    }
     case ID_EDIT_FIND:
         FindDialog(hWnd);
         break;

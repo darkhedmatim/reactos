@@ -8,6 +8,7 @@ struct _EPROCESS;
 
 extern PFN_NUMBER MiFreeSwapPages;
 extern PFN_NUMBER MiUsedSwapPages;
+extern SIZE_T MmPagedPoolSize;
 extern SIZE_T MmTotalPagedPoolQuota;
 extern SIZE_T MmTotalNonPagedPoolQuota;
 extern PHYSICAL_ADDRESS MmSharedDataPagePhysicalAddress;
@@ -17,6 +18,9 @@ extern PFN_NUMBER MmLowestPhysicalPage;
 extern PFN_NUMBER MmHighestPhysicalPage;
 extern PFN_NUMBER MmAvailablePages;
 extern PFN_NUMBER MmResidentAvailablePages;
+
+extern PVOID MmPagedPoolBase;
+extern SIZE_T MmPagedPoolSize;
 
 extern PMEMORY_ALLOCATION_DESCRIPTOR MiFreeDescriptor;
 extern MEMORY_ALLOCATION_DESCRIPTOR MiFreeDescriptorOrg;
@@ -72,8 +76,20 @@ typedef ULONG SWAPENTRY;
 #define MI_STATIC_MEMORY_AREAS              (13)
 #endif
 
+#define MEMORY_AREA_INVALID                 (0)
 #define MEMORY_AREA_SECTION_VIEW            (1)
+#define MEMORY_AREA_CONTINUOUS_MEMORY       (2)
+#define MEMORY_AREA_NO_CACHE                (3)
+#define MEMORY_AREA_IO_MAPPING              (4)
+#define MEMORY_AREA_SYSTEM                  (5)
+#define MEMORY_AREA_MDL_MAPPING             (7)
 #define MEMORY_AREA_VIRTUAL_MEMORY          (8)
+#define MEMORY_AREA_CACHE_SEGMENT           (9)
+#define MEMORY_AREA_SHARED_DATA             (10)
+#define MEMORY_AREA_KERNEL_STACK            (11)
+#define MEMORY_AREA_PAGED_POOL              (12)
+#define MEMORY_AREA_NO_ACCESS               (13)
+#define MEMORY_AREA_PEB_OR_TEB              (14)
 #define MEMORY_AREA_OWNED_BY_ARM3           (15)
 #define MEMORY_AREA_STATIC                  (0x80000000)
 
@@ -114,8 +130,10 @@ typedef ULONG SWAPENTRY;
 
 #define MC_CACHE                            (0)
 #define MC_USER                             (1)
-#define MC_SYSTEM                           (2)
-#define MC_MAXIMUM                          (3)
+#define MC_PPOOL                            (2)
+#define MC_NPPOOL                           (3)
+#define MC_SYSTEM                           (4)
+#define MC_MAXIMUM                          (5)
 
 #define PAGED_POOL_MASK                     1
 #define MUST_SUCCEED_POOL_MASK              2
@@ -260,7 +278,6 @@ typedef struct _MEMORY_AREA
     ULONG Flags;
     BOOLEAN DeleteInProgress;
     ULONG PageOpCount;
-    PVOID Vad;
     union
     {
         struct
@@ -268,6 +285,7 @@ typedef struct _MEMORY_AREA
             ROS_SECTION_OBJECT* Section;
             ULONG ViewOffset;
             PMM_SECTION_SEGMENT Segment;
+            BOOLEAN WriteCopyView;
             LIST_ENTRY RegionListHead;
         } SectionData;
         struct
@@ -276,17 +294,6 @@ typedef struct _MEMORY_AREA
         } VirtualMemoryData;
     } Data;
 } MEMORY_AREA, *PMEMORY_AREA;
-
-typedef struct _MM_RMAP_ENTRY
-{
-   struct _MM_RMAP_ENTRY* Next;
-   PEPROCESS Process;
-   PVOID Address;
-#if DBG
-   PVOID Caller;
-#endif
-}
-MM_RMAP_ENTRY, *PMM_RMAP_ENTRY;
 
 //
 // These two mappings are actually used by Windows itself, based on the ASSERTS
@@ -299,30 +306,30 @@ typedef struct _MMPFNENTRY
     USHORT Modified:1;
     USHORT ReadInProgress:1;                 // StartOfAllocation
     USHORT WriteInProgress:1;                // EndOfAllocation
-    USHORT PrototypePte:1;
-    USHORT PageColor:4;
-    USHORT PageLocation:3;
+    USHORT PrototypePte:1;                   // Zero
+    USHORT PageColor:4;                      // LockCount
+    USHORT PageLocation:3;                   // Consumer
     USHORT RemovalRequested:1;
-    USHORT CacheAttribute:2;
+    USHORT CacheAttribute:2;                 // Type
     USHORT Rom:1;
-    USHORT ParityError:1;                    // HasRmap
+    USHORT ParityError:1;
 } MMPFNENTRY;
 
 typedef struct _MMPFN
 {
     union
     {
-        PFN_NUMBER Flink;
-        ULONG WsIndex;                       // SavedSwapEntry
+        PFN_NUMBER Flink;                    // ListEntry.Flink
+        ULONG WsIndex;
         PKEVENT Event;
         NTSTATUS ReadStatus;
         SINGLE_LIST_ENTRY NextStackPfn;
     } u1;
-    PMMPTE PteAddress;
+    PMMPTE PteAddress;                       // ListEntry.Blink
     union
     {
         PFN_NUMBER Blink;
-        ULONG_PTR ShareCount;
+        ULONG_PTR ShareCount;                // MapCount
     } u2;
     union
     {
@@ -344,7 +351,7 @@ typedef struct _MMPFN
     };
     union
     {
-        ULONG_PTR EntireFrame;
+        ULONG_PTR EntireFrame;               // SavedSwapEntry
         struct
         {
             ULONG_PTR PteFrame:25;
@@ -1157,10 +1164,10 @@ MmGetContinuousPages(
     BOOLEAN ZeroPages
 );
 
-VOID
+NTSTATUS
 NTAPI
-MmZeroPageThread(
-    VOID
+MmZeroPageThreadMain(
+    PVOID Context
 );
 
 /* hypermap.c *****************************************************************/
@@ -1182,7 +1189,7 @@ MiUnmapPageInHyperSpace(IN PEPROCESS Process,
 
 PVOID
 NTAPI
-MiMapPagesToZeroInHyperSpace(IN PMMPFN Pfn1,
+MiMapPagesToZeroInHyperSpace(IN PMMPFN *Pages,
                              IN PFN_NUMBER NumberOfPages);
 
 VOID
@@ -1199,6 +1206,14 @@ MmCreateHyperspaceMapping(IN PFN_NUMBER Page)
 {
     HyperProcess = (PEPROCESS)KeGetCurrentThread()->ApcState.Process;
     return MiMapPageInHyperSpace(HyperProcess, Page, &HyperIrql);
+}
+
+FORCEINLINE
+PVOID
+MiMapPageToZeroInHyperSpace(IN PFN_NUMBER Page)
+{
+    PMMPFN Pfn1 = MiGetPfnEntry(Page);
+    return MiMapPagesToZeroInHyperSpace(&Pfn1, 1);
 }
 
 #define MmDeleteHyperspaceMapping(x) MiUnmapPageInHyperSpace(HyperProcess, x, HyperIrql);
@@ -1508,7 +1523,7 @@ MmFindRegion(
 PFILE_OBJECT
 NTAPI
 MmGetFileObjectForSection(
-    IN PVOID Section
+    IN PROS_SECTION_OBJECT Section
 );
 NTSTATUS
 NTAPI
@@ -1520,7 +1535,7 @@ MmGetFileNameForAddress(
 NTSTATUS
 NTAPI
 MmGetFileNameForSection(
-    IN PVOID Section,
+    IN PROS_SECTION_OBJECT Section,
     OUT POBJECT_NAME_INFORMATION *ModuleName
 );
 
@@ -1677,6 +1692,20 @@ NTAPI
 MmCallDllInitialize(
     IN PLDR_DATA_TABLE_ENTRY LdrEntry,
     IN PLIST_ENTRY ListHead
+);
+
+/* ReactOS Mm Hacks */
+VOID
+FASTCALL
+MiSyncForProcessAttach(
+    IN PKTHREAD NextThread,
+    IN PEPROCESS Process
+);
+
+VOID
+FASTCALL
+MiSyncForContextSwitch(
+    IN PKTHREAD Thread
 );
 
 extern PMMSUPPORT MmKernelAddressSpace;

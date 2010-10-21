@@ -316,7 +316,6 @@ Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest, PARSED_COMMAND *Cmd)
 	TCHAR szWindowTitle[MAX_PATH];
 	DWORD dwExitCode = 0;
 	TCHAR *FirstEnd;
-	TCHAR szFullCmdLine [CMDLINE_LENGTH];
 
 	TRACE ("Execute: \'%s\' \'%s\'\n", debugstr_aw(First), debugstr_aw(Rest));
 
@@ -393,16 +392,11 @@ Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest, PARSED_COMMAND *Cmd)
 		PROCESS_INFORMATION prci;
 		STARTUPINFO stui;
 
-		/* build command line for CreateProcess(): FullName + " " + rest */
-		_tcscpy(szFullCmdLine, szFullName);
-
+		/* build command line for CreateProcess(): first + " " + rest */
 		if (*rest)
-		{
-			_tcsncat(szFullCmdLine, _T(" "), CMDLINE_LENGTH - _tcslen(szFullCmdLine));
-			_tcsncat(szFullCmdLine, rest, CMDLINE_LENGTH - _tcslen(szFullCmdLine));
-		}
+			rest[-1] = _T(' ');
 
-		TRACE ("[EXEC: %s]\n", debugstr_aw(szFullCmdLine));
+		TRACE ("[EXEC: %s]\n", debugstr_aw(Full));
 
 		/* fill startup info */
 		memset (&stui, 0, sizeof (STARTUPINFO));
@@ -415,7 +409,7 @@ Execute (LPTSTR Full, LPTSTR First, LPTSTR Rest, PARSED_COMMAND *Cmd)
 		                ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT | ENABLE_ECHO_INPUT );
 
 		if (CreateProcess (szFullName,
-		                   szFullCmdLine,
+		                   Full,
 		                   NULL,
 		                   NULL,
 		                   TRUE,

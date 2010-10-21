@@ -22,10 +22,9 @@ typedef struct
 
 typedef struct _DATA
 {
-    ScreenSaverItem     ScreenSaverItems[MAX_SCREENSAVERS];
+    ScreenSaverItem ScreenSaverItems[MAX_SCREENSAVERS];
     PROCESS_INFORMATION PrevWindowPi;
-    int                 Selection;
-    UINT                ScreenSaverCount;
+    int Selection;
 } DATA, *PDATA;
 
 
@@ -236,7 +235,7 @@ ScreensaverPreview(HWND hwndDlg, PDATA pData)
        /s         Run normal
     */
 
-    TCHAR szCmdline[2048];
+    WCHAR szCmdline[2048];
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
 
@@ -323,39 +322,59 @@ CheckRegScreenSaverIsSecure(HWND hwndDlg)
 
 
 static VOID
-SearchScreenSavers(HWND hwndScreenSavers,
-                   LPCTSTR pszSearchPath,
-                   PDATA pData)
+AddScreenSavers(HWND hwndDlg, PDATA pData)
 {
-    WIN32_FIND_DATA  fd;
-    TCHAR            szSearchPath[MAX_PATH];
-    HANDLE           hFind;
-    ScreenSaverItem *ScreenSaverItem;
-    HANDLE           hModule;
-    UINT             i, ScreenSaverCount;
+    HWND hwndScreenSavers = GetDlgItem(hwndDlg, IDC_SCREENS_LIST);
+    WIN32_FIND_DATA fd;
+    HANDLE hFind;
+    TCHAR szSearchPath[MAX_PATH];
+    INT i;
+    int ScreenSaverCount = 0;
+    ScreenSaverItem *ScreenSaverItem = NULL;
+    HANDLE hModule = NULL;
 
-    ScreenSaverCount = pData->ScreenSaverCount;
+    /* Add the "None" item */
+    ScreenSaverItem = &pData->ScreenSaverItems[ScreenSaverCount];
 
-    _tcscpy(szSearchPath, pszSearchPath);
+    ScreenSaverItem->bIsScreenSaver = FALSE;
+
+    LoadString(hApplet,
+               IDS_NONE,
+               ScreenSaverItem->szDisplayName,
+               sizeof(ScreenSaverItem->szDisplayName) / sizeof(TCHAR));
+
+    i = SendMessage(hwndScreenSavers,
+                    CB_ADDSTRING,
+                    0,
+                    (LPARAM)ScreenSaverItem->szDisplayName);
+
+    SendMessage(hwndScreenSavers,
+                CB_SETITEMDATA,
+                i,
+                (LPARAM)ScreenSaverCount);
+
+    ScreenSaverCount++;
+
+    /* Add all the screensavers in the C:\ReactOS\System32 directory. */
+
+    GetSystemDirectory(szSearchPath, MAX_PATH);
     _tcscat(szSearchPath, TEXT("\\*.scr"));
 
     hFind = FindFirstFile(szSearchPath, &fd);
-
-    if (hFind == INVALID_HANDLE_VALUE)
-        return;
-
-    while (ScreenSaverCount < MAX_SCREENSAVERS)
+    while (ScreenSaverCount < MAX_SCREENSAVERS-1 &&
+           hFind != INVALID_HANDLE_VALUE)
     {
         /* Don't add any hidden screensavers */
         if ((fd.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) == 0)
         {
             TCHAR filename[MAX_PATH];
 
-            _tcscpy(filename, pszSearchPath);
-            _tcscat(filename, _T("\\"));
+            GetSystemDirectory(filename, MAX_PATH);
+
+            _tcscat(filename, TEXT("\\"));
             _tcscat(filename, fd.cFileName);
 
-            ScreenSaverItem = pData->ScreenSaverItems + ScreenSaverCount;
+            ScreenSaverItem = &pData->ScreenSaverItems[ScreenSaverCount];
 
             ScreenSaverItem->bIsScreenSaver = TRUE;
 
@@ -364,16 +383,11 @@ SearchScreenSavers(HWND hwndScreenSavers,
                                     DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE);
             if (hModule)
             {
-                if (0 == LoadString(hModule,
+               LoadString(hModule,
                           1,
                           ScreenSaverItem->szDisplayName,
-                          sizeof(ScreenSaverItem->szDisplayName) / sizeof(TCHAR)))
-                {
-                    // If the string does not exists, copy the name of the file
-                    _tcscpy(ScreenSaverItem->szDisplayName, fd.cFileName);
-                    ScreenSaverItem->szDisplayName[_tcslen(fd.cFileName)-4] = '\0';
-                }
-                FreeLibrary(hModule);
+                          sizeof(ScreenSaverItem->szDisplayName) / sizeof(TCHAR));
+               FreeLibrary(hModule);
             }
             else
             {
@@ -396,62 +410,7 @@ SearchScreenSavers(HWND hwndScreenSavers,
         }
 
         if (!FindNextFile(hFind, &fd))
-            break;
-    }
-
-    FindClose(hFind);
-
-    pData->ScreenSaverCount = ScreenSaverCount;
-}
-
-
-static VOID
-AddScreenSavers(HWND hwndDlg, PDATA pData)
-{
-    HWND hwndScreenSavers = GetDlgItem(hwndDlg, IDC_SCREENS_LIST);
-    TCHAR szSearchPath[MAX_PATH];
-    INT i;
-    ScreenSaverItem *ScreenSaverItem = NULL;
-    LPTSTR lpBackSlash;
-
-    /* Add the "None" item */
-    ScreenSaverItem = pData->ScreenSaverItems;
-
-    ScreenSaverItem->bIsScreenSaver = FALSE;
-
-    LoadString(hApplet,
-               IDS_NONE,
-               ScreenSaverItem->szDisplayName,
-               sizeof(ScreenSaverItem->szDisplayName) / sizeof(TCHAR));
-
-    i = SendMessage(hwndScreenSavers,
-                    CB_ADDSTRING,
-                    0,
-                    (LPARAM)ScreenSaverItem->szDisplayName);
-
-    SendMessage(hwndScreenSavers,
-                CB_SETITEMDATA,
-                i,
-                (LPARAM)0);
-
-    // Initialize number of items into the list
-    pData->ScreenSaverCount = 1;
-
-    // Add all the screensavers in the C:\ReactOS\System32 directory.
-    GetSystemDirectory(szSearchPath, MAX_PATH);
-    SearchScreenSavers(hwndScreenSavers, szSearchPath, pData);
-
-    // Add all the screensavers in the C:\ReactOS directory.
-    GetWindowsDirectory(szSearchPath, MAX_PATH);
-    SearchScreenSavers(hwndScreenSavers, szSearchPath, pData);
-
-    // Add all the screensavers where the applet is stored.
-    GetModuleFileName(hApplet, szSearchPath, MAX_PATH);
-    lpBackSlash = _tcsrchr(szSearchPath, _T('\\'));
-    if (lpBackSlash != NULL)
-    {
-        lpBackSlash = '\0';
-        SearchScreenSavers(hwndScreenSavers, szSearchPath, pData);
+            hFind = INVALID_HANDLE_VALUE;
     }
 }
 

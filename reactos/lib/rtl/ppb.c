@@ -53,7 +53,9 @@ RtlCreateProcessParameters(PRTL_USER_PROCESS_PARAMETERS *ProcessParameters,
 			   PUNICODE_STRING ShellInfo,
 			   PUNICODE_STRING RuntimeData)
 {
+   NTSTATUS Status = STATUS_SUCCESS;
    PRTL_USER_PROCESS_PARAMETERS Param = NULL;
+   SIZE_T RegionSize = 0;
    ULONG Length = 0;
    PWCHAR Dest;
    UNICODE_STRING EmptyString;
@@ -119,16 +121,23 @@ RtlCreateProcessParameters(PRTL_USER_PROCESS_PARAMETERS *ProcessParameters,
    Length += ALIGN(RuntimeData->MaximumLength, sizeof(ULONG));
 
    /* Calculate the required block size */
-   Param = RtlAllocateHeap(RtlGetProcessHeap(), HEAP_ZERO_MEMORY, Length);
-   if (!Param)
+   RegionSize = ROUND_UP(Length, PAGE_SIZE);
+
+   Status = ZwAllocateVirtualMemory(NtCurrentProcess(),
+				    (PVOID*)&Param,
+				    0,
+				    &RegionSize,
+				    MEM_RESERVE | MEM_COMMIT,
+				    PAGE_READWRITE);
+   if (!NT_SUCCESS(Status))
      {
 	RtlReleasePebLock();
-	return STATUS_INSUFFICIENT_RESOURCES;
+	return Status;
      }
 
    DPRINT ("Process parameters allocated\n");
 
-   Param->MaximumLength = Length;
+   Param->MaximumLength = RegionSize;
    Param->Length = Length;
    Param->Flags = RTL_USER_PROCESS_PARAMETERS_NORMALIZED;
    Param->Environment = Environment;
@@ -210,12 +219,15 @@ RtlCreateProcessParameters(PRTL_USER_PROCESS_PARAMETERS *ProcessParameters,
 /*
  * @implemented
  */
-NTSTATUS
-NTAPI
-RtlDestroyProcessParameters(IN PRTL_USER_PROCESS_PARAMETERS ProcessParameters)
+NTSTATUS NTAPI
+RtlDestroyProcessParameters(PRTL_USER_PROCESS_PARAMETERS ProcessParameters)
 {
-   RtlFreeHeap(RtlGetProcessHeap(), 0, ProcessParameters);
-   return STATUS_SUCCESS;
+   SIZE_T RegionSize = 0;
+
+   return ZwFreeVirtualMemory (NtCurrentProcess (),
+			(PVOID)ProcessParameters,
+			&RegionSize,
+			MEM_RELEASE);
 }
 
 /*

@@ -32,11 +32,8 @@ GetClassInfoExA(
         IS_ATOM(lpszClass) ? lpszClass : 0,
         lpwcx);
 
-    if (!lpwcx)
-    {
-       SetLastError( ERROR_NOACCESS );
-       return FALSE;
-    }
+    //HACKHACK: This is ROS-specific and should go away
+    lpwcx->cbSize = sizeof(*lpwcx);
 
     if (hInstance == User32Instance)
     {
@@ -108,14 +105,8 @@ GetClassInfoExW(
         IS_ATOM(lpszClass) ? lpszClass : 0,
         lpwcx);
 
-    /* From wine, for speed only, ReactOS supports the correct return in
-     * Win32k. cbSize is ignored.
-     */
-    if (!lpwcx)
-    {
-       SetLastError( ERROR_NOACCESS );
-       return FALSE;
-    }
+    //HACKHACK: This is ROS-specific and should go away
+    lpwcx->cbSize = sizeof(*lpwcx);
 
     if (hInstance == User32Instance)
     {

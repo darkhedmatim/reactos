@@ -708,17 +708,6 @@ RtlProtectHeap(
 );
 
 NTSYSAPI
-NTSTATUS
-NTAPI
-RtlQueryHeapInformation (
-    IN PVOID HeapHandle,
-    IN HEAP_INFORMATION_CLASS HeapInformationClass,
-    OUT PVOID HeapInformation OPTIONAL,
-    IN SIZE_T HeapInformationLength OPTIONAL,
-    OUT PSIZE_T ReturnLength OPTIONAL
-    );
-
-NTSYSAPI
 PWSTR
 NTAPI
 RtlQueryTagHeap(
@@ -740,42 +729,11 @@ RtlReAllocateHeap(
 );
 
 NTSYSAPI
-NTSTATUS
-NTAPI
-RtlSetHeapInformation (
-    IN PVOID HeapHandle,
-    IN HEAP_INFORMATION_CLASS HeapInformationClass,
-    IN PVOID HeapInformation OPTIONAL,
-    IN SIZE_T HeapInformationLength OPTIONAL
-    );
-
-NTSYSAPI
 BOOLEAN
 NTAPI
 RtlLockHeap(
     IN HANDLE Heap
 );
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-RtlMultipleAllocateHeap (
-    IN PVOID HeapHandle,
-    IN ULONG Flags,
-    IN SIZE_T Size,
-    IN ULONG Count,
-    OUT PVOID * Array
-    );
-
-NTSYSAPI
-NTSTATUS
-NTAPI
-RtlMultipleFreeHeap (
-    IN PVOID HeapHandle,
-    IN ULONG Flags,
-    IN ULONG Count,
-    OUT PVOID * Array
-    );
 
 NTSYSAPI
 NTSTATUS
@@ -808,8 +766,7 @@ RtlSetUserFlagsHeap(
     IN PVOID HeapHandle,
     IN ULONG Flags,
     IN PVOID BaseAddress,
-    IN ULONG UserFlagsReset,
-    IN ULONG UserFlagsSet
+    IN ULONG UserFlags
 );
 
 NTSYSAPI
@@ -3361,7 +3318,7 @@ NTSYSAPI
 ULONG
 NTAPI
 RtlComputeCrc32(
-    IN ULONG InitialCrc,
+    IN USHORT PartialCrc,
     IN PUCHAR Buffer,
     IN ULONG Length
 );
@@ -3539,14 +3496,14 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlLockBootStatusData(
-    OUT PHANDLE FileHandle
+    HANDLE FileHandle
 );
 
 NTSYSAPI
 NTSTATUS
 NTAPI
 RtlUnlockBootStatusData(
-    IN HANDLE FileHandle
+    HANDLE FileHandle
 );
 #endif
 

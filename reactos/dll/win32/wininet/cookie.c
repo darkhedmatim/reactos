@@ -431,7 +431,7 @@ static BOOL set_cookie(LPCWSTR domain, LPCWSTR path, LPCWSTR cookie_name, LPCWST
     value = data = heap_strdupW(cookie_data);
     if (!data)
     {
-        ERR("could not allocate the cookie data buffer\n");
+        ERR("could not allocate %zu bytes for the cookie data buffer\n", (strlenW(cookie_data) + 1) * sizeof(WCHAR));
         return FALSE;
     }
 
@@ -457,7 +457,7 @@ static BOOL set_cookie(LPCWSTR domain, LPCWSTR path, LPCWSTR cookie_name, LPCWST
         if (value == NULL)
         {
             HeapFree(GetProcessHeap(), 0, data);
-            ERR("could not allocate the cookie value buffer\n");
+            ERR("could not allocate %zu bytes for the cookie value buffer\n", (ptr - data) * sizeof(WCHAR));
             return FALSE;
         }
         strcpyW(value, data);

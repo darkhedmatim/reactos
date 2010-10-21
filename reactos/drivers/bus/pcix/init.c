@@ -641,7 +641,6 @@ PciBuildHackTable(IN HANDLE KeyHandle)
             Entry->HackFlags = HackFlags;
 
             /* Print out for the debugger's sake */
-#ifdef HACK_DEBUG
             DPRINT1("Adding Hack entry for Vendor:0x%04x Device:0x%04x ",
                     Entry->VendorID, Entry->DeviceID);
             if (Entry->Flags & PCI_HACK_HAS_SUBSYSTEM_INFO)
@@ -650,7 +649,6 @@ PciBuildHackTable(IN HANDLE KeyHandle)
             if (Entry->Flags & PCI_HACK_HAS_REVISION_INFO)
                 DbgPrint("Revision:0x%02x", Entry->RevisionID);
             DbgPrint(" = 0x%I64x\n", Entry->HackFlags);
-#endif
         }
 
         /* Bail out in case of failure */
@@ -707,12 +705,6 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject,
     UNICODE_STRING OptionString, PciLockString;
     NTSTATUS Status;
     DPRINT1("PCI: DriverEntry!\n");
-
-    /* Setup initial loop variables */
-    KeyHandle = NULL;
-    ParametersKey = NULL;
-    DebugKey = NULL;
-    ControlSetKey = NULL;
     do
     {
         /* Remember our object so we can get it to it later */
@@ -743,11 +735,11 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject,
                             KEY_QUERY_VALUE,
                             &ParametersKey,
                             &Status);
-        //if (!Result) break;
+        if (!Result) break;
 
         /* Build the list of all known PCI erratas */
         Status = PciBuildHackTable(ParametersKey);
-        //if (!NT_SUCCESS(Status)) break;
+        if (!NT_SUCCESS(Status)) break;
 
         /* Open the debug key, if it exists */
         Result = PciOpenKey(L"Debug",
@@ -768,12 +760,12 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject,
         KeInitializeEvent(&PciLegacyDescriptionLock, SynchronizationEvent, TRUE);
 
         /* Open the control set key */
-        Result = PciOpenKey(L"\\Registry\\Machine\\System\\CurrentControlSet",
+        Status = PciOpenKey(L"\\Registry\\Machine\\System\\CurrentControlSet",
                             NULL,
                             KEY_QUERY_VALUE,
                             &ControlSetKey,
                             &Status);
-        if (!Result) break;
+        if (!NT_SUCCESS(Status)) break;
 
         /* Read the command line */
         Status = PciGetRegistryValue(L"SystemStartOptions",
@@ -860,7 +852,7 @@ DriverEntry(IN PDRIVER_OBJECT DriverObject,
         if (PciRunningDatacenter) DPRINT1("PCI running on datacenter build\n");
 
         /* Check if the system has an ACPI Hardware Watchdog Timer */
-        //WdTable = PciGetAcpiTable(WDRT_SIGNATURE);
+        WdTable = PciGetAcpiTable(WDRT_SIGNATURE);
         Status = STATUS_SUCCESS;
     } while (FALSE);
 

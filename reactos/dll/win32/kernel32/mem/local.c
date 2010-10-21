@@ -352,6 +352,11 @@ LocalReAlloc(HLOCAL hMem,
                                             HEAP_NO_SERIALIZE,
                                             Ptr,
                                             hMem);
+                        RtlSetUserFlagsHeap(hProcessHeap,
+                                            HEAP_NO_SERIALIZE,
+                                            Ptr,
+                                            Flags);
+
                     }
                 }
                 else
@@ -373,6 +378,19 @@ LocalReAlloc(HLOCAL hMem,
 
                     /* And do the re-allocation */
                     Ptr = RtlReAllocateHeap(hProcessHeap, Flags, Ptr, dwBytes);
+
+                    if (Ptr)
+                    {
+                        /* Allocation succeeded, so save our entry */
+                        RtlSetUserValueHeap(hProcessHeap,
+                                            HEAP_NO_SERIALIZE,
+                                            Ptr,
+                                            hMem);
+                        RtlSetUserFlagsHeap(hProcessHeap,
+                                            HEAP_NO_SERIALIZE,
+                                            Ptr,
+                                            Flags);
+                    }
                 }
 
                 /* Make sure we have a pointer by now */

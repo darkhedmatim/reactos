@@ -26,7 +26,7 @@ MMPTE ValidKernelPte = {.u.Hard.Valid = 1, .u.Hard.Write = 1, .u.Hard.Dirty = 1,
 MMPDE DemandZeroPde  = {.u.Long = (MM_READWRITE << MM_PTE_SOFTWARE_PROTECTION_BITS)};
 
 /* Template PTE for prototype page */
-MMPTE PrototypePte = {.u.Long = (MM_READWRITE << MM_PTE_SOFTWARE_PROTECTION_BITS) | PTE_PROTOTYPE | (MI_PTE_LOOKUP_NEEDED << PAGE_SHIFT)};
+MMPTE PrototypePte = {.u.Long = (MM_READWRITE << MM_PTE_SOFTWARE_PROTECTION_BITS) | PTE_PROTOTYPE | 0xFFFFF000};
                        
 /* PRIVATE FUNCTIONS **********************************************************/
 
@@ -144,6 +144,8 @@ MiComputeNonPagedPoolVa(IN ULONG FreePages)
         }
     }
 }
+
+extern KEVENT ZeroPageThreadEvent;
 
 NTSTATUS
 NTAPI
@@ -494,7 +496,10 @@ MiInitMachineDependent(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     
     /* Initialize the color tables */
     MiInitializeColorTables();
-       
+    
+    /* ReactOS Stuff */
+    KeInitializeEvent(&ZeroPageThreadEvent, NotificationEvent, TRUE);
+    
     /* Build the PFN Database */
     MiInitializePfnDatabase(LoaderBlock);
     MmInitializeBalancer(MmAvailablePages, 0);
@@ -567,16 +572,6 @@ MiInitMachineDependent(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     //
     MiFirstReservedZeroingPte->u.Hard.PageFrameNumber = MI_ZERO_PTES - 1;
     
-    /* Check for Pentium LOCK errata */
-    if (KiI386PentiumLockErrataPresent)
-    {
-        /* Mark the 1st IDT page as Write-Through to prevent a lockup
-           on a FOOF instruction. 
-           See http://www.rcollins.org/Errata/Dec97/F00FBug.html */
-        PointerPte = MiAddressToPte(KeGetPcr()->IDT);
-        PointerPte->u.Hard.WriteThrough = 1;
-    }
-
     return STATUS_SUCCESS;
 }
 
