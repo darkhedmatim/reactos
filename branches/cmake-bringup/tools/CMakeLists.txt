@@ -4,6 +4,7 @@ add_executable(bin2c bin2c.c)
 #add_executable(pefixup pefixup.c)
 
 add_subdirectory(buildno)
+add_subdirectory(cabman)
 add_subdirectory(cdmake)
 add_subdirectory(gendib)
 add_subdirectory(mkhive)
