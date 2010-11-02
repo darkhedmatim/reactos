@@ -83,17 +83,16 @@
  * This stub calls KiSystemService directly with a fake INT2E stack.
  * Because EIP is pushed during the call, the handler will return here.
  */
-#if defined(__GNUC__)
-#define KernelModeStub_x86  "    movl $0x%x, %%eax\n" \
-                            "    leal 4(%%esp), %%edx\n" \
-                            "    pushfl\n" \
-                            "    pushl $KGDT_R0_CODE\n" \
+#define KernelModeStub_x86  "    mov eax, %d\n" \
+                            "    lea edx, [esp + 4]\n" \
+                            "    pushf\n" \
+                            "    push KGDT_R0_CODE\n" \
                             "    call _KiSystemService\n" \
-                            "    ret $0x%x\n\n"
+                            "    ret %d\n\n"
 
-#define KernelModeStub_amd64 "    movl $0x%x, %%eax\n" \
+#define KernelModeStub_amd64 "    mov eax, %d\n" \
                             "    call KiSystemService\n" \
-                            "    ret $0x%x\n\n"
+                            "    ret %d\n\n"
 
 /* For now, use the usermode stub.  We'll optimize later */
 #define KernelModeStub_ppc  UserModeStub_ppc
@@ -104,28 +103,6 @@
 #define KernelModeStub_arm  "    mov ip, lr\n"      \
                             "    swi #0x%x\n"      \
                             "    bx ip\n\n"
-
-#elif defined(_MSC_VER)
-#define KernelModeStub_x86  "    mov eax, %xh\n" \
-                            "    lea edx, [esp+4]\n" \
-                            "    pushf\n" \
-                            "    push KGDT_R0_CODE\n" \
-                            "    call _KiSystemService\n" \
-                            "    ret %xh\n"
-
-#define KernelModeStub_amd64 "   mov eax, %xh\n" \
-                            "    call KiSystemService\n" \
-                            "    ret %xh\n\n"
-
-#define KernelModeStub_ppc  "    \n"
-
-#define KernelModeStub_mips "    \n"
-
-#define KernelModeStub_arm  "    \n"
-
-#else
-#error Unknown compiler for inline assembler
-#endif
 
 /***** Arch Dependent Stuff ******/
 struct ncitool_data_t {
@@ -191,10 +168,12 @@ WriteFileHeader(FILE * StubFile,
             " * PROGRAMMER:      Computer Generated File. See tools/nci/ncitool.c\n"
             " * REMARK:          DO NOT EDIT OR COMMIT MODIFICATIONS TO THIS FILE\n"
             " */\n\n\n"
+            "#ifdef __ASM__\n"
             "#include <reactos/asm.h>\n"
-            "#include <ndk/asm.h>\n\n"
+            ".code\n"
+            "#endif\n"
+            "#include <ndk/asm.h>\n\n",
 
-            ".code\n",
             FileDescription,
             FileLocation);
 }
@@ -776,3 +755,4 @@ int main(int argc, char* argv[])
 
     return(0);
 }
+
