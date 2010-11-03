@@ -23,7 +23,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#define WINE_UNICODE_INLINE  /* nothing */
+#ifndef _MSC_VER
+  #define WINE_UNICODE_INLINE  /* nothing */
+#endif
 #include "wine/unicode.h"
 
 int strcmpiW( const WCHAR *str1, const WCHAR *str2 )
