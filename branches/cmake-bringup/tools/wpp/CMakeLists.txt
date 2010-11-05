@@ -1,8 +1,12 @@
 
-file(GLOB_RECURSE SOURCE "*.c")
+list(APPEND SOURCE
+    lex.yy.c
+    preproc.c
+    wpp.c
+    ppy.tab.c)
 
-SET_SOURCE_FILES_PROPERTIES(${REACTOS_BINARY_DIR}/include/reactos/buildno.h PROPERTIES GENERATED TRUE)
+set_source_files_properties(${REACTOS_BINARY_DIR}/include/reactos/buildno.h PROPERTIES GENERATED TRUE)
 
 add_library(wpp ${SOURCE})
 
-ADD_DEPENDENCIES(wpp build_header)
+add_dependencies(wpp build_header)

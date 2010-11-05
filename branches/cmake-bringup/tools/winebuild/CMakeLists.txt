@@ -9,13 +9,13 @@ list(APPEND SOURCE
     res32.c
     spec16.c
     spec32.c
-    utils.c
-)
+    utils.c)
 
 add_definitions(-DEXEEXT=".exe")
 if(NOT UNIX)
-add_definitions(-Dpclose=_pclose)
-add_definitions(-Dpopen=_popen)
+add_definitions(
+    -Dpclose=_pclose
+    -Dpopen=_popen)
 endif()
 if(MSVC)
     list(APPEND SOURCE getopt.c getpid.c)
@@ -24,6 +24,6 @@ endif()
 
 add_executable(winebuild ${SOURCE} ${REACTOS_BINARY_DIR}/include/reactos/buildno.h)
 
-SET_SOURCE_FILES_PROPERTIES(${REACTOS_BINARY_DIR}/include/reactos/buildno.h PROPERTIES GENERATED TRUE)
+set_source_files_properties(${REACTOS_BINARY_DIR}/include/reactos/buildno.h PROPERTIES GENERATED TRUE)
 
-ADD_DEPENDENCIES(winebuild build_header)
+add_dependencies(winebuild build_header)

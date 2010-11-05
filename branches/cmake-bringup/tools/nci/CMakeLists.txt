@@ -1,3 +1,2 @@
 
-file(GLOB_RECURSE SOURCE "*.c")
-add_executable(nci ${SOURCE})
+add_executable(nci ncitool.c)
