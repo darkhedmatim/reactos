@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <string.h>
 
 enum
 {
@@ -265,11 +266,11 @@ OutputLine(FILE *fileDest, EXPORT *exp)
 }
 
 void
-OutputHeader(FILE *file)
+OutputHeader(FILE *file, char *libname)
 {
     fprintf(file, 
             "; File generated automatically, do not edit!\n\n"
-            "LIBRARY ntoskrnl.exe\n\n"
+            "LIBRARY %s\n\n"
             "EXPORTS\n"
             "#define FOOL(x) x\n"
             "#ifdef _MSC_VER\n"
@@ -282,9 +283,14 @@ OutputHeader(FILE *file)
             "#define _NAME_CDECL(name, stackbytes) FOOL(name)\n"
             "#endif\n"
             "#define _NAME_EXTERN(name, stackbytes) name\n"
-            "#define _NAME(name, cc, stackbytes) _NAME_##cc(name, stackbytes)\n");
+            "#define _NAME(name, cc, stackbytes) _NAME_##cc(name, stackbytes)\n",
+            libname);
 }
 
+void usage(void)
+{
+    printf("syntax: spec2pdef <source file> <dest file> <libname>\n");
+}
 
 int main(int argc, char *argv[])
 {
@@ -293,6 +299,12 @@ int main(int argc, char *argv[])
     int nLine, result;
     FILE *fileSource, *fileDest;
     EXPORT exp;
+
+    if (argc < 4)
+    {
+        usage();
+        return 0;
+    }
 
     /* Open input file argv[1] */
     fileSource = fopen(argv[1], "r");
@@ -325,7 +337,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    OutputHeader(fileDest);
+    OutputHeader(fileDest, argv[3]);
 
     pcLine = pszSource;
     for (nLine = 1; *pcLine != 0; pcLine = NextLine(pcLine), nLine++)
