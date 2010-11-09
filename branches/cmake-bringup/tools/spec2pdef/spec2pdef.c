@@ -95,7 +95,8 @@ ParseLine(char* pcLine, int nLine, EXPORT *pexp)
     {
         pexp->nCallingConvention = CC_STDCALL;
     }
-    else if (_strcmpx(pcCurrent, "cdecl ") == 0)
+    else if ( (_strcmpx(pcCurrent, "cdecl ") == 0) ||
+              (_strcmpx(pcCurrent, "varargs ") == 0) )
     {
         pexp->nCallingConvention = CC_CDECL;
     }
