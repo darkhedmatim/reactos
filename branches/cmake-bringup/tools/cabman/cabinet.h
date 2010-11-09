@@ -29,7 +29,7 @@
 #define DIR_SEPARATOR_CHAR '\\'
 #define DIR_SEPARATOR_STRING "\\"
 
-#define strcasecmp _strcmpi
+#define strcasecmp _stricmp
 #define strdup _strdup
 
 #define AllocateMemory(size) HeapAlloc(GetProcessHeap(), 0, size)
