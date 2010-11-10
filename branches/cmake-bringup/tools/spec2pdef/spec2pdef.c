@@ -17,6 +17,7 @@ typedef struct
 int (*OutputLine)(FILE *, EXPORT *);
 void (*OutputHeader)(FILE *, char *);
 int no_decoration = 0;
+int no_redirections = 0;
 
 enum
 {
@@ -98,7 +99,7 @@ void
 OutputHeader_stub(FILE *file, char *libname)
 {
     fprintf(file, "; File generated automatically, do not edit! \n\n"
-            ".code\n");
+            ".586\n.model flat\n.code\n");
 }
 
 int
@@ -106,19 +107,19 @@ OutputLine_stub(FILE *fileDest, EXPORT *pexp)
 {
     if (pexp->nCallingConvention == CC_STDCALL)
     {
-        fprintf(fileDest, "PUBLIC _%.*s@%d\n_%.*s@%d:\n",
+        fprintf(fileDest, "PUBLIC _%.*s@%d\n_%.*s@%d: nop\n",
                 pexp->nNameLength, pexp->pcName, pexp->nStackBytes,
                 pexp->nNameLength, pexp->pcName, pexp->nStackBytes);
     }
     else if (pexp->nCallingConvention == CC_FASTCALL)
     {
-        fprintf(fileDest, "PUBLIC @%.*s@%d\n@%.*s@%d:\n",
+        fprintf(fileDest, "PUBLIC @%.*s@%d\n@%.*s@%d: nop\n",
                 pexp->nNameLength, pexp->pcName, pexp->nStackBytes,
                 pexp->nNameLength, pexp->pcName, pexp->nStackBytes);
     }
     else if (pexp->nCallingConvention == CC_CDECL)
     {
-        fprintf(fileDest, "PUBLIC _%.*s\n_%.*s:\n",
+        fprintf(fileDest, "PUBLIC _%.*s\n_%.*s: nop\n",
                 pexp->nNameLength, pexp->pcName,
                 pexp->nNameLength, pexp->pcName);
     }
@@ -159,7 +160,7 @@ OutputLine_def(FILE *fileDest, EXPORT *exp)
         fprintf(fileDest, "@%d", exp->nStackBytes);
     }
 
-    if (exp->pcRedirection)
+    if (exp->pcRedirection && !no_redirections)
     {
         if (exp->nCallingConvention == CC_FASTCALL && !no_decoration)
         {
@@ -273,16 +274,16 @@ ParseFile(char* pcStart, FILE *fileDest)
         if (*pc == '@') exp.nOrdinal = -1;
         else exp.nOrdinal = atol(pc);
 
-        /* Go to next token */
+        /* Go to next token (type) */
         if (!(pc = NextToken(pc)))
         {
             fprintf(stderr, "error: line %d, unexpected end of line\n", nLine);
-            return -1;
+            return -10;
         }
 
         //fprintf(stderr, "info: Token:'%.10s'\n", pc);
 
-        /* Now we should get the calling convention */
+        /* Now we should get the type */
         if (CompareToken(pc, "stdcall"))
         {
             exp.nCallingConvention = CC_STDCALL;
@@ -297,24 +298,25 @@ ParseFile(char* pcStart, FILE *fileDest)
         {
             exp.nCallingConvention = CC_FASTCALL;
         }
-        else if (CompareToken(pc, "extern"))
+        else if (CompareToken(pc, "extern") ||
+                 CompareToken(pc, "stub"))
         {
             exp.nCallingConvention = CC_EXTERN;
         }
         else
         {
-            fprintf(stderr, "error: line %d, expected cc, got '%.*s' %d\n", 
+            fprintf(stderr, "error: line %d, expected type, got '%.*s' %d\n", 
                     nLine, TokenLength(pc), pc, *pc);
-            return -1;
+            return -11;
         }
 
         //fprintf(stderr, "info: nCallingConvention: %d\n", exp.nCallingConvention);
 
-        /* Go to next token */
+        /* Go to next token (options or name) */
         if (!(pc = NextToken(pc)))
         {
             fprintf(stderr, "fail2\n");
-            return -1;
+            return -12;
         }
 
         /* Handle options */
@@ -333,24 +335,23 @@ ParseFile(char* pcStart, FILE *fileDest)
         exp.pcName = pc;
         exp.nNameLength = TokenLength(pc);
 
-        /* Go to next token */
-        if (!(pc = NextToken(pc)))
-        {
-            fprintf(stderr, "fail4\n");
-            return -1;
-        }
-
         /* Handle parameters */
         exp.nStackBytes = 0;
         if (exp.nCallingConvention != CC_EXTERN)
         {
             //fprintf(stderr, "info: options:'%.10s'\n", pc);
+            /* Go to next token */
+            if (!(pc = NextToken(pc)))
+            {
+                fprintf(stderr, "fail4\n");
+                return -13;
+            }
 
             /* Verify syntax */
             if (*pc++ != '(')
             {
                 fprintf(stderr, "error: line %d, expected '('\n", nLine);
-                return -1;
+                return -14;
             }
             
             exp.nStackBytes = 0;
@@ -371,7 +372,7 @@ ParseFile(char* pcStart, FILE *fileDest)
                 if (!(pc = NextToken(pc)))
                 {
                     fprintf(stderr, "fail5\n");
-                    return -1;
+                    return -15;
                 }
             }
 
@@ -379,7 +380,7 @@ ParseFile(char* pcStart, FILE *fileDest)
             if (*pc++ != ')')
             {
                 fprintf(stderr, "error: line %d, expected ')'\n", nLine);
-                return -1;
+                return -16;
             }
         }
 
@@ -393,7 +394,7 @@ ParseFile(char* pcStart, FILE *fileDest)
             if (NextToken(pc))
             {
                  fprintf(stderr, "error: line %d, additional tokens after ')'\n", nLine);
-                 return -1;
+                 return -17;
             }
         }
         else
@@ -415,6 +416,7 @@ void usage(void)
 {
     printf("syntax: spec2pdef [<options> ...] <source file> <dest file>\n"
            "Possible options:\n"
+           "  -d=<file> --dll=<file>   names the dll\n"
            "  -h --help   prints this screen\n"
            "  -s --stubs  generates an asm lib stub\n"
            "  -n --no-decoration  removes @xx decorations from def file\n");
@@ -453,18 +455,21 @@ int main(int argc, char *argv[])
             OutputLine = OutputLine_stub;
             OutputHeader = OutputHeader_stub;
         }
-        else if (_stricmp(argv[i], "--dll=") == 0)
+        else if ((_stricmp(argv[i], "--dll") == 0) ||
+                 (_stricmp(argv[i], "-d") == 0))
         {
-            pszDllName = argv[i] + 6;
-        }
-        else if (_stricmp(argv[i], "-d=") == 0)
-        {
-            pszDllName = argv[i] + 3;
+            pszDllName = argv[i + 1];
+            i++;
         }
         else if ((_stricmp(argv[i], "--no-decoration") == 0) ||
                  (_stricmp(argv[i], "-n") == 0))
         {
             no_decoration = 1;
+        }
+        else if ((_stricmp(argv[i], "--no-redirection") == 0) ||
+                 (_stricmp(argv[i], "-r") == 0))
+        {
+            no_redirections = 1;
         }
         else
         {
@@ -480,12 +485,17 @@ int main(int argc, char *argv[])
         int len;
 
         p1 = strrchr(argv[i], '\\');
-        p2 = p1 = p1 ? p1 + 1 : argv[i + 1];
+        if (!p1) p1 = strrchr(argv[i], '/');
+        p2 = p1 = p1 ? p1 + 1 : argv[i];
 
         /* walk up to '.' */
         while (*p2 != '.' && *p2 != 0) p2++;
         len = p2 - p1;
-        if (len >= sizeof(achDllName) - 5) return -1;
+        if (len >= sizeof(achDllName) - 5)
+        {
+            fprintf(stderr, "name too long: %s\n", p1);
+            return -2;
+        }
 
         strncpy(achDllName, p1, len);
         strncpy(achDllName + len, ".dll", sizeof(achDllName) - len);
@@ -497,7 +507,7 @@ int main(int argc, char *argv[])
     if (!file)
     {
         fprintf(stderr, "error: could not open file %s ", argv[i]);
-        return -1;
+        return -3;
     }
 
     /* Get file size */
@@ -507,7 +517,7 @@ int main(int argc, char *argv[])
 
     /* Allocate memory buffer */
     pszSource = malloc(nFileSize + 1);
-    if (!pszSource) return -1;
+    if (!pszSource) return -4;
 
     /* Load input file into memory */
     nFileSize = fread(pszSource, 1, nFileSize, file);
@@ -521,12 +531,14 @@ int main(int argc, char *argv[])
     if (!file)
     {
         fprintf(stderr, "error: could not open output file %s ", argv[i + 1]);
-        return -1;
+        return -5;
     }
 
     OutputHeader(file, pszDllName);
 
     result = ParseFile(pszSource, file);
+
+    if (OutputHeader == OutputHeader_stub) fprintf(file, "\nEND\n");
 
     fclose(file);
 
