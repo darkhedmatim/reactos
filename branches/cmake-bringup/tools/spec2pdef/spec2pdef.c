@@ -39,7 +39,7 @@ static
 int
 IsSeparator(char chr)
 {
-    return (chr <= '*' || chr == ';');
+    return ((chr <= '*' && chr != '$') || chr == ';');
 }
 
 int
@@ -261,7 +261,7 @@ ParseFile(char* pcStart, FILE *fileDest)
         //        nLine, TokenLength(pcLine), pcLine);
 
         /* Skip white spaces */
-        while (*pc <= ' ' && *pc != 0) pc++;
+        while (*pc == ' ' || *pc == '\t') pc++;
 
         /* Skip empty lines, stop at EOF */
         if (*pc == ';' || *pc <= '#') continue;
@@ -354,6 +354,9 @@ ParseFile(char* pcStart, FILE *fileDest)
                 return -14;
             }
             
+            /* Skip whitespaces */
+            while (*pc == ' ' || *pc == '\t') pc++;
+
             exp.nStackBytes = 0;
             while (*pc >= '0')
             {
