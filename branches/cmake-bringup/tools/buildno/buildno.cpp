@@ -23,6 +23,11 @@
  *  Added -p option to make it simply print the
  *  version number, but skip buildno.h generation.
  */
+
+#ifdef _MSC_VER
+#pragma warning ( disable : 4996 )
+#endif//_MSC_VER
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
