@@ -174,7 +174,7 @@ int main(int argc, char* argv[])
             case TYPE_CONSTANT: 
                 if (ms_format)
                 {
-                    fprintf(output, "%s equ %"PRIx64"h\n", data.Name, data.Value);
+                    fprintf(output, "%s equ 0%"PRIx64"h\n", data.Name, data.Value);
                 }
                 else
                 {
