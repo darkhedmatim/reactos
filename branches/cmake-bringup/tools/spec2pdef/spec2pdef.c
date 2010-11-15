@@ -18,6 +18,7 @@ int (*OutputLine)(FILE *, EXPORT *);
 void (*OutputHeader)(FILE *, char *);
 int no_decoration = 0;
 int no_redirections = 0;
+char *pszArchString = "i386";
 
 enum
 {
@@ -39,7 +40,8 @@ static
 int
 IsSeparator(char chr)
 {
-    return ((chr <= '*' && chr != '$') || chr == ';');
+    return ((chr <= '*' && chr != '$') ||
+            (chr >= ':' && chr <= '?') );
 }
 
 int
@@ -248,6 +250,7 @@ ParseFile(char* pcStart, FILE *fileDest)
     char *pc, *pcLine;
     int nLine;
     EXPORT exp;
+    int included;
 
     //fprintf(stderr, "info: line %d, pcStart:'%.30s'\n", nLine, pcStart);
     
@@ -320,16 +323,42 @@ ParseFile(char* pcStart, FILE *fileDest)
         }
 
         /* Handle options */
+        included = 1;
         while (*pc == '-')
         {
-            fprintf(stderr, "info: got option: '%.10s'\n", pc);
-            // FIXME: handle options
+            if (CompareToken(pc, "-arch"))
+            {
+                /* Default to not included */
+                included = 0;
+                pc += 5;
+
+                /* Look if we are included */
+                while (*pc == '=' || *pc == ',')
+                {
+                    pc++;
+                    if (CompareToken(pc, pszArchString))
+                    {
+                        included = 1;
+                        break;
+                    }
+                    
+                    /* Skip to next arch or end */
+                    while (*pc > ',') pc++;
+                }
+            }
+            else
+            {
+                fprintf(stderr, "info: ignored option: '%.10s'\n", pc);
+            }
 
             /* Go to next token */
             pc = NextToken(pc);
         }
 
         //fprintf(stderr, "info: Name:'%.10s'\n", pc);
+        
+        /* If arch didn't match ours, skip this entry */
+        if (!included) continue;
 
         /* Get name */
         exp.pcName = pc;
