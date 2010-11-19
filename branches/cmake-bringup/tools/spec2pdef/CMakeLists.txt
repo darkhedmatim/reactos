@@ -1,1 +1,0 @@
-add_executable(spec2pdef spec2pdef.c)
