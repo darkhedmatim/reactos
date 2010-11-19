@@ -703,6 +703,9 @@ int main(int argc, char* argv[])
     WriteFileHeader(Files[Win32kStubs],
                     "System Call Stubs for Native API",
                     argv[Win32kStubs + ArgOffset]);
+    fputs("#include <asm.inc>\n"
+          "#include <ks386.inc>\n"
+          ".code\n\n", Files[Win32kStubs]);
 
     /* Create the System Stubs */
     CreateStubs(Files[NativeSystemDb],
