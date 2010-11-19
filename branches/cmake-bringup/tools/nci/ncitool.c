@@ -167,19 +167,14 @@ WriteFileHeader(FILE * StubFile,
             " * PURPOSE:         %s\n"
             " * PROGRAMMER:      Computer Generated File. See tools/nci/ncitool.c\n"
             " * REMARK:          DO NOT EDIT OR COMMIT MODIFICATIONS TO THIS FILE\n"
-            " */\n\n\n"
-            "#ifdef __ASM__\n"
-            "#include <reactos/asm.h>\n"
-            ".code\n"
-            "#endif\n"
-            "#include <ndk/asm.h>\n\n",
+            " */\n\n\n",
 
             FileDescription,
             FileLocation);
 }
 
 /*++
- * WriteFileHeader
+ * WriteStubHeader
  *
  *     Prints out the File Header for a Stub File.
  *
@@ -693,11 +688,17 @@ int main(int argc, char* argv[])
     WriteFileHeader(Files[NtosUserStubs],
                     "System Call Stubs for Native API",
                     argv[NtosUserStubs + ArgOffset]);
+    fputs("#include <asm.inc>\n"
+          "#include <ks386.inc>\n"
+          ".code\n\n", Files[NtosUserStubs]);
 
     WriteFileHeader(Files[NtosKernelStubs],
                     "System Call Stubs for Native API",
                     argv[NtosKernelStubs + ArgOffset]);
-    fputs("#include <ndk/asm.h>\n\n", Files[NtosKernelStubs]);
+    fputs("#include <asm.inc>\n"
+          "#include <ks386.inc>\n"
+          ".code\n"
+          "EXTERN _KiSystemService:PROC\n\n", Files[NtosKernelStubs]);
 
     WriteFileHeader(Files[Win32kStubs],
                     "System Call Stubs for Native API",
