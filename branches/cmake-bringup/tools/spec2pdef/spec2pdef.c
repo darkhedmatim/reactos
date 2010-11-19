@@ -41,7 +41,7 @@ int
 IsSeparator(char chr)
 {
     return ((chr <= '*' && chr != '$') ||
-            (chr >= ':' && chr <= '?') );
+            (chr >= ':' && chr < '?') );
 }
 
 int
