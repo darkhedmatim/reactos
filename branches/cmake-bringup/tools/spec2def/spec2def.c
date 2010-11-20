@@ -40,7 +40,7 @@ static
 int
 IsSeparator(char chr)
 {
-    return ((chr <= '*' && chr != '$') ||
+    return ((chr <= ',' && chr != '$') ||
             (chr >= ':' && chr < '?') );
 }
 
@@ -191,59 +191,6 @@ OutputLine_def(FILE *fileDest, EXPORT *exp)
     return 1;
 }
 
-void
-OutputHeader_pdef(FILE *file, char *libname)
-{
-    fprintf(file, 
-            "; File generated automatically, do not edit!\n\n"
-            "LIBRARY %s\n\n"
-            "EXPORTS\n"
-            "#define FOOL(x) x\n"
-            "#if defined(__GNUC__) && defined(_X86_)\n"
-            "#define _NAME_STDCALL(name, stackbytes) FOOL(name)@stackbytes\n"
-            "#define _NAME_FASTCALL(name, stackbytes) FOOL(@)FOOL(name)@stackbytes\n"
-            "#define _NAME_CDECL(name, stackbytes) FOOL(name)\n"
-            "#else\n"
-            "#define _NAME_STDCALL(name, stackbytes) name\n"
-            "#define _NAME_FASTCALL(name, stackbytes) name\n"
-            "#define _NAME_CDECL(name, stackbytes) name\n"
-            "#endif\n"
-            "#define _NAME_EXTERN(name, stackbytes) name\n"
-            "#define _NAME(name, cc, stackbytes) _NAME_##cc(name, stackbytes)\n",
-            libname);
-}
-
-int
-OutputLine_pdef(FILE *fileDest, EXPORT *exp)
-{
-    fprintf(fileDest, "_NAME(%.*s,%s,%d)",
-            exp->nNameLength, exp->pcName,
-            astrCallingConventions[exp->nCallingConvention],
-            exp->nStackBytes);
-
-    if (exp->pcRedirection)
-    {
-        fprintf(fileDest, "= _NAME(%.*s,%s,%d)",
-                exp->nRedirectionLength, exp->pcRedirection,
-                astrCallingConventions[exp->nCallingConvention],
-                exp->nStackBytes);
-    }
-
-    if (exp->nOrdinal != -1)
-    {
-        fprintf(fileDest, " @%d", exp->nOrdinal);
-    }
-
-    if (exp->nCallingConvention == CC_EXTERN)
-    {
-        fprintf(fileDest, " DATA");
-    }
-
-    fprintf(fileDest, "\n");
-
-    return 1;
-}
-
 int
 ParseFile(char* pcStart, FILE *fileDest)
 {
@@ -339,7 +286,6 @@ ParseFile(char* pcStart, FILE *fileDest)
                     if (CompareToken(pc, pszArchString))
                     {
                         included = 1;
-                        break;
                     }
                     
                     /* Skip to next arch or end */
