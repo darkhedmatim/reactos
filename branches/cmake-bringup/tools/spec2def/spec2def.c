@@ -294,6 +294,12 @@ ParseFile(char* pcStart, FILE *fileDest)
                     while (*pc > ',') pc++;
                 }
             }
+            else if (CompareToken(pc, "-noname") ||
+                     CompareToken(pc, "-ret64") ||
+                     CompareToken(pc, "-private"))
+            {
+                /* silently ignore these */
+            }
             else
             {
                 fprintf(stderr, "info: ignored option: '%.10s'\n", pc);
@@ -385,8 +391,6 @@ ParseFile(char* pcStart, FILE *fileDest)
 
         OutputLine(fileDest, &exp);
     }
-
-printf("done\n");
 
     return 0;
 }
