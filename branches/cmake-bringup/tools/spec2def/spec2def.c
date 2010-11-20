@@ -19,6 +19,7 @@ void (*OutputHeader)(FILE *, char *);
 int no_decoration = 0;
 int no_redirections = 0;
 char *pszArchString = "i386";
+char *pszArchString2;
 
 enum
 {
@@ -283,7 +284,8 @@ ParseFile(char* pcStart, FILE *fileDest)
                 while (*pc == '=' || *pc == ',')
                 {
                     pc++;
-                    if (CompareToken(pc, pszArchString))
+                    if (CompareToken(pc, pszArchString) ||
+                        CompareToken(pc, pszArchString2))
                     {
                         included = 1;
                     }
@@ -397,7 +399,8 @@ void usage(void)
            "  -d=<file> --dll=<file>   names the dll\n"
            "  -h --help   prints this screen\n"
            "  -s --stubs  generates an asm lib stub\n"
-           "  -n --no-decoration  removes @xx decorations from def file\n");
+           "  -n --no-decoration  removes @xx decorations from def file\n"
+           "  --arch <arch> Set architecture to <arch>. (i386, x86_64, arm)\n");
 }
 
 int main(int argc, char *argv[])
@@ -449,12 +452,25 @@ int main(int argc, char *argv[])
         {
             no_redirections = 1;
         }
+        else if ((_stricmp(argv[i], "--arch") == 0))
+        {
+            pszArchString = argv[i + 1];
+            i++;
+        }
         else
         {
             fprintf(stderr, "Unrecognized option: %s\n", argv[i]);
             return -1;
         }
     }
+
+    if ((_stricmp(pszArchString, "x86_64") == 0) ||
+        (_stricmp(pszArchString, "ia64") == 0))
+    {
+        pszArchString2 = "win64";
+    }
+    else
+        pszArchString2 = "win32";
 
     /* Set a default dll name */
     if (!pszDllName)
