@@ -294,7 +294,12 @@ ParseFile(char* pcStart, FILE *fileDest)
                     while (*pc > ',') pc++;
                 }
             }
+            else if (CompareToken(pc, "-i386"))
+            {
+                if (_stricmp(pszArchString, "i386") != 0) included = 0;
+            }
             else if (CompareToken(pc, "-noname") ||
+                     CompareToken(pc, "-norelay") ||
                      CompareToken(pc, "-ret64") ||
                      CompareToken(pc, "-private"))
             {
@@ -302,7 +307,8 @@ ParseFile(char* pcStart, FILE *fileDest)
             }
             else
             {
-                fprintf(stderr, "info: ignored option: '%.10s'\n", pc);
+                fprintf(stderr, "info: ignored option: '%.*s'\n", 
+                        TokenLength(pc), pc);
             }
 
             /* Go to next token */
