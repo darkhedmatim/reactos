@@ -58,6 +58,16 @@ CompareToken(const char *token, const char *comparand)
     return 1;
 }
 
+int
+ScanToken(const char *token, char chr)
+{
+    while (!IsSeparator(*token))
+    {
+        if (*token++ == chr) return 1;
+    }
+    return 0;
+}
+
 char *
 NextLine(char *pc)
 {
@@ -165,13 +175,23 @@ OutputLine_def(FILE *fileDest, EXPORT *exp)
 
     if (exp->pcRedirection && !no_redirections)
     {
-        if (exp->nCallingConvention == CC_FASTCALL && !no_decoration)
+        int bAddDecorations = 1;
+
+        fprintf(fileDest, "=");
+        
+        /* No decorations, if switch was passed or this is an external */
+        if (no_decoration || ScanToken(exp->pcRedirection, '.'))
+        {
+            bAddDecorations = 0;
+        }
+        
+        if (exp->nCallingConvention == CC_FASTCALL && bAddDecorations)
         {
             fprintf(fileDest, "@");
         }
-        fprintf(fileDest, "=%.*s", exp->nRedirectionLength, exp->pcRedirection);
+        fprintf(fileDest, "%.*s", exp->nRedirectionLength, exp->pcRedirection);
         if ((exp->nCallingConvention == CC_STDCALL || 
-            exp->nCallingConvention == CC_FASTCALL) && !no_decoration)
+            exp->nCallingConvention == CC_FASTCALL) && bAddDecorations)
         {
             fprintf(fileDest, "@%d", exp->nStackBytes);
         }
