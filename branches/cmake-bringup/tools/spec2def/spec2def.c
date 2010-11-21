@@ -249,10 +249,15 @@ ParseFile(char* pcStart, FILE *fileDest)
         {
             exp.nCallingConvention = CC_FASTCALL;
         }
-        else if (CompareToken(pc, "extern") ||
-                 CompareToken(pc, "stub"))
+        else if (CompareToken(pc, "extern"))
         {
             exp.nCallingConvention = CC_EXTERN;
+        }
+        else if (CompareToken(pc, "stub"))
+        {
+            pc = NextToken(pc);
+            printf("warning: stub skipped: %.*s\n", TokenLength(pc), pc);
+            continue;
         }
         else
         {
