@@ -179,7 +179,7 @@ OutputLine_stub(FILE *file, EXPORT *pexp)
             case ARG_DBL:  fprintf(file, "%%\"PRix64\""); break;
         }
     }
-    fprintf(file, ")\\n\");
+    fprintf(file, ")\\n\"");
 
     for (i = 0; i < pexp->nArgCount; i++)
     {
