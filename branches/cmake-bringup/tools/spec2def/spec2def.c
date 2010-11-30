@@ -538,6 +538,33 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
             }
         }
 
+        /* Handle special stub cases */
+        if (exp.nCallingConvention == CC_STUB)
+        {
+            /* Check for c++ mangled name */
+            if (pc[0] == '?')
+            {
+                printf("Found c++ mangled name...\n");
+                //
+            }
+            else
+            {
+                /* Check for stdcall name */
+                char *p = strchr(pc, '@');
+                if (p && (p - pc < exp.nNameLength))
+                {
+                    int i;
+                    exp.nNameLength = p - pc;
+                    exp.nStackBytes = atoi(p + 1);
+                    exp.nArgCount =  exp.nStackBytes / 4;
+                    exp.nCallingConvention = CC_STDCALL;
+                    exp.uFlags |= FL_STUB;
+                    for (i = 0; i < exp.nArgCount; i++)
+                        exp.anArgs[i] = ARG_LONG;
+                }
+            }
+        }
+
         /* Get optional redirection */
         if ((pc = NextToken(pc)))
         {
