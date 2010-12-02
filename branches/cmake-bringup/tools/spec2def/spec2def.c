@@ -593,7 +593,7 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
 
 void usage(void)
 {
-    printf("syntax: spec2pdef [<options> ...] <source file> <dest file>\n"
+    printf("syntax: spec2pdef [<options> ...] <spec file>\n"
            "Possible options:\n"
            "  -h --help   prints this screen\n"
            "  -l=<file>   generates an asm lib stub\n"
