@@ -451,7 +451,8 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
             {
                 exp.uFlags |= FL_PRIVATE;
             }
-            else if (CompareToken(pc, "-noname"))
+            else if (CompareToken(pc, "-noname") ||
+                     CompareToken(pc, "-ordinal"))
             {
                 exp.uFlags |= FL_NONAME;
             }
