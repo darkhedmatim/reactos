@@ -28,6 +28,7 @@ enum
 {
     FL_PRIVATE = 1,
     FL_STUB = 2,
+    FL_NONAME = 4,
 };
 
 enum
@@ -325,6 +326,11 @@ OutputLine_def(FILE *fileDest, EXPORT *pexp)
         fprintf(fileDest, " PRIVATE");
     }
 
+    if (pexp->uFlags & FL_NONAME)
+    {
+        fprintf(fileDest, " NONAME");
+    }
+
     fprintf(fileDest, "\n");
 
     return 1;
@@ -445,12 +451,16 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
             {
                 exp.uFlags |= FL_PRIVATE;
             }
+            else if (CompareToken(pc, "-noname"))
+            {
+                exp.uFlags |= FL_NONAME;
+            }
             else if (CompareToken(pc, "-stub"))
             {
                 exp.uFlags |= FL_STUB;
             }
-            else if (CompareToken(pc, "-noname") ||
-                     CompareToken(pc, "-norelay") ||
+            else if (CompareToken(pc, "-norelay") ||
+                     CompareToken(pc, "-register") ||
                      CompareToken(pc, "-ret64"))
             {
                 /* silently ignore these */
@@ -604,7 +614,7 @@ void usage(void)
            "  -l=<file>   generates an asm lib stub\n"
            "  -d=<file>   generates a def file\n"
            "  -s=<file>   generates a stub file\n"
-           "  -n=<file>   names the dll\n"
+           "  -n=<name>   name of the dll\n"
            "  -@          removes @xx decorations from def file\n"
            "  -r          removes redirections from def file\n"
            "  -a=<arch>   Set architecture to <arch>. (i386, x86_64, arm)\n");
