@@ -555,6 +555,11 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
                 {
                     int i;
                     exp.nNameLength = p - pc;
+                    if (exp.nNameLength < 1)
+                    {
+                        fprintf(stderr, "error, @ in line %d\n", nLine);
+                        return -1;
+                    }
                     exp.nStackBytes = atoi(p + 1);
                     exp.nArgCount =  exp.nStackBytes / 4;
                     exp.nCallingConvention = CC_STDCALL;
