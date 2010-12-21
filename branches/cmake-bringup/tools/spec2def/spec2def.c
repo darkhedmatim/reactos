@@ -534,7 +534,7 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
                 else if (CompareToken(pc, "int64"))
                 {
                     exp.nStackBytes += 8;
-                    exp.anArgs[exp.nArgCount] = ARG_INT64; // FIXME: handle strings
+                    exp.anArgs[exp.nArgCount] = ARG_INT64;
                 }
                 else
                     fprintf(stderr, "error: line %d, expected type, got: %.10s\n", nLine, pc);
