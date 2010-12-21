@@ -46,7 +46,8 @@ enum
     ARG_PTR,
     ARG_STR,
     ARG_WSTR,
-    ARG_DBL
+    ARG_DBL,
+    ARG_INT64
 };
 
 char* astrCallingConventions[] =
@@ -161,7 +162,7 @@ OutputLine_stub(FILE *file, EXPORT *pexp)
             case ARG_PTR:  fprintf(file, "void*"); break;
             case ARG_STR:  fprintf(file, "char*"); break;
             case ARG_WSTR: fprintf(file, "wchar_t*"); break;
-            case ARG_DBL:  fprintf(file, "__int64"); break;
+            case ARG_DBL: case ARG_INT64 :  fprintf(file, "__int64"); break;
         }
         fprintf(file, " a%d", i);
     }
@@ -178,6 +179,7 @@ OutputLine_stub(FILE *file, EXPORT *pexp)
             case ARG_STR:  fprintf(file, "'%%s'"); break;
             case ARG_WSTR: fprintf(file, "'%%ws'"); break;
             case ARG_DBL:  fprintf(file, "%%\"PRix64\""); break;
+            case ARG_INT64: fprintf(file, "0x%%ll"); break;
         }
     }
     fprintf(file, ")\\n\"");
@@ -192,6 +194,7 @@ OutputLine_stub(FILE *file, EXPORT *pexp)
             case ARG_STR:  fprintf(file, "(char*)a%d", i); break;
             case ARG_WSTR: fprintf(file, "(wchar_t*)a%d", i); break;
             case ARG_DBL:  fprintf(file, "(__int64)a%d", i); break;
+            case ARG_INT64: fprintf(file, "(__int64)a%d", i); break;
         }
     }
     fprintf(file, ");\n");
@@ -527,6 +530,11 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
                 {
                     exp.nStackBytes += sizeof(void*);
                     exp.anArgs[exp.nArgCount] = ARG_PTR; // FIXME: handle strings
+                }
+                else if (CompareToken(pc, "int64"))
+                {
+                    exp.nStackBytes += 8;
+                    exp.anArgs[exp.nArgCount] = ARG_INT64; // FIXME: handle strings
                 }
                 else
                     fprintf(stderr, "error: line %d, expected type, got: %.10s\n", nLine, pc);
