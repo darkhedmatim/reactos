@@ -11581,6 +11581,7 @@ static void test_dbcs_wm_char(void)
     ok( !PeekMessageA( &msg, hwnd, 0, 0, PM_REMOVE ), "got message %x\n", msg.message );
 
     DestroyWindow(hwnd);
+    DestroyWindow(hwnd2);
 }
 
 #define ID_LISTBOX 0x000f
@@ -12668,6 +12669,8 @@ START_TEST(msg)
     char **test_argv;
     BOOL ret;
     BOOL (WINAPI *pIsWinEventHookInstalled)(DWORD)= 0;/*GetProcAddress(user32, "IsWinEventHookInstalled");*/
+    HMODULE hModuleImm32;
+    BOOL (WINAPI *pImmDisableIME)(DWORD);
 
     int argc = winetest_get_mainargs( &test_argv );
     if (argc >= 3)
@@ -12680,6 +12683,15 @@ START_TEST(msg)
     }
 
     init_procs();
+
+    hModuleImm32 = LoadLibrary("imm32.dll");
+    if (hModuleImm32) {
+        pImmDisableIME = (void *)GetProcAddress(hModuleImm32, "ImmDisableIME");
+        if (pImmDisableIME)
+            pImmDisableIME(0);
+    }
+    pImmDisableIME = NULL;
+    FreeLibrary(hModuleImm32);
 
     if (!RegisterWindowClasses()) assert(0);
 

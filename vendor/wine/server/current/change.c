@@ -94,40 +94,21 @@ struct inotify_event {
 #define IN_DELETE        0x00000200
 #define IN_DELETE_SELF   0x00000400
 
+#define IN_ISDIR         0x40000000
+
 static inline int inotify_init( void )
 {
-    int ret;
-    __asm__ __volatile__( "int $0x80"
-                          : "=a" (ret)
-                          : "0" (SYS_inotify_init));
-    if (ret<0) { errno = -ret; ret = -1; }
-    return ret;
+    return syscall( SYS_inotify_init );
 }
 
 static inline int inotify_add_watch( int fd, const char *name, unsigned int mask )
 {
-    int ret;
-    __asm__ __volatile__( "pushl %%ebx;\n\t"
-                          "movl %2,%%ebx;\n\t"
-                          "int $0x80;\n\t"
-                          "popl %%ebx"
-                          : "=a" (ret) : "0" (SYS_inotify_add_watch),
-                            "r" (fd), "c" (name), "d" (mask) );
-    if (ret<0) { errno = -ret; ret = -1; }
-    return ret;
+    return syscall( SYS_inotify_add_watch, fd, name, mask );
 }
 
 static inline int inotify_rm_watch( int fd, int wd )
 {
-    int ret;
-    __asm__ __volatile__( "pushl %%ebx;\n\t"
-                          "movl %2,%%ebx;\n\t"
-                          "int $0x80;\n\t"
-                          "popl %%ebx"
-                          : "=a" (ret) : "0" (SYS_inotify_rm_watch),
-                            "r" (fd), "c" (wd) );
-    if (ret<0) { errno = -ret; ret = -1; }
-    return ret;
+    return syscall( SYS_inotify_rm_watch, fd, wd );
 }
 
 #define USE_INOTIFY
@@ -664,6 +645,11 @@ static unsigned int filter_from_event( struct inotify_event *ie )
     if (ie->mask & IN_CREATE)
         filter |= FILE_NOTIFY_CHANGE_CREATION;
 
+    if (ie->mask & IN_ISDIR)
+        filter &= ~FILE_NOTIFY_CHANGE_FILE_NAME;
+    else
+        filter &= ~FILE_NOTIFY_CHANGE_DIR_NAME;
+
     return filter;
 }
 
@@ -719,30 +705,22 @@ static char *inode_get_path( struct inode *inode, int sz )
     return path;
 }
 
-static int inode_check_dir( struct inode *parent, const char *name )
+static void inode_check_dir( struct inode *parent, const char *name )
 {
     char *path;
     unsigned int filter;
     struct inode *inode;
     struct stat st;
-    int wd = -1, r = -1;
+    int wd = -1;
 
     path = inode_get_path( parent, strlen(name) );
     if (!path)
-        return r;
+        return;
 
     strcat( path, name );
 
-    r = stat( path, &st );
-    if (r < 0) goto end;
-
-    if (!S_ISDIR(st.st_mode))
-    {
-        r = 0;
+    if (stat( path, &st ) < 0)
         goto end;
-    }
-
-    r = 1;
 
     filter = filter_from_inode( parent, 1 );
     if (!filter)
@@ -760,7 +738,6 @@ static int inode_check_dir( struct inode *parent, const char *name )
 
 end:
     free( path );
-    return r;
 }
 
 static int prepend( char **path, const char *segment )
@@ -808,22 +785,17 @@ static void inotify_notify_all( struct inotify_event *ie )
     
     if (ie->mask & IN_CREATE)
     {
-        switch (inode_check_dir( inode, ie->name ))
-        {
-        case 1:
-            filter &= ~FILE_NOTIFY_CHANGE_FILE_NAME;
-            break;
-        case 0:
-            filter &= ~FILE_NOTIFY_CHANGE_DIR_NAME;
-            break;
-        default:
-            break;
-            /* Maybe the file disappeared before we could check it? */
-        }
+        if (ie->mask & IN_ISDIR)
+            inode_check_dir( inode, ie->name );
+
         action = FILE_ACTION_ADDED;
     }
     else if (ie->mask & IN_DELETE)
         action = FILE_ACTION_REMOVED;
+    else if (ie->mask & IN_MOVED_FROM)
+        action = FILE_ACTION_RENAMED_OLD_NAME;
+    else if (ie->mask & IN_MOVED_TO)
+        action = FILE_ACTION_RENAMED_NEW_NAME;
     else
         action = FILE_ACTION_MODIFIED;
 

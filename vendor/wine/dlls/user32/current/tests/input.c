@@ -233,7 +233,7 @@ static BOOL do_test( HWND hwnd, int seqnr, const KEV td[] )
         ADDTOINPUTS(td[i])
         strcat(buf, getdesc[td[i]]);
         if(td[i])
-            expmsg[i].message = KbdMessage(td[i], &(expmsg[i].wParam), &(expmsg[i].lParam)); /* see queue_kbd_event() */
+            expmsg[i].message = KbdMessage(td[i], &(expmsg[i].wParam), &(expmsg[i].lParam));
         else
             expmsg[i].message = 0;
     }
@@ -1139,6 +1139,8 @@ static void test_Input_unicode(void)
     WNDCLASSW wclass;
     HANDLE hInstance = GetModuleHandleW(NULL);
     HHOOK hook;
+    HMODULE hModuleImm32;
+    BOOL (WINAPI *pImmDisableIME)(DWORD);
 
     wclass.lpszClassName = classNameW;
     wclass.style         = CS_HREDRAW | CS_VREDRAW;
@@ -1154,6 +1156,16 @@ static void test_Input_unicode(void)
         win_skip("Unicode functions not supported\n");
         return;
     }
+
+    hModuleImm32 = LoadLibrary("imm32.dll");
+    if (hModuleImm32) {
+        pImmDisableIME = (void *)GetProcAddress(hModuleImm32, "ImmDisableIME");
+        if (pImmDisableIME)
+            pImmDisableIME(0);
+    }
+    pImmDisableIME = NULL;
+    FreeLibrary(hModuleImm32);
+
     /* create the test window that will receive the keystrokes */
     hWndTest = CreateWindowW(wclass.lpszClassName, windowNameW,
                              WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, 100, 100,
