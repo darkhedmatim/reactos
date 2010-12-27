@@ -6,15 +6,20 @@
 
 #ifdef _WIN32
 #define PRIx64 "I64x"
+typedef unsigned __int16 uint16_t;
+typedef unsigned __int32 uint32_t;
+typedef unsigned __int64 uint64_t;
 #else
+#include <stdint.h>
 #define PRIx64 "llx"
+#define _stricmp strcasecmp
 #endif
 
 typedef struct
 {
     char Type;
     char Name[55];
-    unsigned __int64 Value;
+    uint64_t Value;
 } ASMGENDATA;
 
 #define TYPE_END 0
@@ -29,24 +34,24 @@ int main(int argc, char* argv[])
     int i, result = -1;
     int ms_format = 0;
     char header[20];
-    unsigned __int32 e_lfanew, signature;
-    unsigned __int16 Machine, NumberOfSections, SizeOfOptionalHeader;
+    uint32_t e_lfanew, signature;
+    uint16_t Machine, NumberOfSections, SizeOfOptionalHeader;
     typedef struct
     {
         char Name[8];
-        unsigned __int32 VirtualSize;
-        unsigned __int32 VirtualAddress;
-        unsigned __int32 RawSize;
-        unsigned __int32 RawAddress;
-        unsigned __int32 RelocAddress;
-        unsigned __int32 LineNumbers;
-        unsigned __int16 RelocationsNumber;
-        unsigned __int16 LineNumbersNumber;
-        unsigned __int32 Characteristics;
+        uint32_t VirtualSize;
+        uint32_t VirtualAddress;
+        uint32_t RawSize;
+        uint32_t RawAddress;
+        uint32_t RelocAddress;
+        uint32_t LineNumbers;
+        uint16_t RelocationsNumber;
+        uint16_t LineNumbersNumber;
+        uint32_t Characteristics;
     } SECTION;
     SECTION section;
 
-    if (argc >= 4 && stricmp(argv[3], "-ms") == 0) ms_format = 1;
+    if (argc >= 4 && _stricmp(argv[3], "-ms") == 0) ms_format = 1;
 
     /* Open the input file */
     input = fopen(argv[1], "rb");
@@ -143,7 +148,7 @@ int main(int argc, char* argv[])
             break;
         }
     }
-    
+
     if (i == NumberOfSections)
     {
         fprintf(stderr, "Could not find section.\n");
@@ -171,7 +176,7 @@ int main(int argc, char* argv[])
                 fprintf(output, "%s\n", data.Name);
                 continue;
 
-            case TYPE_CONSTANT: 
+            case TYPE_CONSTANT:
                 if (ms_format)
                 {
                     fprintf(output, "%s equ 0%"PRIx64"h\n", data.Name, data.Value);
@@ -182,7 +187,7 @@ int main(int argc, char* argv[])
                 }
                 continue;
 
-            case TYPE_HEADER: 
+            case TYPE_HEADER:
                 if (ms_format)
                 {
                     fprintf(output, "\n; %s\n", data.Name);

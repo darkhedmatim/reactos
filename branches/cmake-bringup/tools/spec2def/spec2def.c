@@ -3,6 +3,10 @@
 #include <ctype.h>
 #include <string.h>
 
+#ifndef _WIN32
+#define _stricmp strcasecmp
+#endif
+
 typedef struct
 {
     char *pcName;
@@ -145,14 +149,14 @@ OutputLine_stub(FILE *file, EXPORT *pexp)
         (pexp->uFlags & FL_STUB) == 0) return 0;
 
     fprintf(file, "int ");
-    if (strcmp(pszArchString, "i386") == 0 && 
+    if (strcmp(pszArchString, "i386") == 0 &&
         pexp->nCallingConvention == CC_STDCALL)
     {
         fprintf(file, "__stdcall ");
     }
 
     fprintf(file, "%.*s(", pexp->nNameLength, pexp->pcName);
-    
+
     for (i = 0; i < pexp->nArgCount; i++)
     {
         if (i != 0) fprintf(file, ", ");
@@ -198,7 +202,7 @@ OutputLine_stub(FILE *file, EXPORT *pexp)
         }
     }
     fprintf(file, ");\n");
-    
+
     if (pexp->nCallingConvention == CC_STUB)
     {
         fprintf(file, "\t__wine_spec_unimplemented_stub(\"%s\", __FUNCTION__);\n", pszDllName);
@@ -257,7 +261,7 @@ OutputLine_asmstub(FILE *fileDest, EXPORT *pexp)
 void
 OutputHeader_def(FILE *file, char *libname)
 {
-    fprintf(file, 
+    fprintf(file,
             "; File generated automatically, do not edit!\n\n"
             "LIBRARY %s\n\n"
             "EXPORTS\n",
@@ -283,7 +287,7 @@ OutputLine_def(FILE *fileDest, EXPORT *pexp)
 
         fprintf(fileDest, "%.*s", pexp->nNameLength, pexp->pcName);
 
-        if ((pexp->nCallingConvention == CC_STDCALL || 
+        if ((pexp->nCallingConvention == CC_STDCALL ||
             pexp->nCallingConvention == CC_FASTCALL) && !no_decoration)
         {
             fprintf(fileDest, "@%d", pexp->nStackBytes);
@@ -295,19 +299,19 @@ OutputLine_def(FILE *fileDest, EXPORT *pexp)
         int bAddDecorations = 1;
 
         fprintf(fileDest, "=");
-        
+
         /* No decorations, if switch was passed or this is an external */
         if (no_decoration || ScanToken(pexp->pcRedirection, '.'))
         {
             bAddDecorations = 0;
         }
-        
+
         if (pexp->nCallingConvention == CC_FASTCALL && bAddDecorations)
         {
             fprintf(fileDest, "@");
         }
         fprintf(fileDest, "%.*s", pexp->nRedirectionLength, pexp->pcRedirection);
-        if ((pexp->nCallingConvention == CC_STDCALL || 
+        if ((pexp->nCallingConvention == CC_STDCALL ||
             pexp->nCallingConvention == CC_FASTCALL) && bAddDecorations)
         {
             fprintf(fileDest, "@%d", pexp->nStackBytes);
@@ -348,7 +352,7 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
     int included;
 
     //fprintf(stderr, "info: line %d, pcStart:'%.30s'\n", nLine, pcStart);
-    
+
     /* Loop all lines */
     nLine = 1;
     for (pcLine = pcStart; *pcLine; pcLine = NextLine(pcLine), nLine++)
@@ -358,7 +362,7 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
         exp.nArgCount = 0;
         exp.uFlags = 0;
 
-        //fprintf(stderr, "info: line %d, token:'%d, %.20s'\n", 
+        //fprintf(stderr, "info: line %d, token:'%d, %.20s'\n",
         //        nLine, TokenLength(pcLine), pcLine);
 
         /* Skip white spaces */
@@ -368,7 +372,7 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
         if (*pc == ';' || *pc <= '#') continue;
         if (*pc == 0) return 0;
 
-        //fprintf(stderr, "info: line %d, token:'%.*s'\n", 
+        //fprintf(stderr, "info: line %d, token:'%.*s'\n",
         //        nLine, TokenLength(pc), pc);
 
         /* Now we should get either an ordinal or @ */
@@ -408,7 +412,7 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
         }
         else
         {
-            fprintf(stderr, "error: line %d, expected type, got '%.*s' %d\n", 
+            fprintf(stderr, "error: line %d, expected type, got '%.*s' %d\n",
                     nLine, TokenLength(pc), pc, *pc);
             return -11;
         }
@@ -441,7 +445,7 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
                     {
                         included = 1;
                     }
-                    
+
                     /* Skip to next arch or end */
                     while (*pc > ',') pc++;
                 }
@@ -471,7 +475,7 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
             }
             else
             {
-                fprintf(stderr, "info: ignored option: '%.*s'\n", 
+                fprintf(stderr, "info: ignored option: '%.*s'\n",
                         TokenLength(pc), pc);
             }
 
@@ -480,7 +484,7 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
         }
 
         //fprintf(stderr, "info: Name:'%.10s'\n", pc);
-        
+
         /* If arch didn't match ours, skip this entry */
         if (!included) continue;
 
@@ -507,7 +511,7 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
                 fprintf(stderr, "error: line %d, expected '('\n", nLine);
                 return -14;
             }
-            
+
             /* Skip whitespaces */
             while (*pc == ' ' || *pc == '\t') pc++;
 

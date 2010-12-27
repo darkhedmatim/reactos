@@ -25,6 +25,7 @@
     #include <direct.h>
     #include <io.h>
 #else
+    #include <stdio.h>
     #include <sys/stat.h>
     #include <unistd.h>
 
@@ -101,7 +102,7 @@ XMLException::XMLException (
 void XMLException::SetExceptionV ( const std::string& location, const char* format, va_list args )
 {
     char buffer[1024];
-    _vsnprintf(buffer, sizeof(buffer)-1, format, args);
+    vsnprintf(buffer, sizeof(buffer)-1, format, args);
     _e = location + ": " + buffer;
 }
 
@@ -426,14 +427,15 @@ string
 XMLFile::Location() const
 {
     int line = 1;
-    char line_str[10];
+    char line_str[13];
     const char* p = strchr ( _buf.c_str(), '\n' );
     while ( p && p < _p )
     {
         ++line;
         p = strchr ( p+1, '\n' );
     }
-    return _filename + "(" + itoa(line, line_str, 10) + ")";
+    sprintf(line_str, "(%i)", line);
+    return _filename + line_str;
 }
 
 XMLAttribute::XMLAttribute()
