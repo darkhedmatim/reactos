@@ -111,7 +111,7 @@ int main(int argc, char* argv[])
         goto quit;
     }
 
-    if (Machine != 0x14c)
+    if (Machine != 0x14c && Machine != 0x8664)
     {
         fprintf(stderr, "Invalid Machine: 0x%x.\n", Machine);
         goto quit;
