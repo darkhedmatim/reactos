@@ -418,7 +418,7 @@ CreateStubs(FILE * SyscallDb,
             SyscallId++;
         }
     }
-    
+
 #if defined(_MSC_VER)
     for (i= 0; i < UserFiles; i++) fprintf(UserModeFiles[i], "END\n");
     fprintf(KernelModeFile, "END\n");
@@ -688,16 +688,27 @@ int main(int argc, char* argv[])
     WriteFileHeader(Files[NtosUserStubs],
                     "System Call Stubs for Native API",
                     argv[NtosUserStubs + ArgOffset]);
-    fputs("#include <asm.inc>\n"
-          "#include <ks386.inc>\n"
-          ".code\n\n", Files[NtosUserStubs]);
+    fputs("#include <asm.inc>\n", Files[NtosUserStubs]);
+    if (strcmp(ncitool_data[arch_sel].arch, "i386") == 0)
+        fputs("#include <ks386.inc>\n", Files[NtosUserStubs]);
+    else if (strcmp(ncitool_data[arch_sel].arch, "amd64") == 0)
+        fputs("#include <ksamd64.inc>\n", Files[NtosUserStubs]);
+    else if (strcmp(ncitool_data[arch_sel].arch, "arm") == 0)
+        fputs("#include <ksarm.inc>\n", Files[NtosUserStubs]);
+    fputs(".code\n\n", Files[NtosUserStubs]);
 
     WriteFileHeader(Files[NtosKernelStubs],
                     "System Call Stubs for Native API",
                     argv[NtosKernelStubs + ArgOffset]);
-    fputs("#include <asm.inc>\n"
-          "#include <ks386.inc>\n"
-          ".code\n"
+
+    fputs("#include <asm.inc>\n", Files[NtosKernelStubs]);
+    if (strcmp(ncitool_data[arch_sel].arch, "i386") == 0)
+        fputs("#include <ks386.inc>\n", Files[NtosKernelStubs]);
+    else if (strcmp(ncitool_data[arch_sel].arch, "amd64") == 0)
+        fputs("#include <ksamd64.inc>\n", Files[NtosKernelStubs]);
+    else if (strcmp(ncitool_data[arch_sel].arch, "arm") == 0)
+        fputs("#include <ksarm.inc>\n", Files[NtosKernelStubs]);
+    fputs(".code\n"
           "EXTERN _KiSystemService:PROC\n\n", Files[NtosKernelStubs]);
 
     WriteFileHeader(Files[Win32kStubs],
