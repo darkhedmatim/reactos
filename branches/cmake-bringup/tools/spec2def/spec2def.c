@@ -680,7 +680,7 @@ int main(int argc, char *argv[])
         {
             no_redirections = 1;
         }
-        else if (argv[i][1] == 'a' && argv[i][1] == '=')
+        else if (argv[i][1] == 'a' && argv[i][2] == '=')
         {
             pszArchString = argv[i] + 3;
         }
