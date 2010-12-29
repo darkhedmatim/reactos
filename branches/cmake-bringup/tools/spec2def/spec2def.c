@@ -3,10 +3,6 @@
 #include <ctype.h>
 #include <string.h>
 
-#ifndef _WIN32
-#define _stricmp strcasecmp
-#endif
-
 typedef struct
 {
     char *pcName;
@@ -22,7 +18,8 @@ typedef struct
 } EXPORT;
 
 typedef int (*PFNOUTLINE)(FILE *, EXPORT *);
-int no_decoration = 0;
+int gbKillAt = 0;
+int gbUseDeco = 0;
 int no_redirections = 0;
 char *pszArchString = "i386";
 char *pszArchString2;
@@ -182,8 +179,8 @@ OutputLine_stub(FILE *file, EXPORT *pexp)
             case ARG_PTR:  fprintf(file, "0x%%p"); break;
             case ARG_STR:  fprintf(file, "'%%s'"); break;
             case ARG_WSTR: fprintf(file, "'%%ws'"); break;
-            case ARG_DBL:  fprintf(file, "%%\"PRix64\""); break;
-            case ARG_INT64: fprintf(file, "0x%%ll"); break;
+            case ARG_DBL:  fprintf(file, "%%f"); break;
+            case ARG_INT64: fprintf(file, "%%\"PRix64\""); break;
         }
     }
     fprintf(file, ")\\n\"");
@@ -197,7 +194,7 @@ OutputLine_stub(FILE *file, EXPORT *pexp)
             case ARG_PTR:  fprintf(file, "(void*)a%d", i); break;
             case ARG_STR:  fprintf(file, "(char*)a%d", i); break;
             case ARG_WSTR: fprintf(file, "(wchar_t*)a%d", i); break;
-            case ARG_DBL:  fprintf(file, "(__int64)a%d", i); break;
+            case ARG_DBL:  fprintf(file, "(double)a%d", i); break;
             case ARG_INT64: fprintf(file, "(__int64)a%d", i); break;
         }
     }
@@ -268,6 +265,22 @@ OutputHeader_def(FILE *file, char *libname)
             libname);
 }
 
+void
+PrintName(FILE *fileDest, EXPORT *pexp, int fRedir, int fDeco)
+{
+    char *pcName = fRedir ? pexp->pcRedirection : pexp->pcName;
+    int nNameLength = fRedir ? pexp->nRedirectionLength : pexp->nNameLength;
+
+    if (fDeco && pexp->nCallingConvention == CC_FASTCALL)
+         fprintf(fileDest, "@");
+    fprintf(fileDest, "%.*s", nNameLength, pcName);
+    if ((pexp->nCallingConvention == CC_STDCALL ||
+        pexp->nCallingConvention == CC_FASTCALL) && fDeco)
+    {
+        fprintf(fileDest, "@%d", pexp->nStackBytes);
+    }
+}
+
 int
 OutputLine_def(FILE *fileDest, EXPORT *pexp)
 {
@@ -280,42 +293,22 @@ OutputLine_def(FILE *fileDest, EXPORT *pexp)
     }
     else
     {
-        if (pexp->nCallingConvention == CC_FASTCALL && !no_decoration)
-        {
-            fprintf(fileDest, "@");
-        }
-
-        fprintf(fileDest, "%.*s", pexp->nNameLength, pexp->pcName);
-
-        if ((pexp->nCallingConvention == CC_STDCALL ||
-            pexp->nCallingConvention == CC_FASTCALL) && !no_decoration)
-        {
-            fprintf(fileDest, "@%d", pexp->nStackBytes);
-        }
+        PrintName(fileDest, pexp, 0, gbUseDeco && !gbKillAt);
     }
 
     if (pexp->pcRedirection && !no_redirections)
     {
-        int bAddDecorations = 1;
+        int fDeco = (gbUseDeco && !ScanToken(pexp->pcRedirection, '.'));
 
         fprintf(fileDest, "=");
-
-        /* No decorations, if switch was passed or this is an external */
-        if (no_decoration || ScanToken(pexp->pcRedirection, '.'))
-        {
-            bAddDecorations = 0;
-        }
-
-        if (pexp->nCallingConvention == CC_FASTCALL && bAddDecorations)
-        {
-            fprintf(fileDest, "@");
-        }
-        fprintf(fileDest, "%.*s", pexp->nRedirectionLength, pexp->pcRedirection);
-        if ((pexp->nCallingConvention == CC_STDCALL ||
-            pexp->nCallingConvention == CC_FASTCALL) && bAddDecorations)
-        {
-            fprintf(fileDest, "@%d", pexp->nStackBytes);
-        }
+        PrintName(fileDest, pexp, 1, fDeco);
+    }
+    else if (gbUseDeco && gbKillAt &&
+             (pexp->nCallingConvention == CC_STDCALL ||
+              pexp->nCallingConvention == CC_FASTCALL))
+    {
+        fprintf(fileDest, "=");
+        PrintName(fileDest, pexp, 0, 1);
     }
 
     if (pexp->nOrdinal != -1)
@@ -452,7 +445,7 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
             }
             else if (CompareToken(pc, "-i386"))
             {
-                if (_stricmp(pszArchString, "i386") != 0) included = 0;
+                if (strcasecmp(pszArchString, "i386") != 0) included = 0;
             }
             else if (CompareToken(pc, "-private"))
             {
@@ -628,7 +621,7 @@ void usage(void)
            "  -d=<file>   generates a def file\n"
            "  -s=<file>   generates a stub file\n"
            "  -n=<name>   name of the dll\n"
-           "  -@          removes @xx decorations from def file\n"
+           "  --kill-at   removes @xx decorations from exports\n"
            "  -r          removes redirections from def file\n"
            "  -a=<arch>   Set architecture to <arch>. (i386, x86_64, arm)\n");
 }
@@ -650,8 +643,8 @@ int main(int argc, char *argv[])
     /* Read options */
     for (i = 1; i < argc && *argv[i] == '-'; i++)
     {
-        if ((_stricmp(argv[i], "--help") == 0) ||
-            (_stricmp(argv[i], "-h") == 0))
+        if ((strcasecmp(argv[i], "--help") == 0) ||
+            (strcasecmp(argv[i], "-h") == 0))
         {
             usage();
             return 0;
@@ -672,11 +665,11 @@ int main(int argc, char *argv[])
         {
             pszDllName = argv[i] + 3;
         }
-        else if ((_stricmp(argv[i], "-@") == 0))
+        else if ((strcasecmp(argv[i], "--kill-at") == 0))
         {
-            no_decoration = 1;
+            gbKillAt = 1;
         }
-        else if ((_stricmp(argv[i], "-r") == 0))
+        else if ((strcasecmp(argv[i], "-r") == 0))
         {
             no_redirections = 1;
         }
@@ -691,13 +684,18 @@ int main(int argc, char *argv[])
         }
     }
 
-    if ((_stricmp(pszArchString, "x86_64") == 0) ||
-        (_stricmp(pszArchString, "ia64") == 0))
+    if ((strcasecmp(pszArchString, "x86_64") == 0) ||
+        (strcasecmp(pszArchString, "ia64") == 0))
     {
         pszArchString2 = "win64";
     }
     else
         pszArchString2 = "win32";
+
+    if (strcasecmp(pszArchString, "i386") == 0)
+    {
+        gbUseDeco = 1;
+    }
 
     /* Set a default dll name */
     if (!pszDllName)
