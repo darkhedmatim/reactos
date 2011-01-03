@@ -5,6 +5,7 @@ list(APPEND SOURCE
     hash.c
     header.c
     proxy.c
+    register.c
     server.c
     typegen.c
     typelib.c
