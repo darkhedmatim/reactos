@@ -1,6 +1,6 @@
+
 add_library(xml xml.cpp)
 
-add_executable(bin2c bin2c.c)
 #add_executable(pefixup pefixup.c)
 
 add_subdirectory(buildno)
@@ -12,12 +12,8 @@ add_subdirectory(mkhive)
 add_subdirectory(nci)
 add_subdirectory(spec2def)
 add_subdirectory(unicode)
-if(NOT MSVC)
-#add_subdirectory(rsym)
-add_subdirectory(wpp)
-#add_subdirectory(wmc)
-add_subdirectory(widl)
-#add_subdirectory(wrc)
-#add_subdirectory(log2lines)
-endif()
 
+if(NOT MSVC)
+add_subdirectory(wpp)
+add_subdirectory(widl)
+endif()
