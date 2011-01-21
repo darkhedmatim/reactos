@@ -1,9 +1,6 @@
 
-add_library(xml xml.cpp)
-
 #add_executable(pefixup pefixup.c)
 
-add_subdirectory(buildno)
 add_subdirectory(cabman)
 add_subdirectory(cdmake)
 add_subdirectory(gendib)
