@@ -3,6 +3,10 @@
 #include <ctype.h>
 #include <string.h>
 
+#ifdef _MSC_VER
+#define strcasecmp _stricmp
+#endif
+
 typedef struct
 {
     char *pcName;
