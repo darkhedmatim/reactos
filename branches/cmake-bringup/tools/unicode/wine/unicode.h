@@ -219,7 +219,7 @@ WINE_UNICODE_INLINE unsigned int strlenW( const WCHAR *str )
 {
     const WCHAR *s = str;
     while (*s) s++;
-    return s - str;
+    return (unsigned int)(s - str);
 }
 
 WINE_UNICODE_INLINE WCHAR *strcpyW( WCHAR *dst, const WCHAR *src );
