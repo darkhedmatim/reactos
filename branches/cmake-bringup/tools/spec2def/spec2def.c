@@ -24,6 +24,7 @@ typedef struct
 typedef int (*PFNOUTLINE)(FILE *, EXPORT *);
 int gbKillAt = 0;
 int gbUseDeco = 0;
+int gbMSComp = 0;
 int no_redirections = 0;
 char *pszArchString = "i386";
 char *pszArchString2;
@@ -305,9 +306,9 @@ OutputLine_def(FILE *fileDest, EXPORT *pexp)
         int fDeco = (gbUseDeco && !ScanToken(pexp->pcRedirection, '.'));
 
         fprintf(fileDest, "=");
-        PrintName(fileDest, pexp, 1, fDeco);
+        PrintName(fileDest, pexp, 1, fDeco && !gbMSComp);
     }
-    else if (gbUseDeco && gbKillAt &&
+    else if (gbUseDeco && gbKillAt && !gbMSComp &&
              (pexp->nCallingConvention == CC_STDCALL ||
               pexp->nCallingConvention == CC_FASTCALL))
     {
@@ -624,6 +625,7 @@ void usage(void)
            "  -l=<file>   generates an asm lib stub\n"
            "  -d=<file>   generates a def file\n"
            "  -s=<file>   generates a stub file\n"
+           "  --ms        msvc compatibility\n"
            "  -n=<name>   name of the dll\n"
            "  --kill-at   removes @xx decorations from exports\n"
            "  -r          removes redirections from def file\n"
@@ -672,6 +674,10 @@ int main(int argc, char *argv[])
         else if ((strcasecmp(argv[i], "--kill-at") == 0))
         {
             gbKillAt = 1;
+        }
+        else if ((strcasecmp(argv[i], "--ms") == 0))
+        {
+            gbMSComp = 1;
         }
         else if ((strcasecmp(argv[i], "-r") == 0))
         {
