@@ -991,6 +991,39 @@ static void dump_varargs_object_attributes( const char *prefix, data_size_t size
     fputc( '}', stderr );
 }
 
+static void dump_varargs_filesystem_event( const char *prefix, data_size_t size )
+{
+    static const char * const actions[] = {
+        NULL,
+        "ADDED",
+        "REMOVED",
+        "MODIFIED",
+        "RENAMED_OLD_NAME",
+        "RENAMED_NEW_NAME",
+        "ADDED_STREAM",
+        "REMOVED_STREAM",
+        "MODIFIED_STREAM"
+    };
+
+    fprintf( stderr,"%s{", prefix );
+    while (size)
+    {
+        const struct filesystem_event *event = cur_data;
+        data_size_t len = (offsetof( struct filesystem_event, name[event->len] ) + sizeof(int)-1)
+                           / sizeof(int) * sizeof(int);
+        if (size < len) break;
+        if (event->action < sizeof(actions)/sizeof(actions[0]) && actions[event->action])
+            fprintf( stderr, "{action=%s", actions[event->action] );
+        else
+            fprintf( stderr, "{action=%u", event->action );
+        fprintf( stderr, ",name=\"%.*s\"}", event->len, event->name );
+        size -= len;
+        remove_data( len );
+        if (size)fputc( ',', stderr );
+    }
+    fputc( '}', stderr );
+}
+
 typedef void (*dump_func)( const void *req );
 
 /* Everything below this line is generated automatically by tools/make_requests */
@@ -1865,8 +1898,7 @@ static void dump_read_change_request( const struct read_change_request *req )
 
 static void dump_read_change_reply( const struct read_change_reply *req )
 {
-    fprintf( stderr, " action=%d", req->action );
-    dump_varargs_string( ", name=", cur_size );
+    dump_varargs_filesystem_event( " events=", cur_size );
 }
 
 static void dump_create_mapping_request( const struct create_mapping_request *req )
