@@ -80,7 +80,7 @@ extern ULONG DebugTraceLevel;
 #else /* DBG */
 
 #undef DPRINT
-#define DPRINT(_t_, _x_)
+#define DPRINT(_t_, _x_) do { } while(0)
 
 #undef ASSERT
 #define ASSERT(_x_)
