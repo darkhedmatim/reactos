@@ -12,6 +12,8 @@
 #define NDEBUG
 #include <debug.h>
 
+#define HAL_IRQ_TRANSLATOR_VERSION 0x0
+
 /* PRIVATE FUNCTIONS *********************************************************/
 
 /*

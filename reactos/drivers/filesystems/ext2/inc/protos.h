@@ -256,7 +256,7 @@ extern LONGLONG NTAPI Ext2Align64(
 	LONGLONG			NumberToBeAligned, 
 	LONGLONG			Alignment);
 
-extern ULONG NTAPI Ext2GetCurrentTime(VOID);
+extern ULONG NTAPI Ext2GetCurrentTime();
 
 /*************************************************************************
 * Prototypes for the file cleanup.c

@@ -169,7 +169,7 @@ NdisFindDevice(
     PUINT  SlotNumber);
 
 VOID
-NdisStartDevices(VOID);
+NdisStartDevices();
 
 VOID
 NTAPI

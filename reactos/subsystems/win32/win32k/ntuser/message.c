@@ -1447,7 +1447,7 @@ co_IntSendMessageWithCallBack( HWND hWnd,
     if(!(Message = ExAllocatePoolWithTag(NonPagedPool, sizeof(USER_SENT_MESSAGE), TAG_USRMSG)))
     {
         DPRINT1("MsqSendMessage(): Not enough memory to allocate a message");
-        RETURN( FALSE);
+        return STATUS_INSUFFICIENT_RESOURCES;
     }
 
     Message->Msg.hwnd = hWnd;

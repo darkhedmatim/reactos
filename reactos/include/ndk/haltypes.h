@@ -270,11 +270,6 @@ extern NTSYSAPI HAL_PRIVATE_DISPATCH HalPrivateDispatchTable;
 //
 extern PUCHAR NTHALAPI KdComPortInUse;
 
-//
-// HAL Constants
-//
-#define HAL_IRQ_TRANSLATOR_VERSION 0x0
-
 #endif
 #endif
 

@@ -55,9 +55,9 @@ NTSTATUS ICMPSendDatagram(
     ULONG DataSize,
     PULONG DataUsed );
 
-NTSTATUS ICMPStartup(VOID);
+NTSTATUS ICMPStartup();
 
-NTSTATUS ICMPShutdown(VOID);
+NTSTATUS ICMPShutdown();
 
 VOID ICMPReceive(
     PIP_INTERFACE Interface,

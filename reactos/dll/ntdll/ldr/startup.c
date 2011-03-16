@@ -25,6 +25,7 @@ extern PTEB LdrpTopLevelDllBeingLoadedTeb;
 
 PLDR_DATA_TABLE_ENTRY ExeModule;
 static RTL_CRITICAL_SECTION PebLock;
+static RTL_CRITICAL_SECTION LoaderLock;
 static RTL_BITMAP TlsBitMap;
 static RTL_BITMAP TlsExpansionBitMap;
 static volatile BOOLEAN LdrpInitialized = FALSE;
@@ -466,8 +467,8 @@ LdrpInit2(PCONTEXT Context,
     }
 
     /* initalize loader lock */
-    RtlInitializeCriticalSection(&LdrpLoaderLock);
-    Peb->LoaderLock = &LdrpLoaderLock;
+    RtlInitializeCriticalSection(&LoaderLock);
+    Peb->LoaderLock = &LoaderLock;
 
     /* create loader information */
     Peb->Ldr = (PPEB_LDR_DATA) RtlAllocateHeap(Peb->ProcessHeap,

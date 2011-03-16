@@ -368,7 +368,7 @@ FatRemoveNames(IN PFAT_IRP_CONTEXT IrpContext,
                IN PFCB Fcb);
 
 PCCB NTAPI
-FatCreateCcb(VOID);
+FatCreateCcb();
 
 VOID NTAPI
 FatDeleteCcb(IN PFAT_IRP_CONTEXT IrpContext,

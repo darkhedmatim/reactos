@@ -35,8 +35,8 @@ extern volatile BOOL bShutdown;
 extern volatile BOOL bPause;
 
 /* logging functions */
-BOOL InitLogging(VOID);
-VOID UninitLogging(VOID);
+BOOL InitLogging();
+VOID UninitLogging();
 VOID LogEvent(LPCWSTR lpMsg, DWORD errNum, DWORD exitCode, UINT flags);
 
 /* skelserver functions */
