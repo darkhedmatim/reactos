@@ -61,8 +61,8 @@ typedef struct _SYSTEM_CURSORINFO
   BOOL ScreenSaverRunning;
 } SYSTEM_CURSORINFO, *PSYSTEM_CURSORINFO;
 
-BOOL InitCursorImpl(VOID);
-PCURICON_OBJECT IntCreateCurIconHandle(VOID);
+BOOL InitCursorImpl();
+PCURICON_OBJECT IntCreateCurIconHandle();
 VOID FASTCALL IntCleanupCurIcons(struct _EPROCESS *Process, PPROCESSINFO Win32Process);
 
 BOOL UserDrawIconEx(HDC hDc, INT xLeft, INT yTop, PCURICON_OBJECT pIcon, INT cxWidth,
@@ -73,7 +73,7 @@ BOOL UserSetCursorPos( INT x, INT y, BOOL SendMouseMoveMsg);
 
 int UserShowCursor(BOOL bShow);
 
-PSYSTEM_CURSORINFO IntGetSysCursorInfo(VOID);
+PSYSTEM_CURSORINFO IntGetSysCursorInfo();
 
 #define IntReleaseCurIconObject(CurIconObj) \
   UserDereferenceObject(CurIconObj)

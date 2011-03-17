@@ -70,7 +70,7 @@ KdpReceiveByte(OUT PBYTE OutByte);
 
 KDP_STATUS
 NTAPI
-KdpPollBreakIn(VOID);
+KdpPollBreakIn();
 
 
 #if 0

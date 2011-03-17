@@ -279,12 +279,18 @@ co_MsqPostKeyboardMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
    MSG Msg;
    LARGE_INTEGER LargeTickCount;
    KBDLLHOOKSTRUCT KbdHookData;
+   BOOLEAN Entered = FALSE;
 
    DPRINT("MsqPostKeyboardMessage(uMsg 0x%x, wParam 0x%x, lParam 0x%x)\n",
           uMsg, wParam, lParam);
 
    // Condition may arise when calling MsqPostMessage and waiting for an event.
-   ASSERT(UserIsEntered());
+   if (!UserIsEntered())
+   {
+         // Fixme: Not sure ATM if this thread is locked.
+         UserEnterExclusive();
+         Entered = TRUE;
+   }
 
    FocusMessageQueue = IntGetFocusMessageQueue();
 
@@ -314,12 +320,14 @@ co_MsqPostKeyboardMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
    {
       DPRINT1("Kbd msg %d wParam %d lParam 0x%08x dropped by WH_KEYBOARD_LL hook\n",
              Msg.message, Msg.wParam, Msg.lParam);
+      if (Entered) UserLeave();
       return;
    }
 
    if (FocusMessageQueue == NULL)
    {
          DPRINT("No focus message queue\n");
+         if (Entered) UserLeave();
          return;
    }
 
@@ -338,6 +346,7 @@ co_MsqPostKeyboardMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
          DPRINT("Invalid focus window handle\n");
    }
 
+   if (Entered) UserLeave();
    return;
 }
 

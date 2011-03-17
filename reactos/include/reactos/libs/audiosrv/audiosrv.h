@@ -46,15 +46,15 @@ typedef struct
     ( (lstrlenW(str) + 1) * sizeof(WCHAR) )
 
 BOOL
-InitializeAudioDeviceListLock(VOID);
+InitializeAudioDeviceListLock();
 
 VOID
-KillAudioDeviceListLock(VOID);
+KillAudioDeviceListLock();
 
 VOID
-LockAudioDeviceList(VOID);
+LockAudioDeviceList();
 
 VOID
-UnlockAudioDeviceList(VOID);
+UnlockAudioDeviceList();
 
 #endif

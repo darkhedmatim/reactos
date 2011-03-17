@@ -29,8 +29,8 @@
 VOID PcMachInit(const char *CmdLine);
 
 VOID PcConsPutChar(int Ch);
-BOOLEAN PcConsKbHit(VOID);
-int PcConsGetCh(VOID);
+BOOLEAN PcConsKbHit();
+int PcConsGetCh();
 
 VOID PcVideoClearScreen(UCHAR Attr);
 VIDEODISPLAYMODE PcVideoSetDisplayMode(char *DisplayMode, BOOLEAN Init);

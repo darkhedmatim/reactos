@@ -16,7 +16,7 @@ typedef struct _MEM_HEADER
 } MEM_HEADER, *PMEM_HEADER;
 
 VOID
-DumpPages(VOID);
+DumpPages();
 
 ULONG
 AllocateMemory(PEHCI_HOST_CONTROLLER hcd, ULONG Size, ULONG *PhysicalAddress);

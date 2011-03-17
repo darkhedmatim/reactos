@@ -10,4 +10,4 @@ int mirrorRotateDlg(void);
 
 int attributesDlg(void);
 
-int changeSizeDlg(void);
+int changeSizeDlg();

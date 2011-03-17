@@ -125,8 +125,8 @@ VOID Cleanup(LPDDRAWI_DIRECTDRAW_INT iface);
 /******** Main Object ********/
 
 /* Public interface */
-VOID WINAPI AcquireDDThreadLock(VOID);
-VOID WINAPI ReleaseDDThreadLock(VOID);
+VOID WINAPI AcquireDDThreadLock();
+VOID WINAPI ReleaseDDThreadLock();
 
 ULONG WINAPI  DirectDrawClipper_AddRef (LPDIRECTDRAWCLIPPER iface);
 HRESULT WINAPI  DirectDrawClipper_Initialize( LPDIRECTDRAWCLIPPER iface, LPDIRECTDRAW lpDD, DWORD dwFlags);

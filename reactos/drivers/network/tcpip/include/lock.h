@@ -1,6 +1,6 @@
 #pragma once
 
-extern KIRQL TcpipGetCurrentIrql(VOID);
+extern KIRQL TcpipGetCurrentIrql();
 extern VOID TcpipInitializeSpinLock( PKSPIN_LOCK SpinLock );
 extern VOID TcpipAcquireSpinLock( PKSPIN_LOCK SpinLock, PKIRQL Irql );
 extern VOID TcpipReleaseSpinLock( PKSPIN_LOCK SpinLock, KIRQL Irql );

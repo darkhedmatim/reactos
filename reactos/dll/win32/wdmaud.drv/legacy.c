@@ -250,9 +250,7 @@ WdmAudGetCapabilitiesByLegacy(
 }
 
 MMRESULT
-WdmAudOpenSoundDeviceByLegacy(
-    IN PSOUND_DEVICE SoundDevice,
-    OUT PVOID *Handle)
+WdmAudOpenSoundDeviceByLegacy()
 {
     /* Only open this if it's not already open */
     if ( KernelHandle == INVALID_HANDLE_VALUE )

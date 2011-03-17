@@ -19,8 +19,8 @@ enum _DEBUGCHANNELS
 
 void IntDumpHandleTable(PGDI_HANDLE_TABLE HandleTable);
 ULONG CaptureStackBackTace(PVOID* pFrames, ULONG nFramesToCapture);
-BOOL GdiDbgHTIntegrityCheck(VOID);
-void GdiDbgDumpLockedHandles(VOID);
+BOOL GdiDbgHTIntegrityCheck();
+void GdiDbgDumpLockedHandles();
 
 #define DBGENABLE(ch) gulDebugChannels |= (ch);
 #define DBGDISABLE(ch) gulDebugChannels &= ~(ch);

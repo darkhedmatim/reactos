@@ -16,6 +16,6 @@ VOID
 SleepMs(ULONG Milliseconds);
 
 ULONG
-QuerySystemTimeMs(VOID);
+QuerySystemTimeMs();
 
 #endif

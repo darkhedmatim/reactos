@@ -245,7 +245,7 @@ KdpSafeWriteMemory(
 
 VOID
 NTAPI
-KdpEnableSafeMem(VOID);
+KdpEnableSafeMem();
 
 
 /* KD GLOBALS  ***************************************************************/

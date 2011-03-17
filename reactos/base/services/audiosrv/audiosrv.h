@@ -29,22 +29,22 @@ BOOL
 CreateAudioDeviceList(DWORD max_size);
 
 VOID
-DestroyAudioDeviceList(VOID);
+DestroyAudioDeviceList();
 
 
 /* Plug and Play (pnp.c) */
 
 BOOL
-ProcessExistingDevices(VOID);
+ProcessExistingDevices();
 
 DWORD
 ProcessDeviceArrival(DEV_BROADCAST_DEVICEINTERFACE* device);
 
 BOOL
-RegisterForDeviceNotifications(VOID);
+RegisterForDeviceNotifications();
 
 VOID
-UnregisterDeviceNotifications(VOID);
+UnregisterDeviceNotifications();
 
 DWORD
 HandleDeviceEvent(
@@ -52,7 +52,7 @@ HandleDeviceEvent(
     LPVOID lpEventData);
 
 BOOL
-StartSystemAudioServices(VOID);
+StartSystemAudioServices();
 
 /* Debugging */
 

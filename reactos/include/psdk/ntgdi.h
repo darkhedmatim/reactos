@@ -80,7 +80,7 @@ typedef struct tagDOWNLOADDESIGNVECTOR
 W32KAPI
 BOOL
 APIENTRY
-NtGdiInit(VOID);
+NtGdiInit();
 
 W32KAPI
 INT
@@ -1239,7 +1239,7 @@ NtGdiIcmBrushInfo(
 W32KAPI
 VOID
 APIENTRY
-NtGdiFlush(VOID);
+NtGdiFlush();
 
 W32KAPI
 HDC
@@ -3277,7 +3277,7 @@ NtGdiCLIPOBJ_ppoGetPath(
 W32KAPI
 CLIPOBJ*
 APIENTRY
-NtGdiEngCreateClip(VOID);
+NtGdiEngCreateClip();
 
 W32KAPI
 VOID
@@ -3660,7 +3660,7 @@ NtGdiMakeObjectUnXferable(
 W32KAPI
 BOOL
 APIENTRY
-NtGdiInitSpool(VOID);
+NtGdiInitSpool();
 
 /* FIXME wrong prototypes fix the build */
 W32KAPI

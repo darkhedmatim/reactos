@@ -944,7 +944,6 @@ CreatePartitionList (SHORT Left,
   List->Bottom = Bottom;
 
   List->Line = 0;
-  List->Offset = 0;
 
   List->TopDisk = (ULONG)-1;
   List->TopPartition = (ULONG)-1;

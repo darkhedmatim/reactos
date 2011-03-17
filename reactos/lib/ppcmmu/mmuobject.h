@@ -1,6 +1,6 @@
 #pragma once
 
-void initme(void);
+void initme();
 void mmusetramsize(paddr_t size);
 int mmuaddpage(ppc_map_info_t *info, int count);
 void mmudelpage(ppc_map_info_t *info, int count);
@@ -10,5 +10,5 @@ void *allocvsid(int);
 void mmuallocvsid(int vsid, int mask);
 void freevsid(int);
 void mmufreevsid(int vsid, int mask);
-int mmunitest(void);
+int mmunitest();
 void callkernel(void *fun_ptr, void *arg);

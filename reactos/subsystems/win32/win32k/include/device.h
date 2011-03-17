@@ -33,7 +33,7 @@ EngpRegisterGraphicsDevice(
 INIT_FUNCTION
 NTSTATUS
 NTAPI
-InitDeviceImpl(VOID);
+InitDeviceImpl();
 
 BOOL
 FASTCALL

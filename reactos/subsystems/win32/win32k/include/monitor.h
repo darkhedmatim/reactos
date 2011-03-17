@@ -35,8 +35,8 @@ typedef struct _MONITOR
 INIT_FUNCTION
 NTSTATUS
 NTAPI
-InitMonitorImpl(VOID);
-NTSTATUS CleanupMonitorImpl(VOID);
+InitMonitorImpl();
+NTSTATUS CleanupMonitorImpl();
 
 NTSTATUS IntAttachMonitor(PDEVOBJ *pGdiDevice, ULONG DisplayNumber);
 NTSTATUS IntDetachMonitor(PDEVOBJ *pGdiDevice);

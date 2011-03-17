@@ -27,11 +27,11 @@ DbgDump_Printn(
 
 BOOLEAN
 __stdcall
-DbgDump_Reconnect(VOID);
+DbgDump_Reconnect();
 
 VOID
 __stdcall
-DbgDump_Disconnect(VOID);
+DbgDump_Disconnect();
 
 VOID
 __stdcall
