@@ -530,7 +530,7 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
                          CompareToken(pc, "str") ||
                          CompareToken(pc, "wstr"))
                 {
-                    exp.nStackBytes += sizeof(void*);
+                    exp.nStackBytes += 4; // sizeof(void*) on x86
                     exp.anArgs[exp.nArgCount] = ARG_PTR; // FIXME: handle strings
                 }
                 else if (CompareToken(pc, "int64"))
