@@ -17,4 +17,4 @@ list(APPEND SOURCE
     rtl.c)
 
 add_executable(mkhive ${SOURCE})
-target_link_libraries(mkhive unicode cmlibhost newinflibhost)
+target_link_libraries(mkhive unicode cmlibhost inflibhost)
