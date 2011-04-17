@@ -10,6 +10,7 @@ add_subdirectory(spec2def)
 add_subdirectory(unicode)
 
 if(NOT MSVC)
-add_subdirectory(wpp)
 add_subdirectory(widl)
+add_subdirectory(wpp)
+add_subdirectory(wrc)
 endif()
