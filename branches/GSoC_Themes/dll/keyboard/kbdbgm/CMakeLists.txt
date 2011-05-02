@@ -1,0 +1,12 @@
+
+include_directories(${REACTOS_SOURCE_DIR}/ntoskrnl/include)
+
+spec2def(kbdbgm.dll kbdbgm.spec)
+
+add_library(kbdbgm SHARED kbdbgm.c kbdbgm.rc ${CMAKE_CURRENT_BINARY_DIR}/kbdbgm.def)
+
+set_entrypoint(kbdbgm 0)
+
+add_dependencies(kbdbgm psdk buildno_header)
+
+add_cab_target(kbdbgm 1)
