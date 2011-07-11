@@ -1,7 +1,5 @@
 
-add_definitions(
-    -DMKHIVE_HOST
-    -DWINE_UNICODE_API= )
+add_definitions(-DMKHIVE_HOST)
 
 include_directories(
     ${REACTOS_SOURCE_DIR}/lib/newinflib
@@ -17,4 +15,4 @@ list(APPEND SOURCE
     rtl.c)
 
 add_executable(mkhive ${SOURCE})
-target_link_libraries(mkhive unicode cmlibhost newinflibhost)
+target_link_libraries(mkhive unicode cmlibhost inflibhost)
