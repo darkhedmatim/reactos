@@ -3,6 +3,7 @@ list(APPEND SOURCE
     dumpres.c
     genres.c
     newstruc.c
+    po.c
     readres.c
     translation.c
     utils.c
@@ -13,7 +14,5 @@ list(APPEND SOURCE
     port/mkstemps.c)
 
 add_executable(wrc ${SOURCE})
-
-add_definitions(-DWINE_UNICODE_API= )
 
 target_link_libraries(wrc wpp unicode)
