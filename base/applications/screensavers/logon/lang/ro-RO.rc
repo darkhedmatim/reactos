@@ -1,0 +1,8 @@
+//2011.10.30 - Fulea Ștefan: minor changes
+LANGUAGE LANG_ROMANIAN, SUBLANG_DEFAULT
+
+STRINGTABLE DISCARDABLE
+BEGIN
+    IDS_DESCRIPTION "Sigla ReactOS"
+    IDS_TEXT        "Acest ecran de veghe nu are opțiuni."
+END
