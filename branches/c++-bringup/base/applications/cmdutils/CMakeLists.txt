@@ -1,8 +1,0 @@
-add_subdirectory(dbgprint)
-add_subdirectory(doskey)
-add_subdirectory(find)
-add_subdirectory(hostname)
-add_subdirectory(lodctr)
-add_subdirectory(more)
-add_subdirectory(reg)
-add_subdirectory(xcopy)
