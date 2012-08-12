@@ -2345,7 +2345,8 @@ static void write_array_element_type(FILE *file, const type_t *type,
             return;
         }
     }
-    return write_member_type(file, type, cont_is_complex, NULL, elem, NULL, tfsoff);
+    write_member_type(file, type, cont_is_complex, NULL, elem, NULL, tfsoff);
+    return;
 }
 
 static void write_end(FILE *file, unsigned int *tfsoff)
@@ -4734,7 +4735,7 @@ void write_func_param_struct( FILE *file, const type_t *iface, const type_t *fun
         if (align >= pointer_size)
             fprintf( file, "%s;\n", arg->name );
         else
-            fprintf( file, "%s DECLSPEC_ALIGN(%u);\n", arg->name, pointer_size );
+            fprintf( file, "DECLSPEC_ALIGN(%u) %s;\n", pointer_size, arg->name );
     }
     if (add_retval && !is_void( rettype ))
     {
