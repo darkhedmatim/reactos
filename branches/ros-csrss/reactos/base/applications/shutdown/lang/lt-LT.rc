@@ -1,0 +1,16 @@
+/* Translation by Vytis "CMan" Girdžijauskas (cman@cman.us) */
+
+LANGUAGE LANG_LITHUANIAN, SUBLANG_DEFAULT
+
+STRINGTABLE DISCARDABLE
+BEGIN
+
+IDS_USAGE, "Naudojimas: shutdown [-?] [-l | -s | -r] [-f]\n\n\
+  Be parametrų arba -?\tParodyti šį pranešimą\n\
+  -l\t\t\tAtsijungti\n\
+  -s\t\t\tIšjungti kompiuterį\n\
+  -r\t\t\tPerkrauti kompiuterį\n\
+  -f\t\t\tPriverstinai užverti visas paleistas programas\n\
+    \t\t\tJeigu nenurodyti jokie kiti parametrai, taip pat\n\
+    \t\t\tbus įvykdytas atsijungimas"
+END
