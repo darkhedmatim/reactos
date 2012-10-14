@@ -1,2 +1,0 @@
-add_subdirectory(mesa)
-add_subdirectory(opengl32)
