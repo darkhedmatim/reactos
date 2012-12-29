@@ -447,12 +447,7 @@ pp_entry_t *pp_add_macro(char *id, marg_t *args[], int nargs, mtext_t *exp)
  * Include management
  *-------------------------------------------------------------------------
  */
-#if ( defined(_Windows) || defined(_WINDOWS)  || defined(WIN32) || \
-      defined(_WIN32)   || defined(__WIN32__) || defined(__MSDOS__) )
-/*
- * Windows system uses ':' as part of its path.
- * Therefore use another separator character.
- */
+#if defined(_WIN32) || defined(__MSDOS__)
 #define INCLUDESEPARATOR	";"
 #else
 #define INCLUDESEPARATOR	":"
