@@ -351,7 +351,8 @@ OutputLine_def(FILE *fileDest, EXPORT *pexp)
     {
         if (gbMSComp && (pexp->pcName[0] == '?'))
         {
-            /* ignore c++ redirection, since link doesn't like that! */
+            fprintf(stderr, "warning: ignoring C++ redirection %.*s -> %.*s\n",
+                    pexp->nNameLength, pexp->pcName, pexp->nRedirectionLength, pexp->pcRedirection);
         }
         else
         {
