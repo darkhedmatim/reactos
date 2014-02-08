@@ -1,6 +1,3 @@
-#ifndef _SC_PCH_
-#define _SC_PCH_
-
 #include <stdarg.h>
 
 #include <windef.h>
@@ -35,5 +32,3 @@ VOID DescriptionUsage(VOID);
 VOID DeleteUsage(VOID);
 VOID CreateUsage(VOID);
 VOID ControlUsage(VOID);
-
-#endif /* _SC_PCH_ */

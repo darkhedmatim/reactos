@@ -19,7 +19,6 @@
  */
 
 #include "objsel_private.h"
-
 #include <rpcproxy.h>
 
 LONG dll_refs = 0;

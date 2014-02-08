@@ -16,10 +16,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#ifndef _HNETCFG_PRIVATE_H_
-#define _HNETCFG_PRIVATE_H_
-
-#include <wine/config.h>
+#include <config.h>
 
 #include <stdarg.h>
 
@@ -56,5 +53,3 @@ HRESULT NetFwAuthorizedApplication_create(IUnknown *, LPVOID *) DECLSPEC_HIDDEN;
 HRESULT NetFwAuthorizedApplications_create(IUnknown *, LPVOID *) DECLSPEC_HIDDEN;
 HRESULT NetFwOpenPorts_create(IUnknown *, LPVOID *) DECLSPEC_HIDDEN;
 HRESULT NetFwServices_create(IUnknown *, LPVOID *) DECLSPEC_HIDDEN;
-
-#endif /* _HNETCFG_PRIVATE_H_ */

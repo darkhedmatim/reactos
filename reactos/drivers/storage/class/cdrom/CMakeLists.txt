@@ -1,5 +1,5 @@
 
-include_directories(${REACTOS_SOURCE_DIR}/drivers/storage/class)
+include_directories(..)
 
 add_library(cdrom SHARED cdrom.c findscsi.c cdrom.rc)
 

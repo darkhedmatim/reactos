@@ -339,13 +339,10 @@ typedef struct _MMPFN
     union
     {
         PFN_NUMBER Flink;
-        ULONG WsIndex;
+        ULONG WsIndex;                       // SavedSwapEntry
         PKEVENT Event;
         NTSTATUS ReadStatus;
         SINGLE_LIST_ENTRY NextStackPfn;
-
-        // HACK for ROSPFN
-        SWAPENTRY SwapEntry;
     } u1;
     PMMPTE PteAddress;
     union
@@ -357,7 +354,7 @@ typedef struct _MMPFN
     {
         struct
         {
-            USHORT ReferenceCount;
+            USHORT ReferenceCount;           // ReferenceCount
             MMPFNENTRY e1;
         };
         struct
@@ -369,10 +366,7 @@ typedef struct _MMPFN
     union
     {
         MMPTE OriginalPte;
-        LONG AweReferenceCount;
-
-        // HACK for ROSPFN
-        PMM_RMAP_ENTRY RmapListHead;
+        LONG AweReferenceCount;              // RmapListHead
     };
     union
     {
@@ -391,9 +385,6 @@ typedef struct _MMPFN
     MI_PFN_USAGES PfnUsage;
     CHAR ProcessName[16];
 #endif
-
-    // HACK until WS lists are supported
-    MMWSLE Wsle;
 } MMPFN, *PMMPFN;
 
 extern PMMPFN MmPfnDatabase;

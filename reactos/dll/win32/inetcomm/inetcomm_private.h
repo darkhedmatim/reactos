@@ -18,9 +18,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#ifndef _INETCOMM_PRIVATE_H_
-#define _INETCOMM_PRIVATE_H_
-
+#include <stdarg.h>
 #include <stdio.h>
 
 #define WIN32_NO_STATUS
@@ -101,5 +99,3 @@ HRESULT MimeInternational_Construct(IMimeInternational **internat) DECLSPEC_HIDD
 HRESULT SMTPTransportCF_Create(REFIID riid, LPVOID *ppv) DECLSPEC_HIDDEN;
 HRESULT IMAPTransportCF_Create(REFIID riid, LPVOID *ppv) DECLSPEC_HIDDEN;
 HRESULT POP3TransportCF_Create(REFIID riid, LPVOID *ppv) DECLSPEC_HIDDEN;
-
-#endif /* _INETCOMM_PRIVATE_H_ */

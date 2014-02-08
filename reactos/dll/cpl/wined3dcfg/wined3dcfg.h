@@ -1,6 +1,3 @@
-#ifndef _WINED3DCFG_PCH_
-#define _WINED3DCFG_PCH_
-
 #include <stdarg.h>
 
 #define WIN32_NO_STATUS
@@ -39,5 +36,3 @@
 #define KEY_LOCKING               L"RenderTargetLockMode"
 
 INT_PTR CALLBACK GeneralPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
-
-#endif /* _WINED3DCFG_PCH_ */

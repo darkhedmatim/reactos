@@ -16,8 +16,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#ifndef _WINMINE_H_
-#define _WINMINE_H_
+#pragma once
 
 #include <stdarg.h>
 
@@ -137,4 +136,5 @@ INT_PTR CALLBACK CongratsDlgProc( HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lP
 
 INT_PTR CALLBACK TimesDlgProc( HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam );
 
-#endif /* _WINMINE_H_ */
+
+/* end of header */

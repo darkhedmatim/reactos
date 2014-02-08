@@ -1,6 +1,3 @@
-#ifndef _FTP_H
-#define _FTP_H
-
 #include <sys/stat.h>
 
 #ifndef _WIN32
@@ -30,5 +27,3 @@
 #include <stdlib.h>
 
 #include "ftp_var.h"
-
-#endif /* _FTP_H */

@@ -1,6 +1,3 @@
-#ifndef _MSTSC_PCH_
-#define _MSTSC_PCH_
-
 #include <stdarg.h>
 
 #define WIN32_NO_STATUS
@@ -109,5 +106,3 @@ BOOL SetStringToSettings(PRDPSETTINGS pRdpSettings, LPWSTR lpKey, LPWSTR lpValue
 VOID SaveAllSettings(PINFO pInfo);
 
 #endif /* __TODO_MSTSC_H */
-
-#endif /* _MSTSC_PCH_ */

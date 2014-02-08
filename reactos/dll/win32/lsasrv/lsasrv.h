@@ -7,9 +7,6 @@
  * PROGRAMMERS:     Eric Kohl
  */
 
-#ifndef _LSASRV_H
-#define _LSASRV_H
-
 #include <stdarg.h>
 
 #define WIN32_NO_STATUS
@@ -414,4 +411,4 @@ LsapAppendRidToSid(
     PSID SrcSid,
     ULONG Rid);
 
-#endif /* _LSASRV_H */
+/* EOF */

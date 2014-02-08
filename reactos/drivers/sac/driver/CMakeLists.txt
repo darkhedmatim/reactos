@@ -1,6 +1,4 @@
 
-include_directories(${REACTOS_SOURCE_DIR})
-
 list(APPEND SOURCE
      chanmgr.c
      channel.c

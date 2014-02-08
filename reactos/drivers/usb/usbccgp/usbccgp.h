@@ -1,10 +1,13 @@
 #ifndef USBEHCI_H__
 #define USBEHCI_H__
 
-#include <wdm.h>
+#include <ntddk.h>
 #include <hubbusif.h>
 #include <usbbusif.h>
 #include <usbdlib.h>
+
+/* FIXME:
+#include <usbprotocoldefs.h> */
 
 #include <stdio.h>
 
@@ -148,4 +151,4 @@ NTSTATUS
 USBCCGP_EnumerateFunctions(
     IN PDEVICE_OBJECT DeviceObject);
 
-#endif /* USBEHCI_H__ */
+#endif

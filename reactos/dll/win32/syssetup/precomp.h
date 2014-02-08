@@ -1,6 +1,3 @@
-#ifndef _SYSSETUP_PCH_
-#define _SYSSETUP_PCH_
-
 #include <stdio.h>
 
 #define WIN32_NO_STATUS
@@ -20,5 +17,3 @@
 
 #include "globals.h"
 #include "resource.h"
-
-#endif /* _SYSSETUP_PCH_ */

@@ -1,6 +1,3 @@
-#ifndef _POWERCFG_H
-#define _POWERCFG_H
-
 #include <stdarg.h>
 
 #define _INC_WINDOWS
@@ -37,4 +34,4 @@ INT_PTR CALLBACK AlarmsDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lP
 INT_PTR CALLBACK AdvancedDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
 INT_PTR CALLBACK HibernateDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-#endif /* _POWERCFG_H */
+/* EOF */

@@ -1955,20 +1955,8 @@ INT_PTR CALLBACK CShellLink::SH_ShellLinkDlgProc(HWND hwndDlg, UINT uMsg, WPARAM
 
             /* target path */
             if (pThis->sPath)
-            {
-                WCHAR newpath[2*MAX_PATH] = L"\0";
-                if (wcschr(pThis->sPath, ' '))
-                    StringCchPrintfExW(newpath, 2*MAX_PATH, NULL, NULL, 0, L"\"%ls\"", pThis->sPath);
-                else 
-                    StringCchCopyExW(newpath, 2*MAX_PATH, pThis->sPath, NULL, NULL, 0);
-                
-                if (pThis->sArgs && pThis->sArgs[0])
-                {
-                    StringCchCatW(newpath, 2*MAX_PATH, L" ");
-                    StringCchCatW(newpath, 2*MAX_PATH, pThis->sArgs);
-                }
-                SetDlgItemTextW(hwndDlg, 14009, newpath);
-            }
+                SetDlgItemTextW(hwndDlg, 14009, pThis->sPath);
+
             /* working dir */
             if (pThis->sWorkDir)
                 SetDlgItemTextW(hwndDlg, 14011, pThis->sWorkDir);
@@ -1985,25 +1973,21 @@ INT_PTR CALLBACK CShellLink::SH_ShellLinkDlgProc(HWND hwndDlg, UINT uMsg, WPARAM
             if (lppsn->hdr.code == PSN_APPLY)
             {
                 WCHAR wszBuf[MAX_PATH];
+
                 /* set working directory */
                 GetDlgItemTextW(hwndDlg, 14011, wszBuf, MAX_PATH);
                 pThis->SetWorkingDirectory(wszBuf);
                 /* set link destination */
                 GetDlgItemTextW(hwndDlg, 14009, wszBuf, MAX_PATH);
-                LPWSTR lpszArgs = NULL;
-                LPWSTR unquoted = strdupW(wszBuf);
-                StrTrimW(unquoted, L" ");
-                if (!PathFileExistsW(unquoted)) 
+                if (!PathFileExistsW(wszBuf))
                 {
-                    lpszArgs = PathGetArgsW(unquoted);
-                    PathRemoveArgsW(unquoted);
-                    StrTrimW(lpszArgs, L" ");
+                    //FIXME load localized error msg
+                    MessageBoxW(hwndDlg, L"file not existing", wszBuf, MB_OK);
+                    SetWindowLongPtr(hwndDlg, DWL_MSGRESULT, PSNRET_INVALID_NOCHANGEPAGE);
+                    return TRUE;
                 }
-                if (unquoted[0] == '"' && unquoted[wcslen(unquoted)-1] == '"')
-                    PathUnquoteSpacesW(unquoted);
 
-
-                WCHAR *pwszExt = PathFindExtensionW(unquoted);
+                WCHAR *pwszExt = PathFindExtensionW(wszBuf);
                 if (!wcsicmp(pwszExt, L".lnk"))
                 {
                     // FIXME load localized error msg
@@ -2012,25 +1996,12 @@ INT_PTR CALLBACK CShellLink::SH_ShellLinkDlgProc(HWND hwndDlg, UINT uMsg, WPARAM
                     return TRUE;
                 }
 
-                if (!PathFileExistsW(unquoted))
-                {
-                    //FIXME load localized error msg
-                    MessageBoxW(hwndDlg, L"The specified file name in the target box is invalid", L"Error", MB_ICONERROR);
-                    SetWindowLongPtr(hwndDlg, DWL_MSGRESULT, PSNRET_INVALID_NOCHANGEPAGE);
-                    return TRUE;
-                }
-                
-                pThis->SetPath(unquoted);
-                if (lpszArgs)
-                    pThis->SetArguments(lpszArgs);
-                else 
-                    pThis->SetArguments(L"\0");
-
-                HeapFree(GetProcessHeap(), 0, unquoted);
+                pThis->SetPath(wszBuf);
 
                 TRACE("This %p sLinkPath %S\n", pThis, pThis->sLinkPath);
                 pThis->Save(pThis->sLinkPath, TRUE);
-                SetWindowLongPtr(hwndDlg, DWL_MSGRESULT, PSNRET_NOERROR);                return TRUE;
+                SetWindowLongPtr(hwndDlg, DWL_MSGRESULT, PSNRET_NOERROR);
+                return TRUE;
             }
             break;
         }

@@ -1,6 +1,3 @@
-#ifndef _APPWIZ_H
-#define _APPWIZ_H
-
 #include <config.h>
 #include <wine/port.h>
 
@@ -85,4 +82,4 @@ static inline WCHAR *heap_strdupAtoW(const char *str)
     return ret;
 }
 
-#endif /* _APPWIZ_H */
+/* EOF */

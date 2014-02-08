@@ -1,6 +1,3 @@
-#ifndef _MSWSOCK_PCH_
-#define _MSWSOCK_PCH_
-
 #include <stdarg.h>
 
 #define WIN32_NO_STATUS
@@ -9,5 +6,3 @@
 
 #include <windef.h>
 #include <winbase.h>
-
-#endif /* _MSWSOCK_PCH_ */

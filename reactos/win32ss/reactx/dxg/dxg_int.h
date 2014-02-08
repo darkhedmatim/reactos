@@ -1,6 +1,3 @@
-#ifndef _DXG_PCH_
-#define _DXG_PCH_
-
 #include <ntifs.h>
 
 /* Win32 Headers */
@@ -105,5 +102,3 @@ PVOID FASTCALL DdHmgLock(HANDLE DdHandle, UCHAR ObjectType, BOOLEAN LockOwned);
 #define drvDxEngUnlockDC        gpEngFuncs[DXENG_INDEX_DxEngUnlockDC]
 #define drvDxEngUnlockHdev      gpEngFuncs[DXENG_INDEX_DxEngUnlockHdev]
 #define drvDxEngLockHdev        gpEngFuncs[DXENG_INDEX_DxEngLockHdev]
-
-#endif /* _DXG_PCH_ */

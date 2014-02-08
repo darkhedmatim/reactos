@@ -1,6 +1,3 @@
-#ifndef _INPUT_H
-#define _INPUT_H
-
 #include <stdarg.h>
 
 #define WIN32_NO_STATUS
@@ -73,4 +70,4 @@ GetHotkeys(LPTSTR szHotkey, LPTSTR szLangHotkey, LPTSTR szLayoutHotkey);
 
 void ShowLastWin32Error(HWND hWndOwner);
 
-#endif /* _INPUT_H */
+/* EOF */

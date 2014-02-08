@@ -1,6 +1,3 @@
-#ifndef _ACLUI_PCH_
-#define _ACLUI_PCH_
-
 #define _ACLUI_
 
 #include <stdarg.h>
@@ -202,4 +199,4 @@ VOID
 DereferenceSidReqResult(IN HANDLE SidCacheMgr,
                         IN PSIDREQRESULT ReqResult);
 
-#endif /* _ACLUI_PCH_ */
+/* EOF */

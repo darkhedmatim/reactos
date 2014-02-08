@@ -300,3 +300,4 @@ VfatLockUserBuffer(
 
     return STATUS_SUCCESS;
 }
+

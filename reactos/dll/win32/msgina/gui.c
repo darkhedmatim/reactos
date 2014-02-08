@@ -7,9 +7,6 @@
 
 #include "msgina.h"
 
-#include <wingdi.h>
-#include <winnls.h>
-
 typedef struct _DISPLAYSTATUSMSG
 {
     PGINA_CONTEXT Context;
@@ -175,34 +172,11 @@ EmptyWindowProc(
     IN WPARAM wParam,
     IN LPARAM lParam)
 {
-    PGINA_CONTEXT pgContext;
-    
-    pgContext = (PGINA_CONTEXT)GetWindowLongPtr(hwndDlg, GWL_USERDATA);
+    UNREFERENCED_PARAMETER(hwndDlg);
+    UNREFERENCED_PARAMETER(uMsg);
+    UNREFERENCED_PARAMETER(wParam);
+    UNREFERENCED_PARAMETER(lParam);
 
-    switch (uMsg)
-    {
-        case WM_INITDIALOG:
-        {
-            pgContext->hBitmap = LoadImage(hDllInstance, MAKEINTRESOURCE(IDI_ROSLOGO), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR);
-        }
-        case WM_PAINT:
-        {
-            PAINTSTRUCT ps;
-            HDC hdc;
-            if (pgContext->hBitmap)
-            {
-                hdc = BeginPaint(hwndDlg, &ps);
-                DrawStateW(hdc, NULL, NULL, (LPARAM)pgContext->hBitmap, (WPARAM)0, 0, 0, 0, 0, DST_BITMAP);
-                EndPaint(hwndDlg, &ps);
-            }
-            return TRUE;
-        }
-        case WM_DESTROY:
-        {
-            DeleteObject(pgContext->hBitmap);
-            return TRUE;
-        }
-    }
     return FALSE;
 }
 
@@ -285,6 +259,9 @@ DoChangePassword(
     ULONG RequestBufferSize;
     ULONG ResponseBufferSize = 0;
     LPWSTR Ptr;
+    LSA_STRING PackageName;
+    HANDLE LsaHandle = NULL;
+    ULONG AuthenticationPackage = 0;
     BOOL res = FALSE;
     NTSTATUS ProtocolStatus;
     NTSTATUS Status;
@@ -372,15 +349,29 @@ DoChangePassword(
                   RequestBuffer->NewPassword.MaximumLength);
 
     /* Connect to the LSA server */
-    if (!ConnectToLsa(pgContext))
+    Status = LsaConnectUntrusted(&LsaHandle);
+    if (!NT_SUCCESS(Status))
     {
-        ERR("ConnectToLsa() failed\n");
-        return FALSE;
+        ERR("LsaConnectUntrusted failed (Status 0x%08lx)\n", Status);
+        goto done;
+    }
+
+    /* Get the authentication package */
+    RtlInitAnsiString((PANSI_STRING)&PackageName,
+                      MSV1_0_PACKAGE_NAME);
+
+    Status = LsaLookupAuthenticationPackage(LsaHandle,
+                                            &PackageName,
+                                            &AuthenticationPackage);
+    if (!NT_SUCCESS(Status))
+    {
+        ERR("LsaLookupAuthenticationPackage failed (Status 0x%08lx)\n", Status);
+        goto done;
     }
 
     /* Call the authentication package */
-    Status = LsaCallAuthenticationPackage(pgContext->LsaHandle,
-                                          pgContext->AuthenticationPackage,
+    Status = LsaCallAuthenticationPackage(LsaHandle,
+                                          AuthenticationPackage,
                                           RequestBuffer,
                                           RequestBufferSize,
                                           (PVOID*)&ResponseBuffer,
@@ -412,6 +403,9 @@ done:
 
     if (ResponseBuffer != NULL)
         LsaFreeReturnBuffer(ResponseBuffer);
+
+    if (LsaHandle != NULL)
+        NtClose(LsaHandle);
 
     return res;
 }
@@ -855,7 +849,7 @@ DoUnlock(
         else
         {
             /* Wrong user name */
-            if (DoAdminUnlock(pgContext, UserName, NULL, Password))
+            if (DoAdminUnlock(UserName, NULL, Password))
             {
                 *Action = WLX_SAS_ACTION_UNLOCK_WKSTA;
                 res = TRUE;

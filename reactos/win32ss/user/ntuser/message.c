@@ -7,9 +7,6 @@
  */
 
 #include <win32k.h>
-
-#include <dde.h>
-
 DBG_DEFAULT_CHANNEL(UserMsg);
 
 #define PM_BADMSGFLAGS ~((QS_RAWINPUT << 16)|PM_QS_SENDMESSAGE|PM_QS_PAINT|PM_QS_POSTMESSAGE|PM_QS_INPUT|PM_NOYIELD|PM_REMOVE)
@@ -334,7 +331,7 @@ PackParam(LPARAM *lParamPacked, UINT Msg, WPARAM wParam, LPARAM lParam, BOOL Non
 
         MsgMemoryEntry = FindMsgMemory(Msg);
 
-        if (!MsgMemoryEntry)
+        if ((!MsgMemoryEntry) || (MsgMemoryEntry->Size < 0))
         {
             /* Keep previous behavior */
             return STATUS_SUCCESS;
@@ -393,6 +390,11 @@ UnpackParam(LPARAM lParamPacked, UINT Msg, WPARAM wParam, LPARAM lParam, BOOL No
         PMSGMEMORY MsgMemoryEntry;
         MsgMemoryEntry = FindMsgMemory(Msg);
         ASSERT(MsgMemoryEntry);
+        if (MsgMemoryEntry->Size < 0)
+        {
+            /* Keep previous behavior */
+            return STATUS_INVALID_PARAMETER;
+        }
 
         if (MsgMemoryEntry->Flags == MMS_FLAG_READWRITE)
         {

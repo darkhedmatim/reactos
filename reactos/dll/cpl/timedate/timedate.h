@@ -1,6 +1,3 @@
-#ifndef _TIMEDATE_H
-#define _TIMEDATE_H
-
 #include <stdarg.h>
 
 #define _INC_WINDOWS
@@ -121,4 +118,4 @@ typedef struct _NMMCCAUTOUPDATE
 BOOL RegisterMonthCalControl(IN HINSTANCE hInstance);
 VOID UnregisterMonthCalControl(IN HINSTANCE hInstance);
 
-#endif /* _TIMEDATE_H */
+/* EOF */

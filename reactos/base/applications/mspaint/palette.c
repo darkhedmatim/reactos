@@ -67,8 +67,6 @@ PalWinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             {
                 fgColor = palColors[(GET_X_LPARAM(lParam) - 31) / 16 + (GET_Y_LPARAM(lParam) / 16) * 14];
                 InvalidateRect(hwnd, NULL, FALSE);
-                if (activeTool == 10)
-                    ForceRefreshSelectionContents();
             }
             break;
         case WM_RBUTTONDOWN:
@@ -76,8 +74,6 @@ PalWinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             {
                 bgColor = palColors[(GET_X_LPARAM(lParam) - 31) / 16 + (GET_Y_LPARAM(lParam) / 16) * 14];
                 InvalidateRect(hwnd, NULL, FALSE);
-                if (activeTool == 10)
-                    ForceRefreshSelectionContents();
             }
             break;
         case WM_LBUTTONDBLCLK:
@@ -88,8 +84,6 @@ PalWinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                         choosecolor.rgbResult;
                     fgColor = choosecolor.rgbResult;
                     InvalidateRect(hwnd, NULL, FALSE);
-                    if (activeTool == 10)
-                        ForceRefreshSelectionContents();
                 }
             break;
         case WM_RBUTTONDBLCLK:
@@ -100,8 +94,6 @@ PalWinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                         choosecolor.rgbResult;
                     bgColor = choosecolor.rgbResult;
                     InvalidateRect(hwnd, NULL, FALSE);
-                    if (activeTool == 10)
-                        ForceRefreshSelectionContents();
                 }
             break;
 

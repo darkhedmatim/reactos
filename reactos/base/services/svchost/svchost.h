@@ -6,8 +6,7 @@
  * PROGRAMMERS: ReactOS Portable Systems Group
  */
 
-#ifndef _SVCHOST_PCH_
-#define _SVCHOST_PCH_
+#pragma once
 
 #define WIN32_NO_STATUS
 #define WIN32_LEAN_AND_MEAN
@@ -297,4 +296,3 @@ SvcRegisterStopCallback (
 
 extern PSVCHOST_GLOBALS g_pSvchostSharedGlobals;
 
-#endif /* _SVCHOST_PCH_ */

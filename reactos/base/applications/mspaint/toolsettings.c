@@ -183,8 +183,6 @@ SettingsWinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     {
                         transpBg = (y - 2) / 31;
                         InvalidateRect(hwnd, NULL, TRUE);
-
-                        ForceRefreshSelectionContents();
                     }
                     break;
                 case TOOL_RUBBER:

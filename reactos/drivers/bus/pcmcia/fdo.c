@@ -24,3 +24,4 @@ PcmciaFdoPlugPlay(PPCMCIA_FDO_EXTENSION FdoExt,
 
     return STATUS_NOT_SUPPORTED;
 }
+

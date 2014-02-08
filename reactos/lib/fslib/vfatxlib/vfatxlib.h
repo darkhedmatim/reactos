@@ -4,9 +4,6 @@
  * FILE:        vfatxlib.h
  */
 
-#ifndef _VFATXLIB_H_
-#define _VFATXLIB_H_
-
 #define NTOS_MODE_USER
 #include <ndk/umtypes.h>
 #include <ndk/pstypes.h>
@@ -47,7 +44,5 @@ FatxFormat (HANDLE FileHandle,
 VOID
 VfatxUpdateProgress (PFORMAT_CONTEXT Context,
 		     ULONG Increment);
-
-#endif /* _VFATXLIB_H_ */
 
 /* EOF */

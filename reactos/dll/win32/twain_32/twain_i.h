@@ -20,7 +20,7 @@
 #ifndef _TWAIN32_H
 #define _TWAIN32_H
 
-#include <wine/config.h>
+#include <config.h>
 
 #include <stdarg.h>
 
@@ -67,4 +67,4 @@ extern TW_UINT16 TWAIN_OpenDSM
 extern TW_UINT16 TWAIN_GetDSMStatus
            (pTW_IDENTITY pOrigin, TW_MEMREF pData) DECLSPEC_HIDDEN;
 
-#endif /* _TWAIN32_H */
+#endif

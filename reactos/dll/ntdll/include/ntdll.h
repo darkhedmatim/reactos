@@ -6,9 +6,6 @@
  * PROGRAMMER:      Alex Ionescu (alex@relsoft.net)
  */
 
-#ifndef _NTDLL_H
-#define _NTDLL_H
-
 /* INCLUDES ******************************************************************/
 
 /* We're a core NT DLL, we don't import syscalls */
@@ -49,4 +46,4 @@
 /* PSEH */
 #include <pseh/pseh2.h>
 
-#endif /* _NTDLL_H */
+/* EOF */

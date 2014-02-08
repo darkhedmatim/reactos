@@ -1,6 +1,3 @@
-#ifndef _SPIDER_PCH_
-#define _SPIDER_PCH_
-
 #include <cardlib.h>
 
 #include "resource.h"
@@ -42,5 +39,3 @@ void CARDLIBPROC DeckClickProc(CardRegion &stackobj, int iNumClicked);
 void CARDLIBPROC PileDblClickProc(CardRegion &stackobj, int iNumClicked);
 
 void CARDLIBPROC PileRemoveProc(CardRegion &stackobj, int iRemoved);
-
-#endif /* _SPIDER_PCH_ */

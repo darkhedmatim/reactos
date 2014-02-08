@@ -1,5 +1,5 @@
-#ifndef _USBSTOR_H_
-#define _USBSTOR_H_
+
+#pragma once
 
 #include <wdm.h>
 #include <usbdi.h>
@@ -9,6 +9,8 @@
 
 #define USB_STOR_TAG 'sbsu'
 #define USB_MAXCHILDREN              (16)
+
+
 
 #define HTONS(n) (((((unsigned short)(n) & 0xFF)) << 8) | (((unsigned short)(n) & 0xFF00) >> 8))
 #define NTOHS(n) (((((unsigned short)(n) & 0xFF)) << 8) | (((unsigned short)(n) & 0xFF00) >> 8))
@@ -547,4 +549,3 @@ USBSTOR_TimerRoutine(
     PDEVICE_OBJECT DeviceObject,
      PVOID Context);
 
-#endif /* _USBSTOR_H_ */

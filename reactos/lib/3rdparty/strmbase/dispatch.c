@@ -20,8 +20,6 @@
 
 #include "strmbase_private.h"
 
-#include <oleauto.h>
-
 HRESULT WINAPI BaseDispatch_Init(BaseDispatch *This, REFIID riid)
 {
     HRESULT hr = E_FAIL;

@@ -18,9 +18,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#ifndef _RICHED20_EDITOR_H
-#define _RICHED20_EDITOR_H
-
 #include <config.h>
 
 #include <assert.h>
@@ -378,5 +375,3 @@ LRESULT ME_StreamOut(ME_TextEditor *editor, DWORD dwFormat, EDITSTREAM *stream) 
 
 /* clipboard.c */
 HRESULT ME_GetDataObject(ME_TextEditor *editor, const ME_Cursor *start, int nChars, LPDATAOBJECT *lplpdataobj) DECLSPEC_HIDDEN;
-
-#endif /* _RICHED20_EDITOR_H */

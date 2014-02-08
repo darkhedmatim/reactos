@@ -24,11 +24,11 @@
 #include <shlwapi.h>
 #include <shlobj.h>
 
-#include <wine/debug.h>
 #include <wine/unicode.h>
 
-#include "resource.h"
-
+#include <wine/debug.h>
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
+
+#include "resource.h"
 
 #endif /* _SHLWAPI_PCH_ */

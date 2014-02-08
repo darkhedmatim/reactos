@@ -5,9 +5,6 @@
  * PURPOSE:     WinSock 2.2 Main Header
  */
 
-#ifndef _WS2_32_NEW_PCH_
-#define _WS2_32_NEW_PCH_
-
 #define WIN32_NO_STATUS
 #define _INC_WINDOWS
 #define COM_NO_WINDOWS_H
@@ -40,5 +37,3 @@
 
 /* Internal headers */
 #include "ws2_32p.h"
-
-#endif /* _WS2_32_NEW_PCH_ */

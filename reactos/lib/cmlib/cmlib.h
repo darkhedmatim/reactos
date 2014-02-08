@@ -5,9 +5,6 @@
  *            Copyright 2001 - 2005 Eric Kohl
  */
 
-#ifndef _CMLIB_H_
-#define _CMLIB_H_
-
 //
 // Debug support switch
 //
@@ -241,7 +238,7 @@ extern ULONG CmlibTraceLevel;
  */
 NTSTATUS CMAPI
 HvInitialize(
-   PHHIVE RegistryHive,
+             PHHIVE RegistryHive,
    ULONG Operation,
    ULONG HiveType,
    ULONG HiveFlags,
@@ -253,7 +250,7 @@ HvInitialize(
    PFILE_READ_ROUTINE FileRead,
    PFILE_FLUSH_ROUTINE FileFlush,
    ULONG Cluster OPTIONAL,
-   PCUNICODE_STRING FileName OPTIONAL);
+   PUNICODE_STRING FileName);
 
 VOID CMAPI
 HvFree(
@@ -409,5 +406,3 @@ HvpCreateHiveFreeCellList(
 ULONG CMAPI
 HvpHiveHeaderChecksum(
    PHBASE_BLOCK HiveHeader);
-
-#endif /* _CMLIB_H_ */

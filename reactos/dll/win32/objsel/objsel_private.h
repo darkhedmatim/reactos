@@ -18,9 +18,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#ifndef _OBJSEL_PRIVATE_H
-#define _OBJSEL_PRIVATE_H
-
 #include <stdarg.h>
 
 #define WIN32_NO_STATUS
@@ -61,5 +58,3 @@ typedef struct
 HRESULT WINAPI OBJSEL_IDsObjectPicker_Create(LPVOID *ppvObj) DECLSPEC_HIDDEN;
 
 extern ClassFactoryImpl OBJSEL_ClassFactory DECLSPEC_HIDDEN;
-
-#endif /* _OBJSEL_PRIVATE_H */

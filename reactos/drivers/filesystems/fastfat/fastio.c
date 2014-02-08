@@ -739,3 +739,4 @@ VfatInitFastIoRoutines(
     FastIoDispatch->AcquireForCcFlush = VfatAcquireForCcFlush;
     FastIoDispatch->ReleaseForCcFlush = VfatReleaseForCcFlush;
 }
+

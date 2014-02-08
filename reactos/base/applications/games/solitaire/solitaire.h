@@ -1,6 +1,3 @@
-#ifndef _SOL_PCH_
-#define _SOL_PCH_
-
 #include <cardlib.h>
 
 extern CardWindow SolWnd;
@@ -55,5 +52,3 @@ void CARDLIBPROC DeckClickProc(CardRegion &stackobj, int iNumClicked);
 void CARDLIBPROC PileDblClickProc(CardRegion &stackobj, int iNumClicked);
 
 void CARDLIBPROC PileRemoveProc(CardRegion &stackobj, int iRemoved);
-
-#endif /* _SOL_PCH_ */

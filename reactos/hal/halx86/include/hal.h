@@ -24,6 +24,8 @@
 
 /* IFS/DDK/NDK Headers */
 #include <ntifs.h>
+#include <bugcodes.h>
+#include <ntdddisk.h>
 #include <arc/arc.h>
 
 #include <ndk/asm.h>

@@ -1,6 +1,3 @@
-#ifndef _MSPORTS_PCH_
-#define _MSPORTS_PCH_
-
 #include <stdarg.h>
 
 #define WIN32_NO_STATUS
@@ -20,5 +17,3 @@
 #include "resource.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(msports);
-
-#endif /* _MSPORTS_PCH_ */

@@ -1,6 +1,3 @@
-#ifndef _NOTEPAD_H
-#define _NOTEPAD_H
-
 #ifndef STRSAFE_NO_DEPRECATE
 #define STRSAFE_NO_DEPRECATE
 #endif
@@ -19,5 +16,3 @@
 
 #include "main.h"
 #include "dialog.h"
-
-#endif /* _NOTEPAD_H */

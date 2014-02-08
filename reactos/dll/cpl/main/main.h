@@ -1,6 +1,3 @@
-#ifndef _MAIN_H
-#define _MAIN_H
-
 #include <stdarg.h>
 
 #define WIN32_NO_STATUS
@@ -64,4 +61,4 @@ PropSheetAddPage(HPROPSHEETPAGE hpage, LPARAM lParam);
 LONG APIENTRY
 MouseApplet(HWND hwnd, UINT uMsg, LPARAM wParam, LPARAM lParam);
 
-#endif /* _MAIN_H */
+/* EOF */

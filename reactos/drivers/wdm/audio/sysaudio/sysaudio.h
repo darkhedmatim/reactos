@@ -1,6 +1,3 @@
-#ifndef _SYSAUDIO_PCH_
-#define _SYSAUDIO_PCH_
-
 #include <portcls.h>
 
 typedef struct
@@ -119,4 +116,3 @@ VOID
 FreeItem(
     IN PVOID Item);
 
-#endif /* _SYSAUDIO_PCH_ */

@@ -22,6 +22,7 @@ Revision History:
 --*/
 
 #include "classp.h"
+#include "debug.h"
 
 #ifdef ALLOC_PRAGMA
     #pragma alloc_text(PAGE, InitializeTransferPackets)

@@ -1,6 +1,3 @@
-#ifndef _MMC_PCH_
-#define _MMC_PCH_
-
 #include <stdarg.h>
 
 #include <windef.h>
@@ -40,5 +37,3 @@ extern HINSTANCE hAppInstance;
 extern HANDLE hAppHeap;
 extern HWND hwndMainConsole;
 extern HWND hwndMDIClient;
-
-#endif /* _MMC_PCH_ */

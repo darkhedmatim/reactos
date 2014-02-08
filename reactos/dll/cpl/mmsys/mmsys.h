@@ -1,6 +1,3 @@
-#ifndef _MMSYS_H
-#define _MMSYS_H
-
 #include <stdarg.h>
 
 #define WIN32_NO_STATUS
@@ -82,4 +79,4 @@ AudioDlgProc(HWND hwndDlg,
              WPARAM wParam,
              LPARAM lParam);
 
-#endif /* _MMSYS_H */
+/* EOF */

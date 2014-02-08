@@ -19,10 +19,8 @@
  *
  */
 
-#include "videoprt.h"
 
-#define NDEBUG
-#include <debug.h>
+#include "videoprt.h"
 
 VP_STATUS
 NTAPI

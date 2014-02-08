@@ -22,8 +22,7 @@ Revision History:
 --*/
 
 #include "classp.h"
-
-#include <wmidata.h>
+#include "debug.h"
 
 #define GESN_TIMEOUT_VALUE (0x4)
 #define GESN_BUFFER_SIZE (0x8)

@@ -545,3 +545,4 @@ USBCCGP_SelectConfiguration(
     //
     return Status;
 }
+

@@ -16,7 +16,6 @@ list(APPEND SOURCE
     dllmain.c
     stubs.c
     msvcrt.rc
-    ${CMAKE_CURRENT_BINARY_DIR}/msvcrt_stubs.c
     ${CMAKE_CURRENT_BINARY_DIR}/msvcrt.def)
 
 add_library(msvcrt SHARED ${SOURCE})

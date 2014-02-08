@@ -16,10 +16,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#ifndef _MSHTML_PRIVATE_H_
-#define _MSHTML_PRIVATE_H_
-
-#include <wine/config.h>
+#include <config.h>
 
 #include <assert.h>
 #include <stdarg.h>
@@ -55,10 +52,10 @@
 #include <wininet.h>
 #include <nsiface.h>
 
-#include <wine/debug.h>
 #include <wine/list.h>
 #include <wine/unicode.h>
 
+#include <wine/debug.h>
 WINE_DEFAULT_DEBUG_CHANNEL(mshtml);
 
 #define NS_ERROR_GENERATE_FAILURE(module,code) \
@@ -1207,5 +1204,3 @@ extern HINSTANCE hInst DECLSPEC_HIDDEN;
 #include "htmlstyle.h"
 #include "pluginhost.h"
 #include "resource.h"
-
-#endif /* _MSHTML_PRIVATE_H_ */

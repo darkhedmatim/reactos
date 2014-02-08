@@ -6,9 +6,6 @@
  * PROGRAMMER:      Timo Kreuzer (timo.kreuzer@ewactos.org)
  */
 
-#ifndef _KDDLL_H_
-#define _KDDLL_H_
-
 #define NOEXTAPI
 #include <ntifs.h>
 #include <windbgkd.h>
@@ -64,4 +61,4 @@ KDP_STATUS
 NTAPI
 KdpPollBreakIn(VOID);
 
-#endif /* _KDDLL_H_ */
+/* EOF */

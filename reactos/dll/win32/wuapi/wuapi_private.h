@@ -16,10 +16,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#ifndef _WUAPI_PRIVATE_H_
-#define _WUAPI_PRIVATE_H_
-
-#include <wine/config.h>
+#include <config.h>
 
 #include <stdarg.h>
 
@@ -42,5 +39,3 @@ extern HRESULT UpdateSearcher_create( IUnknown *pUnkOuter, LPVOID *ppObj ) DECLS
 extern HRESULT UpdateDownloader_create( IUnknown *pUnkOuter, LPVOID *ppObj ) DECLSPEC_HIDDEN;
 extern HRESULT UpdateInstaller_create( IUnknown *pUnkOuter, LPVOID *ppObj ) DECLSPEC_HIDDEN;
 extern HRESULT SystemInformation_create(IUnknown *pUnkOuter, LPVOID *ppObj) DECLSPEC_HIDDEN;
-
-#endif /* _WUAPI_PRIVATE_H_ */

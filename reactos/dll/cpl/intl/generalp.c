@@ -161,21 +161,23 @@ SetNewLocale(LCID lcid)
     ret = GetLocaleInfo(MAKELCID(lcid, SORT_DEFAULT), LOCALE_IDEFAULTCODEPAGE, OEMPage, sizeof(OEMPage)/sizeof(TCHAR));
     if (ret == 0)
     {
-        PrintErrorMsgBox(IDS_ERROR_OEM_CODE_PAGE);
+        MessageBox(NULL, _T("Problem reading OEM code page"), _T("Big Problem"), MB_OK);
         return;
     }
 
     ret = GetLocaleInfo(MAKELCID(lcid, SORT_DEFAULT), LOCALE_IDEFAULTANSICODEPAGE, ACPPage, sizeof(ACPPage)/sizeof(TCHAR));
     if (ret == 0)
     {
-        PrintErrorMsgBox(IDS_ERROR_ANSI_CODE_PAGE);
+        MessageBox(NULL, _T("Problem reading ANSI code page"), _T("Big Problem"), MB_OK);
         return;
     }
 
     ret = RegOpenKey(HKEY_CURRENT_USER, _T("Control Panel\\International"), &localeKey);
     if (ret != ERROR_SUCCESS)
     {
-        PrintErrorMsgBox(IDS_ERROR_INT_KEY_REG);
+        // Some serious error
+        MessageBox(NULL, _T("Problem opening HKCU\\Control Panel\\International key"),
+                   _T("Big Problem"), MB_OK);
         return;
     }
 
@@ -188,7 +190,9 @@ SetNewLocale(LCID lcid)
     ret = RegOpenKey(HKEY_USERS, _T(".DEFAULT\\Control Panel\\International"), &localeKey);
     if (ret != ERROR_SUCCESS)
     {
-        PrintErrorMsgBox(IDS_ERROR_DEF_INT_KEY_REG);
+        // Some serious error
+        MessageBox(NULL, _T("Problem opening HKU\\.DEFAULT\\Control Panel\\International key"),
+                   _T("Big Problem"), MB_OK);
         return;
     }
 
@@ -202,7 +206,8 @@ SetNewLocale(LCID lcid)
     ret = RegOpenKey(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Control\\NLS\\Language"), &langKey);
     if (ret != ERROR_SUCCESS)
     {
-        PrintErrorMsgBox(IDS_ERROR_NLS_KEY_REG);
+        MessageBoxW(NULL, _T("Problem opening HKLM\\SYSTEM\\CurrentControlSet\\Control\\NLS\\Language key"),
+                    _T("Big Problem"), MB_OK);
         return;
     }
 
@@ -216,7 +221,8 @@ SetNewLocale(LCID lcid)
     ret = RegOpenKey(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Control\\NLS\\CodePage"), &langKey);
     if (ret != ERROR_SUCCESS)
     {
-        PrintErrorMsgBox(IDS_ERROR_NLS_CODE_REG);
+        MessageBox(NULL, _T("Problem opening HKLM\\SYSTEM\\CurrentControlSet\\Control\\NLS\\CodePage key"),
+                   _T("Big Problem"), MB_OK);
         return;
     }
 

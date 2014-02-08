@@ -207,121 +207,13 @@ SepAdtPrivilegedServiceAuditAlarm(
     UNIMPLEMENTED;
 }
 
-static
-NTSTATUS
-SeCaptureObjectTypeList(
-    _In_reads_opt_(ObjectTypeListLength) POBJECT_TYPE_LIST ObjectTypeList,
-    _In_ ULONG ObjectTypeListLength,
-    _In_ KPROCESSOR_MODE PreviousMode,
-    _Out_ POBJECT_TYPE_LIST *CapturedObjectTypeList)
-{
-    SIZE_T Size;
-
-    if (PreviousMode == KernelMode)
-    {
-        return STATUS_NOT_IMPLEMENTED;
-    }
-
-    if (ObjectTypeListLength == 0)
-    {
-        *CapturedObjectTypeList = NULL;
-        return STATUS_SUCCESS;
-    }
-
-    if (ObjectTypeList == NULL)
-    {
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    /* Calculate the list size and check for integer overflow */
-    Size = ObjectTypeListLength * sizeof(OBJECT_TYPE_LIST);
-    if (Size == 0)
-    {
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    /* Allocate a new list */
-    *CapturedObjectTypeList = ExAllocatePoolWithTag(PagedPool, Size, TAG_SEPA);
-    if (*CapturedObjectTypeList == NULL)
-    {
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-    _SEH2_TRY
-    {
-        ProbeForRead(ObjectTypeList, Size, sizeof(ULONG));
-        RtlCopyMemory(*CapturedObjectTypeList, ObjectTypeList, Size);
-    }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ExFreePoolWithTag(*CapturedObjectTypeList, TAG_SEPA);
-        *CapturedObjectTypeList = NULL;
-        return _SEH2_GetExceptionCode();
-    }
-    _SEH2_END;
-
-    return STATUS_SUCCESS;
-}
-
-static
-VOID
-SeReleaseObjectTypeList(
-    _In_  _Post_invalid_ POBJECT_TYPE_LIST CapturedObjectTypeList,
-    _In_ KPROCESSOR_MODE PreviousMode)
-{
-    if ((PreviousMode != KernelMode) && (CapturedObjectTypeList != NULL))
-        ExFreePoolWithTag(CapturedObjectTypeList, TAG_SEPA);
-}
-
-_Must_inspect_result_
-static
-NTSTATUS
-SepAccessCheckAndAuditAlarmWorker(
-    _In_ PUNICODE_STRING SubsystemName,
-    _In_opt_ PVOID HandleId,
-    _In_ PSECURITY_SUBJECT_CONTEXT SubjectContext,
-    _In_ PUNICODE_STRING ObjectTypeName,
-    _In_ PUNICODE_STRING ObjectName,
-    _In_ PSECURITY_DESCRIPTOR SecurityDescriptor,
-    _In_opt_ PSID PrincipalSelfSid,
-    _In_ ACCESS_MASK DesiredAccess,
-    _In_ AUDIT_EVENT_TYPE AuditType,
-    _In_ BOOLEAN HaveAuditPrivilege,
-    _In_reads_opt_(ObjectTypeListLength) POBJECT_TYPE_LIST ObjectTypeList,
-    _In_ ULONG ObjectTypeListLength,
-    _In_ PGENERIC_MAPPING GenericMapping,
-    _Out_writes_(ObjectTypeListLength) PACCESS_MASK GrantedAccessList,
-    _Out_writes_(ObjectTypeListLength) PNTSTATUS AccessStatusList,
-    _Out_ PBOOLEAN GenerateOnClose,
-    _In_ BOOLEAN UseResultList)
-{
-    ULONG ResultListLength, i;
-
-    /* Get the length of the result list */
-    ResultListLength = UseResultList ? ObjectTypeListLength : 1;
-
-    /// FIXME: we should do some real work here...
-    UNIMPLEMENTED;
-
-    /// HACK: we just pretend all access is granted!
-    for (i = 0; i < ResultListLength; i++)
-    {
-        GrantedAccessList[i] = DesiredAccess;
-        AccessStatusList[i] = STATUS_SUCCESS;
-    }
-
-    *GenerateOnClose = FALSE;
-
-    return STATUS_SUCCESS;
-}
-
 _Must_inspect_result_
 NTSTATUS
 NTAPI
 SepAccessCheckAndAuditAlarm(
     _In_ PUNICODE_STRING SubsystemName,
     _In_opt_ PVOID HandleId,
-    _In_ PHANDLE ClientTokenHandle,
+    _In_ PHANDLE ClientToken,
     _In_ PUNICODE_STRING ObjectTypeName,
     _In_ PUNICODE_STRING ObjectName,
     _In_ PSECURITY_DESCRIPTOR SecurityDescriptor,
@@ -340,32 +232,13 @@ SepAccessCheckAndAuditAlarm(
     SECURITY_SUBJECT_CONTEXT SubjectContext;
     ULONG ResultListLength;
     GENERIC_MAPPING LocalGenericMapping;
-    PTOKEN SubjectContextToken, ClientToken;
-    BOOLEAN AllocatedResultLists;
-    BOOLEAN HaveAuditPrivilege;
-    PSECURITY_DESCRIPTOR CapturedSecurityDescriptor;
-    UNICODE_STRING CapturedSubsystemName, CapturedObjectTypeName, CapturedObjectName;
-    ACCESS_MASK GrantedAccess, *SafeGrantedAccessList;
-    NTSTATUS AccessStatus, *SafeAccessStatusList;
-    PSID CapturedPrincipalSelfSid;
-    POBJECT_TYPE_LIST CapturedObjectTypeList;
-    ULONG i;
-    BOOLEAN LocalGenerateOnClose;
     NTSTATUS Status;
     PAGED_CODE();
 
+    DBG_UNREFERENCED_LOCAL_VARIABLE(LocalGenericMapping);
+
     /* Only user mode is supported! */
     ASSERT(ExGetPreviousMode() != KernelMode);
-
-    /* Start clean */
-    AllocatedResultLists = FALSE;
-    ClientToken = NULL;
-    CapturedSecurityDescriptor = NULL;
-    CapturedSubsystemName.Buffer = NULL;
-    CapturedObjectTypeName.Buffer = NULL;
-    CapturedObjectName.Buffer = NULL;
-    CapturedPrincipalSelfSid = NULL;
-    CapturedObjectTypeList = NULL;
 
     /* Validate AuditType */
     if ((AuditType != AuditEventObjectAccess) &&
@@ -379,13 +252,12 @@ SepAccessCheckAndAuditAlarm(
     SeCaptureSubjectContext(&SubjectContext);
 
     /* Did the caller pass a token handle? */
-    if (ClientTokenHandle == NULL)
+    if (ClientToken == NULL)
     {
         /* Check if we have a token in the subject context */
         if (SubjectContext.ClientToken == NULL)
         {
             Status = STATUS_NO_IMPERSONATION_TOKEN;
-            DPRINT1("No token\n");
             goto Cleanup;
         }
 
@@ -393,8 +265,6 @@ SepAccessCheckAndAuditAlarm(
         if (SubjectContext.ImpersonationLevel < SecurityIdentification)
         {
             Status = STATUS_BAD_IMPERSONATION_LEVEL;
-            DPRINT1("Invalid impersonation level 0x%lx\n",
-                    SubjectContext.ImpersonationLevel);
             goto Cleanup;
         }
     }
@@ -407,30 +277,13 @@ SepAccessCheckAndAuditAlarm(
         if ((ResultListLength == 0) || (ResultListLength > 0x1000))
         {
             Status = STATUS_INVALID_PARAMETER;
-            DPRINT1("Invalud ResultListLength: 0x%lx\n", ResultListLength);
             goto Cleanup;
         }
-
-        /* Allocate a safe buffer from paged pool */
-        SafeGrantedAccessList = ExAllocatePoolWithTag(PagedPool,
-                                                      2 * ResultListLength * sizeof(ULONG),
-                                                      TAG_SEPA);
-        if (SafeGrantedAccessList == NULL)
-        {
-            Status = STATUS_INSUFFICIENT_RESOURCES;
-            DPRINT1("Failed to allocate access lists\n");
-            goto Cleanup;
-        }
-
-        SafeAccessStatusList = (PNTSTATUS)&SafeGrantedAccessList[ResultListLength];
-        AllocatedResultLists = TRUE;
     }
     else
     {
         /* List length is 1 */
         ResultListLength = 1;
-        SafeGrantedAccessList = &GrantedAccess;
-        SafeAccessStatusList = &AccessStatus;
     }
 
     _SEH2_TRY
@@ -450,194 +303,17 @@ SepAccessCheckAndAuditAlarm(
     _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
     {
         Status = _SEH2_GetExceptionCode();
-        DPRINT1("Exception while probing parameters: 0x%lx\n", Status);
         goto Cleanup;
     }
     _SEH2_END;
 
-    /* Do we have a client token? */
-    if (ClientTokenHandle != NULL)
-    {
-        /* Reference the client token */
-        Status = ObReferenceObjectByHandle(*ClientTokenHandle,
-                                           TOKEN_QUERY,
-                                           SeTokenObjectType,
-                                           UserMode,
-                                           (PVOID*)&ClientToken,
-                                           NULL);
-        if (!NT_SUCCESS(Status))
-        {
-            DPRINT1("Failed to reference token handle %p: %lx\n",
-                    *ClientTokenHandle, Status);
-            goto Cleanup;
-        }
 
-        SubjectContextToken = SubjectContext.ClientToken;
-        SubjectContext.ClientToken = ClientToken;
-    }
+    UNIMPLEMENTED;
 
-    /* Check for audit privilege */
-    HaveAuditPrivilege = SeSinglePrivilegeCheck(SeAuditPrivilege, UserMode);
-    if (!HaveAuditPrivilege && !(Flags & AUDIT_ALLOW_NO_PRIVILEGE))
-    {
-        DPRINT1("Caller does not have SeAuditPrivilege\n");
-        Status = STATUS_PRIVILEGE_NOT_HELD;
-        goto Cleanup;
-    }
-
-    /* Generic access must already be mapped to non-generic access types! */
-    if (DesiredAccess & (GENERIC_READ | GENERIC_WRITE | GENERIC_EXECUTE | GENERIC_ALL))
-    {
-        DPRINT1("Generic access rights requested: 0x%lx\n", DesiredAccess);
-        Status = STATUS_GENERIC_NOT_MAPPED;
-        goto Cleanup;
-    }
-
-    /* Capture the security descriptor */
-    Status = SeCaptureSecurityDescriptor(SecurityDescriptor,
-                                         UserMode,
-                                         PagedPool,
-                                         FALSE,
-                                         &CapturedSecurityDescriptor);
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Failed to capture security descriptor!\n");
-        goto Cleanup;
-    }
-
-    /* Validate the Security descriptor */
-    if ((SepGetOwnerFromDescriptor(CapturedSecurityDescriptor) == NULL) ||
-        (SepGetGroupFromDescriptor(CapturedSecurityDescriptor) == NULL))
-    {
-        Status = STATUS_INVALID_SECURITY_DESCR;
-        DPRINT1("Invalid security descriptor\n");
-        goto Cleanup;
-    }
-
-    /* Probe and capture the subsystem name */
-    Status = ProbeAndCaptureUnicodeString(&CapturedSubsystemName,
-                                          UserMode,
-                                          SubsystemName);
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Failed to capture subsystem name!\n");
-        goto Cleanup;
-    }
-
-    /* Probe and capture the object type name */
-    Status = ProbeAndCaptureUnicodeString(&CapturedObjectTypeName,
-                                          UserMode,
-                                          ObjectTypeName);
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Failed to capture object type name!\n");
-        goto Cleanup;
-    }
-
-    /* Probe and capture the object name */
-    Status = ProbeAndCaptureUnicodeString(&CapturedObjectName,
-                                          UserMode,
-                                          ObjectName);
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Failed to capture object name!\n");
-        goto Cleanup;
-    }
-
-    /* Check if we have a PrincipalSelfSid */
-    if (PrincipalSelfSid != NULL)
-    {
-        /* Capture it */
-        Status = SepCaptureSid(PrincipalSelfSid,
-                               UserMode,
-                               PagedPool,
-                               FALSE,
-                               &CapturedPrincipalSelfSid);
-        if (!NT_SUCCESS(Status))
-        {
-            DPRINT1("Failed to capture PrincipalSelfSid!\n");
-            goto Cleanup;
-        }
-    }
-
-    /* Capture the object type list */
-    Status = SeCaptureObjectTypeList(ObjectTypeList,
-                                     ObjectTypeListLength,
-                                     UserMode,
-                                     &CapturedObjectTypeList);
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Failed to capture object type list!\n");
-        goto Cleanup;
-    }
-
-    /* Call the worker routine with the captured buffers */
-    SepAccessCheckAndAuditAlarmWorker(&CapturedSubsystemName,
-                                      HandleId,
-                                      &SubjectContext,
-                                      &CapturedObjectTypeName,
-                                      &CapturedObjectName,
-                                      CapturedSecurityDescriptor,
-                                      CapturedPrincipalSelfSid,
-                                      DesiredAccess,
-                                      AuditType,
-                                      HaveAuditPrivilege,
-                                      CapturedObjectTypeList,
-                                      ObjectTypeListLength,
-                                      &LocalGenericMapping,
-                                      SafeGrantedAccessList,
-                                      SafeAccessStatusList,
-                                      &LocalGenerateOnClose,
-                                      UseResultList);
-
-    /* Enter SEH to copy the data back to user mode */
-    _SEH2_TRY
-    {
-        /* Loop all result entries (only 1 when no list was requested) */
-        NT_ASSERT(UseResultList || (ResultListLength == 1));
-        for (i = 0; i < ResultListLength; i++)
-        {
-            AccessStatusList[i] = SafeAccessStatusList[i];
-            GrantedAccessList[i] = SafeGrantedAccessList[i];
-        }
-
-        *GenerateOnClose = LocalGenerateOnClose;
-    }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-        Status = _SEH2_GetExceptionCode();
-        DPRINT1("Exception while copying back data: 0x%lx\n", Status);
-    }
-    _SEH2_END;
+    /* For now pretend everything else is ok */
+    Status = STATUS_SUCCESS;
 
 Cleanup:
-
-    if (CapturedObjectTypeList != NULL)
-        SeReleaseObjectTypeList(CapturedObjectTypeList, UserMode);
-
-    if (CapturedPrincipalSelfSid != NULL)
-        SepReleaseSid(CapturedPrincipalSelfSid, UserMode, FALSE);
-
-    if (CapturedObjectName.Buffer != NULL)
-        ReleaseCapturedUnicodeString(&CapturedObjectName, UserMode);
-
-    if (CapturedObjectTypeName.Buffer != NULL)
-        ReleaseCapturedUnicodeString(&CapturedObjectTypeName, UserMode);
-
-    if (CapturedSubsystemName.Buffer != NULL)
-        ReleaseCapturedUnicodeString(&CapturedSubsystemName, UserMode);
-
-    if (CapturedSecurityDescriptor != NULL)
-        SeReleaseSecurityDescriptor(CapturedSecurityDescriptor, UserMode, FALSE);
-
-    if (ClientToken != NULL)
-    {
-        ObDereferenceObject(ClientToken);
-        SubjectContext.ClientToken = SubjectContextToken;
-    }
-
-    if (AllocatedResultLists)
-        ExFreePoolWithTag(SafeGrantedAccessList, TAG_SEPA);
 
     /* Release the security subject context */
     SeReleaseSubjectContext(&SubjectContext);
@@ -944,9 +620,6 @@ NtPrivilegedServiceAuditAlarm(
     PreviousMode = ExGetPreviousMode();
     ASSERT(PreviousMode != KernelMode);
 
-    CapturedSubsystemName.Buffer = NULL;
-    CapturedServiceName.Buffer = NULL;
-
     /* Reference the client token */
     Status = ObReferenceObjectByHandle(ClientToken,
                                        TOKEN_QUERY,
@@ -1051,8 +724,8 @@ NtPrivilegedServiceAuditAlarm(
 
     /* Call the internal function */
     SepAdtPrivilegedServiceAuditAlarm(&SubjectContext,
-                                      SubsystemName ? &CapturedSubsystemName : NULL,
-                                      ServiceName ? &CapturedServiceName : NULL,
+                                      &CapturedSubsystemName,
+                                      &CapturedServiceName,
                                       Token,
                                       SubjectContext.PrimaryToken,
                                       CapturedPrivileges,
@@ -1065,9 +738,9 @@ NtPrivilegedServiceAuditAlarm(
 
 Cleanup:
     /* Cleanup resources */
-    if (CapturedSubsystemName.Buffer != NULL)
+    if (SubsystemName != NULL)
         ReleaseCapturedUnicodeString(&CapturedSubsystemName, PreviousMode);
-    if (CapturedServiceName.Buffer != NULL)
+    if (ServiceName != NULL)
         ReleaseCapturedUnicodeString(&CapturedServiceName, PreviousMode);
     if (CapturedPrivileges != NULL)
         ExFreePoolWithTag(CapturedPrivileges, 0);

@@ -113,8 +113,7 @@ EngpRegisterGraphicsDevice(
     pGraphicsDevice->pwszDescription = pwsz + pustrDiplayDrivers->Length / sizeof(WCHAR);
     RtlCopyMemory(pGraphicsDevice->pwszDescription,
                   pustrDescription->Buffer,
-                  pustrDescription->Length);
-    pGraphicsDevice->pwszDescription[pustrDescription->Length/sizeof(WCHAR)] = 0;
+                  pustrDescription->Length + sizeof(WCHAR));
 
     /* Initialize the pdevmodeInfo list and default index  */
     pGraphicsDevice->pdevmodeInfo = NULL;

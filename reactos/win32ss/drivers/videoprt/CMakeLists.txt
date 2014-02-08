@@ -22,7 +22,6 @@ list(APPEND SOURCE
     stubs.c
     timer.c
     videoprt.c
-    guid.c
     videoprt.rc
     ${CMAKE_CURRENT_BINARY_DIR}/videoprt.def)
 

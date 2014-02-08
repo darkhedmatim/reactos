@@ -16,10 +16,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#ifndef _WBEMDISP_PRIVATE_H_
-#define _WBEMDISP_PRIVATE_H_
-
-#include <wine/config.h>
+#include <config.h>
 
 #include <stdarg.h>
 
@@ -49,5 +46,3 @@ static inline BOOL heap_free( void *mem )
 {
     return HeapFree( GetProcessHeap(), 0, mem );
 }
-
-#endif /* _WBEMDISP_PRIVATE_H_ */

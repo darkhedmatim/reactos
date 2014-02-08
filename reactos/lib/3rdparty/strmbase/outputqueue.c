@@ -20,8 +20,6 @@
 
 #include "strmbase_private.h"
 
-#include <wine/list.h>
-
 enum {SAMPLE_PACKET, EOS_PACKET};
 
 typedef struct tagQueuedEvent {

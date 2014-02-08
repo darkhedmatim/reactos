@@ -6,9 +6,6 @@
  * COPYRIGHT:        Copyright 2007 Andrew Greenwood
  */
 
-#ifndef _AUDIOSRV_PCH_
-#define _AUDIOSRV_PCH_
-
 #include <stdarg.h>
 
 #include <windef.h>
@@ -67,5 +64,3 @@ StartSystemAudioServices(VOID);
 void logmsg(char* string, ...);
 
 #endif
-
-#endif /* _AUDIOSRV_PCH_ */

@@ -6,9 +6,6 @@
  * PROGRAMMER:      Alex Ionescu (alex@relsoft.net)
  */
 
-#ifndef _SECUR32_PCH_
-#define _SECUR32_PCH_
-
 #include <stdarg.h>
 
 /* SDK/DDK/NDK Headers. */
@@ -22,5 +19,3 @@
 
 #include <secext.h>
 #include <security.h>
-
-#endif /* _SECUR32_PCH_ */

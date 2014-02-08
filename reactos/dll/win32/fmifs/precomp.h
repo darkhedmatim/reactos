@@ -8,9 +8,6 @@
  *                  Hervé Poussineau (hpoussin@reactos.org)
  */
 
-#ifndef _FMIFS_PCH_
-#define _FMIFS_PCH_
-
 /* INCLUDES ******************************************************************/
 
 #define WIN32_NO_STATUS
@@ -46,4 +43,4 @@ PIFS_PROVIDER
 GetProvider(
 	IN PWCHAR FileSytem);
 
-#endif /* _FMIFS_PCH_ */
+/* EOF */

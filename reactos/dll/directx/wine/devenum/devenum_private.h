@@ -22,9 +22,6 @@
  * - Private file where devenum globals are declared
  */
 
-#ifndef __WINE_DEVENUM_H
-#define __WINE_DEVENUM_H
-
 #ifndef RC_INVOKED
 #include <stdarg.h>
 #endif
@@ -94,5 +91,3 @@ HRESULT DEVENUM_GetCategoryKey(REFCLSID clsidDeviceClass, HKEY *pBaseKey, WCHAR 
 extern const WCHAR clsid_keyname[6];
 extern const WCHAR wszInstanceKeyName[];
 #define CLSID_STR_LEN (sizeof(clsid_keyname) / sizeof(WCHAR))
-
-#endif /* __WINE_DEVENUM_H */

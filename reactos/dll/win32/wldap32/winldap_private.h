@@ -22,10 +22,7 @@
  * native headers.
  */
 
-#ifndef _WINLDAP_PRIVATE_H_
-#define _WINLDAP_PRIVATE_H_
-
-#include <wine/config.h>
+#include <config.h>
 
 #include <stdarg.h>
 
@@ -480,5 +477,3 @@ ULONG CDECL LdapGetLastError(void);
 ULONG CDECL LdapMapErrorToWin32(ULONG);
 int CDECL LdapUnicodeToUTF8(LPCWSTR,int,LPSTR,int);
 int CDECL LdapUTF8ToUnicode(LPCSTR,int,LPWSTR,int);
-
-#endif /* _WINLDAP_PRIVATE_H_ */

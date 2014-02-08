@@ -19,14 +19,8 @@
  *
  */
 
+
 #include "videoprt.h"
-
-#include <stdio.h>
-#include <ndk/exfuncs.h>
-#include <ndk/rtlfuncs.h>
-
-#define NDEBUG
-#include <debug.h>
 
 /* GLOBAL VARIABLES ***********************************************************/
 
@@ -1479,3 +1473,4 @@ VideoPortIsNoVesa(VOID)
 
     return FALSE;
 }
+

@@ -7,9 +7,6 @@
  * PROGRAMMERS:     Eric Kohl
  */
 
-#ifndef _SAMSRV_PCH_
-#define _SAMSRV_PCH_
-
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -433,5 +430,3 @@ NTSTATUS
 WINAPI
 SystemFunction007(PUNICODE_STRING string,
                   LPBYTE hash);
-
-#endif /* _SAMSRV_PCH_ */

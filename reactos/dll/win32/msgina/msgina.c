@@ -26,11 +26,6 @@
 
 #include "msgina.h"
 
-#include <winreg.h>
-#include <winsvc.h>
-#include <userenv.h>
-#include <ndk/sefuncs.h>
-
 HINSTANCE hDllInstance;
 
 extern GINA_UI GinaGraphicalUI;
@@ -599,7 +594,6 @@ DuplicationString(PWSTR Str)
 
 BOOL
 DoAdminUnlock(
-    IN PGINA_CONTEXT pgContext,
     IN PWSTR UserName,
     IN PWSTR Domain,
     IN PWSTR Password)
@@ -613,15 +607,12 @@ DoAdminUnlock(
 
     TRACE("(%S %S %S)\n", UserName, Domain, Password);
 
-    if (!ConnectToLsa(pgContext))
-        return FALSE;
-
-    if (!MyLogonUser(pgContext->LsaHandle,
-                     pgContext->AuthenticationPackage,
-                     UserName,
-                     Domain,
-                     Password,
-                     &pgContext->UserToken))
+    if (!LogonUserW(UserName,
+                    Domain,
+                    Password,
+                    LOGON32_LOGON_INTERACTIVE,
+                    LOGON32_PROVIDER_DEFAULT,
+                    &hToken))
     {
         WARN("LogonUserW() failed\n");
         return FALSE;
@@ -692,15 +683,10 @@ DoLoginTasks(
     DWORD dwLength;
     BOOL bResult;
 
-    if (!ConnectToLsa(pgContext))
-        return FALSE;
-
-    if (!MyLogonUser(pgContext->LsaHandle,
-                     pgContext->AuthenticationPackage,
-                     UserName,
-                     Domain,
-                     Password,
-                     &pgContext->UserToken))
+    if (!LogonUserW(UserName, Domain, Password,
+        LOGON32_LOGON_INTERACTIVE,
+        LOGON32_PROVIDER_DEFAULT,
+        &pgContext->UserToken))
     {
         WARN("LogonUserW() failed\n");
         goto cleanup;

@@ -21,11 +21,6 @@
 
 #include "videoprt.h"
 
-#include <ndk/obfuncs.h>
-
-#define NDEBUG
-#include <debug.h>
-
 NTSTATUS
 NTAPI
 IntCopyRegistryKey(
@@ -638,3 +633,4 @@ IntCreateRegistryPath(
 
     return STATUS_SUCCESS;
 }
+

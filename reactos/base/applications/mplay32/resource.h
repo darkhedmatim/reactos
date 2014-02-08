@@ -25,7 +25,6 @@
 #define IDS_ALL_TYPES_FILTER 108
 #define IDS_PLAY             109
 #define IDS_DEFAULTMCIERRMSG 110
-#define IDS_UNKNOWNFILEEXT   111
 
 /* Menu */
 #define IDR_MAINMENU 500

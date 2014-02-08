@@ -1,6 +1,3 @@
-#ifndef _SAMLIB_PCH_
-#define _SAMLIB_PCH_
-
 #include <stdarg.h>
 
 #define WIN32_NO_STATUS
@@ -9,5 +6,3 @@
 
 #include <windef.h>
 #include <winbase.h>
-
-#endif /* _SAMLIB_PCH_ */

@@ -265,3 +265,4 @@ SysAudioRegisterDeviceInterfaces(
 
     return Status;
 }
+
