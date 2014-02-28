@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../pecoff.h"
+#include <typedefs.h>
+#include <pecoff.h>
 
 static
 void
