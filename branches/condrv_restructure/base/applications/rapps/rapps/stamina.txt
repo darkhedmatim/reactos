@@ -1,0 +1,25 @@
+﻿; UTF-8
+; PL translation by wojo664
+
+[Section]
+Name = Stamina 2.5
+Description = Free typing tutor.
+URLSite = http://stamina.ru
+Size = 4.7 MB
+Category = 8
+URLDownload = http://stamina.ru/files/StaminaSetup.exe
+CDPath = none
+
+[Section.0407]
+Description = Ein freies Schreiblernprogramm.
+
+[Section.0415]
+Description = Darmowy program do nauki pisania na klawiaturze.
+
+[Section.0418]
+Description = Tutor gratuit pentru dactilografiere.
+Size = 4,7 Mo
+
+[Section.041f]
+Description = Ücretsiz bir düğme takımında yazma öğreticisi.
+Size = 4,7 MB
