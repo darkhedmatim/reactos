@@ -258,7 +258,13 @@ OutputHeader_asmstub(FILE *file, char *libname)
     fprintf(file, "; File generated automatically, do not edit! \n\n");
 
     if (giArch == ARCH_X86)
+    {
         fprintf(file, ".586\n.model flat\n");
+    }
+    else if (giArch == ARCH_ARM)
+    {
+        fprintf(file, "#include <kxarm.h>\n        TEXTAREA\n");
+    }
 
     fprintf(file, ".code\n");
 }
@@ -329,7 +335,7 @@ PrintName(FILE *fileDest, EXPORT *pexp, PSTRING pstr, int fDeco)
     {
         /* Does the string already have stdcall decoration? */
         pcAt = ScanToken(pcName, '@');
-        if ((pcAt < (pcName + nNameLength)) && (pcName[0] == '_'))
+        if (pcAt && (pcAt < (pcName + nNameLength)) && (pcName[0] == '_'))
         {
             /* Skip leading underscore and remove trailing decoration */
             pcName++;
@@ -485,6 +491,7 @@ OutputLine_def_GCC(FILE *fileDest, EXPORT *pexp)
 int
 OutputLine_def(FILE *fileDest, EXPORT *pexp)
 {
+    DbgPrint("OutputLine_def: '%.*s'...\n", pexp->strName.len, pexp->strName.buf);
     fprintf(fileDest, " ");
 
     if (gbMSComp)
@@ -684,6 +691,7 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
         /* Get name */
         exp.strName.buf = pc;
         exp.strName.len = TokenLength(pc);
+        DbgPrint("Got name: '%.*s'\n", exp.strName.len, exp.strName.buf);
 
         /* Check for autoname */
         if ((exp.strName.len == 1) && (exp.strName.buf[0] == '@'))
@@ -699,7 +707,6 @@ ParseFile(char* pcStart, FILE *fileDest, PFNOUTLINE OutputLine)
         if (exp.nCallingConvention != CC_EXTERN &&
             exp.nCallingConvention != CC_STUB)
         {
-            //fprintf(stderr, "info: options:'%.10s'\n", pc);
             /* Go to next token */
             if (!(pc = NextToken(pc)))
             {
