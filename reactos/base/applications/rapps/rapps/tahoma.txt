@@ -1,5 +1,4 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = Microsoft Tahoma Font
@@ -41,9 +40,9 @@ Description = Pachetul Tahoma Font, necesar unor aplicații (Steam). Conține: T
 Size = 305,12 ko
 
 [Section.041f]
-Name = Microsoft Tahoma Yazı Tipi
+Name = Mikroyazılım Tahoma Yazı Türü
 Licence = Bilinmiyor
-Description = Tahoma Yazı Tipi paketi, Steam gibi birtakım uygulamalar için gereklidir. Şunları içerir: Tahoma.ttf, Tahomabd.ttf.
+Description = Tahoma Yazı Türleri. Steam gibi birtakım yazılımlar için gereklidir. Şunları içerir: Tahoma.ttf, Tahomabd.ttf.
 Size = 305,12 KB
 
 [Section.0422]

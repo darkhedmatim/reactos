@@ -414,7 +414,6 @@ MountMgrNotifyNameChange(IN PDEVICE_EXTENSION DeviceExtension,
     {
         ObDereferenceObject(DeviceObject);
         ObDereferenceObject(FileObject);
-        return;
     }
 
     Stack = IoGetNextIrpStackLocation(Irp);

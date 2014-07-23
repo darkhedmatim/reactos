@@ -406,8 +406,6 @@ HRESULT WINAPI DMUSIC_CreateDirectMusicImpl(LPCGUID riid, LPVOID* ret_iface, LPU
     TRACE("(%p,%p,%p)\n", riid, ret_iface, unkouter);
 
     *ret_iface = NULL;
-    if (unkouter)
-        return CLASS_E_NOAGGREGATION;
 
     dmusic = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IDirectMusic8Impl));
     if (!dmusic)

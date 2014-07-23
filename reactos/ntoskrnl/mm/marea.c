@@ -399,6 +399,7 @@ MmInsertMemoryArea(
             Vad->EndingVpn = Vad->StartingVpn;
         }
        Vad->u.VadFlags.Spare = 1;
+       Vad->u.VadFlags.PrivateMemory = 1;
        Vad->u.VadFlags.Protection = MiMakeProtectionMask(marea->Protect);
 
        /* Insert the VAD */
@@ -987,7 +988,6 @@ MmCreateMemoryArea(PMMSUPPORT AddressSpace,
 {
    ULONG_PTR tmpLength;
    PMEMORY_AREA MemoryArea;
-   ULONG_PTR EndingAddress;
 
    DPRINT("MmCreateMemoryArea(Type 0x%lx, BaseAddress %p, "
           "*BaseAddress %p, Length %p, AllocationFlags %x, "
@@ -997,7 +997,7 @@ MmCreateMemoryArea(PMMSUPPORT AddressSpace,
 
    if ((*BaseAddress) == 0 && !FixedAddress)
    {
-      tmpLength = (ULONG_PTR)MM_ROUND_UP(Length, PAGE_SIZE);
+      tmpLength = (ULONG_PTR)MM_ROUND_UP(Length, Granularity);
       *BaseAddress = MmFindGap(AddressSpace,
                                tmpLength,
                                Granularity,
@@ -1010,9 +1010,10 @@ MmCreateMemoryArea(PMMSUPPORT AddressSpace,
    }
    else
    {
-      EndingAddress = ((ULONG_PTR)*BaseAddress + Length - 1) | (PAGE_SIZE - 1);
-      *BaseAddress = ALIGN_DOWN_POINTER_BY(*BaseAddress, Granularity);
-      tmpLength = EndingAddress + 1 - (ULONG_PTR)*BaseAddress;
+      tmpLength = Length + ((ULONG_PTR) *BaseAddress
+                         - (ULONG_PTR) MM_ROUND_DOWN(*BaseAddress, Granularity));
+      tmpLength = (ULONG_PTR)MM_ROUND_UP(tmpLength, Granularity);
+      *BaseAddress = MM_ROUND_DOWN(*BaseAddress, Granularity);
 
       if (!MmGetAddressSpaceOwner(AddressSpace) && *BaseAddress < MmSystemRangeStart)
       {
@@ -1204,7 +1205,7 @@ MmDeleteProcessAddressSpace(PEPROCESS Process)
 
    MmUnlockAddressSpace(&Process->Vm);
 
-   DPRINT("Finished MmDeleteProcessAddressSpace()\n");
+   DPRINT("Finished MmReleaseMmInfo()\n");
    MmDeleteProcessAddressSpace2(Process);
    return(STATUS_SUCCESS);
 }

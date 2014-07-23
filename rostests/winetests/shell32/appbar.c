@@ -20,7 +20,6 @@
 #include <stdarg.h>
 
 #include <windows.h>
-#include "shellapi.h"
 
 #include "wine/test.h"
 
@@ -48,7 +47,7 @@ static int expected_bottom;
 
 static void testwindow_setpos(HWND hwnd)
 {
-    struct testwindow_info* info = (struct testwindow_info*)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
+    struct testwindow_info* info = (struct testwindow_info*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
     APPBARDATA abd;
     BOOL ret;
 
@@ -114,7 +113,7 @@ static LRESULT CALLBACK testwindow_wndproc(HWND hwnd, UINT msg, WPARAM wparam, L
         }
     }
 
-    return DefWindowProcA(hwnd, msg, wparam, lparam);
+    return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
 /* process pending messages until a condition is true or 3 seconds pass */
@@ -186,7 +185,7 @@ static void register_testwindow_class(void)
     cls.style = 0;
     cls.lpfnWndProc = testwindow_wndproc;
     cls.hInstance = NULL;
-    cls.hCursor = LoadCursorA(0, (LPSTR)IDC_ARROW);
+    cls.hCursor = LoadCursor(0, IDC_ARROW);
     cls.hbrBackground = (HBRUSH) COLOR_WINDOW;
     cls.lpszClassName = testwindow_class;
 
@@ -235,7 +234,7 @@ static void test_setpos(void)
     windows[0].desired_rect.right = screen_width;
     windows[0].desired_rect.top = screen_height - 15;
     windows[0].desired_rect.bottom = screen_height;
-    SetWindowLongPtrA(windows[0].hwnd, GWLP_USERDATA, (LONG_PTR)&windows[0]);
+    SetWindowLongPtr(windows[0].hwnd, GWLP_USERDATA, (LONG_PTR)&windows[0]);
     testwindow_setpos(windows[0].hwnd);
     do_events();
 
@@ -256,7 +255,7 @@ static void test_setpos(void)
     windows[1].desired_rect.right = screen_width;
     windows[1].desired_rect.top = screen_height - 10;
     windows[1].desired_rect.bottom = screen_height;
-    SetWindowLongPtrA(windows[1].hwnd, GWLP_USERDATA, (LONG_PTR)&windows[1]);
+    SetWindowLongPtr(windows[1].hwnd, GWLP_USERDATA, (LONG_PTR)&windows[1]);
     testwindow_setpos(windows[1].hwnd);
 
     /* the windows are adjusted to they don't overlap */
@@ -288,7 +287,7 @@ static void test_setpos(void)
     windows[2].desired_rect.right = screen_width;
     windows[2].desired_rect.top = screen_height - 10;
     windows[2].desired_rect.bottom = screen_height;
-    SetWindowLongPtrA(windows[2].hwnd, GWLP_USERDATA, (LONG_PTR)&windows[2]);
+    SetWindowLongPtr(windows[2].hwnd, GWLP_USERDATA, (LONG_PTR)&windows[2]);
     testwindow_setpos(windows[2].hwnd);
 
     do_events_until(no_appbars_intersect);

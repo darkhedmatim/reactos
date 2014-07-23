@@ -31,45 +31,34 @@
 #define NDEBUG
 #include <debug.h>
 
-/* GLOBALS ******************************************************************/
-
-ULONG DefaultLanguageIndex = 0;
-
 /* FUNCTIONS ****************************************************************/
 
-static
-BOOLEAN
+static BOOLEAN
 IsAcpiComputer(VOID)
 {
-    UNICODE_STRING MultiKeyPathU = RTL_CONSTANT_STRING(L"\\Registry\\Machine\\HARDWARE\\DESCRIPTION\\System\\MultifunctionAdapter");
-    UNICODE_STRING IdentifierU = RTL_CONSTANT_STRING(L"Identifier");
-    UNICODE_STRING AcpiBiosIdentifier = RTL_CONSTANT_STRING(L"ACPI BIOS");
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    PKEY_BASIC_INFORMATION pDeviceInformation = NULL;
-    ULONG DeviceInfoLength = sizeof(KEY_BASIC_INFORMATION) + 50 * sizeof(WCHAR);
-    PKEY_VALUE_PARTIAL_INFORMATION pValueInformation = NULL;
-    ULONG ValueInfoLength = sizeof(KEY_VALUE_PARTIAL_INFORMATION) + 50 * sizeof(WCHAR);
-    ULONG RequiredSize;
-    ULONG IndexDevice = 0;
-    UNICODE_STRING DeviceName, ValueName;
-    HANDLE hDevicesKey = NULL;
-    HANDLE hDeviceKey = NULL;
-    NTSTATUS Status;
-    BOOLEAN ret = FALSE;
+   UNICODE_STRING MultiKeyPathU = RTL_CONSTANT_STRING(L"\\Registry\\Machine\\HARDWARE\\DESCRIPTION\\System\\MultifunctionAdapter");
+   UNICODE_STRING IdentifierU = RTL_CONSTANT_STRING(L"Identifier");
+   UNICODE_STRING AcpiBiosIdentifier = RTL_CONSTANT_STRING(L"ACPI BIOS");
+   OBJECT_ATTRIBUTES ObjectAttributes;
+   PKEY_BASIC_INFORMATION pDeviceInformation = NULL;
+   ULONG DeviceInfoLength = sizeof(KEY_BASIC_INFORMATION) + 50 * sizeof(WCHAR);
+   PKEY_VALUE_PARTIAL_INFORMATION pValueInformation = NULL;
+   ULONG ValueInfoLength = sizeof(KEY_VALUE_PARTIAL_INFORMATION) + 50 * sizeof(WCHAR);
+   ULONG RequiredSize;
+   ULONG IndexDevice = 0;
+   UNICODE_STRING DeviceName, ValueName;
+   HANDLE hDevicesKey = NULL;
+   HANDLE hDeviceKey = NULL;
+   NTSTATUS Status;
+   BOOLEAN ret = FALSE;
 
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &MultiKeyPathU,
-                               OBJ_CASE_INSENSITIVE,
-                               NULL,
-                               NULL);
-    Status = NtOpenKey(&hDevicesKey,
-                       KEY_ENUMERATE_SUB_KEYS,
-                       &ObjectAttributes);
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT("NtOpenKey() failed with status 0x%08lx\n", Status);
-        goto cleanup;
-    }
+   InitializeObjectAttributes(&ObjectAttributes, &MultiKeyPathU, OBJ_CASE_INSENSITIVE, NULL, NULL);
+   Status = NtOpenKey(&hDevicesKey, KEY_ENUMERATE_SUB_KEYS, &ObjectAttributes);
+   if (!NT_SUCCESS(Status))
+   {
+      DPRINT("NtOpenKey() failed with status 0x%08lx\n", Status);
+      goto cleanup;
+   }
 
    pDeviceInformation = RtlAllocateHeap(RtlGetProcessHeap(), 0, DeviceInfoLength);
    if (!pDeviceInformation)
@@ -181,11 +170,9 @@ cleanup:
 }
 
 
-static
-BOOLEAN
-GetComputerIdentifier(
-    PWSTR Identifier,
-    ULONG IdentifierLength)
+static BOOLEAN
+GetComputerIdentifier(PWSTR Identifier,
+                      ULONG IdentifierLength)
 {
     OBJECT_ATTRIBUTES ObjectAttributes;
     UNICODE_STRING KeyName;
@@ -225,12 +212,14 @@ GetComputerIdentifier(
     }
 
     /* Get number of subkeys */
-    Status = NtQueryKey(ProcessorsKey,
-                        KeyFullInformation,
-                        pFullInfo,
-                        Size,
-                        &Size);
+    Status = NtQueryKey(
+        ProcessorsKey,
+        KeyFullInformation,
+        pFullInfo,
+        Size,
+        &Size);
     NtClose(ProcessorsKey);
+
     if (!NT_SUCCESS(Status) && Status != STATUS_BUFFER_OVERFLOW)
     {
         DPRINT("NtQueryKey() failed (Status 0x%lx)\n", Status);
@@ -287,8 +276,7 @@ GetComputerIdentifier(
 
 
 PGENERIC_LIST
-CreateComputerTypeList(
-    HINF InfFile)
+CreateComputerTypeList(HINF InfFile)
 {
     CHAR Buffer[128];
     PGENERIC_LIST List;
@@ -376,10 +364,8 @@ CreateComputerTypeList(
 }
 
 
-static
-BOOLEAN
-GetDisplayIdentifier(
-    PWSTR Identifier,
+static BOOLEAN
+GetDisplayIdentifier(PWSTR Identifier,
     ULONG IdentifierLength)
 {
     OBJECT_ATTRIBUTES ObjectAttributes;
@@ -544,8 +530,7 @@ GetDisplayIdentifier(
 
 
 PGENERIC_LIST
-CreateDisplayDriverList(
-    HINF InfFile)
+CreateDisplayDriverList(HINF InfFile)
 {
     CHAR Buffer[128];
     PGENERIC_LIST List;
@@ -645,12 +630,8 @@ CreateDisplayDriverList(
     return List;
 }
 
-
 BOOLEAN
-ProcessComputerFiles(
-    HINF InfFile,
-    PGENERIC_LIST List,
-    PWCHAR *AdditionalSectionName)
+ProcessComputerFiles(HINF InfFile, PGENERIC_LIST List, PWCHAR* AdditionalSectionName)
 {
     PGENERIC_LIST_ENTRY Entry;
     static WCHAR SectionName[128];
@@ -673,9 +654,7 @@ ProcessComputerFiles(
 
 
 BOOLEAN
-ProcessDisplayRegistry(
-    HINF InfFile,
-    PGENERIC_LIST List)
+ProcessDisplayRegistry(HINF InfFile, PGENERIC_LIST List)
 {
     PGENERIC_LIST_ENTRY Entry;
     INFCONTEXT Context;
@@ -713,11 +692,12 @@ ProcessDisplayRegistry(
 
     StartValue = 1;
     Status = RtlWriteRegistryValue(RTL_REGISTRY_SERVICES,
-                                   ServiceName,
-                                   L"Start",
-                                   REG_DWORD,
-                                   &StartValue,
-                                   sizeof(ULONG));
+        ServiceName,
+        L"Start",
+        REG_DWORD,
+        &StartValue,
+        sizeof(ULONG));
+
     if (!NT_SUCCESS(Status))
     {
         DPRINT("RtlWriteRegistryValue() failed (Status %lx)\n", Status);
@@ -735,11 +715,11 @@ ProcessDisplayRegistry(
 
     Width = wcstoul(Buffer, NULL, 10);
     Status = RtlWriteRegistryValue(RTL_REGISTRY_ABSOLUTE,
-                                   RegPath,
-                                   L"DefaultSettings.XResolution",
-                                   REG_DWORD,
-                                   &Width,
-                                   sizeof(ULONG));
+        RegPath,
+        L"DefaultSettings.XResolution",
+        REG_DWORD,
+        &Width,
+        sizeof(ULONG));
     if (!NT_SUCCESS(Status))
     {
         DPRINT("RtlWriteRegistryValue() failed (Status %lx)\n", Status);
@@ -754,11 +734,11 @@ ProcessDisplayRegistry(
 
     Height = wcstoul(Buffer, 0, 0);
     Status = RtlWriteRegistryValue(RTL_REGISTRY_ABSOLUTE,
-                                   RegPath,
-                                   L"DefaultSettings.YResolution",
-                                   REG_DWORD,
-                                   &Height,
-                                   sizeof(ULONG));
+        RegPath,
+        L"DefaultSettings.YResolution",
+        REG_DWORD,
+        &Height,
+        sizeof(ULONG));
     if (!NT_SUCCESS(Status))
     {
         DPRINT("RtlWriteRegistryValue() failed (Status %lx)\n", Status);
@@ -773,11 +753,11 @@ ProcessDisplayRegistry(
 
     Bpp = wcstoul(Buffer, 0, 0);
     Status = RtlWriteRegistryValue(RTL_REGISTRY_ABSOLUTE,
-                                   RegPath,
-                                   L"DefaultSettings.BitsPerPel",
-                                   REG_DWORD,
-                                   &Bpp,
-                                   sizeof(ULONG));
+        RegPath,
+        L"DefaultSettings.BitsPerPel",
+        REG_DWORD,
+        &Bpp,
+        sizeof(ULONG));
     if (!NT_SUCCESS(Status))
     {
         DPRINT("RtlWriteRegistryValue() failed (Status %lx)\n", Status);
@@ -791,8 +771,7 @@ ProcessDisplayRegistry(
 
 
 BOOLEAN
-ProcessLocaleRegistry(
-    PGENERIC_LIST List)
+ProcessLocaleRegistry(PGENERIC_LIST List)
 {
     PGENERIC_LIST_ENTRY Entry;
     PWCHAR LanguageId;
@@ -828,6 +807,7 @@ ProcessLocaleRegistry(
     Status =  NtOpenKey(&KeyHandle,
                         KEY_SET_VALUE,
                         &ObjectAttributes);
+
     if (!NT_SUCCESS(Status))
     {
         DPRINT1("NtOpenKey() failed (Status %lx)\n", Status);
@@ -871,8 +851,7 @@ ProcessLocaleRegistry(
 
 
 PGENERIC_LIST
-CreateKeyboardDriverList(
-    HINF InfFile)
+CreateKeyboardDriverList(HINF InfFile)
 {
     CHAR Buffer[128];
     PGENERIC_LIST List;
@@ -900,9 +879,9 @@ CreateKeyboardDriverList(
             break;
         }
 
-        UserData = (WCHAR*)RtlAllocateHeap(ProcessHeap,
-                                           0,
-                                           (wcslen(KeyName) + 1) * sizeof(WCHAR));
+        UserData = (WCHAR*) RtlAllocateHeap(ProcessHeap,
+                                            0,
+                                            (wcslen(KeyName) + 1) * sizeof(WCHAR));
         if (UserData == NULL)
         {
             /* FIXME: Handle error! */
@@ -917,6 +896,7 @@ CreateKeyboardDriverList(
     return List;
 }
 
+ULONG DefaultLanguageIndex = 0;
 
 ULONG
 GetDefaultLanguageIndex(VOID)
@@ -924,11 +904,8 @@ GetDefaultLanguageIndex(VOID)
     return DefaultLanguageIndex;
 }
 
-
 PGENERIC_LIST
-CreateLanguageList(
-    HINF InfFile,
-    WCHAR *DefaultLanguage) 
+CreateLanguageList(HINF InfFile, WCHAR * DefaultLanguage) 
 {
     CHAR Buffer[128];
     PGENERIC_LIST List;
@@ -1003,11 +980,8 @@ CreateLanguageList(
     return List;
 }
 
-
 PGENERIC_LIST
-CreateKeyboardLayoutList(
-    HINF InfFile,
-    WCHAR *DefaultKBLayout)
+CreateKeyboardLayoutList(HINF InfFile, WCHAR * DefaultKBLayout)
 {
     CHAR Buffer[128];
     PGENERIC_LIST List;
@@ -1054,9 +1028,10 @@ CreateKeyboardLayoutList(
 
             if (_wcsicmp(LayoutsList[uIndex].LayoutID, KeyName) == 0)
             {
-                UserData = (WCHAR*)RtlAllocateHeap(ProcessHeap,
-                                                   0,
-                                                   (wcslen(KeyName) + 1) * sizeof(WCHAR));
+                UserData = (WCHAR*) RtlAllocateHeap(ProcessHeap,
+                                                0,
+                                                (wcslen(KeyName) + 1) * sizeof(WCHAR));
+
                 if (UserData == NULL)
                 {
                     /* FIXME: Handle error! */
@@ -1092,10 +1067,8 @@ CreateKeyboardLayoutList(
     return List;
 }
 
-
 BOOLEAN
-ProcessKeyboardLayoutRegistry(
-    PGENERIC_LIST List)
+ProcessKeyboardLayoutRegistry(PGENERIC_LIST List)
 {
     PGENERIC_LIST_ENTRY Entry;
     PWCHAR LayoutId;
@@ -1144,17 +1117,14 @@ ProcessKeyboardLayoutRegistry(
 
 #if 0
 BOOLEAN
-ProcessKeyboardLayoutFiles(
-    PGENERIC_LIST List)
+ProcessKeyboardLayoutFiles(PGENERIC_LIST List)
 {
     return TRUE;
 }
 #endif
 
-
 BOOLEAN
-SetGeoID(
-    PWCHAR Id)
+SetGeoID(PWCHAR Id)
 {
     OBJECT_ATTRIBUTES ObjectAttributes;
     UNICODE_STRING KeyName;
@@ -1163,7 +1133,6 @@ SetGeoID(
     WCHAR szKeyName[] = L"\\Registry\\User\\.DEFAULT\\Control Panel\\International\\Geo";
     WCHAR szValueName[] = L"Nation";
     NTSTATUS Status;
-
     RtlInitUnicodeString(&KeyName,
                          szKeyName);
     InitializeObjectAttributes(&ObjectAttributes,
@@ -1174,25 +1143,24 @@ SetGeoID(
 
     Status =  NtOpenKey(&KeyHandle,
                         KEY_SET_VALUE,
-                        &ObjectAttributes);
+			  &ObjectAttributes);
     if(!NT_SUCCESS(Status))
     {
         DPRINT1("NtOpenKey() failed (Status %lx)\n", Status);
         return FALSE;
     }
-
     RtlInitUnicodeString(&ValueName, szValueName);
     Status = NtSetValueKey(KeyHandle,
-                           &ValueName,
-                           0,
-                           REG_SZ,
-                           (PVOID)Id,
-                           (wcslen(Id) + 1) * sizeof(WCHAR));
+                                   &ValueName,
+                                   0,
+                                   REG_SZ,
+                                   (PVOID)Id,
+                                   (wcslen(Id) + 1) * sizeof(WCHAR));
     NtClose(KeyHandle);
     if (!NT_SUCCESS(Status))
     {
-        DPRINT1("NtSetValueKey() failed (Status = %lx)\n", Status);
-        return FALSE;
+         DPRINT1("NtSetValueKey() failed (Status = %lx)\n", Status);
+         return FALSE;
     }
 
     return TRUE;

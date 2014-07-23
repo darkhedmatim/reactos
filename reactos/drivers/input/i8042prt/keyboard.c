@@ -21,7 +21,6 @@
 /* GLOBALS *******************************************************************/
 
 static IO_WORKITEM_ROUTINE i8042PowerWorkItem;
-static KDEFERRED_ROUTINE i8042KbdDpcRoutine;
 
 /* This structure starts with the same layout as KEYBOARD_INDICATOR_TRANSLATION */
 typedef struct _LOCAL_KEYBOARD_INDICATOR_TRANSLATION {
@@ -197,10 +196,9 @@ i8042PowerWorkItem(
 	PIRP WaitingIrp;
 	NTSTATUS Status;
 
-	UNREFERENCED_PARAMETER(DeviceObject);
+	DeviceExtension = (PI8042_KEYBOARD_EXTENSION)Context;
 
-	__analysis_assume(Context != NULL);
-	DeviceExtension = Context;
+	UNREFERENCED_PARAMETER(DeviceObject);
 
 	/* See http://blogs.msdn.com/doronh/archive/2006/09/08/746961.aspx */
 
@@ -333,8 +331,7 @@ i8042KbdDpcRoutine(
 	UNREFERENCED_PARAMETER(SystemArgument1);
 	UNREFERENCED_PARAMETER(SystemArgument2);
 
-	__analysis_assume(DeferredContext != NULL);
-	DeviceExtension = DeferredContext;
+	DeviceExtension = (PI8042_KEYBOARD_EXTENSION)DeferredContext;
 	PortDeviceExtension = DeviceExtension->Common.PortDeviceExtension;
 
 	if (HandlePowerKeys(DeviceExtension))
@@ -655,6 +652,9 @@ cleanup:
 			Irp->IoStatus.Information = sizeof(KEYBOARD_ATTRIBUTES);
 			Status = STATUS_SUCCESS;
 			break;
+
+			Status = STATUS_NOT_IMPLEMENTED;
+			break;
 		}
 		case IOCTL_KEYBOARD_QUERY_TYPEMATIC:
 		{
@@ -745,9 +745,9 @@ cleanup:
 }
 
 /*
- * Call the customization hook. The ToReturn parameter is about whether
+ * Call the customization hook. The ToReturn parameter is about wether
  * we should go on with the interrupt. The return value is what
- * we should return (indicating to the system whether someone else
+ * we should return (indicating to the system wether someone else
  * should try to handle the interrupt)
  */
 static BOOLEAN
@@ -796,8 +796,7 @@ i8042KbdInterruptService(
 
 	UNREFERENCED_PARAMETER(Interrupt);
 
-	__analysis_assume(Context != NULL);
-	DeviceExtension = Context;
+	DeviceExtension = (PI8042_KEYBOARD_EXTENSION)Context;
 	PortDeviceExtension = DeviceExtension->Common.PortDeviceExtension;
 	InputData = DeviceExtension->KeyboardBuffer + DeviceExtension->KeysInBuffer;
 	Counter = PortDeviceExtension->Settings.PollStatusIterations;

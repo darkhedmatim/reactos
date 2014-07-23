@@ -47,6 +47,22 @@ DEFINE_GUID(expect_guid, 0x12345678, 0x1234, 0x1234, 0x12, 0x34, 0x12, 0x34, 0x5
 
 #define GUID_MEMBERS(g) {(g).Data1, (g).Data2, (g).Data3, {(g).Data4[0], (g).Data4[1], (g).Data4[2], (g).Data4[3], (g).Data4[4], (g).Data4[5], (g).Data4[6], (g).Data4[7]}}
 
+static char *show_guid(const GUID *guid, char *buf)
+{
+    static char static_buf[40];
+
+    if(!buf)
+        buf = static_buf;
+
+    sprintf(buf,
+        "{%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
+        guid->Data1, guid->Data2, guid->Data3,
+        guid->Data4[0], guid->Data4[1], guid->Data4[2], guid->Data4[3],
+        guid->Data4[4], guid->Data4[5], guid->Data4[6], guid->Data4[7] );
+
+    return buf;
+}
+
 static int strcmp_wa(LPCWSTR strw, const char *stra)
 {
     CHAR buf[512];
@@ -108,9 +124,9 @@ static void test_PSStringFromPropertyKey(void)
         UINT cch;
         HRESULT hr_expect;
         const WCHAR *buf_expect;
-        BOOL hr_broken;
+        int hr_broken;
         HRESULT hr2;
-        BOOL buf_broken;
+        int buf_broken;
         const WCHAR *buf2;
     } testcases[] =
     {
@@ -118,15 +134,15 @@ static void test_PSStringFromPropertyKey(void)
         {&prop, NULL, 0, E_POINTER},
         {&prop, NULL, PKEYSTR_MAX, E_POINTER},
         {NULL, out, 0, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), fillerW},
-        {NULL, out, PKEYSTR_MAX, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), zero_fillerW, FALSE, 0, TRUE, fillerW},
+        {NULL, out, PKEYSTR_MAX, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), zero_fillerW, 0, 0, 1, fillerW},
         {&prop, out, 0, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), fillerW},
         {&prop, out, GUIDSTRING_MAX, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), fillerW},
         {&prop, out, GUIDSTRING_MAX + 1, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), fillerW},
-        {&prop, out, GUIDSTRING_MAX + 2, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), zero_truncatedW, TRUE, S_OK, TRUE, truncatedW},
-        {&prop, out, PKEYSTR_MAX - 2, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), zero_truncated2W, TRUE, S_OK, TRUE, truncated2W},
-        {&prop, out, PKEYSTR_MAX - 1, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), zero_truncated3W, TRUE, S_OK, TRUE, truncated3W},
+        {&prop, out, GUIDSTRING_MAX + 2, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), zero_truncatedW, 1, S_OK, 1, truncatedW},
+        {&prop, out, PKEYSTR_MAX - 2, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), zero_truncated2W, 1, S_OK, 1, truncated2W},
+        {&prop, out, PKEYSTR_MAX - 1, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), zero_truncated3W, 1, S_OK, 1, truncated3W},
         {&prop, out, PKEYSTR_MAX, S_OK, expectedW},
-        {&prop2, out, GUIDSTRING_MAX + 2, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), zero_truncated4W, TRUE, S_OK, TRUE, truncated4W},
+        {&prop2, out, GUIDSTRING_MAX + 2, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), zero_truncated4W, 1, S_OK, 1, truncated4W},
         {&prop2, out, GUIDSTRING_MAX + 6, S_OK, expected2W},
         {&prop2, out, PKEYSTR_MAX, S_OK, expected2W},
         {&prop3, out, GUIDSTRING_MAX + 1, HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER), fillerW},
@@ -340,6 +356,7 @@ static void test_PSPropertyKeyFromString(void)
     PROPERTYKEY out_init = {GUID_MEMBERS(dummy_guid), 0xdeadbeef};
     PROPERTYKEY out;
     HRESULT ret;
+    char guid_buf[40], guid_buf2[40];
 
     const struct
     {
@@ -431,7 +448,7 @@ static void test_PSPropertyKeyFromString(void)
         {
             ok(IsEqualGUID(&testcases[i].pkey->fmtid, &testcases[i].pkey_expect.fmtid),
                "[%d] Expected GUID %s, got %s\n",
-               i, wine_dbgstr_guid(&testcases[i].pkey_expect.fmtid), wine_dbgstr_guid(&testcases[i].pkey->fmtid));
+               i, show_guid(&testcases[i].pkey_expect.fmtid, guid_buf), show_guid(&testcases[i].pkey->fmtid, guid_buf2));
             ok(testcases[i].pkey->pid == testcases[i].pkey_expect.pid,
                "[%d] Expected property ID %u, got %u\n",
                i, testcases[i].pkey_expect.pid, testcases[i].pkey->pid);
@@ -571,7 +588,7 @@ static void test_PropVariantToGUID(void)
 
     hres = PropVariantToGUID(&propvar, &guid);
     ok(hres == S_OK, "PropVariantToGUID failed %x\n", hres);
-    ok(!memcmp(&IID_NULL, &guid, sizeof(GUID)), "incorrect GUID created: %s\n", wine_dbgstr_guid(&guid));
+    ok(!memcmp(&IID_NULL, &guid, sizeof(GUID)), "incorrect GUID created: %s\n", show_guid(&guid, NULL));
     PropVariantClear(&propvar);
 
     hres = InitPropVariantFromGUIDAsString(&dummy_guid, &propvar);
@@ -579,7 +596,7 @@ static void test_PropVariantToGUID(void)
 
     hres = PropVariantToGUID(&propvar, &guid);
     ok(hres == S_OK, "PropVariantToGUID failed %x\n", hres);
-    ok(!memcmp(&dummy_guid, &guid, sizeof(GUID)), "incorrect GUID created: %s\n", wine_dbgstr_guid(&guid));
+    ok(!memcmp(&dummy_guid, &guid, sizeof(GUID)), "incorrect GUID created: %s\n", show_guid(&guid, NULL));
 
     ok(propvar.vt == VT_LPWSTR, "incorrect PROPVARIANT type: %d\n", propvar.vt);
     propvar.u.pwszVal[1] = 'd';
@@ -587,7 +604,7 @@ static void test_PropVariantToGUID(void)
     propvar.u.pwszVal[3] = 'a';
     hres = PropVariantToGUID(&propvar, &guid);
     ok(hres == S_OK, "PropVariantToGUID failed %x\n", hres);
-    ok(!memcmp(&dummy_guid, &guid, sizeof(GUID)), "incorrect GUID created: %s\n", wine_dbgstr_guid(&guid));
+    ok(!memcmp(&dummy_guid, &guid, sizeof(GUID)), "incorrect GUID created: %s\n", show_guid(&guid, NULL));
 
     propvar.u.pwszVal[1] = 'z';
     hres = PropVariantToGUID(&propvar, &guid);
@@ -600,7 +617,7 @@ static void test_PropVariantToGUID(void)
 
     hres = VariantToGUID(&var, &guid);
     ok(hres == S_OK, "VariantToGUID failed %x\n", hres);
-    ok(!memcmp(&IID_NULL, &guid, sizeof(GUID)), "incorrect GUID created: %s\n", wine_dbgstr_guid(&guid));
+    ok(!memcmp(&IID_NULL, &guid, sizeof(GUID)), "incorrect GUID created: %s\n", show_guid(&guid, NULL));
     VariantClear(&var);
 
     hres = InitVariantFromGUIDAsString(&dummy_guid, &var);
@@ -608,7 +625,7 @@ static void test_PropVariantToGUID(void)
 
     hres = VariantToGUID(&var, &guid);
     ok(hres == S_OK, "VariantToGUID failed %x\n", hres);
-    ok(!memcmp(&dummy_guid, &guid, sizeof(GUID)), "incorrect GUID created: %s\n", wine_dbgstr_guid(&guid));
+    ok(!memcmp(&dummy_guid, &guid, sizeof(GUID)), "incorrect GUID created: %s\n", show_guid(&guid, NULL));
 
     ok(V_VT(&var) == VT_BSTR, "incorrect VARIANT type: %d\n", V_VT(&var));
     V_BSTR(&var)[1] = 'z';
@@ -621,7 +638,7 @@ static void test_PropVariantToGUID(void)
     V_VT(&var) = VT_EMPTY;
     hres = PropVariantToGUID(&propvar, &guid);
     ok(hres == S_OK, "PropVariantToGUID failed %x\n", hres);
-    ok(!memcmp(&dummy_guid, &guid, sizeof(GUID)), "incorrect GUID created: %s\n", wine_dbgstr_guid(&guid));
+    ok(!memcmp(&dummy_guid, &guid, sizeof(GUID)), "incorrect GUID created: %s\n", show_guid(&guid, NULL));
     PropVariantClear(&propvar);
 }
 

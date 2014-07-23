@@ -1637,21 +1637,26 @@ static HRESULT StringConstr_value(script_ctx_t *ctx, vdisp_t *jsthis, WORD flags
         break;
     }
     case DISPATCH_CONSTRUCT: {
-        jsstr_t *str;
         jsdisp_t *ret;
 
         if(argc) {
+            jsstr_t *str;
+
             hres = to_string(ctx, argv[0], &str);
             if(FAILED(hres))
                 return hres;
+
+            hres = create_string(ctx, str, &ret);
+            jsstr_release(str);
         }else {
-            str = jsstr_empty();
+            hres = create_string(ctx, jsstr_empty(), &ret);
         }
 
-        hres = create_string(ctx, str, &ret);
-        if (SUCCEEDED(hres)) *r = jsval_obj(ret);
-        jsstr_release(str);
-        return hres;
+        if(FAILED(hres))
+            return hres;
+
+        *r = jsval_obj(ret);
+        break;
     }
 
     default:

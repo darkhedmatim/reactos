@@ -34,15 +34,15 @@ typedef struct tagContextSink {
 } ContextSink;
 
 typedef struct tagContext {
-    ITfContext ITfContext_iface;
-    ITfSource ITfSource_iface;
+    const ITfContextVtbl *ContextVtbl;
+    const ITfSourceVtbl *SourceVtbl;
     /* const ITfContextCompositionVtbl *ContextCompositionVtbl; */
     /* const ITfContextOwnerCompositionServicesVtbl *ContextOwnerCompositionServicesVtbl; */
     /* const ITfContextOwnerServicesVtbl *ContextOwnerServicesVtbl; */
-    ITfInsertAtSelection ITfInsertAtSelection_iface;
+    const ITfInsertAtSelectionVtbl *InsertAtSelectionVtbl;
     /* const ITfMouseTrackerVtbl *MouseTrackerVtbl; */
     /* const ITfQueryEmbeddedVtbl *QueryEmbeddedVtbl; */
-    ITfSourceSingle ITfSourceSingle_iface;
+    const ITfSourceSingleVtbl *SourceSingleVtbl;
     LONG refCount;
     BOOL connected;
 
@@ -75,7 +75,7 @@ typedef struct tagEditCookie {
 } EditCookie;
 
 typedef struct tagTextStoreACPSink {
-    ITextStoreACPSink ITextStoreACPSink_iface;
+    const ITextStoreACPSinkVtbl *TextStoreACPSinkVtbl;
     /* const ITextStoreACPServicesVtbl *TextStoreACPServicesVtbl; */
     LONG refCount;
 
@@ -85,29 +85,19 @@ typedef struct tagTextStoreACPSink {
 
 static HRESULT TextStoreACPSink_Constructor(ITextStoreACPSink **ppOut, Context *pContext);
 
-static inline Context *impl_from_ITfContext(ITfContext *iface)
+static inline Context *impl_from_ITfSourceVtbl(ITfSource *iface)
 {
-    return CONTAINING_RECORD(iface, Context, ITfContext_iface);
+    return (Context *)((char *)iface - FIELD_OFFSET(Context,SourceVtbl));
 }
 
-static inline Context *impl_from_ITfSource(ITfSource *iface)
+static inline Context *impl_from_ITfInsertAtSelectionVtbl(ITfInsertAtSelection*iface)
 {
-    return CONTAINING_RECORD(iface, Context, ITfSource_iface);
+    return (Context *)((char *)iface - FIELD_OFFSET(Context,InsertAtSelectionVtbl));
 }
 
-static inline Context *impl_from_ITfInsertAtSelection(ITfInsertAtSelection *iface)
+static inline Context *impl_from_ITfSourceSingleVtbl(ITfSourceSingle* iface)
 {
-    return CONTAINING_RECORD(iface, Context, ITfInsertAtSelection_iface);
-}
-
-static inline Context *impl_from_ITfSourceSingle(ITfSourceSingle* iface)
-{
-    return CONTAINING_RECORD(iface, Context, ITfSourceSingle_iface);
-}
-
-static inline TextStoreACPSink *impl_from_ITextStoreACPSink(ITextStoreACPSink *iface)
-{
-    return CONTAINING_RECORD(iface, TextStoreACPSink, ITextStoreACPSink_iface);
+    return (Context *)((char *)iface - FIELD_OFFSET(Context,SourceSingleVtbl));
 }
 
 static void free_sink(ContextSink *sink)
@@ -178,20 +168,20 @@ static void Context_Destructor(Context *This)
 
 static HRESULT WINAPI Context_QueryInterface(ITfContext *iface, REFIID iid, LPVOID *ppvOut)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
     *ppvOut = NULL;
 
     if (IsEqualIID(iid, &IID_IUnknown) || IsEqualIID(iid, &IID_ITfContext))
     {
-        *ppvOut = &This->ITfContext_iface;
+        *ppvOut = This;
     }
     else if (IsEqualIID(iid, &IID_ITfSource))
     {
-        *ppvOut = &This->ITfSource_iface;
+        *ppvOut = &This->SourceVtbl;
     }
     else if (IsEqualIID(iid, &IID_ITfInsertAtSelection))
     {
-        *ppvOut = &This->ITfInsertAtSelection_iface;
+        *ppvOut = &This->InsertAtSelectionVtbl;
     }
     else if (IsEqualIID(iid, &IID_ITfCompartmentMgr))
     {
@@ -199,7 +189,7 @@ static HRESULT WINAPI Context_QueryInterface(ITfContext *iface, REFIID iid, LPVO
     }
     else if (IsEqualIID(iid, &IID_ITfSourceSingle))
     {
-        *ppvOut = &This->ITfSourceSingle_iface;
+        *ppvOut = &This->SourceSingleVtbl;
     }
 
     if (*ppvOut)
@@ -214,13 +204,13 @@ static HRESULT WINAPI Context_QueryInterface(ITfContext *iface, REFIID iid, LPVO
 
 static ULONG WINAPI Context_AddRef(ITfContext *iface)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
     return InterlockedIncrement(&This->refCount);
 }
 
 static ULONG WINAPI Context_Release(ITfContext *iface)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
     ULONG ret;
 
     ret = InterlockedDecrement(&This->refCount);
@@ -236,8 +226,8 @@ static HRESULT WINAPI Context_RequestEditSession (ITfContext *iface,
         TfClientId tid, ITfEditSession *pes, DWORD dwFlags,
         HRESULT *phrSession)
 {
-    Context *This = impl_from_ITfContext(iface);
     HRESULT hr;
+    Context *This = (Context *)iface;
     DWORD  dwLockFlags = 0x0;
 
     TRACE("(%p) %i %p %x %p\n",This, tid, pes, dwFlags, phrSession);
@@ -287,7 +277,7 @@ static HRESULT WINAPI Context_InWriteSession (ITfContext *iface,
          TfClientId tid,
          BOOL *pfWriteSession)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
     FIXME("STUB:(%p)\n",This);
     return E_NOTIMPL;
 }
@@ -296,7 +286,7 @@ static HRESULT WINAPI Context_GetSelection (ITfContext *iface,
         TfEditCookie ec, ULONG ulIndex, ULONG ulCount,
         TF_SELECTION *pSelection, ULONG *pcFetched)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
     EditCookie *cookie;
     ULONG count, i;
     ULONG totalFetched = 0;
@@ -355,8 +345,8 @@ static HRESULT WINAPI Context_GetSelection (ITfContext *iface,
 static HRESULT WINAPI Context_SetSelection (ITfContext *iface,
         TfEditCookie ec, ULONG ulCount, const TF_SELECTION *pSelection)
 {
-    Context *This = impl_from_ITfContext(iface);
     TS_SELECTION_ACP *acp;
+    Context *This = (Context *)iface;
     ULONG i;
     HRESULT hr;
 
@@ -393,7 +383,7 @@ static HRESULT WINAPI Context_SetSelection (ITfContext *iface,
 static HRESULT WINAPI Context_GetStart (ITfContext *iface,
         TfEditCookie ec, ITfRange **ppStart)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
     EditCookie *cookie;
     TRACE("(%p) %i %p\n",This,ec,ppStart);
 
@@ -415,7 +405,7 @@ static HRESULT WINAPI Context_GetStart (ITfContext *iface,
 static HRESULT WINAPI Context_GetEnd (ITfContext *iface,
         TfEditCookie ec, ITfRange **ppEnd)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
     EditCookie *cookie;
     LONG end;
     TRACE("(%p) %i %p\n",This,ec,ppEnd);
@@ -446,7 +436,7 @@ static HRESULT WINAPI Context_GetEnd (ITfContext *iface,
 static HRESULT WINAPI Context_GetActiveView (ITfContext *iface,
   ITfContextView **ppView)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
     FIXME("STUB:(%p)\n",This);
     return E_NOTIMPL;
 }
@@ -454,7 +444,7 @@ static HRESULT WINAPI Context_GetActiveView (ITfContext *iface,
 static HRESULT WINAPI Context_EnumViews (ITfContext *iface,
         IEnumTfContextViews **ppEnum)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
     FIXME("STUB:(%p)\n",This);
     return E_NOTIMPL;
 }
@@ -462,7 +452,7 @@ static HRESULT WINAPI Context_EnumViews (ITfContext *iface,
 static HRESULT WINAPI Context_GetStatus (ITfContext *iface,
         TF_STATUS *pdcs)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
     TRACE("(%p) %p\n",This,pdcs);
 
     if (!This->connected)
@@ -487,7 +477,7 @@ static HRESULT WINAPI Context_GetStatus (ITfContext *iface,
 static HRESULT WINAPI Context_GetProperty (ITfContext *iface,
         REFGUID guidProp, ITfProperty **ppProp)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
     FIXME("STUB:(%p)\n",This);
     return E_NOTIMPL;
 }
@@ -495,7 +485,7 @@ static HRESULT WINAPI Context_GetProperty (ITfContext *iface,
 static HRESULT WINAPI Context_GetAppProperty (ITfContext *iface,
         REFGUID guidProp, ITfReadOnlyProperty **ppProp)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
     FIXME("STUB:(%p)\n",This);
     return E_NOTIMPL;
 }
@@ -504,7 +494,7 @@ static HRESULT WINAPI Context_TrackProperties (ITfContext *iface,
         const GUID **prgProp, ULONG cProp, const GUID **prgAppProp,
         ULONG cAppProp, ITfReadOnlyProperty **ppProperty)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
     FIXME("STUB:(%p)\n",This);
     return E_NOTIMPL;
 }
@@ -512,7 +502,7 @@ static HRESULT WINAPI Context_TrackProperties (ITfContext *iface,
 static HRESULT WINAPI Context_EnumProperties (ITfContext *iface,
         IEnumTfProperties **ppEnum)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
     FIXME("STUB:(%p)\n",This);
     return E_NOTIMPL;
 }
@@ -520,7 +510,7 @@ static HRESULT WINAPI Context_EnumProperties (ITfContext *iface,
 static HRESULT WINAPI Context_GetDocumentMgr (ITfContext *iface,
         ITfDocumentMgr **ppDm)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
     TRACE("(%p) %p\n",This,ppDm);
 
     if (!ppDm)
@@ -538,16 +528,17 @@ static HRESULT WINAPI Context_GetDocumentMgr (ITfContext *iface,
 static HRESULT WINAPI Context_CreateRangeBackup (ITfContext *iface,
         TfEditCookie ec, ITfRange *pRange, ITfRangeBackup **ppBackup)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
     FIXME("STUB:(%p)\n",This);
     return E_NOTIMPL;
 }
 
-static const ITfContextVtbl ContextVtbl =
+static const ITfContextVtbl Context_ContextVtbl =
 {
     Context_QueryInterface,
     Context_AddRef,
     Context_Release,
+
     Context_RequestEditSession,
     Context_InWriteSession,
     Context_GetSelection,
@@ -565,22 +556,22 @@ static const ITfContextVtbl ContextVtbl =
     Context_CreateRangeBackup
 };
 
-static HRESULT WINAPI ContextSource_QueryInterface(ITfSource *iface, REFIID iid, LPVOID *ppvOut)
+static HRESULT WINAPI Source_QueryInterface(ITfSource *iface, REFIID iid, LPVOID *ppvOut)
 {
-    Context *This = impl_from_ITfSource(iface);
-    return ITfContext_QueryInterface(&This->ITfContext_iface, iid, ppvOut);
+    Context *This = impl_from_ITfSourceVtbl(iface);
+    return Context_QueryInterface((ITfContext *)This, iid, *ppvOut);
 }
 
-static ULONG WINAPI ContextSource_AddRef(ITfSource *iface)
+static ULONG WINAPI Source_AddRef(ITfSource *iface)
 {
-    Context *This = impl_from_ITfSource(iface);
-    return ITfContext_AddRef(&This->ITfContext_iface);
+    Context *This = impl_from_ITfSourceVtbl(iface);
+    return Context_AddRef((ITfContext *)This);
 }
 
-static ULONG WINAPI ContextSource_Release(ITfSource *iface)
+static ULONG WINAPI Source_Release(ITfSource *iface)
 {
-    Context *This = impl_from_ITfSource(iface);
-    return ITfContext_Release(&This->ITfContext_iface);
+    Context *This = impl_from_ITfSourceVtbl(iface);
+    return Context_Release((ITfContext *)This);
 }
 
 /*****************************************************
@@ -589,8 +580,8 @@ static ULONG WINAPI ContextSource_Release(ITfSource *iface)
 static HRESULT WINAPI ContextSource_AdviseSink(ITfSource *iface,
         REFIID riid, IUnknown *punk, DWORD *pdwCookie)
 {
-    Context *This = impl_from_ITfSource(iface);
     ContextSink *es;
+    Context *This = impl_from_ITfSourceVtbl(iface);
     TRACE("(%p) %s %p %p\n",This,debugstr_guid(riid),punk,pdwCookie);
 
     if (!riid || !punk || !pdwCookie)
@@ -621,8 +612,8 @@ static HRESULT WINAPI ContextSource_AdviseSink(ITfSource *iface,
 
 static HRESULT WINAPI ContextSource_UnadviseSink(ITfSource *iface, DWORD pdwCookie)
 {
-    Context *This = impl_from_ITfSource(iface);
     ContextSink *sink;
+    Context *This = impl_from_ITfSourceVtbl(iface);
 
     TRACE("(%p) %x\n",This,pdwCookie);
 
@@ -639,13 +630,14 @@ static HRESULT WINAPI ContextSource_UnadviseSink(ITfSource *iface, DWORD pdwCook
     return S_OK;
 }
 
-static const ITfSourceVtbl ContextSourceVtbl =
+static const ITfSourceVtbl Context_SourceVtbl =
 {
-    ContextSource_QueryInterface,
-    ContextSource_AddRef,
-    ContextSource_Release,
+    Source_QueryInterface,
+    Source_AddRef,
+    Source_Release,
+
     ContextSource_AdviseSink,
-    ContextSource_UnadviseSink
+    ContextSource_UnadviseSink,
 };
 
 /*****************************************************
@@ -653,27 +645,27 @@ static const ITfSourceVtbl ContextSourceVtbl =
  *****************************************************/
 static HRESULT WINAPI InsertAtSelection_QueryInterface(ITfInsertAtSelection *iface, REFIID iid, LPVOID *ppvOut)
 {
-    Context *This = impl_from_ITfInsertAtSelection(iface);
-    return ITfContext_QueryInterface(&This->ITfContext_iface, iid, ppvOut);
+    Context *This = impl_from_ITfInsertAtSelectionVtbl(iface);
+    return Context_QueryInterface((ITfContext *)This, iid, *ppvOut);
 }
 
 static ULONG WINAPI InsertAtSelection_AddRef(ITfInsertAtSelection *iface)
 {
-    Context *This = impl_from_ITfInsertAtSelection(iface);
-    return ITfContext_AddRef(&This->ITfContext_iface);
+    Context *This = impl_from_ITfInsertAtSelectionVtbl(iface);
+    return Context_AddRef((ITfContext *)This);
 }
 
 static ULONG WINAPI InsertAtSelection_Release(ITfInsertAtSelection *iface)
 {
-    Context *This = impl_from_ITfInsertAtSelection(iface);
-    return ITfContext_Release(&This->ITfContext_iface);
+    Context *This = impl_from_ITfInsertAtSelectionVtbl(iface);
+    return Context_Release((ITfContext *)This);
 }
 
 static HRESULT WINAPI InsertAtSelection_InsertTextAtSelection(
         ITfInsertAtSelection *iface, TfEditCookie ec, DWORD dwFlags,
         const WCHAR *pchText, LONG cch, ITfRange **ppRange)
 {
-    Context *This = impl_from_ITfInsertAtSelection(iface);
+    Context *This = impl_from_ITfInsertAtSelectionVtbl(iface);
     EditCookie *cookie;
     LONG acpStart, acpEnd;
     TS_TEXTCHANGE change;
@@ -700,7 +692,7 @@ static HRESULT WINAPI InsertAtSelection_InsertTextAtSelection(
 
     hr = ITextStoreACP_InsertTextAtSelection(This->pITextStoreACP, dwFlags, pchText, cch, &acpStart, &acpEnd, &change);
     if (SUCCEEDED(hr))
-        Range_Constructor(&This->ITfContext_iface, This->pITextStoreACP, cookie->lockType, change.acpStart, change.acpNewEnd, ppRange);
+        Range_Constructor((ITfContext*)This, This->pITextStoreACP, cookie->lockType, change.acpStart, change.acpNewEnd, ppRange);
 
     return hr;
 }
@@ -709,16 +701,17 @@ static HRESULT WINAPI InsertAtSelection_InsertEmbeddedAtSelection(
         ITfInsertAtSelection *iface, TfEditCookie ec, DWORD dwFlags,
         IDataObject *pDataObject, ITfRange **ppRange)
 {
-    Context *This = impl_from_ITfInsertAtSelection(iface);
+    Context *This = impl_from_ITfInsertAtSelectionVtbl(iface);
     FIXME("STUB:(%p)\n",This);
     return E_NOTIMPL;
 }
 
-static const ITfInsertAtSelectionVtbl InsertAtSelectionVtbl =
+static const ITfInsertAtSelectionVtbl Context_InsertAtSelectionVtbl =
 {
     InsertAtSelection_QueryInterface,
     InsertAtSelection_AddRef,
     InsertAtSelection_Release,
+
     InsertAtSelection_InsertTextAtSelection,
     InsertAtSelection_InsertEmbeddedAtSelection,
 };
@@ -728,26 +721,26 @@ static const ITfInsertAtSelectionVtbl InsertAtSelectionVtbl =
  *****************************************************/
 static HRESULT WINAPI SourceSingle_QueryInterface(ITfSourceSingle *iface, REFIID iid, LPVOID *ppvOut)
 {
-    Context *This = impl_from_ITfSourceSingle(iface);
-    return ITfContext_QueryInterface(&This->ITfContext_iface, iid, ppvOut);
+    Context *This = impl_from_ITfSourceSingleVtbl(iface);
+    return Context_QueryInterface((ITfContext *)This, iid, *ppvOut);
 }
 
 static ULONG WINAPI SourceSingle_AddRef(ITfSourceSingle *iface)
 {
-    Context *This = impl_from_ITfSourceSingle(iface);
-    return ITfContext_AddRef(&This->ITfContext_iface);
+    Context *This = impl_from_ITfSourceSingleVtbl(iface);
+    return Context_AddRef((ITfContext *)This);
 }
 
 static ULONG WINAPI SourceSingle_Release(ITfSourceSingle *iface)
 {
-    Context *This = impl_from_ITfSourceSingle(iface);
-    return ITfContext_Release(&This->ITfContext_iface);
+    Context *This = impl_from_ITfSourceSingleVtbl(iface);
+    return Context_Release((ITfContext *)This);
 }
 
 static HRESULT WINAPI SourceSingle_AdviseSingleSink( ITfSourceSingle *iface,
     TfClientId tid, REFIID riid, IUnknown *punk)
 {
-    Context *This = impl_from_ITfSourceSingle(iface);
+    Context *This = impl_from_ITfSourceSingleVtbl(iface);
     FIXME("STUB:(%p) %i %s %p\n",This, tid, debugstr_guid(riid),punk);
     return E_NOTIMPL;
 }
@@ -755,16 +748,17 @@ static HRESULT WINAPI SourceSingle_AdviseSingleSink( ITfSourceSingle *iface,
 static HRESULT WINAPI SourceSingle_UnadviseSingleSink( ITfSourceSingle *iface,
     TfClientId tid, REFIID riid)
 {
-    Context *This = impl_from_ITfSourceSingle(iface);
+    Context *This = impl_from_ITfSourceSingleVtbl(iface);
     FIXME("STUB:(%p) %i %s\n",This, tid, debugstr_guid(riid));
     return E_NOTIMPL;
 }
 
-static const ITfSourceSingleVtbl ContextSourceSingleVtbl =
+static const ITfSourceSingleVtbl Context_SourceSingleVtbl =
 {
     SourceSingle_QueryInterface,
     SourceSingle_AddRef,
     SourceSingle_Release,
+
     SourceSingle_AdviseSingleSink,
     SourceSingle_UnadviseSingleSink,
 };
@@ -787,16 +781,16 @@ HRESULT Context_Constructor(TfClientId tidOwner, IUnknown *punk, ITfDocumentMgr 
 
     TRACE("(%p) %x %p %p %p\n",This, tidOwner, punk, ppOut, pecTextStore);
 
-    This->ITfContext_iface.lpVtbl= &ContextVtbl;
-    This->ITfSource_iface.lpVtbl = &ContextSourceVtbl;
-    This->ITfInsertAtSelection_iface.lpVtbl = &InsertAtSelectionVtbl;
-    This->ITfSourceSingle_iface.lpVtbl = &ContextSourceSingleVtbl;
+    This->ContextVtbl= &Context_ContextVtbl;
+    This->SourceVtbl = &Context_SourceVtbl;
+    This->InsertAtSelectionVtbl = &Context_InsertAtSelectionVtbl;
+    This->SourceSingleVtbl = &Context_SourceSingleVtbl;
     This->refCount = 1;
     This->tidOwner = tidOwner;
     This->connected = FALSE;
     This->manager = mgr;
 
-    CompartmentMgr_Constructor((IUnknown*)&This->ITfContext_iface, &IID_IUnknown, (IUnknown**)&This->CompartmentMgr);
+    CompartmentMgr_Constructor((IUnknown*)This, &IID_IUnknown, (IUnknown**)&This->CompartmentMgr);
 
     cookie->lockType = TF_ES_READ;
     cookie->pOwningContext = This;
@@ -822,15 +816,15 @@ HRESULT Context_Constructor(TfClientId tidOwner, IUnknown *punk, ITfDocumentMgr 
     list_init(&This->pTextEditSink);
     list_init(&This->pTextLayoutSink);
 
-    *ppOut = &This->ITfContext_iface;
-    TRACE("returning %p\n", *ppOut);
+    *ppOut = (ITfContext*)This;
+    TRACE("returning %p\n", This);
 
     return S_OK;
 }
 
 HRESULT Context_Initialize(ITfContext *iface, ITfDocumentMgr *manager)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
 
     if (This->pITextStoreACP)
     {
@@ -845,7 +839,7 @@ HRESULT Context_Initialize(ITfContext *iface, ITfDocumentMgr *manager)
 
 HRESULT Context_Uninitialize(ITfContext *iface)
 {
-    Context *This = impl_from_ITfContext(iface);
+    Context *This = (Context *)iface;
 
     if (This->pITextStoreACPSink)
     {
@@ -870,12 +864,12 @@ static void TextStoreACPSink_Destructor(TextStoreACPSink *This)
 
 static HRESULT WINAPI TextStoreACPSink_QueryInterface(ITextStoreACPSink *iface, REFIID iid, LPVOID *ppvOut)
 {
-    TextStoreACPSink *This = impl_from_ITextStoreACPSink(iface);
+    TextStoreACPSink *This = (TextStoreACPSink *)iface;
     *ppvOut = NULL;
 
     if (IsEqualIID(iid, &IID_IUnknown) || IsEqualIID(iid, &IID_ITextStoreACPSink))
     {
-        *ppvOut = &This->ITextStoreACPSink_iface;
+        *ppvOut = This;
     }
 
     if (*ppvOut)
@@ -890,13 +884,13 @@ static HRESULT WINAPI TextStoreACPSink_QueryInterface(ITextStoreACPSink *iface, 
 
 static ULONG WINAPI TextStoreACPSink_AddRef(ITextStoreACPSink *iface)
 {
-    TextStoreACPSink *This = impl_from_ITextStoreACPSink(iface);
+    TextStoreACPSink *This = (TextStoreACPSink *)iface;
     return InterlockedIncrement(&This->refCount);
 }
 
 static ULONG WINAPI TextStoreACPSink_Release(ITextStoreACPSink *iface)
 {
-    TextStoreACPSink *This = impl_from_ITextStoreACPSink(iface);
+    TextStoreACPSink *This = (TextStoreACPSink *)iface;
     ULONG ret;
 
     ret = InterlockedDecrement(&This->refCount);
@@ -912,14 +906,14 @@ static ULONG WINAPI TextStoreACPSink_Release(ITextStoreACPSink *iface)
 static HRESULT WINAPI TextStoreACPSink_OnTextChange(ITextStoreACPSink *iface,
         DWORD dwFlags, const TS_TEXTCHANGE *pChange)
 {
-    TextStoreACPSink *This = impl_from_ITextStoreACPSink(iface);
+    TextStoreACPSink *This = (TextStoreACPSink *)iface;
     FIXME("STUB:(%p)\n",This);
     return E_NOTIMPL;
 }
 
 static HRESULT WINAPI TextStoreACPSink_OnSelectionChange(ITextStoreACPSink *iface)
 {
-    TextStoreACPSink *This = impl_from_ITextStoreACPSink(iface);
+    TextStoreACPSink *This = (TextStoreACPSink *)iface;
     FIXME("STUB:(%p)\n",This);
     return E_NOTIMPL;
 }
@@ -927,7 +921,7 @@ static HRESULT WINAPI TextStoreACPSink_OnSelectionChange(ITextStoreACPSink *ifac
 static HRESULT WINAPI TextStoreACPSink_OnLayoutChange(ITextStoreACPSink *iface,
     TsLayoutCode lcode, TsViewCookie vcView)
 {
-    TextStoreACPSink *This = impl_from_ITextStoreACPSink(iface);
+    TextStoreACPSink *This = (TextStoreACPSink *)iface;
     FIXME("STUB:(%p)\n",This);
     return E_NOTIMPL;
 }
@@ -935,7 +929,7 @@ static HRESULT WINAPI TextStoreACPSink_OnLayoutChange(ITextStoreACPSink *iface,
 static HRESULT WINAPI TextStoreACPSink_OnStatusChange(ITextStoreACPSink *iface,
         DWORD dwFlags)
 {
-    TextStoreACPSink *This = impl_from_ITextStoreACPSink(iface);
+    TextStoreACPSink *This = (TextStoreACPSink *)iface;
     HRESULT hr, hrSession;
 
     TRACE("(%p) %x\n",This, dwFlags);
@@ -963,7 +957,7 @@ static HRESULT WINAPI TextStoreACPSink_OnStatusChange(ITextStoreACPSink *iface,
 static HRESULT WINAPI TextStoreACPSink_OnAttrsChange(ITextStoreACPSink *iface,
         LONG acpStart, LONG acpEnd, ULONG cAttrs, const TS_ATTRID *paAttrs)
 {
-    TextStoreACPSink *This = impl_from_ITextStoreACPSink(iface);
+    TextStoreACPSink *This = (TextStoreACPSink *)iface;
     FIXME("STUB:(%p)\n",This);
     return E_NOTIMPL;
 }
@@ -971,7 +965,7 @@ static HRESULT WINAPI TextStoreACPSink_OnAttrsChange(ITextStoreACPSink *iface,
 static HRESULT WINAPI TextStoreACPSink_OnLockGranted(ITextStoreACPSink *iface,
         DWORD dwLockFlags)
 {
-    TextStoreACPSink *This = impl_from_ITextStoreACPSink(iface);
+    TextStoreACPSink *This = (TextStoreACPSink *)iface;
     HRESULT hr;
     EditCookie *cookie,*sinkcookie;
     TfEditCookie ec;
@@ -1039,23 +1033,24 @@ static HRESULT WINAPI TextStoreACPSink_OnLockGranted(ITextStoreACPSink *iface,
 
 static HRESULT WINAPI TextStoreACPSink_OnStartEditTransaction(ITextStoreACPSink *iface)
 {
-    TextStoreACPSink *This = impl_from_ITextStoreACPSink(iface);
+    TextStoreACPSink *This = (TextStoreACPSink *)iface;
     FIXME("STUB:(%p)\n",This);
     return E_NOTIMPL;
 }
 
 static HRESULT WINAPI TextStoreACPSink_OnEndEditTransaction(ITextStoreACPSink *iface)
 {
-    TextStoreACPSink *This = impl_from_ITextStoreACPSink(iface);
+    TextStoreACPSink *This = (TextStoreACPSink *)iface;
     FIXME("STUB:(%p)\n",This);
     return E_NOTIMPL;
 }
 
-static const ITextStoreACPSinkVtbl TextStoreACPSinkVtbl =
+static const ITextStoreACPSinkVtbl TextStoreACPSink_TextStoreACPSinkVtbl =
 {
     TextStoreACPSink_QueryInterface,
     TextStoreACPSink_AddRef,
     TextStoreACPSink_Release,
+
     TextStoreACPSink_OnTextChange,
     TextStoreACPSink_OnSelectionChange,
     TextStoreACPSink_OnLayoutChange,
@@ -1074,12 +1069,12 @@ static HRESULT TextStoreACPSink_Constructor(ITextStoreACPSink **ppOut, Context *
     if (This == NULL)
         return E_OUTOFMEMORY;
 
-    This->ITextStoreACPSink_iface.lpVtbl= &TextStoreACPSinkVtbl;
+    This->TextStoreACPSinkVtbl= &TextStoreACPSink_TextStoreACPSinkVtbl;
     This->refCount = 1;
 
     This->pContext = pContext;
 
-    *ppOut = &This->ITextStoreACPSink_iface;
-    TRACE("returning %p\n", *ppOut);
+    TRACE("returning %p\n", This);
+    *ppOut = (ITextStoreACPSink*)This;
     return S_OK;
 }

@@ -24,7 +24,7 @@
 #define IDA_SHELLVIEW 1
 
 /* Bitmaps */
-#define IDB_REACTOS 131
+#define IDB_SHELL_ABOUT_LOGO_24BPP 131
 
 /* Strings */
 
@@ -523,4 +523,3 @@
 #define IDR_DRVDEFEXT           148
 #define IDR_MENUBAND            149
 #define IDR_MENUDESKBAR         150
-#define IDR_EXEDROPHANDLER      151

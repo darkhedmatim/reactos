@@ -20,6 +20,7 @@
  */
 
 #include <math.h>
+#include <assert.h>
 
 #define WIN32_NO_STATUS
 #define _INC_WINDOWS
@@ -65,7 +66,7 @@ static REAL units_to_pixels(REAL units, GpUnit unit, REAL dpi)
     case UnitMillimeter:
         return units * dpi / mm_per_inch;
     default:
-        ok(0, "Unsupported unit: %d\n", unit);
+        assert(0);
         return 0;
     }
 }
@@ -87,7 +88,7 @@ static REAL pixels_to_units(REAL pixels, GpUnit unit, REAL dpi)
     case UnitMillimeter:
         return pixels * mm_per_inch / dpi;
     default:
-        ok(0, "Unsupported unit: %d\n", unit);
+        assert(0);
         return 0;
     }
 }
@@ -5501,52 +5502,6 @@ static void test_clipping_2(void)
     DeleteDC(hdc);
 }
 
-
-static void test_GdipFillRectangles(void)
-{
-    GpStatus status;
-    GpGraphics *graphics = NULL;
-    GpBrush *brush = NULL;
-    HDC hdc = GetDC( hwnd );
-    GpRectF rects[2] = {{0,0,10,10}, {10,10,10,10}};
-
-    ok(hdc != NULL, "Expected HDC to be initialized\n");
-
-    status = GdipCreateFromHDC(hdc, &graphics);
-    expect(Ok, status);
-    ok(graphics != NULL, "Expected graphics to be initialized\n");
-
-    status = GdipCreateSolidFill((ARGB)0xffff00ff, (GpSolidFill**)&brush);
-    expect(Ok, status);
-    ok(brush != NULL, "Expected brush to be initialized\n");
-
-    status = GdipFillRectangles(NULL, brush, rects, 2);
-    expect(InvalidParameter, status);
-
-    status = GdipFillRectangles(graphics, NULL, rects, 2);
-    expect(InvalidParameter, status);
-
-    status = GdipFillRectangles(graphics, brush, NULL, 2);
-    expect(InvalidParameter, status);
-
-    status = GdipFillRectangles(graphics, brush, rects, 0);
-    expect(InvalidParameter, status);
-
-    status = GdipFillRectangles(graphics, brush, rects, -1);
-    expect(InvalidParameter, status);
-
-    status = GdipFillRectangles(graphics, brush, rects, 1);
-    expect(Ok, status);
-
-    status = GdipFillRectangles(graphics, brush, rects, 2);
-    expect(Ok, status);
-
-    GdipDeleteBrush(brush);
-    GdipDeleteGraphics(graphics);
-
-    ReleaseDC(hwnd, hdc);
-}
-
 START_TEST(graphics)
 {
     struct GdiplusStartupInput gdiplusStartupInput;
@@ -5558,8 +5513,8 @@ START_TEST(graphics)
     class.style = CS_HREDRAW | CS_VREDRAW;
     class.lpfnWndProc = DefWindowProcA;
     class.hInstance = GetModuleHandleA(0);
-    class.hIcon = LoadIconA(0, (LPCSTR)IDI_APPLICATION);
-    class.hCursor = LoadCursorA(0, (LPCSTR)IDC_ARROW);
+    class.hIcon = LoadIcon(0, IDI_APPLICATION);
+    class.hCursor = LoadCursor(NULL, IDC_ARROW);
     class.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     RegisterClassA( &class );
     hwnd = CreateWindowA( "gdiplus_test", "graphics test", WS_OVERLAPPEDWINDOW | WS_VISIBLE,
@@ -5619,7 +5574,6 @@ START_TEST(graphics)
     test_getdc_scaled();
     test_alpha_hdc();
     test_bitmapfromgraphics();
-    test_GdipFillRectangles();
 
     GdiplusShutdown(gdiplusToken);
     DestroyWindow( hwnd );

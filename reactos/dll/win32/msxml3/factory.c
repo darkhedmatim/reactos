@@ -47,8 +47,8 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(msxml);
 
-typedef HRESULT (*ClassFactoryCreateInstanceFunc)(void**);
-typedef HRESULT (*DOMFactoryCreateInstanceFunc)(MSXML_VERSION, void**);
+typedef HRESULT (*ClassFactoryCreateInstanceFunc)(IUnknown*, void**);
+typedef HRESULT (*DOMFactoryCreateInstanceFunc)(MSXML_VERSION, IUnknown*, void**);
 
 struct clsid_version_t
 {
@@ -175,7 +175,7 @@ static HRESULT WINAPI ClassFactory_CreateInstance(
     if (pOuter)
         return CLASS_E_NOAGGREGATION;
 
-    r = This->pCreateInstance( (void**) &punk );
+    r = This->pCreateInstance( pOuter, (void**) &punk );
     if (FAILED(r))
         return r;
 
@@ -233,7 +233,7 @@ static HRESULT WINAPI DOMClassFactory_CreateInstance(
     if (pOuter)
         return CLASS_E_NOAGGREGATION;
 
-    r = This->pCreateInstance( This->version, (void**) &punk );
+    r = This->pCreateInstance( This->version, pOuter, (void**) &punk );
     if (FAILED(r))
         return r;
 

@@ -214,8 +214,7 @@ CmpInitializeHive(OUT PCMHIVE *RegistryHive,
         (OperationType == HINIT_MAPFILE))
     {
         /* Verify integrity */
-        ULONG CheckStatus = CmCheckRegistry(Hive, CheckFlags);
-        if (CheckStatus != 0)
+        if (CmCheckRegistry((PCMHIVE)Hive, TRUE))
         {
             /* Cleanup allocations and fail */
             ExFreePoolWithTag(Hive->FlusherLock, TAG_CM);
@@ -236,28 +235,6 @@ CmpInitializeHive(OUT PCMHIVE *RegistryHive,
 
     /* Return the hive and success */
     *RegistryHive = (PCMHIVE)Hive;
-    return STATUS_SUCCESS;
-}
-
-NTSTATUS
-NTAPI
-CmpDestroyHive(IN PCMHIVE CmHive)
-{
-    /* Remove the hive from the list */
-    ExAcquirePushLockExclusive(&CmpHiveListHeadLock);
-    RemoveEntryList(&CmHive->HiveList);
-    ExReleasePushLock(&CmpHiveListHeadLock);
-
-    /* Delete the flusher lock */
-    ExDeleteResourceLite(CmHive->FlusherLock);
-    ExFreePoolWithTag(CmHive->FlusherLock, TAG_CM);
-
-    /* Delete the view lock */
-    ExFreePoolWithTag(CmHive->ViewLock, TAG_CM);
-
-    /* Free the hive */
-    HvFree(&CmHive->Hive);
-
     return STATUS_SUCCESS;
 }
 

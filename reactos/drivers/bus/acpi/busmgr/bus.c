@@ -827,7 +827,7 @@ acpi_bus_match (
 			goto Done;
 
 	if (device->flags.compatible_ids) {
-		ACPI_PNP_DEVICE_ID_LIST *cid_list = device->pnp.cid_list;
+		ACPI_DEVICE_ID_LIST *cid_list = device->pnp.cid_list;
 		int i;
 
 		/* compare multiple _CID entries against driver ids */
@@ -1140,9 +1140,9 @@ acpi_bus_add (
 	ACPI_DEVICE_INFO	*info;
 	char			*hid = NULL;
 	char			*uid = NULL;
-	ACPI_PNP_DEVICE_ID_LIST *cid_list = NULL;
+	ACPI_DEVICE_ID_LIST *cid_list = NULL;
 	int			i = 0;
-	acpi_unique_id		static_uid_buffer;
+	char			static_uid_buffer[5];
 
 	if (!child)
 		return_VALUE(AE_BAD_PARAMETER);
@@ -1165,15 +1165,15 @@ acpi_bus_add (
 	 */
 	switch (type) {
 	case ACPI_BUS_TYPE_SYSTEM:
-		snprintf(device->pnp.bus_id, sizeof(device->pnp.bus_id), "%s", "ACPI");
+		sprintf(device->pnp.bus_id, "%s", "ACPI");
 		break;
 	case ACPI_BUS_TYPE_POWER_BUTTONF:
 	case ACPI_BUS_TYPE_POWER_BUTTON:
-		snprintf(device->pnp.bus_id, sizeof(device->pnp.bus_id), "%s", "PWRF");
+		sprintf(device->pnp.bus_id, "%s", "PWRF");
 		break;
 	case ACPI_BUS_TYPE_SLEEP_BUTTONF:
 	case ACPI_BUS_TYPE_SLEEP_BUTTON:
-		snprintf(device->pnp.bus_id, sizeof(device->pnp.bus_id), "%s", "SLPF");
+		sprintf(device->pnp.bus_id, "%s", "SLPF");
 		break;
 	default:
 		buffer.Length = sizeof(bus_id);
@@ -1188,7 +1188,7 @@ acpi_bus_add (
 			else
 				break;
 		}
-		snprintf(device->pnp.bus_id, sizeof(device->pnp.bus_id), "%s", bus_id);
+		sprintf(device->pnp.bus_id, "%s", bus_id);
 		buffer.Pointer = NULL;
 
         /* HACK: Skip HPET */
@@ -1277,12 +1277,12 @@ acpi_bus_add (
 	case ACPI_BUS_TYPE_POWER:
 		hid = ACPI_POWER_HID;
         uid = static_uid_buffer;
-		snprintf(uid, sizeof(static_uid_buffer), "%d", (PowerDeviceCount++));
+		sprintf(uid, "%d", (PowerDeviceCount++));
 		break;
 	case ACPI_BUS_TYPE_PROCESSOR:
 		hid = ACPI_PROCESSOR_HID;
 		uid = static_uid_buffer;
-		snprintf(uid, sizeof(static_uid_buffer), "_%d", (ProcessorCount++));
+		sprintf(uid, "_%d", (ProcessorCount++));
 		break;
 	case ACPI_BUS_TYPE_SYSTEM:
 		hid = ACPI_SYSTEM_HID;
@@ -1290,27 +1290,27 @@ acpi_bus_add (
 	case ACPI_BUS_TYPE_THERMAL:
 		hid = ACPI_THERMAL_HID;
         uid = static_uid_buffer;
-		snprintf(uid, sizeof(static_uid_buffer), "%d", (ThermalZoneCount++));
+		sprintf(uid, "%d", (ThermalZoneCount++));
 		break;
 	case ACPI_BUS_TYPE_POWER_BUTTON:
 		hid = ACPI_BUTTON_HID_POWER;
         uid = static_uid_buffer;
-		snprintf(uid, sizeof(static_uid_buffer), "%d", (PowerButtonCount++));
+		sprintf(uid, "%d", (PowerButtonCount++));
 		break;
 	case ACPI_BUS_TYPE_POWER_BUTTONF:
 		hid = ACPI_BUTTON_HID_POWERF;
         uid = static_uid_buffer;
-		snprintf(uid, sizeof(static_uid_buffer), "%d", (FixedPowerButtonCount++));
+		sprintf(uid, "%d", (FixedPowerButtonCount++));
 		break;
 	case ACPI_BUS_TYPE_SLEEP_BUTTON:
 		hid = ACPI_BUTTON_HID_SLEEP;
         uid = static_uid_buffer;
-		snprintf(uid, sizeof(static_uid_buffer), "%d", (SleepButtonCount++));
+		sprintf(uid, "%d", (SleepButtonCount++));
 		break;
 	case ACPI_BUS_TYPE_SLEEP_BUTTONF:
 		hid = ACPI_BUTTON_HID_SLEEPF;
         uid = static_uid_buffer;
-		snprintf(uid, sizeof(static_uid_buffer), "%d", (FixedSleepButtonCount++));
+		sprintf(uid, "%d", (FixedSleepButtonCount++));
 		break;
 	}
 
@@ -1321,19 +1321,16 @@ acpi_bus_add (
 	 */
 	if (((ACPI_HANDLE)parent == ACPI_ROOT_OBJECT) && (type == ACPI_BUS_TYPE_DEVICE)) {
 		hid = ACPI_BUS_HID;
-		snprintf(device->pnp.device_name, sizeof(device->pnp.device_name), "%s", ACPI_BUS_DEVICE_NAME);
-		snprintf(device->pnp.device_class, sizeof(device->pnp.device_class), "%s", ACPI_BUS_CLASS);
+		sprintf(device->pnp.device_name, "%s", ACPI_BUS_DEVICE_NAME);
+		sprintf(device->pnp.device_class, "%s", ACPI_BUS_CLASS);
 	}
 
 	if (hid) {
-        device->pnp.hardware_id = ExAllocatePoolWithTag(NonPagedPool, strlen(hid) + 1, 'IPCA');
-        if (device->pnp.hardware_id) {
-            snprintf(device->pnp.hardware_id, strlen(hid) + 1, "%s", hid);
-            device->flags.hardware_id = 1;
-        }
+		sprintf(device->pnp.hardware_id, "%s", hid);
+		device->flags.hardware_id = 1;
 	}
 	if (uid) {
-		snprintf(device->pnp.unique_id, sizeof(device->pnp.unique_id), "%s", uid);
+		sprintf(device->pnp.unique_id, "%s", uid);
 		device->flags.unique_id = 1;
 	}
 
@@ -1437,9 +1434,6 @@ end:
 		if (device->pnp.cid_list) {
 			ExFreePoolWithTag(device->pnp.cid_list, 'IPCA');
 		}
-        if (device->pnp.hardware_id) {
-            ExFreePoolWithTag(device->pnp.hardware_id, 'IPCA');
-        }
 		ExFreePoolWithTag(device, 'IPCA');
 		return_VALUE(result);
 	}
@@ -1460,11 +1454,8 @@ acpi_bus_remove (
 
 	acpi_device_unregister(device);
 
-	if (device->pnp.cid_list)
+	if (device && device->pnp.cid_list)
 		ExFreePoolWithTag(device->pnp.cid_list, 'IPCA');
-
-    if (device->pnp.hardware_id)
-        ExFreePoolWithTag(device->pnp.hardware_id, 'IPCA');
 
 	if (device)
 		ExFreePoolWithTag(device, 'IPCA');

@@ -1460,8 +1460,6 @@ typedef enum {
 #define LANGIDFROMLCID(l)	((WORD)(l))
 #define LANG_SYSTEM_DEFAULT	MAKELANGID(LANG_NEUTRAL,SUBLANG_SYS_DEFAULT)
 #define LANG_USER_DEFAULT	MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT)
-#define LOCALE_SYSTEM_DEFAULT MAKELCID(LANG_SYSTEM_DEFAULT, SORT_DEFAULT)
-#define LOCALE_USER_DEFAULT MAKELCID(LANG_USER_DEFAULT, SORT_DEFAULT)
 #define LOCALE_NEUTRAL	MAKELCID(MAKELANGID(LANG_NEUTRAL,SUBLANG_NEUTRAL),SORT_DEFAULT)
 #define LOCALE_INVARIANT MAKELCID(MAKELANGID(LANG_INVARIANT, SUBLANG_NEUTRAL), SORT_DEFAULT)
 #define LOCALE_NAME_MAX_LENGTH 85
@@ -1482,7 +1480,6 @@ typedef enum {
 #define MAXBYTE	0xff
 #define MAXWORD	0xffff
 #define MAXDWORD	0xffffffff
-#define MAXLONGLONG (((LONGLONG)0x7fffffff << 32) | 0xffffffff)
 #define PROCESSOR_INTEL_386 386
 #define PROCESSOR_INTEL_486 486
 #define PROCESSOR_INTEL_PENTIUM 586
@@ -3312,7 +3309,7 @@ typedef struct _CONTEXT {
 	DWORD Fill[2];
 
 } CONTEXT;
-#elif defined(_ARM_)
+#elif defined(ARM)
 
 #ifndef PAGE_SIZE
 #define PAGE_SIZE                         0x1000 // FIXME: This should probably go elsewhere
@@ -4641,25 +4638,6 @@ typedef struct _IMAGE_BOUND_FORWARDER_REF {
   WORD Reserved;
 } IMAGE_BOUND_FORWARDER_REF, *PIMAGE_BOUND_FORWARDER_REF;
 
-typedef struct _IMAGE_DELAYLOAD_DESCRIPTOR {
-  union {
-    DWORD AllAttributes;
-    struct {
-      DWORD RvaBased:1;
-      DWORD ReservedAttributes:31;
-    };
-  } Attributes;
-  DWORD DllNameRVA;
-  DWORD ModuleHandleRVA;
-  DWORD ImportAddressTableRVA;
-  DWORD ImportNameTableRVA;
-  DWORD BoundImportAddressTableRVA;
-  DWORD UnloadInformationTableRVA;
-  DWORD TimeDateStamp;
-} IMAGE_DELAYLOAD_DESCRIPTOR, *PIMAGE_DELAYLOAD_DESCRIPTOR;
-
-typedef const IMAGE_DELAYLOAD_DESCRIPTOR *PCIMAGE_DELAYLOAD_DESCRIPTOR;
-
 typedef struct _IMAGE_RESOURCE_DIRECTORY {
   DWORD Characteristics;
   DWORD TimeDateStamp;
@@ -4674,10 +4652,10 @@ typedef struct _IMAGE_RESOURCE_DIRECTORY_ENTRY {
     _ANONYMOUS_STRUCT struct {
       DWORD NameOffset:31;
       DWORD NameIsString:1;
-    } DUMMYSTRUCTNAME;
+    } DUMMYSTRUCTNAME1;
     DWORD Name;
     WORD Id;
-  } DUMMYUNIONNAME;
+  } DUMMYUNIONNAME1;
   _ANONYMOUS_UNION union {
     DWORD OffsetToData;
     _ANONYMOUS_STRUCT struct {
@@ -5716,78 +5694,6 @@ DbgRaiseAssertionFailure(VOID)
 #define InterlockedExchangeAddSizeT(a, b) InterlockedExchangeAdd((LONG *)a, b)
 
 #endif
-
-typedef struct _TP_POOL TP_POOL, *PTP_POOL;
-typedef struct _TP_WORK TP_WORK, *PTP_WORK;
-typedef struct _TP_CALLBACK_INSTANCE TP_CALLBACK_INSTANCE, *PTP_CALLBACK_INSTANCE;
-
-typedef DWORD TP_VERSION, *PTP_VERSION;
-
-typedef enum _TP_CALLBACK_PRIORITY {
-  TP_CALLBACK_PRIORITY_HIGH,
-  TP_CALLBACK_PRIORITY_NORMAL,
-  TP_CALLBACK_PRIORITY_LOW,
-  TP_CALLBACK_PRIORITY_INVALID,
-  TP_CALLBACK_PRIORITY_COUNT = TP_CALLBACK_PRIORITY_INVALID
-} TP_CALLBACK_PRIORITY;
-
-typedef VOID
-(NTAPI *PTP_WORK_CALLBACK)(
-  _Inout_ PTP_CALLBACK_INSTANCE Instance,
-  _Inout_opt_ PVOID Context,
-  _Inout_ PTP_WORK Work);
-
-typedef struct _TP_CLEANUP_GROUP TP_CLEANUP_GROUP, *PTP_CLEANUP_GROUP;
-
-typedef VOID
-(NTAPI *PTP_SIMPLE_CALLBACK)(
-  _Inout_ PTP_CALLBACK_INSTANCE Instance,
-  _Inout_opt_ PVOID Context);
-
-typedef VOID
-(NTAPI *PTP_CLEANUP_GROUP_CANCEL_CALLBACK)(
-  _Inout_opt_ PVOID ObjectContext,
-  _Inout_opt_ PVOID CleanupContext);
-
-#if (_WIN32_WINNT >= _WIN32_WINNT_WIN7)
-typedef struct _TP_CALLBACK_ENVIRON_V3 {
-  TP_VERSION Version;
-  PTP_POOL Pool;
-  PTP_CLEANUP_GROUP CleanupGroup;
-  PTP_CLEANUP_GROUP_CANCEL_CALLBACK CleanupGroupCancelCallback;
-  PVOID RaceDll;
-  struct _ACTIVATION_CONTEXT *ActivationContext;
-  PTP_SIMPLE_CALLBACK FinalizationCallback;
-  union {
-    DWORD Flags;
-    struct {
-      DWORD LongFunction:1;
-      DWORD Persistent:1;
-      DWORD Private:30;
-    } s;
-  } u;
-  TP_CALLBACK_PRIORITY CallbackPriority;
-  DWORD Size;
-} TP_CALLBACK_ENVIRON_V3, TP_CALLBACK_ENVIRON, *PTP_CALLBACK_ENVIRON;
-#else
-typedef struct _TP_CALLBACK_ENVIRON_V1 {
-  TP_VERSION Version;
-  PTP_POOL Pool;
-  PTP_CLEANUP_GROUP CleanupGroup;
-  PTP_CLEANUP_GROUP_CANCEL_CALLBACK CleanupGroupCancelCallback;
-  PVOID RaceDll;
-  struct _ACTIVATION_CONTEXT *ActivationContext;
-  PTP_SIMPLE_CALLBACK FinalizationCallback;
-  union {
-    DWORD Flags;
-    struct {
-      DWORD LongFunction:1;
-      DWORD Persistent:1;
-      DWORD Private:30;
-    } s;
-  } u;
-} TP_CALLBACK_ENVIRON_V1, TP_CALLBACK_ENVIRON, *PTP_CALLBACK_ENVIRON;
-#endif /* (_WIN32_WINNT >= _WIN32_WINNT_WIN7) */
 
 #ifdef _MSC_VER
 #pragma warning(pop)

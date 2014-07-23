@@ -38,7 +38,9 @@ DoDeleteService(PMAIN_WND_INFO Info,
                 {
                     DisplayString(lpSuccess);
 
-                    LocalFree(lpSuccess);
+                    HeapFree(ProcessHeap,
+                             0,
+                             lpSuccess);
                 }
 
                 bRet = TRUE;

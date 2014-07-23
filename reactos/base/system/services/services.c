@@ -402,12 +402,6 @@ wWinMain(HINSTANCE hInstance,
     /* Register event handler (used for system shutdown) */
     SetConsoleCtrlHandler(ShutdownHandlerRoutine, TRUE);
 
-    /*
-     * Set our shutdown parameters: we want to shutdown after the maintained
-     * services (that inherit the default shutdown level of 640).
-     */
-    SetProcessShutdownParameters(480, SHUTDOWN_NORETRY);
-
     /* Start auto-start services */
     ScmAutoStartServices();
 

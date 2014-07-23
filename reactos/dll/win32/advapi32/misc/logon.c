@@ -463,7 +463,7 @@ LogonUserW(LPWSTR lpszUsername,
                                         SE_GROUP_ENABLED_BY_DEFAULT;
 
     /* Set the token source */
-    strncpy(TokenSource.SourceName, "Advapi  ", sizeof(TokenSource.SourceName));
+    strcpy(TokenSource.SourceName, "LogonUser");
     AllocateLocallyUniqueId(&TokenSource.SourceIdentifier);
 
     Status = LsaLogonUser(LsaHandle,

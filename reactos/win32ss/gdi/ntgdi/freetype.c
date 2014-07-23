@@ -19,8 +19,6 @@
 #include <ftoutln.h>
 #include <ftwinfnt.h>
 
-#include <gdi/eng/floatobj.h>
-
 #define NDEBUG
 #include <debug.h>
 
@@ -535,19 +533,19 @@ IntTranslateCharsetInfo(PDWORD Src, /* [in]
     switch (Flags)
     {
     case TCI_SRCFONTSIG:
-        while (Index < MAXTCIINDEX && 0 == (*Src >> Index & 0x0001))
+        while (0 == (*Src >> Index & 0x0001) && Index < MAXTCIINDEX)
         {
             Index++;
         }
         break;
     case TCI_SRCCODEPAGE:
-        while (Index < MAXTCIINDEX && *Src != FontTci[Index].ciACP)
+        while ( *Src != FontTci[Index].ciACP && Index < MAXTCIINDEX)
         {
             Index++;
         }
         break;
     case TCI_SRCCHARSET:
-        while (Index < MAXTCIINDEX && *Src != FontTci[Index].ciCharset)
+        while ( *Src != FontTci[Index].ciCharset && Index < MAXTCIINDEX)
         {
             Index++;
         }
@@ -3164,8 +3162,8 @@ NtGdiGetFontFamilyInfo(HDC Dc,
     return Count;
 }
 
-FORCEINLINE
 LONG
+FORCEINLINE
 ScaleLong(LONG lValue, PFLOATOBJ pef)
 {
     FLOATOBJ efTemp;
@@ -3230,7 +3228,6 @@ GreExtTextOutW(
     USHORT DxShift;
     PMATRIX pmxWorldToDevice;
     LONG fixAscender, fixDescender;
-    FLOATOBJ Scale;
 
     // TODO: Write test-cases to exactly match real Windows in different
     // bad parameters (e.g. does Windows check the DC or the RECT first?).
@@ -3536,7 +3533,6 @@ GreExtTextOutW(
             {
                 DPRINT1("Failed to load and render glyph! [index: %d]\n", glyph_index);
                 IntUnLockFreeType;
-                DC_vFinishBlit(dc, NULL);
                 goto fail2;
             }
             glyph = face->glyph;
@@ -3550,7 +3546,6 @@ GreExtTextOutW(
             {
                 DPRINT1("Failed to render glyph! [index: %d]\n", glyph_index);
                 IntUnLockFreeType;
-                DC_vFinishBlit(dc, NULL);
                 goto fail2;
             }
         }
@@ -3614,7 +3609,6 @@ GreExtTextOutW(
             DPRINT1("WARNING: EngLockSurface() failed!\n");
             // FT_Done_Glyph(realglyph);
             IntUnLockFreeType;
-            DC_vFinishBlit(dc, NULL);
             goto fail2;
         }
         SourceGlyphSurf = EngLockSurface((HSURF)HSourceGlyph);
@@ -3623,7 +3617,6 @@ GreExtTextOutW(
             EngDeleteSurface((HSURF)HSourceGlyph);
             DPRINT1("WARNING: EngLockSurface() failed!\n");
             IntUnLockFreeType;
-            DC_vFinishBlit(dc, NULL);
             goto fail2;
         }
 
@@ -3674,13 +3667,8 @@ GreExtTextOutW(
         }
         else
         {
-            Scale = pdcattr->mxWorldToDevice.efM11;
-            if (_FLOATOBJ_Equal0(&Scale))
-                FLOATOBJ_Set1(&Scale);
- 
-            FLOATOBJ_MulLong(&Scale, Dx[i<<DxShift] << 6); // do the shift before multiplying to preserve precision
-            TextLeft += FLOATOBJ_GetLong(&Scale);
-            DPRINT("New TextLeft2: %I64d\n", TextLeft);
+            TextLeft += Dx[i<<DxShift] << 6;
+             DPRINT("New TextLeft2: %I64d\n", TextLeft);
         }
 
         if (DxShift)

@@ -46,7 +46,7 @@ static HRESULT WINAPI DisplayAttributeMgr_QueryInterface(ITfDisplayAttributeMgr 
 
     if (IsEqualIID(iid, &IID_IUnknown) || IsEqualIID(iid, &IID_ITfDisplayAttributeMgr))
     {
-        *ppvOut = &This->ITfDisplayAttributeMgr_iface;
+        *ppvOut = This;
     }
 
     if (*ppvOut)
@@ -104,11 +104,12 @@ static HRESULT WINAPI DisplayAttributeMgr_GetDisplayAttributeInfo(ITfDisplayAttr
     return E_NOTIMPL;
 }
 
-static const ITfDisplayAttributeMgrVtbl DisplayAttributeMgrVtbl =
+static const ITfDisplayAttributeMgrVtbl DisplayAttributeMgr_DisplayAttributeMgrVtbl =
 {
     DisplayAttributeMgr_QueryInterface,
     DisplayAttributeMgr_AddRef,
     DisplayAttributeMgr_Release,
+
     DisplayAttributeMgr_OnUpdateInfo,
     DisplayAttributeMgr_EnumDisplayAttributeInfo,
     DisplayAttributeMgr_GetDisplayAttributeInfo
@@ -124,10 +125,10 @@ HRESULT DisplayAttributeMgr_Constructor(IUnknown *pUnkOuter, IUnknown **ppOut)
     if (This == NULL)
         return E_OUTOFMEMORY;
 
-    This->ITfDisplayAttributeMgr_iface.lpVtbl = &DisplayAttributeMgrVtbl;
+    This->ITfDisplayAttributeMgr_iface.lpVtbl = &DisplayAttributeMgr_DisplayAttributeMgrVtbl;
     This->refCount = 1;
 
-    *ppOut = (IUnknown *)&This->ITfDisplayAttributeMgr_iface;
-    TRACE("returning %p\n", *ppOut);
+    TRACE("returning %p\n", This);
+    *ppOut = (IUnknown *)This;
     return S_OK;
 }

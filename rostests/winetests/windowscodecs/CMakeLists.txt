@@ -18,8 +18,5 @@ list(APPEND SOURCE
 
 add_executable(windowscodecs_winetest ${SOURCE})
 set_module_type(windowscodecs_winetest win32cui)
-add_importlibs(windowscodecs_winetest windowscodecs oleaut32 ole32 user32 gdi32 msvcrt kernel32)
-if(MSVC)
-    add_importlibs(windowscodecs_winetest ntdll)
-endif()
+add_importlibs(windowscodecs_winetest windowscodecs oleaut32 ole32 user32 gdi32 msvcrt kernel32 ntdll)
 add_cd_file(TARGET windowscodecs_winetest DESTINATION reactos/bin FOR all)

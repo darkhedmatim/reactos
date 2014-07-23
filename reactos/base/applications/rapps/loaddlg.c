@@ -205,7 +205,7 @@ static
 DWORD WINAPI
 ThreadFunc(LPVOID Context)
 {
-    IBindStatusCallback *dl = NULL;
+    IBindStatusCallback *dl;
     WCHAR path[MAX_PATH];
     LPWSTR p;
     HWND Dlg = (HWND) Context;
@@ -217,7 +217,7 @@ ThreadFunc(LPVOID Context)
     BOOL bCab = FALSE;
     HINTERNET hOpen = NULL;
     HINTERNET hFile = NULL;
-    HANDLE hOut = INVALID_HANDLE_VALUE;
+    HANDLE hOut = NULL;
     unsigned char lpBuffer[4096];
     const LPWSTR lpszAgent = L"RApps/1.0";
 
@@ -262,7 +262,6 @@ ThreadFunc(LPVOID Context)
     /* download it */
     bTempfile = TRUE;
     dl = CreateDl(Context, &bCancelled);
-    if (dl == NULL) goto end;
 
     hOpen = InternetOpenW(lpszAgent, INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
     if (!hOpen) goto end;
@@ -283,10 +282,9 @@ ThreadFunc(LPVOID Context)
         IBindStatusCallback_OnProgress(dl, dwCurrentBytesRead, dwContentLen, 0, AppInfo->szUrlDownload);
     }
     while (dwBytesRead);
-
+    
     CloseHandle(hOut);
-    hOut = INVALID_HANDLE_VALUE;
-
+    if (dl) IBindStatusCallback_Release(dl);
     if (bCancelled) goto end;
 
     ShowWindow(Dlg, SW_HIDE);
@@ -297,11 +295,9 @@ ThreadFunc(LPVOID Context)
         ShellExecuteW( NULL, L"open", path, NULL, NULL, SW_SHOWNORMAL );
     }
 end:
-    if (hOut != INVALID_HANDLE_VALUE) CloseHandle(hOut);
+    CloseHandle(hOut);
     InternetCloseHandle(hFile);
     InternetCloseHandle(hOpen);
-
-    if (dl) IBindStatusCallback_Release(dl);
 
     if (bTempfile)
     {

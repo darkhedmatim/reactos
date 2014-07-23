@@ -58,46 +58,46 @@ static HRESULT PROPVAR_ConvertFILETIME(PROPVARIANT *ppropvarDest,
 }
 
 static HRESULT PROPVAR_ConvertNumber(REFPROPVARIANT pv, int dest_bits,
-                                     BOOL dest_signed, LONGLONG *res)
+    int dest_signed, LONGLONG *res)
 {
-    BOOL src_signed;
+    int src_signed;
 
     switch (pv->vt)
     {
     case VT_I1:
-        src_signed = TRUE;
+        src_signed = 1;
         *res = pv->u.cVal;
         break;
     case VT_UI1:
-        src_signed = FALSE;
+        src_signed = 0;
         *res = pv->u.bVal;
         break;
     case VT_I2:
-        src_signed = TRUE;
+        src_signed = 1;
         *res = pv->u.iVal;
         break;
     case VT_UI2:
-        src_signed = FALSE;
+        src_signed = 0;
         *res = pv->u.uiVal;
         break;
     case VT_I4:
-        src_signed = TRUE;
+        src_signed = 1;
         *res = pv->u.lVal;
         break;
     case VT_UI4:
-        src_signed = FALSE;
+        src_signed = 0;
         *res = pv->u.ulVal;
         break;
     case VT_I8:
-        src_signed = TRUE;
+        src_signed = 1;
         *res = pv->u.hVal.QuadPart;
         break;
     case VT_UI8:
-        src_signed = FALSE;
+        src_signed = 0;
         *res = pv->u.uhVal.QuadPart;
         break;
     case VT_EMPTY:
-        src_signed = FALSE;
+        src_signed = 0;
         *res = 0;
         break;
     default:
@@ -133,7 +133,7 @@ HRESULT WINAPI PropVariantToInt16(REFPROPVARIANT propvarIn, SHORT *ret)
 
     TRACE("%p,%p\n", propvarIn, ret);
 
-    hr = PROPVAR_ConvertNumber(propvarIn, 16, TRUE, &res);
+    hr = PROPVAR_ConvertNumber(propvarIn, 16, 1, &res);
     if (SUCCEEDED(hr)) *ret = (SHORT)res;
     return hr;
 }
@@ -145,7 +145,7 @@ HRESULT WINAPI PropVariantToInt32(REFPROPVARIANT propvarIn, LONG *ret)
 
     TRACE("%p,%p\n", propvarIn, ret);
 
-    hr = PROPVAR_ConvertNumber(propvarIn, 32, TRUE, &res);
+    hr = PROPVAR_ConvertNumber(propvarIn, 32, 1, &res);
     if (SUCCEEDED(hr)) *ret = (LONG)res;
     return hr;
 }
@@ -157,7 +157,7 @@ HRESULT WINAPI PropVariantToInt64(REFPROPVARIANT propvarIn, LONGLONG *ret)
 
     TRACE("%p,%p\n", propvarIn, ret);
 
-    hr = PROPVAR_ConvertNumber(propvarIn, 64, TRUE, &res);
+    hr = PROPVAR_ConvertNumber(propvarIn, 64, 1, &res);
     if (SUCCEEDED(hr)) *ret = (LONGLONG)res;
     return hr;
 }
@@ -169,7 +169,7 @@ HRESULT WINAPI PropVariantToUInt16(REFPROPVARIANT propvarIn, USHORT *ret)
 
     TRACE("%p,%p\n", propvarIn, ret);
 
-    hr = PROPVAR_ConvertNumber(propvarIn, 16, FALSE, &res);
+    hr = PROPVAR_ConvertNumber(propvarIn, 16, 0, &res);
     if (SUCCEEDED(hr)) *ret = (USHORT)res;
     return hr;
 }
@@ -181,7 +181,7 @@ HRESULT WINAPI PropVariantToUInt32(REFPROPVARIANT propvarIn, ULONG *ret)
 
     TRACE("%p,%p\n", propvarIn, ret);
 
-    hr = PROPVAR_ConvertNumber(propvarIn, 32, FALSE, &res);
+    hr = PROPVAR_ConvertNumber(propvarIn, 32, 0, &res);
     if (SUCCEEDED(hr)) *ret = (ULONG)res;
     return hr;
 }
@@ -193,7 +193,7 @@ HRESULT WINAPI PropVariantToUInt64(REFPROPVARIANT propvarIn, ULONGLONG *ret)
 
     TRACE("%p,%p\n", propvarIn, ret);
 
-    hr = PROPVAR_ConvertNumber(propvarIn, 64, FALSE, &res);
+    hr = PROPVAR_ConvertNumber(propvarIn, 64, 0, &res);
     if (SUCCEEDED(hr)) *ret = (ULONGLONG)res;
     return hr;
 }
@@ -486,10 +486,10 @@ HRESULT WINAPI VariantToGUID(const VARIANT *pvar, GUID *guid)
     }
 }
 
-static BOOL isemptyornull(const PROPVARIANT *propvar)
+static int isemptyornull(const PROPVARIANT *propvar)
 {
     if (propvar->vt == VT_EMPTY || propvar->vt == VT_NULL)
-        return TRUE;
+        return 1;
     if ((propvar->vt & VT_ARRAY) == VT_ARRAY)
     {
         int i;
@@ -501,7 +501,7 @@ static BOOL isemptyornull(const PROPVARIANT *propvar)
         return i == propvar->u.parray->cDims;
     }
     /* FIXME: vectors, byrefs, errors? */
-    return FALSE;
+    return 0;
 }
 
 INT WINAPI PropVariantCompareEx(REFPROPVARIANT propvar1, REFPROPVARIANT propvar2,

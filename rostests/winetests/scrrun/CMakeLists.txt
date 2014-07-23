@@ -1,5 +1,7 @@
 
-add_definitions(-DUSE_WINE_TODOS)
+add_definitions(
+    -D__ROS_LONG64__
+    -DUSE_WINE_TODOS)
 
 list(APPEND SOURCE
     dictionary.c

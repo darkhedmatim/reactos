@@ -82,9 +82,17 @@ _swrast_span_default_attribs(struct gl_context *ctx, SWspan *span)
    span->alphaStep = 0;
    span->interpMask |= SPAN_RGBA;
 
-   COPY_4V(span->attrStart[FRAG_ATTRIB_COL], ctx->Current.RasterColor);
-   ASSIGN_4V(span->attrStepX[FRAG_ATTRIB_COL], 0.0, 0.0, 0.0, 0.0);
-   ASSIGN_4V(span->attrStepY[FRAG_ATTRIB_COL], 0.0, 0.0, 0.0, 0.0);
+   COPY_4V(span->attrStart[FRAG_ATTRIB_COL0], ctx->Current.RasterColor);
+   ASSIGN_4V(span->attrStepX[FRAG_ATTRIB_COL0], 0.0, 0.0, 0.0, 0.0);
+   ASSIGN_4V(span->attrStepY[FRAG_ATTRIB_COL0], 0.0, 0.0, 0.0, 0.0);
+
+   /* Secondary color */
+   if (ctx->Light.Enabled || ctx->Fog.ColorSumEnabled)
+   {
+      COPY_4V(span->attrStart[FRAG_ATTRIB_COL1], ctx->Current.RasterSecondaryColor);
+      ASSIGN_4V(span->attrStepX[FRAG_ATTRIB_COL1], 0.0, 0.0, 0.0, 0.0);
+      ASSIGN_4V(span->attrStepY[FRAG_ATTRIB_COL1], 0.0, 0.0, 0.0, 0.0);
+   }
 
    /* fog */
    {
@@ -264,7 +272,7 @@ interpolate_int_colors(struct gl_context *ctx, SWspan *span)
       break;
 #endif
    case GL_FLOAT:
-      interpolate_active_attribs(ctx, span, FRAG_BIT_COL);
+      interpolate_active_attribs(ctx, span, FRAG_BIT_COL0);
       break;
    default:
       _mesa_problem(ctx, "bad datatype 0x%x in interpolate_int_colors",
@@ -275,12 +283,12 @@ interpolate_int_colors(struct gl_context *ctx, SWspan *span)
 
 
 /**
- * Populate the FRAG_ATTRIB_COL array.
+ * Populate the FRAG_ATTRIB_COL0 array.
  */
 static inline void
 interpolate_float_colors(SWspan *span)
 {
-   GLfloat (*col0)[4] = span->array->attribs[FRAG_ATTRIB_COL];
+   GLfloat (*col0)[4] = span->array->attribs[FRAG_ATTRIB_COL0];
    const GLuint n = span->end;
    GLuint i;
 
@@ -329,7 +337,7 @@ interpolate_float_colors(SWspan *span)
       }
    }
 
-   span->arrayAttribs |= FRAG_BIT_COL;
+   span->arrayAttribs |= FRAG_BIT_COL0;
    span->array->ChanType = GL_FLOAT;
 }
 
@@ -732,6 +740,57 @@ clip_span( struct gl_context *ctx, SWspan *span )
 
 
 /**
+ * Add specular colors to primary colors.
+ * Only called during fixed-function operation.
+ * Result is float color array (FRAG_ATTRIB_COL0).
+ */
+static inline void
+add_specular(struct gl_context *ctx, SWspan *span)
+{
+   const SWcontext *swrast = SWRAST_CONTEXT(ctx);
+   const GLubyte *mask = span->array->mask;
+   GLfloat (*col0)[4] = span->array->attribs[FRAG_ATTRIB_COL0];
+   GLfloat (*col1)[4] = span->array->attribs[FRAG_ATTRIB_COL1];
+   GLuint i;
+
+   ASSERT(!_swrast_use_fragment_program(ctx));
+   ASSERT(span->arrayMask & SPAN_RGBA);
+   ASSERT(swrast->_ActiveAttribMask & FRAG_BIT_COL1);
+   (void) swrast; /* silence warning */
+
+   if (span->array->ChanType == GL_FLOAT) {
+      if ((span->arrayAttribs & FRAG_BIT_COL0) == 0) {
+         interpolate_active_attribs(ctx, span, FRAG_BIT_COL0);
+      }
+   }
+   else {
+      /* need float colors */
+      if ((span->arrayAttribs & FRAG_BIT_COL0) == 0) {
+         interpolate_float_colors(span);
+      }
+   }
+
+   if ((span->arrayAttribs & FRAG_BIT_COL1) == 0) {
+      /* XXX could avoid this and interpolate COL1 in the loop below */
+      interpolate_active_attribs(ctx, span, FRAG_BIT_COL1);
+   }
+
+   ASSERT(span->arrayAttribs & FRAG_BIT_COL0);
+   ASSERT(span->arrayAttribs & FRAG_BIT_COL1);
+
+   for (i = 0; i < span->end; i++) {
+      if (mask[i]) {
+         col0[i][0] += col1[i][0];
+         col0[i][1] += col1[i][1];
+         col0[i][2] += col1[i][2];
+      }
+   }
+
+   span->array->ChanType = GL_FLOAT;
+}
+
+
+/**
  * Apply antialiasing coverage value to alpha values.
  */
 static inline void
@@ -756,7 +815,7 @@ apply_aa_coverage(SWspan *span)
       }
    }
    else {
-      GLfloat (*rgba)[4] = span->array->attribs[FRAG_ATTRIB_COL];
+      GLfloat (*rgba)[4] = span->array->attribs[FRAG_ATTRIB_COL0];
       for (i = 0; i < span->end; i++) {
          rgba[i][ACOMP] = rgba[i][ACOMP] * coverage[i];
          /* clamp later */
@@ -771,7 +830,7 @@ apply_aa_coverage(SWspan *span)
 static inline void
 clamp_colors(SWspan *span)
 {
-   GLfloat (*rgba)[4] = span->array->attribs[FRAG_ATTRIB_COL];
+   GLfloat (*rgba)[4] = span->array->attribs[FRAG_ATTRIB_COL0];
    GLuint i;
    ASSERT(span->array->ChanType == GL_FLOAT);
    for (i = 0; i < span->end; i++) {
@@ -795,7 +854,7 @@ convert_color_type(SWspan *span, GLenum newType, GLuint output)
    GLvoid *src, *dst;
 
    if (output > 0 || span->array->ChanType == GL_FLOAT) {
-      src = span->array->attribs[FRAG_ATTRIB_COL + output];
+      src = span->array->attribs[FRAG_ATTRIB_COL0 + output];
       span->array->ChanType = GL_FLOAT;
    }
    else if (span->array->ChanType == GL_UNSIGNED_BYTE) {
@@ -813,7 +872,7 @@ convert_color_type(SWspan *span, GLenum newType, GLuint output)
       dst = span->array->rgba16;
    }
    else {
-      dst = span->array->attribs[FRAG_ATTRIB_COL];
+      dst = span->array->attribs[FRAG_ATTRIB_COL0];
    }
 
    _mesa_convert_colors(span->array->ChanType, src,
@@ -1081,6 +1140,15 @@ _swrast_write_rgba_span( struct gl_context *ctx, SWspan *span)
 
    ASSERT(span->arrayMask & SPAN_RGBA);
 
+   if (span->primitive == GL_BITMAP || !swrast->SpecularVertexAdd) {
+      /* Add primary and specular (diffuse + specular) colors */
+      if (ctx->Fog.ColorSumEnabled ||
+          (ctx->Light.Enabled &&
+           ctx->Light.Model.ColorControl == GL_SEPARATE_SPECULAR_COLOR)) {
+         add_specular(ctx, span);
+      }
+   }
+
    /* Fog */
    if (swrast->_FogEnabled) {
       _swrast_fog_rgba_span(ctx, span);
@@ -1119,7 +1187,7 @@ _swrast_write_rgba_span( struct gl_context *ctx, SWspan *span)
                span->array->rgba = span->array->rgba8;
             }
             else {
-               span->array->rgba = (void *)span->array->attribs[FRAG_ATTRIB_COL];
+               span->array->rgba = (void *)span->array->attribs[FRAG_ATTRIB_COL0];
             }
          }
 

@@ -85,7 +85,7 @@ struct wined3d_settings wined3d_settings =
     FALSE,          /* 3D support enabled by default. */
 };
 
-struct wined3d * CDECL wined3d_create(DWORD flags)
+struct wined3d * CDECL wined3d_create(UINT version, DWORD flags)
 {
     struct wined3d *object;
     HRESULT hr;
@@ -97,10 +97,10 @@ struct wined3d * CDECL wined3d_create(DWORD flags)
         return NULL;
     }
 
-    if (wined3d_settings.no_3d)
+    if (version == 7 && wined3d_settings.no_3d)
         flags |= WINED3D_NO3D;
 
-    hr = wined3d_init(object, flags);
+    hr = wined3d_init(object, version, flags);
     if (FAILED(hr))
     {
         WARN("Failed to initialize wined3d object, hr %#x.\n", hr);
@@ -108,7 +108,7 @@ struct wined3d * CDECL wined3d_create(DWORD flags)
         return NULL;
     }
 
-    TRACE("Created wined3d object %p.\n", object);
+    TRACE("Created wined3d object %p for d3d%d support.\n", object, version);
 
     return object;
 }

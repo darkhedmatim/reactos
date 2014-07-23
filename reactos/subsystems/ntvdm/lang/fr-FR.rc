@@ -2,13 +2,6 @@ LANGUAGE LANG_FRENCH, SUBLANG_NEUTRAL
 
 STRINGTABLE
 BEGIN
-    IDS_HIDE_MOUSE, "Mas&quer le pointeur de la souris"
-    IDS_SHOW_MOUSE, "&Afficher le pointeur de la souris"
-    IDS_VDM_MENU  , "ReactOS &VDM"
-END
-
-STRINGTABLE
-BEGIN
-    IDS_VDM_DUMPMEM,    "Vidage &Mémoire"
-    IDS_VDM_QUIT   ,    "&Quitter la ReactOS VDM"
+    STRING_WelcomeMsg "Aide de la Machine DOS Virtuel de ReactOS.\n"
+    STRING_PromptMsg "Taper r<cr> pour démarrer, s<cr> pour éteindre ou q<cr> pour quitter maintenant."
 END

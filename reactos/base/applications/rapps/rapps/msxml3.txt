@@ -1,5 +1,4 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = Microsoft XML 3
@@ -44,7 +43,7 @@ Size = 1,85 Mo
 
 [Section.041f]
 Licence = Bilinmiyor
-Description = MSXML3, birtakım Microsoft Yükleyicileri için gereklidir. Şunları içerir: msxml3.dll, msxml3a.dll, msxml3r.dll.
+Description = Birtakım Mikroyazılım Yükleyicileri için gereklidir. Şunları içerir: msxml3.dll, msxml3a.dll, msxml3r.dll.
 Size = 1,85 MB
 
 [Section.0422]

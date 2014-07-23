@@ -84,9 +84,9 @@ static const IMAGE_RESOURCE_DIRECTORY *find_entry_by_id( const IMAGE_RESOURCE_DI
     while (min <= max)
     {
         pos = (min + max) / 2;
-        if (entry[pos].u.Id == id)
+        if (entry[pos].u1.Id == id)
             return (const IMAGE_RESOURCE_DIRECTORY *)((const char *)root + entry[pos].u2.s2.OffsetToDirectory);
-        if (entry[pos].u.Id > id) max = pos - 1;
+        if (entry[pos].u1.Id > id) max = pos - 1;
         else min = pos + 1;
     }
     return NULL;
@@ -106,46 +106,6 @@ static const IMAGE_RESOURCE_DIRECTORY *find_entry_default( const IMAGE_RESOURCE_
 
     entry = (const IMAGE_RESOURCE_DIRECTORY_ENTRY *)(dir + 1);
     return (const IMAGE_RESOURCE_DIRECTORY *)((const char *)root + entry->u2.s2.OffsetToDirectory);
-}
-
-
-/**********************************************************************
- *  push_language
- *
- * push a language onto the list of languages to try
- */
-static inline int push_language( WORD *list, int pos, WORD lang )
-{
-    int i;
-    for (i = 0; i < pos; i++) if (list[i] == lang) return pos;
-    list[pos++] = lang;
-    return pos;
-}
-
-
-/**********************************************************************
- *  find_entry_language
- */
-static const IMAGE_RESOURCE_DIRECTORY *find_entry_language( const IMAGE_RESOURCE_DIRECTORY *dir,
-                                                            const void *root )
-{
-    const IMAGE_RESOURCE_DIRECTORY *ret;
-    WORD list[9];
-    int i, pos = 0;
-
-    /* cf. LdrFindResource_U */
-    pos = push_language( list, pos, MAKELANGID( LANG_NEUTRAL, SUBLANG_NEUTRAL ) );
-    pos = push_language( list, pos, LANGIDFROMLCID( NtCurrentTeb()->CurrentLocale ) );
-    pos = push_language( list, pos, GetUserDefaultLangID() );
-    pos = push_language( list, pos, MAKELANGID( PRIMARYLANGID(GetUserDefaultLangID()), SUBLANG_NEUTRAL ));
-    pos = push_language( list, pos, MAKELANGID( PRIMARYLANGID(GetUserDefaultLangID()), SUBLANG_DEFAULT ));
-    pos = push_language( list, pos, GetSystemDefaultLangID() );
-    pos = push_language( list, pos, MAKELANGID( PRIMARYLANGID(GetSystemDefaultLangID()), SUBLANG_NEUTRAL ));
-    pos = push_language( list, pos, MAKELANGID( PRIMARYLANGID(GetSystemDefaultLangID()), SUBLANG_DEFAULT ));
-    pos = push_language( list, pos, MAKELANGID( LANG_ENGLISH, SUBLANG_DEFAULT ) );
-
-    for (i = 0; i < pos; i++) if ((ret = find_entry_by_id( dir, list[i], root ))) return ret;
-    return find_entry_default( dir, root );
 }
 
 
@@ -200,7 +160,7 @@ static BOOL find_ne_resource( HFILE lzfd, DWORD *resLen, DWORD *resOff )
 
     /* Read in NE header */
     nehdoffset = LZSeek( lzfd, 0, SEEK_CUR );
-    if ( sizeof(nehd) != LZRead( lzfd, (LPSTR)&nehd, sizeof(nehd) ) ) return FALSE;
+    if ( sizeof(nehd) != LZRead( lzfd, (LPSTR)&nehd, sizeof(nehd) ) ) return 0;
 
     resTabSize = nehd.ne_restab - nehd.ne_rsrctab;
     if ( !resTabSize )
@@ -275,7 +235,7 @@ static BOOL find_pe_resource( HFILE lzfd, DWORD *resLen, DWORD *resOff )
     /* Read in PE header */
     pehdoffset = LZSeek( lzfd, 0, SEEK_CUR );
     len = LZRead( lzfd, (LPSTR)&pehd, sizeof(pehd) );
-    if (len < sizeof(pehd.nt32.FileHeader)) return FALSE;
+    if (len < sizeof(pehd.nt32.FileHeader)) return 0;
     if (len < sizeof(pehd)) memset( (char *)&pehd + len, 0, sizeof(pehd) - len );
 
     switch (pehd.nt32.OptionalHeader.Magic)
@@ -287,7 +247,7 @@ static BOOL find_pe_resource( HFILE lzfd, DWORD *resLen, DWORD *resOff )
         resDataDir = pehd.nt64.OptionalHeader.DataDirectory + IMAGE_DIRECTORY_ENTRY_RESOURCE;
         break;
     default:
-        return FALSE;
+        return 0;
     }
 
     if ( !resDataDir->Size )
@@ -356,7 +316,7 @@ static BOOL find_pe_resource( HFILE lzfd, DWORD *resLen, DWORD *resOff )
         TRACE("No resid entry found\n" );
         goto done;
     }
-    resPtr = find_entry_language( resPtr, resDir );
+    resPtr = find_entry_default( resPtr, resDir );
     if ( !resPtr )
     {
         TRACE("No default language entry found\n" );
@@ -567,7 +527,7 @@ typedef struct
 {
     WORD  wLength;
     WORD  wValueLength;
-    WORD  wType; /* 1:Text, 0:Binary */
+    WORD  wType;
     WCHAR szKey[1];
 #if 0   /* variable length structure */
     /* DWORD aligned */
@@ -887,7 +847,7 @@ static BOOL VersionInfo16_QueryValue( const VS_VERSION_INFO_STRUCT16 *info, LPCS
  *    Gets a value from a 32-bit PE resource
  */
 static BOOL VersionInfo32_QueryValue( const VS_VERSION_INFO_STRUCT32 *info, LPCWSTR lpSubBlock,
-                                      LPVOID *lplpBuffer, UINT *puLen, BOOL *pbText )
+                               LPVOID *lplpBuffer, UINT *puLen )
 {
     TRACE("lpSubBlock : (%s)\n", debugstr_w(lpSubBlock));
 
@@ -923,8 +883,6 @@ static BOOL VersionInfo32_QueryValue( const VS_VERSION_INFO_STRUCT32 *info, LPCW
     *lplpBuffer = VersionInfo32_Value( info );
     if (puLen)
         *puLen = info->wValueLength;
-    if (pbText)
-        *pbText = info->wType;
 
     return TRUE;
 }
@@ -936,6 +894,7 @@ BOOL WINAPI VerQueryValueA( LPCVOID pBlock, LPCSTR lpSubBlock,
                                LPVOID *lplpBuffer, PUINT puLen )
 {
     static const char rootA[] = "\\";
+    static const char varfileinfoA[] = "\\VarFileInfo\\Translation";
     const VS_VERSION_INFO_STRUCT16 *info = pBlock;
 
     TRACE("(%p,%s,%p,%p)\n",
@@ -949,7 +908,7 @@ BOOL WINAPI VerQueryValueA( LPCVOID pBlock, LPCSTR lpSubBlock,
 
     if ( !VersionInfoIs16( info ) )
     {
-        BOOL ret, isText;
+        BOOL ret;
         INT len;
         LPWSTR lpSubBlockW;
 
@@ -961,11 +920,11 @@ BOOL WINAPI VerQueryValueA( LPCVOID pBlock, LPCSTR lpSubBlock,
 
         MultiByteToWideChar(CP_ACP, 0, lpSubBlock, -1, lpSubBlockW, len);
 
-        ret = VersionInfo32_QueryValue(pBlock, lpSubBlockW, lplpBuffer, puLen, &isText);
+        ret = VersionInfo32_QueryValue(pBlock, lpSubBlockW, lplpBuffer, puLen);
 
         HeapFree(GetProcessHeap(), 0, lpSubBlockW);
 
-        if (ret && isText)
+        if (ret && strcasecmp( lpSubBlock, rootA ) && strcasecmp( lpSubBlock, varfileinfoA ))
         {
             /* Set lpBuffer so it points to the 'empty' area where we store
              * the converted strings
@@ -1041,7 +1000,7 @@ BOOL WINAPI VerQueryValueW( LPCVOID pBlock, LPCWSTR lpSubBlock,
         return ret;
     }
 
-    return VersionInfo32_QueryValue(info, lpSubBlock, lplpBuffer, puLen, NULL);
+    return VersionInfo32_QueryValue(info, lpSubBlock, lplpBuffer, puLen);
 }
 
 

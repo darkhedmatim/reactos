@@ -24,7 +24,7 @@
 
 static HINSTANCE instance;
 
-typedef HRESULT (*fnCreateInstance)( LPVOID *ppObj );
+typedef HRESULT (*fnCreateInstance)( IUnknown *pUnkOuter, LPVOID *ppObj );
 
 typedef struct
 {
@@ -74,11 +74,14 @@ static HRESULT WINAPI wbemprox_cf_CreateInstance( IClassFactory *iface, LPUNKNOW
     if (pOuter)
         return CLASS_E_NOAGGREGATION;
 
-    r = This->pfnCreateInstance( (LPVOID *)&punk );
+    r = This->pfnCreateInstance( pOuter, (LPVOID *)&punk );
     if (FAILED(r))
         return r;
 
     r = IUnknown_QueryInterface( punk, riid, ppobj );
+    if (FAILED(r))
+        return r;
+
     IUnknown_Release( punk );
     return r;
 }

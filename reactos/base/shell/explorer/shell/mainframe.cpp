@@ -332,8 +332,15 @@ bool MainFrameBase::ProcessMessage(UINT nmsg, WPARAM wparam, LPARAM lparam, LRES
 		break;
 
 	  case WM_SIZE: {
-		resize_frame(LOWORD(lparam), HIWORD(lparam));
-		SendMessage(_hwndrebar, WM_SIZE, 0, 0);
+#ifdef __REACTOS__	///@todo Work around to display rebar in ROS (with flickering) as long as the control isn't fixed
+		int height = SendMessage(_hwndrebar, RB_GETBARHEIGHT, 0, 0);
+		MoveWindow(_hwndrebar, 0, 0, LOWORD(lparam), height, TRUE);
+#else
+ 		resize_frame(LOWORD(lparam), HIWORD(lparam));
+ 		SendMessage(_hwndrebar, WM_SIZE, 0, 0);
+#endif
+
+
 		break;}	// do not pass message to DefFrameProc
 
 	  case WM_GETMINMAXINFO: {
@@ -762,12 +769,13 @@ MDIMainFrame::MDIMainFrame(HWND hwnd)
 		extraBtns.iBitmap = 8;
 		SendMessage(_hextrabar, TB_INSERTBUTTON, INT_MAX, (LPARAM)&extraBtns);
 	}
-
+#ifndef __REACTOS__ // don't insert reg button for ROS. Regedit should be used.
 	 // insert Registry button
 	extraBtns.iString = SendMessage(_hextrabar, TB_ADDSTRING, 0, (LPARAM)TEXT("Reg.\0"));
 	extraBtns.idCommand = ID_DRIVE_REGISTRY;
 	extraBtns.iBitmap = 9;
 	SendMessage(_hextrabar, TB_INSERTBUTTON, INT_MAX, (LPARAM)&extraBtns);
+#endif
 
 #ifdef _DEBUG
 	 // insert FAT direct file system access button

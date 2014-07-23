@@ -18,9 +18,6 @@
 
 /* FUNCTIONS *****************************************************************/
 
-static KDEFERRED_ROUTINE i8042MouDpcRoutine;
-static KDEFERRED_ROUTINE i8042DpcRoutineMouseTimeout;
-
 /*
  * These functions are callbacks for filter driver custom interrupt
  * service routines.
@@ -272,8 +269,7 @@ i8042MouDpcRoutine(
 	UNREFERENCED_PARAMETER(SystemArgument1);
 	UNREFERENCED_PARAMETER(SystemArgument2);
 
-	__analysis_assume(DeferredContext != NULL);
-	DeviceExtension = DeferredContext;
+	DeviceExtension = (PI8042_MOUSE_EXTENSION)DeferredContext;
 	PortDeviceExtension = DeviceExtension->Common.PortDeviceExtension;
 
 	switch (DeviceExtension->MouseTimeoutState)
@@ -362,8 +358,7 @@ i8042DpcRoutineMouseTimeout(
 	UNREFERENCED_PARAMETER(SystemArgument1);
 	UNREFERENCED_PARAMETER(SystemArgument2);
 
-	__analysis_assume(DeferredContext != NULL);
-	DeviceExtension = DeferredContext;
+	DeviceExtension = (PI8042_MOUSE_EXTENSION)DeferredContext;
 	PortDeviceExtension = DeviceExtension->Common.PortDeviceExtension;
 
 	Irql = KeAcquireInterruptSpinLock(PortDeviceExtension->HighestDIRQLInterrupt);
@@ -911,8 +906,7 @@ i8042MouInterruptService(
 
 	UNREFERENCED_PARAMETER(Interrupt);
 
-	__analysis_assume(Context != NULL);
-	DeviceExtension = Context;
+	DeviceExtension = (PI8042_MOUSE_EXTENSION)Context;
 	PortDeviceExtension = DeviceExtension->Common.PortDeviceExtension;
 	Counter = PortDeviceExtension->Settings.PollStatusIterations;
 

@@ -228,7 +228,6 @@ extern volatile struct _KSYSTEM_TIME KeTickCount;
 #define RESULT_NEGATIVE 1
 #define RESULT_POSITIVE 2
 
-#if 0
 DECLSPEC_IMPORT
 VOID
 __fastcall
@@ -241,7 +240,6 @@ KIRQL
 __fastcall
 KfAcquireSpinLock(
   IN OUT ULONG_PTR* SpinLock);
-#endif
 
 #ifndef _WINNT_
 //

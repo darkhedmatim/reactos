@@ -18,8 +18,7 @@ add_library(console SHARED
     console.rc
     ${CMAKE_CURRENT_BINARY_DIR}/console.def)
 
-set_module_type(console cpl UNICODE)
-set_target_properties(console PROPERTIES SUFFIX ".dll")
+set_module_type(console win32dll UNICODE)
 
 add_importlibs(console
     msvcrt

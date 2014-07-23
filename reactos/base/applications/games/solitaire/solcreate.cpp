@@ -38,7 +38,6 @@ void CreateSol()
     pPile->SetDropRule(CS_DROP_NONE, 0);
     pPile->SetDblClickProc(PileDblClickProc);
     pPile->SetRemoveCardProc(PileRemoveProc);
-    pPile->SetClickProc(PileClickProc);
 
     //
     //    Create the suit stacks
@@ -51,7 +50,6 @@ void CreateSol()
 
         pSuitStack[i]->SetDropRule(CS_DROP_CALLBACK, SuitStackDropProc);
         pSuitStack[i]->SetDragRule(CS_DRAG_TOP);
-        pSuitStack[i]->SetClickProc(SuitStackClickProc);
 
         pSuitStack[i]->SetAddCardProc(SuitStackAddProc);
     }

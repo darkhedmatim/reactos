@@ -31,16 +31,12 @@
 #include <windef.h>
 #include <winbase.h>
 #include <winreg.h>
-#include <wingdi.h>
-#include <winspool.h>
 #include <wincon.h>
 #include <objbase.h>
 #include <cfgmgr32.h>
 #include <regstr.h>
 #include <sddl.h>
 #include <setupapi.h>
-#include <softpub.h>
-#include <mscat.h>
 #include <shlobj.h>
 #include <wine/unicode.h>
 #define NTOS_MODE_USER

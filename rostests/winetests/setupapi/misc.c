@@ -51,8 +51,8 @@ static BOOL (WINAPI *pSetupUninstallOEMInfA)(PCSTR, DWORD, PVOID);
 static void create_inf_file(LPCSTR filename)
 {
     DWORD dwNumberOfBytesWritten;
-    HANDLE hf = CreateFileA(filename, GENERIC_WRITE, 0, NULL,
-                            CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    HANDLE hf = CreateFile(filename, GENERIC_WRITE, 0, NULL,
+                           CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
     static const char data[] =
         "[Version]\n"
@@ -72,15 +72,15 @@ static void get_temp_filename(LPSTR path)
     CHAR temp[MAX_PATH];
     LPSTR ptr;
 
-    GetTempFileNameA(CURR_DIR, "set", 0, temp);
+    GetTempFileName(CURR_DIR, "set", 0, temp);
     ptr = strrchr(temp, '\\');
 
-    strcpy(path, ptr + 1);
+    lstrcpy(path, ptr + 1);
 }
 
 static BOOL file_exists(LPSTR path)
 {
-    return GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES;
+    return GetFileAttributes(path) != INVALID_FILE_ATTRIBUTES;
 }
 
 static BOOL check_format(LPSTR path, LPSTR inf)
@@ -90,19 +90,19 @@ static BOOL check_format(LPSTR path, LPSTR inf)
 
     static const CHAR format[] = "\\INF\\oem";
 
-    GetWindowsDirectoryA(check, MAX_PATH);
-    strcat(check, format);
-    res = CompareStringA(LOCALE_SYSTEM_DEFAULT, NORM_IGNORECASE, check, -1, path, strlen(check)) == CSTR_EQUAL &&
-          path[strlen(check)] != '\\';
+    GetWindowsDirectory(check, MAX_PATH);
+    lstrcat(check, format);
+    res = CompareString(LOCALE_SYSTEM_DEFAULT, NORM_IGNORECASE, check, -1, path, lstrlen(check)) == CSTR_EQUAL &&
+          path[lstrlen(check)] != '\\';
 
-    return (!inf) ? res : res && (inf == path + strlen(check) - 3);
+    return (!inf) ? res : res && (inf == path + lstrlen(check) - 3);
 }
 
 static void test_original_file_name(LPCSTR original, LPCSTR dest)
 {
     HINF hinf;
     PSP_INF_INFORMATION pspii;
-    SP_ORIGINAL_FILE_INFO_A spofi;
+    SP_ORIGINAL_FILE_INFO spofi;
     BOOL res;
     DWORD size;
 
@@ -115,12 +115,12 @@ static void test_original_file_name(LPCSTR original, LPCSTR dest)
     hinf = SetupOpenInfFileA(dest, NULL, INF_STYLE_WIN4, NULL);
     ok(hinf != NULL, "SetupOpenInfFileA failed with error %d\n", GetLastError());
 
-    res = SetupGetInfInformationA(hinf, INFINFO_INF_SPEC_IS_HINF, NULL, 0, &size);
+    res = SetupGetInfInformation(hinf, INFINFO_INF_SPEC_IS_HINF, NULL, 0, &size);
     ok(res, "SetupGetInfInformation failed with error %d\n", GetLastError());
 
     pspii = HeapAlloc(GetProcessHeap(), 0, size);
 
-    res = SetupGetInfInformationA(hinf, INFINFO_INF_SPEC_IS_HINF, pspii, size, NULL);
+    res = SetupGetInfInformation(hinf, INFINFO_INF_SPEC_IS_HINF, pspii, size, NULL);
     ok(res, "SetupGetInfInformation failed with error %d\n", GetLastError());
 
     spofi.cbSize = 0;
@@ -173,8 +173,8 @@ static void test_SetupCopyOEMInf(void)
        "Expected ERROR_FILE_NOT_FOUND, got %d\n", GetLastError());
 
     /* try an absolute nonexistent SourceInfFileName */
-    strcpy(path, CURR_DIR);
-    strcat(path, "\\nonexistent");
+    lstrcpy(path, CURR_DIR);
+    lstrcat(path, "\\nonexistent");
     SetLastError(0xdeadbeef);
     res = pSetupCopyOEMInfA(path, NULL, 0, SP_COPY_NOOVERWRITE, NULL, 0, NULL, NULL);
     ok(res == FALSE, "Expected FALSE, got %d\n", res);
@@ -207,7 +207,7 @@ static void test_SetupCopyOEMInf(void)
         * popups during the installation though as it also needs a catalog file (signed?).
         */
        win_skip("Needs a different inf file on Vista+\n");
-       DeleteFileA(tmpfile);
+       DeleteFile(tmpfile);
        return;
     }
 
@@ -225,9 +225,9 @@ static void test_SetupCopyOEMInf(void)
     ok(file_exists(tmpfile), "Expected source inf to exist\n");
 
     /* try an absolute SourceInfFileName, without DestinationInfFileName */
-    strcpy(path, CURR_DIR);
-    strcat(path, "\\");
-    strcat(path, tmpfile);
+    lstrcpy(path, CURR_DIR);
+    lstrcat(path, "\\");
+    lstrcat(path, tmpfile);
     SetLastError(0xdeadbeef);
     res = pSetupCopyOEMInfA(path, NULL, SPOST_NONE, 0, NULL, 0, NULL, NULL);
     ok(res == TRUE, "Expected TRUE, got %d\n", res);
@@ -253,18 +253,18 @@ static void test_SetupCopyOEMInf(void)
     res = pSetupCopyOEMInfA(path, NULL, SPOST_NONE, 0, dest, MAX_PATH, NULL, NULL);
     ok(res == TRUE, "Expected TRUE, got %d\n", res);
     ok(GetLastError() == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", GetLastError());
-    ok(strlen(dest) != 0, "Expected a non-zero length string\n");
+    ok(lstrlen(dest) != 0, "Expected a non-zero length string\n");
     ok(file_exists(dest), "Expected destination inf to exist\n");
     ok(check_format(dest, NULL), "Expected %%windir%%\\inf\\OEMx.inf, got %s\n", dest);
     ok(file_exists(path), "Expected source inf to exist\n");
 
-    strcpy(dest_save, dest);
-    DeleteFileA(dest_save);
+    lstrcpy(dest_save, dest);
+    DeleteFile(dest_save);
 
     /* get the DestinationInfFileName, DestinationInfFileNameSize is too small
      *   - inf is still copied
      */
-    strcpy(dest, "aaa");
+    lstrcpy(dest, "aaa");
     size = 0;
     SetLastError(0xdeadbeef);
     res = pSetupCopyOEMInfA(path, NULL, SPOST_NONE, 0, dest, 5, &size, NULL);
@@ -273,19 +273,19 @@ static void test_SetupCopyOEMInf(void)
        "Expected ERROR_INSUFFICIENT_BUFFER, got %d\n", GetLastError());
     ok(file_exists(path), "Expected source inf to exist\n");
     ok(file_exists(dest_save), "Expected dest inf to exist\n");
-    ok(!strcmp(dest, "aaa"), "Expected dest to be unchanged\n");
-    ok(size == strlen(dest_save) + 1, "Expected size to be lstrlen(dest_save) + 1\n");
+    ok(!lstrcmp(dest, "aaa"), "Expected dest to be unchanged\n");
+    ok(size == lstrlen(dest_save) + 1, "Expected size to be lstrlen(dest_save) + 1\n");
 
     /* get the DestinationInfFileName and DestinationInfFileNameSize */
     SetLastError(0xdeadbeef);
     res = pSetupCopyOEMInfA(path, NULL, SPOST_NONE, 0, dest, MAX_PATH, &size, NULL);
     ok(res == TRUE, "Expected TRUE, got %d\n", res);
     ok(GetLastError() == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", GetLastError());
-    ok(lstrlenA(dest) + 1 == size, "Expected sizes to match, got (%d, %d)\n", lstrlenA(dest), size);
+    ok(lstrlen(dest) + 1 == size, "Expected sizes to match, got (%d, %d)\n", lstrlen(dest), size);
     ok(file_exists(dest), "Expected destination inf to exist\n");
     ok(check_format(dest, NULL), "Expected %%windir%%\\inf\\OEMx.inf, got %s\n", dest);
     ok(file_exists(path), "Expected source inf to exist\n");
-    ok(size == lstrlenA(dest_save) + 1, "Expected size to be lstrlen(dest_save) + 1\n");
+    ok(size == lstrlen(dest_save) + 1, "Expected size to be lstrlen(dest_save) + 1\n");
 
     test_original_file_name(strrchr(path, '\\') + 1, dest);
 
@@ -294,14 +294,14 @@ static void test_SetupCopyOEMInf(void)
     res = pSetupCopyOEMInfA(path, NULL, SPOST_NONE, 0, dest, MAX_PATH, &size, &inf);
     ok(res == TRUE, "Expected TRUE, got %d\n", res);
     ok(GetLastError() == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", GetLastError());
-    ok(lstrlenA(dest) + 1 == size, "Expected sizes to match, got (%d, %d)\n", lstrlenA(dest), size);
+    ok(lstrlen(dest) + 1 == size, "Expected sizes to match, got (%d, %d)\n", lstrlen(dest), size);
     ok(file_exists(dest), "Expected destination inf to exist\n");
     ok((inf && inf[0] != 0) ||
        broken(!inf), /* Win98 */
        "Expected inf to point to the filename\n");
     ok(check_format(dest, inf), "Expected %%windir%%\\inf\\OEMx.inf, got %s\n", dest);
     ok(file_exists(path), "Expected source inf to exist\n");
-    ok(size == lstrlenA(dest_save) + 1, "Expected size to be lstrlen(dest_save) + 1\n");
+    ok(size == lstrlen(dest_save) + 1, "Expected size to be lstrlen(dest_save) + 1\n");
 
     /* try SP_COPY_DELETESOURCE */
     SetLastError(0xdeadbeef);
@@ -733,7 +733,7 @@ static void test_SetupUninstallOEMInf(void)
 
 START_TEST(misc)
 {
-    HMODULE hsetupapi = GetModuleHandleA("setupapi.dll");
+    HMODULE hsetupapi = GetModuleHandle("setupapi.dll");
 
     pSetupGetFileCompressionInfoExA = (void*)GetProcAddress(hsetupapi, "SetupGetFileCompressionInfoExA");
     pSetupCopyOEMInfA = (void*)GetProcAddress(hsetupapi, "SetupCopyOEMInfA");

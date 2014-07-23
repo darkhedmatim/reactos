@@ -17,7 +17,6 @@
 #include <wincon.h>
 #include <richedit.h>
 #include <shlobj.h>
-#include <shlwapi.h>
 #include <stdio.h>
 #include <strsafe.h>
 
@@ -107,7 +106,7 @@ typedef struct
 } SETTINGS_INFO, *PSETTINGS_INFO;
 
 /* available.c */
-typedef BOOL (CALLBACK *AVAILENUMPROC)(PAPPLICATION_INFO Info);
+typedef BOOL (CALLBACK *AVAILENUMPROC)(APPLICATION_INFO Info);
 BOOL EnumAvailableApplications(INT EnumType, AVAILENUMPROC lpEnumProc);
 BOOL ShowAvailableAppInfo(INT Index);
 BOOL UpdateAppsDB(VOID);
@@ -116,7 +115,7 @@ BOOL UpdateAppsDB(VOID);
 BOOL InstallApplication(INT Index);
 
 /* installed.c */
-typedef BOOL (CALLBACK *APPENUMPROC)(INT ItemIndex, LPWSTR lpName, PINSTALLED_INFO Info);
+typedef BOOL (CALLBACK *APPENUMPROC)(INT ItemIndex, LPWSTR lpName, INSTALLED_INFO Info);
 BOOL EnumInstalledApplications(INT EnumType, BOOL IsUserKey, APPENUMPROC lpEnumProc);
 BOOL GetApplicationString(HKEY hKey, LPWSTR lpKeyName, LPWSTR lpString);
 BOOL ShowInstalledAppInfo(INT Index);

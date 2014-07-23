@@ -22,7 +22,7 @@ VOID PrintResourceString(INT resID, ...)
 
     va_start(arg_ptr, resID);
     LoadStringW(GetModuleHandle(NULL), resID, tmpBuffer, MAX_BUFFER_SIZE);
-    vfwprintf(stdout, tmpBuffer, arg_ptr);
+    _vcwprintf(tmpBuffer, arg_ptr);
     va_end(arg_ptr);
 }
 

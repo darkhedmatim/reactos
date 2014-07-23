@@ -130,8 +130,6 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
             SendMessage(hTaskMgr, WM_SYSCOMMAND, SC_RESTORE, 0);
             SetForegroundWindow(hTaskMgr);
         }
-
-        CloseHandle(hMutex);
         return 0;
     }
     else if (!hMutex)
@@ -172,18 +170,11 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
         return -1;
     }
 
-    /*
-     * Set our shutdown parameters: we want to shutdown the very last,
-     * without displaying any end task dialog if needed.
-     */
-    SetProcessShutdownParameters(1, SHUTDOWN_NORETRY);
-
     DialogBoxW(hInst, (LPCWSTR)IDD_TASKMGR_DIALOG, NULL, TaskManagerWndProc);
 
     /* Save our settings to the registry */
     SaveSettings();
     PerfDataUninitialize();
-    CloseHandle(hMutex);
     return 0;
 }
 

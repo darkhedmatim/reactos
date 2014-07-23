@@ -101,7 +101,6 @@ SHCoCreateInstance(
 
 HPSXA        WINAPI SHCreatePropSheetExtArray(_In_ HKEY, _In_opt_ LPCWSTR, UINT);
 HPSXA        WINAPI SHCreatePropSheetExtArrayEx(HKEY,LPCWSTR,UINT,IDataObject*);
-HRESULT      WINAPI SHCreateQueryCancelAutoPlayMoniker(IMoniker**);
 
 HRESULT
 WINAPI

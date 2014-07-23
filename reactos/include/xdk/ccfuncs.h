@@ -6,7 +6,7 @@ $if (_NTIFS_)
     (((PSECTION_OBJECT_POINTERS)(FO)->SectionObjectPointer)->SharedCacheMap != NULL) \
 )
 
-extern NTKERNELAPI ULONG CcFastMdlReadWait;
+extern ULONG CcFastMdlReadWait;
 
 #if (NTDDI_VERSION >= NTDDI_WIN2K)
 

@@ -108,6 +108,15 @@ _mesa_store_teximage2d(struct gl_context *ctx,
 
 
 extern void
+_mesa_store_teximage3d(struct gl_context *ctx,
+                       struct gl_texture_image *texImage,
+                       GLint internalFormat,
+                       GLint width, GLint height, GLint depth, GLint border,
+                       GLenum format, GLenum type, const GLvoid *pixels,
+                       const struct gl_pixelstore_attrib *packing);
+
+
+extern void
 _mesa_store_texsubimage1d(struct gl_context *ctx,
                           struct gl_texture_image *texImage,
                           GLint xoffset, GLint width,
@@ -120,6 +129,15 @@ _mesa_store_texsubimage2d(struct gl_context *ctx,
                           struct gl_texture_image *texImage,
                           GLint xoffset, GLint yoffset,
                           GLint width, GLint height,
+                          GLenum format, GLenum type, const GLvoid *pixels,
+                          const struct gl_pixelstore_attrib *packing);
+
+
+extern void
+_mesa_store_texsubimage3d(struct gl_context *ctx,
+                          struct gl_texture_image *texImage,
+                          GLint xoffset, GLint yoffset, GLint zoffset,
+                          GLint width, GLint height, GLint depth,
                           GLenum format, GLenum type, const GLvoid *pixels,
                           const struct gl_pixelstore_attrib *packing);
 

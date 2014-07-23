@@ -18,7 +18,7 @@ PERESOURCE FsRtlPagingIoResources;
 ULONG FsRtlPagingIoResourceSelector;
 NTSTATUS NTAPI INIT_FUNCTION FsRtlInitializeWorkerThread(VOID);
 
-static const UCHAR LegalAnsiCharacterArray[] =
+static UCHAR LegalAnsiCharacterArray[] =
 {
   0,                                                        /* CTRL+@, 0x00 */
   0,                                                        /* CTRL+A, 0x01 */
@@ -150,7 +150,7 @@ static const UCHAR LegalAnsiCharacterArray[] =
   FSRTL_FAT_LEGAL | FSRTL_HPFS_LEGAL | FSRTL_NTFS_LEGAL     /*         0x7f */
 };
 
-const UCHAR * const FsRtlLegalAnsiCharacterArray = LegalAnsiCharacterArray;
+PUCHAR FsRtlLegalAnsiCharacterArray = LegalAnsiCharacterArray;
 
 /* PRIVATE FUNCTIONS *********************************************************/
 

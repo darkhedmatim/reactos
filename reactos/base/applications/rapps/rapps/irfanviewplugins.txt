@@ -1,5 +1,4 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = IrfanView Plugins
@@ -44,8 +43,8 @@ Size = 10,2 Mo
 
 [Section.041f]
 Name = IrfanView Eklentileri
-Licence = Şahsî kullanım için ücretsiz.
-Description = Daha çok kütük türü desteklemek için eklentiler.
+Licence = Şahsî kullanımlar için ücretsiz.
+Description = Daha çok kütük türünü desteklemeye yarayan eklentiler.
 Size = 10,2 MB
 
 [Section.0422]

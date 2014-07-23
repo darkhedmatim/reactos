@@ -165,42 +165,6 @@ Bus_PDO_PnP (
         }
         status = STATUS_SUCCESS;// We must not fail this IRP.
         break;
-
-    case IRP_MN_REMOVE_DEVICE:
-        //
-        // We handle REMOVE_DEVICE just like STOP_DEVICE. This is because
-        // the device is still physically present (or at least we don't know any better)
-        // so we have to retain the PDO after stopping and removing power from it.
-        //
-        if (DeviceData->InterfaceName.Length != 0)
-            IoSetDeviceInterfaceState(&DeviceData->InterfaceName, FALSE);
-
-        if (DeviceData->AcpiHandle && acpi_bus_power_manageable(DeviceData->AcpiHandle) &&
-            !ACPI_SUCCESS(acpi_bus_set_power(DeviceData->AcpiHandle, ACPI_STATE_D3)))
-        {
-            DPRINT1("Device %x failed to enter D3!\n", DeviceData->AcpiHandle);
-            state.DeviceState = PowerDeviceD3;
-            PoSetPowerState(DeviceData->Common.Self, DevicePowerState, state);
-            DeviceData->Common.DevicePowerState = PowerDeviceD3;
-        }
-        
-        SET_NEW_PNP_STATE(DeviceData->Common, Stopped);
-        status = STATUS_SUCCESS;
-        break;
-
-    case IRP_MN_QUERY_REMOVE_DEVICE:
-        SET_NEW_PNP_STATE(DeviceData->Common, RemovalPending);
-        status = STATUS_SUCCESS;
-        break;
-
-    case IRP_MN_CANCEL_REMOVE_DEVICE:
-        if (RemovalPending == DeviceData->Common.DevicePnPState)
-        {
-            RESTORE_PREVIOUS_PNP_STATE(DeviceData->Common);
-        }
-        status = STATUS_SUCCESS;
-        break;
-
     case IRP_MN_QUERY_CAPABILITIES:
 
         //
@@ -436,7 +400,7 @@ Bus_PDO_QueryDeviceId(
     PIO_STACK_LOCATION      stack;
     PWCHAR                  buffer, src;
     WCHAR                   temp[256];
-    ULONG                   length, i;
+    ULONG                   length;
     NTSTATUS                status = STATUS_SUCCESS;
     struct acpi_device *Device;
 
@@ -526,21 +490,14 @@ Bus_PDO_QueryDeviceId(
 
         /* This is a REG_MULTI_SZ value */
         length = 0;
-        status = STATUS_NOT_SUPPORTED;
 
         /* See comment in BusQueryDeviceID case */
         if (DeviceData->AcpiHandle)
         {
             acpi_bus_get_device(DeviceData->AcpiHandle, &Device);
-            
-            if (!Device->flags.hardware_id)
-            {
-                /* We don't have the ID to satisfy this request */
-                break;
-            }
 
-            DPRINT("Device name: %s\n", Device->pnp.device_name);
-            DPRINT("Hardware ID: %s\n", Device->pnp.hardware_id);
+            DPRINT1("Device name: %s\n", Device->pnp.device_name);
+            DPRINT1("Hardware ID: %s\n", Device->pnp.hardware_id);
 
             if (strcmp(Device->pnp.hardware_id, "Processor") == 0)
             {
@@ -587,7 +544,6 @@ Bus_PDO_QueryDeviceId(
         RtlCopyMemory (buffer, src, length * sizeof(WCHAR));
         Irp->IoStatus.Information = (ULONG_PTR) buffer;
         DPRINT("BusQueryHardwareIDs: %ls\n",buffer);
-        status = STATUS_SUCCESS;
         break;
 
     case BusQueryCompatibleIDs:
@@ -601,17 +557,11 @@ Bus_PDO_QueryDeviceId(
         {
             acpi_bus_get_device(DeviceData->AcpiHandle, &Device);
 
-            if (!Device->flags.hardware_id)
-            {
-                /* We don't have the ID to satisfy this request */
-                break;
-            }
-            
-            DPRINT("Device name: %s\n", Device->pnp.device_name);
-            DPRINT("Hardware ID: %s\n", Device->pnp.hardware_id);
-            
             if (strcmp(Device->pnp.hardware_id, "Processor") == 0)
             {
+                DPRINT("Device name: %s\n", Device->pnp.device_name);
+                DPRINT("Hardware ID: %s\n", Device->pnp.hardware_id);
+
                 length += swprintf(&temp[length],
                                    L"ACPI\\%hs",
                                    Device->pnp.hardware_id);
@@ -622,43 +572,21 @@ Bus_PDO_QueryDeviceId(
                                    Device->pnp.hardware_id);
                 temp[length++] = UNICODE_NULL;
                 temp[length++] = UNICODE_NULL;
-            }
-            else if (Device->flags.compatible_ids)
-            {
-                for (i = 0; i < Device->pnp.cid_list->Count; i++)
+
+                NT_ASSERT(length * sizeof(WCHAR) <= sizeof(temp));
+
+                buffer = ExAllocatePoolWithTag (PagedPool, length * sizeof(WCHAR), 'IPCA');
+                if (!buffer)
                 {
-                    length += swprintf(&temp[length],
-                                   L"ACPI\\%hs",
-                                   Device->pnp.cid_list->Ids[i].String);
-                    temp[length++] = UNICODE_NULL;
-                    
-                    length += swprintf(&temp[length],
-                                   L"*%hs",
-                                   Device->pnp.cid_list->Ids[i].String);
-                    temp[length++] = UNICODE_NULL;
+                    status = STATUS_INSUFFICIENT_RESOURCES;
+                    break;
                 }
-                
-                temp[length++] = UNICODE_NULL;
-            }
-            else
-            {
-                /* No compatible IDs */
-                break;
-            }
-            
-            NT_ASSERT(length * sizeof(WCHAR) <= sizeof(temp));
 
-            buffer = ExAllocatePoolWithTag (PagedPool, length * sizeof(WCHAR), 'IPCA');
-            if (!buffer)
-            {
-                status = STATUS_INSUFFICIENT_RESOURCES;
-                break;
+                RtlCopyMemory (buffer, temp, length * sizeof(WCHAR));
+                Irp->IoStatus.Information = (ULONG_PTR) buffer;
+                DPRINT("BusQueryHardwareIDs: %ls\n",buffer);
+                status = STATUS_SUCCESS;
             }
-
-            RtlCopyMemory (buffer, temp, length * sizeof(WCHAR));
-            Irp->IoStatus.Information = (ULONG_PTR) buffer;
-            DPRINT("BusQueryCompatibleIDs: %ls\n",buffer);
-            status = STATUS_SUCCESS;
         }
         break;
 
@@ -827,10 +755,10 @@ Bus_PDO_QueryResources(
         }
         else
         {
-            DPRINT("Using _BBN for bus number\n");
+            DPRINT1("Using _BBN for bus number\n");
         }
 
-        DPRINT("Found PCI root hub: %d\n", BusNumber);
+        DPRINT1("Found PCI root hub: %d\n", BusNumber);
 
         ResourceListSize = sizeof(CM_RESOURCE_LIST);
         ResourceList = (PCM_RESOURCE_LIST)ExAllocatePoolWithTag(PagedPool, ResourceListSize, 'IPCA');

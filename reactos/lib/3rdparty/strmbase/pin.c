@@ -409,9 +409,6 @@ HRESULT WINAPI BaseOutputPinImpl_Connect(IPin * iface, IPin * pReceivePin, const
     TRACE("(%p/%p)->(%p, %p)\n", This, iface, pReceivePin, pmt);
     dump_AM_MEDIA_TYPE(pmt);
 
-    if (!pReceivePin)
-        return E_POINTER;
-
     /* If we try to connect to ourselves, we will definitely deadlock.
      * There are other cases where we could deadlock too, but this
      * catches the obvious case */
@@ -458,11 +455,9 @@ HRESULT WINAPI BaseOutputPinImpl_Connect(IPin * iface, IPin * pReceivePin, const
             /* then try receiver filter's media types */
             if (hr != S_OK && SUCCEEDED(hr = IPin_EnumMediaTypes(pReceivePin, &pEnumCandidates))) /* if we haven't already connected successfully */
             {
-                ULONG fetched;
-
                 hr = VFW_E_NO_ACCEPTABLE_TYPES; /* Assume the worst, but set to S_OK if connected successfully */
 
-                while (S_OK == IEnumMediaTypes_Next(pEnumCandidates, 1, &pmtCandidate, &fetched))
+                while (S_OK == IEnumMediaTypes_Next(pEnumCandidates, 1, &pmtCandidate, NULL))
                 {
                     assert(pmtCandidate);
                     dump_AM_MEDIA_TYPE(pmtCandidate);
@@ -785,7 +780,7 @@ HRESULT WINAPI BaseOutputPinImpl_AttemptConnection(BasePin* iface, IPin * pRecei
     return hr;
 }
 
-static HRESULT OutputPin_Init(const IPinVtbl *OutputPin_Vtbl, const PIN_INFO * pPinInfo, const BaseOutputPinFuncTable* vtbl,  LPCRITICAL_SECTION pCritSec, BaseOutputPin * pPinImpl)
+static HRESULT OutputPin_Init(const IPinVtbl *OutputPin_Vtbl, const PIN_INFO * pPinInfo, const BasePinFuncTable* pBaseFuncsTable, const BaseOutputPinFuncTable* pBaseOutputFuncsTable,  LPCRITICAL_SECTION pCritSec, BaseOutputPin * pPinImpl)
 {
     TRACE("\n");
 
@@ -798,18 +793,18 @@ static HRESULT OutputPin_Init(const IPinVtbl *OutputPin_Vtbl, const PIN_INFO * p
     pPinImpl->pin.tStop = 0;
     pPinImpl->pin.dRate = 1.0;
     Copy_PinInfo(&pPinImpl->pin.pinInfo, pPinInfo);
-    pPinImpl->pin.pFuncsTable = &vtbl->base;
+    pPinImpl->pin.pFuncsTable = pBaseFuncsTable;
     ZeroMemory(&pPinImpl->pin.mtCurrent, sizeof(AM_MEDIA_TYPE));
 
     /* Output pin attributes */
     pPinImpl->pMemInputPin = NULL;
     pPinImpl->pAllocator = NULL;
-    pPinImpl->pFuncsTable = vtbl;
+    pPinImpl->pFuncsTable = pBaseOutputFuncsTable;
 
     return S_OK;
 }
 
-HRESULT WINAPI BaseOutputPin_Construct(const IPinVtbl *OutputPin_Vtbl, LONG outputpin_size, const PIN_INFO * pPinInfo, const BaseOutputPinFuncTable* vtbl, LPCRITICAL_SECTION pCritSec, IPin ** ppPin)
+HRESULT WINAPI BaseOutputPin_Construct(const IPinVtbl *OutputPin_Vtbl, LONG outputpin_size, const PIN_INFO * pPinInfo, const BasePinFuncTable* pBaseFuncsTable, const BaseOutputPinFuncTable* pBaseOutputFuncsTable, LPCRITICAL_SECTION pCritSec, IPin ** ppPin)
 {
     BaseOutputPin * pPinImpl;
 
@@ -822,14 +817,14 @@ HRESULT WINAPI BaseOutputPin_Construct(const IPinVtbl *OutputPin_Vtbl, LONG outp
     }
 
     assert(outputpin_size >= sizeof(BaseOutputPin));
-    assert(vtbl->base.pfnAttemptConnection);
+    assert(pBaseFuncsTable->pfnAttemptConnection);
 
     pPinImpl = CoTaskMemAlloc(outputpin_size);
 
     if (!pPinImpl)
         return E_OUTOFMEMORY;
 
-    if (SUCCEEDED(OutputPin_Init(OutputPin_Vtbl, pPinInfo, vtbl, pCritSec, pPinImpl)))
+    if (SUCCEEDED(OutputPin_Init(OutputPin_Vtbl, pPinInfo, pBaseFuncsTable, pBaseOutputFuncsTable, pCritSec, pPinImpl)))
     {
         *ppPin = &pPinImpl->pin.IPin_iface;
         return S_OK;
@@ -976,7 +971,7 @@ HRESULT WINAPI BaseInputPinImpl_EndOfStream(IPin * iface)
     if (This->flushing)
         hr = S_FALSE;
     else
-        This->end_of_stream = TRUE;
+        This->end_of_stream = 1;
     LeaveCriticalSection(This->pin.pCritSec);
 
     if (hr == S_OK)
@@ -996,7 +991,7 @@ HRESULT WINAPI BaseInputPinImpl_BeginFlush(IPin * iface)
     TRACE("() semi-stub\n");
 
     EnterCriticalSection(This->pin.pCritSec);
-    This->flushing = TRUE;
+    This->flushing = 1;
 
     hr = SendFurther( iface, deliver_beginflush, NULL, NULL );
     LeaveCriticalSection(This->pin.pCritSec);
@@ -1016,7 +1011,7 @@ HRESULT WINAPI BaseInputPinImpl_EndFlush(IPin * iface)
     TRACE("(%p)\n", This);
 
     EnterCriticalSection(This->pin.pCritSec);
-    This->flushing = This->end_of_stream = FALSE;
+    This->flushing = This->end_of_stream = 0;
 
     hr = SendFurther( iface, deliver_endflush, NULL, NULL );
     LeaveCriticalSection(This->pin.pCritSec);
@@ -1204,7 +1199,7 @@ static const IMemInputPinVtbl MemInputPin_Vtbl =
 };
 
 static HRESULT InputPin_Init(const IPinVtbl *InputPin_Vtbl, const PIN_INFO * pPinInfo,
-                             const BaseInputPinFuncTable* vtbl,
+                             const BasePinFuncTable* pBaseFuncsTable, const BaseInputPinFuncTable* pBaseInputFuncsTable,
                              LPCRITICAL_SECTION pCritSec, IMemAllocator *allocator, BaseInputPin * pPinImpl)
 {
     TRACE("\n");
@@ -1218,30 +1213,29 @@ static HRESULT InputPin_Init(const IPinVtbl *InputPin_Vtbl, const PIN_INFO * pPi
     pPinImpl->pin.dRate = 1.0;
     Copy_PinInfo(&pPinImpl->pin.pinInfo, pPinInfo);
     ZeroMemory(&pPinImpl->pin.mtCurrent, sizeof(AM_MEDIA_TYPE));
-    pPinImpl->pin.pFuncsTable = &vtbl->base;
+    pPinImpl->pin.pFuncsTable = pBaseFuncsTable;
 
     /* Input pin attributes */
-    pPinImpl->pFuncsTable = vtbl;
+    pPinImpl->pFuncsTable = pBaseInputFuncsTable;
     pPinImpl->pAllocator = pPinImpl->preferred_allocator = allocator;
     if (pPinImpl->preferred_allocator)
         IMemAllocator_AddRef(pPinImpl->preferred_allocator);
     pPinImpl->pin.IPin_iface.lpVtbl = InputPin_Vtbl;
     pPinImpl->IMemInputPin_iface.lpVtbl = &MemInputPin_Vtbl;
-    pPinImpl->flushing = pPinImpl->end_of_stream = FALSE;
+    pPinImpl->flushing = pPinImpl->end_of_stream = 0;
 
     return S_OK;
 }
 
-HRESULT BaseInputPin_Construct(const IPinVtbl *InputPin_Vtbl, LONG inputpin_size, const PIN_INFO * pPinInfo,
-                               const BaseInputPinFuncTable* vtbl,
+HRESULT BaseInputPin_Construct(const IPinVtbl *InputPin_Vtbl, const PIN_INFO * pPinInfo,
+                               const BasePinFuncTable* pBaseFuncsTable, const BaseInputPinFuncTable* pBaseInputFuncsTable,
                                LPCRITICAL_SECTION pCritSec, IMemAllocator *allocator, IPin ** ppPin)
 {
     BaseInputPin * pPinImpl;
 
     *ppPin = NULL;
 
-    assert(inputpin_size >= sizeof(BaseInputPin));
-    assert(vtbl->base.pfnCheckMediaType);
+    assert(pBaseFuncsTable->pfnCheckMediaType);
 
     if (pPinInfo->dir != PINDIR_INPUT)
     {
@@ -1249,12 +1243,12 @@ HRESULT BaseInputPin_Construct(const IPinVtbl *InputPin_Vtbl, LONG inputpin_size
         return E_INVALIDARG;
     }
 
-    pPinImpl = CoTaskMemAlloc(inputpin_size);
+    pPinImpl = CoTaskMemAlloc(sizeof(*pPinImpl));
 
     if (!pPinImpl)
         return E_OUTOFMEMORY;
 
-    if (SUCCEEDED(InputPin_Init(InputPin_Vtbl, pPinInfo, vtbl, pCritSec, allocator, pPinImpl)))
+    if (SUCCEEDED(InputPin_Init(InputPin_Vtbl, pPinInfo, pBaseFuncsTable, pBaseInputFuncsTable, pCritSec, allocator, pPinImpl)))
     {
         *ppPin = (IPin *)pPinImpl;
         return S_OK;

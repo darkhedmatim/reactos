@@ -327,7 +327,7 @@ VideoPortUseDeviceInSesion(
         }
         else
         {
-            ERR_(VIDEOPRT, "Requested to set session, but session is already set to: 0x%lx\n",
+            ERR_(VIDEOPRT, "Requested to set session, but session is already set to: 0x%lx",
                  DeviceExtension->SessionId);
             SessionState->bSuccess = FALSE;
         }

@@ -70,7 +70,7 @@ PropDialogHandler(IN LPVOID lpThreadParameter)
 
         if (ConsoleLibrary == NULL)
         {
-            DPRINT1("Failed to load console.dll\n");
+            DPRINT1("Failed to load console.dll");
             AlreadyDisplayingProps = FALSE;
             return STATUS_UNSUCCESSFUL;
         }

@@ -175,7 +175,7 @@ NTSTATUS
 KspEnableEvent(
     IN  PIRP Irp,
     IN  ULONG EventSetsCount,
-    IN  const KSEVENT_SET* EventSet,
+    IN  PKSEVENT_SET EventSet,
     IN  OUT PLIST_ENTRY EventsList OPTIONAL,
     IN  KSEVENTS_LOCKTYPE EventsFlags OPTIONAL,
     IN  PVOID EventsLock OPTIONAL,

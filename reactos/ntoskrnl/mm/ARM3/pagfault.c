@@ -1835,37 +1835,9 @@ UserFault:
         ASSERT(MI_IS_PAGE_LARGE(PointerPde) == FALSE);
     }
 
-    /* Now capture the PTE. */
+    /* Now capture the PTE. Ignore virtual faults for now */
     TempPte = *PointerPte;
-
-    /* Check if the PTE is valid */
-    if (TempPte.u.Hard.Valid)
-    {
-        /* Check if this is a write on a readonly PTE */
-        if (StoreInstruction)
-        {
-            /* Is this a copy on write PTE? */
-            if (TempPte.u.Hard.CopyOnWrite)
-            {
-                /* Not supported yet */
-                ASSERT(FALSE);
-            }
-
-            /* Is this a read-only PTE? */
-            if (!TempPte.u.Hard.Write)
-            {
-                /* Return the status */
-                MiUnlockProcessWorkingSet(CurrentProcess, CurrentThread);
-                return STATUS_ACCESS_VIOLATION;
-            }
-        }
-
-        /* FIXME: Execution is ignored for now, since we don't have no-execute pages yet */
-
-        /* The fault has already been resolved by a different thread */
-        MiUnlockProcessWorkingSet(CurrentProcess, CurrentThread);
-        return STATUS_SUCCESS;
-    }
+    ASSERT(TempPte.u.Hard.Valid == 0);
 
     /* Quick check for demand-zero */
     if (TempPte.u.Long == (MM_READWRITE << MM_PTE_SOFTWARE_PROTECTION_BITS))

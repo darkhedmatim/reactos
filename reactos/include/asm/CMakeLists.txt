@@ -11,19 +11,17 @@ else()
 endif()
 
 if(ARCH STREQUAL "i386")
-    set(_filename ks386.inc)
+    set(_filename ks386)
 elseif(ARCH STREQUAL "amd64")
-    set(_filename ksamd64.inc)
-elseif(ARCH STREQUAL "arm")
-    set(_filename ksarm.h)
+    set(_filename ksamd64)
 endif()
 
 get_target_property(genincdata_dll genincdata LOCATION)
 
 add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_filename}
-    COMMAND native-geninc ${genincdata_dll} ${CMAKE_CURRENT_BINARY_DIR}/${_filename} ${OPT_MS}
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_filename}.inc
+    COMMAND native-geninc ${genincdata_dll} ${CMAKE_CURRENT_BINARY_DIR}/${_filename}.inc ${OPT_MS}
     DEPENDS genincdata native-geninc)
 
 add_custom_target(asm
-    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${_filename})
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${_filename}.inc)

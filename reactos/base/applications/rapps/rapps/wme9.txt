@@ -1,5 +1,4 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = Windows Media Encoder 9
@@ -39,9 +38,9 @@ Size = 9,46 Mo
 Description = Neznáma
 
 [Section.041f]
-Name = Windows Ortam Kodlayıcısı 9
+Name = Pencereler Ortam Düzgüleyicisi 9
 Licence = Bilinmiyor
-Description = Windows Ortam Kodlayıcısı 9
+Description = Pencereler Ortam Düzgüleyicisi 9
 Size = 9,46 MB
 
 [Section.0422]

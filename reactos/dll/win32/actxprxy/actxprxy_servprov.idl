@@ -1,6 +1,3 @@
-#pragma makedep proxy
-#pragma makedep register
-
 #include "servprov.idl"
 
 [

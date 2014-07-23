@@ -413,11 +413,14 @@ static const struct IXMLParserVtbl xmlparser_vtbl =
     xmlparser_GetSecureBaseURL
 };
 
-HRESULT XMLParser_create(void **ppObj)
+HRESULT XMLParser_create(IUnknown* pUnkOuter, void**ppObj)
 {
     xmlparser *This;
 
-    TRACE("(%p)\n", ppObj);
+    TRACE("(%p,%p)\n", pUnkOuter, ppObj);
+
+    if (pUnkOuter)
+        FIXME("support aggregation, outer\n");
 
     This = heap_alloc( sizeof(xmlparser) );
     if(!This)

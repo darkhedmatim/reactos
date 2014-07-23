@@ -6,12 +6,15 @@ list(APPEND SOURCE
     api_validate.c
     accum.c
     attrib.c
+    arrayobj.c
     blend.c
     bufferobj.c
     buffers.c
     clear.c
     clip.c
+    colortab.c
     context.c
+    convolve.c
     cpuinfo.c
     depth.c
     dlist.c
@@ -32,6 +35,7 @@ list(APPEND SOURCE
     getstring.c
     hash.c
     hint.c
+    #histogram.c
     image.c
     imports.c
     light.c
@@ -63,6 +67,7 @@ list(APPEND SOURCE
     texstate.c
     texstorage.c
     texstore.c
+    texturebarrier.c
     varray.c
     version.c
     viewport.c
@@ -73,5 +78,4 @@ add_library(mesa_main STATIC ${SOURCE})
 add_pch(mesa_main precomp.h SOURCE)
 if(NOT MSVC)
     allow_warnings(mesa_main)
-    add_target_compile_flags(mesa_main "-Wno-type-limits")
 endif()

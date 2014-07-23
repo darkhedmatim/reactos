@@ -1,5 +1,4 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = Audio Grabber
@@ -14,9 +13,6 @@ CDPath = none
 
 [Section.0407]
 Description = Ein sehr guter CD-Ripper/Audio-Datei-Konverter.
-
-[Section.0410]
-Description = Un buon CD Ripper/Convertitore di file Audio.
 
 [Section.040a]
 Description = Un buen CD Ripper/ conversor de archivos de audio.
@@ -40,8 +36,9 @@ Description = Program de extragere conținuturi CD audio și de conversie a fiș
 Size = 4,35 Mo
 
 [Section.041f]
+Name = Ses Yakalayıcısı
 Licence = Ücretsiz
-Description = Çok iyi bir CD ripleyicisi ve ses kütüğü dönüştürücüsü.
+Description = Çok iyi bir CD ripleyicisi ve ses biçimi dönüştürücüsü.
 Size = 4,35 MB
 
 [Section.0422]

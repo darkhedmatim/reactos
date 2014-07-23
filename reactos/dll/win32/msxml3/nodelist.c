@@ -68,7 +68,6 @@ static HRESULT WINAPI xmlnodelist_QueryInterface(
 
     TRACE("(%p)->(%s %p)\n", This, debugstr_guid(riid), ppvObject);
 
-#ifdef __REACTOS__
     if (!ppvObject)
     {
         /* NOTE: Interface documentation for IUnknown explicitly states
@@ -77,7 +76,6 @@ static HRESULT WINAPI xmlnodelist_QueryInterface(
          */
         return E_INVALIDARG;
     }
-#endif
 
     if ( IsEqualGUID( riid, &IID_IUnknown ) ||
          IsEqualGUID( riid, &IID_IDispatch ) ||

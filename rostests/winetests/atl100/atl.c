@@ -51,30 +51,19 @@ static const GUID CATID_CatTest2 =
     {0x178fc163,0x0000,0x0000,{0x00,0x00,0x00,0x00,0x00,0x00,0x02,0x46}};
 #define CATID_CATTEST2_STR "178fc163-0000-0000-0000-000000000246"
 
-static BOOL is_process_limited(void)
+static const char *debugstr_guid(REFIID riid)
 {
-    static BOOL (WINAPI *pOpenProcessToken)(HANDLE, DWORD, PHANDLE) = NULL;
-    HANDLE token;
+    static char buf[50];
 
-    if (!pOpenProcessToken)
-    {
-        HMODULE hadvapi32 = GetModuleHandleA("advapi32.dll");
-        pOpenProcessToken = (void*)GetProcAddress(hadvapi32, "OpenProcessToken");
-        if (!pOpenProcessToken)
-            return FALSE;
-    }
+    if(!riid)
+        return "(null)";
 
-    if (pOpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token))
-    {
-        BOOL ret;
-        TOKEN_ELEVATION_TYPE type = TokenElevationTypeDefault;
-        DWORD size;
+    sprintf(buf, "{%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
+            riid->Data1, riid->Data2, riid->Data3, riid->Data4[0],
+            riid->Data4[1], riid->Data4[2], riid->Data4[3], riid->Data4[4],
+            riid->Data4[5], riid->Data4[6], riid->Data4[7]);
 
-        ret = GetTokenInformation(token, TokenElevationType, &type, sizeof(type), &size);
-        CloseHandle(token);
-        return (ret && type == TokenElevationTypeLimited);
-    }
-    return FALSE;
+    return buf;
 }
 
 static void test_winmodule(void)
@@ -181,12 +170,6 @@ static void test_regcat(void)
         {_ATL_CATMAP_ENTRY_REQUIRED, &CATID_CatTest2},
         {_ATL_CATMAP_ENTRY_END}
     };
-
-    if (is_process_limited())
-    {
-        skip("process is limited\n");
-        return;
-    }
 
     hres = AtlRegisterClassCategoriesHelper(&CLSID_Test, catmap, TRUE);
     ok(hres == S_OK, "AtlRegisterClassCategoriesHelper failed: %08x\n", hres);
@@ -494,7 +477,7 @@ static HRESULT WINAPI Dispatch_QueryInterface(IDispatch *iface, REFIID riid, voi
         return S_OK;
     }
 
-    ok(0, "unexpected riid: %s\n", wine_dbgstr_guid(riid));
+    ok(0, "unexpected riid: %s\n", debugstr_guid(riid));
     return E_NOINTERFACE;
 }
 
@@ -573,8 +556,8 @@ static void test_source_iface(void)
     maj_ver = min_ver = 0xdead;
     hres = AtlGetObjectSourceInterface((IUnknown*)&Dispatch, &libid, &iid, &maj_ver, &min_ver);
     ok(hres == S_OK, "AtlGetObjectSourceInterface failed: %08x\n", hres);
-    ok(IsEqualGUID(&libid, &LIBID_MSHTML), "libid = %s\n", wine_dbgstr_guid(&libid));
-    ok(IsEqualGUID(&iid, &DIID_DispHTMLBody), "iid = %s\n", wine_dbgstr_guid(&iid));
+    ok(IsEqualGUID(&libid, &LIBID_MSHTML), "libid = %s\n", debugstr_guid(&libid));
+    ok(IsEqualGUID(&iid, &DIID_DispHTMLBody), "iid = %s\n", debugstr_guid(&iid));
     ok(maj_ver == 4 && min_ver == 0, "ver = %d.%d\n", maj_ver, min_ver);
 
     support_classinfo2 = FALSE;
@@ -583,8 +566,8 @@ static void test_source_iface(void)
     maj_ver = min_ver = 0xdead;
     hres = AtlGetObjectSourceInterface((IUnknown*)&Dispatch, &libid, &iid, &maj_ver, &min_ver);
     ok(hres == S_OK, "AtlGetObjectSourceInterface failed: %08x\n", hres);
-    ok(IsEqualGUID(&libid, &LIBID_MSHTML), "libid = %s\n", wine_dbgstr_guid(&libid));
-    ok(IsEqualGUID(&iid, &DIID_HTMLDocumentEvents), "iid = %s\n", wine_dbgstr_guid(&iid));
+    ok(IsEqualGUID(&libid, &LIBID_MSHTML), "libid = %s\n", debugstr_guid(&libid));
+    ok(IsEqualGUID(&iid, &DIID_HTMLDocumentEvents), "iid = %s\n", debugstr_guid(&iid));
     ok(maj_ver == 4 && min_ver == 0, "ver = %d.%d\n", maj_ver, min_ver);
 
     persist_clsid = CLSID_HTMLStyle;
@@ -592,8 +575,8 @@ static void test_source_iface(void)
     maj_ver = min_ver = 0xdead;
     hres = AtlGetObjectSourceInterface((IUnknown*)&Dispatch, &libid, &iid, &maj_ver, &min_ver);
     ok(hres == S_OK, "AtlGetObjectSourceInterface failed: %08x\n", hres);
-    ok(IsEqualGUID(&libid, &LIBID_MSHTML), "libid = %s\n", wine_dbgstr_guid(&libid));
-    ok(IsEqualGUID(&iid, &IID_NULL), "iid = %s\n", wine_dbgstr_guid(&iid));
+    ok(IsEqualGUID(&libid, &LIBID_MSHTML), "libid = %s\n", debugstr_guid(&libid));
+    ok(IsEqualGUID(&iid, &IID_NULL), "iid = %s\n", debugstr_guid(&iid));
     ok(maj_ver == 4 && min_ver == 0, "ver = %d.%d\n", maj_ver, min_ver);
 }
 

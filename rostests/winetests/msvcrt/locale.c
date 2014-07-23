@@ -49,6 +49,9 @@ static void test_setlocale(void)
     ret = setlocale(20, "C");
     ok(ret == NULL, "ret = %s\n", ret);
 
+    ret = setlocale(LC_ALL, "");
+    ok(ret != NULL, "ret == NULL\n");
+
     ret = setlocale(LC_ALL, "C");
     ok(!strcmp(ret, "C"), "ret = %s\n", ret);
 
@@ -113,14 +116,12 @@ static void test_setlocale(void)
     ok(ret != NULL || broken (ret == NULL), "ret == NULL\n");
     if(ret)
         ok(!strcmp(ret, "Chinese (Simplified)_People's Republic of China.936")
-        || !strcmp(ret, "Chinese (Simplified)_China.936")
         || broken(!strcmp(ret, "Chinese_Taiwan.950")), "ret = %s\n", ret);
 
     ret = setlocale(LC_ALL, "chinese-simplified");
     ok(ret != NULL || broken (ret == NULL), "ret == NULL\n");
     if(ret)
         ok(!strcmp(ret, "Chinese (Simplified)_People's Republic of China.936")
-        || !strcmp(ret, "Chinese (Simplified)_China.936")
         || broken(!strcmp(ret, "Chinese_People's Republic of China.936"))
         || broken(!strcmp(ret, "Chinese_Taiwan.950")), "ret = %s\n", ret);
 
@@ -134,7 +135,6 @@ static void test_setlocale(void)
     ok(ret != NULL || broken (ret == NULL), "ret == NULL\n");
     if(ret)
         ok(!strcmp(ret, "Chinese (Simplified)_People's Republic of China.936")
-        || !strcmp(ret, "Chinese (Simplified)_China.936")
         || broken(!strcmp(ret, "Chinese_People's Republic of China.936")), "ret = %s\n", ret);
 
     ret = setlocale(LC_ALL, "cht");
@@ -142,18 +142,6 @@ static void test_setlocale(void)
     if(ret)
         ok(!strcmp(ret, "Chinese (Traditional)_Taiwan.950")
         || broken(!strcmp(ret, "Chinese_Taiwan.950")), "ret = %s\n", ret);
-
-    ret = setlocale(LC_ALL, "Chinese_China.936");
-todo_wine
-    ok(ret != NULL || broken (ret == NULL), "ret == NULL\n");
-    if(ret)
-    {
-todo_wine
-        ok(!strcmp(ret, "Chinese (Simplified)_People's Republic of China.936")
-        || !strcmp(ret, "Chinese (Simplified)_China.936")
-        || broken(!strcmp(ret, "Chinese_People's Republic of China.936")), "ret = %s\n", ret);
-        trace("ret is %s\n", ret);
-    }
 
     ret = setlocale(LC_ALL, "csy");
     ok(ret != NULL || broken (ret == NULL), "ret == NULL\n");
@@ -587,27 +575,6 @@ todo_wine
     ok(ret != NULL || broken (ret == NULL), "ret == NULL\n");
     if(ret)
         ok(!strcmp(ret, "English_United States.1252"), "ret = %s\n", ret);
-
-    ret = setlocale(LC_ALL, "English_United States.ACP");
-    ok(ret != NULL || broken (ret == NULL), "ret == NULL\n");
-    if(ret) {
-        strcpy(buf, "English_United States.");
-        GetLocaleInfoA(MAKELCID(MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), SORT_DEFAULT),
-                LOCALE_IDEFAULTANSICODEPAGE, buf+strlen(buf), 80);
-        ok(!strcmp(ret, buf), "ret = %s, expected %s\n", ret, buf);
-    }
-
-    ret = setlocale(LC_ALL, "English_United States.OCP");
-    ok(ret != NULL || broken (ret == NULL), "ret == NULL\n");
-    if(ret) {
-        strcpy(buf, "English_United States.");
-        GetLocaleInfoA(MAKELCID(MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), SORT_DEFAULT),
-                LOCALE_IDEFAULTCODEPAGE, buf+strlen(buf), 80);
-        ok(!strcmp(ret, buf), "ret = %s, expected %s\n", ret, buf);
-    }
-
-    ret = setlocale(LC_ALL, "English_United States.UTF8");
-    ok(ret == NULL, "ret != NULL\n");
 }
 
 static void test_crtGetStringTypeW(void)
@@ -665,7 +632,6 @@ static void test__Gettnames(void)
         char data[1];
     } *ret;
     int size;
-    char buf[64];
 
     if(!setlocale(LC_ALL, "english"))
         return;
@@ -722,10 +688,7 @@ static void test__Gettnames(void)
     ok(!strcmp(ret->str[39], "PM"), "ret->str[39] = %s\n", ret->str[39]);
     ok(!strcmp(ret->str[40], "M/d/yyyy") || broken(!strcmp(ret->str[40], "M/d/yy"))/*NT*/,
             "ret->str[40] = %s\n", ret->str[40]);
-    size = GetLocaleInfoA(MAKELCID(LANG_ENGLISH, SORT_DEFAULT),
-           LOCALE_SLONGDATE|LOCALE_NOUSEROVERRIDE, buf, sizeof(buf));
-    ok(size, "GetLocaleInfo failed: %x\n", GetLastError());
-    ok(!strcmp(ret->str[41], buf), "ret->str[41] = %s, expected %s\n", ret->str[41], buf);
+    ok(!strcmp(ret->str[41], "dddd, MMMM dd, yyyy"), "ret->str[41] = %s\n", ret->str[41]);
     free(ret);
 
     if(!setlocale(LC_TIME, "german"))
@@ -782,8 +745,10 @@ static void test__Gettnames(void)
 static void test___mb_cur_max_func(void)
 {
     int mb_cur_max;
+    CPINFO cp;
 
     setlocale(LC_ALL, "C");
+    GetCPInfo(CP_ACP, &cp);
 
     /* for newer Windows */
     if(!p___mb_cur_max_func)
@@ -807,7 +772,13 @@ static void test___mb_cur_max_func(void)
         win_skip("Skipping __p___mb_cur_max tests\n");
     else {
         mb_cur_max = *p__p___mb_cur_max();
-        ok(mb_cur_max == 1, "mb_cur_max = %d, expected 1\n", mb_cur_max);
+        if (cp.MaxCharSize != 1) {
+            todo_wine ok(mb_cur_max == cp.MaxCharSize, "mb_cur_max = %d, expected %d\n",
+                    mb_cur_max, cp.MaxCharSize);
+        }
+        else {
+            ok(mb_cur_max == 1, "mb_cur_max = %d, expected 1\n", mb_cur_max);
+        }
 
         /* some old Windows don't set chinese */
         if (!setlocale(LC_ALL, "chinese"))

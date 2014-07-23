@@ -15,6 +15,8 @@ static CRITICAL_SECTION CriticalSection;
 volatile BOOL CriticalSectionInitialized=FALSE;
 
 /*
+ * FIXME Initial keyboard char not detected on first punch
+ *
  * @implemented
  */
 
@@ -69,7 +71,7 @@ int _kbhit(void)
         return 0;
     }
 
-    if (!PeekConsoleInput(StdInputHandle, InputRecord, EventsRead, &NumberRead))
+    if (!ReadConsoleInput(StdInputHandle, InputRecord, EventsRead, &NumberRead))
     {
         free(InputRecord);
         LeaveCriticalSection(&CriticalSection);

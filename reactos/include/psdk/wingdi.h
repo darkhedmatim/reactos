@@ -1347,7 +1347,6 @@ extern "C" {
 #define LAYOUT_VBH 4 // Vertical before horizontal
 #define LAYOUT_ORIENTATIONMASK (LAYOUT_RTL | LAYOUT_BTT | LAYOUT_VBH)
 #define LAYOUT_BITMAPORIENTATIONPRESERVED 8
-#define CAPTUREBLT 0x40000000
 #define NOMIRRORBITMAP 0x80000000
 #if (WINVER > 0x400)
 #define CS_ENABLE           0x00000001
@@ -2894,17 +2893,11 @@ typedef UINT (CALLBACK *LPFNDEVMODE)(HWND,HMODULE,LPDEVMODEA,LPSTR,LPSTR,LPDEVMO
 typedef DWORD (CALLBACK *LPFNDEVCAPS)(LPSTR,LPSTR,UINT,LPSTR,LPDEVMODEA);
 
 
-#define GetRValue(rgb) ((BYTE)(rgb))
-#define GetGValue(rgb) ((BYTE)(((WORD)(rgb)) >> 8))
-#define GetBValue(rgb) ((BYTE)((rgb)>>16))
-
-#define RGB(r,g,b)          ((COLORREF)(((BYTE)(r)|((WORD)((BYTE)(g))<<8))|(((DWORD)(BYTE)(b))<<16)))
-#define PALETTERGB(r,g,b)   (0x02000000 | RGB(r,g,b))
-#define PALETTEINDEX(i)     ((COLORREF)(0x01000000 | (DWORD)(WORD)(i)))
-
+#define RGB(r,g,b)	((DWORD)(((BYTE)(r)|((WORD)(g)<<8))|(((DWORD)(BYTE)(b))<<16)))
 #define MAKEPOINTS(l) (*((POINTS*)&(l)))
-#define MAKEROP4(f,b) (DWORD)((((b)<<8)&0xFF000000)|(f))
-
+#define MAKEROP4(f,b)	(DWORD)((((b)<<8)&0xFF000000)|(f))
+#define PALETTEINDEX(i)	((0x01000000|(COLORREF)(WORD)(i)))
+#define PALETTERGB(r,g,b)	(0x02000000|RGB(r,g,b))
 int WINAPI AbortDoc(_In_ HDC);
 BOOL WINAPI AbortPath(_In_ HDC);
 int WINAPI AddFontResourceA(LPCSTR);
@@ -3203,13 +3196,14 @@ GdiGradientFill(
 
 BOOL WINAPI GdiTransparentBlt(_In_ HDC, _In_ int, _In_ int, _In_ int, _In_ int, _In_ HDC, _In_ int, _In_ int, _In_ int, _In_ int, _In_ UINT);
 BOOL WINAPI GdiIsMetaFileDC(HDC);
-
-#define GetKValue(cmyk) ((BYTE)(cmyk))
-#define GetYValue(cmyk) ((BYTE)((cmyk)>> 8))
-#define GetMValue(cmyk) ((BYTE)((cmyk)>>16))
-#define GetCValue(cmyk) ((BYTE)((cmyk)>>24))
-#define CMYK(c,m,y,k) ((COLORREF)((((BYTE)(k)|((WORD)((BYTE)(y))<<8))|(((DWORD)(BYTE)(m))<<16))|(((DWORD)(BYTE)(c))<<24)))
-
+#define GetCValue(cmyk) ((BYTE)(cmyk))
+#define GetMValue(cmyk) ((BYTE)((cmyk)>> 8))
+#define GetYValue(cmyk) ((BYTE)((cmyk)>>16))
+#define GetKValue(cmyk) ((BYTE)((cmyk)>>24))
+#define CMYK(c,m,y,k) ((COLORREF)((((BYTE)(c)|((WORD)((BYTE)(m))<<8))|(((DWORD)(BYTE)(y))<<16))|(((DWORD)(BYTE)(k))<<24)))
+#define GetRValue(c) ((BYTE)(c))
+#define GetGValue(c) ((BYTE)(((WORD)(c))>>8))
+#define GetBValue(c) ((BYTE)((c)>>16))
 int WINAPI GetArcDirection(_In_ HDC);
 BOOL WINAPI GetAspectRatioFilterEx(_In_ HDC, _Out_ LPSIZE);
 

@@ -70,15 +70,15 @@ static void do_enum(void)
 	GUID the_cat[1];
 	GUID wanted_guid;
 	ULONG fetched = -1;
-
-        static const WCHAR szCatID[] = {
+	
+	static WCHAR szCatID[] = {
 			'{',
 			'd','e','a','d','c','a','f','e',
 			'-','0','0','0','0','-','0','0','0','0',
 			'-','0','0','0','0',
 			'-','0','0','0','0','0','0','0','0','0','0','0','0',
 			'}',0};
-        static const WCHAR szGuid[] = {
+	static WCHAR szGuid[] = {
 			'{',
 			'd','e','a','d','c','a','f','e','-',
 			'b','e','e','d','-',

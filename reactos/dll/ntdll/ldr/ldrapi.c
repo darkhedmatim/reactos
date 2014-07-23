@@ -82,8 +82,8 @@ LdrAlternateResourcesEnabled(VOID)
     return FALSE;
 }
 
-FORCEINLINE
 ULONG_PTR
+FORCEINLINE
 LdrpMakeCookie(VOID)
 {
     /* Generate a cookie */
@@ -322,8 +322,10 @@ LdrLoadDll(IN PWSTR SearchPath OPTIONAL,
     PTEB Teb = NtCurrentTeb();
 
     /* Initialize the strings */
-    RtlInitEmptyUnicodeString(&DllString1, StringBuffer, sizeof(StringBuffer));
     RtlInitEmptyUnicodeString(&DllString2, NULL, 0);
+    DllString1.Buffer = StringBuffer;
+    DllString1.Length = 0;
+    DllString1.MaximumLength = sizeof(StringBuffer);
 
     /* Check if the SxS Assemblies specify another file */
     Status = RtlDosApplyFileIsolationRedirection_Ustr(TRUE,
@@ -408,7 +410,8 @@ LdrLoadDll(IN PWSTR SearchPath OPTIONAL,
              (Status != STATUS_OBJECT_NAME_NOT_FOUND) &&
              (Status != STATUS_DLL_INIT_FAILED))
     {
-        DbgPrintEx(DPFLTR_LDR_ID,
+        // 85 == DPFLTR_LDR_ID;
+        DbgPrintEx(85,
                    DPFLTR_WARNING_LEVEL,
                    "LDR: %s - failing because LdrpLoadDll(%wZ) returned status %x\n",
                    __FUNCTION__,
@@ -500,11 +503,8 @@ LdrFindEntryForAddress(PVOID Address,
     }
 
     /* Nothing found */
-    DbgPrintEx(DPFLTR_LDR_ID,
-               DPFLTR_WARNING_LEVEL,
-               "LDR: %s() exiting 0x%08lx\n",
-               __FUNCTION__,
-               STATUS_NO_MORE_ENTRIES);
+    // 85 == DPFLTR_LDR_ID;
+    DbgPrintEx(85, DPFLTR_WARNING_LEVEL, "LDR: %s() exiting 0x%08lx\n", __FUNCTION__, STATUS_NO_MORE_ENTRIES);
     return STATUS_NO_MORE_ENTRIES;
 }
 

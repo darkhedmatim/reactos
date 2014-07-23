@@ -152,7 +152,7 @@ RegisterClipboardFormatW(LPCWSTR lpszFormat)
     return ret;
 }
 
-static PVOID WINAPI
+PVOID static WINAPI
 IntSynthesizeMultiByte(PVOID pwStr, DWORD cbStr, BOOL bOem)
 {
     HANDLE hGlobal;
@@ -173,7 +173,7 @@ IntSynthesizeMultiByte(PVOID pwStr, DWORD cbStr, BOOL bOem)
     return pGlobal;
 }
 
-static PVOID WINAPI
+PVOID static WINAPI
 IntSynthesizeWideChar(PVOID pwStr, DWORD cbStr, BOOL bOem)
 {
     HANDLE hGlobal;

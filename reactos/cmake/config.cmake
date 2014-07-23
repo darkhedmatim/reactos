@@ -12,8 +12,8 @@ set(TUNE "i686" CACHE STRING
 
 set(OPTIMIZE "4" CACHE STRING
 "What level of optimization to use.
- 0 = Off
- 1 = Optimize for size (-Os) with some additional options
+ 0 = off
+ 1 = Default option, optimize for size (-Os) with some additional options
  2 = Optimize for size (-Os)
  3 = Optimize debugging experience (-Og)
  4 = Optimize (-O1)
@@ -59,16 +59,16 @@ set(_ELF_ FALSE CACHE BOOL
 Do not enable unless you know what you're doing.")
 
 set(NSWPAT FALSE CACHE BOOL
-"Whether to build apps/libs with features covered by software patents.
+"Whether to compile apps/libs with features covered software patents or not.
 If you live in a country where software patents are valid/apply, don't
 enable this (except they/you purchased a license from the patent owner).
-This setting is disabled by default.")
+This settings is disabled (0) by default.")
 
 set(BUILD_MP TRUE CACHE BOOL
-"Whether to build the multiprocessor versions of NTOSKRNL and HAL.")
+"Whether to compile the multi processor versions for ntoskrnl and hal.")
 
 set(GENERATE_DEPENDENCY_GRAPH FALSE CACHE BOOL
-"Whether to create a GraphML dependency graph of DLLs.")
+"Whether to create a graphml dependency of dlls.")
 
 if(MSVC)
 set(_PREFAST_ FALSE CACHE BOOL

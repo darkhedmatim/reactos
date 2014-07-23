@@ -1,5 +1,4 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = BitTorrent
@@ -29,6 +28,6 @@ Description = Originalul client BitTorrent.
 Size = 1,07 Mo
 
 [Section.041f]
-Licence = Tecimlik olmayan kullanımlar için ücretsiz.
+Licence = Ticârî olmayan kullanımlarda ücretsiz.
 Description = Özgün BitTorrent istemcisi.
 Size = 1,07 MB

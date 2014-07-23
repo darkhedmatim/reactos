@@ -559,8 +559,7 @@ void WINAPI VariantInit(VARIANTARG* pVarg)
 {
   TRACE("(%p)\n", pVarg);
 
-  /* Win8.1 zeroes whole struct. Previous implementations don't set any other fields. */
-  V_VT(pVarg) = VT_EMPTY;
+  V_VT(pVarg) = VT_EMPTY; /* Native doesn't set any other fields */
 }
 
 HRESULT VARIANT_ClearInd(VARIANTARG *pVarg)
@@ -679,32 +678,34 @@ HRESULT WINAPI VariantClear(VARIANTARG* pVarg)
 /******************************************************************************
  * Copy an IRecordInfo object contained in a variant.
  */
-static HRESULT VARIANT_CopyIRecordInfo(VARIANT *dest, VARIANT *src)
+static HRESULT VARIANT_CopyIRecordInfo(struct __tagBRECORD* pBr)
 {
-  struct __tagBRECORD *dest_rec = &V_UNION(dest, brecVal);
-  struct __tagBRECORD *src_rec = &V_UNION(src, brecVal);
-  HRESULT hr = S_OK;
-  ULONG size;
+  HRESULT hres = S_OK;
 
-  if (!src_rec->pRecInfo)
+  if (pBr->pRecInfo)
   {
-    if (src_rec->pvRecord) return E_INVALIDARG;
-    return S_OK;
+    ULONG ulSize;
+
+    hres = IRecordInfo_GetSize(pBr->pRecInfo, &ulSize);
+    if (SUCCEEDED(hres))
+    {
+      PVOID pvRecord = HeapAlloc(GetProcessHeap(), 0, ulSize);
+      if (!pvRecord)
+        hres = E_OUTOFMEMORY;
+      else
+      {
+        memcpy(pvRecord, pBr->pvRecord, ulSize);
+        pBr->pvRecord = pvRecord;
+
+        hres = IRecordInfo_RecordCopy(pBr->pRecInfo, pvRecord, pvRecord);
+        if (SUCCEEDED(hres))
+          IRecordInfo_AddRef(pBr->pRecInfo);
+      }
+    }
   }
-
-  hr = IRecordInfo_GetSize(src_rec->pRecInfo, &size);
-  if (FAILED(hr)) return hr;
-
-  /* This could look cleaner if only RecordCreate() was used, but native doesn't use it.
-     Memory should be allocated in a same way as RecordCreate() does, so RecordDestroy()
-     could free it later. */
-  dest_rec->pvRecord = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size);
-  if (!dest_rec->pvRecord) return E_OUTOFMEMORY;
-
-  dest_rec->pRecInfo = src_rec->pRecInfo;
-  IRecordInfo_AddRef(src_rec->pRecInfo);
-
-  return IRecordInfo_RecordCopy(src_rec->pRecInfo, src_rec->pvRecord, dest_rec->pvRecord);
+  else if (pBr->pvRecord)
+    hres = E_INVALIDARG;
+  return hres;
 }
 
 /******************************************************************************
@@ -754,25 +755,29 @@ HRESULT WINAPI VariantCopy(VARIANTARG* pvargDest, VARIANTARG* pvargSrc)
 
     if (!V_ISBYREF(pvargSrc))
     {
-      switch (V_VT(pvargSrc))
+      if (V_ISARRAY(pvargSrc))
       {
-      case VT_BSTR:
+        if (V_ARRAY(pvargSrc))
+          hres = SafeArrayCopy(V_ARRAY(pvargSrc), &V_ARRAY(pvargDest));
+      }
+      else if (V_VT(pvargSrc) == VT_BSTR)
+      {
         V_BSTR(pvargDest) = SysAllocStringByteLen((char*)V_BSTR(pvargSrc), SysStringByteLen(V_BSTR(pvargSrc)));
         if (!V_BSTR(pvargDest))
+	{
+	  TRACE("!V_BSTR(pvargDest), SysAllocStringByteLen() failed to allocate %d bytes\n", SysStringByteLen(V_BSTR(pvargSrc)));
           hres = E_OUTOFMEMORY;
-        break;
-      case VT_RECORD:
-        hres = VARIANT_CopyIRecordInfo(pvargDest, pvargSrc);
-        break;
-      case VT_DISPATCH:
-      case VT_UNKNOWN:
-        V_UNKNOWN(pvargDest) = V_UNKNOWN(pvargSrc);
+	}
+      }
+      else if (V_VT(pvargSrc) == VT_RECORD)
+      {
+        hres = VARIANT_CopyIRecordInfo(&V_UNION(pvargDest,brecVal));
+      }
+      else if (V_VT(pvargSrc) == VT_DISPATCH ||
+               V_VT(pvargSrc) == VT_UNKNOWN)
+      {
         if (V_UNKNOWN(pvargSrc))
           IUnknown_AddRef(V_UNKNOWN(pvargSrc));
-        break;
-      default:
-        if (V_ISARRAY(pvargSrc))
-          hres = SafeArrayCopy(V_ARRAY(pvargSrc), &V_ARRAY(pvargDest));
       }
     }
   }
@@ -891,7 +896,8 @@ HRESULT WINAPI VariantCopyInd(VARIANT* pvargDest, VARIANTARG* pvargSrc)
   }
   else if (V_VT(pSrc) == (VT_RECORD|VT_BYREF))
   {
-    hres = VARIANT_CopyIRecordInfo(pvargDest, pvargSrc);
+    V_UNION(pvargDest,brecVal) = V_UNION(pvargSrc,brecVal);
+    hres = VARIANT_CopyIRecordInfo(&V_UNION(pvargDest,brecVal));
   }
   else if (V_VT(pSrc) == (VT_DISPATCH|VT_BYREF) ||
            V_VT(pSrc) == (VT_UNKNOWN|VT_BYREF))
@@ -1289,10 +1295,6 @@ INT WINAPI SystemTimeToVariantTime(LPSYSTEMTIME lpSt, double *pDateOut)
         lpSt->wYear, lpSt->wHour, lpSt->wMinute, lpSt->wSecond, pDateOut);
 
   if (lpSt->wMonth > 12)
-    return FALSE;
-  if (lpSt->wDay > 31)
-    return FALSE;
-  if ((short)lpSt->wYear < 0)
     return FALSE;
 
   ud.st = *lpSt;

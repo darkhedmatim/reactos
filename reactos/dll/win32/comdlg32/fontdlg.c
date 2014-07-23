@@ -345,7 +345,7 @@ static INT WINAPI FontFamilyEnumProc(const ENUMLOGFONTEXW *lpElfex,
  *
  * Fill font style information into combobox  (without using font.c directly)
  */
-static BOOL SetFontStylesToCombo2(HWND hwnd, HDC hdc, const LOGFONTW *lplf)
+static int SetFontStylesToCombo2(HWND hwnd, HDC hdc, const LOGFONTW *lplf)
 {
 #define FSTYLES 4
     struct FONTSTYLE
@@ -384,19 +384,19 @@ static BOOL SetFontStylesToCombo2(HWND hwnd, HDC hdc, const LOGFONTW *lplf)
             WCHAR name[64];
             LoadStringW(COMDLG32_hInstance, fontstyles[i].resId, name, 64);
             j=SendMessageW(hwnd,CB_ADDSTRING,0,(LPARAM)name );
-            if (j==CB_ERR) return TRUE;
+            if (j==CB_ERR) return 1;
             j=SendMessageW(hwnd, CB_SETITEMDATA, j,
                            MAKELONG(tm.tmWeight,fontstyles[i].italic));
-            if (j==CB_ERR) return TRUE;
+            if (j==CB_ERR) return 1;
         }
     }
-    return FALSE;
+    return 0;
 }
 
 /*************************************************************************
  *              AddFontSizeToCombo3                           [internal]
  */
-static BOOL AddFontSizeToCombo3(HWND hwnd, UINT h, const CHOOSEFONTW *lpcf)
+static int AddFontSizeToCombo3(HWND hwnd, UINT h, const CHOOSEFONTW *lpcf)
 {
     int j;
     WCHAR buffer[20];
@@ -411,23 +411,23 @@ static BOOL AddFontSizeToCombo3(HWND hwnd, UINT h, const CHOOSEFONTW *lpcf)
         {
             j=SendMessageW(hwnd, CB_ADDSTRING, 0, (LPARAM)buffer);
             if (j!=CB_ERR) j = SendMessageW(hwnd, CB_SETITEMDATA, j, h);
-            if (j==CB_ERR) return TRUE;
+            if (j==CB_ERR) return 1;
         }
     }
-    return FALSE;
+    return 0;
 }
 
 /*************************************************************************
  *              SetFontSizesToCombo3                           [internal]
  */
-static BOOL SetFontSizesToCombo3(HWND hwnd, const CHOOSEFONTW *lpcf)
+static int SetFontSizesToCombo3(HWND hwnd, const CHOOSEFONTW *lpcf)
 {
     static const BYTE sizes[]={6,7,8,9,10,11,12,14,16,18,20,22,24,26,28,36,48,72};
     unsigned int i;
 
     for (i = 0; i < sizeof(sizes)/sizeof(sizes[0]); i++)
-        if (AddFontSizeToCombo3(hwnd, sizes[i], lpcf)) return TRUE;
-    return FALSE;
+        if (AddFontSizeToCombo3(hwnd, sizes[i], lpcf)) return 1;
+    return 0;
 }
 
 /*************************************************************************
@@ -490,17 +490,16 @@ static INT AddFontStyle( const ENUMLOGFONTEXW *lpElfex, const NEWTEXTMETRICEXW *
         INT points;
         points = MulDiv( lpNTM->ntmTm.tmHeight - lpNTM->ntmTm.tmInternalLeading,
                 72, GetScreenDPI());
-        if (AddFontSizeToCombo3(hcmb3, points, lpcf))
-            return 0;
+        i = AddFontSizeToCombo3(hcmb3, points, lpcf);
+        if(i) return 0;
     } else if (SetFontSizesToCombo3(hcmb3, lpcf)) return 0;
 
     if (!SendMessageW(hcmb2, CB_GETCOUNT, 0, 0))
     {
-        BOOL res;
         if(!(hdc = CFn_GetDC(lpcf))) return 0;
-        res = SetFontStylesToCombo2(hcmb2,hdc,lplf);
+        i=SetFontStylesToCombo2(hcmb2,hdc,lplf);
         CFn_ReleaseDC(lpcf, hdc);
-        if (res)
+        if (i)
             return 0;
     }
     if (!( hcmb5 = GetDlgItem(hDlg, cmb5))) return 1;
@@ -515,10 +514,10 @@ static INT AddFontStyle( const ENUMLOGFONTEXW *lpElfex, const NEWTEXTMETRICEXW *
     return 1 ;
 }
 
-static BOOL CFn_FitFontSize( HWND hDlg, int points)
+static INT CFn_FitFontSize( HWND hDlg, int points)
 {
     int i,n;
-    BOOL ret = FALSE;
+    int ret = 0;
     /* look for fitting font size in combobox3 */
     n=SendDlgItemMessageW(hDlg, cmb3, CB_GETCOUNT, 0, 0);
     for (i=0;i<n;i++)
@@ -530,18 +529,17 @@ static BOOL CFn_FitFontSize( HWND hDlg, int points)
             SendMessageW(hDlg, WM_COMMAND,
                     MAKEWPARAM(cmb3, CBN_SELCHANGE),
                     (LPARAM)GetDlgItem(hDlg,cmb3));
-            ret = TRUE;
+            ret = 1;
             break;
         }
     }
     return ret;
 }
 
-static BOOL CFn_FitFontStyle( HWND hDlg, LONG packedstyle )
+static INT CFn_FitFontStyle( HWND hDlg, LONG packedstyle )
 {
     LONG id;
-    int i;
-    BOOL ret = FALSE;
+    int i, ret = 0;
     /* look for fitting font style in combobox2 */
     for (i=0;i<TEXT_EXTRAS;i++)
     {
@@ -551,7 +549,7 @@ static BOOL CFn_FitFontStyle( HWND hDlg, LONG packedstyle )
             SendDlgItemMessageW(hDlg, cmb2, CB_SETCURSEL, i, 0);
             SendMessageW(hDlg, WM_COMMAND, MAKEWPARAM(cmb2, CBN_SELCHANGE),
                     (LPARAM)GetDlgItem(hDlg,cmb2));
-            ret = TRUE;
+            ret = 1;
             break;
         }
     }
@@ -559,7 +557,7 @@ static BOOL CFn_FitFontStyle( HWND hDlg, LONG packedstyle )
 }
 
 
-static BOOL CFn_FitCharSet( HWND hDlg, int charset )
+static INT CFn_FitCharSet( HWND hDlg, int charset )
 {
     int i,n,cs;
     /* look for fitting char set in combobox5 */
@@ -572,14 +570,14 @@ static BOOL CFn_FitCharSet( HWND hDlg, int charset )
             SendDlgItemMessageW(hDlg, cmb5, CB_SETCURSEL, i, 0);
             SendMessageW(hDlg, WM_COMMAND, MAKEWPARAM(cmb5, CBN_SELCHANGE),
                     (LPARAM)GetDlgItem(hDlg,cmb2));
-            return TRUE;
+            return 1;
         }
     }
     /* no charset fits: select the first one in the list */
     SendDlgItemMessageW(hDlg, cmb5, CB_SETCURSEL, 0, 0);
     SendMessageW(hDlg, WM_COMMAND, MAKEWPARAM(cmb5, CBN_SELCHANGE),
             (LPARAM)GetDlgItem(hDlg,cmb2));
-    return FALSE;
+    return 0;
 }
 
 /***********************************************************************
@@ -602,8 +600,7 @@ static INT WINAPI FontStyleEnumProc( const ENUMLOGFONTEXW *lpElfex,
 static LRESULT CFn_WMInitDialog(HWND hDlg, LPARAM lParam, LPCHOOSEFONTW lpcf)
 {
     HDC hdc;
-    int i,j;
-    BOOL init = FALSE;
+    int i,j,init=0;
     long pstyle;
     CFn_ENUMSTRUCT s;
     LPLOGFONTW lpxx;
@@ -616,7 +613,7 @@ static LRESULT CFn_WMInitDialog(HWND hDlg, LPARAM lParam, LPCHOOSEFONTW lpcf)
 
     if (lpcf->lStructSize != sizeof(CHOOSEFONTW))
     {
-        ERR("structure size failure!!!\n");
+        ERR("structure size failure !!!\n");
         EndDialog (hDlg, 0);
         return FALSE;
     }
@@ -714,7 +711,7 @@ static LRESULT CFn_WMInitDialog(HWND hDlg, LPARAM lParam, LPCHOOSEFONTW lpcf)
             SendDlgItemMessageW(hDlg, cmb1, CB_SETCURSEL, j, 0);
             SendMessageW(hDlg, WM_COMMAND, MAKEWPARAM(cmb1, CBN_SELCHANGE),
                     (LPARAM)GetDlgItem(hDlg,cmb1));
-            init = TRUE;
+            init=1;
             /* look for fitting font style in combobox2 */
             CFn_FitFontStyle(hDlg, pstyle);
             /* look for fitting font size in combobox3 */

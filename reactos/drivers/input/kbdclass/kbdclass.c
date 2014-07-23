@@ -606,7 +606,7 @@ DestroyPortDriver(
 
 	/* Remove from ClassDeviceExtension->ListHead list */
 	KeAcquireSpinLock(&ClassDeviceExtension->ListSpinLock, &OldIrql);
-	RemoveEntryList(&DeviceExtension->ListEntry);
+	RemoveHeadList(DeviceExtension->ListEntry.Blink);
 	KeReleaseSpinLock(&ClassDeviceExtension->ListSpinLock, OldIrql);
 
 	/* Remove entry from HKEY_LOCAL_MACHINE\HARDWARE\DEVICEMAP\[DeviceBaseName] */
@@ -865,6 +865,7 @@ ClassPnp(
 			IoCompleteRequest(Irp, IO_NO_INCREMENT);
 			return Status;
 			
+		case IRP_MN_REMOVE_DEVICE:
 		case IRP_MN_STOP_DEVICE:
 			if (DeviceExtension->FileHandle)
 			{
@@ -873,17 +874,6 @@ ClassPnp(
 			}
 			Status = STATUS_SUCCESS;
 			break;
-            
-        case IRP_MN_REMOVE_DEVICE:
-            if (DeviceExtension->FileHandle)
-			{
-				ZwClose(DeviceExtension->FileHandle);
-				DeviceExtension->FileHandle = NULL;
-			}
-            IoSkipCurrentIrpStackLocation(Irp);
-		    Status = IoCallDriver(DeviceExtension->LowerDevice, Irp);
-            DestroyPortDriver(DeviceObject);
-			return Status;
 
 		default:
 			Status = Irp->IoStatus.Status;

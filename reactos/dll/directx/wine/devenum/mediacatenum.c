@@ -32,9 +32,7 @@ typedef struct
     IEnumMoniker IEnumMoniker_iface;
     LONG ref;
     DWORD index;
-    DWORD subkey_cnt;
     HKEY hkey;
-    HKEY special_hkey;
 } EnumMonikerImpl;
 
 typedef struct
@@ -716,8 +714,6 @@ static ULONG WINAPI DEVENUM_IEnumMoniker_Release(IEnumMoniker *iface)
 
     if (!ref)
     {
-        if(This->special_hkey)
-            RegCloseKey(This->special_hkey);
         RegCloseKey(This->hkey);
         CoTaskMemFree(This);
         DEVENUM_UnlockModule();
@@ -739,12 +735,7 @@ static HRESULT WINAPI DEVENUM_IEnumMoniker_Next(IEnumMoniker *iface, ULONG celt,
 
     while (fetched < celt)
     {
-        if(This->index+fetched < This->subkey_cnt)
-            res = RegEnumKeyW(This->hkey, This->index+fetched, buffer, sizeof(buffer) / sizeof(WCHAR));
-        else if(This->special_hkey)
-            res = RegEnumKeyW(This->special_hkey, This->index+fetched-This->subkey_cnt, buffer, sizeof(buffer) / sizeof(WCHAR));
-        else
-            break;
+        res = RegEnumKeyW(This->hkey, This->index, buffer, sizeof(buffer) / sizeof(WCHAR));
         if (res != ERROR_SUCCESS)
         {
             break;
@@ -753,8 +744,7 @@ static HRESULT WINAPI DEVENUM_IEnumMoniker_Next(IEnumMoniker *iface, ULONG celt,
         if (!pMoniker)
             return E_OUTOFMEMORY;
 
-        if (RegOpenKeyW(This->index+fetched < This->subkey_cnt ? This->hkey : This->special_hkey,
-                        buffer, &pMoniker->hkey) != ERROR_SUCCESS)
+        if (RegOpenKeyW(This->hkey, buffer, &pMoniker->hkey) != ERROR_SUCCESS)
         {
             IMoniker_Release(&pMoniker->IMoniker_iface);
             break;
@@ -779,16 +769,17 @@ static HRESULT WINAPI DEVENUM_IEnumMoniker_Next(IEnumMoniker *iface, ULONG celt,
 static HRESULT WINAPI DEVENUM_IEnumMoniker_Skip(IEnumMoniker *iface, ULONG celt)
 {
     EnumMonikerImpl *This = impl_from_IEnumMoniker(iface);
-    DWORD special_subkeys = 0;
+    DWORD subKeys;
 
     TRACE("(%p)->(%d)\n", iface, celt);
 
     /* Before incrementing, check if there are any more values to run through.
        Some programs use the Skip() function to get the number of devices */
-    if(This->special_hkey)
-        RegQueryInfoKeyW(This->special_hkey, NULL, NULL, NULL, &special_subkeys, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-
-    if((This->index + celt) >= This->subkey_cnt + special_subkeys)
+    if(RegQueryInfoKeyW(This->hkey, NULL, NULL, NULL, &subKeys, NULL, NULL, NULL, NULL, NULL, NULL, NULL) != ERROR_SUCCESS)
+    {
+        return S_FALSE;
+    }
+    if((This->index + celt) >= subKeys)
     {
         return S_FALSE;
     }
@@ -830,7 +821,7 @@ static const IEnumMonikerVtbl IEnumMoniker_Vtbl =
     DEVENUM_IEnumMoniker_Clone
 };
 
-HRESULT DEVENUM_IEnumMoniker_Construct(HKEY hkey, HKEY special_hkey, IEnumMoniker ** ppEnumMoniker)
+HRESULT DEVENUM_IEnumMoniker_Construct(HKEY hkey, IEnumMoniker ** ppEnumMoniker)
 {
     EnumMonikerImpl * pEnumMoniker = CoTaskMemAlloc(sizeof(EnumMonikerImpl));
     if (!pEnumMoniker)
@@ -840,13 +831,8 @@ HRESULT DEVENUM_IEnumMoniker_Construct(HKEY hkey, HKEY special_hkey, IEnumMonike
     pEnumMoniker->ref = 1;
     pEnumMoniker->index = 0;
     pEnumMoniker->hkey = hkey;
-    pEnumMoniker->special_hkey = special_hkey;
 
     *ppEnumMoniker = &pEnumMoniker->IEnumMoniker_iface;
-
-    if(RegQueryInfoKeyW(pEnumMoniker->hkey, NULL, NULL, NULL, &pEnumMoniker->subkey_cnt, NULL, NULL, NULL, NULL, NULL, NULL, NULL) != ERROR_SUCCESS)
-        pEnumMoniker->subkey_cnt = 0;
-
 
     DEVENUM_LockModule();
 

@@ -42,8 +42,6 @@ static void test_DrawTextCalcRect(void)
         's','t','r','i','n','g','\0'};
     static CHAR emptystring[] = "";
     static WCHAR emptystringW[] = { 0 };
-    static CHAR wordbreak_text[] = "line1 line2";
-    static WCHAR wordbreak_textW[] = {'l','i','n','e','1',' ','l','i','n','e','2',0};
     INT textlen, textheight, heightcheck;
     RECT rect = { 0, 0, 100, 0 };
     BOOL ret;
@@ -557,28 +555,6 @@ static void test_DrawTextCalcRect(void)
         ok(0 == rect.top, "expected 0, got %d\n", rect.top);
         ok(rect.bottom, "rect.bottom should not be 0\n");
     }
-
-    SetRect(&rect, 0, 0, 1, 1);
-    heightcheck = DrawTextA(hdc, wordbreak_text, -1, &rect, DT_CALCRECT);
-    SetRect(&rect, 0, 0, 1, 1);
-    textheight = DrawTextA(hdc, wordbreak_text, -1, &rect, DT_CALCRECT | DT_WORDBREAK);
-    ok(textheight == heightcheck * 2, "Got unexpected textheight %d, expected %d.\n",
-       textheight, heightcheck * 2);
-    SetRect(&rect, 0, 0, 1, 1);
-    textheight = DrawTextA(hdc, wordbreak_text, -1, &rect, DT_CALCRECT | DT_WORDBREAK | DT_EDITCONTROL);
-    ok(textheight >= heightcheck * 6, "Got unexpected textheight %d, expected at least %d.\n",
-       textheight, heightcheck * 6);
-
-    SetRect(&rect, 0, 0, 1, 1);
-    heightcheck = DrawTextW(hdc, wordbreak_textW, -1, &rect, DT_CALCRECT);
-    SetRect(&rect, 0, 0, 1, 1);
-    textheight = DrawTextW(hdc, wordbreak_textW, -1, &rect, DT_CALCRECT | DT_WORDBREAK);
-    ok(textheight == heightcheck * 2, "Got unexpected textheight %d, expected %d.\n",
-       textheight, heightcheck * 2);
-    SetRect(&rect, 0, 0, 1, 1);
-    textheight = DrawTextW(hdc, wordbreak_textW, -1, &rect, DT_CALCRECT | DT_WORDBREAK | DT_EDITCONTROL);
-    ok(textheight >= heightcheck * 6, "Got unexpected textheight %d, expected at least %d.\n",
-       textheight, heightcheck * 6);
 
     SelectObject(hdc, hOldFont);
     ret = DeleteObject(hFont);

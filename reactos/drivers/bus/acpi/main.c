@@ -457,7 +457,7 @@ GetProcessorInformation(VOID)
     PWCHAR Ptr;
     NTSTATUS Status;
 
-    DPRINT("GetProcessorInformation()\n");
+    DPRINT1("GetProcessorInformation()\n");
 
     /* Open the key for CPU 0 */
     Status = AcpiRegOpenKey(NULL,
@@ -465,10 +465,7 @@ GetProcessorInformation(VOID)
                             KEY_READ,
                             &ProcessorHandle);
     if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Failed to open CentralProcessor registry key: 0x%lx\n", Status);
         goto done;
-    }
 
     /* Query the processor identifier length */
     Status = AcpiRegQueryValue(ProcessorHandle,
@@ -477,10 +474,7 @@ GetProcessorInformation(VOID)
                                NULL,
                                &Length);
     if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Failed to query Identifier value: 0x%lx\n", Status);
         goto done;
-    }
 
     /* Remember the length as fallback for level 1-3 length */
     Level1Length = Level2Length = Level3Length = Length;
@@ -490,7 +484,6 @@ GetProcessorInformation(VOID)
     ProcessorIdentifier = ExAllocatePoolWithTag(PagedPool, Length, 'IPCA');
     if (ProcessorIdentifier == NULL)
     {
-        DPRINT1("Failed to allocate 0x%lx bytes\n", Length);
         Status = STATUS_INSUFFICIENT_RESOURCES;
         goto done;
     }
@@ -502,10 +495,7 @@ GetProcessorInformation(VOID)
                                ProcessorIdentifier,
                                &Length);
     if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Failed to query Identifier value: 0x%lx\n", Status);
         goto done;
-    }
 
     /* Query the processor name length */
     Length = 0;
@@ -515,17 +505,13 @@ GetProcessorInformation(VOID)
                                NULL,
                                &Length);
     if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Failed to query ProcessorNameString value: 0x%lx\n", Status);
         goto done;
-    }
 
     /* Allocate a buffer large enough to be zero terminated */
     Length += sizeof(UNICODE_NULL);
     ProcessorNameString = ExAllocatePoolWithTag(PagedPool, Length, 'IPCA');
     if (ProcessorNameString == NULL)
     {
-        DPRINT1("Failed to allocate 0x%lx bytes\n", Length);
         Status = STATUS_INSUFFICIENT_RESOURCES;
         goto done;
     }
@@ -537,10 +523,7 @@ GetProcessorInformation(VOID)
                                ProcessorNameString,
                                &Length);
     if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Failed to query ProcessorNameString value: 0x%lx\n", Status);
         goto done;
-    }
 
     /* Query the vendor identifier length */
     Length = 0;
@@ -550,17 +533,13 @@ GetProcessorInformation(VOID)
                                NULL,
                                &Length);
     if (!NT_SUCCESS(Status) || (Length == 0))
-    {
-        DPRINT1("Failed to query VendorIdentifier value: 0x%lx\n", Status);
         goto done;
-    }
 
     /* Allocate a buffer large enough to be zero terminated */
     Length += sizeof(UNICODE_NULL);
     ProcessorVendorIdentifier = ExAllocatePoolWithTag(PagedPool, Length, 'IPCA');
     if (ProcessorVendorIdentifier == NULL)
     {
-        DPRINT1("Failed to allocate 0x%lx bytes\n", Length);
         Status = STATUS_INSUFFICIENT_RESOURCES;
         goto done;
     }
@@ -572,10 +551,7 @@ GetProcessorInformation(VOID)
                                ProcessorVendorIdentifier,
                                &Length);
     if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Failed to query VendorIdentifier value: 0x%lx\n", Status);
         goto done;
-    }
 
     /* Change spaces to underscores */
     for (i = 0; i < wcslen(ProcessorIdentifier); i++)

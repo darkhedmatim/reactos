@@ -98,12 +98,13 @@ oom:
 }
 
 /* Determine if a URL starts with a known LDAP scheme */
-static BOOL has_ldap_scheme( char *url )
+static int has_ldap_scheme( char *url )
 {
-    return !strncasecmp( url, "ldap://", 7 )  ||
-           !strncasecmp( url, "ldaps://", 8 ) ||
-           !strncasecmp( url, "ldapi://", 8 ) ||
-           !strncasecmp( url, "cldap://", 8 );
+    if (!strncasecmp( url, "ldap://", 7 ) || 
+        !strncasecmp( url, "ldaps://", 8 ) ||
+        !strncasecmp( url, "ldapi://", 8 ) ||
+        !strncasecmp( url, "cldap://", 8 )) return 1;
+    return 0;
 }
 
 /* Flatten an array of hostnames into a space separated string of URLs.

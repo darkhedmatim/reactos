@@ -190,6 +190,22 @@ _swrast_update_fog_state( struct gl_context *ctx )
 }
 
 
+/**
+ * See if we can do early diffuse+specular (primary+secondary) color
+ * add per vertex instead of per-fragment.
+ */
+static void
+_swrast_update_specular_vertex_add(struct gl_context *ctx)
+{
+   SWcontext *swrast = SWRAST_CONTEXT(ctx);
+   GLboolean separateSpecular = ctx->Fog.ColorSumEnabled ||
+      (ctx->Light.Enabled &&
+       ctx->Light.Model.ColorControl == GL_SEPARATE_SPECULAR_COLOR);
+
+   swrast->SpecularVertexAdd = (separateSpecular && !ctx->Texture._Enabled);
+}
+
+
 #define _SWRAST_NEW_DERIVED (_SWRAST_NEW_RASTERMASK |	\
 			     _NEW_TEXTURE |		\
 			     _NEW_HINT |		\
@@ -250,6 +266,12 @@ _swrast_validate_triangle( struct gl_context *ctx,
    swrast->choose_triangle( ctx );
    ASSERT(swrast->Triangle);
 
+   if (swrast->SpecularVertexAdd) {
+      /* separate specular color, but no texture */
+      swrast->SpecTriangle = swrast->Triangle;
+      swrast->Triangle = _swrast_add_spec_terms_triangle;
+   }
+
    swrast->Triangle( ctx, v0, v1, v2 );
 }
 
@@ -266,6 +288,11 @@ _swrast_validate_line( struct gl_context *ctx, const SWvertex *v0, const SWverte
    swrast->choose_line( ctx );
    ASSERT(swrast->Line);
 
+   if (swrast->SpecularVertexAdd) {
+      swrast->SpecLine = swrast->Line;
+      swrast->Line = _swrast_add_spec_terms_line;
+   }
+
    swrast->Line( ctx, v0, v1 );
 }
 
@@ -280,6 +307,11 @@ _swrast_validate_point( struct gl_context *ctx, const SWvertex *v0 )
 
    _swrast_validate_derived( ctx );
    swrast->choose_point( ctx );
+
+   if (swrast->SpecularVertexAdd) {
+      swrast->SpecPoint = swrast->Point;
+      swrast->Point = _swrast_add_spec_terms_point;
+   }
 
    swrast->Point( ctx, v0 );
 }
@@ -379,8 +411,14 @@ _swrast_update_active_attribs(struct gl_context *ctx)
    attribsMask = 0x0;
 
 #if CHAN_TYPE == GL_FLOAT
-   attribsMask |= FRAG_BIT_COL;
+   attribsMask |= FRAG_BIT_COL0;
 #endif
+
+   if (ctx->Fog.ColorSumEnabled ||
+       (ctx->Light.Enabled &&
+        ctx->Light.Model.ColorControl == GL_SEPARATE_SPECULAR_COLOR)) {
+      attribsMask |= FRAG_BIT_COL1;
+   }
 
    if (swrast->_FogEnabled)
       attribsMask |= FRAG_BIT_FOGC;
@@ -396,7 +434,7 @@ _swrast_update_active_attribs(struct gl_context *ctx)
          if (attribsMask & BITFIELD64_BIT(i)) {
             swrast->_ActiveAttribs[num++] = i;
             /* how should this attribute be interpolated? */
-            if (i == FRAG_ATTRIB_COL)
+            if (i == FRAG_ATTRIB_COL0 || i == FRAG_ATTRIB_COL1)
                swrast->_InterpMode[i] = ctx->Light.ShadeModel;
             else
                swrast->_InterpMode[i] = GL_SMOOTH;
@@ -440,6 +478,11 @@ _swrast_validate_derived( struct gl_context *ctx )
                               _NEW_LIGHT |
                               _NEW_TEXTURE))
          _swrast_update_active_attribs(ctx);
+
+      if (swrast->NewState & (_NEW_FOG | 
+                              _NEW_LIGHT |
+                              _NEW_TEXTURE))
+         _swrast_update_specular_vertex_add(ctx);
 
       swrast->NewState = 0;
       swrast->StateChanges = 0;
@@ -727,6 +770,11 @@ _swrast_print_vertex( struct gl_context *ctx, const SWvertex *v )
       _mesa_debug(ctx, "color %d %d %d %d\n",
                   v->color[0], v->color[1], v->color[2], v->color[3]);
 #endif
+      _mesa_debug(ctx, "spec %g %g %g %g\n",
+                  v->attrib[FRAG_ATTRIB_COL1][0],
+                  v->attrib[FRAG_ATTRIB_COL1][1],
+                  v->attrib[FRAG_ATTRIB_COL1][2],
+                  v->attrib[FRAG_ATTRIB_COL1][3]);
       _mesa_debug(ctx, "fog %f\n", v->attrib[FRAG_ATTRIB_FOGC][0]);
       _mesa_debug(ctx, "index %f\n", v->attrib[FRAG_ATTRIB_CI][0]);
       _mesa_debug(ctx, "pointsize %f\n", v->pointSize);

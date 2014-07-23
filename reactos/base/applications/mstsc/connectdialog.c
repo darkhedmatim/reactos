@@ -647,11 +647,19 @@ OnResolutionChanged(PINFO pInfo, INT position)
                         Pixel,
                         sizeof(Pixel) / sizeof(WCHAR)))
         {
-            swprintf(Buffer,
-                     Pixel,
-                     pInfo->DisplayDeviceList->Resolutions[position].dmPelsWidth,
-                     pInfo->DisplayDeviceList->Resolutions[position].dmPelsHeight,
-                     Pixel);
+#ifdef _MSC_VER
+             _swprintf(Buffer,
+                       Pixel,
+                       pInfo->DisplayDeviceList->Resolutions[position].dmPelsWidth,
+                       pInfo->DisplayDeviceList->Resolutions[position].dmPelsHeight,
+                       Pixel);
+#else
+             swprintf(Buffer,
+                      Pixel,
+                      pInfo->DisplayDeviceList->Resolutions[position].dmPelsWidth,
+                      pInfo->DisplayDeviceList->Resolutions[position].dmPelsHeight,
+                      Pixel);
+#endif
         }
     }
 

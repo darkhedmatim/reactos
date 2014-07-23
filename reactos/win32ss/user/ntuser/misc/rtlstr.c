@@ -19,11 +19,11 @@ RtlInitLargeAnsiString(
     IN PCSZ SourceString,
     IN INT Unknown)
 {
-    USHORT DestSize;
+    ULONG DestSize;
 
     if (SourceString)
     {
-        DestSize = (USHORT)strlen(SourceString);
+        DestSize = strlen(SourceString);
         DestinationString->Length = DestSize;
         DestinationString->MaximumLength = DestSize + sizeof(CHAR);
     }
@@ -44,11 +44,11 @@ RtlInitLargeUnicodeString(
     IN PCWSTR SourceString,
     IN INT Unknown)
 {
-    USHORT DestSize;
+    ULONG DestSize;
 
     if (SourceString)
     {
-        DestSize = (USHORT)wcslen(SourceString) * sizeof(WCHAR);
+        DestSize = wcslen(SourceString) * sizeof(WCHAR);
         DestinationString->Length = DestSize;
         DestinationString->MaximumLength = DestSize + sizeof(WCHAR);
     }

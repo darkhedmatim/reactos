@@ -429,9 +429,6 @@ CdfsMountVolume(PDEVICE_OBJECT DeviceObject,
     KeInitializeSpinLock(&DeviceExt->FcbListLock);
     InitializeListHead(&DeviceExt->FcbListHead);
 
-    FsRtlNotifyInitializeSync(&DeviceExt->NotifySync);
-    InitializeListHead(&DeviceExt->NotifyList);
-
     Status = STATUS_SUCCESS;
 
 ByeBye:
@@ -442,6 +439,8 @@ ByeBye:
             ObDereferenceObject(DeviceExt->StreamFileObject);
         if (Fcb)
             ExFreePool(Fcb);
+        if (Ccb)
+            ExFreePool(Ccb);
         if (NewDeviceObject)
             IoDeleteDevice(NewDeviceObject);
     }
@@ -516,7 +515,7 @@ CdfsVerifyVolume(PDEVICE_OBJECT DeviceObject,
         while (Entry != &DeviceExt->FcbListHead)
         {
             Fcb = (PFCB)CONTAINING_RECORD(Entry, FCB, FcbListEntry);
-            DPRINT1("OpenFile %wZ  RefCount %ld\n", &Fcb->PathName, Fcb->RefCount);
+            DPRINT1("OpenFile %S  RefCount %ld\n", Fcb->PathName, Fcb->RefCount);
 
             Entry = Entry->Flink;
         }

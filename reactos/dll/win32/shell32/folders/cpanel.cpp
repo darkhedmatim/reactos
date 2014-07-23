@@ -852,14 +852,9 @@ HRESULT WINAPI CControlPanelFolder::ExecuteFromIdList(LPCITEMIDLIST pidl)
     }
 
     /* Build control panel applet cmd
-       Note: we pass the applet name to Control_RunDLL to distinguish between multiple applets in one .cpl file */
+       Note: we passes applet name to Control_RunDLL to distinguish between applets in one .cpl file */
     WCHAR wszCmd[2*MAX_PATH];
-    WCHAR wszAppletName[MAX_PATH];
-
-    if(!MultiByteToWideChar(CP_ACP, 0, pCPanel->szName + pCPanel->offsDispName, -1, wszAppletName, MAX_PATH))
-        return E_FAIL;
-
-    StringCbPrintfW(wszCmd, sizeof(wszCmd), L"rundll32 shell32.dll,Control_RunDLL \"%hs\",\"%ls\"", pCPanel->szName, wszAppletName);
+    StringCbPrintfW(wszCmd, sizeof(wszCmd), L"rundll32 shell32.dll,Control_RunDLL \"%hs\",\"%hs\"", pCPanel->szName, pCPanel->szName + pCPanel->offsDispName);
 
     /* Start the applet */
     TRACE("Run cpl %ls\n", wszCmd);

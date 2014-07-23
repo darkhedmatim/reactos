@@ -82,9 +82,6 @@ static BOOL load_v6_module(ULONG_PTR *pcookie, HANDLE *hCtx)
     HANDLE hKernel32;
     HANDLE (WINAPI *pCreateActCtxA)(ACTCTXA*);
     BOOL (WINAPI *pActivateActCtx)(HANDLE, ULONG_PTR*);
-    BOOL (WINAPI *pFindActCtxSectionStringA)(DWORD,const GUID *,ULONG,LPCSTR,PACTCTX_SECTION_KEYED_DATA);
-
-    ACTCTX_SECTION_KEYED_DATA data;
 
     ACTCTXA ctx;
     BOOL ret;
@@ -94,7 +91,6 @@ static BOOL load_v6_module(ULONG_PTR *pcookie, HANDLE *hCtx)
     hKernel32 = GetModuleHandleA("kernel32.dll");
     pCreateActCtxA = (void*)GetProcAddress(hKernel32, "CreateActCtxA");
     pActivateActCtx = (void*)GetProcAddress(hKernel32, "ActivateActCtx");
-    pFindActCtxSectionStringA = (void*)GetProcAddress(hKernel32, "FindActCtxSectionStringA");
     if (!(pCreateActCtxA && pActivateActCtx))
     {
         win_skip("Activation contexts unsupported. No version 6 tests possible.\n");
@@ -138,13 +134,6 @@ static BOOL load_v6_module(ULONG_PTR *pcookie, HANDLE *hCtx)
         win_skip("A problem during context activation occurred.\n");
         DeleteFileA(manifest_name);
     }
-
-    data.cbSize = sizeof(data);
-    ret = pFindActCtxSectionStringA(0, NULL, ACTIVATION_CONTEXT_SECTION_DLL_REDIRECTION,
-        "comctl32.dll", &data);
-    ok(ret, "failed to find comctl32.dll in active context, %u\n", GetLastError());
-    if (ret)
-        LoadLibraryA("comctl32.dll");
 
     return ret;
 }

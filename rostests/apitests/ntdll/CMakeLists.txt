@@ -5,14 +5,10 @@ list(APPEND SOURCE
     NtContinue.c
     NtCreateFile.c
     NtCreateThread.c
-    NtDeleteKey.c
     NtFreeVirtualMemory.c
     NtMapViewOfSection.c
-    NtMutant.c
     NtProtectVirtualMemory.c
     NtQuerySystemEnvironmentValue.c
-    NtQueryVolumeInformationFile.c
-    NtSaveKey.c
     RtlBitmap.c
     RtlDetermineDosPathNameType.c
     RtlDoesFileExists.c
@@ -40,7 +36,9 @@ set_module_type(ntdll_apitest win32cui)
 add_importlibs(ntdll_apitest msvcrt advapi32 kernel32 ntdll)
 
 if(NOT MSVC)
-    set_source_files_properties(RtlGetFullPathName_UstrEx.c PROPERTIES COMPILE_FLAGS "-Wno-format")
+    # FIXME: http://www.cmake.org/Bug/view.php?id=12998
+    #add_target_compile_flags(ntdll_apitest "-Wno-format")
+    set_source_files_properties(${SOURCE} PROPERTIES COMPILE_FLAGS "-Wno-format")
 endif()
 
 add_cd_file(TARGET ntdll_apitest DESTINATION reactos/bin FOR all)

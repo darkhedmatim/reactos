@@ -1,20 +1,12 @@
-/*
- * FILE:       subsystems/ntvdm/lang/cs-CZ.rc
+/* FILE:       subsystems/ntvdm/lang/cs-CZ.rc
  * TRANSLATOR: Radek Liska aka Black_Fox (radekliska at gmail dot com)
- * UPDATED:    2014-02-01
+ * UPDATED:    2008-06-24
  */
- 
+
 LANGUAGE LANG_CZECH, SUBLANG_DEFAULT
 
 STRINGTABLE
 BEGIN
-    IDS_HIDE_MOUSE, "&Skrýt ukazatel myši"
-    IDS_SHOW_MOUSE, "&Zobrazit ukazatel myši"
-    IDS_VDM_MENU  , "ReactOS &VDM"
-END
-
-STRINGTABLE
-BEGIN
-    IDS_VDM_DUMPMEM,    "Dump &Memory"
-    IDS_VDM_QUIT   ,    "&Ukončit ReactOS VDM"
+    STRING_WelcomeMsg "ReactOS podpora virtuálního DOS stroje.\n"
+    STRING_PromptMsg "Napište r<cr> pro spuštìní, s<cr> pro vypnutí nebo q<cr> pro ukonèení."
 END

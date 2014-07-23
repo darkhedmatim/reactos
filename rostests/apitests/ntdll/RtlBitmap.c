@@ -2,55 +2,7 @@
 #include <apitest.h>
 
 #define WIN32_NO_STATUS
-#include <ndk/mmfuncs.h>
 #include <ndk/rtlfuncs.h>
-
-static
-PVOID
-AllocateGuarded(
-    _In_ SIZE_T SizeRequested)
-{
-    NTSTATUS Status;
-    SIZE_T Size = PAGE_ROUND_UP(SizeRequested + PAGE_SIZE);
-    PVOID VirtualMemory = NULL;
-    PCHAR StartOfBuffer;
-
-    Status = NtAllocateVirtualMemory(NtCurrentProcess(), &VirtualMemory, 0, &Size, MEM_RESERVE, PAGE_NOACCESS);
-
-    if (!NT_SUCCESS(Status))
-        return NULL;
-
-    Size -= PAGE_SIZE;
-    if (Size)
-    {
-        Status = NtAllocateVirtualMemory(NtCurrentProcess(), &VirtualMemory, 0, &Size, MEM_COMMIT, PAGE_READWRITE);
-        if (!NT_SUCCESS(Status))
-        {
-            Size = 0;
-            Status = NtFreeVirtualMemory(NtCurrentProcess(), &VirtualMemory, &Size, MEM_RELEASE);
-            ok(Status == STATUS_SUCCESS, "Status = %lx\n", Status);
-            return NULL;
-        }
-    }
-
-    StartOfBuffer = VirtualMemory;
-    StartOfBuffer += Size - SizeRequested;
-
-    return StartOfBuffer;
-}
-
-static
-VOID
-FreeGuarded(
-    _In_ PVOID Pointer)
-{
-    NTSTATUS Status;
-    PVOID VirtualMemory = (PVOID)PAGE_ROUND_DOWN((SIZE_T)Pointer);
-    SIZE_T Size = 0;
-
-    Status = NtFreeVirtualMemory(NtCurrentProcess(), &VirtualMemory, &Size, MEM_RELEASE);
-    ok(Status == STATUS_SUCCESS, "Status = %lx\n", Status);
-}
 
 void
 Test_RtlFindMostSignificantBit(void)
@@ -113,155 +65,130 @@ void
 Test_RtlClearAllBits(void)
 {
     RTL_BITMAP BitMapHeader;
-    ULONG *Buffer;
-    ULONG BufferSize = 2 * sizeof(*Buffer);
+    ULONG Buffer[2];
 
-    Buffer = AllocateGuarded(BufferSize);
     RtlInitializeBitMap(&BitMapHeader, Buffer, 19);
-    memset(Buffer, 0xcc, BufferSize);
+    memset(Buffer, 0xcc, sizeof(Buffer));
     RtlClearAllBits(&BitMapHeader);
     ok_hex(Buffer[0], 0x00000000);
     ok_hex(Buffer[1], 0xcccccccc);
 
     RtlInitializeBitMap(&BitMapHeader, Buffer, 0);
-    memset(Buffer, 0xcc, BufferSize);
+    memset(Buffer, 0xcc, sizeof(Buffer));
     RtlClearAllBits(&BitMapHeader);
     ok_hex(Buffer[0], 0xcccccccc);
     ok_hex(Buffer[1], 0xcccccccc);
-
-    RtlInitializeBitMap(&BitMapHeader, Buffer, 64);
-    memset(Buffer, 0xcc, BufferSize);
-    RtlClearAllBits(&BitMapHeader);
-    ok_hex(Buffer[0], 0x00000000);
-    ok_hex(Buffer[1], 0x00000000);
-    FreeGuarded(Buffer);
 }
 
 void
 Test_RtlSetAllBits(void)
 {
     RTL_BITMAP BitMapHeader;
-    ULONG *Buffer;
-    ULONG BufferSize = 2 * sizeof(*Buffer);
+    ULONG Buffer[2];
 
-    Buffer = AllocateGuarded(BufferSize);
     RtlInitializeBitMap(&BitMapHeader, Buffer, 19);
-    memset(Buffer, 0xcc, BufferSize);
+    memset(Buffer, 0xcc, sizeof(Buffer));
     RtlSetAllBits(&BitMapHeader);
     ok_hex(Buffer[0], 0xffffffff);
     ok_hex(Buffer[1], 0xcccccccc);
 
     RtlInitializeBitMap(&BitMapHeader, Buffer, 0);
-    memset(Buffer, 0xcc, BufferSize);
+    memset(Buffer, 0xcc, sizeof(Buffer));
     RtlSetAllBits(&BitMapHeader);
     ok_hex(Buffer[0], 0xcccccccc);
     ok_hex(Buffer[1], 0xcccccccc);
-
-    RtlInitializeBitMap(&BitMapHeader, Buffer, 64);
-    memset(Buffer, 0xcc, BufferSize);
-    RtlSetAllBits(&BitMapHeader);
-    ok_hex(Buffer[0], 0xffffffff);
-    ok_hex(Buffer[1], 0xffffffff);
-    FreeGuarded(Buffer);
 }
 
 void
 Test_RtlClearBits(void)
 {
     RTL_BITMAP BitMapHeader;
-    ULONG *Buffer;
-    ULONG BufferSize = 2 * sizeof(*Buffer);
+    ULONG Buffer[2];
 
-    Buffer = AllocateGuarded(BufferSize);
     RtlInitializeBitMap(&BitMapHeader, Buffer, 19);
 
-    memset(Buffer, 0xff, BufferSize);
+    memset(Buffer, 0xff, sizeof(Buffer));
     RtlClearBits(&BitMapHeader, 0, 0);
     ok_hex(Buffer[0], 0xffffffff);
     ok_hex(Buffer[1], 0xffffffff);
 
-    memset(Buffer, 0xff, BufferSize);
+    memset(Buffer, 0xff, sizeof(Buffer));
     RtlClearBits(&BitMapHeader, 0, 1);
     ok_hex(Buffer[0], 0xfffffffe);
     ok_hex(Buffer[1], 0xffffffff);
 
-    memset(Buffer, 0xff, BufferSize);
+    memset(Buffer, 0xff, sizeof(Buffer));
     RtlClearBits(&BitMapHeader, 21, 1);
     ok_hex(Buffer[0], 0xffdfffff);
     ok_hex(Buffer[1], 0xffffffff);
 
-    memset(Buffer, 0xff, BufferSize);
+    memset(Buffer, 0xff, sizeof(Buffer));
     RtlClearBits(&BitMapHeader, 7, 9);
     ok_hex(Buffer[0], 0xffff007f);
     ok_hex(Buffer[1], 0xffffffff);
 
-    memset(Buffer, 0xff, BufferSize);
+    memset(Buffer, 0xff, sizeof(Buffer));
     RtlClearBits(&BitMapHeader, 13, 22);
     ok_hex(Buffer[0], 0x00001fff);
     ok_hex(Buffer[1], 0xfffffff8);
 
-    memset(Buffer, 0xcc, BufferSize);
+    memset(Buffer, 0xcc, sizeof(Buffer));
     RtlClearBits(&BitMapHeader, 3, 6);
     RtlClearBits(&BitMapHeader, 11, 5);
     RtlClearBits(&BitMapHeader, 21, 7);
     RtlClearBits(&BitMapHeader, 37, 4);
     ok_hex(Buffer[0], 0xc00c0404);
     ok_hex(Buffer[1], 0xcccccc0c);
-    FreeGuarded(Buffer);
 }
 
 void
 Test_RtlSetBits(void)
 {
     RTL_BITMAP BitMapHeader;
-    ULONG *Buffer;
-    ULONG BufferSize = 2 * sizeof(*Buffer);
+    ULONG Buffer[2];
 
-    Buffer = AllocateGuarded(BufferSize);
     RtlInitializeBitMap(&BitMapHeader, Buffer, 19);
 
-    memset(Buffer, 0x00, BufferSize);
+    memset(Buffer, 0x00, sizeof(Buffer));
     RtlSetBits(&BitMapHeader, 0, 0);
     ok_hex(Buffer[0], 0x00000000);
     ok_hex(Buffer[1], 0x00000000);
 
-    memset(Buffer, 0x00, BufferSize);
+    memset(Buffer, 0x00, sizeof(Buffer));
     RtlSetBits(&BitMapHeader, 0, 1);
     ok_hex(Buffer[0], 0x00000001);
     ok_hex(Buffer[1], 0x00000000);
 
-    memset(Buffer, 0x00, BufferSize);
+    memset(Buffer, 0x00, sizeof(Buffer));
     RtlSetBits(&BitMapHeader, 21, 1);
     ok_hex(Buffer[0], 0x00200000);
     ok_hex(Buffer[1], 0x00000000);
 
-    memset(Buffer, 0x00, BufferSize);
+    memset(Buffer, 0x00, sizeof(Buffer));
     RtlSetBits(&BitMapHeader, 7, 9);
     ok_hex(Buffer[0], 0x0000ff80);
     ok_hex(Buffer[1], 0x00000000);
 
-    memset(Buffer, 0x00, BufferSize);
+    memset(Buffer, 0x00, sizeof(Buffer));
     RtlSetBits(&BitMapHeader, 13, 22);
     ok_hex(Buffer[0], 0xffffe000);
     ok_hex(Buffer[1], 0x00000007);
 
-    memset(Buffer, 0xcc, BufferSize);
+    memset(Buffer, 0xcc, sizeof(Buffer));
     RtlSetBits(&BitMapHeader, 3, 6);
     RtlSetBits(&BitMapHeader, 11, 5);
     RtlSetBits(&BitMapHeader, 21, 7);
     RtlSetBits(&BitMapHeader, 37, 4);
     ok_hex(Buffer[0], 0xcfecfdfc);
     ok_hex(Buffer[1], 0xcccccdec);
-    FreeGuarded(Buffer);
 }
 
 void
 Test_RtlAreBitsClear(void)
 {
     RTL_BITMAP BitMapHeader;
-    ULONG *Buffer;
+    ULONG Buffer[2];
 
-    Buffer = AllocateGuarded(2 * sizeof(*Buffer));
     RtlInitializeBitMap(&BitMapHeader, Buffer, 19);
     Buffer[0] = 0x00ff00ff;
     Buffer[1] = 0xc0cfc0cf;
@@ -277,18 +204,14 @@ Test_RtlAreBitsClear(void)
     ok_hex(RtlAreBitsClear(&BitMapHeader, 24, 7), TRUE);
     ok_hex(RtlAreBitsClear(&BitMapHeader, 24, 8), FALSE);
 
-    RtlInitializeBitMap(&BitMapHeader, Buffer, 64);
-    ok_hex(RtlAreBitsClear(&BitMapHeader, 60, 4), FALSE);
-    FreeGuarded(Buffer);
 }
 
 void
 Test_RtlAreBitsSet(void)
 {
     RTL_BITMAP BitMapHeader;
-    ULONG *Buffer;
+    ULONG Buffer[2];
 
-    Buffer = AllocateGuarded(2 * sizeof(*Buffer));
     RtlInitializeBitMap(&BitMapHeader, Buffer, 19);
     Buffer[0] = 0xff00ff00;
     Buffer[1] = 0x3F303F30;
@@ -304,18 +227,14 @@ Test_RtlAreBitsSet(void)
     ok_hex(RtlAreBitsSet(&BitMapHeader, 24, 7), TRUE);
     ok_hex(RtlAreBitsSet(&BitMapHeader, 24, 8), FALSE);
 
-    RtlInitializeBitMap(&BitMapHeader, Buffer, 64);
-    ok_hex(RtlAreBitsSet(&BitMapHeader, 60, 4), FALSE);
-    FreeGuarded(Buffer);
 }
 
 void
 Test_RtlNumberOfSetBits(void)
 {
     RTL_BITMAP BitMapHeader;
-    ULONG *Buffer;
+    ULONG Buffer[2];
 
-    Buffer = AllocateGuarded(2 * sizeof(*Buffer));
     Buffer[0] = 0xff00ff0f;
     Buffer[1] = 0x3F303F30;
 
@@ -330,19 +249,14 @@ Test_RtlNumberOfSetBits(void)
 
     RtlInitializeBitMap(&BitMapHeader, Buffer, 56);
     ok_int(RtlNumberOfSetBits(&BitMapHeader), 30);
-
-    RtlInitializeBitMap(&BitMapHeader, Buffer, 64);
-    ok_int(RtlNumberOfSetBits(&BitMapHeader), 36);
-    FreeGuarded(Buffer);
 }
 
 void
 Test_RtlNumberOfClearBits(void)
 {
     RTL_BITMAP BitMapHeader;
-    ULONG *Buffer;
+    ULONG Buffer[2];
 
-    Buffer = AllocateGuarded(2 * sizeof(*Buffer));
     Buffer[0] = 0xff00fff0;
     Buffer[1] = 0x3F303F30;
 
@@ -357,19 +271,14 @@ Test_RtlNumberOfClearBits(void)
 
     RtlInitializeBitMap(&BitMapHeader, Buffer, 56);
     ok_int(RtlNumberOfClearBits(&BitMapHeader), 26);
-
-    RtlInitializeBitMap(&BitMapHeader, Buffer, 64);
-    ok_int(RtlNumberOfClearBits(&BitMapHeader), 28);
-    FreeGuarded(Buffer);
 }
 
 void
 Test_RtlFindClearBits(void)
 {
     RTL_BITMAP BitMapHeader;
-    ULONG *Buffer;
+    ULONG Buffer[2];
 
-    Buffer = AllocateGuarded(2 * sizeof(*Buffer));
     Buffer[0] = 0x060F874D;
     Buffer[1] = 0x3F303F30;
 
@@ -405,22 +314,14 @@ Test_RtlFindClearBits(void)
     ok_int(RtlFindClearBits(&BitMapHeader, 4, 32), 11);
     ok_int(RtlFindClearBits(&BitMapHeader, 5, 32), 20);
 
-    RtlInitializeBitMap(&BitMapHeader, Buffer, 64);
-    ok_int(RtlFindClearBits(&BitMapHeader, 5, 64), 20);
-    ok_int(RtlFindClearBits(&BitMapHeader, 9, 28), 27);
-    ok_int(RtlFindClearBits(&BitMapHeader, 10, 0), -1);
-    Buffer[1] = 0xFF303F30;
-    ok_int(RtlFindClearBits(&BitMapHeader, 1, 56), 1);
-    FreeGuarded(Buffer);
 }
 
 void
 Test_RtlFindSetBits(void)
 {
     RTL_BITMAP BitMapHeader;
-    ULONG *Buffer;
+    ULONG Buffer[2];
 
-    Buffer = AllocateGuarded(2 * sizeof(*Buffer));
     Buffer[0] = 0xF9F078B2;
     Buffer[1] = 0x3F303F30;
 
@@ -455,21 +356,14 @@ Test_RtlFindSetBits(void)
     ok_int(RtlFindSetBits(&BitMapHeader, 4, 32), 11);
     ok_int(RtlFindSetBits(&BitMapHeader, 5, 32), 20);
 
-    RtlInitializeBitMap(&BitMapHeader, Buffer, 64);
-    ok_int(RtlFindSetBits(&BitMapHeader, 5, 64), 20);
-    ok_int(RtlFindSetBits(&BitMapHeader, 6, 57), 40);
-    ok_int(RtlFindSetBits(&BitMapHeader, 7, 0), -1);
-    ok_int(RtlFindSetBits(&BitMapHeader, 1, 62), 1);
-    FreeGuarded(Buffer);
 }
 
 void
 Test_RtlFindClearBitsAndSet(void)
 {
     RTL_BITMAP BitMapHeader;
-    ULONG *Buffer;
+    ULONG Buffer[2];
 
-    Buffer = AllocateGuarded(2 * sizeof(*Buffer));
     Buffer[0] = 0x060F874D;
     Buffer[1] = 0x3F303F30;
 
@@ -507,16 +401,14 @@ Test_RtlFindClearBitsAndSet(void)
     ok_hex(Buffer[0], 0x6ff9f4d);
     ok_int(RtlFindClearBitsAndSet(&BitMapHeader, 2, 12), 13);
     ok_hex(Buffer[0], 0x6ffff4d);
-    FreeGuarded(Buffer);
 }
 
 void
 Test_RtlFindSetBitsAndClear(void)
 {
     RTL_BITMAP BitMapHeader;
-    ULONG *Buffer;
+    ULONG Buffer[2];
 
-    Buffer = AllocateGuarded(2 * sizeof(*Buffer));
     Buffer[0] = 0xF9F078B2;
     Buffer[1] = 0x3F303F30;
 
@@ -554,17 +446,16 @@ Test_RtlFindSetBitsAndClear(void)
     ok_hex(Buffer[0], 0xf90060b2);
     ok_int(RtlFindSetBitsAndClear(&BitMapHeader, 2, 12), 13);
     ok_hex(Buffer[0], 0xf90000b2);
-    FreeGuarded(Buffer);
+
 }
 
 void
 Test_RtlFindNextForwardRunClear(void)
 {
     RTL_BITMAP BitMapHeader;
-    ULONG *Buffer;
+    ULONG Buffer[2];
     ULONG Index;
 
-    Buffer = AllocateGuarded(2 * sizeof(*Buffer));
     Buffer[0] = 0xF9F078B2;
     Buffer[1] = 0x3F303F30;
 
@@ -586,7 +477,6 @@ Test_RtlFindNextForwardRunClear(void)
     ok_int(Index, 17);
     ok_int(RtlFindNextForwardRunClear(&BitMapHeader, 39, &Index), 0);
     ok_int(Index, 39);
-    FreeGuarded(Buffer);
 }
 
 void

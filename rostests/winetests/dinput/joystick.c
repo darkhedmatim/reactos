@@ -38,7 +38,7 @@
 #define numObjects(x) (sizeof(x) / sizeof(x[0]))
 
 typedef struct tagUserData {
-    IDirectInputA *pDI;
+    LPDIRECTINPUT pDI;
     DWORD version;
 } UserData;
 
@@ -81,7 +81,7 @@ static HWND get_hwnd(void)
 
 typedef struct tagJoystickInfo
 {
-    IDirectInputDeviceA *pJoystick;
+    LPDIRECTINPUTDEVICE pJoystick;
     DWORD axis;
     DWORD pov;
     DWORD button;
@@ -95,7 +95,9 @@ static int get_refcount(IUnknown *object)
     return IUnknown_Release( object );
 }
 
-static BOOL CALLBACK EnumAxes(const DIDEVICEOBJECTINSTANCEA *pdidoi, void *pContext)
+static BOOL CALLBACK EnumAxes(
+    const DIDEVICEOBJECTINSTANCE* pdidoi,
+    VOID* pContext)
 {
     HRESULT hr;
     JoystickInfo * info = pContext;
@@ -168,19 +170,21 @@ static const HRESULT SetCoop_real_window[16] =  {
     E_INVALIDARG, S_OK,         S_OK,         E_INVALIDARG,
     E_INVALIDARG, E_INVALIDARG, E_INVALIDARG, E_INVALIDARG};
 
-static BOOL CALLBACK EnumJoysticks(const DIDEVICEINSTANCEA *lpddi, void *pvRef)
+static BOOL CALLBACK EnumJoysticks(
+    LPCDIDEVICEINSTANCE lpddi,
+    LPVOID pvRef)
 {
     HRESULT hr;
     UserData * data = pvRef;
-    IDirectInputDeviceA *pJoystick;
+    LPDIRECTINPUTDEVICE pJoystick;
     DIDATAFORMAT format;
     DIDEVCAPS caps;
     DIJOYSTATE2 js;
     JoystickInfo info;
     int i, count;
     ULONG ref;
-    DIDEVICEINSTANCEA inst;
-    DIDEVICEINSTANCE_DX3A inst3;
+    DIDEVICEINSTANCE inst;
+    DIDEVICEINSTANCE_DX3 inst3;
     DIPROPDWORD dipw;
     DIPROPSTRING dps;
     DIPROPGUIDANDPATH dpg;
@@ -336,7 +340,7 @@ static BOOL CALLBACK EnumJoysticks(const DIDEVICEINSTANCEA *lpddi, void *pvRef)
     ok(hr==DI_OK,"IDirectInputDevice_GetDeviceInfo() failed: %08x\n", hr);
 
     inst3.dwSize = sizeof(inst3);
-    hr = IDirectInputDevice_GetDeviceInfo(pJoystick, (DIDEVICEINSTANCEA*)&inst3);
+    hr = IDirectInputDevice_GetDeviceInfo(pJoystick, (LPDIDEVICEINSTANCE)&inst3);
     ok(hr==DI_OK,"IDirectInputDevice_GetDeviceInfo() failed: %08x\n", hr);
 
     hr = IDirectInputDevice_Unacquire(pJoystick);
@@ -366,7 +370,7 @@ static BOOL CALLBACK EnumJoysticks(const DIDEVICEINSTANCEA *lpddi, void *pvRef)
         LPDIRECTINPUTEFFECT effect = NULL;
         LONG cnt1, cnt2;
         HWND real_hWnd;
-        HINSTANCE hInstance = GetModuleHandleW(NULL);
+        HINSTANCE hInstance = GetModuleHandle(NULL);
         DIPROPDWORD dip_gain_set, dip_gain_get;
 
         trace("Testing force-feedback\n");
@@ -389,9 +393,9 @@ static BOOL CALLBACK EnumJoysticks(const DIDEVICEINSTANCEA *lpddi, void *pvRef)
          *   IDirectInputDevice_SetCooperativeLevel
          * - a visible window
          */
-        real_hWnd = CreateWindowExA(0, "EDIT", "Test text", 0, 10, 10, 300, 300, NULL, NULL,
-                                    hInstance, NULL);
-        ok(real_hWnd!=0,"CreateWindowExA failed: %p\n", real_hWnd);
+        real_hWnd = CreateWindowEx(0, "EDIT", "Test text", 0, 10, 10, 300,
+                                   300, NULL, NULL, hInstance, NULL);
+        ok(real_hWnd!=0,"CreateWindowEx failed: %p\n", real_hWnd);
         ShowWindow(real_hWnd, SW_SHOW);
         hr = IDirectInputDevice_Unacquire(pJoystick);
         ok(hr==DI_OK,"IDirectInputDevice_Unacquire() failed: %08x\n", hr);
@@ -403,7 +407,7 @@ static BOOL CALLBACK EnumJoysticks(const DIDEVICEINSTANCEA *lpddi, void *pvRef)
 
         cnt1 = get_refcount((IUnknown*)pJoystick);
 
-        hr = IDirectInputDevice2_CreateEffect((IDirectInputDevice2A*)pJoystick, &GUID_ConstantForce,
+        hr = IDirectInputDevice2_CreateEffect((LPDIRECTINPUTDEVICE2)pJoystick, &GUID_ConstantForce,
                                               &eff, &effect, NULL);
         ok(hr == DI_OK, "IDirectInputDevice_CreateEffect() failed: %08x\n", hr);
         cnt2 = get_refcount((IUnknown*)pJoystick);
@@ -555,7 +559,7 @@ static BOOL CALLBACK EnumJoysticks(const DIDEVICEINSTANCEA *lpddi, void *pvRef)
             ok(hr==DI_OK, "IDirectInputDevice_SetProperty() failed: %08x\n", hr);
             hr = IDirectInputDevice_GetProperty(pJoystick, DIPROP_FFGAIN, &dip_gain_get.diph);
             ok(hr==DI_OK, "IDirectInputDevice_GetProperty() failed: %08x\n", hr);
-            ok(dip_gain_get.dwData==dip_gain_set.dwData, "Gain not updated: %i\n", dip_gain_get.dwData);
+            ok(dip_gain_get.dwData==dip_gain_set.dwData, "Gain not udated: %i\n", dip_gain_get.dwData);
             hr = IDirectInputDevice_Acquire(pJoystick);
             ok(hr==DI_OK,"IDirectInputDevice_Acquire() failed: %08x\n", hr);
             dip_gain_set.dwData = 2;
@@ -563,7 +567,7 @@ static BOOL CALLBACK EnumJoysticks(const DIDEVICEINSTANCEA *lpddi, void *pvRef)
             ok(hr==DI_OK, "IDirectInputDevice_SetProperty() failed: %08x\n", hr);
             hr = IDirectInputDevice_GetProperty(pJoystick, DIPROP_FFGAIN, &dip_gain_get.diph);
             ok(hr==DI_OK, "IDirectInputDevice_GetProperty() failed: %08x\n", hr);
-            ok(dip_gain_get.dwData==dip_gain_set.dwData, "Gain not updated: %i\n", dip_gain_get.dwData);
+            ok(dip_gain_get.dwData==dip_gain_set.dwData, "Gain not udated: %i\n", dip_gain_get.dwData);
             /* Test range and internal clamping. */
             dip_gain_set.dwData = -1;
             hr = IDirectInputDevice_SetProperty(pJoystick, DIPROP_FFGAIN, &dip_gain_set.diph);
@@ -652,13 +656,14 @@ DONE:
 static void joystick_tests(DWORD version)
 {
     HRESULT hr;
-    IDirectInputA *pDI;
+    LPDIRECTINPUT pDI;
     ULONG ref;
-    HINSTANCE hInstance = GetModuleHandleW(NULL);
+    HINSTANCE hInstance = GetModuleHandle(NULL);
 
     trace("-- Testing Direct Input Version 0x%04x --\n", version);
-    hr = DirectInputCreateA(hInstance, version, &pDI, NULL);
-    ok(hr==DI_OK||hr==DIERR_OLDDIRECTINPUTVERSION, "DirectInputCreateA() failed: %08x\n", hr);
+    hr = DirectInputCreate(hInstance, version, &pDI, NULL);
+    ok(hr==DI_OK||hr==DIERR_OLDDIRECTINPUTVERSION,
+       "DirectInputCreate() failed: %08x\n", hr);
     if (hr==DI_OK && pDI!=0) {
         UserData data;
         data.pDI = pDI;

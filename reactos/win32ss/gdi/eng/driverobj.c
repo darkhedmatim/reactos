@@ -19,9 +19,8 @@
 /*!
  * \brief DRIVEROBJ cleanup function
  */
-VOID
-NTAPI
-DRIVEROBJ_vCleanup(PVOID pObject)
+BOOL NTAPI
+DRIVEROBJ_Cleanup(PVOID pObject)
 {
     PEDRIVEROBJ pedo = pObject;
     FREEOBJPROC pFreeProc;
@@ -29,8 +28,10 @@ DRIVEROBJ_vCleanup(PVOID pObject)
     pFreeProc = pedo->drvobj.pFreeProc;
     if (pFreeProc)
     {
-        NT_VERIFY(pFreeProc(pedo->drvobj.pvObj));
+        return pFreeProc(pedo->drvobj.pvObj);
     }
+
+    return TRUE;
 }
 
 /** Public interface **********************************************************/

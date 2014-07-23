@@ -1,7 +1,5 @@
 
-add_definitions(
-    -DUSE_WINE_TODOS
-    -D__WINESRC__)
+add_definitions(-DUSE_WINE_TODOS)
 
 list(APPEND SOURCE
     action.c

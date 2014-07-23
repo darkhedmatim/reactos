@@ -365,8 +365,7 @@ static RPC_STATUS RPC_UuidGetNodeAddress(BYTE *address)
  */
 RPC_STATUS WINAPI UuidCreateSequential(UUID *Uuid)
 {
-    static BOOL initialised;
-    static int count;
+    static int initialised, count;
 
     ULONGLONG time;
     static ULONGLONG timelast;
@@ -385,7 +384,7 @@ RPC_STATUS WINAPI UuidCreateSequential(UUID *Uuid)
         sequence &= 0x1fff;
 
         status = RPC_UuidGetNodeAddress(address);
-        initialised = TRUE;
+        initialised = 1;
     }
 
     /* Generate time element of the UUID. Account for going faster

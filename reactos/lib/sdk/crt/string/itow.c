@@ -123,8 +123,11 @@ _i64tow_s(__int64 value, wchar_t *str, size_t size, int radix)
         for (pos = buffer + 63, i = 0; i < size; i++)
             *p++ = *pos--;
 
-        MSVCRT_INVALID_PMT("str[size] is too small", ERANGE);
+        MSVCRT_INVALID_PMT("str[size] is too small");
         str[0] = '\0';
+#ifndef _LIBCNT_
+        *_errno() = ERANGE;
+#endif
         return ERANGE;
     }
 
@@ -192,7 +195,10 @@ _ui64tow_s( unsigned __int64 value, wchar_t *str,
     } while (value != 0);
 
     if((size_t)(buffer-pos+65) > size) {
-        MSVCRT_INVALID_PMT("str[size] is too small", EINVAL);
+        MSVCRT_INVALID_PMT("str[size] is too small");
+#ifndef _LIBCNT_
+        *_errno() = EINVAL;
+#endif
         return EINVAL;
     }
 
@@ -332,8 +338,11 @@ _ltow_s(long value, wchar_t *str, size_t size, int radix)
         for (pos = buffer + 31, i = 0; i < size; i++)
             *p++ = *pos--;
 
-        MSVCRT_INVALID_PMT("str[size] is too small", ERANGE);
+        MSVCRT_INVALID_PMT("str[size] is too small");
         str[0] = '\0';
+#ifndef _LIBCNT_
+        *_errno() = ERANGE;
+#endif
         return ERANGE;
     }
 

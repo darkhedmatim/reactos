@@ -141,28 +141,15 @@ static HRESULT WINAPI HTMLSelectElement_get_size(IHTMLSelectElement *iface, LONG
 static HRESULT WINAPI HTMLSelectElement_put_multiple(IHTMLSelectElement *iface, VARIANT_BOOL v)
 {
     HTMLSelectElement *This = impl_from_IHTMLSelectElement(iface);
-    nsresult nsres;
-
-    TRACE("(%p)->(%x)\n", This, v);
-
-    nsres = nsIDOMHTMLSelectElement_SetMultiple(This->nsselect, !!v);
-    assert(nsres == NS_OK);
-    return S_OK;
+    FIXME("(%p)->(%x)\n", This, v);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLSelectElement_get_multiple(IHTMLSelectElement *iface, VARIANT_BOOL *p)
 {
     HTMLSelectElement *This = impl_from_IHTMLSelectElement(iface);
-    cpp_bool val;
-    nsresult nsres;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    nsres = nsIDOMHTMLSelectElement_GetMultiple(This->nsselect, &val);
-    assert(nsres == NS_OK);
-
-    *p = val ? VARIANT_TRUE : VARIANT_FALSE;
-    return S_OK;
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLSelectElement_put_name(IHTMLSelectElement *iface, BSTR v)

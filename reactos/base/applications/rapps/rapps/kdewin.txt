@@ -1,5 +1,4 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = K Desktop Environment
@@ -37,7 +36,7 @@ Size = 2,16 Mo
 
 [Section.041f]
 Name = K Masaüstü Ortamı
-Description = Windows için KDE.
+Description = Pencereler için KDE.
 Size = 2,16 MB
 
 [Section.0422]

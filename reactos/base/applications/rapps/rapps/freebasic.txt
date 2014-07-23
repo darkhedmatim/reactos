@@ -1,5 +1,4 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = FreeBASIC
@@ -33,7 +32,7 @@ Description = Compilator (open-source) BASIC. Sintaxa BASIC este compatibilă cu
 Size = 7,4 Mo
 
 [Section.041f]
-Description = Açık kaynak BASIC derleyicisi. Bu BASIC söz dizimi, QBASIC ile uyumludur.
+Description = Açık kaynak bir BASIC derleyicisi. Bu BASIC türevi, QBASIC ile uyumludur.
 Size = 7,4 MB
 
 [Section.0422]

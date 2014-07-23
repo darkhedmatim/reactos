@@ -1112,39 +1112,15 @@ GpStatus WINGDIPAPI GdipDeletePrivateFontCollection(GpFontCollection **fontColle
 /*****************************************************************************
  * GdipPrivateAddFontFile [GDIPLUS.@]
  */
-GpStatus WINGDIPAPI GdipPrivateAddFontFile(GpFontCollection *collection, GDIPCONST WCHAR *name)
+GpStatus WINGDIPAPI GdipPrivateAddFontFile(GpFontCollection* fontCollection,
+        GDIPCONST WCHAR* filename)
 {
-    HANDLE file, mapping;
-    LARGE_INTEGER size;
-    void *mem;
-    GpStatus status;
+    FIXME("stub: %p, %s\n", fontCollection, debugstr_w(filename));
 
-    TRACE("%p, %s\n", collection, debugstr_w(name));
-
-    if (!collection || !name) return InvalidParameter;
-
-    file = CreateFileW(name, GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL);
-    if (file == INVALID_HANDLE_VALUE) return InvalidParameter;
-
-    if (!GetFileSizeEx(file, &size) || size.u.HighPart)
-    {
-        CloseHandle(file);
+    if (!(fontCollection && filename))
         return InvalidParameter;
-    }
 
-    mapping = CreateFileMappingW(file, NULL, PAGE_READONLY, 0, 0, NULL);
-    CloseHandle(file);
-    if (!mapping) return InvalidParameter;
-
-    mem = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
-    CloseHandle(mapping);
-    if (!mem) return InvalidParameter;
-
-    /* GdipPrivateAddMemoryFont creates a copy of the memory block */
-    status = GdipPrivateAddMemoryFont(collection, mem, size.u.LowPart);
-    UnmapViewOfFile(mem);
-
-    return status;
+    return NotImplemented;
 }
 
 #define TT_PLATFORM_APPLE_UNICODE   0

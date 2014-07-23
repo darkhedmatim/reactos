@@ -83,13 +83,11 @@ DEFINE_EXPECT(submit_onclick_attached);
 DEFINE_EXPECT(submit_onclick_attached_check_cancel);
 DEFINE_EXPECT(submit_onclick_setret);
 DEFINE_EXPECT(elem2_cp_onclick);
-DEFINE_EXPECT(iframe_onload);
 
 static HWND container_hwnd = NULL;
 static IHTMLWindow2 *window;
 static IOleDocumentView *view;
 static BOOL xy_todo;
-static BOOL is_ie9plus;
 
 typedef struct {
     LONG x;
@@ -126,6 +124,18 @@ static const char form_doc_str[] =
     "<input type=\"text\" value=\"test\" name=\"i\"/>"
     "<input type=\"submit\" id=\"submitid\" />"
     "</form></body></html>";
+
+static const char *debugstr_guid(REFIID riid)
+{
+    static char buf[50];
+
+    sprintf(buf, "{%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
+            riid->Data1, riid->Data2, riid->Data3, riid->Data4[0],
+            riid->Data4[1], riid->Data4[2], riid->Data4[3], riid->Data4[4],
+            riid->Data4[5], riid->Data4[6], riid->Data4[7]);
+
+    return buf;
+}
 
 static int strcmp_wa(LPCWSTR strw, const char *stra)
 {
@@ -188,7 +198,7 @@ static void _test_disp(unsigned line, IUnknown *unk, const IID *diid)
         hres = ITypeInfo_GetTypeAttr(typeinfo, &type_attr);
         ok_(__FILE__,line) (hres == S_OK, "GetTypeAttr failed: %08x\n", hres);
         ok_(__FILE__,line) (IsEqualGUID(&type_attr->guid, diid), "unexpected guid %s\n",
-                            wine_dbgstr_guid(&type_attr->guid));
+                            debugstr_guid(&type_attr->guid));
 
         ITypeInfo_ReleaseTypeAttr(typeinfo, type_attr);
         ITypeInfo_Release(typeinfo);
@@ -243,18 +253,6 @@ static IHTMLElement3 *_get_elem3_iface(unsigned line, IUnknown *unk)
     ok_(__FILE__,line) (hres == S_OK, "Could not get IHTMLElement3 iface: %08x\n", hres);
 
     return elem3;
-}
-
-#define get_iframe_iface(u) _get_iframe_iface(__LINE__,u)
-static IHTMLIFrameElement *_get_iframe_iface(unsigned line, IUnknown *unk)
-{
-    IHTMLIFrameElement *iframe;
-    HRESULT hres;
-
-    hres = IUnknown_QueryInterface(unk, &IID_IHTMLIFrameElement, (void**)&iframe);
-    ok_(__FILE__,line)(hres == S_OK, "QueryInterface(IID_IHTMLIFrameElement) failed: %08x\n", hres);
-
-    return iframe;
 }
 
 #define doc_get_body(d) _doc_get_body(__LINE__,d)
@@ -731,7 +729,7 @@ static HRESULT WINAPI DispatchEx_QueryInterface(IDispatchEx *iface, REFIID riid,
        || IsEqualGUID(riid, &IID_IDispatchEx))
         *ppv = iface;
     else {
-        ok(0, "unexpected riid %s\n", wine_dbgstr_guid(riid));
+        ok(0, "unexpected riid %s\n", debugstr_guid(riid));
         return E_NOINTERFACE;
     }
 
@@ -748,7 +746,7 @@ static HRESULT WINAPI Dispatch_QueryInterface(IDispatchEx *iface, REFIID riid, v
     }else if(IsEqualGUID(riid, &IID_IDispatchEx)) {
         return E_NOINTERFACE;
     }else {
-        ok(0, "unexpected riid %s\n", wine_dbgstr_guid(riid));
+        ok(0, "unexpected riid %s\n", debugstr_guid(riid));
         return E_NOINTERFACE;
     }
 
@@ -1007,17 +1005,6 @@ static HRESULT WINAPI submit_onclick(IDispatchEx *iface, DISPID id, LCID lcid, W
 
 EVENT_HANDLER_FUNC_OBJ(submit_onclick);
 
-static HRESULT WINAPI iframe_onload(IDispatchEx *iface, DISPID id, LCID lcid, WORD wFlags, DISPPARAMS *pdp,
-        VARIANT *pvarRes, EXCEPINFO *pei, IServiceProvider *pspCaller)
-{
-    CHECK_EXPECT(iframe_onload);
-    test_event_args(&DIID_DispHTMLIFrame, id, wFlags, pdp, pvarRes, pei, pspCaller);
-    test_event_src("IFRAME");
-    return S_OK;
-}
-
-EVENT_HANDLER_FUNC_OBJ(iframe_onload);
-
 static HRESULT WINAPI submit_onclick_attached(IDispatchEx *iface, DISPID id, LCID lcid, WORD wFlags, DISPPARAMS *pdp,
         VARIANT *pvarRes, EXCEPINFO *pei, IServiceProvider *pspCaller)
 {
@@ -1213,7 +1200,7 @@ EVENT_HANDLER_FUNC_OBJ(nocall);
            || IsEqualGUID(riid, &diid)) \
             *ppv = iface; \
         else { \
-            ok(0, "unexpected riid %s\n", wine_dbgstr_guid(riid)); \
+            ok(0, "unexpected riid %s\n", debugstr_guid(riid)); \
             return E_NOINTERFACE; \
         } \
         return S_OK; \
@@ -1240,7 +1227,7 @@ EVENT_HANDLER_FUNC_OBJ(nocall);
 #define test_cp_args(a,b,c,d,e,f) _test_cp_args(__LINE__,a,b,c,d,e,f)
 static void _test_cp_args(unsigned line, REFIID riid, WORD flags, DISPPARAMS *dp, VARIANT *vres, EXCEPINFO *ei, UINT *argerr)
 {
-    ok_(__FILE__,line)(IsEqualGUID(&IID_NULL, riid), "riid = %s\n", wine_dbgstr_guid(riid));
+    ok_(__FILE__,line)(IsEqualGUID(&IID_NULL, riid), "riid = %s\n", debugstr_guid(riid));
     ok_(__FILE__,line)(flags == DISPATCH_METHOD, "flags = %x\n", flags);
     ok_(__FILE__,line)(dp != NULL, "dp == NULL\n");
     ok_(__FILE__,line)(!dp->cArgs, "dp->cArgs = %d\n", dp->cArgs);
@@ -1258,7 +1245,7 @@ static void _test_cp_eventarg(unsigned line, REFIID riid, WORD flags, DISPPARAMS
 {
     IHTMLEventObj *event;
 
-    ok_(__FILE__,line)(IsEqualGUID(&IID_NULL, riid), "riid = %s\n", wine_dbgstr_guid(riid));
+    ok_(__FILE__,line)(IsEqualGUID(&IID_NULL, riid), "riid = %s\n", debugstr_guid(riid));
     ok_(__FILE__,line)(flags == DISPATCH_METHOD, "flags = %x\n", flags);
     ok_(__FILE__,line)(dp != NULL, "dp == NULL\n");
     ok_(__FILE__,line)(dp->cArgs == 1, "dp->cArgs = %d\n", dp->cArgs);
@@ -1342,7 +1329,7 @@ static HRESULT WINAPI timeoutFunc_Invoke(IDispatchEx *iface, DISPID dispIdMember
     CHECK_EXPECT(timeout);
 
     ok(dispIdMember == DISPID_VALUE, "dispIdMember = %d\n", dispIdMember);
-    ok(IsEqualGUID(&IID_NULL, riid), "riid = %s\n", wine_dbgstr_guid(riid));
+    ok(IsEqualGUID(&IID_NULL, riid), "riid = %s\n", debugstr_guid(riid));
     ok(wFlags == DISPATCH_METHOD, "wFlags = %x\n", wFlags);
     ok(!lcid, "lcid = %x\n", lcid);
     ok(pDispParams != NULL, "pDispParams == NULL\n");
@@ -1386,7 +1373,7 @@ static HRESULT WINAPI div_onclick_disp_Invoke(IDispatchEx *iface, DISPID id,
 
     test_attached_event_args(id, wFlags, pdp, pvarRes, pei);
 
-    ok(IsEqualGUID(&IID_NULL, riid), "riid = %s\n", wine_dbgstr_guid(riid));
+    ok(IsEqualGUID(&IID_NULL, riid), "riid = %s\n", debugstr_guid(riid));
     ok(!puArgErr, "puArgErr = %p\n", puArgErr);
 
     return S_OK;
@@ -1411,12 +1398,12 @@ static void pump_msgs(BOOL *b)
     if(b) {
         while(!*b && GetMessageW(&msg, NULL, 0, 0)) {
             TranslateMessage(&msg);
-            DispatchMessageW(&msg);
+            DispatchMessage(&msg);
         }
     }else {
         while(!b && PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
             TranslateMessage(&msg);
-            DispatchMessageW(&msg);
+            DispatchMessage(&msg);
         }
     }
 }
@@ -1506,7 +1493,7 @@ static HRESULT WINAPI EventDispatch_Invoke(IDispatch *iface, DISPID dispIdMember
         LCID lcid, WORD wFlags, DISPPARAMS *pDispParams, VARIANT *pVarResult,
         EXCEPINFO *pExcepInfo, UINT *puArgErr)
 {
-    ok(IsEqualGUID(&IID_NULL, riid), "riid = %s\n", wine_dbgstr_guid(riid));
+    ok(IsEqualGUID(&IID_NULL, riid), "riid = %s\n", debugstr_guid(riid));
     ok(pDispParams != NULL, "pDispParams == NULL\n");
     ok(pExcepInfo != NULL, "pExcepInfo == NULL\n");
     ok(puArgErr != NULL, "puArgErr == NULL\n");
@@ -2083,8 +2070,6 @@ static void test_submit(IHTMLDocument2 *doc)
     CHECK_CALLED(submit_onclick_attached_check_cancel);
     CHECK_CALLED(submit_onclick_attached);
 
-    if(1)pump_msgs(NULL);
-
     IHTMLElement_Release(submit);
 }
 
@@ -2171,19 +2156,16 @@ static IHTMLDocument2* get_iframe_doc(IHTMLIFrameElement *iframe)
 
 static void test_iframe_connections(IHTMLDocument2 *doc)
 {
+    HRESULT hres;
     IHTMLIFrameElement *iframe;
     IHTMLDocument2 *iframes_doc;
     DWORD cookie;
     IConnectionPoint *cp;
-    IHTMLElement *element;
-    BSTR str;
-    HRESULT hres;
+    IHTMLElement *element = find_element_by_id(doc, "ifr");
 
-    trace("iframe tests...\n");
-
-    element = find_element_by_id(doc, "ifr");
-    iframe = get_iframe_iface((IUnknown*)element);
+    hres = IHTMLElement_QueryInterface(element, &IID_IHTMLIFrameElement, (void**)&iframe);
     IHTMLElement_Release(element);
+    ok(hres == S_OK, "QueryInterface(IID_IHTMLIFrameElement) failed: %08x\n", hres);
 
     iframes_doc = get_iframe_doc(iframe);
     IHTMLIFrameElement_Release(iframe);
@@ -2194,43 +2176,6 @@ static void test_iframe_connections(IHTMLDocument2 *doc)
     hres = IConnectionPoint_Unadvise(cp, cookie);
     IConnectionPoint_Release(cp);
     ok(hres == CONNECT_E_NOCONNECTION, "Unadvise returned %08x, expected CONNECT_E_NOCONNECTION\n", hres);
-
-    unregister_cp((IUnknown*)iframes_doc, &IID_IDispatch, cookie);
-
-    if(is_ie9plus) {
-        IHTMLFrameBase2 *frame_base2;
-        VARIANT v;
-
-        hres = IHTMLIFrameElement_QueryInterface(iframe, &IID_IHTMLFrameBase2, (void**)&frame_base2);
-        ok(hres == S_OK, "Could not get IHTMLFrameBase2 iface: %08x\n", hres);
-
-        V_VT(&v) = VT_DISPATCH;
-        V_DISPATCH(&v) = (IDispatch*)&iframe_onload_obj;
-        hres = IHTMLFrameBase2_put_onload(frame_base2, v);
-        ok(hres == S_OK, "put_onload failed: %08x\n", hres);
-
-        IHTMLFrameBase2_Release(frame_base2);
-
-        str = a2bstr("about:blank");
-        hres = IHTMLDocument2_put_URL(iframes_doc, str);
-        ok(hres == S_OK, "put_URL failed: %08x\n", hres);
-        SysFreeString(str);
-
-        SET_EXPECT(iframe_onload);
-        pump_msgs(&called_iframe_onload);
-        CHECK_CALLED(iframe_onload);
-
-        str = a2bstr("about:test");
-        hres = IHTMLDocument2_put_URL(iframes_doc, str);
-        ok(hres == S_OK, "put_URL failed: %08x\n", hres);
-        SysFreeString(str);
-
-        SET_EXPECT(iframe_onload);
-        pump_msgs(&called_iframe_onload);
-        CHECK_CALLED(iframe_onload);
-    }else {
-        win_skip("Skipping iframe onload tests on IE older than 9.\n");
-    }
 
     IHTMLDocument2_Release(iframes_doc);
 }
@@ -2739,12 +2684,24 @@ static void set_client_site(IHTMLDocument2 *doc, BOOL set)
 static IHTMLDocument2 *create_document(void)
 {
     IHTMLDocument2 *doc;
+    IHTMLDocument5 *doc5;
     HRESULT hres;
 
     hres = CoCreateInstance(&CLSID_HTMLDocument, NULL, CLSCTX_INPROC_SERVER|CLSCTX_INPROC_HANDLER,
             &IID_IHTMLDocument2, (void**)&doc);
     ok(hres == S_OK, "CoCreateInstance failed: %08x\n", hres);
-    return SUCCEEDED(hres) ? doc : NULL;
+    if (FAILED(hres))
+        return NULL;
+
+    hres = IHTMLDocument2_QueryInterface(doc, &IID_IHTMLDocument5, (void**)&doc5);
+    if(FAILED(hres)) {
+        win_skip("Could not get IHTMLDocument5 interface, probably too old IE\n");
+        IHTMLDocument2_Release(doc);
+        return NULL;
+    }
+
+    IHTMLDocument5_Release(doc5);
+    return doc;
 }
 
 
@@ -2765,9 +2722,9 @@ static void run_test(const char *str, testfunc_t test)
     doc_load_string(doc, str);
     do_advise((IUnknown*)doc, &IID_IPropertyNotifySink, (IUnknown*)&PropertyNotifySink);
 
-    while(!doc_complete && GetMessageA(&msg, NULL, 0, 0)) {
+    while(!doc_complete && GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
-        DispatchMessageA(&msg);
+        DispatchMessage(&msg);
     }
 
     hres = IHTMLDocument2_get_body(doc, &body);
@@ -2794,7 +2751,7 @@ static void run_test(const char *str, testfunc_t test)
 
 static LRESULT WINAPI wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    return DefWindowProcA(hwnd, msg, wParam, lParam);
+    return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
 static HWND create_container_window(void)
@@ -2845,57 +2802,24 @@ static void test_empty_document(void)
     IHTMLDocument2_Release(doc);
 }
 
-static BOOL check_ie(void)
-{
-    IHTMLDocument2 *doc;
-    IHTMLDocument5 *doc5;
-    IHTMLDocument7 *doc7;
-    HRESULT hres;
-
-    doc = create_document();
-    if(!doc)
-        return FALSE;
-
-    hres = IHTMLDocument2_QueryInterface(doc, &IID_IHTMLDocument7, (void**)&doc7);
-    if(SUCCEEDED(hres)) {
-        is_ie9plus = TRUE;
-        IHTMLDocument7_Release(doc7);
-    }
-
-    trace("is_ie9plus %x\n", is_ie9plus);
-
-    hres = IHTMLDocument2_QueryInterface(doc, &IID_IHTMLDocument5, (void**)&doc5);
-    if(SUCCEEDED(hres))
-        IHTMLDocument5_Release(doc5);
-
-    IHTMLDocument2_Release(doc);
-    return SUCCEEDED(hres);
-}
-
 START_TEST(events)
 {
     CoInitialize(NULL);
+    container_hwnd = create_container_window();
 
-    if(check_ie()) {
-        container_hwnd = create_container_window();
+    if(winetest_interactive)
+        ShowWindow(container_hwnd, SW_SHOW);
 
-        if(winetest_interactive)
-            ShowWindow(container_hwnd, SW_SHOW);
+    run_test(empty_doc_str, test_timeout);
+    run_test(click_doc_str, test_onclick);
+    run_test(readystate_doc_str, test_onreadystatechange);
+    run_test(img_doc_str, test_imgload);
+    run_test(input_doc_str, test_focus);
+    run_test(form_doc_str, test_submit);
+    run_test(iframe_doc_str, test_iframe_connections);
 
-        run_test(empty_doc_str, test_timeout);
-        run_test(click_doc_str, test_onclick);
-        run_test(readystate_doc_str, test_onreadystatechange);
-        run_test(img_doc_str, test_imgload);
-        run_test(input_doc_str, test_focus);
-        run_test(form_doc_str, test_submit);
-        run_test(iframe_doc_str, test_iframe_connections);
+    test_empty_document();
 
-        test_empty_document();
-
-        DestroyWindow(container_hwnd);
-    }else {
-        win_skip("Too old IE\n");
-    }
-
+    DestroyWindow(container_hwnd);
     CoUninitialize();
 }

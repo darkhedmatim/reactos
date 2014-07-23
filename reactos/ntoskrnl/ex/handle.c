@@ -34,59 +34,90 @@ ExpInitializeHandleTables(VOID)
 PHANDLE_TABLE_ENTRY
 NTAPI
 ExpLookupHandleTableEntry(IN PHANDLE_TABLE HandleTable,
-                          IN EXHANDLE Handle)
+                          IN EXHANDLE LookupHandle)
 {
-    ULONG TableLevel;
-    ULONG_PTR TableBase;
-    PHANDLE_TABLE_ENTRY HandleArray, Entry;
-    PVOID *PointerArray;
+    ULONG TableLevel, NextHandle;
+    ULONG_PTR i, j, k, TableBase;
+    PHANDLE_TABLE_ENTRY Entry = NULL;
+    EXHANDLE Handle = LookupHandle;
+    PUCHAR Level1, Level2, Level3;
 
-    /* Clear the tag bits */
+    /* Clear the tag bits and check what the next handle is */
     Handle.TagBits = 0;
-
-    /* Check if the handle is in the allocated range */
-    if (Handle.Value >= HandleTable->NextHandleNeedingPool)
-    {
-        return NULL;
-    }
+    NextHandle = *(volatile ULONG*)&HandleTable->NextHandleNeedingPool;
+    if (Handle.Value >= NextHandle) return NULL;
 
     /* Get the table code */
-    TableBase = HandleTable->TableCode;
+    TableBase = *(volatile ULONG_PTR*)&HandleTable->TableCode;
 
     /* Extract the table level and actual table base */
     TableLevel = (ULONG)(TableBase & 3);
-    TableBase &= ~3;
-
-    PointerArray = (PVOID*)TableBase;
-    HandleArray = (PHANDLE_TABLE_ENTRY)TableBase;
+    TableBase = TableBase - TableLevel;
 
     /* Check what level we're running at */
     switch (TableLevel)
     {
-        case 2:
-
-            /* Get the mid level pointer array */
-            PointerArray = PointerArray[Handle.HighIndex];
-
-            /* Fall through */
-        case 1:
-
-            /* Get the handle array */
-            HandleArray = PointerArray[Handle.MidIndex];
-
-            /* Fall through */
+        /* Direct index */
         case 0:
 
-            /* Get the entry using the low index */
-            Entry = &HandleArray[Handle.LowIndex];
-
-            /* All done */
+            /* Use level 1 and just get the entry directly */
+            Level1 = (PUCHAR)TableBase;
+            Entry = (PVOID)&Level1[Handle.Value *
+                                   (sizeof(HANDLE_TABLE_ENTRY) /
+                                    SizeOfHandle(1))];
             break;
+
+        /* Nested index into mid level */
+        case 1:
+
+            /* Get the second table and index into it */
+            Level2 = (PUCHAR)TableBase;
+            i = Handle.Value % SizeOfHandle(LOW_LEVEL_ENTRIES);
+
+            /* Substract this index, and get the next one */
+            Handle.Value -= i;
+            j = Handle.Value /
+                (SizeOfHandle(LOW_LEVEL_ENTRIES) / sizeof(PHANDLE_TABLE_ENTRY));
+
+            /* Now get the next table and get the entry from it */
+            Level1 = (PUCHAR)*(PHANDLE_TABLE_ENTRY*)&Level2[j];
+            Entry = (PVOID)&Level1[i *
+                                   (sizeof(HANDLE_TABLE_ENTRY) /
+                                    SizeOfHandle(1))];
+            break;
+
+        /* Nested index into high level */
+        case 2:
+
+            /* Start with the 3rd level table */
+            Level3 = (PUCHAR)TableBase;
+            i = Handle.Value % SizeOfHandle(LOW_LEVEL_ENTRIES);
+
+            /* Subtract this index and get the index for the next lower table */
+            Handle.Value -= i;
+            k = Handle.Value /
+                (SizeOfHandle(LOW_LEVEL_ENTRIES) / sizeof(PHANDLE_TABLE_ENTRY));
+
+            /* Get the remaining index in the 2nd level table */
+            j = k % (MID_LEVEL_ENTRIES * sizeof(PHANDLE_TABLE_ENTRY));
+
+            /* Get the remaining index, which is in the third table */
+            k -= j;
+            k /= MID_LEVEL_ENTRIES;
+
+            /* Extract the table level for the handle in each table */
+            Level2 = (PUCHAR)*(PHANDLE_TABLE_ENTRY*)&Level3[k];
+            Level1 = (PUCHAR)*(PHANDLE_TABLE_ENTRY*)&Level2[j];
+
+            /* Get the handle table entry */
+            Entry = (PVOID)&Level1[i *
+                                   (sizeof(HANDLE_TABLE_ENTRY) /
+                                    SizeOfHandle(1))];
 
         default:
 
-            NT_ASSERT(FALSE);
-            Entry = NULL;
+            /* All done */
+            break;
     }
 
     /* Return the handle entry */
@@ -186,7 +217,7 @@ ExpFreeHandleTable(IN PHANDLE_TABLE HandleTable)
     PAGED_CODE();
 
     /* Check which level we're at */
-    if (TableLevel == 0)
+    if (!TableLevel)
     {
         /* Select the first level table base and just free it */
         Level1 = (PVOID)TableBase;
@@ -473,7 +504,7 @@ ExpAllocateHandleTableEntrySlow(IN PHANDLE_TABLE HandleTable,
     PAGED_CODE();
 
     /* Check how many levels we already have */
-    if (TableLevel == 0)
+    if (!TableLevel)
     {
         /* Allocate a mid level, since we only have a low level */
         Mid = ExpAllocateMidLevelTable(HandleTable, DoInit, &Low);
@@ -568,11 +599,6 @@ ExpAllocateHandleTableEntrySlow(IN PHANDLE_TABLE HandleTable,
             Value = InterlockedExchangePointer((PVOID*)&ThirdLevel[i][j], Low);
             ASSERT(Value == NULL);
         }
-    }
-    else
-    {
-        /* Something is really broken */
-        ASSERT(FALSE);
     }
 
     /* Update the index of the next handle */

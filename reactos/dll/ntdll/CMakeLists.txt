@@ -40,7 +40,6 @@ add_library(ntdll SHARED
     ${SOURCE}
     ${ntdll_asm}
     def/ntdll.rc
-    ${CMAKE_CURRENT_BINARY_DIR}/ntdll_stubs.c
     ${CMAKE_CURRENT_BINARY_DIR}/ntdll.def)
 
 set_module_type(ntdll win32dll HOTPATCHABLE ENTRYPOINT 0)

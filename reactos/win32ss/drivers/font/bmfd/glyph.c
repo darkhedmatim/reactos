@@ -7,8 +7,8 @@
 
 #include "bmfd.h"
 
-FORCEINLINE
 ULONG
+FORCEINLINE
 _ReadPixel(
     CHAR* pjBits,
     ULONG x,
@@ -21,8 +21,8 @@ _ReadPixel(
 }
 
 
-FORCEINLINE
 VOID
+FORCEINLINE
 _WritePixel(
     CHAR* pjBits,
     ULONG x,
@@ -118,8 +118,8 @@ BmfdQueryGlyphAndBitmap(
     }
     else
     {
-        cxDst = cxSrc * xScale;
-        cyDst = cySrc * yScale;
+        cxDst = cxSrc * yScale;
+        cyDst = cySrc * xScale;
     }
     cjDstRow = (cxDst + 7) / 8;
 
@@ -154,7 +154,7 @@ BmfdQueryGlyphAndBitmap(
         }
 
         /* Fill GLYPHBITS structure */
-        pgb->ptlOrigin.x = xScale * pface->wA;
+        pgb->ptlOrigin.x = yScale * pface->wA;
         pgb->ptlOrigin.y = - yScale * pface->wAscent;
         pgb->sizlBitmap.cx = cxDst;
         pgb->sizlBitmap.cy = cyDst;

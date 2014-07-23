@@ -826,19 +826,12 @@ static MUI_ENTRY svSESelectPartitionEntries[] =
     {
         8,
         15,
-        "\x07  Press P to create a primary partition.",
-//        "\x07  Tryck C f”r att skapa en ny partition.",
+        "\x07  Tryck C f”r att skapa en ny partition.",
         TEXT_STYLE_NORMAL
     },
     {
         8,
         17,
-        "\x07  Press E to create an extended partition.",
-        TEXT_STYLE_NORMAL
-    },
-    {
-        8,
-        19,
         "\x07  Tryck D f”r att ta bort en befintlig partititon.",
         TEXT_STYLE_NORMAL
     },
@@ -1293,10 +1286,6 @@ static MUI_ENTRY svSERegistryEntries[] =
 MUI_ERROR svSEErrorEntries[] =
 {
     {
-        // NOT_AN_ERROR
-        "Success\n"
-    },
-    {
         //ERROR_NOT_INSTALLED
         "ReactOS installerades inte fullst„ndigt p† din\n"
         "dator. Om du avslutar Setup nu, kommer du att beh”va\n"
@@ -1507,32 +1496,6 @@ MUI_ERROR svSEErrorEntries[] =
         NULL
     },
     {
-        //ERROR_PARTITION_TABLE_FULL,
-        "You can not create a new primary or extended partition in the\n"
-        "partition table of this disk because the partition table is full.\n"
-        "\n"
-        "  * Press any key to continue."
-    },
-    {
-        //ERROR_ONLY_ONE_EXTENDED,
-        "You can not create more than one extended partition per disk.\n"
-        "\n"
-        "  * Press any key to continue."
-    },
-    {
-        //ERROR_NOT_BEHIND_EXTENDED,
-        "You can not create a partition behind an extended partition.\n"
-        "\n"
-        "  * Press any key to continue."
-    },
-    {
-        //ERROR_EXTENDED_NOT_LAST,
-        "An extended partition must always be the last\n"
-        "partition in a partition table.\n"
-        "\n"
-        "  * Press any key to continue."
-    },
-    {
         NULL,
         NULL
     }
@@ -1643,23 +1606,13 @@ MUI_STRING svSEStrings[] =
     {STRING_PLEASEWAIT,
      "   Var v„nlig v„nta..."},
     {STRING_INSTALLCREATEPARTITION,
-     "   ENTER = Install   P = Create Primary   E = Create Extended   F3 = Quit"},
-//     "   ENTER = Installera   C = Skapa Partition   F3 = Avsluta"},
-    {STRING_INSTALLCREATELOGICAL,
-     "   ENTER = Install   L = Create Logical Partition   F3 = Quit"},
+     "   ENTER = Installera   C = Skapa Partition   F3 = Avsluta"},
     {STRING_INSTALLDELETEPARTITION,
      "   ENTER = Installera   D = Ta bort Partition   F3 = Avsluta"},
-    {STRING_DELETEPARTITION,
-     "   D = Delete Partition   F3 = Quit"},
     {STRING_PARTITIONSIZE,
      "Storlek p† den nya partitionen:"},
     {STRING_CHOOSENEWPARTITION,
-     "You have chosen to create a primary partition on"},
-//     "Du har valt att skapa en ny partiton p†"},
-    {STRING_CHOOSE_NEW_EXTENDED_PARTITION,
-     "You have chosen to create an extended partition on"},
-    {STRING_CHOOSE_NEW_LOGICAL_PARTITION,
-     "You have chosen to create a logical partition on"},
+     "Du har valt att skapa en ny partiton p†"},
     {STRING_HDDSIZE,
     "V„nligen skriv in storleken av den nya partitionen i megabytes."},
     {STRING_CREATEPARTITION,
@@ -1731,7 +1684,7 @@ MUI_STRING svSEStrings[] =
     {STRING_HDINFOPARTEXISTS,
     "p† H†rddisk %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK5,
-    "%c%c  %sTyp %-3u%s                       %6lu %s"},
+    "%c%c  Typ %-3u                         %6lu %s"},
     {STRING_HDINFOPARTSELECT,
     "%6lu %s  H†rddisk %lu  (Port=%hu, Bus=%hu, Id=%hu) p† %S"},
     {STRING_HDDINFOUNK6,
@@ -1739,11 +1692,9 @@ MUI_STRING svSEStrings[] =
     {STRING_NEWPARTITION,
     "Setup skapade en ny partition p†"},
     {STRING_UNPSPACE,
-    "    %sOpartitionerat utrymme%s            %6lu %s"},
+    "    Opartitionerat utrymme              %6lu %s"},
     {STRING_MAXSIZE,
     "MB (max. %lu MB)"},
-    {STRING_EXTENDED_PARTITION,
-    "Extended Partition"},
     {STRING_UNFORMATTED,
     "Ny (Oformaterad)"},
     {STRING_FORMATUNUSED,

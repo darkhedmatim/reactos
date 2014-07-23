@@ -94,12 +94,8 @@ PDEVOBJ_vRelease(PPDEVOBJ ppdev)
             PALETTE_ShareUnlockPalette(ppdev->ppalSurf);
         }
 
-        /* Check if the PDEV was enabled */
-        if (ppdev->dhpdev != NULL)
-        {
-            /* Disable the PDEV */
-            ppdev->pfn.DisablePDEV(ppdev->dhpdev);
-        }
+        /* Disable PDEV */
+        ppdev->pfn.DisablePDEV(ppdev->dhpdev);
 
         /* Remove it from list */
         if( ppdev == gppdevList )
@@ -159,11 +155,6 @@ PDEVOBJ_bEnablePDEV(
                                   (HDEV)ppdev,
                                   ppdev->pGraphicsDevice->pwszDescription,
                                   ppdev->pGraphicsDevice->DeviceObject);
-    if (ppdev->dhpdev == NULL)
-    {
-        DPRINT1("Failed to enable PDEV\n");
-        return FALSE;
-    }
 
     /* Fix up some values */
     if (ppdev->gdiinfo.ulLogPixelsX == 0)
@@ -346,8 +337,7 @@ EngpCreatePDEV(
     if (!PDEVOBJ_bEnablePDEV(ppdev, pdm, NULL))
     {
         DPRINT1("Failed to enable PDEV!\n");
-        PDEVOBJ_vRelease(ppdev);
-        return NULL;
+        ASSERT(FALSE);
     }
 
     /* FIXME: this must be done in a better way */
@@ -360,8 +350,8 @@ EngpCreatePDEV(
     return ppdev;
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 SwitchPointer(
     _Inout_ PVOID pvPointer1,
     _Inout_ PVOID pvPointer2)

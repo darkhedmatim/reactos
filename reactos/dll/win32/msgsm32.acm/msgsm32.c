@@ -63,13 +63,13 @@ FUNCPTR(gsm_decode);
     if((p##f = wine_dlsym(libgsm_handle, #f, NULL, 0)) == NULL) { \
         wine_dlclose(libgsm_handle, NULL, 0); \
         libgsm_handle = NULL; \
-        return FALSE; \
+        return 0; \
     }
 
 /***********************************************************************
  *           GSM_drvLoad
  */
-static BOOL GSM_drvLoad(void)
+static LRESULT GSM_drvLoad(void)
 {
     char error[128];
 
@@ -81,12 +81,12 @@ static BOOL GSM_drvLoad(void)
         LOAD_FUNCPTR(gsm_option);
         LOAD_FUNCPTR(gsm_encode);
         LOAD_FUNCPTR(gsm_decode);
-        return TRUE;
+        return 1;
     }
     else
     {
         ERR("Couldn't load " SONAME_LIBGSM ": %s\n", error);
-        return FALSE;
+        return 0;
     }
 }
 
@@ -139,10 +139,10 @@ static	LRESULT GSM_DriverDetails(PACMDRIVERDETAILSW add)
 }
 
 /* Validate a WAVEFORMATEX structure */
-static BOOL GSM_FormatValidate(const WAVEFORMATEX *wfx)
+static DWORD GSM_FormatValidate(const WAVEFORMATEX *wfx)
 {
     if (wfx->nChannels != 1)
-        return FALSE;
+        return 0;
 
     switch (wfx->wFormatTag)
     {
@@ -150,54 +150,54 @@ static BOOL GSM_FormatValidate(const WAVEFORMATEX *wfx)
         if (wfx->wBitsPerSample != 16)
         {
             WARN("PCM wBitsPerSample %u\n", wfx->wBitsPerSample);
-            return FALSE;
+            return 0;
         }
         if (wfx->nBlockAlign != 2)
         {
             WARN("PCM nBlockAlign %u\n", wfx->nBlockAlign);
-            return FALSE;
+            return 0;
         }
         if (wfx->nAvgBytesPerSec != wfx->nBlockAlign * wfx->nSamplesPerSec)
         {
             WARN("PCM nAvgBytesPerSec %u/%u\n",
                  wfx->nAvgBytesPerSec,
                  wfx->nBlockAlign * wfx->nSamplesPerSec);
-            return FALSE;
+            return 0;
         }
-        return TRUE;
+        return 1;
     case WAVE_FORMAT_GSM610:
         if (wfx->cbSize < sizeof(WORD))
         {
             WARN("GSM cbSize %u\n", wfx->cbSize);
-            return FALSE;
+            return 0;
         }
         if (wfx->wBitsPerSample != 0)
         {
             WARN("GSM wBitsPerSample %u\n", wfx->wBitsPerSample);
-            return FALSE;
+            return 0;
         }
         if (wfx->nBlockAlign != 65)
         {
             WARN("GSM nBlockAlign %u\n", wfx->nBlockAlign);
-            return FALSE;
+            return 0;
         }
         if (((const GSM610WAVEFORMAT*)wfx)->wSamplesPerBlock != 320)
         {
             WARN("GSM wSamplesPerBlock %u\n",
                  ((const GSM610WAVEFORMAT*)wfx)->wSamplesPerBlock);
-            return FALSE;
+            return 0;
         }
         if (wfx->nAvgBytesPerSec != wfx->nSamplesPerSec * 65 / 320)
         {
             WARN("GSM nAvgBytesPerSec %d / %d\n",
                  wfx->nAvgBytesPerSec, wfx->nSamplesPerSec * 65 / 320);
-            return FALSE;
+            return 0;
         }
-        return TRUE;
+        return 1;
     default:
-        return FALSE;
+        return 0;
     }
-    return FALSE;
+    return 0;
 }
 
 static const DWORD gsm_rates[] = { 8000, 11025, 22050, 44100, 48000, 96000 };
@@ -512,7 +512,7 @@ static LRESULT GSM_StreamConvert(PACMDRVSTREAMINSTANCE adsi, PACMDRVSTREAMHEADER
             return ACMERR_NOTPOSSIBLE;
         }
 
-        /* The packing algorithm writes 32 bytes, then 33 bytes,
+        /* The packing algorythm writes 32 bytes, then 33 bytes,
          * and it seems to pad to align to 65 bytes always
          * adding extra data where necessary
          */

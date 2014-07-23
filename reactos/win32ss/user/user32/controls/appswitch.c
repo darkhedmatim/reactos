@@ -17,7 +17,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(user32);
 #define MAX_WINDOWS 120
 
 // Global variables
-HWND switchdialog = NULL;
+HWND switchdialog;
 HFONT dialogFont;
 int selectedWindow = 0;
 BOOL isOpen = FALSE;
@@ -334,26 +334,19 @@ void ProcessHotKey()
 
 LRESULT WINAPI DoAppSwitch( WPARAM wParam, LPARAM lParam )
 {
-   HWND hwnd, hwndActive;
+   HWND hwnd;
    MSG msg;
    BOOL Esc = FALSE;
    INT Count = 0;
    WCHAR Text[1024];
 
-   // Already in the loop.
-   if (switchdialog) return 0;
-
-   hwndActive = GetActiveWindow();
-   // Nothing is active so exit.
-   if (!hwndActive) return 0;
-   // Capture current active window.
-   SetCapture( hwndActive );
+   switchdialog = NULL;
 
    switch (lParam)
    {
       case VK_TAB:
-         if( !CreateSwitcherWindow(User32Instance) ) goto Exit;
-         if( !GetDialogFont() ) goto Exit;
+         if( !CreateSwitcherWindow(User32Instance) ) return 0;
+         if( !GetDialogFont() ) return 0;
          ProcessHotKey();
          break;
 
@@ -361,7 +354,7 @@ LRESULT WINAPI DoAppSwitch( WPARAM wParam, LPARAM lParam )
          windowCount = 0;
          Count = 0;
          EnumWindowsZOrder(EnumerateCallback, 0);
-         if (windowCount < 2) goto Exit;
+         if (windowCount < 2) return 0;
          if (wParam == SC_NEXTWINDOW)
             Count = 1;
          else
@@ -380,7 +373,7 @@ LRESULT WINAPI DoAppSwitch( WPARAM wParam, LPARAM lParam )
          break;
 
       default:
-         goto Exit;
+         return 0;
    }
    // Main message loop:
    while (1)
@@ -478,7 +471,6 @@ LRESULT WINAPI DoAppSwitch( WPARAM wParam, LPARAM lParam )
       }
    }
 Exit:
-   ReleaseCapture();
    if (switchdialog) DestroyWindow(switchdialog);
    switchdialog = NULL;
    selectedWindow = 0;

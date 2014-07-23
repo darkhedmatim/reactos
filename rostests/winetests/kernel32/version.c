@@ -21,6 +21,8 @@
 /* Needed for PRODUCT_* defines and GetProductInfo() */
 #define _WIN32_WINNT 0x0600
 
+#include <assert.h>
+
 #include "wine/test.h"
 #include "winbase.h"
 
@@ -154,7 +156,7 @@ static void test_GetVersionEx(void)
 
 static void test_VerifyVersionInfo(void)
 {
-    OSVERSIONINFOEXA info;
+    OSVERSIONINFOEX info;
     BOOL ret;
     DWORD servicepack, error;
 
@@ -167,8 +169,8 @@ static void test_VerifyVersionInfo(void)
     /* Before we start doing some tests we should check what the version of
      * the ServicePack is. Tests on a box with no ServicePack will fail otherwise.
      */
-    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXA);
-    GetVersionExA((OSVERSIONINFOA *)&info);
+    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+    GetVersionExA((OSVERSIONINFO *)&info);
     servicepack = info.wServicePackMajor;
     memset(&info, 0, sizeof(info));
 
@@ -221,8 +223,8 @@ static void test_VerifyVersionInfo(void)
             VER_MAJORVERSION, VER_GREATER_EQUAL));
     ok(ret, "VerifyVersionInfoA failed with error %d\n", GetLastError());
 
-    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXA);
-    GetVersionExA((OSVERSIONINFOA *)&info);
+    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+    GetVersionEx((OSVERSIONINFO *)&info);
     info.wServicePackMinor++;
     SetLastError(0xdeadbeef);
     ret = pVerifyVersionInfoA(&info, VER_MINORVERSION | VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR,
@@ -238,37 +240,37 @@ static void test_VerifyVersionInfo(void)
     }
     else
     {
-        info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXA);
-        GetVersionExA((OSVERSIONINFOA *)&info);
+        info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+        GetVersionEx((OSVERSIONINFO *)&info);
         info.wServicePackMajor--;
         ret = pVerifyVersionInfoA(&info, VER_MINORVERSION | VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR,
             pVerSetConditionMask(0, VER_MINORVERSION, VER_GREATER));
         ok(ret || broken(!ret) /* some win2k */, "VerifyVersionInfoA failed with error %d\n", GetLastError());
 
-        info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXA);
-        GetVersionExA((OSVERSIONINFOA *)&info);
+        info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+        GetVersionEx((OSVERSIONINFO *)&info);
         info.wServicePackMajor--;
         ret = pVerifyVersionInfoA(&info, VER_MINORVERSION | VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR,
             pVerSetConditionMask(0, VER_MINORVERSION, VER_GREATER_EQUAL));
         ok(ret || broken(!ret) /* some win2k */, "VerifyVersionInfoA failed with error %d\n", GetLastError());
     }
 
-    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXA);
-    GetVersionExA((OSVERSIONINFOA *)&info);
+    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+    GetVersionEx((OSVERSIONINFO *)&info);
     info.wServicePackMajor++;
     ret = pVerifyVersionInfoA(&info, VER_MINORVERSION | VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR,
         pVerSetConditionMask(0, VER_MINORVERSION, VER_LESS));
     ok(ret || broken(!ret) /* some win2k */, "VerifyVersionInfoA failed with error %d\n", GetLastError());
 
-    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXA);
-    GetVersionExA((OSVERSIONINFOA *)&info);
+    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+    GetVersionEx((OSVERSIONINFO *)&info);
     info.wServicePackMajor++;
     ret = pVerifyVersionInfoA(&info, VER_MINORVERSION | VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR,
         pVerSetConditionMask(0, VER_MINORVERSION, VER_LESS_EQUAL));
     ok(ret || broken(!ret) /* some win2k */, "VerifyVersionInfoA failed with error %d\n", GetLastError());
 
-    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXA);
-    GetVersionExA((OSVERSIONINFOA *)&info);
+    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+    GetVersionEx((OSVERSIONINFO *)&info);
     info.wServicePackMajor--;
     SetLastError(0xdeadbeef);
     ret = pVerifyVersionInfoA(&info, VER_MINORVERSION | VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR,
@@ -280,8 +282,8 @@ static void test_VerifyVersionInfo(void)
 
     /* test the failure hierarchy for the four version fields */
 
-    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXA);
-    GetVersionExA((OSVERSIONINFOA *)&info);
+    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+    GetVersionEx((OSVERSIONINFO *)&info);
     info.wServicePackMajor++;
     SetLastError(0xdeadbeef);
     ret = pVerifyVersionInfoA(&info, VER_MINORVERSION | VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR,
@@ -291,8 +293,8 @@ static void test_VerifyVersionInfo(void)
     ok(error == ERROR_OLD_WIN_VERSION || broken(error == ERROR_BAD_ARGUMENTS) /* some win2k */,
        "VerifyVersionInfoA should have failed with ERROR_OLD_WIN_VERSION instead of %d\n", error);
 
-    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXA);
-    GetVersionExA((OSVERSIONINFOA *)&info);
+    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+    GetVersionEx((OSVERSIONINFO *)&info);
     info.dwMinorVersion++;
     SetLastError(0xdeadbeef);
     ret = pVerifyVersionInfoA(&info, VER_MINORVERSION | VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR,
@@ -302,8 +304,8 @@ static void test_VerifyVersionInfo(void)
     ok(error == ERROR_OLD_WIN_VERSION || broken(error == ERROR_BAD_ARGUMENTS) /* some win2k */,
        "VerifyVersionInfoA should have failed with ERROR_OLD_WIN_VERSION instead of %d\n", error);
 
-    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXA);
-    GetVersionExA((OSVERSIONINFOA *)&info);
+    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+    GetVersionEx((OSVERSIONINFO *)&info);
     info.dwMajorVersion++;
     SetLastError(0xdeadbeef);
     ret = pVerifyVersionInfoA(&info, VER_MAJORVERSION | VER_MINORVERSION | VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR,
@@ -317,8 +319,8 @@ static void test_VerifyVersionInfo(void)
         pVerSetConditionMask(0, VER_MINORVERSION, VER_GREATER_EQUAL));
     ok(ret || broken(!ret) /* some win2k */, "VerifyVersionInfoA failed with error %d\n", GetLastError());
 
-    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXA);
-    GetVersionExA((OSVERSIONINFOA *)&info);
+    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+    GetVersionEx((OSVERSIONINFO *)&info);
     info.dwBuildNumber++;
     SetLastError(0xdeadbeef);
     ret = pVerifyVersionInfoA(&info, VER_MAJORVERSION | VER_MINORVERSION | VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR,
@@ -333,8 +335,8 @@ static void test_VerifyVersionInfo(void)
     ok(ret || broken(!ret) /* some win2k */, "VerifyVersionInfoA failed with error %d\n", GetLastError());
 
     /* test bad dwOSVersionInfoSize */
-    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXA);
-    GetVersionExA((OSVERSIONINFOA *)&info);
+    info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+    GetVersionEx((OSVERSIONINFO *)&info);
     info.dwOSVersionInfoSize = 0;
     ret = pVerifyVersionInfoA(&info, VER_MAJORVERSION | VER_MINORVERSION | VER_SERVICEPACKMAJOR | VER_SERVICEPACKMINOR,
         pVerSetConditionMask(0, VER_MAJORVERSION, VER_GREATER_EQUAL));

@@ -8,14 +8,10 @@ extern void func_NtAllocateVirtualMemory(void);
 extern void func_NtContinue(void);
 extern void func_NtCreateFile(void);
 extern void func_NtCreateThread(void);
-extern void func_NtDeleteKey(void);
 extern void func_NtFreeVirtualMemory(void);
 extern void func_NtMapViewOfSection(void);
-extern void func_NtMutant(void);
 extern void func_NtProtectVirtualMemory(void);
 extern void func_NtQuerySystemEnvironmentValue(void);
-extern void func_NtQueryVolumeInformationFile(void);
-extern void func_NtSaveKey(void);
 extern void func_NtSystemInformation(void);
 extern void func_RtlBitmap(void);
 extern void func_RtlDetermineDosPathNameType(void);
@@ -39,14 +35,10 @@ const struct test winetest_testlist[] =
     { "NtContinue",                     func_NtContinue },
     { "NtCreateFile",                   func_NtCreateFile },
     { "NtCreateThread",                 func_NtCreateThread },
-    { "NtDeleteKey",                    func_NtDeleteKey },
     { "NtFreeVirtualMemory",            func_NtFreeVirtualMemory },
     { "NtMapViewOfSection",             func_NtMapViewOfSection },
-    { "NtMutant",                       func_NtMutant },
     { "NtProtectVirtualMemory",         func_NtProtectVirtualMemory },
     { "NtQuerySystemEnvironmentValue",  func_NtQuerySystemEnvironmentValue },
-    { "NtQueryVolumeInformationFile",   func_NtQueryVolumeInformationFile },
-    { "NtSaveKey",                      func_NtSaveKey},
     { "NtSystemInformation",            func_NtSystemInformation },
     { "RtlBitmapApi",                   func_RtlBitmap },
     { "RtlDetermineDosPathNameType",    func_RtlDetermineDosPathNameType },

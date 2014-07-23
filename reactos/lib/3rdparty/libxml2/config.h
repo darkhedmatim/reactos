@@ -261,7 +261,7 @@
 #define HAVE_VSPRINTF 1
 
 /* Define to 1 if you have the <zlib.h> header file. */
-#define HAVE_ZLIB_H
+/* #undef HAVE_ZLIB_H */
 
 /* Define to 1 if you have the `_stat' function. */
 #define HAVE__STAT 1

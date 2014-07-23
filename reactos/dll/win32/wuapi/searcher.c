@@ -301,11 +301,11 @@ static const struct IUpdateSearcherVtbl update_searcher_vtbl =
     update_searcher_put_ServiceID
 };
 
-HRESULT UpdateSearcher_create( LPVOID *ppObj )
+HRESULT UpdateSearcher_create( IUnknown *pUnkOuter, LPVOID *ppObj )
 {
     update_searcher *searcher;
 
-    TRACE("(%p)\n", ppObj);
+    TRACE("(%p,%p)\n", pUnkOuter, ppObj);
 
     searcher = HeapAlloc( GetProcessHeap(), 0, sizeof(*searcher) );
     if (!searcher) return E_OUTOFMEMORY;

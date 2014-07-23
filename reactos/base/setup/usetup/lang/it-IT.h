@@ -820,19 +820,12 @@ static MUI_ENTRY itITSelectPartitionEntries[] =
     {
         8,
         15,
-        "\x07  Press P to create a primary partition.",
-//        "\x07  Premere C per creare una nuova partizione.",
+        "\x07  Premere C per creare una nuova partizione.",
         TEXT_STYLE_NORMAL
     },
     {
         8,
         17,
-        "\x07  Press E to create an extended partition.",
-        TEXT_STYLE_NORMAL
-    },
-    {
-        8,
-        19,
         "\x07  Premere D per cancellare una partizione esistente.",
         TEXT_STYLE_NORMAL
     },
@@ -1287,10 +1280,6 @@ static MUI_ENTRY itITRegistryEntries[] =
 MUI_ERROR itITErrorEntries[] =
 {
     {
-        // NOT_AN_ERROR
-        "Success\n"
-    },
-    {
         //ERROR_NOT_INSTALLED
         "ReactOS non Š installato completamente nel vostro\n"
         "computer. Se esce adesso, dovr… eseguire il Setup\n"
@@ -1501,32 +1490,6 @@ MUI_ERROR itITErrorEntries[] =
         NULL
     },
     {
-        //ERROR_PARTITION_TABLE_FULL,
-        "You can not create a new primary or extended partition in the\n"
-        "partition table of this disk because the partition table is full.\n"
-        "\n"
-        "  * Press any key to continue."
-    },
-    {
-        //ERROR_ONLY_ONE_EXTENDED,
-        "You can not create more than one extended partition per disk.\n"
-        "\n"
-        "  * Press any key to continue."
-    },
-    {
-        //ERROR_NOT_BEHIND_EXTENDED,
-        "You can not create a partition behind an extended partition.\n"
-        "\n"
-        "  * Press any key to continue."
-    },
-    {
-        //ERROR_EXTENDED_NOT_LAST,
-        "An extended partition must always be the last\n"
-        "partition in a partition table.\n"
-        "\n"
-        "  * Press any key to continue."
-    },
-    {
         NULL,
         NULL
     }
@@ -1638,23 +1601,13 @@ MUI_STRING itITStrings[] =
     {STRING_PLEASEWAIT,
      "   Attendere..."},
     {STRING_INSTALLCREATEPARTITION,
-     "   ENTER = Install   P = Create Primary   E = Create Extended   F3 = Quit"},
-//     "   INVIO = Installa   C = Crea Partizione   F3 = Esci"},
-    {STRING_INSTALLCREATELOGICAL,
-     "   ENTER = Install   L = Create Logical Partition   F3 = Quit"},
+     "   INVIO = Installa   C = Crea Partizione   F3 = Esci"},
     {STRING_INSTALLDELETEPARTITION,
      "   INVIO = Installa   D = Rimuovi Partizione   F3 = Esci"},
-    {STRING_DELETEPARTITION,
-     "   D = Delete Partition   F3 = Quit"},
     {STRING_PARTITIONSIZE,
      "Dimensione della nuova partizione:"},
     {STRING_CHOOSENEWPARTITION,
-     "You have chosen to create a primary partition on"},
-//     "Avete scelto di creare una nuova partizione su"},
-    {STRING_CHOOSE_NEW_EXTENDED_PARTITION,
-     "You have chosen to create an extended partition on"},
-    {STRING_CHOOSE_NEW_LOGICAL_PARTITION,
-     "You have chosen to create a logical partition on"},
+     "Avete scelto di creare una nuova partizione su"},
     {STRING_HDDSIZE,
     "Indicare la dimensione della nuova partizione in megabyte."},
     {STRING_CREATEPARTITION,
@@ -1726,7 +1679,7 @@ MUI_STRING itITStrings[] =
     {STRING_HDINFOPARTEXISTS,
     "su Harddisk %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK5,
-    "%c%c  %sTipo %-3u%s                       %6lu %s"},
+    "%c%c  Tipo %-3u                         %6lu %s"},
     {STRING_HDINFOPARTSELECT,
     "%6lu %s  Harddisk %lu  (Port=%hu, Bus=%hu, Id=%hu) su %S"},
     {STRING_HDDINFOUNK6,
@@ -1734,7 +1687,7 @@ MUI_STRING itITStrings[] =
     {STRING_NEWPARTITION,
     "Setup ha creato una nuova partizione su"},
     {STRING_UNPSPACE,
-    "    %sSpazio non partizionato%s             %6lu %s"},
+    "    Spazio non partizionato               %6lu %s"},
     {STRING_MAXSIZE,
     "MB (max. %lu MB)"},
     {STRING_UNFORMATTED,

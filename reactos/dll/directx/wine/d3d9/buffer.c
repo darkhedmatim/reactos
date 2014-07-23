@@ -47,7 +47,7 @@ static HRESULT WINAPI d3d9_vertexbuffer_QueryInterface(IDirect3DVertexBuffer9 *i
 static ULONG WINAPI d3d9_vertexbuffer_AddRef(IDirect3DVertexBuffer9 *iface)
 {
     struct d3d9_vertexbuffer *buffer = impl_from_IDirect3DVertexBuffer9(iface);
-    ULONG refcount = InterlockedIncrement(&buffer->resource.refcount);
+    ULONG refcount = InterlockedIncrement(&buffer->refcount);
 
     TRACE("%p increasing refcount to %u.\n", iface, refcount);
 
@@ -65,7 +65,7 @@ static ULONG WINAPI d3d9_vertexbuffer_AddRef(IDirect3DVertexBuffer9 *iface)
 static ULONG WINAPI d3d9_vertexbuffer_Release(IDirect3DVertexBuffer9 *iface)
 {
     struct d3d9_vertexbuffer *buffer = impl_from_IDirect3DVertexBuffer9(iface);
-    ULONG refcount = InterlockedDecrement(&buffer->resource.refcount);
+    ULONG refcount = InterlockedDecrement(&buffer->refcount);
 
     TRACE("%p decreasing refcount to %u.\n", iface, refcount);
 
@@ -102,28 +102,52 @@ static HRESULT WINAPI d3d9_vertexbuffer_SetPrivateData(IDirect3DVertexBuffer9 *i
         REFGUID guid, const void *data, DWORD data_size, DWORD flags)
 {
     struct d3d9_vertexbuffer *buffer = impl_from_IDirect3DVertexBuffer9(iface);
+    struct wined3d_resource *resource;
+    HRESULT hr;
+
     TRACE("iface %p, guid %s, data %p, data_size %u, flags %#x.\n",
             iface, debugstr_guid(guid), data, data_size, flags);
 
-    return d3d9_resource_set_private_data(&buffer->resource, guid, data, data_size, flags);
+    wined3d_mutex_lock();
+    resource = wined3d_buffer_get_resource(buffer->wined3d_buffer);
+    hr = wined3d_resource_set_private_data(resource, guid, data, data_size, flags);
+    wined3d_mutex_unlock();
+
+    return hr;
 }
 
 static HRESULT WINAPI d3d9_vertexbuffer_GetPrivateData(IDirect3DVertexBuffer9 *iface,
         REFGUID guid, void *data, DWORD *data_size)
 {
     struct d3d9_vertexbuffer *buffer = impl_from_IDirect3DVertexBuffer9(iface);
+    struct wined3d_resource *resource;
+    HRESULT hr;
+
     TRACE("iface %p, guid %s, data %p, data_size %p.\n",
             iface, debugstr_guid(guid), data, data_size);
 
-    return d3d9_resource_get_private_data(&buffer->resource, guid, data, data_size);
+    wined3d_mutex_lock();
+    resource = wined3d_buffer_get_resource(buffer->wined3d_buffer);
+    hr = wined3d_resource_get_private_data(resource, guid, data, data_size);
+    wined3d_mutex_unlock();
+
+    return hr;
 }
 
 static HRESULT WINAPI d3d9_vertexbuffer_FreePrivateData(IDirect3DVertexBuffer9 *iface, REFGUID guid)
 {
     struct d3d9_vertexbuffer *buffer = impl_from_IDirect3DVertexBuffer9(iface);
+    struct wined3d_resource *resource;
+    HRESULT hr;
+
     TRACE("iface %p, guid %s.\n", iface, debugstr_guid(guid));
 
-    return d3d9_resource_free_private_data(&buffer->resource, guid);
+    wined3d_mutex_lock();
+    resource = wined3d_buffer_get_resource(buffer->wined3d_buffer);
+    hr = wined3d_resource_free_private_data(resource, guid);
+    wined3d_mutex_unlock();
+
+    return hr;
 }
 
 static DWORD WINAPI d3d9_vertexbuffer_SetPriority(IDirect3DVertexBuffer9 *iface, DWORD priority)
@@ -248,9 +272,7 @@ static const IDirect3DVertexBuffer9Vtbl d3d9_vertexbuffer_vtbl =
 
 static void STDMETHODCALLTYPE d3d9_vertexbuffer_wined3d_object_destroyed(void *parent)
 {
-    struct d3d9_vertexbuffer *buffer = parent;
-    d3d9_resource_cleanup(&buffer->resource);
-    HeapFree(GetProcessHeap(), 0, buffer);
+    HeapFree(GetProcessHeap(), 0, parent);
 }
 
 static const struct wined3d_parent_ops d3d9_vertexbuffer_wined3d_parent_ops =
@@ -264,8 +286,8 @@ HRESULT vertexbuffer_init(struct d3d9_vertexbuffer *buffer, struct d3d9_device *
     HRESULT hr;
 
     buffer->IDirect3DVertexBuffer9_iface.lpVtbl = &d3d9_vertexbuffer_vtbl;
+    buffer->refcount = 1;
     buffer->fvf = fvf;
-    d3d9_resource_init(&buffer->resource);
 
     wined3d_mutex_lock();
     hr = wined3d_buffer_create_vb(device->wined3d_device, size, usage & WINED3DUSAGE_MASK,
@@ -319,7 +341,7 @@ static HRESULT WINAPI d3d9_indexbuffer_QueryInterface(IDirect3DIndexBuffer9 *ifa
 static ULONG WINAPI d3d9_indexbuffer_AddRef(IDirect3DIndexBuffer9 *iface)
 {
     struct d3d9_indexbuffer *buffer = impl_from_IDirect3DIndexBuffer9(iface);
-    ULONG refcount = InterlockedIncrement(&buffer->resource.refcount);
+    ULONG refcount = InterlockedIncrement(&buffer->refcount);
 
     TRACE("%p increasing refcount to %u.\n", iface, refcount);
 
@@ -337,7 +359,7 @@ static ULONG WINAPI d3d9_indexbuffer_AddRef(IDirect3DIndexBuffer9 *iface)
 static ULONG WINAPI d3d9_indexbuffer_Release(IDirect3DIndexBuffer9 *iface)
 {
     struct d3d9_indexbuffer *buffer = impl_from_IDirect3DIndexBuffer9(iface);
-    ULONG refcount = InterlockedDecrement(&buffer->resource.refcount);
+    ULONG refcount = InterlockedDecrement(&buffer->refcount);
 
     TRACE("%p decreasing refcount to %u.\n", iface, refcount);
 
@@ -374,28 +396,52 @@ static HRESULT WINAPI d3d9_indexbuffer_SetPrivateData(IDirect3DIndexBuffer9 *ifa
         REFGUID guid, const void *data, DWORD data_size, DWORD flags)
 {
     struct d3d9_indexbuffer *buffer = impl_from_IDirect3DIndexBuffer9(iface);
+    struct wined3d_resource *resource;
+    HRESULT hr;
+
     TRACE("iface %p, guid %s, data %p, data_size %u, flags %#x.\n",
             iface, debugstr_guid(guid), data, data_size, flags);
 
-    return d3d9_resource_set_private_data(&buffer->resource, guid, data, data_size, flags);
+    wined3d_mutex_lock();
+    resource = wined3d_buffer_get_resource(buffer->wined3d_buffer);
+    hr = wined3d_resource_set_private_data(resource, guid, data, data_size, flags);
+    wined3d_mutex_unlock();
+
+    return hr;
 }
 
 static HRESULT WINAPI d3d9_indexbuffer_GetPrivateData(IDirect3DIndexBuffer9 *iface,
         REFGUID guid, void *data, DWORD *data_size)
 {
     struct d3d9_indexbuffer *buffer = impl_from_IDirect3DIndexBuffer9(iface);
+    struct wined3d_resource *resource;
+    HRESULT hr;
+
     TRACE("iface %p, guid %s, data %p, data_size %p.\n",
             iface, debugstr_guid(guid), data, data_size);
 
-    return d3d9_resource_get_private_data(&buffer->resource, guid, data, data_size);
+    wined3d_mutex_lock();
+    resource = wined3d_buffer_get_resource(buffer->wined3d_buffer);
+    hr = wined3d_resource_get_private_data(resource, guid, data, data_size);
+    wined3d_mutex_unlock();
+
+    return hr;
 }
 
 static HRESULT WINAPI d3d9_indexbuffer_FreePrivateData(IDirect3DIndexBuffer9 *iface, REFGUID guid)
 {
     struct d3d9_indexbuffer *buffer = impl_from_IDirect3DIndexBuffer9(iface);
+    struct wined3d_resource *resource;
+    HRESULT hr;
+
     TRACE("iface %p, guid %s.\n", iface, debugstr_guid(guid));
 
-    return d3d9_resource_free_private_data(&buffer->resource, guid);
+    wined3d_mutex_lock();
+    resource = wined3d_buffer_get_resource(buffer->wined3d_buffer);
+    hr = wined3d_resource_free_private_data(resource, guid);
+    wined3d_mutex_unlock();
+
+    return hr;
 }
 
 static DWORD WINAPI d3d9_indexbuffer_SetPriority(IDirect3DIndexBuffer9 *iface, DWORD priority)
@@ -518,9 +564,7 @@ static const IDirect3DIndexBuffer9Vtbl d3d9_indexbuffer_vtbl =
 
 static void STDMETHODCALLTYPE d3d9_indexbuffer_wined3d_object_destroyed(void *parent)
 {
-    struct d3d9_indexbuffer *buffer = parent;
-    d3d9_resource_cleanup(&buffer->resource);
-    HeapFree(GetProcessHeap(), 0, buffer);
+    HeapFree(GetProcessHeap(), 0, parent);
 }
 
 static const struct wined3d_parent_ops d3d9_indexbuffer_wined3d_parent_ops =
@@ -534,8 +578,8 @@ HRESULT indexbuffer_init(struct d3d9_indexbuffer *buffer, struct d3d9_device *de
     HRESULT hr;
 
     buffer->IDirect3DIndexBuffer9_iface.lpVtbl = &d3d9_indexbuffer_vtbl;
+    buffer->refcount = 1;
     buffer->format = wined3dformat_from_d3dformat(format);
-    d3d9_resource_init(&buffer->resource);
 
     wined3d_mutex_lock();
     hr = wined3d_buffer_create_ib(device->wined3d_device, size, usage & WINED3DUSAGE_MASK,

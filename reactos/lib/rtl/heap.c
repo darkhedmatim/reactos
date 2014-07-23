@@ -46,8 +46,7 @@ UCHAR RtlpBitsClearLow[] =
     4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0
 };
 
-FORCEINLINE
-UCHAR
+UCHAR FORCEINLINE
 RtlpFindLeastSetBit(ULONG Bits)
 {
     if (Bits & 0xFFFF)
@@ -204,8 +203,7 @@ RtlpInitializeHeap(OUT PHEAP Heap,
     return STATUS_SUCCESS;
 }
 
-FORCEINLINE
-VOID
+VOID FORCEINLINE
 RtlpSetFreeListsBit(PHEAP Heap,
                     PHEAP_FREE_ENTRY FreeEntry)
 {
@@ -224,8 +222,7 @@ RtlpSetFreeListsBit(PHEAP Heap,
     Heap->u.FreeListsInUseBytes[Index] |= Bit;
 }
 
-FORCEINLINE
-VOID
+VOID FORCEINLINE
 RtlpClearFreeListsBit(PHEAP Heap,
                       PHEAP_FREE_ENTRY FreeEntry)
 {

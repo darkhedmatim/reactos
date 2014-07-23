@@ -10,15 +10,14 @@
 #include "precomp.h"
 
 /* FMIFS.9 */
-BOOL
-NTAPI
+BOOL NTAPI
 QuerySupportedMedia(
-    IN PWCHAR DriveRoot,
-    OUT FMIFS_MEDIA_FLAG *CurrentMedia OPTIONAL,
-    IN ULONG Unknown3,
-    OUT PULONG Unknown4)
+	IN PWCHAR DriveRoot,
+	OUT FMIFS_MEDIA_FLAG *CurrentMedia OPTIONAL,
+	IN ULONG Unknown3,
+	OUT PULONG Unknown4)
 {
-    return FALSE;
+	return FALSE;
 }
 
 /* EOF */

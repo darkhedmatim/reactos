@@ -333,9 +333,9 @@ HRESULT WINAPI OleCreateFontIndirect(
     fd.cySize.s.Hi    = 0;
     fd.sWeight 	      = 0;
     fd.sCharset       = 0;
-    fd.fItalic        = FALSE;
-    fd.fUnderline     = FALSE;
-    fd.fStrikethrough = FALSE;
+    fd.fItalic	      = 0;
+    fd.fUnderline     = 0;
+    fd.fStrikethrough = 0;
     lpFontDesc = &fd;
   }
 
@@ -368,7 +368,7 @@ static void OLEFont_SendNotify(OLEFontImpl* this, DISPID dispID)
   static const WCHAR wszUnder[] = {'U','n','d','e','r','l','i','n','e',0};
   static const WCHAR wszStrike[] = {'S','t','r','i','k','e','t','h','r','o','u','g','h',0};
   static const WCHAR wszWeight[] = {'W','e','i','g','h','t',0};
-  static const WCHAR wszCharset[] = {'C','h','a','r','s','e','t',0};
+  static const WCHAR wszCharset[] = {'C','h','a','r','s','s','e','t',0};
   static const LPCWSTR dispid_mapping[] =
   {
     wszName,
@@ -394,7 +394,7 @@ static void OLEFont_SendNotify(OLEFontImpl* this, DISPID dispID)
     while(IEnumConnections_Next(pEnum, 1, &CD, NULL) == S_OK) {
       IPropertyNotifySink *sink;
 
-      IUnknown_QueryInterface(CD.pUnk, &IID_IPropertyNotifySink, (void**)&sink);
+      IUnknown_QueryInterface(CD.pUnk, &IID_IPropertyNotifySink, (LPVOID)&sink);
       IPropertyNotifySink_OnChanged(sink, dispID);
       IPropertyNotifySink_Release(sink);
       IUnknown_Release(CD.pUnk);
@@ -420,7 +420,7 @@ static void OLEFont_SendNotify(OLEFontImpl* this, DISPID dispID)
     while(IEnumConnections_Next(pEnum, 1, &CD, NULL) == S_OK) {
         IFontEventsDisp *disp;
 
-        IUnknown_QueryInterface(CD.pUnk, &IID_IFontEventsDisp, (void**)&disp);
+        IUnknown_QueryInterface(CD.pUnk, &IID_IFontEventsDisp, (LPVOID)&disp);
         IFontEventsDisp_Invoke(disp, DISPID_FONT_CHANGED, &IID_NULL,
                                LOCALE_NEUTRAL, INVOKE_FUNC, &dispparams, NULL,
                                NULL, NULL);
@@ -1063,12 +1063,7 @@ static HRESULT WINAPI OLEFontImpl_SetRatio(
   TRACE("(%p)->(%d, %d)\n", this, cyLogical, cyHimetric);
 
   if(cyLogical == 0 || cyHimetric == 0)
-    return E_FAIL;
-
-  /* cyLogical and cyHimetric both set to 1 is a special case that
-     does not change the scaling but also does not fail */
-  if(cyLogical == 1 && cyHimetric == 1)
-    return S_OK;
+    return E_INVALIDARG;
 
   this->cyLogical  = cyLogical;
   this->cyHimetric = cyHimetric;
@@ -1285,6 +1280,9 @@ static HRESULT WINAPI OLEFontImpl_GetIDsOfNames(
 /************************************************************************
  * OLEFontImpl_Invoke (IDispatch)
  * 
+ * Note: Do not call _put_Xxx methods, since setting things here
+ * should not call notify functions as I found out debugging the generic
+ * MS VB5 installer.
  */
 static HRESULT WINAPI OLEFontImpl_Invoke(
   IDispatch*  iface,
@@ -1830,11 +1828,13 @@ static HRESULT WINAPI OLEFontImpl_FindConnectionPoint(
   TRACE("(%p)->(%s, %p)\n", this, debugstr_guid(riid), ppCp);
 
   if(IsEqualIID(riid, &IID_IPropertyNotifySink)) {
-    return IConnectionPoint_QueryInterface(this->pPropertyNotifyCP, &IID_IConnectionPoint,
-                                           (void**)ppCp);
+    return IConnectionPoint_QueryInterface(this->pPropertyNotifyCP,
+                                           &IID_IConnectionPoint,
+                                           (LPVOID)ppCp);
   } else if(IsEqualIID(riid, &IID_IFontEventsDisp)) {
-    return IConnectionPoint_QueryInterface(this->pFontEventsCP, &IID_IConnectionPoint,
-                                           (void**)ppCp);
+    return IConnectionPoint_QueryInterface(this->pFontEventsCP,
+                                           &IID_IConnectionPoint,
+                                           (LPVOID)ppCp);
   } else {
     FIXME("no connection point for %s\n", debugstr_guid(riid));
     return CONNECT_E_NOCONNECTION;

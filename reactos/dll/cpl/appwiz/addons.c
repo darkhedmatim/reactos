@@ -26,11 +26,11 @@
 
 #include <msi.h>
 
-#define GECKO_VERSION "2.24"
+#define GECKO_VERSION "2.21"
 
 #ifdef __i386__
 #define ARCH_STRING "x86"
-#define GECKO_SHA "f6984567b24fef7b0be79837e04d3a913af1a88c"
+#define GECKO_SHA "a514fc4d53783a586c7880a676c415695fe934a3"
 #else
 #define ARCH_STRING ""
 #define GECKO_SHA "???"
@@ -60,7 +60,7 @@ static const addon_info_t *addon;
 
 static HWND install_dialog = NULL;
 
-static WCHAR GeckoUrl[] = L"http://dl.dropboxusercontent.com/u/743491/ReactOS/wine_gecko-2.24-x86.msi";
+static WCHAR GeckoUrl[] = L"http://dl.dropboxusercontent.com/u/743491/ReactOS/wine_gecko-2.21-x86.msi";
 
 /* SHA definitions are copied from advapi32. They aren't available in headers. */
 
@@ -212,18 +212,6 @@ static enum install_res install_from_registered_dir(void)
     if(res != ERROR_SUCCESS || (type != REG_SZ && type != REG_EXPAND_SZ)) {
         heap_free(package_dir);
         return INSTALL_FAILED;
-    }
-
-    if (type == REG_EXPAND_SZ)
-    {
-        size = ExpandEnvironmentStringsA(package_dir, NULL, 0);
-        if (size)
-        {
-            char* buf = heap_alloc(size + sizeof(addon->file_name));
-            ExpandEnvironmentStringsA(package_dir, buf, size);
-            heap_free(package_dir);
-            package_dir = buf;
-        }
     }
 
     TRACE("Trying %s/%s\n", debugstr_a(package_dir), debugstr_a(addon->file_name));

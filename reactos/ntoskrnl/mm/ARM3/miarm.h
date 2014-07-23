@@ -52,7 +52,6 @@
 #define MI_LOWEST_VAD_ADDRESS                   (PVOID)MM_LOWEST_USER_ADDRESS
 
 #define MI_DEFAULT_SYSTEM_PTE_COUNT             50000
-#define MI_MAX_ZERO_BITS                        21
 
 #endif /* !_M_AMD64 */
 
@@ -888,10 +887,9 @@ MI_MAKE_HARDWARE_PTE_USER(IN PMMPTE NewPte,
     ASSERT(MappingPte <= MiHighestUserPte);
 
     /* Start fresh */
-    NewPte->u.Long = 0;
+    *NewPte = ValidKernelPte;
 
     /* Set the protection and page */
-    NewPte->u.Hard.Valid = TRUE;
     NewPte->u.Hard.Owner = TRUE;
     NewPte->u.Hard.PageFrameNumber = PageFrameNumber;
     NewPte->u.Long |= MmProtectToPteMask[ProtectionMask];
@@ -1100,11 +1098,11 @@ MI_WS_OWNER(IN PEPROCESS Process)
     /* Check if this process is the owner, and that the thread owns the WS */
     if (PsGetCurrentThread()->OwnsProcessWorkingSetExclusive == 0)
     {
-        DPRINT("Thread: %p is not an owner\n", PsGetCurrentThread());
+        DPRINT1("Thread: %p is not an owner\n", PsGetCurrentThread());
     }
     if (KeGetCurrentThread()->ApcState.Process != &Process->Pcb)
     {
-        DPRINT("Current thread %p is attached to another process %p\n", PsGetCurrentThread(), Process);
+        DPRINT1("Current thread %p is attached to another process %p\n", PsGetCurrentThread(), Process);
     }
     return ((KeGetCurrentThread()->ApcState.Process == &Process->Pcb) &&
             ((PsGetCurrentThread()->OwnsProcessWorkingSetExclusive) ||
@@ -2095,13 +2093,12 @@ MiLocateAddress(
     IN PVOID VirtualAddress
 );
 
-TABLE_SEARCH_RESULT
+PMMADDRESS_NODE
 NTAPI
 MiCheckForConflictingNode(
     IN ULONG_PTR StartVpn,
     IN ULONG_PTR EndVpn,
-    IN PMM_AVL_TABLE Table,
-    OUT PMMADDRESS_NODE *NodeOrParent
+    IN PMM_AVL_TABLE Table
 );
 
 TABLE_SEARCH_RESULT
@@ -2125,7 +2122,7 @@ MiFindEmptyAddressRangeDownBasedTree(
     OUT PULONG_PTR Base
 );
 
-TABLE_SEARCH_RESULT
+NTSTATUS
 NTAPI
 MiFindEmptyAddressRangeInTree(
     IN SIZE_T Length,

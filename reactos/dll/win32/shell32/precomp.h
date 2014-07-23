@@ -55,7 +55,6 @@
 #include "folders/printers.h"
 #include "folders/admintools.h"
 #include "folders/recyclebin.h"
-#include "droptargets/CexeDropHandler.h"
 #include "openwithmenu.h"
 #include "newmenu.h"
 #include "startmenu.h"

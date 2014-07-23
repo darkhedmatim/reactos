@@ -24,16 +24,16 @@
 #define RtlInsertAsLeftChildAvl     RtlInsertAsLeftChild
 #define RtlIsLeftChildAvl           RtlIsLeftChild
 
-FORCEINLINE
 VOID
+FORCEINLINE
 RtlpCopyAvlNodeData(IN PRTL_BALANCED_LINKS Node1,
                     IN PRTL_BALANCED_LINKS Node2)
 {
     *Node1 = *Node2;
 }
  
-FORCEINLINE
 RTL_GENERIC_COMPARE_RESULTS
+FORCEINLINE
 RtlpAvlCompareRoutine(IN PRTL_AVL_TABLE Table,
                       IN PVOID Buffer,
                       IN PVOID UserData)
@@ -44,24 +44,24 @@ RtlpAvlCompareRoutine(IN PRTL_AVL_TABLE Table,
                                  UserData);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 RtlSetParent(IN PRTL_BALANCED_LINKS Node,
              IN PRTL_BALANCED_LINKS Parent)
 {
     Node->Parent = Parent;
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 RtlSetBalance(IN PRTL_BALANCED_LINKS Node,
               IN CHAR Balance)
 {
     Node->Balance = Balance;
 }
 
-FORCEINLINE
 CHAR
+FORCEINLINE
 RtlBalance(IN PRTL_BALANCED_LINKS Node)
 {
     return Node->Balance;

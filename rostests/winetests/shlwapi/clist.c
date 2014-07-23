@@ -21,8 +21,6 @@
 #define _INC_WINDOWS
 #define COM_NO_WINDOWS_H
 
-#define COBJMACROS
-
 //#include <stdarg.h>
 
 #include <wine/test.h>
@@ -56,9 +54,9 @@ static const SHLWAPI_CLIST SHLWAPI_CLIST_items[] =
 };
 
 /* Dummy IStream object for testing calls */
-struct dummystream
+typedef struct
 {
-  IStream IStream_iface;
+  void* lpVtbl;
   LONG  ref;
   int   readcalls;
   BOOL  failreadcall;
@@ -73,45 +71,30 @@ struct dummystream
   BOOL  failstatcall;
   LPCSHLWAPI_CLIST item;
   ULARGE_INTEGER   pos;
-};
+} _IDummyStream;
 
-static inline struct dummystream *impl_from_IStream(IStream *iface)
+static
+HRESULT WINAPI QueryInterface(_IDummyStream *This,REFIID riid, LPVOID *ppvObj)
 {
-    return CONTAINING_RECORD(iface, struct dummystream, IStream_iface);
+  return S_OK;
 }
 
-static HRESULT WINAPI QueryInterface(IStream *iface, REFIID riid, void **ret_iface)
+static ULONG WINAPI AddRef(_IDummyStream *This)
 {
-    if (IsEqualGUID(&IID_IUnknown, riid) || IsEqualGUID(&IID_IStream, riid)) {
-        *ret_iface = iface;
-        IStream_AddRef(iface);
-        return S_OK;
-    }
-    trace("Unexpected REFIID %s\n", wine_dbgstr_guid(riid));
-    *ret_iface = NULL;
-    return E_NOINTERFACE;
+  return InterlockedIncrement(&This->ref);
 }
 
-static ULONG WINAPI AddRef(IStream *iface)
+static ULONG WINAPI Release(_IDummyStream *This)
 {
-    struct dummystream *This = impl_from_IStream(iface);
-
-    return InterlockedIncrement(&This->ref);
+  return InterlockedDecrement(&This->ref);
 }
 
-static ULONG WINAPI Release(IStream *iface)
+static HRESULT WINAPI Read(_IDummyStream* This, LPVOID lpMem, ULONG ulSize,
+                           PULONG lpRead)
 {
-    struct dummystream *This = impl_from_IStream(iface);
-
-    return InterlockedDecrement(&This->ref);
-}
-
-static HRESULT WINAPI Read(IStream *iface, void *lpMem, ULONG ulSize, ULONG *lpRead)
-{
-  struct dummystream *This = impl_from_IStream(iface);
   HRESULT hRet = S_OK;
-
   ++This->readcalls;
+
   if (This->failreadcall)
   {
     return STG_E_ACCESSDENIED;
@@ -157,9 +140,9 @@ static HRESULT WINAPI Read(IStream *iface, void *lpMem, ULONG ulSize, ULONG *lpR
   return hRet;
 }
 
-static HRESULT WINAPI Write(IStream *iface, const void *lpMem, ULONG ulSize, ULONG *lpWritten)
+static HRESULT WINAPI Write(_IDummyStream* This, LPVOID lpMem, ULONG ulSize,
+                            PULONG lpWritten)
 {
-  struct dummystream *This = impl_from_IStream(iface);
   HRESULT hRet = S_OK;
 
   ++This->writecalls;
@@ -176,11 +159,9 @@ static HRESULT WINAPI Write(IStream *iface, const void *lpMem, ULONG ulSize, ULO
   return hRet;
 }
 
-static HRESULT WINAPI Seek(IStream *iface, LARGE_INTEGER dlibMove, DWORD dwOrigin,
-        ULARGE_INTEGER *plibNewPosition)
+static HRESULT WINAPI Seek(_IDummyStream* This, LARGE_INTEGER dlibMove,
+                           DWORD dwOrigin, ULARGE_INTEGER* plibNewPosition)
 {
-  struct dummystream *This = impl_from_IStream(iface);
-
   ++This->seekcalls;
   This->pos.QuadPart = dlibMove.QuadPart;
   if (plibNewPosition)
@@ -188,10 +169,9 @@ static HRESULT WINAPI Seek(IStream *iface, LARGE_INTEGER dlibMove, DWORD dwOrigi
   return S_OK;
 }
 
-static HRESULT WINAPI Stat(IStream *iface, STATSTG *pstatstg, DWORD grfStatFlag)
+static HRESULT WINAPI Stat(_IDummyStream* This, STATSTG* pstatstg,
+                           DWORD grfStatFlag)
 {
-  struct dummystream *This = impl_from_IStream(iface);
-
   ++This->statcalls;
   if (This->failstatcall)
     return E_FAIL;
@@ -201,7 +181,7 @@ static HRESULT WINAPI Stat(IStream *iface, STATSTG *pstatstg, DWORD grfStatFlag)
 }
 
 /* VTable */
-static IStreamVtbl iclvt =
+static void* iclvt[] =
 {
   QueryInterface,
   AddRef,
@@ -226,14 +206,14 @@ static VOID    (WINAPI *pSHLWAPI_19)(LPSHLWAPI_CLIST);
 static HRESULT (WINAPI *pSHLWAPI_20)(LPSHLWAPI_CLIST*,LPCSHLWAPI_CLIST);
 static BOOL    (WINAPI *pSHLWAPI_21)(LPSHLWAPI_CLIST*,ULONG);
 static LPSHLWAPI_CLIST (WINAPI *pSHLWAPI_22)(LPSHLWAPI_CLIST,ULONG);
-static HRESULT (WINAPI *pSHLWAPI_17)(IStream*, SHLWAPI_CLIST*);
-static HRESULT (WINAPI *pSHLWAPI_18)(IStream*, SHLWAPI_CLIST**);
+static HRESULT (WINAPI *pSHLWAPI_17)(_IDummyStream*,LPSHLWAPI_CLIST);
+static HRESULT (WINAPI *pSHLWAPI_18)(_IDummyStream*,LPSHLWAPI_CLIST*);
 
-static BOOL    (WINAPI *pSHLWAPI_166)(IStream*);
-static HRESULT (WINAPI *pSHLWAPI_184)(IStream*, void*, ULONG);
-static HRESULT (WINAPI *pSHLWAPI_212)(IStream*, const void*, ULONG);
-static HRESULT (WINAPI *pSHLWAPI_213)(IStream*);
-static HRESULT (WINAPI *pSHLWAPI_214)(IStream*, ULARGE_INTEGER*);
+static BOOL    (WINAPI *pSHLWAPI_166)(_IDummyStream*);
+static HRESULT (WINAPI *pSHLWAPI_184)(_IDummyStream*,LPVOID,ULONG);
+static HRESULT (WINAPI *pSHLWAPI_212)(_IDummyStream*,LPCVOID,ULONG);
+static HRESULT (WINAPI *pSHLWAPI_213)(_IDummyStream*);
+static HRESULT (WINAPI *pSHLWAPI_214)(_IDummyStream*,ULARGE_INTEGER*);
 
 
 static BOOL InitFunctionPtrs(void)
@@ -272,29 +252,29 @@ static BOOL InitFunctionPtrs(void)
   return TRUE;
 }
 
-static void InitDummyStream(struct dummystream *obj)
+static void InitDummyStream(_IDummyStream* iface)
 {
-    obj->IStream_iface.lpVtbl = &iclvt;
-    obj->ref = 1;
-    obj->readcalls = 0;
-    obj->failreadcall = FALSE;
-    obj->failreadsize = FALSE;
-    obj->readbeyondend = FALSE;
-    obj->readreturnlarge = FALSE;
-    obj->writecalls = 0;
-    obj->failwritecall = FALSE;
-    obj->failwritesize = FALSE;
-    obj->seekcalls = 0;
-    obj->statcalls = 0;
-    obj->failstatcall = FALSE;
-    obj->item = SHLWAPI_CLIST_items;
-    obj->pos.QuadPart = 0;
+  iface->lpVtbl = (void*)iclvt;
+  iface->ref = 1;
+  iface->readcalls = 0;
+  iface->failreadcall = FALSE;
+  iface->failreadsize = FALSE;
+  iface->readbeyondend = FALSE;
+  iface->readreturnlarge = FALSE;
+  iface->writecalls = 0;
+  iface->failwritecall = FALSE;
+  iface->failwritesize = FALSE;
+  iface->seekcalls = 0;
+  iface->statcalls = 0;
+  iface->failstatcall = FALSE;
+  iface->item = SHLWAPI_CLIST_items;
+  iface->pos.QuadPart = 0;
 }
 
 
 static void test_CList(void)
 {
-  struct dummystream streamobj;
+  _IDummyStream streamobj;
   LPSHLWAPI_CLIST list = NULL;
   LPCSHLWAPI_CLIST item = SHLWAPI_CLIST_items;
   HRESULT hRet;
@@ -362,7 +342,7 @@ static void test_CList(void)
   /* Write the list */
   InitDummyStream(&streamobj);
 
-  hRet = pSHLWAPI_17(&streamobj.IStream_iface, list);
+  hRet = pSHLWAPI_17(&streamobj, list);
   ok(hRet == S_OK, "write failed\n");
   if (hRet == S_OK)
   {
@@ -376,7 +356,7 @@ static void test_CList(void)
   /* Failure cases for writing */
   InitDummyStream(&streamobj);
   streamobj.failwritecall = TRUE;
-  hRet = pSHLWAPI_17(&streamobj.IStream_iface, list);
+  hRet = pSHLWAPI_17(&streamobj, list);
   ok(hRet == STG_E_ACCESSDENIED, "changed object failure return\n");
   ok(streamobj.writecalls == 1, "called object after failure\n");
   ok(streamobj.readcalls == 0,"called Read() after failure\n");
@@ -384,7 +364,7 @@ static void test_CList(void)
 
   InitDummyStream(&streamobj);
   streamobj.failwritesize = TRUE;
-  hRet = pSHLWAPI_17(&streamobj.IStream_iface, list);
+  hRet = pSHLWAPI_17(&streamobj, list);
   ok(hRet == STG_E_MEDIUMFULL || broken(hRet == E_FAIL) /* Win7 */,
      "changed size failure return\n");
   ok(streamobj.writecalls == 1, "called object after size failure\n");
@@ -432,7 +412,7 @@ static void test_CList(void)
   /* Create a list by reading in data */
   InitDummyStream(&streamobj);
 
-  hRet = pSHLWAPI_18(&streamobj.IStream_iface, &list);
+  hRet = pSHLWAPI_18(&streamobj, &list);
   ok(hRet == S_OK, "failed create from Read()\n");
   if (hRet == S_OK)
   {
@@ -485,7 +465,7 @@ static void test_CList(void)
   /* Failure cases for reading */
   InitDummyStream(&streamobj);
   streamobj.failreadcall = TRUE;
-  hRet = pSHLWAPI_18(&streamobj.IStream_iface, &list);
+  hRet = pSHLWAPI_18(&streamobj, &list);
   ok(hRet == STG_E_ACCESSDENIED, "changed object failure return\n");
   ok(streamobj.readbeyondend == FALSE, "read beyond end\n");
   ok(streamobj.readcalls == 1, "called object after read failure\n");
@@ -495,7 +475,7 @@ static void test_CList(void)
   /* Read returns large object */
   InitDummyStream(&streamobj);
   streamobj.readreturnlarge = TRUE;
-  hRet = pSHLWAPI_18(&streamobj.IStream_iface, &list);
+  hRet = pSHLWAPI_18(&streamobj, &list);
   ok(hRet == S_OK, "failed create from Read() with large item\n");
   ok(streamobj.readbeyondend == FALSE, "read beyond end\n");
   ok(streamobj.readcalls == 1,"wrong call count\n");
@@ -507,14 +487,14 @@ static void test_CList(void)
 
 static BOOL test_SHLWAPI_166(void)
 {
-  struct dummystream streamobj;
+  _IDummyStream streamobj;
   BOOL bRet;
 
   if (!pSHLWAPI_166)
     return FALSE;
 
   InitDummyStream(&streamobj);
-  bRet = pSHLWAPI_166(&streamobj.IStream_iface);
+  bRet = pSHLWAPI_166(&streamobj);
 
   if (bRet != TRUE)
     return FALSE; /* This version doesn't support stream ops on clists */
@@ -527,7 +507,7 @@ static BOOL test_SHLWAPI_166(void)
   streamobj.statcalls = 0;
   streamobj.pos.QuadPart = 50001;
 
-  bRet = pSHLWAPI_166(&streamobj.IStream_iface);
+  bRet = pSHLWAPI_166(&streamobj);
 
   ok(bRet == FALSE, "failed after seek adjusted\n");
   ok(streamobj.readcalls == 0, "called Read()\n");
@@ -539,7 +519,7 @@ static BOOL test_SHLWAPI_166(void)
   InitDummyStream(&streamobj);
   streamobj.pos.QuadPart = 50001;
   streamobj.failstatcall = TRUE; /* 1: Stat() Bad, Read() OK */
-  bRet = pSHLWAPI_166(&streamobj.IStream_iface);
+  bRet = pSHLWAPI_166(&streamobj);
   ok(bRet == FALSE, "should be FALSE after read is OK\n");
   ok(streamobj.readcalls == 1, "wrong call count\n");
   ok(streamobj.writecalls == 0, "called Write()\n");
@@ -551,7 +531,7 @@ static BOOL test_SHLWAPI_166(void)
   streamobj.pos.QuadPart = 50001;
   streamobj.failstatcall = TRUE;
   streamobj.failreadcall = TRUE; /* 2: Stat() Bad, Read() Bad Also */
-  bRet = pSHLWAPI_166(&streamobj.IStream_iface);
+  bRet = pSHLWAPI_166(&streamobj);
   ok(bRet == TRUE, "Should be true after read fails\n");
   ok(streamobj.readcalls == 1, "wrong call count\n");
   ok(streamobj.writecalls == 0, "called Write()\n");
@@ -563,7 +543,7 @@ static BOOL test_SHLWAPI_166(void)
 
 static void test_SHLWAPI_184(void)
 {
-  struct dummystream streamobj;
+  _IDummyStream streamobj;
   char buff[256];
   HRESULT hRet;
 
@@ -571,7 +551,7 @@ static void test_SHLWAPI_184(void)
     return;
 
   InitDummyStream(&streamobj);
-  hRet = pSHLWAPI_184(&streamobj.IStream_iface, buff, sizeof(buff));
+  hRet = pSHLWAPI_184(&streamobj, buff, sizeof(buff));
 
   ok(hRet == S_OK, "failed Read()\n");
   ok(streamobj.readcalls == 1, "wrong call count\n");
@@ -581,7 +561,7 @@ static void test_SHLWAPI_184(void)
 
 static void test_SHLWAPI_212(void)
 {
-  struct dummystream streamobj;
+  _IDummyStream streamobj;
   char buff[256];
   HRESULT hRet;
 
@@ -589,7 +569,7 @@ static void test_SHLWAPI_212(void)
     return;
 
   InitDummyStream(&streamobj);
-  hRet = pSHLWAPI_212(&streamobj.IStream_iface, buff, sizeof(buff));
+  hRet = pSHLWAPI_212(&streamobj, buff, sizeof(buff));
 
   ok(hRet == S_OK, "failed Write()\n");
   ok(streamobj.readcalls == 0, "called Read()\n");
@@ -599,7 +579,7 @@ static void test_SHLWAPI_212(void)
 
 static void test_SHLWAPI_213(void)
 {
-  struct dummystream streamobj;
+  _IDummyStream streamobj;
   ULARGE_INTEGER ul;
   LARGE_INTEGER ll;
   HRESULT hRet;
@@ -609,24 +589,24 @@ static void test_SHLWAPI_213(void)
 
   InitDummyStream(&streamobj);
   ll.QuadPart = 5000l;
-  Seek(&streamobj.IStream_iface, ll, 0, NULL); /* Seek to 5000l */
+  Seek(&streamobj, ll, 0, NULL); /* Seek to 5000l */
 
   streamobj.seekcalls = 0;
-  pSHLWAPI_213(&streamobj.IStream_iface); /* Should rewind */
+  pSHLWAPI_213(&streamobj); /* Should rewind */
   ok(streamobj.statcalls == 0, "called Stat()\n");
   ok(streamobj.readcalls == 0, "called Read()\n");
   ok(streamobj.writecalls == 0, "called Write()\n");
   ok(streamobj.seekcalls == 1, "wrong call count\n");
 
   ul.QuadPart = 50001;
-  hRet = pSHLWAPI_214(&streamobj.IStream_iface, &ul);
+  hRet = pSHLWAPI_214(&streamobj, &ul);
   ok(hRet == S_OK, "failed Stat()\n");
   ok(ul.QuadPart == 0, "213 didn't rewind stream\n");
 }
 
 static void test_SHLWAPI_214(void)
 {
-  struct dummystream streamobj;
+  _IDummyStream streamobj;
   ULARGE_INTEGER ul;
   LARGE_INTEGER ll;
   HRESULT hRet;
@@ -636,10 +616,10 @@ static void test_SHLWAPI_214(void)
 
   InitDummyStream(&streamobj);
   ll.QuadPart = 5000l;
-  Seek(&streamobj.IStream_iface, ll, 0, NULL);
+  Seek(&streamobj, ll, 0, NULL);
   ul.QuadPart = 0;
   streamobj.seekcalls = 0;
-  hRet = pSHLWAPI_214(&streamobj.IStream_iface, &ul);
+  hRet = pSHLWAPI_214(&streamobj, &ul);
 
   ok(hRet == S_OK, "failed Stat()\n");
   ok(streamobj.statcalls == 1, "wrong call count\n");

@@ -139,7 +139,7 @@ static HRESULT WINAPI enum_class_object_Clone(
 
     TRACE("%p, %p\n", iface, ppEnum);
 
-    return EnumWbemClassObject_create( ec->query, (void **)ppEnum );
+    return EnumWbemClassObject_create( NULL, ec->query, (void **)ppEnum );
 }
 
 static HRESULT WINAPI enum_class_object_Skip(
@@ -177,11 +177,12 @@ static const IEnumWbemClassObjectVtbl enum_class_object_vtbl =
     enum_class_object_Skip
 };
 
-HRESULT EnumWbemClassObject_create( struct query *query, LPVOID *ppObj )
+HRESULT EnumWbemClassObject_create(
+    IUnknown *pUnkOuter, struct query *query, LPVOID *ppObj )
 {
     struct enum_class_object *ec;
 
-    TRACE("%p\n", ppObj);
+    TRACE("%p, %p\n", pUnkOuter, ppObj);
 
     ec = heap_alloc( sizeof(*ec) );
     if (!ec) return E_OUTOFMEMORY;
@@ -463,17 +464,17 @@ static HRESULT WINAPI class_object_GetNames(
     TRACE("%p, %s, %08x, %s, %p\n", iface, debugstr_w(wszQualifierName), lFlags,
           debugstr_variant(pQualifierVal), pNames);
 
-    if (lFlags != WBEM_FLAG_ALWAYS &&
-        lFlags != WBEM_FLAG_NONSYSTEM_ONLY &&
-        lFlags != WBEM_FLAG_SYSTEM_ONLY)
+    if (wszQualifierName || pQualifierVal)
+    {
+        FIXME("qualifier not supported\n");
+        return E_NOTIMPL;
+    }
+    if (lFlags != WBEM_FLAG_ALWAYS)
     {
         FIXME("flags %08x not supported\n", lFlags);
         return E_NOTIMPL;
     }
-    if (wszQualifierName || pQualifierVal)
-        FIXME("qualifier not supported\n");
-
-    return get_properties( ec->query->view, lFlags, pNames );
+    return get_properties( ec->query->view, pNames );
 }
 
 static HRESULT WINAPI class_object_BeginEnumeration(
@@ -507,7 +508,7 @@ static HRESULT WINAPI class_object_Next(
     TRACE("%p, %08x, %p, %p, %p, %p\n", iface, lFlags, strName, pVal, pType, plFlavor);
 
     if (!(property = get_property_name( co->name, co->index_property ))) return WBEM_S_NO_MORE_DATA;
-    if ((hr = get_propval( view, co->index, property, pVal, pType, plFlavor )) != S_OK)
+    if ((hr = get_propval( view, co->index, property, pVal, pType, plFlavor ) != S_OK))
     {
         SysFreeString( property );
         return hr;
@@ -537,7 +538,7 @@ static HRESULT WINAPI class_object_GetPropertyQualifierSet(
 
     TRACE("%p, %s, %p\n", iface, debugstr_w(wszProperty), ppQualSet);
 
-    return WbemQualifierSet_create( co->name, wszProperty, (void **)ppQualSet );
+    return WbemQualifierSet_create( NULL, co->name, wszProperty, (void **)ppQualSet );
 }
 
 static HRESULT WINAPI class_object_Clone(

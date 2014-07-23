@@ -109,22 +109,17 @@ GetServices ( void )
                 /* reserve memory for service info array */
                 pServiceStatus = HeapAlloc(GetProcessHeap(), 0, BytesNeeded);
                 if (!pServiceStatus)
-                {
-                    CloseServiceHandle(ScHandle);
                     return;
-                }
 
                 /* fill array with service info */
                 if (EnumServicesStatusEx(ScHandle, SC_ENUM_PROCESS_INFO, SERVICE_WIN32, SERVICE_STATE_ALL, (LPBYTE)pServiceStatus, BytesNeeded, &BytesNeeded, &NumServices, &ResumeHandle, 0) == 0)
                 {
                     HeapFree(GetProcessHeap(), 0, pServiceStatus);
-                    CloseServiceHandle(ScHandle);
                     return;
                 }
             }
             else /* exit on failure */
             {
-                CloseServiceHandle(ScHandle);
                 return;
             }
         }
@@ -132,11 +127,7 @@ GetServices ( void )
         if (NumServices)
         {
             if (!pServiceStatus)
-            {
-                CloseServiceHandle(ScHandle);
                 return;
-            }
-
             for (Index = 0; Index < NumServices; Index++)
             {
                 memset(&item, 0, sizeof(LV_ITEM));

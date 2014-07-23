@@ -444,7 +444,7 @@ CSR_API(SrvFlushConsoleInputBuffer)
 NTSTATUS NTAPI
 ConDrvGetConsoleNumberOfInputEvents(IN PCONSOLE Console,
                                     IN PCONSOLE_INPUT_BUFFER InputBuffer,
-                                    OUT PULONG NumberOfEvents);
+                                    OUT PULONG NumEvents);
 CSR_API(SrvGetConsoleNumberOfInputEvents)
 {
     NTSTATUS Status;
@@ -460,7 +460,7 @@ CSR_API(SrvGetConsoleNumberOfInputEvents)
 
     Status = ConDrvGetConsoleNumberOfInputEvents(InputBuffer->Header.Console,
                                                  InputBuffer,
-                                                 &GetNumInputEventsRequest->NumberOfEvents);
+                                                 &GetNumInputEventsRequest->NumInputEvents);
 
     ConSrvReleaseInputBuffer(InputBuffer, TRUE);
     return Status;

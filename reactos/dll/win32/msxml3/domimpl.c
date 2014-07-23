@@ -81,7 +81,10 @@ static ULONG WINAPI dimimpl_Release(
 
     TRACE("(%p)->(%d)\n", This, ref);
     if ( ref == 0 )
+    {
+        release_dispex(&This->dispex);
         heap_free( This );
+    }
 
     return ref;
 }

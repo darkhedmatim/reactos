@@ -29,8 +29,6 @@ BOOLEAN DIB_XXBPP_StretchBlt(SURFOBJ *DestSurf, SURFOBJ *SourceSurf, SURFOBJ *Ma
   LONG DstWidth;
   LONG SrcHeight;
   LONG SrcWidth;
-  LONG MaskCy;
-  LONG SourceCy;
 
   ULONG Color;
   ULONG Dest, Source = 0, Pattern = 0;
@@ -58,7 +56,6 @@ BOOLEAN DIB_XXBPP_StretchBlt(SURFOBJ *DestSurf, SURFOBJ *SourceSurf, SURFOBJ *Ma
 
   if (UsesSource)
   {
-    SourceCy = abs(SourceSurf->sizlBitmap.cy);
     fnSource_GetPixel = DibFunctionsForBitmapFormat[SourceSurf->iBitmapFormat].DIB_GetPixel;
     DPRINT("Source BPP: %u, srcRect: (%d,%d)-(%d,%d)\n",
       BitsPerFormat(SourceSurf->iBitmapFormat), SourceRect->left, SourceRect->top, SourceRect->right, SourceRect->bottom);
@@ -67,7 +64,6 @@ BOOLEAN DIB_XXBPP_StretchBlt(SURFOBJ *DestSurf, SURFOBJ *SourceSurf, SURFOBJ *Ma
   if (MaskSurf)
   {
     fnMask_GetPixel = DibFunctionsForBitmapFormat[MaskSurf->iBitmapFormat].DIB_GetPixel;
-    MaskCy = abs(MaskSurf->sizlBitmap.cy);
   }
 
   DstHeight = DestRect->bottom - DestRect->top;
@@ -128,7 +124,7 @@ BOOLEAN DIB_XXBPP_StretchBlt(SURFOBJ *DestSurf, SURFOBJ *SourceSurf, SURFOBJ *Ma
       {
         sx = SourceRect->left+(DesX - DestRect->left) * SrcWidth / DstWidth;
         if (sx < 0 || sy < 0 ||
-          MaskSurf->sizlBitmap.cx < sx || MaskCy < sy ||
+          MaskSurf->sizlBitmap.cx < sx || MaskSurf->sizlBitmap.cy < sy ||
           fnMask_GetPixel(MaskSurf, sx, sy) != 0)
         {
           CanDraw = FALSE;
@@ -139,7 +135,7 @@ BOOLEAN DIB_XXBPP_StretchBlt(SURFOBJ *DestSurf, SURFOBJ *SourceSurf, SURFOBJ *Ma
       {
         sx = SourceRect->left+(DesX - DestRect->left) * SrcWidth / DstWidth;
         if (sx >= 0 && sy >= 0 &&
-          SourceSurf->sizlBitmap.cx > sx && SourceCy > sy)
+          SourceSurf->sizlBitmap.cx > sx && SourceSurf->sizlBitmap.cy > sy)
         {
           Source = XLATEOBJ_iXlate(ColorTranslation, fnSource_GetPixel(SourceSurf, sx, sy));
         }

@@ -1,8 +1,7 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
-Name = Microsoft Excel Viewer
+Name = Excel Viewer
 Version = 2010
 Licence = Unknown
 Description = Microsoft Excel Viewer
@@ -48,10 +47,8 @@ Size = 51,14 Mo
 URLDownload = http://download.microsoft.com/download/D/D/2/DD28D077-97F3-47C0-9389-0B987918888B/ExcelViewer.exe
 
 [Section.041f]
-Name = Microsoft Excel Görüntüleyici
 Licence = Bilinmiyor
-Description = Microsoft Excel Görüntüleyici
-Size = 51,1 MB
+Size = 51.1 MB
 URLDownload = http://download.microsoft.com/download/8/5/D/85DCDD24-8237-4334-866D-417F74F37C47/ExcelViewer.exe
 
 [Section.0422]

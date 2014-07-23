@@ -5796,7 +5796,7 @@ xmlValidatePushElement(xmlValidCtxtPtr ctxt, xmlDocPtr doc,
  * xmlValidatePushCData:
  * @ctxt:  the validation context
  * @data:  some character data read
- * @len:  the length of the data
+ * @len:  the lenght of the data
  *
  * check the CData parsed for validation in the current stack
  *

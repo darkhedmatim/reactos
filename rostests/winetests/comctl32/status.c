@@ -20,6 +20,7 @@
 
 #include <wine/test.h>
 
+#include <assert.h>
 //#include <windows.h>
 #include <wingdi.h>
 #include <winuser.h>
@@ -51,12 +52,12 @@ static HWND create_status_control(DWORD style, DWORD exstyle)
     HWND hWndStatus;
 
     /* make the control */
-    hWndStatus = CreateWindowExA(exstyle, STATUSCLASSNAMEA, NULL, style,
+    hWndStatus = CreateWindowEx(exstyle, STATUSCLASSNAME, NULL, style,
         /* placement */
         0, 0, 300, 20,
         /* parent, etc */
         NULL, NULL, hinst, NULL);
-    ok(hWndStatus != NULL, "failed to create status wnd\n");
+    assert (hWndStatus);
     return hWndStatus;
 }
 
@@ -66,8 +67,8 @@ static LRESULT WINAPI create_test_wndproc(HWND hwnd, UINT msg, WPARAM wParam, LP
 
     if (msg == WM_CREATE)
     {
-        CREATESTRUCTA *cs = (CREATESTRUCTA *)lParam;
-        ret = CallWindowProcA(g_status_wndproc, hwnd, msg, wParam, lParam);
+        CREATESTRUCT *cs = (CREATESTRUCT *)lParam;
+        ret = CallWindowProc(g_status_wndproc, hwnd, msg, wParam, lParam);
         GetWindowRect(hwnd, &g_rcCreated);
         MapWindowPoints(HWND_DESKTOP, g_hMainWnd, (LPPOINT)&g_rcCreated, 2);
         ok(cs->x == g_rcCreated.left, "CREATESTRUCT.x modified\n");
@@ -75,25 +76,25 @@ static LRESULT WINAPI create_test_wndproc(HWND hwnd, UINT msg, WPARAM wParam, LP
     } else if (msg == WM_SIZE)
     {
         g_wmsize_count++;
-        ret = CallWindowProcA(g_status_wndproc, hwnd, msg, wParam, lParam);
+        ret = CallWindowProc(g_status_wndproc, hwnd, msg, wParam, lParam);
     }
     else
-        ret = CallWindowProcA(g_status_wndproc, hwnd, msg, wParam, lParam);
+        ret = CallWindowProc(g_status_wndproc, hwnd, msg, wParam, lParam);
 
     return ret;
 }
 
 static void register_subclass(void)
 {
-    WNDCLASSEXA cls;
+    WNDCLASSEX cls;
 
-    cls.cbSize = sizeof(WNDCLASSEXA);
-    GetClassInfoExA(NULL, STATUSCLASSNAMEA, &cls);
+    cls.cbSize = sizeof(WNDCLASSEX);
+    GetClassInfoEx(NULL, STATUSCLASSNAME, &cls);
     g_status_wndproc = cls.lpfnWndProc;
     cls.lpfnWndProc = create_test_wndproc;
     cls.lpszClassName = SUBCLASS_NAME;
     cls.hInstance = NULL;
-    ok(RegisterClassExA(&cls), "RegisterClassEx failed\n");
+    ok(RegisterClassEx(&cls), "RegisterClassEx failed\n");
 }
 
 static void test_create(void)
@@ -114,7 +115,7 @@ static void test_create(void)
     DestroyWindow(hwnd);
 }
 
-static int CALLBACK check_height_font_enumproc(ENUMLOGFONTEXA *enumlf, NEWTEXTMETRICEXA *ntm, DWORD type, LPARAM lParam)
+static int CALLBACK check_height_font_enumproc(ENUMLOGFONTEX *enumlf, NEWTEXTMETRICEX *ntm, DWORD type, LPARAM lParam)
 {
     HWND hwndStatus = (HWND)lParam;
     HDC hdc = GetDC(NULL);
@@ -131,18 +132,18 @@ static int CALLBACK check_height_font_enumproc(ENUMLOGFONTEXA *enumlf, NEWTEXTME
     for (i = 0; i < sizeof(sizes)/sizeof(sizes[0]); i++)
     {
         HFONT hFont;
-        TEXTMETRICA tm;
+        TEXTMETRIC tm;
         HFONT hCtrlFont;
         HFONT hOldFont;
         RECT rcCtrl;
 
         enumlf->elfLogFont.lfHeight = sizes[i];
-        hFont = CreateFontIndirectA(&enumlf->elfLogFont);
-        hCtrlFont = (HFONT)SendMessageA(hwndStatus, WM_SETFONT, (WPARAM)hFont, TRUE);
+        hFont = CreateFontIndirect(&enumlf->elfLogFont);
+        hCtrlFont = (HFONT)SendMessage(hwndStatus, WM_SETFONT, (WPARAM)hFont, TRUE);
         hOldFont = SelectObject(hdc, hFont);
 
         GetClientRect(hwndStatus, &rcCtrl);
-        GetTextMetricsA(hdc, &tm);
+        GetTextMetrics(hdc, &tm);
         y = tm.tmHeight + (tm.tmInternalLeading ? tm.tmInternalLeading : 2) + 4;
 
         ok( (rcCtrl.bottom == max(y, g_ysize)) || (rcCtrl.bottom == max(y, g_dpisize)),
@@ -150,37 +151,37 @@ static int CALLBACK check_height_font_enumproc(ENUMLOGFONTEXA *enumlf, NEWTEXTME
             rcCtrl.bottom, max(y, g_ysize), max(y, g_dpisize), facename, sizes[i]);
 
         SelectObject(hdc, hOldFont);
-        SendMessageA(hwndStatus, WM_SETFONT, (WPARAM)hCtrlFont, TRUE);
+        SendMessage(hwndStatus, WM_SETFONT, (WPARAM)hCtrlFont, TRUE);
         DeleteObject(hFont);
     }
     ReleaseDC(NULL, hdc);
     return 1;
 }
 
-static int CALLBACK check_height_family_enumproc(ENUMLOGFONTEXA *enumlf, NEWTEXTMETRICEXA *ntm, DWORD type, LPARAM lParam)
+static int CALLBACK check_height_family_enumproc(ENUMLOGFONTEX *enumlf, NEWTEXTMETRICEX *ntm, DWORD type, LPARAM lParam)
 {
     HDC hdc = GetDC(NULL);
     enumlf->elfLogFont.lfHeight = 0;
-    EnumFontFamiliesExA(hdc, &enumlf->elfLogFont, (FONTENUMPROCA)check_height_font_enumproc, lParam, 0);
+    EnumFontFamiliesEx(hdc, &enumlf->elfLogFont, (FONTENUMPROC)check_height_font_enumproc, lParam, 0);
     ReleaseDC(NULL, hdc);
     return 1;
 }
 
 static void test_height(void)
 {
-    LOGFONTA lf;
+    LOGFONT lf;
     HFONT hFont, hFontSm;
     RECT rc1, rc2;
-    HWND hwndStatus = CreateWindowA(SUBCLASS_NAME, NULL, WS_CHILD|WS_VISIBLE,
+    HWND hwndStatus = CreateWindow(SUBCLASS_NAME, NULL, WS_CHILD|WS_VISIBLE,
         0, 0, 300, 20, g_hMainWnd, NULL, NULL, NULL);
     HDC hdc;
 
     GetClientRect(hwndStatus, &rc1);
-    hFont = CreateFontA(32, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, ANSI_CHARSET,
+    hFont = CreateFont(32, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, ANSI_CHARSET,
         OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FF_DONTCARE, "Tahoma");
 
     g_wmsize_count = 0;
-    SendMessageA(hwndStatus, WM_SETFONT, (WPARAM)hFont, TRUE);
+    SendMessage(hwndStatus, WM_SETFONT, (WPARAM)hFont, TRUE);
     if (!g_wmsize_count)
     {
         skip("Status control not resized in win95, skipping broken tests.\n");
@@ -192,41 +193,41 @@ static void test_height(void)
     expect_rect(0, 0, 672, 42, rc2); /* GetTextMetrics returns invalid tmInternalLeading for this font */
 
     g_wmsize_count = 0;
-    SendMessageA(hwndStatus, WM_SETFONT, (WPARAM)hFont, TRUE);
+    SendMessage(hwndStatus, WM_SETFONT, (WPARAM)hFont, TRUE);
     ok(g_wmsize_count > 0, "WM_SETFONT should issue WM_SIZE\n");
 
     GetClientRect(hwndStatus, &rc2);
     expect_rect(0, 0, 672, 42, rc2);
 
     /* minheight < fontsize - no effects*/
-    SendMessageA(hwndStatus, SB_SETMINHEIGHT, 12, 0);
-    SendMessageA(hwndStatus, WM_SIZE, 0, 0);
+    SendMessage(hwndStatus, SB_SETMINHEIGHT, 12, 0);
+    SendMessage(hwndStatus, WM_SIZE, 0, 0);
     GetClientRect(hwndStatus, &rc2);
     expect_rect(0, 0, 672, 42, rc2);
 
     /* minheight > fontsize - has an effect after WM_SIZE */
-    SendMessageA(hwndStatus, SB_SETMINHEIGHT, 60, 0);
+    SendMessage(hwndStatus, SB_SETMINHEIGHT, 60, 0);
     GetClientRect(hwndStatus, &rc2);
     expect_rect(0, 0, 672, 42, rc2);
-    SendMessageA(hwndStatus, WM_SIZE, 0, 0);
+    SendMessage(hwndStatus, WM_SIZE, 0, 0);
     GetClientRect(hwndStatus, &rc2);
     expect_rect(0, 0, 672, 62, rc2);
 
     /* font changed to smaller than minheight - has an effect */
-    SendMessageA(hwndStatus, SB_SETMINHEIGHT, 30, 0);
+    SendMessage(hwndStatus, SB_SETMINHEIGHT, 30, 0);
     expect_rect(0, 0, 672, 62, rc2);
-    SendMessageA(hwndStatus, WM_SIZE, 0, 0);
+    SendMessage(hwndStatus, WM_SIZE, 0, 0);
     GetClientRect(hwndStatus, &rc2);
     expect_rect(0, 0, 672, 42, rc2);
-    hFontSm = CreateFontA(9, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, ANSI_CHARSET,
+    hFontSm = CreateFont(9, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, ANSI_CHARSET,
         OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FF_DONTCARE, "Tahoma");
-    SendMessageA(hwndStatus, WM_SETFONT, (WPARAM)hFontSm, TRUE);
+    SendMessage(hwndStatus, WM_SETFONT, (WPARAM)hFontSm, TRUE);
     GetClientRect(hwndStatus, &rc2);
     expect_rect(0, 0, 672, 32, rc2);
 
     /* test the height formula */
     ZeroMemory(&lf, sizeof(lf));
-    SendMessageA(hwndStatus, SB_SETMINHEIGHT, 0, 0);
+    SendMessage(hwndStatus, SB_SETMINHEIGHT, 0, 0);
     hdc = GetDC(NULL);
 
     /* used only for some fonts (tahoma as example) */
@@ -241,7 +242,7 @@ static void test_height(void)
             GetDeviceCaps(hdc, LOGPIXELSY), g_ysize, g_dpisize,
             GetSystemMetrics(SM_CYSIZE));
 
-    EnumFontFamiliesExA(hdc, &lf, (FONTENUMPROCA)check_height_family_enumproc, (LPARAM)hwndStatus, 0);
+    EnumFontFamiliesEx(hdc, &lf, (FONTENUMPROC)check_height_family_enumproc, (LPARAM)hwndStatus, 0);
     ReleaseDC(NULL, hdc);
 
     DestroyWindow(hwndStatus);
@@ -266,75 +267,75 @@ static void test_status_control(void)
     hWndStatus = create_status_control(WS_VISIBLE | SBT_TOOLTIPS, 0);
 
     /* Divide into parts and set text */
-    r = SendMessageA(hWndStatus, SB_SETPARTS, 3, (LPARAM)nParts);
+    r = SendMessage(hWndStatus, SB_SETPARTS, 3, (LPARAM)nParts);
     expect(TRUE,r);
-    r = SendMessageA(hWndStatus, SB_SETTEXTA, SBT_POPOUT|0,    (LPARAM)"First");
+    r = SendMessage(hWndStatus, SB_SETTEXT, SBT_POPOUT|0,    (LPARAM)"First");
     expect(TRUE,r);
-    r = SendMessageA(hWndStatus, SB_SETTEXTA, SBT_OWNERDRAW|1, (LPARAM)"Second");
+    r = SendMessage(hWndStatus, SB_SETTEXT, SBT_OWNERDRAW|1, (LPARAM)"Second");
     expect(TRUE,r);
-    r = SendMessageA(hWndStatus, SB_SETTEXTA, SBT_NOBORDERS|2, (LPARAM)"Third");
+    r = SendMessage(hWndStatus, SB_SETTEXT, SBT_NOBORDERS|2, (LPARAM)"Third");
     expect(TRUE,r);
 
     /* Get RECT Information */
-    r = SendMessageA(hWndStatus, SB_GETRECT, 0, (LPARAM)&rc);
+    r = SendMessage(hWndStatus, SB_GETRECT, 0, (LPARAM)&rc);
     expect(TRUE,r);
     expect(2,rc.top);
     /* The rc.bottom test is system dependent
     expect(22,rc.bottom); */
     expect(0,rc.left);
     expect(50,rc.right);
-    r = SendMessageA(hWndStatus, SB_GETRECT, -1, (LPARAM)&rc);
+    r = SendMessage(hWndStatus, SB_GETRECT, -1, (LPARAM)&rc);
     expect(FALSE,r);
-    r = SendMessageA(hWndStatus, SB_GETRECT, 3, (LPARAM)&rc);
+    r = SendMessage(hWndStatus, SB_GETRECT, 3, (LPARAM)&rc);
     expect(FALSE,r);
     /* Get text length and text */
-    r = SendMessageA(hWndStatus, SB_GETTEXTLENGTHA, 0, 0);
+    r = SendMessage(hWndStatus, SB_GETTEXTLENGTH, 0, 0);
     expect(5,LOWORD(r));
     expect(SBT_POPOUT,HIWORD(r));
     r = SendMessageW(hWndStatus, WM_GETTEXTLENGTH, 0, 0);
     ok(r == 5 || broken(0x02000005 /* NT4 */), "Expected 5, got %d\n", r);
-    r = SendMessageA(hWndStatus, SB_GETTEXTLENGTHA, 1, 0);
+    r = SendMessage(hWndStatus, SB_GETTEXTLENGTH, 1, 0);
     expect(0,LOWORD(r));
     expect(SBT_OWNERDRAW,HIWORD(r));
-    r = SendMessageA(hWndStatus, SB_GETTEXTLENGTHA, 2, 0);
+    r = SendMessage(hWndStatus, SB_GETTEXTLENGTH, 2, 0);
     expect(5,LOWORD(r));
     expect(SBT_NOBORDERS,HIWORD(r));
-    r = SendMessageA(hWndStatus, SB_GETTEXTA, 2, (LPARAM) charArray);
+    r = SendMessage(hWndStatus, SB_GETTEXT, 2, (LPARAM) charArray);
     ok(strcmp(charArray,"Third") == 0, "Expected Third, got %s\n", charArray);
     expect(5,LOWORD(r));
     expect(SBT_NOBORDERS,HIWORD(r));
 
     /* Get parts and borders */
-    r = SendMessageA(hWndStatus, SB_GETPARTS, 3, (LPARAM)checkParts);
+    r = SendMessage(hWndStatus, SB_GETPARTS, 3, (LPARAM)checkParts);
     ok(r == 3, "Expected 3, got %d\n", r);
     expect(50,checkParts[0]);
     expect(150,checkParts[1]);
     expect(-1,checkParts[2]);
-    r = SendMessageA(hWndStatus, SB_GETBORDERS, 0, (LPARAM)borders);
+    r = SendMessage(hWndStatus, SB_GETBORDERS, 0, (LPARAM)borders);
     ok(r == TRUE, "Expected TRUE, got %d\n", r);
     expect(0,borders[0]);
     expect(2,borders[1]);
     expect(2,borders[2]);
 
     /* Test resetting text with different characters */
-    r = SendMessageA(hWndStatus, SB_SETTEXTA, 0, (LPARAM)"First@Again");
+    r = SendMessage(hWndStatus, SB_SETTEXT, 0, (LPARAM)"First@Again");
     expect(TRUE,r);
-    r = SendMessageA(hWndStatus, SB_SETTEXTA, 1, (LPARAM)"Invalid\tChars\\7\7");
+    r = SendMessage(hWndStatus, SB_SETTEXT, 1, (LPARAM)"Invalid\tChars\\7\7");
         expect(TRUE,r);
-    r = SendMessageA(hWndStatus, SB_SETTEXTA, 2, (LPARAM)"InvalidChars\\n\n");
+    r = SendMessage(hWndStatus, SB_SETTEXT, 2, (LPARAM)"InvalidChars\\n\n");
         expect(TRUE,r);
 
     /* Get text again */
-    r = SendMessageA(hWndStatus, SB_GETTEXTA, 0, (LPARAM) charArray);
+    r = SendMessage(hWndStatus, SB_GETTEXT, 0, (LPARAM) charArray);
     ok(strcmp(charArray,"First@Again") == 0, "Expected First@Again, got %s\n", charArray);
     expect(11,LOWORD(r));
     expect(0,HIWORD(r));
-    r = SendMessageA(hWndStatus, SB_GETTEXTA, 1, (LPARAM) charArray);
+    r = SendMessage(hWndStatus, SB_GETTEXT, 1, (LPARAM) charArray);
     ok(strcmp(charArray,"Invalid\tChars\\7 ") == 0, "Expected Invalid\tChars\\7 , got %s\n", charArray);
 
     expect(16,LOWORD(r));
     expect(0,HIWORD(r));
-    r = SendMessageA(hWndStatus, SB_GETTEXTA, 2, (LPARAM) charArray);
+    r = SendMessage(hWndStatus, SB_GETTEXT, 2, (LPARAM) charArray);
     ok(strcmp(charArray,"InvalidChars\\n ") == 0, "Expected InvalidChars\\n , got %s\n", charArray);
 
     expect(15,LOWORD(r));
@@ -343,9 +344,9 @@ static void test_status_control(void)
     /* test more nonprintable chars */
     for(ch = 0x00; ch < 0x7F; ch++) {
         chstr[5] = ch;
-        r = SendMessageA(hWndStatus, SB_SETTEXTA, 0, (LPARAM)chstr);
+        r = SendMessage(hWndStatus, SB_SETTEXT, 0, (LPARAM)chstr);
         expect(TRUE,r);
-        r = SendMessageA(hWndStatus, SB_GETTEXTA, 0, (LPARAM)charArray);
+        r = SendMessage(hWndStatus, SB_GETTEXT, 0, (LPARAM)charArray);
         /* substitution with single space */
         if (ch > 0x00 && ch < 0x20 && ch != '\t')
             chstr[5] = ' ';
@@ -353,79 +354,79 @@ static void test_status_control(void)
     }
 
     /* Set background color */
-    crColor = SendMessageA(hWndStatus, SB_SETBKCOLOR , 0, RGB(255,0,0));
+    crColor = SendMessage(hWndStatus, SB_SETBKCOLOR , 0, RGB(255,0,0));
     ok(crColor == CLR_DEFAULT ||
        broken(crColor == RGB(0,0,0)), /* win95 */
        "Expected 0x%.8x, got 0x%.8x\n", CLR_DEFAULT, crColor);
-    crColor = SendMessageA(hWndStatus, SB_SETBKCOLOR , 0, CLR_DEFAULT);
+    crColor = SendMessage(hWndStatus, SB_SETBKCOLOR , 0, CLR_DEFAULT);
     ok(crColor == RGB(255,0,0) ||
        broken(crColor == RGB(0,0,0)), /* win95 */
        "Expected 0x%.8x, got 0x%.8x\n", RGB(255,0,0), crColor);
 
     /* Add an icon to the status bar */
-    hIcon = LoadIconA(NULL, (LPCSTR)IDI_QUESTION);
-    r = SendMessageA(hWndStatus, SB_SETICON, 1, 0);
+    hIcon = LoadIcon(NULL, IDI_QUESTION);
+    r = SendMessage(hWndStatus, SB_SETICON, 1, 0);
     ok(r != 0 ||
        broken(r == 0), /* win95 */
        "Expected non-zero, got %d\n", r);
-    r = SendMessageA(hWndStatus, SB_SETICON, 1, (LPARAM) hIcon);
+    r = SendMessage(hWndStatus, SB_SETICON, 1, (LPARAM) hIcon);
     ok(r != 0 ||
        broken(r == 0), /* win95 */
        "Expected non-zero, got %d\n", r);
-    r = SendMessageA(hWndStatus, SB_SETICON, 1, 0);
+    r = SendMessage(hWndStatus, SB_SETICON, 1, 0);
     ok(r != 0 ||
        broken(r == 0), /* win95 */
        "Expected non-zero, got %d\n", r);
 
     /* Set the Unicode format */
-    r = SendMessageA(hWndStatus, SB_SETUNICODEFORMAT, FALSE, 0);
+    r = SendMessage(hWndStatus, SB_SETUNICODEFORMAT, FALSE, 0);
     expect(FALSE,r);
-    r = SendMessageA(hWndStatus, SB_GETUNICODEFORMAT, 0, 0);
+    r = SendMessage(hWndStatus, SB_GETUNICODEFORMAT, 0, 0);
     expect(FALSE,r);
-    r = SendMessageA(hWndStatus, SB_SETUNICODEFORMAT, TRUE, 0);
+    r = SendMessage(hWndStatus, SB_SETUNICODEFORMAT, TRUE, 0);
     expect(FALSE,r);
-    r = SendMessageA(hWndStatus, SB_GETUNICODEFORMAT, 0, 0);
+    r = SendMessage(hWndStatus, SB_GETUNICODEFORMAT, 0, 0);
     ok(r == TRUE ||
        broken(r == FALSE), /* win95 */
        "Expected TRUE, got %d\n", r);
 
     /* Reset number of parts */
-    r = SendMessageA(hWndStatus, SB_SETPARTS, 2, (LPARAM)nParts);
+    r = SendMessage(hWndStatus, SB_SETPARTS, 2, (LPARAM)nParts);
     expect(TRUE,r);
-    r = SendMessageA(hWndStatus, SB_GETPARTS, 0, 0);
+    r = SendMessage(hWndStatus, SB_GETPARTS, 0, 0);
     ok(r == 2, "Expected 2, got %d\n", r);
-    r = SendMessageA(hWndStatus, SB_SETPARTS, 0, 0);
+    r = SendMessage(hWndStatus, SB_SETPARTS, 0, 0);
     expect(FALSE,r);
-    r = SendMessageA(hWndStatus, SB_GETPARTS, 0, 0);
+    r = SendMessage(hWndStatus, SB_GETPARTS, 0, 0);
     ok(r == 2, "Expected 2, got %d\n", r);
 
     /* Set the minimum height and get rectangle information again */
-    SendMessageA(hWndStatus, SB_SETMINHEIGHT, 50, 0);
-    r = SendMessageA(hWndStatus, WM_SIZE, 0, 0);
+    SendMessage(hWndStatus, SB_SETMINHEIGHT, 50, 0);
+    r = SendMessage(hWndStatus, WM_SIZE, 0, 0);
     expect(0,r);
-    r = SendMessageA(hWndStatus, SB_GETRECT, 0, (LPARAM)&rc);
+    r = SendMessage(hWndStatus, SB_GETRECT, 0, (LPARAM)&rc);
     expect(TRUE,r);
     expect(2,rc.top);
     /* The rc.bottom test is system dependent
     expect(22,rc.bottom); */
     expect(0,rc.left);
     expect(50,rc.right);
-    r = SendMessageA(hWndStatus, SB_GETRECT, -1, (LPARAM)&rc);
+    r = SendMessage(hWndStatus, SB_GETRECT, -1, (LPARAM)&rc);
     expect(FALSE,r);
-    r = SendMessageA(hWndStatus, SB_GETRECT, 3, (LPARAM)&rc);
+    r = SendMessage(hWndStatus, SB_GETRECT, 3, (LPARAM)&rc);
     expect(FALSE,r);
 
     /* Set the ToolTip text */
-    SendMessageA(hWndStatus, SB_SETTIPTEXTA, 0,(LPARAM) "Tooltip Text");
+    SendMessage(hWndStatus, SB_SETTIPTEXT, 0,(LPARAM) "Tooltip Text");
     lstrcpyA(charArray, "apple");
-    SendMessageA(hWndStatus, SB_GETTIPTEXTA, MAKEWPARAM (0, 20),(LPARAM) charArray);
+    SendMessage(hWndStatus, SB_GETTIPTEXT, MAKEWPARAM (0, 20),(LPARAM) charArray);
     ok(strcmp(charArray,"Tooltip Text") == 0 ||
         broken(!strcmp(charArray, "apple")), /* win95 */
         "Expected Tooltip Text, got %s\n", charArray);
 
     /* Make simple */
-    SendMessageA(hWndStatus, SB_SIMPLE, TRUE, 0);
-    r = SendMessageA(hWndStatus, SB_ISSIMPLE, 0, 0);
+    SendMessage(hWndStatus, SB_SIMPLE, TRUE, 0);
+    r = SendMessage(hWndStatus, SB_ISSIMPLE, 0, 0);
     ok(r == TRUE ||
        broken(r == FALSE), /* win95 */
        "Expected TRUE, got %d\n", r);
@@ -438,7 +439,7 @@ static LRESULT WINAPI ownerdraw_test_wndproc(HWND hwnd, UINT msg, WPARAM wParam,
     LRESULT ret;
     if (msg == WM_DRAWITEM)
         g_wmdrawitm_ctr++;
-    ret = CallWindowProcA(g_wndproc_saved, hwnd, msg, wParam, lParam);
+    ret = CallWindowProc(g_wndproc_saved, hwnd, msg, wParam, lParam);
     return ret;
 }
 
@@ -450,59 +451,59 @@ static void test_status_ownerdraw(void)
     LONG oldstyle;
 
     /* subclass the main window and make sure it is visible */
-    g_wndproc_saved = (WNDPROC) SetWindowLongPtrA( g_hMainWnd, GWLP_WNDPROC,
+    g_wndproc_saved = (WNDPROC) SetWindowLongPtr( g_hMainWnd, GWLP_WNDPROC,
                                                   (LONG_PTR)ownerdraw_test_wndproc );
     ok( g_wndproc_saved != 0, "failed to set the WndProc\n");
     SetWindowPos( g_hMainWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE|SWP_NOMOVE);
-    oldstyle = GetWindowLongA( g_hMainWnd, GWL_STYLE);
-    SetWindowLongA( g_hMainWnd, GWL_STYLE, oldstyle | WS_VISIBLE);
+    oldstyle = GetWindowLong( g_hMainWnd, GWL_STYLE);
+    SetWindowLong( g_hMainWnd, GWL_STYLE, oldstyle | WS_VISIBLE);
     /* create a status child window */
     ok((hWndStatus = CreateWindowA(SUBCLASS_NAME, "", WS_CHILD|WS_VISIBLE, 0, 0, 100, 100,
                     g_hMainWnd, NULL, NULL, 0)) != NULL, "CreateWindowA failed\n");
     /* set text */
     g_wmdrawitm_ctr = 0;
-    r = SendMessageA(hWndStatus, SB_SETTEXTA, 0, (LPARAM)statustext);
+    r = SendMessage(hWndStatus, SB_SETTEXT, 0, (LPARAM)statustext);
     ok( r == TRUE, "Sendmessage returned %d, expected 1\n", r);
     ok( 0 == g_wmdrawitm_ctr, "got %d drawitem messages expected none\n", g_wmdrawitm_ctr);
     /* set same text, with ownerdraw flag */
     g_wmdrawitm_ctr = 0;
-    r = SendMessageA(hWndStatus, SB_SETTEXTA, SBT_OWNERDRAW, (LPARAM)statustext);
+    r = SendMessage(hWndStatus, SB_SETTEXT, SBT_OWNERDRAW, (LPARAM)statustext);
     ok( r == TRUE, "Sendmessage returned %d, expected 1\n", r);
     ok( 1 == g_wmdrawitm_ctr, "got %d drawitem messages expected 1\n", g_wmdrawitm_ctr);
     /* and again */
     g_wmdrawitm_ctr = 0;
-    r = SendMessageA(hWndStatus, SB_SETTEXTA, SBT_OWNERDRAW, (LPARAM)statustext);
+    r = SendMessage(hWndStatus, SB_SETTEXT, SBT_OWNERDRAW, (LPARAM)statustext);
     ok( r == TRUE, "Sendmessage returned %d, expected 1\n", r);
     ok( 1 == g_wmdrawitm_ctr, "got %d drawitem messages expected 1\n", g_wmdrawitm_ctr);
     /* clean up */
     DestroyWindow(hWndStatus);
-    SetWindowLongA( g_hMainWnd, GWL_STYLE, oldstyle);
-    SetWindowLongPtrA( g_hMainWnd, GWLP_WNDPROC, (LONG_PTR)g_wndproc_saved );
+    SetWindowLong( g_hMainWnd, GWL_STYLE, oldstyle);
+    SetWindowLongPtr( g_hMainWnd, GWLP_WNDPROC, (LONG_PTR)g_wndproc_saved );
 }
 
 static void test_gettext(void)
 {
-    HWND hwndStatus = CreateWindowA(SUBCLASS_NAME, NULL, WS_CHILD|WS_VISIBLE,
+    HWND hwndStatus = CreateWindow(SUBCLASS_NAME, NULL, WS_CHILD|WS_VISIBLE,
         0, 0, 300, 20, g_hMainWnd, NULL, NULL, NULL);
     char buf[5];
     int r;
 
-    r = SendMessageA(hwndStatus, SB_SETTEXTA, 0, (LPARAM)"Text");
+    r = SendMessage(hwndStatus, SB_SETTEXT, 0, (LPARAM)"Text");
     expect(TRUE, r);
-    r = SendMessageA(hwndStatus, WM_GETTEXTLENGTH, 0, 0);
+    r = SendMessage(hwndStatus, WM_GETTEXTLENGTH, 0, 0);
     expect(4, r);
     /* A size of 0 returns the length of the text */
-    r = SendMessageA(hwndStatus, WM_GETTEXT, 0, 0);
+    r = SendMessage(hwndStatus, WM_GETTEXT, 0, 0);
     ok( r == 4 || broken(r == 2) /* win8 */, "Expected 4 got %d\n", r );
     /* A size of 1 only stores the NULL terminator */
     buf[0] = 0xa;
-    r = SendMessageA(hwndStatus, WM_GETTEXT, 1, (LPARAM)buf);
+    r = SendMessage(hwndStatus, WM_GETTEXT, 1, (LPARAM)buf);
     ok( r == 0 || broken(r == 4), "Expected 0 got %d\n", r );
     if (!r) ok(!buf[0], "expected empty buffer\n");
     /* A size of 2 returns a length 1 */
-    r = SendMessageA(hwndStatus, WM_GETTEXT, 2, (LPARAM)buf);
+    r = SendMessage(hwndStatus, WM_GETTEXT, 2, (LPARAM)buf);
     ok( r == 1 || broken(r == 4), "Expected 1 got %d\n", r );
-    r = SendMessageA(hwndStatus, WM_GETTEXT, sizeof(buf), (LPARAM)buf);
+    r = SendMessage(hwndStatus, WM_GETTEXT, sizeof(buf), (LPARAM)buf);
     expect(4, r);
     ok(!strcmp(buf, "Text"), "expected Text, got %s\n", buf);
     DestroyWindow(hwndStatus);
@@ -558,30 +559,30 @@ static void test_notify(void)
     ok(atom, "RegisterClass failed\n");
 
     /* create parent */
-    hwndParent = CreateWindowA(wclass.lpszClassName, "parent", WS_OVERLAPPEDWINDOW,
+    hwndParent = CreateWindow(wclass.lpszClassName, "parent", WS_OVERLAPPEDWINDOW,
       CW_USEDEFAULT, 0, 300, 20, NULL, NULL, NULL, NULL);
     ok(hwndParent != NULL, "Parent creation failed!\n");
 
     /* create status bar */
-    hwndStatus = CreateWindowA(STATUSCLASSNAMEA, NULL, WS_VISIBLE | WS_CHILD,
+    hwndStatus = CreateWindow(STATUSCLASSNAME, NULL, WS_VISIBLE | WS_CHILD,
       0, 0, 300, 20, hwndParent, NULL, NULL, NULL);
     ok(hwndStatus != NULL, "Status creation failed!\n");
 
     /* Send various mouse event, and check that we get them */
     g_got_dblclk = FALSE;
-    SendMessageA(hwndStatus, WM_LBUTTONDBLCLK, 0, 0);
+    SendMessage(hwndStatus, WM_LBUTTONDBLCLK, 0, 0);
     ok(g_got_dblclk, "WM_LBUTTONDBLCLK was not processed correctly!\n");
     g_got_rdblclk = FALSE;
-    SendMessageA(hwndStatus, WM_RBUTTONDBLCLK, 0, 0);
+    SendMessage(hwndStatus, WM_RBUTTONDBLCLK, 0, 0);
     ok(g_got_rdblclk, "WM_RBUTTONDBLCLK was not processed correctly!\n");
     g_got_click = FALSE;
-    SendMessageA(hwndStatus, WM_LBUTTONUP, 0, 0);
+    SendMessage(hwndStatus, WM_LBUTTONUP, 0, 0);
     ok(g_got_click, "WM_LBUTTONUP was not processed correctly!\n");
 
     /* For R-UP, check that we also get the context menu from the default processing */
     g_got_contextmenu = FALSE;
     g_got_rclick = FALSE;
-    SendMessageA(hwndStatus, WM_RBUTTONUP, 0, 0);
+    SendMessage(hwndStatus, WM_RBUTTONUP, 0, 0);
     ok(g_got_rclick, "WM_RBUTTONUP was not processed correctly!\n");
     ok(g_got_contextmenu, "WM_RBUTTONUP did not activate the context menu!\n");
 }

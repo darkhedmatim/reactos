@@ -78,7 +78,6 @@
 #define MI_ZERO_PTES                        (32)
 /* FIXME - different architectures have different cache line sizes... */
 #define MM_CACHE_LINE_SIZE                  32
-#define MI_MAX_ZERO_BITS                    53
 
 /* Helper macros */
 #define PAGE_MASK(x)		((x)&(~0xfff))
@@ -144,13 +143,11 @@
 
 //#define TEB_BASE                            0x7FFDE000
 
-/* On x64, these are the same */
+/* On x86, these two are the same */
 #define MMPDE MMPTE
 #define PMMPDE PMMPTE
 #define MMPPE MMPTE
 #define PMMPPE PMMPTE
-#define MMPXE MMPTE
-#define PMMPXE PMMPTE
 #define MI_WRITE_VALID_PPE MI_WRITE_VALID_PTE
 
 #define ValidKernelPpe ValidKernelPde
@@ -299,7 +296,7 @@ MI_IS_MAPPED_PTE(PMMPTE PointerPte)
 {
     /// FIXME
     __debugbreak();
-    return ((PointerPte->u.Long & 0xFFFFFC01) != 0);
+    return (PointerPte->u.Long & 0xFFFFFC01 != 0);
 }
 
 VOID

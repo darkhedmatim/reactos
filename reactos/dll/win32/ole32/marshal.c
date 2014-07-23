@@ -92,8 +92,7 @@ static inline HRESULT get_facbuf_for_iid(REFIID riid, IPSFactoryBuffer **facbuf)
     HRESULT       hr;
     CLSID         clsid;
 
-    hr = CoGetPSClsid(riid, &clsid);
-    if (hr != S_OK)
+    if ((hr = CoGetPSClsid(riid, &clsid)))
         return hr;
     return CoGetClassObject(&clsid, CLSCTX_INPROC_SERVER | WINE_CLSCTX_DONT_HOST,
         NULL, &IID_IPSFactoryBuffer, (LPVOID*)facbuf);
@@ -1151,16 +1150,14 @@ HRESULT apartment_disconnectproxies(struct apartment *apt)
 /********************** StdMarshal implementation ****************************/
 typedef struct _StdMarshalImpl
 {
-    IMarshal IMarshal_iface;
-    LONG     ref;
-    DWORD    dest_context;
-    void    *dest_context_data;
-} StdMarshalImpl;
+    const IMarshalVtbl	*lpvtbl;
+    LONG		ref;
 
-static inline StdMarshalImpl *impl_from_StdMarshal(IMarshal *iface)
-{
-    return CONTAINING_RECORD(iface, StdMarshalImpl, IMarshal_iface);
-}
+    IID			iid;
+    DWORD		dwDestContext;
+    LPVOID		pvDestContext;
+    DWORD		mshlflags;
+} StdMarshalImpl;
 
 static HRESULT WINAPI 
 StdMarshalImpl_QueryInterface(IMarshal *iface, REFIID riid, void **ppv)
@@ -1177,16 +1174,16 @@ StdMarshalImpl_QueryInterface(IMarshal *iface, REFIID riid, void **ppv)
 }
 
 static ULONG WINAPI
-StdMarshalImpl_AddRef(IMarshal *iface)
+StdMarshalImpl_AddRef(LPMARSHAL iface)
 {
-    StdMarshalImpl *This = impl_from_StdMarshal(iface);
+    StdMarshalImpl *This = (StdMarshalImpl *)iface;
     return InterlockedIncrement(&This->ref);
 }
 
 static ULONG WINAPI
-StdMarshalImpl_Release(IMarshal *iface)
+StdMarshalImpl_Release(LPMARSHAL iface)
 {
-    StdMarshalImpl *This = impl_from_StdMarshal(iface);
+    StdMarshalImpl *This = (StdMarshalImpl *)iface;
     ULONG ref = InterlockedDecrement(&This->ref);
 
     if (!ref) HeapFree(GetProcessHeap(),0,This);
@@ -1195,7 +1192,7 @@ StdMarshalImpl_Release(IMarshal *iface)
 
 static HRESULT WINAPI
 StdMarshalImpl_GetUnmarshalClass(
-    IMarshal *iface, REFIID riid, void* pv, DWORD dwDestContext,
+    LPMARSHAL iface, REFIID riid, void* pv, DWORD dwDestContext,
     void* pvDestContext, DWORD mshlflags, CLSID* pCid)
 {
     *pCid = CLSID_DfMarshal;
@@ -1204,7 +1201,7 @@ StdMarshalImpl_GetUnmarshalClass(
 
 static HRESULT WINAPI
 StdMarshalImpl_GetMarshalSizeMax(
-    IMarshal *iface, REFIID riid, void* pv, DWORD dwDestContext,
+    LPMARSHAL iface, REFIID riid, void* pv, DWORD dwDestContext,
     void* pvDestContext, DWORD mshlflags, DWORD* pSize)
 {
     *pSize = sizeof(STDOBJREF);
@@ -1213,7 +1210,7 @@ StdMarshalImpl_GetMarshalSizeMax(
 
 static HRESULT WINAPI
 StdMarshalImpl_MarshalInterface(
-    IMarshal *iface, IStream *pStm,REFIID riid, void* pv, DWORD dest_context,
+    LPMARSHAL iface, IStream *pStm,REFIID riid, void* pv, DWORD dest_context,
     void* dest_context_data, DWORD mshlflags)
 {
     STDOBJREF             stdobjref;
@@ -1315,9 +1312,9 @@ static HRESULT unmarshal_object(const STDOBJREF *stdobjref, APARTMENT *apt,
 }
 
 static HRESULT WINAPI
-StdMarshalImpl_UnmarshalInterface(IMarshal *iface, IStream *pStm, REFIID riid, void **ppv)
+StdMarshalImpl_UnmarshalInterface(LPMARSHAL iface, IStream *pStm, REFIID riid, void **ppv)
 {
-    StdMarshalImpl *This = impl_from_StdMarshal(iface);
+    StdMarshalImpl *This = (StdMarshalImpl *)iface;
     struct stub_manager *stubmgr = NULL;
     STDOBJREF stdobjref;
     ULONG res;
@@ -1383,8 +1380,8 @@ StdMarshalImpl_UnmarshalInterface(IMarshal *iface, IStream *pStm, REFIID riid, v
             wine_dbgstr_longlong(stdobjref.oxid));
 
     if (hres == S_OK)
-        hres = unmarshal_object(&stdobjref, apt, This->dest_context,
-                                This->dest_context_data, riid,
+        hres = unmarshal_object(&stdobjref, apt, This->dwDestContext,
+                                This->pvDestContext, riid,
                                 stubmgr ? &stubmgr->oxid_info : NULL, ppv);
 
     if (stubmgr) stub_manager_int_release(stubmgr);
@@ -1397,7 +1394,7 @@ StdMarshalImpl_UnmarshalInterface(IMarshal *iface, IStream *pStm, REFIID riid, v
 }
 
 static HRESULT WINAPI
-StdMarshalImpl_ReleaseMarshalData(IMarshal *iface, IStream *pStm)
+StdMarshalImpl_ReleaseMarshalData(LPMARSHAL iface, IStream *pStm)
 {
     STDOBJREF            stdobjref;
     ULONG                res;
@@ -1439,13 +1436,13 @@ StdMarshalImpl_ReleaseMarshalData(IMarshal *iface, IStream *pStm)
 }
 
 static HRESULT WINAPI
-StdMarshalImpl_DisconnectObject(IMarshal *iface, DWORD dwReserved)
+StdMarshalImpl_DisconnectObject(LPMARSHAL iface, DWORD dwReserved)
 {
     FIXME("(), stub!\n");
     return S_OK;
 }
 
-static const IMarshalVtbl StdMarshalVtbl =
+static const IMarshalVtbl VT_StdMarshal =
 {
     StdMarshalImpl_QueryInterface,
     StdMarshalImpl_AddRef,
@@ -1458,24 +1455,15 @@ static const IMarshalVtbl StdMarshalVtbl =
     StdMarshalImpl_DisconnectObject
 };
 
-static HRESULT StdMarshalImpl_Construct(REFIID riid, DWORD dest_context, void *dest_context_data, void** ppvObject)
+static HRESULT StdMarshalImpl_Construct(REFIID riid, void** ppvObject)
 {
-    HRESULT hr;
-
-    StdMarshalImpl *pStdMarshal = HeapAlloc(GetProcessHeap(), 0, sizeof(StdMarshalImpl));
+    StdMarshalImpl * pStdMarshal = 
+        HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(StdMarshalImpl));
     if (!pStdMarshal)
         return E_OUTOFMEMORY;
-
-    pStdMarshal->IMarshal_iface.lpVtbl = &StdMarshalVtbl;
+    pStdMarshal->lpvtbl = &VT_StdMarshal;
     pStdMarshal->ref = 0;
-    pStdMarshal->dest_context = dest_context;
-    pStdMarshal->dest_context_data = dest_context_data;
-
-    hr = IMarshal_QueryInterface(&pStdMarshal->IMarshal_iface, riid, ppvObject);
-    if (FAILED(hr))
-        HeapFree(GetProcessHeap(), 0, pStdMarshal);
-
-    return hr;
+    return IMarshal_QueryInterface((IMarshal*)pStdMarshal, riid, ppvObject);
 }
 
 /***********************************************************************
@@ -1505,6 +1493,8 @@ HRESULT WINAPI CoGetStandardMarshal(REFIID riid, IUnknown *pUnk,
                                     DWORD dwDestContext, LPVOID pvDestContext,
                                     DWORD mshlflags, LPMARSHAL *ppMarshal)
 {
+    StdMarshalImpl *dm;
+
     if (pUnk == NULL)
     {
         FIXME("(%s,NULL,%x,%p,%x,%p), unimplemented yet.\n",
@@ -1513,8 +1503,17 @@ HRESULT WINAPI CoGetStandardMarshal(REFIID riid, IUnknown *pUnk,
     }
     TRACE("(%s,%p,%x,%p,%x,%p)\n",
         debugstr_guid(riid),pUnk,dwDestContext,pvDestContext,mshlflags,ppMarshal);
+    *ppMarshal = HeapAlloc(GetProcessHeap(),0,sizeof(StdMarshalImpl));
+    dm = (StdMarshalImpl*) *ppMarshal;
+    if (!dm) return E_FAIL;
+    dm->lpvtbl		= &VT_StdMarshal;
+    dm->ref		= 1;
 
-    return StdMarshalImpl_Construct(&IID_IMarshal, dwDestContext, pvDestContext, (void**)ppMarshal);
+    dm->iid		= *riid;
+    dm->dwDestContext	= dwDestContext;
+    dm->pvDestContext	= pvDestContext;
+    dm->mshlflags	= mshlflags;
+    return S_OK;
 }
 
 /***********************************************************************
@@ -1571,7 +1570,7 @@ static HRESULT get_unmarshaler_from_stream(IStream *stream, IMarshal **marshal, 
     if (objref.flags & OBJREF_STANDARD)
     {
         TRACE("Using standard unmarshaling\n");
-        hr = StdMarshalImpl_Construct(&IID_IMarshal, 0, NULL, (LPVOID*)marshal);
+        hr = StdMarshalImpl_Construct(&IID_IMarshal, (LPVOID*)marshal);
     }
     else if (objref.flags & OBJREF_CUSTOM)
     {
@@ -2008,7 +2007,7 @@ static HRESULT WINAPI StdMarshalCF_CreateInstance(LPCLASSFACTORY iface,
     LPUNKNOWN pUnk, REFIID riid, LPVOID *ppv)
 {
     if (IsEqualIID(riid, &IID_IUnknown) || IsEqualIID(riid, &IID_IMarshal))
-        return StdMarshalImpl_Construct(riid, 0, NULL, ppv);
+        return StdMarshalImpl_Construct(riid, ppv);
 
     FIXME("(%s), not supported.\n",debugstr_guid(riid));
     return E_NOINTERFACE;

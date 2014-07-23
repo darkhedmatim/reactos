@@ -536,7 +536,7 @@ SmpRestoreBootStatusData(IN BOOLEAN BootOkay,
     Status = RtlLockBootStatusData(&BootState);
     if (NT_SUCCESS(Status))
     {
-        /* Write the bootokay and bootshutdown values */
+        /* Write the bootokay and bootshudown values */
         RtlGetSetBootStatusData(BootState,
                                 FALSE,
                                 RtlBsdItemBootGood,

@@ -62,6 +62,9 @@
 #ifdef LANGUAGE_SV_SE
     #include "lang/msacm_Sv.rc"
 #endif
+#ifdef LANGUAGE_TR_TR
+    #include "lang/msacm_Tr.rc"
+#endif
 
 /* UTF-8 */
 #ifdef LANGUAGE_DE_DE
@@ -93,9 +96,6 @@
 #endif
 #ifdef LANGUAGE_SQ_AL
     #include "lang/msacm_Sq.rc"
-#endif
-#ifdef LANGUAGE_TR_TR
-    #include "lang/msacm_Tr.rc"
 #endif
 #ifdef LANGUAGE_UK_UA
     #include "lang/msacm_Uk.rc"

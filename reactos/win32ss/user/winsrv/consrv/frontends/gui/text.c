@@ -16,15 +16,9 @@
 #define NDEBUG
 #include <debug.h>
 
-#include "guiterm.h"
-
-/* GLOBALS ********************************************************************/
-
-#define IS_WHITESPACE(c)    ((c) == L'\0' || (c) == L' ' || (c) == L'\t')
-
 /* FUNCTIONS ******************************************************************/
 
-COLORREF PaletteRGBFromAttrib(PCONSOLE Console, WORD Attribute)
+COLORREF RGBFromAttrib2(PCONSOLE Console, WORD Attribute)
 {
     HPALETTE hPalette = Console->ActiveBuffer->PaletteHandle;
     PALETTEENTRY pe;
@@ -35,33 +29,34 @@ COLORREF PaletteRGBFromAttrib(PCONSOLE Console, WORD Attribute)
     return PALETTERGB(pe.peRed, pe.peGreen, pe.peBlue);
 }
 
-static VOID
-CopyBlock(PTEXTMODE_SCREEN_BUFFER Buffer,
-          PSMALL_RECT Selection)
+VOID
+GuiCopyFromTextModeBuffer(PTEXTMODE_SCREEN_BUFFER Buffer)
 {
+    /*
+     * This function supposes that the system clipboard was opened.
+     */
+
+    PCONSOLE Console = Buffer->Header.Console;
+
     /*
      * Pressing the Shift key while copying text, allows us to copy
      * text without newline characters (inline-text copy mode).
      */
-    BOOL InlineCopyMode = !!(GetKeyState(VK_SHIFT) & 0x8000);
+    BOOL InlineCopyMode = (GetKeyState(VK_SHIFT) & 0x8000);
 
     HANDLE hData;
     PCHAR_INFO ptr;
     LPWSTR data, dstPos;
     ULONG selWidth, selHeight;
-    ULONG xPos, yPos;
-    ULONG size;
+    ULONG xPos, yPos, size;
 
-    DPRINT("CopyBlock(%u, %u, %u, %u)\n",
-           Selection->Left, Selection->Top, Selection->Right, Selection->Bottom);
-
-    /* Prevent against empty blocks */
-    if (Selection == NULL) return;
-    if (Selection->Left > Selection->Right || Selection->Top > Selection->Bottom)
-        return;
-
-    selWidth  = Selection->Right - Selection->Left + 1;
-    selHeight = Selection->Bottom - Selection->Top + 1;
+    selWidth  = Console->Selection.srSelection.Right - Console->Selection.srSelection.Left + 1;
+    selHeight = Console->Selection.srSelection.Bottom - Console->Selection.srSelection.Top + 1;
+    DPRINT("Selection is (%d|%d) to (%d|%d)\n",
+           Console->Selection.srSelection.Left,
+           Console->Selection.srSelection.Top,
+           Console->Selection.srSelection.Right,
+           Console->Selection.srSelection.Bottom);
 
     /* Basic size for one line... */
     size = selWidth;
@@ -74,61 +69,45 @@ CopyBlock(PTEXTMODE_SCREEN_BUFFER Buffer,
          */
         size += (selWidth + (!InlineCopyMode ? 2 : 0)) * (selHeight - 1);
     }
-    else
-    {
-        DPRINT1("This case must never happen, because selHeight is at least == 1\n");
-    }
-
     size += 1; /* Null-termination */
     size *= sizeof(WCHAR);
 
-    /* Allocate some memory area to be given to the clipboard, so it will not be freed here */
+    /* Allocate memory, it will be passed to the system and may not be freed here */
     hData = GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, size);
     if (hData == NULL) return;
 
     data = GlobalLock(hData);
-    if (data == NULL)
-    {
-        GlobalFree(hData);
-        return;
-    }
+    if (data == NULL) return;
 
     DPRINT("Copying %dx%d selection\n", selWidth, selHeight);
     dstPos = data;
 
     for (yPos = 0; yPos < selHeight; yPos++)
     {
-        ULONG length = selWidth;
-
-        ptr = ConioCoordToPointer(Buffer,
-                                  Selection->Left,
-                                  Selection->Top + yPos);
-
-        /* Trim whitespace from the right */
-        while (length > 0)
-        {
-            if (IS_WHITESPACE(ptr[length-1].Char.UnicodeChar))
-                --length;
-            else
-                break;
-        }
-
+        ptr = ConioCoordToPointer(Buffer, 
+                                  Console->Selection.srSelection.Left,
+                                  yPos + Console->Selection.srSelection.Top);
         /* Copy only the characters, leave attributes alone */
-        for (xPos = 0; xPos < length; xPos++)
+        for (xPos = 0; xPos < selWidth; xPos++)
         {
             /*
              * Sometimes, applications can put NULL chars into the screen-buffer
              * (this behaviour is allowed). Detect this and replace by a space.
+             * FIXME - HACK: Improve the way we're doing that (i.e., put spaces
+             * instead of NULLs (or even, nothing) only if it exists a non-null
+             * char *after* those NULLs, before the end-of-line of the selection.
+             * Do the same concerning spaces -- i.e. trailing spaces --).
              */
-            *dstPos++ = (ptr[xPos].Char.UnicodeChar ? ptr[xPos].Char.UnicodeChar : L' ');
+            dstPos[xPos] = (ptr[xPos].Char.UnicodeChar ? ptr[xPos].Char.UnicodeChar : L' ');
         }
+        dstPos += selWidth;
 
         /* Add newline characters if we are not in inline-text copy mode */
         if (!InlineCopyMode)
         {
             if (yPos != (selHeight - 1))
             {
-                wcscat(dstPos, L"\r\n");
+                wcscat(data, L"\r\n");
                 dstPos += 2;
             }
         }
@@ -141,130 +120,8 @@ CopyBlock(PTEXTMODE_SCREEN_BUFFER Buffer,
     SetClipboardData(CF_UNICODETEXT, hData);
 }
 
-static VOID
-CopyLines(PTEXTMODE_SCREEN_BUFFER Buffer,
-          PCOORD Begin,
-          PCOORD End)
-{
-    HANDLE hData;
-    PCHAR_INFO ptr;
-    LPWSTR data, dstPos;
-    ULONG NumChars, size;
-    ULONG xPos, yPos, xBeg, xEnd;
-
-    DPRINT("CopyLines((%u, %u) ; (%u, %u))\n",
-           Begin->X, Begin->Y, End->X, End->Y);
-
-    /* Prevent against empty blocks... */
-    if (Begin == NULL || End == NULL) return;
-    /* ... or malformed blocks */
-    if (Begin->Y > End->Y || (Begin->Y == End->Y && Begin->X > End->X)) return;
-
-    /* Compute the number of characters to copy */
-    if (End->Y == Begin->Y) // top == bottom
-    {
-        NumChars = End->X - Begin->X + 1;
-    }
-    else // if (End->Y > Begin->Y)
-    {
-        NumChars = Buffer->ScreenBufferSize.X - Begin->X;
-
-        if (End->Y >= Begin->Y + 2)
-        {
-            NumChars += (End->Y - Begin->Y - 1) * Buffer->ScreenBufferSize.X;
-        }
-
-        NumChars += End->X + 1;
-    }
-
-    size = (NumChars + 1) * sizeof(WCHAR); /* Null-terminated */
-
-    /* Allocate some memory area to be given to the clipboard, so it will not be freed here */
-    hData = GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, size);
-    if (hData == NULL) return;
-
-    data = GlobalLock(hData);
-    if (data == NULL)
-    {
-        GlobalFree(hData);
-        return;
-    }
-
-    DPRINT("Copying %d characters\n", NumChars);
-    dstPos = data;
-
-    /*
-     * We need to walk per-lines, and not just looping in the big screen-buffer
-     * array, because of the way things are stored inside it. The downside is
-     * that it makes the code more complicated.
-     */
-    for (yPos = Begin->Y; (yPos <= End->Y) && (NumChars > 0); yPos++)
-    {
-        xBeg = (yPos == Begin->Y ? Begin->X : 0);
-        xEnd = (yPos ==   End->Y ?   End->X : Buffer->ScreenBufferSize.X - 1);
-
-        ptr = ConioCoordToPointer(Buffer, 0, yPos);
-
-        /* Copy only the characters, leave attributes alone */
-        for (xPos = xBeg; (xPos <= xEnd) && (NumChars-- > 0); xPos++)
-        {
-            /*
-             * Sometimes, applications can put NULL chars into the screen-buffer
-             * (this behaviour is allowed). Detect this and replace by a space.
-             */
-            *dstPos++ = (ptr[xPos].Char.UnicodeChar ? ptr[xPos].Char.UnicodeChar : L' ');
-        }
-    }
-
-    DPRINT("Setting data <%S> to clipboard\n", data);
-    GlobalUnlock(hData);
-
-    EmptyClipboard();
-    SetClipboardData(CF_UNICODETEXT, hData);
-}
-
-
 VOID
-GetSelectionBeginEnd(PCOORD Begin, PCOORD End,
-                     PCOORD SelectionAnchor,
-                     PSMALL_RECT SmallRect);
-
-VOID
-GuiCopyFromTextModeBuffer(PTEXTMODE_SCREEN_BUFFER Buffer,
-                          PGUI_CONSOLE_DATA GuiData)
-{
-    /*
-     * This function supposes that the system clipboard was opened.
-     */
-
-    BOOL LineSelection = GuiData->LineSelection;
-
-    DPRINT("Selection is (%d|%d) to (%d|%d) in %s mode\n",
-           GuiData->Selection.srSelection.Left,
-           GuiData->Selection.srSelection.Top,
-           GuiData->Selection.srSelection.Right,
-           GuiData->Selection.srSelection.Bottom,
-           (LineSelection ? "line" : "block"));
-
-    if (!LineSelection)
-    {
-        CopyBlock(Buffer, &GuiData->Selection.srSelection);
-    }
-    else
-    {
-        COORD Begin, End;
-
-        GetSelectionBeginEnd(&Begin, &End,
-                             &GuiData->Selection.dwSelectionAnchor,
-                             &GuiData->Selection.srSelection);
-
-        CopyLines(Buffer, &Begin, &End);
-    }
-}
-
-VOID
-GuiPasteToTextModeBuffer(PTEXTMODE_SCREEN_BUFFER Buffer,
-                         PGUI_CONSOLE_DATA GuiData)
+GuiPasteToTextModeBuffer(PTEXTMODE_SCREEN_BUFFER Buffer)
 {
     /*
      * This function supposes that the system clipboard was opened.
@@ -276,7 +133,7 @@ GuiPasteToTextModeBuffer(PTEXTMODE_SCREEN_BUFFER Buffer,
     LPWSTR str;
     WCHAR CurChar = 0;
 
-    USHORT VkKey; // MAKEWORD(low = vkey_code, high = shift_state);
+    SHORT VkKey; // MAKEWORD(low = vkey_code, high = shift_state);
     INPUT_RECORD er;
 
     hData = GetClipboardData(CF_UNICODETEXT);
@@ -352,8 +209,6 @@ GuiPaintTextModeBuffer(PTEXTMODE_SCREEN_BUFFER Buffer,
 
     if (Buffer->Buffer == NULL) return;
 
-    if (!ConDrvValidateConsoleUnsafe(Console, CONSOLE_RUNNING, TRUE)) return;
-
     rcFramebuffer->left   = Buffer->ViewOrigin.X * GuiData->CharWidth  + rcView->left;
     rcFramebuffer->top    = Buffer->ViewOrigin.Y * GuiData->CharHeight + rcView->top;
     rcFramebuffer->right  = Buffer->ViewOrigin.X * GuiData->CharWidth  + rcView->right;
@@ -369,8 +224,8 @@ GuiPaintTextModeBuffer(PTEXTMODE_SCREEN_BUFFER Buffer,
 
     LastAttribute = ConioCoordToPointer(Buffer, LeftChar, TopLine)->Attributes;
 
-    SetTextColor(GuiData->hMemDC, PaletteRGBFromAttrib(Console, TextAttribFromAttrib(LastAttribute)));
-    SetBkColor(GuiData->hMemDC, PaletteRGBFromAttrib(Console, BkgdAttribFromAttrib(LastAttribute)));
+    SetTextColor(GuiData->hMemDC, RGBFromAttrib2(Console, TextAttribFromAttrib(LastAttribute)));
+    SetBkColor(GuiData->hMemDC, RGBFromAttrib2(Console, BkgdAttribFromAttrib(LastAttribute)));
 
     OldFont = SelectObject(GuiData->hMemDC, GuiData->Font);
 
@@ -399,8 +254,8 @@ GuiPaintTextModeBuffer(PTEXTMODE_SCREEN_BUFFER Buffer,
                 Attribute = From->Attributes;
                 if (Attribute != LastAttribute)
                 {
-                    SetTextColor(GuiData->hMemDC, PaletteRGBFromAttrib(Console, TextAttribFromAttrib(Attribute)));
-                    SetBkColor(GuiData->hMemDC, PaletteRGBFromAttrib(Console, BkgdAttribFromAttrib(Attribute)));
+                    SetTextColor(GuiData->hMemDC, RGBFromAttrib2(Console, TextAttribFromAttrib(Attribute)));
+                    SetBkColor(GuiData->hMemDC, RGBFromAttrib2(Console, BkgdAttribFromAttrib(Attribute)));
                     LastAttribute = Attribute;
                 }
             }
@@ -432,7 +287,7 @@ GuiPaintTextModeBuffer(PTEXTMODE_SCREEN_BUFFER Buffer,
             Attribute = ConioCoordToPointer(Buffer, Buffer->CursorPosition.X, Buffer->CursorPosition.Y)->Attributes;
             if (Attribute == DEFAULT_SCREEN_ATTRIB) Attribute = Buffer->ScreenDefaultAttrib;
 
-            CursorBrush = CreateSolidBrush(PaletteRGBFromAttrib(Console, TextAttribFromAttrib(Attribute)));
+            CursorBrush = CreateSolidBrush(RGBFromAttrib2(Console, TextAttribFromAttrib(Attribute)));
             OldBrush    = SelectObject(GuiData->hMemDC, CursorBrush);
 
             PatBlt(GuiData->hMemDC,
@@ -447,8 +302,6 @@ GuiPaintTextModeBuffer(PTEXTMODE_SCREEN_BUFFER Buffer,
     }
 
     SelectObject(GuiData->hMemDC, OldFont);
-
-    LeaveCriticalSection(&Console->Lock);
 }
 
 /* EOF */

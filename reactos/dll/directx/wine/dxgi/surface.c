@@ -66,7 +66,10 @@ static ULONG STDMETHODCALLTYPE dxgi_surface_inner_Release(IUnknown *iface)
     TRACE("%p decreasing refcount to %u.\n", surface, refcount);
 
     if (!refcount)
+    {
+        IDXGIDevice_Release(surface->device);
         HeapFree(GetProcessHeap(), 0, surface);
+    }
 
     return refcount;
 }
@@ -202,6 +205,7 @@ HRESULT dxgi_surface_init(struct dxgi_surface *surface, IDXGIDevice *device, IUn
     surface->refcount = 1;
     surface->outer_unknown = outer ? outer : &surface->IUnknown_iface;
     surface->device = device;
+    IDXGIDevice_AddRef(device);
 
     return S_OK;
 }

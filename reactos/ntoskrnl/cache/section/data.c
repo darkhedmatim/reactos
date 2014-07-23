@@ -636,8 +636,7 @@ _MiMapViewOfSegment(PMMSUPPORT AddressSpace,
                                 &MArea,
                                 FALSE,
                                 AllocationType,
-                                *BaseAddress ?
-                                PAGE_SIZE : MM_ALLOCATION_GRANULARITY);
+                                PAGE_SIZE);
 
     if (!NT_SUCCESS(Status))
     {

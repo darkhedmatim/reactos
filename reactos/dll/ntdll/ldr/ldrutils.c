@@ -1072,8 +1072,8 @@ LdrpMapDll(IN PWSTR SearchPath OPTIONAL,
         if (!NT_SUCCESS(Status) && (Status != STATUS_DLL_NOT_FOUND))
         {
             /* Failure */
-            DbgPrintEx(DPFLTR_LDR_ID,
-                       DPFLTR_ERROR_LEVEL,
+            DbgPrintEx(81, //DPFLTR_LDR_ID,
+                       0,
                        "LDR: %s - call to LdrpCheckForKnownDll(\"%ws\", ...) failed with status %x\n",
                         __FUNCTION__,
                         DllName,
@@ -1660,8 +1660,8 @@ LdrpResolveFullName(IN PUNICODE_STRING OriginalName,
     /* Display debug output if snaps are on */
     if (ShowSnaps)
     {
-        DbgPrintEx(DPFLTR_LDR_ID,
-                   DPFLTR_ERROR_LEVEL,
+        DbgPrintEx(81, //DPFLTR_LDR_ID,
+                   0,
                    "LDR: %s - Expanding full name of %wZ\n",
                    __FUNCTION__,
                    OriginalName);
@@ -1737,16 +1737,16 @@ Quickie:
         /* Check which output to use -- failure or success */
         if (NT_SUCCESS(Status))
         {
-            DbgPrintEx(DPFLTR_LDR_ID,
-                       DPFLTR_ERROR_LEVEL,
+            DbgPrintEx(81, //DPFLTR_LDR_ID,
+                       0,
                        "LDR: %s - Expanded to %wZ\n",
                        __FUNCTION__,
                        *ExpandedName);
         }
         else
         {
-            DbgPrintEx(DPFLTR_LDR_ID,
-                       DPFLTR_ERROR_LEVEL,
+            DbgPrintEx(81, //DPFLTR_LDR_ID,
+                       0,
                        "LDR: %s - Failed to expand %wZ; 0x%08x\n",
                        __FUNCTION__,
                        OriginalName,
@@ -1784,8 +1784,8 @@ LdrpSearchPath(IN PWCHAR *SearchPath,
     /* Display debug output if snaps are on */
     if (ShowSnaps)
     {
-        DbgPrintEx(DPFLTR_LDR_ID,
-                   DPFLTR_ERROR_LEVEL,
+        DbgPrintEx(81, //DPFLTR_LDR_ID,
+                   0,
                    "LDR: %s - Looking for %ws in %ws\n",
                    __FUNCTION__,
                    DllName,
@@ -1820,7 +1820,7 @@ LdrpSearchPath(IN PWCHAR *SearchPath,
     /* FIXME: Handle relative case semicolon-lookup here */
 
     /* Calculate length */
-    Length += (ULONG)wcslen(DllName) + 1;
+    Length += (ULONG)wcslen(DllName) + sizeof(UNICODE_NULL);
     if (Length > UNICODE_STRING_MAX_CHARS)
     {
         /* Too long, fail */
@@ -1852,8 +1852,8 @@ LdrpSearchPath(IN PWCHAR *SearchPath,
             /* Display debug output if snaps are on */
             if (ShowSnaps)
             {
-                DbgPrintEx(DPFLTR_LDR_ID,
-                           DPFLTR_ERROR_LEVEL,
+                DbgPrintEx(81, //DPFLTR_LDR_ID,
+                           0,
                            "LDR: %s - Looking for %ws\n",
                            __FUNCTION__,
                            Buffer);
@@ -1932,16 +1932,16 @@ Quickie:
         /* Check which output to use -- failure or success */
         if (NT_SUCCESS(Status))
         {
-            DbgPrintEx(DPFLTR_LDR_ID,
-                       DPFLTR_ERROR_LEVEL,
+            DbgPrintEx(81, //DPFLTR_LDR_ID,
+                       0,
                        "LDR: %s - Returning %wZ\n",
                        __FUNCTION__,
                        *ExpandedName);
         }
         else
         {
-            DbgPrintEx(DPFLTR_LDR_ID,
-                       DPFLTR_ERROR_LEVEL,
+            DbgPrintEx(81, //DPFLTR_LDR_ID,
+                       0,
                        "LDR: %s -  Unable to locate %ws in %ws: 0x%08x\n",
                        __FUNCTION__,
                        DllName,
@@ -2054,8 +2054,8 @@ lookinhash:
 
                 if (ShowSnaps)
                 {
-                    DPRINT1("LDR: LdrpCheckForLoadedDll - Unable To Locate %wZ: 0x%08x\n",
-                        &DllName, Length);
+                    DPRINT1("LDR: LdrpCheckForLoadedDll - Unable To Locate %ws: 0x%08x\n",
+                        DllName->Buffer, Length);
                 }
 
                 /* Return failure */
@@ -2267,7 +2267,7 @@ LdrpGetProcedureAddress(IN PVOID BaseAddress,
         }
 
         /* Check if our buffer is large enough */
-        if (Length > sizeof(ImportBuffer))
+        if (Name->Length > sizeof(ImportBuffer))
         {
             /* Allocate from heap, plus 2 bytes for the Hint */
             ImportName = RtlAllocateHeap(RtlGetProcessHeap(),
@@ -2333,8 +2333,7 @@ LdrpGetProcedureAddress(IN PVOID BaseAddress,
 
         if (!ExportDir)
         {
-            DPRINT1("Image %wZ has no exports, but were trying to get procedure %Z. BaseAddress asked 0x%p, got entry BA 0x%p\n",
-                    &LdrEntry->BaseDllName, &Name, BaseAddress, LdrEntry->DllBase);
+            DPRINT1("Image %wZ has no exports, but were trying to get procedure %s. BaseAddress asked %p, got entry BA %p\n", &LdrEntry->BaseDllName, Name ? Name->Buffer : NULL, BaseAddress, LdrEntry->DllBase);
             Status = STATUS_PROCEDURE_NOT_FOUND;
             _SEH2_YIELD(goto Quickie;)
         }
@@ -2455,8 +2454,8 @@ LdrpLoadDll(IN BOOLEAN Redirected,
             sizeof(NameBuffer))
         {
             /* No space to add the extension */
-            DbgPrintEx(DPFLTR_LDR_ID,
-                       DPFLTR_ERROR_LEVEL,
+            DbgPrintEx(81, //DPFLTR_LDR_ID,
+                       0,
                        "LDR: %s - Dll name missing extension; with extension "
                        "added the name is too long\n"
                        "   DllName: (@ %p) \"%wZ\"\n"

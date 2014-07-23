@@ -20,7 +20,6 @@
 
 #include "localspl_private.h"
 
-#include <shlwapi.h>
 #include <ddk/winddiui.h>
 
 /* ############################### */
@@ -200,7 +199,7 @@ static LPWSTR strdupW(LPCWSTR p)
 static BOOL apd_copyfile( WCHAR *pathname, WCHAR *file_part, apd_data_t *apd )
 {
     WCHAR *srcname;
-    BOOL res;
+    DWORD res;
 
     apd->src[apd->srclen] = '\0';
     apd->dst[apd->dstlen] = '\0';
@@ -223,9 +222,9 @@ static BOOL apd_copyfile( WCHAR *pathname, WCHAR *file_part, apd_data_t *apd )
 
     /* FIXME: handle APD_COPY_NEW_FILES */
     res = CopyFileW(srcname, apd->dst, FALSE);
-    TRACE("got %d with %u\n", res, GetLastError());
+    TRACE("got %u with %u\n", res, GetLastError());
 
-    return apd->lazy || res;
+    return (apd->lazy) ? TRUE : res;
 }
 
 /******************************************************************
@@ -235,7 +234,7 @@ static BOOL apd_copyfile( WCHAR *pathname, WCHAR *file_part, apd_data_t *apd )
  *
  * RETURNS
  *  the length (in WCHAR) of the serverpart (0 for the local computer)
- *  (-length), when the name is too long
+ *  (-length), when the name is to long
  *
  */
 static LONG copy_servername_from_name(LPCWSTR name, LPWSTR target)
@@ -1116,7 +1115,7 @@ static HMODULE driver_load(const printenv_t * env, LPWSTR dllname)
 
     if (!fpGetPrinterDriverDirectory(NULL, (LPWSTR) env->envname, 1,
                                      (LPBYTE) fullname, len, &len)) {
-        /* Should never fail */
+        /* Should never Fail */
         SetLastError(ERROR_BUFFER_OVERFLOW);
         return NULL;
     }
@@ -1320,7 +1319,7 @@ static BOOL myAddPrinterDriverEx(DWORD level, LPBYTE pDriverInfo, DWORD dwFileCo
     len = sizeof(apd.src) - sizeof(version3_subdirW) - sizeof(WCHAR);
     if (!fpGetPrinterDriverDirectory(NULL, (LPWSTR) env->envname, 1,
                                     (LPBYTE) apd.src, len, &len)) {
-        /* Should never fail */
+        /* Should never Fail */
         return FALSE;
     }
     memcpy(apd.dst, apd.src, len);
@@ -1847,7 +1846,7 @@ static BOOL WINAPI fpDeleteMonitor(LPWSTR pName, LPWSTR pEnvironment, LPWSTR pMo
         return FALSE;
     }
 
-    if(SHDeleteKeyW(hroot, pMonitorName) == ERROR_SUCCESS) {
+    if(RegDeleteTreeW(hroot, pMonitorName) == ERROR_SUCCESS) {
         TRACE("%s deleted\n", debugstr_w(pMonitorName));
         RegCloseKey(hroot);
         return TRUE;

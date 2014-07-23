@@ -499,7 +499,7 @@ EnumerateCursorSchemes(HWND hwndDlg)
                 /* Remove quotation marks */
                 if (szTempData[0] == _T('"'))
                 {
-                    lpStart = szTempData + 1;
+                    lpStart = szValueData + 1;
                     szTempData[_tcslen(szTempData) - 1] = 0;
                 }
                 else
@@ -718,7 +718,6 @@ SaveCursorScheme(HWND hwndDlg)
     if (nSel == 0)
     {
         szSchemeName[0] = 0;
-        szNewSchemeName[0] = 0;
     }
     else
     {
@@ -776,9 +775,6 @@ SaveCursorScheme(HWND hwndDlg)
 
     lpSchemeData = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, nLength * sizeof(TCHAR));
 
-    if(!lpSchemeData)
-        return FALSE;
-
     for (index = IDS_ARROW, i = 0; index <= IDS_HAND; index++, i++)
     {
         CompressPath(szTempPath, g_CursorData[i].szCursorPath);
@@ -788,15 +784,11 @@ SaveCursorScheme(HWND hwndDlg)
     }
 
     if (RegOpenCurrentUser(KEY_READ | KEY_SET_VALUE, &hCuKey) != ERROR_SUCCESS)
-    {
-        HeapFree(GetProcessHeap(), 0, lpSchemeData);
         return FALSE;
-    }
 
     if (RegOpenKeyEx(hCuKey, _T("Control Panel\\Cursors\\Schemes"), 0, KEY_READ | KEY_SET_VALUE, &hCuCursorKey) != ERROR_SUCCESS)
     {
         RegCloseKey(hCuKey);
-        HeapFree(GetProcessHeap(), 0, lpSchemeData);
         return FALSE;
     }
 
@@ -852,7 +844,7 @@ BrowseCursor(HWND hwndDlg)
     ofn.nMaxFile = MAX_PATH;
     ofn.lpstrInitialDir = _T("%WINDIR%\\Cursors");
     ofn.lpstrTitle = szTitle;
-    ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
+    ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST;
 
     if (!GetOpenFileName(&ofn))
         return FALSE;
@@ -1030,9 +1022,9 @@ LoadNewCursorScheme(HWND hwndDlg)
 static VOID
 LoadInitialCursorScheme(HWND hwndDlg)
 {
-    TCHAR szSchemeName[MAX_PATH];
-    TCHAR szSystemScheme[MAX_PATH];
-    TCHAR szCursorPath[MAX_PATH];
+    TCHAR szSchemeName[256];
+    TCHAR szSystemScheme[256];
+    TCHAR szCursorPath[256];
     HKEY hCursorKey;
     LONG lError;
     DWORD dwDataSize;
@@ -1065,7 +1057,7 @@ LoadInitialCursorScheme(HWND hwndDlg)
 
     if (dwSchemeSource != 0)
     {
-        dwDataSize = MAX_PATH * sizeof(TCHAR);
+        dwDataSize = 256 * sizeof(TCHAR);
         lError = RegQueryValueEx(hCursorKey,
                                  NULL,
                                  NULL,
@@ -1109,8 +1101,8 @@ LoadInitialCursorScheme(HWND hwndDlg)
     else if (dwSchemeSource == 2)
     {
         LoadString(hApplet, IDS_SYSTEM_SCHEME, szSystemScheme, MAX_PATH);
-        _tcsncat(szSchemeName, _T(" "), MAX_PATH - _tcslen(szSchemeName) - 1);
-        _tcsncat(szSchemeName, szSystemScheme, MAX_PATH - _tcslen(szSchemeName) - 1);
+        _tcscat(szSchemeName, _T(" "));
+        _tcscat(szSchemeName, szSystemScheme);
     }
 
     /* Search and select the curent scheme name from the scheme list */
@@ -1284,10 +1276,6 @@ PointerProc(IN HWND hwndDlg,
                     {
                         case LBN_SELCHANGE:
                             nSel = SendMessage((HWND)lParam, LB_GETCURSEL, 0, 0);
-
-                            if(nSel == LB_ERR)
-                                break;
-
                             SendDlgItemMessage(hwndDlg, IDC_IMAGE_CURRENT_CURSOR, STM_SETIMAGE, IMAGE_CURSOR,
                                                (LPARAM)g_CursorData[nSel].hCursor);
                             EnableWindow(GetDlgItem(hwndDlg,IDC_BUTTON_USE_DEFAULT_CURSOR),

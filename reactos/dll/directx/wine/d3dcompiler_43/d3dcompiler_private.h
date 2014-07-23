@@ -57,8 +57,7 @@ enum shader_type
     ST_PIXEL
 };
 
-enum bwriter_comparison_type
-{
+typedef enum BWRITER_COMPARISON_TYPE {
     BWRITER_COMPARISON_NONE,
     BWRITER_COMPARISON_GT,
     BWRITER_COMPARISON_EQ,
@@ -66,7 +65,7 @@ enum bwriter_comparison_type
     BWRITER_COMPARISON_LT,
     BWRITER_COMPARISON_NE,
     BWRITER_COMPARISON_LE
-};
+} BWRITER_COMPARISON_TYPE;
 
 struct constant {
     DWORD                   regnum;
@@ -93,7 +92,7 @@ struct instruction {
     DWORD                   opcode;
     DWORD                   dstmod;
     DWORD                   shift;
-    enum bwriter_comparison_type comptype;
+    BWRITER_COMPARISON_TYPE comptype;
     BOOL                    has_dst;
     struct shader_reg       dst;
     struct shader_reg       *src;
@@ -219,9 +218,9 @@ struct asmparser_backend {
 
     void (*end)(struct asm_parser *This);
 
-    void (*instr)(struct asm_parser *parser, DWORD opcode, DWORD mod, DWORD shift,
-            enum bwriter_comparison_type comp, const struct shader_reg *dst,
-            const struct src_regs *srcs, int expectednsrcs);
+    void (*instr)(struct asm_parser *This, DWORD opcode, DWORD mod, DWORD shift,
+                  BWRITER_COMPARISON_TYPE comp, const struct shader_reg *dst,
+                  const struct src_regs *srcs, int expectednsrcs);
 };
 
 struct instruction *alloc_instr(unsigned int srcs) DECLSPEC_HIDDEN;
@@ -368,10 +367,11 @@ const char *debug_print_opcode(DWORD opcode) DECLSPEC_HIDDEN;
 /* Used to signal an incorrect swizzle/writemask */
 #define SWIZZLE_ERR ~0U
 
-/* Enumerations and defines used in the bytecode writer intermediate
- * representation. */
-enum bwritershader_instruction_opcode_type
-{
+/*
+  Enumerations and defines used in the bytecode writer
+  intermediate representation
+*/
+typedef enum _BWRITERSHADER_INSTRUCTION_OPCODE_TYPE {
     BWRITERSIO_NOP,
     BWRITERSIO_MOV,
     BWRITERSIO_ADD,
@@ -460,10 +460,9 @@ enum bwritershader_instruction_opcode_type
     BWRITERSIO_PHASE,
     BWRITERSIO_COMMENT,
     BWRITERSIO_END,
-};
+} BWRITERSHADER_INSTRUCTION_OPCODE_TYPE;
 
-enum bwritershader_param_register_type
-{
+typedef enum _BWRITERSHADER_PARAM_REGISTER_TYPE {
     BWRITERSPR_TEMP,
     BWRITERSPR_INPUT,
     BWRITERSPR_CONST,
@@ -482,14 +481,14 @@ enum bwritershader_param_register_type
     BWRITERSPR_MISCTYPE,
     BWRITERSPR_LABEL,
     BWRITERSPR_PREDICATE
-};
+} BWRITERSHADER_PARAM_REGISTER_TYPE;
 
-enum bwritervs_rastout_offsets
+typedef enum _BWRITERVS_RASTOUT_OFFSETS
 {
     BWRITERSRO_POSITION,
     BWRITERSRO_FOG,
     BWRITERSRO_POINT_SIZE
-};
+} BWRITERVS_RASTOUT_OFFSETS;
 
 #define BWRITERSP_WRITEMASK_0   0x1 /* .x r */
 #define BWRITERSP_WRITEMASK_1   0x2 /* .y g */
@@ -497,28 +496,25 @@ enum bwritervs_rastout_offsets
 #define BWRITERSP_WRITEMASK_3   0x8 /* .w a */
 #define BWRITERSP_WRITEMASK_ALL 0xf /* all */
 
-enum bwritershader_param_dstmod_type
-{
+typedef enum _BWRITERSHADER_PARAM_DSTMOD_TYPE {
     BWRITERSPDM_NONE = 0,
     BWRITERSPDM_SATURATE = 1,
     BWRITERSPDM_PARTIALPRECISION = 2,
     BWRITERSPDM_MSAMPCENTROID = 4,
-};
+} BWRITERSHADER_PARAM_DSTMOD_TYPE;
 
-enum bwritersampler_texture_type
-{
+typedef enum _BWRITERSAMPLER_TEXTURE_TYPE {
     BWRITERSTT_UNKNOWN = 0,
     BWRITERSTT_1D = 1,
     BWRITERSTT_2D = 2,
     BWRITERSTT_CUBE = 3,
     BWRITERSTT_VOLUME = 4,
-};
+} BWRITERSAMPLER_TEXTURE_TYPE;
 
 #define BWRITERSI_TEXLD_PROJECT 1
 #define BWRITERSI_TEXLD_BIAS    2
 
-enum bwritershader_param_srcmod_type
-{
+typedef enum _BWRITERSHADER_PARAM_SRCMOD_TYPE {
     BWRITERSPSM_NONE = 0,
     BWRITERSPSM_NEG,
     BWRITERSPSM_BIAS,
@@ -533,7 +529,7 @@ enum bwritershader_param_srcmod_type
     BWRITERSPSM_ABS,
     BWRITERSPSM_ABSNEG,
     BWRITERSPSM_NOT,
-};
+} BWRITERSHADER_PARAM_SRCMOD_TYPE;
 
 #define BWRITER_SM1_VS  0xfffe
 #define BWRITER_SM1_PS  0xffff
@@ -571,8 +567,7 @@ enum bwritershader_param_srcmod_type
 #define BWRITERVS_SWIZZLE_Z (BWRITERVS_X_Z | BWRITERVS_Y_Z | BWRITERVS_Z_Z | BWRITERVS_W_Z)
 #define BWRITERVS_SWIZZLE_W (BWRITERVS_X_W | BWRITERVS_Y_W | BWRITERVS_Z_W | BWRITERVS_W_W)
 
-enum bwriterdeclusage
-{
+typedef enum _BWRITERDECLUSAGE {
     BWRITERDECLUSAGE_POSITION,
     BWRITERDECLUSAGE_BLENDWEIGHT,
     BWRITERDECLUSAGE_BLENDINDICES,
@@ -587,7 +582,7 @@ enum bwriterdeclusage
     BWRITERDECLUSAGE_FOG,
     BWRITERDECLUSAGE_DEPTH,
     BWRITERDECLUSAGE_SAMPLE
-};
+} BWRITERDECLUSAGE;
 
 /* ps 1.x texture registers mappings */
 #define T0_REG          2

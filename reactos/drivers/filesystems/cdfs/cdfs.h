@@ -160,10 +160,6 @@ typedef struct
   PFILE_OBJECT StreamFileObject;
 
   CDINFO CdInfo;
-
-  /* Notifications */
-  LIST_ENTRY NotifyList;
-  PNOTIFY_SYNC NotifySync;
 } DEVICE_EXTENSION, *PDEVICE_EXTENSION, VCB, *PVCB;
 
 
@@ -193,9 +189,8 @@ typedef struct _FCB
 
   UNICODE_STRING ShortNameU;
 
-  WCHAR *ObjectName;			/* point on filename (250 chars max) in PathName */
-  UNICODE_STRING PathName;		/* path+filename 260 max */
-  WCHAR PathNameBuffer[MAX_PATH];	/* Buffer for PathName */
+  WCHAR *ObjectName;		/* point on filename (250 chars max) in PathName */
+  WCHAR PathName[MAX_PATH];	/* path+filename 260 max */
   WCHAR ShortNameBuffer[13];
 
   LIST_ENTRY FcbListEntry;
@@ -203,8 +198,8 @@ typedef struct _FCB
 
   ULONG DirIndex;
 
-  LARGE_INTEGER IndexNumber;		/* HighPart: Parent directory start sector */
-					/* LowPart: Directory record offset in the parent directory file */
+  LARGE_INTEGER IndexNumber;	/* HighPart: Parent directory start sector */
+				/* LowPart: Directory record offset in the parent directory file */
 
   LONG RefCount;
   ULONG Flags;

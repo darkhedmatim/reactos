@@ -66,10 +66,9 @@ static LPVOID lpSharedStaticData = NULL;
 
 typedef struct
 {
-  BOOL used;
-  BYTE data[dwBlockSize - sizeof(BOOL)];
+  DWORD used;
+  DWORD data[dwBlockSize-sizeof(DWORD)];
 } DPLAYX_MEM_SLICE;
-C_ASSERT(sizeof(DPLAYX_MEM_SLICE) == dwBlockSize);
 
 static DPLAYX_MEM_SLICE* lpMemArea;
 
@@ -84,10 +83,10 @@ static void DPLAYX_PrivHeapFree( LPVOID addr )
     return;
   }
 
-  lpAddrStart = CONTAINING_RECORD(addr, DPLAYX_MEM_SLICE, data); /* Find block header */
+  lpAddrStart = (char*)addr - sizeof(DWORD); /* Find block header */
   dwBlockUsed =  ((BYTE*)lpAddrStart - (BYTE*)lpMemArea)/dwBlockSize;
 
-  lpMemArea[ dwBlockUsed ].used = FALSE;
+  lpMemArea[ dwBlockUsed ].used = 0;
 }
 
 static LPVOID DPLAYX_PrivHeapAlloc( DWORD flags, DWORD size )
@@ -95,20 +94,20 @@ static LPVOID DPLAYX_PrivHeapAlloc( DWORD flags, DWORD size )
   LPVOID lpvArea = NULL;
   UINT   uBlockUsed;
 
-  if( size > (dwBlockSize - sizeof(BOOL)) )
+  if( size > (dwBlockSize - sizeof(DWORD)) )
   {
     FIXME( "Size exceeded. Request of 0x%08x\n", size );
-    size = dwBlockSize - sizeof(BOOL);
+    size = dwBlockSize - sizeof(DWORD);
   }
 
   /* Find blank area */
   uBlockUsed = 0;
-  while( lpMemArea[ uBlockUsed ].used && uBlockUsed <= dwMaxBlock ) { uBlockUsed++; }
+  while( ( lpMemArea[ uBlockUsed ].used != 0 ) && ( uBlockUsed <= dwMaxBlock ) ) { uBlockUsed++; }
 
   if( uBlockUsed <= dwMaxBlock )
   {
     /* Set the area used */
-    lpMemArea[ uBlockUsed ].used = TRUE;
+    lpMemArea[ uBlockUsed ].used = 1;
     lpvArea = lpMemArea[ uBlockUsed ].data;
   }
   else
@@ -1184,7 +1183,7 @@ LPCSTR DPLAYX_HresultToString(HRESULT hr)
       /* For errors not in the list, return HRESULT as a string
          This part is not thread safe */
       WARN( "Unknown error 0x%08x\n", hr );
-      wsprintfA( szTempStr, "0x%08x", hr );
+      wsprintfA( szTempStr, "0x%08lx", hr );
       return szTempStr;
   }
 }

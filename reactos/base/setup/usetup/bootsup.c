@@ -87,8 +87,7 @@ extern PPARTLIST PartitionList;
 
 static
 VOID
-CreateCommonFreeLoaderSections(
-    PINICACHE IniCache)
+CreateCommonFreeLoaderSections(PINICACHE IniCache)
 {
     PINICACHESECTION IniSection;
 
@@ -1179,6 +1178,7 @@ InstallMbrBootCodeToDisk(
         return Status;
     }
 
+
     /* Allocate buffer for new bootsector */
     NewBootSector = (PPARTITION_SECTOR)RtlAllocateHeap(ProcessHeap,
                     0,
@@ -1275,11 +1275,9 @@ InstallMbrBootCodeToDisk(
     return Status;
 }
 
-
 NTSTATUS
-InstallFat12BootCodeToFloppy(
-    PWSTR SrcPath,
-    PWSTR RootPath)
+InstallFat12BootCodeToFloppy(PWSTR SrcPath,
+                             PWSTR RootPath)
 {
     OBJECT_ATTRIBUTES ObjectAttributes;
     IO_STATUS_BLOCK IoStatusBlock;
@@ -1288,21 +1286,21 @@ InstallFat12BootCodeToFloppy(
     NTSTATUS Status;
     PFAT_BOOTSECTOR OrigBootSector;
     PFAT_BOOTSECTOR NewBootSector;
-
+    
     /* Allocate buffer for original bootsector */
     OrigBootSector = RtlAllocateHeap(ProcessHeap, 0, SECTORSIZE);
     if (OrigBootSector == NULL)
         return STATUS_INSUFFICIENT_RESOURCES;
-
+    
     /* Read current boot sector into buffer */
     RtlInitUnicodeString(&Name, RootPath);
-
+    
     InitializeObjectAttributes(&ObjectAttributes,
                                &Name,
                                OBJ_CASE_INSENSITIVE,
                                NULL,
                                NULL);
-
+    
     Status = NtOpenFile(&FileHandle,
                         GENERIC_READ | SYNCHRONIZE,
                         &ObjectAttributes,
@@ -1314,7 +1312,7 @@ InstallFat12BootCodeToFloppy(
         RtlFreeHeap(ProcessHeap, 0, OrigBootSector);
         return Status;
     }
-
+    
     Status = NtReadFile(FileHandle,
                         NULL,
                         NULL,
@@ -1330,7 +1328,8 @@ InstallFat12BootCodeToFloppy(
         RtlFreeHeap(ProcessHeap, 0, OrigBootSector);
         return Status;
     }
-
+    
+    
     /* Allocate buffer for new bootsector */
     NewBootSector = RtlAllocateHeap(ProcessHeap,
                                     0,
@@ -1340,16 +1339,16 @@ InstallFat12BootCodeToFloppy(
         RtlFreeHeap(ProcessHeap, 0, OrigBootSector);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
-
+    
     /* Read new bootsector from SrcPath */
     RtlInitUnicodeString(&Name, SrcPath);
-
+    
     InitializeObjectAttributes(&ObjectAttributes,
                                &Name,
                                OBJ_CASE_INSENSITIVE,
                                NULL,
                                NULL);
-
+    
     Status = NtOpenFile(&FileHandle,
                         GENERIC_READ | SYNCHRONIZE,
                         &ObjectAttributes,
@@ -1362,7 +1361,7 @@ InstallFat12BootCodeToFloppy(
         RtlFreeHeap(ProcessHeap, 0, NewBootSector);
         return Status;
     }
-
+    
     Status = NtReadFile(FileHandle,
                         NULL,
                         NULL,
@@ -1379,25 +1378,25 @@ InstallFat12BootCodeToFloppy(
         RtlFreeHeap(ProcessHeap, 0, NewBootSector);
         return Status;
     }
-
+    
     /* Adjust bootsector (copy a part of the FAT16 BPB) */
     memcpy(&NewBootSector->OemName,
            &OrigBootSector->OemName,
            FIELD_OFFSET(FAT_BOOTSECTOR, BootCodeAndData) -
            FIELD_OFFSET(FAT_BOOTSECTOR, OemName));
-
+    
     /* Free the original boot sector */
     RtlFreeHeap(ProcessHeap, 0, OrigBootSector);
-
+    
     /* Write new bootsector to RootPath */
     RtlInitUnicodeString(&Name, RootPath);
-
+    
     InitializeObjectAttributes(&ObjectAttributes,
                                &Name,
                                0,
                                NULL,
                                NULL);
-
+    
     Status = NtOpenFile(&FileHandle,
                         GENERIC_WRITE | SYNCHRONIZE,
                         &ObjectAttributes,
@@ -1410,7 +1409,7 @@ InstallFat12BootCodeToFloppy(
         RtlFreeHeap(ProcessHeap, 0, NewBootSector);
         return Status;
     }
-
+    
 #if 0
     FilePosition.QuadPart = 0;
 #endif
@@ -1424,10 +1423,10 @@ InstallFat12BootCodeToFloppy(
                          NULL,
                          NULL);
     NtClose(FileHandle);
-
+    
     /* Free the new boot sector */
     RtlFreeHeap(ProcessHeap, 0, NewBootSector);
-
+    
     return Status;
 }
 
@@ -1444,6 +1443,7 @@ InstallFat16BootCodeToDisk(
     NTSTATUS Status;
     PFAT_BOOTSECTOR OrigBootSector;
     PFAT_BOOTSECTOR NewBootSector;
+    PARTITION_INFORMATION *PartInfo;
 
     /* Allocate buffer for original bootsector */
     OrigBootSector = RtlAllocateHeap(ProcessHeap, 0, SECTORSIZE);
@@ -1486,6 +1486,7 @@ InstallFat16BootCodeToDisk(
         RtlFreeHeap(ProcessHeap, 0, OrigBootSector);
         return Status;
     }
+
 
     /* Allocate buffer for new bootsector */
     NewBootSector = RtlAllocateHeap(ProcessHeap,
@@ -1542,7 +1543,8 @@ InstallFat16BootCodeToDisk(
            FIELD_OFFSET(FAT_BOOTSECTOR, BootCodeAndData) -
            FIELD_OFFSET(FAT_BOOTSECTOR, OemName));
 
-    NewBootSector->HiddenSectors = PartitionList->CurrentDisk->SectorsPerTrack;
+    PartInfo = &PartitionList->CurrentPartition->PartInfo[PartitionList->CurrentPartitionNumber];
+    NewBootSector->HiddenSectors = PartInfo->HiddenSectors;
 
     /* Free the original boot sector */
     RtlFreeHeap(ProcessHeap, 0, OrigBootSector);
@@ -1604,6 +1606,7 @@ InstallFat32BootCodeToDisk(
     PFAT32_BOOTSECTOR NewBootSector;
     LARGE_INTEGER FileOffset;
     USHORT BackupBootSector;
+    PARTITION_INFORMATION *PartInfo;
 
     /* Allocate buffer for original bootsector */
     OrigBootSector = RtlAllocateHeap(ProcessHeap, 0, SECTORSIZE);
@@ -1701,7 +1704,8 @@ InstallFat32BootCodeToDisk(
            FIELD_OFFSET(FAT32_BOOTSECTOR, BootCodeAndData) -
            FIELD_OFFSET(FAT32_BOOTSECTOR, OemName));
 
-    NewBootSector->HiddenSectors = PartitionList->CurrentDisk->SectorsPerTrack;
+    PartInfo = &PartitionList->CurrentPartition->PartInfo[PartitionList->CurrentPartitionNumber];
+    NewBootSector->HiddenSectors = PartInfo->HiddenSectors;
 
     /* Get the location of the backup boot sector */
     BackupBootSector = OrigBootSector->BackupBootSector;
@@ -1996,7 +2000,6 @@ UpdateBootIni(
 
     return Status;
 }
-
 
 BOOLEAN
 CheckInstallFatBootcodeToPartition(
@@ -2336,7 +2339,6 @@ InstallFatBootcodeToPartition(
 #endif
 }
 
-
 NTSTATUS
 InstallVBRToPartition(
     PUNICODE_STRING SystemRootPath,
@@ -2371,7 +2373,7 @@ InstallFatBootcodeToFloppy(
     WCHAR SrcPath[MAX_PATH];
     WCHAR DstPath[MAX_PATH];
     NTSTATUS Status;
-
+    
     /* Format the floppy first */
     Status = VfatFormat(&FloppyDevice,
                         FMIFS_FLOPPY,

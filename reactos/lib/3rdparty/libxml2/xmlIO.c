@@ -801,7 +801,7 @@ xmlCheckFilename (const char *path)
     return 1;
 }
 
-int
+static int
 xmlNop(void) {
     return(0);
 }
@@ -3239,7 +3239,7 @@ xmlParserInputBufferPush(xmlParserInputBufferPtr in,
 	 * convert as much as possible to the parser reading buffer.
 	 */
 	use = xmlBufUse(in->raw);
-	nbchars = xmlCharEncInput(in, 1);
+	nbchars = xmlCharEncInput(in);
 	if (nbchars < 0) {
 	    xmlIOErr(XML_IO_ENCODER, NULL);
 	    in->error = XML_IO_ENCODER;
@@ -3344,7 +3344,7 @@ xmlParserInputBufferGrow(xmlParserInputBufferPtr in, int len) {
 	 * convert as much as possible to the parser reading buffer.
 	 */
 	use = xmlBufUse(in->raw);
-	nbchars = xmlCharEncInput(in, 1);
+	nbchars = xmlCharEncInput(in);
 	if (nbchars < 0) {
 	    xmlIOErr(XML_IO_ENCODER, NULL);
 	    in->error = XML_IO_ENCODER;
@@ -3726,16 +3726,14 @@ xmlOutputBufferFlush(xmlOutputBufferPtr out) {
      */
     if ((out->conv != NULL) && (out->encoder != NULL)) {
 	/*
-	 * convert as much as possible to the parser output buffer.
+	 * convert as much as possible to the parser reading buffer.
 	 */
-	do {
-	    nbchars = xmlCharEncOutput(out, 0);
-	    if (nbchars < 0) {
-		xmlIOErr(XML_IO_ENCODER, NULL);
-		out->error = XML_IO_ENCODER;
-		return(-1);
-	    }
-	} while (nbchars);
+	nbchars = xmlCharEncOutput(out, 0);
+	if (nbchars < 0) {
+	    xmlIOErr(XML_IO_ENCODER, NULL);
+	    out->error = XML_IO_ENCODER;
+	    return(-1);
+	}
     }
 
     /*

@@ -102,13 +102,11 @@ CheckBuffer(
     SIZE_T i;
 
     for (i = 0; i < Size; i++)
-    {
         if (Array[i] != Value)
         {
             trace("Expected %x, found %x at offset %lu\n", Value, Array[i], (ULONG)i);
             return FALSE;
         }
-    }
     return TRUE;
 }
 
@@ -190,6 +188,7 @@ RunTestCases(VOID)
 
     for (i = 0; i < TestCount; i++)
     {
+        trace("i = %d\n", i);
         switch (TestCases[i].PrefixType)
         {
             case PrefixNone:
@@ -208,7 +207,7 @@ RunTestCases(VOID)
                 break;
             }
             default:
-                skip("Invalid test!\n");
+                skip(0, "Invalid test!\n");
                 continue;
         }
         wcscat(ExpectedPathName, TestCases[i].FullPathName);
@@ -269,7 +268,7 @@ RunTestCases(VOID)
                 break;
             }
             default:
-                skip("Invalid test!\n");
+                skip(0, "Invalid test!\n");
                 continue;
         }
         ExpectedFilePartSize += TestCases[i].FilePartSize;

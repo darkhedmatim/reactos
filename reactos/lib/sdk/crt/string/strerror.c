@@ -204,7 +204,8 @@ int CDECL __wcserror_s(wchar_t* buffer, size_t nc, const wchar_t* str)
     if (str && *str) len += lstrlenW(str) + 2 /* ': ' */;
     if (len > nc)
     {
-        MSVCRT_INVALID_PMT("buffer[nc] is too small", ERANGE);
+        MSVCRT_INVALID_PMT("buffer[nc] is too small");
+        _set_errno(ERANGE);
         return ERANGE;
     }
     if (str && *str)

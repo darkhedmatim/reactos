@@ -43,7 +43,7 @@ static HRESULT WINAPI CategoryMgr_QueryInterface(ITfCategoryMgr *iface, REFIID i
 
     if (IsEqualIID(iid, &IID_IUnknown) || IsEqualIID(iid, &IID_ITfCategoryMgr))
     {
-        *ppvOut = &This->ITfCategoryMgr_iface;
+        *ppvOut = This;
     }
 
     if (*ppvOut)
@@ -154,9 +154,9 @@ static HRESULT WINAPI CategoryMgr_UnregisterCategory ( ITfCategoryMgr *iface,
     sprintfW(fullkey,fmt2,ctg,ctg,buf,buf2);
 
     sprintfW(fullkey,fmt2,ctg,itm,buf2,buf);
-    SHDeleteKeyW(tipkey, fullkey);
+    RegDeleteTreeW(tipkey, fullkey);
     sprintfW(fullkey,fmt2,ctg,itm,buf2,buf);
-    SHDeleteKeyW(tipkey, fullkey);
+    RegDeleteTreeW(tipkey, fullkey);
 
     RegCloseKey(tipkey);
     return S_OK;
@@ -371,11 +371,12 @@ static HRESULT WINAPI CategoryMgr_IsEqualTfGuidAtom ( ITfCategoryMgr *iface,
 }
 
 
-static const ITfCategoryMgrVtbl CategoryMgrVtbl =
+static const ITfCategoryMgrVtbl CategoryMgr_CategoryMgrVtbl =
 {
     CategoryMgr_QueryInterface,
     CategoryMgr_AddRef,
     CategoryMgr_Release,
+
     CategoryMgr_RegisterCategory,
     CategoryMgr_UnregisterCategory,
     CategoryMgr_EnumCategoriesInItem,
@@ -402,10 +403,10 @@ HRESULT CategoryMgr_Constructor(IUnknown *pUnkOuter, IUnknown **ppOut)
     if (This == NULL)
         return E_OUTOFMEMORY;
 
-    This->ITfCategoryMgr_iface.lpVtbl = &CategoryMgrVtbl;
+    This->ITfCategoryMgr_iface.lpVtbl = &CategoryMgr_CategoryMgrVtbl;
     This->refCount = 1;
 
-    *ppOut = (IUnknown *)&This->ITfCategoryMgr_iface;
-    TRACE("returning %p\n", *ppOut);
+    TRACE("returning %p\n", This);
+    *ppOut = (IUnknown *)This;
     return S_OK;
 }

@@ -47,14 +47,10 @@ typedef enum tid_t
 {
     NULL_tid,
     IDictionary_tid,
-    IDrive_tid,
-    IDriveCollection_tid,
-    IFile_tid,
-    IFileCollection_tid,
     IFileSystem3_tid,
     IFolder_tid,
-    IFolderCollection_tid,
     ITextStream_tid,
+    IFile_tid,
     LAST_tid
 } tid_t;
 

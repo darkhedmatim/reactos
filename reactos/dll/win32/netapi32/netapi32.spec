@@ -201,13 +201,13 @@
 @ stub NetReplImportDirLock
 @ stub NetReplImportDirUnlock
 @ stub NetReplSetInfo
-@ stdcall NetScheduleJobAdd(wstr ptr ptr)
-@ stdcall NetScheduleJobDel(wstr long long)
-@ stdcall NetScheduleJobEnum(wstr ptr long ptr ptr ptr)
+@ stub NetScheduleJobAdd
+@ stub NetScheduleJobDel
+@ stub NetScheduleJobEnum
 @ stub NetScheduleJobGetInfo
 @ stub NetServerComputerNameAdd
 @ stub NetServerComputerNameDel
-@ stdcall NetServerDiskEnum(wstr long ptr long ptr ptr ptr)
+@ stub NetServerDiskEnum
 @ stdcall NetServerEnum(wstr long ptr long ptr ptr long wstr ptr)
 @ stdcall NetServerEnumEx(wstr long ptr long ptr ptr long wstr wstr)
 @ stdcall NetServerGetInfo(wstr long ptr)
@@ -238,7 +238,7 @@
 @ stdcall NetUseAdd(wstr long ptr ptr)
 @ stub NetUseDel
 @ stdcall NetUseEnum(wstr long ptr long ptr ptr ptr)
-@ stdcall NetUseGetInfo(ptr ptr long ptr)
+@ stub NetUseGetInfo
 @ stdcall NetUserAdd(wstr long ptr ptr)
 @ stdcall NetUserChangePassword(wstr wstr wstr wstr)
 @ stdcall NetUserDel(wstr wstr)

@@ -1,5 +1,4 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = PuTTY
@@ -36,7 +35,7 @@ Description = Un client gratuit de SSH, Telnet, rlogin, and TCP brut.
 Size = 1,78 Mo
 
 [Section.041f]
-Description = Ücretsiz bir SSH, Telnet, rlogin ve işlenmemiş TCP istemcisi.
+Description = Özgür bir SSH, Telnet, rlogin ve ham TCP istemcisi.
 Size = 1,78 MB
 
 [Section.0422]

@@ -281,16 +281,8 @@ _get_typeinfo_for_iid(REFIID riid, ITypeInfo**ti) {
     sprintf(typelibkey,"Typelib\\%s\\%s\\0\\win%u",tlguid,ver,(sizeof(void*) == 8) ? 64 : 32);
     tlfnlen = sizeof(tlfn);
     if (RegQueryValueA(HKEY_CLASSES_ROOT,typelibkey,tlfn,&tlfnlen)) {
-#ifdef _WIN64
-        sprintf(typelibkey,"Typelib\\%s\\%s\\0\\win32",tlguid,ver);
-        tlfnlen = sizeof(tlfn);
-        if (RegQueryValueA(HKEY_CLASSES_ROOT,typelibkey,tlfn,&tlfnlen)) {
-#endif
-            ERR("Could not get typelib fn?\n");
-            return E_FAIL;
-#ifdef _WIN64
-        }
-#endif
+	ERR("Could not get typelib fn?\n");
+	return E_FAIL;
     }
     MultiByteToWideChar(CP_ACP, 0, tlfn, -1, tlfnW, sizeof(tlfnW) / sizeof(tlfnW[0]));
     hres = LoadTypeLib(tlfnW,&tl);
@@ -630,11 +622,14 @@ _xsize(const TYPEDESC *td, ITypeInfo *tinfo) {
 }
 
 /* Whether we pass this type by reference or by value */
-static BOOL
+static int
 _passbyref(const TYPEDESC *td, ITypeInfo *tinfo) {
-    return (td->vt == VT_USERDEFINED ||
-            td->vt == VT_VARIANT     ||
-            td->vt == VT_PTR);
+    if (td->vt == VT_USERDEFINED ||
+        td->vt == VT_VARIANT     ||
+        td->vt == VT_PTR)
+        return 1;
+
+    return 0;
 }
 
 static HRESULT

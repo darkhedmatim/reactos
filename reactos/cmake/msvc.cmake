@@ -53,11 +53,10 @@ add_compile_flags("/wd4290")
 # - C4113: parameter lists differ
 # - C4129: unrecognized escape sequence
 # - TODO: C4133: incompatible types
-# - C4163: 'identifier': not available as an intrinsic function
 # - C4229: modifiers on data are ignored
 # - C4700: uninitialized variable usage
 # - C4603: macro is not defined or definition is different after precompiled header use
-add_compile_flags("/we4013 /we4020 /we4022 /we4047 /we4098 /we4113 /we4129 /we4163 /we4229 /we4700 /we4603")
+add_compile_flags("/we4013 /we4020 /we4022 /we4047 /we4098 /we4113 /we4129 /we4229 /we4700 /we4603")
 
 # Enable warnings above the default level, but don't treat them as errors:
 # - C4115: named type definition in parentheses
@@ -93,25 +92,13 @@ else()
 endif()
 
 if(MSVC_IDE AND (CMAKE_VERSION MATCHES "ReactOS"))
-    # For VS builds we'll only have en-US in resource files
+    # for VS builds we'll only have en-US in resource files
     add_definitions(/DLANGUAGE_EN_US)
 else()
-    # Only VS 10+ resource compiler supports /nologo
-    if(MSVC_VERSION GREATER 1599)
-        set(rc_nologo_flag "/nologo")
-    else()
-        set(rc_nologo_flag)
-    endif()
-    set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> ${rc_nologo_flag} <FLAGS> <DEFINES> ${I18N_DEFS} /fo<OBJECT> <SOURCE>")
-    if(ARCH STREQUAL "arm")
-        set(CMAKE_ASM_COMPILE_OBJECT
-            "cl ${cl_includes_flag} /nologo /X /I${REACTOS_SOURCE_DIR}/include/asm /I${REACTOS_BINARY_DIR}/include/asm <FLAGS> <DEFINES> /D__ASM__ /D_USE_ML /EP /c <SOURCE> > <OBJECT>.tmp"
-            "<CMAKE_ASM_COMPILER> -nologo -o <OBJECT> <OBJECT>.tmp")
-    else()
-        set(CMAKE_ASM_COMPILE_OBJECT
-            "cl ${cl_includes_flag} /nologo /X /I${REACTOS_SOURCE_DIR}/include/asm /I${REACTOS_BINARY_DIR}/include/asm <FLAGS> <DEFINES> /D__ASM__ /D_USE_ML /EP /c <SOURCE> > <OBJECT>.tmp"
-            "<CMAKE_ASM_COMPILER> /nologo /Cp /Fo<OBJECT> /c /Ta <OBJECT>.tmp")
-    endif()
+    set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> /nologo <FLAGS> <DEFINES> ${I18N_DEFS} /fo<OBJECT> <SOURCE>")
+    set(CMAKE_ASM_COMPILE_OBJECT
+        "cl ${cl_includes_flag} /nologo /X /I${REACTOS_SOURCE_DIR}/include/asm /I${REACTOS_BINARY_DIR}/include/asm <FLAGS> <DEFINES> /D__ASM__ /D_USE_ML /EP /c <SOURCE> > <OBJECT>.tmp"
+        "<CMAKE_ASM_COMPILER> /nologo /Cp /Fo<OBJECT> /c /Ta <OBJECT>.tmp")
 endif()
 
 if(_VS_ANALYZE_)
@@ -226,15 +213,9 @@ function(set_module_type_toolchain MODULE TYPE)
     endif()
 endfunction()
 
-# Define those for having real libraries
+#define those for having real libraries
 set(CMAKE_IMPLIB_CREATE_STATIC_LIBRARY "LINK /LIB /NOLOGO <LINK_FLAGS> /OUT:<TARGET> <OBJECTS>")
-
-if(ARCH STREQUAL "arm")
-    set(CMAKE_STUB_ASM_COMPILE_OBJECT "<CMAKE_ASM_COMPILER> -nologo -o <OBJECT> <SOURCE>")
-else()
-    set(CMAKE_STUB_ASM_COMPILE_OBJECT "<CMAKE_ASM_COMPILER> /nologo /Cp /Fo<OBJECT> /c /Ta <SOURCE>")
-endif()
-
+set(CMAKE_STUB_ASM_COMPILE_OBJECT "<CMAKE_ASM_COMPILER> /nologo /Cp /Fo<OBJECT> /c /Ta <SOURCE>")
 function(add_delay_importlibs _module)
     get_target_property(_module_type ${_module} TYPE)
     if(_module_type STREQUAL "STATIC_LIBRARY")
@@ -260,22 +241,17 @@ function(generate_import_lib _libname _dllname _spec_file)
 
     if(MSVC_IDE)
         # Compile the generated asm stub file
-        if(ARCH STREQUAL "arm")
-            set(_asm_stub_command ${CMAKE_ASM_COMPILER} -nologo -o ${_asm_stubs_file}.obj ${_asm_stubs_file})
-        else()
-            set(_asm_stub_command ${CMAKE_ASM_COMPILER} /Cp /Fo${_asm_stubs_file}.obj /c /Ta ${_asm_stubs_file})
-        endif()
         add_custom_command(
             OUTPUT ${_asm_stubs_file}.obj
-            COMMAND ${_asm_stub_command}
+            COMMAND ${CMAKE_ASM_COMPILER} /Cp /Fo${_asm_stubs_file}.obj /c /Ta ${_asm_stubs_file}
             DEPENDS ${_asm_stubs_file})
     else()
-        # Be clear about the "language"
+        # be clear about the "language"
         # Thanks MS for creating a stupid linker
         set_source_files_properties(${_asm_stubs_file} PROPERTIES LANGUAGE "STUB_ASM")
     endif()
 
-    # Add our library
+    # add our library
     if(MSVC_IDE)
         add_library(${_libname} STATIC EXCLUDE_FROM_ALL ${_asm_stubs_file}.obj)
         set_source_files_properties(${_asm_stubs_file}.obj PROPERTIES EXTERNAL_OBJECT 1)
@@ -291,18 +267,13 @@ function(generate_import_lib _libname _dllname _spec_file)
 endfunction()
 
 if(ARCH STREQUAL "amd64")
-    # This is NOT a typo.
-    # See https://software.intel.com/en-us/forums/topic/404643
     add_definitions(/D__x86_64)
     set(SPEC2DEF_ARCH x86_64)
-elseif(ARCH STREQUAL "arm")
-    add_definitions(/D__arm__)
-    set(SPEC2DEF_ARCH arm)
 else()
     set(SPEC2DEF_ARCH i386)
 endif()
 function(spec2def _dllname _spec_file)
-    # Do we also want to add importlib targets?
+    # do we also want to add importlib targets?
     if(${ARGC} GREATER 2)
         if(${ARGN} STREQUAL "ADD_IMPORTLIB")
             set(__add_importlib TRUE)
@@ -311,15 +282,15 @@ function(spec2def _dllname _spec_file)
         endif()
     endif()
 
-    # Get library basename
+    # get library basename
     get_filename_component(_file ${_dllname} NAME_WE)
 
-    # Error out on anything else than spec
+    # error out on anything else than spec
     if(NOT ${_spec_file} MATCHES ".*\\.spec")
         message(FATAL_ERROR "spec2def only takes spec files as input.")
     endif()
 
-    # Generate exports def and C stubs file for the DLL
+    #generate def for the DLL and C stubs file
     add_custom_command(
         OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_file}.def ${CMAKE_CURRENT_BINARY_DIR}/${_file}_stubs.c
         COMMAND native-spec2def --ms -a=${SPEC2DEF_ARCH} -n=${_dllname} -d=${CMAKE_CURRENT_BINARY_DIR}/${_file}.def -s=${CMAKE_CURRENT_BINARY_DIR}/${_file}_stubs.c ${CMAKE_CURRENT_SOURCE_DIR}/${_spec_file}
@@ -331,10 +302,10 @@ function(spec2def _dllname _spec_file)
 endfunction()
 
 macro(macro_mc FLAG FILE)
-    set(COMMAND_MC ${CMAKE_MC_COMPILER} ${FLAG} -b ${CMAKE_CURRENT_SOURCE_DIR}/${FILE}.mc -r ${REACTOS_BINARY_DIR}/include/reactos -h ${REACTOS_BINARY_DIR}/include/reactos)
+    set(COMMAND_MC ${CMAKE_MC_COMPILER} ${FLAG} -r ${REACTOS_BINARY_DIR}/include/reactos -h ${REACTOS_BINARY_DIR}/include/reactos ${CMAKE_CURRENT_SOURCE_DIR}/${FILE}.mc)
 endmacro()
 
-# PSEH workaround
+#pseh workaround
 set(PSEH_LIB "pseh")
 
 # Use a full path for the x86 version of ml when using x64 VS.
@@ -342,8 +313,6 @@ set(PSEH_LIB "pseh")
 # both the x86 and x64 versions of ml are available.
 if((ARCH STREQUAL "amd64") AND (DEFINED ENV{VCINSTALLDIR}))
     set(CMAKE_ASM16_COMPILER $ENV{VCINSTALLDIR}/bin/ml.exe)
-elseif(ARCH STREQUAL "arm")
-    set(CMAKE_ASM16_COMPILER armasm.exe)
 else()
     set(CMAKE_ASM16_COMPILER ml.exe)
 endif()
@@ -357,15 +326,9 @@ function(CreateBootSectorTarget _target_name _asm_file _binary_file _base_addres
         COMMAND ${CMAKE_C_COMPILER} /nologo /X /I${REACTOS_SOURCE_DIR}/include/asm /I${REACTOS_BINARY_DIR}/include/asm /D__ASM__ /D_USE_ML /EP /c ${_asm_file} > ${_temp_file}
         DEPENDS ${_asm_file})
 
-    if(ARCH STREQUAL "arm")
-        set(_asm16_command ${CMAKE_ASM16_COMPILER} -nologo -o ${_object_file} ${_temp_file})
-    else()
-        set(_asm16_command ${CMAKE_ASM16_COMPILER} /nologo /Cp /Fo${_object_file} /c /Ta ${_temp_file})
-    endif()
-
     add_custom_command(
         OUTPUT ${_object_file}
-        COMMAND ${_asm16_command}
+        COMMAND ${CMAKE_ASM16_COMPILER} /nologo /Cp /Fo${_object_file} /c /Ta ${_temp_file}
         DEPENDS ${_temp_file})
 
     add_custom_command(
@@ -398,14 +361,9 @@ macro(add_asm_files _target)
                     list(APPEND _source_file_defines -D${_define})
                 endif()
             endforeach()
-            if(ARCH STREQUAL "arm")
-                set(_pp_asm_compile_command ${CMAKE_ASM_COMPILER} -nologo -o ${_object_file} ${_preprocessed_asm_file})
-            else()
-                set(_pp_asm_compile_command ${CMAKE_ASM_COMPILER} /nologo /Cp /Fo${_object_file} /c /Ta ${_preprocessed_asm_file})
-            endif()
             add_custom_command(
                 OUTPUT ${_preprocessed_asm_file} ${_object_file}
-                COMMAND cl /nologo /X /I${REACTOS_SOURCE_DIR}/include/asm /I${REACTOS_BINARY_DIR}/include/asm ${_directory_includes} ${_source_file_defines} ${_directory_defines} /D__ASM__ /D_USE_ML /EP /c ${_source_file_full_path} > ${_preprocessed_asm_file} && ${_pp_asm_compile_command}
+                COMMAND cl /nologo /X /I${REACTOS_SOURCE_DIR}/include/asm /I${REACTOS_BINARY_DIR}/include/asm ${_directory_includes} ${_source_file_defines} ${_directory_defines} /D__ASM__ /D_USE_ML /EP /c ${_source_file_full_path} > ${_preprocessed_asm_file} && ${CMAKE_ASM_COMPILER} /nologo /Cp /Fo${_object_file} /c /Ta ${_preprocessed_asm_file}
                 DEPENDS ${_source_file_full_path})
             set_source_files_properties(${_object_file} PROPERTIES EXTERNAL_OBJECT 1)
             list(APPEND ${_target} ${_object_file})

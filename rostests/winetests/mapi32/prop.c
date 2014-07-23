@@ -716,7 +716,7 @@ static void test_ScCountProps(void)
     GUID iids[4], *iid = iids;
     SCODE res;
     ULONG pt, exp, ulRet;
-    BOOL success = TRUE;
+    int success = 1;
 
     if (!pScCountProps)
     {

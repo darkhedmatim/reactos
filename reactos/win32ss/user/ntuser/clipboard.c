@@ -17,7 +17,7 @@ DBG_DEFAULT_CHANNEL(UserClipbrd);
 #define IS_DATA_DELAYED(ce)     ((ce)->hData == DATA_DELAYED)
 #define IS_DATA_SYNTHESIZED(ce) ((ce)->hData == DATA_SYNTH_USER || (ce)->hData == DATA_SYNTH_KRNL)
 
-static PWINSTATION_OBJECT FASTCALL
+PWINSTATION_OBJECT static FASTCALL
 IntGetWinStaForCbAccess(VOID)
 {
     HWINSTA hWinSta;
@@ -37,7 +37,7 @@ IntGetWinStaForCbAccess(VOID)
 }
 
 /* If format exists, returns a non zero value (pointing to formated object) */
-static PCLIP FASTCALL
+PCLIP static FASTCALL
 IntIsFormatAvailable(PWINSTATION_OBJECT pWinStaObj, UINT fmt)
 {
     unsigned i = 0;
@@ -51,7 +51,7 @@ IntIsFormatAvailable(PWINSTATION_OBJECT pWinStaObj, UINT fmt)
     return NULL;
 }
 
-static VOID FASTCALL
+VOID static FASTCALL
 IntFreeElementData(PCLIP pElement)
 {
     if (!IS_DATA_DELAYED(pElement) &&
@@ -69,7 +69,7 @@ IntFreeElementData(PCLIP pElement)
 }
 
 /* Adds a new format and data to the clipboard */
-static PCLIP NTAPI
+PCLIP static NTAPI
 IntAddFormatedData(PWINSTATION_OBJECT pWinStaObj, UINT fmt, HANDLE hData, BOOLEAN fGlobalHandle, BOOL bEnd)
 {
     PCLIP pElement = NULL;
@@ -121,7 +121,7 @@ IntAddFormatedData(PWINSTATION_OBJECT pWinStaObj, UINT fmt, HANDLE hData, BOOLEA
     return pElement;
 }
 
-static BOOL FASTCALL
+BOOL static FASTCALL
 IntIsClipboardOpenByMe(PWINSTATION_OBJECT pWinSta)
 {
     /* Check if current thread has opened the clipboard */
@@ -134,7 +134,7 @@ IntIsClipboardOpenByMe(PWINSTATION_OBJECT pWinSta)
     return FALSE;
 }
 
-static VOID NTAPI
+VOID static NTAPI
 IntSynthesizeDib(
     PWINSTATION_OBJECT pWinStaObj,
     HBITMAP hbm)
@@ -218,7 +218,7 @@ cleanup:
     UserReleaseDC(NULL, hdc, FALSE);
 }
 
-static VOID WINAPI
+VOID static WINAPI
 IntSynthesizeBitmap(PWINSTATION_OBJECT pWinStaObj, PCLIP pBmEl)
 {
     HDC hdc = NULL;
@@ -279,7 +279,7 @@ cleanup:
         DIB_FreeConvertedBitmapInfo(pConvertedBmi, pBmi, -1);
 }
 
-static VOID NTAPI
+VOID static NTAPI
 IntAddSynthesizedFormats(PWINSTATION_OBJECT pWinStaObj)
 {
     PCLIP pTextEl, pUniTextEl, pOemTextEl, pLocaleEl, pBmEl, pDibEl;
@@ -304,10 +304,10 @@ IntAddSynthesizedFormats(PWINSTATION_OBJECT pWinStaObj)
             pMemObj->cbData = sizeof(LCID);
             *((LCID*)pMemObj->Data) = NtCurrentTeb()->CurrentLocale;
             IntAddFormatedData(pWinStaObj, CF_LOCALE, hMem, TRUE, TRUE);
-
-            /* Release the extra reference (UserCreateObject added 2 references) */
-            UserDereferenceObject(pMemObj);
         }
+
+        /* Release the extra reference (UserCreateObject added 2 references) */
+        UserDereferenceObject(pMemObj);
     }
 
     /* Add CF_TEXT. Note: it is synthesized in user32.dll */

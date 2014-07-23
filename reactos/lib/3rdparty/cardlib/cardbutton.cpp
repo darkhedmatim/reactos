@@ -75,7 +75,7 @@ void CardButton::DrawRect(HDC hdc, RECT *rect, bool fNormal)
     if(fNormal)
         hOld = SelectObject(hdc, hhi);
     else
-        hOld = SelectObject(hdc, hsh);
+        hOld = SelectObject(hdc, hhi);
 
     MoveToEx(hdc, x, y+height, 0);
     LineTo(hdc, x, y);

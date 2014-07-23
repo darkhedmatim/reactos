@@ -921,22 +921,20 @@ NTSTATUS ElfrReportEventA(
     }
 
 Done:
-    if (StringsArrayW != NULL)
+    for (i = 0; i < NumStrings; i++)
     {
-        for (i = 0; i < NumStrings; i++)
+        if (StringsArrayW[i] != NULL)
         {
-            if (StringsArrayW[i] != NULL)
+            if (StringsArrayW[i]->Buffer)
             {
-                if (StringsArrayW[i]->Buffer)
-                {
-                    RtlFreeUnicodeString(StringsArrayW[i]);
-                    HeapFree(MyHeap, 0, StringsArrayW[i]);
-                }
+                RtlFreeUnicodeString(StringsArrayW[i]);
+                HeapFree(MyHeap, 0, StringsArrayW[i]);
             }
         }
-
-        HeapFree(MyHeap, 0, StringsArrayW);
     }
+
+    if (StringsArrayW != NULL)
+        HeapFree(MyHeap, 0, StringsArrayW);
 
     RtlFreeUnicodeString(&ComputerNameW);
 

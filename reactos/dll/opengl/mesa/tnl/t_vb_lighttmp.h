@@ -28,6 +28,13 @@
  */
 
 
+#if IDX & LIGHT_TWOSIDE
+#  define NR_SIDES 2
+#else
+#  define NR_SIDES 1
+#endif
+
+
 /* define TRACE to trace lighting code */
 /* #define TRACE 1 */
 
@@ -53,8 +60,10 @@ static void TAG(light_rgba_spec)( struct gl_context *ctx,
    const GLfloat *normal = (GLfloat *)VB->AttribPtr[_TNL_ATTRIB_NORMAL]->data;
 
    GLfloat (*Fcolor)[4] = (GLfloat (*)[4]) store->LitColor[0].data;
+   GLfloat (*Fspec)[4] = (GLfloat (*)[4]) store->LitSecondary[0].data;
 #if IDX & LIGHT_TWOSIDE
    GLfloat (*Bcolor)[4] = (GLfloat (*)[4]) store->LitColor[1].data;
+   GLfloat (*Bspec)[4] = (GLfloat (*)[4]) store->LitSecondary[1].data;
 #endif
 
    const GLuint nr = VB->Count;
@@ -63,11 +72,13 @@ static void TAG(light_rgba_spec)( struct gl_context *ctx,
    fprintf(stderr, "%s\n", __FUNCTION__ );
 #endif
 
-   VB->AttribPtr[_TNL_ATTRIB_COLOR] = &store->LitColor[0];
+   VB->AttribPtr[_TNL_ATTRIB_COLOR0] = &store->LitColor[0];
+   VB->AttribPtr[_TNL_ATTRIB_COLOR1] = &store->LitSecondary[0];
    sumA[0] = ctx->Light.Material.Attrib[MAT_ATTRIB_FRONT_DIFFUSE][3];
 
 #if IDX & LIGHT_TWOSIDE
    VB->BackfaceColorPtr = &store->LitColor[1];
+   VB->BackfaceSecondaryColorPtr = &store->LitSecondary[1];
    sumA[1] = ctx->Light.Material.Attrib[MAT_ATTRIB_BACK_DIFFUSE][3];
 #endif
 
@@ -209,10 +220,12 @@ static void TAG(light_rgba_spec)( struct gl_context *ctx,
       } /*loop over lights*/
 
       COPY_3V( Fcolor[j], sum[0] );
+      COPY_3V( Fspec[j], spec[0] );
       Fcolor[j][3] = sumA[0];
 
 #if IDX & LIGHT_TWOSIDE
       COPY_3V( Bcolor[j], sum[1] );
+      COPY_3V( Bspec[j], spec[1] );
       Bcolor[j][3] = sumA[1];
 #endif
    }
@@ -246,7 +259,7 @@ static void TAG(light_rgba)( struct gl_context *ctx,
    fprintf(stderr, "%s\n", __FUNCTION__ );
 #endif
 
-   VB->AttribPtr[_TNL_ATTRIB_COLOR] = &store->LitColor[0];
+   VB->AttribPtr[_TNL_ATTRIB_COLOR0] = &store->LitColor[0];
    sumA[0] = ctx->Light.Material.Attrib[MAT_ATTRIB_FRONT_DIFFUSE][3];
 
 #if IDX & LIGHT_TWOSIDE
@@ -436,7 +449,7 @@ static void TAG(light_fast_rgba_single)( struct gl_context *ctx,
 
    (void) input;		/* doesn't refer to Eye or Obj */
 
-   VB->AttribPtr[_TNL_ATTRIB_COLOR] = &store->LitColor[0];
+   VB->AttribPtr[_TNL_ATTRIB_COLOR0] = &store->LitColor[0];
 #if IDX & LIGHT_TWOSIDE
    VB->BackfaceColorPtr = &store->LitColor[1];
 #endif
@@ -546,7 +559,7 @@ static void TAG(light_fast_rgba)( struct gl_context *ctx,
    sumA[0] = ctx->Light.Material.Attrib[MAT_ATTRIB_FRONT_DIFFUSE][3];
    sumA[1] = ctx->Light.Material.Attrib[MAT_ATTRIB_BACK_DIFFUSE][3];
 
-   VB->AttribPtr[_TNL_ATTRIB_COLOR] = &store->LitColor[0];
+   VB->AttribPtr[_TNL_ATTRIB_COLOR0] = &store->LitColor[0];
 #if IDX & LIGHT_TWOSIDE
    VB->BackfaceColorPtr = &store->LitColor[1];
 #endif
@@ -635,3 +648,4 @@ static void TAG(init_light_tab)( void )
 
 #undef TAG
 #undef IDX
+#undef NR_SIDES

@@ -480,8 +480,8 @@ SockReenableAsyncSelectEvent (
 
 typedef VOID (*PASYNC_COMPLETION_ROUTINE)(PVOID Context, PIO_STATUS_BLOCK IoStatusBlock);
 
-FORCEINLINE
 DWORD
+FORCEINLINE
 MsafdReturnWithErrno(NTSTATUS Status,
                      LPINT Errno,
                      DWORD Received,

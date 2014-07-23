@@ -151,6 +151,13 @@ KiSwapContext(PKTHREAD CurrentThread, PKTHREAD NewThread)
     return TRUE;
 }
 
+NTSTATUS
+NTAPI
+Mmi386ReleaseMmInfo(PEPROCESS Process)
+{
+    return STATUS_UNSUCCESSFUL;
+}
+
 VOID
 NTAPI
 KeI386VdmInitialize(VOID)

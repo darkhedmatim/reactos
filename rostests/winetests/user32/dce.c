@@ -40,8 +40,7 @@ static void test_dc_attributes(void)
 {
     HDC hdc, old_hdc;
     HDC hdcs[20];
-    INT i, rop, def_rop;
-    BOOL found_dc;
+    INT i, rop, def_rop, found_dc;
 
     /* test cache DC */
 
@@ -60,7 +59,7 @@ static void test_dc_attributes(void)
     ReleaseDC( hwnd_cache, hdc );
     old_hdc = hdc;
 
-    found_dc = FALSE;
+    found_dc = 0;
     for (i = 0; i < 20; i++)
     {
         hdc = hdcs[i] = GetDCEx( hwnd_cache, 0, DCX_USESTYLE | DCX_NORESETATTRS );
@@ -69,7 +68,7 @@ static void test_dc_attributes(void)
         ok( rop == def_rop, "wrong ROP2 %d after release %p/%p\n", rop, old_hdc, hdc );
         if (hdc == old_hdc)
         {
-            found_dc = TRUE;
+            found_dc = 1;
             SetROP2( hdc, R2_WHITE );
         }
     }
@@ -582,7 +581,7 @@ START_TEST(dce)
     cls.cbWndExtra = 0;
     cls.hInstance = GetModuleHandleA(0);
     cls.hIcon = 0;
-    cls.hCursor = LoadCursorA(0, (LPCSTR)IDC_ARROW);
+    cls.hCursor = LoadCursorA(0, IDC_ARROW);
     cls.hbrBackground = GetStockObject(WHITE_BRUSH);
     cls.lpszMenuName = NULL;
     cls.lpszClassName = "cache_class";

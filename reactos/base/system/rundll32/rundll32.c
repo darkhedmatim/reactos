@@ -428,7 +428,6 @@ int WINAPI _tWinMain(
 
         if (!RegisterBlankClass(hInstance, hPrevInstance))
         {
-            FreeLibrary(hDll);
             return 0;
         }
         // Create a window so we can pass a window handle to

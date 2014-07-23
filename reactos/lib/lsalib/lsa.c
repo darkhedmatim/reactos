@@ -277,8 +277,6 @@ LsaLogonUser(HANDLE LsaHandle,
         return Status;
     }
 
-    *SubStatus = ApiMessage.LogonUser.Reply.SubStatus;
-
     if (!NT_SUCCESS(ApiMessage.Status))
     {
         return ApiMessage.Status;
@@ -289,6 +287,7 @@ LsaLogonUser(HANDLE LsaHandle,
     *LogonId = ApiMessage.LogonUser.Reply.LogonId;
     *Token = ApiMessage.LogonUser.Reply.Token;
     *Quotas = ApiMessage.LogonUser.Reply.Quotas;
+    *SubStatus = ApiMessage.LogonUser.Reply.SubStatus;
 
     return Status;
 }

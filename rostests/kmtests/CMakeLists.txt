@@ -22,18 +22,11 @@ list(APPEND COMMON_SOURCE
 # kmtest_drv.sys driver
 #
 list(APPEND KMTEST_DRV_SOURCE
-    kmtest_drv/guid.c
     kmtest_drv/kmtest_drv.c
     kmtest_drv/testlist.c
 
     example/Example.c
     example/KernelType.c
-    npfs/NpfsConnect.c
-    npfs/NpfsCreate.c
-    npfs/NpfsFileInfo.c
-    npfs/NpfsHelpers.c
-    npfs/NpfsReadWrite.c
-    npfs/NpfsVolumeInfo.c
     ntos_ex/ExCallback.c
     ntos_ex/ExDoubleList.c
     ntos_ex/ExFastMutex.c
@@ -47,7 +40,6 @@ list(APPEND KMTEST_DRV_SOURCE
     ntos_fsrtl/FsRtlExpression.c
     ntos_fsrtl/FsRtlMcb.c
     ntos_fsrtl/FsRtlTunnel.c
-    ntos_io/IoCreateFile.c
     ntos_io/IoDeviceInterface.c
     ntos_io/IoEvent.c
     ntos_io/IoInterrupt.c

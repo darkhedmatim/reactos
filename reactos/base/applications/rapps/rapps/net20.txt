@@ -1,5 +1,4 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = Microsoft .NET Framework Version 2.0 Redistributable Package
@@ -31,7 +30,7 @@ Description = Platforma Microsoft .NET versiunea 2.0 - Pachet redistributabl.
 Size = 22,42 Mo
 
 [Section.041f]
-Name = Microsoft .NET Çatısı Sürüm 2.0 Yeniden Dağıtılabilir Paket
+Name = Mikroyazılım .NET Çatısı Sürüm 2.0 Yeniden Dağıtılabilir Paket
 Licence = Bilinmiyor
-Description = Microsoft .NET Çatısı Sürüm 2.0 - Yeniden Dağıtılabilir Paket
+Description = Mikroyazılım .NET Çatısı Sürüm 2.0 - Yeniden Dağıtılabilir Paket
 Size = 22,42 MB

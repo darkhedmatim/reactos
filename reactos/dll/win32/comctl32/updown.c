@@ -135,16 +135,11 @@ static BOOL UPDOWN_OffsetVal(UPDOWN_INFO *infoPtr, int delta)
 		     (infoPtr->MaxVal < infoPtr->MinVal ? -1 : 1) *
 		     (infoPtr->MinVal - infoPtr->MaxVal) +
 		     (delta < 0 ? 1 : -1);
-        } else if ((infoPtr->MaxVal > infoPtr->MinVal && infoPtr->CurVal+delta > infoPtr->MaxVal)
-                || (infoPtr->MaxVal < infoPtr->MinVal && infoPtr->CurVal+delta < infoPtr->MaxVal)) {
-            delta = infoPtr->MaxVal - infoPtr->CurVal;
-        } else {
-            delta = infoPtr->MinVal - infoPtr->CurVal;
-        }
+        } else return FALSE;
     }
 
     infoPtr->CurVal += delta;
-    return delta != 0;
+    return TRUE;
 }
 
 /***********************************************************************
@@ -339,7 +334,7 @@ static BOOL UPDOWN_SetBuddyInt (const UPDOWN_INFO *infoPtr)
 
     /* if nothing changed exit earlier */
     GetWindowTextW(infoPtr->Buddy, txt_old, sizeof(txt_old)/sizeof(WCHAR));
-    if (lstrcmpiW(txt_old, txt) == 0) return FALSE;
+    if (lstrcmpiW(txt_old, txt) == 0) return 0;
 
     return SetWindowTextW(infoPtr->Buddy, txt);
 }
@@ -466,51 +461,6 @@ static LRESULT UPDOWN_KeyPressed(UPDOWN_INFO *infoPtr, int key)
     UPDOWN_DoAction (infoPtr, accel, arrow);
     return 0;
 }
-
-static int UPDOWN_GetPos(UPDOWN_INFO *infoPtr, BOOL *err)
-{
-    BOOL succ = UPDOWN_GetBuddyInt(infoPtr);
-    int val = infoPtr->CurVal;
-
-    if(!UPDOWN_InBounds(infoPtr, val)) {
-        if((infoPtr->MinVal < infoPtr->MaxVal && val < infoPtr->MinVal)
-                || (infoPtr->MinVal > infoPtr->MaxVal && val > infoPtr->MinVal))
-            val = infoPtr->MinVal;
-        else
-            val = infoPtr->MaxVal;
-
-        succ = FALSE;
-    }
-
-    if(err) *err = !succ;
-    return val;
-}
-
-static int UPDOWN_SetPos(UPDOWN_INFO *infoPtr, int pos)
-{
-    int ret = infoPtr->CurVal;
-
-    if(!UPDOWN_InBounds(infoPtr, pos)) {
-        if((infoPtr->MinVal < infoPtr->MaxVal && pos < infoPtr->MinVal)
-                || (infoPtr->MinVal > infoPtr->MaxVal && pos > infoPtr->MinVal))
-            pos = infoPtr->MinVal;
-        else
-            pos = infoPtr->MaxVal;
-    }
-
-    infoPtr->CurVal = pos;
-    UPDOWN_SetBuddyInt(infoPtr);
-
-    if(!UPDOWN_InBounds(infoPtr, ret)) {
-        if((infoPtr->MinVal < infoPtr->MaxVal && ret < infoPtr->MinVal)
-                || (infoPtr->MinVal > infoPtr->MaxVal && ret > infoPtr->MinVal))
-            ret = infoPtr->MinVal;
-        else
-            ret = infoPtr->MaxVal;
-    }
-    return ret;
-}
-
 
 /***********************************************************************
  * UPDOWN_SetRange
@@ -1094,15 +1044,22 @@ static LRESULT WINAPI UpDownWindowProc(HWND hwnd, UINT message, WPARAM wParam, L
 
 	case UDM_GETPOS:
 	{
-            BOOL err;
-            int pos;
-
-            pos = UPDOWN_GetPos(infoPtr, &err);
-            return MAKELONG(pos, err);
+	    BOOL ret = UPDOWN_GetBuddyInt (infoPtr);
+	    return MAKELONG(infoPtr->CurVal, ret ? 0 : 1);
 	}
 	case UDM_SETPOS:
 	{
-            return UPDOWN_SetPos(infoPtr, (short)LOWORD(lParam));
+	    int temp = (short)LOWORD(lParam);
+
+	    TRACE("UpDown Ctrl new value(%d), hwnd=%p\n", temp, hwnd);
+	    if(!UPDOWN_InBounds(infoPtr, temp)) {
+		if(temp < infoPtr->MinVal) temp = infoPtr->MinVal;
+		if(temp > infoPtr->MaxVal) temp = infoPtr->MaxVal;
+	    }
+	    wParam = infoPtr->CurVal;
+	    infoPtr->CurVal = temp;
+	    UPDOWN_SetBuddyInt (infoPtr);
+	    return wParam;            /* return prev value */
 	}
 	case UDM_GETRANGE:
 	    return MAKELONG(infoPtr->MaxVal, infoPtr->MinVal);
@@ -1126,11 +1083,22 @@ static LRESULT WINAPI UpDownWindowProc(HWND hwnd, UINT message, WPARAM wParam, L
 
 	case UDM_GETPOS32:
 	{
-            return UPDOWN_GetPos(infoPtr, (BOOL*)lParam);
+	    BOOL ret = UPDOWN_GetBuddyInt (infoPtr);
+	    if ((LPBOOL)lParam) *((LPBOOL)lParam) = !ret;
+	    return infoPtr->CurVal;
 	}
 	case UDM_SETPOS32:
 	{
-            return UPDOWN_SetPos(infoPtr, (int)lParam);
+	    int temp;
+
+	    if(!UPDOWN_InBounds(infoPtr, (int)lParam)) {
+		if((int)lParam < infoPtr->MinVal) lParam = infoPtr->MinVal;
+		if((int)lParam > infoPtr->MaxVal) lParam = infoPtr->MaxVal;
+	    }
+	    temp = infoPtr->CurVal;         /* save prev value   */
+	    infoPtr->CurVal = (int)lParam;  /* set the new value */
+	    UPDOWN_SetBuddyInt (infoPtr);
+	    return temp;                    /* return prev value */
 	}
 	case UDM_GETUNICODEFORMAT:
 	    /* we lie a bit here, we're always using Unicode internally */

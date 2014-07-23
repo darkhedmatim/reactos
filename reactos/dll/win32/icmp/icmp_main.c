@@ -179,7 +179,6 @@ HANDLE WINAPI IcmpCreateFile(VOID)
 
     icp=HeapAlloc(GetProcessHeap(), 0, sizeof(*icp));
     if (icp==NULL) {
-        closesocket(sid);
         SetLastError(IP_NO_RESOURCES);
         return INVALID_HANDLE_VALUE;
     }

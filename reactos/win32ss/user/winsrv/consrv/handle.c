@@ -377,6 +377,7 @@ ConSrvRemoveObject(PCONSOLE_PROCESS_DATA ProcessData,
                    HANDLE Handle)
 {
     ULONG Index = HandleToULong(Handle) >> 2;
+    PCONSOLE_IO_OBJECT Object;
 
     RtlEnterCriticalSection(&ProcessData->HandleTableLock);
 
@@ -385,7 +386,7 @@ ConSrvRemoveObject(PCONSOLE_PROCESS_DATA ProcessData,
     //         (ProcessData->HandleTable != NULL && ProcessData->HandleTableSize != 0) );
 
     if (Index >= ProcessData->HandleTableSize ||
-        ProcessData->HandleTable[Index].Object == NULL)
+        (Object = ProcessData->HandleTable[Index].Object) == NULL)
     {
         RtlLeaveCriticalSection(&ProcessData->HandleTableLock);
         return STATUS_INVALID_HANDLE;
@@ -648,9 +649,6 @@ ConSrvRemoveConsole(PCONSOLE_PROCESS_DATA ProcessData)
                               ProcessData->ConsoleHandle,
                               CONSOLE_RUNNING, TRUE))
     {
-        /* Retrieve the console leader process */
-        PCONSOLE_PROCESS_DATA ConsoleLeaderProcess = ConDrvGetConsoleLeaderProcess(Console);
-
         DPRINT("ConSrvRemoveConsole - Locking OK\n");
 
         /* Close all console handles and free the handles table */
@@ -659,37 +657,8 @@ ConSrvRemoveConsole(PCONSOLE_PROCESS_DATA ProcessData)
         /* Detach the process from the console */
         ProcessData->ConsoleHandle = NULL;
 
-        /* Remove the process from the console's list of processes */
+        /* Remove ourselves from the console's list of processes */
         RemoveEntryList(&ProcessData->ConsoleLink);
-
-        /* Check whether the console should send a last close notification */
-        if (Console->NotifyLastClose)
-        {
-            /* If we are removing the process which wants the last close notification... */
-            if (ProcessData == Console->NotifiedLastCloseProcess)
-            {
-                /* ... just reset the flag and the pointer... */
-                Console->NotifyLastClose = FALSE;
-                Console->NotifiedLastCloseProcess = NULL;
-            }
-            /*
-             * ... otherwise, if we are removing the console leader process
-             * (that cannot be the process wanting the notification, because
-             * the previous case already dealt with it)...
-             */
-            else if (ProcessData == ConsoleLeaderProcess)
-            {
-                /*
-                 * ... reset the flag first (so that we avoid multiple notifications)
-                 * and then send the last close notification.
-                 */
-                Console->NotifyLastClose = FALSE;
-                ConDrvConsoleCtrlEvent(CTRL_LAST_CLOSE_EVENT, Console->NotifiedLastCloseProcess);
-
-                /* Only now, reset the pointer */
-                Console->NotifiedLastCloseProcess = NULL;
-            }
-        }
 
         /* Update the internal info of the terminal */
         TermRefreshInternalInfo(Console);
@@ -719,11 +688,11 @@ CSR_API(SrvOpenConsole)
     PCONSOLE_PROCESS_DATA ProcessData = ConsoleGetPerProcessData(CsrGetClientThread()->Process);
     PCONSOLE Console;
 
-    DWORD DesiredAccess = OpenConsoleRequest->DesiredAccess;
+    DWORD DesiredAccess = OpenConsoleRequest->Access;
     DWORD ShareMode = OpenConsoleRequest->ShareMode;
     PCONSOLE_IO_OBJECT Object;
 
-    OpenConsoleRequest->Handle = INVALID_HANDLE_VALUE;
+    OpenConsoleRequest->ConsoleHandle = INVALID_HANDLE_VALUE;
 
     Status = ConSrvGetConsole(ProcessData, &Console, TRUE);
     if (!NT_SUCCESS(Status))
@@ -757,10 +726,10 @@ CSR_API(SrvOpenConsole)
     else
     {
         Status = ConSrvInsertObject(ProcessData,
-                                    &OpenConsoleRequest->Handle,
+                                    &OpenConsoleRequest->ConsoleHandle,
                                     Object,
                                     DesiredAccess,
-                                    OpenConsoleRequest->InheritHandle,
+                                    OpenConsoleRequest->Inheritable,
                                     ShareMode);
     }
 
@@ -777,12 +746,10 @@ CSR_API(SrvDuplicateHandle)
     PCONSOLE_PROCESS_DATA ProcessData = ConsoleGetPerProcessData(CsrGetClientThread()->Process);
     PCONSOLE Console;
 
-    HANDLE SourceHandle = DuplicateHandleRequest->SourceHandle;
-    ULONG Index = HandleToULong(SourceHandle) >> 2;
+    HANDLE ConsoleHandle = DuplicateHandleRequest->ConsoleHandle;
+    ULONG Index = HandleToULong(ConsoleHandle) >> 2;
     PCONSOLE_IO_HANDLE Entry;
     DWORD DesiredAccess;
-
-    DuplicateHandleRequest->TargetHandle = INVALID_HANDLE_VALUE;
 
     Status = ConSrvGetConsole(ProcessData, &Console, TRUE);
     if (!NT_SUCCESS(Status))
@@ -796,11 +763,11 @@ CSR_API(SrvDuplicateHandle)
     // ASSERT( (ProcessData->HandleTable == NULL && ProcessData->HandleTableSize == 0) ||
     //         (ProcessData->HandleTable != NULL && ProcessData->HandleTableSize != 0) );
 
-    if ( /** !IsConsoleHandle(SourceHandle)   || **/
+    if ( /** !IsConsoleHandle(ConsoleHandle)    || **/
         Index >= ProcessData->HandleTableSize ||
         (Entry = &ProcessData->HandleTable[Index])->Object == NULL)
     {
-        DPRINT1("Couldn't duplicate invalid handle 0x%p\n", SourceHandle);
+        DPRINT1("Couldn't duplicate invalid handle %p\n", ConsoleHandle);
         Status = STATUS_INVALID_HANDLE;
         goto Quit;
     }
@@ -811,12 +778,12 @@ CSR_API(SrvDuplicateHandle)
     }
     else
     {
-        DesiredAccess = DuplicateHandleRequest->DesiredAccess;
+        DesiredAccess = DuplicateHandleRequest->Access;
         /* Make sure the source handle has all the desired flags */
         if ((Entry->Access & DesiredAccess) == 0)
         {
-            DPRINT1("Handle 0x%p only has access %X; requested %X\n",
-                    SourceHandle, Entry->Access, DesiredAccess);
+            DPRINT1("Handle %p only has access %X; requested %X\n",
+                    ConsoleHandle, Entry->Access, DesiredAccess);
             Status = STATUS_INVALID_PARAMETER;
             goto Quit;
         }
@@ -824,10 +791,10 @@ CSR_API(SrvDuplicateHandle)
 
     /* Insert the new handle inside the process handles table */
     Status = ConSrvInsertObject(ProcessData,
-                                &DuplicateHandleRequest->TargetHandle,
+                                &DuplicateHandleRequest->ConsoleHandle, // Use the new handle value!
                                 Entry->Object,
                                 DesiredAccess,
-                                DuplicateHandleRequest->InheritHandle,
+                                DuplicateHandleRequest->Inheritable,
                                 Entry->ShareMode);
     if (NT_SUCCESS(Status) &&
         (DuplicateHandleRequest->Options & DUPLICATE_CLOSE_SOURCE))
@@ -845,100 +812,14 @@ Quit:
 
 CSR_API(SrvGetHandleInformation)
 {
-    NTSTATUS Status;
-    PCONSOLE_GETHANDLEINFO GetHandleInfoRequest = &((PCONSOLE_API_MESSAGE)ApiMessage)->Data.GetHandleInfoRequest;
-    PCONSOLE_PROCESS_DATA ProcessData = ConsoleGetPerProcessData(CsrGetClientThread()->Process);
-    PCONSOLE Console;
-
-    HANDLE Handle = GetHandleInfoRequest->Handle;
-    ULONG Index = HandleToULong(Handle) >> 2;
-    PCONSOLE_IO_HANDLE Entry;
-
-    Status = ConSrvGetConsole(ProcessData, &Console, TRUE);
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Can't get console\n");
-        return Status;
-    }
-
-    RtlEnterCriticalSection(&ProcessData->HandleTableLock);
-
-    ASSERT(ProcessData->HandleTable);
-    // ASSERT( (ProcessData->HandleTable == NULL && ProcessData->HandleTableSize == 0) ||
-    //         (ProcessData->HandleTable != NULL && ProcessData->HandleTableSize != 0) );
-
-    if (!IsConsoleHandle(Handle)              ||
-        Index >= ProcessData->HandleTableSize ||
-        (Entry = &ProcessData->HandleTable[Index])->Object == NULL)
-    {
-        Status = STATUS_INVALID_HANDLE;
-        goto Quit;
-    }
-
-    /*
-     * Retrieve the handle information flags. The console server
-     * doesn't support HANDLE_FLAG_PROTECT_FROM_CLOSE.
-     */
-    GetHandleInfoRequest->Flags = 0;
-    if (Entry->Inheritable) GetHandleInfoRequest->Flags |= HANDLE_FLAG_INHERIT;
-
-    Status = STATUS_SUCCESS;
-
-Quit:
-    RtlLeaveCriticalSection(&ProcessData->HandleTableLock);
-
-    ConSrvReleaseConsole(Console, TRUE);
-    return Status;
+    DPRINT1("%s not yet implemented\n", __FUNCTION__);
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 CSR_API(SrvSetHandleInformation)
 {
-    NTSTATUS Status;
-    PCONSOLE_SETHANDLEINFO SetHandleInfoRequest = &((PCONSOLE_API_MESSAGE)ApiMessage)->Data.SetHandleInfoRequest;
-    PCONSOLE_PROCESS_DATA ProcessData = ConsoleGetPerProcessData(CsrGetClientThread()->Process);
-    PCONSOLE Console;
-
-    HANDLE Handle = SetHandleInfoRequest->Handle;
-    ULONG Index = HandleToULong(Handle) >> 2;
-    PCONSOLE_IO_HANDLE Entry;
-
-    Status = ConSrvGetConsole(ProcessData, &Console, TRUE);
-    if (!NT_SUCCESS(Status))
-    {
-        DPRINT1("Can't get console\n");
-        return Status;
-    }
-
-    RtlEnterCriticalSection(&ProcessData->HandleTableLock);
-
-    ASSERT(ProcessData->HandleTable);
-    // ASSERT( (ProcessData->HandleTable == NULL && ProcessData->HandleTableSize == 0) ||
-    //         (ProcessData->HandleTable != NULL && ProcessData->HandleTableSize != 0) );
-
-    if (!IsConsoleHandle(Handle)              ||
-        Index >= ProcessData->HandleTableSize ||
-        (Entry = &ProcessData->HandleTable[Index])->Object == NULL)
-    {
-        Status = STATUS_INVALID_HANDLE;
-        goto Quit;
-    }
-
-    /*
-     * Modify the handle information flags. The console server
-     * doesn't support HANDLE_FLAG_PROTECT_FROM_CLOSE.
-     */
-    if (SetHandleInfoRequest->Mask & HANDLE_FLAG_INHERIT)
-    {
-        Entry->Inheritable = ((SetHandleInfoRequest->Flags & HANDLE_FLAG_INHERIT) != 0);
-    }
-
-    Status = STATUS_SUCCESS;
-
-Quit:
-    RtlLeaveCriticalSection(&ProcessData->HandleTableLock);
-
-    ConSrvReleaseConsole(Console, TRUE);
-    return Status;
+    DPRINT1("%s not yet implemented\n", __FUNCTION__);
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 CSR_API(SrvCloseHandle)
@@ -955,7 +836,7 @@ CSR_API(SrvCloseHandle)
         return Status;
     }
 
-    Status = ConSrvRemoveObject(ProcessData, CloseHandleRequest->Handle);
+    Status = ConSrvRemoveObject(ProcessData, CloseHandleRequest->ConsoleHandle);
 
     ConSrvReleaseConsole(Console, TRUE);
     return Status;
@@ -968,10 +849,8 @@ CSR_API(SrvVerifyConsoleIoHandle)
     PCONSOLE_PROCESS_DATA ProcessData = ConsoleGetPerProcessData(CsrGetClientThread()->Process);
     PCONSOLE Console;
 
-    HANDLE IoHandle = VerifyHandleRequest->Handle;
-    ULONG Index = HandleToULong(IoHandle) >> 2;
-
-    VerifyHandleRequest->IsValid = FALSE;
+    HANDLE ConsoleHandle = VerifyHandleRequest->ConsoleHandle;
+    ULONG Index = HandleToULong(ConsoleHandle) >> 2;
 
     Status = ConSrvGetConsole(ProcessData, &Console, TRUE);
     if (!NT_SUCCESS(Status))
@@ -985,21 +864,18 @@ CSR_API(SrvVerifyConsoleIoHandle)
     // ASSERT( (ProcessData->HandleTable == NULL && ProcessData->HandleTableSize == 0) ||
     //         (ProcessData->HandleTable != NULL && ProcessData->HandleTableSize != 0) );
 
-    if (!IsConsoleHandle(IoHandle)            ||
+    if (!IsConsoleHandle(ConsoleHandle)    ||
         Index >= ProcessData->HandleTableSize ||
         ProcessData->HandleTable[Index].Object == NULL)
     {
         DPRINT("SrvVerifyConsoleIoHandle failed\n");
-    }
-    else
-    {
-        VerifyHandleRequest->IsValid = TRUE;
+        Status = STATUS_INVALID_HANDLE;
     }
 
     RtlLeaveCriticalSection(&ProcessData->HandleTableLock);
 
     ConSrvReleaseConsole(Console, TRUE);
-    return STATUS_SUCCESS;
+    return Status;
 }
 
 /* EOF */

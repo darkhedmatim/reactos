@@ -2,7 +2,7 @@
  * Direct3D X 9 main file
  *
  * Copyright (C) 2007 David Adam
- * Copyright (C) 2009 Rico Schüller
+ * Copyright (C) 2009 Rico Schأ¼ller
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -20,21 +20,17 @@
  *
  */
 
-#define WIN32_NO_STATUS
-#define _INC_WINDOWS
-#define COM_NO_WINDOWS_H
-
-#include <config.h>
-//#include "wine/port.h"
+#include "config.h"
+#include "wine/port.h"
 
 #include <stdarg.h>
 
-#include <windef.h>
-#include <winbase.h>
-#include <wingdi.h>
-//#include "winuser.h"
+#include "windef.h"
+#include "winbase.h"
+#include "wingdi.h"
+#include "winuser.h"
 
-#include <d3dx9.h>
+#include "d3dx9.h"
 
 /***********************************************************************
  * DllMain.

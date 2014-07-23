@@ -37,7 +37,6 @@ double	[0-9]+\.[0-9]+([eE][+-]?[0-9]+)*
 %x WSTRQUOTE
 %x ATTR
 %x PP_LINE
-%x PP_PRAGMA
 %x SQUOTE
 
 %{
@@ -126,7 +125,6 @@ UUID *parse_uuid(const char *u)
  **************************************************************************
  */
 %%
-<INITIAL>^{ws}*\#{ws}*pragma{ws}+ yy_push_state(PP_PRAGMA);
 <INITIAL,ATTR>^{ws}*\#{ws}*	yy_push_state(PP_LINE);
 <PP_LINE>[^\n]*         {
                             int lineno;
@@ -146,8 +144,6 @@ UUID *parse_uuid(const char *u)
                             line_number = lineno - 1;  /* We didn't read the newline */
                             input_name = xstrdup(fname);
                         }
-<PP_PRAGMA>midl_echo[^\n]*  yyless(9); yy_pop_state(); return tCPPQUOTE;
-<PP_PRAGMA>[^\n]*       parser_lval.str = xstrdup(yytext); yy_pop_state(); return aPRAGMA;
 <INITIAL,ATTR>\"	yy_push_state(QUOTE); cbufidx = 0;
 <QUOTE>\"		{
 				yy_pop_state();
@@ -265,7 +261,6 @@ static const struct keyword keywords[] = {
 	{"long",			tLONG},
 	{"methods",			tMETHODS},
 	{"module",			tMODULE},
-	{"namespace",			tNAMESPACE},
 	{"pascal",			tPASCAL},
 	{"properties",			tPROPERTIES},
 	{"register",			tREGISTER},
@@ -419,7 +414,7 @@ static int kw_token(const char *kw)
 	struct keyword key, *kwp;
 	key.kw = kw;
 	kwp = bsearch(&key, keywords, NKEYWORDS, sizeof(keywords[0]), kw_cmp_func);
-	if (kwp && (do_rt_extension || kwp->token != tNAMESPACE)) {
+	if (kwp) {
 		parser_lval.str = xstrdup(kwp->kw);
 		return kwp->token;
 	}

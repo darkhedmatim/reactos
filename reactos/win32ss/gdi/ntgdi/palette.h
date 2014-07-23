@@ -65,7 +65,7 @@ NTAPI
 PALETTE_AllocPalette(
     _In_ ULONG iMode,
     _In_ ULONG cColors,
-    _In_opt_ const PALETTEENTRY* pEntries,
+    _In_opt_ PULONG pulColors,
     _In_ FLONG flRed,
     _In_ FLONG flGreen,
     _In_ FLONG flBlue);
@@ -75,7 +75,7 @@ NTAPI
 PALETTE_AllocPalWithHandle(
     _In_ ULONG iMode,
     _In_ ULONG cColors,
-    _In_opt_ const PALETTEENTRY* pEntries,
+    _In_opt_ PULONG pulColors,
     _In_ FLONG flRed,
     _In_ FLONG flGreen,
     _In_ FLONG flBlue);
@@ -117,12 +117,12 @@ PALETTE_vGetBitMasks(
     PPALETTE ppal,
     PULONG pulColors);
 
-VOID
+BOOL
 NTAPI
-PALETTE_vCleanup(PVOID ObjectBody);
+PALETTE_Cleanup(PVOID ObjectBody);
 
-FORCEINLINE
 ULONG
+FORCEINLINE
 CalculateShift(ULONG ulMask1, ULONG ulMask2)
 {
     ULONG ulShift1, ulShift2;

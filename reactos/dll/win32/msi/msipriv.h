@@ -501,7 +501,7 @@ typedef struct tagMSICOMPONENT
     int num_clients;
 
     unsigned int anyAbsent:1;
-    unsigned int hasAdvertisedFeature:1;
+    unsigned int hasAdvertiseFeature:1;
     unsigned int hasLocalFeature:1;
     unsigned int hasSourceFeature:1;
 } MSICOMPONENT;
@@ -628,7 +628,7 @@ typedef struct tagMSICLASS
     MSIFEATURE *Feature;
     INT Attributes;
     /* not in the table, set during installation */
-    INSTALLSTATE action;
+    BOOL Installed;
 } MSICLASS;
 
 typedef struct tagMSIMIME MSIMIME;
@@ -643,7 +643,7 @@ typedef struct tagMSIEXTENSION
     MSIMIME *Mime;
     MSIFEATURE *Feature;
     /* not in the table, set during installation */
-    INSTALLSTATE action;
+    BOOL Installed;
     struct list verbs;
 } MSIEXTENSION;
 
@@ -656,6 +656,7 @@ struct tagMSIPROGID
     LPWSTR Description;
     LPWSTR IconPath;
     /* not in the table, set during installation */
+    BOOL InstallMe;
     MSIPROGID *CurVer;
     MSIPROGID *VersionInd;
 };
@@ -677,6 +678,8 @@ struct tagMSIMIME
     LPWSTR suffix;
     LPWSTR clsid;
     MSICLASS *Class;
+    /* not in the table, set during installation */
+    BOOL InstallMe;
 };
 
 enum SCRIPTS
@@ -697,6 +700,7 @@ typedef struct tagMSISCRIPT
     LPWSTR  *Actions[SCRIPT_MAX];
     UINT    ActionCount[SCRIPT_MAX];
     BOOL    ExecuteSequenceRun;
+    BOOL    CurrentlyScripting;
     UINT    InWhatSequence;
     LPWSTR  *UniqueActions;
     UINT    UniqueActionsCount;

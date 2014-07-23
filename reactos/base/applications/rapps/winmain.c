@@ -18,6 +18,8 @@ HIMAGELIST hImageTreeView = NULL;
 INT SelectedEnumType = ENUM_ALL_COMPONENTS;
 SETTINGS_INFO SettingsInfo;
 
+PCWSTR (WINAPI *pStrStrIW)(PCWSTR, PCWSTR);
+
 WCHAR szSearchPattern[MAX_STR_LEN] = L"";
 BOOL SearchEnabled = TRUE;
 
@@ -27,7 +29,7 @@ SearchPatternMatch(PCWSTR szHaystack, PCWSTR szNeedle)
     if (!*szNeedle)
         return TRUE;
     /* TODO: Improve pattern search beyond a simple case-insensitive substring search. */
-    return StrStrIW(szHaystack, szNeedle) != NULL;
+    return pStrStrIW(szHaystack, szNeedle) != NULL;
 }
 
 VOID
@@ -115,7 +117,7 @@ FreeInstalledAppList(VOID)
 
 BOOL
 CALLBACK
-EnumInstalledAppProc(INT ItemIndex, LPWSTR lpName, PINSTALLED_INFO Info)
+EnumInstalledAppProc(INT ItemIndex, LPWSTR lpName, INSTALLED_INFO Info)
 {
     PINSTALLED_INFO ItemInfo;
     WCHAR szText[MAX_PATH];
@@ -127,7 +129,7 @@ EnumInstalledAppProc(INT ItemIndex, LPWSTR lpName, PINSTALLED_INFO Info)
     ItemInfo = HeapAlloc(GetProcessHeap(), 0, sizeof(INSTALLED_INFO));
     if (!ItemInfo) return FALSE;
 
-    RtlCopyMemory(ItemInfo, Info, sizeof(INSTALLED_INFO));
+    *ItemInfo = Info;
 
     Index = ListViewAddItem(ItemIndex, 0, lpName, (LPARAM)ItemInfo);
 
@@ -158,13 +160,13 @@ FreeAvailableAppList(VOID)
 
 BOOL
 CALLBACK
-EnumAvailableAppProc(PAPPLICATION_INFO Info)
+EnumAvailableAppProc(APPLICATION_INFO Info)
 {
     PAPPLICATION_INFO ItemInfo;
     INT Index;
 
-    if (!SearchPatternMatch(Info->szName, szSearchPattern) &&
-        !SearchPatternMatch(Info->szDesc, szSearchPattern))
+    if (!SearchPatternMatch(Info.szName, szSearchPattern) &&
+        !SearchPatternMatch(Info.szDesc, szSearchPattern))
     {
         return TRUE;
     }
@@ -173,16 +175,16 @@ EnumAvailableAppProc(PAPPLICATION_INFO Info)
          - no RegName was supplied (so we cannot determine whether the application is installed or not) or
          - a RegName was supplied and the application is not installed
     */
-    if (!*Info->szRegName || (!IsInstalledApplication(Info->szRegName, FALSE) && !IsInstalledApplication(Info->szRegName, TRUE)))
+    if (!*Info.szRegName || (!IsInstalledApplication(Info.szRegName, FALSE) && !IsInstalledApplication(Info.szRegName, TRUE)))
     {
         ItemInfo = HeapAlloc(GetProcessHeap(), 0, sizeof(APPLICATION_INFO));
         if (!ItemInfo) return FALSE;
 
-        RtlCopyMemory(ItemInfo, Info, sizeof(APPLICATION_INFO));
+        *ItemInfo = Info;
 
-        Index = ListViewAddItem(Info->Category, 0, Info->szName, (LPARAM)ItemInfo);
-        ListView_SetItemText(hListView, Index, 1, Info->szVersion);
-        ListView_SetItemText(hListView, Index, 2, Info->szDesc);
+        Index = ListViewAddItem(Info.Category, 0, Info.szName, (LPARAM)ItemInfo);
+        ListView_SetItemText(hListView, Index, 1, Info.szVersion);
+        ListView_SetItemText(hListView, Index, 2, Info.szDesc);
     }
 
     return TRUE;
@@ -904,6 +906,10 @@ wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nSh
     WCHAR szWindowName[MAX_STR_LEN];
     HANDLE hMutex = NULL;
     MSG Msg;
+
+    /* FIXME: CORE-7786 requires this to be loaded at runtime because we
+     *        would get comctl32's version otherwise */
+    pStrStrIW = (PVOID)GetProcAddress(GetModuleHandle(L"shlwapi"), "StrStrIW");
 
     switch (GetUserDefaultUILanguage())
     {

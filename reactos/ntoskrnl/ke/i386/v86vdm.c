@@ -465,7 +465,6 @@ ULONG_PTR
 FASTCALL
 KiExitV86Mode(IN PKTRAP_FRAME TrapFrame)
 {
-    ULONG_PTR StackFrameUnaligned;
     PKV8086_STACK_FRAME StackFrame;
     PKTHREAD Thread;
     PKTRAP_FRAME PmTrapFrame;
@@ -473,12 +472,10 @@ KiExitV86Mode(IN PKTRAP_FRAME TrapFrame)
     PFX_SAVE_AREA NpxFrame;
 
     /* Get the stack frame back */
-    StackFrameUnaligned = TrapFrame->Esi;
-    StackFrame = (PKV8086_STACK_FRAME)(ROUND_UP(StackFrameUnaligned - 4, 16) + 4);
+    StackFrame = CONTAINING_RECORD(TrapFrame->Esi, KV8086_STACK_FRAME, V86Frame);
     PmTrapFrame = &StackFrame->TrapFrame;
     V86Frame = &StackFrame->V86Frame;
     NpxFrame = &StackFrame->NpxArea;
-    ASSERT((ULONG_PTR)NpxFrame % 16 == 0);
 
     /* Copy the FPU frame back */
     Thread = KeGetCurrentThread();
@@ -496,20 +493,17 @@ KiExitV86Mode(IN PKTRAP_FRAME TrapFrame)
 
     /* Enable interrupts and return a pointer to the trap frame */
     _enable();
-    return StackFrameUnaligned;
+    return (ULONG)PmTrapFrame;
 }
 
 VOID
 FASTCALL
-KiEnterV86Mode(IN ULONG_PTR StackFrameUnaligned)
+KiEnterV86Mode(IN PKV8086_STACK_FRAME StackFrame)
 {
     PKTHREAD Thread;
-    PKV8086_STACK_FRAME StackFrame = (PKV8086_STACK_FRAME)(ROUND_UP(StackFrameUnaligned - 4, 16) + 4);
     PKTRAP_FRAME TrapFrame = &StackFrame->TrapFrame;
     PKV86_FRAME V86Frame = &StackFrame->V86Frame;
     PFX_SAVE_AREA NpxFrame = &StackFrame->NpxArea;
-
-    ASSERT((ULONG_PTR)NpxFrame % 16 == 0);
 
     /* Build fake user-mode trap frame */
     TrapFrame->SegCs = KGDT_R0_CODE | RPL_MASK;
@@ -528,7 +522,7 @@ KiEnterV86Mode(IN ULONG_PTR StackFrameUnaligned)
     TrapFrame->Eip = (ULONG_PTR)Ki386BiosCallReturnAddress;
 
     /* Save our stack (after the frames) */
-    TrapFrame->Esi = StackFrameUnaligned;
+    TrapFrame->Esi = (ULONG_PTR)V86Frame;
     TrapFrame->Edi = (ULONG_PTR)_AddressOfReturnAddress() + 4;
 
     /* Sanitize EFlags and enable interrupts */

@@ -65,6 +65,7 @@ static LONG obj_ref, class_ref, server_locks;
 
 static const char *debugstr_guid(const GUID *guid)
 {
+    static char buf[50];
     int i;
 
     if (!guid) return "(null)";
@@ -75,7 +76,11 @@ static const char *debugstr_guid(const GUID *guid)
             return guid_name[i].name;
     }
 
-    return wine_dbgstr_guid(guid);
+    sprintf(buf, "{%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
+            guid->Data1, guid->Data2, guid->Data3, guid->Data4[0],
+            guid->Data4[1], guid->Data4[2], guid->Data4[3], guid->Data4[4],
+            guid->Data4[5], guid->Data4[6], guid->Data4[7]);
+    return buf;
 }
 
 /******************************* OLE server *******************************/
@@ -253,9 +258,9 @@ static void ole_server(void)
         {
             HANDLE done_event, init_done_event;
 
-            done_event = OpenEventA(SYNCHRONIZE, FALSE, "ole_server_done_event");
+            done_event = OpenEvent(SYNCHRONIZE, FALSE, "ole_server_done_event");
             ok(done_event != 0, "server: OpenEvent error %d\n", GetLastError());
-            init_done_event = OpenEventA(EVENT_MODIFY_STATE, FALSE, "ole_server_init_done_event");
+            init_done_event = OpenEvent(EVENT_MODIFY_STATE, FALSE, "ole_server_init_done_event");
             ok(init_done_event != 0, "server: OpenEvent error %d\n", GetLastError());
 
             SetEvent(init_done_event);
@@ -295,8 +300,8 @@ static BOOL register_server(const char *server, BOOL inproc_handler)
     WCHAR buf[39 + 6];
     char server_path[MAX_PATH];
 
-    lstrcpyA(server_path, server);
-    lstrcatA(server_path, " ole_server");
+    lstrcpy(server_path, server);
+    lstrcat(server_path, " ole_server");
 
     lstrcpyW(buf, clsidW);
     StringFromGUID2(&CLSID_WineTestObject, buf + 6, 39);
@@ -305,12 +310,12 @@ static BOOL register_server(const char *server, BOOL inproc_handler)
                           KEY_READ | KEY_WRITE | KEY_CREATE_SUB_KEY, NULL, &root, NULL);
     if (ret == ERROR_SUCCESS)
     {
-        ret = RegSetValueA(root, "LocalServer32", REG_SZ, server_path, strlen(server_path));
+        ret = RegSetValue(root, "LocalServer32", REG_SZ, server_path, strlen(server_path));
         ok(ret == ERROR_SUCCESS, "RegSetValue error %u\n", ret);
 
         if (inproc_handler)
         {
-            ret = RegSetValueA(root, "InprocHandler32", REG_SZ, "ole32.dll", 9);
+            ret = RegSetValue(root, "InprocHandler32", REG_SZ, "ole32.dll", 9);
             ok(ret == ERROR_SUCCESS, "RegSetValue error %u\n", ret);
         }
 
@@ -334,11 +339,11 @@ static void unregister_server(void)
                           DELETE, NULL, &root, NULL);
     if (ret == ERROR_SUCCESS)
     {
-        ret = RegDeleteKeyA(root, "InprocHandler32");
+        ret = RegDeleteKey(root, "InprocHandler32");
         ok(ret == ERROR_SUCCESS, "RegDeleteKey error %u\n", ret);
-        ret = RegDeleteKeyA(root, "LocalServer32");
+        ret = RegDeleteKey(root, "LocalServer32");
         ok(ret == ERROR_SUCCESS, "RegDeleteKey error %u\n", ret);
-        ret = RegDeleteKeyA(root, "");
+        ret = RegDeleteKey(root, "");
         ok(ret == ERROR_SUCCESS, "RegDeleteKey error %u\n", ret);
         RegCloseKey(root);
     }
@@ -347,7 +352,7 @@ static void unregister_server(void)
 static HANDLE start_server(const char *argv0)
 {
     PROCESS_INFORMATION pi;
-    STARTUPINFOA si;
+    STARTUPINFO si;
     SECURITY_ATTRIBUTES sa;
     char cmdline[MAX_PATH * 2];
     BOOL ret;
@@ -364,7 +369,7 @@ static HANDLE start_server(const char *argv0)
     sa.bInheritHandle = TRUE;
 
     sprintf(cmdline, "\"%s\" ole_server -server", argv0);
-    ret = CreateProcessA(argv0, cmdline, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
+    ret = CreateProcess(argv0, cmdline, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
     ok(ret, "CreateProcess(%s) error %d\n", cmdline, GetLastError());
     if (!ret) return 0;
 
@@ -386,26 +391,26 @@ START_TEST(ole_server)
     int argc;
     char **argv;
 
-    mapping = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 4096, "winetest_ole_server");
+    mapping = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 4096, "winetest_ole_server");
     ok(mapping != 0, "CreateFileMapping failed\n");
     info = MapViewOfFile(mapping, FILE_MAP_READ|FILE_MAP_WRITE, 0, 0, 4096);
 
     argc = winetest_get_mainargs(&argv);
 
-    done_event = CreateEventA(NULL, TRUE, FALSE, "ole_server_done_event");
+    done_event = CreateEvent(NULL, TRUE, FALSE, "ole_server_done_event");
     ok(done_event != 0, "CreateEvent error %d\n", GetLastError());
-    init_done_event = CreateEventA(NULL, TRUE, FALSE, "ole_server_init_done_event");
+    init_done_event = CreateEvent(NULL, TRUE, FALSE, "ole_server_init_done_event");
     ok(init_done_event != 0, "CreateEvent error %d\n", GetLastError());
 
     if (argc > 2)
     {
-        if (!lstrcmpiA(argv[2], "-Embedding"))
+        if (!lstrcmpi(argv[2], "-Embedding"))
         {
             trace("server: Refusing to be run by ole32\n");
             return;
         }
 
-        if (!lstrcmpiA(argv[2], "-server"))
+        if (!lstrcmpi(argv[2], "-server"))
         {
             info->child_failures = 0;
             ole_server();

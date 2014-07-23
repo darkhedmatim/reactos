@@ -19,7 +19,7 @@
 
 /* GLOBALS ******************************************************************/
 
-POBJECT_TYPE ExSemaphoreObjectType;
+POBJECT_TYPE _ExSemaphoreObjectType;
 
 GENERIC_MAPPING ExSemaphoreMapping =
 {

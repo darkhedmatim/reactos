@@ -19,3 +19,4 @@ list(APPEND SOURCE
 add_library(rossym ${SOURCE})
 add_pch(rossym precomp.h)
 add_dependencies(rossym psdk bugcodes)
+allow_warnings(rossym)

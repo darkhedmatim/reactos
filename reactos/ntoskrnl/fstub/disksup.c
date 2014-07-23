@@ -1655,8 +1655,7 @@ xHalIoReadPartitionTable(IN PDEVICE_OBJECT DeviceObject,
                     UInt32x32To64(GET_PARTITION_LENGTH(PartitionDescriptor),
                                   SectorSize);
 
-                // BUGBUGBUG: The correct partition numbers seem to cause boot failures!!!
-//                PartitionInfo->PartitionNumber = (!IsContainerPartition(PartitionType)) ? i : 0;
+                /* FIXME: REACTOS HACK */
                 PartitionInfo->PartitionNumber = i + 1;
             }
             else
@@ -1668,6 +1667,7 @@ xHalIoReadPartitionTable(IN PDEVICE_OBJECT DeviceObject,
                 PartitionInfo->PartitionLength.QuadPart = 0;
                 PartitionInfo->HiddenSectors = 0;
 
+                /* FIXME: REACTOS HACK */
                 PartitionInfo->PartitionNumber = 0;
             }
         }
@@ -1787,11 +1787,7 @@ xHalIoReadPartitionTable(IN PDEVICE_OBJECT DeviceObject,
 
     /* Free the buffer and check for success */
     if (Buffer) ExFreePoolWithTag(Buffer, TAG_FILE_SYSTEM);
-    if (!NT_SUCCESS(Status))
-    {
-        ExFreePoolWithTag(*PartitionBuffer, TAG_FILE_SYSTEM);
-        *PartitionBuffer = NULL;
-    }
+    if (!NT_SUCCESS(Status)) ExFreePoolWithTag(*PartitionBuffer, TAG_FILE_SYSTEM);
 
     /* Return status */
     return Status;

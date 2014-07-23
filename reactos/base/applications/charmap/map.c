@@ -228,9 +228,8 @@ SetFont(PMAP infoPtr,
     ReleaseDC(infoPtr->hMapWnd, hdc);
 
     infoPtr->CurrentFont.lfCharSet =  DEFAULT_CHARSET;
-    wcsncpy(infoPtr->CurrentFont.lfFaceName,
-            lpFontName,
-            sizeof(infoPtr->CurrentFont.lfFaceName) / sizeof(infoPtr->CurrentFont.lfFaceName[0]));
+    wcscpy(infoPtr->CurrentFont.lfFaceName,
+           lpFontName);
 
     infoPtr->hFont = CreateFontIndirectW(&infoPtr->CurrentFont);
 

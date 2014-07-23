@@ -117,8 +117,6 @@ InitiateSystemShutdownExW(LPWSTR lpMachineName,
     NTSTATUS Status;
     ULONG Timeout_ms;
 
-    DBG_UNREFERENCED_LOCAL_VARIABLE(Timeout_ms);
-
     /* Convert to milliseconds so we can use the value later on */
     Timeout_ms = dwTimeout * 1000;
 
@@ -219,7 +217,7 @@ InitiateSystemShutdownExA(LPSTR lpMachineName,
 
 /******************************************************************************
  * InitiateShutdownW [ADVAPI32.@]
- *
+ * 
  * @unimplamented
  */
 DWORD WINAPI
@@ -235,7 +233,7 @@ InitiateShutdownW(LPWSTR lpMachineName,
 
 /******************************************************************************
  * InitiateShutdownA [ADVAPI32.@]
- *
+ * 
  * see InitiateShutdownW
  */
 DWORD WINAPI

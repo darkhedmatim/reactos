@@ -1,4 +1,4 @@
-/* TRANSLATOR: 2013 Erdem Ersoy (eersoy93) (erdemersoy@live.com) */
+/* TRANSLATOR: 2013 - Erdem Ersoy (eersoy93) (erdemersoy@live.com) */
 
 LANGUAGE LANG_TURKISH, SUBLANG_DEFAULT
 
@@ -14,11 +14,11 @@ BEGIN
     GROUPBOX "Göstergeç Ayarları", IDS_MONITORSETTINGSGROUP, 7, 58, 237, 63
     LTEXT "&Görüntülük Yenileme Sıklığı:", IDS_REFRESHRATELABEL, 13, 73, 225, 8
     COMBOBOX IDC_REFRESHRATE, 13, 85, 225, 200, WS_VSCROLL | CBS_DROPDOWNLIST | CBS_SORT
-    AUTOCHECKBOX "&Bu Görüntülüğün Görüntüleyemeyeceği Kipleri Gizle", IDC_PRUNINGCHECK, 13, 106, 225, 10
+    AUTOCHECKBOX "G&örüntülüğün Görüntüleyemeyeceği Kipleri Gösterme", IDC_PRUNINGCHECK, 13, 106, 225, 10
 END
 
 STRINGTABLE
 BEGIN
-    IDS_USEDEFFRQUENCY "Ön Tanımlı Donanım Ayarlarını Kullan"
+    IDS_USEDEFFRQUENCY "Öntanımlı Donanım Ayarlarını Kullan"
     IDS_FREQFMT "%u Hertz"
 END

@@ -22,7 +22,6 @@ KMT_TESTFUNC Test_ExTimer;
 KMT_TESTFUNC Test_FsRtlExpression;
 KMT_TESTFUNC Test_FsRtlMcb;
 KMT_TESTFUNC Test_FsRtlTunnel;
-KMT_TESTFUNC Test_IoCreateFile;
 KMT_TESTFUNC Test_IoDeviceInterface;
 KMT_TESTFUNC Test_IoEvent;
 KMT_TESTFUNC Test_IoInterrupt;
@@ -39,11 +38,6 @@ KMT_TESTFUNC Test_KeProcessor;
 KMT_TESTFUNC Test_KeTimer;
 KMT_TESTFUNC Test_KernelType;
 KMT_TESTFUNC Test_MmSection;
-KMT_TESTFUNC Test_NpfsConnect;
-KMT_TESTFUNC Test_NpfsCreate;
-KMT_TESTFUNC Test_NpfsFileInfo;
-KMT_TESTFUNC Test_NpfsReadWrite;
-KMT_TESTFUNC Test_NpfsVolumeInfo;
 KMT_TESTFUNC Test_ObReference;
 KMT_TESTFUNC Test_ObType;
 KMT_TESTFUNC Test_ObTypeClean;
@@ -79,7 +73,6 @@ const KMT_TEST TestList[] =
     /* Skipped on testman. See ROSTESTS-106. */
     { "-FsRtlMcb",                          Test_FsRtlMcb },
     { "-FsRtlTunnel",                       Test_FsRtlTunnel },
-    { "IoCreateFile",                       Test_IoCreateFile },
     { "IoDeviceInterface",                  Test_IoDeviceInterface },
     { "IoEvent",                            Test_IoEvent },
     { "IoInterrupt",                        Test_IoInterrupt },
@@ -96,11 +89,6 @@ const KMT_TEST TestList[] =
     { "KeTimer",                            Test_KeTimer },
     { "-KernelType",                        Test_KernelType },
     { "MmSection",                          Test_MmSection },
-    { "NpfsConnect",                        Test_NpfsConnect },
-    { "NpfsCreate",                         Test_NpfsCreate },
-    { "NpfsFileInfo",                       Test_NpfsFileInfo },
-    { "NpfsReadWrite",                      Test_NpfsReadWrite },
-    { "NpfsVolumeInfo",                     Test_NpfsVolumeInfo },
     { "ObReference",                        Test_ObReference },
     { "ObType",                             Test_ObType },
     { "-ObTypeClean",                       Test_ObTypeClean },

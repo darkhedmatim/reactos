@@ -437,7 +437,7 @@ SystemProcessTest(VOID)
         goto cleanup;
     }
 
-    Status = ObReferenceObjectByHandle(Thread1, THREAD_ALL_ACCESS, *PsThreadType, KernelMode, &ThreadObjects[0], NULL);
+    Status = ObReferenceObjectByHandle(Thread1, THREAD_ALL_ACCESS, PsThreadType, KernelMode, &ThreadObjects[0], NULL);
     if (!NT_SUCCESS(Status))
     {
         trace("error referencing thread1\n");
@@ -451,7 +451,7 @@ SystemProcessTest(VOID)
         goto cleanup;
     }
 
-    Status = ObReferenceObjectByHandle(Thread2, THREAD_ALL_ACCESS, *PsThreadType, KernelMode, &ThreadObjects[1], NULL);
+    Status = ObReferenceObjectByHandle(Thread2, THREAD_ALL_ACCESS, PsThreadType, KernelMode, &ThreadObjects[1], NULL);
     if (!NT_SUCCESS(Status))
     {
         trace("error referencing thread2\n");

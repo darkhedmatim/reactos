@@ -387,7 +387,7 @@
 @ stdcall GrayStringA(long long ptr long long long long long long)
 @ stdcall GrayStringW(long long ptr long long long long long long)
 @ stdcall HideCaret(long) NtUserHideCaret
-@ stdcall HiliteMenuItem(long long long long) ; Use both ReactOS and wine  NtUserHiliteMenuItem
+@ stdcall HiliteMenuItem(long long long long) NtUserHiliteMenuItem
 @ stdcall IMPGetIMEA(long ptr)
 @ stdcall IMPGetIMEW(long ptr)
 @ stdcall IMPQueryIMEA(ptr)
@@ -427,17 +427,16 @@
 @ stdcall IsHungAppWindow(long)
 @ stdcall IsIconic(long)
 @ stdcall IsMenu(long)
-@ stdcall -stub IsProcess16Bit()
 @ stdcall IsRectEmpty(ptr)
-@ stdcall IsSETEnabled()
 @ stdcall IsServerSideWindow(long)
+@ stdcall IsSETEnabled()
 @ stdcall IsWinEventHookInstalled(long)
 @ stdcall IsWindow(long)
 @ stdcall IsWindowEnabled(long)
 @ stdcall IsWindowInDestroy(long)
 @ stdcall IsWindowUnicode(long)
 @ stdcall IsWindowVisible(long)
-@ stdcall -stub IsWow64Message()
+# @ stub IsWow64Message
 @ stdcall IsZoomed(long)
 @ stdcall KillSystemTimer(long long)
 @ stdcall KillTimer(long long) NtUserKillTimer
@@ -732,12 +731,16 @@
 @ stdcall WinHelpW(long wstr long long)
 @ stdcall WindowFromDC(long)
 @ stdcall WindowFromPoint(double)
+@ stdcall WindowFromPhysicalPoint(double) NtUserWindowFromPhysicalPoint
 @ stdcall keybd_event(long long long long)
 @ stdcall mouse_event(long long long long long)
 @ varargs wsprintfA(str str)
 @ varargs wsprintfW(wstr wstr)
 @ stdcall wvsprintfA(ptr str ptr)
 @ stdcall wvsprintfW(ptr wstr ptr)
+
+; Functions exported by Win Vista
+@ stdcall SetProcessDPIAware()
 
 ; Unknown and undocumented functions
 ; @ stdcall CalcChildScroll(long long)

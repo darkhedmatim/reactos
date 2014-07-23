@@ -90,11 +90,10 @@ struct dxgi_factory
     LONG refcount;
     struct wined3d *wined3d;
     UINT adapter_count;
-    IWineDXGIAdapter **adapters;
-    BOOL extended;
+    IDXGIAdapter **adapters;
 };
 
-HRESULT dxgi_factory_create(REFIID riid, void **factory, BOOL extended) DECLSPEC_HIDDEN;
+HRESULT dxgi_factory_init(struct dxgi_factory *factory) DECLSPEC_HIDDEN;
 
 /* IDXGIDevice */
 struct dxgi_device

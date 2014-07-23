@@ -297,9 +297,9 @@ COpenWithList::SApp *COpenWithList::AddInternal(LPCWSTR pwszFilename)
 
     /* Create new item */
     if (!m_pApp)
-        m_pApp = static_cast<SApp *>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(m_pApp[0])));
+        m_pApp = (SApp*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(m_pApp[0]));
     else
-        m_pApp = static_cast<SApp *>(HeapReAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, m_pApp, (m_cApp + 1)*sizeof(m_pApp[0])));
+        m_pApp = (SApp*)HeapReAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, m_pApp, (m_cApp + 1)*sizeof(m_pApp[0]));
     if (!m_pApp)
     {
         ERR("Allocation failed\n");
@@ -754,15 +754,14 @@ BOOL COpenWithList::SetDefaultHandler(SApp *pApp, LPCWSTR pwszFilename)
     }
 
     /* Copy static verbs from Classes\Applications key */
-    /* FIXME: SHCopyKey does not copy the security attributes of the keys */
-    LSTATUS Result = SHCopyKeyW(hSrcKey, NULL, hDestKey, 0);
+    LONG Result = RegCopyTreeW(hSrcKey, NULL, hDestKey);
     RegCloseKey(hDestKey);
     RegCloseKey(hSrcKey);
     RegCloseKey(hKey);
 
     if (Result != ERROR_SUCCESS)
     {
-        ERR("SHCopyKeyW failed\n");
+        ERR("RegCopyTreeW failed\n");
         return FALSE;
     }
 
@@ -990,13 +989,13 @@ VOID COpenWithDialog::Accept()
 
 INT_PTR CALLBACK COpenWithDialog::DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    COpenWithDialog *pThis = reinterpret_cast<COpenWithDialog *>(GetWindowLongPtr(hwndDlg, DWLP_USER));
+    COpenWithDialog *pThis = (COpenWithDialog*)GetWindowLongPtr(hwndDlg, DWLP_USER);
 
     switch(uMsg)
     {
         case WM_INITDIALOG:
         {
-            COpenWithDialog *pThis = reinterpret_cast<COpenWithDialog *>(lParam);
+            COpenWithDialog *pThis = (COpenWithDialog*)lParam;
 
             pThis->Init(hwndDlg);
             return TRUE;

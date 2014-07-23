@@ -56,7 +56,7 @@ CdfsMakeAbsoluteFilename(PFILE_OBJECT FileObject,
     }
 
     /* construct absolute path name */
-    Length = Fcb->PathName.Length +
+    Length = (wcslen(Fcb->PathName) * sizeof(WCHAR)) +
         sizeof(WCHAR) +
         RelativeFileName->Length +
         sizeof(WCHAR);
@@ -69,8 +69,8 @@ CdfsMakeAbsoluteFilename(PFILE_OBJECT FileObject,
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
-    Status = RtlAppendUnicodeStringToString(AbsoluteFileName,
-        &Fcb->PathName);
+    Status = RtlAppendUnicodeToString(AbsoluteFileName,
+        Fcb->PathName);
     if (!NT_SUCCESS(Status))
     {
         RtlFreeUnicodeString(AbsoluteFileName);

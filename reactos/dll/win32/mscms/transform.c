@@ -60,7 +60,7 @@ static DWORD from_profile( HPROFILE profile )
 
 static DWORD from_bmformat( BMFORMAT format )
 {
-    static BOOL quietfixme = FALSE;
+    static int quietfixme = 0;
     TRACE( "bitmap format: 0x%08x\n", format );
 
     switch (format)
@@ -71,10 +71,10 @@ static DWORD from_bmformat( BMFORMAT format )
     case BM_xRGBQUADS:   return TYPE_ARGB_8;
     case BM_xBGRQUADS:   return TYPE_ABGR_8;
     default:
-        if (!quietfixme)
+        if (quietfixme == 0)
         {
             FIXME("unhandled bitmap format 0x%x\n", format);
-            quietfixme = TRUE;
+            quietfixme = 1;
         }
         return TYPE_RGB_8;
     }

@@ -8,9 +8,9 @@ list(APPEND SOURCE
     pnp.c
     power.c
     screen.c
-    green.h)
+    green.rc)
 
-add_library(green SHARED ${SOURCE} green.rc)
+add_library(green SHARED ${SOURCE})
 add_pch(green green.h SOURCE)
 set_module_type(green kernelmodedriver)
 add_importlibs(green ntoskrnl hal)

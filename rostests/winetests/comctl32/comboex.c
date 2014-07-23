@@ -53,37 +53,37 @@ static HWND createComboEx(DWORD style) {
             hComboExParentWnd, NULL, hMainHinst, NULL);
 }
 
-static LONG addItem(HWND cbex, int idx, const char *text) {
-    COMBOBOXEXITEMA cbexItem;
+static LONG addItem(HWND cbex, int idx, LPTSTR text) {
+    COMBOBOXEXITEM cbexItem;
     memset(&cbexItem, 0x00, sizeof(cbexItem));
     cbexItem.mask = CBEIF_TEXT;
     cbexItem.iItem = idx;
-    cbexItem.pszText    = (char*)text;
+    cbexItem.pszText    = text;
     cbexItem.cchTextMax = 0;
-    return SendMessageA(cbex, CBEM_INSERTITEMA, 0, (LPARAM)&cbexItem);
+    return SendMessage(cbex, CBEM_INSERTITEM, 0, (LPARAM)&cbexItem);
 }
 
-static LONG setItem(HWND cbex, int idx, const char *text) {
-    COMBOBOXEXITEMA cbexItem;
+static LONG setItem(HWND cbex, int idx, LPTSTR text) {
+    COMBOBOXEXITEM cbexItem;
     memset(&cbexItem, 0x00, sizeof(cbexItem));
     cbexItem.mask = CBEIF_TEXT;
     cbexItem.iItem = idx;
-    cbexItem.pszText    = (char*)text;
+    cbexItem.pszText    = text;
     cbexItem.cchTextMax = 0;
-    return SendMessageA(cbex, CBEM_SETITEMA, 0, (LPARAM)&cbexItem);
+    return SendMessage(cbex, CBEM_SETITEM, 0, (LPARAM)&cbexItem);
 }
 
 static LONG delItem(HWND cbex, int idx) {
-    return SendMessageA(cbex, CBEM_DELETEITEM, idx, 0);
+    return SendMessage(cbex, CBEM_DELETEITEM, idx, 0);
 }
 
-static LONG getItem(HWND cbex, int idx, COMBOBOXEXITEMA *cbItem) {
-    memset(cbItem, 0x00, sizeof(COMBOBOXEXITEMA));
+static LONG getItem(HWND cbex, int idx, COMBOBOXEXITEM *cbItem) {
+    memset(cbItem, 0x00, sizeof(COMBOBOXEXITEM));
     cbItem->mask = CBEIF_TEXT;
     cbItem->pszText      = textBuffer;
     cbItem->iItem        = idx;
     cbItem->cchTextMax   = 100;
-    return SendMessageA(cbex, CBEM_GETITEMA, 0, (LPARAM)cbItem);
+    return SendMessage(cbex, CBEM_GETITEM, 0, (LPARAM)cbItem);
 }
 
 static LRESULT WINAPI editbox_subclass_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -122,7 +122,7 @@ static HWND subclass_editbox(HWND hwndComboEx)
     WNDPROC oldproc;
     HWND hwnd;
 
-    hwnd = (HWND)SendMessageA(hwndComboEx, CBEM_GETEDITCONTROL, 0, 0);
+    hwnd = (HWND)SendMessage(hwndComboEx, CBEM_GETEDITCONTROL, 0, 0);
     oldproc = (WNDPROC)SetWindowLongPtrA(hwnd, GWLP_WNDPROC,
                                          (LONG_PTR)editbox_subclass_proc);
     SetWindowLongPtrA(hwnd, GWLP_USERDATA, (LONG_PTR)oldproc);
@@ -133,13 +133,15 @@ static HWND subclass_editbox(HWND hwndComboEx)
 static void test_comboboxex(void) {
     HWND myHwnd = 0;
     LONG res = -1;
-    COMBOBOXEXITEMA cbexItem;
-    static const char *first_item  = "First Item",
-                *second_item = "Second Item",
-                *third_item  = "Third Item",
-                *middle_item = "Between First and Second Items",
-                *replacement_item = "Between First and Second Items",
-                *out_of_range_item = "Out of Range Item";
+    COMBOBOXEXITEM cbexItem;
+    static TCHAR first_item[]        = {'F','i','r','s','t',' ','I','t','e','m',0},
+                 second_item[]       = {'S','e','c','o','n','d',' ','I','t','e','m',0},
+                 third_item[]        = {'T','h','i','r','d',' ','I','t','e','m',0},
+                 middle_item[]       = {'B','e','t','w','e','e','n',' ','F','i','r','s','t',' ','a','n','d',' ',
+                                        'S','e','c','o','n','d',' ','I','t','e','m','s',0},
+                 replacement_item[]  = {'B','e','t','w','e','e','n',' ','F','i','r','s','t',' ','a','n','d',' ',
+                                        'S','e','c','o','n','d',' ','I','t','e','m','s',0},
+                 out_of_range_item[] = {'O','u','t',' ','o','f',' ','R','a','n','g','e',' ','I','t','e','m',0};
 
     /* Allocate space for result */
     textBuffer = HeapAlloc(GetProcessHeap(), 0, MAX_CHARS);
@@ -269,8 +271,8 @@ static void test_WM_LBUTTONDOWN(void)
            "Failed to add item %d\n", i);
     }
 
-    hCombo = (HWND)SendMessageA(hComboEx, CBEM_GETCOMBOCONTROL, 0, 0);
-    hEdit = (HWND)SendMessageA(hComboEx, CBEM_GETEDITCONTROL, 0, 0);
+    hCombo = (HWND)SendMessage(hComboEx, CBEM_GETCOMBOCONTROL, 0, 0);
+    hEdit = (HWND)SendMessage(hComboEx, CBEM_GETEDITCONTROL, 0, 0);
 
     cbInfo.cbSize = sizeof(COMBOBOXINFO);
     result = pGetComboBoxInfo(hCombo, &cbInfo);
@@ -284,19 +286,19 @@ static void test_WM_LBUTTONDOWN(void)
     /* Click on the button to drop down the list */
     x = cbInfo.rcButton.left + (cbInfo.rcButton.right-cbInfo.rcButton.left)/2;
     y = cbInfo.rcButton.top + (cbInfo.rcButton.bottom-cbInfo.rcButton.top)/2;
-    result = SendMessageA(hCombo, WM_LBUTTONDOWN, 0, MAKELPARAM(x, y));
+    result = SendMessage(hCombo, WM_LBUTTONDOWN, 0, MAKELPARAM(x, y));
     ok(result, "WM_LBUTTONDOWN was not processed. LastError=%d\n",
        GetLastError());
     ok(GetFocus() == hCombo ||
        broken(GetFocus() != hCombo), /* win98 */
        "Focus not on ComboBoxEx's ComboBox Control, instead on %p\n",
        GetFocus());
-    ok(SendMessageA(hComboEx, CB_GETDROPPEDSTATE, 0, 0),
+    ok(SendMessage(hComboEx, CB_GETDROPPEDSTATE, 0, 0),
        "The dropdown list should have appeared after clicking the button.\n");
-    idx = SendMessageA(hCombo, CB_GETTOPINDEX, 0, 0);
+    idx = SendMessage(hCombo, CB_GETTOPINDEX, 0, 0);
     ok(idx == 0, "For TopIndex expected %d, got %d\n", 0, idx);
 
-    result = SendMessageA(hCombo, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
+    result = SendMessage(hCombo, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
     ok(result, "WM_LBUTTONUP was not processed. LastError=%d\n",
        GetLastError());
     ok(GetFocus() == hCombo ||
@@ -305,11 +307,11 @@ static void test_WM_LBUTTONDOWN(void)
        GetFocus());
 
     /* Click on the 5th item in the list */
-    item_height = SendMessageA(hCombo, CB_GETITEMHEIGHT, 0, 0);
+    item_height = SendMessage(hCombo, CB_GETITEMHEIGHT, 0, 0);
     ok(GetClientRect(hList, &rect), "Failed to get list's client rect.\n");
     x = rect.left + (rect.right-rect.left)/2;
     y = item_height/2 + item_height*4;
-    result = SendMessageA(hList, WM_MOUSEMOVE, 0, MAKELPARAM(x, y));
+    result = SendMessage(hList, WM_MOUSEMOVE, 0, MAKELPARAM(x, y));
     ok(!result, "WM_MOUSEMOVE was not processed. LastError=%d\n",
        GetLastError());
     ok(GetFocus() == hCombo ||
@@ -317,17 +319,17 @@ static void test_WM_LBUTTONDOWN(void)
        "Focus not on ComboBoxEx's ComboBox Control, instead on %p\n",
        GetFocus());
 
-    result = SendMessageA(hList, WM_LBUTTONDOWN, 0, MAKELPARAM(x, y));
+    result = SendMessage(hList, WM_LBUTTONDOWN, 0, MAKELPARAM(x, y));
     ok(!result, "WM_LBUTTONDOWN was not processed. LastError=%d\n",
        GetLastError());
     ok(GetFocus() == hCombo ||
        broken(GetFocus() != hCombo), /* win98 */
        "Focus not on ComboBoxEx's ComboBox Control, instead on %p\n",
        GetFocus());
-    ok(SendMessageA(hComboEx, CB_GETDROPPEDSTATE, 0, 0),
+    ok(SendMessage(hComboEx, CB_GETDROPPEDSTATE, 0, 0),
        "The dropdown list should still be visible.\n");
 
-    result = SendMessageA(hList, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
+    result = SendMessage(hList, WM_LBUTTONUP, 0, MAKELPARAM(x, y));
     ok(!result, "WM_LBUTTONUP was not processed. LastError=%d\n",
        GetLastError());
     todo_wine ok(GetFocus() == hEdit ||
@@ -335,11 +337,11 @@ static void test_WM_LBUTTONDOWN(void)
        "Focus not on ComboBoxEx's Edit Control, instead on %p\n",
        GetFocus());
 
-    result = SendMessageA(hCombo, CB_GETDROPPEDSTATE, 0, 0);
+    result = SendMessage(hCombo, CB_GETDROPPEDSTATE, 0, 0);
     ok(!result ||
        broken(result != 0), /* win98 */
        "The dropdown list should have been rolled up.\n");
-    idx = SendMessageA(hComboEx, CB_GETCURSEL, 0, 0);
+    idx = SendMessage(hComboEx, CB_GETCURSEL, 0, 0);
     ok(idx == 4 ||
        broken(idx == -1), /* win98 */
        "Current Selection: expected %d, got %d\n", 4, idx);
@@ -370,18 +372,18 @@ static void test_CB_GETLBTEXT(void)
     item.iItem = 0;
     item.pszText = buff;
     item.cchTextMax = 1;
-    ret = SendMessageA(hCombo, CBEM_GETITEMA, 0, (LPARAM)&item);
+    ret = SendMessage(hCombo, CBEM_GETITEMA, 0, (LPARAM)&item);
     ok(ret != 0, "CBEM_GETITEM failed\n");
     ok(buff[0] == 0, "\n");
 
-    ret = SendMessageA(hCombo, CB_GETLBTEXTLEN, 0, 0);
+    ret = SendMessage(hCombo, CB_GETLBTEXTLEN, 0, 0);
     ok(ret == 0, "Expected zero length\n");
 
-    ret = SendMessageA(hCombo, CB_GETLBTEXTLEN, 0, 0);
+    ret = SendMessage(hCombo, CB_GETLBTEXTLEN, 0, 0);
     ok(ret == 0, "Expected zero length\n");
 
     buff[0] = 'a';
-    ret = SendMessageA(hCombo, CB_GETLBTEXT, 0, (LPARAM)buff);
+    ret = SendMessage(hCombo, CB_GETLBTEXT, 0, (LPARAM)buff);
     ok(ret == 0, "Expected zero length\n");
     ok(buff[0] == 0, "Expected null terminator as a string, got %s\n", buff);
 
@@ -475,7 +477,7 @@ static LRESULT CALLBACK ComboExTestWndProc(HWND hWnd, UINT msg, WPARAM wParam, L
     return 0L;
 }
 
-static BOOL init(void)
+static int init(void)
 {
     HMODULE hComctl32;
     BOOL (WINAPI *pInitCommonControlsEx)(const INITCOMMONCONTROLSEX*);
@@ -487,7 +489,7 @@ static BOOL init(void)
     if (!pInitCommonControlsEx)
     {
         win_skip("InitCommonControlsEx() is missing. Skipping the tests\n");
-        return FALSE;
+        return 0;
     }
     iccex.dwSize = sizeof(iccex);
     iccex.dwICC  = ICC_USEREX_CLASSES;
@@ -500,7 +502,7 @@ static BOOL init(void)
     wc.cbWndExtra = 0;
     wc.hInstance = GetModuleHandleA(NULL);
     wc.hIcon = NULL;
-    wc.hCursor = LoadCursorA(NULL, (LPCSTR)IDC_ARROW);
+    wc.hCursor = LoadCursorA(NULL, IDC_ARROW);
     wc.hbrBackground = GetSysColorBrush(COLOR_WINDOW);
     wc.lpszMenuName = NULL;
     wc.lpszClassName = ComboExTestClass;
@@ -509,11 +511,10 @@ static BOOL init(void)
 
     hComboExParentWnd = CreateWindowExA(0, ComboExTestClass, "ComboEx test", WS_OVERLAPPEDWINDOW|WS_VISIBLE,
       CW_USEDEFAULT, CW_USEDEFAULT, 680, 260, NULL, NULL, GetModuleHandleA(NULL), 0);
-    ok(hComboExParentWnd != NULL, "failed to create parent window\n");
+    assert(hComboExParentWnd != NULL);
 
     hMainHinst = GetModuleHandleA(NULL);
-
-    return hComboExParentWnd != NULL;
+    return 1;
 }
 
 static void cleanup(void)
@@ -536,9 +537,9 @@ static void test_comboboxex_subclass(void)
 
     hComboEx = createComboEx(WS_BORDER | WS_VISIBLE | WS_CHILD | CBS_DROPDOWN);
 
-    hCombo = (HWND)SendMessageA(hComboEx, CBEM_GETCOMBOCONTROL, 0, 0);
+    hCombo = (HWND)SendMessage(hComboEx, CBEM_GETCOMBOCONTROL, 0, 0);
     ok(hCombo != NULL, "Failed to get internal combo\n");
-    hEdit = (HWND)SendMessageA(hComboEx, CBEM_GETEDITCONTROL, 0, 0);
+    hEdit = (HWND)SendMessage(hComboEx, CBEM_GETEDITCONTROL, 0, 0);
     ok(hEdit != NULL, "Failed to get internal edit\n");
 
     if (pSetWindowSubclass)
@@ -574,7 +575,7 @@ static void test_get_set_item(void)
     item.mask = CBEIF_TEXT;
     item.pszText = textA;
     item.iItem = -1;
-    ret = SendMessageA(hComboEx, CBEM_SETITEMA, 0, (LPARAM)&item);
+    ret = SendMessage(hComboEx, CBEM_SETITEMA, 0, (LPARAM)&item);
     expect(TRUE, ret);
 
     ok_sequence(sequences, EDITBOX_SEQ_INDEX, test_setitem_edit_seq, "set item data for edit", FALSE);
@@ -583,16 +584,16 @@ static void test_get_set_item(void)
     item.mask = CBEIF_LPARAM;
     item.iItem = -1;
     item.lParam = 0xdeadbeef;
-    ret = SendMessageA(hComboEx, CBEM_GETITEMA, 0, (LPARAM)&item);
+    ret = SendMessage(hComboEx, CBEM_GETITEMA, 0, (LPARAM)&item);
     expect(TRUE, ret);
     ok(item.lParam == 0, "Expected zero, got %lx\n", item.lParam);
 
     item.lParam = 0x1abe11ed;
-    ret = SendMessageA(hComboEx, CBEM_SETITEMA, 0, (LPARAM)&item);
+    ret = SendMessage(hComboEx, CBEM_SETITEMA, 0, (LPARAM)&item);
     expect(TRUE, ret);
 
     item.lParam = 0;
-    ret = SendMessageA(hComboEx, CBEM_GETITEMA, 0, (LPARAM)&item);
+    ret = SendMessage(hComboEx, CBEM_GETITEMA, 0, (LPARAM)&item);
     expect(TRUE, ret);
     ok(item.lParam == 0x1abe11ed, "Expected 0x1abe11ed, got %lx\n", item.lParam);
 

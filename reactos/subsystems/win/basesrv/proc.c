@@ -9,7 +9,6 @@
 /* INCLUDES *******************************************************************/
 
 #include "basesrv.h"
-#include "vdm.h"
 
 #define NDEBUG
 #include <debug.h>
@@ -168,30 +167,7 @@ CSR_API(BaseSrvCreateProcess)
 
     /* FIXME: Should notify user32 */
 
-    /* Check if this is a VDM process */
-    if (CreateProcessRequest->VdmBinaryType)
-    {
-        PVDM_CONSOLE_RECORD ConsoleRecord;
-
-        if (CreateProcessRequest->VdmTask != 0)
-        {
-            /* Get the console record using the task ID */
-            Status = GetConsoleRecordBySessionId(CreateProcessRequest->VdmTask,
-                                                 &ConsoleRecord);
-        }
-        else
-        {
-            /* Get the console record using the console handle */
-            Status = BaseSrvGetConsoleRecord(CreateProcessRequest->hVDM,
-                                             &ConsoleRecord);
-        }
-
-        /* Check if it failed */
-        if (!NT_SUCCESS(Status)) return Status;
-
-        /* Store the process ID of the VDM in the console record */
-        ConsoleRecord->ProcessId = HandleToUlong(CreateProcessRequest->ClientId.UniqueProcess);
-    }
+    /* FIXME: VDM vodoo */
 
     /* Return the result of this operation */
     return Status;

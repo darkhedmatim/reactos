@@ -10,7 +10,7 @@
  *                  Pierre Schweitzer (pierre@reactos.org)
  */
 
-/* INCLUDES *******************************************************************/
+/* INCLUDES *****************************************************************/
 
 #include <rtl.h>
 
@@ -289,137 +289,102 @@ RtlpCheckDeviceName(IN PUNICODE_STRING FileName,
 /******************************************************************
  *    RtlpCollapsePath (from WINE)
  *
- * Helper for RtlGetFullPathName_U
- *
- * 1) Converts slashes into backslashes and gets rid of duplicated ones;
- * 2) Gets rid of . and .. components in the path.
- *
- * Returns the full path length without its terminating NULL character.
+ * Helper for RtlGetFullPathName_U.
+ * 1) Convert slashes into backslashes
+ * 2) Get rid of duplicate backslashes
+ * 3) Get rid of . and .. components in the path.
  */
-static ULONG
-RtlpCollapsePath(PWSTR Path, /* ULONG PathBufferSize, ULONG PathLength, */ ULONG mark, BOOLEAN SkipTrailingPathSeparators)
+static VOID
+RtlpCollapsePath(PWSTR path, ULONG mark, BOOLEAN SkipTrailingPathSeparators)
 {
     PWSTR p, next;
 
-    // FIXME: Do not suppose NULL-terminated strings!!
-
-    ULONG PathLength = wcslen(Path);
-    PWSTR EndBuffer = Path + PathLength; // Path + PathBufferSize / sizeof(WCHAR);
-    PWSTR EndPath;
-
-    /* Convert slashes into backslashes */
-    for (p = Path; *p; p++)
+    /* convert every / into a \ */
+    for (p = path; *p; p++)
     {
         if (*p == L'/') *p = L'\\';
     }
 
-    /* Collapse duplicate backslashes */
-    next = Path + max( 1, mark );
+    /* collapse duplicate backslashes */
+    next = path + max( 1, mark );
     for (p = next; *p; p++)
     {
         if (*p != L'\\' || next[-1] != L'\\') *next++ = *p;
     }
     *next = UNICODE_NULL;
-    EndPath = next;
 
-    p = Path + mark;
+    p = path + mark;
     while (*p)
     {
         if (*p == L'.')
         {
-            switch (p[1])
+            switch(p[1])
             {
                 case UNICODE_NULL:  /* final . */
-                    if (p > Path + mark) p--;
+                    if (p > path + mark) p--;
                     *p = UNICODE_NULL;
-                    EndPath = p;
                     continue;
-
                 case L'\\': /* .\ component */
                     next = p + 2;
-                    // ASSERT(EndPath - next == wcslen(next));
-                    RtlMoveMemory(p, next, (EndPath - next + 1) * sizeof(WCHAR));
-                    EndPath -= (next - p);
+                    RtlMoveMemory( p, next, (wcslen(next) + 1) * sizeof(WCHAR) );
                     continue;
-
                 case L'.':
                     if (p[2] == L'\\')  /* ..\ component */
                     {
                         next = p + 3;
-                        if (p > Path + mark)
+                        if (p > path + mark)
                         {
                             p--;
-                            while (p > Path + mark && p[-1] != L'\\') p--;
+                            while (p > path + mark && p[-1] != L'\\') p--;
                         }
-                        // ASSERT(EndPath - next == wcslen(next));
-                        RtlMoveMemory(p, next, (EndPath - next + 1) * sizeof(WCHAR));
-                        EndPath -= (next - p);
+                        RtlMoveMemory( p, next, (wcslen(next) + 1) * sizeof(WCHAR) );
                         continue;
                     }
-                    else if (p[2] == UNICODE_NULL)  /* final .. */
+                    else if (!p[2])  /* final .. */
                     {
-                        if (p > Path + mark)
+                        if (p > path + mark)
                         {
                             p--;
-                            while (p > Path + mark && p[-1] != L'\\') p--;
-                            if (p > Path + mark) p--;
+                            while (p > path + mark && p[-1] != L'\\') p--;
+                            if (p > path + mark) p--;
                         }
                         *p = UNICODE_NULL;
-                        EndPath = p;
                         continue;
                     }
                     break;
             }
         }
-
-        /* Skip to the next component */
+        /* skip to the next component */
         while (*p && *p != L'\\') p++;
         if (*p == L'\\')
         {
-            /* Remove last dot in previous dir name */
-            if (p > Path + mark && p[-1] == L'.')
-            {
-                // ASSERT(EndPath - p == wcslen(p));
-                RtlMoveMemory(p - 1, p, (EndPath - p + 1) * sizeof(WCHAR));
-                EndPath--;
-            }
+            /* remove last dot in previous dir name */
+            if (p > path + mark && p[-1] == L'.')
+                RtlMoveMemory( p-1, p, (wcslen(p) + 1) * sizeof(WCHAR) );
             else
-            {
                 p++;
-            }
         }
     }
 
     /* Remove trailing backslashes if needed (after the UNC part if it exists) */
     if (SkipTrailingPathSeparators)
     {
-        while (p > Path + mark && IS_PATH_SEPARATOR(p[-1])) p--;
+        while (p > path + mark && IS_PATH_SEPARATOR(p[-1])) *p-- = UNICODE_NULL;
     }
 
     /* Remove trailing spaces and dots (for all the path) */
-    while (p > Path && (p[-1] == L' ' || p[-1] == L'.')) p--;
+    while (p > path && (p[-1] == L' ' || p[-1] == L'.')) *p-- = UNICODE_NULL;
 
-    /*
-     * Zero-out the discarded buffer zone, starting just after
-     * the path string and going up to the end of the buffer.
-     * It also NULL-terminate the path string.
-     */
-    ASSERT(EndBuffer >= p);
-    RtlZeroMemory(p, (EndBuffer - p + 1) * sizeof(WCHAR));
-
-    /* Return the real path length */
-    PathLength = (p - Path);
-    // ASSERT(PathLength == wcslen(Path));
-    return (PathLength * sizeof(WCHAR));
+    /* Null-terminate the string */
+    *p = UNICODE_NULL;
 }
 
 /******************************************************************
  *    RtlpSkipUNCPrefix (from WINE)
  *
  * Helper for RtlGetFullPathName_U
- *
- * Skips the \\share\dir part of a file name and returns the new position
- * (which can point on the last backslash of "dir\").
+ * Skip the \\share\dir part of a file name and return the new position
+ * (which can point on the last backslash of "dir\")
  */
 static SIZE_T
 RtlpSkipUNCPrefix(PCWSTR FileNameBuffer)
@@ -577,7 +542,7 @@ RtlGetFullPathName_Ustr(
         return FullLength + sizeof(UNICODE_NULL);
     }
 
-    /* Zero-out the destination buffer. FileName must be different from Buffer */
+    /* Zero out the destination buffer. FileName must be different from Buffer */
     RtlZeroMemory(Buffer, Size);
 
     /* Get the path type */
@@ -586,7 +551,7 @@ RtlGetFullPathName_Ustr(
 
 
     /**********************************************
-     **    CODE REWRITING IS HAPPENING THERE     **
+     **    CODE REWRITTEN IS HAPPENING THERE     **
      **********************************************/
     Source       = FileNameBuffer;
     SourceLength = FileNameLength;
@@ -654,7 +619,7 @@ RtlGetFullPathName_Ustr(
                          * FIXME: Win2k seems to check that the environment
                          * variable actually points to an existing directory.
                          * If not, root of the drive is used (this seems also
-                         * to be the only place in RtlGetFullPathName that the
+                         * to be the only spot in RtlGetFullPathName that the
                          * existence of a part of a path is checked).
                          */
                         EnvVarValue.Buffer[EnvVarValue.Length / sizeof(WCHAR)] = L'\\';
@@ -744,10 +709,13 @@ RtlGetFullPathName_Ustr(
     /*
      * Build the full path
      */
+    // if (ShortName) DPRINT1("buffer(1) = %S\n", Buffer);
     /* Copy the path's prefix */
     if (PrefixLength) RtlMoveMemory(Buffer, Prefix, PrefixLength);
+    // if (ShortName) DPRINT1("buffer(2) = %S\n", Buffer);
     /* Copy the remaining part of the path */
     RtlMoveMemory(Buffer + PrefixLength / sizeof(WCHAR), Source, SourceLength + sizeof(WCHAR));
+    // if (ShortName) DPRINT1("buffer(3) = %S\n", Buffer);
 
     /* Some cleanup */
     Prefix = NULL;
@@ -758,11 +726,15 @@ RtlGetFullPathName_Ustr(
     }
 
     /*
-     * Finally, put the path in canonical form (remove redundant . and ..,
-     * (back)slashes...) and retrieve the length of the full path name
-     * (without its terminating null character) (in chars).
+     * Finally, put the path in canonical form,
+     * i.e. simplify redundant . and .., etc...
      */
-    reqsize = RtlpCollapsePath(Buffer, /* Size, reqsize, */ PrefixCut, SkipTrailingPathSeparators);
+    // if (*PathType == RtlPathTypeUncAbsolute) DPRINT1("RtlpCollapsePath('%S', %lu)\n", Buffer, PrefixCut);
+    RtlpCollapsePath(Buffer, PrefixCut, SkipTrailingPathSeparators);
+    // if (ShortName) DPRINT1("buffer(4) = %S\n", Buffer);
+
+    /* Get the length of the full path name, without its terminating null character */
+    reqsize = wcslen(Buffer) * sizeof(WCHAR);
 
     /* Find the file part, which is present after the last path separator */
     if (ShortName)
@@ -789,8 +761,7 @@ RtlGetFullPathName_Ustr(
 Quit:
     /* Release PEB lock */
     RtlReleasePebLock();
-
-    return reqsize;
+    return (ULONG)reqsize;
 }
 
 NTSTATUS

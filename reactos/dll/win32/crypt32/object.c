@@ -44,11 +44,8 @@ static BOOL CRYPT_ReadBlobFromFile(LPCWSTR fileName, PCERT_BLOB blob)
             {
                 DWORD read;
 
-                ret = ReadFile(file, blob->pbData, blob->cbData, &read, NULL) && read == blob->cbData;
-                if (!ret) CryptMemFree(blob->pbData);
+                ret = ReadFile(file, blob->pbData, blob->cbData, &read, NULL);
             }
-            else
-                ret = FALSE;
         }
         CloseHandle(file);
     }
@@ -266,15 +263,12 @@ static BOOL CRYPT_QuerySerializedContextObject(DWORD dwObjectType,
             *phCertStore = CertDuplicateStore(
              *(HCERTSTORE *)((const BYTE *)context + certStoreOffset));
         if (ppvContext)
-        {
-            *ppvContext = context;
-            Context_AddRef(context_from_ptr(context));
-        }
+            *ppvContext = contextInterface->duplicate(context);
     }
 
 end:
     if (contextInterface && context)
-        Context_Release(context_from_ptr(context));
+        contextInterface->free(context);
     if (blob == &fileBlob)
         CryptMemFree(blob->pbData);
     TRACE("returning %d\n", ret);

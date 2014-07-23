@@ -1,11 +1,10 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = Tile World
 Version = 1.3.0
 Licence = GPL
-Description = Nice clone of Chip's Challenge originally made for the Atari Lynx. Includes free CCLP2 Graphics Pack, so you dont need the copyrighted original.
+Description = Nice Clone of Chip's Challenge originally made for the Atari Lynx. Includes free CCLP2 Graphics Pack, so you dont need the copyrighted Original.
 Size = 1.16 MB
 Category = 4
 URLSite = http://www.muppetlabs.com/~breadbox/software/tworld/
@@ -36,7 +35,8 @@ Description = Clonă a Chip's Challenge, creată inițial pentru Atari Lynx. Inc
 Size = 1,16 Mo
 
 [Section.041f]
-Description = Başlangıçta Atari Lynx için yapılan Chip's Challenge oyununun iyi bir taklidi. Ücretsiz CCLP2 Çizge Paketi'ni kapsar, bu yüzden telifli özgününe gereksinim duymazsınız.
+Name = Karolu Dünyâ
+Description = Başlangıçta Atari Lynx için yapılan Çip'in Düellosu adlı oyunun iyi bir taklidi. Ücretsiz CCLP2 Çizge Paketi'ni de kapsadığından bunun ruhsatlı özgününe gerek yoktur.
 Size = 1,16 MB
 
 [Section.0422]

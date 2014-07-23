@@ -28,7 +28,7 @@ static void test_timer(void)
 {
     HANDLE (WINAPI *pCreateWaitableTimerA)( SECURITY_ATTRIBUTES*, BOOL, LPSTR );
     BOOL (WINAPI *pSetWaitableTimer)(HANDLE, LARGE_INTEGER*, LONG, PTIMERAPCROUTINE, LPVOID, BOOL);
-    HMODULE hker = GetModuleHandleA("kernel32.dll");
+    HMODULE hker = GetModuleHandle("kernel32");
     HANDLE handle;
     BOOL r;
     LARGE_INTEGER due;

@@ -10,6 +10,32 @@
 #define MF_END             (0x0080)
 #endif
 
+typedef struct _MENU_ITEM
+{
+  struct _MENU_ITEM *Next;
+  UINT fType;
+  UINT fState;
+  UINT wID;
+  HMENU hSubMenu;
+  HBITMAP hbmpChecked;
+  HBITMAP hbmpUnchecked;
+  ULONG_PTR dwItemData;
+  UNICODE_STRING Text;
+  HBITMAP hbmpItem;
+  RECTL Rect;
+  UINT dxTab;
+} MENU_ITEM, *PMENU_ITEM;
+
+typedef struct _MENU_OBJECT
+{
+  PROCDESKHEAD head;
+  PEPROCESS Process;
+  LIST_ENTRY ListEntry;
+  PMENU_ITEM MenuItemList;
+  ROSMENUINFO MenuInfo;
+  BOOL RtoL;
+} MENU_OBJECT, *PMENU_OBJECT;
+
 typedef struct _SETMENUITEMRECT
 {
   UINT uItem;
@@ -17,34 +43,33 @@ typedef struct _SETMENUITEMRECT
   RECTL rcRect;
 } SETMENUITEMRECT, *PSETMENUITEMRECT;
 
-PMENU FASTCALL
+PMENU_OBJECT FASTCALL
 IntGetMenuObject(HMENU hMenu);
 
 #define IntReleaseMenuObject(MenuObj) \
   UserDereferenceObject(MenuObj)
 
 BOOL FASTCALL
-IntDestroyMenuObject(PMENU MenuObject, BOOL bRecurse, BOOL RemoveFromProcess);
+IntDestroyMenuObject(PMENU_OBJECT MenuObject, BOOL bRecurse, BOOL RemoveFromProcess);
 
-PMENU FASTCALL
-IntCloneMenu(PMENU Source);
+PMENU_OBJECT FASTCALL
+IntCloneMenu(PMENU_OBJECT Source);
 
 int FASTCALL
-IntGetMenuItemByFlag(PMENU MenuObject, UINT uSearchBy, UINT fFlag,
-                     PMENU *SubMenu, PITEM *MenuItem,
-                     PITEM *PrevMenuItem);
+IntGetMenuItemByFlag(PMENU_OBJECT MenuObject, UINT uSearchBy, UINT fFlag,
+                     PMENU_OBJECT *SubMenu, PMENU_ITEM *MenuItem,
+                     PMENU_ITEM *PrevMenuItem);
 
 BOOL FASTCALL
 IntCleanupMenus(struct _EPROCESS *Process, PPROCESSINFO Win32Process);
 
 BOOL FASTCALL
-IntInsertMenuItem(_In_ PMENU MenuObject, UINT uItem, BOOL fByPosition, PROSMENUITEMINFO ItemInfo, PUNICODE_STRING lpstr);
+IntInsertMenuItem(_In_ PMENU_OBJECT MenuObject, UINT uItem, BOOL fByPosition,
+                  PROSMENUITEMINFO ItemInfo);
 
-PMENU FASTCALL
-IntGetSystemMenu(PWND Window, BOOL bRevert);
+PMENU_OBJECT FASTCALL
+IntGetSystemMenu(PWND Window, BOOL bRevert, BOOL RetMenu);
 
 UINT FASTCALL IntFindSubMenu(HMENU *hMenu, HMENU hSubTarget );
 UINT FASTCALL IntGetMenuState( HMENU hMenu, UINT uId, UINT uFlags);
-BOOL FASTCALL IntRemoveMenuItem(PMENU Menu, UINT uPosition, UINT uFlags, BOOL bRecurse);
-PITEM FASTCALL MENU_FindItem( PMENU *pmenu, UINT *nPos, UINT wFlags );
-BOOL FASTCALL IntMenuItemInfo(PMENU Menu, UINT Item, BOOL ByPosition, PROSMENUITEMINFO UnsafeItemInfo, BOOL SetOrGet, PUNICODE_STRING lpstr);
+

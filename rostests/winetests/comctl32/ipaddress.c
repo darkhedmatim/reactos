@@ -29,9 +29,9 @@ static HWND create_ipaddress_control (void)
 {
     HWND handle;
 
-    handle = CreateWindowExA(0, WC_IPADDRESSA, NULL,
-			     WS_BORDER|WS_VISIBLE, 0, 0, 0, 0,
-			     NULL, NULL, NULL, NULL);
+    handle = CreateWindowEx(0, WC_IPADDRESS, NULL,
+			    WS_BORDER|WS_VISIBLE, 0, 0, 0, 0,
+			    NULL, NULL, NULL, NULL);
     return handle;
 }
 
@@ -49,19 +49,19 @@ static void test_get_set_text(void)
     }
 
     /* check text just after creation */
-    r = GetWindowTextA(hwnd, ip, sizeof(ip)/sizeof(CHAR));
+    r = GetWindowText(hwnd, ip, sizeof(ip)/sizeof(CHAR));
     expect(7, r);
     ok(strcmp(ip, "0.0.0.0") == 0, "Expected null IP address, got %s\n", ip);
 
-    SendMessageA(hwnd, IPM_SETADDRESS, 0, MAKEIPADDRESS(127, 0, 0, 1));
-    r = GetWindowTextA(hwnd, ip, sizeof(ip)/sizeof(CHAR));
+    SendMessage(hwnd, IPM_SETADDRESS, 0, MAKEIPADDRESS(127, 0, 0, 1));
+    r = GetWindowText(hwnd, ip, sizeof(ip)/sizeof(CHAR));
     expect(9, r);
     ok(strcmp(ip, "127.0.0.1") == 0, "Expected 127.0.0.1, got %s\n", ip);
 
     DestroyWindow(hwnd);
 }
 
-static BOOL init(void)
+static int init(void)
 {
     HMODULE hComctl32;
     BOOL (WINAPI *pInitCommonControlsEx)(const INITCOMMONCONTROLSEX*);
@@ -72,7 +72,7 @@ static BOOL init(void)
     if (!pInitCommonControlsEx)
     {
         win_skip("InitCommonControlsEx() is missing.\n");
-        return FALSE;
+        return 0;
     }
 
     iccex.dwSize = sizeof(iccex);
@@ -80,7 +80,7 @@ static BOOL init(void)
     iccex.dwICC  = ICC_INTERNET_CLASSES;
     pInitCommonControlsEx(&iccex);
 
-    return TRUE;
+    return 1;
 }
 
 START_TEST(ipaddress)

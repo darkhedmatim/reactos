@@ -31,13 +31,11 @@ KsecGenRandom(
     PVOID Buffer,
     SIZE_T Length)
 {
-    LARGE_INTEGER TickCount;
     ULONG i, RandomValue;
     PULONG P;
 
     /* Try to generate a more random seed */
-    KeQueryTickCount(&TickCount);
-    KsecRandomSeed ^= _rotl(TickCount.LowPart, (KsecRandomSeed % 23));
+    KsecRandomSeed ^= _rotl(KeTickCount.LowPart, (KsecRandomSeed % 23));
 
     P = Buffer;
     for (i = 0; i < Length / sizeof(ULONG); i++)
@@ -96,7 +94,7 @@ KsecGatherEntropyData(
     PTEB Teb;
     PPEB Peb;
     PWSTR String;
-    SIZE_T ReturnLength;
+    ULONG ReturnLength;
     NTSTATUS Status;
 
     /* Query some generic values */
@@ -127,7 +125,7 @@ KsecGatherEntropyData(
             /* Update the MD4 context from the environment data */
             MD4Update(&Md4Context,
                       (PUCHAR)Peb->ProcessParameters->Environment,
-                      (ULONG)((PUCHAR)String - (PUCHAR)Peb->ProcessParameters->Environment));
+                      (PUCHAR)String - (PUCHAR)Peb->ProcessParameters->Environment);
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {

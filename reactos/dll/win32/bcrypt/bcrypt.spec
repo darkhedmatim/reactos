@@ -24,7 +24,7 @@
 @ stub BCryptFinalizeKeyPair
 @ stub BCryptFinishHash
 @ stub BCryptFreeBuffer
-@ stdcall BCryptGenRandom(ptr ptr long long)
+@ stub BCryptGenRandom
 @ stub BCryptGenerateKeyPair
 @ stub BCryptGenerateSymmetricKey
 @ stub BCryptGetFipsAlgorithmMode

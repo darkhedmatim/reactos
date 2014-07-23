@@ -150,7 +150,6 @@ static const GUID CLSID_TestScript =
 static const GUID CLSID_TestActiveX =
     {0x178fc163,0xf585,0x4e24,{0x9c,0x13,0x4b,0xb7,0xfa,0xf8,0x06,0x46}};
 
-static BOOL is_ie9plus;
 static IHTMLDocument2 *notif_doc;
 static IOleDocumentView *view;
 static IDispatchEx *window_dispex;
@@ -161,6 +160,18 @@ static HWND container_hwnd;
 static HRESULT ax_getopt_hres = S_OK, ax_setopt_dispex_hres = S_OK;
 static HRESULT ax_setopt_disp_caller_hres = S_OK, ax_setopt_disp_data_hres = S_OK;
 static BOOL skip_loadobject_tests;
+
+static const char *debugstr_guid(REFIID riid)
+{
+    static char buf[50];
+
+    sprintf(buf, "{%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
+            riid->Data1, riid->Data2, riid->Data3, riid->Data4[0],
+            riid->Data4[1], riid->Data4[2], riid->Data4[3], riid->Data4[4],
+            riid->Data4[5], riid->Data4[6], riid->Data4[7]);
+
+    return buf;
+}
 
 static int strcmp_wa(LPCWSTR strw, const char *stra)
 {
@@ -190,7 +201,7 @@ static BOOL init_key(const char *key_name, const char *def_value, BOOL init)
     DWORD res;
 
     if(!init) {
-        RegDeleteKeyA(HKEY_CLASSES_ROOT, key_name);
+        RegDeleteKey(HKEY_CLASSES_ROOT, key_name);
         return TRUE;
     }
 
@@ -265,7 +276,7 @@ static IPropertyNotifySink PropertyNotifySink = { &PropertyNotifySinkVtbl };
 
 static HRESULT WINAPI VariantChangeType_QueryInterface(IVariantChangeType *iface, REFIID riid, void **ppv)
 {
-    ok(0, "unexpected call %s\n", wine_dbgstr_guid(riid));
+    ok(0, "unexpected call %s\n", debugstr_guid(riid));
     *ppv = NULL;
     return E_NOINTERFACE;
 }
@@ -327,12 +338,12 @@ static HRESULT WINAPI ServiceProvider_QueryService(IServiceProvider *iface, REFG
 {
     if(IsEqualGUID(guidService, &SID_VariantConversion)) {
         CHECK_EXPECT(QS_VariantConversion);
-        ok(IsEqualGUID(riid, &IID_IVariantChangeType), "uenxpected riid %s\n", wine_dbgstr_guid(riid));
+        ok(IsEqualGUID(riid, &IID_IVariantChangeType), "uenxpected riid %s\n", debugstr_guid(riid));
         *ppv = &VChangeType;
         return S_OK;
     }
 
-    ok(0, "unexpected service %s\n", wine_dbgstr_guid(guidService));
+    ok(0, "unexpected service %s\n", debugstr_guid(guidService));
     return E_NOINTERFACE;
 }
 
@@ -1166,12 +1177,23 @@ static HRESULT QueryInterface(REFIID riid, void **ppv)
 static IHTMLDocument2 *create_document(void)
 {
     IHTMLDocument2 *doc;
+    IHTMLDocument5 *doc5;
     HRESULT hres;
 
     hres = CoCreateInstance(&CLSID_HTMLDocument, NULL, CLSCTX_INPROC_SERVER|CLSCTX_INPROC_HANDLER,
             &IID_IHTMLDocument2, (void**)&doc);
     ok(hres == S_OK, "CoCreateInstance failed: %08x\n", hres);
-    return SUCCEEDED(hres) ? doc : NULL;
+    if (hres != S_OK) return NULL;
+
+    hres = IHTMLDocument2_QueryInterface(doc, &IID_IHTMLDocument5, (void**)&doc5);
+    if(FAILED(hres)) {
+        win_skip("Could not get IHTMLDocument5, probably too old IE\n");
+        IHTMLDocument2_Release(doc);
+        return NULL;
+    }
+
+    IHTMLDocument5_Release(doc5);
+    return doc;
 }
 
 static void load_string(IHTMLDocument2 *doc, const char *str)
@@ -1263,9 +1285,9 @@ static void load_doc(IHTMLDocument2 *doc, const char *str)
     load_string(doc, str);
     do_advise(doc, &IID_IPropertyNotifySink, (IUnknown*)&PropertyNotifySink);
 
-    while(!doc_complete && GetMessageW(&msg, NULL, 0, 0)) {
+    while(!doc_complete && GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
-        DispatchMessageW(&msg);
+        DispatchMessage(&msg);
     }
 
     hres = IHTMLDocument2_get_body(doc, &body);
@@ -1286,7 +1308,7 @@ static SCRIPTSTATE state;
 static HRESULT WINAPI ObjectSafety_QueryInterface(IObjectSafety *iface, REFIID riid, void **ppv)
 {
     *ppv = NULL;
-    ok(0, "unexpected call %s\n", wine_dbgstr_guid(riid));
+    ok(0, "unexpected call %s\n", debugstr_guid(riid));
     return E_NOINTERFACE;
 }
 
@@ -1305,7 +1327,7 @@ static HRESULT WINAPI ObjectSafety_GetInterfaceSafetyOptions(IObjectSafety *ifac
 {
     CHECK_EXPECT(GetInterfaceSafetyOptions);
 
-    ok(IsEqualGUID(&IID_IActiveScriptParse, riid), "unexpected riid %s\n", wine_dbgstr_guid(riid));
+    ok(IsEqualGUID(&IID_IActiveScriptParse, riid), "unexpected riid %s\n", debugstr_guid(riid));
     ok(pdwSupportedOptions != NULL, "pdwSupportedOptions == NULL\n");
     ok(pdwEnabledOptions != NULL, "pdwEnabledOptions == NULL\n");
 
@@ -1320,7 +1342,7 @@ static HRESULT WINAPI ObjectSafety_SetInterfaceSafetyOptions(IObjectSafety *ifac
 {
     CHECK_EXPECT(SetInterfaceSafetyOptions);
 
-    ok(IsEqualGUID(&IID_IActiveScriptParse, riid), "unexpected riid %s\n", wine_dbgstr_guid(riid));
+    ok(IsEqualGUID(&IID_IActiveScriptParse, riid), "unexpected riid %s\n", debugstr_guid(riid));
 
     ok(dwOptionSetMask == (INTERFACESAFE_FOR_UNTRUSTED_DATA|INTERFACE_USES_DISPEX|INTERFACE_USES_SECURITY_MANAGER),
        "dwOptionSetMask=%x\n", dwOptionSetMask);
@@ -1357,7 +1379,7 @@ static HRESULT WINAPI AXObjectSafety_QueryInterface(IObjectSafety *iface, REFIID
         return S_OK;
     }
 
-    ok(0, "unexpected call %s\n", wine_dbgstr_guid(riid));
+    ok(0, "unexpected call %s\n", debugstr_guid(riid));
     return E_NOINTERFACE;
 }
 
@@ -1366,7 +1388,7 @@ static HRESULT WINAPI AXObjectSafety_GetInterfaceSafetyOptions(IObjectSafety *if
 {
     CHECK_EXPECT(AXGetInterfaceSafetyOptions);
 
-    ok(IsEqualGUID(&IID_IDispatchEx, riid), "unexpected riid %s\n", wine_dbgstr_guid(riid));
+    ok(IsEqualGUID(&IID_IDispatchEx, riid), "unexpected riid %s\n", debugstr_guid(riid));
     ok(pdwSupportedOptions != NULL, "pdwSupportedOptions == NULL\n");
     ok(pdwEnabledOptions != NULL, "pdwEnabledOptions == NULL\n");
 
@@ -1417,7 +1439,7 @@ static HRESULT WINAPI AXObjectSafety_SetInterfaceSafetyOptions(IObjectSafety *if
         return hres;
     }
 
-    ok(0, "unexpected riid %s\n", wine_dbgstr_guid(riid));
+    ok(0, "unexpected riid %s\n", debugstr_guid(riid));
     return E_NOINTERFACE;
 }
 
@@ -2402,7 +2424,7 @@ static HRESULT WINAPI ActiveScript_QueryInterface(IActiveScript *iface, REFIID r
     if(IsEqualGUID(&IID_IActiveScriptDebug, riid))
         return E_NOINTERFACE;
 
-    trace("QI(%s)\n", wine_dbgstr_guid(riid));
+    trace("QI(%s)\n", debugstr_guid(riid));
     return E_NOINTERFACE;
 }
 
@@ -2631,7 +2653,7 @@ static HRESULT WINAPI ClassFactory_QueryInterface(IClassFactory *iface, REFIID r
     if(IsEqualGUID(&CLSID_IdentityUnmarshal, riid))
         return E_NOINTERFACE;
 
-    ok(0, "unexpected riid %s\n", wine_dbgstr_guid(riid));
+    ok(0, "unexpected riid %s\n", debugstr_guid(riid));
     return E_NOTIMPL;
 }
 
@@ -2650,7 +2672,7 @@ static HRESULT WINAPI ClassFactory_CreateInstance(IClassFactory *iface, IUnknown
     CHECK_EXPECT(CreateInstance);
 
     ok(!outer, "outer = %p\n", outer);
-    ok(IsEqualGUID(&IID_IActiveScript, riid), "unexpected riid %s\n", wine_dbgstr_guid(riid));
+    ok(IsEqualGUID(&IID_IActiveScript, riid), "unexpected riid %s\n", debugstr_guid(riid));
     *ppv = &ActiveScript;
     return S_OK;
 }
@@ -2804,9 +2826,9 @@ static void run_js_script(const char *test_name)
 
     SET_EXPECT(external_success);
 
-    while(!called_external_success && GetMessageW(&msg, NULL, 0, 0)) {
+    while(!called_external_success && GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
-        DispatchMessageW(&msg);
+        DispatchMessage(&msg);
     }
 
     CHECK_CALLED(external_success);
@@ -2821,10 +2843,6 @@ static void run_js_tests(void)
     run_js_script("exectest.html");
     run_js_script("vbtest.html");
     run_js_script("events.html");
-    if(is_ie9plus)
-        run_js_script("nav_test.html");
-    else
-        win_skip("Skipping nav_test.html on IE older than 9 (for broken ieframe onload).\n");
 }
 
 static BOOL init_registry(BOOL init)
@@ -2855,7 +2873,7 @@ static BOOL register_script_engine(void)
 
 static LRESULT WINAPI wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    return DefWindowProcA(hwnd, msg, wParam, lParam);
+    return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
 static HWND create_container_window(void)
@@ -2876,52 +2894,21 @@ static HWND create_container_window(void)
             300, 300, NULL, NULL, NULL, NULL);
 }
 
-static BOOL check_ie(void)
-{
-    IHTMLDocument2 *doc;
-    IHTMLDocument5 *doc5;
-    IHTMLDocument7 *doc7;
-    HRESULT hres;
-
-    doc = create_document();
-    if(!doc)
-        return FALSE;
-
-    hres = IHTMLDocument2_QueryInterface(doc, &IID_IHTMLDocument7, (void**)&doc7);
-    if(SUCCEEDED(hres)) {
-        is_ie9plus = TRUE;
-        IHTMLDocument7_Release(doc7);
-    }
-
-    trace("is_ie9plus %x\n", is_ie9plus);
-
-    hres = IHTMLDocument2_QueryInterface(doc, &IID_IHTMLDocument5, (void**)&doc5);
-    if(SUCCEEDED(hres))
-        IHTMLDocument5_Release(doc5);
-
-    IHTMLDocument2_Release(doc);
-    return SUCCEEDED(hres);
-}
-
 START_TEST(script)
 {
     CoInitialize(NULL);
     container_hwnd = create_container_window();
 
-    if(check_ie()) {
-        if(winetest_interactive || ! is_ie_hardened()) {
-            if(register_script_engine()) {
-                test_simple_script();
-                init_registry(FALSE);
-            }else {
-                skip("Could not register TestScript engine\n");
-            }
-            run_js_tests();
+    if(winetest_interactive || ! is_ie_hardened()) {
+        if(register_script_engine()) {
+            test_simple_script();
+            init_registry(FALSE);
         }else {
-            skip("IE running in Enhanced Security Configuration\n");
+            skip("Could not register TestScript engine\n");
         }
+        run_js_tests();
     }else {
-        win_skip("Too old IE.\n");
+        skip("IE running in Enhanced Security Configuration\n");
     }
 
     DestroyWindow(container_hwnd);

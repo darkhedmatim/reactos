@@ -351,6 +351,37 @@ MmInitPagingFile(VOID)
    MiPagingFileCount = 0;
 }
 
+BOOLEAN
+NTAPI
+MmReserveSwapPages(ULONG Nr)
+{
+   KIRQL oldIrql;
+   ULONG MiAvailSwapPages;
+
+   KeAcquireSpinLock(&PagingFileListLock, &oldIrql);
+   MiAvailSwapPages =
+      (MiFreeSwapPages * MM_PAGEFILE_COMMIT_RATIO) + MM_PAGEFILE_COMMIT_GRACE;
+   MiReservedSwapPages = MiReservedSwapPages + Nr;
+   if ((MM_PAGEFILE_COMMIT_RATIO != 0) && (MiAvailSwapPages < MiReservedSwapPages))
+   {
+      KeReleaseSpinLock(&PagingFileListLock, oldIrql);
+      return(FALSE);
+   }
+   KeReleaseSpinLock(&PagingFileListLock, oldIrql);
+   return(TRUE);
+}
+
+VOID
+NTAPI
+MmDereserveSwapPages(ULONG Nr)
+{
+   KIRQL oldIrql;
+
+   KeAcquireSpinLock(&PagingFileListLock, &oldIrql);
+   MiReservedSwapPages = MiReservedSwapPages - Nr;
+   KeReleaseSpinLock(&PagingFileListLock, oldIrql);
+}
+
 static ULONG
 MiAllocPageFromPagingFile(PPAGINGFILE PagingFile)
 {
@@ -406,6 +437,13 @@ MmFreeSwapPage(SWAPENTRY Entry)
 
    KeReleaseSpinLockFromDpcLevel(&PagingFileList[i]->AllocMapLock);
    KeReleaseSpinLock(&PagingFileListLock, oldIrql);
+}
+
+BOOLEAN
+NTAPI
+MmIsAvailableSwapPage(VOID)
+{
+   return(MiFreeSwapPages > 0);
 }
 
 SWAPENTRY

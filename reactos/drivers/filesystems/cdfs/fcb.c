@@ -57,7 +57,7 @@ CdfsGetNextPathElement(PWCHAR FileName)
 
 
 static VOID
-CdfsWSubString(LPWSTR pTarget, LPCWSTR pSource, size_t pLength)
+CdfsWSubString(PWCHAR pTarget, const PWCHAR pSource, size_t pLength)
 {
     wcsncpy (pTarget, pSource, pLength);
     pTarget [pLength] = L'\0';
@@ -73,18 +73,17 @@ CdfsCreateFCB(PCWSTR FileName)
     if(!Fcb) return NULL;
 
     RtlZeroMemory(Fcb, sizeof(FCB));
-    RtlInitEmptyUnicodeString(&Fcb->PathName, Fcb->PathNameBuffer, sizeof(Fcb->PathNameBuffer));
 
     if (FileName)
     {
-        RtlAppendUnicodeToString(&Fcb->PathName, FileName);
-        if (wcsrchr(Fcb->PathName.Buffer, '\\') != 0)
+        wcscpy(Fcb->PathName, FileName);
+        if (wcsrchr(Fcb->PathName, '\\') != 0)
         {
-            Fcb->ObjectName = wcsrchr(Fcb->PathName.Buffer, '\\');
+            Fcb->ObjectName = wcsrchr(Fcb->PathName, '\\');
         }
         else
         {
-            Fcb->ObjectName = Fcb->PathName.Buffer;
+            Fcb->ObjectName = Fcb->PathName;
         }
     }
 
@@ -130,7 +129,7 @@ CdfsFCBIsDirectory(PFCB Fcb)
 BOOLEAN
 CdfsFCBIsRoot(PFCB Fcb)
 {
-    return (Fcb->PathName.Length == sizeof(WCHAR) && Fcb->PathName.Buffer[0] == L'\\');
+    return(wcscmp(Fcb->PathName, L"\\") == 0);
 }
 
 
@@ -157,9 +156,9 @@ CdfsReleaseFCB(PDEVICE_EXTENSION Vcb,
 {
     KIRQL  oldIrql;
 
-    DPRINT("releasing FCB at %p: %wZ, refCount:%d\n",
+    DPRINT("releasing FCB at %p: %S, refCount:%d\n",
         Fcb,
-        &Fcb->PathName,
+        Fcb->PathName,
         Fcb->RefCount);
 
     KeAcquireSpinLock(&Vcb->FcbListLock, &oldIrql);
@@ -210,8 +209,8 @@ CdfsGrabFCBFromTable(PDEVICE_EXTENSION Vcb,
     {
         Fcb = CONTAINING_RECORD(current_entry, FCB, FcbListEntry);
 
-        DPRINT("Comparing '%wZ' and '%wZ'\n", FileName, &Fcb->PathName);
-        if (RtlCompareUnicodeString(FileName, &Fcb->PathName, TRUE) == 0)
+        DPRINT("Comparing '%wZ' and '%S'\n", FileName, Fcb->PathName);
+        if (_wcsicmp(FileName->Buffer, Fcb->PathName) == 0)
         {
             Fcb->RefCount++;
             KeReleaseSpinLock(&Vcb->FcbListLock, oldIrql);
@@ -366,12 +365,12 @@ CdfsMakeFCBFromDirEntry(PVCB Vcb,
 
     /* Check if the full string would overflow the pathName buffer (the additional characters are for '\\' and '\0') */
     if ((LongName[0] != 0) &&
-        ((DirectoryFCB->PathName.Length / sizeof(WCHAR)) + 1 + wcslen(LongName) + 1 > MAX_PATH))
+        (wcslen(DirectoryFCB->PathName) + 1 + wcslen(LongName) + 1 > MAX_PATH))
     {
         return(STATUS_OBJECT_NAME_INVALID);
     }
 
-    wcscpy(pathName, DirectoryFCB->PathName.Buffer);
+    wcscpy(pathName, DirectoryFCB->PathName);
     if (!CdfsFCBIsRoot(DirectoryFCB))
     {
         wcscat(pathName, L"\\");
@@ -489,7 +488,7 @@ CdfsDirFindFile(PDEVICE_EXTENSION DeviceExt,
         DeviceExt,
         DirectoryFcb,
         FileToFind);
-    DPRINT("Dir Path:%wZ\n", &DirectoryFcb->PathName);
+    DPRINT("Dir Path:%S\n", DirectoryFcb->PathName);
 
     /* default to '.' if no filename specified */
     if (FileToFind->Length == 0)

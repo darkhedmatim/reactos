@@ -1596,41 +1596,29 @@ static IRegExpVtbl RegExpVtbl = {
     RegExp_Replace
 };
 
-HRESULT create_regexp(IDispatch **ret)
+HRESULT WINAPI VBScriptRegExpFactory_CreateInstance(IClassFactory *iface, IUnknown *pUnkOuter, REFIID riid, void **ppv)
 {
-    RegExp2 *regexp;
+    RegExp2 *ret;
     HRESULT hres;
+
+    TRACE("(%p %s %p)\n", pUnkOuter, debugstr_guid(riid), ppv);
 
     hres = init_regexp_typeinfo(RegExp2_tid);
     if(FAILED(hres))
         return hres;
 
-    regexp = heap_alloc_zero(sizeof(*regexp));
-    if(!regexp)
+    ret = heap_alloc_zero(sizeof(*ret));
+    if(!ret)
         return E_OUTOFMEMORY;
 
-    regexp->IRegExp2_iface.lpVtbl = &RegExp2Vtbl;
-    regexp->IRegExp_iface.lpVtbl = &RegExpVtbl;
-    regexp->ref = 1;
-    heap_pool_init(&regexp->pool);
+    ret->IRegExp2_iface.lpVtbl = &RegExp2Vtbl;
+    ret->IRegExp_iface.lpVtbl = &RegExpVtbl;
 
-    *ret = (IDispatch*)&regexp->IRegExp2_iface;
-    return S_OK;
-}
+    ret->ref = 1;
+    heap_pool_init(&ret->pool);
 
-HRESULT WINAPI VBScriptRegExpFactory_CreateInstance(IClassFactory *iface, IUnknown *pUnkOuter, REFIID riid, void **ppv)
-{
-    IDispatch *regexp;
-    HRESULT hres;
-
-    TRACE("(%p %s %p)\n", pUnkOuter, debugstr_guid(riid), ppv);
-
-    hres = create_regexp(&regexp);
-    if(FAILED(hres))
-        return hres;
-
-    hres = IDispatch_QueryInterface(regexp, riid, ppv);
-    IDispatch_Release(regexp);
+    hres = IRegExp2_QueryInterface(&ret->IRegExp2_iface, riid, ppv);
+    IRegExp2_Release(&ret->IRegExp2_iface);
     return hres;
 }
 

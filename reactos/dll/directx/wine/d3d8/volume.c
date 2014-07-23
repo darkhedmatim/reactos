@@ -58,7 +58,7 @@ static ULONG WINAPI d3d8_volume_AddRef(IDirect3DVolume8 *iface)
     else
     {
         /* No container, handle our own refcounting */
-        ULONG ref = InterlockedIncrement(&volume->resource.refcount);
+        ULONG ref = InterlockedIncrement(&volume->refcount);
 
         TRACE("%p increasing refcount to %u.\n", iface, ref);
 
@@ -88,7 +88,7 @@ static ULONG WINAPI d3d8_volume_Release(IDirect3DVolume8 *iface)
     else
     {
         /* No container, handle our own refcounting */
-        ULONG ref = InterlockedDecrement(&volume->resource.refcount);
+        ULONG ref = InterlockedDecrement(&volume->refcount);
 
         TRACE("%p decreasing refcount to %u.\n", iface, ref);
 
@@ -127,28 +127,52 @@ static HRESULT WINAPI d3d8_volume_SetPrivateData(IDirect3DVolume8 *iface, REFGUI
         const void *data, DWORD data_size, DWORD flags)
 {
     struct d3d8_volume *volume = impl_from_IDirect3DVolume8(iface);
+    struct wined3d_resource *resource;
+    HRESULT hr;
+
     TRACE("iface %p, guid %s, data %p, data_size %u, flags %#x.\n",
             iface, debugstr_guid(guid), data, data_size, flags);
 
-    return d3d8_resource_set_private_data(&volume->resource, guid, data, data_size, flags);
+    wined3d_mutex_lock();
+    resource = wined3d_volume_get_resource(volume->wined3d_volume);
+    hr = wined3d_resource_set_private_data(resource, guid, data, data_size, flags);
+    wined3d_mutex_unlock();
+
+    return hr;
 }
 
-static HRESULT WINAPI d3d8_volume_GetPrivateData(IDirect3DVolume8 *iface, REFGUID guid,
+static HRESULT WINAPI d3d8_volume_GetPrivateData(IDirect3DVolume8 *iface, REFGUID  guid,
         void *data, DWORD *data_size)
 {
     struct d3d8_volume *volume = impl_from_IDirect3DVolume8(iface);
+    struct wined3d_resource *resource;
+    HRESULT hr;
+
     TRACE("iface %p, guid %s, data %p, data_size %p.\n",
             iface, debugstr_guid(guid), data, data_size);
 
-    return d3d8_resource_get_private_data(&volume->resource, guid, data, data_size);
+    wined3d_mutex_lock();
+    resource = wined3d_volume_get_resource(volume->wined3d_volume);
+    hr = wined3d_resource_get_private_data(resource, guid, data, data_size);
+    wined3d_mutex_unlock();
+
+    return hr;
 }
 
 static HRESULT WINAPI d3d8_volume_FreePrivateData(IDirect3DVolume8 *iface, REFGUID guid)
 {
     struct d3d8_volume *volume = impl_from_IDirect3DVolume8(iface);
+    struct wined3d_resource *resource;
+    HRESULT hr;
+
     TRACE("iface %p, guid %s.\n", iface, debugstr_guid(guid));
 
-    return d3d8_resource_free_private_data(&volume->resource, guid);
+    wined3d_mutex_lock();
+    resource = wined3d_volume_get_resource(volume->wined3d_volume);
+    hr = wined3d_resource_free_private_data(resource, guid);
+    wined3d_mutex_unlock();
+
+    return hr;
 }
 
 static HRESULT WINAPI d3d8_volume_GetContainer(IDirect3DVolume8 *iface, REFIID riid, void **container)
@@ -248,9 +272,7 @@ static const IDirect3DVolume8Vtbl d3d8_volume_vtbl =
 
 static void STDMETHODCALLTYPE volume_wined3d_object_destroyed(void *parent)
 {
-    struct d3d8_volume *volume = parent;
-    d3d8_resource_cleanup(&volume->resource);
-    HeapFree(GetProcessHeap(), 0, volume);
+    HeapFree(GetProcessHeap(), 0, parent);
 }
 
 static const struct wined3d_parent_ops d3d8_volume_wined3d_parent_ops =
@@ -262,7 +284,7 @@ void volume_init(struct d3d8_volume *volume, struct wined3d_volume *wined3d_volu
         const struct wined3d_parent_ops **parent_ops)
 {
     volume->IDirect3DVolume8_iface.lpVtbl = &d3d8_volume_vtbl;
-    d3d8_resource_init(&volume->resource);
+    volume->refcount = 1;
     wined3d_volume_incref(wined3d_volume);
     volume->wined3d_volume = wined3d_volume;
 

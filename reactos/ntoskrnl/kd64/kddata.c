@@ -79,8 +79,8 @@ PKDEBUG_SWITCH_ROUTINE KiDebugSwitchRoutine;
 //
 BOOLEAN KdBreakAfterSymbolLoad;
 BOOLEAN KdPitchDebugger;
-BOOLEAN KdDebuggerNotPresent;
-BOOLEAN KdDebuggerEnabled;
+BOOLEAN _KdDebuggerNotPresent;
+BOOLEAN _KdDebuggerEnabled;
 BOOLEAN KdAutoEnableOnEvent;
 BOOLEAN KdBlockEnable;
 BOOLEAN KdIgnoreUmExceptions;

@@ -119,7 +119,7 @@ FileMonikerImpl_Release(IMoniker* iface)
 
     ref = InterlockedDecrement(&This->ref);
 
-    /* destroy the object if there are no more references to it */
+    /* destroy the object if there's no more reference on it */
     if (ref == 0) FileMonikerImpl_Destroy(This);
 
     return ref;
@@ -918,12 +918,11 @@ static HRESULT WINAPI
 FileMonikerImpl_CommonPrefixWith(IMoniker* iface,IMoniker* pmkOther,IMoniker** ppmkPrefix)
 {
 
-    LPOLESTR pathThis = NULL, pathOther = NULL,*stringTable1,*stringTable2,commonPath = NULL;
-    IBindCtx *bindctx;
+    LPOLESTR pathThis,pathOther,*stringTable1,*stringTable2,commonPath;
+    IBindCtx *pbind;
     DWORD mkSys;
     ULONG nb1,nb2,i,sameIdx;
-    BOOL machineNameCase = FALSE;
-    HRESULT ret;
+    BOOL machimeNameCase=FALSE;
 
     if (ppmkPrefix==NULL)
         return E_POINTER;
@@ -935,81 +934,81 @@ FileMonikerImpl_CommonPrefixWith(IMoniker* iface,IMoniker* pmkOther,IMoniker** p
 
     /* check if we have the same type of moniker */
     IMoniker_IsSystemMoniker(pmkOther,&mkSys);
-    if (mkSys != MKSYS_FILEMONIKER)
-        return MonikerCommonPrefixWith(iface, pmkOther, ppmkPrefix);
 
-    ret = CreateBindCtx(0, &bindctx);
-    if (FAILED(ret))
-        return ret;
+    if(mkSys==MKSYS_FILEMONIKER){
+        HRESULT ret;
 
-    /* create a string based on common part of the two paths */
-    ret = IMoniker_GetDisplayName(iface, bindctx, NULL, &pathThis);
-    if (FAILED(ret))
-        goto failed;
+        ret = CreateBindCtx(0,&pbind);
+        if (FAILED(ret))
+            return ret;
 
-    ret = IMoniker_GetDisplayName(pmkOther, bindctx, NULL, &pathOther);
-    if (FAILED(ret))
-        goto failed;
+        /* create a string based on common part of the two paths */
 
-    nb1 = FileMonikerImpl_DecomposePath(pathThis, &stringTable1);
-    if (FAILED(nb1)) {
-        ret = nb1;
-        goto failed;
-    }
+        ret = IMoniker_GetDisplayName(iface,pbind,NULL,&pathThis);
+        if (FAILED(ret))
+            return ret;
+        ret = IMoniker_GetDisplayName(pmkOther,pbind,NULL,&pathOther);
+        if (FAILED(ret))
+            return ret;
 
-    nb2 = FileMonikerImpl_DecomposePath(pathOther, &stringTable2);
-    if (FAILED(nb2)) {
-        ret = nb2;
-        goto failed;
-    }
-
-    if (nb1 == 0 || nb2 == 0) {
-        ret = MK_E_NOPREFIX;
-        goto failed;
-    }
-
-    commonPath = CoTaskMemAlloc(sizeof(WCHAR)*(min(lstrlenW(pathThis),lstrlenW(pathOther))+1));
-    if (!commonPath) {
-        ret = E_OUTOFMEMORY;
-        goto failed;
-    }
-
-    *commonPath = 0;
-    for(sameIdx=0; ( (stringTable1[sameIdx]!=NULL) &&
-                     (stringTable2[sameIdx]!=NULL) &&
-                     (lstrcmpiW(stringTable1[sameIdx],stringTable2[sameIdx])==0)); sameIdx++);
-
-    if (sameIdx > 1 && *stringTable1[0]=='\\' && *stringTable2[1]=='\\'){
-        machineNameCase = TRUE;
-
-    for(i=2;i<sameIdx;i++)
-        if( (*stringTable1[i]=='\\') && (i+1 < sameIdx) && (*stringTable1[i+1]=='\\') ){
-            machineNameCase = FALSE;
-            break;
+        nb1=FileMonikerImpl_DecomposePath(pathThis,&stringTable1);
+        if (FAILED(nb1))
+            return nb1;
+        nb2=FileMonikerImpl_DecomposePath(pathOther,&stringTable2);
+        if (FAILED(nb2))
+        {
+            free_stringtable(stringTable1);
+            return nb2;
         }
+
+        if (nb1==0 || nb2==0)
+        {
+            free_stringtable(stringTable1);
+            free_stringtable(stringTable2);
+            return MK_E_NOPREFIX;
+        }
+
+        commonPath=HeapAlloc(GetProcessHeap(),0,sizeof(WCHAR)*(min(lstrlenW(pathThis),lstrlenW(pathOther))+1));
+        if (!commonPath)
+            return E_OUTOFMEMORY;
+
+        *commonPath=0;
+
+        for(sameIdx=0; ( (stringTable1[sameIdx]!=NULL) &&
+                         (stringTable2[sameIdx]!=NULL) &&
+                         (lstrcmpiW(stringTable1[sameIdx],stringTable2[sameIdx])==0)); sameIdx++);
+
+        if (sameIdx > 1 && *stringTable1[0]=='\\' && *stringTable2[1]=='\\'){
+
+            machimeNameCase=TRUE;
+
+            for(i=2;i<sameIdx;i++)
+
+                if( (*stringTable1[i]=='\\') && (i+1 < sameIdx) && (*stringTable1[i+1]=='\\') ){
+                    machimeNameCase=FALSE;
+                    break;
+            }
+        }
+
+        if (machimeNameCase && *stringTable1[sameIdx-1]=='\\')
+            sameIdx--;
+
+        if (machimeNameCase && (sameIdx<=3) && (nb1 > 3 || nb2 > 3) )
+            ret = MK_E_NOPREFIX;
+        else
+        {
+            for(i=0;i<sameIdx;i++)
+                strcatW(commonPath,stringTable1[i]);
+
+            free_stringtable(stringTable1);
+            free_stringtable(stringTable2);
+            ret = CreateFileMoniker(commonPath,ppmkPrefix);
+        }
+        HeapFree(GetProcessHeap(),0,commonPath);
+        return ret;
     }
-
-    if (machineNameCase && *stringTable1[sameIdx-1]=='\\')
-        sameIdx--;
-
-    if (machineNameCase && (sameIdx<=3) && (nb1 > 3 || nb2 > 3) )
-        ret = MK_E_NOPREFIX;
     else
-    {
-        for (i = 0; i < sameIdx; i++)
-            strcatW(commonPath,stringTable1[i]);
-        ret = CreateFileMoniker(commonPath, ppmkPrefix);
-    }
-
-failed:
-    IBindCtx_Release(bindctx);
-    CoTaskMemFree(pathThis);
-    CoTaskMemFree(pathOther);
-    CoTaskMemFree(commonPath);
-    free_stringtable(stringTable1);
-    free_stringtable(stringTable2);
-
-    return ret;
+        return MonikerCommonPrefixWith(iface,pmkOther,ppmkPrefix);
 }
 
 /******************************************************************************
@@ -1089,7 +1088,8 @@ lend:
         CoTaskMemFree(strgtable);
     }
 
-    CoTaskMemFree(word);
+    if (word)
+        CoTaskMemFree(word);
 
     return ret;
 }
@@ -1343,7 +1343,7 @@ static HRESULT FileMonikerImpl_Construct(FileMonikerImpl* This, LPCOLESTR lpszPa
     LPOLESTR *tabStr=0;
     static const WCHAR twoPoint[]={'.','.',0};
     static const WCHAR bkSlash[]={'\\',0};
-    BOOL addBkSlash;
+    BYTE addBkSlash;
 
     TRACE("(%p,%s)\n",This,debugstr_w(lpszPathName));
 
@@ -1364,14 +1364,14 @@ static HRESULT FileMonikerImpl_Construct(FileMonikerImpl* This, LPCOLESTR lpszPa
 
     if (nb > 0 ){
 
-        addBkSlash = TRUE;
+        addBkSlash=1;
         if (lstrcmpW(tabStr[0],twoPoint)!=0)
-            addBkSlash = FALSE;
+            addBkSlash=0;
         else
             for(i=0;i<nb;i++){
 
                 if ( (lstrcmpW(tabStr[i],twoPoint)!=0) && (lstrcmpW(tabStr[i],bkSlash)!=0) ){
-                    addBkSlash = FALSE;
+                    addBkSlash=0;
                     break;
                 }
                 else
@@ -1379,13 +1379,13 @@ static HRESULT FileMonikerImpl_Construct(FileMonikerImpl* This, LPCOLESTR lpszPa
                     if (lstrcmpW(tabStr[i],bkSlash)==0 && i<nb-1 && lstrcmpW(tabStr[i+1],bkSlash)==0){
                         *tabStr[i]=0;
                         sizeStr--;
-                        addBkSlash = FALSE;
+                        addBkSlash=0;
                         break;
                     }
             }
 
         if (lstrcmpW(tabStr[nb-1],bkSlash)==0)
-            addBkSlash = FALSE;
+            addBkSlash=0;
 
         This->filePathName=HeapReAlloc(GetProcessHeap(),0,This->filePathName,(sizeStr+1)*sizeof(WCHAR));
 

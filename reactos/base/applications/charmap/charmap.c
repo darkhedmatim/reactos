@@ -36,7 +36,7 @@ EnumFontNames(ENUMLOGFONTEXW *lpelfe,
 
     /* make sure font doesn't already exist in our list */
     if(SendMessageW(hwndCombo,
-                    CB_FINDSTRINGEXACT,
+                    CB_FINDSTRING,
                     0,
                     (LPARAM)pszName) == CB_ERR)
     {

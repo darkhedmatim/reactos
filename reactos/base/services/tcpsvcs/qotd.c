@@ -58,7 +58,7 @@ RetrieveQuote(SOCKET sock)
     else
     {
         DWORD dwSize = GetFileSize(hFile, NULL);
-        lpQuotes = (LPSTR)HeapAlloc(GetProcessHeap(), 0, dwSize + 1);
+        lpQuotes = (LPSTR)HeapAlloc(GetProcessHeap(), 0, dwSize);
         if (!lpQuotes) 
         {
             CloseHandle(hFile);
@@ -75,10 +75,7 @@ RetrieveQuote(SOCKET sock)
         lpQuotes[dwSize] = 0;
 
         if (dwBytesRead != dwSize)
-        {
-            HeapFree(GetProcessHeap(), 0, lpQuotes);
             return FALSE;
-        }
 
         lpStr = lpQuotes;
         while (*lpStr)
@@ -123,7 +120,6 @@ RetrieveQuote(SOCKET sock)
             }
         }
 
-        HeapFree(GetProcessHeap(), 0, lpQuotes);
         return TRUE;
     }
 

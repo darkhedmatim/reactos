@@ -59,7 +59,7 @@ static const DIDATAFORMAT data_format = {
     (LPDIOBJECTDATAFORMAT)obj_data_format
 };
 
-static BOOL CALLBACK enum_callback(const DIDEVICEOBJECTINSTANCEA *oi, void *info)
+static BOOL CALLBACK enum_callback(LPCDIDEVICEOBJECTINSTANCE oi, LPVOID info)
 {
     if (winetest_debug > 1)
         trace(" Type:%4x Ofs:%3d Flags:%08x Name:%s\n",
@@ -68,18 +68,18 @@ static BOOL CALLBACK enum_callback(const DIDEVICEOBJECTINSTANCEA *oi, void *info
     return DIENUM_CONTINUE;
 }
 
-static BOOL CALLBACK enum_type_callback(const DIDEVICEOBJECTINSTANCEA *oi, void *info)
+static BOOL CALLBACK enum_type_callback(LPCDIDEVICEOBJECTINSTANCE oi, LPVOID info)
 {
     DWORD expected = *(DWORD*)info;
     ok (expected & DIDFT_GETTYPE(oi->dwType), "EnumObjects() enumerated wrong type for obj %s, expected: %08x got: %08x\n", oi->tszName, expected, oi->dwType);
     return DIENUM_CONTINUE;
 }
 
-static void test_object_info(IDirectInputDeviceA *device, HWND hwnd)
+static void test_object_info(LPDIRECTINPUTDEVICE device, HWND hwnd)
 {
     HRESULT hr;
     DIPROPDWORD dp;
-    DIDEVICEOBJECTINSTANCEA obj_info;
+    DIDEVICEOBJECTINSTANCE obj_info;
     DWORD obj_types[] = {DIDFT_BUTTON, DIDFT_AXIS, DIDFT_POV};
     int type_index;
     int cnt1 = 0;
@@ -174,14 +174,14 @@ static void test_object_info(IDirectInputDeviceA *device, HWND hwnd)
 
 struct enum_data
 {
-    IDirectInputA *pDI;
+    LPDIRECTINPUT pDI;
     HWND hwnd;
 };
 
-static BOOL CALLBACK enum_devices(const DIDEVICEINSTANCEA *lpddi, void *pvRef)
+static BOOL CALLBACK enum_devices(LPCDIDEVICEINSTANCE lpddi, LPVOID pvRef)
 {
     struct enum_data *data = pvRef;
-    IDirectInputDeviceA *device, *obj = NULL;
+    LPDIRECTINPUTDEVICE device, obj = NULL;
     HRESULT hr;
 
     hr = IDirectInput_GetDeviceStatus(data->pDI, &lpddi->guidInstance);
@@ -212,8 +212,8 @@ static BOOL CALLBACK enum_devices(const DIDEVICEINSTANCEA *lpddi, void *pvRef)
 static void device_tests(void)
 {
     HRESULT hr;
-    IDirectInputA *pDI = NULL, *obj = NULL;
-    HINSTANCE hInstance = GetModuleHandleW(NULL);
+    LPDIRECTINPUT pDI = NULL, obj = NULL;
+    HINSTANCE hInstance = GetModuleHandle(NULL);
     HWND hwnd;
     struct enum_data data;
 
@@ -223,7 +223,7 @@ static void device_tests(void)
         skip("Tests require a newer dinput version\n");
         return;
     }
-    ok(SUCCEEDED(hr), "DirectInputCreateA() failed: %08x\n", hr);
+    ok(SUCCEEDED(hr), "DirectInputCreate() failed: %08x\n", hr);
     if (FAILED(hr)) return;
 
     hr = IDirectInput_Initialize(pDI, hInstance, DIRECTINPUT_VERSION);
@@ -233,8 +233,8 @@ static void device_tests(void)
     hr = IUnknown_QueryInterface(pDI, &IID_IDirectInput2W, (LPVOID*)&obj);
     ok(SUCCEEDED(hr), "QueryInterface(IDirectInput7W) failed: %08x\n", hr);
 
-    hwnd = CreateWindowA("static", "Title", WS_OVERLAPPEDWINDOW, 10, 10, 200, 200, NULL, NULL,
-                         NULL, NULL);
+    hwnd = CreateWindow("static", "Title", WS_OVERLAPPEDWINDOW,
+                        10, 10, 200, 200, NULL, NULL, NULL, NULL);
     ok(hwnd != NULL, "err: %d\n", GetLastError());
     if (hwnd)
     {
@@ -250,7 +250,7 @@ static void device_tests(void)
         hr = IDirectInput_GetDeviceStatus(pDI, &GUID_Joystick);
         if (hr == DI_OK)
         {
-            IDirectInputDeviceA *device = NULL;
+            LPDIRECTINPUTDEVICE device = NULL;
 
             hr = IDirectInput_CreateDevice(pDI, &GUID_Joystick, &device, NULL);
             ok(SUCCEEDED(hr), "IDirectInput_CreateDevice() failed: %08x\n", hr);

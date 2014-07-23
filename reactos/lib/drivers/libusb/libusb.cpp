@@ -102,7 +102,7 @@ USBLIB_Dispatch(
         case IRP_MJ_POWER:
         {
             //
-            // dispatch power
+            // dispatch pnp
             //
             return DeviceExtension->Dispatcher->HandlePower(DeviceObject, Irp);
         }
@@ -110,16 +110,9 @@ USBLIB_Dispatch(
         case IRP_MJ_DEVICE_CONTROL:
         {
             //
-            // dispatch io control
+            // dispatch pnp
             //
             return DeviceExtension->Dispatcher->HandleDeviceControl(DeviceObject, Irp);
-        }
-        case IRP_MJ_SYSTEM_CONTROL:
-        {
-            //
-            // dispatch system control
-            //
-            return DeviceExtension->Dispatcher->HandleSystemControl(DeviceObject, Irp);
         }
         default:
         {

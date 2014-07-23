@@ -361,8 +361,10 @@ ULONG CDFParser::Parse()
                             {
                                 printf("ERROR: Directive file contains errors at line %u.\n", (UINT)CurrentLine);
                                 DPRINT(MID_TRACE, ("Error while copying file.\n"));
-                                return Status;
                             }
+
+                            if (Status != CAB_STATUS_SUCCESS)
+                                return Status;
                         }
                         break;
 

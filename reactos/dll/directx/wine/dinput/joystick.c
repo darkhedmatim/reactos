@@ -706,7 +706,7 @@ HRESULT WINAPI JoystickWGenericImpl_BuildActionMap(LPDIRECTINPUTDEVICE8W iface,
 {
     JoystickGenericImpl *This = impl_from_IDirectInputDevice8W(iface);
     unsigned int i, j;
-    BOOL has_actions = FALSE;
+    int has_actions = 0;
     DWORD object_types[] = { DIDFT_AXIS, DIDFT_BUTTON };
     DWORD type_map[] = { DIDFT_RELAXIS, DIDFT_PSHBUTTON };
 
@@ -737,7 +737,7 @@ HRESULT WINAPI JoystickWGenericImpl_BuildActionMap(LPDIRECTINPUTDEVICE8W iface,
                     lpdiaf->rgoAction[i].guidInstance = This->base.guid;
                     lpdiaf->rgoAction[i].dwHow = DIAH_DEFAULT;
 
-                    has_actions = TRUE;
+                    has_actions = 1;
 
                     /* No need to try other types if the action was already mapped */
                     break;

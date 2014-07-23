@@ -1596,7 +1596,6 @@ getaddrinfo(const char FAR * nodename,
     struct addrinfo *ret = NULL, *ai;
     ULONG addr;
     USHORT port;
-    PCHAR pc;
     struct servent *se;
     char *proto;
     LPPROTOENT pent;
@@ -1625,9 +1624,9 @@ getaddrinfo(const char FAR * nodename,
     if (servname)
     {
         /* converting port number */
-        port = strtoul(servname, &pc, 10);
+        port = strtoul(servname, NULL, 10);
         /* service name was specified? */
-        if (*pc != ANSI_NULL)
+        if (port == 0)
         {
             /* protocol was specified? */
             if (hints && hints->ai_protocol)

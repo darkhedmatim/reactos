@@ -270,7 +270,6 @@ static void test_synthesized(void)
 }
 
 static CRITICAL_SECTION clipboard_cs;
-static HWND next_wnd;
 static LRESULT CALLBACK clipboard_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
     switch(msg) {
@@ -278,19 +277,12 @@ static LRESULT CALLBACK clipboard_wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARA
         EnterCriticalSection(&clipboard_cs);
         LeaveCriticalSection(&clipboard_cs);
         break;
-    case WM_CHANGECBCHAIN:
-        if (next_wnd == (HWND)wp)
-            next_wnd = (HWND)lp;
-        else if (next_wnd)
-            SendMessageA(next_wnd, msg, wp, lp);
-        break;
     case WM_USER:
-        ChangeClipboardChain(hwnd, next_wnd);
         PostQuitMessage(0);
         break;
     }
 
-    return DefWindowProcA(hwnd, msg, wp, lp);
+    return DefWindowProc(hwnd, msg, wp, lp);
 }
 
 static DWORD WINAPI clipboard_thread(void *param)
@@ -300,7 +292,7 @@ static DWORD WINAPI clipboard_thread(void *param)
 
     EnterCriticalSection(&clipboard_cs);
     SetLastError(0xdeadbeef);
-    next_wnd = SetClipboardViewer(win);
+    SetClipboardViewer(win);
     ok(GetLastError() == 0xdeadbeef, "GetLastError = %d\n", GetLastError());
     LeaveCriticalSection(&clipboard_cs);
 
@@ -315,14 +307,14 @@ static DWORD WINAPI clipboard_thread(void *param)
     ok(r, "CloseClipboard failed: %d\n", GetLastError());
     LeaveCriticalSection(&clipboard_cs);
 
-    r = PostMessageA(win, WM_USER, 0, 0);
+    r = PostMessage(win, WM_USER, 0, 0);
     ok(r, "PostMessage failed: %d\n", GetLastError());
     return 0;
 }
 
 static void test_messages(void)
 {
-    WNDCLASSA cls;
+    WNDCLASS cls;
     HWND win;
     MSG msg;
     HANDLE thread;
@@ -332,25 +324,25 @@ static void test_messages(void)
 
     memset(&cls, 0, sizeof(cls));
     cls.lpfnWndProc = clipboard_wnd_proc;
-    cls.hInstance = GetModuleHandleA(NULL);
+    cls.hInstance = GetModuleHandle(0);
     cls.lpszClassName = "clipboard_test";
-    RegisterClassA(&cls);
+    RegisterClass(&cls);
 
-    win = CreateWindowA("clipboard_test", NULL, 0, 0, 0, 0, 0, NULL, 0, NULL, 0);
+    win = CreateWindow("clipboard_test", NULL, 0, 0, 0, 0, 0, NULL, 0, NULL, 0);
     ok(win != NULL, "CreateWindow failed: %d\n", GetLastError());
 
     thread = CreateThread(NULL, 0, clipboard_thread, (void*)win, 0, &tid);
     ok(thread != NULL, "CreateThread failed: %d\n", GetLastError());
 
-    while(GetMessageA(&msg, NULL, 0, 0)) {
+    while(GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
-        DispatchMessageA(&msg);
+        DispatchMessage(&msg);
     }
 
     ok(WaitForSingleObject(thread, INFINITE) == WAIT_OBJECT_0, "WaitForSingleObject failed\n");
     CloseHandle(thread);
 
-    UnregisterClassA("clipboard_test", GetModuleHandleA(NULL));
+    UnregisterClass("clipboard_test", GetModuleHandle(0));
     DeleteCriticalSection(&clipboard_cs);
 }
 

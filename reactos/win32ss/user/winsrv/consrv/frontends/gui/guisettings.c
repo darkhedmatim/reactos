@@ -14,9 +14,6 @@
 #define NDEBUG
 #include <debug.h>
 
-#include "guiterm.h"
-#include "guisettings.h"
-
 VOID GuiConsoleMoveWindow(PGUI_CONSOLE_DATA GuiData);
 VOID SwitchFullScreen(PGUI_CONSOLE_DATA GuiData, BOOL FullScreen);
 
@@ -113,7 +110,7 @@ GuiConsoleReadUserSettings(IN OUT PGUI_CONSOLE_INFO TermInfo,
         }
         else if (!wcscmp(szValueName, L"WindowPosition"))
         {
-            TermInfo->AutoPosition   = FALSE;
+            TermInfo->AutoPosition = FALSE;
             TermInfo->WindowOrigin.x = LOWORD(Value);
             TermInfo->WindowOrigin.y = HIWORD(Value);
             RetVal = TRUE;
@@ -238,8 +235,6 @@ GuiConsoleShowConsoleProperties(PGUI_CONSOLE_DATA GuiData,
 
     DPRINT("GuiConsoleShowConsoleProperties entered\n");
 
-    if (!ConDrvValidateConsoleUnsafe(Console, CONSOLE_RUNNING, TRUE)) return;
-
     /*
      * Create a memory section to share with the applet, and map it.
      */
@@ -255,7 +250,7 @@ GuiConsoleShowConsoleProperties(PGUI_CONSOLE_DATA GuiData,
     if (!NT_SUCCESS(Status))
     {
         DPRINT1("Error: Impossible to create a shared section ; Status = %lu\n", Status);
-        goto Quit;
+        return;
     }
 
     Status = NtMapViewOfSection(hSection,
@@ -271,7 +266,8 @@ GuiConsoleShowConsoleProperties(PGUI_CONSOLE_DATA GuiData,
     if (!NT_SUCCESS(Status))
     {
         DPRINT1("Error: Impossible to map the shared section ; Status = %lu\n", Status);
-        goto Quit;
+        NtClose(hSection);
+        return;
     }
 
 
@@ -330,6 +326,7 @@ GuiConsoleShowConsoleProperties(PGUI_CONSOLE_DATA GuiData,
         GuiInfo->FontWeight = GuiData->GuiInfo.FontWeight;
         GuiInfo->UseRasterFonts = GuiData->GuiInfo.UseRasterFonts;
         GuiInfo->FullScreen = GuiData->GuiInfo.FullScreen;
+        /// GuiInfo->WindowPosition = GuiData->GuiInfo.WindowPosition;
         GuiInfo->AutoPosition = GuiData->GuiInfo.AutoPosition;
         GuiInfo->WindowOrigin = GuiData->GuiInfo.WindowOrigin;
         /* Offsetize */
@@ -357,7 +354,9 @@ GuiConsoleShowConsoleProperties(PGUI_CONSOLE_DATA GuiData,
     NtUnmapViewOfSection(NtCurrentProcess(), pSharedInfo);
 
     /* Get the console leader process, our client */
-    ProcessData = ConDrvGetConsoleLeaderProcess(Console);
+    ProcessData = CONTAINING_RECORD(Console->ProcessList.Blink,
+                                    CONSOLE_PROCESS_DATA,
+                                    ConsoleLink);
 
     /* Duplicate the section handle for the client */
     Status = NtDuplicateObject(NtCurrentProcess(),
@@ -409,13 +408,11 @@ GuiConsoleShowConsoleProperties(PGUI_CONSOLE_DATA GuiData,
 
 Quit:
     /* We have finished, close the section handle */
-    if (hSection) NtClose(hSection);
-
-    LeaveCriticalSection(&Console->Lock);
+    NtClose(hSection);
     return;
 }
 
-VOID
+NTSTATUS
 GuiApplyUserSettings(PGUI_CONSOLE_DATA GuiData,
                      HANDLE hClientSection,
                      BOOL SaveSettings)
@@ -430,10 +427,10 @@ GuiApplyUserSettings(PGUI_CONSOLE_DATA GuiData,
     PTERMINAL_INFO TermInfo = NULL;
     PGUI_CONSOLE_INFO GuiInfo = NULL;
 
-    if (!ConDrvValidateConsoleUnsafe(Console, CONSOLE_RUNNING, TRUE)) return;
-
     /* Get the console leader process, our client */
-    ProcessData = ConDrvGetConsoleLeaderProcess(Console);
+    ProcessData = CONTAINING_RECORD(Console->ProcessList.Blink,
+                                    CONSOLE_PROCESS_DATA,
+                                    ConsoleLink);
 
     /* Duplicate the section handle for ourselves */
     Status = NtDuplicateObject(ProcessData->Process->ProcessHandle,
@@ -444,7 +441,7 @@ GuiApplyUserSettings(PGUI_CONSOLE_DATA GuiData,
     if (!NT_SUCCESS(Status))
     {
         DPRINT1("Error when mapping client handle, Status = %lu\n", Status);
-        goto Quit;
+        return Status;
     }
 
     /* Get a view of the shared section */
@@ -461,7 +458,8 @@ GuiApplyUserSettings(PGUI_CONSOLE_DATA GuiData,
     if (!NT_SUCCESS(Status))
     {
         DPRINT1("Error when mapping view of file, Status = %lu\n", Status);
-        goto Quit;
+        NtClose(hSection);
+        return Status;
     }
 
     _SEH2_TRY
@@ -534,14 +532,9 @@ GuiApplyUserSettings(PGUI_CONSOLE_DATA GuiData,
 
 Quit:
     /* Finally, close the section and return */
-    if (hSection)
-    {
-        NtUnmapViewOfSection(NtCurrentProcess(), pConInfo);
-        NtClose(hSection);
-    }
-
-    LeaveCriticalSection(&Console->Lock);
-    return;
+    NtUnmapViewOfSection(NtCurrentProcess(), pConInfo);
+    NtClose(hSection);
+    return Status;
 }
 
 /* EOF */

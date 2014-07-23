@@ -1,6 +1,4 @@
-; UTF-8
-; Polish translation by wojo664
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = SuperTux
@@ -17,15 +15,12 @@ CDPath = none
 Description = SuperTux ist ein zweidimensionales, freies, Open Source Plattformspiel. 
 
 [Section.0410]
-Description = SuperTux è un gioco open-source gratuito in 2D.
-
-[Section.0415]
-Description = SuperTux to darmowa dwu wymiarowa gra platformowa  OpenSource.
+Description = SuperTux è un gioco open-source a 2D.
 
 [Section.0418]
 Description = SuperTux este un joc gratuit, cu surse publice, pe platformă bi-dimensională.
 Size = 7,3 Mo
 
 [Section.041f]
-Description = SuperTux, ücretsiz, açık kaynak ve iki boyutlu bir platform oyunudur.
+Description = SuperTux, ücretsiz, iki boyutlu ve açık kaynak bir platform oyunudur.
 Size = 7,3 MB

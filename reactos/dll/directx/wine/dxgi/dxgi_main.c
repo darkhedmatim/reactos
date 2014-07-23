@@ -43,35 +43,55 @@ static void dxgi_main_cleanup(void)
     DeleteCriticalSection(&dxgi_cs);
 }
 
-BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, void *reserved)
+BOOL WINAPI DllMain(HINSTANCE hInstDLL, DWORD fdwReason, LPVOID lpv)
 {
-    switch (reason)
+    TRACE("fdwReason %u\n", fdwReason);
+
+    switch(fdwReason)
     {
         case DLL_PROCESS_ATTACH:
-            DisableThreadLibraryCalls(inst);
+            DisableThreadLibraryCalls(hInstDLL);
             break;
 
         case DLL_PROCESS_DETACH:
-            if (!reserved)
-                dxgi_main_cleanup();
+            if (lpv) break;
+            dxgi_main_cleanup();
             break;
     }
 
     return TRUE;
 }
 
-HRESULT WINAPI CreateDXGIFactory1(REFIID riid, void **factory)
-{
-    TRACE("riid %s, factory %p\n", debugstr_guid(riid), factory);
-
-    return dxgi_factory_create(riid, factory, TRUE);
-}
-
 HRESULT WINAPI CreateDXGIFactory(REFIID riid, void **factory)
 {
+    struct dxgi_factory *object;
+    HRESULT hr;
+
     TRACE("riid %s, factory %p\n", debugstr_guid(riid), factory);
 
-    return dxgi_factory_create(riid, factory, FALSE);
+    object = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*object));
+    if (!object)
+    {
+        ERR("Failed to allocate DXGI factory object memory\n");
+        *factory = NULL;
+        return E_OUTOFMEMORY;
+    }
+
+    hr = dxgi_factory_init(object);
+    if (FAILED(hr))
+    {
+        WARN("Failed to initialize swapchain, hr %#x.\n", hr);
+        HeapFree(GetProcessHeap(), 0, object);
+        *factory = NULL;
+        return hr;
+    }
+
+    TRACE("Created IDXGIFactory %p\n", object);
+
+    hr = IDXGIFactory_QueryInterface((IDXGIFactory *)object, riid, factory);
+    IDXGIFactory_Release((IDXGIFactory *)object);
+
+    return hr;
 }
 
 static BOOL get_layer(enum dxgi_device_layer_id id, struct dxgi_device_layer *layer)
@@ -105,7 +125,8 @@ static HRESULT register_d3d10core_layers(HMODULE d3d10core)
         HMODULE mod;
         BOOL ret;
 
-        if (!(ret = GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (const char *)d3d10core, &mod)))
+        ret = GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCSTR)d3d10core, &mod);
+        if (!ret)
         {
             LeaveCriticalSection(&dxgi_cs);
             return E_FAIL;

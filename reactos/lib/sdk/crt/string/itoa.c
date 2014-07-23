@@ -113,7 +113,10 @@ int CDECL _i64toa_s(__int64 value, char *str, size_t size, int radix)
             *p++ = *pos--;
 
         str[0] = '\0';
-        MSVCRT_INVALID_PMT("str[size] is too small", ERANGE);
+        MSVCRT_INVALID_PMT("str[size] is too small");
+#ifndef _LIBCNT_
+        *_errno() = ERANGE;
+#endif
         return ERANGE;
     }
 
@@ -179,7 +182,10 @@ int CDECL _ui64toa_s(unsigned __int64 value, char *str,
     }while(value != 0);
 
     if((unsigned)(buffer-pos+65) > size) {
-        MSVCRT_INVALID_PMT("str[size] is too small", EINVAL);
+        MSVCRT_INVALID_PMT("str[size] is too small");
+#ifndef _LIBCNT_
+        *_errno() = EINVAL;
+#endif
         return EINVAL;
     }
 
@@ -316,7 +322,10 @@ int CDECL _ltoa_s(long value, char *str, size_t size, int radix)
             *p++ = *pos--;
 
         str[0] = '\0';
-        MSVCRT_INVALID_PMT("str[size] is too small", ERANGE);
+        MSVCRT_INVALID_PMT("str[size] is too small");
+#ifndef _LIBCNT_
+        *_errno() = EINVAL;
+#endif
         return ERANGE;
     }
 

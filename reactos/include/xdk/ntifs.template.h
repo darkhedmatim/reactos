@@ -1124,14 +1124,13 @@ HalGetDmaAlignmentRequirement(
 #define HalGetDmaAlignmentRequirement() 1L
 #endif
 
-#ifdef _NTSYSTEM_
-extern PUSHORT NlsOemLeadByteInfo;
-#define NLS_OEM_LEAD_BYTE_INFO NlsOemLeadByteInfo
-#else
-extern PUSHORT *NlsOemLeadByteInfo;
-__CREATE_NTOS_DATA_IMPORT_ALIAS(NlsOemLeadByteInfo)
-#define NLS_OEM_LEAD_BYTE_INFO (*NlsOemLeadByteInfo)
+extern NTKERNELAPI PUSHORT NlsOemLeadByteInfo;
+#define NLS_OEM_LEAD_BYTE_INFO            NlsOemLeadByteInfo
+
+#ifdef NLS_MB_CODE_PAGE_TAG
+#undef NLS_MB_CODE_PAGE_TAG
 #endif
+#define NLS_MB_CODE_PAGE_TAG              NlsMbOemCodePageTag
 
 #if (NTDDI_VERSION >= NTDDI_VISTA)
 
@@ -1409,6 +1408,15 @@ typedef struct _OBJECT_BASIC_INFORMATION
     ULONG SecurityDescriptorSize;
     LARGE_INTEGER CreationTime;
 } OBJECT_BASIC_INFORMATION, *POBJECT_BASIC_INFORMATION;
+
+typedef struct _BITMAP_RANGE {
+    LIST_ENTRY      Links;
+    LONGLONG        BasePage;
+    ULONG           FirstDirtyPage;
+    ULONG           LastDirtyPage;
+    ULONG           DirtyPages;
+    PULONG          Bitmap;
+} BITMAP_RANGE, *PBITMAP_RANGE;
 
 typedef struct _FILE_COPY_ON_WRITE_INFORMATION {
     BOOLEAN ReplaceIfExists;

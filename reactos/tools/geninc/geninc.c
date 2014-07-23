@@ -5,16 +5,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
 
 #define IMAGE_FILE_MACHINE_I386  0x014c
 #define IMAGE_FILE_MACHINE_AMD64 0x8664
 #define IMAGE_FILE_MACHINE_ARMNT 0x01c4
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 #define PRIx64 "I64x"
+typedef unsigned __int16 uint16_t;
+typedef unsigned __int32 uint32_t;
+typedef unsigned __int64 uint64_t;
 #else
-#include <inttypes.h>
+#include <stdint.h>
+#define PRIx64 "llx"
 #define _stricmp strcasecmp
 #endif
 
@@ -185,14 +188,7 @@ int main(int argc, char* argv[])
             case TYPE_CONSTANT:
                 if (ms_format)
                 {
-                    if (Machine == IMAGE_FILE_MACHINE_ARMNT)
-                    {
-                        fprintf(output, "%s equ 0x%"PRIx64"\n", data.Name, data.Value);
-                    }
-                    else
-                    {
-                        fprintf(output, "%s equ 0%"PRIx64"h\n", data.Name, data.Value);
-                    }
+                    fprintf(output, "%s equ 0%"PRIx64"h\n", data.Name, data.Value);
                 }
                 else
                 {

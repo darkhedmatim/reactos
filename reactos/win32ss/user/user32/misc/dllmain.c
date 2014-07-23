@@ -131,7 +131,7 @@ LoadAppInitDlls()
         LPWSTR ptr;
 		size_t i;
 
-        RtlCopyMemory(buffer, szAppInit, KEY_LENGTH * sizeof(WCHAR) );
+        RtlCopyMemory(buffer, szAppInit, KEY_LENGTH);
 
 		for (i = 0; i < KEY_LENGTH; ++ i)
 		{

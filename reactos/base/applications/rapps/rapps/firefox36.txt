@@ -1,5 +1,4 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = Mozilla Firefox 3.6
@@ -72,7 +71,8 @@ URLSite = http://www.mozilla.org/sk/
 URLDownload = http://ftp.mozilla.org/pub/mozilla.org/firefox/releases/3.6.28/win32/sk/Firefox%20Setup%203.6.28.exe
 
 [Section.041f]
-Description = Özgür Umûmî Ağ tarayıcıları arasında en tutulanı ve en iyilerinden biri.
+Name = Mozilla Ateştilkisi 3.6
+Description = Özgür örütbağ tarayıcıları arasında en tutulanı ve en iyisi.
 Size = 8,07 MB
 URLSite = http://www.mozilla.org/tr/
 URLDownload = http://ftp.mozilla.org/pub/mozilla.org/firefox/releases/3.6.28/win32/tr/Firefox%20Setup%203.6.28.exe

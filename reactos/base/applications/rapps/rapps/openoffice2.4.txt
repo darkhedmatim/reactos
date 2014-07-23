@@ -1,11 +1,10 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = OpenOffice 2.4
 Version = 2.4.3
 Licence = LGPL
-Description = The open source office suite.
+Description = THE Open Source Office Suite.
 Size = 113 MB
 Category = 6
 URLSite = http://www.openoffice.org/
@@ -13,7 +12,7 @@ URLDownload = http://archive.services.openoffice.org/pub/openoffice-archive/stab
 CDPath = none
 
 [Section.0407]
-Description = DIE Open Source Office Suite. (FIXME)
+Description = DIE Open Source Office Suite.
 Size = 114.25 MB
 URLSite = http://www.openoffice.org/de/
 URLDownload = http://archive.services.openoffice.org/pub/openoffice-archive/localized/de/2.4.3/OOo_2.4.3_Win32Intel_install_de.exe
@@ -32,14 +31,13 @@ URLSite = http://www.openoffice.org/fr/
 URLDownload = http://archive.services.openoffice.org/pub/openoffice-archive/localized/fr/2.4.2/OOo_2.4.2_Win32Intel_install_fr.exe
 
 [Section.0410]
-Description = La suite di office Open Source.
 Size = 113.79 MB
 URLSite = http://www.openoffice.org/it/
 URLDownload = http://archive.services.openoffice.org/pub/openoffice-archive/localized/it/2.4.3/OOo_2.4.3_Win32Intel_install_it.exe
 
 [Section.0413]
 Version = 2.4.2
-Description = Open-bron Office Pakket. (FIXME)
+Description = Open-bron Office Pakket.
 Size = 113.8 MB
 URLSite = http://www.openoffice.org/nl/
 URLDownload = http://archive.services.openoffice.org/pub/openoffice-archive/localized/nl/2.4.2/OOo_2.4.2_Win32Intel_install_nl.exe
@@ -61,14 +59,14 @@ Description = Bir açık kaynak büro takımı.
 URLSite = http://www.openoffice.org/tr/
 
 [Section.0422]
-Description = Відкритий офісний пакет.
-Size = 114.76 MB
 URLSite = http://www.openoffice.org/ua/
+Description = Відкритий офісний пакет.
 URLDownload = http://archive.services.openoffice.org/pub/openoffice-archive/localized/ru/2.4.3/OOo_2.4.3_Win32Intel_install_ru.exe
+Size = 114.76 MB
 
 [Section.0813]
 Version = 2.4.2
-Description = Open-bron Office Pakket. (FIXME)
+Description = Open-bron Office Pakket.
 Size = 113.8 MB
 URLSite = http://www.openoffice.org/nl/
 URLDownload = http://archive.services.openoffice.org/pub/openoffice-archive/localized/nl/2.4.2/OOo_2.4.2_Win32Intel_install_nl.exe

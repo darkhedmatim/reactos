@@ -53,8 +53,6 @@ BOOL WINAPI DllMain( HINSTANCE hinst, DWORD reason, LPVOID reserved )
         DisableThreadLibraryCalls( hinst );
 #ifdef HAVE_LCMS2
         cmsSetLogErrorHandler( lcms_error_handler );
-#else
-        ERR( "No support for liblcms2, expect problems\n" );
 #endif
         break;
     case DLL_PROCESS_DETACH:

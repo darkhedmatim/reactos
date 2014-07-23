@@ -189,11 +189,11 @@ static const struct IAutomaticUpdatesVtbl automatic_updates_vtbl =
     automatic_updates_EnableService
 };
 
-HRESULT AutomaticUpdates_create( LPVOID *ppObj )
+HRESULT AutomaticUpdates_create( IUnknown *pUnkOuter, LPVOID *ppObj )
 {
     automatic_updates *updates;
 
-    TRACE("(%p)\n", ppObj);
+    TRACE("(%p,%p)\n", pUnkOuter, ppObj);
 
     updates = HeapAlloc( GetProcessHeap(), 0, sizeof(*updates) );
     if (!updates) return E_OUTOFMEMORY;

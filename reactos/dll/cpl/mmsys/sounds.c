@@ -957,7 +957,7 @@ SoundsDlgProc(HWND hwndDlg,
                     ofn.lpstrFileTitle = L"Search for new sounds"; //FIXME non-nls
                     ofn.nMaxFileTitle = wcslen(ofn.lpstrFileTitle);
                     ofn.lpstrInitialDir = NULL;
-                    ofn.Flags = OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
+                    ofn.Flags = OFN_FILEMUSTEXIST;
 
                     if (GetOpenFileNameW(&ofn) == TRUE)
                     {

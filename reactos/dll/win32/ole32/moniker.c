@@ -371,7 +371,7 @@ RunningObjectTableImpl_Release(IRunningObjectTable* iface)
 
     ref = InterlockedDecrement(&This->ref);
 
-    /* uninitialize ROT structure if there are no more references to it */
+    /* uninitialize ROT structure if there's no more references to it */
     if (ref == 0)
     {
         struct list *cursor, *cursor2;
@@ -1230,10 +1230,8 @@ HRESULT WINAPI GetClassFile(LPCOLESTR filePathName,CLSID *pclsid)
     absFile=pathDec[nbElm-1];
 
     /* failed if the path represents a directory and not an absolute file name*/
-    if (!lstrcmpW(absFile, bkslashW)) {
-        CoTaskMemFree(pathDec);
+    if (!lstrcmpW(absFile, bkslashW))
         return MK_E_INVALIDEXTENSION;
-    }
 
     /* get the extension of the file */
     extension = NULL;
@@ -1241,10 +1239,8 @@ HRESULT WINAPI GetClassFile(LPCOLESTR filePathName,CLSID *pclsid)
     for(i = length-1; (i >= 0) && *(extension = &absFile[i]) != '.'; i--)
         /* nothing */;
 
-    if (!extension || !lstrcmpW(extension, dotW)) {
-        CoTaskMemFree(pathDec);
+    if (!extension || !lstrcmpW(extension, dotW))
         return MK_E_INVALIDEXTENSION;
-    }
 
     res=RegQueryValueW(HKEY_CLASSES_ROOT, extension, NULL, &sizeProgId);
 
@@ -1321,7 +1317,7 @@ static ULONG   WINAPI EnumMonikerImpl_Release(IEnumMoniker* iface)
 
     ref = InterlockedDecrement(&This->ref);
 
-    /* uninitialize ROT structure if there are no more references to it */
+    /* uninitialize rot structure if there's no more reference to it*/
     if (ref == 0)
     {
         ULONG i;

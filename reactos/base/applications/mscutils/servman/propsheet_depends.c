@@ -60,7 +60,7 @@ AddItemToTreeView(HWND hTreeView,
                                    dwSize * sizeof(TCHAR));
         if (lpName)
         {
-            StringCchCopy(lpName, dwSize, lpServiceName);
+            _tcscpy_s(lpName, dwSize, lpServiceName);
             tvi.lParam = (LPARAM)lpName;
         }
     }

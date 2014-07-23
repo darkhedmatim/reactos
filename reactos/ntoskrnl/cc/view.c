@@ -41,45 +41,63 @@
 
 /* GLOBALS *******************************************************************/
 
-static LIST_ENTRY DirtyVacbListHead;
-static LIST_ENTRY VacbListHead;
-static LIST_ENTRY VacbLruListHead;
+/*
+ * If CACHE_BITMAP is defined, the cache manager uses one large memory region
+ * within the kernel address space and allocate/deallocate space from this block
+ * over a bitmap. If CACHE_BITMAP is used, the size of the mdl mapping region
+ * must be reduced (ntoskrnl\mm\mdl.c, MI_MDLMAPPING_REGION_SIZE).
+ */
+//#define CACHE_BITMAP
+
+static LIST_ENTRY DirtySegmentListHead;
+static LIST_ENTRY CacheSegmentListHead;
+static LIST_ENTRY CacheSegmentLRUListHead;
+static LIST_ENTRY ClosedListHead;
 ULONG DirtyPageCount = 0;
 
 KGUARDED_MUTEX ViewLock;
 
+#ifdef CACHE_BITMAP
+#define    CI_CACHESEG_MAPPING_REGION_SIZE    (128*1024*1024)
+
+static PVOID CiCacheSegMappingRegionBase = NULL;
+static RTL_BITMAP CiCacheSegMappingRegionAllocMap;
+static ULONG CiCacheSegMappingRegionHint;
+static KSPIN_LOCK CiCacheSegMappingRegionLock;
+#endif
+
 NPAGED_LOOKASIDE_LIST iBcbLookasideList;
-static NPAGED_LOOKASIDE_LIST SharedCacheMapLookasideList;
-static NPAGED_LOOKASIDE_LIST VacbLookasideList;
+static NPAGED_LOOKASIDE_LIST BcbLookasideList;
+static NPAGED_LOOKASIDE_LIST CacheSegLookasideList;
 
 #if DBG
-static void CcRosVacbIncRefCount_(PROS_VACB vacb, const char* file, int line)
+static void CcRosCacheSegmentIncRefCount_ ( PCACHE_SEGMENT cs, const char* file, int line )
 {
-    ++vacb->ReferenceCount;
-    if (vacb->SharedCacheMap->Trace)
+    ++cs->ReferenceCount;
+    if ( cs->Bcb->Trace )
     {
-        DbgPrint("(%s:%i) VACB %p ++RefCount=%lu, Dirty %u, PageOut %lu\n",
-                 file, line, vacb, vacb->ReferenceCount, vacb->Dirty, vacb->PageOut);
+        DbgPrint("(%s:%i) CacheSegment %p ++RefCount=%lu, Dirty %u, PageOut %lu\n",
+                 file, line, cs, cs->ReferenceCount, cs->Dirty, cs->PageOut );
     }
 }
-static void CcRosVacbDecRefCount_(PROS_VACB vacb, const char* file, int line)
+static void CcRosCacheSegmentDecRefCount_ ( PCACHE_SEGMENT cs, const char* file, int line )
 {
-    --vacb->ReferenceCount;
-    if (vacb->SharedCacheMap->Trace)
+    --cs->ReferenceCount;
+    if ( cs->Bcb->Trace )
     {
-        DbgPrint("(%s:%i) VACB %p --RefCount=%lu, Dirty %u, PageOut %lu\n",
-                 file, line, vacb, vacb->ReferenceCount, vacb->Dirty, vacb->PageOut);
+        DbgPrint("(%s:%i) CacheSegment %p --RefCount=%lu, Dirty %u, PageOut %lu\n",
+                 file, line, cs, cs->ReferenceCount, cs->Dirty, cs->PageOut );
     }
 }
-#define CcRosVacbIncRefCount(vacb) CcRosVacbIncRefCount_(vacb,__FILE__,__LINE__)
-#define CcRosVacbDecRefCount(vacb) CcRosVacbDecRefCount_(vacb,__FILE__,__LINE__)
+#define CcRosCacheSegmentIncRefCount(cs) CcRosCacheSegmentIncRefCount_(cs,__FILE__,__LINE__)
+#define CcRosCacheSegmentDecRefCount(cs) CcRosCacheSegmentDecRefCount_(cs,__FILE__,__LINE__)
 #else
-#define CcRosVacbIncRefCount(vacb) (++((vacb)->ReferenceCount))
-#define CcRosVacbDecRefCount(vacb) (--((vacb)->ReferenceCount))
+#define CcRosCacheSegmentIncRefCount(cs) (++((cs)->ReferenceCount))
+#define CcRosCacheSegmentDecRefCount(cs) (--((cs)->ReferenceCount))
 #endif
 
 NTSTATUS
-CcRosInternalFreeVacb(PROS_VACB Vacb);
+CcRosInternalFreeCacheSegment(PCACHE_SEGMENT CacheSeg);
 
 
 /* FUNCTIONS *****************************************************************/
@@ -87,69 +105,69 @@ CcRosInternalFreeVacb(PROS_VACB Vacb);
 VOID
 NTAPI
 CcRosTraceCacheMap (
-    PROS_SHARED_CACHE_MAP SharedCacheMap,
+    PBCB Bcb,
     BOOLEAN Trace )
 {
 #if DBG
     KIRQL oldirql;
     PLIST_ENTRY current_entry;
-    PROS_VACB current;
+    PCACHE_SEGMENT current;
 
-    if (!SharedCacheMap)
+    if ( !Bcb )
         return;
 
-    SharedCacheMap->Trace = Trace;
+    Bcb->Trace = Trace;
 
-    if (Trace)
+    if ( Trace )
     {
-        DPRINT1("Enabling Tracing for CacheMap 0x%p:\n", SharedCacheMap);
+        DPRINT1("Enabling Tracing for CacheMap 0x%p:\n", Bcb );
 
         KeAcquireGuardedMutex(&ViewLock);
-        KeAcquireSpinLock(&SharedCacheMap->CacheMapLock, &oldirql);
+        KeAcquireSpinLock(&Bcb->BcbLock, &oldirql);
 
-        current_entry = SharedCacheMap->CacheMapVacbListHead.Flink;
-        while (current_entry != &SharedCacheMap->CacheMapVacbListHead)
+        current_entry = Bcb->BcbSegmentListHead.Flink;
+        while (current_entry != &Bcb->BcbSegmentListHead)
         {
-            current = CONTAINING_RECORD(current_entry, ROS_VACB, CacheMapVacbListEntry);
+            current = CONTAINING_RECORD(current_entry, CACHE_SEGMENT, BcbSegmentListEntry);
             current_entry = current_entry->Flink;
 
-            DPRINT1("  VACB 0x%p enabled, RefCount %lu, Dirty %u, PageOut %lu\n",
+            DPRINT1("  CacheSegment 0x%p enabled, RefCount %lu, Dirty %u, PageOut %lu\n",
                     current, current->ReferenceCount, current->Dirty, current->PageOut );
         }
-        KeReleaseSpinLock(&SharedCacheMap->CacheMapLock, oldirql);
+        KeReleaseSpinLock(&Bcb->BcbLock, oldirql);
         KeReleaseGuardedMutex(&ViewLock);
     }
     else
     {
-        DPRINT1("Disabling Tracing for CacheMap 0x%p:\n", SharedCacheMap);
+        DPRINT1("Disabling Tracing for CacheMap 0x%p:\n", Bcb );
     }
 
 #else
-    UNREFERENCED_PARAMETER(SharedCacheMap);
-    UNREFERENCED_PARAMETER(Trace);
+    Bcb = Bcb;
+    Trace = Trace;
 #endif
 }
 
 NTSTATUS
 NTAPI
-CcRosFlushVacb (
-    PROS_VACB Vacb)
+CcRosFlushCacheSegment (
+    PCACHE_SEGMENT CacheSegment)
 {
     NTSTATUS Status;
     KIRQL oldIrql;
 
-    Status = CcWriteVirtualAddress(Vacb);
+    Status = WriteCacheSegment(CacheSegment);
     if (NT_SUCCESS(Status))
     {
         KeAcquireGuardedMutex(&ViewLock);
-        KeAcquireSpinLock(&Vacb->SharedCacheMap->CacheMapLock, &oldIrql);
+        KeAcquireSpinLock(&CacheSegment->Bcb->BcbLock, &oldIrql);
 
-        Vacb->Dirty = FALSE;
-        RemoveEntryList(&Vacb->DirtyVacbListEntry);
+        CacheSegment->Dirty = FALSE;
+        RemoveEntryList(&CacheSegment->DirtySegmentListEntry);
         DirtyPageCount -= VACB_MAPPING_GRANULARITY / PAGE_SIZE;
-        CcRosVacbDecRefCount(Vacb);
+        CcRosCacheSegmentDecRefCount(CacheSegment);
 
-        KeReleaseSpinLock(&Vacb->SharedCacheMap->CacheMapLock, oldIrql);
+        KeReleaseSpinLock(&CacheSegment->Bcb->BcbLock, oldIrql);
         KeReleaseGuardedMutex(&ViewLock);
     }
 
@@ -164,7 +182,8 @@ CcRosFlushDirtyPages (
     BOOLEAN Wait)
 {
     PLIST_ENTRY current_entry;
-    PROS_VACB current;
+    PCACHE_SEGMENT current;
+    ULONG PagesPerSegment;
     BOOLEAN Locked;
     NTSTATUS Status;
     LARGE_INTEGER ZeroTimeout;
@@ -177,26 +196,25 @@ CcRosFlushDirtyPages (
     KeEnterCriticalRegion();
     KeAcquireGuardedMutex(&ViewLock);
 
-    current_entry = DirtyVacbListHead.Flink;
-    if (current_entry == &DirtyVacbListHead)
+    current_entry = DirtySegmentListHead.Flink;
+    if (current_entry == &DirtySegmentListHead)
     {
         DPRINT("No Dirty pages\n");
     }
 
-    while ((current_entry != &DirtyVacbListHead) && (Target > 0))
+    while ((current_entry != &DirtySegmentListHead) && (Target > 0))
     {
-        current = CONTAINING_RECORD(current_entry,
-                                    ROS_VACB,
-                                    DirtyVacbListEntry);
+        current = CONTAINING_RECORD(current_entry, CACHE_SEGMENT,
+                                    DirtySegmentListEntry);
         current_entry = current_entry->Flink;
 
-        CcRosVacbIncRefCount(current);
+        CcRosCacheSegmentIncRefCount(current);
 
-        Locked = current->SharedCacheMap->Callbacks->AcquireForLazyWrite(
-                     current->SharedCacheMap->LazyWriteContext, Wait);
+        Locked = current->Bcb->Callbacks->AcquireForLazyWrite(
+                     current->Bcb->LazyWriteContext, Wait);
         if (!Locked)
         {
-            CcRosVacbDecRefCount(current);
+            CcRosCacheSegmentDecRefCount(current);
             continue;
         }
 
@@ -207,9 +225,9 @@ CcRosFlushDirtyPages (
                                        Wait ? NULL : &ZeroTimeout);
         if (Status != STATUS_SUCCESS)
         {
-            current->SharedCacheMap->Callbacks->ReleaseFromLazyWrite(
-                current->SharedCacheMap->LazyWriteContext);
-            CcRosVacbDecRefCount(current);
+            current->Bcb->Callbacks->ReleaseFromLazyWrite(
+                current->Bcb->LazyWriteContext);
+            CcRosCacheSegmentDecRefCount(current);
             continue;
         }
 
@@ -219,34 +237,36 @@ CcRosFlushDirtyPages (
         if (current->ReferenceCount > 2)
         {
             KeReleaseMutex(&current->Mutex, FALSE);
-            current->SharedCacheMap->Callbacks->ReleaseFromLazyWrite(
-                current->SharedCacheMap->LazyWriteContext);
-            CcRosVacbDecRefCount(current);
+            current->Bcb->Callbacks->ReleaseFromLazyWrite(
+                current->Bcb->LazyWriteContext);
+            CcRosCacheSegmentDecRefCount(current);
             continue;
         }
 
+        PagesPerSegment = VACB_MAPPING_GRANULARITY / PAGE_SIZE;
+
         KeReleaseGuardedMutex(&ViewLock);
 
-        Status = CcRosFlushVacb(current);
+        Status = CcRosFlushCacheSegment(current);
 
         KeReleaseMutex(&current->Mutex, FALSE);
-        current->SharedCacheMap->Callbacks->ReleaseFromLazyWrite(
-            current->SharedCacheMap->LazyWriteContext);
+        current->Bcb->Callbacks->ReleaseFromLazyWrite(
+            current->Bcb->LazyWriteContext);
 
         KeAcquireGuardedMutex(&ViewLock);
-        CcRosVacbDecRefCount(current);
+        CcRosCacheSegmentDecRefCount(current);
 
         if (!NT_SUCCESS(Status) &&  (Status != STATUS_END_OF_FILE))
         {
-            DPRINT1("CC: Failed to flush VACB.\n");
+            DPRINT1("CC: Failed to flush cache segment.\n");
         }
         else
         {
-            (*Count) += VACB_MAPPING_GRANULARITY / PAGE_SIZE;
-            Target -= VACB_MAPPING_GRANULARITY / PAGE_SIZE;
+            (*Count) += PagesPerSegment;
+            Target -= PagesPerSegment;
         }
 
-        current_entry = DirtyVacbListHead.Flink;
+        current_entry = DirtySegmentListHead.Flink;
     }
 
     KeReleaseGuardedMutex(&ViewLock);
@@ -271,7 +291,8 @@ CcRosTrimCache (
  */
 {
     PLIST_ENTRY current_entry;
-    PROS_VACB current;
+    PCACHE_SEGMENT current;
+    ULONG PagesPerSegment;
     ULONG PagesFreed;
     KIRQL oldIrql;
     LIST_ENTRY FreeList;
@@ -288,27 +309,26 @@ CcRosTrimCache (
 retry:
     KeAcquireGuardedMutex(&ViewLock);
 
-    current_entry = VacbLruListHead.Flink;
-    while (current_entry != &VacbLruListHead)
+    current_entry = CacheSegmentLRUListHead.Flink;
+    while (current_entry != &CacheSegmentLRUListHead)
     {
-        current = CONTAINING_RECORD(current_entry,
-                                    ROS_VACB,
-                                    VacbLruListEntry);
+        current = CONTAINING_RECORD(current_entry, CACHE_SEGMENT,
+                                    CacheSegmentLRUListEntry);
         current_entry = current_entry->Flink;
 
-        KeAcquireSpinLock(&current->SharedCacheMap->CacheMapLock, &oldIrql);
+        KeAcquireSpinLock(&current->Bcb->BcbLock, &oldIrql);
 
-        /* Reference the VACB */
-        CcRosVacbIncRefCount(current);
+        /* Reference the cache segment */
+        CcRosCacheSegmentIncRefCount(current);
 
         /* Check if it's mapped and not dirty */
         if (current->MappedCount > 0 && !current->Dirty)
         {
             /* We have to break these locks because Cc sucks */
-            KeReleaseSpinLock(&current->SharedCacheMap->CacheMapLock, oldIrql);
+            KeReleaseSpinLock(&current->Bcb->BcbLock, oldIrql);
             KeReleaseGuardedMutex(&ViewLock);
 
-            /* Page out the VACB */
+            /* Page out the segment */
             for (i = 0; i < VACB_MAPPING_GRANULARITY / PAGE_SIZE; i++)
             {
                 Page = (PFN_NUMBER)(MmGetPhysicalAddress((PUCHAR)current->BaseAddress + (i * PAGE_SIZE)).QuadPart >> PAGE_SHIFT);
@@ -318,11 +338,11 @@ retry:
 
             /* Reacquire the locks */
             KeAcquireGuardedMutex(&ViewLock);
-            KeAcquireSpinLock(&current->SharedCacheMap->CacheMapLock, &oldIrql);
+            KeAcquireSpinLock(&current->Bcb->BcbLock, &oldIrql);
         }
 
-        /* Dereference the VACB */
-        CcRosVacbDecRefCount(current);
+        /* Dereference the cache segment */
+        CcRosCacheSegmentDecRefCount(current);
 
         /* Check if we can free this entry now */
         if (current->ReferenceCount == 0)
@@ -330,18 +350,19 @@ retry:
             ASSERT(!current->Dirty);
             ASSERT(!current->MappedCount);
 
-            RemoveEntryList(&current->CacheMapVacbListEntry);
-            RemoveEntryList(&current->VacbListEntry);
-            RemoveEntryList(&current->VacbLruListEntry);
-            InsertHeadList(&FreeList, &current->CacheMapVacbListEntry);
+            RemoveEntryList(&current->BcbSegmentListEntry);
+            RemoveEntryList(&current->CacheSegmentListEntry);
+            RemoveEntryList(&current->CacheSegmentLRUListEntry);
+            InsertHeadList(&FreeList, &current->BcbSegmentListEntry);
 
             /* Calculate how many pages we freed for Mm */
-            PagesFreed = min(VACB_MAPPING_GRANULARITY / PAGE_SIZE, Target);
+            PagesPerSegment = VACB_MAPPING_GRANULARITY / PAGE_SIZE;
+            PagesFreed = min(PagesPerSegment, Target);
             Target -= PagesFreed;
             (*NrFreed) += PagesFreed;
         }
 
-        KeReleaseSpinLock(&current->SharedCacheMap->CacheMapLock, oldIrql);
+        KeReleaseSpinLock(&current->Bcb->BcbLock, oldIrql);
     }
 
     KeReleaseGuardedMutex(&ViewLock);
@@ -368,10 +389,9 @@ retry:
     while (!IsListEmpty(&FreeList))
     {
         current_entry = RemoveHeadList(&FreeList);
-        current = CONTAINING_RECORD(current_entry,
-                                    ROS_VACB,
-                                    CacheMapVacbListEntry);
-        CcRosInternalFreeVacb(current);
+        current = CONTAINING_RECORD(current_entry, CACHE_SEGMENT,
+                                    BcbSegmentListEntry);
+        CcRosInternalFreeCacheSegment(current);
     }
 
     DPRINT("Evicted %lu cache pages\n", (*NrFreed));
@@ -381,9 +401,9 @@ retry:
 
 NTSTATUS
 NTAPI
-CcRosReleaseVacb (
-    PROS_SHARED_CACHE_MAP SharedCacheMap,
-    PROS_VACB Vacb,
+CcRosReleaseCacheSegment (
+    PBCB Bcb,
+    PCACHE_SEGMENT CacheSeg,
     BOOLEAN Valid,
     BOOLEAN Dirty,
     BOOLEAN Mapped)
@@ -391,77 +411,74 @@ CcRosReleaseVacb (
     BOOLEAN WasDirty;
     KIRQL oldIrql;
 
-    ASSERT(SharedCacheMap);
+    ASSERT(Bcb);
 
-    DPRINT("CcRosReleaseVacb(SharedCacheMap 0x%p, Vacb 0x%p, Valid %u)\n",
-           SharedCacheMap, Vacb, Valid);
+    DPRINT("CcReleaseCacheSegment(Bcb 0x%p, CacheSeg 0x%p, Valid %u)\n",
+           Bcb, CacheSeg, Valid);
 
     KeAcquireGuardedMutex(&ViewLock);
-    KeAcquireSpinLock(&SharedCacheMap->CacheMapLock, &oldIrql);
+    KeAcquireSpinLock(&Bcb->BcbLock, &oldIrql);
 
-    Vacb->Valid = Valid;
+    CacheSeg->Valid = Valid;
 
-    WasDirty = Vacb->Dirty;
-    Vacb->Dirty = Vacb->Dirty || Dirty;
+    WasDirty = CacheSeg->Dirty;
+    CacheSeg->Dirty = CacheSeg->Dirty || Dirty;
 
-    if (!WasDirty && Vacb->Dirty)
+    if (!WasDirty && CacheSeg->Dirty)
     {
-        InsertTailList(&DirtyVacbListHead, &Vacb->DirtyVacbListEntry);
+        InsertTailList(&DirtySegmentListHead, &CacheSeg->DirtySegmentListEntry);
         DirtyPageCount += VACB_MAPPING_GRANULARITY / PAGE_SIZE;
     }
 
     if (Mapped)
     {
-        Vacb->MappedCount++;
+        CacheSeg->MappedCount++;
     }
-    CcRosVacbDecRefCount(Vacb);
-    if (Mapped && (Vacb->MappedCount == 1))
+    CcRosCacheSegmentDecRefCount(CacheSeg);
+    if (Mapped && (CacheSeg->MappedCount == 1))
     {
-        CcRosVacbIncRefCount(Vacb);
+        CcRosCacheSegmentIncRefCount(CacheSeg);
     }
-    if (!WasDirty && Vacb->Dirty)
+    if (!WasDirty && CacheSeg->Dirty)
     {
-        CcRosVacbIncRefCount(Vacb);
+        CcRosCacheSegmentIncRefCount(CacheSeg);
     }
 
-    KeReleaseSpinLock(&SharedCacheMap->CacheMapLock, oldIrql);
+    KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
     KeReleaseGuardedMutex(&ViewLock);
-    KeReleaseMutex(&Vacb->Mutex, FALSE);
+    KeReleaseMutex(&CacheSeg->Mutex, FALSE);
 
     return STATUS_SUCCESS;
 }
 
-/* Returns with VACB Lock Held! */
-PROS_VACB
+/* Returns with Cache Segment Lock Held! */
+PCACHE_SEGMENT
 NTAPI
-CcRosLookupVacb (
-    PROS_SHARED_CACHE_MAP SharedCacheMap,
+CcRosLookupCacheSegment (
+    PBCB Bcb,
     ULONG FileOffset)
 {
     PLIST_ENTRY current_entry;
-    PROS_VACB current;
+    PCACHE_SEGMENT current;
     KIRQL oldIrql;
 
-    ASSERT(SharedCacheMap);
+    ASSERT(Bcb);
 
-    DPRINT("CcRosLookupVacb(SharedCacheMap 0x%p, FileOffset %lu)\n",
-           SharedCacheMap, FileOffset);
+    DPRINT("CcRosLookupCacheSegment(Bcb -x%p, FileOffset %lu)\n", Bcb, FileOffset);
 
     KeAcquireGuardedMutex(&ViewLock);
-    KeAcquireSpinLock(&SharedCacheMap->CacheMapLock, &oldIrql);
+    KeAcquireSpinLock(&Bcb->BcbLock, &oldIrql);
 
-    current_entry = SharedCacheMap->CacheMapVacbListHead.Flink;
-    while (current_entry != &SharedCacheMap->CacheMapVacbListHead)
+    current_entry = Bcb->BcbSegmentListHead.Flink;
+    while (current_entry != &Bcb->BcbSegmentListHead)
     {
-        current = CONTAINING_RECORD(current_entry,
-                                    ROS_VACB,
-                                    CacheMapVacbListEntry);
-        if (IsPointInRange(current->FileOffset.QuadPart,
-                           VACB_MAPPING_GRANULARITY,
-                           FileOffset))
+        current = CONTAINING_RECORD(current_entry, CACHE_SEGMENT,
+                                    BcbSegmentListEntry);
+        if (IsPointInSegment(current->FileOffset, VACB_MAPPING_GRANULARITY,
+                             FileOffset))
         {
-            CcRosVacbIncRefCount(current);
-            KeReleaseSpinLock(&SharedCacheMap->CacheMapLock, oldIrql);
+            CcRosCacheSegmentIncRefCount(current);
+            KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
             KeReleaseGuardedMutex(&ViewLock);
             KeWaitForSingleObject(&current->Mutex,
                                   Executive,
@@ -470,12 +487,12 @@ CcRosLookupVacb (
                                   NULL);
             return current;
         }
-        if (current->FileOffset.QuadPart > FileOffset)
+        if (current->FileOffset > FileOffset)
             break;
         current_entry = current_entry->Flink;
     }
 
-    KeReleaseSpinLock(&SharedCacheMap->CacheMapLock, oldIrql);
+    KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
     KeReleaseGuardedMutex(&ViewLock);
 
     return NULL;
@@ -483,141 +500,143 @@ CcRosLookupVacb (
 
 NTSTATUS
 NTAPI
-CcRosMarkDirtyVacb (
-    PROS_SHARED_CACHE_MAP SharedCacheMap,
+CcRosMarkDirtyCacheSegment (
+    PBCB Bcb,
     ULONG FileOffset)
 {
-    PROS_VACB Vacb;
+    PCACHE_SEGMENT CacheSeg;
     KIRQL oldIrql;
 
-    ASSERT(SharedCacheMap);
+    ASSERT(Bcb);
 
-    DPRINT("CcRosMarkDirtyVacb(SharedCacheMap 0x%p, FileOffset %lu)\n",
-           SharedCacheMap, FileOffset);
+    DPRINT("CcRosMarkDirtyCacheSegment(Bcb 0x%p, FileOffset %lu)\n", Bcb, FileOffset);
 
-    Vacb = CcRosLookupVacb(SharedCacheMap, FileOffset);
-    if (Vacb == NULL)
+    CacheSeg = CcRosLookupCacheSegment(Bcb, FileOffset);
+    if (CacheSeg == NULL)
     {
         KeBugCheck(CACHE_MANAGER);
     }
 
     KeAcquireGuardedMutex(&ViewLock);
-    KeAcquireSpinLock(&SharedCacheMap->CacheMapLock, &oldIrql);
+    KeAcquireSpinLock(&Bcb->BcbLock, &oldIrql);
 
-    if (!Vacb->Dirty)
+    if (!CacheSeg->Dirty)
     {
-        InsertTailList(&DirtyVacbListHead, &Vacb->DirtyVacbListEntry);
+        InsertTailList(&DirtySegmentListHead, &CacheSeg->DirtySegmentListEntry);
         DirtyPageCount += VACB_MAPPING_GRANULARITY / PAGE_SIZE;
     }
     else
     {
-        CcRosVacbDecRefCount(Vacb);
+        CcRosCacheSegmentDecRefCount(CacheSeg);
     }
 
     /* Move to the tail of the LRU list */
-    RemoveEntryList(&Vacb->VacbLruListEntry);
-    InsertTailList(&VacbLruListHead, &Vacb->VacbLruListEntry);
+    RemoveEntryList(&CacheSeg->CacheSegmentLRUListEntry);
+    InsertTailList(&CacheSegmentLRUListHead, &CacheSeg->CacheSegmentLRUListEntry);
 
-    Vacb->Dirty = TRUE;
+    CacheSeg->Dirty = TRUE;
 
-    KeReleaseSpinLock(&SharedCacheMap->CacheMapLock, oldIrql);
+    KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
     KeReleaseGuardedMutex(&ViewLock);
-    KeReleaseMutex(&Vacb->Mutex, FALSE);
+    KeReleaseMutex(&CacheSeg->Mutex, FALSE);
 
     return STATUS_SUCCESS;
 }
 
 NTSTATUS
 NTAPI
-CcRosUnmapVacb (
-    PROS_SHARED_CACHE_MAP SharedCacheMap,
+CcRosUnmapCacheSegment (
+    PBCB Bcb,
     ULONG FileOffset,
     BOOLEAN NowDirty)
 {
-    PROS_VACB Vacb;
+    PCACHE_SEGMENT CacheSeg;
     BOOLEAN WasDirty;
     KIRQL oldIrql;
 
-    ASSERT(SharedCacheMap);
+    ASSERT(Bcb);
 
-    DPRINT("CcRosUnmapVacb(SharedCacheMap 0x%p, FileOffset %lu, NowDirty %u)\n",
-           SharedCacheMap, FileOffset, NowDirty);
+    DPRINT("CcRosUnmapCacheSegment(Bcb 0x%p, FileOffset %lu, NowDirty %u)\n",
+           Bcb, FileOffset, NowDirty);
 
-    Vacb = CcRosLookupVacb(SharedCacheMap, FileOffset);
-    if (Vacb == NULL)
+    CacheSeg = CcRosLookupCacheSegment(Bcb, FileOffset);
+    if (CacheSeg == NULL)
     {
         return STATUS_UNSUCCESSFUL;
     }
 
     KeAcquireGuardedMutex(&ViewLock);
-    KeAcquireSpinLock(&SharedCacheMap->CacheMapLock, &oldIrql);
+    KeAcquireSpinLock(&Bcb->BcbLock, &oldIrql);
 
-    WasDirty = Vacb->Dirty;
-    Vacb->Dirty = Vacb->Dirty || NowDirty;
+    WasDirty = CacheSeg->Dirty;
+    CacheSeg->Dirty = CacheSeg->Dirty || NowDirty;
 
-    Vacb->MappedCount--;
+    CacheSeg->MappedCount--;
 
     if (!WasDirty && NowDirty)
     {
-        InsertTailList(&DirtyVacbListHead, &Vacb->DirtyVacbListEntry);
+        InsertTailList(&DirtySegmentListHead, &CacheSeg->DirtySegmentListEntry);
         DirtyPageCount += VACB_MAPPING_GRANULARITY / PAGE_SIZE;
     }
 
-    CcRosVacbDecRefCount(Vacb);
+    CcRosCacheSegmentDecRefCount(CacheSeg);
     if (!WasDirty && NowDirty)
     {
-        CcRosVacbIncRefCount(Vacb);
+        CcRosCacheSegmentIncRefCount(CacheSeg);
     }
-    if (Vacb->MappedCount == 0)
+    if (CacheSeg->MappedCount == 0)
     {
-        CcRosVacbDecRefCount(Vacb);
+        CcRosCacheSegmentDecRefCount(CacheSeg);
     }
 
-    KeReleaseSpinLock(&SharedCacheMap->CacheMapLock, oldIrql);
+    KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
     KeReleaseGuardedMutex(&ViewLock);
-    KeReleaseMutex(&Vacb->Mutex, FALSE);
+    KeReleaseMutex(&CacheSeg->Mutex, FALSE);
 
     return STATUS_SUCCESS;
 }
 
 static
 NTSTATUS
-CcRosCreateVacb (
-    PROS_SHARED_CACHE_MAP SharedCacheMap,
+CcRosCreateCacheSegment (
+    PBCB Bcb,
     ULONG FileOffset,
-    PROS_VACB *Vacb)
+    PCACHE_SEGMENT* CacheSeg)
 {
-    PROS_VACB current;
-    PROS_VACB previous;
+    PCACHE_SEGMENT current;
+    PCACHE_SEGMENT previous;
     PLIST_ENTRY current_entry;
     NTSTATUS Status;
     KIRQL oldIrql;
+#ifdef CACHE_BITMAP
+    ULONG StartingOffset;
+#endif
 
-    ASSERT(SharedCacheMap);
+    ASSERT(Bcb);
 
-    DPRINT("CcRosCreateVacb()\n");
+    DPRINT("CcRosCreateCacheSegment()\n");
 
-    if (FileOffset >= SharedCacheMap->FileSize.u.LowPart)
+    if (FileOffset >= Bcb->FileSize.u.LowPart)
     {
-        *Vacb = NULL;
+        CacheSeg = NULL;
         return STATUS_INVALID_PARAMETER;
     }
 
-    current = ExAllocateFromNPagedLookasideList(&VacbLookasideList);
+    current = ExAllocateFromNPagedLookasideList(&CacheSegLookasideList);
     current->Valid = FALSE;
     current->Dirty = FALSE;
     current->PageOut = FALSE;
-    current->FileOffset.QuadPart = ROUND_DOWN(FileOffset, VACB_MAPPING_GRANULARITY);
-    current->SharedCacheMap = SharedCacheMap;
+    current->FileOffset = ROUND_DOWN(FileOffset, VACB_MAPPING_GRANULARITY);
+    current->Bcb = Bcb;
 #if DBG
-    if (SharedCacheMap->Trace)
+    if ( Bcb->Trace )
     {
-        DPRINT1("CacheMap 0x%p: new VACB: 0x%p\n", SharedCacheMap, current);
+        DPRINT1("CacheMap 0x%p: new Cache Segment: 0x%p\n", Bcb, current );
     }
 #endif
     current->MappedCount = 0;
-    current->DirtyVacbListEntry.Flink = NULL;
-    current->DirtyVacbListEntry.Blink = NULL;
+    current->DirtySegmentListEntry.Flink = NULL;
+    current->DirtySegmentListEntry.Blink = NULL;
     current->ReferenceCount = 1;
     KeInitializeMutex(&current->Mutex, 0);
     KeWaitForSingleObject(&current->Mutex,
@@ -627,39 +646,37 @@ CcRosCreateVacb (
                           NULL);
     KeAcquireGuardedMutex(&ViewLock);
 
-    *Vacb = current;
-    /* There is window between the call to CcRosLookupVacb
-     * and CcRosCreateVacb. We must check if a VACB for the
-     * file offset exist. If there is a VACB, we release
-     * our newly created VACB and return the existing one.
+    *CacheSeg = current;
+    /* There is window between the call to CcRosLookupCacheSegment
+     * and CcRosCreateCacheSegment. We must check if a segment on
+     * the fileoffset exist. If there exist a segment, we release
+     * our new created segment and return the existing one.
      */
-    KeAcquireSpinLock(&SharedCacheMap->CacheMapLock, &oldIrql);
-    current_entry = SharedCacheMap->CacheMapVacbListHead.Flink;
+    KeAcquireSpinLock(&Bcb->BcbLock, &oldIrql);
+    current_entry = Bcb->BcbSegmentListHead.Flink;
     previous = NULL;
-    while (current_entry != &SharedCacheMap->CacheMapVacbListHead)
+    while (current_entry != &Bcb->BcbSegmentListHead)
     {
-        current = CONTAINING_RECORD(current_entry,
-                                    ROS_VACB,
-                                    CacheMapVacbListEntry);
-        if (IsPointInRange(current->FileOffset.QuadPart,
-                           VACB_MAPPING_GRANULARITY,
-                           FileOffset))
+        current = CONTAINING_RECORD(current_entry, CACHE_SEGMENT,
+                                    BcbSegmentListEntry);
+        if (IsPointInSegment(current->FileOffset, VACB_MAPPING_GRANULARITY,
+                             FileOffset))
         {
-            CcRosVacbIncRefCount(current);
-            KeReleaseSpinLock(&SharedCacheMap->CacheMapLock, oldIrql);
+            CcRosCacheSegmentIncRefCount(current);
+            KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
 #if DBG
-            if (SharedCacheMap->Trace)
+            if ( Bcb->Trace )
             {
-                DPRINT1("CacheMap 0x%p: deleting newly created VACB 0x%p ( found existing one 0x%p )\n",
-                        SharedCacheMap,
-                        (*Vacb),
-                        current);
+                DPRINT1("CacheMap 0x%p: deleting newly created Cache Segment 0x%p ( found existing one 0x%p )\n",
+                        Bcb,
+                        (*CacheSeg),
+                        current );
             }
 #endif
-            KeReleaseMutex(&(*Vacb)->Mutex, FALSE);
+            KeReleaseMutex(&(*CacheSeg)->Mutex, FALSE);
             KeReleaseGuardedMutex(&ViewLock);
-            ExFreeToNPagedLookasideList(&VacbLookasideList, *Vacb);
-            *Vacb = current;
+            ExFreeToNPagedLookasideList(&CacheSegLookasideList, *CacheSeg);
+            *CacheSeg = current;
             KeWaitForSingleObject(&current->Mutex,
                                   Executive,
                                   KernelMode,
@@ -667,35 +684,56 @@ CcRosCreateVacb (
                                   NULL);
             return STATUS_SUCCESS;
         }
-        if (current->FileOffset.QuadPart < FileOffset)
+        if (current->FileOffset < FileOffset)
         {
             ASSERT(previous == NULL ||
-                   previous->FileOffset.QuadPart < current->FileOffset.QuadPart);
+                   previous->FileOffset < current->FileOffset);
             previous = current;
         }
-        if (current->FileOffset.QuadPart > FileOffset)
+        if (current->FileOffset > FileOffset)
             break;
         current_entry = current_entry->Flink;
     }
-    /* There was no existing VACB. */
-    current = *Vacb;
+    /* There was no existing segment. */
+    current = *CacheSeg;
     if (previous)
     {
-        InsertHeadList(&previous->CacheMapVacbListEntry, &current->CacheMapVacbListEntry);
+        InsertHeadList(&previous->BcbSegmentListEntry, &current->BcbSegmentListEntry);
     }
     else
     {
-        InsertHeadList(&SharedCacheMap->CacheMapVacbListHead, &current->CacheMapVacbListEntry);
+        InsertHeadList(&Bcb->BcbSegmentListHead, &current->BcbSegmentListEntry);
     }
-    KeReleaseSpinLock(&SharedCacheMap->CacheMapLock, oldIrql);
-    InsertTailList(&VacbListHead, &current->VacbListEntry);
-    InsertTailList(&VacbLruListHead, &current->VacbLruListEntry);
+    KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
+    InsertTailList(&CacheSegmentListHead, &current->CacheSegmentListEntry);
+    InsertTailList(&CacheSegmentLRUListHead, &current->CacheSegmentLRUListEntry);
     KeReleaseGuardedMutex(&ViewLock);
+#ifdef CACHE_BITMAP
+    KeAcquireSpinLock(&CiCacheSegMappingRegionLock, &oldIrql);
 
+    StartingOffset = RtlFindClearBitsAndSet(&CiCacheSegMappingRegionAllocMap,
+                                            VACB_MAPPING_GRANULARITY / PAGE_SIZE,
+                                            CiCacheSegMappingRegionHint);
+
+    if (StartingOffset == 0xffffffff)
+    {
+        DPRINT1("Out of CacheSeg mapping space\n");
+        KeBugCheck(CACHE_MANAGER);
+    }
+
+    current->BaseAddress = CiCacheSegMappingRegionBase + StartingOffset * PAGE_SIZE;
+
+    if (CiCacheSegMappingRegionHint == StartingOffset)
+    {
+        CiCacheSegMappingRegionHint += VACB_MAPPING_GRANULARITY / PAGE_SIZE;
+    }
+
+    KeReleaseSpinLock(&CiCacheSegMappingRegionLock, oldIrql);
+#else
     MmLockAddressSpace(MmGetKernelAddressSpace());
     current->BaseAddress = NULL;
     Status = MmCreateMemoryArea(MmGetKernelAddressSpace(),
-                                0, // nothing checks for VACB mareas, so set to 0
+                                0, // nothing checks for cache_segment mareas, so set to 0
                                 &current->BaseAddress,
                                 VACB_MAPPING_GRANULARITY,
                                 PAGE_READWRITE,
@@ -708,15 +746,16 @@ CcRosCreateVacb (
     {
         KeBugCheck(CACHE_MANAGER);
     }
+#endif
 
     /* Create a virtual mapping for this memory area */
     MI_SET_USAGE(MI_USAGE_CACHE);
 #if MI_TRACE_PFNS
     PWCHAR pos = NULL;
     ULONG len = 0;
-    if ((SharedCacheMap->FileObject) && (SharedCacheMap->FileObject->FileName.Buffer))
+    if ((Bcb->FileObject) && (Bcb->FileObject->FileName.Buffer))
     {
-        pos = wcsrchr(SharedCacheMap->FileObject->FileName.Buffer, '\\');
+        pos = wcsrchr(Bcb->FileObject->FileName.Buffer, '\\');
         len = wcslen(pos) * sizeof(WCHAR);
         if (pos) snprintf(MI_PFN_CURRENT_PROCESS_NAME, min(16, len), "%S", pos);
     }
@@ -730,49 +769,49 @@ CcRosCreateVacb (
 
 NTSTATUS
 NTAPI
-CcRosGetVacbChain (
-    PROS_SHARED_CACHE_MAP SharedCacheMap,
+CcRosGetCacheSegmentChain (
+    PBCB Bcb,
     ULONG FileOffset,
     ULONG Length,
-    PROS_VACB *Vacb)
+    PCACHE_SEGMENT* CacheSeg)
 {
-    PROS_VACB current;
+    PCACHE_SEGMENT current;
     ULONG i;
-    PROS_VACB *VacbList;
-    PROS_VACB Previous = NULL;
+    PCACHE_SEGMENT* CacheSegList;
+    PCACHE_SEGMENT Previous = NULL;
 
-    ASSERT(SharedCacheMap);
+    ASSERT(Bcb);
 
-    DPRINT("CcRosGetVacbChain()\n");
+    DPRINT("CcRosGetCacheSegmentChain()\n");
 
     Length = ROUND_UP(Length, VACB_MAPPING_GRANULARITY);
 
-    VacbList = _alloca(sizeof(PROS_VACB) *
-                       (Length / VACB_MAPPING_GRANULARITY));
+    CacheSegList = _alloca(sizeof(PCACHE_SEGMENT) *
+                           (Length / VACB_MAPPING_GRANULARITY));
 
     /*
-     * Look for a VACB already mapping the same data.
+     * Look for a cache segment already mapping the same data.
      */
     for (i = 0; i < (Length / VACB_MAPPING_GRANULARITY); i++)
     {
         ULONG CurrentOffset = FileOffset + (i * VACB_MAPPING_GRANULARITY);
-        current = CcRosLookupVacb(SharedCacheMap, CurrentOffset);
+        current = CcRosLookupCacheSegment(Bcb, CurrentOffset);
         if (current != NULL)
         {
             KeAcquireGuardedMutex(&ViewLock);
 
             /* Move to tail of LRU list */
-            RemoveEntryList(&current->VacbLruListEntry);
-            InsertTailList(&VacbLruListHead, &current->VacbLruListEntry);
+            RemoveEntryList(&current->CacheSegmentLRUListEntry);
+            InsertTailList(&CacheSegmentLRUListHead, &current->CacheSegmentLRUListEntry);
 
             KeReleaseGuardedMutex(&ViewLock);
 
-            VacbList[i] = current;
+            CacheSegList[i] = current;
         }
         else
         {
-            CcRosCreateVacb(SharedCacheMap, CurrentOffset, &current);
-            VacbList[i] = current;
+            CcRosCreateCacheSegment(Bcb, CurrentOffset, &current);
+            CacheSegList[i] = current;
         }
     }
 
@@ -780,13 +819,13 @@ CcRosGetVacbChain (
     {
         if (i == 0)
         {
-            *Vacb = VacbList[i];
-            Previous = VacbList[i];
+            *CacheSeg = CacheSegList[i];
+            Previous = CacheSegList[i];
         }
         else
         {
-            Previous->NextInChain = VacbList[i];
-            Previous = VacbList[i];
+            Previous->NextInChain = CacheSegList[i];
+            Previous = CacheSegList[i];
         }
     }
     ASSERT(Previous);
@@ -797,31 +836,31 @@ CcRosGetVacbChain (
 
 NTSTATUS
 NTAPI
-CcRosGetVacb (
-    PROS_SHARED_CACHE_MAP SharedCacheMap,
+CcRosGetCacheSegment (
+    PBCB Bcb,
     ULONG FileOffset,
-    PULONGLONG BaseOffset,
+    PULONG BaseOffset,
     PVOID* BaseAddress,
     PBOOLEAN UptoDate,
-    PROS_VACB *Vacb)
+    PCACHE_SEGMENT* CacheSeg)
 {
-    PROS_VACB current;
+    PCACHE_SEGMENT current;
     NTSTATUS Status;
 
-    ASSERT(SharedCacheMap);
+    ASSERT(Bcb);
 
-    DPRINT("CcRosGetVacb()\n");
+    DPRINT("CcRosGetCacheSegment()\n");
 
     /*
-     * Look for a VACB already mapping the same data.
+     * Look for a cache segment already mapping the same data.
      */
-    current = CcRosLookupVacb(SharedCacheMap, FileOffset);
+    current = CcRosLookupCacheSegment(Bcb, FileOffset);
     if (current == NULL)
     {
         /*
-         * Otherwise create a new VACB.
+         * Otherwise create a new segment.
          */
-        Status = CcRosCreateVacb(SharedCacheMap, FileOffset, &current);
+        Status = CcRosCreateCacheSegment(Bcb, FileOffset, &current);
         if (!NT_SUCCESS(Status))
         {
             return Status;
@@ -831,37 +870,37 @@ CcRosGetVacb (
     KeAcquireGuardedMutex(&ViewLock);
 
     /* Move to the tail of the LRU list */
-    RemoveEntryList(&current->VacbLruListEntry);
-    InsertTailList(&VacbLruListHead, &current->VacbLruListEntry);
+    RemoveEntryList(&current->CacheSegmentLRUListEntry);
+    InsertTailList(&CacheSegmentLRUListHead, &current->CacheSegmentLRUListEntry);
 
     KeReleaseGuardedMutex(&ViewLock);
 
     /*
-     * Return information about the VACB to the caller.
+     * Return information about the segment to the caller.
      */
     *UptoDate = current->Valid;
     *BaseAddress = current->BaseAddress;
     DPRINT("*BaseAddress %p\n", *BaseAddress);
-    *Vacb = current;
-    *BaseOffset = current->FileOffset.QuadPart;
+    *CacheSeg = current;
+    *BaseOffset = current->FileOffset;
     return STATUS_SUCCESS;
 }
 
 NTSTATUS
 NTAPI
-CcRosRequestVacb (
-    PROS_SHARED_CACHE_MAP SharedCacheMap,
+CcRosRequestCacheSegment (
+    PBCB Bcb,
     ULONG FileOffset,
     PVOID* BaseAddress,
     PBOOLEAN UptoDate,
-    PROS_VACB *Vacb)
+    PCACHE_SEGMENT* CacheSeg)
 /*
- * FUNCTION: Request a page mapping for a shared cache map
+ * FUNCTION: Request a page mapping for a BCB
  */
 {
-    ULONGLONG BaseOffset;
+    ULONG BaseOffset;
 
-    ASSERT(SharedCacheMap);
+    ASSERT(Bcb);
 
     if (FileOffset % VACB_MAPPING_GRANULARITY != 0)
     {
@@ -870,14 +909,15 @@ CcRosRequestVacb (
         KeBugCheck(CACHE_MANAGER);
     }
 
-    return CcRosGetVacb(SharedCacheMap,
-                        FileOffset,
-                        &BaseOffset,
-                        BaseAddress,
-                        UptoDate,
-                        Vacb);
+    return CcRosGetCacheSegment(Bcb,
+                                FileOffset,
+                                &BaseOffset,
+                                BaseAddress,
+                                UptoDate,
+                                CacheSeg);
 }
-
+#ifdef CACHE_BITMAP
+#else
 static
 VOID
 CcFreeCachePage (
@@ -895,30 +935,60 @@ CcFreeCachePage (
         MmReleasePageMemoryConsumer(MC_CACHE, Page);
     }
 }
-
+#endif
 NTSTATUS
-CcRosInternalFreeVacb (
-    PROS_VACB Vacb)
+CcRosInternalFreeCacheSegment (
+    PCACHE_SEGMENT CacheSeg)
 /*
- * FUNCTION: Releases a VACB associated with a shared cache map
+ * FUNCTION: Releases a cache segment associated with a BCB
  */
 {
-    DPRINT("Freeing VACB 0x%p\n", Vacb);
+#ifdef CACHE_BITMAP
+    ULONG i;
+    ULONG RegionSize;
+    ULONG Base;
+    PFN_NUMBER Page;
+    KIRQL oldIrql;
+#endif
+    DPRINT("Freeing cache segment 0x%p\n", CacheSeg);
 #if DBG
-    if (Vacb->SharedCacheMap->Trace)
+    if ( CacheSeg->Bcb->Trace )
     {
-        DPRINT1("CacheMap 0x%p: deleting VACB: 0x%p\n", Vacb->SharedCacheMap, Vacb);
+        DPRINT1("CacheMap 0x%p: deleting Cache Segment: 0x%p\n", CacheSeg->Bcb, CacheSeg );
     }
 #endif
+#ifdef CACHE_BITMAP
+    RegionSize = VACB_MAPPING_GRANULARITY / PAGE_SIZE;
 
+    /* Unmap all the pages. */
+    for (i = 0; i < RegionSize; i++)
+    {
+        MmDeleteVirtualMapping(NULL,
+                               CacheSeg->BaseAddress + (i * PAGE_SIZE),
+                               FALSE,
+                               NULL,
+                               &Page);
+        MmReleasePageMemoryConsumer(MC_CACHE, Page);
+    }
+
+    KeAcquireSpinLock(&CiCacheSegMappingRegionLock, &oldIrql);
+    /* Deallocate all the pages used. */
+    Base = (ULONG)(CacheSeg->BaseAddress - CiCacheSegMappingRegionBase) / PAGE_SIZE;
+
+    RtlClearBits(&CiCacheSegMappingRegionAllocMap, Base, RegionSize);
+
+    CiCacheSegMappingRegionHint = min(CiCacheSegMappingRegionHint, Base);
+
+    KeReleaseSpinLock(&CiCacheSegMappingRegionLock, oldIrql);
+#else
     MmLockAddressSpace(MmGetKernelAddressSpace());
     MmFreeMemoryArea(MmGetKernelAddressSpace(),
-                     Vacb->MemoryArea,
+                     CacheSeg->MemoryArea,
                      CcFreeCachePage,
                      NULL);
     MmUnlockAddressSpace(MmGetKernelAddressSpace());
-
-    ExFreeToNPagedLookasideList(&VacbLookasideList, Vacb);
+#endif
+    ExFreeToNPagedLookasideList(&CacheSegLookasideList, CacheSeg);
     return STATUS_SUCCESS;
 }
 
@@ -933,9 +1003,9 @@ CcFlushCache (
     IN ULONG Length,
     OUT PIO_STATUS_BLOCK IoStatus)
 {
-    PROS_SHARED_CACHE_MAP SharedCacheMap;
+    PBCB Bcb;
     LARGE_INTEGER Offset;
-    PROS_VACB current;
+    PCACHE_SEGMENT current;
     NTSTATUS Status;
     KIRQL oldIrql;
 
@@ -944,8 +1014,8 @@ CcFlushCache (
 
     if (SectionObjectPointers && SectionObjectPointers->SharedCacheMap)
     {
-        SharedCacheMap = SectionObjectPointers->SharedCacheMap;
-        ASSERT(SharedCacheMap);
+        Bcb = (PBCB)SectionObjectPointers->SharedCacheMap;
+        ASSERT(Bcb);
         if (FileOffset)
         {
             Offset = *FileOffset;
@@ -953,7 +1023,7 @@ CcFlushCache (
         else
         {
             Offset.QuadPart = (LONGLONG)0;
-            Length = SharedCacheMap->FileSize.u.LowPart;
+            Length = Bcb->FileSize.u.LowPart;
         }
 
         if (IoStatus)
@@ -964,12 +1034,12 @@ CcFlushCache (
 
         while (Length > 0)
         {
-            current = CcRosLookupVacb(SharedCacheMap, Offset.u.LowPart);
+            current = CcRosLookupCacheSegment (Bcb, Offset.u.LowPart);
             if (current != NULL)
             {
                 if (current->Dirty)
                 {
-                    Status = CcRosFlushVacb(current);
+                    Status = CcRosFlushCacheSegment(current);
                     if (!NT_SUCCESS(Status) && IoStatus != NULL)
                     {
                         IoStatus->Status = Status;
@@ -978,9 +1048,9 @@ CcFlushCache (
                 KeReleaseMutex(&current->Mutex, FALSE);
 
                 KeAcquireGuardedMutex(&ViewLock);
-                KeAcquireSpinLock(&SharedCacheMap->CacheMapLock, &oldIrql);
-                CcRosVacbDecRefCount(current);
-                KeReleaseSpinLock(&SharedCacheMap->CacheMapLock, oldIrql);
+                KeAcquireSpinLock(&Bcb->BcbLock, &oldIrql);
+                CcRosCacheSegmentDecRefCount(current);
+                KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
                 KeReleaseGuardedMutex(&ViewLock);
             }
 
@@ -1008,63 +1078,69 @@ NTSTATUS
 NTAPI
 CcRosDeleteFileCache (
     PFILE_OBJECT FileObject,
-    PROS_SHARED_CACHE_MAP SharedCacheMap)
+    PBCB Bcb)
 /*
- * FUNCTION: Releases the shared cache map associated with a file object
+ * FUNCTION: Releases the BCB associated with a file object
  */
 {
     PLIST_ENTRY current_entry;
-    PROS_VACB current;
+    PCACHE_SEGMENT current;
     LIST_ENTRY FreeList;
     KIRQL oldIrql;
 
-    ASSERT(SharedCacheMap);
+    ASSERT(Bcb);
 
-    SharedCacheMap->RefCount++;
+    Bcb->RefCount++;
     KeReleaseGuardedMutex(&ViewLock);
 
     CcFlushCache(FileObject->SectionObjectPointer, NULL, 0, NULL);
 
     KeAcquireGuardedMutex(&ViewLock);
-    SharedCacheMap->RefCount--;
-    if (SharedCacheMap->RefCount == 0)
+    Bcb->RefCount--;
+    if (Bcb->RefCount == 0)
     {
+        if (Bcb->BcbRemoveListEntry.Flink != NULL)
+        {
+            RemoveEntryList(&Bcb->BcbRemoveListEntry);
+            Bcb->BcbRemoveListEntry.Flink = NULL;
+        }
+
         FileObject->SectionObjectPointer->SharedCacheMap = NULL;
 
         /*
-         * Release all VACBs
+         * Release all cache segments.
          */
         InitializeListHead(&FreeList);
-        KeAcquireSpinLock(&SharedCacheMap->CacheMapLock, &oldIrql);
-        while (!IsListEmpty(&SharedCacheMap->CacheMapVacbListHead))
+        KeAcquireSpinLock(&Bcb->BcbLock, &oldIrql);
+        while (!IsListEmpty(&Bcb->BcbSegmentListHead))
         {
-            current_entry = RemoveTailList(&SharedCacheMap->CacheMapVacbListHead);
-            current = CONTAINING_RECORD(current_entry, ROS_VACB, CacheMapVacbListEntry);
-            RemoveEntryList(&current->VacbListEntry);
-            RemoveEntryList(&current->VacbLruListEntry);
+            current_entry = RemoveTailList(&Bcb->BcbSegmentListHead);
+            current = CONTAINING_RECORD(current_entry, CACHE_SEGMENT, BcbSegmentListEntry);
+            RemoveEntryList(&current->CacheSegmentListEntry);
+            RemoveEntryList(&current->CacheSegmentLRUListEntry);
             if (current->Dirty)
             {
-                RemoveEntryList(&current->DirtyVacbListEntry);
+                RemoveEntryList(&current->DirtySegmentListEntry);
                 DirtyPageCount -= VACB_MAPPING_GRANULARITY / PAGE_SIZE;
-                DPRINT1("Freeing dirty VACB\n");
+                DPRINT1("Freeing dirty segment\n");
             }
-            InsertHeadList(&FreeList, &current->CacheMapVacbListEntry);
+            InsertHeadList(&FreeList, &current->BcbSegmentListEntry);
         }
 #if DBG
-        SharedCacheMap->Trace = FALSE;
+        Bcb->Trace = FALSE;
 #endif
-        KeReleaseSpinLock(&SharedCacheMap->CacheMapLock, oldIrql);
+        KeReleaseSpinLock(&Bcb->BcbLock, oldIrql);
 
         KeReleaseGuardedMutex(&ViewLock);
-        ObDereferenceObject(SharedCacheMap->FileObject);
+        ObDereferenceObject (Bcb->FileObject);
 
         while (!IsListEmpty(&FreeList))
         {
             current_entry = RemoveTailList(&FreeList);
-            current = CONTAINING_RECORD(current_entry, ROS_VACB, CacheMapVacbListEntry);
-            CcRosInternalFreeVacb(current);
+            current = CONTAINING_RECORD(current_entry, CACHE_SEGMENT, BcbSegmentListEntry);
+            CcRosInternalFreeCacheSegment(current);
         }
-        ExFreeToNPagedLookasideList(&SharedCacheMapLookasideList, SharedCacheMap);
+        ExFreeToNPagedLookasideList(&BcbLookasideList, Bcb);
         KeAcquireGuardedMutex(&ViewLock);
     }
     return STATUS_SUCCESS;
@@ -1075,27 +1151,41 @@ NTAPI
 CcRosReferenceCache (
     PFILE_OBJECT FileObject)
 {
-    PROS_SHARED_CACHE_MAP SharedCacheMap;
+    PBCB Bcb;
     KeAcquireGuardedMutex(&ViewLock);
-    SharedCacheMap = FileObject->SectionObjectPointer->SharedCacheMap;
-    ASSERT(SharedCacheMap);
-    ASSERT(SharedCacheMap->RefCount != 0);
-    SharedCacheMap->RefCount++;
+    Bcb = (PBCB)FileObject->SectionObjectPointer->SharedCacheMap;
+    ASSERT(Bcb);
+    if (Bcb->RefCount == 0)
+    {
+        ASSERT(Bcb->BcbRemoveListEntry.Flink != NULL);
+        RemoveEntryList(&Bcb->BcbRemoveListEntry);
+        Bcb->BcbRemoveListEntry.Flink = NULL;
+
+    }
+    else
+    {
+        ASSERT(Bcb->BcbRemoveListEntry.Flink == NULL);
+    }
+    Bcb->RefCount++;
     KeReleaseGuardedMutex(&ViewLock);
 }
 
 VOID
 NTAPI
-CcRosRemoveIfClosed (
+CcRosSetRemoveOnClose (
     PSECTION_OBJECT_POINTERS SectionObjectPointer)
 {
-    PROS_SHARED_CACHE_MAP SharedCacheMap;
-    DPRINT("CcRosRemoveIfClosed()\n");
+    PBCB Bcb;
+    DPRINT("CcRosSetRemoveOnClose()\n");
     KeAcquireGuardedMutex(&ViewLock);
-    SharedCacheMap = SectionObjectPointer->SharedCacheMap;
-    if (SharedCacheMap && SharedCacheMap->RefCount == 0)
+    Bcb = (PBCB)SectionObjectPointer->SharedCacheMap;
+    if (Bcb)
     {
-        CcRosDeleteFileCache(SharedCacheMap->FileObject, SharedCacheMap);
+        Bcb->RemoveOnClose = TRUE;
+        if (Bcb->RefCount == 0)
+        {
+            CcRosDeleteFileCache(Bcb->FileObject, Bcb);
+        }
     }
     KeReleaseGuardedMutex(&ViewLock);
 }
@@ -1106,17 +1196,17 @@ NTAPI
 CcRosDereferenceCache (
     PFILE_OBJECT FileObject)
 {
-    PROS_SHARED_CACHE_MAP SharedCacheMap;
+    PBCB Bcb;
     KeAcquireGuardedMutex(&ViewLock);
-    SharedCacheMap = FileObject->SectionObjectPointer->SharedCacheMap;
-    ASSERT(SharedCacheMap);
-    if (SharedCacheMap->RefCount > 0)
+    Bcb = (PBCB)FileObject->SectionObjectPointer->SharedCacheMap;
+    ASSERT(Bcb);
+    if (Bcb->RefCount > 0)
     {
-        SharedCacheMap->RefCount--;
-        if (SharedCacheMap->RefCount == 0)
+        Bcb->RefCount--;
+        if (Bcb->RefCount == 0)
         {
-            MmFreeSectionSegments(SharedCacheMap->FileObject);
-            CcRosDeleteFileCache(FileObject, SharedCacheMap);
+            MmFreeSectionSegments(Bcb->FileObject);
+            CcRosDeleteFileCache(FileObject, Bcb);
         }
     }
     KeReleaseGuardedMutex(&ViewLock);
@@ -1131,23 +1221,23 @@ CcRosReleaseFileCache (
  * has been closed.
  */
 {
-    PROS_SHARED_CACHE_MAP SharedCacheMap;
+    PBCB Bcb;
 
     KeAcquireGuardedMutex(&ViewLock);
 
     if (FileObject->SectionObjectPointer->SharedCacheMap != NULL)
     {
-        SharedCacheMap = FileObject->SectionObjectPointer->SharedCacheMap;
+        Bcb = FileObject->SectionObjectPointer->SharedCacheMap;
         if (FileObject->PrivateCacheMap != NULL)
         {
             FileObject->PrivateCacheMap = NULL;
-            if (SharedCacheMap->RefCount > 0)
+            if (Bcb->RefCount > 0)
             {
-                SharedCacheMap->RefCount--;
-                if (SharedCacheMap->RefCount == 0)
+                Bcb->RefCount--;
+                if (Bcb->RefCount == 0)
                 {
-                    MmFreeSectionSegments(SharedCacheMap->FileObject);
-                    CcRosDeleteFileCache(FileObject, SharedCacheMap);
+                    MmFreeSectionSegments(Bcb->FileObject);
+                    CcRosDeleteFileCache(FileObject, Bcb);
                 }
             }
         }
@@ -1161,14 +1251,14 @@ NTAPI
 CcTryToInitializeFileCache (
     PFILE_OBJECT FileObject)
 {
-    PROS_SHARED_CACHE_MAP SharedCacheMap;
+    PBCB Bcb;
     NTSTATUS Status;
 
     KeAcquireGuardedMutex(&ViewLock);
 
     ASSERT(FileObject->SectionObjectPointer);
-    SharedCacheMap = FileObject->SectionObjectPointer->SharedCacheMap;
-    if (SharedCacheMap == NULL)
+    Bcb = FileObject->SectionObjectPointer->SharedCacheMap;
+    if (Bcb == NULL)
     {
         Status = STATUS_UNSUCCESSFUL;
     }
@@ -1176,8 +1266,13 @@ CcTryToInitializeFileCache (
     {
         if (FileObject->PrivateCacheMap == NULL)
         {
-            FileObject->PrivateCacheMap = SharedCacheMap;
-            SharedCacheMap->RefCount++;
+            FileObject->PrivateCacheMap = Bcb;
+            Bcb->RefCount++;
+        }
+        if (Bcb->BcbRemoveListEntry.Flink != NULL)
+        {
+            RemoveEntryList(&Bcb->BcbRemoveListEntry);
+            Bcb->BcbRemoveListEntry.Flink = NULL;
         }
         Status = STATUS_SUCCESS;
     }
@@ -1194,47 +1289,52 @@ CcRosInitializeFileCache (
     PCACHE_MANAGER_CALLBACKS CallBacks,
     PVOID LazyWriterContext)
 /*
- * FUNCTION: Initializes a shared cache map for a file object
+ * FUNCTION: Initializes a BCB for a file object
  */
 {
-    PROS_SHARED_CACHE_MAP SharedCacheMap;
+    PBCB Bcb;
 
-    SharedCacheMap = FileObject->SectionObjectPointer->SharedCacheMap;
-    DPRINT("CcRosInitializeFileCache(FileObject 0x%p, SharedCacheMap 0x%p)\n",
-           FileObject, SharedCacheMap);
+    Bcb = FileObject->SectionObjectPointer->SharedCacheMap;
+    DPRINT("CcRosInitializeFileCache(FileObject 0x%p, Bcb 0x%p)\n",
+           FileObject, Bcb);
 
     KeAcquireGuardedMutex(&ViewLock);
-    if (SharedCacheMap == NULL)
+    if (Bcb == NULL)
     {
-        SharedCacheMap = ExAllocateFromNPagedLookasideList(&SharedCacheMapLookasideList);
-        if (SharedCacheMap == NULL)
+        Bcb = ExAllocateFromNPagedLookasideList(&BcbLookasideList);
+        if (Bcb == NULL)
         {
             KeReleaseGuardedMutex(&ViewLock);
             return STATUS_UNSUCCESSFUL;
         }
-        RtlZeroMemory(SharedCacheMap, sizeof(*SharedCacheMap));
+        RtlZeroMemory(Bcb, sizeof(*Bcb));
         ObReferenceObjectByPointer(FileObject,
                                    FILE_ALL_ACCESS,
                                    NULL,
                                    KernelMode);
-        SharedCacheMap->FileObject = FileObject;
-        SharedCacheMap->Callbacks = CallBacks;
-        SharedCacheMap->LazyWriteContext = LazyWriterContext;
+        Bcb->FileObject = FileObject;
+        Bcb->Callbacks = CallBacks;
+        Bcb->LazyWriteContext = LazyWriterContext;
         if (FileObject->FsContext)
         {
-            SharedCacheMap->SectionSize =
+            Bcb->AllocationSize =
                 ((PFSRTL_COMMON_FCB_HEADER)FileObject->FsContext)->AllocationSize;
-            SharedCacheMap->FileSize =
+            Bcb->FileSize =
                 ((PFSRTL_COMMON_FCB_HEADER)FileObject->FsContext)->FileSize;
         }
-        KeInitializeSpinLock(&SharedCacheMap->CacheMapLock);
-        InitializeListHead(&SharedCacheMap->CacheMapVacbListHead);
-        FileObject->SectionObjectPointer->SharedCacheMap = SharedCacheMap;
+        KeInitializeSpinLock(&Bcb->BcbLock);
+        InitializeListHead(&Bcb->BcbSegmentListHead);
+        FileObject->SectionObjectPointer->SharedCacheMap = Bcb;
     }
     if (FileObject->PrivateCacheMap == NULL)
     {
-        FileObject->PrivateCacheMap = SharedCacheMap;
-        SharedCacheMap->RefCount++;
+        FileObject->PrivateCacheMap = Bcb;
+        Bcb->RefCount++;
+    }
+    if (Bcb->BcbRemoveListEntry.Flink != NULL)
+    {
+        RemoveEntryList(&Bcb->BcbRemoveListEntry);
+        Bcb->BcbRemoveListEntry.Flink = NULL;
     }
     KeReleaseGuardedMutex(&ViewLock);
 
@@ -1249,12 +1349,12 @@ NTAPI
 CcGetFileObjectFromSectionPtrs (
     IN PSECTION_OBJECT_POINTERS SectionObjectPointers)
 {
-    PROS_SHARED_CACHE_MAP SharedCacheMap;
+    PBCB Bcb;
     if (SectionObjectPointers && SectionObjectPointers->SharedCacheMap)
     {
-        SharedCacheMap = SectionObjectPointers->SharedCacheMap;
-        ASSERT(SharedCacheMap);
-        return SharedCacheMap->FileObject;
+        Bcb = (PBCB)SectionObjectPointers->SharedCacheMap;
+        ASSERT(Bcb);
+        return Bcb->FileObject;
     }
     return NULL;
 }
@@ -1265,37 +1365,79 @@ NTAPI
 CcInitView (
     VOID)
 {
-    DPRINT("CcInitView()\n");
+#ifdef CACHE_BITMAP
+    PMEMORY_AREA marea;
+    PVOID Buffer;
+#endif
 
-    InitializeListHead(&VacbListHead);
-    InitializeListHead(&DirtyVacbListHead);
-    InitializeListHead(&VacbLruListHead);
+    DPRINT("CcInitView()\n");
+#ifdef CACHE_BITMAP
+    CiCacheSegMappingRegionHint = 0;
+    CiCacheSegMappingRegionBase = NULL;
+
+    MmLockAddressSpace(MmGetKernelAddressSpace());
+
+    Status = MmCreateMemoryArea(MmGetKernelAddressSpace(),
+                                MEMORY_AREA_CACHE_SEGMENT,
+                                &CiCacheSegMappingRegionBase,
+                                CI_CACHESEG_MAPPING_REGION_SIZE,
+                                PAGE_READWRITE,
+                                &marea,
+                                FALSE,
+                                0,
+                                PAGE_SIZE);
+    MmUnlockAddressSpace(MmGetKernelAddressSpace());
+    if (!NT_SUCCESS(Status))
+    {
+        KeBugCheck(CACHE_MANAGER);
+    }
+
+    Buffer = ExAllocatePoolWithTag(NonPagedPool,
+                                   CI_CACHESEG_MAPPING_REGION_SIZE / (PAGE_SIZE * 8),
+                                   TAG_CC);
+    if (!Buffer)
+    {
+        KeBugCheck(CACHE_MANAGER);
+    }
+
+    RtlInitializeBitMap(&CiCacheSegMappingRegionAllocMap,
+                        Buffer,
+                        CI_CACHESEG_MAPPING_REGION_SIZE / PAGE_SIZE);
+    RtlClearAllBits(&CiCacheSegMappingRegionAllocMap);
+
+    KeInitializeSpinLock(&CiCacheSegMappingRegionLock);
+#endif
+    InitializeListHead(&CacheSegmentListHead);
+    InitializeListHead(&DirtySegmentListHead);
+    InitializeListHead(&CacheSegmentLRUListHead);
+    InitializeListHead(&ClosedListHead);
     KeInitializeGuardedMutex(&ViewLock);
-    ExInitializeNPagedLookasideList(&iBcbLookasideList,
-                                    NULL,
-                                    NULL,
-                                    0,
-                                    sizeof(INTERNAL_BCB),
-                                    TAG_BCB,
-                                    20);
-    ExInitializeNPagedLookasideList(&SharedCacheMapLookasideList,
-                                    NULL,
-                                    NULL,
-                                    0,
-                                    sizeof(ROS_SHARED_CACHE_MAP),
-                                    TAG_SHARED_CACHE_MAP,
-                                    20);
-    ExInitializeNPagedLookasideList(&VacbLookasideList,
-                                    NULL,
-                                    NULL,
-                                    0,
-                                    sizeof(ROS_VACB),
-                                    TAG_VACB,
-                                    20);
+    ExInitializeNPagedLookasideList (&iBcbLookasideList,
+                                     NULL,
+                                     NULL,
+                                     0,
+                                     sizeof(INTERNAL_BCB),
+                                     TAG_IBCB,
+                                     20);
+    ExInitializeNPagedLookasideList (&BcbLookasideList,
+                                     NULL,
+                                     NULL,
+                                     0,
+                                     sizeof(BCB),
+                                     TAG_BCB,
+                                     20);
+    ExInitializeNPagedLookasideList (&CacheSegLookasideList,
+                                     NULL,
+                                     NULL,
+                                     0,
+                                     sizeof(CACHE_SEGMENT),
+                                     TAG_CSEG,
+                                     20);
 
     MmInitializeMemoryConsumer(MC_CACHE, CcRosTrimCache);
 
     CcInitCacheZeroPage();
+
 }
 
 /* EOF */

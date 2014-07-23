@@ -39,20 +39,7 @@ BEGIN
     MENUITEM "Mi&nimizează", SC_MINIMIZE
     MENUITEM "Ma&ximizează", SC_MAXIMIZE
     MENUITEM SEPARATOR
-    MENUITEM "Închid&e\tAlt+F4", SC_CLOSE
-END
-
-SYSMENUMDI MENU
-BEGIN
-    MENUITEM "&Restabilește", SC_RESTORE
-    MENUITEM "&Mută", SC_MOVE
-    MENUITEM "Re&dimensionează", SC_SIZE
-    MENUITEM "Mi&nimizează", SC_MINIMIZE
-    MENUITEM "Ma&ximizează", SC_MAXIMIZE
-    MENUITEM SEPARATOR
-    MENUITEM "Închid&e\tCtrl+F4", SC_CLOSE
-    MENUITEM SEPARATOR
-    MENUITEM "Înain&te\tCtrl+F6", SC_NEXTWINDOW
+    MENUITEM "Închid&e\tAlt-F4", SC_CLOSE
 END
 
 /* Strings */

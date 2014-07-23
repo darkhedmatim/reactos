@@ -49,12 +49,12 @@ static HANDLE create_target_process(const char *arg)
     char cmdline[MAX_PATH];
     PROCESS_INFORMATION pi;
     BOOL ret;
-    STARTUPINFOA si = { 0 };
+    STARTUPINFO si = { 0 };
     si.cb = sizeof(si);
 
     winetest_get_mainargs( &argv );
     sprintf(cmdline, "%s %s %s", argv[0], argv[1], arg);
-    ret = CreateProcessA(NULL, cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+    ret = CreateProcess(NULL, cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
     ok(ret, "error: %u\n", GetLastError());
     ret = CloseHandle(pi.hThread);
     ok(ret, "error %u\n", GetLastError());
@@ -586,17 +586,17 @@ static void test_MapViewOfFile(void)
 
     SetLastError(0xdeadbeef);
     name = "Local\\Foo";
-    file = CreateFileMappingA( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 4096, name );
+    file = CreateFileMapping( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 4096, name );
     /* nt4 doesn't have Local\\ */
     if (!file && GetLastError() == ERROR_PATH_NOT_FOUND)
     {
         name = "Foo";
-        file = CreateFileMappingA( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 4096, name );
+        file = CreateFileMapping( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 4096, name );
     }
     ok( file != 0, "CreateFileMapping PAGE_READWRITE error %u\n", GetLastError() );
 
     SetLastError(0xdeadbeef);
-    mapping = OpenFileMappingA( FILE_MAP_READ, FALSE, name );
+    mapping = OpenFileMapping( FILE_MAP_READ, FALSE, name );
     ok( mapping != 0, "OpenFileMapping FILE_MAP_READ error %u\n", GetLastError() );
     SetLastError(0xdeadbeef);
     ptr = MapViewOfFile( mapping, FILE_MAP_WRITE, 0, 0, 0 );
@@ -623,7 +623,7 @@ static void test_MapViewOfFile(void)
     CloseHandle( mapping );
 
     SetLastError(0xdeadbeef);
-    mapping = OpenFileMappingA( FILE_MAP_WRITE, FALSE, name );
+    mapping = OpenFileMapping( FILE_MAP_WRITE, FALSE, name );
     ok( mapping != 0, "OpenFileMapping FILE_MAP_WRITE error %u\n", GetLastError() );
     SetLastError(0xdeadbeef);
     ptr = MapViewOfFile( mapping, FILE_MAP_READ, 0, 0, 0 );
@@ -1053,12 +1053,10 @@ static void test_NtAreMappedFilesTheSame(void)
     CloseHandle( file2 );
 
     status = pNtAreMappedFilesTheSame( ptr, ptr );
-    ok( status == STATUS_SUCCESS || broken(status == STATUS_NOT_SAME_DEVICE),
-        "NtAreMappedFilesTheSame returned %x\n", status );
+    ok( status == STATUS_NOT_SAME_DEVICE, "NtAreMappedFilesTheSame returned %x\n", status );
 
     status = pNtAreMappedFilesTheSame( ptr, (char *)ptr + 30 );
-    ok( status == STATUS_SUCCESS || broken(status == STATUS_NOT_SAME_DEVICE),
-        "NtAreMappedFilesTheSame returned %x\n", status );
+    ok( status == STATUS_NOT_SAME_DEVICE, "NtAreMappedFilesTheSame returned %x\n", status );
 
     status = pNtAreMappedFilesTheSame( ptr, GetModuleHandleA("kernel32.dll") );
     ok( status == STATUS_NOT_SAME_DEVICE, "NtAreMappedFilesTheSame returned %x\n", status );
@@ -1285,7 +1283,7 @@ static void test_write_watch(void)
         "wrong error %u\n", GetLastError() );
 
     SetLastError( 0xdeadbeef );
-    ret = pGetWriteWatch( 0, GetModuleHandleW(NULL), size, results, &count, &pagesize );
+    ret = pGetWriteWatch( 0, GetModuleHandle(0), size, results, &count, &pagesize );
     if (ret)
     {
         ok( ret == ~0u, "GetWriteWatch succeeded %u\n", ret );
@@ -1461,7 +1459,7 @@ static void test_write_watch(void)
         ok( GetLastError() == ERROR_INVALID_PARAMETER, "wrong error %u\n", GetLastError() );
 
         SetLastError( 0xdeadbeef );
-        ret = pResetWriteWatch( GetModuleHandleW(NULL), size );
+        ret = pResetWriteWatch( GetModuleHandle(0), size );
         ok( ret == ~0u, "ResetWriteWatch succeeded %u\n", ret );
         ok( GetLastError() == ERROR_INVALID_PARAMETER, "wrong error %u\n", GetLastError() );
     }
@@ -1488,7 +1486,7 @@ static void test_write_watch(void)
         ret = pResetWriteWatch( base, 0 );
         ok( !ret, "ResetWriteWatch failed %u\n", ret );
 
-        ret = pResetWriteWatch( GetModuleHandleW(NULL), size );
+        ret = pResetWriteWatch( GetModuleHandle(0), size );
         ok( !ret, "ResetWriteWatch failed %u\n", ret );
     }
 
@@ -1863,11 +1861,11 @@ static void test_CreateFileMapping_protection(void)
     GetSystemInfo(&si);
     trace("system page size %#x\n", si.dwPageSize);
 
-    GetTempPathA(MAX_PATH, temp_path);
-    GetTempFileNameA(temp_path, "map", 0, file_name);
+    GetTempPath(MAX_PATH, temp_path);
+    GetTempFileName(temp_path, "map", 0, file_name);
 
     SetLastError(0xdeadbeef);
-    hfile = CreateFileA(file_name, GENERIC_READ|GENERIC_WRITE|GENERIC_EXECUTE, 0, NULL, CREATE_ALWAYS, 0, 0);
+    hfile = CreateFile(file_name, GENERIC_READ|GENERIC_WRITE|GENERIC_EXECUTE, 0, NULL, CREATE_ALWAYS, 0, 0);
     ok(hfile != INVALID_HANDLE_VALUE, "CreateFile(%s) error %d\n", file_name, GetLastError());
     SetFilePointer(hfile, si.dwPageSize, NULL, FILE_BEGIN);
     SetEndOfFile(hfile);
@@ -1875,7 +1873,7 @@ static void test_CreateFileMapping_protection(void)
     for (i = 0; i < sizeof(td)/sizeof(td[0]); i++)
     {
         SetLastError(0xdeadbeef);
-        hmap = CreateFileMappingW(hfile, NULL, td[i].prot | SEC_COMMIT, 0, si.dwPageSize, NULL);
+        hmap = CreateFileMapping(hfile, NULL, td[i].prot | SEC_COMMIT, 0, si.dwPageSize, NULL);
 
         if (td[i].success)
         {
@@ -1956,7 +1954,7 @@ todo_wine
     if (page_exec_supported) alloc_prot = PAGE_EXECUTE_READWRITE;
     else alloc_prot = PAGE_READWRITE;
     SetLastError(0xdeadbeef);
-    hmap = CreateFileMappingW(hfile, NULL, alloc_prot, 0, si.dwPageSize, NULL);
+    hmap = CreateFileMapping(hfile, NULL, alloc_prot, 0, si.dwPageSize, NULL);
     ok(hmap != 0, "%d: CreateFileMapping error %d\n", i, GetLastError());
 
     SetLastError(0xdeadbeef);
@@ -2067,7 +2065,7 @@ todo_wine
     CloseHandle(hmap);
 
     CloseHandle(hfile);
-    DeleteFileA(file_name);
+    DeleteFile(file_name);
 }
 
 #define ACCESS_READ      0x01
@@ -2254,11 +2252,11 @@ static void test_mapping(void)
     GetSystemInfo(&si);
     trace("system page size %#x\n", si.dwPageSize);
 
-    GetTempPathA(MAX_PATH, temp_path);
-    GetTempFileNameA(temp_path, "map", 0, file_name);
+    GetTempPath(MAX_PATH, temp_path);
+    GetTempFileName(temp_path, "map", 0, file_name);
 
     SetLastError(0xdeadbeef);
-    hfile = CreateFileA(file_name, GENERIC_READ|GENERIC_WRITE|GENERIC_EXECUTE, 0, NULL, CREATE_ALWAYS, 0, 0);
+    hfile = CreateFile(file_name, GENERIC_READ|GENERIC_WRITE|GENERIC_EXECUTE, 0, NULL, CREATE_ALWAYS, 0, 0);
     ok(hfile != INVALID_HANDLE_VALUE, "CreateFile(%s) error %d\n", file_name, GetLastError());
     SetFilePointer(hfile, si.dwPageSize, NULL, FILE_BEGIN);
     SetEndOfFile(hfile);
@@ -2266,7 +2264,7 @@ static void test_mapping(void)
     for (i = 0; i < sizeof(page_prot)/sizeof(page_prot[0]); i++)
     {
         SetLastError(0xdeadbeef);
-        hmap = CreateFileMappingW(hfile, NULL, page_prot[i] | SEC_COMMIT, 0, si.dwPageSize, NULL);
+        hmap = CreateFileMapping(hfile, NULL, page_prot[i] | SEC_COMMIT, 0, si.dwPageSize, NULL);
 
         if (page_prot[i] == PAGE_NOACCESS)
         {
@@ -2277,7 +2275,7 @@ static void test_mapping(void)
 
             /* A trick to create a not accessible mapping */
             SetLastError(0xdeadbeef);
-            hmap = CreateFileMappingW(hfile, NULL, PAGE_READWRITE | SEC_COMMIT, 0, si.dwPageSize, NULL);
+            hmap = CreateFileMapping(hfile, NULL, PAGE_READWRITE | SEC_COMMIT, 0, si.dwPageSize, NULL);
             ok(hmap != 0, "CreateFileMapping(PAGE_READWRITE) error %d\n", GetLastError());
             SetLastError(0xdeadbeef);
             ret = DuplicateHandle(GetCurrentProcess(), hmap, GetCurrentProcess(), &hmap2, 0, FALSE, 0);
@@ -2444,7 +2442,7 @@ todo_wine
     }
 
     CloseHandle(hfile);
-    DeleteFileA(file_name);
+    DeleteFile(file_name);
 }
 
 static void test_shared_memory(int is_child)
@@ -2453,7 +2451,7 @@ static void test_shared_memory(int is_child)
     LONG *p;
 
     SetLastError(0xdeadbef);
-    mapping = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 4096, "winetest_virtual.c");
+    mapping = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, 4096, "winetest_virtual.c");
     ok(mapping != 0, "CreateFileMapping error %d\n", GetLastError());
     if (is_child)
         ok(GetLastError() == ERROR_ALREADY_EXISTS, "expected ERROR_ALREADY_EXISTS, got %d\n", GetLastError());
@@ -2471,14 +2469,14 @@ static void test_shared_memory(int is_child)
         char **argv;
         char cmdline[MAX_PATH];
         PROCESS_INFORMATION pi;
-        STARTUPINFOA si = { sizeof(si) };
+        STARTUPINFO si = { sizeof(si) };
         DWORD ret;
 
         *p = 0x1a2b3c4d;
 
         winetest_get_mainargs(&argv);
         sprintf(cmdline, "\"%s\" virtual sharedmem", argv[0]);
-        ret = CreateProcessA(argv[0], cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+        ret = CreateProcess(argv[0], cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
         ok(ret, "CreateProcess(%s) error %d\n", cmdline, GetLastError());
         winetest_wait_child_process(pi.hProcess);
         CloseHandle(pi.hThread);
@@ -2527,10 +2525,10 @@ START_TEST(virtual)
     pVirtualFreeEx = (void *) GetProcAddress(hkernel32, "VirtualFreeEx");
     pGetWriteWatch = (void *) GetProcAddress(hkernel32, "GetWriteWatch");
     pResetWriteWatch = (void *) GetProcAddress(hkernel32, "ResetWriteWatch");
-    pNtAreMappedFilesTheSame = (void *)GetProcAddress( GetModuleHandleA("ntdll.dll"),
+    pNtAreMappedFilesTheSame = (void *)GetProcAddress( GetModuleHandle("ntdll.dll"),
                                                        "NtAreMappedFilesTheSame" );
-    pNtMapViewOfSection = (void *)GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtMapViewOfSection");
-    pNtUnmapViewOfSection = (void *)GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtUnmapViewOfSection");
+    pNtMapViewOfSection = (void *)GetProcAddress(GetModuleHandle("ntdll.dll"), "NtMapViewOfSection");
+    pNtUnmapViewOfSection = (void *)GetProcAddress(GetModuleHandle("ntdll.dll"), "NtUnmapViewOfSection");
 
     test_shared_memory(0);
     test_mapping();

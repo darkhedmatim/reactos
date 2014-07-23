@@ -13,8 +13,6 @@
 #define NDEBUG
 #include <debug.h>
 
-#include "guiterm.h"
-
 /* FUNCTIONS ******************************************************************/
 
 BOOL

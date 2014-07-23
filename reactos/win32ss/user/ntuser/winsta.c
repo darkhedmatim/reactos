@@ -451,8 +451,10 @@ NtUserCreateWindowStation(
    /* Initialize the window station */
    RtlZeroMemory(WindowStationObject, sizeof(WINSTATION_OBJECT));
 
+   KeInitializeSpinLock(&WindowStationObject->Lock);
    InitializeListHead(&WindowStationObject->DesktopListHead);
    Status = RtlCreateAtomTable(37, &WindowStationObject->AtomTable);
+   WindowStationObject->SystemMenuTemplate = (HANDLE)0;
    WindowStationObject->Name = WindowStationName;
    WindowStationObject->dwSessionId = NtCurrentPeb()->SessionId;
 
@@ -639,19 +641,6 @@ NtUserGetObjectInformation(
    PVOID pvData = NULL;
    DWORD nDataSize = 0;
 
-   _SEH2_TRY
-   {
-      if (nLengthNeeded)
-         ProbeForWrite(nLengthNeeded, sizeof(*nLengthNeeded), 1);
-      ProbeForWrite(pvInformation, nLength, 1);
-   }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-      SetLastNtError(_SEH2_GetExceptionCode());
-      return FALSE;
-   }
-   _SEH2_END;
-
    /* try windowstation */
    TRACE("Trying to open window station %p\n", hObject);
    Status = ObReferenceObjectByHandle(
@@ -676,7 +665,8 @@ NtUserGetObjectInformation(
    if (!NT_SUCCESS(Status))
    {
       ERR("Failed: 0x%x\n", Status);
-      goto Exit;
+      SetLastNtError(Status);
+      return FALSE;
    }
 
    TRACE("WinSta or Desktop opened!!\n");
@@ -733,27 +723,16 @@ NtUserGetObjectInformation(
          break;
    }
 
-Exit:
-   if (Status == STATUS_SUCCESS && nLength < nDataSize)
-      Status = STATUS_BUFFER_TOO_SMALL;
-
-   _SEH2_TRY
+   /* try to copy data to caller */
+   if (Status == STATUS_SUCCESS)
    {
-      if (nLengthNeeded)
-         *nLengthNeeded = nDataSize;
-
-      /* try to copy data to caller */
-      if (Status == STATUS_SUCCESS)
-      {
-         TRACE("Trying to copy data to caller (len = %lu, len needed = %lu)\n", nLength, nDataSize);
-         RtlCopyMemory(pvInformation, pvData, nDataSize);
-      }
+      TRACE("Trying to copy data to caller (len = %lu, len needed = %lu)\n", nLength, nDataSize);
+      *nLengthNeeded = nDataSize;
+      if (nLength >= nDataSize)
+         Status = MmCopyToCaller(pvInformation, pvData, nDataSize);
+      else
+         Status = STATUS_BUFFER_TOO_SMALL;
    }
-   _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-   {
-       Status = _SEH2_GetExceptionCode();
-   }
-   _SEH2_END;
 
    /* release objects */
    if (WinStaObject != NULL)
@@ -1202,12 +1181,13 @@ BuildDesktopNameList(
 {
    NTSTATUS Status;
    PWINSTATION_OBJECT WindowStation;
+   KIRQL OldLevel;
    PLIST_ENTRY DesktopEntry;
    PDESKTOP DesktopObject;
    DWORD EntryCount;
    ULONG ReturnLength;
    WCHAR NullWchar;
-   UNICODE_STRING DesktopName;
+   PUNICODE_STRING DesktopName;
 
    Status = IntValidateWindowStationHandle(hWindowStation,
                                            KernelMode,
@@ -1217,6 +1197,8 @@ BuildDesktopNameList(
    {
       return Status;
    }
+
+   KeAcquireSpinLock(&WindowStation->Lock, &OldLevel);
 
    /*
     * Count the required size of buffer.
@@ -1228,8 +1210,8 @@ BuildDesktopNameList(
          DesktopEntry = DesktopEntry->Flink)
    {
       DesktopObject = CONTAINING_RECORD(DesktopEntry, DESKTOP, ListEntry);
-      RtlInitUnicodeString(&DesktopName, DesktopObject->pDeskInfo->szDesktopName);
-      ReturnLength += DesktopName.Length + sizeof(WCHAR);
+      DesktopName = GET_DESKTOP_NAME(DesktopObject);
+      if (DesktopName) ReturnLength += DesktopName->Length + sizeof(WCHAR);
       EntryCount++;
    }
    TRACE("Required size: %lu Entry count: %lu\n", ReturnLength, EntryCount);
@@ -1238,6 +1220,7 @@ BuildDesktopNameList(
       Status = MmCopyToCaller(pRequiredSize, &ReturnLength, sizeof(ULONG));
       if (! NT_SUCCESS(Status))
       {
+         KeReleaseSpinLock(&WindowStation->Lock, OldLevel);
          ObDereferenceObject(WindowStation);
          return STATUS_BUFFER_TOO_SMALL;
       }
@@ -1248,6 +1231,7 @@ BuildDesktopNameList(
     */
    if (dwSize < ReturnLength)
    {
+      KeReleaseSpinLock(&WindowStation->Lock, OldLevel);
       ObDereferenceObject(WindowStation);
       return STATUS_BUFFER_TOO_SMALL;
    }
@@ -1258,6 +1242,7 @@ BuildDesktopNameList(
    Status = MmCopyToCaller(lpBuffer, &EntryCount, sizeof(DWORD));
    if (! NT_SUCCESS(Status))
    {
+      KeReleaseSpinLock(&WindowStation->Lock, OldLevel);
       ObDereferenceObject(WindowStation);
       return Status;
    }
@@ -1269,17 +1254,22 @@ BuildDesktopNameList(
          DesktopEntry = DesktopEntry->Flink)
    {
       DesktopObject = CONTAINING_RECORD(DesktopEntry, DESKTOP, ListEntry);
-      RtlInitUnicodeString(&DesktopName, DesktopObject->pDeskInfo->szDesktopName);
-      Status = MmCopyToCaller(lpBuffer, DesktopName.Buffer, DesktopName.Length);
+      _PRAGMA_WARNING_SUPPRESS(__WARNING_DEREF_NULL_PTR)
+      DesktopName = GET_DESKTOP_NAME(DesktopObject);/// @todo Don't mess around with the object headers!
+      if (!DesktopName) continue;
+
+      Status = MmCopyToCaller(lpBuffer, DesktopName->Buffer, DesktopName->Length);
       if (! NT_SUCCESS(Status))
       {
+         KeReleaseSpinLock(&WindowStation->Lock, OldLevel);
          ObDereferenceObject(WindowStation);
          return Status;
       }
-      lpBuffer = (PVOID) ((PCHAR)lpBuffer + DesktopName.Length);
+      lpBuffer = (PVOID) ((PCHAR)lpBuffer + DesktopName->Length);
       Status = MmCopyToCaller(lpBuffer, &NullWchar, sizeof(WCHAR));
       if (! NT_SUCCESS(Status))
       {
+         KeReleaseSpinLock(&WindowStation->Lock, OldLevel);
          ObDereferenceObject(WindowStation);
          return Status;
       }
@@ -1287,9 +1277,11 @@ BuildDesktopNameList(
    }
 
    /*
-    * Clean up and return
+    * Clean up
     */
+   KeReleaseSpinLock(&WindowStation->Lock, OldLevel);
    ObDereferenceObject(WindowStation);
+
    return STATUS_SUCCESS;
 }
 

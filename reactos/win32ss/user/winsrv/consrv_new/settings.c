@@ -355,7 +355,7 @@ do {                                                                            
          * or we are saving settings for a particular console, which differs
          * from the default ones.
          */
-        swprintf(szValueName, L"ColorTable%02u", i);
+        swprintf(szValueName, L"ColorTable%02d", i);
         SetConsoleSetting(szValueName, REG_DWORD, sizeof(DWORD), &ConsoleInfo->Colors[i], s_Colors[i]);
     }
 

@@ -89,8 +89,8 @@ HalVectorToIRQL[16] =
 
 /* PRIVATE FUNCTIONS **********************************************************/
 
-FORCEINLINE
 ULONG
+FORCEINLINE
 IOApicRead(UCHAR Register)
 {
     /* Select the register, then do the read */
@@ -98,8 +98,8 @@ IOApicRead(UCHAR Register)
     return *(volatile ULONG *)(IOAPIC_BASE + IOAPIC_IOWIN);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 IOApicWrite(UCHAR Register, ULONG Value)
 {
     /* Select the register, then do the write */
@@ -107,8 +107,8 @@ IOApicWrite(UCHAR Register, ULONG Value)
     *(volatile ULONG *)(IOAPIC_BASE + IOAPIC_IOWIN) = Value;
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ApicWriteIORedirectionEntry(
     UCHAR Index,
     IOAPIC_REDIRECTION_REGISTER ReDirReg)
@@ -117,8 +117,8 @@ ApicWriteIORedirectionEntry(
     IOApicWrite(IOAPIC_REDTBL + 2 * Index + 1, ReDirReg.Long1);
 }
 
-FORCEINLINE
 IOAPIC_REDIRECTION_REGISTER
+FORCEINLINE
 ApicReadIORedirectionEntry(
     UCHAR Index)
 {
@@ -130,8 +130,8 @@ ApicReadIORedirectionEntry(
     return ReDirReg;
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ApicRequestInterrupt(IN UCHAR Vector, UCHAR TriggerMode)
 {
     APIC_COMMAND_REGISTER CommandRegister;
@@ -147,24 +147,24 @@ ApicRequestInterrupt(IN UCHAR Vector, UCHAR TriggerMode)
     ApicWrite(APIC_ICR0, CommandRegister.Long0);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ApicSendEOI(void)
 {
     //ApicWrite(APIC_EOI, 0);
     HackEoi();
 }
 
-FORCEINLINE
 KIRQL
+FORCEINLINE
 ApicGetProcessorIrql(VOID)
 {
     /* Read the TPR and convert it to an IRQL */
     return TprToIrql(ApicRead(APIC_PPR));
 }
 
-FORCEINLINE
 KIRQL
+FORCEINLINE
 ApicGetCurrentIrql(VOID)
 {
 #ifdef _M_AMD64
@@ -184,8 +184,8 @@ ApicGetCurrentIrql(VOID)
 #endif
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 ApicSetIrql(KIRQL Irql)
 {
 #ifdef _M_AMD64
@@ -200,8 +200,8 @@ ApicSetIrql(KIRQL Irql)
 #define ApicRaiseIrql ApicSetIrql
 
 #ifdef APIC_LAZY_IRQL
-FORCEINLINE
 VOID
+FORCEINLINE
 ApicLowerIrql(KIRQL Irql)
 {
     __writefsbyte(FIELD_OFFSET(KPCR, Irql), Irql);

@@ -44,7 +44,6 @@
 #include <cfgmgr32.h>
 #include <regstr.h>
 #include <userenv.h>
-#include <shlwapi.h>
 #include <pnp_s.h>
 
 #define NDEBUG
@@ -1143,7 +1142,7 @@ DWORD PNP_DeleteClassKey(
 
     if (ulFlags & CM_DELETE_CLASS_SUBKEYS)
     {
-        if (SHDeleteKeyW(hClassKey, pszClassGuid) != ERROR_SUCCESS)
+        if (RegDeleteTreeW(hClassKey, pszClassGuid) != ERROR_SUCCESS)
             ret = CR_REGISTRY_ERROR;
     }
     else
@@ -1621,7 +1620,7 @@ DWORD PNP_CreateDevInst(
         dwInstanceNumber = 0;
         do
         {
-            swprintf(szGeneratedInstance, L"Root\\%ls\\%04lu",
+            swprintf(szGeneratedInstance, L"Root\\%ls\\%04d",
                      pszDeviceID, dwInstanceNumber);
 
             /* Try to create a device instance with this ID */
@@ -2116,7 +2115,7 @@ DWORD PNP_HwProfFlags(
     else
     {
         swprintf(szKeyName,
-                 L"System\\CurrentControlSet\\HardwareProfiles\\%04lu\\System\\CurrentControlSet\\Enum",
+                 L"System\\CurrentControlSet\\HardwareProfiles\\%04u\\System\\CurrentControlSet\\Enum",
                  ulConfig);
     }
 

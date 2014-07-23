@@ -79,7 +79,7 @@ static const char *debugstr_fourcc(DWORD fourcc)
         (char)(fourcc >> 16), (char)(fourcc >> 24));
 }
 
-static const char* get_primitive_string(DWORD token)
+static const char* get_primitive_string(WORD token)
 {
   switch(token)
   {
@@ -499,11 +499,11 @@ static BOOL is_name(parse_buffer* buf)
   char tmp[512];
   DWORD pos = 0;
   char c;
-  BOOL error = FALSE;
+  BOOL error = 0;
   while (pos < buf->rem_bytes && !is_separator(c = *(buf->buffer+pos)))
   {
     if (!(((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z')) || ((c >= '0') && (c <= '9')) || (c == '_') || (c == '-')))
-      error = TRUE;
+      error = 1;
     if (pos < sizeof(tmp))
         tmp[pos] = c;
     pos++;
@@ -531,7 +531,7 @@ static BOOL is_float(parse_buffer* buf)
   DWORD pos = 0;
   char c;
   float decimal;
-  BOOL dot = FALSE;
+  BOOL dot = 0;
 
   while (pos < buf->rem_bytes && !is_separator(c = *(buf->buffer+pos)))
   {
@@ -591,7 +591,7 @@ static BOOL is_string(parse_buffer* buf)
   char tmp[512];
   DWORD pos = 0;
   char c;
-  BOOL ok = FALSE;
+  BOOL ok = 0;
 
   if (*buf->buffer != '"')
     return FALSE;
@@ -601,7 +601,7 @@ static BOOL is_string(parse_buffer* buf)
     c = *(buf->buffer+pos+1);
     if (c == '"')
     {
-      ok = TRUE;
+      ok = 1;
       break;
     }
     if (pos < sizeof(tmp))
@@ -888,10 +888,10 @@ static inline BOOL is_primitive_type(WORD token)
     case TOKEN_LPSTR:
     case TOKEN_UNICODE:
     case TOKEN_CSTRING:
-      ret = TRUE;
+      ret = 1;
       break;
     default:
-      ret = FALSE;
+      ret = 0;
       break;
   }
   return ret;
@@ -937,14 +937,14 @@ static BOOL parse_template_members_list(parse_buffer * buf)
 
   while (1)
   {
-    BOOL array = FALSE;
+    BOOL array = 0;
     int nb_dims = 0;
     cur_member = &buf->pdxf->xtemplates[buf->pdxf->nb_xtemplates].members[idx_member];
 
     if (check_TOKEN(buf) == TOKEN_ARRAY)
     {
       get_TOKEN(buf);
-      array = TRUE;
+      array = 1;
     }
 
     if (check_TOKEN(buf) == TOKEN_NAME)

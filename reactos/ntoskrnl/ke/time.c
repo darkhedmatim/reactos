@@ -78,9 +78,6 @@ KeUpdateSystemTime(IN PKTRAP_FRAME TrapFrame,
         /* Increase interrupt count and end the interrupt */
         Prcb->InterruptCount++;
         KiEndInterrupt(Irql, TrapFrame);
-
-        /* Note: non-x86 return back to the caller! */
-        return;
     }
 
     /* Add the increment time to the shared data */

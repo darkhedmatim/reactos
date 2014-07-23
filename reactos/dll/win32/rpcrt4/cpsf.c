@@ -22,12 +22,6 @@
 
 #include <winreg.h>
 
-#define NO_SHLWAPI_PATH
-#define NO_SHLWAPI_STRFCNS
-#define NO_SHLWAPI_GDI
-#define NO_SHLWAPI_STREAM
-#include <shlwapi.h>
-
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
 static void format_clsid( WCHAR *buffer, const CLSID *clsid )
@@ -314,7 +308,7 @@ HRESULT WINAPI NdrDllUnregisterProxy(HMODULE hDll,
 
       strcpyW( keyname, interfaceW );
       format_clsid( keyname + strlenW(keyname), proxy->header.piid );
-      SHDeleteKeyW(HKEY_CLASSES_ROOT, keyname);
+      RegDeleteTreeW(HKEY_CLASSES_ROOT, keyname);
     }
     pProxyFileList++;
   }
@@ -322,7 +316,7 @@ HRESULT WINAPI NdrDllUnregisterProxy(HMODULE hDll,
   /* unregister clsid */
   strcpyW( keyname, clsidW );
   strcatW( keyname, clsid );
-  SHDeleteKeyW(HKEY_CLASSES_ROOT, keyname);
+  RegDeleteTreeW(HKEY_CLASSES_ROOT, keyname);
 
   return S_OK;
 }

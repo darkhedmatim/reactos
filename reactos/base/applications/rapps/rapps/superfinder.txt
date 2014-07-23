@@ -1,11 +1,10 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = Super Finder XT
 Version = 1.6.3.2
 Licence = Freeware
-Description = A fast and feature rich search application.
+Description = A fast and feature rich search Application.
 Size = 4.94 MB
 Category = 12
 URLSite = http://fsl.sytes.net/ssearchxt.html
@@ -37,6 +36,7 @@ Description = Aplicație rapidă de căutări complexe de text.
 Size = 4,94 Mo
 
 [Section.041f]
+Name = Süper Bulucu XT
 Licence = Ücretsiz
 Description = Hızlı ve husûsiyet zengini bir arama uygulaması.
 Size = 4,94 MB

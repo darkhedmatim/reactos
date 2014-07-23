@@ -5,6 +5,7 @@ spec2def(vbscript.dll vbscript.spec)
 
 list(APPEND SOURCE
     compile.c
+    error.c
     global.c
     interp.c
     lex.c

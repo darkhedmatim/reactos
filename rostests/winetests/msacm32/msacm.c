@@ -33,7 +33,7 @@
 #include "msacm.h"
 
 static BOOL CALLBACK FormatTagEnumProc(HACMDRIVERID hadid,
-                                       PACMFORMATTAGDETAILSA paftd,
+                                       PACMFORMATTAGDETAILS paftd,
                                        DWORD_PTR dwInstance,
                                        DWORD fdwSupport)
 {
@@ -44,7 +44,7 @@ static BOOL CALLBACK FormatTagEnumProc(HACMDRIVERID hadid,
 }
 
 static BOOL CALLBACK FormatEnumProc(HACMDRIVERID hadid,
-                                    LPACMFORMATDETAILSA pafd,
+                                    LPACMFORMATDETAILS pafd,
                                     DWORD_PTR dwInstance,
                                     DWORD fd)
 {
@@ -59,7 +59,7 @@ static BOOL CALLBACK DriverEnumProc(HACMDRIVERID hadid,
                                     DWORD fdwSupport)
 {
     MMRESULT rc;
-    ACMDRIVERDETAILSA dd;
+    ACMDRIVERDETAILS dd;
     HACMDRIVER had;
     
     DWORD dwDriverPriority;
@@ -79,48 +79,48 @@ static BOOL CALLBACK DriverEnumProc(HACMDRIVERID hadid,
     }
 
     /* try an invalid pointer */
-    rc = acmDriverDetailsA(hadid, 0, 0);
+    rc = acmDriverDetails(hadid, 0, 0);
     ok(rc == MMSYSERR_INVALPARAM,
-       "acmDriverDetailsA(): rc = %08x, should be %08x\n",
+       "acmDriverDetails(): rc = %08x, should be %08x\n",
        rc, MMSYSERR_INVALPARAM);
 
     /* try an invalid structure size */
     ZeroMemory(&dd, sizeof(dd));
-    rc = acmDriverDetailsA(hadid, &dd, 0);
+    rc = acmDriverDetails(hadid, &dd, 0);
     ok(rc == MMSYSERR_INVALPARAM,
-       "acmDriverDetailsA(): rc = %08x, should be %08x\n",
+       "acmDriverDetails(): rc = %08x, should be %08x\n",
        rc, MMSYSERR_INVALPARAM);
 
     /* MSDN says this should fail but it doesn't in practice */
     dd.cbStruct = 4;
-    rc = acmDriverDetailsA(hadid, &dd, 0);
+    rc = acmDriverDetails(hadid, &dd, 0);
     ok(rc == MMSYSERR_NOERROR || rc == MMSYSERR_NOTSUPPORTED,
-       "acmDriverDetailsA(): rc = %08x, should be %08x\n",
+       "acmDriverDetails(): rc = %08x, should be %08x\n",
        rc, MMSYSERR_NOERROR);
 
     /* try an invalid handle */
     dd.cbStruct = sizeof(dd);
-    rc = acmDriverDetailsA((HACMDRIVERID)1, &dd, 0);
+    rc = acmDriverDetails((HACMDRIVERID)1, &dd, 0);
     ok(rc == MMSYSERR_INVALHANDLE,
-       "acmDriverDetailsA(): rc = %08x, should be %08x\n",
+       "acmDriverDetails(): rc = %08x, should be %08x\n",
        rc, MMSYSERR_INVALHANDLE);
 
     /* try an invalid handle and pointer */
-    rc = acmDriverDetailsA((HACMDRIVERID)1, 0, 0);
+    rc = acmDriverDetails((HACMDRIVERID)1, 0, 0);
     ok(rc == MMSYSERR_INVALPARAM,
-       "acmDriverDetailsA(): rc = %08x, should be %08x\n",
+       "acmDriverDetails(): rc = %08x, should be %08x\n",
        rc, MMSYSERR_INVALPARAM);
 
     /* try invalid details */
-    rc = acmDriverDetailsA(hadid, &dd, -1);
+    rc = acmDriverDetails(hadid, &dd, -1);
     ok(rc == MMSYSERR_INVALFLAG,
-       "acmDriverDetailsA(): rc = %08x, should be %08x\n",
+       "acmDriverDetails(): rc = %08x, should be %08x\n",
        rc, MMSYSERR_INVALFLAG);
 
     /* try valid parameters */
-    rc = acmDriverDetailsA(hadid, &dd, 0);
+    rc = acmDriverDetails(hadid, &dd, 0);
     ok(rc == MMSYSERR_NOERROR || rc == MMSYSERR_NOTSUPPORTED,
-       "acmDriverDetailsA(): rc = %08x, should be %08x\n",
+       "acmDriverDetails(): rc = %08x, should be %08x\n",
        rc, MMSYSERR_NOERROR);
 
     /* cbStruct should contain size of returned data (at most sizeof(dd)) 
@@ -128,7 +128,7 @@ static BOOL CALLBACK DriverEnumProc(HACMDRIVERID hadid,
      */
     if (rc == MMSYSERR_NOERROR) {
         ok(dd.cbStruct == sizeof(dd),
-            "acmDriverDetailsA(): cbStruct = %08x\n", dd.cbStruct);
+            "acmDriverDetails(): cbStruct = %08x\n", dd.cbStruct);
     }
 
     if (rc == MMSYSERR_NOERROR && winetest_interactive) {
@@ -274,27 +274,27 @@ static BOOL CALLBACK DriverEnumProc(HACMDRIVERID hadid,
            "acmMetrics(): rc = %08x, should be %08x\n",
            rc, MMSYSERR_NOERROR);
         if (rc == MMSYSERR_NOERROR) {
-            ACMFORMATDETAILSA fd;
+            ACMFORMATDETAILS fd;
             WAVEFORMATEX * pwfx;
-            ACMFORMATTAGDETAILSA aftd;
+            ACMFORMATTAGDETAILS aftd;
 
             /* try bad pointer */
-            rc = acmFormatEnumA(had, 0, FormatEnumProc, 0, 0);
+            rc = acmFormatEnum(had, 0, FormatEnumProc, 0, 0);
             ok(rc == MMSYSERR_INVALPARAM,
-               "acmFormatEnumA(): rc = %08x, should be %08x\n",
+               "acmFormatEnum(): rc = %08x, should be %08x\n",
                 rc, MMSYSERR_INVALPARAM);
 
             /* try bad structure size */
             ZeroMemory(&fd, sizeof(fd));
-            rc = acmFormatEnumA(had, &fd, FormatEnumProc, 0, 0);
+            rc = acmFormatEnum(had, &fd, FormatEnumProc, 0, 0);
             ok(rc == MMSYSERR_INVALPARAM,
-               "acmFormatEnumA(): rc = %08x, should be %08x\n",
+               "acmFormatEnum(): rc = %08x, should be %08x\n",
                rc, MMSYSERR_INVALPARAM);
 
             fd.cbStruct = sizeof(fd) - 1;
-            rc = acmFormatEnumA(had, &fd, FormatEnumProc, 0, 0);
+            rc = acmFormatEnum(had, &fd, FormatEnumProc, 0, 0);
             ok(rc == MMSYSERR_INVALPARAM,
-               "acmFormatEnumA(): rc = %08x, should be %08x\n",
+               "acmFormatEnum(): rc = %08x, should be %08x\n",
                rc, MMSYSERR_INVALPARAM);
 
             if (dwSize < sizeof(WAVEFORMATEX))
@@ -311,43 +311,43 @@ static BOOL CALLBACK DriverEnumProc(HACMDRIVERID hadid,
             fd.dwFormatTag = WAVE_FORMAT_UNKNOWN;
 
             /* try valid parameters */
-            rc = acmFormatEnumA(had, &fd, FormatEnumProc, 0, 0);
+            rc = acmFormatEnum(had, &fd, FormatEnumProc, 0, 0);
             ok(rc == MMSYSERR_NOERROR,
-               "acmFormatEnumA(): rc = %08x, should be %08x\n",
+               "acmFormatEnum(): rc = %08x, should be %08x\n",
                rc, MMSYSERR_NOERROR);
 
             /* try bad pointer */
-            rc = acmFormatTagEnumA(had, 0, FormatTagEnumProc, 0, 0);
+            rc = acmFormatTagEnum(had, 0, FormatTagEnumProc, 0, 0);
             ok(rc == MMSYSERR_INVALPARAM,
-               "acmFormatTagEnumA(): rc = %08x, should be %08x\n",
+               "acmFormatTagEnum(): rc = %08x, should be %08x\n",
                 rc, MMSYSERR_INVALPARAM);
 
             /* try bad structure size */
             ZeroMemory(&aftd, sizeof(aftd));
-            rc = acmFormatTagEnumA(had, &aftd, FormatTagEnumProc, 0, 0);
+            rc = acmFormatTagEnum(had, &aftd, FormatTagEnumProc, 0, 0);
             ok(rc == MMSYSERR_INVALPARAM,
-               "acmFormatTagEnumA(): rc = %08x, should be %08x\n",
+               "acmFormatTagEnum(): rc = %08x, should be %08x\n",
                rc, MMSYSERR_INVALPARAM);
 
             aftd.cbStruct = sizeof(aftd) - 1;
-            rc = acmFormatTagEnumA(had, &aftd, FormatTagEnumProc, 0, 0);
+            rc = acmFormatTagEnum(had, &aftd, FormatTagEnumProc, 0, 0);
             ok(rc == MMSYSERR_INVALPARAM,
-               "acmFormatTagEnumA(): rc = %08x, should be %08x\n",
+               "acmFormatTagEnum(): rc = %08x, should be %08x\n",
                rc, MMSYSERR_INVALPARAM);
 
             aftd.cbStruct = sizeof(aftd);
             aftd.dwFormatTag = WAVE_FORMAT_UNKNOWN;
 
             /* try bad flag */
-            rc = acmFormatTagEnumA(had, &aftd, FormatTagEnumProc, 0, 1);
+            rc = acmFormatTagEnum(had, &aftd, FormatTagEnumProc, 0, 1);
             ok(rc == MMSYSERR_INVALFLAG,
-               "acmFormatTagEnumA(): rc = %08x, should be %08x\n",
+               "acmFormatTagEnum(): rc = %08x, should be %08x\n",
                rc, MMSYSERR_INVALFLAG);
 
             /* try valid parameters */
-            rc = acmFormatTagEnumA(had, &aftd, FormatTagEnumProc, 0, 0);
+            rc = acmFormatTagEnum(had, &aftd, FormatTagEnumProc, 0, 0);
             ok(rc == MMSYSERR_NOERROR,
-               "acmFormatTagEnumA(): rc = %08x, should be %08x\n",
+               "acmFormatTagEnum(): rc = %08x, should be %08x\n",
                rc, MMSYSERR_NOERROR);
 
             HeapFree(GetProcessHeap(), 0, pwfx);
@@ -454,7 +454,7 @@ static void check_count(UINT uMetric)
         trace("%s: %u\n", get_metric(uMetric), dwMetric);
 }
 
-static void driver_tests(void)
+static void msacm_tests(void)
 {
     MMRESULT rc;
     DWORD dwACMVersion = acmGetVersion();
@@ -488,90 +488,7 @@ static void driver_tests(void)
       rc, MMSYSERR_NOERROR);
 }
 
-static void test_prepareheader(void)
-{
-    HACMSTREAM has;
-    ADPCMWAVEFORMAT *src;
-    WAVEFORMATEX dst;
-    MMRESULT mr;
-    ACMSTREAMHEADER hdr;
-    BYTE buf[sizeof(WAVEFORMATEX) + 32], pcm[512], input[512];
-    ADPCMCOEFSET *coef;
-
-    src = (ADPCMWAVEFORMAT*)buf;
-    coef = src->aCoef;
-    src->wfx.cbSize = 32;
-    src->wfx.wFormatTag = WAVE_FORMAT_ADPCM;
-    src->wfx.nSamplesPerSec = 22050;
-    src->wfx.wBitsPerSample = 4;
-    src->wfx.nChannels = 1;
-    src->wfx.nBlockAlign = 512;
-    src->wfx.nAvgBytesPerSec = 11025;
-    src->wSamplesPerBlock = 0x3f4;
-    src->wNumCoef = 7;
-    coef[0].iCoef1 = 0x0100;
-    coef[0].iCoef2 = 0x0000;
-    coef[1].iCoef1 = 0x0200;
-    coef[1].iCoef2 = 0xff00;
-    coef[2].iCoef1 = 0x0000;
-    coef[2].iCoef2 = 0x0000;
-    coef[3].iCoef1 = 0x00c0;
-    coef[3].iCoef2 = 0x0040;
-    coef[4].iCoef1 = 0x00f0;
-    coef[4].iCoef2 = 0x0000;
-    coef[5].iCoef1 = 0x01cc;
-    coef[5].iCoef2 = 0xff30;
-    coef[6].iCoef1 = 0x0188;
-    coef[6].iCoef2 = 0xff18;
-
-    dst.cbSize = 0;
-    dst.wFormatTag = WAVE_FORMAT_PCM;
-    dst.nSamplesPerSec = 22050;
-    dst.wBitsPerSample = 8;
-    dst.nChannels = 1;
-    dst.nBlockAlign = dst.wBitsPerSample * dst.nChannels / 8;
-    dst.nAvgBytesPerSec = dst.nSamplesPerSec * dst.nBlockAlign;
-
-    mr = acmStreamOpen(&has, NULL, (WAVEFORMATEX*)src, &dst, NULL, 0, 0, 0);
-    ok(mr == MMSYSERR_NOERROR, "open failed: 0x%x\n", mr);
-
-    memset(&hdr, 0, sizeof(hdr));
-    hdr.cbStruct = sizeof(hdr);
-    hdr.pbSrc = input;
-    hdr.cbSrcLength = sizeof(input);
-    hdr.pbDst = pcm;
-    hdr.cbDstLength = sizeof(pcm);
-
-    mr = acmStreamPrepareHeader(has, &hdr, 0);
-    ok(mr == MMSYSERR_NOERROR, "prepare failed: 0x%x\n", mr);
-    ok(hdr.fdwStatus == ACMSTREAMHEADER_STATUSF_PREPARED, "header wasn't prepared: 0x%x\n", hdr.fdwStatus);
-
-    mr = acmStreamUnprepareHeader(has, &hdr, 0);
-    ok(mr == MMSYSERR_NOERROR, "unprepare failed: 0x%x\n", mr);
-    ok(hdr.fdwStatus == 0, "header wasn't unprepared: 0x%x\n", hdr.fdwStatus);
-
-    memset(&hdr, 0, sizeof(hdr));
-    hdr.cbStruct = sizeof(hdr);
-    hdr.pbSrc = input;
-    hdr.cbSrcLength = sizeof(input);
-    hdr.pbDst = pcm;
-    hdr.cbDstLength = sizeof(pcm);
-    hdr.fdwStatus = ACMSTREAMHEADER_STATUSF_DONE;
-
-    mr = acmStreamPrepareHeader(has, &hdr, 0);
-    ok(mr == MMSYSERR_NOERROR, "prepare failed: 0x%x\n", mr);
-    ok(hdr.fdwStatus == (ACMSTREAMHEADER_STATUSF_PREPARED | ACMSTREAMHEADER_STATUSF_DONE), "header wasn't prepared: 0x%x\n", hdr.fdwStatus);
-
-    mr = acmStreamUnprepareHeader(has, &hdr, 0);
-    ok(mr == MMSYSERR_NOERROR, "unprepare failed: 0x%x\n", mr);
-    ok(hdr.fdwStatus == ACMSTREAMHEADER_STATUSF_DONE, "header wasn't unprepared: 0x%x\n", hdr.fdwStatus);
-
-    mr = acmStreamClose(has, 0);
-    ok(mr == MMSYSERR_NOERROR, "close failed: 0x%x\n", mr);
-}
-
 START_TEST(msacm)
 {
-    driver_tests();
-    test_prepareheader();
+    msacm_tests();
 }

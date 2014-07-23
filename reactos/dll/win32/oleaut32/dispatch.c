@@ -23,6 +23,8 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
+static IDispatch * StdDispatch_Construct(IUnknown * punkOuter, void * pvThis, ITypeInfo * pTypeInfo);
+
 /******************************************************************************
  *		DispInvoke (OLEAUT32.30)
  *
@@ -151,6 +153,32 @@ done:
     return hr;
 }
 
+/******************************************************************************
+ * CreateStdDispatch [OLEAUT32.32]
+ *
+ * Create and return a standard IDispatch object.
+ *
+ * RETURNS
+ *  Success: S_OK. ppunkStdDisp contains the new object.
+ *  Failure: An HRESULT error code.
+ *
+ * NOTES
+ *  Outer unknown appears to be completely ignored.
+ */
+HRESULT WINAPI CreateStdDispatch(
+        IUnknown* punkOuter,
+        void* pvThis,
+	ITypeInfo* ptinfo,
+	IUnknown** ppunkStdDisp)
+{
+    TRACE("(%p, %p, %p, %p)\n", punkOuter, pvThis, ptinfo, ppunkStdDisp);
+
+    *ppunkStdDisp = (LPUNKNOWN)StdDispatch_Construct(punkOuter, pvThis, ptinfo);
+    if (!*ppunkStdDisp)
+        return E_OUTOFMEMORY;
+    return S_OK;
+}
+
 
 /******************************************************************************
  * IDispatch {OLEAUT32}
@@ -210,15 +238,13 @@ static HRESULT WINAPI StdDispatch_QueryInterface(
   void** ppvObject)
 {
     StdDispatch *This = impl_from_IDispatch(iface);
-    TRACE("(%p)->(%s, %p)\n", This, debugstr_guid(riid), ppvObject);
-
-    *ppvObject = NULL;
+    TRACE("(%p)->(%s, %p)\n", iface, debugstr_guid(riid), ppvObject);
 
     if (IsEqualIID(riid, &IID_IDispatch) ||
         IsEqualIID(riid, &IID_IUnknown))
     {
-        *ppvObject = iface;
-        IDispatch_AddRef(iface);
+        *ppvObject = This;
+        IUnknown_AddRef((LPUNKNOWN)*ppvObject);
         return S_OK;
     }
     return E_NOINTERFACE;
@@ -279,8 +305,10 @@ static ULONG WINAPI StdDispatch_Release(LPDISPATCH iface)
  */
 static HRESULT WINAPI StdDispatch_GetTypeInfoCount(LPDISPATCH iface, UINT * pctinfo)
 {
+    StdDispatch *This = impl_from_IDispatch(iface);
     TRACE("(%p)\n", pctinfo);
-    *pctinfo = 1;
+
+    *pctinfo = This->pTypeInfo ? 1 : 0;
     return S_OK;
 }
 
@@ -311,9 +339,11 @@ static HRESULT WINAPI StdDispatch_GetTypeInfo(LPDISPATCH iface, UINT iTInfo, LCI
     if (iTInfo != 0)
         return DISP_E_BADINDEX;
 
-    *ppTInfo = This->pTypeInfo;
-    ITypeInfo_AddRef(*ppTInfo);
-
+    if (This->pTypeInfo)
+    {
+      *ppTInfo = This->pTypeInfo;
+      ITypeInfo_AddRef(*ppTInfo);
+    }
     return S_OK;
 }
 
@@ -405,44 +435,25 @@ static const IDispatchVtbl StdDispatch_VTable =
   StdDispatch_Invoke
 };
 
-/******************************************************************************
- * CreateStdDispatch [OLEAUT32.32]
- *
- * Create and return a standard IDispatch object.
- *
- * RETURNS
- *  Success: S_OK. ppunkStdDisp contains the new object.
- *  Failure: An HRESULT error code.
- *
- * NOTES
- *  Outer unknown appears to be completely ignored.
- */
-HRESULT WINAPI CreateStdDispatch(
-        IUnknown* punkOuter,
-        void* pvThis,
-	ITypeInfo* ptinfo,
-	IUnknown** stddisp)
+static IDispatch * StdDispatch_Construct(
+  IUnknown * punkOuter,
+  void * pvThis,
+  ITypeInfo * pTypeInfo)
 {
-    StdDispatch *pStdDispatch;
-
-    TRACE("(%p, %p, %p, %p)\n", punkOuter, pvThis, ptinfo, stddisp);
-
-    if (!pvThis || !ptinfo || !stddisp)
-        return E_INVALIDARG;
+    StdDispatch * pStdDispatch;
 
     pStdDispatch = CoTaskMemAlloc(sizeof(StdDispatch));
     if (!pStdDispatch)
-        return E_OUTOFMEMORY;
+        return &pStdDispatch->IDispatch_iface;
 
     pStdDispatch->IDispatch_iface.lpVtbl = &StdDispatch_VTable;
     pStdDispatch->pvThis = pvThis;
-    pStdDispatch->pTypeInfo = ptinfo;
+    pStdDispatch->pTypeInfo = pTypeInfo;
     pStdDispatch->ref = 1;
 
     /* we keep a reference to the type info so prevent it from
      * being destroyed until we are done with it */
-    ITypeInfo_AddRef(ptinfo);
-    *stddisp = (IUnknown*)&pStdDispatch->IDispatch_iface;
+    ITypeInfo_AddRef(pTypeInfo);
 
-    return S_OK;
+    return &pStdDispatch->IDispatch_iface;
 }

@@ -1754,7 +1754,7 @@ HRESULT CreateComponentInfo(REFCLSID clsid, IWICComponentInfo **ppIInfo)
     WCHAR guidstring[39];
     LONG res;
     const struct category *category;
-    BOOL found = FALSE;
+    int found=0;
     HRESULT hr;
 
     res = RegOpenKeyExW(HKEY_CLASSES_ROOT, clsid_keyname, 0, KEY_READ, &clsidkey);
@@ -1775,7 +1775,7 @@ HRESULT CreateComponentInfo(REFCLSID clsid, IWICComponentInfo **ppIInfo)
                 if (res == ERROR_SUCCESS)
                 {
                     RegCloseKey(classkey);
-                    found = TRUE;
+                    found = 1;
                 }
                 RegCloseKey(instancekey);
             }

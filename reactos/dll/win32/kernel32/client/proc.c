@@ -2301,7 +2301,7 @@ CreateProcessInternalW(IN HANDLE hUserToken,
     BOOLEAN InJob, SaferNeeded, UseLargePages, HavePrivilege;
     BOOLEAN QuerySection, SkipSaferAndAppCompat;
     CONTEXT Context;
-    BASE_API_MESSAGE CsrMsg[2];
+    BASE_API_MESSAGE CsrMsg;
     PBASE_CREATE_PROCESS CreateProcessMsg;
     PCSR_CAPTURE_BUFFER CaptureBuffer;
     PVOID BaseAddress, PrivilegeState, RealTimePrivilegeState;
@@ -2431,8 +2431,8 @@ CreateProcessInternalW(IN HANDLE hUserToken,
     IsWowApp = FALSE;
 
     /* Set message structures */
-    CreateProcessMsg = &CsrMsg[0].Data.CreateProcessRequest;
-    CheckVdmMsg = &CsrMsg[1].Data.CheckVDMRequest;
+    CreateProcessMsg = &CsrMsg.Data.CreateProcessRequest;
+    CheckVdmMsg = &CsrMsg.Data.CheckVDMRequest;
 
     /* Clear the more complex structures by zeroing out their entire memory */
     RtlZeroMemory(&Context, sizeof(Context));
@@ -2468,7 +2468,7 @@ CreateProcessInternalW(IN HANDLE hUserToken,
     PolicyPathPair.Nt = &SxsNtPolicyPath.String;
 #endif
 
-    DPRINT("CreateProcessInternalW: '%S' '%S' %lx\n", lpApplicationName, lpCommandLine, dwCreationFlags);
+    DPRINT("CreateProcessInternalW: %S %S %lx\n", lpApplicationName, lpCommandLine, dwCreationFlags);
 
     /* Finally, set our TEB and PEB */
     Teb = NtCurrentTeb();
@@ -3197,7 +3197,7 @@ StartScan:
                     /* Pick which kind of WOW mode we want to run in */
                     VdmBinaryType = (dwCreationFlags &
                                      CREATE_SEPARATE_WOW_VDM) ?
-                                     BINARY_TYPE_SEPARATE_WOW : BINARY_TYPE_WOW;
+                                     BINARY_TYPE_WOW : BINARY_TYPE_SEPARATE_WOW;
 
                     /* Get all the VDM settings and current status */
                     Status = BaseCheckVDM(VdmBinaryType,
@@ -3205,7 +3205,7 @@ StartScan:
                                           lpCommandLine,
                                           lpCurrentDirectory,
                                           &VdmAnsiEnv,
-                                          &CsrMsg[1],
+                                          &CsrMsg,
                                           &VdmTask,
                                           dwCreationFlags,
                                           &StartupInfo,
@@ -3342,7 +3342,7 @@ StartScan:
                                       lpCommandLine,
                                       lpCurrentDirectory,
                                       &VdmAnsiEnv,
-                                      &CsrMsg[1],
+                                      &CsrMsg,
                                       &VdmTask,
                                       dwCreationFlags,
                                       &StartupInfo,
@@ -3874,7 +3874,7 @@ StartScan:
     {
         /* Acquire the required privilege so that the kernel won't fail the call */
         PrivilegeValue = SE_LOCK_MEMORY_PRIVILEGE;
-        Status = RtlAcquirePrivilege(&PrivilegeValue, 1, 0, &PrivilegeState);
+        Status = RtlAcquirePrivilege(&PrivilegeValue, TRUE, FALSE, &PrivilegeState);
         if (NT_SUCCESS(Status))
         {
             /* Remember to release it later */
@@ -3966,8 +3966,6 @@ StartScan:
                                     &VdmWaitObject,
                                     VdmTask,
                                     VdmBinaryType);
-
-        if (!Result)
         {
             /* Bail out on failure */
             DPRINT1("Failed to update VDM with wait object\n");
@@ -4337,7 +4335,7 @@ StartScan:
     }
 
     /* We are finally ready to call CSRSS to tell it about our new process! */
-    CsrClientCallServer((PCSR_API_MESSAGE)&CsrMsg[0],
+    CsrClientCallServer((PCSR_API_MESSAGE)&CsrMsg,
                         CaptureBuffer,
                         CSR_CREATE_API_NUMBER(BASESRV_SERVERDLL_INDEX,
                                               BasepCreateProcess),
@@ -4351,12 +4349,12 @@ StartScan:
     }
 
     /* Check if CSRSS failed to accept ownership of the new Windows process */
-    if (!NT_SUCCESS(CsrMsg[0].Status))
+    if (!NT_SUCCESS(CsrMsg.Status))
     {
         /* Terminate the process and enter failure path with the CSRSS status */
         DPRINT1("Failed to tell csrss about new process\n");
-        BaseSetLastNTError(CsrMsg[0].Status);
-        NtTerminateProcess(ProcessHandle, CsrMsg[0].Status);
+        BaseSetLastNTError(CsrMsg.Status);
+        NtTerminateProcess(ProcessHandle, CsrMsg.Status);
         Result = FALSE;
         goto Quickie;
     }

@@ -192,7 +192,7 @@ MyLogonUser(
                                         SE_GROUP_ENABLED_BY_DEFAULT;
 
     /* Set the token source */
-    strncpy(TokenSource.SourceName, "User32  ", sizeof(TokenSource.SourceName));
+    strcpy(TokenSource.SourceName, "LogonUser");
     AllocateLocallyUniqueId(&TokenSource.SourceIdentifier);
 
     Status = LsaLogonUser(LsaHandle,

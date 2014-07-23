@@ -132,9 +132,9 @@ PspInsertQuotaBlock(
 {
     KIRQL OldIrql;
 
-    KeAcquireSpinLock(&PspQuotaLock, &OldIrql);
+    OldIrql = KfAcquireSpinLock(&PspQuotaLock);
     InsertTailList(&PspQuotaBlockList, &QuotaBlock->QuotaList);
-    KeReleaseSpinLock(&PspQuotaLock, OldIrql);
+    KfReleaseSpinLock(&PspQuotaLock, OldIrql);
 }
 
 VOID
@@ -147,9 +147,9 @@ PspDestroyQuotaBlock(PEPROCESS Process)
     if (QuotaBlock != &PspDefaultQuotaBlock &&
         InterlockedDecrementUL(&QuotaBlock->ReferenceCount) == 0)
     {
-        KeAcquireSpinLock(&PspQuotaLock, &OldIrql);
+        OldIrql = KfAcquireSpinLock(&PspQuotaLock);
         RemoveEntryList(&QuotaBlock->QuotaList);
-        KeReleaseSpinLock(&PspQuotaLock, OldIrql);
+        KfReleaseSpinLock(&PspQuotaLock, OldIrql);
         ExFreePool(QuotaBlock);
     }
 }

@@ -89,7 +89,6 @@ static IMAGE_BASE_RELOCATION *(WINAPI *pLdrProcessRelocationBlock)(void*,UINT,US
 static CHAR *    (WINAPI *pRtlIpv4AddressToStringA)(const IN_ADDR *, LPSTR);
 static NTSTATUS  (WINAPI *pRtlIpv4AddressToStringExA)(const IN_ADDR *, USHORT, LPSTR, PULONG);
 static NTSTATUS  (WINAPI *pRtlIpv4StringToAddressA)(PCSTR, BOOLEAN, PCSTR *, IN_ADDR *);
-static NTSTATUS  (WINAPI *pLdrAddRefDll)(ULONG, HMODULE);
 
 static HMODULE hkernel32 = 0;
 static BOOL      (WINAPI *pIsWow64Process)(HANDLE, PBOOL);
@@ -134,7 +133,6 @@ static void InitFunctionPtrs(void)
         pRtlIpv4AddressToStringA = (void *)GetProcAddress(hntdll, "RtlIpv4AddressToStringA");
         pRtlIpv4AddressToStringExA = (void *)GetProcAddress(hntdll, "RtlIpv4AddressToStringExA");
         pRtlIpv4StringToAddressA = (void *)GetProcAddress(hntdll, "RtlIpv4StringToAddressA");
-        pLdrAddRefDll = (void *)GetProcAddress(hntdll, "LdrAddRefDll");
     }
     hkernel32 = LoadLibraryA("kernel32.dll");
     ok(hkernel32 != 0, "LoadLibrary failed\n");
@@ -1488,69 +1486,6 @@ static void test_RtlIpv4StringToAddress(void)
     }
 }
 
-static void test_LdrAddRefDll(void)
-{
-    HMODULE mod, mod2;
-    NTSTATUS status;
-    BOOL ret;
-
-    if (!pLdrAddRefDll)
-    {
-        win_skip( "LdrAddRefDll not supported\n" );
-        return;
-    }
-
-#ifdef __REACTOS__
-    if (!winetest_interactive)
-    {
-        skip("Skipping LdrAddRefDll tests. See CORE-8102\n");
-        return;
-    }
-#endif
-
-    mod = LoadLibraryA("comctl32.dll");
-    ok(mod != NULL, "got %p\n", mod);
-    ret = FreeLibrary(mod);
-    ok(ret, "got %d\n", ret);
-
-    mod2 = GetModuleHandleA("comctl32.dll");
-    ok(mod2 == NULL, "got %p\n", mod2);
-
-    /* load, addref and release 2 times */
-    mod = LoadLibraryA("comctl32.dll");
-    ok(mod != NULL, "got %p\n", mod);
-    status = pLdrAddRefDll(0, mod);
-    ok(status == STATUS_SUCCESS, "got 0x%08x\n", status);
-    ret = FreeLibrary(mod);
-    ok(ret, "got %d\n", ret);
-
-    mod2 = GetModuleHandleA("comctl32.dll");
-    ok(mod2 != NULL, "got %p\n", mod2);
-    ret = FreeLibrary(mod);
-    ok(ret, "got %d\n", ret);
-
-    mod2 = GetModuleHandleA("comctl32.dll");
-    ok(mod2 == NULL, "got %p\n", mod2);
-
-    /* pin refcount */
-    mod = LoadLibraryA("comctl32.dll");
-    ok(mod != NULL, "got %p\n", mod);
-    status = pLdrAddRefDll(LDR_ADDREF_DLL_PIN, mod);
-    ok(status == STATUS_SUCCESS, "got 0x%08x\n", status);
-
-    ret = FreeLibrary(mod);
-    ok(ret, "got %d\n", ret);
-    ret = FreeLibrary(mod);
-    ok(ret, "got %d\n", ret);
-    ret = FreeLibrary(mod);
-    ok(ret, "got %d\n", ret);
-    ret = FreeLibrary(mod);
-    ok(ret, "got %d\n", ret);
-
-    mod2 = GetModuleHandleA("comctl32.dll");
-    ok(mod2 != NULL, "got %p\n", mod2);
-}
-
 START_TEST(rtl)
 {
     InitFunctionPtrs();
@@ -1575,5 +1510,4 @@ START_TEST(rtl)
     test_RtlIpv4AddressToString();
     test_RtlIpv4AddressToStringEx();
     test_RtlIpv4StringToAddress();
-    test_LdrAddRefDll();
 }

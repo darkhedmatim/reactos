@@ -34,9 +34,9 @@ static void test_find_file(void)
     char filename[MAX_PATH];
     char outBuf[MAX_PATH];
     char windir[MAX_PATH];
-    static const char empty[]       = "",
-                      regedit[]     = "regedit",
-                      regedit_exe[] = "regedit.exe";
+    static CHAR empty[]    = "",
+               regedit[] = "regedit",
+               regedit_exe[] = "regedit.exe";
 
     memset(appdir, 0, MAX_PATH);
     memset(windir, 0, MAX_PATH);

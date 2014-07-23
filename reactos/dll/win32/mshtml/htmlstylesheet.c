@@ -539,14 +539,8 @@ static HRESULT WINAPI HTMLStyleSheet_put_href(IHTMLStyleSheet *iface, BSTR v)
 static HRESULT WINAPI HTMLStyleSheet_get_href(IHTMLStyleSheet *iface, BSTR *p)
 {
     HTMLStyleSheet *This = impl_from_IHTMLStyleSheet(iface);
-    nsAString href_str;
-    nsresult nsres;
-
-    TRACE("(%p)->(%p)\n", This, p);
-
-    nsAString_Init(&href_str, NULL);
-    nsres = nsIDOMCSSStyleSheet_GetHref(This->nsstylesheet, &href_str);
-    return return_nsstr(nsres, &href_str, p);
+    FIXME("(%p)->(%p)\n", This, p);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI HTMLStyleSheet_get_type(IHTMLStyleSheet *iface, BSTR *p)

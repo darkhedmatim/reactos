@@ -35,13 +35,13 @@ class utf_converter
 	utf_converter(string ifname, string ofname, enc_types enc = detect) : error(none), encoding(enc), fill(0), index(0)
 	{
 		enc_types tmp_enc;
-		inputfile.open(ifname.c_str(), ios::in | ios::binary);
+		inputfile.open(ifname.c_str(), ios::in);
 		if (!inputfile)
 		{
 			error = iopen;
 			return;
 		}
-		outputfile.open(ofname.c_str(), ios::out | ios::binary);
+		outputfile.open(ofname.c_str(), ios::out);
 		if (!outputfile)
 		{
 			error = oopen;

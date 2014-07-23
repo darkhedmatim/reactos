@@ -47,9 +47,8 @@ static BOOL (WINAPI *pUnlockUrlCacheEntryFileA)(LPCSTR,DWORD);
 static char filenameA[MAX_PATH + 1];
 static char filenameA1[MAX_PATH + 1];
 static BOOL old_ie = FALSE;
-static BOOL ie10_cache = FALSE;
 
-static void check_cache_entry_infoA(const char *returnedfrom, INTERNET_CACHE_ENTRY_INFOA *lpCacheEntryInfo)
+static void check_cache_entry_infoA(const char *returnedfrom, LPINTERNET_CACHE_ENTRY_INFO lpCacheEntryInfo)
 {
     ok(lpCacheEntryInfo->dwStructSize == sizeof(*lpCacheEntryInfo), "%s: dwStructSize was %d\n", returnedfrom, lpCacheEntryInfo->dwStructSize);
     ok(!strcmp(lpCacheEntryInfo->lpszSourceUrlName, test_url), "%s: lpszSourceUrlName should be %s instead of %s\n", returnedfrom, test_url, lpCacheEntryInfo->lpszSourceUrlName);
@@ -64,16 +63,16 @@ static void test_find_url_cache_entriesA(void)
     BOOL found = FALSE;
     DWORD cbCacheEntryInfo;
     DWORD cbCacheEntryInfoSaved;
-    INTERNET_CACHE_ENTRY_INFOA *lpCacheEntryInfo;
+    LPINTERNET_CACHE_ENTRY_INFO lpCacheEntryInfo;
 
     cbCacheEntryInfo = 0;
     SetLastError(0xdeadbeef);
-    hEnumHandle = FindFirstUrlCacheEntryA(NULL, NULL, &cbCacheEntryInfo);
+    hEnumHandle = FindFirstUrlCacheEntry(NULL, NULL, &cbCacheEntryInfo);
     ok(!hEnumHandle, "FindFirstUrlCacheEntry should have failed\n");
     ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER, "FindFirstUrlCacheEntry should have set last error to ERROR_INSUFFICIENT_BUFFER instead of %d\n", GetLastError());
     lpCacheEntryInfo = HeapAlloc(GetProcessHeap(), 0, cbCacheEntryInfo * sizeof(char));
     cbCacheEntryInfoSaved = cbCacheEntryInfo;
-    hEnumHandle = FindFirstUrlCacheEntryA(NULL, lpCacheEntryInfo, &cbCacheEntryInfo);
+    hEnumHandle = FindFirstUrlCacheEntry(NULL, lpCacheEntryInfo, &cbCacheEntryInfo);
     ok(hEnumHandle != NULL, "FindFirstUrlCacheEntry failed with error %d\n", GetLastError());
     while (TRUE)
     {
@@ -85,14 +84,14 @@ static void test_find_url_cache_entriesA(void)
         }
         SetLastError(0xdeadbeef);
         cbCacheEntryInfo = cbCacheEntryInfoSaved;
-        ret = FindNextUrlCacheEntryA(hEnumHandle, lpCacheEntryInfo, &cbCacheEntryInfo);
+        ret = FindNextUrlCacheEntry(hEnumHandle, lpCacheEntryInfo, &cbCacheEntryInfo);
         if (!ret)
         {
             if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
             {
                 lpCacheEntryInfo = HeapReAlloc(GetProcessHeap(), 0, lpCacheEntryInfo, cbCacheEntryInfo);
                 cbCacheEntryInfoSaved = cbCacheEntryInfo;
-                ret = FindNextUrlCacheEntryA(hEnumHandle, lpCacheEntryInfo, &cbCacheEntryInfo);
+                ret = FindNextUrlCacheEntry(hEnumHandle, lpCacheEntryInfo, &cbCacheEntryInfo);
             }
         }
         if (!ret)
@@ -109,27 +108,27 @@ static void test_GetUrlCacheEntryInfoExA(void)
 {
     BOOL ret;
     DWORD cbCacheEntryInfo, cbRedirectUrl;
-    INTERNET_CACHE_ENTRY_INFOA *lpCacheEntryInfo;
+    LPINTERNET_CACHE_ENTRY_INFO lpCacheEntryInfo;
 
     SetLastError(0xdeadbeef);
-    ret = GetUrlCacheEntryInfoExA(NULL, NULL, NULL, NULL, NULL, NULL, 0);
+    ret = GetUrlCacheEntryInfoEx(NULL, NULL, NULL, NULL, NULL, NULL, 0);
     ok(!ret, "GetUrlCacheEntryInfoEx with NULL URL and NULL args should have failed\n");
     ok(GetLastError() == ERROR_INVALID_PARAMETER,
        "GetUrlCacheEntryInfoEx with NULL URL and NULL args should have set last error to ERROR_INVALID_PARAMETER instead of %d\n", GetLastError());
 
-    cbCacheEntryInfo = sizeof(INTERNET_CACHE_ENTRY_INFOA);
+    cbCacheEntryInfo = sizeof(INTERNET_CACHE_ENTRY_INFO);
     SetLastError(0xdeadbeef);
-    ret = GetUrlCacheEntryInfoExA("", NULL, &cbCacheEntryInfo, NULL, NULL, NULL, 0);
+    ret = GetUrlCacheEntryInfoEx("", NULL, &cbCacheEntryInfo, NULL, NULL, NULL, 0);
     ok(!ret, "GetUrlCacheEntryInfoEx with zero-length buffer should fail\n");
     ok(GetLastError() == ERROR_FILE_NOT_FOUND,
        "GetUrlCacheEntryInfoEx should have set last error to ERROR_FILE_NOT_FOUND instead of %d\n", GetLastError());
 
-    ret = GetUrlCacheEntryInfoExA(test_url, NULL, NULL, NULL, NULL, NULL, 0);
+    ret = GetUrlCacheEntryInfoEx(test_url, NULL, NULL, NULL, NULL, NULL, 0);
     ok(ret, "GetUrlCacheEntryInfoEx with NULL args failed with error %d\n", GetLastError());
 
     cbCacheEntryInfo = 0;
     SetLastError(0xdeadbeef);
-    ret = GetUrlCacheEntryInfoExA(test_url, NULL, &cbCacheEntryInfo, NULL, NULL, NULL, 0);
+    ret = GetUrlCacheEntryInfoEx(test_url, NULL, &cbCacheEntryInfo, NULL, NULL, NULL, 0);
     ok(!ret, "GetUrlCacheEntryInfoEx with zero-length buffer should fail\n");
     ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER,
        "GetUrlCacheEntryInfoEx should have set last error to ERROR_INSUFFICIENT_BUFFER instead of %d\n", GetLastError());
@@ -137,16 +136,16 @@ static void test_GetUrlCacheEntryInfoExA(void)
     lpCacheEntryInfo = HeapAlloc(GetProcessHeap(), 0, cbCacheEntryInfo);
 
     SetLastError(0xdeadbeef);
-    ret = GetUrlCacheEntryInfoExA(test_url, NULL, NULL, NULL, NULL, NULL, 0x200 /*GET_INSTALLED_ENTRY*/);
-    ok(ret == ie10_cache, "GetUrlCacheEntryInfoEx returned %x\n", ret);
-    if (!ret) ok(GetLastError() == ERROR_FILE_NOT_FOUND,
-            "GetUrlCacheEntryInfoEx should have set last error to ERROR_FILE_NOT_FOUND instead of %d\n", GetLastError());
+    ret = GetUrlCacheEntryInfoEx(test_url, NULL, NULL, NULL, NULL, NULL, 0x200 /*GET_INSTALLED_ENTRY*/);
+    ok(!ret, "GetUrlCacheEntryInfoEx succeeded\n");
+    ok(GetLastError() == ERROR_FILE_NOT_FOUND,
+       "GetUrlCacheEntryInfoEx should have set last error to ERROR_FILE_NOT_FOUND instead of %d\n", GetLastError());
 
     /* Unicode version of function seems to ignore 0x200 flag */
     ret = GetUrlCacheEntryInfoExW(test_urlW, NULL, NULL, NULL, NULL, NULL, 0x200 /*GET_INSTALLED_ENTRY*/);
     ok(ret || broken(old_ie && !ret), "GetUrlCacheEntryInfoExW failed with error %d\n", GetLastError());
 
-    ret = GetUrlCacheEntryInfoExA(test_url, lpCacheEntryInfo, &cbCacheEntryInfo, NULL, NULL, NULL, 0);
+    ret = GetUrlCacheEntryInfoEx(test_url, lpCacheEntryInfo, &cbCacheEntryInfo, NULL, NULL, NULL, 0);
     ok(ret, "GetUrlCacheEntryInfoEx failed with error %d\n", GetLastError());
 
     if (ret) check_cache_entry_infoA("GetUrlCacheEntryInfoEx", lpCacheEntryInfo);
@@ -156,12 +155,12 @@ static void test_GetUrlCacheEntryInfoExA(void)
     ok(ret, "SetUrlCacheEntryInfoA failed with error %d\n", GetLastError());
 
     SetLastError(0xdeadbeef);
-    ret = GetUrlCacheEntryInfoExA(test_url, NULL, NULL, NULL, NULL, NULL, 0x200 /*GET_INSTALLED_ENTRY*/);
+    ret = GetUrlCacheEntryInfoEx(test_url, NULL, NULL, NULL, NULL, NULL, 0x200 /*GET_INSTALLED_ENTRY*/);
     ok(ret, "GetUrlCacheEntryInfoEx failed with error %d\n", GetLastError());
 
     cbCacheEntryInfo = 100000;
     SetLastError(0xdeadbeef);
-    ret = GetUrlCacheEntryInfoExA(test_url, NULL, &cbCacheEntryInfo, NULL, NULL, NULL, 0);
+    ret = GetUrlCacheEntryInfoEx(test_url, NULL, &cbCacheEntryInfo, NULL, NULL, NULL, 0);
     ok(!ret, "GetUrlCacheEntryInfoEx with zero-length buffer should fail\n");
     ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER, "GetUrlCacheEntryInfoEx should have set last error to ERROR_INSUFFICIENT_BUFFER instead of %d\n", GetLastError());
 
@@ -169,12 +168,12 @@ static void test_GetUrlCacheEntryInfoExA(void)
 
     /* Querying the redirect URL fails with ERROR_INVALID_PARAMETER */
     SetLastError(0xdeadbeef);
-    ret = GetUrlCacheEntryInfoExA(test_url, NULL, NULL, NULL, &cbRedirectUrl, NULL, 0);
+    ret = GetUrlCacheEntryInfoEx(test_url, NULL, NULL, NULL, &cbRedirectUrl, NULL, 0);
     ok(!ret, "GetUrlCacheEntryInfoEx should have failed\n");
     ok(GetLastError() == ERROR_INVALID_PARAMETER,
        "expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
     SetLastError(0xdeadbeef);
-    ret = GetUrlCacheEntryInfoExA(test_url, NULL, &cbCacheEntryInfo, NULL, &cbRedirectUrl, NULL, 0);
+    ret = GetUrlCacheEntryInfoEx(test_url, NULL, &cbCacheEntryInfo, NULL, &cbRedirectUrl, NULL, 0);
     ok(!ret, "GetUrlCacheEntryInfoEx should have failed\n");
     ok(GetLastError() == ERROR_INVALID_PARAMETER,
        "expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
@@ -187,7 +186,7 @@ static void test_RetrieveUrlCacheEntryA(void)
 
     cbCacheEntryInfo = 0;
     SetLastError(0xdeadbeef);
-    ret = RetrieveUrlCacheEntryFileA(NULL, NULL, &cbCacheEntryInfo, 0);
+    ret = RetrieveUrlCacheEntryFile(NULL, NULL, &cbCacheEntryInfo, 0);
     ok(!ret, "RetrieveUrlCacheEntryFile should have failed\n");
     ok(GetLastError() == ERROR_INVALID_PARAMETER, "RetrieveUrlCacheEntryFile should have set last error to ERROR_INVALID_PARAMETER instead of %d\n", GetLastError());
 
@@ -195,14 +194,14 @@ static void test_RetrieveUrlCacheEntryA(void)
     {
         /* Crashes on Win9x, NT4 and W2K */
         SetLastError(0xdeadbeef);
-        ret = RetrieveUrlCacheEntryFileA(test_url, NULL, NULL, 0);
+        ret = RetrieveUrlCacheEntryFile(test_url, NULL, NULL, 0);
         ok(!ret, "RetrieveUrlCacheEntryFile should have failed\n");
         ok(GetLastError() == ERROR_INVALID_PARAMETER, "RetrieveUrlCacheEntryFile should have set last error to ERROR_INVALID_PARAMETER instead of %d\n", GetLastError());
     }
 
     SetLastError(0xdeadbeef);
     cbCacheEntryInfo = 100000;
-    ret = RetrieveUrlCacheEntryFileA(NULL, NULL, &cbCacheEntryInfo, 0);
+    ret = RetrieveUrlCacheEntryFile(NULL, NULL, &cbCacheEntryInfo, 0);
     ok(!ret, "RetrieveUrlCacheEntryFile should have failed\n");
     ok(GetLastError() == ERROR_INVALID_PARAMETER, "RetrieveUrlCacheEntryFile should have set last error to ERROR_INVALID_PARAMETER instead of %d\n", GetLastError());
 }
@@ -214,23 +213,23 @@ static void test_IsUrlCacheEntryExpiredA(void)
     BOOL ret;
     FILETIME ft;
     DWORD size;
-    INTERNET_CACHE_ENTRY_INFOA *info;
+    LPINTERNET_CACHE_ENTRY_INFO info;
     ULARGE_INTEGER exp_time;
 
     /* The function returns TRUE when the output time is NULL or the tested URL
      * is NULL.
      */
     ret = IsUrlCacheEntryExpiredA(NULL, 0, NULL);
-    ok(!ret == ie10_cache, "IsUrlCacheEntryExpiredA returned %x\n", ret);
+    ok(ret, "expected TRUE\n");
     ft.dwLowDateTime = 0xdeadbeef;
     ft.dwHighDateTime = 0xbaadf00d;
     ret = IsUrlCacheEntryExpiredA(NULL, 0, &ft);
-    ok(!ret == ie10_cache, "IsUrlCacheEntryExpiredA returned %x\n", ret);
+    ok(ret, "expected TRUE\n");
     ok(ft.dwLowDateTime == 0xdeadbeef && ft.dwHighDateTime == 0xbaadf00d,
        "expected time to be unchanged, got (%u,%u)\n",
        ft.dwLowDateTime, ft.dwHighDateTime);
     ret = IsUrlCacheEntryExpiredA(test_url, 0, NULL);
-    ok(!ret == ie10_cache, "IsUrlCacheEntryExpiredA returned %x\n", ret);
+    ok(ret, "expected TRUE\n");
 
     /* The return value should indicate whether the URL is expired,
      * and the filetime indicates the last modified time, but a cache entry
@@ -254,12 +253,12 @@ static void test_IsUrlCacheEntryExpiredA(void)
        ft.dwLowDateTime, ft.dwHighDateTime);
 
     /* Set the expire time to a point in the past.. */
-    ret = GetUrlCacheEntryInfoA(test_url, NULL, &size);
+    ret = GetUrlCacheEntryInfo(test_url, NULL, &size);
     ok(!ret, "GetUrlCacheEntryInfo should have failed\n");
     ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER,
        "expected ERROR_INSUFFICIENT_BUFFER, got %d\n", GetLastError());
     info = HeapAlloc(GetProcessHeap(), 0, size);
-    ret = GetUrlCacheEntryInfoA(test_url, info, &size);
+    ret = GetUrlCacheEntryInfo(test_url, info, &size);
     ok(ret, "GetUrlCacheEntryInfo failed: %d\n", GetLastError());
     GetSystemTimeAsFileTime(&info->ExpireTime);
     exp_time.u.LowPart = info->ExpireTime.dwLowDateTime;
@@ -267,7 +266,7 @@ static void test_IsUrlCacheEntryExpiredA(void)
     exp_time.QuadPart -= 10 * 60 * (ULONGLONG)10000000;
     info->ExpireTime.dwLowDateTime = exp_time.u.LowPart;
     info->ExpireTime.dwHighDateTime = exp_time.u.HighPart;
-    ret = SetUrlCacheEntryInfoA(test_url, info, CACHE_ENTRY_EXPTIME_FC);
+    ret = SetUrlCacheEntryInfo(test_url, info, CACHE_ENTRY_EXPTIME_FC);
     ok(ret, "SetUrlCacheEntryInfo failed: %d\n", GetLastError());
     ft.dwLowDateTime = 0xdeadbeef;
     ft.dwHighDateTime = 0xbaadf00d;
@@ -282,7 +281,7 @@ static void test_IsUrlCacheEntryExpiredA(void)
     exp_time.QuadPart += 20 * 60 * (ULONGLONG)10000000;
     info->ExpireTime.dwLowDateTime = exp_time.u.LowPart;
     info->ExpireTime.dwHighDateTime = exp_time.u.HighPart;
-    ret = SetUrlCacheEntryInfoA(test_url, info, CACHE_ENTRY_EXPTIME_FC);
+    ret = SetUrlCacheEntryInfo(test_url, info, CACHE_ENTRY_EXPTIME_FC);
     ok(ret, "SetUrlCacheEntryInfo failed: %d\n", GetLastError());
     ft.dwLowDateTime = 0xdeadbeef;
     ft.dwHighDateTime = 0xbaadf00d;
@@ -295,7 +294,7 @@ static void test_IsUrlCacheEntryExpiredA(void)
        ft.dwLowDateTime, ft.dwHighDateTime);
     /* Set the modified time... */
     GetSystemTimeAsFileTime(&info->LastModifiedTime);
-    ret = SetUrlCacheEntryInfoA(test_url, info, CACHE_ENTRY_MODTIME_FC);
+    ret = SetUrlCacheEntryInfo(test_url, info, CACHE_ENTRY_MODTIME_FC);
     ok(ret, "SetUrlCacheEntryInfo failed: %d\n", GetLastError());
     /* and the entry should still be unexpired.. */
     ret = IsUrlCacheEntryExpiredA(test_url, 0, &ft);
@@ -313,7 +312,7 @@ static void test_IsUrlCacheEntryExpiredA(void)
     ft.dwLowDateTime = 0xdeadbeef;
     ft.dwHighDateTime = 0xbaadf00d;
     ret = IsUrlCacheEntryExpiredA(uncached_url, 0, &ft);
-    ok(!ret == ie10_cache, "IsUrlCacheEntryExpiredA returned %x\n", ret);
+    ok(ret, "expected TRUE\n");
     ok(!ft.dwLowDateTime && !ft.dwHighDateTime,
        "expected time (0,0), got (%u,%u)\n",
        ft.dwLowDateTime, ft.dwHighDateTime);
@@ -370,16 +369,16 @@ static void test_urlcacheA(void)
     BOOL ret;
     HANDLE hFile;
     BYTE zero_byte = 0;
-    INTERNET_CACHE_ENTRY_INFOA *lpCacheEntryInfo;
-    INTERNET_CACHE_ENTRY_INFOA *lpCacheEntryInfo2;
+    LPINTERNET_CACHE_ENTRY_INFO lpCacheEntryInfo;
+    LPINTERNET_CACHE_ENTRY_INFO lpCacheEntryInfo2;
     DWORD cbCacheEntryInfo;
     static const FILETIME filetime_zero;
     FILETIME now;
 
-    ret = CreateUrlCacheEntryA(test_url, 0, "html", filenameA, 0);
+    ret = CreateUrlCacheEntry(test_url, 0, "html", filenameA, 0);
     ok(ret, "CreateUrlCacheEntry failed with error %d\n", GetLastError());
 
-    ret = CreateUrlCacheEntryA(test_url, 0, "html", filenameA1, 0);
+    ret = CreateUrlCacheEntry(test_url, 0, "html", filenameA1, 0);
     ok(ret, "CreateUrlCacheEntry failed with error %d\n", GetLastError());
     check_file_exists(filenameA1);
     DeleteFileA(filenameA1);
@@ -388,15 +387,15 @@ static void test_urlcacheA(void)
 
     create_and_write_file(filenameA, &zero_byte, sizeof(zero_byte));
 
-    ret = CommitUrlCacheEntryA(test_url1, NULL, filetime_zero, filetime_zero, NORMAL_CACHE_ENTRY, NULL, 0, "html", NULL);
+    ret = CommitUrlCacheEntry(test_url1, NULL, filetime_zero, filetime_zero, NORMAL_CACHE_ENTRY, NULL, 0, "html", NULL);
     ok(ret, "CommitUrlCacheEntry failed with error %d\n", GetLastError());
     cbCacheEntryInfo = 0;
-    ret = GetUrlCacheEntryInfoA(test_url1, NULL, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_url1, NULL, &cbCacheEntryInfo);
     ok(!ret, "GetUrlCacheEntryInfo should have failed\n");
     ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER,
        "GetUrlCacheEntryInfo should have set last error to ERROR_INSUFFICIENT_BUFFER instead of %d\n", GetLastError());
     lpCacheEntryInfo = HeapAlloc(GetProcessHeap(), 0, cbCacheEntryInfo);
-    ret = GetUrlCacheEntryInfoA(test_url1, lpCacheEntryInfo, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_url1, lpCacheEntryInfo, &cbCacheEntryInfo);
     ok(ret, "GetUrlCacheEntryInfo failed with error %d\n", GetLastError());
     ok(!memcmp(&lpCacheEntryInfo->ExpireTime, &filetime_zero, sizeof(FILETIME)),
        "expected zero ExpireTime\n");
@@ -414,16 +413,16 @@ static void test_urlcacheA(void)
 
     /* A subsequent commit with a different time/type doesn't change most of the entry */
     GetSystemTimeAsFileTime(&now);
-    ret = CommitUrlCacheEntryA(test_url1, NULL, now, now, NORMAL_CACHE_ENTRY,
+    ret = CommitUrlCacheEntry(test_url1, NULL, now, now, NORMAL_CACHE_ENTRY,
             (LPBYTE)ok_header, strlen(ok_header), NULL, NULL);
     ok(ret, "CommitUrlCacheEntry failed with error %d\n", GetLastError());
     cbCacheEntryInfo = 0;
-    ret = GetUrlCacheEntryInfoA(test_url1, NULL, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_url1, NULL, &cbCacheEntryInfo);
     ok(!ret, "GetUrlCacheEntryInfo should have failed\n");
     ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER,
        "expected ERROR_INSUFFICIENT_BUFFER, got %d\n", GetLastError());
     lpCacheEntryInfo2 = HeapAlloc(GetProcessHeap(), 0, cbCacheEntryInfo);
-    ret = GetUrlCacheEntryInfoA(test_url1, lpCacheEntryInfo2, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_url1, lpCacheEntryInfo2, &cbCacheEntryInfo);
     ok(ret, "GetUrlCacheEntryInfo failed with error %d\n", GetLastError());
     /* but it does change the time.. */
     ok(memcmp(&lpCacheEntryInfo2->ExpireTime, &filetime_zero, sizeof(FILETIME)),
@@ -452,18 +451,18 @@ static void test_urlcacheA(void)
     HeapFree(GetProcessHeap(), 0, lpCacheEntryInfo);
     HeapFree(GetProcessHeap(), 0, lpCacheEntryInfo2);
 
-    ret = CommitUrlCacheEntryA(test_url, filenameA, filetime_zero, filetime_zero, NORMAL_CACHE_ENTRY, NULL, 0, "html", NULL);
+    ret = CommitUrlCacheEntry(test_url, filenameA, filetime_zero, filetime_zero, NORMAL_CACHE_ENTRY, NULL, 0, "html", NULL);
     ok(ret, "CommitUrlCacheEntry failed with error %d\n", GetLastError());
 
     cbCacheEntryInfo = 0;
     SetLastError(0xdeadbeef);
-    ret = RetrieveUrlCacheEntryFileA(test_url, NULL, &cbCacheEntryInfo, 0);
+    ret = RetrieveUrlCacheEntryFile(test_url, NULL, &cbCacheEntryInfo, 0);
     ok(!ret, "RetrieveUrlCacheEntryFile should have failed\n");
     ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER,
        "RetrieveUrlCacheEntryFile should have set last error to ERROR_INSUFFICIENT_BUFFER instead of %d\n", GetLastError());
 
     lpCacheEntryInfo = HeapAlloc(GetProcessHeap(), 0, cbCacheEntryInfo);
-    ret = RetrieveUrlCacheEntryFileA(test_url, lpCacheEntryInfo, &cbCacheEntryInfo, 0);
+    ret = RetrieveUrlCacheEntryFile(test_url, lpCacheEntryInfo, &cbCacheEntryInfo, 0);
     ok(ret, "RetrieveUrlCacheEntryFile failed with error %d\n", GetLastError());
 
     if (ret) check_cache_entry_infoA("RetrieveUrlCacheEntryFile", lpCacheEntryInfo);
@@ -472,9 +471,9 @@ static void test_urlcacheA(void)
 
     cbCacheEntryInfo = 0;
     SetLastError(0xdeadbeef);
-    ret = RetrieveUrlCacheEntryFileA(test_url1, NULL, &cbCacheEntryInfo, 0);
+    ret = RetrieveUrlCacheEntryFile(test_url1, NULL, &cbCacheEntryInfo, 0);
     ok(!ret, "RetrieveUrlCacheEntryFile should have failed\n");
-    ok(GetLastError() == ERROR_INVALID_DATA || GetLastError() == ERROR_INSUFFICIENT_BUFFER,
+    ok(GetLastError() == ERROR_INVALID_DATA,
        "RetrieveUrlCacheEntryFile should have set last error to ERROR_INVALID_DATA instead of %d\n", GetLastError());
 
     if (pUnlockUrlCacheEntryFileA)
@@ -499,14 +498,14 @@ static void test_urlcacheA(void)
     }
 
     SetLastError(0xdeadbeef);
-    ret = DeleteFileA(filenameA);
+    ret = DeleteFile(filenameA);
     ok(!ret && GetLastError() == ERROR_FILE_NOT_FOUND, "local file should no longer exist\n");
 
     /* Creating two entries with the same URL */
-    ret = CreateUrlCacheEntryA(test_url, 0, "html", filenameA, 0);
+    ret = CreateUrlCacheEntry(test_url, 0, "html", filenameA, 0);
     ok(ret, "CreateUrlCacheEntry failed with error %d\n", GetLastError());
 
-    ret = CreateUrlCacheEntryA(test_url, 0, "html", filenameA1, 0);
+    ret = CreateUrlCacheEntry(test_url, 0, "html", filenameA1, 0);
     ok(ret, "CreateUrlCacheEntry failed with error %d\n", GetLastError());
 
     ok(lstrcmpiA(filenameA, filenameA1), "expected a different file name\n");
@@ -516,13 +515,13 @@ static void test_urlcacheA(void)
     check_file_exists(filenameA);
     check_file_exists(filenameA1);
 
-    ret = CommitUrlCacheEntryA(test_url, filenameA, filetime_zero,
+    ret = CommitUrlCacheEntry(test_url, filenameA, filetime_zero,
             filetime_zero, NORMAL_CACHE_ENTRY, (LPBYTE)ok_header,
             strlen(ok_header), "html", NULL);
     ok(ret, "CommitUrlCacheEntry failed with error %d\n", GetLastError());
     check_file_exists(filenameA);
     check_file_exists(filenameA1);
-    ret = CommitUrlCacheEntryA(test_url, filenameA1, filetime_zero,
+    ret = CommitUrlCacheEntry(test_url, filenameA1, filetime_zero,
             filetime_zero, COOKIE_CACHE_ENTRY, NULL, 0, "html", NULL);
     ok(ret, "CommitUrlCacheEntry failed with error %d\n", GetLastError());
     /* By committing the same URL a second time, the prior entry is
@@ -530,12 +529,12 @@ static void test_urlcacheA(void)
      */
     cbCacheEntryInfo = 0;
     SetLastError(0xdeadbeef);
-    ret = GetUrlCacheEntryInfoA(test_url, NULL, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_url, NULL, &cbCacheEntryInfo);
     ok(!ret, "GetUrlCacheEntryInfo should have failed\n");
     ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER,
        "expected ERROR_INSUFFICIENT_BUFFER, got %d\n", GetLastError());
     lpCacheEntryInfo = HeapAlloc(GetProcessHeap(), 0, cbCacheEntryInfo);
-    ret = GetUrlCacheEntryInfoA(test_url, lpCacheEntryInfo, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_url, lpCacheEntryInfo, &cbCacheEntryInfo);
     ok(ret, "GetUrlCacheEntryInfo failed with error %d\n", GetLastError());
     /* with the previous entry type retained.. */
     ok(lpCacheEntryInfo->CacheEntryType & NORMAL_CACHE_ENTRY,
@@ -563,21 +562,21 @@ static void test_urlcacheA(void)
     /* Check whether a retrieved cache entry can be deleted before it's
      * unlocked:
      */
-    ret = CreateUrlCacheEntryA(test_url, 0, "html", filenameA, 0);
+    ret = CreateUrlCacheEntry(test_url, 0, "html", filenameA, 0);
     ok(ret, "CreateUrlCacheEntry failed with error %d\n", GetLastError());
-    ret = CommitUrlCacheEntryA(test_url, filenameA, filetime_zero, filetime_zero,
+    ret = CommitUrlCacheEntry(test_url, filenameA, filetime_zero, filetime_zero,
             NORMAL_CACHE_ENTRY, NULL, 0, "html", NULL);
     ok(ret, "CommitUrlCacheEntry failed with error %d\n", GetLastError());
 
     cbCacheEntryInfo = 0;
     SetLastError(0xdeadbeef);
-    ret = RetrieveUrlCacheEntryFileA(test_url, NULL, &cbCacheEntryInfo, 0);
+    ret = RetrieveUrlCacheEntryFile(test_url, NULL, &cbCacheEntryInfo, 0);
     ok(!ret, "RetrieveUrlCacheEntryFile should have failed\n");
     ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER,
        "expected ERROR_INSUFFICIENT_BUFFER, got %d\n", GetLastError());
 
     lpCacheEntryInfo = HeapAlloc(GetProcessHeap(), 0, cbCacheEntryInfo);
-    ret = RetrieveUrlCacheEntryFileA(test_url, lpCacheEntryInfo,
+    ret = RetrieveUrlCacheEntryFile(test_url, lpCacheEntryInfo,
             &cbCacheEntryInfo, 0);
     ok(ret, "RetrieveUrlCacheEntryFile failed with error %d\n", GetLastError());
 
@@ -594,7 +593,7 @@ static void test_urlcacheA(void)
 
     lpCacheEntryInfo = HeapAlloc(GetProcessHeap(), 0, cbCacheEntryInfo);
     memset(lpCacheEntryInfo, 0, cbCacheEntryInfo);
-    ret = GetUrlCacheEntryInfoA(test_url, lpCacheEntryInfo, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_url, lpCacheEntryInfo, &cbCacheEntryInfo);
     ok(ret, "GetUrlCacheEntryInfo failed with error %d\n", GetLastError());
     ok(lpCacheEntryInfo->CacheEntryType & 0x400000,
         "CacheEntryType hasn't PENDING_DELETE_CACHE_ENTRY set, (flags %08x)\n",
@@ -625,13 +624,13 @@ static void test_urlcacheA(void)
     /* Test whether preventing a file from being deleted causes
      * DeleteUrlCacheEntryA to fail.
      */
-    ret = CreateUrlCacheEntryA(test_url, 0, "html", filenameA, 0);
+    ret = CreateUrlCacheEntry(test_url, 0, "html", filenameA, 0);
     ok(ret, "CreateUrlCacheEntry failed with error %d\n", GetLastError());
 
     create_and_write_file(filenameA, &zero_byte, sizeof(zero_byte));
     check_file_exists(filenameA);
 
-    ret = CommitUrlCacheEntryA(test_url, filenameA, filetime_zero,
+    ret = CommitUrlCacheEntry(test_url, filenameA, filetime_zero,
             filetime_zero, NORMAL_CACHE_ENTRY, (LPBYTE)ok_header,
             strlen(ok_header), "html", NULL);
     ok(ret, "CommitUrlCacheEntry failed with error %d\n", GetLastError());
@@ -663,35 +662,35 @@ static void test_urlcacheA(void)
      * must have been set already.
      */
     SetLastError(0xdeadbeef);
-    ret = CommitUrlCacheEntryA(test_url, NULL, filetime_zero, filetime_zero,
+    ret = CommitUrlCacheEntry(test_url, NULL, filetime_zero, filetime_zero,
             STICKY_CACHE_ENTRY, (LPBYTE)ok_header, strlen(ok_header), "html",
             NULL);
-    ok(ret == ie10_cache, "CommitUrlCacheEntryA returned %x\n", ret);
-    if (!ret) ok(GetLastError() == ERROR_INVALID_PARAMETER,
-            "expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
+    ok(!ret, "expected failure\n");
+    ok(GetLastError() == ERROR_INVALID_PARAMETER,
+       "expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
     SetLastError(0xdeadbeef);
-    ret = CommitUrlCacheEntryA(test_url, NULL, filetime_zero, filetime_zero,
+    ret = CommitUrlCacheEntry(test_url, NULL, filetime_zero, filetime_zero,
             NORMAL_CACHE_ENTRY|STICKY_CACHE_ENTRY,
             (LPBYTE)ok_header, strlen(ok_header), "html", NULL);
-    ok(ret == ie10_cache, "CommitUrlCacheEntryA returned %x\n", ret);
-    if (!ret) ok(GetLastError() == ERROR_INVALID_PARAMETER,
-            "expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
+    ok(!ret, "expected failure\n");
+    ok(GetLastError() == ERROR_INVALID_PARAMETER,
+       "expected ERROR_INVALID_PARAMETER, got %d\n", GetLastError());
 
-    ret = CreateUrlCacheEntryA(test_url, 0, "html", filenameA, 0);
+    ret = CreateUrlCacheEntry(test_url, 0, "html", filenameA, 0);
     ok(ret, "CreateUrlCacheEntry failed with error %d\n", GetLastError());
     create_and_write_file(filenameA, &zero_byte, sizeof(zero_byte));
-    ret = CommitUrlCacheEntryA(test_url, filenameA, filetime_zero, filetime_zero,
+    ret = CommitUrlCacheEntry(test_url, filenameA, filetime_zero, filetime_zero,
             NORMAL_CACHE_ENTRY|STICKY_CACHE_ENTRY,
             (LPBYTE)ok_header, strlen(ok_header), "html", NULL);
     ok(ret, "CommitUrlCacheEntry failed with error %d\n", GetLastError());
     cbCacheEntryInfo = 0;
     SetLastError(0xdeadbeef);
-    ret = GetUrlCacheEntryInfoA(test_url, NULL, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_url, NULL, &cbCacheEntryInfo);
     ok(!ret, "GetUrlCacheEntryInfo should have failed\n");
     ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER,
        "expected ERROR_INSUFFICIENT_BUFFER, got %d\n", GetLastError());
     lpCacheEntryInfo = HeapAlloc(GetProcessHeap(), 0, cbCacheEntryInfo);
-    ret = GetUrlCacheEntryInfoA(test_url, lpCacheEntryInfo, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_url, lpCacheEntryInfo, &cbCacheEntryInfo);
     ok(ret, "GetUrlCacheEntryInfo failed with error %d\n", GetLastError());
     ok(lpCacheEntryInfo->CacheEntryType & (NORMAL_CACHE_ENTRY|STICKY_CACHE_ENTRY),
        "expected cache entry type NORMAL_CACHE_ENTRY | STICKY_CACHE_ENTRY, got %d (0x%08x)\n",
@@ -708,21 +707,21 @@ static void test_urlcacheA(void)
         check_file_not_exists(filenameA);
     }
     /* Test once again, setting the exempt delta via SetUrlCacheEntryInfo */
-    ret = CreateUrlCacheEntryA(test_url, 0, "html", filenameA, 0);
+    ret = CreateUrlCacheEntry(test_url, 0, "html", filenameA, 0);
     ok(ret, "CreateUrlCacheEntry failed with error %d\n", GetLastError());
     create_and_write_file(filenameA, &zero_byte, sizeof(zero_byte));
-    ret = CommitUrlCacheEntryA(test_url, filenameA, filetime_zero, filetime_zero,
+    ret = CommitUrlCacheEntry(test_url, filenameA, filetime_zero, filetime_zero,
             NORMAL_CACHE_ENTRY|STICKY_CACHE_ENTRY,
             (LPBYTE)ok_header, strlen(ok_header), "html", NULL);
     ok(ret, "CommitUrlCacheEntry failed with error %d\n", GetLastError());
     cbCacheEntryInfo = 0;
     SetLastError(0xdeadbeef);
-    ret = GetUrlCacheEntryInfoA(test_url, NULL, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_url, NULL, &cbCacheEntryInfo);
     ok(!ret, "GetUrlCacheEntryInfo should have failed\n");
     ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER,
        "expected ERROR_INSUFFICIENT_BUFFER, got %d\n", GetLastError());
     lpCacheEntryInfo = HeapAlloc(GetProcessHeap(), 0, cbCacheEntryInfo);
-    ret = GetUrlCacheEntryInfoA(test_url, lpCacheEntryInfo, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_url, lpCacheEntryInfo, &cbCacheEntryInfo);
     ok(ret, "GetUrlCacheEntryInfo failed with error %d\n", GetLastError());
     ok(lpCacheEntryInfo->CacheEntryType & (NORMAL_CACHE_ENTRY|STICKY_CACHE_ENTRY),
        "expected cache entry type NORMAL_CACHE_ENTRY | STICKY_CACHE_ENTRY, got %d (0x%08x)\n",
@@ -734,7 +733,7 @@ static void test_urlcacheA(void)
     ret = SetUrlCacheEntryInfoA(test_url, lpCacheEntryInfo,
             CACHE_ENTRY_EXEMPT_DELTA_FC);
     ok(ret, "SetUrlCacheEntryInfo failed: %d\n", GetLastError());
-    ret = GetUrlCacheEntryInfoA(test_url, lpCacheEntryInfo, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_url, lpCacheEntryInfo, &cbCacheEntryInfo);
     ok(ret, "GetUrlCacheEntryInfo failed with error %d\n", GetLastError());
     ok(!U(*lpCacheEntryInfo).dwExemptDelta, "expected dwExemptDelta 0, got %d\n",
        U(*lpCacheEntryInfo).dwExemptDelta);
@@ -751,19 +750,20 @@ static void test_urlcacheA(void)
             CACHE_ENTRY_EXEMPT_DELTA_FC);
     ok(ret, "SetUrlCacheEntryInfo failed: %d\n", GetLastError());
 
-    ret = CreateUrlCacheEntryA(test_url, 0, "html", filenameA1, 0);
+    ret = CreateUrlCacheEntry(test_url, 0, "html", filenameA1, 0);
     ok(ret, "CreateUrlCacheEntry failed with error %d\n", GetLastError());
     create_and_write_file(filenameA1, &zero_byte, sizeof(zero_byte));
 
-    ret = CommitUrlCacheEntryA(test_url, filenameA1, filetime_zero, filetime_zero,
+    ret = CommitUrlCacheEntry(test_url, filenameA1, filetime_zero, filetime_zero,
             NORMAL_CACHE_ENTRY|STICKY_CACHE_ENTRY,
             (LPBYTE)ok_header, strlen(ok_header), "html", NULL);
     ok(ret, "CommitUrlCacheEntry failed with error %d\n", GetLastError());
 
-    ret = GetUrlCacheEntryInfoA(test_url, lpCacheEntryInfo, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_url, lpCacheEntryInfo, &cbCacheEntryInfo);
     ok(ret, "GetUrlCacheEntryInfo failed with error %d\n", GetLastError());
-    ok(U(*lpCacheEntryInfo).dwExemptDelta == 8600 || (ie10_cache && U(*lpCacheEntryInfo).dwExemptDelta == 86400),
-       "expected dwExemptDelta 8600, got %d\n", U(*lpCacheEntryInfo).dwExemptDelta);
+    ok(U(*lpCacheEntryInfo).dwExemptDelta == 8600,
+       "expected dwExemptDelta 8600, got %d\n",
+       U(*lpCacheEntryInfo).dwExemptDelta);
 
     HeapFree(GetProcessHeap(), 0, lpCacheEntryInfo);
 
@@ -781,24 +781,24 @@ static void test_urlcacheA(void)
     ok(ret, "CommitUrlCacheEntry failed with error %d\n", GetLastError());
 
     cbCacheEntryInfo = 0;
-    ret = GetUrlCacheEntryInfoA(test_hash_collisions1, NULL, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_hash_collisions1, NULL, &cbCacheEntryInfo);
     ok(!ret, "GetUrlCacheEntryInfo should have failed\n");
     ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER,
             "expected ERROR_INSUFFICIENT_BUFFER, got %d\n", GetLastError());
     lpCacheEntryInfo = HeapAlloc(GetProcessHeap(), 0, cbCacheEntryInfo);
-    ret = GetUrlCacheEntryInfoA(test_hash_collisions1, lpCacheEntryInfo, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_hash_collisions1, lpCacheEntryInfo, &cbCacheEntryInfo);
     ok(ret, "GetUrlCacheEntryInfo failed with error %d\n", GetLastError());
     ok(!strcmp(lpCacheEntryInfo->lpszSourceUrlName, test_hash_collisions1),
             "got incorrect entry: %s\n", lpCacheEntryInfo->lpszSourceUrlName);
     HeapFree(GetProcessHeap(), 0, lpCacheEntryInfo);
 
     cbCacheEntryInfo = 0;
-    ret = GetUrlCacheEntryInfoA(test_hash_collisions2, NULL, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_hash_collisions2, NULL, &cbCacheEntryInfo);
     ok(!ret, "GetUrlCacheEntryInfo should have failed\n");
     ok(GetLastError() == ERROR_INSUFFICIENT_BUFFER,
             "expected ERROR_INSUFFICIENT_BUFFER, got %d\n", GetLastError());
     lpCacheEntryInfo = HeapAlloc(GetProcessHeap(), 0, cbCacheEntryInfo);
-    ret = GetUrlCacheEntryInfoA(test_hash_collisions2, lpCacheEntryInfo, &cbCacheEntryInfo);
+    ret = GetUrlCacheEntryInfo(test_hash_collisions2, lpCacheEntryInfo, &cbCacheEntryInfo);
     ok(ret, "GetUrlCacheEntryInfo failed with error %d\n", GetLastError());
     ok(!strcmp(lpCacheEntryInfo->lpszSourceUrlName, test_hash_collisions2),
             "got incorrect entry: %s\n", lpCacheEntryInfo->lpszSourceUrlName);
@@ -866,23 +866,10 @@ static void test_urlcacheW(void)
         return;
     }
 
-    if(ie10_cache) {
-        if(!MultiByteToWideChar(CP_ACP, 0, urls[6].encoded_url, -1,
-                    urls[6].url, sizeof(urls[6].url)/sizeof(WCHAR)))
-            urls[6].url[0] = 0;
-
-        trace("converted url in test 6: %s\n", wine_dbgstr_w(urls[6].url));
-    }
-
     for(i=0; i<sizeof(urls)/sizeof(*urls); i++) {
         INTERNET_CACHE_ENTRY_INFOA *entry_infoA;
         INTERNET_CACHE_ENTRY_INFOW *entry_infoW;
         DWORD size;
-
-        if(!urls[i].url[0]) {
-            win_skip("No UTF16 version of url (%d)\n", i);
-            continue;
-        }
 
         SetLastError(0xdeadbeef);
         ret = CreateUrlCacheEntryW(urls[i].url, 0, NULL, bufW, 0);
@@ -965,13 +952,10 @@ static void test_urlcacheW(void)
         }
 
         if(!urls[i].extension[0]) {
-            ok(!entry_infoW->lpszFileExtension || (ie10_cache && !entry_infoW->lpszFileExtension[0]),
-                    "%d) entry_infoW->lpszFileExtension = %s\n",
-                    i, wine_dbgstr_w(entry_infoW->lpszFileExtension));
+            ok(!entry_infoW->lpszFileExtension, "entry_infoW->lpszFileExtension != NULL\n");
         }else {
             MultiByteToWideChar(CP_ACP, 0, entry_infoA->lpszFileExtension, -1, bufW, MAX_PATH);
-            ok(!lstrcmpW(entry_infoW->lpszFileExtension, bufW) ||
-                    (ie10_cache && !lstrcmpW(entry_infoW->lpszFileExtension, urls[i].extension)),
+            ok(!lstrcmpW(entry_infoW->lpszFileExtension, bufW),
                     "%d) entry_infoW->lpszFileExtension = %s, expected %s\n",
                     i, wine_dbgstr_w(entry_infoW->lpszFileExtension), wine_dbgstr_w(bufW));
         }
@@ -1049,11 +1033,6 @@ START_TEST(urlcache)
     }
     if(!GetProcAddress(hdll, "InternetGetSecurityInfoByURL")) /* < IE7 */
         old_ie = TRUE;
-
-    if(GetProcAddress(hdll, "CreateUrlCacheEntryExW")) {
-        trace("Running tests on IE10 or newer\n");
-        ie10_cache = TRUE;
-    }
 
     pDeleteUrlCacheEntryA = (void*)GetProcAddress(hdll, "DeleteUrlCacheEntryA");
     pUnlockUrlCacheEntryFileA = (void*)GetProcAddress(hdll, "UnlockUrlCacheEntryFileA");

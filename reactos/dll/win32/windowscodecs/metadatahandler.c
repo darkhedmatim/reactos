@@ -440,7 +440,7 @@ static const IWICPersistStreamVtbl MetadataHandler_PersistStream_Vtbl = {
     MetadataHandler_SaveEx
 };
 
-HRESULT MetadataReader_Create(const MetadataHandlerVtbl *vtable, REFIID iid, void** ppv)
+HRESULT MetadataReader_Create(const MetadataHandlerVtbl *vtable, IUnknown *pUnkOuter, REFIID iid, void** ppv)
 {
     MetadataHandler *This;
     HRESULT hr;
@@ -448,6 +448,8 @@ HRESULT MetadataReader_Create(const MetadataHandlerVtbl *vtable, REFIID iid, voi
     TRACE("%s\n", debugstr_guid(vtable->clsid));
 
     *ppv = NULL;
+
+    if (pUnkOuter) return CLASS_E_NOAGGREGATION;
 
     This = HeapAlloc(GetProcessHeap(), 0, sizeof(MetadataHandler));
     if (!This) return E_OUTOFMEMORY;
@@ -707,9 +709,9 @@ static const MetadataHandlerVtbl UnknownMetadataReader_Vtbl = {
     LoadUnknownMetadata
 };
 
-HRESULT UnknownMetadataReader_CreateInstance(REFIID iid, void** ppv)
+HRESULT UnknownMetadataReader_CreateInstance(IUnknown *pUnkOuter, REFIID iid, void** ppv)
 {
-    return MetadataReader_Create(&UnknownMetadataReader_Vtbl, iid, ppv);
+    return MetadataReader_Create(&UnknownMetadataReader_Vtbl, pUnkOuter, iid, ppv);
 }
 
 #define SWAP_USHORT(x) do { if (!native_byte_order) (x) = RtlUshortByteSwap(x); } while(0)
@@ -1142,7 +1144,7 @@ static const MetadataHandlerVtbl IfdMetadataReader_Vtbl = {
     LoadIfdMetadata
 };
 
-HRESULT IfdMetadataReader_CreateInstance(REFIID iid, void **ppv)
+HRESULT IfdMetadataReader_CreateInstance(IUnknown *pUnkOuter, REFIID iid, void **ppv)
 {
-    return MetadataReader_Create(&IfdMetadataReader_Vtbl, iid, ppv);
+    return MetadataReader_Create(&IfdMetadataReader_Vtbl, pUnkOuter, iid, ppv);
 }

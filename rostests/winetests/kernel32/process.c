@@ -35,9 +35,6 @@
 
 #include "wine/test.h"
 
-/* PROCESS_ALL_ACCESS in Vista+ PSDKs is incompatible with older Windows versions */
-#define PROCESS_ALL_ACCESS_NT4 (PROCESS_ALL_ACCESS & ~0xf000)
-
 #define expect_eq_d(expected, actual) \
     do { \
       int value = (actual); \
@@ -186,12 +183,12 @@ static WCHAR*   decodeW(const char* str)
  *      exename:        executable without the path
  * function-pointers, which are not implemented in all windows versions
  */
-static BOOL init(void)
+static int     init(void)
 {
     char *p;
 
     myARGC = winetest_get_mainargs( &myARGV );
-    if (!GetCurrentDirectoryA(sizeof(base), base)) return FALSE;
+    if (!GetCurrentDirectoryA(sizeof(base), base)) return 0;
     strcpy(selfname, myARGV[0]);
 
     /* Strip the path of selfname */
@@ -209,7 +206,7 @@ static BOOL init(void)
     pQueryFullProcessImageNameA = (void *) GetProcAddress(hkernel32, "QueryFullProcessImageNameA");
     pQueryFullProcessImageNameW = (void *) GetProcAddress(hkernel32, "QueryFullProcessImageNameW");
     pK32GetProcessImageFileNameA = (void *) GetProcAddress(hkernel32, "K32GetProcessImageFileNameA");
-    return TRUE;
+    return 1;
 }
 
 /******************************************************************
@@ -1525,7 +1522,7 @@ static void test_OpenProcess(void)
     }
 
     /* without PROCESS_VM_OPERATION */
-    hproc = OpenProcess(PROCESS_ALL_ACCESS_NT4 & ~PROCESS_VM_OPERATION, FALSE, GetCurrentProcessId());
+    hproc = OpenProcess(PROCESS_ALL_ACCESS & ~PROCESS_VM_OPERATION, FALSE, GetCurrentProcessId());
     ok(hproc != NULL, "OpenProcess error %d\n", GetLastError());
 
     SetLastError(0xdeadbeef);
@@ -1668,7 +1665,7 @@ static void test_GetProcessImageFileNameA(void)
         length = sizeof(image);
         expect_eq_d(TRUE, pQueryFullProcessImageNameA(GetCurrentProcess(), PROCESS_NAME_NATIVE, image, &length));
         expect_eq_d(length, lstrlenA(image));
-        ok(lstrcmpiA(process, image) == 0, "expected '%s' to be equal to '%s'\n", process, image);
+        ok(lstrcmpi(process, image) == 0, "expected '%s' to be equal to '%s'\n", process, image);
     }
 }
 
@@ -1694,7 +1691,7 @@ static void test_QueryFullProcessImageNameA(void)
     expect_eq_d(TRUE, pQueryFullProcessImageNameA(GetCurrentProcess(), 0, buf, &length));
     expect_eq_d(length, lstrlenA(buf));
     ok((buf[0] == '\\' && buf[1] == '\\') ||
-       lstrcmpiA(buf, module) == 0, "expected %s to match %s\n", buf, module);
+       lstrcmpi(buf, module) == 0, "expected %s to match %s\n", buf, module);
 
     /*  when the buffer is too small
      *  - function fail with error ERROR_INSUFFICIENT_BUFFER
@@ -1933,14 +1930,14 @@ static void test_TerminateProcess(void)
 {
     static char cmdline[] = "winver.exe";
     PROCESS_INFORMATION pi;
-    STARTUPINFOA si;
+    STARTUPINFO si;
     DWORD ret;
     HANDLE dummy, thread;
 
     memset(&si, 0, sizeof(si));
     si.cb = sizeof(si);
     SetLastError(0xdeadbeef);
-    ret = CreateProcessA(NULL, cmdline, NULL, NULL, FALSE, CREATE_SUSPENDED, NULL, NULL, &si, &pi);
+    ret = CreateProcess(NULL, cmdline, NULL, NULL, FALSE, CREATE_SUSPENDED, NULL, NULL, &si, &pi);
     ok(ret, "CreateProcess error %u\n", GetLastError());
 
     SetLastError(0xdeadbeef);
@@ -1993,9 +1990,9 @@ static void test_DuplicateHandle(void)
     ok(out != GetCurrentProcess(), "out = GetCurrentProcess()\n");
     CloseHandle(out);
 
-    GetTempPathA(MAX_PATH, path);
-    GetTempFileNameA(path, "wt", 0, file_name);
-    f = CreateFileA(file_name, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, 0);
+    GetTempPath(MAX_PATH, path);
+    GetTempFileName(path, "wt", 0, file_name);
+    f = CreateFile(file_name, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, 0);
     if (f == INVALID_HANDLE_VALUE)
     {
         ok(0, "could not create %s\n", file_name);
@@ -2046,9 +2043,9 @@ static void test_DuplicateHandle(void)
     ok(r, "DuplicateHandle error %u\n", GetLastError());
     ok(f == out, "f != out\n");
     CloseHandle(out);
-    DeleteFileA(file_name);
+    DeleteFile(file_name);
 
-    f = CreateFileA("CONIN$", GENERIC_READ|GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, 0);
+    f = CreateFile("CONIN$", GENERIC_READ|GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, 0);
     if (!is_console(f))
     {
         skip("DuplicateHandle on console handle\n");
@@ -2065,7 +2062,7 @@ static void test_DuplicateHandle(void)
 
 START_TEST(process)
 {
-    BOOL b = init();
+    int b = init();
     ok(b, "Basic init of CreateProcess test\n");
     if (!b) return;
 

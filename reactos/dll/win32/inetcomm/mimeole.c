@@ -119,7 +119,7 @@ static HRESULT copy_headers_to_buf(IStream *stm, char **ptr)
     char *buf = NULL;
     DWORD size = PARSER_BUF_SIZE, offset = 0, last_end = 0;
     HRESULT hr;
-    BOOL done = FALSE;
+    int done = 0;
 
     *ptr = NULL;
 
@@ -147,7 +147,7 @@ static HRESULT copy_headers_to_buf(IStream *stm, char **ptr)
         offset += read;
         buf[offset] = '\0';
 
-        if(read == 0) done = TRUE;
+        if(read == 0) done = 1;
 
         while(!done && (end = strstr(buf + last_end, "\r\n")))
         {
@@ -158,7 +158,7 @@ static HRESULT copy_headers_to_buf(IStream *stm, char **ptr)
                 off.QuadPart = new_end;
                 IStream_Seek(stm, off, STREAM_SEEK_SET, NULL);
                 buf[new_end] = '\0';
-                done = TRUE;
+                done = 1;
             }
             else
                 last_end = new_end;
@@ -253,14 +253,14 @@ static void unfold_header(char *header, int len)
 
 static char *unquote_string(const char *str)
 {
-    BOOL quoted = FALSE;
+    int quoted = 0;
     char *ret, *cp;
 
     while(*str == ' ' || *str == '\t') str++;
 
     if(*str == '"')
     {
-        quoted = TRUE;
+        quoted = 1;
         str++;
     }
     ret = strdupA(str);
@@ -316,19 +316,20 @@ static void add_param(header_t *header, const char *p)
 static void split_params(header_t *header, char *value)
 {
     char *cp = value, *start = value;
-    BOOL in_quotes = FALSE, done_value = FALSE;
+    int in_quote = 0;
+    int done_value = 0;
 
     while(*cp)
     {
-        if(!in_quotes && *cp == ';')
+        if(!in_quote && *cp == ';')
         {
             *cp = '\0';
             if(done_value) add_param(header, start);
-            done_value = TRUE;
+            done_value = 1;
             start = cp + 1;
         }
         else if(*cp == '"')
-            in_quotes = !in_quotes;
+            in_quote = !in_quote;
         cp++;
     }
     if(done_value) add_param(header, start);

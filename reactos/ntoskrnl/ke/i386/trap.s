@@ -142,20 +142,14 @@ PUBLIC _KiSystemService
     KiCallHandler @KiSystemServiceHandler@8
 .ENDP
 
+EXTERN @KiFastCallEntryHandler@8:PROC
 PUBLIC _KiFastCallEntry
 .PROC _KiFastCallEntry
     FPO 0, 0, 0, 0, 1, FRAME_TRAP
     KiEnterTrap (KI_FAST_SYSTEM_CALL OR KI_NONVOLATILES_ONLY OR KI_DONT_SAVE_SEGS)
-    KiCallHandler @KiSystemServiceHandler@8
+    KiCallHandler @KiFastCallEntryHandler@8
 .ENDP
 
-PUBLIC _KiFastCallEntryWithSingleStep
-.PROC _KiFastCallEntryWithSingleStep
-    FPO 0, 0, 0, 0, 1, FRAME_TRAP
-    KiEnterTrap (KI_FAST_SYSTEM_CALL OR KI_NONVOLATILES_ONLY OR KI_DONT_SAVE_SEGS)
-    or dword ptr [ecx + KTRAP_FRAME_EFLAGS], EFLAGS_TF
-    KiCallHandler @KiSystemServiceHandler@8
-.ENDP
 
 PUBLIC _KiEndUnexpectedRange@0
 _KiEndUnexpectedRange@0:

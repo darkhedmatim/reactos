@@ -163,7 +163,9 @@ TV1_AddDependantsToTree(PSERVICEPROPSHEET pDlgInfo,
                                       0,
                                       FALSE);
 
-                    LocalFree(lpNoDepends);
+                    HeapFree(ProcessHeap,
+                             0,
+                             lpNoDepends);
 
                     /* Disable the window */
                     EnableWindow(pDlgInfo->hDependsTreeView1, FALSE);

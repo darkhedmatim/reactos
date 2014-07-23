@@ -66,40 +66,7 @@ static HRESULT addFileHelper(IBackgroundCopyJob* job,
     urlSize = MAX_PATH;
     UrlCreateFromPathW(remoteFile, remoteUrl, &urlSize, 0);
     UrlUnescapeW(remoteUrl, NULL, &urlSize, URL_UNESCAPE_INPLACE);
-    return IBackgroundCopyJob_AddFile(job, remoteUrl, localFile);
-}
-
-static HRESULT test_create_manager(void)
-{
-    HRESULT hres;
-    IBackgroundCopyManager *manager = NULL;
-
-    /* Creating BITS instance */
-    hres = CoCreateInstance(&CLSID_BackgroundCopyManager, NULL, CLSCTX_LOCAL_SERVER,
-                            &IID_IBackgroundCopyManager, (void **) &manager);
-
-    if(hres == HRESULT_FROM_WIN32(ERROR_SERVICE_DISABLED)) {
-        win_skip("Needed Service is disabled\n");
-        return hres;
-    }
-
-    if (hres == S_OK)
-    {
-        IBackgroundCopyJob *job;
-        GUID jobId;
-
-        hres = IBackgroundCopyManager_CreateJob(manager, test_displayName, BG_JOB_TYPE_DOWNLOAD, &jobId, &job);
-        if (hres == S_OK)
-        {
-            hres = addFileHelper(job, test_localNameA, test_remoteNameA);
-            if (hres != S_OK)
-                win_skip("AddFile() with file:// protocol failed. Tests will be skipped.\n");
-            IBackgroundCopyJob_Release(job);
-        }
-        IBackgroundCopyManager_Release(manager);
-    }
-
-    return hres;
+    return IBackgroundCopyJob_AddFile(test_job, remoteUrl, localFile);
 }
 
 /* Generic test setup */
@@ -151,6 +118,11 @@ static void test_GetCount(void)
 
     hres = IEnumBackgroundCopyFiles_GetCount(test_enumFiles, &fileCount);
     ok(hres == S_OK, "GetCount failed: %08x\n", hres);
+    if(hres != S_OK)
+    {
+        skip("Unable to get count from test_enumFiles.\n");
+        return;
+    }
     ok(fileCount == test_fileCount, "Got incorrect count\n");
 }
 
@@ -166,6 +138,11 @@ static void test_Next_walkListNull(void)
     {
         hres = IEnumBackgroundCopyFiles_Next(test_enumFiles, 1, &file, NULL);
         ok(hres == S_OK, "Next failed: %08x\n", hres);
+        if(hres != S_OK)
+        {
+            skip("Unable to get file from test_enumFiles\n");
+            return;
+        }
         IBackgroundCopyFile_Release(file);
     }
 
@@ -189,6 +166,11 @@ static void test_Next_walkList_1(void)
         fetched = 0;
         hres = IEnumBackgroundCopyFiles_Next(test_enumFiles, 1, &file, &fetched);
         ok(hres == S_OK, "Next failed: %08x\n", hres);
+        if(hres != S_OK)
+        {
+            skip("Unable to get file from test_enumFiles\n");
+            return;
+        }
         ok(fetched == 1, "Next returned the incorrect number of files: %08x\n", hres);
         ok(file != NULL, "Next returned NULL\n");
         if (file)
@@ -216,6 +198,11 @@ static void test_Next_walkList_2(void)
     fetched = 0;
     hres = IEnumBackgroundCopyFiles_Next(test_enumFiles, test_fileCount, files, &fetched);
     ok(hres == S_OK, "Next failed: %08x\n", hres);
+    if(hres != S_OK)
+    {
+        skip("Unable to get file from test_enumFiles\n");
+        return;
+    }
     ok(fetched == test_fileCount, "Next returned the incorrect number of files: %08x\n", hres);
 
     for (i = 0; i < test_fileCount; i++)
@@ -247,6 +234,11 @@ static void test_Skip_walkList(void)
     {
         hres = IEnumBackgroundCopyFiles_Skip(test_enumFiles, 1);
         ok(hres == S_OK, "Skip failed: %08x\n", hres);
+        if(hres != S_OK)
+        {
+            skip("Unable to properly Skip files\n");
+            return;
+        }
     }
 
     hres = IEnumBackgroundCopyFiles_Skip(test_enumFiles, 1);
@@ -271,6 +263,11 @@ static void test_Reset(void)
     ok(hres == S_OK, "Skip failed: %08x\n", hres);
     hres = IEnumBackgroundCopyFiles_Reset(test_enumFiles);
     ok(hres == S_OK, "Reset failed: %08x\n", hres);
+    if(hres != S_OK)
+    {
+        skip("Unable to Reset enumerator\n");
+        return;
+    }
     hres = IEnumBackgroundCopyFiles_Skip(test_enumFiles, test_fileCount);
     ok(hres == S_OK, "Reset failed: %08x\n", hres);
 }
@@ -291,23 +288,14 @@ START_TEST(enum_files)
         0
     };
     const test_t *test;
-    int i;
 
     CoInitialize(NULL);
-
-    if (FAILED(test_create_manager()))
-    {
-        CoUninitialize();
-        win_skip("Failed to create Manager instance, skipping tests\n");
-        return;
-    }
-
-    for (test = tests, i = 0; *test; ++test, ++i)
+    for (test = tests; *test; ++test)
     {
         /* Keep state separate between tests. */
         if (!setup())
         {
-            ok(0, "tests:%d: Unable to setup test\n", i);
+            skip("Unable to setup test\n");
             break;
         }
         (*test)();

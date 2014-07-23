@@ -7,29 +7,26 @@
 
 #pragma once
 
-// Console System Menu Item IDs.
-// Use IDs in the range 0xFFFx for not clashing with user-defined menu IDs.
-#define ID_SYSTEM_EDIT_MARK      0xFFF0
-#define ID_SYSTEM_EDIT_COPY      0xFFF1
-#define ID_SYSTEM_EDIT_PASTE     0xFFF2
-#define ID_SYSTEM_EDIT_SELECTALL 0xFFF3
-#define ID_SYSTEM_EDIT_SCROLL    0xFFF4
-#define ID_SYSTEM_EDIT_FIND      0xFFF5
-#define ID_SYSTEM_DEFAULTS       0xFFF6
-#define ID_SYSTEM_PROPERTIES     0xFFF7
+#define ID_SYSTEM_EDIT_MARK      1001
+#define ID_SYSTEM_EDIT_COPY      1002
+#define ID_SYSTEM_EDIT_PASTE     1003
+#define ID_SYSTEM_EDIT_SELECTALL 1004
+#define ID_SYSTEM_EDIT_SCROLL    1005
+#define ID_SYSTEM_EDIT_FIND      1006
+#define ID_SYSTEM_DEFAULTS       1007
+#define ID_SYSTEM_PROPERTIES     1008
 
-#define IDS_EDIT            204
-#define IDS_MARK            205
-#define IDS_COPY            206
-#define IDS_PASTE           207
-#define IDS_SELECTALL       208
-#define IDS_SCROLL          209
-#define IDS_FIND            210
-#define IDS_DEFAULTS        211
-#define IDS_PROPERTIES      212
+#define NCPOPUP_MENU 103
 
-#define IDS_MARK_TITLE      220
-#define IDS_SELECT_TITLE    221
+#define IDS_EDIT       204
+#define IDS_MARK       205
+#define IDS_COPY       206
+#define IDS_PASTE      207
+#define IDS_SELECTALL  208
+#define IDS_SCROLL     209
+#define IDS_FIND       210
+#define IDS_DEFAULTS   211
+#define IDS_PROPERTIES 212
 
 // Scrollbar resource ids. Unused.
 /*

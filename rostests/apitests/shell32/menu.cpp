@@ -11,11 +11,7 @@ BOOL CheckWindowClass(HWND hwnd, PCWSTR className)
 {
     ULONG size = (wcslen(className) + 1)* sizeof(WCHAR);
     PWCHAR buffer = (PWCHAR)malloc(size);
-    if (GetClassNameW(hwnd, buffer, size ) == 0)
-    {
-        free(buffer);
-        return FALSE;
-    }
+    if (GetClassNameW(hwnd, buffer, size ) == 0) return FALSE;
     int res = wcscmp(buffer, className);
     free(buffer);
     return res == 0;
@@ -165,7 +161,6 @@ void test_CShellMenu()
     if (!CreateCShellMenu(&shellMenu, &dockingMenu, &menuWithSite))
     {
         skip("failed to create CShellMenuObject\n");
-        delete dummyWindow;
         return;
     }
 
@@ -293,7 +288,6 @@ void test_CShellMenu_callbacks(IShellFolder *shellFolder, HMENU hmenu)
     if (!CreateCShellMenu(&shellMenu, &dockingMenu, &menuWithSite))
     {
         skip("failed to create CShellMenuObject\n");
-        delete dummyWindow;
         return;
     }
 

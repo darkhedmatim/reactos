@@ -79,7 +79,6 @@ enum attr_type
     ATTR_ANNOTATION,
     ATTR_APPOBJECT,
     ATTR_ASYNC,
-    ATTR_ASYNCUUID,
     ATTR_AUTO_HANDLE,
     ATTR_BINDABLE,
     ATTR_BROADCAST,
@@ -252,7 +251,6 @@ enum statement_type
     STMT_TYPEDEF,
     STMT_IMPORT,
     STMT_IMPORTLIB,
-    STMT_PRAGMA,
     STMT_CPPQUOTE
 };
 
@@ -552,6 +550,9 @@ void init_types(void);
 type_t *alloc_type(void);
 void set_all_tfswrite(int val);
 void clear_all_offsets(void);
+
+int is_ptr(const type_t *t);
+int is_array(const type_t *t);
 
 #define tsENUM   1
 #define tsSTRUCT 2

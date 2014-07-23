@@ -198,9 +198,7 @@ FlushFileBuffers(IN HANDLE hFile)
 /*
  * @implemented
  */
-DWORD
-WINAPI
-DECLSPEC_HOTPATCH
+DWORD WINAPI
 SetFilePointer(HANDLE hFile,
            LONG lDistanceToMove,
            PLONG lpDistanceToMoveHigh,

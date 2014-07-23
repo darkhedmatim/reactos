@@ -48,7 +48,7 @@ FS_AddProvider(
     Item->FileSystem = FileSystem;
     Item->FormatFunc = FormatFunc;
     Item->ChkdskFunc = ChkdskFunc;
-    Item->QuickFormat = TRUE;
+    Item->QuickFormat = FALSE;
     InsertTailList(&List->ListHead, &Item->ListEntry);
 
     if (!FormatFunc)
@@ -61,10 +61,9 @@ FS_AddProvider(
     Item->FileSystem = FileSystem;
     Item->FormatFunc = FormatFunc;
     Item->ChkdskFunc = ChkdskFunc;
-    Item->QuickFormat = FALSE;
+    Item->QuickFormat = TRUE;
     InsertTailList(&List->ListHead, &Item->ListEntry);
 }
-
 
 PFILE_SYSTEM_LIST
 CreateFileSystemList(
@@ -112,7 +111,6 @@ CreateFileSystemList(
     return List;
 }
 
-
 VOID
 DestroyFileSystemList(
     IN PFILE_SYSTEM_LIST List)
@@ -132,7 +130,6 @@ DestroyFileSystemList(
     }
     RtlFreeHeap(ProcessHeap, 0, List);
 }
-
 
 VOID
 DrawFileSystemList(
@@ -186,7 +183,6 @@ DrawFileSystemList(
     }
 }
 
-
 VOID
 ScrollDownFileSystemList(
     IN PFILE_SYSTEM_LIST List)
@@ -197,7 +193,6 @@ ScrollDownFileSystemList(
         DrawFileSystemList(List);
     }
 }
-
 
 VOID
 ScrollUpFileSystemList(

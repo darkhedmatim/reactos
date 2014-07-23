@@ -165,7 +165,7 @@ static HRESULT WINAPI update_session_CreateUpdateSearcher(
     IUpdateSearcher **retval )
 {
     TRACE("%p\n", This);
-    return UpdateSearcher_create( (LPVOID *)retval );
+    return UpdateSearcher_create( NULL, (LPVOID *)retval );
 }
 
 static HRESULT WINAPI update_session_CreateUpdateDownloader(
@@ -173,7 +173,7 @@ static HRESULT WINAPI update_session_CreateUpdateDownloader(
     IUpdateDownloader **retval )
 {
     TRACE("%p\n", This);
-    return UpdateDownloader_create( (LPVOID *)retval );
+    return UpdateDownloader_create( NULL, (LPVOID *)retval );
 }
 
 static HRESULT WINAPI update_session_CreateUpdateInstaller(
@@ -181,7 +181,7 @@ static HRESULT WINAPI update_session_CreateUpdateInstaller(
     IUpdateInstaller **retval )
 {
     TRACE("%p\n", This);
-    return UpdateInstaller_create( (LPVOID *)retval );
+    return UpdateInstaller_create( NULL, (LPVOID *)retval );
 }
 
 static const struct IUpdateSessionVtbl update_session_vtbl =
@@ -203,11 +203,11 @@ static const struct IUpdateSessionVtbl update_session_vtbl =
     update_session_CreateUpdateInstaller
 };
 
-HRESULT UpdateSession_create( LPVOID *ppObj )
+HRESULT UpdateSession_create( IUnknown *pUnkOuter, LPVOID *ppObj )
 {
     update_session *session;
 
-    TRACE("(%p)\n", ppObj);
+    TRACE("(%p,%p)\n", pUnkOuter, ppObj);
 
     session = HeapAlloc( GetProcessHeap(), 0, sizeof(*session) );
     if (!session) return E_OUTOFMEMORY;

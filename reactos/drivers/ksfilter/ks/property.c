@@ -300,7 +300,7 @@ KspPropertyHandler(
             if (Allocator)
             {
                 /* allocate the requested amount */
-                Status = Allocator(Irp, (ULONG)Irp->IoStatus.Information, FALSE);
+                Status = Allocator(Irp, Irp->IoStatus.Information, FALSE);
 
                 /* check if the block was allocated */
                 if (!NT_SUCCESS(Status))
@@ -364,16 +364,15 @@ KsPropertyHandler(
 /*
     @implemented
 */
-_IRQL_requires_max_(PASSIVE_LEVEL)
 KSDDKAPI
 NTSTATUS
 NTAPI
 KsPropertyHandlerWithAllocator(
-    _In_ PIRP Irp,
-    _In_ ULONG PropertySetsCount,
-    _In_reads_(PropertySetsCount) const KSPROPERTY_SET* PropertySet,
-    _In_opt_ PFNKSALLOCATOR Allocator,
-    _In_opt_ ULONG PropertyItemSize)
+    IN  PIRP Irp,
+    IN  ULONG PropertySetsCount,
+    IN  PKSPROPERTY_SET PropertySet,
+    IN  PFNKSALLOCATOR Allocator OPTIONAL,
+    IN  ULONG PropertyItemSize OPTIONAL)
 {
     return KspPropertyHandler(Irp, PropertySetsCount, PropertySet, Allocator, PropertyItemSize);
 }

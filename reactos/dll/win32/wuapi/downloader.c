@@ -234,11 +234,11 @@ static const struct IUpdateDownloaderVtbl update_downloader_vtbl =
     update_downloader_EndDownload
 };
 
-HRESULT UpdateDownloader_create( LPVOID *ppObj )
+HRESULT UpdateDownloader_create( IUnknown *pUnkOuter, LPVOID *ppObj )
 {
     update_downloader *downloader;
 
-    TRACE("(%p)\n", ppObj);
+    TRACE("(%p,%p)\n", pUnkOuter, ppObj);
 
     downloader = HeapAlloc( GetProcessHeap(), 0, sizeof(*downloader) );
     if (!downloader) return E_OUTOFMEMORY;

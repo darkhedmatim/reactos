@@ -25,7 +25,7 @@
 /***********************************************************************
  * DllMain.
  */
-BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, void *reserved)
+BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID reserved)
 {
     switch(reason)
     {

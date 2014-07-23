@@ -104,6 +104,7 @@ static void test_open_scm(void)
     CloseServiceHandle(scm_handle); /* Just in case */
 
     /* Proper call with an empty hostname */
+    SetLastError(0xdeadbeef);
     scm_handle = OpenSCManagerA("", SERVICES_ACTIVE_DATABASEA, SC_MANAGER_CONNECT);
     ok(scm_handle != NULL, "Expected success, got error %u\n", GetLastError());
     CloseServiceHandle(scm_handle);
@@ -111,8 +112,6 @@ static void test_open_scm(void)
     /* Again a correct one */
     SetLastError(0xdeadbeef);
     scm_handle = OpenSCManagerA(NULL, NULL, SC_MANAGER_CONNECT);
-    ok(GetLastError() == ERROR_SUCCESS || broken(GetLastError() == ERROR_IO_PENDING) /* win2k */,
-       "Expected ERROR_SUCCESS, got %u\n", GetLastError());
     ok(scm_handle != NULL, "Expected success, got error %u\n", GetLastError());
     CloseServiceHandle(scm_handle);
 }
@@ -170,7 +169,7 @@ static void test_open_svc(void)
     /* Try to open the service with this displayname, unless the displayname equals
      * the servicename as that would defeat the purpose of this test.
      */
-    if (!lstrcmpiA(spooler, displayname))
+    if (!lstrcmpi(spooler, displayname))
     {
         skip("displayname equals servicename\n");
         CloseServiceHandle(scm_handle);
@@ -419,7 +418,7 @@ static void test_create_delete_svc(void)
 
     /* Wait a while. One of the following tests also does a CreateService for the
      * same servicename and this would result in an ERROR_SERVICE_MARKED_FOR_DELETE
-     * error if we do this too quickly. Vista seems more picky than the others.
+     * error if we do this to quick. Vista seems more picky then the others.
      */
     Sleep(1000);
 
@@ -705,7 +704,7 @@ static void test_get_displayname(void)
     SetLastError(0xdeadbeef);
     ret = GetServiceDisplayNameA(scm_handle, servicename, displayname, &displaysize);
     ok(ret, "Expected success, got error %u\n", GetLastError());
-    ok(!lstrcmpiA(displayname, servicename),
+    ok(!lstrcmpi(displayname, servicename),
        "Expected displayname to be %s, got %s\n", servicename, displayname);
 
     /* Delete the service */
@@ -873,7 +872,7 @@ static void test_get_servicekeyname(void)
     {
         ok(strlen(servicename) == tempsize/2,
            "Expected the buffer to be twice the length of the string\n") ;
-        ok(!lstrcmpiA(servicename, spooler), "Expected %s, got %s\n", spooler, servicename);
+        ok(!lstrcmpi(servicename, spooler), "Expected %s, got %s\n", spooler, servicename);
         ok(servicesize == (tempsize * 2),
            "Expected servicesize not to change if buffer not insufficient\n") ;
     }
@@ -1061,9 +1060,9 @@ static void test_enum_svc(void)
     DWORD neededW, returnedW;
     DWORD tempneeded, tempreturned, missing;
     DWORD servicecountactive, servicecountinactive;
-    ENUM_SERVICE_STATUSA *services;
+    ENUM_SERVICE_STATUS *services;
     ENUM_SERVICE_STATUSW *servicesW;
-    ENUM_SERVICE_STATUS_PROCESSA *exservices;
+    ENUM_SERVICE_STATUS_PROCESS *exservices;
     UINT i;
 
     /* All NULL or wrong  */
@@ -1293,7 +1292,7 @@ static void test_enum_svc(void)
 
     /* Allocate less than the needed bytes and don't specify a resume handle */
     services = HeapAlloc(GetProcessHeap(), 0, tempneeded);
-    bufsize = (tempreturned - 1) * sizeof(ENUM_SERVICE_STATUSA);
+    bufsize = (tempreturned - 1) * sizeof(ENUM_SERVICE_STATUS);
     needed = 0xdeadbeef;
     returned = 0xdeadbeef;
     SetLastError(0xdeadbeef);
@@ -1306,7 +1305,7 @@ static void test_enum_svc(void)
        "Expected ERROR_MORE_DATA, got %d\n", GetLastError());
 
     /* Allocate less than the needed bytes, this time with a correct resume handle */
-    bufsize = (tempreturned - 1) * sizeof(ENUM_SERVICE_STATUSA);
+    bufsize = (tempreturned - 1) * sizeof(ENUM_SERVICE_STATUS);
     needed = 0xdeadbeef;
     returned = 0xdeadbeef;
     resume = 0;
@@ -1608,7 +1607,7 @@ static void test_enum_svc(void)
 
     /* Allocate less than the needed bytes and don't specify a resume handle */
     exservices = HeapAlloc(GetProcessHeap(), 0, tempneeded);
-    bufsize = (tempreturned - 1) * sizeof(ENUM_SERVICE_STATUSA);
+    bufsize = (tempreturned - 1) * sizeof(ENUM_SERVICE_STATUS);
     needed = 0xdeadbeef;
     returned = 0xdeadbeef;
     SetLastError(0xdeadbeef);
@@ -1621,7 +1620,7 @@ static void test_enum_svc(void)
        "Expected ERROR_MORE_DATA, got %d\n", GetLastError());
 
     /* Allocate less than the needed bytes, this time with a correct resume handle */
-    bufsize = (tempreturned - 1) * sizeof(ENUM_SERVICE_STATUSA);
+    bufsize = (tempreturned - 1) * sizeof(ENUM_SERVICE_STATUS);
     needed = 0xdeadbeef;
     returned = 0xdeadbeef;
     resume = 0;

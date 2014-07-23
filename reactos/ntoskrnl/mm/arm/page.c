@@ -137,6 +137,16 @@ MmCreateProcessAddressSpace(IN ULONG MinWs,
     return FALSE;
 }
 
+VOID
+NTAPI
+MmUpdatePageDir(IN PEPROCESS Process,
+                IN PVOID Address,
+                IN ULONG Size)
+{
+    /* Nothing to do */
+    return;
+}
+
 PULONG
 NTAPI
 MmGetPageDirectory(VOID)
@@ -299,3 +309,19 @@ MmInitGlobalKernelPageDirectory(VOID)
     }
 }
 
+/* PUBLIC FUNCTIONS ***********************************************************/
+
+/*
+ * @implemented
+ */
+PHYSICAL_ADDRESS
+NTAPI
+MmGetPhysicalAddress(IN PVOID Address)
+{
+    PHYSICAL_ADDRESS PhysicalAddress;
+    PhysicalAddress.QuadPart = 0;
+
+    UNIMPLEMENTED_DBGBREAK();
+
+    return PhysicalAddress;
+}

@@ -2792,8 +2792,8 @@ struct _KSGATE {
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 void
+__inline
 KsGateTurnInputOn(
     _In_opt_ PKSGATE Gate)
 {
@@ -2805,8 +2805,8 @@ KsGateTurnInputOn(
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 void
+__inline
 KsGateTurnInputOff(
     _In_opt_ PKSGATE Gate)
 {
@@ -2818,8 +2818,8 @@ KsGateTurnInputOff(
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 BOOLEAN
+__inline
 KsGateGetStateUnsafe(
     _In_ PKSGATE Gate)
 {
@@ -2829,8 +2829,8 @@ KsGateGetStateUnsafe(
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 BOOLEAN
+__inline
 KsGateCaptureThreshold(
     _In_ PKSGATE Gate)
 {
@@ -2850,8 +2850,8 @@ KsGateCaptureThreshold(
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 void
+__inline
 KsGateInitialize(
     _In_ PKSGATE Gate,
     _In_ LONG InitialCount,
@@ -2883,8 +2883,8 @@ KsGateInitialize(
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 void
+__inline
 KsGateInitializeAnd(
     _In_ PKSGATE AndGate,
     _In_opt_ PKSGATE NextOrGate)
@@ -2894,8 +2894,8 @@ KsGateInitializeAnd(
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 void
+__inline
 KsGateInitializeOr(
     _In_ PKSGATE OrGate,
     _In_opt_ PKSGATE NextAndGate)
@@ -2905,8 +2905,8 @@ KsGateInitializeOr(
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 void
+__inline
 KsGateAddOnInputToAnd(
     _In_ PKSGATE AndGate)
 {
@@ -2915,8 +2915,8 @@ KsGateAddOnInputToAnd(
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 void
+__inline
 KsGateAddOffInputToAnd(
     _In_ PKSGATE AndGate)
 {
@@ -2925,8 +2925,8 @@ KsGateAddOffInputToAnd(
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 void
+__inline
 KsGateRemoveOnInputFromAnd(
     _In_ PKSGATE AndGate)
 {
@@ -2935,8 +2935,8 @@ KsGateRemoveOnInputFromAnd(
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 void
+__inline
 KsGateRemoveOffInputFromAnd(
     _In_ PKSGATE AndGate)
 {
@@ -2945,8 +2945,8 @@ KsGateRemoveOffInputFromAnd(
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 void
+__inline
 KsGateAddOnInputToOr(
     _In_ PKSGATE OrGate)
 {
@@ -2955,8 +2955,8 @@ KsGateAddOnInputToOr(
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 void
+__inline
 KsGateAddOffInputToOr(
     _In_ PKSGATE OrGate)
 {
@@ -2965,8 +2965,8 @@ KsGateAddOffInputToOr(
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 void
+__inline
 KsGateRemoveOnInputFromOr(
     _In_ PKSGATE OrGate)
 {
@@ -2975,8 +2975,8 @@ KsGateRemoveOnInputFromOr(
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 void
+__inline
 KsGateRemoveOffInputFromOr(
     _In_ PKSGATE OrGate)
 {
@@ -2985,8 +2985,8 @@ KsGateRemoveOffInputFromOr(
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 void
+__inline
 KsGateTerminateAnd(
     _In_ PKSGATE AndGate)
 {
@@ -3003,8 +3003,8 @@ KsGateTerminateAnd(
 
 _IRQL_requires_max_(HIGH_LEVEL)
 static
-__inline
 void
+__inline
 KsGateTerminateOr(
     _In_ PKSGATE OrGate)
 {
@@ -3525,7 +3525,7 @@ NTAPI
 KsMethodHandler(
   _In_ PIRP Irp,
   _In_ ULONG MethodSetsCount,
-  _In_reads_(MethodSetsCount) const KSMETHOD_SET* MethodSet);
+  _In_reads_(MethodSetsCount) const PKSMETHOD_SET MethodSet);
 
 _IRQL_requires_max_(PASSIVE_LEVEL)
 KSDDKAPI
@@ -3534,7 +3534,7 @@ NTAPI
 KsMethodHandlerWithAllocator(
   _In_ PIRP Irp,
   _In_ ULONG MethodSetsCount,
-  _In_reads_(MethodSetsCount) const KSMETHOD_SET* MethodSet,
+  _In_reads_(MethodSetsCount) const PKSMETHOD_SET MethodSet,
   _In_opt_ PFNKSALLOCATOR Allocator,
   _In_opt_ ULONG MethodItemSize);
 
@@ -3576,7 +3576,7 @@ NTAPI
 KsPropertyHandlerWithAllocator(
   _In_ PIRP Irp,
   _In_ ULONG PropertySetsCount,
-  _In_reads_(PropertySetsCount) const KSPROPERTY_SET* PropertySet,
+  _In_reads_(PropertySetsCount) const PKSPROPERTY_SET PropertySet,
   _In_opt_ PFNKSALLOCATOR Allocator,
   _In_opt_ ULONG PropertyItemSize);
 
@@ -3659,7 +3659,7 @@ NTAPI
 KsEnableEventWithAllocator(
   _In_ PIRP Irp,
   _In_ ULONG EventSetsCount,
-  _In_reads_(EventSetsCount) const KSEVENT_SET* EventSet,
+  _In_reads_(EventSetsCount) const PKSEVENT_SET EventSet,
   _Inout_opt_ PLIST_ENTRY EventsList,
   _In_opt_ KSEVENTS_LOCKTYPE EventsFlags,
   _In_opt_ PVOID EventsLock,
@@ -4705,8 +4705,8 @@ KsGetParent(
 
 _IRQL_requires_max_(PASSIVE_LEVEL)
 static
-__inline
 PKSFILTERFACTORY
+__inline
 KsFilterGetParentFilterFactory(
     _In_ PKSFILTER Filter)
 {
@@ -4715,8 +4715,8 @@ KsFilterGetParentFilterFactory(
 
 _IRQL_requires_max_(PASSIVE_LEVEL)
 static
-__inline
 PKSDEVICE
+__inline
 KsFilterFactoryGetParentDevice(
     _In_ PKSFILTERFACTORY FilterFactory)
 {
@@ -4819,7 +4819,7 @@ DEFINE_GUID(IID_IKsControl, 0x28F54685L, 0x06FD, 0x11D2, 0xB2, 0x7A, 0x00, 0xA0,
 
 DECLARE_INTERFACE_(IKsControl,IUnknown)
 {
-    STDMETHOD_(NTSTATUS, QueryInterface)( THIS_
+    STDMETHOD_(NTSTATUS, QueryInterface)( THIS_ 
         REFIID InterfaceId,
         PVOID* Interface)PURE;
 
@@ -4939,8 +4939,8 @@ KsFilterCreatePinFactory(
 
 _IRQL_requires_max_(PASSIVE_LEVEL)
 KSDDKAPI
-__inline
 PKSDEVICE
+__inline
 KsFilterFactoryGetDevice(
   _In_ PKSFILTERFACTORY FilterFactory);
 

@@ -134,10 +134,8 @@ static MSGMEMORY g_MsgMemory[] =
     { WM_SETTINGCHANGE, MMS_SIZE_LPARAMSZ, MMS_FLAG_READ },
     { WM_COPYDATA, MMS_SIZE_SPECIAL, MMS_FLAG_READ },
     { WM_COPYGLOBALDATA, MMS_SIZE_WPARAM, MMS_FLAG_READ },
-    { WM_WINDOWPOSCHANGED, sizeof(WINDOWPOS), MMS_FLAG_READWRITE },
+    { WM_WINDOWPOSCHANGED, sizeof(WINDOWPOS), MMS_FLAG_READ },
     { WM_WINDOWPOSCHANGING, sizeof(WINDOWPOS), MMS_FLAG_READWRITE },
-    { WM_SIZING, sizeof(RECT), MMS_FLAG_READWRITE },
-    { WM_MOVING, sizeof(RECT), MMS_FLAG_READWRITE },
 };
 
 static PMSGMEMORY FASTCALL
@@ -1548,7 +1546,7 @@ co_IntSendMessageWithCallBack( HWND hWnd,
     {
         RETURN(FALSE);
     }
-
+    
     ptiSendTo = IntSendTo(Window, Win32Thread, Msg);
 
     if (Msg & 0x80000000 &&
@@ -1906,22 +1904,6 @@ IntUninitMessagePumpHook()
         return TRUE;
     }
     return FALSE;
-}
-
-BOOL FASTCALL
-IntCallMsgFilter( LPMSG lpmsg, INT code)
-{
-    BOOL Ret = FALSE;
-
-    if ( co_HOOK_CallHooks( WH_SYSMSGFILTER, code, 0, (LPARAM)lpmsg))
-    {
-        Ret = TRUE;
-    }
-    else
-    {
-        Ret = co_HOOK_CallHooks( WH_MSGFILTER, code, 0, (LPARAM)lpmsg);
-    }
-    return Ret;
 }
 
 /** Functions ******************************************************************/
@@ -2755,7 +2737,7 @@ NtUserMessageCall( HWND hWnd,
                                               ((ClientInfo->CI_flags & CI_CURTHPRHOOK) ? 1 : 0),
                                               (LPARAM)&CWP,
                                               Hook->Proc,
-                                              Hook->ihmod,
+                                              Hook->ihmod, 
                                               Hook->offPfn,
                                               Hook->Ansi,
                                               &Hook->ModuleName);
@@ -2774,7 +2756,7 @@ NtUserMessageCall( HWND hWnd,
                                               ((ClientInfo->CI_flags & CI_CURTHPRHOOK) ? 1 : 0),
                                               (LPARAM)&CWPR,
                                               Hook->Proc,
-                                              Hook->ihmod,
+                                              Hook->ihmod, 
                                               Hook->offPfn,
                                               Hook->Ansi,
                                               &Hook->ModuleName);
@@ -2833,7 +2815,7 @@ NtUserWaitForInputIdle( IN HANDLE hProcess,
 
     Status = ObReferenceObjectByHandle(hProcess,
                                        PROCESS_QUERY_INFORMATION,
-                                       *PsProcessType,
+                                       PsProcessType,
                                        UserMode,
                                        (PVOID*)&Process,
                                        NULL);

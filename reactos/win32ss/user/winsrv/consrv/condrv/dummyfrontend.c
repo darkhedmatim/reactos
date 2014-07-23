@@ -99,7 +99,7 @@ DummyChangeTitle(IN OUT PFRONTEND This)
 
 static BOOL NTAPI
 DummyChangeIcon(IN OUT PFRONTEND This,
-                HICON IconHandle)
+                HICON hWindowIcon)
 {
     return TRUE;
 }
@@ -114,13 +114,6 @@ static VOID NTAPI
 DummyGetLargestConsoleWindowSize(IN OUT PFRONTEND This,
                                  PCOORD pSize)
 {
-}
-
-static BOOL NTAPI
-DummyGetSelectionInfo(IN OUT PFRONTEND This,
-                      PCONSOLE_SELECTION_INFO pSelectionInfo)
-{
-    return TRUE;
 }
 
 static BOOL NTAPI
@@ -153,15 +146,15 @@ DummyShowMouseCursor(IN OUT PFRONTEND This,
 
 static BOOL NTAPI
 DummySetMouseCursor(IN OUT PFRONTEND This,
-                    HCURSOR CursorHandle)
+                    HCURSOR hCursor)
 {
     return TRUE;
 }
 
 static HMENU NTAPI
 DummyMenuControl(IN OUT PFRONTEND This,
-                 UINT CmdIdLow,
-                 UINT CmdIdHigh)
+                 UINT cmdIdLow,
+                 UINT cmdIdHigh)
 {
     return NULL;
 }
@@ -190,7 +183,6 @@ static FRONTEND_VTBL DummyVtbl =
     DummyChangeIcon,
     DummyGetConsoleWindowHandle,
     DummyGetLargestConsoleWindowSize,
-    DummyGetSelectionInfo,
     DummySetPalette,
     DummyGetDisplayMode,
     DummySetDisplayMode,

@@ -42,7 +42,7 @@ BOOL WINAPI DllMain(HINSTANCE hInstDLL, DWORD fdwReason, LPVOID lpv)
     return TRUE;
 }
 
-typedef HRESULT (*fnCreateInstance)( void **obj );
+typedef HRESULT (*fnCreateInstance)( IUnknown *outer, void **obj );
 
 struct winhttp_cf
 {
@@ -99,11 +99,14 @@ static HRESULT WINAPI requestcf_CreateInstance(
     if (outer)
         return CLASS_E_NOAGGREGATION;
 
-    hr = cf->pfnCreateInstance( (void **)&unknown );
+    hr = cf->pfnCreateInstance( outer, (void **)&unknown );
     if (FAILED(hr))
         return hr;
 
     hr = IUnknown_QueryInterface( unknown, riid, obj );
+    if (FAILED(hr))
+        return hr;
+
     IUnknown_Release( unknown );
     return hr;
 }

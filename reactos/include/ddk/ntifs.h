@@ -4937,13 +4937,35 @@ FsRtlNotifyStreamFileObject(
   _In_ BOOLEAN SafeToRecurse);
 #endif /* (NTDDI_VERSION >= NTDDI_VISTA) */
 
-extern NTKERNELAPI KSPIN_LOCK    IoStatisticsLock;
-extern NTKERNELAPI ULONG         IoReadOperationCount;
-extern NTKERNELAPI ULONG         IoWriteOperationCount;
-extern NTKERNELAPI ULONG         IoOtherOperationCount;
-extern NTKERNELAPI LARGE_INTEGER IoReadTransferCount;
-extern NTKERNELAPI LARGE_INTEGER IoWriteTransferCount;
-extern NTKERNELAPI LARGE_INTEGER IoOtherTransferCount;
+#define DO_VERIFY_VOLUME                    0x00000002
+#define DO_BUFFERED_IO                      0x00000004
+#define DO_EXCLUSIVE                        0x00000008
+#define DO_DIRECT_IO                        0x00000010
+#define DO_MAP_IO_BUFFER                    0x00000020
+#define DO_DEVICE_HAS_NAME                  0x00000040
+#define DO_DEVICE_INITIALIZING              0x00000080
+#define DO_SYSTEM_BOOT_PARTITION            0x00000100
+#define DO_LONG_TERM_REQUESTS               0x00000200
+#define DO_NEVER_LAST_DEVICE                0x00000400
+#define DO_SHUTDOWN_REGISTERED              0x00000800
+#define DO_BUS_ENUMERATED_DEVICE            0x00001000
+#define DO_POWER_PAGABLE                    0x00002000
+#define DO_POWER_INRUSH                     0x00004000
+#define DO_LOW_PRIORITY_FILESYSTEM          0x00010000
+#define DO_SUPPORTS_TRANSACTIONS            0x00040000
+#define DO_FORCE_NEITHER_IO                 0x00080000
+#define DO_VOLUME_DEVICE_OBJECT             0x00100000
+#define DO_SYSTEM_SYSTEM_PARTITION          0x00200000
+#define DO_SYSTEM_CRITICAL_PARTITION        0x00400000
+#define DO_DISALLOW_EXECUTE                 0x00800000
+
+extern KSPIN_LOCK                   IoStatisticsLock;
+extern ULONG                        IoReadOperationCount;
+extern ULONG                        IoWriteOperationCount;
+extern ULONG                        IoOtherOperationCount;
+extern LARGE_INTEGER                IoReadTransferCount;
+extern LARGE_INTEGER                IoWriteTransferCount;
+extern LARGE_INTEGER                IoOtherTransferCount;
 
 #define IO_FILE_OBJECT_NON_PAGED_POOL_CHARGE    64
 #define IO_FILE_OBJECT_PAGED_POOL_CHARGE        1024
@@ -5709,7 +5731,6 @@ SeLocateProcessImageName(
     ((PSECURITY_SUBJECT_CONTEXT) SubjectContext)->PrimaryToken )
 
 extern NTKERNELAPI PSE_EXPORTS SeExports;
-
 /******************************************************************************
  *                          Process Manager Functions                         *
  ******************************************************************************/
@@ -8392,31 +8413,26 @@ FsRtlRemovePerFileObjectContext(
     (InterlockedDecrement((LONG volatile *)&((FL)->LockRequestsInProgress)));\
 }
 
-#ifdef _NTSYSTEM_
-extern const UCHAR * const FsRtlLegalAnsiCharacterArray;
-#define LEGAL_ANSI_CHARACTER_ARRAY FsRtlLegalAnsiCharacterArray
-#else
-extern const UCHAR * const *FsRtlLegalAnsiCharacterArray;
-__CREATE_NTOS_DATA_IMPORT_ALIAS(FsRtlLegalAnsiCharacterArray)
-#define LEGAL_ANSI_CHARACTER_ARRAY (*FsRtlLegalAnsiCharacterArray)
-#endif
+/* GCC compatible definition, MS one is retarded */
+extern NTKERNELAPI const UCHAR * const FsRtlLegalAnsiCharacterArray;
+#define LEGAL_ANSI_CHARACTER_ARRAY        FsRtlLegalAnsiCharacterArray
 
 #define FsRtlIsAnsiCharacterWild(C) (                                       \
-    FlagOn(LEGAL_ANSI_CHARACTER_ARRAY[(UCHAR)(C)], FSRTL_WILD_CHARACTER ) \
+    FlagOn(FsRtlLegalAnsiCharacterArray[(UCHAR)(C)], FSRTL_WILD_CHARACTER ) \
 )
 
 #define FsRtlIsAnsiCharacterLegalFat(C, WILD) (                                \
-    FlagOn(LEGAL_ANSI_CHARACTER_ARRAY[(UCHAR)(C)], (FSRTL_FAT_LEGAL) |       \
+    FlagOn(FsRtlLegalAnsiCharacterArray[(UCHAR)(C)], (FSRTL_FAT_LEGAL) |       \
                                         ((WILD) ? FSRTL_WILD_CHARACTER : 0 ))  \
 )
 
 #define FsRtlIsAnsiCharacterLegalHpfs(C, WILD) (                               \
-    FlagOn(LEGAL_ANSI_CHARACTER_ARRAY[(UCHAR)(C)], (FSRTL_HPFS_LEGAL) |      \
+    FlagOn(FsRtlLegalAnsiCharacterArray[(UCHAR)(C)], (FSRTL_HPFS_LEGAL) |      \
                                         ((WILD) ? FSRTL_WILD_CHARACTER : 0 ))  \
 )
 
 #define FsRtlIsAnsiCharacterLegalNtfs(C, WILD) (                               \
-    FlagOn(LEGAL_ANSI_CHARACTER_ARRAY[(UCHAR)(C)], (FSRTL_NTFS_LEGAL) |      \
+    FlagOn(FsRtlLegalAnsiCharacterArray[(UCHAR)(C)], (FSRTL_NTFS_LEGAL) |      \
                                         ((WILD) ? FSRTL_WILD_CHARACTER : 0 ))  \
 )
 
@@ -8444,7 +8460,7 @@ __CREATE_NTOS_DATA_IMPORT_ALIAS(FsRtlLegalAnsiCharacterArray)
 #define FsRtlIsUnicodeCharacterWild(C) (                                    \
     (((C) >= 0x40) ?                                                        \
     FALSE :                                                                 \
-    FlagOn(LEGAL_ANSI_CHARACTER_ARRAY[(C)], FSRTL_WILD_CHARACTER ))       \
+    FlagOn(FsRtlLegalAnsiCharacterArray[(C)], FSRTL_WILD_CHARACTER ))       \
 )
 
 #define FsRtlInitPerFileContext( _fc, _owner, _inst, _cb)   \
@@ -8607,7 +8623,7 @@ typedef VOID
     (((PSECTION_OBJECT_POINTERS)(FO)->SectionObjectPointer)->SharedCacheMap != NULL) \
 )
 
-extern NTKERNELAPI ULONG CcFastMdlReadWait;
+extern ULONG CcFastMdlReadWait;
 
 #if (NTDDI_VERSION >= NTDDI_WIN2K)
 
@@ -10989,14 +11005,13 @@ HalGetDmaAlignmentRequirement(
 #define HalGetDmaAlignmentRequirement() 1L
 #endif
 
-#ifdef _NTSYSTEM_
-extern PUSHORT NlsOemLeadByteInfo;
-#define NLS_OEM_LEAD_BYTE_INFO NlsOemLeadByteInfo
-#else
-extern PUSHORT *NlsOemLeadByteInfo;
-__CREATE_NTOS_DATA_IMPORT_ALIAS(NlsOemLeadByteInfo)
-#define NLS_OEM_LEAD_BYTE_INFO (*NlsOemLeadByteInfo)
+extern NTKERNELAPI PUSHORT NlsOemLeadByteInfo;
+#define NLS_OEM_LEAD_BYTE_INFO            NlsOemLeadByteInfo
+
+#ifdef NLS_MB_CODE_PAGE_TAG
+#undef NLS_MB_CODE_PAGE_TAG
 #endif
+#define NLS_MB_CODE_PAGE_TAG              NlsMbOemCodePageTag
 
 #if (NTDDI_VERSION >= NTDDI_VISTA)
 
@@ -11274,6 +11289,15 @@ typedef struct _OBJECT_BASIC_INFORMATION
     ULONG SecurityDescriptorSize;
     LARGE_INTEGER CreationTime;
 } OBJECT_BASIC_INFORMATION, *POBJECT_BASIC_INFORMATION;
+
+typedef struct _BITMAP_RANGE {
+    LIST_ENTRY      Links;
+    LONGLONG        BasePage;
+    ULONG           FirstDirtyPage;
+    ULONG           LastDirtyPage;
+    ULONG           DirtyPages;
+    PULONG          Bitmap;
+} BITMAP_RANGE, *PBITMAP_RANGE;
 
 typedef struct _FILE_COPY_ON_WRITE_INFORMATION {
     BOOLEAN ReplaceIfExists;

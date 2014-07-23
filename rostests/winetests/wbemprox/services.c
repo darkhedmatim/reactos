@@ -115,7 +115,7 @@ static void test_IWbemLocator(void)
     {
         const WCHAR *path;
         HRESULT      result;
-        BOOL         todo;
+        int          todo;
         HRESULT      result_broken;
     }
     test[] =
@@ -124,10 +124,10 @@ static void test_IWbemLocator(void)
         { path1W, WBEM_E_INVALID_NAMESPACE },
         { path2W, WBEM_E_INVALID_NAMESPACE },
         { path3W, WBEM_E_INVALID_NAMESPACE },
-        { path4W, WBEM_E_INVALID_NAMESPACE, FALSE, WBEM_E_INVALID_PARAMETER },
+        { path4W, WBEM_E_INVALID_NAMESPACE, 0, WBEM_E_INVALID_PARAMETER },
         { path5W, WBEM_E_INVALID_NAMESPACE },
-        { path6W, 0x800706ba, TRUE },
-        { path7W, 0x800706ba, TRUE },
+        { path6W, 0x800706ba, 1 },
+        { path7W, 0x800706ba, 1 },
         { path8W, WBEM_E_INVALID_NAMESPACE },
         { path9W, S_OK },
         { path10W, WBEM_E_INVALID_PARAMETER },

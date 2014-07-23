@@ -329,11 +329,11 @@ static const struct IUpdateInstallerVtbl update_installer_vtbl =
     update_installer_get_RebootRequiredBeforeInstallation
 };
 
-HRESULT UpdateInstaller_create( LPVOID *ppObj )
+HRESULT UpdateInstaller_create( IUnknown *pUnkOuter, LPVOID *ppObj )
 {
     update_installer *installer;
 
-    TRACE("(%p)\n", ppObj);
+    TRACE("(%p,%p)\n", pUnkOuter, ppObj);
 
     installer = HeapAlloc( GetProcessHeap(), 0, sizeof(*installer) );
     if (!installer) return E_OUTOFMEMORY;

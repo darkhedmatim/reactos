@@ -27,23 +27,19 @@
 #pragma once
 
 NTSTATUS
-SetupCreateDirectory(
-    PWCHAR DirectoryName);
+SetupCreateDirectory(PWCHAR DirectoryName);
 
 NTSTATUS
-SetupCopyFile(
-    PWCHAR SourceFileName,
-    PWCHAR DestinationFileName);
+SetupCopyFile(PWCHAR SourceFileName,
+	      PWCHAR DestinationFileName);
 
 NTSTATUS
-SetupExtractFile(
-    PWCHAR CabinetFileName,
-    PWCHAR SourceFileName,
-    PWCHAR DestinationFileName);
+SetupExtractFile(PWCHAR CabinetFileName,
+        PWCHAR SourceFileName,
+	      PWCHAR DestinationFileName);
 
 BOOLEAN
-DoesFileExist(
-    PWSTR PathName,
-    PWSTR FileName);
+DoesFileExist(PWSTR PathName,
+	      PWSTR FileName);
 
 /* EOF */

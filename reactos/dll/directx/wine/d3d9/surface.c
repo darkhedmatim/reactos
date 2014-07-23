@@ -58,7 +58,7 @@ static ULONG WINAPI d3d9_surface_AddRef(IDirect3DSurface9 *iface)
         return IUnknown_AddRef(surface->forwardReference);
     }
 
-    refcount = InterlockedIncrement(&surface->resource.refcount);
+    refcount = InterlockedIncrement(&surface->refcount);
     TRACE("%p increasing refcount to %u.\n", iface, refcount);
 
     if (refcount == 1)
@@ -86,7 +86,7 @@ static ULONG WINAPI d3d9_surface_Release(IDirect3DSurface9 *iface)
         return IUnknown_Release(surface->forwardReference);
     }
 
-    refcount = InterlockedDecrement(&surface->resource.refcount);
+    refcount = InterlockedDecrement(&surface->refcount);
     TRACE("%p decreasing refcount to %u.\n", iface, refcount);
 
     if (!refcount)
@@ -140,28 +140,52 @@ static HRESULT WINAPI d3d9_surface_SetPrivateData(IDirect3DSurface9 *iface, REFG
         const void *data, DWORD data_size, DWORD flags)
 {
     struct d3d9_surface *surface = impl_from_IDirect3DSurface9(iface);
+    struct wined3d_resource *resource;
+    HRESULT hr;
+
     TRACE("iface %p, guid %s, data %p, data_size %u, flags %#x.\n",
             iface, debugstr_guid(guid), data, data_size, flags);
 
-    return d3d9_resource_set_private_data(&surface->resource, guid, data, data_size, flags);
+    wined3d_mutex_lock();
+    resource = wined3d_surface_get_resource(surface->wined3d_surface);
+    hr = wined3d_resource_set_private_data(resource, guid, data, data_size, flags);
+    wined3d_mutex_unlock();
+
+    return hr;
 }
 
 static HRESULT WINAPI d3d9_surface_GetPrivateData(IDirect3DSurface9 *iface, REFGUID guid,
         void *data, DWORD *data_size)
 {
     struct d3d9_surface *surface = impl_from_IDirect3DSurface9(iface);
+    struct wined3d_resource *resource;
+    HRESULT hr;
+
     TRACE("iface %p, guid %s, data %p, data_size %p.\n",
             iface, debugstr_guid(guid), data, data_size);
 
-    return d3d9_resource_get_private_data(&surface->resource, guid, data, data_size);
+    wined3d_mutex_lock();
+    resource = wined3d_surface_get_resource(surface->wined3d_surface);
+    hr = wined3d_resource_get_private_data(resource, guid, data, data_size);
+    wined3d_mutex_unlock();
+
+    return hr;
 }
 
 static HRESULT WINAPI d3d9_surface_FreePrivateData(IDirect3DSurface9 *iface, REFGUID guid)
 {
     struct d3d9_surface *surface = impl_from_IDirect3DSurface9(iface);
+    struct wined3d_resource *resource;
+    HRESULT hr;
+
     TRACE("iface %p, guid %s.\n", iface, debugstr_guid(guid));
 
-    return d3d9_resource_free_private_data(&surface->resource, guid);
+    wined3d_mutex_lock();
+    resource = wined3d_surface_get_resource(surface->wined3d_surface);
+    hr = wined3d_resource_free_private_data(resource, guid);
+    wined3d_mutex_unlock();
+
+    return hr;
 }
 
 static DWORD WINAPI d3d9_surface_SetPriority(IDirect3DSurface9 *iface, DWORD priority)
@@ -358,9 +382,7 @@ static const struct IDirect3DSurface9Vtbl d3d9_surface_vtbl =
 
 static void STDMETHODCALLTYPE surface_wined3d_object_destroyed(void *parent)
 {
-    struct d3d9_surface *surface = parent;
-    d3d9_resource_cleanup(&surface->resource);
-    HeapFree(GetProcessHeap(), 0, surface);
+    HeapFree(GetProcessHeap(), 0, parent);
 }
 
 static const struct wined3d_parent_ops d3d9_surface_wined3d_parent_ops =
@@ -374,7 +396,7 @@ void surface_init(struct d3d9_surface *surface, struct wined3d_surface *wined3d_
     struct wined3d_resource_desc desc;
 
     surface->IDirect3DSurface9_iface.lpVtbl = &d3d9_surface_vtbl;
-    d3d9_resource_init(&surface->resource);
+    surface->refcount = 1;
 
     wined3d_resource_get_desc(wined3d_surface_get_resource(wined3d_surface), &desc);
     switch (d3dformat_from_wined3dformat(desc.format))

@@ -20,6 +20,8 @@
 
 #include "quartz_private.h"
 
+#include <shlwapi.h>
+
 static const WCHAR wszOutputPinName[] = { 'O','u','t','p','u','t',0 };
 
 typedef struct AsyncReader
@@ -909,13 +911,14 @@ static HRESULT WINAPI FileAsyncReaderPin_DecideBufferSize(BaseOutputPin *iface, 
     return IMemAllocator_SetProperties(pAlloc, &This->allocProps, &actual);
 }
 
+static const  BasePinFuncTable output_BaseFuncTable = {
+    NULL,
+    FileAsyncReaderPin_AttemptConnection,
+    BasePinImpl_GetMediaTypeVersion,
+    FileAsyncReaderPin_GetMediaType
+};
+
 static const BaseOutputPinFuncTable output_BaseOutputFuncTable = {
-    {
-        NULL,
-        FileAsyncReaderPin_AttemptConnection,
-        BasePinImpl_GetMediaTypeVersion,
-        FileAsyncReaderPin_GetMediaType
-    },
     FileAsyncReaderPin_DecideBufferSize,
     BaseOutputPinImpl_DecideAllocator,
     BaseOutputPinImpl_BreakConnect
@@ -930,7 +933,7 @@ static HRESULT FileAsyncReader_Construct(HANDLE hFile, IBaseFilter * pBaseFilter
     piOutput.dir = PINDIR_OUTPUT;
     piOutput.pFilter = pBaseFilter;
     strcpyW(piOutput.achName, wszOutputPinName);
-    hr = BaseOutputPin_Construct(&FileAsyncReaderPin_Vtbl, sizeof(FileAsyncReader), &piOutput, &output_BaseOutputFuncTable, pCritSec, ppPin);
+    hr = BaseOutputPin_Construct(&FileAsyncReaderPin_Vtbl, sizeof(FileAsyncReader), &piOutput, &output_BaseFuncTable, &output_BaseOutputFuncTable, pCritSec, ppPin);
 
     if (SUCCEEDED(hr))
     {

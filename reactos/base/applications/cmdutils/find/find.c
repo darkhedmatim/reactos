@@ -125,12 +125,11 @@ find_str (char *sz, FILE *p, int invert_search,
 void
 usage (void)
 {
-  WCHAR wszUsage[4096];
-  char oemUsage[4096];
+	TCHAR lpUsage[4096];
 
-  LoadStringW (GetModuleHandleW (NULL), IDS_USAGE, wszUsage, sizeof(wszUsage) / sizeof(wszUsage[0]));
-  CharToOemW (wszUsage, oemUsage);
-  fputs (oemUsage, stdout);
+	LoadString( GetModuleHandle(NULL), IDS_USAGE, (LPTSTR)lpUsage, 4096);
+	CharToOem(lpUsage, lpUsage);
+	printf( lpUsage );
 }
 
 
@@ -140,8 +139,7 @@ main (int argc, char **argv)
 {
   char *opt, *needle = NULL;
   int ret = 0;
-  WCHAR wszMessage[4096];
-  char oemMessage[4096];
+  TCHAR lpMessage[4096];
 
   int invert_search = 0;		/* flag to invert the search */
   int count_lines = 0;			/* flag to whether/not count lines */
@@ -218,9 +216,9 @@ main (int argc, char **argv)
 	{
 	  /* We were not able to find a file. Display a message and
 	     set the exit status. */
-	  LoadStringW (GetModuleHandleW (NULL), IDS_NO_SUCH_FILE, wszMessage, sizeof(wszMessage) / sizeof(wszMessage[0]));
-	  CharToOemW (wszMessage, oemMessage);
-	  fprintf (stderr, oemMessage, *argv);
+	  LoadString( GetModuleHandle(NULL), IDS_NO_SUCH_FILE, (LPTSTR)lpMessage, 4096);
+	  CharToOem(lpMessage, lpMessage);
+	  fprintf (stderr, lpMessage, *argv);//
 	}
       else
         {
@@ -237,9 +235,9 @@ main (int argc, char **argv)
 	        }
  	      else
 	        {
-	          LoadStringW (GetModuleHandleW (NULL), IDS_CANNOT_OPEN, wszMessage, sizeof(wszMessage) / sizeof(wszMessage[0]));
-	          CharToOemW (wszMessage, oemMessage);
-	          fprintf (stderr, oemMessage,
+	          LoadString(GetModuleHandle(NULL), IDS_CANNOT_OPEN, (LPTSTR)lpMessage, 4096);
+	          CharToOem(lpMessage, lpMessage);
+	          fprintf (stderr, lpMessage,
 		           finddata.name);
                 }
 	    }

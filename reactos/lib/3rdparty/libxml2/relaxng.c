@@ -8347,7 +8347,7 @@ xmlRelaxNGValidatePushElement(xmlRelaxNGValidCtxtPtr ctxt,
  * xmlRelaxNGValidatePushCData:
  * @ctxt:  the RelaxNG validation context
  * @data:  some character data read
- * @len:  the length of the data
+ * @len:  the lenght of the data
  *
  * check the CData parsed for validation in the current stack
  *

@@ -205,7 +205,7 @@ GpStatus WINGDIPAPI GdipPathIterNextSubpath(GpPathIterator* iterator,
 
     if(iterator->subpath_pos == count){
         *startIndex = *endIndex = *resultCount = 0;
-        *isClosed = TRUE;
+        *isClosed = 1;
         return Ok;
     }
 

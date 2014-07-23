@@ -149,7 +149,9 @@ static BOOL DP_CreateDirectPlay2( LPVOID lpDP )
   This->dp2->spData.lpCB->dwVersion = DPSP_MAJORVERSION;
 
   /* This is the pointer to the service provider */
-  if ( FAILED( dplaysp_create( &IID_IDirectPlaySP, (void**)&This->dp2->spData.lpISP, This ) ) )
+  if( FAILED( DPSP_CreateInterface( &IID_IDirectPlaySP,
+                                    (LPVOID*)&This->dp2->spData.lpISP, This ) )
+    )
   {
     /* FIXME: Memory leak */
     return FALSE;
@@ -161,7 +163,8 @@ static BOOL DP_CreateDirectPlay2( LPVOID lpDP )
                                          sizeof( *This->dp2->dplspData.lpCB ) );
   This->dp2->dplspData.lpCB->dwSize = sizeof(  *This->dp2->dplspData.lpCB );
 
-  if( FAILED( dplobbysp_create( &IID_IDPLobbySP, (void**)&This->dp2->dplspData.lpISP, This ) )
+  if( FAILED( DPLSP_CreateInterface( &IID_IDPLobbySP,
+                                     (LPVOID*)&This->dp2->dplspData.lpISP, This ) )
     )
   {
     /* FIXME: Memory leak */
@@ -300,17 +303,28 @@ HRESULT DP_HandleMessage( IDirectPlayImpl *This, const void *lpcMessageBody,
 
     case DPMSGCMD_GETNAMETABLEREPLY:
     case DPMSGCMD_NEWPLAYERIDREPLY:
+#if 0
+      if( wCommandId == DPMSGCMD_NEWPLAYERIDREPLY )
+        DebugBreak();
+#endif
       DP_MSG_ReplyReceived( This, wCommandId, lpcMessageBody, dwMessageBodySize );
       break;
 
+#if 1
     case DPMSGCMD_JUSTENVELOPE:
       TRACE( "GOT THE SELF MESSAGE: %p -> 0x%08x\n", lpcMessageHeader, ((const DWORD *)lpcMessageHeader)[1] );
       NS_SetLocalAddr( This->dp2->lpNameServerData, lpcMessageHeader, 20 );
       DP_MSG_ReplyReceived( This, wCommandId, lpcMessageBody, dwMessageBodySize );
+#endif
 
     case DPMSGCMD_FORWARDADDPLAYER:
+#if 0
+      DebugBreak();
+#endif
+#if 1
       TRACE( "Sending message to self to get my addr\n" );
       DP_MSG_ToSelf( This, 1 ); /* This is a hack right now */
+#endif
       break;
 
     case DPMSGCMD_FORWARDADDPLAYERNACK:
@@ -1636,7 +1650,7 @@ static HRESULT DP_IF_CreatePlayer( IDirectPlayImpl *This, void *lpMsgHdr, DPID *
   }
 
 #if 1
-  if( !This->dp2->bHostInterface )
+  if( This->dp2->bHostInterface == FALSE )
   {
     /* Let the name server know about the creation of this player */
     /* FIXME: Is this only to be done for the creation of a server player or
@@ -4610,7 +4624,7 @@ static HMODULE DP_LoadSP( LPCGUID lpcGuid, LPSPINITDATA lpSpData, LPBOOL lpbIsDp
     FILETIME filetime;
 
     (i == 0) ? (searchSubKey = spSubKey ) : (searchSubKey = lpSubKey );
-    *lpbIsDpSp = (i == 0);
+    *lpbIsDpSp = (i == 0) ? TRUE : FALSE;
 
 
     /* Need to loop over the service providers in the registry */

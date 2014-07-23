@@ -31,12 +31,13 @@ BOOLEAN NlsMbOemCodePageTag = FALSE; /* exported */
 PWCHAR NlsOemToUnicodeTable = NULL;
 PCHAR NlsUnicodeToOemTable =NULL;
 PWCHAR NlsDbcsUnicodeToOemTable = NULL;
-PUSHORT NlsOemLeadByteInfo = NULL; /* exported */
+PUSHORT _NlsOemLeadByteInfo = NULL; /* exported */
 
 USHORT NlsOemDefaultChar = '\0';
 USHORT NlsUnicodeDefaultChar = 0;
 
 
+#define NlsOemLeadByteInfo              _NlsOemLeadByteInfo
 #define INIT_FUNCTION
 
 /* FUNCTIONS *****************************************************************/

@@ -390,7 +390,7 @@ BehaviorChecks(HANDLE FileHandleReadOnly, HANDLE FileHandleWriteOnly)
         Status = PsCreateSystemThread(&SysThreadHandle, STANDARD_RIGHTS_ALL, &ObjectAttributes, NULL, NULL, SystemProcessWorker, NULL);
         if (!skip(NT_SUCCESS(Status), "Error creating System thread. Error = %p\n", Status))
         {
-            Status = ObReferenceObjectByHandle(SysThreadHandle, THREAD_ALL_ACCESS, *PsThreadType, KernelMode, &ThreadObject, NULL);
+            Status = ObReferenceObjectByHandle(SysThreadHandle, THREAD_ALL_ACCESS, PsThreadType, KernelMode, &ThreadObject, NULL);
             if (!skip(NT_SUCCESS(Status), "Error getting reference to System thread when testing file-backed section\n"))
             {
                 //wait until the system thread actually terminates
@@ -515,7 +515,7 @@ PageFileBehaviorChecks()
 
             if (!skip(NT_SUCCESS(Status), "Error creating System thread. Error = %p\n", Status))
             {
-                Status = ObReferenceObjectByHandle(SysThreadHandle, THREAD_ALL_ACCESS, *PsThreadType, KernelMode, &ThreadObject, NULL);
+                Status = ObReferenceObjectByHandle(SysThreadHandle, THREAD_ALL_ACCESS, PsThreadType, KernelMode, &ThreadObject, NULL);
                 if (!skip(NT_SUCCESS(Status), "Error getting reference to System thread when testing pagefile-backed section\n"))
                 {
                     //wait until the system thread actually terminates

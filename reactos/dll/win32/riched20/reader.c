@@ -41,6 +41,8 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(richedit);
 
+extern HANDLE me_heap;
+
 static int	_RTFGetChar(RTF_Info *);
 static void	_RTFGetToken (RTF_Info *);
 static void	_RTFGetToken2 (RTF_Info *);
@@ -245,7 +247,7 @@ void RTFInit(RTF_Info *info)
 	info->rtfLineNum = 0;
 	info->rtfLinePos = 0;
 	info->prevChar = EOF;
-        info->bumpLine = FALSE;
+	info->bumpLine = 0;
 
 	info->dwCPOutputCount = 0;
         if (!info->cpOutputBuffer)
@@ -711,7 +713,7 @@ static void _RTFGetToken2(RTF_Info *info)
 static int GetChar(RTF_Info *info)
 {
 	int	c;
-        BOOL    oldBumpLine;
+	int	oldBumpLine;
 
 	if ((c = _RTFGetChar(info)) != EOF)
 	{
@@ -719,16 +721,16 @@ static int GetChar(RTF_Info *info)
 		info->rtfTextBuf[info->rtfTextLen] = '\0';
 	}
 	if (info->prevChar == EOF)
-                info->bumpLine = TRUE;
-        oldBumpLine = info->bumpLine; /* TRUE if prev char was line ending */
-        info->bumpLine = FALSE;
+		info->bumpLine = 1;
+	oldBumpLine = info->bumpLine;	/* non-zero if prev char was line ending */
+	info->bumpLine = 0;
 	if (c == '\r')
-                info->bumpLine = TRUE;
+		info->bumpLine = 1;
 	else if (c == '\n')
 	{
-                info->bumpLine = TRUE;
+		info->bumpLine = 1;
 		if (info->prevChar == '\r')		/* oops, previous \r wasn't */
-                        oldBumpLine = FALSE;	/* really a line ending */
+			oldBumpLine = 0;	/* really a line ending */
 	}
 	++info->rtfLinePos;
 	if (oldBumpLine)	/* were we supposed to increment the */

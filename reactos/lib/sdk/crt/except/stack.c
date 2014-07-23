@@ -38,8 +38,7 @@ void _chkesp_failed(void)
 int CDECL _resetstkoflw(void)
 {
     int stack_addr;
-    DWORD oldprot;
 
     /* causes stack fault that updates NtCurrentTeb()->Tib.StackLimit */
-    return VirtualProtect(&stack_addr, 1, PAGE_GUARD|PAGE_READWRITE, &oldprot);
+    return VirtualProtect( &stack_addr, 1, PAGE_GUARD|PAGE_READWRITE, NULL );
 }

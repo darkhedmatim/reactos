@@ -210,17 +210,17 @@ static void test_GetAcceptLanguagesA(void)
     original[0] = 0;
     res_query = RegQueryValueExA(hroot, acceptlanguage, 0, NULL, (PBYTE)original, &len);
 
-    RegDeleteValueA(hroot, acceptlanguage);
+    RegDeleteValue(hroot, acceptlanguage);
 
     /* Some windows versions use "lang-COUNTRY" as default */
     memset(language, 0, sizeof(language));
     len = GetLocaleInfoA(lcid, LOCALE_SISO639LANGNAME, language, sizeof(language));
 
     if (len) {
-        lstrcatA(language, "-");
+        lstrcat(language, "-");
         memset(buffer, 0, sizeof(buffer));
         len = GetLocaleInfoA(lcid, LOCALE_SISO3166CTRYNAME, buffer, sizeof(buffer) - len - 1);
-        lstrcatA(language, buffer);
+        lstrcat(language, buffer);
     }
     else
     {
@@ -340,7 +340,7 @@ static void test_GetAcceptLanguagesA(void)
     }
 
     /* without a value in the registry, a default language is returned */
-    RegDeleteValueA(hroot, acceptlanguage);
+    RegDeleteValue(hroot, acceptlanguage);
 
     len = maxlen;
     memset(buffer, '#', maxlen);
@@ -399,7 +399,7 @@ restore_original:
     }
     else
     {
-        RegDeleteValueA(hroot, acceptlanguage);
+        RegDeleteValue(hroot, acceptlanguage);
     }
     RegCloseKey(hroot);
 }
@@ -1570,14 +1570,14 @@ static void test_SHSetWindowBits(void)
     clsA.cbWndExtra = 0;
     clsA.hInstance = GetModuleHandleA(NULL);
     clsA.hIcon = 0;
-    clsA.hCursor = LoadCursorA(0, (LPSTR)IDC_ARROW);
+    clsA.hCursor = LoadCursorA(0, IDC_ARROW);
     clsA.hbrBackground = NULL;
     clsA.lpszMenuName = NULL;
     clsA.lpszClassName = "Shlwapi test class";
     RegisterClassA(&clsA);
 
     hwnd = CreateWindowA("Shlwapi test class", "Test", WS_VISIBLE, 0, 0, 100, 100,
-                          NULL, NULL, GetModuleHandleA(NULL), 0);
+                          NULL, NULL, GetModuleHandle(NULL), 0);
     ok(IsWindow(hwnd), "failed to create window\n");
 
     /* null window */
@@ -1693,14 +1693,14 @@ if (0)
     flags = FDTF_NOAUTOREADINGORDER | FDTF_SHORTTIME;
     ret = pSHFormatDateTimeA(&filetime, &flags, buff, sizeof(buff));
     ok(ret == lstrlenA(buff)+1, "got %d\n", ret);
-    ret = GetTimeFormatA(LOCALE_USER_DEFAULT, TIME_NOSECONDS, &st, NULL, buff2, sizeof(buff2));
+    ret = GetTimeFormat(LOCALE_USER_DEFAULT, TIME_NOSECONDS, &st, NULL, buff2, sizeof(buff2));
     ok(ret == lstrlenA(buff2)+1, "got %d\n", ret);
     ok(lstrcmpA(buff, buff2) == 0, "expected (%s), got (%s)\n", buff2, buff);
 
     flags = FDTF_NOAUTOREADINGORDER | FDTF_LONGTIME;
     ret = pSHFormatDateTimeA(&filetime, &flags, buff, sizeof(buff));
     ok(ret == lstrlenA(buff)+1, "got %d\n", ret);
-    ret = GetTimeFormatA(LOCALE_USER_DEFAULT, 0, &st, NULL, buff2, sizeof(buff2));
+    ret = GetTimeFormat(LOCALE_USER_DEFAULT, 0, &st, NULL, buff2, sizeof(buff2));
     ok(ret == lstrlenA(buff2)+1, "got %d\n", ret);
     ok(lstrcmpA(buff, buff2) == 0, "expected (%s), got (%s)\n", buff2, buff);
 
@@ -1708,21 +1708,21 @@ if (0)
     flags = FDTF_NOAUTOREADINGORDER | FDTF_LONGTIME | FDTF_SHORTTIME;
     ret = pSHFormatDateTimeA(&filetime, &flags, buff, sizeof(buff));
     ok(ret == lstrlenA(buff)+1, "got %d\n", ret);
-    ret = GetTimeFormatA(LOCALE_USER_DEFAULT, 0, &st, NULL, buff2, sizeof(buff2));
+    ret = GetTimeFormat(LOCALE_USER_DEFAULT, 0, &st, NULL, buff2, sizeof(buff2));
     ok(ret == lstrlenA(buff2)+1, "got %d\n", ret);
     ok(lstrcmpA(buff, buff2) == 0, "expected (%s), got (%s)\n", buff2, buff);
 
     flags = FDTF_NOAUTOREADINGORDER | FDTF_SHORTDATE;
     ret = pSHFormatDateTimeA(&filetime, &flags, buff, sizeof(buff));
     ok(ret == lstrlenA(buff)+1, "got %d\n", ret);
-    ret = GetDateFormatA(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, NULL, buff2, sizeof(buff2));
+    ret = GetDateFormat(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, NULL, buff2, sizeof(buff2));
     ok(ret == lstrlenA(buff2)+1, "got %d\n", ret);
     ok(lstrcmpA(buff, buff2) == 0, "expected (%s), got (%s)\n", buff2, buff);
 
     flags = FDTF_NOAUTOREADINGORDER | FDTF_LONGDATE;
     ret = pSHFormatDateTimeA(&filetime, &flags, buff, sizeof(buff));
     ok(ret == lstrlenA(buff)+1, "got %d\n", ret);
-    ret = GetDateFormatA(LOCALE_USER_DEFAULT, DATE_LONGDATE, &st, NULL, buff2, sizeof(buff2));
+    ret = GetDateFormat(LOCALE_USER_DEFAULT, DATE_LONGDATE, &st, NULL, buff2, sizeof(buff2));
     ok(ret == lstrlenA(buff2)+1, "got %d\n", ret);
     ok(lstrcmpA(buff, buff2) == 0, "expected (%s), got (%s)\n", buff2, buff);
 
@@ -1730,7 +1730,7 @@ if (0)
     flags = FDTF_NOAUTOREADINGORDER | FDTF_LONGDATE | FDTF_SHORTDATE;
     ret = pSHFormatDateTimeA(&filetime, &flags, buff, sizeof(buff));
     ok(ret == lstrlenA(buff)+1, "got %d\n", ret);
-    ret = GetDateFormatA(LOCALE_USER_DEFAULT, DATE_LONGDATE, &st, NULL, buff2, sizeof(buff2));
+    ret = GetDateFormat(LOCALE_USER_DEFAULT, DATE_LONGDATE, &st, NULL, buff2, sizeof(buff2));
     ok(ret == lstrlenA(buff2)+1, "got %d\n", ret);
     ok(lstrcmpA(buff, buff2) == 0, "expected (%s), got (%s)\n", buff2, buff);
 
@@ -1738,12 +1738,12 @@ if (0)
     flags = FDTF_NOAUTOREADINGORDER | FDTF_LONGDATE | FDTF_SHORTTIME;
     ret = pSHFormatDateTimeA(&filetime, &flags, buff, sizeof(buff));
     ok(ret == lstrlenA(buff)+1, "got %d, length %d\n", ret, lstrlenA(buff)+1);
-    ret = GetTimeFormatA(LOCALE_USER_DEFAULT, TIME_NOSECONDS, &st, NULL, buff3, sizeof(buff3));
+    ret = GetTimeFormat(LOCALE_USER_DEFAULT, TIME_NOSECONDS, &st, NULL, buff3, sizeof(buff3));
     ok(ret == lstrlenA(buff3)+1, "got %d\n", ret);
     ok(lstrcmpA(buff3, buff + lstrlenA(buff) - lstrlenA(buff3)) == 0,
        "expected (%s), got (%s) for time part\n",
        buff3, buff + lstrlenA(buff) - lstrlenA(buff3));
-    ret = GetDateFormatA(LOCALE_USER_DEFAULT, DATE_LONGDATE, &st, NULL, buff2, sizeof(buff2));
+    ret = GetDateFormat(LOCALE_USER_DEFAULT, DATE_LONGDATE, &st, NULL, buff2, sizeof(buff2));
     ok(ret == lstrlenA(buff2)+1, "got %d\n", ret);
     buff[lstrlenA(buff2)] = '\0';
     ok(lstrcmpA(buff2, buff) == 0, "expected (%s) got (%s) for date part\n",
@@ -1752,12 +1752,12 @@ if (0)
     flags = FDTF_NOAUTOREADINGORDER | FDTF_LONGDATE | FDTF_LONGTIME;
     ret = pSHFormatDateTimeA(&filetime, &flags, buff, sizeof(buff));
     ok(ret == lstrlenA(buff)+1, "got %d\n", ret);
-    ret = GetTimeFormatA(LOCALE_USER_DEFAULT, 0, &st, NULL, buff3, sizeof(buff3));
+    ret = GetTimeFormat(LOCALE_USER_DEFAULT, 0, &st, NULL, buff3, sizeof(buff3));
     ok(ret == lstrlenA(buff3)+1, "got %d\n", ret);
     ok(lstrcmpA(buff3, buff + lstrlenA(buff) - lstrlenA(buff3)) == 0,
        "expected (%s), got (%s) for time part\n",
        buff3, buff + lstrlenA(buff) - lstrlenA(buff3));
-    ret = GetDateFormatA(LOCALE_USER_DEFAULT, DATE_LONGDATE, &st, NULL, buff2, sizeof(buff2));
+    ret = GetDateFormat(LOCALE_USER_DEFAULT, DATE_LONGDATE, &st, NULL, buff2, sizeof(buff2));
     ok(ret == lstrlenA(buff2)+1, "got %d\n", ret);
     buff[lstrlenA(buff2)] = '\0';
     ok(lstrcmpA(buff2, buff) == 0, "expected (%s) got (%s) for date part\n",
@@ -1766,10 +1766,10 @@ if (0)
     flags = FDTF_NOAUTOREADINGORDER | FDTF_SHORTDATE | FDTF_SHORTTIME;
     ret = pSHFormatDateTimeA(&filetime, &flags, buff, sizeof(buff));
     ok(ret == lstrlenA(buff)+1, "got %d\n", ret);
-    ret = GetDateFormatA(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, NULL, buff2, sizeof(buff2));
+    ret = GetDateFormat(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, NULL, buff2, sizeof(buff2));
     ok(ret == lstrlenA(buff2)+1, "got %d\n", ret);
     strcat(buff2, " ");
-    ret = GetTimeFormatA(LOCALE_USER_DEFAULT, TIME_NOSECONDS, &st, NULL, buff3, sizeof(buff3));
+    ret = GetTimeFormat(LOCALE_USER_DEFAULT, TIME_NOSECONDS, &st, NULL, buff3, sizeof(buff3));
     ok(ret == lstrlenA(buff3)+1, "got %d\n", ret);
     strcat(buff2, buff3);
     ok(lstrcmpA(buff, buff2) == 0, "expected (%s), got (%s)\n", buff2, buff);
@@ -1777,10 +1777,10 @@ if (0)
     flags = FDTF_NOAUTOREADINGORDER | FDTF_SHORTDATE | FDTF_LONGTIME;
     ret = pSHFormatDateTimeA(&filetime, &flags, buff, sizeof(buff));
     ok(ret == lstrlenA(buff)+1, "got %d\n", ret);
-    ret = GetDateFormatA(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, NULL, buff2, sizeof(buff2));
+    ret = GetDateFormat(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, NULL, buff2, sizeof(buff2));
     ok(ret == lstrlenA(buff2)+1, "got %d\n", ret);
     strcat(buff2, " ");
-    ret = GetTimeFormatA(LOCALE_USER_DEFAULT, 0, &st, NULL, buff3, sizeof(buff3));
+    ret = GetTimeFormat(LOCALE_USER_DEFAULT, 0, &st, NULL, buff3, sizeof(buff3));
     ok(ret == lstrlenA(buff3)+1, "got %d\n", ret);
     strcat(buff2, buff3);
     ok(lstrcmpA(buff, buff2) == 0, "expected (%s), got (%s)\n", buff2, buff);
@@ -2278,7 +2278,7 @@ static const IServiceProviderVtbl IServiceProviderImpl_Vtbl =
 
 static void test_IUnknown_QueryServiceExec(void)
 {
-    IServiceProvider *provider;
+    IServiceProvider *provider = IServiceProviderImpl_Construct();
     static const GUID dummy_serviceid = { 0xdeadbeef };
     static const GUID dummy_groupid = { 0xbeefbeef };
     call_trace_t trace_expected;
@@ -2291,8 +2291,6 @@ static void test_IUnknown_QueryServiceExec(void)
         win_skip("IUnknown_QueryServiceExec is not available\n");
         return;
     }
-
-    provider = IServiceProviderImpl_Construct();
 
     /* null source pointer */
     hr = pIUnknown_QueryServiceExec(NULL, &dummy_serviceid, &dummy_groupid, 0, 0, 0, 0);
@@ -2392,8 +2390,8 @@ static const IProfferServiceVtbl IProfferServiceImpl_Vtbl =
 
 static void test_IUnknown_ProfferService(void)
 {
-    IServiceProvider *provider;
-    IProfferService *proff;
+    IServiceProvider *provider = IServiceProviderImpl_Construct();
+    IProfferService *proff = IProfferServiceImpl_Construct();
     static const GUID dummy_serviceid = { 0xdeadbeef };
     call_trace_t trace_expected;
     HRESULT hr;
@@ -2406,9 +2404,6 @@ static void test_IUnknown_ProfferService(void)
         win_skip("IUnknown_ProfferService is not available\n");
         return;
     }
-
-    provider = IServiceProviderImpl_Construct();
-    proff = IProfferServiceImpl_Construct();
 
     /* null source pointer */
     hr = pIUnknown_ProfferService(NULL, &dummy_serviceid, 0, 0);
@@ -2477,7 +2472,7 @@ static void test_SHCreateWorkerWindowA(void)
     hwnd = pSHCreateWorkerWindowA(0, NULL, 0, 0, 0, 0);
     ok(hwnd != 0, "expected window\n");
 
-    GetClassNameA(hwnd, classA, 20);
+    GetClassName(hwnd, classA, 20);
     ok(lstrcmpA(classA, "WorkerA") == 0, "expected WorkerA class, got %s\n", classA);
 
     ret = GetWindowLongPtrA(hwnd, 0);
@@ -2485,7 +2480,7 @@ static void test_SHCreateWorkerWindowA(void)
 
     /* class info */
     memset(&cliA, 0, sizeof(cliA));
-    res = GetClassInfoA(GetModuleHandleA("shlwapi.dll"), "WorkerA", &cliA);
+    res = GetClassInfoA(GetModuleHandle("shlwapi.dll"), "WorkerA", &cliA);
     ok(res, "failed to get class info\n");
     ok(cliA.style == 0, "got 0x%08x\n", cliA.style);
     ok(cliA.cbClsExtra == 0, "got %d\n", cliA.cbClsExtra);
@@ -2498,7 +2493,7 @@ static void test_SHCreateWorkerWindowA(void)
     hwnd = pSHCreateWorkerWindowA(0, NULL, 0, 0, 0, 0xdeadbeef);
     ok(hwnd != 0, "expected window\n");
 
-    GetClassNameA(hwnd, classA, 20);
+    GetClassName(hwnd, classA, 20);
     ok(lstrcmpA(classA, "WorkerA") == 0, "expected WorkerA class, got %s\n", classA);
 
     ret = GetWindowLongPtrA(hwnd, 0);

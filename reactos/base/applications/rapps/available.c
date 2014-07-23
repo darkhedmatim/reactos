@@ -179,16 +179,12 @@ EnumAvailableApplications(INT EnumType, AVAILENUMPROC lpEnumProc)
     if (!GetLocaleInfoW(GetUserDefaultLCID(), LOCALE_ILANGUAGE,
                         szLocale, sizeof(szLocale) / sizeof(WCHAR)))
     {
-        FindClose(hFind);
         return FALSE;
     }
 
     hr = StringCbCatW(szSectionLocale, sizeof(szSectionLocale), szLocale);
     if (FAILED(hr))
-    {
-        FindClose(hFind);
         return FALSE;
-    }
 
 #define GET_STRING1(a, b)  \
     if (!ParserGetString(szSectionLocale, a, b, MAX_PATH, FindFileData.cFileName)) \
@@ -223,7 +219,7 @@ EnumAvailableApplications(INT EnumType, AVAILENUMPROC lpEnumProc)
         GET_STRING2(L"URLSite", Info.szUrlSite);
         GET_STRING2(L"CDPath", Info.szCDPath);
 
-        if (!lpEnumProc(&Info)) break;
+        if (!lpEnumProc(Info)) break;
     } while (FindNextFileW(hFind, &FindFileData) != 0);
 
     FindClose(hFind);

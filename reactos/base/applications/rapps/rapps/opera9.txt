@@ -1,5 +1,4 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = Opera
@@ -23,7 +22,7 @@ Description = Le populaire navigateur Opera avec beaucoup de fonctionnalités av
 Size = 7,21 Mo
 
 [Section.0410]
-Description = Il famoso browser Opera con funzionalità avanzate come un client BitTorrent integrato e la gestione delle Mail.
+Description = Il famoso browser Opera con features avanzate come un client BitTorrent integrato e la gestione delle Mail.
 
 [Section.0413]
 Description = De populaire Opera Browser met vele gevorderde mogelijkheden, inclusief e-mail en BitTorrent afnemers.
@@ -41,7 +40,7 @@ Description = Популярный браузер со многими допол
 
 [Section.041f]
 Licence = Ücretsiz
-Description = Bir posta ve BitTorrent istemcisini kapsayan birçok gelişmiş husûsiyetle, tutulan Opera Tarayıcı.
+Description = Tutulan Opera Tarayıcı, birçok gelişmiş husûsiyetle ve kendi mail ve BitTorrent istemcileriyle birlikte gelir.
 Size = 7,21 MB
 
 [Section.0422]

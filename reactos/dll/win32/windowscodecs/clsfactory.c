@@ -22,7 +22,7 @@ extern HRESULT WINAPI WIC_DllGetClassObject(REFCLSID, REFIID, LPVOID *) DECLSPEC
 
 typedef struct {
     REFCLSID classid;
-    HRESULT (*constructor)(REFIID,void**);
+    HRESULT (*constructor)(IUnknown*,REFIID,void**);
 } classinfo;
 
 static const classinfo wic_classes[] = {
@@ -112,11 +112,7 @@ static HRESULT WINAPI ClassFactoryImpl_CreateInstance(IClassFactory *iface,
 {
     ClassFactoryImpl *This = impl_from_IClassFactory(iface);
 
-    *ppv = NULL;
-
-    if (pUnkOuter) return CLASS_E_NOAGGREGATION;
-
-    return This->info->constructor(riid, ppv);
+    return This->info->constructor(pUnkOuter, riid, ppv);
 }
 
 static HRESULT WINAPI ClassFactoryImpl_LockServer(IClassFactory *iface, BOOL lock)

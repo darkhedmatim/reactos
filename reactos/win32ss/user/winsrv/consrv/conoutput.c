@@ -232,8 +232,8 @@ CSR_API(SrvCreateConsoleScreenBuffer)
         /* Get infos from the graphics buffer information structure */
         if (!CsrValidateMessageBuffer(ApiMessage,
                                       (PVOID*)&CreateScreenBufferRequest->GraphicsBufferInfo.lpBitMapInfo,
-                                      CreateScreenBufferRequest->GraphicsBufferInfo.dwBitMapInfoLength,
-                                      sizeof(BYTE)))
+                                      1,
+                                      CreateScreenBufferRequest->GraphicsBufferInfo.dwBitMapInfoLength))
         {
             Status = STATUS_INVALID_PARAMETER;
             goto Quit;
@@ -242,13 +242,11 @@ CSR_API(SrvCreateConsoleScreenBuffer)
         ScreenBufferInfo = &GraphicsInfo;
 
         /* Initialize shared variables */
-        // CreateScreenBufferRequest->GraphicsBufferInfo.hMutex
-        CreateScreenBufferRequest->hMutex   = GraphicsInfo.Info.hMutex   = INVALID_HANDLE_VALUE;
-        // CreateScreenBufferRequest->GraphicsBufferInfo.lpBitMap
-        CreateScreenBufferRequest->lpBitMap = GraphicsInfo.Info.lpBitMap = NULL;
+        CreateScreenBufferRequest->GraphicsBufferInfo.hMutex   = GraphicsInfo.Info.hMutex   = INVALID_HANDLE_VALUE;
+        CreateScreenBufferRequest->GraphicsBufferInfo.lpBitMap = GraphicsInfo.Info.lpBitMap = NULL;
 
         /* A graphics screen buffer is never inheritable */
-        CreateScreenBufferRequest->InheritHandle = FALSE;
+        CreateScreenBufferRequest->Inheritable = FALSE;
     }
 
     Status = ConDrvCreateScreenBuffer(&Buff,
@@ -263,8 +261,8 @@ CSR_API(SrvCreateConsoleScreenBuffer)
     Status = ConSrvInsertObject(ProcessData,
                                 &CreateScreenBufferRequest->OutputHandle,
                                 &Buff->Header,
-                                CreateScreenBufferRequest->DesiredAccess,
-                                CreateScreenBufferRequest->InheritHandle,
+                                CreateScreenBufferRequest->Access,
+                                CreateScreenBufferRequest->Inheritable,
                                 CreateScreenBufferRequest->ShareMode);
 
     RtlLeaveCriticalSection(&ProcessData->HandleTableLock);
@@ -278,10 +276,8 @@ CSR_API(SrvCreateConsoleScreenBuffer)
          * Initialize the graphics buffer information structure
          * and give it back to the client.
          */
-        // CreateScreenBufferRequest->GraphicsBufferInfo.hMutex
-        CreateScreenBufferRequest->hMutex   = Buffer->ClientMutex;
-        // CreateScreenBufferRequest->GraphicsBufferInfo.lpBitMap
-        CreateScreenBufferRequest->lpBitMap = Buffer->ClientBitMap;
+        CreateScreenBufferRequest->GraphicsBufferInfo.hMutex   = Buffer->ClientMutex;
+        CreateScreenBufferRequest->GraphicsBufferInfo.lpBitMap = Buffer->ClientBitMap;
     }
 
 Quit:
@@ -687,14 +683,9 @@ CSR_API(SrvFillConsoleOutput)
 }
 
 NTSTATUS NTAPI
-ConDrvGetConsoleScreenBufferInfo(IN  PCONSOLE Console,
-                                 IN  PTEXTMODE_SCREEN_BUFFER Buffer,
-                                 OUT PCOORD ScreenBufferSize,
-                                 OUT PCOORD CursorPosition,
-                                 OUT PCOORD ViewOrigin,
-                                 OUT PCOORD ViewSize,
-                                 OUT PCOORD MaximumViewSize,
-                                 OUT PWORD  Attributes);
+ConDrvGetConsoleScreenBufferInfo(IN PCONSOLE Console,
+                                 IN PTEXTMODE_SCREEN_BUFFER Buffer,
+                                 OUT PCONSOLE_SCREEN_BUFFER_INFO ScreenBufferInfo);
 CSR_API(SrvGetConsoleScreenBufferInfo)
 {
     NTSTATUS Status;
@@ -710,12 +701,7 @@ CSR_API(SrvGetConsoleScreenBufferInfo)
 
     Status = ConDrvGetConsoleScreenBufferInfo(Buffer->Header.Console,
                                               Buffer,
-                                              &ScreenBufferInfoRequest->ScreenBufferSize,
-                                              &ScreenBufferInfoRequest->CursorPosition,
-                                              &ScreenBufferInfoRequest->ViewOrigin,
-                                              &ScreenBufferInfoRequest->ViewSize,
-                                              &ScreenBufferInfoRequest->MaximumViewSize,
-                                              &ScreenBufferInfoRequest->Attributes);
+                                              &ScreenBufferInfoRequest->Info);
 
     ConSrvReleaseScreenBuffer(Buffer, TRUE);
     return Status;
@@ -724,7 +710,7 @@ CSR_API(SrvGetConsoleScreenBufferInfo)
 NTSTATUS NTAPI
 ConDrvSetConsoleTextAttribute(IN PCONSOLE Console,
                               IN PTEXTMODE_SCREEN_BUFFER Buffer,
-                              IN WORD Attributes);
+                              IN WORD Attribute);
 CSR_API(SrvSetConsoleTextAttribute)
 {
     NTSTATUS Status;
@@ -740,7 +726,7 @@ CSR_API(SrvSetConsoleTextAttribute)
 
     Status = ConDrvSetConsoleTextAttribute(Buffer->Header.Console,
                                            Buffer,
-                                           SetTextAttribRequest->Attributes);
+                                           SetTextAttribRequest->Attrib);
 
     ConSrvReleaseScreenBuffer(Buffer, TRUE);
     return Status;

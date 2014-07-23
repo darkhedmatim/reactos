@@ -53,9 +53,6 @@ static HRESULT (WINAPI *pDllGetClassObject)(REFCLSID,REFIID,LPVOID);
 #define ok_more_than_one_lock() ok(cLocks > 0, "Number of locks should be > 0, but actually is %d\n", cLocks)
 #define ok_no_locks() ok(cLocks == 0, "Number of locks should be 0, but actually is %d\n", cLocks)
 #define ok_ole_success(hr, func) ok(hr == S_OK, #func " failed with error 0x%08x\n", hr)
-#define ok_non_zero_external_conn() do {if (with_external_conn) ok(external_connections, "got no external connections\n");} while(0);
-#define ok_zero_external_conn() do {if (with_external_conn) ok(!external_connections, "got %d external connections\n", external_connections);} while(0);
-#define ok_last_release_closes(b) do {if (with_external_conn) ok(last_release_closes == b, "got %d expected %d\n", last_release_closes, b);} while(0);
 
 static const IID IID_IWineTest =
 {
@@ -116,52 +113,6 @@ static void UnlockModule(void)
     InterlockedDecrement(&cLocks);
 }
 
-static BOOL with_external_conn;
-static DWORD external_connections;
-static BOOL last_release_closes;
-
-static HRESULT WINAPI ExternalConnection_QueryInterface(IExternalConnection *iface, REFIID riid, void **ppv)
-{
-    ok(0, "unxpected call\n");
-    *ppv = NULL;
-    return E_NOINTERFACE;
-}
-
-static ULONG WINAPI ExternalConnection_AddRef(IExternalConnection *iface)
-{
-    return 2;
-}
-
-static ULONG WINAPI ExternalConnection_Release(IExternalConnection *iface)
-{
-    return 1;
-}
-
-static DWORD WINAPI ExternalConnection_AddConnection(IExternalConnection *iface, DWORD extconn, DWORD reserved)
-{
-    trace("add connection\n");
-    return ++external_connections;
-}
-
-
-static DWORD WINAPI ExternalConnection_ReleaseConnection(IExternalConnection *iface, DWORD extconn,
-        DWORD reserved, BOOL fLastReleaseCloses)
-{
-    trace("release connection %d\n", fLastReleaseCloses);
-    last_release_closes = fLastReleaseCloses;
-    return --external_connections;
-}
-
-static const IExternalConnectionVtbl ExternalConnectionVtbl = {
-    ExternalConnection_QueryInterface,
-    ExternalConnection_AddRef,
-    ExternalConnection_Release,
-    ExternalConnection_AddConnection,
-    ExternalConnection_ReleaseConnection
-};
-
-static IExternalConnection ExternalConnection = { &ExternalConnectionVtbl };
-
 
 static HRESULT WINAPI Test_IUnknown_QueryInterface(
     LPUNKNOWN iface,
@@ -217,12 +168,6 @@ static HRESULT WINAPI Test_IClassFactory_QueryInterface(
     {
         *ppvObj = iface;
         IClassFactory_AddRef(iface);
-        return S_OK;
-    }
-
-    if (with_external_conn && IsEqualGUID(riid, &IID_IExternalConnection))
-    {
-        *ppvObj = &ExternalConnection;
         return S_OK;
     }
 
@@ -302,11 +247,11 @@ static DWORD CALLBACK host_object_proc(LPVOID p)
     ok_ole_success(hr, CoMarshalInterface);
 
     /* force the message queue to be created before signaling parent thread */
-    PeekMessageA(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);
+    PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);
 
     SetEvent(data->marshal_event);
 
-    while (GetMessageA(&msg, NULL, 0, 0))
+    while (GetMessage(&msg, NULL, 0, 0))
     {
         if (msg.hwnd == NULL && msg.message == RELEASEMARSHALDATA)
         {
@@ -314,7 +259,7 @@ static DWORD CALLBACK host_object_proc(LPVOID p)
             SetEvent((HANDLE)msg.lParam);
         }
         else
-            DispatchMessageA(&msg);
+            DispatchMessage(&msg);
     }
 
     HeapFree(GetProcessHeap(), 0, data);
@@ -327,7 +272,7 @@ static DWORD CALLBACK host_object_proc(LPVOID p)
 static DWORD start_host_object2(IStream *stream, REFIID riid, IUnknown *object, MSHLFLAGS marshal_flags, IMessageFilter *filter, HANDLE *thread)
 {
     DWORD tid = 0;
-    HANDLE marshal_event = CreateEventA(NULL, FALSE, FALSE, NULL);
+    HANDLE marshal_event = CreateEvent(NULL, FALSE, FALSE, NULL);
     struct host_object_data *data = HeapAlloc(GetProcessHeap(), 0, sizeof(*data));
 
     data->stream = stream;
@@ -353,17 +298,17 @@ static DWORD start_host_object(IStream *stream, REFIID riid, IUnknown *object, M
 
 /* asks thread to release the marshal data because it has to be done by the
  * same thread that marshaled the interface in the first place. */
-static void release_host_object(DWORD tid, WPARAM wp)
+static void release_host_object(DWORD tid)
 {
-    HANDLE event = CreateEventA(NULL, FALSE, FALSE, NULL);
-    PostThreadMessageA(tid, RELEASEMARSHALDATA, wp, (LPARAM)event);
+    HANDLE event = CreateEvent(NULL, FALSE, FALSE, NULL);
+    PostThreadMessage(tid, RELEASEMARSHALDATA, 0, (LPARAM)event);
     ok( !WaitForSingleObject(event, 10000), "wait timed out\n" );
     CloseHandle(event);
 }
 
 static void end_host_object(DWORD tid, HANDLE thread)
 {
-    BOOL ret = PostThreadMessageA(tid, WM_QUIT, 0, 0);
+    BOOL ret = PostThreadMessage(tid, WM_QUIT, 0, 0);
     ok(ret, "PostThreadMessage failed with error %d\n", GetLastError());
     /* be careful of races - don't return until hosting thread has terminated */
     ok( !WaitForSingleObject(thread, 10000), "wait timed out\n" );
@@ -392,7 +337,6 @@ static void test_normal_marshal_and_release(void)
     IStream *pStream = NULL;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
@@ -400,7 +344,6 @@ static void test_normal_marshal_and_release(void)
     ok_ole_success(hr, CoMarshalInterface);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoReleaseMarshalData(pStream);
@@ -408,8 +351,6 @@ static void test_normal_marshal_and_release(void)
     IStream_Release(pStream);
 
     ok_no_locks();
-    ok_zero_external_conn();
-    ok_last_release_closes(TRUE);
 }
 
 /* tests success case of a same-thread marshal and unmarshal */
@@ -420,7 +361,6 @@ static void test_normal_marshal_and_unmarshal(void)
     IUnknown *pProxy = NULL;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
@@ -428,7 +368,6 @@ static void test_normal_marshal_and_unmarshal(void)
     ok_ole_success(hr, CoMarshalInterface);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
     
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy);
@@ -436,8 +375,6 @@ static void test_normal_marshal_and_unmarshal(void)
     IStream_Release(pStream);
 
     ok_more_than_one_lock();
-    ok_zero_external_conn();
-    ok_last_release_closes(FALSE);
 
     IUnknown_Release(pProxy);
 
@@ -455,22 +392,18 @@ static void test_marshal_and_unmarshal_invalid(void)
     HANDLE thread;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
     tid = start_host_object(pStream, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHLFLAGS_NORMAL, &thread);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
-
+	
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoReleaseMarshalData(pStream);
     ok_ole_success(hr, CoReleaseMarshalData);
 
     ok_no_locks();
-    ok_zero_external_conn();
-    ok_last_release_closes(TRUE);
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy);
@@ -499,7 +432,6 @@ static void test_same_apartment_unmarshal_failure(void)
     static const LARGE_INTEGER llZero;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
@@ -508,7 +440,6 @@ static void test_same_apartment_unmarshal_failure(void)
     ok_ole_success(hr, CoMarshalInterface);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     hr = IStream_Seek(pStream, llZero, STREAM_SEEK_SET, NULL);
     ok_ole_success(hr, IStream_Seek);
@@ -517,8 +448,6 @@ static void test_same_apartment_unmarshal_failure(void)
     ok(hr == E_NOINTERFACE, "CoUnmarshalInterface should have returned E_NOINTERFACE instead of 0x%08x\n", hr);
 
     ok_no_locks();
-    ok_zero_external_conn();
-    ok_last_release_closes(FALSE);
 
     IStream_Release(pStream);
 }
@@ -533,14 +462,12 @@ static void test_interthread_marshal_and_unmarshal(void)
     HANDLE thread;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
     tid = start_host_object(pStream, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHLFLAGS_NORMAL, &thread);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
     
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy);
@@ -548,13 +475,10 @@ static void test_interthread_marshal_and_unmarshal(void)
     IStream_Release(pStream);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IUnknown_Release(pProxy);
 
     ok_no_locks();
-    ok_zero_external_conn();
-    ok_last_release_closes(TRUE);
 
     end_host_object(tid, thread);
 }
@@ -575,14 +499,12 @@ static void test_proxy_marshal_and_unmarshal(void)
     int i;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
     tid = start_host_object(pStream, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHLFLAGS_NORMAL, &thread);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
     
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy);
@@ -615,7 +537,6 @@ static void test_proxy_marshal_and_unmarshal(void)
     ok_ole_success(hr, CoUnmarshalInterface);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IUnknown_Release(pProxy2);
 
@@ -629,8 +550,6 @@ static void test_proxy_marshal_and_unmarshal(void)
     }
 
     ok_no_locks();
-    ok_zero_external_conn();
-    ok_last_release_closes(TRUE);
 
     IStream_Release(pStream);
 
@@ -649,14 +568,12 @@ static void test_proxy_marshal_and_unmarshal2(void)
     HANDLE thread;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
     tid = start_host_object(pStream, &IID_IUnknown, (IUnknown*)&Test_ClassFactory, MSHLFLAGS_NORMAL, &thread);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IUnknown, (void **)&pProxy);
@@ -691,13 +608,10 @@ static void test_proxy_marshal_and_unmarshal2(void)
     IUnknown_Release(pProxy);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IUnknown_Release(pProxy2);
 
     ok_no_locks();
-    ok_zero_external_conn();
-    ok_last_release_closes(TRUE);
 
     end_host_object(tid, thread);
 }
@@ -713,21 +627,18 @@ static void test_proxy_marshal_and_unmarshal_weak(void)
     HANDLE thread;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
     tid = start_host_object(pStream, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHLFLAGS_NORMAL, &thread);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy);
     ok_ole_success(hr, CoUnmarshalInterface);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     /* marshal the proxy */
@@ -735,7 +646,6 @@ static void test_proxy_marshal_and_unmarshal_weak(void)
     ok_ole_success(hr, CoMarshalInterface);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     /* release the original proxy to test that we successfully keep the
      * original object alive */
@@ -747,8 +657,6 @@ static void test_proxy_marshal_and_unmarshal_weak(void)
     ok(hr == CO_E_OBJNOTREG, "CoUnmarshalInterface should return CO_E_OBJNOTREG instead of 0x%08x\n", hr);
 
     ok_no_locks();
-    ok_zero_external_conn();
-    ok_last_release_closes(TRUE);
 
     IStream_Release(pStream);
 
@@ -766,21 +674,18 @@ static void test_proxy_marshal_and_unmarshal_strong(void)
     HANDLE thread;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
     tid = start_host_object(pStream, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHLFLAGS_NORMAL, &thread);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy);
     ok_ole_success(hr, CoUnmarshalInterface);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     /* marshal the proxy */
@@ -794,7 +699,6 @@ static void test_proxy_marshal_and_unmarshal_strong(void)
     }
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     /* release the original proxy to test that we successfully keep the
      * original object alive */
@@ -805,12 +709,10 @@ static void test_proxy_marshal_and_unmarshal_strong(void)
     ok_ole_success(hr, CoUnmarshalInterface);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IUnknown_Release(pProxy2);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
 end:
     IStream_Release(pStream);
@@ -818,10 +720,6 @@ end:
     end_host_object(tid, thread);
 
     ok_no_locks();
-todo_wine {
-    ok_zero_external_conn();
-    ok_last_release_closes(FALSE);
-}
 }
 
 /* tests that stubs are released when the containing apartment is destroyed */
@@ -834,14 +732,12 @@ static void test_marshal_stub_apartment_shutdown(void)
     HANDLE thread;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
     tid = start_host_object(pStream, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHLFLAGS_NORMAL, &thread);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
     
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy);
@@ -849,15 +745,10 @@ static void test_marshal_stub_apartment_shutdown(void)
     IStream_Release(pStream);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     end_host_object(tid, thread);
 
     ok_no_locks();
-todo_wine {
-    ok_zero_external_conn();
-    ok_last_release_closes(FALSE);
-}
 
     IUnknown_Release(pProxy);
 
@@ -874,14 +765,12 @@ static void test_marshal_proxy_apartment_shutdown(void)
     HANDLE thread;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
     tid = start_host_object(pStream, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHLFLAGS_NORMAL, &thread);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
     
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy);
@@ -889,13 +778,10 @@ static void test_marshal_proxy_apartment_shutdown(void)
     IStream_Release(pStream);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     CoUninitialize();
 
     ok_no_locks();
-    ok_zero_external_conn();
-    ok_last_release_closes(TRUE);
 
     IUnknown_Release(pProxy);
 
@@ -919,14 +805,12 @@ static void test_marshal_proxy_mta_apartment_shutdown(void)
     pCoInitializeEx(NULL, COINIT_MULTITHREADED);
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
     tid = start_host_object(pStream, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHLFLAGS_NORMAL, &thread);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy);
@@ -934,13 +818,10 @@ static void test_marshal_proxy_mta_apartment_shutdown(void)
     IStream_Release(pStream);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     CoUninitialize();
 
     ok_no_locks();
-    ok_zero_external_conn();
-    ok_last_release_closes(TRUE);
 
     IUnknown_Release(pProxy);
 
@@ -990,10 +871,9 @@ static void test_no_couninitialize_server(void)
     struct ncu_params ncu_params;
 
     cLocks = 0;
-    external_connections = 0;
 
-    ncu_params.marshal_event = CreateEventA(NULL, TRUE, FALSE, NULL);
-    ncu_params.unmarshal_event = CreateEventA(NULL, TRUE, FALSE, NULL);
+    ncu_params.marshal_event = CreateEvent(NULL, TRUE, FALSE, NULL);
+    ncu_params.unmarshal_event = CreateEvent(NULL, TRUE, FALSE, NULL);
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
@@ -1003,7 +883,6 @@ static void test_no_couninitialize_server(void)
 
     ok( !WaitForSingleObject(ncu_params.marshal_event, 10000), "wait timed out\n" );
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy);
@@ -1011,16 +890,11 @@ static void test_no_couninitialize_server(void)
     IStream_Release(pStream);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     SetEvent(ncu_params.unmarshal_event);
     ok( !WaitForSingleObject(thread, 10000), "wait timed out\n" );
 
     ok_no_locks();
-todo_wine {
-    ok_zero_external_conn();
-    ok_last_release_closes(FALSE);
-}
 
     CloseHandle(thread);
     CloseHandle(ncu_params.marshal_event);
@@ -1063,7 +937,6 @@ static void test_no_couninitialize_client(void)
     struct ncu_params ncu_params;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
@@ -1075,7 +948,6 @@ static void test_no_couninitialize_client(void)
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     thread = CreateThread(NULL, 0, no_couninitialize_client_proc, &ncu_params, 0, &tid);
 
@@ -1083,8 +955,6 @@ static void test_no_couninitialize_client(void)
     CloseHandle(thread);
 
     ok_no_locks();
-    ok_zero_external_conn();
-    ok_last_release_closes(TRUE);
 
     end_host_object(host_tid, host_thread);
 }
@@ -1100,48 +970,34 @@ static void test_tableweak_marshal_and_unmarshal_twice(void)
     HANDLE thread;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
     tid = start_host_object(pStream, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHLFLAGS_TABLEWEAK, &thread);
 
     ok_more_than_one_lock();
-    ok_zero_external_conn();
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy1);
     ok_ole_success(hr, CoUnmarshalInterface);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy2);
+    IStream_Release(pStream);
     ok_ole_success(hr, CoUnmarshalInterface);
 
     ok_more_than_one_lock();
 
     IUnknown_Release(pProxy1);
-    ok_non_zero_external_conn();
     IUnknown_Release(pProxy2);
-    ok_zero_external_conn();
-    ok_last_release_closes(TRUE);
 
-    /* When IExternalConnection is present COM's lifetime management
-     * behaviour is altered; the remaining weak ref prevents stub shutdown. */
-    if (with_external_conn)
-    {
-        ok_more_than_one_lock();
-        IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
-        release_host_object(tid, 0);
-    }
-
-    /* Without IExternalConnection this line is shows the difference between weak and strong table marshaling
-     * weak has cLocks == 0, strong has cLocks > 0. */
+    /* this line is shows the difference between weak and strong table marshaling:
+     *  weak has cLocks == 0
+     *  strong has cLocks > 0 */
     ok_no_locks();
 
-    IStream_Release(pStream);
     end_host_object(tid, thread);
 }
 
@@ -1156,29 +1012,25 @@ static void test_tableweak_marshal_releasedata1(void)
     HANDLE thread;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
     tid = start_host_object(pStream, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHLFLAGS_TABLEWEAK, &thread);
 
     ok_more_than_one_lock();
-    ok_zero_external_conn();
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy1);
     ok_ole_success(hr, CoUnmarshalInterface);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     /* release the remaining reference on the object by calling
      * CoReleaseMarshalData in the hosting thread */
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
-    release_host_object(tid, 0);
+    release_host_object(tid);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy2);
@@ -1186,22 +1038,15 @@ static void test_tableweak_marshal_releasedata1(void)
     IStream_Release(pStream);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IUnknown_Release(pProxy1);
-
     if (pProxy2)
-    {
-        ok_non_zero_external_conn();
         IUnknown_Release(pProxy2);
-    }
 
     /* this line is shows the difference between weak and strong table marshaling:
      *  weak has cLocks == 0
      *  strong has cLocks > 0 */
     ok_no_locks();
-    ok_zero_external_conn();
-    ok_last_release_closes(TRUE);
 
     end_host_object(tid, thread);
 }
@@ -1216,19 +1061,17 @@ static void test_tableweak_marshal_releasedata2(void)
     HANDLE thread;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
     tid = start_host_object(pStream, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHLFLAGS_TABLEWEAK, &thread);
 
     ok_more_than_one_lock();
-    ok_zero_external_conn();
 
     /* release the remaining reference on the object by calling
      * CoReleaseMarshalData in the hosting thread */
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
-    release_host_object(tid, 0);
+    release_host_object(tid);
 
     ok_no_locks();
 
@@ -1243,51 +1086,42 @@ static void test_tableweak_marshal_releasedata2(void)
     IStream_Release(pStream);
 
     ok_no_locks();
-    ok_zero_external_conn();
 
     end_host_object(tid, thread);
 }
 
-struct duo_marshal_data
+struct weak_and_normal_marshal_data
 {
-    MSHLFLAGS marshal_flags1, marshal_flags2;
-    IStream *pStream1, *pStream2;
+    IStream *pStreamWeak;
+    IStream *pStreamNormal;
     HANDLE hReadyEvent;
     HANDLE hQuitEvent;
 };
 
-static DWORD CALLBACK duo_marshal_thread_proc(void *p)
+static DWORD CALLBACK weak_and_normal_marshal_thread_proc(void *p)
 {
     HRESULT hr;
-    struct duo_marshal_data *data = p;
+    struct weak_and_normal_marshal_data *data = p;
     HANDLE hQuitEvent = data->hQuitEvent;
     MSG msg;
 
     pCoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
 
-    hr = CoMarshalInterface(data->pStream1, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHCTX_INPROC, NULL, data->marshal_flags1);
+    hr = CoMarshalInterface(data->pStreamWeak, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHCTX_INPROC, NULL, MSHLFLAGS_TABLEWEAK);
     ok_ole_success(hr, "CoMarshalInterface");
 
-    hr = CoMarshalInterface(data->pStream2, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHCTX_INPROC, NULL, data->marshal_flags2);
+    hr = CoMarshalInterface(data->pStreamNormal, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHCTX_INPROC, NULL, MSHLFLAGS_NORMAL);
     ok_ole_success(hr, "CoMarshalInterface");
 
     /* force the message queue to be created before signaling parent thread */
-    PeekMessageA(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);
+    PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);
 
     SetEvent(data->hReadyEvent);
 
     while (WAIT_OBJECT_0 + 1 == MsgWaitForMultipleObjects(1, &hQuitEvent, FALSE, 10000, QS_ALLINPUT))
     {
-        while (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE))
-        {
-            if (msg.hwnd == NULL && msg.message == RELEASEMARSHALDATA)
-            {
-                CoReleaseMarshalData(msg.wParam == 1 ? data->pStream1 : data->pStream2);
-                SetEvent((HANDLE)msg.lParam);
-            }
-            else
-                DispatchMessageA(&msg);
-        }
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+            DispatchMessage(&msg);
     }
     CloseHandle(hQuitEvent);
 
@@ -1304,37 +1138,31 @@ static void test_tableweak_and_normal_marshal_and_unmarshal(void)
     IUnknown *pProxyNormal = NULL;
     DWORD tid;
     HANDLE thread;
-    struct duo_marshal_data data;
+    struct weak_and_normal_marshal_data data;
 
     cLocks = 0;
-    external_connections = 0;
 
-    data.hReadyEvent = CreateEventA(NULL, FALSE, FALSE, NULL);
-    data.hQuitEvent = CreateEventA(NULL, FALSE, FALSE, NULL);
-    data.marshal_flags1 = MSHLFLAGS_TABLEWEAK;
-    data.marshal_flags2 = MSHLFLAGS_NORMAL;
-    hr = CreateStreamOnHGlobal(NULL, TRUE, &data.pStream1);
+    data.hReadyEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+    data.hQuitEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+    hr = CreateStreamOnHGlobal(NULL, TRUE, &data.pStreamWeak);
     ok_ole_success(hr, CreateStreamOnHGlobal);
-    hr = CreateStreamOnHGlobal(NULL, TRUE, &data.pStream2);
+    hr = CreateStreamOnHGlobal(NULL, TRUE, &data.pStreamNormal);
     ok_ole_success(hr, CreateStreamOnHGlobal);
 
-    thread = CreateThread(NULL, 0, duo_marshal_thread_proc, &data, 0, &tid);
+    thread = CreateThread(NULL, 0, weak_and_normal_marshal_thread_proc, &data, 0, &tid);
     ok( !WaitForSingleObject(data.hReadyEvent, 10000), "wait timed out\n" );
     CloseHandle(data.hReadyEvent);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
-    /* weak */
-    IStream_Seek(data.pStream1, ullZero, STREAM_SEEK_SET, NULL);
-    hr = CoUnmarshalInterface(data.pStream1, &IID_IClassFactory, (void **)&pProxyWeak);
+    IStream_Seek(data.pStreamWeak, ullZero, STREAM_SEEK_SET, NULL);
+    hr = CoUnmarshalInterface(data.pStreamWeak, &IID_IClassFactory, (void **)&pProxyWeak);
     ok_ole_success(hr, CoUnmarshalInterface);
 
     ok_more_than_one_lock();
 
-    /* normal */
-    IStream_Seek(data.pStream2, ullZero, STREAM_SEEK_SET, NULL);
-    hr = CoUnmarshalInterface(data.pStream2, &IID_IClassFactory, (void **)&pProxyNormal);
+    IStream_Seek(data.pStreamNormal, ullZero, STREAM_SEEK_SET, NULL);
+    hr = CoUnmarshalInterface(data.pStreamNormal, &IID_IClassFactory, (void **)&pProxyNormal);
     ok_ole_success(hr, CoUnmarshalInterface);
 
     ok_more_than_one_lock();
@@ -1342,120 +1170,13 @@ static void test_tableweak_and_normal_marshal_and_unmarshal(void)
     IUnknown_Release(pProxyNormal);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IUnknown_Release(pProxyWeak);
 
-    ok_zero_external_conn();
-    ok_last_release_closes(TRUE);
-
-    /* When IExternalConnection is present COM's lifetime management
-     * behaviour is altered; the remaining weak ref prevents stub shutdown. */
-    if (with_external_conn)
-    {
-        ok_more_than_one_lock();
-        IStream_Seek(data.pStream1, ullZero, STREAM_SEEK_SET, NULL);
-        release_host_object(tid, 1);
-    }
     ok_no_locks();
 
-    IStream_Release(data.pStream1);
-    IStream_Release(data.pStream2);
-
-    SetEvent(data.hQuitEvent);
-    ok( !WaitForSingleObject(thread, 10000), "wait timed out\n" );
-    CloseHandle(thread);
-}
-
-static void test_tableweak_and_normal_marshal_and_releasedata(void)
-{
-    HRESULT hr;
-    DWORD tid;
-    HANDLE thread;
-    struct duo_marshal_data data;
-
-    cLocks = 0;
-    external_connections = 0;
-
-    data.hReadyEvent = CreateEventA(NULL, FALSE, FALSE, NULL);
-    data.hQuitEvent = CreateEventA(NULL, FALSE, FALSE, NULL);
-    data.marshal_flags1 = MSHLFLAGS_TABLEWEAK;
-    data.marshal_flags2 = MSHLFLAGS_NORMAL;
-    hr = CreateStreamOnHGlobal(NULL, TRUE, &data.pStream1);
-    ok_ole_success(hr, CreateStreamOnHGlobal);
-    hr = CreateStreamOnHGlobal(NULL, TRUE, &data.pStream2);
-    ok_ole_success(hr, CreateStreamOnHGlobal);
-
-    thread = CreateThread(NULL, 0, duo_marshal_thread_proc, &data, 0, &tid);
-    ok( !WaitForSingleObject(data.hReadyEvent, 10000), "wait timed out\n" );
-    CloseHandle(data.hReadyEvent);
-
-    ok_more_than_one_lock();
-    ok_non_zero_external_conn();
-
-    /* release normal - which in the non-external conn case will free the object despite the weak ref. */
-    IStream_Seek(data.pStream2, ullZero, STREAM_SEEK_SET, NULL);
-    release_host_object(tid, 2);
-
-    ok_zero_external_conn();
-    ok_last_release_closes(TRUE);
-
-    if (with_external_conn)
-    {
-        ok_more_than_one_lock();
-        IStream_Seek(data.pStream1, ullZero, STREAM_SEEK_SET, NULL);
-        release_host_object(tid, 1);
-    }
-
-    ok_no_locks();
-
-    IStream_Release(data.pStream1);
-    IStream_Release(data.pStream2);
-
-    SetEvent(data.hQuitEvent);
-    ok( !WaitForSingleObject(thread, 10000), "wait timed out\n" );
-    CloseHandle(thread);
-}
-
-static void test_two_tableweak_marshal_and_releasedata(void)
-{
-    HRESULT hr;
-    DWORD tid;
-    HANDLE thread;
-    struct duo_marshal_data data;
-
-    cLocks = 0;
-    external_connections = 0;
-
-    data.hReadyEvent = CreateEventA(NULL, FALSE, FALSE, NULL);
-    data.hQuitEvent = CreateEventA(NULL, FALSE, FALSE, NULL);
-    data.marshal_flags1 = MSHLFLAGS_TABLEWEAK;
-    data.marshal_flags2 = MSHLFLAGS_TABLEWEAK;
-    hr = CreateStreamOnHGlobal(NULL, TRUE, &data.pStream1);
-    ok_ole_success(hr, CreateStreamOnHGlobal);
-    hr = CreateStreamOnHGlobal(NULL, TRUE, &data.pStream2);
-    ok_ole_success(hr, CreateStreamOnHGlobal);
-
-    thread = CreateThread(NULL, 0, duo_marshal_thread_proc, &data, 0, &tid);
-    ok( !WaitForSingleObject(data.hReadyEvent, 10000), "wait timed out\n" );
-    CloseHandle(data.hReadyEvent);
-
-    ok_more_than_one_lock();
-    ok_zero_external_conn();
-
-    /* release one weak ref - the remaining weak ref will keep the obj alive */
-    IStream_Seek(data.pStream1, ullZero, STREAM_SEEK_SET, NULL);
-    release_host_object(tid, 1);
-
-    ok_more_than_one_lock();
-
-    IStream_Seek(data.pStream2, ullZero, STREAM_SEEK_SET, NULL);
-    release_host_object(tid, 2);
-
-    ok_no_locks();
-
-    IStream_Release(data.pStream1);
-    IStream_Release(data.pStream2);
+    IStream_Release(data.pStreamWeak);
+    IStream_Release(data.pStreamNormal);
 
     SetEvent(data.hQuitEvent);
     ok( !WaitForSingleObject(thread, 10000), "wait timed out\n" );
@@ -1473,14 +1194,12 @@ static void test_tablestrong_marshal_and_unmarshal_twice(void)
     HANDLE thread;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
     tid = start_host_object(pStream, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHLFLAGS_TABLESTRONG, &thread);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy1);
@@ -1505,12 +1224,10 @@ static void test_tablestrong_marshal_and_unmarshal_twice(void)
     /* release the remaining reference on the object by calling
      * CoReleaseMarshalData in the hosting thread */
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
-    release_host_object(tid, 0);
+    release_host_object(tid);
     IStream_Release(pStream);
 
     ok_no_locks();
-    ok_zero_external_conn();
-    ok_last_release_closes(TRUE);
 
     end_host_object(tid, thread);
 }
@@ -1522,20 +1239,16 @@ static void test_lock_object_external(void)
     IStream *pStream = NULL;
 
     cLocks = 0;
-    external_connections = 0;
 
     /* test the stub manager creation aspect of CoLockObjectExternal when the
      * object hasn't been marshaled yet */
     CoLockObjectExternal((IUnknown*)&Test_ClassFactory, TRUE, TRUE);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     CoDisconnectObject((IUnknown*)&Test_ClassFactory, 0);
 
     ok_no_locks();
-    ok_non_zero_external_conn();
-    external_connections = 0;
 
     /* test our empty stub manager being handled correctly in
      * CoMarshalInterface */
@@ -1549,7 +1262,6 @@ static void test_lock_object_external(void)
     CoLockObjectExternal((IUnknown*)&Test_ClassFactory, TRUE, TRUE);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoReleaseMarshalData(pStream);
@@ -1557,20 +1269,14 @@ static void test_lock_object_external(void)
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
-    ok_last_release_closes(TRUE);
 
     CoLockObjectExternal((IUnknown*)&Test_ClassFactory, FALSE, TRUE);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
-    ok_last_release_closes(TRUE);
 
     CoLockObjectExternal((IUnknown*)&Test_ClassFactory, FALSE, TRUE);
 
     ok_no_locks();
-    ok_zero_external_conn();
-    ok_last_release_closes(TRUE);
 
     /* test CoLockObjectExternal releases reference to object with
      * fLastUnlockReleases as TRUE and there are only strong references on
@@ -1578,13 +1284,10 @@ static void test_lock_object_external(void)
     CoLockObjectExternal((IUnknown*)&Test_ClassFactory, TRUE, FALSE);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     CoLockObjectExternal((IUnknown*)&Test_ClassFactory, FALSE, FALSE);
 
     ok_no_locks();
-    ok_zero_external_conn();
-    ok_last_release_closes(FALSE);
 
     /* test CoLockObjectExternal doesn't release the last reference to an
      * object with fLastUnlockReleases as TRUE and there is a weak reference
@@ -1593,18 +1296,14 @@ static void test_lock_object_external(void)
     ok_ole_success(hr, CoMarshalInterface);
 
     ok_more_than_one_lock();
-    ok_zero_external_conn();
 
     CoLockObjectExternal((IUnknown*)&Test_ClassFactory, TRUE, FALSE);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     CoLockObjectExternal((IUnknown*)&Test_ClassFactory, FALSE, FALSE);
 
     ok_more_than_one_lock();
-    ok_zero_external_conn();
-    ok_last_release_closes(FALSE);
 
     CoDisconnectObject((IUnknown*)&Test_ClassFactory, 0);
 
@@ -1620,19 +1319,15 @@ static void test_disconnect_stub(void)
     IStream *pStream = NULL;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
     hr = CoMarshalInterface(pStream, &IID_IClassFactory, (IUnknown*)&Test_ClassFactory, MSHCTX_INPROC, NULL, MSHLFLAGS_NORMAL);
     ok_ole_success(hr, CoMarshalInterface);
 
-    ok_non_zero_external_conn();
-
     CoLockObjectExternal((IUnknown*)&Test_ClassFactory, TRUE, TRUE);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
     
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoReleaseMarshalData(pStream);
@@ -1640,12 +1335,10 @@ static void test_disconnect_stub(void)
     IStream_Release(pStream);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
 
     CoDisconnectObject((IUnknown*)&Test_ClassFactory, 0);
 
     ok_no_locks();
-    ok_non_zero_external_conn();
 
     hr = CoDisconnectObject(NULL, 0);
     ok( hr == E_INVALIDARG, "wrong status %x\n", hr );
@@ -1660,7 +1353,6 @@ static void test_normal_marshal_and_unmarshal_twice(void)
     IUnknown *pProxy2 = NULL;
 
     cLocks = 0;
-    external_connections = 0;
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
     ok_ole_success(hr, CreateStreamOnHGlobal);
@@ -1668,15 +1360,12 @@ static void test_normal_marshal_and_unmarshal_twice(void)
     ok_ole_success(hr, CoMarshalInterface);
 
     ok_more_than_one_lock();
-    ok_non_zero_external_conn();
     
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy1);
     ok_ole_success(hr, CoUnmarshalInterface);
 
     ok_more_than_one_lock();
-    ok_zero_external_conn();
-    ok_last_release_closes(FALSE);
 
     IStream_Seek(pStream, ullZero, STREAM_SEEK_SET, NULL);
     hr = CoUnmarshalInterface(pStream, &IID_IClassFactory, (void **)&pProxy2);
@@ -1803,7 +1492,7 @@ static void test_proxy_used_in_wrong_thread(void)
     CloseHandle(thread);
 
     /* do release statement on Win9x that we should have done above */
-    if (!GetProcAddress(GetModuleHandleA("ole32"), "CoRegisterSurrogateEx"))
+    if (!GetProcAddress(GetModuleHandle("ole32"), "CoRegisterSurrogateEx"))
         IUnknown_Release(pProxy);
 
     ok_no_locks();
@@ -2143,7 +1832,7 @@ static HRESULT WINAPI TestRE_IClassFactory_CreateInstance(
     DWORD_PTR res;
     if (IsEqualIID(riid, &IID_IWineTest))
     {
-        BOOL ret = SendMessageTimeoutA(hwnd_app, WM_NULL, 0, 0, SMTO_BLOCK, 5000, &res);
+        BOOL ret = SendMessageTimeout(hwnd_app, WM_NULL, 0, 0, SMTO_BLOCK, 5000, &res);
         ok(ret, "Timed out sending a message to originating window during RPC call\n");
     }
     *ppvObj = NULL;
@@ -2200,7 +1889,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
 
         end_host_object(tid, thread);
 
-        PostMessageA(hwnd, WM_QUIT, 0, 0);
+        PostMessage(hwnd, WM_QUIT, 0, 0);
 
         return 0;
     }
@@ -2230,7 +1919,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
 
         /* post quit message before a doing a COM call to show that a pending
         * WM_QUIT message doesn't stop the call from succeeding */
-        PostMessageA(hwnd, WM_QUIT, 0, 0);
+        PostMessage(hwnd, WM_QUIT, 0, 0);
         hr = IClassFactory_CreateInstance(proxy, NULL, &IID_IUnknown, (void **)&object);
 	ok(hr == S_FALSE, "IClassFactory_CreateInstance returned 0x%08x, expected S_FALSE\n", hr);
 
@@ -2275,34 +1964,34 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
         return 0;
     }
     default:
-        return DefWindowProcA(hwnd, msg, wparam, lparam);
+        return DefWindowProc(hwnd, msg, wparam, lparam);
     }
 }
 
 static void register_test_window(void)
 {
-    WNDCLASSA wndclass;
+    WNDCLASS wndclass;
 
     memset(&wndclass, 0, sizeof(wndclass));
     wndclass.lpfnWndProc = window_proc;
     wndclass.lpszClassName = "WineCOMTest";
-    RegisterClassA(&wndclass);
+    RegisterClass(&wndclass);
 }
 
 static void test_message_reentrancy(void)
 {
     MSG msg;
 
-    hwnd_app = CreateWindowA("WineCOMTest", NULL, 0, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, NULL, 0);
+    hwnd_app = CreateWindow("WineCOMTest", NULL, 0, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, NULL, 0);
     ok(hwnd_app != NULL, "Window creation failed\n");
 
     /* start message re-entrancy test */
-    PostMessageA(hwnd_app, WM_USER, 0, 0);
+    PostMessage(hwnd_app, WM_USER, 0, 0);
 
-    while (GetMessageA(&msg, NULL, 0, 0))
+    while (GetMessage(&msg, NULL, 0, 0))
     {
         TranslateMessage(&msg);
-        DispatchMessageA(&msg);
+        DispatchMessage(&msg);
     }
     DestroyWindow(hwnd_app);
 }
@@ -2314,7 +2003,7 @@ static HRESULT WINAPI TestMsg_IClassFactory_CreateInstance(
     LPVOID *ppvObj)
 {
     *ppvObj = NULL;
-    SendMessageA(hwnd_app, WM_USER+2, 0, 0);
+    SendMessage(hwnd_app, WM_USER+2, 0, 0);
     return S_OK;
 }
 
@@ -2339,7 +2028,7 @@ static void test_call_from_message(void)
     HANDLE thread;
     IUnknown *object;
 
-    hwnd_app = CreateWindowA("WineCOMTest", NULL, 0, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, NULL, 0);
+    hwnd_app = CreateWindow("WineCOMTest", NULL, 0, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, NULL, 0);
     ok(hwnd_app != NULL, "Window creation failed\n");
 
     hr = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
@@ -2365,10 +2054,10 @@ static void test_call_from_message(void)
 
     end_host_object(tid, thread);
 
-    while (GetMessageA(&msg, NULL, 0, 0))
+    while (GetMessage(&msg, NULL, 0, 0))
     {
         TranslateMessage(&msg);
-        DispatchMessageA(&msg);
+        DispatchMessage(&msg);
     }
     DestroyWindow(hwnd_app);
 }
@@ -2377,16 +2066,16 @@ static void test_WM_QUIT_handling(void)
 {
     MSG msg;
 
-    hwnd_app = CreateWindowA("WineCOMTest", NULL, 0, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, NULL, 0);
+    hwnd_app = CreateWindow("WineCOMTest", NULL, 0, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, NULL, 0);
     ok(hwnd_app != NULL, "Window creation failed\n");
 
     /* start WM_QUIT handling test */
-    PostMessageA(hwnd_app, WM_USER+1, 0, 0);
+    PostMessage(hwnd_app, WM_USER+1, 0, 0);
 
-    while (GetMessageA(&msg, NULL, 0, 0))
+    while (GetMessage(&msg, NULL, 0, 0))
     {
         TranslateMessage(&msg);
-        DispatchMessageA(&msg);
+        DispatchMessage(&msg);
     }
 }
 
@@ -2435,7 +2124,10 @@ static void test_freethreadedmarshaldata(IStream *pStream, MSHCTX mshctx, void *
         }
         if (size >= 3*sizeof(DWORD) + sizeof(GUID))
         {
-            trace("got guid data: %s\n", wine_dbgstr_guid((GUID *)marshal_data));
+            trace("got guid data: {%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}\n",
+                ((GUID *)marshal_data)->Data1, ((GUID *)marshal_data)->Data2, ((GUID *)marshal_data)->Data3,
+                ((GUID *)marshal_data)->Data4[0], ((GUID *)marshal_data)->Data4[1], ((GUID *)marshal_data)->Data4[2], ((GUID *)marshal_data)->Data4[3],
+                ((GUID *)marshal_data)->Data4[4], ((GUID *)marshal_data)->Data4[5], ((GUID *)marshal_data)->Data4[6], ((GUID *)marshal_data)->Data4[7]);
         }
     }
     else
@@ -2604,7 +2296,7 @@ static HRESULT reg_unreg_wine_test_class(BOOL Register)
     strcat(buffer, "\\InprocHandler32");
     if (Register)
     {
-        error = RegCreateKeyExA(HKEY_CLASSES_ROOT, buffer, 0, NULL, 0, KEY_SET_VALUE, NULL, &hkey, &dwDisposition);
+        error = RegCreateKeyEx(HKEY_CLASSES_ROOT, buffer, 0, NULL, 0, KEY_SET_VALUE, NULL, &hkey, &dwDisposition);
         if (error == ERROR_ACCESS_DENIED)
         {
             skip("Not authorized to modify the Classes key\n");
@@ -2612,16 +2304,16 @@ static HRESULT reg_unreg_wine_test_class(BOOL Register)
         }
         ok(error == ERROR_SUCCESS, "RegCreateKeyEx failed with error %d\n", error);
         if (error != ERROR_SUCCESS) hr = E_FAIL;
-        error = RegSetValueExA(hkey, NULL, 0, REG_SZ, (const unsigned char *)"\"ole32.dll\"", strlen("\"ole32.dll\"") + 1);
+        error = RegSetValueEx(hkey, NULL, 0, REG_SZ, (const unsigned char *)"\"ole32.dll\"", strlen("\"ole32.dll\"") + 1);
         ok(error == ERROR_SUCCESS, "RegSetValueEx failed with error %d\n", error);
         if (error != ERROR_SUCCESS) hr = E_FAIL;
         RegCloseKey(hkey);
     }
     else
     {
-        RegDeleteKeyA(HKEY_CLASSES_ROOT, buffer);
+        RegDeleteKey(HKEY_CLASSES_ROOT, buffer);
         *strrchr(buffer, '\\') = '\0';
-        RegDeleteKeyA(HKEY_CLASSES_ROOT, buffer);
+        RegDeleteKey(HKEY_CLASSES_ROOT, buffer);
     }
     return hr;
 }
@@ -2931,16 +2623,16 @@ static void test_register_local_server(void)
     HANDLE quit_event;
     DWORD wait;
 
-    heventShutdown = CreateEventA(NULL, TRUE, FALSE, NULL);
+    heventShutdown = CreateEvent(NULL, TRUE, FALSE, NULL);
 
     hr = CoRegisterClassObject(&CLSID_WineOOPTest, (IUnknown *)&TestOOP_ClassFactory,
                                CLSCTX_LOCAL_SERVER, REGCLS_SINGLEUSE, &cookie);
     ok_ole_success(hr, CoRegisterClassObject);
 
-    ready_event = CreateEventA(NULL, FALSE, FALSE, "Wine COM Test Ready Event");
+    ready_event = CreateEvent(NULL, FALSE, FALSE, "Wine COM Test Ready Event");
     SetEvent(ready_event);
 
-    quit_event = CreateEventA(NULL, FALSE, FALSE, "Wine COM Test Quit Event");
+    quit_event = CreateEvent(NULL, FALSE, FALSE, "Wine COM Test Quit Event");
 
     do
     {
@@ -2948,12 +2640,12 @@ static void test_register_local_server(void)
         if (wait == WAIT_OBJECT_0+1)
         {
             MSG msg;
-
-            if (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE))
+            BOOL ret = PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
+            if (ret)
             {
                 trace("Message 0x%x\n", msg.message);
                 TranslateMessage(&msg);
-                DispatchMessageA(&msg);
+                DispatchMessage(&msg);
             }
         }
     }
@@ -2970,14 +2662,14 @@ static HANDLE create_target_process(const char *arg)
     char cmdline[MAX_PATH];
     BOOL ret;
     PROCESS_INFORMATION pi;
-    STARTUPINFOA si = { 0 };
+    STARTUPINFO si = { 0 };
     si.cb = sizeof(si);
 
     pi.hThread = NULL;
     pi.hProcess = NULL;
     winetest_get_mainargs( &argv );
     sprintf(cmdline, "%s %s %s", argv[0], argv[1], arg);
-    ret = CreateProcessA(argv[0], cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+    ret = CreateProcess(argv[0], cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
     ok(ret, "CreateProcess failed with error: %u\n", GetLastError());
     if (pi.hThread) CloseHandle(pi.hThread);
     return pi.hProcess;
@@ -2994,7 +2686,7 @@ static void test_local_server(void)
     HANDLE quit_event;
     HANDLE ready_event;
 
-    heventShutdown = CreateEventA(NULL, TRUE, FALSE, NULL);
+    heventShutdown = CreateEvent(NULL, TRUE, FALSE, NULL);
 
     cLocks = 0;
 
@@ -3057,7 +2749,7 @@ static void test_local_server(void)
     process = create_target_process("-Embedding");
     ok(process != NULL, "couldn't start local server process, error was %d\n", GetLastError());
 
-    ready_event = CreateEventA(NULL, FALSE, FALSE, "Wine COM Test Ready Event");
+    ready_event = CreateEvent(NULL, FALSE, FALSE, "Wine COM Test Ready Event");
     ok( !WaitForSingleObject(ready_event, 10000), "wait timed out\n" );
     CloseHandle(ready_event);
 
@@ -3069,7 +2761,7 @@ static void test_local_server(void)
     hr = CoCreateInstance(&CLSID_WineOOPTest, NULL, CLSCTX_LOCAL_SERVER, &IID_IClassFactory, (void **)&cf);
     ok(hr == REGDB_E_CLASSNOTREG, "Second CoCreateInstance on REGCLS_SINGLEUSE object should have failed\n");
 
-    quit_event = CreateEventA(NULL, FALSE, FALSE, "Wine COM Test Quit Event");
+    quit_event = CreateEvent(NULL, FALSE, FALSE, "Wine COM Test Quit Event");
     SetEvent(quit_event);
 
     winetest_wait_child_process( process );
@@ -3162,8 +2854,8 @@ static void test_globalinterfacetable(void)
 	while (ret == WAIT_OBJECT_0 + 1)
 	{
 		MSG msg;
-		while (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE))
-			DispatchMessageA(&msg);
+		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+			DispatchMessage(&msg);
 		ret = MsgWaitForMultipleObjects(1, &thread, FALSE, 10000, QS_ALLINPUT);
 	}
 
@@ -3271,12 +2963,12 @@ static const char *debugstr_iid(REFIID riid)
     LONG name_size = sizeof(name);
     StringFromGUID2(riid, bufferW, sizeof(bufferW)/sizeof(bufferW[0]));
     WideCharToMultiByte(CP_ACP, 0, bufferW, sizeof(bufferW)/sizeof(bufferW[0]), buffer, sizeof(buffer), NULL, NULL);
-    if (RegOpenKeyExA(HKEY_CLASSES_ROOT, "Interface", 0, KEY_QUERY_VALUE, &hkeyInterface) != ERROR_SUCCESS)
+    if (RegOpenKeyEx(HKEY_CLASSES_ROOT, "Interface", 0, KEY_QUERY_VALUE, &hkeyInterface) != ERROR_SUCCESS)
     {
         memcpy(name, buffer, sizeof(buffer));
         goto done;
     }
-    if (RegQueryValueA(hkeyInterface, buffer, name, &name_size) != ERROR_SUCCESS)
+    if (RegQueryValue(hkeyInterface, buffer, name, &name_size) != ERROR_SUCCESS)
     {
         memcpy(name, buffer, sizeof(buffer));
         goto done;
@@ -3475,7 +3167,7 @@ static void test_channel_hook(void)
 
 START_TEST(marshal)
 {
-    HMODULE hOle32 = GetModuleHandleA("ole32");
+    HMODULE hOle32 = GetModuleHandle("ole32");
     int argc;
     char **argv;
 
@@ -3506,37 +3198,29 @@ START_TEST(marshal)
     /* FIXME: test CoCreateInstanceEx */
 
     /* lifecycle management and marshaling tests */
-    do
-    {
-        test_no_marshaler();
-        test_normal_marshal_and_release();
-        test_normal_marshal_and_unmarshal();
-        test_marshal_and_unmarshal_invalid();
-        test_same_apartment_unmarshal_failure();
-        test_interthread_marshal_and_unmarshal();
-        test_proxy_marshal_and_unmarshal();
-        test_proxy_marshal_and_unmarshal2();
-        test_proxy_marshal_and_unmarshal_weak();
-        test_proxy_marshal_and_unmarshal_strong();
-        test_marshal_stub_apartment_shutdown();
-        test_marshal_proxy_apartment_shutdown();
-        test_marshal_proxy_mta_apartment_shutdown();
-        test_no_couninitialize_server();
-        test_no_couninitialize_client();
-        test_tableweak_marshal_and_unmarshal_twice();
-        test_tableweak_marshal_releasedata1();
-        test_tableweak_marshal_releasedata2();
-        test_tableweak_and_normal_marshal_and_unmarshal();
-        test_tableweak_and_normal_marshal_and_releasedata();
-        test_two_tableweak_marshal_and_releasedata();
-        test_tablestrong_marshal_and_unmarshal_twice();
-        test_lock_object_external();
-        test_disconnect_stub();
-        test_normal_marshal_and_unmarshal_twice();
-
-        with_external_conn = !with_external_conn;
-    } while (with_external_conn);
-
+    test_no_marshaler();
+    test_normal_marshal_and_release();
+    test_normal_marshal_and_unmarshal();
+    test_marshal_and_unmarshal_invalid();
+    test_same_apartment_unmarshal_failure();
+    test_interthread_marshal_and_unmarshal();
+    test_proxy_marshal_and_unmarshal();
+    test_proxy_marshal_and_unmarshal2();
+    test_proxy_marshal_and_unmarshal_weak();
+    test_proxy_marshal_and_unmarshal_strong();
+    test_marshal_stub_apartment_shutdown();
+    test_marshal_proxy_apartment_shutdown();
+    test_marshal_proxy_mta_apartment_shutdown();
+    test_no_couninitialize_server();
+    test_no_couninitialize_client();
+    test_tableweak_marshal_and_unmarshal_twice();
+    test_tableweak_marshal_releasedata1();
+    test_tableweak_marshal_releasedata2();
+    test_tableweak_and_normal_marshal_and_unmarshal();
+    test_tablestrong_marshal_and_unmarshal_twice();
+    test_lock_object_external();
+    test_disconnect_stub();
+    test_normal_marshal_and_unmarshal_twice();
     test_hresult_marshaling();
     test_proxy_used_in_wrong_thread();
     test_message_filter();

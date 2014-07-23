@@ -149,7 +149,6 @@ ME_Style *ME_MakeStyle(CHARFORMAT2W *style)
   s->hFont = NULL;
   memset(&s->tm, 0, sizeof(s->tm));
   s->tm.tmAscent = -1;
-  s->script_cache = NULL;
   all_refs++;
   TRACE_(richedit_style)("ME_MakeStyle %p, total refs=%d\n", s, all_refs);
   return s;
@@ -436,7 +435,6 @@ static void ME_DestroyStyle(ME_Style *s) {
     DeleteObject(s->hFont);
     s->hFont = NULL;
   }
-  ScriptFreeCache( &s->script_cache );
   FREE_OBJ(s);
 }
 

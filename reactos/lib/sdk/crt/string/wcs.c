@@ -432,7 +432,7 @@ INT CDECL wcsncat_s(wchar_t *dst, size_t elem,
     }
     if (dststart == elem)
     {
-        MSVCRT_INVALID_PMT("dst[elem] is not NULL terminated\n", EINVAL);
+        MSVCRT_INVALID_PMT("dst[elem] is not NULL terminated\n");
         return EINVAL;
     }
 
@@ -453,7 +453,7 @@ INT CDECL wcsncat_s(wchar_t *dst, size_t elem,
         dst[dststart+srclen] = '\0';
         return ret;
     }
-    MSVCRT_INVALID_PMT("dst[elem] is too small", ERANGE);
+    MSVCRT_INVALID_PMT("dst[elem] is too small");
     dst[0] = '\0';
     return ERANGE;
 }

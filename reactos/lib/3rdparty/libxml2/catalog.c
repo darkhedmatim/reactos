@@ -84,10 +84,8 @@ static char XML_XML_DEFAULT_CATALOG[256] = "file:///etc/xml/catalog";
 #define GetModuleHandleA GetModuleHandle
 #define GetModuleFileNameA GetModuleFileName
 #else
-#if !defined(_WINDOWS_)
 void* __stdcall GetModuleHandleA(const char*);
 unsigned long __stdcall GetModuleFileNameA(void*, char*, unsigned long);
-#endif
 #endif
 #endif
 
@@ -991,7 +989,7 @@ xmlLoadFileContent(const char *filename)
         return (NULL);
     }
 #endif
-    content = (xmlChar*)xmlMallocAtomic(size + 10);
+    content = xmlMallocAtomic(size + 10);
     if (content == NULL) {
         xmlCatalogErrMemory("allocating catalog data");
         return (NULL);
@@ -1549,7 +1547,7 @@ xmlAddXMLCatalog(xmlCatalogEntryPtr catal, const xmlChar *type,
 		                       NULL, catal->prefer, NULL);
     if (doregister) {
         catal->type = XML_CATA_CATALOG;
-	cur = (xmlCatalogEntryPtr)xmlHashLookup(xmlCatalogXMLFiles, catal->URL);
+	cur = xmlHashLookup(xmlCatalogXMLFiles, catal->URL);
 	if (cur != NULL)
 	    cur->children = catal->children;
     }
@@ -3131,7 +3129,7 @@ xmlInitializeCatalog(void) {
 				if (p != buf) {
 					xmlChar* uri;
 					strncpy(p, "\\..\\etc\\catalog", 255 - (p - buf));
-					uri = xmlCanonicPath((const xmlChar*)buf);
+					uri = xmlCanonicPath(buf);
 					if (uri != NULL) {
 						strncpy(XML_XML_DEFAULT_CATALOG, uri, 255);
 						xmlFree(uri);
@@ -3246,7 +3244,7 @@ xmlLoadCatalogs(const char *pathss) {
 		cur++;
 	    path = xmlStrndup((const xmlChar *)paths, cur - paths);
 #ifdef _WIN32
-        iLen = strlen((const char*)path);
+        iLen = strlen(path);
         for(i = 0; i < iLen; i++) {
             if(path[i] == '\\') {
                 path[i] = '/';

@@ -17,7 +17,7 @@
  * Notes:
  *    This driver was obsoleted in Windows XP and most functions
  *    became pure stubs. But some of them were retained for backward
- *    compatibility with existing drivers.
+ *    compatibilty with existing drivers.
  *
  *    Preserved functions:
  *

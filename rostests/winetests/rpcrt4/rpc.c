@@ -33,6 +33,8 @@
 #include "rpcdce.h"
 #include "secext.h"
 
+typedef long NTSTATUS;
+
 typedef unsigned int unsigned32;
 typedef struct twr_t
     {
@@ -113,7 +115,7 @@ static void UuidConversionAndComparison(void) {
 	    ok( (UuidFromStringA((unsigned char*)str, &Uuid1) == RPC_S_INVALID_STRING_UUID), "Invalid UUID String\n" );
 	    str[i2] = x; /* change it back so remaining tests are interesting. */
 	}
-	RpcStringFreeA((unsigned char **)&str);
+	RpcStringFree((unsigned char **)&str);
     }
 
     /* Uuid to String to Uuid (wchar) */
@@ -215,10 +217,10 @@ static void test_rpc_ncacn_ip_tcp(void)
     static unsigned char endpoint[] = "4114";
     static unsigned char spn[] = "principal";
 
-    status = RpcNetworkIsProtseqValidA(foo);
+    status = RpcNetworkIsProtseqValid(foo);
     ok(status == RPC_S_INVALID_RPC_PROTSEQ, "return wrong\n");
 
-    status = RpcNetworkIsProtseqValidA(ncacn_ip_tcp);
+    status = RpcNetworkIsProtseqValid(ncacn_ip_tcp);
     ok(status == RPC_S_OK, "return wrong\n");
 
     status = RpcMgmtStopServerListening(NULL);
@@ -235,7 +237,7 @@ todo_wine {
     ok(status == RPC_S_NO_PROTSEQS_REGISTERED,
        "wrong RpcServerListen error (%u)\n", status);
 
-    status = RpcServerUseProtseqEpA(ncacn_ip_tcp, 20, endpoint, NULL);
+    status = RpcServerUseProtseqEp(ncacn_ip_tcp, 20, endpoint, NULL);
     ok(status == RPC_S_OK, "RpcServerUseProtseqEp failed (%u)\n", status);
 
     status = RpcServerRegisterIf(IFoo_v0_0_s_ifspec, NULL, NULL);
@@ -252,30 +254,30 @@ todo_wine {
        "wrong RpcServerListen error (%u)\n", status);
 }
 
-    status = RpcStringBindingComposeA(NULL, ncacn_ip_tcp, address,
+    status = RpcStringBindingCompose(NULL, ncacn_ip_tcp, address,
                                      endpoint, NULL, &binding);
     ok(status == RPC_S_OK, "RpcStringBindingCompose failed (%u)\n", status);
 
-    status = RpcBindingFromStringBindingA(binding, &IFoo_IfHandle);
+    status = RpcBindingFromStringBinding(binding, &IFoo_IfHandle);
     ok(status == RPC_S_OK, "RpcBindingFromStringBinding failed (%u)\n",
        status);
 
-    status = RpcBindingSetAuthInfoA(IFoo_IfHandle, NULL, RPC_C_AUTHN_LEVEL_NONE,
+    status = RpcBindingSetAuthInfo(IFoo_IfHandle, NULL, RPC_C_AUTHN_LEVEL_NONE,
                                    RPC_C_AUTHN_WINNT, NULL, RPC_C_AUTHZ_NAME);
     ok(status == RPC_S_OK, "RpcBindingSetAuthInfo failed (%u)\n", status);
 
-    status = RpcBindingInqAuthInfoA(IFoo_IfHandle, NULL, NULL, NULL, NULL, NULL);
+    status = RpcBindingInqAuthInfo(IFoo_IfHandle, NULL, NULL, NULL, NULL, NULL);
     ok(status == RPC_S_BINDING_HAS_NO_AUTH, "RpcBindingInqAuthInfo failed (%u)\n",
        status);
 
-    status = RpcBindingSetAuthInfoA(IFoo_IfHandle, spn, RPC_C_AUTHN_LEVEL_PKT_PRIVACY,
+    status = RpcBindingSetAuthInfo(IFoo_IfHandle, spn, RPC_C_AUTHN_LEVEL_PKT_PRIVACY,
                                    RPC_C_AUTHN_WINNT, NULL, RPC_C_AUTHZ_NAME);
     ok(status == RPC_S_OK, "RpcBindingSetAuthInfo failed (%u)\n", status);
 
     level = authnsvc = authzsvc = 0;
     principal = (unsigned char *)0xdeadbeef;
     identity = (RPC_AUTH_IDENTITY_HANDLE *)0xdeadbeef;
-    status = RpcBindingInqAuthInfoA(IFoo_IfHandle, &principal, &level, &authnsvc,
+    status = RpcBindingInqAuthInfo(IFoo_IfHandle, &principal, &level, &authnsvc,
                                    &identity, &authzsvc);
 
     ok(status == RPC_S_OK, "RpcBindingInqAuthInfo failed (%u)\n", status);
@@ -284,7 +286,7 @@ todo_wine {
     ok(level == RPC_C_AUTHN_LEVEL_PKT_PRIVACY, "expected RPC_C_AUTHN_LEVEL_PKT_PRIVACY, got %d\n", level);
     ok(authnsvc == RPC_C_AUTHN_WINNT, "expected RPC_C_AUTHN_WINNT, got %d\n", authnsvc);
     todo_wine ok(authzsvc == RPC_C_AUTHZ_NAME, "expected RPC_C_AUTHZ_NAME, got %d\n", authzsvc);
-    if (status == RPC_S_OK) RpcStringFreeA(&principal);
+    if (status == RPC_S_OK) RpcStringFree(&principal);
 
     status = RpcMgmtStopServerListening(NULL);
     ok(status == RPC_S_OK, "RpcMgmtStopServerListening failed (%u)\n",
@@ -302,7 +304,7 @@ todo_wine {
     ok(status == RPC_S_OK, "RpcMgmtWaitServerListen failed (%u)\n", status);
 }
 
-    status = RpcStringFreeA(&binding);
+    status = RpcStringFree(&binding);
     ok(status == RPC_S_OK, "RpcStringFree failed (%u)\n", status);
 
     status = RpcBindingFree(&IFoo_IfHandle);
@@ -659,7 +661,7 @@ static void test_I_RpcExceptionFilter(void)
 {
     ULONG exception;
     int retval;
-    int (WINAPI *pI_RpcExceptionFilter)(ULONG) = (void *)GetProcAddress(GetModuleHandleA("rpcrt4.dll"), "I_RpcExceptionFilter");
+    int (WINAPI *pI_RpcExceptionFilter)(ULONG) = (void *)GetProcAddress(GetModuleHandle("rpcrt4.dll"), "I_RpcExceptionFilter");
 
     if (!pI_RpcExceptionFilter)
     {
@@ -709,23 +711,32 @@ static void test_RpcStringBindingFromBinding(void)
     handle_t handle;
     RPC_CSTR binding;
 
-    status = RpcStringBindingComposeA(NULL, ncacn_np, address,
+    status = RpcStringBindingCompose(NULL, ncacn_np, address,
                                      endpoint, NULL, &binding);
     ok(status == RPC_S_OK, "RpcStringBindingCompose failed (%u)\n", status);
 
-    status = RpcBindingFromStringBindingA(binding, &handle);
+    status = RpcBindingFromStringBinding(binding, &handle);
     ok(status == RPC_S_OK, "RpcBindingFromStringBinding failed (%u)\n", status);
-    RpcStringFreeA(&binding);
+    RpcStringFree(&binding);
 
-    status = RpcBindingToStringBindingA(handle, &binding);
+    status = RpcBindingToStringBinding(handle, &binding);
     ok(status == RPC_S_OK, "RpcStringBindingFromBinding failed with error %u\n", status);
 
     ok(!strcmp((const char *)binding, "ncacn_np:.[\\\\pipe\\\\wine_rpc_test]"),
        "binding string didn't match what was expected: \"%s\"\n", binding);
-    RpcStringFreeA(&binding);
+    RpcStringFree(&binding);
 
     status = RpcBindingFree(&handle);
     ok(status == RPC_S_OK, "RpcBindingFree failed with error %u\n", status);
+}
+
+static char *printGuid(char *buf, int size, const UUID *guid)
+{
+    snprintf(buf, size, "{%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
+       guid->Data1, guid->Data2, guid->Data3, guid->Data4[0], guid->Data4[1],
+       guid->Data4[2], guid->Data4[3], guid->Data4[4], guid->Data4[5],
+       guid->Data4[6], guid->Data4[7]);
+    return buf;
 }
 
 static void test_UuidCreate(void)
@@ -745,6 +756,7 @@ static void test_UuidCreate(void)
         UUID and, or;
         RPC_STATUS rslt;
         int i;
+        char buf[39];
 
         and = guid;
         or = guid;
@@ -768,9 +780,9 @@ static void test_UuidCreate(void)
                 *dst |= *src;
         }
         ok(UuidEqual(&and, &v4and, &rslt),
-           "unexpected bits set in V4 UUID: %s\n", wine_dbgstr_guid(&and));
+           "unexpected bits set in V4 UUID: %s\n", printGuid(buf, sizeof(buf), &and));
         ok(UuidEqual(&or, &v4or, &rslt),
-           "unexpected bits set in V4 UUID: %s\n", wine_dbgstr_guid(&or));
+           "unexpected bits set in V4 UUID: %s\n", printGuid(buf, sizeof(buf), &or));
     }
     else
     {
@@ -788,7 +800,7 @@ static void test_UuidCreateSequential(void)
 {
     UUID guid1;
     BYTE version;
-    RPC_STATUS (WINAPI *pUuidCreateSequential)(UUID *) = (void *)GetProcAddress(GetModuleHandleA("rpcrt4.dll"), "UuidCreateSequential");
+    RPC_STATUS (WINAPI *pUuidCreateSequential)(UUID *) = (void *)GetProcAddress(GetModuleHandle("rpcrt4.dll"), "UuidCreateSequential");
     RPC_STATUS ret;
 
     if (!pUuidCreateSequential)
@@ -804,6 +816,7 @@ static void test_UuidCreateSequential(void)
     if (version == 1)
     {
         UUID guid2;
+        char buf[39];
 
         if (!ret)
         {
@@ -812,7 +825,7 @@ static void test_UuidCreateSequential(void)
              */
             ok(!(guid1.Data4[2] & 0x01),
                "GUID does not appear to contain a MAC address: %s\n",
-               wine_dbgstr_guid(&guid1));
+               printGuid(buf, sizeof(buf), &guid1));
         }
         else
         {
@@ -821,7 +834,7 @@ static void test_UuidCreateSequential(void)
              */
             ok((guid1.Data4[2] & 0x01),
                "GUID does not appear to contain a multicast MAC address: %s\n",
-               wine_dbgstr_guid(&guid1));
+               printGuid(buf, sizeof(buf), &guid1));
         }
         /* Generate another GUID, and make sure its MAC address matches the
          * first.
@@ -833,7 +846,7 @@ static void test_UuidCreateSequential(void)
         ok(version == 1, "unexpected version %d\n", version);
         ok(!memcmp(guid1.Data4, guid2.Data4, sizeof(guid2.Data4)),
            "unexpected value in MAC address: %s\n",
-           wine_dbgstr_guid(&guid2));
+           printGuid(buf, sizeof(buf), &guid2));
     }
 }
 
@@ -892,12 +905,12 @@ static void test_RpcServerInqDefaultPrincName(void)
     ok( ret == RPC_S_OK, "got %u\n", ret );
     ok( principal != (RPC_CSTR)0xdeadbeef, "expected valid principal\n" );
     ok( !strcmp( (const char *)principal, username ), "got \'%s\'\n", principal );
-    RpcStringFreeA( &principal );
+    RpcStringFree( &principal );
 
     ret = RpcServerRegisterAuthInfoA( saved_principal, RPC_C_AUTHN_WINNT, NULL, NULL );
     ok( ret == RPC_S_OK, "got %u\n", ret );
 
-    RpcStringFreeA( &saved_principal );
+    RpcStringFree( &saved_principal );
     HeapFree( GetProcessHeap(), 0, username );
 }
 

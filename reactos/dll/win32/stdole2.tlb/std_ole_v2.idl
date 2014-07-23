@@ -18,6 +18,4 @@
  *
  */
 
-#pragma makedep regtypelib
-
 #include "stdole2.idl"

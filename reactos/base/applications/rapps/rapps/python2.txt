@@ -1,5 +1,4 @@
-; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = Python 2
@@ -36,7 +35,8 @@ Description = Un limbaj de programare dinamic și puternic.
 Size = 15,48 Mo
 
 [Section.041f]
-Description = Dikkat çekici, güçlü ve devingen bir izlenceleme dili.
+Name = Piton 2
+Description = İlgi çekici, güçlü ve devingen bir çizeylemleme dili.
 Size = 15,48 MB
 
 [Section.0422]

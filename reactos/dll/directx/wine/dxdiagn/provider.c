@@ -52,9 +52,6 @@ static const WCHAR szSubSysId[] = {'s','z','S','u','b','S','y','s','I','d',0};
 static const WCHAR szRevisionId[] = {'s','z','R','e','v','i','s','i','o','n','I','d',0};
 static const WCHAR dwRefreshRate[] = {'d','w','R','e','f','r','e','s','h','R','a','t','e',0};
 static const WCHAR szManufacturer[] = {'s','z','M','a','n','u','f','a','c','t','u','r','e','r',0};
-static const WCHAR szChipType[] = {'s','z','C','h','i','p','T','y','p','e',0};
-static const WCHAR szDACType[] = {'s','z','D','A','C','T','y','p','e',0};
-static const WCHAR szRevision[] = {'s','z','R','e','v','i','s','i','o','n',0};
 
 struct IDxDiagProviderImpl
 {
@@ -901,15 +898,10 @@ static HRESULT fill_display_information_d3d(IDxDiagContainerImpl_Container *node
         static const WCHAR id_fmtW[] = {'0','x','%','0','4','x',0};
         static const WCHAR subsysid_fmtW[] = {'0','x','%','0','8','x',0};
         static const WCHAR mem_fmt[] = {'%','.','1','f',' ','M','B',0};
-        static const WCHAR b3DAccelerationExists[] = {'b','3','D','A','c','c','e','l','e','r','a','t','i','o','n','E','x','i','s','t','s',0};
-        static const WCHAR b3DAccelerationEnabled[] = {'b','3','D','A','c','c','e','l','e','r','a','t','i','o','n','E','n','a','b','l','e','d',0};
-        static const WCHAR bDDAccelerationEnabled[] = {'b','D','D','A','c','c','e','l','e','r','a','t','i','o','n','E','n','a','b','l','e','d',0};
 
         D3DADAPTER_IDENTIFIER9 adapter_info;
         D3DDISPLAYMODE adapter_mode;
-        D3DCAPS9 device_caps;
         DWORD available_mem = 0;
-        BOOL hardware_accel;
 
         snprintfW(buffer, sizeof(buffer)/sizeof(WCHAR), adapterid_fmtW, index);
         display_adapter = allocate_information_node(buffer);
@@ -1010,18 +1002,6 @@ static HRESULT fill_display_information_d3d(IDxDiagContainerImpl_Container *node
         if (FAILED(hr))
             goto cleanup;
 
-        hr = add_bstr_property(display_adapter, szChipType, szEmpty);
-        if (FAILED(hr))
-            goto cleanup;
-
-        hr = add_bstr_property(display_adapter, szDACType, szEmpty);
-        if (FAILED(hr))
-            goto cleanup;
-
-        hr = add_bstr_property(display_adapter, szRevision, szEmpty);
-        if (FAILED(hr))
-            goto cleanup;
-
         if (!get_texture_memory(&adapter_info.DeviceIdentifier, &available_mem))
             WARN("get_texture_memory helper failed\n");
 
@@ -1032,21 +1012,6 @@ static HRESULT fill_display_information_d3d(IDxDiagContainerImpl_Container *node
             goto cleanup;
 
         hr = add_bstr_property(display_adapter, szDisplayMemoryEnglish, buffer);
-        if (FAILED(hr))
-            goto cleanup;
-
-        hr = IDirect3D9_GetDeviceCaps(pDirect3D9, index, D3DDEVTYPE_HAL, &device_caps);
-        hardware_accel = SUCCEEDED(hr);
-
-        hr = add_bool_property(display_adapter, b3DAccelerationEnabled, hardware_accel);
-        if (FAILED(hr))
-            goto cleanup;
-
-        hr = add_bool_property(display_adapter, b3DAccelerationExists, hardware_accel);
-        if (FAILED(hr))
-            goto cleanup;
-
-        hr = add_bool_property(display_adapter, bDDAccelerationEnabled, hardware_accel);
         if (FAILED(hr))
             goto cleanup;
     }
@@ -1063,7 +1028,7 @@ static HRESULT fill_display_information_fallback(IDxDiagContainerImpl_Container 
     static const WCHAR *empty_properties[] = {szDeviceIdentifier, szVendorId, szDeviceId,
                                               szKeyDeviceKey, szKeyDeviceID, szDriverName,
                                               szDriverVersion, szSubSysId, szRevisionId,
-                                              szManufacturer, szChipType, szDACType, szRevision};
+                                              szManufacturer};
 
     IDxDiagContainerImpl_Container *display_adapter;
     HRESULT hr;
@@ -1638,17 +1603,16 @@ static HRESULT build_directshowfilters_tree(IDxDiagContainerImpl_Container *node
             }
 
             hr = fill_filter_container(subcont, pMoniker);
-            IMoniker_Release(pMoniker);
             if (FAILED(hr))
             {
-                WARN("Skipping invalid filter\n");
                 free_information_tree(subcont);
-                hr = S_OK;
-                continue;
+                IMoniker_Release(pMoniker);
+                break;
             }
 
             add_subcontainer(node, subcont);
             i++;
+            IMoniker_Release(pMoniker);
         }
 
         IEnumMoniker_Release(pEnum);

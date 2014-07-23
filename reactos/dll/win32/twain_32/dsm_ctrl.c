@@ -61,7 +61,7 @@ twain_add_onedriver(const char *dsname) {
 		ret = dsEntry (&fakeOrigin, DG_CONTROL, DAT_IDENTITY, MSG_GET, &sourceId);
 		if (ret != TWRC_SUCCESS) {
 			ERR("Source->(DG_CONTROL,DAT_IDENTITY,MSG_GET) failed!\n");
-                        break;
+			return;
 		}
 		TRACE("Manufacturer: %s\n",	debugstr_a(sourceId.Manufacturer));
 		TRACE("ProductFamily: %s\n",	debugstr_a(sourceId.ProductFamily));
@@ -86,12 +86,12 @@ twain_add_onedriver(const char *dsname) {
 	FreeLibrary (hmod);
 }
 
-static BOOL detectionrun = FALSE;
+static int detectionrun = 0;
 
 static void
 twain_autodetect(void) {
 	if (detectionrun) return;
-        detectionrun = TRUE;
+	detectionrun = 1;
 
 	twain_add_onedriver("sane.ds");
 	twain_add_onedriver("gphoto2.ds");

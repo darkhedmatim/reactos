@@ -30,7 +30,7 @@ static BOOLEAN (WINAPI *pRtlIsNameLegalDOS8Dot3)(const UNICODE_STRING*,POEM_STRI
 static DWORD (WINAPI *pRtlGetFullPathName_U)(const WCHAR*,ULONG,WCHAR*,WCHAR**);
 
 
-static void test_RtlDetermineDosPathNameType_U(void)
+static void test_RtlDetermineDosPathNameType(void)
 {
     struct test
     {
@@ -75,12 +75,6 @@ static void test_RtlDetermineDosPathNameType_U(void)
     WCHAR buffer[MAX_PATH];
     UINT ret;
 
-    if (!pRtlDetermineDosPathNameType_U)
-    {
-        win_skip("RtlDetermineDosPathNameType_U is not available\n");
-        return;
-    }
-
     for (test = tests; test->path; test++)
     {
         pRtlMultiByteToUnicodeN( buffer, sizeof(buffer), NULL, test->path, strlen(test->path)+1 );
@@ -90,7 +84,7 @@ static void test_RtlDetermineDosPathNameType_U(void)
 }
 
 
-static void test_RtlIsDosDeviceName_U(void)
+static void test_RtlIsDosDeviceName(void)
 {
     struct test
     {
@@ -102,8 +96,8 @@ static void test_RtlIsDosDeviceName_U(void)
 
     static const struct test tests[] =
     {
-        { "\\\\.\\CON",    8, 6, TRUE },  /* fails on win8 */
-        { "\\\\.\\con",    8, 6, TRUE },  /* fails on win8 */
+        { "\\\\.\\CON",    8, 6 },
+        { "\\\\.\\con",    8, 6 },
         { "\\\\.\\CON2",   0, 0 },
         { "",              0, 0 },
         { "\\\\foo\\nul",  0, 0 },
@@ -149,12 +143,6 @@ static void test_RtlIsDosDeviceName_U(void)
     const struct test *test;
     WCHAR buffer[2000];
     ULONG ret;
-
-    if (!pRtlIsDosDeviceName_U)
-    {
-        win_skip("RtlIsDosDeviceName_U is not available\n");
-        return;
-    }
 
     for (test = tests; test->path; test++)
     {
@@ -208,12 +196,6 @@ static void test_RtlIsNameLegalDOS8Dot3(void)
     WCHAR buffer[200];
     char buff2[12];
     BOOLEAN ret, spaces;
-
-    if (!pRtlIsNameLegalDOS8Dot3)
-    {
-        win_skip("RtlIsNameLegalDOS8Dot3 is not available\n");
-        return;
-    }
 
     ustr.MaximumLength = sizeof(buffer);
     ustr.Buffer = buffer;
@@ -292,12 +274,6 @@ static void test_RtlGetFullPathName_U(void)
     DWORD reslen;
     UINT len;
 
-    if (!pRtlGetFullPathName_U)
-    {
-        win_skip("RtlGetFullPathName_U is not available\n");
-        return;
-    }
-
     file_part = (WCHAR *)0xdeadbeef;
     lstrcpyW(rbufferW, deadbeefW);
     ret = pRtlGetFullPathName_U(NULL, MAX_PATH, rbufferW, &file_part);
@@ -360,9 +336,12 @@ START_TEST(path)
     pRtlOemStringToUnicodeString = (void *)GetProcAddress(mod,"RtlOemStringToUnicodeString");
     pRtlIsNameLegalDOS8Dot3 = (void *)GetProcAddress(mod,"RtlIsNameLegalDOS8Dot3");
     pRtlGetFullPathName_U = (void *)GetProcAddress(mod,"RtlGetFullPathName_U");
-
-    test_RtlDetermineDosPathNameType_U();
-    test_RtlIsDosDeviceName_U();
-    test_RtlIsNameLegalDOS8Dot3();
-    test_RtlGetFullPathName_U();
+    if (pRtlDetermineDosPathNameType_U)
+        test_RtlDetermineDosPathNameType();
+    if (pRtlIsDosDeviceName_U)
+        test_RtlIsDosDeviceName();
+    if (pRtlIsNameLegalDOS8Dot3)
+        test_RtlIsNameLegalDOS8Dot3();
+    if (pRtlGetFullPathName_U && pRtlMultiByteToUnicodeN)
+        test_RtlGetFullPathName_U();
 }

@@ -315,7 +315,7 @@ struct stub_manager *get_stub_manager_from_object(APARTMENT *apt, void *object)
  * threads have a reference to it */
 void apartment_disconnectobject(struct apartment *apt, void *object)
 {
-    BOOL found = FALSE;
+    int found = FALSE;
     struct stub_manager *stubmgr;
 
     EnterCriticalSection(&apt->cs);
@@ -421,11 +421,10 @@ ULONG stub_manager_ext_release(struct stub_manager *m, ULONG refs, BOOL tablewea
     TRACE("removed %u refs from %p (oid %s), rc is now %u\n", refs, m, wine_dbgstr_longlong(m->oid), rc);
 
     if (last_extern_ref && m->extern_conn)
-        IExternalConnection_ReleaseConnection(m->extern_conn, EXTCONN_STRONG, 0, last_unlock_releases);
+        IExternalConnection_ReleaseConnection(m->extern_conn, EXTCONN_STRONG, 0, TRUE /* FIXME: Use last_unlock releases? */);
 
     if (rc == 0)
-        if (!(m->extern_conn && last_unlock_releases && m->weakrefs))
-            stub_manager_int_release(m);
+        stub_manager_int_release(m);
 
     return rc;
 }
@@ -563,7 +562,7 @@ void stub_manager_release_marshal_data(struct stub_manager *m, ULONG refs, const
     else if (ifstub->flags & MSHLFLAGS_TABLESTRONG)
         refs = 1;
 
-    stub_manager_ext_release(m, refs, tableweak, !tableweak);
+    stub_manager_ext_release(m, refs, tableweak, FALSE);
 }
 
 /* is an ifstub table marshaled? */

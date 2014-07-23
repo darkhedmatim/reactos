@@ -27,9 +27,8 @@
 #pragma once
 
 NTSTATUS
-GetSourcePaths(
-    PUNICODE_STRING SourcePath,
-    PUNICODE_STRING SourceRootPath,
-    PUNICODE_STRING SourceRootDir);
+GetSourcePaths(PUNICODE_STRING SourcePath,
+	       PUNICODE_STRING SourceRootPath,
+	       PUNICODE_STRING SourceRootDir);
 
 /* EOF */

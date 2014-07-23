@@ -96,7 +96,7 @@ NpOpenNamedPipeRootDirectory(IN PNP_DCB Dcb,
         IoStatus.Information = 0;
     }
 
-    TRACE("Leaving, IoStatus.Status = %lx\n", IoStatus.Status);
+    TRACE("Leaving, IoStatus = %lx\n", IoStatus);
     return IoStatus;
 }
 
@@ -122,6 +122,7 @@ NpCreateClientEnd(IN PNP_FCB Fcb,
     PNP_CCB Ccb = NULL;
     TRACE("Entered\n");
 
+    IoStatus.Status = STATUS_SUCCESS;
     IoStatus.Information = 0;
     Privileges = NULL;
 
@@ -171,7 +172,7 @@ NpCreateClientEnd(IN PNP_FCB Fcb,
         ((GrantedAccess & FILE_WRITE_DATA) && (NamedPipeConfiguration == FILE_PIPE_OUTBOUND)))
     {
         IoStatus.Status = STATUS_ACCESS_DENIED;
-        TRACE("Leaving, IoStatus.Status = %lx\n", IoStatus.Status);
+        TRACE("Leaving, IoStatus = %lx\n", IoStatus);
         return IoStatus;
     }
 
@@ -190,7 +191,7 @@ NpCreateClientEnd(IN PNP_FCB Fcb,
     if (NextEntry == ListHead)
     {
         IoStatus.Status = STATUS_PIPE_NOT_AVAILABLE;
-        TRACE("Leaving, IoStatus.Status = %lx\n", IoStatus.Status);
+        TRACE("Leaving, IoStatus = %lx\n", IoStatus);
         return IoStatus;
     }
 
@@ -201,7 +202,7 @@ NpCreateClientEnd(IN PNP_FCB Fcb,
     if (!NT_SUCCESS(IoStatus.Status))
     {
         NpUninitializeSecurity(Ccb);
-        TRACE("Leaving, IoStatus.Status = %lx\n", IoStatus.Status);
+        TRACE("Leaving, IoStatus = %lx\n", IoStatus);
         return IoStatus;
     }
 
@@ -210,7 +211,7 @@ NpCreateClientEnd(IN PNP_FCB Fcb,
 
     IoStatus.Information = FILE_OPENED;
     IoStatus.Status = STATUS_SUCCESS;
-    TRACE("Leaving, IoStatus.Status = %lx\n", IoStatus.Status);
+    TRACE("Leaving, IoStatus = %lx\n", IoStatus);
     return IoStatus;
 }
 
@@ -372,6 +373,7 @@ NpFsdCreate(IN PDEVICE_OBJECT DeviceObject,
     ACCESS_MASK DesiredAccess;
     LIST_ENTRY DeferredList;
     UNICODE_STRING Prefix;
+    NTSTATUS Status;
     TRACE("Entered\n");
 
     InitializeListHead(&DeferredList);
@@ -382,6 +384,7 @@ NpFsdCreate(IN PDEVICE_OBJECT DeviceObject,
     DesiredAccess = IoStack->Parameters.CreatePipe.SecurityContext->DesiredAccess;
 
     IoStatus.Information = 0;
+    IoStatus.Status = STATUS_SUCCESS;
 
     FsRtlEnterFileSystem();
     ExAcquireResourceExclusiveLite(&NpVcb->Lock, TRUE);
@@ -425,8 +428,8 @@ NpFsdCreate(IN PDEVICE_OBJECT DeviceObject,
         goto Quickie;
     }
 
-    IoStatus.Status = NpTranslateAlias(&FileName);
-    if (!NT_SUCCESS(IoStatus.Status)) goto Quickie;
+    Status = NpTranslateAlias(&FileName);
+    if (!NT_SUCCESS(Status)) goto Quickie;
 
     if (RelatedFileObject)
     {
@@ -540,8 +543,6 @@ NpCreateExistingNamedPipe(IN PNP_FCB Fcb,
     SubjectSecurityContext = &AccessState->SubjectSecurityContext;
     SeLockSubjectContext(SubjectSecurityContext);
 
-    IoStatus.Information = 0;
-
     AccessGranted = SeAccessCheck(Fcb->SecurityDescriptor,
                                   SubjectSecurityContext,
                                   TRUE,
@@ -580,21 +581,21 @@ NpCreateExistingNamedPipe(IN PNP_FCB Fcb,
     SeUnlockSubjectContext(SubjectSecurityContext);
     if (!AccessGranted)
     {
-        TRACE("Leaving, IoStatus.Status = %lx\n", IoStatus.Status);
+        TRACE("Leaving, IoStatus = %lx\n", IoStatus);
         return IoStatus;
     }
 
     if (Fcb->CurrentInstances >= Fcb->MaximumInstances)
     {
         IoStatus.Status = STATUS_INSTANCE_NOT_AVAILABLE;
-        TRACE("Leaving, IoStatus.Status = %lx\n", IoStatus.Status);
+        TRACE("Leaving, IoStatus = %lx\n", IoStatus);
         return IoStatus;
     }
 
     if (Disposition == FILE_CREATE)
     {
         IoStatus.Status = STATUS_ACCESS_DENIED;
-        TRACE("Leaving, IoStatus.Status = %lx\n", IoStatus.Status);
+        TRACE("Leaving, IoStatus = %lx\n", IoStatus);
         return IoStatus;
     }
 
@@ -615,7 +616,7 @@ NpCreateExistingNamedPipe(IN PNP_FCB Fcb,
     if (CheckShareAccess != ShareAccess)
     {
         IoStatus.Status = STATUS_ACCESS_DENIED;
-        TRACE("Leaving, IoStatus.Status = %lx\n", IoStatus.Status);
+        TRACE("Leaving, IoStatus = %lx\n", IoStatus);
         return IoStatus;
     }
 
@@ -637,7 +638,7 @@ NpCreateExistingNamedPipe(IN PNP_FCB Fcb,
     {
         --Ccb->Fcb->CurrentInstances;
         NpDeleteCcb(Ccb, List);
-        TRACE("Leaving, IoStatus.Status = %lx\n", IoStatus.Status);
+        TRACE("Leaving, IoStatus = %lx\n", IoStatus);
         return IoStatus;
     }
 
@@ -646,8 +647,8 @@ NpCreateExistingNamedPipe(IN PNP_FCB Fcb,
     NpCheckForNotify(Fcb->ParentDcb, 0, List);
 
     IoStatus.Status = STATUS_SUCCESS;
-    IoStatus.Information = FILE_OPENED;
-    TRACE("Leaving, IoStatus.Status = %lx\n", IoStatus.Status);
+    IoStatus.Information = 1;
+    TRACE("Leaving, IoStatus = %lx\n", IoStatus);
     return IoStatus;
 }
 
@@ -663,7 +664,7 @@ NpCreateNewNamedPipe(IN PNP_DCB Dcb,
                      IN PNAMED_PIPE_CREATE_PARAMETERS Parameters,
                      IN PEPROCESS Process,
                      IN PLIST_ENTRY List,
-                     OUT PIO_STATUS_BLOCK IoStatus)
+                     IN PIO_STATUS_BLOCK IoStatus)
 {
     NTSTATUS Status;
     USHORT NamedPipeConfiguration;
@@ -816,6 +817,7 @@ NpFsdCreateNamedPipe(IN PDEVICE_OBJECT DeviceObject,
 
     FileName = FileObject->FileName;
 
+    IoStatus.Status = STATUS_SUCCESS;
     IoStatus.Information = 0;
 
     FsRtlEnterFileSystem();

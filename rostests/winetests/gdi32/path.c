@@ -270,8 +270,7 @@ static void test_widenpath(void)
     HDC hdc = GetDC(0);
     HPEN greenPen, narrowPen;
     POINT pnt[6];
-    INT nSize;
-    BOOL ret;
+    INT nSize, ret;
 
     /* Create a pen to be used in WidenPath */
     greenPen = CreatePen(PS_SOLID, 10, RGB(0,0,0));

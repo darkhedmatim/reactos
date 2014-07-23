@@ -199,7 +199,7 @@ GetEnvironmentVariables(HWND hwndListView,
     lpData = GlobalAlloc(GPTR, (dwMaxValueDataLength + 1) * sizeof(TCHAR));
     if (lpData == NULL)
     {
-        GlobalFree(lpName);
+        GlobalFree(lpData);
         RegCloseKey(hKey);
         return;
     }
@@ -227,7 +227,6 @@ GetEnvironmentVariables(HWND hwndListView,
                          (LPBYTE)lpData,
                          &dwDataLength))
         {
-            GlobalFree(lpExpandData);
             GlobalFree(lpName);
             GlobalFree(lpData);
             RegCloseKey(hKey);

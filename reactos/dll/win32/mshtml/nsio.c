@@ -120,23 +120,6 @@ static BOOL compare_ignoring_frag(IUri *uri1, IUri *uri2)
     return ret;
 }
 
-static HRESULT combine_url(IUri *base_uri, const WCHAR *rel_url, IUri **ret)
-{
-    IUri *uri_nofrag;
-    HRESULT hres;
-
-    uri_nofrag = get_uri_nofrag(base_uri);
-    if(!uri_nofrag)
-        return E_FAIL;
-
-    hres = CoInternetCombineUrlEx(uri_nofrag, rel_url, URL_ESCAPE_SPACES_ONLY|URL_DONT_ESCAPE_EXTRA_INFO,
-                ret, 0);
-    IUri_Release(uri_nofrag);
-    if(FAILED(hres))
-        WARN("CoInternetCombineUrlEx failed: %08x\n", hres);
-    return hres;
-}
-
 static nsresult create_nsuri(IUri*,HTMLOuterWindow*,NSContainer*,const char*,nsWineURI**);
 
 static const char *debugstr_nsacstr(const nsACString *nsstr)
@@ -1497,6 +1480,9 @@ static nsresult NSAPI nsUploadChannel_SetUploadStream(nsIUploadChannel *iface,
         }
     }
 
+    if(This->post_data_stream)
+        nsIInputStream_Release(This->post_data_stream);
+
     if(aContentLength != -1)
         FIXME("Unsupported acontentLength = %s\n", wine_dbgstr_longlong(aContentLength));
 
@@ -2400,10 +2386,12 @@ static nsresult NSAPI nsURI_Resolve(nsIFileURL *iface, const nsACString *aRelati
     if(!path)
         return NS_ERROR_OUT_OF_MEMORY;
 
-    hres = combine_url(This->uri, path, &new_uri);
+    hres = CoInternetCombineUrlEx(This->uri, path, URL_ESCAPE_SPACES_ONLY|URL_DONT_ESCAPE_EXTRA_INFO, &new_uri, 0);
     heap_free(path);
-    if(FAILED(hres))
+    if(FAILED(hres)) {
+        ERR("CoIntenetCombineUrlEx failed: %08x\n", hres);
         return NS_ERROR_FAILURE;
+    }
 
     hres = IUri_GetDisplayUri(new_uri, &ret);
     IUri_Release(new_uri);
@@ -3308,7 +3296,10 @@ static nsresult NSAPI nsIOService_NewURI(nsIIOService *iface, const nsACString *
     MultiByteToWideChar(CP_ACP, 0, spec, -1, new_spec, sizeof(new_spec)/sizeof(WCHAR));
 
     if(base_wine_uri) {
-        hres = combine_url(base_wine_uri->uri, new_spec, &urlmon_uri);
+        hres = CoInternetCombineUrlEx(base_wine_uri->uri, new_spec, URL_ESCAPE_SPACES_ONLY|URL_DONT_ESCAPE_EXTRA_INFO,
+                &urlmon_uri, 0);
+        if(FAILED(hres))
+            WARN("CoInternetCombineUrlEx failed: %08x\n", hres);
     }else {
         hres = create_uri(new_spec, 0, &urlmon_uri);
         if(FAILED(hres))

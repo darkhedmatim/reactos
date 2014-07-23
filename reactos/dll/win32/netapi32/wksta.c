@@ -30,17 +30,29 @@ WINE_DEFAULT_DEBUG_CHANNEL(netapi32);
  *
  * Checks whether the server name indicates local machine.
  */
-DECLSPEC_HIDDEN BOOL NETAPI_IsLocalComputer( LMCSTR name )
+BOOL NETAPI_IsLocalComputer(LMCSTR ServerName)
 {
-    WCHAR buf[MAX_COMPUTERNAME_LENGTH + 1];
-    DWORD size = sizeof(buf) / sizeof(buf[0]);
-    BOOL ret;
+    if (!ServerName)
+    {
+        return TRUE;
+    }
+    else if (ServerName[0] == '\0')
+        return TRUE;
+    else
+    {
+        DWORD dwSize = MAX_COMPUTERNAME_LENGTH + 1;
+        BOOL Result;
+        LPWSTR buf;
 
-    if (!name || !name[0]) return TRUE;
+        NetApiBufferAllocate(dwSize * sizeof(WCHAR), (LPVOID *) &buf);
+        Result = GetComputerNameW(buf,  &dwSize);
+        if (Result && (ServerName[0] == '\\') && (ServerName[1] == '\\'))
+            ServerName += 2;
+        Result = Result && !lstrcmpW(ServerName, buf);
+        NetApiBufferFree(buf);
 
-    ret = GetComputerNameW( buf,  &size );
-    if (ret && name[0] == '\\' && name[1] == '\\') name += 2;
-    return ret && !strcmpiW( name, buf );
+        return Result;
+    }
 }
 
 static void wprint_mac(WCHAR* buffer, int len, const MIB_IFROW *ifRow)

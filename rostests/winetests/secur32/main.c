@@ -22,7 +22,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
-
+#include <assert.h>
 #include <windef.h>
 #include <winbase.h>
 #include <sspi.h>
@@ -108,7 +108,7 @@ static const char* getSecError(SECURITY_STATUS status)
 /* Helper for testQuerySecurityPagageInfo */
 
 static SECURITY_STATUS setupPackageA(SEC_CHAR *p_package_name, 
-        PSecPkgInfoA *p_pkg_info)
+        PSecPkgInfo *p_pkg_info)
 {
     SECURITY_STATUS ret;
     
@@ -121,7 +121,7 @@ static SECURITY_STATUS setupPackageA(SEC_CHAR *p_package_name,
 
 static void testInitSecurityInterface(void)
 {
-    PSecurityFunctionTableA sec_fun_table = NULL;
+    PSecurityFunctionTable sec_fun_table = NULL;
 
     sec_fun_table = pInitSecurityInterfaceA();
     ok(sec_fun_table != NULL, "InitSecurityInterface() returned NULL.\n");
@@ -133,7 +133,7 @@ static void testEnumerateSecurityPackages(void)
 
     SECURITY_STATUS sec_status;
     ULONG           num_packages, i;
-    PSecPkgInfoA    pkg_info = NULL;
+    PSecPkgInfo     pkg_info = NULL;
 
     trace("Running testEnumerateSecurityPackages\n");
     
@@ -197,7 +197,7 @@ static void testEnumerateSecurityPackages(void)
 static void testQuerySecurityPackageInfo(void)
 {
     SECURITY_STATUS     sec_status;
-    PSecPkgInfoA        pkg_info;
+    PSecPkgInfo         pkg_info;
     static SEC_CHAR     ntlm[]     = "NTLM",
                         winetest[] = "Winetest";
 

@@ -617,10 +617,7 @@ ParserOpen(LPCWSTR filename, BOOL write_access)
     cch = wcslen(buffer) + 1;
     CurProfile->filename = HeapAlloc(GetProcessHeap(), 0, cch * sizeof(WCHAR));
     if (CurProfile->filename == NULL)
-    {
-        if (hFile != INVALID_HANDLE_VALUE) CloseHandle(hFile);
         return FALSE;
-    }
 
     StringCchCopyW(CurProfile->filename, cch, buffer);
 

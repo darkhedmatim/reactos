@@ -12,38 +12,40 @@
 /*
  * @implemented
  */
-BOOLEAN
-NTAPI
+BOOLEAN NTAPI
 EnableVolumeCompression(
-    IN PWCHAR DriveRoot,
-    IN USHORT Compression)
+	IN PWCHAR DriveRoot,
+	IN USHORT Compression)
 {
-    HANDLE hFile;
-    DWORD RetBytes;
-    BOOL Ret;
+	HANDLE hFile;
+	DWORD RetBytes;
+	BOOL Ret;
 
-    hFile = CreateFileW(DriveRoot,
-                        FILE_READ_DATA | FILE_WRITE_DATA,
-                        FILE_SHARE_READ | FILE_SHARE_WRITE,
-                        NULL,
-                        OPEN_EXISTING,
-                        FILE_FLAG_BACKUP_SEMANTICS,
-                        NULL);
-    if (hFile == INVALID_HANDLE_VALUE)
-        return FALSE;
+	hFile = CreateFileW(
+		DriveRoot,
+		FILE_READ_DATA | FILE_WRITE_DATA,
+		FILE_SHARE_READ | FILE_SHARE_WRITE,
+		NULL,
+		OPEN_EXISTING,
+		FILE_FLAG_BACKUP_SEMANTICS,
+		NULL);
 
-    Ret = DeviceIoControl(hFile,
-                          FSCTL_SET_COMPRESSION,
-                          &Compression,
-                          sizeof(USHORT),
-                          NULL,
-                          0,
-                          &RetBytes,
-                          NULL);
+	if (hFile == INVALID_HANDLE_VALUE)
+		return FALSE;
 
-    CloseHandle(hFile);
+	Ret = DeviceIoControl(
+		hFile,
+		FSCTL_SET_COMPRESSION,
+		&Compression,
+		sizeof(USHORT),
+		NULL,
+		0,
+		&RetBytes,
+		NULL);
 
-    return (Ret != 0);
+	CloseHandle(hFile);
+
+	return (Ret != 0);
 }
 
 /* EOF */

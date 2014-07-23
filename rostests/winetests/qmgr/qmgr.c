@@ -35,24 +35,31 @@
 
 static WCHAR progname[MAX_PATH];
 
-static HRESULT test_create_manager(void)
+static void
+test_CreateInstance(void)
 {
     HRESULT hres;
+    ULONG res;
     IBackgroundCopyManager *manager = NULL;
 
     /* Creating BITS instance */
     hres = CoCreateInstance(&CLSID_BackgroundCopyManager, NULL, CLSCTX_LOCAL_SERVER,
                             &IID_IBackgroundCopyManager, (void **) &manager);
 
-    if(hres == HRESULT_FROM_WIN32(ERROR_SERVICE_DISABLED)) {
-        win_skip("Needed Service is disabled\n");
-        return hres;
+    if(hres == __HRESULT_FROM_WIN32(ERROR_SERVICE_DISABLED)) {
+        skip("Needed Service is disabled\n");
+        return;
+    }
+    ok(hres == S_OK, "CoCreateInstance failed: %08x\n", hres);
+    if(hres != S_OK) {
+        skip("Unable to create bits instance.\n");
+        return;
     }
 
-    if (hres == S_OK)
-        IBackgroundCopyManager_Release(manager);
+    /* Releasing bits manager */
+    res = IBackgroundCopyManager_Release(manager);
+    ok(res == 0, "Bad ref count on release: %u\n", res);
 
-    return hres;
 }
 
 static void test_CreateJob(void)
@@ -69,16 +76,25 @@ static void test_CreateJob(void)
     hres = CoCreateInstance(&CLSID_BackgroundCopyManager, NULL,
                             CLSCTX_LOCAL_SERVER, &IID_IBackgroundCopyManager,
                             (void **) &manager);
-    ok(hres == S_OK, "got 0x%08x\n", hres);
+    if(hres != S_OK)
+    {
+        skip("Unable to create bits instance required for test.\n");
+        return;
+    }
 
     /* Create bits job */
     hres = IBackgroundCopyManager_CreateJob(manager, copyNameW,
                                             BG_JOB_TYPE_DOWNLOAD, &tmpId,
                                             &job);
     ok(hres == S_OK, "CreateJob failed: %08x\n", hres);
+    if(hres != S_OK)
+        skip("Unable to create bits job.\n");
+    else
+    {
+        res = IBackgroundCopyJob_Release(job);
+        ok(res == 0, "Bad ref count on release: %u\n", res);
+    }
 
-    res = IBackgroundCopyJob_Release(job);
-    ok(res == 0, "Bad ref count on release: %u\n", res);
     IBackgroundCopyManager_Release(manager);
 }
 
@@ -92,21 +108,36 @@ static void test_EnumJobs(void)
     IBackgroundCopyJob *job = NULL;
     HRESULT hres;
     GUID tmpId;
+    ULONG res;
 
     /* Setup */
     hres = CoCreateInstance(&CLSID_BackgroundCopyManager, NULL,
                             CLSCTX_LOCAL_SERVER, &IID_IBackgroundCopyManager,
                             (void **) &manager);
-    ok(hres == S_OK, "got 0x%08x\n", hres);
-
+    if(hres != S_OK)
+    {
+        skip("Unable to create bits instance required for test.\n");
+        return;
+    }
     hres = IBackgroundCopyManager_CreateJob(manager, copyNameW,
                                             BG_JOB_TYPE_DOWNLOAD, &tmpId,
                                             &job);
-    ok(hres == S_OK, "got 0x%08x\n", hres);
+    if(hres != S_OK)
+    {
+        skip("Unable to create bits job.\n");
+        IBackgroundCopyManager_Release(manager);
+        return;
+    }
 
     hres = IBackgroundCopyManager_EnumJobs(manager, 0, &enumJobs);
     ok(hres == S_OK, "EnumJobs failed: %08x\n", hres);
-    IEnumBackgroundCopyJobs_Release(enumJobs);
+    if(hres != S_OK)
+        skip("Unable to create job enumerator.\n");
+    else
+    {
+        res = IEnumBackgroundCopyJobs_Release(enumJobs);
+        ok(res == 0, "Bad ref count on release: %u\n", res);
+    }
 
     /* Tear down */
     IBackgroundCopyJob_Release(job);
@@ -140,7 +171,11 @@ static void do_child(const char *secretA)
     hres = CoCreateInstance(&CLSID_BackgroundCopyManager, NULL,
                             CLSCTX_LOCAL_SERVER, &IID_IBackgroundCopyManager,
                             (void **) &manager);
-    ok(hres == S_OK, "got 0x%08x\n", hres);
+    if(hres != S_OK)
+    {
+        skip("Unable to create bits instance required for test.\n");
+        return;
+    }
 
     MultiByteToWideChar(CP_ACP, 0, secretA, -1, secretW, MAX_PATH);
     hres = IBackgroundCopyManager_CreateJob(manager, secretW,
@@ -160,7 +195,11 @@ static void test_globalness(void)
     hres = CoCreateInstance(&CLSID_BackgroundCopyManager, NULL,
                             CLSCTX_LOCAL_SERVER, &IID_IBackgroundCopyManager,
                             (void **) &manager);
-    ok(hres == S_OK, "got 0x%08x\n", hres);
+    if(hres != S_OK)
+    {
+        skip("Unable to create bits instance required for test.\n");
+        return;
+    }
 
     wsprintfW(secretName, format, GetTickCount());
     run_child(secretName);
@@ -187,8 +226,8 @@ static void test_globalness(void)
             CoTaskMemFree(name);
             IBackgroundCopyJob_Release(job);
         }
-
-        IEnumBackgroundCopyJobs_Release(enumJobs);
+        hres = IEnumBackgroundCopyJobs_Release(enumJobs);
+        ok(hres == S_OK, "Release failed: %08x\n", hres);
         ok(found, "Adding a job in another process failed\n");
     }
 
@@ -202,18 +241,11 @@ START_TEST(qmgr)
     MultiByteToWideChar(CP_ACP, 0, argv[0], -1, progname, MAX_PATH);
 
     CoInitialize(NULL);
-
-    if (FAILED(test_create_manager()))
-    {
-        win_skip("Failed to create Manager instance, skipping tests\n");
-        CoUninitialize();
-        return;
-    }
-
     if (argc == 3)
         do_child(argv[2]);
     else
     {
+        test_CreateInstance();
         test_CreateJob();
         test_EnumJobs();
         test_globalness();

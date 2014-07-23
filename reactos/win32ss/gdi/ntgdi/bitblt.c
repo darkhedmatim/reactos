@@ -47,12 +47,6 @@ NtGdiAlphaBlend(
         return FALSE;
     }
 
-    if ((hDCDest == NULL) || (hDCSrc == NULL))
-    {
-        EngSetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-
     TRACE("Locking DCs\n");
     ahDC[0] = hDCDest;
     ahDC[1] = hDCSrc ;
@@ -161,26 +155,8 @@ NtGdiBitBlt(
     IN DWORD crBackColor,
     IN FLONG fl)
 {
-    DWORD dwTRop;
-
-    if (ROP & CAPTUREBLT)
-       return NtGdiStretchBlt(hDCDest,
-                              XDest,
-                              YDest,
-                              Width,
-                              Height,
-                              hDCSrc,
-                              XSrc,
-                              YSrc,
-                              Width,
-                              Height,
-                              ROP,
-                              crBackColor);
-
-    dwTRop = ROP & ~(NOMIRRORBITMAP|CAPTUREBLT);
-
     /* Forward to NtGdiMaskBlt */
-    // TODO: What's fl for? LOL not to send this to MaskBit!
+    // TODO: What's fl for?
     return NtGdiMaskBlt(hDCDest,
                         XDest,
                         YDest,
@@ -192,7 +168,7 @@ NtGdiBitBlt(
                         NULL,
                         0,
                         0,
-                        dwTRop,
+                        ROP,
                         crBackColor);
 }
 
@@ -218,12 +194,6 @@ NtGdiTransparentBlt(
     ULONG TransparentColor = 0;
     BOOL Ret = FALSE;
     EXLATEOBJ exlo;
-
-    if ((hdcDst == NULL) || (hdcSrc == NULL))
-    {
-        EngSetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
 
     TRACE("Locking DCs\n");
     ahDC[0] = hdcDst;
@@ -742,8 +712,6 @@ NtGdiStretchBlt(
     DWORD ROP,
     IN DWORD dwBackColor)
 {
-    DWORD dwTRop = ROP & ~(NOMIRRORBITMAP|CAPTUREBLT);
-
     return GreStretchBltMask(
                 hDCDest,
                 XOriginDest,
@@ -755,7 +723,7 @@ NtGdiStretchBlt(
                 YOriginSrc,
                 WidthSrc,
                 HeightSrc,
-                dwTRop,
+                ROP,
                 dwBackColor,
                 NULL,
                 0,

@@ -111,9 +111,9 @@ ULONG
 FASTCALL
 BitmapFormat(ULONG cBits, ULONG iCompression);
 
-VOID
+BOOL
 NTAPI
-SURFACE_vCleanup(PVOID ObjectBody);
+SURFACE_Cleanup(PVOID ObjectBody);
 
 PSURFACE
 NTAPI
@@ -126,8 +126,8 @@ SURFACE_AllocSurface(
     _In_opt_ ULONG cjWidth,
     _In_opt_ PVOID pvBits);
 
-FORCEINLINE
 VOID
+FORCEINLINE
 SURFACE_vSetPalette(
     _Inout_ PSURFACE psurf,
     _In_ PPALETTE ppal)

@@ -26,14 +26,12 @@
 #include "devenum_private.h"
 
 #include <vfw.h>
-#include <aviriff.h>
-#include <shlwapi.h>
 
 #include "resource.h"
 
 extern HINSTANCE DEVENUM_hInstance;
 
-const WCHAR wszInstanceKeyName[] ={'\\','I','n','s','t','a','n','c','e',0};
+const WCHAR wszInstanceKeyName[] ={'I','n','s','t','a','n','c','e',0};
 
 static const WCHAR wszRegSeparator[] =   {'\\', 0 };
 static const WCHAR wszActiveMovieKey[] = {'S','o','f','t','w','a','r','e','\\',
@@ -103,18 +101,12 @@ static ULONG WINAPI DEVENUM_ICreateDevEnum_Release(ICreateDevEnum * iface)
     return 1; /* non-heap based object */
 }
 
-static BOOL IsSpecialCategory(const CLSID *clsid)
-{
-    return IsEqualGUID(clsid, &CLSID_AudioRendererCategory) ||
-        IsEqualGUID(clsid, &CLSID_AudioInputDeviceCategory) ||
-        IsEqualGUID(clsid, &CLSID_VideoInputDeviceCategory) ||
-        IsEqualGUID(clsid, &CLSID_VideoCompressorCategory) ||
-        IsEqualGUID(clsid, &CLSID_MidiRendererCategory);
-}
-
 HRESULT DEVENUM_GetCategoryKey(REFCLSID clsidDeviceClass, HKEY *pBaseKey, WCHAR *wszRegKeyName, UINT maxLen)
 {
-    if (IsSpecialCategory(clsidDeviceClass))
+    if (IsEqualGUID(clsidDeviceClass, &CLSID_AudioRendererCategory) ||
+        IsEqualGUID(clsidDeviceClass, &CLSID_AudioInputDeviceCategory) ||
+        IsEqualGUID(clsidDeviceClass, &CLSID_VideoInputDeviceCategory) ||
+        IsEqualGUID(clsidDeviceClass, &CLSID_MidiRendererCategory))
     {
         *pBaseKey = HKEY_CURRENT_USER;
         strcpyW(wszRegKeyName, wszActiveMovieKey);
@@ -131,55 +123,11 @@ HRESULT DEVENUM_GetCategoryKey(REFCLSID clsidDeviceClass, HKEY *pBaseKey, WCHAR 
         if (!StringFromGUID2(clsidDeviceClass, wszRegKeyName + CLSID_STR_LEN, maxLen - CLSID_STR_LEN))
             return E_OUTOFMEMORY;
 
+        strcatW(wszRegKeyName, wszRegSeparator);
         strcatW(wszRegKeyName, wszInstanceKeyName);
     }
 
     return S_OK;
-}
-
-static HKEY open_category_key(const CLSID *clsid)
-{
-    WCHAR key_name[sizeof(wszInstanceKeyName)/sizeof(WCHAR) + CHARS_IN_GUID-1 + 6 /* strlen("CLSID\") */], *ptr;
-    HKEY ret;
-
-    strcpyW(key_name, clsid_keyname);
-    ptr = key_name + strlenW(key_name);
-    *ptr++ = '\\';
-
-    if (!StringFromGUID2(clsid, ptr, CHARS_IN_GUID))
-        return NULL;
-
-    ptr += strlenW(ptr);
-    strcpyW(ptr, wszInstanceKeyName);
-
-    if (RegOpenKeyExW(HKEY_CLASSES_ROOT, key_name, 0, KEY_READ, &ret) != ERROR_SUCCESS) {
-        WARN("Could not open %s\n", debugstr_w(key_name));
-        return NULL;
-    }
-
-    return ret;
-}
-
-static HKEY open_special_category_key(const CLSID *clsid, BOOL create)
-{
-    WCHAR key_name[sizeof(wszActiveMovieKey)/sizeof(WCHAR) + CHARS_IN_GUID-1];
-    HKEY ret;
-    LONG res;
-
-    strcpyW(key_name, wszActiveMovieKey);
-    if (!StringFromGUID2(clsid, key_name + sizeof(wszActiveMovieKey)/sizeof(WCHAR)-1, CHARS_IN_GUID))
-        return NULL;
-
-    if(create)
-        res = RegCreateKeyW(HKEY_CURRENT_USER, key_name, &ret);
-    else
-        res = RegOpenKeyExW(HKEY_CURRENT_USER, key_name, 0, KEY_READ, &ret);
-    if (res != ERROR_SUCCESS) {
-        WARN("Could not open %s\n", debugstr_w(key_name));
-        return NULL;
-    }
-
-    return ret;
 }
 
 static void DEVENUM_ReadPinTypes(HKEY hkeyPinKey, REGFILTERPINS *rgPin)
@@ -507,7 +455,9 @@ static HRESULT WINAPI DEVENUM_ICreateDevEnum_CreateClassEnumerator(
     IEnumMoniker **ppEnumMoniker,
     DWORD dwFlags)
 {
-    HKEY hkey, special_hkey = NULL;
+    WCHAR wszRegKey[MAX_PATH];
+    HKEY hkey;
+    HKEY hbasekey;
     HRESULT hr;
 
     TRACE("(%p)->(%s, %p, %x)\n", iface, debugstr_guid(clsidDeviceClass), ppEnumMoniker, dwFlags);
@@ -522,29 +472,32 @@ static HRESULT WINAPI DEVENUM_ICreateDevEnum_CreateClassEnumerator(
         DEVENUM_RegisterLegacyAmFilters();
     }
 
-    if (IsSpecialCategory(clsidDeviceClass))
+    hr = DEVENUM_GetCategoryKey(clsidDeviceClass, &hbasekey, wszRegKey, MAX_PATH);
+    if (FAILED(hr))
+        return hr;
+
+    if (IsEqualGUID(clsidDeviceClass, &CLSID_AudioRendererCategory) ||
+        IsEqualGUID(clsidDeviceClass, &CLSID_AudioInputDeviceCategory) ||
+        IsEqualGUID(clsidDeviceClass, &CLSID_VideoInputDeviceCategory) ||
+        IsEqualGUID(clsidDeviceClass, &CLSID_MidiRendererCategory))
     {
          hr = DEVENUM_CreateSpecialCategories();
          if (FAILED(hr))
              return hr;
-
-         special_hkey = open_special_category_key(clsidDeviceClass, FALSE);
-         if (!special_hkey)
+         if (RegOpenKeyW(hbasekey, wszRegKey, &hkey) != ERROR_SUCCESS)
          {
              ERR("Couldn't open registry key for special device: %s\n",
                  debugstr_guid(clsidDeviceClass));
              return S_FALSE;
          }
     }
-
-    hkey = open_category_key(clsidDeviceClass);
-    if (!hkey && !special_hkey)
+    else if (RegOpenKeyW(hbasekey, wszRegKey, &hkey) != ERROR_SUCCESS)
     {
         FIXME("Category %s not found\n", debugstr_guid(clsidDeviceClass));
         return S_FALSE;
     }
 
-    return DEVENUM_IEnumMoniker_Construct(hkey, special_hkey, ppEnumMoniker);
+    return DEVENUM_IEnumMoniker_Construct(hkey, ppEnumMoniker);
 }
 
 /**********************************************************************
@@ -595,44 +548,6 @@ static HRESULT DEVENUM_CreateAMCategoryKey(const CLSID * clsidCategory)
     return res;
 }
 
-static void register_vfw_codecs(void)
-{
-    WCHAR avico_clsid_str[CHARS_IN_GUID];
-    HKEY basekey, key;
-    ICINFO icinfo;
-    DWORD i, res;
-
-    static const WCHAR CLSIDW[] = {'C','L','S','I','D',0};
-    static const WCHAR FccHandlerW[] = {'F','c','c','H','a','n','d','l','e','r',0};
-    static const WCHAR FriendlyNameW[] = {'F','r','i','e','n','d','l','y','N','a','m','e',0};
-
-    StringFromGUID2(&CLSID_AVICo, avico_clsid_str, sizeof(avico_clsid_str)/sizeof(WCHAR));
-
-    basekey = open_special_category_key(&CLSID_VideoCompressorCategory, TRUE);
-    if(!basekey) {
-        ERR("Could not create key\n");
-        return;
-    }
-
-    for(i=0; ICInfo(FCC('v','i','d','c'), i, &icinfo); i++) {
-        WCHAR fcc_str[5] = {LOBYTE(LOWORD(icinfo.fccHandler)), HIBYTE(LOWORD(icinfo.fccHandler)),
-                            LOBYTE(HIWORD(icinfo.fccHandler)), HIBYTE(HIWORD(icinfo.fccHandler))};
-
-        res = RegCreateKeyW(basekey, fcc_str, &key);
-        if(res != ERROR_SUCCESS)
-            continue;
-
-        RegSetValueExW(key, CLSIDW, 0, REG_SZ, (const BYTE*)avico_clsid_str, sizeof(avico_clsid_str));
-        RegSetValueExW(key, FccHandlerW, 0, REG_SZ, (const BYTE*)fcc_str, sizeof(fcc_str));
-        RegSetValueExW(key, FriendlyNameW, 0, REG_SZ, (const BYTE*)icinfo.szName, (strlenW(icinfo.szName)+1)*sizeof(WCHAR));
-        /* FIXME: Set ClassManagerFlags and FilterData values */
-
-        RegCloseKey(key);
-    }
-
-    RegCloseKey(basekey);
-}
-
 static HANDLE DEVENUM_populate_handle;
 static const WCHAR DEVENUM_populate_handle_nameW[] =
     {'_','_','W','I','N','E','_',
@@ -676,15 +591,13 @@ static HRESULT DEVENUM_CreateSpecialCategories(void)
      * or switched from pulseaudio to alsa, delete all old devices first
      */
     if (SUCCEEDED(DEVENUM_GetCategoryKey(&CLSID_AudioRendererCategory, &basekey, path, MAX_PATH)))
-        SHDeleteKeyW(basekey, path);
+        RegDeleteTreeW(basekey, path);
     if (SUCCEEDED(DEVENUM_GetCategoryKey(&CLSID_AudioInputDeviceCategory, &basekey, path, MAX_PATH)))
-        SHDeleteKeyW(basekey, path);
+        RegDeleteTreeW(basekey, path);
     if (SUCCEEDED(DEVENUM_GetCategoryKey(&CLSID_VideoInputDeviceCategory, &basekey, path, MAX_PATH)))
-        SHDeleteKeyW(basekey, path);
+        RegDeleteTreeW(basekey, path);
     if (SUCCEEDED(DEVENUM_GetCategoryKey(&CLSID_MidiRendererCategory, &basekey, path, MAX_PATH)))
-        SHDeleteKeyW(basekey, path);
-    if (SUCCEEDED(DEVENUM_GetCategoryKey(&CLSID_VideoCompressorCategory, &basekey, path, MAX_PATH)))
-        SHDeleteKeyW(basekey, path);
+        RegDeleteTreeW(basekey, path);
 
     rf2.dwVersion = 2;
     rf2.dwMerit = MERIT_PREFERRED;
@@ -964,9 +877,6 @@ static HRESULT DEVENUM_CreateSpecialCategories(void)
 
     if (pMapper)
         IFilterMapper2_Release(pMapper);
-
-    register_vfw_codecs();
-
     SetEvent(DEVENUM_populate_handle);
     return res;
 }

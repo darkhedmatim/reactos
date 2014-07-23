@@ -22,7 +22,9 @@ add_library(uniata SHARED ${SOURCE} idedma.rc)
 
 
 if(NOT MSVC)
-    set_source_files_properties(${SOURCE} PROPERTIES COMPILE_FLAGS "-Wno-unused-but-set-variable -Wno-narrowing")
+    # FIXME: http://www.cmake.org/Bug/view.php?id=12998
+    #allow_warnings(uniata)
+    set_source_files_properties(${SOURCE} PROPERTIES COMPILE_FLAGS "-Wno-error -Wno-unused-but-set-variable -Wno-narrowing")
 endif()
 
 add_pch(uniata stdafx.h SOURCE)

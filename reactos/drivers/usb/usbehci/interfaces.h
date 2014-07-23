@@ -23,7 +23,7 @@
         IN struct _EHCI_USBCMD_CONTENT *UsbCmd) PURE;                       \
                                                                             \
     STDMETHOD_(VOID, GetCommandRegister)( THIS_                             \
-        OUT struct _EHCI_USBCMD_CONTENT *UsbCmd) PURE;
+        IN struct _EHCI_USBCMD_CONTENT *UsbCmd) PURE;
 
 #define IMP_IUSBEHCIHARDWARE                                                \
     STDMETHODIMP_(VOID) SetAsyncListRegister(                               \
@@ -39,7 +39,7 @@
     STDMETHODIMP_(VOID) SetCommandRegister(                                 \
         IN struct _EHCI_USBCMD_CONTENT *UsbCmd);                            \
     STDMETHODIMP_(VOID) GetCommandRegister(                                 \
-        OUT struct _EHCI_USBCMD_CONTENT *UsbCmd);
+        IN struct _EHCI_USBCMD_CONTENT *UsbCmd);
 
 DECLARE_INTERFACE_(IEHCIHardwareDevice, IUSBHardwareDevice)
 {

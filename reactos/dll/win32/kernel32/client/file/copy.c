@@ -191,16 +191,20 @@ SetLastWriteTime(
     return errCode;
 }
 
+
+/*
+ * @implemented
+ */
 BOOL
-BasepCopyFileExW(IN LPCWSTR lpExistingFileName,
-                 IN LPCWSTR lpNewFileName,
-                 IN LPPROGRESS_ROUTINE lpProgressRoutine OPTIONAL,
-                 IN LPVOID lpData OPTIONAL,
-                 IN LPBOOL pbCancel OPTIONAL,
-                 IN DWORD dwCopyFlags,
-                 IN DWORD dwBasepFlags,
-                 OUT LPHANDLE lpExistingHandle,
-                 OUT LPHANDLE lpNewHandle)
+WINAPI
+CopyFileExW (
+    LPCWSTR			lpExistingFileName,
+    LPCWSTR			lpNewFileName,
+    LPPROGRESS_ROUTINE	lpProgressRoutine,
+    LPVOID			lpData,
+    BOOL			*pbCancel,
+    DWORD			dwCopyFlags
+)
 {
     NTSTATUS errCode;
     HANDLE FileHandleSource, FileHandleDest;
@@ -303,53 +307,6 @@ BasepCopyFileExW(IN LPCWSTR lpExistingFileName,
     return RC;
 }
 
-/*
- * @implemented
- */
-BOOL
-WINAPI
-CopyFileExW(IN LPCWSTR lpExistingFileName,
-            IN LPCWSTR lpNewFileName,
-            IN LPPROGRESS_ROUTINE lpProgressRoutine OPTIONAL,
-            IN LPVOID lpData OPTIONAL,
-            IN LPBOOL pbCancel OPTIONAL,
-            IN DWORD dwCopyFlags)
-{
-    BOOL Ret;
-    HANDLE ExistingHandle, NewHandle;
-
-    ExistingHandle = INVALID_HANDLE_VALUE;
-    NewHandle = INVALID_HANDLE_VALUE;
-
-    _SEH2_TRY
-    {
-        Ret = BasepCopyFileExW(lpExistingFileName,
-                               lpNewFileName,
-                               lpProgressRoutine,
-                               lpData,
-                               pbCancel,
-                               dwCopyFlags,
-                               0,
-                               &ExistingHandle,
-                               &NewHandle);
-    }
-    _SEH2_FINALLY
-    {
-        if (ExistingHandle != INVALID_HANDLE_VALUE)
-        {
-            CloseHandle(ExistingHandle);
-        }
-
-        if (NewHandle != INVALID_HANDLE_VALUE)
-        {
-            CloseHandle(NewHandle);
-        }
-    }
-    _SEH2_END;
-
-    return Ret;
-}
-
 
 /*
  * @implemented
@@ -368,7 +325,7 @@ CopyFileExA(IN LPCSTR lpExistingFileName,
     PUNICODE_STRING lpExistingFileNameW;
 
     lpExistingFileNameW = Basep8BitStringToStaticUnicodeString(lpExistingFileName);
-    if (!lpExistingFileNameW)
+    if (!lpExistingFileName)
     {
         return FALSE;
     }
@@ -394,33 +351,18 @@ CopyFileExA(IN LPCSTR lpExistingFileName,
  */
 BOOL
 WINAPI
-CopyFileA(IN LPCSTR lpExistingFileName,
-          IN LPCSTR lpNewFileName,
-          IN BOOL bFailIfExists)
+CopyFileA (
+    LPCSTR	lpExistingFileName,
+    LPCSTR	lpNewFileName,
+    BOOL	bFailIfExists
+)
 {
-    BOOL Result = FALSE;
-    UNICODE_STRING lpNewFileNameW;
-    PUNICODE_STRING lpExistingFileNameW;
-
-    lpExistingFileNameW = Basep8BitStringToStaticUnicodeString(lpExistingFileName);
-    if (!lpExistingFileNameW)
-    {
-        return FALSE;
-    }
-
-    if (Basep8BitStringToDynamicUnicodeString(&lpNewFileNameW, lpNewFileName))
-    {
-        Result = CopyFileExW(lpExistingFileNameW->Buffer,
-                             lpNewFileNameW.Buffer,
-                             NULL,
-                             NULL,
-                             NULL,
-                             (bFailIfExists ? COPY_FILE_FAIL_IF_EXISTS : 0));
-
-        RtlFreeUnicodeString(&lpNewFileNameW);
-    }
-
-    return Result;
+    return CopyFileExA (lpExistingFileName,
+                        lpNewFileName,
+                        NULL,
+                        NULL,
+                        NULL,
+                        bFailIfExists);
 }
 
 
@@ -429,16 +371,18 @@ CopyFileA(IN LPCSTR lpExistingFileName,
  */
 BOOL
 WINAPI
-CopyFileW(IN LPCWSTR lpExistingFileName,
-          IN LPCWSTR lpNewFileName,
-          IN BOOL bFailIfExists)
+CopyFileW (
+    LPCWSTR	lpExistingFileName,
+    LPCWSTR	lpNewFileName,
+    BOOL	bFailIfExists
+)
 {
-    return CopyFileExW(lpExistingFileName,
-                       lpNewFileName,
-                       NULL,
-                       NULL,
-                       NULL,
-                       (bFailIfExists ? COPY_FILE_FAIL_IF_EXISTS : 0));
+    return CopyFileExW (lpExistingFileName,
+                        lpNewFileName,
+                        NULL,
+                        NULL,
+                        NULL,
+                        bFailIfExists);
 }
 
 
@@ -447,53 +391,17 @@ CopyFileW(IN LPCWSTR lpExistingFileName,
  */
 BOOL
 WINAPI
-PrivCopyFileExW(IN LPCWSTR lpExistingFileName,
-                IN LPCWSTR lpNewFileName,
-                IN LPPROGRESS_ROUTINE lpProgressRoutine,
-                IN LPVOID lpData,
-                IN LPBOOL pbCancel,
-                IN DWORD dwCopyFlags)
+PrivCopyFileExW (
+    LPCWSTR			lpExistingFileName,
+    LPCWSTR			lpNewFileName,
+    LPPROGRESS_ROUTINE	lpProgressRoutine,
+    LPVOID			lpData,
+    BOOL			*pbCancel,
+    DWORD			dwCopyFlags
+)
 {
-    BOOL Ret;
-    HANDLE ExistingHandle, NewHandle;
-
-    ExistingHandle = INVALID_HANDLE_VALUE;
-    NewHandle = INVALID_HANDLE_VALUE;
-
-    /* Check for incompatible flags */
-    if (dwCopyFlags & COPY_FILE_FAIL_IF_EXISTS && dwCopyFlags & BASEP_COPY_REPLACE)
-    {
-        SetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-
-    _SEH2_TRY
-    {
-        Ret = BasepCopyFileExW(lpExistingFileName,
-                               lpNewFileName,
-                               lpProgressRoutine,
-                               lpData,
-                               pbCancel,
-                               dwCopyFlags & BASEP_COPY_PUBLIC_MASK,
-                               dwCopyFlags & BASEP_COPY_BASEP_MASK,
-                               &ExistingHandle,
-                               &NewHandle);
-    }
-    _SEH2_FINALLY
-    {
-        if (ExistingHandle != INVALID_HANDLE_VALUE)
-        {
-            CloseHandle(ExistingHandle);
-        }
-
-        if (NewHandle != INVALID_HANDLE_VALUE)
-        {
-            CloseHandle(NewHandle);
-        }
-    }
-    _SEH2_END;
-
-    return Ret;
+    UNIMPLEMENTED;
+    return FALSE;
 }
 
 /* EOF */

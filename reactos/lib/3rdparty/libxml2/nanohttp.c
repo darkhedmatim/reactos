@@ -276,8 +276,6 @@ xmlNanoHTTPCleanup(void) {
 static void
 xmlNanoHTTPScanURL(xmlNanoHTTPCtxtPtr ctxt, const char *URL) {
     xmlURIPtr uri;
-    int len;
-
     /*
      * Clear any existing data from the context
      */
@@ -309,15 +307,7 @@ xmlNanoHTTPScanURL(xmlNanoHTTPCtxtPtr ctxt, const char *URL) {
     }
 
     ctxt->protocol = xmlMemStrdup(uri->scheme);
-    /* special case of IPv6 addresses, the [] need to be removed */
-    if ((uri->server != NULL) && (*uri->server == '[')) {
-        len = strlen(uri->server);
-	if ((len > 2) && (uri->server[len - 1] == ']')) {
-	    ctxt->hostname = (char *) xmlCharStrndup(uri->server + 1, len -2);
-	} else
-	    ctxt->hostname = xmlMemStrdup(uri->server);
-    } else
-	ctxt->hostname = xmlMemStrdup(uri->server);
+    ctxt->hostname = xmlMemStrdup(uri->server);
     if (uri->path != NULL)
 	ctxt->path = xmlMemStrdup(uri->path);
     else

@@ -39,7 +39,6 @@
 //#include "objbase.h"
 #include <rpcproxy.h>
 #include <mlang.h>
-#include <mimeole.h>
 
 #include <wine/unicode.h>
 #include <wine/debug.h>
@@ -47,6 +46,8 @@
 WINE_DEFAULT_DEBUG_CHANNEL(mlang);
 
 //#include "initguid.h"
+
+#define CP_UNICODE 1200
 
 static HRESULT MultiLanguage_create(IUnknown *pUnkOuter, LPVOID *ppObj);
 static HRESULT MLangConvertCharset_create(IUnknown *outer, void **obj);
@@ -576,8 +577,8 @@ static inline void sjis2jis(unsigned char *p1, unsigned char *p2)
 
 static int han2zen(unsigned char *p1, unsigned char *p2)
 {
-    BOOL maru = FALSE;
-    BOOL nigori = FALSE;
+    int maru = FALSE;
+    int nigori = FALSE;
     static const unsigned char char1[] = {129,129,129,129,129,131,131,131,131,
         131,131,131,131,131,131,129,131,131,131,131,131,131,131,131,131,131,
         131,131,131,131,131,131,131,131,131,131,131,131,131,131,131,131,131,
@@ -624,7 +625,7 @@ static UINT ConvertJIS2SJIS(LPCSTR input, DWORD count, LPSTR output)
     DWORD i = 0;
     int j = 0;
     unsigned char p2,p;
-    BOOL shifted = FALSE;
+    int shifted = FALSE;
 
     while (i < count)
     {
@@ -692,7 +693,7 @@ static UINT ConvertSJIS2JIS(LPCSTR input, DWORD count, LPSTR output)
     DWORD i = 0;
     int j = 0;
     unsigned char p2,p;
-    BOOL shifted = FALSE;
+    int shifted = FALSE;
 
     while (i < count)
     {
@@ -3486,28 +3487,10 @@ static HRESULT WINAPI fnIMLangLineBreakConsole_BreakLineA(
     LONG* pcchLine,
     LONG* pcchSkip)
 {
-    LONG i, line = cchSrc, skip = 0;
-
     FIXME("(%p)->%i %i %s %i %i %p %p\n", iface, locale, uCodePage, debugstr_an(pszSrc,cchSrc), cchSrc, cMaxColumns, pcchLine, pcchSkip);
 
-    if (uCodePage == CP_USASCII && cchSrc > cMaxColumns)
-    {
-        for (line = cMaxColumns, i = cMaxColumns - 1; i >= 0; i--)
-        {
-            if (pszSrc[i] == ' ')
-            {
-                while (i >= 0 && pszSrc[i] == ' ')
-                {
-                    i--;
-                    line--;
-                    skip++;
-                }
-                break;
-            }
-        }
-    }
-    *pcchLine = line;
-    *pcchSkip = skip;
+    *pcchLine = cchSrc;
+    *pcchSkip = 0;
     return S_OK;
 }
 

@@ -14,7 +14,6 @@
 #include <wincon.h>
 #include <tchar.h>
 #include <shlobj.h>
-#include <strsafe.h>
 
 #include "resource.h"
 

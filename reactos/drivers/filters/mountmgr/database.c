@@ -746,11 +746,10 @@ OnlineMountedVolumes(IN PDEVICE_EXTENSION DeviceExtension,
         return;
     }
 
-    RestartScan = TRUE;
-
     /* Query mount points */
     while (TRUE)
     {
+        RestartScan = TRUE;
         SymbolicName.Length = 0;
         SymbolicName.MaximumLength = sizeof(SymbolicNameBuffer);
         SymbolicName.Buffer = SymbolicNameBuffer;
@@ -772,7 +771,8 @@ OnlineMountedVolumes(IN PDEVICE_EXTENSION DeviceExtension,
              if (ReparsePointInformation.FileReference == SavedReparsePointInformation.FileReference &&
                  ReparsePointInformation.Tag == SavedReparsePointInformation.Tag)
              {
-                 break;
+                 ZwClose(Handle);
+                 return;
              }
          }
          else
@@ -782,7 +782,8 @@ OnlineMountedVolumes(IN PDEVICE_EXTENSION DeviceExtension,
 
          if (!NT_SUCCESS(Status) || ReparsePointInformation.Tag != IO_REPARSE_TAG_MOUNT_POINT)
          {
-             break;
+             ZwClose(Handle);
+             return;
          }
 
          /* Get the volume name associated to the mount point */
@@ -812,8 +813,6 @@ OnlineMountedVolumes(IN PDEVICE_EXTENSION DeviceExtension,
              PostOnlineNotification(DeviceExtension, &VolumeDeviceInformation->SymbolicName);
          }
     }
-
-    ZwClose(Handle);
 }
 
 /*

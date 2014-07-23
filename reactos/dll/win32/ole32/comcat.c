@@ -38,16 +38,14 @@ static ComCatMgrImpl COMCAT_ComCatMgr =
     { &COMCAT_ICatInformation_Vtbl }
 };
 
-struct class_categories
-{
-    ULONG   size;        /* total length, including structure itself */
-    ULONG   impl_offset;
-    ULONG   req_offset;
+struct class_categories {
+    LPCWSTR impl_strings;
+    LPCWSTR req_strings;
 };
 
-static HRESULT EnumCATEGORYINFO_Construct(LCID lcid, IEnumCATEGORYINFO **ret);
-static HRESULT CLSIDEnumGUID_Construct(struct class_categories *class_categories, IEnumCLSID **ret);
-static HRESULT CATIDEnumGUID_Construct(REFCLSID rclsid, LPCWSTR impl_req, IEnumCATID **ret);
+static IEnumCATEGORYINFO *COMCAT_IEnumCATEGORYINFO_Construct(LCID lcid);
+static LPENUMGUID COMCAT_CLSID_IEnumGUID_Construct(struct class_categories *class_categories);
+static LPENUMGUID COMCAT_CATID_IEnumGUID_Construct(REFCLSID rclsid, LPCWSTR impl_req);
 
 /**********************************************************************
  * File-scope string constants
@@ -70,14 +68,14 @@ static HRESULT COMCAT_RegisterClassCategories(
     ULONG cCategories,
     const CATID *rgcatid)
 {
-    WCHAR keyname[CHARS_IN_GUID];
+    WCHAR keyname[39];
     HRESULT res;
     HKEY clsid_key, class_key, type_key;
 
     if (cCategories && rgcatid == NULL) return E_POINTER;
 
     /* Format the class key name. */
-    res = StringFromGUID2(rclsid, keyname, CHARS_IN_GUID);
+    res = StringFromGUID2(rclsid, keyname, 39);
     if (FAILED(res)) return res;
 
     /* Create (or open) the CLSID key. */
@@ -94,7 +92,7 @@ static HRESULT COMCAT_RegisterClassCategories(
 		HKEY key;
 
 		/* Format the category key name. */
-		res = StringFromGUID2(rgcatid, keyname, CHARS_IN_GUID);
+		res = StringFromGUID2(rgcatid, keyname, 39);
 		if (FAILED(res)) continue;
 
 		/* Do the register. */
@@ -126,7 +124,7 @@ static HRESULT COMCAT_UnRegisterClassCategories(
     if (cCategories && rgcatid == NULL) return E_POINTER;
 
     /* Format the class category type key name. */
-    res = StringFromGUID2(rclsid, keyname + 6, CHARS_IN_GUID);
+    res = StringFromGUID2(rclsid, keyname + 6, 39);
     if (FAILED(res)) return res;
     keyname[44] = '\\';
     lstrcpyW(keyname + 45, type);
@@ -137,7 +135,7 @@ static HRESULT COMCAT_UnRegisterClassCategories(
 
     for (; cCategories; --cCategories, ++rgcatid) {
 	/* Format the category key name. */
-	res = StringFromGUID2(rgcatid, keyname, CHARS_IN_GUID);
+	res = StringFromGUID2(rgcatid, keyname, 39);
 	if (FAILED(res)) continue;
 
 	/* Do the unregister. */
@@ -181,26 +179,25 @@ static struct class_categories *COMCAT_PrepareClassCategories(
 {
     struct class_categories *categories;
     WCHAR *strings;
-    ULONG size;
 
-    size = sizeof(struct class_categories) + ((impl_count + req_count)*CHARS_IN_GUID + 2)*sizeof(WCHAR);
-    categories = HeapAlloc(GetProcessHeap(), 0, size);
+    categories = HeapAlloc(
+	GetProcessHeap(), HEAP_ZERO_MEMORY,
+	sizeof(struct class_categories) +
+	((impl_count + req_count) * 39 + 2) * sizeof(WCHAR));
     if (categories == NULL) return categories;
 
-    categories->size = size;
-    categories->impl_offset = sizeof(struct class_categories);
-    categories->req_offset = categories->impl_offset + (impl_count*CHARS_IN_GUID + 1)*sizeof(WCHAR);
-
     strings = (WCHAR *)(categories + 1);
+    categories->impl_strings = strings;
     while (impl_count--) {
-	StringFromGUID2(impl_catids++, strings, CHARS_IN_GUID);
-	strings += CHARS_IN_GUID;
+	StringFromGUID2(impl_catids++, strings, 39);
+	strings += 39;
     }
     *strings++ = 0;
 
+    categories->req_strings = strings;
     while (req_count--) {
-	StringFromGUID2(req_catids++, strings, CHARS_IN_GUID);
-	strings += CHARS_IN_GUID;
+	StringFromGUID2(req_catids++, strings, 39);
+	strings += 39;
     }
     *strings++ = 0;
 
@@ -214,20 +211,16 @@ static HRESULT COMCAT_IsClassOfCategories(
     HKEY key,
     struct class_categories const* categories)
 {
-    const WCHAR *impl_strings, *req_strings;
     HKEY subkey;
     HRESULT res;
     DWORD index;
     LPCWSTR string;
 
-    impl_strings = (WCHAR*)((BYTE*)categories + categories->impl_offset);
-    req_strings  = (WCHAR*)((BYTE*)categories + categories->req_offset);
-
     /* Check that every given category is implemented by class. */
-    if (*impl_strings) {
+    if (*categories->impl_strings) {
 	res = open_classes_key(key, impl_keyname, KEY_READ, &subkey);
 	if (res != ERROR_SUCCESS) return S_FALSE;
-	for (string = impl_strings; *string; string += CHARS_IN_GUID) {
+	for (string = categories->impl_strings; *string; string += 39) {
 	    HKEY catkey;
 	    res = open_classes_key(subkey, string, 0, &catkey);
 	    if (res != ERROR_SUCCESS) {
@@ -243,14 +236,14 @@ static HRESULT COMCAT_IsClassOfCategories(
     res = open_classes_key(key, req_keyname, KEY_READ, &subkey);
     if (res == ERROR_SUCCESS) {
 	for (index = 0; ; ++index) {
-	    WCHAR keyname[CHARS_IN_GUID];
-	    DWORD size = CHARS_IN_GUID;
+	    WCHAR keyname[39];
+	    DWORD size = 39;
 
 	    res = RegEnumKeyExW(subkey, index, keyname, &size,
 				NULL, NULL, NULL, NULL);
 	    if (res != ERROR_SUCCESS && res != ERROR_MORE_DATA) break;
-	    if (size != CHARS_IN_GUID-1) continue; /* bogus catid in registry */
-	    for (string = req_strings; *string; string += CHARS_IN_GUID)
+	    if (size != 38) continue; /* bogus catid in registry */
+	    for (string = categories->req_strings; *string; string += 39)
 		if (!strcmpiW(string, keyname)) break;
 	    if (!*string) {
 		RegCloseKey(subkey);
@@ -328,18 +321,19 @@ static HRESULT WINAPI COMCAT_ICatRegister_RegisterCategories(
 
     for (; cCategories; --cCategories, ++rgci) {
 	static const WCHAR fmt[] = { '%', 'l', 'X', 0 };
-	WCHAR keyname[CHARS_IN_GUID];
+	WCHAR keyname[39];
 	WCHAR valname[9];
 	HKEY cat_key;
 
 	/* Create (or open) the key for this category. */
-	if (!StringFromGUID2(&rgci->catid, keyname, CHARS_IN_GUID)) continue;
+	if (!StringFromGUID2(&rgci->catid, keyname, 39)) continue;
 	res = create_classes_key(comcat_key, keyname, KEY_READ|KEY_WRITE, &cat_key);
 	if (res != ERROR_SUCCESS) continue;
 
 	/* Set the value for this locale's description. */
 	wsprintfW(valname, fmt, rgci->lcid);
-        RegSetValueExW(cat_key, valname, 0, REG_SZ, (const BYTE*)rgci->szDescription,
+	RegSetValueExW(cat_key, valname, 0, REG_SZ,
+		       (CONST BYTE*)(rgci->szDescription),
 		       (lstrlenW(rgci->szDescription) + 1) * sizeof(WCHAR));
 
 	RegCloseKey(cat_key);
@@ -370,10 +364,10 @@ static HRESULT WINAPI COMCAT_ICatRegister_UnRegisterCategories(
     if (res != ERROR_SUCCESS) return E_FAIL;
 
     for (; cCategories; --cCategories, ++rgcatid) {
-	WCHAR keyname[CHARS_IN_GUID];
+	WCHAR keyname[39];
 
 	/* Delete the key for this category. */
-	if (!StringFromGUID2(rgcatid, keyname, CHARS_IN_GUID)) continue;
+	if (!StringFromGUID2(rgcatid, keyname, 39)) continue;
 	RegDeleteKeyW(comcat_key, keyname);
     }
 
@@ -480,7 +474,10 @@ static HRESULT WINAPI COMCAT_ICatInformation_EnumCategories(
 
     if (ppenumCatInfo == NULL) return E_POINTER;
 
-    return EnumCATEGORYINFO_Construct(lcid, ppenumCatInfo);
+    *ppenumCatInfo = COMCAT_IEnumCATEGORYINFO_Construct(lcid);
+    if (*ppenumCatInfo == NULL) return E_OUTOFMEMORY;
+    IEnumCATEGORYINFO_AddRef(*ppenumCatInfo);
+    return S_OK;
 }
 
 /**********************************************************************
@@ -503,7 +500,7 @@ static HRESULT WINAPI COMCAT_ICatInformation_GetCategoryDesc(
     if (rcatid == NULL || ppszDesc == NULL) return E_INVALIDARG;
 
     /* Open the key for this category. */
-    if (!StringFromGUID2(rcatid, keyname + 21, CHARS_IN_GUID)) return E_FAIL;
+    if (!StringFromGUID2(rcatid, keyname + 21, 39)) return E_FAIL;
     res = open_classes_key(HKEY_CLASSES_ROOT, keyname, KEY_READ, &key);
     if (res != ERROR_SUCCESS) return CAT_E_CATIDNOEXIST;
 
@@ -537,7 +534,6 @@ static HRESULT WINAPI COMCAT_ICatInformation_EnumClassesOfCategories(
     LPENUMCLSID *ppenumCLSID)
 {
     struct class_categories *categories;
-    HRESULT hr;
 
     TRACE("\n");
 
@@ -553,15 +549,13 @@ static HRESULT WINAPI COMCAT_ICatInformation_EnumClassesOfCategories(
     categories = COMCAT_PrepareClassCategories(cImplemented, rgcatidImpl,
 					       cRequired, rgcatidReq);
     if (categories == NULL) return E_OUTOFMEMORY;
-
-    hr = CLSIDEnumGUID_Construct(categories, ppenumCLSID);
-    if (FAILED(hr))
-    {
+    *ppenumCLSID = COMCAT_CLSID_IEnumGUID_Construct(categories);
+    if (*ppenumCLSID == NULL) {
 	HeapFree(GetProcessHeap(), 0, categories);
-	return hr;
+	return E_OUTOFMEMORY;
     }
-
-    return hr;
+    IEnumGUID_AddRef(*ppenumCLSID);
+    return S_OK;
 }
 
 /**********************************************************************
@@ -593,7 +587,7 @@ static HRESULT WINAPI COMCAT_ICatInformation_IsClassOfCategories(
     if ((cImplemented && rgcatidImpl == NULL) ||
 	(cRequired && rgcatidReq == NULL)) return E_POINTER;
 
-    res = StringFromGUID2(rclsid, keyname + 6, CHARS_IN_GUID);
+    res = StringFromGUID2(rclsid, keyname + 6, 39);
     if (FAILED(res)) return res;
 
     categories = COMCAT_PrepareClassCategories(cImplemented, rgcatidImpl,
@@ -628,7 +622,9 @@ static HRESULT WINAPI COMCAT_ICatInformation_EnumImplCategoriesOfClass(
     if (rclsid == NULL || ppenumCATID == NULL)
 	return E_POINTER;
 
-    return CATIDEnumGUID_Construct(rclsid, postfix, ppenumCATID);
+    *ppenumCATID = COMCAT_CATID_IEnumGUID_Construct(rclsid, postfix);
+    if (*ppenumCATID == NULL) return E_OUTOFMEMORY;
+    return S_OK;
 }
 
 /**********************************************************************
@@ -648,7 +644,9 @@ static HRESULT WINAPI COMCAT_ICatInformation_EnumReqCategoriesOfClass(
     if (rclsid == NULL || ppenumCATID == NULL)
 	return E_POINTER;
 
-    return CATIDEnumGUID_Construct(rclsid, postfix, ppenumCATID);
+    *ppenumCATID = COMCAT_CATID_IEnumGUID_Construct(rclsid, postfix);
+    if (*ppenumCATID == NULL) return E_OUTOFMEMORY;
+    return S_OK;
 }
 
 /**********************************************************************
@@ -859,8 +857,8 @@ static HRESULT WINAPI COMCAT_IEnumCATEGORYINFO_Next(
     if (This->key) while (fetched < celt) {
 	LSTATUS res;
 	HRESULT hr;
-	WCHAR catid[CHARS_IN_GUID];
-	DWORD cName = CHARS_IN_GUID;
+	WCHAR catid[39];
+	DWORD cName = 39;
 	HKEY subkey;
 
 	res = RegEnumKeyExW(This->key, This->next_index, catid, &cName,
@@ -950,23 +948,21 @@ static const IEnumCATEGORYINFOVtbl COMCAT_IEnumCATEGORYINFO_Vtbl =
     COMCAT_IEnumCATEGORYINFO_Clone
 };
 
-static HRESULT EnumCATEGORYINFO_Construct(LCID lcid, IEnumCATEGORYINFO **ret)
+static IEnumCATEGORYINFO *COMCAT_IEnumCATEGORYINFO_Construct(LCID lcid)
 {
-    static const WCHAR keyname[] = {'C','o','m','p','o','n','e','n','t',' ','C','a','t','e','g','o','r','i','e','s',0};
     IEnumCATEGORYINFOImpl *This;
 
-    *ret = NULL;
-
     This = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(IEnumCATEGORYINFOImpl));
-    if (!This) return E_OUTOFMEMORY;
+    if (This) {
+        static const WCHAR keyname[] = { 'C', 'o', 'm', 'p', 'o', 'n', 'e', 'n',
+                                         't', ' ', 'C', 'a', 't', 'e', 'g', 'o',
+                                         'r', 'i', 'e', 's', 0 };
 
-    This->IEnumCATEGORYINFO_iface.lpVtbl = &COMCAT_IEnumCATEGORYINFO_Vtbl;
-    This->ref = 1;
-    This->lcid = lcid;
-    open_classes_key(HKEY_CLASSES_ROOT, keyname, KEY_READ, &This->key);
-
-    *ret = &This->IEnumCATEGORYINFO_iface;
-    return S_OK;
+        This->IEnumCATEGORYINFO_iface.lpVtbl = &COMCAT_IEnumCATEGORYINFO_Vtbl;
+	This->lcid = lcid;
+	open_classes_key(HKEY_CLASSES_ROOT, keyname, KEY_READ, &This->key);
+    }
+    return &This->IEnumCATEGORYINFO_iface;
 }
 
 /**********************************************************************
@@ -977,20 +973,23 @@ static HRESULT EnumCATEGORYINFO_Construct(LCID lcid, IEnumCATEGORYINFO **ret)
  */
 typedef struct
 {
-    IEnumGUID IEnumGUID_iface;
+    const IEnumGUIDVtbl *lpVtbl;
     LONG  ref;
     struct class_categories *categories;
     HKEY  key;
     DWORD next_index;
 } CLSID_IEnumGUIDImpl;
 
-static inline CLSID_IEnumGUIDImpl *impl_from_IEnumCLSID(IEnumGUID *iface)
+static ULONG WINAPI COMCAT_CLSID_IEnumGUID_AddRef(LPENUMGUID iface)
 {
-    return CONTAINING_RECORD(iface, CLSID_IEnumGUIDImpl, IEnumGUID_iface);
+    CLSID_IEnumGUIDImpl *This = (CLSID_IEnumGUIDImpl *)iface;
+    TRACE("\n");
+
+    return InterlockedIncrement(&This->ref);
 }
 
-static HRESULT WINAPI CLSIDEnumGUID_QueryInterface(
-    IEnumGUID *iface,
+static HRESULT WINAPI COMCAT_CLSID_IEnumGUID_QueryInterface(
+    LPENUMGUID iface,
     REFIID riid,
     LPVOID *ppvObj)
 {
@@ -1002,24 +1001,16 @@ static HRESULT WINAPI CLSIDEnumGUID_QueryInterface(
 	IsEqualGUID(riid, &IID_IEnumGUID))
     {
         *ppvObj = iface;
-	IEnumGUID_AddRef(iface);
+	COMCAT_CLSID_IEnumGUID_AddRef(iface);
 	return S_OK;
     }
 
     return E_NOINTERFACE;
 }
 
-static ULONG WINAPI CLSIDEnumGUID_AddRef(IEnumGUID *iface)
+static ULONG WINAPI COMCAT_CLSID_IEnumGUID_Release(LPENUMGUID iface)
 {
-    CLSID_IEnumGUIDImpl *This = impl_from_IEnumCLSID(iface);
-    TRACE("\n");
-
-    return InterlockedIncrement(&This->ref);
-}
-
-static ULONG WINAPI CLSIDEnumGUID_Release(IEnumGUID *iface)
-{
-    CLSID_IEnumGUIDImpl *This = impl_from_IEnumCLSID(iface);
+    CLSID_IEnumGUIDImpl *This = (CLSID_IEnumGUIDImpl *)iface;
     ULONG ref;
 
     TRACE("\n");
@@ -1034,13 +1025,13 @@ static ULONG WINAPI CLSIDEnumGUID_Release(IEnumGUID *iface)
     return ref;
 }
 
-static HRESULT WINAPI CLSIDEnumGUID_Next(
-    IEnumGUID *iface,
+static HRESULT WINAPI COMCAT_CLSID_IEnumGUID_Next(
+    LPENUMGUID iface,
     ULONG celt,
     GUID *rgelt,
     ULONG *pceltFetched)
 {
-    CLSID_IEnumGUIDImpl *This = impl_from_IEnumCLSID(iface);
+    CLSID_IEnumGUIDImpl *This = (CLSID_IEnumGUIDImpl *)iface;
     ULONG fetched = 0;
 
     TRACE("\n");
@@ -1050,8 +1041,8 @@ static HRESULT WINAPI CLSIDEnumGUID_Next(
     if (This->key) while (fetched < celt) {
 	LSTATUS res;
 	HRESULT hr;
-	WCHAR clsid[CHARS_IN_GUID];
-	DWORD cName = CHARS_IN_GUID;
+	WCHAR clsid[39];
+	DWORD cName = 39;
 	HKEY subkey;
 
 	res = RegEnumKeyExW(This->key, This->next_index, clsid, &cName,
@@ -1077,11 +1068,11 @@ static HRESULT WINAPI CLSIDEnumGUID_Next(
     return fetched == celt ? S_OK : S_FALSE;
 }
 
-static HRESULT WINAPI CLSIDEnumGUID_Skip(
-    IEnumGUID *iface,
+static HRESULT WINAPI COMCAT_CLSID_IEnumGUID_Skip(
+    LPENUMGUID iface,
     ULONG celt)
 {
-    CLSID_IEnumGUIDImpl *This = impl_from_IEnumCLSID(iface);
+    CLSID_IEnumGUIDImpl *This = (CLSID_IEnumGUIDImpl *)iface;
 
     TRACE("\n");
 
@@ -1090,9 +1081,9 @@ static HRESULT WINAPI CLSIDEnumGUID_Skip(
     return S_OK;
 }
 
-static HRESULT WINAPI CLSIDEnumGUID_Reset(IEnumGUID *iface)
+static HRESULT WINAPI COMCAT_CLSID_IEnumGUID_Reset(LPENUMGUID iface)
 {
-    CLSID_IEnumGUIDImpl *This = impl_from_IEnumCLSID(iface);
+    CLSID_IEnumGUIDImpl *This = (CLSID_IEnumGUIDImpl *)iface;
 
     TRACE("\n");
 
@@ -1100,70 +1091,64 @@ static HRESULT WINAPI CLSIDEnumGUID_Reset(IEnumGUID *iface)
     return S_OK;
 }
 
-static HRESULT WINAPI CLSIDEnumGUID_Clone(
-    IEnumGUID *iface,
+static HRESULT WINAPI COMCAT_CLSID_IEnumGUID_Clone(
+    LPENUMGUID iface,
     IEnumGUID **ppenum)
 {
-    static const WCHAR keynameW[] = {'C','L','S','I','D',0};
-    CLSID_IEnumGUIDImpl *This = impl_from_IEnumCLSID(iface);
-    CLSID_IEnumGUIDImpl *cloned;
+    CLSID_IEnumGUIDImpl *This = (CLSID_IEnumGUIDImpl *)iface;
+    static const WCHAR keyname[] = { 'C', 'L', 'S', 'I', 'D', 0 };
+    CLSID_IEnumGUIDImpl *new_this;
+    DWORD size;
 
-    TRACE("(%p)->(%p)\n", This, ppenum);
+    TRACE("\n");
 
     if (ppenum == NULL) return E_POINTER;
 
-    *ppenum = NULL;
+    new_this = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(CLSID_IEnumGUIDImpl));
+    if (new_this == NULL) return E_OUTOFMEMORY;
 
-    cloned = HeapAlloc(GetProcessHeap(), 0, sizeof(CLSID_IEnumGUIDImpl));
-    if (cloned == NULL) return E_OUTOFMEMORY;
-
-    cloned->IEnumGUID_iface.lpVtbl = This->IEnumGUID_iface.lpVtbl;
-    cloned->ref = 1;
-
-    cloned->categories = HeapAlloc(GetProcessHeap(), 0, This->categories->size);
-    if (cloned->categories == NULL) {
-	HeapFree(GetProcessHeap(), 0, cloned);
+    new_this->lpVtbl = This->lpVtbl;
+    new_this->ref = 1;
+    size = HeapSize(GetProcessHeap(), 0, This->categories);
+    new_this->categories =
+	HeapAlloc(GetProcessHeap(), 0, size);
+    if (new_this->categories == NULL) {
+	HeapFree(GetProcessHeap(), 0, new_this);
 	return E_OUTOFMEMORY;
     }
-    memcpy(cloned->categories, This->categories, This->categories->size);
+    memcpy(new_this->categories, This->categories, size);
+    /* FIXME: could we more efficiently use DuplicateHandle? */
+    open_classes_key(HKEY_CLASSES_ROOT, keyname, KEY_READ, &new_this->key);
+    new_this->next_index = This->next_index;
 
-    cloned->key = NULL;
-    open_classes_key(HKEY_CLASSES_ROOT, keynameW, KEY_READ, &cloned->key);
-    cloned->next_index = This->next_index;
-
-    *ppenum = &cloned->IEnumGUID_iface;
+    *ppenum = (LPENUMGUID)new_this;
     return S_OK;
 }
 
-static const IEnumGUIDVtbl CLSIDEnumGUIDVtbl =
+static const IEnumGUIDVtbl COMCAT_CLSID_IEnumGUID_Vtbl =
 {
-    CLSIDEnumGUID_QueryInterface,
-    CLSIDEnumGUID_AddRef,
-    CLSIDEnumGUID_Release,
-    CLSIDEnumGUID_Next,
-    CLSIDEnumGUID_Skip,
-    CLSIDEnumGUID_Reset,
-    CLSIDEnumGUID_Clone
+    COMCAT_CLSID_IEnumGUID_QueryInterface,
+    COMCAT_CLSID_IEnumGUID_AddRef,
+    COMCAT_CLSID_IEnumGUID_Release,
+    COMCAT_CLSID_IEnumGUID_Next,
+    COMCAT_CLSID_IEnumGUID_Skip,
+    COMCAT_CLSID_IEnumGUID_Reset,
+    COMCAT_CLSID_IEnumGUID_Clone
 };
 
-static HRESULT CLSIDEnumGUID_Construct(struct class_categories *categories, IEnumCLSID **ret)
+static LPENUMGUID COMCAT_CLSID_IEnumGUID_Construct(struct class_categories *categories)
 {
-    static const WCHAR keyname[] = {'C','L','S','I','D',0};
     CLSID_IEnumGUIDImpl *This;
 
-    *ret = NULL;
-
     This = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(CLSID_IEnumGUIDImpl));
-    if (!This) return E_OUTOFMEMORY;
+    if (This) {
+	static const WCHAR keyname[] = { 'C', 'L', 'S', 'I', 'D', 0 };
 
-    This->IEnumGUID_iface.lpVtbl = &CLSIDEnumGUIDVtbl;
-    This->ref = 1;
-    This->categories = categories;
-    open_classes_key(HKEY_CLASSES_ROOT, keyname, KEY_READ, &This->key);
-
-    *ret = &This->IEnumGUID_iface;
-
-    return S_OK;
+	This->lpVtbl = &COMCAT_CLSID_IEnumGUID_Vtbl;
+	This->categories = categories;
+	open_classes_key(HKEY_CLASSES_ROOT, keyname, KEY_READ, &This->key);
+    }
+    return (LPENUMGUID)This;
 }
 
 /**********************************************************************
@@ -1174,20 +1159,23 @@ static HRESULT CLSIDEnumGUID_Construct(struct class_categories *categories, IEnu
  */
 typedef struct
 {
-    IEnumGUID IEnumGUID_iface;
+    const IEnumGUIDVtbl *lpVtbl;
     LONG  ref;
     WCHAR keyname[68];
     HKEY  key;
     DWORD next_index;
 } CATID_IEnumGUIDImpl;
 
-static inline CATID_IEnumGUIDImpl *impl_from_IEnumCATID(IEnumGUID *iface)
+static ULONG WINAPI COMCAT_CATID_IEnumGUID_AddRef(LPENUMGUID iface)
 {
-    return CONTAINING_RECORD(iface, CATID_IEnumGUIDImpl, IEnumGUID_iface);
+    CATID_IEnumGUIDImpl *This = (CATID_IEnumGUIDImpl *)iface;
+    TRACE("\n");
+
+    return InterlockedIncrement(&This->ref);
 }
 
-static HRESULT WINAPI CATIDEnumGUID_QueryInterface(
-    IEnumGUID *iface,
+static HRESULT WINAPI COMCAT_CATID_IEnumGUID_QueryInterface(
+    LPENUMGUID iface,
     REFIID riid,
     LPVOID *ppvObj)
 {
@@ -1199,24 +1187,16 @@ static HRESULT WINAPI CATIDEnumGUID_QueryInterface(
 	IsEqualGUID(riid, &IID_IEnumGUID))
     {
         *ppvObj = iface;
-	IEnumGUID_AddRef(iface);
+	COMCAT_CATID_IEnumGUID_AddRef(iface);
 	return S_OK;
     }
 
     return E_NOINTERFACE;
 }
 
-static ULONG WINAPI CATIDEnumGUID_AddRef(IEnumGUID *iface)
+static ULONG WINAPI COMCAT_CATID_IEnumGUID_Release(LPENUMGUID iface)
 {
-    CATID_IEnumGUIDImpl *This = impl_from_IEnumCATID(iface);
-    TRACE("\n");
-
-    return InterlockedIncrement(&This->ref);
-}
-
-static ULONG WINAPI CATIDEnumGUID_Release(IEnumGUID *iface)
-{
-    CATID_IEnumGUIDImpl *This = impl_from_IEnumCATID(iface);
+    CATID_IEnumGUIDImpl *This = (CATID_IEnumGUIDImpl *)iface;
     ULONG ref;
 
     TRACE("\n");
@@ -1230,13 +1210,13 @@ static ULONG WINAPI CATIDEnumGUID_Release(IEnumGUID *iface)
     return ref;
 }
 
-static HRESULT WINAPI CATIDEnumGUID_Next(
-    IEnumGUID *iface,
+static HRESULT WINAPI COMCAT_CATID_IEnumGUID_Next(
+    LPENUMGUID iface,
     ULONG celt,
     GUID *rgelt,
     ULONG *pceltFetched)
 {
-    CATID_IEnumGUIDImpl *This = impl_from_IEnumCATID(iface);
+    CATID_IEnumGUIDImpl *This = (CATID_IEnumGUIDImpl *)iface;
     ULONG fetched = 0;
 
     TRACE("\n");
@@ -1246,8 +1226,8 @@ static HRESULT WINAPI CATIDEnumGUID_Next(
     if (This->key) while (fetched < celt) {
 	LSTATUS res;
 	HRESULT hr;
-	WCHAR catid[CHARS_IN_GUID];
-	DWORD cName = CHARS_IN_GUID;
+	WCHAR catid[39];
+	DWORD cName = 39;
 
 	res = RegEnumKeyExW(This->key, This->next_index, catid, &cName,
 			    NULL, NULL, NULL, NULL);
@@ -1265,11 +1245,11 @@ static HRESULT WINAPI CATIDEnumGUID_Next(
     return fetched == celt ? S_OK : S_FALSE;
 }
 
-static HRESULT WINAPI CATIDEnumGUID_Skip(
-    IEnumGUID *iface,
+static HRESULT WINAPI COMCAT_CATID_IEnumGUID_Skip(
+    LPENUMGUID iface,
     ULONG celt)
 {
-    CATID_IEnumGUIDImpl *This = impl_from_IEnumCATID(iface);
+    CATID_IEnumGUIDImpl *This = (CATID_IEnumGUIDImpl *)iface;
 
     TRACE("\n");
 
@@ -1278,9 +1258,9 @@ static HRESULT WINAPI CATIDEnumGUID_Skip(
     return S_OK;
 }
 
-static HRESULT WINAPI CATIDEnumGUID_Reset(IEnumGUID *iface)
+static HRESULT WINAPI COMCAT_CATID_IEnumGUID_Reset(LPENUMGUID iface)
 {
-    CATID_IEnumGUIDImpl *This = impl_from_IEnumCATID(iface);
+    CATID_IEnumGUIDImpl *This = (CATID_IEnumGUIDImpl *)iface;
 
     TRACE("\n");
 
@@ -1288,11 +1268,11 @@ static HRESULT WINAPI CATIDEnumGUID_Reset(IEnumGUID *iface)
     return S_OK;
 }
 
-static HRESULT WINAPI CATIDEnumGUID_Clone(
-    IEnumGUID *iface,
+static HRESULT WINAPI COMCAT_CATID_IEnumGUID_Clone(
+    LPENUMGUID iface,
     IEnumGUID **ppenum)
 {
-    CATID_IEnumGUIDImpl *This = impl_from_IEnumCATID(iface);
+    CATID_IEnumGUIDImpl *This = (CATID_IEnumGUIDImpl *)iface;
     CATID_IEnumGUIDImpl *new_this;
 
     TRACE("\n");
@@ -1302,49 +1282,42 @@ static HRESULT WINAPI CATIDEnumGUID_Clone(
     new_this = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(CATID_IEnumGUIDImpl));
     if (new_this == NULL) return E_OUTOFMEMORY;
 
-    new_this->IEnumGUID_iface.lpVtbl = This->IEnumGUID_iface.lpVtbl;
+    new_this->lpVtbl = This->lpVtbl;
     new_this->ref = 1;
     lstrcpyW(new_this->keyname, This->keyname);
     /* FIXME: could we more efficiently use DuplicateHandle? */
     open_classes_key(HKEY_CLASSES_ROOT, new_this->keyname, KEY_READ, &new_this->key);
     new_this->next_index = This->next_index;
 
-    *ppenum = &new_this->IEnumGUID_iface;
+    *ppenum = (LPENUMGUID)new_this;
     return S_OK;
 }
 
-static const IEnumGUIDVtbl CATIDEnumGUIDVtbl =
+static const IEnumGUIDVtbl COMCAT_CATID_IEnumGUID_Vtbl =
 {
-    CATIDEnumGUID_QueryInterface,
-    CATIDEnumGUID_AddRef,
-    CATIDEnumGUID_Release,
-    CATIDEnumGUID_Next,
-    CATIDEnumGUID_Skip,
-    CATIDEnumGUID_Reset,
-    CATIDEnumGUID_Clone
+    COMCAT_CATID_IEnumGUID_QueryInterface,
+    COMCAT_CATID_IEnumGUID_AddRef,
+    COMCAT_CATID_IEnumGUID_Release,
+    COMCAT_CATID_IEnumGUID_Next,
+    COMCAT_CATID_IEnumGUID_Skip,
+    COMCAT_CATID_IEnumGUID_Reset,
+    COMCAT_CATID_IEnumGUID_Clone
 };
 
-static HRESULT CATIDEnumGUID_Construct(REFCLSID rclsid, LPCWSTR postfix, IEnumGUID **ret)
+static LPENUMGUID COMCAT_CATID_IEnumGUID_Construct(
+    REFCLSID rclsid, LPCWSTR postfix)
 {
-    static const WCHAR prefixW[] = {'C','L','S','I','D','\\',0};
-    WCHAR keyname[100], clsidW[CHARS_IN_GUID];
     CATID_IEnumGUIDImpl *This;
 
-    *ret = NULL;
-
     This = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(CATID_IEnumGUIDImpl));
-    if (!This) return E_OUTOFMEMORY;
+    if (This) {
+	WCHAR prefix[] = { 'C', 'L', 'S', 'I', 'D', '\\' };
 
-    StringFromGUID2(rclsid, clsidW, CHARS_IN_GUID);
-
-    This->IEnumGUID_iface.lpVtbl = &CATIDEnumGUIDVtbl;
-    This->ref = 1;
-    strcpyW(keyname, prefixW);
-    strcatW(keyname, clsidW);
-    strcatW(keyname, postfix);
-
-    open_classes_key(HKEY_CLASSES_ROOT, keyname, KEY_READ, &This->key);
-
-    *ret = &This->IEnumGUID_iface;
-    return S_OK;
+	This->lpVtbl = &COMCAT_CATID_IEnumGUID_Vtbl;
+	memcpy(This->keyname, prefix, sizeof(prefix));
+	StringFromGUID2(rclsid, This->keyname + 6, 39);
+	lstrcpyW(This->keyname + 44, postfix);
+	open_classes_key(HKEY_CLASSES_ROOT, This->keyname, KEY_READ, &This->key);
+    }
+    return (LPENUMGUID)This;
 }

@@ -1666,12 +1666,14 @@ typedef struct {
 #endif
 } HAL_DISPATCH, *PHAL_DISPATCH;
 
-#ifdef _NTSYSTEM_
-extern HAL_DISPATCH HalDispatchTable;
+/* GCC/MSVC and WDK compatible declaration */
+extern NTKERNELAPI HAL_DISPATCH HalDispatchTable;
+
+#if defined(_NTOSKRNL_) || defined(_BLDR_)
 #define HALDISPATCH (&HalDispatchTable)
 #else
-extern PHAL_DISPATCH HalDispatchTable;
-__CREATE_NTOS_DATA_IMPORT_ALIAS(HalDispatchTable)
+/* This is a WDK compatibility definition */
+#define HalDispatchTable (&HalDispatchTable)
 #define HALDISPATCH HalDispatchTable
 #endif
 

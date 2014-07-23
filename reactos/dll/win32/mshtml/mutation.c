@@ -621,7 +621,7 @@ static void NSAPI nsDocumentObserver_BindToDocument(nsIDocumentObserver *iface, 
     nsIDOMElement *nselem;
     nsresult nsres;
 
-    TRACE("(%p)->(%p %p)\n", This, aDocument, aContent);
+    TRACE("(%p)\n", This);
 
     nsres = nsIContent_QueryInterface(aContent, &IID_nsIDOMElement, (void**)&nselem);
     if(NS_SUCCEEDED(nsres)) {

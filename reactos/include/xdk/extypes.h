@@ -271,7 +271,7 @@ typedef struct _RESOURCE_PERFORMANCE_DATA {
 
 /* Global debug flag */
 #if DEVL
-extern NTKERNELAPI ULONG NtGlobalFlag;
+extern ULONG NtGlobalFlag;
 #define IF_NTOS_DEBUG(FlagName) if (NtGlobalFlag & (FLG_##FlagName))
 #else
 #define IF_NTOS_DEBUG(FlagName) if(FALSE)

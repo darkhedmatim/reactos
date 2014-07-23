@@ -1,15 +1,14 @@
 ﻿; UTF-8
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
 
 [Section]
 Name = SciTE
-Version = 3.4.3
+Version = 3.3.7
 Licence = Freeware
-Description = SciTE is a SCIntilla based text editor. Originally built to demonstrate Scintilla, it has grown to be a generally useful editor with facilities for building and running programs.
-Size = 737 kB
+Description = SciTE is a SCIntilla based Text Editor. Originally built to demonstrate Scintilla, it has grown to be a generally useful editor with facilities for building and running programs.
+Size = 722 kB
 Category = 7
 URLSite = http://www.scintilla.org/
-URLDownload = http://download.sourceforge.net/project/scintilla/SciTE/3.4.3/Sc343.exe
+URLDownload = http://download.sourceforge.net/project/scintilla/SciTE/3.3.7/Sc337.exe
 CDPath = none
 
 [Section.0407]
@@ -20,10 +19,10 @@ Description = Editor de texto basado en SCIntilla. Originalmente creado para dem
 
 [Section.040c]
 Description = SciTE est un éditeur de texte basé sur SCIntilla. Originelement réalisé pour montrer Scintilla, il a évolué pour devenir un éditeur généralement utile avec des options pour compiler et lancer des programmes.
-Size = 737 ko
+Size = 722 ko
 
 [Section.0410]
-Description = SciTE è un editor di testo basato su scintilla. Originariamente costruito per dimostrare Scintilla, è cresciuto fino a essere un editor generalmente utile con strutture per la creazione e l'esecuzione di programmi.
+Description = SciTE è un editor di testo basato scintilla. Originariamente costruito per dimostrare Scintilla, è cresciuto fino a essere un editor generalmente utile con strutture per la creazione e l'esecuzione di programmi.
 
 [Section.0413]
 Description = SciTE is een tekstbewerker gebaseerd op SCIntilla. Origineel bedoeld om Scontilla te demonstreren, is uitgegroeid tot een handige editor met mogelijkheden voor ontwerken en uitvoeren van programma's.
@@ -34,12 +33,12 @@ Description = SciTE to edytor tekstu bazowany na SCIntilla. Oryginalnie stworzon
 [Section.0418]
 Licence = Gratuită
 Description = SciTE este un editor de text bazat pe SCIntilla. Construit inițial pentru a demonstra Scintilla, a crescut ulterior într-un editor de uz general cu funcționalități de compilare și execuție a programelor.
-Size = 737 ko
+Size = 722 ko
 
 [Section.041f]
 Licence = Ücretsiz
-Description = SciTE, bir Scintilla tabanlı metin düzenleyicisidir. İlk başta Scintilla'yı göstermek için yapıldı, izlenceleri yapmak ve çalıştırmak yetenekleriyle bir umûmiyetle kullanışlı düzenleyici olmak için gelişti.
-Size = 737 KB
+Description = SciTE, Scintilla tabanlı bir metin düzenleyicisidir. Başlangıçta, Scintilla'yı göstermek için yapılmıştır ancak umûmiyetle çizeylemleri yapmak ve çalıştırmak yetenekleriyle birlikte kullanışlı bir düzenleyici olarak geliştirilmiştir.
+Size = 722 KB
 
 [Section.0422]
 Description = Текстовий редактор на основі SCIntilla. Був зібраний як презентація Scintilla, але виріс до редактора загального користування з засобами збирання та запуску програм.

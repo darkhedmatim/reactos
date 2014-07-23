@@ -672,8 +672,7 @@ static HRESULT surface_private_setup(struct wined3d_surface *surface)
     surface->texture_target = GL_TEXTURE_2D;
 
     /* Non-power2 support */
-    if (gl_info->supported[ARB_TEXTURE_NON_POWER_OF_TWO] || gl_info->supported[WINED3D_GL_NORMALIZED_TEXRECT]
-            || gl_info->supported[ARB_TEXTURE_RECTANGLE])
+    if (gl_info->supported[ARB_TEXTURE_NON_POWER_OF_TWO] || gl_info->supported[WINED3D_GL_NORMALIZED_TEXRECT])
     {
         pow2Width = surface->resource.width;
         pow2Height = surface->resource.height;
@@ -693,9 +692,9 @@ static HRESULT surface_private_setup(struct wined3d_surface *surface)
     if (pow2Width > surface->resource.width || pow2Height > surface->resource.height)
     {
         /* TODO: Add support for non power two compressed textures. */
-        if (surface->resource.format->flags & (WINED3DFMT_FLAG_COMPRESSED | WINED3DFMT_FLAG_HEIGHT_SCALE))
+        if (surface->resource.format->flags & WINED3DFMT_FLAG_COMPRESSED)
         {
-            FIXME("(%p) Compressed or height scaled non-power-two textures are not supported w(%d) h(%d)\n",
+            FIXME("(%p) Compressed non-power-two textures are not supported w(%d) h(%d)\n",
                   surface, surface->resource.width, surface->resource.height);
             return WINED3DERR_NOTAVAILABLE;
         }
@@ -2603,9 +2602,8 @@ HRESULT CDECL wined3d_surface_update_desc(struct wined3d_surface *surface,
     HRESULT hr;
     DWORD valid_location = 0;
 
-    TRACE("surface %p, width %u, height %u, format %s, multisample_type %#x, multisample_quality %u, "
-            "mem %p, pitch %u.\n",
-            surface, width, height, debug_d3dformat(format_id), multisample_type, multisample_type, mem, pitch);
+    TRACE("surface %p, width %u, height %u, format %s, multisample_type %#x, multisample_quality %u.\n",
+            surface, width, height, debug_d3dformat(format_id), multisample_type, multisample_type);
 
     if (!resource_size)
         return WINED3DERR_INVALIDCALL;
@@ -5121,8 +5119,7 @@ HRESULT surface_load_location(struct wined3d_surface *surface, DWORD location)
 
     if (surface->resource.usage & WINED3DUSAGE_DEPTHSTENCIL)
     {
-        if (location == WINED3D_LOCATION_TEXTURE_RGB
-                && surface->locations & (WINED3D_LOCATION_DRAWABLE | WINED3D_LOCATION_DISCARDED))
+        if (location == WINED3D_LOCATION_TEXTURE_RGB && surface->locations & WINED3D_LOCATION_DRAWABLE)
         {
             struct wined3d_context *context = context_acquire(device, NULL);
             surface_load_ds_location(surface, context, location);

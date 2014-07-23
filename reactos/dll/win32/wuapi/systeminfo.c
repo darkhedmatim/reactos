@@ -130,11 +130,11 @@ static const struct ISystemInformationVtbl systeminfo_vtbl =
     systeminfo_get_RebootRequired
 };
 
-HRESULT SystemInformation_create(LPVOID *ppObj)
+HRESULT SystemInformation_create(IUnknown *pUnkOuter, LPVOID *ppObj)
 {
     systeminfo *info;
 
-    TRACE("(%p)\n", ppObj);
+    TRACE("(%p,%p)\n", pUnkOuter, ppObj);
 
     info = HeapAlloc(GetProcessHeap(), 0, sizeof(*info));
     if (!info)

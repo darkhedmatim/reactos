@@ -1,6 +1,4 @@
-; UTF-8
-; Polish translation by wojo664
-; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+﻿; UTF-8
 
 [Section]
 Name = Pengupop
@@ -18,13 +16,10 @@ Description = Das Ziel des Spiels ist es farbige Orbs ins Spielfeld zu feuern, s
 [Section.0410]
 Description = Lo scopo di questo gioco è quello di sparare sfere colorate nel vostro campo di gioco, in modo da formare gruppi di tre o più.
 
-[Section.0415]
-Description = Celem tej gry jest strzelanie kolorowymi kulkami tak, aby utworzyć rzędy trzech lub więcej kulek w tym samym kolorze.
-
 [Section.0418]
 Description = Scopul acestui joc este de a arunca globuri colorate în propriul teren pentru a forma grupuri de câte trei sau mai multe.
 Size = 384 ko
 
 [Section.041f]
-Description = Bu oyunun amacı, oyun alanınızda üç ya da daha çok takımdan oluşan renkli küreleri vurmaktır.
+Description = Oyunun amacı, oyun alanınızda üç ya da daha çok takımdan oluşan renkli küreleri vurmaktır.
 Size = 384 KB

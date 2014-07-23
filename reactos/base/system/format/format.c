@@ -24,7 +24,7 @@ BOOL	CompressDrive = FALSE;
 BOOL	GotALabel = FALSE;
 LPTSTR	Label = _T("");
 LPTSTR	Drive = NULL;
-LPTSTR	FileSystem = _T("FAT");
+LPTSTR	Format = _T("FAT");
 
 TCHAR	RootDirectory[MAX_PATH];
 TCHAR	LabelString[12];
@@ -113,7 +113,7 @@ static int ParseCommandLine( int argc, TCHAR *argv[] )
 			if( !_tcsnicmp( &argv[i][1], _T("FS:"), 3 )) {
 
 				if( gotFormat) return -1;
-				FileSystem = &argv[i][4];
+				Format = &argv[i][4];
 				gotFormat = TRUE;
 
 
@@ -238,24 +238,20 @@ FormatExCallback (
 BOOLEAN LoadFMIFSEntryPoints()
 {
 	HMODULE hFmifs = LoadLibrary( _T("fmifs.dll") );
-	if (hFmifs == NULL) {
-		return FALSE;
-	}
-
 	if( !(void*) GetProcAddress( hFmifs, "FormatEx" ) ) {
-		FreeLibrary(hFmifs);
+
 		return FALSE;
 	}
 
 	if( !((void *) GetProcAddress( hFmifs,
 			"EnableVolumeCompression" )) ) {
-		FreeLibrary(hFmifs);
+
 		return FALSE;
 	}
 
 	if( !((void *) GetProcAddress( hFmifs,
 			"QueryAvailableFileSystemFormat" )) ) {
-		FreeLibrary(hFmifs);
+
 		return FALSE;
 	}
 
@@ -332,7 +328,7 @@ _tmain(int argc, TCHAR *argv[])
 	DWORD flags, maxComponent;
 	ULARGE_INTEGER freeBytesAvailableToCaller, totalNumberOfBytes, totalNumberOfFreeBytes;
 #ifndef UNICODE
-	WCHAR RootDirectoryW[MAX_PATH], FileSystemW[MAX_PATH], LabelW[MAX_PATH];
+	WCHAR RootDirectoryW[MAX_PATH], FormatW[MAX_PATH], LabelW[MAX_PATH];
 #endif
 	TCHAR szMsg[RC_STRING_MAX_SIZE];
 
@@ -526,12 +522,12 @@ _tmain(int argc, TCHAR *argv[])
 	//
 #ifndef UNICODE
 	MultiByteToWideChar(CP_ACP, 0, RootDirectory, -1, RootDirectoryW, MAX_PATH);
-	MultiByteToWideChar(CP_ACP, 0, FileSystem, -1, FileSystemW, MAX_PATH);
+	MultiByteToWideChar(CP_ACP, 0, Format, -1, FormatW, MAX_PATH);
 	MultiByteToWideChar(CP_ACP, 0, Label, -1, LabelW, MAX_PATH);
-	FormatEx( RootDirectoryW, media, FileSystemW, LabelW, QuickFormat,
+	FormatEx( RootDirectoryW, media, FormatW, LabelW, QuickFormat,
 			ClusterSize, FormatExCallback );
 #else
-	FormatEx( RootDirectory, media, FileSystem, Label, QuickFormat,
+	FormatEx( RootDirectory, media, Format, Label, QuickFormat,
 			ClusterSize, FormatExCallback );
 #endif
 	if( Error ) return -1;

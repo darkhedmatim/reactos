@@ -104,16 +104,8 @@ DoAdminUnlock(
     IN PWSTR Domain,
     IN PWSTR Password);
 
-NTSTATUS
-DoLoginTasks(
-    IN OUT PGINA_CONTEXT pgContext,
-    IN PWSTR UserName,
-    IN PWSTR Domain,
-    IN PWSTR Password,
-    OUT PNTSTATUS SubStatus);
-
 BOOL
-CreateProfile(
+DoLoginTasks(
     IN OUT PGINA_CONTEXT pgContext,
     IN PWSTR UserName,
     IN PWSTR Domain,

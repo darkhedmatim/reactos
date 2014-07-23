@@ -122,7 +122,7 @@ static void test_define_dos_deviceA(void)
     }
 
     /* Map it to point to the current directory */
-    ret = GetCurrentDirectoryA(sizeof(buf), buf);
+    ret = GetCurrentDirectory(sizeof(buf), buf);
     ok(ret, "GetCurrentDir\n");
 
     ret = DefineDosDeviceA(0, drivestr, buf);
@@ -214,7 +214,7 @@ static void test_GetVolumeNameForVolumeMountPointA(void)
             "GetVolumeNameForVolumeMountPointA failed, wrong error returned, was %d, should be ERROR_FILENAME_EXCED_RANGE\n",
              GetLastError());
 
-    /* Try on an arbitrary directory */
+    /* Try on a arbitrary directory */
     /* On FAT filesystems it seems that GetLastError() is set to
        ERROR_INVALID_FUNCTION. */
     ret = pGetVolumeNameForVolumeMountPointA(temp_path, volume, len);
@@ -368,26 +368,26 @@ static void test_GetVolumeInformationA(void)
     }
 
     /* get windows drive letter and update strings for testing */
-    result = GetWindowsDirectoryA(windowsdir, sizeof(windowsdir));
+    result = GetWindowsDirectory(windowsdir, sizeof(windowsdir));
     ok(result < sizeof(windowsdir), "windowsdir is abnormally long!\n");
     ok(result != 0, "GetWindowsDirectory: error %d\n", GetLastError());
     Root_Colon[0] = windowsdir[0];
     Root_Slash[0] = windowsdir[0];
     Root_UNC[4] = windowsdir[0];
 
-    result = GetCurrentDirectoryA(MAX_PATH, currentdir);
+    result = GetCurrentDirectory(MAX_PATH, currentdir);
     ok(result, "GetCurrentDirectory: error %d\n", GetLastError());
     /* Note that GetCurrentDir yields no trailing slash for subdirs */
 
     /* check for NO error on no trailing \ when current dir is root dir */
-    ret = SetCurrentDirectoryA(Root_Slash);
+    ret = SetCurrentDirectory(Root_Slash);
     ok(ret, "SetCurrentDirectory: error %d\n", GetLastError());
     ret = pGetVolumeInformationA(Root_Colon, vol_name_buf, vol_name_size, NULL,
             NULL, NULL, fs_name_buf, fs_name_len);
     ok(ret, "GetVolumeInformationA root failed, last error %u\n", GetLastError());
 
     /* check for error on no trailing \ when current dir is subdir (windows) of queried drive */
-    ret = SetCurrentDirectoryA(windowsdir);
+    ret = SetCurrentDirectory(windowsdir);
     ok(ret, "SetCurrentDirectory: error %d\n", GetLastError());
     SetLastError(0xdeadbeef);
     ret = pGetVolumeInformationA(Root_Colon, vol_name_buf, vol_name_size, NULL,
@@ -396,7 +396,7 @@ static void test_GetVolumeInformationA(void)
         "GetVolumeInformationA did%s fail, last error %u\n", ret ? " not":"", GetLastError());
 
     /* reset current directory */
-    ret = SetCurrentDirectoryA(currentdir);
+    ret = SetCurrentDirectory(currentdir);
     ok(ret, "SetCurrentDirectory: error %d\n", GetLastError());
 
     if (toupper(currentdir[0]) == toupper(windowsdir[0])) {
@@ -408,12 +408,12 @@ static void test_GetVolumeInformationA(void)
 
         /* C:\windows becomes the current directory on drive C: */
         /* Note that paths to subdirs are stored without trailing slash, like what GetCurrentDir yields. */
-        ret = SetEnvironmentVariableA(Root_Env, windowsdir);
+        ret = SetEnvironmentVariable(Root_Env, windowsdir);
         ok(ret, "SetEnvironmentVariable %s failed\n", Root_Env);
 
-        ret = SetCurrentDirectoryA(windowsdir);
+        ret = SetCurrentDirectory(windowsdir);
         ok(ret, "SetCurrentDirectory: error %d\n", GetLastError());
-        ret = SetCurrentDirectoryA(currentdir);
+        ret = SetCurrentDirectory(currentdir);
         ok(ret, "SetCurrentDirectory: error %d\n", GetLastError());
 
         /* windows dir is current on the root drive, call fails */
@@ -428,9 +428,9 @@ static void test_GetVolumeInformationA(void)
                 NULL, NULL, fs_name_buf, fs_name_len);
         ok(ret, "GetVolumeInformationA with \\ failed, last error %u\n", GetLastError());
 
-        ret = SetCurrentDirectoryA(Root_Slash);
+        ret = SetCurrentDirectory(Root_Slash);
         ok(ret, "SetCurrentDirectory: error %d\n", GetLastError());
-        ret = SetCurrentDirectoryA(currentdir);
+        ret = SetCurrentDirectory(currentdir);
         ok(ret, "SetCurrentDirectory: error %d\n", GetLastError());
 
         /* windows dir is STILL CURRENT on root drive; the call fails as before,   */
@@ -442,7 +442,7 @@ static void test_GetVolumeInformationA(void)
            "GetVolumeInformationA did%s fail, last error %u\n", ret ? " not":"", GetLastError());
 
         /* Now C:\ becomes the current directory on drive C: */
-        ret = SetEnvironmentVariableA(Root_Env, Root_Slash); /* set =C:=C:\ */
+        ret = SetEnvironmentVariable(Root_Env, Root_Slash); /* set =C:=C:\ */
         ok(ret, "SetEnvironmentVariable %s failed\n", Root_Env);
 
         /* \ is current on root drive, call succeeds */
@@ -451,9 +451,9 @@ static void test_GetVolumeInformationA(void)
         ok(ret, "GetVolumeInformationA failed, last error %u\n", GetLastError());
 
         /* again, SetCurrentDirectory on another drive does not matter */
-        ret = SetCurrentDirectoryA(Root_Slash);
+        ret = SetCurrentDirectory(Root_Slash);
         ok(ret, "SetCurrentDirectory: error %d\n", GetLastError());
-        ret = SetCurrentDirectoryA(currentdir);
+        ret = SetCurrentDirectory(currentdir);
         ok(ret, "SetCurrentDirectory: error %d\n", GetLastError());
 
         /* \ is current on root drive, call succeeds */
@@ -533,7 +533,7 @@ static void test_enum_vols(void)
     }
 
     /*get windows drive letter and update strings for testing  */
-    ret = GetWindowsDirectoryA( windowsdir, sizeof(windowsdir) );
+    ret = GetWindowsDirectory( windowsdir, sizeof(windowsdir) );
     ok(ret < sizeof(windowsdir), "windowsdir is abnormally long!\n");
     ok(ret != 0, "GetWindowsDirecory: error %d\n", GetLastError());
     path[0] = windowsdir[0];
@@ -608,6 +608,7 @@ static void test_GetVolumePathNameA(void)
     ret = pGetVolumePathNameA(NULL, NULL, 0);
     error = GetLastError();
     ok(!ret, "expected failure\n");
+todo_wine
     ok(error == ERROR_INVALID_PARAMETER
        || broken( error == 0xdeadbeef) /* <=XP */,
        "expected ERROR_INVALID_PARAMETER got %u\n", error);
@@ -616,6 +617,7 @@ static void test_GetVolumePathNameA(void)
     ret = pGetVolumePathNameA("", NULL, 0);
     error = GetLastError();
     ok(!ret, "expected failure\n");
+todo_wine
     ok(error == ERROR_INVALID_PARAMETER
        || broken( error == 0xdeadbeef) /* <=XP */,
        "expected ERROR_INVALID_PARAMETER got %u\n", error);
@@ -624,6 +626,7 @@ static void test_GetVolumePathNameA(void)
     ret = pGetVolumePathNameA(pathC1, NULL, 0);
     error = GetLastError();
     ok(!ret, "expected failure\n");
+todo_wine
     ok(error == ERROR_INVALID_PARAMETER
        || broken(error == ERROR_FILENAME_EXCED_RANGE) /* <=XP */,
        "expected ERROR_INVALID_PARAMETER got %u\n", error);
@@ -632,6 +635,7 @@ static void test_GetVolumePathNameA(void)
     ret = pGetVolumePathNameA(pathC1, volume, 0);
     error = GetLastError();
     ok(!ret, "expected failure\n");
+todo_wine
     ok(error == ERROR_INVALID_PARAMETER
        || broken(error == ERROR_FILENAME_EXCED_RANGE ) /* <=XP */,
        "expected ERROR_INVALID_PARAMETER got %u\n", error);
@@ -640,6 +644,7 @@ static void test_GetVolumePathNameA(void)
     ret = pGetVolumePathNameA(pathC1, volume, 1);
     error = GetLastError();
     ok(!ret, "expected failure\n");
+todo_wine
     ok(error == ERROR_FILENAME_EXCED_RANGE, "expected ERROR_FILENAME_EXCED_RANGE got %u\n", error);
 
     volume[0] = '\0';
@@ -661,14 +666,6 @@ todo_wine
     ok(ret, "expected success\n");
 todo_wine
     ok(!strcmp(expected, volume), "expected name '%s', returned '%s'\n", expected, volume);
-
-    /* test an invalid path */
-    SetLastError( 0xdeadbeef );
-    ret = pGetVolumePathNameA("\\\\$$$", volume, 1);
-    error = GetLastError();
-    ok(!ret, "expected failure\n");
-    ok(error == ERROR_INVALID_NAME || broken(ERROR_FILENAME_EXCED_RANGE) /* <=2000 */,
-       "expected ERROR_INVALID_NAME got %u\n", error);
 }
 
 static void test_GetVolumePathNamesForVolumeNameA(void)

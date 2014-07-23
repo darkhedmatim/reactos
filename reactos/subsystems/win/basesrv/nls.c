@@ -116,7 +116,7 @@ BaseSrvNLSInit(IN PBASE_STATIC_SERVER_DATA StaticData)
 
     /* Initialize the data with all F's */
     pNlsRegUserInfo = &StaticData->NlsUserInfo;
-    RtlFillMemory(&StaticData->NlsUserInfo, sizeof(StaticData->NlsUserInfo), 0xFF);
+    RtlFillMemory(&StaticData->NlsUserInfo, 0xFF, sizeof(StaticData->NlsUserInfo));
 
     /* Set empty LCID */
     pNlsRegUserInfo->UserLocaleId = 0;

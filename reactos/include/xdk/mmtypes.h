@@ -147,11 +147,8 @@ typedef enum _MM_SYSTEM_SIZE {
   MmLargeSystem
 } MM_SYSTEMSIZE;
 
-#ifndef _NTSYSTEM_
-extern PBOOLEAN Mm64BitPhysicalAddress;
-__CREATE_NTOS_DATA_IMPORT_ALIAS(Mm64BitPhysicalAddress)
-#endif
-extern NTKERNELAPI PVOID MmBadPointer;
+extern NTKERNELAPI BOOLEAN Mm64BitPhysicalAddress;
+extern PVOID MmBadPointer;
 
 $endif (_WDMDDK_)
 $if (_NTDDK_)

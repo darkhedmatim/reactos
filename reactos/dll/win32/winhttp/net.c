@@ -705,23 +705,24 @@ BOOL netconn_recv( netconn_t *conn, void *buf, size_t len, int flags, int *recvd
     return TRUE;
 }
 
-ULONG netconn_query_data_available( netconn_t *conn )
+BOOL netconn_query_data_available( netconn_t *conn, DWORD *available )
 {
-    if(!netconn_connected(conn))
-        return 0;
-
-    if(conn->secure) {
-        return conn->peek_len;
-    }else {
 #ifdef FIONREAD
-        ULONG unread;
-
-        if(!ioctlsocket(conn->socket, FIONREAD, &unread))
-            return unread;
+    int ret;
+    ULONG unread;
 #endif
-    }
+    *available = 0;
+    if (!netconn_connected( conn )) return FALSE;
 
-    return 0;
+    if (conn->secure)
+    {
+        *available = conn->peek_len;
+        return TRUE;
+    }
+#ifdef FIONREAD
+    if (!(ret = ioctlsocket( conn->socket, FIONREAD, &unread ))) *available = unread;
+#endif
+    return TRUE;
 }
 
 DWORD netconn_set_timeout( netconn_t *netconn, BOOL send, int value )

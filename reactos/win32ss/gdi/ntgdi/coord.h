@@ -57,8 +57,8 @@ VOID
 FASTCALL
 DC_vUpdateDeviceToWorld(PDC pdc);
 
-FORCEINLINE
 PSIZEL
+FORCEINLINE
 DC_pszlViewportExt(PDC pdc)
 {
     PDC_ATTR pdcattr = pdc->pdcattr;
@@ -74,15 +74,15 @@ DC_pszlViewportExt(PDC pdc)
     return &pdcattr->szlViewportExt;
 }
 
-FORCEINLINE
 PMATRIX
+FORCEINLINE
 DC_pmxWorldToPage(PDC pdc)
 {
     return &pdc->pdcattr->mxWorldToPage;
 }
 
-FORCEINLINE
 PMATRIX
+FORCEINLINE
 DC_pmxWorldToDevice(PDC pdc)
 {
     /* Check if world or page xform was changed */
@@ -95,8 +95,8 @@ DC_pmxWorldToDevice(PDC pdc)
     return &pdc->pdcattr->mxWorldToDevice;
 }
 
-FORCEINLINE
 PMATRIX
+FORCEINLINE
 DC_pmxDeviceToWorld(PDC pdc)
 {
     /* Check if the device-to-world xform is invalid */
@@ -109,8 +109,8 @@ DC_pmxDeviceToWorld(PDC pdc)
     return &pdc->pdcattr->mxDeviceToWorld;
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 DC_vXformDeviceToWorld(
     IN PDC pdc,
     IN ULONG cNumPoints,
@@ -125,8 +125,8 @@ DC_vXformDeviceToWorld(
     XFORMOBJ_bApplyXform(&xo, XF_LTOL, cNumPoints, pptlDest, pptlSource);
 }
 
-FORCEINLINE
 VOID
+FORCEINLINE
 DC_vXformWorldToDevice(
     IN PDC pdc,
     IN ULONG cNumPoints,
@@ -150,5 +150,4 @@ GreModifyWorldTransform(
 
 VOID FASTCALL IntMirrorWindowOrg(PDC);
 int APIENTRY IntGdiSetMapMode(PDC, int);
-BOOL FASTCALL GreLPtoDP(HDC, LPPOINT, INT);
-BOOL FASTCALL GreDPtoLP(HDC, LPPOINT, INT);
+

@@ -720,7 +720,7 @@ static void test_GetCalendarInfo(void)
 
 START_TEST(time)
 {
-    HMODULE hKernel = GetModuleHandleA("kernel32");
+    HMODULE hKernel = GetModuleHandle("kernel32");
     pTzSpecificLocalTimeToSystemTime = (void *)GetProcAddress(hKernel, "TzSpecificLocalTimeToSystemTime");
     pSystemTimeToTzSpecificLocalTime = (void *)GetProcAddress( hKernel, "SystemTimeToTzSpecificLocalTime");
     pGetCalendarInfoA = (void *)GetProcAddress(hKernel, "GetCalendarInfoA");

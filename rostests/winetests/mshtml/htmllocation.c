@@ -21,6 +21,8 @@
 
 #include <wine/test.h>
 
+#if ROSTESTS_81_IS_FIXED
+
 #include "mshtml.h"
 #include "wininet.h"
 
@@ -368,9 +370,11 @@ static void perform_test(const struct location_test* test)
     IMoniker_Release(url_mon);
     IBindCtx_Release(bc);
 }
+#endif /* ROSTESTS_81_IS_FIXED */
 
 START_TEST(htmllocation)
 {
+#if ROSTESTS_81_IS_FIXED
     int i;
 
     CoInitialize(NULL);
@@ -379,4 +383,5 @@ START_TEST(htmllocation)
         perform_test(location_tests+i);
 
     CoUninitialize();
+#endif /* ROSTESTS_81_IS_FIXED */
 }

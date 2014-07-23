@@ -245,34 +245,22 @@ EngQuerySystemAttribute(
 {
     SYSTEM_BASIC_INFORMATION sbi;
     SYSTEM_PROCESSOR_INFORMATION spi;
-    NTSTATUS status;
 
     switch (CapNum)
     {
         case EngNumberOfProcessors:
-            status = NtQuerySystemInformation(SystemBasicInformation,
-                                              &sbi,
-                                              sizeof(SYSTEM_BASIC_INFORMATION),
-                                              NULL);
-            if (!NT_SUCCESS(status))
-            {
-                DPRINT1("Failed to query basic information: 0x%lx\n", status);
-                return FALSE;
-            }
-
+            NtQuerySystemInformation(SystemBasicInformation,
+                                     &sbi,
+                                     sizeof(SYSTEM_BASIC_INFORMATION),
+                                     NULL);
             *pCapability = sbi.NumberOfProcessors;
             return TRUE;
 
         case EngProcessorFeature:
-            status = NtQuerySystemInformation(SystemProcessorInformation,
-                                              &spi,
-                                              sizeof(SYSTEM_PROCESSOR_INFORMATION),
-                                              NULL);
-            if (!NT_SUCCESS(status))
-            {
-                DPRINT1("Failed to query processor information: 0x%lx\n", status);
-                return FALSE;
-            }
+            NtQuerySystemInformation(SystemProcessorInformation,
+                                     &spi,
+                                     sizeof(SYSTEM_PROCESSOR_INFORMATION),
+                                     NULL);
             *pCapability = spi.ProcessorFeatureBits;
             return TRUE;
 

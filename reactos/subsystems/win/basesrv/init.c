@@ -9,7 +9,6 @@
 /* INCLUDES *******************************************************************/
 
 #include "basesrv.h"
-#include "vdm.h"
 
 #include <winreg.h>
 
@@ -570,14 +569,6 @@ BaseInitializeStaticServerData(IN PCSR_SERVER_DLL LoadedServerDll)
     LoadedServerDll->SharedSection = BaseStaticServerData;
 }
 
-VOID
-NTAPI
-BaseSrvDisconnect(PCSR_PROCESS Process)
-{
-    /* Cleanup the VDM console records */
-    BaseSrvCleanupVdmRecords(HandleToUlong(Process->ClientId.UniqueProcess));
-}
-
 CSR_SERVER_DLL_INIT(ServerDllInitialization)
 {
     /* Setup the DLL Object */
@@ -590,7 +581,7 @@ CSR_SERVER_DLL_INIT(ServerDllInitialization)
 #endif
     LoadedServerDll->SizeOfProcessData = 0;
     LoadedServerDll->ConnectCallback = NULL;
-    LoadedServerDll->DisconnectCallback = BaseSrvDisconnect;
+    LoadedServerDll->DisconnectCallback = NULL;
     LoadedServerDll->ShutdownProcessCallback = NULL;
 
     BaseSrvDllInstance = LoadedServerDll->ServerHandle;
@@ -599,9 +590,6 @@ CSR_SERVER_DLL_INIT(ServerDllInitialization)
 
     /* Initialize DOS devices management */
     BaseInitDefineDosDevice();
-
-    /* Initialize VDM support */
-    BaseInitializeVDM();
 
     /* All done */
     return STATUS_SUCCESS;

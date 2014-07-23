@@ -135,17 +135,14 @@ EnumServices(ENUM_SERVICE_STATUS_PROCESS **pServiceStatus,
                                      &ResumeHandle,
                                      0))
             {
-                CloseServiceHandle(hSCManager);
                 return NumServices;
             }
         }
     }
 
     ReportLastError();
-    if (*pServiceStatus)
+    if (pServiceStatus)
         HeapFree(GetProcessHeap(), 0, *pServiceStatus);
-
-    CloseServiceHandle(hSCManager);
 
     return NumServices;
 }
@@ -239,6 +236,9 @@ Query(LPCTSTR *ServiceArgs,
                          bExtended);
         }
     }
+
+    if (pServiceStatus)
+        HeapFree(GetProcessHeap(), 0, pServiceStatus);
 
     return TRUE;
 }

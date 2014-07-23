@@ -1,4 +1,4 @@
-﻿[Version]
+[Version]
 Signature = "$ReactOS$"
 
 [AddReg]
@@ -74,29 +74,6 @@ HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\PCI#CC_0300","Clas
 HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\PCI#CC_0301","Service",0x00000000,"VBE"
 HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\PCI#CC_0301","ClassGUID",0x00000000,"{4D36E968-E325-11CE-BFC1-08002BE10318}"
 
-HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\*PNP0303","Service",0x00000000,"i8042prt"
-HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\*PNP0303","ClassGUID",0x00000000,"{4D36E96B-E325-11CE-BFC1-08002BE10318}"
-
-HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\*PNP0F0E","Service",0x00000000,"i8042prt"
-HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\*PNP0F0E","ClassGUID",0x00000000,"{4D36E96F-E325-11CE-BFC1-08002BE10318}"
-
-HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\*PNP0F19","Service",0x00000000,"i8042prt"
-HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\*PNP0F19","ClassGUID",0x00000000,"{4D36E96F-E325-11CE-BFC1-08002BE10318}"
-
-HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\PS2_MOUSE","Service",0x00000000,"i8042prt"
-HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\PS2_MOUSE","ClassGUID",0x00000000,"{4D36E96F-E325-11CE-BFC1-08002BE10318}"
-
-HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\*PNP0F13","Service",0x00000000,"i8042prt"
-HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\*PNP0F13","ClassGUID",0x00000000,"{4D36E96F-E325-11CE-BFC1-08002BE10318}"
-
-HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\*IBM3780","Service",0x00000000,"i8042prt"
-HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\*IBM3780","ClassGUID",0x00000000,"{4D36E96F-E325-11CE-BFC1-08002BE10318}"
-
-HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\*PNP0F12","Service",0x00000000,"i8042prt"
-HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\*PNP0F12","ClassGUID",0x00000000,"{4D36E96F-E325-11CE-BFC1-08002BE10318}"
-
-HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\*PNP0F03","Service",0x00000000,"i8042prt"
-HKLM,"SYSTEM\CurrentControlSet\Control\CriticalDeviceDatabase\*PNP0F03","ClassGUID",0x00000000,"{4D36E96F-E325-11CE-BFC1-08002BE10318}"
 
 HKLM,"SYSTEM\CurrentControlSet\Control\SafeBoot","AlternateShell",2,"cmd.exe"
 
@@ -882,23 +859,6 @@ HKLM,"SYSTEM\CurrentControlSet\Control\Nls\CodePage\EUDCCodeRange","950",2,"FA40
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\CodePage\EUDCCodeRange","Unicode",2,"E000-F8FF"
 
 ; NLS Language settings
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0401",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0801",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0c01",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","1001",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","1401",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","1801",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","1c01",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","2001",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","2401",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","2801",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","2c01",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","3001",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","3401",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","3801",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","3c01",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","4001",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0401",0x00000000,"l_intl.nls"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0402",0x00000000,"l_intl.nls"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0403",0x00000000,"l_intl.nls"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0404",0x00000000,"l_intl.nls"
@@ -988,8 +948,8 @@ HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0427",0x00000000,"l_intl.n
 ;HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0429",0x00000000,"l_intl.nls"
 ;HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","042a",0x00000000,"l_intl.nls"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","042b",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","042c",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","082c",0x00000000,"l_intl.nls"
+;HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","042c",0x00000000,"l_intl.nls"
+;HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","082c",0x00000000,"l_intl.nls"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","042d",0x00000000,"l_intl.nls"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","042f",0x00000000,"l_intl.nls"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0436",0x00000000,"l_intl.nls"
@@ -999,11 +959,10 @@ HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0439",0x00000000,"l_intl.n
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","043e",0x00000000,"l_intl.nls"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","083e",0x00000000,"l_intl.nls"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","043f",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0440",0x00000000,"l_intl.nls"
+;HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0440",0x00000000,"l_intl.nls"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0441",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0443",0x00000000,"l_intl.nls"
+;HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0443",0x00000000,"l_intl.nls"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0843",0x00000000,"l_intl.nls"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0444",0x00000000,"l_intl.nls"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0445",0x00000000,"l_intl.nls"
 ;HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0455",0x00000000,"l_intl.nls"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","0456",0x00000000,"l_intl.nls"
@@ -1016,22 +975,6 @@ HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Language","InstallLanguage",0x0000000
 ; If you add/uncomment an entry here, please also add the appropriate Language
 ; in the previous section.
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale",,0x00000012
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000401",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000801",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000c01",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00001001",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00001401",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00001801",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00001c01",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00002001",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00002401",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00002801",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00002c01",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00003001",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00003401",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00003801",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00003c01",0x00000000,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00004001",0x00000000,""
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000402",0x00000000,"5"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000403",0x00000000,"1"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000404",0x00000000,"9"
@@ -1117,8 +1060,8 @@ HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000427",0x00000000,"3"
 ;HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000429",0x00000000,""
 ;HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","0000042a",0x00000000,""
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","0000042b",0x00000000,"11"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","0000042c",0x00000000,"6"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","0000082c",0x00000000,"5"
+;HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","0000042c",0x00000000,"6"
+;HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","0000082c",0x00000000,"5"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","0000042d",0x00000000,"1"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","0000042f",0x00000000,"5"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000436",0x00000000,"1"
@@ -1128,11 +1071,10 @@ HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000439",0x00000000,"f"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","0000043e",0x00000000,"1"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","0000083e",0x00000000,"1"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","0000043f",0x00000000,"5"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000440",0x00000000,"5"
+;HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000440",0x00000000,"5"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000441",0x00000000,"1"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000443",0x00000000,"6"
+;HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000443",0x00000000,"6"
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000843",0x00000000,"5"
-HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000444",0x00000000,"5"
 ;HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000445",0x00000000,"f"
 ;HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000455",0x00000000,""
 HKLM,"SYSTEM\CurrentControlSet\Control\Nls\Locale","00000456",0x00000000,"1"
@@ -1272,7 +1214,7 @@ HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\DOS Devices","UNC",0x0000
 HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Environment","ComSpec",0x00020000,"%SystemRoot%\system32\cmd.exe"
 HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Environment","Path",0x00020000,"%SystemRoot%\bin;%SystemRoot%\system32;%SystemRoot%;%SystemRoot%\system32\wbem"
 HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Environment","PATHEXT",0x00000000,".COM;.EXE;.BAT;.CMD"
-HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Environment","PROMPT",0x00000000,"$P$G$I"
+HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Environment","PROMPT",0x00000000,"$I$P$G"
 HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Environment","TEMP",0x00020000,"%SystemDrive%\TEMP"
 HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Environment","TMP",0x00020000,"%SystemDrive%\TEMP"
 HKLM,"SYSTEM\CurrentControlSet\Control\Session Manager\Environment","windir",0x00020000,"%SystemRoot%"
@@ -1362,16 +1304,6 @@ HKLM,"SYSTEM\CurrentControlSet\Services\Beep","ImagePath",0x00020000,"system32\d
 HKLM,"SYSTEM\CurrentControlSet\Services\Beep","Start",0x00010001,0x00000001
 HKLM,"SYSTEM\CurrentControlSet\Services\Beep","Type",0x00010001,0x00000001
 
-; Background Intelligent Transfer Service (BITS)
-HKLM,"SYSTEM\CurrentControlSet\Services\BITS","DisplayName",0x00000000,"BITS"
-HKLM,"SYSTEM\CurrentControlSet\Services\BITS","Description",0x00000000,"Background Intelligent Transfer Service (BITS)"
-HKLM,"SYSTEM\CurrentControlSet\Services\BITS","ErrorControl",0x00010001,0x00000001
-HKLM,"SYSTEM\CurrentControlSet\Services\BITS","ImagePath",0x00020000,"%SystemRoot%\system32\svchost.exe -k netsvcs"
-HKLM,"SYSTEM\CurrentControlSet\Services\BITS","ObjectName",0x00000000,"LocalSystem"
-HKLM,"SYSTEM\CurrentControlSet\Services\BITS","Start",0x00010001,0x00000003
-HKLM,"SYSTEM\CurrentControlSet\Services\BITS","Type",0x00010001,0x00000020
-HKLM,"SYSTEM\CurrentControlSet\Services\BITS\Parameters","ServiceDll",0x00020000,"%SystemRoot%\system32\qmgr.dll"
-
 ; BlueScreen device driver
 HKLM,"SYSTEM\CurrentControlSet\Services\Blue","ErrorControl",0x00010001,0x00000000
 HKLM,"SYSTEM\CurrentControlSet\Services\Blue","Group",0x00000000,"Video Init"
@@ -1460,6 +1392,13 @@ HKLM,"SYSTEM\CurrentControlSet\Services\Fs_Rec","Group",0x00000000,"Boot file sy
 HKLM,"SYSTEM\CurrentControlSet\Services\Fs_Rec","ImagePath",0x00020000,"system32\drivers\fs_rec.sys"
 HKLM,"SYSTEM\CurrentControlSet\Services\Fs_Rec","Start",0x00010001,0x00000001
 HKLM,"SYSTEM\CurrentControlSet\Services\Fs_Rec","Type",0x00010001,0x00000008
+
+; Kernel-Mode Tests
+;HKLM,"SYSTEM\CurrentControlSet\Services\Kmtest","ErrorControl",0x00010001,0x00000000
+;HKLM,"SYSTEM\CurrentControlSet\Services\Kmtest","Group",0x00000000,"Base"
+;HKLM,"SYSTEM\CurrentControlSet\Services\Kmtest","ImagePath",0x00020000,"system32\drivers\kmtest.sys"
+;HKLM,"SYSTEM\CurrentControlSet\Services\Kmtest","Start",0x00010001,0x00000001
+;HKLM,"SYSTEM\CurrentControlSet\Services\Kmtest","Type",0x00010001,0x00000001
 
 ; Keyboard class driver
 HKLM,"SYSTEM\CurrentControlSet\Services\kbdclass","ErrorControl",0x00010001,0x00000000

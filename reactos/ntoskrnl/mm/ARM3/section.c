@@ -1185,7 +1185,7 @@ MiLoadUserSymbols(IN PCONTROL_AREA ControlArea,
     Status = RtlUnicodeStringToAnsiString(&FileNameA, FileName, TRUE);
     if (NT_SUCCESS(Status))
     {
-        DbgLoadImageSymbols(&FileNameA, BaseAddress, (ULONG_PTR)Process->UniqueProcessId);
+        DbgLoadImageSymbols(&FileNameA, BaseAddress, (ULONG_PTR)Process);
         RtlFreeAnsiString(&FileNameA);
     }
 }
@@ -1214,8 +1214,6 @@ MiMapViewOfDataSection(IN PCONTROL_AREA ControlArea,
     ULONG QuotaCharge = 0, QuotaExcess = 0;
     PMMPTE PointerPte, LastPte;
     MMPTE TempPte;
-    PMMADDRESS_NODE Parent;
-    TABLE_SEARCH_RESULT Result;
 
     /* Get the segment for this section */
     Segment = ControlArea->Segment;
@@ -1304,29 +1302,23 @@ MiMapViewOfDataSection(IN PCONTROL_AREA ControlArea,
         if (AllocationType & MEM_TOP_DOWN)
         {
             /* No, find an address top-down */
-            Result = MiFindEmptyAddressRangeDownTree(*ViewSize,
+            Status = MiFindEmptyAddressRangeDownTree(*ViewSize,
                                                      (ULONG_PTR)MM_HIGHEST_VAD_ADDRESS,
                                                      _64K,
                                                      &Process->VadRoot,
                                                      &StartAddress,
-                                                     &Parent);
+                                                     (PMMADDRESS_NODE*)&Process->VadFreeHint);
+            ASSERT(NT_SUCCESS(Status));
         }
         else
         {
             /* No, find an address bottom-up */
-            Result = MiFindEmptyAddressRangeInTree(*ViewSize,
+            Status = MiFindEmptyAddressRangeInTree(*ViewSize,
                                                    _64K,
                                                    &Process->VadRoot,
-                                                   &Parent,
+                                                   (PMMADDRESS_NODE*)&Process->VadFreeHint,
                                                    &StartAddress);
-        }
-
-        /* Check if we found a suitable location */
-        if (Result == TableFoundNode)
-        {
-            DPRINT1("Not enough free space to insert this section!\n");
-            MiDereferenceControlArea(ControlArea);
-            return STATUS_CONFLICTING_ADDRESSES;
+            ASSERT(NT_SUCCESS(Status));
         }
 
         /* Get the ending address, which is the last piece we need for the VAD */
@@ -1351,11 +1343,9 @@ MiMapViewOfDataSection(IN PCONTROL_AREA ControlArea,
         EndingAddress = (StartAddress + *ViewSize - 1) | (PAGE_SIZE - 1);
 
         /* Make sure it doesn't conflict with an existing allocation */
-        Result = MiCheckForConflictingNode(StartAddress >> PAGE_SHIFT,
-                                           EndingAddress >> PAGE_SHIFT,
-                                           &Process->VadRoot,
-                                           &Parent);
-        if (Result == TableFoundNode)
+        if (MiCheckForConflictingNode(StartAddress >> PAGE_SHIFT,
+                                      EndingAddress >> PAGE_SHIFT,
+                                      &Process->VadRoot))
         {
             DPRINT1("Conflict with SEC_BASED or manually based section!\n");
             MiDereferenceControlArea(ControlArea);
@@ -1405,8 +1395,7 @@ MiMapViewOfDataSection(IN PCONTROL_AREA ControlArea,
     MiLockProcessWorkingSetUnsafe(Process, Thread);
 
     /* Insert the VAD */
-    Process->VadRoot.NodeHint = Vad;
-    MiInsertNode(&Process->VadRoot, (PVOID)Vad, Parent, Result);
+    MiInsertVad((PMMVAD)Vad, Process);
 
     /* Release the working set */
     MiUnlockProcessWorkingSetUnsafe(Process, Thread);
@@ -2655,14 +2644,8 @@ MmMapViewOfArm3Section(IN PVOID SectionObject,
     ASSERT(Section->u.Flags.Image == 0);
     ASSERT(Section->u.Flags.NoCache == 0);
     ASSERT(Section->u.Flags.WriteCombined == 0);
+    ASSERT((AllocationType & MEM_RESERVE) == 0);
     ASSERT(ControlArea->u.Flags.PhysicalMemory == 0);
-
-    /* FIXME */
-    if ((AllocationType & MEM_RESERVE) != 0)
-    {
-        DPRINT1("MmMapViewOfArm3Section called with MEM_RESERVE, this is not implemented yet!!!\n");
-        return STATUS_NOT_IMPLEMENTED;
-    }
 
     /* Check if the mapping protection is compatible with the create */
     if (!MiIsProtectionCompatible(Section->InitialPageProtection, Protect))

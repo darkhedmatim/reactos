@@ -1308,30 +1308,23 @@ LsapSetPrivileges(
                                      TokenInfo1->Groups->Groups[i].Sid,
                                      ACCOUNT_VIEW,
                                      &AccountHandle);
-            if (!NT_SUCCESS(Status))
-                continue;
-
-            Status = LsarEnumeratePrivilegesAccount(AccountHandle,
-                                                    &Privileges);
             if (NT_SUCCESS(Status))
             {
-                for (j = 0; j < Privileges->PrivilegeCount; j++)
+                Status = LsarEnumeratePrivilegesAccount(AccountHandle,
+                                                        &Privileges);
+                if (NT_SUCCESS(Status))
                 {
-                    Status = LsapAddPrivilegeToTokenPrivileges(&TokenInfo1->Privileges,
-                                                               &(Privileges->Privilege[j]));
-                    if (!NT_SUCCESS(Status))
+                    for (j = 0; j < Privileges->PrivilegeCount; j++)
                     {
-                        /* We failed, clean everything and return */
-                        LsaIFree_LSAPR_PRIVILEGE_SET(Privileges);
-                        LsarClose(&AccountHandle);
-                        LsarClose(&PolicyHandle);
-
-                        return Status;
+                        Status = LsapAddPrivilegeToTokenPrivileges(&TokenInfo1->Privileges,
+                                                                   &(Privileges->Privilege[j]));
+                        if (!NT_SUCCESS(Status))
+                            return Status;
                     }
-                }
 
-                LsaIFree_LSAPR_PRIVILEGE_SET(Privileges);
-                Privileges = NULL;
+                    LsaIFree_LSAPR_PRIVILEGE_SET(Privileges);
+                    Privileges = NULL;
+                }
             }
 
             LsarClose(&AccountHandle);
