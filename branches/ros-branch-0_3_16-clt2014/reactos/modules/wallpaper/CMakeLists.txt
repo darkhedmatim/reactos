@@ -1,1 +1,0 @@
-add_cd_file(FILE ${CMAKE_CURRENT_SOURCE_DIR}/5DJGG-clt2014.bmp DESTINATION reactos FOR all)

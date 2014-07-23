@@ -1,7 +1,0 @@
-LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
-
-STRINGTABLE
-BEGIN
-    STRING_WelcomeMsg "ReactOS Virtual DOS Machine support.\n"
-    STRING_PromptMsg "Type r<cr> to run, s<cr> to shutdown or q<cr> to quit now."
-END
