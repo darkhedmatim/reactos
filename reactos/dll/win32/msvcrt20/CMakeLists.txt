@@ -1,5 +1,4 @@
 
-include_directories(${REACTOS_SOURCE_DIR}/lib/sdk/crt/include)
 spec2def(msvcrt20.dll msvcrt20.spec)
 
 add_definitions(
@@ -12,6 +11,8 @@ add_definitions(
     -DCRTDLL
     -D__MINGW_IMPORT="")
 
+include_directories(${REACTOS_SOURCE_DIR}/lib/sdk/crt/include)
+
 list(APPEND SOURCE
     msvcrt20.c
     stubs.c
@@ -20,7 +21,9 @@ list(APPEND SOURCE
 
 add_library(msvcrt20 SHARED ${SOURCE})
 set_module_type(msvcrt20 win32dll ENTRYPOINT DllMain 12)
+
 add_dependencies(msvcrt20 psdk)
+
 target_link_libraries(msvcrt20 crt wine ${PSEH_LIB})
 
 if(MSVC)
@@ -29,4 +32,5 @@ if(MSVC)
 endif()
 
 add_importlibs(msvcrt20 kernel32 ntdll)
+
 add_cd_file(TARGET msvcrt20 DESTINATION reactos/system32 FOR all)

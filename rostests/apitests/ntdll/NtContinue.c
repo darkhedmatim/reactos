@@ -123,10 +123,6 @@ void check(CONTEXT * pContext)
 
 START_TEST(NtContinue)
 {
-#ifdef __RUNTIME_CHECKS__
-    skip("This test breaks MSVC runtime checks!");
-    return;
-#endif /* __RUNTIME_CHECKS__ */
     initrand();
 
     /* First time */

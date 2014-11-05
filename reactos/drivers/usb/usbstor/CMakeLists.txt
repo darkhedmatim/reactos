@@ -1,5 +1,6 @@
 
 add_definitions(-DDEBUG_MODE)
+
 include_directories(${REACTOS_SOURCE_DIR}/ntoskrnl/include)
 
 list(APPEND SOURCE

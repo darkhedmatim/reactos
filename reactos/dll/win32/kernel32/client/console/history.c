@@ -246,7 +246,6 @@ IntSetConsoleNumberOfCommands(DWORD dwNumCommands,
  */
 VOID
 WINAPI
-DECLSPEC_HOTPATCH
 ExpungeConsoleCommandHistoryW(LPCWSTR lpExeName)
 {
     IntExpungeConsoleCommandHistory(lpExeName, TRUE);
@@ -258,7 +257,6 @@ ExpungeConsoleCommandHistoryW(LPCWSTR lpExeName)
  */
 VOID
 WINAPI
-DECLSPEC_HOTPATCH
 ExpungeConsoleCommandHistoryA(LPCSTR lpExeName)
 {
     IntExpungeConsoleCommandHistory(lpExeName, FALSE);
@@ -270,7 +268,6 @@ ExpungeConsoleCommandHistoryA(LPCSTR lpExeName)
  */
 DWORD
 WINAPI
-DECLSPEC_HOTPATCH
 GetConsoleCommandHistoryW(LPWSTR lpHistory,
                           DWORD cbHistory,
                           LPCWSTR lpExeName)
@@ -284,7 +281,6 @@ GetConsoleCommandHistoryW(LPWSTR lpHistory,
  */
 DWORD
 WINAPI
-DECLSPEC_HOTPATCH
 GetConsoleCommandHistoryA(LPSTR lpHistory,
                           DWORD cbHistory,
                           LPCSTR lpExeName)
@@ -298,7 +294,6 @@ GetConsoleCommandHistoryA(LPSTR lpHistory,
  */
 DWORD
 WINAPI
-DECLSPEC_HOTPATCH
 GetConsoleCommandHistoryLengthW(LPCWSTR lpExeName)
 {
     return IntGetConsoleCommandHistoryLength(lpExeName, TRUE);
@@ -310,7 +305,6 @@ GetConsoleCommandHistoryLengthW(LPCWSTR lpExeName)
  */
 DWORD
 WINAPI
-DECLSPEC_HOTPATCH
 GetConsoleCommandHistoryLengthA(LPCSTR lpExeName)
 {
     return IntGetConsoleCommandHistoryLength(lpExeName, FALSE);
@@ -322,7 +316,6 @@ GetConsoleCommandHistoryLengthA(LPCSTR lpExeName)
  */
 BOOL
 WINAPI
-DECLSPEC_HOTPATCH
 SetConsoleNumberOfCommandsW(DWORD dwNumCommands,
                             LPCWSTR lpExeName)
 {
@@ -335,7 +328,6 @@ SetConsoleNumberOfCommandsW(DWORD dwNumCommands,
  */
 BOOL
 WINAPI
-DECLSPEC_HOTPATCH
 SetConsoleNumberOfCommandsA(DWORD dwNumCommands,
                             LPCSTR lpExeName)
 {
@@ -348,7 +340,6 @@ SetConsoleNumberOfCommandsA(DWORD dwNumCommands,
  */
 BOOL
 WINAPI
-DECLSPEC_HOTPATCH
 SetConsoleCommandHistoryMode(IN DWORD dwMode)
 {
     CONSOLE_API_MESSAGE ApiMessage;

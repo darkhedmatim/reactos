@@ -4,6 +4,7 @@ add_definitions(
     -D_ATL_VER=_ATL_VER_100)
 
 include_directories(${REACTOS_SOURCE_DIR}/include/reactos/wine)
+
 spec2def(atl100.dll atl100.spec ADD_IMPORTLIB)
 
 list(APPEND SOURCE

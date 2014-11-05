@@ -2,7 +2,6 @@
 add_subdirectory(comsupp)
 if(MSVC)
     add_subdirectory(cpprt)
-    add_subdirectory(RunTmChk)
 endif()
 add_subdirectory(crt)
 add_subdirectory(delayimp)

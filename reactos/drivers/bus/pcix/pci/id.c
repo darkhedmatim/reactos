@@ -118,7 +118,7 @@ PciInitIdBuffer(IN PPCI_ID_BUFFER IdBuffer)
 }
 
 ULONG
-__cdecl
+NTAPI
 PciIdPrintf(IN PPCI_ID_BUFFER IdBuffer,
             IN PCCH Format,
             ...)
@@ -153,7 +153,7 @@ PciIdPrintf(IN PPCI_ID_BUFFER IdBuffer,
 }
 
 ULONG
-__cdecl
+NTAPI
 PciIdPrintfAppend(IN PPCI_ID_BUFFER IdBuffer,
                   IN PCCH Format,
                   ...)

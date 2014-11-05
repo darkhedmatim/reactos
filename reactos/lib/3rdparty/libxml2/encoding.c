@@ -2384,7 +2384,6 @@ xmlCharEncInFunc(xmlCharEncodingHandler * handler, xmlBufferPtr out,
     return (written? written : ret);
 }
 
-#ifdef LIBXML_OUTPUT_ENABLED
 /**
  * xmlCharEncOutput:
  * @output: a parser output buffer
@@ -2613,7 +2612,6 @@ retry:
     }
     return(ret);
 }
-#endif
 
 /**
  * xmlCharEncOutFunc:
@@ -2853,25 +2851,14 @@ int
 xmlCharEncCloseFunc(xmlCharEncodingHandler *handler) {
     int ret = 0;
     int tofree = 0;
-    int i, handler_in_list = 0;
-
     if (handler == NULL) return(-1);
     if (handler->name == NULL) return(-1);
-    if (handlers != NULL) {
-        for (i = 0;i < nbCharEncodingHandler; i++) {
-            if (handler == handlers[i]) {
-	        handler_in_list = 1;
-		break;
-	    }
-	}
-    }
 #ifdef LIBXML_ICONV_ENABLED
     /*
      * Iconv handlers can be used only once, free the whole block.
      * and the associated icon resources.
      */
-    if ((handler_in_list == 0) &&
-        ((handler->iconv_out != NULL) || (handler->iconv_in != NULL))) {
+    if ((handler->iconv_out != NULL) || (handler->iconv_in != NULL)) {
         tofree = 1;
 	if (handler->iconv_out != NULL) {
 	    if (iconv_close(handler->iconv_out))
@@ -2886,8 +2873,7 @@ xmlCharEncCloseFunc(xmlCharEncodingHandler *handler) {
     }
 #endif /* LIBXML_ICONV_ENABLED */
 #ifdef LIBXML_ICU_ENABLED
-    if ((handler_in_list == 0) &&
-        ((handler->uconv_out != NULL) || (handler->uconv_in != NULL))) {
+    if ((handler->uconv_out != NULL) || (handler->uconv_in != NULL)) {
         tofree = 1;
 	if (handler->uconv_out != NULL) {
 	    closeIcuConverter(handler->uconv_out);

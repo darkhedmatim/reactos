@@ -4020,13 +4020,8 @@ AtapiEnableInterrupts(
         }
         chan->ChannelCtrlFlags &= ~CTRFLAGS_INTR_DISABLED;
     } else {
-        if(deviceExtension->HwFlags & UNIATA_AHCI) {
-            // keep interrupts disabled
-            UniataAhciWriteChannelPort4(chan, IDX_AHCI_P_IE, 0);
-        } else {
-            AtapiWritePort1(chan, IDX_IO2_o_Control,
+        AtapiWritePort1(chan, IDX_IO2_o_Control,
                                IDE_DC_DISABLE_INTERRUPTS /*| IDE_DC_A_4BIT*/ );
-        }
     }
     return;
 } // end AtapiEnableInterrupts()

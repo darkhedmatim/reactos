@@ -1,6 +1,5 @@
 
 set_cpp(WITH_RUNTIME)
-spec2def(shell32.dll shell32.spec ADD_IMPORTLIB)
 
 remove_definitions(-D_WIN32_WINNT=0x502)
 add_definitions(-D_WIN32_WINNT=0x600)
@@ -13,6 +12,8 @@ include_directories(
     ${REACTOS_SOURCE_DIR}/lib/recyclebin
     ${REACTOS_SOURCE_DIR}/lib/atl
     ${REACTOS_SOURCE_DIR})
+
+spec2def(shell32.dll shell32.spec ADD_IMPORTLIB)
 
 list(APPEND SOURCE
     #authors.cpp
@@ -42,6 +43,7 @@ list(APPEND SOURCE
     shellord.cpp
     shellpath.cpp
     shellreg.cpp
+    shellstring.cpp
     folders/desktop.cpp
     folders/fs.cpp
     folders/mycomp.cpp
@@ -75,15 +77,36 @@ list(APPEND SOURCE
 
 add_library(shell32 SHARED
     ${SOURCE}
-    shellstring.c
     vista.c
     shell32.rc
     ${CMAKE_CURRENT_BINARY_DIR}/shell32_stubs.c
     ${CMAKE_CURRENT_BINARY_DIR}/shell32.def)
 
 set_module_type(shell32 win32dll UNICODE HOTPATCHABLE)
-target_link_libraries(shell32 atlnew wine uuid recyclebin)
+
+target_link_libraries(shell32
+    atlnew
+    wine
+    uuid
+    recyclebin)
+
 add_delay_importlibs(shell32 ole32 version fmifs)
-add_importlibs(shell32 advapi32 browseui gdi32 user32 comctl32 comdlg32 shdocvw shlwapi devmgr winspool winmm msvcrt kernel32 ntdll)
+
+add_importlibs(shell32
+    advapi32
+    browseui
+    gdi32
+    user32
+    comctl32
+    comdlg32
+    shdocvw
+    shlwapi
+    devmgr
+    winspool
+    winmm
+    msvcrt
+    kernel32
+    ntdll)
+
 add_pch(shell32 precomp.h SOURCE)
 add_cd_file(TARGET shell32 DESTINATION reactos/system32 FOR all)

@@ -24,9 +24,7 @@ BEGIN
     IDS_GROUP_HELP "GROUP\n..."
     IDS_HELPMSG_SYNTAX "Utilizare:\nNET HELPMSG <Error Code>"
     IDS_HELPMSG_HELP "HELPMSG\n..."
-    IDS_LOCALGROUP_SYNTAX "Utilizare:\nNET LOCALGROUP [groupname [/COMMENT:""text""]] [/DOMAIN]\n\
-               groupname {/ADD [/COMMENT:""text""] | /DELETE} [/DOMAIN]\n\
-               groupname name [...] {/ADD | /DELETE} [/DOMAIN]"
+    IDS_LOCALGROUP_SYNTAX "Utilizare:\nNET LOCALGROUP ..."
     IDS_LOCALGROUP_HELP "LOCALGROUP\n..."
     IDS_NAME_SYNTAX "Utilizare:\nNET NAME ..."
     IDS_NAME_HELP "NAME\n..."
@@ -50,9 +48,7 @@ BEGIN
     IDS_TIME_HELP "TIME\n..."
     IDS_USE_SYNTAX "Utilizare:\nNET USE ..."
     IDS_USE_HELP "USE\n..."
-    IDS_USER_SYNTAX "Utilizare:\nNET USER [username [password | *] [options]] [/DOMAIN]\n\
-         username {password | *} /ADD [options] [/DOMAIN]\n\
-         username [/DELETE] [/DOMAIN]"
+    IDS_USER_SYNTAX "Utilizare:\nNET USER ..."
     IDS_USER_HELP "USER\n..."
     IDS_VIEW_SYNTAX "Utilizare:\nNET VIEW ..."
     IDS_VIEW_HELP "VIEW\n..."

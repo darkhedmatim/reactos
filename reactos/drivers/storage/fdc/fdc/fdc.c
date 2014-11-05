@@ -77,7 +77,7 @@ VOID
 NTAPI
 FdcDriverUnload(IN PDRIVER_OBJECT DriverObject)
 {
-    DPRINT("FdcDriverUnload()\n");
+    DPRINT1("FdcDriverUnload()\n");
 }
 
 

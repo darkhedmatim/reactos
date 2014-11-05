@@ -478,8 +478,6 @@ PciAddDevice(IN PDRIVER_OBJECT DriverObject,
     AttachedTo = NULL;
     FdoExtension = NULL;
     PdoExtension = NULL;
-    DeviceObject = NULL;
-
     do
     {
         /* Check if there's already a device extension for this bus */

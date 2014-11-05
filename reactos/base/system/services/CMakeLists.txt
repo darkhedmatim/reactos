@@ -6,6 +6,7 @@ include_directories(
 
 add_rpc_files(server ${REACTOS_SOURCE_DIR}/include/reactos/idl/svcctl.idl)
 
+
 list(APPEND SOURCE
     config.c
     controlset.c

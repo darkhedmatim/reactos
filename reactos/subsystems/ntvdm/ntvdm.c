@@ -204,9 +204,9 @@ ConsoleCtrlHandler(DWORD ControlType)
         case CTRL_C_EVENT:
         case CTRL_BREAK_EVENT:
         {
-            /* HACK: Stop the VDM */
-            EmulatorTerminate();
-
+            /* Call INT 23h */
+            DPRINT1("Ctrl-C/Break: Call INT 23h\n");
+            EmulatorInterrupt(0x23);
             break;
         }
         case CTRL_LAST_CLOSE_EVENT:

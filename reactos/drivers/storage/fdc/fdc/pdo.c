@@ -10,7 +10,6 @@
 
 #include "fdc.h"
 
-#define NDEBUG
 #include <debug.h>
 
 /* FUNCTIONS ******************************************************************/
@@ -57,22 +56,22 @@ FdcPdoQueryId(
     switch (IrpSp->Parameters.QueryId.IdType)
     {
         case BusQueryDeviceID:
-            DPRINT("IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryDeviceID\n");
+            DPRINT1("IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryDeviceID\n");
             SourceString = &DeviceExtension->DeviceId;
             break;
 
         case BusQueryHardwareIDs:
-            DPRINT("IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryHardwareIDs\n");
+            DPRINT1("IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryHardwareIDs\n");
             SourceString = &DeviceExtension->HardwareIds;
             break;
 
         case BusQueryCompatibleIDs:
-            DPRINT("IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryCompatibleIDs\n");
+            DPRINT1("IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryCompatibleIDs\n");
             SourceString = &DeviceExtension->CompatibleIds;
             break;
 
         case BusQueryInstanceID:
-            DPRINT("IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryInstanceID\n");
+            DPRINT1("IRP_MJ_PNP / IRP_MN_QUERY_ID / BusQueryInstanceID\n");
             SourceString = &DeviceExtension->InstanceId;
             break;
 
@@ -103,7 +102,7 @@ FdcPdoPnp(
     ULONG_PTR Information = 0;
     NTSTATUS Status;
 
-    DPRINT("FdcPdoPnp()\n");
+    DPRINT1("FdcPdoPnp()\n");
 
     Status = Irp->IoStatus.Status;
 
@@ -120,24 +119,24 @@ FdcPdoPnp(
             break;
 
         case IRP_MN_QUERY_BUS_INFORMATION:
-            DPRINT("IRP_MN_QUERY_BUS_INFORMATION received\n");
+            DPRINT1("IRP_MN_QUERY_BUS_INFORMATION received\n");
             break;
 
         case IRP_MN_QUERY_CAPABILITIES:
-            DPRINT("IRP_MN_QUERY_CAPABILITIES received\n");
+            DPRINT1("IRP_MN_QUERY_CAPABILITIES received\n");
             Status = FdcPdoQueryCapabilities(DeviceObject, IrpSp);
             break;
 
         case IRP_MN_QUERY_DEVICE_RELATIONS:
-            DPRINT("IRP_MN_QUERY_DEVICE_RELATIONS received\n");
+            DPRINT1("IRP_MN_QUERY_DEVICE_RELATIONS received\n");
             break;
 
         case IRP_MN_QUERY_DEVICE_TEXT:
-            DPRINT("IRP_MN_QUERY_DEVICE_TEXT received\n");
+            DPRINT1("IRP_MN_QUERY_DEVICE_TEXT received\n");
             break;
 
         case IRP_MN_QUERY_ID:
-            DPRINT("IRP_MN_QUERY_ID received\n");
+            DPRINT1("IRP_MN_QUERY_ID received\n");
             Status = FdcPdoQueryId(DeviceObject, IrpSp, &Information);
             break;
 
@@ -146,11 +145,11 @@ FdcPdoPnp(
             break;
 
         case IRP_MN_QUERY_RESOURCE_REQUIREMENTS:
-            DPRINT("IRP_MN_QUERY_RESOURCE_REQUIREMENTS received\n");
+            DPRINT1("IRP_MN_QUERY_RESOURCE_REQUIREMENTS received\n");
             break;
 
         case IRP_MN_QUERY_RESOURCES:
-            DPRINT("IRP_MN_QUERY_RESOURCES received\n");
+            DPRINT1("IRP_MN_QUERY_RESOURCES received\n");
             break;
 
         case IRP_MN_SET_LOCK:
@@ -158,7 +157,7 @@ FdcPdoPnp(
             break;
 
         case IRP_MN_START_DEVICE:
-            DPRINT("IRP_MN_START_DEVICE received\n");
+            DPRINT1("IRP_MN_START_DEVICE received\n");
             break;
 
         case IRP_MN_QUERY_STOP_DEVICE:
@@ -171,11 +170,11 @@ FdcPdoPnp(
             break;
 
         case IRP_MN_REMOVE_DEVICE:
-            DPRINT("IRP_MN_REMOVE_DEVICE received\n");
+            DPRINT1("IRP_MN_REMOVE_DEVICE received\n");
             break;
 
         case IRP_MN_FILTER_RESOURCE_REQUIREMENTS:
-            DPRINT("IRP_MN_FILTER_RESOURCE_REQUIREMENTS received\n");
+            DPRINT1("IRP_MN_FILTER_RESOURCE_REQUIREMENTS received\n");
             /* Nothing to do */
             Irp->IoStatus.Status = Status;
             break;
@@ -189,7 +188,7 @@ FdcPdoPnp(
     Irp->IoStatus.Status = Status;
     IoCompleteRequest(Irp, IO_NO_INCREMENT);
 
-    DPRINT("Leaving. Status 0x%X\n", Status);
+    DPRINT1("Leaving. Status 0x%X\n", Status);
 
     return Status;
 }

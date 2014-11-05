@@ -217,9 +217,7 @@ HBITMAP FASTCALL
 IntCreateCompatibleBitmap(
     PDC Dc,
     INT Width,
-    INT Height,
-    UINT Planes,
-    UINT Bpp)
+    INT Height)
 {
     HBITMAP Bmp = NULL;
     PPALETTE ppal;
@@ -236,15 +234,9 @@ IntCreateCompatibleBitmap(
 
         Bmp = GreCreateBitmap(abs(Width),
                               abs(Height),
-                              Planes ? Planes : 1,
-                              Bpp ? Bpp : Dc->ppdev->gdiinfo.cBitsPixel,
+                              1,
+                              Dc->ppdev->gdiinfo.cBitsPixel,
                               NULL);
-        if (Bmp == NULL)
-        {
-            DPRINT1("Failed to allocate a bitmap!\n");
-            return NULL;
-        }
-
         psurf = SURFACE_ShareLockSurface(Bmp);
         ASSERT(psurf);
 
@@ -257,7 +249,6 @@ IntCreateCompatibleBitmap(
         /* Set flags */
         psurf->flags = API_BITMAP;
         psurf->hdc = NULL; // FIXME:
-        psurf->SurfObj.hdev = (HDEV)Dc->ppdev;
         SURFACE_ShareUnlockSurface(psurf);
     }
     else
@@ -274,8 +265,8 @@ IntCreateCompatibleBitmap(
 
             Bmp = GreCreateBitmap(abs(Width),
                           abs(Height),
-                          Planes ? Planes : 1,
-                          Bpp ? Bpp : dibs.dsBm.bmBitsPixel,
+                          1,
+                          dibs.dsBm.bmBitsPixel,
                           NULL);
             psurfBmp = SURFACE_ShareLockSurface(Bmp);
             ASSERT(psurfBmp);
@@ -286,7 +277,6 @@ IntCreateCompatibleBitmap(
             /* Set flags */
             psurfBmp->flags = API_BITMAP;
             psurfBmp->hdc = NULL; // FIXME:
-            psurf->SurfObj.hdev = (HDEV)Dc->ppdev;
             SURFACE_ShareUnlockSurface(psurfBmp);
         }
         else if (Count == sizeof(DIBSECTION))
@@ -299,8 +289,8 @@ IntCreateCompatibleBitmap(
             bi->bmiHeader.biSize          = sizeof(bi->bmiHeader);
             bi->bmiHeader.biWidth         = Width;
             bi->bmiHeader.biHeight        = Height;
-            bi->bmiHeader.biPlanes        = Planes ? Planes : dibs.dsBmih.biPlanes;
-            bi->bmiHeader.biBitCount      = Bpp ? Bpp : dibs.dsBmih.biBitCount;
+            bi->bmiHeader.biPlanes        = dibs.dsBmih.biPlanes;
+            bi->bmiHeader.biBitCount      = dibs.dsBmih.biBitCount;
             bi->bmiHeader.biCompression   = dibs.dsBmih.biCompression;
             bi->bmiHeader.biSizeImage     = 0;
             bi->bmiHeader.biXPelsPerMeter = dibs.dsBmih.biXPelsPerMeter;
@@ -381,7 +371,7 @@ NtGdiCreateCompatibleBitmap(
         return NULL;
     }
 
-    Bmp = IntCreateCompatibleBitmap(Dc, Width, Height, 0, 0);
+    Bmp = IntCreateCompatibleBitmap(Dc, Width, Height);
 
     DC_UnlockDc(Dc);
     return Bmp;

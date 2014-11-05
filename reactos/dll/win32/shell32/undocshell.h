@@ -83,8 +83,7 @@ BOOL WINAPI StrRetToStrNW(LPWSTR,DWORD,LPSTRRET,const ITEMIDLIST*);
 #define RFF_NOLABEL        0x08
 #define RFF_NOSEPARATEMEM  0x20  /* NT only */
 
-#define DE_SAMEFILE     0x71
-#define DE_DESTSAMETREE 0x7D
+#define DE_SAMEFILE 0x71
 
 /* RunFileFlg notification structure */
 typedef struct

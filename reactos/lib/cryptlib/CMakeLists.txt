@@ -7,4 +7,5 @@ add_library(cryptlib
     mvAesAlg.c
     rc4.c
     sha1.c
-    util.c)
+    util.c
+)

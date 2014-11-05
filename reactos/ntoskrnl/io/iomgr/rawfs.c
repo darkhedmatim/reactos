@@ -20,7 +20,6 @@ typedef struct _VCB
     USHORT NodeByteSize;
     PDEVICE_OBJECT TargetDeviceObject;
     PVPB Vpb;
-    PVPB LocalVpb;
     ULONG VcbState;
     KMUTEX Mutex;
     CLONG OpenCount;
@@ -35,26 +34,19 @@ typedef struct _VOLUME_DEVICE_OBJECT
     VCB Vcb;
 } VOLUME_DEVICE_OBJECT, *PVOLUME_DEVICE_OBJECT;
 
-#define VCB_STATE_LOCKED     0x00000001
-#define VCB_STATE_DISMOUNTED 0x00000002
-
 /* GLOBALS *******************************************************************/
 
 PDEVICE_OBJECT RawDiskDeviceObject, RawCdromDeviceObject, RawTapeDeviceObject;
 
 /* FUNCTIONS *****************************************************************/
 
-NTSTATUS
+VOID
 NTAPI
 RawInitializeVcb(IN OUT PVCB Vcb,
                  IN PDEVICE_OBJECT TargetDeviceObject,
                  IN PVPB Vpb)
 {
-    NTSTATUS Status = STATUS_SUCCESS;
-
     PAGED_CODE();
-
-    DPRINT("RawInitializeVcb(%p, %p, %p)\n", Vcb, TargetDeviceObject, Vpb);
 
     /* Clear it */
     RtlZeroMemory(Vcb, sizeof(VCB));
@@ -65,14 +57,6 @@ RawInitializeVcb(IN OUT PVCB Vcb,
 
     /* Initialize the lock */
     KeInitializeMutex(&Vcb->Mutex, 0);
-
-    Vcb->LocalVpb = ExAllocatePoolWithTag(NonPagedPool, sizeof(VPB), ' waR');
-    if (Vcb->LocalVpb == NULL)
-    {
-        Status = STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-    return Status;
 }
 
 BOOLEAN
@@ -84,10 +68,6 @@ RawCheckForDismount(IN PVCB Vcb,
     PVPB Vpb;
     BOOLEAN Delete;
 
-    DPRINT("RawCheckForDismount(%p, %lu)\n", Vcb, CreateOperation);
-
-    ASSERT(KeReadStateMutant(&Vcb->Mutex) == 0);
-
     /* Lock VPB */
     IoAcquireVpbSpinLock(&OldIrql);
 
@@ -95,19 +75,6 @@ RawCheckForDismount(IN PVCB Vcb,
     Vpb = Vcb->Vpb;
     if (Vcb->Vpb->ReferenceCount != CreateOperation)
     {
-        /* Copy the VPB to our local own to prepare later dismount */
-        if (Vcb->LocalVpb != NULL)
-        {
-            RtlZeroMemory(Vcb->LocalVpb, sizeof(VPB));
-            Vcb->LocalVpb->Type = IO_TYPE_VPB;
-            Vcb->LocalVpb->Size = sizeof(VPB);
-            Vcb->LocalVpb->RealDevice = Vcb->Vpb->RealDevice;
-            Vcb->LocalVpb->DeviceObject = NULL;
-            Vcb->LocalVpb->Flags = Vcb->Vpb->Flags & VPB_REMOVE_PENDING;
-            Vcb->Vpb->RealDevice->Vpb = Vcb->LocalVpb;
-            Vcb->LocalVpb = NULL;
-            Vcb->Vpb->Flags |= VPB_PERSISTENT;
-        }
         /* Don't do anything */
         Delete = FALSE;
     }
@@ -126,47 +93,6 @@ RawCheckForDismount(IN PVCB Vcb,
 
     /* Release lock and return status */
     IoReleaseVpbSpinLock(OldIrql);
-
-    /* If we were to delete, delete volume */
-    if (Delete)
-    {
-        PVPB DelVpb;
-
-        /* Release our Vcb lock to be able delete us */
-        KeReleaseMutex(&Vcb->Mutex, 0);
-
-        /* If we have a local VPB, we'll have to delete it
-         * but we won't dismount us - something went bad before
-         */
-        if (Vcb->LocalVpb)
-        {
-            DelVpb = Vcb->LocalVpb;
-        }
-        /* Otherwise, dismount our device if possible */
-        else
-        {
-            if (Vcb->Vpb->ReferenceCount)
-            {
-                ObfDereferenceObject(Vcb->TargetDeviceObject);
-                IoDeleteDevice((PDEVICE_OBJECT)CONTAINING_RECORD(Vcb,
-                                                                 VOLUME_DEVICE_OBJECT,
-                                                                 Vcb));
-                return Delete;
-            }
-
-            DelVpb = Vcb->Vpb;
-        }
-
-        /* Delete any of the available VPB and dismount */
-        ExFreePool(DelVpb);
-        ObfDereferenceObject(Vcb->TargetDeviceObject);
-        IoDeleteDevice((PDEVICE_OBJECT)CONTAINING_RECORD(Vcb,
-                                                         VOLUME_DEVICE_OBJECT,
-                                                         Vcb));
-
-        return Delete;
-    }
-
     return Delete;
 }
 
@@ -177,8 +103,6 @@ RawCompletionRoutine(IN PDEVICE_OBJECT DeviceObject,
                      IN PVOID Context)
 {
     PIO_STACK_LOCATION IoStackLocation = IoGetCurrentIrpStackLocation(Irp);
-
-    DPRINT("RawCompletionRoutine(%p, %p, %p)\n", DeviceObject, Irp, Context);
 
     /* Check if this was a valid sync R/W request */
     if (((IoStackLocation->MajorFunction == IRP_MJ_READ) ||
@@ -204,17 +128,8 @@ RawClose(IN PVCB Vcb,
          IN PIO_STACK_LOCATION IoStackLocation)
 {
     NTSTATUS Status;
+    BOOLEAN Deleted = FALSE;
     PAGED_CODE();
-
-    DPRINT("RawClose(%p, %p, %p)\n", Vcb, Irp, IoStackLocation);
-
-    /* If its a stream, not much to do */
-    if (IoStackLocation->FileObject->Flags & FO_STREAM_FILE)
-    {
-        Irp->IoStatus.Status = STATUS_SUCCESS;
-        IoCompleteRequest(Irp, IO_DISK_INCREMENT);
-        return STATUS_SUCCESS;
-    }
 
     /* Make sure we can clean up */
     Status = KeWaitForSingleObject(&Vcb->Mutex,
@@ -226,9 +141,16 @@ RawClose(IN PVCB Vcb,
 
     /* Decrease the open count and check if this is a dismount */
     Vcb->OpenCount--;
-    if (!Vcb->OpenCount || !RawCheckForDismount(Vcb, FALSE))
+    if (!Vcb->OpenCount) Deleted = RawCheckForDismount(Vcb, FALSE);
+
+    /* Check if we should delete the device */
+    KeReleaseMutex(&Vcb->Mutex, FALSE);
+    if (Deleted)
     {
-        KeReleaseMutex(&Vcb->Mutex, FALSE);
+        /* Delete it */
+        IoDeleteDevice((PDEVICE_OBJECT)CONTAINING_RECORD(Vcb,
+                                                         VOLUME_DEVICE_OBJECT,
+                                                         Vcb));
     }
 
     /* Complete the request */
@@ -244,12 +166,10 @@ RawCreate(IN PVCB Vcb,
           IN PIO_STACK_LOCATION IoStackLocation)
 {
     NTSTATUS Status;
+    BOOLEAN Deleted = FALSE;
     USHORT ShareAccess;
     ACCESS_MASK DesiredAccess;
-    BOOLEAN Deleted = FALSE;
     PAGED_CODE();
-
-    DPRINT("RawCreate(%p, %p, %p)\n", Vcb, Irp, IoStackLocation);
 
     /* Make sure we can clean up */
     Status = KeWaitForSingleObject(&Vcb->Mutex,
@@ -266,16 +186,10 @@ RawCreate(IN PVCB Vcb,
          (!(IoStackLocation->Parameters.Create.Options & FILE_DIRECTORY_FILE)))
     {
         /* Make sure the VCB isn't locked */
-        if (Vcb->VcbState & VCB_STATE_LOCKED)
+        if (Vcb->VcbState & 1)
         {
             /* Refuse the operation */
             Status = STATUS_ACCESS_DENIED;
-            Irp->IoStatus.Information = 0;
-        }
-        else if (Vcb->VcbState & VCB_STATE_DISMOUNTED)
-        {
-            /* Refuse the operation */
-            Status = STATUS_VOLUME_DISMOUNTED;
             Irp->IoStatus.Information = 0;
         }
         else
@@ -333,19 +247,23 @@ RawCreate(IN PVCB Vcb,
     if (!(NT_SUCCESS(Status)) && !(Vcb->OpenCount))
     {
         /* Check if we can dismount the device */
-        Deleted = RawCheckForDismount(Vcb, TRUE);   
+        Deleted = RawCheckForDismount(Vcb, FALSE);
     }
 
-    /* In case of deletion, the mutex is already released */
-    if (!Deleted)
+    /* Check if we should delete the device */
+    KeReleaseMutex(&Vcb->Mutex, FALSE);
+    if (Deleted)
     {
-        KeReleaseMutex(&Vcb->Mutex, FALSE);
+        /* Delete it */
+        IoDeleteDevice((PDEVICE_OBJECT)CONTAINING_RECORD(Vcb,
+                                                         VOLUME_DEVICE_OBJECT,
+                                                         Vcb));
     }
 
     /* Complete the request */
-    Irp->IoStatus.Status = Status;
+    Irp->IoStatus.Status = STATUS_SUCCESS;
     IoCompleteRequest(Irp, IO_DISK_INCREMENT);
-    return Status;
+    return STATUS_SUCCESS;
 }
 
 NTSTATUS
@@ -356,8 +274,6 @@ RawReadWriteDeviceControl(IN PVCB Vcb,
 {
     NTSTATUS Status;
     PAGED_CODE();
-
-    DPRINT("RawReadWriteDeviceControl(%p, %p, %p)\n", Vcb, Irp, IoStackLocation);
 
     /* Don't do anything if the request was 0 bytes */
     if (((IoStackLocation->MajorFunction == IRP_MJ_READ) ||
@@ -399,8 +315,6 @@ RawMountVolume(IN PIO_STACK_LOCATION IoStackLocation)
     PFILE_OBJECT FileObject = NULL;
     PAGED_CODE();
 
-    DPRINT("RawMountVolume(%p)\n", IoStackLocation);
-
     /* Remember our owner */
     DeviceObject = IoStackLocation->Parameters.MountVolume.DeviceObject;
 
@@ -422,14 +336,9 @@ RawMountVolume(IN PIO_STACK_LOCATION IoStackLocation)
                                                     AlignmentRequirement);
 
     /* Setup the VCB */
-    Status = RawInitializeVcb(&Volume->Vcb,
-                              IoStackLocation->Parameters.MountVolume.DeviceObject,
-                              IoStackLocation->Parameters.MountVolume.Vpb);
-    if (!NT_SUCCESS(Status))
-    {
-        IoDeleteDevice((PDEVICE_OBJECT)Volume);
-        return Status;
-    }
+    RawInitializeVcb(&Volume->Vcb,
+                     IoStackLocation->Parameters.MountVolume.DeviceObject,
+                     IoStackLocation->Parameters.MountVolume.Vpb);
 
     /* Set dummy label and serial number */
     Volume->Vcb.Vpb->SerialNumber = 0xFFFFFFFF;
@@ -481,8 +390,6 @@ RawUserFsCtrl(IN PIO_STACK_LOCATION IoStackLocation,
 {
     NTSTATUS Status;
     PAGED_CODE();
-
-    DPRINT("RawUserFsCtrl(%p, %p)\n", IoStackLocation, Vcb);
 
     /* Lock the device */
     Status = KeWaitForSingleObject(&Vcb->Mutex,
@@ -595,8 +502,6 @@ RawFileSystemControl(IN PVCB Vcb,
     NTSTATUS Status;
     PAGED_CODE();
 
-    DPRINT("RawFileSystemControl(%p, %p, %p)\n", Vcb, Irp, IoStackLocation);
-
     /* Check the kinds of FSCTLs that we support */
     switch (IoStackLocation->MinorFunction)
     {
@@ -658,8 +563,6 @@ RawQueryInformation(IN PVCB Vcb,
     PFILE_POSITION_INFORMATION Buffer;
     PAGED_CODE();
 
-    DPRINT("RawQueryInformation(%p, %p, %p)\n", Vcb, Irp, IoStackLocation);
-
     /* Get information from the IRP */
     Length = &IoStackLocation->Parameters.QueryFile.Length;
     Buffer = Irp->AssociatedIrp.SystemBuffer;
@@ -705,8 +608,6 @@ RawSetInformation(IN PVCB Vcb,
     PDEVICE_OBJECT DeviceObject;
     PAGED_CODE();
 
-    DPRINT("RawSetInformation(%p, %p, %p)\n", Vcb, Irp, IoStackLocation);
-
     /* Get information from the IRP */
     Buffer = Irp->AssociatedIrp.SystemBuffer;
 
@@ -749,8 +650,6 @@ RawQueryFsVolumeInfo(IN PVCB Vcb,
 {
     PAGED_CODE();
 
-    DPRINT("RawQueryFsVolumeInfo(%p, %p, %p)\n", Vcb, Buffer, Length);
-
     /* Clear the buffer and stub it out */
     RtlZeroMemory( Buffer, sizeof(FILE_FS_VOLUME_INFORMATION));
     Buffer->VolumeSerialNumber = Vcb->Vpb->SerialNumber;
@@ -777,8 +676,6 @@ RawQueryFsSizeInfo(IN PVCB Vcb,
     PARTITION_INFORMATION PartitionInformation;
     BOOLEAN DiskHasPartitions;
     PAGED_CODE();
-
-    DPRINT("RawQueryFsSizeInfo(%p, %p, %p)\n", Vcb, Buffer, Length);
 
     /* Validate the buffer */
     if (*Length < sizeof(FILE_FS_SIZE_INFORMATION))
@@ -909,8 +806,6 @@ RawQueryFsDeviceInfo(IN PVCB Vcb,
 {
     PAGED_CODE();
 
-    DPRINT("RawQueryFsDeviceInfo(%p, %p, %p)\n", Vcb, Buffer, Length);
-
     /* Validate buffer */
     if (*Length < sizeof(FILE_FS_DEVICE_INFORMATION))
     {
@@ -938,8 +833,6 @@ RawQueryFsAttributeInfo(IN PVCB Vcb,
     ULONG ReturnLength;
     PAGED_CODE();
 
-    DPRINT("RawQueryFsAttributeInfo(%p, %p, %p)\n", Vcb, Buffer, Length);
-
     /* Check if the buffer is large enough for our name ("RAW") */
     ReturnLength = FIELD_OFFSET(FILE_FS_ATTRIBUTE_INFORMATION,
                                 FileSystemName[sizeof(szRawFSName) / sizeof(szRawFSName[0])]);
@@ -966,8 +859,6 @@ RawQueryVolumeInformation(IN PVCB Vcb,
     ULONG Length;
     PVOID Buffer;
     PAGED_CODE();
-
-    DPRINT("RawQueryVolumeInformation(%p, %p, %p)\n", Vcb, Irp, IoStackLocation);
 
     /* Get IRP Data */
     Length = IoStackLocation->Parameters.QueryVolume.Length;
@@ -1025,8 +916,6 @@ RawCleanup(IN PVCB Vcb,
     NTSTATUS Status;
     PAGED_CODE();
 
-    DPRINT("RawCleanup(%p, %p, %p)\n", Vcb, Irp, IoStackLocation);
-
     /* Make sure we can clean up */
     Status = KeWaitForSingleObject(&Vcb->Mutex,
                                    Executive,
@@ -1035,16 +924,8 @@ RawCleanup(IN PVCB Vcb,
                                    NULL);
     ASSERT(NT_SUCCESS(Status));
 
-    /* Remove shared access */
+    /* Remove shared access and complete the request */
     IoRemoveShareAccess(IoStackLocation->FileObject, &Vcb->ShareAccess);
-
-    /* Check if we're to dismount */
-    if (Vcb->VcbState & VCB_STATE_DISMOUNTED)
-    {
-        ASSERT(Vcb->OpenCount == 1);
-        RawCheckForDismount(Vcb, FALSE);
-    }
-
     KeReleaseMutex(&Vcb->Mutex, FALSE);
     Irp->IoStatus.Status = STATUS_SUCCESS;
     IoCompleteRequest(Irp, IO_DISK_INCREMENT);
@@ -1060,8 +941,6 @@ RawDispatch(IN PVOLUME_DEVICE_OBJECT DeviceObject,
     PIO_STACK_LOCATION IoStackLocation;
     PVCB Vcb;
     PAGED_CODE();
-
-    DPRINT("RawDispatch(%p, %p)\n", DeviceObject, Irp);
 
     /* Get the stack location */
     IoStackLocation = IoGetCurrentIrpStackLocation(Irp);

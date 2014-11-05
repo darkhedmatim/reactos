@@ -851,17 +851,6 @@ co_IntPeekMessage( PMSG Msg,
             return TRUE;
         }
 
-        if ((ProcessMask & QS_MOUSE) &&
-            co_MsqPeekMouseMove( pti,
-                                 RemoveMessages,
-                                 Window,
-                                 MsgFilterMin,
-                                 MsgFilterMax,
-                                 Msg ))
-        {
-            return TRUE;
-        }
-
         /* Check for hardware events. */
         if ((ProcessMask & QS_INPUT) &&
             co_MsqPeekHardwareMessage( pti,
@@ -871,6 +860,17 @@ co_IntPeekMessage( PMSG Msg,
                                        MsgFilterMax,
                                        ProcessMask,
                                        Msg))
+        {
+            return TRUE;
+        }
+
+        if ((ProcessMask & QS_MOUSE) &&
+            co_MsqPeekMouseMove( pti,
+                                 RemoveMessages,
+                                 Window,
+                                 MsgFilterMin,
+                                 MsgFilterMax,
+                                 Msg ))
         {
             return TRUE;
         }
@@ -2019,7 +2019,7 @@ NtUserPostThreadMessage(DWORD idThread,
                         WPARAM wParam,
                         LPARAM lParam)
 {
-    BOOL ret = FALSE;
+    BOOL ret;
     PETHREAD peThread;
     PTHREADINFO pThread;
     NTSTATUS Status;
@@ -2882,13 +2882,6 @@ NtUserWaitForInputIdle( IN HANDLE hProcess,
 
     TRACE("WFII: ppi %p\n", W32Process);
     TRACE("WFII: waiting for %p\n", Handles[1] );
-
-    /*
-     * We must add a refcount to our current PROCESSINFO,
-     * because anything could happen (including process death) we're leaving win32k
-     */
-    IntReferenceProcessInfo(W32Process);
-
     do
     {
         UserLeave();
@@ -2942,7 +2935,6 @@ WaitExit:
        pti->pClientInfo->dwTIFlags = pti->TIF_flags;
     }
     W32Process->W32PF_flags &= ~W32PF_WAITFORINPUTIDLE;
-    IntDereferenceProcessInfo(W32Process);
     ObDereferenceObject(Process);
     UserLeave();
     return Status;

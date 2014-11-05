@@ -5,8 +5,7 @@
 PUBLIC _tcsncat
 .code
 
-FUNC _tcsncat
-    FPO 0, 3, 2, 2, 0, FRAME_FPO
+_tcsncat:
     push esi
     push edi
     mov edi, [esp + 12]
@@ -39,7 +38,6 @@ FUNC _tcsncat
     pop esi
 
     ret
-ENDFUNC
 
 END
 /* EOF */

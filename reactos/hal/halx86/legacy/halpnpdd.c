@@ -713,14 +713,14 @@ HalpDispatchPnp(IN PDEVICE_OBJECT DeviceObject,
             case IRP_MN_START_DEVICE:
 
                 /* We only care about a PCI PDO */
-                DPRINT("Start device received\n");
+                DPRINT1("Start device received\n");
                 /* Complete the IRP normally */
                 break;
 
             case IRP_MN_REMOVE_DEVICE:
 
                 /* Check if this is a PCI device */
-                DPRINT("Remove device received\n");
+                DPRINT1("Remove device received\n");
 
                 /* We're done */
                 Status = STATUS_SUCCESS;
@@ -729,7 +729,7 @@ HalpDispatchPnp(IN PDEVICE_OBJECT DeviceObject,
             case IRP_MN_SURPRISE_REMOVAL:
 
                 /* Inherit whatever status we had */
-                DPRINT("Surprise removal IRP\n");
+                DPRINT1("Surprise removal IRP\n");
                 Status = Irp->IoStatus.Status;
                 break;
 
@@ -790,7 +790,7 @@ HalpDispatchPnp(IN PDEVICE_OBJECT DeviceObject,
             default:
 
                 /* We don't handle anything else, so inherit the old state */
-                DPRINT1("Illegal IRP: %lx\n", Minor);
+                DPRINT("Illegal IRP: %lx\n", Minor);
                 Status = Irp->IoStatus.Status;
                 break;
         }

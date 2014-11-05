@@ -519,7 +519,7 @@ static void test_inputdesktop(void)
     ret = CloseDesktop(input_desk);
     ok(ret, "CloseDesktop failed!\n");
 
-    /* by default, GetThreadDesktop is the input desktop, SendInput should succeed. */
+    /* by default, GetThreadDesktop is the input desktop, SendInput should success. */
     old_thread_desk = GetThreadDesktop(GetCurrentThreadId());
     ok(old_thread_desk != NULL, "GetThreadDesktop faile!\n");
     memset(name, 0, sizeof(name));

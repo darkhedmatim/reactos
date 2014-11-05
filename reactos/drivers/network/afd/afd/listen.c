@@ -191,6 +191,7 @@ static NTSTATUS NTAPI ListenComplete( PDEVICE_OBJECT DeviceObject,
                             FCB->Connection.Object,
                             &FCB->ListenIrp.ConnectionCallInfo,
                             &FCB->ListenIrp.ConnectionReturnInfo,
+                            &FCB->ListenIrp.Iosb,
                             ListenComplete,
                             FCB );
 
@@ -267,6 +268,7 @@ NTSTATUS AfdListenSocket( PDEVICE_OBJECT DeviceObject, PIRP Irp,
                         FCB->Connection.Object,
                         &FCB->ListenIrp.ConnectionCallInfo,
                         &FCB->ListenIrp.ConnectionReturnInfo,
+                        &FCB->ListenIrp.Iosb,
                         ListenComplete,
                         FCB );
 

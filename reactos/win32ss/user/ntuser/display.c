@@ -75,8 +75,8 @@ InitDisplayDriver(
     DEVMODEW dmDefault;
     DWORD dwVga;
 
-    TRACE("InitDisplayDriver(%S, %S);\n",
-          pwszDeviceName, pwszRegKey);
+    ERR("InitDisplayDriver(%S, %S);\n",
+            pwszDeviceName, pwszRegKey);
 
     /* Open the driver's registry key */
     Status = RegOpenKey(pwszRegKey, &hkey);
@@ -761,8 +761,7 @@ UserChangeDisplaySettings(
         ulResult = PDEVOBJ_bSwitchMode(ppdev, pdm);
 
         /* Restore mouse pointer, no hooks called */
-        pvOldCursor = UserSetCursor(pvOldCursor, TRUE);
-        ASSERT(pvOldCursor == NULL);
+        UserSetCursor(pvOldCursor, TRUE);
 
         /* Check for failure */
         if (!ulResult)

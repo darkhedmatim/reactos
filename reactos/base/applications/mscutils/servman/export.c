@@ -52,7 +52,7 @@ SaveServicesToFile(PMAIN_WND_INFO Info,
     if(hFile != INVALID_HANDLE_VALUE)
     {
         TCHAR LVText[500];
-        TCHAR newl[2] = {_T('\r'), _T('\n')};
+        TCHAR newl = _T('\n');
         TCHAR tab = _T('\t');
         DWORD dwTextLength, dwWritten;
         INT NumListedServ = 0;
@@ -68,7 +68,7 @@ SaveServicesToFile(PMAIN_WND_INFO Info,
                                                    LVText,
                                                    i,
                                                    k);
-                if (dwTextLength != 0)
+                if (LVText != NULL)
                 {
                     WriteFile(hFile,
                               LVText,
@@ -84,8 +84,8 @@ SaveServicesToFile(PMAIN_WND_INFO Info,
                 }
             }
             WriteFile(hFile,
-                      newl,
-                      sizeof(newl),
+                      &newl,
+                      sizeof(TCHAR),
                       &dwWritten,
                       NULL);
         }

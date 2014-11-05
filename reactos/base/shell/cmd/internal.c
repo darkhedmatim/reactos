@@ -382,10 +382,7 @@ BOOL DeleteFolder(LPTSTR FileName)
             {
                 SetFileAttributes(TempFileName,FILE_ATTRIBUTE_NORMAL);
                 if (!DeleteFile(TempFileName))
-                {
-                    FindClose (hFile);
                     return 0;
-                }
             }
 
         }while (FindNextFile (hFile, &f));

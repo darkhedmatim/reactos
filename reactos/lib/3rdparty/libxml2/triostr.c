@@ -52,9 +52,7 @@
 # define BOOLEAN_T int
 #endif
 
-#ifdef __VMS
-# define USE_STRTOD
-#elif defined(TRIO_COMPILER_SUPPORTS_C99)
+#if defined(TRIO_COMPILER_SUPPORTS_C99)
 # define USE_STRTOD
 # define USE_STRTOF
 #elif defined(TRIO_COMPILER_MSVC)
@@ -80,10 +78,6 @@
 # else
 #  define strcasecmp(x,y) strcmpi(x,y)
 # endif
-#elif defined(TRIO_PLATFORM_OS400)
-# define USE_STRCASECMP
-# define USE_STRNCASECMP
-# include <strings.h>
 #endif
 
 #if !(defined(TRIO_PLATFORM_SUNOS))

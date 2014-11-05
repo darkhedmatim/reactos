@@ -1,14 +1,9 @@
 
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 2.6)
 
 if(POLICY CMP0017)
     # Shadow cmake provided modules
     cmake_policy(SET CMP0017 OLD)
-endif()
-
-if(POLICY CMP0026)
-    # Allow use of the LOCATION property
-    cmake_policy(SET CMP0026 OLD)
 endif()
 
 project(REACTOS)

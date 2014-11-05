@@ -121,7 +121,7 @@ CallRealMode_return:
 
 	/* 64-bit stack pointer */
 stack64:
-    .double STACKADDR
+    .double STACK64ADDR
 
 PUBLIC FrldrBootDrive
 FrldrBootDrive:

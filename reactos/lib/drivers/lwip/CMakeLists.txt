@@ -1,4 +1,3 @@
-
 include_directories(
     BEFORE include
     ${REACTOS_SOURCE_DIR}/drivers/network/tcpip/include
@@ -61,7 +60,6 @@ list(APPEND SOURCE
 add_library(lwip ${SOURCE})
 add_dependencies(lwip bugcodes)
 add_pch(lwip precomp.h SOURCE)
-
 if(NOT MSVC)
     if(LTCG)
         add_compile_flags("-fno-builtin-malloc -fno-builtin-free")

@@ -16,79 +16,79 @@
 
 /* FUNCTIONS ******************************************************************/
 
-typedef UCHAR  (WINAPI *EMULATOR_INB_PROC)(USHORT Port);
-typedef USHORT (WINAPI *EMULATOR_INW_PROC)(USHORT Port);
-typedef ULONG  (WINAPI *EMULATOR_IND_PROC)(USHORT Port);
+typedef UCHAR  (WINAPI *EMULATOR_INB_PROC)(ULONG Port);
+typedef USHORT (WINAPI *EMULATOR_INW_PROC)(ULONG Port);
+typedef ULONG  (WINAPI *EMULATOR_IND_PROC)(ULONG Port);
 
-typedef VOID (WINAPI *EMULATOR_INSB_PROC)(USHORT Port, PUCHAR  Buffer, ULONG Count);
-typedef VOID (WINAPI *EMULATOR_INSW_PROC)(USHORT Port, PUSHORT Buffer, ULONG Count);
-typedef VOID (WINAPI *EMULATOR_INSD_PROC)(USHORT Port, PULONG  Buffer, ULONG Count);
+typedef VOID (WINAPI *EMULATOR_INSB_PROC)(ULONG Port, PUCHAR  Buffer, ULONG Count);
+typedef VOID (WINAPI *EMULATOR_INSW_PROC)(ULONG Port, PUSHORT Buffer, ULONG Count);
+typedef VOID (WINAPI *EMULATOR_INSD_PROC)(ULONG Port, PULONG  Buffer, ULONG Count);
 
-typedef VOID (WINAPI *EMULATOR_OUTB_PROC)(USHORT Port, UCHAR  Data);
-typedef VOID (WINAPI *EMULATOR_OUTW_PROC)(USHORT Port, USHORT Data);
-typedef VOID (WINAPI *EMULATOR_OUTD_PROC)(USHORT Port, ULONG  Data);
+typedef VOID (WINAPI *EMULATOR_OUTB_PROC)(ULONG Port, UCHAR  Data);
+typedef VOID (WINAPI *EMULATOR_OUTW_PROC)(ULONG Port, USHORT Data);
+typedef VOID (WINAPI *EMULATOR_OUTD_PROC)(ULONG Port, ULONG  Data);
 
-typedef VOID (WINAPI *EMULATOR_OUTSB_PROC)(USHORT Port, PUCHAR  Buffer, ULONG Count);
-typedef VOID (WINAPI *EMULATOR_OUTSW_PROC)(USHORT Port, PUSHORT Buffer, ULONG Count);
-typedef VOID (WINAPI *EMULATOR_OUTSD_PROC)(USHORT Port, PULONG  Buffer, ULONG Count);
+typedef VOID (WINAPI *EMULATOR_OUTSB_PROC)(ULONG Port, PUCHAR  Buffer, ULONG Count);
+typedef VOID (WINAPI *EMULATOR_OUTSW_PROC)(ULONG Port, PUSHORT Buffer, ULONG Count);
+typedef VOID (WINAPI *EMULATOR_OUTSD_PROC)(ULONG Port, PULONG  Buffer, ULONG Count);
 
 
 UCHAR
-IOReadB(USHORT Port);
+IOReadB(ULONG Port);
 VOID
-IOReadStrB(USHORT Port,
+IOReadStrB(ULONG  Port,
            PUCHAR Buffer,
            ULONG  Count);
 
 VOID
-IOWriteB(USHORT Port,
-         UCHAR  Buffer);
+IOWriteB(ULONG Port,
+         UCHAR Buffer);
 VOID
-IOWriteStrB(USHORT Port,
+IOWriteStrB(ULONG  Port,
             PUCHAR Buffer,
             ULONG  Count);
 
 USHORT
-IOReadW(USHORT Port);
+IOReadW(ULONG Port);
 VOID
-IOReadStrW(USHORT  Port,
+IOReadStrW(ULONG   Port,
            PUSHORT Buffer,
            ULONG   Count);
 
 VOID
-IOWriteW(USHORT Port,
+IOWriteW(ULONG  Port,
          USHORT Buffer);
 VOID
-IOWriteStrW(USHORT  Port,
+IOWriteStrW(ULONG   Port,
             PUSHORT Buffer,
             ULONG   Count);
 
 ULONG
-IOReadD(USHORT Port);
+IOReadD(ULONG Port);
 VOID
-IOReadStrD(USHORT Port,
+IOReadStrD(ULONG  Port,
            PULONG Buffer,
            ULONG  Count);
 
 VOID
-IOWriteD(USHORT Port,
-         ULONG  Buffer);
+IOWriteD(ULONG Port,
+         ULONG Buffer);
 VOID
-IOWriteStrD(USHORT Port,
+IOWriteStrD(ULONG  Port,
             PULONG Buffer,
             ULONG  Count);
 
 
-VOID RegisterIoPort(USHORT Port,
+VOID RegisterIoPort(ULONG Port,
                     EMULATOR_INB_PROC  InHandler,
                     EMULATOR_OUTB_PROC OutHandler);
 
-VOID UnregisterIoPort(USHORT Port);
+VOID UnregisterIoPort(ULONG Port);
 
 VOID WINAPI EmulatorReadIo
 (
     PFAST486_STATE State,
-    USHORT Port,
+    ULONG Port,
     PVOID Buffer,
     ULONG DataCount,
     UCHAR DataSize
@@ -97,7 +97,7 @@ VOID WINAPI EmulatorReadIo
 VOID WINAPI EmulatorWriteIo
 (
     PFAST486_STATE State,
-    USHORT Port,
+    ULONG Port,
     PVOID Buffer,
     ULONG DataCount,
     UCHAR DataSize

@@ -32,8 +32,6 @@
 
 /* PRIVATE FUNCTIONS **********************************************************/
 
-#ifndef FAST486_NO_FPU
-
 static ULONGLONG
 UnsignedMult128(ULONGLONG Multiplicand,
                 ULONGLONG Multiplier,
@@ -305,8 +303,6 @@ Fast486FpuDivide(PFAST486_STATE State,
     UNIMPLEMENTED;
 }
 
-#endif
-
 /* PUBLIC FUNCTIONS ***********************************************************/
 
 FAST486_OPCODE_HANDLER(Fast486FpuOpcodeD8DC)
@@ -320,7 +316,7 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeD8DC)
     if (!Fast486ParseModRegRm(State, AddressSize, &ModRegRm))
     {
         /* Exception occurred */
-        return;
+        return FALSE;
     }
 
     FPU_CHECK();
@@ -344,7 +340,7 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeD8DC)
                                    sizeof(ULONGLONG)))
             {
                 /* Exception occurred */
-                return;
+                return FALSE;
             }
 
             Fast486FpuGetDoubleReal(State, Value, &MemoryData);
@@ -356,7 +352,7 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeD8DC)
             if (!Fast486ReadModrmDwordOperands(State, &ModRegRm, NULL, &Value))
             {
                 /* Exception occurred */
-                return;
+                return FALSE;
             }
 
             Fast486FpuGetSingleReal(State, Value, &MemoryData);
@@ -373,7 +369,7 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeD8DC)
         {
             /* Invalid operation */
             State->FpuStatus.Ie = TRUE;
-            return;
+            return FALSE;
         }
     }
 
@@ -384,7 +380,7 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeD8DC)
     {
         /* Invalid operation */
         State->FpuStatus.Ie = TRUE;
-        return;
+        return FALSE;
     }
 
     /* Check the operation */
@@ -445,6 +441,8 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeD8DC)
     }
 
 #endif
+
+    return TRUE;
 }
 
 FAST486_OPCODE_HANDLER(Fast486FpuOpcodeD9)
@@ -456,7 +454,7 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeD9)
     if (!Fast486ParseModRegRm(State, AddressSize, &ModRegRm))
     {
         /* Exception occurred */
-        return;
+        return FALSE;
     }
 
     FPU_CHECK();
@@ -464,8 +462,11 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeD9)
 #ifndef FAST486_NO_FPU
     // TODO: NOT IMPLEMENTED
     UNIMPLEMENTED;
+
+    return FALSE;
 #else
     /* Do nothing */
+    return TRUE;
 #endif
 }
 
@@ -478,7 +479,7 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeDA)
     if (!Fast486ParseModRegRm(State, AddressSize, &ModRegRm))
     {
         /* Exception occurred */
-        return;
+        return FALSE;
     }
 
     FPU_CHECK();
@@ -486,8 +487,11 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeDA)
 #ifndef FAST486_NO_FPU
     // TODO: NOT IMPLEMENTED
     UNIMPLEMENTED;
+
+    return FALSE;
 #else
     /* Do nothing */
+    return TRUE;
 #endif
 }
 
@@ -500,7 +504,7 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeDB)
     if (!Fast486ParseModRegRm(State, AddressSize, &ModRegRm))
     {
         /* Exception occurred */
-        return;
+        return FALSE;
     }
 
     FPU_CHECK();
@@ -558,11 +562,14 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeDB)
             default:
             {
                 Fast486Exception(State, FAST486_EXCEPTION_UD);
+                return FALSE;
             }
         }
     }
 
 #endif
+
+    return TRUE;
 }
 
 FAST486_OPCODE_HANDLER(Fast486FpuOpcodeDD)
@@ -574,7 +581,7 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeDD)
     if (!Fast486ParseModRegRm(State, AddressSize, &ModRegRm))
     {
         /* Exception occurred */
-        return;
+        return FALSE;
     }
 
     FPU_CHECK();
@@ -582,8 +589,11 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeDD)
 #ifndef FAST486_NO_FPU
     // TODO: NOT IMPLEMENTED
     UNIMPLEMENTED;
+
+    return FALSE;
 #else
     /* Do nothing */
+    return TRUE;
 #endif
 }
 
@@ -596,7 +606,7 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeDE)
     if (!Fast486ParseModRegRm(State, AddressSize, &ModRegRm))
     {
         /* Exception occurred */
-        return;
+        return FALSE;
     }
 
     FPU_CHECK();
@@ -604,8 +614,11 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeDE)
 #ifndef FAST486_NO_FPU
     // TODO: NOT IMPLEMENTED
     UNIMPLEMENTED;
+
+    return FALSE;
 #else
     /* Do nothing */
+    return TRUE;
 #endif
 }
 
@@ -618,7 +631,7 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeDF)
     if (!Fast486ParseModRegRm(State, AddressSize, &ModRegRm))
     {
         /* Exception occurred */
-        return;
+        return FALSE;
     }
 
     FPU_CHECK();
@@ -626,8 +639,11 @@ FAST486_OPCODE_HANDLER(Fast486FpuOpcodeDF)
 #ifndef FAST486_NO_FPU
     // TODO: NOT IMPLEMENTED
     UNIMPLEMENTED;
+
+    return FALSE;
 #else
     /* Do nothing */
+    return TRUE;
 #endif
 }
 

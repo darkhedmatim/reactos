@@ -10,3 +10,4 @@ list(APPEND SOURCE
 add_library(recyclebin ${SOURCE} guid.c)
 add_pch(recyclebin recyclebin_private.h SOURCE)
 add_dependencies(recyclebin psdk)
+

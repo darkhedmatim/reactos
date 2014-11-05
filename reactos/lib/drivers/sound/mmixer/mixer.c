@@ -328,7 +328,7 @@ MMixerGetLineControls(
 
     if (MixerLineControls->cbmxctrl != sizeof(MIXERCONTROLW))
     {
-        DPRINT1("Invalid MixerLineControls cbmxctrl passed %lu expected %lu\n", MixerLineControls->cbmxctrl, sizeof(MIXERCONTROLW));
+        DPRINT1("Invalid MixerLineControls cbmxctrl passed %lu expected %lu\n", MixerLineControls->cbStruct, sizeof(MIXERLINECONTROLSW));
         /* invalid parameter */
         return MM_STATUS_INVALID_PARAMETER;
     }

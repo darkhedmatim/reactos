@@ -2,29 +2,31 @@
  * COPYRIGHT:         See COPYING in the top level directory
  * PROJECT:           ReactOS system libraries
  * PURPOSE:           Implementation of _chkstk and _alloca_probe
- * FILE:              lib/sdk/crt/except/arm/chkstk_asm.s
+ * FILE:              lib/sdk/crt/math/amd64/chkstk_asm.s
  * PROGRAMMER:        Timo Kreuzer (timo.kreuzer@reactos.org)
- *                    Yuntian Zhang (yuntian.zh@gmail.com)
  */
 
 /* INCLUDES ******************************************************************/
 
-#include <kxarm.h>
+#include <asm.inc>
 
 /* CODE **********************************************************************/
-    TEXTAREA
+.code64
 
-MsgUnimplemented ASCII "Unimplemented", CR, LF, NUL
+MsgUnimplemented:
+    .ascii "Unimplemented", CR, LF, NUL
 
-    LEAF_ENTRY __chkstk
+FUNC __chkstk
+    .endprolog
     UNIMPLEMENTED chkstk
-    bx lr
-    LEAF_END __chkstk
+    ret
+ENDFUNC
 
-    LEAF_ENTRY __alloca_probe
+FUNC __alloca_probe
+    .endprolog
     UNIMPLEMENTED alloca_probe
-    bx lr
-    LEAF_END __alloca_probe
+    ret
+ENDFUNC
 
-    END
+END
 /* EOF */

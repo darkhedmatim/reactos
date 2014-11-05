@@ -54,7 +54,6 @@ extern KSPIN_LOCK ShutdownListLock;
 extern POBJECT_TYPE IoAdapterObjectType;
 extern ERESOURCE IopDatabaseResource;
 ERESOURCE IopSecurityResource;
-extern ERESOURCE IopDriverLoadResource;
 extern KGUARDED_MUTEX PnpNotifyListLock;
 extern LIST_ENTRY IopDiskFileSystemQueueHead;
 extern LIST_ENTRY IopCdRomFileSystemQueueHead;
@@ -477,9 +476,8 @@ IoInitSystem(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     IopInitLookasideLists();
 
     /* Initialize all locks and lists */
-    ExInitializeResourceLite(&IopDatabaseResource);
-    ExInitializeResourceLite(&IopSecurityResource);
-    ExInitializeResourceLite(&IopDriverLoadResource);
+    ExInitializeResource(&IopDatabaseResource);
+    ExInitializeResource(&IopSecurityResource);
     KeInitializeGuardedMutex(&PnpNotifyListLock);
     InitializeListHead(&IopDiskFileSystemQueueHead);
     InitializeListHead(&IopCdRomFileSystemQueueHead);

@@ -42,6 +42,8 @@ add_library(pcix SHARED
 
 set_module_type(pcix kernelmodedriver)
 add_importlibs(pcix ntoskrnl hal)
+
 add_pch(pcix pci.h SOURCE)
 add_dependencies(pcix pciclass)
+
 add_cd_file(TARGET pcix DESTINATION reactos/system32/drivers NO_CAB FOR all)

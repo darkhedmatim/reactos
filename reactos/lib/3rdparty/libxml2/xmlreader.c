@@ -51,8 +51,9 @@
 /*
  * The following VA_COPY was coded following an example in
  * the Samba project.  It may not be sufficient for some
- * esoteric implementations of va_list but (hopefully) will
- * be sufficient for libxml2.
+ * esoteric implementations of va_list (i.e. it may need
+ * something involving a memcpy) but (hopefully) will be
+ * sufficient for libxml2.
  */
 #ifndef VA_COPY
   #ifdef HAVE_VA_COPY
@@ -61,12 +62,7 @@
     #ifdef HAVE___VA_COPY
       #define VA_COPY(dest,src) __va_copy(dest, src)
     #else
-      #ifndef VA_LIST_IS_ARRAY
-        #define VA_COPY(dest,src) (dest) = (src)
-      #else
-        #include <string.h>
-        #define VA_COPY(dest,src) memcpy((char *)(dest),(char *)(src),sizeof(va_list))
-      #endif
+      #define VA_COPY(dest,src) (dest) = (src)
     #endif
   #endif
 #endif
@@ -286,10 +282,7 @@ static void
 xmlTextReaderFreeProp(xmlTextReaderPtr reader, xmlAttrPtr cur) {
     xmlDictPtr dict;
 
-    if ((reader != NULL) && (reader->ctxt != NULL))
-	dict = reader->ctxt->dict;
-    else
-        dict = NULL;
+    dict = reader->ctxt->dict;
     if (cur == NULL) return;
 
     if ((__xmlRegisterCallbacks) && (xmlDeregisterNodeDefaultValue))
@@ -326,7 +319,7 @@ xmlTextReaderFreeProp(xmlTextReaderPtr reader, xmlAttrPtr cur) {
 static void
 xmlTextReaderFreePropList(xmlTextReaderPtr reader, xmlAttrPtr cur) {
     xmlAttrPtr next;
-
+    if (cur == NULL) return;
     while (cur != NULL) {
         next = cur->next;
         xmlTextReaderFreeProp(reader, cur);
@@ -347,10 +340,7 @@ xmlTextReaderFreeNodeList(xmlTextReaderPtr reader, xmlNodePtr cur) {
     xmlNodePtr next;
     xmlDictPtr dict;
 
-    if ((reader != NULL) && (reader->ctxt != NULL))
-	dict = reader->ctxt->dict;
-    else
-        dict = NULL;
+    dict = reader->ctxt->dict;
     if (cur == NULL) return;
     if (cur->type == XML_NAMESPACE_DECL) {
 	xmlFreeNsList((xmlNsPtr) cur);
@@ -427,10 +417,7 @@ static void
 xmlTextReaderFreeNode(xmlTextReaderPtr reader, xmlNodePtr cur) {
     xmlDictPtr dict;
 
-    if ((reader != NULL) && (reader->ctxt != NULL))
-	dict = reader->ctxt->dict;
-    else
-        dict = NULL;
+    dict = reader->ctxt->dict;
     if (cur->type == XML_DTD_NODE) {
 	xmlFreeDtd((xmlDtdPtr) cur);
 	return;
@@ -1440,7 +1427,7 @@ get_next_node:
 	goto node_found;
     }
 #ifdef LIBXML_REGEXP_ENABLED
-    if ((reader->validate != XML_TEXTREADER_NOT_VALIDATE) && (reader->node->type == XML_ELEMENT_NODE))
+    if ((reader->validate) && (reader->node->type == XML_ELEMENT_NODE))
 	xmlTextReaderValidatePop(reader);
 #endif /* LIBXML_REGEXP_ENABLED */
     if ((reader->preserves > 0) &&
@@ -1573,7 +1560,7 @@ node_found:
         goto get_next_node;
     }
 #ifdef LIBXML_REGEXP_ENABLED
-    if ((reader->validate != XML_TEXTREADER_NOT_VALIDATE) && (reader->node != NULL)) {
+    if ((reader->validate) && (reader->node != NULL)) {
 	xmlNodePtr node = reader->node;
 
 	if ((node->type == XML_ELEMENT_NODE) &&
@@ -1803,7 +1790,6 @@ xmlTextReaderReadString(xmlTextReaderPtr reader)
 	if (xmlTextReaderDoExpand(reader) != -1) {
 	    return xmlTextReaderCollectSiblings(node->children);
 	}
-	break;
     case XML_ATTRIBUTE_NODE:
 	TODO
 	break;

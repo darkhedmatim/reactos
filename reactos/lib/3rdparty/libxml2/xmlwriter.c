@@ -31,8 +31,9 @@
 /*
  * The following VA_COPY was coded following an example in
  * the Samba project.  It may not be sufficient for some
- * esoteric implementations of va_list but (hopefully) will
- * be sufficient for libxml2.
+ * esoteric implementations of va_list (i.e. it may need
+ * something involving a memcpy) but (hopefully) will be
+ * sufficient for libxml2.
  */
 #ifndef VA_COPY
   #ifdef HAVE_VA_COPY
@@ -41,12 +42,7 @@
     #ifdef HAVE___VA_COPY
       #define VA_COPY(dest,src) __va_copy(dest, src)
     #else
-      #ifndef VA_LIST_IS_ARRAY
-        #define VA_COPY(dest,src) (dest) = (src)
-      #else
-        #include <string.h>
-        #define VA_COPY(dest,src) memcpy((char *)(dest),(char *)(src),sizeof(va_list))
-      #endif
+      #define VA_COPY(dest,src) (dest) = (src)
     #endif
   #endif
 #endif
@@ -2242,12 +2238,10 @@ xmlTextWriterWriteElement(xmlTextWriterPtr writer, const xmlChar * name,
     if (count == -1)
         return -1;
     sum += count;
-    if (content != NULL) {
-	count = xmlTextWriterWriteString(writer, content);
-	if (count == -1)
-	    return -1;
-	sum += count;
-    }
+    count = xmlTextWriterWriteString(writer, content);
+    if (count == -1)
+        return -1;
+    sum += count;
     count = xmlTextWriterEndElement(writer);
     if (count == -1)
         return -1;

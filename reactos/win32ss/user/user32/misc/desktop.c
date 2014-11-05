@@ -330,10 +330,7 @@ RealSystemParametersInfoA(UINT uiAction,
           }
 
           Ret = NtUserSystemParametersInfo(SPI_SETDESKWALLPAPER, uiParam, pvParam, fWinIni);
-
-          if (pvParam)
-            RtlFreeUnicodeString(&ustrWallpaper);
-
+          RtlFreeUnicodeString(&ustrWallpaper);
           return Ret;
       }
     }

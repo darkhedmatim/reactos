@@ -146,20 +146,14 @@ UserSetCursor(
         {
             /* Call GDI to set the new screen cursor */
 #ifdef NEW_CURSORICON
-            PCURICON_OBJECT CursorFrame = NewCursor;
-            if(NewCursor->CURSORF_flags & CURSORF_ACON)
-            {
-                FIXME("Should animate the cursor, using only the first frame now.\n");
-                CursorFrame = ((PACON)NewCursor)->aspcur[0];
-            }
             GreSetPointerShape(hdcScreen,
-                               CursorFrame->hbmAlpha ? NULL : NewCursor->hbmMask,
-                               CursorFrame->hbmAlpha ? NewCursor->hbmAlpha : NewCursor->hbmColor,
-                               CursorFrame->xHotspot,
-                               CursorFrame->yHotspot,
+                               NewCursor->hbmAlpha ? NULL : NewCursor->hbmMask,
+                               NewCursor->hbmAlpha ? NewCursor->hbmAlpha : NewCursor->hbmColor,
+                               NewCursor->xHotspot,
+                               NewCursor->yHotspot,
                                gpsi->ptCursor.x,
                                gpsi->ptCursor.y,
-                               CursorFrame->hbmAlpha ? SPS_ALPHA : 0);
+                               NewCursor->hbmAlpha ? SPS_ALPHA : 0);
 #else
             GreSetPointerShape(hdcScreen,
                                NewCursor->IconInfo.hbmMask,
@@ -973,15 +967,8 @@ co_MsqSendMessage(PTHREADINFO ptirec,
    /* Don't send from or to a dying thread */
     if (pti->TIF_flags & TIF_INCLEANUP || ptirec->TIF_flags & TIF_INCLEANUP)
     {
-        // Unless we are dying and need to tell our parents.
-        if (pti->TIF_flags & TIF_INCLEANUP && !(ptirec->TIF_flags & TIF_INCLEANUP))
-        {
-           // Parent notify is the big one. Fire and forget!
-           TRACE("Send message from dying thread %d\n",Msg);
-           co_MsqSendMessageAsync(ptirec, Wnd, Msg, wParam, lParam, NULL, 0, FALSE, HookMessage);
-        }
         if (uResult) *uResult = -1;
-        TRACE("MsqSM: Msg %d Current pti %lu or Rec pti %lu\n", Msg, pti->TIF_flags & TIF_INCLEANUP, ptirec->TIF_flags & TIF_INCLEANUP);
+        ERR("MsqSM: Current pti %lu or Rec pti %lu\n", pti->TIF_flags & TIF_INCLEANUP, ptirec->TIF_flags & TIF_INCLEANUP);
         return STATUS_UNSUCCESSFUL;
     }
 
@@ -1689,8 +1676,21 @@ co_MsqPeekMouseMove(IN PTHREADINFO pti,
     MSG msg;
     PUSER_MESSAGE_QUEUE MessageQueue = pti->MessageQueue;
 
+    // First look for any buttons downs or ups before testing for the move.
+    if (pti->nCntsQBits[QSRosMouseButton])
+    {
+        if (co_MsqPeekHardwareMessage( pti,
+                                       Remove,
+                                       Window,
+                                       MsgFilterLow,
+                                       MsgFilterHigh,
+                                       QS_MOUSEBUTTON,
+                                       pMsg))
+           return TRUE; // Have one and return.
+    }
+
     if(!(MessageQueue->MouseMoved))
-        return FALSE;
+       return FALSE;
 
     if (!MessageQueue->ptiSysLock)
     {
@@ -2068,7 +2068,7 @@ MsqCleanupMessageQueue(PTHREADINFO pti)
            IntGetSysCursorInfo()->CurrentCursorObject = NULL;
        }
 
-       TRACE("DereferenceObject pCursor\n");
+       ERR("DereferenceObject pCursor\n");
        UserDereferenceObject(pCursor);
    }
 
@@ -2200,7 +2200,7 @@ MsqSetStateWindow(PTHREADINFO pti, ULONG Type, HWND hWnd)
 {
    HWND Prev;
    PUSER_MESSAGE_QUEUE MessageQueue;
-
+   
    MessageQueue = pti->MessageQueue;
 
    switch(Type)

@@ -1,11 +1,8 @@
 /*
  * COPYRIGHT:        See COPYING in the top level directory
  * PROJECT:          ReactOS kernel
- * FILE:             drivers/filesystems/fastfat/dirwr.c
+ * FILE:             drivers/fs/vfat/dirwr.c
  * PURPOSE:          VFAT Filesystem : write in directory
- * PROGRAMMER:       Rex Jolliff (rex@lvcablemodem.com)
- *                   Herve Poussineau (reactos@poussine.freesurf.fr)
- *                   Pierre Schweitzer (pierre@reactos.org)
  *
  */
 
@@ -70,70 +67,6 @@ VfatUpdateEntry(
 }
 
 /*
- * rename an existing FAT entry
- */
-NTSTATUS
-vfatRenameEntry(
-    IN PDEVICE_EXTENSION DeviceExt,
-    IN PVFATFCB pFcb,
-    IN PUNICODE_STRING FileName,
-    IN BOOLEAN CaseChangeOnly)
-{
-    OEM_STRING NameA;
-    ULONG StartIndex;
-    PVOID Context = NULL;
-    LARGE_INTEGER Offset;
-    PFATX_DIR_ENTRY pDirEntry;
-    UNICODE_STRING ShortName;
-    NTSTATUS Status;
-
-    DPRINT("vfatRenameEntry(%p, %p, %wZ, %d)\n", DeviceExt, pFcb, FileName, CaseChangeOnly);
-
-    if (pFcb->Flags & FCB_IS_FATX_ENTRY)
-    {
-        /* Open associated dir entry */
-        StartIndex = pFcb->startIndex;
-        Offset.u.HighPart = 0;
-        Offset.u.LowPart = (StartIndex * sizeof(FATX_DIR_ENTRY) / PAGE_SIZE) * PAGE_SIZE;
-        if (!CcPinRead(pFcb->parentFcb->FileObject, &Offset, sizeof(FATX_DIR_ENTRY), TRUE,
-                       &Context, (PVOID*)&pDirEntry))
-        {
-            DPRINT1("CcPinRead(Offset %x:%x, Length %d) failed\n", Offset.u.HighPart, Offset.u.LowPart, PAGE_SIZE);
-            return STATUS_UNSUCCESSFUL;
-        }
-
-        pDirEntry = &pDirEntry[StartIndex % (PAGE_SIZE / sizeof(FATX_DIR_ENTRY))];
-
-        /* Set file name */
-        NameA.Buffer = (PCHAR)pDirEntry->Filename;
-        NameA.Length = 0;
-        NameA.MaximumLength = 42;
-        RtlUnicodeStringToOemString(&NameA, FileName, FALSE);
-        pDirEntry->FilenameLength = (unsigned char)NameA.Length;
-
-        CcSetDirtyPinnedData(Context, NULL);
-        CcUnpinData(Context);
-
-        /* Update FCB */
-        ShortName.Length = 0;
-        ShortName.MaximumLength = 0;
-        ShortName.Buffer = NULL;
-        Status = vfatUpdateFCB(DeviceExt, pFcb, FileName, &ShortName, pFcb->parentFcb);
-        if (NT_SUCCESS(Status))
-        {
-            CcPurgeCacheSection(&pFcb->parentFcb->SectionObjectPointers, NULL, 0, FALSE);
-        }
-
-        return Status;
-    }
-    else
-    {
-        /* This we cannot handle properly, move file - would likely need love */
-        return VfatMoveEntry(DeviceExt, pFcb, FileName, pFcb->parentFcb);
-    }
-}
-
-/*
  * try to find contiguous entries frees in directory,
  * extend a directory if is neccesary
  */
@@ -166,11 +99,6 @@ vfatFindDirSpace(
             if (Context)
             {
                 CcUnpinData(Context);
-            }
-            if (!pDirFcb->FileObject)
-            {
-                DPRINT1("Buggy FCB (cleaned up)! %S (%d / %u)\n", pDirFcb->PathNameBuffer, pDirFcb->RefCount, pDirFcb->OpenHandleCount);
-                return FALSE;
             }
             if (!CcPinRead(pDirFcb->FileObject, &FileOffset, DeviceExt->FatInfo.BytesPerCluster,
                       TRUE, &Context, (PVOID*)&pFatEntry))
@@ -272,8 +200,7 @@ FATAddEntry(
     IN PVFATFCB* Fcb,
     IN PVFATFCB ParentFcb,
     IN ULONG RequestedOptions,
-    IN UCHAR ReqAttr,
-    IN PVFAT_MOVE_CONTEXT MoveContext)
+    IN UCHAR ReqAttr)
 {
     PVOID Context = NULL;
     PFAT_DIR_ENTRY pFatEntry;
@@ -458,13 +385,6 @@ FATAddEntry(
     DirContext.DirEntry.Fat.UpdateDate = DirContext.DirEntry.Fat.CreationDate;
     DirContext.DirEntry.Fat.UpdateTime = DirContext.DirEntry.Fat.CreationTime;
     DirContext.DirEntry.Fat.AccessDate = DirContext.DirEntry.Fat.CreationDate;
-    /* If it's moving, preserve creation time and file size */
-    if (MoveContext != NULL)
-    {
-        DirContext.DirEntry.Fat.CreationDate = MoveContext->CreationDate;
-        DirContext.DirEntry.Fat.CreationTime = MoveContext->CreationTime;
-        DirContext.DirEntry.Fat.FileSize = MoveContext->FileSize;
-    }
 
     if (needLong)
     {
@@ -503,36 +423,17 @@ FATAddEntry(
     DirContext.DirIndex = DirContext.StartIndex + nbSlots - 1;
     if (RequestedOptions & FILE_DIRECTORY_FILE)
     {
-        /* If we aren't moving, use next */
-        if (MoveContext == NULL)
+        CurrentCluster = 0;
+        Status = NextCluster(DeviceExt, 0, &CurrentCluster, TRUE);
+        if (CurrentCluster == 0xffffffff || !NT_SUCCESS(Status))
         {
-            CurrentCluster = 0;
-            Status = NextCluster(DeviceExt, 0, &CurrentCluster, TRUE);
-            if (CurrentCluster == 0xffffffff || !NT_SUCCESS(Status))
+            ExFreePoolWithTag(Buffer, TAG_VFAT);
+            if (!NT_SUCCESS(Status))
             {
-                ExFreePoolWithTag(Buffer, TAG_VFAT);
-                if (!NT_SUCCESS(Status))
-                {
-                    return Status;
-                }
-                return STATUS_DISK_FULL;
+                return Status;
             }
+            return STATUS_DISK_FULL;
         }
-        else
-        {
-            CurrentCluster = MoveContext->FirstCluster;
-        }
-
-        if (DeviceExt->FatInfo.FatType == FAT32)
-        {
-            DirContext.DirEntry.Fat.FirstClusterHigh = (unsigned short)(CurrentCluster >> 16);
-        }
-        DirContext.DirEntry.Fat.FirstCluster = (unsigned short)CurrentCluster;
-    }
-    else if (MoveContext != NULL)
-    {
-        CurrentCluster = MoveContext->FirstCluster;
-
         if (DeviceExt->FatInfo.FatType == FAT32)
         {
             DirContext.DirEntry.Fat.FirstClusterHigh = (unsigned short)(CurrentCluster >> 16);
@@ -590,17 +491,7 @@ FATAddEntry(
     CcSetDirtyPinnedData(Context, NULL);
     CcUnpinData(Context);
 
-    if (MoveContext != NULL)
-    {
-        /* We're modifying an existing FCB - likely rename/move */
-        Status = vfatUpdateFCB(DeviceExt, *Fcb, &DirContext.LongNameU, &DirContext.ShortNameU, ParentFcb);
-        (*Fcb)->dirIndex = DirContext.DirIndex;
-        (*Fcb)->startIndex = DirContext.StartIndex;
-    }
-    else
-    {
-        Status = vfatMakeFCBFromDirEntry(DeviceExt, ParentFcb, &DirContext, Fcb);
-    }
+    Status = vfatMakeFCBFromDirEntry(DeviceExt, ParentFcb, &DirContext, Fcb);
     if (!NT_SUCCESS(Status))
     {
         ExFreePoolWithTag(Buffer, TAG_VFAT);
@@ -619,17 +510,13 @@ FATAddEntry(
             ExFreePoolWithTag(Buffer, TAG_VFAT);
             return STATUS_UNSUCCESSFUL;
         }
-        /* clear the new directory cluster if not moving */
-        if (MoveContext == NULL)
-        {
-            RtlZeroMemory(pFatEntry, DeviceExt->FatInfo.BytesPerCluster);
-            /* create '.' and '..' */
-            RtlCopyMemory(&pFatEntry[0].Attrib, &DirContext.DirEntry.Fat.Attrib, sizeof(FAT_DIR_ENTRY) - 11);
-            RtlCopyMemory(pFatEntry[0].ShortName, ".          ", 11);
-            RtlCopyMemory(&pFatEntry[1].Attrib, &DirContext.DirEntry.Fat.Attrib, sizeof(FAT_DIR_ENTRY) - 11);
-            RtlCopyMemory(pFatEntry[1].ShortName, "..         ", 11);
-        }
-
+        /* clear the new directory cluster */
+        RtlZeroMemory(pFatEntry, DeviceExt->FatInfo.BytesPerCluster);
+        /* create '.' and '..' */
+        RtlCopyMemory(&pFatEntry[0].Attrib, &DirContext.DirEntry.Fat.Attrib, sizeof(FAT_DIR_ENTRY) - 11);
+        RtlCopyMemory(pFatEntry[0].ShortName, ".          ", 11);
+        RtlCopyMemory(&pFatEntry[1].Attrib, &DirContext.DirEntry.Fat.Attrib, sizeof(FAT_DIR_ENTRY) - 11);
+        RtlCopyMemory(pFatEntry[1].ShortName, "..         ", 11);
         pFatEntry[1].FirstCluster = ParentFcb->entry.Fat.FirstCluster;
         pFatEntry[1].FirstClusterHigh = ParentFcb->entry.Fat.FirstClusterHigh;
         if (vfatFCBIsRoot(ParentFcb))
@@ -655,8 +542,7 @@ FATXAddEntry(
     IN PVFATFCB* Fcb,
     IN PVFATFCB ParentFcb,
     IN ULONG RequestedOptions,
-    IN UCHAR ReqAttr,
-    IN PVFAT_MOVE_CONTEXT MoveContext)
+    IN UCHAR ReqAttr)
 {
     PVOID Context = NULL;
     LARGE_INTEGER SystemTime, FileOffset;
@@ -692,15 +578,7 @@ FATXAddEntry(
     DirContext.ShortNameU.MaximumLength = 0;
     RtlZeroMemory(&DirContext.DirEntry.FatX, sizeof(FATX_DIR_ENTRY));
     memset(DirContext.DirEntry.FatX.Filename, 0xff, 42);
-    /* Use cluster, if moving */
-    if (MoveContext != NULL)
-    {
-        DirContext.DirEntry.FatX.FirstCluster = MoveContext->FirstCluster;
-    }
-    else
-    {
-        DirContext.DirEntry.FatX.FirstCluster = 0;
-    }
+    DirContext.DirEntry.FatX.FirstCluster = 0;
     DirContext.DirEntry.FatX.FileSize = 0;
 
     /* set file name */
@@ -725,13 +603,6 @@ FATXAddEntry(
     DirContext.DirEntry.FatX.UpdateTime = DirContext.DirEntry.FatX.CreationTime;
     DirContext.DirEntry.FatX.AccessDate = DirContext.DirEntry.FatX.CreationDate;
     DirContext.DirEntry.FatX.AccessTime = DirContext.DirEntry.FatX.CreationTime;
-    /* If it's moving, preserve creation time and file size */
-    if (MoveContext != NULL)
-    {
-        DirContext.DirEntry.FatX.CreationDate = MoveContext->CreationDate;
-        DirContext.DirEntry.FatX.CreationTime = MoveContext->CreationTime;
-        DirContext.DirEntry.FatX.FileSize = MoveContext->FileSize;
-    }
 
     /* add entry into parent directory */
     FileOffset.u.HighPart = 0;
@@ -745,19 +616,8 @@ FATXAddEntry(
     CcSetDirtyPinnedData(Context, NULL);
     CcUnpinData(Context);
 
-    if (MoveContext != NULL)
-    {
-        /* We're modifying an existing FCB - likely rename/move */
-        /* FIXME: check status */
-        vfatUpdateFCB(DeviceExt, *Fcb, &DirContext.LongNameU, &DirContext.ShortNameU, ParentFcb);
-        (*Fcb)->dirIndex = DirContext.DirIndex;
-        (*Fcb)->startIndex = DirContext.StartIndex;
-    }
-    else
-    {
-        /* FIXME: check status */
-        vfatMakeFCBFromDirEntry(DeviceExt, ParentFcb, &DirContext, Fcb);
-    }
+    /* FIXME: check status */
+    vfatMakeFCBFromDirEntry(DeviceExt, ParentFcb, &DirContext, Fcb);
 
     DPRINT("addentry ok\n");
     return STATUS_SUCCESS;
@@ -770,13 +630,12 @@ VfatAddEntry(
     IN PVFATFCB *Fcb,
     IN PVFATFCB ParentFcb,
     IN ULONG RequestedOptions,
-    IN UCHAR ReqAttr,
-    IN PVFAT_MOVE_CONTEXT MoveContext)
+    IN UCHAR ReqAttr)
 {
     if (DeviceExt->Flags & VCB_IS_FATX)
-        return FATXAddEntry(DeviceExt, NameU, Fcb, ParentFcb, RequestedOptions, ReqAttr, MoveContext);
+        return FATXAddEntry(DeviceExt, NameU, Fcb, ParentFcb, RequestedOptions, ReqAttr);
     else
-        return FATAddEntry(DeviceExt, NameU, Fcb, ParentFcb, RequestedOptions, ReqAttr, MoveContext);
+        return FATAddEntry(DeviceExt, NameU, Fcb, ParentFcb, RequestedOptions, ReqAttr);
 }
 
 /*
@@ -785,8 +644,7 @@ VfatAddEntry(
 static NTSTATUS
 FATDelEntry(
     IN PDEVICE_EXTENSION DeviceExt,
-    IN PVFATFCB pFcb,
-    OUT PVFAT_MOVE_CONTEXT MoveContext)
+    IN PVFATFCB pFcb)
 {
     ULONG CurrentCluster = 0, NextCluster, i;
     PVOID Context = NULL;
@@ -829,26 +687,13 @@ FATDelEntry(
         CcUnpinData(Context);
     }
 
-    /* In case of moving, don't delete data */
-    if (MoveContext != NULL)
+    while (CurrentCluster && CurrentCluster != 0xffffffff)
     {
-        pDirEntry = &pDirEntry[pFcb->dirIndex % (PAGE_SIZE / sizeof(FAT_DIR_ENTRY))];
-        MoveContext->FirstCluster = CurrentCluster;
-        MoveContext->FileSize = pDirEntry->FileSize;
-        MoveContext->CreationTime = pDirEntry->CreationTime;
-        MoveContext->CreationDate = pDirEntry->CreationDate;
+        GetNextCluster(DeviceExt, CurrentCluster, &NextCluster);
+        /* FIXME: check status */
+        WriteCluster(DeviceExt, CurrentCluster, 0);
+        CurrentCluster = NextCluster;
     }
-    else
-    {
-        while (CurrentCluster && CurrentCluster != 0xffffffff)
-        {
-            GetNextCluster(DeviceExt, CurrentCluster, &NextCluster);
-            /* FIXME: check status */
-            WriteCluster(DeviceExt, CurrentCluster, 0);
-            CurrentCluster = NextCluster;
-        }
-    }
-
     return STATUS_SUCCESS;
 }
 
@@ -858,8 +703,7 @@ FATDelEntry(
 static NTSTATUS
 FATXDelEntry(
     IN PDEVICE_EXTENSION DeviceExt,
-    IN PVFATFCB pFcb,
-    OUT PVFAT_MOVE_CONTEXT MoveContext)
+    IN PVFATFCB pFcb)
 {
     ULONG CurrentCluster = 0, NextCluster;
     PVOID Context = NULL;
@@ -890,78 +734,25 @@ FATXDelEntry(
     CcSetDirtyPinnedData(Context, NULL);
     CcUnpinData(Context);
 
-    /* In case of moving, don't delete data */
-    if (MoveContext != NULL)
+    while (CurrentCluster && CurrentCluster != 0xffffffff)
     {
-        MoveContext->FirstCluster = CurrentCluster;
-        MoveContext->FileSize = pDirEntry->FileSize;
-        MoveContext->CreationTime = pDirEntry->CreationTime;
-        MoveContext->CreationDate = pDirEntry->CreationDate;
+        GetNextCluster(DeviceExt, CurrentCluster, &NextCluster);
+        /* FIXME: check status */
+        WriteCluster(DeviceExt, CurrentCluster, 0);
+        CurrentCluster = NextCluster;
     }
-    else
-    {
-        while (CurrentCluster && CurrentCluster != 0xffffffff)
-        {
-            GetNextCluster(DeviceExt, CurrentCluster, &NextCluster);
-            /* FIXME: check status */
-            WriteCluster(DeviceExt, CurrentCluster, 0);
-            CurrentCluster = NextCluster;
-        }
-    }
-
     return STATUS_SUCCESS;
 }
 
 NTSTATUS
 VfatDelEntry(
     IN PDEVICE_EXTENSION DeviceExt,
-    IN PVFATFCB pFcb,
-    OUT PVFAT_MOVE_CONTEXT MoveContext)
+    IN PVFATFCB pFcb)
 {
     if (DeviceExt->Flags & VCB_IS_FATX)
-        return FATXDelEntry(DeviceExt, pFcb, MoveContext);
+        return FATXDelEntry(DeviceExt, pFcb);
     else
-        return FATDelEntry(DeviceExt, pFcb, MoveContext);
-}
-
-/*
- * move an existing FAT entry
- */
-NTSTATUS
-VfatMoveEntry(
-    IN PDEVICE_EXTENSION DeviceExt,
-    IN PVFATFCB pFcb,
-    IN PUNICODE_STRING FileName,
-    IN PVFATFCB ParentFcb)
-{
-    NTSTATUS Status;
-    PVFATFCB OldParent;
-    VFAT_MOVE_CONTEXT MoveContext;
-
-    DPRINT("VfatMoveEntry(%p, %p, %wZ, %p)\n", DeviceExt, pFcb, FileName, ParentFcb);
-
-    /* Delete old entry while keeping data */
-    Status = VfatDelEntry(DeviceExt, pFcb, &MoveContext);
-    if (!NT_SUCCESS(Status))
-    {
-        return Status;
-    }
-
-    OldParent = pFcb->parentFcb;
-    CcPurgeCacheSection(&OldParent->SectionObjectPointers, NULL, 0, FALSE);
-
-    /* Add our new entry with our cluster */
-    Status = VfatAddEntry(DeviceExt,
-                          FileName,
-                          &pFcb,
-                          ParentFcb,
-                          (vfatFCBIsDirectory(pFcb) ? FILE_DIRECTORY_FILE : 0),
-                          *pFcb->Attributes,
-                          &MoveContext);
-
-    CcPurgeCacheSection(&pFcb->parentFcb->SectionObjectPointers, NULL, 0, FALSE);
-
-    return Status;
+        return FATDelEntry(DeviceExt, pFcb);
 }
 
 /* EOF */

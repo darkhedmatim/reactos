@@ -10,7 +10,6 @@
 #define TAG_NTFS 'SFTN'
 
 #define ROUND_UP(N, S) ((((N) + (S) - 1) / (S)) * (S))
-#define ROUND_DOWN(N, S) ((N) - ((N) % (S)))
 
 #define DEVICE_NAME L"\\Ntfs"
 
@@ -457,7 +456,6 @@ NTSTATUS
 NtfsReadDisk(IN PDEVICE_OBJECT DeviceObject,
              IN LONGLONG StartingOffset,
              IN ULONG Length,
-             IN ULONG SectorSize,
              IN OUT PUCHAR Buffer,
              IN BOOLEAN Override);
 
@@ -602,9 +600,6 @@ NtfsFsdFileSystemControl(PDEVICE_OBJECT DeviceObject,
 
 
 /* mft.c */
-VOID
-ReleaseAttributeContext(PNTFS_ATTR_CONTEXT Context);
-
 ULONG
 ReadAttribute(PDEVICE_EXTENSION Vcb,
               PNTFS_ATTR_CONTEXT Context,
@@ -716,9 +711,6 @@ NtfsFsdWrite(PDEVICE_OBJECT DeviceObject,
 
 
 /* volinfo.c */
-
-ULONGLONG
-NtfsGetFreeClusters(PDEVICE_EXTENSION DeviceExt);
 
 NTSTATUS
 NtfsQueryVolumeInformation(PNTFS_IRP_CONTEXT IrpContext);

@@ -57,11 +57,11 @@ EnumerateRunningServices(VOID)
                                     &dwServiceCount,
                                     &dwResumeHandle))
             {
-                PrintToConsole(L"The following services hav been started:\n\n");
+                printf("The following services hav been started:\n\n");
 
                 for (i = 0; i < dwServiceCount; i++)
                 {
-                    PrintToConsole(L"  %s\n", lpServiceBuffer[i].lpDisplayName);
+                    printf("  %S\n", lpServiceBuffer[i].lpDisplayName);
                 }
             }
 

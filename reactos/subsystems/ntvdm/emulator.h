@@ -96,6 +96,7 @@ VOID EmulatorException(BYTE ExceptionNumber, LPWORD Stack);
 
 VOID EmulatorTerminate(VOID);
 
+VOID EmulatorInterrupt(BYTE Number);
 VOID EmulatorInterruptSignal(VOID);
 VOID EmulatorSetA20(BOOLEAN Enabled);
 

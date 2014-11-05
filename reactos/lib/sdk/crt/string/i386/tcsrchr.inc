@@ -5,8 +5,7 @@
 PUBLIC _tcsrchr
 .code
 
-FUNC _tcsrchr
-    FPO 0, 2, 1, 1, 0, FRAME_FPO
+_tcsrchr:
     push esi
     mov esi, [esp + 8]
     mov edx, [esp + 12]
@@ -28,7 +27,6 @@ FUNC _tcsrchr
     _tdec(eax)
     pop esi
     ret
-ENDFUNC
 
 END
 /* EOF */

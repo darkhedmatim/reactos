@@ -1,5 +1,6 @@
 
 include_directories(inc)
+
 add_definitions(-DUNICODE -D_UNICODE)
 
 list(APPEND SOURCE

@@ -54,66 +54,55 @@ Fast486ExecutionControl(PFAST486_STATE State, FAST486_EXEC_CMD Command)
     /* Main execution loop */
     do
     {
-        if (!State->Halted)
-        {
 NextInst:
-            /* Check if this is a new instruction */
-            if (State->PrefixFlags == 0) State->SavedInstPtr = State->InstPtr;
+        /* Check if this is a new instruction */
+        if (State->PrefixFlags == 0) State->SavedInstPtr = State->InstPtr;
 
-            /* Perform an instruction fetch */
-            if (!Fast486FetchByte(State, &Opcode))
-            {
-                /* Exception occurred */
-                State->PrefixFlags = 0;
-                continue;
-            }
-
-            // TODO: Check for CALL/RET to update ProcedureCallCount.
-
-            /* Call the opcode handler */
-            CurrentHandler = Fast486OpcodeHandlers[Opcode];
-            CurrentHandler(State, Opcode);
-
-            /* If this is a prefix, go to the next instruction immediately */
-            if (CurrentHandler == Fast486OpcodePrefix) goto NextInst;
-
-            /* A non-prefix opcode has been executed, reset the prefix flags */
+        /* Perform an instruction fetch */
+        if (!Fast486FetchByte(State, &Opcode))
+        {
+            /* Exception occurred */
             State->PrefixFlags = 0;
+            continue;
         }
+
+        // TODO: Check for CALL/RET to update ProcedureCallCount.
+
+        /* Call the opcode handler */
+        CurrentHandler = Fast486OpcodeHandlers[Opcode];
+        CurrentHandler(State, Opcode);
+
+        /* If this is a prefix, go to the next instruction immediately */
+        if (CurrentHandler == Fast486OpcodePrefix) goto NextInst;
+
+        /* A non-prefix opcode has been executed, reset the prefix flags */
+        State->PrefixFlags = 0;
 
         /*
          * Check if there is an interrupt to execute, or a hardware interrupt signal
          * while interrupts are enabled.
          */
-        if (State->DoNotInterrupt)
-        {
-            /* Clear the interrupt delay flag */
-            State->DoNotInterrupt = FALSE;
-        }
-        else if (State->Flags.Tf && !State->Halted)
+        if (State->IntStatus == FAST486_INT_EXECUTE)
         {
             /* Perform the interrupt */
-            Fast486PerformInterrupt(State, 0x01);
-
-            /*
-             * Flags and TF are pushed on stack so we can reset TF now,
-             * to not break into the INT 0x01 handler.
-             * After the INT 0x01 handler returns, the flags and therefore
-             * TF are popped back off the stack and restored, so TF will be
-             * automatically reset to its previous state.
-             */
-            State->Flags.Tf = FALSE;
-        }
-        else if (State->Flags.If && State->IntSignaled)
-        {
-            /* No longer halted */
-            State->Halted = FALSE;
-
-            /* Acknowledge the interrupt and perform it */
-            Fast486PerformInterrupt(State, State->IntAckCallback(State));
+            Fast486PerformInterrupt(State, State->PendingIntNum);
 
             /* Clear the interrupt status */
-            State->IntSignaled = FALSE;
+            State->IntStatus = FAST486_INT_NONE;
+        }
+        else if (State->Flags.If && (State->IntStatus == FAST486_INT_SIGNAL)
+                                 && (State->IntAckCallback != NULL))
+        {
+            /* Acknowledge the interrupt to get the number */
+            State->PendingIntNum = State->IntAckCallback(State);
+
+            /* Set the interrupt status to execute on the next instruction */
+            State->IntStatus = FAST486_INT_EXECUTE;
+        }
+        else if (State->IntStatus == FAST486_INT_DELAYED)
+        {
+            /* Restore the old state */
+            State->IntStatus = FAST486_INT_EXECUTE;
         }
     }
     while ((Command == FAST486_CONTINUE) ||
@@ -128,6 +117,7 @@ NTAPI
 Fast486MemReadCallback(PFAST486_STATE State, ULONG Address, PVOID Buffer, ULONG Size)
 {
     UNREFERENCED_PARAMETER(State);
+
     RtlMoveMemory(Buffer, (PVOID)Address, Size);
 }
 
@@ -136,12 +126,13 @@ NTAPI
 Fast486MemWriteCallback(PFAST486_STATE State, ULONG Address, PVOID Buffer, ULONG Size)
 {
     UNREFERENCED_PARAMETER(State);
+
     RtlMoveMemory((PVOID)Address, Buffer, Size);
 }
 
 static VOID
 NTAPI
-Fast486IoReadCallback(PFAST486_STATE State, USHORT Port, PVOID Buffer, ULONG DataCount, UCHAR DataSize)
+Fast486IoReadCallback(PFAST486_STATE State, ULONG Port, PVOID Buffer, ULONG DataCount, UCHAR DataSize)
 {
     UNREFERENCED_PARAMETER(State);
     UNREFERENCED_PARAMETER(Port);
@@ -152,13 +143,20 @@ Fast486IoReadCallback(PFAST486_STATE State, USHORT Port, PVOID Buffer, ULONG Dat
 
 static VOID
 NTAPI
-Fast486IoWriteCallback(PFAST486_STATE State, USHORT Port, PVOID Buffer, ULONG DataCount, UCHAR DataSize)
+Fast486IoWriteCallback(PFAST486_STATE State, ULONG Port, PVOID Buffer, ULONG DataCount, UCHAR DataSize)
 {
     UNREFERENCED_PARAMETER(State);
     UNREFERENCED_PARAMETER(Port);
     UNREFERENCED_PARAMETER(Buffer);
     UNREFERENCED_PARAMETER(DataCount);
     UNREFERENCED_PARAMETER(DataSize);
+}
+
+static VOID
+NTAPI
+Fast486IdleCallback(PFAST486_STATE State)
+{
+    UNREFERENCED_PARAMETER(State);
 }
 
 static VOID
@@ -175,8 +173,8 @@ Fast486IntAckCallback(PFAST486_STATE State)
 {
     UNREFERENCED_PARAMETER(State);
 
-    /* Return something... defaulted to single-step interrupt */
-    return 0x01;
+    /* Return something... */
+    return 0;
 }
 
 /* PUBLIC FUNCTIONS ***********************************************************/
@@ -188,6 +186,7 @@ Fast486Initialize(PFAST486_STATE         State,
                   FAST486_MEM_WRITE_PROC MemWriteCallback,
                   FAST486_IO_READ_PROC   IoReadCallback,
                   FAST486_IO_WRITE_PROC  IoWriteCallback,
+                  FAST486_IDLE_PROC      IdleCallback,
                   FAST486_BOP_PROC       BopCallback,
                   FAST486_INT_ACK_PROC   IntAckCallback,
                   PULONG                 Tlb)
@@ -197,6 +196,7 @@ Fast486Initialize(PFAST486_STATE         State,
     State->MemWriteCallback = (MemWriteCallback ? MemWriteCallback : Fast486MemWriteCallback);
     State->IoReadCallback   = (IoReadCallback   ? IoReadCallback   : Fast486IoReadCallback  );
     State->IoWriteCallback  = (IoWriteCallback  ? IoWriteCallback  : Fast486IoWriteCallback );
+    State->IdleCallback     = (IdleCallback     ? IdleCallback     : Fast486IdleCallback    );
     State->BopCallback      = (BopCallback      ? BopCallback      : Fast486BopCallback     );
     State->IntAckCallback   = (IntAckCallback   ? IntAckCallback   : Fast486IntAckCallback  );
 
@@ -213,11 +213,11 @@ Fast486Reset(PFAST486_STATE State)
 {
     FAST486_SEG_REGS i;
 
-    /* Save the callbacks and TLB */
     FAST486_MEM_READ_PROC  MemReadCallback  = State->MemReadCallback;
     FAST486_MEM_WRITE_PROC MemWriteCallback = State->MemWriteCallback;
     FAST486_IO_READ_PROC   IoReadCallback   = State->IoReadCallback;
     FAST486_IO_WRITE_PROC  IoWriteCallback  = State->IoWriteCallback;
+    FAST486_IDLE_PROC      IdleCallback     = State->IdleCallback;
     FAST486_BOP_PROC       BopCallback      = State->BopCallback;
     FAST486_INT_ACK_PROC   IntAckCallback   = State->IntAckCallback;
     PULONG                 Tlb              = State->Tlb;
@@ -271,6 +271,7 @@ Fast486Reset(PFAST486_STATE State)
     State->MemWriteCallback = MemWriteCallback;
     State->IoReadCallback   = IoReadCallback;
     State->IoWriteCallback  = IoWriteCallback;
+    State->IdleCallback     = IdleCallback;
     State->BopCallback      = BopCallback;
     State->IntAckCallback   = IntAckCallback;
     State->Tlb              = Tlb;
@@ -278,9 +279,19 @@ Fast486Reset(PFAST486_STATE State)
 
 VOID
 NTAPI
+Fast486Interrupt(PFAST486_STATE State, UCHAR Number)
+{
+    /* Set the interrupt status and the number */
+    State->IntStatus = FAST486_INT_EXECUTE;
+    State->PendingIntNum = Number;
+}
+
+VOID
+NTAPI
 Fast486InterruptSignal(PFAST486_STATE State)
 {
-    State->IntSignaled = TRUE;
+    /* Set the interrupt status */
+    State->IntStatus = FAST486_INT_SIGNAL;
 }
 
 VOID

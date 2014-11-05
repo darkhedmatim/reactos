@@ -1,6 +1,7 @@
 
 add_definitions(-D__WINESRC__)
 include_directories(${REACTOS_SOURCE_DIR}/include/reactos/wine)
+
 spec2def(itss.dll itss.spec)
 
 list(APPEND SOURCE

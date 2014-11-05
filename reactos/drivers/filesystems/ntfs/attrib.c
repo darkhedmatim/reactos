@@ -20,9 +20,8 @@
  * PROJECT:          ReactOS kernel
  * FILE:             drivers/filesystem/ntfs/attrib.c
  * PURPOSE:          NTFS filesystem driver
- * PROGRAMMERS:      Eric Kohl
- *                   Valentin Verkhovsky
- *                   Hervé Poussineau (hpoussin@reactos.org)
+ * PROGRAMMER:       Eric Kohl
+ * Updated	by       Valentin Verkhovsky  2003/09/12
  */
 
 /* INCLUDES *****************************************************************/

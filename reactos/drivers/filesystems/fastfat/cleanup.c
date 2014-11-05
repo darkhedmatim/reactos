@@ -24,7 +24,6 @@ VfatCleanupFile(
     PVFAT_IRP_CONTEXT IrpContext)
 {
     PVFATFCB pFcb;
-    PDEVICE_EXTENSION DeviceExt = IrpContext->DeviceExt;
     PFILE_OBJECT FileObject = IrpContext->FileObject;
 
     DPRINT("VfatCleanupFile(DeviceExt %p, FileObject %p)\n",
@@ -38,7 +37,6 @@ VfatCleanupFile(
     if (pFcb->Flags & FCB_IS_VOLUME)
     {
         pFcb->OpenHandleCount--;
-        DeviceExt->OpenHandleCount--;
 
         if (pFcb->OpenHandleCount != 0)
         {
@@ -65,7 +63,6 @@ VfatCleanupFile(
                            FileObject->FsContext2);
 
         pFcb->OpenHandleCount--;
-        DeviceExt->OpenHandleCount--;
 
         if (!(*pFcb->Attributes & FILE_ATTRIBUTE_DIRECTORY) &&
             FsRtlAreThereCurrentFileLocks(&pFcb->FileLock))
@@ -92,7 +89,6 @@ VfatCleanupFile(
                 pFcb->FileObject = NULL;
                 CcUninitializeCacheMap(tmpFileObject, NULL, NULL);
                 ObDereferenceObject(tmpFileObject);
-                vfatReleaseFCB(IrpContext->DeviceExt, pFcb);
             }
 
             CcPurgeCacheSection(FileObject->SectionObjectPointer, NULL, 0, FALSE);

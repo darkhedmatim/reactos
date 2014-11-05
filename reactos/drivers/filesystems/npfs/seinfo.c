@@ -85,8 +85,7 @@ NpCommonSetSecurityInfo(IN PDEVICE_OBJECT DeviceObject,
     if (!NT_SUCCESS(Status)) return Status;
 
     Status = ObLogSecurityDescriptor(TempSecurityDescriptor, &NewSecurityDescriptor, 1);
-    ASSERT(TempSecurityDescriptor != OldSecurityDescriptor);
-    ExFreePoolWithTag(TempSecurityDescriptor, 0);
+    ExFreePool(TempSecurityDescriptor);
 
     if (!NT_SUCCESS(Status)) return Status;
 

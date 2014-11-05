@@ -28,6 +28,10 @@
 #include <winnls.h>
 #include <shlwapi.h>
 
+#include <wine/debug.h>
+
+WINE_DEFAULT_DEBUG_CHANNEL(winspool);
+
 /******************************************************************************
  *		GetDefaultPrinterA   (WINSPOOL.@)
  */

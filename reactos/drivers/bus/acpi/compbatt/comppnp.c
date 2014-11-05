@@ -69,7 +69,7 @@ RemoveBatteryFromList(IN PCUNICODE_STRING BatteryName,
     /* Done */
     ExReleaseFastMutex(&DeviceExtension->Lock);
     if (CompBattDebug & 1) DbgPrint("CompBatt: EXITING RemoveBatteryFromList\n");
-    return NULL;
+    return STATUS_SUCCESS;
 }
 
 BOOLEAN

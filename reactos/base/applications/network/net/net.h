@@ -13,8 +13,6 @@
 
 #include <windef.h>
 #include <winbase.h>
-#include <winnls.h>
-#include <wincon.h>
 #include <winuser.h>
 #include <winsvc.h>
 #include <stdio.h>
@@ -30,15 +28,6 @@ PrintResourceString(
     INT resID,
     ...);
 
-VOID
-PrintToConsole(
-    LPWSTR lpFormat,
-    ...);
-
-VOID
-WriteToConsole(
-    LPWSTR lpString);
-
 VOID help(VOID);
 INT unimplemented(INT argc, WCHAR **argv);
 
@@ -46,10 +35,8 @@ INT cmdAccounts(INT argc, WCHAR **argv);
 INT cmdContinue(INT argc, WCHAR **argv);
 INT cmdHelp(INT argc, WCHAR **argv);
 INT cmdHelpMsg(INT argc, WCHAR **argv);
-INT cmdLocalGroup(INT argc, WCHAR **argv);
 INT cmdPause(INT argc, WCHAR **argv);
 INT cmdStart(INT argc, WCHAR **argv);
 INT cmdStop(INT argc, WCHAR **argv);
-INT cmdUser(INT argc, WCHAR **argv);
 
 #endif /* _NET_PCH_ */

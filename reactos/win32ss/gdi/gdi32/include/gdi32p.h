@@ -213,10 +213,6 @@ PLDC
 FASTCALL
 GdiGetLDC(HDC hDC);
 
-BOOL
-FASTCALL
-GdiSetLDC(HDC hdc, PVOID pvLDC);
-
 HGDIOBJ
 WINAPI
 GdiFixUpHandle(HGDIOBJ hGO);
@@ -240,20 +236,11 @@ ConvertBitmapInfo(
 
 DWORD
 WINAPI
-GetAndSetDCDWord(
-    _In_ HDC hdc,
-    _In_ UINT u,
-    _In_ DWORD dwIn,
-    _In_ ULONG ulMFId,
-    _In_ USHORT usMF16Id,
-    _In_ DWORD dwError);
+GetAndSetDCDWord( HDC, INT, DWORD, DWORD, DWORD, DWORD );
 
 DWORD
 WINAPI
-GetDCDWord(
-    _In_ HDC hdc,
-    _In_ UINT u,
-    _In_ DWORD dwError);
+GetDCDWord( HDC, INT, DWORD);
 
 HGDIOBJ
 WINAPI
@@ -278,11 +265,6 @@ WINAPI
 EnumLogFontExW2A(
     LPENUMLOGFONTEXA fontA,
     CONST ENUMLOGFONTEXW *fontW );
-
-BOOL
-WINAPI
-GetETM(HDC hdc,
-       EXTTEXTMETRIC *petm);
 
 /* FIXME: Put in some public header */
 UINT
@@ -378,23 +360,9 @@ FORCEINLINE
 PDC_ATTR
 GdiGetDcAttr(HDC hdc)
 {
-    GDILOOBJTYPE eDcObjType;
     PDC_ATTR pdcattr;
 
-    /* Check DC object type */
-    eDcObjType = GDI_HANDLE_GET_TYPE(hdc);
-    if ((eDcObjType != GDILoObjType_LO_DC_TYPE) &&
-        (eDcObjType != GDILoObjType_LO_ALTDC_TYPE))
-    {
-        return NULL;
-    }
-
-    /* Get the DC attribute */
-    if (!GdiGetHandleUserData((HGDIOBJ)hdc, eDcObjType, (PVOID*)&pdcattr))
-    {
-        return NULL;
-    }
-
+    if (!GdiGetHandleUserData((HGDIOBJ)hdc, GDI_OBJECT_TYPE_DC, (PVOID*)&pdcattr)) return NULL;
     return pdcattr;
 }
 
@@ -426,21 +394,5 @@ _lrintf(float f)
     return (int)(f >= 0 ? f+0.5 : f-0.5);
 #endif
 }
-
-HGDIOBJ
-WINAPI
-GdiInsertClientObj(
-    _In_ PVOID pvObject,
-    _In_ GDILOOBJTYPE eObjType);
-
-PVOID
-WINAPI
-GdiGetClientObject(
-    _In_ HGDIOBJ hobj);
-
-PVOID
-WINAPI
-GdiRemoveClientObject(
-    _In_ HGDIOBJ hobj);
 
 /* EOF */

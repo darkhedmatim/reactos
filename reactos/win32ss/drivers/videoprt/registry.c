@@ -59,7 +59,7 @@ IntCopyRegistryKey(
             if (InfoBuffer == NULL)
             {
                 ERR_(VIDEOPRT, "Could not allocate buffer for key info\n");
-                return STATUS_INSUFFICIENT_RESOURCES;
+                return Status;
             }
         }
 
@@ -633,8 +633,8 @@ IntCreateRegistryPath(
         RtlAppendUnicodeToString(DeviceRegistryPath, Insert2);
     }
 
-    DPRINT("Formatted registry key '%wZ' -> '%wZ'\n",
-           DriverRegistryPath, DeviceRegistryPath);
+    DbgPrint("Formatted registry key '%wZ' -> '%wZ'\n",
+             DriverRegistryPath, DeviceRegistryPath);
 
     return STATUS_SUCCESS;
 }

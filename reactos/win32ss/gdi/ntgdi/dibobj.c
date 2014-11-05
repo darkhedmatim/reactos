@@ -32,6 +32,27 @@ static const RGBQUAD EGAColorsQuads[16] =
     { 0xff, 0xff, 0xff, 0x00 }
 };
 
+static const RGBTRIPLE EGAColorsTriples[16] =
+{
+    /* rgbBlue, rgbGreen, rgbRed */
+    { 0x00, 0x00, 0x00 },
+    { 0x00, 0x00, 0x80 },
+    { 0x00, 0x80, 0x00 },
+    { 0x00, 0x80, 0x80 },
+    { 0x80, 0x00, 0x00 },
+    { 0x80, 0x00, 0x80 },
+    { 0x80, 0x80, 0x00 },
+    { 0x80, 0x80, 0x80 },
+    { 0xc0, 0xc0, 0xc0 },
+    { 0x00, 0x00, 0xff },
+    { 0x00, 0xff, 0x00 },
+    { 0x00, 0xff, 0xff },
+    { 0xff, 0x00, 0x00 },
+    { 0xff, 0x00, 0xff },
+    { 0xff, 0xff, 0x00 },
+    { 0xff, 0xff, 0xff }
+};
+
 static const RGBQUAD DefLogPaletteQuads[20] =   /* Copy of Default Logical Palette */
 {
     /* rgbBlue, rgbGreen, rgbRed, rgbReserved */
@@ -55,6 +76,31 @@ static const RGBQUAD DefLogPaletteQuads[20] =   /* Copy of Default Logical Palet
     { 0xff, 0x00, 0xff, 0x00 },
     { 0xff, 0xff, 0x00, 0x00 },
     { 0xff, 0xff, 0xff, 0x00 }
+};
+
+static const RGBQUAD DefLogPaletteTriples[20] =   /* Copy of Default Logical Palette */
+{
+    /* rgbBlue, rgbGreen, rgbRed, rgbReserved */
+    { 0x00, 0x00, 0x00 },
+    { 0x00, 0x00, 0x80 },
+    { 0x00, 0x80, 0x00 },
+    { 0x00, 0x80, 0x80 },
+    { 0x80, 0x00, 0x00 },
+    { 0x80, 0x00, 0x80 },
+    { 0x80, 0x80, 0x00 },
+    { 0xc0, 0xc0, 0xc0 },
+    { 0xc0, 0xdc, 0xc0 },
+    { 0xf0, 0xca, 0xa6 },
+    { 0xf0, 0xfb, 0xff },
+    { 0xa4, 0xa0, 0xa0 },
+    { 0x80, 0x80, 0x80 },
+    { 0x00, 0x00, 0xf0 },
+    { 0x00, 0xff, 0x00 },
+    { 0x00, 0xff, 0xff },
+    { 0xff, 0x00, 0x00 },
+    { 0xff, 0x00, 0xff },
+    { 0xff, 0xff, 0x00 },
+    { 0xff, 0xff, 0xff }
 };
 
 PPALETTE
@@ -1317,9 +1363,7 @@ IntCreateDIBitmap(
     PDC Dc,
     INT width,
     INT height,
-    UINT planes,
     UINT bpp,
-    ULONG compression,
     DWORD init,
     LPBYTE bits,
     PBITMAPINFO data,
@@ -1327,23 +1371,19 @@ IntCreateDIBitmap(
 {
     HBITMAP handle;
     BOOL fColor;
-    ULONG BmpFormat = 0;
-
-    if (planes && bpp)
-        BmpFormat = BitmapFormat(planes * bpp, compression);
 
     // Check if we should create a monochrome or color bitmap. We create a monochrome bitmap only if it has exactly 2
     // colors, which are black followed by white, nothing else. In all other cases, we create a color bitmap.
 
-    if (BmpFormat != BMF_1BPP) fColor = TRUE;
-    else if ((coloruse > DIB_RGB_COLORS) || ((init & CBM_INIT) == 0) || !data) fColor = FALSE;
+    if (bpp != 1) fColor = TRUE;
+    else if ((coloruse != DIB_RGB_COLORS) || (init != CBM_INIT) || !data) fColor = FALSE;
     else
     {
         const RGBQUAD *rgb = (RGBQUAD*)((PBYTE)data + data->bmiHeader.biSize);
         DWORD col = RGB(rgb->rgbRed, rgb->rgbGreen, rgb->rgbBlue);
 
         // Check if the first color of the colormap is black
-        if (col == RGB(0, 0, 0))
+        if ((col == RGB(0, 0, 0)))
         {
             rgb++;
             col = RGB(rgb->rgbRed, rgb->rgbGreen, rgb->rgbBlue);
@@ -1357,30 +1397,7 @@ IntCreateDIBitmap(
     // Now create the bitmap
     if (fColor)
     {
-        if (init & CBM_CREATDIB)
-        {
-            PSURFACE Surface;
-            PPALETTE Palette;
-
-            /* Undocumented flag which creates a DDB of the format specified by the bitmap info. */
-            handle = IntCreateCompatibleBitmap(Dc, width, height, planes, bpp);
-            if (!handle)
-                return NULL;
-            /* The palette must also match the given data */
-            Surface = SURFACE_ShareLockSurface(handle);
-            ASSERT(Surface);
-            Palette = CreateDIBPalette(data, Dc, coloruse);
-            ASSERT(Palette);
-            SURFACE_vSetPalette(Surface, Palette);
-
-            PALETTE_ShareUnlockPalette(Palette);
-            SURFACE_ShareUnlockSurface(Surface);
-        }
-        else
-        {
-            /* Create a regular compatible bitmap, in the same format as the device */
-            handle = IntCreateCompatibleBitmap(Dc, width, height, 0, 0);
-        }
+        handle = IntCreateCompatibleBitmap(Dc, width, height);
     }
     else
     {
@@ -1394,7 +1411,7 @@ IntCreateDIBitmap(
     if (height < 0)
         height = -height;
 
-    if ((NULL != handle) && (CBM_INIT & init))
+    if (NULL != handle && CBM_INIT == init)
     {
         IntSetDIBits(Dc, handle, 0, height, bits, data, coloruse);
     }
@@ -1423,7 +1440,7 @@ NtGdiCreateDIBitmapInternal(
     PBYTE safeBits = NULL;
     HBITMAP hbmResult = NULL;
 
-    if(pjInit && (fInit & CBM_INIT))
+    if(pjInit && (fInit == CBM_INIT))
     {
         if (cjMaxBits == 0) return NULL;
         safeBits = ExAllocatePoolWithTag(PagedPool, cjMaxBits, TAG_DIB);
@@ -1437,7 +1454,7 @@ NtGdiCreateDIBitmapInternal(
     _SEH2_TRY
     {
         if(pbmi) ProbeForRead(pbmi, cjMaxInitInfo, 1);
-        if(pjInit && (fInit & CBM_INIT))
+        if(pjInit && (fInit == CBM_INIT))
         {
             ProbeForRead(pjInit, cjMaxBits, 1);
             RtlCopyMemory(safeBits, pjInit, cjMaxBits);
@@ -1487,8 +1504,7 @@ GreCreateDIBitmapInternal(
 {
     PDC Dc;
     HBITMAP Bmp;
-    USHORT bpp, planes;
-    DWORD compression;
+    WORD bpp;
     HDC hdcDest;
 
     if (!hDc) /* 1bpp monochrome bitmap */
@@ -1514,28 +1530,10 @@ GreCreateDIBitmapInternal(
     /* It's OK to set bpp=0 here, as IntCreateDIBitmap will create a compatible Bitmap
      * if bpp != 1 and ignore the real value that was passed */
     if (pbmi)
-    {
-        if (pbmi->bmiHeader.biSize == sizeof(BITMAPCOREHEADER))
-        {
-            BITMAPCOREHEADER* CoreHeader = (BITMAPCOREHEADER*)&pbmi->bmiHeader;
-            bpp = CoreHeader->bcBitCount;
-            planes = CoreHeader->bcPlanes ? CoreHeader->bcPlanes : 1;
-            compression = BI_RGB;
-        }
-        else
-        {
-            bpp = pbmi->bmiHeader.biBitCount;
-            planes = pbmi->bmiHeader.biPlanes ? pbmi->bmiHeader.biPlanes : 1;
-            compression = pbmi->bmiHeader.biCompression;
-        }
-    }
+        bpp = pbmi->bmiHeader.biBitCount;
     else
-    {
         bpp = 0;
-        planes = 0;
-        compression = 0;
-    }
-    Bmp = IntCreateDIBitmap(Dc, cx, cy, bpp, planes, compression, fInit, pjInit, pbmi, iUsage);
+    Bmp = IntCreateDIBitmap(Dc, cx, cy, bpp, fInit, pjInit, pbmi, iUsage);
     DC_UnlockDc(Dc);
 
     if(!hDc)

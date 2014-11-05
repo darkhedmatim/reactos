@@ -296,9 +296,6 @@ typedef struct DEVICE_EXTENSION
     /* Notifications */
     LIST_ENTRY NotifyList;
     PNOTIFY_SYNC NotifySync;
-
-    /* Incremented on IRP_MJ_CREATE, decremented on IRP_MJ_CLEANUP */
-    ULONG OpenHandleCount;
 } DEVICE_EXTENSION, VCB, *PVCB;
 
 typedef struct
@@ -463,13 +460,6 @@ typedef struct _VFAT_DIRENTRY_CONTEXT
     UNICODE_STRING ShortNameU;
 } VFAT_DIRENTRY_CONTEXT, *PVFAT_DIRENTRY_CONTEXT;
 
-typedef struct _VFAT_MOVE_CONTEXT
-{
-    ULONG FirstCluster;
-    ULONG FileSize;
-    USHORT CreationDate;
-    USHORT CreationTime;
-} VFAT_MOVE_CONTEXT, *PVFAT_MOVE_CONTEXT;
 
 /* blockdev.c */
 
@@ -604,8 +594,7 @@ VfatAddEntry(
     PVFATFCB* Fcb,
     PVFATFCB ParentFcb,
     ULONG RequestedOptions,
-    UCHAR ReqAttr,
-    PVFAT_MOVE_CONTEXT MoveContext);
+    UCHAR ReqAttr);
 
 NTSTATUS
 VfatUpdateEntry(
@@ -614,8 +603,7 @@ VfatUpdateEntry(
 NTSTATUS
 VfatDelEntry(
     PDEVICE_EXTENSION,
-    PVFATFCB,
-    PVFAT_MOVE_CONTEXT);
+    PVFATFCB);
 
 BOOLEAN
 vfatFindDirSpace(
@@ -623,20 +611,6 @@ vfatFindDirSpace(
     PVFATFCB pDirFcb,
     ULONG nbSlots,
     PULONG start);
-
-NTSTATUS
-vfatRenameEntry(
-    IN PDEVICE_EXTENSION DeviceExt,
-    IN PVFATFCB pFcb,
-    IN PUNICODE_STRING FileName,
-    IN BOOLEAN CaseChangeOnly);
-
-NTSTATUS
-VfatMoveEntry(
-    IN PDEVICE_EXTENSION DeviceExt,
-    IN PVFATFCB pFcb,
-    IN PUNICODE_STRING FileName,
-    IN PVFATFCB ParentFcb);
 
 /* ea.h */
 
@@ -773,14 +747,6 @@ vfatNewFCB(
     PDEVICE_EXTENSION pVCB,
     PUNICODE_STRING pFileNameU);
 
-NTSTATUS
-vfatUpdateFCB(
-    PDEVICE_EXTENSION pVCB,
-    PVFATFCB Fcb,
-    PUNICODE_STRING LongName,
-    PUNICODE_STRING ShortName,
-    PVFATFCB ParentFcb);
-
 VOID
 vfatDestroyFCB(
     PVFATFCB pFCB);
@@ -796,6 +762,11 @@ vfatGrabFCB(
 
 VOID
 vfatReleaseFCB(
+    PDEVICE_EXTENSION pVCB,
+    PVFATFCB pFCB);
+
+VOID
+vfatAddFCBToTable(
     PDEVICE_EXTENSION pVCB,
     PVFATFCB pFCB);
 

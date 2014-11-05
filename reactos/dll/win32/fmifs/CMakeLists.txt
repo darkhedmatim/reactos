@@ -23,3 +23,4 @@ add_importlibs(fmifs kernel32 ntdll)
 add_pch(fmifs precomp.h SOURCE)
 add_dependencies(fmifs psdk)
 add_cd_file(TARGET fmifs DESTINATION reactos/system32 FOR all)
+

@@ -189,8 +189,13 @@ KdpEnterDebuggerException(IN PKTRAP_FRAME TrapFrame,
     /* Check if this is an assertion failure */
     if (ExceptionRecord->ExceptionCode == STATUS_ASSERTION_FAILURE)
     {
-        /* Bump EIP to the instruction following the int 2C */
+        /* Warn about it */
+        DbgPrint("\n!!! Assertion Failure at Address 0x%p !!!\n\n",
+                 (PVOID)Context->Eip);
+
+        /* Bump EIP to the instruction following the int 2C and return */
         Context->Eip += 2;
+        return TRUE;
     }
 #endif
 

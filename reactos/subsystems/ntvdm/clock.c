@@ -56,7 +56,7 @@ UINT Irq12Counter = 0;
 
 #ifdef IPS_DISPLAY
     DWORD LastCyclePrintout;
-    ULONGLONG Cycles = 0;
+    DWORD Cycles = 0;
 #endif
 
 /* PUBLIC FUNCTIONS ***********************************************************/
@@ -142,14 +142,14 @@ VOID ClockUpdate(VOID)
     {
         CpuStep();
 #ifdef IPS_DISPLAY
-        ++Cycles;
+        Cycles++;
 #endif
     }
 
 #ifdef IPS_DISPLAY
     if ((CurrentTickCount - LastCyclePrintout) >= 1000)
     {
-        DPRINT1("NTVDM: %I64u Instructions Per Second; TimerTicks = %I64d\n", Cycles * 1000 / (CurrentTickCount - LastCyclePrintout), TimerTicks);
+        DPRINT1("NTVDM: %lu Instructions Per Second; TimerTicks = %I64d\n", Cycles, TimerTicks);
         LastCyclePrintout = CurrentTickCount;
         Cycles = 0;
     }

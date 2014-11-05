@@ -164,8 +164,8 @@ NtUserInitialize(
 {
     NTSTATUS Status;
 
-    TRACE("Enter NtUserInitialize(%lx, %p, %p)\n",
-          dwWinVersion, hPowerRequestEvent, hMediaRequestEvent);
+    ERR("Enter NtUserInitialize(%lx, %p, %p)\n",
+            dwWinVersion, hPowerRequestEvent, hMediaRequestEvent);
 
     /* Check the Windows version */
     if (dwWinVersion != 0)

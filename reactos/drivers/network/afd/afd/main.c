@@ -662,6 +662,7 @@ DoDisconnect(PAFD_FCB FCB)
                            FCB->Connection.Object,
                            &FCB->DisconnectTimeout,
                            FCB->DisconnectFlags,
+                           &FCB->DisconnectIrp.Iosb,
                            DisconnectComplete,
                            FCB,
                            FCB->ConnectCallInfo,

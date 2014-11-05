@@ -204,10 +204,9 @@ VOID SetMenuAndButtonStates(PMAIN_WND_INFO Info)
                 SendMessage(Info->hTool, TB_SETSTATE, ID_RESTART,
                        (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
             }
-        }
 
-        if(lpServiceConfig)
             HeapFree(GetProcessHeap(), 0, lpServiceConfig);
+        }
 
         if ( (Flags & SERVICE_ACCEPT_STOP) && (State == SERVICE_RUNNING) )
         {

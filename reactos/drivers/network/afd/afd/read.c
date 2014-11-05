@@ -46,6 +46,7 @@ static VOID RefillSocketBuffer( PAFD_FCB FCB )
                 TDI_RECEIVE_NORMAL,
                 FCB->Recv.Window + FCB->Recv.Content,
                 FCB->Recv.Size - FCB->Recv.Content,
+                &FCB->ReceiveIrp.Iosb,
                 ReceiveComplete,
                 FCB );
 }
@@ -690,6 +691,7 @@ PacketSocketRecvComplete(
               FCB->Recv.Window,
               FCB->Recv.Size,
               FCB->AddressFrom,
+              &FCB->ReceiveIrp.Iosb,
               PacketSocketRecvComplete,
               FCB );
     }

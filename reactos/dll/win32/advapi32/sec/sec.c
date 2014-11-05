@@ -168,6 +168,29 @@ GetSecurityDescriptorSacl(PSECURITY_DESCRIPTOR pSecurityDescriptor,
     return TRUE;
 }
 
+
+/*
+ * @implemented
+ */
+BOOL
+WINAPI
+InitializeSecurityDescriptor(PSECURITY_DESCRIPTOR pSecurityDescriptor,
+                             DWORD dwRevision)
+{
+    NTSTATUS Status;
+
+    Status = RtlCreateSecurityDescriptor(pSecurityDescriptor,
+                                         dwRevision);
+    if (!NT_SUCCESS(Status))
+    {
+        SetLastError(RtlNtStatusToDosError(Status));
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+
 /*
  * @implemented
  */
@@ -183,6 +206,47 @@ IsValidSecurityDescriptor(PSECURITY_DESCRIPTOR pSecurityDescriptor)
 
     return (BOOL)Result;
 }
+
+
+/*
+ * @implemented
+ */
+BOOL
+WINAPI
+MakeAbsoluteSD(PSECURITY_DESCRIPTOR pSelfRelativeSecurityDescriptor,
+               PSECURITY_DESCRIPTOR pAbsoluteSecurityDescriptor,
+               LPDWORD lpdwAbsoluteSecurityDescriptorSize,
+               PACL pDacl,
+               LPDWORD lpdwDaclSize,
+               PACL pSacl,
+               LPDWORD lpdwSaclSize,
+               PSID pOwner,
+               LPDWORD lpdwOwnerSize,
+               PSID pPrimaryGroup,
+               LPDWORD lpdwPrimaryGroupSize)
+{
+    NTSTATUS Status;
+
+    Status = RtlSelfRelativeToAbsoluteSD(pSelfRelativeSecurityDescriptor,
+                                         pAbsoluteSecurityDescriptor,
+                                         lpdwAbsoluteSecurityDescriptorSize,
+                                         pDacl,
+                                         lpdwDaclSize,
+                                         pSacl,
+                                         lpdwSaclSize,
+                                         pOwner,
+                                         lpdwOwnerSize,
+                                         pPrimaryGroup,
+                                         lpdwPrimaryGroupSize);
+    if (!NT_SUCCESS(Status))
+    {
+        SetLastError(RtlNtStatusToDosError(Status));
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
 
 /*
  * @implemented

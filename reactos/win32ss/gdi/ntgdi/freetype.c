@@ -2083,7 +2083,7 @@ ftGdiGetGlyphOutline(
                 src += ft_face->glyph->bitmap.pitch;
                 dst += pitch;
             }
-            break;
+            return needed;
         }
         case ft_glyph_format_outline:
         {
@@ -2113,24 +2113,22 @@ ftGdiGetGlyphOutline(
             {
                 return GDI_ERROR;
             }
-
-            start = pvBuf;
-            for (row = 0; row < height; row++)
-            {
-                ptr = start;
-                for (col = 0; col < width; col++, ptr++)
-                {
-                    *ptr = (((int)*ptr) * mult + 128) / 256;
-                }
-                start += pitch;
-            }
-
-            break;
         }
         default:
             DPRINT1("Loaded glyph format %x\n", ft_face->glyph->format);
             return GDI_ERROR;
         }
+        start = pvBuf;
+        for (row = 0; row < height; row++)
+        {
+            ptr = start;
+            for (col = 0; col < width; col++, ptr++)
+            {
+                *ptr = (((int)*ptr) * mult + 128) / 256;
+            }
+            start += pitch;
+        }
+        break;
     }
 
     case GGO_NATIVE:
@@ -3365,11 +3363,6 @@ GreExtTextOutW(
     BrushOrigin.x = 0;
     BrushOrigin.y = 0;
 
-    psurf = dc->dclevel.pSurface;
-
-    if(!psurf) 
-        psurf = psurfDefaultBitmap;
-
     if ((fuOptions & ETO_OPAQUE) && lprc)
     {
         DestRect.left   = lprc->left;
@@ -3388,7 +3381,7 @@ GreExtTextOutW(
             DC_vUpdateBackgroundBrush(dc);
 
         IntEngBitBlt(
-            &psurf->SurfObj,
+            &dc->dclevel.pSurface->SurfObj,
             NULL,
             NULL,
             &dc->co.ClipObj,
@@ -3578,6 +3571,8 @@ GreExtTextOutW(
     /* Lock blit with a dummy rect */
     DC_vPrepareDCsForBlit(dc, NULL, NULL, NULL);
 
+    psurf = dc->dclevel.pSurface ;
+    if(!psurf) psurf = psurfDefaultBitmap;
     SurfObj = &psurf->SurfObj ;
 
     EXLATEOBJ_vInitialize(&exloRGB2Dst, &gpalRGB, psurf->ppal, 0, 0, 0);
@@ -3921,7 +3916,7 @@ NtGdiGetCharABCWidthsW(
     IN HDC hDC,
     IN UINT FirstChar,
     IN ULONG Count,
-    IN OPTIONAL PWCHAR UnSafepwch,
+    IN OPTIONAL PWCHAR pwch,
     IN FLONG fl,
     OUT PVOID Buffer)
 {
@@ -3937,29 +3932,14 @@ NtGdiGetCharABCWidthsW(
     HFONT hFont = 0;
     NTSTATUS Status = STATUS_SUCCESS;
     PMATRIX pmxWorldToDevice;
-    PWCHAR Safepwch = NULL;
 
-    if (!Buffer)
+    if (pwch)
     {
-        EngSetLastError(ERROR_INVALID_PARAMETER);
-        return FALSE;
-    }
-
-    if (UnSafepwch)
-    {
-        UINT pwchSize = Count * sizeof(WCHAR);
-        Safepwch = ExAllocatePoolWithTag(PagedPool, pwchSize, GDITAG_TEXT);
-
-        if(!Safepwch)
-        {
-            EngSetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            return FALSE;
-        }
-
         _SEH2_TRY
         {
-            ProbeForRead(UnSafepwch, pwchSize, 1);
-            RtlCopyMemory(Safepwch, UnSafepwch, pwchSize);
+            ProbeForRead(pwch,
+            sizeof(PWSTR),
+            1);
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
@@ -3967,13 +3947,15 @@ NtGdiGetCharABCWidthsW(
         }
         _SEH2_END;
     }
-
     if (!NT_SUCCESS(Status))
     {
-        if(Safepwch)
-            ExFreePoolWithTag(Safepwch , GDITAG_TEXT);
-
         EngSetLastError(Status);
+        return FALSE;
+    }
+
+    if (!Buffer)
+    {
+        EngSetLastError(ERROR_INVALID_PARAMETER);
         return FALSE;
     }
 
@@ -3982,10 +3964,6 @@ NtGdiGetCharABCWidthsW(
     if (!fl) SafeBuffF = (LPABCFLOAT) SafeBuff;
     if (SafeBuff == NULL)
     {
-
-        if(Safepwch)
-            ExFreePoolWithTag(Safepwch , GDITAG_TEXT);
-
         EngSetLastError(ERROR_NOT_ENOUGH_MEMORY);
         return FALSE;
     }
@@ -3994,10 +3972,6 @@ NtGdiGetCharABCWidthsW(
     if (dc == NULL)
     {
         ExFreePoolWithTag(SafeBuff, GDITAG_TEXT);
-
-        if(Safepwch)
-            ExFreePoolWithTag(Safepwch , GDITAG_TEXT);
-
         EngSetLastError(ERROR_INVALID_HANDLE);
         return FALSE;
     }
@@ -4012,10 +3986,6 @@ NtGdiGetCharABCWidthsW(
     if (TextObj == NULL)
     {
         ExFreePoolWithTag(SafeBuff, GDITAG_TEXT);
-
-        if(Safepwch)
-            ExFreePoolWithTag(Safepwch , GDITAG_TEXT);
-
         EngSetLastError(ERROR_INVALID_HANDLE);
         return FALSE;
     }
@@ -4039,10 +4009,6 @@ NtGdiGetCharABCWidthsW(
         {
             DPRINT1("WARNING: Could not find desired charmap!\n");
             ExFreePoolWithTag(SafeBuff, GDITAG_TEXT);
-
-            if(Safepwch)
-                ExFreePoolWithTag(Safepwch , GDITAG_TEXT);
-
             EngSetLastError(ERROR_INVALID_HANDLE);
             return FALSE;
         }
@@ -4064,12 +4030,12 @@ NtGdiGetCharABCWidthsW(
     {
         int adv, lsb, bbx, left, right;
 
-        if (Safepwch)
+        if (pwch)
         {
             if (fl & GCABCW_INDICES)
-                glyph_index = Safepwch[i - FirstChar];
+                glyph_index = pwch[i - FirstChar];
             else
-                glyph_index = FT_Get_Char_Index(face, Safepwch[i - FirstChar]);
+                glyph_index = FT_Get_Char_Index(face, pwch[i - FirstChar]);
         }
         else
         {
@@ -4108,18 +4074,13 @@ NtGdiGetCharABCWidthsW(
     IntUnLockFreeType;
     TEXTOBJ_UnlockText(TextObj);
     Status = MmCopyToCaller(Buffer, SafeBuff, BufferSize);
-
-    ExFreePoolWithTag(SafeBuff, GDITAG_TEXT);
-
-    if(Safepwch)
-        ExFreePoolWithTag(Safepwch , GDITAG_TEXT);
-
     if (! NT_SUCCESS(Status))
     {
         SetLastNtError(Status);
+        ExFreePoolWithTag(SafeBuff, GDITAG_TEXT);
         return FALSE;
     }
-
+    ExFreePoolWithTag(SafeBuff, GDITAG_TEXT);
     DPRINT("NtGdiGetCharABCWidths Worked!\n");
     return TRUE;
 }
@@ -4133,7 +4094,7 @@ NtGdiGetCharWidthW(
     IN HDC hDC,
     IN UINT FirstChar,
     IN UINT Count,
-    IN OPTIONAL PWCHAR UnSafepwc,
+    IN OPTIONAL PWCHAR pwc,
     IN FLONG fl,
     OUT PVOID Buffer)
 {
@@ -4149,22 +4110,14 @@ NtGdiGetCharWidthW(
     UINT i, glyph_index, BufferSize;
     HFONT hFont = 0;
     PMATRIX pmxWorldToDevice;
-    PWCHAR Safepwc = NULL;
 
-    if (UnSafepwc)
+    if (pwc)
     {
-        UINT pwcSize = Count * sizeof(WCHAR);
-        Safepwc = ExAllocatePoolWithTag(PagedPool, pwcSize, GDITAG_TEXT);
-
-        if(!Safepwc)
-        {
-            EngSetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            return FALSE;
-        }
         _SEH2_TRY
         {
-            ProbeForRead(UnSafepwc, pwcSize, 1);
-            RtlCopyMemory(Safepwc, UnSafepwc, pwcSize);
+            ProbeForRead(pwc,
+            sizeof(PWSTR),
+            1);
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
@@ -4172,7 +4125,6 @@ NtGdiGetCharWidthW(
         }
         _SEH2_END;
     }
-
     if (!NT_SUCCESS(Status))
     {
         EngSetLastError(Status);
@@ -4184,9 +4136,6 @@ NtGdiGetCharWidthW(
     if (!fl) SafeBuffF = (PFLOAT) SafeBuff;
     if (SafeBuff == NULL)
     {
-        if(Safepwc)
-            ExFreePoolWithTag(Safepwc, GDITAG_TEXT);
-
         EngSetLastError(ERROR_NOT_ENOUGH_MEMORY);
         return FALSE;
     }
@@ -4194,9 +4143,6 @@ NtGdiGetCharWidthW(
     dc = DC_LockDc(hDC);
     if (dc == NULL)
     {
-        if(Safepwc)
-            ExFreePoolWithTag(Safepwc, GDITAG_TEXT);
-
         ExFreePoolWithTag(SafeBuff, GDITAG_TEXT);
         EngSetLastError(ERROR_INVALID_HANDLE);
         return FALSE;
@@ -4210,9 +4156,6 @@ NtGdiGetCharWidthW(
 
     if (TextObj == NULL)
     {
-        if(Safepwc)
-            ExFreePoolWithTag(Safepwc, GDITAG_TEXT);
-
         ExFreePoolWithTag(SafeBuff, GDITAG_TEXT);
         EngSetLastError(ERROR_INVALID_HANDLE);
         return FALSE;
@@ -4236,11 +4179,7 @@ NtGdiGetCharWidthW(
         if (!found)
         {
             DPRINT1("WARNING: Could not find desired charmap!\n");
-
-            if(Safepwc)
-                ExFreePoolWithTag(Safepwc, GDITAG_TEXT);
-
-            ExFreePoolWithTag(SafeBuff, GDITAG_TEXT);
+            ExFreePool(SafeBuff);
             EngSetLastError(ERROR_INVALID_HANDLE);
             return FALSE;
         }
@@ -4260,12 +4199,12 @@ NtGdiGetCharWidthW(
 
     for (i = FirstChar; i < FirstChar+Count; i++)
     {
-        if (Safepwc)
+        if (pwc)
         {
             if (fl & GCW_INDICES)
-                glyph_index = Safepwc[i - FirstChar];
+                glyph_index = pwc[i - FirstChar];
             else
-                glyph_index = FT_Get_Char_Index(face, Safepwc[i - FirstChar]);
+                glyph_index = FT_Get_Char_Index(face, pwc[i - FirstChar]);
         }
         else
         {
@@ -4283,10 +4222,6 @@ NtGdiGetCharWidthW(
     IntUnLockFreeType;
     TEXTOBJ_UnlockText(TextObj);
     MmCopyToCaller(Buffer, SafeBuff, BufferSize);
-
-    if(Safepwc)
-        ExFreePoolWithTag(Safepwc, GDITAG_TEXT);
-
     ExFreePoolWithTag(SafeBuff, GDITAG_TEXT);
     return TRUE;
 }
@@ -4407,8 +4342,7 @@ NtGdiGetGlyphIndicesW(
     FT_Face face;
     WCHAR DefChar = 0xffff;
     PWSTR Buffer = NULL;
-    ULONG Size, pwcSize;
-    PWSTR Safepwc = NULL;
+    ULONG Size;
 
     if ((!UnSafepwc) && (!UnSafepgi)) return cwc;
 
@@ -4453,19 +4387,11 @@ NtGdiGetGlyphIndicesW(
         ExFreePoolWithTag(potm, GDITAG_TEXT);
     }
 
-    pwcSize = cwc * sizeof(WCHAR);
-    Safepwc = ExAllocatePoolWithTag(PagedPool, pwcSize, GDITAG_TEXT);
-
-    if (!Safepwc)
-    {
-        EngSetLastError(ERROR_NOT_ENOUGH_MEMORY);
-        return GDI_ERROR;
-    }
-
     _SEH2_TRY
     {
-        ProbeForRead(UnSafepwc, pwcSize, 1);
-        RtlCopyMemory(Safepwc, UnSafepwc, pwcSize);
+        ProbeForRead(UnSafepwc,
+        sizeof(PWSTR),
+        1);
     }
     _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
     {
@@ -4486,7 +4412,7 @@ NtGdiGetGlyphIndicesW(
 
     for (i = 0; i < cwc; i++)
     {
-        Buffer[i] = FT_Get_Char_Index(face, Safepwc[i]);
+        Buffer[i] = FT_Get_Char_Index(face, UnSafepwc[i]); // FIXME: Unsafe!
         if (Buffer[i] == 0)
         {
             Buffer[i] = DefChar;
@@ -4497,8 +4423,12 @@ NtGdiGetGlyphIndicesW(
 
     _SEH2_TRY
     {
-        ProbeForWrite(UnSafepgi, cwc * sizeof(WORD), 1);
-        RtlCopyMemory(UnSafepgi, Buffer, cwc * sizeof(WORD));
+        ProbeForWrite(UnSafepgi,
+        sizeof(WORD),
+        1);
+        RtlCopyMemory(UnSafepgi,
+                      Buffer,
+                      cwc*sizeof(WORD));
     }
     _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
     {
@@ -4508,7 +4438,6 @@ NtGdiGetGlyphIndicesW(
 
 ErrorRet:
     ExFreePoolWithTag(Buffer, GDITAG_TEXT);
-    ExFreePoolWithTag(Safepwc, GDITAG_TEXT);
     if (NT_SUCCESS(Status)) return cwc;
     EngSetLastError(Status);
     return GDI_ERROR;

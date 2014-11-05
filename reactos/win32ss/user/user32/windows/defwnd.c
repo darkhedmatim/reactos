@@ -447,27 +447,6 @@ UserSendUiUpdateMsg(HWND hwnd, LPARAM lParam)
     return TRUE;
 }
 
-static void
-UserPaintCaption(HWND hwnd)
-{
-    /* FIXME: this is not 100% correct */
-
-    /* 
-     * When themes are not enabled we can go on and paint the non client area.
-     * However if we do that with themes enabled we will draw a classic frame.
-     * This is sovled by sending a themes specific message to notify the themes
-     * engine that the caption needs to be redrawn 
-     */
-    if(gpsi->dwSRVIFlags & SRVINFO_APIHOOK)
-    {
-        SendMessage(hwnd, WM_NCUAHDRAWCAPTION,0,0);
-    }
-    else
-    {
-        DefWndNCPaint(hwnd, HRGN_WINDOW, -1);
-    }
-}
-
 // WM_SETICON
 LRESULT FASTCALL
 DefWndSetIcon(PWND pWnd, WPARAM wParam, LPARAM lParam)
@@ -502,7 +481,7 @@ DefWndSetIcon(PWND pWnd, WPARAM wParam, LPARAM lParam)
     NtUserSetProp(UserHMGetHandle(pWnd), gpsi->atomIconSmProp, hIconSmall);
 
     if ((pWnd->style & WS_CAPTION ) == WS_CAPTION)
-       UserPaintCaption(UserHMGetHandle(pWnd));  /* Repaint caption */
+       DefWndNCPaint(UserHMGetHandle(pWnd), HRGN_WINDOW, -1);  /* Repaint caption */
 
     return (LRESULT)hIconOld;
 }
@@ -643,7 +622,10 @@ User32DefWindowProc(HWND hWnd,
         case WM_RBUTTONUP:
         {
             POINT Pt;
-
+            if (hWnd == GetCapture())
+            {
+                ReleaseCapture();
+            }
             Pt.x = GET_X_LPARAM(lParam);
             Pt.y = GET_Y_LPARAM(lParam);
             ClientToScreen(hWnd, &Pt);
@@ -1475,7 +1457,17 @@ RealDefWindowProcA(HWND hWnd,
             DefSetText(hWnd, (PCWSTR)lParam, TRUE);
 
             if ((GetWindowLongPtrW(hWnd, GWL_STYLE) & WS_CAPTION) == WS_CAPTION)
-                UserPaintCaption(hWnd);
+            {
+                /* FIXME: this is not 100% correct */
+                if(gpsi->dwSRVIFlags & SRVINFO_APIHOOK)
+                {
+                    SendMessage(hWnd, WM_NCUAHDRAWCAPTION,0,0);
+                }
+                else
+                {
+                    DefWndNCPaint(hWnd, HRGN_WINDOW, -1);
+                }
+            }
             Result = 1;
             break;
         }
@@ -1637,7 +1629,17 @@ RealDefWindowProcW(HWND hWnd,
             DefSetText(hWnd, (PCWSTR)lParam, FALSE);
 
             if ((GetWindowLongPtrW(hWnd, GWL_STYLE) & WS_CAPTION) == WS_CAPTION)
-                UserPaintCaption(hWnd);
+            {
+                /* FIXME: this is not 100% correct */
+                if(gpsi->dwSRVIFlags & SRVINFO_APIHOOK)
+                {
+                    SendMessage(hWnd, WM_NCUAHDRAWCAPTION,0,0);
+                }
+                else
+                {
+                    DefWndNCPaint(hWnd, HRGN_WINDOW, -1);
+                }
+            }
             Result = 1;
             break;
         }

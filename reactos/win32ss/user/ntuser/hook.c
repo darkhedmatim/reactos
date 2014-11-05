@@ -1294,14 +1294,12 @@ IntUnhookWindowsHook(int HookId, HOOKPROC pfnFilterProc)
        {
           Hook = CONTAINING_RECORD(pElement, HOOK, Chain);
 
-          /* Get the next element now, we might free the hook in what follows */
-          pElement = Hook->Chain.Flink;
-
           if (Hook->Proc == pfnFilterProc)
           {
              if (Hook->head.pti == pti)
              {
                 IntRemoveHook(Hook);
+                UserDereferenceObject(Hook);
                 return TRUE;
              }
              else
@@ -1310,6 +1308,8 @@ IntUnhookWindowsHook(int HookId, HOOKPROC pfnFilterProc)
                 return FALSE;
              }
           }
+
+          pElement = Hook->Chain.Flink;
        }
     }
     return FALSE;
@@ -1402,7 +1402,7 @@ NtUserSetWindowsHookEx( HINSTANCE Mod,
                         BOOL Ansi)
 {
     PWINSTATION_OBJECT WinStaObj;
-    PHOOK Hook = NULL;
+    PHOOK Hook;
     UNICODE_STRING ModuleName;
     NTSTATUS Status;
     HHOOK Handle;
@@ -1634,8 +1634,6 @@ NtUserSetWindowsHookEx( HINSTANCE Mod,
     RETURN( Handle);
 
 CLEANUP:
-    if (Hook)
-        UserDereferenceObject(Hook);
     TRACE("Leave NtUserSetWindowsHookEx, ret=%p\n", _ret_);
     UserLeave();
     END_CLEANUP;

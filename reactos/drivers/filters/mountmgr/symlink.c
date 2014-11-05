@@ -923,35 +923,27 @@ DeleteSymbolicLinkNameFromMemory(IN PDEVICE_EXTENSION DeviceExtension,
 BOOLEAN
 IsDriveLetter(PUNICODE_STRING SymbolicName)
 {
-    WCHAR Letter, Colon;
+    WCHAR Letter;
+    BOOLEAN Result = FALSE;
 
     /* We must have a precise length */
-    if (SymbolicName->Length != DosDevices.Length + 2 * sizeof(WCHAR))
+    if (SymbolicName->Length != sizeof(DosDevices.Buffer) + 2 * sizeof(WCHAR))
     {
         return FALSE;
     }
 
-    /* Must start with the DosDevices prefix */
-    if (!RtlPrefixUnicodeString(&DosDevices, SymbolicName, TRUE))
+    /* Check if len is correct */
+    Letter = SymbolicName->Buffer[sizeof(DosDevices.Buffer) / sizeof(WCHAR)];
+    if (((Letter >= L'A' && Letter <= L'Z') || Letter == (WCHAR)-1) &&
+        SymbolicName->Buffer[(sizeof(DosDevices.Buffer) + sizeof(WCHAR)) / sizeof (WCHAR)] == L':')
     {
-        return FALSE;
+        /* In case it's not a normal drive letter, check differently */
+        SymbolicName->Length = sizeof(DosDevices.Buffer);
+        Result = RtlEqualUnicodeString(SymbolicName, &DosDevices, TRUE);
+        SymbolicName->Length = sizeof(DosDevices.Buffer) + 2 * sizeof(WCHAR);
     }
 
-    /* Check if letter is correct */
-    Letter = SymbolicName->Buffer[DosDevices.Length / sizeof(WCHAR)];
-    if ((Letter < L'A' || Letter > L'Z') && Letter != (WCHAR)-1)
-    {
-        return FALSE;
-    }
-
-    /* And finally it must end with a colon */
-    Colon = SymbolicName->Buffer[DosDevices.Length / sizeof(WCHAR) + 1];
-    if (Colon != L':')
-    {
-        return FALSE;
-    }
-
-    return TRUE;
+    return Result;
 }
 
 /*

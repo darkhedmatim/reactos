@@ -116,7 +116,6 @@ IntAddConsoleAlias(LPCVOID Source,
  */
 BOOL
 WINAPI
-DECLSPEC_HOTPATCH
 AddConsoleAliasW(LPCWSTR lpSource,
                  LPCWSTR lpTarget,
                  LPCWSTR lpExeName)
@@ -141,7 +140,6 @@ AddConsoleAliasW(LPCWSTR lpSource,
  */
 BOOL
 WINAPI
-DECLSPEC_HOTPATCH
 AddConsoleAliasA(LPCSTR lpSource,
                  LPCSTR lpTarget,
                  LPCSTR lpExeName)
@@ -256,7 +254,6 @@ IntGetConsoleAlias(LPVOID Source,
  */
 DWORD
 WINAPI
-DECLSPEC_HOTPATCH
 GetConsoleAliasW(LPWSTR lpSource,
                  LPWSTR lpTargetBuffer,
                  DWORD TargetBufferLength,
@@ -279,7 +276,6 @@ GetConsoleAliasW(LPWSTR lpSource,
  */
 DWORD
 WINAPI
-DECLSPEC_HOTPATCH
 GetConsoleAliasA(LPSTR lpSource,
                  LPSTR lpTargetBuffer,
                  DWORD TargetBufferLength,
@@ -372,7 +368,6 @@ IntGetConsoleAliases(LPVOID  AliasBuffer,
  */
 DWORD
 WINAPI
-DECLSPEC_HOTPATCH
 GetConsoleAliasesW(LPWSTR AliasBuffer,
                    DWORD AliasBufferLength,
                    LPWSTR ExeName)
@@ -392,7 +387,6 @@ GetConsoleAliasesW(LPWSTR AliasBuffer,
  */
 DWORD
 WINAPI
-DECLSPEC_HOTPATCH
 GetConsoleAliasesA(LPSTR AliasBuffer,
                    DWORD AliasBufferLength,
                    LPSTR ExeName)
@@ -462,7 +456,6 @@ IntGetConsoleAliasesLength(LPVOID lpExeName, BOOLEAN bUnicode)
  */
 DWORD
 WINAPI
-DECLSPEC_HOTPATCH
 GetConsoleAliasesLengthW(LPWSTR lpExeName)
 {
     return IntGetConsoleAliasesLength(lpExeName, TRUE);
@@ -474,7 +467,6 @@ GetConsoleAliasesLengthW(LPWSTR lpExeName)
  */
 DWORD
 WINAPI
-DECLSPEC_HOTPATCH
 GetConsoleAliasesLengthA(LPSTR lpExeName)
 {
     return IntGetConsoleAliasesLength(lpExeName, FALSE);
@@ -531,7 +523,6 @@ IntGetConsoleAliasExes(PVOID lpExeNameBuffer,
  */
 DWORD
 WINAPI
-DECLSPEC_HOTPATCH
 GetConsoleAliasExesW(LPWSTR lpExeNameBuffer,
                      DWORD ExeNameBufferLength)
 {
@@ -545,7 +536,6 @@ GetConsoleAliasExesW(LPWSTR lpExeNameBuffer,
  */
 DWORD
 WINAPI
-DECLSPEC_HOTPATCH
 GetConsoleAliasExesA(LPSTR lpExeNameBuffer,
                      DWORD ExeNameBufferLength)
 {
@@ -582,7 +572,6 @@ IntGetConsoleAliasExesLength(BOOLEAN bUnicode)
  */
 DWORD
 WINAPI
-DECLSPEC_HOTPATCH
 GetConsoleAliasExesLengthW(VOID)
 {
     DPRINT1("GetConsoleAliasExesLengthW called\n");
@@ -595,7 +584,6 @@ GetConsoleAliasExesLengthW(VOID)
  */
 DWORD
 WINAPI
-DECLSPEC_HOTPATCH
 GetConsoleAliasExesLengthA(VOID)
 {
     DPRINT1("GetConsoleAliasExesLengthA called\n");

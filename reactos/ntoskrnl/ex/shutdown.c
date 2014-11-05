@@ -10,8 +10,6 @@
 /* INCLUDES *****************************************************************/
 
 #include <ntoskrnl.h>
-
-#define NDEBUG
 #include <debug.h>
 
 /* FUNCTIONS *****************************************************************/
@@ -24,7 +22,7 @@ NTAPI
 NtShutdownSystem(IN SHUTDOWN_ACTION Action)
 {
     POWER_ACTION PowerAction;
-
+    
     /* Convert to power action */
     if (Action == ShutdownNoReboot)
     {
@@ -42,9 +40,9 @@ NtShutdownSystem(IN SHUTDOWN_ACTION Action)
     {
         return STATUS_INVALID_PARAMETER;
     }
-
+    
     /* Now call the power manager */
-    DPRINT("Setting state to: %lx\n", PowerAction);
+    DPRINT1("Setting state to: %lx\n", PowerAction);
     return NtSetSystemPowerState(PowerAction,
                                  PowerSystemSleeping3,
                                  POWER_ACTION_OVERRIDE_APPS |

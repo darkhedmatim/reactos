@@ -256,11 +256,9 @@ check Wine current souces first as it may already be fixed.
 reactos/lib/3rdparty/strmbase               # Synced to Wine-1.7.27
 
 advapi32 -
-  reactos/dll/win32/advapi32/wine/cred.c         # Synced to Wine-1.7.27
-  reactos/dll/win32/advapi32/wine/crypt.c        # Synced to Wine-1.7.27
-  reactos/dll/win32/advapi32/wine/crypt_des.c    # Synced to Wine-1.7.27
-  reactos/dll/win32/advapi32/wine/crypt_lmhash.c # Synced to Wine-1.7.27
-  reactos/dll/win32/advapi32/wine/security.c     # Out of Sync
+  reactos/dll/win32/advapi32/crypt/*.c          # Synced to Wine-1.7.1
+  reactos/dll/win32/advapi32/sec/cred.c         # Synced to Wine-1.7.1
+  reactos/dll/win32/advapi32/sec/sid.c          # Out of Sync
 
 gdi32 -
   reactos/dll/win32/gdi32/objects/linedda.c     # Synced at 20090410
@@ -271,10 +269,10 @@ kernel32 -
   reactos/dll/win32/kernel32/wine/lzexpand.c             # Synced in r52754
   reactos/dll/win32/kernel32/wine/profile.c              # Synced in r52754
   reactos/dll/win32/kernel32/wine/res.c                  # Synced in r52754
-  reactos/dll/win32/kernel32/winnls/string/casemap.c     # Synced to Wine-1.7.27
+  reactos/dll/win32/kernel32/winnls/string/casemap.c     # Synced in r52754
   reactos/dll/win32/kernel32/winnls/string/chartype.c    # Synced in r52754
   reactos/dll/win32/kernel32/winnls/string/collation.c   # Synced in r52754
-  reactos/dll/win32/kernel32/winnls/string/format_msg.c  # Synced to Wine-1.7.27
+  reactos/dll/win32/kernel32/winnls/string/format_msg.c  # Synced to Wine-1.5.4
   reactos/dll/win32/kernel32/winnls/string/lang.c        # Synced in r52754
   reactos/dll/win32/kernel32/winnls/string/lcformat.c    # Synced in r52754
   reactos/dll/win32/kernel32/winnls/string/nls.c         # Synced in r52754

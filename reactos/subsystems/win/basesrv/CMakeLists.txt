@@ -1,5 +1,6 @@
 
 include_directories(${REACTOS_SOURCE_DIR}/include/reactos/subsys)
+
 spec2def(basesrv.dll basesrv.spec)
 
 list(APPEND SOURCE
@@ -23,6 +24,7 @@ set_subsystem(basesrv console)
 ################# END  HACK #################
 
 target_link_libraries(basesrv ${PSEH_LIB})
+
 add_importlibs(basesrv csrsrv ntdll)
 add_pch(basesrv basesrv.h SOURCE)
 add_dependencies(basesrv bugcodes)

@@ -1,4 +1,3 @@
-
 add_definitions(
     -DNDIS50
     -D_NTDRIVER_)

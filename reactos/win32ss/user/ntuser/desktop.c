@@ -25,10 +25,6 @@ IntFreeDesktopHeap(IN PDESKTOP pdesk);
 
 /* GLOBALS *******************************************************************/
 
-/* These can be changed via csrss startup, these are defaults */
-DWORD gdwDesktopSectionSize = 512;
-DWORD gdwNOIOSectionSize    = 128; // A guess, for one or more of the first three system desktops.
-
 /* Currently active desktop */
 PDESKTOP gpdeskInputDesktop = NULL;
 HDC ScreenDeviceContext = NULL;
@@ -473,7 +469,7 @@ IntGetDesktopObjectHandle(PDESKTOP DesktopObject)
    }
    else
    {
-       TRACE("Got handle: %p\n", Ret);
+       ERR("Got handle: %p\n", Ret);
    }
 
    return Ret;
@@ -666,15 +662,9 @@ DesktopWindowProc(PWND Wnd, UINT Msg, WPARAM wParam, LPARAM lParam, LRESULT *lRe
           {
               return TRUE;
           }
-#ifdef NEW_CURSORICON
-          pcurNew->CURSORF_flags |= CURSORF_CURRENT;
-#endif
           pcurOld = UserSetCursor(pcurNew, FALSE);
           if (pcurOld)
           {
-#ifdef NEW_CURSORICON
-               pcurOld->CURSORF_flags &= ~CURSORF_CURRENT;
-#endif
                UserDereferenceObject(pcurOld);
           }
           return TRUE;
@@ -816,17 +806,12 @@ HWND* FASTCALL
 UserBuildShellHookHwndList(PDESKTOP Desktop)
 {
    ULONG entries=0;
-   PLIST_ENTRY ListEntry;
    PSHELL_HOOK_WINDOW Current;
    HWND* list;
 
    /* FIXME: If we save nb elements in desktop, we dont have to loop to find nb entries */
-   ListEntry = Desktop->ShellHookWindows.Flink;
-   while (ListEntry != &Desktop->ShellHookWindows)
-   {
-      ListEntry = ListEntry->Flink;
+   LIST_FOR_EACH(Current, &Desktop->ShellHookWindows, SHELL_HOOK_WINDOW, ListEntry)
       entries++;
-   }
 
    if (!entries) return NULL;
 
@@ -835,13 +820,8 @@ UserBuildShellHookHwndList(PDESKTOP Desktop)
    {
       HWND* cursor = list;
 
-      ListEntry = Desktop->ShellHookWindows.Flink;
-      while (ListEntry != &Desktop->ShellHookWindows)
-      {
-         Current = CONTAINING_RECORD(ListEntry, SHELL_HOOK_WINDOW, ListEntry);
-         ListEntry = ListEntry->Flink;
+      LIST_FOR_EACH(Current, &Desktop->ShellHookWindows, SHELL_HOOK_WINDOW, ListEntry)
          *cursor++ = Current->hWnd;
-      }
 
       *cursor = NULL; /* Nullterm list */
    }
@@ -950,14 +930,10 @@ BOOL IntDeRegisterShellHookWindow(HWND hWnd)
 {
    PTHREADINFO pti = PsGetCurrentThreadWin32Thread();
    PDESKTOP Desktop = pti->rpdesk;
-   PLIST_ENTRY ListEntry;
    PSHELL_HOOK_WINDOW Current;
 
-   ListEntry = Desktop->ShellHookWindows.Flink;
-   while (ListEntry != &Desktop->ShellHookWindows)
+   LIST_FOR_EACH(Current, &Desktop->ShellHookWindows, SHELL_HOOK_WINDOW, ListEntry)
    {
-      Current = CONTAINING_RECORD(ListEntry, SHELL_HOOK_WINDOW, ListEntry);
-      ListEntry = ListEntry->Flink;
       if (Current->hWnd == hWnd)
       {
          RemoveEntryList(&Current->ListEntry);
@@ -1198,7 +1174,7 @@ static NTSTATUS
 UserInitializeDesktop(PDESKTOP pdesk, PUNICODE_STRING DesktopName, PWINSTATION_OBJECT pwinsta)
 {
     PVOID DesktopHeapSystemBase = NULL;
-    ULONG_PTR HeapSize = gdwDesktopSectionSize * 1024;
+    ULONG_PTR HeapSize = 400 * 1024;
     SIZE_T DesktopInfoSize;
     ULONG i;
 

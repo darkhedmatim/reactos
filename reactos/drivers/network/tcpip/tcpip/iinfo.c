@@ -12,18 +12,16 @@
 
 #include <ipifcons.h>
 
-/* See iptypes.h */
-#define MAX_ADAPTER_DESCRIPTION_LENGTH 128
-
 TDI_STATUS InfoTdiQueryGetInterfaceMIB(TDIEntityID ID,
 				       PIP_INTERFACE Interface,
 				       PNDIS_BUFFER Buffer,
 				       PUINT BufferSize) {
     TDI_STATUS Status = TDI_INVALID_REQUEST;
-    IFEntry* OutData;
+    PIFENTRY OutData;
     PLAN_ADAPTER IF;
     PCHAR IFDescr;
     ULONG Size;
+    UINT DescrLenMax = MAX_IFDESCR_LEN - 1;
     NDIS_STATUS NdisStatus;
 
     if (!Interface)
@@ -35,65 +33,69 @@ TDI_STATUS InfoTdiQueryGetInterfaceMIB(TDIEntityID ID,
 		("Getting IFEntry MIB (IF %08x LA %08x) (%04x:%d)\n",
 		 Interface, IF, ID.tei_entity, ID.tei_instance));
 
-    OutData = ExAllocatePool( NonPagedPool, FIELD_OFFSET(IFEntry, if_descr[MAX_ADAPTER_DESCRIPTION_LENGTH + 1]));
+    OutData =
+	(PIFENTRY)ExAllocatePool( NonPagedPool,
+				  sizeof(IFENTRY) + MAX_IFDESCR_LEN );
 
     if( !OutData ) return TDI_NO_RESOURCES; /* Out of memory */
 
-    RtlZeroMemory( OutData, FIELD_OFFSET(IFEntry, if_descr[MAX_ADAPTER_DESCRIPTION_LENGTH + 1]));
+    RtlZeroMemory( OutData, sizeof(IFENTRY) + MAX_IFDESCR_LEN );
 
-    OutData->if_index = Interface->Index;
+    OutData->Index = Interface->Index;
     /* viz: tcpip keeps those indices */
-    OutData->if_type = Interface ==
+    OutData->Type = Interface ==
         Loopback ? MIB_IF_TYPE_LOOPBACK : MIB_IF_TYPE_ETHERNET;
-    OutData->if_mtu = Interface->MTU;
+    OutData->Mtu = Interface->MTU;
     TI_DbgPrint(DEBUG_INFO,
 		("Getting interface speed\n"));
-    OutData->if_physaddrlen = Interface->AddressLength;
-    OutData->if_adminstatus = MIB_IF_ADMIN_STATUS_UP;
+    OutData->PhysAddrLen = Interface->AddressLength;
+    OutData->AdminStatus = MIB_IF_ADMIN_STATUS_UP;
     /* NDIS_HARDWARE_STATUS -> ROUTER_CONNECTION_STATE */
-    Status = GetInterfaceConnectionStatus( Interface, &OutData->if_operstatus );
+    Status = GetInterfaceConnectionStatus( Interface, &OutData->OperStatus );
 
     /* Not sure what to do here, but not ready seems a safe bet on failure */
     if( !NT_SUCCESS(Status) )
-        OutData->if_operstatus = NdisHardwareStatusNotReady;
+        OutData->OperStatus = NdisHardwareStatusNotReady;
 
-    IFDescr = (PCHAR)&OutData->if_descr[0];
+    IFDescr = (PCHAR)&OutData[1];
 
     if( IF ) {
-	GetInterfaceSpeed( Interface, (PUINT)&OutData->if_speed );
+	GetInterfaceSpeed( Interface, (PUINT)&OutData->Speed );
 	TI_DbgPrint(DEBUG_INFO,
-		    ("IF Speed = %d * 100bps\n", OutData->if_speed));
-	memcpy(OutData->if_physaddr, Interface->Address, Interface->AddressLength);
+		    ("IF Speed = %d * 100bps\n", OutData->Speed));
+	memcpy(OutData->PhysAddr,Interface->Address,Interface->AddressLength);
 	TI_DbgPrint(DEBUG_INFO, ("Got HWAddr\n"));
 
-        memcpy(&OutData->if_inoctets, &Interface->Stats, sizeof(SEND_RECV_STATS));
+        memcpy(&OutData->InOctets, &Interface->Stats, sizeof(SEND_RECV_STATS));
 
         NdisStatus = NDISCall(IF,
                               NdisRequestQueryInformation,
                               OID_GEN_XMIT_ERROR,
-                              &OutData->if_outerrors,
+                              &OutData->OutErrors,
                               sizeof(ULONG));
         if (NdisStatus != NDIS_STATUS_SUCCESS)
-            OutData->if_outerrors = 0;
+            OutData->OutErrors = 0;
 
-        TI_DbgPrint(DEBUG_INFO, ("OutErrors = %d\n", OutData->if_outerrors));
+        TI_DbgPrint(DEBUG_INFO, ("OutErrors = %d\n", OutData->OutErrors));
 
         NdisStatus = NDISCall(IF,
                               NdisRequestQueryInformation,
                               OID_GEN_RCV_ERROR,
-                              &OutData->if_inerrors,
+                              &OutData->InErrors,
                               sizeof(ULONG));
         if (NdisStatus != NDIS_STATUS_SUCCESS)
-            OutData->if_inerrors = 0;
+            OutData->InErrors = 0;
 
-        TI_DbgPrint(DEBUG_INFO, ("InErrors = %d\n", OutData->if_inerrors));
+        TI_DbgPrint(DEBUG_INFO, ("InErrors = %d\n", OutData->InErrors));
     }
 
-    GetInterfaceName( Interface, IFDescr, MAX_ADAPTER_DESCRIPTION_LENGTH );
+    GetInterfaceName( Interface, IFDescr, MAX_IFDESCR_LEN - 1 );
+    DescrLenMax = strlen( IFDescr ) + 1;
 
     TI_DbgPrint(DEBUG_INFO, ("Copied in name %s\n", IFDescr));
-    OutData->if_descrlen = strlen(IFDescr);
-    Size = FIELD_OFFSET(IFEntry, if_descr[OutData->if_descrlen + 1]);
+    OutData->DescrLen = DescrLenMax;
+    IFDescr += DescrLenMax;
+    Size = IFDescr - (PCHAR)OutData + 1;
 
     TI_DbgPrint(DEBUG_INFO, ("Finished IFEntry MIB (%04x:%d) size %d\n",
 			    ID.tei_entity, ID.tei_instance, Size));

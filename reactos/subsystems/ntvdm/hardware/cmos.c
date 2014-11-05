@@ -342,13 +342,13 @@ VOID CmosWriteData(BYTE Value)
     SelectedRegister = CMOS_REG_STATUS_D;
 }
 
-BYTE WINAPI CmosReadPort(USHORT Port)
+BYTE WINAPI CmosReadPort(ULONG Port)
 {
     ASSERT(Port == CMOS_DATA_PORT);
     return CmosReadData();
 }
 
-VOID WINAPI CmosWritePort(USHORT Port, BYTE Data)
+VOID WINAPI CmosWritePort(ULONG Port, BYTE Data)
 {
     if (Port == CMOS_ADDRESS_PORT)
         CmosWriteAddress(Data);

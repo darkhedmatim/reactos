@@ -1,10 +1,12 @@
 
 if(MSVC)
-    add_definitions(-Dsnprintf=_snprintf)
+    add_definitions(
+        -Dsnprintf=_snprintf)
 
     # Add this definition for WDK only, VS 9 doesn't like that
-    if(DEFINED ENV{DDKBUILDENV})
-        add_definitions(-Dvsnprintf=_vsnprintf)
+    if (DEFINED ENV{DDKBUILDENV})
+        add_definitions(
+            -Dvsnprintf=_vsnprintf)
     endif()
 
     list(APPEND SOURCE getopt.c)
@@ -30,5 +32,7 @@ list(APPEND SOURCE
 
 # Taken from widl.rbuild
 add_definitions(-DINT16=SHORT)
+
 add_executable(widl ${SOURCE})
+
 target_link_libraries(widl wpphost)

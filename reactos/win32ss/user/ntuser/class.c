@@ -9,6 +9,7 @@
 #include <win32k.h>
 DBG_DEFAULT_CHANNEL(UserClass);
 
+BOOL FASTCALL IntClassDestroyIcon(HANDLE hCurIcon);
 static NTSTATUS IntDeregisterClassAtom(IN RTL_ATOM Atom);
 
 REGISTER_SYSCLASS DefaultServerClasses[] =
@@ -230,7 +231,7 @@ IntDestroyClass(IN OUT PCLS Class)
 
         // Fixes running the static test then run class test issue.
         // Some applications do not use UnregisterClass before exiting.
-        // Keep from reusing the same atom with case insensitive
+        // Keep from reusing the same atom with case insensitive 
         // comparisons, remove registration of the atom if not zeroed.
         if (Class->atomClassName)
             IntDeregisterClassAtom(Class->atomClassName);
@@ -244,23 +245,8 @@ IntDestroyClass(IN OUT PCLS Class)
         IntFreeClassMenuName(Class);
     }
 
-#ifdef NEW_CURSORICON
-    if (Class->spicn)
-        UserDereferenceObject(Class->spicn);
-    if (Class->spcur)
-        UserDereferenceObject(Class->spcur);
-    if (Class->spicnSm)
-    {
-        UserDereferenceObject(Class->spicnSm);
-        /* Destroy the icon if we own it */
-        if ((Class->CSF_flags & CSF_CACHEDSMICON)
-                && !(UserObjectInDestroy(UserHMGetHandle(Class->spicnSm))))
-            IntDestroyCurIconObject(Class->spicnSm);
-    }
-#else
     if (Class->hIconSmIntern)
         IntClassDestroyIcon(Class->hIconSmIntern);
-#endif
 
     pDesk = Class->rpdeskParent;
     Class->rpdeskParent = NULL;
@@ -601,21 +587,10 @@ IntGetClassForDesktop(IN OUT PCLS BaseClass,
 
         Class = DesktopHeapAlloc(Desktop,
                                  ClassSize);
-
         if (Class != NULL)
         {
             /* Simply clone the class */
             RtlCopyMemory( Class, BaseClass, ClassSize);
-
-#ifdef NEW_CURSORICON
-            /* Reference our objects */
-            if (Class->spcur)
-                UserReferenceObject(Class->spcur);
-            if (Class->spicn)
-                UserReferenceObject(Class->spicn);
-            if (Class->spicnSm)
-                UserReferenceObject(Class->spicnSm);
-#endif
 
             TRACE("Clone Class 0x%p hM 0x%p\n %S\n",Class, Class->hModule, Class->lpszClientUnicodeMenuName);
 
@@ -843,16 +818,6 @@ IntMoveClassToSharedHeap(IN OUT PCLS Class,
         NewClass->rpdeskParent = NULL;
         NewClass->pclsBase = NewClass;
 
-#ifdef NEW_CURSORICON
-        if (NewClass->spcur)
-            UserReferenceObject(NewClass->spcur);
-        if (NewClass->spicn)
-            UserReferenceObject(NewClass->spicn);
-        if (NewClass->spicnSm)
-            UserReferenceObject(NewClass->spicnSm);
-#endif
-
-
         /* Replace the class in the list */
         (void)InterlockedExchangePointer((PVOID*)*ClassLinkPtr,
                                          NewClass);
@@ -1044,15 +1009,10 @@ IntCreateClass(IN CONST WNDCLASSEXW* lpwcx,
             Class->cbclsExtra = lpwcx->cbClsExtra;
             Class->cbwndExtra = lpwcx->cbWndExtra;
             Class->hModule = lpwcx->hInstance;
-#ifdef NEW_CURSORICON
-            Class->spicn = lpwcx->hIcon ? UserGetCurIconObject(lpwcx->hIcon) : NULL;
-            Class->spcur = lpwcx->hCursor ? UserGetCurIconObject(lpwcx->hCursor) : NULL;
-            Class->spicnSm = lpwcx->hIconSm ? UserGetCurIconObject(lpwcx->hIconSm) : NULL;
-#else
+            //// FIXME handles to pointers
             Class->hIcon = lpwcx->hIcon;
             Class->hIconSm = lpwcx->hIconSm;
             Class->hCursor = lpwcx->hCursor;
-#endif
             ////
             Class->hbrBackground = lpwcx->hbrBackground;
 
@@ -1766,7 +1726,13 @@ IntSetClassMenuName(IN PCLS Class,
     return Ret;
 }
 
+//// Do this for now in anticipation of new cursor icon code.
 #ifndef NEW_CURSORICON
+BOOLEAN FASTCALL IntDestroyCurIconObject(PCURICON_OBJECT, PPROCESSINFO);
+#else
+BOOLEAN FASTCALL IntDestroyCurIconObject(PCURICON_OBJECT, BOOLEAN);
+#endif
+
 BOOL FASTCALL
 IntClassDestroyIcon(HANDLE hCurIcon)
 {
@@ -1779,15 +1745,19 @@ IntClassDestroyIcon(HANDLE hCurIcon)
         ERR("hCurIcon was not found!\n");
         return FALSE;
     }
+#ifndef NEW_CURSORICON
+    Ret = IntDestroyCurIconObject(CurIcon, PsGetCurrentProcessWin32Process());
     /* Note: IntDestroyCurIconObject will remove our reference for us! */
-    Ret = IntDestroyCurIconObject(CurIcon, GetW32ProcessInfo());
+#else
+    /* Note: IntDestroyCurIconObject will remove our reference for us! */
+    Ret = IntDestroyCurIconObject(CurIcon, TRUE);
+#endif
     if (!Ret)
     {
        ERR("hCurIcon was not Destroyed!\n");
     }
     return Ret;
 }
-#endif
 
 ULONG_PTR
 UserSetClassLongPtr(IN PCLS Class,
@@ -1796,9 +1766,7 @@ UserSetClassLongPtr(IN PCLS Class,
                     IN BOOL Ansi)
 {
     ULONG_PTR Ret = 0;
-#ifndef NEW_CURSORICON
     HANDLE hIconSmIntern = NULL;
-#endif
 
     /* NOTE: For GCLP_MENUNAME and GCW_ATOM this function may raise an exception! */
 
@@ -1870,54 +1838,6 @@ UserSetClassLongPtr(IN PCLS Class,
             }
             break;
 
-#ifdef NEW_CURSORICON
-        case GCLP_HCURSOR:
-        {
-            PCURICON_OBJECT NewCursor = NULL;
-
-            if (NewLong)
-            {
-                NewCursor = UserGetCurIconObject((HCURSOR)NewLong);
-                if (!NewCursor)
-                {
-                    EngSetLastError(ERROR_INVALID_CURSOR_HANDLE);
-                    return 0;
-                }
-            }
-
-            if (Class->spcur)
-            {
-                Ret = (ULONG_PTR)UserHMGetHandle(Class->spcur);
-                UserDereferenceObject(Class->spcur);
-            }
-            else
-            {
-                Ret = 0;
-            }
-
-            if (Ret == NewLong)
-            {
-                /* It's a nop */
-                return Ret;
-            }
-
-            Class->spcur = NewCursor;
-
-            /* Update the clones */
-            Class = Class->pclsClone;
-            while (Class != NULL)
-            {
-                if (Class->spcur)
-                    UserDereferenceObject(Class->spcur);
-                if (NewCursor)
-                    UserReferenceObject(NewCursor);
-                Class->spcur = NewCursor;
-                Class = Class->pclsNext;
-            }
-
-            break;
-        }
-#else
         case GCLP_HCURSOR:
             /* FIXME: Get handle from pointer to CURSOR object */
             Ret = (ULONG_PTR)Class->hCursor;
@@ -1931,110 +1851,13 @@ UserSetClassLongPtr(IN PCLS Class,
                 Class = Class->pclsNext;
             }
             break;
-#endif
 
         // MSDN:
         // hIconSm, A handle to a small icon that is associated with the window class.
         // If this member is NULL, the system searches the icon resource specified by
         // the hIcon member for an icon of the appropriate size to use as the small icon.
-        //
+        //       
         case GCLP_HICON:
-#ifdef NEW_CURSORICON
-        {
-            PCURICON_OBJECT NewIcon = NULL;
-            PCURICON_OBJECT NewSmallIcon = NULL;
-
-            if (NewLong)
-            {
-                NewIcon = UserGetCurIconObject((HCURSOR)NewLong);
-                if (!NewIcon)
-                {
-                    EngSetLastError(ERROR_INVALID_ICON_HANDLE);
-                    return 0;
-                }
-            }
-
-            if (Class->spicn)
-            {
-                Ret = (ULONG_PTR)UserHMGetHandle(Class->spicn);
-                UserDereferenceObject(Class->spicn);
-            }
-            else
-            {
-                Ret = 0;
-            }
-
-            if (Ret == NewLong)
-            {
-                /* It's a nop */
-                return Ret;
-            }
-
-            if (Ret && (Class->CSF_flags & CSF_CACHEDSMICON))
-            {
-                /* We will change the small icon */
-                UserDereferenceObject(Class->spicnSm);
-                IntDestroyCurIconObject(Class->spicnSm);
-                Class->spicnSm = NULL;
-                Class->CSF_flags &= ~CSF_CACHEDSMICON;
-            }
-
-            if (NewLong && !Class->spicnSm)
-            {
-                /* Create the new small icon from the new large(?) one */
-                HICON SmallIconHandle = NULL;
-                if((NewIcon->CURSORF_flags & (CURSORF_LRSHARED | CURSORF_FROMRESOURCE))
-                        == (CURSORF_LRSHARED | CURSORF_FROMRESOURCE))
-                {
-                    SmallIconHandle = co_IntCopyImage(
-                        (HICON)NewLong,
-                        IMAGE_ICON,
-                        UserGetSystemMetrics( SM_CXSMICON ),
-                        UserGetSystemMetrics( SM_CYSMICON ),
-                        LR_COPYFROMRESOURCE);
-                }
-                if (!SmallIconHandle)
-                {
-                    /* Retry without copying from resource */
-                    SmallIconHandle = co_IntCopyImage(
-                        (HICON)NewLong,
-                        IMAGE_ICON,
-                        UserGetSystemMetrics( SM_CXSMICON ),
-                        UserGetSystemMetrics( SM_CYSMICON ),
-                        0);
-                }
-                if (SmallIconHandle)
-                {
-                    /* So use it */
-                    NewSmallIcon = Class->spicnSm = UserGetCurIconObject(SmallIconHandle);
-                    Class->CSF_flags |= CSF_CACHEDSMICON;
-                }
-            }
-
-            Class->spicn = NewIcon;
-
-            /* Update the clones */
-            Class = Class->pclsClone;
-            while (Class != NULL)
-            {
-                if (Class->spicn)
-                    UserDereferenceObject(Class->spicn);
-                if (NewIcon)
-                    UserReferenceObject(NewIcon);
-                Class->spicn = NewIcon;
-                if (NewSmallIcon)
-                {
-                    if (Class->spicnSm)
-                        UserDereferenceObject(Class->spicnSm);
-                    UserReferenceObject(NewSmallIcon);
-                    Class->spicnSm = NewSmallIcon;
-                    Class->CSF_flags |= CSF_CACHEDSMICON;
-                }
-                Class = Class->pclsNext;
-            }
-            break;
-        }
-#else
             /* FIXME: Get handle from pointer to ICON object */
             Ret = (ULONG_PTR)Class->hIcon;
             if (Class->hIcon == (HANDLE)NewLong) break;
@@ -2062,102 +1885,8 @@ UserSetClassLongPtr(IN PCLS Class,
                 Class = Class->pclsNext;
             }
             break;
-#endif
 
         case GCLP_HICONSM:
-#ifdef NEW_CURSORICON
-        {
-            PCURICON_OBJECT NewSmallIcon = NULL;
-            BOOLEAN NewIconFromCache = FALSE;
-
-            if (NewLong)
-            {
-                NewSmallIcon = UserGetCurIconObject((HCURSOR)NewLong);
-                if (!NewSmallIcon)
-                {
-                    EngSetLastError(ERROR_INVALID_ICON_HANDLE);
-                    return 0;
-                }
-            }
-            else
-            {
-                /* Create the new small icon from the large one */
-                HICON SmallIconHandle = NULL;
-                if((Class->spicn->CURSORF_flags & (CURSORF_LRSHARED | CURSORF_FROMRESOURCE))
-                        == (CURSORF_LRSHARED | CURSORF_FROMRESOURCE))
-                {
-                    SmallIconHandle = co_IntCopyImage(
-                        UserHMGetHandle(Class->spicn),
-                        IMAGE_ICON,
-                        UserGetSystemMetrics( SM_CXSMICON ),
-                        UserGetSystemMetrics( SM_CYSMICON ),
-                        LR_COPYFROMRESOURCE);
-                }
-                if (!SmallIconHandle)
-                {
-                    /* Retry without copying from resource */
-                    SmallIconHandle = co_IntCopyImage(
-                        UserHMGetHandle(Class->spicn),
-                        IMAGE_ICON,
-                        UserGetSystemMetrics( SM_CXSMICON ),
-                        UserGetSystemMetrics( SM_CYSMICON ),
-                        0);
-                }
-                if (SmallIconHandle)
-                {
-                    /* So use it */
-                    NewSmallIcon = UserGetCurIconObject(SmallIconHandle);
-                    NewIconFromCache = TRUE;
-                }
-                else
-                {
-                    ERR("Failed getting a small icon for the class.\n");
-                }
-            }
-
-            if (Class->spicnSm)
-            {
-                if (Class->CSF_flags & CSF_CACHEDSMICON)
-                {
-                    /* We must destroy the icon if we own it */
-                    IntDestroyCurIconObject(Class->spicnSm);
-                    Ret = 0;
-                }
-                else
-                {
-                    Ret = (ULONG_PTR)UserHMGetHandle(Class->spicnSm);
-                }
-                UserDereferenceObject(Class->spicnSm);
-            }
-            else
-            {
-                Ret = 0;
-            }
-
-            if (NewIconFromCache)
-                Class->CSF_flags |= CSF_CACHEDSMICON;
-            else
-                Class->CSF_flags &= ~CSF_CACHEDSMICON;
-            Class->spicnSm = NewSmallIcon;
-
-            /* Update the clones */
-            Class = Class->pclsClone;
-            while (Class != NULL)
-            {
-                if (Class->spicnSm)
-                    UserDereferenceObject(Class->spicnSm);
-                if (NewSmallIcon)
-                    UserReferenceObject(NewSmallIcon);
-                if (NewIconFromCache)
-                    Class->CSF_flags |= CSF_CACHEDSMICON;
-                else
-                    Class->CSF_flags &= ~CSF_CACHEDSMICON;
-                Class->spicnSm = NewSmallIcon;
-                Class = Class->pclsNext;
-            }
-        }
-        break;
-#else
             /* FIXME: Get handle from pointer to ICON object */
             Ret = (ULONG_PTR)Class->hIconSm;
             if (Class->hIconSm == (HANDLE)NewLong) break;
@@ -2191,7 +1920,6 @@ UserSetClassLongPtr(IN PCLS Class,
                 Class = Class->pclsNext;
             }
             break;
-#endif
 
         case GCLP_HMODULE:
             Ret = (ULONG_PTR)Class->hModule;
@@ -2283,16 +2011,8 @@ UserGetClassInfo(IN PCLS Class,
 
     lpwcx->cbClsExtra = Class->cbclsExtra;
     lpwcx->cbWndExtra = Class->cbwndExtra;
-#ifdef NEW_CURSORICON
-    lpwcx->hIcon = Class->spicn ? UserHMGetHandle(Class->spicn) : NULL;
-    lpwcx->hCursor = Class->spcur ? UserHMGetHandle(Class->spcur) : NULL;
-    lpwcx->hIconSm = Class->spicnSm ? UserHMGetHandle(Class->spicnSm) : NULL;
-#else
     lpwcx->hIcon = Class->hIcon;        /* FIXME: Get handle from pointer */
     lpwcx->hCursor = Class->hCursor;    /* FIXME: Get handle from pointer */
-    /* FIXME: Get handle from pointer */
-    lpwcx->hIconSm = Class->hIconSm ? Class->hIconSm : Class->hIconSmIntern;
-#endif
     lpwcx->hbrBackground = Class->hbrBackground;
 
     /* Copy non-string to user first. */
@@ -2321,6 +2041,9 @@ UserGetClassInfo(IN PCLS Class,
 
     /* FIXME: Return the string? Okay! This is performed in User32! */
     //lpwcx->lpszClassName = (LPCWSTR)((ULONG_PTR)Class->atomClassName);
+
+    /* FIXME: Get handle from pointer */
+    lpwcx->hIconSm = Class->hIconSm ? Class->hIconSm : Class->hIconSmIntern;
 
     return TRUE;
 }
@@ -2445,7 +2168,6 @@ NtUserRegisterClassExWOW(
     UNICODE_STRING CapturedName = {0}, CapturedMenuName = {0};
     RTL_ATOM Ret = (RTL_ATOM)0;
     PPROCESSINFO ppi = GetW32ProcessInfo();
-    BOOL Exception = FALSE;
 
     if (Flags & ~(CSF_ANSIPROC))
     {
@@ -2537,17 +2259,7 @@ InvalidParameter:
         }
 
         TRACE("NtUserRegisterClassExWOW MnuN %wZ\n",&CapturedMenuName);
-    }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-        ERR("NtUserRegisterClassExWOW Exception Error!\n");
-        SetLastNtError(_SEH2_GetExceptionCode());
-        Exception = TRUE;
-    }
-    _SEH2_END;
 
-    if (!Exception)
-    {
         /* Register the class */
         Ret = UserRegisterClass(&CapturedClassInfo,
                                 &CapturedName,
@@ -2555,12 +2267,18 @@ InvalidParameter:
                                 fnID,
                                 Flags);
     }
-
+    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
+    {
+        ERR("NtUserRegisterClassExWOW Exception Error!\n");
+        SetLastNtError(_SEH2_GetExceptionCode());
+    }
+    _SEH2_END;
+/*
     if (!Ret)
     {
-       TRACE("NtUserRegisterClassExWOW Null Return!\n");
+       ERR("NtUserRegisterClassExWOW Null Return!\n");
     }
-
+ */
     UserLeave();
 
     return Ret;

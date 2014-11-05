@@ -14,8 +14,7 @@
 PUBLIC	_memchr
 .code
 
-FUNC _memchr
-	FPO 0, 3, 4, 1, 1, FRAME_NONFPO
+_memchr:
 	push ebp
 	mov ebp, esp
 	push edi
@@ -34,6 +33,5 @@ FUNC _memchr
 	pop edi
 	leave
 	ret
-ENDFUNC
 
 END

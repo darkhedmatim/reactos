@@ -1674,38 +1674,7 @@ PWND FASTCALL IntCreateWindow(CREATESTRUCTW* Cs,
    }
 
    pWnd->head.pti->cWindows++;
-#ifdef NEW_CURSORICON
-   if (Class->spicn && !Class->spicnSm)
-   {
-       HICON IconSmHandle = NULL;
-       if((Class->spicn->CURSORF_flags & (CURSORF_LRSHARED | CURSORF_FROMRESOURCE))
-               == (CURSORF_LRSHARED | CURSORF_FROMRESOURCE))
-       {
-           IconSmHandle = co_IntCopyImage(
-               UserHMGetHandle(Class->spicn),
-               IMAGE_ICON,
-               UserGetSystemMetrics( SM_CXSMICON ),
-               UserGetSystemMetrics( SM_CYSMICON ),
-               LR_COPYFROMRESOURCE);
-       }
-       if (!IconSmHandle)
-       {
-           /* Retry without copying from resource */
-           IconSmHandle = co_IntCopyImage(
-               UserHMGetHandle(Class->spicn),
-               IMAGE_ICON,
-               UserGetSystemMetrics( SM_CXSMICON ),
-               UserGetSystemMetrics( SM_CYSMICON ),
-               0);
-       }
 
-       if (IconSmHandle)
-       {
-           Class->spicnSm = UserGetCurIconObject(IconSmHandle);
-           Class->CSF_flags |= CSF_CACHEDSMICON;
-       }
-   }
-#else
    if (Class->hIcon && !Class->hIconSm)
    {
       Class->hIconSmIntern = co_IntCopyImage( Class->hIcon, IMAGE_ICON,
@@ -1714,7 +1683,6 @@ PWND FASTCALL IntCreateWindow(CREATESTRUCTW* Cs,
       TRACE("IntCreateWindow hIconSmIntern %p\n",Class->hIconSmIntern);
       Class->CSF_flags |= CSF_CACHEDSMICON;
    }
-#endif
 
    if (pWnd->pcls->CSF_flags & CSF_SERVERSIDEPROC)
       pWnd->state |= WNDS_SERVERSIDEWINDOWPROC;

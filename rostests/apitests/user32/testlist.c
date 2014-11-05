@@ -21,7 +21,6 @@ extern void func_LookupIconIdFromDirectoryEx(void);
 extern void func_RealGetWindowClass(void);
 extern void func_ScrollDC(void);
 extern void func_ScrollWindowEx(void);
-extern void func_SendMessageTimeout(void);
 extern void func_SetActiveWindow(void);
 extern void func_SetCursorPos(void);
 extern void func_SystemParametersInfo(void);
@@ -49,7 +48,6 @@ const struct test winetest_testlist[] =
     { "RealGetWindowClass", func_RealGetWindowClass },
     { "ScrollDC", func_ScrollDC },
     { "ScrollWindowEx", func_ScrollWindowEx },
-    { "SendMessageTimeout", func_SendMessageTimeout },
     { "SetActiveWindow", func_SetActiveWindow },
     { "SetCursorPos", func_SetCursorPos },
     { "SystemParametersInfo", func_SystemParametersInfo },

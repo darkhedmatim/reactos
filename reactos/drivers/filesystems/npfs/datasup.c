@@ -85,7 +85,7 @@ NpCompleteStalledWrites(IN PNP_DATA_QUEUE DataQueue,
                 {
                     DataQueueEntry->Irp = NULL;
 
-                    Irp->IoStatus.Status = STATUS_SUCCESS;
+                    Irp->IoStatus.Status = 0;
                     Irp->IoStatus.Information = DataQueueEntry->DataSize;
 
                     InsertTailList(List, &Irp->Tail.Overlay.ListEntry);
@@ -146,10 +146,9 @@ NpRemoveDataQueueEntry(IN PNP_DATA_QUEUE DataQueue,
         Irp = QueueEntry->Irp;
         NpFreeClientSecurityContext(QueueEntry->ClientSecurityContext);
 
-        if (Irp && !IoSetCancelRoutine(Irp, NULL))
+        if (Irp && IoSetCancelRoutine(Irp, NULL))
         {
             Irp->Tail.Overlay.DriverContext[3] = NULL;
-            Irp = NULL;
         }
 
         ExFreePool(QueueEntry);
@@ -217,7 +216,7 @@ NpCancelDataQueueIrp(IN PDEVICE_OBJECT DeviceObject,
 
     InitializeListHead(&DeferredList);
 
-    DataQueue = Irp->Tail.Overlay.DriverContext[2];
+    DataQueue = (PNP_DATA_QUEUE)Irp->Tail.Overlay.DriverContext[2];
     ClientSecurityContext = NULL;
 
     if (DeviceObject)

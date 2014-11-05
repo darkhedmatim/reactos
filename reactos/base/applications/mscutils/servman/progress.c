@@ -167,7 +167,9 @@ CreateProgressDialog(HWND hParent,
                                 0,
                                 (LPARAM)lpProgStr);
 
-            LocalFree(lpProgStr);
+            HeapFree(GetProcessHeap(),
+                     0,
+                     lpProgStr);
         }
 
         /* Finally, show and update the progress dialog */

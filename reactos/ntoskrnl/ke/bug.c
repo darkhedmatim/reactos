@@ -975,31 +975,15 @@ KeBugCheckWithTf(IN ULONG BugCheckCode,
                                               FALSE,
                                               &IsSystem);
             }
-            else
-            {
-                /* Can't blame a driver, assume system */
-                IsSystem = TRUE;
-            }
 
-            /* FIXME: Check for session pool in addition to special pool */
+            /*
+             * Now we should check if this happened in:
+             * 1) Special Pool 2) Free Special Pool 3) Session Pool
+             * and update the bugcheck code appropriately.
+             */
 
-            /* Special pool has its own bug check codes */
-            if (MmIsSpecialPoolAddress((PVOID)BugCheckParameter1))
-            {
-                if (MmIsSpecialPoolAddressFree((PVOID)BugCheckParameter1))
-                {
-                    KiBugCheckData[0] = IsSystem
-                        ? PAGE_FAULT_IN_FREED_SPECIAL_POOL
-                        : DRIVER_PAGE_FAULT_IN_FREED_SPECIAL_POOL;
-                }
-                else
-                {
-                    KiBugCheckData[0] = IsSystem
-                        ? PAGE_FAULT_BEYOND_END_OF_ALLOCATION
-                        : DRIVER_PAGE_FAULT_BEYOND_END_OF_ALLOCATION;
-                }
-            }
-            else if (!DriverBase)
+            /* Check if we didn't have a driver base */
+            if (!DriverBase)
             {
                 /* Find the driver that unloaded at this address */
                 KiBugCheckDriver = NULL; // FIXME: ROS can't locate

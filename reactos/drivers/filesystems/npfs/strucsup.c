@@ -218,6 +218,7 @@ NpCreateFcb(IN PNP_DCB Dcb,
     PNP_FCB Fcb;
     BOOLEAN RootPipe;
     PWCHAR NameBuffer;
+    ULONG BufferOffset;
     USHORT Length, MaximumLength;
     PAGED_CODE();
 
@@ -232,7 +233,6 @@ NpCreateFcb(IN PNP_DCB Dcb,
     RootPipe = FALSE;
     if (PipeName->Buffer[0] != OBJ_NAME_PATH_SEPARATOR)
     {
-        Length += sizeof(OBJ_NAME_PATH_SEPARATOR);
         MaximumLength += sizeof(OBJ_NAME_PATH_SEPARATOR);
         RootPipe = TRUE;
         if (MaximumLength < sizeof(WCHAR))
@@ -262,21 +262,15 @@ NpCreateFcb(IN PNP_DCB Dcb,
 
     InsertTailList(&Dcb->FcbList, &Fcb->DcbEntry);
 
+    BufferOffset = 0;
     if (RootPipe)
     {
         NameBuffer[0] = OBJ_NAME_PATH_SEPARATOR;
-        RtlCopyMemory(NameBuffer + 1,
-                      PipeName->Buffer,
-                      PipeName->Length);
-    }
-    else
-    {
-        RtlCopyMemory(NameBuffer,
-                      PipeName->Buffer,
-                      PipeName->Length);
+        BufferOffset = 1;
     }
 
-    NameBuffer[Length / sizeof(WCHAR)] = UNICODE_NULL;
+    RtlCopyMemory(NameBuffer + BufferOffset, PipeName->Buffer, Length);
+    NameBuffer[BufferOffset + (Length / sizeof(WCHAR))] = UNICODE_NULL;
 
     Fcb->FullName.Length = Length;
     Fcb->FullName.MaximumLength = MaximumLength;

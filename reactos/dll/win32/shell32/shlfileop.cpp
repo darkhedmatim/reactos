@@ -23,6 +23,8 @@
 
 #include "precomp.h"
 
+#include "xdg.h"
+
 WINE_DEFAULT_DEBUG_CHANNEL(shell);
 
 #define IsAttrib(x, y)  ((INVALID_FILE_ATTRIBUTES != (x)) && ((x) & (y)))
@@ -1559,18 +1561,14 @@ static void move_to_dir(LPSHFILEOPSTRUCTW lpFileOp, const FILE_ENTRY *feFrom, co
 }
 
 /* the FO_MOVE operation */
-static DWORD move_files(LPSHFILEOPSTRUCTW lpFileOp, const FILE_LIST *flFrom, const FILE_LIST *flTo)
+static HRESULT move_files(LPSHFILEOPSTRUCTW lpFileOp, const FILE_LIST *flFrom, const FILE_LIST *flTo)
 {
     DWORD i;
-    INT mismatched = 0;
     const FILE_ENTRY *entryToMove;
     const FILE_ENTRY *fileDest;
 
-    if (!flFrom->dwNumFiles)
-        return ERROR_SUCCESS;
-
-    if (!flTo->dwNumFiles)
-        return ERROR_FILE_NOT_FOUND;
+    if (!flFrom->dwNumFiles || !flTo->dwNumFiles)
+        return ERROR_CANCELLED;
 
     if (!(lpFileOp->fFlags & FOF_MULTIDESTFILES) &&
         flTo->dwNumFiles > 1 && flFrom->dwNumFiles > 1)
@@ -1588,42 +1586,27 @@ static DWORD move_files(LPSHFILEOPSTRUCTW lpFileOp, const FILE_LIST *flFrom, con
     if (!PathFileExistsW(flTo->feFiles[0].szDirectory))
         return ERROR_CANCELLED;
 
-    if (lpFileOp->fFlags & FOF_MULTIDESTFILES)
-        mismatched = flFrom->dwNumFiles - flTo->dwNumFiles;
+    if ((lpFileOp->fFlags & FOF_MULTIDESTFILES) &&
+        flFrom->dwNumFiles != flTo->dwNumFiles)
+    {
+        return ERROR_CANCELLED;
+    }
 
     fileDest = &flTo->feFiles[0];
     for (i = 0; i < flFrom->dwNumFiles; i++)
     {
         entryToMove = &flFrom->feFiles[i];
 
+        if (lpFileOp->fFlags & FOF_MULTIDESTFILES)
+            fileDest = &flTo->feFiles[i];
+
         if (!PathFileExistsW(fileDest->szDirectory))
             return ERROR_CANCELLED;
-
-        if (lpFileOp->fFlags & FOF_MULTIDESTFILES)
-        {
-            if (i >= flTo->dwNumFiles)
-                break;
-            fileDest = &flTo->feFiles[i];
-            if (mismatched && !fileDest->bExists)
-            {
-                create_dest_dirs(flTo->feFiles[i].szFullPath);
-                flTo->feFiles[i].bExists = TRUE;
-                flTo->feFiles[i].attributes = FILE_ATTRIBUTE_DIRECTORY;
-            }
-        }
 
         if (fileDest->bExists && IsAttribDir(fileDest->attributes))
             move_to_dir(lpFileOp, entryToMove, fileDest);
         else
             SHNotifyMoveFileW(entryToMove->szFullPath, fileDest->szFullPath, IsAttribDir(entryToMove->attributes));
-    }
-
-    if (mismatched > 0)
-    {
-        if (flFrom->bAnyDirectories)
-            return DE_DESTSAMETREE;
-        else
-            return DE_SAMEFILE;
     }
 
     return ERROR_SUCCESS;

@@ -1909,20 +1909,8 @@ NtSetInformationToken(IN HANDLE TokenHandle,
                                 ExFreePoolWithTag(Token->DefaultDacl, TAG_TOKEN_ACL);
                             }
 
-                            Token->DefaultDacl = ExAllocatePoolWithTag(PagedPool,
-                                                                       CapturedAcl->AclSize,
-                                                                       TAG_TOKEN_ACL);
-                            if (!Token->DefaultDacl)
-                            {
-                                ExFreePoolWithTag(CapturedAcl, TAG_ACL);
-                                Status = STATUS_NO_MEMORY;
-                            }
-                            else
-                            {
-                                /* Set the new dacl */
-                                RtlCopyMemory(Token->DefaultDacl, CapturedAcl, CapturedAcl->AclSize);
-                                ExFreePoolWithTag(CapturedAcl, TAG_ACL);
-                            }
+                            /* Set the new dacl */
+                            Token->DefaultDacl = CapturedAcl;
                         }
                     }
                     else

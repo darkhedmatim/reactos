@@ -383,7 +383,7 @@ IopCreateArcNamesCd(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
                 /* Create symbolic link */
                 IoAssignArcName(&ArcNameStringW, &DeviceStringW);
                 RtlFreeUnicodeString(&ArcNameStringW);
-                DPRINT("Boot device found\n");
+                DPRINT1("Boot device found\n");
             }
 
             /* And quit, whatever happens */

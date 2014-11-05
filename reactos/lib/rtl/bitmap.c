@@ -362,11 +362,8 @@ RtlClearBits(
 
     /* Clear what's left */
     NumberToClear &= (_BITCOUNT - 1);
-    if (NumberToClear != 0)
-    {
-        Mask = MAXINDEX << NumberToClear;
-        *Buffer &= Mask;
-    }
+    Mask = MAXINDEX << NumberToClear;
+    *Buffer &= Mask;
 }
 
 VOID
@@ -422,11 +419,8 @@ RtlSetBits(
 
     /* Set what's left */
     NumberToSet &= (_BITCOUNT - 1);
-    if (NumberToSet != 0)
-    {
-        Mask = MAXINDEX << NumberToSet;
-        *Buffer |= ~Mask;
-    }
+    Mask = MAXINDEX << NumberToSet;
+    *Buffer |= ~Mask;
 }
 
 BOOLEAN

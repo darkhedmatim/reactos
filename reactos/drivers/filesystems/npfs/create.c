@@ -384,7 +384,7 @@ NpFsdCreate(IN PDEVICE_OBJECT DeviceObject,
     IoStatus.Information = 0;
 
     FsRtlEnterFileSystem();
-    NpAcquireExclusiveVcb();
+    ExAcquireResourceExclusiveLite(&NpVcb->Lock, TRUE);
 
     if (RelatedFileObject)
     {
@@ -462,7 +462,7 @@ NpFsdCreate(IN PDEVICE_OBJECT DeviceObject,
             goto Quickie;
         }
 
-        Fcb = NpFindPrefix(&FileName, 1, &Prefix);
+        Fcb = NpFindPrefix(&FileName, TRUE, &Prefix);
     }
 
     if (Prefix.Length)
@@ -499,7 +499,7 @@ NpFsdCreate(IN PDEVICE_OBJECT DeviceObject,
                                  &DeferredList);
 
 Quickie:
-    NpReleaseVcb();
+    ExReleaseResourceLite(&NpVcb->Lock);
     NpCompleteDeferredIrps(&DeferredList);
     FsRtlExitFileSystem();
 
@@ -736,12 +736,12 @@ NpCreateNewNamedPipe(IN PNP_DCB Dcb,
     }
 
     SecurityContext = &AccessState->SubjectSecurityContext;
-    SeLockSubjectContext(SecurityContext);
+    SeLockSubjectContext(&AccessState->SubjectSecurityContext);
 
-    Status = SeAssignSecurity(NULL,
+    Status = SeAssignSecurity(0,
                               AccessState->SecurityDescriptor,
                               &SecurityDescriptor,
-                              FALSE,
+                              0,
                               SecurityContext,
                               IoGetFileObjectGenericMapping(),
                               PagedPool);
@@ -756,7 +756,7 @@ NpCreateNewNamedPipe(IN PNP_DCB Dcb,
     Status = ObLogSecurityDescriptor(SecurityDescriptor,
                                      &CachedSecurityDescriptor,
                                      1);
-    ExFreePoolWithTag(SecurityDescriptor, 0);
+    ExFreePool(SecurityDescriptor);
 
     if (!NT_SUCCESS(Status))
     {
@@ -852,7 +852,7 @@ NpFsdCreateNamedPipe(IN PDEVICE_OBJECT DeviceObject,
             goto Quickie;
         }
 
-        Fcb = NpFindPrefix(&FileName, 1, &Prefix);
+        Fcb = NpFindPrefix(&FileName, TRUE, &Prefix);
     }
 
     if (Prefix.Length)

@@ -49,12 +49,12 @@ INT cmdHelpMsg(INT argc, WCHAR **argv)
                        0,
                        NULL))
     {
-        PrintToConsole(L"\n%s\n", lpBuffer);
+        printf("\n%S\n", lpBuffer);
         LocalFree(lpBuffer);
     }
     else
     {
-        PrintToConsole(L"Unrecognized error code: %ld\n", errNum);
+        printf("Unrecognized error code: %ld\n", errNum);
     }
 
     return 0;

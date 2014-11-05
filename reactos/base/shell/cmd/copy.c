@@ -136,7 +136,6 @@ copy(TCHAR source[MAX_PATH],
         _tcscat(TempSrc,_T(".decrypt"));
         if (!CopyFileEx(source, TempSrc, NULL, NULL, FALSE, COPY_FILE_ALLOW_DECRYPTED_DESTINATION))
         {
-            CloseHandle (hFileSrc);
             nErrorLevel = 1;
             return 0;
         }
@@ -767,7 +766,6 @@ INT cmd_copy(LPTSTR param)
             /* Check Breaker */
             if (CheckCtrlBreak(BREAK_INPUT))
             {
-                FindClose(hFile);
                 freep(arg);
                 return 1;
             }
@@ -791,7 +789,6 @@ INT cmd_copy(LPTSTR param)
             if (_tcscmp(tmpDestPath, _T("\\\\.\\")) &&
                 !IsExistingDirectory(tmpDestPath))
             {
-                FindClose(hFile);
                 ConOutFormatMessage(GetLastError(), szSrcPath);
                 freep(arg);
                 nErrorLevel = 1;

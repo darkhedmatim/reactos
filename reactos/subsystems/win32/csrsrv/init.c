@@ -576,7 +576,7 @@ CsrParseServerCommandLine(IN ULONG ArgumentCount,
         ParameterValue = NULL;
         ParameterValue = strchr(ParameterName, '=');
         if (ParameterValue) *ParameterValue++ = ANSI_NULL;
-        DPRINT("Name=%s, Value=%s\n", ParameterName, ParameterValue);
+        DPRINT1("Name=%s, Value=%s\n", ParameterName, ParameterValue);
 
         /* Check for Object Directory */
         if (_stricmp(ParameterName, "ObjectDirectory") == 0)

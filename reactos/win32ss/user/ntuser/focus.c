@@ -25,9 +25,6 @@ IsFGLocked(VOID)
    return (gppiLockSFW || guSFWLockCount);
 }
 
-/*
-  Get capture window via foreground Queue.
-*/
 HWND FASTCALL
 IntGetCaptureWindow(VOID)
 {
@@ -578,7 +575,7 @@ co_IntMouseActivateWindow(PWND Wnd)
       }
       return FALSE;
    }
-   TRACE("Mouse Active\n");
+   ERR("Mouse Active\n");
    co_IntSetForegroundAndFocusWindow(Wnd, TRUE);
    return TRUE;
 }
@@ -704,7 +701,7 @@ co_IntSetActiveWindow(PWND Wnd OPTIONAL, BOOL bMouse, BOOL bFocus, BOOL Async)
         (Wnd && !VerifyWnd(Wnd)) ||
         ThreadQueue != pti->MessageQueue )
    {
-      ERR("SetActiveWindow: Summary ERROR, active state changed!\n");
+      ERR("SetActiveWindow: Summery ERROR, active state changed!\n");
       return FALSE;
    }
 
@@ -766,7 +763,7 @@ UserSetActiveWindow(PWND Wnd)
   }
   /*
      Yes your eye are not deceiving you~!
-
+  
      First part of wines Win.c test_SetActiveWindow:
 
      flush_events( TRUE );
@@ -940,7 +937,6 @@ co_UserSetCapture(HWND hWnd)
    {
       if (Window->head.pti->MessageQueue != ThreadQueue)
       {
-         ERR("Window Thread dos not match Current!\n");
          return NULL;
       }
    }
@@ -961,10 +957,13 @@ co_UserSetCapture(HWND hWnd)
    {
       if (ThreadQueue->MenuOwner && Window) ThreadQueue->QF_flags |= QF_CAPTURELOCKED;
 
+      //co_IntPostOrSendMessage(hWndPrev, WM_CAPTURECHANGED, 0, (LPARAM)hWnd);
       co_IntSendMessage(hWndPrev, WM_CAPTURECHANGED, 0, (LPARAM)hWnd);
 
       ThreadQueue->QF_flags &= ~QF_CAPTURELOCKED;
    }
+
+   ThreadQueue->spwndCapture = Window;
 
    if (hWnd == NULL) // Release mode.
    {

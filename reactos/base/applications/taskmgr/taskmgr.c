@@ -38,8 +38,6 @@ HWND hMainWnd;                   /* Main Window */
 HWND hStatusWnd;                 /* Status Bar Window */
 HWND hTabWnd;                    /* Tab Control Window */
 
-HMENU hWindowMenu = NULL;
-
 int  nMinimumWidth;              /* Minimum width of the dialog (OnSize()'s cx) */
 int  nMinimumHeight;             /* Minimum height of the dialog (OnSize()'s cy) */
 
@@ -154,17 +152,15 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
      */
 
     /* Get a token for this process.  */
-    if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
-    {
+    if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) {
         /* Get the LUID for the debug privilege.  */
-        if (LookupPrivilegeValueW(NULL, SE_DEBUG_NAME, &tkp.Privileges[0].Luid))
-        {
-            tkp.PrivilegeCount = 1;  /* one privilege to set */
-            tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+        LookupPrivilegeValueW(NULL, SE_DEBUG_NAME, &tkp.Privileges[0].Luid);
 
-            /* Get the debug privilege for this process. */
-            AdjustTokenPrivileges(hToken, FALSE, &tkp, 0, (PTOKEN_PRIVILEGES)NULL, 0);
-        }
+        tkp.PrivilegeCount = 1;  /* one privilege to set */
+        tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+        /* Get the debug privilege for this process. */
+        AdjustTokenPrivileges(hToken, FALSE, &tkp, 0, (PTOKEN_PRIVILEGES)NULL, 0);
         CloseHandle(hToken);
     }
 
@@ -172,8 +168,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
     LoadSettings();
 
     /* Initialize perf data */
-    if (!PerfDataInitialize())
-    {
+    if (!PerfDataInitialize()) {
         return -1;
     }
 
@@ -189,8 +184,6 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
     SaveSettings();
     PerfDataUninitialize();
     CloseHandle(hMutex);
-    if (hWindowMenu)
-        DestroyMenu(hWindowMenu);
     return 0;
 }
 
@@ -978,8 +971,6 @@ void TaskManager_OnTabWndSelChange(void)
         RemoveMenu(hViewMenu, i, MF_BYPOSITION);
     }
     RemoveMenu(hOptionsMenu, 3, MF_BYPOSITION);
-    if (hWindowMenu)
-        DestroyMenu(hWindowMenu);
     switch (TaskManagerSettings.ActiveTabPage) {
     case 0:
         ShowWindow(hApplicationPage, SW_SHOW);
@@ -997,10 +988,10 @@ void TaskManager_OnTabWndSelChange(void)
         AppendMenuW(hViewMenu, MF_STRING, ID_VIEW_DETAILS, szTemp);
 
         if (GetMenuItemCount(hMenu) <= 5) {
-            hWindowMenu = LoadMenuW(hInst, MAKEINTRESOURCEW(IDR_WINDOWSMENU));
+            hSubMenu = LoadMenuW(hInst, MAKEINTRESOURCEW(IDR_WINDOWSMENU));
 
             LoadStringW(hInst, IDS_MENU_WINDOWS, szTemp, 256);
-            InsertMenuW(hMenu, 3, MF_BYPOSITION|MF_POPUP, (UINT_PTR) hWindowMenu, szTemp);
+            InsertMenuW(hMenu, 3, MF_BYPOSITION|MF_POPUP, (UINT_PTR) hSubMenu, szTemp);
 
             DrawMenuBar(hMainWnd);
         }

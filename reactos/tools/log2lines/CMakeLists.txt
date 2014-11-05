@@ -1,4 +1,3 @@
-
 list(APPEND SOURCE
     cache.c
     cmd.c
@@ -13,5 +12,6 @@ list(APPEND SOURCE
     util.c)    
 
 include_directories(${REACTOS_SOURCE_DIR}/tools/rsym)
+
 add_executable(log2lines ${SOURCE})
 target_link_libraries(log2lines rsym_common) 

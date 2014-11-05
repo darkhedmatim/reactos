@@ -257,7 +257,7 @@ stack16:
 
 	/* 32-bit stack pointer */
 stack32:
-	.long	STACKADDR
+	.long	STACK32ADDR
 
     .align 4	/* force 4-byte alignment */
 gdt:

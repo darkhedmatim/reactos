@@ -9,8 +9,7 @@
 PUBLIC _memset
 .code
 
-FUNC _memset
-	FPO 0, 3, 4, 1, 1, FRAME_NONFPO
+_memset:
 	push ebp
 	mov ebp, esp
 	push edi
@@ -46,6 +45,5 @@ FUNC _memset
 	mov eax, [ebp + 8]
 	leave
 	ret
-ENDFUNC
 
 END

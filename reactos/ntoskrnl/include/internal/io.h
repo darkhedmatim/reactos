@@ -385,7 +385,7 @@ typedef struct _OPEN_PACKET
 typedef struct _LOAD_UNLOAD_PARAMS
 {
     NTSTATUS Status;
-    PCUNICODE_STRING RegistryPath;
+    PUNICODE_STRING ServiceName;
     WORK_QUEUE_ITEM WorkItem;
     KEVENT Event;
     PDRIVER_OBJECT DriverObject;
@@ -1083,11 +1083,10 @@ IopLoadServiceModule(
     OUT PLDR_DATA_TABLE_ENTRY *ModuleObject
 );
 
-NTSTATUS
+VOID
 NTAPI
 IopLoadUnloadDriver(
-    _In_opt_ PCUNICODE_STRING RegistryPath,
-    _Inout_ PDRIVER_OBJECT *DriverObject
+    IN OUT PLOAD_UNLOAD_PARAMS LoadParams
 );
 
 NTSTATUS
@@ -1277,8 +1276,6 @@ extern ULONG IopNumTriageDumpDataBlocks;
 extern PVOID IopTriageDumpDataBlocks[64];
 extern PIO_BUS_TYPE_GUID_LIST PnpBusTypeGuidList;
 extern PDRIVER_OBJECT IopRootDriverObject;
-extern KSPIN_LOCK IopDeviceRelationsSpinLock;
-extern LIST_ENTRY IopDeviceRelationsRequestList;
 
 //
 // Inlined Functions

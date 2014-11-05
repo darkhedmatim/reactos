@@ -10,5 +10,4 @@ if(ARCH STREQUAL "i386")
 elseif(ARCH STREQUAL "amd64")
   add_asm_files(cpprt_asm amd64/cpprt.s)
 endif()
-
 add_library(cpprt ${SOURCE} ${cpprt_asm})

@@ -131,10 +131,7 @@ INT replace(TCHAR source[MAX_PATH], TCHAR dest[MAX_PATH], DWORD dwFlags, BOOL *d
         else
             ConOutResPrintf(STRING_REPLACE_HELP10, dest);
         if ( !FilePromptYNA (0))
-        {
-            CloseHandle (hFileSrc);
             return 0;
-        }
     }
 
     /* Output depending on add flag */
@@ -223,7 +220,7 @@ INT recReplace(DWORD dwFlags,
     HANDLE hFile;
     WIN32_FIND_DATA findBuffer;
 
-    /* Get file handle to the sourcefile(s) */
+    /* Get file handel to the sourcefile(s) */
     hFile = FindFirstFile (szSrcPath, &findBuffer);
 
     /*
@@ -305,8 +302,6 @@ INT recReplace(DWORD dwFlags,
     /* Take next sourcefile if any */
     } while(FindNextFile (hFile, &findBuffer));
 
-    FindClose(hFile);
-
     return filesReplaced;
 }
 
@@ -382,8 +377,6 @@ INT recFindSubDirs(DWORD dwFlags,
         }
         /* Get the next handle */
     } while(FindNextFile (hFile, &findBuffer));
-
-    FindClose(hFile);
 
     return filesReplaced;
 }

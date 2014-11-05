@@ -5,8 +5,7 @@
 PUBLIC _tcschr
 .code
 
-FUNC _tcschr
-    FPO 0, 2, 1, 1, 0, FRAME_FPO
+_tcschr:
     push esi
     mov esi, [esp + 8]
     mov edx, [esp + 12]
@@ -26,7 +25,6 @@ FUNC _tcschr
 
     pop esi
     ret
-ENDFUNC
 
 END
 /* EOF */

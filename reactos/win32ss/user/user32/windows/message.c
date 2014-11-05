@@ -1357,9 +1357,6 @@ DesktopWndProcA( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam )
   AnsiMsg.message = message;
   AnsiMsg.wParam = wParam;
   AnsiMsg.lParam = lParam;
-  AnsiMsg.time = 0;
-  AnsiMsg.pt.x = 0;
-  AnsiMsg.pt.y = 0;
 
   // Desktop is always Unicode so convert Ansi here.
   if (!MsgiAnsiToUnicodeMessage(hwnd, &UcMsg, &AnsiMsg))
@@ -1504,10 +1501,7 @@ IntCallWindowProcW(BOOL IsAnsiProc,
       UnicodeMsg.message = Msg;
       UnicodeMsg.wParam = wParam;
       UnicodeMsg.lParam = lParam;
-      UnicodeMsg.time = 0;
-      UnicodeMsg.pt.x = 0;
-      UnicodeMsg.pt.y = 0;
-       if (! MsgiUnicodeToAnsiMessage(hWnd, &AnsiMsg, &UnicodeMsg))
+      if (! MsgiUnicodeToAnsiMessage(hWnd, &AnsiMsg, &UnicodeMsg))
       {
           goto Exit;
       }
@@ -1705,9 +1699,6 @@ IntCallWindowProcA(BOOL IsAnsiProc,
       AnsiMsg.message = Msg;
       AnsiMsg.wParam = wParam;
       AnsiMsg.lParam = lParam;
-      AnsiMsg.time = 0;
-      AnsiMsg.pt.x = 0;
-      AnsiMsg.pt.y = 0;
       if (! MsgiAnsiToUnicodeMessage(hWnd, &UnicodeMsg, &AnsiMsg))
       {
           goto Exit;
@@ -2437,9 +2428,6 @@ SendMessageW(HWND Wnd,
   UMMsg.message = Msg;
   UMMsg.wParam = wParam;
   UMMsg.lParam = lParam;
-  UMMsg.time = 0;
-  UMMsg.pt.x = 0;
-  UMMsg.pt.y = 0;
 
   if (! MsgiUMToKMMessage(&UMMsg, &KMMsg, FALSE))
   {
@@ -2504,9 +2492,6 @@ SendMessageA(HWND Wnd, UINT Msg, WPARAM wParam, LPARAM lParam)
   AnsiMsg.message = Msg;
   AnsiMsg.wParam = wParam;
   AnsiMsg.lParam = lParam;
-  AnsiMsg.time = 0;
-  AnsiMsg.pt.x = 0;
-  AnsiMsg.pt.y = 0;
 
   if (!MsgiAnsiToUnicodeMessage(Wnd, &UcMsg, &AnsiMsg))
   {
@@ -2563,9 +2548,6 @@ SendMessageCallbackA(
   AnsiMsg.message = Msg;
   AnsiMsg.wParam = wParam;
   AnsiMsg.lParam = lParam;
-  AnsiMsg.time = 0;
-  AnsiMsg.pt.x = 0;
-  AnsiMsg.pt.y = 0;
 
   if (!MsgiAnsiToUnicodeMessage(hWnd, &UcMsg, &AnsiMsg))
   {
@@ -2648,15 +2630,11 @@ SendMessageTimeoutA(
 
   dsm.uFlags = fuFlags;
   dsm.uTimeout = uTimeout;
-  dsm.Result = 0;
 
   AnsiMsg.hwnd = hWnd;
   AnsiMsg.message = Msg;
   AnsiMsg.wParam = wParam;
   AnsiMsg.lParam = lParam;
-  AnsiMsg.time = 0;
-  AnsiMsg.pt.x = 0;
-  AnsiMsg.pt.y = 0;
 
   if (! MsgiAnsiToUnicodeMessage(hWnd, &UcMsg, &AnsiMsg))
   {
@@ -2710,7 +2688,6 @@ SendMessageTimeoutW(
 
   dsm.uFlags = fuFlags;
   dsm.uTimeout = uTimeout;
-  dsm.Result = 0;
 
   Result = NtUserMessageCall( hWnd,
                               Msg,
@@ -2751,9 +2728,6 @@ SendNotifyMessageA(
   AnsiMsg.message = Msg;
   AnsiMsg.wParam = wParam;
   AnsiMsg.lParam = lParam;
-  AnsiMsg.time = 0;
-  AnsiMsg.pt.x = 0;
-  AnsiMsg.pt.y = 0;
   if (! MsgiAnsiToUnicodeMessage(hWnd, &UcMsg, &AnsiMsg))
   {
      return FALSE;
@@ -2789,9 +2763,6 @@ SendNotifyMessageW(
   UMMsg.message = Msg;
   UMMsg.wParam = wParam;
   UMMsg.lParam = lParam;
-  UMMsg.time = 0;
-  UMMsg.pt.x = 0;
-  UMMsg.pt.y = 0;
   if (! MsgiUMToKMMessage(&UMMsg, &KMMsg, TRUE))
   {
      return FALSE;
@@ -2953,9 +2924,6 @@ User32CallWindowProcFromKernel(PVOID Arguments, ULONG ArgumentLength)
   KMMsg.hwnd = CallbackArgs->Wnd;
   KMMsg.message = CallbackArgs->Msg;
   KMMsg.wParam = CallbackArgs->wParam;
-  KMMsg.time = 0;
-  KMMsg.pt.x = 0;
-  KMMsg.pt.y = 0;
   /* Check if lParam is really a pointer and adjust it if it is */
   if (0 <= CallbackArgs->lParamBufferSize)
     {

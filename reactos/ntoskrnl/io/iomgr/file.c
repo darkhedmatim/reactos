@@ -419,6 +419,26 @@ IopParseDevice(IN PVOID ParseObject,
         DirectOpen = TRUE;
     }
 
+    /* FIXME: Small hack still exists, have to check why...
+     * This is triggered multiple times by usetup and then once per boot.
+     */
+    if (!(DirectOpen) &&
+        !(RemainingName->Length) &&
+        !(OpenPacket->RelatedFileObject) &&
+        ((wcsstr(CompleteName->Buffer, L"Harddisk")) ||
+         (wcsstr(CompleteName->Buffer, L"Floppy"))) &&
+        !(UseDummyFile))
+    {
+        DPRINT1("Using IopParseDevice() hack. Requested invalid attributes: %lx\n",
+        DesiredAccess & ~(SYNCHRONIZE |
+                          FILE_READ_ATTRIBUTES |
+                          READ_CONTROL |
+                          ACCESS_SYSTEM_SECURITY |
+                          WRITE_OWNER |
+                          WRITE_DAC));
+        DirectOpen = TRUE;
+    }
+
     /* Check if we have a related FO that wasn't a direct open */
     if ((OpenPacket->RelatedFileObject) &&
         !(OpenPacket->RelatedFileObject->Flags & FO_DIRECT_DEVICE_OPEN))
@@ -1580,8 +1600,6 @@ IopQueryAttributesFile(IN POBJECT_ATTRIBUTES ObjectAttributes,
     if (OpenPacket.ParseCheck != TRUE)
     {
         /* Parse failed */
-        DPRINT1("IopQueryAttributesFile failed for '%wZ' with 0x%lx\n",
-                ObjectAttributes->ObjectName, Status);
         return Status;
     }
     else
@@ -1804,7 +1822,6 @@ IoCreateFile(OUT PHANDLE FileHandle,
             /* Make sure we have extra parameters */
             if (!ExtraCreateParameters)
             {
-                DPRINT1("Invalid parameter: ExtraCreateParameters == 0!\n");
                 return STATUS_INVALID_PARAMETER;
             }
 
@@ -1818,7 +1835,6 @@ IoCreateFile(OUT PHANDLE FileHandle,
                 (CreateOptions & ~FILE_VALID_PIPE_OPTION_FLAGS))
             {
                 /* Invalid named pipe create */
-                DPRINT1("Invalid named pipe create\n");
                 return STATUS_INVALID_PARAMETER;
             }
         }
@@ -1827,7 +1843,6 @@ IoCreateFile(OUT PHANDLE FileHandle,
             /* Make sure we have extra parameters */
             if (!ExtraCreateParameters)
             {
-                DPRINT1("Invalid parameter: ExtraCreateParameters == 0!\n");
                 return STATUS_INVALID_PARAMETER;
             }
 
@@ -1838,7 +1853,6 @@ IoCreateFile(OUT PHANDLE FileHandle,
                 (CreateOptions & ~FILE_VALID_MAILSLOT_OPTION_FLAGS))
             {
                 /* Invalid mailslot create */
-                DPRINT1("Invalid mailslot create\n");
                 return STATUS_INVALID_PARAMETER;
             }
         }
@@ -1942,7 +1956,6 @@ IoCreateFile(OUT PHANDLE FileHandle,
             if (!OpenPacket->EaBuffer)
             {
                 ExFreePool(OpenPacket);
-                DPRINT1("Failed to allocate open packet EA buffer\n");
                 return STATUS_INSUFFICIENT_RESOURCES;
             }
 

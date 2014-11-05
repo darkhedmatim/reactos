@@ -329,6 +329,7 @@ NTSTATUS TdiConnect(
     PFILE_OBJECT ConnectionObject,
     PTDI_CONNECTION_INFORMATION ConnectionCallInfo,
     PTDI_CONNECTION_INFORMATION ConnectionReturnInfo,
+    PIO_STATUS_BLOCK Iosb,
     PIO_COMPLETION_ROUTINE CompletionRoutine,
     PVOID CompletionContext)
 /*
@@ -361,7 +362,7 @@ NTSTATUS TdiConnect(
                                             DeviceObject,            /* Device object */
                                             ConnectionObject,        /* File object */
                                             NULL,                    /* Event */
-                                            NULL);                   /* Status */
+                                            Iosb);                   /* Status */
     if (!*Irp) {
         return STATUS_INSUFFICIENT_RESOURCES;
     }
@@ -375,7 +376,7 @@ NTSTATUS TdiConnect(
                     ConnectionCallInfo,     /* Request connection information */
                     ConnectionReturnInfo);  /* Return connection information */
 
-    TdiCall(*Irp, DeviceObject, NULL, NULL);
+    TdiCall(*Irp, DeviceObject, NULL, Iosb);
 
     return STATUS_PENDING;
 }
@@ -484,6 +485,7 @@ NTSTATUS TdiListen(
     PFILE_OBJECT ConnectionObject,
     PTDI_CONNECTION_INFORMATION *RequestConnectionInfo,
     PTDI_CONNECTION_INFORMATION *ReturnConnectionInfo,
+    PIO_STATUS_BLOCK Iosb,
     PIO_COMPLETION_ROUTINE  CompletionRoutine,
     PVOID CompletionContext)
 /*
@@ -517,7 +519,7 @@ NTSTATUS TdiListen(
                                             DeviceObject,            /* Device object */
                                             ConnectionObject,        /* File object */
                                             NULL,                    /* Event */
-                                            NULL);                   /* Status */
+                                            Iosb);                   /* Status */
     if (*Irp == NULL)
         return STATUS_INSUFFICIENT_RESOURCES;
 
@@ -530,7 +532,7 @@ NTSTATUS TdiListen(
                    *RequestConnectionInfo, /* Request connection information */
                    *ReturnConnectionInfo);  /* Return connection information */
 
-    TdiCall(*Irp, DeviceObject, NULL /* Don't wait for completion */, NULL);
+    TdiCall(*Irp, DeviceObject, NULL /* Don't wait for completion */, Iosb);
 
     return STATUS_PENDING;
 }
@@ -768,7 +770,7 @@ NTSTATUS TdiQueryAddress(
     TDIEntityID *Entities;
     ULONG EntityCount;
     ULONG EntityType;
-    IPSNMPInfo SnmpInfo;
+    IPSNMP_INFO SnmpInfo;
     PIPADDR_ENTRY IpAddress;
     ULONG BufferSize;
     NTSTATUS Status = STATUS_SUCCESS;
@@ -832,15 +834,15 @@ NTSTATUS TdiQueryAddress(
                                            IP_MIB_STATS_ID,             /* Entity id */
                                            &SnmpInfo,                   /* Output buffer */
                                            &BufferSize);                /* Output buffer size */
-            if (!NT_SUCCESS(Status) || (SnmpInfo.ipsi_numaddr == 0)) {
+            if (!NT_SUCCESS(Status) || (SnmpInfo.NumAddr == 0)) {
                 AFD_DbgPrint(MIN_TRACE, ("Unable to get SNMP information or no IP addresses available (Status = 0x%X).\n", Status));
                 break;
             }
 
             /* Query device for all IP addresses */
 
-            if (SnmpInfo.ipsi_numaddr != 0) {
-                BufferSize = SnmpInfo.ipsi_numaddr * sizeof(IPADDR_ENTRY);
+            if (SnmpInfo.NumAddr != 0) {
+                BufferSize = SnmpInfo.NumAddr * sizeof(IPADDR_ENTRY);
                 IpAddress = (PIPADDR_ENTRY)ExAllocatePool(NonPagedPool, BufferSize);
                 if (!IpAddress) {
                     AFD_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
@@ -861,7 +863,7 @@ NTSTATUS TdiQueryAddress(
                     break;
                 }
 
-                if (SnmpInfo.ipsi_numaddr != 1) {
+                if (SnmpInfo.NumAddr != 1) {
                     /* Skip loopback address */
                     *Address = DN2H(IpAddress[1].Addr);
                 } else {
@@ -890,6 +892,7 @@ NTSTATUS TdiSend(
     USHORT Flags,
     PCHAR Buffer,
     UINT BufferLength,
+    PIO_STATUS_BLOCK Iosb,
     PIO_COMPLETION_ROUTINE CompletionRoutine,
     PVOID CompletionContext)
 {
@@ -913,7 +916,7 @@ NTSTATUS TdiSend(
                                             DeviceObject,            /* Device object */
                                             TransportObject,         /* File object */
                                             NULL,                    /* Event */
-                                            NULL);                   /* Status */
+                                            Iosb);                   /* Status */
 
     if (!*Irp) {
         AFD_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
@@ -955,7 +958,7 @@ NTSTATUS TdiSend(
                  Flags,                  /* Flags */
                  BufferLength);          /* Length of data */
 
-    TdiCall(*Irp, DeviceObject, NULL, NULL);
+    TdiCall(*Irp, DeviceObject, NULL, Iosb);
     /* Does not block...  The MDL is deleted in the receive completion
        routine. */
 
@@ -968,6 +971,7 @@ NTSTATUS TdiReceive(
     USHORT Flags,
     PCHAR Buffer,
     UINT BufferLength,
+    PIO_STATUS_BLOCK Iosb,
     PIO_COMPLETION_ROUTINE CompletionRoutine,
     PVOID CompletionContext)
 {
@@ -991,7 +995,7 @@ NTSTATUS TdiReceive(
                                             DeviceObject,            /* Device object */
                                             TransportObject,         /* File object */
                                             NULL,                    /* Event */
-                                            NULL);                   /* Status */
+                                            Iosb);                   /* Status */
 
     if (!*Irp) {
         AFD_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
@@ -1036,7 +1040,7 @@ NTSTATUS TdiReceive(
                     BufferLength);          /* Length of data */
 
 
-    TdiCall(*Irp, DeviceObject, NULL, NULL);
+    TdiCall(*Irp, DeviceObject, NULL, Iosb);
     /* Does not block...  The MDL is deleted in the receive completion
        routine. */
 
@@ -1051,6 +1055,7 @@ NTSTATUS TdiReceiveDatagram(
     PCHAR Buffer,
     UINT BufferLength,
     PTDI_CONNECTION_INFORMATION Addr,
+    PIO_STATUS_BLOCK Iosb,
     PIO_COMPLETION_ROUTINE CompletionRoutine,
     PVOID CompletionContext)
 /*
@@ -1085,7 +1090,7 @@ NTSTATUS TdiReceiveDatagram(
                                             DeviceObject,            /* Device object */
                                             TransportObject,         /* File object */
                                             NULL,                    /* Event */
-                                            NULL);                   /* Status */
+                                            Iosb);                   /* Status */
 
     if (!*Irp) {
         AFD_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
@@ -1129,7 +1134,7 @@ NTSTATUS TdiReceiveDatagram(
                             Addr,
                             Flags);                 /* Length of data */
 
-    TdiCall(*Irp, DeviceObject, NULL, NULL);
+    TdiCall(*Irp, DeviceObject, NULL, Iosb);
     /* Does not block...  The MDL is deleted in the receive completion
        routine. */
 
@@ -1143,6 +1148,7 @@ NTSTATUS TdiSendDatagram(
     PCHAR Buffer,
     UINT BufferLength,
     PTDI_CONNECTION_INFORMATION Addr,
+    PIO_STATUS_BLOCK Iosb,
     PIO_COMPLETION_ROUTINE CompletionRoutine,
     PVOID CompletionContext)
 /*
@@ -1179,7 +1185,7 @@ NTSTATUS TdiSendDatagram(
                                             DeviceObject,            /* Device object */
                                             TransportObject,         /* File object */
                                             NULL,                    /* Event */
-                                            NULL);                   /* Status */
+                                            Iosb);                   /* Status */
 
     if (!*Irp) {
         AFD_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
@@ -1222,7 +1228,7 @@ NTSTATUS TdiSendDatagram(
                          BufferLength,           /* Bytes to send */
                          Addr);                  /* Address */
 
-    TdiCall(*Irp, DeviceObject, NULL, NULL);
+    TdiCall(*Irp, DeviceObject, NULL, Iosb);
     /* Does not block...  The MDL is deleted in the send completion
        routine. */
 
@@ -1234,6 +1240,7 @@ NTSTATUS TdiDisconnect(
     PFILE_OBJECT TransportObject,
     PLARGE_INTEGER Time,
     USHORT Flags,
+    PIO_STATUS_BLOCK Iosb,
     PIO_COMPLETION_ROUTINE CompletionRoutine,
     PVOID CompletionContext,
     PTDI_CONNECTION_INFORMATION RequestConnectionInfo,
@@ -1257,7 +1264,7 @@ NTSTATUS TdiDisconnect(
                                             DeviceObject,            /* Device object */
                                             TransportObject,         /* File object */
                                             NULL,                    /* Event */
-                                            NULL);                   /* Status */
+                                            Iosb);                   /* Status */
 
     if (!*Irp) {
         AFD_DbgPrint(MIN_TRACE, ("Insufficient resources.\n"));
@@ -1274,7 +1281,7 @@ NTSTATUS TdiDisconnect(
                        RequestConnectionInfo,  /* Indication of who to disconnect */
                        ReturnConnectionInfo);  /* Indication of who disconnected */
 
-    TdiCall(*Irp, DeviceObject, NULL, NULL);
+    TdiCall(*Irp, DeviceObject, NULL, Iosb);
 
     return STATUS_PENDING;
 }

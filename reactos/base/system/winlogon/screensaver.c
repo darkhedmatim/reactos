@@ -277,7 +277,7 @@ StartScreenSaver(
                             &hCurrentUser);
     if (rc != ERROR_SUCCESS)
     {
-        ERR("WL: RegOpenCurrentUser error %lu\n", rc);
+        ERR("WL: RegOpenCurrentUser Error!\n");
         goto cleanup;
     }
 
@@ -288,7 +288,7 @@ StartScreenSaver(
                        &hKey);
     if (rc != ERROR_SUCCESS)
     {
-        ERR("WL: RegOpenKeyEx error %lu\n", rc);
+        ERR("WL: RegOpenKeyEx Error!\n");
         goto cleanup;
     }
 
@@ -300,8 +300,7 @@ StartScreenSaver(
                           &bufferSize);
     if (rc != ERROR_SUCCESS || dwType != REG_SZ)
     {
-        if (rc != ERROR_FILE_NOT_FOUND)
-            ERR("WL: RegQueryValueEx error %lu\n", rc);
+        ERR("WL: RegQueryValueEx Error!\n");
         goto cleanup;
     }
 

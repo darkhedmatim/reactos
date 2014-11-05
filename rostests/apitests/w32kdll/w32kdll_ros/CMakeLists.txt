@@ -6,5 +6,6 @@ add_library(w32kdll_ros SHARED
     sys-stubs.S
     ${CMAKE_CURRENT_BINARY_DIR}/w32kdll_ros.def)
 
-set_module_type(w32kdll_ros module)
+set_entrypoint(w32kdll_ros 0)
+
 add_dependencies(w32kdll_ros psdk)

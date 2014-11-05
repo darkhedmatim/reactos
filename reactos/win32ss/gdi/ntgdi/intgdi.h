@@ -87,12 +87,9 @@ IntGetSysColor(INT nIndex);
 
 HBITMAP
 FASTCALL
-IntCreateCompatibleBitmap(
-    _In_ PDC Dc,
-    _In_ INT Width,
-    _In_ INT Height,
-    _In_ UINT Bpp,
-    _In_ UINT Planes);
+IntCreateCompatibleBitmap(PDC Dc,
+                          INT Width,
+                          INT Height);
 
 WORD APIENTRY IntGdiSetHookFlags(HDC hDC, WORD Flags);
 

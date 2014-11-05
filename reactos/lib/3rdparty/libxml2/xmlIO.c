@@ -801,13 +801,6 @@ xmlCheckFilename (const char *path)
     return 1;
 }
 
-/**
- * xmlNop:
- *
- * No Operation function, does nothing, no input
- *
- * Returns zero
- */
 int
 xmlNop(void) {
     return(0);
@@ -895,7 +888,7 @@ xmlFileMatch (const char *filename ATTRIBUTE_UNUSED) {
  */
 static void *
 xmlFileOpen_real (const char *filename) {
-    const char *path = filename;
+    const char *path = NULL;
     FILE *fd;
 
     if (filename == NULL)
@@ -925,8 +918,11 @@ xmlFileOpen_real (const char *filename) {
 #else
 	path = &filename[5];
 #endif
-    }
+    } else
+	path = filename;
 
+    if (path == NULL)
+	return(NULL);
     if (!xmlCheckFilename(path))
         return(NULL);
 
@@ -1164,12 +1160,7 @@ xmlGzfileOpen_real (const char *filename) {
     gzFile fd;
 
     if (!strcmp(filename, "-")) {
-        int duped_fd = dup(fileno(stdin));
-        fd = gzdopen(duped_fd, "rb");
-        if (fd == Z_NULL && duped_fd >= 0) {
-            close(duped_fd);  /* gzdOpen() does not close on failure */
-        }
-
+        fd = gzdopen(dup(0), "rb");
 	return((void *) fd);
     }
 
@@ -1243,12 +1234,7 @@ xmlGzfileOpenW (const char *filename, int compression) {
 
     snprintf(mode, sizeof(mode), "wb%d", compression);
     if (!strcmp(filename, "-")) {
-        int duped_fd = dup(fileno(stdout));
-        fd = gzdopen(duped_fd, "rb");
-        if (fd == Z_NULL && duped_fd >= 0) {
-            close(duped_fd);  /* gzdOpen() does not close on failure */
-        }
-
+        fd = gzdopen(dup(1), mode);
 	return((void *) fd);
     }
 
@@ -1370,7 +1356,7 @@ xmlXzfileOpen_real (const char *filename) {
     xzFile fd;
 
     if (!strcmp(filename, "-")) {
-        fd = __libxml2_xzdopen(dup(fileno(stdin)), "rb");
+        fd = __libxml2_xzdopen(dup(0), "rb");
 	return((void *) fd);
     }
 
@@ -2684,12 +2670,6 @@ __xmlParserInputBufferCreateFilename(const char *URI, xmlCharEncoding enc) {
 #endif
 	}
 #endif
-#ifdef HAVE_LZMA_H
-	if ((xmlInputCallbackTable[i].opencallback == xmlXzfileOpen) &&
-		(strcmp(URI, "-") != 0)) {
-            ret->compressed = __libxml2_xzcompressed(context);
-	}
-#endif
     }
     else
       xmlInputCallbackTable[i].closecallback (context);
@@ -3346,17 +3326,6 @@ xmlParserInputBufferGrow(xmlParserInputBufferPtr in, int len) {
     if (res < 0) {
 	return(-1);
     }
-
-    /*
-     * try to establish compressed status of input if not done already
-     */
-    if (in->compressed == -1) {
-#ifdef HAVE_LZMA_H
-	if (in->readcallback == xmlXzfileRead)
-            in->compressed = __libxml2_xzcompressed(in->context);
-#endif
-    }
-
     len = res;
     if (in->encoder != NULL) {
         unsigned int use;

@@ -674,7 +674,6 @@ null();//	(void) signal(SIGINT, oldintr);
 null();//		(void) signal(SIGPIPE, oldintp);
 	if (!cpend) {
 		code = -1;
-		(*closefunc)(fin);
 		return;
 	}
 	if (data >= 0) {

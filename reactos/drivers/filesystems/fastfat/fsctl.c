@@ -89,6 +89,7 @@ VfatHasFileSystem(
             return Status;
         }
 
+        PartitionInfoIsValid = TRUE;
         DPRINT("Partition Information:\n");
         DPRINT("StartingOffset      %I64x\n", PartitionInfo.StartingOffset.QuadPart  / 512);
         DPRINT("PartitionLength     %I64x\n", PartitionInfo.PartitionLength.QuadPart / 512);
@@ -107,7 +108,6 @@ VfatHasFileSystem(
                 PartitionInfo.PartitionType == PARTITION_FAT32_XINT13 ||
                 PartitionInfo.PartitionType == PARTITION_XINT13)
             {
-                 PartitionInfoIsValid = TRUE;
                 *RecognizedFS = TRUE;
             }
         }
@@ -117,7 +117,6 @@ VfatHasFileSystem(
                  PartitionInfo.PartitionLength.QuadPart > 0)
         {
             /* This is possible a removable media formated as super floppy */
-            PartitionInfoIsValid = TRUE;
             *RecognizedFS = TRUE;
         }
     }
@@ -612,8 +611,6 @@ VfatMount(
     FsRtlNotifyInitializeSync(&DeviceExt->NotifySync);
     InitializeListHead(&DeviceExt->NotifyList);
 
-    DPRINT("Mount success\n");
-
     Status = STATUS_SUCCESS;
 
 ByeBye:
@@ -857,131 +854,6 @@ VfatMarkVolumeDirty(
     return Status;
 }
 
-static
-NTSTATUS
-VfatLockOrUnlockVolume(
-    PVFAT_IRP_CONTEXT IrpContext,
-    BOOLEAN Lock)
-{
-    PFILE_OBJECT FileObject;
-    PDEVICE_EXTENSION DeviceExt;
-
-    DPRINT("VfatLockOrUnlockVolume(%p, %d)\n", IrpContext, Lock);
-
-    DeviceExt = IrpContext->DeviceExt;
-    FileObject = IrpContext->FileObject;
-
-    /* Only allow locking with the volume open */
-    if (FileObject->FsContext != DeviceExt->VolumeFcb)
-    {
-        return STATUS_ACCESS_DENIED;
-    }
-
-    /* Bail out if it's already in the demanded state */
-    if (((DeviceExt->Flags & VCB_VOLUME_LOCKED) && Lock) ||
-        (!(DeviceExt->Flags & VCB_VOLUME_LOCKED) && !Lock))
-    {
-        return STATUS_ACCESS_DENIED;
-    }
-
-    /* Deny locking if we're not alone */
-    if (Lock && DeviceExt->OpenHandleCount != 1)
-    {
-        return STATUS_ACCESS_DENIED;
-    }
-
-    /* Finally, proceed */
-    if (Lock)
-    {
-        DeviceExt->Flags |= VCB_VOLUME_LOCKED;
-    }
-    else
-    {
-        DeviceExt->Flags &= ~VCB_VOLUME_LOCKED;
-    }
-
-    return STATUS_SUCCESS;
-}
-
-static
-NTSTATUS
-VfatDismountVolume(
-    PVFAT_IRP_CONTEXT IrpContext)
-{
-    PDEVICE_EXTENSION DeviceExt;
-    PLIST_ENTRY NextEntry;
-    PVFATFCB Fcb;
-
-    DPRINT("VfatDismountVolume(%p)\n", IrpContext);
-
-    DeviceExt = IrpContext->DeviceExt;
-
-    /* We HAVE to be locked. Windows also allows dismount with no lock
-     * but we're here mainly for 1st stage, so KISS
-     */
-    if (!(DeviceExt->Flags & VCB_VOLUME_LOCKED))
-    {
-        return STATUS_ACCESS_DENIED;
-    }
-
-    /* Race condition? */
-    if (DeviceExt->Flags & VCB_DISMOUNT_PENDING)
-    {
-        return STATUS_VOLUME_DISMOUNTED;
-    }
-
-    /* Notify we'll dismount. Pass that point there's no reason we fail */
-    FsRtlNotifyVolumeEvent(IrpContext->Stack->FileObject, FSRTL_VOLUME_DISMOUNT);
-
-    ExAcquireResourceExclusiveLite(&DeviceExt->FatResource, TRUE);
-
-    /* Browse all the available FCBs first, and force data writing to disk */
-    for (NextEntry = DeviceExt->FcbListHead.Flink;
-         NextEntry != &DeviceExt->FcbListHead;
-         NextEntry = NextEntry->Flink)
-    {
-        Fcb = CONTAINING_RECORD(NextEntry, VFATFCB, FcbListEntry);
-
-        ExAcquireResourceExclusiveLite(&Fcb->MainResource, TRUE);
-        ExAcquireResourceExclusiveLite(&Fcb->PagingIoResource, TRUE);
-
-        if (Fcb->FileObject)
-        {
-            if (Fcb->Flags & FCB_IS_DIRTY)
-            {
-                VfatUpdateEntry(Fcb);
-            }
-
-            CcPurgeCacheSection(Fcb->FileObject->SectionObjectPointer, NULL, 0, FALSE);
-            CcUninitializeCacheMap(Fcb->FileObject, &Fcb->RFCB.FileSize, NULL);
-        }
-
-        ExReleaseResourceLite(&Fcb->PagingIoResource);
-        ExReleaseResourceLite(&Fcb->MainResource);
-    }
-
-    /* Rebrowse the FCB in order to free them now */
-    while (!IsListEmpty(&DeviceExt->FcbListHead))
-    {
-        NextEntry = RemoveHeadList(&DeviceExt->FcbListHead);
-        Fcb = CONTAINING_RECORD(NextEntry, VFATFCB, FcbListEntry);
-        vfatDestroyFCB(Fcb);
-    }
-
-    /* Mark we're being dismounted */
-    DeviceExt->Flags |= VCB_DISMOUNT_PENDING;
-    IrpContext->DeviceObject->Vpb->Flags &= ~VPB_MOUNTED;
-
-    ExReleaseResourceLite(&DeviceExt->FatResource);
-
-    /* Release a few resources and quit, we're done */
-    ExDeleteResourceLite(&DeviceExt->DirResource);
-    ExDeleteResourceLite(&DeviceExt->FatResource);
-    ObDereferenceObject(DeviceExt->FATFileObject);
-
-    return STATUS_SUCCESS;
-}
-
 /*
  * FUNCTION: File system control
  */
@@ -1023,18 +895,6 @@ VfatFileSystemControl(
 
                 case FSCTL_MARK_VOLUME_DIRTY:
                     Status = VfatMarkVolumeDirty(IrpContext);
-                    break;
-
-                case FSCTL_LOCK_VOLUME:
-                    Status = VfatLockOrUnlockVolume(IrpContext, TRUE);
-                    break;
-
-                case FSCTL_UNLOCK_VOLUME:
-                    Status = VfatLockOrUnlockVolume(IrpContext, FALSE);
-                    break;
-
-                case FSCTL_DISMOUNT_VOLUME:
-                    Status = VfatDismountVolume(IrpContext);
                     break;
 
                 default:
