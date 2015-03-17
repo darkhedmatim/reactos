@@ -634,22 +634,26 @@ bool CCabinet::SetCabinetReservedFile(char* FileName)
 {
     FILEHANDLE FileHandle;
     ULONG BytesRead;
+    char* ConvertedFileName;
 
+    ConvertedFileName = ConvertPath(FileName, true);
 #if defined(_WIN32)
-    FileHandle = CreateFile(ConvertPath(FileName, true),  // Open this file
+    FileHandle = CreateFile(ConvertedFileName,  // Open this file
         GENERIC_READ,                    // Open for reading
         FILE_SHARE_READ,                 // Share for reading
         NULL,                            // No security
         OPEN_EXISTING,                   // Existing file only
         FILE_ATTRIBUTE_NORMAL,           // Normal file
         NULL);                           // No attribute template
+    free(ConvertedFileName);
     if (FileHandle == INVALID_HANDLE_VALUE)
     {
         DPRINT(MID_TRACE, ("Cannot open cabinet reserved file.\n"));
         return false;
     }
 #else /* !_WIN32 */
-    FileHandle = fopen(ConvertPath(FileName, true), "rb");
+    FileHandle = fopen(ConvertedFileName, "rb");
+    free(ConvertedFileName);
     if (FileHandle == NULL)
     {
         DPRINT(MID_TRACE, ("Cannot open cabinet reserved file.\n"));
@@ -1672,7 +1676,7 @@ ULONG CCabinet::WriteFileToScratchStorage(PCFFILE_NODE FileNode)
         CurrentFolderNode->UncompOffset += TotalBytesLeft;
         FileNode->File.FileControlID     = (USHORT)(NextFolderNumber - 1);
         CurrentFolderNode->Commit        = true;
-        PrevCabinetNumber				 = CurrentDiskNumber;
+        PrevCabinetNumber                = CurrentDiskNumber;
 
         Size = sizeof(CFFILE) + (ULONG)strlen(GetFileName(FileNode->FileName)) + 1;
         CABHeader.FileTableOffset += Size;
