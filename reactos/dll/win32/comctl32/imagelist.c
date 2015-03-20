@@ -586,7 +586,6 @@ ImageList_BeginDrag (HIMAGELIST himlTrack, INT iTrack,
 	             INT dxHotspot, INT dyHotspot)
 {
     INT cx, cy;
-    POINT src, dst;
 
     TRACE("(himlTrack=%p iTrack=%d dx=%d dy=%d)\n", himlTrack, iTrack,
 	  dxHotspot, dyHotspot);
@@ -594,11 +593,8 @@ ImageList_BeginDrag (HIMAGELIST himlTrack, INT iTrack,
     if (!is_valid(himlTrack))
 	return FALSE;
 
-    if (iTrack >= himlTrack->cCurImage)
-        return FALSE;
-
     if (InternalDrag.himl)
-        return FALSE;
+        ImageList_EndDrag ();
 
     cx = himlTrack->cx;
     cy = himlTrack->cy;
@@ -613,12 +609,10 @@ ImageList_BeginDrag (HIMAGELIST himlTrack, INT iTrack,
     InternalDrag.dyHotspot = dyHotspot;
 
     /* copy image */
-    imagelist_point_from_index(InternalDrag.himl, 0, &dst);
-    imagelist_point_from_index(himlTrack, iTrack, &src);
-    BitBlt(InternalDrag.himl->hdcImage, dst.x, dst.y, cx, cy, himlTrack->hdcImage, src.x, src.y,
-            SRCCOPY);
-    BitBlt(InternalDrag.himl->hdcMask, dst.x, dst.y, cx, cy, himlTrack->hdcMask, src.x, src.y,
-            SRCCOPY);
+    BitBlt (InternalDrag.himl->hdcImage, 0, 0, cx, cy, himlTrack->hdcImage, iTrack * cx, 0, SRCCOPY);
+
+    /* copy mask */
+    BitBlt (InternalDrag.himl->hdcMask, 0, 0, cx, cy, himlTrack->hdcMask, iTrack * cx, 0, SRCCOPY);
 
     InternalDrag.himl->cCurImage = 1;
 

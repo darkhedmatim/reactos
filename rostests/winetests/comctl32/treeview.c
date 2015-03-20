@@ -663,7 +663,7 @@ static void test_focus(void)
 
 static void test_get_set_bkcolor(void)
 {
-    COLORREF crColor;
+    COLORREF crColor = RGB(0,0,0);
     HWND hTree;
 
     hTree = create_treeview_control(0);
@@ -719,9 +719,9 @@ static void test_get_set_imagelist(void)
 
 static void test_get_set_indent(void)
 {
-    int ulIndent;
-    int ulMinIndent;
-    int ulMoreThanTwiceMin;
+    int ulIndent = -1;
+    int ulMinIndent = -1;
+    int ulMoreThanTwiceMin = -1;
     HWND hTree;
 
     hTree = create_treeview_control(0);
@@ -914,7 +914,7 @@ static void test_get_set_scrolltime(void)
 static void test_get_set_textcolor(void)
 {
     /* If the value is -1, the control is using the system color for the text color. */
-    COLORREF crColor;
+    COLORREF crColor = RGB(0,0,0);
     HWND hTree;
 
     hTree = create_treeview_control(0);
@@ -974,8 +974,8 @@ static void test_get_set_tooltips(void)
 
 static void test_get_set_unicodeformat(void)
 {
-    BOOL bPreviousSetting;
-    BOOL bNewSetting;
+    BOOL bPreviousSetting = FALSE;
+    BOOL bNewSetting = FALSE;
     HWND hTree;
 
     hTree = create_treeview_control(0);

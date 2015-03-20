@@ -108,8 +108,6 @@ LRESULT CALLBACK THEMING_EditSubclassProc (HWND hwnd, UINT msg,
         break;
 
     case WM_ENABLE:
-    case WM_KILLFOCUS:
-    case WM_SETFOCUS:
         theme = GetWindowTheme( hwnd );
         if (theme) RedrawWindow (hwnd, NULL, NULL, 
             RDW_FRAME | RDW_INVALIDATE | RDW_UPDATENOW);

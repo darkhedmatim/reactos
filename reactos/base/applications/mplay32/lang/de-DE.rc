@@ -22,7 +22,6 @@ BEGIN
     END
     POPUP "&Gerät"
     BEGIN
-        MENUITEM SEPARATOR
         MENUITEM "&Eigenschaften", IDM_DEVPROPS
         MENUITEM SEPARATOR
         MENUITEM "&Lautstärkeregelung", IDM_VOLUMECTL

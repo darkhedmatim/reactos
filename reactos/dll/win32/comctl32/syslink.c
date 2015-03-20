@@ -174,26 +174,6 @@ static VOID SYSLINK_ClearDoc (SYSLINK_INFO *infoPtr)
 }
 
 /***********************************************************************
- * SYSLINK_StrCmpNIW
- * Wrapper for StrCmpNIW to ensure 'len' is not too big.
- */
-static INT SYSLINK_StrCmpNIW (LPCWSTR str, LPCWSTR comp, INT len)
-{
-    INT i;
-
-    for(i = 0; i < len; i++)
-    {
-        if(!str[i])
-        {
-            len = i + 1;
-            break;
-        }
-    }
-
-    return StrCmpNIW(str, comp, len);
-}
-
-/***********************************************************************
  * SYSLINK_ParseText
  * Parses the window text string and creates a document. Returns the
  * number of document items created.
@@ -213,7 +193,7 @@ static UINT SYSLINK_ParseText (SYSLINK_INFO *infoPtr, LPCWSTR Text)
     {
         if(*current == '<')
         {
-            if(!SYSLINK_StrCmpNIW(current, SL_LINKOPEN, 2) && (CurrentType == slText))
+            if(!StrCmpNIW(current, SL_LINKOPEN, 2) && (CurrentType == slText))
             {
                 BOOL ValidParam = FALSE, ValidLink = FALSE;
 
@@ -241,14 +221,14 @@ static UINT SYSLINK_ParseText (SYSLINK_INFO *infoPtr, LPCWSTR Text)
                     
 CheckParameter:
                     /* compare the current position with all known parameters */
-                    if(!SYSLINK_StrCmpNIW(tmp, SL_HREF, 6))
+                    if(!StrCmpNIW(tmp, SL_HREF, 6))
                     {
                         taglen += 6;
                         ValidParam = TRUE;
                         CurrentParameter = &lpUrl;
                         CurrentParameterLen = &lenUrl;
                     }
-                    else if(!SYSLINK_StrCmpNIW(tmp, SL_ID, 4))
+                    else if(!StrCmpNIW(tmp, SL_ID, 4))
                     {
                         taglen += 4;
                         ValidParam = TRUE;
@@ -322,7 +302,7 @@ CheckParameter:
                     }
                 }
             }
-            else if(!SYSLINK_StrCmpNIW(current, SL_LINKCLOSE, 4) && (CurrentType == slLink) && firsttag)
+            else if(!StrCmpNIW(current, SL_LINKCLOSE, 4) && (CurrentType == slLink) && firsttag)
             {
                 /* there's a <a...> tag opened, first add the previous text, if present */
                 if(textstart != NULL && textlen > 0 && firsttag > textstart)

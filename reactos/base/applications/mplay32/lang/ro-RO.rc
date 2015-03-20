@@ -28,7 +28,6 @@ BEGIN
     END
     POPUP "&Dispozitiv"
     BEGIN
-        MENUITEM SEPARATOR
         MENUITEM "&Proprietăți…", IDM_DEVPROPS
         MENUITEM SEPARATOR
         MENUITEM "Control &volum…", IDM_VOLUMECTL

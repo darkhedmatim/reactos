@@ -17,7 +17,6 @@
  */
 
 #include <windef.h>
-#include <winuser.h>
 
 #include "resources.h"
 

@@ -132,7 +132,7 @@ static HWND subclass_editbox(HWND hwndComboEx)
 
 static void test_comboboxex(void) {
     HWND myHwnd = 0;
-    LONG res;
+    LONG res = -1;
     COMBOBOXEXITEMA cbexItem;
     static const char *first_item  = "First Item",
                 *second_item = "Second Item",

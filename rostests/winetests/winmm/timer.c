@@ -190,7 +190,6 @@ static void test_priority(void)
            "thread priority is %s, should be THREAD_PRIORITY_TIME_CRITICAL\n",
            get_priority(priority));
     }
-    timeKillEvent(id);
 }
 
 START_TEST(timer)

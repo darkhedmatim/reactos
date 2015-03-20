@@ -816,7 +816,8 @@ static BOOL PRINTDLG_SetUpPaperComboBoxA(HWND hDlg,
 
     Names = HeapAlloc(GetProcessHeap(),0, NrOfEntries*sizeof(char)*NamesSize);
     Words = HeapAlloc(GetProcessHeap(),0, NrOfEntries*sizeof(WORD));
-    DeviceCapabilitiesA(PrinterName, PortName, fwCapability_Names, Names, dm);
+    NrOfEntries = DeviceCapabilitiesA(PrinterName, PortName,
+                                      fwCapability_Names, Names, dm);
     NrOfEntries = DeviceCapabilitiesA(PrinterName, PortName,
 				      fwCapability_Words, (LPSTR)Words, dm);
 
@@ -926,7 +927,8 @@ static BOOL PRINTDLG_SetUpPaperComboBoxW(HWND hDlg,
 
     Names = HeapAlloc(GetProcessHeap(),0, NrOfEntries*sizeof(WCHAR)*NamesSize);
     Words = HeapAlloc(GetProcessHeap(),0, NrOfEntries*sizeof(WORD));
-    DeviceCapabilitiesW(PrinterName, PortName, fwCapability_Names, Names, dm);
+    NrOfEntries = DeviceCapabilitiesW(PrinterName, PortName,
+                                      fwCapability_Names, Names, dm);
     NrOfEntries = DeviceCapabilitiesW(PrinterName, PortName,
                                       fwCapability_Words, Words, dm);
 
@@ -1774,12 +1776,10 @@ static LRESULT PRINTDLG_WMCommandA(HWND hDlg, WPARAM wParam,
     case cmb2: /* Papersize */
       {
 	  DWORD Sel = SendDlgItemMessageA(hDlg, cmb2, CB_GETCURSEL, 0, 0);
-	  if(Sel != CB_ERR) {
+	  if(Sel != CB_ERR)
 	      lpdm->u1.s1.dmPaperSize = SendDlgItemMessageA(hDlg, cmb2,
 							    CB_GETITEMDATA,
 							    Sel, 0);
-	      GetDlgItemTextA(hDlg, cmb2, (char *)lpdm->dmFormName, CCHFORMNAME);
-	  }
       }
       break;
 
@@ -1932,12 +1932,10 @@ static LRESULT PRINTDLG_WMCommandW(HWND hDlg, WPARAM wParam,
     case cmb2: /* Papersize */
       {
 	  DWORD Sel = SendDlgItemMessageW(hDlg, cmb2, CB_GETCURSEL, 0, 0);
-	  if(Sel != CB_ERR) {
+	  if(Sel != CB_ERR)
 	      lpdm->u1.s1.dmPaperSize = SendDlgItemMessageW(hDlg, cmb2,
 							    CB_GETITEMDATA,
 							    Sel, 0);
-	      GetDlgItemTextW(hDlg, cmb2, lpdm->dmFormName, CCHFORMNAME);
-	  }
       }
       break;
 
@@ -3793,16 +3791,16 @@ static void *pagesetup_get_template(pagesetup_data *data)
     {
         if(data->unicode)
             res = FindResourceW(data->u.dlgw->hInstance,
-                                data->u.dlgw->lpPageSetupTemplateName, (LPWSTR)RT_DIALOG);
+                                data->u.dlgw->lpPageSetupTemplateName, MAKEINTRESOURCEW(RT_DIALOG));
         else
             res = FindResourceA(data->u.dlga->hInstance,
-                                data->u.dlga->lpPageSetupTemplateName, (LPSTR)RT_DIALOG);
+                                data->u.dlga->lpPageSetupTemplateName, MAKEINTRESOURCEA(RT_DIALOG));
         tmpl_handle = LoadResource(data->u.dlgw->hInstance, res);
     }
     else
     {
         res = FindResourceW(COMDLG32_hInstance, MAKEINTRESOURCEW(PAGESETUPDLGORD),
-                            (LPWSTR)RT_DIALOG);
+                            MAKEINTRESOURCEW(RT_DIALOG));
         tmpl_handle = LoadResource(COMDLG32_hInstance, res);
     }
     return LockResource(tmpl_handle);

@@ -269,33 +269,23 @@ static void draw_theme_bar_V (const ProgressDrawInfo* di, int start, int end)
 /* draw themed horizontal background from 'start' to 'end' */
 static void draw_theme_bkg_H (const ProgressDrawInfo* di, int start, int end)
 {
-    RECT bgrect, r;
-
+    RECT r;
     r.left = di->rect.left + start;
     r.top = di->rect.top;
     r.right = di->rect.left + end;
     r.bottom = di->rect.bottom;
-
-    bgrect = di->bgRect;
-    OffsetRect(&bgrect, -bgrect.left, -bgrect.top);
-
-    DrawThemeBackground (di->theme, di->hdc, PP_BAR, 0, &bgrect, &r);
+    DrawThemeBackground (di->theme, di->hdc, PP_BAR, 0, &di->bgRect, &r);
 }
 
 /* draw themed vertical background from 'start' to 'end' */
 static void draw_theme_bkg_V (const ProgressDrawInfo* di, int start, int end)
 {
-    RECT bgrect, r;
-
+    RECT r;
     r.left = di->rect.left;
     r.top = di->rect.bottom - end;
     r.right = di->rect.right;
     r.bottom = di->rect.bottom - start;
-
-    bgrect = di->bgRect;
-    OffsetRect(&bgrect, -bgrect.left, -bgrect.top);
-
-    DrawThemeBackground (di->theme, di->hdc, PP_BARVERT, 0, &bgrect, &r);
+    DrawThemeBackground (di->theme, di->hdc, PP_BARVERT, 0, &di->bgRect, &r);
 }
 
 /* drawing functions for themed style */
