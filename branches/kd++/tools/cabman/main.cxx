@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS cabinet manager
- * FILE:        tools/cabman/main.cpp
+ * FILE:        tools/cabman/main.cxx
  * PURPOSE:     Main program
  * PROGRAMMERS: Casper S. Hornstrup (chorns@users.sourceforge.net)
  *              Colin Finck <mail@colinfinck.de>
@@ -346,7 +346,7 @@ bool CCABManager::ParseCmdline(int argc, char* argv[])
                         SetFileRelativePath(&argv[i][2]);
 
                     break;
-                    
+
                 case 'V':
                     Verbose = true;
                     break;
