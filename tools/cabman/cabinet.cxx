@@ -1,7 +1,7 @@
 /*
  * COPYRIGHT:   See COPYING in the top level directory
  * PROJECT:     ReactOS cabinet manager
- * FILE:        tools/cabman/cabinet.cpp
+ * FILE:        tools/cabman/cabinet.cxx
  * PURPOSE:     Cabinet routines
  * PROGRAMMERS: Casper S. Hornstrup (chorns@users.sourceforge.net)
  *              Colin Finck <mail@colinfinck.de>
@@ -1676,7 +1676,7 @@ ULONG CCabinet::WriteFileToScratchStorage(PCFFILE_NODE FileNode)
         CurrentFolderNode->UncompOffset += TotalBytesLeft;
         FileNode->File.FileControlID     = (USHORT)(NextFolderNumber - 1);
         CurrentFolderNode->Commit        = true;
-        PrevCabinetNumber				 = CurrentDiskNumber;
+        PrevCabinetNumber                = CurrentDiskNumber;
 
         Size = sizeof(CFFILE) + (ULONG)strlen(GetFileName(FileNode->FileName)) + 1;
         CABHeader.FileTableOffset += Size;
