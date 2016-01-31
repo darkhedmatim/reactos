@@ -16,8 +16,7 @@
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-/*
- * COPYRIGHT:       See COPYING in the top level directory
+/* COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS hive maker
  * FILE:            tools/mkhive/mkhive.h
  * PURPOSE:         Hive maker
@@ -55,8 +54,16 @@ unsigned char BitScanReverse(ULONG * const Index, unsigned long Mask);
 
 typedef DWORD REGSAM;
 typedef LPVOID LPSECURITY_ATTRIBUTES;
-typedef HANDLE HKEY, *PHKEY;
 
+NTSTATUS NTAPI
+RtlAnsiStringToUnicodeString(
+    IN OUT PUNICODE_STRING UniDest,
+    IN PANSI_STRING AnsiSource,
+    IN BOOLEAN AllocateDestinationString);
+VOID NTAPI
+RtlInitAnsiString(
+    IN OUT PANSI_STRING DestinationString,
+    IN PCSTR SourceString);
 VOID NTAPI
 RtlInitUnicodeString(
     IN OUT PUNICODE_STRING DestinationString,
@@ -70,9 +77,9 @@ RegQueryValueExW(
     IN HKEY hKey,
     IN LPCWSTR lpValueName,
     IN PULONG lpReserved,
-    OUT PULONG lpType OPTIONAL,
-    OUT PUCHAR lpData OPTIONAL,
-    IN OUT PULONG lpcbData OPTIONAL);
+    OUT PULONG lpType,
+    OUT PUCHAR lpData,
+    OUT PSIZE_T lpcbData);
 
 LONG WINAPI
 RegSetValueExW(
@@ -81,7 +88,7 @@ RegSetValueExW(
     IN ULONG Reserved,
     IN ULONG dwType,
     IN const UCHAR* lpData,
-    IN ULONG cbData);
+    IN USHORT cbData);
 
 LONG WINAPI
 RegDeleteKeyW(
@@ -115,6 +122,8 @@ RegOpenKeyW(
 
 #define OBJ_NAME_PATH_SEPARATOR           ((WCHAR)L'\\')
 
+#define HIVE_NO_FILE 2
+#define VERIFY_REGISTRY_HIVE(hive)
 extern LIST_ENTRY CmiHiveListHead;
 #define ABS_VALUE(V) (((V) < 0) ? -(V) : (V))
 #define PAGED_CODE()

@@ -19,6 +19,8 @@
 
 #include "precomp.h"
 
+#include <tchar.h>
+#include <commctrl.h>
 
 HINSTANCE hAppInstance;
 HANDLE hAppHeap;

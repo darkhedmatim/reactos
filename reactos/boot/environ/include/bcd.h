@@ -11,40 +11,6 @@
 
 /* ENUMERATIONS **************************************************************/
 
-/* See https://msdn.microsoft.com/en-us/library/windows/desktop/aa964229(v=vs.85).aspx */
-
-#define BCD_CLASS_LIBRARY       0x01
-#define BCD_CLASS_APPLICATION   0x02
-#define BCD_CLASS_DEVICE        0x03
-#define BCD_CLASS_OEM           0x05
-
-#define BCD_TYPE_DEVICE         0x01
-#define BCD_TYPE_STRING         0x02
-#define BCD_TYPE_OBJECT         0x03
-#define BCD_TYPE_OBJECT_LIST    0x04
-#define BCD_TYPE_INTEGER        0x05
-#define BCD_TYPE_BOOLEAN        0x06
-#define BCD_TYPE_INTEGER_LIST   0x07
-
-#define BCD_IMAGE_TYPE_FIRMWARE     0x01
-#define BCD_IMAGE_TYPE_BOOT_APP     0x02
-#define BCD_IMAGE_TYPE_NTLDR        0x03
-#define BCD_IMAGE_TYPE_REAL_MODE    0x04
-
-#define BCD_APPLICATION_TYPE_FWBOOTMGR  0x01
-#define BCD_APPLICATION_TYPE_BOOTMGR    0x02
-#define BCD_APPLICATION_TYPE_OSLOADER   0x03
-#define BCD_APPLICATION_TYPE_RESUME     0x04
-#define BCD_APPLICATION_TYPE_MEMDIAG    0x05
-#define BCD_APPLICATION_TYPE_NTLDR      0x06
-#define BCD_APPLICATION_TYPE_SETUPLDR   0x07
-#define BCD_APPLICATION_TYPE_BOOTSECTOR 0x08
-#define BCD_APPLICATION_TYPE_STARTUPCOM 0x09
-
-#define BCD_OBJECT_TYPE_APPLICATION     0x01
-#define BCD_OBJECT_TYPE_INHEREIT        0x02
-#define BCD_OBJECT_TYPE_DEVICE          0x03
-
 typedef enum BcdLibraryElementTypes
 {
     BcdLibraryDevice_ApplicationDevice = 0x11000001,
@@ -82,7 +48,6 @@ typedef enum BcdLibraryElementTypes
     BcdLibraryBoolean_DisplayOptionsEdit = 0x16000041,
     BcdLibraryDevice_BsdLogDevice = 0x11000043,
     BcdLibraryString_BsdLogPath = 0x12000044,
-    BcdLibraryBoolean_PreserveBsdLog = 0x16000045, /* Undocumented */
     BcdLibraryBoolean_GraphicsModeDisabled = 0x16000046,
     BcdLibraryInteger_ConfigAccessPolicy = 0x15000047,
     BcdLibraryBoolean_DisableIntegrityChecks = 0x16000048,
@@ -92,17 +57,13 @@ typedef enum BcdLibraryElementTypes
     BcdLibraryInteger_FveBandId = 0x1500004C,
     BcdLibraryBoolean_ConsoleExtendedInput = 0x16000050,
     BcdLibraryInteger_GraphicsResolution = 0x15000052,
-    BcdLibraryInteger_DisplayMessage = 0x15000065, /* Undocumented */
-    BcdLibraryInteger_DisplayMessageOverride = 0x15000066, /* Undocumented */
-    BcdLibraryInteger_UndocumentedMagic = 0x15000075, /* Undocumented magic */
     BcdLibraryBoolean_RestartOnFailure = 0x16000053,
     BcdLibraryBoolean_GraphicsForceHighestMode = 0x16000054,
     BcdLibraryBoolean_IsolatedExecutionContext = 0x16000060,
     BcdLibraryBoolean_BootUxDisable = 0x1600006C,
     BcdLibraryBoolean_BootShutdownDisabled = 0x16000074,
     BcdLibraryIntegerList_AllowedInMemorySettings = 0x17000077,
-    BcdLibraryBoolean_ForceFipsCrypto = 0x16000079,
-    BcdLibraryBoolean_MobileGraphics = 0x1600007A /* Undocumented */
+    BcdLibraryBoolean_ForceFipsCrypto = 0x16000079
 } BcdLibraryElementTypes;
 
 typedef enum BcdOSLoaderElementTypes
@@ -154,7 +115,6 @@ typedef enum BcdOSLoaderElementTypes
     BcdOSLoaderInteger_DriverLoadFailurePolicy = 0x250000c1,
     BcdOSLoaderInteger_BootMenuPolicy = 0x250000C2,
     BcdOSLoaderBoolean_AdvancedOptionsOneTime = 0x260000C3,
-    BcdOSLoaderBoolean_OptionsEditOneTime = 0x260000C4, /* Undocumented */
     BcdOSLoaderInteger_BootStatusPolicy = 0x250000E0,
     BcdOSLoaderBoolean_DisableElamDrivers = 0x260000E1,
     BcdOSLoaderInteger_HypervisorLaunchType = 0x250000F0,
@@ -195,88 +155,8 @@ typedef enum BcdBootMgrElementTypes
     BcdBootMgrBoolean_PersistBootSequence = 0x26000031
 } BcdBootMgrElementTypes;
 
-typedef enum _BcdResumeElementTypes {
-    Reserved1 = 0x21000001,
-    Reserved2 = 0x22000002,
-    BcdResumeBoolean_UseCustomSettings = 0x26000003,
-    BcdResumeDevice_AssociatedOsDevice = 0x21000005,
-    BcdResumeBoolean_DebugOptionEnabled = 0x26000006,
-    BcdResumeInteger_BootMenuPolicy = 0x25000008
-} BcdResumeElementTypes;
-
-/* Undocumented */
-typedef enum BcdStartupElementTypes
-{
-    BcdStartupBoolean_PxeSoftReboot = 0x26000001,
-    BcdStartupString_PxeApplicationName = 0x22000002,
-} BcdStartupElementTypes;
 
 /* DATA STRUCTURES ***********************************************************/
-
-typedef struct
-{
-    union
-    {
-        ULONG PackedValue;
-        struct
-        {
-            ULONG SubType : 24;
-            ULONG Format : 4;
-            ULONG Class : 4;
-        };
-    };
-} BcdElementType;
-
-typedef struct
-{
-    union
-    {
-        ULONG PackedValue;
-        union
-        {
-            struct
-            {
-                ULONG ApplicationCode : 20;
-                ULONG ImageCode : 4;
-                ULONG Reserved : 4;
-                ULONG ObjectCode : 4;
-            } Application;
-            struct
-            {
-                ULONG Value : 20;
-                ULONG ClassCode : 4;
-                ULONG Reserved : 4;
-                ULONG ObjectCode : 4;
-            } Inherit;
-            struct
-            {
-                ULONG Reserved:28;
-                ULONG ObjectCode : 4;
-            } Device;
-        };
-    };
-} BcdObjectType;
-
-typedef struct _BCD_ELEMENT_HEADER
-{
-    ULONG Version;
-    ULONG Type;
-    ULONG Size;
-} BCD_ELEMENT_HEADER, *PBCD_ELEMENT_HEADER;
-
-typedef struct _BCD_PACKED_ELEMENT
-{
-    struct _BCD_PACKED_ELEMENT* NextEntry;
-    BcdElementType RootType;
-    BCD_ELEMENT_HEADER;
-    UCHAR Data[ANYSIZE_ARRAY];
-} BCD_PACKED_ELEMENT, *PBCD_PACKED_ELEMENT;
-
-typedef struct _BCD_ELEMENT
-{
-    PBCD_ELEMENT_HEADER Header;
-    PUCHAR Body;
-} BCD_ELEMENT, *PBCD_ELEMENT;
 
 typedef struct _BCD_DEVICE_OPTION
 {
@@ -284,61 +164,12 @@ typedef struct _BCD_DEVICE_OPTION
     BL_DEVICE_DESCRIPTOR DeviceDescriptor;
 } BCD_DEVICE_OPTION, *PBCD_DEVICE_OPTION;
 
-typedef struct _BCD_OBJECT_DESCRIPTION
-{
-    ULONG Valid;
-    ULONG Type;
-} BCD_OBJECT_DESCRIPTION, *PBCD_OBJECT_DESCRIPTION;;
-
 /* FUNCTIONS ******************************************************************/
 
 NTSTATUS
 BcdOpenStoreFromFile (
     _In_ PUNICODE_STRING FileName,
     _In_ PHANDLE StoreHandle
-    );
-
-#define BCD_ENUMERATE_FLAG_DEEP         0x04
-#define BCD_ENUMERATE_FLAG_DEVICES      0x08
-#define BCD_ENUMERATE_FLAG_IN_ORDER     0x10
-
-NTSTATUS
-BiEnumerateElements (
-    _In_ HANDLE BcdHandle,
-    _In_ HANDLE ObjectHandle,
-    _In_ ULONG RootElementType,
-    _In_ ULONG Flags,
-    _Out_opt_ PBCD_PACKED_ELEMENT Elements,
-    _Inout_ PULONG ElementSize,
-    _Out_ PULONG ElementCountNe
-    );
-
-NTSTATUS
-BcdOpenObject (
-    _In_ HANDLE BcdHandle,
-    _In_ PGUID ObjectId,
-    _Out_ PHANDLE ObjectHandle
-    );
-
-NTSTATUS
-BcdDeleteElement (
-    _In_ HANDLE ObjectHandle,
-    _In_ ULONG Type
-    );
-
-NTSTATUS
-BcdEnumerateAndUnpackElements (
-    _In_ HANDLE BcdHandle,
-    _In_ HANDLE ObjectHandle,
-    _Out_opt_ PBCD_ELEMENT Elements,
-    _Inout_ PULONG ElementSize,
-    _Out_ PULONG ElementCount
-    );
-
-NTSTATUS
-BiGetObjectDescription (
-    _In_ HANDLE ObjectHandle,
-    _Out_ PBCD_OBJECT_DESCRIPTION Description
     );
 
 #endif

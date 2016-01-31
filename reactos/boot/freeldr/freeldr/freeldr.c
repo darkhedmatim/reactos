@@ -26,21 +26,19 @@ DBG_DEFAULT_CHANNEL(WARNING);
 
 /* FUNCTIONS ******************************************************************/
 
-VOID __cdecl BootMain(IN PCCH CmdLine)
+VOID __cdecl BootMain(LPSTR CmdLine)
 {
     CmdLineParse(CmdLine);
     MachInit(CmdLine);
     FsInit();
 
-    /* Debugger pre-initialization */
-    DebugInit(FALSE);
+    DebugInit();
 
     TRACE("BootMain() called.\n");
 
     /* Check if the CPU is new enough */
     FrLdrCheckCpuCompatiblity();
 
-    /* UI pre-initialization */
     if (!UiInitialize(FALSE))
     {
         UiMessageBoxCritical("Unable to initialize UI.");

@@ -411,7 +411,7 @@ USHORT
 WinLdrDetectVersion(VOID)
 {
     LONG rc;
-    HKEY hKey;
+    FRLDRHKEY hKey;
 
     rc = RegOpenKey(
         NULL,

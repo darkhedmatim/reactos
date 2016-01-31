@@ -17,8 +17,6 @@ int note( char *format, ... ) {
 
     ret = _vsnprintf( buf, sizeof(buf), format, arg_begin );
 
-    va_end( format );
-
     DPRINT("NOTE: %s\n", buf);
 
     return ret;
@@ -31,8 +29,6 @@ int debug( char *format, ... ) {
     va_start( arg_begin, format );
 
     ret = _vsnprintf( buf, sizeof(buf), format, arg_begin );
-
-    va_end( format );
 
     DPRINT("DEBUG: %s\n", buf);
 
@@ -47,8 +43,6 @@ int warn( char *format, ... ) {
 
     ret = _vsnprintf( buf, sizeof(buf), format, arg_begin );
 
-    va_end( format );
-
     DPRINT("WARN: %s\n", buf);
 
     return ret;
@@ -62,8 +56,6 @@ int warning( char *format, ... ) {
 
     ret = _vsnprintf( buf, sizeof(buf), format, arg_begin );
 
-    va_end( format );
-
     DPRINT("WARNING: %s\n", buf);
 
     return ret;
@@ -75,8 +67,6 @@ void error( char *format, ... ) {
     va_start( arg_begin, format );
 
     _vsnprintf( buf, sizeof(buf), format, arg_begin );
-
-    va_end( format );
 
     DPRINT1("ERROR: %s\n", buf);
 }

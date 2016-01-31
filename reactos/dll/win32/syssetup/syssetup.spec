@@ -83,5 +83,5 @@
 @ stub UpgradePrinters
 @ stub ViewSetupActionLog
 @ stdcall VolumeClassInstaller(long ptr ptr)
-@ varargs pSetupDebugPrint(wstr long wstr wstr)
+@ stub pSetupDebugPrint
 @ stub pSetuplogSfcError

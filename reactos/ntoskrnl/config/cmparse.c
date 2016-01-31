@@ -219,12 +219,13 @@ CmpDoCreateChild(IN PHHIVE Hive,
     PCM_KEY_NODE KeyNode;
     PCELL_DATA CellData;
     ULONG StorageType;
+    LARGE_INTEGER SystemTime;
     PCM_KEY_CONTROL_BLOCK Kcb;
     PSECURITY_DESCRIPTOR NewDescriptor;
 
     /* Get the storage type */
     StorageType = Stable;
-    if (ParseContext->CreateOptions & REG_OPTION_VOLATILE) StorageType = Volatile;
+    if (Flags & REG_OPTION_VOLATILE) StorageType = Volatile;
 
     /* Allocate the child */
     *KeyCell = HvAllocateCell(Hive,
@@ -310,8 +311,9 @@ CmpDoCreateChild(IN PHHIVE Hive,
 
     /* Fill out the key node */
     KeyNode->Signature = CM_KEY_NODE_SIGNATURE;
-    KeyNode->Flags = Flags;
-    KeQuerySystemTime(&KeyNode->LastWriteTime);
+    KeyNode->Flags = Flags &~ REG_OPTION_CREATE_LINK;
+    KeQuerySystemTime(&SystemTime);
+    KeyNode->LastWriteTime = SystemTime;
     KeyNode->Spare = 0;
     KeyNode->Parent = ParentCell;
     KeyNode->SubKeyCounts[Stable] = 0;
@@ -375,9 +377,6 @@ CmpDoCreateChild(IN PHHIVE Hive,
                                    CmpKeyObjectType->TypeInfo.PoolType,
                                    &CmpKeyObjectType->TypeInfo.GenericMapping);
     }
-
-    /* Now that the security descriptor is copied in the hive, we can free the original */
-    SeDeassignSecurity(&NewDescriptor);
 
 Quickie:
     /* Check if we got here because of failure */
@@ -475,7 +474,7 @@ CmpDoCreate(IN PHHIVE Hive,
                               AccessMode,
                               ParseContext,
                               ParentKcb,
-                              0,
+                              ParseContext->CreateOptions, // WRONG!
                               &KeyCell,
                               Object);
     if (NT_SUCCESS(Status))
@@ -517,7 +516,7 @@ CmpDoCreate(IN PHHIVE Hive,
             KeyBody->KeyControlBlock->ParentKcb->KcbMaxNameLen = Name->Length;
         }
 
-        /* Check if we need to update class length maximum */
+        /* Check if we need toupdate class length maximum */
         if (KeyNode->MaxClassLen < ParseContext->Class.Length)
         {
             /* Update it */
@@ -716,6 +715,7 @@ CmpDoOpen(IN PHHIVE Hive,
     return Status;
 }
 
+/* Remove calls to CmCreateRootNode once this is used! */
 NTSTATUS
 NTAPI
 CmpCreateLinkNode(IN PHHIVE Hive,
@@ -926,7 +926,7 @@ CmpCreateLinkNode(IN PHHIVE Hive,
             KeyBody->KeyControlBlock->ParentKcb->KcbMaxNameLen = Name.Length;
         }
 
-        /* Check if we need to update class length maximum */
+        /* Check if we need toupdate class length maximum */
         if (KeyNode->MaxClassLen < Context->Class.Length)
         {
             /* Update it */

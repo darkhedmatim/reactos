@@ -509,7 +509,7 @@ EtfsSetInformation (
     if (FileInfo->Offset >= EtfsFile->Size)
     {
         /* Don't allow EOF */
-        EfiPrintf(L"Offset too large: %lx vs %lx\r\n", FileInfo->Offset, EtfsFile->Size);
+        EfiPrintf(L"Offset too large: %lx vs %lx \r\n", FileInfo->Offset, EtfsFile->Size);
         return STATUS_INVALID_PARAMETER;
     }
 
@@ -551,6 +551,8 @@ EtfsOpen (
     PRAW_DIR_REC DirEntry;
     BOOLEAN IsDirectory;
 
+    EfiPrintf(L"Attempting to open file %s in directory %s\r\n", FileName, Directory->FilePath);
+
     EtfsFile = Directory->FsSpecificData;
     DeviceId = EtfsFile->DeviceId;
     EtfsDevice = EtfsDeviceTable[DeviceId];
@@ -563,6 +565,7 @@ EtfsOpen (
                                         FALSE);
     if (!NT_SUCCESS(Status))
     {
+        EfiPrintf(L"no dirent found: %lx\r\n", Status);
         return Status;
     }
 
@@ -573,18 +576,15 @@ EtfsOpen (
                           &FileSize,
                           &IsDirectory);
 
-    /* Allocate a file entry */
     NewFile = BlMmAllocateHeap(sizeof(*NewFile));
     if (!NewFile)
     {
         return STATUS_NO_MEMORY;
     }
-
-    /* Zero it out */
     RtlZeroMemory(NewFile, sizeof(*NewFile));
 
-    /* Figure out the size of the path and filename plus a slash and NUL */
     Size = wcslen(Directory->FilePath) + wcslen(FileName) + 2;
+
     FilePath = BlMmAllocateHeap(Size * sizeof(WCHAR));
     if (!FilePath)
     {
@@ -592,7 +592,6 @@ EtfsOpen (
         goto Quickie;
     }
 
-    /* Allocate an ETFS file entry */
     EtfsFile = (PBL_ETFS_FILE)BlMmAllocateHeap(sizeof(*EtfsFile));
     if (!EtfsFile)
     {
@@ -600,63 +599,48 @@ EtfsOpen (
         goto Quickie;
     }
 
-    /* Zero it out */
     RtlZeroMemory(NewFile, sizeof(*EtfsFile));
 
-    /* Capture the device ID of the directory */
     NewFile->DeviceId = Directory->DeviceId;
-
-    /* Check if this is the root or a filename\directory under */
     FormatString = L"%ls%ls";
     if (Directory->FilePath[1])
     {
         FormatString = L"%ls\\%ls";
     }
 
-    /* Combine the paths, and save the final path in the file entry */
     _snwprintf(FilePath, Size, FormatString, Directory->FilePath, FileName);
     NewFile->FilePath = FilePath;
 
-    /* Copy the ETFS function callbacks into the file netry */
     RtlCopyMemory(&NewFile->Callbacks,
                   &EtfsFunctionTable,
                   sizeof(NewFile->Callbacks));
-
-    /* Fill out the rest of the details */
     EtfsFile->DiskOffset = FileOffset;
     EtfsFile->DirOffset = DirOffset;
     EtfsFile->Size = FileSize;
     EtfsFile->DeviceId = DeviceId;
-
-    /* Check if this is a directory */
     if (IsDirectory)
     {
-        EtfsFile->Flags |= BL_ETFS_FILE_ENTRY_DIRECTORY;
-        NewFile->Flags |= BL_FILE_ENTRY_DIRECTORY;
+        EtfsFile->Flags |= 1;
+        NewFile->Flags |= 0x10000;
     }
-
-    /* Write down the name of the filesytem */
     EtfsFile->FsName = L"cdfs";
 
-    /* All done, return the file entry, and save the ETFS side */
     NewFile->FsSpecificData = EtfsFile;
     *FileEntry = NewFile;
     return Status;
 
 Quickie:
-    /* Failure path -- free the file path if we had one */
+
     if (NewFile->FilePath)
     {
         BlMmFreeHeap(NewFile->FilePath);
     }
 
-    /* Free the ETFS file entry if we had one */
     if (NewFile->FsSpecificData)
     {
         BlMmFreeHeap(NewFile->FsSpecificData);
     }
 
-    /* Free the file entry itself, and return the error code */
     BlMmFreeHeap(NewFile);
     return Status;
 }
@@ -777,6 +761,7 @@ EtfspCheckEtfs (
     /* Return back to the caller */
     *VolumeDescriptor = IsoVd;
     *VolumeIsIso = IsIso;
+    EfiPrintf(L"Recognized!!!\r\n");
     return STATUS_SUCCESS;
 }
 

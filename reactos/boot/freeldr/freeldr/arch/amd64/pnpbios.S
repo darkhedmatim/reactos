@@ -104,17 +104,9 @@ pnp_not_found:
 PUBLIC PnpBiosGetDeviceNodeCount
 PnpBiosGetDeviceNodeCount:
 
-    /* Save param-regs */
-    push rcx
-    push rdx
-
     /* Call the real mode function */
     mov bx, FNID_PnpBiosGetDeviceNodeCount
     call CallRealMode
-
-    /* Restore param-regs */
-    pop rdx
-    pop rcx
 
     xor eax, eax
     mov ax, [BSS_PnpNodeSize]
@@ -148,15 +140,9 @@ PnpBiosGetDeviceNode:
     and eax, HEX(0f)
     mov word ptr [BSS_PnpBiosBufferOffset], ax
 
-    /* Save rcx */
-    push rcx
-
     /* Call the real mode function */
     mov bx, FNID_PnpBiosGetDeviceNode
     call CallRealMode
-
-    /* Restore rcx */
-    pop rcx
 
     /* update node number */
     mov al, byte ptr [BSS_PnpNodeNumber]

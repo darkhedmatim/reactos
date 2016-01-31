@@ -301,7 +301,7 @@ BlockIopOperation (
     }
 
     Alignment = BlockDevice->Alignment;
-    if (!(Alignment) || !((Alignment - 1) & (ULONG_PTR)Buffer))
+    if (!Alignment || !((Alignment - 1) & (ULONG_PTR)Buffer))
     {
         Status = BlockIopFirmwareOperation(DeviceEntry,
                                            Buffer,
@@ -317,6 +317,7 @@ BlockIopOperation (
         return STATUS_SUCCESS;
     }
 
+    EfiPrintf(L"Firmware alignment fixup required\r\n");
     Status = BlockIopAllocateAlignedBuffer(&BlockIopAlignedBuffer,
                                            &BlockIopAlignedBufferSize,
                                            BufferSize,
@@ -371,7 +372,7 @@ BlockIopReadPhysicalDevice (
     )
 {
     PBL_BLOCK_DEVICE BlockDevice;
-    PVOID ReadBuffer;
+    PVOID ReadBuffer; // edi@1
     ULONGLONG OffsetEnd, AlignedOffsetEnd, Offset;
     NTSTATUS Status;
 
@@ -421,7 +422,7 @@ BlockIopReadPhysicalDevice (
     Status = BlockIopOperation(DeviceEntry, ReadBuffer, Offset, 0);
     if (!NT_SUCCESS(Status))
     {
-        EfiPrintf(L"Block I/O failed: %lx\r\n", Status);
+        EfiPrintf(L"Block I/O failed:%lx\r\n", Status);
         return Status;
     }
 
@@ -532,32 +533,24 @@ BlockIoRead (
     PBL_BLOCK_DEVICE BlockDevice;
     NTSTATUS Status;
 
-    /* Get the device-specific data, which is our block device descriptor */
     BlockDevice = DeviceEntry->DeviceSpecificData;
 
-    /* Make sure that the buffer and size is valid */
     Status = BlockIopBlockInformationCheck(BlockDevice, &Size, BytesRead, &Size);
     if (NT_SUCCESS(Status))
     {
-        /* Check if this is a virtual device or a physical device */
-        if (BlockDevice->DeviceFlags & BL_BLOCK_DEVICE_VIRTUAL_FLAG)
+        if (BlockDevice->DeviceFlags & 4)
         {
-            /* Do a virtual read or write */
             Status = BlockIopReadWriteVirtualDevice(DeviceEntry, Buffer, Size, 0, BytesRead);
         }
         else
         {
-            /* Do a physical read or write */
             Status = BlockIopReadPhysicalDevice(DeviceEntry, Buffer, Size, BytesRead);
         }
     }
     else if (BytesRead)
     {
-        /* We failed, if the caller wanted bytes read, return 0 */
         *BytesRead = 0;
     }
-
-    /* Return back to the caller */
     return Status;
 }
 
@@ -572,25 +565,16 @@ BlockIoSetInformation (
 
     BlockDevice = DeviceEntry->DeviceSpecificData;
 
-    /* Take the current block number and block-offset and conver to full offset */
-    Offset = DeviceInformation->BlockDeviceInfo.Block * BlockDevice->BlockSize +
-             DeviceInformation->BlockDeviceInfo.Offset;
-
-    /* Make sure that the full offset is still within the bounds of the device */
+    Offset = DeviceInformation->BlockDeviceInfo.Block * BlockDevice->BlockSize + DeviceInformation->BlockDeviceInfo.Offset;
     if (Offset > ((BlockDevice->LastBlock + 1) * BlockDevice->BlockSize - 1))
     {
-        EfiPrintf(L"Offset out of bounds\r\n");
+        EfiPrintf(L"Invalid offset\r\n");
         return STATUS_INVALID_PARAMETER;
     }
 
-    /* Convery the full raw offset into a block number and block-offset */
     BlockDevice->Block = Offset / BlockDevice->BlockSize;
     BlockDevice->Offset = Offset % BlockDevice->BlockSize;
-
-    /* Return the unknown */
     BlockDevice->Unknown = DeviceInformation->BlockDeviceInfo.Unknown;
-
-    /* All done */
     return STATUS_SUCCESS;
 }
 
@@ -600,12 +584,13 @@ BlockIoGetInformation (
     _Out_ PBL_DEVICE_INFORMATION DeviceInformation
     )
 {
-    /* Copy the device speciifc data into the block device information */
-    RtlCopyMemory(&DeviceInformation->BlockDeviceInfo,
-                   DeviceEntry->DeviceSpecificData,
-                   sizeof(DeviceInformation->BlockDeviceInfo));
+    PBL_BLOCK_DEVICE BlockDevice;
 
-    /* Hardcode the device type */
+    BlockDevice = DeviceEntry->DeviceSpecificData;
+
+    RtlCopyMemory(&DeviceInformation->BlockDeviceInfo,
+                  BlockDevice,
+                  sizeof(DeviceInformation->BlockDeviceInfo));
     DeviceInformation->DeviceType = DiskDevice;
     return STATUS_SUCCESS;
 }
@@ -618,32 +603,28 @@ BlDeviceSetInformation (
 {
     PBL_DEVICE_ENTRY DeviceEntry;
 
-    /* This parameter is not optional */
-    if (!DeviceInformation)
+    if (!(DeviceInformation))
     {
         return STATUS_INVALID_PARAMETER;
     }
 
-    /* Make sure the device ID is valid */
     if (DmTableEntries <= DeviceId)
     {
         return STATUS_INVALID_PARAMETER;
     }
 
-    /* Get the device entry */
     DeviceEntry = DmDeviceTable[DeviceId];
     if (!DeviceEntry)
     {
         return STATUS_INVALID_PARAMETER;
     }
 
-    /* Make sure the device is open */
-    if (!(DeviceEntry->Flags & BL_DEVICE_ENTRY_OPENED))
+    if (!(DeviceEntry->Flags & 1))
     {
         return STATUS_INVALID_PARAMETER;
     }
 
-    /* Set the device information */
+    DeviceInformation->DeviceType = DeviceEntry->DeviceDescriptor->DeviceType;
     return DeviceEntry->Callbacks.SetInformation(DeviceEntry, DeviceInformation);
 }
 
@@ -655,32 +636,27 @@ BlDeviceGetInformation (
 {
     PBL_DEVICE_ENTRY DeviceEntry;
 
-    /* This parameter is not optional */
-    if (!DeviceInformation)
+    if (!(DeviceInformation))
     {
         return STATUS_INVALID_PARAMETER;
     }
 
-    /* Make sure the device ID is valid */
     if (DmTableEntries <= DeviceId)
     {
         return STATUS_INVALID_PARAMETER;
     }
 
-    /* Get the device entry */
     DeviceEntry = DmDeviceTable[DeviceId];
     if (!DeviceEntry)
     {
         return STATUS_INVALID_PARAMETER;
     }
 
-    /* Make sure the device is open */
-    if (!(DeviceEntry->Flags & BL_DEVICE_ENTRY_OPENED))
+    if (!(DeviceEntry->Flags & 1))
     {
         return STATUS_INVALID_PARAMETER;
     }
 
-    /* Return the device information */
     DeviceInformation->DeviceType = DeviceEntry->DeviceDescriptor->DeviceType;
     return DeviceEntry->Callbacks.GetInformation(DeviceEntry, DeviceInformation);
 }
@@ -690,51 +666,40 @@ BlDeviceRead (
     _In_ ULONG DeviceId,
     _In_ PVOID Buffer,
     _In_ ULONG Size,
-    _Out_opt_ PULONG BytesRead
+    _Out_ PULONG BytesRead
     )
 {
     PBL_DEVICE_ENTRY DeviceEntry;
     NTSTATUS Status;
     ULONG BytesTransferred;
 
-    /* Make sure we have a buffer, and the device ID is valid */
     if (!(Buffer) || (DmTableEntries <= DeviceId))
     {
         return STATUS_INVALID_PARAMETER;
     }
 
-    /* Get the device entry for it */
     DeviceEntry = DmDeviceTable[DeviceId];
     if (!DeviceEntry)
     {
         return STATUS_INVALID_PARAMETER;
     }
 
-    /* Make sure this is a device opened for read access */
-    if (!(DeviceEntry->Flags & BL_DEVICE_ENTRY_OPENED) ||
-        !(DeviceEntry->Flags & BL_DEVICE_ENTRY_READ_ACCESS))
+    if (!(DeviceEntry->Flags & 1) || !(DeviceEntry->Flags & 2))
     {
         return STATUS_INVALID_PARAMETER;
     }
 
-    /* Issue the read */
-    Status = DeviceEntry->Callbacks.Read(DeviceEntry,
-                                         Buffer,
-                                         Size,
-                                         &BytesTransferred);
+    Status = DeviceEntry->Callbacks.Read(DeviceEntry, Buffer, Size, &BytesTransferred);
     if (!DeviceEntry->Unknown)
     {
-        /* Update performance counters */
         DmDeviceIoInformation.ReadCount += BytesTransferred;
     }
 
-    /* Return back how many bytes were read, if caller wants to know */
     if (BytesRead)
     {
         *BytesRead = BytesTransferred;
     }
 
-    /* Return read result */
     return Status;
 }
 
@@ -748,28 +713,22 @@ BlDeviceReadAtOffset (
     )
 {
     NTSTATUS Status;
-    BL_DEVICE_INFORMATION DeviceInfo;
+    BL_DEVICE_INFORMATION DeviceInformation;
 
-    /* Get the current block and offset  */
-    Status = BlDeviceGetInformation(DeviceId, &DeviceInfo);
+    Status = BlDeviceGetInformation(DeviceId, &DeviceInformation);
     if (!NT_SUCCESS(Status))
     {
         return Status;
     }
 
-    /* Get the block and block-offset based on the new raw offset */
-    DeviceInfo.BlockDeviceInfo.Block = Offset / DeviceInfo.BlockDeviceInfo.BlockSize;
-    DeviceInfo.BlockDeviceInfo.Offset = Offset % DeviceInfo.BlockDeviceInfo.BlockSize;
-
-    /* Update the block and offset */
-    Status = BlDeviceSetInformation(DeviceId, &DeviceInfo);
+    DeviceInformation.BlockDeviceInfo.Block = Offset / DeviceInformation.BlockDeviceInfo.BlockSize;
+    DeviceInformation.BlockDeviceInfo.Offset = Offset % DeviceInformation.BlockDeviceInfo.BlockSize;
+    Status = BlDeviceSetInformation(DeviceId, &DeviceInformation);
     if (NT_SUCCESS(Status))
     {
-        /* Now issue a read, with this block and offset configured */
         Status = BlDeviceRead(DeviceId, Buffer, Size, BytesRead);
     }
 
-    /* All good, return the caller */
     return Status;
 }
 
@@ -785,7 +744,7 @@ BlpDeviceCompare (
     /* Assume failure */
     DeviceMatch = FALSE;
 
-    /* Check if the two devices exist and are identical in type */
+    /* Check if the two devices exist and are identical in typ */
     if ((Device1) && (Device2) && (Device1->DeviceType == Device2->DeviceType))
     {
         /* Take the bigger of the two sizes */
@@ -794,8 +753,8 @@ BlpDeviceCompare (
         {
             /* Compare the two devices up to their size */
             if (RtlEqualMemory(&Device1->Local,
-                               &Device2->Local,
-                               DeviceSize - FIELD_OFFSET(BL_DEVICE_DESCRIPTOR, Local)))
+                &Device2->Local,
+                DeviceSize - FIELD_OFFSET(BL_DEVICE_DESCRIPTOR, Local)))
             {
                 /* They match! */
                 DeviceMatch = TRUE;
@@ -842,6 +801,11 @@ BlockIoEfiGetBlockIoInformation (
     /* Get information on the block media */
     Media = BlockDevice->Protocol->Media;
 
+    EfiPrintf(L"Block I/O Info for Device 0x%p, 0x%lX\r\n", BlockDevice, BlockDevice->Handle);
+    EfiPrintf(L"Removable: %d Present: %d Last Block: %I64d BlockSize: %d IoAlign: %d MediaId: %d ReadOnly: %d\r\n",
+              Media->RemovableMedia, Media->MediaPresent, Media->LastBlock, Media->BlockSize, Media->IoAlign,
+              Media->MediaId, Media->ReadOnly);
+
     /* Set the appropriate device flags */
     BlockDevice->DeviceFlags = 0;
     if (Media->RemovableMedia)
@@ -850,7 +814,7 @@ BlockIoEfiGetBlockIoInformation (
     }
     if (Media->MediaPresent)
     {
-        BlockDevice->DeviceFlags |= BL_BLOCK_DEVICE_PRESENT_FLAG;
+        BlockDevice->DeviceFlags |= 2;
     }
 
     /* No clue */
@@ -942,8 +906,7 @@ BlockIoEfiGetChildHandle (
             /* Yup, return back to caller */
             ChildProtocolInterface->Handle = Handle;
             ChildProtocolInterface->Interface = DevicePath;
-            Status = STATUS_SUCCESS;
-            goto Quickie;
+            break;
         }
 
         /* Close the device path */
@@ -953,7 +916,6 @@ BlockIoEfiGetChildHandle (
     /* If we got here, nothing was found */
     Status = STATUS_NO_SUCH_DEVICE;
 
-Quickie:
     /* Free the handle array buffer */
     BlMmFreeHeap(DeviceHandles);
     return Status;
@@ -1005,7 +967,6 @@ BlockIoEfiGetDeviceInformation (
     /* Iteratate twice -- once for the top level, once for the bottom */
     for (i = 0, Found = FALSE; Found == FALSE && Protocol[i].Handle; i++)
     {
-        /* Check what kind of leaf node device this is */
         LeafNode = EfiGetLeafNode(Protocol[i].Interface);
         EfiPrintf(L"Pass %d, Leaf node: %p Type: %d\r\n", i, LeafNode, LeafNode->Type);
         if (LeafNode->Type == ACPI_DEVICE_PATH)
@@ -1212,7 +1173,7 @@ BlockIoEfiCreateDeviceEntry (
         Status = BlockIoEfiGetDeviceInformation(IoDeviceEntry);
         if (NT_SUCCESS(Status))
         {
-            /* We have a fully constructed device, return it */
+            /* We have a fully constructed device, reuturn it */
             *DeviceEntry = IoDeviceEntry;
             return STATUS_SUCCESS;
         }
@@ -1230,158 +1191,6 @@ BlockIoEfiCreateDeviceEntry (
     /* Free the device entry itself and return the failure code */
     BlMmFreeHeap(IoDeviceEntry);
     EfiPrintf(L"Failed: %lx\r\n", Status);
-    return Status;
-}
-
-NTSTATUS
-BlockIoEfiCompareDevice (
-    _In_ PBL_DEVICE_DESCRIPTOR Device,
-    _In_ EFI_HANDLE Handle
-    )
-{
-    PBL_LOCAL_DEVICE LocalDeviceInfo, EfiLocalDeviceInfo;
-    PBL_DEVICE_ENTRY DeviceEntry;
-    PBL_DEVICE_DESCRIPTOR EfiDevice;
-    NTSTATUS Status;
-
-    DeviceEntry = NULL;
-
-    /* Check if no device was given */
-    if (!Device)
-    {
-        /* Fail the comparison */
-        Status = STATUS_INVALID_PARAMETER;
-        goto Quickie;
-    }
-
-    /* Check if this is a local disk device */
-    if (Device->DeviceType != DiskDevice)
-    {
-        /* Nope -- is it a partition device? */
-        if ((Device->DeviceType != LegacyPartitionDevice) &&
-            (Device->DeviceType != PartitionDevice))
-        {
-            /* Nope, so we can't compare */
-            Status = STATUS_INVALID_PARAMETER;
-            goto Quickie;
-        }
-
-        /* If so, return the device information for the parent disk */
-        LocalDeviceInfo = &Device->Partition.Disk;
-    }
-    else
-    {
-        /* Just return the disk information itself */
-        LocalDeviceInfo = &Device->Local;
-    }
-
-    /* Create an EFI device entry for the EFI device handle */
-    Status = BlockIoEfiCreateDeviceEntry(&DeviceEntry, Handle);
-    if (!NT_SUCCESS(Status))
-    {
-        goto Quickie;
-    }
-
-    /* Read the descriptor and assume failure for now */
-    EfiDevice = DeviceEntry->DeviceDescriptor;
-    Status = STATUS_UNSUCCESSFUL;
-
-    /* Check if the EFI device is a disk */
-    if (EfiDevice->DeviceType != DiskDevice)
-    {
-        /* Nope, is it a partition? */
-        if ((EfiDevice->DeviceType != LegacyPartitionDevice) &&
-            (EfiDevice->DeviceType != PartitionDevice))
-        {
-            /* Neither, invalid handle so bail out */
-            Status = STATUS_INVALID_PARAMETER;
-            goto Quickie;
-        }
-
-        /* Yes, so get the information of the parent disk */
-        EfiLocalDeviceInfo = &EfiDevice->Partition.Disk;
-    }
-    else
-    {
-        /* It's a disk, so get the disk information itself */
-        EfiLocalDeviceInfo = &EfiDevice->Local;
-    }
-
-    /* Are the two devices the same type? */
-    if (EfiLocalDeviceInfo->Type != LocalDeviceInfo->Type)
-    {
-        /* Nope, that was easy */
-        goto Quickie;
-    }
-
-    /* Yes, what kind of device is the EFI side? */
-    switch (EfiLocalDeviceInfo->Type)
-    {
-        case LocalDevice:
-
-            /* Local hard drive, compare the signature */
-            if (RtlCompareMemory(&EfiLocalDeviceInfo->HardDisk,
-                                 &LocalDeviceInfo->HardDisk,
-                                 sizeof(LocalDeviceInfo->HardDisk)) ==
-                sizeof(LocalDeviceInfo->HardDisk))
-            {
-                Status = STATUS_SUCCESS;
-            }
-            break;
-
-        case FloppyDevice:
-        case CdRomDevice:
-
-            /* Removable floppy or CD, compare the disk number */
-            if (RtlCompareMemory(&EfiLocalDeviceInfo->FloppyDisk,
-                                 &LocalDeviceInfo->FloppyDisk,
-                                 sizeof(LocalDeviceInfo->FloppyDisk)) ==
-                sizeof(LocalDeviceInfo->FloppyDisk))
-            {
-                Status = STATUS_SUCCESS;
-            }
-            break;
-
-        case RamDiskDevice:
-
-            /* RAM disk, compare the size and base information */
-            if (RtlCompareMemory(&EfiLocalDeviceInfo->RamDisk,
-                                 &LocalDeviceInfo->RamDisk,
-                                 sizeof(LocalDeviceInfo->RamDisk)) ==
-                sizeof(LocalDeviceInfo->RamDisk))
-            {
-                Status = STATUS_SUCCESS;
-            }
-            break;
-
-        case FileDevice:
-
-            /* File, compare the file identifier */
-            if (RtlCompareMemory(&EfiLocalDeviceInfo->File,
-                                 &LocalDeviceInfo->File,
-                                 sizeof(LocalDeviceInfo->File)) ==
-                sizeof(LocalDeviceInfo->File))
-            {
-                Status = STATUS_SUCCESS;
-            }
-            break;
-
-        /* Something else we don't support */
-        default:
-            break;
-    }
-
-Quickie:
-    /* All done, did we have an EFI device entry? */
-    if (DeviceEntry)
-    {
-        /* Free it, since we only needed it locally for comparison */
-        BlMmFreeHeap(DeviceEntry->DeviceDescriptor);
-        BlockIopFreeAllocations(DeviceEntry->DeviceSpecificData);
-        BlMmFreeHeap(DeviceEntry);
-    }
-
-    /* Return back to the caller */
     return Status;
 }
 
@@ -1449,8 +1258,8 @@ BlockIoFirmwareOpen (
         Status = BlockIoEfiCreateDeviceEntry(&DeviceEntry, DeviceHandles[i]);
         if (!NT_SUCCESS(Status))
         {
-            EfiPrintf(L"EFI create failed: %lx\r\n", Status);
-            continue;
+            EfiPrintf(L"EFI create failed: %lx\n", Status);
+            break;
         }
 
         /* Add the device entry to the device table */
@@ -1478,6 +1287,7 @@ BlockIoFirmwareOpen (
 
         /* Does this device match what we're looking for? */
         DeviceMatch = BlpDeviceCompare(DeviceEntry->DeviceDescriptor, Device);
+        EfiPrintf(L"Device match: %d\r\n", DeviceMatch);
         if (DeviceMatch)
         {
             /* Yep, return the data back */
@@ -1667,8 +1477,8 @@ DeviceTableCompare (
     )
 {
     BOOLEAN Found;
-    PBL_DEVICE_DESCRIPTOR Device = (PBL_DEVICE_DESCRIPTOR)Argument1;
-    PBL_DEVICE_ENTRY DeviceEntry = (PBL_DEVICE_ENTRY)Entry;
+    PBL_DEVICE_DESCRIPTOR Device = (PBL_DEVICE_DESCRIPTOR)Entry;
+    PBL_DEVICE_ENTRY DeviceEntry = (PBL_DEVICE_ENTRY)Argument1;
     ULONG Flags = *(PULONG)Argument2;
     ULONG Unknown = *(PULONG)Argument3;
 
@@ -1682,8 +1492,8 @@ DeviceTableCompare (
         if (DeviceEntry->Unknown == Unknown)
         {
             /* Compare flags */
-            if ((!(Flags & BL_DEVICE_READ_ACCESS) || (DeviceEntry->Flags & BL_DEVICE_ENTRY_READ_ACCESS)) &&
-                (!(Flags & BL_DEVICE_WRITE_ACCESS) || (DeviceEntry->Flags & BL_DEVICE_ENTRY_WRITE_ACCESS)))
+            if ((!(Flags & 1) || (DeviceEntry->Flags & 2)) &&
+                (!(Flags & 2) || (DeviceEntry->Flags & 4)))
             {
                 /* And more flags */
                 if (((Flags & 8) || !(DeviceEntry->Flags & 8)) &&
@@ -1730,7 +1540,7 @@ DeviceTablePurge (
     NTSTATUS Status;
 
     /* Check if the device is opened */
-    if (DeviceEntry->Flags & BL_DEVICE_ENTRY_OPENED)
+    if (DeviceEntry->Flags & 1)
     {
         /* It is, so can't purge it */
         Status = STATUS_UNSUCCESSFUL;
@@ -1890,6 +1700,7 @@ BlockIopInitialize (
     return Status;
 }
 
+
 BOOLEAN
 BlockIoDeviceTableCompare (
     _In_ PVOID Entry,
@@ -1925,6 +1736,7 @@ BlockIoOpen (
         if (!NT_SUCCESS(Status))
         {
             /* Failed to initialize block I/O */
+            EfiPrintf(L"Block I/O Init failed\r\n");
             return Status;
         }
     }
@@ -1957,7 +1769,7 @@ BlockIoOpen (
     if (FoundDeviceEntry)
     {
         /* We already found a device, so copy its device data and callbacks */
-        //EfiPrintf(L"Block I/O Device entry found: %p\r\n", FoundDeviceEntry);
+        EfiPrintf(L"Device entry found: %p\r\n", FoundDeviceEntry);
         RtlCopyMemory(BlockDevice, FoundDeviceEntry->DeviceSpecificData, sizeof(*BlockDevice));
         RtlCopyMemory(&DeviceEntry->Callbacks,
                       &FoundDeviceEntry->Callbacks,
@@ -2061,7 +1873,7 @@ BlDeviceClose (
     }
 
     /* Make sure the device is active */
-    if (!(DeviceEntry->Flags & BL_DEVICE_ENTRY_OPENED))
+    if (!(DeviceEntry->Flags & 1))
     {
         return STATUS_INVALID_PARAMETER;
     }
@@ -2071,7 +1883,7 @@ BlDeviceClose (
     if (!DeviceEntry->ReferenceCount)
     {
         /* Mark the device as inactive */
-        DeviceEntry->Flags = ~BL_DEVICE_ENTRY_OPENED;
+        DeviceEntry->Flags = ~1;
     }
 
     /* We're good */
@@ -2152,9 +1964,10 @@ BlpDeviceOpen (
     if (DeviceEntry)
     {
         /* Return it, taking a reference on it */
+        EfiPrintf(L"Device found: %p\r\n", DeviceEntry);
         *DeviceId = DeviceEntry->DeviceId;
         ++DeviceEntry->ReferenceCount;
-        DeviceEntry->Flags |= BL_DEVICE_ENTRY_OPENED;
+        DeviceEntry->Flags |= 1;
         return STATUS_SUCCESS;
     }
 

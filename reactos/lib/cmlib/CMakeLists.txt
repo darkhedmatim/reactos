@@ -1,14 +1,14 @@
 
 add_definitions(
+    -D_NTOSKRNL_
     -D_NTSYSTEM_
     -DNASSERT)
 
 list(APPEND SOURCE
     cminit.c
     cmindex.c
-    cmkeydel.c
     cmname.c
-    cmvalue.c
+    cmtools.c
     hivebin.c
     hivecell.c
     hiveinit.c

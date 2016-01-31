@@ -26,16 +26,6 @@
 
 extern int iZoom;
 
-struct _AppBarConfig_t {
-    DWORD cbSize;
-    INT   uEdge;
-    DWORD value3;
-    DWORD value4;
-    RECT appBarSizes;
-    RECT rcFloating;
-};
-extern struct _AppBarConfig_t AppBarConfig;
-
 extern BOOL bShowWarning;
 
 extern BOOL bFollowMouse;

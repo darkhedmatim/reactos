@@ -1,5 +1,4 @@
-/*
- * COPYRIGHT:       See COPYING in the top level directory
+/* COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS hive maker
  * FILE:            tools/mkhive/rtl.c
  * PURPOSE:         Runtime Library
@@ -16,6 +15,34 @@
 
 #include "mkhive.h"
 #include <bitmap.c>
+
+/*
+ * @implemented
+ *
+ * NOTES
+ *  If source is NULL the length of source is assumed to be 0.
+ */
+VOID NTAPI
+RtlInitAnsiString(
+    IN OUT PANSI_STRING DestinationString,
+    IN PCSTR SourceString)
+{
+    SIZE_T DestSize;
+
+    if(SourceString)
+    {
+        DestSize = strlen(SourceString);
+        DestinationString->Length = (USHORT)DestSize;
+        DestinationString->MaximumLength = (USHORT)DestSize + sizeof(CHAR);
+    }
+    else
+    {
+        DestinationString->Length = 0;
+        DestinationString->MaximumLength = 0;
+    }
+
+    DestinationString->Buffer = (PCHAR)SourceString;
+}
 
 /*
  * @implemented
@@ -43,6 +70,41 @@ RtlInitUnicodeString(
     }
 
     DestinationString->Buffer = (PWCHAR)SourceString;
+}
+
+NTSTATUS NTAPI
+RtlAnsiStringToUnicodeString(
+    IN OUT PUNICODE_STRING UniDest,
+    IN PANSI_STRING AnsiSource,
+    IN BOOLEAN AllocateDestinationString)
+{
+    ULONG Length;
+    PUCHAR WideString;
+    USHORT i;
+
+    Length = AnsiSource->Length * sizeof(WCHAR);
+    if (Length > MAXUSHORT) return STATUS_INVALID_PARAMETER_2;
+    UniDest->Length = (USHORT)Length;
+
+    if (AllocateDestinationString)
+    {
+        UniDest->MaximumLength = (USHORT)Length + sizeof(WCHAR);
+        UniDest->Buffer = (PWSTR) malloc(UniDest->MaximumLength);
+        if (!UniDest->Buffer)
+            return STATUS_NO_MEMORY;
+    }
+    else if (UniDest->Length >= UniDest->MaximumLength)
+    {
+        return STATUS_BUFFER_OVERFLOW;
+    }
+
+    WideString = (PUCHAR)UniDest->Buffer;
+    for (i = 0; i <= AnsiSource->Length; i++)
+    {
+        WideString[2 * i + 0] = AnsiSource->Buffer[i];
+        WideString[2 * i + 1] = 0;
+    }
+    return STATUS_SUCCESS;
 }
 
 LONG NTAPI
@@ -153,23 +215,6 @@ RtlAssert(PVOID FailedAssertion,
    }
 
    //DbgBreakPoint();
-}
-
-// DECLSPEC_NORETURN
-VOID
-NTAPI
-KeBugCheckEx(
-    IN ULONG BugCheckCode,
-    IN ULONG_PTR BugCheckParameter1,
-    IN ULONG_PTR BugCheckParameter2,
-    IN ULONG_PTR BugCheckParameter3,
-    IN ULONG_PTR BugCheckParameter4)
-{
-    char Buffer[70];
-    printf("*** STOP: 0x%08X (0x%08lX, 0x%08lX, 0x%08lX, 0x%08lX)",
-           BugCheckCode, BugCheckParameter1, BugCheckParameter2,
-           BugCheckParameter3, BugCheckParameter4);
-    ASSERT(FALSE);
 }
 
 unsigned char BitScanForward(ULONG * Index, unsigned long Mask)

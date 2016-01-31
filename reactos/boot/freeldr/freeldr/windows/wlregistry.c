@@ -133,8 +133,11 @@ BOOLEAN WinLdrInitSystemHive(IN OUT PLOADER_PARAMETER_BLOCK LoaderBlock,
     if (!Success)
         return FALSE;
 
+    // Initialize in-memory registry
+    RegInitializeRegistry();
+
     // Import what was loaded
-    Success = RegImportBinaryHive(VaToPa(LoaderBlock->RegistryBase), LoaderBlock->RegistryLength);
+    Success = RegImportBinaryHive((PCHAR)VaToPa(LoaderBlock->RegistryBase), LoaderBlock->RegistryLength);
     if (!Success)
     {
         UiMessageBox("Importing binary hive failed!");
@@ -193,7 +196,7 @@ WinLdrGetNLSNames(LPSTR AnsiName,
                   LPSTR LangName)
 {
     LONG rc = ERROR_SUCCESS;
-    HKEY hKey;
+    FRLDRHKEY hKey;
     WCHAR szIdBuffer[80];
     WCHAR NameBuffer[80];
     ULONG BufferSize;
@@ -443,7 +446,7 @@ WinLdrScanRegistry(IN OUT PLIST_ENTRY BootDriverListHead,
                    IN LPCSTR DirectoryPath)
 {
     LONG rc = 0;
-    HKEY hGroupKey, hOrderKey, hServiceKey, hDriverKey;
+    FRLDRHKEY hGroupKey, hOrderKey, hServiceKey, hDriverKey;
     LPWSTR GroupNameBuffer;
     WCHAR ServiceName[256];
     ULONG OrderList[128];

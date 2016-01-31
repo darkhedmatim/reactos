@@ -13,543 +13,780 @@
 
 /* FUNCTIONS *****************************************************************/
 
-VOID
-BiNotifyEnumerationError (
-    _In_ HANDLE ObjectHandle, 
-    _In_ PWCHAR ElementName,
-    _In_ NTSTATUS Status
+PBL_BCD_OPTION
+MiscGetBootOption (
+    _In_ PBL_BCD_OPTION List,
+    _In_ ULONG Type
     )
 {
-    /* Stub for now */
-    UNREFERENCED_PARAMETER(ObjectHandle);
-    UNREFERENCED_PARAMETER(ElementName);
-    UNREFERENCED_PARAMETER(Status);
-    EfiPrintf(L"Error in BiNotify: %lx for element %s\r\n", Status, ElementName);
+    ULONG_PTR NextOption = 0, ListOption;
+    PBL_BCD_OPTION Option, FoundOption;
+
+    /* No options, bail out */
+    if (!List)
+    {
+        return NULL;
+    }
+
+    /* Loop while we find an option */
+    FoundOption = NULL;
+    do
+    {
+        /* Get the next option and see if it matches the type */
+        Option = (PBL_BCD_OPTION)((ULONG_PTR)List + NextOption);
+        if ((Option->Type == Type) && !(Option->Empty))
+        {
+            FoundOption = Option;
+            break;
+        }
+
+        /* Store the offset of the next option */
+        NextOption = Option->NextEntryOffset;
+
+        /* Failed to match. Check for list options */
+        ListOption = Option->ListOffset;
+        if (ListOption)
+        {
+            /* Try to get a match in the associated option */
+            Option = MiscGetBootOption((PBL_BCD_OPTION)((ULONG_PTR)Option +
+                                       ListOption),
+                                       Type);
+            if (Option)
+            {
+                /* Return it */
+                FoundOption = Option;
+                break;
+            }
+        }
+    } while (NextOption);
+
+    /* Return the option that was found, if any */
+    return FoundOption;
 }
 
+/*++
+ * @name BlGetBootOptionListSize
+ *
+ *     The BlGetBootOptionListSize routine
+ *
+ * @param  BcdOption
+ *         UEFI Image Handle for the current loaded application.
+ *
+ * @return Size of the BCD option
+ *
+ *--*/
 ULONG
-BiConvertElementFormatToValueType (
-    _In_ ULONG Format
+BlGetBootOptionListSize (
+    _In_ PBL_BCD_OPTION BcdOption
     )
 {
-    /* Strings and objects are strings */
-    if ((Format == BCD_TYPE_STRING) || (Format == BCD_TYPE_OBJECT))
+    ULONG Size = 0, NextOffset = 0;
+    PBL_BCD_OPTION NextOption;
+
+    /* Loop all the options*/
+    do
     {
-        return REG_SZ;
+        /* Move to the next one */
+        NextOption = (PBL_BCD_OPTION)((ULONG_PTR)BcdOption + NextOffset);
+
+        /* Compute the size of the next one */
+        Size += BlGetBootOptionSize(NextOption);
+
+        /* Update the offset */
+        NextOffset = NextOption->NextEntryOffset;
+    } while (NextOffset);
+
+    /* Return final computed size */
+    return Size;
+}
+
+/*++
+ * @name BlGetBootOptionSize
+ *
+ *     The BlGetBootOptionSize routine
+ *
+ * @param  BcdOption
+ *         UEFI Image Handle for the current loaded application.
+ *
+ * @return Size of the BCD option
+ *
+ *--*/
+ULONG
+BlGetBootOptionSize (
+    _In_ PBL_BCD_OPTION BcdOption
+    )
+{
+    ULONG Size, Offset;
+
+    /* Check if there's any data */
+    if (BcdOption->DataOffset)
+    {
+        /* Add the size of the data */
+        Size = BcdOption->DataOffset + BcdOption->DataSize;
+    }
+    else
+    {
+        /* No data, just the structure itself */
+        Size = sizeof(*BcdOption);
     }
 
-    /* Object lists are arrays of strings */
-    if (Format == BCD_TYPE_OBJECT_LIST)
+    /* Any associated options? */
+    Offset = BcdOption->ListOffset;
+    if (Offset)
     {
-        return REG_MULTI_SZ;
+        /* Go get those too */
+        Size += BlGetBootOptionListSize((PVOID)((ULONG_PTR)BcdOption + Offset));
     }
 
-    /* Everything else is binary */
-    return REG_BINARY;
+    /* Return the final size */
+    return Size;
 }
 
 NTSTATUS
-BiConvertRegistryDataToElement (
-    _In_ HANDLE ObjectHandle,
-    _In_ PVOID Data,
-    _In_ ULONG DataLength,
-    _In_ BcdElementType ElementType,
-    _Out_ PVOID Element,
-    _Out_ PULONG ElementSize
+BlGetBootOptionString (
+    _In_ PBL_BCD_OPTION List,
+    _In_ ULONG Type,
+    _Out_ PWCHAR* Value
     )
 {
     NTSTATUS Status;
-    ULONG Length, Size, ReturnedLength;
-    PBL_DEVICE_DESCRIPTOR Device;
-    BOOLEAN NullTerminate;
-    PBCD_DEVICE_OPTION BcdDevice, ElementDevice;
-    PWCHAR BcdString, ElementString;
-    PGUID ElementGuid; UNICODE_STRING GuidString;
-    PULONGLONG ElementInteger;
-    PUSHORT ElementWord; PBOOLEAN BcdBoolean;
+    PBL_BCD_OPTION Option;
+    PWCHAR String, StringCopy;
+    ULONG StringLength, CopyLength;
+    //PGUID AppIdentifier;
 
-    /* Assume failure */
-    ReturnedLength = 0;
-
-    /* Check what type of format we are dealing with */
-    switch (ElementType.Format)
+    /* Make sure this is a BCD_STRING */
+    if ((Type & 0xF000000) != 0x2000000)
     {
-        /* Devices -- they are in a binary format */
-        case BCD_TYPE_DEVICE:
-
-            /* First, make sure it's at least big enough for an empty descriptor */
-            if (DataLength < FIELD_OFFSET(BCD_DEVICE_OPTION, 
-                                          DeviceDescriptor.Unknown))
-            {
-                return STATUS_OBJECT_TYPE_MISMATCH;
-            }
-
-            /* Both the registry and BCD format are the same */
-            BcdDevice = (PBCD_DEVICE_OPTION)Data;
-            ElementDevice = (PBCD_DEVICE_OPTION)Element;
-
-            /* Make sure the device fits in the registry data */
-            Device = &BcdDevice->DeviceDescriptor;
-            Size = Device->Size;
-            if ((Size + sizeof(BcdDevice->AssociatedEntry)) != DataLength)
-            {
-                return STATUS_OBJECT_TYPE_MISMATCH;
-            }
-
-            /* Check if this is a locate device */
-            if (Device->DeviceType == LocateDevice)
-            {
-                EfiPrintf(L"Locates not yet supported\r\n");
-                return STATUS_NOT_SUPPORTED;
-            }
-
-            /* Make sure the caller's buffer can fit the device */
-            ReturnedLength = Size + sizeof(BcdDevice->AssociatedEntry);
-            if (ReturnedLength > *ElementSize)
-            {
-                Status = STATUS_BUFFER_TOO_SMALL;
-                break;
-            }
-
-            /* It'll fit -- copy it in */
-            RtlCopyMemory(&ElementDevice->DeviceDescriptor, Device, Size);
-            ElementDevice->AssociatedEntry = BcdDevice->AssociatedEntry;
-            Status = STATUS_SUCCESS;
-            break;
-
-        /* Strings -- they are stored as is */
-        case BCD_TYPE_STRING:
-
-            /* Make sure the string isn't empty or misaligned */
-            if (!(DataLength) || (DataLength & 1))
-            {
-                return STATUS_OBJECT_TYPE_MISMATCH;
-            }
-
-            /* Both the registry and BCD format are the same */
-            BcdString = (PWCHAR)Data;
-            ElementString = (PWCHAR)Element;
-
-            /* We'll need as much data as the string has to offer */
-            ReturnedLength = DataLength;
-
-            /* If the string isn't NULL-terminated, do it now */
-            NullTerminate = FALSE;
-            if (BcdString[(DataLength / sizeof(WCHAR)) - 1] != UNICODE_NULL)
-            {
-                ReturnedLength += sizeof(UNICODE_NULL);
-                NullTerminate = TRUE;
-            }
-
-            /* Will we fit in the caller's buffer? */
-            if (ReturnedLength > *ElementSize)
-            {
-                Status = STATUS_BUFFER_TOO_SMALL;
-                break;
-            }
-
-            /* Yep -- copy it in, and NULL-terminate if needed */
-            RtlCopyMemory(Element, Data, DataLength);
-            if (NullTerminate)
-            {
-                ElementString[DataLength / sizeof(WCHAR)] = UNICODE_NULL;
-            }
-
-            Status = STATUS_SUCCESS;
-            break;
-
-        /* Objects -- they are stored as GUID Strings */
-        case BCD_TYPE_OBJECT:
-
-            /* Registry data is a string, BCD data is a GUID */
-            BcdString = (PWCHAR)Data;
-            ElementGuid = (PGUID)Element;
-
-            /* We need a GUID-sized buffer, does the caller have one? */
-            ReturnedLength = sizeof(*ElementGuid);
-            if (*ElementSize < ReturnedLength)
-            {
-                Status = STATUS_BUFFER_TOO_SMALL;
-                break;
-            }
-            
-            /* Yep, copy the GUID */
-            RtlInitUnicodeString(&GuidString, BcdString);
-            Status = RtlGUIDFromString(&GuidString, ElementGuid);
-            break;
-
-        /* Object Lists -- they are stored as arrays of GUID strings */
-        case BCD_TYPE_OBJECT_LIST:
-
-            /* Assume an empty list*/
-            ReturnedLength = 0;
-            Length = 0;
-            Status = STATUS_SUCCESS;
-
-            /* Registry data is an array of strings, BCD data is array of GUIDs */
-            BcdString = (PWCHAR)Data;
-            ElementGuid = (PGUID)Element;
-
-            /* Loop as long as the array still has strings */
-            while (*BcdString)
-            {
-                /* Don't read beyond the registry data */
-                if (Length >= DataLength)
-                {
-                    break;
-                }
-
-                /* One more GUID -- does the caller have space? */
-                ReturnedLength += sizeof(GUID);
-                if (ReturnedLength <= *ElementSize)
-                {
-                    /* Convert and add it in */
-                    RtlInitUnicodeString(&GuidString, BcdString);
-                    Status = RtlGUIDFromString(&GuidString, ElementGuid);
-                    if (!NT_SUCCESS(Status))
-                    {
-                        break;
-                    }
-
-                    /* Move to the next GUID in the caller's buffer */
-                    ElementGuid++;
-                }
-
-                /* Move to the next string in the registry array */
-                Size = (wcslen(BcdString) * sizeof(WCHAR)) + sizeof(UNICODE_NULL);
-                Length += Size;
-                BcdString = (PWCHAR)((ULONG_PTR)BcdString + Length);
-            }
-
-            /* Check if we failed anywhere */
-            if (!NT_SUCCESS(Status))
-            {
-                break;
-            }
-
-            /* Check if we consumed more space than we have */
-            if (ReturnedLength > *ElementSize)
-            {
-                Status = STATUS_BUFFER_TOO_SMALL;
-            }
-
-            /* All good here */
-            break;
-
-        /* Integer -- stored as binary */
-        case BCD_TYPE_INTEGER:
-
-            /* BCD data is a ULONGLONG, registry data is 8 bytes binary */
-            ElementInteger = (PULONGLONG)Element;
-            ReturnedLength = sizeof(*ElementInteger);
-
-            /* Make sure the registry data makes sense */
-            if (DataLength > ReturnedLength)
-            {
-                return STATUS_OBJECT_TYPE_MISMATCH;
-            }
-
-            /* Make sure the caller has space */
-            if (*ElementSize < ReturnedLength)
-            {
-                Status = STATUS_BUFFER_TOO_SMALL;
-                break;
-            }
-
-            /* Write the integer result */
-            *ElementInteger = 0;
-            RtlCopyMemory(ElementInteger, Data, DataLength);
-            Status = STATUS_SUCCESS;
-            break;
-
-        /* Boolean -- stored as binary */
-        case BCD_TYPE_BOOLEAN:
-
-            /* BCD data is a BOOLEAN, registry data is 2 bytes binary */
-            ElementWord = (PUSHORT)Element;
-            BcdBoolean = (PBOOLEAN)Data;
-            ReturnedLength = sizeof(ElementWord);
-
-            /* Make sure the registry data makes sense */
-            if (DataLength != sizeof(*BcdBoolean))
-            {
-                return STATUS_OBJECT_TYPE_MISMATCH;
-            }
-
-            /* Make sure the caller has space */
-            if (*ElementSize < ReturnedLength)
-            {
-                Status = STATUS_BUFFER_TOO_SMALL;
-                break;
-            }
-
-            /* Write the boolean result */
-            *ElementWord = 0;
-            *ElementWord = *BcdBoolean != 0;
-            Status = STATUS_SUCCESS;
-            break;
-
-        /* Integer list --stored as binary */
-        case BCD_TYPE_INTEGER_LIST:
-
-            /* BCD Data is n ULONGLONGs, registry data is n*8 bytes binary */
-            ReturnedLength = DataLength;
-            if (!(DataLength) || (DataLength & 7))
-            {
-                return STATUS_OBJECT_TYPE_MISMATCH;
-            }
-
-            /* Make sure the caller has space */
-            if (*ElementSize < ReturnedLength)
-            {
-                Status = STATUS_BUFFER_TOO_SMALL;
-                break;
-            }
-
-            /* Write the integer list result */
-            RtlCopyMemory(Element, Data, DataLength);
-            Status = STATUS_SUCCESS;
-            break;
-
-        /* Arbitrary data */
-        default:
-
-            /* Registry data is copied binary as-is */
-            ReturnedLength = DataLength;
-
-            /* Make sure it's not empty */
-            if (!DataLength)
-            {
-                return STATUS_OBJECT_TYPE_MISMATCH;
-            }
-
-            /* Make sure the caller has space */
-            if (*ElementSize < ReturnedLength)
-            {
-                Status = STATUS_BUFFER_TOO_SMALL;
-                break;
-            }
-
-            /* Write the result */
-            RtlCopyMemory(Element, Data, DataLength);
-            Status = STATUS_SUCCESS;
-            break;
+        return STATUS_INVALID_PARAMETER;
     }
 
-    /* If we got here due to success or space issues, write the size */
-    if ((NT_SUCCESS(Status)) || (Status == STATUS_BUFFER_TOO_SMALL))
+    /* Return the data */
+    Option = MiscGetBootOption(List, Type);
+    if (Option)
     {
-        *ElementSize = ReturnedLength;
+        /* Extract the string */
+        String = (PWCHAR)((ULONG_PTR)Option + Option->DataOffset);
+        Status = STATUS_SUCCESS;
+    }
+    else
+    {
+        /* No string is present */
+        String = NULL;
+        Status = STATUS_NOT_FOUND;
     }
 
-    /* All done, return our conversion result */
-    return Status;
-}
+    /* Compute the data size */
+    StringLength = Option->DataSize / sizeof(WCHAR);
 
-NTSTATUS
-BiConvertBcdElements (
-    _In_ PBCD_PACKED_ELEMENT Elements,
-    _Out_opt_ PBCD_ELEMENT Buffer,
-    _Inout_ PULONG BufferSize, 
-    _Inout_ PULONG ElementCount
-    )
-{
-    NTSTATUS Status;
-    ULONG ElementSize, AlignedElementSize, AlignedDataSize;
-    PBCD_ELEMENT_HEADER Header;
-    PVOID Data;
-    BOOLEAN Exists;
-    ULONG i, j, Count;
-
-    /* Local variable to keep track of objects */
-    Count = 0;
-
-    /* Safely compute the element bytes needed */
-    Status = RtlULongMult(*ElementCount, sizeof(BCD_ELEMENT), &ElementSize);
-    if (!NT_SUCCESS(Status))
+#ifdef _SECURE_BOOT_
+    /* Filter out SecureBoot Options */
+    AppIdentifier = BlGetApplicationIdentifier();
+    Status = BlpBootOptionCallbackString(AppIdentifier, Type, String, StringLength, &String, &StringLength);
+#else
+#endif
+    /* Check if we have space for one more character */
+    CopyLength = StringLength + 1;
+    if (CopyLength < StringLength)
     {
-        return Status;
+        /* Nope, we'll overflow */
+        CopyLength = -1;
+        Status = STATUS_INTEGER_OVERFLOW;
     }
 
-    /* Safely align the element size */
-    Status = RtlULongAdd(ElementSize,
-                         sizeof(ULONG) - 1,
-                         &AlignedElementSize);
-    if (!NT_SUCCESS(Status))
+    /* No overflow? */
+    if (NT_SUCCESS(Status))
     {
-        return Status;
-    }
-    AlignedElementSize = ALIGN_DOWN(AlignedElementSize, ULONG);
-
-    /* Do a safe version of Add2Ptr to figure out where the headers will start */
-    Status = RtlULongPtrAdd((ULONG_PTR)Buffer,
-                            AlignedElementSize,
-                            (PULONG_PTR)&Header);
-    if (!NT_SUCCESS(Status))
-    {
-        return Status;
-    }
-
-    /* Safely compute the header bytes needed */
-    Status = RtlULongMult(*ElementCount,
-                          sizeof(BCD_ELEMENT_HEADER),
-                          &ElementSize);
-    if (!NT_SUCCESS(Status))
-    {
-        return Status;
-    }
-
-    /* Safely align the header size */
-    Status = RtlULongAdd(ElementSize,
-                         AlignedElementSize + sizeof(ULONG) - 1,
-                         &AlignedElementSize);
-    if (!NT_SUCCESS(Status))
-    {
-        return Status;
-    }
-    AlignedElementSize = ALIGN_DOWN(AlignedElementSize, ULONG);
-
-    /* Do a safe version of Add2Ptr */
-    Status = RtlULongPtrAdd((ULONG_PTR)Buffer,
-                            AlignedElementSize,
-                            (PULONG_PTR)&Data);
-    if (!NT_SUCCESS(Status))
-    {
-        return Status;
-    }
-
-    /* Iterate over every element */
-    for (i = 0; i < *ElementCount; i++)
-    {
-        /* Safely align the element size */
-        Status = RtlULongAdd(Elements->Size,
-                             sizeof(ULONG) - 1,
-                             &AlignedDataSize);
-        if (!NT_SUCCESS(Status))
+        /* Check if it's safe to multiply by two */
+        if ((CopyLength * sizeof(WCHAR)) > 0xFFFFFFFF)
         {
-            break;
-        }
-        AlignedDataSize = ALIGN_DOWN(AlignedDataSize, ULONG);
-
-        /* Safely add the size of this data element */
-        Status = RtlULongAdd(AlignedElementSize,
-                             AlignedDataSize,
-                             &AlignedElementSize);
-        if (!NT_SUCCESS(Status))
-        {
-            break;
-        }
-
-        /* Do we have enough space left? */
-        if (*BufferSize >= AlignedElementSize)
-        {
-            /* Check if our root is an inherited object */
-            Exists = FALSE;
-            if (Elements->RootType.PackedValue == BcdLibraryObjectList_InheritedObjects)
-            {
-                /* Yes, scan for us in the current buffer */
-                for (j = 0; j < Count; j++)
-                {
-                    /* Do we already exist? */
-                    while (Buffer[j].Header->Type == Elements->RootType.PackedValue)
-                    {
-                        /* Yep */
-                        Exists = TRUE;
-                        break;
-                    }
-                }
-            }
-
-            /* Have we already found ourselves? */
-            if (!Exists)
-            {
-                /* Nope, one more entry */
-                ++Count;
-
-                /* Write out the unpacked object */
-                Buffer->Body = Data;
-                Buffer->Header = Header;
-
-                /* Fill out its header */
-                Header->Size = Elements->Size;
-                Header->Type = Elements->Type;
-                Header->Version = Elements->Version;
-
-                /* And copy the data */
-                RtlCopyMemory(Data, Elements->Data, Header->Size);
-
-                /* Move to the next unpacked object and header */
-                ++Buffer;
-                ++Header;
-
-                /* Move to the next data entry */
-                Data = (PVOID)((ULONG_PTR)Data + AlignedDataSize);
-            }
+            /* Nope */
+            CopyLength = -1;
+            Status = STATUS_INTEGER_OVERFLOW;
         }
         else
         {
-            /* Nope, set failure code, but keep going so we can return count */
-            Status = STATUS_BUFFER_TOO_SMALL;
+            /* We're good, do the multiplication */
+            Status = STATUS_SUCCESS;
+            CopyLength *= sizeof(WCHAR);
         }
 
-        /* Move to the next element entry */
-        Elements = Elements->NextEntry;
+        /* Allocate a copy for the string */
+        if (NT_SUCCESS(Status))
+        {
+            StringCopy = BlMmAllocateHeap(CopyLength);
+            if (StringCopy)
+            {
+                /* NULL-terminate it */
+                RtlCopyMemory(StringCopy,
+                              String,
+                              CopyLength - sizeof(UNICODE_NULL));
+                StringCopy[CopyLength] = UNICODE_NULL;
+                *Value = StringCopy;
+                Status = STATUS_SUCCESS;
+            }
+            else
+            {
+                /* No memory, fail */
+                Status = STATUS_NO_MEMORY;
+            }
+        }
     }
 
-    /* Return the new final buffer size and count */
-    *BufferSize = AlignedElementSize;
-    *ElementCount = Count;
+    /* All done */
     return Status;
 }
 
 NTSTATUS
-BcdOpenObject (
-    _In_ HANDLE BcdHandle,
-    _In_ PGUID ObjectId,
-    _Out_ PHANDLE ObjectHandle
+BlGetBootOptionDevice (
+    _In_ PBL_BCD_OPTION List,
+    _In_ ULONG Type,
+    _Out_ PBL_DEVICE_DESCRIPTOR* Value,
+    _In_opt_ PBL_BCD_OPTION* ExtraOptions
     )
 {
     NTSTATUS Status;
-    GUID LocalGuid;
-    UNICODE_STRING GuidString;
-    HANDLE RootObjectHandle;
+    PBL_BCD_OPTION Option, ListData, ListCopy, SecureListData;
+    PBCD_DEVICE_OPTION BcdDevice;
+    ULONG DeviceSize, ListOffset, ListSize;
+    PBL_DEVICE_DESCRIPTOR DeviceDescriptor, SecureDescriptor;
+    //PGUID AppIdentifier;
 
-    /* Assume failure */
-    *ObjectHandle = NULL;
-
-    /* Initialize GUID string */
-    GuidString.Buffer = NULL;
-
-    /* Open the root "Objects" handle */
-    RootObjectHandle = NULL;
-    Status = BiOpenKey(BcdHandle, L"Objects", &RootObjectHandle);
-    if (!NT_SUCCESS(Status))
+    /* Make sure this is a BCD_DEVICE */
+    if ((Type & 0xF000000) != 0x1000000)
     {
-        goto Quickie;
+        return STATUS_INVALID_PARAMETER;
     }
 
-    /* Capture the object ID and convert it into a string */
-    LocalGuid = *ObjectId;
-    Status = RtlStringFromGUID(&LocalGuid, &GuidString);
-    if (!NT_SUCCESS(Status))
+    /* Return the data */
+    Option = MiscGetBootOption(List, Type);
+    if (!Option)
     {
-        goto Quickie;
+        /* Set failure if no data exists */
+        Status = STATUS_NOT_FOUND;
+    }
+    else
+    {
+        /* Otherwise, read the size of the BCD device encoded */
+        BcdDevice = (PBCD_DEVICE_OPTION)((ULONG_PTR)Option + Option->DataOffset);
+        DeviceSize = BcdDevice->DeviceDescriptor.Size;
+
+        /* Allocate a buffer to copy it into */
+        DeviceDescriptor = BlMmAllocateHeap(DeviceSize);
+        if (!DeviceDescriptor)
+        {
+            return STATUS_NO_MEMORY;
+        }
+
+        /* Copy it into that buffer */
+        RtlCopyMemory(DeviceDescriptor, &BcdDevice->DeviceDescriptor, DeviceSize);
+        Status = STATUS_SUCCESS;
     }
 
-    /* Now open the key containing this object ID */
-    Status = BiOpenKey(RootObjectHandle, GuidString.Buffer, ObjectHandle);
+    /* Check if extra options were requested */
+    if (ExtraOptions)
+    {
+        /* See where they are */
+        ListOffset = Option->ListOffset;
+        if (ListOffset)
+        {
+            /* See how big they are */
+            ListData = (PBL_BCD_OPTION)((ULONG_PTR)Option + ListOffset);
+            ListSize = BlGetBootOptionListSize(ListData);
+
+            /* Allocate a buffer to hold them into */
+            ListCopy = BlMmAllocateHeap(ListSize);
+            if (!ListCopy)
+            {
+                Status = STATUS_NO_MEMORY;
+                goto Quickie;
+            }
+
+            /* Copy them in there */
+            RtlCopyMemory(ListCopy, ListData, ListSize);
+        }
+    }
+
+#ifdef _SECURE_BOOT_
+    /* Filter out SecureBoot Options */
+    AppIdentifier = BlGetApplicationIdentifier();
+    if (BlpBootOptionCallbacks)
+    {
+        DeviceCallback = BlpBootOptionCallbacks->Device;
+        if (DeviceCallback)
+        {
+            Status = DeviceCallback(BlpBootOptionCallbackCookie,
+                                    Status,
+                                    0,
+                                    AppIdentifier,
+                                    Type,
+                                    &SecureDescriptor,
+                                    PtrOptionData);
+        }
+    }
+#else
+    /* No secure boot, so the secure descriptors are the standard ones */
+    SecureDescriptor = DeviceDescriptor;
+    SecureListData = ListCopy;
+#endif
+
+    /* Check if the data was read correctly */
+    if (NT_SUCCESS(Status))
+    {
+        /* Check if we had a new descriptor after filtering */
+        if (SecureDescriptor != DeviceDescriptor)
+        {
+            /* Yep -- if we had an old one, free it */
+            if (DeviceDescriptor)
+            {
+                BlMmFreeHeap(DeviceDescriptor);
+            }
+        }
+
+        /* Check if we had a new list after filtering */
+        if (SecureListData != ListCopy)
+        {
+            /* Yep -- if we had an old list, free it */
+            if (ListCopy)
+            {
+                BlMmFreeHeap(ListCopy);
+            }
+        }
+
+        /* Finally, check if the caller wanted extra options */
+        if (ExtraOptions)
+        {
+            /* Yep -- so pass the caller our copy */
+            *ExtraOptions = ListCopy;
+            ListCopy = NULL;
+        }
+
+        /* Caller always wants data back, so pass them our copy */
+        *Value = DeviceDescriptor;
+        DeviceDescriptor = NULL;
+    }
 
 Quickie:
-    /* Free the GUID string if we had one allocated */
-    if (GuidString.Buffer)
+    /* On the failure path, if these buffers are active, we should free them */
+    if (ListCopy)
     {
-        RtlFreeUnicodeString(&GuidString);
+        BlMmFreeHeap(ListCopy);
+    }
+    if (DeviceDescriptor)
+    {
+        BlMmFreeHeap(DeviceDescriptor);
     }
 
-    /* Close the root handle if it was open */
-    if (RootObjectHandle)
+    /* All done */
+    return Status;
+}
+
+NTSTATUS
+BlGetBootOptionInteger (
+    _In_ PBL_BCD_OPTION List,
+    _In_ ULONG Type,
+    _Out_ PULONGLONG Value
+    )
+{
+    NTSTATUS Status;
+    PBL_BCD_OPTION Option;
+    //PGUID AppIdentifier;
+
+    /* Make sure this is a BCD_INTEGER */
+    if ((Type & 0xF000000) != 0x5000000)
     {
-        BiCloseKey(RootObjectHandle);
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    /* Return the data */
+    Option = MiscGetBootOption(List, Type);
+    if (Option)
+    {
+        *Value = *(PULONGLONG)((ULONG_PTR)Option + Option->DataOffset);
+    }
+
+#ifdef _SECURE_BOOT_
+    /* Filter out SecureBoot Options */
+    AppIdentifier = BlGetApplicationIdentifier();
+    Status = BlpBootOptionCallbackULongLong(AppIdentifier, Type, Value);
+#else
+    /* Option found */
+    Status = Option ? STATUS_SUCCESS : STATUS_NOT_FOUND;
+#endif
+    return Status;
+}
+
+NTSTATUS
+BlGetBootOptionBoolean (
+    _In_ PBL_BCD_OPTION List,
+    _In_ ULONG Type,
+    _Out_ PBOOLEAN Value
+    )
+{
+    NTSTATUS Status;
+    PBL_BCD_OPTION Option;
+    //PGUID AppIdentifier;
+
+    /* Make sure this is a BCD_BOOLEAN */
+    if ((Type & 0xF000000) != 0x6000000)
+    {
+        return STATUS_INVALID_PARAMETER;
+    }
+
+    /* Return the data */
+    Option = MiscGetBootOption(List, Type);
+    if (Option)
+    {
+        *Value = *(PBOOLEAN)((ULONG_PTR)Option + Option->DataOffset);
+    }
+
+#ifdef _SECURE_BOOT_
+    /* Filter out SecureBoot Options */
+    AppIdentifier = BlGetApplicationIdentifier();
+    Status = BlpBootOptionCallbackBoolean(AppIdentifier, Type, Value);
+#else
+    /* Option found */
+    Status = Option ? STATUS_SUCCESS : STATUS_NOT_FOUND;
+#endif
+    return Status;
+}
+
+#define BI_FLUSH_HIVE       0x01
+#define BI_HIVE_WRITEABLE   0x02
+
+typedef struct _BI_KEY_HIVE
+{
+    PHBASE_BLOCK BaseBlock;
+    ULONG HiveSize;
+    PBL_FILE_PATH_DESCRIPTOR FilePath;
+    CMHIVE Hive;
+    LONG ReferenceCount;
+    ULONG Flags;
+    PCM_KEY_NODE RootNode;
+} BI_KEY_HIVE, *PBI_KEY_HIVE;
+
+typedef struct _BI_KEY_OBJECT
+{
+    PBI_KEY_HIVE KeyHive;
+    PCM_KEY_NODE KeyNode;
+    HCELL_INDEX KeyCell;
+    PWCHAR KeyName;
+} BI_KEY_OBJECT, *PBI_KEY_OBJECT;
+
+PVOID
+NTAPI
+CmpAllocate (
+    _In_ SIZE_T Size,
+    _In_ BOOLEAN Paged,
+    _In_ ULONG Tag
+    )
+{
+    UNREFERENCED_PARAMETER(Paged);
+    UNREFERENCED_PARAMETER(Tag);
+
+    /* Call the heap allocator */
+    return BlMmAllocateHeap(Size);
+}
+
+VOID
+NTAPI
+CmpFree (
+    _In_ PVOID Ptr,
+    _In_ ULONG Quota
+    )
+{
+    UNREFERENCED_PARAMETER(Quota);
+
+    /* Call the heap allocator */
+    BlMmFreeHeap(Ptr);
+}
+
+FORCEINLINE
+VOID
+BiDereferenceHive (
+    _In_ HANDLE KeyHandle
+    )
+{
+    PBI_KEY_OBJECT KeyObject;
+
+    /* Get the key object */
+    KeyObject = (PBI_KEY_OBJECT)KeyHandle;
+
+    /* Drop a reference on the parent hive */
+    --KeyObject->KeyHive->ReferenceCount;
+}
+
+VOID
+BiFlushHive (
+    _In_ HANDLE KeyHandle
+    )
+{
+    /* Not yet implemented */
+    EfiPrintf(L"NO reg flush\r\n");
+    return;
+}
+
+VOID
+BiCloseKey (
+    _In_ HANDLE KeyHandle
+    )
+{
+    PBI_KEY_HIVE KeyHive;
+    PBI_KEY_OBJECT KeyObject;
+
+    /* Get the key object and hive */
+    KeyObject = (PBI_KEY_OBJECT)KeyHandle;
+    KeyHive = KeyObject->KeyHive;
+
+    /* Check if we have a hive, or name, or key node */
+    if ((KeyHive) || (KeyObject->KeyNode) || (KeyObject->KeyName))
+    {
+        /* Drop a reference, see if it's the last one */
+        BiDereferenceHive(KeyHandle);
+        if (!KeyHive->ReferenceCount)
+        {
+            /* Check if we should flush it */
+            if (KeyHive->Flags & BI_FLUSH_HIVE)
+            {
+                BiFlushHive(KeyHandle);
+            }
+
+            /* Unmap the hive */
+            //MmPapFreePages(KeyHive->ImageBase, 1);
+            EfiPrintf(L"Leaking hive memory\r\n");
+
+            /* Free the hive and hive path */
+            BlMmFreeHeap(KeyHive->FilePath);
+            BlMmFreeHeap(KeyHive);
+        }
+
+        /* Check if a key name is present */
+        if (KeyObject->KeyName)
+        {
+            /* Free it */
+            BlMmFreeHeap(KeyObject->KeyName);
+        }
+    }
+
+    /* Free the object */
+    BlMmFreeHeap(KeyObject);
+}
+
+NTSTATUS
+BiOpenKey(
+    _In_ HANDLE ParentHandle,
+    _In_ PWCHAR KeyName,
+    _Out_ PHANDLE Handle
+    )
+{
+    PBI_KEY_OBJECT ParentKey, NewKey;
+    PBI_KEY_HIVE ParentHive;
+    NTSTATUS Status;
+    ULONG NameLength, SubNameLength, NameBytes;
+    PWCHAR NameStart, NameBuffer;
+    UNICODE_STRING KeyString;
+    HCELL_INDEX KeyCell;
+    PHHIVE Hive;
+    PCM_KEY_NODE ParentNode;
+
+    /* Convert from a handle to our key object */
+    ParentKey = (PBI_KEY_OBJECT)ParentHandle;
+
+    /* Extract the hive and node information */
+    ParentHive = ParentKey->KeyHive;
+    ParentNode = ParentKey->KeyNode;
+    Hive = &ParentKey->KeyHive->Hive.Hive;
+
+    /* Initialize variables */
+    KeyCell = HCELL_NIL;
+    Status = STATUS_SUCCESS;
+    NameBuffer = NULL;
+
+    /* Loop as long as there's still portions of the key name in play */
+    NameLength = wcslen(KeyName);
+    while (NameLength)
+    {
+        /* Find the first path separator */
+        NameStart = wcschr(KeyName, OBJ_NAME_PATH_SEPARATOR);
+        if (NameStart)
+        {
+            /* Look only at the key before the separator */
+            SubNameLength = NameStart - KeyName;
+            ++NameStart;
+        }
+        else
+        {
+            /* No path separator, this is the final leaf key */
+            SubNameLength = NameLength;
+        }
+
+        /* Free the name buffer from the previous pass if needed */
+        if (NameBuffer)
+        {
+            BlMmFreeHeap(NameBuffer);
+        }
+
+        /* Allocate a buffer to hold the name of this specific subkey only */
+        NameBytes = SubNameLength * sizeof(WCHAR);
+        NameBuffer = BlMmAllocateHeap(NameBytes + sizeof(UNICODE_NULL));
+        if (!NameBuffer)
+        {
+            Status = STATUS_NO_MEMORY;
+            goto Quickie;
+        }
+
+        /* Copy and null-terminate the name of the subkey */
+        RtlCopyMemory(NameBuffer, KeyName, NameBytes);
+        NameBuffer[SubNameLength] = UNICODE_NULL;
+
+        /* Convert it into a UNICODE_STRING and try to find it */
+        RtlInitUnicodeString(&KeyString, NameBuffer);
+        KeyCell = CmpFindSubKeyByName(Hive, ParentNode, &KeyString);
+        if (KeyCell == HCELL_NIL)
+        {
+            Status = STATUS_OBJECT_NAME_NOT_FOUND;
+            goto Quickie;
+        }
+
+        /* We found it -- get the key node out of it */
+        ParentNode = (PCM_KEY_NODE)HvGetCell(Hive, KeyCell);
+        if (!ParentNode)
+        {
+            Status = STATUS_REGISTRY_CORRUPT;
+            goto Quickie;
+        }
+
+        /* Update the key name to the next remaining path element */
+        KeyName = NameStart;
+        if (NameStart)
+        {
+            /* Update the length to the remainder of the path */
+            NameLength += -1 - SubNameLength;
+        }
+        else
+        {
+            /* There's nothing left, this was the leaf key */
+            NameLength = 0;
+        }
+    }
+
+    /* Allocate a key object */
+    NewKey = BlMmAllocateHeap(sizeof(*NewKey));
+    if (!NewKey)
+    {
+        /* Bail out if we had no memory for it */
+        Status = STATUS_NO_MEMORY;
+        goto Quickie;
+    }
+
+    /* Fill out the key object data */
+    NewKey->KeyNode = ParentNode;
+    NewKey->KeyHive = ParentHive;
+    NewKey->KeyName = NameBuffer;
+    NewKey->KeyCell = KeyCell;
+
+    /* Add a reference to the hive */
+    ++ParentHive->ReferenceCount;
+
+    /* Return the object back to the caller */
+    *Handle = NewKey;
+
+Quickie:
+    /* If we had a name buffer, free it */
+    if (NameBuffer)
+    {
+        BlMmFreeHeap(NameBuffer);
+    }
+
+    /* Return status of the open operation */
+    return Status;
+}
+
+BOOLEAN BiHiveHashLibraryInitialized;
+ULONGLONG HvSymcryptSeed;
+
+BOOLEAN
+HvIsInPlaceBaseBlockValid (
+    _In_ PHBASE_BLOCK BaseBlock
+    )
+{
+    ULONG HiveLength, HeaderSum;
+    BOOLEAN Valid;
+
+    /* Assume failure */
+    Valid = FALSE;
+
+    /* Check for incorrect signature, type, version, or format */
+    if ((BaseBlock->Signature == 'fger') &&
+        (BaseBlock->Type == 0) &&
+        (BaseBlock->Major <= 1) &&
+        (BaseBlock->Minor <= 5) &&
+        (BaseBlock->Minor >= 3) &&
+        (BaseBlock->Format == 1))
+    {
+        /* Check for invalid hive size */
+        HiveLength = BaseBlock->Length;
+        if (HiveLength)
+        {
+            /* Check for misaligned or too large hive size */
+            if (!(HiveLength & 0xFFF) && HiveLength <= 0x7FFFE000)
+            {
+                /* Check for invalid header checksum */
+                HeaderSum = HvpHiveHeaderChecksum(BaseBlock);
+                if (HeaderSum == BaseBlock->CheckSum)
+                {
+                    /* All good */
+                    Valid = TRUE;
+                }
+            }
+        }
+    }
+
+    /* Return validity */
+    return Valid;
+}
+
+NTSTATUS
+BiInitializeAndValidateHive (
+    _In_ PBI_KEY_HIVE Hive
+    )
+{
+    ULONG HiveSize;
+    NTSTATUS Status;
+
+    /* Make sure the hive is at least the size of a base block */
+    if (Hive->HiveSize < sizeof(HBASE_BLOCK))
+    {
+        return STATUS_REGISTRY_CORRUPT;
+    }
+
+    /* Make sure that the base block accurately describes the size of the hive */
+    HiveSize = Hive->BaseBlock->Length + sizeof(HBASE_BLOCK);
+    if ((HiveSize < sizeof(HBASE_BLOCK)) || (HiveSize > Hive->HiveSize))
+    {
+        return STATUS_REGISTRY_CORRUPT;
+    }
+
+    /* Initialize a flat memory hive */
+    RtlZeroMemory(&Hive->Hive, sizeof(Hive->Hive));
+    Status = HvInitialize(&Hive->Hive.Hive,
+                          HINIT_FLAT,
+                          0,
+                          0,
+                          Hive->BaseBlock,
+                          CmpAllocate,
+                          CmpFree,
+                          NULL,
+                          NULL,
+                          NULL,
+                          NULL,
+                          0,
+                          NULL);
+    if (NT_SUCCESS(Status))
+    {
+        /* Cleanup volatile/old data */
+        CmPrepareHive(&Hive->Hive.Hive); // CmCheckRegistry 
+        Status = STATUS_SUCCESS;
     }
 
     /* Return the final status */
@@ -557,586 +794,293 @@ Quickie:
 }
 
 NTSTATUS
-BcdDeleteElement (
-    _In_ HANDLE ObjectHandle,
-    _In_ ULONG Type
+BiLoadHive (
+    _In_ PBL_FILE_PATH_DESCRIPTOR FilePath,
+    _Out_ PHANDLE HiveHandle
     )
 {
+    ULONG DeviceId;
+    PHBASE_BLOCK BaseBlock, NewBaseBlock;
+    PBI_KEY_OBJECT KeyObject;
+    PBI_KEY_HIVE BcdHive;
+    PBL_DEVICE_DESCRIPTOR BcdDevice;
+    ULONG PathLength, DeviceLength, HiveSize, HiveLength, NewHiveSize;
+    PWCHAR HiveName, LogName;
+    BOOLEAN HaveWriteAccess;
     NTSTATUS Status;
-    HANDLE ElementsHandle, ElementHandle;
-    WCHAR TypeString[22];
-
-    /* Open the elements key */
-    Status = BiOpenKey(ObjectHandle, L"Elements", &ElementsHandle);
-    if (NT_SUCCESS(Status))
-    {
-        /* Convert the element ID into a string */
-        if (!_ultow(Type, TypeString, 16))
-        {
-            /* Failed to do so */
-            Status = STATUS_UNSUCCESSFUL;
-        }
-        else
-        {
-            /* Open the element specifically */
-            Status = BiOpenKey(ElementHandle, TypeString, &ElementHandle);
-            if (NT_SUCCESS(Status))
-            {
-                /* Delete it */
-                Status = BiDeleteKey(ElementHandle);
-                if (NT_SUCCESS(Status))
-                {
-                    /* No point in closing the handle anymore */
-                    ElementHandle = NULL;
-                }
-            }
-            else
-            {
-                /* The element doesn't exist */
-                Status = STATUS_NOT_FOUND;
-            }
-
-            /* Check if we should close the key */
-            if (ElementHandle)
-            {
-                /* Do it */
-                BiCloseKey(ElementHandle);
-            }
-        }
-    }
-
-    /* Check if we should close the elements handle */
-    if (ElementsHandle)
-    {
-        /* Do it */
-        BiCloseKey(ElementsHandle);
-    }
-
-    /* Return whatever the result was */
-    return Status;
-}
-
-NTSTATUS
-BiEnumerateSubElements (
-    _In_ HANDLE BcdHandle,
-    _In_ PVOID Object,
-    _In_ ULONG ElementType,
-    _In_ ULONG Flags,
-    _Out_opt_ PBCD_PACKED_ELEMENT* Elements,
-    _Inout_ PULONG ElementSize,
-    _Out_ PULONG ElementCount
-    )
-{
-    NTSTATUS Status; 
-    PBCD_PACKED_ELEMENT Element;
-    HANDLE ObjectHandle;
-    ULONG ParsedElements, RequiredSize; 
-
-    /* Assume empty */
-    *ElementCount = 0;
-    RequiredSize = 0;
-    ParsedElements = 0;
-
-    /* Open the object */
-    Status = BcdOpenObject(BcdHandle, Object, &ObjectHandle);
-    if (!NT_SUCCESS(Status))
-    {
-        goto Quickie;
-    }
-
-    /* Read the first entry, and the size available */
-    Element = *Elements;
-    RequiredSize = *ElementSize;
-
-    /* Enumerate the object into the element array */
-    Status = BiEnumerateElements(BcdHandle,
-                                 ObjectHandle,
-                                 ElementType,
-                                 Flags,
-                                 Element,
-                                 &RequiredSize,
-                                 &ParsedElements);
-
-    /* Close the handle and bail out if we couldn't enumerate */
-    BiCloseKey(ObjectHandle);
-    if (!NT_SUCCESS(Status))
-    {
-        goto Quickie;
-    }
-
-    /* Check if the and subelements were present  */
-    if (ParsedElements)
-    {
-        /* Keep going until the last one */
-        while (Element->NextEntry)
-        {
-            Element = Element->NextEntry;
-        }
-
-        /* Set the new buffer location to the last element */
-        *Elements = Element;
-    }
-
-Quickie:
-    /* Return the number of sub-elements and their size */
-    *ElementCount = ParsedElements;
-    *ElementSize = RequiredSize;
-    return Status;
-}
-
-NTSTATUS
-BiEnumerateSubObjectElements (
-    _In_ HANDLE BcdHandle,
-    _Out_ PGUID SubObjectList,
-    _In_ ULONG SubObjectCount,
-    _In_ ULONG Flags,
-    _Out_opt_ PBCD_PACKED_ELEMENT Elements,
-    _Inout_ PULONG ElementSize,
-    _Out_ PULONG ElementCount
-    )
-{
-    NTSTATUS Status;
-    ULONG SubElementCount, TotalSize, RequiredSize, CurrentSize, i;
-    PBCD_PACKED_ELEMENT PreviousElement;
- 
-    /* Assume empty list */
-    *ElementCount = 0;
-    Status = STATUS_SUCCESS;
+    PVOID LogData;
+    PHHIVE Hive;
+    UNICODE_STRING KeyString;
+    PCM_KEY_NODE RootNode;
+    HCELL_INDEX CellIndex;
 
     /* Initialize variables */
-    TotalSize = 0;
-    PreviousElement = NULL;
+    DeviceId = -1;
+    BaseBlock = NULL;
+    BcdHive = NULL;
+    KeyObject = NULL;
+    LogData = NULL;
+    LogName = NULL;
 
-    /* Set the currently remaining size based on caller's input */
-    CurrentSize = *ElementSize;
-
-    /* Iterate over every subje object */
-    for (i = 0; i < SubObjectCount; i++)
+    /* Initialize the crypto seed */
+    if (!BiHiveHashLibraryInitialized)
     {
-        /* Set the currently remaining buffer space */
-        RequiredSize = CurrentSize;
+        HvSymcryptSeed = 0x82EF4D887A4E55C5;
+        BiHiveHashLibraryInitialized = TRUE;
+    }
 
-        /* Enumerate the inherited sub elements */
-        Status = BiEnumerateSubElements(BcdHandle,
-                                        &SubObjectList[i],
-                                        BcdLibraryObjectList_InheritedObjects,
-                                        Flags,
-                                        &Elements,
-                                        &RequiredSize,
-                                        &SubElementCount);
-        if ((NT_SUCCESS(Status)) || (Status == STATUS_BUFFER_TOO_SMALL))
+    /* Extract and validate the input path */
+    BcdDevice = (PBL_DEVICE_DESCRIPTOR)&FilePath->Path;
+    PathLength = FilePath->Length;
+    DeviceLength = BcdDevice->Size;
+    HiveName = (PWCHAR)((ULONG_PTR)BcdDevice + BcdDevice->Size);
+    if (PathLength <= DeviceLength)
+    {
+        /* Doesn't make sense, bail out */
+        Status = STATUS_INVALID_PARAMETER;
+        goto Quickie;
+    }
+
+    /* Attempt to open the underlying device for RW access */
+    HaveWriteAccess = TRUE;
+    Status = BlpDeviceOpen(BcdDevice,
+                           BL_DEVICE_READ_ACCESS | BL_DEVICE_WRITE_ACCESS,
+                           0,
+                           &DeviceId);
+    if (!NT_SUCCESS(Status))
+    {
+        /* Try for RO access instead */
+        HaveWriteAccess = FALSE;
+        Status = BlpDeviceOpen(BcdDevice, BL_DEVICE_READ_ACCESS, 0, &DeviceId);
+        if (!NT_SUCCESS(Status))
         {
-            /* Safely add the length of the sub elements */
-            Status = RtlULongAdd(TotalSize, RequiredSize, &TotalSize);
-            if (!NT_SUCCESS(Status))
-            {
-                break;
-            }
-
-            /* Add the sub elements to the total */
-            *ElementCount += SubElementCount;
-
-            /* See if we have enough space*/
-            if (*ElementSize >= TotalSize)
-            {
-                /* Were there any subelements? */
-                if (SubElementCount)
-                {
-                    /* Update to keep track of these new subelements */
-                    CurrentSize = *ElementSize - TotalSize;
-
-                    /* Link the subelements into the chain */
-                    PreviousElement = Elements;
-                    PreviousElement->NextEntry =
-                        (PBCD_PACKED_ELEMENT)((ULONG_PTR)Elements + TotalSize);
-                    Elements = PreviousElement->NextEntry;
-                }
-            }
-            else
-            {
-                /* We're out of space */
-                CurrentSize = 0;
-            }
-        }
-        else if ((Status != STATUS_NOT_FOUND) &&
-                 (Status != STATUS_OBJECT_NAME_NOT_FOUND))
-        {
-            /* Some other fatal error, break out */
-            break;
-        }
-        else
-        {
-            /* The sub element was not found, print a warning but keep going */
-            BlStatusPrint(L"Ignoring missing BCD inherit object: {%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}\n",
-                          (&SubObjectList[i])->Data1,
-                          (&SubObjectList[i])->Data2,
-                          (&SubObjectList[i])->Data3,
-                          (&SubObjectList[i])->Data4[0],
-                          (&SubObjectList[i])->Data4[1],
-                          (&SubObjectList[i])->Data4[2],
-                          (&SubObjectList[i])->Data4[3],
-                          (&SubObjectList[i])->Data4[4],
-                          (&SubObjectList[i])->Data4[5],
-                          (&SubObjectList[i])->Data4[6],
-                          (&SubObjectList[i])->Data4[7],
-                          (&SubObjectList[i])->Data4[8]);
-            Status = STATUS_SUCCESS;
+            /* No access at all -- bail out */
+            goto Quickie;
         }
     }
 
-    /* Terminate the last element, if one was left */
-    if (PreviousElement)
+    /* Now try to load the hive on disk */
+    Status = BlImgLoadImageWithProgress2(DeviceId,
+                                         BlLoaderRegistry,
+                                         HiveName,
+                                         (PVOID*)&BaseBlock,
+                                         &HiveSize,
+                                         0,
+                                         FALSE,
+                                         NULL,
+                                         NULL);
+    if (!NT_SUCCESS(Status))
     {
-        PreviousElement->NextEntry = NULL;
+        EfiPrintf(L"Hive read failure: % lx\r\n", Status);
+        goto Quickie;
     }
 
-    /* Set failure code if we ran out of space */
-    if (*ElementSize < TotalSize)
+    /* Allocate a hive structure */
+    BcdHive = BlMmAllocateHeap(sizeof(*BcdHive));
+    if (!BcdHive)
     {
-        Status = STATUS_BUFFER_TOO_SMALL;
+        Status = STATUS_NO_MEMORY;
+        goto Quickie;
     }
 
-    /* Return final length and status */
-    *ElementSize = TotalSize;
-    return Status;
-}
+    /* Initialize it */
+    RtlZeroMemory(BcdHive, sizeof(*BcdHive));
+    BcdHive->BaseBlock = BaseBlock;
+    BcdHive->HiveSize = HiveSize;
+    if (HaveWriteAccess)
+    {
+        BcdHive->Flags |= BI_HIVE_WRITEABLE;
+    }
 
-NTSTATUS
-BiEnumerateElements (
-    _In_ HANDLE BcdHandle,
-    _In_ HANDLE ObjectHandle,
-    _In_ ULONG RootElementType,
-    _In_ ULONG Flags,
-    _Out_opt_ PBCD_PACKED_ELEMENT Elements,
-    _Inout_ PULONG ElementSize,
-    _Out_ PULONG ElementCount
-    )
-{
-    HANDLE ElementsHandle, ElementHandle;
-    ULONG TotalLength, RegistryElementDataLength, RemainingLength;
-    NTSTATUS Status;
-    ULONG i;
-    PVOID ElementData, SubObjectList, RegistryElementData;
-    BcdElementType ElementType;
-    PBCD_PACKED_ELEMENT PreviousElement, ElementsStart;
-    ULONG SubElementCount, SubKeyCount, SubObjectCount, ElementDataLength;
-    PWCHAR ElementName;
-    PWCHAR* SubKeys;
+    /* Make sure the hive was at least one bin long */
+    if (HiveSize < sizeof(*BaseBlock))
+    {
+        Status = STATUS_REGISTRY_CORRUPT;
+        goto Quickie;
+    }
 
-    /* Assume failure */
-    *ElementCount = 0;
+    /* Make sure the hive contents are at least one bin long */
+    HiveLength = BaseBlock->Length;
+    if (BaseBlock->Length < sizeof(*BaseBlock))
+    {
+        Status = STATUS_REGISTRY_CORRUPT;
+        goto Quickie;
+    }
 
-    /* Initialize all locals that are checked at the end*/
-    SubKeys = NULL;
-    ElementsHandle = NULL;
-    ElementHandle = NULL;
-    ElementData = NULL;
-    RegistryElementData = NULL;
-    PreviousElement = NULL;
-    ElementName = NULL;
-    SubObjectList = NULL;
-    TotalLength = 0;
-    ElementDataLength = 0;
-    SubObjectCount = 0;
-    RemainingLength = 0;
-    ElementsStart = Elements;
+    /* Validate the initial bin (the base block) */
+    if (!HvIsInPlaceBaseBlockValid(BaseBlock))
+    {
+        EfiPrintf(L"Recovery not implemented\r\n");
+        Status = STATUS_REGISTRY_CORRUPT;
+        goto Quickie;
+    }
 
-    /* Open the root object key's elements */
-    Status = BiOpenKey(ObjectHandle, L"Elements", &ElementsHandle);
+    /* Check if there's log recovery that needs to happen */
+    if (BaseBlock->Sequence1 != BaseBlock->Sequence2)
+    {
+        EfiPrintf(L"Log fix not implemented: %lx %lx\r\n");
+        Status = STATUS_REGISTRY_CORRUPT;
+        goto Quickie;
+    }
+
+    /*
+     * Check if the whole hive doesn't fit in the buffer.
+     * Note: HiveLength does not include the size of the baseblock itself
+     */
+    if (HiveSize < (HiveLength + sizeof(*BaseBlock)))
+    {
+        EfiPrintf(L"Need bigger hive buffer path\r\n");
+
+        /* Allocate a slightly bigger buffer */
+        NewHiveSize = HiveLength + sizeof(*BaseBlock);
+        Status = MmPapAllocatePagesInRange((PVOID*)&NewBaseBlock,
+                                           BlLoaderRegistry,
+                                           NewHiveSize >> PAGE_SHIFT,
+                                           0,
+                                           0,
+                                           NULL,
+                                           0);
+        if (!NT_SUCCESS(Status))
+        {
+            goto Quickie;
+        }
+
+        /* Copy the current data in there */
+        RtlCopyMemory(NewBaseBlock, BaseBlock, HiveSize);
+
+        /* Free the old data */
+        EfiPrintf(L"Leaking old hive buffer\r\n");
+        //MmPapFreePages(BaseBlock, 1);
+
+        /* Update our pointers */
+        BaseBlock = NewBaseBlock;
+        HiveSize = NewHiveSize;
+        BcdHive->BaseBlock = BaseBlock;
+        BcdHive->HiveSize = HiveSize;
+    }
+
+    /* Check if any log stuff needs to happen */
+    if (LogData)
+    {
+        EfiPrintf(L"Log fix not implemented: %lx %lx\r\n");
+        Status = STATUS_REGISTRY_CORRUPT;
+        goto Quickie;
+    }
+
+    /* Call Hv to setup the hive library */
+    Status = BiInitializeAndValidateHive(BcdHive);
     if (!NT_SUCCESS(Status))
     {
         goto Quickie;
     }
 
-    /* Enumerate all elements */
-    Status = BiEnumerateSubKeys(ElementsHandle, &SubKeys, &SubKeyCount);
-    if (!NT_SUCCESS(Status))
+    /* Now get the root node */
+    Hive = &BcdHive->Hive.Hive;
+    RootNode = (PCM_KEY_NODE)HvGetCell(Hive, Hive->BaseBlock->RootCell);
+    if (!RootNode)
     {
+        Status = STATUS_OBJECT_NAME_NOT_FOUND;
         goto Quickie;
     }
 
-    /* Iterate over each one */
-    for (i = 0; i < SubKeyCount; i++)
+    /* Find the Objects subkey under it to see if it's a real BCD hive */
+    RtlInitUnicodeString(&KeyString, L"Objects");
+    CellIndex = CmpFindSubKeyByName(Hive, RootNode, &KeyString);
+    if (CellIndex == HCELL_NIL)
     {
-        /* Open the element */
-        ElementName = SubKeys[i];
-        Status = BiOpenKey(ElementsHandle, ElementName, &ElementHandle);
-        if (!NT_SUCCESS(Status))
-        {
-            EfiPrintf(L"ELEMENT ERROR: %lx\r\n", Status);
-            EfiStall(100000);
-            break;
-        }
-
-        /* The name of the element is its data type */
-        ElementType.PackedValue = wcstoul(SubKeys[i], NULL, 16);
-        if (!(ElementType.PackedValue) || (ElementType.PackedValue == -1))
-        {
-            EfiPrintf(L"Value invalid\r\n");
-            BiCloseKey(ElementHandle);
-            ElementHandle = 0;
-            continue;
-        }
-
-        /* Read the appropriate registry value type for this element */
-        Status = BiGetRegistryValue(ElementHandle,
-                                    L"Element",
-                                    BiConvertElementFormatToValueType(
-                                    ElementType.Format),
-                                    &RegistryElementData,
-                                    &RegistryElementDataLength);
-        if (!NT_SUCCESS(Status))
-        {
-            EfiPrintf(L"Element invalid\r\n");
-            break;
-        }
-
-        /* Now figure out how much space the converted element will need */
-        ElementDataLength = 0;
-        Status = BiConvertRegistryDataToElement(ObjectHandle,
-                                                RegistryElementData,
-                                                RegistryElementDataLength,
-                                                ElementType,
-                                                NULL,
-                                                &ElementDataLength);
-        if (Status != STATUS_BUFFER_TOO_SMALL)
-        {
-            break;
-        }
-
-        /* Allocate a buffer big enough for the converted element */
-        ElementData = BlMmAllocateHeap(ElementDataLength);
-        if (!ElementData)
-        {
-            Status = STATUS_INSUFFICIENT_RESOURCES;
-            break;
-        }
-
-        /* And actually convert it this time around */
-        Status = BiConvertRegistryDataToElement(ObjectHandle,
-                                                RegistryElementData,
-                                                RegistryElementDataLength,
-                                                ElementType,
-                                                ElementData,
-                                                &ElementDataLength);
-        if (!NT_SUCCESS(Status))
-        {
-            break;
-        }
-
-        /* Safely add space for the packed element header */
-        Status = RtlULongAdd(TotalLength,
-                             FIELD_OFFSET(BCD_PACKED_ELEMENT, Data),
-                             &TotalLength);
-        if (!NT_SUCCESS(Status))
-        {
-            break;
-        }
-
-        /* Safely add space for the data of the element itself */
-        Status = RtlULongAdd(TotalLength, ElementDataLength, &TotalLength);
-        if (!NT_SUCCESS(Status))
-        {
-            break;
-        }
-
-        /* One more element */
-        ++*ElementCount;
-
-        /* See how much space we were given */
-        RemainingLength = *ElementSize;
-        if (RemainingLength >= TotalLength)
-        {
-            /* Set the next pointer */
-            Elements->NextEntry = (PBCD_PACKED_ELEMENT)((ULONG_PTR)ElementsStart + TotalLength);
-
-            /* Fill this one out */
-            Elements->RootType.PackedValue = RootElementType;
-            Elements->Version = 1;
-            Elements->Type = ElementType.PackedValue;
-            Elements->Size = ElementDataLength;
-
-            /* Add the data */
-            RtlCopyMemory(Elements->Data, ElementData, ElementDataLength);
-            RemainingLength -= TotalLength;
-
-            /* Move to the next element on the next pass */
-            PreviousElement = Elements;
-            Elements = Elements->NextEntry;
-        }
-        else
-        {
-            /* We're out of space */
-            RemainingLength = 0;
-        }
-
-        /* Are we enumerating devices, and is this a device? */
-        if ((Flags & BCD_ENUMERATE_FLAG_DEVICES) &&
-            (ElementType.Format == BCD_TYPE_DEVICE))
-        {
-            /* Yep, so go inside to enumerate it */
-            Status = BiEnumerateSubElements(BcdHandle,
-                                            ElementData,
-                                            ElementType.PackedValue,
-                                            Flags,
-                                            &Elements,
-                                            &ElementDataLength,
-                                            &SubElementCount);
-            if ((NT_SUCCESS(Status)) || (Status == STATUS_BUFFER_TOO_SMALL))
-            {
-                /* Safely add the length of the sub elements */
-                Status = RtlULongAdd(TotalLength,
-                                     ElementDataLength,
-                                     &TotalLength);
-                if (!NT_SUCCESS(Status))
-                {
-                    break;
-                }
-
-                /* Add the sub elements to the total */
-                *ElementCount += SubElementCount;
-
-                /* See if we have enough space*/
-                if (*ElementSize >= TotalLength)
-                {
-                    /* Were there any subelements? */
-                    if (SubElementCount)
-                    {
-                        /* Update to keep track of these new subelements */
-                        ElementDataLength = *ElementSize - TotalLength;
-
-                        /* Link the subelements into the chain */
-                        PreviousElement = Elements;
-                        PreviousElement->NextEntry =
-                            (PBCD_PACKED_ELEMENT)((ULONG_PTR)ElementsStart +
-                                                  TotalLength);
-                        Elements = PreviousElement->NextEntry;
-                    }
-                }
-                else
-                {
-                    /* We're out of space */
-                    ElementDataLength = 0;
-                }
-            }
-            else if ((Status != STATUS_NOT_FOUND) &&
-                     (Status != STATUS_OBJECT_NAME_NOT_FOUND))
-            {
-                /* Fatal error trying to read the data, so fail */
-                break;
-            }
-        }
-        else if ((Flags & BCD_ENUMERATE_FLAG_DEEP) &&
-                 (ElementType.PackedValue == BcdLibraryObjectList_InheritedObjects))
-        {
-            /* Inherited objects are requsted, so allocate a buffer for them */
-            SubObjectList = BlMmAllocateHeap(ElementDataLength);
-            if (!SubObjectList)
-            {
-                Status = STATUS_INSUFFICIENT_RESOURCES;
-                break;
-            }
-
-            /* Copy the elements into the list. They are arrays of GUIDs */
-            RtlCopyMemory(SubObjectList, ElementData, ElementDataLength);
-            SubObjectCount = ElementDataLength / sizeof(GUID);
-        }
-
-        /* Free our local buffers */
-        BlMmFreeHeap(ElementData);
-        BlMmFreeHeap(RegistryElementData);
-        ElementData = NULL;
-        RegistryElementData = NULL;
-
-        /* Close the key */
-        BiCloseKey(ElementHandle);
-        ElementHandle = NULL;
-        ElementName = NULL;
+        EfiPrintf(L"No OBJECTS subkey found!\r\n");
+        Status = STATUS_OBJECT_NAME_NOT_FOUND;
+        goto Quickie;
     }
 
-    /* Did we end up here with a sub object list after successful loop parsing? */
-    if ((i != 0) && (i == SubKeyCount) && (SubObjectList))
-    {
-        /* We will actually enumerate it now, at the end */
-        Status = BiEnumerateSubObjectElements(BcdHandle,
-                                              SubObjectList,
-                                              SubObjectCount,
-                                              Flags,
-                                              Elements,
-                                              &RemainingLength,
-                                              &SubElementCount);
-        if ((NT_SUCCESS(Status)) || (Status == STATUS_BUFFER_TOO_SMALL))
-        {
-            /* Safely add the length of the sub elements */
-            Status = RtlULongAdd(TotalLength, RemainingLength, &TotalLength);
-            if ((NT_SUCCESS(Status)) && (SubElementCount))
-            {
-                /* Add the sub elements to the total */
-                *ElementCount += SubElementCount;
+    /* This is a valid BCD hive, store its root node here */
+    BcdHive->RootNode = RootNode;
 
-                /* Don't touch PreviousElement anymore */
-                PreviousElement = NULL;
-            }
-        }
+    /* Allocate a copy of the file path */
+    BcdHive->FilePath = BlMmAllocateHeap(FilePath->Length);
+    if (!BcdHive->FilePath)
+    {
+        Status = STATUS_NO_MEMORY;
+        goto Quickie;
     }
+
+    /* Make a copy of it */
+    RtlCopyMemory(BcdHive->FilePath, FilePath, FilePath->Length);
+
+    /* Create a key object to describe the rot */
+    KeyObject = BlMmAllocateHeap(sizeof(*KeyObject));
+    if (!KeyObject)
+    {
+        Status = STATUS_NO_MEMORY;
+        goto Quickie;
+    }
+
+    /* Fill out the details */
+    KeyObject->KeyNode = RootNode;
+    KeyObject->KeyHive = BcdHive;
+    KeyObject->KeyName = NULL;
+    KeyObject->KeyCell = Hive->BaseBlock->RootCell;
+
+    /* One reference for the key object, plus one lifetime reference */
+    BcdHive->ReferenceCount = 2;
+
+    /* This is the hive handle */
+    *HiveHandle  = KeyObject;
+
+    /* We're all good */
+    Status = STATUS_SUCCESS;
 
 Quickie:
-    /* Free the sub object list, if any */
-    if (SubObjectList)
+    /* If we had a log name, free it */
+    if (LogName)
     {
-        BlMmFreeHeap(SubObjectList);
+        BlMmFreeHeap(LogName);
     }
 
-    /* Free any local element data */
-    if (ElementData)
+    /* If we had logging data, free it */
+    if (LogData)
     {
-        BlMmFreeHeap(ElementData);
+        EfiPrintf(L"Leaking log buffer\r\n");
+        //MmPapFreePages(LogData, 1);
     }
 
-    /* Free any local registry data */
-    if (RegistryElementData)
+    /* Check if this is the failure path */
+    if (!NT_SUCCESS(Status))
     {
-        BlMmFreeHeap(RegistryElementData);
+        /* If we mapped the hive, free it */
+        if (BaseBlock)
+        {
+            EfiPrintf(L"Leaking base block on failure\r\n");
+            //MmPapFreePages(BaseBlock, 1u);
+        }
+
+        /* If we opened the device, close it */
+        if (DeviceId != -1)
+        {
+            BlDeviceClose(DeviceId);
+        }
+
+        /* Did we create a hive object? */
+        if (BcdHive)
+        {
+            /* Free the file path if we made a copy of it */
+            if (BcdHive->FilePath)
+            {
+                BlMmFreeHeap(BcdHive->FilePath);
+            }
+
+            /* Free the hive itself */
+            BlMmFreeHeap(BcdHive);
+        }
+
+        /* Finally, free the root key object if we created one */
+        if (KeyObject)
+        {
+            BlMmFreeHeap(KeyObject);
+        }
     }
 
-    /* Close the handle if still opened */
-    if (ElementHandle)
-    {
-        BiCloseKey(ElementHandle);
-    }
-
-    /* Terminate the last element, if any */
-    if (PreviousElement)
-    {
-        PreviousElement->NextEntry = NULL;
-    }
-
-    /* Close the root handle if still opened */
-    if (ElementsHandle)
-    {
-        BiCloseKey(ElementsHandle);
-    }
-
-    /* Set  failure code if out of space */
-    if (*ElementSize < TotalLength)
-    {
-        Status = STATUS_BUFFER_TOO_SMALL;
-    }
-
-    /* Other errors will send a notification error */
-    if (!(NT_SUCCESS(Status)) && (Status != STATUS_BUFFER_TOO_SMALL))
-    {
-        BiNotifyEnumerationError(ObjectHandle, ElementName, Status);
-    }
-
-    /* Finally free the subkeys array */
-    if (SubKeys)
-    {
-        BlMmFreeHeap(SubKeys);
-    }
-
-    /* And return the required, final length and status */
-    *ElementSize = TotalLength;
+    /* Return the final status */
     return Status;
 }
 
@@ -1176,153 +1120,9 @@ BiAddStoreFromFile (
 }
 
 NTSTATUS
-BiGetObjectDescription (
-    _In_ HANDLE ObjectHandle,
-    _Out_ PBCD_OBJECT_DESCRIPTION Description
-    )
-{
-    NTSTATUS Status;
-    HANDLE DescriptionHandle;
-    PULONG Data;
-    ULONG Length;
-
-    /* Initialize locals */
-    Data = NULL;
-    DescriptionHandle = NULL;
-
-    /* Open the description key */
-    Status = BiOpenKey(ObjectHandle, L"Description", &DescriptionHandle);
-    if (NT_SUCCESS(Status))
-    {
-        /* It exists */
-        Description->Valid = TRUE;
-
-        /* Read the type */
-        Length = 0;
-        Status = BiGetRegistryValue(DescriptionHandle,
-                                    L"Type", 
-                                    REG_DWORD,
-                                    (PVOID*)&Data,
-                                    &Length);
-        if (NT_SUCCESS(Status))
-        {
-            /* Make sure it's the length we expected it to be */
-            if (Length == sizeof(Data))
-            {
-                /* Return the type that is stored there */
-                Description->Type = *Data;
-            }
-            else
-            {
-                /* Invalid type value */
-                Status = STATUS_OBJECT_TYPE_MISMATCH;
-            }
-        }
-    }
-
-    /* Did we have a handle open? */
-    if (DescriptionHandle)
-    {
-        /* Close it */
-        BiCloseKey(DescriptionHandle);
-    }
-
-    /* Did we have data allocated? */
-    if (Data)
-    {
-        /* Free it */
-        BlMmFreeHeap(Data);
-    }
-
-    /* Return back to caller */
-    return Status;
-}
-
-NTSTATUS
-BcdEnumerateAndUnpackElements (
-    _In_ HANDLE BcdHandle,
-    _In_ HANDLE ObjectHandle,
-    _Out_opt_ PBCD_ELEMENT Elements,
-    _Inout_ PULONG ElementSize,
-    _Out_ PULONG ElementCount
-    )
-{
-    PVOID LocalElements;
-    NTSTATUS Status;
-    ULONG LocalElementCount, LocalElementSize;
-
-    /* Make sure required parameters are there */
-    if (!(ElementSize) || !(ElementCount) || ((Elements) && (!*ElementSize)))
-    {
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    /* Set initial count to zero */
-    *ElementCount = 0;
-
-    /* Do the initial enumeration to figure out the size required */
-    LocalElementSize = 0;
-    LocalElementCount = 0;
-    Status = BiEnumerateElements(BcdHandle,
-                                 ObjectHandle,
-                                 0,
-                                 BCD_ENUMERATE_FLAG_IN_ORDER |
-                                 BCD_ENUMERATE_FLAG_DEVICES |
-                                 BCD_ENUMERATE_FLAG_DEEP,
-                                 NULL,
-                                 &LocalElementSize,
-                                 &LocalElementCount);
-    if (Status != STATUS_BUFFER_TOO_SMALL)
-    {
-        return Status;
-    }
-
-    /* Now allocate a buffer large enough to hold them */
-    LocalElements = BlMmAllocateHeap(LocalElementSize);
-    if (!LocalElements)
-    {
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-    /* Zero out the array and do the real enumeration this time around */
-    RtlZeroMemory(LocalElements, LocalElementSize);
-    Status = BiEnumerateElements(BcdHandle,
-                                 ObjectHandle,
-                                 0,
-                                 BCD_ENUMERATE_FLAG_IN_ORDER |
-                                 BCD_ENUMERATE_FLAG_DEVICES |
-                                 BCD_ENUMERATE_FLAG_DEEP,
-                                 LocalElements,
-                                 &LocalElementSize,
-                                 &LocalElementCount);
-    if (!NT_SUCCESS(Status))
-    {
-        return Status;
-    }
-
-    /* Now we know the real count */
-    *ElementCount = LocalElementCount;
-
-    /* Now unpack the data */
-    Status = BiConvertBcdElements(LocalElements,
-                                  Elements,
-                                  ElementSize,
-                                  &LocalElementCount);
-    if (NT_SUCCESS(Status))
-    {
-        /* Not all elements may have been converted */
-        *ElementCount = LocalElementCount;
-    }
-
-    /* Free the local (unpacked) buffer and return status */
-    BlMmFreeHeap(LocalElements);
-    return Status;
-}
-
-NTSTATUS
 BcdOpenStoreFromFile (
     _In_ PUNICODE_STRING FileName,
-    _In_ PHANDLE BcdHandle
+    _In_ PHANDLE StoreHandle
     )
 {
     ULONG Length;
@@ -1355,7 +1155,7 @@ BcdOpenStoreFromFile (
     if (NT_SUCCESS(Status))
     {
         /* Return the handle on success */
-        *BcdHandle = LocalHandle;
+        *StoreHandle = LocalHandle;
     }
 
     /* Free the descriptor and return the status */

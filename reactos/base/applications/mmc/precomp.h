@@ -5,11 +5,7 @@
 
 #include <windef.h>
 #include <winbase.h>
-#include <wingdi.h>
 #include <winuser.h>
-#include <commctrl.h>
-#include <commdlg.h>
-#include <tchar.h>
 
 #define WM_USER_CLOSE_CHILD (WM_USER + 1)
 

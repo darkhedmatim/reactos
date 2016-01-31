@@ -333,10 +333,6 @@ IopEditDeviceList(IN PDRIVER_OBJECT DriverObject,
                   IN IOP_DEVICE_LIST_OPERATION Type)
 {
     PDEVICE_OBJECT Previous;
-    KIRQL OldIrql;
-
-    /* Lock the Device list while we edit it */
-    OldIrql = KeAcquireQueuedSpinLock(LockQueueIoDatabaseLock);
 
     /* Check the type of operation */
     if (Type == IopRemove)
@@ -357,12 +353,7 @@ IopEditDeviceList(IN PDRIVER_OBJECT DriverObject,
                 /* Not this one, keep moving */
                 if (!Previous->NextDevice)
                 {
-                    DPRINT1("Failed to remove PDO %p on driver %wZ (not found)\n",
-                            DeviceObject,
-                            &DeviceObject->DriverObject->DriverName);
-
-                    ASSERT(FALSE);
-                    KeReleaseQueuedSpinLock(LockQueueIoDatabaseLock, OldIrql);
+                    DPRINT1("Failed to remove PDO %p on driver %wZ (not found)\n", DeviceObject, &DeviceObject->DriverObject->DriverName);
                     return;
                 }
                 Previous = Previous->NextDevice;
@@ -378,9 +369,6 @@ IopEditDeviceList(IN PDRIVER_OBJECT DriverObject,
         DeviceObject->NextDevice = DriverObject->DeviceObject;
         DriverObject->DeviceObject = DeviceObject;
     }
-
-    /* Release the device list lock */
-    KeReleaseQueuedSpinLock(LockQueueIoDatabaseLock, OldIrql);
 }
 
 VOID
@@ -1102,8 +1090,8 @@ IoEnumerateDeviceObjectList(IN  PDRIVER_OBJECT DriverObject,
     PDEVICE_OBJECT CurrentDevice = DriverObject->DeviceObject;
     KIRQL OldIrql;
 
-    /* Lock the Device list while we enumerate it */
-    OldIrql = KeAcquireQueuedSpinLock(LockQueueIoDatabaseLock);
+    /* Raise to dispatch level */
+    KeRaiseIrql(DISPATCH_LEVEL, &OldIrql);
 
     /* Find out how many devices we'll enumerate */
     while ((CurrentDevice = CurrentDevice->NextDevice)) ActualDevices++;
@@ -1118,7 +1106,7 @@ IoEnumerateDeviceObjectList(IN  PDRIVER_OBJECT DriverObject,
     if ((ActualDevices * sizeof(PDEVICE_OBJECT)) > DeviceObjectListSize)
     {
         /* Fail because the buffer was too small */
-        KeReleaseQueuedSpinLock(LockQueueIoDatabaseLock, OldIrql);
+        KeLowerIrql(OldIrql);
         return STATUS_BUFFER_TOO_SMALL;
     }
 
@@ -1141,8 +1129,8 @@ IoEnumerateDeviceObjectList(IN  PDRIVER_OBJECT DriverObject,
         }
     }
 
-    /* Release the device list lock */
-    KeReleaseQueuedSpinLock(LockQueueIoDatabaseLock, OldIrql);
+    /* Return back to previous IRQL */
+    KeLowerIrql(OldIrql);
 
     /* Return the status */
     return STATUS_SUCCESS;

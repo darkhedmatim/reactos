@@ -2615,7 +2615,6 @@ static NTSTATUS get_manifest_in_module( struct actctx_loader* acl, struct assemb
 
     //DPRINT( "looking for res %s in module %p %s\n", resname,
     //                hModule, filename );
-    DPRINT("get_manifest_in_module %p\n", hModule);
 
 #if 0
     if (TRACE_ON(actctx))
@@ -3140,7 +3139,7 @@ static NTSTATUS build_dllredirect_section(ACTIVATION_CONTEXT* actctx, struct str
             total_len += sizeof(*data);
             total_len += aligned_string_len((strlenW(dll->name)+1)*sizeof(WCHAR));
 
-            DPRINT("assembly %d (%p), dll %d: dll name %S\n", i, assembly, j, dll->name);
+            DPRINT("assembly %d, dll %d: dll name %S\n", i, j, dll->name);
         }
 
         dll_count += assembly->num_dlls;
@@ -3174,7 +3173,7 @@ static NTSTATUS build_dllredirect_section(ACTIVATION_CONTEXT* actctx, struct str
             DPRINT("%d: dll name %S\n", j, dll->name);
             /* setup new index entry */
             str.Buffer = dll->name;
-            str.Length = (USHORT)strlenW(dll->name)*sizeof(WCHAR);
+            str.Length = strlenW(dll->name)*sizeof(WCHAR);
             str.MaximumLength = str.Length + sizeof(WCHAR);
             /* hash original class name */
             RtlHashUnicodeString(&str, TRUE, HASH_STRING_ALGORITHM_X65599, &index->hash);
@@ -3391,7 +3390,7 @@ static NTSTATUS build_wndclass_section(ACTIVATION_CONTEXT* actctx, struct strsec
 
                     /* setup new index entry */
                     str.Buffer = entity->u.class.name;
-                    str.Length = (USHORT)strlenW(entity->u.class.name)*sizeof(WCHAR);
+                    str.Length = strlenW(entity->u.class.name)*sizeof(WCHAR);
                     str.MaximumLength = str.Length + sizeof(WCHAR);
                     /* hash original class name */
                     RtlHashUnicodeString(&str, TRUE, HASH_STRING_ALGORITHM_X65599, &index->hash);
@@ -4694,7 +4693,7 @@ RtlCreateActivationContext(IN ULONG Flags,
     HANDLE file = 0;
     struct actctx_loader acl;
 
-    DPRINT("RtlCreateActivationContext %p %08x, Image Base: %p\n", pActCtx, pActCtx ? pActCtx->dwFlags : 0, ((ACTCTXW*)ActivationContextData)->hModule);
+    DPRINT("%p %08x\n", pActCtx, pActCtx ? pActCtx->dwFlags : 0);
 
     if (!pActCtx || pActCtx->cbSize < sizeof(*pActCtx) ||
         (pActCtx->dwFlags & ~ACTCTX_FLAGS_ALL))
@@ -4923,10 +4922,6 @@ NTAPI RtlActivateActivationContextEx( ULONG flags, PTEB tebAddress, HANDLE handl
     frame->ActivationContext = handle;
     frame->Flags = 0;
 
-    DPRINT("ActiveSP %p: ACTIVATE (ActiveFrame %p -> NewFrame %p, Context %p)\n",
-        tebAddress->ActivationContextStackPointer, tebAddress->ActivationContextStackPointer->ActiveFrame,
-        frame, handle);
-
     tebAddress->ActivationContextStackPointer->ActiveFrame = frame;
     RtlAddRefActivationContext( handle );
 
@@ -4962,11 +4957,6 @@ NTSTATUS NTAPI RtlDeactivateActivationContext( ULONG flags, ULONG_PTR cookie )
 
     if (frame != top && !(flags & RTL_DEACTIVATE_ACTIVATION_CONTEXT_FLAG_FORCE_EARLY_DEACTIVATION))
         RtlRaiseStatus( STATUS_SXS_EARLY_DEACTIVATION );
-
-    DPRINT("ActiveSP %p: DEACTIVATE (ActiveFrame %p -> PreviousFrame %p)\n",
-        NtCurrentTeb()->ActivationContextStackPointer,
-        NtCurrentTeb()->ActivationContextStackPointer->ActiveFrame,
-        frame->Previous);
 
     /* pop everything up to and including frame */
     NtCurrentTeb()->ActivationContextStackPointer->ActiveFrame = frame->Previous;
@@ -5426,129 +5416,67 @@ FASTCALL
 RtlActivateActivationContextUnsafeFast(IN PRTL_CALLER_ALLOCATED_ACTIVATION_CONTEXT_STACK_FRAME_EXTENDED Frame,
                                        IN PVOID Context)
 {
-    RTL_ACTIVATION_CONTEXT_STACK_FRAME *NewFrame;
     RTL_ACTIVATION_CONTEXT_STACK_FRAME *ActiveFrame;
 
-    /* Get the current active frame */
+    /* Get the curren active frame */
     ActiveFrame = NtCurrentTeb()->ActivationContextStackPointer->ActiveFrame;
 
-    DPRINT("ActiveSP %p: ACTIVATE (ActiveFrame %p -> NewFrame %p, Context %p)\n",
+    DPRINT("ActiveSP %p, ActiveFrame %p, &Frame->Frame %p, Context %p\n",
         NtCurrentTeb()->ActivationContextStackPointer, ActiveFrame,
         &Frame->Frame, Context);
-
-    /* Ensure it's in the right format and at least fits basic info */
-    ASSERT(Frame->Format == RTL_CALLER_ALLOCATED_ACTIVATION_CONTEXT_STACK_FRAME_FORMAT_WHISTLER);
-    ASSERT(Frame->Size >= sizeof(RTL_CALLER_ALLOCATED_ACTIVATION_CONTEXT_STACK_FRAME_BASIC));
-
-    /* Set debug info if size allows*/
-    if (Frame->Size >= sizeof(RTL_CALLER_ALLOCATED_ACTIVATION_CONTEXT_STACK_FRAME_EXTENDED))
-    {
-        Frame->Extra1 = (PVOID)(~(ULONG_PTR)ActiveFrame);
-        Frame->Extra2 = (PVOID)(~(ULONG_PTR)Context);
-        //Frame->Extra3 = ...;
-    }
-
-    if (ActiveFrame)
-    {
-        /*ASSERT((ActiveFrame->Flags &
-            (RTL_ACTIVATION_CONTEXT_STACK_FRAME_FLAG_ACTIVATED |
-             RTL_ACTIVATION_CONTEXT_STACK_FRAME_FLAG_DEACTIVATED |
-             RTL_ACTIVATION_CONTEXT_STACK_FRAME_FLAG_NOT_REALLY_ACTIVATED)) == RTL_ACTIVATION_CONTEXT_STACK_FRAME_FLAG_ACTIVATED);*/
-
-        if (!(ActiveFrame->Flags & RTL_ACTIVATION_CONTEXT_STACK_FRAME_FLAG_HEAP_ALLOCATED))
-        {
-            // TODO: Perform some additional checks if it was not heap allocated
-        }
-    }
-
-    /* Save pointer to the new activation frame */
-    NewFrame = &Frame->Frame;
 
     /* Actually activate it */
     Frame->Frame.Previous = ActiveFrame;
     Frame->Frame.ActivationContext = Context;
-    Frame->Frame.Flags = RTL_ACTIVATION_CONTEXT_STACK_FRAME_FLAG_ACTIVATED;
+    Frame->Frame.Flags = 0;
 
     /* Check if we can activate this context */
     if ((ActiveFrame && (ActiveFrame->ActivationContext != Context)) ||
         Context)
     {
         /* Set new active frame */
-        DPRINT("Setting new active frame %p instead of old %p\n", NewFrame, ActiveFrame);
-        NtCurrentTeb()->ActivationContextStackPointer->ActiveFrame = NewFrame;
-        return NewFrame;
+        NtCurrentTeb()->ActivationContextStackPointer->ActiveFrame = &Frame->Frame;
+        return &Frame->Frame;
     }
 
     /* We can get here only one way: it was already activated */
-    DPRINT("Trying to activate already activated activation context\n");
+    DPRINT("Trying to activate improper activation context\n");
 
     /* Activate only if we are allowing multiple activation */
-#if 0
     if (!RtlpNotAllowingMultipleActivation)
     {
-        Frame->Frame.Flags = RTL_ACTIVATION_CONTEXT_STACK_FRAME_FLAG_ACTIVATED | RTL_ACTIVATION_CONTEXT_STACK_FRAME_FLAG_NOT_REALLY_ACTIVATED;
-        NtCurrentTeb()->ActivationContextStackPointer->ActiveFrame = NewFrame;
+        NtCurrentTeb()->ActivationContextStackPointer->ActiveFrame = &Frame->Frame;
     }
-#else
-    // Activate it anyway
-    NtCurrentTeb()->ActivationContextStackPointer->ActiveFrame = NewFrame;
-#endif
+    else
+    {
+        /* Set flag */
+        Frame->Frame.Flags = 0x30;
+    }
 
     /* Return pointer to the activation frame */
-    return NewFrame;
+    return &Frame->Frame;
 }
 
 PRTL_ACTIVATION_CONTEXT_STACK_FRAME
 FASTCALL
 RtlDeactivateActivationContextUnsafeFast(IN PRTL_CALLER_ALLOCATED_ACTIVATION_CONTEXT_STACK_FRAME_EXTENDED Frame)
 {
-    PRTL_ACTIVATION_CONTEXT_STACK_FRAME ActiveFrame, NewFrame;
-
-    ActiveFrame = NtCurrentTeb()->ActivationContextStackPointer->ActiveFrame;
-
-    /* Ensure it's in the right format and at least fits basic info */
-    ASSERT(Frame->Format == RTL_CALLER_ALLOCATED_ACTIVATION_CONTEXT_STACK_FRAME_FORMAT_WHISTLER);
-    ASSERT(Frame->Size >= sizeof(RTL_CALLER_ALLOCATED_ACTIVATION_CONTEXT_STACK_FRAME_BASIC));
-
-    /* Make sure it is not deactivated and it is activated */
-    ASSERT((Frame->Frame.Flags & RTL_ACTIVATION_CONTEXT_STACK_FRAME_FLAG_DEACTIVATED) == 0);
-    ASSERT(Frame->Frame.Flags & RTL_ACTIVATION_CONTEXT_STACK_FRAME_FLAG_ACTIVATED);
-    ASSERT((Frame->Frame.Flags & (RTL_ACTIVATION_CONTEXT_STACK_FRAME_FLAG_ACTIVATED | RTL_ACTIVATION_CONTEXT_STACK_FRAME_FLAG_DEACTIVATED)) == RTL_ACTIVATION_CONTEXT_STACK_FRAME_FLAG_ACTIVATED);
-
-    /* Check debug info if it is present */
-    if (Frame->Size >= sizeof(RTL_CALLER_ALLOCATED_ACTIVATION_CONTEXT_STACK_FRAME_EXTENDED))
-    {
-        ASSERT(Frame->Extra1 == (PVOID)(~(ULONG_PTR)Frame->Frame.Previous));
-        ASSERT(Frame->Extra2 == (PVOID)(~(ULONG_PTR)Frame->Frame.ActivationContext));
-        //Frame->Extra3 = ...;
-    }
-
-    if (ActiveFrame)
-    {
-        // TODO: Perform some additional checks here
-    }
-
-    /* Special handling for not-really-activated */
-    if (Frame->Frame.Flags & RTL_ACTIVATION_CONTEXT_STACK_FRAME_FLAG_NOT_REALLY_ACTIVATED)
-    {
-        DPRINT1("Deactivating not really activated activation context\n");
-        Frame->Frame.Flags |= RTL_ACTIVATION_CONTEXT_STACK_FRAME_FLAG_DEACTIVATED;
-        return &Frame->Frame;
-    }
+    RTL_ACTIVATION_CONTEXT_STACK_FRAME *frame;
+    //RTL_ACTIVATION_CONTEXT_STACK_FRAME *top;
 
     /* find the right frame */
-    NewFrame = &Frame->Frame;
-    if (ActiveFrame != NewFrame)
+    //top = NtCurrentTeb()->ActivationContextStackPointer->ActiveFrame;
+    frame = &Frame->Frame;
+
+    if (!frame)
     {
-        DPRINT1("Deactivating wrong active frame: %p != %p\n", ActiveFrame, NewFrame);
+        DPRINT1("No top frame!\n");
+        RtlRaiseStatus( STATUS_SXS_INVALID_DEACTIVATION );
     }
 
-    DPRINT("ActiveSP %p: DEACTIVATE (ActiveFrame %p -> PreviousFrame %p)\n",
-        NtCurrentTeb()->ActivationContextStackPointer, NewFrame, NewFrame->Previous);
+    DPRINT("Deactivated actctx %p, active frame %p, new active frame %p\n", NtCurrentTeb()->ActivationContextStackPointer, frame, frame->Previous);
+    /* pop everything up to and including frame */
+    NtCurrentTeb()->ActivationContextStackPointer->ActiveFrame = frame->Previous;
 
-    /* Pop everything up to and including frame */
-    NtCurrentTeb()->ActivationContextStackPointer->ActiveFrame = NewFrame->Previous;
-
-    Frame->Frame.Flags |= RTL_ACTIVATION_CONTEXT_STACK_FRAME_FLAG_DEACTIVATED;
-    return NewFrame->Previous;
+    return frame;
 }

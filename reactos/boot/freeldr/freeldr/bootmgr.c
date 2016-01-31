@@ -20,7 +20,6 @@
 /* INCLUDES *******************************************************************/
 
 #include <freeldr.h>
-#include <debug.h>
 
 /* GLOBALS ********************************************************************/
 
@@ -132,7 +131,7 @@ ULONG GetDefaultOperatingSystem(OperatingSystemItem* OperatingSystemList, ULONG 
 
     if (DefaultOSName != NULL)
     {
-        for (Idx = 0; Idx < OperatingSystemCount; Idx++)
+        for (Idx = 0; Idx<OperatingSystemCount; Idx++)
         {
             if (_stricmp(DefaultOSName, OperatingSystemList[Idx].SystemPartition) == 0)
             {
@@ -209,9 +208,6 @@ VOID RunLoader(VOID)
         return;
     }
 
-    /* Debugger main initialization */
-    DebugInit(TRUE);
-
     if (!IniOpenSection("FreeLoader", &SectionId))
     {
         UiMessageBoxCritical("Section [FreeLoader] not found in freeldr.ini.");
@@ -220,7 +216,6 @@ VOID RunLoader(VOID)
 
     TimeOut = GetTimeOut();
 
-    /* UI main initialization */
     if (!UiInitialize(TRUE))
     {
         UiMessageBoxCritical("Unable to initialize UI.");

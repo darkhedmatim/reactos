@@ -350,7 +350,7 @@ CmpInitHiveFromFile(IN PCUNICODE_STRING HiveName,
     }
 
     /* Initialize the hive */
-    Status = CmpInitializeHive(&NewHive,
+    Status = CmpInitializeHive((PCMHIVE*)&NewHive,
                                Operation,
                                HiveFlags,
                                FileType,
@@ -370,6 +370,9 @@ CmpInitHiveFromFile(IN PCUNICODE_STRING HiveName,
 
     /* Success, return hive */
     *Hive = NewHive;
+
+    /* HACK: ROS: Init root key cell and prepare the hive */
+    if (Operation == HINIT_CREATE) CmCreateRootNode(&NewHive->Hive, L"");
 
     /* Duplicate the hive name */
     NewHive->FileFullPath.Buffer = ExAllocatePoolWithTag(PagedPool,
@@ -901,7 +904,7 @@ CmpInitializeSystemHive(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     if (HiveBase)
     {
         /* Import it */
-        Status = CmpInitializeHive(&SystemHive,
+        Status = CmpInitializeHive((PCMHIVE*)&SystemHive,
                                    HINIT_MEMORY,
                                    HIVE_NOLAZYFLUSH,
                                    HFILE_TYPE_LOG,
@@ -972,7 +975,7 @@ CmpInitializeSystemHive(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     RtlInitUnicodeString(&KeyName, L"\\Registry\\Machine\\SYSTEM");
     Status = CmpLinkHiveToMaster(&KeyName,
                                  NULL,
-                                 SystemHive,
+                                 (PCMHIVE)SystemHive,
                                  Allocate,
                                  SecurityDescriptor);
 
@@ -981,7 +984,7 @@ CmpInitializeSystemHive(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
     if (!NT_SUCCESS(Status)) return FALSE;
 
     /* Add the hive to the hive list */
-    CmpMachineHiveList[3].CmHive = SystemHive;
+    CmpMachineHiveList[3].CmHive = (PCMHIVE)SystemHive;
 
     /* Success! */
     return TRUE;
@@ -1030,6 +1033,7 @@ CmpCreateRootNode(IN PHHIVE Hive,
 {
     UNICODE_STRING KeyName;
     PCM_KEY_NODE KeyCell;
+    LARGE_INTEGER SystemTime;
     PAGED_CODE();
 
     /* Initialize the node name and allocate it */
@@ -1047,9 +1051,10 @@ CmpCreateRootNode(IN PHHIVE Hive,
     if (!KeyCell) return FALSE;
 
     /* Setup the cell */
-    KeyCell->Signature = CM_KEY_NODE_SIGNATURE;
+    KeyCell->Signature = (USHORT)CM_KEY_NODE_SIGNATURE;
     KeyCell->Flags = KEY_HIVE_ENTRY | KEY_NO_DELETE;
-    KeQuerySystemTime(&KeyCell->LastWriteTime);
+    KeQuerySystemTime(&SystemTime);
+    KeyCell->LastWriteTime = SystemTime;
     KeyCell->Parent = HCELL_NIL;
     KeyCell->SubKeyCounts[Stable] = 0;
     KeyCell->SubKeyCounts[Volatile] = 0;
@@ -1066,11 +1071,14 @@ CmpCreateRootNode(IN PHHIVE Hive,
     KeyCell->MaxValueDataLen = 0;
 
     /* Copy the name (this will also set the length) */
-    KeyCell->NameLength = CmpCopyName(Hive, KeyCell->Name, &KeyName);
+    KeyCell->NameLength = CmpCopyName(Hive, (PWCHAR)KeyCell->Name, &KeyName);
 
-    /* Check if the name was compressed and set the flag if so */
+    /* Check if the name was compressed */
     if (KeyCell->NameLength < KeyName.Length)
+    {
+        /* Set the flag */
         KeyCell->Flags |= KEY_COMP_NAME;
+    }
 
     /* Return success */
     HvReleaseCell(Hive, *Index);
@@ -1703,7 +1711,7 @@ CmInitSystem1(VOID)
     }
 
     /* Create the hardware hive */
-    Status = CmpInitializeHive(&HardwareHive,
+    Status = CmpInitializeHive((PCMHIVE*)&HardwareHive,
                                HINIT_CREATE,
                                HIVE_VOLATILE,
                                HFILE_TYPE_PRIMARY,
@@ -1720,13 +1728,13 @@ CmInitSystem1(VOID)
     }
 
     /* Add the hive to the hive list */
-    CmpMachineHiveList[0].CmHive = HardwareHive;
+    CmpMachineHiveList[0].CmHive = (PCMHIVE)HardwareHive;
 
     /* Attach it to the machine key */
     RtlInitUnicodeString(&KeyName, L"\\Registry\\Machine\\HARDWARE");
     Status = CmpLinkHiveToMaster(&KeyName,
                                  NULL,
-                                 HardwareHive,
+                                 (PCMHIVE)HardwareHive,
                                  TRUE,
                                  SecurityDescriptor);
     if (!NT_SUCCESS(Status))

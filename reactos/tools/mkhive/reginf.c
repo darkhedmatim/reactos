@@ -16,8 +16,7 @@
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
-/*
- * COPYRIGHT:       See COPYING in the top level directory
+/* COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS hive maker
  * FILE:            tools/mkhive/reginf.c
  * PURPOSE:         Inf file import code
@@ -119,11 +118,11 @@ AppendMultiSzValue (
     IN HKEY KeyHandle,
     IN PWCHAR ValueName,
     IN PWCHAR Strings,
-    IN ULONG StringSize)
+    IN SIZE_T StringSize)
 {
-    ULONG Size;
+    SIZE_T Size;
     ULONG Type;
-    ULONG Total;
+    size_t Total;
     PWCHAR Buffer;
     PWCHAR p;
     size_t len;
@@ -182,7 +181,7 @@ AppendMultiSzValue (
             0,
             REG_MULTI_SZ,
             (PUCHAR)Buffer,
-            Total * sizeof(WCHAR));
+            (ULONG)Total * sizeof(WCHAR));
     }
 
 done:
@@ -289,7 +288,7 @@ do_reg_operation(
                 if (Str == NULL)
                     return FALSE;
 
-                InfHostGetMultiSzField (Context, 5, Str, Size, NULL);
+                InfHostGetMultiSzField (Context, 5, Str, (ULONG)Size, NULL);
             }
 
             if (Flags & FLG_ADDREG_APPEND)
@@ -319,7 +318,7 @@ do_reg_operation(
                 if (Str == NULL)
                     return FALSE;
 
-                InfHostGetStringField (Context, 5, Str, Size, NULL);
+                InfHostGetStringField (Context, 5, Str, (ULONG)Size, NULL);
             }
         }
 
@@ -349,7 +348,7 @@ do_reg_operation(
                     0,
                     Type,
                     (PVOID)Str,
-                    Size * sizeof(WCHAR));
+                    (ULONG)Size * sizeof(WCHAR));
             }
             else
             {
@@ -359,7 +358,7 @@ do_reg_operation(
                     0,
                     Type,
                     (PVOID)&EmptyStr,
-                    sizeof(WCHAR));
+                    (ULONG)sizeof(WCHAR));
             }
         }
         free (Str);
@@ -387,7 +386,7 @@ do_reg_operation(
             0,
             Type,
             (PVOID)Data,
-            Size);
+            (ULONG)Size);
 
         free (Data);
     }

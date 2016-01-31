@@ -469,10 +469,9 @@ IniCacheGetKeyValue(
 NTSTATUS
 IniCacheLoad(
     PINICACHE *Cache,
-    PWCHAR FileName,
+    PUNICODE_STRING FileName,
     BOOLEAN String)
 {
-    UNICODE_STRING Name;
     OBJECT_ATTRIBUTES ObjectAttributes;
     FILE_STANDARD_INFORMATION FileInfo;
     IO_STATUS_BLOCK IoStatusBlock;
@@ -498,10 +497,8 @@ IniCacheLoad(
     *Cache = NULL;
 
     /* Open ini file */
-    RtlInitUnicodeString(&Name, FileName);
-
     InitializeObjectAttributes(&ObjectAttributes,
-                               &Name,
+                               FileName,
                                0,
                                NULL,
                                NULL);
@@ -1011,7 +1008,8 @@ IniCacheSave(
     }
 
     /* Create ini file */
-    RtlInitUnicodeString(&Name, FileName);
+    RtlInitUnicodeString(&Name,
+                         FileName);
 
     InitializeObjectAttributes(&ObjectAttributes,
                                &Name,

@@ -23,7 +23,6 @@ EFI_RUNTIME_SERVICES *EfiRT;
 EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *EfiConOut;
 EFI_SIMPLE_TEXT_INPUT_PROTOCOL *EfiConIn;
 EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *EfiConInEx;
-PHYSICAL_ADDRESS EfiRsdt;
 
 EFI_GUID EfiGraphicsOutputProtocol = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 EFI_GUID EfiUgaDrawProtocol = EFI_UGA_DRAW_PROTOCOL_GUID;
@@ -31,15 +30,8 @@ EFI_GUID EfiLoadedImageProtocol = EFI_LOADED_IMAGE_PROTOCOL_GUID;
 EFI_GUID EfiDevicePathProtocol = EFI_DEVICE_PATH_PROTOCOL_GUID;
 EFI_GUID EfiSimpleTextInputExProtocol = EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID;
 EFI_GUID EfiBlockIoProtocol = EFI_BLOCK_IO_PROTOCOL_GUID;
-EFI_GUID EfiRootAcpiTableGuid = EFI_ACPI_20_TABLE_GUID;
-EFI_GUID EfiRootAcpiTable10Guid = EFI_ACPI_TABLE_GUID;
-EFI_GUID EfiGlobalVariable = EFI_GLOBAL_VARIABLE;
-EFI_GUID BlpEfiSecureBootPrivateNamespace = { 0x77FA9ABD , 0x0359, 0x4D32, { 0xBD, 0x60, 0x28, 0xF4, 0xE7, 0x8F, 0x78, 0x4B } };
 
 WCHAR BlScratchBuffer[8192];
-
-BOOLEAN BlpFirmwareChecked;
-BOOLEAN BlpFirmwareEnabled;
 
 /* FUNCTIONS *****************************************************************/
 
@@ -49,21 +41,14 @@ EfiIsDevicePathParent (
     _In_ EFI_DEVICE_PATH *DevicePath2
     )
 {
-    EFI_DEVICE_PATH* CurrentPath1;
-    EFI_DEVICE_PATH* CurrentPath2;
     USHORT Length1, Length2;
 
-    /* Start with the current nodes */
-    CurrentPath1 = DevicePath1;
-    CurrentPath2 = DevicePath2;
-
     /* Loop each element of the device path */
-    while (!(IsDevicePathEndType(CurrentPath1)) &&
-           !(IsDevicePathEndType(CurrentPath2)))
+    while (!IsDevicePathEndType(DevicePath1) && !IsDevicePathEndType(DevicePath2))
     {
         /* Check if the element has a different length */
-        Length1 = DevicePathNodeLength(CurrentPath1);
-        Length2 = DevicePathNodeLength(CurrentPath2);
+        Length1 = DevicePathNodeLength(DevicePath1);
+        Length2 = DevicePathNodeLength(DevicePath2);
         if (Length1 != Length2)
         {
             /* Then they're not related */
@@ -71,25 +56,25 @@ EfiIsDevicePathParent (
         }
 
         /* Check if the rest of the element data matches */
-        if (RtlCompareMemory(CurrentPath1, CurrentPath2, Length1) != Length1)
+        if (RtlCompareMemory(DevicePath1, DevicePath2, Length1) != Length1)
         {
             /* Nope, not related */
             return NULL;
         }
 
         /* Move to the next element */
-        CurrentPath1 = NextDevicePathNode(CurrentPath1);
-        CurrentPath2 = NextDevicePathNode(CurrentPath2);
+        DevicePath1 = NextDevicePathNode(DevicePath1);
+        DevicePath2 = NextDevicePathNode(DevicePath2);
     }
 
     /* If the last element in path 1 is empty, then path 2 is the child (deeper) */
-    if (!IsDevicePathEndType(CurrentPath1))
+    if (!IsDevicePathEndType(DevicePath1))
     {
         return DevicePath2;
     }
 
     /* If the last element in path 2 is empty, then path 1 is the child (deeper) */
-    if (!IsDevicePathEndType(CurrentPath2))
+    if (!IsDevicePathEndType(DevicePath2))
     {
         return DevicePath1;
     }
@@ -271,217 +256,6 @@ EfiCloseProtocol (
 
     /* All done */
     return Status;
-}
-
-NTSTATUS
-EfiGetVariable (
-    _In_ PWCHAR VariableName,
-    _In_ EFI_GUID* VendorGuid,
-    _Out_opt_ PULONG Attributes,
-    _Inout_ PULONG DataSize,
-    _Out_ PVOID Data
-    )
-{
-    EFI_STATUS EfiStatus;
-    NTSTATUS Status;
-    BL_ARCH_MODE OldMode;
-    ULONG LocalAttributes;
-
-    /* Are we in protected mode? */
-    OldMode = CurrentExecutionContext->Mode;
-    if (OldMode != BlRealMode)
-    {
-        /* FIXME: Not yet implemented */
-        return STATUS_NOT_IMPLEMENTED;
-    }
-
-    /* Call the runtime API */
-    EfiStatus = EfiRT->GetVariable(VariableName,
-                                   VendorGuid,
-                                   (UINT32*)&LocalAttributes,
-                                   (UINTN*)DataSize,
-                                   Data);
-
-    /* Switch back to protected mode if we came from there */
-    if (OldMode != BlRealMode)
-    {
-        BlpArchSwitchContext(OldMode);
-    }
-
-    /* Return attributes back to the caller if asked to */
-    if (Attributes)
-    {
-        *Attributes = LocalAttributes;
-    }
-
-    /* Convert the errot to an NTSTATUS and return it */
-    Status = EfiGetNtStatusCode(EfiStatus);
-    return Status;
-}
-
-NTSTATUS
-BlpSecureBootEFIIsEnabled (
-    VOID
-    )
-{
-    NTSTATUS Status;
-    BOOLEAN SetupMode, SecureBoot;
-    ULONG DataSize;
-
-    /* Assume setup mode enabled, and no secure boot */
-    SecureBoot = FALSE;
-    SetupMode = TRUE;
-
-    /* Get the SetupMode variable */
-    DataSize = sizeof(SetupMode);
-    Status = EfiGetVariable(L"SetupMode",
-                            &EfiGlobalVariable,
-                            NULL,
-                            &DataSize,
-                            &SetupMode);
-    if (NT_SUCCESS(Status))
-    {
-        /* If it worked, get the SecureBoot variable */
-        DataSize = sizeof(SecureBoot);
-        Status = EfiGetVariable(L"SecureBoot",
-                                &EfiGlobalVariable,
-                                NULL,
-                                &DataSize,
-                                &SecureBoot);
-        if (NT_SUCCESS(Status))
-        {
-            /* In setup mode or without secureboot turned on, return failure */
-            if ((SecureBoot != TRUE) || (SetupMode))
-            {
-                Status = STATUS_INVALID_SIGNATURE;
-            }
-
-            // BlpSbdiStateFlags |= 8u;
-        }
-    }
-
-    /* Return secureboot status */
-    return Status;
-}
-
-NTSTATUS
-BlSecureBootIsEnabled (
-    _Out_ PBOOLEAN SecureBootEnabled
-    )
-{
-    NTSTATUS Status;
-
-    /* Have we checked before ? */
-    if (!BlpFirmwareChecked)
-    {
-        /* First time checking */
-        Status = BlpSecureBootEFIIsEnabled();
-        if NT_SUCCESS(Status)
-        {
-            /* Yep, it's on */
-            BlpFirmwareEnabled = TRUE;
-        }
-
-        /* Don't check again */
-        BlpFirmwareChecked = TRUE;
-    }
-
-    /* Return the firmware result */
-    *SecureBootEnabled = BlpFirmwareEnabled;
-    return STATUS_SUCCESS;
-}
-
-NTSTATUS
-BlSecureBootCheckForFactoryReset (
-    VOID
-    )
-{
-    BOOLEAN SecureBootEnabled;
-    NTSTATUS Status;
-    ULONG DataSize;
-
-    /* Initialize locals */
-    DataSize = 0;
-    SecureBootEnabled = FALSE;
-
-    /* Check if secureboot is enabled */
-    Status = BlSecureBootIsEnabled(&SecureBootEnabled);
-    if (!(NT_SUCCESS(Status)) || !(SecureBootEnabled))
-    {
-        /* It's not. Check if there's a revocation list */
-        Status = EfiGetVariable(L"RevocationList",
-                                &BlpEfiSecureBootPrivateNamespace,
-                                NULL,
-                                &DataSize,
-                                NULL);
-        if ((NT_SUCCESS(Status)) || (Status == STATUS_BUFFER_TOO_SMALL))
-        {
-            /* We don't support this yet */
-            EfiPrintf(L"Not yet supported\r\n");
-            Status = STATUS_NOT_IMPLEMENTED;
-        }
-    }
-
-    /* Return back to the caller */
-    return Status;
-}
-
-NTSTATUS
-EfiConInReset (
-    VOID
-    )
-{
-    BL_ARCH_MODE OldMode;
-    EFI_STATUS EfiStatus;
-
-    /* Are we in protected mode? */
-    OldMode = CurrentExecutionContext->Mode;
-    if (OldMode != BlRealMode)
-    {
-        /* FIXME: Not yet implemented */
-        return STATUS_NOT_IMPLEMENTED;
-    }
-
-    /* Make the EFI call */
-    EfiStatus = EfiConIn->Reset(EfiConIn, FALSE);
-
-    /* Switch back to protected mode if we came from there */
-    if (OldMode != BlRealMode)
-    {
-        BlpArchSwitchContext(OldMode);
-    }
-
-    /* Convert the error to an NTSTATUS */
-    return EfiGetNtStatusCode(EfiStatus);
-}
-
-NTSTATUS
-EfiConInExReset (
-    VOID
-    )
-{
-    BL_ARCH_MODE OldMode;
-    EFI_STATUS EfiStatus;
-
-    /* Are we in protected mode? */
-    OldMode = CurrentExecutionContext->Mode;
-    if (OldMode != BlRealMode)
-    {
-        /* FIXME: Not yet implemented */
-        return STATUS_NOT_IMPLEMENTED;
-    }
-
-    /* Make the EFI call */
-    EfiStatus = EfiConInEx->Reset(EfiConInEx, FALSE);
-
-    /* Switch back to protected mode if we came from there */
-    if (OldMode != BlRealMode)
-    {
-        BlpArchSwitchContext(OldMode);
-    }
-
-    /* Convert the error to an NTSTATUS */
-    return EfiGetNtStatusCode(EfiStatus);
 }
 
 NTSTATUS
@@ -792,37 +566,6 @@ EfiConOutEnableCursor (
     return EfiGetNtStatusCode(EfiStatus);
 }
 
-NTSTATUS
-EfiConOutOutputString (
-    _In_ SIMPLE_TEXT_OUTPUT_INTERFACE *TextInterface,
-    _In_ PWCHAR String
-    )
-{
-    BL_ARCH_MODE OldMode;
-    EFI_STATUS EfiStatus;
-
-    /* Are we in protected mode? */
-    OldMode = CurrentExecutionContext->Mode;
-    if (OldMode != BlRealMode)
-    {
-        /* FIXME: Not yet implemented */
-        return STATUS_NOT_IMPLEMENTED;
-    }
-
-    /* Make the EFI call */
-    EfiStatus = TextInterface->OutputString(TextInterface, String);
-
-    /* Switch back to protected mode if we came from there */
-    if (OldMode != BlRealMode)
-    {
-        BlpArchSwitchContext(OldMode);
-    }
-
-    /* Convert the error to an NTSTATUS */
-    return EfiGetNtStatusCode(EfiStatus);
-}
-
-
 VOID
 EfiConOutReadCurrentMode (
     _In_ SIMPLE_TEXT_OUTPUT_INTERFACE *TextInterface,
@@ -949,7 +692,7 @@ EfiGopSetMode (
     if ((ModeChanged) && (NT_SUCCESS(Status)))
     {
         /* FIXME @TODO: Should be BlStatusPrint */
-        EfiPrintf(L"Console video mode set to 0x%x\r\n", Mode);
+        EfiPrintf(L"Console video mode  set to 0x%x\r\r\n", Mode);
     }
 
     /* Convert the error to an NTSTATUS */
@@ -1050,42 +793,6 @@ EfiResetSystem (
 }
 
 NTSTATUS
-EfiConnectController (
-    _In_ EFI_HANDLE ControllerHandle
-    )
-{
-    BL_ARCH_MODE OldMode;
-    EFI_STATUS EfiStatus;
-
-    /* Is this EFI 1.02? */
-    if (EfiST->Hdr.Revision == EFI_1_02_SYSTEM_TABLE_REVISION)
-    {
-        /* This function didn't exist back then */
-        return STATUS_NOT_SUPPORTED;
-    }
-
-    /* Are we in protected mode? */
-    OldMode = CurrentExecutionContext->Mode;
-    if (OldMode != BlRealMode)
-    {
-        /* FIXME: Not yet implemented */
-        return STATUS_NOT_IMPLEMENTED;
-    }
-
-    /* Make the EFI call */
-    EfiStatus = EfiBS->ConnectController(ControllerHandle, NULL, NULL, TRUE);
-
-    /* Switch back to protected mode if we came from there */
-    if (OldMode != BlRealMode)
-    {
-        BlpArchSwitchContext(OldMode);
-    }
-
-    /* Convert the error to an NTSTATUS */
-    return EfiGetNtStatusCode(EfiStatus);
-}
-
-NTSTATUS
 EfiAllocatePages (
     _In_ ULONG Type,
     _In_ ULONG Pages,
@@ -1114,129 +821,6 @@ EfiAllocatePages (
 
     /* Convert the error to an NTSTATUS */
     return EfiGetNtStatusCode(EfiStatus);
-}
-
-NTSTATUS
-EfipGetSystemTable (
-    _In_ EFI_GUID *TableGuid,
-    _Out_ PPHYSICAL_ADDRESS TableAddress
-    )
-{
-    ULONG i;
-    NTSTATUS Status;
-
-    /* Assume failure */
-    Status = STATUS_NOT_FOUND;
-
-    /* Loop through the configuration tables */
-    for (i = 0; i < EfiST->NumberOfTableEntries; i++)
-    {
-        /* Check if this one matches the one we want */
-        if (RtlEqualMemory(&EfiST->ConfigurationTable[i].VendorGuid,
-                           TableGuid,
-                           sizeof(*TableGuid)))
-        {
-            /* Return its address */
-            TableAddress->QuadPart = (ULONG_PTR)EfiST->ConfigurationTable[i].VendorTable;
-            Status = STATUS_SUCCESS;
-            break;
-        }
-    }
-
-    /* Return the search result */
-    return Status;
-}
-
-NTSTATUS
-EfipGetRsdt (
-    _Out_ PPHYSICAL_ADDRESS FoundRsdt
-    )
-{
-    NTSTATUS Status;
-    ULONG Length;
-    PHYSICAL_ADDRESS RsdpAddress, Rsdt;
-    PRSDP Rsdp;
-
-    /* Assume failure */
-    Length = 0;
-    Rsdp = NULL;
-
-    /* Check if we already know it */
-    if (EfiRsdt.QuadPart)
-    {
-        /* Return it */
-        *FoundRsdt = EfiRsdt;
-        return STATUS_SUCCESS;
-    }
-
-    /* Otherwise, look for the ACPI 2.0 RSDP (XSDT really) */
-    Status = EfipGetSystemTable(&EfiRootAcpiTableGuid, &RsdpAddress);
-    if (!NT_SUCCESS(Status))
-    {
-        /* Didn't fint it, look for the ACPI 1.0 RSDP (RSDT really) */
-        Status = EfipGetSystemTable(&EfiRootAcpiTable10Guid, &RsdpAddress);
-        if (!NT_SUCCESS(Status))
-        {
-            return Status;
-        }
-    }
-
-    /* Map it */
-    Length = sizeof(*Rsdp);
-    Status = BlMmMapPhysicalAddressEx((PVOID*)&Rsdp,
-                                      0,
-                                      Length,
-                                      RsdpAddress);
-    if (NT_SUCCESS(Status))
-    {
-        /* Check the revision (anything >= 2.0 is XSDT) */
-        if (Rsdp->Revision)
-        {
-            /* Check if the table is bigger than just its header */
-            if (Rsdp->Length > Length)
-            {
-                /* Capture the real length */
-                Length = Rsdp->Length;
-
-                /* Unmap our header mapping */
-                BlMmUnmapVirtualAddressEx(Rsdp, sizeof(*Rsdp));
-
-                /* And map the whole thing now */
-                Status = BlMmMapPhysicalAddressEx((PVOID*)&Rsdp,
-                                                  0,
-                                                  Length,
-                                                  RsdpAddress);
-                if (!NT_SUCCESS(Status))
-                {
-                    return Status;
-                }
-            }
-
-            /* Read the XSDT address from the table*/
-            Rsdt = Rsdp->XsdtAddress;
-        }
-        else
-        {
-            /* ACPI 1.0 so just read the RSDT */
-            Rsdt.QuadPart = Rsdp->RsdtAddress;
-        }
-
-        /* Save it for later */
-        EfiRsdt = Rsdt;
-
-        /* And return it back */
-        *FoundRsdt = Rsdt;
-    }
-
-    /* Check if we had mapped the RSDP */
-    if (Rsdp)
-    {
-        /* Unmap it */
-        BlMmUnmapVirtualAddressEx(Rsdp, Length);
-    }
-
-    /* Return search result back to caller */
-    return Status;
 }
 
 BL_MEMORY_ATTR
@@ -1521,7 +1105,7 @@ MmFwGetMemoryMap (
 
     /* Loop the EFI memory map */
 #if 0
-    EfiPrintf(L"UEFI MEMORY MAP\r\n\r\n");
+    EfiPrintf(L"UEFI MEMORY MAP\n\r\n");
     EfiPrintf(L"TYPE        START              END                   ATTRIBUTES\r\n");
     EfiPrintf(L"===============================================================\r\n");
 #endif
@@ -1626,9 +1210,8 @@ MmFwGetMemoryMap (
                 /* Check if this region is currently free RAM */
                 if (Descriptor->Type == BlConventionalMemory)
                 {
-                    /* Set the reserved flag on the descriptor */
-                    EfiPrintf(L"Adding magic flag\r\n");
-                    Descriptor->Flags |= BlMemoryReserved;
+                    /* Set an unknown flag on the descriptor */
+                    Descriptor->Flags |= 0x80000;
                 }
 
                 /* Add this descriptor into the list */
@@ -1671,9 +1254,8 @@ MmFwGetMemoryMap (
         /* Check if this region is currently free RAM below 1MB */
         if ((Descriptor->Type == BlConventionalMemory) && (EndPage <= 0x100))
         {
-            /* Set the reserved flag on the descriptor */
-            EfiPrintf(L"Adding magic flag\r\n");
-            Descriptor->Flags |= BlMemoryReserved;
+            /* Set an unknown flag on the descriptor */
+            Descriptor->Flags |= 0x80000;
         }
 
         /* Add the descriptor to the list, requesting coalescing as asked */
@@ -1784,222 +1366,3 @@ BlpFwInitialize (
     return Status;
 }
 
-NTSTATUS
-BlFwEnumerateDevice (
-    _In_ PBL_DEVICE_DESCRIPTOR Device
-    )
-{
-    NTSTATUS Status;
-    ULONG PathProtocols, BlockProtocols;
-    EFI_HANDLE* PathArray;
-    EFI_HANDLE* BlockArray;
-
-    /* Initialize locals */
-    BlockArray = NULL;
-    PathArray = NULL;
-    PathProtocols = 0;
-    BlockProtocols = 0;
-
-    /* Enumeration only makes sense on disks or partitions */
-    if ((Device->DeviceType != DiskDevice) &&
-        (Device->DeviceType != LegacyPartitionDevice) &&
-        (Device->DeviceType != PartitionDevice))
-    {
-        return STATUS_NOT_SUPPORTED;
-    }
-
-    /* Enumerate the list of device paths */
-    Status = EfiLocateHandleBuffer(ByProtocol,
-                                   &EfiDevicePathProtocol,
-                                   &PathProtocols,
-                                   &PathArray);
-    if (NT_SUCCESS(Status))
-    {
-        /* Loop through each one */
-        Status = STATUS_NOT_FOUND;
-        while (PathProtocols)
-        {
-            /* Attempt to connect the driver for this device epath */
-            Status = EfiConnectController(PathArray[--PathProtocols]);
-            if (NT_SUCCESS(Status))
-            {
-                /* Now enumerate any block I/O devices the driver added */
-                Status = EfiLocateHandleBuffer(ByProtocol,
-                                               &EfiBlockIoProtocol,
-                                               &BlockProtocols,
-                                               &BlockArray);
-                if (!NT_SUCCESS(Status))
-                {
-                    break;
-                }
-
-                /* Loop through each one */
-                while (BlockProtocols)
-                {
-                    /* Check if one of the new devices is the one we want */
-                    Status = BlockIoEfiCompareDevice(Device,
-                                                     BlockArray[--BlockProtocols]);
-                    if (NT_SUCCESS(Status))
-                    {
-                        /* Yep, all done */
-                        goto Quickie;
-                    }
-                }
-
-                /* Move on to the next device path */
-                BlMmFreeHeap(BlockArray);
-                BlockArray = NULL;
-            }
-        }
-    }
-
-Quickie:
-    /* We're done -- free the array of device path protocols, if any */
-    if (PathArray)
-    {
-        BlMmFreeHeap(PathArray);
-    }
-
-    /* We're done -- free the array of block I/O protocols, if any */
-    if (BlockArray)
-    {
-        BlMmFreeHeap(BlockArray);
-    }
-
-    /* Return if we found the device or not */
-    return Status;
-}
-
-/*++
- * @name EfiGetEfiStatusCode
- *
- *     The EfiGetEfiStatusCode routine converts an NT Status to an EFI status.
- *
- * @param  Status
- *         NT Status code to be converted.
- *
- * @remark Only certain, specific NT status codes are converted to EFI codes.
- *
- * @return The corresponding EFI Status code, EFI_NO_MAPPING otherwise.
- *
- *--*/
-EFI_STATUS
-EfiGetEfiStatusCode(
-    _In_ NTSTATUS Status
-    )
-{
-    switch (Status)
-    {
-        case STATUS_NOT_SUPPORTED:
-            return EFI_UNSUPPORTED;
-        case STATUS_DISK_FULL:
-            return EFI_VOLUME_FULL;
-        case STATUS_INSUFFICIENT_RESOURCES:
-            return EFI_OUT_OF_RESOURCES;
-        case STATUS_MEDIA_WRITE_PROTECTED:
-            return EFI_WRITE_PROTECTED;
-        case STATUS_DEVICE_NOT_READY:
-            return EFI_NOT_STARTED;
-        case STATUS_DEVICE_ALREADY_ATTACHED:
-            return EFI_ALREADY_STARTED;
-        case STATUS_MEDIA_CHANGED:
-            return EFI_MEDIA_CHANGED;
-        case STATUS_INVALID_PARAMETER:
-            return EFI_INVALID_PARAMETER;
-        case STATUS_ACCESS_DENIED:
-            return EFI_ACCESS_DENIED;
-        case STATUS_BUFFER_TOO_SMALL:
-            return EFI_BUFFER_TOO_SMALL;
-        case STATUS_DISK_CORRUPT_ERROR:
-            return EFI_VOLUME_CORRUPTED;
-        case STATUS_REQUEST_ABORTED:
-            return EFI_ABORTED;
-        case STATUS_NO_MEDIA:
-            return EFI_NO_MEDIA;
-        case STATUS_IO_DEVICE_ERROR:
-            return EFI_DEVICE_ERROR;
-        case STATUS_INVALID_BUFFER_SIZE:
-            return EFI_BAD_BUFFER_SIZE;
-        case STATUS_NOT_FOUND:
-            return EFI_NOT_FOUND;
-        case STATUS_DRIVER_UNABLE_TO_LOAD:
-            return EFI_LOAD_ERROR;
-        case STATUS_NO_MATCH:
-            return EFI_NO_MAPPING;
-        case STATUS_SUCCESS:
-            return EFI_SUCCESS;
-        case STATUS_TIMEOUT:
-            return EFI_TIMEOUT;
-        default:
-            return EFI_NO_MAPPING;
-    }
-}
-
-/*++
- * @name EfiGetNtStatusCode
- *
- *     The EfiGetNtStatusCode routine converts an EFI Status to an NT status.
- *
- * @param  EfiStatus
- *         EFI Status code to be converted.
- *
- * @remark Only certain, specific EFI status codes are converted to NT codes.
- *
- * @return The corresponding NT Status code, STATUS_UNSUCCESSFUL otherwise.
- *
- *--*/
-NTSTATUS
-EfiGetNtStatusCode (
-    _In_ EFI_STATUS EfiStatus
-    )
-{
-    switch (EfiStatus)
-    {
-        case EFI_NOT_READY:
-        case EFI_NOT_FOUND:
-            return STATUS_NOT_FOUND;
-        case EFI_NO_MEDIA:
-            return STATUS_NO_MEDIA;
-        case EFI_MEDIA_CHANGED:
-            return STATUS_MEDIA_CHANGED;
-        case EFI_ACCESS_DENIED:
-        case EFI_SECURITY_VIOLATION:
-            return STATUS_ACCESS_DENIED;
-        case EFI_TIMEOUT:
-        case EFI_NO_RESPONSE:
-            return STATUS_TIMEOUT;
-        case EFI_NO_MAPPING:
-            return STATUS_NO_MATCH;
-        case EFI_NOT_STARTED:
-            return STATUS_DEVICE_NOT_READY;
-        case EFI_ALREADY_STARTED:
-            return STATUS_DEVICE_ALREADY_ATTACHED;
-        case EFI_ABORTED:
-            return STATUS_REQUEST_ABORTED;
-        case EFI_VOLUME_FULL:
-            return STATUS_DISK_FULL;
-        case EFI_DEVICE_ERROR:
-            return STATUS_IO_DEVICE_ERROR;
-        case EFI_WRITE_PROTECTED:
-            return STATUS_MEDIA_WRITE_PROTECTED;
-        /* @FIXME: ReactOS Headers don't yet have this */
-        //case EFI_OUT_OF_RESOURCES:
-            //return STATUS_INSUFFICIENT_NVRAM_RESOURCES;
-        case EFI_VOLUME_CORRUPTED:
-            return STATUS_DISK_CORRUPT_ERROR;
-        case EFI_BUFFER_TOO_SMALL:
-            return STATUS_BUFFER_TOO_SMALL;
-        case EFI_SUCCESS:
-            return STATUS_SUCCESS;
-        case  EFI_LOAD_ERROR:
-            return STATUS_DRIVER_UNABLE_TO_LOAD;
-        case EFI_INVALID_PARAMETER:
-            return STATUS_INVALID_PARAMETER;
-        case EFI_UNSUPPORTED:
-            return STATUS_NOT_SUPPORTED;
-        case EFI_BAD_BUFFER_SIZE:
-            return STATUS_INVALID_BUFFER_SIZE;
-        default:
-            return STATUS_UNSUCCESSFUL;
-    }
-}

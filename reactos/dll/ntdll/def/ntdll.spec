@@ -655,7 +655,7 @@
 653 stdcall RtlGetDaclSecurityDescriptor(ptr ptr ptr ptr)
 654 stdcall RtlGetElementGenericTable(ptr long)
 655 stdcall RtlGetElementGenericTableAvl(ptr long)
-656 stdcall RtlGetFrame()
+# stdcall RtlGetFrame
 657 stdcall RtlGetFullPathName_U(wstr long ptr ptr)
 658 stdcall RtlGetFullPathName_UstrEx(ptr ptr ptr ptr ptr ptr ptr ptr)
 659 stdcall RtlGetGroupSecurityDescriptor(ptr ptr ptr)
@@ -797,11 +797,11 @@
 792 stdcall RtlOpenCurrentUser(long ptr)
 793 stdcall RtlPcToFileHeader(ptr ptr)
 794 stdcall RtlPinAtomInAtomTable(ptr long)
-795 stdcall RtlPopFrame(ptr)
+# stdcall RtlPopFrame
 796 stdcall RtlPrefixString(ptr ptr long)
 797 stdcall RtlPrefixUnicodeString(ptr ptr long)
 798 stdcall RtlProtectHeap(ptr long)
-799 stdcall RtlPushFrame(ptr)
+# stdcall RtlPushFrame
 800 stdcall RtlQueryAtomInAtomTable(ptr long ptr ptr ptr ptr)
 801 stdcall RtlQueryDepthSList(ptr)
 802 stdcall RtlQueryEnvironmentVariable_U(ptr ptr ptr)
