@@ -10,9 +10,11 @@
 
 #include <cportlib/cportlib.h>
 #include <arc/arc.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <ndk/halfuncs.h>
+
+#define NDEBUG
+#include <debug.h>
 
 /* Serial debug connection */
 #define DEFAULT_DEBUG_PORT      2 /* COM2 */
@@ -34,52 +36,11 @@ const ULONG BaseArray[] = {0, 0xF1012000};
 #error Unknown architecture
 #endif
 
-#define MAX_COM_PORTS   (sizeof(BaseArray) / sizeof(BaseArray[0]) - 1)
-
 /* GLOBALS ********************************************************************/
 
-CPPORT KdComPort;
-ULONG  KdComPortIrq = 0; // Not used at the moment.
-#ifdef KDDEBUG
 CPPORT KdDebugComPort;
-#endif
+ULONG  KdDebugComPortIrq = 0; // Not used at the moment.
 
-/* DEBUGGING ******************************************************************/
-
-#ifdef KDDEBUG
-ULONG KdpDbgPrint(const char *Format, ...)
-{
-    va_list ap;
-    int Length;
-    char* ptr;
-    CHAR Buffer[512];
-
-    va_start(ap, Format);
-    Length = _vsnprintf(Buffer, sizeof(Buffer), Format, ap);
-    va_end(ap);
-
-    /* Check if we went past the buffer */
-    if (Length == -1)
-    {
-        /* Terminate it if we went over-board */
-        Buffer[sizeof(Buffer) - 1] = '\n';
-
-        /* Put maximum */
-        Length = sizeof(Buffer);
-    }
-
-    ptr = Buffer;
-    while (Length--)
-    {
-        if (*ptr == '\n')
-            CpPutByte(&KdDebugComPort, '\r');
-
-        CpPutByte(&KdDebugComPort, *ptr++);
-    }
-
-    return 0;
-}
-#endif
 
 /* FUNCTIONS ******************************************************************/
 
@@ -122,7 +83,7 @@ KdpPortInitialize(IN ULONG ComPortNumber,
 
     KDDBGPRINT("KdpPortInitialize, Port = COM%ld\n", ComPortNumber);
 
-    Status = CpInitialize(&KdComPort,
+    Status = CpInitialize(&KdDebugComPort,
                           UlongToPtr(BaseArray[ComPortNumber]),
                           ComPortBaudRate);
     if (!NT_SUCCESS(Status))
@@ -131,7 +92,7 @@ KdpPortInitialize(IN ULONG ComPortNumber,
     }
     else
     {
-        KdComPortInUse = KdComPort.Address;
+        KdComPortInUse = KdDebugComPort.Address;
         return STATUS_SUCCESS;
     }
 }
@@ -152,9 +113,13 @@ KdDebuggerInitialize0(IN PLOADER_PARAMETER_BLOCK LoaderBlock OPTIONAL)
     PCHAR CommandLine, PortString, BaudString, IrqString;
     ULONG Value;
 
-    /* Check if we have a LoaderBlock */
+    /* Check if e have a LoaderBlock */
     if (LoaderBlock)
     {
+        /* HACK */
+        KdpDbgPrint = LoaderBlock->u.I386.CommonDataArea;
+        KDDBGPRINT("KdDebuggerInitialize0\n");
+
         /* Get the Command Line */
         CommandLine = LoaderBlock->LoadOptions;
 
@@ -226,36 +191,10 @@ KdDebuggerInitialize0(IN PLOADER_PARAMETER_BLOCK LoaderBlock OPTIONAL)
             {
                 /* Read and set it */
                 Value = atol(IrqString + 1);
-                if (Value) KdComPortIrq = Value;
+                if (Value) KdDebugComPortIrq = Value;
             }
         }
     }
-
-#ifdef KDDEBUG
-    /*
-     * Try to find a free COM port and use it as the KD debugging port.
-     * NOTE: Inspired by reactos/boot/freeldr/freeldr/comm/rs232.c, Rs232PortInitialize(...)
-     */
-    {
-    /*
-     * Start enumerating COM ports from the last one to the first one,
-     * and break when we find a valid port.
-     * If we reach the first element of the list, the invalid COM port,
-     * then it means that no valid port was found.
-     */
-    ULONG ComPort;
-    for (ComPort = MAX_COM_PORTS; ComPort > 0; ComPort--)
-    {
-        /* Check if the port exist; skip the KD port */
-        if ((ComPort != ComPortNumber) && CpDoesPortExist(UlongToPtr(BaseArray[ComPort])))
-            break;
-    }
-    if (ComPort != 0)
-        CpInitialize(&KdDebugComPort, UlongToPtr(BaseArray[ComPort]), DEFAULT_BAUD_RATE);
-    }
-#endif
-
-    KDDBGPRINT("KdDebuggerInitialize0\n");
 
     /* Initialize the port */
     return KdpPortInitialize(ComPortNumber, ComPortBaudRate);
@@ -280,28 +219,21 @@ NTAPI
 KdpSendByte(IN UCHAR Byte)
 {
     /* Send the byte */
-    CpPutByte(&KdComPort, Byte);
+    CpPutByte(&KdDebugComPort, Byte);
 }
 
 KDP_STATUS
 NTAPI
 KdpPollByte(OUT PUCHAR OutByte)
 {
-    USHORT Status;
-
     /* Poll the byte */
-    Status = CpGetByte(&KdComPort, OutByte, FALSE, FALSE);
-    switch (Status)
+    if (CpGetByte(&KdDebugComPort, OutByte, FALSE, FALSE) == CP_GET_SUCCESS)
     {
-        case CP_GET_SUCCESS:
-            return KDP_PACKET_RECEIVED;
-
-        case CP_GET_NODATA:
-            return KDP_PACKET_TIMEOUT;
-
-        case CP_GET_ERROR:
-        default:
-            return KDP_PACKET_RESEND;
+        return KDP_PACKET_RECEIVED;
+    }
+    else
+    {
+        return KDP_PACKET_TIMEOUT;
     }
 }
 
@@ -309,21 +241,14 @@ KDP_STATUS
 NTAPI
 KdpReceiveByte(OUT PUCHAR OutByte)
 {
-    USHORT Status;
-
     /* Get the byte */
-    Status = CpGetByte(&KdComPort, OutByte, TRUE, FALSE);
-    switch (Status)
+    if (CpGetByte(&KdDebugComPort, OutByte, TRUE, FALSE) == CP_GET_SUCCESS)
     {
-        case CP_GET_SUCCESS:
-            return KDP_PACKET_RECEIVED;
-
-        case CP_GET_NODATA:
-            return KDP_PACKET_TIMEOUT;
-
-        case CP_GET_ERROR:
-        default:
-            return KDP_PACKET_RESEND;
+        return KDP_PACKET_RECEIVED;
+    }
+    else
+    {
+        return KDP_PACKET_TIMEOUT;
     }
 }
 

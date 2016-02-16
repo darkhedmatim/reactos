@@ -1747,7 +1747,7 @@ ShowPartitionSizeInputBox(SHORT Left,
     INPUT_RECORD Ir;
     COORD coPos;
     DWORD Written;
-    CHAR Buffer[128];
+    CHAR Buffer[100];
     WCHAR PartitionSizeBuffer[100];
     ULONG Index;
     WCHAR ch;
@@ -2955,14 +2955,6 @@ FormatPartitionPage(PINPUT_RECORD Ir)
                 DiskEntry->LayoutBuffer->PartitionEntry[PartEntry->PartitionIndex].PartitionType = PartEntry->PartitionType;
                 DiskEntry->LayoutBuffer->PartitionEntry[PartEntry->PartitionIndex].RewritePartition = TRUE;
             }
-            else if (wcscmp(PartEntry->FileSystem->FileSystemName, L"NTFS") == 0)
-            {
-                PartEntry->PartitionType = PARTITION_IFS;
-
-                DiskEntry->Dirty = TRUE;
-                DiskEntry->LayoutBuffer->PartitionEntry[PartEntry->PartitionIndex].PartitionType = PartEntry->PartitionType;
-                DiskEntry->LayoutBuffer->PartitionEntry[PartEntry->PartitionIndex].RewritePartition = TRUE;
-            }
 #endif
             else if (!PartEntry->FileSystem->FormatFunc)
             {
@@ -3157,6 +3149,7 @@ CheckFileSystemPage(PINPUT_RECORD Ir)
             DPRINT("ChkdskPartition() failed with status 0x%08lx\n", Status);
             sprintf(Buffer, "Setup failed to verify the selected partition.\n"
                     "(Status 0x%08lx).\n", Status);
+
             PopupError(Buffer,
                        MUIGetString(STRING_REBOOTCOMPUTER),
                        Ir, POPUP_WAIT_ENTER);
@@ -3993,6 +3986,7 @@ RegistryPage(PINPUT_RECORD Ir)
     }
 
     /* Create the default hives */
+#ifdef __REACTOS__
     Status = NtInitializeRegistry(CM_BOOT_FLAG_SETUP);
     if (!NT_SUCCESS(Status))
     {
@@ -4000,6 +3994,9 @@ RegistryPage(PINPUT_RECORD Ir)
         MUIDisplayError(ERROR_CREATE_HIVE, Ir, POPUP_WAIT_ENTER);
         return QUIT_PAGE;
     }
+#else
+    RegInitializeRegistry();
+#endif
 
     /* Update registry */
     CONSOLE_SetStatusText(MUIGetString(STRING_REGHIVEUPDATE));
@@ -4168,24 +4165,22 @@ BootLoaderPage(PINPUT_RECORD Ir)
         DPRINT("Error: active partition invalid (unused)\n");
         InstallOnFloppy = TRUE;
     }
-    else if (PartitionType == PARTITION_OS2BOOTMGR)
+    else if (PartitionType == 0x0A)
     {
         /* OS/2 boot manager partition */
         DPRINT("Found OS/2 boot manager partition\n");
         InstallOnFloppy = TRUE;
     }
-    else if (PartitionType == PARTITION_EXT2)
+    else if (PartitionType == 0x83)
     {
         /* Linux ext2 partition */
         DPRINT("Found Linux ext2 partition\n");
-        InstallOnFloppy = FALSE;
+        InstallOnFloppy = TRUE;
     }
     else if (PartitionType == PARTITION_IFS)
     {
         /* NTFS partition */
         DPRINT("Found NTFS partition\n");
-
-        // FIXME: Make it FALSE when we'll support NTFS installation!
         InstallOnFloppy = TRUE;
     }
     else if ((PartitionType == PARTITION_FAT_12) ||

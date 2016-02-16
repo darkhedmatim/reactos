@@ -32,6 +32,8 @@ FatMount (
     PACKED_BOOT_SECTOR FatBootSector;
     BIOS_PARAMETER_BLOCK BiosBlock;
 
+    EfiPrintf(L"FAT Mount on Device %d\r\n", DeviceId);
+
     /* Capture thing */
     BlDeviceGetInformation(DeviceId, &DeviceInformation);
     UnknownFlag = DeviceInformation.BlockDeviceInfo.Unknown;
@@ -65,15 +67,16 @@ FatMount (
     }
 
     EfiPrintf(L"Jump: %lx Bytes Per Sector: %d Sectors Per Cluster: %d Reserved: %d Fats: %d Sectors: %d Large Sectors: %d Media: %lx RootEntries: %d\r\n",
-              FatBootSector.Jump[0],
-              BiosBlock.BytesPerSector,
-              BiosBlock.SectorsPerCluster,
-              BiosBlock.ReservedSectors,
-              BiosBlock.Fats,
-              BiosBlock.Sectors,
-              BiosBlock.LargeSectors,
-              BiosBlock.Media,
-              BiosBlock.RootEntries);
+        FatBootSector.Jump[0],
+        BiosBlock.BytesPerSector,
+        BiosBlock.SectorsPerCluster,
+        BiosBlock.ReservedSectors,
+        BiosBlock.Fats,
+        BiosBlock.Sectors,
+        BiosBlock.LargeSectors,
+        BiosBlock.Media,
+        BiosBlock.RootEntries);
+
     return STATUS_NOT_IMPLEMENTED;
 }
 

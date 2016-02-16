@@ -28,14 +28,13 @@ const ULONG BaseArray[] = {0, 0xF1012000};
 #error Unknown architecture
 #endif
 
-#define MAX_COM_PORTS   (sizeof(BaseArray) / sizeof(BaseArray[0]) - 1)
-
 /* STATIC VARIABLES ***********************************************************/
 
 // static CPPORT DefaultPort = {0, 0, 0};
 
 /* The COM port must only be initialized once! */
 // static BOOLEAN PortInitialized = FALSE;
+
 
 /* REACTOS FUNCTIONS **********************************************************/
 
@@ -59,6 +58,7 @@ KdPortInitializeEx(
     /*
      * Find the port if needed
      */
+    SIZE_T i;
 
     if (!PortInitialized)
     {
@@ -72,11 +72,12 @@ KdPortInitializeEx(
              * If we reach the first element of the list, the invalid COM port,
              * then it means that no valid port was found.
              */
-            for (ComPortNumber = MAX_COM_PORTS; ComPortNumber > 0; ComPortNumber--)
+            for (i = sizeof(BaseArray) / sizeof(BaseArray[0]) - 1; i > 0; i--)
             {
-                if (CpDoesPortExist(UlongToPtr(BaseArray[ComPortNumber])))
+                if (CpDoesPortExist(UlongToPtr(BaseArray[i])))
                 {
-                    PortInformation->Address = DefaultPort.Address = BaseArray[ComPortNumber];
+                    PortInformation->Address = DefaultPort.Address = BaseArray[i];
+                    ComPortNumber = (ULONG)i;
                     break;
                 }
             }

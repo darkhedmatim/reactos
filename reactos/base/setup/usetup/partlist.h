@@ -25,6 +25,9 @@
 
 #pragma once
 
+/* We have to define it there, because it is not in the MS DDK */
+#define PARTITION_EXT2 0x83
+
 typedef enum _FORMATSTATE
 {
     Unformatted,

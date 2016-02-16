@@ -773,7 +773,7 @@ AllocateUserMessage(BOOL KEvent)
 
    if (KEvent)
    {
-      Message->pkCompletionEvent = &Message->CompletionEvent;
+      Message->pkCompletionEvent = &Message->CompletionEvent;;
 
       KeInitializeEvent(Message->pkCompletionEvent, NotificationEvent, FALSE);
    }
@@ -2280,8 +2280,12 @@ MsqCleanupMessageQueue(PTHREADINFO pti)
            IntGetSysCursorInfo()->CurrentCursorObject = NULL;
        }
 
-       TRACE("DereferenceObject pCursor\n");
-       UserDereferenceObject(pCursor);
+       if (pCursor && UserObjectInDestroy(UserHMGetHandle(pCursor)))
+       {
+           TRACE("DereferenceObject pCursor\n");
+           UserDereferenceObject(pCursor);
+           pCursor = NULL;
+       }
    }
 
    if (gpqForeground == MessageQueue)

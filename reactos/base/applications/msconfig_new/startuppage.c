@@ -32,9 +32,9 @@ StartupPageWndProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         hStartupListCtrl = GetDlgItem(hDlg, IDC_STARTUP_LIST);
         hStartupDialog = hDlg;
 
-        dwStyle = (DWORD)SendMessageW(hStartupListCtrl, LVM_GETEXTENDEDLISTVIEWSTYLE, 0, 0);
+        dwStyle = (DWORD) SendMessage(hStartupListCtrl, LVM_GETEXTENDEDLISTVIEWSTYLE, 0, 0);
         dwStyle = dwStyle | LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES;
-        SendMessageW(hStartupListCtrl, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, dwStyle);
+        SendMessage(hStartupListCtrl, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, dwStyle);
 
         SetWindowPos(hDlg, NULL, 10, 32, 0, 0, SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOSIZE | SWP_NOZORDER);
 
@@ -131,7 +131,7 @@ GetDisabledAutostartEntriesFromRegistry (TCHAR * szBasePath)
                                 {
                                     GetLongPathName(Data, Data, (DWORD) _tcsclen(Data));
                                     item.pszText = Data;
-                                    SendMessageW(hStartupListCtrl, LVM_SETITEMTEXT, item.iItem, (LPARAM) &item);
+                                    SendMessage(hStartupListCtrl, LVM_SETITEMTEXT, item.iItem, (LPARAM) &item);
                                 }
                             }
                         }
@@ -184,7 +184,7 @@ GetAutostartEntriesFromRegistry ( HKEY hRootKey, TCHAR* KeyName )
                         GetLongPathName(Data, Data, (DWORD) _tcsclen(Data));
                         item.pszText = Data;
                         item.iSubItem = 1;
-                        SendMessageW(hStartupListCtrl, LVM_SETITEMTEXT, item.iItem, (LPARAM) &item);
+                        SendMessage(hStartupListCtrl, LVM_SETITEMTEXT, item.iItem, (LPARAM) &item);
                     }
 
                     switch (PtrToLong(hRootKey))
@@ -202,7 +202,7 @@ GetAutostartEntriesFromRegistry ( HKEY hRootKey, TCHAR* KeyName )
                     _tcscat(Path, KeyName);
                     item.pszText = Path;
                     item.iSubItem = 2;
-                    SendMessageW(hStartupListCtrl, LVM_SETITEMTEXT, item.iItem, (LPARAM) &item);
+                    SendMessage(hStartupListCtrl, LVM_SETITEMTEXT, item.iItem, (LPARAM) &item);
                 }
                 HeapFree(GetProcessHeap(), 0, Data);
             }

@@ -1079,9 +1079,7 @@ profile_items_callback(
             hr = IShellLinkW_QueryInterface(psl, &IID_IPersistFile, (LPVOID*)&ppf);
             if (SUCCEEDED(hr))
             {
-                Required = (MAX_PATH + 1 +
-                           ((LinkSubDir != NULL) ? wcslen(LinkSubDir) : 0) +
-                           ((LinkName != NULL) ? wcslen(LinkName) : 0)) * sizeof(WCHAR);
+                Required = (MAX_PATH + wcslen(LinkSubDir) + 1 + wcslen(LinkName)) * sizeof(WCHAR);
                 FullLinkName = MyMalloc(Required);
                 if (!FullLinkName)
                     hr = E_OUTOFMEMORY;
@@ -1814,7 +1812,7 @@ static BOOL InstallOneService(
 
     if (!GetLineText(hInf, ServiceSection, ServiceBinaryKey, &ServiceBinary))
     {
-        SetLastError( ERROR_BAD_SERVICE_INSTALLSECT );
+        SetLastError( ERROR_BAD_SERVICE_INSTALLSECT );   
         goto cleanup;
     }
 

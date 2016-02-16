@@ -234,9 +234,6 @@ TaskbarPageProc(HWND hwndDlg,
                         PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
                     }
                     break;
-                case IDC_TASKBARPROP_ICONCUST:
-                    ShowCustomizeNotifyIcons(hExplorerInstance, hwndDlg);
-                    break;
             }
             break;
 

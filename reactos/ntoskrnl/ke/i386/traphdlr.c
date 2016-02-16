@@ -1219,7 +1219,7 @@ KiTrap0EHandler(IN PKTRAP_FRAME TrapFrame)
     /* Save CR2 */
     Cr2 = __readcr2();
 
-    /* Enable interrupts */
+    /* Enable interupts */
     _enable();
 
     /* Check if we came in with interrupts disabled */

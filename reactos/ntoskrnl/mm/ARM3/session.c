@@ -143,7 +143,7 @@ MiInitializeSessionIds(VOID)
     BitmapSize = ((Size + 31) / 32) * sizeof(ULONG);
     MiSessionIdBitmap = ExAllocatePoolWithTag(PagedPool,
                                               sizeof(RTL_BITMAP) + BitmapSize,
-                                              TAG_MM);
+                                              '  mM');
     if (MiSessionIdBitmap)
     {
         /* Free all the bits */

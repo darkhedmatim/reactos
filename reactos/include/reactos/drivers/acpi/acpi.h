@@ -40,26 +40,11 @@ typedef struct _ACPI_BIOS_MULTI_NODE
 #define BOOT_SIGNATURE 'TOOB'
 #define SRAT_SIGNATURE 'TARS'
 #define WDRT_SIGNATURE 'TRDW'
-#define BGRT_SIGNATURE  0x54524742      	// "BGRT"
 
 //
 // FADT Flags
 //
-#define ACPI_TMR_VAL_EXT 	0x100
-
-//
-// BGRT Flags
-//
-#define BGRT_STATUS_IMAGE_VALID 0x01
-
-//
-// BGRT Image Types
-//
-typedef enum _BGRT_IMAGE_TYPE
-{
-    BgrtImageTypeBitmap,
-    BgrtImageTypeMax
-} BGRT_IMAGE_TYPE, *PBGRT_IMAGE_TYPE;
+#define ACPI_TMR_VAL_EXT 0x100
 
 //
 // ACPI Generic Register Address
@@ -82,12 +67,8 @@ typedef struct  _RSDP
     ULONGLONG Signature;
     UCHAR Checksum;
     UCHAR OEMID[6];
-    UCHAR Revision;
+    UCHAR Reserved[1];
     ULONG RsdtAddress;
-    ULONG Length;
-    PHYSICAL_ADDRESS XsdtAddress;
-    UCHAR XChecksum;
-    UCHAR Reserved[3];
 } RSDP;
 typedef RSDP *PRSDP;
 
@@ -237,16 +218,5 @@ typedef struct _ACPI_SRAT
     UCHAR TableRevision;
     ULONG Reserved[2];
 } ACPI_SRAT, *PACPI_SRAT;
-
-typedef struct _BGRT_TABLE
-{
-    DESCRIPTION_HEADER Header;
-    USHORT Version;
-    UCHAR Status;
-    UCHAR ImageType;
-    ULONGLONG LogoAddress;
-    ULONG OffsetX;
-    ULONG OffsetY;
-} BGRT_TABLE, *PBGRT_TABLE;
 
 /* EOF */

@@ -53,10 +53,8 @@
 #include <ndk/setypes.h>
 
 /* Filesystem headers */
-#include <reactos/rosioctl.h>
-#include <fslib/vfatlib.h>
 #include <fslib/ext2lib.h>
-// #include <fslib/ntfslib.h>
+#include <fslib/vfatlib.h>
 
 /* Internal Headers */
 #include "interface/consup.h"

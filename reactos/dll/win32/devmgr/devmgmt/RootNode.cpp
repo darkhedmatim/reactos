@@ -52,7 +52,8 @@ CRootNode::SetupNode()
 
     // The root name is the computer name 
     DWORD Size = DISPLAY_NAME_LEN;
-    GetComputerNameW(m_DisplayName, &Size);
+    if (GetComputerNameW(m_DisplayName, &Size))
+        _wcslwr(m_DisplayName);
 
     return true;
 }

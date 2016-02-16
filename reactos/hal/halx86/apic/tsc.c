@@ -89,11 +89,11 @@ HalpInitializeTsc(VOID)
     /* Reset TSC value to 0 */
     __writemsr(MSR_RDTSC, 0);
 
-    /* Enable the timer interrupt */
+    /* Enable the timer interupt */
     HalEnableSystemInterrupt(HalpRtcClockVector, CLOCK_LEVEL, Latched);
 
     /* Read register C, so that the next interrupt can happen */
-    HalpReadCmos(RTC_REGISTER_C);
+    HalpReadCmos(RTC_REGISTER_C);;
 
     /* Wait for completion */
     _enable();
@@ -103,7 +103,7 @@ HalpInitializeTsc(VOID)
     /* Disable the periodic interrupt in the CMOS */
     HalpWriteCmos(RTC_REGISTER_B, RegisterB & ~RTC_REG_B_PI);
 
-    /* Disable the timer interrupt */
+    /* Disable the timer interupt */
     HalDisableSystemInterrupt(HalpRtcClockVector, CLOCK_LEVEL);
 
     /* Restore old IDT entry */

@@ -8,8 +8,7 @@
  *     David Quintana <gigaherz@gmail.com>
  */
 
-/* TODO: Support AppBar types other than ABE_TOP */
-
+/* TODO: AppBar */
 #include "magnifier.h"
 
 #include <winbase.h>
@@ -21,16 +20,14 @@
 
 #include "resource.h"
 
-#define APPMSG_NOTIFYICON (WM_APP+1)
-#define APPMSG_APPBAR     (WM_APP+2)
-
 const TCHAR szWindowClass[] = TEXT("MAGNIFIER");
+
+#define MAX_LOADSTRING 100
 
 /* Global Variables */
 HINSTANCE hInst;
 HWND hMainWnd;
 
-#define MAX_LOADSTRING 100
 TCHAR szTitle[MAX_LOADSTRING];
 
 #define TIMER_SPEED   1
@@ -40,19 +37,19 @@ DWORD lastTicks = 0;
 
 HWND hDesktopWindow = NULL;
 
-NOTIFYICONDATA nid;
+#define APPMSG_NOTIFYICON (WM_APP+1)
 HICON notifyIcon;
+NOTIFYICONDATA nid;
 HMENU notifyMenu;
-HWND  hOptionsDialog;
-BOOL  bOptionsDialog = FALSE;
-BOOL  bRecreateOffscreenDC = TRUE;
-LONG  sourceWidth = 0;
-LONG  sourceHeight = 0;
-HDC     hdcOffscreen = NULL;
+HWND hOptionsDialog;
+BOOL bOptionsDialog = FALSE;
+
+BOOL bRecreateOffscreenDC = TRUE;
+LONG sourceWidth = 0;
+LONG sourceHeight = 0;
+HDC hdcOffscreen = NULL;
+HANDLE hbmpOld;
 HBITMAP hbmpOffscreen = NULL;
-HANDLE  hbmpOld;
-POINT ptDragOffset;
-INT nearEdge;
 
 /* Current magnified area */
 POINT cp;
@@ -135,158 +132,23 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     return RegisterClass(&wc);
 }
 
-void DoAppBarStuff(DWORD mode)
-{
-    UINT uState;
-    APPBARDATA data = {0};
-    data.cbSize = sizeof(data);
-    data.hWnd = hMainWnd;
-    data.uCallbackMessage = APPMSG_APPBAR;
-
-    if (mode == ABM_NEW || mode == ABM_SETPOS)
-    {
-        HWND hWndOrder = HWND_BOTTOM;
-        int rcw, rch;
-        RECT rcWorkArea;
-        SystemParametersInfo(SPI_GETWORKAREA, 0, &rcWorkArea, 0);
-
-        if(mode == ABM_NEW)
-        {
-            SHAppBarMessage(ABM_NEW, &data);
-
-            switch(AppBarConfig.uEdge)
-            {
-                case ABE_LEFT:
-                    data.rc.top = rcWorkArea.top;
-                    data.rc.bottom = rcWorkArea.bottom;
-                    data.rc.left = rcWorkArea.left;
-                    data.rc.right = data.rc.left + AppBarConfig.appBarSizes.left;
-                    break;
-                case ABE_TOP:
-                    data.rc.left = rcWorkArea.left;
-                    data.rc.right = rcWorkArea.right;
-                    data.rc.top = rcWorkArea.top;
-                    data.rc.bottom = data.rc.top + AppBarConfig.appBarSizes.top;
-                    break;
-                case ABE_RIGHT:
-                    data.rc.top = rcWorkArea.top;
-                    data.rc.bottom = rcWorkArea.bottom;
-                    data.rc.right = rcWorkArea.left;
-                    data.rc.left = data.rc.right - AppBarConfig.appBarSizes.right;
-                    break;
-                case ABE_BOTTOM:
-                    data.rc.left = rcWorkArea.left;
-                    data.rc.right = rcWorkArea.right;
-                    data.rc.bottom = rcWorkArea.bottom;
-                    data.rc.top = data.rc.bottom - AppBarConfig.appBarSizes.bottom;
-                    break;
-            }
-        }
-        else
-        {
-            GetWindowRect(hMainWnd, &data.rc);
-        }
-
-        data.uEdge = AppBarConfig.uEdge;
-        uState = SHAppBarMessage(ABM_QUERYPOS, &data);
-
-        uState = SHAppBarMessage(ABM_SETPOS, &data);
-
-        rcw = data.rc.right-data.rc.left;
-        rch = data.rc.bottom-data.rc.top;
-
-        uState = SHAppBarMessage(ABM_GETSTATE, &data);
-        if(uState & ABS_ALWAYSONTOP)
-            hWndOrder = HWND_TOPMOST;
-
-        SetWindowPos(hMainWnd, hWndOrder, data.rc.left, data.rc.top, rcw, rch, SWP_SHOWWINDOW|SWP_NOCOPYBITS);
-
-    }
-    else if(mode == ABM_GETSTATE)
-    {
-        HWND hWndOrder = HWND_BOTTOM;
-        uState = SHAppBarMessage(ABM_GETSTATE, &data);
-        if(uState & ABS_ALWAYSONTOP)
-            hWndOrder = HWND_TOPMOST;
-        SetWindowPos(hMainWnd, hWndOrder, 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE);
-    }
-    else if(mode == ABM_ACTIVATE)
-    {
-        SHAppBarMessage(ABM_ACTIVATE, &data);
-    }
-    else if(mode == ABM_WINDOWPOSCHANGED)
-    {
-        SHAppBarMessage(ABM_WINDOWPOSCHANGED, &data);
-    }
-    else if(mode == ABM_REMOVE)
-    {
-        SHAppBarMessage(ABM_REMOVE, &data);
-    }
-}
-
-void AttachAppBar(INT uEdge)
-{
-    if (AppBarConfig.uEdge == uEdge)
-        return;
-
-    if(AppBarConfig.uEdge < 0 && uEdge >= 0)
-    {
-        SetWindowLongPtr(hMainWnd, GWL_STYLE, GetWindowLongPtr(hMainWnd, GWL_STYLE) & (~WS_CAPTION));
-    }
-    else if(uEdge < 0 && AppBarConfig.uEdge>=0)
-    {
-        SetWindowLongPtr(hMainWnd, GWL_STYLE, GetWindowLongPtr(hMainWnd, GWL_STYLE) | WS_CAPTION);
-        SetWindowPos(hMainWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE|SWP_FRAMECHANGED);
-    }
-
-    if(AppBarConfig.uEdge >= 0)
-    {
-        DoAppBarStuff(ABM_REMOVE);
-    }
-
-    if (uEdge >=0)
-    {
-        AppBarConfig.uEdge = uEdge;
-        DoAppBarStuff(ABM_NEW);
-    }
-    else
-    {
-        RECT rc = AppBarConfig.rcFloating;
-        SetWindowPos(hMainWnd, HWND_TOPMOST, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, 0);
-    }
-
-    AppBarConfig.uEdge = uEdge;
-}
-
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
-    RECT rc;
-    DWORD exStyles = WS_EX_TOOLWINDOW | WS_EX_CONTROLPARENT;
-    DWORD dwStyles = WS_SIZEBOX | WS_SYSMENU | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_POPUP;
-
-    /* Load settings from registry */
-    LoadSettings();
-
-    rc = AppBarConfig.rcFloating;
-
+    RECT rcWorkArea;
     hInst = hInstance; // Store instance handle in our global variable
 
-    if (AppBarConfig.uEdge<0)
-    {
-        dwStyles |= WS_CAPTION;
-        exStyles |= WS_EX_TOPMOST;
-    }
+    SystemParametersInfo(SPI_GETWORKAREA, 0, &rcWorkArea, 0);
 
     /* Create the Window */
     hMainWnd = CreateWindowEx(
-        exStyles,
+        WS_EX_TOPMOST | WS_EX_PALETTEWINDOW,
         szWindowClass,
         szTitle,
-        dwStyles,
-        rc.left,
-        rc.top,
-        rc.right-rc.left,
-        rc.bottom-rc.top,
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        (rcWorkArea.right - rcWorkArea.left) * 2 / 3,
+        200,
         NULL,
         NULL,
         hInstance,
@@ -295,16 +157,12 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     if (!hMainWnd)
         return FALSE;
 
-    if (AppBarConfig.uEdge>=0) DoAppBarStuff(ABM_NEW);
-    else SetWindowPos(hMainWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE|SWP_SHOWWINDOW);
+    ShowWindow(hMainWnd, bStartMinimized ? SW_MINIMIZE : nCmdShow);
+    UpdateWindow(hMainWnd);
 
-    // In Windows 2003's Magnifier, the "Start Minimized" setting
-    // refers exclusively to the options dialog, not the main window itself.
+    // Windows 2003's Magnifier always shows this dialog, and exits when the dialog isclosed.
+    // Should we add a custom means to prevent opening it?
     hOptionsDialog = CreateDialog(hInstance, MAKEINTRESOURCE(IDD_DIALOGOPTIONS), hMainWnd, OptionsProc);
-    if (bStartMinimized)
-        ShowWindow(hOptionsDialog, SW_HIDE);
-    else
-        ShowWindow(hOptionsDialog, SW_SHOW);
 
     if (bShowWarning)
         DialogBox(hInstance, MAKEINTRESOURCE(IDD_WARNINGDIALOG), hMainWnd, WarningProc);
@@ -492,11 +350,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case WM_TIMER:
         {
             BOOL hasMoved = FALSE;
-
+            HWND hwndForeground = GetForegroundWindow ();
+            DWORD threadId = GetWindowThreadProcessId(hwndForeground, NULL);
             GUITHREADINFO guiInfo;
             guiInfo.cbSize = sizeof(guiInfo);
 
-            GetGUIThreadInfo(0, &guiInfo);
+            GetGUIThreadInfo(threadId, &guiInfo);
 
             if (bFollowMouse)
             {
@@ -505,10 +364,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 //Get current mouse position
                 GetCursorPos (&pNewMouse);
 
-#define PointsAreEqual(pt1, pt2) (((pt1).x == (pt2).x) && ((pt1).y == (pt2).y))
-
                 //If mouse has moved ...
-                if (!PointsAreEqual(pMouse, pNewMouse))
+                if (((pMouse.x != pNewMouse.x) || (pMouse.y != pNewMouse.y)))
                 {
                     //Update to new position
                     pMouse = pNewMouse;
@@ -516,64 +373,45 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     hasMoved = TRUE;
                 }
             }
-
-            if(guiInfo.hwndActive != hMainWnd)
+            
+            if (bFollowCaret && hwndForeground && guiInfo.hwndCaret)
             {
-                if (bFollowCaret)
-                {
-                    if (guiInfo.hwndCaret)
-                    {
-                        POINT ptCaret;
-                        ptCaret.x = (guiInfo.rcCaret.left + guiInfo.rcCaret.right) / 2;
-                        ptCaret.y = (guiInfo.rcCaret.top + guiInfo.rcCaret.bottom) / 2;
+                POINT ptCaret;
+                ptCaret.x = (guiInfo.rcCaret.left + guiInfo.rcCaret.right) / 2;
+                ptCaret.y = (guiInfo.rcCaret.top + guiInfo.rcCaret.bottom) / 2;
 
-                        if ((pCaretWnd != guiInfo.hwndCaret) || !PointsAreEqual(pCaret, ptCaret))
-                        {
-                            //Update to new position
-                            pCaret = ptCaret;
-                            pCaretWnd = guiInfo.hwndCaret;
-                            if(!hasMoved)
-                            {
-                                ClientToScreen (guiInfo.hwndCaret, (LPPOINT) &ptCaret);
-                                cp = ptCaret;
-                                hasMoved = TRUE;
-                            }
-                        }
-                    }
-                    else
+                if (guiInfo.hwndCaret && ((pCaretWnd != guiInfo.hwndCaret) || (pCaret.x != ptCaret.x) || (pCaret.y != ptCaret.y)))
+                {
+                    //Update to new position
+                    pCaret = ptCaret;
+                    pCaretWnd = guiInfo.hwndCaret;
+                    if(!hasMoved)
                     {
-                        pCaretWnd = NULL;
+                        ClientToScreen (guiInfo.hwndCaret, (LPPOINT) &ptCaret);
+                        cp = ptCaret;
                     }
+                    hasMoved = TRUE;
                 }
+            }
 
-                if (bFollowFocus)
+            if (bFollowFocus && hwndForeground && guiInfo.hwndFocus)
+            {
+                POINT ptFocus;
+                RECT activeRect;
+
+                //Get current control focus
+                GetWindowRect (guiInfo.hwndFocus, &activeRect);
+                ptFocus.x = (activeRect.left + activeRect.right) / 2;
+                ptFocus.y = (activeRect.top + activeRect.bottom) / 2;
+
+                if(guiInfo.hwndFocus && ((guiInfo.hwndFocus != pFocusWnd) || (pFocus.x != ptFocus.x) || (pFocus.y != ptFocus.y)))
                 {
-                    if(guiInfo.hwndFocus && !guiInfo.hwndCaret)
-                    {
-                        POINT ptFocus;
-                        RECT activeRect;
-
-                        //Get current control focus
-                        GetWindowRect(guiInfo.hwndFocus, &activeRect);
-                        ptFocus.x = (activeRect.left + activeRect.right) / 2;
-                        ptFocus.y = (activeRect.top + activeRect.bottom) / 2;
-
-                        if((guiInfo.hwndFocus != pFocusWnd) || !PointsAreEqual(pFocus, ptFocus))
-                        {
-                            //Update to new position
-                            pFocus = ptFocus;
-                            pFocusWnd = guiInfo.hwndFocus;
-                            if(!hasMoved)
-                            {
-                                cp = ptFocus;
-                                hasMoved = TRUE;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        pFocusWnd = NULL;
-                    }
+                    //Update to new position
+                    pFocus = ptFocus;
+                    pFocusWnd = guiInfo.hwndFocus;
+                    if(!hasMoved)
+                        cp = ptFocus;
+                    hasMoved = TRUE;
                 }
             }
 
@@ -592,9 +430,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 lastTicks = GetTickCount();
                 Refresh();
             }
-
-            return 0;
         }
+        break;
 
         case WM_COMMAND:
         {
@@ -621,7 +458,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 default:
                     return DefWindowProc(hWnd, message, wParam, lParam);
             }
-            return 0;
+            break;
         }
 
         case WM_PAINT:
@@ -631,117 +468,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             dc = BeginPaint(hWnd, &PaintStruct);
             Draw(dc);
             EndPaint(hWnd, &PaintStruct);
-            return 0;
+            break;
         }
 
         case WM_CONTEXTMENU:
             TrackPopupMenu(notifyMenu, 0, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), 0, hWnd, NULL);
-            return 0;
-
-        case WM_LBUTTONDOWN:
-        {
-            RECT rc;
-            POINT pt;
-            SetCapture(hWnd);
-
-            GetCursorPos(&pt);
-            GetWindowRect(hWnd, &rc);
-            ptDragOffset.x = pt.x - rc.left;
-            ptDragOffset.y = pt.y - rc.top;
-
-            nearEdge = AppBarConfig.uEdge;
-
             break;
-        }
-        case WM_MOUSEMOVE:
-            if(GetCapture() == hWnd)
-            {
-                RECT rc;
-                POINT pt;
-                RECT rcWorkArea;
-                SystemParametersInfo(SPI_GETWORKAREA, 0, &rcWorkArea, 0);
-                GetCursorPos(&pt);
-                GetWindowRect(hWnd, &rc);
-
-                if(AppBarConfig.uEdge>=0)
-                {
-                    if (pt.x >= rcWorkArea.left && pt.x <= rcWorkArea.right &&
-                        pt.y >= rcWorkArea.top && pt.y <= rcWorkArea.bottom)
-                    {
-                        AttachAppBar(-2);
-
-                        // Fixup offset
-                        GetWindowRect(hWnd, &rc);
-                        ptDragOffset.x = (rc.right-rc.left)/2;
-                        ptDragOffset.y = 2;
-
-                        rc.left = pt.x - ptDragOffset.x;
-                        rc.top = pt.y - ptDragOffset.y;
-
-                        SetWindowPos(hWnd, HWND_TOPMOST, rc.left, rc.top, 0, 0, SWP_NOSIZE);
-                    }
-                }
-                else
-                {
-                    if(pt.x <= rcWorkArea.left+8 && nearEdge != ABE_LEFT)
-                    {
-                        AttachAppBar(ABE_LEFT);
-                        nearEdge = ABE_LEFT;
-                    }
-                    else if(pt.y <= rcWorkArea.top+8 && nearEdge != ABE_TOP)
-                    {
-                        AttachAppBar(ABE_TOP);
-                        nearEdge = ABE_TOP;
-                    }
-                    else if(pt.x >= rcWorkArea.right-8 && nearEdge != ABE_RIGHT)
-                    {
-                        AttachAppBar(ABE_RIGHT);
-                        nearEdge = ABE_RIGHT;
-                    }
-                    else if(pt.y >= rcWorkArea.bottom-8 && nearEdge != ABE_BOTTOM)
-                    {
-                        AttachAppBar(ABE_BOTTOM);
-                        nearEdge = ABE_BOTTOM;
-                    }
-                    else
-                    {
-                        rc.left = pt.x - ptDragOffset.x;
-                        rc.top = pt.y - ptDragOffset.y;
-
-                        SetWindowPos(hWnd, HWND_TOPMOST, rc.left, rc.top, 0, 0, SWP_NOSIZE);
-                        nearEdge = -1;
-                    }
-                }
-
-                pMouse = pt;
-                Refresh();
-            }
-            break;
-        case WM_LBUTTONUP:
-            if(GetCapture() == hWnd)
-            {
-                if (AppBarConfig.uEdge>=0)
-                    DoAppBarStuff(ABM_GETSTATE);
-                else
-                    SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE);
-                ReleaseCapture();
-            }
 
         case WM_SIZE:
-            if(AppBarConfig.uEdge>=0) DoAppBarStuff(ABM_SETPOS);
-            /* fallthrough */
         case WM_DISPLAYCHANGE:
             bRecreateOffscreenDC = TRUE;
             Refresh();
-            break;
+            return DefWindowProc(hWnd, message, wParam, lParam);
 
         case WM_ERASEBKGND:
             // handle WM_ERASEBKGND by simply returning non-zero because we did all the drawing in WM_PAINT.
-            return 0;
+            break;
 
         case WM_DESTROY:
-            if(AppBarConfig.uEdge>=0) DoAppBarStuff(ABM_REMOVE);
-
             /* Save settings to registry */
             SaveSettings();
             KillTimer(hWnd , 1);
@@ -758,11 +502,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             DestroyIcon(notifyIcon);
 
             DestroyWindow(hOptionsDialog);
-            return 0;
+            break;
 
         case WM_CREATE:
         {
             HMENU tempMenu;
+
+            /* Load settings from registry */
+            LoadSettings();
 
             /* Get the desktop window */
             hDesktopWindow = GetDesktopWindow();
@@ -785,57 +532,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             notifyMenu = GetSubMenu(tempMenu, 0);
             RemoveMenu(tempMenu, 0, MF_BYPOSITION);
             DestroyMenu(tempMenu);
-            return 0;
-        }
 
-        case APPMSG_APPBAR:
-        {
-            switch (wParam)
-            {
-                case ABN_STATECHANGE:
-                    DoAppBarStuff(ABM_GETSTATE);
-                    break;
-                case ABN_POSCHANGED:
-                    DoAppBarStuff(ABM_SETPOS);
-                    break;
-                case ABN_FULLSCREENAPP:
-                {
-                    if(!lParam)
-                    {
-                        DoAppBarStuff(ABM_GETSTATE);
-                        break;
-                    }
-
-                    SetWindowPos(hMainWnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE);
-                    break;
-                }
-               case ABN_WINDOWARRANGE:
-                    if(lParam)
-                        ShowWindow(hMainWnd, SW_HIDE);
-                    else
-                        ShowWindow(hMainWnd, SW_SHOW);
-            }
-            return 0;
+            break;
         }
 
         case APPMSG_NOTIFYICON:
             HandleNotifyIconMessage(hWnd, wParam, lParam);
-            return 0;
 
-        case WM_ACTIVATE:
-            if(AppBarConfig.uEdge>=0) DoAppBarStuff(ABM_ACTIVATE);
-            break;
-
-        case WM_WINDOWPOSCHANGED:
-            if(AppBarConfig.uEdge>=0) DoAppBarStuff(ABM_WINDOWPOSCHANGED);
-            Refresh();
             break;
 
         default:
-            break;
+            return DefWindowProc(hWnd, message, wParam, lParam);
     }
 
-    return DefWindowProc(hWnd, message, wParam, lParam);
+    return 0;
 }
 
 INT_PTR CALLBACK AboutProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)

@@ -1008,7 +1008,7 @@ CUSBRequest::BuildBulkInterruptTransferDescriptor(
     Status = BuildQueueHead(&QueueHead);
     if (!NT_SUCCESS(Status))
     {
-        // failed to allocate queue head
+        // failed to allocate descriptor
         DPRINT1("[UHCI] Failed to create queue head\n");
         return Status;
     }
@@ -1040,15 +1040,6 @@ CUSBRequest::BuildBulkInterruptTransferDescriptor(
                                           &LastDescriptor,
                                           &ChainDescriptorLength,
                                            NULL);
-    if (!NT_SUCCESS(Status))
-    {
-        //
-        // failed to allocate descriptor
-        //
-        DPRINT1("[UHCI] Failed to create descriptor chain\n");
-        m_DmaManager->Release(QueueHead, sizeof(UHCI_QUEUE_HEAD));
-        return Status;
-    }
 
     // adjust buffer offset
     m_TransferBufferLengthCompleted += ChainDescriptorLength;
@@ -1085,7 +1076,7 @@ CUSBRequest::BuildControlTransferDescriptor(
     if (!NT_SUCCESS(Status))
     {
         //
-        // failed to allocate queue head
+        // failed to allocate descriptor
         //
         DPRINT1("[UHCI] Failed to create queue head\n");
         return Status;

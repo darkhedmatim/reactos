@@ -301,9 +301,10 @@ RtlImageDirectoryEntryToData(
     if (MappedAsImage || Va < SWAPD(NtHeader->OptionalHeader.SizeOfHeaders))
         return (PVOID)((ULONG_PTR)BaseAddress + Va);
 
-    /* Image mapped as ordinary file, we must find raw pointer */
+    /* image mapped as ordinary file, we must find raw pointer */
     return RtlImageRvaToVa(NtHeader, BaseAddress, Va, NULL);
 }
+
 
 /*
  * @implemented
@@ -325,13 +326,14 @@ RtlImageRvaToSection(
     while (Count--)
     {
         Va = SWAPD(Section->VirtualAddress);
-        if ((Va <= Rva) && (Rva < Va + SWAPD(Section->SizeOfRawData)))
+        if ((Va <= Rva) &&
+                (Rva < Va + SWAPD(Section->Misc.VirtualSize)))
             return Section;
         Section++;
     }
-
     return NULL;
 }
+
 
 /*
  * @implemented
@@ -351,9 +353,9 @@ RtlImageRvaToVa(
 
     if ((Section == NULL) ||
         (Rva < SWAPD(Section->VirtualAddress)) ||
-        (Rva >= SWAPD(Section->VirtualAddress) + SWAPD(Section->SizeOfRawData)))
+        (Rva >= SWAPD(Section->VirtualAddress) + SWAPD(Section->Misc.VirtualSize)))
     {
-        Section = RtlImageRvaToSection(NtHeader, BaseAddress, Rva);
+        Section = RtlImageRvaToSection (NtHeader, BaseAddress, Rva);
         if (Section == NULL)
             return NULL;
 
@@ -361,8 +363,9 @@ RtlImageRvaToVa(
             *SectionHeader = Section;
     }
 
-    return (PVOID)((ULONG_PTR)BaseAddress + Rva +
-                   (ULONG_PTR)SWAPD(Section->PointerToRawData) -
+    return (PVOID)((ULONG_PTR)BaseAddress +
+                   Rva +
+                   SWAPD(Section->PointerToRawData) -
                    (ULONG_PTR)SWAPD(Section->VirtualAddress));
 }
 
@@ -434,18 +437,6 @@ LdrProcessRelocationBlockLongLong(
     }
 
     return (PIMAGE_BASE_RELOCATION)TypeOffset;
-}
-
-ULONG
-NTAPI
-LdrRelocateImage(
-    IN PVOID BaseAddress,
-    IN PCCH  LoaderName,
-    IN ULONG Success,
-    IN ULONG Conflict,
-    IN ULONG Invalid)
-{
-    return LdrRelocateImageWithBias(BaseAddress, 0, LoaderName, Success, Conflict, Invalid);
 }
 
 ULONG

@@ -10,19 +10,19 @@
 
 #include "cmlib.h"
 #define NDEBUG
-#include <debug.h>
+#include "debug.h"
 
 /* GLOBALS *******************************************************************/
 
-#define INVALID_INDEX   0x80000000
+ULONG CmpMaxFastIndexPerHblock =
+    (HBLOCK_SIZE - (sizeof(HBIN) +
+                    sizeof(HCELL) +
+                    FIELD_OFFSET(CM_KEY_FAST_INDEX, List))) / sizeof(CM_INDEX);
 
-#define CmpMaxFastIndexPerHblock                        \
-    ((HBLOCK_SIZE - (sizeof(HBIN) + sizeof(HCELL) +     \
-                     FIELD_OFFSET(CM_KEY_FAST_INDEX, List))) / sizeof(CM_INDEX))
-
-#define CmpMaxIndexPerHblock                            \
-    ((HBLOCK_SIZE - (sizeof(HBIN) + sizeof(HCELL) +     \
-                     FIELD_OFFSET(CM_KEY_INDEX, List))) / sizeof(HCELL_INDEX) - 1)
+ULONG CmpMaxIndexPerHblock =
+    (HBLOCK_SIZE - (sizeof(HBIN) +
+                    sizeof(HCELL) +
+                    FIELD_OFFSET(CM_KEY_INDEX, List))) / sizeof(HCELL_INDEX) - 1;
 
 /* FUNCTIONS *****************************************************************/
 
@@ -232,7 +232,7 @@ CmpFindSubKeyInRoot(IN PHHIVE Hive,
         {
 Big:
             /* This was some sort of special key */
-            ReturnIndex = INVALID_INDEX;
+            ReturnIndex = 0x80000000;
             goto ReturnFailure;
         }
 
@@ -262,7 +262,7 @@ Big:
     /* Check if we found it */
     if (!Result)
     {
-        /* We got lucky... return it */
+        /* We got lucky...return it */
         *SubKey = LeafCell;
         ReturnIndex = Low;
         goto Return;
@@ -389,7 +389,7 @@ CmpFindSubKeyInLeaf(IN PHHIVE Hive,
         {
             /* Fail with special value */
             *SubKey = HCELL_NIL;
-            return INVALID_INDEX;
+            return 0x80000000;
         }
 
         /* Check if we got lucky and found it */
@@ -425,7 +425,7 @@ CmpFindSubKeyInLeaf(IN PHHIVE Hive,
     {
         /* Fail with special value */
         *SubKey = HCELL_NIL;
-        return INVALID_INDEX;
+        return 0x80000000;
     }
 
     /* Check if we got lucky and found it */
@@ -448,7 +448,7 @@ CmpFindSubKeyInLeaf(IN PHHIVE Hive,
     {
         /* Fail with special value */
         *SubKey = HCELL_NIL;
-        return INVALID_INDEX;
+        return 0x80000000;
     }
 
     /* Return the high */
@@ -625,7 +625,8 @@ CmpFindSubKeyByNumber(IN PHHIVE Hive,
         if (Number < Node->SubKeyCounts[Volatile])
         {
             /* Get the actual key index */
-            Index = (PCM_KEY_INDEX)HvGetCell(Hive, Node->SubKeyLists[Volatile]);
+            Index = (PCM_KEY_INDEX)HvGetCell(Hive,
+                                             Node->SubKeyLists[Volatile]);
             if (!Index) return HCELL_NIL;
 
             /* Do a search inside it */
@@ -716,7 +717,7 @@ CmpFindSubKeyByName(IN PHHIVE Hive,
                 HvReleaseCell(Hive, CellToRelease);
 
                 /* Make sure we found something valid */
-                if (Found & INVALID_INDEX) break;
+                if (Found & 0x80000000) break;
 
                 /* Get the new Index Root and set the new cell to be released */
                 if (SubKey == HCELL_NIL) continue;
@@ -743,7 +744,7 @@ CmpFindSubKeyByName(IN PHHIVE Hive,
                 HvReleaseCell(Hive, CellToRelease);
 
                 /* Make sure we found a valid index */
-                if (Found & INVALID_INDEX) break;
+                if (Found & 0x80000000) break;
             }
             else
             {
@@ -855,7 +856,7 @@ CmpMarkIndexDirty(IN PHHIVE Hive,
             {
                 /* Get the child inside the root */
                 Result = CmpFindSubKeyInRoot(Hive, Index, &SearchName, &Child);
-                if (Result & INVALID_INDEX) goto Quickie;
+                if (Result & 0x80000000) goto Quickie;
                 if (Child == HCELL_NIL) continue;
 
                 /* We found it, mark the cell dirty */
@@ -885,7 +886,7 @@ CmpMarkIndexDirty(IN PHHIVE Hive,
 
             /* Find the child in the leaf */
             Result = CmpFindSubKeyInLeaf(Hive, Index, &SearchName, &Child);
-            if (Result & INVALID_INDEX) goto Quickie;
+            if (Result & 0x80000000) goto Quickie;
             if (Child != HCELL_NIL)
             {
                 /* We found it, free the name now */
@@ -1003,7 +1004,7 @@ CmpAddToLeaf(IN PHHIVE Hive,
 
     /* Find the insertion point for our entry */
     i = CmpFindSubKeyInLeaf(Hive, Leaf, Name, &Child);
-    if (i & INVALID_INDEX) return HCELL_NIL;
+    if (i & 0x80000000) return HCELL_NIL;
     ASSERT(Child == HCELL_NIL);
 
     /* Check if we're not last */
@@ -1298,7 +1299,7 @@ CmpSelectLeaf(IN PHHIVE Hive,
         SubKeyIndex = CmpFindSubKeyInRoot(Hive, IndexKey, Name, &LeafCell);
 
         /* Make sure we found something valid */
-        if (SubKeyIndex & INVALID_INDEX) return HCELL_NIL;
+        if (SubKeyIndex & 0x80000000) return HCELL_NIL;
 
         /* Try to fit it into the LeafCell, if it was found */
         if (LeafCell != HCELL_NIL)
@@ -1704,7 +1705,7 @@ CmpRemoveSubKey(IN PHHIVE Hive,
     HCELL_INDEX RootCell = HCELL_NIL, LeafCell, ChildCell;
     PCM_KEY_INDEX Root = NULL, Leaf;
     PCM_KEY_FAST_INDEX Child;
-    ULONG Storage, RootIndex = INVALID_INDEX, LeafIndex;
+    ULONG Storage, RootIndex = 0x80000000, LeafIndex;
     BOOLEAN Result = FALSE;
     HCELL_INDEX CellToRelease1 = HCELL_NIL, CellToRelease2  = HCELL_NIL;
 
@@ -1783,7 +1784,7 @@ CmpRemoveSubKey(IN PHHIVE Hive,
     {
         /* Find the child inside the root */
         RootIndex = CmpFindSubKeyInRoot(Hive, Leaf, &SearchName, &ChildCell);
-        if (RootIndex & INVALID_INDEX) goto Exit;
+        if (RootIndex & 0x80000000) goto Exit;
         ASSERT(ChildCell != FALSE);
 
         /* The root cell is now this leaf */
@@ -1806,7 +1807,7 @@ CmpRemoveSubKey(IN PHHIVE Hive,
 
     /* Now get the child in the leaf */
     LeafIndex = CmpFindSubKeyInLeaf(Hive, Leaf, &SearchName, &ChildCell);
-    if (LeafIndex & INVALID_INDEX) goto Exit;
+    if (LeafIndex & 0x80000000) goto Exit;
     ASSERT(ChildCell != HCELL_NIL);
 
     /* Decrement key counts and check if this was the last leaf entry */

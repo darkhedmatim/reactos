@@ -103,7 +103,7 @@ IntHookModuleUnloaded(PDESKTOP pdesk, int iHookID, HHOOK hHook)
 
         /* FIXME: Do some more security checks here */
 
-        /* FIXME: HACK: The first check is a reactos specific hack for system threads */
+        /* FIXME: The first check is a reactos specific hack for system threads */
         if(!PsIsSystemProcess(ptiCurrent->ppi->peProcess) &&
            ptiCurrent->ppi != ppiCsr)
         {

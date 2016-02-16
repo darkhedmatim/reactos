@@ -7,9 +7,7 @@
 #include "tcpip.h"
 
 #ifndef LWIP_TAG
-    #define LWIP_TAG         'PIwl'
-    #define LWIP_MESSAGE_TAG 'sMwl'
-    #define LWIP_QUEUE_TAG   'uQwl'
+    #define LWIP_TAG 'PIwl'
 #endif
 
 typedef struct tcp_pcb* PTCP_PCB;

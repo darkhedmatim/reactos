@@ -1,5 +1,4 @@
 add_subdirectory(bootvid_font_generator)
-add_subdirectory(createspec)
 add_subdirectory(gdb2)
 add_subdirectory(gdihv)
 add_subdirectory(genguid)

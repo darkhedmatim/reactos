@@ -35,7 +35,6 @@
 
 #include <services/services.h>
 #include <svcctl_c.h>
-#include <winreg_c.h>
 
 #include <wine/debug.h>
 #include <wine/unicode.h>

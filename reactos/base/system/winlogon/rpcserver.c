@@ -21,7 +21,7 @@ StartRpcServer(VOID)
 {
     RPC_STATUS Status;
 
-    TRACE("StartRpcServer() called\n");
+    TRACE("ScmStartRpcServer() called\n");
 
     Status = RpcServerUseProtseqEpW(L"ncacn_np",
                                     10,
@@ -415,12 +415,7 @@ BaseInitiateSystemShutdown(
     BOOLEAN bRebootAfterShutdown)
 {
     TRACE("BaseInitiateSystemShutdown()\n");
-    return BaseInitiateSystemShutdownEx(ServerName,
-                                        lpMessage,
-                                        dwTimeout,
-                                        bForceAppsClosed,
-                                        bRebootAfterShutdown,
-                                        0);
+    return ERROR_SUCCESS;
 }
 
 
@@ -430,7 +425,7 @@ __stdcall
 BaseAbortSystemShutdown(
     PREGISTRY_SERVER_NAME ServerName)
 {
-    TRACE("BaseAbortSystemShutdown()\n");
+    TRACE("\n");
     return ERROR_SUCCESS;
 }
 
@@ -497,19 +492,8 @@ BaseInitiateSystemShutdownEx(
     BOOLEAN bRebootAfterShutdown,
     ULONG dwReason)
 {
-    TRACE("BaseInitiateSystemShutdownEx()\n");
-    TRACE("  Message: %wZ\n", lpMessage);
-    TRACE("  Timeout: %lu\n", dwTimeout);
-    TRACE("  Force: %d\n", bForceAppsClosed);
-    TRACE("  Reboot: %d\n", bRebootAfterShutdown);
-    TRACE("  Reason: %lu\n", dwReason);
-
-//    return ERROR_SUCCESS;
-
-    /* FIXME */
-    return ExitWindowsEx((bRebootAfterShutdown ? EWX_REBOOT : EWX_SHUTDOWN) |
-                         (bForceAppsClosed ? EWX_FORCE : 0),
-                         dwReason);
+    TRACE("\n");
+    return ERROR_SUCCESS;
 }
 
 

@@ -291,7 +291,6 @@ CDeviceView::DisplayPropertySheet()
 void
 CDeviceView::SetFocus()
 {
-    ::SetFocus(m_hTreeView);
 }
 
 bool

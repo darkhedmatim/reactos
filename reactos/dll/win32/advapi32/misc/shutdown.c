@@ -9,7 +9,22 @@
 
 #include <advapi32.h>
 
+#include <ndk/exfuncs.h>
+
 WINE_DEFAULT_DEBUG_CHANNEL(advapi);
+
+/**********************************************************************
+ *      AbortSystemShutdownW
+ *
+ * @unimplemented
+ */
+BOOL WINAPI
+AbortSystemShutdownW(LPCWSTR lpMachineName)
+{
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
 
 /**********************************************************************
  *      AbortSystemShutdownA
@@ -38,37 +53,28 @@ AbortSystemShutdownA(LPCSTR lpMachineName)
     return rv;
 }
 
-
 /**********************************************************************
- *      AbortSystemShutdownW
+ *      InitiateSystemShutdownW
  *
  * @implemented
  */
 BOOL WINAPI
-AbortSystemShutdownW(LPCWSTR lpMachineName)
+InitiateSystemShutdownW(LPWSTR lpMachineName,
+                        LPWSTR lpMessage,
+                        DWORD dwTimeout,
+                        BOOL bForceAppsClosed,
+                        BOOL bRebootAfterShutdown)
 {
-    DWORD dwError;
-
-    RpcTryExcept
-    {
-        dwError = BaseAbortSystemShutdown((PREGISTRY_SERVER_NAME)lpMachineName);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        dwError = RtlNtStatusToDosError(RpcExceptionCode());
-    }
-    RpcEndExcept;
-
-    if (dwError != ERROR_SUCCESS)
-    {
-        TRACE("BaseAbortSystemShutdown() failed (Error %lu)\n", dwError);
-        SetLastError(dwError);
-        return FALSE;
-    }
-
-    return TRUE;
+    return InitiateSystemShutdownExW(lpMachineName,
+                                     lpMessage,
+                                     dwTimeout,
+                                     bForceAppsClosed,
+                                     bRebootAfterShutdown,
+                                     SHTDN_REASON_MAJOR_OTHER |
+                                     SHTDN_REASON_MINOR_OTHER |
+                                     SHTDN_REASON_FLAG_PLANNED
+                                     /* SHTDN_REASON_MAJOR_LEGACY_API */);
 }
-
 
 /**********************************************************************
  *      InitiateSystemShutdownA
@@ -83,100 +89,64 @@ InitiateSystemShutdownA(LPSTR lpMachineName,
                         BOOL bForceAppsClosed,
                         BOOL bRebootAfterShutdown)
 {
-    ANSI_STRING MachineNameA, MessageA;
-    UNICODE_STRING MachineNameW, MessageW;
-    NTSTATUS Status;
-    BOOL res;
-
-    MachineNameW.Buffer = NULL;
-    MessageW.Buffer = NULL;
-
-    if (lpMachineName)
-    {
-        RtlInitAnsiString(&MachineNameA, lpMachineName);
-        Status = RtlAnsiStringToUnicodeString(&MachineNameW, &MachineNameA, TRUE);
-        if (STATUS_SUCCESS != Status)
-        {
-            if(MachineNameW.Buffer)
-                RtlFreeUnicodeString(&MachineNameW);
-
-            SetLastError(RtlNtStatusToDosError(Status));
-            return FALSE;
-        }
-    }
-
-    if (lpMessage)
-    {
-        RtlInitAnsiString(&MessageA, lpMessage);
-        Status = RtlAnsiStringToUnicodeString(&MessageW, &MessageA, TRUE);
-        if (STATUS_SUCCESS != Status)
-        {
-            if (MessageW.Buffer)
-                RtlFreeUnicodeString(&MessageW);
-
-            SetLastError(RtlNtStatusToDosError(Status));
-            return FALSE;
-        }
-    }
-
-    res = InitiateSystemShutdownW(MachineNameW.Buffer,
-                                  MessageW.Buffer,
-                                  dwTimeout,
-                                  bForceAppsClosed,
-                                  bRebootAfterShutdown);
-
-    /* Clear the values of both strings */
-    if (lpMachineName)
-        RtlFreeUnicodeString(&MachineNameW);
-
-    if (lpMessage)
-        RtlFreeUnicodeString(&MessageW);
-
-    return res;
+    return InitiateSystemShutdownExA(lpMachineName,
+                                     lpMessage,
+                                     dwTimeout,
+                                     bForceAppsClosed,
+                                     bRebootAfterShutdown,
+                                     SHTDN_REASON_MAJOR_OTHER |
+                                     SHTDN_REASON_MINOR_OTHER |
+                                     SHTDN_REASON_FLAG_PLANNED
+                                     /* SHTDN_REASON_MAJOR_LEGACY_API */);
 }
 
-
-/**********************************************************************
- *      InitiateSystemShutdownW
+/******************************************************************************
+ * InitiateSystemShutdownExW [ADVAPI32.@]
  *
- * @implemented
+ * @unimplemented
  */
 BOOL WINAPI
-InitiateSystemShutdownW(LPWSTR lpMachineName,
-                        LPWSTR lpMessage,
-                        DWORD dwTimeout,
-                        BOOL bForceAppsClosed,
-                        BOOL bRebootAfterShutdown)
+InitiateSystemShutdownExW(LPWSTR lpMachineName,
+                          LPWSTR lpMessage,
+                          DWORD dwTimeout,
+                          BOOL bForceAppsClosed,
+                          BOOL bRebootAfterShutdown,
+                          DWORD dwReason)
 {
-    UNICODE_STRING Message;
-    DWORD dwError;
+    SHUTDOWN_ACTION action;
+    NTSTATUS Status;
+    ULONG Timeout_ms;
 
-    RtlInitUnicodeString(&Message, lpMessage);
+    DBG_UNREFERENCED_LOCAL_VARIABLE(Timeout_ms);
 
-    RpcTryExcept
-    {
-        dwError = BaseInitiateSystemShutdown((PREGISTRY_SERVER_NAME)lpMachineName,
-                                             (PRPC_UNICODE_STRING)&Message,
-                                             dwTimeout,
-                                             bForceAppsClosed,
-                                             bRebootAfterShutdown);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        dwError = RtlNtStatusToDosError(RpcExceptionCode());
-    }
-    RpcEndExcept;
+    /* Convert to milliseconds so we can use the value later on */
+    Timeout_ms = dwTimeout * 1000;
 
-    if (dwError != ERROR_SUCCESS)
+    if (lpMachineName != NULL)
     {
-        TRACE("BaseInitiateSystemShutdown() failed (Error %lu)\n", dwError);
-        SetLastError(dwError);
+        /* FIXME: Remote system shutdown not supported yet */
+        SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
         return FALSE;
     }
+    else /* The local system is being used */
+    {
+        /* FIXME: Right now, only basic shutting down and rebooting
+        is supported */
+        if(bRebootAfterShutdown == TRUE)
+        {
+            action = ShutdownReboot;
+        }
+        else
+        {
+            action = ShutdownNoReboot;
+        }
 
-    return TRUE;
+        Status = NtShutdownSystem(action);
+    }
+
+    SetLastError(RtlNtStatusToDosError(Status));
+    return (Status == STATUS_SUCCESS);
 }
-
 
 /******************************************************************************
  * InitiateSystemShutdownExA [ADVAPI32.@]
@@ -194,7 +164,8 @@ InitiateSystemShutdownExA(LPSTR lpMachineName,
     ANSI_STRING MachineNameA, MessageA;
     UNICODE_STRING MachineNameW, MessageW;
     NTSTATUS Status;
-    BOOL res;
+    INT LastError;
+    BOOL rv;
 
     MachineNameW.Buffer = NULL;
     MessageW.Buffer = NULL;
@@ -227,12 +198,13 @@ InitiateSystemShutdownExA(LPSTR lpMachineName,
         }
     }
 
-    res = InitiateSystemShutdownExW(MachineNameW.Buffer,
-                                    MessageW.Buffer,
-                                    dwTimeout,
-                                    bForceAppsClosed,
-                                    bRebootAfterShutdown,
-                                    dwReason);
+    rv = InitiateSystemShutdownExW(MachineNameW.Buffer,
+                                   MessageW.Buffer,
+                                   dwTimeout,
+                                   bForceAppsClosed,
+                                   bRebootAfterShutdown,
+                                   dwReason);
+    LastError = GetLastError();
 
     /* Clear the values of both strings */
     if (lpMachineName)
@@ -241,53 +213,9 @@ InitiateSystemShutdownExA(LPSTR lpMachineName,
     if (lpMessage)
         RtlFreeUnicodeString(&MessageW);
 
-    return res;
+    SetLastError(LastError);
+    return rv;
 }
-
-
-/******************************************************************************
- * InitiateSystemShutdownExW [ADVAPI32.@]
- *
- * @unimplemented
- */
-BOOL WINAPI
-InitiateSystemShutdownExW(LPWSTR lpMachineName,
-                          LPWSTR lpMessage,
-                          DWORD dwTimeout,
-                          BOOL bForceAppsClosed,
-                          BOOL bRebootAfterShutdown,
-                          DWORD dwReason)
-{
-    UNICODE_STRING Message;
-    DWORD dwError;
-
-    RtlInitUnicodeString(&Message, lpMessage);
-
-    RpcTryExcept
-    {
-        dwError = BaseInitiateSystemShutdownEx((PREGISTRY_SERVER_NAME)lpMachineName,
-                                               (PRPC_UNICODE_STRING)&Message,
-                                               dwTimeout,
-                                               bForceAppsClosed,
-                                               bRebootAfterShutdown,
-                                               dwReason);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        dwError = RpcExceptionCode();
-    }
-    RpcEndExcept;
-
-    if (dwError != ERROR_SUCCESS)
-    {
-        TRACE("BaseInitiateSystemShutdownEx() failed (Error %lu)\n", dwError);
-        SetLastError(dwError);
-        return FALSE;
-    }
-
-    return TRUE;
-}
-
 
 /******************************************************************************
  * InitiateShutdownW [ADVAPI32.@]
