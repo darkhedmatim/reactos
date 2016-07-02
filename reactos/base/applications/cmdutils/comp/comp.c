@@ -17,55 +17,32 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 /*
- * PROJECT:     ReactOS Comp utility
  * COPYRIGHT:   See COPYING in the top level directory
+ * PROJECT:     ReactOS comp utility
  * FILE:        base/applications/cmdutils/comp/comp.c
  * PURPOSE:     Compares the contents of two files
  * PROGRAMMERS: Ged Murphy (gedmurphy@gmail.com)
+ * REVISIONS:
+ *   GM 25/09/05 Created
+ *
  */
 
+#include <windows.h>
+#include <tchar.h>
 #include <stdio.h>
 #include <stdlib.h>
-// #include <string.h>
-// #include <wchar.h>
+#include <string.h>
 #include <assert.h>
-
-#define WIN32_NO_STATUS
-#include <windef.h>
-#include <winbase.h>
-#include <winuser.h>
-
-#include "resource.h"
 
 #define STRBUF 1024
 
-VOID PrintResourceString(INT resID, ...)
-{
-    WCHAR bufSrc[RC_STRING_MAX_SIZE];
-    WCHAR bufFormatted[RC_STRING_MAX_SIZE];
-    CHAR bufFormattedOem[RC_STRING_MAX_SIZE];
-
-    va_list args;
-    va_start(args, resID);
-
-    if (LoadStringW(GetModuleHandleW(NULL), resID, bufSrc, ARRAYSIZE(bufSrc)))
-        vswprintf(bufFormatted, bufSrc, args);
-    else
-        swprintf(bufFormatted, L"Resource loading error!");
-
-    CharToOemW(bufFormatted, bufFormattedOem);
-    fputs(bufFormattedOem, stdout);
-
-    va_end(args);
-}
-
 /* getline:  read a line, return length */
-INT GetBuff(PBYTE buff, FILE* in)
+INT GetBuff(char *buff, FILE *in)
 {
-    return fread(buff, sizeof(BYTE), STRBUF, in);
+    return fread(buff, 1, STRBUF, in);
 }
 
-INT FileSize(FILE* fd)
+INT FileSize(FILE * fd)
 {
     INT result = -1;
     if (fseek(fd, 0, SEEK_END) == 0 && (result = ftell(fd)) != -1)
@@ -79,11 +56,16 @@ INT FileSize(FILE* fd)
 /* Print program usage */
 VOID Usage(VOID)
 {
-    PrintResourceString(IDS_HELP);
+    _tprintf(_T("\nCompares the contents of two files or sets of files.\n\n"
+                "COMP [/L] [/A] [data1] [data2]\n\n"
+                "  data1      Specifies location and name of first file to compare.\n"
+                "  data2      Specifies location and name of second file to compare.\n"
+                "  /A         Display differences in ASCII characters.\n"
+                "  /L         Display line numbers for differences.\n"));
 }
 
 
-int wmain (int argc, WCHAR* argv[])
+int _tmain (int argc, TCHAR *argv[])
 {
     INT i;
 
@@ -92,43 +74,43 @@ int wmain (int argc, WCHAR* argv[])
     FILE *fp2 = NULL;
 
     INT BufLen1, BufLen2;
-    PBYTE Buff1 = NULL;
-    PBYTE Buff2 = NULL;
-    WCHAR File1[_MAX_PATH + 1], // File paths
+    PTCHAR Buff1 = NULL;
+    PTCHAR Buff2 = NULL;
+    TCHAR File1[_MAX_PATH + 1], // File paths
           File2[_MAX_PATH + 1];
     BOOL bAscii = FALSE,        // /A switch
          bLineNos = FALSE;      // /L switch
-    UINT LineNumber;
-    UINT Offset;
+    UINT  LineNumber;
+    UINT  Offset;
     INT  FileSizeFile1;
     INT  FileSizeFile2;
     INT  NumberOfOptions = 0;
     INT  FilesOK = 1;
-    INT  Status = EXIT_SUCCESS;
+    INT Status = EXIT_SUCCESS;
 
     /* Parse command line for options */
     for (i = 1; i < argc; i++)
     {
-        if (argv[i][0] == L'/')
+        if (argv[i][0] == '/')
         {
             switch (argv[i][1])
             {
-                case L'A':
+                case 'A':
                     bAscii = TRUE;
                     NumberOfOptions++;
                     break;
 
-                case L'L':
+                case 'L':
                     bLineNos = TRUE;
                     NumberOfOptions++;
                     break;
 
-                case L'?':
+                case '?':
                     Usage();
                     return EXIT_SUCCESS;
 
                 default:
-                    PrintResourceString(IDS_INVALIDSWITCH, argv[i][1]);
+                    _tprintf(_T("Invalid switch - /%c\n"), argv[i][1]);
                     Usage();
                     return EXIT_FAILURE;
             }
@@ -137,50 +119,50 @@ int wmain (int argc, WCHAR* argv[])
 
     if (argc - NumberOfOptions == 3)
     {
-        wcsncpy(File1, argv[1 + NumberOfOptions], _MAX_PATH);
-        wcsncpy(File2, argv[2 + NumberOfOptions], _MAX_PATH);
+        _tcsncpy(File1, argv[1 + NumberOfOptions], _MAX_PATH);
+        _tcsncpy(File2, argv[2 + NumberOfOptions], _MAX_PATH);
     }
     else
     {
-        PrintResourceString(IDS_BADSYNTAX);
+        _tprintf(_T("Bad command line syntax\n"));
         return EXIT_FAILURE;
     }
 
-    Buff1 = (PBYTE)malloc(STRBUF);
+    Buff1 = (TCHAR *)malloc(STRBUF * sizeof(TCHAR));
     if (Buff1 == NULL)
     {
-        wprintf(L"Can't get free memory for Buff1\n");
-        Status = EXIT_FAILURE;
-        goto Cleanup;
+        _tprintf(_T("Can't get free memory for Buff1\n"));
+        return EXIT_FAILURE;
     }
 
-    Buff2 = (PBYTE)malloc(STRBUF);
+    Buff2 = (TCHAR *)malloc(STRBUF * sizeof(TCHAR));
     if (Buff2 == NULL)
     {
-        wprintf(L"Can't get free memory for Buff2\n");
+        _tprintf(_T("Can't get free memory for Buff2\n"));
         Status = EXIT_FAILURE;
         goto Cleanup;
     }
 
-    if ((fp1 = _wfopen(File1, L"rb")) == NULL)
+    if ((fp1 = fopen(File1, "rb")) == NULL)
     {
-        PrintResourceString(IDS_FILEERROR, File1);
+        _tprintf(_T("Can't find/open file: %s\n"), File1);
         Status = EXIT_FAILURE;
         goto Cleanup;
     }
-    if ((fp2 = _wfopen(File2, L"rb")) == NULL)
+    if ((fp2 = fopen(File2, "rb")) == NULL)
     {
-        PrintResourceString(IDS_FILEERROR, File2);
+        _tprintf(_T("Can't find/open file: %s\n"), File2);
         Status = EXIT_FAILURE;
         goto Cleanup;
     }
 
-    PrintResourceString(IDS_COMPARING, File1, File2);
+
+    _tprintf(_T("Comparing %s and %s...\n"), File1, File2);
 
     FileSizeFile1 = FileSize(fp1);
     if (FileSizeFile1 == -1)
     {
-        PrintResourceString(IDS_FILESIZEERROR, File1);
+        _tprintf(_T("Can't determine size of file: %s\n"), File1);
         Status = EXIT_FAILURE;
         goto Cleanup;
     }
@@ -188,14 +170,14 @@ int wmain (int argc, WCHAR* argv[])
     FileSizeFile2 = FileSize(fp2);
     if (FileSizeFile2 == -1)
     {
-        PrintResourceString(IDS_FILESIZEERROR, File2);
+        _tprintf(_T("Can't determine size of file: %s\n"), File2);
         Status = EXIT_FAILURE;
         goto Cleanup;
     }
 
     if (FileSizeFile1 != FileSizeFile2)
     {
-        PrintResourceString(IDS_SIZEDIFFERS);
+        _tprintf(_T("Files are different sizes.\n"));
         Status = EXIT_FAILURE;
         goto Cleanup;
     }
@@ -209,7 +191,7 @@ int wmain (int argc, WCHAR* argv[])
 
         if (ferror(fp1) || ferror(fp2))
         {
-            PrintResourceString(IDS_READERROR);
+            _tprintf(_T("Files read error.\n"));
             Status = EXIT_FAILURE;
             goto Cleanup;
         }
@@ -227,45 +209,45 @@ int wmain (int argc, WCHAR* argv[])
                 /* Reporting here a mismatch */
                 if (bLineNos)
                 {
-                    PrintResourceString(IDS_MISMATCHLINE, LineNumber);
+                    _tprintf(_T("Compare error at LINE %d\n"), LineNumber);
                 }
                 else
                 {
-                    PrintResourceString(IDS_MISMATCHOFFSET, Offset);
+                    _tprintf(_T("Compare error at OFFSET %d\n"), Offset);
                 }
 
                 if (bAscii)
                 {
-                    PrintResourceString(IDS_ASCIIDIFF, 1, Buff1[i]);
-                    PrintResourceString(IDS_ASCIIDIFF, 2, Buff2[i]);
+                    _tprintf(_T("file1 = %c\n"), Buff1[i]);
+                    _tprintf(_T("file2 = %c\n"), Buff2[i]);
                 }
                 else
                 {
-                    PrintResourceString(IDS_HEXADECIMALDIFF, 1, Buff1[i]);
-                    PrintResourceString(IDS_HEXADECIMALDIFF, 2, Buff2[i]);
+                    _tprintf(_T("file1 = %X\n"), Buff1[i]);
+                    _tprintf(_T("file2 = %X\n"), Buff2[i]);
                 }
+
+                Offset++;
+
+                if (Buff1[i] == '\n')
+                    LineNumber++;
             }
-
-            Offset++;
-
-            if (Buff1[i] == '\n')
-                LineNumber++;
-        }
+         }
     }
 
     if (FilesOK)
-        PrintResourceString(IDS_MATCH);
+        _tprintf(_T("Files compare OK\n"));
 
 Cleanup:
-    if (fp2)
-        fclose(fp2);
     if (fp1)
         fclose(fp1);
+    if (fp2)
+        fclose(fp2);
 
-    if (Buff2)
-        free(Buff2);
     if (Buff1)
         free(Buff1);
+    if (Buff2)
+        free(Buff2);
 
     return Status;
 }

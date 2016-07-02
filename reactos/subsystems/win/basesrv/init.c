@@ -3,8 +3,7 @@
  * PROJECT:         ReactOS Base API Server DLL
  * FILE:            subsystems/win/basesrv/init.c
  * PURPOSE:         Initialization
- * PROGRAMMERS:     Alex Ionescu (alex.ionescu@reactos.org)
- *                  Hermes Belusca-Maito (hermes.belusca@sfr.fr)
+ * PROGRAMMERS:     Hermes Belusca-Maito (hermes.belusca@sfr.fr)
  */
 
 /* INCLUDES *******************************************************************/
@@ -441,11 +440,9 @@ BaseInitializeStaticServerData(IN PCSR_SERVER_DLL LoadedServerDll)
     }
     else
     {
-        /* Indicate nothing is there */
-        BaseSrvCSDString.Length = 0;
+        /* NULL-terminate to indicate nothing is there */
+        BaseStaticServerData->CSDVersion[0] = UNICODE_NULL;
     }
-    /* NULL-terminate */
-    BaseStaticServerData->CSDVersion[BaseSrvCSDString.Length / sizeof(WCHAR)] = UNICODE_NULL;
 
     /* Cache the system information */
     Status = NtQuerySystemInformation(SystemBasicInformation,

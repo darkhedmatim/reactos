@@ -2,20 +2,12 @@
 add_definitions(-DDEFINE_GUID)
 
 list(APPEND SOURCE
-    config.c
     control.c
     create.c
     delete.c
-    depend.c
-    description.c
-    failure.c
-    misc.c
-    name.c
     print.c
     query.c
     sc.c
-    sdset.c
-    sdshow.c
     start.c
     usage.c
     sc.h)

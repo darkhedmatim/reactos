@@ -924,7 +924,6 @@ BOOL  WINAPI EnumerateLoadedModulesW64(HANDLE hProcess,
 
     return sz != 0 && i == sz;
 }
-
 #endif /* DBGHELP_STATIC_LIB */
 
 /******************************************************************

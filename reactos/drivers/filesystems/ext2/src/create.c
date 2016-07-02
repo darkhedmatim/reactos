@@ -93,7 +93,7 @@ Ext2FollowLink (
         }
 
         /* read the symlink target path */
-        if (!Mcb->Inode.i_blocks) {
+        if (Mcb->Inode.i_size < EXT2_LINKLEN_IN_INODE) {
 
             OemName.Buffer = (PUCHAR) (&Mcb->Inode.i_block[0]);
             OemName.Length = (USHORT)Mcb->Inode.i_size;
@@ -871,7 +871,6 @@ McbExisting:
 #ifndef __REACTOS__
             LONG            i = 0;
 #endif
-
             PathName = FileName;
             Mcb = NULL;
 
@@ -1389,7 +1388,6 @@ Openit:
                     //
                     //  check the oplock state of the file
                     //
-
                     Status = FsRtlCheckOplock(  &Fcb->Oplock,
                                                 IrpContext->Irp,
                                                 IrpContext,
@@ -1897,13 +1895,8 @@ Ext2CreateInode(
     Inode.i_ino = iNo;
     Inode.i_ctime = Inode.i_mtime =
     Inode.i_atime = Ext2LinuxTime(SysTime);
-    if (IsFlagOn(Vcb->Flags, VCB_USER_IDS)) {
-        Inode.i_uid = Vcb->uid;
-        Inode.i_gid = Vcb->gid;
-    } else {
-        Inode.i_uid = Parent->Mcb->Inode.i_uid;
-        Inode.i_gid = Parent->Mcb->Inode.i_gid;
-    }
+    Inode.i_uid = Vcb->uid;
+    Inode.i_gid = Vcb->gid;
     Inode.i_generation = Parent->Inode->i_generation;
     Inode.i_mode = S_IPERMISSION_MASK &
                    Parent->Inode->i_mode;

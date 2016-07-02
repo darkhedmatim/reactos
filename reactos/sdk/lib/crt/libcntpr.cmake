@@ -48,7 +48,6 @@ list(APPEND LIBCNTPR_SOURCE
     string/itoa.c
     string/itow.c
     string/mbstowcs_nt.c
-    string/strtoi64.c
     string/strtol.c
     string/strtoul.c
     string/strtoull.c

@@ -117,15 +117,10 @@ DWORD WINAPI AllocateAndGetIfTableFromStack(PMIB_IFTABLE *ppIfTable,
   else {
     DWORD dwSize = 0;
 
-    *ppIfTable = NULL;
     ret = GetIfTable(*ppIfTable, &dwSize, bOrder);
     if (ret == ERROR_INSUFFICIENT_BUFFER) {
       *ppIfTable = (PMIB_IFTABLE)HeapAlloc(heap, flags, dwSize);
       ret = GetIfTable(*ppIfTable, &dwSize, bOrder);
-      if (ret != NO_ERROR) {
-        HeapFree(heap, flags, *ppIfTable);
-        *ppIfTable = NULL;
-      }
     }
   }
   TRACE("returning %ld\n", ret);
@@ -161,15 +156,10 @@ DWORD WINAPI AllocateAndGetIpAddrTableFromStack(PMIB_IPADDRTABLE *ppIpAddrTable,
   else {
     DWORD dwSize = 0;
 
-    *ppIpAddrTable = NULL;
     ret = GetIpAddrTable(*ppIpAddrTable, &dwSize, bOrder);
     if (ret == ERROR_INSUFFICIENT_BUFFER) {
       *ppIpAddrTable = (PMIB_IPADDRTABLE)HeapAlloc(heap, flags, dwSize);
       ret = GetIpAddrTable(*ppIpAddrTable, &dwSize, bOrder);
-      if (ret != NO_ERROR) {
-        HeapFree(heap, flags, *ppIpAddrTable);
-        *ppIpAddrTable = NULL;
-      }
     }
   }
   TRACE("returning %ld\n", ret);
@@ -203,15 +193,10 @@ DWORD WINAPI AllocateAndGetIpForwardTableFromStack(PMIB_IPFORWARDTABLE *
   else {
     DWORD dwSize = 0;
 
-    *ppIpForwardTable = NULL;
     ret = GetIpForwardTable(*ppIpForwardTable, &dwSize, bOrder);
     if (ret == ERROR_INSUFFICIENT_BUFFER) {
       *ppIpForwardTable = (PMIB_IPFORWARDTABLE)HeapAlloc(heap, flags, dwSize);
       ret = GetIpForwardTable(*ppIpForwardTable, &dwSize, bOrder);
-      if (ret != NO_ERROR) {
-        HeapFree(heap, flags, *ppIpForwardTable);
-        *ppIpForwardTable = NULL;
-      }
     }
   }
   TRACE("returning %ld\n", ret);
@@ -247,15 +232,10 @@ DWORD WINAPI AllocateAndGetIpNetTableFromStack(PMIB_IPNETTABLE *ppIpNetTable,
   else {
     DWORD dwSize = 0;
 
-    *ppIpNetTable = NULL;
     ret = GetIpNetTable(*ppIpNetTable, &dwSize, bOrder);
     if (ret == ERROR_INSUFFICIENT_BUFFER) {
       *ppIpNetTable = (PMIB_IPNETTABLE)HeapAlloc(heap, flags, dwSize);
       ret = GetIpNetTable(*ppIpNetTable, &dwSize, bOrder);
-      if (ret != NO_ERROR) {
-        HeapFree(heap, flags, *ppIpNetTable);
-        *ppIpNetTable = NULL;
-      }
     }
   }
   TRACE("returning %ld\n", ret);
@@ -291,15 +271,10 @@ DWORD WINAPI AllocateAndGetTcpTableFromStack(PMIB_TCPTABLE *ppTcpTable,
   else {
     DWORD dwSize = 0;
 
-    *ppTcpTable = NULL;
     ret = GetTcpTable(*ppTcpTable, &dwSize, bOrder);
     if (ret == ERROR_INSUFFICIENT_BUFFER) {
       *ppTcpTable = (PMIB_TCPTABLE)HeapAlloc(heap, flags, dwSize);
       ret = GetTcpTable(*ppTcpTable, &dwSize, bOrder);
-      if (ret != NO_ERROR) {
-        HeapFree(heap, flags, *ppTcpTable);
-        *ppTcpTable = NULL;
-      }
     }
   }
   TRACE("returning %ld\n", ret);
@@ -335,15 +310,10 @@ DWORD WINAPI AllocateAndGetUdpTableFromStack(PMIB_UDPTABLE *ppUdpTable,
   else {
     DWORD dwSize = 0;
 
-    *ppUdpTable = NULL;
     ret = GetUdpTable(*ppUdpTable, &dwSize, bOrder);
     if (ret == ERROR_INSUFFICIENT_BUFFER) {
       *ppUdpTable = (PMIB_UDPTABLE)HeapAlloc(heap, flags, dwSize);
       ret = GetUdpTable(*ppUdpTable, &dwSize, bOrder);
-      if (ret != NO_ERROR) {
-        HeapFree(heap, flags, *ppUdpTable);
-        *ppUdpTable = NULL;
-      }
     }
   }
   TRACE("returning %ld\n", ret);

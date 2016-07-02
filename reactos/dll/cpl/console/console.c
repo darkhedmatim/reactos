@@ -227,9 +227,9 @@ InitApplet(HANDLE hSectionOrWnd)
     }
     psh.pszCaption = szTitle;
 
-    if (pSharedInfo != NULL)
+    if (/* pSharedInfo != NULL && */ ConInfo->hWnd != NULL)
     {
-        /* We were started from a console window: this is our parent (or ConInfo->hWnd is NULL) */
+        /* We were started from a console window: this is our parent. */
         psh.hwndParent = ConInfo->hWnd;
     }
     else

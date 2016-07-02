@@ -81,9 +81,6 @@ Ext2FlushVolume (
 
     DEBUG(DL_INF, ( "Ext2FlushVolume: Flushing Vcb ...\n"));
 
-    /* discard buffer_headers for group_desc */
-    Ext2DropGroup(Vcb);
-
     ExAcquireSharedStarveExclusive(&Vcb->PagingIoResource, TRUE);
     ExReleaseResourceLite(&Vcb->PagingIoResource);
 

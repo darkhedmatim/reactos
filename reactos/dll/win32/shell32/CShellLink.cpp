@@ -2231,25 +2231,33 @@ HRESULT WINAPI CShellLink::Drop(IDataObject *pDataObject,
 /**************************************************************************
  *      IShellLink_ConstructFromFile
  */
-HRESULT WINAPI IShellLink_ConstructFromPath(WCHAR *path, REFIID riid, LPVOID *ppv)
+HRESULT WINAPI IShellLink_ConstructFromFile(IUnknown *pUnkOuter, REFIID riid, LPCITEMIDLIST pidl, LPVOID *ppv)
 {
-    CComPtr<IPersistFile> ppf;
-    HRESULT hr = CShellLink::_CreatorClass::CreateInstance(NULL, IID_PPV_ARG(IPersistFile, &ppf));
-    if (FAILED(hr))
-        return hr;
+    CComPtr<IUnknown> psl;
 
-    hr = ppf->Load(path, 0);
-    if (FAILED(hr))
-        return hr;
+    HRESULT hr = CShellLink::_CreatorClass::CreateInstance(NULL, riid, (void**)&psl);
 
-    return ppf->QueryInterface(riid, ppv);
-}
+    if (SUCCEEDED(hr))
+    {
+        CComPtr<IPersistFile> ppf;
 
-HRESULT WINAPI IShellLink_ConstructFromFile(IShellFolder * psf, LPCITEMIDLIST pidl, REFIID riid, LPVOID *ppv)
-{
-    WCHAR path[MAX_PATH];
-    if (!ILGetDisplayNameExW(psf, pidl, path, 0))
-        return E_FAIL;
+        *ppv = NULL;
 
-    return IShellLink_ConstructFromPath(path, riid, ppv);
+        hr = psl->QueryInterface(IID_PPV_ARG(IPersistFile, &ppf));
+
+        if (SUCCEEDED(hr))
+        {
+            WCHAR path[MAX_PATH];
+
+            if (SHGetPathFromIDListW(pidl, path))
+                hr = ppf->Load(path, 0);
+            else
+                hr = E_FAIL;
+
+            if (SUCCEEDED(hr))
+                *ppv = psl.Detach();
+        }
+    }
+
+    return hr;
 }

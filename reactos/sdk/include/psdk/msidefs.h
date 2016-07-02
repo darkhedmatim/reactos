@@ -200,11 +200,6 @@ enum msidbServiceControlEvent
     msidbServiceControlEventUninstallDelete = 0x00000080,
 };
 
-enum msidbServiceInstallErrorControl
-{
-    msidbServiceInstallErrorControlVital = 0x00008000
-};
-
 enum msidbMoveFileOptions
 {
     msidbMoveFileOptionsMove = 0x00000001,

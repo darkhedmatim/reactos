@@ -18,6 +18,8 @@
 
 #include "jscript.h"
 
+#define UINT32_MAX 0xffffffff
+
 typedef struct {
     jsdisp_t dispex;
     jsstr_t *str;

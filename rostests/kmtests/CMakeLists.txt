@@ -6,7 +6,6 @@ include_directories(include)
 #
 add_subdirectory(example)
 add_subdirectory(kernel32)
-add_subdirectory(ntos_cc)
 add_subdirectory(ntos_io)
 add_subdirectory(ntos_po)
 add_subdirectory(tcpip)
@@ -119,7 +118,6 @@ list(APPEND KMTEST_SOURCE
 
     example/Example_user.c
     kernel32/FindFile_user.c
-    ntos_cc/CcCopyRead_user.c
     ntos_io/IoCreateFile_user.c
     ntos_io/IoDeviceObject_user.c
     ntos_io/IoReadWrite_user.c

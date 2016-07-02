@@ -125,10 +125,8 @@ static void testCreateCertChainEngine(void)
     CertAddEncodedCertificateToStore(store, X509_ASN_ENCODING, selfSignedCert,
      sizeof(selfSignedCert), CERT_STORE_ADD_ALWAYS, NULL);
     ret = pCertCreateCertificateChainEngine(pConfig, &engine);
-    /* ERROR_FILE_NOT_FOUND used in Windows 10 */
-    ok(!ret && ((GetLastError() == CRYPT_E_NOT_FOUND) ||
-                (GetLastError() == ERROR_FILE_NOT_FOUND)),
-        "Expected CRYPT_E_NOT_FOUND or ERROR_FILE_NOT_FOUND, got %08x\n", GetLastError());
+    ok(!ret && GetLastError() == CRYPT_E_NOT_FOUND,
+     "Expected CRYPT_E_NOT_FOUND, got %08x\n", GetLastError());
 
     CertCloseStore(store, 0);
 }
@@ -4670,7 +4668,7 @@ static void check_ssl_policy(void)
     CHECK_CHAIN_POLICY_STATUS(CERT_CHAIN_POLICY_SSL, NULL,
      fooPolicyCheckWithoutMatchingName, &oct2007, &policyPara);
     /* The Battle.Net chain checks a certificate with a domain component
-     * containing a terminating NULL.
+     * containg a terminating NULL.
      */
     sslPolicyPara.pwszServerName = battle_dot_net;
     CHECK_CHAIN_POLICY_STATUS(CERT_CHAIN_POLICY_SSL, NULL,

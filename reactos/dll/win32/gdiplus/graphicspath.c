@@ -1202,9 +1202,11 @@ GpStatus WINGDIPAPI GdipFlattenPath(GpPath *path, GpMatrix* matrix, REAL flatnes
     if(path->pathdata.Count == 0)
         return Ok;
 
-    stat = GdipTransformPath(path, matrix);
-    if(stat != Ok)
-        return stat;
+    if(matrix){
+        stat = GdipTransformPath(path, matrix);
+        if (stat != Ok)
+            return stat;
+    }
 
     pt = path->pathdata.Points[0];
     if(!init_path_list(&list, pt.X, pt.Y))
@@ -1661,7 +1663,7 @@ GpStatus WINGDIPAPI GdipTransformPath(GpPath *path, GpMatrix *matrix)
     if(!path)
         return InvalidParameter;
 
-    if(path->pathdata.Count == 0 || !matrix)
+    if(path->pathdata.Count == 0)
         return Ok;
 
     return GdipTransformMatrixPoints(matrix, path->pathdata.Points,

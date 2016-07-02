@@ -42,8 +42,6 @@ DEFINE_GUID(FMTID_UserDefinedProperties,0xD5CDD505,0x2E9C,0x101B,0x93,0x97,0x08,
 static HRESULT (WINAPI *pFmtIdToPropStgName)(const FMTID *, LPOLESTR);
 static HRESULT (WINAPI *pPropStgNameToFmtId)(const LPOLESTR, FMTID *);
 static HRESULT (WINAPI *pStgCreatePropSetStg)(IStorage *, DWORD, IPropertySetStorage **);
-static HRESULT (WINAPI *pStgCreatePropStg)(IUnknown *, REFFMTID, const CLSID *, DWORD, DWORD, IPropertyStorage **);
-static HRESULT (WINAPI *pStgOpenPropStg)(IUnknown *, REFFMTID, DWORD, DWORD, IPropertyStorage **);
 
 static void init_function_pointers(void)
 {
@@ -51,25 +49,20 @@ static void init_function_pointers(void)
     pFmtIdToPropStgName = (void*)GetProcAddress(hmod, "FmtIdToPropStgName");
     pPropStgNameToFmtId = (void*)GetProcAddress(hmod, "PropStgNameToFmtId");
     pStgCreatePropSetStg = (void*)GetProcAddress(hmod, "StgCreatePropSetStg");
-    pStgCreatePropStg = (void*)GetProcAddress(hmod, "StgCreatePropStg");
-    pStgOpenPropStg = (void*)GetProcAddress(hmod, "StgOpenPropStg");
 }
-
 /* FIXME: this creates an ANSI storage, try to find conditions under which
  * Unicode translation fails
  */
-static void testPropsHelper(IPropertySetStorage **propSetStorage)
+static void testProps(void)
 {
     static const WCHAR szDot[] = { '.',0 };
     static const WCHAR szPrefix[] = { 's','t','g',0 };
-    static const WCHAR szSummaryInfo[] = { 5,'S','u','m','m','a','r','y',
-        'I','n','f','o','r','m','a','t','i','o','n',0 };
     static WCHAR propName[] = { 'p','r','o','p',0 };
     static char val[] = "l33t auth0r";
     WCHAR filename[MAX_PATH];
     HRESULT hr;
     IStorage *storage = NULL;
-    IStream *stream = NULL;
+    IPropertySetStorage *propSetStorage = NULL;
     IPropertyStorage *propertyStorage = NULL;
     PROPSPEC spec;
     PROPVARIANT var;
@@ -77,11 +70,6 @@ static void testPropsHelper(IPropertySetStorage **propSetStorage)
     unsigned char clipcontent[] = "foobar";
     GUID anyOldGuid = { 0x12345678,0xdead,0xbeef, {
      0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07 } };
-
-    if(propSetStorage)
-        trace("Testing property storage with a set...\n");
-    else
-        trace("Testing property storage without a set...\n");
 
     if(!GetTempFileNameW(szDot, szPrefix, 0, filename))
         return;
@@ -92,40 +80,20 @@ static void testPropsHelper(IPropertySetStorage **propSetStorage)
      STGM_READWRITE | STGM_SHARE_EXCLUSIVE | STGM_CREATE, 0, &storage);
     ok(hr == S_OK, "StgCreateDocfile failed: 0x%08x\n", hr);
 
-    if(propSetStorage)
+    if(!pStgCreatePropSetStg)
     {
-        if(!pStgCreatePropSetStg)
-        {
-            IStorage_Release(storage);
-            DeleteFileW(filename);
-            return;
-        }
-        hr = pStgCreatePropSetStg(storage, 0, propSetStorage);
-        ok(hr == S_OK, "StgCreatePropSetStg failed: 0x%08x\n", hr);
-
-        hr = IPropertySetStorage_Create(*propSetStorage,
-         &FMTID_SummaryInformation, NULL, PROPSETFLAG_ANSI,
-         STGM_READWRITE | STGM_CREATE | STGM_SHARE_EXCLUSIVE,
-         &propertyStorage);
-        ok(hr == S_OK, "IPropertySetStorage_Create failed: 0x%08x\n", hr);
+        IStorage_Release(storage);
+        DeleteFileW(filename);
+        return;
     }
-    else
-    {
-        hr = IStorage_CreateStream(storage, szSummaryInfo,
-         STGM_CREATE | STGM_READWRITE | STGM_SHARE_EXCLUSIVE, 0, 0, &stream);
-        ok(hr == S_OK, "IStorage_CreateStream failed: 0x%08x\n", hr);
+    hr = pStgCreatePropSetStg(storage, 0, &propSetStorage);
+    ok(hr == S_OK, "StgCreatePropSetStg failed: 0x%08x\n", hr);
 
-        if(!pStgCreatePropStg)
-        {
-            IStorage_Release(storage);
-            IUnknown_Release(stream);
-            DeleteFileW(filename);
-            return;
-        }
-        hr = pStgCreatePropStg((IUnknown *)stream, &FMTID_SummaryInformation,
-         NULL, PROPSETFLAG_ANSI, 0, &propertyStorage);
-        ok(hr == S_OK, "StgCreatePropStg failed: 0x%08x\n", hr);
-    }
+    hr = IPropertySetStorage_Create(propSetStorage,
+     &FMTID_SummaryInformation, NULL, PROPSETFLAG_ANSI,
+     STGM_READWRITE | STGM_CREATE | STGM_SHARE_EXCLUSIVE,
+     &propertyStorage);
+    ok(hr == S_OK, "IPropertySetStorage_Create failed: 0x%08x\n", hr);
 
     hr = IPropertyStorage_WriteMultiple(propertyStorage, 0, NULL, NULL, 0);
     ok(hr == S_OK, "WriteMultiple with 0 args failed: 0x%08x\n", hr);
@@ -293,41 +261,23 @@ static void testPropsHelper(IPropertySetStorage **propSetStorage)
      */
 
     IPropertyStorage_Release(propertyStorage);
-    if(propSetStorage) IPropertySetStorage_Release(*propSetStorage);
+    propertyStorage = NULL;
+    IPropertySetStorage_Release(propSetStorage);
+    propSetStorage = NULL;
     IStorage_Release(storage);
-    if(stream) IUnknown_Release(stream);
+    storage = NULL;
 
     /* now open it again */
     hr = StgOpenStorage(filename, NULL, STGM_READWRITE | STGM_SHARE_EXCLUSIVE,
      NULL, 0, &storage);
     ok(hr == S_OK, "StgOpenStorage failed: 0x%08x\n", hr);
 
-    if(propSetStorage)
-    {
-        hr = pStgCreatePropSetStg(storage, 0, propSetStorage);
-        ok(hr == S_OK, "StgCreatePropSetStg failed: 0x%08x\n", hr);
+    hr = pStgCreatePropSetStg(storage, 0, &propSetStorage);
+    ok(hr == S_OK, "StgCreatePropSetStg failed: 0x%08x\n", hr);
 
-        hr = IPropertySetStorage_Open(*propSetStorage, &FMTID_SummaryInformation,
-         STGM_READWRITE | STGM_SHARE_EXCLUSIVE, &propertyStorage);
-        ok(hr == S_OK, "IPropertySetStorage_Open failed: 0x%08x\n", hr);
-    }
-    else
-    {
-        hr = IStorage_OpenStream(storage, szSummaryInfo,
-         0, STGM_READWRITE | STGM_SHARE_EXCLUSIVE, 0, &stream);
-        ok(hr == S_OK, "IStorage_OpenStream failed: 0x%08x\n", hr);
-
-        if(!pStgOpenPropStg)
-        {
-            IStorage_Release(storage);
-            IUnknown_Release(stream);
-            DeleteFileW(filename);
-            return;
-        }
-        hr = pStgOpenPropStg((IUnknown *)stream, &FMTID_SummaryInformation,
-         PROPSETFLAG_DEFAULT, 0, &propertyStorage);
-        ok(hr == S_OK, "StgOpenPropStg failed: 0x%08x\n", hr);
-    }
+    hr = IPropertySetStorage_Open(propSetStorage, &FMTID_SummaryInformation,
+     STGM_READWRITE | STGM_SHARE_EXCLUSIVE, &propertyStorage);
+    ok(hr == S_OK, "IPropertySetStorage_Open failed: 0x%08x\n", hr);
 
     /* check properties again */
     spec.ulKind = PRSPEC_LPWSTR;
@@ -347,9 +297,8 @@ static void testPropsHelper(IPropertySetStorage **propSetStorage)
     PropVariantClear(&var);
 
     IPropertyStorage_Release(propertyStorage);
-    if(propSetStorage) IPropertySetStorage_Release(*propSetStorage);
+    IPropertySetStorage_Release(propSetStorage);
     IStorage_Release(storage);
-    if(stream) IUnknown_Release(stream);
 
     DeleteFileW(filename);
 
@@ -358,27 +307,20 @@ static void testPropsHelper(IPropertySetStorage **propSetStorage)
      STGM_READWRITE | STGM_SHARE_EXCLUSIVE | STGM_CREATE, 0, &storage);
     ok(hr == S_OK, "StgCreateDocfile failed: 0x%08x\n", hr);
 
-    if(propSetStorage)
+    if(!pStgCreatePropSetStg)
     {
-        hr = pStgCreatePropSetStg(storage, 0, propSetStorage);
-        ok(hr == S_OK, "StgCreatePropSetStg failed: 0x%08x\n", hr);
-
-        hr = IPropertySetStorage_Create(*propSetStorage,
-         &anyOldGuid, NULL, PROPSETFLAG_ANSI,
-         STGM_READWRITE | STGM_CREATE | STGM_SHARE_EXCLUSIVE,
-         &propertyStorage);
-        ok(hr == S_OK, "IPropertySetStorage_Create failed: 0x%08x\n", hr);
+        IStorage_Release(storage);
+        DeleteFileW(filename);
+        return;
     }
-    else
-    {
-        hr = IStorage_CreateStream(storage, szSummaryInfo,
-         STGM_CREATE | STGM_READWRITE | STGM_SHARE_EXCLUSIVE, 0, 0, &stream);
-        ok(hr == S_OK, "IStorage_CreateStream failed: 0x%08x\n", hr);
+    hr = pStgCreatePropSetStg(storage, 0, &propSetStorage);
+    ok(hr == S_OK, "StgCreatePropSetStg failed: 0x%08x\n", hr);
 
-        hr = pStgCreatePropStg((IUnknown *)stream, &anyOldGuid, NULL,
-         PROPSETFLAG_DEFAULT, 0, &propertyStorage);
-        ok(hr == S_OK, "StgCreatePropStg failed: 0x%08x\n", hr);
-    }
+    hr = IPropertySetStorage_Create(propSetStorage,
+     &anyOldGuid, NULL, PROPSETFLAG_ANSI,
+     STGM_READWRITE | STGM_CREATE | STGM_SHARE_EXCLUSIVE,
+     &propertyStorage);
+    ok(hr == S_OK, "IPropertySetStorage_Create failed: 0x%08x\n", hr);
 
     spec.ulKind = PRSPEC_PROPID;
     U(spec).propid = PID_FIRST_USABLE;
@@ -391,34 +333,21 @@ static void testPropsHelper(IPropertySetStorage **propSetStorage)
     ok(hr == S_OK, "Commit failed: 0x%08x\n", hr);
 
     IPropertyStorage_Release(propertyStorage);
-    if(propSetStorage) IPropertySetStorage_Release(*propSetStorage);
+    IPropertySetStorage_Release(propSetStorage);
     IStorage_Release(storage);
-    if(stream) IUnknown_Release(stream);
+    propertyStorage = NULL;
 
     /* now open it again */
     hr = StgOpenStorage(filename, NULL, STGM_READWRITE | STGM_SHARE_EXCLUSIVE,
      NULL, 0, &storage);
     ok(hr == S_OK, "StgOpenStorage failed: 0x%08x\n", hr);
 
-    if(propSetStorage)
-    {
-        hr = pStgCreatePropSetStg(storage, 0, propSetStorage);
-        ok(hr == S_OK, "StgCreatePropSetStg failed: 0x%08x\n", hr);
+    hr = pStgCreatePropSetStg(storage, 0, &propSetStorage);
+    ok(hr == S_OK, "StgCreatePropSetStg failed: 0x%08x\n", hr);
 
-        hr = IPropertySetStorage_Open(*propSetStorage, &anyOldGuid,
-         STGM_READWRITE | STGM_SHARE_EXCLUSIVE, &propertyStorage);
-        ok(hr == S_OK, "IPropertySetStorage_Open failed: 0x%08x\n", hr);
-    }
-    else
-    {
-        hr = IStorage_OpenStream(storage, szSummaryInfo,
-         0, STGM_READWRITE | STGM_SHARE_EXCLUSIVE, 0, &stream);
-        ok(hr == S_OK, "IStorage_OpenStream failed: 0x%08x\n", hr);
-
-        hr = pStgOpenPropStg((IUnknown *)stream, &anyOldGuid,
-         PROPSETFLAG_DEFAULT, 0, &propertyStorage);
-        ok(hr == S_OK, "StgOpenPropStg failed: 0x%08x\n", hr);
-    }
+    hr = IPropertySetStorage_Open(propSetStorage, &anyOldGuid,
+     STGM_READWRITE | STGM_SHARE_EXCLUSIVE, &propertyStorage);
+    ok(hr == S_OK, "IPropertySetStorage_Open failed: 0x%08x\n", hr);
 
     spec.ulKind = PRSPEC_PROPID;
     U(spec).propid = PID_FIRST_USABLE;
@@ -430,19 +359,10 @@ static void testPropsHelper(IPropertySetStorage **propSetStorage)
      var.vt, U(var).lVal);
 
     IPropertyStorage_Release(propertyStorage);
-    if(propSetStorage) IPropertySetStorage_Release(*propSetStorage);
+    IPropertySetStorage_Release(propSetStorage);
     IStorage_Release(storage);
-    if(stream) IUnknown_Release(stream);
 
     DeleteFileW(filename);
-}
-
-static void testProps(void)
-{
-    IPropertySetStorage *propSetStorage = NULL;
-
-    testPropsHelper(&propSetStorage);
-    testPropsHelper(NULL);
 }
 
 static void testCodepage(void)

@@ -578,7 +578,7 @@ static UINT WHERE_evaluate( MSIWHEREVIEW *wv, const UINT rows[],
 
     default:
         ERR("Invalid expression type\n");
-        return ERROR_FUNCTION_FAILED;
+        break;
     }
 
     return ERROR_SUCCESS;

@@ -3,7 +3,6 @@
 #define STANDALONE
 #include <wine/test.h>
 
-extern void func_animate(void);
 extern void func_button(void);
 extern void func_comboex(void);
 extern void func_datetime(void);
@@ -31,7 +30,6 @@ extern void func_updown(void);
 
 const struct test winetest_testlist[] =
 {
-    { "animate", func_animate },
     { "button", func_button },
     { "comboex", func_comboex },
     { "datetime", func_datetime },

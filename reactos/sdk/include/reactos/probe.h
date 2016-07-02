@@ -53,9 +53,9 @@ static const LARGE_STRING __emptyLargeString = {0, 0, 0, NULL};
 
 #define ProbeForReadGenericType(Ptr, Type, Default)                            \
     (((ULONG_PTR)(Ptr) + sizeof(Type) - 1 < (ULONG_PTR)(Ptr) ||                \
-     (ULONG_PTR)(Ptr) + sizeof(Type) - 1 >= (ULONG_PTR)MmUserProbeAddress) ?   \
-         ExRaiseAccessViolation(), Default :                     \
-         *(const volatile Type *)(Ptr))
+	 (ULONG_PTR)(Ptr) + sizeof(Type) - 1 >= (ULONG_PTR)MmUserProbeAddress) ?   \
+	     ExRaiseAccessViolation(), Default :                     \
+	     *(const volatile Type *)(Ptr))
 
 #define ProbeForReadBoolean(Ptr) ProbeForReadGenericType(Ptr, BOOLEAN, FALSE)
 #define ProbeForReadUchar(Ptr) ProbeForReadGenericType(Ptr, UCHAR, 0)
@@ -144,7 +144,7 @@ ProbeAndCaptureUnicodeString(OUT PUNICODE_STRING Dest,
                              IN const UNICODE_STRING *UnsafeSrc)
 {
     NTSTATUS Status = STATUS_SUCCESS;
-    PWCHAR Buffer = NULL;
+    WCHAR *Buffer = NULL;
     ASSERT(Dest != NULL);
 
     /* Probe the structure and buffer*/
@@ -162,7 +162,9 @@ ProbeAndCaptureUnicodeString(OUT PUNICODE_STRING Dest,
             {
                 if (Dest->Length != 0)
                 {
-                    ProbeForRead(Dest->Buffer, Dest->Length, sizeof(WCHAR));
+                    ProbeForRead(Dest->Buffer,
+                                 Dest->Length,
+                                 sizeof(WCHAR));
 
                     /* Allocate space for the buffer */
                     Buffer = (PWCHAR)ExAllocatePoolWithTag(PagedPool,
@@ -184,14 +186,14 @@ ProbeAndCaptureUnicodeString(OUT PUNICODE_STRING Dest,
                 }
                 else
                 {
-                    /* Sanitize structure */
+                    /* sanitize structure */
                     Dest->MaximumLength = 0;
                     Dest->Buffer = NULL;
                 }
             }
             else
             {
-                /* Sanitize structure */
+                /* sanitize structure */
                 Dest->Length = 0;
                 Dest->MaximumLength = 0;
             }
@@ -201,7 +203,7 @@ ProbeAndCaptureUnicodeString(OUT PUNICODE_STRING Dest,
             /* Free allocated resources and zero the destination string */
             if (Buffer != NULL)
             {
-                ExFreePoolWithTag(Buffer, 'RTSU');
+                ExFreePool(Buffer);
             }
             Dest->Length = 0;
             Dest->MaximumLength = 0;
@@ -230,12 +232,8 @@ ReleaseCapturedUnicodeString(IN PUNICODE_STRING CapturedString,
 {
     if(CurrentMode != KernelMode && CapturedString->Buffer != NULL)
     {
-        ExFreePoolWithTag(CapturedString->Buffer, 'RTSU');
+        ExFreePool(CapturedString->Buffer);
     }
-
-    CapturedString->Length = 0;
-    CapturedString->MaximumLength = 0;
-    CapturedString->Buffer = NULL;
 }
 
 #endif /* INCLUDE_REACTOS_CAPTURE_H */

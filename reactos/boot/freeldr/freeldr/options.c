@@ -96,8 +96,7 @@ VOID DoOptionsMenu(VOID)
                        TRUE,
                        OptionsMenuList,
                        OptionsMenuItemCount,
-                       11, // Use "Start ReactOS normally" as default; see the switch below.
-                       -1,
+                       0, -1,
                        &SelectedMenuItem,
                        TRUE,
                        NULL))

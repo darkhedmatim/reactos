@@ -543,6 +543,7 @@ CDeviceManager::OnNotify(_In_ LPARAM lParam)
                     lpttt->lpszText = MAKEINTRESOURCEW(IDS_TOOLTIP_UNINSTALL);
                     break;
             }
+            idButton = idButton;
             break;
         }
     }

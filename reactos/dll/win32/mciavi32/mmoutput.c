@@ -226,16 +226,14 @@ static BOOL	MCIAVI_AddFrame(WINE_MCIAVI* wma, LPMMCKINFO mmck,
 	      alb->numAudioBlocks, mmck->cksize);
 	if (wma->lpWaveFormat) {
 	    if (alb->numAudioBlocks >= alb->numAudioAllocated) {
-                DWORD newsize = alb->numAudioAllocated + 32;
-                struct MMIOPos* newindex;
-
-                if (!wma->lpAudioIndex)
-                    newindex = HeapAlloc(GetProcessHeap(), 0, newsize * sizeof(struct MMIOPos));
-                else
-                    newindex = HeapReAlloc(GetProcessHeap(), 0, wma->lpAudioIndex, newsize * sizeof(struct MMIOPos));
-                if (!newindex) return FALSE;
-                alb->numAudioAllocated = newsize;
-                wma->lpAudioIndex = newindex;
+		alb->numAudioAllocated += 32;
+		if (!wma->lpAudioIndex)
+		    wma->lpAudioIndex = HeapAlloc(GetProcessHeap(), 0,
+						  alb->numAudioAllocated * sizeof(struct MMIOPos));
+		else
+		    wma->lpAudioIndex = HeapReAlloc(GetProcessHeap(), 0, wma->lpAudioIndex,
+						    alb->numAudioAllocated * sizeof(struct MMIOPos));
+		if (!wma->lpAudioIndex) return FALSE;
 	    }
 	    wma->lpAudioIndex[alb->numAudioBlocks].dwOffset = mmck->dwDataOffset;
 	    wma->lpAudioIndex[alb->numAudioBlocks].dwSize = mmck->cksize;

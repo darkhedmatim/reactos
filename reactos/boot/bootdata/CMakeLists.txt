@@ -18,9 +18,7 @@ add_registry_inf(
 add_cd_file(FILE ${CMAKE_CURRENT_SOURCE_DIR}/bootcdregtest/regtest.cmd DESTINATION reactos/bin FOR all)
 
 #autorun.inf
-add_cd_file(FILE ${CMAKE_CURRENT_SOURCE_DIR}/autorun-bootcd.inf DESTINATION root NO_CAB NOT_IN_HYBRIDCD NAME_ON_CD autorun.inf FOR bootcd)
-add_cd_file(FILE ${CMAKE_CURRENT_SOURCE_DIR}/autorun-livecd.inf DESTINATION root NO_CAB NOT_IN_HYBRIDCD NAME_ON_CD autorun.inf FOR livecd)
-add_cd_file(FILE ${CMAKE_CURRENT_SOURCE_DIR}/autorun-hybridcd.inf DESTINATION root NO_CAB NOT_IN_HYBRIDCD NAME_ON_CD autorun.inf FOR hybridcd)
+add_cd_file(FILE ${CMAKE_CURRENT_SOURCE_DIR}/autorun.inf DESTINATION root NO_CAB NOT_IN_HYBRIDCD FOR all hybridcd)
 
 #icon.ico
 add_cd_file(FILE ${CMAKE_CURRENT_SOURCE_DIR}/icon.ico DESTINATION root NO_CAB NOT_IN_HYBRIDCD FOR all hybridcd)
@@ -51,7 +49,6 @@ endmacro(add_livecd_shortcut)
 ## NOTE: What would be nice is to create this list using /media/inf/shortcuts.inf
 ## and taking their default english translation!
 add_cd_file(FILE "${CMAKE_CURRENT_SOURCE_DIR}/livecd_start.cmd" DESTINATION "Profiles/Default User/My Documents" FOR livecd)
-add_livecd_shortcut("Read Me" readme.txt "Profiles/All Users/Desktop")
 add_livecd_shortcut("Command Prompt" cmd.exe "Profiles/All Users/Desktop")
 add_livecd_shortcut("Device Manager" devmgmt.exe "Profiles/All Users/Start Menu/Programs/Administrative Tools")
 add_livecd_shortcut("Event Viewer" eventvwr.exe "Profiles/All Users/Start Menu/Programs/Administrative Tools")

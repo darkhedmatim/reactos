@@ -147,7 +147,7 @@
 @ stub NetFileClose
 @ stdcall NetFileEnum(wstr wstr wstr long ptr long ptr ptr ptr)
 @ stub NetFileGetInfo
-@ stdcall NetGetAnyDCName(wstr wstr ptr)
+@ stub NetGetAnyDCName
 @ stdcall NetGetDCName(wstr wstr ptr)
 @ stub NetGetDisplayInformationIndex
 @ stdcall NetGetJoinInformation(wstr ptr ptr)

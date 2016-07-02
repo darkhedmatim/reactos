@@ -44,7 +44,7 @@ IsShimInfrastructureDisabled(VOID)
     if (g_ShimsEnabled == -1)
     {
         /* Open the safe mode key */
-        Status = NtOpenKey(&KeyHandle, KEY_QUERY_VALUE, &OptionKeyAttributes);
+        Status = NtOpenKey(&KeyHandle, 1, &OptionKeyAttributes);
         if (NT_SUCCESS(Status))
         {
             /* Check if this is safemode */
@@ -66,7 +66,7 @@ IsShimInfrastructureDisabled(VOID)
             else
             {
                 /* Open the app compatibility engine settings key */
-                Status = NtOpenKey(&KeyHandle, KEY_QUERY_VALUE, &AppCompatKeyAttributes);
+                Status = NtOpenKey(&KeyHandle, 1, &AppCompatKeyAttributes);
                 if (NT_SUCCESS(Status))
                 {
                     /* Check if the app compat engine is turned off */
@@ -88,7 +88,7 @@ IsShimInfrastructureDisabled(VOID)
                     else
                     {
                         /* Finally, open the app compatibility policy key */
-                        Status = NtOpenKey(&KeyHandle, KEY_QUERY_VALUE, &PolicyKeyAttributes);
+                        Status = NtOpenKey(&KeyHandle, 1, &PolicyKeyAttributes);
                         if (NT_SUCCESS(Status))
                         {
                             /* Check if the system policy disables app compat */

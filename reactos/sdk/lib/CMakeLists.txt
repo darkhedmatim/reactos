@@ -33,6 +33,7 @@ add_subdirectory(lsalib)
 add_subdirectory(nt)
 add_subdirectory(ppcmmu)
 add_subdirectory(pseh)
+add_subdirectory(recyclebin)
 
 if(KDBG)
     add_subdirectory(rossym)

@@ -55,7 +55,7 @@ HRESULT TrayWindowCtxMenuCreator(ITrayWindow * TrayWnd, IN HWND hWndOwner, ICont
 
 static LONG TrayWndCount = 0;
 
-static const WCHAR szTrayWndClass[] = L"Shell_TrayWnd";
+static const WCHAR szTrayWndClass [] = TEXT("Shell_TrayWnd");
 
 /*
  * ITrayWindow
@@ -153,8 +153,8 @@ DefSize:
         IconSize.cy = GetSystemMetrics(SM_CYSMICON);
 
         /* Load the start button icon and create a image list for it */
-        hIconStart = (HICON) LoadImageW(hExplorerInstance,
-                                       MAKEINTRESOURCEW(IDI_START),
+        hIconStart = (HICON) LoadImage(hExplorerInstance,
+                                       MAKEINTRESOURCE(IDI_START),
                                        IMAGE_ICON,
                                        IconSize.cx,
                                        IconSize.cy,
@@ -200,10 +200,10 @@ DefSize:
         /* NOTE: this is the backwards compatibility code that is used if the
         Common Controls Version 6.0 are not available! */
 
-        if (!LoadStringW(hExplorerInstance,
-                         IDS_START,
-                         szStartCaption,
-                         _countof(szStartCaption)))
+        if (!LoadString(hExplorerInstance,
+            IDS_START,
+            szStartCaption,
+            sizeof(szStartCaption) / sizeof(szStartCaption[0])))
         {
             return NULL;
         }
@@ -211,8 +211,8 @@ DefSize:
         /* Load the start button icon */
         SmallIcon.cx = GetSystemMetrics(SM_CXSMICON);
         SmallIcon.cy = GetSystemMetrics(SM_CYSMICON);
-        hIconStart = (HICON) LoadImageW(hExplorerInstance,
-                                       MAKEINTRESOURCEW(IDI_START),
+        hIconStart = (HICON) LoadImage(hExplorerInstance,
+                                       MAKEINTRESOURCE(IDI_START),
                                        IMAGE_ICON,
                                        SmallIcon.cx,
                                        SmallIcon.cy,
@@ -230,7 +230,7 @@ DefSize:
 
         Ret = GetTextExtentPoint32(hDC,
                                    szStartCaption,
-                                   wcslen(szStartCaption),
+                                   _tcslen(szStartCaption),
                                    &Size);
 
         SelectObject(hDC, hFontOld);
@@ -304,7 +304,7 @@ Cleanup:
         {
             /* Get the system fonts, we use the caption font, always bold, though. */
             ncm.cbSize = sizeof(ncm);
-            if (SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, FALSE))
+            if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, FALSE))
             {
                 ncm.lfCaptionFont.lfWeight = FW_BOLD;
                 m_Font = CreateFontIndirect(&ncm.lfCaptionFont);
@@ -481,7 +481,7 @@ public:
     {
         NONCLIENTMETRICS ncm;
         ncm.cbSize = sizeof(ncm);
-        if (SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0))
+        if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0))
         {
             if (m_Font != NULL)
                 DeleteObject(m_Font);
@@ -509,9 +509,11 @@ public:
         HMONITOR hMon;
 
         mi.cbSize = sizeof(mi);
-        hMon = MonitorFromRect(pRect, dwFlags);
+        hMon = MonitorFromRect(pRect,
+                               dwFlags);
         if (hMon != NULL &&
-            GetMonitorInfo(hMon, &mi))
+            GetMonitorInfo(hMon,
+            &mi))
         {
             *pRect = mi.rcMonitor;
         }
@@ -538,7 +540,8 @@ public:
            now), minimize the risk that we determine a wrong monitor by
            using the center point of the tray window if we can't determine
            it using the rectangle. */
-        hMon = MonitorFromRect(pRect, MONITOR_DEFAULTTONULL);
+        hMon = MonitorFromRect(pRect,
+                               MONITOR_DEFAULTTONULL);
         if (hMon == NULL)
         {
             POINT pt;
@@ -547,7 +550,8 @@ public:
             pt.y = pRect->top + ((pRect->bottom - pRect->top) / 2);
 
             /* be less error-prone, find the nearest monitor */
-            hMon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+            hMon = MonitorFromPoint(pt,
+                                    MONITOR_DEFAULTTONEAREST);
         }
 
         return hMon;
@@ -564,13 +568,16 @@ public:
             MONITORINFO mi;
 
             mi.cbSize = sizeof(mi);
-            if (!GetMonitorInfo(hMonitor, &mi))
+            if (!GetMonitorInfo(hMonitor,
+                &mi))
             {
                 /* Hm, the monitor is gone? Try to find a monitor where it
                    could be located now */
-                hMon = GetMonitorFromRect(pRect);
+                hMon = GetMonitorFromRect(
+                    pRect);
                 if (hMon == NULL ||
-                    !GetMonitorInfo(hMon, &mi))
+                    !GetMonitorInfo(hMon,
+                    &mi))
                 {
                     hMon = NULL;
                     goto GetPrimaryRect;
@@ -669,10 +676,11 @@ GetPrimaryRect:
 
         /* FIXME - calculate */
 
-        GetTrayRectFromScreenRect(Position,
-                                  &rcScreen,
-                                  &szWnd,
-                                  pRect);
+        GetTrayRectFromScreenRect(
+            Position,
+            &rcScreen,
+            &szWnd,
+            pRect);
 
         return hMon;
     }
@@ -710,13 +718,16 @@ GetPrimaryRect:
         rcScreen.top = 0;
 
         /* Determine the screen rectangle */
-        hMon = MonitorFromPoint(pt, MONITOR_DEFAULTTONULL);
+        hMon = MonitorFromPoint(pt,
+                                MONITOR_DEFAULTTONULL);
+
         if (hMon != NULL)
         {
             MONITORINFO mi;
 
             mi.cbSize = sizeof(mi);
-            if (!GetMonitorInfo(hMon, &mi))
+            if (!GetMonitorInfo(hMon,
+                &mi))
             {
                 hMon = NULL;
                 goto GetPrimaryScreenRect;
@@ -860,8 +871,9 @@ GetPrimaryScreenRect:
                 //m_TrayRects[DraggingPosition] = rcTray;
             }
 
-            //Monitor = CalculateValidSize(DraggingPosition,
-            //                             &rcTray);
+            //Monitor = CalculateValidSize(
+            //                                                   DraggingPosition,
+            //                                                   &rcTray);
 
             m_Monitor = m_DraggingMonitor;
             m_Position = m_DraggingPosition;
@@ -981,10 +993,10 @@ ChangePos:
         if (m_PreviousMonitor != m_Monitor)
         {
             GetScreenRect(m_PreviousMonitor, &rcWorkArea);
-            SystemParametersInfoW(SPI_SETWORKAREA,
-                                  1,
-                                  &rcWorkArea,
-                                  SPIF_SENDCHANGE);
+            SystemParametersInfo(SPI_SETWORKAREA,
+                                 1,
+                                 &rcWorkArea,
+                                 SPIF_SENDCHANGE);
         }
 
         rcTray = m_TrayRects[m_Position];
@@ -992,8 +1004,8 @@ ChangePos:
         GetScreenRect(m_Monitor, &rcWorkArea);
         m_PreviousMonitor = m_Monitor;
 
-        /* If AutoHide is false then change the workarea to exclude
-           the area that the taskbar covers. */
+        /* If AutoHide is false then change the workarea to exclude the area that
+           the taskbar covers. */
         if (!AutoHide)
         {
             switch (m_Position)
@@ -1013,14 +1025,10 @@ ChangePos:
             }
         }
 
-        /*
-         * Resize the current monitor work area. Win32k will also send
-         * a WM_SIZE message to automatically resize the desktop.
-         */
-        SystemParametersInfoW(SPI_SETWORKAREA,
-                              1,
-                              &rcWorkArea,
-                              SPIF_SENDCHANGE);
+        SystemParametersInfo(SPI_SETWORKAREA,
+                             1,
+                             &rcWorkArea,
+                             SPIF_SENDCHANGE);
 #endif
     }
 
@@ -1160,13 +1168,16 @@ ChangePos:
         /* Calculate all docking rectangles. We need to do this here so they're
            initialized and dragging the tray window to another position gives
            usable results */
-        for (Pos = ABE_LEFT; Pos <= ABE_BOTTOM; Pos++)
+        for (Pos = ABE_LEFT;
+             Pos <= ABE_BOTTOM;
+             Pos++)
         {
-            GetTrayRectFromScreenRect(Pos,
-                                      &rcScreen,
-                                      &m_TraySize,
-                                      &m_TrayRects[Pos]);
-            // TRACE("m_TrayRects[%d(%d)]: %d,%d,%d,%d\n", Pos, Position, m_TrayRects[Pos].left, m_TrayRects[Pos].top, m_TrayRects[Pos].right, m_TrayRects[Pos].bottom);
+            GetTrayRectFromScreenRect(
+                Pos,
+                &rcScreen,
+                &m_TraySize,
+                &m_TrayRects[Pos]);
+            //        TRACE("m_TrayRects[%d(%d)]: %d,%d,%d,%d\n", Pos, Position, m_TrayRects[Pos].left, m_TrayRects[Pos].top, m_TrayRects[Pos].right, m_TrayRects[Pos].bottom);
         }
 
         /* Determine which monitor we are on. It shouldn't matter which docked
@@ -1361,9 +1372,9 @@ ChangePos:
 
         if (m_TrayNotify != NULL &&
             SendMessage(m_TrayNotify,
-                        TNWM_GETMINIMUMSIZE,
-                        (WPARAM)Horizontal,
-                        (LPARAM)&TraySize))
+            TNWM_GETMINIMUMSIZE,
+            (WPARAM) Horizontal,
+            (LPARAM) &TraySize))
         {
             /* Move the tray notification window to the desired location */
             if (Horizontal)
@@ -1466,12 +1477,12 @@ ChangePos:
 
         InterlockedIncrement(&TrayWndCount);
 
-        if (!LoadStringW(hExplorerInstance,
-                         IDS_START,
-                         szStartCaption,
-                         _countof(szStartCaption)))
+        if (!LoadString(hExplorerInstance,
+            IDS_START,
+            szStartCaption,
+            sizeof(szStartCaption) / sizeof(szStartCaption[0])))
         {
-            szStartCaption[0] = L'\0';
+            szStartCaption[0] = TEXT('\0');
         }
 
         if (m_CaptionFont == NULL)
@@ -1481,7 +1492,7 @@ ChangePos:
             /* Get the system fonts, we use the caption font,
                always bold, though. */
             ncm.cbSize = sizeof(ncm);
-            if (SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, FALSE))
+            if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, FALSE))
             {
                 if (m_CaptionFont == NULL)
                 {
@@ -1516,7 +1527,7 @@ ChangePos:
         RegLoadSettings();
 
         /* Create and initialize the start menu */
-        HBITMAP hbmBanner = LoadBitmapW(hExplorerInstance, MAKEINTRESOURCEW(IDB_STARTMENU));
+        HBITMAP hbmBanner = LoadBitmap(hExplorerInstance, MAKEINTRESOURCE(IDB_STARTMENU));
         m_StartMenuPopup = CreateStartMenu(this, &m_StartMenuBand, hbmBanner, 0);
 
         /* Load the tray band site */
@@ -1542,7 +1553,7 @@ ChangePos:
         /* Align all controls on the tray window */
         AlignControls(NULL);
 
-        InitShellServices(&m_ShellServices);
+        InitShellServices(&(m_ShellServices));
 
         if (AutoHide)
         {
@@ -1625,7 +1636,8 @@ ChangePos:
                 (m_DesktopWnd != NULL && m_hWnd == m_DesktopWnd));
     }
 
-    BOOL STDMETHODCALLTYPE IsHorizontal()
+    BOOL STDMETHODCALLTYPE
+        IsHorizontal()
     {
         return IsPosHorizontal();
     }
@@ -2396,7 +2408,8 @@ ChangePos:
                 SC_MINIMIZE,
             };
             HMENU hSysMenu;
-            UINT i, uId;
+            INT i;
+            UINT uId;
 
             /* temporarily enable the system menu */
             SetWindowStyle(m_hWnd, WS_SYSMENU, WS_SYSMENU);
@@ -2405,7 +2418,7 @@ ChangePos:
             if (hSysMenu != NULL)
             {
                 /* Disable all items that are not relevant */
-                for (i = 0; i < _countof(uidDisableItem); i++)
+                for (i = 0; i != sizeof(uidDisableItem) / sizeof(uidDisableItem[0]); i++)
                 {
                     EnableMenuItem(hSysMenu,
                                    uidDisableItem[i],
@@ -2610,10 +2623,9 @@ HandleTrayContextMenu:
 
     LRESULT OnDoExitWindows(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
     {
-        /*
+        /* 
          * TWM_DOEXITWINDOWS is send by the CDesktopBrowser to us
-         * to show the shutdown dialog. Also a WM_CLOSE message sent
-         * by apps should show the dialog.
+         * to show the shutdown dialog.
          */
         return DoExitWindows();
     }
@@ -2634,10 +2646,10 @@ HandleTrayContextMenu:
         WCHAR szCommand[256];
         WCHAR *pszParameters;
 
-        if (!LoadStringW(hExplorerInstance,
-                         id,
-                         szCommand,
-                         _countof(szCommand)))
+        if (!LoadString(hExplorerInstance,
+                        id,
+                        szCommand,
+                        sizeof(szCommand) / sizeof(szCommand[0])))
         {
             return E_FAIL;
         }
@@ -2869,7 +2881,6 @@ HandleTrayContextMenu:
         MESSAGE_HANDLER(WM_APP_TRAYDESTROY, OnAppTrayDestroy)
         MESSAGE_HANDLER(TWM_OPENSTARTMENU, OnOpenStartMenu)
         MESSAGE_HANDLER(TWM_DOEXITWINDOWS, OnDoExitWindows)
-        MESSAGE_HANDLER(WM_CLOSE, OnDoExitWindows)
         MESSAGE_HANDLER(WM_HOTKEY, OnHotkey)
     ALT_MSG_MAP(1)
     END_MSG_MAP()
@@ -3001,7 +3012,7 @@ public:
                          UINT idCmdLast,
                          UINT uFlags)
     {
-        HMENU menubase = LoadPopupMenu(hExplorerInstance, MAKEINTRESOURCEW(IDM_TRAYWND));
+        HMENU menubase = LoadPopupMenu(hExplorerInstance, MAKEINTRESOURCE(IDM_TRAYWND));
 
         if (!menubase)
             return HRESULT_FROM_WIN32(GetLastError());
@@ -3073,7 +3084,7 @@ public:
                     /* Setup and invoke the shell command */
                     cmici.cbSize = sizeof(cmici);
                     cmici.hwnd = hWndOwner;
-                    cmici.lpVerb = (LPCSTR) MAKEINTRESOURCEW(uiCmdId - ID_SHELL_CMD_FIRST);
+                    cmici.lpVerb = (LPCSTR) MAKEINTRESOURCE(uiCmdId - ID_SHELL_CMD_FIRST);
                     cmici.nShow = SW_NORMAL;
 
                     pcm->InvokeCommand(&cmici);

@@ -22,17 +22,7 @@
 /*
  * third extended-fs super-block data in memory
  */
-
-struct ext3_gd {
-    ext3_fsblk_t            block;
-    struct ext4_group_desc *gd;
-    struct buffer_head     *bh;
-};
-
 struct ext3_sb_info {
-
-    ERESOURCE           s_gd_lock;
-    struct ext3_gd     *s_gd;
 
     unsigned long s_desc_size;      /* size of group desc */
     unsigned long s_gdb_count;	/* Number of group descriptor blocks */
@@ -46,6 +36,7 @@ struct ext3_sb_info {
     int s_addr_per_block_bits;
     int s_desc_per_block_bits;
 
+    ext3_fsblk_t  *s_group_desc;
 
 #if 0
     unsigned long s_frag_size;	/* Size of a fragment in bytes */

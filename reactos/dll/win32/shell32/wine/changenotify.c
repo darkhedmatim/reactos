@@ -58,7 +58,6 @@ typedef struct {
     OVERLAPPED overlapped; /* Overlapped structure */
     BYTE *buffer; /* Async buffer to fill */
     BYTE *backBuffer; /* Back buffer to swap buffer into */
-    struct _NOTIFICATIONLIST * pParent;
 } SHChangeNotifyEntryInternal, *LPNOTIFYREGISTER;
 #else
 typedef SHChangeNotifyEntry *LPNOTIFYREGISTER;
@@ -75,9 +74,6 @@ typedef struct _NOTIFICATIONLIST
 	LONG wEventMask;	/* subscribed events */
 	DWORD dwFlags;		/* client flags */
 	ULONG id;
-#ifdef __REACTOS__
-    volatile LONG wQueuedCount;
-#endif
 } NOTIFICATIONLIST, *LPNOTIFICATIONLIST;
 
 #ifdef __REACTOS__
@@ -160,21 +156,8 @@ static const char * NodeName(const NOTIFICATIONLIST *item)
 static void DeleteNode(LPNOTIFICATIONLIST item)
 {
     UINT i;
-#ifdef __REACTOS__
-    LONG queued;
-#endif
 
     TRACE("item=%p\n", item);
-
-#ifdef __REACTOS__
-    queued = InterlockedCompareExchange(&item->wQueuedCount, 0, 0);
-    if (queued != 0)
-    {
-        TRACE("Not freeing, still %d queued events\n", queued);
-        return;
-    }
-    TRACE("Freeing for real!\n");
-#endif
 
     /* remove item from list */
     list_remove( &item->entry );
@@ -252,7 +235,6 @@ SHChangeNotifyRegister(
     item->cidl = cItems;
 #ifdef __REACTOS__
     item->apidl = SHAlloc(sizeof(SHChangeNotifyEntryInternal) * cItems);
-    item->wQueuedCount = 0;
 #else
     item->apidl = SHAlloc(sizeof(SHChangeNotifyEntry) * cItems);
 #endif
@@ -267,15 +249,11 @@ SHChangeNotifyRegister(
         item->apidl[i].buffer = SHAlloc(BUFFER_SIZE);
         item->apidl[i].backBuffer = SHAlloc(BUFFER_SIZE);
         item->apidl[i].overlapped.hEvent = &item->apidl[i];
-        item->apidl[i].pParent = item;
 
         if (fSources & SHCNRF_InterruptLevel)
         {
             if (_OpenDirectory( &item->apidl[i] ))
-            {
-                InterlockedIncrement(&item->wQueuedCount);
                 QueueUserAPC( _AddDirectoryProc, m_hThread, (ULONG_PTR) &item->apidl[i] );
-            }
             else
             {
                 CHAR buffer[MAX_PATH];
@@ -736,11 +714,7 @@ _NotificationCompletion(DWORD dwErrorCode, // completion code
                        item->pidl,
                        NULL);
 
-#ifdef __REACTOS__
-        goto quit;
-#else
         return;
-#endif
     }
 
     /*
@@ -757,21 +731,12 @@ _NotificationCompletion(DWORD dwErrorCode, // completion code
     _BeginRead(item);
 
     _ProcessNotification(item);
-
-#ifdef __REACTOS__
-quit:
-    InterlockedDecrement(&item->pParent->wQueuedCount);
-    DeleteNode(item->pParent);
-#endif
 }
 
 static VOID _BeginRead(LPNOTIFYREGISTER item )
 {
     TRACE("_BeginRead %p \n", item->hDirectory);
 
-#ifdef __REACTOS__
-    InterlockedIncrement(&item->pParent->wQueuedCount);
-#endif
     /* This call needs to be reissued after every APC. */
     if (!ReadDirectoryChangesW(item->hDirectory, // handle to directory
                                item->buffer, // read results buffer
@@ -781,20 +746,12 @@ static VOID _BeginRead(LPNOTIFYREGISTER item )
                                NULL, // bytes returned
                                &item->overlapped, // overlapped buffer
                                _NotificationCompletion)) // completion routine
-#ifdef __REACTOS__
-    {
-#endif
         ERR("ReadDirectoryChangesW failed. (%p, %p, %p, %p) Code: %u \n",
             item->hDirectory,
             item->buffer,
             &item->overlapped,
             _NotificationCompletion,
             GetLastError());
-#ifdef __REACTOS__
-        InterlockedDecrement(&item->pParent->wQueuedCount);
-        DeleteNode(item->pParent);
-    }
-#endif
 }
 
 DWORD _MapAction(DWORD dwAction, BOOL isDir)

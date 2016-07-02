@@ -465,14 +465,43 @@ HRESULT WINAPI CNetFolder::GetUIObjectOf(HWND hwndOwner, UINT cidl, PCUITEMID_CH
 */
 HRESULT WINAPI CNetFolder::GetDisplayNameOf(PCUITEMID_CHILD pidl, DWORD dwFlags, LPSTRRET strRet)
 {
+    LPWSTR pszName;
+
+    TRACE ("(%p)->(pidl=%p,0x%08lx,%p)\n", this, pidl, dwFlags, strRet);
+    pdump (pidl);
+
     if (!strRet)
         return E_INVALIDARG;
 
     if (!pidl->mkid.cb)
-        return SHSetStrRet(strRet, IDS_NETWORKPLACE);
+    {
+        pszName = (LPWSTR)CoTaskMemAlloc(MAX_PATH * sizeof(WCHAR));
+        if (!pszName)
+            return E_OUTOFMEMORY;
+
+        if (LoadStringW(shell32_hInstance, IDS_NETWORKPLACE, pszName, MAX_PATH))
+        {
+            pszName[MAX_PATH-1] = L'\0';
+            strRet->uType = STRRET_WSTR;
+            strRet->pOleStr = pszName;
+            return S_OK;
+        }
+        CoTaskMemFree(pszName);
+        return E_FAIL;
+    }
 #ifdef HACKY_UNC_PATHS
     else
-        return SHSetStrRet(strRet, (LPCWSTR)pidl->mkid.abID);
+    {
+        LPCWSTR pstr = (LPCWSTR)pidl->mkid.abID;
+        pszName = (LPWSTR)CoTaskMemAlloc(MAX_PATH * sizeof(WCHAR));
+        if (!pszName)
+            return E_OUTOFMEMORY;
+
+        wcscpy(pszName, pstr);
+        strRet->pOleStr = pszName;
+        strRet->uType = STRRET_WSTR;
+        return S_OK;
+    }
 #endif
     return E_NOTIMPL;
 }
@@ -539,13 +568,22 @@ HRESULT WINAPI CNetFolder::GetDetailsEx(PCUITEMID_CHILD pidl, const SHCOLUMNID *
 
 HRESULT WINAPI CNetFolder::GetDetailsOf(PCUITEMID_CHILD pidl, UINT iColumn, SHELLDETAILS *psd)
 {
+    WCHAR buffer[MAX_PATH] = {0};
+    HRESULT hr = E_FAIL;
+
     if (iColumn >= NETWORKPLACESSHELLVIEWCOLUMNS)
         return E_FAIL;
 
     psd->fmt = NetworkPlacesSFHeader[iColumn].fmt;
     psd->cxChar = NetworkPlacesSFHeader[iColumn].cxChar;
     if (pidl == NULL)
-        return SHSetStrRet(&psd->str, NetworkPlacesSFHeader[iColumn].colnameid);
+    {
+        psd->str.uType = STRRET_WSTR;
+        if (LoadStringW(shell32_hInstance, NetworkPlacesSFHeader[iColumn].colnameid, buffer, _countof(buffer)))
+            hr = SHStrDupW(buffer, &psd->str.pOleStr);
+
+        return hr;
+    }
 
     if (iColumn == COLUMN_NAME)
         return GetDisplayNameOf(pidl, SHGDN_NORMAL, &psd->str);

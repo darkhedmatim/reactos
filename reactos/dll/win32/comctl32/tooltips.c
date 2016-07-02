@@ -498,12 +498,6 @@ TOOLTIPS_GetTipText (const TOOLTIPS_INFO *infoPtr, INT nTool, WCHAR *buffer)
         buffer[0] = '\0';
     }
 
-    if (!(GetWindowLongW(infoPtr->hwndSelf, GWL_STYLE) & TTS_NOPREFIX)) {
-        WCHAR *ptrW;
-        if ((ptrW = strchrW(buffer, '\t')))
-            *ptrW = 0;
-    }
-
     TRACE("%s\n", debugstr_w(buffer));
 }
 

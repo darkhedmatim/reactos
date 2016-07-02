@@ -112,7 +112,7 @@ CPlApplet*	Control_LoadApplet(HWND hWnd, LPCWSTR cmd, CPanel* panel)
 	*/
        applet->proc(hWnd, CPL_INQUIRE, i, (LPARAM)&info);
        applet->info[i].data = info.lData;
-#ifdef __REACTOS__
+#if __REACTOS__
        applet->info[i].idIcon = info.idIcon;
 #endif
 

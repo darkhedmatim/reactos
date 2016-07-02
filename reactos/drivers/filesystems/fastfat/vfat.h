@@ -25,12 +25,6 @@
 #define ROUND_UP(n, align) \
     ROUND_DOWN(((ULONG)n) + (align) - 1, (align))
 
-#define ROUND_DOWN_64(n, align) \
-    (((ULONGLONG)n) & ~((align) - 1LL))
-
-#define ROUND_UP_64(n, align) \
-    ROUND_DOWN_64(((ULONGLONG)n) + (align) - 1LL, (align))
-
 #include <pshpack1.h>
 struct _BootSector
 {
@@ -494,7 +488,6 @@ typedef struct _VFAT_MOVE_CONTEXT
     ULONG FileSize;
     USHORT CreationDate;
     USHORT CreationTime;
-    BOOLEAN InPlace;
 } VFAT_MOVE_CONTEXT, *PVFAT_MOVE_CONTEXT;
 
 FORCEINLINE

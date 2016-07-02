@@ -160,7 +160,7 @@
 @ stdcall CryptMsgOpenToEncode(long long long ptr str ptr)
 @ stdcall CryptMsgSignCTL(long ptr long ptr long ptr ptr)
 @ stdcall CryptMsgUpdate(ptr ptr long long)
-@ stdcall CryptMsgVerifyCountersignatureEncoded(ptr long ptr long ptr long ptr)
+@ stub CryptMsgVerifyCountersignatureEncoded
 @ stdcall CryptMsgVerifyCountersignatureEncodedEx(ptr long ptr long ptr long long ptr long ptr)
 @ stdcall CryptProtectData(ptr wstr ptr ptr ptr long ptr)
 @ stdcall CryptProtectMemory(ptr long long)

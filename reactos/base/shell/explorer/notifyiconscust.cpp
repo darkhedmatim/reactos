@@ -46,5 +46,5 @@ INT_PTR CALLBACK CustomizeNotifyIconsProc(HWND hwnd, UINT Message, WPARAM wParam
 
 VOID ShowCustomizeNotifyIcons(HINSTANCE hInst, HWND hExplorer)
 {
-    DialogBoxW(hInst, MAKEINTRESOURCEW(IDD_NOTIFICATIONS_CUSTOMIZE), hExplorer, CustomizeNotifyIconsProc);
+    DialogBox(hInst, MAKEINTRESOURCE(IDD_NOTIFICATIONS_CUSTOMIZE), hExplorer, CustomizeNotifyIconsProc);
 }

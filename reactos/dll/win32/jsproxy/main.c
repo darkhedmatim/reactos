@@ -99,7 +99,7 @@ static inline BOOL heap_free( LPVOID mem )
     return HeapFree( GetProcessHeap(), 0, mem );
 }
 
-static inline WCHAR *strdupAW( const char *src, int len )
+static inline WCHAR *strdupAW( const char *src, DWORD len )
 {
     WCHAR *dst = NULL;
     if (src)
@@ -188,28 +188,14 @@ BOOL WINAPI JSPROXY_InternetInitializeAutoProxyDll( DWORD version, LPSTR tmpfile
 
     EnterCriticalSection( &cs_jsproxy );
 
-    if (buffer && buffer->dwStructSize == sizeof(*buffer) && buffer->lpszScriptBuffer)
+    if (global_script->text)
     {
-        DWORD i, len = 0;
-        for (i = 0; i < buffer->dwScriptBufferSize; i++)
-        {
-            if (!buffer->lpszScriptBuffer[i]) break;
-            len++;
-        }
-        if (len == buffer->dwScriptBufferSize)
-        {
-            SetLastError( ERROR_INVALID_PARAMETER );
-            LeaveCriticalSection( &cs_jsproxy );
-            return FALSE;
-        }
-        heap_free( global_script->text );
-        if ((global_script->text = strdupAW( buffer->lpszScriptBuffer, len ))) ret = TRUE;
+        LeaveCriticalSection( &cs_jsproxy );
+        return FALSE;
     }
-    else
-    {
-        heap_free( global_script->text );
-        if ((global_script->text = load_script( tmpfile ))) ret = TRUE;
-    }
+    if (buffer && buffer->dwStructSize == sizeof(*buffer) && buffer->lpszScriptBuffer &&
+        (global_script->text = strdupAW( buffer->lpszScriptBuffer, buffer->dwScriptBufferSize ))) ret = TRUE;
+    else if ((global_script->text = load_script( tmpfile ))) ret = TRUE;
 
     LeaveCriticalSection( &cs_jsproxy );
     return ret;
@@ -641,18 +627,9 @@ BOOL WINAPI InternetGetProxyInfo( LPCSTR url, DWORD len_url, LPCSTR hostname, DW
 
     EnterCriticalSection( &cs_jsproxy );
 
-    if (!global_script->text)
-    {
-        SetLastError( ERROR_CAN_NOT_COMPLETE );
-        goto done;
-    }
-    if (hostname && len_hostname < strlen( hostname ))
-    {
-        SetLastError( ERROR_INSUFFICIENT_BUFFER );
-        goto done;
-    }
-    if (!(urlW = strdupAW( url, -1 ))) goto done;
-    if (hostname && !(hostnameW = strdupAW( hostname, -1 ))) goto done;
+    if (!global_script->text) goto done;
+    if (!(urlW = strdupAW( url, len_url ))) goto done;
+    if (hostname && !(hostnameW = strdupAW( hostname, len_hostname ))) goto done;
 
     TRACE( "%s\n", debugstr_w(global_script->text) );
     ret = run_script( global_script->text, urlW, hostnameW, proxy, len_proxy );

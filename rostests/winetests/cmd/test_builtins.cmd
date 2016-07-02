@@ -1072,16 +1072,16 @@ call :ValidateExpected
 echo for /R passed
 echo --- Complex wildcards unix and windows slash
 cd ..
-echo Windows slashes, valid path
+echo Windows slashs, valid path
 for %%f in (foobar\baz\bazbaz) do echo ASIS: %%f
 for %%f in (foobar\baz\*) do echo WC  : %%f
-echo Windows slashes, invalid path
+echo Windows slashs, invalid path
 for %%f in (foobar\jim\bazbaz) do echo ASIS: %%f
 for %%f in (foobar\jim\*) do echo WC  : %%f
-echo Unix slashes, valid path
+echo Unix slashs, valid path
 for %%f in (foobar/baz/bazbaz) do echo ASIS: %%f
 for %%f in (foobar/baz/*) do echo WC  : %%f
-echo Unix slashes, invalid path
+echo Unix slashs, invalid path
 for %%f in (foobar/jim/bazbaz) do echo ASIS: %%f
 for %%f in (foobar/jim/*) do echo WC  : %%f
 echo Done

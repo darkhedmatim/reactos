@@ -1715,7 +1715,7 @@ MupDereferenceMasterQueryContext(PMUP_MQC MasterQueryContext)
 Complete:
     /* In finally, complete the IRP for real! */
     MasterQueryContext->Irp->IoStatus.Status = Status;
-    IoCompleteRequest(MasterQueryContext->Irp, IO_DISK_INCREMENT);
+    IofCompleteRequest(MasterQueryContext->Irp, IO_DISK_INCREMENT);
 
     MasterQueryContext->Irp = NULL;
     MupFreeMasterQueryContext(MasterQueryContext);

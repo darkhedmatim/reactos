@@ -33,7 +33,6 @@ Ext2Cleanup (IN PEXT2_IRP_CONTEXT IrpContext)
     BOOLEAN         VcbResourceAcquired = FALSE;
     BOOLEAN         FcbResourceAcquired = FALSE;
     BOOLEAN         FcbPagingIoResourceAcquired = FALSE;
-    BOOLEAN         SymLinkDelete = FALSE;
 
     _SEH2_TRY {
 
@@ -199,11 +198,7 @@ Ext2Cleanup (IN PEXT2_IRP_CONTEXT IrpContext)
             }
 
             if (IsFlagOn(Ccb->Flags, CCB_DELETE_ON_CLOSE))  {
-                if (Ccb->SymLink || IsInodeSymLink(&Mcb->Inode)) {
-                    SymLinkDelete = TRUE;
-                } else {
-                    SetLongFlag(Fcb->Flags, FCB_DELETE_PENDING);
-                }
+                SetLongFlag(Fcb->Flags, FCB_DELETE_PENDING);
             }
 
             //
@@ -284,52 +279,52 @@ Ext2Cleanup (IN PEXT2_IRP_CONTEXT IrpContext)
             }
         }
 
-        if (SymLinkDelete ||
-            (IsFlagOn(Fcb->Flags, FCB_DELETE_PENDING) &&
-             Fcb->OpenHandleCount == 0) ) {
+        if (IsFlagOn(Fcb->Flags, FCB_DELETE_PENDING)) {
 
-            //
-            // Ext2DeleteFile will acquire these lock inside
-            //
+            if (Fcb->OpenHandleCount == 0 || (Mcb = Ccb->SymLink)) {
 
-            if (FcbResourceAcquired) {
-                ExReleaseResourceLite(&Fcb->MainResource);
-                FcbResourceAcquired = FALSE;
-            }
+                //
+                // Ext2DeleteFile will acquire these lock inside
+                //
 
-            //
-            //  this file is to be deleted ...
-            //
-            if (Ccb->SymLink) {
-                Mcb = Ccb->SymLink;
-                FileObject->DeletePending = FALSE;
-            }
-
-            Status = Ext2DeleteFile(IrpContext, Vcb, Fcb, Mcb);
-
-            if (NT_SUCCESS(Status)) {
-                if (IsMcbDirectory(Mcb)) {
-                    Ext2NotifyReportChange( IrpContext, Vcb, Mcb,
-                                            FILE_NOTIFY_CHANGE_DIR_NAME,
-                                            FILE_ACTION_REMOVED );
-                } else {
-                    Ext2NotifyReportChange( IrpContext, Vcb, Mcb,
-                                            FILE_NOTIFY_CHANGE_FILE_NAME,
-                                            FILE_ACTION_REMOVED );
+                if (FcbResourceAcquired) {
+                    ExReleaseResourceLite(&Fcb->MainResource);
+                    FcbResourceAcquired = FALSE;
                 }
-            }
 
-            //
-            // re-acquire the main resource lock
-            //
+                //
+                //  this file is to be deleted ...
+                //
+                if (Ccb->SymLink) {
+                    Mcb = Ccb->SymLink;
+                    FileObject->DeletePending = FALSE;
+                }
 
-            FcbResourceAcquired =
-                ExAcquireResourceExclusiveLite(
-                    &Fcb->MainResource,
-                    TRUE
-                );
-            if (!SymLinkDelete) {
-                 SetFlag(FileObject->Flags, FO_FILE_MODIFIED);
+                Status = Ext2DeleteFile(IrpContext, Vcb, Fcb, Mcb);
+
+                if (NT_SUCCESS(Status)) {
+                    if (IsMcbDirectory(Mcb)) {
+                        Ext2NotifyReportChange( IrpContext, Vcb, Mcb,
+                                                FILE_NOTIFY_CHANGE_DIR_NAME,
+                                                FILE_ACTION_REMOVED );
+                    } else {
+                        Ext2NotifyReportChange( IrpContext, Vcb, Mcb,
+                                                FILE_NOTIFY_CHANGE_FILE_NAME,
+                                                FILE_ACTION_REMOVED );
+                    }
+                }
+
+                //
+                // re-acquire the main resource lock
+                //
+
+                FcbResourceAcquired =
+                    ExAcquireResourceExclusiveLite(
+                        &Fcb->MainResource,
+                        TRUE
+                    );
+
+                SetFlag(FileObject->Flags, FO_FILE_MODIFIED);
                 if (CcIsFileCached(FileObject)) {
                     CcSetFileSizes(FileObject,
                                    (PCC_FILE_SIZES)(&(Fcb->Header.AllocationSize)));

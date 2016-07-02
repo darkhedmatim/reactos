@@ -554,6 +554,13 @@ Ext2SetFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
             VcbMainResourceAcquired = TRUE;
         }
 
+        if (IsVcbReadOnly(Vcb)) {
+            if (FileInformationClass != FilePositionInformation) {
+                Status = STATUS_MEDIA_WRITE_PROTECTED;
+                _SEH2_LEAVE;
+            }
+        }
+
         if (FlagOn(Vcb->Flags, VCB_VOLUME_LOCKED)) {
             Status = STATUS_ACCESS_DENIED;
             _SEH2_LEAVE;
@@ -587,17 +594,6 @@ Ext2SetFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
             }
         } else {
             Mcb = Fcb->Mcb;
-        }
-
-        if (FileInformationClass != FilePositionInformation) {
-            if (IsVcbReadOnly(Vcb)) {
-                Status = STATUS_MEDIA_WRITE_PROTECTED;
-                _SEH2_LEAVE;
-            }
-            if (!Ext2CheckFileAccess(Vcb, Mcb, Ext2FileCanWrite)) {
-                Status = STATUS_ACCESS_DENIED;
-                _SEH2_LEAVE;
-            }
         }
 
         if ( !IsDirectory(Fcb) && !FlagOn(Fcb->Flags, FCB_PAGE_FILE) &&
@@ -1293,9 +1289,8 @@ Ext2SetDispositionInfo(
         DEBUG(DL_INF, ( "Ext2SetDispositionInformation: Removing %wZ.\n",
                         &Mcb->FullName));
 
-        if (Ccb->SymLink || IsInodeSymLink(&Mcb->Inode)) {
-            /* always allow deleting on symlinks */
-        } else {
+        /* always allow deleting on symlinks */
+        if (Ccb->SymLink == NULL) {
             status = Ext2IsFileRemovable(IrpContext, Vcb, Fcb, Ccb);
         }
 

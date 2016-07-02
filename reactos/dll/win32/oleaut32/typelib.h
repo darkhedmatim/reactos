@@ -211,7 +211,7 @@ typedef struct {
 
 /* after this may follow an array with default value pointers if the
  * appropriate bit in the FKCCIC field has been set:
- * INT   oDefaultValue[nrargs];
+ * INT   oDefautlValue[nrargs];
  */
 
     /* Parameter info one per argument*/

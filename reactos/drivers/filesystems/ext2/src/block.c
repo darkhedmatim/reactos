@@ -51,8 +51,9 @@ Ext2MediaEjectControlCompletion (
 PMDL
 Ext2CreateMdl (
     IN PVOID Buffer,
+    IN BOOLEAN bPaged,
     IN ULONG Length,
-    IN LOCK_OPERATION op
+    IN LOCK_OPERATION Operation
 )
 {
     NTSTATUS Status;
@@ -64,10 +65,10 @@ Ext2CreateMdl (
         Status = STATUS_INSUFFICIENT_RESOURCES;
     } else {
         _SEH2_TRY {
-            if (MmIsNonPagedSystemAddressValid(Buffer)) {
-                MmBuildMdlForNonPagedPool(Mdl);
+            if (bPaged) {
+                MmProbeAndLockPages(Mdl, KernelMode, Operation);
             } else {
-                MmProbeAndLockPages(Mdl, KernelMode, op);
+                MmBuildMdlForNonPagedPool (Mdl);
             }
             Status = STATUS_SUCCESS;
         } _SEH2_EXCEPT (EXCEPTION_EXECUTE_HANDLER) {
@@ -88,7 +89,6 @@ Ext2DestroyMdl (IN PMDL Mdl)
     while (Mdl) {
         PMDL Next;
         Next = Mdl->Next;
-        Mdl->Next = NULL;
         if (IsFlagOn(Mdl->MdlFlags, MDL_PAGES_LOCKED)) {
             MmUnlockPages (Mdl);
         }

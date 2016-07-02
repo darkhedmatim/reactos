@@ -29,7 +29,6 @@
 #include <msidefs.h>
 #include <msi.h>
 #include <fci.h>
-#include <oaidl.h>
 
 #include "wine/test.h"
 
@@ -601,7 +600,10 @@ static void test_dispid(void)
     while (ptr->name)
     {
         dispid = get_dispid(pInstaller, ptr->name);
-        todo_wine_if (ptr->todo)
+        if (ptr->todo)
+        todo_wine
+            ok(dispid == ptr->did, "%s: expected %d, got %d\n", ptr->name, ptr->did, dispid);
+        else
             ok(dispid == ptr->did, "%s: expected %d, got %d\n", ptr->name, ptr->did, dispid);
         ptr++;
     }
@@ -882,7 +884,9 @@ static HRESULT invoke(IDispatch *pDispatch, LPCSTR szName, WORD wFlags, DISPPARA
 
     if (hr == S_OK)
     {
-        todo_wine_if (_invoke_todo_vtResult)
+        if (_invoke_todo_vtResult) todo_wine
+            ok(V_VT(pVarResult) == vtResult, "Variant result type is %d, expected %d\n", V_VT(pVarResult), vtResult);
+        else
             ok(V_VT(pVarResult) == vtResult, "Variant result type is %d, expected %d\n", V_VT(pVarResult), vtResult);
         if (vtResult != VT_EMPTY)
         {

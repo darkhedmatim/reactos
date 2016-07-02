@@ -20,6 +20,8 @@
 
 #include "shellmenu.h"
 
+HINSTANCE shell32_hInstance = NULL;
+
 DWORD WINAPI WinList_Init(void)
 {
     /* do something here (perhaps we may want to add our own implementation fo win8) */
@@ -36,10 +38,10 @@ class CRShellModule : public CComModule
 public:
 };
 
-CRShellModule gModule;
-CAtlWinModule gWinModule;
+CRShellModule                               gModule;
+CAtlWinModule                               gWinModule;
 
-HINSTANCE shell32_hInstance = NULL;
+HINSTANCE g_hRShell;
 
 static LSTATUS inline _RegSetStringValueW(HKEY hKey, LPCWSTR lpValueName, LPCWSTR lpStringData)
 {
@@ -57,7 +59,7 @@ static HRESULT RegisterComponent(REFGUID clsid, LPCWSTR szDisplayName)
     if (!StringFromGUID2(clsid, szClsid, _countof(szClsid)))
         return E_FAIL;
 
-    if (!GetModuleFileNameW(shell32_hInstance, szFilename, _countof(szFilename)))
+    if (!GetModuleFileNameW(g_hRShell, szFilename, _countof(szFilename)))
         return E_FAIL;
 
     HRESULT hr = StringCchPrintfW(szRoot, 0x104u, L"CLSID\\%s", szClsid);
@@ -115,14 +117,13 @@ STDAPI_(BOOL) DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID fImpLoad)
 {
     if (dwReason == DLL_PROCESS_ATTACH)
     {
-        shell32_hInstance = hInstance;
+        g_hRShell = hInstance;
 
         gModule.Init(NULL, hInstance, NULL);
         DisableThreadLibraryCalls(hInstance);
     }
     else if (dwReason == DLL_PROCESS_DETACH)
     {
-        shell32_hInstance = NULL;
         gModule.Term();
     }
     return TRUE;

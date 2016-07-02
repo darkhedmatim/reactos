@@ -14,6 +14,9 @@
 #define NDEBUG
 #include <debug.h>
 
+/* FIXME: From winbase.h... what to do? */
+#define SEM_NOALIGNMENTFAULTEXCEPT 0x04
+
 /* Debugging Level */
 ULONG PspTraceLevel = 0;
 

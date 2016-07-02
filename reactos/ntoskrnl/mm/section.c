@@ -2993,7 +2993,7 @@ MmCreateDataFileSection(PROS_SECTION_OBJECT *SectionObject,
         {
             ObDereferenceObject(Section);
             ObDereferenceObject(FileObject);
-            return STATUS_MAPPED_FILE_SIZE_ZERO;
+            return STATUS_FILE_INVALID;
         }
     }
 

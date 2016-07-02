@@ -520,6 +520,7 @@ BOOL WINAPI CertAddStoreToCollection(HCERTSTORE hCollectionStore,
         entry->store = sibling;
         entry->dwUpdateFlags = dwUpdateFlags;
         entry->dwPriority = dwPriority;
+        list_init(&entry->entry);
         TRACE("%p: adding %p, priority %d\n", collection, entry, dwPriority);
         EnterCriticalSection(&collection->cs);
         if (dwPriority)

@@ -18,18 +18,12 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-/*
- * PROJECT:         ReactOS Program Manager
- * COPYRIGHT:       GPL - See COPYING in the top level directory
- * FILE:            base/shell/progman/program.c
- * PURPOSE:         Program items helper functions
- * PROGRAMMERS:     Ulrich Schmid
- *                  Hermes Belusca-Maito (hermes.belusca@sfr.fr)
- */
-
 #include "progman.h"
 
-#if 0
+/***********************************************************************
+ *
+ *           PROGRAM_ProgramWndProc
+ */
 
 static LRESULT CALLBACK PROGRAM_ProgramWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -68,44 +62,58 @@ static LRESULT CALLBACK PROGRAM_ProgramWndProc(HWND hWnd, UINT msg, WPARAM wPara
   return DefWindowProcW(hWnd, msg, wParam, lParam);
 }
 
-#endif
+/***********************************************************************
+ *
+ *           PROGRAM_RegisterProgramWinClass
+ */
 
+ATOM PROGRAM_RegisterProgramWinClass(void)
+{
+  WNDCLASSW class;
 
+  class.style         = CS_HREDRAW | CS_VREDRAW;
+  class.lpfnWndProc   = PROGRAM_ProgramWndProc;
+  class.cbClsExtra    = 0;
+  class.cbWndExtra    = sizeof(LONG_PTR);
+  class.hInstance     = Globals.hInstance;
+  class.hIcon         = 0;
+  class.hCursor       = LoadCursorW (0, (LPWSTR)IDC_ARROW);
+  class.hbrBackground = GetStockObject (WHITE_BRUSH);
+  class.lpszMenuName  = 0;
+  class.lpszClassName = STRING_PROGRAM_WIN_CLASS_NAME;
+
+  return RegisterClassW(&class);
+}
 
 /***********************************************************************
  *
  *           PROGRAM_NewProgram
  */
 
-VOID PROGRAM_NewProgram(PROGGROUP* hGroup)
+VOID PROGRAM_NewProgram(HLOCAL hGroup)
 {
-    HICON hIcon      = NULL;
-    INT   nIconIndex = 0;
-    INT   nHotKey    = 0;
-    INT   nCmdShow   = SW_SHOWNORMAL;
-    BOOL  bNewVDM    = FALSE;
-    WCHAR szTitle[MAX_PATHNAME_LEN]    = L"";
-    WCHAR szCmdLine[MAX_PATHNAME_LEN]  = L"";
-    WCHAR szIconFile[MAX_PATHNAME_LEN] = L"";
-    WCHAR szWorkDir[MAX_PATHNAME_LEN]  = L"";
+  INT  nCmdShow = SW_SHOWNORMAL;
+  INT  nHotKey = 0;
+  INT  nIconIndex = 0;
+  CHAR szName[MAX_PATHNAME_LEN] = "";
+  CHAR szCmdLine[MAX_PATHNAME_LEN] = "";
+  CHAR szIconFile[MAX_PATHNAME_LEN] = "";
+  CHAR szWorkDir[MAX_PATHNAME_LEN] = "";
+  HICON hIcon = 0;
 
-    if (!DIALOG_ProgramAttributes(szTitle, szCmdLine, szWorkDir, szIconFile,
-                                  &hIcon, &nIconIndex, &nHotKey, &nCmdShow, &bNewVDM,
-                                  MAX_PATHNAME_LEN))
-    {
-        return;
-    }
+  if (!DIALOG_ProgramAttributes(szName, szCmdLine, szWorkDir, szIconFile,
+				&hIcon, &nIconIndex, &nHotKey,
+				&nCmdShow, MAX_PATHNAME_LEN))
+    return;
 
-    if (!hIcon)
-        hIcon = LoadIconW(NULL, MAKEINTRESOURCEW(IDI_WINLOGO));
+  if (!hIcon) hIcon = LoadIconW(0, (LPWSTR)IDI_WINLOGO);
 
-    if (!PROGRAM_AddProgram(hGroup, hIcon, szTitle, -1, -1, szCmdLine, szIconFile,
-                            nIconIndex, szWorkDir, nHotKey, nCmdShow, bNewVDM))
-    {
-        return;
-    }
 
-    GRPFILE_WriteGroupFile(hGroup);
+  if (!PROGRAM_AddProgram(hGroup, hIcon, szName, 0, 0, szCmdLine, szIconFile,
+			  nIconIndex, szWorkDir, nHotKey, nCmdShow))
+    return;
+
+  GRPFILE_WriteGroupFile(hGroup);
 }
 
 /***********************************************************************
@@ -113,39 +121,36 @@ VOID PROGRAM_NewProgram(PROGGROUP* hGroup)
  *           PROGRAM_ModifyProgram
  */
 
-VOID PROGRAM_ModifyProgram(PROGRAM* hProgram)
+VOID PROGRAM_ModifyProgram(HLOCAL hProgram)
 {
-    LVITEMW lvItem;
-    WCHAR szName[MAX_PATHNAME_LEN];
-    WCHAR szWorkDir[MAX_PATHNAME_LEN];
-    WCHAR szCmdLine[MAX_PATHNAME_LEN];
-    WCHAR szIconFile[MAX_PATHNAME_LEN];
+  PROGRAM *program = LocalLock(hProgram);
+  CHAR szName[MAX_PATHNAME_LEN];
+  CHAR szCmdLine[MAX_PATHNAME_LEN];
+  CHAR szIconFile[MAX_PATHNAME_LEN];
+  CHAR szWorkDir[MAX_PATHNAME_LEN];
 
-    lstrcpynW(szName    , hProgram->hName    , ARRAYSIZE(szName));
-    lstrcpynW(szCmdLine , hProgram->hCmdLine , ARRAYSIZE(szCmdLine));
-    lstrcpynW(szIconFile, hProgram->hIconFile, ARRAYSIZE(szIconFile));
-    lstrcpynW(szWorkDir , hProgram->hWorkDir , ARRAYSIZE(szWorkDir));
+  lstrcpynA(szName, LocalLock(program->hName), MAX_PATHNAME_LEN);
+  lstrcpynA(szCmdLine, LocalLock(program->hCmdLine), MAX_PATHNAME_LEN);
+  lstrcpynA(szIconFile, LocalLock(program->hIconFile), MAX_PATHNAME_LEN);
+  lstrcpynA(szWorkDir, LocalLock(program->hWorkDir), MAX_PATHNAME_LEN);
 
-    if (!DIALOG_ProgramAttributes(szName, szCmdLine, szWorkDir, szIconFile,
-                                  &hProgram->hIcon, &hProgram->nIconIndex,
-                                  &hProgram->nHotKey, &hProgram->nCmdShow,
-                                  &hProgram->bNewVDM, MAX_PATHNAME_LEN))
-    {
-        return;
-    }
+  if (!DIALOG_ProgramAttributes(szName, szCmdLine, szWorkDir, szIconFile,
+				&program->hIcon, &program->nIconIndex,
+				&program->nHotKey, &program->nCmdShow,
+				MAX_PATHNAME_LEN))
+    return;
 
-    MAIN_ReplaceString(&hProgram->hName    , szName);
-    MAIN_ReplaceString(&hProgram->hCmdLine , szCmdLine);
-    MAIN_ReplaceString(&hProgram->hIconFile, szIconFile);
-    MAIN_ReplaceString(&hProgram->hWorkDir , szWorkDir);
+  MAIN_ReplaceString(&program->hName, szName);
+  MAIN_ReplaceString(&program->hCmdLine, szCmdLine);
+  MAIN_ReplaceString(&program->hIconFile, szIconFile);
+  MAIN_ReplaceString(&program->hWorkDir, szWorkDir);
 
-    ZeroMemory(&lvItem, sizeof(lvItem));
-    lvItem.mask     = LVIF_TEXT;
-    lvItem.iSubItem = 0;
-    lvItem.pszText  = szName;
-    SendMessageW(hProgram->hGroup->hListView, LVM_SETITEMTEXTW, hProgram->iItem, (LPARAM)&lvItem);
+  SetWindowTextA(program->hWnd, szName);
+  UpdateWindow(program->hWnd);
 
-    GRPFILE_WriteGroupFile(hProgram->hGroup);
+  GRPFILE_WriteGroupFile(program->hGroup);
+
+  return;
 }
 
 /***********************************************************************
@@ -153,117 +158,106 @@ VOID PROGRAM_ModifyProgram(PROGRAM* hProgram)
  *           PROGRAM_AddProgram
  */
 
-PROGRAM*
-PROGRAM_AddProgram(PROGGROUP* hGroup, HICON hIcon, LPCWSTR lpszName,
-                   INT x, INT y, LPCWSTR lpszCmdLine, LPCWSTR lpszIconFile, INT nIconIndex,
-                   LPCWSTR lpszWorkDir, INT nHotKey, INT nCmdShow, BOOL bNewVDM)
+HLOCAL PROGRAM_AddProgram(HLOCAL hGroup, HICON hIcon, LPCSTR lpszName,
+			  INT x, INT y, LPCSTR lpszCmdLine,
+			  LPCSTR lpszIconFile, INT nIconIndex,
+			  LPCSTR lpszWorkDir, INT nHotKey, INT nCmdShow)
 {
-    PROGRAM* hProgram;
-    PROGRAM* hPrior;
-    PROGRAM** p;
-    LPWSTR hCmdLine;
-    LPWSTR hIconFile;
-    LPWSTR hName;
-    LPWSTR hWorkDir;
-    LVITEMW lvItem;
-    INT iItem;
-
-    hProgram  = Alloc(HEAP_ZERO_MEMORY, sizeof(*hProgram));
-    hName     = Alloc(HEAP_ZERO_MEMORY, (wcslen(lpszName)     + 1) * sizeof(WCHAR));
-    hCmdLine  = Alloc(HEAP_ZERO_MEMORY, (wcslen(lpszCmdLine)  + 1) * sizeof(WCHAR));
-    hIconFile = Alloc(HEAP_ZERO_MEMORY, (wcslen(lpszIconFile) + 1) * sizeof(WCHAR));
-    hWorkDir  = Alloc(HEAP_ZERO_MEMORY, (wcslen(lpszWorkDir)  + 1) * sizeof(WCHAR));
-    if (!hProgram || !hName || !hCmdLine || !hIconFile || !hWorkDir)
+  PROGGROUP *group = LocalLock(hGroup);
+  PROGRAM *program;
+  HLOCAL hPrior, *p;
+  HLOCAL hProgram  = LocalAlloc(LMEM_FIXED, sizeof(PROGRAM));
+  HLOCAL hName     = LocalAlloc(LMEM_FIXED, 1 + strlen(lpszName));
+  HLOCAL hCmdLine  = LocalAlloc(LMEM_FIXED, 1 + strlen(lpszCmdLine));
+  HLOCAL hIconFile = LocalAlloc(LMEM_FIXED, 1 + strlen(lpszIconFile));
+  HLOCAL hWorkDir  = LocalAlloc(LMEM_FIXED, 1 + strlen(lpszWorkDir));
+  if (!hProgram || !hName || !hCmdLine || !hIconFile || !hWorkDir)
     {
-        MAIN_MessageBoxIDS(IDS_OUT_OF_MEMORY, IDS_ERROR, MB_OK);
-        if (hProgram)  Free(hProgram);
-        if (hName)     Free(hName);
-        if (hCmdLine)  Free(hCmdLine);
-        if (hIconFile) Free(hIconFile);
-        if (hWorkDir)  Free(hWorkDir);
-        return NULL;
+      MAIN_MessageBoxIDS(IDS_OUT_OF_MEMORY, IDS_ERROR, MB_OK);
+      if (hProgram)  LocalFree(hProgram);
+      if (hName)     LocalFree(hName);
+      if (hCmdLine)  LocalFree(hCmdLine);
+      if (hIconFile) LocalFree(hIconFile);
+      if (hWorkDir)  LocalFree(hWorkDir);
+      return(0);
     }
-    memcpy(hName    , lpszName    , (wcslen(lpszName)     + 1) * sizeof(WCHAR));
-    memcpy(hCmdLine , lpszCmdLine , (wcslen(lpszCmdLine)  + 1) * sizeof(WCHAR));
-    memcpy(hIconFile, lpszIconFile, (wcslen(lpszIconFile) + 1) * sizeof(WCHAR));
-    memcpy(hWorkDir , lpszWorkDir , (wcslen(lpszWorkDir)  + 1) * sizeof(WCHAR));
+  memcpy(LocalLock(hName),     lpszName,     1 + strlen(lpszName));
+  memcpy(LocalLock(hCmdLine),  lpszCmdLine,  1 + strlen(lpszCmdLine));
+  memcpy(LocalLock(hIconFile), lpszIconFile, 1 + strlen(lpszIconFile));
+  memcpy(LocalLock(hWorkDir),  lpszWorkDir,  1 + strlen(lpszWorkDir));
 
-    hGroup->hActiveProgram = hProgram;
+  group->hActiveProgram  = hProgram;
 
-    hPrior = NULL;
-    for (p = &hGroup->hPrograms; *p; p = &hPrior->hNext)
-        hPrior = *p;
-    *p = hProgram;
+  hPrior = 0;
+  p = &group->hPrograms;
+  while (*p)
+    {
+      hPrior = *p;
+      p = &((PROGRAM*)LocalLock(hPrior))->hNext;
+    }
+  *p = hProgram;
 
-    hProgram->hGroup     = hGroup;
-    hProgram->hPrior     = hPrior;
-    hProgram->hNext      = NULL;
-    hProgram->hName      = hName;
-    hProgram->hCmdLine   = hCmdLine;
-    hProgram->hIconFile  = hIconFile;
-    hProgram->nIconIndex = nIconIndex;
-    hProgram->hWorkDir   = hWorkDir;
-    hProgram->hIcon      = hIcon;
-    hProgram->nCmdShow   = nCmdShow;
-    hProgram->nHotKey    = nHotKey;
-    hProgram->bNewVDM    = bNewVDM;
-    hProgram->TagsSize   = 0;
-    hProgram->Tags       = NULL;
+  program = LocalLock(hProgram);
+  program->hGroup     = hGroup;
+  program->hPrior     = hPrior;
+  program->hNext      = 0;
+  program->hName      = hName;
+  program->hCmdLine   = hCmdLine;
+  program->hIconFile  = hIconFile;
+  program->nIconIndex = nIconIndex;
+  program->hWorkDir   = hWorkDir;
+  program->hIcon      = hIcon;
+  program->nCmdShow   = nCmdShow;
+  program->nHotKey    = nHotKey;
 
-    ZeroMemory(&lvItem, sizeof(lvItem));
-    lvItem.mask    = LVIF_PARAM | LVIF_IMAGE | LVIF_TEXT;
-    lvItem.pszText = (LPWSTR)lpszName;
-    lvItem.lParam  = (LPARAM)hProgram;
-    lvItem.iImage  = ImageList_ReplaceIcon(hGroup->hListLarge, -1, hIcon);
-    DestroyIcon(hIcon);
+  program->hWnd =
+    CreateWindowW(STRING_PROGRAM_WIN_CLASS_NAME, NULL,
+		  WS_CHILD | WS_CAPTION,
+		  x, y, CW_USEDEFAULT, CW_USEDEFAULT,
+		  group->hWnd, 0, Globals.hInstance, 0);
 
-    lvItem.iItem = SendMessageA(hGroup->hListView, LVM_GETITEMCOUNT, 0, 0);
-    iItem = SendMessageW(hGroup->hListView, LVM_INSERTITEMW, 0, (LPARAM)&lvItem);
-    hProgram->iItem = iItem;
-    if (x != -1 && y != -1)
-        SendMessageA(hGroup->hListView, LVM_SETITEMPOSITION, lvItem.iItem, MAKELPARAM(x, y));
+  SetWindowTextA(program->hWnd, lpszName);
+  SetWindowLongPtrW(program->hWnd, 0, (LONG_PTR) hProgram);
 
-    return hProgram;
+  ShowWindow (program->hWnd, SW_SHOWMINIMIZED);
+  SetWindowPos (program->hWnd, 0, x, y, 0, 0, SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE);
+  UpdateWindow (program->hWnd);
+
+  return hProgram;
 }
-
-
 
 /***********************************************************************
  *
  *           PROGRAM_CopyMoveProgram
  */
 
-VOID PROGRAM_CopyMoveProgram(PROGRAM* hProgram, BOOL bMove)
+VOID PROGRAM_CopyMoveProgram(HLOCAL hProgram, BOOL bMove)
 {
-    PROGGROUP* hGroup;
+  PROGRAM *program = LocalLock(hProgram);
+  PROGGROUP   *fromgroup = LocalLock(program->hGroup);
+  HLOCAL hGroup = DIALOG_CopyMove(LocalLock(program->hName),
+				  LocalLock(fromgroup->hName), bMove);
+  if (!hGroup) return;
 
-    hGroup = DIALOG_CopyMove(hProgram, bMove);
-    if (!hGroup)
-        return;
+  /* FIXME shouldn't be necessary */
+  OpenIcon(((PROGGROUP*)LocalLock(hGroup))->hWnd);
 
-    /* FIXME: shouldn't be necessary */
-    OpenIcon(hGroup->hWnd);
+  if (!PROGRAM_AddProgram(hGroup,
+#if 0
+			  CopyIcon(program->hIcon),
+#else
+			  program->hIcon,
+#endif
+			  LocalLock(program->hName),
+			  program->x, program->y,
+			  LocalLock(program->hCmdLine),
+			  LocalLock(program->hIconFile),
+			  program->nIconIndex,
+			  LocalLock(program->hWorkDir),
+			  program->nHotKey, program->nCmdShow)) return;
+  GRPFILE_WriteGroupFile(hGroup);
 
-    if (!PROGRAM_AddProgram(hGroup,
-                            hProgram->hIcon,
-                            hProgram->hName,
-                            hProgram->x,
-                            hProgram->y,
-                            hProgram->hCmdLine,
-                            hProgram->hIconFile,
-                            hProgram->nIconIndex,
-                            hProgram->hWorkDir,
-                            hProgram->nHotKey,
-                            hProgram->nCmdShow,
-                            hProgram->bNewVDM))
-    {
-        return;
-    }
-
-    GRPFILE_WriteGroupFile(hGroup);
-
-    if (bMove)
-        PROGRAM_DeleteProgram(hProgram, TRUE);
+  if (bMove) PROGRAM_DeleteProgram(hProgram, TRUE);
 }
 
 /***********************************************************************
@@ -271,14 +265,15 @@ VOID PROGRAM_CopyMoveProgram(PROGRAM* hProgram, BOOL bMove)
  *           PROGRAM_ExecuteProgram
  */
 
-VOID PROGRAM_ExecuteProgram(PROGRAM* hProgram)
+VOID PROGRAM_ExecuteProgram(HLOCAL hProgram)
 {
-    // TODO: Use a (private?) shell API with which one can use hProgram->bNewVDM
+  PROGRAM *program = LocalLock(hProgram);
+  LPSTR lpszCmdLine = LocalLock(program->hCmdLine);
 
-    ShellExecuteW(NULL, NULL, hProgram->hCmdLine, NULL, hProgram->hWorkDir, hProgram->nCmdShow);
+  /* FIXME set working directory from program->hWorkDir */
 
-    if (Globals.bMinOnRun)
-        CloseWindow(Globals.hMainWnd);
+  WinExec(lpszCmdLine, program->nCmdShow);
+  if (Globals.bMinOnRun) CloseWindow(Globals.hMainWnd);
 }
 
 /***********************************************************************
@@ -286,51 +281,86 @@ VOID PROGRAM_ExecuteProgram(PROGRAM* hProgram)
  *           PROGRAM_DeleteProgram
  */
 
-VOID PROGRAM_DeleteProgram(PROGRAM* hProgram, BOOL bUpdateGrpFile)
+VOID PROGRAM_DeleteProgram(HLOCAL hProgram, BOOL bUpdateGrpFile)
 {
-    PROGGROUP* group;
+  PROGRAM *program = LocalLock(hProgram);
+  PROGGROUP   *group   = LocalLock(program->hGroup);
 
-    group = hProgram->hGroup;
-    if (hProgram->hGroup->hActiveProgram == hProgram)
-        group->hActiveProgram = NULL;
+  group->hActiveProgram = 0;
 
-    SendMessageA(group->hListView, LVM_DELETEITEM, hProgram->iItem, 0);
+  if (program->hPrior)
+    ((PROGRAM*)LocalLock(program->hPrior))->hNext = program->hNext;
+  else
+    ((PROGGROUP*)LocalLock(program->hGroup))->hPrograms = program->hNext;
 
-    if (hProgram->hPrior)
-        hProgram->hPrior->hNext = hProgram->hNext;
-    else
-        hProgram->hGroup->hPrograms = hProgram->hNext;
+  if (program->hNext)
+    ((PROGRAM*)LocalLock(program->hNext))->hPrior = program->hPrior;
 
-    if (hProgram->hNext)
-        hProgram->hNext->hPrior = hProgram->hPrior;
+  if (bUpdateGrpFile)
+    GRPFILE_WriteGroupFile(program->hGroup);
 
-    if (bUpdateGrpFile)
-        GRPFILE_WriteGroupFile(hProgram->hGroup);
-
+  DestroyWindow(program->hWnd);
 #if 0
-    DestroyWindow(program->hWnd);
-    if (program->hIcon)
-        DestroyIcon(program->hIcon);
+  if (program->hIcon)
+    DestroyIcon(program->hIcon);
 #endif
-
-    if (hProgram->Tags)
-        Free(hProgram->Tags);
-    Free(hProgram->hName);
-    Free(hProgram->hCmdLine);
-    Free(hProgram->hIconFile);
-    Free(hProgram->hWorkDir);
-    Free(hProgram);
+  LocalFree(program->hName);
+  LocalFree(program->hCmdLine);
+  LocalFree(program->hIconFile);
+  LocalFree(program->hWorkDir);
+  LocalFree(hProgram);
 }
 
+/***********************************************************************
+ *
+ *           PROGRAM_FirstProgram
+ */
+
+HLOCAL PROGRAM_FirstProgram(HLOCAL hGroup)
+{
+  PROGGROUP *group;
+  if (!hGroup) return(0);
+  group = LocalLock(hGroup);
+  return(group->hPrograms);
+}
+
+/***********************************************************************
+ *
+ *           PROGRAM_NextProgram
+ */
+
+HLOCAL PROGRAM_NextProgram(HLOCAL hProgram)
+{
+  PROGRAM *program;
+  if (!hProgram) return(0);
+  program = LocalLock(hProgram);
+  return(program->hNext);
+}
 
 /***********************************************************************
  *
  *           PROGRAM_ActiveProgram
  */
 
-PROGRAM* PROGRAM_ActiveProgram(PROGGROUP* hGroup)
+HLOCAL PROGRAM_ActiveProgram(HLOCAL hGroup)
 {
-    if (!hGroup) return NULL;
-    if (IsIconic(hGroup->hWnd)) return NULL;
-    return hGroup->hActiveProgram;
+  PROGGROUP *group;
+  if (!hGroup) return(0);
+  group = LocalLock(hGroup);
+  if (IsIconic(group->hWnd)) return(0);
+
+  return(group->hActiveProgram);
+}
+
+/***********************************************************************
+ *
+ *           PROGRAM_ProgramName
+ */
+
+LPCSTR PROGRAM_ProgramName(HLOCAL hProgram)
+{
+  PROGRAM *program;
+  if (!hProgram) return(0);
+  program = LocalLock(hProgram);
+  return(LocalLock(program->hName));
 }

@@ -19,43 +19,47 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-/*
- * PROJECT:         ReactOS Program Manager
- * COPYRIGHT:       GPL - See COPYING in the top level directory
- * FILE:            base/shell/progman/string.c
- * PURPOSE:         String utility functions
- * PROGRAMMERS:     Ulrich Schmid
- *                  Sylvain Petreolle
- *                  Hermes Belusca-Maito (hermes.belusca@sfr.fr)
- */
-
 #include "progman.h"
 
-WCHAR szTitle[256]; // MAX_STRING_LEN ?
+/* Class names */
 
-VOID STRING_LoadStrings(VOID)
-{
-    LoadStringW(Globals.hInstance, IDS_PROGRAM_MANAGER, szTitle, ARRAYSIZE(szTitle));
-}
+WCHAR STRING_MAIN_WIN_CLASS_NAME[]    = {'P','M','M','a','i','n',0};
+WCHAR STRING_MDI_WIN_CLASS_NAME[]     = {'M','D','I','C','L','I','E','N','T',0};
+WCHAR STRING_GROUP_WIN_CLASS_NAME[]   = {'P','M','G','r','o','u','p',0};
+WCHAR STRING_PROGRAM_WIN_CLASS_NAME[] = {'P','M','P','r','o','g','r','a','m',0};
 
 VOID STRING_LoadMenus(VOID)
 {
-    HMENU hMainMenu;
+#ifdef __REACTOS__
+  WCHAR caption[MAX_STRING_LEN];
+#else
+  CHAR   caption[MAX_STRING_LEN];
+#endif
+  HMENU  hMainMenu;
 
-    /* Create the menu */
-    hMainMenu = LoadMenuW(Globals.hInstance, MAKEINTRESOURCEW(MAIN_MENU));
-    Globals.hFileMenu     = GetSubMenu(hMainMenu, 0);
-    Globals.hOptionMenu   = GetSubMenu(hMainMenu, 1);
-    Globals.hWindowsMenu  = GetSubMenu(hMainMenu, 2);
-    Globals.hLanguageMenu = GetSubMenu(hMainMenu, 3);
+  /* Set frame caption */
+#ifdef __REACTOS__
+  LoadStringW(Globals.hInstance, IDS_PROGRAM_MANAGER, caption, sizeof(caption));
+  SetWindowTextW(Globals.hMainWnd, caption);
+#else
+  LoadStringA(Globals.hInstance, IDS_PROGRAM_MANAGER, caption, sizeof(caption));
+  SetWindowTextA(Globals.hMainWnd, caption);
+#endif
 
-    if (Globals.hMDIWnd)
-        SendMessageW(Globals.hMDIWnd, WM_MDISETMENU, (WPARAM)hMainMenu, (LPARAM)Globals.hWindowsMenu);
-    else
-        SetMenu(Globals.hMainWnd, hMainMenu);
+  /* Create menu */
+  hMainMenu = LoadMenuW(Globals.hInstance, MAKEINTRESOURCEW(MAIN_MENU));
+  Globals.hFileMenu     = GetSubMenu(hMainMenu, 0);
+  Globals.hOptionMenu   = GetSubMenu(hMainMenu, 1);
+  Globals.hWindowsMenu  = GetSubMenu(hMainMenu, 2);
+  Globals.hLanguageMenu = GetSubMenu(hMainMenu, 3);
 
-    /* Destroy the old menu */
-    if (Globals.hMainMenu)
-        DestroyMenu(Globals.hMainMenu);
-    Globals.hMainMenu = hMainMenu;
+  if (Globals.hMDIWnd)
+    SendMessageW(Globals.hMDIWnd, WM_MDISETMENU,
+		(WPARAM) hMainMenu,
+		(LPARAM) Globals.hWindowsMenu);
+  else SetMenu(Globals.hMainWnd, hMainMenu);
+
+  /* Destroy old menu */
+  if (Globals.hMainMenu) DestroyMenu(Globals.hMainMenu);
+  Globals.hMainMenu = hMainMenu;
 }

@@ -714,15 +714,15 @@ With duplicates enumeration
 Strip missing wildcards, keep unwildcarded names
 for /R passed
 --- Complex wildcards unix and windows slash
-Windows slashes, valid path
+Windows slashs, valid path
 ASIS: foobar\baz\bazbaz
 WC  : foobar\baz\bazbaz
-Windows slashes, invalid path
+Windows slashs, invalid path
 ASIS: foobar\jim\bazbaz
-Unix slashes, valid path
+Unix slashs, valid path
 ASIS: foobar/baz/bazbaz
 WC  : bazbaz
-Unix slashes, invalid path
+Unix slashs, invalid path
 ASIS: foobar/jim/bazbaz
 Done
 --- for /L

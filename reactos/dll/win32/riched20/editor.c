@@ -541,6 +541,11 @@ void ME_RTFCharAttrHook(RTF_Info *info)
    the same tags mean different things in different contexts */
 void ME_RTFParAttrHook(RTF_Info *info)
 {
+  PARAFORMAT2 fmt;
+  fmt.cbSize = sizeof(fmt);
+  fmt.dwMask = 0;
+  fmt.wEffects = 0;
+
   switch(info->rtfMinor)
   {
   case rtfParDef: /* restores default paragraph attributes */
@@ -548,19 +553,18 @@ void ME_RTFParAttrHook(RTF_Info *info)
       info->borderType = RTFBorderParaLeft;
     else /* v1.0 - 3.0 */
       info->borderType = RTFBorderParaTop;
-    info->fmt.dwMask = PFM_ALIGNMENT | PFM_BORDER | PFM_LINESPACING | PFM_TABSTOPS |
+    fmt.dwMask = PFM_ALIGNMENT | PFM_BORDER | PFM_LINESPACING | PFM_TABSTOPS |
         PFM_OFFSET | PFM_RIGHTINDENT | PFM_SPACEAFTER | PFM_SPACEBEFORE |
-        PFM_STARTINDENT | PFM_RTLPARA;
+        PFM_STARTINDENT;
     /* TODO: numbering, shading */
-    info->fmt.wAlignment = PFA_LEFT;
-    info->fmt.cTabCount = 0;
-    info->fmt.dxOffset = info->fmt.dxStartIndent = info->fmt.dxRightIndent = 0;
-    info->fmt.wBorderWidth = info->fmt.wBorders = 0;
-    info->fmt.wBorderSpace = 0;
-    info->fmt.bLineSpacingRule = 0;
-    info->fmt.dySpaceBefore = info->fmt.dySpaceAfter = 0;
-    info->fmt.dyLineSpacing = 0;
-    info->fmt.wEffects &= ~PFE_RTLPARA;
+    fmt.wAlignment = PFA_LEFT;
+    fmt.cTabCount = 0;
+    fmt.dxOffset = fmt.dxStartIndent = fmt.dxRightIndent = 0;
+    fmt.wBorderWidth = fmt.wBorders = 0;
+    fmt.wBorderSpace = 0;
+    fmt.bLineSpacingRule = 0;
+    fmt.dySpaceBefore = fmt.dySpaceAfter = 0;
+    fmt.dyLineSpacing = 0;
     if (!info->editor->bEmulateVersion10) /* v4.1 */
     {
       if (info->tableDef && info->tableDef->tableRowStart &&
@@ -584,8 +588,8 @@ void ME_RTFParAttrHook(RTF_Info *info)
         }
       }
     } else { /* v1.0 - v3.0 */
-      info->fmt.dwMask |= PFM_TABLE;
-      info->fmt.wEffects &= ~PFE_TABLE;
+      fmt.dwMask |= PFM_TABLE;
+      fmt.wEffects &= ~PFE_TABLE;
     }
     break;
   case rtfNestLevel:
@@ -653,168 +657,197 @@ void ME_RTFParAttrHook(RTF_Info *info)
       }
       return;
     } else { /* v1.0 - v3.0 */
-      info->fmt.dwMask |= PFM_TABLE;
-      info->fmt.wEffects |= PFE_TABLE;
+      fmt.dwMask |= PFM_TABLE;
+      fmt.wEffects |= PFE_TABLE;
     }
     break;
   }
   case rtfFirstIndent:
+    ME_GetSelectionParaFormat(info->editor, &fmt);
+    fmt.dwMask = PFM_STARTINDENT | PFM_OFFSET;
+    fmt.dxStartIndent += fmt.dxOffset + info->rtfParam;
+    fmt.dxOffset = -info->rtfParam;
+    break;
   case rtfLeftIndent:
-    if ((info->fmt.dwMask & (PFM_STARTINDENT | PFM_OFFSET)) != (PFM_STARTINDENT | PFM_OFFSET))
-    {
-      PARAFORMAT2 fmt;
-      fmt.cbSize = sizeof(fmt);
-      ME_GetSelectionParaFormat(info->editor, &fmt);
-      info->fmt.dwMask |= PFM_STARTINDENT | PFM_OFFSET;
-      info->fmt.dxStartIndent = fmt.dxStartIndent;
-      info->fmt.dxOffset = fmt.dxOffset;
-    }
-    if (info->rtfMinor == rtfFirstIndent)
-    {
-      info->fmt.dxStartIndent += info->fmt.dxOffset + info->rtfParam;
-      info->fmt.dxOffset = -info->rtfParam;
-    }
-    else
-      info->fmt.dxStartIndent = info->rtfParam - info->fmt.dxOffset;
+    ME_GetSelectionParaFormat(info->editor, &fmt);
+    fmt.dwMask = PFM_STARTINDENT;
+    fmt.dxStartIndent = info->rtfParam - fmt.dxOffset;
     break;
   case rtfRightIndent:
-    info->fmt.dwMask |= PFM_RIGHTINDENT;
-    info->fmt.dxRightIndent = info->rtfParam;
+    fmt.dwMask = PFM_RIGHTINDENT;
+    fmt.dxRightIndent = info->rtfParam;
     break;
   case rtfQuadLeft:
   case rtfQuadJust:
-    info->fmt.dwMask |= PFM_ALIGNMENT;
-    info->fmt.wAlignment = PFA_LEFT;
+    fmt.dwMask = PFM_ALIGNMENT;
+    fmt.wAlignment = PFA_LEFT;
     break;
   case rtfQuadRight:
-    info->fmt.dwMask |= PFM_ALIGNMENT;
-    info->fmt.wAlignment = PFA_RIGHT;
+    fmt.dwMask = PFM_ALIGNMENT;
+    fmt.wAlignment = PFA_RIGHT;
     break;
   case rtfQuadCenter:
-    info->fmt.dwMask |= PFM_ALIGNMENT;
-    info->fmt.wAlignment = PFA_CENTER;
+    fmt.dwMask = PFM_ALIGNMENT;
+    fmt.wAlignment = PFA_CENTER;
     break;
   case rtfTabPos:
-    if (!(info->fmt.dwMask & PFM_TABSTOPS))
+    ME_GetSelectionParaFormat(info->editor, &fmt);
+    if (!(fmt.dwMask & PFM_TABSTOPS))
     {
-      PARAFORMAT2 fmt;
-      fmt.cbSize = sizeof(fmt);
-      ME_GetSelectionParaFormat(info->editor, &fmt);
-      memcpy(info->fmt.rgxTabs, fmt.rgxTabs,
-             fmt.cTabCount * sizeof(fmt.rgxTabs[0]));
-      info->fmt.cTabCount = fmt.cTabCount;
-      info->fmt.dwMask |= PFM_TABSTOPS;
+      fmt.cTabCount = 0;
     }
-    if (info->fmt.cTabCount < MAX_TAB_STOPS && info->rtfParam < 0x1000000)
-      info->fmt.rgxTabs[info->fmt.cTabCount++] = info->rtfParam;
+    if (fmt.cTabCount < MAX_TAB_STOPS && info->rtfParam < 0x1000000)
+      fmt.rgxTabs[fmt.cTabCount++] = info->rtfParam;
+    fmt.dwMask = PFM_TABSTOPS;
     break;
   case rtfKeep:
-    info->fmt.dwMask |= PFM_KEEP;
-    info->fmt.wEffects |= PFE_KEEP;
+    fmt.dwMask = PFM_KEEP;
+    fmt.wEffects = PFE_KEEP;
     break;
   case rtfNoWidowControl:
-    info->fmt.dwMask |= PFM_NOWIDOWCONTROL;
-    info->fmt.wEffects |= PFE_NOWIDOWCONTROL;
+    fmt.dwMask = PFM_NOWIDOWCONTROL;
+    fmt.wEffects = PFE_NOWIDOWCONTROL;
     break;
   case rtfKeepNext:
-    info->fmt.dwMask |= PFM_KEEPNEXT;
-    info->fmt.wEffects |= PFE_KEEPNEXT;
+    fmt.dwMask = PFM_KEEPNEXT;
+    fmt.wEffects = PFE_KEEPNEXT;
     break;
   case rtfSpaceAfter:
-    info->fmt.dwMask |= PFM_SPACEAFTER;
-    info->fmt.dySpaceAfter = info->rtfParam;
+    fmt.dwMask = PFM_SPACEAFTER;
+    fmt.dySpaceAfter = info->rtfParam;
     break;
   case rtfSpaceBefore:
-    info->fmt.dwMask |= PFM_SPACEBEFORE;
-    info->fmt.dySpaceBefore = info->rtfParam;
+    fmt.dwMask = PFM_SPACEBEFORE;
+    fmt.dySpaceBefore = info->rtfParam;
     break;
   case rtfSpaceBetween:
-    info->fmt.dwMask |= PFM_LINESPACING;
+    fmt.dwMask = PFM_LINESPACING;
     if ((int)info->rtfParam > 0)
     {
-      info->fmt.dyLineSpacing = info->rtfParam;
-      info->fmt.bLineSpacingRule = 3;
+      fmt.dyLineSpacing = info->rtfParam;
+      fmt.bLineSpacingRule = 3;
     }
     else
     {
-      info->fmt.dyLineSpacing = info->rtfParam;
-      info->fmt.bLineSpacingRule = 4;
+      fmt.dyLineSpacing = info->rtfParam;
+      fmt.bLineSpacingRule = 4;
     }
     break;
   case rtfSpaceMultiply:
-    info->fmt.dwMask |= PFM_LINESPACING;
-    info->fmt.dyLineSpacing = info->rtfParam * 20;
-    info->fmt.bLineSpacingRule = 5;
+    fmt.dwMask = PFM_LINESPACING;
+    fmt.dyLineSpacing = info->rtfParam * 20;
+    fmt.bLineSpacingRule = 5;
     break;
   case rtfParBullet:
-    info->fmt.dwMask |= PFM_NUMBERING;
-    info->fmt.wNumbering = PFN_BULLET;
+    fmt.dwMask = PFM_NUMBERING;
+    fmt.wNumbering = PFN_BULLET;
     break;
   case rtfParSimple:
-    info->fmt.dwMask |= PFM_NUMBERING;
-    info->fmt.wNumbering = 2; /* FIXME: MSDN says it's not used ?? */
+    fmt.dwMask = PFM_NUMBERING;
+    fmt.wNumbering = 2; /* FIXME: MSDN says it's not used ?? */
     break;
   case rtfParNumDecimal:
-    info->fmt.dwMask |= PFM_NUMBERING;
-    info->fmt.wNumbering = 2; /* FIXME: MSDN says it's not used ?? */
+    fmt.dwMask = PFM_NUMBERING;
+    fmt.wNumbering = 2; /* FIXME: MSDN says it's not used ?? */
     break;
   case rtfParNumIndent:
-    info->fmt.dwMask |= PFM_NUMBERINGTAB;
-    info->fmt.wNumberingTab = info->rtfParam;
+    fmt.dwMask = PFM_NUMBERINGTAB;
+    fmt.wNumberingTab = info->rtfParam;
     break;
   case rtfParNumStartAt:
-    info->fmt.dwMask |= PFM_NUMBERINGSTART;
-    info->fmt.wNumberingStart = info->rtfParam;
+    fmt.dwMask = PFM_NUMBERINGSTART;
+    fmt.wNumberingStart = info->rtfParam;
     break;
   case rtfBorderLeft:
     info->borderType = RTFBorderParaLeft;
-    info->fmt.wBorders |= 1;
-    info->fmt.dwMask |= PFM_BORDER;
+    ME_GetSelectionParaFormat(info->editor, &fmt);
+    if (!(fmt.dwMask & PFM_BORDER))
+    {
+      fmt.wBorderSpace = 0;
+      fmt.wBorderWidth = 1;
+      fmt.wBorders = 0;
+    }
+    fmt.wBorders |= 1;
+    fmt.dwMask = PFM_BORDER;
     break;
   case rtfBorderRight:
     info->borderType = RTFBorderParaRight;
-    info->fmt.wBorders |= 2;
-    info->fmt.dwMask |= PFM_BORDER;
+    ME_GetSelectionParaFormat(info->editor, &fmt);
+    if (!(fmt.dwMask & PFM_BORDER))
+    {
+      fmt.wBorderSpace = 0;
+      fmt.wBorderWidth = 1;
+      fmt.wBorders = 0;
+    }
+    fmt.wBorders |= 2;
+    fmt.dwMask = PFM_BORDER;
     break;
   case rtfBorderTop:
     info->borderType = RTFBorderParaTop;
-    info->fmt.wBorders |= 4;
-    info->fmt.dwMask |= PFM_BORDER;
+    ME_GetSelectionParaFormat(info->editor, &fmt);
+    if (!(fmt.dwMask & PFM_BORDER))
+    {
+      fmt.wBorderSpace = 0;
+      fmt.wBorderWidth = 1;
+      fmt.wBorders = 0;
+    }
+    fmt.wBorders |= 4;
+    fmt.dwMask = PFM_BORDER;
     break;
   case rtfBorderBottom:
     info->borderType = RTFBorderParaBottom;
-    info->fmt.wBorders |= 8;
-    info->fmt.dwMask |= PFM_BORDER;
+    ME_GetSelectionParaFormat(info->editor, &fmt);
+    if (!(fmt.dwMask & PFM_BORDER))
+    {
+      fmt.wBorderSpace = 0;
+      fmt.wBorderWidth = 1;
+      fmt.wBorders = 0;
+    }
+    fmt.wBorders |= 8;
+    fmt.dwMask = PFM_BORDER;
     break;
   case rtfBorderSingle:
-    info->fmt.wBorders &= ~0x700;
-    info->fmt.wBorders |= 1 << 8;
-    info->fmt.dwMask |= PFM_BORDER;
+    ME_GetSelectionParaFormat(info->editor, &fmt);
+    /* we assume that borders have been created before (RTF spec) */
+    fmt.wBorders &= ~0x700;
+    fmt.wBorders |= 1 << 8;
+    fmt.dwMask = PFM_BORDER;
     break;
   case rtfBorderThick:
-    info->fmt.wBorders &= ~0x700;
-    info->fmt.wBorders |= 2 << 8;
-    info->fmt.dwMask |= PFM_BORDER;
+    ME_GetSelectionParaFormat(info->editor, &fmt);
+    /* we assume that borders have been created before (RTF spec) */
+    fmt.wBorders &= ~0x700;
+    fmt.wBorders |= 2 << 8;
+    fmt.dwMask = PFM_BORDER;
     break;
   case rtfBorderShadow:
-    info->fmt.wBorders &= ~0x700;
-    info->fmt.wBorders |= 10 << 8;
-    info->fmt.dwMask |= PFM_BORDER;
+    ME_GetSelectionParaFormat(info->editor, &fmt);
+    /* we assume that borders have been created before (RTF spec) */
+    fmt.wBorders &= ~0x700;
+    fmt.wBorders |= 10 << 8;
+    fmt.dwMask = PFM_BORDER;
     break;
   case rtfBorderDouble:
-    info->fmt.wBorders &= ~0x700;
-    info->fmt.wBorders |= 7 << 8;
-    info->fmt.dwMask |= PFM_BORDER;
+    ME_GetSelectionParaFormat(info->editor, &fmt);
+    /* we assume that borders have been created before (RTF spec) */
+    fmt.wBorders &= ~0x700;
+    fmt.wBorders |= 7 << 8;
+    fmt.dwMask = PFM_BORDER;
     break;
   case rtfBorderDot:
-    info->fmt.wBorders &= ~0x700;
-    info->fmt.wBorders |= 11 << 8;
-    info->fmt.dwMask |= PFM_BORDER;
+    ME_GetSelectionParaFormat(info->editor, &fmt);
+    /* we assume that borders have been created before (RTF spec) */
+    fmt.wBorders &= ~0x700;
+    fmt.wBorders |= 11 << 8;
+    fmt.dwMask = PFM_BORDER;
     break;
   case rtfBorderWidth:
   {
     int borderSide = info->borderType & RTFBorderSideMask;
     RTFTable *tableDef = info->tableDef;
+    ME_GetSelectionParaFormat(info->editor, &fmt);
+    /* we assume that borders have been created before (RTF spec) */
+    fmt.wBorderWidth |= ((info->rtfParam / 15) & 7) << 8;
     if ((info->borderType & RTFBorderTypeMask) == RTFBorderTypeCell)
     {
       RTFBorder *border;
@@ -824,13 +857,14 @@ void ME_RTFParAttrHook(RTF_Info *info)
       border->width = info->rtfParam;
       break;
     }
-    info->fmt.wBorderWidth = info->rtfParam;
-    info->fmt.dwMask |= PFM_BORDER;
+    fmt.dwMask = PFM_BORDER;
     break;
   }
   case rtfBorderSpace:
-    info->fmt.wBorderSpace = info->rtfParam;
-    info->fmt.dwMask |= PFM_BORDER;
+    ME_GetSelectionParaFormat(info->editor, &fmt);
+    /* we assume that borders have been created before (RTF spec) */
+    fmt.wBorderSpace = info->rtfParam;
+    fmt.dwMask = PFM_BORDER;
     break;
   case rtfBorderColor:
   {
@@ -857,13 +891,18 @@ void ME_RTFParAttrHook(RTF_Info *info)
     break;
   }
   case rtfRTLPar:
-    info->fmt.dwMask |= PFM_RTLPARA;
-    info->fmt.wEffects |= PFE_RTLPARA;
+    fmt.dwMask = PFM_RTLPARA;
+    fmt.wEffects = PFE_RTLPARA;
     break;
   case rtfLTRPar:
-    info->fmt.dwMask = PFM_RTLPARA;
-    info->fmt.wEffects &= ~PFE_RTLPARA;
+    fmt.dwMask = PFM_RTLPARA;
+    fmt.wEffects = 0;
     break;
+  }
+  if (fmt.dwMask) {
+    RTFFlushOutputBuffer(info);
+    /* FIXME too slow ? how come ?*/
+    ME_SetSelectionParaFormat(info->editor, &fmt);
   }
 }
 
@@ -3623,6 +3662,7 @@ LRESULT ME_HandleMessage(ME_TextEditor *editor, UINT msg, WPARAM wParam,
       editor->hbrBackground = CreateSolidBrush(editor->rgbBackColor);
     }
     ITextHost_TxInvalidateRect(editor->texthost, NULL, TRUE);
+    ITextHost_TxViewChange(editor->texthost, TRUE);
     return lColor;
   }
   case EM_GETMODIFY:

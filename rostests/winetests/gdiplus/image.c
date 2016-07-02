@@ -1466,36 +1466,36 @@ static void test_loadwmf(void)
 
     stat = GdipGetImageBounds(img, &bounds, &unit);
     expect(Ok, stat);
-    expect(UnitPixel, unit);
+    todo_wine expect(UnitPixel, unit);
     expectf(0.0, bounds.X);
     expectf(0.0, bounds.Y);
-    expectf(320.0, bounds.Width);
-    expectf(320.0, bounds.Height);
+    todo_wine expectf(320.0, bounds.Width);
+    todo_wine expectf(320.0, bounds.Height);
 
     stat = GdipGetImageHorizontalResolution(img, &res);
     expect(Ok, stat);
-    expectf(1440.0, res);
+    todo_wine expectf(1440.0, res);
 
     stat = GdipGetImageVerticalResolution(img, &res);
     expect(Ok, stat);
-    expectf(1440.0, res);
+    todo_wine expectf(1440.0, res);
 
     memset(&header, 0, sizeof(header));
     stat = GdipGetMetafileHeaderFromMetafile((GpMetafile*)img, &header);
     expect(Ok, stat);
     if (stat == Ok)
     {
-        expect(MetafileTypeWmfPlaceable, header.Type);
+        todo_wine expect(MetafileTypeWmfPlaceable, header.Type);
         todo_wine expect(sizeof(wmfimage)-sizeof(WmfPlaceableFileHeader), header.Size);
         todo_wine expect(0x300, header.Version);
         expect(0, header.EmfPlusFlags);
-        expectf(1440.0, header.DpiX);
-        expectf(1440.0, header.DpiY);
+        todo_wine expectf(1440.0, header.DpiX);
+        todo_wine expectf(1440.0, header.DpiY);
         expect(0, header.X);
         expect(0, header.Y);
-        expect(320, header.Width);
-        expect(320, header.Height);
-        expect(1, U(header).WmfHeader.mtType);
+        todo_wine expect(320, header.Width);
+        todo_wine expect(320, header.Height);
+        todo_wine expect(1, U(header).WmfHeader.mtType);
         expect(0, header.EmfPlusHeaderSize);
         expect(0, header.LogicalDpiX);
         expect(0, header.LogicalDpiY);
@@ -1543,17 +1543,17 @@ static void test_createfromwmf(void)
     expect(Ok, stat);
     if (stat == Ok)
     {
-        expect(MetafileTypeWmfPlaceable, header.Type);
+        todo_wine expect(MetafileTypeWmfPlaceable, header.Type);
         todo_wine expect(sizeof(wmfimage)-sizeof(WmfPlaceableFileHeader), header.Size);
         todo_wine expect(0x300, header.Version);
         expect(0, header.EmfPlusFlags);
-        expectf(1440.0, header.DpiX);
-        expectf(1440.0, header.DpiY);
+        todo_wine expectf(1440.0, header.DpiX);
+        todo_wine expectf(1440.0, header.DpiY);
         expect(0, header.X);
         expect(0, header.Y);
-        expect(320, header.Width);
-        expect(320, header.Height);
-        expect(1, U(header).WmfHeader.mtType);
+        todo_wine expect(320, header.Width);
+        todo_wine expect(320, header.Height);
+        todo_wine expect(1, U(header).WmfHeader.mtType);
         expect(0, header.EmfPlusHeaderSize);
         expect(0, header.LogicalDpiX);
         expect(0, header.LogicalDpiY);

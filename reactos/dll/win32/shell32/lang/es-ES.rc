@@ -407,19 +407,19 @@ CAPTION "General"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     GROUPBOX "Tareas", -1, 7, 10, 279, 45
-    CONTROL "", IDC_FOLDER_OPTIONS_TASKICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 25, 21, 20
-    AUTORADIOBUTTON "M&ostrar tareas comunes en las carpetas", IDC_FOLDER_OPTIONS_COMMONTASKS, 40, 25, 160, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Utilizar las carpetas clá&sicas de ReactOS", IDC_FOLDER_OPTIONS_CLASSICFOLDERS, 40, 37, 160, 10
+    ICON "", 30109, 14, 25, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "M&ostrar tareas comunes en las carpetas", 14001, 40, 25, 160, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Utilizar las carpetas clá&sicas de ReactOS", 14002, 40, 37, 160, 10
     GROUPBOX "Examinar carpetas ", -1, 7, 60, 279, 45, WS_TABSTOP
-    CONTROL "", IDC_FOLDER_OPTIONS_FOLDERICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 70, 21, 20
-    AUTORADIOBUTTON "Abrir todas las carpetas en la &misma ventana", IDC_FOLDER_OPTIONS_SAMEWINDOW, 40, 75, 160, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Abrir cada carpeta en ventanas di&ferentes", IDC_FOLDER_OPTIONS_OWNWINDOW, 40, 87, 140, 10
+    ICON "", 30110, 14, 70, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "Abrir todas las carpetas en la &misma ventana", 14004, 40, 75, 160, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Abrir cada carpeta en ventanas di&ferentes", 14005, 40, 87, 140, 10
     GROUPBOX "Hacer clic en los elementos tal y como se indica ", -1, 7, 110, 279, 60
-    CONTROL "", IDC_FOLDER_OPTIONS_CLICKICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 120, 21, 20
-    AUTORADIOBUTTON "&Un solo clic para abrir elemento (seleccionar al señalar)", IDC_FOLDER_OPTIONS_SINGLECLICK, 40, 120, 190, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Subrayar los títulos de iconos que coincidan con el e&xplorador", IDC_FOLDER_OPTIONS_ULBROWSER, 50, 132, 220, 10
-    AUTORADIOBUTTON "Subrayar &los títulos de iconos cuando yo los señale", IDC_FOLDER_OPTIONS_ULPOINT, 50, 144, 190, 10
-    AUTORADIOBUTTON "&Doble clic para abrir elemento (seleccionar con un clic)", IDC_FOLDER_OPTIONS_DOUBLECLICK, 40, 156, 190, 10
+    ICON "", 30111, 14, 120, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "&Un solo clic para abrir elemento (seleccionar al señalar)", 14007, 40, 120, 190, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Subrayar los títulos de iconos que coincidan con el e&xplorador", 14008, 50, 132, 220, 10
+    AUTORADIOBUTTON "Subrayar &los títulos de iconos cuando yo los señale", 14009, 50, 144, 190, 10
+    AUTORADIOBUTTON "&Doble clic para abrir elemento (seleccionar con un clic)", 14010, 40, 156, 190, 10
     PUSHBUTTON "&Restaurar valores predeterminados", 14011, 146, 180, 140, 14, WS_TABSTOP
 END
 
@@ -444,7 +444,7 @@ CAPTION "Tipos de Archivo"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     LTEXT "&Tipos de archivo registrados:", -1, 7, 10, 120, 10
-    CONTROL "", 14000, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHAREIMAGELISTS | LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP, 7, 20, 279, 80
+    CONTROL "", 14000, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHAREIMAGELISTS | WS_BORDER | WS_TABSTOP, 7, 20, 279, 80
     PUSHBUTTON "&Nueva", 14001, 170, 110, 50, 14, WS_TABSTOP
     PUSHBUTTON "Eli&minar", 14002, 230, 110, 50, 14, WS_TABSTOP
     GROUPBOX "Detalles para el tipo de archivo «%s»", 14003, 7, 130, 279, 100
@@ -477,15 +477,15 @@ BEGIN
     ICON "", 12301, 50, 89, 21, 20, SS_REALSIZECONTROL
 END
 
-IDD_LOG_OFF DIALOGEX 0, 0, 188, 60
+IDD_LOG_OFF DIALOGEX 0, 0, 190, 60
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_CAPTION
 CAPTION "Cerrar sesión de ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_SHELL_LOGOFF, IDC_STATIC, 7, 7, 20, 20
-    LTEXT "¿Esta seguro de que quiere cerrar la sesión?", -1, 35, 16, 146, 8
-    DEFPUSHBUTTON "&Cerrar sesión", IDOK, 41, 39, 50, 14
-    PUSHBUTTON "Cancelar", IDCANCEL, 95, 39, 50, 14
+    ICON 45, 14344, 10, 10, 21, 20, SS_REALSIZECONTROL
+    LTEXT "¿Esta seguro de que quiere cerrar la sesión?", -1, 43, 11, 140, 22
+    DEFPUSHBUTTON "&Cerrar sesión", IDOK, 57, 40, 60, 14
+    PUSHBUTTON "Cancelar", IDCANCEL, 122, 40, 60, 14
 END
 
 IDD_DISCONNECT DIALOGEX 0, 0, 190, 60
@@ -711,6 +711,8 @@ BEGIN
     IDS_RESTART_PROMPT "¿Desea reiniciar el equipo?"
     IDS_SHUTDOWN_TITLE "Apagar"
     IDS_SHUTDOWN_PROMPT "¿Desea apagar el equipo?"
+    IDS_LOGOFF_TITLE "Cerrar sesión"
+    IDS_LOGOFF_PROMPT "¿Desea cerrar la sesión?"
 
     /* Run File dialog */
     IDS_RUNDLG_ERROR "No se pudo mostrar el diálogo Ejecutar (error interno)"

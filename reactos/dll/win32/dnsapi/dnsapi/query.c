@@ -59,9 +59,6 @@ DnsQuery_A(LPCSTR Name,
     LPSTR CurrentName;
     unsigned i, CNameLoop;
 
-    if (Name == NULL)
-        return ERROR_INVALID_PARAMETER;
-
     *QueryResultSet = 0;
 
     switch(Type)
@@ -203,9 +200,6 @@ DnsQuery_W(LPCWSTR Name,
     PDNS_RECORD QueryResultWide;
     PDNS_RECORD ConvertedRecord = 0, LastRecord = 0;
 
-    if (Name == NULL)
-        return ERROR_INVALID_PARAMETER;
-
     Buffer = DnsWToC(Name);
 
     Status = DnsQuery_A(Buffer, Type, Options, Servers, &QueryResultWide, Reserved);
@@ -289,8 +283,7 @@ DnsQuery_W(LPCWSTR Name,
         }
     }
 
-    if (LastRecord)
-        LastRecord->pNext = 0;
+    LastRecord->pNext = 0;
 
     /* The name */
     RtlFreeHeap(RtlGetProcessHeap(), 0, Buffer);
