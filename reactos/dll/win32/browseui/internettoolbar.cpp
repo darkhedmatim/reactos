@@ -1503,7 +1503,33 @@ LRESULT CInternetToolbar::OnUpLevel(WORD wNotifyCode, WORD wID, HWND hWndCtl, BO
 
 LRESULT CInternetToolbar::OnSearch(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL &bHandled)
 {
-    return IUnknown_Exec(fSite, CLSID_CommonButtons, 0x123, 1, NULL, NULL); 
+    CComPtr<IObjectWithSite>                objectWithSite;
+    CComPtr<IContextMenu>                   contextMenu;
+    CMINVOKECOMMANDINFO                     commandInfo;
+    const char                              *searchGUID = "{169A0691-8DF9-11d1-A1C4-00C04FD75D13}";
+    HRESULT                                 hResult;
+
+    // TODO: Query shell if this command is enabled first
+
+    memset(&commandInfo, 0, sizeof(commandInfo));
+    commandInfo.cbSize = sizeof(commandInfo);
+    commandInfo.hwnd = m_hWnd;
+    commandInfo.lpParameters = searchGUID;
+    commandInfo.nShow = SW_SHOWNORMAL;
+
+    hResult = CoCreateInstance(CLSID_ShellSearchExt, NULL, CLSCTX_INPROC_SERVER,
+        IID_PPV_ARG(IContextMenu, &contextMenu));
+    if (FAILED_UNEXPECTEDLY(hResult))
+        return 0;
+    hResult = contextMenu->QueryInterface(IID_PPV_ARG(IObjectWithSite, &objectWithSite));
+    if (FAILED_UNEXPECTEDLY(hResult))
+        return 0;
+    hResult = objectWithSite->SetSite(fSite);
+    if (FAILED_UNEXPECTEDLY(hResult))
+        return 0;
+    hResult = contextMenu->InvokeCommand(&commandInfo);
+    hResult = objectWithSite->SetSite(NULL);
+    return 0;
 }
 
 LRESULT CInternetToolbar::OnFolders(WORD wNotifyCode, WORD wID, HWND hWndCtl, BOOL &bHandled)

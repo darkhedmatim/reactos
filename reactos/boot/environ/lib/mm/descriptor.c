@@ -149,7 +149,7 @@ MmMdpSwitchToDynamicDescriptors (
     _In_ ULONG Count
     )
 {
-    EfiPrintf(L"dynamic switch NOT SUPPORTED!!!\r\n");
+    EfiPrintf(L"NOT SUPPORTED!!!\r\n");
     while (1);
 }
 
@@ -742,9 +742,9 @@ MmMdFindSatisfyingRegion (
     }
 
     /* Bail out if the allocation flags don't match */
-    if (((Flags ^ Descriptor->Flags) & (BlMemoryRuntime | BlMemoryReserved | BlMemoryUnknown)))
+    if (((Flags ^ Descriptor->Flags) & 0x190000))
     {
-        //EfiPrintf(L"Incorrect memory allocation flags\r\n");
+        EfiPrintf(L"Incorrect memory allocation flags\r\n");
         return FALSE;
     }
 

@@ -156,10 +156,10 @@ STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYS
 CAPTION "Run"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON "", IDC_RUNDLG_ICON, 7, 11, 18, 20, WS_VISIBLE
+    ICON IDI_SHELL_RUN, IDC_STATIC, 7, 11, 18, 20, WS_VISIBLE
     LTEXT "Digitare il nome del programma, della cartella, del documento o della risorsa Internet, e ReactOS la aprirà.", 12289, 36, 11, 182, 18
     LTEXT "&Apri:", 12305, 7, 39, 24, 10
-    CONTROL "", IDC_RUNDLG_EDITPATH, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE | CBS_AUTOHSCROLL | CBS_DROPDOWN, 36, 37, 183, 100
+    CONTROL "", 12298, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE |  CBS_AUTOHSCROLL | CBS_DROPDOWN, 36, 37, 183, 100
     DEFPUSHBUTTON "OK", IDOK, 62, 63, 50, 14, WS_TABSTOP
     PUSHBUTTON "Annulla", IDCANCEL, 116, 63, 50, 14, WS_TABSTOP
     PUSHBUTTON "&Esplora...", 12288, 170, 63, 50, 14, WS_TABSTOP
@@ -405,19 +405,19 @@ CAPTION "Generale"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     GROUPBOX "Attività", -1, 7, 10, 249, 45
-    CONTROL "", IDC_FOLDER_OPTIONS_TASKICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 25, 21, 20
-    AUTORADIOBUTTON "Mostrare le attività comuni nelle cartelle", IDC_FOLDER_OPTIONS_COMMONTASKS, 40, 25, 200, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Utilizzare le cartelle nella forma 'ReactOS class&ic' ", IDC_FOLDER_OPTIONS_CLASSICFOLDERS, 40, 37, 200, 10
+    ICON "", 30109, 14, 25, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "Mostrare le attività comuni nelle cartelle", 14001, 40, 25, 200, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Utilizzare le cartelle nella forma 'ReactOS class&ic' ", 14002, 40, 37, 200, 10, WS_TABSTOP | WS_GROUP
     GROUPBOX "Sfoglia cartelle", -1, 7, 60, 249, 45, WS_TABSTOP
-    CONTROL "", IDC_FOLDER_OPTIONS_FOLDERICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 70, 21, 20
-    AUTORADIOBUTTON "Aprire ogni cartella nella stessa finestra", IDC_FOLDER_OPTIONS_SAMEWINDOW, 40, 70, 200, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Aprire ogni cartella in una nuova finestra", IDC_FOLDER_OPTIONS_OWNWINDOW, 40, 82, 200, 10
+    ICON "", 30110, 14, 70, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "Aprire ogni cartella nella stessa finestra", 14004, 40, 70, 200, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Aprire ogni cartella in una nuova finestra", 14005, 40, 82, 200, 10, WS_TABSTOP | WS_GROUP
     GROUPBOX "Click sugli elementi come segue", -1, 7, 110, 249, 60
-    CONTROL "", IDC_FOLDER_OPTIONS_CLICKICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 120, 21, 20
-    AUTORADIOBUTTON "&Click singolo per aprire un elemento (seleziona ed apre)", IDC_FOLDER_OPTIONS_SINGLECLICK, 40, 120, 200, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Sottolinea i titoli delle icone in modo coerente con il &browser", IDC_FOLDER_OPTIONS_ULBROWSER, 50, 132, 200, 10
-    AUTORADIOBUTTON "Sottolinea i titoli delle icone solo se &selezionate", IDC_FOLDER_OPTIONS_ULPOINT, 50, 144, 200, 10
-    AUTORADIOBUTTON "&Doppio click per aprire un elemento (click singolo per selezionare)", IDC_FOLDER_OPTIONS_DOUBLECLICK, 40, 156, 200, 10
+    ICON "", 30111, 14, 120, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "&Click singolo per aprire un elemento (seleziona ed apre)", 14007, 40, 120, 200, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Sottolinea i titoli delle icone in modo coerente con il &browser", 14008, 50, 132, 200, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Sottolinea i titoli delle icone solo se &selezionate", 14009, 50, 144, 200, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "&Doppio click per aprire un elemento (click singolo per selezionare)", 14010, 40, 156, 200, 10, WS_TABSTOP | WS_GROUP
     PUSHBUTTON "&Ripristina le impostazioni predefinite", 14011, 120, 180, 120, 14, WS_TABSTOP
 END
 
@@ -442,7 +442,7 @@ CAPTION "Tipi dei File"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     LTEXT "&Tipi di file Registrati:", -1, 7, 10, 70, 10
-    CONTROL "", 14000, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHAREIMAGELISTS | LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP, 7, 20, 249, 80
+    CONTROL "", 14000, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHAREIMAGELISTS | WS_BORDER | WS_TABSTOP, 7, 20, 249, 80
     PUSHBUTTON "&Nuovo", 14001, 120, 110, 50, 14, WS_TABSTOP
     PUSHBUTTON "&Cancella", 14002, 180, 110, 50, 14, WS_TABSTOP
     GROUPBOX "Dettagli per l'estensione '%s'", 14003, 7, 130, 249, 70
@@ -475,15 +475,15 @@ BEGIN
     ICON "", 12301, 50, 89, 21, 20, SS_REALSIZECONTROL
 END
 
-IDD_LOG_OFF DIALOGEX 0, 0, 188, 60
+IDD_LOG_OFF DIALOGEX 0, 0, 190, 60
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_CAPTION
 CAPTION "Chiudi sessione di ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_SHELL_LOGOFF, IDC_STATIC, 7, 7, 20, 20
-    LTEXT "Siete sicuro di voler chiudere la sessione?", -1, 35, 16, 146, 8
-    DEFPUSHBUTTON "&Chiudi sessione", IDOK, 35, 39, 55, 14
-    PUSHBUTTON "Annulla", IDCANCEL, 95, 39, 50, 14
+    ICON 45, 14344, 10, 10, 21, 20, SS_REALSIZECONTROL
+    LTEXT "Siete sicuro di voler chiudere la sessione?", -1, 43, 11, 140, 22
+    DEFPUSHBUTTON "&Chiudi sessione", IDOK, 57, 40, 60, 14
+    PUSHBUTTON "Annulla", IDCANCEL, 122, 40, 60, 14
 END
 
 IDD_DISCONNECT DIALOGEX 0, 0, 190, 60
@@ -709,6 +709,8 @@ BEGIN
     IDS_RESTART_PROMPT "Volete riavviare il sistema?"
     IDS_SHUTDOWN_TITLE "Arresta sistema"
     IDS_SHUTDOWN_PROMPT "Volete arrestare il sistema?"
+    IDS_LOGOFF_TITLE "Disconnetti"
+    IDS_LOGOFF_PROMPT "Volete disconnettervi?"
 
     /* Run File dialog */
     IDS_RUNDLG_ERROR "Impossibile mostrare il dialogo Eseguire (errore interno)"
@@ -720,7 +722,7 @@ BEGIN
     IDS_PROGRAMS "Menu Avvio\\Programmi"
     IDS_PERSONAL "Documenti Personali"
     IDS_FAVORITES "Preferiti"
-    IDS_STARTUP "Menu Avvio\\Programmi\\Esecuzione Automatica"
+    IDS_STARTUP "Menu Avvio\\Programmi\\AvvioAutomatico"
     IDS_RECENT "Recenti"
     IDS_SENDTO "Invia A"
     IDS_STARTMENU "Menu Avvio"
@@ -729,12 +731,12 @@ BEGIN
     IDS_DESKTOPDIRECTORY "Desktop"
     IDS_NETHOOD "Rete"
     IDS_TEMPLATES "Modelli"
-    IDS_APPDATA "Dati Applicazioni"
+    IDS_APPDATA "DatiApplicazioni"
     IDS_PRINTHOOD "Stampanti"
     IDS_LOCAL_APPDATA "Impostazioni locali\\Dati Applicazioni"
     IDS_INTERNET_CACHE "Impostazioni locali\\File Temporanei di Internet"
     IDS_COOKIES "Cookies"
-    IDS_HISTORY "Impostazioni locali\\Cronologia"
+    IDS_HISTORY "Impostazioni locali\\Storia"
     IDS_PROGRAM_FILES "Programmi"
     IDS_MYPICTURES "Foto"
     IDS_PROGRAM_FILES_COMMON "Programmi\\File Comuni"
@@ -752,7 +754,7 @@ BEGIN
     IDS_DRIVE_CDROM "CD Drive"
     IDS_DRIVE_NETWORK "Disco di Rete"
     IDS_DRIVE_FLOPPY "3.5 Floppy"
-    IDS_DRIVE_REMOVABLE "Disco rimovibile"
+    IDS_DRIVE_REMOVABLE "Removable Disk"
     IDS_FS_UNKNOWN "Sconosciuto"
 
     /* Open With */
@@ -787,7 +789,7 @@ BEGIN
     IDS_TTF_FILE "TrueType Font"
     IDS_OTF_FILE "OpenType Font"
     IDS_HLP_FILE "File della guida"
-    IDS_ICO_FILE "Icona"
+    IDS_ICO_FILE "Icon"
     IDS_INI_FILE "Impostazioni di configurazione"
     IDS_LNK_FILE "Collegamento"
     IDS_PIF_FILE "NT VDM Program Information File"
@@ -816,16 +818,11 @@ BEGIN
     IDS_FILE_DETAILSADV "I files con estensione '%s' sono di tipo '%s'. Per modificare le impostazioni per tutti i file '%s', cliccare su Avanzate."
     IDS_FILE_TYPES "Tipi di file"
     IDS_COLUMN_EXTENSION "Estensioni"
-
-    /* As in 'INI File' or 'WAV File', fallback string for no-name extensions
-       used in the _File type_ tab of the _Folder Options_ dialog */
-    IDS_FILE_EXT_TYPE "%s File"
-
     IDS_BYTES_FORMAT "byte"
     IDS_UNKNOWN_APP "Applicazione sconosciuta"
     IDS_EXE_DESCRIPTION "Descrizione:"
 
     IDS_MENU_EMPTY "(Vuoto)"
-    IDS_OBJECTS "%d Oggetti"
-    IDS_OBJECTS_SELECTED "%d Oggetti selezionati"
+    IDS_OBJECTS "%d Objects"
+    IDS_OBJECTS_SELECTED "%d Objects Selected"
 END

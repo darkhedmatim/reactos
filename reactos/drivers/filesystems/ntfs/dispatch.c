@@ -101,10 +101,6 @@ NtfsDispatch(PNTFS_IRP_CONTEXT IrpContext)
             Status = NtfsClose(IrpContext);
             break;
 
-        case IRP_MJ_CLEANUP:
-            Status = NtfsCleanup(IrpContext);
-            break;
-
         case IRP_MJ_CREATE:
             Status = NtfsCreate(IrpContext);
             break;

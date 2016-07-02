@@ -55,7 +55,9 @@ FormatEx(
     if (!Provider)
     {
         /* Unknown file system */
-        Callback(DONE, 0, &Argument);
+        Callback(DONE, /* Command */
+                 0, /* DWORD Modifier */
+                 &Argument); /* Argument */
         return;
     }
 
@@ -69,7 +71,9 @@ FormatEx(
         !RtlDosPathNameToNtPathName_U(VolumeName, &usDriveRoot, NULL, &CurDir))
     {
         /* Report an error. */
-        Callback(DONE, 0, &Argument);
+        Callback(DONE, /* Command */
+                 0, /* DWORD Modifier */
+                 &Argument); /* Argument */
         return;
     }
 #endif

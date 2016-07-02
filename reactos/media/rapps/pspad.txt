@@ -1,9 +1,14 @@
+; UTF-8
+; Polish translation by wojo664
+; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+; Simplified Chinese translation by Henry Tang Ih (henrytang5247) (henrytang2@hotmail.com)
+
 [Section]
 Name = PSPad
 Version = 4.6.0
 License = Freeware
 Description = A lightweight text editor.
-Size = 5.0 MiB
+Size = 5.0 MB
 Category = 6
 URLSite = http://www.pspad.com
 URLDownload = http://fossies.org/windows/misc/pspad460_setup.exe
@@ -13,7 +18,6 @@ CDPath = none
 [Section.0407]
 Description = Leichtgewichtiger Texteditor.
 URLSite = http://www.pspad.com/de/
-Size = 5,0 MiB
 
 [Section.0a]
 Description = Un pequeño editor de texto.
@@ -21,8 +25,8 @@ URLSite = http://www.pspad.com/es/
 
 [Section.040c]
 Description = Un éditeur de texte.
+Size = 4,50 Mo
 URLSite = http://www.pspad.com/fr/
-Size = 5,0 Mio
 
 [Section.0410]
 Description = Un editor di testo.
@@ -37,7 +41,7 @@ Description = Edytor tekstu.
 [Section.0418]
 License = Gratuită
 Description = Editor ușor de text.
-Size = 5,0 Mio
+Size = 4,50 Mo
 
 [Section.0419]
 Description = Текстовый редактор.
@@ -50,7 +54,7 @@ URLSite = http://www.pspad.com/sk/
 [Section.041f]
 License = Ücretsiz
 Description = Yeğni bir metin düzenleyicisi.
-Size = 5,0 MiB
+Size = 4,50 MB
 
 [Section.0422]
 Description = Текстовый редактор.
@@ -60,4 +64,3 @@ Description = 一个轻量级的文本编辑器。
 
 [Section.0813]
 Description = Een teksteditor.
-

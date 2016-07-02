@@ -1790,7 +1790,7 @@ CDefaultContextMenu::GetCommandString(
         if (g_StaticInvokeCmdMap[i].IntVerb == idCommand)
         {
             /* Validation just returns S_OK on a match */
-            if (uFlags == GCS_VALIDATEA || uFlags == GCS_VALIDATEW)
+            if (uFlags == GCS_VALIDATEA || uFlags == GCS_VALIDATEA)
                 return S_OK;
 
             /* Return a copy of the ANSI verb */

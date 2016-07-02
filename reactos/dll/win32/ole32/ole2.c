@@ -25,8 +25,6 @@
 
 #include "precomp.h"
 
-#include "olestd.h"
-
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 WINE_DECLARE_DEBUG_CHANNEL(accel);
 
@@ -45,6 +43,7 @@ typedef struct tagTrackerWindowInfo
 
   BOOL       escPressed;
   HWND       curTargetHWND;	/* window the mouse is hovering over */
+  HWND       curDragTargetHWND; /* might be an ancestor of curTargetHWND */
   IDropTarget* curDragTarget;
   POINTL     curMousePos;       /* current position of the mouse in screen coordinates */
   DWORD      dwKeyState;        /* current state of the shift and ctrl keys and the mouse buttons */
@@ -95,6 +94,11 @@ static const WCHAR prop_oledroptarget[] =
 /* property to store Marshalled IDropTarget pointer */
 static const WCHAR prop_marshalleddroptarget[] =
   {'W','i','n','e','M','a','r','s','h','a','l','l','e','d','D','r','o','p','T','a','r','g','e','t',0};
+
+static const WCHAR clsidfmtW[] =
+  {'C','L','S','I','D','\\','{','%','0','8','x','-','%','0','4','x','-','%','0','4','x','-',
+   '%','0','2','x','%','0','2','x','-','%','0','2','x','%','0','2','x','%','0','2','x','%','0','2','x',
+    '%','0','2','x','%','0','2','x','}','\\',0};
 
 static const WCHAR emptyW[] = { 0 };
 
@@ -162,8 +166,6 @@ HRESULT WINAPI DECLSPEC_HOTPATCH OleInitialize(LPVOID reserved)
 
   if (!COM_CurrentInfo()->ole_inits)
     hr = S_OK;
-  else
-    hr = S_FALSE;
 
   /*
    * Then, it has to initialize the OLE specific modules.
@@ -207,11 +209,6 @@ void WINAPI DECLSPEC_HOTPATCH OleUninitialize(void)
 {
   TRACE("()\n");
 
-  if (COM_CurrentInfo()->ole_inits == 0)
-  {
-    WARN("ole_inits is already 0\n");
-    return ;
-  }
   /*
    * If we hit the bottom of the lock stack, free the libraries.
    */
@@ -644,73 +641,88 @@ HRESULT WINAPI RevokeDragDrop(HWND hwnd)
 
 /***********************************************************************
  *           OleRegGetUserType (OLE32.@)
+ *
+ * This implementation of OleRegGetUserType ignores the dwFormOfType
+ * parameter and always returns the full name of the object. This is
+ * not too bad since this is the case for many objects because of the
+ * way they are registered.
  */
-HRESULT WINAPI OleRegGetUserType(REFCLSID clsid, DWORD form, LPOLESTR *usertype)
+HRESULT WINAPI OleRegGetUserType(
+	REFCLSID clsid,
+	DWORD dwFormOfType,
+	LPOLESTR* pszUserType)
 {
-  static const WCHAR auxusertypeW[] = {'A','u','x','U','s','e','r','T','y','p','e','\\','%','d',0};
-  DWORD valuetype, valuelen;
-  WCHAR auxkeynameW[16];
-  HKEY    usertypekey;
-  HRESULT hres;
-  LONG    ret;
+  WCHAR   keyName[60];
+  DWORD   dwKeyType;
+  DWORD   cbData;
+  HKEY    clsidKey;
+  LONG    hres;
 
-  TRACE("(%s, %u, %p)\n", debugstr_guid(clsid), form, usertype);
+  /*
+   * Initialize the out parameter.
+   */
+  *pszUserType = NULL;
 
-  if (!usertype)
-    return E_INVALIDARG;
+  /*
+   * Build the key name we're looking for
+   */
+  sprintfW( keyName, clsidfmtW,
+            clsid->Data1, clsid->Data2, clsid->Data3,
+            clsid->Data4[0], clsid->Data4[1], clsid->Data4[2], clsid->Data4[3],
+            clsid->Data4[4], clsid->Data4[5], clsid->Data4[6], clsid->Data4[7] );
 
-  *usertype = NULL;
+  TRACE("(%s, %d, %p)\n", debugstr_w(keyName), dwFormOfType, pszUserType);
 
-  /* Return immediately if it's not registered. */
-  hres = COM_OpenKeyForCLSID(clsid, NULL, KEY_READ, &usertypekey);
-  if (FAILED(hres))
-    return hres;
+  /*
+   * Open the class id Key
+   */
+  hres = open_classes_key(HKEY_CLASSES_ROOT, keyName, MAXIMUM_ALLOWED, &clsidKey);
+  if (hres != ERROR_SUCCESS)
+    return REGDB_E_CLASSNOTREG;
 
-  valuelen = 0;
+  /*
+   * Retrieve the size of the name string.
+   */
+  cbData = 0;
 
-  /* Try additional types if requested. If they don't exist fall back to USERCLASSTYPE_FULL. */
-  if (form != USERCLASSTYPE_FULL)
+  hres = RegQueryValueExW(clsidKey,
+			  emptyW,
+			  NULL,
+			  &dwKeyType,
+			  NULL,
+			  &cbData);
+
+  if (hres!=ERROR_SUCCESS)
   {
-    HKEY auxkey;
-
-    sprintfW(auxkeynameW, auxusertypeW, form);
-    if (COM_OpenKeyForCLSID(clsid, auxkeynameW, KEY_READ, &auxkey) == S_OK)
-    {
-      if (!RegQueryValueExW(auxkey, emptyW, NULL, &valuetype, NULL, &valuelen) && valuelen)
-      {
-        RegCloseKey(usertypekey);
-        usertypekey = auxkey;
-      }
-      else
-        RegCloseKey(auxkey);
-    }
-  }
-
-  valuelen = 0;
-  if (RegQueryValueExW(usertypekey, emptyW, NULL, &valuetype, NULL, &valuelen))
-  {
-    RegCloseKey(usertypekey);
+    RegCloseKey(clsidKey);
     return REGDB_E_READREGDB;
   }
 
-  *usertype = CoTaskMemAlloc(valuelen);
-  if (!*usertype)
+  /*
+   * Allocate a buffer for the registry value.
+   */
+  *pszUserType = CoTaskMemAlloc(cbData);
+
+  if (*pszUserType==NULL)
   {
-    RegCloseKey(usertypekey);
+    RegCloseKey(clsidKey);
     return E_OUTOFMEMORY;
   }
 
-  ret = RegQueryValueExW(usertypekey,
+  hres = RegQueryValueExW(clsidKey,
 			  emptyW,
 			  NULL,
-			  &valuetype,
-			  (LPBYTE)*usertype,
-			  &valuelen);
-  RegCloseKey(usertypekey);
-  if (ret != ERROR_SUCCESS)
+			  &dwKeyType,
+			  (LPBYTE) *pszUserType,
+			  &cbData);
+
+  RegCloseKey(clsidKey);
+
+  if (hres != ERROR_SUCCESS)
   {
-    CoTaskMemFree(*usertype);
-    *usertype = NULL;
+    CoTaskMemFree(*pszUserType);
+    *pszUserType = NULL;
+
     return REGDB_E_READREGDB;
   }
 
@@ -746,6 +758,7 @@ HRESULT WINAPI DoDragDrop (
   trackerInfo.pdwEffect         = pdwEffect;
   trackerInfo.trackingDone      = FALSE;
   trackerInfo.escPressed        = FALSE;
+  trackerInfo.curDragTargetHWND = 0;
   trackerInfo.curTargetHWND     = 0;
   trackerInfo.curDragTarget     = 0;
 
@@ -835,13 +848,21 @@ HRESULT WINAPI OleRegGetMiscStatus(
 {
   static const WCHAR miscstatusW[] = {'M','i','s','c','S','t','a','t','u','s',0};
   static const WCHAR dfmtW[] = {'%','d',0};
-  WCHAR   keyName[16];
+  WCHAR   keyName[60];
+  HKEY    clsidKey;
   HKEY    miscStatusKey;
   HKEY    aspectKey;
   LONG    result;
-  HRESULT hr;
 
-  TRACE("(%s, %d, %p)\n", debugstr_guid(clsid), dwAspect, pdwStatus);
+  /*
+   * Build the key name we're looking for
+   */
+  sprintfW( keyName, clsidfmtW,
+            clsid->Data1, clsid->Data2, clsid->Data3,
+            clsid->Data4[0], clsid->Data4[1], clsid->Data4[2], clsid->Data4[3],
+            clsid->Data4[4], clsid->Data4[5], clsid->Data4[6], clsid->Data4[7] );
+
+  TRACE("(%s, %d, %p)\n", debugstr_w(keyName), dwAspect, pdwStatus);
 
   if (!pdwStatus) return E_INVALIDARG;
 
@@ -849,11 +870,26 @@ HRESULT WINAPI OleRegGetMiscStatus(
 
   if (actctx_get_miscstatus(clsid, dwAspect, pdwStatus)) return S_OK;
 
-  hr = COM_OpenKeyForCLSID(clsid, miscstatusW, KEY_READ, &miscStatusKey);
-  if (FAILED(hr))
-    /* missing key is not a failure */
-    return hr == REGDB_E_KEYMISSING ? S_OK : hr;
+  /*
+   * Open the class id Key
+   */
+  result = open_classes_key(HKEY_CLASSES_ROOT, keyName, MAXIMUM_ALLOWED, &clsidKey);
+  if (result != ERROR_SUCCESS)
+    return REGDB_E_CLASSNOTREG;
 
+  /*
+   * Get the MiscStatus
+   */
+  result = open_classes_key(clsidKey, miscstatusW, MAXIMUM_ALLOWED, &miscStatusKey);
+  if (result != ERROR_SUCCESS)
+  {
+    RegCloseKey(clsidKey);
+    return S_OK;
+  }
+
+  /*
+   * Read the default value
+   */
   OLEUTL_ReadRegistryDWORDValue(miscStatusKey, pdwStatus);
 
   /*
@@ -861,14 +897,19 @@ HRESULT WINAPI OleRegGetMiscStatus(
    */
   sprintfW(keyName, dfmtW, dwAspect);
 
-  result = open_classes_key(miscStatusKey, keyName, KEY_READ, &aspectKey);
+  result = open_classes_key(miscStatusKey, keyName, MAXIMUM_ALLOWED, &aspectKey);
   if (result == ERROR_SUCCESS)
   {
     OLEUTL_ReadRegistryDWORDValue(aspectKey, pdwStatus);
     RegCloseKey(aspectKey);
   }
 
+  /*
+   * Cleanup
+   */
   RegCloseKey(miscStatusKey);
+  RegCloseKey(clsidKey);
+
   return S_OK;
 }
 
@@ -2158,96 +2199,6 @@ static LRESULT WINAPI OLEDD_DragTrackerWindowProc(
   return DefWindowProcW (hwnd, uMsg, wParam, lParam);
 }
 
-static void drag_enter( TrackerWindowInfo *info, HWND new_target )
-{
-    HRESULT hr;
-
-    info->curTargetHWND = new_target;
-
-    while (new_target && !is_droptarget( new_target ))
-        new_target = GetParent( new_target );
-
-    info->curDragTarget = get_droptarget_pointer( new_target );
-
-    if (info->curDragTarget)
-    {
-        *info->pdwEffect = info->dwOKEffect;
-        hr = IDropTarget_DragEnter( info->curDragTarget, info->dataObject,
-                                    info->dwKeyState, info->curMousePos,
-                                    info->pdwEffect );
-        *info->pdwEffect &= info->dwOKEffect;
-
-        /* failed DragEnter() means invalid target */
-        if (hr != S_OK)
-        {
-            IDropTarget_Release( info->curDragTarget );
-            info->curDragTarget = NULL;
-            info->curTargetHWND = NULL;
-        }
-    }
-}
-
-static void drag_end( TrackerWindowInfo *info )
-{
-    HRESULT hr;
-
-    info->trackingDone = TRUE;
-    ReleaseCapture();
-
-    if (info->curDragTarget)
-    {
-        if (info->returnValue == DRAGDROP_S_DROP &&
-            *info->pdwEffect != DROPEFFECT_NONE)
-        {
-            *info->pdwEffect = info->dwOKEffect;
-            hr = IDropTarget_Drop( info->curDragTarget, info->dataObject, info->dwKeyState,
-                                   info->curMousePos, info->pdwEffect );
-            *info->pdwEffect &= info->dwOKEffect;
-
-            if (FAILED( hr ))
-                info->returnValue = hr;
-        }
-        else
-        {
-            IDropTarget_DragLeave( info->curDragTarget );
-            *info->pdwEffect = DROPEFFECT_NONE;
-        }
-        IDropTarget_Release( info->curDragTarget );
-        info->curDragTarget = NULL;
-    }
-    else
-        *info->pdwEffect = DROPEFFECT_NONE;
-}
-
-static HRESULT give_feedback( TrackerWindowInfo *info )
-{
-    HRESULT hr;
-    int res;
-    HCURSOR cur;
-
-    if (info->curDragTarget == NULL)
-        *info->pdwEffect = DROPEFFECT_NONE;
-
-    hr = IDropSource_GiveFeedback( info->dropSource, *info->pdwEffect );
-
-    if (hr == DRAGDROP_S_USEDEFAULTCURSORS)
-    {
-        if (*info->pdwEffect & DROPEFFECT_MOVE)
-            res = CURSOR_MOVE;
-        else if (*info->pdwEffect & DROPEFFECT_COPY)
-            res = CURSOR_COPY;
-        else if (*info->pdwEffect & DROPEFFECT_LINK)
-            res = CURSOR_LINK;
-        else
-            res = CURSOR_NODROP;
-
-        cur = LoadCursorW( hProxyDll, MAKEINTRESOURCEW( res ) );
-        SetCursor( cur );
-    }
-
-    return hr;
-}
-
 /***
  * OLEDD_TrackStateChange()
  *
@@ -2261,6 +2212,7 @@ static HRESULT give_feedback( TrackerWindowInfo *info )
 static void OLEDD_TrackStateChange(TrackerWindowInfo* trackerInfo)
 {
   HWND   hwndNewTarget = 0;
+  HRESULT  hr = S_OK;
   POINT pt;
 
   /*
@@ -2274,40 +2226,186 @@ static void OLEDD_TrackStateChange(TrackerWindowInfo* trackerInfo)
                                                            trackerInfo->escPressed,
                                                            trackerInfo->dwKeyState);
 
-  if (trackerInfo->curTargetHWND != hwndNewTarget &&
-      (trackerInfo->returnValue == S_OK ||
-       trackerInfo->returnValue == DRAGDROP_S_DROP))
+  /*
+   * Every time, we re-initialize the effects passed to the
+   * IDropTarget to the effects allowed by the source.
+   */
+  *trackerInfo->pdwEffect = trackerInfo->dwOKEffect;
+
+  /*
+   * If we are hovering over the same target as before, send the
+   * DragOver notification
+   */
+  if ( (trackerInfo->curDragTarget != 0) &&
+       (trackerInfo->curTargetHWND == hwndNewTarget) )
   {
-    if (trackerInfo->curDragTarget)
-    {
-      IDropTarget_DragLeave(trackerInfo->curDragTarget);
-      IDropTarget_Release(trackerInfo->curDragTarget);
-      trackerInfo->curDragTarget = NULL;
-      trackerInfo->curTargetHWND = NULL;
-    }
-
-    if (hwndNewTarget)
-      drag_enter( trackerInfo, hwndNewTarget );
-
-    give_feedback( trackerInfo );
-
-  }
-
-  if (trackerInfo->returnValue == S_OK)
-  {
-    if (trackerInfo->curDragTarget)
-    {
-      *trackerInfo->pdwEffect = trackerInfo->dwOKEffect;
-      IDropTarget_DragOver(trackerInfo->curDragTarget,
-                           trackerInfo->dwKeyState,
-                           trackerInfo->curMousePos,
-                           trackerInfo->pdwEffect);
-      *trackerInfo->pdwEffect &= trackerInfo->dwOKEffect;
-    }
-    give_feedback( trackerInfo );
+    IDropTarget_DragOver(trackerInfo->curDragTarget,
+                         trackerInfo->dwKeyState,
+                         trackerInfo->curMousePos,
+                         trackerInfo->pdwEffect);
+    *trackerInfo->pdwEffect &= trackerInfo->dwOKEffect;
   }
   else
-    drag_end( trackerInfo );
+  {
+    /*
+     * If we changed window, we have to notify our old target and check for
+     * the new one.
+     */
+    if (trackerInfo->curDragTarget)
+      IDropTarget_DragLeave(trackerInfo->curDragTarget);
+
+    /*
+     * Make sure we're hovering over a window.
+     */
+    if (hwndNewTarget)
+    {
+      /*
+       * Find-out if there is a drag target under the mouse
+       */
+      HWND next_target_wnd = hwndNewTarget;
+
+      trackerInfo->curTargetHWND = hwndNewTarget;
+
+      while (next_target_wnd && !is_droptarget(next_target_wnd))
+          next_target_wnd = GetParent(next_target_wnd);
+
+      if (next_target_wnd) hwndNewTarget = next_target_wnd;
+
+      trackerInfo->curDragTargetHWND = hwndNewTarget;
+      if(trackerInfo->curDragTarget) IDropTarget_Release(trackerInfo->curDragTarget);
+      trackerInfo->curDragTarget     = get_droptarget_pointer(hwndNewTarget);
+
+      /*
+       * If there is, notify it that we just dragged-in
+       */
+      if (trackerInfo->curDragTarget)
+      {
+        hr = IDropTarget_DragEnter(trackerInfo->curDragTarget,
+                                   trackerInfo->dataObject,
+                                   trackerInfo->dwKeyState,
+                                   trackerInfo->curMousePos,
+                                   trackerInfo->pdwEffect);
+        *trackerInfo->pdwEffect &= trackerInfo->dwOKEffect;
+
+        /* failed DragEnter() means invalid target */
+        if (hr != S_OK)
+        {
+          trackerInfo->curDragTargetHWND = 0;
+          trackerInfo->curTargetHWND     = 0;
+          IDropTarget_Release(trackerInfo->curDragTarget);
+          trackerInfo->curDragTarget     = 0;
+        }
+      }
+    }
+    else
+    {
+      /*
+       * The mouse is not over a window so we don't track anything.
+       */
+      trackerInfo->curDragTargetHWND = 0;
+      trackerInfo->curTargetHWND     = 0;
+      if(trackerInfo->curDragTarget) IDropTarget_Release(trackerInfo->curDragTarget);
+      trackerInfo->curDragTarget     = 0;
+    }
+  }
+
+  /*
+   * Now that we have done that, we have to tell the source to give
+   * us feedback on the work being done by the target.  If we don't
+   * have a target, simulate no effect.
+   */
+  if (trackerInfo->curDragTarget==0)
+  {
+    *trackerInfo->pdwEffect = DROPEFFECT_NONE;
+  }
+
+  hr = IDropSource_GiveFeedback(trackerInfo->dropSource,
+  				*trackerInfo->pdwEffect);
+
+  /*
+   * When we ask for feedback from the drop source, sometimes it will
+   * do all the necessary work and sometimes it will not handle it
+   * when that's the case, we must display the standard drag and drop
+   * cursors.
+   */
+  if (hr == DRAGDROP_S_USEDEFAULTCURSORS)
+  {
+    HCURSOR hCur;
+
+    if (*trackerInfo->pdwEffect & DROPEFFECT_MOVE)
+    {
+      hCur = LoadCursorW(hProxyDll, MAKEINTRESOURCEW(2));
+    }
+    else if (*trackerInfo->pdwEffect & DROPEFFECT_COPY)
+    {
+      hCur = LoadCursorW(hProxyDll, MAKEINTRESOURCEW(3));
+    }
+    else if (*trackerInfo->pdwEffect & DROPEFFECT_LINK)
+    {
+      hCur = LoadCursorW(hProxyDll, MAKEINTRESOURCEW(4));
+    }
+    else
+    {
+      hCur = LoadCursorW(hProxyDll, MAKEINTRESOURCEW(1));
+    }
+
+    SetCursor(hCur);
+  }
+
+  /*
+   * All the return valued will stop the operation except the S_OK
+   * return value.
+   */
+  if (trackerInfo->returnValue!=S_OK)
+  {
+    /*
+     * Make sure the message loop in DoDragDrop stops
+     */
+    trackerInfo->trackingDone = TRUE;
+
+    /*
+     * Release the mouse in case the drop target decides to show a popup
+     * or a menu or something.
+     */
+    ReleaseCapture();
+
+    /*
+     * If we end-up over a target, drop the object in the target or
+     * inform the target that the operation was cancelled.
+     */
+    if (trackerInfo->curDragTarget)
+    {
+      switch (trackerInfo->returnValue)
+      {
+	/*
+	 * If the source wants us to complete the operation, we tell
+	 * the drop target that we just dropped the object in it.
+	 */
+        case DRAGDROP_S_DROP:
+          if (*trackerInfo->pdwEffect != DROPEFFECT_NONE)
+          {
+            hr = IDropTarget_Drop(trackerInfo->curDragTarget, trackerInfo->dataObject,
+                    trackerInfo->dwKeyState, trackerInfo->curMousePos, trackerInfo->pdwEffect);
+            if (FAILED(hr))
+              trackerInfo->returnValue = hr;
+          }
+          else
+            IDropTarget_DragLeave(trackerInfo->curDragTarget);
+          break;
+
+	/*
+	 * If the source told us that we should cancel, fool the drop
+         * target by telling it that the mouse left its window.
+	 * Also set the drop effect to "NONE" in case the application
+	 * ignores the result of DoDragDrop.
+	 */
+        case DRAGDROP_S_CANCEL:
+	  IDropTarget_DragLeave(trackerInfo->curDragTarget);
+	  *trackerInfo->pdwEffect = DROPEFFECT_NONE;
+	  break;
+      }
+    }
+  }
 }
 
 /***
@@ -2469,7 +2567,7 @@ HRESULT WINAPI OleCreate(
         if (SUCCEEDED(hres))
         {
             DWORD dwStatus;
-            IOleObject_GetMiscStatus(pOleObject, DVASPECT_CONTENT, &dwStatus);
+            hres = IOleObject_GetMiscStatus(pOleObject, DVASPECT_CONTENT, &dwStatus);
         }
     }
 
@@ -2498,12 +2596,21 @@ HRESULT WINAPI OleCreate(
     if (((renderopt == OLERENDER_DRAW) || (renderopt == OLERENDER_FORMAT)) &&
         SUCCEEDED(hres))
     {
-        hres = OleRun(pUnk);
+        IRunnableObject *pRunnable;
+        IOleCache *pOleCache;
+        HRESULT hres2;
+
+        hres2 = IUnknown_QueryInterface(pUnk, &IID_IRunnableObject, (void **)&pRunnable);
+        if (SUCCEEDED(hres2))
+        {
+            hres = IRunnableObject_Run(pRunnable, NULL);
+            IRunnableObject_Release(pRunnable);
+        }
+
         if (SUCCEEDED(hres))
         {
-            IOleCache *pOleCache;
-
-            if (SUCCEEDED(IUnknown_QueryInterface(pUnk, &IID_IOleCache, (void **)&pOleCache)))
+            hres2 = IUnknown_QueryInterface(pUnk, &IID_IOleCache, (void **)&pOleCache);
+            if (SUCCEEDED(hres2))
             {
                 DWORD dwConnection;
                 if (renderopt == OLERENDER_DRAW && !pFormatEtc) {

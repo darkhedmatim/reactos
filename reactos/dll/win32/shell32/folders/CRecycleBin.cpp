@@ -63,19 +63,6 @@ static const columninfo RecycleBinColumns[] =
  * Recycle Bin folder
  */
 
-HRESULT CRecyclerExtractIcon_CreateInstance(LPCITEMIDLIST pidl, REFIID riid, LPVOID * ppvOut)
-{
-    CComPtr<IDefaultExtractIconInit> initIcon;
-    HRESULT hr = SHCreateDefaultExtractIcon(IID_PPV_ARG(IDefaultExtractIconInit, &initIcon));
-    if (FAILED(hr))
-        return NULL;
-
-    /* FIXME: This is completely unimplemented */
-    initIcon->SetNormalIcon(swShell32Name, 0);
-
-    return initIcon->QueryInterface(riid, ppvOut);
-}
-
 class CRecycleBinEnum :
     public CEnumIDListBase
 {
@@ -584,7 +571,7 @@ HRESULT WINAPI CRecycleBin::GetAttributesOf(UINT cidl, PCUITEMID_CHILD_ARRAY api
 HRESULT WINAPI CRecycleBin::GetUIObjectOf(HWND hwndOwner, UINT cidl, PCUITEMID_CHILD_ARRAY apidl,
         REFIID riid, UINT *prgfInOut, void **ppv)
 {
-    LPVOID pObj = NULL;
+    IUnknown *pObj = NULL;
     HRESULT hr = E_INVALIDARG;
 
     TRACE ("(%p)->(%p,%u,apidl=%p, %p %p)\n", this,
@@ -605,9 +592,21 @@ HRESULT WINAPI CRecycleBin::GetUIObjectOf(HWND hwndOwner, UINT cidl, PCUITEMID_C
         hr = QueryInterface(IID_PPV_ARG(IDropTarget, &pDt));
         pObj = pDt;
     }
-    else if((IsEqualIID(riid, IID_IExtractIconA) || IsEqualIID(riid, IID_IExtractIconW)) && (cidl == 1))
+    else if(IsEqualIID(riid, IID_IExtractIconA) && (cidl == 1))
     {
-        hr = CRecyclerExtractIcon_CreateInstance(apidl[0], riid, &pObj);
+        // FIXME: This is not correct, it does not show the right icons
+        LPITEMIDLIST pidlItem = ILCombine(pidl, apidl[0]);
+        pObj = IExtractIconA_Constructor(pidlItem);
+        SHFree(pidlItem);
+        hr = S_OK;
+    }
+    else if (IsEqualIID(riid, IID_IExtractIconW) && (cidl == 1))
+    {
+        // FIXME: This is not correct, it does not show the right icons
+        LPITEMIDLIST pidlItem = ILCombine(pidl, apidl[0]);
+        pObj = IExtractIconW_Constructor(pidlItem);
+        SHFree(pidlItem);
+        hr = S_OK;
     }
     else
         hr = E_NOINTERFACE;
@@ -687,10 +686,8 @@ HRESULT WINAPI CRecycleBin::EnumSearches(IEnumExtraSearch **ppEnum)
 HRESULT WINAPI CRecycleBin::GetDefaultColumn(DWORD dwReserved, ULONG *pSort, ULONG *pDisplay)
 {
     TRACE("(%p, %x, %p, %p)\n", this, (unsigned int)dwReserved, pSort, pDisplay);
-    if (pSort)
-        *pSort = 0;
-    if (pDisplay)
-        *pDisplay = 0;
+    *pSort = 0;
+    *pDisplay = 0;
     return S_OK;
 }
 
@@ -743,7 +740,11 @@ HRESULT WINAPI CRecycleBin::GetDetailsOf(PCUITEMID_CHILD pidl, UINT iColumn, LPS
     pDetails->fmt = RecycleBinColumns[iColumn].fmt;
     pDetails->cxChar = RecycleBinColumns[iColumn].cxChars;
     if (pidl == NULL)
-        return SHSetStrRet(&pDetails->str, RecycleBinColumns[iColumn].column_name_id);
+    {
+        pDetails->str.uType = STRRET_WSTR;
+        LoadStringW(shell32_hInstance, RecycleBinColumns[iColumn].column_name_id, buffer, MAX_PATH);
+        return SHStrDupW(buffer, &pDetails->str.pOleStr);
+    }
 
     if (iColumn == COLUMN_NAME)
         return GetDisplayNameOf(pidl, SHGDN_NORMAL, &pDetails->str);
@@ -779,12 +780,15 @@ HRESULT WINAPI CRecycleBin::GetDetailsOf(PCUITEMID_CHILD pidl, UINT iColumn, LPS
                 if (LoadStringW(shell32_hInstance, IDS_SHV_COLUMN1, &szTypeName[Length], (sizeof(szTypeName) / sizeof(WCHAR)) - Length))
                     szTypeName[(sizeof(szTypeName)/sizeof(WCHAR))-1] = L'\0';
             }
-            return SHSetStrRet(&pDetails->str, szTypeName);
+            pDetails->str.uType = STRRET_WSTR;
+            return SHStrDupW(szTypeName, &pDetails->str.pOleStr);
+            break;
         default:
             return E_FAIL;
     }
 
-    return SHSetStrRet(&pDetails->str, buffer);
+    pDetails->str.uType = STRRET_WSTR;
+    return SHStrDupW(buffer, &pDetails->str.pOleStr);
 }
 
 HRESULT WINAPI CRecycleBin::MapColumnToSCID(UINT iColumn, SHCOLUMNID *pscid)

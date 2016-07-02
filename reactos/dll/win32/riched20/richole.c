@@ -2445,29 +2445,13 @@ static HRESULT WINAPI ITextRange_fnSetPoint(ITextRange *me, LONG x, LONG y, LONG
 static HRESULT WINAPI ITextRange_fnScrollIntoView(ITextRange *me, LONG value)
 {
     ITextRangeImpl *This = impl_from_ITextRange(me);
-    ME_TextEditor *editor;
-    ME_Cursor cursor;
-    int x, y, height;
 
-    TRACE("(%p)->(%d)\n", This, value);
+    FIXME("(%p)->(%d): stub\n", This, value);
 
     if (!This->child.reole)
         return CO_E_RELEASED;
 
-    editor = This->child.reole->editor;
-
-    switch (value)
-    {
-    case tomStart:
-        ME_CursorFromCharOfs(editor, This->start, &cursor);
-        ME_GetCursorCoordinates(editor, &cursor, &x, &y, &height);
-        break;
-    default:
-        FIXME("bStart value %d not handled\n", value);
-        return E_NOTIMPL;
-    }
-    ME_ScrollAbs(editor, x, y);
-    return S_OK;
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI ITextRange_fnGetEmbeddedObject(ITextRange *me, IUnknown **ppv)

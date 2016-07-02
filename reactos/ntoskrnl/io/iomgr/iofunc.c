@@ -704,7 +704,7 @@ IopQueryDeviceInformation(IN PFILE_OBJECT FileObject,
     /* Check if this was synch I/O */
     if (!LocalEvent)
     {
-        /* Check if the request is pending */
+        /* Check if the requet is pending */
         if (Status == STATUS_PENDING)
         {
             /* Wait on the file object */
@@ -1217,7 +1217,7 @@ IoSetInformation(IN PFILE_OBJECT FileObject,
     /* Check if this was synch I/O */
     if (!LocalEvent)
     {
-        /* Check if the request is pending */
+        /* Check if the requet is pending */
         if (Status == STATUS_PENDING)
         {
             /* Wait on the file object */
@@ -2561,10 +2561,8 @@ NtReadFile(IN HANDLE FileHandle,
         /* If the file is cached, try fast I/O */
         if (FileObject->PrivateCacheMap)
         {
-            /* Perform fast read */
+            /* Perform fast write */
             FastIoDispatch = DeviceObject->DriverObject->FastIoDispatch;
-            ASSERT(FastIoDispatch != NULL && FastIoDispatch->FastIoRead != NULL);
-
             Success = FastIoDispatch->FastIoRead(FileObject,
                                                  &CapturedByteOffset,
                                                  Length,
@@ -3575,10 +3573,8 @@ NtWriteFile(IN HANDLE FileHandle,
         /* If the file is cached, try fast I/O */
         if (FileObject->PrivateCacheMap)
         {
-            /* Perform fast write */
+            /* Perform fast read */
             FastIoDispatch = DeviceObject->DriverObject->FastIoDispatch;
-            ASSERT(FastIoDispatch != NULL && FastIoDispatch->FastIoWrite != NULL);
-
             Success = FastIoDispatch->FastIoWrite(FileObject,
                                                   &CapturedByteOffset,
                                                   Length,

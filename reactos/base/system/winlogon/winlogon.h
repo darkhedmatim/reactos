@@ -46,6 +46,7 @@
 #include <wine/debug.h>
 WINE_DEFAULT_DEBUG_CHANNEL(winlogon);
 
+#include "setup.h"
 #include "resource.h"
 
 typedef BOOL (WINAPI * PFWLXNEGOTIATE)  (DWORD, DWORD *);
@@ -305,14 +306,8 @@ InitializeScreenSaver(IN OUT PWLSESSION Session);
 VOID
 StartScreenSaver(IN PWLSESSION Session);
 
-/* setup.c */
-DWORD
-GetSetupType(VOID);
-
-BOOL
-RunSetup(VOID);
-
 /* winlogon.c */
+
 BOOL
 PlaySoundRoutine(IN LPCWSTR FileName,
                  IN UINT Logon,

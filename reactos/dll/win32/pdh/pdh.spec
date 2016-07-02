@@ -5,8 +5,8 @@
 @ stdcall PdhAddCounterW(ptr wstr long ptr)
 @ stdcall PdhAddEnglishCounterA(ptr str long ptr)
 @ stdcall PdhAddEnglishCounterW(ptr wstr long ptr)
-@ stdcall PdhBindInputDataSourceA(ptr str)
-@ stdcall PdhBindInputDataSourceW(ptr wstr)
+@ stub PdhBindInputDataSourceA
+@ stub PdhBindInputDataSourceW
 @ stub PdhBrowseCountersA
 @ stub PdhBrowseCountersHA
 @ stub PdhBrowseCountersHW
@@ -62,8 +62,8 @@
 @ stub PdhGetFormattedCounterArrayW
 @ stdcall PdhGetFormattedCounterValue(ptr long ptr ptr)
 @ stub PdhGetLogFileSize
-@ stdcall PdhGetLogFileTypeA(str ptr)
-@ stdcall PdhGetLogFileTypeW(wstr ptr)
+@ stub PdhGetLogFileTypeA
+@ stub PdhGetLogFileTypeW
 @ stub PdhGetLogSetGUID
 @ stub PdhGetRawCounterArrayA
 @ stub PdhGetRawCounterArrayW

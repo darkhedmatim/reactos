@@ -303,7 +303,10 @@ static BOOL ANIMATE_PaintFrame(ANIMATE_INFO* infoPtr, HDC hDC)
         HBITMAP hbmOld2 = SelectObject(hdcFinal, hbmFinal);
         RECT rect;
 
-        SetRect(&rect, 0, 0, nWidth, nHeight);
+        rect.left = 0;
+        rect.top = 0;
+        rect.right = nWidth;
+        rect.bottom = nHeight;
 
         if(!infoPtr->hbrushBG)
             infoPtr->hbrushBG = GetCurrentObject(hDC, OBJ_BRUSH);

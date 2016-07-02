@@ -2,7 +2,6 @@
 list(APPEND SOURCE
     attrib.c
     blockdev.c
-    cleanup.c
     close.c
     create.c
     devctl.c

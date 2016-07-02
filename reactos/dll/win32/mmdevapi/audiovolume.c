@@ -21,7 +21,7 @@
 typedef struct AEVImpl {
     IAudioEndpointVolumeEx IAudioEndpointVolumeEx_iface;
     LONG ref;
-    float master_vol;
+    float level;
     BOOL mute;
 } AEVImpl;
 
@@ -102,12 +102,9 @@ static HRESULT WINAPI AEV_SetMasterVolumeLevel(IAudioEndpointVolumeEx *iface, fl
 {
     AEVImpl *This = impl_from_IAudioEndpointVolumeEx(iface);
 
-    TRACE("(%p)->(%f,%s)\n", iface, leveldb, debugstr_guid(ctx));
+    FIXME("(%p)->(%f,%s): stub\n", iface, leveldb, debugstr_guid(ctx));
 
-    if(leveldb < -100.f || leveldb > 0.f)
-        return E_INVALIDARG;
-
-    This->master_vol = leveldb;
+    This->level = leveldb;
 
     return S_OK;
 }
@@ -123,12 +120,12 @@ static HRESULT WINAPI AEV_GetMasterVolumeLevel(IAudioEndpointVolumeEx *iface, fl
 {
     AEVImpl *This = impl_from_IAudioEndpointVolumeEx(iface);
 
-    TRACE("(%p)->(%p)\n", iface, leveldb);
+    FIXME("(%p)->(%p): stub\n", iface, leveldb);
 
     if (!leveldb)
         return E_POINTER;
 
-    *leveldb = This->master_vol;
+    *leveldb = This->level;
 
     return S_OK;
 }
@@ -177,22 +174,19 @@ static HRESULT WINAPI AEV_GetChannelVolumeLevelScalar(IAudioEndpointVolumeEx *if
 static HRESULT WINAPI AEV_SetMute(IAudioEndpointVolumeEx *iface, BOOL mute, const GUID *ctx)
 {
     AEVImpl *This = impl_from_IAudioEndpointVolumeEx(iface);
-    HRESULT ret;
 
-    TRACE("(%p)->(%u,%s)\n", iface, mute, debugstr_guid(ctx));
-
-    ret = This->mute == mute ? S_FALSE : S_OK;
+    FIXME("(%p)->(%u,%s): stub\n", iface, mute, debugstr_guid(ctx));
 
     This->mute = mute;
 
-    return ret;
+    return S_OK;
 }
 
 static HRESULT WINAPI AEV_GetMute(IAudioEndpointVolumeEx *iface, BOOL *mute)
 {
     AEVImpl *This = impl_from_IAudioEndpointVolumeEx(iface);
 
-    TRACE("(%p)->(%p)\n", iface, mute);
+    FIXME("(%p)->(%p): stub\n", iface, mute);
 
     if (!mute)
         return E_POINTER;
@@ -236,14 +230,14 @@ static HRESULT WINAPI AEV_QueryHardwareSupport(IAudioEndpointVolumeEx *iface, DW
 
 static HRESULT WINAPI AEV_GetVolumeRange(IAudioEndpointVolumeEx *iface, float *mindb, float *maxdb, float *inc)
 {
-    TRACE("(%p)->(%p,%p,%p)\n", iface, mindb, maxdb, inc);
+    FIXME("(%p)->(%p,%p,%p): stub\n", iface, mindb, maxdb, inc);
 
     if (!mindb || !maxdb || !inc)
         return E_POINTER;
 
-    *mindb = -100.f;
-    *maxdb = 0.f;
-    *inc = 1.f;
+    *mindb = 0.0f;
+    *maxdb = 1.0f;
+    *inc = 0.1f;
 
     return S_OK;
 }
@@ -282,17 +276,19 @@ static const IAudioEndpointVolumeExVtbl AEVImpl_Vtbl = {
     AEV_GetVolumeRangeChannel
 };
 
-HRESULT AudioEndpointVolume_Create(MMDevice *parent, IAudioEndpointVolumeEx **ppv)
+HRESULT AudioEndpointVolume_Create(MMDevice *parent, IAudioEndpointVolume **ppv)
 {
     AEVImpl *This;
 
     *ppv = NULL;
-    This = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(*This));
+    This = HeapAlloc(GetProcessHeap(), 0, sizeof(*This));
     if (!This)
         return E_OUTOFMEMORY;
     This->IAudioEndpointVolumeEx_iface.lpVtbl = &AEVImpl_Vtbl;
     This->ref = 1;
+    This->level = 1.0f;
+    This->mute = FALSE;
 
-    *ppv = &This->IAudioEndpointVolumeEx_iface;
+    *ppv = (IAudioEndpointVolume*)&This->IAudioEndpointVolumeEx_iface;
     return S_OK;
 }

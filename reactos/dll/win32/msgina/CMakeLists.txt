@@ -1,7 +1,7 @@
 
 include_directories(
     include
-    ${REACTOS_SOURCE_DIR}/sdk/include/reactos/wine)
+    ${REACTOS_SOURCE_DIR}/include/reactos/wine)
 
 spec2def(msgina.dll msgina.spec)
 
@@ -22,7 +22,7 @@ add_library(msgina SHARED
 
 set_module_type(msgina win32dll)
 target_link_libraries(msgina wine)
-add_delay_importlibs(msgina secur32)
 add_importlibs(msgina advapi32 user32 gdi32 powrprof userenv msvcrt kernel32 ntdll)
+add_delay_importlibs(msgina secur32)
 add_pch(msgina msgina.h SOURCE)
 add_cd_file(TARGET msgina DESTINATION reactos/system32 FOR all)

@@ -156,10 +156,10 @@ STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYS
 CAPTION "Виконати"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON "", IDC_RUNDLG_ICON, 7, 11, 18, 20, WS_VISIBLE
+    ICON IDI_SHELL_RUN, IDC_STATIC, 7, 11, 18, 20, WS_VISIBLE
     LTEXT "Введіть ім'я програми, теки, документа або ресурсу Інтернету, і ReactOS відкриє їх.", 12289, 36, 11, 182, 18
     LTEXT "&Відкрити:", 12305, 3, 39, 32, 10
-    CONTROL "", IDC_RUNDLG_EDITPATH, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE | CBS_AUTOHSCROLL | CBS_DROPDOWN, 36, 37, 183, 100
+    CONTROL "", 12298, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE |  CBS_AUTOHSCROLL | CBS_DROPDOWN, 36, 37, 183, 100
     DEFPUSHBUTTON "OK", IDOK, 62, 63, 50, 14, WS_TABSTOP
     PUSHBUTTON "Скасувати", IDCANCEL, 116, 63, 50, 14, WS_TABSTOP
     PUSHBUTTON "О&гляд...", 12288, 170, 63, 50, 14, WS_TABSTOP
@@ -405,19 +405,19 @@ CAPTION "Загальні"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     GROUPBOX "Завдання", -1, 7, 10, 249, 45
-    CONTROL "", IDC_FOLDER_OPTIONS_TASKICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 25, 21, 20
-    AUTORADIOBUTTON "&Показувати список типових завдань у теках", IDC_FOLDER_OPTIONS_COMMONTASKS, 40, 25, 170, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Використовувати зви&чайні теки ReactOS", IDC_FOLDER_OPTIONS_CLASSICFOLDERS, 40, 37, 149, 10
+    ICON "", 30109, 14, 25, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "&Показувати список типових завдань у теках", 14001, 40, 25, 170, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Використовувати зви&чайні теки ReactOS", 14002, 40, 37, 149, 10, WS_TABSTOP | WS_GROUP
     GROUPBOX "Огляд тек", -1, 7, 60, 249, 45, WS_TABSTOP
-    CONTROL "", IDC_FOLDER_OPTIONS_FOLDERICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 70, 21, 20
-    AUTORADIOBUTTON "Відкривати папки в то&му самому вікні", IDC_FOLDER_OPTIONS_SAMEWINDOW, 40, 70, 140, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Відкрива&ти кожну папку в окремому вікні", IDC_FOLDER_OPTIONS_OWNWINDOW, 40, 82, 155, 10
+    ICON "", 30110, 14, 70, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "Відкривати папки в то&му самому вікні", 14004, 40, 70, 140, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Відкрива&ти кожну папку в окремому вікні", 14005, 40, 82, 155, 10, WS_TABSTOP | WS_GROUP
     GROUPBOX "Клацання мишею", -1, 7, 110, 249, 60
-    CONTROL "", IDC_FOLDER_OPTIONS_CLICKICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 120, 21, 20
-    AUTORADIOBUTTON "Від&кривати одиночним, виділяти вказівником", IDC_FOLDER_OPTIONS_SINGLECLICK, 40, 120, 170, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Підкресл&ювати підписи значків", IDC_FOLDER_OPTIONS_ULBROWSER, 50, 132, 170, 10
-    AUTORADIOBUTTON "Підкр&еслювати лише при наведенні", IDC_FOLDER_OPTIONS_ULPOINT, 50, 144, 170, 10
-    AUTORADIOBUTTON "Відкрив&ати подвійним, виділяти одиночним", IDC_FOLDER_OPTIONS_DOUBLECLICK, 40, 156, 170, 10
+    ICON "", 30111, 14, 120, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "Від&кривати одиночним, виділяти вказівником", 14007, 40, 120, 170, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Підкресл&ювати підписи значків", 14008, 50, 132, 170, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Підкр&еслювати лише при наведенні", 14009, 50, 144, 170, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Відкрив&ати подвійним, виділяти одиночним", 14010, 40, 156, 170, 10, WS_TABSTOP | WS_GROUP
     PUSHBUTTON "&Стандартно", 14011, 180, 180, 60, 14, WS_TABSTOP
 END
 
@@ -442,7 +442,7 @@ CAPTION "Типи файлів"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     LTEXT "Зареєстровані &типи файлів:", -1, 7, 10, 70, 10
-    CONTROL "", 14000, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHAREIMAGELISTS | LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP, 7, 20, 249, 80
+    CONTROL "", 14000, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHAREIMAGELISTS | WS_BORDER | WS_TABSTOP, 7, 20, 249, 80
     PUSHBUTTON "&Створити", 14001, 120, 110, 50, 14, WS_TABSTOP
     PUSHBUTTON "В&идалити", 14002, 180, 110, 50, 14, WS_TABSTOP
     GROUPBOX "Подробиці для розширення '%s'", 14003, 7, 130, 249, 70
@@ -475,15 +475,15 @@ BEGIN
     ICON "", 12301, 50, 89, 21, 20, SS_REALSIZECONTROL
 END
 
-IDD_LOG_OFF DIALOGEX 0, 0, 188, 60
+IDD_LOG_OFF DIALOGEX 0, 0, 190, 60
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_CAPTION
 CAPTION "Вихід із ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_SHELL_LOGOFF, IDC_STATIC, 8, 6, 21, 20
-    LTEXT "Ви дійсно бажаєте вийти із системи?", -1, 49, 15, 131, 8
-    DEFPUSHBUTTON "В&ихід", IDOK, 49, 38, 43, 14
-    PUSHBUTTON "Скасувати", IDCANCEL, 99, 38, 43, 14
+    ICON 45, 14344, 10, 10, 21, 20, SS_REALSIZECONTROL
+    LTEXT "Ви дійсно бажаєте вийти із системи?", -1, 43, 11, 140, 22
+    DEFPUSHBUTTON "В&ихід", IDOK, 57, 40, 60, 14
+    PUSHBUTTON "Скасувати", IDCANCEL, 122, 40, 60, 14
 END
 
 IDD_DISCONNECT DIALOGEX 0, 0, 190, 60
@@ -709,6 +709,8 @@ BEGIN
     IDS_RESTART_PROMPT "Ви хочете перезавантажити систему?"
     IDS_SHUTDOWN_TITLE "Вимкнути"
     IDS_SHUTDOWN_PROMPT "Ви хочете вимкнути комп'ютер?"
+    IDS_LOGOFF_TITLE "Вихід з системи"
+    IDS_LOGOFF_PROMPT "Ви хочете вийти з системи?"
 
     /* Run File dialog */
     IDS_RUNDLG_ERROR "Неможливо відобразити Діалог Запуску Файлу (внутрішня помилка)"
@@ -816,11 +818,6 @@ BEGIN
     IDS_FILE_DETAILSADV "Файли з розширенням '%s' мають тип '%s'. Щоб змінити параметри, які впливатимуть на всі файли '%s', натисніть кнопку 'Додатково'."
     IDS_FILE_TYPES "Типи Файлів"
     IDS_COLUMN_EXTENSION "Розширення"
-
-    /* As in 'INI File' or 'WAV File', fallback string for no-name extensions
-       used in the _File type_ tab of the _Folder Options_ dialog */
-    IDS_FILE_EXT_TYPE "%s File"
-
     IDS_BYTES_FORMAT "bytes"
     IDS_UNKNOWN_APP "Unknown application"
     IDS_EXE_DESCRIPTION "Description:"

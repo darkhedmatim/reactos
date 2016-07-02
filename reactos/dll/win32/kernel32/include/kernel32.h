@@ -217,14 +217,6 @@ BasepAllocateActivationContextActivationBlock(
     OUT PBASEP_ACTCTX_BLOCK *ActivationBlock
 );
 
-NTSTATUS
-NTAPI
-BasepProbeForDllManifest(
-    IN PVOID DllHandle,
-    IN PCWSTR FullDllName,
-    OUT PVOID *ActCtx
-);
-
 __declspec(noreturn)
 VOID
 WINAPI

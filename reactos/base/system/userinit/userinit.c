@@ -24,22 +24,37 @@
  *              Hervé Poussineau (hpoussin@reactos.org)
  */
 
-#include "userinit.h"
+#define WIN32_NO_STATUS
+#define _INC_WINDOWS
+#define COM_NO_WINDOWS_H
+#include <stdarg.h>
+#include <windef.h>
+#include <winbase.h>
+#include <winreg.h>
+#include <wingdi.h>
+#include <wincon.h>
+#include <shellapi.h>
+#include <regstr.h>
+#include <shlobj.h>
+#include <shlwapi.h>
+#include <undocuser.h>
+#include <wine/debug.h>
+
+#include "resource.h"
+
+WINE_DEFAULT_DEBUG_CHANNEL(userinit);
 
 #define CMP_MAGIC  0x01234567
 
 /* GLOBALS ******************************************************************/
 
-HINSTANCE hInstance;
-
-
 /* FUNCTIONS ****************************************************************/
 
-LONG
+static LONG
 ReadRegSzKey(
     IN HKEY hKey,
     IN LPCWSTR pszKey,
-    OUT LPWSTR *pValue)
+    OUT LPWSTR* pValue)
 {
     LONG rc;
     DWORD dwType;
@@ -367,7 +382,7 @@ VOID StartShell(VOID)
     if (!TryToStartShell(Shell))
     {
         WARN("Failed to start default shell %s\n", debugstr_w(Shell));
-        LoadString( GetModuleHandle(NULL), IDS_SHELL_FAIL, szMsg, sizeof(szMsg) / sizeof(szMsg[0]));
+        LoadString( GetModuleHandle(NULL), STRING_USERINIT_FAIL, szMsg, sizeof(szMsg) / sizeof(szMsg[0]));
         MessageBox(0, szMsg, NULL, 0);
     }
 }
@@ -533,27 +548,6 @@ NotifyLogon(VOID)
         WARN("LoadLibrary() failed with error %lu\n", GetLastError());
 }
 
-static
-VOID
-StartInstaller(VOID)
-{
-    WCHAR Shell[MAX_PATH];
-    WCHAR szMsg[RC_STRING_MAX_SIZE];
-
-    if (GetWindowsDirectory(Shell, MAX_PATH - 12))
-        wcscat(Shell, L"\\reactos.exe");
-    else
-        wcscpy(Shell, L"reactos.exe");
-
-    if (!TryToStartShell(Shell))
-    {
-        ERR("Failed to start the installer: %s\n", debugstr_w(Shell));
-        LoadStringW(GetModuleHandle(NULL), IDS_INSTALLER_FAIL, szMsg, sizeof(szMsg) / sizeof(szMsg[0]));
-        MessageBoxW(0, szMsg, NULL, 0);
-    }
-}
-
-
 #ifdef _MSC_VER
 #pragma warning(disable : 4100)
 #endif /* _MSC_VER */
@@ -564,38 +558,9 @@ wWinMain(IN HINSTANCE hInst,
          IN LPWSTR lpszCmdLine,
          IN int nCmdShow)
 {
-    STATE State;
-
-    hInstance = hInst;
-
     SetUserSettings();
-
-    if (IsLiveCD())
-    {
-        State.NextPage = LOCALEPAGE;
-        State.Run = SHELL;
-    }
-    else
-    {
-        State.NextPage = DONE;
-        State.Run = SHELL;
-    }
-
-    if (State.NextPage != DONE)
-    {
-        RunLiveCD(&State);
-    }
-
-    if (State.Run == SHELL)
-    {
-        StartShell();
-        NotifyLogon();
-    }
-    else if (State.Run == INSTALLER)
-    {
-        StartInstaller();
-    }
-
+    StartShell();
+    NotifyLogon();
     return 0;
 }
 

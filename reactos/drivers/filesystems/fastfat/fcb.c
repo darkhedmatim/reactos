@@ -362,16 +362,17 @@ NTSTATUS
 vfatUpdateFCB(
     PDEVICE_EXTENSION pVCB,
     PVFATFCB Fcb,
-    PVFAT_DIRENTRY_CONTEXT DirContext,
+    PUNICODE_STRING LongName,
+    PUNICODE_STRING ShortName,
     PVFATFCB ParentFcb)
 {
     NTSTATUS Status;
     PVFATFCB OldParent;
 
-    DPRINT("vfatUpdateFCB(%p, %p, %p, %p)\n", pVCB, Fcb, DirContext, ParentFcb);
+    DPRINT("vfatUpdateFCB(%p, %p, %wZ, %wZ, %p)\n", pVCB, Fcb, LongName, ShortName, ParentFcb);
 
     /* Get full path name */
-    Status = vfatMakeFullName(ParentFcb, &DirContext->LongNameU, &DirContext->ShortNameU, &Fcb->PathNameU);
+    Status = vfatMakeFullName(ParentFcb, LongName, ShortName, &Fcb->PathNameU);
     if (!NT_SUCCESS(Status))
     {
         return Status;
@@ -392,23 +393,18 @@ vfatUpdateFCB(
     vfatSplitPathName(&Fcb->PathNameU, &Fcb->DirNameU, &Fcb->LongNameU);
 
     /* Copy short name */
-    RtlCopyUnicodeString(&Fcb->ShortNameU, &DirContext->ShortNameU);
+    RtlCopyUnicodeString(&Fcb->ShortNameU, ShortName);
 
     /* Recompute hashes */
     Fcb->Hash.Hash = vfatNameHash(0, &Fcb->PathNameU);
     if (pVCB->Flags & VCB_IS_FATX)
     {
         Fcb->ShortHash.Hash = Fcb->Hash.Hash;
-
-        RtlCopyMemory(Fcb->entry.FatX.Filename, DirContext->DirEntry.FatX.Filename, 42);
-        Fcb->entry.FatX.FilenameLength = DirContext->DirEntry.FatX.FilenameLength;
     }
     else
     {
         Fcb->ShortHash.Hash = vfatNameHash(0, &Fcb->DirNameU);
         Fcb->ShortHash.Hash = vfatNameHash(Fcb->ShortHash.Hash, &Fcb->ShortNameU);
-
-        RtlCopyMemory(Fcb->entry.Fat.ShortName, DirContext->DirEntry.Fat.ShortName, 11);
     }
 
     /* Set parent */
@@ -668,7 +664,7 @@ vfatMakeFCBFromDirEntry(
     }
     rcFCB->RFCB.FileSize.QuadPart = Size;
     rcFCB->RFCB.ValidDataLength.QuadPart = Size;
-    rcFCB->RFCB.AllocationSize.QuadPart = ROUND_UP_64(Size, vcb->FatInfo.BytesPerCluster);
+    rcFCB->RFCB.AllocationSize.QuadPart = ROUND_UP(Size, vcb->FatInfo.BytesPerCluster);
     rcFCB->RefCount = 1;
     if (vfatFCBIsDirectory(rcFCB))
     {

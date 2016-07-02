@@ -13,6 +13,11 @@
 
 static const WCHAR szMainWndClass[] = L"ServManWndClass";
 
+BOOL bSortAscending = TRUE;
+
+/* Temporary copy for access from list-view sort CompareFunc */
+HWND hListView;
+
 /* Toolbar buttons */
 static const TBBUTTON Buttons [] =
 {   /* iBitmap, idCommand, fsState, fsStyle, bReserved[2], dwData, iString */
@@ -241,13 +246,21 @@ VOID SetMenuAndButtonStates(PMAIN_WND_INFO Info)
 static INT CALLBACK
 CompareFunc(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 {
-    PMAIN_WND_INFO Info = (PMAIN_WND_INFO)lParamSort;
     WCHAR Item1[256], Item2[256];
+    LVFINDINFO IndexInfo;
+    INT Index;
 
-    ListView_GetItemText(Info->hListView, lParam1, Info->SortSelection, Item1, sizeof(Item1) / sizeof(WCHAR));
-    ListView_GetItemText(Info->hListView, lParam2, Info->SortSelection, Item2, sizeof(Item2) / sizeof(WCHAR));
+    IndexInfo.flags = LVFI_PARAM;
 
-    return wcscmp(Item1, Item2) * Info->SortDirection;
+    IndexInfo.lParam = lParam1;
+    Index = ListView_FindItem(hListView, -1, &IndexInfo);
+    ListView_GetItemText(hListView, Index, (INT)lParamSort, Item1, sizeof(Item1) / sizeof(WCHAR));
+
+    IndexInfo.lParam = lParam2;
+    Index = ListView_FindItem(hListView, -1, &IndexInfo);
+    ListView_GetItemText(hListView, Index, (INT)lParamSort, Item2, sizeof(Item2) / sizeof(WCHAR));
+
+    return bSortAscending ? wcscmp(Item1, Item2) : wcscmp(Item2, Item1);
 }
 
 
@@ -724,26 +737,23 @@ MainWndProc(HWND hwnd,
 
                 case LVN_COLUMNCLICK:
                 {
+                    static int iLastSortColumn = 0;
                     LPNMLISTVIEW pnmv = (LPNMLISTVIEW) lParam;
-                    HDITEM       hdi;
-
-                    /* get pending sort direction for clicked column */
-                    hdi.mask = HDI_LPARAM;
-                    (void)Header_GetItem(Info->hHeader, pnmv->iSubItem, &hdi);
 
                     /* get new sort parameters */
-                    Info->SortSelection = pnmv->iSubItem;
-                    Info->SortDirection = hdi.lParam;
+                    if (pnmv->iSubItem == iLastSortColumn)
+                        bSortAscending = !bSortAscending;
+                    else
+                    {
+                        iLastSortColumn = pnmv->iSubItem;
+                        bSortAscending = TRUE;
+                    }
 
-                    /* set new sort direction and save */
-                    hdi.lParam = (hdi.lParam == ORD_ASCENDING) ?
-                                 ORD_DESCENDING : ORD_ASCENDING;
-
-                    (void)Header_SetItem(Info->hHeader, pnmv->iSubItem, &hdi);
-
-                    (void)ListView_SortItemsEx(Info->hListView,
-                                               CompareFunc,
-                                               (LPARAM)Info);
+                    /* store a copy to have access from callback */
+                    hListView = Info->hListView;
+                    (void)ListView_SortItems(Info->hListView,
+                                             CompareFunc,
+                                             pnmv->iSubItem);
                 }
                 break;
                 case LVN_ITEMCHANGED:

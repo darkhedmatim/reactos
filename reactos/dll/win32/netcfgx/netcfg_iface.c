@@ -4,7 +4,6 @@ typedef struct
 {
     const INetCfg * lpVtbl;
     const INetCfgLock * lpVtblLock;
-    const INetCfgPnpReconfigCallback *lpVtblPnpReconfigCallback;
     LONG                       ref;
     BOOL bInitialized;
     HANDLE hMutex;
@@ -19,10 +18,6 @@ static __inline LPINetCfgImpl impl_from_INetCfgLock(INetCfgLock *iface)
     return (INetCfgImpl*)((char *)iface - FIELD_OFFSET(INetCfgImpl, lpVtblLock));
 }
 
-static __inline LPINetCfgImpl impl_from_INetCfgPnpReconfigCallback(INetCfgPnpReconfigCallback *iface)
-{
-    return (INetCfgImpl*)((char *)iface - FIELD_OFFSET(INetCfgImpl, lpVtblPnpReconfigCallback));
-}
 
 
 HRESULT
@@ -164,63 +159,6 @@ static const INetCfgLockVtbl vt_NetCfgLock =
     INetCfgLock_fnReleaseWriteLock,
     INetCfgLock_fnIsWriteLocked
 };
-
-/***************************************************************
- * INetCfgPnpReconfigCallback
- */
-
-HRESULT
-WINAPI
-INetCfgPnpReconfigCallback_fnQueryInterface(
-    INetCfgPnpReconfigCallback * iface,
-    REFIID iid,
-    LPVOID * ppvObj)
-{
-    INetCfgImpl * This = impl_from_INetCfgPnpReconfigCallback(iface);
-    return INetCfg_QueryInterface((INetCfg*)This, iid, ppvObj);
-}
-
-ULONG
-WINAPI
-INetCfgPnpReconfigCallback_fnAddRef(
-    INetCfgPnpReconfigCallback * iface)
-{
-    INetCfgImpl * This = impl_from_INetCfgPnpReconfigCallback(iface);
-
-    return INetCfg_AddRef((INetCfg*)This);
-}
-
-ULONG
-WINAPI
-INetCfgPnpReconfigCallback_fnRelease(
-    INetCfgPnpReconfigCallback * iface)
-{
-    INetCfgImpl * This = impl_from_INetCfgPnpReconfigCallback(iface);
-    return INetCfg_Release((INetCfg*)This);
-}
-
-HRESULT
-WINAPI
-INetCfgPnpReconfigCallback_fnSendPnpReconfig(
-    INetCfgPnpReconfigCallback * iface,
-    NCPNP_RECONFIG_LAYER Layer,
-    LPCWSTR pszwUpper,
-    LPCWSTR pszwLower,
-    PVOID pvData,
-    DWORD dwSizeOfData)
-{
-    /* FIXME */
-    return E_NOTIMPL;
-}
-
-static const INetCfgPnpReconfigCallbackVtbl vt_NetCfgPnpReconfigCallback =
-{
-    INetCfgPnpReconfigCallback_fnQueryInterface,
-    INetCfgPnpReconfigCallback_fnAddRef,
-    INetCfgPnpReconfigCallback_fnRelease,
-    INetCfgPnpReconfigCallback_fnSendPnpReconfig
-};
-
 
 /***************************************************************
  * INetCfg
@@ -528,15 +466,6 @@ INetCfg_fnQueryInterface(
         INetCfgLock_AddRef(iface);
         return S_OK;
     }
-    else if (IsEqualIID (iid, &IID_INetCfgPnpReconfigCallback))
-    {
-        if (This->bInitialized)
-            return NETCFG_E_ALREADY_INITIALIZED;
-
-        *ppvObj = (LPVOID)&This->lpVtblPnpReconfigCallback;
-        INetCfgPnpReconfigCallback_AddRef(iface);
-        return S_OK;
-    }
 
     return E_NOINTERFACE;
 }
@@ -792,7 +721,6 @@ HRESULT WINAPI INetCfg_Constructor (IUnknown * pUnkOuter, REFIID riid, LPVOID * 
     This->ref = 1;
     This->lpVtbl = (const INetCfg*)&vt_NetCfg;
     This->lpVtblLock = (const INetCfgLock*)&vt_NetCfgLock;
-    This->lpVtblPnpReconfigCallback = (const INetCfgPnpReconfigCallback*)&vt_NetCfgPnpReconfigCallback;
     This->hMutex = NULL;
     This->bInitialized = FALSE;
     This->pNet = NULL;

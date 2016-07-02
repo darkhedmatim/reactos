@@ -1,25 +1,28 @@
+; UTF-8
+; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+; Simplified Chinese translation by Henry Tang Ih (henrytang5247) (henrytang2@hotmail.com)
+
 [Section]
 Name = Media Player Classic Home Cinema
-Version = 1.7.10
+Version = 1.7.9
 License = GPL
 Description = An alternative media player.
-Size = 12.0 MiB
+Size = 11.7 MB
 Category = 2
 URLSite = http://mpc-hc.org/
-URLDownload = https://binaries.mpc-hc.org/MPC%20HomeCinema%20-%20Win32/MPC-HC_v1.7.10_x86/MPC-HC.1.7.10.x86.exe
-SHA1 = 536cc3143a6fa5dcd0b8674e614afb1be594f592
+URLDownload = http://download.sourceforge.net/project/mpc-hc/MPC%20HomeCinema%20-%20Win32/MPC-HC_v1.7.9_x86/MPC-HC.1.7.9.x86.exe
+SHA1 = 2c56080fb85bb1cc77a7310260f7f02d41d90690
 CDPath = none
 
 [Section.0407]
 Description = Alternativer Mediaplayer.
-Size = 12,0 MiB
 
 [Section.0a]
 Description = Reproductor multimedia alternativo.
 
 [Section.040c]
 Description = Un lecteur media.
-Size = 12,0 Mio
+Size = 11,7 Mo
 
 [Section.0410]
 Description = Lettore multimediale.
@@ -32,7 +35,7 @@ Description = Odtwarzacz multimediów.
 
 [Section.0418]
 Description = Lector multimedia.
-Size = 12,0 Mio
+Size = 11,7 Mo
 
 [Section.0419]
 Description = Мультимедийный проигрыватель.
@@ -42,7 +45,7 @@ Description = Multimediálny prehrávač.
 
 [Section.041f]
 Description = Başka bir ortam oynatıcı.
-Size = 12,0 MiB
+Size = 11,7 MB
 
 [Section.0422]
 Description = Мультимедійний програвач.
@@ -52,4 +55,3 @@ Description = 替代的媒体播放器。
 
 [Section.0813]
 Description = Mediaspeler.
-

@@ -125,23 +125,20 @@ CreateProcessAsUserA(HANDLE hToken,
         return FALSE;
     }
 
-    if (hToken != NULL)
-    {
-        AccessToken.Token = hToken;
-        AccessToken.Thread = NULL;
+    AccessToken.Token = hToken;
+    AccessToken.Thread = NULL;
 
-        /* Set the new process token */
-        Status = NtSetInformationProcess(lpProcessInformation->hProcess,
-                                         ProcessAccessToken,
-                                         (PVOID)&AccessToken,
-                                         sizeof(AccessToken));
-        if (!NT_SUCCESS (Status))
-        {
-            ERR("NtSetInformationProcess failed: 0x%08x\n", Status);
-            TerminateProcess(lpProcessInformation->hProcess, Status);
-            SetLastError(RtlNtStatusToDosError(Status));
-            return FALSE;
-        }
+    /* Set the new process token */
+    Status = NtSetInformationProcess(lpProcessInformation->hProcess,
+                                     ProcessAccessToken,
+                                     (PVOID)&AccessToken,
+                                     sizeof(AccessToken));
+    if (!NT_SUCCESS (Status))
+    {
+        ERR("NtSetInformationProcess failed: 0x%08x\n", Status);
+        TerminateProcess(lpProcessInformation->hProcess, Status);
+        SetLastError(RtlNtStatusToDosError(Status));
+        return FALSE;
     }
 
     /* Resume the main thread */
@@ -193,23 +190,20 @@ CreateProcessAsUserW(HANDLE hToken,
         return FALSE;
     }
 
-    if (hToken != NULL)
-    {
-        AccessToken.Token = hToken;
-        AccessToken.Thread = NULL;
+    AccessToken.Token = hToken;
+    AccessToken.Thread = NULL;
 
-        /* Set the new process token */
-        Status = NtSetInformationProcess(lpProcessInformation->hProcess,
-                                         ProcessAccessToken,
-                                         (PVOID)&AccessToken,
-                                         sizeof(AccessToken));
-        if (!NT_SUCCESS (Status))
-        {
-            ERR("NtSetInformationProcess failed: 0x%08x\n", Status);
-            TerminateProcess(lpProcessInformation->hProcess, Status);
-            SetLastError(RtlNtStatusToDosError(Status));
-            return FALSE;
-        }
+    /* Set the new process token */
+    Status = NtSetInformationProcess(lpProcessInformation->hProcess,
+                                     ProcessAccessToken,
+                                     (PVOID)&AccessToken,
+                                     sizeof(AccessToken));
+    if (!NT_SUCCESS (Status))
+    {
+        ERR("NtSetInformationProcess failed: 0x%08x\n", Status);
+        TerminateProcess(lpProcessInformation->hProcess, Status);
+        SetLastError(RtlNtStatusToDosError(Status));
+        return FALSE;
     }
 
     /* Resume the main thread */
@@ -221,49 +215,16 @@ CreateProcessAsUserW(HANDLE hToken,
     return TRUE;
 }
 
-
 /*
  * @implemented
  */
-BOOL
-WINAPI
-LogonUserA(
-    _In_ LPSTR lpszUsername,
-    _In_opt_ LPSTR lpszDomain,
-    _In_opt_ LPSTR lpszPassword,
-    _In_ DWORD dwLogonType,
-    _In_ DWORD dwLogonProvider,
-    _Out_opt_ PHANDLE phToken)
-{
-    return LogonUserExA(lpszUsername,
-                        lpszDomain,
-                        lpszPassword,
-                        dwLogonType,
-                        dwLogonProvider,
-                        phToken,
-                        NULL,
-                        NULL,
-                        NULL,
-                        NULL);
-}
-
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-LogonUserExA(
-    _In_ LPSTR lpszUsername,
-    _In_opt_ LPSTR lpszDomain,
-    _In_opt_ LPSTR lpszPassword,
-    _In_ DWORD dwLogonType,
-    _In_ DWORD dwLogonProvider,
-    _Out_opt_ PHANDLE phToken,
-    _Out_opt_ PSID *ppLogonSid,
-    _Out_opt_ PVOID *ppProfileBuffer,
-    _Out_opt_ LPDWORD pdwProfileLength,
-    _Out_opt_ PQUOTA_LIMITS pQuotaLimits)
+BOOL WINAPI
+LogonUserA(LPSTR lpszUsername,
+           LPSTR lpszDomain,
+           LPSTR lpszPassword,
+           DWORD dwLogonType,
+           DWORD dwLogonProvider,
+           PHANDLE phToken)
 {
     UNICODE_STRING UserName;
     UNICODE_STRING Domain;
@@ -292,16 +253,12 @@ LogonUserExA(
         goto PasswordDone;
     }
 
-    ret = LogonUserExW(UserName.Buffer,
-                       Domain.Buffer,
-                       Password.Buffer,
-                       dwLogonType,
-                       dwLogonProvider,
-                       phToken,
-                       ppLogonSid,
-                       ppProfileBuffer,
-                       pdwProfileLength,
-                       pQuotaLimits);
+    ret = LogonUserW(UserName.Buffer,
+                     Domain.Buffer,
+                     Password.Buffer,
+                     dwLogonType,
+                     dwLogonProvider,
+                     phToken);
 
     if (Password.Buffer != NULL)
         RtlFreeUnicodeString(&Password);
@@ -322,45 +279,13 @@ UsernameDone:
 /*
  * @implemented
  */
-BOOL
-WINAPI
-LogonUserW(
-    _In_ LPWSTR lpszUsername,
-    _In_opt_ LPWSTR lpszDomain,
-    _In_opt_ LPWSTR lpszPassword,
-    _In_ DWORD dwLogonType,
-    _In_ DWORD dwLogonProvider,
-    _Out_opt_ PHANDLE phToken)
-{
-    return LogonUserExW(lpszUsername,
-                        lpszDomain,
-                        lpszPassword,
-                        dwLogonType,
-                        dwLogonProvider,
-                        phToken,
-                        NULL,
-                        NULL,
-                        NULL,
-                        NULL);
-}
-
-
-/*
- * @implemented
- */
-BOOL
-WINAPI
-LogonUserExW(
-    _In_ LPWSTR lpszUsername,
-    _In_opt_ LPWSTR lpszDomain,
-    _In_opt_ LPWSTR lpszPassword,
-    _In_ DWORD dwLogonType,
-    _In_ DWORD dwLogonProvider,
-    _Out_opt_ PHANDLE phToken,
-    _Out_opt_ PSID *ppLogonSid,
-    _Out_opt_ PVOID *ppProfileBuffer,
-    _Out_opt_ LPDWORD pdwProfileLength,
-    _Out_opt_ PQUOTA_LIMITS pQuotaLimits)
+BOOL WINAPI
+LogonUserW(LPWSTR lpszUsername,
+           LPWSTR lpszDomain,
+           LPWSTR lpszPassword,
+           DWORD dwLogonType,
+           DWORD dwLogonProvider,
+           PHANDLE phToken)
 {
     SID_IDENTIFIER_AUTHORITY LocalAuthority = {SECURITY_LOCAL_SID_AUTHORITY};
     SID_IDENTIFIER_AUTHORITY SystemAuthority = {SECURITY_NT_AUTHORITY};
@@ -571,8 +496,6 @@ LogonUserExW(
     }
 
     *phToken = TokenHandle;
-
-    /* FIXME: return ppLogonSid, ppProfileBuffer, pdwProfileLength and pQuotaLimits */
 
 done:
     if (ProfileBuffer != NULL)

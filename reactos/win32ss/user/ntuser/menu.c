@@ -242,15 +242,6 @@ PMENU FASTCALL VerifyMenu(PMENU pMenu)
    return pMenu;
 }
 
-BOOL
-FASTCALL
-IntIsMenu(HMENU Menu)
-{
-  if (UserGetMenuObject(Menu)) return TRUE;
-  return FALSE;
-}
-
-
 PMENU WINAPI
 IntGetMenu(HWND hWnd)
 {
@@ -1336,7 +1327,7 @@ IntGetMenuDefaultItem(PMENU MenuObject, UINT fByPos, UINT gmdiFlags, DWORD *gism
    if ( (!(GMDI_USEDISABLED & gmdiFlags)) && (MenuItem->fState & MFS_DISABLED )) return -1;
 
    /* search rekursiv when needed */
-   if ( (gmdiFlags & GMDI_GOINTOPOPUPS) && MenuItem->spSubMenu )
+   if ( (MenuItem->fType & MF_POPUP) && (gmdiFlags & GMDI_GOINTOPOPUPS) && MenuItem->spSubMenu)
    {
       UINT ret;
       (*gismc)++;
@@ -2221,7 +2212,7 @@ static void FASTCALL MENU_DrawMenuItem(PWND Wnd, PMENU Menu, PWND WndOwner, HDC 
     {
         if ( (Wnd->style & WS_MINIMIZE))
         {
-          NC_GetInsideRect(Wnd, &rect);
+          UserGetInsideRectNC(Wnd, &rect);
           UserDrawSysMenuButton(Wnd, hdc, &rect, lpitem->fState & (MF_HILITE | MF_MOUSESELECT));
 	}
         return;
@@ -2715,13 +2706,7 @@ UINT MENU_DrawMenuBar( HDC hDC, LPRECT lprect, PWND pWnd, BOOL suppress_draw )
     HFONT hfontOld = 0;
     PMENU lppop = UserGetMenuObject(UlongToHandle(pWnd->IDMenu));
 
-    if (lppop == NULL)
-    {
-        // No menu. Do not reserve any space
-        return 0;
-    }
-    
-    if (lprect == NULL)
+    if (lppop == NULL || lprect == NULL)
     {
         return UserGetSystemMetrics(SM_CYMENU);
     }

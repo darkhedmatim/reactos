@@ -35,7 +35,7 @@ typedef struct
 typedef struct {
     TF_LANGUAGEPROFILE      LanguageProfile;
     ITfTextInputProcessor   *pITfTextInputProcessor;
-    ITfThreadMgrEx          *pITfThreadMgrEx;
+    ITfThreadMgr            *pITfThreadMgr;
     ITfKeyEventSink         *pITfKeyEventSink;
     TfClientId              tid;
 } ActivatedTextService;
@@ -266,58 +266,10 @@ DWORD enumerate_Cookie(DWORD magic, DWORD *index)
     return 0x0;
 }
 
-HRESULT advise_sink(struct list *sink_list, REFIID riid, DWORD cookie_magic, IUnknown *unk, DWORD *cookie)
-{
-    Sink *sink;
-
-    sink = HeapAlloc(GetProcessHeap(), 0, sizeof(*sink));
-    if (!sink)
-        return E_OUTOFMEMORY;
-
-    if (FAILED(IUnknown_QueryInterface(unk, riid, (void**)&sink->interfaces.pIUnknown)))
-    {
-        HeapFree(GetProcessHeap(), 0, sink);
-        return CONNECT_E_CANNOTCONNECT;
-    }
-
-    list_add_head(sink_list, &sink->entry);
-    *cookie = generate_Cookie(cookie_magic, sink);
-    TRACE("cookie %x\n", *cookie);
-    return S_OK;
-}
-
-static void free_sink(Sink *sink)
-{
-    list_remove(&sink->entry);
-    IUnknown_Release(sink->interfaces.pIUnknown);
-    HeapFree(GetProcessHeap(), 0, sink);
-}
-
-HRESULT unadvise_sink(DWORD cookie)
-{
-    Sink *sink;
-
-    sink = remove_Cookie(cookie);
-    if (!sink)
-        return CONNECT_E_NOCONNECTION;
-
-    free_sink(sink);
-    return S_OK;
-}
-
-void free_sinks(struct list *sink_list)
-{
-    while(!list_empty(sink_list))
-    {
-        Sink* sink = LIST_ENTRY(sink_list->next, Sink, entry);
-        free_sink(sink);
-    }
-}
-
 /*****************************************************************************
  * Active Text Service Management
  *****************************************************************************/
-static HRESULT activate_given_ts(ActivatedTextService *actsvr, ITfThreadMgrEx *tm)
+static HRESULT activate_given_ts(ActivatedTextService *actsvr, ITfThreadMgr* tm)
 {
     HRESULT hr;
 
@@ -329,7 +281,7 @@ static HRESULT activate_given_ts(ActivatedTextService *actsvr, ITfThreadMgrEx *t
         &IID_ITfTextInputProcessor, (void**)&actsvr->pITfTextInputProcessor);
     if (FAILED(hr)) return hr;
 
-    hr = ITfTextInputProcessor_Activate(actsvr->pITfTextInputProcessor, (ITfThreadMgr *)tm, actsvr->tid);
+    hr = ITfTextInputProcessor_Activate(actsvr->pITfTextInputProcessor, tm, actsvr->tid);
     if (FAILED(hr))
     {
         ITfTextInputProcessor_Release(actsvr->pITfTextInputProcessor);
@@ -337,8 +289,8 @@ static HRESULT activate_given_ts(ActivatedTextService *actsvr, ITfThreadMgrEx *t
         return hr;
     }
 
-    actsvr->pITfThreadMgrEx = tm;
-    ITfThreadMgrEx_AddRef(tm);
+    actsvr->pITfThreadMgr = tm;
+    ITfThreadMgr_AddRef(tm);
     return hr;
 }
 
@@ -350,9 +302,9 @@ static HRESULT deactivate_given_ts(ActivatedTextService *actsvr)
     {
         hr = ITfTextInputProcessor_Deactivate(actsvr->pITfTextInputProcessor);
         ITfTextInputProcessor_Release(actsvr->pITfTextInputProcessor);
-        ITfThreadMgrEx_Release(actsvr->pITfThreadMgrEx);
+        ITfThreadMgr_Release(actsvr->pITfThreadMgr);
         actsvr->pITfTextInputProcessor = NULL;
-        actsvr->pITfThreadMgrEx = NULL;
+        actsvr->pITfThreadMgr = NULL;
     }
 
     return hr;
@@ -381,7 +333,7 @@ HRESULT add_active_textservice(TF_LANGUAGEPROFILE *lp)
     ActivatedTextService *actsvr;
     ITfCategoryMgr *catmgr;
     AtsEntry *entry;
-    ITfThreadMgrEx *tm = TlsGetValue(tlsIndex);
+    ITfThreadMgr *tm = TlsGetValue(tlsIndex);
     ITfClientId *clientid;
 
     if (!tm) return E_UNEXPECTED;
@@ -389,7 +341,7 @@ HRESULT add_active_textservice(TF_LANGUAGEPROFILE *lp)
     actsvr = HeapAlloc(GetProcessHeap(),0,sizeof(ActivatedTextService));
     if (!actsvr) return E_OUTOFMEMORY;
 
-    ITfThreadMgrEx_QueryInterface(tm, &IID_ITfClientId, (void **)&clientid);
+    ITfThreadMgr_QueryInterface(tm,&IID_ITfClientId,(LPVOID)&clientid);
     ITfClientId_GetClientId(clientid, &lp->clsid, &actsvr->tid);
     ITfClientId_Release(clientid);
 
@@ -456,7 +408,7 @@ BOOL get_active_textservice(REFCLSID rclsid, TF_LANGUAGEPROFILE *profile)
     return FALSE;
 }
 
-HRESULT activate_textservices(ITfThreadMgrEx *tm)
+HRESULT activate_textservices(ITfThreadMgr *tm)
 {
     HRESULT hr = S_OK;
     AtsEntry *ats;

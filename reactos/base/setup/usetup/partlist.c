@@ -33,179 +33,6 @@
 
 //#define DUMP_PARTITION_TABLE
 
-/* HELPERS FOR PARTITION TYPES **********************************************/
-
-typedef struct _PARTITION_TYPE
-{
-    UCHAR Type;
-    PCHAR Description;
-} PARTITION_TYPE, *PPARTITION_TYPE;
-
-/*
- * This partition type list was ripped off the kernelDisk.c module from:
- *
- * Visopsys Operating System
- * Copyright (C) 1998-2015 J. Andrew McLaughlin
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
- * for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- *
- * See also https://en.wikipedia.org/wiki/Partition_type#List_of_partition_IDs
- * and http://www.win.tue.nl/~aeb/partitions/partition_types-1.html
- * for a complete list.
- */
-
-/* This is a table for keeping known partition type codes and descriptions */
-static PARTITION_TYPE PartitionTypes[] =
-{
-    { 0x00, "(Empty)" },
-    { 0x01, "FAT12" },
-    { 0x02, "XENIX root" },
-    { 0x03, "XENIX /usr" },
-    { 0x04, "FAT16 (small)" },
-    { 0x05, "Extended" },
-    { 0x06, "FAT16" },
-    { 0x07, "NTFS/HPFS/exFAT" },
-    { 0x08, "OS/2 or AIX boot" },
-    { 0x09, "AIX data" },
-    { 0x0A, "OS/2 Boot Manager" },
-    { 0x0B, "FAT32" },
-    { 0x0C, "FAT32 (LBA)" },
-    { 0x0E, "FAT16 (LBA)" },
-    { 0x0F, "Extended (LBA)" },
-    { 0x11, "Hidden FAT12" },
-    { 0x12, "FAT diagnostic" },
-    { 0x14, "Hidden FAT16 (small)" },
-    { 0x16, "Hidden FAT16" },
-    { 0x17, "Hidden HPFS or NTFS" },
-    { 0x1B, "Hidden FAT32" },
-    { 0x1C, "Hidden FAT32 (LBA)" },
-    { 0x1E, "Hidden FAT16 (LBA)" },
-    { 0x35, "JFS" },
-    { 0x39, "Plan 9" },
-    { 0x3C, "PartitionMagic" },
-    { 0x3D, "Hidden Netware" },
-    { 0x41, "PowerPC PReP" },
-    { 0x42, "Win2K dynamic extended" },
-    { 0x43, "Old Linux" },
-    { 0x44, "GoBack" },
-    { 0x4D, "QNX4.x" },
-    { 0x4D, "QNX4.x 2nd" },
-    { 0x4D, "QNX4.x 3rd" },
-    { 0x50, "Ontrack R/O" },
-    { 0x51, "Ontrack R/W or Novell" },
-    { 0x52, "CP/M" },
-    { 0x63, "GNU HURD or UNIX SysV" },
-    { 0x64, "Netware 2" },
-    { 0x65, "Netware 3/4" },
-    { 0x66, "Netware SMS" },
-    { 0x67, "Novell" },
-    { 0x68, "Novell" },
-    { 0x69, "Netware 5+" },
-    { 0x7E, "Veritas VxVM public" },
-    { 0x7F, "Veritas VxVM private" },
-    { 0x80, "Minix" },
-    { 0x81, "Linux or Minix" },
-    { 0x82, "Linux swap or Solaris" },
-    { 0x83, "Linux" },
-    { 0x84, "Hibernation" },
-    { 0x85, "Linux extended" },
-    { 0x86, "HPFS or NTFS mirrored" },
-    { 0x87, "HPFS or NTFS mirrored" },
-    { 0x8E, "Linux LVM" },
-    { 0x93, "Hidden Linux" },
-    { 0x9F, "BSD/OS" },
-    { 0xA0, "Laptop hibernation" },
-    { 0xA1, "Laptop hibernation" },
-    { 0xA5, "BSD, NetBSD, FreeBSD" },
-    { 0xA6, "OpenBSD" },
-    { 0xA7, "NeXTSTEP" },
-    { 0xA8, "OS-X UFS" },
-    { 0xA9, "NetBSD" },
-    { 0xAB, "OS-X boot" },
-    { 0xAF, "OS-X HFS" },
-    { 0xB6, "NT corrupt mirror" },
-    { 0xB7, "BSDI" },
-    { 0xB8, "BSDI swap" },
-    { 0xBE, "Solaris 8 boot" },
-    { 0xBF, "Solaris x86" },
-    { 0xC0, "NTFT" },
-    { 0xC1, "DR-DOS FAT12" },
-    { 0xC2, "Hidden Linux" },
-    { 0xC3, "Hidden Linux swap" },
-    { 0xC4, "DR-DOS FAT16 (small)" },
-    { 0xC5, "DR-DOS Extended" },
-    { 0xC6, "DR-DOS FAT16" },
-    { 0xC7, "HPFS mirrored" },
-    { 0xCB, "DR-DOS FAT32" },
-    { 0xCC, "DR-DOS FAT32 (LBA)" },
-    { 0xCE, "DR-DOS FAT16 (LBA)" },
-    { 0xD0, "MDOS" },
-    { 0xD1, "MDOS FAT12" },
-    { 0xD4, "MDOS FAT16 (small)" },
-    { 0xD5, "MDOS Extended" },
-    { 0xD6, "MDOS FAT16" },
-    { 0xD8, "CP/M-86" },
-    { 0xDF, "BootIt EMBRM(FAT16/32)" },
-    { 0xEB, "BeOS BFS" },
-    { 0xEE, "EFI GPT protective" },
-    { 0xEF, "EFI filesystem" },
-    { 0xF0, "Linux/PA-RISC boot" },
-    { 0xF2, "DOS 3.3+ second" },
-    { 0xFA, "Bochs" },
-    { 0xFB, "VmWare" },
-    { 0xFC, "VmWare swap" },
-    { 0xFD, "Linux RAID" },
-    { 0xFE, "NT hidden" },
-};
-
-VOID
-GetPartTypeStringFromPartitionType(
-    UCHAR partitionType,
-    PCHAR strPartType,
-    DWORD cchPartType)
-{
-    /* Determine partition type */
-
-    if (IsContainerPartition(partitionType))
-    {
-        StringCchCopy(strPartType, cchPartType, MUIGetString(STRING_EXTENDED_PARTITION));
-    }
-    else if (partitionType == PARTITION_ENTRY_UNUSED)
-    {
-        StringCchCopy(strPartType, cchPartType, MUIGetString(STRING_FORMATUNUSED));
-    }
-    else
-    {
-        UINT i;
-
-        /* Do the table lookup */
-        for (i = 0; i < ARRAYSIZE(PartitionTypes); i++)
-        {
-            if (partitionType == PartitionTypes[i].Type)
-            {
-                StringCchCopy(strPartType, cchPartType, PartitionTypes[i].Description);
-                return;
-            }
-        }
-
-        /* We are here because the partition type is unknown */
-        StringCchCopy(strPartType, cchPartType, MUIGetString(STRING_FORMATUNKNOWN));
-    }
-}
-
 /* FUNCTIONS ****************************************************************/
 
 #ifdef DUMP_PARTITION_TABLE
@@ -291,7 +118,7 @@ GetDriverName(
                          NULL);
 
     swprintf(KeyName,
-             L"\\Scsi\\Scsi Port %hu",
+             L"\\Scsi\\Scsi Port %lu",
              DiskEntry->Port);
 
     RtlZeroMemory(&QueryTable,
@@ -484,7 +311,7 @@ SystemConfigurationDataQueryRoutine(
     ULONG i;
 
     if (ValueType != REG_FULL_RESOURCE_DESCRIPTOR ||
-        ValueLength < sizeof(CM_FULL_RESOURCE_DESCRIPTOR))
+        ValueLength < sizeof (CM_FULL_RESOURCE_DESCRIPTOR))
         return STATUS_UNSUCCESSFUL;
 
     FullResourceDescriptor = (PCM_FULL_RESOURCE_DESCRIPTOR)ValueData;
@@ -502,8 +329,7 @@ SystemConfigurationDataQueryRoutine(
             FullResourceDescriptor->PartialResourceList.PartialDescriptors[i].u.DeviceSpecificData.DataSize % sizeof(CM_INT13_DRIVE_PARAMETER) != 0)
             continue;
 
-        *Int13Drives = (CM_INT13_DRIVE_PARAMETER*)RtlAllocateHeap(ProcessHeap, 0,
-                       FullResourceDescriptor->PartialResourceList.PartialDescriptors[i].u.DeviceSpecificData.DataSize);
+        *Int13Drives = (CM_INT13_DRIVE_PARAMETER*) RtlAllocateHeap(ProcessHeap, 0, FullResourceDescriptor->PartialResourceList.PartialDescriptors[i].u.DeviceSpecificData.DataSize);
         if (*Int13Drives == NULL)
             return STATUS_NO_MEMORY;
 
@@ -599,7 +425,7 @@ EnumerateBiosDiskEntries(
                     DiskCount = 0;
                     while (1)
                     {
-                        BiosDiskEntry = (BIOSDISKENTRY*)RtlAllocateHeap(ProcessHeap, HEAP_ZERO_MEMORY, sizeof(BIOSDISKENTRY));
+                        BiosDiskEntry = (BIOSDISKENTRY*) RtlAllocateHeap(ProcessHeap, HEAP_ZERO_MEMORY, sizeof(BIOSDISKENTRY));
                         if (BiosDiskEntry == NULL)
                         {
                             break;
@@ -1182,7 +1008,9 @@ AddDiskToList(
                         NULL);
     if (!NT_SUCCESS(Status))
     {
-        RtlFreeHeap(ProcessHeap, 0, Mbr);
+        RtlFreeHeap(ProcessHeap,
+                    0,
+                    Mbr);
         DPRINT1("NtReadFile failed, status=%x\n", Status);
         return;
     }
@@ -1219,10 +1047,12 @@ AddDiskToList(
         DiskEntry->NoMbr = FALSE;
 
     /* Free Mbr sector buffer */
-    RtlFreeHeap(ProcessHeap, 0, Mbr);
+    RtlFreeHeap(ProcessHeap,
+                0,
+                Mbr);
 
     ListEntry = List->BiosDiskListHead.Flink;
-    while (ListEntry != &List->BiosDiskListHead)
+    while(ListEntry != &List->BiosDiskListHead)
     {
         BiosDiskEntry = CONTAINING_RECORD(ListEntry, BIOSDISKENTRY, ListEntry);
         /* FIXME:
@@ -1267,9 +1097,9 @@ AddDiskToList(
     DiskEntry->BytesPerSector = DiskGeometry.BytesPerSector;
 
     DPRINT("Cylinders %I64u\n", DiskEntry->Cylinders);
-    DPRINT("TracksPerCylinder %lu\n", DiskEntry->TracksPerCylinder);
-    DPRINT("SectorsPerTrack %lu\n", DiskEntry->SectorsPerTrack);
-    DPRINT("BytesPerSector %lu\n", DiskEntry->BytesPerSector);
+    DPRINT("TracksPerCylinder %I64u\n", DiskEntry->TracksPerCylinder);
+    DPRINT("SectorsPerTrack %I64u\n", DiskEntry->SectorsPerTrack);
+    DPRINT("BytesPerSector %I64u\n", DiskEntry->BytesPerSector);
 
     DiskEntry->SectorCount.QuadPart = DiskGeometry.Cylinders.QuadPart *
                                       (ULONGLONG)DiskGeometry.TracksPerCylinder *
@@ -1279,7 +1109,7 @@ AddDiskToList(
     DiskEntry->CylinderAlignment = DiskGeometry.TracksPerCylinder *
                                    DiskGeometry.SectorsPerTrack;
 
-    DPRINT("SectorCount %I64u\n", DiskEntry->SectorCount.QuadPart);
+    DPRINT("SectorCount %I64u\n", DiskEntry->SectorCount);
     DPRINT("SectorAlignment %lu\n", DiskEntry->SectorAlignment);
 
     DiskEntry->DiskNumber = DiskNumber;
@@ -1359,12 +1189,12 @@ AddDiskToList(
         }
         else
         {
-            DPRINT1("No matching aligment found! Partition 1 starts at %I64u\n", DiskEntry->LayoutBuffer->PartitionEntry[0].StartingOffset.QuadPart);
+            DPRINT1("No matching aligment found! Partiton 1 starts at %I64u\n", DiskEntry->LayoutBuffer->PartitionEntry[0].StartingOffset.QuadPart);
         }
     }
     else
     {
-        DPRINT1("No valid partition table found! Use megabyte (%lu Sectors) alignment!\n", (1024 * 1024) / DiskEntry->BytesPerSector);
+        DPRINT1("No valid partiton table found! Use megabyte (%lu Sectors) alignment!\n", (1024 * 1024) / DiskEntry->BytesPerSector);
     }
 
 
@@ -1380,12 +1210,18 @@ AddDiskToList(
     {
         for (i = 0; i < 4; i++)
         {
-            AddPartitionToDisk(DiskNumber, DiskEntry, i, FALSE);
+            AddPartitionToDisk(DiskNumber,
+                               DiskEntry,
+                               i,
+                               FALSE);
         }
 
         for (i = 4; i < DiskEntry->LayoutBuffer->PartitionCount; i += 4)
         {
-            AddPartitionToDisk(DiskNumber, DiskEntry, i, TRUE);
+            AddPartitionToDisk(DiskNumber,
+                               DiskEntry,
+                               i,
+                               TRUE);
         }
     }
 
@@ -1425,13 +1261,14 @@ CreatePartitionList(
     List->Line = 0;
     List->Offset = 0;
 
+    List->TopDisk = (ULONG)-1;
+    List->TopPartition = (ULONG)-1;
+
     List->CurrentDisk = NULL;
     List->CurrentPartition = NULL;
 
-    List->SystemDisk = NULL;
-    List->SystemPartition = NULL;
-    List->OriginalSystemDisk = NULL;
-    List->OriginalSystemPartition = NULL;
+    List->BootDisk = NULL;
+    List->BootPartition = NULL;
 
     List->TempDisk = NULL;
     List->TempPartition = NULL;
@@ -1474,7 +1311,9 @@ CreatePartitionList(
                             FILE_SYNCHRONOUS_IO_NONALERT);
         if (NT_SUCCESS(Status))
         {
-            AddDiskToList(FileHandle, DiskNumber, List);
+            AddDiskToList(FileHandle,
+                          DiskNumber,
+                          List);
 
             NtClose(FileHandle);
         }
@@ -1483,6 +1322,9 @@ CreatePartitionList(
     UpdateDiskSignatures(List);
 
     AssignDriveLetters(List);
+
+    List->TopDisk = 0;
+    List->TopPartition = 0;
 
     /* Search for first usable disk and partition */
     if (IsListEmpty(&List->DiskListHead))
@@ -1557,8 +1399,8 @@ DestroyPartitionList(
         RtlFreeHeap(ProcessHeap, 0, DiskEntry);
     }
 
-    /* Release the bios disk info */
-    while (!IsListEmpty(&List->BiosDiskListHead))
+    /* release the bios disk info */
+    while(!IsListEmpty(&List->BiosDiskListHead))
     {
         Entry = RemoveHeadList(&List->BiosDiskListHead);
         BiosDiskEntry = CONTAINING_RECORD(Entry, BIOSDISKENTRY, ListEntry);
@@ -1603,6 +1445,66 @@ PrintEmptyLine(
     }
 
     List->Line++;
+}
+
+
+VOID
+GetPartTypeStringFromPartitionTypeW(
+    UCHAR partitionType,
+    PWCHAR strPartType,
+    DWORD cchPartType)
+{
+    CHAR partTypeString[32];
+
+    GetPartTypeStringFromPartitionTypeA(partitionType,
+                                        partTypeString,
+                                        30);
+
+    mbstowcs(strPartType,
+             partTypeString,
+             (30 < cchPartType) ? 30 : cchPartType);
+}
+
+
+VOID
+GetPartTypeStringFromPartitionTypeA(
+    UCHAR partitionType,
+    PCHAR strPartType,
+    DWORD cchPartType)
+{
+    /* Determine partition type */
+    if ((partitionType == PARTITION_FAT_12) ||
+        (partitionType == PARTITION_FAT_16) ||
+        (partitionType == PARTITION_HUGE) ||
+        (partitionType == PARTITION_XINT13))
+    {
+        StringCchCopy(strPartType, cchPartType, "FAT");
+    }
+    else if ((partitionType == PARTITION_FAT32) ||
+             (partitionType == PARTITION_FAT32_XINT13))
+    {
+        StringCchCopy(strPartType, cchPartType, "FAT32");
+    }
+    else if (partitionType == PARTITION_EXT2)
+    {
+        StringCchCopy(strPartType, cchPartType, "EXT2");
+    }
+    else if (partitionType == PARTITION_IFS)
+    {
+        StringCchCopy(strPartType, cchPartType, "NTFS"); /* FIXME: Not quite correct! */
+    }
+    else if (IsContainerPartition(partitionType))
+    {
+        StringCchCopy(strPartType, cchPartType, MUIGetString(STRING_EXTENDED_PARTITION));
+    }
+    else if (partitionType == PARTITION_ENTRY_UNUSED)
+    {
+        StringCchCopy(strPartType, cchPartType, MUIGetString(STRING_FORMATUNUSED));
+    }
+    else
+    {
+        StringCchCopy(strPartType, cchPartType, MUIGetString(STRING_FORMATUNKNOWN));
+    }
 }
 
 
@@ -1670,9 +1572,9 @@ PrintPartitionData(
         }
         else if (PartEntry->IsPartitioned == TRUE)
         {
-           GetPartTypeStringFromPartitionType(PartEntry->PartitionType,
-                                              PartTypeString,
-                                              30);
+           GetPartTypeStringFromPartitionTypeA(PartEntry->PartitionType,
+                                               PartTypeString,
+                                               30);
            PartType = PartTypeString;
         }
 
@@ -1852,7 +1754,7 @@ PrintDiskData(
     /* Print separator line */
     PrintEmptyLine(List);
 
-    /* Print partition lines */
+    /* Print partition lines*/
     PrimaryEntry = DiskEntry->PrimaryPartListHead.Flink;
     while (PrimaryEntry != &DiskEntry->PrimaryPartListHead)
     {
@@ -3027,7 +2929,7 @@ DeleteCurrentPartition(
     DiskEntry = List->CurrentDisk;
     PartEntry = List->CurrentPartition;
 
-    /* Delete all logical partition entries if an extended partition will be deleted */
+    /* Delete all logical partiton entries if an extended partition will be deleted */
     if (DiskEntry->ExtendedPartition == PartEntry)
     {
         while (!IsListEmpty(&DiskEntry->LogicalPartListHead))
@@ -3044,8 +2946,11 @@ DeleteCurrentPartition(
     /* Adjust unpartitioned disk space entries */
 
     /* Get pointer to previous and next unpartitioned entries */
-    PrevPartEntry = GetPrevUnpartitionedEntry(DiskEntry, PartEntry);
-    NextPartEntry = GetNextUnpartitionedEntry(DiskEntry, PartEntry);
+    PrevPartEntry = GetPrevUnpartitionedEntry(DiskEntry,
+                                              PartEntry);
+
+    NextPartEntry = GetNextUnpartitionedEntry(DiskEntry,
+                                              PartEntry);
 
     if (PrevPartEntry != NULL && NextPartEntry != NULL)
     {
@@ -3112,255 +3017,91 @@ DeleteCurrentPartition(
 
 
 VOID
-CheckActiveSystemPartition(
-    IN PPARTLIST List,
-    IN PFILE_SYSTEM_LIST FileSystemList /* Needed for checking the FS of the candidate system partition */
-    )
+CheckActiveBootPartition(
+    PPARTLIST List)
 {
     PDISKENTRY DiskEntry;
     PPARTENTRY PartEntry;
     PLIST_ENTRY ListEntry;
 
-    PFILE_SYSTEM_ITEM FileSystem;
-
     /* Check for empty disk list */
-    if (IsListEmpty(&List->DiskListHead))
+    if (IsListEmpty (&List->DiskListHead))
     {
-        List->SystemDisk = NULL;
-        List->SystemPartition = NULL;
-        List->OriginalSystemDisk = NULL;
-        List->OriginalSystemPartition = NULL;
+        List->BootDisk = NULL;
+        List->BootPartition = NULL;
         return;
     }
+
+#if 0
+    if (List->BootDisk != NULL &&
+        List->BootPartition != NULL)
+    {
+        /* We already have an active boot partition */
+        return;
+    }
+#endif
 
     /* Choose the currently selected disk */
     DiskEntry = List->CurrentDisk;
 
     /* Check for empty partition list */
-    if (IsListEmpty(&DiskEntry->PrimaryPartListHead))
+    if (IsListEmpty (&DiskEntry->PrimaryPartListHead))
     {
-        List->SystemDisk = NULL;
-        List->SystemPartition = NULL;
-        List->OriginalSystemDisk = NULL;
-        List->OriginalSystemPartition = NULL;
+        List->BootDisk = NULL;
+        List->BootPartition = NULL;
         return;
     }
 
-    if (List->SystemDisk != NULL && List->SystemPartition != NULL)
-    {
-        /* We already have an active system partition */
-        DPRINT1("Use the current system partition %lu in disk %lu, drive letter %c\n",
-                List->SystemPartition->PartitionNumber,
-                List->SystemDisk->DiskNumber,
-                (List->SystemPartition->DriveLetter == 0) ? '-' : List->SystemPartition->DriveLetter);
-        return;
-    }
-
-    DPRINT1("We are here (1)!\n");
-
-    List->SystemDisk = NULL;
-    List->SystemPartition = NULL;
-    List->OriginalSystemDisk = NULL;
-    List->OriginalSystemPartition = NULL;
-
-    /* Retrieve the first partition of the disk */
     PartEntry = CONTAINING_RECORD(DiskEntry->PrimaryPartListHead.Flink,
                                   PARTENTRY,
                                   ListEntry);
-    List->SystemDisk = DiskEntry;
-    List->SystemPartition = PartEntry;
 
-    //
-    // See: https://svn.reactos.org/svn/reactos/trunk/reactos/base/setup/usetup/partlist.c?r1=63355&r2=63354&pathrev=63355#l2318
-    //
-
-    /* Check if the disk is new and if so, use its first partition as the active system partition */
-    if (DiskEntry->NewDisk)
+    /* Set active boot partition */
+    if ((DiskEntry->NewDisk == TRUE) ||
+        (PartEntry->BootIndicator == FALSE))
     {
-        if (PartEntry->PartitionType == PARTITION_ENTRY_UNUSED || PartEntry->BootIndicator == FALSE)
-        {
-            /* FIXME: Might be incorrect if partitions were created by Linux FDISK */
-            List->SystemDisk = DiskEntry;
-            List->SystemPartition = PartEntry;
+        PartEntry->BootIndicator = TRUE;
+        DiskEntry->LayoutBuffer->PartitionEntry[PartEntry->PartitionIndex].BootIndicator = TRUE;
+        DiskEntry->LayoutBuffer->PartitionEntry[PartEntry->PartitionIndex].RewritePartition = TRUE;
+        DiskEntry->Dirty = TRUE;
 
-            List->OriginalSystemDisk = List->SystemDisk;
-            List->OriginalSystemPartition = List->SystemPartition;
+        /* FIXME: Might be incorrect if partitions were created by Linux FDISK */
+        List->BootDisk = DiskEntry;
+        List->BootPartition = PartEntry;
 
-            DPRINT1("Use new first active system partition %lu in disk %lu, drive letter %c\n",
-                    List->SystemPartition->PartitionNumber,
-                    List->SystemDisk->DiskNumber,
-                    (List->SystemPartition->DriveLetter == 0) ? '-' : List->SystemPartition->DriveLetter);
-
-            goto SetSystemPartition;
-        }
-
-        // FIXME: What to do??
-        DPRINT1("NewDisk TRUE but first partition is used?\n");
+        return;
     }
 
-    DPRINT1("We are here (2)!\n");
+    /* Disk is not new, scan all partitions to find a bootable one */
+    List->BootDisk = NULL;
+    List->BootPartition = NULL;
 
-    /*
-     * The disk is not new, check if any partition is initialized;
-     * if not, the first one becomes the system partition.
-     */
     ListEntry = DiskEntry->PrimaryPartListHead.Flink;
     while (ListEntry != &DiskEntry->PrimaryPartListHead)
     {
-        /* Retrieve the partition and go to the next one */
         PartEntry = CONTAINING_RECORD(ListEntry,
                                       PARTENTRY,
                                       ListEntry);
 
-        /* Check if the partition is partitioned and is used */
-        if (PartEntry->PartitionType != PARTITION_ENTRY_UNUSED || PartEntry->BootIndicator != FALSE)
+        /* Check if it is partitioned */
+        if (PartEntry->IsPartitioned)
         {
-            break;
+            if (PartEntry->PartitionType != PARTITION_ENTRY_UNUSED &&
+                PartEntry->BootIndicator)
+            {
+                /* Yes, we found it */
+                List->BootDisk = DiskEntry;
+                List->BootPartition = PartEntry;
+
+                DPRINT("Found bootable partition disk %d, drive letter %c\n",
+                       DiskEntry->DiskNumber, PartEntry->DriveLetter);
+                break;
+            }
         }
 
         /* Go to the next one */
         ListEntry = ListEntry->Flink;
     }
-    if (ListEntry == &DiskEntry->PrimaryPartListHead)
-    {
-        /*
-         * OK we haven't encountered any used and active partition,
-         * so use the first one as the system partition.
-         */
-
-        /* FIXME: Might be incorrect if partitions were created by Linux FDISK */
-        List->OriginalSystemDisk = List->SystemDisk; // DiskEntry
-        List->OriginalSystemPartition = List->SystemPartition; // First PartEntry
-
-        DPRINT1("Use first active system partition %lu in disk %lu, drive letter %c\n",
-                List->SystemPartition->PartitionNumber,
-                List->SystemDisk->DiskNumber,
-                (List->SystemPartition->DriveLetter == 0) ? '-' : List->SystemPartition->DriveLetter);
-
-        goto SetSystemPartition;
-    }
-
-    List->SystemDisk = NULL;
-    List->SystemPartition = NULL;
-    List->OriginalSystemDisk = NULL;
-    List->OriginalSystemPartition = NULL;
-
-    DPRINT1("We are here (3)!\n");
-
-    /* The disk is not new, scan all partitions to find the (active) system partition */
-    ListEntry = DiskEntry->PrimaryPartListHead.Flink;
-    while (ListEntry != &DiskEntry->PrimaryPartListHead)
-    {
-        /* Retrieve the partition and go to the next one */
-        PartEntry = CONTAINING_RECORD(ListEntry,
-                                      PARTENTRY,
-                                      ListEntry);
-        ListEntry = ListEntry->Flink;
-
-        /* Check if the partition is partitioned and used */
-        if (PartEntry->IsPartitioned &&
-            PartEntry->PartitionType != PARTITION_ENTRY_UNUSED)
-        {
-            /* Check if the partition is active */
-            if (PartEntry->BootIndicator)
-            {
-                /* Yes, we found it */
-                List->SystemDisk = DiskEntry;
-                List->SystemPartition = PartEntry;
-
-                DPRINT1("Found active system partition %lu in disk %lu, drive letter %c\n",
-                        PartEntry->PartitionNumber,
-                        DiskEntry->DiskNumber,
-                        (PartEntry->DriveLetter == 0) ? '-' : PartEntry->DriveLetter);
-                break;
-            }
-        }
-    }
-
-    /* Check if we have found the system partition */
-    if (List->SystemDisk == NULL || List->SystemPartition == NULL)
-    {
-        /* Nothing, use the alternative system partition */
-        DPRINT1("No system partition found, use the alternative partition!\n");
-        goto UseAlternativeSystemPartition;
-    }
-
-    /* Save them */
-    List->OriginalSystemDisk = List->SystemDisk;
-    List->OriginalSystemPartition = List->SystemPartition;
-
-    /*
-     * ADDITIONAL CHECKS / BIG HACK:
-     *
-     * Retrieve its file system and check whether we have
-     * write support for it. If that is the case we are fine
-     * and we can use it directly. However if we don't have
-     * write support we will need to change the active system
-     * partition.
-     *
-     * NOTE that this is completely useless on architectures
-     * where a real system partition is required, as on these
-     * architectures the partition uses the FAT FS, for which
-     * we do have write support.
-     * NOTE also that for those architectures looking for a
-     * partition boot indicator is insufficient.
-     */
-    FileSystem = GetFileSystem(FileSystemList, List->OriginalSystemPartition);
-    if (FileSystem == NULL)
-    {
-        DPRINT1("System partition %lu in disk %lu with no FS?!\n",
-                List->OriginalSystemPartition->PartitionNumber,
-                List->OriginalSystemDisk->DiskNumber);
-        goto FindAndUseAlternativeSystemPartition;
-    }
-    // HACK: WARNING: We cannot write on this FS yet!
-    // See fslist.c:GetFileSystem()
-    if (List->OriginalSystemPartition->PartitionType == PARTITION_EXT2 ||
-        List->OriginalSystemPartition->PartitionType == PARTITION_IFS)
-    {
-        DPRINT1("Recognized file system %S that doesn't support write support yet!\n",
-                FileSystem->FileSystemName);
-        goto FindAndUseAlternativeSystemPartition;
-    }
-
-    DPRINT1("Use existing active system partition %lu in disk %lu, drive letter %c\n",
-            List->SystemPartition->PartitionNumber,
-            List->SystemDisk->DiskNumber,
-            (List->SystemPartition->DriveLetter == 0) ? '-' : List->SystemPartition->DriveLetter);
-
-    return;
-
-FindAndUseAlternativeSystemPartition:
-    /*
-     * We are here because we have not found any (active) candidate
-     * system partition that we know how to support. What we are going
-     * to do is to change the existing system partition and use the
-     * partition on which we install ReactOS as the new system partition,
-     * and then we will need to add in FreeLdr's entry a boot entry to boot
-     * from the original system partition.
-     */
-
-    /* Unset the old system partition */
-    List->SystemPartition->BootIndicator = FALSE;
-    List->SystemDisk->LayoutBuffer->PartitionEntry[List->SystemPartition->PartitionIndex].BootIndicator = FALSE;
-    List->SystemDisk->LayoutBuffer->PartitionEntry[List->SystemPartition->PartitionIndex].RewritePartition = TRUE;
-    List->SystemDisk->Dirty = TRUE;
-
-UseAlternativeSystemPartition:
-    List->SystemDisk = List->CurrentDisk;
-    List->SystemPartition = List->CurrentPartition;
-
-    DPRINT1("Use alternative active system partition %lu in disk %lu, drive letter %c\n",
-            List->SystemPartition->PartitionNumber,
-            List->SystemDisk->DiskNumber,
-            (List->SystemPartition->DriveLetter == 0) ? '-' : List->SystemPartition->DriveLetter);
-
-SetSystemPartition:
-    /* Set the new active system partition */
-    List->SystemPartition->BootIndicator = TRUE;
-    List->SystemDisk->LayoutBuffer->PartitionEntry[List->SystemPartition->PartitionIndex].BootIndicator = TRUE;
-    List->SystemDisk->LayoutBuffer->PartitionEntry[List->SystemPartition->PartitionIndex].RewritePartition = TRUE;
-    List->SystemDisk->Dirty = TRUE;
 }
 
 

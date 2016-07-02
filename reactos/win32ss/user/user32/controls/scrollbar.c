@@ -855,7 +855,6 @@ IntScrollHandleScrollEvent(HWND Wnd, INT SBType, UINT Msg, POINT Pt)
         NewInfo.rgstate[ScrollTrackHitTest] = ScrollBarInfo.rgstate[ScrollTrackHitTest];
         NtUserSetScrollBarInfo(Wnd, IntScrollGetObjectId(SBType), &NewInfo);
 
-        IntDrawScrollInterior(Wnd,Dc,SBType,Vertical,&ScrollBarInfo);
         IntDrawScrollArrows(Dc, &ScrollBarInfo, Vertical);
 
         break;

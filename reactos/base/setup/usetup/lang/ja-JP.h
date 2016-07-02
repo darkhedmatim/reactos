@@ -827,7 +827,7 @@ static MUI_ENTRY jaJPSelectPartitionEntries[] =
     }
 };
 
-static MUI_ENTRY jaJPConfirmDeleteSystemPartitionEntries[] =
+static MUI_ENTRY jaJPConfirmDeletePartitionEntries[] =
 {
     {
         4,
@@ -838,13 +838,13 @@ static MUI_ENTRY jaJPConfirmDeleteSystemPartitionEntries[] =
     {
         6,
         8,
-        "You have chosen to delete the system partition.",
+        "You asked Setup to delete the system partition.",
         TEXT_STYLE_NORMAL
     },
     {
         6,
         10,
-        "System partitions can contain diagnostic programs, hardware configuration",
+        "System partitions can contain diagnose programs, hardware configuration",
         TEXT_STYLE_NORMAL
     },
     {
@@ -868,7 +868,7 @@ static MUI_ENTRY jaJPConfirmDeleteSystemPartitionEntries[] =
     {
         6,
         15,
-        "programs on the partition, or when you are sure you want to delete them.",
+        "programs on the partiton, or when you are sure you want to delete them.",
         TEXT_STYLE_NORMAL
     },
     {
@@ -1649,7 +1649,7 @@ MUI_PAGE jaJPPages[] =
     },
     {
         CONFIRM_DELETE_SYSTEM_PARTITION_PAGE,
-        jaJPConfirmDeleteSystemPartitionEntries
+        jaJPConfirmDeletePartitionEntries
     },
     {
         SELECT_FILE_SYSTEM_PAGE,
@@ -1747,8 +1747,6 @@ MUI_STRING jaJPStrings[] =
     "¾¯Ä±¯ÌßÊ ReactOS¦ Êß°Ã¨¼®Ý ¼Þ®³Æ ²Ý½Ä°Ù¼Ï½¡"},
     {STRING_CHECKINGPART,
     "¾¯Ä±¯ÌßÊ ¾ÝÀ¸ »ÚÀ Êß°Ã¨¼®Ý¦ ¹Ý» ¼Ã²Ï½¡"},
-    {STRING_CONTINUE,
-    "ENTER = ¿Þ¯º³"},
     {STRING_QUITCONTINUE,
     "F3 = Á­³¼  ENTER = ¿Þ¯º³"},
     {STRING_REBOOTCOMPUTER,
@@ -1796,7 +1794,7 @@ MUI_STRING jaJPStrings[] =
     {STRING_HDDINFOUNK1,
     "%I64u %s  Ê°ÄÞÃÞ¨½¸ %lu  (Îß°Ä=%hu, ÊÞ½=%hu, Id=%hu)."},
     {STRING_HDDINFOUNK2,
-    "   %c%c  ¼­Ù² 0x%02X    %I64u %s"},
+    "   %c%c  ¼­Ù² %lu    %I64u %s"},
     {STRING_HDINFOPARTDELETE,
     "on %I64u %s  Ê°ÄÞÃÞ¨½¸ %lu  (Îß°Ä=%hu, ÊÞ½=%hu, Id=%hu) on %wZ."},
     {STRING_HDDINFOUNK3,
@@ -1804,7 +1802,7 @@ MUI_STRING jaJPStrings[] =
     {STRING_HDINFOPARTZEROED,
     "Ê°ÄÞÃÞ¨½¸ %lu (%I64u %s), Îß°Ä=%hu, ÊÞ½=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK4,
-    "%c%c  ¼­Ù² 0x%02X    %I64u %s"},
+    "%c%c  ¼­Ù² %lu    %I64u %s"},
     {STRING_HDINFOPARTEXISTS,
     "on Ê°ÄÞÃÞ¨½¸ %lu (%I64u %s), Îß°Ä=%hu, ÊÞ½=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK5,

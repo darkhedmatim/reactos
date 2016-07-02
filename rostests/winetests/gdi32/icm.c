@@ -50,12 +50,6 @@ static void test_GetICMProfileA( HDC dc )
     size = MAX_PATH;
     ret = GetICMProfileA( dc, &size, NULL );
     ok( !ret, "GetICMProfileA succeeded\n" );
-    ok( size > 0, "got %u\n", size );
-
-    size = 0;
-    ret = GetICMProfileA( dc, &size, NULL );
-    ok( !ret, "GetICMProfileA succeeded\n" );
-    ok( size > 0, "got %u\n", size );
 
     size = MAX_PATH;
     ret = GetICMProfileA( NULL, &size, filename );
@@ -113,11 +107,6 @@ static void test_GetICMProfileW( HDC dc )
     size = MAX_PATH;
     ret = GetICMProfileW( NULL, &size, filename );
     ok( !ret, "GetICMProfileW succeeded\n" );
-
-    size = 0;
-    ret = GetICMProfileW( dc, &size, NULL );
-    ok( !ret, "GetICMProfileW succeeded\n" );
-    ok( size > 0, "got %u\n", size );
 
     size = 0;
     SetLastError(0xdeadbeef);

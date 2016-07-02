@@ -167,7 +167,9 @@ InitializeFmIfs(
             if (FmIfsInitialized == FALSE)
             {
                 if (InitializeFmIfsOnce() == FALSE)
-                    return FALSE;
+                {
+                        return FALSE;
+                }
 
                 FmIfsInitialized = TRUE;
             }

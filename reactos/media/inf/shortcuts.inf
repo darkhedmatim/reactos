@@ -14,8 +14,7 @@ CommunicationsShortcuts=2, %ACCESSORIES%\%COMMUNICATIONS%
 GamesShortcuts=2, %GAMES%
 
 [DesktopShortcuts]
-%SystemRoot%\readme.txt, %README_TITLE%, %README_DESC%, 0
-%SystemRoot%\system32\cmd.exe, %CMD_TITLE%, %CMD_DESC%, 0, %HOMEDRIVE%%HOMEPATH%
+%SystemRoot%\system32\cmd.exe, %CMD_TITLE%, %CMD_DESC%, 0
 %SystemRoot%\system32\rapps.exe, %RAPPS_TITLE_SHORT%, %RAPPS_DESC%, 0
 
 [ProgramShortcuts]
@@ -33,7 +32,7 @@ GamesShortcuts=2, %GAMES%
 
 [AccessoriesShortcuts]
 %SystemRoot%\system32\calc.exe, %CALC_TITLE%, %CALC_DESC%, 0
-%SystemRoot%\system32\cmd.exe, %CMD_TITLE%, %CMD_DESC%, 0, %HOMEDRIVE%%HOMEPATH%
+%SystemRoot%\system32\cmd.exe, %CMD_TITLE%, %CMD_DESC%, 0
 %SystemRoot%\system32\notepad.exe, %NOTEPAD_TITLE%, %NOTEPAD_DESC%, 0
 %SystemRoot%\system32\screenshot.exe, %SCREENSHOT_TITLE%, %SCREENSHOT_DESC%, 0
 %SystemRoot%\system32\wordpad.exe, %WORDPAD_TITLE%, %WORDPAD_DESC%, 0
@@ -41,7 +40,6 @@ GamesShortcuts=2, %GAMES%
 
 [SystemToolsShortcuts]
 %SystemRoot%\system32\charmap.exe, %CHARMAP_TITLE%, %CHARMAP_DESC%, 0
-%SystemRoot%\system32\clipbrd.exe, %CLIPBRD_TITLE%, %CLIPBRD_DESC%, 0
 %SystemRoot%\system32\kbswitch.exe, %KBSWITCH_TITLE%, %KBSWITCH_DESC%, 0
 %SystemRoot%\regedit.exe, %REGEDIT_TITLE%, %REGEDIT_DESC%, 0
 %SystemRoot%\system32\dxdiag.exe, %DXDIAG_TITLE%, %DXDIAG_DESC%, 0
@@ -70,9 +68,6 @@ ACCESSIBILITY=Accessibility
 ENTERTAINMENT=Entertainment
 COMMUNICATIONS=Communications
 GAMES=Games
-
-README_TITLE=Read Me
-README_DESC=ReactOS Read-Me file
 
 CMD_TITLE=Command Prompt
 CMD_DESC=Open command prompt
@@ -103,8 +98,6 @@ MSPAINT_TITLE=Paint
 MSPAINT_DESC=Launch Paint
 CHARMAP_TITLE=Character Map
 CHARMAP_DESC=Character Map
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Keyboard Layout Switcher
 KBSWITCH_DESC=Keyboard Layout Switcher
 REGEDIT_TITLE=Registry Editor
@@ -166,8 +159,6 @@ MSPAINT_TITLE=Рисунък
 MSPAINT_DESC=Пускане на приложението за рисуване
 CHARMAP_TITLE=Знакова таблица
 CHARMAP_DESC=Знакова таблица
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Превключвател на клавиатурните подредби
 KBSWITCH_DESC=Превключвател на клавиатурните подредби
 REGEDIT_TITLE=Обработка на регистъра
@@ -229,8 +220,6 @@ MSPAINT_TITLE=Malování
 MSPAINT_DESC=Spustit Malování
 CHARMAP_TITLE=Mapa znaků
 CHARMAP_DESC=Spustit Mapu znaků
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Přepínač rozložení klávesnice
 KBSWITCH_DESC=Spustit Přepínač rozložení klávesnice
 REGEDIT_TITLE=Editor registru
@@ -263,9 +252,6 @@ ENTERTAINMENT=Unterhaltung
 COMMUNICATIONS=Kommunikation
 GAMES=Spiele
 
-README_TITLE=Lies Mich
-README_DESC=Lies-Mich Datei für ReactOS
-
 CMD_TITLE=Eingabeaufforderung
 CMD_DESC=Öffne Kommandozeilenfenster
 EXPLORER_TITLE=ReactOS Explorer
@@ -295,8 +281,6 @@ MSPAINT_TITLE=Paint
 MSPAINT_DESC=Starte Paint
 CHARMAP_TITLE=Zeichentabelle
 CHARMAP_DESC=Zeichentabelle
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Tastaturlayout-Umschalter
 KBSWITCH_DESC=Tastaturlayout-Umschalter
 REGEDIT_TITLE=Registrierungseditor
@@ -358,8 +342,6 @@ MSPAINT_TITLE=Paint
 MSPAINT_DESC=Launch Paint
 CHARMAP_TITLE=Πίνακας Χαρακτήρων
 CHARMAP_DESC=Πίνακας Χαρακτήρων
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Αλλαγή Διάταξης Πληκτρολογίου
 KBSWITCH_DESC=Αλλαγή Διάταξης Πληκτρολογίου
 REGEDIT_TITLE=Επεξεργαστής μητρώου
@@ -392,9 +374,6 @@ ENTERTAINMENT=Entretenimiento
 COMMUNICATIONS=Comunicaciones
 GAMES=Juegos
 
-README_TITLE=Léame
-README_DESC=Documento Léame de ReactOS
-
 CMD_TITLE=Consola
 CMD_DESC=Abre una consola de comandos.
 EXPLORER_TITLE=Explorador de ReactOS
@@ -424,8 +403,6 @@ MSPAINT_TITLE=Paint
 MSPAINT_DESC=Ejecuta un sencillo programa de edición de imágenes.
 CHARMAP_TITLE=Mapa de caracteres
 CHARMAP_DESC=Ejecuta el mapa de caracteres.
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Ajustes de distribución de teclado
 KBSWITCH_DESC=Cambia la distribución de teclas del equipo.
 REGEDIT_TITLE=Editor del Registro
@@ -487,8 +464,6 @@ MSPAINT_TITLE=Paint
 MSPAINT_DESC=Ava Paint
 CHARMAP_TITLE=Character Map
 CHARMAP_DESC=Kirjamärkide Tabel
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Keyboard Layout Switcher
 KBSWITCH_DESC=Klaviatuuriasetuse Muutmine
 REGEDIT_TITLE=Registriredaktor
@@ -521,9 +496,6 @@ ENTERTAINMENT=Divertissement
 COMMUNICATIONS=Communications
 GAMES=Jeux
 
-README_TITLE=Lisez-Moi
-README_DESC=Fichier Lisez-Moi pour ReactOS
-
 CMD_TITLE=Invite de commandes
 CMD_DESC=Ouvrir l'invite de commandes
 EXPLORER_TITLE=Explorateur ReactOS
@@ -553,8 +525,6 @@ MSPAINT_TITLE=Paint
 MSPAINT_DESC=Lancer Paint
 CHARMAP_TITLE=Table des Caractères
 CHARMAP_DESC=Table des Caractères
-CLIPBRD_TITLE=Visionneuse du Presse-papiers
-CLIPBRD_DESC=Visionneuse du Presse-papiers
 KBSWITCH_TITLE=Sélecteur de configuration clavier
 KBSWITCH_DESC=Sélecteur de configuration clavier
 REGEDIT_TITLE=Éditeur de Registre
@@ -616,8 +586,6 @@ MSPAINT_TITLE=צייר
 MSPAINT_DESC=צייר
 CHARMAP_TITLE=מפת תווים
 CHARMAP_DESC=מפת התווים
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Keyboard Layout Switcher
 KBSWITCH_DESC=Keyboard Layout Switcher
 REGEDIT_TITLE=עורך הרישום
@@ -679,8 +647,6 @@ MSPAINT_TITLE=Paint
 MSPAINT_DESC=Launch Paint
 CHARMAP_TITLE=CharMap
 CHARMAP_DESC=CharMap
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Keyboard Layout Switcher
 KBSWITCH_DESC=Keyboard Layout Switcher
 REGEDIT_TITLE=Registry Editor
@@ -742,8 +708,6 @@ MSPAINT_TITLE=Paint
 MSPAINT_DESC=Launch Paint
 CHARMAP_TITLE=CharMap
 CHARMAP_DESC=CharMap
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Keyboard Layout Switcher
 KBSWITCH_DESC=Keyboard Layout Switcher
 REGEDIT_TITLE=Editor Registri
@@ -776,9 +740,6 @@ ENTERTAINMENT=Divertimento
 COMMUNICATIONS=Comunicazioni
 GAMES=Giochi
 
-README_TITLE=Leggimi
-README_DESC=File Leggimi per ReactOS
-
 CMD_TITLE=Prompt dei comandi
 CMD_DESC=Apri la finestra dei comandi
 EXPLORER_TITLE=ReactOS Explorer
@@ -808,8 +769,6 @@ MSPAINT_TITLE=Paint
 MSPAINT_DESC=Lancia Paint
 CHARMAP_TITLE=Mappa caratteri
 CHARMAP_DESC=Mappa dei caratteri
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Layout di tastiera
 KBSWITCH_DESC=Cambia il layout di tastiera
 REGEDIT_TITLE=Editor del registro
@@ -871,8 +830,6 @@ MSPAINT_TITLE=ペイント
 MSPAINT_DESC=ペイントを起動します
 CHARMAP_TITLE=文字コード表
 CHARMAP_DESC=文字コード表
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=キーボード レイアウト 切替器
 KBSWITCH_DESC=キーボードレイアウト切替器
 REGEDIT_TITLE=レジストリ エディタ
@@ -905,9 +862,6 @@ ENTERTAINMENT=Entertainment
 COMMUNICATIONS=Communications
 GAMES=Games
 
-README_TITLE=Lees Mij
-README_DESC=LeesMij bestand voor ReactOS
-
 CMD_TITLE=Command Prompt
 CMD_DESC=Open command prompt
 EXPLORER_TITLE=ReactOS Explorer
@@ -937,8 +891,6 @@ MSPAINT_TITLE=Paint
 MSPAINT_DESC=Launch Paint
 CHARMAP_TITLE=CharMap
 CHARMAP_DESC=CharMap
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Keyboard Layout Switcher
 KBSWITCH_DESC=Keyboard Layout Switcher
 REGEDIT_TITLE=Registry Editor
@@ -1000,8 +952,6 @@ MSPAINT_TITLE=Paint
 MSPAINT_DESC=Start Paint
 CHARMAP_TITLE=CharMap
 CHARMAP_DESC=Tegnkart
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Keyboard Layout Switcher
 KBSWITCH_DESC=Endre tastaturvalg
 REGEDIT_TITLE=Registerredigering
@@ -1063,8 +1013,6 @@ MSPAINT_TITLE=MSPaint
 MSPAINT_DESC=Uruchom Paint
 CHARMAP_TITLE=Tablica znaków
 CHARMAP_DESC=Tablica znaków
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Zmiana układu klawiatury
 KBSWITCH_DESC=Zmiana układu klawiatury
 REGEDIT_TITLE=Edytor rejestru
@@ -1097,9 +1045,6 @@ ENTERTAINMENT=Entretenimento
 COMMUNICATIONS=Communications
 GAMES=Jogos
 
-README_TITLE=Leia-Me
-README_DESC=Arquivo de informações para ReactOS
-
 CMD_TITLE=Command Prompt
 CMD_DESC=Abrir prompt de comando
 EXPLORER_TITLE=ReactOS Explorer
@@ -1129,8 +1074,6 @@ MSPAINT_TITLE=Paint
 MSPAINT_DESC=Iniciar Paint
 CHARMAP_TITLE=Character Map
 CHARMAP_DESC=Mapa de Caracteres
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Keyboard Layout Switcher
 KBSWITCH_DESC=Alterador de Layout de Teclado
 REGEDIT_TITLE=Editor do Registro
@@ -1192,8 +1135,6 @@ MSPAINT_TITLE=Pictare
 MSPAINT_DESC=Editor de imagini elementar.
 CHARMAP_TITLE=Hartă de caractere
 CHARMAP_DESC=Program de acces la toate caracterele disponibile.
-CLIPBRD_TITLE=Inspector de Clipboard
-CLIPBRD_DESC=Inspector de Clipboard
 KBSWITCH_TITLE=Comutator aranjamente de tastatură
 KBSWITCH_DESC=Program pentru comutarea aranjamentelor de tastatură.
 REGEDIT_TITLE=Editor de registru
@@ -1226,9 +1167,6 @@ ENTERTAINMENT=Развлечения
 COMMUNICATIONS=Communications
 GAMES=Игры
 
-README_TITLE=Прочти Меня
-README_DESC=файл ReadMe для ReactOS
-
 CMD_TITLE=Командная строка
 CMD_DESC=Используется для выполнения вводимых с клавиатуры команд.
 EXPLORER_TITLE=Проводник ReactOS
@@ -1258,8 +1196,6 @@ MSPAINT_TITLE=Paint
 MSPAINT_DESC=Создание и редактирование рисунков.
 CHARMAP_TITLE=Таблица символов
 CHARMAP_DESC=Позволяет вводить отсутствующие на клавиатуре знаки.
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Переключатель раскладки клавиатуры
 KBSWITCH_DESC=Переключатель раскладки клавиатуры
 REGEDIT_TITLE=Редактор реестра
@@ -1321,8 +1257,6 @@ MSPAINT_TITLE=Skicár
 MSPAINT_DESC=Spustiť Skicár
 CHARMAP_TITLE=Mapa znakov
 CHARMAP_DESC=Mapa znakov
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Prepínač rozloženia klávesnice
 KBSWITCH_DESC=Prepínač rozloženia klávesnice
 REGEDIT_TITLE=Editor registrov
@@ -1384,8 +1318,6 @@ MSPAINT_TITLE=Paint
 MSPAINT_DESC=Paint'i başlat
 CHARMAP_TITLE=Damga Eşlem
 CHARMAP_DESC=Damga Eşlem'i başlat
-CLIPBRD_TITLE=Pano Görüntüleyicisi
-CLIPBRD_DESC=Pano Görüntüleyicisi
 KBSWITCH_TITLE=Düğme Takımı Düzeni Değiştiricisi
 KBSWITCH_DESC=Düğme Takımı Düzeni Değiştiricisi
 REGEDIT_TITLE=Değer Defteri Düzenleyicisi
@@ -1418,9 +1350,6 @@ ENTERTAINMENT=Розваги
 COMMUNICATIONS=Communications
 GAMES=Ігри
 
-README_TITLE=Прочитай Мене
-README_DESC=файл ReadMe для ReactOS
-
 CMD_TITLE=Командний рядок
 CMD_DESC=Відкрити командний рядок
 EXPLORER_TITLE=Провідник ReactOS
@@ -1450,8 +1379,6 @@ MSPAINT_TITLE=Paint
 MSPAINT_DESC=Запустити Графічний редактор Paint
 CHARMAP_TITLE=Таблиця символів
 CHARMAP_DESC=Таблиця символів
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=Перемикач розкладки клавіатури
 KBSWITCH_DESC=Перемикач розкладки клавіатури
 REGEDIT_TITLE=Редактор реєстру
@@ -1513,8 +1440,6 @@ MSPAINT_TITLE=小画家
 MSPAINT_DESC=启动小画家
 CHARMAP_TITLE=字符映射表
 CHARMAP_DESC=字符映射表
-CLIPBRD_TITLE=Clipboard Viewer
-CLIPBRD_DESC=Clipboard Viewer
 KBSWITCH_TITLE=键盘布局切换器
 KBSWITCH_DESC=启动键盘布局切换器
 REGEDIT_TITLE=注册表编辑器

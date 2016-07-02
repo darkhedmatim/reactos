@@ -5,7 +5,6 @@
  * PURPOSE:
  *
  * PROGRAMMERS:     Eric Kohl
- *                  Curtis Wilson
  */
 
 #include "net.h"
@@ -46,37 +45,31 @@ EnumerateUsers(VOID)
 
     NetApiBufferFree(pServer);
 
-    do
+    Status = NetUserEnum(NULL,
+                         0,
+                         0,
+                         (LPBYTE*)&pBuffer,
+                         MAX_PREFERRED_LENGTH,
+                         &dwRead,
+                         &dwTotal,
+                         &ResumeHandle);
+    if (Status != NERR_Success)
+        return Status;
+
+    qsort(pBuffer,
+          dwRead,
+          sizeof(PUSER_INFO_0),
+          CompareInfo);
+
+//    printf("dwRead: %lu  dwTotal: %lu\n", dwRead, dwTotal);
+    for (i = 0; i < dwRead; i++)
     {
-        Status = NetUserEnum(NULL,
-                             0,
-                             0,
-                             (LPBYTE*)&pBuffer,
-                             MAX_PREFERRED_LENGTH,
-                             &dwRead,
-                             &dwTotal,
-                             &ResumeHandle);
-        if ((Status != NERR_Success) && (Status != ERROR_MORE_DATA))
-            return Status;
-
-        qsort(pBuffer,
-              dwRead,
-              sizeof(PUSER_INFO_0),
-              CompareInfo);
-
-        for (i = 0; i < dwRead; i++)
-        {
-            if (pBuffer[i].usri0_name)
-                PrintToConsole(L"%s\n", pBuffer[i].usri0_name);
-        }
-
-        if (pBuffer != NULL)
-        {
-            NetApiBufferFree(pBuffer);
-            pBuffer = NULL;
-        }
+//        printf("%p\n", pBuffer[i].lgrpi0_name);
+         if (pBuffer[i].usri0_name)
+            PrintToConsole(L"%s\n", pBuffer[i].usri0_name);
     }
-    while (Status == ERROR_MORE_DATA);
+
+    NetApiBufferFree(pBuffer);
 
     return NERR_Success;
 }

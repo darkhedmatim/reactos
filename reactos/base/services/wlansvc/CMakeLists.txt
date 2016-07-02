@@ -1,6 +1,6 @@
 
-include_directories(${REACTOS_SOURCE_DIR}/sdk/include/reactos/idl)
-add_rpc_files(server ${REACTOS_SOURCE_DIR}/sdk/include/reactos/idl/wlansvc.idl)
+include_directories(${REACTOS_SOURCE_DIR}/include/reactos/idl)
+add_rpc_files(server ${REACTOS_SOURCE_DIR}/include/reactos/idl/wlansvc.idl)
 
 list(APPEND SOURCE
     wlansvc.c
@@ -8,7 +8,7 @@ list(APPEND SOURCE
     precomp.h
     ${CMAKE_CURRENT_BINARY_DIR}/wlansvc_s.c)
 
-add_executable(wlansvc ${SOURCE} wlansvc.rc)
+add_executable(wlansvc ${SOURCE})
 
 if(NOT MSVC)
     target_link_libraries(wlansvc ${PSEH_LIB})

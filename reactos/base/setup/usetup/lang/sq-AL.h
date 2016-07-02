@@ -830,7 +830,7 @@ static MUI_ENTRY sqALSelectPartitionEntries[] =
     }
 };
 
-static MUI_ENTRY sqALConfirmDeleteSystemPartitionEntries[] =
+static MUI_ENTRY sqALConfirmDeletePartitionEntries[] =
 {
     {
         4,
@@ -841,13 +841,13 @@ static MUI_ENTRY sqALConfirmDeleteSystemPartitionEntries[] =
     {
         6,
         8,
-        "You have chosen to delete the system partition.",
+        "You asked Setup to delete the system partition.",
         TEXT_STYLE_NORMAL
     },
     {
         6,
         10,
-        "System partitions can contain diagnostic programs, hardware configuration",
+        "System partitions can contain diagnose programs, hardware configuration",
         TEXT_STYLE_NORMAL
     },
     {
@@ -871,7 +871,7 @@ static MUI_ENTRY sqALConfirmDeleteSystemPartitionEntries[] =
     {
         6,
         15,
-        "programs on the partition, or when you are sure you want to delete them.",
+        "programs on the partiton, or when you are sure you want to delete them.",
         TEXT_STYLE_NORMAL
     },
     {
@@ -1652,7 +1652,7 @@ MUI_PAGE sqALPages[] =
     },
     {
         CONFIRM_DELETE_SYSTEM_PARTITION_PAGE,
-        sqALConfirmDeleteSystemPartitionEntries
+        sqALConfirmDeletePartitionEntries
     },
     {
         SELECT_FILE_SYSTEM_PAGE,
@@ -1750,8 +1750,6 @@ MUI_STRING sqALStrings[] =
     "Instalimi i ReactOS ne Particion"},
     {STRING_CHECKINGPART,
     "Instalimi tani ‰sht‰ duke kontrolluar particionin e p‰rzgjedhur."},
-    {STRING_CONTINUE,
-    "ENTER = Vazhdo"},
     {STRING_QUITCONTINUE,
     "F3 = Dil  ENTER = Vazhdo"},
     {STRING_REBOOTCOMPUTER,
@@ -1799,7 +1797,7 @@ MUI_STRING sqALStrings[] =
     {STRING_HDDINFOUNK1,
     "%I64u %s  Harddisku %lu  (Port=%hu, Bus=%hu, Id=%hu)."},
     {STRING_HDDINFOUNK2,
-    "   %c%c  Tipi 0x%02X    %I64u %s"},
+    "   %c%c  Tipi %lu    %I64u %s"},
     {STRING_HDINFOPARTDELETE,
     "on %I64u %s  Harddisku %lu  (Port=%hu, Bus=%hu, Id=%hu) on %wZ."},
     {STRING_HDDINFOUNK3,
@@ -1807,7 +1805,7 @@ MUI_STRING sqALStrings[] =
     {STRING_HDINFOPARTZEROED,
     "Harddisku %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK4,
-    "%c%c  Tipi 0x%02X    %I64u %s"},
+    "%c%c  Tipi %lu    %I64u %s"},
     {STRING_HDINFOPARTEXISTS,
     "on Harddisku %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK5,

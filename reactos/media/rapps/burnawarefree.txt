@@ -1,18 +1,21 @@
+; UTF-8
+; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+; Simplified Chinese translation by Henry Tang Ih (henrytang5247) (henrytang2@hotmail.com)
+
 [Section]
 Name = BurnAware Free
-Version = 9.2
+Version = 8.3
 License = Freeware for non-commercial uses
 Description = Full-featured and free burning software to create CD, DVD and Blu-ray discs of all types.
-Size = 9.4 MiB
+Size = 8.03 MB
 Category = 12
 URLSite = http://www.burnaware.com/
-URLDownload = http://www.burnaware.com/downloads/burnaware_free_9.2.exe
-SHA1 = 5e89f51ed6ec3c92f40dac107db319083153d6a3
+URLDownload = http://download.betanews.com/download/1212419334-2/burnaware_free.exe
+SHA1 = a4df8b2354502de14fa52e426369bf88cc7c7454
 CDPath = none
 
 [Section.0407]
 Description = Freie Brennsoftware mit vollem Funktionsumfang, um CDs, DVDs und Blu-Ray Disks aller Arten zu erstellen.
-Size = 9,4 MiB
 
 [Section.0a]
 Description = Completa suite de grabación gratuita con la que crear CDs, DVDs y BluRay de todo tipo.
@@ -21,14 +24,13 @@ Description = Completa suite de grabación gratuita con la que crear CDs, DVDs y
 Name = BurnAware Gratuit
 License = Gratuit pentru uz necomercial
 Description = Program de inscripționare gratuit, complet, pentru discuri CD, DVD și Blue-ray de toate tipurile.
-Size = 9,4 Mio
+Size = 8,03 Mo
 
 [Section.041f]
 Name = BurnAware Ücretsiz
 License = Tecimlik olmayan kullanımlar için ücretsiz
 Description = CD, DVD ve Blu-ray disklerinin tüm türlerini oluşturmak için eksiksiz husûsiyetli ve ücretsiz bir CD, DVD ve Blu-ray yazma yazılımıdır.
-Size = 9,4 MiB
+Size = 8,03 MB
 
 [Section.0804]
 Description = BurnAware 是全功能和免费的刻录软件来创建 CD、 DVD 和蓝光光盘的所有类型。
-

@@ -241,19 +241,19 @@ static MUI_ENTRY roROLicensePageEntries[] =
     {
         8,
         8,
-        "Sistemul de operare ReactOS este oferit în termenii Licenþei",
+        "Sistemul de operare ReactOS este oferit în termenii GNU GPL,",
         TEXT_STYLE_NORMAL
     },
     {
         8,
         9,
-        "Publice Generale GNU, denumit în continuare GPL, cu pãrþi de",
+        "cu pãrþi de cod din alte licenþe compatibile, cum ar fi",
         TEXT_STYLE_NORMAL
     },
     {
         8,
         10,
-        "cod din alte licenþe compatibile (ca X11, BSD ºi LGPL).",
+        "licenþele X11, BSD ºi GNU LGPL.",
         TEXT_STYLE_NORMAL
     },
     {
@@ -265,13 +265,13 @@ static MUI_ENTRY roROLicensePageEntries[] =
     {
         8,
         13,
-        "prin urmare oferite sub licenþa GPL, menþinându-ºi astfel ºi",
+        "prin urmare oferite sub licenþã GNU GPL, menþinându-ºi în",
         TEXT_STYLE_NORMAL
     },
     {
         8,
         14,
-        "licenþierea originalã în acelaºi timp.",
+        "acelaºi timp ºi licenþierea originalã.",
         TEXT_STYLE_NORMAL
     },
     {
@@ -300,55 +300,55 @@ static MUI_ENTRY roROLicensePageEntries[] =
     },
     {
         8,
+        20,
+        "Dacã din vreun motiv careva nu aþi primit o copie a Licenþei",
+        TEXT_STYLE_NORMAL
+    },
+    {
+        8,
         21,
-        "Dacã din vreun careva motiv nu deþineþi o copie a licenþei",
+        "Publice Generale GNU împreunã cu ReactOS, o puteþi consulta",
         TEXT_STYLE_NORMAL
     },
     {
         8,
         22,
-        "GPL împreunã cu ReactOS, o puteþi consulta (în englezã)",
-        TEXT_STYLE_NORMAL
-    },
-    {
-        8,
-        23,
         "accesând pagina:",
         TEXT_STYLE_NORMAL
     },
     {
         8,
-        24,
+        23,
         "http://www.gnu.org/licenses/licenses.html",
         TEXT_STYLE_HIGHLIGHT
     },
     {
         6,
-        27,
+        26,
         "Garanþie:",
         TEXT_STYLE_HIGHLIGHT
     },
     {
         8,
-        29,
+        28,
         "Acest sistem de operare este distribuit doar în speranþa cã",
         TEXT_STYLE_NORMAL
     },
     {
         8,
-        30,
+        29,
         "va fi util, neavând însã ataºatã NICI O GARANÞIE; nici mãcar",
         TEXT_STYLE_NORMAL
     },
     {
         8,
-        31,
+        30,
         "garanþia implicitã a VANDABILITÃÞII sau a UTILITÃÞII ÎNTR-UN",
         TEXT_STYLE_NORMAL
     },
     {
         8,
-        32,
+        31,
         "SCOP ANUME.",
         TEXT_STYLE_NORMAL
     },
@@ -881,7 +881,7 @@ static MUI_ENTRY roROSelectPartitionEntries[] =
     }
 };
 
-static MUI_ENTRY roROConfirmDeleteSystemPartitionEntries[] =
+static MUI_ENTRY roROConfirmDeletePartitionEntries[] =
 {
     {
         4,
@@ -1718,7 +1718,7 @@ MUI_PAGE roROPages[] =
     },
     {
         CONFIRM_DELETE_SYSTEM_PARTITION_PAGE,
-        roROConfirmDeleteSystemPartitionEntries
+        roROConfirmDeletePartitionEntries
     },
     {
         SELECT_FILE_SYSTEM_PAGE,
@@ -1814,8 +1814,6 @@ MUI_STRING roROStrings[] =
     "ReactOS va fi instalat pe partiþia"},
     {STRING_CHECKINGPART,
     "Programul de instalare verificã acum partiþia aleasã."},
-    {STRING_CONTINUE,
-    "ENTER = Continuare"},
     {STRING_QUITCONTINUE,
     "F3 = Ieºire  ENTER = Continuare"},
     {STRING_REBOOTCOMPUTER,
@@ -1863,7 +1861,7 @@ MUI_STRING roROStrings[] =
     {STRING_HDDINFOUNK1,
     "%I64u %s  Discul %lu  (Port=%hu, Magistrala=%hu, Id=%hu)."},
     {STRING_HDDINFOUNK2,
-    "   %c%c  Tip 0x%02X    %I64u %s"},
+    "   %c%c  Tip %lu    %I64u %s"},
     {STRING_HDINFOPARTDELETE,
     "de pe %I64u %s  Discul %lu  (Port=%hu, Magistrala=%hu, Id=%hu) de tip %wZ."},
     {STRING_HDDINFOUNK3,
@@ -1871,7 +1869,7 @@ MUI_STRING roROStrings[] =
     {STRING_HDINFOPARTZEROED,
     "Discul %lu (%I64u %s), Port=%hu, Magistrala=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK4,
-    "%c%c  Tip 0x%02X    %I64u %s"},
+    "%c%c  Tip %lu    %I64u %s"},
     {STRING_HDINFOPARTEXISTS,
     "de pe Discul %lu (%I64u %s), Port=%hu, Magistrala=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK5,

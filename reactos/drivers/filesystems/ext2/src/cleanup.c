@@ -22,18 +22,17 @@ Ext2Cleanup (IN PEXT2_IRP_CONTEXT IrpContext)
 {
     PDEVICE_OBJECT  DeviceObject;
     NTSTATUS        Status = STATUS_SUCCESS;
-    PEXT2_VCB       Vcb = NULL;
+    PEXT2_VCB       Vcb;
     PFILE_OBJECT    FileObject;
-    PEXT2_FCB       Fcb = NULL;
-    PEXT2_CCB       Ccb = NULL;
-    PIRP            Irp = NULL;
-    PEXT2_MCB       Mcb = NULL;
+    PEXT2_FCB       Fcb;
+    PEXT2_CCB       Ccb;
+    PIRP            Irp;
+    PEXT2_MCB       Mcb;
 
 
     BOOLEAN         VcbResourceAcquired = FALSE;
     BOOLEAN         FcbResourceAcquired = FALSE;
     BOOLEAN         FcbPagingIoResourceAcquired = FALSE;
-    BOOLEAN         SymLinkDelete = FALSE;
 
     _SEH2_TRY {
 
@@ -76,7 +75,7 @@ Ext2Cleanup (IN PEXT2_IRP_CONTEXT IrpContext)
         VcbResourceAcquired =
             ExAcquireResourceExclusiveLite(
                 &Vcb->MainResource,
-                TRUE
+                IsFlagOn(IrpContext->Flags, IRP_CONTEXT_FLAG_WAIT)
             );
 
         if (Fcb->Identifier.Type == EXT2VCB) {
@@ -144,7 +143,7 @@ Ext2Cleanup (IN PEXT2_IRP_CONTEXT IrpContext)
         FcbResourceAcquired =
             ExAcquireResourceExclusiveLite(
                 &Fcb->MainResource,
-                TRUE
+                IsFlagOn(IrpContext->Flags, IRP_CONTEXT_FLAG_WAIT)
             );
 
         ASSERT((Ccb->Identifier.Type == EXT2CCB) &&
@@ -199,11 +198,7 @@ Ext2Cleanup (IN PEXT2_IRP_CONTEXT IrpContext)
             }
 
             if (IsFlagOn(Ccb->Flags, CCB_DELETE_ON_CLOSE))  {
-                if (Ccb->SymLink || IsInodeSymLink(&Mcb->Inode)) {
-                    SymLinkDelete = TRUE;
-                } else {
-                    SetLongFlag(Fcb->Flags, FCB_DELETE_PENDING);
-                }
+                SetLongFlag(Fcb->Flags, FCB_DELETE_PENDING);
             }
 
             //
@@ -242,14 +237,8 @@ Ext2Cleanup (IN PEXT2_IRP_CONTEXT IrpContext)
                     if (Fcb->Header.ValidDataLength.QuadPart < Fcb->Header.FileSize.QuadPart) {
                         if (!INODE_HAS_EXTENT(Fcb->Inode)) {
                         #if EXT2_PRE_ALLOCATION_SUPPORT
-                            _SEH2_TRY {
-                                CcZeroData( FileObject,
-                                           &Fcb->Header.ValidDataLength,
-                                           &Fcb->Header.AllocationSize,
-                                           TRUE);
-                            } _SEH2_EXCEPT (EXCEPTION_EXECUTE_HANDLER) {
-                                DbgBreak();
-                            } _SEH2_END;
+                            CcZeroData(FileObject, &Fcb->Header.ValidDataLength,
+                                       &Fcb->Header.AllocationSize, TRUE);
                         #endif
                         }
                     }
@@ -284,52 +273,52 @@ Ext2Cleanup (IN PEXT2_IRP_CONTEXT IrpContext)
             }
         }
 
-        if (SymLinkDelete ||
-            (IsFlagOn(Fcb->Flags, FCB_DELETE_PENDING) &&
-             Fcb->OpenHandleCount == 0) ) {
+        if (IsFlagOn(Fcb->Flags, FCB_DELETE_PENDING)) {
 
-            //
-            // Ext2DeleteFile will acquire these lock inside
-            //
+            if (Fcb->OpenHandleCount == 0 || (Mcb = Ccb->SymLink)) {
 
-            if (FcbResourceAcquired) {
-                ExReleaseResourceLite(&Fcb->MainResource);
-                FcbResourceAcquired = FALSE;
-            }
+                //
+                // Ext2DeleteFile will acquire these lock inside
+                //
 
-            //
-            //  this file is to be deleted ...
-            //
-            if (Ccb->SymLink) {
-                Mcb = Ccb->SymLink;
-                FileObject->DeletePending = FALSE;
-            }
-
-            Status = Ext2DeleteFile(IrpContext, Vcb, Fcb, Mcb);
-
-            if (NT_SUCCESS(Status)) {
-                if (IsMcbDirectory(Mcb)) {
-                    Ext2NotifyReportChange( IrpContext, Vcb, Mcb,
-                                            FILE_NOTIFY_CHANGE_DIR_NAME,
-                                            FILE_ACTION_REMOVED );
-                } else {
-                    Ext2NotifyReportChange( IrpContext, Vcb, Mcb,
-                                            FILE_NOTIFY_CHANGE_FILE_NAME,
-                                            FILE_ACTION_REMOVED );
+                if (FcbResourceAcquired) {
+                    ExReleaseResourceLite(&Fcb->MainResource);
+                    FcbResourceAcquired = FALSE;
                 }
-            }
 
-            //
-            // re-acquire the main resource lock
-            //
+                //
+                //  this file is to be deleted ...
+                //
+                if (Ccb->SymLink) {
+                    Mcb = Ccb->SymLink;
+                    FileObject->DeletePending = FALSE;
+                }
 
-            FcbResourceAcquired =
-                ExAcquireResourceExclusiveLite(
-                    &Fcb->MainResource,
-                    TRUE
-                );
-            if (!SymLinkDelete) {
-                 SetFlag(FileObject->Flags, FO_FILE_MODIFIED);
+                Status = Ext2DeleteFile(IrpContext, Vcb, Fcb, Mcb);
+
+                if (NT_SUCCESS(Status)) {
+                    if (IsMcbDirectory(Mcb)) {
+                        Ext2NotifyReportChange( IrpContext, Vcb, Mcb,
+                                                FILE_NOTIFY_CHANGE_DIR_NAME,
+                                                FILE_ACTION_REMOVED );
+                    } else {
+                        Ext2NotifyReportChange( IrpContext, Vcb, Mcb,
+                                                FILE_NOTIFY_CHANGE_FILE_NAME,
+                                                FILE_ACTION_REMOVED );
+                    }
+                }
+
+                //
+                // re-acquire the main resource lock
+                //
+
+                FcbResourceAcquired =
+                    ExAcquireResourceExclusiveLite(
+                        &Fcb->MainResource,
+                        IsFlagOn(IrpContext->Flags, IRP_CONTEXT_FLAG_WAIT)
+                    );
+
+                SetFlag(FileObject->Flags, FO_FILE_MODIFIED);
                 if (CcIsFileCached(FileObject)) {
                     CcSetFileSizes(FileObject,
                                    (PCC_FILE_SIZES)(&(Fcb->Header.AllocationSize)));
@@ -340,7 +329,7 @@ Ext2Cleanup (IN PEXT2_IRP_CONTEXT IrpContext)
         if (!IsDirectory(Fcb)) {
 
             if ( IsFlagOn(FileObject->Flags, FO_CACHE_SUPPORTED) &&
-                    (Fcb->NonCachedOpenCount == Fcb->OpenHandleCount) &&
+                    (Fcb->NonCachedOpenCount + 1 == Fcb->ReferenceCount) &&
                     (Fcb->SectionObject.DataSectionObject != NULL)) {
 
                 if (!IsVcbReadOnly(Vcb)) {
@@ -348,17 +337,14 @@ Ext2Cleanup (IN PEXT2_IRP_CONTEXT IrpContext)
                     ClearLongFlag(Fcb->Flags, FCB_FILE_MODIFIED);
                 }
 
-                /* purge cache if all remaining openings are non-cached */
-                if (Fcb->NonCachedOpenCount > 0) {
-                    if (ExAcquireResourceExclusiveLite(&(Fcb->PagingIoResource), TRUE)) {
-                        ExReleaseResourceLite(&(Fcb->PagingIoResource));
-                    }
-
-                    CcPurgeCacheSection( &Fcb->SectionObject,
-                                         NULL,
-                                         0,
-                                         FALSE );
+                if (ExAcquireResourceExclusiveLite(&(Fcb->PagingIoResource), TRUE)) {
+                    ExReleaseResourceLite(&(Fcb->PagingIoResource));
                 }
+
+                CcPurgeCacheSection( &Fcb->SectionObject,
+                                     NULL,
+                                     0,
+                                     FALSE );
             }
 
             CcUninitializeCacheMap(FileObject, NULL, NULL);

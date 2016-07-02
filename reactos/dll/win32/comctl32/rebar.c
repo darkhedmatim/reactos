@@ -790,11 +790,15 @@ REBAR_CalcHorzBand (const REBAR_INFO *infoPtr, UINT rstart, UINT rend)
 
       /* flag if notify required and invalidate rectangle */
       if (lpBand->fDraw & NTF_INVALIDATE) {
+          TRACE("invalidating (%d,%d)-(%d,%d)\n",
+		lpBand->rcBand.left,
+		lpBand->rcBand.top,
+		lpBand->rcBand.right + SEP_WIDTH,
+		lpBand->rcBand.bottom + SEP_WIDTH);
 	  lpBand->fDraw &= ~NTF_INVALIDATE;
 	  work = lpBand->rcBand;
 	  work.right += SEP_WIDTH;
 	  work.bottom += SEP_WIDTH;
-	  TRACE("invalidating %s\n", wine_dbgstr_rect(&work));
 	  InvalidateRect(infoPtr->hwndSelf, &work, TRUE);
 	  if (lpBand->hwndChild) InvalidateRect(lpBand->hwndChild, NULL, TRUE);
       }
@@ -907,11 +911,15 @@ REBAR_CalcVertBand (const REBAR_INFO *infoPtr, UINT rstart, UINT rend)
 	}
 
 	if (lpBand->fDraw & NTF_INVALIDATE) {
+            TRACE("invalidating (%d,%d)-(%d,%d)\n",
+                  rcBand.left,
+                  rcBand.top,
+                  rcBand.right + SEP_WIDTH,
+                  rcBand.bottom + SEP_WIDTH);
 	    lpBand->fDraw &= ~NTF_INVALIDATE;
 	    work = rcBand;
 	    work.bottom += SEP_WIDTH;
 	    work.right += SEP_WIDTH;
-	    TRACE("invalidating %s\n", wine_dbgstr_rect(&work));
 	    InvalidateRect(infoPtr->hwndSelf, &work, TRUE);
 	    if (lpBand->hwndChild) InvalidateRect(lpBand->hwndChild, NULL, TRUE);
 	}
@@ -2947,11 +2955,7 @@ REBAR_ShowBand (REBAR_INFO *infoPtr, INT iBand, BOOL show)
 
 
 static LRESULT
-#ifdef __REACTOS__
 REBAR_SizeToRect (REBAR_INFO *infoPtr, WPARAM flags, RECT *lpRect)
-#else
-REBAR_SizeToRect (REBAR_INFO *infoPtr, const RECT *lpRect)
-#endif
 {
     if (!lpRect) return FALSE;
 
@@ -3728,11 +3732,7 @@ REBAR_WindowProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	    return REBAR_ShowBand (infoPtr, wParam, lParam);
 
 	case RB_SIZETORECT:
-#ifdef __REACTOS__
 	    return REBAR_SizeToRect (infoPtr, wParam, (LPRECT)lParam);
-#else
-	    return REBAR_SizeToRect (infoPtr, (LPCRECT)lParam);
-#endif
 
 
 /*    Messages passed to parent */

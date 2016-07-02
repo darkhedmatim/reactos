@@ -13,19 +13,20 @@ HFONT hMenuFontBold = NULL;
 
 void InitMenuFont(VOID)
 {
-    NONCLIENTMETRICS ncm;
+  NONCLIENTMETRICS ncm;
 
     ncm.cbSize = sizeof(NONCLIENTMETRICS); 
 
-    if (!SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0))
+    if(!SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0))
     {
-        return;
+      return ;
     }
 
     hMenuFont = CreateFontIndirect(&ncm.lfMenuFont);
 
     ncm.lfMenuFont.lfWeight = max(ncm.lfMenuFont.lfWeight + 300, 1000);
     hMenuFontBold = CreateFontIndirect(&ncm.lfMenuFont);
+
 }
 
 static BOOL 
@@ -63,27 +64,26 @@ UserHasWindowEdge(DWORD Style, DWORD ExStyle)
    return FALSE;
 }
 
-static HICON
-UserGetWindowIcon(PDRAW_CONTEXT pcontext)
+HICON
+UserGetWindowIcon(HWND hwnd)
 {
-    HICON hIcon = NULL;
+    HICON hIcon = 0;
 
-    SendMessageTimeout(pcontext->hWnd, WM_GETICON, ICON_SMALL2, 0, SMTO_ABORTIFHUNG, 1000, (PDWORD_PTR)&hIcon);
-
-    if (!hIcon)
-        SendMessageTimeout(pcontext->hWnd, WM_GETICON, ICON_SMALL, 0, SMTO_ABORTIFHUNG, 1000, (PDWORD_PTR)&hIcon);
+    SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL2, 0, SMTO_ABORTIFHUNG, 1000, (PDWORD_PTR)&hIcon);
 
     if (!hIcon)
-        SendMessageTimeout(pcontext->hWnd, WM_GETICON, ICON_BIG, 0, SMTO_ABORTIFHUNG, 1000, (PDWORD_PTR)&hIcon);
+        SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL, 0, SMTO_ABORTIFHUNG, 1000, (PDWORD_PTR)&hIcon);
 
     if (!hIcon)
-        hIcon = (HICON)GetClassLong(pcontext->hWnd, GCL_HICONSM);
+        SendMessageTimeout(hwnd, WM_GETICON, ICON_BIG, 0, SMTO_ABORTIFHUNG, 1000, (PDWORD_PTR)&hIcon);
 
     if (!hIcon)
-        hIcon = (HICON)GetClassLong(pcontext->hWnd, GCL_HICON);
+        hIcon = (HICON)GetClassLong(hwnd, GCL_HICONSM);
 
-    // See also win32ss/user/ntuser/nonclient.c!NC_IconForWindow
-    if (!hIcon && !(pcontext->wi.dwExStyle & WS_EX_DLGMODALFRAME))
+    if (!hIcon)
+        hIcon = (HICON)GetClassLong(hwnd, GCL_HICON);
+
+    if(!hIcon)
         hIcon = LoadIconW(NULL, (LPCWSTR)IDI_WINLOGO);
 
     return hIcon;
@@ -306,7 +306,7 @@ ThemeDrawCaptionButtons(PDRAW_CONTEXT pcontext, DWORD htHot, DWORD htDown)
                            ThemeGetButtonState(HTHELP, htHot, htDown, pcontext->Active));
 }
 
-/* Used from WM_NCPAINT and WM_NCACTIVATE handlers */
+/* Used from WM_NCPAINT and WM_NCACTIVATE handlers*/
 static void 
 ThemeDrawCaption(PDRAW_CONTEXT pcontext, RECT* prcCurrent)
 {
@@ -315,13 +315,7 @@ ThemeDrawCaption(PDRAW_CONTEXT pcontext, RECT* prcCurrent)
     HICON hIcon;
     WCHAR *CaptionText;
 
-    // See also win32ss/user/ntuser/nonclient.c!UserDrawCaptionBar
-    // and win32ss/user/ntuser/nonclient.c!UserDrawCaption
-    if ((pcontext->wi.dwStyle & WS_SYSMENU) && !(pcontext->wi.dwExStyle & WS_EX_TOOLWINDOW))
-        hIcon = UserGetWindowIcon(pcontext);
-    else
-        hIcon = NULL;
-
+    hIcon = UserGetWindowIcon(pcontext->hWnd);
     CaptionText = UserGetWindowCaption(pcontext->hWnd);
 
     /* Get the caption part and state id */
@@ -334,7 +328,7 @@ ThemeDrawCaption(PDRAW_CONTEXT pcontext, RECT* prcCurrent)
 
     iState = pcontext->Active ? FS_ACTIVE : FS_INACTIVE;
 
-    /* Draw the caption background */
+    /* Draw the caption background*/
     rcPart = *prcCurrent;
     rcPart.bottom = rcPart.top + pcontext->CaptionHeight;
     prcCurrent->top = rcPart.bottom;
@@ -358,7 +352,8 @@ ThemeDrawCaption(PDRAW_CONTEXT pcontext, RECT* prcCurrent)
     rcPart.top += 3 ;
 
     /* Draw the icon */
-    if (hIcon)
+    if(hIcon && !(pcontext->wi.dwExStyle & WS_EX_TOOLWINDOW)
+             && !(pcontext->wi.dwExStyle & WS_EX_DLGMODALFRAME))
     {
         int IconHeight = GetSystemMetrics(SM_CYSMICON);
         int IconWidth = GetSystemMetrics(SM_CXSMICON);
@@ -369,9 +364,9 @@ ThemeDrawCaption(PDRAW_CONTEXT pcontext, RECT* prcCurrent)
     rcPart.right -= 4;
 
     /* Draw the caption */
-    if (CaptionText)
+    if(CaptionText)
     {
-        /* FIXME: Use DrawThemeTextEx */
+        /*FIXME: Use DrawThemeTextEx*/
         ThemeDrawCaptionText(pcontext->theme, 
                              pcontext->hDC, 
                              iPart,
@@ -380,7 +375,7 @@ ThemeDrawCaption(PDRAW_CONTEXT pcontext, RECT* prcCurrent)
                              lstrlenW(CaptionText), 
                              DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS, 
                              0, 
-                             &rcPart,
+                             &rcPart , 
                              pcontext->Active);
         HeapFree(GetProcessHeap(), 0, CaptionText);
     }
@@ -451,7 +446,7 @@ DrawClassicFrame(PDRAW_CONTEXT context, RECT* prcCurrent)
     }
 
     /* Now the other bit of the frame */
-    if (context->wi.dwStyle & (WS_DLGFRAME | WS_BORDER) || (context->wi.dwExStyle & WS_EX_DLGMODALFRAME))
+    if (context->wi.dwStyle & (WS_DLGFRAME | WS_BORDER) || context->wi.dwExStyle & WS_EX_DLGMODALFRAME)
     {
         INT Width = GetSystemMetrics(SM_CXBORDER);
         INT Height = GetSystemMetrics(SM_CYBORDER);
@@ -599,7 +594,7 @@ ThemeDrawMenuBar(PDRAW_CONTEXT pcontext, PRECT prcCurrent)
     Rect = MenuBarInfo.rcBar;
     OffsetRect(&Rect, -pcontext->wi.rcWindow.left, -pcontext->wi.rcWindow.top);
 
-    /* Draw a line under the menu */
+    /* Draw a line under the menu*/
     oldPen = (HPEN)SelectObject(pcontext->hDC, GetStockObject(DC_PEN));
     SetDCPenColor(pcontext->hDC, GetSysColor(COLOR_3DFACE));
     MoveToEx(pcontext->hDC, Rect.left, Rect.bottom, NULL);
@@ -616,7 +611,7 @@ ThemeDrawMenuBar(PDRAW_CONTEXT pcontext, PRECT prcCurrent)
 
     SelectObject(pcontext->hDC, FontOld);
 
-    /* Fill the menu background area that isn't painted yet */
+    /* Fill the menu background area that isn't painted yet*/
     FillRect(pcontext->hDC, &Rect, GetSysColorBrush(flat_menu ? COLOR_MENUBAR : COLOR_MENU));
 }
 
@@ -657,7 +652,7 @@ ThemePaintWindow(PDRAW_CONTEXT pcontext, RECT* prcCurrent, BOOL bDoDoubleBufferi
 }
 
 /*
- * Message handlers
+    Message handlers
  */
 
 static LRESULT 
@@ -942,6 +937,7 @@ DefWndNCHitTest(HWND hWnd, POINT Point)
 
         if (!PtInRect(&WindowRect, Point))
         {
+
             INT ButtonWidth;
 
             if (wi.dwExStyle & WS_EX_TOOLWINDOW)
@@ -950,7 +946,7 @@ DefWndNCHitTest(HWND hWnd, POINT Point)
                 ButtonWidth = GetSystemMetrics(SM_CXSIZE);
 
             ButtonWidth -= 4;
-            ButtonWidth += BUTTON_GAP_SIZE;
+            ButtonWidth+= BUTTON_GAP_SIZE;
 
             if (wi.dwStyle & WS_SYSMENU)
             {
@@ -960,13 +956,7 @@ DefWndNCHitTest(HWND hWnd, POINT Point)
                 }
                 else
                 {
-                    // if(!(wi.dwExStyle & WS_EX_DLGMODALFRAME))
-                    // FIXME: The real test should check whether there is
-                    // an icon for the system window, and if so, do the
-                    // rect.left increase.
-                    // See win32ss/user/user32/windows/nonclient.c!DefWndNCHitTest
-                    // and win32ss/user/ntuser/nonclient.c!GetNCHitEx which does
-                    // the test better.
+                    if(!(wi.dwExStyle & WS_EX_DLGMODALFRAME))
                         WindowRect.left += ButtonWidth;
                     WindowRect.right -= ButtonWidth;
                 }

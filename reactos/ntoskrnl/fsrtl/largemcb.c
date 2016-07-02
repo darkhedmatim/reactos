@@ -5,7 +5,6 @@
  * PURPOSE:         Large Mapped Control Block (MCB) support for File System Drivers
  * PROGRAMMERS:     Aleksey Bragin <aleksey@reactos.org>
  *                  Jan Kratochvil <project-captive@jankratochvil.net>
- *                  Trevor Thompson
  */
 
 /* INCLUDES ******************************************************************/
@@ -43,13 +42,11 @@ typedef struct _BASE_MCB_INTERNAL {
     PLARGE_MCB_MAPPING Mapping;
 } BASE_MCB_INTERNAL, *PBASE_MCB_INTERNAL;
 
-/*
 static LARGE_MCB_MAPPING_ENTRY StaticRunBelow0 = {
-    {{-1}}, // ignored
+    {{-1}}, /* ignored */
     {{0}},
-    {{-1}}, // ignored
+    {{-1}}, /* ignored */
 };
-*/
 
 static PVOID NTAPI McbMappingAllocate(PRTL_GENERIC_TABLE Table, CLONG Bytes)
 {
@@ -137,37 +134,13 @@ FsRtlAddBaseMcbEntry(IN PBASE_MCB OpaqueMcb,
                      IN LONGLONG Lbn,
                      IN LONGLONG SectorCount)
 {
-    BOOLEAN Result = TRUE;
-    BOOLEAN IntResult;
     PBASE_MCB_INTERNAL Mcb = (PBASE_MCB_INTERNAL)OpaqueMcb;
     LARGE_MCB_MAPPING_ENTRY Node, NeedleRun;
     PLARGE_MCB_MAPPING_ENTRY LowerRun, HigherRun;
     BOOLEAN NewElement;
-    LONGLONG IntLbn;
 
-    DPRINT("FsRtlAddBaseMcbEntry(%p, %I64d, %I64d, %I64d)\n", OpaqueMcb, Vbn, Lbn, SectorCount);
-
-    if (Vbn < 0)
-    {
-        Result = FALSE;
-        goto quit;
-    }
-
-    if (SectorCount <= 0)
-    {
-        Result = FALSE;
-        goto quit;
-    }
-
-    IntResult = FsRtlLookupBaseMcbEntry(OpaqueMcb, Vbn, &IntLbn, NULL, NULL, NULL, NULL);
-    if (IntResult)
-    {
-        if (IntLbn != -1 && IntLbn != Lbn)
-        {
-            Result = FALSE;
-            goto quit;
-        }
-    }
+    if (Vbn < 0) return FALSE;
+    if (SectorCount <= 0) return FALSE;
 
     /* clean any possible previous entries in our range */
     FsRtlRemoveBaseMcbEntry(OpaqueMcb, Vbn, SectorCount);
@@ -186,15 +159,13 @@ FsRtlAddBaseMcbEntry(IN PBASE_MCB OpaqueMcb,
     NeedleRun.RunEndVbn.QuadPart = NeedleRun.RunStartVbn.QuadPart + 1;
     NeedleRun.StartingLbn.QuadPart = ~0ULL;
     Mcb->Mapping->Table.CompareRoutine = McbMappingIntersectCompare;
-    if ((LowerRun = RtlLookupElementGenericTable(&Mcb->Mapping->Table, &NeedleRun)) &&
-        (LowerRun->StartingLbn.QuadPart + (LowerRun->RunEndVbn.QuadPart - LowerRun->RunStartVbn.QuadPart) == Node.StartingLbn.QuadPart))
+    if ((LowerRun = RtlLookupElementGenericTable(&Mcb->Mapping->Table, &NeedleRun)))
     {
         ASSERT(LowerRun->RunEndVbn.QuadPart == Node.RunStartVbn.QuadPart);
         Node.RunStartVbn.QuadPart = LowerRun->RunStartVbn.QuadPart;
         Node.StartingLbn.QuadPart = LowerRun->StartingLbn.QuadPart;
         Mcb->Mapping->Table.CompareRoutine = McbMappingCompare;
         RtlDeleteElementGenericTable(&Mcb->Mapping->Table, LowerRun);
-        --Mcb->PairCount;
         DPRINT("Intersecting lower run found (%I64d,%I64d) Lbn: %I64d\n", LowerRun->RunStartVbn.QuadPart, LowerRun->RunEndVbn.QuadPart, LowerRun->StartingLbn.QuadPart);
     }
 
@@ -202,22 +173,22 @@ FsRtlAddBaseMcbEntry(IN PBASE_MCB OpaqueMcb,
     NeedleRun.RunStartVbn.QuadPart = Node.RunEndVbn.QuadPart;
     NeedleRun.RunEndVbn.QuadPart = NeedleRun.RunStartVbn.QuadPart + 1;
     Mcb->Mapping->Table.CompareRoutine = McbMappingIntersectCompare;
-    if ((HigherRun = RtlLookupElementGenericTable(&Mcb->Mapping->Table, &NeedleRun)) &&
-        (Node.StartingLbn.QuadPart <= HigherRun->StartingLbn.QuadPart))
+    if ((HigherRun = RtlLookupElementGenericTable(&Mcb->Mapping->Table, &NeedleRun)))
     {
         ASSERT(HigherRun->RunStartVbn.QuadPart == Node.RunEndVbn.QuadPart);
         Node.RunEndVbn.QuadPart = HigherRun->RunEndVbn.QuadPart;
         Mcb->Mapping->Table.CompareRoutine = McbMappingCompare;
         RtlDeleteElementGenericTable(&Mcb->Mapping->Table, HigherRun);
-        --Mcb->PairCount;
         DPRINT("Intersecting higher run found (%I64d,%I64d) Lbn: %I64d\n", HigherRun->RunStartVbn.QuadPart, HigherRun->RunEndVbn.QuadPart, HigherRun->StartingLbn.QuadPart);
     }
     Mcb->Mapping->Table.CompareRoutine = McbMappingCompare;
 
     /* finally insert the resulting run */
     RtlInsertElementGenericTable(&Mcb->Mapping->Table, &Node, sizeof(Node), &NewElement);
-    ++Mcb->PairCount;
     ASSERT(NewElement);
+    Node.RunStartVbn.QuadPart = Vbn;
+    Node.RunEndVbn.QuadPart = Vbn + SectorCount;
+    Node.StartingLbn.QuadPart = Lbn;
 
     // NB: Two consecutive runs can only be merged, if actual LBNs also match!
 
@@ -268,10 +239,7 @@ FsRtlAddBaseMcbEntry(IN PBASE_MCB OpaqueMcb,
 
     Overwriting existing mapping is not possible and results in FALSE being returned
     */
-
-quit:
-    DPRINT("FsRtlAddBaseMcbEntry(%p, %I64d, %I64d, %I64d) = %d\n", Mcb, Vbn, Lbn, SectorCount, Result);
-    return Result;
+    return TRUE;
 }
 
 /*
@@ -286,7 +254,7 @@ FsRtlAddLargeMcbEntry(IN PLARGE_MCB Mcb,
 {
     BOOLEAN Result;
 
-    DPRINT("FsRtlAddLargeMcbEntry(%p, %I64d, %I64d, %I64d)\n", Mcb, Vbn, Lbn, SectorCount);
+    DPRINT("Mcb %p Vbn %I64d Lbn %I64d SectorCount %I64d\n", Mcb, Vbn, Lbn, SectorCount);
 
     KeAcquireGuardedMutex(Mcb->GuardedMutex);
     Result = FsRtlAddBaseMcbEntry(&(Mcb->BaseMcb),
@@ -295,7 +263,7 @@ FsRtlAddLargeMcbEntry(IN PLARGE_MCB Mcb,
                                   SectorCount);
     KeReleaseGuardedMutex(Mcb->GuardedMutex);
 
-    DPRINT("FsRtlAddLargeMcbEntry(%p, %I64d, %I64d, %I64d) = %d\n", Mcb, Vbn, Lbn, SectorCount, Result);
+    DPRINT("Done %u\n", Result);
 
     return Result;
 }
@@ -324,63 +292,99 @@ FsRtlAddLargeMcbEntry(IN PLARGE_MCB Mcb,
 BOOLEAN
 NTAPI
 FsRtlGetNextBaseMcbEntry(IN PBASE_MCB OpaqueMcb,
-    IN ULONG RunIndex,
-    OUT PLONGLONG Vbn,
-    OUT PLONGLONG Lbn,
-    OUT PLONGLONG SectorCount)
+                         IN ULONG RunIndex,
+                         OUT PLONGLONG Vbn,
+                         OUT PLONGLONG Lbn,
+                         OUT PLONGLONG SectorCount)
 {
-    BOOLEAN Result = FALSE;
     PBASE_MCB_INTERNAL Mcb = (PBASE_MCB_INTERNAL)OpaqueMcb;
-    PLARGE_MCB_MAPPING_ENTRY Run = NULL;
-    ULONG CurrentIndex = 0;
-    ULONGLONG LastVbn = 0;
-    ULONGLONG LastSectorCount = 0;
+    ULONG RunIndexRemaining;
+    PLARGE_MCB_MAPPING_ENTRY Run, RunFound = NULL, RunFoundLower = NULL, RunFoundHigher = NULL;
+    BOOLEAN First = TRUE;
 
-    // Traverse the tree 
+    RunIndexRemaining = RunIndex;
+
+    /* Traverse the tree */
     for (Run = (PLARGE_MCB_MAPPING_ENTRY)RtlEnumerateGenericTable(&Mcb->Mapping->Table, TRUE);
-    Run;
+        Run;
         Run = (PLARGE_MCB_MAPPING_ENTRY)RtlEnumerateGenericTable(&Mcb->Mapping->Table, FALSE))
     {
-        // is the current index a hole?
-        if (Run->RunStartVbn.QuadPart > (LastVbn + LastSectorCount))
+        if (First)
         {
-            // Is this the index we're looking for?
-            if (RunIndex == CurrentIndex)
+            /* Take care when we must emulate missing 'hole' run at start of our run list. */
+            if (Run->RunStartVbn.QuadPart > 0)
             {
-                *Vbn = LastVbn + LastSectorCount;
-                *Lbn = -1;
-                *SectorCount = Run->RunStartVbn.QuadPart - *Vbn;
+                if (RunIndexRemaining == 0)
+                {
+                    RunFoundLower = &StaticRunBelow0;
+                    RunFoundHigher = Run;
 
-                Result = TRUE;
-                goto quit;
+                    /* stop the traversal */
+                    break;
+                }
+                /* If someone wants RunIndex #1 we are already on it. */
+                RunIndexRemaining--;
             }
-
-            CurrentIndex++;
+            First = FALSE;
         }
 
-        if (RunIndex == CurrentIndex)
+        if (RunIndexRemaining > 0)
         {
-            *Vbn = Run->RunStartVbn.QuadPart;
-            *Lbn = Run->StartingLbn.QuadPart;
-            *SectorCount = Run->RunEndVbn.QuadPart - Run->RunStartVbn.QuadPart;
+            /* FIXME: performance: non-linear direct seek to the requested RunIndex */
+            RunIndexRemaining--;
+            if (RunIndexRemaining == 0)
+                RunFoundLower = Run;
+            else
+                RunIndexRemaining--;
 
-            Result = TRUE;
-            goto quit;
+            /* continue the traversal */
+            continue;
         }
 
-        CurrentIndex++;
-        LastVbn = Run->RunStartVbn.QuadPart;
-        LastSectorCount = Run->RunEndVbn.QuadPart - Run->RunStartVbn.QuadPart;
+        if (RunFoundLower)
+            RunFoundHigher = Run;
+        else
+            RunFound = Run;
+
+        /* stop the traversal */
+        break;
     }
 
-    // these values are meaningless when returning false (but setting them can be helpful for debugging purposes)
-    *Vbn = 0xdeadbeef;
-    *Lbn = 0xdeadbeef;
-    *SectorCount = 0xdeadbeef;
+    if (RunFound) DPRINT("RunFound(%lu %lu %lu)\n", RunFound->RunStartVbn.LowPart, RunFound->RunEndVbn.LowPart, RunFound->StartingLbn.LowPart);
+    if (RunFoundLower) DPRINT("RunFoundLower(%lu %lu %lu)\n", RunFoundLower->RunStartVbn.LowPart, RunFoundLower->RunEndVbn.LowPart, RunFoundLower->StartingLbn.LowPart);
+    if (RunFoundHigher) DPRINT("RunFoundHigher(%lu %lu %lu)\n", RunFoundHigher->RunStartVbn.LowPart, RunFoundHigher->RunEndVbn.LowPart, RunFoundHigher->StartingLbn.LowPart);
 
-quit:
-    DPRINT("FsRtlGetNextBaseMcbEntry(%p, %d, %p, %p, %p) = %d (%I64d, %I64d, %I64d)\n", Mcb, RunIndex, Vbn, Lbn, SectorCount, Result, *Vbn, *Lbn, *SectorCount);
-    return Result;
+    if (RunFound)
+    {
+        ASSERT(RunFoundLower == NULL);
+        ASSERT(RunFoundHigher == NULL);
+
+        if (Vbn)
+            *Vbn = RunFound->RunStartVbn.QuadPart;
+        if (Lbn)
+            *Lbn = RunFound->StartingLbn.QuadPart;
+        if (SectorCount)
+            *SectorCount = RunFound->RunEndVbn.QuadPart - RunFound->RunStartVbn.QuadPart;
+
+        return TRUE;
+    }
+
+    if (RunFoundLower && RunFoundHigher)
+    {
+        //ASSERT(RunFoundHigher != NULL);
+
+        if (Vbn)
+            *Vbn = RunFoundLower->RunEndVbn.QuadPart;
+        if (Lbn)
+            *Lbn = -1;
+        if (SectorCount)
+            *SectorCount = RunFoundHigher->RunStartVbn.QuadPart - RunFoundLower->RunEndVbn.QuadPart;
+
+        return TRUE;
+    }
+
+    ASSERT(RunFoundHigher == NULL);
+    return FALSE;
 }
 
 /*
@@ -396,7 +400,7 @@ FsRtlGetNextLargeMcbEntry(IN PLARGE_MCB Mcb,
 {
     BOOLEAN Result;
 
-    DPRINT("FsRtlGetNextLargeMcbEntry(%p, %d, %p, %p, %p)\n", Mcb, RunIndex, Vbn, Lbn, SectorCount);
+    DPRINT("FsRtlGetNextLargeMcbEntry Mcb %p RunIndex %lu\n", Mcb, RunIndex);
 
     KeAcquireGuardedMutex(Mcb->GuardedMutex);
     Result = FsRtlGetNextBaseMcbEntry(&(Mcb->BaseMcb),
@@ -406,7 +410,7 @@ FsRtlGetNextLargeMcbEntry(IN PLARGE_MCB Mcb,
                                       SectorCount);
     KeReleaseGuardedMutex(Mcb->GuardedMutex);
 
-    DPRINT("FsRtlGetNextLargeMcbEntry(%p, %d, %p, %p, %p) = %d (%I64d, %I64d, %I64d)\n", Mcb, RunIndex, Vbn, Lbn, SectorCount, Result, *Vbn, *Lbn, *SectorCount);
+    DPRINT("Done %u\n", Result);
 
     return Result;
 }
@@ -450,8 +454,6 @@ NTAPI
 FsRtlInitializeLargeMcb(IN PLARGE_MCB Mcb,
                         IN POOL_TYPE PoolType)
 {
-    DPRINT("FsRtlInitializeLargeMcb(%p, %d)\n", Mcb, PoolType);
-
     Mcb->GuardedMutex = ExAllocateFromNPagedLookasideList(&FsRtlFastMutexLookasideList);
 
     KeInitializeGuardedMutex(Mcb->GuardedMutex);
@@ -497,63 +499,114 @@ FsRtlInitializeLargeMcbs(VOID)
 }
 
 /*
- * @implemented
+ * @unimplemented
  */
 BOOLEAN
 NTAPI
 FsRtlLookupBaseMcbEntry(IN PBASE_MCB OpaqueMcb,
-    IN LONGLONG Vbn,
-    OUT PLONGLONG Lbn OPTIONAL,
-    OUT PLONGLONG SectorCountFromLbn OPTIONAL,
-    OUT PLONGLONG StartingLbn OPTIONAL,
-    OUT PLONGLONG SectorCountFromStartingLbn OPTIONAL,
-    OUT PULONG Index OPTIONAL)
+                        IN LONGLONG Vbn,
+                        OUT PLONGLONG Lbn OPTIONAL,
+                        OUT PLONGLONG SectorCountFromLbn OPTIONAL,
+                        OUT PLONGLONG StartingLbn OPTIONAL,
+                        OUT PLONGLONG SectorCountFromStartingLbn OPTIONAL,
+                        OUT PULONG Index OPTIONAL)
 {
-    BOOLEAN Result = FALSE;
-    ULONG i;
-    LONGLONG LastVbn = 0, LastLbn = 0, Count = 0;   // the last values we've found during traversal
+    PBASE_MCB_INTERNAL Mcb = (PBASE_MCB_INTERNAL)OpaqueMcb;
 
-    DPRINT("FsRtlLookupBaseMcbEntry(%p, %I64d, %p, %p, %p, %p, %p)\n", OpaqueMcb, Vbn, Lbn, SectorCountFromLbn, StartingLbn, SectorCountFromStartingLbn, Index);
 
-    for (i = 0; FsRtlGetNextBaseMcbEntry(OpaqueMcb, i, &LastVbn, &LastLbn, &Count); i++)
+    ULONG RunIndex = 0;
+    PLARGE_MCB_MAPPING_ENTRY Run, RunFound = NULL, RunFoundLower = NULL, RunFoundHigher = NULL;
+    BOOLEAN First = TRUE;
+
+    /* Traverse the tree */
+    for (Run = (PLARGE_MCB_MAPPING_ENTRY)RtlEnumerateGenericTable(&Mcb->Mapping->Table, TRUE);
+        Run;
+        Run = (PLARGE_MCB_MAPPING_ENTRY)RtlEnumerateGenericTable(&Mcb->Mapping->Table, FALSE))
     {
-        // have we reached the target mapping?
-        if (Vbn < LastVbn + Count)
+        if (First)
         {
-            if (Lbn)
+            /* Take care when we must emulate missing 'hole' run at start of our run list. */
+            if (Run->RunStartVbn.QuadPart > 0)
             {
-                if (LastLbn == -1)
-                    *Lbn = -1;
-                else
-                    *Lbn = LastLbn + (Vbn - LastVbn);
+                RunIndex++;
+                RunFoundLower = &StaticRunBelow0;
             }
-
-            if (SectorCountFromLbn)
-                *SectorCountFromLbn = LastVbn + Count - Vbn;
-            if (StartingLbn)
-                *StartingLbn = LastLbn;
-            if (SectorCountFromStartingLbn)
-                *SectorCountFromStartingLbn = LastVbn + Count - LastVbn;
-            if (Index)
-                *Index = i;
-
-            Result = TRUE;
-            goto quit;
+            First = FALSE;
         }
+
+        if (Run->RunStartVbn.QuadPart <= Vbn && Vbn < Run->RunEndVbn.QuadPart)
+        {
+            RunFound = Run;
+            RunFoundLower = NULL;
+            /* stop the traversal; hit */
+            break;
+        }
+
+        if (Run->RunEndVbn.QuadPart <= Vbn)
+        {
+            RunFoundLower = Run;
+            if (Run->StartingLbn.QuadPart > 0)
+            {
+              RunIndex += 2;
+            }
+            /* continue the traversal; not yet crossed by the run */
+            continue;
+        }
+
+        if (Vbn < Run->RunStartVbn.QuadPart)
+        {
+            RunFoundHigher = Run;
+            RunIndex++;
+            /* stop the traversal; the run skipped us */
+            break;
+        }
+
+        ASSERT(FALSE);
+        /* stop the traversal */
+        break;
     }
 
-    if (Lbn)
-        *Lbn = -1;
-    if (StartingLbn)
-        *StartingLbn = -1;
+    if (RunFound)
+    {
+        ASSERT(RunFoundLower == NULL);
+        ASSERT(RunFoundHigher == NULL);
 
-quit:
-    DPRINT("FsRtlLookupBaseMcbEntry(%p, %I64d, %p, %p, %p, %p, %p) = %d (%I64d, %I64d, %I64d, %I64d, %d)\n",
-           OpaqueMcb, Vbn, Lbn, SectorCountFromLbn, StartingLbn, SectorCountFromStartingLbn, Index, Result,
-           (Lbn ? *Lbn : (ULONGLONG)-1), (SectorCountFromLbn ? *SectorCountFromLbn : (ULONGLONG)-1), (StartingLbn ? *StartingLbn : (ULONGLONG)-1),
-           (SectorCountFromStartingLbn ? *SectorCountFromStartingLbn : (ULONGLONG)-1), (Index ? *Index : (ULONG)-1));
+        if (Lbn)
+            *Lbn = RunFound->StartingLbn.QuadPart + (Vbn - RunFound->RunStartVbn.QuadPart);
 
-    return Result;
+        if (SectorCountFromLbn)	/* FIXME: 'after' means including current 'Lbn' or without it? */
+            *SectorCountFromLbn = RunFound->RunEndVbn.QuadPart - Vbn;
+        if (StartingLbn)
+            *StartingLbn = RunFound->StartingLbn.QuadPart;
+        if (SectorCountFromStartingLbn)
+            *SectorCountFromStartingLbn = RunFound->RunEndVbn.QuadPart - RunFound->RunStartVbn.QuadPart;
+        if (Index)
+            *Index = RunIndex;
+
+        return TRUE;
+    }
+
+    if (RunFoundHigher)
+    {
+        /* search for hole */
+        ASSERT(RunFoundLower != NULL);
+
+        if (Lbn)
+            *Lbn = ~0ull;
+        if (SectorCountFromLbn)	/* FIXME: 'after' means including current 'Lbn' or without it? */
+            *SectorCountFromLbn = RunFoundHigher->RunStartVbn.QuadPart - Vbn;
+        if (StartingLbn)
+            *StartingLbn = ~0ull;
+        if (SectorCountFromStartingLbn)
+            *SectorCountFromStartingLbn = RunFoundHigher->RunStartVbn.QuadPart - RunFoundLower->RunEndVbn.QuadPart;
+        if (Index)
+            *Index = RunIndex - 2;
+
+        return TRUE;
+    }
+
+    /* We may have some 'RunFoundLower'. */
+    return FALSE;
 }
 
 /*
@@ -571,7 +624,7 @@ FsRtlLookupLargeMcbEntry(IN PLARGE_MCB Mcb,
 {
     BOOLEAN Result;
 
-    DPRINT("FsRtlLookupLargeMcbEntry(%p, %I64d, %p, %p, %p, %p, %p)\n", Mcb, Vbn, Lbn, SectorCountFromLbn, StartingLbn, SectorCountFromStartingLbn, Index);
+    DPRINT("FsRtlLookupLargeMcbEntry Mcb %p Vbn %I64d\n", Mcb, Vbn);
 
     KeAcquireGuardedMutex(Mcb->GuardedMutex);
     Result = FsRtlLookupBaseMcbEntry(&(Mcb->BaseMcb),
@@ -583,10 +636,7 @@ FsRtlLookupLargeMcbEntry(IN PLARGE_MCB Mcb,
                                      Index);
     KeReleaseGuardedMutex(Mcb->GuardedMutex);
 
-    DPRINT("FsRtlLookupLargeMcbEntry(%p, %I64d, %p, %p, %p, %p, %p) = %d (%I64d, %I64d, %I64d, %I64d, %d)\n",
-           Mcb, Vbn, Lbn, SectorCountFromLbn, StartingLbn, SectorCountFromStartingLbn, Index, Result,
-           (Lbn ? *Lbn : (ULONGLONG)-1), (SectorCountFromLbn ? *SectorCountFromLbn : (ULONGLONG)-1), (StartingLbn ? *StartingLbn : (ULONGLONG)-1),
-           (SectorCountFromStartingLbn ? *SectorCountFromStartingLbn : (ULONGLONG)-1), (Index ? *Index : (ULONG)-1));
+    DPRINT("Done %u\n", Result);
 
     return Result;
 }
@@ -655,16 +705,9 @@ FsRtlLookupLastBaseMcbEntryAndIndex(IN PBASE_MCB OpaqueMcb,
                                     IN OUT PLONGLONG LargeLbn,
                                     IN OUT PULONG Index)
 {
-    BOOLEAN Result;
     PBASE_MCB_INTERNAL Mcb = (PBASE_MCB_INTERNAL)OpaqueMcb;
 
-    DPRINT("FsRtlLookupLastBaseMcbEntryAndIndex(%p, %p, %p, %p)\n", OpaqueMcb, LargeVbn, LargeLbn, Index);
-
-    Result = FsRtlLookupLastLargeMcbEntryAndIndex_internal(Mcb, LargeVbn, LargeLbn, Index);
-
-    DPRINT("FsRtlLookupLastBaseMcbEntryAndIndex(%p, %p, %p, %p) = %d (%I64d, %I64d, %d)\n", OpaqueMcb, LargeVbn, LargeLbn, Index, Result, *LargeVbn, *LargeLbn, *Index);
-
-    return Result;
+    return FsRtlLookupLastLargeMcbEntryAndIndex_internal(Mcb, LargeVbn, LargeLbn, Index);
 }
 
 /*
@@ -679,7 +722,7 @@ FsRtlLookupLastLargeMcbEntryAndIndex(IN PLARGE_MCB OpaqueMcb,
 {
     BOOLEAN Result;
 
-    DPRINT("FsRtlLookupLastLargeMcbEntryAndIndex(%p, %p, %p, %p)\n", OpaqueMcb, LargeVbn, LargeLbn, Index);
+    DPRINT("FsRtlLookupLastLargeMcbEntryAndIndex %p\n", OpaqueMcb);
 
     KeAcquireGuardedMutex(OpaqueMcb->GuardedMutex);
     Result = FsRtlLookupLastBaseMcbEntryAndIndex(&(OpaqueMcb->BaseMcb),
@@ -688,7 +731,7 @@ FsRtlLookupLastLargeMcbEntryAndIndex(IN PLARGE_MCB OpaqueMcb,
                                                  Index);
     KeReleaseGuardedMutex(OpaqueMcb->GuardedMutex);
 
-    DPRINT("FsRtlLookupLastLargeMcbEntryAndIndex(%p, %p, %p, %p) = %d (%I64d, %I64d, %d)\n", OpaqueMcb, LargeVbn, LargeLbn, Index, Result, *LargeVbn, *LargeLbn, *Index);
+    DPRINT("Done %u\n", Result);
 
     return Result;
 }
@@ -702,16 +745,9 @@ FsRtlLookupLastBaseMcbEntry(IN PBASE_MCB OpaqueMcb,
                             OUT PLONGLONG Vbn,
                             OUT PLONGLONG Lbn)
 {
-    BOOLEAN Result;
     PBASE_MCB_INTERNAL Mcb = (PBASE_MCB_INTERNAL)OpaqueMcb;
 
-    DPRINT("FsRtlLookupLastBaseMcbEntry(%p, %p, %p)\n", OpaqueMcb, Vbn, Lbn);
-
-    Result = FsRtlLookupLastLargeMcbEntryAndIndex_internal(Mcb, Vbn, Lbn, NULL); /* Index */
-
-    DPRINT("FsRtlLookupLastBaseMcbEntry(%p, %p, %p) = %d (%I64d, %I64d)\n", Mcb, Vbn, Lbn, Result, *Vbn, *Lbn);
-
-    return Result;
+    return FsRtlLookupLastLargeMcbEntryAndIndex_internal(Mcb, Vbn, Lbn, NULL); /* Index */
 }
 
 /*
@@ -725,7 +761,7 @@ FsRtlLookupLastLargeMcbEntry(IN PLARGE_MCB Mcb,
 {
     BOOLEAN Result;
 
-    DPRINT("FsRtlLookupLastLargeMcbEntry(%p, %p, %p)\n", Mcb, Vbn, Lbn);
+    DPRINT("FsRtlLookupLastLargeMcbEntry Mcb %p\n", Mcb);
 
     KeAcquireGuardedMutex(Mcb->GuardedMutex);
     Result = FsRtlLookupLastBaseMcbEntry(&(Mcb->BaseMcb),
@@ -733,7 +769,7 @@ FsRtlLookupLastLargeMcbEntry(IN PLARGE_MCB Mcb,
                                          Lbn);
     KeReleaseGuardedMutex(Mcb->GuardedMutex);
 
-    DPRINT("FsRtlLookupLastLargeMcbEntry(%p, %p, %p) = %d (%I64d, %I64d)\n", Mcb, Vbn, Lbn, Result, *Vbn, *Lbn);
+    DPRINT("Done %u\n", Result);
 
     return Result;
 }
@@ -745,20 +781,24 @@ ULONG
 NTAPI
 FsRtlNumberOfRunsInBaseMcb(IN PBASE_MCB OpaqueMcb)
 {
-    ULONG NumberOfRuns = 0;
-    LONGLONG Vbn, Lbn, Count;
-    int i;
+    PBASE_MCB_INTERNAL Mcb = (PBASE_MCB_INTERNAL)OpaqueMcb;
+    LONGLONG LbnAtVbn0 = -1;
+    ULONG Nodes = RtlNumberGenericTableElements(&Mcb->Mapping->Table);
 
-    DPRINT("FsRtlNumberOfRunsInBaseMcb(%p)\n", OpaqueMcb);
+    if (Nodes == 0) return 0;
 
-    // Count how many Mcb entries there are
-    for (i = 0; FsRtlGetNextBaseMcbEntry(OpaqueMcb, i, &Vbn, &Lbn, &Count); i++)
-    {
-        NumberOfRuns++;
-    }
+    FsRtlLookupBaseMcbEntry(OpaqueMcb,
+        0,                           /* Vbn */
+        &LbnAtVbn0,                  /* Lbn */
+        NULL, NULL, NULL, NULL);     /* 4 output arguments - not interested in them */
 
-    DPRINT("FsRtlNumberOfRunsInBaseMcb(%p) = %d\n", OpaqueMcb, NumberOfRuns);
-    return NumberOfRuns;
+
+    /* Return the count */
+    //return Mcb->PairCount;
+	/* Return the number of 'real' and 'hole' runs.
+	 * If we do not have sector 0 as 'real' emulate a 'hole' there.
+	 */
+	return Nodes * 2 - (LbnAtVbn0 != -1 ? 1 : 0);	/* include holes as runs */
 }
 
 /*
@@ -770,14 +810,14 @@ FsRtlNumberOfRunsInLargeMcb(IN PLARGE_MCB Mcb)
 {
     ULONG NumberOfRuns;
 
-    DPRINT("FsRtlNumberOfRunsInLargeMcb(%p)\n", Mcb);
+    DPRINT("FsRtlNumberOfRunsInLargeMcb Mcb %p\n", Mcb);
 
     /* Read the number of runs while holding the MCB lock */
     KeAcquireGuardedMutex(Mcb->GuardedMutex);
     NumberOfRuns = FsRtlNumberOfRunsInBaseMcb(&(Mcb->BaseMcb));
     KeReleaseGuardedMutex(Mcb->GuardedMutex);
 
-    DPRINT("FsRtlNumberOfRunsInLargeMcb(%p) = %d\n", Mcb, NumberOfRuns);
+    DPRINT("Done %lu\n", NumberOfRuns);
 
     /* Return the count */
     return NumberOfRuns;
@@ -803,21 +843,9 @@ FsRtlRemoveBaseMcbEntry(IN PBASE_MCB OpaqueMcb,
     PBASE_MCB_INTERNAL Mcb = (PBASE_MCB_INTERNAL)OpaqueMcb;
     LARGE_MCB_MAPPING_ENTRY NeedleRun;
     PLARGE_MCB_MAPPING_ENTRY HaystackRun;
-    BOOLEAN Result = TRUE;
 
-    DPRINT("FsRtlRemoveBaseMcbEntry(%p, %I64d, %I64d)\n", OpaqueMcb, Vbn, SectorCount);
-
-    if (Vbn < 0 || SectorCount <= 0)
-    {
-        Result = FALSE;
-        goto quit;
-    }
-
-    if (Vbn + SectorCount <= Vbn)
-    {
-        Result = FALSE;
-        goto quit;
-    }
+    if (Vbn < 0 || SectorCount <= 0) return FALSE;
+    if (Vbn + SectorCount <= Vbn) return FALSE;
 
     NeedleRun.RunStartVbn.QuadPart = Vbn;
     NeedleRun.RunEndVbn.QuadPart = Vbn + SectorCount;
@@ -843,15 +871,12 @@ FsRtlRemoveBaseMcbEntry(IN PBASE_MCB OpaqueMcb,
             //ASSERT(NeedleRun.RunEndVbn.QuadPart <= HaystackRun->RunEndVbn.QuadPart);
             Mcb->Mapping->Table.CompareRoutine = McbMappingCompare;
             RtlDeleteElementGenericTable(&Mcb->Mapping->Table, HaystackRun);
-            --Mcb->PairCount;
             Mcb->Mapping->Table.CompareRoutine = McbMappingIntersectCompare;
         }
     }
     Mcb->Mapping->Table.CompareRoutine = McbMappingCompare;
 
-quit:
-    DPRINT("FsRtlRemoveBaseMcbEntry(%p, %I64d, %I64d) = %d\n", OpaqueMcb, Vbn, SectorCount, Result);
-    return Result;
+    return TRUE;
 }
 
 /*
@@ -863,11 +888,13 @@ FsRtlRemoveLargeMcbEntry(IN PLARGE_MCB Mcb,
                          IN LONGLONG Vbn,
                          IN LONGLONG SectorCount)
 {
-    DPRINT("FsRtlRemoveLargeMcbEntry(%p, %I64d, %I64d)\n", Mcb, Vbn, SectorCount);
+    DPRINT("FsRtlRemoveLargeMcbEntry Mcb %p, Vbn %I64d, SectorCount %I64d\n", Mcb, Vbn, SectorCount);
 
     KeAcquireGuardedMutex(Mcb->GuardedMutex);
     FsRtlRemoveBaseMcbEntry(&(Mcb->BaseMcb), Vbn, SectorCount);
     KeReleaseGuardedMutex(Mcb->GuardedMutex);
+
+    DPRINT("Done\n");
 }
 
 /*
@@ -879,8 +906,6 @@ FsRtlResetBaseMcb(IN PBASE_MCB OpaqueMcb)
 {
     PBASE_MCB_INTERNAL Mcb = (PBASE_MCB_INTERNAL)OpaqueMcb;
     PLARGE_MCB_MAPPING_ENTRY Element;
-
-    DPRINT("FsRtlResetBaseMcb(%p)\n", OpaqueMcb);
 
     while (RtlNumberGenericTableElements(&Mcb->Mapping->Table) &&
            (Element = (PLARGE_MCB_MAPPING_ENTRY)RtlGetElementGenericTable(&Mcb->Mapping->Table, 0)))
@@ -900,8 +925,6 @@ NTAPI
 FsRtlResetLargeMcb(IN PLARGE_MCB Mcb,
                    IN BOOLEAN SelfSynchronized)
 {
-    DPRINT("FsRtlResetLargeMcb(%p, %d)\n", Mcb, SelfSynchronized);
-
     if (!SelfSynchronized)
         KeAcquireGuardedMutex(Mcb->GuardedMutex);
 
@@ -923,8 +946,6 @@ FsRtlSplitBaseMcb(IN PBASE_MCB OpaqueMcb,
     PBASE_MCB_INTERNAL Mcb = (PBASE_MCB_INTERNAL)OpaqueMcb;
     PLARGE_MCB_MAPPING_ENTRY Run, InsertLowerRun = NULL, ExistingRun = NULL;
     BOOLEAN NewElement;
-
-    DPRINT("FsRtlSplitBaseMcb(%p, %I64d, %I64d)\n", OpaqueMcb, Vbn, Amount);
 
     /* Traverse the tree */
     for (Run = (PLARGE_MCB_MAPPING_ENTRY)RtlEnumerateGenericTable(&Mcb->Mapping->Table, TRUE);
@@ -959,14 +980,9 @@ FsRtlSplitBaseMcb(IN PBASE_MCB OpaqueMcb,
     }
 
     if (InsertLowerRun)
-    {
         ExistingRun = RtlInsertElementGenericTable(&Mcb->Mapping->Table, InsertLowerRun, sizeof(*InsertLowerRun), &NewElement);
-        ++Mcb->PairCount;
-    }
 
     ASSERT(ExistingRun == NULL);
-
-    DPRINT("FsRtlSplitBaseMcb(%p, %I64d, %I64d) = %d\n", OpaqueMcb, Vbn, Amount, TRUE);
 
     return TRUE;
 }
@@ -982,7 +998,7 @@ FsRtlSplitLargeMcb(IN PLARGE_MCB Mcb,
 {
     BOOLEAN Result;
 
-    DPRINT("FsRtlSplitLargeMcb(%p, %I64d, %I64d)\n", Mcb, Vbn, Amount);
+    DPRINT("FsRtlSplitLargeMcb %p, Vbn %I64d, Amount %I64d\n", Mcb, Vbn, Amount);
 
     KeAcquireGuardedMutex(Mcb->GuardedMutex);
     Result = FsRtlSplitBaseMcb(&(Mcb->BaseMcb),
@@ -990,7 +1006,7 @@ FsRtlSplitLargeMcb(IN PLARGE_MCB Mcb,
                                Amount);
     KeReleaseGuardedMutex(Mcb->GuardedMutex);
 
-    DPRINT("FsRtlSplitLargeMcb(%p, %I64d, %I64d) = %d\n", Mcb, Vbn, Amount, Result);
+    DPRINT("Done %u\n", Result);
 
     return Result;
 }
@@ -1003,8 +1019,7 @@ NTAPI
 FsRtlTruncateBaseMcb(IN PBASE_MCB OpaqueMcb,
                      IN LONGLONG Vbn)
 {
-    DPRINT("FsRtlTruncateBaseMcb(%p, %I64d)\n", OpaqueMcb, Vbn);
-
+    DPRINT("Mcb=%p, Vbn=%I64d\n", OpaqueMcb, Vbn);
     FsRtlRemoveBaseMcbEntry(OpaqueMcb, Vbn, MAXLONG - Vbn + 1);
 }
 
@@ -1016,11 +1031,11 @@ NTAPI
 FsRtlTruncateLargeMcb(IN PLARGE_MCB Mcb,
                       IN LONGLONG Vbn)
 {
-    DPRINT("FsRtlTruncateLargeMcb(%p, %I64d)\n", Mcb, Vbn);
-
+    DPRINT("FsRtlTruncateLargeMcb %p Vbn %I64d\n", Mcb, Vbn);
     KeAcquireGuardedMutex(Mcb->GuardedMutex);
     FsRtlTruncateBaseMcb(&(Mcb->BaseMcb), Vbn);
     KeReleaseGuardedMutex(Mcb->GuardedMutex);
+    DPRINT("Done\n");
 }
 
 /*
@@ -1030,8 +1045,6 @@ VOID
 NTAPI
 FsRtlUninitializeBaseMcb(IN PBASE_MCB Mcb)
 {
-    DPRINT("FsRtlUninitializeBaseMcb(%p)\n", Mcb);
-
     FsRtlResetBaseMcb(Mcb);
 
     if ((Mcb->PoolType == PagedPool)/* && (Mcb->MaximumPairCount == MAXIMUM_PAIR_COUNT)*/)
@@ -1052,8 +1065,6 @@ VOID
 NTAPI
 FsRtlUninitializeLargeMcb(IN PLARGE_MCB Mcb)
 {
-    DPRINT("FsRtlUninitializeLargeMcb(%p)\n", Mcb);
-
     if (Mcb->GuardedMutex)
     {
         ExFreeToNPagedLookasideList(&FsRtlFastMutexLookasideList,

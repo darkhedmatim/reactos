@@ -826,7 +826,7 @@ static MUI_ENTRY etEESelectPartitionEntries[] =
     }
 };
 
-static MUI_ENTRY etEEConfirmDeleteSystemPartitionEntries[] =
+static MUI_ENTRY etEEConfirmDeletePartitionEntries[] =
 {
     {
         4,
@@ -837,13 +837,13 @@ static MUI_ENTRY etEEConfirmDeleteSystemPartitionEntries[] =
     {
         6,
         8,
-        "You have chosen to delete the system partition.",
+        "You asked Setup to delete the system partition.",
         TEXT_STYLE_NORMAL
     },
     {
         6,
         10,
-        "System partitions can contain diagnostic programs, hardware configuration",
+        "System partitions can contain diagnose programs, hardware configuration",
         TEXT_STYLE_NORMAL
     },
     {
@@ -867,7 +867,7 @@ static MUI_ENTRY etEEConfirmDeleteSystemPartitionEntries[] =
     {
         6,
         15,
-        "programs on the partition, or when you are sure you want to delete them.",
+        "programs on the partiton, or when you are sure you want to delete them.",
         TEXT_STYLE_NORMAL
     },
     {
@@ -1645,7 +1645,7 @@ MUI_PAGE etEEPages[] =
     },
     {
         CONFIRM_DELETE_SYSTEM_PARTITION_PAGE,
-        etEEConfirmDeleteSystemPartitionEntries
+        etEEConfirmDeletePartitionEntries
     },
     {
         SELECT_FILE_SYSTEM_PAGE,
@@ -1743,8 +1743,6 @@ MUI_STRING etEEStrings[] =
     "ReactOS paigaldatakse partitsioonile"},
     {STRING_CHECKINGPART,
     "Valitud partitsiooni kontrollitakse."},
-    {STRING_CONTINUE,
-    "ENTER = J„tka"},
     {STRING_QUITCONTINUE,
     "F3 = V„lju  ENTER = J„tka"},
     {STRING_REBOOTCOMPUTER,
@@ -1792,7 +1790,7 @@ MUI_STRING etEEStrings[] =
     {STRING_HDDINFOUNK1,
     "%I64u %s  Kävaketas %lu  (Port=%hu, Siin=%hu, Id=%hu)."},
     {STRING_HDDINFOUNK2,
-    "   %c%c  Type 0x%02X    %I64u %s"},
+    "   %c%c  Type %lu    %I64u %s"},
     {STRING_HDINFOPARTDELETE,
     "%I64u %s  Kävaketas %lu  (Port=%hu, Siin=%hu, Id=%hu) - %wZ."},
     {STRING_HDDINFOUNK3,
@@ -1800,7 +1798,7 @@ MUI_STRING etEEStrings[] =
     {STRING_HDINFOPARTZEROED,
     "Kävaketas %lu (%I64u %s), Port=%hu, Siin=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK4,
-    "%c%c  Type 0x%02X    %I64u %s"},
+    "%c%c  Type %lu    %I64u %s"},
     {STRING_HDINFOPARTEXISTS,
     "Kävaketas %lu (%I64u %s), Port=%hu, Siin=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK5,

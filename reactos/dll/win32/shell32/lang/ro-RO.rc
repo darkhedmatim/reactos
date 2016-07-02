@@ -1,6 +1,6 @@
 /* Ștefan Fulea (stefan dot fulea at mail dot md) */
 
-LANGUAGE LANG_ROMANIAN, SUBLANG_DEFAULT
+LANGUAGE LANG_ROMANIAN, SUBLANG_NEUTRAL
 
 MENU_001 MENU
 BEGIN
@@ -158,10 +158,10 @@ STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYS
 CAPTION "Executare"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON "", IDC_RUNDLG_ICON, 7, 11, 18, 20, WS_VISIBLE
+    ICON IDI_SHELL_RUN, IDC_STATIC, 7, 11, 18, 20, WS_VISIBLE
     LTEXT "Tastați numele unui program, dosar, document, sau a unei resurse de Internet, în vederea deschiderii în ReactOS.", 12289, 36, 11, 187, 18
     LTEXT "&Deschide:", 12305, 7, 39, 33, 10
-    CONTROL "", IDC_RUNDLG_EDITPATH, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE | CBS_AUTOHSCROLL | CBS_DROPDOWN, 41, 37, 183, 100
+    CONTROL "", 12298, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE |  CBS_AUTOHSCROLL | CBS_DROPDOWN, 41, 37, 183, 100
     DEFPUSHBUTTON "Con&firmă", IDOK, 41, 63, 59, 14, WS_TABSTOP
     PUSHBUTTON "A&nulează", IDCANCEL, 103, 63, 59, 14, WS_TABSTOP
     PUSHBUTTON "Spe&cificare…", 12288, 165, 63, 59, 14, WS_TABSTOP
@@ -407,19 +407,19 @@ CAPTION "Generale"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     GROUPBOX "Activități", -1, 7, 10, 249, 45
-    CONTROL "", IDC_FOLDER_OPTIONS_TASKICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 25, 21, 20
-    AUTORADIOBUTTON "Incl&ude în ferestrele dosarelor și activiățile comune", IDC_FOLDER_OPTIONS_COMMONTASKS, 40, 25, 200, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Prefer aspectul &clasic pentru dosare", IDC_FOLDER_OPTIONS_CLASSICFOLDERS, 40, 37, 200, 10
+    ICON "", 30109, 14, 25, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "Incl&ude în ferestrele dosarelor și activiățile comune", 14001, 40, 25, 200, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Prefer aspectul &clasic pentru dosare", 14002, 40, 37, 200, 10, WS_TABSTOP | WS_GROUP
     GROUPBOX "Parcurgere dosare", -1, 7, 60, 249, 45, WS_TABSTOP
-    CONTROL "", IDC_FOLDER_OPTIONS_FOLDERICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 70, 21, 20
-    AUTORADIOBUTTON "&Parcurge dosarele în aceiași fereastră", IDC_FOLDER_OPTIONS_SAMEWINDOW, 40, 70, 200, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "D&eschide fiecare dosar în fereastră proprie", IDC_FOLDER_OPTIONS_OWNWINDOW, 40, 82, 200, 10
+    ICON "", 30110, 14, 70, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "&Parcurge dosarele în aceiași fereastră", 14004, 40, 70, 200, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "D&eschide fiecare dosar în fereastră proprie", 14005, 40, 82, 200, 10, WS_TABSTOP | WS_GROUP
     GROUPBOX "Interacțiune elemente", -1, 7, 110, 249, 60
-    CONTROL "", IDC_FOLDER_OPTIONS_CLICKICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 120, 21, 20
-    AUTORADIOBUTTON "Deschide prin acțiune si&mplă (selecare prin indicare)", IDC_FOLDER_OPTIONS_SINGLECLICK, 40, 120, 200, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Subliniază titlurile la fel ca adresele &web", IDC_FOLDER_OPTIONS_ULBROWSER, 50, 132, 170, 10
-    AUTORADIOBUTTON "Subliniază titlurile doar la pre&zența indicatorului", IDC_FOLDER_OPTIONS_ULPOINT, 50, 144, 170, 10
-    AUTORADIOBUTTON "Deschide prin acțiune &dublă (selectare prin una simplă)", IDC_FOLDER_OPTIONS_DOUBLECLICK, 40, 156, 200, 10
+    ICON "", 30111, 14, 120, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "Deschide prin acțiune si&mplă (selecare prin indicare)", 14007, 40, 120, 200, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Subliniază titlurile la fel ca adresele &web", 14008, 50, 132, 170, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Subliniază titlurile doar la pre&zența indicatorului", 14009, 50, 144, 170, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Deschide prin acțiune &dublă (selectare prin una simplă)", 14010, 40, 156, 200, 10, WS_TABSTOP | WS_GROUP
     PUSHBUTTON "&Restabilește opțiunile implicite", 14011, 130, 180, 126, 14, WS_TABSTOP
 END
 
@@ -444,7 +444,7 @@ CAPTION "Tipuri de fișier"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     LTEXT "Tipurile de fișier înregistrate:", -1, 7, 10, 120, 10
-    CONTROL "", 14000, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHAREIMAGELISTS | LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP, 7, 20, 249, 80
+    CONTROL "", 14000, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHAREIMAGELISTS | WS_BORDER | WS_TABSTOP, 7, 20, 249, 80
     PUSHBUTTON "N&ou…", 14001, 140, 110, 50, 14, WS_TABSTOP
     PUSHBUTTON "&Elimină", 14002, 200, 110, 50, 14, WS_TABSTOP
     GROUPBOX "Detalii pentru extensia „%s”", 14003, 7, 130, 249, 70
@@ -477,15 +477,15 @@ BEGIN
     ICON "", 12301, 50, 89, 21, 20, SS_REALSIZECONTROL
 END
 
-IDD_LOG_OFF DIALOGEX 0, 0, 188, 60
+IDD_LOG_OFF DIALOGEX 0, 0, 190, 60
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_CAPTION
 CAPTION "Deautentificare"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_SHELL_LOGOFF, IDC_STATIC, 8, 6, 21, 20
-    LTEXT "Sigur doriți să vă deautentificați?", IDC_STATIC, 35, 16, 146, 8
-    DEFPUSHBUTTON "&Deautentifică", IDOK, 41, 39, 50, 14
-    PUSHBUTTON "A&nulează", IDCANCEL, 95, 39, 50, 14
+    ICON 45, 14344, 10, 10, 21, 20, SS_REALSIZECONTROL
+    LTEXT "Sigur doriți să vă deautentificați?", -1, 43, 11, 140, 22
+    DEFPUSHBUTTON "&Deautentifică", IDOK, 57, 40, 60, 14
+    PUSHBUTTON "A&nulează", IDCANCEL, 122, 40, 60, 14
 END
 
 IDD_DISCONNECT DIALOGEX 0, 0, 190, 60
@@ -711,6 +711,8 @@ BEGIN
     IDS_RESTART_PROMPT "Doriți să reporniți sistemul?"
     IDS_SHUTDOWN_TITLE "Închidere"
     IDS_SHUTDOWN_PROMPT "Doriți să închideți calculatorul?"
+    IDS_LOGOFF_TITLE "Deautentificare"
+    IDS_LOGOFF_PROMPT "Doriți să vă deautentificați?"
 
     /* Run File dialog */
     IDS_RUNDLG_ERROR "Nu se poate deschide Executare fișier (eroare internă)"
@@ -731,9 +733,9 @@ BEGIN
     IDS_DESKTOPDIRECTORY "Birou"
     IDS_NETHOOD "Rețele"
     IDS_TEMPLATES "Șabloane"
-    IDS_APPDATA "Date de aplicație"
+    IDS_APPDATA "Date aplicații"
     IDS_PRINTHOOD "Imprimante"
-    IDS_LOCAL_APPDATA "Preferințe locale\\Date de aplicație"
+    IDS_LOCAL_APPDATA "Preferințe locale\\Date aplicații"
     IDS_INTERNET_CACHE "Preferințe locale\\Fișiere de Internet temporare"
     IDS_COOKIES "Cookies"
     IDS_HISTORY "Preferințe locale\\Istoric"
@@ -745,7 +747,7 @@ BEGIN
     IDS_COMMON_MUSIC "Documentele mele\\Audio"
     IDS_COMMON_PICTURES "Documentele mele\\Imagini"
     IDS_COMMON_VIDEO "Documentele mele\\Video"
-    IDS_CDBURN_AREA "Preferințe locale\\Date de aplicație\\Microsoft\\Inscripționare CD"
+    IDS_CDBURN_AREA "Preferințe locale\\Date aplicații\\Microsoft\\Inscripționare CD"
     IDS_NETWORKPLACE "Locații în rețea"
 
     IDS_NEWFOLDER "Dosar nou"
@@ -818,11 +820,6 @@ BEGIN
     IDS_FILE_DETAILSADV "Fișierele cu extensia „%s” sunt de tipul „%s”. Pentru a modifica opțiunile care vor afecta toate fișierele „%s”, apăsați „Avansate”."
     IDS_FILE_TYPES "Tipuri"
     IDS_COLUMN_EXTENSION "Extensii"
-
-    /* As in 'INI File' or 'WAV File', fallback string for no-name extensions
-       used in the _File type_ tab of the _Folder Options_ dialog */
-    IDS_FILE_EXT_TYPE "Fișier %s"
-
     IDS_BYTES_FORMAT "octeți"
     IDS_UNKNOWN_APP "Aplicație nespecificată"
     IDS_EXE_DESCRIPTION "Descriere:"

@@ -152,19 +152,6 @@ static void free_response_headers(httprequest *This)
     This->raw_respheaders = NULL;
 }
 
-static void free_request_headers(httprequest *This)
-{
-    struct httpheader *header, *header2;
-
-    LIST_FOR_EACH_ENTRY_SAFE(header, header2, &This->reqheaders, struct httpheader, entry)
-    {
-        list_remove(&header->entry);
-        SysFreeString(header->header);
-        SysFreeString(header->value);
-        heap_free(header);
-    }
-}
-
 struct BindStatusCallback
 {
     IBindStatusCallback IBindStatusCallback_iface;
@@ -877,7 +864,6 @@ static HRESULT httprequest_open(httprequest *This, BSTR method, BSTR url,
     SysFreeString(This->user);
     SysFreeString(This->password);
     This->user = This->password = NULL;
-    free_request_headers(This);
 
     if (!strcmpiW(method, MethodGetW))
     {
@@ -1263,6 +1249,8 @@ static HRESULT httprequest_put_onreadystatechange(httprequest *This, IDispatch *
 
 static void httprequest_release(httprequest *This)
 {
+    struct httpheader *header, *header2;
+
     if (This->site)
         IUnknown_Release( This->site );
     if (This->uri)
@@ -1274,8 +1262,15 @@ static void httprequest_release(httprequest *This)
     SysFreeString(This->user);
     SysFreeString(This->password);
 
-    /* cleanup headers lists */
-    free_request_headers(This);
+    /* request headers */
+    LIST_FOR_EACH_ENTRY_SAFE(header, header2, &This->reqheaders, struct httpheader, entry)
+    {
+        list_remove(&header->entry);
+        SysFreeString(header->header);
+        SysFreeString(header->value);
+        heap_free(header);
+    }
+    /* response headers */
     free_response_headers(This);
     SysFreeString(This->status_text);
 

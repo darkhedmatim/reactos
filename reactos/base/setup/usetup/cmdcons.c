@@ -428,8 +428,8 @@ CommandDumpSector(
     DPRINT1("Sector: %I64u\n", Sector.QuadPart);
 
     SectorCount.QuadPart = DiskGeometry.Cylinders.QuadPart *
-                           (ULONGLONG)DiskGeometry.TracksPerCylinder *
-                           (ULONGLONG)DiskGeometry.SectorsPerTrack;
+                           DiskGeometry.TracksPerCylinder,
+                           DiskGeometry.SectorsPerTrack;
     if (Sector.QuadPart >= SectorCount.QuadPart)
     {
         CONSOLE_ConOutPrintf("Invalid sector number! Valid range: [0 - %I64u]\n", SectorCount.QuadPart - 1);
@@ -556,7 +556,7 @@ static
 VOID
 HelpPartInfo(VOID)
 {
-    CONSOLE_ConOutPrintf("PARTINFO DiskNumber\n\nDumps a partition table to the screen.\n\n");
+    CONSOLE_ConOutPrintf("PARTINFO DiskNumber\n\nDumps a partiton table to the screen.\n\n");
 }
 
 

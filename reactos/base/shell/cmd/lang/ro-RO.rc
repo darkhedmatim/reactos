@@ -424,8 +424,8 @@ TIME [/T][oră]\n\n\
 Tastați TIME fără perametri pentru a afișa ora curentă urmată de posibilitatea\n\
 de a introduce o nouă oră. Tastați ENTER pentru a păstra aceiași oră.\n"
     STRING_TIME_HELP2 "Introduceți noua oră: "
-    STRING_TIMER_HELP1 "Timp cronometrat: %d msec\n"
-    STRING_TIMER_HELP2 "Timp cronometrat: %02d%c%02d%c%02d%c%02d\n"
+    STRING_TIMER_HELP1 "S-au scurs %d msec\n"
+    STRING_TIMER_HELP2 "S-au scurs %02d%c%02d%c%02d%c%02d\n"
     STRING_TIMER_HELP3 "Permite utilizarea a zece cronometre.\n\n\
 TIMER  [ON|OFF] [/S] [/n] [/Fn]\n\n\
   ON     Activează cronometru\n\
@@ -557,7 +557,7 @@ titlu         Noul titlu.\n"
     STRING_REPLACE_ERROR6 "Fișierele nu au fost găsite - %s\n"
     STRING_REPLACE_ERROR7 "Eroare Extinsă 32\n"
     STRING_CMD_INFOLINE "  Interpretorul de comenzi ReactOS                       Tastați HELP = Ajutor  "
-    STRING_REACTOS_VERSION "ReactOS [Versiunea %s %s]\n"
+    STRING_REACTOS_VERSION "ReactOS [Versiunea %s-%s]\n"
     STRING_CMD_SHELLINFO "\nInterpretorul de comenzi ReactOS\nVersiunea %s %s"
     STRING_VERSION_RUNNING_ON "Operând pe: "
     STRING_VERSION_RUNVER "%s [Versiunea %d.%d.%d] %s"

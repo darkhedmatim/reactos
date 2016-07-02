@@ -117,11 +117,11 @@ static int get_dib_image_size( int width, int height, int depth )
 
 static BOOL is_dib_monochrome( const BITMAPINFO* info )
 {
+    if (info->bmiHeader.biBitCount != 1) return FALSE;
+
     if (info->bmiHeader.biSize == sizeof(BITMAPCOREHEADER))
     {
         const RGBTRIPLE *rgb = ((const BITMAPCOREINFO*)info)->bmciColors;
-
-        if (((const BITMAPCOREINFO*)info)->bmciHeader.bcBitCount != 1) return FALSE;
 
         /* Check if the first color is black */
         if ((rgb->rgbtRed == 0) && (rgb->rgbtGreen == 0) && (rgb->rgbtBlue == 0))
@@ -137,8 +137,6 @@ static BOOL is_dib_monochrome( const BITMAPINFO* info )
     else  /* assume BITMAPINFOHEADER */
     {
         const RGBQUAD *rgb = info->bmiColors;
-
-        if (info->bmiHeader.biBitCount != 1) return FALSE;
 
         /* Check if the first color is black */
         if ((rgb->rgbRed == 0) && (rgb->rgbGreen == 0) &&
@@ -1300,7 +1298,7 @@ create_bitmap:
     if(!hbmpOld)
         goto end;
     if(!StretchDIBits(hdc, 0, 0, cxDesired, cyDesired,
-                           0, 0, width, height,
+                           0, 0, pbmi->bmiHeader.biWidth, pbmi->bmiHeader.biHeight,
                            pvBits, pbmiCopy, DIB_RGB_COLORS, SRCCOPY))
     {
         ERR("StretchDIBits failed!.\n");
@@ -1867,12 +1865,11 @@ CURSORICON_CopyImage(
         TRACE("Got module %wZ, resource %p (%S).\n", &ustrModule,
             ustrRsrc.Buffer, IS_INTRESOURCE(ustrRsrc.Buffer) ? L"" : ustrRsrc.Buffer);
 
-        /* Get the module handle or load the module */
-        hModule = LoadLibraryExW(ustrModule.Buffer, NULL, LOAD_LIBRARY_AS_IMAGE_RESOURCE | LOAD_LIBRARY_AS_DATAFILE);
-        if (!hModule)
+        /* Get the module handle */
+        if (!GetModuleHandleExW(0, ustrModule.Buffer, &hModule))
         {
-            DWORD err = GetLastError();
-            ERR("Unable to load/use module '%wZ' in process %lu, error %lu.\n", &ustrModule, GetCurrentProcessId(), err);
+            /* This should never happen */
+            ERR("Invalid handle? Module='%wZ', error %lu.\n", &ustrModule, GetLastError());
             SetLastError(ERROR_INVALID_PARAMETER);
             goto leave;
         }

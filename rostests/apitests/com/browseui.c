@@ -13,29 +13,6 @@
 static const CLASS_AND_INTERFACES ExpectedInterfaces[] =
 {
     {
-        ID_NAME(CLSID_ACLCustomMRU),
-        {
-            {    0x0,   &IID_IEnumString },
-            {    0x0,       &IID_IUnknown },
-            {    0x4,   &IID_IACList },
-        },
-    },
-    {
-        ID_NAME(CLSID_ACLHistory),
-        {
-            {    0x0,   &IID_IEnumString },
-            {    0x0,       &IID_IUnknown },
-        },
-    },
-    {
-        ID_NAME(CLSID_ACLMRU),
-        {
-            {    0x0,   &IID_IEnumString },
-            {    0x0,       &IID_IUnknown },
-            {    0x4,   &IID_IACList },
-        },
-    },
-    {
         ID_NAME(CLSID_ACLMulti),
         {
             {    0x0,   &IID_IEnumString },
@@ -51,7 +28,6 @@ static const CLASS_AND_INTERFACES ExpectedInterfaces[] =
             {    0x0,       &IID_IUnknown },
             {    0x4,   &IID_IACList2 },
             {    0x4,       &IID_IACList },
-            {    0x8,   &IID_ICurrentWorkingDirectory },
             {    0xc,   &IID_IShellService },
             {   0x10,   &IID_IPersistFolder },
         }
@@ -120,16 +96,6 @@ static const CLASS_AND_INTERFACES ExpectedInterfaces[] =
         }
     },
     {
-        ID_NAME(CLSID_BandSiteMenu),
-        {
-            {    0x0,   &IID_IContextMenu3 },
-            {    0x0,       &IID_IContextMenu2 },
-            {    0x0,           &IID_IContextMenu },
-            {    0x0,               &IID_IUnknown },
-            {    0x4,   &IID_IShellService },
-        }
-    },
-    {
         ID_NAME(CLSID_BrandBand),
         {
             {    0x0,   &IID_IDeskBand },
@@ -147,23 +113,14 @@ static const CLASS_AND_INTERFACES ExpectedInterfaces[] =
         }
     },
     {
-        ID_NAME(CLSID_BrowserBand),
+        ID_NAME(CLSID_BandSiteMenu),
         {
-            {  -0x30,   &IID_IDeskBand },
-            {  -0x30,       &IID_IDockingWindow },
-            {  -0x30,           &IID_IOleWindow },
-            {  -0x2c,   &IID_IObjectWithSite },
-            {  -0x24,   &IID_IInputObject },
-            {  -0x20,   &IID_IPersistStream },
-            {  -0x20,       &IID_IPersist },
-            {  -0x1c,   &IID_IOleCommandTarget },
-            {  -0x18,   &IID_IServiceProvider },
-            {    0x0,   &IID_IContextMenu },
-            {    0x0,       &IID_IUnknown },
-            {    0x4,   &IID_IWinEventHandler },
-            {    0x8,   &IID_IDispatch },
-            {   0x10,   &IID_IPersistPropertyBag },
-        },
+            {    0x0,   &IID_IContextMenu3 },
+            {    0x0,       &IID_IContextMenu2 },
+            {    0x0,           &IID_IContextMenu },
+            {    0x0,               &IID_IUnknown },
+            {    0x4,   &IID_IShellService },
+        }
     },
     {
         ID_NAME(CLSID_CCommonBrowser),
@@ -184,38 +141,12 @@ static const CLASS_AND_INTERFACES ExpectedInterfaces[] =
         }
     },
     {
-        ID_NAME(CLSID_CDockingBarPropertyBag),
-        {
-            {    0x0,   &IID_IPropertyBag },
-            {    0x0,       &IID_IUnknown },
-        },
-    },
-    {
         ID_NAME(CLSID_CRegTreeOptions),
         {
             {    0x0,   &IID_IRegTreeOptions },
             {    0x0,       &IID_IUnknown },
             {    0x4,   &IID_IObjectWithSite },
         }
-    },
-    {
-        ID_NAME(CLSID_CommBand),
-        {
-            {  -0x30,   &IID_IDeskBand },
-            {  -0x30,       &IID_IDockingWindow },
-            {  -0x30,           &IID_IOleWindow },
-            {  -0x2c,   &IID_IObjectWithSite },
-            {  -0x24,   &IID_IInputObject },
-            {  -0x20,   &IID_IPersistStream },
-            {  -0x20,       &IID_IPersist },
-            {  -0x1c,   &IID_IOleCommandTarget },
-            {  -0x18,   &IID_IServiceProvider },
-            {    0x0,   &IID_IContextMenu },
-            {    0x0,       &IID_IUnknown },
-            {    0x4,   &IID_IWinEventHandler },
-            {    0x8,   &IID_IDispatch },
-            {   0x10,   &IID_IPersistPropertyBag },
-        },
     },
     {
         ID_NAME(CLSID_DeskBar),
@@ -265,23 +196,6 @@ static const CLASS_AND_INTERFACES ExpectedInterfaces[] =
         L"Both"
     },
     {
-        ID_NAME(CLSID_ImageListCache),
-        {
-            {    0x0,   &IID_IUnknown },
-        },
-        L"Both"
-    },
-    {
-        ID_NAME(CLSID_ImgCtxThumbnailExtractor),
-        {
-            {    0x0,   &IID_IExtractImage2 },
-            {    0x0,       &IID_IExtractImage },
-            {    0x0,           &IID_IUnknown },
-            {    0x8,   &IID_IPersistFile },
-        },
-        L"Both"
-    },
-    {
         ID_NAME(CLSID_InternetToolbar),
         {
             {  -0x54,   &IID_IOleCommandTarget },
@@ -293,7 +207,6 @@ static const CLASS_AND_INTERFACES ExpectedInterfaces[] =
             {   -0xc,   &IID_IDockingWindow },
             {   -0x8,   &IID_IObjectWithSite },
             {   -0x4,   &IID_IExplorerToolbar },
-            {    0x0,   &DIID_DWebBrowserEvents },
             {    0x0,   &IID_IDispatch },
             {    0x0,       &IID_IUnknown },
             {    0x4,   &IID_IPersistStreamInit },
@@ -349,27 +262,6 @@ static const CLASS_AND_INTERFACES ExpectedInterfaces[] =
         }
     },
     {
-        ID_NAME(CLSID_SH_SearchBand),
-        {
-            {    0x0,   &IID_IUnknown },
-            {   0x74,   &IID_IOleContainer },
-            {   0x78,   &IID_IOleInPlaceFrame },
-            //{   0x78,       &IID_IOleInPlaceUIWindow },
-            {   0x78,           &IID_IOleWindow },
-            {   0xb0,   &IID_IDeskBand },
-            {   0xb0,       &IID_IDockingWindow },
-            {   0xb4,   &IID_IInputObject },
-            {   0xb8,   &IID_IObjectWithSite },
-            {   0xbc,   &IID_IContextMenu },
-            {   0xc0,   &IID_IServiceProvider },
-            {   0xc8,   &IID_ISearchBar },
-            {   0xcc,   &IID_IFileSearchBand },
-            {   0xcc,       &IID_IDispatch },
-            {   0xd0,   &IID_IBandNavigate },
-            {   0xd8,   &IID_IPersist },
-        }
-    },
-    {
         ID_NAME(CLSID_SharedTaskScheduler),
         {
             {    0x0,   &IID_IShellTaskScheduler },
@@ -383,28 +275,6 @@ static const CLASS_AND_INTERFACES ExpectedInterfaces[] =
             {    0x0,       &IID_IUnknown },
             {    0x4,   &IID_IObjectWithSite },
         }
-    },
-    {
-        ID_NAME(CLSID_ShellTaskScheduler),
-        {
-            {    0x0,   &IID_IShellTaskScheduler },
-            {    0x0,       &IID_IUnknown },
-        },
-    },
-    {
-        ID_NAME(CLSID_UserAssist),
-        {
-            {    0x0,   &IID_IUnknown },
-        },
-        L"Both"
-    },
-    {
-        ID_NAME(CLSID_WebSearchExt),
-        {
-            {    0x0,   &IID_IContextMenu },
-            {    0x0,       &IID_IUnknown },
-            {    0x4,   &IID_IObjectWithSite },
-        },
     },
 };
 static const INT ExpectedInterfaceCount = RTL_NUMBER_OF(ExpectedInterfaces);

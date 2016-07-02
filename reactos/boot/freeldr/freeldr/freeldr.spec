@@ -1,4 +1,3 @@
-@ stdcall RtlAssert(ptr ptr long ptr)
 @ cdecl ScsiDebugPrint()
 @ stdcall ScsiPortCompleteRequest(ptr long long long long)
 @ stdcall ScsiPortConvertPhysicalAddressToUlong(long long)

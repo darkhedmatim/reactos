@@ -13,22 +13,18 @@ list(APPEND SOURCE
     NtOpenProcessToken.c
     NtOpenThreadToken.c
     NtProtectVirtualMemory.c
-    NtQueryInformationProcess.c
     NtQueryKey.c
     NtQuerySystemEnvironmentValue.c
     NtQueryVolumeInformationFile.c
     NtSaveKey.c
-    NtSetValueKey.c
     RtlAllocateHeap.c
     RtlBitmap.c
     RtlCopyMappedMemory.c
-    RtlDeleteAce.c
     RtlDetermineDosPathNameType.c
     RtlDoesFileExists.c
     RtlDosPathNameToNtPathName_U.c
     RtlDosSearchPath_U.c
     RtlDosSearchPath_Ustr.c
-    RtlFirstFreeAce.c
     RtlGenerate8dot3Name.c
     RtlGetFullPathName_U.c
     RtlGetFullPathName_Ustr.c

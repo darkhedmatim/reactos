@@ -223,12 +223,11 @@ DnsFlushResolverCache()
     return ERROR_OUTOFMEMORY;
 }
 
-BOOL WINAPI
-DnsFlushResolverCacheEntry_A(PCSTR entry)
+DNS_STATUS WINAPI
+DnsFlushResolverCacheEntry_A()
 {
-    DPRINT1("DnsFlushResolverCacheEntry_A(%s) is stubplemented.\n", entry);
-    if (!entry) return FALSE;
-    return TRUE;
+    UNIMPLEMENTED;
+    return ERROR_OUTOFMEMORY;
 }
 
 DNS_STATUS WINAPI

@@ -81,9 +81,6 @@ Ext2FlushVolume (
 
     DEBUG(DL_INF, ( "Ext2FlushVolume: Flushing Vcb ...\n"));
 
-    /* discard buffer_headers for group_desc */
-    Ext2DropGroup(Vcb);
-
     ExAcquireSharedStarveExclusive(&Vcb->PagingIoResource, TRUE);
     ExReleaseResourceLite(&Vcb->PagingIoResource);
 
@@ -99,47 +96,38 @@ Ext2FlushFile (
     IN PEXT2_CCB            Ccb
 )
 {
-    IO_STATUS_BLOCK     IoStatus;
+    IO_STATUS_BLOCK    IoStatus;
 
     ASSERT(Fcb != NULL);
     ASSERT((Fcb->Identifier.Type == EXT2FCB) &&
            (Fcb->Identifier.Size == sizeof(EXT2_FCB)));
 
-    _SEH2_TRY {
+    /* update timestamp and achieve attribute */
+    if (Ccb != NULL) {
 
-        /* update timestamp and achieve attribute */
-        if (Ccb != NULL) {
+        if (!IsFlagOn(Ccb->Flags, CCB_LAST_WRITE_UPDATED)) {
 
-            if (!IsFlagOn(Ccb->Flags, CCB_LAST_WRITE_UPDATED)) {
+            LARGE_INTEGER   SysTime;
+            KeQuerySystemTime(&SysTime);
 
-                LARGE_INTEGER   SysTime;
-                KeQuerySystemTime(&SysTime);
-
-                Fcb->Inode->i_mtime = Ext2LinuxTime(SysTime);
-                Fcb->Mcb->LastWriteTime = Ext2NtTime(Fcb->Inode->i_mtime);
-                Ext2SaveInode(IrpContext, Fcb->Vcb, Fcb->Inode);
-            }
+            Fcb->Inode->i_mtime = Ext2LinuxTime(SysTime);
+            Fcb->Mcb->LastWriteTime = Ext2NtTime(Fcb->Inode->i_mtime);
+            Ext2SaveInode(IrpContext, Fcb->Vcb, Fcb->Inode);
         }
+    }
 
-        if (IsDirectory(Fcb)) {
-            IoStatus.Status = STATUS_SUCCESS;
-            _SEH2_LEAVE;
-        }
+    if (IsDirectory(Fcb)) {
+        return STATUS_SUCCESS;
+    }
 
-        DEBUG(DL_INF, ( "Ext2FlushFile: Flushing File Inode=%xh %S ...\n",
-                        Fcb->Inode->i_ino, Fcb->Mcb->ShortName.Buffer));
+    DEBUG(DL_INF, ( "Ext2FlushFile: Flushing File Inode=%xh %S ...\n",
+                    Fcb->Inode->i_ino, Fcb->Mcb->ShortName.Buffer));
 
-        CcFlushCache(&(Fcb->SectionObject), NULL, 0, &IoStatus);
-        ClearFlag(Fcb->Flags, FCB_FILE_MODIFIED);
-
-    } _SEH2_FINALLY {
-
-        /* do cleanup here */
-    } _SEH2_END;
+    CcFlushCache(&(Fcb->SectionObject), NULL, 0, &IoStatus);
+    ClearFlag(Fcb->Flags, FCB_FILE_MODIFIED);
 
     return IoStatus.Status;
 }
-
 
 NTSTATUS
 Ext2Flush (IN PEXT2_IRP_CONTEXT IrpContext)
@@ -201,7 +189,9 @@ Ext2Flush (IN PEXT2_IRP_CONTEXT IrpContext)
         }
 
         MainResourceAcquired =
-            ExAcquireResourceExclusiveLite(&FcbOrVcb->MainResource, TRUE);
+            ExAcquireResourceExclusiveLite(&FcbOrVcb->MainResource,
+                                           IsFlagOn(IrpContext->Flags, IRP_CONTEXT_FLAG_WAIT));
+
         ASSERT(MainResourceAcquired);
         DEBUG(DL_INF, ("Ext2Flush-pre:  total mcb records=%u\n",
                        FsRtlNumberOfRunsInLargeMcb(&Vcb->Extents)));

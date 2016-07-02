@@ -379,7 +379,7 @@ HRESULT node_get_next_sibling(xmlnode *This, IXMLDOMNode **ret)
 
 static int node_get_inst_cnt(xmlNodePtr node)
 {
-    int ret = *(LONG *)&node->_private & NODE_PRIV_REFCOUNT_MASK;
+    int ret = *(LONG *)&node->_private;
     xmlNodePtr child;
 
     /* add attribute counts */
@@ -408,20 +408,6 @@ static int node_get_inst_cnt(xmlNodePtr node)
 int xmlnode_get_inst_cnt(xmlnode *node)
 {
     return node_get_inst_cnt(node->node);
-}
-
-/* _private field holds a number of COM instances spawned from this libxml2 node
- * most significant bits are used to store information about ignorrable whitespace nodes */
-void xmlnode_add_ref(xmlNodePtr node)
-{
-    if (node->type == XML_DOCUMENT_NODE) return;
-    InterlockedIncrement((LONG*)&node->_private);
-}
-
-void xmlnode_release(xmlNodePtr node)
-{
-    if (node->type == XML_DOCUMENT_NODE) return;
-    InterlockedDecrement((LONG*)&node->_private);
 }
 
 HRESULT node_insert_before(xmlnode *This, IXMLDOMNode *new_child, const VARIANT *ref_child,
@@ -484,7 +470,6 @@ HRESULT node_insert_before(xmlnode *This, IXMLDOMNode *new_child, const VARIANT 
 
     if(before)
     {
-        xmlNodePtr new_node;
         xmlnode *before_node_obj = get_node_obj(before);
 
         /* refs count including subtree */
@@ -492,35 +477,19 @@ HRESULT node_insert_before(xmlnode *This, IXMLDOMNode *new_child, const VARIANT 
             refcount = xmlnode_get_inst_cnt(node_obj);
 
         if (refcount) xmldoc_add_refs(before_node_obj->node->doc, refcount);
-        new_node = xmlAddPrevSibling(before_node_obj->node, node_obj->node);
-        if (new_node != node_obj->node)
-        {
-            if (refcount != 1)
-                FIXME("referenced xmlNode was freed, expect crashes\n");
-            xmlnode_add_ref(new_node);
-            node_obj->node = new_node;
-        }
+        node_obj->node = xmlAddPrevSibling(before_node_obj->node, node_obj->node);
         if (refcount) xmldoc_release_refs(doc, refcount);
         node_obj->parent = This->parent;
     }
     else
     {
-        xmlNodePtr new_node;
-
         if (doc != This->node->doc)
             refcount = xmlnode_get_inst_cnt(node_obj);
 
         if (refcount) xmldoc_add_refs(This->node->doc, refcount);
         /* xmlAddChild doesn't unlink node from previous parent */
         xmlUnlinkNode(node_obj->node);
-        new_node = xmlAddChild(This->node, node_obj->node);
-        if (new_node != node_obj->node)
-        {
-            if (refcount != 1)
-                FIXME("referenced xmlNode was freed, expect crashes\n");
-            xmlnode_add_ref(new_node);
-            node_obj->node = new_node;
-        }
+        node_obj->node = xmlAddChild(This->node, node_obj->node);
         if (refcount) xmldoc_release_refs(doc, refcount);
         node_obj->parent = This->iface;
     }
@@ -704,63 +673,48 @@ HRESULT node_clone(xmlnode *This, VARIANT_BOOL deep, IXMLDOMNode **cloneNode)
     return S_OK;
 }
 
-static xmlChar* do_get_text(xmlNodePtr node, BOOL trim, DWORD *first, DWORD *last, BOOL *trail_ig_ws)
+static inline xmlChar* trim_whitespace(xmlChar* str)
+{
+    xmlChar* ret = str;
+    int len;
+
+    if (!str)
+        return NULL;
+
+    while (*ret && isspace(*ret))
+        ++ret;
+    len = xmlStrlen(ret);
+    if (len)
+        while (isspace(ret[len-1])) --len;
+
+    ret = xmlStrndup(ret, len);
+    xmlFree(str);
+    return ret;
+}
+
+static xmlChar* do_get_text(xmlNodePtr node)
 {
     xmlNodePtr child;
     xmlChar* str;
     BOOL preserving = is_preserving_whitespace(node);
 
-    *first = -1;
-    *last = 0;
-
     if (!node->children)
     {
         str = xmlNodeGetContent(node);
-        *trail_ig_ws = *(DWORD*)&node->_private & NODE_PRIV_CHILD_IGNORABLE_WS;
     }
     else
     {
-        BOOL ig_ws = FALSE;
+        xmlElementType prev_type = XML_TEXT_NODE;
         xmlChar* tmp;
-        DWORD pos = 0;
         str = xmlStrdup(BAD_CAST "");
-
-        if (node->type != XML_DOCUMENT_NODE)
-            ig_ws = *(DWORD*)&node->_private & NODE_PRIV_CHILD_IGNORABLE_WS;
-        *trail_ig_ws = FALSE;
-
         for (child = node->children; child != NULL; child = child->next)
         {
             switch (child->type)
             {
-            case XML_ELEMENT_NODE: {
-                DWORD node_first, node_last;
-
-                tmp = do_get_text(child, FALSE, &node_first, &node_last, trail_ig_ws);
-
-                if (node_first!=-1 && pos+node_first<*first)
-                    *first = pos+node_first;
-                if (node_last && pos+node_last>*last)
-                    *last = pos+node_last;
+            case XML_ELEMENT_NODE:
+                tmp = do_get_text(child);
                 break;
-            }
             case XML_TEXT_NODE:
-                tmp = xmlNodeGetContent(child);
-                if (!preserving && tmp[0])
-                {
-                    xmlChar *beg;
-
-                    for (beg = tmp; *beg; beg++)
-                        if (!isspace(*beg)) break;
-
-                    if (!*beg)
-                    {
-                        ig_ws = TRUE;
-                        xmlFree(tmp);
-                        tmp = NULL;
-                    }
-                }
-                break;
             case XML_CDATA_SECTION_NODE:
             case XML_ENTITY_REF_NODE:
             case XML_ENTITY_NODE:
@@ -771,33 +725,18 @@ static xmlChar* do_get_text(xmlNodePtr node, BOOL trim, DWORD *first, DWORD *las
                 break;
             }
 
-            if ((tmp && *tmp) || child->type==XML_CDATA_SECTION_NODE)
+            if (tmp)
             {
-                if (ig_ws && str[0])
+                if (*tmp)
                 {
-                    str = xmlStrcat(str, BAD_CAST " ");
-                    pos++;
+                    if (prev_type == XML_ELEMENT_NODE && child->type == XML_ELEMENT_NODE)
+                        str = xmlStrcat(str, BAD_CAST " ");
+                    str = xmlStrcat(str, tmp);
+                    prev_type = child->type;
                 }
-                if (tmp && *tmp) str = xmlStrcat(str, tmp);
-                if (child->type==XML_CDATA_SECTION_NODE && pos<*first)
-                    *first = pos;
-                if (tmp && *tmp) pos += xmlStrlen(tmp);
-                if (child->type==XML_CDATA_SECTION_NODE && pos>*last)
-                    *last = pos;
-                ig_ws = FALSE;
+                xmlFree(tmp);
             }
-            if (tmp) xmlFree(tmp);
-
-            if (!ig_ws)
-            {
-                ig_ws = *(DWORD*)&child->_private & NODE_PRIV_TRAILING_IGNORABLE_WS;
-            }
-            if (!ig_ws)
-                ig_ws = *trail_ig_ws;
-            *trail_ig_ws = FALSE;
         }
-
-        *trail_ig_ws = ig_ws;
     }
 
     switch (node->type)
@@ -808,24 +747,8 @@ static xmlChar* do_get_text(xmlNodePtr node, BOOL trim, DWORD *first, DWORD *las
     case XML_ENTITY_NODE:
     case XML_DOCUMENT_NODE:
     case XML_DOCUMENT_FRAG_NODE:
-        if (trim && !preserving)
-        {
-            xmlChar* ret = str;
-            int len;
-
-            if (!str)
-                break;
-
-            for (ret = str; *ret && isspace(*ret) && (*first)--; ret++)
-                if (*last) (*last)--;
-            for (len = xmlStrlen(ret)-1; len >= 0 && len >= *last; len--)
-                if(!isspace(ret[len])) break;
-
-            ret = xmlStrndup(ret, len+1);
-            xmlFree(str);
-            str = ret;
-            break;
-        }
+        if (!preserving)
+            str = trim_whitespace(str);
         break;
     default:
         break;
@@ -838,12 +761,10 @@ HRESULT node_get_text(const xmlnode *This, BSTR *text)
 {
     BSTR str = NULL;
     xmlChar *content;
-    DWORD first, last;
-    BOOL tmp;
 
     if (!text) return E_INVALIDARG;
 
-    content = do_get_text(This->node, TRUE, &first, &last, &tmp);
+    content = do_get_text(This->node);
     if (content)
     {
         str = bstr_from_xmlChar(content);
@@ -1450,6 +1371,19 @@ HRESULT node_get_base_name(xmlnode *This, BSTR *name)
     TRACE("returning %s\n", debugstr_w(*name));
 
     return S_OK;
+}
+
+/* _private field holds a number of COM instances spawned from this libxml2 node */
+static void xmlnode_add_ref(xmlNodePtr node)
+{
+    if (node->type == XML_DOCUMENT_NODE) return;
+    InterlockedIncrement((LONG*)&node->_private);
+}
+
+static void xmlnode_release(xmlNodePtr node)
+{
+    if (node->type == XML_DOCUMENT_NODE) return;
+    InterlockedDecrement((LONG*)&node->_private);
 }
 
 void destroy_xmlnode(xmlnode *This)

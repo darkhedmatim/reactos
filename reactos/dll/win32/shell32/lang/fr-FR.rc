@@ -156,10 +156,10 @@ STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYS
 CAPTION "Exécuter"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON "", IDC_RUNDLG_ICON, 7, 11, 18, 20, WS_VISIBLE
+    ICON IDI_SHELL_RUN, IDC_STATIC, 7, 11, 18, 20, WS_VISIBLE
     LTEXT "Entrez le nom d'un programme, d'un dossier, d'un document ou d'une ressource Internet, et ReactOS l'ouvrira pour vous.", 12289, 36, 11, 182, 18
     LTEXT "&Ouvrir :", 12305, 7, 39, 24, 10
-    CONTROL "", IDC_RUNDLG_EDITPATH, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE | CBS_AUTOHSCROLL | CBS_DROPDOWN, 36, 37, 183, 100
+    CONTROL "", 12298, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE |  CBS_AUTOHSCROLL | CBS_DROPDOWN, 36, 37, 183, 100
     DEFPUSHBUTTON "OK", IDOK, 62, 63, 50, 14, WS_TABSTOP
     PUSHBUTTON "Annuler", IDCANCEL, 116, 63, 50, 14, WS_TABSTOP
     PUSHBUTTON "&Parcourir...", 12288, 170, 63, 50, 14, WS_TABSTOP
@@ -405,19 +405,19 @@ CAPTION "Général"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     GROUPBOX "Tâches", -1, 7, 10, 249, 45
-    CONTROL "", IDC_FOLDER_OPTIONS_TASKICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 25, 21, 20
-    AUTORADIOBUTTON "Afficher les tâches habituelles dans les dossiers", IDC_FOLDER_OPTIONS_COMMONTASKS, 40, 25, 120, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Utiliser les dossiers ReactOS class&iques", IDC_FOLDER_OPTIONS_CLASSICFOLDERS, 40, 37, 120, 10
+    ICON "", 30109, 14, 25, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "Afficher les tâches habituelles dans les dossiers", 14001, 40, 25, 120, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Utiliser les dossiers ReactOS class&iques", 14002, 40, 37, 120, 10, WS_TABSTOP | WS_GROUP
     GROUPBOX "Parcourir les dossiers", -1, 7, 60, 249, 45, WS_TABSTOP
-    CONTROL "", IDC_FOLDER_OPTIONS_FOLDERICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 70, 21, 20
-    AUTORADIOBUTTON "Ouvrir tous les dossiers dans la &même fenêtre", IDC_FOLDER_OPTIONS_SAMEWINDOW, 40, 70, 140, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Ouvrir chaque dossier dans sa propre fenêtre", IDC_FOLDER_OPTIONS_OWNWINDOW, 40, 82, 140, 10
+    ICON "", 30110, 14, 70, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "Ouvrir tous les dossiers dans la &même fenêtre", 14004, 40, 70, 140, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Ouvrir chaque dossier dans sa propre fenêtre", 14005, 40, 82, 140, 10, WS_TABSTOP | WS_GROUP
     GROUPBOX "Cliquer sur les éléments de la façon suivante", -1, 7, 110, 249, 60
-    CONTROL "", IDC_FOLDER_OPTIONS_CLICKICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 120, 21, 20
-    AUTORADIOBUTTON "Clic unique pour ouvrir un élément (pointer pour sélectionner)", IDC_FOLDER_OPTIONS_SINGLECLICK, 40, 120, 170, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Toujours souligner les titres des icônes comme dans le navigateur", IDC_FOLDER_OPTIONS_ULBROWSER, 50, 132, 170, 10
-    AUTORADIOBUTTON "Souligner les titres des icônes seulement quand je les &pointe", IDC_FOLDER_OPTIONS_ULPOINT, 50, 144, 170, 10
-    AUTORADIOBUTTON "&Double-cliquer pour ouvrir un élément (clic unique pour le sélectionner)", IDC_FOLDER_OPTIONS_DOUBLECLICK, 40, 156, 170, 10
+    ICON "", 30111, 14, 120, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "Clic unique pour ouvrir un élément (pointer pour sélectionner)", 14007, 40, 120, 170, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Toujours souligner les titres des icônes comme dans le navigateur", 14008, 50, 132, 170, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Souligner les titres des icônes seulement quand je les &pointe", 14009, 50, 144, 170, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "&Double-cliquer pour ouvrir un élément (clic unique pour le sélectionner)", 14010, 40, 156, 170, 10, WS_TABSTOP | WS_GROUP
     PUSHBUTTON "Pa&ramètres par défaut", 14011, 180, 180, 60, 14, WS_TABSTOP
 END
 
@@ -442,7 +442,7 @@ CAPTION "Types de fichiers"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     LTEXT "&Types de fichiers enregistrés :", -1, 7, 10, 70, 10
-    CONTROL "", 14000, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHAREIMAGELISTS | LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP, 7, 20, 249, 80
+    CONTROL "", 14000, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHAREIMAGELISTS | WS_BORDER | WS_TABSTOP, 7, 20, 249, 80
     PUSHBUTTON "&Nouveau", 14001, 120, 110, 50, 14, WS_TABSTOP
     PUSHBUTTON "Supprimer", 14002, 180, 110, 50, 14, WS_TABSTOP
     GROUPBOX "Détails concernant l'extension '%s'", 14003, 7, 130, 249, 70
@@ -475,15 +475,15 @@ BEGIN
     ICON "", 12301, 50, 89, 21, 20, SS_REALSIZECONTROL
 END
 
-IDD_LOG_OFF DIALOGEX 0, 0, 188, 60
+IDD_LOG_OFF DIALOGEX 0, 0, 190, 60
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_CAPTION
 CAPTION "Fermer ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_SHELL_LOGOFF, IDC_STATIC, 7, 7, 20, 20
-    LTEXT "Êtes-vous sûr de vouloir fermer ReactOS ?", -1, 35, 16, 146, 8
-    DEFPUSHBUTTON "Fermer", IDOK, 41, 39, 50, 14
-    PUSHBUTTON "Annuler", IDCANCEL, 95, 39, 50, 14
+    ICON 45, 14344, 10, 10, 21, 20, SS_REALSIZECONTROL
+    LTEXT "Êtes-vous sûr de vouloir fermer ReactOS ?", -1, 43, 11, 140, 22
+    DEFPUSHBUTTON "Fermer", IDOK, 57, 40, 60, 14
+    PUSHBUTTON "Annuler", IDCANCEL, 122, 40, 60, 14
 END
 
 IDD_DISCONNECT DIALOGEX 0, 0, 190, 60
@@ -709,6 +709,8 @@ BEGIN
     IDS_RESTART_PROMPT "Voulez-vous redémarrer votre ordinateur ?"
     IDS_SHUTDOWN_TITLE "Arrêter"
     IDS_SHUTDOWN_PROMPT "Voulez-vous fermer la session ReactOS ?"
+    IDS_LOGOFF_TITLE "Se déconnecter"
+    IDS_LOGOFF_PROMPT "Voulez-vous vous déconnecter ?"
 
     /* Run File dialog */
     IDS_RUNDLG_ERROR "Impossible d'afficher la boîte de dialogue pour l'exécution d'un fichier (erreur interne)"
@@ -814,13 +816,8 @@ BEGIN
 
     IDS_FILE_DETAILS "Détails concernant l'extension '%s'"
     IDS_FILE_DETAILSADV "Les fichiers avec l'extension '%s' sont de type '%s'. Pour modifier les paramètres qui concernent tous les fichiers '%s', cliquez sur Avancé."
-    IDS_FILE_TYPES "File Types"
+    IDS_FILE_TYPES "FileTypes"
     IDS_COLUMN_EXTENSION "Extensions"
-
-    /* As in 'INI File' or 'WAV File', fallback string for no-name extensions
-       used in the _File type_ tab of the _Folder Options_ dialog */
-    IDS_FILE_EXT_TYPE "%s File"
-
     IDS_BYTES_FORMAT "octets"
     IDS_UNKNOWN_APP "Application inconnue"
     IDS_EXE_DESCRIPTION "Description :"

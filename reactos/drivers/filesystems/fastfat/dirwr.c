@@ -84,14 +84,13 @@ vfatRenameEntry(
     PVOID Context = NULL;
     LARGE_INTEGER Offset;
     PFATX_DIR_ENTRY pDirEntry;
+    UNICODE_STRING ShortName;
     NTSTATUS Status;
 
     DPRINT("vfatRenameEntry(%p, %p, %wZ, %d)\n", DeviceExt, pFcb, FileName, CaseChangeOnly);
 
     if (pFcb->Flags & FCB_IS_FATX_ENTRY)
     {
-        VFAT_DIRENTRY_CONTEXT DirContext;
-
         /* Open associated dir entry */
         StartIndex = pFcb->startIndex;
         Offset.u.HighPart = 0;
@@ -116,12 +115,10 @@ vfatRenameEntry(
         CcUnpinData(Context);
 
         /* Update FCB */
-        DirContext.ShortNameU.Length = 0;
-        DirContext.ShortNameU.MaximumLength = 0;
-        DirContext.ShortNameU.Buffer = NULL;
-        DirContext.LongNameU = *FileName;
-        DirContext.DirEntry.FatX = *pDirEntry;
-        Status = vfatUpdateFCB(DeviceExt, pFcb, &DirContext, pFcb->parentFcb);
+        ShortName.Length = 0;
+        ShortName.MaximumLength = 0;
+        ShortName.Buffer = NULL;
+        Status = vfatUpdateFCB(DeviceExt, pFcb, FileName, &ShortName, pFcb->parentFcb);
         if (NT_SUCCESS(Status))
         {
             CcPurgeCacheSection(&pFcb->parentFcb->SectionObjectPointers, NULL, 0, FALSE);
@@ -344,18 +341,6 @@ FATAddEntry(
             if (!NT_SUCCESS(Status))
             {
                 break;
-            }
-            else if (MoveContext)
-            {
-                ASSERT(*Fcb);
-                if (strncmp((char *)SearchContext.DirEntry.Fat.ShortName, (char *)(*Fcb)->entry.Fat.ShortName, 11) == 0)
-                {
-                    if (MoveContext->InPlace)
-                    {
-                        ASSERT(SearchContext.DirEntry.Fat.FileSize == MoveContext->FileSize);
-                        break;
-                    }
-                } 
             }
         }
         if (i == 100) /* FIXME : what to do after this ? */
@@ -603,7 +588,7 @@ FATAddEntry(
     if (MoveContext != NULL)
     {
         /* We're modifying an existing FCB - likely rename/move */
-        Status = vfatUpdateFCB(DeviceExt, *Fcb, &DirContext, ParentFcb);
+        Status = vfatUpdateFCB(DeviceExt, *Fcb, &DirContext.LongNameU, &DirContext.ShortNameU, ParentFcb);
         (*Fcb)->dirIndex = DirContext.DirIndex;
         (*Fcb)->startIndex = DirContext.StartIndex;
     }
@@ -759,7 +744,7 @@ FATXAddEntry(
     {
         /* We're modifying an existing FCB - likely rename/move */
         /* FIXME: check status */
-        vfatUpdateFCB(DeviceExt, *Fcb, &DirContext, ParentFcb);
+        vfatUpdateFCB(DeviceExt, *Fcb, &DirContext.LongNameU, &DirContext.ShortNameU, ParentFcb);
         (*Fcb)->dirIndex = DirContext.DirIndex;
         (*Fcb)->startIndex = DirContext.StartIndex;
     }
@@ -959,7 +944,6 @@ VfatMoveEntry(
 
     OldParent = pFcb->parentFcb;
     CcPurgeCacheSection(&OldParent->SectionObjectPointers, NULL, 0, FALSE);
-    MoveContext.InPlace = (OldParent == ParentFcb);
 
     /* Add our new entry with our cluster */
     Status = VfatAddEntry(DeviceExt,

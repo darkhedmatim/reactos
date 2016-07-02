@@ -29,9 +29,6 @@ Notes:
 
 Revision History:
 
-Licence:
-    GPLv2
-
 --*/
 
 #ifndef __UNIATA_SATA__H__

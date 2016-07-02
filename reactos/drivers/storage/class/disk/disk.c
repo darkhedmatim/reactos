@@ -2248,11 +2248,6 @@ Return Value:
 
             PPARTITION_INFORMATION outputBuffer;
 
-            if (diskData->PartitionNumber == 0) {
-                DPRINT1("HACK: Handling partition 0 request!\n");
-                //ASSERT(FALSE);
-            }
-
             //
             // Update the geometry in case it has changed.
             //
@@ -2274,6 +2269,12 @@ Return Value:
             //
 
             diskData->DriveNotReady = FALSE;
+// HACK: ReactOS partition numbers must be wrong (>0 part)
+            if (diskData->PartitionType == 0 && (diskData->PartitionNumber > 0)) {
+
+                status = STATUS_INVALID_DEVICE_REQUEST;
+                break;
+            }
 
             outputBuffer =
                     (PPARTITION_INFORMATION)Irp->AssociatedIrp.SystemBuffer;
@@ -2310,7 +2311,6 @@ Return Value:
             status = STATUS_INFO_LENGTH_MISMATCH;
 
         }
-#if 0 // HACK: ReactOS partition numbers must be wrong
         else if (diskData->PartitionNumber == 0) {
 
             //
@@ -2321,15 +2321,9 @@ Return Value:
             status = STATUS_INVALID_DEVICE_REQUEST;
 
         }
-#endif
         else {
 
             PPARTITION_INFORMATION_EX outputBuffer;
-
-            if (diskData->PartitionNumber == 0) {
-                DPRINT1("HACK: Handling partition 0 request!\n");
-                //ASSERT(FALSE);
-            }
 
             //
             // Update the geometry in case it has changed.
@@ -2524,7 +2518,7 @@ Return Value:
                     partitionEntry = &partitionList->PartitionEntry[i];
 
                     //
-                    // Check if empty, or describes extended partition or hasn't changed.
+                    // Check if empty, or describes extended partiton or hasn't changed.
                     //
 
                     if (partitionEntry->PartitionType == PARTITION_ENTRY_UNUSED ||
@@ -4885,7 +4879,7 @@ Return Value:
             partitionEntry = &partitionList->PartitionEntry[partition];
 
             //
-            // Check if empty, or describes extended partition or hasn't changed.
+            // Check if empty, or describes extended partiton or hasn't changed.
             //
 
             if (partitionEntry->PartitionType == PARTITION_ENTRY_UNUSED ||
@@ -4995,7 +4989,7 @@ Return Value:
         partitionEntry = &partitionList->PartitionEntry[partition];
 
         //
-        // Check if empty, or describes an extended partition.
+        // Check if empty, or describes an extended partiton.
         //
 
         if (partitionEntry->PartitionType == PARTITION_ENTRY_UNUSED ||

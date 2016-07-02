@@ -10,8 +10,6 @@
 
 #define IDM_FILE_NEW     1002
 #define IDM_FILE_OPEN    1003
-#define IDM_FILE_SAVE    1004
-#define IDM_FILE_SAVEAS  1005
 #define IDM_FILE_EXIT    1010
 #define IDM_WINDOWS_LIST 2001
 #define IDM_HELP_ABOUT   9001

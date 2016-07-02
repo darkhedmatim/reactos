@@ -75,7 +75,9 @@ static void expect_guid(REFGUID expected, REFGUID got, int line, BOOL todo)
     WideCharToMultiByte(CP_ACP, 0, bufferW, sizeof(bufferW)/sizeof(bufferW[0]), buffer, sizeof(buffer), NULL, NULL);
     StringFromGUID2(expected, bufferW, sizeof(bufferW)/sizeof(bufferW[0]));
     WideCharToMultiByte(CP_ACP, 0, bufferW, sizeof(bufferW)/sizeof(bufferW[0]), buffer2, sizeof(buffer2), NULL, NULL);
-    todo_wine_if (todo)
+    if(todo)
+        todo_wine ok_(__FILE__, line)(IsEqualGUID(expected, got), "Expected %s, got %s\n", buffer2, buffer);
+    else
         ok_(__FILE__, line)(IsEqualGUID(expected, got), "Expected %s, got %s\n", buffer2, buffer);
 }
 
@@ -1466,36 +1468,36 @@ static void test_loadwmf(void)
 
     stat = GdipGetImageBounds(img, &bounds, &unit);
     expect(Ok, stat);
-    expect(UnitPixel, unit);
+    todo_wine expect(UnitPixel, unit);
     expectf(0.0, bounds.X);
     expectf(0.0, bounds.Y);
-    expectf(320.0, bounds.Width);
-    expectf(320.0, bounds.Height);
+    todo_wine expectf(320.0, bounds.Width);
+    todo_wine expectf(320.0, bounds.Height);
 
     stat = GdipGetImageHorizontalResolution(img, &res);
     expect(Ok, stat);
-    expectf(1440.0, res);
+    todo_wine expectf(1440.0, res);
 
     stat = GdipGetImageVerticalResolution(img, &res);
     expect(Ok, stat);
-    expectf(1440.0, res);
+    todo_wine expectf(1440.0, res);
 
     memset(&header, 0, sizeof(header));
     stat = GdipGetMetafileHeaderFromMetafile((GpMetafile*)img, &header);
     expect(Ok, stat);
     if (stat == Ok)
     {
-        expect(MetafileTypeWmfPlaceable, header.Type);
+        todo_wine expect(MetafileTypeWmfPlaceable, header.Type);
         todo_wine expect(sizeof(wmfimage)-sizeof(WmfPlaceableFileHeader), header.Size);
         todo_wine expect(0x300, header.Version);
         expect(0, header.EmfPlusFlags);
-        expectf(1440.0, header.DpiX);
-        expectf(1440.0, header.DpiY);
+        todo_wine expectf(1440.0, header.DpiX);
+        todo_wine expectf(1440.0, header.DpiY);
         expect(0, header.X);
         expect(0, header.Y);
-        expect(320, header.Width);
-        expect(320, header.Height);
-        expect(1, U(header).WmfHeader.mtType);
+        todo_wine expect(320, header.Width);
+        todo_wine expect(320, header.Height);
+        todo_wine expect(1, U(header).WmfHeader.mtType);
         expect(0, header.EmfPlusHeaderSize);
         expect(0, header.LogicalDpiX);
         expect(0, header.LogicalDpiY);
@@ -1543,17 +1545,17 @@ static void test_createfromwmf(void)
     expect(Ok, stat);
     if (stat == Ok)
     {
-        expect(MetafileTypeWmfPlaceable, header.Type);
+        todo_wine expect(MetafileTypeWmfPlaceable, header.Type);
         todo_wine expect(sizeof(wmfimage)-sizeof(WmfPlaceableFileHeader), header.Size);
         todo_wine expect(0x300, header.Version);
         expect(0, header.EmfPlusFlags);
-        expectf(1440.0, header.DpiX);
-        expectf(1440.0, header.DpiY);
+        todo_wine expectf(1440.0, header.DpiX);
+        todo_wine expectf(1440.0, header.DpiY);
         expect(0, header.X);
         expect(0, header.Y);
-        expect(320, header.Width);
-        expect(320, header.Height);
-        expect(1, U(header).WmfHeader.mtType);
+        todo_wine expect(320, header.Width);
+        todo_wine expect(320, header.Height);
+        todo_wine expect(1, U(header).WmfHeader.mtType);
         expect(0, header.EmfPlusHeaderSize);
         expect(0, header.LogicalDpiX);
         expect(0, header.LogicalDpiY);
@@ -4316,8 +4318,10 @@ static void test_DrawImage_scale(void)
         expect(Ok, status);
 
         match = memcmp(dst_8x1, td[i].image, sizeof(dst_8x1)) == 0;
-        todo_wine_if (!match && td[i].todo)
-            ok(match, "%d: data should match\n", i);
+        if (!match && td[i].todo)
+        todo_wine ok(match, "%d: data should match\n", i);
+        else
+        ok(match, "%d: data should match\n", i);
         if (!match)
         {
             UINT i, size = sizeof(dst_8x1);
@@ -4695,7 +4699,9 @@ static void test_supported_encoders(void)
         ok(hr == S_OK, "CreateStreamOnHGlobal error %#x\n", hr);
 
         status = GdipSaveImageToStream((GpImage *)bm, stream, &clsid, NULL);
-        todo_wine_if (td[i].todo)
+        if (td[i].todo)
+            todo_wine ok(status == Ok, "GdipSaveImageToStream error %d\n", status);
+        else
             ok(status == Ok, "GdipSaveImageToStream error %d\n", status);
 
         IStream_Release(stream);

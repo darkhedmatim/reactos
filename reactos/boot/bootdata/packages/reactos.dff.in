@@ -69,7 +69,6 @@ Signature = "$ReactOS$"
 50 = security\templates
 51 = system32\CatRoot
 52 = system32\CatRoot2
-53 = AppPatch
 
 .InfEnd
 

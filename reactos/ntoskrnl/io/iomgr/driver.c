@@ -463,7 +463,8 @@ IopInitializeDriverModule(
     IN BOOLEAN FileSystemDriver,
     OUT PDRIVER_OBJECT *DriverObject)
 {
-    static const WCHAR ServicesKeyName[] = L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\";
+    const WCHAR ServicesKeyName[] = L"\\Registry\\Machine\\System\\CurrentControlSet\\Services\\";
+    WCHAR NameBuffer[MAX_PATH];
     UNICODE_STRING DriverName;
     UNICODE_STRING RegistryKey;
     PDRIVER_INITIALIZE DriverEntry;
@@ -476,9 +477,7 @@ IopInitializeDriverModule(
     {
         RegistryKey.Length = 0;
         RegistryKey.MaximumLength = sizeof(ServicesKeyName) + ServiceName->Length;
-        RegistryKey.Buffer = ExAllocatePoolWithTag(PagedPool,
-                                                   RegistryKey.MaximumLength,
-                                                   TAG_IO);
+        RegistryKey.Buffer = ExAllocatePool(PagedPool, RegistryKey.MaximumLength);
         if (RegistryKey.Buffer == NULL)
         {
             return STATUS_INSUFFICIENT_RESOURCES;
@@ -488,35 +487,26 @@ IopInitializeDriverModule(
     }
     else
     {
-        RtlInitEmptyUnicodeString(&RegistryKey, NULL, 0);
+        RtlInitUnicodeString(&RegistryKey, NULL);
     }
 
     /* Create ModuleName string */
     if (ServiceName && ServiceName->Length > 0)
     {
-        DriverName.Length = 0;
-        DriverName.MaximumLength = sizeof(FILESYSTEM_ROOT_NAME) + ServiceName->Length;
-        DriverName.Buffer = ExAllocatePoolWithTag(PagedPool,
-                                                  DriverName.MaximumLength,
-                                                  TAG_IO);
-        if (DriverName.Buffer == NULL)
-        {
-            RtlFreeUnicodeString(&RegistryKey);
-            return STATUS_INSUFFICIENT_RESOURCES;
-        }
-
         if (FileSystemDriver != FALSE)
-            RtlAppendUnicodeToString(&DriverName, FILESYSTEM_ROOT_NAME);
+            wcscpy(NameBuffer, FILESYSTEM_ROOT_NAME);
         else
-            RtlAppendUnicodeToString(&DriverName, DRIVER_ROOT_NAME);
+            wcscpy(NameBuffer, DRIVER_ROOT_NAME);
+
+        RtlInitUnicodeString(&DriverName, NameBuffer);
+        DriverName.MaximumLength = sizeof(NameBuffer);
+
         RtlAppendUnicodeStringToString(&DriverName, ServiceName);
 
         DPRINT("Driver name: '%wZ'\n", &DriverName);
     }
     else
-    {
-        RtlInitEmptyUnicodeString(&DriverName, NULL, 0);
-    }
+        DriverName.Length = 0;
 
     Status = IopCreateDriver(DriverName.Length > 0 ? &DriverName : NULL,
                              DriverEntry,
@@ -525,7 +515,6 @@ IopInitializeDriverModule(
                              ModuleObject,
                              &Driver);
     RtlFreeUnicodeString(&RegistryKey);
-    RtlFreeUnicodeString(&DriverName);
 
     *DriverObject = Driver;
     if (!NT_SUCCESS(Status))
@@ -885,7 +874,6 @@ IopInitializeBuiltinDriver(IN PLDR_DATA_TABLE_ENTRY BootLdrEntry)
     PLDR_DATA_TABLE_ENTRY LdrEntry;
     PLIST_ENTRY NextEntry;
     UNICODE_STRING ServiceName;
-    BOOLEAN Success;
 
     /*
      * Display 'Loading XXX...' message
@@ -909,12 +897,7 @@ IopInitializeBuiltinDriver(IN PLDR_DATA_TABLE_ENTRY BootLdrEntry)
     /*
      * Strip the file extension from ServiceName
      */
-    Success = RtlCreateUnicodeString(&ServiceName, FileNameWithoutPath);
-    if (!Success)
-    {
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
+    RtlCreateUnicodeString(&ServiceName, FileNameWithoutPath);
     FileExtension = wcsrchr(ServiceName.Buffer, '.');
     if (FileExtension != NULL)
     {
@@ -930,7 +913,6 @@ IopInitializeBuiltinDriver(IN PLDR_DATA_TABLE_ENTRY BootLdrEntry)
                                  NULL,
                                  &ServiceName,
                                  &DeviceNode);
-    RtlFreeUnicodeString(&ServiceName);
     if (!NT_SUCCESS(Status))
     {
         DPRINT1("Driver '%wZ' load failed, status (%x)\n", ModuleName, Status);
@@ -2013,8 +1995,8 @@ IopLoadUnloadDriver(
      */
     Status = IopGetDriverObject(DriverObject,
                                 &ServiceName,
-                                (Type == SERVICE_FILE_SYSTEM_DRIVER ||
-                                 Type == SERVICE_RECOGNIZER_DRIVER));
+                                (Type == 2 /* SERVICE_FILE_SYSTEM_DRIVER */ ||
+                                 Type == 8 /* SERVICE_RECOGNIZER_DRIVER */));
 
     if (!NT_SUCCESS(Status))
     {
@@ -2049,8 +2031,8 @@ IopLoadUnloadDriver(
         Status = IopInitializeDriverModule(DeviceNode,
                                            ModuleObject,
                                            &DeviceNode->ServiceName,
-                                           (Type == SERVICE_FILE_SYSTEM_DRIVER ||
-                                            Type == SERVICE_RECOGNIZER_DRIVER),
+                                           (Type == 2 /* SERVICE_FILE_SYSTEM_DRIVER */ ||
+                                            Type == 8 /* SERVICE_RECOGNIZER_DRIVER */),
                                            DriverObject);
         if (!NT_SUCCESS(Status))
         {

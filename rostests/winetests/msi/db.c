@@ -23,10 +23,11 @@
 #include <stdio.h>
 
 #include <windows.h>
-#include <objidl.h>
 #include <msi.h>
 #include <msidefs.h>
 #include <msiquery.h>
+
+#include <objidl.h>
 
 #include "wine/test.h"
 
@@ -1286,15 +1287,13 @@ static void test_viewgetcolumninfo(void)
     r = run_query( hdb, 0,
             "CREATE TABLE `Properties` "
             "( `Property` CHAR(255), "
-            "  `Value` CHAR(1), "
-            "  `Intvalue` INT, "
-            "  `Integervalue` INTEGER, "
-            "  `Shortvalue` SHORT, "
-            "  `Longvalue` LONG, "
-            "  `Longcharvalue` LONGCHAR, "
-            "  `Charvalue` CHAR, "
-            "  `Localizablevalue` CHAR LOCALIZABLE "
-            "  PRIMARY KEY `Property`)" );
+	    "  `Value` CHAR(1), "
+	    "  `Intvalue` INT, "
+	    "  `Integervalue` INTEGER, "
+	    "  `Shortvalue` SHORT, "
+	    "  `Longvalue` LONG, "
+	    "  `Longcharvalue` LONGCHAR "
+	    "  PRIMARY KEY `Property`)" );
     ok( r == ERROR_SUCCESS , "Failed to create table\n" );
 
     /* check the column types */
@@ -1308,8 +1307,6 @@ static void test_viewgetcolumninfo(void)
     ok( check_record( rec, 5, "I2"), "wrong record type\n");
     ok( check_record( rec, 6, "I4"), "wrong record type\n");
     ok( check_record( rec, 7, "S0"), "wrong record type\n");
-    ok( check_record( rec, 8, "S0"), "wrong record type\n");
-    ok( check_record( rec, 9, "L0"), "wrong record type\n");
 
     MsiCloseHandle( rec );
 
@@ -1321,8 +1318,6 @@ static void test_viewgetcolumninfo(void)
     ok( 0x1502 == get_columns_table_type(hdb, "Properties", 5 ), "_columns table wrong\n");
     ok( 0x1104 == get_columns_table_type(hdb, "Properties", 6 ), "_columns table wrong\n");
     ok( 0x1d00 == get_columns_table_type(hdb, "Properties", 7 ), "_columns table wrong\n");
-    ok( 0x1d00 == get_columns_table_type(hdb, "Properties", 8 ), "_columns table wrong\n");
-    ok( 0x1f00 == get_columns_table_type(hdb, "Properties", 9 ), "_columns table wrong\n");
 
     /* now try the names */
     rec = get_column_info( hdb, "select * from `Properties`", MSICOLINFO_NAMES );
@@ -1335,8 +1330,6 @@ static void test_viewgetcolumninfo(void)
     ok( check_record( rec, 5, "Shortvalue"), "wrong record type\n");
     ok( check_record( rec, 6, "Longvalue"), "wrong record type\n");
     ok( check_record( rec, 7, "Longcharvalue"), "wrong record type\n");
-    ok( check_record( rec, 8, "Charvalue"), "wrong record type\n");
-    ok( check_record( rec, 9, "Localizablevalue"), "wrong record type\n");
 
     MsiCloseHandle( rec );
 
@@ -7273,7 +7266,7 @@ static void test_forcecodepage(void)
     create_file_data("forcecodepage.idt", "\r\n\r\n9999\t_ForceCodepage\r\n", 0);
 
     r = MsiDatabaseImportA(hdb, CURR_DIR, "forcecodepage.idt");
-    ok(r == ERROR_FUNCTION_FAILED, "Expected ERROR_FUNCTION_FAILED, got %d\n", r);
+    ok(r == ERROR_FUNCTION_FAILED, "Expected ERROR_SUCCESS, got %d\n", r);
 
     MsiCloseHandle(hdb);
     DeleteFileA(msifile);
@@ -8068,7 +8061,7 @@ static void test_dbmerge(void)
     r = run_query(href, 0, query);
     ok(r == ERROR_SUCCESS, "Expected ERROR_SUCCESS, got %d\n", r);
 
-    /* column string types don't match exactly */
+    /* column sting types don't match exactly */
     r = MsiDatabaseMergeA(hdb, href, "MergeErrors");
     ok(r == ERROR_SUCCESS,
        "Expected ERROR_SUCCESS, got %d\n", r);

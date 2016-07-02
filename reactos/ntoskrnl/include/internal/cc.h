@@ -149,7 +149,6 @@ typedef struct _ROS_SHARED_CACHE_MAP
     PFILE_OBJECT FileObject;
     LARGE_INTEGER SectionSize;
     LARGE_INTEGER FileSize;
-    BOOLEAN PinAccess;
     PCACHE_MANAGER_CALLBACKS Callbacks;
     PVOID LazyWriteContext;
     KSPIN_LOCK CacheMapLock;
@@ -184,8 +183,6 @@ typedef struct _ROS_VACB
     KMUTEX Mutex;
     /* Number of references. */
     ULONG ReferenceCount;
-    /* How many times was it pinned? */
-    volatile LONG PinCount;
     /* Pointer to the shared cache map for the file which this view maps data for. */
     PROS_SHARED_CACHE_MAP SharedCacheMap;
     /* Pointer to the next VACB in a chain. */
@@ -193,12 +190,9 @@ typedef struct _ROS_VACB
 
 typedef struct _INTERNAL_BCB
 {
-    /* Lock */
-    ERESOURCE Lock;
     PUBLIC_BCB PFCB;
     PROS_VACB Vacb;
     BOOLEAN Dirty;
-    BOOLEAN Pinned;
     CSHORT RefCount; /* (At offset 0x34 on WinNT4) */
 } INTERNAL_BCB, *PINTERNAL_BCB;
 
@@ -325,7 +319,6 @@ NTAPI
 CcRosInitializeFileCache(
     PFILE_OBJECT FileObject,
     PCC_FILE_SIZES FileSizes,
-    BOOLEAN PinAccess,
     PCACHE_MANAGER_CALLBACKS CallBacks,
     PVOID LazyWriterContext
 );

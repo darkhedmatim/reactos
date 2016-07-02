@@ -20,9 +20,13 @@
 /* INCLUDES *******************************************************************/
 
 #include <freeldr.h>
-#include <debug.h>
 
 /* GLOBALS ********************************************************************/
+
+// ARC Disk Information
+ARC_DISK_SIGNATURE reactos_arc_disk_info[32];
+ULONG reactos_disk_count = 0;
+CHAR reactos_arc_strings[32][256];
 
 typedef
 VOID
@@ -127,7 +131,7 @@ ULONG GetDefaultOperatingSystem(OperatingSystemItem* OperatingSystemList, ULONG 
 
     if (DefaultOSName != NULL)
     {
-        for (Idx = 0; Idx < OperatingSystemCount; Idx++)
+        for (Idx = 0; Idx<OperatingSystemCount; Idx++)
         {
             if (_stricmp(DefaultOSName, OperatingSystemList[Idx].SystemPartition) == 0)
             {
@@ -204,9 +208,6 @@ VOID RunLoader(VOID)
         return;
     }
 
-    /* Debugger main initialization */
-    DebugInit(TRUE);
-
     if (!IniOpenSection("FreeLoader", &SectionId))
     {
         UiMessageBoxCritical("Section [FreeLoader] not found in freeldr.ini.");
@@ -215,7 +216,6 @@ VOID RunLoader(VOID)
 
     TimeOut = GetTimeOut();
 
-    /* UI main initialization */
     if (!UiInitialize(TRUE))
     {
         UiMessageBoxCritical("Unable to initialize UI.");

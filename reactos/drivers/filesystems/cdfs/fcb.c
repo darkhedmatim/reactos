@@ -97,7 +97,6 @@ CdfsCreateFCB(PCWSTR FileName)
     Fcb->RFCB.Resource = &Fcb->MainResource;
     Fcb->RFCB.IsFastIoPossible = FastIoIsNotPossible;
     InitializeListHead(&Fcb->ShortNameList);
-    FsRtlInitializeFileLock(&Fcb->FileLock, NULL, NULL);
 
     return(Fcb);
 }
@@ -108,7 +107,6 @@ CdfsDestroyFCB(PFCB Fcb)
 {
     PLIST_ENTRY Entry;
 
-    FsRtlUninitializeFileLock(&Fcb->FileLock);
     ExDeleteResourceLite(&Fcb->PagingIoResource);
     ExDeleteResourceLite(&Fcb->MainResource);
 

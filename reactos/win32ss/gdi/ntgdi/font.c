@@ -117,7 +117,7 @@ DWORD
 FASTCALL
 GreGetCharacterPlacementW(
     HDC hdc,
-    LPCWSTR pwsz,
+    LPWSTR pwsz,
     INT nCount,
     INT nMaxExtent,
     LPGCP_RESULTSW pgcpw,
@@ -900,7 +900,7 @@ NtGdiGetFontResourceInfoInternalW(
     SafeFileNames.MaximumLength = SafeFileNames.Length = (USHORT)cbStringSize - sizeof(WCHAR);
     SafeFileNames.Buffer = ExAllocatePoolWithTag(PagedPool,
                                                  cbStringSize,
-                                                 TAG_USTR);
+                                                 'RTSU');
     if (!SafeFileNames.Buffer)
     {
         EngSetLastError(ERROR_NOT_ENOUGH_MEMORY);
@@ -926,7 +926,7 @@ NtGdiGetFontResourceInfoInternalW(
     {
         SetLastNtError(Status);
         /* Free the string buffer for the safe filename */
-        ExFreePoolWithTag(SafeFileNames.Buffer, TAG_USTR);
+        ExFreePoolWithTag(SafeFileNames.Buffer,'RTSU');
         return FALSE;
     }
 
@@ -957,7 +957,7 @@ NtGdiGetFontResourceInfoInternalW(
     }
 
     /* Free the string for the safe filenames */
-    ExFreePoolWithTag(SafeFileNames.Buffer, TAG_USTR);
+    ExFreePoolWithTag(SafeFileNames.Buffer,'RTSU');
 
     return bRet;
 }

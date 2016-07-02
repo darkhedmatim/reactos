@@ -38,7 +38,6 @@ list(APPEND ACPICA_SOURCE
     acpica/events/evxfevnt.c
     acpica/events/evxfgpe.c
     acpica/events/evxfregn.c
-    acpica/executer/exconcat.c
     acpica/executer/exconfig.c
     acpica/executer/exconvrt.c
     acpica/executer/excreate.c
@@ -62,7 +61,6 @@ list(APPEND ACPICA_SOURCE
     acpica/executer/exstoren.c
     acpica/executer/exstorob.c
     acpica/executer/exsystem.c
-    acpica/executer/extrace.c
     acpica/executer/exutils.c
     acpica/hardware/hwacpi.c
     acpica/hardware/hwesleep.c
@@ -172,7 +170,7 @@ add_library(acpica
     acpica/utilities/utglobal.c)
 
 add_pch(acpica acpica/include/acpi.h ACPICA_SOURCE)
-set_target_properties(acpica PROPERTIES COMPILE_DEFINITIONS "ACPI_USE_LOCAL_CACHE;ACPI_USE_SYSTEM_CLIBRARY")
+set_target_properties(acpica PROPERTIES COMPILE_DEFINITIONS "ACPI_USE_LOCAL_CACHE")
 add_dependencies(acpica bugcodes xdk)
 
 list(APPEND ACPI_SOURCE
@@ -193,7 +191,7 @@ list(APPEND ACPI_SOURCE
 
 add_library(acpi SHARED ${ACPI_SOURCE})
 set_module_type(acpi kernelmodedriver)
-target_link_libraries(acpi wdmguid acpica memcmp strtol ${PSEH_LIB})
+target_link_libraries(acpi wdmguid acpica ${PSEH_LIB})
 add_importlibs(acpi ntoskrnl hal)
 add_pch(acpi precomp.h ACPI_SOURCE)
 add_cd_file(TARGET acpi DESTINATION reactos/system32/drivers NO_CAB FOR all)

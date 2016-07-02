@@ -9,7 +9,6 @@
 /* INCLUDES ******************************************************************/
 
 #include "bl.h"
-#include "bcd.h"
 
 /* DATA VARIABLES ************************************************************/
 
@@ -39,35 +38,7 @@ BlMmRemoveBadMemory (
     VOID
     )
 {
-    BOOLEAN AllowBad;
-    NTSTATUS Status;
-    PULONGLONG BadPages;
-    ULONGLONG BadPageCount;
-
-    /* First check if bad memory access is allowed */
-    AllowBad = FALSE;
-    Status = BlGetBootOptionBoolean(BlpApplicationEntry.BcdData,
-                                    BcdLibraryBoolean_AllowBadMemoryAccess,
-                                    &AllowBad);
-    if ((NT_SUCCESS(Status)) && (AllowBad))
-    {
-        /* No point checking the list if it is */
-        return STATUS_SUCCESS;
-    }
-
-    /* Otherwise, check if there's a persisted bad page list */
-    Status = BlpGetBootOptionIntegerList(BlpApplicationEntry.BcdData,
-                                         BcdLibraryIntegerList_BadMemoryList,
-                                         &BadPages,
-                                         &BadPageCount,
-                                         TRUE);
-    if (NT_SUCCESS(Status))
-    {
-        EfiPrintf(L"Persistent bad page list not supported\r\n");
-        return STATUS_NOT_IMPLEMENTED;
-    }
-
-    /* All done here */
+    /* FIXME: Read BCD option to see what bad memory to remove */
     return STATUS_SUCCESS;
 }
 

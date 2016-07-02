@@ -1,6 +1,8 @@
 
-include_directories(BEFORE ${REACTOS_SOURCE_DIR}/sdk/include/reactos/wine)
+include_directories(BEFORE ${REACTOS_SOURCE_DIR}/include/reactos/wine)
+
 remove_definitions(-DWINVER=0x502 -D_WIN32_IE=0x600 -D_WIN32_WINNT=0x502)
+
 add_definitions(-D__WINESRC__)
 
 list(APPEND SOURCE
@@ -11,7 +13,7 @@ list(APPEND SOURCE
     error.c
     exception.c
     file.c
-    generated_${ARCH}.c
+    generated.c
     info.c
     large_int.c
     om.c

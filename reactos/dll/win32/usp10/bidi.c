@@ -258,7 +258,7 @@ typedef struct tagStackItem {
 
 #define valid_level(x) (x <= MAX_DEPTH && overflow_isolate_count == 0 && overflow_embedding_count == 0)
 
-static void resolveExplicit(int level, WORD *pclass, WORD *poutLevel, WORD *poutOverrides, int count, BOOL initialOverride)
+static void resolveExplicit(int level, WORD *pclass, WORD *poutLevel, int count)
 {
     /* X1 */
     int overflow_isolate_count = 0;
@@ -273,18 +273,8 @@ static void resolveExplicit(int level, WORD *pclass, WORD *poutLevel, WORD *pout
     stack[stack_top].override = NI;
     stack[stack_top].isolate = FALSE;
 
-    if (initialOverride)
-    {
-        if (odd(level))
-            push_stack(level, R, FALSE);
-        else
-            push_stack(level, L, FALSE);
-    }
-
     for (i = 0; i < count; i++)
     {
-        poutOverrides[i] = stack[stack_top].override;
-
         /* X2 */
         if (pclass[i] == RLE)
         {
@@ -1116,8 +1106,7 @@ BOOL BIDI_DetermineLevels(
                 INT uCount,     /* [in] Number of WCHARs in string. */
                 const SCRIPT_STATE *s,
                 const SCRIPT_CONTROL *c,
-                WORD *lpOutLevels, /* [out] final string levels */
-                WORD *lpOutOverrides /* [out] final string overrides */
+                WORD *lpOutLevels /* [out] final string levels */
     )
 {
     WORD *chartype;
@@ -1139,10 +1128,8 @@ BOOL BIDI_DetermineLevels(
     classify(lpString, chartype, uCount, c);
     if (TRACE_ON(bidi)) dump_types("Start ", chartype, 0, uCount);
 
-    memset(lpOutOverrides, 0, sizeof(WORD) * uCount);
-
     /* resolve explicit */
-    resolveExplicit(baselevel, chartype, lpOutLevels, lpOutOverrides, uCount, s->fOverrideDirection);
+    resolveExplicit(baselevel, chartype, lpOutLevels, uCount);
     if (TRACE_ON(bidi)) dump_types("After Explicit", chartype, 0, uCount);
 
     /* X10/BD13: Computer Isolating runs */

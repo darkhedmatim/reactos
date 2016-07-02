@@ -87,12 +87,6 @@ NtfsReadDisk(IN PDEVICE_OBJECT DeviceObject,
     if (Irp == NULL)
     {
         DPRINT("IoBuildSynchronousFsdRequest failed\n");
-
-        if (AllocatedBuffer)
-        {
-            ExFreePoolWithTag(ReadBuffer, TAG_NTFS);
-        }
-
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
@@ -114,13 +108,9 @@ NtfsReadDisk(IN PDEVICE_OBJECT DeviceObject,
         Status = IoStatus.Status;
     }
 
-    if (AllocatedBuffer)
+    if (NT_SUCCESS(Status) && AllocatedBuffer)
     {
-        if (NT_SUCCESS(Status))
-        {
-            RtlCopyMemory(Buffer, ReadBuffer + (StartingOffset - RealReadOffset), Length);
-        }
-
+        RtlCopyMemory(Buffer, ReadBuffer + (StartingOffset - RealReadOffset), Length);
         ExFreePoolWithTag(ReadBuffer, TAG_NTFS);
     }
 

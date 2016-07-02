@@ -656,8 +656,13 @@ PAGER_NCCalcSize(PAGER_INFO* infoPtr, WPARAM wParam, LPRECT lpRect)
 	    lpRect->bottom -= infoPtr->nButtonSize;
     }
 
-    TRACE("nPos=%d, nHeight=%d, window=%s\n", infoPtr->nPos, infoPtr->nHeight, wine_dbgstr_rect(&rcWindow));
-    TRACE("[%p] client rect set to %s BtnState[%d,%d]\n", infoPtr->hwndSelf, wine_dbgstr_rect(lpRect),
+    TRACE("nPos=%d, nHeight=%d, window=%s\n",
+          infoPtr->nPos, infoPtr->nHeight,
+          wine_dbgstr_rect(&rcWindow));
+
+    TRACE("[%p] client rect set to %dx%d at (%d,%d) BtnState[%d,%d]\n",
+	  infoPtr->hwndSelf, lpRect->right-lpRect->left, lpRect->bottom-lpRect->top,
+	  lpRect->left, lpRect->top,
 	  infoPtr->TLbtnState, infoPtr->BRbtnState);
 
     return 0;

@@ -117,18 +117,10 @@ CcSetBcbOwnerPointer (
 	IN	PVOID	Owner
 	)
 {
-    PINTERNAL_BCB iBcb = Bcb;
-
     CCTRACE(CC_API_DEBUG, "Bcb=%p Owner=%p\n",
         Bcb, Owner);
 
-    if (!ExIsResourceAcquiredExclusiveLite(&iBcb->Lock) && !ExIsResourceAcquiredSharedLite(&iBcb->Lock))
-    {
-        DPRINT1("Current thread doesn't own resource!\n");
-        return;
-    }
-
-    ExSetResourceOwnerPointer(&iBcb->Lock, Owner);
+	UNIMPLEMENTED;
 }
 
 /*

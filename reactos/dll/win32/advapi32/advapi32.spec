@@ -1,4 +1,4 @@
-1 stdcall I_ScGetCurrentGroupStateW(ptr wstr ptr)
+1 stub I_ScGetCurrentGroupStateW
 2 stdcall A_SHAFinal(ptr ptr)
 3 stdcall A_SHAInit(ptr)
 4 stdcall A_SHAUpdate(ptr ptr long)
@@ -126,7 +126,7 @@
 126 stdcall CredUnmarshalCredentialW(wstr ptr ptr)
 127 stdcall CredWriteA(ptr long)
 # CredWriteDomainCredentialsA
-129 stub CredWriteDomainCredentialsW
+# CredWriteDomainCredentialsW
 130 stdcall CredWriteW(ptr long)
 131 stub CredpConvertCredential
 132 stub CredpConvertTargetInfo
@@ -180,27 +180,27 @@
 180 stub DuplicateEncryptionInfoFile
 181 stdcall DuplicateToken(long long ptr)
 182 stdcall DuplicateTokenEx(long long ptr long long ptr)
-183 stdcall ElfBackupEventLogFileA(long ptr)
-184 stdcall ElfBackupEventLogFileW(long ptr)
-185 stdcall ElfChangeNotify(long long)
-186 stdcall ElfClearEventLogFileA(long ptr)
-187 stdcall ElfClearEventLogFileW(long ptr)
-188 stdcall ElfCloseEventLog(long)
+183 stub ElfBackupEventLogFileA
+184 stub ElfBackupEventLogFileW
+185 stub ElfChangeNotify
+186 stub ElfClearEventLogFileA
+187 stub ElfClearEventLogFileW
+188 stub ElfCloseEventLog
 189 stdcall ElfDeregisterEventSource(long)
-190 stdcall ElfFlushEventLog(long)
-191 stdcall ElfNumberOfRecords(long ptr)
-192 stdcall ElfOldestRecord(long ptr)
-193 stdcall ElfOpenBackupEventLogA(ptr ptr ptr)
-194 stdcall ElfOpenBackupEventLogW(ptr ptr ptr)
-195 stdcall ElfOpenEventLogA(ptr ptr ptr)
-196 stdcall ElfOpenEventLogW(ptr ptr ptr)
-197 stdcall ElfReadEventLogA(long long long ptr long ptr ptr)
-198 stdcall ElfReadEventLogW(long long long ptr long ptr ptr)
-199 stdcall ElfRegisterEventSourceA(ptr ptr ptr)
+190 stub ElfFlushEventLog
+191 stub ElfNumberOfRecords
+192 stub ElfOldestRecord
+193 stub ElfOpenBackupEventLogA
+194 stub ElfOpenBackupEventLogW
+195 stub ElfOpenEventLogA
+196 stub ElfOpenEventLogW
+197 stub ElfReadEventLogA
+198 stub ElfReadEventLogW
+199 stub ElfRegisterEventSourceA
 200 stdcall ElfRegisterEventSourceW(ptr ptr ptr)
-201 stdcall ElfReportEventA(long long long long ptr long long ptr ptr long ptr ptr)
-202 stdcall ElfReportEventAndSourceW(long long ptr long long long ptr ptr long long ptr ptr long ptr ptr)
-203 stdcall ElfReportEventW(long long long long ptr long long ptr ptr long ptr ptr)
+201 stub ElfReportEventA
+202 stub ElfReportEventAndSourceW
+203 stdcall ElfReportEventW(long long long long ptr long long ptr ptr ptr ptr ptr)
 204 stdcall EnableTrace(long long long ptr double) ntdll.EtwEnableTrace
 205 stdcall EncryptFileA(str)
 206 stdcall EncryptFileW(wstr)
@@ -322,8 +322,8 @@
 322 stdcall IsWellKnownSid(ptr long)
 323 stdcall LockServiceDatabase(ptr)
 324 stdcall LogonUserA(str str str long long ptr)
-325 stdcall LogonUserExA(str str str long long ptr ptr ptr ptr ptr)
-326 stdcall LogonUserExW(wstr wstr wstr long long ptr ptr ptr ptr ptr)
+325 stub LogonUserExA
+326 stub LogonUserExW
 327 stdcall LogonUserW(wstr wstr wstr long long ptr)
 328 stdcall LookupAccountNameA(str str ptr ptr ptr ptr ptr)
 329 stdcall LookupAccountNameW(wstr wstr ptr ptr ptr ptr ptr)

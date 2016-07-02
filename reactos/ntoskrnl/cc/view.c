@@ -425,10 +425,7 @@ CcRosReleaseVacb (
 
     KeReleaseSpinLock(&SharedCacheMap->CacheMapLock, oldIrql);
     KeReleaseGuardedMutex(&ViewLock);
-    if (InterlockedCompareExchange(&Vacb->PinCount, 0, 0) == 0)
-    {
-        KeReleaseMutex(&Vacb->Mutex, FALSE);
-    }
+    KeReleaseMutex(&Vacb->Mutex, FALSE);
 
     return STATUS_SUCCESS;
 }
@@ -465,14 +462,11 @@ CcRosLookupVacb (
             CcRosVacbIncRefCount(current);
             KeReleaseSpinLock(&SharedCacheMap->CacheMapLock, oldIrql);
             KeReleaseGuardedMutex(&ViewLock);
-            if (InterlockedCompareExchange(&current->PinCount, 0, 0) == 0)
-            {
-                KeWaitForSingleObject(&current->Mutex,
-                                      Executive,
-                                      KernelMode,
-                                      FALSE,
-                                      NULL);
-            }
+            KeWaitForSingleObject(&current->Mutex,
+                                  Executive,
+                                  KernelMode,
+                                  FALSE,
+                                  NULL);
             return current;
         }
         if (current->FileOffset.QuadPart > FileOffset)
@@ -681,7 +675,6 @@ CcRosCreateVacb (
     current->DirtyVacbListEntry.Flink = NULL;
     current->DirtyVacbListEntry.Blink = NULL;
     current->ReferenceCount = 1;
-    current->PinCount = 0;
     KeInitializeMutex(&current->Mutex, 0);
     KeWaitForSingleObject(&current->Mutex,
                           Executive,
@@ -723,14 +716,11 @@ CcRosCreateVacb (
             KeReleaseGuardedMutex(&ViewLock);
             ExFreeToNPagedLookasideList(&VacbLookasideList, *Vacb);
             *Vacb = current;
-            if (InterlockedCompareExchange(&current->PinCount, 0, 0) == 0)
-            {
-                KeWaitForSingleObject(&current->Mutex,
-                                      Executive,
-                                      KernelMode,
-                                      FALSE,
-                                      NULL);
-            }
+            KeWaitForSingleObject(&current->Mutex,
+                                  Executive,
+                                  KernelMode,
+                                  FALSE,
+                                  NULL);
             return STATUS_SUCCESS;
         }
         if (current->FileOffset.QuadPart < FileOffset)
@@ -959,11 +949,7 @@ CcFlushCache (
                         IoStatus->Status = Status;
                     }
                 }
-
-                if (InterlockedCompareExchange(&current->PinCount, 0, 0) == 0)
-                {
-                    KeReleaseMutex(&current->Mutex, FALSE);
-                }
+                KeReleaseMutex(&current->Mutex, FALSE);
 
                 KeAcquireGuardedMutex(&ViewLock);
                 KeAcquireSpinLock(&SharedCacheMap->CacheMapLock, &oldIrql);
@@ -1172,7 +1158,6 @@ NTAPI
 CcRosInitializeFileCache (
     PFILE_OBJECT FileObject,
     PCC_FILE_SIZES FileSizes,
-    BOOLEAN PinAccess,
     PCACHE_MANAGER_CALLBACKS CallBacks,
     PVOID LazyWriterContext)
 /*
@@ -1204,7 +1189,6 @@ CcRosInitializeFileCache (
         SharedCacheMap->LazyWriteContext = LazyWriterContext;
         SharedCacheMap->SectionSize = FileSizes->AllocationSize;
         SharedCacheMap->FileSize = FileSizes->FileSize;
-        SharedCacheMap->PinAccess = PinAccess;
         KeInitializeSpinLock(&SharedCacheMap->CacheMapLock);
         InitializeListHead(&SharedCacheMap->CacheMapVacbListHead);
         FileObject->SectionObjectPointer->SharedCacheMap = SharedCacheMap;

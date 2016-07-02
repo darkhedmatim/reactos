@@ -91,8 +91,6 @@
 
 #include "comctl32.h"
 
-#include <wine/exception.h>
-
 WINE_DEFAULT_DEBUG_CHANNEL(tooltips);
 
 static HICON hTooltipIcons[TTI_ERROR+1];
@@ -496,12 +494,6 @@ TOOLTIPS_GetTipText (const TOOLTIPS_INFO *infoPtr, INT nTool, WCHAR *buffer)
     else {
 	/* no text available */
         buffer[0] = '\0';
-    }
-
-    if (!(GetWindowLongW(infoPtr->hwndSelf, GWL_STYLE) & TTS_NOPREFIX)) {
-        WCHAR *ptrW;
-        if ((ptrW = strchrW(buffer, '\t')))
-            *ptrW = 0;
     }
 
     TRACE("%s\n", debugstr_w(buffer));
@@ -1071,19 +1063,10 @@ TOOLTIPS_AddToolT (TOOLTIPS_INFO *infoPtr, const TTTOOLINFOW *ti, BOOL isW)
                 toolPtr->lpszText = LPSTR_TEXTCALLBACKW;
             }
             else if (isW) {
-                __TRY
-                {
-                    INT len = lstrlenW (ti->lpszText);
-                    TRACE("add text %s!\n", debugstr_w(ti->lpszText));
-                    toolPtr->lpszText =	Alloc ((len + 1)*sizeof(WCHAR));
-                    strcpyW (toolPtr->lpszText, ti->lpszText);
-                }
-                __EXCEPT_PAGE_FAULT
-                {
-                    WARN("Invalid lpszText.\n");
-                    return FALSE;
-                }
-                __ENDTRY
+                INT len = lstrlenW (ti->lpszText);
+                TRACE("add text %s!\n", debugstr_w(ti->lpszText));
+                toolPtr->lpszText =	Alloc ((len + 1)*sizeof(WCHAR));
+                strcpyW (toolPtr->lpszText, ti->lpszText);
             }
             else {
                 INT len = MultiByteToWideChar(CP_ACP, 0, (LPSTR)ti->lpszText, -1, NULL, 0);

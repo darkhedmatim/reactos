@@ -37,7 +37,6 @@ typedef struct
     WCHAR FileExtension[30];
     WCHAR FileDescription[100];
     WCHAR ClassKey[MAX_PATH];
-    DWORD EditFlags;
 } FOLDER_FILE_TYPE_ENTRY, *PFOLDER_FILE_TYPE_ENTRY;
 
 typedef struct
@@ -84,108 +83,7 @@ static FOLDER_VIEW_ENTRY s_Options[] =
 
 EXTERN_C HPSXA WINAPI SHCreatePropSheetExtArrayEx(HKEY hKey, LPCWSTR pszSubKey, UINT max_iface, IDataObject *pDataObj);
 
-static VOID
-UpdateGeneralIcons(HWND hDlg)
-{
-    HWND hwndTaskIcon, hwndFolderIcon, hwndClickIcon;
-    HICON hTaskIcon = NULL, hFolderIcon = NULL, hClickIcon = NULL;
-    LPTSTR lpTaskIconName = NULL, lpFolderIconName = NULL, lpClickIconName = NULL;
-
-    // show task setting icon
-    if(IsDlgButtonChecked(hDlg, IDC_FOLDER_OPTIONS_COMMONTASKS) == BST_CHECKED)
-        lpTaskIconName = MAKEINTRESOURCE(IDI_SHELL_SHOW_COMMON_TASKS);
-    else if(IsDlgButtonChecked(hDlg, IDC_FOLDER_OPTIONS_CLASSICFOLDERS) == BST_CHECKED)
-        lpTaskIconName = MAKEINTRESOURCE(IDI_SHELL_CLASSIC_FOLDERS);
-
-    if (lpTaskIconName)
-    {
-        hTaskIcon = (HICON)LoadImage(shell32_hInstance,
-                                              lpTaskIconName,
-                                              IMAGE_ICON,
-                                              0,
-                                              0,
-                                              LR_DEFAULTCOLOR);
-        if (hTaskIcon)
-        {
-            hwndTaskIcon = GetDlgItem(hDlg,
-                                    IDC_FOLDER_OPTIONS_TASKICON);
-            if (hwndTaskIcon)
-            {
-                SendMessage(hwndTaskIcon,
-                            STM_SETIMAGE,
-                            IMAGE_ICON,
-                            (LPARAM)hTaskIcon);
-            }
-        }
-    }
-    
-    // show Folder setting icons
-    if(IsDlgButtonChecked(hDlg, IDC_FOLDER_OPTIONS_SAMEWINDOW) == BST_CHECKED)
-        lpFolderIconName = MAKEINTRESOURCE(IDI_SHELL_OPEN_IN_SOME_WINDOW);
-    else if(IsDlgButtonChecked(hDlg, IDC_FOLDER_OPTIONS_OWNWINDOW) == BST_CHECKED)
-        lpFolderIconName = MAKEINTRESOURCE(IDI_SHELL_OPEN_IN_NEW_WINDOW);
-    
-    if (lpFolderIconName)
-    {
-        hFolderIcon = (HICON)LoadImage(shell32_hInstance,
-                                              lpFolderIconName,
-                                              IMAGE_ICON,
-                                              0,
-                                              0,
-                                              LR_DEFAULTCOLOR);
-        if (hFolderIcon)
-        {
-            hwndFolderIcon = GetDlgItem(hDlg,
-                                    IDC_FOLDER_OPTIONS_FOLDERICON);
-            if (hwndFolderIcon)
-            {
-                SendMessage(hwndFolderIcon,
-                            STM_SETIMAGE,
-                            IMAGE_ICON,
-                            (LPARAM)hFolderIcon);
-            }
-        }
-    }
-
-    // Show click setting icon
-    if(IsDlgButtonChecked(hDlg, IDC_FOLDER_OPTIONS_SINGLECLICK) == BST_CHECKED)
-        lpClickIconName = MAKEINTRESOURCE(IDI_SHELL_SINGLE_CLICK_TO_OPEN);
-    else if(IsDlgButtonChecked(hDlg, IDC_FOLDER_OPTIONS_DOUBLECLICK) == BST_CHECKED)
-        lpClickIconName = MAKEINTRESOURCE(IDI_SHELL_DOUBLE_CLICK_TO_OPEN);
-
-    if (lpClickIconName)
-    {
-        hClickIcon = (HICON)LoadImage(shell32_hInstance,
-                                              lpClickIconName,
-                                              IMAGE_ICON,
-                                              0,
-                                              0,
-                                              LR_DEFAULTCOLOR);
-        if (hClickIcon)
-        {
-            hwndClickIcon = GetDlgItem(hDlg,
-                                    IDC_FOLDER_OPTIONS_CLICKICON);
-            if (hwndClickIcon)
-            {
-                SendMessage(hwndClickIcon,
-                            STM_SETIMAGE,
-                            IMAGE_ICON,
-                            (LPARAM)hClickIcon);
-            }
-        }
-    }
-
-    // Clean up
-    if(hTaskIcon)
-        DeleteObject(hTaskIcon);
-    if(hFolderIcon)
-        DeleteObject(hFolderIcon);
-    if(hClickIcon)
-        DeleteObject(hClickIcon);
-    
-    return;
-}
-
+static
 INT_PTR
 CALLBACK
 FolderOptionsGeneralDlg(
@@ -195,53 +93,6 @@ FolderOptionsGeneralDlg(
     LPARAM lParam
 )
 {
-    switch(uMsg)
-    {
-        case WM_INITDIALOG:
-            // FIXME
-            break;
-            
-        case WM_COMMAND:
-            switch (LOWORD(wParam))
-            {
-                case IDC_FOLDER_OPTIONS_COMMONTASKS:
-                case IDC_FOLDER_OPTIONS_CLASSICFOLDERS:
-                case IDC_FOLDER_OPTIONS_SAMEWINDOW:
-                case IDC_FOLDER_OPTIONS_OWNWINDOW:
-                case IDC_FOLDER_OPTIONS_SINGLECLICK:
-                case IDC_FOLDER_OPTIONS_DOUBLECLICK:
-                    if (HIWORD(wParam) == BN_CLICKED)
-                    {
-                        UpdateGeneralIcons(hwndDlg);
-
-                        /* Enable the 'Apply' button */
-                        PropSheet_Changed(GetParent(hwndDlg), hwndDlg);
-                    }
-                    break;
-            }
-            break;
-
-        case WM_NOTIFY:
-        {
-            LPNMHDR pnmh = (LPNMHDR)lParam;
-
-            switch (pnmh->code)
-            {
-                case PSN_SETACTIVE:
-                    break;
-
-                case PSN_APPLY:
-                    break;
-            }
-            break;
-        }
-        
-        case WM_DESTROY:
-            break;
-         
-         default: 
-             return FALSE;
-    }
     return FALSE;
 }
 
@@ -273,6 +124,7 @@ InitializeFolderOptionsListCtrl(HWND hwndDlg)
 
 }
 
+static
 INT_PTR
 CALLBACK
 FolderOptionsViewDlg(
@@ -327,8 +179,7 @@ InitializeFileTypesListCtrlColumns(HWND hDlgCtrl)
     if (!LoadStringW(shell32_hInstance, IDS_FILE_TYPES, szName, sizeof(szName) / sizeof(WCHAR)))
     {
         /* default to english */
-        wcscpy(szName, L"File Types");
-        ERR("Failed to load localized string!\n");
+        wcscpy(szName, L"FileTypes");
     }
 
     col.iSubItem   = 1;
@@ -362,7 +213,6 @@ InsertFileType(HWND hDlgCtrl, WCHAR * szName, PINT iItem, WCHAR * szFile)
     HKEY hKey;
     LVITEMW lvItem;
     DWORD dwSize;
-    DWORD dwType;
 
     if (szName[0] != L'.')
     {
@@ -416,23 +266,8 @@ InsertFileType(HWND hDlgCtrl, WCHAR * szName, PINT iItem, WCHAR * szFile)
         RegQueryValueExW(hKey, NULL, NULL, NULL, (LPBYTE)Entry->FileDescription, &dwSize);
     }
 
-    /* Read the EditFlags value */
-    Entry->EditFlags = 0;
-    if (!RegQueryValueExW(hKey, L"EditFlags", NULL, &dwType, NULL, &dwSize))
-    {
-        if ((dwType == REG_DWORD || dwType == REG_BINARY) && dwSize == sizeof(DWORD))
-            RegQueryValueExW(hKey, L"EditFlags", NULL, NULL, (LPBYTE)&Entry->EditFlags, &dwSize);
-    }
-
     /* close key */
     RegCloseKey(hKey);
-
-    /* Do not add excluded entries */
-    if (Entry->EditFlags & 0x00000001) //FTA_Exclude
-    {
-        HeapFree(GetProcessHeap(), 0, Entry);
-        return;
-    }
 
     /* convert extension to upper case */
     wcscpy(Entry->FileExtension, szName);
@@ -440,10 +275,10 @@ InsertFileType(HWND hDlgCtrl, WCHAR * szName, PINT iItem, WCHAR * szFile)
 
     if (!Entry->FileDescription[0])
     {
-        /* construct default 'FileExtensionFile' by formatting the uppercase extension
-           with IDS_FILE_EXT_TYPE, outputting something like a l18n 'INI File' */
-
-        StringCchPrintf(Entry->FileDescription, _countof(Entry->FileDescription), szFile, &Entry->FileExtension[1]);
+        /* construct default 'FileExtensionFile' */
+        wcscpy(Entry->FileDescription, &Entry->FileExtension[1]);
+        wcscat(Entry->FileDescription, L" ");
+        wcscat(Entry->FileDescription, szFile);
     }
 
     ZeroMemory(&lvItem, sizeof(LVITEMW));
@@ -459,8 +294,8 @@ InsertFileType(HWND hDlgCtrl, WCHAR * szName, PINT iItem, WCHAR * szFile)
     lvItem.pszText = Entry->FileDescription;
     lvItem.iItem = *iItem;
     lvItem.iSubItem = 1;
-    ListView_SetItem(hDlgCtrl, &lvItem);
 
+    (void)SendMessageW(hDlgCtrl, LVM_SETITEMW, 0, (LPARAM)&lvItem);
     (*iItem)++;
 }
 
@@ -470,20 +305,15 @@ CALLBACK
 ListViewCompareProc(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 {
     PFOLDER_FILE_TYPE_ENTRY Entry1, Entry2;
-    int x;
 
     Entry1 = (PFOLDER_FILE_TYPE_ENTRY)lParam1;
     Entry2 = (PFOLDER_FILE_TYPE_ENTRY)lParam2;
 
-    x = wcsicmp(Entry1->FileExtension, Entry2->FileExtension);
-    if (x != 0)
-        return x;
-
-    return wcsicmp(Entry1->FileDescription, Entry2->FileDescription);
+    return wcsicmp(Entry1->FileExtension, Entry2->FileExtension);
 }
 
 static
-PFOLDER_FILE_TYPE_ENTRY
+BOOL
 InitializeFileTypesListCtrl(HWND hwndDlg)
 {
     HWND hDlgCtrl;
@@ -498,24 +328,20 @@ InitializeFileTypesListCtrl(HWND hwndDlg)
     InitializeFileTypesListCtrlColumns(hDlgCtrl);
 
     szFile[0] = 0;
-    if (!LoadStringW(shell32_hInstance, IDS_FILE_EXT_TYPE, szFile, _countof(szFile)))
+    if (!LoadStringW(shell32_hInstance, IDS_SHV_COLUMN1, szFile, sizeof(szFile) / sizeof(WCHAR)))
     {
         /* default to english */
-        wcscpy(szFile, L"%s File");
+        wcscpy(szFile, L"File");
     }
-    szFile[(_countof(szFile)) - 1] = 0;
+    szFile[(sizeof(szFile)/sizeof(WCHAR))-1] = 0;
 
-    dwName = _countof(szName);
+    dwName = sizeof(szName) / sizeof(WCHAR);
 
-    while (RegEnumKeyExW(HKEY_CLASSES_ROOT, dwIndex++, szName, &dwName, NULL, NULL, NULL, NULL) == ERROR_SUCCESS)
+    while(RegEnumKeyExW(HKEY_CLASSES_ROOT, dwIndex++, szName, &dwName, NULL, NULL, NULL, NULL) == ERROR_SUCCESS)
     {
         InsertFileType(hDlgCtrl, szName, &iItem, szFile);
-        dwName = _countof(szName);
+        dwName = sizeof(szName) / sizeof(WCHAR);
     }
-
-    /* Leave if the list is empty */
-    if (iItem == 0)
-        return NULL;
 
     /* sort list */
     ListView_SortItems(hDlgCtrl, ListViewCompareProc, NULL);
@@ -523,15 +349,12 @@ InitializeFileTypesListCtrl(HWND hwndDlg)
     /* select first item */
     ZeroMemory(&lvItem, sizeof(LVITEMW));
     lvItem.mask = LVIF_STATE;
-    lvItem.stateMask = (UINT)-1;
+    lvItem.stateMask = (UINT) - 1;
     lvItem.state = LVIS_FOCUSED | LVIS_SELECTED;
     lvItem.iItem = 0;
-    ListView_SetItem(hDlgCtrl, &lvItem);
+    (void)SendMessageW(hDlgCtrl, LVM_SETITEMW, 0, (LPARAM)&lvItem);
 
-    lvItem.mask = LVIF_PARAM;
-    ListView_GetItem(hDlgCtrl, &lvItem);
-
-    return (PFOLDER_FILE_TYPE_ENTRY)lvItem.lParam;
+    return TRUE;
 }
 
 static
@@ -561,13 +384,15 @@ FindSelectedItem(
     return NULL;
 }
 
+static
 INT_PTR
 CALLBACK
 FolderOptionsFileTypesDlg(
     HWND hwndDlg,
     UINT uMsg,
     WPARAM wParam,
-    LPARAM lParam)
+    LPARAM lParam
+)
 {
     LPNMLISTVIEW lppl;
     LVITEMW lvItem;
@@ -578,14 +403,8 @@ FolderOptionsFileTypesDlg(
     switch(uMsg)
     {
         case WM_INITDIALOG:
-            pItem = InitializeFileTypesListCtrl(hwndDlg);
-
-            /* Disable the Delete button if the listview is empty or
-               the selected item should not be deleted by the user */
-            if (pItem == NULL || (pItem->EditFlags & 0x00000010)) // FTA_NoRemove
-                EnableWindow(GetDlgItem(hwndDlg, 14002), FALSE);
+            InitializeFileTypesListCtrl(hwndDlg);
             return TRUE;
-
         case WM_COMMAND:
             switch(LOWORD(wParam))
             {
@@ -599,8 +418,8 @@ FolderOptionsFileTypesDlg(
                     }
                     break;
             }
-            break;
 
+            break;
         case WM_NOTIFY:
             lppl = (LPNMLISTVIEW) lParam;
 
@@ -639,18 +458,7 @@ FolderOptionsFileTypesDlg(
                     swprintf(Buffer, FormatBuffer, &pItem->FileExtension[1], &pItem->FileDescription[0], &pItem->FileDescription[0]);
                     /* update dialog */
                     SetDlgItemTextW(hwndDlg, 14007, Buffer);
-
-                    /* Enable the Delete button */
-                    if (pItem->EditFlags & 0x00000010) // FTA_NoRemove
-                        EnableWindow(GetDlgItem(hwndDlg, 14002), FALSE);
-                    else
-                        EnableWindow(GetDlgItem(hwndDlg, 14002), TRUE);
                 }
-            }
-            else if (lppl->hdr.code == PSN_SETACTIVE)
-            {
-                /* On page activation, set the focus to the listview */
-                SetFocus(GetDlgItem(hwndDlg, 14000));
             }
             break;
     }

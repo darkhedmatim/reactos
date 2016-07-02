@@ -160,7 +160,7 @@ static MUI_ENTRY esESIntroPageEntries[] =
     {
         8,
         13,
-        "- El instalador s¢lo puede utilizar el sistema de archivos FAT.",
+        "- El instalador soporta solamente el sistema de archivos FAT.",
         TEXT_STYLE_NORMAL
     },
     {
@@ -218,7 +218,7 @@ static MUI_ENTRY esESLicensePageEntries[] =
     {
         8,
         8,
-        "ReactOS se distribuye bajo los t‚rminos de la licencia",
+        "ReactOS obedece los terminos de la licencia",
         TEXT_STYLE_NORMAL
     },
     {
@@ -563,7 +563,7 @@ static MUI_ENTRY esESFlushPageEntries[] =
     {
         0,
         0,
-        "Vaciando la cach‚",
+        "Vaciando la cache",
         TEXT_TYPE_STATUS | TEXT_PADDING_BIG
     },
     {
@@ -591,7 +591,7 @@ static MUI_ENTRY esESQuitPageEntries[] =
     {
         10,
         8,
-        "Retire cualquier disquete de la unidad A: y los CDs de sus unidades.",
+        "Retire el disquete de la unidad A: y todos los CD-ROMs de las unidades.",
         TEXT_STYLE_NORMAL
     },
     {
@@ -688,7 +688,7 @@ static MUI_ENTRY esESSuccessPageEntries[] =
     {
         10,
         8,
-        "Retire cualquier disquete de la unidad A: y todos los",
+        "Retire el disquete de la unidad A: y todos los",
         TEXT_STYLE_NORMAL
     },
     {
@@ -812,7 +812,7 @@ static MUI_ENTRY esESSelectPartitionEntries[] =
     {
         8,
         19,
-        "\x07  Presione L para crear una partici¢n l¢gica.",
+        "\x07  Press L to create a logical partition.",
         TEXT_STYLE_NORMAL
     },
     {
@@ -835,7 +835,7 @@ static MUI_ENTRY esESSelectPartitionEntries[] =
     }
 };
 
-static MUI_ENTRY esESConfirmDeleteSystemPartitionEntries[] =
+static MUI_ENTRY esESConfirmDeletePartitionEntries[] =
 {
     {
         4,
@@ -1044,7 +1044,7 @@ static MUI_ENTRY esESFileCopyEntries[] =
     {
         50,
         0,
-        "\xB3 Espere un momento...",
+        "\xB3 Espere un momento...",     
         TEXT_TYPE_STATUS
     },
     {
@@ -1351,7 +1351,7 @@ static MUI_ENTRY esESRegistryEntries[] =
     {
         0,
         0,
-        "   Creando la estructura del Registro...",
+        "   Creando la estructura del registro...",
         TEXT_TYPE_STATUS | TEXT_PADDING_BIG
     },
     {
@@ -1657,7 +1657,7 @@ MUI_PAGE esESPages[] =
     },
     {
         CONFIRM_DELETE_SYSTEM_PARTITION_PAGE,
-        esESConfirmDeleteSystemPartitionEntries
+        esESConfirmDeletePartitionEntries
     },
     {
         SELECT_FILE_SYSTEM_PAGE,
@@ -1753,8 +1753,6 @@ MUI_STRING esESStrings[] =
     "El instalador est  instalando ReactOS en la partici¢n"},
     {STRING_CHECKINGPART,
     "El instalador est  comprobando la partici¢n seleccionada."},
-    {STRING_CONTINUE,
-    "INTRO = Continuar"},
     {STRING_QUITCONTINUE,
     "F3 = Salir  INTRO = Continuar"},
     {STRING_REBOOTCOMPUTER,
@@ -1802,7 +1800,7 @@ MUI_STRING esESStrings[] =
     {STRING_HDDINFOUNK1,
     "%I64u %s  Disco duro %lu  (Port=%hu, Bus=%hu, Id=%hu)."},
     {STRING_HDDINFOUNK2,
-    "   %c%c  Tipo 0x%02X    %I64u %s"},
+    "   %c%c  Tipo %lu    %I64u %s"},
     {STRING_HDINFOPARTDELETE,
     "en %I64u %s  Disco duro %lu  (Port=%hu, Bus=%hu, Id=%hu) en %wZ."},
     {STRING_HDDINFOUNK3,
@@ -1810,7 +1808,7 @@ MUI_STRING esESStrings[] =
     {STRING_HDINFOPARTZEROED,
     "Disco duro %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK4,
-    "%c%c  Tipo 0x%02X    %I64u %s"},
+    "%c%c  Tipo %lu    %I64u %s"},
     {STRING_HDINFOPARTEXISTS,
     "en Disco duro %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK5,

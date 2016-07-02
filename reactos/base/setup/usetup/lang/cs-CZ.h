@@ -833,7 +833,7 @@ static MUI_ENTRY csCZSelectPartitionEntries[] =
     }
 };
 
-static MUI_ENTRY csCZConfirmDeleteSystemPartitionEntries[] =
+static MUI_ENTRY csCZConfirmDeletePartitionEntries[] =
 {
     {
         4,
@@ -844,13 +844,13 @@ static MUI_ENTRY csCZConfirmDeleteSystemPartitionEntries[] =
     {
         6,
         8,
-        "You have chosen to delete the system partition.",
+        "You asked Setup to delete the system partition.",
         TEXT_STYLE_NORMAL
     },
     {
         6,
         10,
-        "System partitions can contain diagnostic programs, hardware configuration",
+        "System partitions can contain diagnose programs, hardware configuration",
         TEXT_STYLE_NORMAL
     },
     {
@@ -874,7 +874,7 @@ static MUI_ENTRY csCZConfirmDeleteSystemPartitionEntries[] =
     {
         6,
         15,
-        "programs on the partition, or when you are sure you want to delete them.",
+        "programs on the partiton, or when you are sure you want to delete them.",
         TEXT_STYLE_NORMAL
     },
     {
@@ -1655,7 +1655,7 @@ MUI_PAGE csCZPages[] =
     },
     {
         CONFIRM_DELETE_SYSTEM_PARTITION_PAGE,
-        csCZConfirmDeleteSystemPartitionEntries
+        csCZConfirmDeletePartitionEntries
     },
     {
         SELECT_FILE_SYSTEM_PAGE,
@@ -1751,8 +1751,6 @@ MUI_STRING csCZStrings[] =
     "Instalace nakop°ruje ReactOS na odd°l"},
     {STRING_CHECKINGPART,
     "Instalace nyn° kontroluje zvolenÏ odd°l."},
-    {STRING_CONTINUE,
-    "ENTER = Pokraüovat"},
     {STRING_QUITCONTINUE,
     "F3 = Ukonüit  ENTER = Pokraüovat"},
     {STRING_REBOOTCOMPUTER,
@@ -1800,7 +1798,7 @@ MUI_STRING csCZStrings[] =
     {STRING_HDDINFOUNK1,
     "%I64u %s  Harddisk %lu  (Port=%hu, Bus=%hu, Id=%hu)."},
     {STRING_HDDINFOUNK2,
-    "   %c%c  Typ 0x%02X    %I64u %s"},
+    "   %c%c  Typ %lu    %I64u %s"},
     {STRING_HDINFOPARTDELETE,
     "na %I64u %s  Harddisk %lu  (Port=%hu, Bus=%hu, Id=%hu) na %wZ."},
     {STRING_HDDINFOUNK3,
@@ -1808,7 +1806,7 @@ MUI_STRING csCZStrings[] =
     {STRING_HDINFOPARTZEROED,
     "Harddisk %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK4,
-    "%c%c  Typ 0x%02X    %I64u %s"},
+    "%c%c  Typ %lu    %I64u %s"},
     {STRING_HDINFOPARTEXISTS,
     "na harddisku %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK5,

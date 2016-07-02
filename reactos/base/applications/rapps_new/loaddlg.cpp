@@ -6,7 +6,6 @@
  *              Copyright 2004 Mike McCormack (for CodeWeavers)
  *              Copyright 2005 Ge van Geldorp (gvg@reactos.org)
  *              Copyright 2009 Dmitry Chapyshev (dmitry@reactos.org)
- *              Copyright 2015 Ismael Ferreras Morezuelas (swyterzone+ros@gmail.com)
  */
 /*
  * Based on Wine dlls/shdocvw/shdocvw_main.c
@@ -35,9 +34,9 @@
 #include <atlcom.h>
 #include <wininet.h>
 #include <shellutils.h>
-#include <windowsx.h>
 
 static PAPPLICATION_INFO AppInfo;
+static HICON hIcon = NULL;
 
 class CDownloadDialog :
     public CComObjectRootEx<CComMultiThreadModelNoCS>,
@@ -45,9 +44,6 @@ class CDownloadDialog :
 {
     HWND m_hDialog;
     PBOOL m_pbCancelled;
-    BOOL m_UrlHasBeenCopied;
-    WCHAR m_ProgressText[MAX_PATH];
-
 
 public:
     ~CDownloadDialog()
@@ -59,7 +55,6 @@ public:
     {
         m_hDialog = Dlg;
         m_pbCancelled = pbCancelled;
-        m_UrlHasBeenCopied = FALSE;
         return S_OK;
     }
 
@@ -90,55 +85,21 @@ public:
     {
         HWND Item;
         LONG r;
+        WCHAR OldText[100];
 
         Item = GetDlgItem(m_hDialog, IDC_DOWNLOAD_PROGRESS);
         if (Item && ulProgressMax)
         {
-            WCHAR szProgress[100];
-            WCHAR szProgressMax[100];
-            UINT uiPercentage = ((ULONGLONG)ulProgress * 100) / ulProgressMax;
-
-            /* send the current progress to the progress bar */
-            SendMessageW(Item, PBM_SETPOS, uiPercentage, 0);
-
-            /* format the bits and bytes into pretty and accesible units... */
-            StrFormatByteSizeW(ulProgress, szProgress, _countof(szProgress));
-            StrFormatByteSizeW(ulProgressMax, szProgressMax, _countof(szProgressMax));
-
-            /* ...and post all of it to our subclassed progress bar text subroutine */
-            StringCbPrintfW(m_ProgressText,
-                            sizeof(m_ProgressText),
-                            L"%u%% \x2014 %ls / %ls",
-                            uiPercentage,
-                            szProgress,
-                            szProgressMax);
-            SendMessageW(Item, WM_SETTEXT, 0, (LPARAM)m_ProgressText);
+            SendMessageW(Item, PBM_SETPOS, MulDiv(ulProgress, 100, ulProgressMax), 0);
         }
 
         Item = GetDlgItem(m_hDialog, IDC_DOWNLOAD_STATUS);
-        if (Item && szStatusText && wcslen(szStatusText) > 0 && m_UrlHasBeenCopied == FALSE)
+        if (Item && szStatusText)
         {
-            DWORD len = wcslen(szStatusText) + 1;
-            PWSTR buf = (PWSTR)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, len * sizeof(WCHAR));
-
-            if (buf)
+            SendMessageW(Item, WM_GETTEXT, sizeof(OldText) / sizeof(OldText[0]), (LPARAM) OldText);
+            if (sizeof(OldText) / sizeof(OldText[0]) - 1 <= wcslen(OldText) || 0 != wcscmp(OldText, szStatusText))
             {
-                /* beautify our url for display purposes */
-                InternetCanonicalizeUrl(szStatusText, buf, &len, ICU_DECODE | ICU_NO_ENCODE);
-            }
-            else
-            {
-                /* just use the original */
-                buf = (PWSTR)szStatusText;
-            }
-
-            /* paste it into our dialog and don't do it again in this instance */
-            SendMessageW(Item, WM_SETTEXT, 0, (LPARAM)buf);
-            m_UrlHasBeenCopied = TRUE;
-
-            if (buf != szStatusText)
-            {
-                HeapFree(GetProcessHeap(), 0, buf);
+                SendMessageW(Item, WM_SETTEXT, 0, (LPARAM) szStatusText);
             }
         }
 
@@ -194,67 +155,13 @@ HRESULT WINAPI CDownloadDialog_Constructor(HWND Dlg, BOOL *pbCancelled, REFIID r
     return ShellObjectCreatorInit<CDownloadDialog>(Dlg, pbCancelled, riid, ppv);
 }
 
-#ifdef USE_CERT_PINNING
-static BOOL CertIsValid(HINTERNET hInternet, LPWSTR lpszHostName)
-{
-    HINTERNET hConnect;
-    HINTERNET hRequest;
-    DWORD certInfoLength;
-    BOOL Ret = FALSE;
-    INTERNET_CERTIFICATE_INFOW certInfo;
-
-    hConnect = InternetConnectW(hInternet, lpszHostName, INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, INTERNET_FLAG_SECURE, 0);
-    if (hConnect)
-    {
-        hRequest = HttpOpenRequestW(hConnect, L"HEAD", NULL, NULL, NULL, NULL, INTERNET_FLAG_SECURE, 0);
-        if (hRequest != NULL)
-        {
-            Ret = HttpSendRequestW(hRequest, L"", 0, NULL, 0);
-            if (Ret)
-            {
-                certInfoLength = sizeof(INTERNET_CERTIFICATE_INFOW);
-                Ret = InternetQueryOptionW(hRequest,
-                                           INTERNET_OPTION_SECURITY_CERTIFICATE_STRUCT,
-                                           &certInfo,
-                                           &certInfoLength);
-                if (Ret)
-                {
-                    if (certInfo.lpszEncryptionAlgName)
-                        LocalFree(certInfo.lpszEncryptionAlgName);
-                    if (certInfo.lpszIssuerInfo)
-                    {
-                        if (strcmp((LPSTR)certInfo.lpszIssuerInfo, CERT_ISSUER_INFO) != 0)
-                            Ret = FALSE;
-                        LocalFree(certInfo.lpszIssuerInfo);
-                    }
-                    if (certInfo.lpszProtocolName)
-                        LocalFree(certInfo.lpszProtocolName);
-                    if (certInfo.lpszSignatureAlgName)
-                        LocalFree(certInfo.lpszSignatureAlgName);
-                    if (certInfo.lpszSubjectInfo)
-                    {
-                        if (strcmp((LPSTR)certInfo.lpszSubjectInfo, CERT_SUBJECT_INFO) != 0)
-                            Ret = FALSE;
-                        LocalFree(certInfo.lpszSubjectInfo);
-                    }
-                }
-            }
-            InternetCloseHandle(hRequest);
-        }
-        InternetCloseHandle(hConnect);
-    }
-    return Ret;
-}
-#endif
-
-
 static
 DWORD WINAPI
 ThreadFunc(LPVOID Context)
 {
     CComPtr<IBindStatusCallback> dl;
     WCHAR path[MAX_PATH];
-    PWSTR p, q;
+    LPWSTR p;
     HWND Dlg = (HWND) Context;
     ULONG dwContentLen, dwBytesWritten, dwBytesRead, dwStatus;
     ULONG dwCurrentBytesRead = 0;
@@ -268,56 +175,37 @@ ThreadFunc(LPVOID Context)
     unsigned char lpBuffer[4096];
     PCWSTR lpszAgent = L"RApps/1.0";
     URL_COMPONENTS urlComponents;
-    size_t urlLength, filenameLength;
+    size_t urlLength;
 
-    /* build the path for the download */
+    /* built the path for the download */
     p = wcsrchr(AppInfo->szUrlDownload, L'/');
-    q = wcsrchr(AppInfo->szUrlDownload, L'?');
- 
-    /* do we have a final slash separator? */
+
     if (!p)
         goto end;
 
-    /* prepare the tentative length of the filename, maybe we've to remove part of it later on */
-    filenameLength = wcslen(p) * sizeof(WCHAR);
+        if (wcscmp(AppInfo->szUrlDownload, APPLICATION_DATABASE_URL) == 0)
+        {
+            bCab = TRUE;
+            if (!GetStorageDirectory(path, sizeof(path) / sizeof(path[0])))
+                goto end;
+        }
+        else
+        {
+            if (FAILED(StringCbCopyW(path, sizeof(path),  SettingsInfo.szDownloadDir)))
+                goto end;
+        }
 
-    /* do we have query arguments in the target URL after the filename? account for them
-      (e.g. https://example.org/myfile.exe?no_adware_plz) */
-    if (q && q > p && (q - p) > 0)
-        filenameLength -= wcslen(q - 1) * sizeof(WCHAR);
 
-    /* is this URL an update package for RAPPS? if so store it in a different place */
-    if (wcscmp(AppInfo->szUrlDownload, APPLICATION_DATABASE_URL) == 0)
-    {
-        bCab = TRUE;
-        if (!GetStorageDirectory(path, _countof(path)))
-            goto end;
-    }
-    else
-    {
-        if (FAILED(StringCbCopyW(path, sizeof(path),  SettingsInfo.szDownloadDir)))
-            goto end;
-    }
-
-    /* is the path valid? can we access it? */
     if (GetFileAttributesW(path) == INVALID_FILE_ATTRIBUTES)
     {
         if (!CreateDirectoryW(path, NULL))
             goto end;
     }
 
-    /* append a \ to the provided file system path, and the filename portion from the URL after that */
     if (FAILED(StringCbCatW(path, sizeof(path), L"\\")))
         goto end;
-    if (FAILED(StringCbCatNW(path, sizeof(path), p + 1, filenameLength)))
+    if (FAILED(StringCbCatW(path, sizeof(path), p + 1)))
         goto end;
-
-    if (!bCab && AppInfo->szSHA1[0] != 0 && GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES)
-    {
-        /* only open it in case of total correctness */
-        if (VerifyInteg(AppInfo->szSHA1, path))
-            goto run;
-    }
 
     /* download it */
     bTempfile = TRUE;
@@ -326,7 +214,6 @@ ThreadFunc(LPVOID Context)
     if (dl == NULL)
         goto end;
 
-    /* FIXME: this should just be using the system-wide proxy settings */
     switch(SettingsInfo.Proxy)
     {
         case 0: /* preconfig */
@@ -371,13 +258,10 @@ ThreadFunc(LPVOID Context)
 
     if(FAILED(StringCbLengthW(AppInfo->szUrlDownload, sizeof(AppInfo->szUrlDownload), &urlLength)))
         goto end;
-
-    urlLength /= sizeof(WCHAR);
-    urlComponents.dwSchemeLength = urlLength + 1;
-    urlComponents.lpszScheme = (LPWSTR)malloc(urlComponents.dwSchemeLength * sizeof(WCHAR));
-    urlComponents.dwHostNameLength = urlLength + 1;
-    urlComponents.lpszHostName = (LPWSTR)malloc(urlComponents.dwHostNameLength * sizeof(WCHAR));
-
+    
+    urlComponents.dwSchemeLength = urlLength*sizeof(WCHAR);
+    urlComponents.lpszScheme = (PWSTR)malloc(urlComponents.dwSchemeLength);
+    
     if(!InternetCrackUrlW(AppInfo->szUrlDownload, urlLength+1, ICU_DECODE | ICU_ESCAPE, &urlComponents))
         goto end;
     
@@ -387,24 +271,7 @@ ThreadFunc(LPVOID Context)
     if(urlComponents.nScheme == INTERNET_SCHEME_FTP)
         dwContentLen = FtpGetFileSize(hFile, &dwStatus);
 
-#ifdef USE_CERT_PINNING
-    /* are we using HTTPS to download the RAPPS update package? check if the certificate is original */
-    if ((urlComponents.nScheme == INTERNET_SCHEME_HTTPS) &&
-        (wcscmp(AppInfo->szUrlDownload, APPLICATION_DATABASE_URL) == 0) &&
-        (!CertIsValid(hOpen, urlComponents.lpszHostName)))
-    {
-        WCHAR szMsgText[MAX_STR_LEN];
-
-        if (!LoadStringW(hInst, IDS_CERT_DOES_NOT_MATCH, szMsgText, sizeof(szMsgText) / sizeof(WCHAR)))
-            goto end;
-
-        MessageBoxW(Dlg, szMsgText, NULL, MB_OK | MB_ICONERROR);
-        goto end;
-    }
-#endif
-
     free(urlComponents.lpszScheme);
-    free(urlComponents.lpszHostName);
 
     hOut = CreateFileW(path, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, 0, NULL);
 
@@ -413,30 +280,12 @@ ThreadFunc(LPVOID Context)
 
     do
     {
-        if (!InternetReadFile(hFile, lpBuffer, _countof(lpBuffer), &dwBytesRead))
-        {
-            WCHAR szMsgText[MAX_STR_LEN];
-
-            if (!LoadStringW(hInst, IDS_INTERRUPTED_DOWNLOAD, szMsgText, _countof(szMsgText)))
-                goto end;
-
-            MessageBoxW(hMainWnd, szMsgText, NULL, MB_OK | MB_ICONERROR);
-            goto end;
-        }
-        if (!WriteFile(hOut, &lpBuffer[0], dwBytesRead, &dwBytesWritten, NULL))
-        {
-            WCHAR szMsgText[MAX_STR_LEN];
-
-            if (!LoadStringW(hInst, IDS_UNABLE_TO_WRITE, szMsgText, _countof(szMsgText)))
-                goto end;
-
-            MessageBoxW(hMainWnd, szMsgText, NULL, MB_OK | MB_ICONERROR);
-            goto end;
-        }
+        if (!InternetReadFile(hFile, lpBuffer, _countof(lpBuffer), &dwBytesRead)) goto end;
+        if (!WriteFile(hOut, &lpBuffer[0], dwBytesRead, &dwBytesWritten, NULL)) goto end;
         dwCurrentBytesRead += dwBytesRead;
         dl->OnProgress(dwCurrentBytesRead, dwContentLen, 0, AppInfo->szUrlDownload);
     }
-    while (dwBytesRead && !bCancelled);
+    while (dwBytesRead);
 
     CloseHandle(hOut);
     hOut = INVALID_HANDLE_VALUE;
@@ -444,32 +293,8 @@ ThreadFunc(LPVOID Context)
     if (bCancelled)
         goto end;
 
-    /* if this thing isn't a RAPPS update and it has a SHA-1 checksum
-       verify its integrity by using the native advapi32.A_SHA1 functions */
-    if (!bCab && AppInfo->szSHA1[0] != 0)
-    {
-        WCHAR szMsgText[MAX_STR_LEN];
-
-        /* change a few strings in the download dialog to reflect the verification process */
-        LoadStringW(hInst, IDS_INTEG_CHECK_TITLE, szMsgText, _countof(szMsgText));
-
-        SetWindowText(Dlg, szMsgText);
-        SendMessageW(GetDlgItem(Dlg, IDC_DOWNLOAD_STATUS), WM_SETTEXT, 0, (LPARAM)path);
-
-        /* this may take a while, depending on the file size */
-        if (!VerifyInteg(AppInfo->szSHA1, path))
-        {
-            if (!LoadStringW(hInst, IDS_INTEG_CHECK_FAIL, szMsgText, _countof(szMsgText)))
-                goto end;
-
-            MessageBoxW(Dlg, szMsgText, NULL, MB_OK | MB_ICONERROR);
-            goto end;
-        }
-    }
-
     ShowWindow(Dlg, SW_HIDE);
 
-run:
     /* run it */
     if (!bCab)
         ShellExecuteW( NULL, L"open", path, NULL, NULL, SW_SHOWNORMAL );
@@ -492,128 +317,38 @@ end:
     return 0;
 }
 
-
-LRESULT CALLBACK
-DownloadProgressProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
-{
-    static WCHAR szProgressText[MAX_STR_LEN] = {0};
-
-    switch (uMsg)
-    {
-        case WM_SETTEXT:
-        {
-            if (lParam)
-            {
-                StringCbCopyW(szProgressText,
-                              sizeof(szProgressText),
-                              (PCWSTR)lParam);
-            }
-        }
-
-        case WM_ERASEBKGND:
-        case WM_PAINT:
-        {
-            PAINTSTRUCT  ps;
-            HDC hDC = BeginPaint(hWnd, &ps), hdcMem;
-            HBITMAP hbmMem;
-            HANDLE hOld;
-            RECT myRect;
-            UINT win_width, win_height;
-
-            GetClientRect(hWnd, &myRect);
-
-            /* grab the progress bar rect size */
-            win_width  = myRect.right - myRect.left;
-            win_height = myRect.bottom - myRect.top;
-
-            /* create an off-screen DC for double-buffering */
-            hdcMem = CreateCompatibleDC(hDC);
-            hbmMem = CreateCompatibleBitmap(hDC, win_width, win_height);
-
-            hOld = SelectObject(hdcMem, hbmMem);
-
-            /* call the original draw code and redirect it to our memory buffer */
-            DefSubclassProc(hWnd, uMsg, (WPARAM)hdcMem, lParam);
-
-            /* draw our nifty progress text over it */
-            SelectFont(hdcMem, GetStockFont(DEFAULT_GUI_FONT));
-            DrawShadowText(hdcMem, szProgressText, wcslen(szProgressText),
-                           &myRect,
-                           DT_CENTER | DT_VCENTER | DT_NOPREFIX | DT_SINGLELINE,
-                           GetSysColor(COLOR_CAPTIONTEXT),
-                           GetSysColor(COLOR_3DSHADOW),
-                           1, 1);
-
-            /* transfer the off-screen DC to the screen */
-            BitBlt(hDC, 0, 0, win_width, win_height, hdcMem, 0, 0, SRCCOPY);
-
-            /* free the off-screen DC */
-            SelectObject(hdcMem, hOld);
-            DeleteObject(hbmMem);
-            DeleteDC(hdcMem);
-
-            EndPaint(hWnd, &ps);
-            return 0;
-        }
-
-        /* Raymond Chen says that we should safely unsubclass all the things!
-          (http://blogs.msdn.com/b/oldnewthing/archive/2003/11/11/55653.aspx) */
-        case WM_NCDESTROY:
-        {
-            ZeroMemory(szProgressText, sizeof(szProgressText));
-            RemoveWindowSubclass(hWnd, DownloadProgressProc, uIdSubclass);
-        }
-
-        default:
-            return DefSubclassProc(hWnd, uMsg, wParam, lParam);
-    }
-}
-
 static
 INT_PTR CALLBACK
-DownloadDlgProc(HWND Dlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+DownloadDlgProc(HWND Dlg, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
     HANDLE Thread;
     DWORD ThreadId;
     HWND Item;
 
-    switch (uMsg)
+    switch (Msg)
     {
         case WM_INITDIALOG:
-        {
-            HICON hIconSm = NULL, hIconBg = NULL;
 
-            hIconBg = (HICON)GetClassLongPtr(hMainWnd, GCLP_HICON);
-            hIconSm = (HICON)GetClassLongPtr(hMainWnd, GCLP_HICONSM);
-
-            if (hIconBg && hIconSm)
+            hIcon = LoadIconW(hInst, MAKEINTRESOURCEW(IDI_MAIN));
+            if (hIcon)
             {
-                SendMessageW(Dlg, WM_SETICON, ICON_BIG, (LPARAM) hIconBg);
-                SendMessageW(Dlg, WM_SETICON, ICON_SMALL, (LPARAM) hIconSm);
+                SendMessageW(Dlg, WM_SETICON, ICON_BIG, (LPARAM) hIcon);
+                SendMessageW(Dlg, WM_SETICON, ICON_SMALL, (LPARAM) hIcon);
             }
 
             SetWindowLongPtrW(Dlg, GWLP_USERDATA, 0);
             Item = GetDlgItem(Dlg, IDC_DOWNLOAD_PROGRESS);
             if (Item)
             {
-                /* initialize the default values for our nifty progress bar
-                   and subclass it so that it learns to print a status text */
                 SendMessageW(Item, PBM_SETRANGE, 0, MAKELPARAM(0, 100));
                 SendMessageW(Item, PBM_SETPOS, 0, 0);
-
-                SetWindowSubclass(Item, DownloadProgressProc, 0, 0);
             }
 
-            /* add a neat placeholder until the download URL is retrieved */
-            Item = GetDlgItem(Dlg, IDC_DOWNLOAD_STATUS);
-            SendMessageW(Item, WM_SETTEXT, 0, (LPARAM)L"\x2022 \x2022 \x2022");
-
             Thread = CreateThread(NULL, 0, ThreadFunc, Dlg, 0, &ThreadId);
-            if (!Thread)
-                return FALSE;
+            if (!Thread) return FALSE;
             CloseHandle(Thread);
             return TRUE;
-        }
+
         case WM_COMMAND:
             if (wParam == IDCANCEL)
             {
@@ -623,6 +358,7 @@ DownloadDlgProc(HWND Dlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
             return FALSE;
 
         case WM_CLOSE:
+            if (hIcon) DestroyIcon(hIcon);
             EndDialog(Dlg, 0);
             return TRUE;
 

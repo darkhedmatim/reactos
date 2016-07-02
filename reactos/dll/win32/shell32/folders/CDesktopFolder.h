@@ -31,13 +31,13 @@ class CDesktopFolder :
 {
     private:
         /* both paths are parsible from the desktop */
-        CComPtr<IShellFolder2> m_DesktopFSFolder;
-        CComPtr<IShellFolder2> m_SharedDesktopFSFolder;
+        CComPtr<IShellFolder> m_DesktopFSFolder;
+        CComPtr<IShellFolder> m_SharedDesktopFSFolder;
 
         LPWSTR sPathTarget;     /* complete path to target used for enumeration and ChangeNotify */
         LPITEMIDLIST pidlRoot;  /* absolute pidl */
 
-        HRESULT _GetSFFromPidl(LPCITEMIDLIST pidl, IShellFolder2** psf);
+        virtual HRESULT WINAPI _GetDropTarget(LPCITEMIDLIST pidl, LPVOID *ppvOut);
 
     public:
         CDesktopFolder();

@@ -1087,7 +1087,7 @@ static HRESULT d3d_device7_EnumTextureFormats(IDirect3DDevice7 *iface,
     for (i = 0; i < sizeof(FormatList) / sizeof(*FormatList); ++i)
     {
         if (wined3d_check_device_format(device->ddraw->wined3d, WINED3DADAPTER_DEFAULT, WINED3D_DEVICE_TYPE_HAL,
-                mode.format_id, 0, WINED3D_RTYPE_TEXTURE_2D, FormatList[i]) == D3D_OK)
+                mode.format_id, 0, WINED3D_RTYPE_TEXTURE, FormatList[i]) == D3D_OK)
         {
             DDPIXELFORMAT pformat;
 
@@ -1110,7 +1110,7 @@ static HRESULT d3d_device7_EnumTextureFormats(IDirect3DDevice7 *iface,
     {
         if (wined3d_check_device_format(device->ddraw->wined3d, WINED3DADAPTER_DEFAULT,
                 WINED3D_DEVICE_TYPE_HAL, mode.format_id, WINED3DUSAGE_QUERY_LEGACYBUMPMAP,
-                WINED3D_RTYPE_TEXTURE_2D, BumpFormatList[i]) == D3D_OK)
+                WINED3D_RTYPE_TEXTURE, BumpFormatList[i]) == D3D_OK)
         {
             DDPIXELFORMAT pformat;
 
@@ -1215,7 +1215,7 @@ static HRESULT WINAPI d3d_device2_EnumTextureFormats(IDirect3DDevice2 *iface,
     for (i = 0; i < sizeof(FormatList) / sizeof(*FormatList); ++i)
     {
         if (wined3d_check_device_format(device->ddraw->wined3d, 0, WINED3D_DEVICE_TYPE_HAL,
-                mode.format_id, 0, WINED3D_RTYPE_TEXTURE_2D, FormatList[i]) == D3D_OK)
+                mode.format_id, 0, WINED3D_RTYPE_TEXTURE, FormatList[i]) == D3D_OK)
         {
             DDSURFACEDESC sdesc;
 
@@ -2750,12 +2750,6 @@ static HRESULT WINAPI d3d_device3_SetRenderState(IDirect3DDevice3 *iface,
     HRESULT hr;
 
     TRACE("iface %p, state %#x, value %#x.\n", iface, state, value);
-
-    if (state >= D3DSTATE_OVERRIDE_BIAS)
-    {
-        WARN("Unhandled state %#x.\n", state);
-        return DDERR_INVALIDPARAMS;
-    }
 
     wined3d_mutex_lock();
 
@@ -5627,7 +5621,7 @@ static HRESULT d3d_device7_PreLoad(IDirect3DDevice7 *iface, IDirectDrawSurface7 
         return DDERR_INVALIDPARAMS;
 
     wined3d_mutex_lock();
-    wined3d_texture_preload(surface->wined3d_texture);
+    wined3d_surface_preload(surface->wined3d_surface);
     wined3d_mutex_unlock();
 
     return D3D_OK;
@@ -5946,10 +5940,10 @@ static BOOL is_mip_level_subset(struct ddraw_surface *dest, struct ddraw_surface
     return !dest_level && levelFound;
 }
 
-static void copy_mipmap_chain(struct d3d_device *device, struct ddraw_surface *dst,
+static void copy_mipmap_chain(struct d3d_device *device, struct ddraw_surface *dest,
         struct ddraw_surface *src, const POINT *DestPoint, const RECT *SrcRect)
 {
-    struct ddraw_surface *dst_level, *src_level;
+    struct ddraw_surface *src_level, *dest_level;
     IDirectDrawSurface7 *temp;
     DDSURFACEDESC2 ddsd;
     POINT point;
@@ -5961,7 +5955,7 @@ static void copy_mipmap_chain(struct d3d_device *device, struct ddraw_surface *d
 
     /* Copy palette, if possible. */
     IDirectDrawSurface7_GetPalette(&src->IDirectDrawSurface7_iface, &pal_src);
-    IDirectDrawSurface7_GetPalette(&dst->IDirectDrawSurface7_iface, &pal);
+    IDirectDrawSurface7_GetPalette(&dest->IDirectDrawSurface7_iface, &pal);
 
     if (pal_src != NULL && pal != NULL)
     {
@@ -5981,37 +5975,36 @@ static void copy_mipmap_chain(struct d3d_device *device, struct ddraw_surface *d
 
         if (SUCCEEDED(hr))
         {
-            IDirectDrawSurface7_SetColorKey(&dst->IDirectDrawSurface7_iface, ckeyflag, &ddckey);
+            IDirectDrawSurface7_SetColorKey(&dest->IDirectDrawSurface7_iface, ckeyflag, &ddckey);
         }
     }
 
     src_level = src;
-    dst_level = dst;
+    dest_level = dest;
 
     point = *DestPoint;
     src_rect = *SrcRect;
 
-    for (;src_level && dst_level;)
+    for (;src_level && dest_level;)
     {
-        if (src_level->surface_desc.dwWidth == dst_level->surface_desc.dwWidth
-                && src_level->surface_desc.dwHeight == dst_level->surface_desc.dwHeight)
+        if (src_level->surface_desc.dwWidth == dest_level->surface_desc.dwWidth &&
+            src_level->surface_desc.dwHeight == dest_level->surface_desc.dwHeight)
         {
             UINT src_w = src_rect.right - src_rect.left;
             UINT src_h = src_rect.bottom - src_rect.top;
             RECT dst_rect = {point.x, point.y, point.x + src_w, point.y + src_h};
 
-            if (FAILED(hr = wined3d_texture_blt(dst_level->wined3d_texture, dst_level->sub_resource_idx, &dst_rect,
-                    src_level->wined3d_texture, src_level->sub_resource_idx, &src_rect, 0, NULL, WINED3D_TEXF_POINT)))
+            if (FAILED(hr = wined3d_surface_blt(dest_level->wined3d_surface, &dst_rect,
+                    src_level->wined3d_surface, &src_rect, 0, NULL, WINED3D_TEXF_POINT)))
                 ERR("Blit failed, hr %#x.\n", hr);
 
             ddsd.ddsCaps.dwCaps = DDSCAPS_TEXTURE;
             ddsd.ddsCaps.dwCaps2 = DDSCAPS2_MIPMAPSUBLEVEL;
-            IDirectDrawSurface7_GetAttachedSurface(&dst_level->IDirectDrawSurface7_iface, &ddsd.ddsCaps, &temp);
+            IDirectDrawSurface7_GetAttachedSurface(&dest_level->IDirectDrawSurface7_iface, &ddsd.ddsCaps, &temp);
 
-            if (dst_level != dst)
-                IDirectDrawSurface7_Release(&dst_level->IDirectDrawSurface7_iface);
+            if (dest_level != dest) IDirectDrawSurface7_Release(&dest_level->IDirectDrawSurface7_iface);
 
-            dst_level = unsafe_impl_from_IDirectDrawSurface7(temp);
+            dest_level = unsafe_impl_from_IDirectDrawSurface7(temp);
         }
 
         ddsd.ddsCaps.dwCaps = DDSCAPS_TEXTURE;
@@ -6031,10 +6024,8 @@ static void copy_mipmap_chain(struct d3d_device *device, struct ddraw_surface *d
         src_rect.bottom = (src_rect.bottom + 1) / 2;
     }
 
-    if (src_level && src_level != src)
-        IDirectDrawSurface7_Release(&src_level->IDirectDrawSurface7_iface);
-    if (dst_level && dst_level != dst)
-        IDirectDrawSurface7_Release(&dst_level->IDirectDrawSurface7_iface);
+    if (src_level && src_level != src) IDirectDrawSurface7_Release(&src_level->IDirectDrawSurface7_iface);
+    if (dest_level && dest_level != dest) IDirectDrawSurface7_Release(&dest_level->IDirectDrawSurface7_iface);
 }
 
 /*****************************************************************************

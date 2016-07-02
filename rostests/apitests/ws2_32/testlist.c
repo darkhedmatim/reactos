@@ -4,8 +4,6 @@
 #include <apitest.h>
 
 extern void func_getaddrinfo(void);
-extern void func_getservbyname(void);
-extern void func_getservbyport(void);
 extern void func_ioctlsocket(void);
 extern void func_recv(void);
 extern void func_send(void);
@@ -15,8 +13,6 @@ extern void func_nostartup(void);
 const struct test winetest_testlist[] =
 {
     { "getaddrinfo", func_getaddrinfo },
-    { "getservbyname", func_getservbyname },
-    { "getservbyport", func_getservbyport },
     { "ioctlsocket", func_ioctlsocket },
     { "nostartup", func_nostartup },
     { "recv", func_recv },

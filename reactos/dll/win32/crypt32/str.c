@@ -760,7 +760,7 @@ struct KeynameKeeper
 {
     WCHAR  buf[10]; /* big enough for L"GivenName" */
     LPWSTR keyName; /* usually = buf, but may be allocated */
-    DWORD  keyLen;  /* full available buffer size in WCHARs */
+    DWORD  keyLen;
 };
 
 static void CRYPT_InitializeKeynameKeeper(struct KeynameKeeper *keeper)
@@ -786,13 +786,17 @@ static void CRYPT_KeynameKeeperFromTokenW(struct KeynameKeeper *keeper,
 {
     DWORD len = key->end - key->start;
 
-    if (len >= keeper->keyLen)
+    if (len > keeper->keyLen)
     {
-        CRYPT_FreeKeynameKeeper( keeper );
-        keeper->keyLen = len + 1;
-        keeper->keyName = CryptMemAlloc(keeper->keyLen * sizeof(WCHAR));
+        if (keeper->keyName == keeper->buf)
+            keeper->keyName = CryptMemAlloc(len * sizeof(WCHAR));
+        else
+            keeper->keyName = CryptMemRealloc(keeper->keyName,
+             len * sizeof(WCHAR));
+        keeper->keyLen = len;
     }
-    memcpy(keeper->keyName, key->start, len * sizeof(WCHAR));
+    memcpy(keeper->keyName, key->start, (key->end - key->start) *
+     sizeof(WCHAR));
     keeper->keyName[len] = '\0';
     TRACE("Keyname is %s\n", debugstr_w(keeper->keyName));
 }

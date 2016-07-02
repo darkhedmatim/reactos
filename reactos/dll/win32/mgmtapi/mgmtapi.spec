@@ -6,4 +6,4 @@
 @ stub SnmpMgrOpen
 @ stub SnmpMgrRequest
 @ stub SnmpMgrStrToOid
-@ stdcall SnmpMgrTrapListen(ptr)
+@ stub SnmpMgrTrapListen

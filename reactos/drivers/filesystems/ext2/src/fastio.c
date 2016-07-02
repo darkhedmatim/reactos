@@ -17,9 +17,6 @@ extern PEXT2_GLOBAL Ext2Global;
 
 /* DEFINITIONS *************************************************************/
 
-#define FASTIO_DEBUG_LEVEL DL_NVR
-
-
 #ifdef ALLOC_PRAGMA
 
 #pragma alloc_text(PAGE, Ext2FastIoRead)
@@ -216,34 +213,24 @@ Ext2FastIoWrite (
             _SEH2_LEAVE;
         }
 
-        if (!ExAcquireResourceSharedLite(Fcb->Header.Resource, Wait)) {
-            _SEH2_LEAVE;
-        }
+        ExAcquireResourceSharedLite(&Fcb->MainResource, TRUE);
         Locked = TRUE;
 
         if (IsWritingToEof(*FileOffset) ||
-            Fcb->Header.ValidDataLength.QuadPart < FileOffset->QuadPart + Length ||
+            Fcb->Header.ValidDataLength.QuadPart < FileOffset->QuadPart ||
             Fcb->Header.FileSize.QuadPart < FileOffset->QuadPart + Length ) {
             Status = FALSE;
-            _SEH2_LEAVE;
-        }
-
-        if (Locked) {
-            ExReleaseResourceLite(Fcb->Header.Resource);
+        } else {
+            ExReleaseResourceLite(&Fcb->MainResource);
             Locked = FALSE;
-        }
-
-        Status = FsRtlCopyWrite(FileObject, FileOffset, Length, Wait,
-                                LockKey, Buffer, IoStatus, DeviceObject);
-        if (Status) {
-            if (IoStatus)
-                Length = (ULONG)IoStatus->Information;
+            Status = FsRtlCopyWrite(FileObject, FileOffset, Length, Wait,
+                                    LockKey, Buffer, IoStatus, DeviceObject);
         }
 
     } _SEH2_FINALLY {
 
         if (Locked) {
-            ExReleaseResourceLite(Fcb->Header.Resource);
+            ExReleaseResourceLite(&Fcb->MainResource);
         }
 
         FsRtlExitFileSystem();
@@ -264,8 +251,6 @@ Ext2FastIoQueryBasicInfo (
     IN PDEVICE_OBJECT           DeviceObject)
 {
     PEXT2_FCB   Fcb = NULL;
-    PEXT2_CCB   Ccb = NULL;
-    PEXT2_MCB   Mcb = NULL;
     BOOLEAN     Status = FALSE;
     BOOLEAN     FcbMainResourceAcquired = FALSE;
 
@@ -285,8 +270,7 @@ Ext2FastIoQueryBasicInfo (
                 IoStatus->Status = STATUS_INVALID_PARAMETER;
                 _SEH2_LEAVE;
             }
-            Ccb = (PEXT2_CCB) FileObject->FsContext2;
-            Mcb = Fcb->Mcb;
+
             ASSERT((Fcb->Identifier.Type == EXT2FCB) &&
                    (Fcb->Identifier.Size == sizeof(EXT2_FCB)));
 #if EXT2_DEBUG
@@ -318,11 +302,17 @@ Ext2FastIoQueryBasicInfo (
             } FILE_BASIC_INFORMATION, *PFILE_BASIC_INFORMATION;
             */
 
-            Buffer->CreationTime = Mcb->CreationTime;
-            Buffer->LastAccessTime = Mcb->LastAccessTime;
-            Buffer->LastWriteTime = Mcb->LastWriteTime;
-            Buffer->ChangeTime = Mcb->ChangeTime;
-            Buffer->FileAttributes = Mcb->FileAttr;
+            if (IsRoot(Fcb)) {
+                Buffer->CreationTime = Buffer->LastAccessTime =
+                                           Buffer->LastWriteTime = Buffer->ChangeTime = Ext2NtTime(0);
+            } else {
+                Buffer->CreationTime = Fcb->Mcb->CreationTime;
+                Buffer->LastAccessTime = Fcb->Mcb->LastAccessTime;
+                Buffer->LastWriteTime = Fcb->Mcb->LastWriteTime;
+                Buffer->ChangeTime = Fcb->Mcb->ChangeTime;
+            }
+
+            Buffer->FileAttributes = Fcb->Mcb->FileAttr;
             if (Buffer->FileAttributes == 0) {
                 Buffer->FileAttributes = FILE_ATTRIBUTE_NORMAL;
             }
@@ -378,8 +368,8 @@ Ext2FastIoQueryStandardInfo (
 {
 
     BOOLEAN     Status = FALSE;
-    PEXT2_VCB   Vcb = NULL;
-    PEXT2_FCB   Fcb = NULL;
+    PEXT2_VCB   Vcb;
+    PEXT2_FCB   Fcb;
     BOOLEAN     FcbMainResourceAcquired = FALSE;
 
     _SEH2_TRY {
@@ -902,11 +892,10 @@ Ext2FastIoQueryNetworkOpenInfo (
     IN PDEVICE_OBJECT       DeviceObject
 )
 {
-    PEXT2_FCB   Fcb = NULL;
-    PEXT2_CCB   Ccb = NULL;
-    PEXT2_MCB   Mcb = NULL;
-
     BOOLEAN     bResult = FALSE;
+
+    PEXT2_FCB   Fcb = NULL;
+
     BOOLEAN FcbResourceAcquired = FALSE;
 
     _SEH2_TRY {
@@ -927,8 +916,6 @@ Ext2FastIoQueryNetworkOpenInfo (
 
         ASSERT((Fcb->Identifier.Type == EXT2FCB) &&
                (Fcb->Identifier.Size == sizeof(EXT2_FCB)));
-        Ccb = (PEXT2_CCB) FileObject->FsContext2;
-        Mcb = Fcb->Mcb;
 
 #if EXT2_DEBUG
         DEBUG(DL_INF, (
@@ -938,7 +925,7 @@ Ext2FastIoQueryNetworkOpenInfo (
               ));
 #endif
 
-        if (!Ccb) {
+        if (FileObject->FsContext2) {
             _SEH2_LEAVE;
         }
 
@@ -962,15 +949,22 @@ Ext2FastIoQueryNetworkOpenInfo (
             PFNOI->EndOfFile      = Fcb->Header.FileSize;
         }
 
-        PFNOI->FileAttributes = Mcb->FileAttr;
+        PFNOI->FileAttributes = Fcb->Mcb->FileAttr;
         if (PFNOI->FileAttributes == 0) {
             PFNOI->FileAttributes = FILE_ATTRIBUTE_NORMAL;
         }
 
-        PFNOI->CreationTime   = Mcb->CreationTime;
-        PFNOI->LastAccessTime = Mcb->LastAccessTime;
-        PFNOI->LastWriteTime  = Mcb->LastWriteTime;
-        PFNOI->ChangeTime     = Mcb->ChangeTime;
+        if (IsRoot(Fcb)) {
+            PFNOI->CreationTime =
+                PFNOI->LastAccessTime =
+                    PFNOI->LastWriteTime =
+                        PFNOI->ChangeTime = Ext2NtTime(0);
+        } else {
+            PFNOI->CreationTime   = Fcb->Mcb->CreationTime;
+            PFNOI->LastAccessTime = Fcb->Mcb->LastAccessTime;
+            PFNOI->LastWriteTime  = Fcb->Mcb->LastWriteTime;
+            PFNOI->ChangeTime     = Fcb->Mcb->ChangeTime;
+        }
 
         bResult = TRUE;
 
@@ -987,138 +981,4 @@ Ext2FastIoQueryNetworkOpenInfo (
     } _SEH2_END;
 
     return bResult;
-}
-
-
-VOID NTAPI
-Ext2AcquireForCreateSection (
-    IN PFILE_OBJECT FileObject
-)
-
-{
-    PEXT2_FCB Fcb = FileObject->FsContext;
-
-    if (Fcb->Header.Resource != NULL) {
-        ExAcquireResourceExclusiveLite(Fcb->Header.Resource, TRUE);
-    }
-
-    DEBUG(FASTIO_DEBUG_LEVEL, ("Ext2AcquireForCreateSection:  Fcb=%p\n", Fcb));
-}
-
-VOID NTAPI
-Ext2ReleaseForCreateSection (
-    IN PFILE_OBJECT FileObject
-)
-{
-    PEXT2_FCB Fcb = FileObject->FsContext;
-
-    DEBUG(FASTIO_DEBUG_LEVEL, ("Ext2ReleaseForCreateSection:  Fcb=%p\n", Fcb));
-
-    if (Fcb->Header.Resource != NULL) {
-        ExReleaseResourceLite(Fcb->Header.Resource);
-    }
-}
-
-
-NTSTATUS NTAPI
-Ext2AcquireFileForModWrite (
-    IN PFILE_OBJECT FileObject,
-    IN PLARGE_INTEGER EndingOffset,
-    OUT PERESOURCE *ResourceToRelease,
-    IN PDEVICE_OBJECT DeviceObject
-)
-
-{
-    BOOLEAN ResourceAcquired = FALSE;
-
-    PEXT2_FCB Fcb = FileObject->FsContext;
-
-    *ResourceToRelease = Fcb->Header.Resource;
-    ResourceAcquired = ExAcquireResourceExclusiveLite(*ResourceToRelease, FALSE);
-    if (!ResourceAcquired) {
-        *ResourceToRelease = NULL;
-    }
-
-    DEBUG(FASTIO_DEBUG_LEVEL, ("Ext2AcquireFileForModWrite:  Fcb=%p Acquired=%d\n",
-                             Fcb, ResourceAcquired));
-
-    return (ResourceAcquired ? STATUS_SUCCESS : STATUS_CANT_WAIT);
-}
-
-NTSTATUS NTAPI
-Ext2ReleaseFileForModWrite (
-    IN PFILE_OBJECT FileObject,
-    IN PERESOURCE ResourceToRelease,
-    IN PDEVICE_OBJECT DeviceObject
-)
-{
-    PEXT2_FCB Fcb = FileObject->FsContext;
-
-    DEBUG(FASTIO_DEBUG_LEVEL, ("Ext2ReleaseFileForModWrite: Fcb=%p\n", Fcb));
-
-    if (ResourceToRelease != NULL) {
-        ASSERT(ResourceToRelease == Fcb->Header.Resource);
-        ExReleaseResourceLite(ResourceToRelease);
-    } else {
-        DbgBreak();
-    }
-
-    return STATUS_SUCCESS;
-}
-
-NTSTATUS NTAPI
-Ext2AcquireFileForCcFlush (
-    IN PFILE_OBJECT FileObject,
-    IN PDEVICE_OBJECT DeviceObject
-)
-{
-    PEXT2_FCB Fcb = FileObject->FsContext;
-
-    if (Fcb->Header.Resource != NULL) {
-        ExAcquireResourceExclusiveLite(Fcb->Header.Resource, TRUE);
-    }
-
-    DEBUG(FASTIO_DEBUG_LEVEL, ("Ext2AcquireFileForCcFlush: Fcb=%p\n", Fcb));
-
-    return STATUS_SUCCESS;
-}
-
-NTSTATUS NTAPI
-Ext2ReleaseFileForCcFlush (
-    IN PFILE_OBJECT FileObject,
-    IN PDEVICE_OBJECT DeviceObject
-)
-{
-    PEXT2_FCB Fcb = FileObject->FsContext;
-
-    DEBUG(FASTIO_DEBUG_LEVEL, ("Ext2ReleaseFileForCcFlush: Fcb=%p\n", Fcb));
-
-    if (Fcb->Header.Resource != NULL) {
-        ExReleaseResourceLite(Fcb->Header.Resource);
-    }
-
-    return STATUS_SUCCESS;
-}
-
-
-NTSTATUS NTAPI
-Ext2PreAcquireForCreateSection(
-    IN PFS_FILTER_CALLBACK_DATA cd,
-    OUT PVOID *cc
-    )
-{
-    PEXT2_FCB Fcb = (PEXT2_FCB)cd->FileObject->FsContext;
-    NTSTATUS        status;
-
-    ASSERT(cd->Operation == FS_FILTER_ACQUIRE_FOR_SECTION_SYNCHRONIZATION);
-    ExAcquireResourceExclusiveLite(Fcb->Header.Resource, TRUE);
-    if (cd->Parameters.AcquireForSectionSynchronization.SyncType != SyncTypeCreateSection) {
-        status = STATUS_FSFILTER_OP_COMPLETED_SUCCESSFULLY;
-    } else if (Fcb->ShareAccess.Writers == 0) {
-        status = STATUS_FILE_LOCKED_WITH_ONLY_READERS;
-    } else {
-        status = STATUS_FILE_LOCKED_WITH_WRITERS;
-    }
-
-    return status;
 }

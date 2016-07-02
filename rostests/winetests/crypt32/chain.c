@@ -125,10 +125,8 @@ static void testCreateCertChainEngine(void)
     CertAddEncodedCertificateToStore(store, X509_ASN_ENCODING, selfSignedCert,
      sizeof(selfSignedCert), CERT_STORE_ADD_ALWAYS, NULL);
     ret = pCertCreateCertificateChainEngine(pConfig, &engine);
-    /* ERROR_FILE_NOT_FOUND used in Windows 10 */
-    ok(!ret && ((GetLastError() == CRYPT_E_NOT_FOUND) ||
-                (GetLastError() == ERROR_FILE_NOT_FOUND)),
-        "Expected CRYPT_E_NOT_FOUND or ERROR_FILE_NOT_FOUND, got %08x\n", GetLastError());
+    ok(!ret && GetLastError() == CRYPT_E_NOT_FOUND,
+     "Expected CRYPT_E_NOT_FOUND, got %08x\n", GetLastError());
 
     CertCloseStore(store, 0);
 }
@@ -2811,7 +2809,10 @@ static PCCERT_CHAIN_CONTEXT getChain(HCERTCHAINENGINE engine,
              checkTime->wDay, checkTime->wMonth, checkTime->wYear);
             ret = pCertGetCertificateChain(engine, endCert, &fileTime,
              includeStore ? store : NULL, &chainPara, flags, NULL, &chain);
-            todo_wine_if (todo & TODO_CHAIN)
+            if (todo & TODO_CHAIN)
+                todo_wine ok(ret, "Chain %d: CertGetCertificateChain failed: %08x\n",
+                 testIndex, GetLastError());
+            else
                 ok(ret, "Chain %d: CertGetCertificateChain failed: %08x\n",
                  testIndex, GetLastError());
             CertFreeCertificateContext(endCert);
@@ -2837,7 +2838,15 @@ static void checkElementStatus(const CERT_TRUST_STATUS *expected,
          "%s[%d], element [%d,%d]: expected error %08x, got %08x\n",
          testName, testIndex, chainIndex, elementIndex, expected->dwErrorStatus,
          got->dwErrorStatus);
-    else todo_wine_if (todo & TODO_ERROR)
+    else if (todo & TODO_ERROR)
+        todo_wine
+        ok(got->dwErrorStatus == expected->dwErrorStatus ||
+         broken((got->dwErrorStatus & ~ignore->dwErrorStatus) ==
+         (expected->dwErrorStatus & ~ignore->dwErrorStatus)),
+         "%s[%d], element [%d,%d]: expected error %08x, got %08x\n",
+         testName, testIndex, chainIndex, elementIndex, expected->dwErrorStatus,
+         got->dwErrorStatus);
+    else
         ok(got->dwErrorStatus == expected->dwErrorStatus ||
          broken((got->dwErrorStatus & ~ignore->dwErrorStatus) ==
          (expected->dwErrorStatus & ~ignore->dwErrorStatus)),
@@ -2850,7 +2859,15 @@ static void checkElementStatus(const CERT_TRUST_STATUS *expected,
          "%s[%d], element [%d,%d]: expected info %08x, got %08x\n",
          testName, testIndex, chainIndex, elementIndex, expected->dwInfoStatus,
          got->dwInfoStatus);
-    else todo_wine_if (todo & TODO_INFO)
+    else if (todo & TODO_INFO)
+        todo_wine
+        ok(got->dwInfoStatus == expected->dwInfoStatus ||
+         broken((got->dwInfoStatus & ~ignore->dwInfoStatus) ==
+         (expected->dwInfoStatus & ~ignore->dwInfoStatus)),
+         "%s[%d], element [%d,%d]: expected info %08x, got %08x\n",
+         testName, testIndex, chainIndex, elementIndex, expected->dwInfoStatus,
+         got->dwInfoStatus);
+    else
         ok(got->dwInfoStatus == expected->dwInfoStatus ||
          broken((got->dwInfoStatus & ~ignore->dwInfoStatus) ==
          (expected->dwInfoStatus & ~ignore->dwInfoStatus)),
@@ -2864,7 +2881,11 @@ static void checkSimpleChainStatus(const CERT_SIMPLE_CHAIN *simpleChain,
  const CERT_TRUST_STATUS *ignore, DWORD todo, LPCSTR testName, DWORD testIndex,
  DWORD chainIndex)
 {
-    todo_wine_if (todo & TODO_ELEMENTS)
+    if (todo & TODO_ELEMENTS)
+        todo_wine ok(simpleChain->cElement == simpleChainStatus->cElement,
+         "%s[%d]: expected %d elements, got %d\n", testName, testIndex,
+         simpleChainStatus->cElement, simpleChain->cElement);
+    else
         ok(simpleChain->cElement == simpleChainStatus->cElement,
          "%s[%d]: expected %d elements, got %d\n", testName, testIndex,
          simpleChainStatus->cElement, simpleChain->cElement);
@@ -2894,8 +2915,18 @@ static void checkChainStatus(PCCERT_CHAIN_CONTEXT chain,
     ok(chain->cChain == chainStatus->cChain,
      "%s[%d]: expected %d simple chains, got %d\n", testName, testIndex,
      chainStatus->cChain, chain->cChain);
-    todo_wine_if (todo & TODO_ERROR &&
+    if (todo & TODO_ERROR &&
      chain->TrustStatus.dwErrorStatus != chainStatus->status.dwErrorStatus)
+        todo_wine ok(chain->TrustStatus.dwErrorStatus ==
+         chainStatus->status.dwErrorStatus ||
+         broken((chain->TrustStatus.dwErrorStatus &
+         ~chainStatus->statusToIgnore.dwErrorStatus) ==
+         (chainStatus->status.dwErrorStatus &
+         ~chainStatus->statusToIgnore.dwErrorStatus)),
+         "%s[%d]: expected error %08x, got %08x\n",
+         testName, testIndex, chainStatus->status.dwErrorStatus,
+         chain->TrustStatus.dwErrorStatus);
+    else
         ok(chain->TrustStatus.dwErrorStatus ==
          chainStatus->status.dwErrorStatus ||
          broken((chain->TrustStatus.dwErrorStatus &
@@ -2906,8 +2937,18 @@ static void checkChainStatus(PCCERT_CHAIN_CONTEXT chain,
          "Verisign root certificate is available.\n",
          testName, testIndex, chainStatus->status.dwErrorStatus,
          chain->TrustStatus.dwErrorStatus, CERT_TRUST_IS_UNTRUSTED_ROOT);
-    todo_wine_if (todo & TODO_INFO &&
+    if (todo & TODO_INFO &&
      chain->TrustStatus.dwInfoStatus != chainStatus->status.dwInfoStatus)
+        todo_wine ok(chain->TrustStatus.dwInfoStatus ==
+         chainStatus->status.dwInfoStatus ||
+         broken((chain->TrustStatus.dwInfoStatus &
+         ~chainStatus->statusToIgnore.dwInfoStatus) ==
+         (chainStatus->status.dwInfoStatus &
+         ~chainStatus->statusToIgnore.dwInfoStatus)),
+         "%s[%d]: expected info %08x, got %08x\n",
+         testName, testIndex, chainStatus->status.dwInfoStatus,
+         chain->TrustStatus.dwInfoStatus);
+    else
         ok(chain->TrustStatus.dwInfoStatus ==
          chainStatus->status.dwInfoStatus ||
          broken((chain->TrustStatus.dwInfoStatus &
@@ -4370,7 +4411,16 @@ static void checkChainPolicyStatus(LPCSTR policy, HCERTCHAINENGINE engine,
         }
         if (ret)
         {
-            todo_wine_if (check->todo & TODO_ERROR)
+            if (check->todo & TODO_ERROR)
+                todo_wine ok(policyStatus.dwError == check->status.dwError ||
+                 broken(policyStatus.dwError == CERT_TRUST_NO_ERROR) ||
+                 (check->brokenStatus && broken(policyStatus.dwError ==
+                 check->brokenStatus->dwError)),
+                 "%s[%d](%s): expected %08x, got %08x\n",
+                 testName, testIndex,
+                 IS_INTOID(policy) ? num_to_str(LOWORD(policy)) : policy,
+                 check->status.dwError, policyStatus.dwError);
+            else
                 ok(policyStatus.dwError == check->status.dwError ||
                  broken(policyStatus.dwError == CERT_TRUST_NO_ERROR) ||
                  (check->brokenStatus && broken(policyStatus.dwError ==
@@ -4388,7 +4438,16 @@ static void checkChainPolicyStatus(LPCSTR policy, HCERTCHAINENGINE engine,
                 pCertFreeCertificateChain(chain);
                 return;
             }
-            todo_wine_if (check->todo & TODO_CHAINS)
+            if (check->todo & TODO_CHAINS)
+                todo_wine ok(policyStatus.lChainIndex ==
+                 check->status.lChainIndex ||
+                 (check->brokenStatus && broken(policyStatus.lChainIndex ==
+                 check->brokenStatus->lChainIndex)),
+                 "%s[%d](%s): expected %d, got %d\n",
+                 testName, testIndex,
+                 IS_INTOID(policy) ? num_to_str(LOWORD(policy)) : policy,
+                 check->status.lChainIndex, policyStatus.lChainIndex);
+            else
                 ok(policyStatus.lChainIndex == check->status.lChainIndex ||
                  (check->brokenStatus && broken(policyStatus.lChainIndex ==
                  check->brokenStatus->lChainIndex)),
@@ -4396,12 +4455,21 @@ static void checkChainPolicyStatus(LPCSTR policy, HCERTCHAINENGINE engine,
                  testName, testIndex,
                  IS_INTOID(policy) ? num_to_str(LOWORD(policy)) : policy,
                  check->status.lChainIndex, policyStatus.lChainIndex);
-            todo_wine_if (check->todo & TODO_ELEMENTS)
-                ok(policyStatus.lElementIndex == check->status.lElementIndex ||
+            if (check->todo & TODO_ELEMENTS)
+                todo_wine ok(policyStatus.lElementIndex ==
+                 check->status.lElementIndex ||
                  (check->brokenStatus && broken(policyStatus.lElementIndex ==
                  check->brokenStatus->lElementIndex)),
                  "%s[%d](%s): expected %d, got %d\n",
                  testName, testIndex,
+                 IS_INTOID(policy) ? num_to_str(LOWORD(policy)) : policy,
+                 check->status.lElementIndex, policyStatus.lElementIndex);
+            else
+                ok(policyStatus.lElementIndex == check->status.lElementIndex ||
+                 (check->brokenStatus && broken(policyStatus.lElementIndex ==
+                 check->brokenStatus->lElementIndex)),
+                 testName, testIndex,
+                 "%s[%d](%s): expected %d, got %d\n",
                  IS_INTOID(policy) ? num_to_str(LOWORD(policy)) : policy,
                  check->status.lElementIndex, policyStatus.lElementIndex);
         }
@@ -4670,7 +4738,7 @@ static void check_ssl_policy(void)
     CHECK_CHAIN_POLICY_STATUS(CERT_CHAIN_POLICY_SSL, NULL,
      fooPolicyCheckWithoutMatchingName, &oct2007, &policyPara);
     /* The Battle.Net chain checks a certificate with a domain component
-     * containing a terminating NULL.
+     * containg a terminating NULL.
      */
     sslPolicyPara.pwszServerName = battle_dot_net;
     CHECK_CHAIN_POLICY_STATUS(CERT_CHAIN_POLICY_SSL, NULL,

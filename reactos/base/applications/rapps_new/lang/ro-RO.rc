@@ -123,7 +123,6 @@ BEGIN
     IDS_TOOLTIP_MODIFY "Modifică"
     IDS_TOOLTIP_SETTINGS "Preferințe"
     IDS_TOOLTIP_REFRESH "Împrospătează"
-    IDS_TOOLTIP_UPDATE_DB "Actualizează baza de date"
     IDS_TOOLTIP_EXIT "Ieșire"
 END
 
@@ -204,9 +203,4 @@ BEGIN
     IDS_INFORMATION "Informație"
     IDS_UNABLE_TO_DOWNLOAD "Pachetul nu poate fi descărcat! Adresa nu este găsită!"
     IDS_UNABLE_TO_REMOVE "Nu se pot elimina datele din registru pentru acest program!"
-    IDS_CERT_DOES_NOT_MATCH "Verificarea certificatului SSL a eșuat."    
-    IDS_INTEG_CHECK_TITLE "Se verifică integritatea pachetului…"
-    IDS_INTEG_CHECK_FAIL "Pachetul nu a trecut de verificarea de integritate. Utilizarea programului nu este recomandată."
-    IDS_INTERRUPTED_DOWNLOAD "Descărcarea a fost întreruptă. Verificați conexiunea la Internet."
-    IDS_UNABLE_TO_WRITE "Nu se poate scrie pe disc. Una din cauze poate fi atingerea limitei de capacitate a discului."
 END

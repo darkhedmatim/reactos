@@ -19,7 +19,7 @@
 #define PLACEMENT_STRETCH   1
 #define PLACEMENT_TILE      2
 
-/* The values in these macros are dependent on the
+/* The values in these macros are dependant on the
  * layout of the monitor image and they must be adjusted
  * if that image will be changed.
  */
@@ -179,6 +179,7 @@ AddWallpapersFromDirectory(UINT uCounter, HWND hwndBackgroundList, BackgroundIte
     LV_ITEM listItem;
     HIMAGELIST himl;
 
+
     szFileTypes = GdipGetSupportedFileExtensions();
     if (!szFileTypes)
     {
@@ -215,6 +216,7 @@ AddWallpapersFromDirectory(UINT uCounter, HWND hwndBackgroundList, BackgroundIte
                                                 sizeof(sfi),
                                                 SHGFI_SYSICONINDEX | SHGFI_SMALLICON |
                                                 SHGFI_DISPLAYNAME);
+
                 if (himl == NULL)
                     break;
 
@@ -330,7 +332,7 @@ AddListViewItems(HWND hwndDlg, PDATA pData)
     pData->listViewItemCount++;
 
     /* Add current wallpaper if any */
-    result = RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Desktop"), 0, KEY_QUERY_VALUE, &regKey);
+    result = RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Desktop"), 0, KEY_ALL_ACCESS, &regKey);
     if (result == ERROR_SUCCESS)
     {
         result = RegQueryValueEx(regKey, TEXT("Wallpaper"), 0, &varType, (LPBYTE)wallpaperFilename, &bufferSize);
@@ -348,11 +350,12 @@ AddListViewItems(HWND hwndDlg, PDATA pData)
                 if ((result == ERROR_SUCCESS) && (_tcslen(originalWallpaper) > 0))
                 {
                     hr = StringCbCopy(wallpaperFilename, sizeof(wallpaperFilename), originalWallpaper);
-                    if (FAILED(hr))
-                    {
-                        RegCloseKey(regKey);
-                        return;
-                    }
+                }
+
+                if (FAILED(hr))
+                {
+                    RegCloseKey(regKey);
+                    return;
                 }
             }
 
@@ -373,6 +376,7 @@ AddListViewItems(HWND hwndDlg, PDATA pData)
                                              sizeof(sfi),
                                              SHGFI_SYSICONINDEX | SHGFI_SMALLICON |
                                              SHGFI_DISPLAYNAME);
+
             if (himl != NULL)
             {
                 if (i++ == 0)
@@ -428,7 +432,7 @@ AddListViewItems(HWND hwndDlg, PDATA pData)
     }
 
     /* Add all the images in the wallpaper directory. */
-    if (SHRegGetPath(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Microsoft\\Windows\\CurrentVersion"), TEXT("WallPaperDir"), szSearchPath, 0) == ERROR_SUCCESS)
+    if (SHRegGetPath(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Microsoft\\Windows\\CurrentVersion"), TEXT("WallpaperDir"), szSearchPath, 0) == ERROR_SUCCESS)
     {
         i = AddWallpapersFromDirectory(i, hwndBackgroundList, backgroundItem, pData, wallpaperFilename, szSearchPath);
     }
@@ -509,8 +513,8 @@ OnColorButton(HWND hwndDlg, PDATA pData)
     LONG res = ERROR_SUCCESS;
     CHOOSECOLOR cc;
 
-    res = RegCreateKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Appearance"), 0, NULL,
-                         REG_OPTION_NON_VOLATILE, KEY_QUERY_VALUE, NULL, &hKey, NULL);
+    res = RegCreateKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Appearance"), 0, NULL, 0,
+        KEY_ALL_ACCESS, NULL, &hKey, NULL);
     /* Now the key is either created or opened existing, if res == ERROR_SUCCESS */
     if (res == ERROR_SUCCESS)
     {
@@ -518,7 +522,7 @@ OnColorButton(HWND hwndDlg, PDATA pData)
         DWORD dwType = REG_BINARY;
         DWORD cbData = sizeof(pData->custom_colors);
         res = RegQueryValueEx(hKey, TEXT("CustomColors"), NULL, &dwType,
-                              (LPBYTE)pData->custom_colors, &cbData);
+            (LPBYTE)pData->custom_colors, &cbData);
         RegCloseKey(hKey);
         hKey = NULL;
     }
@@ -550,12 +554,12 @@ OnColorButton(HWND hwndDlg, PDATA pData)
 
         /* Save custom colors to reg. To this moment key must be created already. See above */
         res = RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Appearance"), 0,
-                           KEY_SET_VALUE, &hKey);
+            KEY_WRITE, &hKey);
         if (res == ERROR_SUCCESS)
         {
             /* Key opened */
             RegSetValueEx(hKey, TEXT("CustomColors"), 0, REG_BINARY,
-                          (LPBYTE)pData->custom_colors, sizeof(pData->custom_colors));
+                (const BYTE *)pData->custom_colors, sizeof(pData->custom_colors));
             RegCloseKey(hKey);
             hKey = NULL;
         }
@@ -903,6 +907,7 @@ SetWallpaper(PDATA pData)
     size_t length = 0;
     GpStatus status;
 
+
     if (FAILED(SHGetFolderPath(NULL, CSIDL_LOCAL_APPDATA | CSIDL_FLAG_CREATE, NULL, 0, szWallpaper)))
     {
         return;
@@ -913,28 +918,24 @@ SetWallpaper(PDATA pData)
         return;
     }
 
-    if (RegCreateKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Desktop"), 0, NULL,
-                       REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &regKey, NULL) != ERROR_SUCCESS)
-    {
-        return;
-    }
+    RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Desktop"), 0, KEY_ALL_ACCESS, &regKey);
 
     if (pData->placementSelection == PLACEMENT_TILE)
     {
-        RegSetValueEx(regKey, TEXT("TileWallpaper"), 0, REG_SZ, (LPBYTE)TEXT("1"), sizeof(TCHAR) * 2);
-        RegSetValueEx(regKey, TEXT("WallpaperStyle"), 0, REG_SZ, (LPBYTE)TEXT("0"), sizeof(TCHAR) * 2);
+        RegSetValueEx(regKey, TEXT("TileWallpaper"), 0, REG_SZ, (BYTE *)TEXT("1"), sizeof(TCHAR) * 2);
+        RegSetValueEx(regKey, TEXT("WallpaperStyle"), 0, REG_SZ, (BYTE *)TEXT("0"), sizeof(TCHAR) * 2);
     }
 
     if (pData->placementSelection == PLACEMENT_CENTER)
     {
-        RegSetValueEx(regKey, TEXT("TileWallpaper"), 0, REG_SZ, (LPBYTE)TEXT("0"), sizeof(TCHAR) * 2);
-        RegSetValueEx(regKey, TEXT("WallpaperStyle"), 0, REG_SZ, (LPBYTE)TEXT("0"), sizeof(TCHAR) * 2);
+        RegSetValueEx(regKey, TEXT("TileWallpaper"), 0, REG_SZ, (BYTE *)TEXT("0"), sizeof(TCHAR) * 2);
+        RegSetValueEx(regKey, TEXT("WallpaperStyle"), 0, REG_SZ, (BYTE *)TEXT("0"), sizeof(TCHAR) * 2);
     }
 
     if (pData->placementSelection == PLACEMENT_STRETCH)
     {
-        RegSetValueEx(regKey, TEXT("TileWallpaper"), 0, REG_SZ, (LPBYTE)TEXT("0"), sizeof(TCHAR) * 2);
-        RegSetValueEx(regKey, TEXT("WallpaperStyle"), 0, REG_SZ, (LPBYTE)TEXT("2"), sizeof(TCHAR) * 2);
+        RegSetValueEx(regKey, TEXT("TileWallpaper"), 0, REG_SZ, (BYTE *)TEXT("0"), sizeof(TCHAR) * 2);
+        RegSetValueEx(regKey, TEXT("WallpaperStyle"), 0, REG_SZ, (BYTE *)TEXT("2"), sizeof(TCHAR) * 2);
     }
 
     if (pData->backgroundItems[pData->backgroundSelection].bWallpaper == TRUE)
@@ -978,7 +979,7 @@ SetWallpaper(PDATA pData)
                           TEXT("ConvertedWallpaper"),
                           0,
                           REG_SZ,
-                          (LPBYTE)pData->backgroundItems[pData->backgroundSelection].szFilename,
+                          (BYTE*)pData->backgroundItems[pData->backgroundSelection].szFilename,
                           (DWORD)((length + 1) * sizeof(TCHAR)));
         }
 
@@ -988,7 +989,7 @@ SetWallpaper(PDATA pData)
                           TEXT("OriginalWallpaper"),
                           0,
                           REG_SZ,
-                          (LPBYTE)szWallpaper,
+                          (BYTE *)szWallpaper,
                           (DWORD)((length + 1) * sizeof(TCHAR)));
         }
 
@@ -1007,34 +1008,30 @@ SetWallpaper(PDATA pData)
 static VOID
 SetDesktopBackColor(HWND hwndDlg, DATA *pData)
 {
-    HKEY hKey;
     INT iElement = COLOR_BACKGROUND;
+    HKEY hKey;
+    LONG result;
     TCHAR clText[16];
     BYTE red, green, blue;
+    DWORD dwDispostion;
 
-    if (!SetSysColors(1, &iElement, &g_GlobalData.desktop_color))
-    {
-        /* FIXME: these error texts can need internationalization? */
-        MessageBox(hwndDlg, TEXT("SetSysColor() failed!"),
+    if( !SetSysColors( 1, &iElement, &g_GlobalData.desktop_color ) )
+        MessageBox(hwndDlg, TEXT("SetSysColor() failed!"), /* these error texts can need internationalization? */
             TEXT("Error!"), MB_ICONSTOP );
-    }
 
-    if (RegCreateKeyEx(HKEY_CURRENT_USER, TEXT("Control Panel\\Colors"), 0, NULL,
-                       REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &hKey, NULL) != ERROR_SUCCESS)
+    result = RegCreateKeyEx( HKEY_CURRENT_USER, TEXT("Control Panel\\Colors"), 0, NULL, 0,
+        KEY_ALL_ACCESS, NULL, &hKey, &dwDispostion );
+    if (result != ERROR_SUCCESS)
     {
-        return;
+        red   = GetRValue(g_GlobalData.desktop_color);
+        green = GetGValue(g_GlobalData.desktop_color);
+        blue  = GetBValue(g_GlobalData.desktop_color);
+        /* Format string to be set to registry */
+        StringCbPrintf(clText, sizeof(clText), TEXT("%d %d %d"), red, green, blue);
+        RegSetValueEx(hKey, TEXT("Background"), 0, REG_SZ, (BYTE *)clText,
+                      (lstrlen(clText) + 1) * sizeof(TCHAR));
+        RegCloseKey(hKey);
     }
-
-    red   = GetRValue(g_GlobalData.desktop_color);
-    green = GetGValue(g_GlobalData.desktop_color);
-    blue  = GetBValue(g_GlobalData.desktop_color);
-
-    /* Format string to be set to registry */
-    StringCbPrintf(clText, sizeof(clText), TEXT("%d %d %d"), red, green, blue);
-    RegSetValueEx(hKey, TEXT("Background"), 0, REG_SZ, (LPBYTE)clText,
-                  (wcslen(clText) + 1) * sizeof(TCHAR));
-
-    RegCloseKey(hKey);
 }
 
 INT_PTR CALLBACK

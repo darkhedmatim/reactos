@@ -7,7 +7,7 @@ add_definitions(
     -D_WINE
     -D_CRYPT32_)
 
-include_directories(${REACTOS_SOURCE_DIR}/sdk/include/reactos/wine)
+include_directories(${REACTOS_SOURCE_DIR}/include/reactos/wine)
 spec2def(crypt32.dll crypt32.spec ADD_IMPORTLIB)
 
 list(APPEND SOURCE
@@ -45,7 +45,7 @@ add_library(crypt32 SHARED
 
 set_module_type(crypt32 win32dll)
 target_link_libraries(crypt32 wine ${PSEH_LIB} oldnames)
-add_delay_importlibs(crypt32 cryptnet)
 add_importlibs(crypt32 user32 advapi32 advapi32_vista msvcrt kernel32 ntdll)
+add_delay_importlibs(crypt32 cryptnet)
 add_pch(crypt32 crypt32_private.h SOURCE)
 add_cd_file(TARGET crypt32 DESTINATION reactos/system32 FOR all)

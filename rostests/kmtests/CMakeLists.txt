@@ -6,7 +6,6 @@ include_directories(include)
 #
 add_subdirectory(example)
 add_subdirectory(kernel32)
-add_subdirectory(ntos_cc)
 add_subdirectory(ntos_io)
 add_subdirectory(ntos_po)
 add_subdirectory(tcpip)
@@ -37,7 +36,6 @@ list(APPEND KMTEST_DRV_SOURCE
     npfs/NpfsHelpers.c
     npfs/NpfsReadWrite.c
     npfs/NpfsVolumeInfo.c
-    novp_fsrtl/FsRtlRemoveDotsFromPath.c
     ntos_cm/CmSecurity.c
     ntos_ex/ExCallback.c
     ntos_ex/ExDoubleList.c
@@ -92,7 +90,7 @@ list(APPEND KMTEST_DRV_SOURCE
 
 add_library(kmtest_drv SHARED ${KMTEST_DRV_SOURCE})
 set_module_type(kmtest_drv kernelmodedriver)
-target_link_libraries(kmtest_drv kmtest_printf chkstk memcmp ntoskrnl_vista ${PSEH_LIB})
+target_link_libraries(kmtest_drv kmtest_printf chkstk memcmp ${PSEH_LIB})
 add_importlibs(kmtest_drv ntoskrnl hal)
 add_dependencies(kmtest_drv bugcodes xdk)
 add_target_compile_definitions(kmtest_drv KMT_KERNEL_MODE NTDDI_VERSION=NTDDI_WS03SP1)
@@ -101,11 +99,11 @@ add_cd_file(TARGET kmtest_drv DESTINATION reactos/bin FOR all)
 
 add_library(kmtest_printf
     kmtest_drv/printf_stubs.c
-    ${REACTOS_SOURCE_DIR}/sdk/lib/crt/string/strnlen.c
-    ${REACTOS_SOURCE_DIR}/sdk/lib/crt/string/wcsnlen.c
-    ${REACTOS_SOURCE_DIR}/sdk/lib/crt/printf/streamout.c)
+    ${REACTOS_SOURCE_DIR}/lib/sdk/crt/string/strnlen.c
+    ${REACTOS_SOURCE_DIR}/lib/sdk/crt/string/wcsnlen.c
+    ${REACTOS_SOURCE_DIR}/lib/sdk/crt/printf/streamout.c)
 add_target_compile_definitions(kmtest_printf _LIBCNT_ _USER32_WSPRINTF wctomb=KmtWcToMb)
-add_target_include_directories(kmtest_printf ${REACTOS_SOURCE_DIR}/sdk/lib/crt/include)
+add_target_include_directories(kmtest_printf ${REACTOS_SOURCE_DIR}/lib/sdk/crt/include)
 
 #
 # kmtest.exe loader application
@@ -119,7 +117,6 @@ list(APPEND KMTEST_SOURCE
 
     example/Example_user.c
     kernel32/FindFile_user.c
-    ntos_cc/CcCopyRead_user.c
     ntos_io/IoCreateFile_user.c
     ntos_io/IoDeviceObject_user.c
     ntos_io/IoReadWrite_user.c

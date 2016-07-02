@@ -50,6 +50,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(jscript);
 typedef struct _jsval_t jsval_t;
 typedef struct _jsstr_t jsstr_t;
 typedef struct _script_ctx_t script_ctx_t;
+typedef struct _exec_ctx_t exec_ctx_t;
 typedef struct _dispex_prop_t dispex_prop_t;
 
 typedef struct {
@@ -115,14 +116,6 @@ extern HINSTANCE jscript_hinstance DECLSPEC_HIDDEN;
 #define PROPF_CONST       0x0800
 #define PROPF_DONTDELETE  0x1000
 
-/*
- * This is our internal dispatch flag informing calee that it's called directly from interpreter.
- * If calee is executed as interpreted function, we may let already running interpreter to take
- * of execution.
- */
-#define DISPATCH_JSCRIPT_CALLEREXECSSOURCE  0x8000
-#define DISPATCH_JSCRIPT_INTERNAL_MASK      DISPATCH_JSCRIPT_CALLEREXECSSOURCE
-
 /* NOTE: Keep in sync with names in Object.toString implementation */
 typedef enum {
     JSCLASS_NONE,
@@ -138,8 +131,7 @@ typedef enum {
     JSCLASS_REGEXP,
     JSCLASS_STRING,
     JSCLASS_ARGUMENTS,
-    JSCLASS_VBARRAY,
-    JSCLASS_JSON
+    JSCLASS_VBARRAY
 } jsclass_t;
 
 jsdisp_t *iface_to_jsdisp(IUnknown*) DECLSPEC_HIDDEN;
@@ -339,7 +331,6 @@ HRESULT create_string(script_ctx_t*,jsstr_t*,jsdisp_t**) DECLSPEC_HIDDEN;
 HRESULT create_bool(script_ctx_t*,BOOL,jsdisp_t**) DECLSPEC_HIDDEN;
 HRESULT create_number(script_ctx_t*,double,jsdisp_t**) DECLSPEC_HIDDEN;
 HRESULT create_vbarray(script_ctx_t*,SAFEARRAY*,jsdisp_t**) DECLSPEC_HIDDEN;
-HRESULT create_json(script_ctx_t*,jsdisp_t**) DECLSPEC_HIDDEN;
 
 typedef enum {
     NO_HINT,
@@ -362,7 +353,6 @@ HRESULT variant_change_type(script_ctx_t*,VARIANT*,VARIANT*,VARTYPE) DECLSPEC_HI
 HRESULT decode_source(WCHAR*) DECLSPEC_HIDDEN;
 
 HRESULT double_to_string(double,jsstr_t**) DECLSPEC_HIDDEN;
-BOOL is_finite(double) DECLSPEC_HIDDEN;
 
 typedef struct named_item_t {
     IDispatch *disp;
@@ -406,7 +396,7 @@ struct _script_ctx_t {
     SCRIPTSTATE state;
     IActiveScript *active_script;
 
-    struct _call_frame_t *call_ctx;
+    exec_ctx_t *exec_ctx;
     named_item_t *named_items;
     IActiveScriptSite *site;
     IInternetHostSecurityManager *secmgr;
@@ -420,10 +410,6 @@ struct _script_ctx_t {
     heap_pool_t tmp_heap;
 
     IDispatch *host_global;
-
-    jsval_t *stack;
-    unsigned stack_size;
-    unsigned stack_top;
 
     jsstr_t *last_match;
     match_result_t match_parens[9];
@@ -485,11 +471,6 @@ struct match_state_t;
 HRESULT regexp_match_next(script_ctx_t*,jsdisp_t*,DWORD,jsstr_t*,struct match_state_t**) DECLSPEC_HIDDEN;
 HRESULT parse_regexp_flags(const WCHAR*,DWORD,DWORD*) DECLSPEC_HIDDEN;
 HRESULT regexp_string_match(script_ctx_t*,jsdisp_t*,jsstr_t*,jsval_t*) DECLSPEC_HIDDEN;
-
-BOOL bool_obj_value(jsdisp_t*) DECLSPEC_HIDDEN;
-unsigned array_get_length(jsdisp_t*) DECLSPEC_HIDDEN;
-
-HRESULT JSGlobal_eval(script_ctx_t*,vdisp_t*,WORD,unsigned,jsval_t*,jsval_t*) DECLSPEC_HIDDEN;
 
 static inline BOOL is_class(jsdisp_t *jsdisp, jsclass_t class)
 {

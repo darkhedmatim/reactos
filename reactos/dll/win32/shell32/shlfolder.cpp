@@ -380,7 +380,7 @@ HRESULT HCR_GetClassName(REFIID riid, LPSTRRET strRet)
 {
     BOOL bRet;
     WCHAR wstrName[MAX_PATH+1];
-    bRet = HCR_GetClassNameW(riid, wstrName, MAX_PATH);
+    bRet = HCR_GetClassNameW(CLSID_MyDocuments, wstrName, MAX_PATH);
     if (!bRet)
         return E_FAIL;
 
@@ -399,7 +399,7 @@ HRESULT SHELL32_GetDisplayNameOfGUIDItem(IShellFolder2* psf, LPCWSTR pszFolderPa
     if (GET_SHGDN_FOR (dwFlags) == SHGDN_FORPARSING && 
         GET_SHGDN_RELATION (dwFlags) == SHGDN_NORMAL)
     {
-        int bWantsForParsing = FALSE;
+        int bWantsForParsing;
 
         /*
             * We can only get a filesystem path from a shellfolder if the

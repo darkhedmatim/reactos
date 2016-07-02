@@ -144,10 +144,9 @@ MmMapIoSpace(IN PHYSICAL_ADDRESS PhysicalAddress,
         case MiWriteCombined:
 
             //
-            // Disable the cache and allow combined writing
+            // We don't support write combining yet
             //
-            MI_PAGE_DISABLE_CACHE(&TempPte);
-            MI_PAGE_WRITE_COMBINED(&TempPte);
+            ASSERT(FALSE);
             break;
 
         default:

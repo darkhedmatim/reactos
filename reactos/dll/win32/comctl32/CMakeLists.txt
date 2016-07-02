@@ -4,10 +4,10 @@ add_definitions(
     -D_WINE
     -D_COMCTL32_)
 
-remove_definitions(-D_WIN32_WINNT=0x502 -DWINVER=0x502)
-add_definitions(-D_WIN32_WINNT=0x600 -DWINVER=0x600)
+remove_definitions(-D_WIN32_WINNT=0x502)
+add_definitions(-D_WIN32_WINNT=0x600)
 
-include_directories(BEFORE ${REACTOS_SOURCE_DIR}/sdk/include/reactos/wine)
+include_directories(BEFORE ${REACTOS_SOURCE_DIR}/include/reactos/wine)
 spec2def(comctl32.dll comctl32.spec ADD_IMPORTLIB)
 
 list(APPEND SOURCE

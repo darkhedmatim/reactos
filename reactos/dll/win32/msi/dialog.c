@@ -537,17 +537,6 @@ static void msi_dialog_update_controls( msi_dialog *dialog, LPCWSTR property )
     }
 }
 
-static void msi_dialog_update_all_controls( msi_dialog *dialog )
-{
-    msi_control *control;
-
-    LIST_FOR_EACH_ENTRY( control, &dialog->controls, msi_control, entry )
-    {
-        if ( control->property && control->update )
-            control->update( dialog, control );
-    }
-}
-
 static void msi_dialog_set_property( MSIPACKAGE *package, LPCWSTR property, LPCWSTR value )
 {
     UINT r = msi_set_property( package->db, property, value, -1 );
@@ -685,13 +674,11 @@ static void event_subscribe( msi_dialog *dialog, const WCHAR *event, const WCHAR
 {
     struct subscriber *sub;
 
-    TRACE("dialog %s event %s control %s attribute %s\n", debugstr_w(dialog->name), debugstr_w(event),
-          debugstr_w(control), debugstr_w(attribute));
+    TRACE("event %s control %s attribute %s\n", debugstr_w(event), debugstr_w(control), debugstr_w(attribute));
 
     LIST_FOR_EACH_ENTRY( sub, &dialog->package->subscriptions, struct subscriber, entry )
     {
-        if (sub->dialog == dialog &&
-            !strcmpiW( sub->event, event ) &&
+        if (!strcmpiW( sub->event, event ) &&
             !strcmpiW( sub->control, control ) &&
             !strcmpiW( sub->attribute, attribute ))
         {
@@ -2223,7 +2210,6 @@ static UINT msi_dialog_pathedit_control( msi_dialog *dialog, MSIRECORD *rec )
     control->attributes = MSI_RecordGetInteger( rec, 8 );
     prop = MSI_RecordGetString( rec, 9 );
     control->property = msi_dialog_dup_property( dialog, prop, FALSE );
-    control->update = msi_dialog_update_pathedit;
 
     info->dialog = dialog;
     info->control = control;
@@ -3590,7 +3576,7 @@ static void msi_dialog_adjust_dialog_pos( msi_dialog *dialog, MSIRECORD *rec, LP
     dialog->size.cx = sz.cx;
     dialog->size.cy = sz.cy;
 
-    TRACE("%s\n", wine_dbgstr_rect(pos));
+    TRACE("%u %u %u %u\n", pos->left, pos->top, pos->right, pos->bottom);
 
     style = GetWindowLongPtrW( dialog->hwnd, GWL_STYLE );
     AdjustWindowRect( pos, style, FALSE );
@@ -4383,11 +4369,7 @@ static UINT event_spawn_dialog( msi_dialog *dialog, const WCHAR *argument )
 {
     /* don't destroy a modeless dialogs that might be our parent */
     event_do_dialog( dialog->package, argument, dialog, FALSE );
-    if (dialog->package->CurrentInstallState != ERROR_SUCCESS)
-        msi_dialog_end_dialog( dialog );
-    else
-        msi_dialog_update_all_controls(dialog);
-
+    if (dialog->package->CurrentInstallState != ERROR_SUCCESS) msi_dialog_end_dialog( dialog );
     return ERROR_SUCCESS;
 }
 

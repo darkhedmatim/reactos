@@ -1,11 +1,11 @@
 
 include_directories(
     ${REACTOS_SOURCE_DIR}
-    ${REACTOS_SOURCE_DIR}/sdk/lib/cmlib
+    ${REACTOS_SOURCE_DIR}/lib/cmlib
     include
     ${CMAKE_CURRENT_BINARY_DIR}/include
     ${CMAKE_CURRENT_BINARY_DIR}/include/internal
-    ${REACTOS_SOURCE_DIR}/sdk/include/reactos/drivers)
+    ${REACTOS_SOURCE_DIR}/include/reactos/drivers)
 
 add_definitions(
     -D__NTOSKRNL__
@@ -58,6 +58,7 @@ list(APPEND SOURCE
     ${REACTOS_SOURCE_DIR}/ntoskrnl/config/cmhvlist.c
     ${REACTOS_SOURCE_DIR}/ntoskrnl/config/cminit.c
     ${REACTOS_SOURCE_DIR}/ntoskrnl/config/cmkcbncb.c
+    ${REACTOS_SOURCE_DIR}/ntoskrnl/config/cmkeydel.c
     ${REACTOS_SOURCE_DIR}/ntoskrnl/config/cmlazy.c
     ${REACTOS_SOURCE_DIR}/ntoskrnl/config/cmmapvw.c
     ${REACTOS_SOURCE_DIR}/ntoskrnl/config/cmnotify.c
@@ -67,6 +68,7 @@ list(APPEND SOURCE
     ${REACTOS_SOURCE_DIR}/ntoskrnl/config/cmsecach.c
     ${REACTOS_SOURCE_DIR}/ntoskrnl/config/cmsysini.c
     ${REACTOS_SOURCE_DIR}/ntoskrnl/config/cmvalche.c
+    ${REACTOS_SOURCE_DIR}/ntoskrnl/config/cmvalue.c
     ${REACTOS_SOURCE_DIR}/ntoskrnl/config/cmwraprs.c
     ${REACTOS_SOURCE_DIR}/ntoskrnl/config/ntapi.c
     ${REACTOS_SOURCE_DIR}/ntoskrnl/dbgk/dbgkobj.c

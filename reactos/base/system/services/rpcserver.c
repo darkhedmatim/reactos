@@ -1364,6 +1364,9 @@ DWORD RQueryServiceObjectSecurity(
     DWORD dwBytesNeeded;
     DWORD dwError;
 
+
+    SECURITY_DESCRIPTOR ObjectDescriptor;
+
     DPRINT("RQueryServiceObjectSecurity() called\n");
 
     hSvc = ScmGetServiceFromHandle(hService);
@@ -1398,8 +1401,11 @@ DWORD RQueryServiceObjectSecurity(
     /* Lock the service database */
     ScmLockDatabaseShared();
 
-    /* Retrieve the security descriptor */
-    Status = RtlQuerySecurityObject(lpService->pSecurityDescriptor,
+
+    /* hack */
+    Status = RtlCreateSecurityDescriptor(&ObjectDescriptor, SECURITY_DESCRIPTOR_REVISION);
+
+    Status = RtlQuerySecurityObject(&ObjectDescriptor  /* lpService->lpSecurityDescriptor */,
                                     dwSecurityInformation,
                                     (PSECURITY_DESCRIPTOR)lpSecurityDescriptor,
                                     cbBufSize,
@@ -1441,10 +1447,9 @@ DWORD RSetServiceObjectSecurity(
     PSERVICE_HANDLE hSvc;
     PSERVICE lpService;
     ULONG DesiredAccess = 0;
-    HANDLE hToken = NULL;
-    HKEY hServiceKey = NULL;
-    BOOL bDatabaseLocked = FALSE;
-    NTSTATUS Status;
+    /* HANDLE hToken = NULL; */
+    HKEY hServiceKey;
+    /* NTSTATUS Status; */
     DWORD dwError;
 
     DPRINT("RSetServiceObjectSecurity() called\n");
@@ -1484,14 +1489,14 @@ DWORD RSetServiceObjectSecurity(
     if (!RtlAreAllAccessesGranted(hSvc->Handle.DesiredAccess,
                                   DesiredAccess))
     {
-        DPRINT1("Insufficient access rights! 0x%lx\n", hSvc->Handle.DesiredAccess);
+        DPRINT("Insufficient access rights! 0x%lx\n", hSvc->Handle.DesiredAccess);
         return ERROR_ACCESS_DENIED;
     }
 
     lpService = hSvc->ServiceEntry;
     if (lpService == NULL)
     {
-        DPRINT1("lpService == NULL!\n");
+        DPRINT("lpService == NULL!\n");
         return ERROR_INVALID_HANDLE;
     }
 
@@ -1511,10 +1516,13 @@ DWORD RSetServiceObjectSecurity(
     RpcRevertToSelf();
 #endif
 
-    /* Build the new security descriptor */
+    /* Lock the service database exclusive */
+    ScmLockDatabaseExclusive();
+
+#if 0
     Status = RtlSetSecurityObject(dwSecurityInformation,
                                   (PSECURITY_DESCRIPTOR)lpSecurityDescriptor,
-                                  &lpService->pSecurityDescriptor,
+                                  &lpService->lpSecurityDescriptor,
                                   &ScmServiceMapping,
                                   hToken);
     if (!NT_SUCCESS(Status))
@@ -1522,34 +1530,31 @@ DWORD RSetServiceObjectSecurity(
         dwError = RtlNtStatusToDosError(Status);
         goto Done;
     }
+#endif
 
-    /* Lock the service database exclusive */
-    ScmLockDatabaseExclusive();
-    bDatabaseLocked = TRUE;
-
-    /* Open the service key */
     dwError = ScmOpenServiceKey(lpService->lpServiceName,
                                 READ_CONTROL | KEY_CREATE_SUB_KEY | KEY_SET_VALUE,
                                 &hServiceKey);
     if (dwError != ERROR_SUCCESS)
         goto Done;
 
-    /* Store the new security descriptor */
-    dwError = ScmWriteSecurityDescriptor(hServiceKey,
-                                         lpService->pSecurityDescriptor);
+    UNIMPLEMENTED;
+    dwError = ERROR_SUCCESS;
+//    dwError = ScmWriteSecurityDescriptor(hServiceKey,
+//                                         lpService->lpSecurityDescriptor);
 
     RegFlushKey(hServiceKey);
+    RegCloseKey(hServiceKey);
 
 Done:
-    if (hServiceKey != NULL)
-        RegCloseKey(hServiceKey);
 
-    /* Unlock service database */
-    if (bDatabaseLocked == TRUE)
-        ScmUnlockDatabase();
-
+#if 0
     if (hToken != NULL)
         NtClose(hToken);
+#endif
+
+    /* Unlock service database */
+    ScmUnlockDatabase();
 
     DPRINT("RSetServiceObjectSecurity() done (Error %lu)\n", dwError);
 
@@ -1987,7 +1992,6 @@ DWORD RChangeServiceConfigW(
             goto done;
     }
 
-    /* Set the tag */
     if (lpdwTagId != NULL)
     {
         dwError = ScmAssignNewTag(lpService);
@@ -2018,27 +2022,7 @@ DWORD RChangeServiceConfigW(
 
     if (lpPassword != NULL)
     {
-        if (wcslen((LPWSTR)lpPassword) != 0)
-        {
-            /* FIXME: Decrypt the password */
-
-            /* Write the password */
-            dwError = ScmSetServicePassword(lpService->szServiceName,
-                                            (LPCWSTR)lpPassword);
-            if (dwError != ERROR_SUCCESS)
-                goto done;
-        }
-        else
-        {
-            /* Delete the password */
-            dwError = ScmSetServicePassword(lpService->szServiceName,
-                                            NULL);
-            if (dwError == ERROR_FILE_NOT_FOUND)
-                dwError = ERROR_SUCCESS;
-
-            if (dwError != ERROR_SUCCESS)
-                goto done;
-        }
+        /* FIXME: Decrypt and write password */
     }
 
 done:
@@ -2253,14 +2237,6 @@ DWORD RCreateServiceW(
             goto done;
     }
 
-    /* Assign the default security descriptor */
-    if (dwServiceType & SERVICE_WIN32)
-    {
-        dwError = ScmCreateDefaultServiceSD(&lpService->pSecurityDescriptor);
-        if (dwError != ERROR_SUCCESS)
-            goto done;
-    }
-
     /* Write service data to the registry */
     /* Create the service key */
     dwError = ScmCreateServiceKey(lpServiceName,
@@ -2347,7 +2323,6 @@ DWORD RCreateServiceW(
             goto done;
     }
 
-    /* Set the service tag */
     if (lpdwTagId != NULL)
     {
         dwError = RegSetValueExW(hServiceKey,
@@ -2370,10 +2345,9 @@ DWORD RCreateServiceW(
             goto done;
     }
 
-    /* Start name and password are only used by Win32 services */
+    /* Write service start name */
     if (dwServiceType & SERVICE_WIN32)
     {
-        /* Write service start name */
         lpObjectName = (lpServiceStartName != NULL) ? (LPWSTR)lpServiceStartName : L"LocalSystem";
         dwError = RegSetValueExW(hServiceKey,
                                  L"ObjectName",
@@ -2383,24 +2357,11 @@ DWORD RCreateServiceW(
                                  (DWORD)((wcslen(lpObjectName) + 1) * sizeof(WCHAR)));
         if (dwError != ERROR_SUCCESS)
             goto done;
+    }
 
-        if (lpPassword != NULL && wcslen((LPWSTR)lpPassword) != 0)
-        {
-            /* FIXME: Decrypt the password */
-
-            /* Write the password */
-            dwError = ScmSetServicePassword(lpServiceName,
-                                            (LPCWSTR)lpPassword);
-            if (dwError != ERROR_SUCCESS)
-                goto done;
-        }
-
-DPRINT1("\n");
-        /* Write the security descriptor */
-        dwError = ScmWriteSecurityDescriptor(hServiceKey,
-                                             lpService->pSecurityDescriptor);
-        if (dwError != ERROR_SUCCESS)
-            goto done;
+    if (lpPassword != NULL)
+    {
+        /* FIXME: Decrypt and write password */
     }
 
     dwError = ScmCreateServiceHandle(lpService,
@@ -3491,34 +3452,11 @@ DWORD RChangeServiceConfigA(
                                        dwDependSize);
 
         HeapFree(GetProcessHeap(), 0, lpDependenciesW);
-
-        if (dwError != ERROR_SUCCESS)
-            goto done;
     }
 
     if (lpPassword != NULL)
     {
-        if (wcslen((LPWSTR)lpPassword) != 0)
-        {
-            /* FIXME: Decrypt the password */
-
-            /* Write the password */
-            dwError = ScmSetServicePassword(lpService->szServiceName,
-                                            (LPCWSTR)lpPassword);
-            if (dwError != ERROR_SUCCESS)
-                goto done;
-        }
-        else
-        {
-            /* Delete the password */
-            dwError = ScmSetServicePassword(lpService->szServiceName,
-                                            NULL);
-            if (dwError == ERROR_FILE_NOT_FOUND)
-                dwError = ERROR_SUCCESS;
-
-            if (dwError != ERROR_SUCCESS)
-                goto done;
-        }
+        /* FIXME: Decrypt and write password */
     }
 
 done:

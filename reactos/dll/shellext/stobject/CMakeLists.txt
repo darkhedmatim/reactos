@@ -9,7 +9,7 @@ if(NOT MSVC)
 endif()
 
 include_directories(
-    ${REACTOS_SOURCE_DIR}/sdk/lib/atl
+    ${REACTOS_SOURCE_DIR}/lib/atl
     ${REACTOS_SOURCE_DIR})
 
 spec2def(stobject.dll stobject.spec)
@@ -31,7 +31,6 @@ add_importlibs(stobject
     advapi32
     winmm
     ole32
-    oleaut32
     shlwapi
     shell32
     comctl32

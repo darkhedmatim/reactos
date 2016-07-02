@@ -287,7 +287,6 @@ ChangeServiceConfigA(SC_HANDLE hService,
     SIZE_T cchLength;
     LPCSTR lpStr;
     DWORD dwPasswordLength = 0;
-    LPWSTR lpPasswordW = NULL;
     LPBYTE lpEncryptedPassword = NULL;
 
     TRACE("ChangeServiceConfigA() called\n");
@@ -305,29 +304,9 @@ ChangeServiceConfigA(SC_HANDLE hService,
         dwDependenciesLength++;
     }
 
-    if (lpPassword != NULL)
-    {
-        /* Convert the password to unicode */
-        lpPasswordW = HeapAlloc(GetProcessHeap(),
-                                HEAP_ZERO_MEMORY,
-                                (strlen(lpPassword) + 1) * sizeof(WCHAR));
-        if (lpPasswordW == NULL)
-        {
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            return FALSE;
-        }
-
-        MultiByteToWideChar(CP_ACP,
-                            0,
-                            lpPassword,
-                            -1,
-                            lpPasswordW,
-                            (int)(strlen(lpPassword) + 1));
-
-        /* FIXME: Encrypt the password */
-        lpEncryptedPassword = (LPBYTE)lpPasswordW;
-        dwPasswordLength = (DWORD)(lpPasswordW ? (wcslen(lpPasswordW) + 1) * sizeof(WCHAR) : 0);
-    }
+    /* FIXME: Encrypt the password */
+    lpEncryptedPassword = (LPBYTE)lpPassword;
+    dwPasswordLength = (DWORD)(lpPassword ? (strlen(lpPassword) + 1) * sizeof(CHAR) : 0);
 
     RpcTryExcept
     {
@@ -351,9 +330,6 @@ ChangeServiceConfigA(SC_HANDLE hService,
         dwError = ScmRpcStatusToWinError(RpcExceptionCode());
     }
     RpcEndExcept;
-
-    if (lpPasswordW != NULL)
-        HeapFree(GetProcessHeap(), 0, lpPasswordW);
 
     if (dwError != ERROR_SUCCESS)
     {
@@ -572,7 +548,6 @@ CreateServiceA(SC_HANDLE hSCManager,
     SIZE_T cchLength;
     LPCSTR lpStr;
     DWORD dwPasswordLength = 0;
-    LPWSTR lpPasswordW = NULL;
     LPBYTE lpEncryptedPassword = NULL;
 
     TRACE("CreateServiceA() called\n");
@@ -598,29 +573,9 @@ CreateServiceA(SC_HANDLE hSCManager,
         dwDependenciesLength++;
     }
 
-    if (lpPassword != NULL)
-    {
-        /* Convert the password to unicode */
-        lpPasswordW = HeapAlloc(GetProcessHeap(),
-                                HEAP_ZERO_MEMORY,
-                                (strlen(lpPassword) + 1) * sizeof(WCHAR));
-        if (lpPasswordW == NULL)
-        {
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
-            return FALSE;
-        }
-
-        MultiByteToWideChar(CP_ACP,
-                            0,
-                            lpPassword,
-                            -1,
-                            lpPasswordW,
-                            (int)(strlen(lpPassword) + 1));
-
-        /* FIXME: Encrypt the password */
-        lpEncryptedPassword = (LPBYTE)lpPasswordW;
-        dwPasswordLength = (DWORD)(lpPasswordW ? (wcslen(lpPasswordW) + 1) * sizeof(WCHAR) : 0);
-    }
+    /* FIXME: Encrypt the password */
+    lpEncryptedPassword = (LPBYTE)lpPassword;
+    dwPasswordLength = (DWORD)(lpPassword ? (strlen(lpPassword) + 1) * sizeof(CHAR) : 0);
 
     RpcTryExcept
     {
@@ -647,9 +602,6 @@ CreateServiceA(SC_HANDLE hSCManager,
         dwError = ScmRpcStatusToWinError(RpcExceptionCode());
     }
     RpcEndExcept;
-
-    if (lpPasswordW != NULL)
-        HeapFree(GetProcessHeap(), 0, lpPasswordW);
 
     if (dwError != ERROR_SUCCESS)
     {
@@ -1671,42 +1623,6 @@ GetServiceKeyNameW(SC_HANDLE hSCManager,
     }
 
     return TRUE;
-}
-
-
-/**********************************************************************
- *  I_ScGetCurrentGroupStateW
- *
- * @implemented
- */
-DWORD WINAPI
-I_ScGetCurrentGroupStateW(SC_HANDLE hSCManager,
-                          LPWSTR pszGroupName,
-                          LPDWORD pdwGroupState)
-{
-    DWORD dwError;
-
-    TRACE("I_ScGetCurrentGroupStateW() called\n");
-
-    RpcTryExcept
-    {
-        dwError = RI_ScGetCurrentGroupStateW((SC_RPC_HANDLE)hSCManager,
-                                             pszGroupName,
-                                             pdwGroupState);
-    }
-    RpcExcept(EXCEPTION_EXECUTE_HANDLER)
-    {
-        dwError = ScmRpcStatusToWinError(RpcExceptionCode());
-    }
-    RpcEndExcept
-
-    if (dwError != ERROR_SUCCESS)
-    {
-        TRACE("RI_ScGetCurrentGroupStateW() failed (Error %lu)\n", dwError);
-        SetLastError(dwError);
-    }
-
-    return dwError;
 }
 
 

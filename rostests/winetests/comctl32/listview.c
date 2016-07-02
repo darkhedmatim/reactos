@@ -201,7 +201,7 @@ static const struct message forward_erasebkgnd_parent_seq[] = {
     { 0 }
 };
 
-static const struct message ownerdata_select_focus_parent_seq[] = {
+static const struct message ownderdata_select_focus_parent_seq[] = {
     { WM_NOTIFY, sent|id, 0, 0, LVN_ITEMCHANGED },
     { WM_NOTIFY, sent|id, 0, 0, LVN_GETDISPINFOA },
     { WM_NOTIFY, sent|id|optional, 0, 0, LVN_GETDISPINFOA }, /* version 4.7x */
@@ -793,7 +793,16 @@ static void test_lvm_hittest_(HWND hwnd, INT x, INT y, INT item, UINT flags, UIN
 
     ret = SendMessageA(hwnd, LVM_HITTEST, 0, (LPARAM)&lpht);
 
-    todo_wine_if(todo_item)
+    if (todo_item)
+    {
+        todo_wine
+        {
+            ok_(__FILE__, line)(ret == item, "Expected %d retval, got %d\n", item, ret);
+            ok_(__FILE__, line)(lpht.iItem == item, "Expected %d item, got %d\n", item, lpht.iItem);
+            ok_(__FILE__, line)(lpht.iSubItem == 10, "Expected subitem not overwrited\n");
+        }
+    }
+    else
     {
         ok_(__FILE__, line)(ret == item, "Expected %d retval, got %d\n", item, ret);
         ok_(__FILE__, line)(lpht.iItem == item, "Expected %d item, got %d\n", item, lpht.iItem);
@@ -826,16 +835,34 @@ static void test_lvm_subitemhittest_(HWND hwnd, INT x, INT y, INT item, INT subi
 
     ret = SendMessageA(hwnd, LVM_SUBITEMHITTEST, 0, (LPARAM)&lpht);
 
-    todo_wine_if(todo_item)
+    if (todo_item)
+    {
+        todo_wine
+        {
+            ok_(__FILE__, line)(ret == item, "Expected %d retval, got %d\n", item, ret);
+            ok_(__FILE__, line)(lpht.iItem == item, "Expected %d item, got %d\n", item, lpht.iItem);
+        }
+    }
+    else
     {
         ok_(__FILE__, line)(ret == item, "Expected %d retval, got %d\n", item, ret);
         ok_(__FILE__, line)(lpht.iItem == item, "Expected %d item, got %d\n", item, lpht.iItem);
     }
 
-    todo_wine_if(todo_subitem)
+    if (todo_subitem)
+    {
+        todo_wine
+            ok_(__FILE__, line)(lpht.iSubItem == subitem, "Expected subitem %d, got %d\n", subitem, lpht.iSubItem);
+    }
+    else
         ok_(__FILE__, line)(lpht.iSubItem == subitem, "Expected subitem %d, got %d\n", subitem, lpht.iSubItem);
 
-    todo_wine_if(todo_flags)
+    if (todo_flags)
+    {
+        todo_wine
+            ok_(__FILE__, line)(lpht.flags == flags, "Expected flags 0x%x, got 0x%x\n", flags, lpht.flags);
+    }
+    else
         ok_(__FILE__, line)(lpht.flags == flags, "Expected flags 0x%x, got 0x%x\n", flags, lpht.flags);
 }
 
@@ -1710,7 +1737,9 @@ static void test_create(void)
     ok(!IsWindow(hHeader), "Header shouldn't be created\n");
     ok(NULL == GetDlgItem(hList, 0), "NULL dialog item expected\n");
 
-    SetRect(&rect, LVIR_BOUNDS, 1, -10, -10);
+    rect.left = LVIR_BOUNDS;
+    rect.top  = 1;
+    rect.right = rect.bottom = -10;
     r = SendMessageA(hList, LVM_GETSUBITEMRECT, -1, (LPARAM)&rect);
     /* right value contains garbage, probably because header columns are not set up */
     expect(0, rect.bottom);
@@ -2239,9 +2268,8 @@ static void test_multiselect(void)
 
     HWND hwnd;
     INT r;
-    int i, j;
+    int i,j,item_count,selected_count;
     static const int items=5;
-    DWORD item_count;
     BYTE kstate[256];
     select_task task;
     LONG_PTR style;
@@ -2259,11 +2287,10 @@ static void test_multiselect(void)
     for (i = 0; i < items; i++)
         insert_item(hwnd, 0);
 
-    item_count = SendMessageA(hwnd, LVM_GETITEMCOUNT, 0, 0);
+    item_count = (int)SendMessageA(hwnd, LVM_GETITEMCOUNT, 0, 0);
     expect(items, item_count);
 
     for (i = 0; i < 4; i++) {
-        DWORD selected_count;
         LVITEMA item;
 
         task = task_list[i];
@@ -2296,11 +2323,9 @@ static void test_multiselect(void)
 	    expect(0,r);
 	}
 
-	selected_count = SendMessageA(hwnd, LVM_GETSELECTEDCOUNT, 0, 0);
+	selected_count = (int)SendMessageA(hwnd, LVM_GETSELECTEDCOUNT, 0, 0);
 
-	ok((task.result == -1 ? item_count : task.result) == selected_count,
-            "Failed multiple selection %s. There should be %d selected items (is %d)\n",
-            task.descr, item_count, selected_count);
+	ok((task.result == -1 ? item_count : task.result) == selected_count, "Failed multiple selection %s. There should be %d selected items (is %d)\n", task.descr, item_count, selected_count);
 
 	/* Set SHIFT key released */
 	GetKeyboardState(kstate);
@@ -2314,7 +2339,7 @@ static void test_multiselect(void)
     for (i=0;i<items;i++) {
 	    insert_item(hwnd, 0);
     }
-    item_count = SendMessageA(hwnd, LVM_GETITEMCOUNT, 0, 0);
+    item_count = (int)SendMessageA(hwnd, LVM_GETITEMCOUNT, 0, 0);
     expect(items,item_count);
 
     /* try with NULL pointer */
@@ -2615,11 +2640,15 @@ static void test_subitem_rect(void)
     r = SendMessageA(hwnd, LVM_INSERTCOLUMNA, 2, (LPARAM)&col);
     expect(2, r);
     /* item = -1 means header, subitem index is 1 based */
-    SetRect(&rect, LVIR_BOUNDS, 0, 0, 0);
+    rect.left = LVIR_BOUNDS;
+    rect.top  = 0;
+    rect.right = rect.bottom = 0;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, -1, (LPARAM)&rect);
     expect(0, r);
 
-    SetRect(&rect, LVIR_BOUNDS, 1, 0, 0);
+    rect.left = LVIR_BOUNDS;
+    rect.top  = 1;
+    rect.right = rect.bottom = 0;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, -1, (LPARAM)&rect);
     expect(1, r);
 
@@ -2627,7 +2656,9 @@ static void test_subitem_rect(void)
     expect(250, rect.right);
     expect(3, rect.top);
 
-    SetRect(&rect, LVIR_BOUNDS, 2, 0, 0);
+    rect.left = LVIR_BOUNDS;
+    rect.top  = 2;
+    rect.right = rect.bottom = 0;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, -1, (LPARAM)&rect);
     expect(1, r);
 
@@ -2638,20 +2669,26 @@ static void test_subitem_rect(void)
     /* item LVS_REPORT padding isn't applied to subitems */
     insert_item(hwnd, 0);
 
-    SetRect(&rect, LVIR_BOUNDS, 1, 0, 0);
+    rect.left = LVIR_BOUNDS;
+    rect.top  = 1;
+    rect.right = rect.bottom = 0;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, 0, (LPARAM)&rect);
     expect(1, r);
     expect(100, rect.left);
     expect(250, rect.right);
 
-    SetRect(&rect, LVIR_ICON, 1, 0, 0);
+    rect.left = LVIR_ICON;
+    rect.top  = 1;
+    rect.right = rect.bottom = 0;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, 0, (LPARAM)&rect);
     expect(1, r);
     /* no icon attached - zero width rectangle, with no left padding */
     expect(100, rect.left);
     expect(100, rect.right);
 
-    SetRect(&rect, LVIR_LABEL, 1, 0, 0);
+    rect.left = LVIR_LABEL;
+    rect.top  = 1;
+    rect.right = rect.bottom = 0;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, 0, (LPARAM)&rect);
     expect(1, r);
     /* same as full LVIR_BOUNDS */
@@ -2660,7 +2697,9 @@ static void test_subitem_rect(void)
 
     SendMessageA(hwnd, LVM_SCROLL, 10, 0);
 
-    SetRect(&rect, LVIR_BOUNDS, 1, 0, 0);
+    rect.left = LVIR_BOUNDS;
+    rect.top  = 1;
+    rect.right = rect.bottom = 0;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, 0, (LPARAM)&rect);
     expect(1, r);
     expect(90, rect.left);
@@ -2672,19 +2711,27 @@ static void test_subitem_rect(void)
     subclass_header(hwnd);
     flush_sequences(sequences, NUM_MSG_SEQUENCES);
 
-    SetRect(&rect, LVIR_BOUNDS, 1, 0, 0);
+    rect.left = LVIR_BOUNDS;
+    rect.top  = 1;
+    rect.right = rect.bottom = 0;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, -1, (LPARAM)&rect);
     expect(1, r);
 
-    SetRect(&rect, LVIR_BOUNDS, 1, 0, 0);
+    rect.left = LVIR_BOUNDS;
+    rect.top  = 1;
+    rect.right = rect.bottom = 0;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, 0, (LPARAM)&rect);
     expect(1, r);
 
-    SetRect(&rect, LVIR_BOUNDS, 1, 0, 0);
+    rect.left = LVIR_BOUNDS;
+    rect.top  = 1;
+    rect.right = rect.bottom = 0;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, -10, (LPARAM)&rect);
     expect(1, r);
 
-    SetRect(&rect, LVIR_BOUNDS, 1, 0, 0);
+    rect.left = LVIR_BOUNDS;
+    rect.top  = 1;
+    rect.right = rect.bottom = 0;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, 20, (LPARAM)&rect);
     expect(1, r);
 
@@ -2714,16 +2761,22 @@ static void test_subitem_rect(void)
     insert_item(hwnd, 1);
 
     /* wrong item is refused for main item */
-    SetRect(&rect, LVIR_BOUNDS, 0, -1, -1);
+    rect.left = LVIR_BOUNDS;
+    rect.top  = 0;
+    rect.right = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, 2, (LPARAM)&rect);
     expect(FALSE, r);
 
     /* for subitems rectangle is calculated even if there's no item added */
-    SetRect(&rect, LVIR_BOUNDS, 1, -1, -1);
+    rect.left = LVIR_BOUNDS;
+    rect.top  = 1;
+    rect.right = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, 1, (LPARAM)&rect);
     expect(TRUE, r);
 
-    SetRect(&rect2, LVIR_BOUNDS, 1, -1, -1);
+    rect2.left = LVIR_BOUNDS;
+    rect2.top  = 1;
+    rect2.right = rect2.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, 2, (LPARAM)&rect2);
     expect(TRUE, r);
     expect(rect.right, rect2.right);
@@ -2735,19 +2788,25 @@ static void test_subitem_rect(void)
     r = SendMessageA(hwnd, LVM_SETCOLUMNORDERARRAY, 3, (LPARAM)arr);
     expect(TRUE, r);
 
-    SetRect(&rect, LVIR_BOUNDS, 0, -1, -1);
+    rect.left = LVIR_BOUNDS;
+    rect.top  = 0;
+    rect.right = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     expect(0, rect.left);
     expect(600, rect.right);
 
-    SetRect(&rect, LVIR_BOUNDS, 1, -1, -1);
+    rect.left = LVIR_BOUNDS;
+    rect.top  = 1;
+    rect.right = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     expect(0, rect.left);
     expect(200, rect.right);
 
-    SetRect(&rect2, LVIR_BOUNDS, 1, -1, -1);
+    rect2.left = LVIR_BOUNDS;
+    rect2.top  = 1;
+    rect2.right = rect2.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, 1, (LPARAM)&rect2);
     expect(TRUE, r);
     expect(0, rect2.left);
@@ -2757,7 +2816,9 @@ static void test_subitem_rect(void)
     expect(rect.bottom, rect2.top);
     expect(rect.bottom * 2 - rect.top, rect2.bottom);
 
-    SetRect(&rect, LVIR_BOUNDS, 2, -1, -1);
+    rect.left = LVIR_BOUNDS;
+    rect.top  = 2;
+    rect.right = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     expect(300, rect.left);
@@ -2768,7 +2829,9 @@ static void test_subitem_rect(void)
     /* try it for non LVS_REPORT style */
     hwnd = CreateWindowA("SysListView32", "Test", LVS_ICON, 0, 0, 100, 100, NULL, NULL,
                          GetModuleHandleA(NULL), 0);
-    SetRect(&rect, LVIR_BOUNDS, 1, -10, -10);
+    rect.left = LVIR_BOUNDS;
+    rect.top  = 1;
+    rect.right = rect.bottom = -10;
     r = SendMessageA(hwnd, LVM_GETSUBITEMRECT, -1, (LPARAM)&rect);
     expect(0, r);
     /* rect is unchanged */
@@ -3086,7 +3149,7 @@ static void test_ownerdata(void)
     res = SendMessageA(hwnd, LVM_SETITEMSTATE, 0, (LPARAM)&item);
     expect(TRUE, res);
 
-    ok_sequence(sequences, PARENT_SEQ_INDEX, ownerdata_select_focus_parent_seq,
+    ok_sequence(sequences, PARENT_SEQ_INDEX, ownderdata_select_focus_parent_seq,
                 "ownerdata select notification", TRUE);
 
     flush_sequences(sequences, NUM_MSG_SEQUENCES);
@@ -3097,7 +3160,7 @@ static void test_ownerdata(void)
     res = SendMessageA(hwnd, LVM_SETITEMSTATE, 0, (LPARAM)&item);
     expect(TRUE, res);
 
-    ok_sequence(sequences, PARENT_SEQ_INDEX, ownerdata_select_focus_parent_seq,
+    ok_sequence(sequences, PARENT_SEQ_INDEX, ownderdata_select_focus_parent_seq,
                 "ownerdata focus notification", TRUE);
 
     /* select all, check notifications */
@@ -3357,28 +3420,6 @@ static void test_ownerdata(void)
     SetWindowLongPtrA(hwnd, GWL_STYLE, style | LVS_SORTDESCENDING);
     style = GetWindowLongPtrA(hwnd, GWL_STYLE);
     ok(style & LVS_SORTDESCENDING, "Expected LVS_SORTDESCENDING to be set\n");
-    DestroyWindow(hwnd);
-
-    /* The focused item is updated after the invalidation */
-    hwnd = create_listview_control(LVS_OWNERDATA | LVS_REPORT);
-    ok(hwnd != NULL, "failed to create a listview window\n");
-    res = SendMessageA(hwnd, LVM_SETITEMCOUNT, 3, 0);
-    expect(TRUE, res);
-
-    memset(&item, 0, sizeof(item));
-    item.stateMask = LVIS_FOCUSED;
-    item.state     = LVIS_FOCUSED;
-    res = SendMessageA(hwnd, LVM_SETITEMSTATE, 0, (LPARAM)&item);
-    expect(TRUE, res);
-
-    flush_sequences(sequences, NUM_MSG_SEQUENCES);
-    res = SendMessageA(hwnd, LVM_SETITEMCOUNT, 0, 0);
-    expect(TRUE, res);
-    ok_sequence(sequences, PARENT_SEQ_INDEX, empty_seq,
-                "ownerdata setitemcount", FALSE);
-
-    res = SendMessageA(hwnd, LVM_GETNEXTITEM, -1, LVNI_FOCUSED);
-    expect(-1, res);
     DestroyWindow(hwnd);
 }
 
@@ -3783,7 +3824,7 @@ static void test_getviewrect(void)
     r = SendMessageA(hwnd, LVM_SETCOLUMNWIDTH, 1, MAKELPARAM(120, 0));
     expect(TRUE, r);
 
-    SetRect(&rect, -1, -1, -1, -1);
+    rect.left = rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETVIEWRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     /* left is set to (2e31-1) - XP SP2 */
@@ -3794,7 +3835,7 @@ static void test_getviewrect(void)
     /* switch to LVS_ICON */
     SetWindowLongA(hwnd, GWL_STYLE, GetWindowLongA(hwnd, GWL_STYLE) & ~LVS_REPORT);
 
-    SetRect(&rect, -1, -1, -1, -1);
+    rect.left = rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETVIEWRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     expect(0, rect.left);
@@ -3905,7 +3946,8 @@ todo_wine
     r = SendMessageA(hwnd, LVM_INSERTITEMA, 0, (LPARAM)&item);
     expect(0, r);
 
-    SetRect(&rect, LVIR_BOUNDS, -1, -1, -1);
+    rect.left = LVIR_BOUNDS;
+    rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
 
@@ -3926,7 +3968,8 @@ todo_wine
     r = SendMessageA(hwnd, LVM_SETCOLUMNA, 1, (LPARAM)&col);
     expect(TRUE, r);
 
-    SetRect(&rect, LVIR_BOUNDS, -1, -1, -1);
+    rect.left = LVIR_BOUNDS;
+    rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
 
@@ -3934,13 +3977,15 @@ todo_wine
     expect(0, rect.left);
     expect(150, rect.right);
 
-    SetRect(&rect, LVIR_SELECTBOUNDS, -1, -1, -1);
+    rect.left = LVIR_SELECTBOUNDS;
+    rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     /* padding */
     expect(2, rect.left);
 
-    SetRect(&rect, LVIR_LABEL, -1, -1, -1);
+    rect.left = LVIR_LABEL;
+    rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     /* padding, column width */
@@ -3948,7 +3993,8 @@ todo_wine
     expect(50, rect.right);
 
     /* no icons attached */
-    SetRect(&rect, LVIR_ICON, -1, -1, -1);
+    rect.left = LVIR_ICON;
+    rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     /* padding */
@@ -3965,14 +4011,16 @@ todo_wine
     /* 1 indexed column width + padding */
     expect(102, pt.x);
     /* rect is at zero too */
-    SetRect(&rect, LVIR_BOUNDS, -1, -1, -1);
+    rect.left = LVIR_BOUNDS;
+    rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     expect(0, rect.left);
     /* just width sum */
     expect(150, rect.right);
 
-    SetRect(&rect, LVIR_SELECTBOUNDS, -1, -1, -1);
+    rect.left = LVIR_SELECTBOUNDS;
+    rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     /* column width + padding */
@@ -4007,14 +4055,16 @@ todo_wine
     expect(TRUE, r);
 
     /* icon bounds */
-    SetRect(&rect, LVIR_ICON, -1, -1, -1);
+    rect.left = LVIR_ICON;
+    rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     /* padding + stateicon width */
     expect(18, rect.left);
     expect(18, rect.right);
     /* label bounds */
-    SetRect(&rect, LVIR_LABEL, -1, -1, -1);
+    rect.left = LVIR_LABEL;
+    rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     /* padding + stateicon width -> column width */
@@ -4037,14 +4087,16 @@ todo_wine
     expect(TRUE, r);
 
     /* icon bounds */
-    SetRect(&rect, LVIR_ICON, -1, -1, -1);
+    rect.left = LVIR_ICON;
+    rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     /* padding, icon width */
     expect(2, rect.left);
     expect(18, rect.right);
     /* label bounds */
-    SetRect(&rect, LVIR_LABEL, -1, -1, -1);
+    rect.left = LVIR_LABEL;
+    rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     /* padding + icon width -> column width */
@@ -4052,7 +4104,8 @@ todo_wine
     expect(50, rect.right);
 
     /* select bounds */
-    SetRect(&rect, LVIR_SELECTBOUNDS, -1, -1, -1);
+    rect.left = LVIR_SELECTBOUNDS;
+    rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     /* padding, column width */
@@ -4068,7 +4121,8 @@ todo_wine
     expect(TRUE, r);
 
     /* bounds */
-    SetRect(&rect, LVIR_BOUNDS, -1, -1, -1);
+    rect.left = LVIR_BOUNDS;
+    rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     /* padding + 1 icon width, column width */
@@ -4076,7 +4130,8 @@ todo_wine
     expect(150, rect.right);
 
     /* select bounds */
-    SetRect(&rect, LVIR_SELECTBOUNDS, -1, -1, -1);
+    rect.left = LVIR_SELECTBOUNDS;
+    rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     /* padding + 1 icon width, column width */
@@ -4084,7 +4139,8 @@ todo_wine
     expect(50, rect.right);
 
     /* label bounds */
-    SetRect(&rect, LVIR_LABEL, -1, -1, -1);
+    rect.left = LVIR_LABEL;
+    rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     /* padding + 2 icon widths, column width */
@@ -4092,7 +4148,8 @@ todo_wine
     expect(50, rect.right);
 
     /* icon bounds */
-    SetRect(&rect, LVIR_ICON, -1, -1, -1);
+    rect.left = LVIR_ICON;
+    rect.right = rect.top = rect.bottom = -1;
     r = SendMessageA(hwnd, LVM_GETITEMRECT, 0, (LPARAM)&rect);
     expect(TRUE, r);
     /* padding + 1 icon width indentation, icon width */

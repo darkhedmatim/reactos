@@ -1,13 +1,11 @@
+
 list(APPEND SOURCE
     blockdev.c
-    btrfs.c
     cdfs.c
     ext2.c
     fat.c
-    ffs.c
     fs_rec.c
     ntfs.c
-    reiserfs.c
     udfs.c
     fs_rec.h)
 

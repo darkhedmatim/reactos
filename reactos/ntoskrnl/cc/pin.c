@@ -4,8 +4,7 @@
  * FILE:            ntoskrnl/cc/pin.c
  * PURPOSE:         Implements cache managers pinning interface
  *
- * PROGRAMMERS:     ?
-                    Pierre Schweitzer (pierre@reactos.org)
+ * PROGRAMMERS:
  */
 
 /* INCLUDES ******************************************************************/
@@ -114,9 +113,7 @@ CcMapData (
     iBcb->PFCB.MappedFileOffset = *FileOffset;
     iBcb->Vacb = Vacb;
     iBcb->Dirty = FALSE;
-    iBcb->Pinned = FALSE;
     iBcb->RefCount = 1;
-    ExInitializeResourceLite(&iBcb->Lock);
     *pBcb = (PVOID)iBcb;
 
     CCTRACE(CC_API_DEBUG, "FileObject=%p FileOffset=%p Length=%lu Flags=0x%lx -> TRUE Bcb=%p\n",
@@ -136,18 +133,8 @@ CcPinMappedData (
     IN	ULONG Flags,
     OUT	PVOID * Bcb)
 {
-    PROS_SHARED_CACHE_MAP SharedCacheMap;
-
     CCTRACE(CC_API_DEBUG, "FileOffset=%p FileOffset=%p Length=%lu Flags=0x%lx\n",
         FileObject, FileOffset, Length, Flags);
-
-    ASSERT(FileObject);
-    ASSERT(FileObject->SectionObjectPointer);
-    ASSERT(FileObject->SectionObjectPointer->SharedCacheMap);
-
-    SharedCacheMap = FileObject->SectionObjectPointer->SharedCacheMap;
-    ASSERT(SharedCacheMap);
-    ASSERT(SharedCacheMap->PinAccess);
 
     /* no-op for current implementation. */
     return TRUE;
@@ -166,36 +153,13 @@ CcPinRead (
     OUT	PVOID * Bcb,
     OUT	PVOID * Buffer)
 {
-    PINTERNAL_BCB iBcb;
-
     CCTRACE(CC_API_DEBUG, "FileOffset=%p FileOffset=%p Length=%lu Flags=0x%lx\n",
         FileObject, FileOffset, Length, Flags);
 
     if (CcMapData(FileObject, FileOffset, Length, Flags, Bcb, Buffer))
     {
         if (CcPinMappedData(FileObject, FileOffset, Length, Flags, Bcb))
-        {
-            iBcb = *Bcb;
-
-            ASSERT(iBcb->Pinned == FALSE);
-
-            iBcb->Pinned = TRUE;
-            if (InterlockedIncrement(&iBcb->Vacb->PinCount) == 1)
-            {
-                KeReleaseMutex(&iBcb->Vacb->Mutex, FALSE);
-            }
-
-            if (Flags & PIN_EXCLUSIVE)
-            {
-                ExAcquireResourceExclusiveLite(&iBcb->Lock, TRUE);
-            }
-            else
-            {
-                ExAcquireResourceSharedLite(&iBcb->Lock, TRUE);
-            }
-
             return TRUE;
-        }
         else
             CcUnpinData(*Bcb);
     }
@@ -254,9 +218,19 @@ VOID NTAPI
 CcUnpinData (
     IN PVOID Bcb)
 {
+    PINTERNAL_BCB iBcb = Bcb;
+
     CCTRACE(CC_API_DEBUG, "Bcb=%p\n", Bcb);
 
-    CcUnpinDataForThread(Bcb, (ERESOURCE_THREAD)PsGetCurrentThread());
+    CcRosReleaseVacb(iBcb->Vacb->SharedCacheMap,
+                     iBcb->Vacb,
+                     TRUE,
+                     iBcb->Dirty,
+                     FALSE);
+    if (--iBcb->RefCount == 0)
+    {
+        ExFreeToNPagedLookasideList(&iBcbLookasideList, iBcb);
+    }
 }
 
 /*
@@ -268,35 +242,9 @@ CcUnpinDataForThread (
     IN	PVOID Bcb,
     IN	ERESOURCE_THREAD ResourceThreadId)
 {
-    PINTERNAL_BCB iBcb = Bcb;
-
     CCTRACE(CC_API_DEBUG, "Bcb=%p ResourceThreadId=%lu\n", Bcb, ResourceThreadId);
 
-    if (iBcb->Pinned)
-    {
-        ExReleaseResourceForThreadLite(&iBcb->Lock, ResourceThreadId);
-        iBcb->Pinned = FALSE;
-        if (InterlockedDecrement(&iBcb->Vacb->PinCount) == 0)
-        {
-            KeWaitForSingleObject(&iBcb->Vacb->Mutex,
-                                  Executive,
-                                  KernelMode,
-                                  FALSE,
-                                  NULL);
-        }
-    }
-
-    CcRosReleaseVacb(iBcb->Vacb->SharedCacheMap,
-                     iBcb->Vacb,
-                     TRUE,
-                     iBcb->Dirty,
-                     FALSE);
-
-    if (--iBcb->RefCount == 0)
-    {
-        ExDeleteResourceLite(&iBcb->Lock);
-        ExFreeToNPagedLookasideList(&iBcbLookasideList, iBcb);
-    }
+    UNIMPLEMENTED;
 }
 
 /*
@@ -354,20 +302,6 @@ CcUnpinRepinnedBcb (
             IoStatus->Status = STATUS_SUCCESS;
         }
 
-        if (iBcb->Pinned)
-        {
-            ExReleaseResourceLite(&iBcb->Lock);
-            iBcb->Pinned = FALSE;
-            if (InterlockedDecrement(&iBcb->Vacb->PinCount) == 0)
-            {
-                KeWaitForSingleObject(&iBcb->Vacb->Mutex,
-                                      Executive,
-                                      KernelMode,
-                                      FALSE,
-                                      NULL);
-            }
-        }
-        ExDeleteResourceLite(&iBcb->Lock);
         ExFreeToNPagedLookasideList(&iBcbLookasideList, iBcb);
     }
 }

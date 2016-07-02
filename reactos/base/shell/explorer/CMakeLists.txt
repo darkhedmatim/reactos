@@ -2,12 +2,11 @@ PROJECT(SHELL)
 
 set_cpp(WITH_RUNTIME)
 
-include_directories(${REACTOS_SOURCE_DIR}/sdk/lib/atl)
+include_directories(${REACTOS_SOURCE_DIR}/lib/atl)
 
 list(APPEND SOURCE
     desktop.cpp
     explorer.cpp
-    notifyiconscust.cpp
     rshell.cpp
     settings.cpp
     shellservice.cpp

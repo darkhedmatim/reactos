@@ -1,9 +1,13 @@
+; UTF-8
+; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+; Simplified Chinese translation by Henry Tang Ih (henrytang5247) (henrytang2@hotmail.com)
+
 [Section]
 Name = AbiWord
 Version = 2.9.4
 License = GPL
 Description = Snappy and open source word processor.
-Size = 9.4 MiB
+Size = 9.4 MB
 Category = 6
 URLSite = http://www.abisource.com/
 URLDownload = http://www.abisource.com/downloads/abiword/2.9.4/Windows/abiword-setup-2.9.4.exe
@@ -12,14 +16,13 @@ CDPath = none
 
 [Section.0407]
 Description = Quelloffene Textverarbeitung.
-Size = 9,4 MiB
 
 [Section.0a]
 Description = Procesador de textos rápido y de código abierto.
 
 [Section.040c]
 Description = Éditeur de texte.
-Size = 9,4 Mio
+Size = 9,4 Mo
 
 [Section.0410]
 Description = Editor di testo.
@@ -32,11 +35,11 @@ Description = Edytor tekstu.
 
 [Section.0418]
 Description = Procesor de text.
-Size = 9,4 Mio
+Size = 9,4 Mo
 
 [Section.041f]
 Description = Canlı ve açık kaynak sözcük işlemcisi.
-Size = 9,4 MiB
+Size = 9,4 MB
 
 [Section.0422]
 Description = Текстовий процесор.
@@ -46,4 +49,3 @@ Description = 时髦和开放源代码的文字处理器。
 
 [Section.0813]
 Description = Tekstverwerker.
-

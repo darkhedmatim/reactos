@@ -58,28 +58,7 @@ static void SaveClipboardToFile(void)
         return;
     }
 
-    WriteClipboardFile(szFileName, CLIP_FMT_NT /* CLIP_FMT_31 */);
-
-    CloseClipboard();
-}
-
-static void LoadClipboardDataFromFile(LPWSTR lpszFileName)
-{
-    if (MessageBoxRes(Globals.hMainWnd, Globals.hInstance,
-                      STRING_DELETE_MSG, STRING_DELETE_TITLE,
-                      MB_ICONWARNING | MB_YESNO) != IDYES)
-    {
-        return;
-    }
-
-    if (!OpenClipboard(Globals.hMainWnd))
-    {
-        ShowLastWin32Error(Globals.hMainWnd);
-        return;
-    }
-
-    EmptyClipboard();
-    ReadClipboardFile(lpszFileName);
+    WriteClipboardFile(szFileName);
 
     CloseClipboard();
 }
@@ -108,7 +87,19 @@ static void LoadClipboardFromFile(void)
     if (!GetOpenFileNameW(&ofn))
         return;
 
-    LoadClipboardDataFromFile(szFileName);
+    if (!OpenClipboard(Globals.hMainWnd))
+    {
+        ShowLastWin32Error(Globals.hMainWnd);
+        return;
+    }
+
+    if (MessageBoxRes(Globals.hMainWnd, Globals.hInstance, STRING_DELETE_MSG, STRING_DELETE_TITLE, MB_ICONWARNING | MB_YESNO) == IDYES)
+    {
+        EmptyClipboard();
+        ReadClipboardFile(szFileName);
+    }
+
+    CloseClipboard();
 }
 
 static void LoadClipboardFromDrop(HDROP hDrop)
@@ -118,7 +109,19 @@ static void LoadClipboardFromDrop(HDROP hDrop)
     DragQueryFileW(hDrop, 0, szFileName, ARRAYSIZE(szFileName));
     DragFinish(hDrop);
 
-    LoadClipboardDataFromFile(szFileName);
+    if (!OpenClipboard(Globals.hMainWnd))
+    {
+        ShowLastWin32Error(Globals.hMainWnd);
+        return;
+    }
+
+    if (MessageBoxRes(Globals.hMainWnd, Globals.hInstance, STRING_DELETE_MSG, STRING_DELETE_TITLE, MB_ICONWARNING | MB_YESNO) == IDYES)
+    {
+        EmptyClipboard();
+        ReadClipboardFile(szFileName);
+    }
+
+    CloseClipboard();
 }
 
 static void SetDisplayFormat(UINT uFormat)
@@ -166,7 +169,7 @@ static void InitMenuPopup(HMENU hMenu, LPARAM index)
     DrawMenuBar(Globals.hMainWnd);
 }
 
-static void UpdateDisplayMenu(void)
+void UpdateDisplayMenu(void)
 {
     UINT uFormat;
     WCHAR szFormatName[MAX_FMT_NAME_LEN + 1];
@@ -190,7 +193,7 @@ static void UpdateDisplayMenu(void)
     uFormat = EnumClipboardFormats(0);
     while (uFormat)
     {
-        RetrieveClipboardFormatName(Globals.hInstance, uFormat, TRUE, szFormatName, ARRAYSIZE(szFormatName));
+        RetrieveClipboardFormatName(Globals.hInstance, uFormat, szFormatName, ARRAYSIZE(szFormatName));
 
         if (!IsClipboardFormatSupported(uFormat))
         {
@@ -231,14 +234,10 @@ static int ClipboardCommandHandler(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
 
         case CMD_DELETE:
         {
-            if (MessageBoxRes(Globals.hMainWnd, Globals.hInstance,
-                              STRING_DELETE_MSG, STRING_DELETE_TITLE,
-                              MB_ICONWARNING | MB_YESNO) != IDYES)
+            if (MessageBoxRes(Globals.hMainWnd, Globals.hInstance, STRING_DELETE_MSG, STRING_DELETE_TITLE, MB_ICONWARNING | MB_YESNO) == IDYES)
             {
-                break;
+                DeleteClipboardContent();
             }
-
-            DeleteClipboardContent();
             break;
         }
 
@@ -259,7 +258,7 @@ static int ClipboardCommandHandler(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
             WCHAR szTitle[MAX_STRING_LEN];
             HICON hIcon;
 
-            hIcon = LoadIconW(Globals.hInstance, MAKEINTRESOURCE(CLIPBRD_ICON));
+            hIcon = LoadIconW(Globals.hInstance, MAKEINTRESOURCE(CLIP_ICON));
             LoadStringW(Globals.hInstance, STRING_CLIPBOARD, szTitle, ARRAYSIZE(szTitle));
             ShellAboutW(Globals.hMainWnd, szTitle, 0, hIcon);
             DeleteObject(hIcon);
@@ -280,8 +279,10 @@ static void ClipboardPaintHandler(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
     PAINTSTRUCT ps;
     RECT rc;
 
-    if (!OpenClipboard(Globals.hMainWnd))
+    if (!OpenClipboard(NULL))
+    {
         return;
+    }
 
     hdc = BeginPaint(hWnd, &ps);
     GetClientRect(hWnd, &rc);
@@ -317,15 +318,15 @@ static void ClipboardPaintHandler(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
             break;
         }
 
-        case CF_METAFILEPICT:
-        {
-            PlayMetaFileFromClipboard(hdc, &rc);
-            break;
-        }
-
         case CF_ENHMETAFILE:
         {
             PlayEnhMetaFileFromClipboard(hdc, &rc);
+            break;
+        }
+
+        case CF_METAFILEPICT:
+        {
+            PlayMetaFileFromClipboard(hdc, &rc);
             break;
         }
 
@@ -345,28 +346,6 @@ static LRESULT WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
 {
     switch(uMsg)
     {
-        case WM_CREATE:
-        {
-            Globals.hMenu = GetMenu(hWnd);
-            Globals.hWndNext = SetClipboardViewer(hWnd);
-            UpdateDisplayMenu();
-            SetDisplayFormat(0);
-            break;
-        }
-
-        case WM_CLOSE:
-        {
-            DestroyWindow(hWnd);
-            break;
-        }
-
-        case WM_DESTROY:
-        {
-            ChangeClipboardChain(hWnd, Globals.hWndNext);
-            PostQuitMessage(0);
-            break;
-        }
-
         case WM_PAINT:
         {
             ClipboardPaintHandler(hWnd, uMsg, wParam, lParam);
@@ -413,6 +392,28 @@ static LRESULT WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
                 InvalidateRect(Globals.hMainWnd, NULL, TRUE);
             }
 
+            break;
+        }
+
+        case WM_CREATE:
+        {
+            Globals.hMenu = GetMenu(hWnd);
+            Globals.hWndNext = SetClipboardViewer(hWnd);
+            UpdateDisplayMenu();
+            SetDisplayFormat(0);
+            break;
+        }
+
+        case WM_CLOSE:
+        {
+            DestroyWindow(hWnd);
+            break;
+        }
+
+        case WM_DESTROY:
+        {
+            ChangeClipboardChain(hWnd, Globals.hWndNext);
+            PostQuitMessage(0);
             break;
         }
 
@@ -533,7 +534,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
     wndclass.cbSize = sizeof(wndclass);
     wndclass.lpfnWndProc = MainWndProc;
     wndclass.hInstance = hInstance;
-    wndclass.hIcon = LoadIconW(hInstance, MAKEINTRESOURCEW(CLIPBRD_ICON));
+    wndclass.hIcon = LoadIconW(hInstance, MAKEINTRESOURCEW(CLIP_ICON));
     wndclass.hCursor = LoadCursorW(0, IDC_ARROW);
     wndclass.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wndclass.lpszMenuName = MAKEINTRESOURCEW(MAIN_MENU);
@@ -572,10 +573,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
     {
         ShowLastWin32Error(Globals.hMainWnd);
     }
-
-    /* If the user provided a path to a clipboard data file, try to open it */
-    if (lpCmdLine != NULL && *lpCmdLine)
-        LoadClipboardDataFromFile(lpCmdLine);
 
     UpdateLinesToScroll();
 

@@ -1,22 +1,24 @@
+; UTF-8
+; Turkish translation by Erdem Ersoy (eersoy93) (erdemersoy@live.com)
+; Simplified Chinese translation by Henry Tang Ih (henrytang5247) (henrytang2@hotmail.com)
+
 [Section]
 Name = NirLauncher
-Version = 1.19.88
+Version = 1.19.56
 License = Freeware
 Description = A package of more than 180 utilities for Windows.
-Size = 23.1 MiB
+Size = 21.05 MB
 Category = 12
 URLSite = http://launcher.nirsoft.net/
-URLDownload = https://www.accessibiliteprogrammes.fr/t%C3%A9l%C3%A9chargement/nirsoft_package_1.19.88.zip
-SHA1 = 37e645bea1503207dbc3eda488bf5eec916f9a40
+URLDownload = http://download.nirsoft.net/nirsoft_package_1.19.56.zip
+SHA1 = f682ff2ce2112092b8baeddab6c89838e9f4b290 
 CDPath = none
 
 [Section.0407]
 Description = Paket von mehr als 180 Utilities für Windows.
-Size = 23,1 MiB
 
 [Section.040c]
 Description = Un ensemble de plus de 180 utilitaires pour Windows.
-Size = 23,1 Mio
 
 [Section.0a]
 Licence = Gratuita
@@ -25,13 +27,11 @@ Description = Un paquete con más de 180 utilidades.
 [Section.0418]
 Licence = Gratuită
 Description = Pachet cu peste 180 de utilitare.
-Size = 23,1 Mio
+Size = 21,05 Mo
 
 [Section.041f]
 License = Ücretsiz
 Description = Windows için 180 araçtan daha çoğunun bir paketi.
-Size = 23,1 MiB
 
 [Section.0804]
 Description = 超过 180 实用程序可用于 Windows 的一整套行动。
-

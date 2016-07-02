@@ -845,7 +845,7 @@ static MUI_ENTRY ptBRSelectPartitionEntries[] =
     }
 };
 
-static MUI_ENTRY ptBRConfirmDeleteSystemPartitionEntries[] =
+static MUI_ENTRY ptBRConfirmDeletePartitionEntries[] =
 {
     {
         4,
@@ -856,13 +856,13 @@ static MUI_ENTRY ptBRConfirmDeleteSystemPartitionEntries[] =
     {
         6,
         8,
-        "You have chosen to delete the system partition.",
+        "You asked Setup to delete the system partition.",
         TEXT_STYLE_NORMAL
     },
     {
         6,
         10,
-        "System partitions can contain diagnostic programs, hardware configuration",
+        "System partitions can contain diagnose programs, hardware configuration",
         TEXT_STYLE_NORMAL
     },
     {
@@ -886,7 +886,7 @@ static MUI_ENTRY ptBRConfirmDeleteSystemPartitionEntries[] =
     {
         6,
         15,
-        "programs on the partition, or when you are sure you want to delete them.",
+        "programs on the partiton, or when you are sure you want to delete them.",
         TEXT_STYLE_NORMAL
     },
     {
@@ -1685,7 +1685,7 @@ MUI_PAGE ptBRPages[] =
     },
     {
         CONFIRM_DELETE_SYSTEM_PARTITION_PAGE,
-        ptBRConfirmDeleteSystemPartitionEntries
+        ptBRConfirmDeletePartitionEntries
     },
     {
         SELECT_FILE_SYSTEM_PAGE,
@@ -1783,8 +1783,6 @@ MUI_STRING ptBRStrings[] =
     "O instalador instala o ReactOS na parti‡Æo"},
     {STRING_CHECKINGPART,
     "O instalador est  verificando a parti‡Æo selecionada."},
-    {STRING_CONTINUE,
-    "ENTER=Continuar"},
     {STRING_QUITCONTINUE,
     "F3=Sair  ENTER=Continuar"},
     {STRING_REBOOTCOMPUTER,
@@ -1832,7 +1830,7 @@ MUI_STRING ptBRStrings[] =
     {STRING_HDDINFOUNK1,
     "%I64u %s  Disco %lu  (Porta=%hu, Barramento=%hu, Id=%hu)."},
     {STRING_HDDINFOUNK2,
-    "   %c%c  Tipo 0x%02X    %I64u %s"},
+    "   %c%c  Tipo %lu    %I64u %s"},
     {STRING_HDINFOPARTDELETE,
     "em %I64u %s  Disco %lu  (Porta=%hu, Barramento=%hu, Id=%hu) em %wZ."},
     {STRING_HDDINFOUNK3,
@@ -1840,7 +1838,7 @@ MUI_STRING ptBRStrings[] =
     {STRING_HDINFOPARTZEROED,
     "Disco %lu (%I64u %s), Porta=%hu, Barramento=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK4,
-    "%c%c  Tipo 0x%02X    %I64u %s"},
+    "%c%c  Tipo %lu    %I64u %s"},
     {STRING_HDINFOPARTEXISTS,
     "em Disco %lu (%I64u %s), Porta=%hu, Barramento=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK5,

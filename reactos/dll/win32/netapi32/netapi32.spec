@@ -5,8 +5,8 @@
 @ stub DsAddressToSiteNamesW
 @ stub DsDeregisterDnsHostRecordsA
 @ stub DsDeregisterDnsHostRecordsW
-8 stdcall DsEnumerateDomainTrustsA(wstr long ptr ptr)
-9 stdcall DsEnumerateDomainTrustsW(wstr long ptr ptr)
+@ stub DsEnumerateDomainTrustsA
+@ stub DsEnumerateDomainTrustsW
 @ stub DsGetDcCloseW
 @ stdcall DsGetDcNameA(str str ptr str long ptr)
 @ stdcall DsGetDcNameW(wstr wstr ptr wstr long ptr)
@@ -147,7 +147,7 @@
 @ stub NetFileClose
 @ stdcall NetFileEnum(wstr wstr wstr long ptr long ptr ptr ptr)
 @ stub NetFileGetInfo
-@ stdcall NetGetAnyDCName(wstr wstr ptr)
+@ stub NetGetAnyDCName
 @ stdcall NetGetDCName(wstr wstr ptr)
 @ stub NetGetDisplayInformationIndex
 @ stdcall NetGetJoinInformation(wstr ptr ptr)

@@ -508,7 +508,7 @@ DoQuery(
                                         BooleanFlagOn(IrpContext->Flags, IRPCONTEXT_CANWAIT)))
     {
         ExReleaseResourceLite(&pFcb->MainResource);
-        return STATUS_PENDING;
+        return VfatMarkIrpContextForQueue(IrpContext);
     }
 
     while ((Status == STATUS_SUCCESS) && (BufferLength > 0))

@@ -24,7 +24,7 @@ WCHAR swShell32Name[MAX_PATH];
 DWORD NumIconOverlayHandlers = 0;
 IShellIconOverlayIdentifier ** Handlers = NULL;
 
-static HRESULT getIconLocationForFolder(IShellFolder * psf, LPCITEMIDLIST pidl, UINT uFlags,
+static HRESULT getIconLocationForFolder(LPCITEMIDLIST pidl, UINT uFlags,
                                         LPWSTR szIconFile, UINT cchMax, int *piIndex, UINT *pwFlags)
 {
     static const WCHAR shellClassInfo[] = { '.', 'S', 'h', 'e', 'l', 'l', 'C', 'l', 'a', 's', 's', 'I', 'n', 'f', 'o', 0 };
@@ -39,7 +39,7 @@ static HRESULT getIconLocationForFolder(IShellFolder * psf, LPCITEMIDLIST pidl, 
     {
         WCHAR wszFolderPath[MAX_PATH];
 
-        if (!ILGetDisplayNameExW(psf, pidl, wszFolderPath, 0))
+        if (!SHGetPathFromIDListW(pidl, wszFolderPath))
             return FALSE;
 
         PathAppendW(wszFolderPath, wszDesktopIni);
@@ -192,20 +192,28 @@ GetIconOverlay(LPCITEMIDLIST pidl, WCHAR * wTemp, int* pIndex)
         return FALSE;
 }
 
-HRESULT GenericExtractIcon_CreateInstance(IShellFolder * psf, LPCITEMIDLIST pidl, REFIID iid, LPVOID * ppvOut)
+/**************************************************************************
+*  IExtractIconW_Constructor
+*/
+IExtractIconW* IExtractIconW_Constructor(LPCITEMIDLIST pidl)
 {
     CComPtr<IDefaultExtractIconInit>    initIcon;
+    CComPtr<IExtractIconW> extractIcon;
     GUID const * riid;
     int icon_idx;
     UINT flags;
     CHAR sTemp[MAX_PATH];
     WCHAR wTemp[MAX_PATH];
-    LPCITEMIDLIST pSimplePidl = pidl;
+    LPITEMIDLIST pSimplePidl = ILFindLastID(pidl);
     HRESULT hr;
 
     hr = SHCreateDefaultExtractIcon(IID_PPV_ARG(IDefaultExtractIconInit,&initIcon));
     if (FAILED(hr))
-        return hr;
+        return NULL;
+
+    hr = initIcon->QueryInterface(IID_PPV_ARG(IExtractIconW,&extractIcon));
+    if (FAILED(hr))
+        return NULL;
 
     if (_ILIsDesktop(pSimplePidl))
     {
@@ -313,7 +321,7 @@ HRESULT GenericExtractIcon_CreateInstance(IShellFolder * psf, LPCITEMIDLIST pidl
 
     else if (_ILIsFolder (pSimplePidl))
     {
-        if (SUCCEEDED(getIconLocationForFolder(psf, 
+        if (SUCCEEDED(getIconLocationForFolder(
                           pidl, 0, wTemp, MAX_PATH,
                           &icon_idx,
                           &flags)))
@@ -324,21 +332,21 @@ HRESULT GenericExtractIcon_CreateInstance(IShellFolder * psf, LPCITEMIDLIST pidl
             //        the following line removed.
             initIcon->SetShortcutIcon(wTemp, icon_idx);
         }
-        if (SUCCEEDED(getIconLocationForFolder(psf, 
+        if (SUCCEEDED(getIconLocationForFolder(
                           pidl, GIL_DEFAULTICON, wTemp, MAX_PATH,
                           &icon_idx,
                           &flags)))
         {
             initIcon->SetDefaultIcon(wTemp, icon_idx);
         }
-        // if (SUCCEEDED(getIconLocationForFolder(psf, 
+        // if (SUCCEEDED(getIconLocationForFolder(
         //                   pidl, GIL_FORSHORTCUT, wTemp, MAX_PATH,
         //                   &icon_idx,
         //                   &flags)))
         // {
         //     initIcon->SetShortcutIcon(wTemp, icon_idx);
         // }
-        if (SUCCEEDED(getIconLocationForFolder(psf, 
+        if (SUCCEEDED(getIconLocationForFolder(
                           pidl, GIL_OPENICON, wTemp, MAX_PATH,
                           &icon_idx,
                           &flags)))
@@ -350,14 +358,19 @@ HRESULT GenericExtractIcon_CreateInstance(IShellFolder * psf, LPCITEMIDLIST pidl
     {
         BOOL found = FALSE;
 
-        if (_ILGetExtension(pSimplePidl, sTemp, MAX_PATH))
+        if (_ILIsCPanelStruct(pSimplePidl))
+        {
+            if (SUCCEEDED(CPanel_GetIconLocationW(pSimplePidl, wTemp, MAX_PATH, &icon_idx)))
+                found = TRUE;
+        }
+        else if (_ILGetExtension(pSimplePidl, sTemp, MAX_PATH))
         {
             if (HCR_MapTypeToValueA(sTemp, sTemp, MAX_PATH, TRUE)
                     && HCR_GetIconA(sTemp, sTemp, NULL, MAX_PATH, &icon_idx))
             {
                 if (!lstrcmpA("%1", sTemp)) /* icon is in the file */
                 {
-                    ILGetDisplayNameExW(psf, pidl, wTemp, 0);
+                    SHGetPathFromIDListW(pidl, wTemp);
                     icon_idx = 0;
                 }
                 else
@@ -370,17 +383,21 @@ HRESULT GenericExtractIcon_CreateInstance(IShellFolder * psf, LPCITEMIDLIST pidl
             else if (!lstrcmpiA(sTemp, "lnkfile"))
             {
                 /* extract icon from shell shortcut */
+                CComPtr<IShellFolder>        dsf;
                 CComPtr<IShellLinkW>        psl;
 
-                HRESULT hr = psf->GetUIObjectOf(NULL, 1, &pidl, IID_NULL_PPV_ARG(IShellLinkW, &psl));
-
-                if (SUCCEEDED(hr))
+                if (SUCCEEDED(SHGetDesktopFolder(&dsf)))
                 {
-                    hr = psl->GetIconLocation(wTemp, MAX_PATH, &icon_idx);
+                    HRESULT hr = dsf->GetUIObjectOf(NULL, 1, (LPCITEMIDLIST*) &pidl, IID_NULL_PPV_ARG(IShellLinkW, &psl));
 
-                    if (SUCCEEDED(hr) && *sTemp)
-                        found = TRUE;
+                    if (SUCCEEDED(hr))
+                    {
+                        hr = psl->GetIconLocation(wTemp, MAX_PATH, &icon_idx);
 
+                        if (SUCCEEDED(hr) && *sTemp)
+                            found = TRUE;
+
+                    }
                 }
             }
         }
@@ -392,5 +409,24 @@ HRESULT GenericExtractIcon_CreateInstance(IShellFolder * psf, LPCITEMIDLIST pidl
             initIcon->SetNormalIcon(wTemp, icon_idx);
     }
 
-    return initIcon->QueryInterface(iid, ppvOut);
+    return extractIcon.Detach();
+}
+
+/**************************************************************************
+*  IExtractIconA_Constructor
+*/
+IExtractIconA* IExtractIconA_Constructor(LPCITEMIDLIST pidl)
+{
+    CComPtr<IExtractIconW> extractIconW;
+    CComPtr<IExtractIconA> extractIconA;
+    HRESULT hr;
+
+    extractIconW = IExtractIconW_Constructor(pidl);
+    if (!extractIconW)
+        return NULL;
+
+    hr = extractIconW->QueryInterface(IID_PPV_ARG(IExtractIconA, &extractIconA));
+    if (FAILED(hr))
+        return NULL;
+    return extractIconA.Detach();
 }

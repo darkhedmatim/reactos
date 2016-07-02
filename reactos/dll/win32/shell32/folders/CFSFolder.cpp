@@ -487,7 +487,8 @@ HRESULT WINAPI CFSFolder::GetUIObjectOf(HWND hwndOwner,
                                         REFIID riid, UINT * prgfInOut,
                                         LPVOID * ppvOut)
 {
-    LPVOID pObj = NULL;
+    LPITEMIDLIST pidl;
+    IUnknown *pObj = NULL;
     HRESULT hr = E_INVALIDARG;
 
     TRACE ("(%p)->(%p,%u,apidl=%p,%s,%p,%p)\n",
@@ -514,9 +515,19 @@ HRESULT WINAPI CFSFolder::GetUIObjectOf(HWND hwndOwner,
                 hr = IDataObject_Constructor (hwndOwner, pidlRoot, (LPCITEMIDLIST*)&pidlRoot, 1, (IDataObject **)&pObj);
             }
         }
-        else if ((IsEqualIID (riid, IID_IExtractIconA) || IsEqualIID (riid, IID_IExtractIconW)) && (cidl == 1))
+        else if (IsEqualIID (riid, IID_IExtractIconA) && (cidl == 1))
         {
-            hr = GenericExtractIcon_CreateInstance(this, apidl[0], riid, &pObj);
+            pidl = ILCombine (pidlRoot, apidl[0]);
+            pObj = IExtractIconA_Constructor (pidl);
+            SHFree (pidl);
+            hr = S_OK;
+        }
+        else if (IsEqualIID (riid, IID_IExtractIconW) && (cidl == 1))
+        {
+            pidl = ILCombine (pidlRoot, apidl[0]);
+            pObj = IExtractIconW_Constructor (pidl);
+            SHFree (pidl);
+            hr = S_OK;
         }
         else if (IsEqualIID (riid, IID_IDropTarget))
         {
@@ -531,7 +542,9 @@ HRESULT WINAPI CFSFolder::GetUIObjectOf(HWND hwndOwner,
         else if ((IsEqualIID(riid, IID_IShellLinkW) ||
             IsEqualIID(riid, IID_IShellLinkA)) && (cidl == 1))
         {
-            hr = IShellLink_ConstructFromFile(this, apidl[0], riid, &pObj);
+            pidl = ILCombine (pidlRoot, apidl[0]);
+            hr = IShellLink_ConstructFromFile(NULL, riid, pidl, (LPVOID*)&pObj);
+            SHFree (pidl);
         }
         else
             hr = E_NOINTERFACE;
@@ -800,7 +813,10 @@ HRESULT WINAPI CFSFolder::GetDetailsOf(PCUITEMID_CHILD pidl,
         /* the header titles */
         psd->fmt = GenericSFHeader[iColumn].fmt;
         psd->cxChar = GenericSFHeader[iColumn].cxChar;
-        return SHSetStrRet(&psd->str, GenericSFHeader[iColumn].colnameid);
+        psd->str.uType = STRRET_CSTR;
+        LoadStringA(shell32_hInstance, GenericSFHeader[iColumn].colnameid,
+                    psd->str.cStr, MAX_PATH);
+        return S_OK;
     }
     else
     {
@@ -1423,7 +1439,7 @@ HRESULT WINAPI CFSFolder::_DoDrop(IDataObject *pDataObject,
                         hr = E_FAIL;
                         break;
                     }
-                    hr = IShellLink_ConstructFromFile(this, apidl[i], IID_PPV_ARG(IPersistFile, &ppf));
+                    hr = IShellLink_ConstructFromFile(NULL, IID_IPersistFile, ILCombine(pidl, apidl[i]), (LPVOID*)&ppf);
                     if (FAILED(hr)) {
                         ERR("Error constructing link from file");
                         break;
@@ -1585,7 +1601,7 @@ HRESULT WINAPI CFSFolder::_GetDropTarget(LPCITEMIDLIST pidl, LPVOID *ppvOut) {
 
     TRACE("CFSFolder::_GetDropTarget entered\n");
 
-    if (_ILIsFolder (pidl))
+    if (_ILGetGUIDPointer (pidl) || _ILIsFolder (pidl))
         return this->BindToObject(pidl, NULL, IID_IDropTarget, ppvOut);
 
     STRRET strFile;

@@ -65,8 +65,8 @@ extern HKEY hkExplorer;
 static inline 
 LONG
 SetWindowStyle(IN HWND hWnd,
-               IN LONG dwStyleMask,
-               IN LONG dwStyle)
+IN LONG dwStyleMask,
+IN LONG dwStyle)
 {
     return SHSetWindowBits(hWnd, GWL_STYLE, dwStyleMask, dwStyle);
 }
@@ -74,35 +74,35 @@ SetWindowStyle(IN HWND hWnd,
 static inline
 LONG
 SetWindowExStyle(IN HWND hWnd,
-                 IN LONG dwStyleMask,
-                 IN LONG dwStyle)
+IN LONG dwStyleMask,
+IN LONG dwStyle)
 {
     return SHSetWindowBits(hWnd, GWL_EXSTYLE, dwStyleMask, dwStyle);
 }
 
 HMENU
 LoadPopupMenu(IN HINSTANCE hInstance,
-              IN LPCWSTR lpMenuName);
+IN LPCTSTR lpMenuName);
 
 HMENU
 FindSubMenu(IN HMENU hMenu,
-            IN UINT uItem,
-            IN BOOL fByPosition);
+IN UINT uItem,
+IN BOOL fByPosition);
 
 BOOL
-GetCurrentLoggedOnUserName(OUT LPWSTR szBuffer,
-                           IN DWORD dwBufferSize);
+GetCurrentLoggedOnUserName(OUT LPTSTR szBuffer,
+IN DWORD dwBufferSize);
 
 BOOL
 FormatMenuString(IN HMENU hMenu,
-                 IN UINT uPosition,
-                 IN UINT uFlags,
-                 ...);
+IN UINT uPosition,
+IN UINT uFlags,
+...);
 
 BOOL
 GetExplorerRegValueSet(IN HKEY hKey,
-                       IN LPCWSTR lpSubKey,
-                       IN LPCWSTR lpValue);
+IN LPCTSTR lpSubKey,
+IN LPCTSTR lpValue);
 
 /*
  *  rshell.c
@@ -190,9 +190,9 @@ VOID
 LoadAdvancedSettings(VOID);
 
 BOOL
-SaveSettingDword(IN LPCWSTR pszKeyName,
-                 IN LPCWSTR pszValueName,
-                 IN DWORD dwValue);
+SaveSettingDword(IN PCTSTR pszKeyName,
+IN PCTSTR pszValueName,
+IN DWORD dwValue);
 
 /*
  * shellservice.cpp
@@ -222,13 +222,6 @@ DesktopCreateWindow(IN OUT ITrayWindow *Tray);
 
 VOID
 DesktopDestroyShellWindow(IN HANDLE hDesktop);
-
-
-/*
- * notifyiconscust.cpp
- */
-VOID
-ShowCustomizeNotifyIcons(HINSTANCE, HWND);
 
 /*
  * taskband.cpp
@@ -311,9 +304,9 @@ HRESULT StartMenuBtnCtxMenuCreator(ITrayWindow * TrayWnd, IN HWND hWndOwner, ICo
 
 IMenuPopup*
 CreateStartMenu(IN ITrayWindow *Tray,
-                OUT IMenuBand **ppMenuBand,
-                IN HBITMAP hbmBanner OPTIONAL,
-                IN BOOL bSmallIcons);
+OUT IMenuBand **ppMenuBand,
+IN HBITMAP hbmBanner  OPTIONAL,
+IN BOOL bSmallIcons);
 
 /*
  * startmnucust.cpp

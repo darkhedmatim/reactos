@@ -818,7 +818,7 @@ static MUI_ENTRY trTRSelectPartitionEntries[] =
     }
 };
 
-static MUI_ENTRY trTRConfirmDeleteSystemPartitionEntries[] =
+static MUI_ENTRY trTRConfirmDeletePartitionEntries[] =
 {
     {
         4,
@@ -1628,7 +1628,7 @@ MUI_PAGE trTRPages[] =
     },
     {
         CONFIRM_DELETE_SYSTEM_PARTITION_PAGE,
-        trTRConfirmDeleteSystemPartitionEntries
+        trTRConfirmDeletePartitionEntries
     },
     {
         SELECT_FILE_SYSTEM_PAGE,
@@ -1724,8 +1724,6 @@ MUI_STRING trTRStrings[] =
     "Kur, ReactOS'u bîlÅm Åzerine kurar."},
     {STRING_CHECKINGPART,
     "Kur, üimdi seáili bîlÅmÅ gîzden geáiriyor."},
-    {STRING_CONTINUE,
-    "Giriü = SÅrdÅr"},
     {STRING_QUITCONTINUE,
     "ò3 = Äçk   Giriü = SÅrdÅr"},
     {STRING_REBOOTCOMPUTER,
@@ -1773,7 +1771,7 @@ MUI_STRING trTRStrings[] =
     {STRING_HDDINFOUNK1,
     "%I64u %s  SÉbit Disk %lu  (Giriü=%hu, Veriyolu=%hu, Kimlik=%hu)."},
     {STRING_HDDINFOUNK2,
-    "   %c%c  TÅr  0x%02X    %I64u %s"},
+    "   %c%c  TÅr  %lu    %I64u %s"},
     {STRING_HDINFOPARTDELETE,
     "özerinde: %I64u %s  SÉbit Disk %lu  (Giriü=%hu, Veriyolu=%hu, Kimlik=%hu), %wZ Åzerinde."},
     {STRING_HDDINFOUNK3,
@@ -1781,7 +1779,7 @@ MUI_STRING trTRStrings[] =
     {STRING_HDINFOPARTZEROED,
     "SÉbit Disk %lu (%I64u %s), Giriü=%hu, Veriyolu=%hu, Kimlik=%hu (%wZ)."},
     {STRING_HDDINFOUNK4,
-    "%c%c  TÅr  0x%02X    %I64u %s"},
+    "%c%c  TÅr  %lu    %I64u %s"},
     {STRING_HDINFOPARTEXISTS,
     "özerinde: SÉbit Disk %lu (%I64u %s), Giriü=%hu, Veriyolu=%hu, Kimlik=%hu (%wZ)."},
     {STRING_HDDINFOUNK5,

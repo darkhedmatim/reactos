@@ -329,16 +329,10 @@ new_buffer_head()
     struct buffer_head * bh = NULL;
     bh = kmem_cache_alloc(g_jbh.bh_cache, GFP_NOFS);
     if (bh) {
-        atomic_inc(&g_jbh.bh_count);
-        atomic_inc(&g_jbh.bh_acount);
-
         memset(bh, 0, sizeof(struct buffer_head));
-        InitializeListHead(&bh->b_link);
-        KeQuerySystemTime(&bh->b_ts_creat);
         DEBUG(DL_BH, ("bh=%p allocated.\n", bh));
         INC_MEM_COUNT(PS_BUFF_HEAD, bh, sizeof(struct buffer_head));
     }
-
     return bh;
 }
 
@@ -350,19 +344,18 @@ free_buffer_head(struct buffer_head * bh)
 
             DEBUG(DL_BH, ("bh=%p mdl=%p (Flags:%xh VA:%p) released.\n", bh, bh->b_mdl,
                           bh->b_mdl->MdlFlags, bh->b_mdl->MappedSystemVa));
-            if (IsFlagOn(bh->b_mdl->MdlFlags, MDL_MAPPED_TO_SYSTEM_VA)) {
+            if (IsFlagOn(bh->b_mdl->MdlFlags, MDL_PAGES_LOCKED)) {
+                /* MmUnlockPages will release it's VA */
+                MmUnlockPages(bh->b_mdl);
+            } else if (IsFlagOn(bh->b_mdl->MdlFlags, MDL_MAPPED_TO_SYSTEM_VA)) {
                 MmUnmapLockedPages(bh->b_mdl->MappedSystemVa, bh->b_mdl);
             }
+
             Ext2DestroyMdl(bh->b_mdl);
         }
-        if (bh->b_bcb) {
-            CcUnpinDataForThread(bh->b_bcb, (ERESOURCE_THREAD)bh | 0x3);
-        }
-
         DEBUG(DL_BH, ("bh=%p freed.\n", bh));
         DEC_MEM_COUNT(PS_BUFF_HEAD, bh, sizeof(struct buffer_head));
         kmem_cache_free(g_jbh.bh_cache, bh);
-        atomic_dec(&g_jbh.bh_count);
     }
 }
 
@@ -427,7 +420,7 @@ static void buffer_head_remove(struct block_device *bdev, struct buffer_head *bh
 }
 
 struct buffer_head *
-get_block_bh_mdl(
+get_block_bh(
     struct block_device *   bdev,
     sector_t                block,
     unsigned long           size,
@@ -439,6 +432,7 @@ get_block_bh_mdl(
     PVOID         bcb = NULL;
     PVOID         ptr = NULL;
 
+    KIRQL irql = 0;
     struct list_head *entry;
 
     /* allocate buffer_head and initialize it */
@@ -451,15 +445,15 @@ get_block_bh_mdl(
     }
 
     /* search the bdev bh list */
-    ExAcquireSharedStarveExclusive(&bdev->bd_bh_lock, TRUE);
+    spin_lock_irqsave(&bdev->bd_bh_lock, irql);
     tbh = buffer_head_search(bdev, block);
     if (tbh) {
         bh = tbh;
         get_bh(bh);
-        ExReleaseResourceLite(&bdev->bd_bh_lock);
+        spin_unlock_irqrestore(&bdev->bd_bh_lock, irql);
         goto errorout;
     }
-    ExReleaseResourceLite(&bdev->bd_bh_lock);
+    spin_unlock_irqrestore(&bdev->bd_bh_lock, irql);
 
     bh = new_buffer_head();
     if (!bh) {
@@ -469,6 +463,8 @@ get_block_bh_mdl(
     bh->b_blocknr = block;
     bh->b_size = size;
     bh->b_data = NULL;
+    atomic_inc(&g_jbh.bh_count);
+    atomic_inc(&g_jbh.bh_acount);
 
 again:
 
@@ -499,14 +495,13 @@ again:
         set_buffer_uptodate(bh);
     }
 
-    bh->b_mdl = Ext2CreateMdl(ptr, bh->b_size, IoModifyAccess);
+    bh->b_mdl = Ext2CreateMdl(ptr, TRUE, bh->b_size, IoModifyAccess);
     if (bh->b_mdl) {
         /* muse map the PTE to NonCached zone. journal recovery will
            access the PTE under spinlock: DISPATCH_LEVEL IRQL */
         bh->b_data = MmMapLockedPagesSpecifyCache(
                          bh->b_mdl, KernelMode, MmNonCached,
                          NULL,FALSE, HighPagePriority);
-        /* bh->b_data = MmMapLockedPages(bh->b_mdl, KernelMode); */
     }
     if (!bh->b_mdl || !bh->b_data) {
         free_buffer_head(bh);
@@ -519,21 +514,20 @@ again:
     DEBUG(DL_BH, ("getblk: Vcb=%p bhcount=%u block=%u bh=%p mdl=%p (Flags:%xh VA:%p)\n",
                   Vcb, atomic_read(&g_jbh.bh_count), block, bh, bh->b_mdl, bh->b_mdl->MdlFlags, bh->b_data));
 
-    ExAcquireResourceExclusiveLite(&bdev->bd_bh_lock, TRUE);
+    spin_lock_irqsave(&bdev->bd_bh_lock, irql);
+
     /* do search again here */
     tbh = buffer_head_search(bdev, block);
     if (tbh) {
         free_buffer_head(bh);
         bh = tbh;
         get_bh(bh);
-        RemoveEntryList(&bh->b_link);
-        InitializeListHead(&bh->b_link);
-        ExReleaseResourceLite(&bdev->bd_bh_lock);
+        spin_unlock_irqrestore(&bdev->bd_bh_lock, irql);
         goto errorout;
-    } else {
+    } else
         buffer_head_insert(bdev, bh);
-    }
-    ExReleaseResourceLite(&bdev->bd_bh_lock);
+
+    spin_unlock_irqrestore(&bdev->bd_bh_lock, irql);
 
     /* we get it */
 errorout:
@@ -544,7 +538,17 @@ errorout:
     return bh;
 }
 
-int submit_bh_mdl(int rw, struct buffer_head *bh)
+struct buffer_head *
+__getblk(
+    struct block_device *   bdev,
+    sector_t                block,
+    unsigned long           size
+)
+{
+    return get_block_bh(bdev, block, size, 0);
+}
+
+int submit_bh(int rw, struct buffer_head *bh)
 {
     struct block_device *bdev = bh->b_bdev;
     PEXT2_VCB            Vcb  = bdev->bd_priv;
@@ -603,198 +607,11 @@ errorout:
     return 0;
 }
 
-struct buffer_head *
-get_block_bh_pin(
-    struct block_device *   bdev,
-    sector_t                block,
-    unsigned long           size,
-    int                     zero
-) 
-{
-    PEXT2_VCB Vcb = bdev->bd_priv;
-    LARGE_INTEGER offset;
-
-    struct list_head *entry;
-
-    /* allocate buffer_head and initialize it */
-    struct buffer_head *bh = NULL, *tbh = NULL;
-
-    /* check the block is valid or not */
-    if (block >= TOTAL_BLOCKS) {
-        DbgBreak();
-        goto errorout;
-    }
-
-    /* search the bdev bh list */
-    ExAcquireSharedStarveExclusive(&bdev->bd_bh_lock, TRUE);
-    tbh = buffer_head_search(bdev, block);
-    if (tbh) {
-        bh = tbh;
-        get_bh(bh);
-        ExReleaseResourceLite(&bdev->bd_bh_lock);
-        goto errorout;
-    }
-    ExReleaseResourceLite(&bdev->bd_bh_lock);
-
-    bh = new_buffer_head();
-    if (!bh) {
-        goto errorout;
-    }
-    bh->b_bdev = bdev;
-    bh->b_blocknr = block;
-    bh->b_size = size;
-    bh->b_data = NULL;
-
-again:
-
-    offset.QuadPart = (s64) bh->b_blocknr;
-    offset.QuadPart <<= BLOCK_BITS;
-
-    if (zero) {
-        if (!CcPreparePinWrite(Vcb->Volume,
-                            &offset,
-                            bh->b_size,
-                            FALSE,
-                            PIN_WAIT,
-                            &bh->b_bcb,
-                            (PVOID *)&bh->b_data)) {
-            Ext2Sleep(100);
-            goto again;
-        }
-    } else {
-        if (!CcPinRead( Vcb->Volume,
-                        &offset,
-                        bh->b_size,
-                        PIN_WAIT,
-                        &bh->b_bcb,
-                        (PVOID *)&bh->b_data)) {
-            Ext2Sleep(100);
-            goto again;
-        }
-        set_buffer_uptodate(bh);
-    }
-
-    if (bh->b_bcb)
-        CcSetBcbOwnerPointer(bh->b_bcb, (PVOID)((ERESOURCE_THREAD)bh | 0x3));
-
-    if (!bh->b_data) {
-        free_buffer_head(bh);
-        bh = NULL;
-        goto errorout;
-    }
-    get_bh(bh);
-
-    DEBUG(DL_BH, ("getblk: Vcb=%p bhcount=%u block=%u bh=%p ptr=%p.\n",
-                  Vcb, atomic_read(&g_jbh.bh_count), block, bh, bh->b_data));
-
-    ExAcquireResourceExclusiveLite(&bdev->bd_bh_lock, TRUE);
-    /* do search again here */
-    tbh = buffer_head_search(bdev, block);
-    if (tbh) {
-        get_bh(tbh);
-        ExReleaseResourceLite(&bdev->bd_bh_lock);
-        free_buffer_head(bh);
-        bh = tbh;
-        RemoveEntryList(&bh->b_link);
-        InitializeListHead(&bh->b_link);
-        goto errorout;
-    } else {
-        buffer_head_insert(bdev, bh);
-    }
-    ExReleaseResourceLite(&bdev->bd_bh_lock);
-
-    /* we get it */
-errorout:
-
-    return bh;
-}
-
-int submit_bh_pin(int rw, struct buffer_head *bh)
-{
-    struct block_device *bdev = bh->b_bdev;
-    PEXT2_VCB            Vcb  = bdev->bd_priv;
-    PVOID                Buffer;
-    LARGE_INTEGER        Offset;
-
-    ASSERT(Vcb->Identifier.Type == EXT2VCB);
-    ASSERT(bh->b_data && bh->b_bcb);
-
-    if (rw == WRITE) {
-
-        if (IsVcbReadOnly(Vcb)) {
-            goto errorout;
-        }
-
-        SetFlag(Vcb->Volume->Flags, FO_FILE_MODIFIED);
-        Offset.QuadPart = ((LONGLONG)bh->b_blocknr) << BLOCK_BITS;
-
-        CcSetDirtyPinnedData(bh->b_bcb, NULL);
-        Ext2AddBlockExtent( Vcb, NULL,
-                            (ULONG)bh->b_blocknr,
-                            (ULONG)bh->b_blocknr,
-                            (bh->b_size >> BLOCK_BITS));
-    } else {
-        DbgBreak();
-    }
-
-errorout:
-
-    unlock_buffer(bh);
-    put_bh(bh);
-    return 0;
-}
-
-#if 0
-
-struct buffer_head *
-get_block_bh(
-    struct block_device *   bdev,
-    sector_t                block,
-    unsigned long           size,
-    int                     zero
-) 
-{
-    return get_block_bh_mdl(bdev, block, size, zero);
-}
-
-int submit_bh(int rw, struct buffer_head *bh)
-{
-    return submit_bh_mdl(rw, bh);
-}
-
-#else
-
-struct buffer_head *
-get_block_bh(
-    struct block_device *   bdev,
-    sector_t                block,
-    unsigned long           size,
-    int                     zero
-) 
-{
-    return get_block_bh_pin(bdev, block, size, zero);
-}
-
-int submit_bh(int rw, struct buffer_head *bh)
-{
-    return submit_bh_pin(rw, bh);
-}
-#endif
-
-struct buffer_head *
-__getblk(
-    struct block_device *   bdev,
-    sector_t                block,
-    unsigned long           size
-)
-{
-    return get_block_bh(bdev, block, size, 0);
-}
-
 void __brelse(struct buffer_head *bh)
 {
     struct block_device *bdev = bh->b_bdev;
     PEXT2_VCB Vcb = (PEXT2_VCB)bdev->bd_priv;
+    KIRQL   irql = 0;
 
     ASSERT(Vcb->Identifier.Type == EXT2VCB);
 
@@ -803,32 +620,21 @@ void __brelse(struct buffer_head *bh)
         ll_rw_block(WRITE, 1, &bh);
     }
 
-    if (1 == atomic_read(&bh->b_count)) {
-    } else if (atomic_dec_and_test(&bh->b_count)) {
-        atomic_inc(&bh->b_count);
-    } else {
-        return;
-    }
-
-    ExAcquireResourceExclusiveLite(&bdev->bd_bh_lock, TRUE);
-    if (atomic_dec_and_test(&bh->b_count)) {
-        ASSERT(0 == atomic_read(&bh->b_count));
-    } else {
-        ExReleaseResourceLite(&bdev->bd_bh_lock);
+    spin_lock_irqsave(&bdev->bd_bh_lock, irql);
+    if (!atomic_dec_and_test(&bh->b_count)) {
+        spin_unlock_irqrestore(&bdev->bd_bh_lock, irql);
         return;
     }
     buffer_head_remove(bdev, bh);
-    KeQuerySystemTime(&bh->b_ts_drop);
-    InsertTailList(&Vcb->bd.bd_bh_free, &bh->b_link);
-    KeClearEvent(&Vcb->bd.bd_bh_notify);
-    ExReleaseResourceLite(&bdev->bd_bh_lock);
-    KeSetEvent(&Ext2Global->bhReaper.Wait, 0, FALSE);
+    spin_unlock_irqrestore(&bdev->bd_bh_lock, irql);
 
     DEBUG(DL_BH, ("brelse: cnt=%u size=%u blk=%10.10xh bh=%p ptr=%p\n",
                   atomic_read(&g_jbh.bh_count) - 1, bh->b_size,
                   bh->b_blocknr, bh, bh->b_data ));
-}
 
+    free_buffer_head(bh);
+    atomic_dec(&g_jbh.bh_count);
+}
 
 void __bforget(struct buffer_head *bh)
 {
@@ -909,7 +715,10 @@ void mark_buffer_dirty(struct buffer_head *bh)
 int sync_blockdev(struct block_device *bdev)
 {
     PEXT2_VCB Vcb = (PEXT2_VCB) bdev->bd_priv;
-    Ext2FlushVolume(NULL, Vcb, FALSE);
+
+    if (0 == atomic_read(&g_jbh.bh_count)) {
+        Ext2FlushVolume(NULL, Vcb, FALSE);
+    }
     return 0;
 }
 

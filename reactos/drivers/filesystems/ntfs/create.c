@@ -351,13 +351,14 @@ NtfsCreateFile(PDEVICE_OBJECT DeviceObject,
         return STATUS_INVALID_PARAMETER;
     }
 
-    /* Deny create if the volume is locked */
-    if (DeviceExt->Flags & VCB_VOLUME_LOCKED)
+    FileObject = Stack->FileObject;
+
+    if (RequestedDisposition == FILE_CREATE ||
+        RequestedDisposition == FILE_OVERWRITE_IF ||
+        RequestedDisposition == FILE_SUPERSEDE)
     {
         return STATUS_ACCESS_DENIED;
     }
-
-    FileObject = Stack->FileObject;
 
     if ((RequestedOptions & FILE_OPEN_BY_FILE_ID) == FILE_OPEN_BY_FILE_ID)
     {
@@ -497,12 +498,6 @@ NtfsCreateFile(PDEVICE_OBJECT DeviceObject,
             DPRINT1("Denying write request on NTFS volume\n");
             return STATUS_ACCESS_DENIED;
         }
-    }
-
-    if (NT_SUCCESS(Status))
-    {
-        Fcb->OpenHandleCount++;
-        DeviceExt->OpenHandleCount++;
     }
 
     /*

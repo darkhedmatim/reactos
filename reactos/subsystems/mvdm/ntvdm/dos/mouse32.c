@@ -72,41 +72,41 @@ static DWORD OldIntHandler;
 
 static WORD DefaultGfxScreenMask[16] =
 {
-    0xE7FF,     // 1110011111111111
-    0xE3FF,     // 1110001111111111
-    0xE1FF,     // 1110000111111111
-    0xE0FF,     // 1110000011111111
-    0xE07F,     // 1110000001111111
-    0xE03F,     // 1110000000111111
-    0xE01F,     // 1110000000011111
-    0xE00F,     // 1110000000001111
-    0xE007,     // 1110000000000111
-    0xE007,     // 1110000000000111
-    0xE03F,     // 1110000000111111
-    0xE21F,     // 1110001000011111
-    0xE61F,     // 1110011000011111
-    0xFF0F,     // 1111111100001111
-    0xFF0F,     // 1111111100001111
-    0xFF8F,     // 1111111110001111
+    0xC3FF,     // 1100001111111111
+    0xC0FF,     // 1100000011111111
+    0xC07F,     // 1100000001111111
+    0xC01F,     // 1100000000011111
+    0xC00F,     // 1100000000001111
+    0xC007,     // 1100000000000111
+    0xC003,     // 1100000000000011
+    0xC007,     // 1100000000000111
+    0xC01F,     // 1100000000011111
+    0xC01F,     // 1100000000011111
+    0xC00F,     // 1100000000001111
+    0xC60F,     // 1100011000001111
+    0xFF07,     // 1111111100000111
+    0xFF07,     // 1111111100000111
+    0xFF87,     // 1111111110000111
+    0xFFCF,     // 1111111111001111
 };
 
 static WORD DefaultGfxCursorMask[16] =
 {
     0x0000,     // 0000000000000000
-    0x0800,     // 0000100000000000
-    0x0C00,     // 0000110000000000
-    0x0E00,     // 0000111000000000
-    0x0F00,     // 0000111100000000
-    0x0F80,     // 0000111110000000
-    0x0FC0,     // 0000111111000000
-    0x0FE0,     // 0000111111100000
-    0x0FF0,     // 0000111111110000
-    0x0F80,     // 0000111110000000
-    0x0D80,     // 0000110110000000
-    0x08C0,     // 0000100011000000
-    0x00C0,     // 0000000011000000
-    0x0060,     // 0000000001100000
-    0x0060,     // 0000000001100000
+    0x1C00,     // 0001110000000000
+    0x1F00,     // 0001111100000000
+    0x1F80,     // 0001111110000000
+    0x1FE0,     // 0001111111100000
+    0x1FF0,     // 0001111111110000
+    0x1FF8,     // 0001111111111000
+    0x1FE0,     // 0001111111100000
+    0x1FC0,     // 0001111111000000
+    0x1FC0,     // 0001111111000000
+    0x19E0,     // 0001100111100000
+    0x00E0,     // 0000000011100000
+    0x0070,     // 0000000001110000
+    0x0070,     // 0000000001110000
+    0x0030,     // 0000000000110000
     0x0000,     // 0000000000000000
 };
 
@@ -146,11 +146,19 @@ static VOID DosMouseDisable(VOID);
 
 static VOID PaintMouseCursor(VOID)
 {
+    COORD Position = DriverState.Position;
+
+    /* Apply the clipping rectangle */
+    if (Position.X < DriverState.MinX) Position.X = DriverState.MinX;
+    if (Position.X > DriverState.MaxX) Position.X = DriverState.MaxX;
+    if (Position.Y < DriverState.MinY) Position.Y = DriverState.MinY;
+    if (Position.Y > DriverState.MaxY) Position.Y = DriverState.MaxY;
+
     if (Bda->VideoMode <= 3)
     {
         WORD Character;
-        WORD CellX = DriverState.Position.X / 8;
-        WORD CellY = DriverState.Position.Y / 8;
+        WORD CellX = Position.X / 8;
+        WORD CellY = Position.Y / 8;
         DWORD VideoAddress = TO_LINEAR(TEXT_VIDEO_SEG, Bda->VideoPage * Bda->VideoPageSize);
 
         EmulatorReadMemory(&EmulatorContext,
@@ -169,109 +177,6 @@ static VOID PaintMouseCursor(VOID)
                             (LPVOID)&Character,
                             sizeof(WORD));
     }
-    else if (Bda->VideoMode == 0x12)
-    {
-        INT i, j;
-        BYTE OldMask;
-        BYTE OldMap;
-
-        /* Save the write mask */
-        IOWriteB(VGA_SEQ_INDEX, VGA_SEQ_MASK_REG);
-        OldMask = IOReadB(VGA_SEQ_DATA);
-
-        /* And the selected reading plane */
-        IOWriteB(VGA_GC_INDEX, VGA_GC_READ_MAP_SEL_REG);
-        OldMap = IOReadB(VGA_GC_DATA);
-
-        for (i = 0; i < 16; i++)
-        {
-            WORD CursorLine[4];
-            DWORD VideoAddress = TO_LINEAR(GRAPHICS_VIDEO_SEG, Bda->VideoPage * Bda->VideoPageSize)
-                                 + ((DriverState.Position.Y + i) * 640 + DriverState.Position.X) / 8;
-
-            for (j = 0; j < 4; j++)
-            {
-                /* Select the reading plane */
-                IOWriteB(VGA_GC_INDEX, VGA_GC_READ_MAP_SEL_REG);
-                IOWriteB(VGA_GC_DATA, j);
-
-                /* Read a part of the scanline */
-                EmulatorReadMemory(&EmulatorContext, VideoAddress, &CursorLine[j], sizeof(CursorLine[j]));
-            }
-
-            /* Save the data below the cursor */
-            for (j = 0; j < 16; j++)
-            {
-                DriverState.GraphicsData[i * 16 + j] = 0;
-
-                if (CursorLine[0] & (1 << j)) DriverState.GraphicsData[i * 16 + j] |= 1 << 0;
-                if (CursorLine[1] & (1 << j)) DriverState.GraphicsData[i * 16 + j] |= 1 << 1;
-                if (CursorLine[2] & (1 << j)) DriverState.GraphicsData[i * 16 + j] |= 1 << 2;
-                if (CursorLine[3] & (1 << j)) DriverState.GraphicsData[i * 16 + j] |= 1 << 3;
-            }
-
-            for (j = 0; j < 4; j++)
-            {
-                /* Apply the screen mask */
-                CursorLine[j] &= MAKEWORD(HIBYTE(DriverState.GraphicsCursor.ScreenMask[i]),
-                                          LOBYTE(DriverState.GraphicsCursor.ScreenMask[i]));
-
-                /* And the cursor mask */
-                CursorLine[j] ^= MAKEWORD(HIBYTE(DriverState.GraphicsCursor.CursorMask[i]),
-                                          LOBYTE(DriverState.GraphicsCursor.CursorMask[i]));
-
-                /* Select the writing plane */
-                IOWriteB(VGA_SEQ_INDEX, VGA_SEQ_MASK_REG);
-                IOWriteB(VGA_SEQ_DATA, 1 << j);
-
-                /* Write the cursor data for this scanline */
-                EmulatorWriteMemory(&EmulatorContext, VideoAddress, &CursorLine[j], sizeof(CursorLine[j]));
-            }
-        }
-
-        /* Restore the old mask */
-        IOWriteB(VGA_SEQ_INDEX, VGA_SEQ_MASK_REG);
-        IOWriteB(VGA_SEQ_DATA, OldMask);
-
-        /* And the old reading plane */
-        IOWriteB(VGA_GC_INDEX, VGA_GC_READ_MAP_SEL_REG);
-        IOWriteB(VGA_GC_DATA, OldMap);
-    }
-    else if (Bda->VideoMode == 0x13)
-    {
-        INT i, j;
-
-        for (i = 0; i < 16; i++)
-        {
-            BYTE CursorLine[16];
-            DWORD VideoAddress = TO_LINEAR(GRAPHICS_VIDEO_SEG, Bda->VideoPage * Bda->VideoPageSize)
-                                 + (DriverState.Position.Y + i) * 320 + DriverState.Position.X;
-
-            /* Read a part of the scanline */
-            EmulatorReadMemory(&EmulatorContext,
-                               VideoAddress,
-                               &DriverState.GraphicsData[i * 16],
-                               sizeof(CursorLine));
-
-            for (j = 0; j < 16; j++)
-            {
-                /* Apply the screen mask by leaving only the masked pixels intact */
-                CursorLine[j] = (DriverState.GraphicsCursor.ScreenMask[i] & (1 << j))
-                                ? DriverState.GraphicsData[i * 16]
-                                : 0x00;
-
-                /* Apply the cursor mask... */
-                if (DriverState.GraphicsCursor.CursorMask[i] & (1 << j))
-                {
-                    /* ... by inverting the color of each masked pixel */
-                    CursorLine[j] ^= 0x0F;
-                }
-            }
-
-            /* Write the cursor data for this scanline */
-            EmulatorWriteMemory(&EmulatorContext, VideoAddress, &CursorLine, sizeof(CursorLine));
-        }
-    }
     else
     {
         // TODO: NOT IMPLEMENTED
@@ -281,10 +186,18 @@ static VOID PaintMouseCursor(VOID)
 
 static VOID EraseMouseCursor(VOID)
 {
+    COORD Position = DriverState.Position;
+
+    /* Apply the clipping rectangle */
+    if (Position.X < DriverState.MinX) Position.X = DriverState.MinX;
+    if (Position.X > DriverState.MaxX) Position.X = DriverState.MaxX;
+    if (Position.Y < DriverState.MinY) Position.Y = DriverState.MinY;
+    if (Position.Y > DriverState.MaxY) Position.Y = DriverState.MaxY;
+
     if (Bda->VideoMode <= 3)
     {
-        WORD CellX = DriverState.Position.X / 8;
-        WORD CellY = DriverState.Position.Y / 8;
+        WORD CellX = Position.X / 8;
+        WORD CellY = Position.Y / 8;
         DWORD VideoAddress = TO_LINEAR(TEXT_VIDEO_SEG, Bda->VideoPage * Bda->VideoPageSize);
 
         EmulatorWriteMemory(&EmulatorContext,
@@ -292,61 +205,6 @@ static VOID EraseMouseCursor(VOID)
                             + (CellY * Bda->ScreenColumns + CellX) * sizeof(WORD),
                             (LPVOID)&DriverState.Character,
                             sizeof(WORD));
-    }
-    else if (Bda->VideoMode == 0x12)
-    {
-        INT i, j;
-        BYTE OldMask;
-
-        /* Save the write mask */
-        IOWriteB(VGA_SEQ_INDEX, VGA_SEQ_MASK_REG);
-        OldMask = IOReadB(VGA_SEQ_DATA);
-
-        for (i = 0; i < 16; i++)
-        {
-            WORD CursorLine[4] = {0};
-            DWORD VideoAddress = TO_LINEAR(GRAPHICS_VIDEO_SEG, Bda->VideoPage * Bda->VideoPageSize)
-                                 + ((DriverState.Position.Y + i) * 640 + DriverState.Position.X) / 8;
-
-            /* Restore the data that was below the cursor */
-            for (j = 0; j < 16; j++)
-            {
-                if (DriverState.GraphicsData[i * 16 + j] & (1 << 0)) CursorLine[0] |= 1 << j;
-                if (DriverState.GraphicsData[i * 16 + j] & (1 << 1)) CursorLine[1] |= 1 << j;
-                if (DriverState.GraphicsData[i * 16 + j] & (1 << 2)) CursorLine[2] |= 1 << j;
-                if (DriverState.GraphicsData[i * 16 + j] & (1 << 3)) CursorLine[3] |= 1 << j;
-            }
-
-            for (j = 0; j < 4; j++)
-            {
-                /* Select the writing plane */
-                IOWriteB(VGA_SEQ_INDEX, VGA_SEQ_MASK_REG);
-                IOWriteB(VGA_SEQ_DATA, 1 << j);
-
-                /* Write the original data for this scanline */
-                EmulatorWriteMemory(&EmulatorContext, VideoAddress, &CursorLine[j], sizeof(CursorLine[j]));
-            }
-        }
-
-        /* Restore the old mask */
-        IOWriteB(VGA_SEQ_INDEX, VGA_SEQ_MASK_REG);
-        IOWriteB(VGA_SEQ_DATA, OldMask);
-    }
-    else if (Bda->VideoMode == 0x13)
-    {
-        INT i;
-
-        for (i = 0; i < 16; i++)
-        {
-            DWORD VideoAddress = TO_LINEAR(GRAPHICS_VIDEO_SEG, Bda->VideoPage * Bda->VideoPageSize)
-                                 + (DriverState.Position.Y + i) * 320 + DriverState.Position.X;
-
-            /* Write the original data for this scanline */
-            EmulatorWriteMemory(&EmulatorContext,
-                                VideoAddress,
-                                &DriverState.GraphicsData[i * 16],
-                                16 * sizeof(BYTE));
-        }
     }
     else
     {

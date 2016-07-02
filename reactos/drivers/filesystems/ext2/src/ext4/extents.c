@@ -33,7 +33,7 @@ Ext2MapExtent(
 )
 {
     EXT4_EXTENT_HEADER *eh;
-    struct buffer_head bh_got = {0};
+    struct buffer_head bh_got;
     int    flags, rc;
 	ULONG max_blocks = 0;
 
@@ -66,16 +66,6 @@ Ext2MapExtent(
     } else {
         flags = EXT4_GET_BLOCKS_IO_CREATE_EXT;
 		max_blocks = EXT_UNWRITTEN_MAX_LEN;
-    }
-    
-    if (Alloc) {
-        if (Number && !*Number) {
-            if (max_blocks > *Number) {
-                max_blocks = *Number;
-            }
-        } else {
-            max_blocks = 1;
-        }
     }
 
     if ((rc = ext4_ext_get_blocks(
@@ -219,7 +209,7 @@ Ext2TruncateExtent(
     /* calculate blocks to be freed */
     Extra = End - Wanted;
 
-    err = ext4_ext_truncate(IrpContext, &Mcb->Inode, Wanted);
+	err = ext4_ext_remove_space(IrpContext, &Mcb->Inode, Wanted);
     if (err == 0) {
         if (!Ext2RemoveBlockExtent(Vcb, Mcb, Wanted, Extra)) {
             ClearFlag(Mcb->Flags, MCB_ZONE_INITED);
@@ -234,10 +224,9 @@ Ext2TruncateExtent(
         Size->QuadPart += ((ULONGLONG)Extra << BLOCK_BITS);
     }
 
+    /* save inode */
     if (Mcb->Inode.i_size > (loff_t)(Size->QuadPart))
         Mcb->Inode.i_size = (loff_t)(Size->QuadPart);
-
-    /* Save modifications on i_blocks field and i_size field of the inode. */
     Ext2SaveInode(IrpContext, Vcb, &Mcb->Inode);
 
     return Status;

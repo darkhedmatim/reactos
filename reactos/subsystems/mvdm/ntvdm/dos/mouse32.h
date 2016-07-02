@@ -71,8 +71,6 @@ typedef struct _MOUSE_DRIVER_STATE
         WORD ScreenMask[16];
         WORD CursorMask[16];
     } GraphicsCursor;
-
-    BYTE GraphicsData[256];
 } MOUSE_DRIVER_STATE, *PMOUSE_DRIVER_STATE;
 
 /* FUNCTIONS ******************************************************************/

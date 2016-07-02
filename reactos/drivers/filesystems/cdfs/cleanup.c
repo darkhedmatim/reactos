@@ -35,20 +35,18 @@
 /* FUNCTIONS ****************************************************************/
 
 static NTSTATUS
-CdfsCleanupFile(PCDFS_IRP_CONTEXT IrpContext,
+CdfsCleanupFile(PDEVICE_EXTENSION DeviceExt,
                 PFILE_OBJECT FileObject)
                 /*
                 * FUNCTION: Cleans up after a file has been closed.
                 */
 {
-    PDEVICE_EXTENSION DeviceExt;
     PFCB Fcb;
 
     DPRINT("CdfsCleanupFile(DeviceExt %p, FileObject %p)\n",
         DeviceExt,
         FileObject);
 
-    DeviceExt = IrpContext->DeviceObject->DeviceExtension;
     Fcb = FileObject->FsContext;
     if (!Fcb)
     {
@@ -59,15 +57,6 @@ CdfsCleanupFile(PCDFS_IRP_CONTEXT IrpContext,
     FsRtlNotifyCleanup(DeviceExt->NotifySync,
                        &(DeviceExt->NotifyList),
                        FileObject->FsContext2);
-
-   if (!CdfsFCBIsDirectory(Fcb) &&
-       FsRtlAreThereCurrentFileLocks(&Fcb->FileLock))
-    {
-        FsRtlFastUnlockAll(&Fcb->FileLock,
-                           FileObject,
-                           IoGetRequestorProcess(IrpContext->Irp),
-                           NULL);
-    }
 
     /* Uninitialize file cache if initialized for this file object. */
     if (FileObject->SectionObjectPointer && FileObject->SectionObjectPointer->SharedCacheMap)
@@ -110,7 +99,7 @@ CdfsCleanup(
     KeEnterCriticalRegion();
     ExAcquireResourceExclusiveLite(&DeviceExtension->DirResource, TRUE);
 
-    Status = CdfsCleanupFile(IrpContext, FileObject);
+    Status = CdfsCleanupFile(DeviceExtension, FileObject);
 
     ExReleaseResourceLite(&DeviceExtension->DirResource);
     KeLeaveCriticalRegion();

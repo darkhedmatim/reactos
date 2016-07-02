@@ -1,6 +1,5 @@
 
 add_subdirectory(3rdparty)
-add_subdirectory(appcompat)
 add_subdirectory(cpl)
 add_subdirectory(directx)
 add_subdirectory(keyboard)

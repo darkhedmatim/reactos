@@ -24,10 +24,10 @@ extern PEXT2_GLOBAL Ext2Global;
 NTSTATUS
 Ext2LockControl (IN PEXT2_IRP_CONTEXT IrpContext)
 {
-    PDEVICE_OBJECT  DeviceObject = NULL;
-    PFILE_OBJECT    FileObject = NULL;
-    PEXT2_FCB       Fcb = NULL;
-    PIRP            Irp = NULL;
+    PDEVICE_OBJECT  DeviceObject;
+    PFILE_OBJECT    FileObject;
+    PEXT2_FCB       Fcb;
+    PIRP            Irp;
 
     NTSTATUS        Status = STATUS_UNSUCCESSFUL;
     BOOLEAN         CompleteContext = TRUE;

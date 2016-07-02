@@ -29,13 +29,9 @@ my_sprintf(char *buf, const char *format, ...)
 {
     const TCHAR * fmt = format;
     va_list argptr;
-    int ret;
 
     va_start(argptr, format);
-    ret = p_vsprintf(buf, fmt, argptr);
-    va_end(argptr);
-
-    return ret;
+    return p_vsprintf(buf, fmt, argptr);
 }
 
 int
@@ -43,13 +39,9 @@ my_swprintf(wchar_t *buf, const wchar_t *format, ...)
 {
     const wchar_t * fmt = format;
     va_list argptr;
-    int ret;
 
     va_start(argptr, format);
-    ret = _vsnwprintf(buf, MAXLONG, fmt, argptr);
-    va_end(argptr);
-
-    return ret;
+    return _vsnwprintf(buf, MAXLONG, fmt, argptr);
 }
 
 #define sprintf(buf, format, ...) my_sprintf(buf, format, __VA_ARGS__);

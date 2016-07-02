@@ -26,7 +26,7 @@
 /*
  * SysPagerWnd
  */
-static const WCHAR szSysPagerWndClass [] = L"SysPager";
+static const WCHAR szSysPagerWndClass [] = TEXT("SysPager");
 
 // Data comes from shell32/systray.cpp -> TrayNotifyCDS_Dummy
 typedef struct _SYS_PAGER_COPY_DATA
@@ -86,7 +86,7 @@ public:
     {
         TBBUTTON tbBtn;
         NOTIFYICONDATA * notifyItem;
-        WCHAR text[] = L"";
+        WCHAR text [] = TEXT("");
 
         int index = FindItemByIconData(iconData, &notifyItem);
         if (index >= 0)
@@ -450,9 +450,10 @@ public:
         Toolbar.Initialize(m_hWnd);
 
         // Explicitly request running applications to re-register their systray icons
-        ::SendNotifyMessageW(HWND_BROADCAST,
-                             RegisterWindowMessageW(L"TaskbarCreated"),
-                             0, 0);
+        ::SendNotifyMessage(HWND_BROADCAST,
+                            RegisterWindowMessage(TEXT("TaskbarCreated")),
+                            0,
+                            0);
 
         return TRUE;
     }
@@ -625,7 +626,7 @@ public:
  * TrayClockWnd
  */
 
-static const WCHAR szTrayClockWndClass[] = L"TrayClockWClass";
+static const WCHAR szTrayClockWndClass [] = TEXT("TrayClockWClass");
 
 #define ID_TRAYCLOCK_TIMER  0
 #define ID_TRAYCLOCK_TIMER_INIT 1
@@ -634,14 +635,14 @@ static const struct
 {
     BOOL IsTime;
     DWORD dwFormatFlags;
-    LPCWSTR lpFormat;
+    LPCTSTR lpFormat;
 } ClockWndFormats [] = {
-    { TRUE, 0, NULL },
-    { FALSE, 0, L"dddd" },
-    { FALSE, DATE_SHORTDATE, NULL }
+        { TRUE, 0, NULL },
+        { FALSE, 0, TEXT("dddd") },
+        { FALSE, DATE_SHORTDATE, NULL }
 };
 
-#define CLOCKWND_FORMAT_COUNT (_ARRAYSIZE(ClockWndFormats))
+#define CLOCKWND_FORMAT_COUNT (sizeof(ClockWndFormats) / sizeof(ClockWndFormats[0]))
 
 #define TRAY_CLOCK_WND_SPACING_X    0
 #define TRAY_CLOCK_WND_SPACING_Y    0
@@ -686,7 +687,7 @@ public:
         ZeroMemory(&LocalTime, sizeof(LocalTime));
         ZeroMemory(&CurrentSize, sizeof(CurrentSize));
         ZeroMemory(LineSizes, sizeof(LineSizes));
-        ZeroMemory(szLines, sizeof(szLines));
+        ZeroMemory(szLines, sizeof(LineSizes));
     }
     virtual ~CTrayClockWnd() { }
 
@@ -719,7 +720,7 @@ public:
         {
             NONCLIENTMETRICS ncm = { 0 };
             ncm.cbSize = sizeof(ncm);
-            SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, FALSE);
+            SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, FALSE);
 
             hFont = CreateFontIndirectW(&ncm.lfMessageFont);
 
@@ -742,7 +743,7 @@ public:
     {
         HDC hDC;
         HFONT hPrevFont;
-        UINT c, i;
+        INT c, i;
         BOOL bRet = TRUE;
 
         hDC = GetDC();
@@ -751,11 +752,11 @@ public:
             if (hFont)
                 hPrevFont = (HFONT) SelectObject(hDC, hFont);
 
-            for (i = 0; i < CLOCKWND_FORMAT_COUNT && bRet; i++)
+            for (i = 0; i != CLOCKWND_FORMAT_COUNT && bRet; i++)
             {
-                if (szLines[i][0] != L'\0' &&
-                    !GetTextExtentPointW(hDC, szLines[i], wcslen(szLines[i]),
-                                         &LineSizes[i]))
+                if (szLines[i][0] != TEXT('\0') &&
+                    !GetTextExtentPoint(hDC, szLines[i], _tcslen(szLines[i]),
+                    &LineSizes[i]))
                 {
                     bRet = FALSE;
                     break;
@@ -772,7 +773,7 @@ public:
                 LineSpacing = 0;
 
                 /* calculate the line spacing */
-                for (i = 0, c = 0; i < CLOCKWND_FORMAT_COUNT; i++)
+                for (i = 0, c = 0; i != CLOCKWND_FORMAT_COUNT; i++)
                 {
                     if (LineSizes[i].cx > 0)
                     {
@@ -797,7 +798,7 @@ public:
     WORD GetMinimumSize(IN BOOL Horizontal, IN OUT PSIZE pSize)
     {
         WORD iLinesVisible = 0;
-        UINT i;
+        INT i;
         SIZE szMax = { 0, 0 };
 
         if (!LinesMeasured)
@@ -806,7 +807,9 @@ public:
         if (!LinesMeasured)
             return 0;
 
-        for (i = 0; i < CLOCKWND_FORMAT_COUNT; i++)
+        for (i = 0;
+            i != CLOCKWND_FORMAT_COUNT;
+            i++)
         {
             if (LineSizes[i].cx != 0)
             {
@@ -848,21 +851,23 @@ public:
     }
 
 
-    VOID UpdateWnd()
+    VOID        UpdateWnd()
     {
         SIZE szPrevCurrent;
-        UINT BufSize, i;
-        INT iRet;
+        INT BufSize, iRet, i;
         RECT rcClient;
 
-        ZeroMemory(LineSizes, sizeof(LineSizes));
+        ZeroMemory(LineSizes,
+            sizeof(LineSizes));
 
         szPrevCurrent = CurrentSize;
 
-        for (i = 0; i < CLOCKWND_FORMAT_COUNT; i++)
+        for (i = 0;
+            i != CLOCKWND_FORMAT_COUNT;
+            i++)
         {
-            szLines[i][0] = L'\0';
-            BufSize = _countof(szLines[0]);
+            szLines[i][0] = TEXT('\0');
+            BufSize = sizeof(szLines[0]) / sizeof(szLines[0][0]);
 
             if (ClockWndFormats[i].IsTime)
             {
@@ -926,13 +931,13 @@ public:
         }
     }
 
-    VOID Update()
+    VOID        Update()
     {
         GetLocalTime(&LocalTime);
         UpdateWnd();
     }
 
-    UINT CalculateDueTime()
+    UINT        CalculateDueTime()
     {
         UINT uiDueTime;
 
@@ -956,7 +961,7 @@ public:
         return uiDueTime;
     }
 
-    BOOL ResetTime()
+    BOOL        ResetTime()
     {
         UINT uiDueTime;
         BOOL Ret;
@@ -985,7 +990,7 @@ public:
         return Ret;
     }
 
-    VOID CalibrateTimer()
+    VOID        CalibrateTimer()
     {
         UINT uiDueTime;
         BOOL Ret;
@@ -1047,8 +1052,7 @@ public:
     {
         RECT rcClient;
         HFONT hPrevFont;
-        INT iPrevBkMode;
-        UINT i, line;
+        int iPrevBkMode, i, line;
 
         PAINTSTRUCT ps;
         HDC hDC = (HDC) wParam;
@@ -1076,8 +1080,8 @@ public:
             rcClient.bottom = rcClient.top + CurrentSize.cy;
 
             for (i = 0, line = 0;
-                 i < CLOCKWND_FORMAT_COUNT && line < VisibleLines;
-                 i++)
+                i != CLOCKWND_FORMAT_COUNT && line < VisibleLines;
+                i++)
             {
                 if (LineSizes[i].cx != 0)
                 {
@@ -1086,7 +1090,7 @@ public:
                         TRAY_CLOCK_WND_SPACING_X,
                         rcClient.top + TRAY_CLOCK_WND_SPACING_Y,
                         szLines[i],
-                        wcslen(szLines[i]));
+                        _tcslen(szLines[i]));
 
                     rcClient.top += LineSizes[i].cy + LineSpacing;
                     line++;

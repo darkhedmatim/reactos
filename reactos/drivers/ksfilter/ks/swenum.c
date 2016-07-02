@@ -1124,9 +1124,7 @@ KspInstallBusEnumInterface(
     }
 
     /* now scan the bus */
-    Status = KspScanBus(Context->BusDeviceExtension);
-    // FIXME: We may need to check for success here, and properly fail...
-    ASSERT(NT_SUCCESS(Status));
+    KspScanBus(Context->BusDeviceExtension);
 
     /* acquire device entry lock */
     KeAcquireSpinLock(&Context->BusDeviceExtension->Lock, &OldLevel);
@@ -1694,8 +1692,6 @@ KsCreateBusEnumObject(
         /* free device extension */
         FreeItem(BusDeviceExtension->ServicePath.Buffer);
         FreeItem(BusDeviceExtension);
-
-        return Status;
     }
 
     /* acquire device entry lock */

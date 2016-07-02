@@ -55,7 +55,6 @@ static void resource_check_usage(DWORD usage)
             | WINED3DUSAGE_AUTOGENMIPMAP
             | WINED3DUSAGE_STATICDECL
             | WINED3DUSAGE_OVERLAY
-            | WINED3DUSAGE_LEGACY_CUBEMAP
             | WINED3DUSAGE_TEXTURE;
 
     /* WINED3DUSAGE_WRITEONLY is supposed to result in write-combined mappings
@@ -80,93 +79,84 @@ HRESULT resource_init(struct wined3d_resource *resource, struct wined3d_device *
         void *parent, const struct wined3d_parent_ops *parent_ops,
         const struct wined3d_resource_ops *resource_ops)
 {
-    enum wined3d_gl_resource_type base_type = WINED3D_GL_RES_TYPE_COUNT;
-    enum wined3d_gl_resource_type gl_type = WINED3D_GL_RES_TYPE_COUNT;
+    const struct wined3d *d3d = device->wined3d;
     const struct wined3d_gl_info *gl_info = &device->adapter->gl_info;
-    BOOL tex_2d_ok = FALSE;
-    unsigned int i;
-
-    static const struct
+    static const enum wined3d_gl_resource_type gl_resource_types[][4] =
     {
-        enum wined3d_resource_type type;
-        DWORD cube_usage;
-        enum wined3d_gl_resource_type gl_type;
-    }
-    resource_types[] =
-    {
-        {WINED3D_RTYPE_BUFFER,      0,                              WINED3D_GL_RES_TYPE_BUFFER},
-        {WINED3D_RTYPE_TEXTURE_2D,  0,                              WINED3D_GL_RES_TYPE_TEX_2D},
-        {WINED3D_RTYPE_TEXTURE_2D,  0,                              WINED3D_GL_RES_TYPE_TEX_RECT},
-        {WINED3D_RTYPE_TEXTURE_2D,  0,                              WINED3D_GL_RES_TYPE_RB},
-        {WINED3D_RTYPE_TEXTURE_2D,  WINED3DUSAGE_LEGACY_CUBEMAP,    WINED3D_GL_RES_TYPE_TEX_CUBE},
-        {WINED3D_RTYPE_TEXTURE_3D,  0,                              WINED3D_GL_RES_TYPE_TEX_3D},
+        /* 0                            */ {WINED3D_GL_RES_TYPE_COUNT},
+        /* WINED3D_RTYPE_SURFACE        */ {WINED3D_GL_RES_TYPE_COUNT},
+        /* WINED3D_RTYPE_VOLUME         */ {WINED3D_GL_RES_TYPE_COUNT},
+        /* WINED3D_RTYPE_TEXTURE        */ {WINED3D_GL_RES_TYPE_TEX_2D,
+                WINED3D_GL_RES_TYPE_TEX_RECT, WINED3D_GL_RES_TYPE_RB, WINED3D_GL_RES_TYPE_COUNT},
+        /* WINED3D_RTYPE_VOLUME_TEXTURE */ {WINED3D_GL_RES_TYPE_TEX_3D, WINED3D_GL_RES_TYPE_COUNT},
+        /* WINED3D_RTYPE_CUBE_TEXTURE   */ {WINED3D_GL_RES_TYPE_TEX_CUBE, WINED3D_GL_RES_TYPE_COUNT},
+        /* WINED3D_RTYPE_BUFFER         */ {WINED3D_GL_RES_TYPE_BUFFER, WINED3D_GL_RES_TYPE_COUNT},
     };
+    enum wined3d_gl_resource_type gl_type = WINED3D_GL_RES_TYPE_COUNT;
+    enum wined3d_gl_resource_type base_type = gl_resource_types[type][0];
 
     resource_check_usage(usage);
 
-    for (i = 0; i < ARRAY_SIZE(resource_types); ++i)
+    if (base_type != WINED3D_GL_RES_TYPE_COUNT)
     {
-        if (resource_types[i].type != type
-                || resource_types[i].cube_usage != (usage & WINED3DUSAGE_LEGACY_CUBEMAP))
-            continue;
+        unsigned int i;
+        BOOL tex_2d_ok = FALSE;
 
-        gl_type = resource_types[i].gl_type;
-        if (base_type == WINED3D_GL_RES_TYPE_COUNT)
-            base_type = gl_type;
+        for (i = 0; (gl_type = gl_resource_types[type][i]) != WINED3D_GL_RES_TYPE_COUNT; i++)
+        {
+            if ((usage & WINED3DUSAGE_RENDERTARGET) && !(format->flags[gl_type] & WINED3DFMT_FLAG_RENDERTARGET))
+            {
+                WARN("Format %s cannot be used for render targets.\n", debug_d3dformat(format->id));
+                continue;
+            }
+            if ((usage & WINED3DUSAGE_DEPTHSTENCIL) &&
+                    !(format->flags[gl_type] & (WINED3DFMT_FLAG_DEPTH | WINED3DFMT_FLAG_STENCIL)))
+            {
+                WARN("Format %s cannot be used for depth/stencil buffers.\n", debug_d3dformat(format->id));
+                continue;
+            }
+            if (wined3d_settings.offscreen_rendering_mode == ORM_FBO
+                    && usage & (WINED3DUSAGE_RENDERTARGET | WINED3DUSAGE_DEPTHSTENCIL)
+                    && !(format->flags[gl_type] & WINED3DFMT_FLAG_FBO_ATTACHABLE))
+            {
+                WARN("Render target or depth stencil is not FBO attachable.\n");
+                continue;
+            }
+            if ((usage & WINED3DUSAGE_TEXTURE) && !(format->flags[gl_type] & WINED3DFMT_FLAG_TEXTURE))
+            {
+                WARN("Format %s cannot be used for texturing.\n", debug_d3dformat(format->id));
+                continue;
+            }
+            if (((width & (width - 1)) || (height & (height - 1)))
+                    && !gl_info->supported[ARB_TEXTURE_NON_POWER_OF_TWO]
+                    && !gl_info->supported[WINED3D_GL_NORMALIZED_TEXRECT]
+                    && gl_type == WINED3D_GL_RES_TYPE_TEX_2D)
+            {
+                TRACE("Skipping 2D texture type to try texture rectangle.\n");
+                tex_2d_ok = TRUE;
+                continue;
+            }
+            break;
+        }
 
-        if ((usage & WINED3DUSAGE_RENDERTARGET) && !(format->flags[gl_type] & WINED3DFMT_FLAG_RENDERTARGET))
+        if (gl_type == WINED3D_GL_RES_TYPE_COUNT)
         {
-            WARN("Format %s cannot be used for render targets.\n", debug_d3dformat(format->id));
-            continue;
-        }
-        if ((usage & WINED3DUSAGE_DEPTHSTENCIL)
-                && !(format->flags[gl_type] & (WINED3DFMT_FLAG_DEPTH | WINED3DFMT_FLAG_STENCIL)))
-        {
-            WARN("Format %s cannot be used for depth/stencil buffers.\n", debug_d3dformat(format->id));
-            continue;
-        }
-        if (wined3d_settings.offscreen_rendering_mode == ORM_FBO
-                && usage & (WINED3DUSAGE_RENDERTARGET | WINED3DUSAGE_DEPTHSTENCIL)
-                && !(format->flags[gl_type] & WINED3DFMT_FLAG_FBO_ATTACHABLE))
-        {
-            WARN("Render target or depth stencil is not FBO attachable.\n");
-            continue;
-        }
-        if ((usage & WINED3DUSAGE_TEXTURE) && !(format->flags[gl_type] & WINED3DFMT_FLAG_TEXTURE))
-        {
-            WARN("Format %s cannot be used for texturing.\n", debug_d3dformat(format->id));
-            continue;
-        }
-        if (((width & (width - 1)) || (height & (height - 1)))
-                && !gl_info->supported[ARB_TEXTURE_NON_POWER_OF_TWO]
-                && !gl_info->supported[WINED3D_GL_NORMALIZED_TEXRECT]
-                && gl_type == WINED3D_GL_RES_TYPE_TEX_2D)
-        {
-            TRACE("Skipping 2D texture type to try texture rectangle.\n");
-            tex_2d_ok = TRUE;
-            continue;
-        }
-        break;
-    }
-
-    if (base_type != WINED3D_GL_RES_TYPE_COUNT && i == ARRAY_SIZE(resource_types))
-    {
-        if (tex_2d_ok)
-        {
-            /* Non power of 2 texture and rectangle textures or renderbuffers do not work.
-             * Use 2D textures, the texture code will pad to a power of 2 size. */
-            gl_type = WINED3D_GL_RES_TYPE_TEX_2D;
-        }
-        else if (pool == WINED3D_POOL_SCRATCH)
-        {
-            /* Needed for proper format information. */
-            gl_type = base_type;
-        }
-        else
-        {
-            WARN("Did not find a suitable GL resource type for resource type %s.\n",
-                    debug_d3dresourcetype(type));
-            return WINED3DERR_INVALIDCALL;
+            if (tex_2d_ok)
+            {
+                /* Non power of 2 texture and rectangle textures or renderbuffers do not work.
+                 * Use 2D textures, the texture code will pad to a power of 2 size. */
+                gl_type = WINED3D_GL_RES_TYPE_TEX_2D;
+            }
+            else if (pool == WINED3D_POOL_SCRATCH)
+            {
+                /* Needed for proper format information. */
+                gl_type = base_type;
+            }
+            else
+            {
+                WARN("Did not find a suitable GL resource type, resource type, d3d type %u.\n", type);
+                return WINED3DERR_INVALIDCALL;
+            }
         }
     }
 
@@ -221,7 +211,7 @@ HRESULT resource_init(struct wined3d_resource *resource, struct wined3d_device *
     }
 
     /* Check that we have enough video ram left */
-    if (pool == WINED3D_POOL_DEFAULT && device->wined3d->flags & WINED3D_VIDMEM_ACCOUNTING)
+    if (pool == WINED3D_POOL_DEFAULT && d3d->flags & WINED3D_VIDMEM_ACCOUNTING)
     {
         if (size > wined3d_device_get_available_texture_mem(device))
         {
@@ -348,8 +338,8 @@ void CDECL wined3d_resource_get_desc(const struct wined3d_resource *resource, st
 HRESULT CDECL wined3d_resource_sub_resource_map(struct wined3d_resource *resource, unsigned int sub_resource_idx,
         struct wined3d_map_desc *map_desc, const struct wined3d_box *box, DWORD flags)
 {
-    TRACE("resource %p, sub_resource_idx %u, map_desc %p, box %s, flags %#x.\n",
-            resource, sub_resource_idx, map_desc, debug_box(box), flags);
+    TRACE("resource %p, sub_resource_idx %u, map_desc %p, box %p, flags %#x.\n",
+            resource, sub_resource_idx, map_desc, box, flags);
 
     return resource->resource_ops->resource_sub_resource_map(resource, sub_resource_idx, map_desc, box, flags);
 }
@@ -460,8 +450,8 @@ BOOL wined3d_resource_is_offscreen(struct wined3d_resource *resource)
 {
     struct wined3d_swapchain *swapchain;
 
-    /* Only 2D texture resources can be onscreen. */
-    if (resource->type != WINED3D_RTYPE_TEXTURE_2D)
+    /* Only texture resources can be onscreen. */
+    if (resource->type != WINED3D_RTYPE_TEXTURE)
         return TRUE;
 
     /* Not on a swapchain - must be offscreen */
@@ -904,8 +894,8 @@ HRESULT wined3d_resource_map(struct wined3d_resource *resource,
     const struct wined3d_format *format = resource->format;
     const unsigned int fmt_flags = resource->format->flags[WINED3D_GL_RES_TYPE_TEX_2D];
 
-    TRACE("resource %p, map_desc %p, box %s, flags %#x.\n",
-            resource, map_desc, debug_box(box), flags);
+    TRACE("resource %p, map_desc %p, box %p, flags %#x.\n",
+            resource, map_desc, box, flags);
 
     if (resource->usage & WINED3DUSAGE_RENDERTARGET && wined3d_settings.ignore_rt_map)
     {
@@ -967,10 +957,14 @@ HRESULT wined3d_resource_map(struct wined3d_resource *resource,
 
     if (!box)
     {
+        TRACE("No box supplied - all is ok\n");
         map_desc->data = base_memory;
     }
     else
     {
+        TRACE("Lock Box (%p) = l %u, t %u, r %u, b %u, fr %u, ba %u\n",
+                box, box->left, box->top, box->right, box->bottom, box->front, box->back);
+
         if ((fmt_flags & (WINED3DFMT_FLAG_BLOCKS | WINED3DFMT_FLAG_BROKEN_PITCH)) == WINED3DFMT_FLAG_BLOCKS)
         {
             /* Compressed textures are block based, so calculate the offset of

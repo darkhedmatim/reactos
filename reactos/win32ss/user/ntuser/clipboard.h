@@ -11,9 +11,6 @@ UINT APIENTRY
 UserEnumClipboardFormats(UINT uFormat);
 
 VOID FASTCALL
-UserClipboardRelease(PWND pWindow);
-
-VOID FASTCALL
 UserClipboardFreeWindow(PWND pWindow);
 
 BOOL NTAPI

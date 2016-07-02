@@ -27,13 +27,13 @@ NTSTATUS
 Ext2QueryVolumeInformation (IN PEXT2_IRP_CONTEXT IrpContext)
 {
     PDEVICE_OBJECT          DeviceObject;
-    PEXT2_VCB               Vcb = NULL;
-    PIRP                    Irp = NULL;
-    PIO_STACK_LOCATION      IoStackLocation = NULL;
-    PVOID                   Buffer;
-    ULONG                   Length;
     NTSTATUS                Status = STATUS_UNSUCCESSFUL;
+    PEXT2_VCB               Vcb;
+    PIRP                    Irp;
+    PIO_STACK_LOCATION      IoStackLocation;
     FS_INFORMATION_CLASS    FsInformationClass;
+    ULONG                   Length;
+    PVOID                   Buffer;
     BOOLEAN                 VcbResourceAcquired = FALSE;
 
     _SEH2_TRY {
@@ -186,9 +186,8 @@ Ext2QueryVolumeInformation (IN PEXT2_IRP_CONTEXT IrpContext)
 
             FsAttrInfo =
                 (PFILE_FS_ATTRIBUTE_INFORMATION) Buffer;
-            FsAttrInfo->FileSystemAttributes = FILE_SUPPORTS_HARD_LINKS |
-                FILE_CASE_SENSITIVE_SEARCH | FILE_CASE_PRESERVED_NAMES |
-                FILE_SUPPORTS_REPARSE_POINTS;
+            FsAttrInfo->FileSystemAttributes =
+                FILE_CASE_SENSITIVE_SEARCH | FILE_CASE_PRESERVED_NAMES;
             if (IsVcbReadOnly(Vcb)) {
                 FsAttrInfo->FileSystemAttributes |= FILE_READ_ONLY_VOLUME;
             }
@@ -293,7 +292,7 @@ Ext2SetVolumeInformation (IN PEXT2_IRP_CONTEXT IrpContext)
 {
     PDEVICE_OBJECT          DeviceObject;
     NTSTATUS                Status = STATUS_UNSUCCESSFUL;
-    PEXT2_VCB               Vcb = NULL;
+    PEXT2_VCB               Vcb;
     PIRP                    Irp;
     PIO_STACK_LOCATION      IoStackLocation;
     FS_INFORMATION_CLASS    FsInformationClass;

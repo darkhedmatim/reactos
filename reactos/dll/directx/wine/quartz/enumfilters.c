@@ -181,7 +181,7 @@ static HRESULT WINAPI IEnumFiltersImpl_Reset(IEnumFilters * iface)
 
     This->uIndex = 0;
     hr = IGraphVersion_QueryVersion(This->pVersionSource, &currentVersion);
-    if (hr == S_OK)
+    if (!hr)
         This->Version = currentVersion;
     return S_OK;
 }

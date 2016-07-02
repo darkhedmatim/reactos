@@ -267,8 +267,11 @@ IntDestroyClass(IN OUT PCLS Class)
 
     if (Class->spicn)
         UserDereferenceObject(Class->spicn);
-    if (Class->spcur)
+    if (Class->spcur && !UserObjectInDestroy(Class->spcur))
+    {
         UserDereferenceObject(Class->spcur);
+        Class->spcur = NULL;
+    }
     if (Class->spicnSm)
     {
         UserDereferenceObject(Class->spicnSm);
@@ -379,7 +382,7 @@ RegisterControlAtoms(VOID)
        if (IntRegisterClassAtom(&ClassName, &Atom))
        {
           gpsi->atomSysClass[i] = Atom;
-          TRACE("Reg Control Atom %ls: 0x%x\n", ControlsList[i], Atom);
+          ERR("Reg Control Atoms 0x%x\n",Atom);
        }
        i++;
     }
@@ -2299,17 +2302,15 @@ UserRegisterSystemClasses(VOID)
         wc.hIcon = NULL;
 
         //// System Cursors should be initilized!!!
-        wc.hCursor = NULL;
-        if (DefaultServerClasses[i].hCursor == (HICON)OCR_NORMAL)
+        if (DefaultServerClasses[i].hCursor == (HICON)OCR_NORMAL &&
+            SYSTEMCUR(ARROW) != NULL)
         {
-            if (SYSTEMCUR(ARROW) == NULL)
-            {
-                ERR("SYSTEMCUR(ARROW) == NULL, should not happen!!\n");
-            }
-            else
-            {
-                wc.hCursor = UserHMGetHandle(SYSTEMCUR(ARROW));
-            }
+            wc.hCursor = UserHMGetHandle(SYSTEMCUR(ARROW));
+        }
+        else
+        {
+            ERR("SYSTEMCUR(ARROW) == NULL, should not happen!!\n");
+            wc.hCursor = NULL;
         }
 
         hBrush = DefaultServerClasses[i].hBrush;

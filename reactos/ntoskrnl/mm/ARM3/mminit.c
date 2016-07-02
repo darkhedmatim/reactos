@@ -1901,7 +1901,7 @@ MiBuildPagedPool(VOID)
     //
     MmPagedPoolInfo.PagedPoolAllocationMap = ExAllocatePoolWithTag(NonPagedPool,
                                                                    Size,
-                                                                   TAG_MM);
+                                                                   '  mM');
     ASSERT(MmPagedPoolInfo.PagedPoolAllocationMap);
 
     //
@@ -1922,7 +1922,7 @@ MiBuildPagedPool(VOID)
     //
     MmPagedPoolInfo.EndOfPagedPoolBitmap = ExAllocatePoolWithTag(NonPagedPool,
                                                                  Size,
-                                                                 TAG_MM);
+                                                                 '  mM');
     ASSERT(MmPagedPoolInfo.EndOfPagedPoolBitmap);
     RtlInitializeBitMap(MmPagedPoolInfo.EndOfPagedPoolBitmap,
                         (PULONG)(MmPagedPoolInfo.EndOfPagedPoolBitmap + 1),
@@ -2306,7 +2306,7 @@ MmArmInitSystem(IN ULONG Phase,
         //
         Bitmap = ExAllocatePoolWithTag(NonPagedPool,
                                        (((MmHighestPhysicalPage + 1) + 31) / 32) * 4,
-                                       TAG_MM);
+                                       '  mM');
         if (!Bitmap)
         {
             //

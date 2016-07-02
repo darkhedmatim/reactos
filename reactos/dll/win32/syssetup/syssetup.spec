@@ -38,7 +38,7 @@
 @ stub ReportError
 @ stub RunOEMExtraTasks
 @ stdcall ScsiClassInstaller(long ptr ptr)
-@ stdcall SetAccountsDomainSid(ptr wstr)
+@ stub SetAccountDomainSid
 @ stub SetupAddOrRemoveTestCertificate
 @ stdcall SetupChangeFontSize(ptr wstr)
 @ stdcall SetupChangeLocale(ptr long)
@@ -83,5 +83,5 @@
 @ stub UpgradePrinters
 @ stub ViewSetupActionLog
 @ stdcall VolumeClassInstaller(long ptr ptr)
-@ varargs pSetupDebugPrint(wstr long wstr wstr)
+@ stub pSetupDebugPrint
 @ stub pSetuplogSfcError

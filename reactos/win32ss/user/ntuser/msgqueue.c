@@ -773,7 +773,7 @@ AllocateUserMessage(BOOL KEvent)
 
    if (KEvent)
    {
-      Message->pkCompletionEvent = &Message->CompletionEvent;
+      Message->pkCompletionEvent = &Message->CompletionEvent;;
 
       KeInitializeEvent(Message->pkCompletionEvent, NotificationEvent, FALSE);
    }
@@ -1982,14 +1982,6 @@ co_MsqPeekHardwareMessage(IN PTHREADINFO pti,
          if (AcceptMessage)
          {
             *pMsg = msg;
-            // Fix all but one wine win:test_GetMessagePos WM_TIMER tests. See PostTimerMessages.
-            if (!RtlEqualMemory(&pti->ptLast, &msg.pt, sizeof(POINT)))
-            {
-               pti->TIF_flags |= TIF_MSGPOSCHANGED;
-            }
-            pti->ptLast   = msg.pt;
-            pti->timeLast = msg.time;
-            //MessageQueue->ExtraInfo = ExtraInfo;
             Ret = TRUE;
             break;
          }
@@ -2288,8 +2280,12 @@ MsqCleanupMessageQueue(PTHREADINFO pti)
            IntGetSysCursorInfo()->CurrentCursorObject = NULL;
        }
 
-       TRACE("DereferenceObject pCursor\n");
-       UserDereferenceObject(pCursor);
+       if (pCursor && UserObjectInDestroy(UserHMGetHandle(pCursor)))
+       {
+           TRACE("DereferenceObject pCursor\n");
+           UserDereferenceObject(pCursor);
+           pCursor = NULL;
+       }
    }
 
    if (gpqForeground == MessageQueue)

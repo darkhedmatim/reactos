@@ -268,7 +268,7 @@ Bus_StartFdo (
     PFDO_DEVICE_DATA            FdoData,
     PIRP   Irp )
 {
-    NTSTATUS status;
+    NTSTATUS status = STATUS_SUCCESS;
     POWER_STATE powerState;
     ACPI_STATUS AcpiStatus;
 
@@ -285,10 +285,11 @@ Bus_StartFdo (
         DPRINT1("Unable to AcpiInitializeSubsystem\n");
         return STATUS_UNSUCCESSFUL;
     }
-
-    AcpiStatus = AcpiInitializeTables(NULL, 16, 0);
-    if (ACPI_FAILURE(AcpiStatus)){
-        DPRINT1("Unable to AcpiInitializeTables\n");
+    
+    
+	AcpiStatus = AcpiInitializeTables(NULL, 16, 0);
+    if (ACPI_FAILURE(status)){
+        DPRINT1("Unable to AcpiInitializeSubsystem\n");
 		return STATUS_UNSUCCESSFUL;
     }
 

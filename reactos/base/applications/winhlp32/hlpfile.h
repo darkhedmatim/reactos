@@ -149,9 +149,6 @@ typedef struct tagHlpFileFile
     COLORREF                    popup_color;
 
     LPSTR                       help_on_file;
-
-    int                         scale;
-    int                         rounderr;
 } HLPFILE;
 
 /*
@@ -202,8 +199,3 @@ struct RtfData {
 
 BOOL          HLPFILE_BrowsePage(HLPFILE_PAGE*, struct RtfData* rd,
                                  unsigned font_scale, unsigned relative);
-
-#define HLP_DISPLAY30 0x01     /* version 3.0 displayable information */
-#define HLP_TOPICHDR  0x02     /* topic header information */
-#define HLP_DISPLAY   0x20     /* version 3.1 displayable information */
-#define HLP_TABLE     0x23     /* version 3.1 table */

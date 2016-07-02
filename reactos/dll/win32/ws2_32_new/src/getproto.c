@@ -72,7 +72,7 @@ GetProtoOpenNetworkDatabase(PCHAR Name)
                       NULL,
                       OPEN_EXISTING,
                       FILE_ATTRIBUTE_NORMAL,
-                      NULL);
+                      NULL); 
 }
 
 PCHAR
@@ -117,9 +117,6 @@ GetProtoGetNextEnt(IN HANDLE DbHandle,
                       512,
                       &Read,
                       NULL)) return NULL;
-
-        /* Null terminate LineBuffer */
-        Buffer->LineBuffer[Read] = ANSI_NULL;
 
         /* Find out where the line ends */
         p1 = Buffer->LineBuffer;
@@ -215,7 +212,7 @@ getprotobynumber(IN INT number)
     PWSTHREAD Thread;
     INT ErrorCode;
     PPROTOENT Protoent;
-    PVOID GetProtoBuffer;
+    PVOID GetProtoBuffer; 
     HANDLE DbHandle;
     DPRINT("getprotobynumber: %lx\n", number);
 
@@ -279,7 +276,7 @@ getprotobyname(IN CONST CHAR FAR *name)
     PWSTHREAD Thread;
     INT ErrorCode;
     PPROTOENT Protoent;
-    PVOID GetProtoBuffer;
+    PVOID GetProtoBuffer; 
     HANDLE DbHandle;
     DPRINT("getprotobyname: %s\n", name);
 

@@ -23,7 +23,7 @@ NTSTATUS
 NTAPI
 USBSTOR_SyncForwardIrpCompletionRoutine(
     PDEVICE_OBJECT DeviceObject,
-    PIRP Irp,
+    PIRP Irp, 
     PVOID Context)
 {
     if (Irp->PendingReturned)
@@ -292,6 +292,7 @@ USBSTOR_ClassRequest(
 
 {
     PURB Urb;
+    PUCHAR Buffer;
     NTSTATUS Status;
 
     //
@@ -303,6 +304,19 @@ USBSTOR_ClassRequest(
         //
         // no memory
         //
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    //
+    // allocate 1-byte buffer
+    //
+    Buffer = (PUCHAR)AllocateItem(NonPagedPool, sizeof(UCHAR));
+    if (!Buffer)
+    {
+        //
+        // no memory
+        //
+        FreeItem(Buffer);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
@@ -362,34 +376,19 @@ USBSTOR_GetMaxLUN(
 
     DPRINT("MaxLUN: %x\n", *Buffer);
 
-    if (NT_SUCCESS(Status))
+    if (*Buffer > 0xF)
     {
-        if (*Buffer > 0xF)
-        {
-            //
-            // invalid response documented in usb mass storage specification
-            //
-            Status = STATUS_DEVICE_DATA_ERROR;
-        }
-        else
-        {
-            //
-            // store maxlun
-            //
-            DeviceExtension->MaxLUN = *Buffer;
-        }
+        //
+        // invalid response documented in usb mass storage specification
+        //
+        Status = STATUS_DEVICE_DATA_ERROR;
     }
     else
     {
         //
-        // "USB Mass Storage Class. Bulk-Only Transport. Revision 1.0"
-        // 3.2  Get Max LUN (class-specific request) :
-        // Devices that do not support multiple LUNs may STALL this command.
+        // store maxlun
         //
-        USBSTOR_ResetDevice(DeviceExtension->LowerDeviceObject, DeviceExtension);
-
-        DeviceExtension->MaxLUN = 0;
-        Status = STATUS_SUCCESS;
+        DeviceExtension->MaxLUN = *Buffer;
     }
 
     //

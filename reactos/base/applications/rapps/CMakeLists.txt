@@ -1,5 +1,5 @@
 
-include_directories(${REACTOS_SOURCE_DIR}/sdk/lib/cryptlib)
+include_directories(${REACTOS_SOURCE_DIR}/lib/cryptlib)
 
 list(APPEND SOURCE
     aboutdlg.c

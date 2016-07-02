@@ -36,36 +36,6 @@
 
 #define journal_oom_retry 1
 
-#define jbdlock_t FAST_MUTEX
-
-static inline void jbd_lock_init(jbdlock_t *lock)
-{
-    ExInitializeFastMutex(lock);
-}
-
-static inline void jbd_lock(jbdlock_t *lock)
-{
-    ExAcquireFastMutex(lock);
-}
-
-static inline void jbd_unlock(jbdlock_t *lock)
-{
-    ExReleaseFastMutex(lock);
-}
-
-static inline int assert_jbd_locked(jbdlock_t *lock)
-{
-    int rc = 1;
-
-    if (ExTryToAcquireFastMutex(lock)) {
-        ExReleaseFastMutex(lock);
-        rc = 0;
-    }
-
-    return rc;
-}
-
-
 /*
  * Define JBD_PARANIOD_IOFAIL to cause a kernel BUG() if ext3 finds
  * certain classes of error which can occur due to failed IOs.  Under
@@ -569,7 +539,7 @@ struct transaction_s
     /*
      * Protects info related to handles
      */
-    jbdlock_t		t_handle_lock;
+    spinlock_t		t_handle_lock;
 
     /*
      * Number of outstanding updates running on this transaction
@@ -687,7 +657,7 @@ struct journal_s
     /*
      * Protect the various scalars in the journal
      */
-    jbdlock_t		j_state_lock;
+    spinlock_t		j_state_lock;
 
     /*
      * Number of processes waiting to create a barrier lock [j_state_lock]
@@ -784,7 +754,7 @@ struct journal_s
     /*
      * Protects the buffer lists and internal buffer state.
      */
-    jbdlock_t		j_list_lock;
+    spinlock_t		j_list_lock;
 
     /* Optional inode where we store the journal.  If present, all */
     /* journal block numbers are mapped into this inode via */
@@ -842,7 +812,7 @@ struct journal_s
      * The revoke table: maintains the list of revoked blocks in the
      * current transaction.  [j_revoke_lock]
      */
-    jbdlock_t		j_revoke_lock;
+    spinlock_t		j_revoke_lock;
     struct jbd_revoke_table_s *j_revoke;
     struct jbd_revoke_table_s *j_revoke_table[2];
 

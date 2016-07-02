@@ -30,7 +30,7 @@ VOID PrintResourceString(INT resID, ...)
     va_list args;
     va_start(args, resID);
 
-    LoadStringW(GetModuleHandleW(NULL), resID, bufSrc, ARRAYSIZE(bufSrc));
+    LoadStringW(GetModuleHandleW(NULL), resID, bufSrc, RC_STRING_MAX_SIZE);
     vswprintf(bufFormatted, bufSrc, args);
     CharToOemW(bufFormatted, bufFormattedOem);
     fputs(bufFormattedOem, stdout);

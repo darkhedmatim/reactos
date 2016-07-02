@@ -273,7 +273,7 @@ CcpDereferenceCache(ULONG Start,
         WorkItem->ReleaseFromLazyWrite = Bcb->Map->Callbacks.ReleaseFromLazyWrite;
         WorkItem->LazyContext = Bcb->Map->LazyContext;
 
-        ExInitializeWorkItem(&WorkItem->WorkItem,
+        ExInitializeWorkItem(((PWORK_QUEUE_ITEM)WorkItem),
                              (PWORKER_THREAD_ROUTINE)CcpUnmapCache,
                              WorkItem);
 
@@ -287,7 +287,7 @@ CcpDereferenceCache(ULONG Start,
         RemoveEntryList(&Bcb->ThisFileList);
 
         CcpUnlock();
-        ExQueueWorkItem(&WorkItem->WorkItem, DelayedWorkQueue);
+        ExQueueWorkItem((PWORK_QUEUE_ITEM)WorkItem, DelayedWorkQueue);
         CcpLock();
     }
     DPRINT("Done\n");

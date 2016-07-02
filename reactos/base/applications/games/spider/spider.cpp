@@ -332,7 +332,7 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
     {
         case WM_CREATE:
         {
-            SpiderWnd.Create(hwnd, 0, WS_CHILD | WS_VISIBLE, 0, 0, 100, 100);
+            SpiderWnd.Create(hwnd, WS_EX_CLIENTEDGE, WS_CHILD|WS_VISIBLE, 0, 0, 0, 0);
             dwDifficulty = IDC_DIF_ONECOLOR;
             CreateSpider();
 

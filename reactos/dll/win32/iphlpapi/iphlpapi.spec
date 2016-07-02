@@ -80,7 +80,7 @@
 @ stub GetUdpTableFromStack
 @ stdcall GetUniDirectionalAdapterInfo( ptr ptr )
 @ stdcall Icmp6CreateFile()
-@ stdcall -stub Icmp6ParseReplies(ptr long)
+@ stub Icmp6ParseReplies
 @ stdcall Icmp6SendEcho2(ptr ptr ptr ptr ptr ptr ptr long ptr ptr long long)
 @ stdcall IcmpCloseHandle(ptr)
 @ stdcall IcmpCreateFile()

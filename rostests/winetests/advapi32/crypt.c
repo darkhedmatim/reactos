@@ -961,13 +961,7 @@ static void test_machine_guid(void)
    {
        restoreGuid = TRUE;
        r = RegDeleteValueA(key, "MachineGuid");
-       ok(!r || broken(r == ERROR_ACCESS_DENIED) /*win8*/, "RegDeleteValueA failed: %d\n", r);
-       if (r == ERROR_ACCESS_DENIED)
-       {
-           skip("broken virtualization on HKLM\\Software\\Microsoft\\Cryptography\n");
-           RegCloseKey(key);
-           return;
-       }
+       ok(!r, "RegDeleteValueA failed: %d\n", r);
    }
    else
        ok(r == ERROR_FILE_NOT_FOUND, "expected ERROR_FILE_NOT_FOUND, got %d\n",

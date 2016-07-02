@@ -4,7 +4,7 @@
  * FILE:             Modules.h
  * PURPOSE:          Header file: nls structures & linux kernel ...
  * PROGRAMMER:       Matt Wu <mattwu@163.com>
- * HOMEPAGE:         http://www.ext2fsd.com
+ * HOMEPAGE:         http://ext2.yeah.net
  * UPDATE HISTORY:
  */
 
@@ -15,9 +15,9 @@
 
 #include <linux/types.h>
 #include <linux/errno.h>
-#include <linux/rbtree.h>
 #include <linux/fs.h>
 #include <linux/log2.h>
+#include <linux/rbtree.h>
 
 #if _WIN32_WINNT <= 0x500
 #define _WIN2K_TARGET_ 1
@@ -546,11 +546,9 @@ struct block_device {
     PFILE_OBJECT            bd_volume;  /* streaming object file */
     LARGE_MCB               bd_extents; /* dirty extents */
 
-    kmem_cache_t *          bd_bh_cache;/* memory cache for buffer_head */
-    ERESOURCE               bd_bh_lock; /* lock for bh tree and reaper list */
-    struct rb_root          bd_bh_root; /* buffer_head red-black tree root */
-    LIST_ENTRY              bd_bh_free; /* reaper list */
-    KEVENT                  bd_bh_notify; /* notification event for cleanup */
+    spinlock_t              bd_bh_lock;    /**/
+    kmem_cache_t *          bd_bh_cache;   /* memory cache for buffer_head */
+    struct rb_root          bd_bh_root;    /* buffer_head red-black tree root */
 };
 
 //
@@ -711,11 +709,10 @@ typedef void (bh_end_io_t)(struct buffer_head *bh, int uptodate);
  * for backward compatibility reasons (e.g. submit_bh).
  */
 struct buffer_head {
-    LIST_ENTRY    b_link;                   /* to be added to reaper list */
     unsigned long b_state;		            /* buffer state bitmap (see above) */
     struct page *b_page;                    /* the page this bh is mapped to */
     PMDL         b_mdl;                     /* MDL of the locked buffer */
-    void	    *b_bcb;                     /* BCB of the buffer */
+    void	*b_bcb;			    /* BCB of the buffer */
 
     // kdev_t b_dev;                        /* device (B_FREE = free) */
     struct block_device *b_bdev;            /* block device object */
@@ -728,10 +725,7 @@ struct buffer_head {
     // struct list_head b_assoc_buffers;    /* associated with another mapping */
     // struct address_space *b_assoc_map;   /* mapping this buffer is associated with */
     atomic_t b_count;		                /* users using this buffer_head */
-    struct rb_node b_rb_node;               /* Red-black tree node entry */
-
-    LARGE_INTEGER  b_ts_creat;              /* creation time*/
-    LARGE_INTEGER  b_ts_drop;               /* drop time (to be released) */
+    struct rb_node b_rb_node;                /* Red-black tree node entry */
 };
 
 
@@ -944,14 +938,6 @@ static inline void brelse(struct buffer_head *bh)
 {
     if (bh)
         __brelse(bh);
-}
-
-static inline void fini_bh(struct buffer_head **bh)
-{
-    if (bh && *bh) {
-        brelse(*bh);
-        *bh = NULL;
-    }
 }
 
 static inline void bforget(struct buffer_head *bh)

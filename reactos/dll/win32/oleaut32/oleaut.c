@@ -67,9 +67,6 @@ static CRITICAL_SECTION_DEBUG cs_bstr_cache_dbg =
 static CRITICAL_SECTION cs_bstr_cache = { &cs_bstr_cache_dbg, -1, 0, 0, 0, 0 };
 
 typedef struct {
-#ifdef _WIN64
-    DWORD pad;
-#endif
     DWORD size;
     union {
         char ptr[1];
@@ -100,40 +97,27 @@ static inline size_t bstr_alloc_size(size_t size)
 
 static inline bstr_t *bstr_from_str(BSTR str)
 {
-    return CONTAINING_RECORD((void *)str, bstr_t, u.str);
+    return CONTAINING_RECORD(str, bstr_t, u.str);
 }
 
-static inline bstr_cache_entry_t *get_cache_entry_from_idx(unsigned cache_idx)
+static inline bstr_cache_entry_t *get_cache_entry(size_t size)
 {
+    unsigned cache_idx = FIELD_OFFSET(bstr_t, u.ptr[size-1])/BUCKET_SIZE;
     return bstr_cache_enabled && cache_idx < sizeof(bstr_cache)/sizeof(*bstr_cache)
         ? bstr_cache + cache_idx
         : NULL;
 }
 
-static inline bstr_cache_entry_t *get_cache_entry(size_t size)
-{
-    unsigned cache_idx = FIELD_OFFSET(bstr_t, u.ptr[size+sizeof(WCHAR)-1])/BUCKET_SIZE;
-    return get_cache_entry_from_idx(cache_idx);
-}
-
-static inline bstr_cache_entry_t *get_cache_entry_from_alloc_size(SIZE_T alloc_size)
-{
-    unsigned cache_idx;
-    if (alloc_size < BUCKET_SIZE) return NULL;
-    cache_idx = (alloc_size - BUCKET_SIZE) / BUCKET_SIZE;
-    return get_cache_entry_from_idx(cache_idx);
-}
-
 static bstr_t *alloc_bstr(size_t size)
 {
-    bstr_cache_entry_t *cache_entry = get_cache_entry(size);
+    bstr_cache_entry_t *cache_entry = get_cache_entry(size+sizeof(WCHAR));
     bstr_t *ret;
 
     if(cache_entry) {
         EnterCriticalSection(&cs_bstr_cache);
 
         if(!cache_entry->cnt) {
-            cache_entry = get_cache_entry(size+BUCKET_SIZE);
+            cache_entry = get_cache_entry(size+sizeof(WCHAR)+BUCKET_SIZE);
             if(cache_entry && !cache_entry->cnt)
                 cache_entry = NULL;
         }
@@ -148,16 +132,19 @@ static bstr_t *alloc_bstr(size_t size)
 
         if(cache_entry) {
             if(WARN_ON(heap)) {
-                size_t fill_size = (FIELD_OFFSET(bstr_t, u.ptr[size])+2*sizeof(WCHAR)-1) & ~(sizeof(WCHAR)-1);
-                memset(ret, ARENA_INUSE_FILLER, fill_size);
-                memset((char *)ret+fill_size, ARENA_TAIL_FILLER, bstr_alloc_size(size)-fill_size);
+                size_t tail;
+
+                memset(ret, ARENA_INUSE_FILLER, FIELD_OFFSET(bstr_t, u.ptr[size+sizeof(WCHAR)]));
+                tail = bstr_alloc_size(size) - FIELD_OFFSET(bstr_t, u.ptr[size+sizeof(WCHAR)]);
+                if(tail)
+                    memset(ret->u.ptr+size+sizeof(WCHAR), ARENA_TAIL_FILLER, tail);
             }
             ret->size = size;
             return ret;
         }
     }
 
-    ret = CoTaskMemAlloc(bstr_alloc_size(size));
+    ret = HeapAlloc(GetProcessHeap(), 0, bstr_alloc_size(size));
     if(ret)
         ret->size = size;
     return ret;
@@ -230,16 +217,6 @@ BSTR WINAPI SysAllocString(LPCOLESTR str)
     return SysAllocStringLen(str, lstrlenW(str));
 }
 
-static inline IMalloc *get_malloc(void)
-{
-    static IMalloc *malloc;
-
-    if (!malloc)
-        CoGetMalloc(1, &malloc);
-
-    return malloc;
-}
-
 /******************************************************************************
  *		SysFreeString	[OLEAUT32.6]
  *
@@ -259,19 +236,12 @@ void WINAPI SysFreeString(BSTR str)
 {
     bstr_cache_entry_t *cache_entry;
     bstr_t *bstr;
-    IMalloc *malloc = get_malloc();
-    SIZE_T alloc_size;
 
     if(!str)
         return;
 
     bstr = bstr_from_str(str);
-
-    alloc_size = IMalloc_GetSize(malloc, bstr);
-    if (alloc_size == ~0UL)
-        return;
-
-    cache_entry = get_cache_entry_from_alloc_size(alloc_size);
+    cache_entry = get_cache_entry(bstr->size+sizeof(WCHAR));
     if(cache_entry) {
         unsigned i;
 
@@ -292,7 +262,8 @@ void WINAPI SysFreeString(BSTR str)
             cache_entry->cnt++;
 
             if(WARN_ON(heap)) {
-                unsigned n = (alloc_size-FIELD_OFFSET(bstr_t, u.ptr))/sizeof(DWORD);
+                unsigned n = bstr_alloc_size(bstr->size) / sizeof(DWORD) - 1;
+                bstr->size = ARENA_FREE_FILLER;
                 for(i=0; i<n; i++)
                     bstr->u.dwptr[i] = ARENA_FREE_FILLER;
             }
@@ -304,7 +275,7 @@ void WINAPI SysFreeString(BSTR str)
         LeaveCriticalSection(&cs_bstr_cache);
     }
 
-    CoTaskMemFree(bstr);
+    HeapFree(GetProcessHeap(), 0, bstr);
 }
 
 /******************************************************************************
@@ -371,25 +342,29 @@ int WINAPI SysReAllocStringLen(BSTR* old, const OLECHAR* str, unsigned int len)
 {
     /* Detect integer overflow. */
     if (len >= ((UINT_MAX-sizeof(WCHAR)-sizeof(DWORD))/sizeof(WCHAR)))
-	return FALSE;
+	return 0;
 
     if (*old!=NULL) {
+      BSTR old_copy = *old;
       DWORD newbytelen = len*sizeof(WCHAR);
-      bstr_t *old_bstr = bstr_from_str(*old);
-      bstr_t *bstr = CoTaskMemRealloc(old_bstr, bstr_alloc_size(newbytelen));
-
-      if (!bstr) return FALSE;
-
+      bstr_t *bstr = HeapReAlloc(GetProcessHeap(),0,((DWORD*)*old)-1,bstr_alloc_size(newbytelen));
       *old = bstr->u.str;
       bstr->size = newbytelen;
-      /* The old string data is still there when str is NULL */
-      if (str && old_bstr->u.str != str) memmove(bstr->u.str, str, newbytelen);
-      bstr->u.str[len] = 0;
+      /* Subtle hidden feature: The old string data is still there
+       * when 'in' is NULL!
+       * Some Microsoft program needs it.
+       * FIXME: Is it a sideeffect of BSTR caching?
+       */
+      if (str && old_copy!=str) memmove(*old, str, newbytelen);
+      (*old)[len] = 0;
     } else {
+      /*
+       * Allocate the new string
+       */
       *old = SysAllocStringLen(str, len);
     }
 
-    return TRUE;
+    return 1;
 }
 
 /******************************************************************************
@@ -426,11 +401,10 @@ BSTR WINAPI SysAllocStringByteLen(LPCSTR str, UINT len)
 
     if(str) {
         memcpy(bstr->u.ptr, str, len);
-        bstr->u.ptr[len] = 0;
+        bstr->u.ptr[len] = bstr->u.ptr[len+1] = 0;
     }else {
-        memset(bstr->u.ptr, 0, len+1);
+        memset(bstr->u.ptr, 0, len+sizeof(WCHAR));
     }
-    bstr->u.str[(len+sizeof(WCHAR)-1)/sizeof(WCHAR)] = 0;
 
     return bstr->u.str;
 }

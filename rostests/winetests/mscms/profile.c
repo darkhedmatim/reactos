@@ -675,8 +675,10 @@ static void test_EnumColorProfilesA( char *standardprofile )
     ok( !ret, "EnumColorProfilesA() succeeded (%d)\n", GetLastError() );
 
     ret = pEnumColorProfilesA( NULL, &record, buffer, &size, &number );
-    todo_wine_if (!have_color_profile)
+    if (have_color_profile)
         ok( ret, "EnumColorProfilesA() failed (%d)\n", GetLastError() );
+    else
+        todo_wine ok( ret, "EnumColorProfilesA() failed (%d)\n", GetLastError() );
 
     size = 0;
 
@@ -687,8 +689,10 @@ static void test_EnumColorProfilesA( char *standardprofile )
 
     size = total;
     ret = pEnumColorProfilesA( NULL, &record, buffer, &size, &number );
-    todo_wine_if (!have_color_profile)
+    if (have_color_profile)
         ok( ret, "EnumColorProfilesA() failed (%d)\n", GetLastError() );
+    else
+        todo_wine ok( ret, "EnumColorProfilesA() failed (%d)\n", GetLastError() );
 
     HeapFree( GetProcessHeap(), 0, buffer );
 }
@@ -725,8 +729,10 @@ static void test_EnumColorProfilesW( WCHAR *standardprofileW )
     ok( !ret, "EnumColorProfilesW() succeeded (%d)\n", GetLastError() );
 
     ret = pEnumColorProfilesW( NULL, &record, buffer, &size, &number );
-    todo_wine_if (!have_color_profile)
+    if (have_color_profile)
         ok( ret, "EnumColorProfilesW() failed (%d)\n", GetLastError() );
+    else
+        todo_wine ok( ret, "EnumColorProfilesW() failed (%d)\n", GetLastError() );
 
     size = 0;
     ret = pEnumColorProfilesW( NULL, &record, buffer, &size, &number );
@@ -736,8 +742,10 @@ static void test_EnumColorProfilesW( WCHAR *standardprofileW )
 
     size = total;
     ret = pEnumColorProfilesW( NULL, &record, buffer, &size, &number );
-    todo_wine_if (!have_color_profile)
+    if (have_color_profile)
         ok( ret, "EnumColorProfilesW() failed (%d)\n", GetLastError() );
+    else
+        todo_wine ok( ret, "EnumColorProfilesW() failed (%d)\n", GetLastError() );
 
     HeapFree( GetProcessHeap(), 0, buffer );
 }

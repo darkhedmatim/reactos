@@ -68,7 +68,7 @@ Ext2FollowLink (
     IN PEXT2_VCB            Vcb,
     IN PEXT2_MCB            Parent,
     IN PEXT2_MCB            Mcb,
-    IN ULONG                Linkdep
+    IN USHORT               Linkdep
 )
 {
     NTSTATUS        Status = STATUS_LINK_FAILED;
@@ -88,12 +88,12 @@ Ext2FollowLink (
 
         /* exit if we jump into a possible symlink forever loop */
         if ((Linkdep + 1) > EXT2_MAX_NESTED_LINKS ||
-            IoGetRemainingStackSize() < 1024) {
+                IoGetRemainingStackSize() < 1024) {
             _SEH2_LEAVE;
         }
 
         /* read the symlink target path */
-        if (!Mcb->Inode.i_blocks) {
+        if (Mcb->Inode.i_size < EXT2_LINKLEN_IN_INODE) {
 
             OemName.Buffer = (PUCHAR) (&Mcb->Inode.i_block[0]);
             OemName.Length = (USHORT)Mcb->Inode.i_size;
@@ -113,12 +113,14 @@ Ext2FollowLink (
             bOemBuffer = TRUE;
             RtlZeroMemory(OemName.Buffer, OemName.MaximumLength);
 
-            Status = Ext2ReadSymlink(
+            Status = Ext2ReadInode(
                          IrpContext,
                          Vcb,
                          Mcb,
+                         (ULONGLONG)0,
                          OemName.Buffer,
                          (ULONG)(Mcb->Inode.i_size),
+                         FALSE,
                          NULL);
             if (!NT_SUCCESS(Status)) {
                 _SEH2_LEAVE;
@@ -168,9 +170,9 @@ Ext2FollowLink (
         }
 
         if (Target == NULL /* link target doesn't exist */      ||
-            Target == Mcb  /* symlink points to itself */       ||
-            IsMcbSpecialFile(Target) /* target not resolved*/   ||
-            IsFileDeleted(Target)  /* target deleted */         ) {
+                Target == Mcb  /* symlink points to itself */       ||
+                IsMcbSpecialFile(Target) /* target not resolved*/   ||
+                IsFileDeleted(Target)  /* target deleted */         ) {
 
             if (Target) {
                 ASSERT(Target->Refercount > 0);
@@ -178,6 +180,7 @@ Ext2FollowLink (
             }
             ClearLongFlag(Mcb->Flags, MCB_TYPE_SYMLINK);
             SetLongFlag(Mcb->Flags, MCB_TYPE_SPECIAL);
+            Mcb->FileAttr = FILE_ATTRIBUTE_NORMAL;
             Mcb->Target = NULL;
 
         } else if (IsMcbSymLink(Target)) {
@@ -191,18 +194,15 @@ Ext2FollowLink (
             SetLongFlag(Mcb->Flags, MCB_TYPE_SYMLINK);
             ClearLongFlag(Mcb->Flags, MCB_TYPE_SPECIAL);
             ASSERT(Mcb->Target->Refercount > 0);
-            
+            Mcb->FileAttr = Target->FileAttr;
+
         } else {
 
             Mcb->Target = Target;
             SetLongFlag(Mcb->Flags, MCB_TYPE_SYMLINK);
             ClearLongFlag(Mcb->Flags, MCB_TYPE_SPECIAL);
             ASSERT(Mcb->Target->Refercount > 0);
-        }
-
-        /* add directory flag to file attribute */
-        if (Mcb->Target && IsMcbDirectory(Mcb->Target)) {
-            Mcb->FileAttr |= FILE_ATTRIBUTE_DIRECTORY;
+            Mcb->FileAttr = Target->FileAttr;
         }
 
     } _SEH2_FINALLY {
@@ -275,7 +275,7 @@ Ext2LookupFile (
     IN PUNICODE_STRING      FullName,
     IN PEXT2_MCB            Parent,
     OUT PEXT2_MCB *         Ext2Mcb,
-    IN ULONG                Linkdep
+    IN USHORT               Linkdep
 )
 {
     NTSTATUS        Status = STATUS_OBJECT_NAME_NOT_FOUND;
@@ -289,19 +289,11 @@ Ext2LookupFile (
     BOOLEAN         bParent = FALSE;
     BOOLEAN         bDirectory = FALSE;
     BOOLEAN         LockAcquired = FALSE;
-    BOOLEAN         bNotFollow = FALSE;
 
     _SEH2_TRY {
 
         ExAcquireResourceExclusiveLite(&Vcb->McbLock, TRUE);
         LockAcquired = TRUE;
-
-        bNotFollow = IsFlagOn(Linkdep, EXT2_LOOKUP_NOT_FOLLOW);
-#ifndef __REACTOS__
-        Linkdep = ClearFlag(Linkdep, EXT2_LOOKUP_FLAG_MASK);
-#else
-        ClearFlag(Linkdep, EXT2_LOOKUP_FLAG_MASK);
-#endif
 
         *Ext2Mcb = NULL;
 
@@ -402,7 +394,7 @@ Ext2LookupFile (
                     Parent = Mcb;
 
                     if (IsMcbSymLink(Mcb) && IsFileDeleted(Mcb->Target) &&
-                        Mcb->Refercount == 1) {
+                            (Mcb->Refercount == 1)) {
 
                         ASSERT(Mcb->Target);
                         ASSERT(Mcb->Target->Refercount > 0);
@@ -461,18 +453,16 @@ Ext2LookupFile (
                         }
 
                         /* set inode attribute */
-                        if (!Ext2CheckFileAccess(Vcb, Mcb, Ext2FileCanWrite)) {
+                        if (!CanIWrite(Vcb) && Ext2IsOwnerReadOnly(Mcb->Inode.i_mode)) {
                             SetFlag(Mcb->FileAttr, FILE_ATTRIBUTE_READONLY);
                         }
 
                         if (S_ISDIR(Mcb->Inode.i_mode)) {
                             SetFlag(Mcb->FileAttr, FILE_ATTRIBUTE_DIRECTORY);
                         } else {
-                            if (S_ISREG(Mcb->Inode.i_mode)) {
-                                SetFlag(Mcb->FileAttr, FILE_ATTRIBUTE_NORMAL);
-                            } else if (S_ISLNK(Mcb->Inode.i_mode)) {
-                                SetFlag(Mcb->FileAttr, FILE_ATTRIBUTE_REPARSE_POINT);
-                            } else {
+                            SetFlag(Mcb->FileAttr, FILE_ATTRIBUTE_NORMAL);
+                            if (!S_ISREG(Mcb->Inode.i_mode) &&
+                                    !S_ISLNK(Mcb->Inode.i_mode)) {
                                 SetLongFlag(Mcb->Flags, MCB_TYPE_SPECIAL);
                             }
                         }
@@ -494,7 +484,7 @@ Ext2LookupFile (
                         Mcb->ChangeTime = Ext2NtTime(Mcb->Inode.i_mtime);
 
                         /* process symlink */
-                        if (S_ISLNK(Mcb->Inode.i_mode) && !bNotFollow) {
+                        if (S_ISLNK(Mcb->Inode.i_mode)) {
                             Ext2FollowLink( IrpContext,
                                             Vcb,
                                             Parent,
@@ -626,7 +616,7 @@ Ext2ScanDir (
         Ext2DerefMcb(Parent);
 
         if (bh)
-            __brelse(bh);
+            brelse(bh);
 
         if (!NT_SUCCESS(Status)) {
             if (de)
@@ -669,7 +659,7 @@ NTSTATUS Ext2AddDotEntries(struct ext2_icb *icb, struct inode *dir,
 
 errorout:
     if (bh)
-        __brelse (bh);
+        brelse (bh);
 
     return Ext2WinntError(rc);
 }
@@ -718,11 +708,9 @@ Ext2CreateFile(
     BOOLEAN             DeleteOnClose;
     BOOLEAN             TemporaryFile;
     BOOLEAN             CaseSensitive;
-    BOOLEAN             OpenReparsePoint;
 
     ACCESS_MASK         DesiredAccess;
     ULONG               ShareAccess;
-    ULONG               CcbFlags = 0;
 
     RtlZeroMemory(&FileName, sizeof(UNICODE_STRING));
 
@@ -739,9 +727,6 @@ Ext2CreateFile(
     NoIntermediateBuffering = IsFlagOn( Options, FILE_NO_INTERMEDIATE_BUFFERING );
     NoEaKnowledge = IsFlagOn(Options, FILE_NO_EA_KNOWLEDGE);
     DeleteOnClose = IsFlagOn(Options, FILE_DELETE_ON_CLOSE);
-
-    /* Try to open reparse point (symlink) itself ? */
-    OpenReparsePoint = IsFlagOn(Options, FILE_OPEN_REPARSE_POINT);
 
     CaseSensitive = IsFlagOn(IrpSp->Flags, SL_CASE_SENSITIVE);
 
@@ -858,8 +843,7 @@ Ext2CreateFile(
                      &FileName,
                      ParentMcb,
                      &Mcb,
-                     0  /* always follow link */
-                    );
+                     0 );
 McbExisting:
 
         if (!NT_SUCCESS(Status)) {
@@ -871,7 +855,6 @@ McbExisting:
 #ifndef __REACTOS__
             LONG            i = 0;
 #endif
-
             PathName = FileName;
             Mcb = NULL;
 
@@ -981,7 +964,7 @@ Dissecting:
                     _SEH2_LEAVE;
                 }
 
-                if (!Ext2CheckFileAccess(Vcb, ParentMcb, Ext2FileCanWrite)) {
+                if (!CanIWrite(Vcb) && Ext2IsOwnerReadOnly(ParentFcb->Mcb->Inode.i_mode)) {
                     Status = STATUS_ACCESS_DENIED;
                     _SEH2_LEAVE;
                 }
@@ -1121,7 +1104,7 @@ Dissecting:
             if (IsMcbDirectory(Mcb)) {
 
                 if ((CreateDisposition != FILE_OPEN) &&
-                    (CreateDisposition != FILE_OPEN_IF)) {
+                        (CreateDisposition != FILE_OPEN_IF)) {
 
                     Status = STATUS_OBJECT_NAME_COLLISION;
                     Ext2DerefMcb(Mcb);
@@ -1164,11 +1147,7 @@ Openit:
 
             /* refer it's target if it's a symlink, so both refered */
             if (IsMcbSymLink(Mcb)) {
-
-                if (OpenReparsePoint) {
-                    /* set Ccb flag */
-                    CcbFlags = CCB_OPEN_REPARSE_POINT;
-                } else if (IsFileDeleted(Mcb->Target)) {
+                if (IsFileDeleted(Mcb->Target)) {
                     DbgBreak();
                     SetLongFlag(Mcb->Flags, MCB_TYPE_SPECIAL);
                     ClearLongFlag(Mcb->Flags, MCB_TYPE_SYMLINK);
@@ -1183,12 +1162,7 @@ Openit:
             }
 
             // Check readonly flag
-            if (BooleanFlagOn(DesiredAccess,  FILE_GENERIC_READ) &&
-                !Ext2CheckFileAccess(Vcb, Mcb, Ext2FileCanRead)) {
-                Status = STATUS_ACCESS_DENIED;
-                _SEH2_LEAVE;
-            }
-            if (!Ext2CheckFileAccess(Vcb, Mcb, Ext2FileCanWrite)) {
+            if (!CanIWrite(Vcb) && Ext2IsOwnerReadOnly(Mcb->Inode.i_mode)) {
                 if (BooleanFlagOn(DesiredAccess,  FILE_WRITE_DATA | FILE_APPEND_DATA |
                                   FILE_ADD_SUBDIRECTORY | FILE_DELETE_CHILD)) {
                     Status = STATUS_ACCESS_DENIED;
@@ -1389,7 +1363,6 @@ Openit:
                     //
                     //  check the oplock state of the file
                     //
-
                     Status = FsRtlCheckOplock(  &Fcb->Oplock,
                                                 IrpContext->Irp,
                                                 IrpContext,
@@ -1425,7 +1398,7 @@ Openit:
                                   &(Fcb->ShareAccess) );
             }
 
-            Ccb = Ext2AllocateCcb(CcbFlags, SymLink);
+            Ccb = Ext2AllocateCcb(SymLink);
             if (!Ccb) {
                 Status = STATUS_INSUFFICIENT_RESOURCES;
                 DbgBreak();
@@ -1711,7 +1684,7 @@ Ext2CreateVolume(PEXT2_IRP_CONTEXT IrpContext, PEXT2_VCB Vcb)
         return STATUS_SHARING_VIOLATION;
     }
 
-    Ccb = Ext2AllocateCcb(0, NULL);
+    Ccb = Ext2AllocateCcb(NULL);
     if (Ccb == NULL) {
         Status = STATUS_INSUFFICIENT_RESOURCES;
         goto errorout;
@@ -1896,14 +1869,9 @@ Ext2CreateInode(
     Inode.i_sb = &Vcb->sb;
     Inode.i_ino = iNo;
     Inode.i_ctime = Inode.i_mtime =
-    Inode.i_atime = Ext2LinuxTime(SysTime);
-    if (IsFlagOn(Vcb->Flags, VCB_USER_IDS)) {
-        Inode.i_uid = Vcb->uid;
-        Inode.i_gid = Vcb->gid;
-    } else {
-        Inode.i_uid = Parent->Mcb->Inode.i_uid;
-        Inode.i_gid = Parent->Mcb->Inode.i_gid;
-    }
+                        Inode.i_atime = Ext2LinuxTime(SysTime);
+    Inode.i_uid = Parent->Inode->i_uid;
+    Inode.i_gid = Parent->Inode->i_gid;
     Inode.i_generation = Parent->Inode->i_generation;
     Inode.i_mode = S_IPERMISSION_MASK &
                    Parent->Inode->i_mode;
@@ -1919,11 +1887,6 @@ Ext2CreateInode(
     /* Force using extent */
     if (IsFlagOn(SUPER_BLOCK->s_feature_incompat, EXT4_FEATURE_INCOMPAT_EXTENTS)) {
         Inode.i_flags |= EXT2_EXTENTS_FL;
-        ext4_ext_tree_init(IrpContext, NULL, &Inode);
-        /* ext4_ext_tree_init will save inode body */
-    } else {
-        /* save inode body to cache */
-        Ext2SaveInode(IrpContext, Vcb, &Inode);
     }
 
     /* add new entry to its parent */

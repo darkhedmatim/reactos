@@ -1991,13 +1991,6 @@ static BOOLEAN VidBiosScrollWindow(SCROLL_DIRECTION Direction,
 
     WORD WindowWidth, WindowHeight;
 
-    /* TODO: This function doesn't work in non-alphanumeric modes yet */
-    if (Bda->VideoMode > 3)
-    {
-        DPRINT1("VidBiosScrollWindow: not implemented for mode 0%Xh\n", Bda->VideoMode);
-        return FALSE;
-    }
-
     /* Fixup the rectangle if needed */
     Rectangle.Left   = min(max(Rectangle.Left  , 0), Bda->ScreenColumns - 1);
     Rectangle.Right  = min(max(Rectangle.Right , 0), Bda->ScreenColumns - 1);
@@ -3986,9 +3979,6 @@ BOOLEAN VidBiosInitialize(VOID)
                   Font8x16, sizeof(Font8x16));
     RtlMoveMemory(SEG_OFF_TO_PTR(VIDEO_BIOS_DATA_SEG, FONT_8x14_OFFSET),
                   Font8x14, sizeof(Font8x14));
-
-    /* Make another copy of the lower half of the 8x8 font at F000:FA6E for compatibility */
-    RtlMoveMemory(SEG_OFF_TO_PTR(BIOS_SEGMENT, FONT_8x8_COMPAT_OFFSET), Font8x8, sizeof(Font8x8) / 2);
 
     VidBios32Initialize();
 

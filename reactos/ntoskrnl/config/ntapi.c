@@ -630,11 +630,11 @@ NtSetValueKey(IN HANDLE KeyHandle,
         Data = NULL;
 
     /* Probe and copy the data */
-    if ((PreviousMode != KernelMode) && (DataSize != 0))
+    if ((PreviousMode != KernelMode) && Data)
     {
         PVOID DataCopy = ExAllocatePoolWithTag(PagedPool, DataSize, TAG_CM);
         if (!DataCopy)
-            return STATUS_INSUFFICIENT_RESOURCES;
+            return STATUS_NO_MEMORY;
         _SEH2_TRY
         {
             ProbeForRead(Data, DataSize, 1);

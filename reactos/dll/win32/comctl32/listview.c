@@ -316,7 +316,7 @@ typedef struct tagLISTVIEW_INFO
   /* painting */
   BOOL bIsDrawing;         /* Drawing in progress */
   INT nMeasureItemHeight;  /* WM_MEASUREITEM result */
-  BOOL redraw;             /* WM_SETREDRAW switch */
+  BOOL bRedraw;            /* WM_SETREDRAW switch */
 
   /* misc */
   DWORD iVersion;          /* CCM_[G,S]ETVERSION */
@@ -828,30 +828,31 @@ static inline void notify_itemactivate(const LISTVIEW_INFO *infoPtr, const LVHIT
     NMITEMACTIVATE nmia;
     LVITEMW item;
 
-    nmia.uNewState = 0;
-    nmia.uOldState = 0;
-    nmia.uChanged  = 0;
-    nmia.uKeyFlags = 0;
-
-    item.mask = LVIF_PARAM|LVIF_STATE;
-    item.iItem = htInfo->iItem;
-    item.iSubItem = 0;
-    item.stateMask = (UINT)-1;
-    if (LISTVIEW_GetItemT(infoPtr, &item, TRUE)) {
-        nmia.lParam = item.lParam;
-        nmia.uOldState = item.state;
-        nmia.uNewState = item.state | LVIS_ACTIVATING;
-        nmia.uChanged  = LVIF_STATE;
+    if (htInfo) {
+      nmia.uNewState = 0;
+      nmia.uOldState = 0;
+      nmia.uChanged  = 0;
+      nmia.uKeyFlags = 0;
+      
+      item.mask = LVIF_PARAM|LVIF_STATE;
+      item.iItem = htInfo->iItem;
+      item.iSubItem = 0;
+      item.stateMask = (UINT)-1;
+      if (LISTVIEW_GetItemT(infoPtr, &item, TRUE)) {
+	  nmia.lParam = item.lParam;
+ 	  nmia.uOldState = item.state;
+	  nmia.uNewState = item.state | LVIS_ACTIVATING;
+	  nmia.uChanged  = LVIF_STATE;
+      }
+      
+      nmia.iItem = htInfo->iItem;
+      nmia.iSubItem = htInfo->iSubItem;
+      nmia.ptAction = htInfo->pt;     
+      
+      if (GetKeyState(VK_SHIFT) & 0x8000) nmia.uKeyFlags |= LVKF_SHIFT;
+      if (GetKeyState(VK_CONTROL) & 0x8000) nmia.uKeyFlags |= LVKF_CONTROL;
+      if (GetKeyState(VK_MENU) & 0x8000) nmia.uKeyFlags |= LVKF_ALT;
     }
-
-    nmia.iItem = htInfo->iItem;
-    nmia.iSubItem = htInfo->iSubItem;
-    nmia.ptAction = htInfo->pt;
-
-    if (GetKeyState(VK_SHIFT) & 0x8000) nmia.uKeyFlags |= LVKF_SHIFT;
-    if (GetKeyState(VK_CONTROL) & 0x8000) nmia.uKeyFlags |= LVKF_CONTROL;
-    if (GetKeyState(VK_MENU) & 0x8000) nmia.uKeyFlags |= LVKF_ALT;
-
     notify_hdr(infoPtr, LVN_ITEMACTIVATE, (LPNMHDR)&nmia);
 }
 
@@ -1705,7 +1706,7 @@ static inline BOOL LISTVIEW_DrawFocusRect(const LISTVIEW_INFO *infoPtr, HDC hdc)
 
 static inline BOOL is_redrawing(const LISTVIEW_INFO *infoPtr)
 {
-    return infoPtr->redraw;
+    return infoPtr->bRedraw;
 }
 
 static inline void LISTVIEW_InvalidateRect(const LISTVIEW_INFO *infoPtr, const RECT* rect)
@@ -3122,11 +3123,7 @@ static RANGES ranges_clone(RANGES ranges)
         RANGE *newrng = Alloc(sizeof(RANGE));
 	if (!newrng) goto fail;
 	*newrng = *((RANGE*)DPA_GetPtr(ranges->hdpa, i));
-        if (!DPA_SetPtr(clone->hdpa, i, newrng))
-        {
-            Free(newrng);
-            goto fail;
-        }
+	DPA_SetPtr(clone->hdpa, i, newrng);
     }
     return clone;
     
@@ -4752,7 +4749,7 @@ static BOOL LISTVIEW_DrawItem(LISTVIEW_INFO *infoPtr, HDC hdc, INT nItem, ITERAT
 
        - CDDS_ITEMPREPAINT
        - CDDS_ITEMPREPAINT|CDDS_SUBITEM   | => sent n times, where n is number of subitems,
-         CDDS_ITEMPOSTPAINT|CDDS_SUBITEM  |    including item itself
+         CDDS_ITEMPOSTPAINT|CDDS_SUBITEM  |    including item iself
        - CDDS_ITEMPOSTPAINT
 
        other styles:
@@ -4798,6 +4795,11 @@ static BOOL LISTVIEW_DrawItem(LISTVIEW_INFO *infoPtr, HDC hdc, INT nItem, ITERAT
 
             if (cdsubitemmode & CDRF_NOTIFYSUBITEMDRAW)
                 subitemstage = notify_customdraw(infoPtr, CDDS_SUBITEM | CDDS_ITEMPREPAINT, &nmlvcd);
+            else
+            {
+                nmlvcd.clrTextBk = infoPtr->clrTextBk;
+                nmlvcd.clrText   = infoPtr->clrText;
+            }
 
             if (subitems->nItem == 0 || (cdmode & CDRF_NOTIFYITEMDRAW))
                 prepaint_setup(infoPtr, hdc, &nmlvcd, FALSE);
@@ -5448,7 +5450,9 @@ static HIMAGELIST LISTVIEW_CreateDragImage(LISTVIEW_INFO *infoPtr, INT iItem, LP
     hOldbmp = SelectObject(hdc, hbmp);
     hOldFont = SelectObject(hdc, infoPtr->hFont);
 
-    SetRect(&rcItem, 0, 0, size.cx, size.cy);
+    rcItem.left = rcItem.top = 0;
+    rcItem.right = size.cx;
+    rcItem.bottom = size.cy;
     FillRect(hdc, &rcItem, infoPtr->hBkBrush);
     
     pos.x = pos.y = 0;
@@ -5757,9 +5761,10 @@ static void LISTVIEW_ScrollOnInsert(LISTVIEW_INFO *infoPtr, INT nItem, INT dir)
     if (infoPtr->uView == LV_VIEW_DETAILS) return;
 
     /* now for LISTs, we have to deal with the columns to the right */
-    SetRect(&rcScroll, (nItemCol + 1) * infoPtr->nItemWidth, 0,
-            (infoPtr->nItemCount / nPerCol + 1) * infoPtr->nItemWidth,
-            nPerCol * infoPtr->nItemHeight);
+    rcScroll.left = (nItemCol + 1) * infoPtr->nItemWidth;
+    rcScroll.top = 0;
+    rcScroll.right = (infoPtr->nItemCount / nPerCol + 1) * infoPtr->nItemWidth;
+    rcScroll.bottom = nPerCol * infoPtr->nItemHeight;
     OffsetRect(&rcScroll, Origin.x, Origin.y);
     if (IntersectRect(&rcScroll, &rcScroll, &infoPtr->rcList))
 	InvalidateRect(infoPtr->hwndSelf, &rcScroll, TRUE);
@@ -8487,7 +8492,10 @@ static HIMAGELIST LISTVIEW_CreateCheckBoxIL(const LISTVIEW_INFO *infoPtr)
     hbm_mask = CreateBitmap(GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 1, 1, NULL);
     ReleaseDC(infoPtr->hwndSelf, hdc_wnd);
 
-    SetRect(&rc, 0, 0, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON));
+    rc.left = rc.top = 0;
+    rc.right = GetSystemMetrics(SM_CXSMICON);
+    rc.bottom = GetSystemMetrics(SM_CYSMICON);
+
     hbm_orig = SelectObject(hdc, hbm_mask);
     FillRect(hdc, &rc, hbr_white);
     InflateRect(&rc, -2, -2);
@@ -8812,7 +8820,6 @@ static BOOL LISTVIEW_SetItemCount(LISTVIEW_INFO *infoPtr, INT nItems, DWORD dwFl
     if (infoPtr->dwStyle & LVS_OWNERDATA)
     {
 	INT nOldCount = infoPtr->nItemCount;
-	infoPtr->nItemCount = nItems;
 
 	if (nItems < nOldCount)
 	{
@@ -8825,6 +8832,7 @@ static BOOL LISTVIEW_SetItemCount(LISTVIEW_INFO *infoPtr, INT nItems, DWORD dwFl
 	    }
 	}
 
+	infoPtr->nItemCount = nItems;
 	LISTVIEW_UpdateScroll(infoPtr);
 
 	/* the flags are valid only in ownerdata report and list modes */
@@ -8847,8 +8855,10 @@ static BOOL LISTVIEW_SetItemCount(LISTVIEW_INFO *infoPtr, INT nItems, DWORD dwFl
     
 	    if (infoPtr->uView == LV_VIEW_DETAILS)
 	    {
-                SetRect(&rcErase, 0, nFrom * infoPtr->nItemHeight, infoPtr->nItemWidth,
-                        nTo * infoPtr->nItemHeight);
+		rcErase.left = 0;
+		rcErase.top = nFrom * infoPtr->nItemHeight;
+		rcErase.right = infoPtr->nItemWidth;
+		rcErase.bottom = nTo * infoPtr->nItemHeight;
 		OffsetRect(&rcErase, Origin.x, Origin.y);
 		if (IntersectRect(&rcErase, &rcErase, &infoPtr->rcList))
 		    LISTVIEW_InvalidateRect(infoPtr, &rcErase);
@@ -9474,7 +9484,7 @@ static LRESULT LISTVIEW_NCCreate(HWND hwnd, const CREATESTRUCTW *lpcs)
   infoPtr->nFocusedItem = -1;
   infoPtr->nSelectionMark = -1;
   infoPtr->nHotItem = -1;
-  infoPtr->redraw = TRUE;
+  infoPtr->bRedraw = TRUE;
   infoPtr->bNoItemMetrics = TRUE;
   infoPtr->bDoChangeNotify = TRUE;
   infoPtr->autoSpacing = TRUE;
@@ -10066,7 +10076,7 @@ static LRESULT LISTVIEW_KillFocus(LISTVIEW_INFO *infoPtr)
         LISTVIEW_InvalidateRect(infoPtr, &infoPtr->marqueeRect);
         ReleaseCapture();
 
-        SetRectEmpty(&infoPtr->marqueeRect);
+        SetRect(&infoPtr->marqueeRect, 0, 0, 0, 0);
 
         infoPtr->bMarqueeSelect = FALSE;
         infoPtr->bScrolling = FALSE;
@@ -10271,9 +10281,6 @@ static LRESULT LISTVIEW_LButtonDown(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, IN
       }
     }
 
-    if (!infoPtr->bFocus)
-        SetFocus(infoPtr->hwndSelf);
-
     if (infoPtr->dwLvExStyle & LVS_EX_ONECLICKACTIVATE)
         if(lvHitTestInfo.iItem != -1) notify_itemactivate(infoPtr,&lvHitTestInfo);
   }
@@ -10335,8 +10342,8 @@ static LRESULT LISTVIEW_LButtonUp(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, INT 
             ReleaseCapture();
         }
 
-        SetRectEmpty(&infoPtr->marqueeRect);
-        SetRectEmpty(&infoPtr->marqueeDrawRect);
+        SetRect(&infoPtr->marqueeRect, 0, 0, 0, 0);
+        SetRect(&infoPtr->marqueeDrawRect, 0, 0, 0, 0);
 
         infoPtr->bDragging = FALSE;
         infoPtr->bMarqueeSelect = FALSE;
@@ -10359,6 +10366,9 @@ static LRESULT LISTVIEW_LButtonUp(LISTVIEW_INFO *infoPtr, WORD wKey, INT x, INT 
             GetDoubleClickTime(),
             LISTVIEW_DelayedEditItem);
     }
+
+    if (!infoPtr->bFocus)
+        SetFocus(infoPtr->hwndSelf);
 
     return 0;
 }
@@ -10957,21 +10967,22 @@ static LRESULT LISTVIEW_SetFont(LISTVIEW_INFO *infoPtr, HFONT hFont, WORD fRedra
  *
  * PARAMETER(S):
  * [I] infoPtr : valid pointer to the listview structure
- * [I] redraw: state of redraw flag
+ * [I] bRedraw: state of redraw flag
  *
  * RETURN:
- *     Zero.
+ * DefWinProc return value
  */
-static LRESULT LISTVIEW_SetRedraw(LISTVIEW_INFO *infoPtr, BOOL redraw)
+static LRESULT LISTVIEW_SetRedraw(LISTVIEW_INFO *infoPtr, BOOL bRedraw)
 {
-    TRACE("old=%d, new=%d\n", infoPtr->redraw, redraw);
+    TRACE("infoPtr->bRedraw=%d, bRedraw=%d\n", infoPtr->bRedraw, bRedraw);
 
-    if (infoPtr->redraw == !!redraw)
-        return 0;
+    /* we cannot use straight equality here because _any_ non-zero value is TRUE */
+    if ((infoPtr->bRedraw && bRedraw) || (!infoPtr->bRedraw && !bRedraw)) return 0;
 
-    if (!(infoPtr->redraw = !!redraw))
-        return 0;
+    infoPtr->bRedraw = bRedraw;
 
+    if(!bRedraw) return 0;
+    
     if (is_autoarrange(infoPtr))
 	LISTVIEW_Arrange(infoPtr, LVA_DEFAULT);
     LISTVIEW_UpdateScroll(infoPtr);

@@ -66,8 +66,6 @@ private:
         LPARAM lParam
         );
 
-    void OnActivate(void);
-
     bool CreateToolBar(void);
     bool CreateStatusBar(void);
 

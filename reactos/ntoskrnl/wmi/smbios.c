@@ -196,7 +196,6 @@ WmipGetRawSMBiosTableData(
         TableMapping = MmMapIoSpace(PhysicalAddress, TableSize, MmCached);
         if (TableMapping == NULL)
         {
-            ExFreePoolWithTag(BiosTables, 'BTMS');
             return STATUS_UNSUCCESSFUL;
         }
 

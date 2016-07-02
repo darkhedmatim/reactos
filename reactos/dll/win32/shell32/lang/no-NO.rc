@@ -156,10 +156,10 @@ STYLE DS_SHELLFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYS
 CAPTION "Kjør"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON "", IDC_RUNDLG_ICON, 7, 11, 18, 20, WS_VISIBLE
+    ICON IDI_SHELL_RUN, IDC_STATIC, 7, 11, 18, 20, WS_VISIBLE
     LTEXT "Skriv inn navnet på programmet, mappen, dokumentet etter Internett-ressursen du ønsker å åpne.", 12289, 36, 11, 182, 18
     LTEXT "&Åpne:", 12305, 7, 39, 24, 10
-    CONTROL "", IDC_RUNDLG_EDITPATH, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE | CBS_AUTOHSCROLL | CBS_DROPDOWN, 36, 37, 183, 100
+    CONTROL "", 12298, "COMBOBOX", WS_TABSTOP | WS_GROUP | WS_VSCROLL | WS_VISIBLE |  CBS_AUTOHSCROLL | CBS_DROPDOWN, 36, 37, 183, 100
     DEFPUSHBUTTON "OK", IDOK, 62, 63, 50, 14, WS_TABSTOP
     PUSHBUTTON "Avbryt", IDCANCEL, 116, 63, 50, 14, WS_TABSTOP
     PUSHBUTTON "&Bla gjennom .", 12288, 170, 63, 54, 14, WS_TABSTOP
@@ -405,19 +405,19 @@ CAPTION "Generielt"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     GROUPBOX "Oppgaver", -1, 7, 10, 249, 45
-    CONTROL "", IDC_FOLDER_OPTIONS_TASKICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 25, 21, 20
-    AUTORADIOBUTTON "Vis felles oppgaver i &mapper", IDC_FOLDER_OPTIONS_COMMONTASKS, 40, 25, 120, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Bruk ReactOS klass&isk mapper", IDC_FOLDER_OPTIONS_CLASSICFOLDERS, 40, 37, 120, 10
+    ICON "", 30109, 14, 25, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "Vis felles oppgaver i &mapper", 14001, 40, 25, 120, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Bruk ReactOS klass&isk mapper", 14002, 40, 37, 120, 10, WS_TABSTOP | WS_GROUP
     GROUPBOX "Utforsk mapper", -1, 7, 60, 249, 45, WS_TABSTOP
-    CONTROL "", IDC_FOLDER_OPTIONS_FOLDERICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 70, 21, 20
-    AUTORADIOBUTTON "Åpne hver mapper i sa&mme vindu", IDC_FOLDER_OPTIONS_SAMEWINDOW, 40, 70, 140, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Åpne hver mapper i sitt egen &vindu", IDC_FOLDER_OPTIONS_OWNWINDOW, 40, 82, 140, 10
+    ICON "", 30110, 14, 70, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "Åpne hver mapper i sa&mme vindu", 14004, 40, 70, 140, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Åpne hver mapper i sitt egen &vindu", 14005, 40, 82, 140, 10, WS_TABSTOP | WS_GROUP
     GROUPBOX "Klikk enheter som følgende", -1, 7, 110, 249, 60
-    CONTROL "", IDC_FOLDER_OPTIONS_CLICKICON, "Static", SS_ICON | WS_CHILD | WS_VISIBLE, 14, 120, 21, 20
-    AUTORADIOBUTTON "&Enkelt-klikk for å åpne en enhet (peker for å velge)", IDC_FOLDER_OPTIONS_SINGLECLICK, 40, 120, 190, 10, WS_TABSTOP | WS_GROUP
-    AUTORADIOBUTTON "Understrek ikon titteler konsekvent med min &utforsker", IDC_FOLDER_OPTIONS_ULBROWSER, 50, 132, 190, 10
-    AUTORADIOBUTTON "Understrek ikon titteler bare mens jeg &peker på dem", IDC_FOLDER_OPTIONS_ULPOINT, 50, 144, 190, 10
-    AUTORADIOBUTTON "&Dobbelt klikk for å åpne enheten (Enkelt-klikk for å velge)", IDC_FOLDER_OPTIONS_DOUBLECLICK, 40, 156, 194, 10
+    ICON "", 30111, 14, 120, 21, 20, SS_REALSIZECONTROL
+    AUTORADIOBUTTON "&Enkelt-klikk for å åpne en enhet (peker for å velge)", 14007, 40, 120, 190, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Understrek ikon titteler konsekvent med min &utforsker", 14008, 50, 132, 190, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "Understrek ikon titteler bare mens jeg &peker på dem", 14009, 50, 144, 190, 10, WS_TABSTOP | WS_GROUP
+    AUTORADIOBUTTON "&Dobbelt klikk for å åpne enheten (Enkelt-klikk for å velge)", 14010, 40, 156, 194, 10, WS_TABSTOP | WS_GROUP
     PUSHBUTTON "&Bruk standard", 14011, 180, 180, 60, 14, WS_TABSTOP
 END
 
@@ -442,7 +442,7 @@ CAPTION "Filtyper"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     LTEXT "Registerert fil&typer:", -1, 7, 10, 70, 10
-    CONTROL "", 14000, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHAREIMAGELISTS | LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP, 7, 20, 249, 80
+    CONTROL "", 14000, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHAREIMAGELISTS | WS_BORDER | WS_TABSTOP, 7, 20, 249, 80
     PUSHBUTTON "&Ny", 14001, 120, 110, 50, 14, WS_TABSTOP
     PUSHBUTTON "&Slett", 14002, 180, 110, 50, 14, WS_TABSTOP
     GROUPBOX "Detailjer for '%s' utvidelser", 14003, 7, 130, 249, 70
@@ -475,12 +475,12 @@ BEGIN
     ICON "", 12301, 50, 89, 21, 20, SS_REALSIZECONTROL
 END
 
-IDD_LOG_OFF DIALOGEX 0, 0, 188, 60
+IDD_LOG_OFF DIALOGEX 0, 0, 190, 60
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_CAPTION
 CAPTION "Logg av ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_SHELL_LOGOFF, IDC_STATIC, 8, 6, 21, 20
+    ICON 45, 14344, 10, 10, 21, 20, SS_REALSIZECONTROL
     LTEXT "Er du sikker på at du vil logge av?", -1, 43, 11, 140, 22
     DEFPUSHBUTTON "&Logg av", IDOK, 57, 40, 60, 14
     PUSHBUTTON "Avbryt", IDCANCEL, 122, 40, 60, 14
@@ -709,6 +709,8 @@ BEGIN
     IDS_RESTART_PROMPT "Vil du starte datamaskinen på nytt?"
     IDS_SHUTDOWN_TITLE "Avslutt"
     IDS_SHUTDOWN_PROMPT "Vil du slå av datamaskinen?"
+    IDS_LOGOFF_TITLE "Log Off"
+    IDS_LOGOFF_PROMPT "Do you want to log off?"
 
     /* Run File dialog */
     IDS_RUNDLG_ERROR "Unable to display Run File dialog box (internal error)"
@@ -814,13 +816,8 @@ BEGIN
 
     IDS_FILE_DETAILS "Detailjer for '%s' utvidelser"
     IDS_FILE_DETAILSADV "Filer med utvidelser '%s' er av typen '%s'. For å endre innstillingene som er av filen '%s', trykk på avansert."
-    IDS_FILE_TYPES "File Types"
+    IDS_FILE_TYPES "FileTypes"
     IDS_COLUMN_EXTENSION "Extensions"
-
-    /* As in 'INI File' or 'WAV File', fallback string for no-name extensions
-       used in the _File type_ tab of the _Folder Options_ dialog */
-    IDS_FILE_EXT_TYPE "%s File"
-
     IDS_BYTES_FORMAT "bytes"
     IDS_UNKNOWN_APP "Unknown application"
     IDS_EXE_DESCRIPTION "Description:"

@@ -1715,7 +1715,7 @@ MupDereferenceMasterQueryContext(PMUP_MQC MasterQueryContext)
 Complete:
     /* In finally, complete the IRP for real! */
     MasterQueryContext->Irp->IoStatus.Status = Status;
-    IoCompleteRequest(MasterQueryContext->Irp, IO_DISK_INCREMENT);
+    IofCompleteRequest(MasterQueryContext->Irp, IO_DISK_INCREMENT);
 
     MasterQueryContext->Irp = NULL;
     MupFreeMasterQueryContext(MasterQueryContext);
@@ -2157,7 +2157,7 @@ CreateRedirectedFile(PIRP Irp,
                     ExReleaseResourceLite(&MasterQueryContext->QueryPathListLock);
 
                     /* Query the provider !*/
-                    DPRINT1("Requesting UNC provider: %wZ\n", &UncProvider->DeviceName);
+                    DPRINT1("Requeting UNC provider: %wZ\n", &UncProvider->DeviceName);
                     DPRINT("Calling: %wZ\n", &UncProvider->DeviceObject->DriverObject->DriverName);
                     Status = IoCallDriver(UncProvider->DeviceObject, QueryIrp);
                 }

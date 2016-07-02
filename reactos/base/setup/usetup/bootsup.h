@@ -26,19 +26,69 @@
 
 #pragma once
 
-BOOLEAN
-IsThereAValidBootSector(PWSTR RootPath);
+NTSTATUS
+CreateFreeLoaderIniForDos(
+    PWCHAR IniPath,
+    PWCHAR ArcPath);
 
 NTSTATUS
-SaveBootSector(
+CreateFreeLoaderIniForReactOS(
+    PWCHAR IniPath,
+    PWCHAR ArcPath);
+
+NTSTATUS
+UpdateFreeLoaderIni(
+    PWCHAR IniPath,
+    PWCHAR ArcPath);
+
+NTSTATUS
+SaveCurrentBootSector(
     PWSTR RootPath,
+    PWSTR DstPath);
+
+NTSTATUS
+InstallFat16BootCodeToFile(
+    PWSTR SrcPath,
     PWSTR DstPath,
-    ULONG Length);
+    PWSTR RootPath);
+
+NTSTATUS
+InstallFat32BootCodeToFile(
+    PWSTR SrcPath,
+    PWSTR DstPath,
+    PWSTR RootPath);
 
 NTSTATUS
 InstallMbrBootCodeToDisk(
     PWSTR SrcPath,
     PWSTR RootPath);
+
+NTSTATUS
+InstallFat16BootCodeToDisk(
+    PWSTR SrcPath,
+    PWSTR RootPath);
+
+NTSTATUS
+InstallFat32BootCodeToDisk(
+    PWSTR SrcPath,
+    PWSTR RootPath);
+
+NTSTATUS
+UpdateBootIni(
+    PWSTR BootIniPath,
+    PWSTR EntryName,
+    PWSTR EntryValue);
+
+BOOLEAN
+CheckInstallFatBootcodeToPartition(
+    PUNICODE_STRING SystemRootPath);
+
+NTSTATUS
+InstallFatBootcodeToPartition(
+    PUNICODE_STRING SystemRootPath,
+    PUNICODE_STRING SourceRootPath,
+    PUNICODE_STRING DestinationArcPath,
+    UCHAR PartitionType);
 
 NTSTATUS
 InstallVBRToPartition(

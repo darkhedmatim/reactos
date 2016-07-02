@@ -114,7 +114,7 @@ FsRtlpOpenDev(OUT PHANDLE DeviceHandle,
 }
 
 VOID
-FsRtlpSetSymbolicLink(IN PCUNICODE_STRING DeviceName)
+FsRtlpSetSymbolicLink(IN PUNICODE_STRING DeviceName)
 {
     NTSTATUS Status;
     UNICODE_STRING UncDevice;
@@ -126,14 +126,14 @@ FsRtlpSetSymbolicLink(IN PCUNICODE_STRING DeviceName)
     IoDeleteSymbolicLink(&UncDevice);
     if (DeviceName != NULL)
     {
-        Status = IoCreateSymbolicLink(&UncDevice, (PUNICODE_STRING)DeviceName);
+        Status = IoCreateSymbolicLink(&UncDevice, DeviceName);
         ASSERT(NT_SUCCESS(Status));
     }
 }
 
 NTSTATUS
 FsRtlpRegisterProviderWithMUP(IN HANDLE MupHandle,
-                              IN PCUNICODE_STRING RedirectorDeviceName,
+                              IN PUNICODE_STRING RedirectorDeviceName,
                               IN BOOLEAN MailslotsSupported)
 {
     NTSTATUS Status;
@@ -278,7 +278,7 @@ FsRtlDeregisterUncProvider(IN HANDLE Handle)
 NTSTATUS
 NTAPI
 FsRtlRegisterUncProvider(OUT PHANDLE Handle,
-                         IN PCUNICODE_STRING RedirectorDeviceName,
+                         IN PUNICODE_STRING RedirectorDeviceName,
                          IN BOOLEAN MailslotsSupported)
 {
     NTSTATUS Status;

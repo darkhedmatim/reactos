@@ -52,7 +52,11 @@ typedef struct emfplus_check_state
 
 static void check_record(int count, const char *desc, const struct emfplus_record *expected, const struct emfplus_record *actual)
 {
-    todo_wine_if (expected->todo)
+    if (expected->todo)
+        todo_wine ok(expected->record_type == actual->record_type,
+            "%s.%i: Expected record type 0x%x, got 0x%x\n", desc, count,
+            expected->record_type, actual->record_type);
+    else
         ok(expected->record_type == actual->record_type,
             "%s.%i: Expected record type 0x%x, got 0x%x\n", desc, count,
             expected->record_type, actual->record_type);
@@ -143,7 +147,9 @@ static void check_emfplus(HENHMETAFILE hemf, const emfplus_record *expected, con
 
     EnumEnhMetaFile(0, hemf, enum_emf_proc, &state, NULL);
 
-    todo_wine_if (expected[state.count].todo)
+    if (expected[state.count].todo)
+        todo_wine ok(expected[state.count].record_type == 0, "%s: Got %i records, expecting more\n", desc, state.count);
+    else
         ok(expected[state.count].record_type == 0, "%s: Got %i records, expecting more\n", desc, state.count);
 }
 
@@ -195,7 +201,9 @@ static void check_metafile(GpMetafile *metafile, const emfplus_record *expected,
         3, src_rect, src_unit, enum_metafile_proc, &state, NULL);
     expect(Ok, stat);
 
-    todo_wine_if (expected[state.count].todo)
+    if (expected[state.count].todo)
+        todo_wine ok(expected[state.count].record_type == 0, "%s: Got %i records, expecting more\n", desc, state.count);
+    else
         ok(expected[state.count].record_type == 0, "%s: Got %i records, expecting more\n", desc, state.count);
 
     GdipDeleteGraphics(graphics);
@@ -213,13 +221,17 @@ static BOOL CALLBACK play_metafile_proc(EmfPlusRecordType record_type, unsigned 
 
     if (state->expected[state->count].record_type)
     {
-        todo_wine_if (state->expected[state->count].playback_todo)
+        if (state->expected[state->count].playback_todo)
+            todo_wine ok(stat == Ok, "%s.%i: GdipPlayMetafileRecord failed with stat %i\n", state->desc, state->count, stat);
+        else
             ok(stat == Ok, "%s.%i: GdipPlayMetafileRecord failed with stat %i\n", state->desc, state->count, stat);
         state->count++;
     }
     else
     {
-        todo_wine_if (state->expected[state->count].playback_todo)
+        if (state->expected[state->count].playback_todo)
+            todo_wine ok(0, "%s: too many records\n", state->desc);
+        else
             ok(0, "%s: too many records\n", state->desc);
 
         return FALSE;
@@ -867,117 +879,6 @@ static void test_fillrect(void)
     expect(Ok, stat);
 }
 
-static void test_nullframerect(void) {
-    GpStatus stat;
-    GpMetafile *metafile;
-    GpGraphics *graphics;
-    HDC hdc, metafile_dc;
-    static const WCHAR description[] = {'w','i','n','e','t','e','s','t',0};
-    GpBrush *brush;
-    HBRUSH hbrush, holdbrush;
-    GpRectF bounds;
-    GpUnit unit;
-
-    hdc = CreateCompatibleDC(0);
-
-    stat = GdipRecordMetafile(hdc, EmfTypeEmfPlusOnly, NULL, MetafileFrameUnitPixel, description, &metafile);
-    expect(Ok, stat);
-
-    DeleteDC(hdc);
-
-    if (stat != Ok)
-        return;
-
-    stat = GdipGetImageBounds((GpImage*)metafile, &bounds, &unit);
-    expect(Ok, stat);
-    expect(UnitPixel, unit);
-    expectf(0.0, bounds.X);
-    expectf(0.0, bounds.Y);
-    expectf(1.0, bounds.Width);
-    expectf(1.0, bounds.Height);
-
-    stat = GdipGetImageGraphicsContext((GpImage*)metafile, &graphics);
-    expect(Ok, stat);
-
-    stat = GdipCreateSolidFill((ARGB)0xff0000ff, (GpSolidFill**)&brush);
-    expect(Ok, stat);
-
-    stat = GdipFillRectangleI(graphics, brush, 25, 25, 75, 75);
-    expect(Ok, stat);
-
-    stat = GdipDeleteBrush(brush);
-    expect(Ok, stat);
-
-    stat = GdipGetImageBounds((GpImage*)metafile, &bounds, &unit);
-    expect(Ok, stat);
-    expect(UnitPixel, unit);
-    expectf(0.0, bounds.X);
-    expectf(0.0, bounds.Y);
-    expectf(1.0, bounds.Width);
-    expectf(1.0, bounds.Height);
-
-    stat = GdipDeleteGraphics(graphics);
-    expect(Ok, stat);
-
-    stat = GdipGetImageBounds((GpImage*)metafile, &bounds, &unit);
-    expect(Ok, stat);
-    expect(UnitPixel, unit);
-    todo_wine expectf_(25.0, bounds.X, 0.05);
-    todo_wine expectf_(25.0, bounds.Y, 0.05);
-    todo_wine expectf_(75.0, bounds.Width, 0.05);
-    todo_wine expectf_(75.0, bounds.Height, 0.05);
-
-    stat = GdipDisposeImage((GpImage*)metafile);
-    expect(Ok, stat);
-
-    hdc = CreateCompatibleDC(0);
-
-    stat = GdipRecordMetafile(hdc, EmfTypeEmfPlusOnly, NULL, MetafileFrameUnitMillimeter, description, &metafile);
-    expect(Ok, stat);
-
-    DeleteDC(hdc);
-
-    stat = GdipGetImageGraphicsContext((GpImage*)metafile, &graphics);
-    expect(Ok, stat);
-
-    stat = GdipGetDC(graphics, &metafile_dc);
-    expect(Ok, stat);
-
-    if (stat != Ok)
-    {
-        GdipDeleteGraphics(graphics);
-        GdipDisposeImage((GpImage*)metafile);
-        return;
-    }
-
-    hbrush = CreateSolidBrush(0xff0000);
-
-    holdbrush = SelectObject(metafile_dc, hbrush);
-
-    Rectangle(metafile_dc, 25, 25, 75, 75);
-
-    SelectObject(metafile_dc, holdbrush);
-
-    DeleteObject(hbrush);
-
-    stat = GdipReleaseDC(graphics, metafile_dc);
-    expect(Ok, stat);
-
-    stat = GdipDeleteGraphics(graphics);
-    expect(Ok, stat);
-
-    stat = GdipGetImageBounds((GpImage*)metafile, &bounds, &unit);
-    expect(Ok, stat);
-    expect(UnitPixel, unit);
-    expectf_(25.0, bounds.X, 0.05);
-    expectf_(25.0, bounds.Y, 0.05);
-    todo_wine expectf_(50.0, bounds.Width, 0.05);
-    todo_wine expectf_(50.0, bounds.Height, 0.05);
-
-    stat = GdipDisposeImage((GpImage*)metafile);
-    expect(Ok, stat);
-}
-
 static const emfplus_record pagetransform_records[] = {
     {0, EMR_HEADER},
     {0, EmfPlusRecordTypeHeader},
@@ -1257,68 +1158,6 @@ static void test_converttoemfplus(void)
     expect(Ok, stat);
 }
 
-static void test_frameunit(void)
-{
-    GpStatus stat;
-    GpMetafile *metafile;
-    GpGraphics *graphics;
-    HDC hdc;
-    static const GpRectF frame = {0.0, 0.0, 5.0, 5.0};
-    static const WCHAR description[] = {'w','i','n','e','t','e','s','t',0};
-    GpUnit unit;
-    REAL dpix, dpiy;
-    GpRectF bounds;
-
-    hdc = CreateCompatibleDC(0);
-
-    stat = GdipRecordMetafile(hdc, EmfTypeEmfPlusOnly, &frame, MetafileFrameUnitInch, description, &metafile);
-    expect(Ok, stat);
-
-    DeleteDC(hdc);
-
-    if (stat != Ok)
-        return;
-
-    stat = GdipGetImageBounds((GpImage*)metafile, &bounds, &unit);
-    expect(Ok, stat);
-    expect(UnitPixel, unit);
-    expectf(0.0, bounds.X);
-    expectf(0.0, bounds.Y);
-    expectf(1.0, bounds.Width);
-    expectf(1.0, bounds.Height);
-
-    stat = GdipGetImageGraphicsContext((GpImage*)metafile, &graphics);
-    expect(Ok, stat);
-
-    stat = GdipGetImageBounds((GpImage*)metafile, &bounds, &unit);
-    expect(Ok, stat);
-    expect(UnitPixel, unit);
-    expectf(0.0, bounds.X);
-    expectf(0.0, bounds.Y);
-    expectf(1.0, bounds.Width);
-    expectf(1.0, bounds.Height);
-
-    stat = GdipDeleteGraphics(graphics);
-    expect(Ok, stat);
-
-    stat = GdipGetImageHorizontalResolution((GpImage*)metafile, &dpix);
-    expect(Ok, stat);
-
-    stat = GdipGetImageVerticalResolution((GpImage*)metafile, &dpiy);
-    expect(Ok, stat);
-
-    stat = GdipGetImageBounds((GpImage*)metafile, &bounds, &unit);
-    expect(Ok, stat);
-    expect(UnitPixel, unit);
-    expectf(0.0, bounds.X);
-    expectf(0.0, bounds.Y);
-    expectf_(5.0 * dpix, bounds.Width, 1.0);
-    expectf_(5.0 * dpiy, bounds.Height, 1.0);
-
-    stat = GdipDisposeImage((GpImage*)metafile);
-    expect(Ok, stat);
-}
-
 START_TEST(metafile)
 {
     struct GdiplusStartupInput gdiplusStartupInput;
@@ -1342,10 +1181,8 @@ START_TEST(metafile)
     test_getdc();
     test_emfonly();
     test_fillrect();
-    test_nullframerect();
     test_pagetransform();
     test_converttoemfplus();
-    test_frameunit();
 
     GdiplusShutdown(gdiplusToken);
 }

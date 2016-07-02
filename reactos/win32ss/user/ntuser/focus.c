@@ -535,9 +535,7 @@ co_IntSetForegroundAndFocusWindow(
    else
    {
        //ERR("Activate Not same PQ and WQ and Wnd.\n");
-       //// CORE-10785 fix hang, ROSTESTS-208 allows test to run.
-       ////  co_IntSendMessage(hWnd, WM_ASYNC_SETACTIVEWINDOW, (WPARAM)Wnd, (LPARAM)MouseActivate );
-       co_IntSendMessageNoWait(hWnd, WM_ASYNC_SETACTIVEWINDOW, (WPARAM)Wnd, (LPARAM)MouseActivate );
+       co_IntSendMessage(hWnd, WM_ASYNC_SETACTIVEWINDOW, (WPARAM)Wnd, (LPARAM)MouseActivate );
        Ret = TRUE;
    }
    return Ret && fgRet;

@@ -10,7 +10,6 @@
 DBG_DEFAULT_CHANNEL(UserDisplay);
 
 BOOL gbBaseVideo = 0;
-static PPROCESSINFO gpFullscreen = NULL;
 
 static const PWCHAR KEY_VIDEO = L"\\Registry\\Machine\\HARDWARE\\DEVICEMAP\\VIDEO";
 
@@ -463,22 +462,34 @@ UserEnumDisplaySettings(
     PGRAPHICS_DEVICE pGraphicsDevice;
     PDEVMODEENTRY pdmentry;
     ULONG i, iFoundMode;
+    PPDEVOBJ ppdev;
 
     TRACE("Enter UserEnumDisplaySettings('%wZ', %lu)\n",
           pustrDevice, iModeNum);
 
     /* Ask GDI for the GRAPHICS_DEVICE */
     pGraphicsDevice = EngpFindGraphicsDevice(pustrDevice, 0, 0);
+    ppdev = EngpGetPDEV(pustrDevice);
 
-    if (!pGraphicsDevice)
+    if (!pGraphicsDevice || !ppdev)
     {
         /* No device found */
         ERR("No device found!\n");
         return STATUS_UNSUCCESSFUL;
     }
 
+    /* let's politely ask the driver for an updated mode list,
+       just in case there's something new in there (vbox) */
+
+    PDEVOBJ_vRefreshModeList(ppdev);
+    PDEVOBJ_vRelease(ppdev);
+
+    /* FIXME: maybe only refresh when iModeNum is bigger than cDevModes? */
     if (iModeNum >= pGraphicsDevice->cDevModes)
+    {
+        ERR("STATUS_NO_MORE_ENTRIES!\n");
         return STATUS_NO_MORE_ENTRIES;
+    }
 
     iFoundMode = 0;
     for (i = 0; i < pGraphicsDevice->cDevModes; i++)
@@ -651,16 +662,6 @@ NtUserEnumDisplaySettings(
     return Status;
 }
 
-VOID
-UserUpdateFullscreen(
-    DWORD flags)
-{
-    if (flags & CDS_FULLSCREEN)
-        gpFullscreen = gptiCurrent->ppi;
-    else
-        gpFullscreen = NULL;
-}
-
 LONG
 APIENTRY
 UserChangeDisplaySettings(
@@ -785,8 +786,6 @@ UserChangeDisplaySettings(
             goto leave;
         }
 
-        UserUpdateFullscreen(flags);
-
         /* Update the system metrics */
         InitMetrics();
 
@@ -820,18 +819,6 @@ leave:
     PDEVOBJ_vRelease(ppdev);
 
     return lResult;
-}
-
-VOID
-UserDisplayNotifyShutdown(
-    PPROCESSINFO ppiCurrent)
-{
-    if (ppiCurrent == gpFullscreen)
-    {
-        UserChangeDisplaySettings(NULL, NULL, 0, NULL);
-        if (gpFullscreen)
-            ERR("Failed to restore display mode!\n");
-    }
 }
 
 LONG

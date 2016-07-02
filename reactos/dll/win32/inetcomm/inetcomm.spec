@@ -42,7 +42,7 @@
 @ stub MimeEditGetBackgroundImageUrl
 @ stub MimeEditIsSafeToRun
 @ stub MimeEditViewSource
-@ stdcall MimeGetAddressFormatW(ptr ptr long long ptr)
+@ stub MimeGetAddressFormatW
 @ stub MimeOleAlgNameFromSMimeCap
 @ stub MimeOleAlgStrengthFromSMimeCap
 @ stub MimeOleClearDirtyTree
@@ -79,7 +79,7 @@
 @ stdcall MimeOleGetInternat(ptr)
 @ stub MimeOleGetPropA
 @ stub MimeOleGetPropW
-@ stdcall MimeOleGetPropertySchema(ptr)
+@ stub MimeOleGetPropertySchema
 @ stub MimeOleGetRelatedSection
 @ stub MimeOleInetDateToFileTime
 @ stub MimeOleObjectFromMoniker

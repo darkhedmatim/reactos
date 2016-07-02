@@ -763,8 +763,7 @@ ImageList_Create (INT cx, INT cy, UINT flags,
 
     TRACE("(%d %d 0x%x %d %d)\n", cx, cy, flags, cInitial, cGrow);
 
-    if (cx < 0 || cy < 0) return NULL;
-    if (!((flags&ILC_COLORDDB) == ILC_COLORDDB) && (cx == 0 || cy == 0)) return NULL;
+    if (cx <= 0 || cy <= 0) return NULL;
 
     /* Create the IImageList interface for the image list */
     if (FAILED(ImageListImpl_CreateInstance(NULL, &IID_IImageList, (void **)&himl)))
@@ -917,7 +916,11 @@ ImageList_DragEnter (HWND hwndLock, INT x, INT y)
     InternalDrag.y = y;
 
     /* draw the drag image and save the background */
-    return ImageList_DragShowNolock(TRUE);
+    if (!ImageList_DragShowNolock(TRUE)) {
+	return FALSE;
+    }
+
+    return TRUE;
 }
 
 
@@ -1229,11 +1232,8 @@ ImageList_DrawEx (HIMAGELIST himl, INT i, HDC hdc, INT x, INT y,
     return ImageList_DrawIndirect (&imldp);
 }
 
-#ifdef __REACTOS__
+
 static BOOL alpha_blend_image( HIMAGELIST himl, HDC srce_dc, HDC dest_dc, int dest_x, int dest_y,
-#else
-static BOOL alpha_blend_image( HIMAGELIST himl, HDC dest_dc, int dest_x, int dest_y,
-#endif
                                int src_x, int src_y, int cx, int cy, BLENDFUNCTION func,
                                UINT style, COLORREF blend_col )
 {
@@ -1258,17 +1258,9 @@ static BOOL alpha_blend_image( HIMAGELIST himl, HDC dest_dc, int dest_x, int des
     info->bmiHeader.biYPelsPerMeter = 0;
     info->bmiHeader.biClrUsed = 0;
     info->bmiHeader.biClrImportant = 0;
-#ifdef __REACTOS__
     if (!(bmp = CreateDIBSection( srce_dc, info, DIB_RGB_COLORS, &bits, 0, 0 ))) goto done;
-#else
-    if (!(bmp = CreateDIBSection( himl->hdcImage, info, DIB_RGB_COLORS, &bits, 0, 0 ))) goto done;
-#endif
     SelectObject( hdc, bmp );
-#ifdef __REACTOS__
     BitBlt( hdc, 0, 0, cx, cy, srce_dc, src_x, src_y, SRCCOPY );
-#else
-    BitBlt( hdc, 0, 0, cx, cy, himl->hdcImage, src_x, src_y, SRCCOPY );
-#endif
 
     if (blend_col != CLR_NONE)
     {
@@ -1341,7 +1333,6 @@ done:
     return ret;
 }
 
-#ifdef __REACTOS__
 HDC saturate_image( HIMAGELIST himl, HDC dest_dc, int dest_x, int dest_y,
                     int src_x, int src_y, int cx, int cy, COLORREF rgbFg)
 {
@@ -1401,7 +1392,6 @@ done:
     /* return the handle to our desaturated dc, that will substitute its original counterpart in the next calls */
     return hdc;
 }
-#endif /* __REACTOS__ */
 
 /*************************************************************************
  * ImageList_DrawIndirect [COMCTL32.@]
@@ -1479,7 +1469,6 @@ ImageList_DrawIndirect (IMAGELISTDRAWPARAMS *pimldp)
     oldImageFg = SetTextColor( hImageDC, RGB( 0, 0, 0 ) );
     oldImageBk = SetBkColor( hImageDC, RGB( 0xff, 0xff, 0xff ) );
 
-#ifdef __REACTOS__
     /*
      * If the ILS_SATURATE bit is enabled we should multiply the
      * RGB colors of the original image by the contents of rgbFg.
@@ -1494,7 +1483,6 @@ ImageList_DrawIndirect (IMAGELISTDRAWPARAMS *pimldp)
         pt.x = 0;
         pt.y = 0;
     }
-#endif
 
     has_alpha = (himl->has_alpha && himl->has_alpha[pimldp->i]);
     if (!bMask && (has_alpha || (fState & ILS_ALPHA)))
@@ -1516,11 +1504,7 @@ ImageList_DrawIndirect (IMAGELISTDRAWPARAMS *pimldp)
 
         if (bIsTransparent)
         {
-#ifdef __REACTOS__
             bResult = alpha_blend_image( himl, hImageListDC, pimldp->hdcDst, pimldp->x, pimldp->y,
-#else
-            bResult = alpha_blend_image( himl, pimldp->hdcDst, pimldp->x, pimldp->y,
-#endif
                                          pt.x, pt.y, cx, cy, func, fStyle, blend_col );
             goto end;
         }
@@ -1530,11 +1514,7 @@ ImageList_DrawIndirect (IMAGELISTDRAWPARAMS *pimldp)
 
         hOldBrush = SelectObject (hImageDC, CreateSolidBrush (colour));
         PatBlt( hImageDC, 0, 0, cx, cy, PATCOPY );
-#ifdef __REACTOS__
         alpha_blend_image( himl, hImageListDC, hImageDC, 0, 0, pt.x, pt.y, cx, cy, func, fStyle, blend_col );
-#else
-        alpha_blend_image( himl, hImageDC, 0, 0, pt.x, pt.y, cx, cy, func, fStyle, blend_col );
-#endif
         DeleteObject (SelectObject (hImageDC, hOldBrush));
         bResult = BitBlt( pimldp->hdcDst, pimldp->x,  pimldp->y, cx, cy, hImageDC, 0, 0, SRCCOPY );
         goto end;
@@ -1628,9 +1608,6 @@ ImageList_DrawIndirect (IMAGELISTDRAWPARAMS *pimldp)
 	}
     }
 
-#ifndef __REACTOS__
-    if (fState & ILS_SATURATE) FIXME("ILS_SATURATE: unimplemented!\n");
-#endif
     if (fState & ILS_GLOW) FIXME("ILS_GLOW: unimplemented!\n");
     if (fState & ILS_SHADOW) FIXME("ILS_SHADOW: unimplemented!\n");
 
@@ -1914,6 +1891,8 @@ BOOL WINAPI
 ImageList_GetIconSize (HIMAGELIST himl, INT *cx, INT *cy)
 {
     if (!is_valid(himl) || !cx || !cy)
+	return FALSE;
+    if ((himl->cx <= 0) || (himl->cy <= 0))
 	return FALSE;
 
     *cx = himl->cx;

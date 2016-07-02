@@ -131,62 +131,6 @@ Quickie:
     return Status;
 }
 
-NTSTATUS
-NTAPI
-BasepProbeForDllManifest(IN PVOID DllHandle,
-                         IN PCWSTR FullDllName,
-                         OUT PVOID *ActCtx)
-{
-    NTSTATUS Status = STATUS_SUCCESS;
-    LDR_RESOURCE_INFO Info;
-    IMAGE_RESOURCE_DATA_ENTRY *Entry;
-    ACTCTXW Context;
-    HANDLE Result;
-
-    /* Check if activation context parameter is provided */
-    if (!ActCtx)
-    {
-        ASSERT(FALSE);
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    /* Zero it out */
-    *ActCtx = NULL;
-
-    /* Check whether the image has manifest resource associated with it */
-    Info.Type = (ULONG)RT_MANIFEST;
-    Info.Name = (ULONG)ISOLATIONAWARE_MANIFEST_RESOURCE_ID;
-    Info.Language = 0;
-    if (!(Status = LdrFindResource_U(DllHandle, &Info, 3, &Entry)))
-    {
-        /* Create the activation context */
-        Context.cbSize = sizeof(Context);
-        Context.lpSource = FullDllName;
-        Context.dwFlags = ACTCTX_FLAG_RESOURCE_NAME_VALID | ACTCTX_FLAG_HMODULE_VALID;
-        Context.hModule = DllHandle;
-        Context.lpResourceName = (LPCWSTR)ISOLATIONAWARE_MANIFEST_RESOURCE_ID;
-
-        Status = RtlCreateActivationContext(0, (PVOID)&Context, 0, NULL, NULL, &Result);
-
-        /* Store activation context pointer if it was created successfully */
-        if (NT_SUCCESS(Status)) *ActCtx = Result;
-
-        /* CORE-10843: Windows always returns this since we pass the wrong struct */
-        if (Status == STATUS_SXS_INVALID_ACTCTXDATA_FORMAT)
-        {
-            /* Fake "Manifest not found" so the load doesn't fail  */
-            static int Once;
-            if (Once++)
-            {
-                DPRINT1("HACK: Passed invalid ACTIVATION_CONTEXT_DATA!\n");
-            }
-            Status = STATUS_RESOURCE_DATA_NOT_FOUND;
-        }
-    }
-
-    return Status;
-}
-
 /* PUBLIC FUNCTIONS **********************************************************/
 
 /*

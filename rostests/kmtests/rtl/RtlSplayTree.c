@@ -60,9 +60,7 @@ static void RtlSplayTreeTest()
              sizeof(Text[i]),
              &WasNew);
         ok(Ch && *Ch == Text[i], "Copy character into node\n");
-        ok(WasNew == (NewE[i] == '1'),
-           "Character newness didn't match for char %u: '%c'\n",
-           i, Text[i]);
+        ok(WasNew == (NewE[i] == '1'), "Character newness didn't match\n");
     }
     for (Ch = (PCHAR)RtlEnumerateGenericTable(&Table, TRUE), i = 0;
          Ch;

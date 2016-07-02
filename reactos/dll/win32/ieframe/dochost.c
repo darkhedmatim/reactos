@@ -73,7 +73,7 @@ void abort_dochost_tasks(DocHost *This, task_proc_t proc)
     }
 }
 
-void on_commandstate_change(DocHost *doc_host, LONG command, BOOL enable)
+void on_commandstate_change(DocHost *doc_host, LONG command, VARIANT_BOOL enable)
 {
     DISPPARAMS dispparams;
     VARIANTARG params[2];
@@ -648,13 +648,13 @@ static HRESULT WINAPI ClOleCommandTarget_QueryStatus(IOleCommandTarget *iface,
         const GUID *pguidCmdGroup, ULONG cCmds, OLECMD prgCmds[], OLECMDTEXT *pCmdText)
 {
     DocHost *This = impl_from_IOleCommandTarget(iface);
-    ULONG i;
-
-    TRACE("(%p)->(%s %u %p %p)\n", This, debugstr_guid(pguidCmdGroup), cCmds, prgCmds,
+    ULONG i= 0;
+    FIXME("(%p)->(%s %u %p %p)\n", This, debugstr_guid(pguidCmdGroup), cCmds, prgCmds,
           pCmdText);
-    for(i=0; prgCmds && i < cCmds; i++)
-        TRACE("unsupported command %u (%x)\n", prgCmds[i].cmdID, prgCmds[i].cmdf);
-
+    while (prgCmds && (cCmds > i)) {
+        FIXME("command_%u: %u, 0x%x\n", i, prgCmds[i].cmdID, prgCmds[i].cmdf);
+        i++;
+    }
     return E_NOTIMPL;
 }
 
@@ -683,7 +683,7 @@ static HRESULT WINAPI ClOleCommandTarget_Exec(IOleCommandTarget *iface,
             notify_download_state(This, V_I4(pvaIn));
             return S_OK;
         default:
-            TRACE("Unimplemented cmdid %d\n", nCmdID);
+            FIXME("Unimplemented cmdid %d\n", nCmdID);
             return E_NOTIMPL;
         }
     }
@@ -735,7 +735,7 @@ static HRESULT WINAPI ClOleCommandTarget_Exec(IOleCommandTarget *iface,
         }
 
         default:
-            TRACE("unsupported command %d of CGID_DocHostCmdPriv\n", nCmdID);
+            FIXME("unsupported command %d of CGID_DocHostCmdPriv\n", nCmdID);
             return E_NOTIMPL;
         }
     }
@@ -748,7 +748,7 @@ static HRESULT WINAPI ClOleCommandTarget_Exec(IOleCommandTarget *iface,
             return S_OK;
 
         default:
-            TRACE("Unimplemented cmdid %d of CGID_Explorer\n", nCmdID);
+            FIXME("Unimplemented cmdid %d of CGID_Explorer\n", nCmdID);
             return E_NOTIMPL;
         }
     }
@@ -756,7 +756,7 @@ static HRESULT WINAPI ClOleCommandTarget_Exec(IOleCommandTarget *iface,
     if(IsEqualGUID(pguidCmdGroup, &CGID_ShellDocView)) {
         switch(nCmdID) {
         default:
-            TRACE("Unimplemented cmdid %d of CGID_ShellDocView\n", nCmdID);
+            FIXME("Unimplemented cmdid %d of CGID_ShellDocView\n", nCmdID);
             return E_NOTIMPL;
         }
     }
@@ -767,7 +767,7 @@ static HRESULT WINAPI ClOleCommandTarget_Exec(IOleCommandTarget *iface,
         return IOleCommandTarget_Exec(This->olecmd, pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
     }
 
-    TRACE("Unimplemented cmdid %d of group %s\n", nCmdID, debugstr_guid(pguidCmdGroup));
+    FIXME("Unimplemented cmdid %d of group %s\n", nCmdID, debugstr_guid(pguidCmdGroup));
     return E_NOTIMPL;
 }
 

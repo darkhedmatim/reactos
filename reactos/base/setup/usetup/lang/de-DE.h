@@ -820,7 +820,7 @@ static MUI_ENTRY deDESelectPartitionEntries[] =
     }
 };
 
-static MUI_ENTRY deDEConfirmDeleteSystemPartitionEntries[] =
+static MUI_ENTRY deDEConfirmDeletePartitionEntries[] =
 {
     {
         4,
@@ -831,13 +831,13 @@ static MUI_ENTRY deDEConfirmDeleteSystemPartitionEntries[] =
     {
         6,
         8,
-        "You have chosen to delete the system partition.",
+        "You asked Setup to delete the system partition.",
         TEXT_STYLE_NORMAL
     },
     {
         6,
         10,
-        "System partitions can contain diagnostic programs, hardware configuration",
+        "System partitions can contain diagnose programs, hardware configuration",
         TEXT_STYLE_NORMAL
     },
     {
@@ -861,7 +861,7 @@ static MUI_ENTRY deDEConfirmDeleteSystemPartitionEntries[] =
     {
         6,
         15,
-        "programs on the partition, or when you are sure you want to delete them.",
+        "programs on the partiton, or when you are sure you want to delete them.",
         TEXT_STYLE_NORMAL
     },
     {
@@ -1651,7 +1651,7 @@ MUI_PAGE deDEPages[] =
     },
     {
         CONFIRM_DELETE_SYSTEM_PARTITION_PAGE,
-        deDEConfirmDeleteSystemPartitionEntries
+        deDEConfirmDeletePartitionEntries
     },
     {
         SELECT_FILE_SYSTEM_PAGE,
@@ -1747,8 +1747,6 @@ MUI_STRING deDEStrings[] =
     "ReactOS wird auf dieser Partition installiert."},
     {STRING_CHECKINGPART,
     "Die ausgewÑhlte Partition wird ÅberprÅft."},
-    {STRING_CONTINUE,
-    "EINGABETASTE = Fortsetzen"},
     {STRING_QUITCONTINUE,
     "F3 = Beenden  EINGABETASTE = Fortsetzen"},
     {STRING_REBOOTCOMPUTER,
@@ -1796,7 +1794,7 @@ MUI_STRING deDEStrings[] =
     {STRING_HDDINFOUNK1,
     "%I64u %s  Festplatte %lu  (Port=%hu, Bus=%hu, Id=%hu)."},
     {STRING_HDDINFOUNK2,
-    "   %c%c  Typ 0x%02X    %I64u %s"},
+    "   %c%c  Typ %lu    %I64u %s"},
     {STRING_HDINFOPARTDELETE,
     "auf %I64u %s  Festplatte %lu  (Port=%hu, Bus=%hu, Id=%hu) auf %wZ."},
     {STRING_HDDINFOUNK3,
@@ -1804,7 +1802,7 @@ MUI_STRING deDEStrings[] =
     {STRING_HDINFOPARTZEROED,
     "Festplatte %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK4,
-    "%c%c  Typ 0x%02X    %I64u %s"},
+    "%c%c  Typ %lu    %I64u %s"},
     {STRING_HDINFOPARTEXISTS,
     "auf Festplatte %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK5,

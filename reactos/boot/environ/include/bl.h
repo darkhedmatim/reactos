@@ -1,10 +1,10 @@
-/*
+/*b
  * COPYRIGHT:       See COPYING.ARM in the top level directory
  * PROJECT:         ReactOS UEFI Boot Library
  * FILE:            boot/environ/include/bl.h
  * PURPOSE:         Main Boot Library Header
  * PROGRAMMER:      Alex Ionescu (alex.ionescu@reactos.org)
- */
+*/
 
 #ifndef _BL_H
 #define _BL_H
@@ -22,15 +22,6 @@
 /* NDK Headers */
 #include <ntndk.h>
 
-/* NT SafeInt Header */
-#include <ntintsafe.h>
-
-/* PE Headers */
-#include <ntimage.h>
-
-/* ACPI Headers */
-#include <drivers/acpi/acpi.h>
-
 /* UEFI Headers */
 #include <Uefi.h>
 #include <DevicePath.h>
@@ -38,16 +29,12 @@
 #include <GraphicsOutput.h>
 #include <UgaDraw.h>
 #include <BlockIo.h>
-#include <Acpi.h>
-#include <GlobalVariable.h>
 
 /* Registry Headers */
 #define __FREELDR_H
 #include <cmlib.h>
 
 /* DEFINES *******************************************************************/
-
-DEFINE_GUID(BadMemoryGuid, 0x54B8275B, 0xD431, 0x473F, 0xAC, 0xFB, 0xE5, 0x36, 0xA0, 0x84, 0x94, 0xA3);
 
 #define BL_APPLICATION_FLAG_CONVERTED_FROM_EFI          0x01
 
@@ -64,22 +51,8 @@ DEFINE_GUID(BadMemoryGuid, 0x54B8275B, 0xD431, 0x473F, 0xAC, 0xFB, 0xE5, 0x36, 0
 #define BL_RETURN_ARGUMENTS_VERSION                     1
 #define BL_FIRMWARE_DESCRIPTOR_VERSION                  2
 
-#define BL_RETURN_ARGUMENTS_NO_PAE_FLAG                 0x40
-
 #define BL_APPLICATION_ENTRY_FLAG_NO_GUID               0x01
-#define BL_APPLICATION_ENTRY_BCD_OPTIONS_INTERNAL       0x02
-#define BL_APPLICATION_ENTRY_WINLOAD                    0x04
-#define BL_APPLICATION_ENTRY_STARTUP                    0x08
 #define BL_APPLICATION_ENTRY_REBOOT_ON_ERROR            0x20
-#define BL_APPLICATION_ENTRY_NTLDR                      0x40
-#define BL_APPLICATION_ENTRY_BCD_OPTIONS_EXTERNAL       0x80
-#define BL_APPLICATION_ENTRY_WINRESUME                  0x100
-#define BL_APPLICATION_ENTRY_SETUPLDR                   0x200
-#define BL_APPLICATION_ENTRY_BOOTSECTOR                 0x400
-#define BL_APPLICATION_ENTRY_BOOTMGR                    0x1000
-#define BL_APPLICATION_ENTRY_DISPLAY_ORDER              0x800000
-#define BL_APPLICATION_ENTRY_FIXED_SEQUENCE             0x20000000
-#define BL_APPLICATION_ENTRY_RECOVERY                   0x40000000
 
 #define BL_CONTEXT_PAGING_ON                            1
 #define BL_CONTEXT_INTERRUPTS_ON                        2
@@ -113,8 +86,6 @@ DEFINE_GUID(BadMemoryGuid, 0x54B8275B, 0xD431, 0x473F, 0xAC, 0xFB, 0xE5, 0x36, 0
 #define BL_FS_REGISTER_AT_HEAD_FLAG                     1
 
 #define BL_BLOCK_DEVICE_REMOVABLE_FLAG                  0x01
-#define BL_BLOCK_DEVICE_PRESENT_FLAG                    0x02
-#define BL_BLOCK_DEVICE_VIRTUAL_FLAG                    0x04
 
 #define BL_MEMORY_CLASS_SHIFT                           28
 
@@ -134,9 +105,6 @@ DEFINE_GUID(BadMemoryGuid, 0x54B8275B, 0xD431, 0x473F, 0xAC, 0xFB, 0xE5, 0x36, 0
 #define BL_FILE_ENTRY_READ_ACCESS                       0x02
 #define BL_FILE_ENTRY_WRITE_ACCESS                      0x04
 #define BL_FILE_ENTRY_UNKNOWN_ACCESS                    0x10
-#define BL_FILE_ENTRY_DIRECTORY                         0x10000
-
-#define BL_ETFS_FILE_ENTRY_DIRECTORY                    0x01
 
 #define BL_IMG_VALID_FILE                               0x01
 #define BL_IMG_MEMORY_FILE                              0x02
@@ -147,23 +115,6 @@ DEFINE_GUID(BadMemoryGuid, 0x54B8275B, 0xD431, 0x473F, 0xAC, 0xFB, 0xE5, 0x36, 0
 #define BL_LOAD_IMG_UNKNOWN_BUFFER_FLAG                 0x08
 #define BL_LOAD_IMG_COMPUTE_SIGNATURE                   0x10
 #define BL_LOAD_IMG_COMPUTE_HASH                        0x40000
-
-#define BL_LOAD_PE_IMG_VIRTUAL_BUFFER                   BL_LOAD_IMG_VIRTUAL_BUFFER
-#define BL_LOAD_PE_IMG_CHECK_MACHINE                    0x02
-#define BL_LOAD_PE_IMG_EXISTING_BUFFER                  BL_LOAD_IMG_EXISTING_BUFFER 
-#define BL_LOAD_PE_IMG_COMPUTE_HASH                     0x10
-#define BL_LOAD_PE_IMG_CHECK_SUBSYSTEM                  0x80
-#define BL_LOAD_PE_IMG_SKIP_RELOCATIONS                 0x100
-#define BL_LOAD_PE_IMG_CHECK_FORCED_INTEGRITY           0x200
-#define BL_LOAD_PE_IMG_IGNORE_CHECKSUM_MISMATCH         0x10000
-#define BL_LOAD_PE_IMG_VALIDATE_ORIGINAL_FILENAME       0x400000
-
-
-#define BL_UTL_CHECKSUM_COMPLEMENT                      0x10000
-#define BL_UTL_CHECKSUM_ROTATE                          0x20000
-#define BL_UTL_CHECKSUM_NEGATE                          0x40000
-#define BL_UTL_CHECKSUM_UCHAR_BUFFER                    0x01
-#define BL_UTL_CHECKSUM_USHORT_BUFFER                   0x02
 
 /* ENUMERATIONS **************************************************************/
 
@@ -186,12 +137,6 @@ typedef enum _BL_COLOR
     Yellow,
     White
 } BL_COLOR, *PBL_COLOR;
-
-typedef enum _BL_MENU_POLICY
-{
-    MenuPolicyLegacy = 0,
-    MenuPolicyStandard = 1
-} BL_MENU_POLICY;
 
 typedef enum _BL_MEMORY_DESCRIPTOR_TYPE
 {
@@ -291,7 +236,6 @@ typedef enum _BL_MEMORY_TYPE
     //
     // Application Memory
     //
-    BlApplicationReserved = 0xE0000001,
     BlApplicationData = 0xE0000004,
 
     //
@@ -334,11 +278,9 @@ typedef enum _BL_MEMORY_ATTR
     //
     // Memory Allocation Attributes
     //
-    BlMemoryUnknown =           0x00010000,
     BlMemoryNonFixed =          0x00020000,
     BlMemoryFixed =             0x00040000,
-    BlMemoryReserved =          0x00080000,
-    BlMemoryValidAllocationAttributes       = BlMemoryNonFixed | BlMemoryFixed | BlMemoryReserved | BlMemoryUnknown,
+    BlMemoryValidAllocationAttributes       = BlMemoryNonFixed | BlMemoryFixed,
     BlMemoryValidAllocationAttributeMask    = 0x00FF0000,
 
     //
@@ -442,12 +384,8 @@ NTSTATUS
 
 struct _BL_TEXT_CONSOLE;
 struct _BL_DISPLAY_STATE;
-struct _BL_DISPLAY_MODE;
-struct _BL_INPUT_CONSOLE;
-struct _BL_REMOTE_CONSOLE;
-struct _BL_GRAPHICS_CONSOLE;
 typedef
-VOID
+NTSTATUS
 (*PCONSOLE_DESTRUCT) (
     _In_ struct _BL_TEXT_CONSOLE* Console
     );
@@ -492,35 +430,8 @@ typedef
 NTSTATUS
 (*PCONSOLE_CLEAR_TEXT) (
     _In_ struct _BL_TEXT_CONSOLE* Console,
-    _In_ BOOLEAN LineOnly
+    _In_ ULONG Attribute
     );
-
-typedef
-BOOLEAN
-(*PCONSOLE_IS_ENABLED) (
-    _In_ struct _BL_GRAPHICS_CONSOLE* Console
-    );
-
-typedef
-NTSTATUS
-(*PCONSOLE_GET_GRAPHICAL_RESOLUTION) (
-    _In_ struct _BL_GRAPHICS_CONSOLE* Console,
-    _Out_ struct _BL_DISPLAY_MODE* DisplayMode
-    );
-
-typedef
-NTSTATUS
-(*PCONSOLE_SET_GRAPHICAL_RESOLUTION) (
-    _In_ struct _BL_GRAPHICS_CONSOLE* Console,
-    _In_ struct _BL_DISPLAY_MODE DisplayMode
-    );
-
-typedef
-NTSTATUS
-(*PCONSOLE_ENABLE) (
-    _In_ struct _BL_GRAPHICS_CONSOLE* Console,
-    _In_ BOOLEAN Enable
-);
 
 typedef
 NTSTATUS
@@ -710,9 +621,7 @@ typedef struct _BL_RETURN_ARGUMENTS
 {
     ULONG Version;
     NTSTATUS Status;
-    ULONG Flags;
-    ULONGLONG DataSize;
-    ULONGLONG DataPage;
+    ULONG ReturnArgumentData[5];
 } BL_RETURN_ARGUMENTS, *PBL_RETURN_ARGUMENTS;
 
 typedef struct _BL_MEMORY_DESCRIPTOR
@@ -762,37 +671,6 @@ typedef struct _BL_LOADED_APPLICATION_ENTRY
     PBL_BCD_OPTION BcdData;
 } BL_LOADED_APPLICATION_ENTRY, *PBL_LOADED_APPLICATION_ENTRY;
 
-typedef struct _BL_MENU_STATUS
-{
-    union
-    {
-        struct
-        {
-            ULONG AnyKey : 1;
-            ULONG AdvancedOptions : 1;
-            ULONG BootOptions : 1;
-            ULONG OemKey : 1;
-            ULONG Exit : 1;
-            ULONG Reserved : 27;
-        };
-        ULONG AsULong;
-    };
-    ULONG BootIndex;
-    WCHAR KeyValue;
-} BL_MENU_STATUS, *PL_MENU_STATUS;
-
-typedef enum _BL_BOOT_ERROR_STATUS
-{
-    Reboot = 1,
-    Recover = 2,
-    RecoverOem = 3,
-    OsSelection = 4,
-    NextOs = 5,
-    TryAgain = 6,
-    AdvancedOptions = 7,
-    BootOptions = 8
-} BL_BOOT_ERROR_STATUS;
-
 typedef struct _BL_HARDDISK_DEVICE
 {
     ULONG PartitionType;
@@ -833,16 +711,14 @@ typedef struct _BL_LOCAL_DEVICE
             LARGE_INTEGER ImageSize;
             ULONG ImageOffset;
         } RamDisk;
-
-        ULONG File; // unknown for now
     };
-} BL_LOCAL_DEVICE, *PBL_LOCAL_DEVICE;
+} BL_LOCAL_DEVICE;
 
 typedef struct _BL_DEVICE_DESCRIPTOR
 {
-    DEVICE_TYPE DeviceType;
-    ULONG Flags;
     ULONG Size;
+    ULONG Flags;
+    DEVICE_TYPE DeviceType;
     ULONG Unknown;
     union
     {
@@ -989,12 +865,6 @@ typedef struct _BL_TEXT_CONSOLE_VTABLE
 typedef struct _BL_GRAPHICS_CONSOLE_VTABLE
 {
     BL_TEXT_CONSOLE_VTABLE Text;
-    PCONSOLE_IS_ENABLED IsEnabled;
-    PCONSOLE_ENABLE Enable;
-    PVOID GetConsoleResolution;
-    PCONSOLE_GET_GRAPHICAL_RESOLUTION GetGraphicalResolution;
-    PCONSOLE_GET_GRAPHICAL_RESOLUTION GetOriginalResolution;
-    PCONSOLE_SET_GRAPHICAL_RESOLUTION SetOriginalResolution;
     /// more for graphics ///
 } BL_GRAPHICS_CONSOLE_VTABLE, *PBL_GRAPHICS_CONSOLE_VTABLE;
 
@@ -1008,25 +878,6 @@ typedef struct _BL_TEXT_CONSOLE
     ULONG Mode;
     EFI_SIMPLE_TEXT_OUTPUT_MODE OldMode;
 } BL_TEXT_CONSOLE, *PBL_TEXT_CONSOLE;
-
-typedef struct _BL_INPUT_CONSOLE_VTABLE
-{
-    PCONSOLE_DESTRUCT Destruct;
-    PCONSOLE_REINITIALIZE Reinitialize;
-    //PCONSOLE_IS_KEY_PENDING IsKeyPending;
-    //PCONSOLE_READ_INPUT ReadInput;
-    //PCONSOLE_ERASE_BUFFER EraseBuffer;
-    //PCONSOLE_FILL_BUFFER FillBuffer;
-} BL_INPUT_CONSOLE_VTABLE, *PBL_INPUT_CONSOLE_VTABLE;
-
-typedef struct _BL_INPUT_CONSOLE
-{
-    PBL_INPUT_CONSOLE_VTABLE Callbacks;
-    PULONG Buffer;
-    PULONG DataStart;
-    PULONG DataEnd;
-    PULONG EndBuffer;
-} BL_INPUT_CONSOLE, *PBL_INPUT_CONSOLE;
 
 typedef enum _BL_GRAPHICS_CONSOLE_TYPE
 {
@@ -1173,66 +1024,6 @@ typedef struct _BL_IMG_FILE
     PWCHAR FileName;
 } BL_IMG_FILE, *PBL_IMG_FILE;
 
-typedef struct _BL_IMAGE_APPLICATION_ENTRY
-{
-    PBL_APPLICATION_ENTRY AppEntry;
-    PVOID ImageBase;
-    ULONG ImageSize;
-} BL_IMAGE_APPLICATION_ENTRY, *PBL_IMAGE_APPLICATION_ENTRY;
-
-typedef struct _BL_DEFERRED_FONT_FILE
-{
-    LIST_ENTRY ListEntry;
-    ULONG Flags;
-    PBL_DEVICE_DESCRIPTOR Device;
-    PWCHAR FontPath;
-} BL_DEFERRED_FONT_FILE, *PBL_DEFERRED_FONT_FILE;
-
-#pragma pack(push)
-#pragma pack(1)
-typedef struct _BMP_HEADER
-{
-    USHORT Signature;
-    ULONG Size;
-    USHORT Reserved[2];
-    ULONG Offset;
-} BMP_HEADER, *PBMP_HEADER;
-
-typedef struct _DIB_HEADER
-{
-    ULONG Size;
-    ULONG Width;
-    ULONG Height;
-    USHORT Planes;
-    USHORT BitCount;
-    ULONG Compression;
-    ULONG SizeImage;
-    ULONG XPelsPerMeter;
-    ULONG YPelsPerMEter;
-    ULONG ClrUsed;
-    ULONG ClrImportant;
-} DIB_HEADER, *PDIB_HEADER;
-
-typedef struct _BITMAP
-{
-    BMP_HEADER BmpHeader;
-    DIB_HEADER DibHeader;
-} BITMAP, *PBITMAP;
-#pragma pack(pop)
-
-typedef struct _COORD
-{
-    ULONG X;
-    ULONG Y;
-} COORD, *PCOORD;
-
-typedef struct _BL_PD_DATA_BLOB
-{
-    PVOID Data;
-    ULONG DataSize;
-    ULONG BlobSize;
-} BL_PD_DATA_BLOB, *PBL_PD_DATA_BLOB;
-
 /* INLINE ROUTINES ***********************************************************/
 
 FORCEINLINE
@@ -1346,11 +1137,6 @@ BlpDisplayInitialize (
     _In_ ULONG Flags
     );
 
-NTSTATUS
-BlpDisplayReinitialize (
-    VOID
-    );
-
 VOID
 BlDestroyLibrary (
     VOID
@@ -1370,11 +1156,6 @@ EfiPrintf (
     );
 
 NTSTATUS
-BlFwEnumerateDevice (
-    _In_ PBL_DEVICE_DESCRIPTOR Device
-    );
-
-NTSTATUS
 EfiAllocatePages (
     _In_ ULONG Type,
     _In_ ULONG Pages,
@@ -1384,22 +1165,6 @@ EfiAllocatePages (
 NTSTATUS
 EfiStall (
     _In_ ULONG StallTime
-    );
-
-NTSTATUS
-EfiConInExReset (
-    VOID
-    );
-
-NTSTATUS
-EfiConInReset (
-    VOID
-    );
-
-NTSTATUS
-EfiConOutOutputString (
-    _In_ SIMPLE_TEXT_OUTPUT_INTERFACE *TextInterface,
-    _In_ PWCHAR String
     );
 
 NTSTATUS
@@ -1498,56 +1263,11 @@ EfiIsDevicePathParent (
     _In_ EFI_DEVICE_PATH *DevicePath2
     );
 
-NTSTATUS
-EfipGetRsdt (
-    _Out_ PPHYSICAL_ADDRESS FoundRsdt
-    );
-
 /* PLATFORM TIMER ROUTINES ***************************************************/
 
 NTSTATUS
 BlpTimeCalibratePerformanceCounter (
     VOID
-    );
-
-ULONGLONG
-BlTimeQueryPerformanceCounter (
-    _Out_opt_ PLARGE_INTEGER Frequency
-    );
-
-/* RESOURCE LOCALE INTERNATIONALIZATION ROUTINES *****************************/
-
-NTSTATUS
-BlpDisplayRegisterLocale (
-    _In_ PWCHAR Locale
-    );
-
-/* FONT ROUTINES *************************************************************/
-
-VOID
-BfiFreeDeferredFontFile (
-    _In_ PBL_DEFERRED_FONT_FILE DeferredFontFile
-    );
-
-NTSTATUS
-BfLoadFontFile (
-    _In_ PBL_DEVICE_DESCRIPTOR Device,
-    _In_ PWCHAR FontPath
-    );
-
-NTSTATUS
-BfLoadDeferredFontFiles (
-    VOID
-    );
-
-NTSTATUS
-BfClearScreen  (
-    _In_ PBL_GRAPHICS_CONSOLE Console
-    );
-
-NTSTATUS
-BfClearToEndOfLine (
-    _In_ PBL_GRAPHICS_CONSOLE Console
     );
 
 /* FILESYSTEM ROUTINES *******************************************************/
@@ -1614,50 +1334,6 @@ BlUtlUpdateProgress (
     _Out_opt_ PBOOLEAN Completed
     );
 
-NTSTATUS
-BlUtlGetAcpiTable (
-    _Out_ PVOID* TableAddress,
-    _In_ ULONG Signature
-    );
-
-NTSTATUS
-BlUtlInitialize (
-    VOID
-    );
-
-NTSTATUS
-BlUtlRegisterProgressRoutine (
-    VOID
-    );
-
-ULONG
-BlUtlCheckSum (
-    _In_ ULONG PartialSum,
-    _In_ PUCHAR Buffer,
-    _In_ ULONG Length,
-    _In_ ULONG Flags
-    );
-
-NTSTATUS
-BlGetApplicationBaseAndSize (
-    _Out_ PVOID* ImageBase,
-    _Out_ PULONG ImageSize
-    );
-
-VOID
-BlDestroyBootEntry (
-    _In_ PBL_LOADED_APPLICATION_ENTRY AppEntry
-    );
-
-NTSTATUS
-BlPdQueryData (
-    _In_ const GUID* DataGuid,
-    _In_ PVOID Unknown,
-    _Inout_ PBL_PD_DATA_BLOB DataBlob
-    );
-
-/* FIRMWARE UTILITY ROUTINES *************************************************/
-
 EFI_STATUS
 EfiGetEfiStatusCode(
     _In_ NTSTATUS Status
@@ -1666,6 +1342,11 @@ EfiGetEfiStatusCode(
 NTSTATUS
 EfiGetNtStatusCode (
     _In_ EFI_STATUS EfiStatus
+    );
+
+NTSTATUS
+BlUtlInitialize (
+    VOID
     );
 
 VOID
@@ -1678,36 +1359,9 @@ BlGetApplicationIdentifier (
     VOID
     );
 
-NTSTATUS
-BlpSecureBootEFIIsEnabled (
-    VOID
-    );
-
-NTSTATUS
-BlSecureBootIsEnabled (
-    _Out_ PBOOLEAN SecureBootEnabled
-    );
-
-NTSTATUS
-BlSecureBootCheckForFactoryReset (
-    VOID
-    );
-
-/* RESOURCE ROUTINES *********************************************************/
-
 PWCHAR
 BlResourceFindMessage (
     _In_ ULONG MsgId
-    );
-
-PWCHAR
-BlResourceFindHtml (
-    VOID
-    );
-
-NTSTATUS
-BlpResourceInitialize (
-    VOID
     );
 
 /* TABLE ROUTINES ************************************************************/
@@ -1770,18 +1424,7 @@ BlHtCreate (
     _Out_ PULONG Id
     );
 
-/* BCD OPTION ROUTINES *******************************************************/
-
-PBL_BCD_OPTION
-MiscGetBootOption (
-    _In_ PBL_BCD_OPTION List,
-    _In_ ULONG Type
-    );
-
-ULONG
-BlGetBootOptionListSize (
-    _In_ PBL_BCD_OPTION BcdOption
-    );
+/* BCD ROUTINES **************************************************************/
 
 ULONG
 BlGetBootOptionSize (
@@ -1810,124 +1453,11 @@ BlGetBootOptionBoolean (
     );
 
 NTSTATUS
-BlpGetBootOptionIntegerList (
-    _In_ PBL_BCD_OPTION List,
-    _In_ ULONG Type,
-    _Out_ PULONGLONG* Value,
-    _Out_ PULONGLONG Count,
-    _In_ BOOLEAN NoCopy
-    );
-
-NTSTATUS
 BlGetBootOptionDevice (
     _In_ PBL_BCD_OPTION List,
     _In_ ULONG Type,
     _Out_ PBL_DEVICE_DESCRIPTOR* Value,
     _In_opt_ PBL_BCD_OPTION* ExtraOptions
-    );
-
-NTSTATUS
-BlGetBootOptionGuid (
-    _In_ PBL_BCD_OPTION List,
-    _In_ ULONG Type,
-    _Out_ PGUID Value
-    );
-
-NTSTATUS
-BlGetBootOptionGuidList (
-    _In_ PBL_BCD_OPTION List,
-    _In_ ULONG Type,
-    _Out_ PGUID *Value,
-    _In_ PULONG Count
-    );
-
-NTSTATUS
-BlCopyBootOptions (
-    _In_ PBL_BCD_OPTION OptionList,
-    _Out_ PBL_BCD_OPTION *CopiedOptions
-    );
-
-NTSTATUS
-BlAppendBootOptionBoolean (
-    _In_ PBL_LOADED_APPLICATION_ENTRY AppEntry,
-    _In_ ULONG OptionId
-    );
-
-NTSTATUS
-BlAppendBootOptionInteger (
-    _In_ PBL_LOADED_APPLICATION_ENTRY AppEntry,
-    _In_ ULONG OptionId,
-    _In_ ULONGLONG Value
-    );
-
-NTSTATUS
-BlAppendBootOptionString (
-    _In_ PBL_LOADED_APPLICATION_ENTRY AppEntry,
-    _In_ PWCHAR OptionString
-    );
-
-NTSTATUS
-BlAppendBootOptions (
-    _In_ PBL_LOADED_APPLICATION_ENTRY AppEntry,
-    _In_ PBL_BCD_OPTION Options
-    );
-
-VOID
-BlRemoveBootOption (
-    _In_ PBL_BCD_OPTION List,
-    _In_ ULONG Type
-    );
-
-NTSTATUS
-BlReplaceBootOptions (
-    _In_ PBL_LOADED_APPLICATION_ENTRY AppEntry,
-    _In_ PBL_BCD_OPTION NewOptions
-    );
-
-/* BOOT REGISTRY ROUTINES ****************************************************/
-
-VOID
-BiCloseKey (
-    _In_ HANDLE KeyHandle
-    );
-
-NTSTATUS
-BiOpenKey(
-    _In_ HANDLE ParentHandle,
-    _In_ PWCHAR KeyName,
-    _Out_ PHANDLE Handle
-    );
-
-NTSTATUS
-BiLoadHive (
-    _In_ PBL_FILE_PATH_DESCRIPTOR FilePath,
-    _Out_ PHANDLE HiveHandle
-    );
-
-NTSTATUS
-BiGetRegistryValue (
-    _In_ HANDLE KeyHandle,
-    _In_ PWCHAR ValueName,
-    _In_ ULONG Type,
-    _Out_ PVOID* Buffer,
-    _Out_ PULONG ValueLength
-    );
-
-NTSTATUS
-BiEnumerateSubKeys (
-    _In_ HANDLE KeyHandle,
-    _Out_ PWCHAR** SubKeyList,
-    _Out_ PULONG SubKeyCount
-    );
-
-NTSTATUS
-BiDeleteKey (
-    _In_ HANDLE KeyHandle
-    );
-
-VOID
-BiDereferenceHive (
-    _In_ HANDLE KeyHandle
     );
 
 /* CONTEXT ROUTINES **********************************************************/
@@ -2010,18 +1540,6 @@ BlMmAllocatePhysicalPages(
     );
 
 NTSTATUS
-MmPapAllocatePhysicalPagesInRange (
-    _Inout_ PPHYSICAL_ADDRESS BaseAddress,
-    _In_ BL_MEMORY_TYPE MemoryType,
-    _In_ ULONGLONG Pages,
-    _In_ ULONG Attributes,
-    _In_ ULONG Alignment,
-    _In_ PBL_MEMORY_DESCRIPTOR_LIST NewList,
-    _In_opt_ PBL_ADDRESS_RANGE Range,
-    _In_ ULONG RangeType
-    );
-
-NTSTATUS
 BlMmFreePhysicalPages (
     _In_ PHYSICAL_ADDRESS Address
     );
@@ -2041,16 +1559,6 @@ NTSTATUS
 MmFwGetMemoryMap (
     _Out_ PBL_MEMORY_DESCRIPTOR_LIST MemoryMap,
     _In_ ULONG Flags
-    );
-
-NTSTATUS
-BlpMmInitializeConstraints (
-    VOID
-    );
-
-NTSTATUS
-BlMmRemoveBadMemory (
-    VOID
     );
 
 /* VIRTUAL MEMORY ROUTINES ***************************************************/
@@ -2094,43 +1602,6 @@ VOID
 BlDisplayGetTextCellResolution (
     _Out_ PULONG TextWidth,
     _Out_ PULONG TextHeight
-    );
-
-NTSTATUS
-BlDisplaySetScreenResolution (
-    VOID
-    );
-
-NTSTATUS
-BlDisplayGetScreenResolution (
-    _Out_ PULONG HRes,
-    _Out_ PULONG Vres
-    );
-
-VOID
-BlDisplayInvalidateOemBitmap (
-    VOID
-    );
-
-PBITMAP
-BlDisplayGetOemBitmap (
-    _Out_ PCOORD Offset, 
-    _Out_opt_ PULONG Flags
-    );
-
-BOOLEAN
-BlDisplayValidOemBitmap (
-    VOID
-    );
-
-NTSTATUS
-BlDisplayClearScreen (
-    VOID
-    );
-
-NTSTATUS
-BlDisplaySetCursorType (
-    _In_ ULONG Type
     );
 
 /* I/O ROUTINES **************************************************************/
@@ -2189,36 +1660,6 @@ BlImgLoadImageWithProgress2 (
     _Out_opt_ PULONG HashSize
     );
 
-PIMAGE_SECTION_HEADER
-BlImgFindSection (
-    _In_ PVOID ImageBase,
-    _In_ ULONG ImageSize
-    );
-
-NTSTATUS
-BlImgLoadBootApplication (
-    _In_ PBL_LOADED_APPLICATION_ENTRY BootEntry,
-    _Out_ PULONG AppHandle
-    );
-
-NTSTATUS
-BlImgStartBootApplication (
-    _In_ ULONG AppHandle,
-    _Inout_ PBL_RETURN_ARGUMENTS ReturnArguments
-    );
-
-NTSTATUS
-BlImgUnloadBootApplication (
-    _In_ ULONG AppHandle
-    );
-
-VOID
-BlImgQueryCodeIntegrityBootOptions (
-    _In_ PBL_LOADED_APPLICATION_ENTRY ApplicationEntry,
-    _Out_ PBOOLEAN IntegrityChecksDisabled,
-    _Out_ PBOOLEAN TestSigning
-    );
-
 /* FILE I/O ROUTINES *********************************************************/
 
 NTSTATUS
@@ -2250,86 +1691,9 @@ BlFileOpen (
     _Out_ PULONG FileId
     );
 
-/* BLOCK I/O ROUTINES *******************************************************/
-
-NTSTATUS
-BlockIoEfiCompareDevice (
-    _In_ PBL_DEVICE_DESCRIPTOR Device,
-    _In_ EFI_HANDLE Handle
-    );
-
-/* INPUT CONSOLE ROUTINES ****************************************************/
-
-VOID
-ConsoleInputLocalDestruct (
-    _In_ struct _BL_INPUT_CONSOLE* Console
-    );
-
-NTSTATUS
-ConsoleInputBaseReinitialize (
-    _In_ struct _BL_INPUT_CONSOLE* Console
-    );
-
-NTSTATUS
-ConsoleCreateLocalInputCnsole (
-    VOID
-    );
-
 /* TEXT CONSOLE ROUTINES *****************************************************/
 
-VOID
-ConsoleGraphicalDestruct (
-    _In_ struct _BL_GRAPHICS_CONSOLE* Console
-    );
-
 NTSTATUS
-ConsoleGraphicalClearText (
-    _In_ PBL_GRAPHICS_CONSOLE Console,
-    _In_ BOOLEAN LineOnly
-    );
-
-NTSTATUS
-ConsoleGraphicalClearPixels  (
-    _In_ PBL_GRAPHICS_CONSOLE Console,
-    _In_ ULONG Color
-    );
-
-NTSTATUS
-ConsoleGraphicalReinitialize (
-    _In_ struct _BL_GRAPHICS_CONSOLE* Console
-    );
-
-NTSTATUS
-ConsoleGraphicalSetTextState (
-    _In_ PBL_GRAPHICS_CONSOLE Console,
-    _In_ ULONG Mask,
-    _In_ PBL_DISPLAY_STATE TextState
-    );
-
-BOOLEAN
-ConsoleGraphicalIsEnabled (
-    _In_ struct _BL_GRAPHICS_CONSOLE* Console
-    );
-
-NTSTATUS
-ConsoleGraphicalGetGraphicalResolution (
-    _In_ struct _BL_GRAPHICS_CONSOLE* Console,
-    _In_ PBL_DISPLAY_MODE DisplayMode
-    );
-
-NTSTATUS
-ConsoleGraphicalGetOriginalResolution (
-    _In_ struct _BL_GRAPHICS_CONSOLE* Console,
-    _In_ PBL_DISPLAY_MODE DisplayMode
-    );
-
-NTSTATUS
-ConsoleGraphicalEnable (
-    _In_ struct _BL_GRAPHICS_CONSOLE* Console,
-    _In_ BOOLEAN Enable
-    );
-
-VOID
 ConsoleTextLocalDestruct (
     _In_ struct _BL_TEXT_CONSOLE* Console
     );
@@ -2368,7 +1732,7 @@ ConsoleTextLocalSetTextResolution (
 NTSTATUS
 ConsoleTextLocalClearText (
     _In_ struct _BL_TEXT_CONSOLE* Console,
-    _In_ BOOLEAN LineOnly
+    _In_ ULONG Attribute
     );
 
 NTSTATUS
@@ -2389,12 +1753,6 @@ ConsolepFindResolution (
     _In_ PBL_DISPLAY_MODE Mode,
     _In_ PBL_DISPLAY_MODE List,
     _In_ ULONG MaxIndex
-    );
-
-NTSTATUS
-ConsoleFirmwareTextClear (
-    _In_ PBL_TEXT_CONSOLE Console,
-    _In_ BOOLEAN LineOnly
     );
 
 VOID
@@ -2435,17 +1793,6 @@ ConsoleFirmwareGraphicalClose (
     _In_ PBL_GRAPHICS_CONSOLE GraphicsConsole
     );
 
-VOID
-ConsoleFirmwareGraphicalDisable (
-    _In_ PBL_GRAPHICS_CONSOLE GraphicsConsole
-    );
-
-NTSTATUS
-ConsoleFirmwareGraphicalClear (
-    _In_ PBL_GRAPHICS_CONSOLE Console,
-    _In_ ULONG Color
-    );
-
 NTSTATUS
 ConsoleFirmwareGraphicalEnable (
     _In_ PBL_GRAPHICS_CONSOLE GraphicsConsole
@@ -2483,33 +1830,6 @@ ConsoleEfiUgaSetResolution  (
     _In_ ULONG DisplayModeCount
     );
 
-NTSTATUS
-ConsoleCreateLocalInputConsole (
-    VOID
-    );
-
-NTSTATUS
-ConsoleInputLocalEraseBuffer (
-    _In_ PBL_INPUT_CONSOLE Console,
-    _In_opt_ PULONG ValueToFill
-    );
-
-VOID
-ConsolepClearBuffer (
-    _In_ PUCHAR FrameBuffer,
-    _In_ ULONG Width,
-    _In_ PUCHAR FillColor,
-    _In_ ULONG Height,
-    _In_ ULONG ScanlineWidth,
-    _In_ ULONG PixelDepth
-    );
-    
-NTSTATUS
-ConsolepConvertColorToPixel (
-    _In_ BL_COLOR Color,
-    _Out_ PUCHAR Pixel
-    );
-
 extern ULONG MmDescriptorCallTreeCount;
 extern ULONG BlpApplicationFlags;
 extern BL_LIBRARY_PARAMETERS BlpLibraryParameters;
@@ -2517,26 +1837,17 @@ extern BL_TRANSLATION_TYPE  MmTranslationType;
 extern PBL_ARCH_CONTEXT CurrentExecutionContext;
 extern PBL_DEVICE_DESCRIPTOR BlpBootDevice;
 extern BL_LOADED_APPLICATION_ENTRY BlpApplicationEntry;
-extern EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL *EfiConOut;
-extern EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *EfiConInEx;
+extern SIMPLE_TEXT_OUTPUT_INTERFACE *EfiConOut;
 extern EFI_GUID EfiGraphicsOutputProtocol;
 extern EFI_GUID EfiUgaDrawProtocol;
 extern EFI_GUID EfiLoadedImageProtocol;
 extern EFI_GUID EfiDevicePathProtocol;
 extern EFI_GUID EfiBlockIoProtocol;
 extern EFI_GUID EfiSimpleTextInputExProtocol;
-extern EFI_GUID EfiRootAcpiTableGuid;
-extern EFI_GUID EfiRootAcpiTable10Guid;
-extern EFI_GUID EfiGlobalVariable;
 extern ULONG ConsoleGraphicalResolutionListFlags;
 extern BL_DISPLAY_MODE ConsoleGraphicalResolutionList[];
 extern BL_DISPLAY_MODE ConsoleTextResolutionList[];
 extern ULONG ConsoleGraphicalResolutionListSize;
 extern PVOID DspRemoteInputConsole;
-extern PVOID DspLocalInputConsole;
 extern WCHAR BlScratchBuffer[8192];
-extern BL_MEMORY_DESCRIPTOR_LIST MmMdlUnmappedAllocated;
-extern ULONGLONG BlpTimePerformanceFrequency;
-extern LIST_ENTRY RegisteredFileSystems;
-
 #endif

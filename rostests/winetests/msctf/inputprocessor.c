@@ -62,7 +62,6 @@ static BOOL test_ShouldDeactivate = FALSE;
 
 static DWORD tmSinkCookie;
 static DWORD tmSinkRefCount;
-static DWORD dmSinkCookie;
 static DWORD documentStatus;
 static ITfDocumentMgr *test_CurrentFocus = NULL;
 static ITfDocumentMgr *test_PrevFocus = NULL;
@@ -118,7 +117,9 @@ static inline void _sink_fire_ok(INT *sink, const CHAR* name)
             *sink = (*sink & ~SINK_EXPECTED_COUNT_MASK) + (count << 16);
             return;
         default:
-            todo_wine_if (todo)
+            if (todo)
+                todo_wine winetest_ok(0, "Unexpected %s sink\n",name);
+            else
                 winetest_ok(0, "Unexpected %s sink\n",name);
     }
     *sink = SINK_FIRED;
@@ -146,7 +147,9 @@ static inline void _sink_check_ok(INT *sink, const CHAR* name)
                 winetest_trace("optional sink %s not fired\n",name);
             break;
         default:
-            todo_wine_if (todo)
+            if (todo)
+                todo_wine winetest_ok(0, "%s not fired as expected, in state %x\n",name,*sink);
+            else
                 winetest_ok(0, "%s not fired as expected, in state %x\n",name,*sink);
     }
     *sink = SINK_UNEXPECTED;
@@ -227,18 +230,12 @@ static ULONG WINAPI TextStoreACP_Release(ITextStoreACP *iface)
 static HRESULT WINAPI TextStoreACP_AdviseSink(ITextStoreACP *iface,
     REFIID riid, IUnknown *punk, DWORD dwMask)
 {
-    ITextStoreACPServices *services;
     HRESULT hr;
 
     sink_fire_ok(&test_ACP_AdviseSink,"TextStoreACP_AdviseSink");
 
-    hr = IUnknown_QueryInterface(punk, &IID_ITextStoreACPSink, (void**)&ACPSink);
+    hr = IUnknown_QueryInterface(punk, &IID_ITextStoreACPSink,(LPVOID*)(&ACPSink));
     ok(SUCCEEDED(hr),"Unable to QueryInterface on sink\n");
-
-    hr = ITextStoreACPSink_QueryInterface(ACPSink, &IID_ITextStoreACPServices, (void**)&services);
-    ok(hr == S_OK, "got 0x%08x\n", hr);
-    ITextStoreACPServices_Release(services);
-
     return S_OK;
 }
 
@@ -623,42 +620,6 @@ static HRESULT ThreadMgrEventSink_Constructor(IUnknown **ppOut)
     return S_OK;
 }
 
-static HRESULT WINAPI TfTransitoryExtensionSink_QueryInterface(ITfTransitoryExtensionSink *iface, REFIID riid, void **ppv)
-{
-    if(IsEqualGUID(&IID_IUnknown, riid) || IsEqualGUID(&IID_ITfTransitoryExtensionSink, riid)) {
-        *ppv = iface;
-        return S_OK;
-    }
-
-    *ppv = NULL;
-    return E_NOINTERFACE;
-}
-
-static ULONG WINAPI TfTransitoryExtensionSink_AddRef(ITfTransitoryExtensionSink *iface)
-{
-    return 2;
-}
-
-static ULONG WINAPI TfTransitoryExtensionSink_Release(ITfTransitoryExtensionSink *iface)
-{
-    return 1;
-}
-
-static HRESULT WINAPI TfTransitoryExtensionSink_OnTransitoryExtensionUpdated(ITfTransitoryExtensionSink *iface, ITfContext *pic,
-        TfEditCookie ecReadOnly, ITfRange *pResultRange, ITfRange *pCompositionRange, BOOL *pfDeleteResultRange)
-{
-    ok(0, "unexpected call\n");
-    return E_NOTIMPL;
-}
-
-static const ITfTransitoryExtensionSinkVtbl TfTransitoryExtensionSinkVtbl = {
-    TfTransitoryExtensionSink_QueryInterface,
-    TfTransitoryExtensionSink_AddRef,
-    TfTransitoryExtensionSink_Release,
-    TfTransitoryExtensionSink_OnTransitoryExtensionUpdated
-};
-
-static ITfTransitoryExtensionSink TfTransitoryExtensionSink = { &TfTransitoryExtensionSinkVtbl };
 
 /********************************************************************************************
  * Stub text service for testing
@@ -1090,34 +1051,6 @@ static void test_ThreadMgrUnadviseSinks(void)
     ITfSource_Release(source);
 }
 
-static void test_DocumentMgrAdviseSinks(void)
-{
-    ITfSource *source;
-    HRESULT hr;
-
-    hr = ITfDocumentMgr_QueryInterface(g_dm, &IID_ITfSource, (void**)&source);
-    ok(hr == S_OK,"Failed to get IID_ITfSource for DocumentMgr\n");
-
-    dmSinkCookie = 0;
-    hr = ITfSource_AdviseSink(source, &IID_ITfTransitoryExtensionSink, (IUnknown*)&TfTransitoryExtensionSink, &dmSinkCookie);
-    ok(hr == S_OK,"Failed to Advise Sink\n");
-
-    ITfSource_Release(source);
-}
-
-static void test_DocumentMgrUnadviseSinks(void)
-{
-    ITfSource *source = NULL;
-    HRESULT hr;
-
-    hr = ITfDocumentMgr_QueryInterface(g_dm, &IID_ITfSource, (void**)&source);
-    ok(hr == S_OK,"Failed to get IID_ITfSource for DocumentMgr\n");
-
-    hr = ITfSource_UnadviseSink(source, dmSinkCookie);
-    ok(hr == S_OK,"Failed to unadvise Sink\n");
-    ITfSource_Release(source);
-}
-
 /**********************************************************************
  * ITfKeyEventSink
  **********************************************************************/
@@ -1271,13 +1204,13 @@ static void test_KeystrokeMgr(void)
     ok(hr == E_INVALIDARG,"Wrong return, expected E_INVALIDARG\n");
 
     hr =ITfKeystrokeMgr_PreserveKey(keymgr, 0, &CLSID_PreservedKey, &tfpk, NULL, 0);
-    ok(hr==E_INVALIDARG,"ITfKeystrokeMgr_PreserveKey improperly succeeded\n");
+    ok(hr==E_INVALIDARG,"ITfKeystrokeMgr_PreserveKey inproperly succeeded\n");
 
     hr =ITfKeystrokeMgr_PreserveKey(keymgr, tid, &CLSID_PreservedKey, &tfpk, NULL, 0);
     ok(SUCCEEDED(hr),"ITfKeystrokeMgr_PreserveKey failed\n");
 
     hr =ITfKeystrokeMgr_PreserveKey(keymgr, tid, &CLSID_PreservedKey, &tfpk, NULL, 0);
-    ok(hr == TF_E_ALREADY_EXISTS,"ITfKeystrokeMgr_PreserveKey improperly succeeded\n");
+    ok(hr == TF_E_ALREADY_EXISTS,"ITfKeystrokeMgr_PreserveKey inproperly succeeded\n");
 
     preserved = FALSE;
     hr = ITfKeystrokeMgr_IsPreservedKey(keymgr, &CLSID_PreservedKey, &tfpk, &preserved);
@@ -1292,7 +1225,7 @@ static void test_KeystrokeMgr(void)
     if (hr == S_FALSE) ok(preserved == FALSE,"misreporting preserved key\n");
 
     hr = ITfKeystrokeMgr_UnpreserveKey(keymgr, &CLSID_PreservedKey,&tfpk);
-    ok(hr==CONNECT_E_NOCONNECTION,"ITfKeystrokeMgr_UnpreserveKey improperly succeeded\n");
+    ok(hr==CONNECT_E_NOCONNECTION,"ITfKeystrokeMgr_UnpreserveKey inproperly succeeded\n");
 
     hr = ITfKeystrokeMgr_UnadviseKeyEventSink(keymgr,tid);
     ok(SUCCEEDED(hr),"ITfKeystrokeMgr_UnadviseKeyEventSink failed\n");
@@ -1492,16 +1425,13 @@ static void test_startSession(void)
     ok(cid == cid2, "Second activate client ID does not match\n");
 
     hr = ITfThreadMgr_QueryInterface(g_tm, &IID_ITfThreadMgrEx, (void **)&tmex);
-    if (hr == S_OK)
-    {
-        hr = ITfThreadMgrEx_ActivateEx(tmex, &cid2, 0);
-        ok(SUCCEEDED(hr), "Failed to Activate\n");
-        ok(cid == cid2, "ActivateEx client ID does not match\n");
+    ok(SUCCEEDED(hr), "Unable to acquire ITfThreadMgrEx interface\n");
 
-        ITfThreadMgrEx_Release(tmex);
-    }
-    else
-        win_skip("ITfThreadMgrEx is not supported\n");
+    hr = ITfThreadMgrEx_ActivateEx(tmex, &cid2, 0);
+    ok(SUCCEEDED(hr), "Failed to Activate\n");
+    ok(cid == cid2, "ActivateEx client ID does not match\n");
+
+    ITfThreadMgrEx_Release(tmex);
 
     hr = ITfThreadMgr_Deactivate(g_tm);
     ok(SUCCEEDED(hr), "Failed to Deactivate\n");
@@ -2305,7 +2235,6 @@ START_TEST(inputprocessor)
         test_ThreadMgrAdviseSinks();
         test_Activate();
         test_startSession();
-        test_DocumentMgrAdviseSinks();
         test_TfGuidAtom();
         test_ClientId();
         test_KeystrokeMgr();
@@ -2316,7 +2245,6 @@ START_TEST(inputprocessor)
         test_FindClosestCategory();
         test_Disable();
         test_ThreadMgrUnadviseSinks();
-        test_DocumentMgrUnadviseSinks();
         test_UnregisterCategory();
         test_Unregister();
         test_profile_mgr();

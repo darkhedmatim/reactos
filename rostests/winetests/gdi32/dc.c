@@ -424,7 +424,9 @@ static void test_device_caps( HDC hdc, HDC ref_dc, const char *descr, int scale 
         else
             ok( ret || broken(!ret) /* NT4 */, "GetDeviceGammaRamp failed on %s (type %d), error %u\n", descr, GetObjectType( hdc ), GetLastError() );
         type = GetClipBox( hdc, &rect );
-        todo_wine_if (GetObjectType( hdc ) == OBJ_ENHMETADC)
+        if (GetObjectType( hdc ) == OBJ_ENHMETADC)
+            todo_wine ok( type == SIMPLEREGION, "GetClipBox returned %d on memdc for %s\n", type, descr );
+        else
             ok( type == SIMPLEREGION, "GetClipBox returned %d on memdc for %s\n", type, descr );
 
         type = GetBoundsRect( hdc, &rect, 0 );
@@ -441,7 +443,12 @@ static void test_device_caps( HDC hdc, HDC ref_dc, const char *descr, int scale 
         SetMapMode( hdc, MM_TEXT );
         Rectangle( hdc, 2, 2, 4, 4 );
         type = GetBoundsRect( hdc, &rect, DCB_RESET );
-        todo_wine_if (GetObjectType( hdc ) == OBJ_ENHMETADC || (GetObjectType( hdc ) == OBJ_DC && GetDeviceCaps( hdc, TECHNOLOGY ) == DT_RASPRINTER))
+        if (GetObjectType( hdc ) == OBJ_ENHMETADC || (GetObjectType( hdc ) == OBJ_DC && GetDeviceCaps( hdc, TECHNOLOGY ) == DT_RASPRINTER))
+            todo_wine
+            ok( rect.left == 2 && rect.top == 2 && rect.right == 4 && rect.bottom == 4 && type == DCB_SET,
+                "GetBoundsRect returned %d,%d,%d,%d type %x for %s\n",
+                rect.left, rect.top, rect.right, rect.bottom, type, descr );
+        else
             ok( rect.left == 2 && rect.top == 2 && rect.right == 4 && rect.bottom == 4 && type == DCB_SET,
                 "GetBoundsRect returned %d,%d,%d,%d type %x for %s\n",
                 rect.left, rect.top, rect.right, rect.bottom, type, descr );
@@ -455,12 +462,20 @@ static void test_device_caps( HDC hdc, HDC ref_dc, const char *descr, int scale 
         ok( type == SIMPLEREGION, "GetClipBox returned %d on %s\n", type, descr );
         if (GetDeviceCaps( ref_dc, TECHNOLOGY ) == DT_RASDISPLAY)
         {
-            todo_wine_if (GetSystemMetrics( SM_CXSCREEN ) != GetSystemMetrics( SM_CXVIRTUALSCREEN ))
+            if (GetSystemMetrics( SM_CXSCREEN ) != GetSystemMetrics( SM_CXVIRTUALSCREEN ))
+                todo_wine ok( GetDeviceCaps( ref_dc, DESKTOPHORZRES ) == GetSystemMetrics( SM_CXSCREEN ),
+                              "Got DESKTOPHORZRES %d on %s, expected %d\n",
+                              GetDeviceCaps( ref_dc, DESKTOPHORZRES ), descr, GetSystemMetrics( SM_CXSCREEN ) );
+            else
                 ok( GetDeviceCaps( ref_dc, DESKTOPHORZRES ) == GetSystemMetrics( SM_CXSCREEN ),
                     "Got DESKTOPHORZRES %d on %s, expected %d\n",
                     GetDeviceCaps( ref_dc, DESKTOPHORZRES ), descr, GetSystemMetrics( SM_CXSCREEN ) );
 
-            todo_wine_if (GetSystemMetrics( SM_CYSCREEN ) != GetSystemMetrics( SM_CYVIRTUALSCREEN ))
+            if (GetSystemMetrics( SM_CYSCREEN ) != GetSystemMetrics( SM_CYVIRTUALSCREEN ))
+                todo_wine ok( GetDeviceCaps( ref_dc, DESKTOPVERTRES ) == GetSystemMetrics( SM_CYSCREEN ),
+                              "Got DESKTOPVERTRES %d on %s, expected %d\n",
+                              GetDeviceCaps( ref_dc, DESKTOPVERTRES ), descr, GetSystemMetrics( SM_CYSCREEN ) );
+            else
                 ok( GetDeviceCaps( ref_dc, DESKTOPVERTRES ) == GetSystemMetrics( SM_CYSCREEN ),
                     "Got DESKTOPVERTRES %d on %s, expected %d\n",
                     GetDeviceCaps( ref_dc, DESKTOPVERTRES ), descr, GetSystemMetrics( SM_CYSCREEN ) );
@@ -475,8 +490,11 @@ static void test_device_caps( HDC hdc, HDC ref_dc, const char *descr, int scale 
                      GetDeviceCaps( ref_dc, DESKTOPVERTRES ) );
         }
 
-        todo_wine_if (GetDeviceCaps( ref_dc, TECHNOLOGY ) == DT_RASDISPLAY && GetObjectType( hdc ) != OBJ_ENHMETADC &&
+        if (GetDeviceCaps( ref_dc, TECHNOLOGY ) == DT_RASDISPLAY && GetObjectType( hdc ) != OBJ_ENHMETADC &&
             (GetSystemMetrics( SM_XVIRTUALSCREEN ) || GetSystemMetrics( SM_YVIRTUALSCREEN )))
+            todo_wine ok( EqualRect( &rect, &ref_rect ), "GetClipBox returned %d,%d,%d,%d on %s\n",
+                          rect.left, rect.top, rect.right, rect.bottom, descr );
+        else
             ok( EqualRect( &rect, &ref_rect ), "GetClipBox returned %d,%d,%d,%d on %s\n",
                 rect.left, rect.top, rect.right, rect.bottom, descr );
     }
@@ -612,13 +630,11 @@ static void test_CreateCompatibleDC(void)
 
 static void test_DC_bitmap(void)
 {
-    PIXELFORMATDESCRIPTOR descr;
     HDC hdc, hdcmem;
     DWORD bits[64];
     HBITMAP hbmp, oldhbmp;
     COLORREF col;
     int i, bitspixel;
-    int ret, ret2;
 
     /* fill bitmap data with b&w pattern */
     for( i = 0; i < 64; i++) bits[i] = i & 1 ? 0 : 0xffffff;
@@ -629,31 +645,7 @@ static void test_DC_bitmap(void)
     /* create a memory dc */
     hdcmem = CreateCompatibleDC( hdc);
     ok( hdcmem != NULL, "CreateCompatibleDC rets %p\n", hdcmem);
-
-    /* test DescribePixelFormat with descr == NULL */
-    ret2 = DescribePixelFormat(hdcmem, 0, sizeof(descr), NULL);
-    ok(ret2 > 0, "expected ret2 > 0, got %d\n", ret2);
-    ret = DescribePixelFormat(hdcmem, 1, sizeof(descr), NULL);
-    ok(ret == ret2, "expected ret == %d, got %d\n", ret2, ret);
-    ret = DescribePixelFormat(hdcmem, 0x10000, sizeof(descr), NULL);
-    ok(ret == ret2, "expected ret == %d, got %d\n", ret2, ret);
-
-    /* test DescribePixelFormat with descr != NULL */
-    memset(&descr, 0, sizeof(descr));
-    ret = DescribePixelFormat(hdcmem, 0, sizeof(descr), &descr);
-    ok(ret == 0, "expected ret == 0, got %d\n", ret);
-    ok(descr.nSize == 0, "expected descr.nSize == 0, got %d\n", descr.nSize);
-
-    memset(&descr, 0, sizeof(descr));
-    ret = DescribePixelFormat(hdcmem, 1, sizeof(descr), &descr);
-    ok(ret == ret2, "expected ret == %d, got %d\n", ret2, ret);
-    ok(descr.nSize == sizeof(descr), "expected desc.nSize == sizeof(descr), got %d\n", descr.nSize);
-
-    memset(&descr, 0, sizeof(descr));
-    ret = DescribePixelFormat(hdcmem, 0x10000, sizeof(descr), &descr);
-    ok(ret == 0, "expected ret == 0, got %d\n", ret);
-    ok(descr.nSize == 0, "expected descr.nSize == 0, got %d\n", descr.nSize);
-
+    /* tests */
     /* test monochrome bitmap: should always work */
     hbmp = CreateBitmap(32, 32, 1, 1, bits);
     ok( hbmp != NULL, "CreateBitmap returns %p\n", hbmp);

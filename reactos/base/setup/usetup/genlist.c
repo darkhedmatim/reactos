@@ -626,7 +626,7 @@ GetListEntryText(
 VOID
 GenericListKeyPress(
     PGENERIC_LIST GenericList,
-    CHAR AsciiChar)
+    CHAR AsciChar)
 {
     PGENERIC_LIST_ENTRY ListEntry;
     PGENERIC_LIST_ENTRY OldListEntry;
@@ -637,13 +637,13 @@ GenericListKeyPress(
 
     GenericList->Redraw = FALSE;
 
-    if ((strlen(ListEntry->Text) > 0) && (tolower(ListEntry->Text[0]) == AsciiChar) &&
+    if ((strlen(ListEntry->Text) > 0) && (tolower(ListEntry->Text[0]) == AsciChar) &&
          (GenericList->CurrentEntry->Entry.Flink != &GenericList->ListHead))
     {
         ScrollDownGenericList(GenericList);
         ListEntry = GenericList->CurrentEntry;
 
-        if ((strlen(ListEntry->Text) > 0) && (tolower(ListEntry->Text[0]) == AsciiChar))
+        if ((strlen(ListEntry->Text) > 0) && (tolower(ListEntry->Text[0]) == AsciChar))
             goto End;
     }
 
@@ -654,7 +654,7 @@ GenericListKeyPress(
 
     for (;;)
     {
-        if ((strlen(ListEntry->Text) > 0) && (tolower(ListEntry->Text[0]) == AsciiChar))
+        if ((strlen(ListEntry->Text) > 0) && (tolower(ListEntry->Text[0]) == AsciChar))
         {
             Flag = TRUE;
             break;

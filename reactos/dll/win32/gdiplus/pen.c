@@ -159,7 +159,6 @@ GpStatus WINGDIPAPI GdipCreatePen2(GpBrush *brush, REAL width, GpUnit unit,
     gp_pen->offset = 0.0;
     gp_pen->customstart = NULL;
     gp_pen->customend = NULL;
-    GdipSetMatrixElements(&gp_pen->transform, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0);
 
     if(!((gp_pen->unit == UnitWorld) || (gp_pen->unit == UnitPixel))) {
         FIXME("UnitWorld, UnitPixel only supported units\n");
@@ -407,14 +406,17 @@ GpStatus WINGDIPAPI GdipGetPenWidth(GpPen *pen, REAL *width)
 
 GpStatus WINGDIPAPI GdipResetPenTransform(GpPen *pen)
 {
+    static int calls;
+
     TRACE("(%p)\n", pen);
 
     if(!pen)
         return InvalidParameter;
 
-    GdipSetMatrixElements(&pen->transform, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0);
+    if(!(calls++))
+        FIXME("(%p) stub\n", pen);
 
-    return Ok;
+    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipSetPenTransform(GpPen *pen, GpMatrix *matrix)
@@ -427,23 +429,24 @@ GpStatus WINGDIPAPI GdipSetPenTransform(GpPen *pen, GpMatrix *matrix)
         return InvalidParameter;
 
     if(!(calls++))
-        FIXME("(%p,%p) Semi-stub\n", pen, matrix);
+        FIXME("not implemented\n");
 
-    pen->transform = *matrix;
-
-    return Ok;
+    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipGetPenTransform(GpPen *pen, GpMatrix *matrix)
 {
+    static int calls;
+
     TRACE("(%p,%p)\n", pen, matrix);
 
     if(!pen || !matrix)
         return InvalidParameter;
 
-    *matrix = pen->transform;
+    if(!(calls++))
+        FIXME("not implemented\n");
 
-    return Ok;
+    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipTranslatePenTransform(GpPen *pen, REAL dx, REAL dy, GpMatrixOrder order)

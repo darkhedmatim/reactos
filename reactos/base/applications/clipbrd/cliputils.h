@@ -6,13 +6,8 @@
  * PROGRAMMERS:     Ricardo Hanke
  */
 
-void
-RetrieveClipboardFormatName(HINSTANCE hInstance,
-                            UINT uFormat,
-                            BOOL Unicode,
-                            PVOID lpszFormat,
-                            UINT cch);
-
+int GetPredefinedClipboardFormatName(HINSTANCE hInstance, UINT uFormat, LPWSTR lpszFormat, UINT cch);
+void RetrieveClipboardFormatName(HINSTANCE hInstance, UINT uFormat, LPWSTR lpszFormat, UINT cch);
 void DeleteClipboardContent(void);
 UINT GetAutomaticClipboardFormat(void);
 BOOL IsClipboardFormatSupported(UINT uFormat);

@@ -29,9 +29,6 @@ Notes:
 
 Revision History:
 
-Licence:
-    GPLv2
-
 --*/
 
 #include "stdafx.h"
@@ -231,7 +228,6 @@ UniataQueueRequest(
         AtaReq->next_req = NULL;
         LunExt->first_req =
         LunExt->last_req = AtaReq;
-        chan->cur_cdev = GET_CDEV(Srb);
     }
     LunExt->queue_depth++;
     chan->queue_depth++;

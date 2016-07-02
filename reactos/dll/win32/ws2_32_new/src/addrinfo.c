@@ -937,7 +937,7 @@ getnameinfo(const struct sockaddr FAR *sa,
     {
         /* Setup the data for it */
         ServiceString = ServiceBuffer;
-        ServLength = sizeof(ServiceBuffer) / sizeof(WCHAR);
+        ServLength = sizeof(ServiceBuffer) - 1;
     }
   
     /* Now call the unicode function */

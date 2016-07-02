@@ -23,7 +23,6 @@
 #include "editor.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(richedit);
-WINE_DECLARE_DEBUG_CHANNEL(richedit_check);
 
 /*
  * Unsolved problems:
@@ -124,8 +123,12 @@ static ME_DisplayItem *split_run_extents(ME_WrapContext *wc, ME_DisplayItem *ite
   ME_Cursor cursor = {wc->pPara, item, nVChar};
 
   assert(item->member.run.nCharOfs != -1);
-  if(TRACE_ON(richedit_check))
+  if(TRACE_ON(richedit))
+  {
+    TRACE("Before check before split\n");
     ME_CheckCharOffsets(editor);
+    TRACE("After check before split\n");
+  }
 
   run = &item->member.run;
 
@@ -144,12 +147,15 @@ static ME_DisplayItem *split_run_extents(ME_WrapContext *wc, ME_DisplayItem *ite
   run2->pt.x = run->pt.x+run->nWidth;
   run2->pt.y = run->pt.y;
 
-  if(TRACE_ON(richedit_check))
+  if(TRACE_ON(richedit))
+  {
+    TRACE("Before check after split\n");
     ME_CheckCharOffsets(editor);
-
-  TRACE("After split: %s(%d, %d), %s(%d, %d)\n",
-        debugstr_run( run ), run->pt.x, run->pt.y,
-        debugstr_run( run2 ), run2->pt.x, run2->pt.y);
+    TRACE("After check after split\n");
+    TRACE("After split: %s(%d, %d), %s(%d, %d)\n",
+      debugstr_run( run ), run->pt.x, run->pt.y,
+      debugstr_run( run2 ), run2->pt.x, run2->pt.y);
+  }
 
   return cursor.pRun;
 }
@@ -746,11 +752,6 @@ static HRESULT itemize_para( ME_Context *c, ME_DisplayItem *p )
 
     assert( p->type == diParagraph );
 
-    if (para->pFmt->dwMask & PFM_RTLPARA && para->pFmt->wEffects & PFE_RTLPARA)
-        state.uBidiLevel = 1;
-
-    TRACE( "Base embedding level %d\n", state.uBidiLevel );
-
     while (1)
     {
         hr = ScriptItemize( para->text->szData, para->text->nLen, items_passed, &control,
@@ -879,11 +880,6 @@ static void ME_WrapTextParagraph(ME_Context *c, ME_DisplayItem *tp) {
     wc.nFirstMargin = ME_twips2pointsX(c, dxStartIndent);
     wc.nLeftMargin = wc.nFirstMargin + ME_twips2pointsX(c, pFmt->dxOffset);
     wc.nRightMargin = ME_twips2pointsX(c, pFmt->dxRightIndent);
-
-    if (wc.nFirstMargin < 0)
-        wc.nFirstMargin = 0;
-    if (wc.nLeftMargin < 0)
-        wc.nLeftMargin = 0;
   }
   if (c->editor->bEmulateVersion10 && /* v1.0 - 3.0 */
       pFmt->dwMask & PFM_TABLE && pFmt->wEffects & PFE_TABLE)

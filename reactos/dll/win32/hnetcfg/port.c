@@ -512,7 +512,7 @@ static HRESULT WINAPI fw_ports_Add(
     fw_ports *This = impl_from_INetFwOpenPorts( iface );
 
     FIXME("%p, %p\n", This, port);
-    return S_OK;
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI fw_ports_Remove(

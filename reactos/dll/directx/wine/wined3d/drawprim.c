@@ -101,7 +101,7 @@ static void drawStridedSlow(const struct wined3d_device *device, struct wined3d_
         const struct wined3d_stream_info *si, UINT NumVertexes, GLenum glPrimType,
         const void *idxData, UINT idxSize, UINT startIdx)
 {
-    unsigned int               textureNo;
+    unsigned int               textureNo    = 0;
     const WORD                *pIdxBufS     = NULL;
     const DWORD               *pIdxBufL     = NULL;
     UINT vx_index;
@@ -643,34 +643,21 @@ void draw_primitive(struct wined3d_device *device, UINT start_idx, UINT index_co
     }
     gl_info = context->gl_info;
 
-    for (i = 0; i < device->adapter->gl_info.limits.buffers; ++i)
+    if (state->render_states[WINED3D_RS_COLORWRITEENABLE])
     {
-#if defined(STAGING_CSMT)
-        struct wined3d_surface *target = wined3d_rendertarget_view_get_surface(state->fb.render_targets[i]);
-        if (target && target->resource.format->id != WINED3DFMT_NULL)
+        /* Invalidate the back buffer memory so LockRect will read it the next time */
+        for (i = 0; i < device->adapter->gl_info.limits.buffers; ++i)
         {
-            if (state->render_states[WINED3D_RS_COLORWRITEENABLE])
+#if defined(STAGING_CSMT)
+            struct wined3d_surface *target = wined3d_rendertarget_view_get_surface(state->fb.render_targets[i]);
+            if (target)
             {
                 wined3d_resource_load_location(&target->resource, context, target->container->resource.draw_binding);
                 wined3d_resource_invalidate_location(&target->resource, ~target->container->resource.draw_binding);
-#else  /* STAGING_CSMT */
-        struct wined3d_surface *target = wined3d_rendertarget_view_get_surface(device->fb.render_targets[i]);
-        if (target && target->resource.format->id != WINED3DFMT_NULL)
-        {
-            if (state->render_states[WINED3D_RS_COLORWRITEENABLE])
-            {
-                surface_load_location(target, context, target->container->resource.draw_binding);
-                surface_invalidate_location(target, ~target->container->resource.draw_binding);
-#endif /* STAGING_CSMT */
-            }
-            else
-            {
-                wined3d_surface_prepare(target, context, target->container->resource.draw_binding);
             }
         }
     }
 
-#if defined(STAGING_CSMT)
     if (state->fb.depth_stencil)
     {
         /* Note that this depends on the context_acquire() call above to set
@@ -680,10 +667,9 @@ void draw_primitive(struct wined3d_device *device, UINT start_idx, UINT index_co
          * that we never copy the stencil data.*/
         DWORD location = context->render_offscreen ? state->fb.depth_stencil->resource->draw_binding
                 : WINED3D_LOCATION_DRAWABLE;
-        struct wined3d_surface *ds = wined3d_rendertarget_view_get_surface(state->fb.depth_stencil);
-
         if (state->render_states[WINED3D_RS_ZWRITEENABLE] || state->render_states[WINED3D_RS_ZENABLE])
         {
+            struct wined3d_surface *ds = wined3d_rendertarget_view_get_surface(state->fb.depth_stencil);
             RECT current_rect, draw_rect, r;
 
             if (!context->render_offscreen && ds != device->cs->onscreen_depth_stencil)
@@ -691,6 +677,15 @@ void draw_primitive(struct wined3d_device *device, UINT start_idx, UINT index_co
 
             if (ds->resource.locations & location)
 #else  /* STAGING_CSMT */
+            struct wined3d_surface *target = wined3d_rendertarget_view_get_surface(device->fb.render_targets[i]);
+            if (target)
+            {
+                surface_load_location(target, context, target->container->resource.draw_binding);
+                surface_invalidate_location(target, ~target->container->resource.draw_binding);
+            }
+        }
+    }
+
     if (device->fb.depth_stencil)
     {
         /* Note that this depends on the context_acquire() call above to set
@@ -700,10 +695,9 @@ void draw_primitive(struct wined3d_device *device, UINT start_idx, UINT index_co
          * that we never copy the stencil data.*/
         DWORD location = context->render_offscreen ? device->fb.depth_stencil->resource->draw_binding
                 : WINED3D_LOCATION_DRAWABLE;
-        struct wined3d_surface *ds = wined3d_rendertarget_view_get_surface(device->fb.depth_stencil);
-
         if (state->render_states[WINED3D_RS_ZWRITEENABLE] || state->render_states[WINED3D_RS_ZENABLE])
         {
+            struct wined3d_surface *ds = wined3d_rendertarget_view_get_surface(device->fb.depth_stencil);
             RECT current_rect, draw_rect, r;
 
             if (!context->render_offscreen && ds != device->onscreen_depth_stencil)
@@ -720,11 +714,7 @@ void draw_primitive(struct wined3d_device *device, UINT start_idx, UINT index_co
             IntersectRect(&r, &draw_rect, &current_rect);
             if (!EqualRect(&r, &draw_rect))
                 surface_load_ds_location(ds, context, location);
-            else
-                wined3d_surface_prepare(ds, context, location);
         }
-        else
-            wined3d_surface_prepare(ds, context, location);
     }
 
 #if defined(STAGING_CSMT)

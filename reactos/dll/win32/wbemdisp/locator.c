@@ -343,7 +343,6 @@ struct objectset
     ISWbemObjectSet ISWbemObjectSet_iface;
     LONG refs;
     IEnumWbemClassObject *objectenum;
-    LONG count;
 };
 
 static inline struct objectset *impl_from_ISWbemObjectSet(
@@ -505,10 +504,20 @@ static HRESULT WINAPI objectset_get_Count(
     LONG *iCount )
 {
     struct objectset *objectset = impl_from_ISWbemObjectSet( iface );
+    LONG count = 0, total = 0;
 
     TRACE( "%p, %p\n", objectset, iCount );
 
-    *iCount = objectset->count;
+    while (IEnumWbemClassObject_Skip( objectset->objectenum, WBEM_INFINITE, 1 ) == S_OK) count++;
+
+    IEnumWbemClassObject_Reset( objectset->objectenum );
+    while (IEnumWbemClassObject_Skip( objectset->objectenum, WBEM_INFINITE, 1 ) == S_OK) total++;
+
+    count = total - count;
+    IEnumWbemClassObject_Reset( objectset->objectenum );
+    while (count--) IEnumWbemClassObject_Skip( objectset->objectenum, WBEM_INFINITE, 1 );
+
+    *iCount = total;
     return S_OK;
 }
 
@@ -545,14 +554,6 @@ static const ISWbemObjectSetVtbl objectset_vtbl =
     objectset_ItemIndex
 };
 
-static LONG get_object_count( IEnumWbemClassObject *iter )
-{
-    LONG count = 0;
-    while (IEnumWbemClassObject_Skip( iter, WBEM_INFINITE, 1 ) == S_OK) count++;
-    IEnumWbemClassObject_Reset( iter );
-    return count;
-}
-
 static HRESULT SWbemObjectSet_create( IEnumWbemClassObject *wbem_objectenum, ISWbemObjectSet **obj )
 {
     struct objectset *objectset;
@@ -564,7 +565,6 @@ static HRESULT SWbemObjectSet_create( IEnumWbemClassObject *wbem_objectenum, ISW
     objectset->refs = 1;
     objectset->objectenum = wbem_objectenum;
     IEnumWbemClassObject_AddRef( objectset->objectenum );
-    objectset->count = get_object_count( objectset->objectenum );
 
     *obj = &objectset->ISWbemObjectSet_iface;
     TRACE( "returning iface %p\n", *obj );

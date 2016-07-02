@@ -1,8 +1,7 @@
 
 list(APPEND HAL_PIC_ASM_SOURCE
     generic/systimer.S
-    generic/trap.S
-    up/pic.S)
+    generic/trap.S)
 
 list(APPEND HAL_PIC_SOURCE
     generic/profil.c

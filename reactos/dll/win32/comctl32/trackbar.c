@@ -482,12 +482,16 @@ TRACKBAR_DrawOneTic (const TRACKBAR_INFO *infoPtr, HDC hdc, LONG ticPos, int fla
 
     if (flags & TBS_VERT) {
         offsetthumb = (infoPtr->rcThumb.bottom - infoPtr->rcThumb.top)/2;
-        SetRect(&rcTics, infoPtr->rcThumb.left - 2, infoPtr->rcChannel.top + offsetthumb,
-                infoPtr->rcThumb.right + 2, infoPtr->rcChannel.bottom - offsetthumb - 1);
+	rcTics.left = infoPtr->rcThumb.left - 2;
+	rcTics.right = infoPtr->rcThumb.right + 2;
+	rcTics.top    = infoPtr->rcChannel.top + offsetthumb;
+	rcTics.bottom = infoPtr->rcChannel.bottom - offsetthumb - 1;
     } else {
         offsetthumb = (infoPtr->rcThumb.right - infoPtr->rcThumb.left)/2;
-        SetRect(&rcTics, infoPtr->rcChannel.left + offsetthumb, infoPtr->rcThumb.top - 2,
-                infoPtr->rcChannel.right - offsetthumb - 1, infoPtr->rcThumb.bottom + 2);
+	rcTics.left   = infoPtr->rcChannel.left + offsetthumb;
+	rcTics.right  = infoPtr->rcChannel.right - offsetthumb - 1;
+	rcTics.top = infoPtr->rcThumb.top - 2;
+	rcTics.bottom = infoPtr->rcThumb.bottom + 2;
     }
 
     if (flags & (TBS_TOP | TBS_LEFT)) {
@@ -1210,12 +1214,9 @@ TRACKBAR_SetPos (TRACKBAR_INFO *infoPtr, BOOL fPosition, LONG lPosition)
 
     if (infoPtr->lPos > infoPtr->lRangeMax)
 	infoPtr->lPos = infoPtr->lRangeMax;
+    infoPtr->flags |= TB_THUMBPOSCHANGED;
 
-    if (fPosition && oldPos != lPosition)
-    {
-        TRACKBAR_UpdateThumb(infoPtr);
-        TRACKBAR_InvalidateThumbMove(infoPtr, oldPos, lPosition);
-    }
+    if (fPosition && oldPos != lPosition) TRACKBAR_InvalidateThumbMove(infoPtr, oldPos, lPosition);
 
     return 0;
 }
@@ -1802,7 +1803,7 @@ TRACKBAR_KeyDown (TRACKBAR_INFO *infoPtr, INT nVirtKey)
     }
 
     if (pos != infoPtr->lPos) {
-	TRACKBAR_UpdateThumb (infoPtr);
+	infoPtr->flags |=TB_THUMBPOSCHANGED;
 	TRACKBAR_InvalidateThumbMove (infoPtr, pos, infoPtr->lPos);
     }
 
@@ -1960,7 +1961,6 @@ TRACKBAR_WindowProc (HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 
     case WM_CAPTURECHANGED:
-        if (hwnd == (HWND)lParam) return 0;
         return TRACKBAR_CaptureChanged (infoPtr);
 
     case WM_CREATE:

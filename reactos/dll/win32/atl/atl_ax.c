@@ -1019,15 +1019,15 @@ static enum content get_content_type(LPCOLESTR name, CLSID *control_id)
 }
 
 /***********************************************************************
- *           AtlAxCreateControlLicEx         [atl100.@]
+ *           AtlAxCreateControlEx            [atl100.@]
  *
  * REMARKS
  *   See http://www.codeproject.com/com/cwebpage.asp for some background
  *
  */
-HRESULT WINAPI AtlAxCreateControlLicEx(LPCOLESTR lpszName, HWND hWnd,
+HRESULT WINAPI AtlAxCreateControlEx(LPCOLESTR lpszName, HWND hWnd,
         IStream *pStream, IUnknown **ppUnkContainer, IUnknown **ppUnkControl,
-        REFIID iidSink, IUnknown *punkSink, BSTR lic)
+        REFIID iidSink, IUnknown *punkSink)
 {
     CLSID controlId;
     HRESULT hRes;
@@ -1037,11 +1037,8 @@ HRESULT WINAPI AtlAxCreateControlLicEx(LPCOLESTR lpszName, HWND hWnd,
     IUnknown *pContainer = NULL;
     enum content content;
 
-    TRACE("(%s %p %p %p %p %p %p %s)\n", debugstr_w(lpszName), hWnd, pStream,
-            ppUnkContainer, ppUnkControl, iidSink, punkSink, debugstr_w(lic));
-
-    if (lic)
-        FIXME("semi stub\n");
+    TRACE("(%s %p %p %p %p %p %p)\n", debugstr_w(lpszName), hWnd, pStream,
+            ppUnkContainer, ppUnkControl, iidSink, punkSink);
 
     if (ppUnkContainer) *ppUnkContainer = NULL;
     if (ppUnkControl) *ppUnkControl = NULL;
@@ -1414,21 +1411,28 @@ INT_PTR WINAPI AtlAxDialogBoxA(HINSTANCE hInstance, LPCSTR lpTemplateName, HWND 
     return 0;
 }
 
+#if _ATL_VER >= _ATL_VER_80
+
 /***********************************************************************
  *           AtlAxCreateControlLic        [atl100.59]
  *
  */
 HRESULT WINAPI AtlAxCreateControlLic(const WCHAR *lpTricsData, HWND hwnd, IStream *stream, IUnknown **container, BSTR lic)
 {
-    return AtlAxCreateControlLicEx(lpTricsData, hwnd, stream, container, NULL, NULL, NULL, lic);
+    FIXME("(%s %p %p %p %s)\n", debugstr_w(lpTricsData), hwnd, stream, container, debugstr_w(lic));
+    return E_NOTIMPL;
 }
 
 /***********************************************************************
- *           AtlAxCreateControlEx         [atl100.@]
+ *           AtlAxCreateControlLicEx      [atl100.60]
  *
  */
-HRESULT WINAPI AtlAxCreateControlEx(const WCHAR *lpTricsData, HWND hwnd, IStream *stream,
-        IUnknown **container, IUnknown **control, REFIID iidSink, IUnknown *punkSink)
+HRESULT WINAPI AtlAxCreateControlLicEx(const WCHAR *lpTricsData, HWND hwnd, IStream *stream,
+        IUnknown **container, IUnknown **control, REFIID iidSink, IUnknown *punkSink, BSTR lic)
 {
-    return AtlAxCreateControlLicEx(lpTricsData, hwnd, stream, container, control, iidSink, punkSink, NULL);
+    FIXME("(%s %p %p %p %p %s %p %s)\n", debugstr_w(lpTricsData), hwnd, stream, container, control,
+          debugstr_guid(iidSink), punkSink, debugstr_w(lic));
+    return E_NOTIMPL;
 }
+
+#endif

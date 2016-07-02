@@ -27,14 +27,10 @@
 /* INCLUDES *****************************************************************/
 
 #include "precomp.h"
-#include <stdarg.h>
 
 /* GLOBALS ******************************************************************/
 
 HANDLE hLogFile = NULL;
-
-#define FORMAT_BUFFER_SIZE 512
-#define LINE_BUFFER_SIZE 1024
 
 /* FUNCTIONS ****************************************************************/
 
@@ -89,84 +85,64 @@ TerminateSetupActionLog(VOID)
 }
 
 
-VOID
-CDECL
-pSetupDebugPrint(
-    IN PCWSTR pszFileName,
-    IN INT nLineNumber,
-    IN PCWSTR pszTag,
-    IN PCWSTR pszMessage,
-    ...)
+BOOL WINAPI
+SYSSETUP_LogItem(IN const LPSTR lpFileName,
+                 IN DWORD dwLineNumber,
+                 IN DWORD dwSeverity,
+                 IN LPWSTR lpMessageText)
 {
-    PWSTR pszFormatBuffer = NULL;
-    PWSTR pszLineBuffer = NULL;
-    PSTR pszOutputBuffer = NULL;
-    ULONG ulLineSize, ulOutputSize;
+    LPCSTR lpSeverityString;
+    LPSTR lpMessageString;
+    DWORD dwMessageLength;
+    DWORD dwMessageSize;
     DWORD dwWritten;
+    CHAR Buffer[6];
+    CHAR TimeBuffer[30];
     SYSTEMTIME stTime;
-    va_list args;
 
-    if (hLogFile == NULL)
-        return;
-
-    GetLocalTime(&stTime);
-
-    if (pszMessage)
+    /* Get the severity code string */
+    switch (dwSeverity)
     {
-        pszFormatBuffer = HeapAlloc(GetProcessHeap(),
-                                    HEAP_ZERO_MEMORY,
-                                    FORMAT_BUFFER_SIZE * sizeof(WCHAR));
-        if (pszFormatBuffer == NULL)
-            goto done;
+        case SYSSETUP_SEVERITY_INFORMATION:
+            lpSeverityString = "Information : ";
+            break;
 
-        va_start(args, pszMessage);
-        vsnwprintf(pszFormatBuffer,
-                   FORMAT_BUFFER_SIZE,
-                   pszMessage,
-                   args);
-        va_end(args);
+        case SYSSETUP_SEVERITY_WARNING:
+            lpSeverityString = "Warning : ";
+            break;
+
+        case SYSSETUP_SEVERITY_ERROR:
+            lpSeverityString = "Error : ";
+            break;
+
+        case SYSSETUP_SEVERITY_FATAL_ERROR:
+            lpSeverityString = "Fatal error : ";
+            break;
+
+        default:
+            lpSeverityString = "Unknown : ";
+            break;
     }
 
-    pszLineBuffer = HeapAlloc(GetProcessHeap(),
-                              HEAP_ZERO_MEMORY,
-                              LINE_BUFFER_SIZE * sizeof(WCHAR));
-    if (pszLineBuffer == NULL)
-        goto done;
-
-    _snwprintf(pszLineBuffer,
-               LINE_BUFFER_SIZE,
-               L"%02d/%02d/%04d %02d:%02d:%02d.%03d, %s, %d, %s, %s\r\n",
-               stTime.wMonth,
-               stTime.wDay,
-               stTime.wYear,
-               stTime.wHour,
-               stTime.wMinute,
-               stTime.wSecond,
-               stTime.wMilliseconds,
-               pszFileName ? pszFileName : L"",
-               nLineNumber,
-               pszTag ? pszTag : L"",
-               pszFormatBuffer ? pszFormatBuffer : L"");
-
     /* Get length of the converted ansi string */
-    ulLineSize = wcslen(pszLineBuffer) * sizeof(WCHAR);
-    RtlUnicodeToMultiByteSize(&ulOutputSize,
-                              pszLineBuffer,
-                              ulLineSize);
+    dwMessageLength = wcslen(lpMessageText) * sizeof(WCHAR);
+    RtlUnicodeToMultiByteSize(&dwMessageSize,
+                              lpMessageText,
+                              dwMessageLength);
 
     /* Allocate message string buffer */
-    pszOutputBuffer = HeapAlloc(GetProcessHeap(),
-                                HEAP_ZERO_MEMORY,
-                                ulOutputSize);
-    if (pszOutputBuffer == NULL)
-        goto done;
+    lpMessageString = (LPSTR) HeapAlloc(GetProcessHeap(),
+                                        HEAP_ZERO_MEMORY,
+                                        dwMessageSize);
+    if (!lpMessageString)
+        return FALSE;
 
     /* Convert unicode to ansi */
-    RtlUnicodeToMultiByteN(pszOutputBuffer,
-                           ulOutputSize,
+    RtlUnicodeToMultiByteN(lpMessageString,
+                           dwMessageSize,
                            NULL,
-                           pszLineBuffer,
-                           ulLineSize);
+                           lpMessageText,
+                           dwMessageLength);
 
     /* Set file pointer to the end of the file */
     SetFilePointer(hLogFile,
@@ -174,21 +150,71 @@ pSetupDebugPrint(
                    NULL,
                    FILE_END);
 
+    /* Write Time/Date */
+    GetLocalTime(&stTime);
+
+    snprintf(TimeBuffer, sizeof(TimeBuffer),
+             "%02d/%02d/%02d %02d:%02d:%02d.%03d",
+             stTime.wMonth,
+             stTime.wDay,
+             stTime.wYear,
+             stTime.wHour,
+             stTime.wMinute,
+             stTime.wSecond,
+             stTime.wMilliseconds);
+
     WriteFile(hLogFile,
-              pszOutputBuffer,
-              ulOutputSize,
+              TimeBuffer,
+              strlen(TimeBuffer),
               &dwWritten,
               NULL);
 
-done:
-    if (pszOutputBuffer)
-        HeapFree(GetProcessHeap(), 0, pszOutputBuffer);
+    /* Write comma */
+    WriteFile(hLogFile, ",", 1, &dwWritten, NULL);
 
-    if (pszLineBuffer)
-        HeapFree(GetProcessHeap(), 0, pszLineBuffer);
+    /* Write file name */
+    WriteFile(hLogFile,
+              lpFileName,
+              strlen(lpFileName),
+              &dwWritten,
+              NULL);
 
-    if (pszFormatBuffer)
-        HeapFree(GetProcessHeap(), 0, pszFormatBuffer);
+    /* Write comma */
+    WriteFile(hLogFile, ",", 1, &dwWritten, NULL);
+
+    /* Write line number */
+    snprintf(Buffer, sizeof(Buffer), "%lu", dwLineNumber);
+    WriteFile(hLogFile,
+              Buffer,
+              strlen(Buffer),
+              &dwWritten,
+              NULL);
+
+    /* Write comma */
+    WriteFile(hLogFile, ",", 1, &dwWritten, NULL);
+
+    /* Write severity code */
+    WriteFile(hLogFile,
+              lpSeverityString,
+              strlen(lpSeverityString),
+              &dwWritten,
+              NULL);
+
+    /* Write message string */
+    WriteFile(hLogFile,
+              lpMessageString,
+              dwMessageSize,
+              &dwWritten,
+              NULL);
+
+    /* Write newline */
+    WriteFile(hLogFile, "\r\n", 2, &dwWritten, NULL);
+
+    HeapFree(GetProcessHeap(),
+             0,
+             lpMessageString);
+
+    return TRUE;
 }
 
 /* EOF */

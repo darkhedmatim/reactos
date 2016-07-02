@@ -19,9 +19,8 @@
 
 #pragma once
 
-VOID CmdLineParse(IN PCCH CmdLine);
+VOID CmdLineParse(IN PCHAR CmdLine);
 
-PCCH CmdLineGetDebugString(VOID);
 PCCH CmdLineGetDefaultOS(VOID);
 LONG CmdLineGetTimeOut(VOID);
 

@@ -20,6 +20,7 @@
 #include <shlwapi.h>
 #include <shlobj.h>
 #include <shobjidl.h>
+#include <recyclebin.h>
 #include <ndk/rtlfuncs.h>
 #include <fmifs/fmifs.h>
 #include <tchar.h>
@@ -28,8 +29,6 @@
 #include <atlcom.h>
 #include <atlwin.h>
 #include <powrprof.h>
-#include <winnetwk.h>
-#include <objsafe.h>
 
 #include <comctl32_undoc.h>
 #include <shlguid_undoc.h>
@@ -40,7 +39,6 @@
 
 #include <shellutils.h>
 
-#include "shellrecyclebin/recyclebin.h"
 #include "wine/pidl.h"
 #include "debughlp.h"
 #include "wine/shell32_main.h"
@@ -50,12 +48,7 @@
 #include "shfldr.h"
 #include "CShellItem.h"
 #include "CShellLink.h"
-#include "CFolderItemVerbs.h"
-#include "CFolderItems.h"
-#include "CFolder.h"
-#include "CShellDispatch.h"
 #include "CDropTargetHelper.h"
-#include "CFolderOptions.h"
 #include "folders/CFSFolder.h"
 #include "folders/CDrivesFolder.h"
 #include "folders/CDesktopFolder.h"

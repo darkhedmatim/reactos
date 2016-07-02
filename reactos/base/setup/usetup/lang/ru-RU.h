@@ -826,7 +826,7 @@ static MUI_ENTRY ruRUSelectPartitionEntries[] =
     }
 };
 
-static MUI_ENTRY ruRUConfirmDeleteSystemPartitionEntries[] =
+static MUI_ENTRY ruRUConfirmDeletePartitionEntries[] =
 {
     {
         4,
@@ -837,13 +837,13 @@ static MUI_ENTRY ruRUConfirmDeleteSystemPartitionEntries[] =
     {
         6,
         8,
-        "You have chosen to delete the system partition.",
+        "You asked Setup to delete the system partition.",
         TEXT_STYLE_NORMAL
     },
     {
         6,
         10,
-        "System partitions can contain diagnostic programs, hardware configuration",
+        "System partitions can contain diagnose programs, hardware configuration",
         TEXT_STYLE_NORMAL
     },
     {
@@ -867,7 +867,7 @@ static MUI_ENTRY ruRUConfirmDeleteSystemPartitionEntries[] =
     {
         6,
         15,
-        "programs on the partition, or when you are sure you want to delete them.",
+        "programs on the partiton, or when you are sure you want to delete them.",
         TEXT_STYLE_NORMAL
     },
     {
@@ -1648,7 +1648,7 @@ MUI_PAGE ruRUPages[] =
     },
     {
         CONFIRM_DELETE_SYSTEM_PARTITION_PAGE,
-        ruRUConfirmDeleteSystemPartitionEntries
+        ruRUConfirmDeletePartitionEntries
     },
     {
         SELECT_FILE_SYSTEM_PAGE,
@@ -1744,8 +1744,6 @@ MUI_STRING ruRUStrings[] =
     "ReactOS устанавливается на раздел:"},
     {STRING_CHECKINGPART,
     "Программа установки проверяет выбранный раздел."},
-    {STRING_CONTINUE,
-    "ENTER = Продолжить"},
     {STRING_QUITCONTINUE,
     "F3 = Выход  ENTER = Продолжить"},
     {STRING_REBOOTCOMPUTER,
@@ -1793,7 +1791,7 @@ MUI_STRING ruRUStrings[] =
     {STRING_HDDINFOUNK1,
     "%I64u %s  Жесткий диск %lu  (Порт=%hu, Шина=%hu, Id=%hu)."},
     {STRING_HDDINFOUNK2,
-    "   %c%c  Запись 0x%02X    %I64u %s"},
+    "   %c%c  Запись %lu    %I64u %s"},
     {STRING_HDINFOPARTDELETE,
     "на %I64u %s  Жесткий диск %lu  (Порт=%hu, Шина=%hu, Id=%hu) на %wZ."},
     {STRING_HDDINFOUNK3,
@@ -1801,7 +1799,7 @@ MUI_STRING ruRUStrings[] =
     {STRING_HDINFOPARTZEROED,
     "Жесткий диск %lu (%I64u %s), Порт=%hu, Шина=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK4,
-    "%c%c  Запись 0x%02X    %I64u %s"},
+    "%c%c  Запись %lu    %I64u %s"},
     {STRING_HDINFOPARTEXISTS,
     "на жестком диске %lu (%I64u %s), Порт=%hu, Шина=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK5,

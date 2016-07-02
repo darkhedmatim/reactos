@@ -3533,9 +3533,6 @@ static void test_VarDateFromStr(void)
   DFS("1-2-1970");        EXPECT_DBL(25570.0);
   DFS("13-1-1970");       EXPECT_DBL(25581.0);
   DFS("1970-1-13");       EXPECT_DBL(25581.0);
-  DFS("6/30/2011 01:20:34");          EXPECT_DBL(40724.05594907407);
-  DFS("6/30/2011 01:20:34 AM");       EXPECT_DBL(40724.05594907407);
-  DFS("6/30/2011 01:20:34 PM");       EXPECT_DBL(40724.55594907407);
   /* Native fails "1999 January 3, 9AM". I consider that a bug in native */
 
   /* test a non-english data string */
@@ -5406,12 +5403,9 @@ static void test_SysAllocString(void)
   if (str)
   {
     LPINTERNAL_BSTR bstr = Get(str);
-    DWORD_PTR p = (DWORD_PTR)str;
-    int align = sizeof(void *);
 
     ok (bstr->dwLen == 8, "Expected 8, got %d\n", bstr->dwLen);
     ok (!lstrcmpW(bstr->szString, szTest), "String different\n");
-    ok ((p & ~(align-1)) == p, "Not aligned to %d\n", align);
     SysFreeString(str);
   }
 }
@@ -5455,9 +5449,7 @@ static void test_SysAllocStringByteLen(void)
 {
   const OLECHAR szTest[10] = { 'T','e','s','t','\0' };
   const CHAR szTestA[6] = { 'T','e','s','t','\0','?' };
-  char *buf;
   BSTR str;
-  int i;
 
   if (sizeof(void *) == 4)  /* not limited to 0x80000000 on Win64 */
   {
@@ -5500,7 +5492,6 @@ static void test_SysAllocStringByteLen(void)
 
     ok (bstr->dwLen == 3, "Expected 3, got %d\n", bstr->dwLen);
     ok (!lstrcmpA((LPCSTR)bstr->szString, szTestTruncA), "String different\n");
-    ok (!bstr->szString[2], "String not terminated\n");
     SysFreeString(str);
   }
 
@@ -5514,32 +5505,6 @@ static void test_SysAllocStringByteLen(void)
     ok (!lstrcmpW(bstr->szString, szTest), "String different\n");
     SysFreeString(str);
   }
-
-  /* Make sure terminating null is aligned properly */
-  buf = HeapAlloc(GetProcessHeap(), 0, 1025);
-  ok (buf != NULL, "Expected non-NULL\n");
-  for (i = 0; i < 1024; i++)
-  {
-    LPINTERNAL_BSTR bstr;
-
-    str = SysAllocStringByteLen(NULL, i);
-    ok (str != NULL, "Expected non-NULL\n");
-    bstr = Get(str);
-    ok (bstr->dwLen == i, "Expected %d, got %d\n", i, bstr->dwLen);
-    ok (!bstr->szString[(i+sizeof(WCHAR)-1)/sizeof(WCHAR)], "String not terminated\n");
-    SysFreeString(str);
-
-    memset(buf, 0xaa, 1025);
-    str = SysAllocStringByteLen(buf, i);
-    ok (str != NULL, "Expected non-NULL\n");
-    bstr = Get(str);
-    ok (bstr->dwLen == i, "Expected %d, got %d\n", i, bstr->dwLen);
-    buf[i] = 0;
-    ok (!lstrcmpA((LPCSTR)bstr->szString, buf), "String different\n");
-    ok (!bstr->szString[(i+sizeof(WCHAR)-1)/sizeof(WCHAR)], "String not terminated\n");
-    SysFreeString(str);
-  }
-  HeapFree(GetProcessHeap(), 0, buf);
 }
 
 static void test_SysReAllocString(void)
@@ -6377,15 +6342,9 @@ static void test_bstr_cache(void)
     ok(str == str2, "str != str2\n");
     SysFreeString(str2);
 
-    /* Fill the bucket with cached entries.
-       We roll our own, to show that the cache doesn't use
-       the bstr length field to determine bucket allocation. */
+    /* Fill the bucket with cached entries. */
     for(i=0; i < sizeof(strs)/sizeof(*strs); i++)
-    {
-        DWORD_PTR *ptr = CoTaskMemAlloc(64);
-        ptr[0] = 0;
-        strs[i] = (BSTR)(ptr + 1);
-    }
+        strs[i] = SysAllocStringLen(NULL, 24);
     for(i=0; i < sizeof(strs)/sizeof(*strs); i++)
         SysFreeString(strs[i]);
 

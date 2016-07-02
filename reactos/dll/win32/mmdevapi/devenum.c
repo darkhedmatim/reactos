@@ -577,9 +577,8 @@ static HRESULT WINAPI MMDevice_Activate(IMMDevice *iface, REFIID riid, DWORD cls
 
     if (IsEqualIID(riid, &IID_IAudioClient)){
         hr = drvs.pGetAudioEndpoint(&This->devguid, iface, (IAudioClient**)ppv);
-    }else if (IsEqualIID(riid, &IID_IAudioEndpointVolume) ||
-            IsEqualIID(riid, &IID_IAudioEndpointVolumeEx))
-        hr = AudioEndpointVolume_Create(This, (IAudioEndpointVolumeEx**)ppv);
+    }else if (IsEqualIID(riid, &IID_IAudioEndpointVolume))
+        hr = AudioEndpointVolume_Create(This, (IAudioEndpointVolume**)ppv);
     else if (IsEqualIID(riid, &IID_IAudioSessionManager)
              || IsEqualIID(riid, &IID_IAudioSessionManager2))
     {
@@ -1048,15 +1047,9 @@ static HRESULT WINAPI MMDevEnum_GetDevice(IMMDeviceEnumerator *iface, const WCHA
 
     for (i = 0; i < MMDevice_count; ++i)
     {
-        HRESULT hr;
         WCHAR *str;
         dev = &MMDevice_head[i]->IMMDevice_iface;
-        hr = IMMDevice_GetId(dev, &str);
-        if (FAILED(hr))
-        {
-            WARN("GetId failed: %08x\n", hr);
-            continue;
-        }
+        IMMDevice_GetId(dev, &str);
 
         if (str && !lstrcmpW(str, name))
         {

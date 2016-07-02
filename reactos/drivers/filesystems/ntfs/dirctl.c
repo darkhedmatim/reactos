@@ -298,19 +298,6 @@ NtfsQueryDirectory(PNTFS_IRP_CONTEXT IrpContext)
     FileInformationClass = Stack->Parameters.QueryDirectory.FileInformationClass;
     FileIndex = Stack->Parameters.QueryDirectory.FileIndex;
 
-    if (NtfsFCBIsCompressed(Fcb))
-    {
-        DPRINT1("Compressed directory!\n");
-        UNIMPLEMENTED;
-        return STATUS_NOT_IMPLEMENTED;
-    }
-
-    if (!ExAcquireResourceSharedLite(&Fcb->MainResource,
-                                     BooleanFlagOn(IrpContext->Flags, IRPCONTEXT_CANWAIT)))
-    {
-        return STATUS_PENDING;
-    }
-
     if (SearchPattern != NULL)
     {
         if (!Ccb->DirectorySearchPattern)
@@ -322,7 +309,6 @@ NtfsQueryDirectory(PNTFS_IRP_CONTEXT IrpContext)
                 ExAllocatePoolWithTag(NonPagedPool, Pattern.MaximumLength, TAG_NTFS);
             if (!Ccb->DirectorySearchPattern)
             {
-                ExReleaseResourceLite(&Fcb->MainResource);
                 return STATUS_INSUFFICIENT_RESOURCES;
             }
 
@@ -336,7 +322,6 @@ NtfsQueryDirectory(PNTFS_IRP_CONTEXT IrpContext)
         Ccb->DirectorySearchPattern = ExAllocatePoolWithTag(NonPagedPool, 2 * sizeof(WCHAR), TAG_NTFS);
         if (!Ccb->DirectorySearchPattern)
         {
-            ExReleaseResourceLite(&Fcb->MainResource);
             return STATUS_INSUFFICIENT_RESOURCES;
         }
 
@@ -362,13 +347,6 @@ NtfsQueryDirectory(PNTFS_IRP_CONTEXT IrpContext)
     Buffer = NtfsGetUserBuffer(Irp, FALSE);
 
     DPRINT("Buffer=%p tofind=%S\n", Buffer, Ccb->DirectorySearchPattern);
-
-    if (!ExAcquireResourceExclusiveLite(&DeviceExtension->DirResource,
-                                        BooleanFlagOn(IrpContext->Flags, IRPCONTEXT_CANWAIT)))
-    {
-        ExReleaseResourceLite(&Fcb->MainResource);
-        return STATUS_PENDING;
-    }
 
     while (Status == STATUS_SUCCESS && BufferLength > 0)
     {
@@ -476,9 +454,6 @@ NtfsQueryDirectory(PNTFS_IRP_CONTEXT IrpContext)
         Buffer0->NextEntryOffset = 0;
     }
 
-    ExReleaseResourceLite(&DeviceExtension->DirResource);
-    ExReleaseResourceLite(&Fcb->MainResource);
-
     if (FileIndex > 0)
     {
         Status = STATUS_SUCCESS;
@@ -509,11 +484,6 @@ NtfsDirectoryControl(PNTFS_IRP_CONTEXT IrpContext)
         default:
             Status = STATUS_INVALID_DEVICE_REQUEST;
             break;
-    }
-
-    if (Status == STATUS_PENDING && IrpContext->Flags & IRPCONTEXT_COMPLETE)
-    {
-        return NtfsMarkIrpContextForQueue(IrpContext);
     }
 
     IrpContext->Irp->IoStatus.Information = 0;

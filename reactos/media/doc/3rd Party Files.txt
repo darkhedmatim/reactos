@@ -23,7 +23,7 @@ Used Version: 1.1
 Website: http://www.geocities.com/dborca/opengl/tc.html
 
 Title: FreeType
-Used Version: 2.6.3
+Used Version: 2.6.2
 Website: http://www.freetype.org
 
 Title: Mesa3D
@@ -83,9 +83,9 @@ Used Version: 9a
 Website: http://www.ijg.org/
 
 Title: mbed TLS
-Used Version: 2.2.1
+Used Version: 2.2.0
 Website: https://tls.mbed.org/
 
 Title: libpng
-Used Version: 1.6.21
+Used Version: 1.6.19
 Website: http://libpng.sourceforge.net/

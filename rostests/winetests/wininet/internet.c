@@ -1518,12 +1518,16 @@ static void test_InternetErrorDlg(void)
         default: break;
         }
 
-        todo_wine_if(test_flags & FLAG_TODO)
+        if(test_flags & FLAG_TODO)
+            todo_wine ok(res == expected, "Got %d, expected %d (%d)\n", res, expected, i);
+        else
             ok(res == expected, "Got %d, expected %d (%d)\n", res, expected, i);
 
         /* Same thing with NULL hwnd */
         res = InternetErrorDlg(NULL, req, i, flags, NULL);
-        todo_wine_if(test_flags & FLAG_TODO)
+        if(test_flags & FLAG_TODO)
+            todo_wine ok(res == expected, "Got %d, expected %d (%d)\n", res, expected, i);
+        else
             ok(res == expected, "Got %d, expected %d (%d)\n", res, expected, i);
 
 
@@ -1532,7 +1536,9 @@ static void test_InternetErrorDlg(void)
             expected = ERROR_INVALID_PARAMETER;
 
         res = InternetErrorDlg(hwnd, NULL, i, flags, NULL);
-        todo_wine_if( test_flags & FLAG_TODO || i == ERROR_INTERNET_INCORRECT_PASSWORD)
+        if( test_flags & FLAG_TODO || i == ERROR_INTERNET_INCORRECT_PASSWORD)
+            todo_wine ok(res == expected, "Got %d, expected %d (%d)\n", res, expected, i);
+        else
             ok(res == expected, "Got %d, expected %d (%d)\n", res, expected, i);
     }
 

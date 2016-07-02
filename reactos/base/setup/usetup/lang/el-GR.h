@@ -838,7 +838,7 @@ static MUI_ENTRY elGRSelectPartitionEntries[] =
     }
 };
 
-static MUI_ENTRY elGRConfirmDeleteSystemPartitionEntries[] =
+static MUI_ENTRY elGRConfirmDeletePartitionEntries[] =
 {
     {
         4,
@@ -849,13 +849,13 @@ static MUI_ENTRY elGRConfirmDeleteSystemPartitionEntries[] =
     {
         6,
         8,
-        "You have chosen to delete the system partition.",
+        "You asked Setup to delete the system partition.",
         TEXT_STYLE_NORMAL
     },
     {
         6,
         10,
-        "System partitions can contain diagnostic programs, hardware configuration",
+        "System partitions can contain diagnose programs, hardware configuration",
         TEXT_STYLE_NORMAL
     },
     {
@@ -879,7 +879,7 @@ static MUI_ENTRY elGRConfirmDeleteSystemPartitionEntries[] =
     {
         6,
         15,
-        "programs on the partition, or when you are sure you want to delete them.",
+        "programs on the partiton, or when you are sure you want to delete them.",
         TEXT_STYLE_NORMAL
     },
     {
@@ -1454,7 +1454,7 @@ MUI_ERROR elGRErrorEntries[] =
           "† œš¡˜«á©«˜© ™¨ã¡œ æ«  «¦¬¢á® ©«¦¤ â¤˜ª ©¡¢¨æª ›å©¡¦ª §œ¨ â®œ  â¤˜ £ ©¬£™˜«æ\n"
           "partition table §¦¬ ›œ £§¦¨œå ¤˜ œ¢œš®Ÿœå ©à©«á!\n"
           "\n"
-          "† ›£ ¦¬¨šå˜ ã › ˜š¨˜­ã partitions £§¦¨œå ¤˜ ¡˜«˜©«¨â¯œ  «¦ partition table.\n"
+          "† ›£ ¦¬¨šå˜ ã › ˜š¨˜­ã partitions £§¦¨œå ¤˜ ¡˜«˜©«¨â¯œ  «¦ partiton table.\n"
           "\n"
           "  \x07  ˜«ã©«œ F3 š ˜ ¤˜ ˜§¦®à¨ã©œ«œ ˜§æ «¤ „š¡˜«á©«˜©.\n"
           "  \x07  ˜«ã©«œ ENTER š ˜ ¤˜ ©¬¤œ®å©œ«œ.",
@@ -1664,7 +1664,7 @@ MUI_PAGE elGRPages[] =
     },
     {
         CONFIRM_DELETE_SYSTEM_PARTITION_PAGE,
-        elGRConfirmDeleteSystemPartitionEntries
+        elGRConfirmDeletePartitionEntries
     },
     {
         SELECT_FILE_SYSTEM_PAGE,
@@ -1762,8 +1762,6 @@ MUI_STRING elGRStrings[] =
     "Setup install ReactOS onto Partition"},
     {STRING_CHECKINGPART,
     "† œš¡˜«á©«˜© œ¢âš®œ  «é¨˜ «¦ œ§ ¢œš£â¤¦ partition."},
-    {STRING_CONTINUE,
-    "ENTER = ‘¬¤â®œ ˜"},
     {STRING_QUITCONTINUE,
     "F3 = €§¦®é¨©  ENTER = ‘¬¤â®œ ˜"},
     {STRING_REBOOTCOMPUTER,
@@ -1811,7 +1809,7 @@ MUI_STRING elGRStrings[] =
     {STRING_HDDINFOUNK1,
     "%I64u %s  ‘¡¢¨æª ›å©¡¦ª %lu  (Port=%hu, Bus=%hu, Id=%hu)."},
     {STRING_HDDINFOUNK2,
-    "   %c%c  Type 0x%02X    %I64u %s"},
+    "   %c%c  Type %lu    %I64u %s"},
     {STRING_HDINFOPARTDELETE,
     "on %I64u %s  Harddisk %lu  (Port=%hu, Bus=%hu, Id=%hu) on %wZ."},
     {STRING_HDDINFOUNK3,
@@ -1819,7 +1817,7 @@ MUI_STRING elGRStrings[] =
     {STRING_HDINFOPARTZEROED,
     "‘¡¢¨æª ›å©¡¦ª %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK4,
-    "%c%c  Type 0x%02X    %I64u %s"},
+    "%c%c  Type %lu    %I64u %s"},
     {STRING_HDINFOPARTEXISTS,
     "©«¦ ©¡¢¨æ ›å©¡¦ %lu (%I64u %s), Port=%hu, Bus=%hu, Id=%hu (%wZ)."},
     {STRING_HDDINFOUNK5,

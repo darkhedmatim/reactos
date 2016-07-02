@@ -8,8 +8,8 @@ list(APPEND SOURCE
     dce.c
     dde.c
     dialog.c
-    edit.c    
-    generated_${ARCH}.c
+    edit.c
+    generated.c
     input.c
     listbox.c
     menu.c

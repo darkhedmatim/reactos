@@ -74,9 +74,6 @@ VOID ClipOrCenterWindowToMonitor(HWND hWnd, UINT flags);
 ////////////////////////////////////////////////////////////////////////////////
 
 
-BOOL IsWindowsOS(VOID);
-BOOL IsPreVistaOSVersion(VOID);
-
 LPWSTR
 GetExecutableVendor(IN LPCWSTR lpszFilename);
 

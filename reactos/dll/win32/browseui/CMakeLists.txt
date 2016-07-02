@@ -2,7 +2,7 @@ PROJECT(SHELL)
 
 set_cpp(WITH_RUNTIME)
 
-include_directories(${REACTOS_SOURCE_DIR}/sdk/lib/atl)
+include_directories(${REACTOS_SOURCE_DIR}/lib/atl)
 spec2def(browseui.dll browseui.spec ADD_IMPORTLIB)
 
 list(APPEND SOURCE
@@ -31,7 +31,6 @@ list(APPEND SOURCE
     travellog.cpp
     utility.cpp
     CProgressDialog.cpp
-    comcat.cpp
     precomp.h)
 
 add_library(browseui SHARED
