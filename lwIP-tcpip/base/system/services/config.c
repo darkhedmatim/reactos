@@ -15,6 +15,11 @@
 #define NDEBUG
 #include <debug.h>
 
+ULONG
+NTAPI
+RtlLengthSecurityDescriptor(
+  _In_ PSECURITY_DESCRIPTOR SecurityDescriptor);
+
 /* FUNCTIONS *****************************************************************/
 
 
@@ -504,47 +509,12 @@ ScmWriteSecurityDescriptor(
     _In_ HKEY hServiceKey,
     _In_ PSECURITY_DESCRIPTOR pSecurityDescriptor)
 {
-    PSECURITY_DESCRIPTOR pRelativeSD = NULL;
     HKEY hSecurityKey = NULL;
-    DWORD dwBufferLength = 0;
     DWORD dwDisposition;
     DWORD dwError;
-    NTSTATUS Status;
 
-    DPRINT1("ScmWriteSecurityDescriptor(%p %p)\n", hServiceKey, pSecurityDescriptor);
+    DPRINT("ScmWriteSecurityDescriptor(%p %p)\n", hServiceKey, pSecurityDescriptor);
 
-    Status = RtlAbsoluteToSelfRelativeSD(pSecurityDescriptor,
-                                         NULL,
-                                         &dwBufferLength);
-    if (Status != STATUS_BUFFER_TOO_SMALL)
-    {
-DPRINT1("\n");
-        return RtlNtStatusToDosError(Status);
-    }
-
-    DPRINT1("BufferLength %lu\n", dwBufferLength);
-
-    pRelativeSD = RtlAllocateHeap(RtlGetProcessHeap(),
-                                  HEAP_ZERO_MEMORY,
-                                  dwBufferLength);
-    if (pRelativeSD == NULL)
-    {
-DPRINT1("\n");
-        return ERROR_OUTOFMEMORY;
-    }
-
-DPRINT1("\n");
-    Status = RtlAbsoluteToSelfRelativeSD(pSecurityDescriptor,
-                                         pRelativeSD,
-                                         &dwBufferLength);
-    if (!NT_SUCCESS(Status))
-    {
-DPRINT1("\n");
-        dwError = RtlNtStatusToDosError(Status);
-        goto done;
-    }
-
-DPRINT1("\n");
     dwError = RegCreateKeyExW(hServiceKey,
                               L"Security",
                               0,
@@ -555,26 +525,16 @@ DPRINT1("\n");
                               &hSecurityKey,
                               &dwDisposition);
     if (dwError != ERROR_SUCCESS)
-    {
-DPRINT1("\n");
-        goto done;
-    }
+        return dwError;
 
-DPRINT1("\n");
     dwError = RegSetValueExW(hSecurityKey,
                              L"Security",
                              0,
                              REG_BINARY,
-                             (LPBYTE)pRelativeSD,
-                             dwBufferLength);
-DPRINT1("\n");
+                             (LPBYTE)pSecurityDescriptor,
+                             RtlLengthSecurityDescriptor(pSecurityDescriptor));
 
-done:
-    if (hSecurityKey != NULL)
-        RegCloseKey(hSecurityKey);
-
-    if (pRelativeSD != NULL)
-        RtlFreeHeap(RtlGetProcessHeap(), 0, pRelativeSD);
+    RegCloseKey(hSecurityKey);
 
     return dwError;
 }
@@ -591,6 +551,10 @@ ScmReadSecurityDescriptor(
     DWORD dwType;
     DWORD dwError;
 
+    DPRINT("ScmReadSecurityDescriptor(%p %p)\n", hServiceKey, ppSecurityDescriptor);
+
+    *ppSecurityDescriptor = NULL;
+
     dwError = RegOpenKeyExW(hServiceKey,
                             L"Security",
                             0,
@@ -598,7 +562,11 @@ ScmReadSecurityDescriptor(
                             &hSecurityKey);
     if (dwError != ERROR_SUCCESS)
     {
-DPRINT1("\n");
+        DPRINT("RegOpenKeyExW() failed (Error %lu)\n", dwError);
+
+        /* Do not fail if the Security key does not exist */
+        if (dwError == ERROR_FILE_NOT_FOUND)
+            dwError = ERROR_SUCCESS;
         goto done;
     }
 
@@ -610,19 +578,24 @@ DPRINT1("\n");
                                &dwBufferLength);
     if (dwError != ERROR_SUCCESS)
     {
-DPRINT1("\n");
+        DPRINT("RegQueryValueExW() failed (Error %lu)\n", dwError);
+
+        /* Do not fail if the Security value does not exist */
+        if (dwError == ERROR_FILE_NOT_FOUND)
+            dwError = ERROR_SUCCESS;
         goto done;
     }
 
+    DPRINT("dwBufferLength: %lu\n", dwBufferLength);
     pRelativeSD = RtlAllocateHeap(RtlGetProcessHeap(),
                                   HEAP_ZERO_MEMORY,
                                   dwBufferLength);
     if (pRelativeSD == NULL)
     {
-DPRINT1("\n");
         return ERROR_OUTOFMEMORY;
     }
 
+    DPRINT("pRelativeSD: %lu\n", pRelativeSD);
     dwError = RegQueryValueExW(hSecurityKey,
                                L"Security",
                                0,
@@ -631,19 +604,17 @@ DPRINT1("\n");
                                &dwBufferLength);
     if (dwError != ERROR_SUCCESS)
     {
-DPRINT1("\n");
         goto done;
     }
 
-
+    *ppSecurityDescriptor = pRelativeSD;
 
 done:
-    if (pRelativeSD != NULL)
+    if (dwError != ERROR_SUCCESS && pRelativeSD != NULL)
         RtlFreeHeap(RtlGetProcessHeap(), 0, pRelativeSD);
 
     if (hSecurityKey != NULL)
         RegCloseKey(hSecurityKey);
-
 
     return dwError;
 }

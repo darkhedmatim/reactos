@@ -162,10 +162,16 @@ ScmIsSameServiceAccount(
     IN PWSTR pszAccountName1,
     IN PWSTR pszAccountName2)
 {
-    if ((pszAccountName1 == NULL && pszAccountName2 == NULL) ||
-        (pszAccountName1 == NULL && wcscmp(pszAccountName2, L"LocalSystem") == 0) ||
-        (pszAccountName2 == NULL && wcscmp(pszAccountName1, L"LocalSystem") == 0) ||
-        (wcscmp(pszAccountName1, pszAccountName2) == 0))
+    if (pszAccountName1 == NULL && pszAccountName2 == NULL)
+        return TRUE;
+
+    if (pszAccountName1 == NULL && pszAccountName2 && wcscmp(pszAccountName2, L"LocalSystem") == 0)
+        return TRUE;
+
+    if (pszAccountName2 == NULL && pszAccountName1 && wcscmp(pszAccountName1, L"LocalSystem") == 0)
+        return TRUE;
+
+    if (pszAccountName1 && pszAccountName2 && wcscmp(pszAccountName1, pszAccountName2) == 0)
         return TRUE;
 
     return FALSE;
@@ -554,8 +560,9 @@ ScmDeleteServiceRecord(PSERVICE lpService)
     /* Decrement the group reference counter */
     ScmSetServiceGroup(lpService, NULL);
 
-    /* FIXME: SecurityDescriptor */
-
+    /* Release the SecurityDescriptor */
+    if (lpService->pSecurityDescriptor != NULL)
+        HeapFree(GetProcessHeap(), 0, lpService->pSecurityDescriptor);
 
     /* Remove the Service from the List */
     RemoveEntryList(&lpService->ServiceListEntry);
@@ -693,7 +700,29 @@ CreateServiceListEntry(LPCWSTR lpServiceName,
     if (ScmIsDeleteFlagSet(hServiceKey))
         lpService->bDeleted = TRUE;
 
-done:;
+    if (lpService->Status.dwServiceType & SERVICE_WIN32)
+    {
+        dwError = ScmReadSecurityDescriptor(hServiceKey,
+                                            &lpService->pSecurityDescriptor);
+        if (dwError != ERROR_SUCCESS)
+            goto done;
+
+        /* Assing the default security descriptor if the security descriptor cannot be read */
+        if (lpService->pSecurityDescriptor == NULL)
+        {
+            DPRINT("No security descriptor found! Assign default security descriptor!\n");
+            dwError = ScmCreateDefaultServiceSD(&lpService->pSecurityDescriptor);
+            if (dwError != ERROR_SUCCESS)
+                goto done;
+
+            dwError = ScmWriteSecurityDescriptor(hServiceKey,
+                                                 lpService->pSecurityDescriptor);
+            if (dwError != ERROR_SUCCESS)
+                goto done;
+        }
+    }
+
+done:
     if (lpGroup != NULL)
         HeapFree(GetProcessHeap(), 0, lpGroup);
 

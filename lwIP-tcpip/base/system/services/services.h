@@ -98,8 +98,6 @@ extern LIST_ENTRY ImageListHead;
 extern BOOL ScmInitialize;
 extern BOOL ScmShutdown;
 
-extern PSECURITY_DESCRIPTOR pDefaultServiceSD;
-
 
 /* FUNCTIONS ***************************************************************/
 
@@ -138,6 +136,11 @@ DWORD
 ScmWriteSecurityDescriptor(
     _In_ HKEY hServiceKey,
     _In_ PSECURITY_DESCRIPTOR pSecurityDescriptor);
+
+DWORD
+ScmReadSecurityDescriptor(
+    _In_ HKEY hServiceKey,
+    _Out_ PSECURITY_DESCRIPTOR *ppSecurityDescriptor);
 
 
 /* controlset.c */
@@ -209,6 +212,10 @@ VOID ScmStartRpcServer(VOID);
 
 DWORD ScmInitializeSecurity(VOID);
 VOID ScmShutdownSecurity(VOID);
+
+DWORD
+ScmCreateDefaultServiceSD(
+    PSECURITY_DESCRIPTOR *ppSecurityDescriptor);
 
 
 /* services.c */

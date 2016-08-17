@@ -13,12 +13,15 @@
 #define NDEBUG
 #include <debug.h>
 
-PSECURITY_DESCRIPTOR pDefaultServiceSD = NULL;
-
 static PSID pNullSid = NULL;
 static PSID pLocalSystemSid = NULL;
 static PSID pAuthenticatedUserSid = NULL;
 static PSID pAliasAdminsSid = NULL;
+
+static PACL pDefaultDacl = NULL;
+static PACL pDefaultSacl = NULL;
+
+static PSECURITY_DESCRIPTOR pDefaultSD = NULL;
 
 
 /* FUNCTIONS ****************************************************************/
@@ -104,14 +107,9 @@ ScmCreateSids(VOID)
 
 static
 DWORD
-ScmCreateDefaultServiceSD(VOID)
+ScmCreateAcls(VOID)
 {
-    PSECURITY_DESCRIPTOR pServiceSD = NULL;
-    PACL pDacl = NULL;
-    PACL pSacl = NULL;
     ULONG ulLength;
-    NTSTATUS Status;
-    DWORD dwError = ERROR_SUCCESS;
 
     /* Create DACL */
     ulLength = sizeof(ACL) +
@@ -119,28 +117,25 @@ ScmCreateDefaultServiceSD(VOID)
                (sizeof(ACE) + RtlLengthSid(pAliasAdminsSid)) +
                (sizeof(ACE) + RtlLengthSid(pAuthenticatedUserSid));
 
-    pDacl = RtlAllocateHeap(RtlGetProcessHeap(), HEAP_ZERO_MEMORY, ulLength);
-    if (pDacl == NULL)
-    {
-        dwError = ERROR_OUTOFMEMORY;
-        goto done;
-    }
+    pDefaultDacl = RtlAllocateHeap(RtlGetProcessHeap(), HEAP_ZERO_MEMORY, ulLength);
+    if (pDefaultDacl == NULL)
+        return ERROR_OUTOFMEMORY;
 
-    RtlCreateAcl(pDacl, ulLength, ACL_REVISION);
+    RtlCreateAcl(pDefaultDacl, ulLength, ACL_REVISION);
 
-    RtlAddAccessAllowedAce(pDacl,
+    RtlAddAccessAllowedAce(pDefaultDacl,
                            ACL_REVISION,
                            READ_CONTROL | SERVICE_ENUMERATE_DEPENDENTS | SERVICE_INTERROGATE |
                            SERVICE_PAUSE_CONTINUE | SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS |
                            SERVICE_START | SERVICE_STOP | SERVICE_USER_DEFINED_CONTROL,
                            pLocalSystemSid);
 
-    RtlAddAccessAllowedAce(pDacl,
+    RtlAddAccessAllowedAce(pDefaultDacl,
                            ACL_REVISION,
                            SERVICE_ALL_ACCESS,
                            pAliasAdminsSid);
 
-    RtlAddAccessAllowedAce(pDacl,
+    RtlAddAccessAllowedAce(pDefaultDacl,
                            ACL_REVISION,
                            READ_CONTROL | SERVICE_ENUMERATE_DEPENDENTS | SERVICE_INTERROGATE |
                            SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS | SERVICE_USER_DEFINED_CONTROL,
@@ -150,92 +145,139 @@ ScmCreateDefaultServiceSD(VOID)
     ulLength = sizeof(ACL) +
                (sizeof(ACE) + RtlLengthSid(pNullSid));
 
-    pSacl = RtlAllocateHeap(RtlGetProcessHeap(), HEAP_ZERO_MEMORY, ulLength);
-    if (pSacl == NULL)
-    {
-        dwError = ERROR_OUTOFMEMORY;
-        goto done;
-    }
+    pDefaultSacl = RtlAllocateHeap(RtlGetProcessHeap(), HEAP_ZERO_MEMORY, ulLength);
+    if (pDefaultSacl == NULL)
+        return ERROR_OUTOFMEMORY;
 
-    RtlCreateAcl(pSacl, ulLength, ACL_REVISION);
+    RtlCreateAcl(pDefaultSacl, ulLength, ACL_REVISION);
 
-    RtlAddAuditAccessAce(pSacl,
+    RtlAddAuditAccessAce(pDefaultSacl,
                          ACL_REVISION,
                          SERVICE_ALL_ACCESS,
                          pNullSid,
                          FALSE,
                          TRUE);
 
+    return ERROR_SUCCESS;
+}
 
-    pServiceSD = RtlAllocateHeap(RtlGetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(SECURITY_DESCRIPTOR));
-    if (pServiceSD == NULL)
+
+static
+VOID
+ScmFreeAcls(VOID)
+{
+    if (pDefaultDacl != NULL)
+        RtlFreeHeap(RtlGetProcessHeap(), 0, pDefaultDacl);
+
+    if (pDefaultSacl != NULL)
+        RtlFreeHeap(RtlGetProcessHeap(), 0, pDefaultSacl);
+}
+
+
+static
+DWORD
+ScmCreateDefaultSD(VOID)
+{
+    NTSTATUS Status;
+
+    /* Create the absolute security descriptor */
+    pDefaultSD = RtlAllocateHeap(RtlGetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(SECURITY_DESCRIPTOR));
+    if (pDefaultSD == NULL)
+        return ERROR_OUTOFMEMORY;
+
+    DPRINT("pDefaultSD %p\n", pDefaultSD);
+
+    Status = RtlCreateSecurityDescriptor(pDefaultSD,
+                                         SECURITY_DESCRIPTOR_REVISION);
+    if (!NT_SUCCESS(Status))
+        return RtlNtStatusToDosError(Status);
+
+    Status = RtlSetOwnerSecurityDescriptor(pDefaultSD,
+                                           pLocalSystemSid,
+                                           FALSE);
+    if (!NT_SUCCESS(Status))
+        return RtlNtStatusToDosError(Status);
+
+    Status = RtlSetGroupSecurityDescriptor(pDefaultSD,
+                                           pLocalSystemSid,
+                                           FALSE);
+    if (!NT_SUCCESS(Status))
+        return RtlNtStatusToDosError(Status);
+
+    Status = RtlSetDaclSecurityDescriptor(pDefaultSD,
+                                          TRUE,
+                                          pDefaultDacl,
+                                          FALSE);
+    if (!NT_SUCCESS(Status))
+        return RtlNtStatusToDosError(Status);
+
+    Status = RtlSetSaclSecurityDescriptor(pDefaultSD,
+                                          TRUE,
+                                          pDefaultSacl,
+                                          FALSE);
+    if (!NT_SUCCESS(Status))
+        return RtlNtStatusToDosError(Status);
+
+    return ERROR_SUCCESS;
+}
+
+
+static
+VOID
+ScmFreeDefaultSD(VOID)
+{
+    if (pDefaultSD != NULL)
+        RtlFreeHeap(RtlGetProcessHeap(), 0, pDefaultSD);
+}
+
+
+DWORD
+ScmCreateDefaultServiceSD(
+    PSECURITY_DESCRIPTOR *ppSecurityDescriptor)
+{
+    PSECURITY_DESCRIPTOR pRelativeSD = NULL;
+    DWORD dwBufferLength = 0;
+    NTSTATUS Status;
+    DWORD dwError = ERROR_SUCCESS;
+
+    /* Convert the absolute SD to a self-relative SD */
+    Status = RtlAbsoluteToSelfRelativeSD(pDefaultSD,
+                                         NULL,
+                                         &dwBufferLength);
+    if (Status != STATUS_BUFFER_TOO_SMALL)
+    {
+        dwError = RtlNtStatusToDosError(Status);
+        goto done;
+    }
+
+    DPRINT("BufferLength %lu\n", dwBufferLength);
+
+    pRelativeSD = RtlAllocateHeap(RtlGetProcessHeap(),
+                                  HEAP_ZERO_MEMORY,
+                                  dwBufferLength);
+    if (pRelativeSD == NULL)
     {
         dwError = ERROR_OUTOFMEMORY;
         goto done;
     }
-DPRINT1("pServiceSD %p\n", pServiceSD);
+    DPRINT("pRelativeSD %p\n", pRelativeSD);
 
-    Status = RtlCreateSecurityDescriptor(pServiceSD,
-                                         SECURITY_DESCRIPTOR_REVISION);
+    Status = RtlAbsoluteToSelfRelativeSD(pDefaultSD,
+                                         pRelativeSD,
+                                         &dwBufferLength);
     if (!NT_SUCCESS(Status))
     {
         dwError = RtlNtStatusToDosError(Status);
         goto done;
     }
 
-    Status = RtlSetOwnerSecurityDescriptor(pServiceSD,
-                                           pLocalSystemSid,
-                                           FALSE);
-    if (!NT_SUCCESS(Status))
-    {
-        dwError = RtlNtStatusToDosError(Status);
-        goto done;
-    }
-
-    Status = RtlSetGroupSecurityDescriptor(pServiceSD,
-                                           pLocalSystemSid,
-                                           FALSE);
-    if (!NT_SUCCESS(Status))
-    {
-        dwError = RtlNtStatusToDosError(Status);
-        goto done;
-    }
-
-    Status = RtlSetDaclSecurityDescriptor(pServiceSD,
-                                          TRUE,
-                                          pDacl,
-                                          FALSE);
-    if (!NT_SUCCESS(Status))
-    {
-        dwError = RtlNtStatusToDosError(Status);
-        goto done;
-    }
-
-    Status = RtlSetSaclSecurityDescriptor(pServiceSD,
-                                          TRUE,
-                                          pSacl,
-                                          FALSE);
-    if (!NT_SUCCESS(Status))
-    {
-        dwError = RtlNtStatusToDosError(Status);
-        goto done;
-    }
-
-
-    pDefaultServiceSD = pServiceSD;
-DPRINT1("pDefaultServiceSD %p\n", pDefaultServiceSD);
+    *ppSecurityDescriptor = pRelativeSD;
 
 done:
     if (dwError != ERROR_SUCCESS)
     {
-        if (pDacl != NULL)
-            RtlFreeHeap(RtlGetProcessHeap(), 0, pDacl);
-
-        if (pSacl != NULL)
-            RtlFreeHeap(RtlGetProcessHeap(), 0, pSacl);
-
-        if (pServiceSD != NULL)
-            RtlFreeHeap(RtlGetProcessHeap(), 0, pServiceSD);
+        if (pRelativeSD != NULL)
+            RtlFreeHeap(RtlGetProcessHeap(), 0, pRelativeSD);
     }
 
     return dwError;
@@ -251,7 +293,11 @@ ScmInitializeSecurity(VOID)
     if (dwError != ERROR_SUCCESS)
         return dwError;
 
-    dwError = ScmCreateDefaultServiceSD();
+    dwError = ScmCreateAcls();
+    if (dwError != ERROR_SUCCESS)
+        return dwError;
+
+    dwError = ScmCreateDefaultSD();
     if (dwError != ERROR_SUCCESS)
         return dwError;
 
@@ -262,6 +308,8 @@ ScmInitializeSecurity(VOID)
 VOID
 ScmShutdownSecurity(VOID)
 {
+    ScmFreeDefaultSD();
+    ScmFreeAcls();
     ScmFreeSids();
 }
 
