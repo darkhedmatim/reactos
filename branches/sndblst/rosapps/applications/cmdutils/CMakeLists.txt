@@ -1,0 +1,8 @@
+add_subdirectory(appwiz)
+add_subdirectory(arping)
+add_subdirectory(cat)
+add_subdirectory(ntfsinfo)
+add_subdirectory(tee)
+add_subdirectory(touch)
+add_subdirectory(uptime)
+add_subdirectory(y)
