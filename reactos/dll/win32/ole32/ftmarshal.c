@@ -23,15 +23,16 @@
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
 
 typedef struct _FTMarshalImpl {
-        IUnknown IUnknown_inner;
+        IUnknown IUnknown_iface;
+	LONG ref;
         IMarshal IMarshal_iface;
-        IUnknown *outer_unk;
-        LONG ref;
+
+	IUnknown *pUnkOuter;
 } FTMarshalImpl;
 
 static inline FTMarshalImpl *impl_from_IUnknown(IUnknown *iface)
 {
-    return CONTAINING_RECORD(iface, FTMarshalImpl, IUnknown_inner);
+    return CONTAINING_RECORD(iface, FTMarshalImpl, IUnknown_iface);
 }
 
 static inline FTMarshalImpl *impl_from_IMarshal( IMarshal *iface )
@@ -50,7 +51,7 @@ IiFTMUnknown_fnQueryInterface (IUnknown * iface, REFIID riid, LPVOID * ppv)
     *ppv = NULL;
 
     if (IsEqualIID (&IID_IUnknown, riid))
-        *ppv = &This->IUnknown_inner;
+        *ppv = &This->IUnknown_iface;
     else if (IsEqualIID (&IID_IMarshal, riid))
         *ppv = &This->IMarshal_iface;
     else {
@@ -96,7 +97,7 @@ FTMarshalImpl_QueryInterface (LPMARSHAL iface, REFIID riid, LPVOID * ppv)
     FTMarshalImpl *This = impl_from_IMarshal(iface);
 
     TRACE ("(%p)->(%s,%p)\n", This, debugstr_guid (riid), ppv);
-    return IUnknown_QueryInterface(This->outer_unk, riid, ppv);
+    return IUnknown_QueryInterface (This->pUnkOuter, riid, ppv);
 }
 
 static ULONG WINAPI
@@ -106,7 +107,7 @@ FTMarshalImpl_AddRef (LPMARSHAL iface)
     FTMarshalImpl *This = impl_from_IMarshal(iface);
 
     TRACE ("\n");
-    return IUnknown_AddRef(This->outer_unk);
+    return IUnknown_AddRef (This->pUnkOuter);
 }
 
 static ULONG WINAPI
@@ -116,7 +117,7 @@ FTMarshalImpl_Release (LPMARSHAL iface)
     FTMarshalImpl *This = impl_from_IMarshal(iface);
 
     TRACE ("\n");
-    return IUnknown_Release(This->outer_unk);
+    return IUnknown_Release (This->pUnkOuter);
 }
 
 static HRESULT WINAPI
@@ -325,12 +326,12 @@ HRESULT WINAPI CoCreateFreeThreadedMarshaler (LPUNKNOWN punkOuter, LPUNKNOWN * p
     if (!ftm)
 	return E_OUTOFMEMORY;
 
-    ftm->IUnknown_inner.lpVtbl = &iunkvt;
+    ftm->IUnknown_iface.lpVtbl = &iunkvt;
     ftm->IMarshal_iface.lpVtbl = &ftmvtbl;
     ftm->ref = 1;
-    ftm->outer_unk = punkOuter ? punkOuter : &ftm->IUnknown_inner;
+    ftm->pUnkOuter = punkOuter ? punkOuter : &ftm->IUnknown_iface;
 
-    *ppunkMarshal = &ftm->IUnknown_inner;
+    *ppunkMarshal = &ftm->IUnknown_iface;
     return S_OK;
 }
 

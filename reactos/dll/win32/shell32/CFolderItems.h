@@ -34,7 +34,6 @@ public:
     CFolderItem();
     ~CFolderItem();
 
-    // Please note: CFolderItem takes ownership of idlist.
     void Init(LPITEMIDLIST idlist);
 
 
@@ -73,16 +72,10 @@ class CFolderItems:
     public IDispatchImpl<FolderItems, &IID_FolderItems>
 {
 private:
-    CComHeapPtr<ITEMIDLIST> m_idlist;
-    CComPtr<IEnumIDList> m_EnumIDList;
-    long m_Count;
 
 public:
     CFolderItems();
     ~CFolderItems();
-
-    // Please note: CFolderItems takes ownership of idlist.
-    HRESULT Init(LPITEMIDLIST idlist);
 
     // *** FolderItems methods ***
     virtual HRESULT STDMETHODCALLTYPE get_Count(long *plCount);

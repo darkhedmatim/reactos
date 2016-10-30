@@ -943,10 +943,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 	ZeroMemory(&cmiTopologyDev, sizeof(CMIDEV));
 	hWave = NULL;
 
-	if (szCmdLine && szCmdLine[0] != 0) {
-		int result = parseArguments(szCmdLine);
-		cleanUp();
-		return result;
+	if (szCmdLine) {
+		if (strlen(szCmdLine) > 0) {
+			int result = parseArguments(szCmdLine);
+			cleanUp();
+			return result;
+		}
 	}
 
 	if ((hWndMain = FindWindow("cmiControlPanel", NULL))) {

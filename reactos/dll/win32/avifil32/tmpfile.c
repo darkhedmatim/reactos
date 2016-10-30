@@ -260,5 +260,5 @@ PAVIFILE AVIFILE_CreateAVITempFile(int nStreams, const PAVISTREAM *ppStreams)
     }
   }
 
-  return &tmpFile->IAVIFile_iface;
+  return (PAVIFILE)tmpFile;
 }

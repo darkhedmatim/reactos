@@ -65,7 +65,7 @@ NTAPI
 CcReadVirtualAddress (
     PROS_VACB Vacb)
 {
-    ULONG Size, Pages;
+    ULONG Size;
     PMDL Mdl;
     NTSTATUS Status;
     IO_STATUS_BLOCK IoStatus;
@@ -77,10 +77,7 @@ CcReadVirtualAddress (
         Size = VACB_MAPPING_GRANULARITY;
     }
 
-    Pages = BYTES_TO_PAGES(Size);
-    ASSERT(Pages * PAGE_SIZE <= VACB_MAPPING_GRANULARITY);
-
-    Mdl = IoAllocateMdl(Vacb->BaseAddress, Pages * PAGE_SIZE, FALSE, FALSE, NULL);
+    Mdl = IoAllocateMdl(Vacb->BaseAddress, Size, FALSE, FALSE, NULL);
     if (!Mdl)
     {
         return STATUS_INSUFFICIENT_RESOURCES;

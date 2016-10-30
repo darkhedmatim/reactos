@@ -278,9 +278,6 @@ IntEnumFontFamilies(HDC Dc, LPLOGFONTW LogFont, PVOID EnumProc, LPARAM lParam,
                       (VOID*)&NewTextMetricExA,
                       Info[i].FontType, lParam);
         }
-
-        if(Ret == 0)
-            break;
     }
 
     RtlFreeHeap(GetProcessHeap(), 0, Info);

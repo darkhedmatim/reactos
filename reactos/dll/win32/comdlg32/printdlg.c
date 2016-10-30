@@ -3595,8 +3595,11 @@ PRINTDLG_PagePaintProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         default_page_paint_hook(hWnd, WM_PSD_MARGINRECT, (WPARAM)hdc, (LPARAM)&rcMargin, data);
 
         /* give text a bit of a space from the frame */
-        InflateRect(&rcMargin, -2, -2);
-
+        rcMargin.left += 2;
+        rcMargin.top += 2;
+        rcMargin.right -= 2;
+        rcMargin.bottom -= 2;
+        
         /* if the space is too small then we make sure to not draw anything */
         rcMargin.left = min(rcMargin.left, rcMargin.right);
         rcMargin.top = min(rcMargin.top, rcMargin.bottom);

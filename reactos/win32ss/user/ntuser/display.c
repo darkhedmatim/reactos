@@ -443,7 +443,7 @@ UserEnumCurrentDisplaySettings(
     {
         /* No device found */
         ERR("No PDEV found!\n");
-        return STATUS_INVALID_PARAMETER_1;
+        return STATUS_UNSUCCESSFUL;
     }
 
     *ppdm = ppdev->pdmwDev;
@@ -463,18 +463,33 @@ UserEnumDisplaySettings(
     PGRAPHICS_DEVICE pGraphicsDevice;
     PDEVMODEENTRY pdmentry;
     ULONG i, iFoundMode;
+    PPDEVOBJ ppdev;
 
     TRACE("Enter UserEnumDisplaySettings('%wZ', %lu)\n",
           pustrDevice, iModeNum);
 
     /* Ask GDI for the GRAPHICS_DEVICE */
     pGraphicsDevice = EngpFindGraphicsDevice(pustrDevice, 0, 0);
+    ppdev = EngpGetPDEV(pustrDevice);
 
-    if (!pGraphicsDevice)
+    if (!pGraphicsDevice || !ppdev)
     {
         /* No device found */
         ERR("No device found!\n");
-        return STATUS_INVALID_PARAMETER_1;
+        return STATUS_UNSUCCESSFUL;
+    }
+
+    /* let's politely ask the driver for an updated mode list,
+       just in case there's something new in there (vbox) */
+
+    PDEVOBJ_vRefreshModeList(ppdev);
+    PDEVOBJ_vRelease(ppdev);
+
+    /* FIXME: maybe only refresh when iModeNum is bigger than cDevModes? */
+    if (iModeNum >= pGraphicsDevice->cDevModes)
+    {
+        ERR("STATUS_NO_MORE_ENTRIES!\n");
+        return STATUS_NO_MORE_ENTRIES;
     }
 
     iFoundMode = 0;
@@ -501,7 +516,7 @@ UserEnumDisplaySettings(
     }
 
     /* Nothing was found */
-    return STATUS_INVALID_PARAMETER_2;
+    return STATUS_INVALID_PARAMETER;
 }
 
 NTSTATUS
@@ -569,26 +584,6 @@ NtUserEnumDisplaySettings(
     TRACE("Enter NtUserEnumDisplaySettings(%wZ, %lu, %p, 0x%lx)\n",
           pustrDevice, iModeNum, lpDevMode, dwFlags);
 
-    _SEH2_TRY
-    {
-        ProbeForRead(lpDevMode, sizeof(DEVMODEW), sizeof(UCHAR));
-
-        cbSize = lpDevMode->dmSize;
-        cbExtra = lpDevMode->dmDriverExtra;
-
-        ProbeForWrite(lpDevMode, cbSize + cbExtra, sizeof(UCHAR));
-    }
-    _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-    {
-        _SEH2_YIELD(return _SEH2_GetExceptionCode());
-    }
-    _SEH2_END;
-
-    if (lpDevMode->dmSize != sizeof(DEVMODEW))
-    {
-        return STATUS_BUFFER_TOO_SMALL;
-    }
-
     if (pustrDevice)
     {
         /* Initialize destination string */
@@ -597,24 +592,20 @@ NtUserEnumDisplaySettings(
         _SEH2_TRY
         {
             /* Probe the UNICODE_STRING and the buffer */
-            ProbeForReadUnicodeString(pustrDevice);
-
-            if (!pustrDevice->Length || !pustrDevice->Buffer)
-                ExRaiseStatus(STATUS_NO_MEMORY);
-
-            ProbeForRead(pustrDevice->Buffer, pustrDevice->Length, sizeof(UCHAR));
+            ProbeForRead(pustrDevice, sizeof(UNICODE_STRING), 1);
+            ProbeForRead(pustrDevice->Buffer, pustrDevice->Length, 1);
 
             /* Copy the string */
             RtlCopyUnicodeString(&ustrDevice, pustrDevice);
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
-            _SEH2_YIELD(return STATUS_INVALID_PARAMETER_1);
+            _SEH2_YIELD(return _SEH2_GetExceptionCode());
         }
-        _SEH2_END;
+        _SEH2_END
 
         pustrDevice = &ustrDevice;
-    }
+   }
 
     /* Acquire global USER lock */
     UserEnterShared();
@@ -646,6 +637,11 @@ NtUserEnumDisplaySettings(
         /* Copy some information back */
         _SEH2_TRY
         {
+            ProbeForRead(lpDevMode, sizeof(DEVMODEW), 1);
+            cbSize = lpDevMode->dmSize;
+            cbExtra = lpDevMode->dmDriverExtra;
+
+            ProbeForWrite(lpDevMode, cbSize + cbExtra, 1);
             /* Output what we got */
             RtlCopyMemory(lpDevMode, pdm, min(cbSize, pdm->dmSize));
 
@@ -666,6 +662,7 @@ NtUserEnumDisplaySettings(
 
     return Status;
 }
+
 VOID
 UserUpdateFullscreen(
     DWORD flags)

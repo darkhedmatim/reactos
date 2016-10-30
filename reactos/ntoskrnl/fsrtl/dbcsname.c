@@ -160,14 +160,9 @@ NTAPI
 FsRtlIsDbcsInExpression(IN PANSI_STRING Expression,
                         IN PANSI_STRING Name)
 {
-    USHORT Offset, Position, BackTrackingPosition, OldBackTrackingPosition;
-    USHORT BackTrackingBuffer[16], OldBackTrackingBuffer[16] = {0};
-    PUSHORT BackTrackingSwap, BackTracking = BackTrackingBuffer, OldBackTracking = OldBackTrackingBuffer;
-    USHORT ExpressionPosition, NamePosition = 0, MatchingChars = 1;
-    USHORT NameChar = 0, ExpressionChar;
-    BOOLEAN EndOfName = FALSE;
-    BOOLEAN Result;
-    BOOLEAN DontSkipDot;
+    SHORT StarFound = -1, DosStarFound = -1;
+    PUSHORT BackTracking = NULL, DosBackTracking = NULL;
+    USHORT ExpressionPosition = 0, NamePosition = 0, MatchingChars, LastDot;
     PAGED_CODE();
 
     ASSERT(Name->Length);
@@ -237,180 +232,170 @@ FsRtlIsDbcsInExpression(IN PANSI_STRING Expression,
         }
     }
 
-    /* Name parsing loop */
-    for (; !EndOfName; MatchingChars = BackTrackingPosition)
+    while (NamePosition < Name->Length && ExpressionPosition < Expression->Length)
     {
-        /* Reset positions */
-        OldBackTrackingPosition = BackTrackingPosition = 0;
-
-        if (NamePosition >= Name->Length)
+        /* Basic check to test if chars are equal */
+        if ((Expression->Buffer[ExpressionPosition] == Name->Buffer[NamePosition]))
         {
-            EndOfName = TRUE;
-            if (OldBackTracking[MatchingChars - 1] == Expression->Length * 2)
-                break;
+            NamePosition++;
+            ExpressionPosition++;
         }
-        else
+        /* Check cases that eat one char */
+        else if (Expression->Buffer[ExpressionPosition] == '?')
         {
-            /* If lead byte present */
-            if (FsRtlIsLeadDbcsCharacter(Name->Buffer[NamePosition]))
+            NamePosition++;
+            ExpressionPosition++;
+        }
+        /* Test star */
+        else if (Expression->Buffer[ExpressionPosition] == '*')
+        {
+            /* Skip contigous stars */
+            while (ExpressionPosition + 1 < Expression->Length && Expression->Buffer[ExpressionPosition + 1] == '*')
             {
-                NameChar = Name->Buffer[NamePosition] +
-                           (0x100 * Name->Buffer[NamePosition + 1]);
-                NamePosition += sizeof(USHORT);
+                ExpressionPosition++;
+            }
+
+            /* Save star position */
+            if (!BackTracking)
+            {
+                BackTracking = ExAllocatePoolWithTag(PagedPool | POOL_RAISE_IF_ALLOCATION_FAILURE,
+                                                     Expression->Length * sizeof(USHORT), 'nrSF');
+            }
+            BackTracking[++StarFound] = ExpressionPosition++;
+
+            /* If star is at the end, then eat all rest and leave */
+            if (ExpressionPosition == Expression->Length)
+            {
+                NamePosition = Name->Length;
+                break;
+            }
+            /* Allow null matching */
+            else if (Expression->Buffer[ExpressionPosition] != '?' &&
+                     Expression->Buffer[ExpressionPosition] != Name->Buffer[NamePosition])
+            {
+                NamePosition++;
+            }
+        }
+        /* Check DOS_STAR */
+        else if (Expression->Buffer[ExpressionPosition] == ANSI_DOS_STAR)
+        {
+            /* Skip contigous stars */
+            while (ExpressionPosition + 1 < Expression->Length && Expression->Buffer[ExpressionPosition + 1] == ANSI_DOS_STAR)
+            {
+                ExpressionPosition++;
+            }
+
+            /* Look for last dot */
+            MatchingChars = 0;
+            LastDot = (USHORT)-1;
+            while (MatchingChars < Name->Length)
+            {
+                if (Name->Buffer[MatchingChars] == '.')
+                {
+                    LastDot = MatchingChars;
+                    if (LastDot > NamePosition)
+                        break;
+                }
+
+                MatchingChars++;
+            }
+
+            /* If we don't have dots or we didn't find last yet
+             * start eating everything
+             */
+            if (MatchingChars != Name->Length || LastDot == (USHORT)-1)
+            {
+                if (!DosBackTracking) DosBackTracking = ExAllocatePoolWithTag(PagedPool | POOL_RAISE_IF_ALLOCATION_FAILURE,
+                                                                              Expression->Length * sizeof(USHORT), 'nrSF');
+                DosBackTracking[++DosStarFound] = ExpressionPosition++;
+
+                /* Not the same char, start exploring */
+                if (Expression->Buffer[ExpressionPosition] != Name->Buffer[NamePosition])
+                    NamePosition++;
             }
             else
             {
-                NameChar = Name->Buffer[NamePosition];
-                NamePosition += sizeof(UCHAR);
+                /* Else, if we are at last dot, eat it - otherwise, null match */
+                if (Name->Buffer[NamePosition] == '.')
+                    NamePosition++;
+
+                 ExpressionPosition++;
             }
         }
-
-        while (MatchingChars > OldBackTrackingPosition)
+        /* Check DOS_DOT */
+        else if (Expression->Buffer[ExpressionPosition] == ANSI_DOS_DOT)
         {
-            ExpressionPosition = (OldBackTracking[OldBackTrackingPosition++] + 1) / 2;
-
-            /* Expression parsing loop */
-            for (Offset = 0; ExpressionPosition < Expression->Length; )
+            /* We only match dots */
+            if (Name->Buffer[NamePosition] == '.')
             {
-                ExpressionPosition += Offset;
+                NamePosition++;
+            }
+            /* Try to explore later on for null matching */
+            else if (ExpressionPosition + 1 < Expression->Length &&
+                     Name->Buffer[NamePosition] == Expression->Buffer[ExpressionPosition + 1])
+            {
+                NamePosition++;
+            }
+            ExpressionPosition++;
+        }
+        /* Check DOS_QM */
+        else if (Expression->Buffer[ExpressionPosition] == ANSI_DOS_QM)
+        {
+            /* We match everything except dots */
+            if (Name->Buffer[NamePosition] != '.')
+            {
+                NamePosition++;
+            }
+            ExpressionPosition++;
+        }
+        /* If nothing match, try to backtrack */
+        else if (StarFound >= 0)
+        {
+            ExpressionPosition = BackTracking[StarFound--];
+        }
+        else if (DosStarFound >= 0)
+        {
+            ExpressionPosition = DosBackTracking[DosStarFound--];
+        }
+        /* Otherwise, fail */
+        else
+        {
+            break;
+        }
 
-                if (ExpressionPosition == Expression->Length)
-                {
-                    BackTracking[BackTrackingPosition++] = Expression->Length * 2;
-                    break;
-                }
-
-                /* If buffer too small */
-                if (BackTrackingPosition > RTL_NUMBER_OF(BackTrackingBuffer) - 1)
-                {
-                    /* Allocate memory for BackTracking */
-                    BackTracking = ExAllocatePoolWithTag(PagedPool | POOL_RAISE_IF_ALLOCATION_FAILURE,
-                                                         (Expression->Length + 1) * sizeof(USHORT) * 2,
-                                                         'nrSF');
-                    /* Copy old buffer content */
-                    RtlCopyMemory(BackTracking,
-                                  BackTrackingBuffer,
-                                  RTL_NUMBER_OF(BackTrackingBuffer) * sizeof(USHORT));
-
-                    /* Allocate memory for OldBackTracking */
-                    OldBackTracking = ExAllocatePoolWithTag(PagedPool | POOL_RAISE_IF_ALLOCATION_FAILURE,
-                                                            (Expression->Length + 1) * sizeof(USHORT) * 2,
-                                                            'nrSF');
-                    /* Copy old buffer content */
-                    RtlCopyMemory(OldBackTracking,
-                                  OldBackTrackingBuffer,
-                                  RTL_NUMBER_OF(OldBackTrackingBuffer) * sizeof(USHORT));
-                }
-
-                /* If lead byte present */
-                if (FsRtlIsLeadDbcsCharacter(Expression->Buffer[ExpressionPosition]))
-                {
-                    ExpressionChar = Expression->Buffer[ExpressionPosition] +
-                                     (0x100 * Expression->Buffer[ExpressionPosition + 1]);
-                    Offset = sizeof(USHORT);
-                }
-                else
-                {
-                    ExpressionChar = Expression->Buffer[ExpressionPosition];
-                    Offset = sizeof(UCHAR);
-                }
-
-                /* Basic check to test if chars are equal */
-                if (ExpressionChar == NameChar && !EndOfName)
-                {
-                    BackTracking[BackTrackingPosition++] = (ExpressionPosition + Offset) * 2;
-                }
-                /* Check cases that eat one char */
-                else if (ExpressionChar == '?' && !EndOfName)
-                {
-                    BackTracking[BackTrackingPosition++] = (ExpressionPosition + Offset) * 2;
-                }
-                /* Test star */
-                else if (ExpressionChar == '*')
-                {
-                    BackTracking[BackTrackingPosition++] = ExpressionPosition * 2;
-                    BackTracking[BackTrackingPosition++] = (ExpressionPosition * 2) + 1;
-                    continue;
-                }
-                /* Check DOS_STAR */
-                else if (ExpressionChar == ANSI_DOS_STAR)
-                {
-                    /* Look for last dot */
-                    DontSkipDot = TRUE;
-                    if (!EndOfName && NameChar == '.')
-                    {
-                        for (Position = NamePosition; Position < Name->Length; )
-                        {
-                            /* If lead byte not present */
-                            if (!FsRtlIsLeadDbcsCharacter(Name->Buffer[Position]))
-                            {
-                                if (Name->Buffer[Position] == '.')
-                                {
-                                    DontSkipDot = FALSE;
-                                    break;
-                                }
-
-                                Position += sizeof(UCHAR);
-                            }
-                            else
-                            {
-                                Position += sizeof(USHORT);
-                            }
-                        }
-                    }
-
-                    if (EndOfName || NameChar != '.' || !DontSkipDot)
-                        BackTracking[BackTrackingPosition++] = ExpressionPosition * 2;
-
-                    BackTracking[BackTrackingPosition++] = (ExpressionPosition * 2) + 1;
-                    continue;
-                }
-                /* Check DOS_DOT */
-                else if (ExpressionChar == DOS_DOT)
-                {
-                    if (EndOfName) continue;
-
-                    if (NameChar == '.')
-                        BackTracking[BackTrackingPosition++] = (ExpressionPosition + Offset) * 2;
-                }
-                /* Check DOS_QM */
-                else if (ExpressionChar == ANSI_DOS_QM)
-                {
-                    if (EndOfName || NameChar == '.') continue;
-
-                    BackTracking[BackTrackingPosition++] = (ExpressionPosition + Offset) * 2;
-                }
-
-                /* Leave from loop */
+        /* Under certain circumstances, expression is over, but name isn't
+         * and we can backtrack, then, backtrack */
+        if (ExpressionPosition == Expression->Length &&
+            NamePosition != Name->Length && StarFound >= 0)
+        {
+            ExpressionPosition = BackTracking[StarFound--];
+        }
+    }
+    /* If we have nullable matching wc at the end of the string, eat them */
+    if (ExpressionPosition != Expression->Length && NamePosition == Name->Length)
+    {
+        while (ExpressionPosition < Expression->Length)
+        {
+            if (Expression->Buffer[ExpressionPosition] != ANSI_DOS_DOT &&
+                Expression->Buffer[ExpressionPosition] != '*' &&
+                Expression->Buffer[ExpressionPosition] != ANSI_DOS_STAR)
+            {
                 break;
             }
-
-            for (Position = 0; MatchingChars > OldBackTrackingPosition && Position < BackTrackingPosition; Position++)
-            {
-                while (MatchingChars > OldBackTrackingPosition &&
-                       BackTracking[Position] > OldBackTracking[OldBackTrackingPosition])
-                {
-                    ++OldBackTrackingPosition;
-                }
-            }
+            ExpressionPosition++;
         }
-
-        /* Swap pointers */
-        BackTrackingSwap = BackTracking;
-        BackTracking = OldBackTracking;
-        OldBackTracking = BackTrackingSwap;
     }
 
-    /* Store result value */
-    Result = (OldBackTracking[MatchingChars - 1] == Expression->Length * 2);
-
-    /* Frees the memory if necessary */
-    if (BackTracking != BackTrackingBuffer && BackTracking != OldBackTrackingBuffer)
+    if (BackTracking)
+    {
         ExFreePoolWithTag(BackTracking, 'nrSF');
-    if (OldBackTracking != BackTrackingBuffer && OldBackTracking != OldBackTrackingBuffer)
-        ExFreePoolWithTag(OldBackTracking, 'nrSF');
+    }
+    if (DosBackTracking)
+    {
+        ExFreePoolWithTag(DosBackTracking, 'nrSF');
+    }
 
-    return Result;
+    return (ExpressionPosition == Expression->Length && NamePosition == Name->Length);
 }
 
 /*++
@@ -446,7 +431,7 @@ FsRtlIsFatDbcsLegal(IN ANSI_STRING DbcsName,
                     IN BOOLEAN PathNamePermissible,
                     IN BOOLEAN LeadingBackslashPermissible)
 {
-    ANSI_STRING FirstPart, RemainingPart;
+    ANSI_STRING FirstPart, RemainingPart, Name;
     BOOLEAN LastDot;
     USHORT i;
     PAGED_CODE();
@@ -454,20 +439,6 @@ FsRtlIsFatDbcsLegal(IN ANSI_STRING DbcsName,
     /* Just quit if the string is empty */
     if (!DbcsName.Length)
         return FALSE;
-
-    /* Accept special filename if wildcards are allowed */
-    if (WildCardsPermissible && (DbcsName.Length == 1 || DbcsName.Length == 2) && DbcsName.Buffer[0] == '.')
-    {
-        if (DbcsName.Length == 2)
-        {
-            if (DbcsName.Buffer[1] == '.')
-                return TRUE;
-        }
-        else
-        {
-            return TRUE;
-        }
-    }
 
     /* DbcsName wasn't supposed to be started with \ */
     if (!LeadingBackslashPermissible && DbcsName.Buffer[0] == '\\')
@@ -480,108 +451,88 @@ FsRtlIsFatDbcsLegal(IN ANSI_STRING DbcsName,
         DbcsName.MaximumLength = DbcsName.MaximumLength - 1;
     }
 
-    if (PathNamePermissible)
+    /* Extract first part of the DbcsName to work on */
+    FsRtlDissectDbcs(DbcsName, &FirstPart, &RemainingPart);
+    while (FirstPart.Length > 0)
     {
-        /* We copy the buffer for FsRtlDissectDbcs call */
-        RemainingPart.Buffer = DbcsName.Buffer;
-        RemainingPart.Length = DbcsName.Length;
-        RemainingPart.MaximumLength = DbcsName.MaximumLength;
+        /* Reset dots count */
+        LastDot = FALSE;
 
-        while (RemainingPart.Length > 0)
+        /* Accept special filename if wildcards are allowed */
+        if (WildCardsPermissible && (FirstPart.Length == 1 || FirstPart.Length == 2) && FirstPart.Buffer[0] == '.')
         {
-            if (RemainingPart.Buffer[0] == '\\')
-                return FALSE;
-
-            /* Call once again our dissect function */
-            FsRtlDissectDbcs(RemainingPart, &FirstPart, &RemainingPart);
-
-            if (!FsRtlIsFatDbcsLegal(FirstPart,
-                                     WildCardsPermissible,
-                                     FALSE,
-                                     FALSE))
+            if (FirstPart.Length == 2)
             {
-                return FALSE;
+                if (FirstPart.Buffer[1] == '.')
+                {
+                    goto EndLoop;
+                }
+            }
+            else
+            {
+                goto EndLoop;
             }
         }
 
-        return TRUE;
-    }
+        /* Filename must be 8.3 filename */
+        if (FirstPart.Length < 3 || FirstPart.Length > 12)
+            return FALSE;
 
-    if (WildCardsPermissible && FsRtlDoesDbcsContainWildCards(&DbcsName))
-    {
-        for (i = 0; i < DbcsName.Length; i++)
+        /* Now, we will parse the filename to find everything bad in */
+        for (i = 0; i < FirstPart.Length; i++)
         {
             /* First make sure the character it's not the Lead DBCS */
-            if (FsRtlIsLeadDbcsCharacter(DbcsName.Buffer[i]))
+            if (FsRtlIsLeadDbcsCharacter(FirstPart.Buffer[i]))
             {
+                if (i == (FirstPart.Length) - 1)
+                    return FALSE;
                 i++;
             }
             /* Then check for bad characters */
-            else if (!FsRtlIsAnsiCharacterLegalFat(DbcsName.Buffer[i], TRUE))
+            else if (!FsRtlIsAnsiCharacterLegalFat(FirstPart.Buffer[i], WildCardsPermissible))
             {
                 return FALSE;
             }
+            else if (FirstPart.Buffer[i] == '.')
+            {
+                /* Filename can only contain one dot */
+                if (LastDot)
+                    return FALSE;
+
+                LastDot = TRUE;
+
+                /* We mustn't have spaces before dot or at the end of the filename
+                 * and no dot at the beginning of the filename */
+                if ((i == (FirstPart.Length) - 1) || i == 0)
+                    return FALSE;
+
+                if (i > 0)
+                    if (FirstPart.Buffer[i - 1] == ' ')
+                        return FALSE;
+
+                /* Filename must be 8.3 filename and not 3.8 filename */
+                if ((FirstPart.Length - 1) - i > 3)
+                    return FALSE;
+            }
         }
 
-        return TRUE;
-    }
-
-    /* Filename must be 8.3 filename */
-    if (DbcsName.Length > 12)
-        return FALSE;
-
-    /* Reset dots count */
-    LastDot = FALSE;
-
-    for (i = 0; i < DbcsName.Length; i++)
-    {
-        /* First make sure the character it's not the Lead DBCS */
-        if (FsRtlIsLeadDbcsCharacter(DbcsName.Buffer[i]))
-        {
-            if (!LastDot && (i >= 7))
-                return FALSE;
-
-            if (i == (DbcsName.Length - 1))
-                return FALSE;
-
-            i++;
-            continue;
-        }
-        /* Then check for bad characters */
-        else if (!FsRtlIsAnsiCharacterLegalFat(DbcsName.Buffer[i], WildCardsPermissible))
-        {
-            return FALSE;
-        }
-        else if (DbcsName.Buffer[i] == '.')
-        {
-            /* Filename can only contain one dot */
-            if (LastDot)
-                return FALSE;
-
-            LastDot = TRUE;
-
-            /* We mustn't have spaces before dot or at the end of the filename
-             * and no dot at the beginning of the filename */
-            if (i == (DbcsName.Length - 1) || i == 0)
-                return FALSE;
-
-            /* Filename must be 8.3 filename and not 3.8 filename */
-            if ((DbcsName.Length - 1) - i > 3)
-                return FALSE;
-
-            if ((i > 0) && DbcsName.Buffer[i - 1] == ' ')
-                return FALSE;
-        }
         /* Filename mustn't finish with a space */
-        else if (DbcsName.Buffer[i] == ' ' && i == (DbcsName.Length - 1))
-        {
+        if (FirstPart.Buffer[FirstPart.Length - 1] == ' ')
             return FALSE;
-        }
 
-        if (!LastDot && (i >= 8))
+        EndLoop:
+        /* Preparing next loop */
+        Name.Buffer = RemainingPart.Buffer;
+        Name.Length = RemainingPart.Length;
+        Name.MaximumLength = RemainingPart.MaximumLength;
+
+        /* Call once again our dissect function */
+        FsRtlDissectDbcs(Name, &FirstPart, &RemainingPart);
+
+        /* We found a pathname, it wasn't allowed */
+        if (FirstPart.Length > 0 && !PathNamePermissible)
             return FALSE;
     }
-
     return TRUE;
 }
 
@@ -618,27 +569,13 @@ FsRtlIsHpfsDbcsLegal(IN ANSI_STRING DbcsName,
                      IN BOOLEAN PathNamePermissible,
                      IN BOOLEAN LeadingBackslashPermissible)
 {
-    ANSI_STRING FirstPart, RemainingPart;
+    ANSI_STRING FirstPart, RemainingPart, Name;
     USHORT i;
     PAGED_CODE();
 
     /* Just quit if the string is empty */
     if (!DbcsName.Length)
         return FALSE;
-
-    /* Accept special filename if wildcards are allowed */
-    if (WildCardsPermissible && (DbcsName.Length == 1 || DbcsName.Length == 2) && DbcsName.Buffer[0] == '.')
-    {
-        if (DbcsName.Length == 2)
-        {
-            if (DbcsName.Buffer[1] == '.')
-                return TRUE;
-        }
-        else
-        {
-            return TRUE;
-        }
-    }
 
     /* DbcsName wasn't supposed to be started with \ */
     if (!LeadingBackslashPermissible && DbcsName.Buffer[0] == '\\')
@@ -651,56 +588,64 @@ FsRtlIsHpfsDbcsLegal(IN ANSI_STRING DbcsName,
         DbcsName.MaximumLength = DbcsName.MaximumLength - 1;
     }
 
-    if (PathNamePermissible)
+    /* Extract first part of the DbcsName to work on */
+    FsRtlDissectDbcs(DbcsName, &FirstPart, &RemainingPart);
+    while (FirstPart.Length > 0)
     {
-        /* We copy the buffer for FsRtlDissectDbcs call */
-        RemainingPart.Buffer = DbcsName.Buffer;
-        RemainingPart.Length = DbcsName.Length;
-        RemainingPart.MaximumLength = DbcsName.MaximumLength;
-
-        while (RemainingPart.Length > 0)
+        /* Accept special filename if wildcards are allowed */
+        if (WildCardsPermissible && (FirstPart.Length == 1 || FirstPart.Length == 2) && FirstPart.Buffer[0] == '.')
         {
-            if (RemainingPart.Buffer[0] == '\\')
-                return FALSE;
+            if (FirstPart.Length == 2)
+            {
+                if (FirstPart.Buffer[1] == '.')
+                {
+                    goto EndLoop;
+                }
+            }
+            else
+            {
+                goto EndLoop;
+            }
+        }
 
-            /* Call once again our dissect function */
-            FsRtlDissectDbcs(RemainingPart, &FirstPart, &RemainingPart);
+        /* Filename must be 255 bytes maximum */
+        if (FirstPart.Length > 255)
+            return FALSE;
 
-            if (!FsRtlIsHpfsDbcsLegal(FirstPart,
-                                      WildCardsPermissible,
-                                      FALSE,
-                                      FALSE))
+        /* Now, we will parse the filename to find everything bad in */
+        for (i = 0; i < FirstPart.Length; i++)
+        {
+            /* First make sure the character it's not the Lead DBCS */
+            if (FsRtlIsLeadDbcsCharacter(FirstPart.Buffer[i]))
+            {
+                if (i == (FirstPart.Length) - 1)
+                    return FALSE;
+                i++;
+            }
+            /* Then check for bad characters */
+            else if (!FsRtlIsAnsiCharacterLegalHpfs(FirstPart.Buffer[i], WildCardsPermissible))
             {
                 return FALSE;
             }
         }
 
-        return TRUE;
-    }
-
-    if (DbcsName.Length > 255)
-        return FALSE;
-
-    for (i = 0; i < DbcsName.Length; i++)
-    {
-        /* First make sure the character it's not the Lead DBCS */
-        if (FsRtlIsLeadDbcsCharacter(DbcsName.Buffer[i]))
-        {
-            if (i == (DbcsName.Length - 1))
-                return FALSE;
-            i++;
-        }
-        /* Then check for bad characters */
-        else if (!FsRtlIsAnsiCharacterLegalHpfs(DbcsName.Buffer[i], WildCardsPermissible))
-        {
-            return FALSE;
-        }
         /* Filename mustn't finish with a space or a dot */
-        else if ((DbcsName.Buffer[i] == ' ' || DbcsName.Buffer[i] == '.') && i == (DbcsName.Length - 1))
-        {
+        if ((FirstPart.Buffer[FirstPart.Length - 1] == ' ') ||
+            (FirstPart.Buffer[FirstPart.Length - 1] == '.'))
             return FALSE;
-        }
-    }
 
+        EndLoop:
+        /* Preparing next loop */
+        Name.Buffer = RemainingPart.Buffer;
+        Name.Length = RemainingPart.Length;
+        Name.MaximumLength = RemainingPart.MaximumLength;
+
+        /* Call once again our dissect function */
+        FsRtlDissectDbcs(Name, &FirstPart, &RemainingPart);
+
+        /* We found a pathname, it wasn't allowed */
+        if (FirstPart.Length > 0 && !PathNamePermissible)
+            return FALSE;
+    }
     return TRUE;
 }

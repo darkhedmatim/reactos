@@ -262,11 +262,7 @@ StartAuthenticationPort(VOID)
     OBJECT_ATTRIBUTES ObjectAttributes;
     UNICODE_STRING PortName;
     DWORD ThreadId;
-    UNICODE_STRING EventName;
-    HANDLE EventHandle;
     NTSTATUS Status;
-
-    TRACE("StartAuthenticationPort()\n");
 
     /* Initialize the logon context list */
     InitializeListHead(&LsapLogonContextList);
@@ -287,41 +283,7 @@ StartAuthenticationPort(VOID)
                           sizeof(LSA_API_MSG) * 32);
     if (!NT_SUCCESS(Status))
     {
-        WARN("NtCreatePort() failed (Status %lx)\n", Status);
-        return Status;
-    }
-
-    RtlInitUnicodeString(&EventName,
-                         L"\\SECURITY\\LSA_AUTHENTICATION_INITIALIZED");
-    InitializeObjectAttributes(&ObjectAttributes,
-                               &EventName,
-                               OBJ_CASE_INSENSITIVE | OBJ_PERMANENT,
-                               NULL,
-                               NULL);
-    Status = NtOpenEvent(&EventHandle,
-                         EVENT_MODIFY_STATE,
-                         &ObjectAttributes);
-    if (!NT_SUCCESS(Status))
-    {
-        TRACE("NtOpenEvent failed (Status 0x%08lx)\n", Status);
-
-        Status = NtCreateEvent(&EventHandle,
-                               EVENT_MODIFY_STATE,
-                               &ObjectAttributes,
-                               NotificationEvent,
-                               FALSE);
-        if (!NT_SUCCESS(Status))
-        {
-            WARN("NtCreateEvent failed (Status 0x%08lx)\n", Status);
-            return Status;
-        }
-    }
-
-    Status = NtSetEvent(EventHandle, NULL);
-    NtClose(EventHandle);
-    if (!NT_SUCCESS(Status))
-    {
-        WARN("NtSetEvent failed (Status 0x%08lx)\n", Status);
+        TRACE("NtCreatePort() failed (Status %lx)\n", Status);
         return Status;
     }
 

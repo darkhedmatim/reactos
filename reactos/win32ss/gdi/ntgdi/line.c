@@ -19,8 +19,10 @@ BOOL FASTCALL
 IntGdiMoveToEx(DC      *dc,
                int     X,
                int     Y,
-               LPPOINT Point)
+               LPPOINT Point,
+               BOOL    BypassPath)
 {
+    BOOL  PathIsOpen;
     PDC_ATTR pdcattr = dc->pdcattr;
     if ( Point )
     {
@@ -42,6 +44,13 @@ IntGdiMoveToEx(DC      *dc,
     CoordLPtoDP(dc, &pdcattr->ptfxCurrent); // Update fx
     pdcattr->ulDirty_ &= ~(DIRTY_PTLCURRENT|DIRTY_PTFXCURRENT|DIRTY_STYLESTATE);
 
+    if (BypassPath) return TRUE;
+
+    PathIsOpen = PATH_IsPathOpen(dc->dclevel);
+
+    if ( PathIsOpen )
+        return PATH_MoveTo ( dc );
+
     return TRUE;
 }
 
@@ -58,7 +67,7 @@ GreMoveTo( HDC hdc,
       EngSetLastError(ERROR_INVALID_HANDLE);
       return FALSE;
    }
-   Ret = IntGdiMoveToEx(dc, x, y, pptOut);
+   Ret = IntGdiMoveToEx(dc, x, y, pptOut, TRUE);
    DC_UnlockDc(dc);
    return Ret;
 }
@@ -99,6 +108,16 @@ IntGdiLineTo(DC  *dc,
     if (PATH_IsPathOpen(dc->dclevel))
     {
         Ret = PATH_LineTo(dc, XEnd, YEnd);
+        if (Ret)
+        {
+            // FIXME: PATH_LineTo should maybe do this? No
+            pdcattr->ptlCurrent.x = XEnd;
+            pdcattr->ptlCurrent.y = YEnd;
+            pdcattr->ptfxCurrent = pdcattr->ptlCurrent;
+            CoordLPtoDP(dc, &pdcattr->ptfxCurrent); // Update fx
+            pdcattr->ulDirty_ &= ~(DIRTY_PTLCURRENT|DIRTY_PTFXCURRENT|DIRTY_STYLESTATE);
+        }
+        return Ret;
     }
     else
     {
@@ -238,6 +257,9 @@ IntGdiPolyline(DC      *dc,
         return FALSE;
     }
 
+    if (PATH_IsPathOpen(dc->dclevel))
+        return PATH_Polyline(dc, pt, Count);
+
     DC_vPrepareDCsForBlit(dc, NULL, NULL, NULL);
     psurf = dc->dclevel.pSurface;
 
@@ -333,9 +355,8 @@ IntGdiPolyPolyline(DC      *dc,
     pc = PolyPoints;
 
     if (PATH_IsPathOpen(dc->dclevel))
-    {
         return PATH_PolyPolyline( dc, pt, PolyPoints, Count );
-    }
+
     for (i = 0; i < Count; i++)
     {
         ret = IntGdiPolyline ( dc, pts, *pc );
@@ -523,7 +544,7 @@ NtGdiPolyDraw(
         }
 
         if (num_pts >= 2) IntGdiPolyline( dc, line_pts, num_pts );
-        IntGdiMoveToEx( dc, line_pts[num_pts - 1].x, line_pts[num_pts - 1].y, NULL );
+        IntGdiMoveToEx( dc, line_pts[num_pts - 1].x, line_pts[num_pts - 1].y, NULL, TRUE );
         result = TRUE;
     }
     _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
@@ -571,7 +592,7 @@ NtGdiMoveTo(
     pdc = DC_LockDc(hdc);
     if (!pdc) return FALSE;
 
-    Ret = IntGdiMoveToEx(pdc, x, y, &Point);
+    Ret = IntGdiMoveToEx(pdc, x, y, &Point, TRUE);
 
     if (Ret && pptOut)
     {

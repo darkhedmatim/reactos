@@ -3095,10 +3095,14 @@ static void test_BindToStorage(int protocol, DWORD flags, DWORD t)
     if(!no_callback) {
         CLEAR_CALLED(QueryInterface_IBindStatusCallbackEx); /* IE 8 */
         CHECK_CALLED(GetBindInfo);
-        todo_wine_if(abort_start)
+        if(abort_start)
+            todo_wine CHECK_CALLED(QueryInterface_IInternetProtocol);
+        else
             CHECK_CALLED(QueryInterface_IInternetProtocol);
         if(!emulate_protocol) {
-            todo_wine_if(abort_start)
+            if(abort_start)
+                todo_wine CHECK_CALLED(QueryService_IInternetProtocol);
+            else
                 CHECK_CALLED(QueryService_IInternetProtocol);
         }
         CHECK_CALLED(OnStartBinding);

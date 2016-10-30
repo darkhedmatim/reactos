@@ -13,8 +13,7 @@ typedef HANDLE HIMC;
 #define FIRST_USER_HANDLE 0x0020 /* first possible value for low word of user handle */
 #define LAST_USER_HANDLE 0xffef /* last possible value for low word of user handle */
 
-#define HANDLEENTRY_DESTROY 1
-#define HANDLEENTRY_INDESTROY 2
+#define HANDLEENTRY_INDESTROY 1
 
 typedef struct _USER_HANDLE_ENTRY
 {
@@ -2837,7 +2836,7 @@ NTAPI
 NtUserRegisterClassExWOW(
     WNDCLASSEXW* lpwcx,
     PUNICODE_STRING pustrClassName,
-    PUNICODE_STRING pustrCVersion,
+    PUNICODE_STRING pustrCNVersion,
     PCLSMENUNAME pClassMenuName,
     DWORD fnID,
     DWORD Flags,

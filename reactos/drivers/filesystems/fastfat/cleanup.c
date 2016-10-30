@@ -66,7 +66,7 @@ VfatCleanupFile(
         pFcb->OpenHandleCount--;
         DeviceExt->OpenHandleCount--;
 
-        if (!vfatFCBIsDirectory(pFcb) &&
+        if (!(*pFcb->Attributes & FILE_ATTRIBUTE_DIRECTORY) &&
             FsRtlAreThereCurrentFileLocks(&pFcb->FileLock))
         {
             /* remove all locks this process have on this file */
@@ -84,26 +84,18 @@ VfatCleanupFile(
         if (pFcb->Flags & FCB_DELETE_PENDING &&
             pFcb->OpenHandleCount == 0)
         {
-            if (vfatFCBIsDirectory(pFcb) &&
-                !VfatIsDirectoryEmpty(pFcb))
+            PFILE_OBJECT tmpFileObject;
+            tmpFileObject = pFcb->FileObject;
+            if (tmpFileObject != NULL)
             {
-                pFcb->Flags &= ~FCB_DELETE_PENDING;
+                pFcb->FileObject = NULL;
+                CcUninitializeCacheMap(tmpFileObject, NULL, NULL);
+                ObDereferenceObject(tmpFileObject);
             }
-            else
-            {
-                PFILE_OBJECT tmpFileObject;
-                tmpFileObject = pFcb->FileObject;
-                if (tmpFileObject != NULL)
-                {
-                    pFcb->FileObject = NULL;
-                    CcUninitializeCacheMap(tmpFileObject, NULL, NULL);
-                    ObDereferenceObject(tmpFileObject);
-                }
 
-                pFcb->RFCB.ValidDataLength.QuadPart = 0;
-                pFcb->RFCB.FileSize.QuadPart = 0;
-                pFcb->RFCB.AllocationSize.QuadPart = 0;
-            }
+            pFcb->RFCB.ValidDataLength.QuadPart = 0;
+            pFcb->RFCB.FileSize.QuadPart = 0;
+            pFcb->RFCB.AllocationSize.QuadPart = 0;
         }
 
         /* Uninitialize the cache (should be done even if caching was never initialized) */

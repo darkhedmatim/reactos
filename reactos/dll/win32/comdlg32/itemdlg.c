@@ -386,12 +386,14 @@ static UINT get_file_name(FileDialogImpl *This, LPWSTR *str)
 
 static BOOL set_file_name(FileDialogImpl *This, LPCWSTR str)
 {
+    HWND hwnd_edit = GetDlgItem(This->dlg_hwnd, IDC_FILENAME);
+
     if(This->set_filename)
         LocalFree(This->set_filename);
 
-    This->set_filename = str ? StrDupW(str) : NULL;
+    This->set_filename = StrDupW(str);
 
-    return SetDlgItemTextW(This->dlg_hwnd, IDC_FILENAME, This->set_filename);
+    return SendMessageW(hwnd_edit, WM_SETTEXT, 0, (LPARAM)str);
 }
 
 static void fill_filename_from_selection(FileDialogImpl *This)
@@ -2608,8 +2610,10 @@ static HRESULT WINAPI IFileDialog2_fnGetFileName(IFileDialog2 *iface, LPWSTR *ps
         return E_INVALIDARG;
 
     *pszName = NULL;
-    get_file_name(This, pszName);
-    return *pszName ? S_OK : E_FAIL;
+    if(get_file_name(This, pszName))
+        return S_OK;
+    else
+        return E_FAIL;
 }
 
 static HRESULT WINAPI IFileDialog2_fnSetTitle(IFileDialog2 *iface, LPCWSTR pszTitle)

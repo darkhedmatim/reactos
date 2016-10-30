@@ -8,7 +8,6 @@ extern void func_NtAllocateVirtualMemory(void);
 extern void func_NtApphelpCacheControl(void);
 extern void func_NtContinue(void);
 extern void func_NtCreateFile(void);
-extern void func_NtCreateKey(void);
 extern void func_NtCreateThread(void);
 extern void func_NtDeleteKey(void);
 extern void func_NtFreeVirtualMemory(void);
@@ -21,11 +20,9 @@ extern void func_NtQueryInformationProcess(void);
 extern void func_NtQueryKey(void);
 extern void func_NtQuerySystemEnvironmentValue(void);
 extern void func_NtQueryVolumeInformationFile(void);
-extern void func_NtReadFile(void);
 extern void func_NtSaveKey(void);
 extern void func_NtSetValueKey(void);
 extern void func_NtSystemInformation(void);
-extern void func_NtWriteFile(void);
 extern void func_RtlAllocateHeap(void);
 extern void func_RtlBitmap(void);
 extern void func_RtlCopyMappedMemory(void);
@@ -56,7 +53,6 @@ const struct test winetest_testlist[] =
     { "NtApphelpCacheControl",          func_NtApphelpCacheControl },
     { "NtContinue",                     func_NtContinue },
     { "NtCreateFile",                   func_NtCreateFile },
-    { "NtCreateKey",                    func_NtCreateKey },
     { "NtCreateThread",                 func_NtCreateThread },
     { "NtDeleteKey",                    func_NtDeleteKey },
     { "NtFreeVirtualMemory",            func_NtFreeVirtualMemory },
@@ -69,11 +65,9 @@ const struct test winetest_testlist[] =
     { "NtQueryKey",                     func_NtQueryKey },
     { "NtQuerySystemEnvironmentValue",  func_NtQuerySystemEnvironmentValue },
     { "NtQueryVolumeInformationFile",   func_NtQueryVolumeInformationFile },
-    { "NtReadFile",                     func_NtReadFile },
     { "NtSaveKey",                      func_NtSaveKey},
     { "NtSetValueKey",                  func_NtSetValueKey},
     { "NtSystemInformation",            func_NtSystemInformation },
-    { "NtWriteFile",                    func_NtWriteFile },
     { "RtlAllocateHeap",                func_RtlAllocateHeap },
     { "RtlBitmapApi",                   func_RtlBitmap },
     { "RtlCopyMappedMemory",            func_RtlCopyMappedMemory },

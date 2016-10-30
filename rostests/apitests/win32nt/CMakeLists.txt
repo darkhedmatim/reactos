@@ -44,7 +44,6 @@ list(APPEND SOURCE
 #    ntuser/NtUserCallNoParam.c
 #    ntuser/NtUserCallOneParam.c
     ntuser/NtUserCountClipboardFormats.c
-    ntuser/NtUserCreateWindowEx.c
 #    ntuser/NtUserEnumDisplayMonitors.c
     ntuser/NtUserEnumDisplaySettings.c
     ntuser/NtUserFindExistingCursorIcon.c

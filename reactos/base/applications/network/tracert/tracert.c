@@ -450,7 +450,7 @@ Driver(PAPPINFO pInfo)
 
         /* run until we hit either max hops, or find the target */
         while ((iHopCount <= pInfo->iMaxHops) &&
-               (bFoundTarget == FALSE))
+               (bFoundTarget != TRUE))
         {
             USHORT iSeqNum = 0;
             INT i;
@@ -460,7 +460,7 @@ Driver(PAPPINFO pInfo)
             /* run 3 pings for each hop */
             for (i = 0; i < 3; i++)
             {
-                if (SetTTL(pInfo->icmpSock, iTTL) == FALSE)
+                if (SetTTL(pInfo->icmpSock, iTTL) != TRUE)
                 {
                     DebugPrint(_T("error in Setup()\n"));
                     return ret;

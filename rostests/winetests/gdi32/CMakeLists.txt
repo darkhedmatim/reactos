@@ -9,7 +9,7 @@ list(APPEND SOURCE
     dib.c
     font.c
     gdiobj.c
-    generated.c
+    generated_${ARCH}.c
     icm.c
     mapping.c
     metafile.c

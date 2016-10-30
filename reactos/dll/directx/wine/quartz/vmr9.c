@@ -237,17 +237,7 @@ static DWORD VMR9_SendSampleData(struct quartz_vmr *This, VMR9PresentationInfo *
         return hr;
     }
 
-    if (height > 0) {
-        /* Bottom up image needs inverting */
-        lock.pBits = (char *)lock.pBits + (height * lock.Pitch);
-        while (height--)
-        {
-            memcpy(lock.pBits, data, width * bmiHeader->biBitCount / 8);
-            data = data + width * bmiHeader->biBitCount / 8;
-            lock.pBits = (char *)lock.pBits - lock.Pitch;
-        }
-    }
-    else if (lock.Pitch != width * bmiHeader->biBitCount / 8)
+    if (lock.Pitch != width * bmiHeader->biBitCount / 8)
     {
         WARN("Slow path! %u/%u\n", lock.Pitch, width * bmiHeader->biBitCount/8);
 

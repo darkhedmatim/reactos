@@ -474,7 +474,6 @@
     CF2_GlyphPathRec  glyphPath;
 #endif
 
-    FT_ZERO( &storage );
 
     /* initialize the remaining objects */
     cf2_arrstack_init( &subrStack,

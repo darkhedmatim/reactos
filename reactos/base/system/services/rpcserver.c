@@ -21,7 +21,6 @@
 
 #define MANAGER_TAG 0x72674D68  /* 'hMgr' */
 #define SERVICE_TAG 0x63765368  /* 'hSvc' */
-#define INVALID_TAG 0xAABBCCDD
 
 typedef struct _SCMGR_HANDLE
 {
@@ -841,7 +840,7 @@ Int_EnumDependentServicesW(HKEY hServicesKey,
         if (dwError != ERROR_SUCCESS)
             return dwError;
 
-        dwSize = MAX_PATH * sizeof(WCHAR);
+        dwSize = MAX_PATH;
 
         /* Check for the DependOnService Value */
         dwError = RegQueryValueExW(hServiceEnumKey,
@@ -953,8 +952,7 @@ DWORD RCloseServiceHandle(
     {
         DPRINT("Found manager handle\n");
 
-        /* Make sure we don't access stale memory if someone tries to use this handle again. */
-        hManager->Handle.Tag = INVALID_TAG;
+        /* FIXME: add handle cleanup code */
 
         HeapFree(GetProcessHeap(), 0, hManager);
         hManager = NULL;
@@ -974,8 +972,7 @@ DWORD RCloseServiceHandle(
         /* Get the pointer to the service record */
         lpService = hService->ServiceEntry;
 
-        /* Make sure we don't access stale memory if someone tries to use this handle again. */
-        hService->Handle.Tag = INVALID_TAG;
+        /* FIXME: add handle cleanup code */
 
         /* Free the handle */
         HeapFree(GetProcessHeap(), 0, hService);

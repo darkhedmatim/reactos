@@ -22,7 +22,7 @@ Current Features
  - batch file processing.
  - input/output redirection and piping.
  - alias support.
- - filename completion (use TAB), both Bash and Windows-CMD style.
+ - filename completion (use TAB), both unix and windows style.
 
 
 Credits

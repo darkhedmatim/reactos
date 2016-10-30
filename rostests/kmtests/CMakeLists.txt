@@ -79,7 +79,6 @@ list(APPEND KMTEST_DRV_SOURCE
     ntos_mm/ZwMapViewOfSection.c
     ntos_ob/ObHandle.c
     ntos_ob/ObReference.c
-    ntos_ob/ObSecurity.c
     ntos_ob/ObSymbolicLink.c
     ntos_ob/ObType.c
     ntos_ob/ObTypes.c
@@ -88,7 +87,6 @@ list(APPEND KMTEST_DRV_SOURCE
     ntos_se/SeHelpers.c
     ntos_se/SeInheritance.c
     ntos_se/SeQueryInfoToken.c
-    rtl/RtlIsValidOemCharacter.c
     ${COMMON_SOURCE}
 
     kmtest_drv/kmtest_drv.rc)
@@ -154,8 +152,7 @@ add_dependencies(kmtest_drivers
     iohelper_drv
     ioreadwrite_drv
     poirp_drv
-    tcpip_drv
-    cccopyread_drv)
+    tcpip_drv)
 
 add_custom_target(kmtest_all)
 add_dependencies(kmtest_all kmtest_drivers kmtest)

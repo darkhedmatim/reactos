@@ -417,13 +417,10 @@ CHCDController::HandlePnp(
                     Status = m_Hardware->PnpStart(RawResourceList, TranslatedResourceList);
                 }
 
-                if (NT_SUCCESS(Status))
-                {
-                    //
-                    // enable symbolic link
-                    //
-                    Status = SetSymbolicLink(TRUE);
-                }
+                //
+                // enable symbolic link
+                //
+                Status = SetSymbolicLink(TRUE);
             }
 
             DPRINT("[%s] HandlePnp IRP_MN_START FDO: Status %x\n", m_USBType ,Status);

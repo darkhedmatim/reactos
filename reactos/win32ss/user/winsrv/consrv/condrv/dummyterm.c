@@ -112,10 +112,6 @@ static VOID NTAPI
 DummyGetLargestConsoleWindowSize(IN OUT PTERMINAL This,
                                  PCOORD pSize)
 {
-    /* Return a standard size */
-    if (!pSize) return;
-    pSize->X = 80;
-    pSize->Y = 25;
 }
 
 static BOOL NTAPI

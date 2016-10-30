@@ -2,14 +2,11 @@
 #define _CACLS_PRECOMP_H
 
 #include <stdarg.h>
-#include <tchar.h>
-
 #include <windef.h>
 #include <winbase.h>
-#include <winuser.h> // For CharPrev
+#include <winuser.h>
 #include <sddl.h>
-
-#include <conutils.h>
+#include <tchar.h>
 
 #include "resource.h"
 

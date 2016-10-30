@@ -2,7 +2,8 @@
  * PROJECT:         ReactOS DiskPart
  * LICENSE:         GPL - See COPYING in the top level directory
  * FILE:            base/system/diskpart/online.c
- * PURPOSE:         Manages all the partitions of the OS in an interactive way.
+ * PURPOSE:         Manages all the partitions of the OS in
+ *					an interactive way
  * PROGRAMMERS:     Lee Schroeder
  */
 
@@ -10,6 +11,7 @@
 
 BOOL online_main(INT argc, LPWSTR *argv)
 {
-    ConResPuts(StdOut, IDS_HELP_CMD_ONLINE);
+    PrintResourceString(IDS_HELP_CMD_ONLINE);
+
     return TRUE;
 }

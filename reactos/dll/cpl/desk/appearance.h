@@ -47,11 +47,10 @@ typedef struct
     BOOL bTooltipAnimation;
     BOOL bTooltipFade;
     BOOL bCursorShadow;
-    BOOL bDropShadow;
     BOOL bUiEffects;
     BOOL bFontSmoothing;
-    UINT uiFontSmoothingType;
     BOOL bDragFullWindows;
+    UINT uiFontSmoothingType;
 } EFFECTS;
 
 typedef struct

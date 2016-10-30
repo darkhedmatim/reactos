@@ -67,8 +67,11 @@ CMenuBand::~CMenuBand()
 {
     CMenuFocusManager::ReleaseManager(m_focusManager);
 
-    delete m_staticToolbar;
-    delete m_SFToolbar;
+    if (m_staticToolbar)
+        delete m_staticToolbar;
+
+    if (m_SFToolbar)
+        delete m_SFToolbar;
 
     if (m_hmenu)
         DestroyMenu(m_hmenu);
@@ -1132,12 +1135,12 @@ HRESULT CMenuBand::_MenuBarMouseDown(HWND hwnd, INT item, BOOL isLButton)
     return S_OK;
 }
 
-HRESULT CMenuBand::_MenuBarMouseUp(HWND hwnd, INT item, BOOL isLButton)
+HRESULT CMenuBand::_MenuBarMouseUp(HWND hwnd, INT item)
 {
     if (m_staticToolbar && m_staticToolbar->IsWindowOwner(hwnd) == S_OK)
-        m_staticToolbar->MenuBarMouseUp(item, isLButton);
+        m_staticToolbar->MenuBarMouseUp(item);
     if (m_SFToolbar && m_SFToolbar->IsWindowOwner(hwnd) == S_OK)
-        m_SFToolbar->MenuBarMouseUp(item, isLButton);
+        m_SFToolbar->MenuBarMouseUp(item);
     return S_OK;
 }
 

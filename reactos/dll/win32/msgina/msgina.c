@@ -26,9 +26,11 @@
 
 #include "msgina.h"
 
+#include <winreg.h>
 #include <winsvc.h>
 #include <userenv.h>
 #include <ndk/sefuncs.h>
+#include <strsafe.h>
 
 HINSTANCE hDllInstance;
 
@@ -226,7 +228,7 @@ GetRegistrySettings(PGINA_CONTEXT pgContext)
             pgContext->bDontDisplayLastUserName = TRUE;
     }
 
-    dwSize = sizeof(pgContext->UserName);
+    dwSize = 256 * sizeof(WCHAR);
     rc = RegQueryValueExW(hKey,
                           L"DefaultUserName",
                           NULL,
@@ -234,7 +236,7 @@ GetRegistrySettings(PGINA_CONTEXT pgContext)
                           (LPBYTE)&pgContext->UserName,
                           &dwSize);
 
-    dwSize = sizeof(pgContext->Domain);
+    dwSize = 256 * sizeof(WCHAR);
     rc = RegQueryValueExW(hKey,
                           L"DefaultDomain",
                           NULL,
@@ -325,7 +327,7 @@ WlxInitialize(
     pgContext->station = lpWinsta;
 
     /* Clear status window handle */
-    pgContext->hStatusWindow = NULL;
+    pgContext->hStatusWindow = 0;
 
     /* Notify winlogon that we will use the default SAS */
     pgContext->pWlxFuncs->WlxUseCtrlAltDel(hWlx);
@@ -352,9 +354,8 @@ WlxScreenSaverNotify(
     BOOL  *pSecure)
 {
 #if 0
-    PGINA_CONTEXT pgContext = (PGINA_CONTEXT)pWlxContext;
     WCHAR szBuffer[2];
-    HKEY hKeyCurrentUser, hKey;
+    HKEY hKey;
     DWORD bufferSize = sizeof(szBuffer);
     DWORD varType = REG_SZ;
     LONG rc;
@@ -370,29 +371,12 @@ WlxScreenSaverNotify(
      *    HKCU\Control Panel\Desktop : ScreenSaverIsSecure
      */
 
-    if (!ImpersonateLoggedOnUser(pgContext->UserToken))
-    {
-        ERR("WL: ImpersonateLoggedOnUser() failed with error %lu\n", GetLastError());
-        *pSecure = FALSE;
-        return TRUE;
-    }
-
-    /* Open the current user HKCU key */
-    rc = RegOpenCurrentUser(MAXIMUM_ALLOWED, &hKeyCurrentUser);
-    TRACE("RegOpenCurrentUser: %ld\n", rc);
-    if (rc == ERROR_SUCCESS)
-    {
-        /* Open the subkey */
-        rc = RegOpenKeyExW(hKeyCurrentUser,
-                           L"Control Panel\\Desktop",
-                           0,
-                           KEY_QUERY_VALUE,
-                           &hKey);
-        TRACE("RegOpenKeyExW: %ld\n", rc);
-        RegCloseKey(hKeyCurrentUser);
-    }
-
-    /* Read the value */
+    rc = RegOpenKeyExW(HKEY_CURRENT_USER,
+                       L"Control Panel\\Desktop",
+                       0,
+                       KEY_QUERY_VALUE,
+                       &hKey);
+    TRACE("RegOpenKeyExW: %ld\n", rc);
     if (rc == ERROR_SUCCESS)
     {
         rc = RegQueryValueExW(hKey,
@@ -412,9 +396,6 @@ WlxScreenSaverNotify(
 
         RegCloseKey(hKey);
     }
-
-    /* Revert the impersonation */
-    RevertToSelf();
 
     TRACE("*pSecure: %ld\n", *pSecure);
 #endif
@@ -785,7 +766,7 @@ CreateProfile(
     wcscpy(pgContext->UserName, UserName);
     if (Domain == NULL || wcslen(Domain) == 0)
     {
-        dwLength = _countof(pgContext->Domain);
+        dwLength = 256;
         GetComputerNameW(pgContext->Domain, &dwLength);
     }
     else
@@ -839,10 +820,10 @@ CreateProfile(
     pProfile->pszEnvironment = lpEnvironment;
 
     if (!GetTokenInformation(pgContext->UserToken,
-                             TokenStatistics,
-                             &Stats,
-                             sizeof(Stats),
-                             &cbStats))
+        TokenStatistics,
+        (PVOID)&Stats,
+        sizeof(TOKEN_STATISTICS),
+        &cbStats))
     {
         WARN("Couldn't get Authentication id from user token!\n");
         goto cleanup;
@@ -954,9 +935,9 @@ DoAutoLogon(
         }
 
         result = CreateProfile(pgContext, UserName, Domain, Password);
-        if (result)
+        if (result == TRUE)
         {
-            ZeroMemory(pgContext->Password, sizeof(pgContext->Password));
+            ZeroMemory(pgContext->Password, 256 * sizeof(WCHAR));
             wcscpy(pgContext->Password, Password);
 
             NotifyBootConfigStatus(TRUE);
@@ -995,7 +976,7 @@ WlxDisplaySASNotice(
         return;
     }
 
-    if (pgContext->bAutoAdminLogon)
+    if (pgContext->bAutoAdminLogon == TRUE)
     {
         /* Don't display the window, we want to do an automatic logon */
         pgContext->AutoLogonState = AUTOLOGON_ONCE;
@@ -1005,7 +986,7 @@ WlxDisplaySASNotice(
     else
         pgContext->AutoLogonState = AUTOLOGON_DISABLED;
 
-    if (pgContext->bDisableCAD)
+    if (pgContext->bDisableCAD == TRUE)
     {
         pgContext->pWlxFuncs->WlxSasNotify(pgContext->hWlx, WLX_SAS_TYPE_CTRL_ALT_DEL);
         return;
@@ -1086,7 +1067,7 @@ WlxDisplayLockedNotice(PVOID pWlxContext)
 
     TRACE("WlxDisplayLockedNotice()\n");
 
-    if (pgContext->bDisableCAD)
+    if (pgContext->bDisableCAD == TRUE)
     {
         pgContext->pWlxFuncs->WlxSasNotify(pgContext->hWlx, WLX_SAS_TYPE_CTRL_ALT_DEL);
         return;

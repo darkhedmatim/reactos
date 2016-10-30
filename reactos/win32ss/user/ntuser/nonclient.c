@@ -214,7 +214,6 @@ DefWndStartSizeMove(PWND Wnd, WPARAM wParam, POINT *capturePoint)
 		case VK_ESCAPE:
 		  return 0;
 		}
-              break;
             default:
               IntTranslateKbdMessage( &msg, 0 );
               pti->TIF_flags |= TIF_MOVESIZETRACKING;
@@ -945,12 +944,9 @@ VOID UserDrawCaptionBar(
    if (!(Style & WS_MINIMIZE))
    {
       /* Draw menu bar */
-      if (pWnd->state & WNDS_HASMENU && pWnd->IDMenu) // Should be pWnd->spmenu
+      if (HAS_MENU(pWnd, Style))
       {
-          PMENU menu = UserGetMenuObject(UlongToHandle(pWnd->IDMenu)); // FIXME!
-          TempRect = CurrentRect;
-          TempRect.bottom = TempRect.top + menu->cyMenu; // Should be pWnd->spmenu->cyMenu;
-          CurrentRect.top += MENU_DrawMenuBar(hDC, &TempRect, pWnd, FALSE);
+          CurrentRect.top += MENU_DrawMenuBar(hDC, &CurrentRect, pWnd, FALSE);
       }
 
       if (ExStyle & WS_EX_CLIENTEDGE)
@@ -1114,14 +1110,11 @@ NC_DoNCPaint(PWND pWnd, HDC hDC, INT Flags)
    if (!(Style & WS_MINIMIZE))
    {
      /* Draw menu bar */
-     if (pWnd->state & WNDS_HASMENU && pWnd->IDMenu) // Should be pWnd->spmenu
+     if (HAS_MENU(pWnd, Style))
      {
          if (!(Flags & DC_NOSENDMSG))
          {
-             PMENU menu = UserGetMenuObject(UlongToHandle(pWnd->IDMenu)); // FIXME!
-             TempRect = CurrentRect;
-             TempRect.bottom = TempRect.top + menu->cyMenu; // Should be pWnd->spmenu->cyMenu;
-             CurrentRect.top += MENU_DrawMenuBar(hDC, &TempRect, pWnd, FALSE);
+             CurrentRect.top += MENU_DrawMenuBar(hDC, &CurrentRect, pWnd, FALSE);
          }
      }
 
@@ -1379,7 +1372,7 @@ LRESULT NC_HandleNCActivate( PWND Wnd, WPARAM wParam, LPARAM lParam )
    }
 
    if ((Wnd->state & WNDS_NONCPAINT) || !(Wnd->style & WS_VISIBLE))
-      return TRUE;
+      return 0;
 
    /* This isn't documented but is reproducible in at least XP SP2 and
     * Outlook 2007 depends on it

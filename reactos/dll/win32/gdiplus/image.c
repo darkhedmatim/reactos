@@ -1245,7 +1245,7 @@ GpStatus WINGDIPAPI GdipCloneBitmapArea(REAL x, REAL y, REAL width, REAL height,
         }
 
         if (stat != Ok)
-            GdipDisposeImage(&(*dstBitmap)->image);
+            GdipDisposeImage((GpImage*)*dstBitmap);
     }
 
     if (stat != Ok)
@@ -1445,8 +1445,8 @@ GpStatus WINGDIPAPI GdipCreateHBITMAPFromBitmap(GpBitmap* bitmap,
 
     if (!bitmap || !hbmReturn) return InvalidParameter;
 
-    GdipGetImageWidth(&bitmap->image, &width);
-    GdipGetImageHeight(&bitmap->image, &height);
+    GdipGetImageWidth((GpImage*)bitmap, &width);
+    GdipGetImageHeight((GpImage*)bitmap, &height);
 
     bih.biSize = sizeof(bih);
     bih.biWidth = width;
@@ -1570,7 +1570,7 @@ GpStatus WINGDIPAPI GdipCreateBitmapFromHICON(HICON hicon, GpBitmap** bitmap)
     if (stat != Ok) {
         DeleteObject(iinfo.hbmColor);
         DeleteObject(iinfo.hbmMask);
-        GdipDisposeImage(&(*bitmap)->image);
+        GdipDisposeImage((GpImage*)*bitmap);
         return stat;
     }
 
@@ -2932,7 +2932,7 @@ static void add_property(GpBitmap *bitmap, PropertyItem *item)
         UINT i;
         char *item_value;
 
-        GdipGetPropertySize(&bitmap->image, &prop_size, &prop_count);
+        GdipGetPropertySize((GpImage *)bitmap, &prop_size, &prop_count);
 
         prop_item = heap_alloc_zero(prop_size + item->length + sizeof(PropertyItem));
         if (!prop_item) return;
@@ -3388,7 +3388,7 @@ static void png_metadata_reader(GpBitmap *bitmap, IWICBitmapDecoder *decoder, UI
         { "Source", PropertyTagEquipModel },
         { "Comment", PropertyTagExifUserComment },
     };
-    BOOL seen_gamma=FALSE, seen_whitepoint=FALSE, seen_chrm=FALSE;
+    BOOL seen_gamma=FALSE;
 
     hr = IWICBitmapDecoder_GetFrame(decoder, active_frame, &frame);
     if (hr != S_OK) return;
@@ -3454,57 +3454,6 @@ static void png_metadata_reader(GpBitmap *bitmap, IWICBitmapDecoder *decoder, UI
                                 add_property(bitmap, item);
                                 seen_gamma = TRUE;
                                 heap_free(item);
-                            }
-                        }
-                    }
-                    else if (SUCCEEDED(hr) && IsEqualGUID(&GUID_MetadataFormatChunkcHRM, &format))
-                    {
-                        PropertyItem* item;
-
-                        if (!seen_whitepoint)
-                        {
-                            item = GdipAlloc(sizeof(PropertyItem) + sizeof(ULONG) * 4);
-                            if (item)
-                            {
-                                ULONG *rational;
-                                item->length = sizeof(ULONG) * 4;
-                                item->type = PropertyTagTypeRational;
-                                item->id = PropertyTagWhitePoint;
-                                rational = item->value = item + 1;
-                                rational[0] = get_ulong_by_index(reader, 0);
-                                rational[1] = 100000;
-                                rational[2] = get_ulong_by_index(reader, 1);
-                                rational[3] = 100000;
-                                add_property(bitmap, item);
-                                seen_whitepoint = TRUE;
-                                GdipFree(item);
-                            }
-                        }
-                        if (!seen_chrm)
-                        {
-                            item = GdipAlloc(sizeof(PropertyItem) + sizeof(ULONG) * 12);
-                            if (item)
-                            {
-                                ULONG *rational;
-                                item->length = sizeof(ULONG) * 12;
-                                item->type = PropertyTagTypeRational;
-                                item->id = PropertyTagPrimaryChromaticities;
-                                rational = item->value = item + 1;
-                                rational[0] = get_ulong_by_index(reader, 2);
-                                rational[1] = 100000;
-                                rational[2] = get_ulong_by_index(reader, 3);
-                                rational[3] = 100000;
-                                rational[4] = get_ulong_by_index(reader, 4);
-                                rational[5] = 100000;
-                                rational[6] = get_ulong_by_index(reader, 5);
-                                rational[7] = 100000;
-                                rational[8] = get_ulong_by_index(reader, 6);
-                                rational[9] = 100000;
-                                rational[10] = get_ulong_by_index(reader, 7);
-                                rational[11] = 100000;
-                                add_property(bitmap, item);
-                                seen_chrm = TRUE;
-                                GdipFree(item);
                             }
                         }
                     }
@@ -3619,11 +3568,11 @@ static GpStatus decode_frame_wic(IWICBitmapDecoder *decoder, BOOL force_conversi
                 }
 
                 if (SUCCEEDED(hr) && status == Ok)
-                    *image = &bitmap->image;
+                    *image = (GpImage*)bitmap;
                 else
                 {
                     *image = NULL;
-                    GdipDisposeImage(&bitmap->image);
+                    GdipDisposeImage((GpImage*)bitmap);
                 }
 
                 if (SUCCEEDED(hr) && status == Ok)
@@ -3665,14 +3614,7 @@ static GpStatus decode_frame_wic(IWICBitmapDecoder *decoder, BOOL force_conversi
     if (status == Ok)
     {
         /* Native GDI+ used to be smarter, but since Win7 it just sets these flags. */
-        bitmap->image.flags |= ImageFlagsReadOnly|ImageFlagsHasRealPixelSize|ImageFlagsHasRealDPI;
-        if (IsEqualGUID(&wic_format, &GUID_WICPixelFormat2bppGray) ||
-            IsEqualGUID(&wic_format, &GUID_WICPixelFormat4bppGray) ||
-            IsEqualGUID(&wic_format, &GUID_WICPixelFormat8bppGray) ||
-            IsEqualGUID(&wic_format, &GUID_WICPixelFormat16bppGray))
-            bitmap->image.flags |= ImageFlagsColorSpaceGRAY;
-        else
-            bitmap->image.flags |= ImageFlagsColorSpaceRGB;
+        bitmap->image.flags |= ImageFlagsReadOnly|ImageFlagsHasRealPixelSize|ImageFlagsHasRealDPI|ImageFlagsColorSpaceRGB;
         bitmap->image.frame_count = frame_count;
         bitmap->image.current_frame = active_frame;
         bitmap->image.decoder = decoder;
@@ -3914,37 +3856,7 @@ static GpStatus decode_image_jpeg(IStream* stream, GpImage **image)
 
 static GpStatus decode_image_png(IStream* stream, GpImage **image)
 {
-    IWICBitmapDecoder *decoder;
-    IWICBitmapFrameDecode *frame;
-    GpStatus status;
-    HRESULT hr;
-    GUID format;
-    BOOL force_conversion = FALSE;
-
-    status = initialize_decoder_wic(stream, &GUID_ContainerFormatPng, &decoder);
-    if (status != Ok)
-        return status;
-
-    hr = IWICBitmapDecoder_GetFrame(decoder, 0, &frame);
-    if (hr == S_OK)
-    {
-        hr = IWICBitmapFrameDecode_GetPixelFormat(frame, &format);
-        if (hr == S_OK)
-        {
-            if (IsEqualGUID(&format, &GUID_WICPixelFormat8bppGray))
-                force_conversion = TRUE;
-            status = decode_frame_wic(decoder, force_conversion, 0, png_metadata_reader, image);
-        }
-        else
-            status = hresult_to_status(hr);
-
-        IWICBitmapFrameDecode_Release(frame);
-    }
-    else
-        status = hresult_to_status(hr);
-
-    IWICBitmapDecoder_Release(decoder);
-    return status;
+    return decode_image_wic(stream, &GUID_ContainerFormatPng, png_metadata_reader, image);
 }
 
 static GpStatus decode_image_gif(IStream* stream, GpImage **image)
@@ -5075,7 +4987,7 @@ GpStatus WINGDIPAPI GdipCreateBitmapFromHBITMAP(HBITMAP hbm, HPALETTE hpal, GpBi
                                           entry[i].peGreen << 8 | entry[i].peBlue;
                 }
 
-                retval = GdipSetImagePalette(&(*bitmap)->image, palette);
+                retval = GdipSetImagePalette((GpImage*)*bitmap, palette);
             }
 
             heap_free(palette);
@@ -5083,7 +4995,7 @@ GpStatus WINGDIPAPI GdipCreateBitmapFromHBITMAP(HBITMAP hbm, HPALETTE hpal, GpBi
 
         if (retval != Ok)
         {
-            GdipDisposeImage(&(*bitmap)->image);
+            GdipDisposeImage((GpImage*)*bitmap);
             *bitmap = NULL;
         }
     }
@@ -5338,7 +5250,7 @@ GpStatus WINGDIPAPI GdipImageRotateFlip(GpImage *image, RotateFlipType type)
     if (stat == Ok)
         move_bitmap(bitmap, new_bitmap, FALSE);
     else
-        GdipDisposeImage(&new_bitmap->image);
+        GdipDisposeImage((GpImage*)new_bitmap);
 
     return stat;
 }

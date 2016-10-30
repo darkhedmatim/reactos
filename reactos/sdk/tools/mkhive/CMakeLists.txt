@@ -15,9 +15,4 @@ list(APPEND SOURCE
     rtl.c)
 
 add_host_tool(mkhive ${SOURCE})
-
-if(NOT MSVC)
-    add_target_compile_flags(mkhive "-fshort-wchar")
-endif()
-
 target_link_libraries(mkhive unicode cmlibhost inflibhost)

@@ -1256,23 +1256,8 @@ RtlCreateHeap(ULONG Flags,
         Flags &= HEAP_CREATE_VALID_MASK;
     }
 
-    /* Capture parameters */
-    if (Parameters)
-    {
-        _SEH2_TRY
-        {
-            /* If size of structure correct, then copy it */
-            if (Parameters->Length == sizeof(RTL_HEAP_PARAMETERS))
-                RtlCopyMemory(&SafeParams, Parameters, sizeof(RTL_HEAP_PARAMETERS));
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            _SEH2_YIELD(return NULL);
-        }
-        _SEH2_END;
-    }
-
-    Parameters = &SafeParams;
+    /* TODO: Capture parameters, once we decide to use SEH */
+    if (!Parameters) Parameters = &SafeParams;
 
     /* Check global flags */
     if (NtGlobalFlags & FLG_HEAP_DISABLE_COALESCING)
@@ -1975,7 +1960,7 @@ RtlAllocateHeap(IN PVOID HeapPtr,
     /* Add settable user flags, if any */
     EntryFlags |= (Flags & HEAP_SETTABLE_USER_FLAGS) >> 4;
 
-    Index = AllocationSize >> HEAP_ENTRY_SHIFT;
+    Index = AllocationSize >>  HEAP_ENTRY_SHIFT;
 
     /* Acquire the lock if necessary */
     if (!(Flags & HEAP_NO_SERIALIZE))

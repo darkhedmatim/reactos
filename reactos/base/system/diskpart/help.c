@@ -2,7 +2,7 @@
  * PROJECT:         ReactOS DiskPart
  * LICENSE:         GPL - See COPYING in the top level directory
  * FILE:            base/system/diskpart/help.c
- * PURPOSE:         Manages all the partitions of the OS in an interactive way.
+ * PURPOSE:         Manages all the partitions of the OS in an interactive way
  * PROGRAMMERS:     Lee Schroeder
  */
 
@@ -17,14 +17,14 @@ VOID help_cmdlist(VOID)
     PCOMMAND cmdptr;
 
     /* Print the header information */
-    ConResPuts(StdOut, IDS_APP_HEADER);
-    ConPuts(StdOut, L"\n");
+    PrintResourceString(IDS_APP_HEADER);
+    printf("\n");
 
-    /* List all the commands and the basic descriptions */
-    for (cmdptr = cmds; cmdptr->name; cmdptr++)
-        ConResPuts(StdOut, cmdptr->help_desc);
+    /* lists all the commands and the basic descriptions */
+    for(cmdptr = cmds; cmdptr->name; cmdptr++)
+        PrintResourceString(cmdptr->help_desc);
 
-    ConPuts(StdOut, L"\n");
+    printf("\n");
 }
 
 /* help_main(char *arg):
@@ -43,9 +43,9 @@ BOOL help_main(INT argc, LPWSTR *argv)
     /* Scan internal command table */
     for (cmdptr = cmds; cmdptr->name; cmdptr++)
     {
-        if (_wcsicmp(argv[1], cmdptr->name) == 0)
+        if(_wcsicmp(argv[1], cmdptr->name) == 0)
         {
-            ConResPuts(StdOut, cmdptr->help);
+            PrintResourceString(cmdptr->help);
             return TRUE;
         }
     }

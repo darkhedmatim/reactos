@@ -1,28 +1,29 @@
-@ stdcall FilterAttach(wstr wstr wstr long wstr)
-@ stdcall FilterAttachAtAltitude(wstr wstr wstr wstr long wstr)
-@ stdcall FilterClose(ptr)
+@ stub FilterAttach
+@ stub FilterAttachAtAltitude
+@ stub FilterClose
 @ stdcall FilterConnectCommunicationPort(wstr long ptr long ptr ptr)
-@ stdcall FilterCreate(wstr ptr)
-@ stdcall FilterDetach(wstr wstr wstr)
+@ stub FilterCreate
+@ stub FilterDetach
 @ stdcall FilterFindClose(ptr)
 @ stdcall FilterFindFirst(long ptr long ptr ptr)
-@ stdcall FilterFindNext(ptr ptr long ptr ptr)
-@ stdcall FilterGetDosName(wstr wstr long)
-@ stdcall FilterGetInformation(ptr long ptr long ptr)
-@ stdcall FilterGetMessage(ptr ptr long ptr)
-@ stdcall FilterInstanceClose(ptr)
-@ stdcall FilterInstanceCreate(wstr wstr wstr ptr)
-@ stdcall FilterInstanceFindClose(ptr)
-@ stdcall FilterInstanceFindFirst(wstr long ptr long ptr ptr)
-@ stdcall FilterInstanceFindNext(ptr long ptr long ptr)
-@ stdcall FilterInstanceGetInformation(ptr long ptr long ptr)
+@ stub FilterFindNext
+@ stub FilterGetDosName
+@ stub FilterGetInformation
+@ stub FilterGetMessage
+@ stub FilterInstanceClose
+@ stub FilterInstanceCreate
+@ stub FilterInstanceFindClose
+@ stub FilterInstanceFindFirst
+@ stub FilterInstanceFindNext
+@ stub FilterInstanceGetInformation
 @ stdcall FilterLoad(wstr)
-@ stdcall FilterReplyMessage(ptr ptr long)
-@ stdcall FilterSendMessage(ptr ptr long ptr long ptr)
+@ stub FilterReplyMessage
+@ stub FilterSendMessage
 @ stdcall FilterUnload(wstr)
-@ stdcall FilterVolumeFindClose(ptr)
-@ stdcall FilterVolumeFindFirst(long ptr long ptr ptr)
-@ stdcall FilterVolumeFindNext(ptr long ptr long ptr)
-@ stdcall FilterVolumeInstanceFindClose(ptr)
-@ stdcall FilterVolumeInstanceFindFirst(wstr long ptr long ptr ptr)
-@ stdcall FilterVolumeInstanceFindNext(ptr long ptr long ptr)
+@ stub FilterVolumeClose
+@ stub FilterVolumeFindClose
+@ stub FilterVolumeFindFirst
+@ stub FilterVolumeFindNext
+@ stub FilterVolumeInstanceFindClose
+@ stub FilterVolumeInstanceFindFirst
+@ stub FilterVolumeInstanceFindNext

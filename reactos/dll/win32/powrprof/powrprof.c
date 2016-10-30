@@ -299,7 +299,7 @@ GetActivePwrScheme(PUINT puiID)
         return FALSE;
     }
 
-    dwSize = sizeof(szBuf);
+    dwSize = MAX_PATH;
     Err = RegQueryValueExW(hKey, L"CurrentPowerPolicy",
                            NULL, NULL,
                            (LPBYTE)&szBuf, &dwSize);

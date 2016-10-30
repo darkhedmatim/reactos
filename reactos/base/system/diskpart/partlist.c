@@ -2,13 +2,19 @@
  * PROJECT:         ReactOS DiskPart
  * LICENSE:         GPL - See COPYING in the top level directory
  * FILE:            base/system/diskpart/partlist.c
- * PURPOSE:         Manages all the partitions of the OS in an interactive way.
+ * PURPOSE:         Manages all the partitions of the OS in an interactive way
  * PROGRAMMERS:     Eric Kohl
  */
 
 /* INCLUDES *******************************************************************/
 
 #include "diskpart.h"
+
+#include <stdlib.h>
+#include <winbase.h>
+#include <wincon.h>
+#include <winuser.h>
+
 #include <ntddscsi.h>
 
 #define NDEBUG

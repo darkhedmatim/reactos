@@ -466,20 +466,6 @@ ExSweepHandleTable(
     IN PVOID Context
 );
 
-PHANDLE_TABLE_ENTRY
-NTAPI
-ExpLookupHandleTableEntry(
-    IN PHANDLE_TABLE HandleTable,
-    IN EXHANDLE Handle
-);
-
-BOOLEAN
-NTAPI
-ExpLockHandleTableEntry(
-    IN PHANDLE_TABLE HandleTable,
-    IN PHANDLE_TABLE_ENTRY HandleTableEntry
-);
-
 /* PSEH EXCEPTION HANDLING **************************************************/
 
 LONG

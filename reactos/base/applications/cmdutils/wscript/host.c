@@ -210,10 +210,8 @@ static HRESULT WINAPI Host_put_Interactive(IHost *iface, VARIANT_BOOL v)
 
 static HRESULT WINAPI Host_Quit(IHost *iface, int ExitCode)
 {
-    FIXME("(%d) semi-stub: no script engine clean up\n", ExitCode);
-
-    ExitProcess(ExitCode);
-    return S_OK;
+    WINE_FIXME("(%d)\n", ExitCode);
+    return E_NOTIMPL;
 }
 
 static HRESULT WINAPI Host_get_ScriptName(IHost *iface, BSTR *out_ScriptName)

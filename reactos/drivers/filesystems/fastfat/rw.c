@@ -656,6 +656,11 @@ VfatRead(
     }
 
     Buffer = VfatGetUserBuffer(IrpContext->Irp, BooleanFlagOn(IrpContext->Irp->Flags, IRP_PAGING_IO));
+    Status = VfatLockUserBuffer(IrpContext->Irp, Length, IoWriteAccess);
+    if (!NT_SUCCESS(Status))
+    {
+        goto ByeBye;
+    }
 
     if (!(IrpContext->Irp->Flags & (IRP_NOCACHE|IRP_PAGING_IO)) &&
         !(Fcb->Flags & (FCB_IS_PAGE_FILE|FCB_IS_VOLUME)))
@@ -706,12 +711,6 @@ VfatRead(
     else
     {
         // non cached read
-        Status = VfatLockUserBuffer(IrpContext->Irp, Length, IoWriteAccess);
-        if (!NT_SUCCESS(Status))
-        {
-            goto ByeBye;
-        }
-
         if (ByteOffset.QuadPart + Length > ROUND_UP_64(Fcb->RFCB.FileSize.QuadPart, BytesPerSector))
         {
             Length = (ULONG)(ROUND_UP_64(Fcb->RFCB.FileSize.QuadPart, BytesPerSector) - ByteOffset.QuadPart);
@@ -844,14 +843,12 @@ VfatWrite(
         }
     }
 
-    OldFileSize = Fcb->RFCB.FileSize;
-
     if (Length == 0)
     {
-        /* Update last write time */
+        /* FIXME: Update last write time */
         IrpContext->Irp->IoStatus.Information = 0;
         Status = STATUS_SUCCESS;
-        goto Metadata;
+        goto ByeBye;
     }
 
     if (IrpContext->Irp->Flags & IRP_PAGING_IO)
@@ -881,7 +878,7 @@ VfatWrite(
         Resource = &Fcb->MainResource;
     }
 
-    if ((Fcb->Flags & FCB_IS_PAGE_FILE) || (IrpContext->Irp->Flags & IRP_PAGING_IO))
+    if (Fcb->Flags & FCB_IS_PAGE_FILE)
     {
         if (!ExAcquireResourceSharedLite(Resource,
                                          BooleanFlagOn(IrpContext->Flags, IRPCONTEXT_CANWAIT)))
@@ -921,7 +918,15 @@ VfatWrite(
         }
     }
 
+    OldFileSize = Fcb->RFCB.FileSize;
+
     Buffer = VfatGetUserBuffer(IrpContext->Irp, BooleanFlagOn(IrpContext->Irp->Flags, IRP_PAGING_IO));
+    Status = VfatLockUserBuffer(IrpContext->Irp, Length, IoReadAccess);
+    if (!NT_SUCCESS(Status))
+    {
+        Status = STATUS_INVALID_USER_BUFFER;
+        goto ByeBye;
+    }
 
     if (!(Fcb->Flags & (FCB_IS_FAT|FCB_IS_VOLUME)) &&
         !(IrpContext->Irp->Flags & IRP_PAGING_IO) &&
@@ -982,12 +987,6 @@ VfatWrite(
     else
     {
         // non cached write
-        Status = VfatLockUserBuffer(IrpContext->Irp, Length, IoReadAccess);
-        if (!NT_SUCCESS(Status))
-        {
-            Status = STATUS_INVALID_USER_BUFFER;
-            goto ByeBye;
-        }
 
         if (ByteOffset.QuadPart > OldFileSize.QuadPart)
         {
@@ -1001,7 +1000,6 @@ VfatWrite(
         }
     }
 
-Metadata:
     if (!(IrpContext->Irp->Flags & IRP_PAGING_IO) &&
         !(Fcb->Flags & (FCB_IS_FAT|FCB_IS_VOLUME)))
     {

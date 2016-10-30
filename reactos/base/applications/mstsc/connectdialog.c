@@ -138,7 +138,7 @@ LoadUsernameHint(HWND hDlg, INT iCur)
                 if(RegOpenKeyExW(hKey, szName, 0, KEY_READ, &hSubKey) != ERROR_SUCCESS)
                     break;
 
-                dwSize = MAXVALUE * sizeof(WCHAR);
+                dwSize = MAXVALUE;
 
                 if(RegQueryValueExW(hKey, L"UsernameHint", 0,  NULL, (LPBYTE)szValue, &dwSize) == ERROR_SUCCESS)
                 {
@@ -185,7 +185,7 @@ FillServerAddesssCombo(PINFO pInfo)
                                 NULL);
             if (ret == ERROR_SUCCESS)
             {
-                size = sizeof(Name);
+                size = MAX_KEY_NAME;
                 if (RegQueryValueExW(hKey,
                                      Name,
                                      0,
@@ -1270,11 +1270,7 @@ DlgProc(HWND hDlg,
 
                     txtRc.left = bmpRc.right / 4;
                     txtRc.top = txtRc.bottom - 5;
-#ifdef __REACTOS__
-                    txtRc.right = bmpRc.right * 4 / 5;
-#else
                     txtRc.right = bmpRc.right * 3 / 4;
-#endif
                     txtRc.bottom = pInfo->headerbitmap.bmHeight * 9 / 10;
 
                     if (LoadStringW(hInst,

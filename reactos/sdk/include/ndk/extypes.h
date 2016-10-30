@@ -278,7 +278,7 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemProcessorPowerInformation,
     SystemEmulationBasicInformation,
     SystemEmulationProcessorInformation,
-    SystemExtendedHandleInformation,
+    SystemExtendedHanfleInformation,
     SystemLostDelayedWriteInformation,
     SystemBigPoolInformation,
     SystemSessionPoolTagInformation,

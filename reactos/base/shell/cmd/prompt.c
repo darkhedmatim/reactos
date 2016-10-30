@@ -78,16 +78,14 @@ VOID PrintInfoLine(VOID)
     COORD coPos;
     DWORD dwWritten;
 
-    PTSTR pszInfoLine = NULL;
+    TCHAR szInfoLine[80 + 1]; // The info line is 80 characters long (without NULL character)
     INT iInfoLineLen;
 
     /* Return directly if the output handle is not a console handle */
     if (!GetConsoleScreenBufferInfo(hOutput, &csbi))
         return;
 
-    iInfoLineLen = LoadString(CMD_ModuleHandle, STRING_CMD_INFOLINE, (PTSTR)&pszInfoLine, 0);
-    if (!pszInfoLine || iInfoLineLen == 0)
-        return;
+    iInfoLineLen = LoadString(CMD_ModuleHandle, STRING_CMD_INFOLINE, szInfoLine, ARRAYSIZE(szInfoLine));
 
     /* Display the localized information line */
     coPos.X = 0;
@@ -99,7 +97,7 @@ VOID PrintInfoLine(VOID)
                                csbi.dwSize.X,
                                coPos, &dwWritten);
 
-    WriteConsoleOutputCharacter(hOutput, pszInfoLine, iInfoLineLen,
+    WriteConsoleOutputCharacter(hOutput, szInfoLine, iInfoLineLen,
                                 coPos, &dwWritten);
 }
 

@@ -228,14 +228,6 @@ enum EmfType
     EmfTypeEmfPlusDual = MetafileTypeEmfPlusDual
 };
 
-enum EmfToWmfBitsFlags
-{
-    EmfToWmfBitsFlagsDefault          = 0,
-    EmfToWmfBitsFlagsEmbedEmf         = 1,
-    EmfToWmfBitsFlagsIncludePlaceable = 2,
-    EmfToWmfBitsFlagsNoXORClip        = 4
-};
-
 enum CompositingMode
 {
     CompositingModeSourceOver,

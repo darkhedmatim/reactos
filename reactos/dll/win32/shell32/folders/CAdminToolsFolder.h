@@ -30,10 +30,10 @@ class CAdminToolsFolder :
 {
     private:
         CComPtr<IShellFolder2> m_pisfInner;
-        LPITEMIDLIST m_pidlInner;
-    public:
+        public:
         CAdminToolsFolder();
         ~CAdminToolsFolder();
+        HRESULT WINAPI FinalConstruct();
 
         // IShellFolder
         virtual HRESULT WINAPI ParseDisplayName(HWND hwndOwner, LPBC pbc, LPOLESTR lpszDisplayName, ULONG *pchEaten, PIDLIST_RELATIVE *ppidl, ULONG *pdwAttributes);

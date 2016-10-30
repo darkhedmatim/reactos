@@ -25,7 +25,6 @@ extern void func_strtoul(void);
 extern void func_wcsnlen(void);
 extern void func_wcstombs(void);
 extern void func_wcstoul(void);
-extern void func___getmainargs(void);
 
 extern void func_static_construct(void);
 extern void func_static_init(void);
@@ -51,7 +50,6 @@ const struct test winetest_testlist[] =
 #endif
 #if defined(TEST_STATIC_CRT)
 #elif defined(TEST_MSVCRT)
-    { "__getmainargs", func___getmainargs },
     { "_vscprintf", func__vscprintf },
     { "_vscwprintf", func__vscwprintf },
 

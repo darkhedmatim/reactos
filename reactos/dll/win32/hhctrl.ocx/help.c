@@ -405,7 +405,10 @@ static void SB_GetSizeBarRect(HHInfo *info, RECT *rc)
     GetClientRect(info->WinType.hwndToolBar, &rectTB);
     GetClientRect(info->WinType.hwndNavigation, &rectNP);
 
-    SetRect(rc, rectNP.right, rectTB.bottom, SIZEBAR_WIDTH, rectWND.bottom - rectTB.bottom);
+    rc->left = rectNP.right;
+    rc->top = rectTB.bottom;
+    rc->bottom = rectWND.bottom - rectTB.bottom;
+    rc->right = SIZEBAR_WIDTH;
 }
 
 static BOOL HH_AddSizeBar(HHInfo *pHHInfo)

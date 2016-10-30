@@ -306,7 +306,7 @@ MAIN_SetMainWindowTitle(VOID)
         caption = Alloc(HEAP_ZERO_MEMORY, size);
         if (caption)
         {
-            StringCbPrintfW(caption, size, L"%s - %s\\%s", szTitle, lpDomainName, lpUserName);
+            swprintf(caption, L"%s - %s\\%s", szTitle, lpDomainName, lpUserName);
             SetWindowTextW(Globals.hMainWnd, caption);
             Free(caption);
         }
@@ -582,13 +582,12 @@ MAIN_SaveSettings(VOID)
 
     WndPl.length = sizeof(WndPl);
     GetWindowPlacement(Globals.hMainWnd, &WndPl);
-    StringCbPrintfW(buffer, sizeof(buffer),
-                    L"%d %d %d %d %d",
-                    WndPl.rcNormalPosition.left,
-                    WndPl.rcNormalPosition.top,
-                    WndPl.rcNormalPosition.right,
-                    WndPl.rcNormalPosition.bottom,
-                    WndPl.showCmd);
+    swprintf(buffer, L"%d %d %d %d %d",
+             WndPl.rcNormalPosition.left,
+             WndPl.rcNormalPosition.top,
+             WndPl.rcNormalPosition.right,
+             WndPl.rcNormalPosition.bottom,
+             WndPl.showCmd);
 
     dwSize = wcslen(buffer) * sizeof(WCHAR);
     RegSetValueExW(Globals.hKeyPMSettings, L"Window", 0, REG_SZ, (LPBYTE)buffer, dwSize);

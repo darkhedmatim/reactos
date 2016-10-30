@@ -20,7 +20,6 @@ static BOOLEAN InException = FALSE;
 DBGKD_GET_VERSION64 KdVersion;
 KDDEBUGGER_DATA64* KdDebuggerDataBlock;
 LIST_ENTRY* ProcessListHead;
-LIST_ENTRY* ModuleListHead;
 /* Callbacks used to communicate with KD aside from GDB */
 KDP_SEND_HANDLER KdpSendPacketHandler = FirstSendHandler;
 KDP_MANIPULATESTATE_HANDLER KdpManipulateStateHandler = NULL;
@@ -95,7 +94,6 @@ SetContextSendHandler(
             || (State->ReturnStatus != STATUS_SUCCESS))
     {
         /* Should we bugcheck ? */
-        KDDBGPRINT("BAD BAD BAD not manipulating state for sending context.\n");
         while (1);
     }
 
@@ -118,7 +116,6 @@ SetContextManipulateHandler(
 
     if (MessageData->MaximumLength < sizeof(CurrentContext))
     {
-        KDDBGPRINT("Wrong message length %u.\n", MessageData->MaximumLength);
         while (1);
     }
 
@@ -140,6 +137,11 @@ send_kd_state_change(DBGKD_ANY_WAIT_STATE_CHANGE* StateChange)
     switch (StateChange->NewState)
     {
     case DbgKdLoadSymbolsStateChange:
+    {
+        /* We don't care about symbols loading */
+        KdpManipulateStateHandler = ContinueManipulateStateHandler;
+        break;
+    }
     case DbgKdExceptionStateChange:
     {
         PETHREAD Thread = (PETHREAD)(ULONG_PTR)StateChange->Thread;
@@ -151,18 +153,14 @@ send_kd_state_change(DBGKD_ANY_WAIT_STATE_CHANGE* StateChange)
             PsGetThreadId(Thread));
         /* Set the current debugged process/thread accordingly */
         gdb_dbg_tid = handle_to_gdb_tid(PsGetThreadId(Thread));
-#if MONOPROCESS
-        gdb_dbg_pid = 0;
-#else
         gdb_dbg_pid = handle_to_gdb_pid(PsGetThreadProcessId(Thread));
-#endif
         gdb_send_exception();
         /* Next receive call will ask for the context */
         KdpManipulateStateHandler = GetContextManipulateHandler;
         break;
     }
     default:
-        KDDBGPRINT("Unknown StateChange %u.\n", StateChange->NewState);
+        /* FIXME */
         while (1);
     }
 }
@@ -179,11 +177,10 @@ send_kd_debug_io(
     switch (DebugIO->ApiNumber)
     {
     case DbgKdPrintStringApi:
-    case DbgKdGetStringApi:
-        gdb_send_debug_io(String, TRUE);
+        gdb_send_debug_io(String);
         break;
     default:
-        KDDBGPRINT("Unknown ApiNumber %u.\n", DebugIO->ApiNumber);
+        /* FIXME */
         while (1);
     }
 }
@@ -203,7 +200,7 @@ send_kd_state_manipulate(
         return;
 #endif
     default:
-        KDDBGPRINT("Unknown ApiNumber %u.\n", State->ApiNumber);
+        /* FIXME */
         while (1);
     }
 }
@@ -260,7 +257,6 @@ GetVersionSendHandler(
     DebuggerDataList = (LIST_ENTRY*)(ULONG_PTR)KdVersion.DebuggerDataList;
     KdDebuggerDataBlock = CONTAINING_RECORD(DebuggerDataList->Flink, KDDEBUGGER_DATA64, Header.List);
     ProcessListHead = (LIST_ENTRY*)KdDebuggerDataBlock->PsActiveProcessHead.Pointer;
-    ModuleListHead = (LIST_ENTRY*)KdDebuggerDataBlock->PsLoadedModuleList.Pointer;
 
     /* Now we can get the context for the current state */
     KdpSendPacketHandler = NULL;
@@ -318,11 +314,7 @@ FirstSendHandler(
     /* Set up the current state */
     CurrentStateChange = *StateChange;
     gdb_dbg_tid = handle_to_gdb_tid(PsGetThreadId(Thread));
-#if MONOPROCESS
-    gdb_dbg_pid = 0;
-#else
     gdb_dbg_pid = handle_to_gdb_pid(PsGetThreadProcessId(Thread));
-#endif
     /* This is the idle process. Save it! */
     TheIdleThread = Thread;
     TheIdleProcess = (PEPROCESS)Thread->Tcb.ApcState.Process;
@@ -360,39 +352,34 @@ KdReceivePacket(
     _Out_ PULONG DataLength,
     _Inout_ PKD_CONTEXT KdContext)
 {
-    KDDBGPRINT("KdReceivePacket.\n");
+    KDSTATUS Status;
+    DBGKD_MANIPULATE_STATE64* State;
 
+    /* Special handling for breakin packet */
     if (PacketType == PACKET_TYPE_KD_POLL_BREAKIN)
     {
         return KdpPollBreakIn();
     }
 
-    if (PacketType == PACKET_TYPE_KD_DEBUG_IO)
+    if (PacketType != PACKET_TYPE_KD_STATE_MANIPULATE)
     {
-        /* HACK ! RtlAssert asks for (boipt), always say "o" --> break once. */
-        MessageData->Length = 1;
-        MessageData->Buffer[0] = 'o';
-        return KdPacketReceived;
+        /* What should we do ? */
+        while (1);
     }
 
-    if (PacketType == PACKET_TYPE_KD_STATE_MANIPULATE)
-    {
-        DBGKD_MANIPULATE_STATE64* State = (DBGKD_MANIPULATE_STATE64*)MessageHeader->Buffer;
+    State = (DBGKD_MANIPULATE_STATE64*)MessageHeader->Buffer;
 
-        /* Maybe we are in a send<->receive loop that GDB doesn't need to know about */
-        if (KdpManipulateStateHandler != NULL)
-        {
-            KDDBGPRINT("KDGBD: We have a manipulate state handler.\n");
-            return KdpManipulateStateHandler(State, MessageData, DataLength, KdContext);
-        }
+    /* Maybe we are in a send<->receive loop that GDB doesn't need to know about */
+    if (KdpManipulateStateHandler != NULL)
+        return KdpManipulateStateHandler(State, MessageData, DataLength, KdContext);
 
-        /* Receive data from GDB  and interpret it */
-        return gdb_receive_and_interpret_packet(State, MessageData, DataLength, KdContext);
-    }
+    /* Receive data from GDB */
+    Status = gdb_receive_packet(KdContext);
+    if (Status != KdPacketReceived)
+        return Status;
 
-    /* What should we do ? */
-    while (1);
-    return KdPacketNeedsResend;
+    /* Interpret it */
+    return gdb_interpret_input(State, MessageData, DataLength, KdContext);
 }
 
 VOID
@@ -403,13 +390,6 @@ KdSendPacket(
     IN PSTRING MessageData,
     IN OUT PKD_CONTEXT KdContext)
 {
-    /* Override if we have some debug print from KD. */
-    if (PacketType == PACKET_TYPE_KD_DEBUG_IO)
-    {
-        send_kd_debug_io((DBGKD_DEBUG_IO*)MessageHeader->Buffer, MessageData);
-        return;
-    }
-
     /* Maybe we are in a send <-> receive loop that GDB doesn't need to know about */
     if (KdpSendPacketHandler)
     {
@@ -429,7 +409,7 @@ KdSendPacket(
         send_kd_state_manipulate((DBGKD_MANIPULATE_STATE64*)MessageHeader->Buffer, MessageData);
         break;
     default:
-        KDDBGPRINT("Unknown packet type %u.\n", PacketType);
+        /* FIXME */
         while (1);
     }
 }

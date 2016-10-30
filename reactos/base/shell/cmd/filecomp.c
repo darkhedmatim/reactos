@@ -290,7 +290,7 @@ BOOL ShowCompletionMatches (LPTSTR str, INT charcount)
         hFile = FindFirstFile (path, &file);
 
         /* Count the highest number of columns */
-        GetScreenSize(&screenwidth, NULL);
+        GetScreenSize(&screenwidth, 0);
 
         /* For counting columns of output */
         count = 0;

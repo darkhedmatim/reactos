@@ -2,12 +2,9 @@
 list(APPEND SOURCE
     CreateService.c
     DuplicateTokenEx.c
-    eventlog.c
     HKEY_CLASSES_ROOT.c
-    IsTextUnicode.c
     LockDatabase.c
     QueryServiceConfig2.c
-    RegEnumKey.c
     RegEnumValueW.c
     RegQueryInfoKey.c
     RtlEncryptMemory.c

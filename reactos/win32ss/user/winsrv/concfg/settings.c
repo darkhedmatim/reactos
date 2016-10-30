@@ -100,7 +100,7 @@ TranslateConsoleName(OUT LPWSTR DestString,
         return;
     }
 
-    wLength = GetSystemWindowsDirectoryW(DestString, MaxStrLen);
+    wLength = GetWindowsDirectoryW(DestString, MaxStrLen);
     if ((wLength > 0) && (_wcsnicmp(ConsoleName, DestString, wLength) == 0))
     {
         StringCchCopyW(DestString, MaxStrLen, L"%SystemRoot%");

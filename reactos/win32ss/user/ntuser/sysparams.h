@@ -52,7 +52,7 @@ typedef struct _SPIVALUES
 
     /* Accessability */
     ACCESSTIMEOUT accesstimeout;
-    HIGHCONTRASTW highcontrast;
+    HIGHCONTRAST highcontrast;
     BOOL bScreenReader;
 #if(WINVER >= 0x0600)
     AUDIODESCRIPTION audiodescription;
@@ -63,7 +63,7 @@ typedef struct _SPIVALUES
 #endif
 
     /* Sound */
-    SOUNDSENTRYW soundsentry;
+    SOUNDSENTRY soundsentry;
     BOOL bShowSounds;
     BOOL bBeep;
 
@@ -175,11 +175,11 @@ typedef union _SPIBUFFER
     STICKYKEYS stickykeys;
     ACCESSTIMEOUT accesstimeout;
     SERIALKEYS serialkeys;
-    SOUNDSENTRYW soundsentry;
+    SOUNDSENTRY soundsentry;
     NONCLIENTMETRICSW ncmetrics;
     MINIMIZEDMETRICS mmmetrics;
-    ICONMETRICSW iconmetrics;
-    HIGHCONTRASTW highcontrast;
+    ICONMETRICS iconmetrics;
+    HIGHCONTRAST highcontrast;
     ANIMATIONINFO animationinfo;
 #if(WINVER >= 0x0600)
     AUDIODESCRIPTION audiodescription;

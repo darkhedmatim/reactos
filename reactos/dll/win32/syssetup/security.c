@@ -279,11 +279,11 @@ InstallPrivileges(VOID)
     WCHAR szSidString[256];
     INFCONTEXT InfContext;
     DWORD i;
-    PSID AccountSid = NULL;
+    PRIVILEGE_SET PrivilegeSet;
+    PSID AccountSid;
     NTSTATUS Status;
     LSA_HANDLE PolicyHandle = NULL;
-    LSA_UNICODE_STRING RightString;
-    PLSA_TRANSLATED_SID2 Sids = NULL;
+    LSA_HANDLE AccountHandle;
 
     DPRINT("InstallPrivileges()\n");
 
@@ -301,7 +301,7 @@ InstallPrivileges(VOID)
 
     Status = LsaOpenPolicy(NULL,
                            &ObjectAttributes,
-                           POLICY_CREATE_ACCOUNT | POLICY_LOOKUP_NAMES,
+                           POLICY_CREATE_ACCOUNT,
                            &PolicyHandle);
     if (!NT_SUCCESS(Status))
     {
@@ -318,6 +318,9 @@ InstallPrivileges(VOID)
         goto done;
     }
 
+    PrivilegeSet.PrivilegeCount = 1;
+    PrivilegeSet.Control = 0;
+
     do
     {
         /* Retrieve the privilege name */
@@ -332,6 +335,16 @@ InstallPrivileges(VOID)
         }
         DPRINT("Privilege: %S\n", szPrivilegeString);
 
+        if (!LookupPrivilegeValueW(NULL,
+                                   szPrivilegeString,
+                                   &(PrivilegeSet.Privilege[0].Luid)))
+        {
+            DPRINT1("LookupPrivilegeNameW() failed\n");
+            goto done;
+        }
+
+        PrivilegeSet.Privilege[0].Attributes = 0;
+
         for (i = 0; i < SetupGetFieldCount(&InfContext); i++)
         {
             if (!SetupGetStringFieldW(&InfContext,
@@ -345,47 +358,29 @@ InstallPrivileges(VOID)
             }
             DPRINT("SID: %S\n", szSidString);
 
-            if (szSidString[0] == UNICODE_NULL)
-                continue;
-
-            if (szSidString[0] == L'*')
+            if (!ConvertStringSidToSid(szSidString, &AccountSid))
             {
-                DPRINT("Account Sid: %S\n", &szSidString[1]);
+                DPRINT1("ConvertStringSidToSid(%S) failed: %lu\n", szSidString, GetLastError());
+                continue;
+            }
 
-                if (!ConvertStringSidToSid(&szSidString[1], &AccountSid))
+            Status = LsaOpenAccount(PolicyHandle,
+                                    AccountSid,
+                                    ACCOUNT_VIEW | ACCOUNT_ADJUST_PRIVILEGES,
+                                    &AccountHandle);
+            if (NT_SUCCESS(Status))
+            {
+                Status = LsaAddPrivilegesToAccount(AccountHandle,
+                                                   &PrivilegeSet);
+                if (!NT_SUCCESS(Status))
                 {
-                    DPRINT1("ConvertStringSidToSid(%S) failed: %lu\n", szSidString, GetLastError());
-                    continue;
+                    DPRINT1("LsaAddPrivilegesToAccount() failed (Status %08lx)\n", Status);
                 }
-            }
-            else
-            {
-                DPRINT("Account name: %S\n", szSidString);
-                continue;
- 
+
+                LsaClose(AccountHandle);
             }
 
-            RtlInitUnicodeString(&RightString, szPrivilegeString);
-            Status = LsaAddAccountRights(PolicyHandle,
-                                         (AccountSid != NULL) ? AccountSid : Sids[0].Sid,
-                                         &RightString,
-                                         1);
-            if (!NT_SUCCESS(Status))
-            {
-                DPRINT1("LsaAddAccountRights() failed (Status %08lx)\n", Status);
-            }
-
-            if (Sids != NULL)
-            {
-                LsaFreeMemory(Sids);
-                Sids = NULL;
-            }
-
-            if (AccountSid != NULL)
-            {
-                LocalFree(AccountSid);
-                AccountSid = NULL;
-            }
+            LocalFree(AccountSid);
         }
 
     }

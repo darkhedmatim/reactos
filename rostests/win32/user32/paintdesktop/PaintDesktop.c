@@ -1,14 +1,10 @@
 /*
- * PROJECT:         ReactOS Tests
- * LICENSE:         GPL - See COPYING in the top level directory
- * FILE:            rostests/win32/user32/paintdesktop/PaintDesktop.c
+ * PaintDesktop.c
  *
- * PURPOSE:         Demonstrates how the user32!PaintDesktop() API visually works.
- *                  This API paints the desktop inside the given HDC with its
- *                  origin always fixed to the origin of the monitor on which
- *                  the window is present.
- *
- * PROGRAMMER:      Hermes Belusca-Maito
+ * Demonstrates how the user32!PaintDesktop() API visually works.
+ * This API paints the desktop inside the given HDC with its origin
+ * always fixed to the origin of the monitor on which the window is
+ * present.
  */
 
 #define WIN32_LEAN_AND_MEAN

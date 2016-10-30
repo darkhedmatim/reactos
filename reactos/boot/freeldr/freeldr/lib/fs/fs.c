@@ -385,12 +385,9 @@ VOID FsSetFilePointer(PFILE FileHandle, ULONG NewFilePointer)
 ULONG FsGetNumPathParts(PCSTR Path)
 {
     size_t i;
-    size_t len;
     ULONG  num;
-    
-    len = strlen(Path);
 
-    for (i = 0, num = 0; i < len; i++)
+    for (i = 0, num = 0; i < strlen(Path); i++)
     {
         if ((Path[i] == '\\') || (Path[i] == '/'))
         {
@@ -413,14 +410,11 @@ ULONG FsGetNumPathParts(PCSTR Path)
 VOID FsGetFirstNameFromPath(PCHAR Buffer, PCSTR Path)
 {
     size_t i;
-    size_t len;
-
-    len = strlen(Path);
 
     // Copy all the characters up to the end of the
     // string or until we hit a '\' character
     // and put them in Buffer
-    for (i = 0; i < len; i++)
+    for (i = 0; i < strlen(Path); i++)
     {
         if ((Path[i] == '\\') || (Path[i] == '/'))
         {

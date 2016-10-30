@@ -22,7 +22,6 @@
 #include <winreg.h>
 #define NTOS_MODE_USER
 #include <ndk/kefuncs.h>
-#include <ndk/obfuncs.h>
 #include <ndk/rtlfuncs.h>
 #include <ddk/ntsam.h>
 #include <sddl.h>

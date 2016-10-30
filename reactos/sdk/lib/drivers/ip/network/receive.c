@@ -489,23 +489,21 @@ VOID IPFreeReassemblyList(
  */
 {
   KIRQL OldIrql;
-  PLIST_ENTRY CurrentEntry, NextEntry;
+  PLIST_ENTRY CurrentEntry;
   PIPDATAGRAM_REASSEMBLY Current;
 
   TcpipAcquireSpinLock(&ReassemblyListLock, &OldIrql);
 
   CurrentEntry = ReassemblyListHead.Flink;
   while (CurrentEntry != &ReassemblyListHead) {
-    NextEntry = CurrentEntry->Flink;
-    Current = CONTAINING_RECORD(CurrentEntry, IPDATAGRAM_REASSEMBLY, ListEntry);
-
+	  Current = CONTAINING_RECORD(CurrentEntry, IPDATAGRAM_REASSEMBLY, ListEntry);
     /* Unlink it from the list */
     RemoveEntryList(CurrentEntry);
 
     /* And free the descriptor */
     FreeIPDR(Current);
 
-    CurrentEntry = NextEntry;
+    CurrentEntry = CurrentEntry->Flink;
   }
 
   TcpipReleaseSpinLock(&ReassemblyListLock, OldIrql);

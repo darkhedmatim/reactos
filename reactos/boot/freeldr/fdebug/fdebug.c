@@ -1,13 +1,11 @@
-/* fdebug.c : Defines the entry point for the application. */
+// fdebug.cpp : Defines the entry point for the application.
+//
 
-#include <tchar.h>
-
-#include <windef.h>
-#include <winbase.h>
-#include <wingdi.h>
-#include <winuser.h>
+#include <windows.h>
 #include <commdlg.h>
 #include <process.h>
+#include <stdio.h>
+#include <tchar.h>
 
 #include "resource.h"
 #include "rs232.h"

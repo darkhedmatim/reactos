@@ -179,7 +179,7 @@ capGetDriverDescriptionW(WORD wDriverIndex,
     {
         if (RegOpenKeyW(hKey, szDriver, &hSubKey) == ERROR_SUCCESS)
         {
-            dwSize = sizeof(szFileName);
+            dwSize = sizeof(szFileName) / sizeof(WCHAR);
 
             if (RegQueryValueExW(hSubKey,
                                  L"Driver",
@@ -188,7 +188,7 @@ capGetDriverDescriptionW(WORD wDriverIndex,
                                  (LPBYTE)&szFileName,
                                  &dwSize) == ERROR_SUCCESS)
             {
-                dwSize = sizeof(szDriverName);
+                dwSize = sizeof(szDriverName) / sizeof(WCHAR);
 
                 if (RegQueryValueExW(hSubKey,
                                      L"FriendlyName",

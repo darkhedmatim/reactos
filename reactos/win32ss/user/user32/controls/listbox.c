@@ -1069,10 +1069,14 @@ static LRESULT LISTBOX_Paint( LB_DESCR *descr, HDC hdc )
         else
             rect.bottom = rect.top + descr->items[i].height;
 
-        /* keep the focus rect, to paint the focus item after */
         if (i == descr->focus_item)
-            focusRect = rect;
-    
+        {
+	    /* keep the focus rect, to paint the focus item after */
+	    focusRect.left = rect.left;
+	    focusRect.right = rect.right;
+	    focusRect.top = rect.top;
+	    focusRect.bottom = rect.bottom;
+        }
         LISTBOX_PaintItem( descr, hdc, &rect, i, ODA_DRAWENTIRE, TRUE );
         rect.top = rect.bottom;
 

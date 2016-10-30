@@ -1781,7 +1781,6 @@ static void test_EM_AUTOURLDETECT(void)
     "This is some text with #X on it",
     "This is some text with @X on it",
     "This is some text with \\X on it",
-    "This is some text with _X on it",
   };
   /* All of these cause the URL detection to be extended by one more byte,
      thus demonstrating that the tested character is considered as part
@@ -1795,33 +1794,6 @@ static void test_EM_AUTOURLDETECT(void)
     "This is some text with X# on it",
     "This is some text with X@ on it",
     "This is some text with X\\ on it",
-    "This is some text with X_ on it",
-  };
-  /* These delims act as neutral breaks.  Whether the url is ended
-     or not depends on the next non-neutral character.  We'll test
-     with Y unchanged, in which case the url should include the
-     deliminator and the Y.  We'll also test with the Y changed
-     to a space, in which case the url stops before the
-     deliminator. */
-  const char * templates_neutral_delim[] = {
-    "This is some text with X-Y on it",
-    "This is some text with X--Y on it",
-    "This is some text with X!Y on it",
-    "This is some text with X[Y on it",
-    "This is some text with X]Y on it",
-    "This is some text with X{Y on it",
-    "This is some text with X}Y on it",
-    "This is some text with X(Y on it",
-    "This is some text with X)Y on it",
-    "This is some text with X\"Y on it",
-    "This is some text with X;Y on it",
-    "This is some text with X:Y on it",
-    "This is some text with X'Y on it",
-    "This is some text with X?Y on it",
-    "This is some text with X<Y on it",
-    "This is some text with X>Y on it",
-    "This is some text with X.Y on it",
-    "This is some text with X,Y on it",
   };
   char buffer[1024];
 
@@ -2000,55 +1972,6 @@ static void test_EM_AUTOURLDETECT(void)
             "CFE_LINK incorrectly set in (%d-%d), text: %s\n", end_offset +2, end_offset +3, buffer);
         }
       }
-    }
-
-    for (j = 0; j < sizeof(templates_neutral_delim) / sizeof(const char *); j++) {
-      char * at_pos, * end_pos;
-      int at_offset;
-      int end_offset;
-
-      if (!urls[i].is_url) continue;
-
-      at_pos = strchr(templates_neutral_delim[j], 'X');
-      at_offset = at_pos - templates_neutral_delim[j];
-      memcpy(buffer, templates_neutral_delim[j], at_offset);
-      buffer[at_offset] = '\0';
-      strcat(buffer, urls[i].text);
-      strcat(buffer, templates_neutral_delim[j] + at_offset + 1);
-
-      end_pos = strchr(buffer, 'Y');
-      end_offset = end_pos - buffer;
-
-      SendMessageA(hwndRichEdit, EM_AUTOURLDETECT, TRUE, 0);
-      SendMessageA(hwndRichEdit, WM_SETTEXT, 0, (LPARAM)buffer);
-
-      /* This assumes no templates start with the URL itself, and that they
-         have at least two characters before the URL text */
-      ok(!check_CFE_LINK_selection(hwndRichEdit, 0, 1),
-         "CFE_LINK incorrectly set in (%d-%d), text: %s\n", 0, 1, buffer);
-      ok(!check_CFE_LINK_selection(hwndRichEdit, at_offset -2, at_offset -1),
-         "CFE_LINK incorrectly set in (%d-%d), text: %s\n", at_offset -2, at_offset -1, buffer);
-      ok(!check_CFE_LINK_selection(hwndRichEdit, at_offset -1, at_offset),
-         "CFE_LINK incorrectly set in (%d-%d), text: %s\n", at_offset -1, at_offset, buffer);
-
-      ok(check_CFE_LINK_selection(hwndRichEdit, at_offset, at_offset +1),
-         "CFE_LINK not set in (%d-%d), text: %s\n", at_offset, at_offset +1, buffer);
-      ok(check_CFE_LINK_selection(hwndRichEdit, end_offset -1, end_offset),
-         "CFE_LINK not set in (%d-%d), text: %s\n", end_offset -1, end_offset, buffer);
-      ok(check_CFE_LINK_selection(hwndRichEdit, end_offset, end_offset +1),
-         "CFE_LINK not set in (%d-%d), text: %s\n", end_offset, end_offset +1, buffer);
-
-      *end_pos = ' ';
-
-      SendMessageA(hwndRichEdit, EM_AUTOURLDETECT, TRUE, 0);
-      SendMessageA(hwndRichEdit, WM_SETTEXT, 0, (LPARAM)buffer);
-
-      ok(check_CFE_LINK_selection(hwndRichEdit, at_offset, at_offset +1),
-         "CFE_LINK not set in (%d-%d), text: %s\n", at_offset, at_offset +1, buffer);
-      ok(!check_CFE_LINK_selection(hwndRichEdit, end_offset -1, end_offset),
-         "CFE_LINK set in (%d-%d), text: %s\n", end_offset -1, end_offset, buffer);
-      ok(!check_CFE_LINK_selection(hwndRichEdit, end_offset, end_offset +1),
-         "CFE_LINK set in (%d-%d), text: %s\n", end_offset, end_offset +1, buffer);
     }
 
     DestroyWindow(hwndRichEdit);
@@ -7047,15 +6970,22 @@ static void test_format_rect(void)
     GetClientRect(hwnd, &clientRect);
 
     expected = clientRect;
-    InflateRect(&expected, -1, 0);
+    expected.left += 1;
+    expected.right -= 1;
     SendMessageA(hwnd, EM_GETRECT, 0, (LPARAM)&rc);
-    ok(EqualRect(&rc, &expected), "rect %s != %s\n", wine_dbgstr_rect(&rc),
-       wine_dbgstr_rect(&expected));
+    ok(rc.top == expected.top && rc.left == expected.left &&
+       rc.bottom == expected.bottom && rc.right == expected.right,
+       "rect a(t=%d, l=%d, b=%d, r=%d) != e(t=%d, l=%d, b=%d, r=%d)\n",
+       rc.top, rc.left, rc.bottom, rc.right,
+       expected.top, expected.left, expected.bottom, expected.right);
 
     for (n = -3; n <= 3; n++)
     {
       rc = clientRect;
-      InflateRect(&rc, -n, -n);
+      rc.top += n;
+      rc.left += n;
+      rc.bottom -= n;
+      rc.right -= n;
       SendMessageA(hwnd, EM_SETRECT, 0, (LPARAM)&rc);
 
       expected = rc;
@@ -7064,16 +6994,22 @@ static void test_format_rect(void)
       expected.bottom = min(clientRect.bottom, rc.bottom);
       expected.right = min(clientRect.right, rc.right);
       SendMessageA(hwnd, EM_GETRECT, 0, (LPARAM)&rc);
-      ok(EqualRect(&rc, &expected), "[n=%d] rect %s != %s\n", n, wine_dbgstr_rect(&rc),
-         wine_dbgstr_rect(&expected));
+      ok(rc.top == expected.top && rc.left == expected.left &&
+         rc.bottom == expected.bottom && rc.right == expected.right,
+         "[n=%d] rect a(t=%d, l=%d, b=%d, r=%d) != e(t=%d, l=%d, b=%d, r=%d)\n",
+         n, rc.top, rc.left, rc.bottom, rc.right,
+         expected.top, expected.left, expected.bottom, expected.right);
     }
 
     rc = clientRect;
     SendMessageA(hwnd, EM_SETRECT, 0, (LPARAM)&rc);
     expected = clientRect;
     SendMessageA(hwnd, EM_GETRECT, 0, (LPARAM)&rc);
-    ok(EqualRect(&rc, &expected), "rect %s != %s\n", wine_dbgstr_rect(&rc),
-       wine_dbgstr_rect(&expected));
+    ok(rc.top == expected.top && rc.left == expected.left &&
+       rc.bottom == expected.bottom && rc.right == expected.right,
+       "rect a(t=%d, l=%d, b=%d, r=%d) != e(t=%d, l=%d, b=%d, r=%d)\n",
+       rc.top, rc.left, rc.bottom, rc.right,
+       expected.top, expected.left, expected.bottom, expected.right);
 
     /* Adding the selectionbar adds the selectionbar width to the left side. */
     SendMessageA(hwnd, EM_SETOPTIONS, ECOOP_OR, ECO_SELECTIONBAR);
@@ -7081,15 +7017,21 @@ static void test_format_rect(void)
     ok(options & ECO_SELECTIONBAR, "EM_SETOPTIONS failed to add selectionbar.\n");
     expected.left += 8; /* selection bar width */
     SendMessageA(hwnd, EM_GETRECT, 0, (LPARAM)&rc);
-    ok(EqualRect(&rc, &expected), "rect %s != %s\n", wine_dbgstr_rect(&rc),
-       wine_dbgstr_rect(&expected));
+    ok(rc.top == expected.top && rc.left == expected.left &&
+       rc.bottom == expected.bottom && rc.right == expected.right,
+       "rect a(t=%d, l=%d, b=%d, r=%d) != e(t=%d, l=%d, b=%d, r=%d)\n",
+       rc.top, rc.left, rc.bottom, rc.right,
+       expected.top, expected.left, expected.bottom, expected.right);
 
     rc = clientRect;
     SendMessageA(hwnd, EM_SETRECT, 0, (LPARAM)&rc);
     expected = clientRect;
     SendMessageA(hwnd, EM_GETRECT, 0, (LPARAM)&rc);
-    ok(EqualRect(&rc, &expected), "rect %s != %s\n", wine_dbgstr_rect(&rc),
-       wine_dbgstr_rect(&expected));
+    ok(rc.top == expected.top && rc.left == expected.left &&
+       rc.bottom == expected.bottom && rc.right == expected.right,
+       "rect a(t=%d, l=%d, b=%d, r=%d) != e(t=%d, l=%d, b=%d, r=%d)\n",
+       rc.top, rc.left, rc.bottom, rc.right,
+       expected.top, expected.left, expected.bottom, expected.right);
 
     /* Removing the selectionbar subtracts the selectionbar width from the left side,
      * even if the left side is already 0. */
@@ -7098,16 +7040,22 @@ static void test_format_rect(void)
     ok(!(options & ECO_SELECTIONBAR), "EM_SETOPTIONS failed to remove selectionbar.\n");
     expected.left -= 8; /* selection bar width */
     SendMessageA(hwnd, EM_GETRECT, 0, (LPARAM)&rc);
-    ok(EqualRect(&rc, &expected), "rect %s != %s\n", wine_dbgstr_rect(&rc),
-       wine_dbgstr_rect(&expected));
+    ok(rc.top == expected.top && rc.left == expected.left &&
+       rc.bottom == expected.bottom && rc.right == expected.right,
+       "rect a(t=%d, l=%d, b=%d, r=%d) != e(t=%d, l=%d, b=%d, r=%d)\n",
+       rc.top, rc.left, rc.bottom, rc.right,
+       expected.top, expected.left, expected.bottom, expected.right);
 
     /* Set the absolute value of the formatting rectangle. */
     rc = clientRect;
     SendMessageA(hwnd, EM_SETRECT, 0, (LPARAM)&rc);
     expected = clientRect;
     SendMessageA(hwnd, EM_GETRECT, 0, (LPARAM)&rc);
-    ok(EqualRect(&rc, &expected), "[n=%d] rect %s != %s\n", n, wine_dbgstr_rect(&rc),
-       wine_dbgstr_rect(&expected));
+    ok(rc.top == expected.top && rc.left == expected.left &&
+       rc.bottom == expected.bottom && rc.right == expected.right,
+       "[n=%d] rect a(t=%d, l=%d, b=%d, r=%d) != e(t=%d, l=%d, b=%d, r=%d)\n",
+       n, rc.top, rc.left, rc.bottom, rc.right,
+       expected.top, expected.left, expected.bottom, expected.right);
 
     /* MSDN documents the EM_SETRECT message as using the rectangle provided in
      * LPARAM as being a relative offset when the WPARAM value is 1, but these
@@ -7119,8 +7067,11 @@ static void test_format_rect(void)
     expected = rc;
     SendMessageA(hwnd, EM_SETRECT, 1, (LPARAM)&rc);
     SendMessageA(hwnd, EM_GETRECT, 0, (LPARAM)&rc);
-    ok(EqualRect(&rc, &expected), "rect %s != %s\n", wine_dbgstr_rect(&rc),
-       wine_dbgstr_rect(&expected));
+    ok(rc.top == expected.top && rc.left == expected.left &&
+       rc.bottom == expected.bottom && rc.right == expected.right,
+       "rect a(t=%d, l=%d, b=%d, r=%d) != e(t=%d, l=%d, b=%d, r=%d)\n",
+       rc.top, rc.left, rc.bottom, rc.right,
+       expected.top, expected.left, expected.bottom, expected.right);
 
     /* For some reason it does not limit the values to the client rect with
      * a WPARAM value of 1. */
@@ -7131,8 +7082,11 @@ static void test_format_rect(void)
     expected = rc;
     SendMessageA(hwnd, EM_SETRECT, 1, (LPARAM)&rc);
     SendMessageA(hwnd, EM_GETRECT, 0, (LPARAM)&rc);
-    ok(EqualRect(&rc, &expected), "rect %s != %s\n", wine_dbgstr_rect(&rc),
-       wine_dbgstr_rect(&expected));
+    ok(rc.top == expected.top && rc.left == expected.left &&
+       rc.bottom == expected.bottom && rc.right == expected.right,
+       "rect a(t=%d, l=%d, b=%d, r=%d) != e(t=%d, l=%d, b=%d, r=%d)\n",
+       rc.top, rc.left, rc.bottom, rc.right,
+       expected.top, expected.left, expected.bottom, expected.right);
 
     /* Reset to default rect and check how the format rect adjusts to window
      * resize and how it copes with very small windows */
@@ -7142,28 +7096,40 @@ static void test_format_rect(void)
     GetClientRect(hwnd, &clientRect);
 
     expected = clientRect;
-    InflateRect(&expected, -1, 0);
+    expected.left += 1;
+    expected.right -= 1;
     SendMessageA(hwnd, EM_GETRECT, 0, (LPARAM)&rc);
-    ok(EqualRect(&rc, &expected), "rect %s != %s\n", wine_dbgstr_rect(&rc),
-       wine_dbgstr_rect(&expected));
+    ok(rc.top == expected.top && rc.left == expected.left &&
+       rc.bottom == expected.bottom && rc.right == expected.right,
+       "rect a(t=%d, l=%d, b=%d, r=%d) != e(t=%d, l=%d, b=%d, r=%d)\n",
+       rc.top, rc.left, rc.bottom, rc.right,
+       expected.top, expected.left, expected.bottom, expected.right);
 
     MoveWindow(hwnd, 0, 0, 0, 30, FALSE);
     GetClientRect(hwnd, &clientRect);
 
     expected = clientRect;
-    InflateRect(&expected, -1, 0);
+    expected.left += 1;
+    expected.right -= 1;
     SendMessageA(hwnd, EM_GETRECT, 0, (LPARAM)&rc);
-    ok(EqualRect(&rc, &expected), "rect %s != %s\n", wine_dbgstr_rect(&rc),
-       wine_dbgstr_rect(&expected));
+    ok(rc.top == expected.top && rc.left == expected.left &&
+       rc.bottom == expected.bottom && rc.right == expected.right,
+       "rect a(t=%d, l=%d, b=%d, r=%d) != e(t=%d, l=%d, b=%d, r=%d)\n",
+       rc.top, rc.left, rc.bottom, rc.right,
+       expected.top, expected.left, expected.bottom, expected.right);
 
     MoveWindow(hwnd, 0, 0, 100, 0, FALSE);
     GetClientRect(hwnd, &clientRect);
 
     expected = clientRect;
-    InflateRect(&expected, -1, 0);
+    expected.left += 1;
+    expected.right -= 1;
     SendMessageA(hwnd, EM_GETRECT, 0, (LPARAM)&rc);
-    ok(EqualRect(&rc, &expected), "rect %s != %s\n", wine_dbgstr_rect(&rc),
-       wine_dbgstr_rect(&expected));
+    ok(rc.top == expected.top && rc.left == expected.left &&
+       rc.bottom == expected.bottom && rc.right == expected.right,
+       "rect a(t=%d, l=%d, b=%d, r=%d) != e(t=%d, l=%d, b=%d, r=%d)\n",
+       rc.top, rc.left, rc.bottom, rc.right,
+       expected.top, expected.left, expected.bottom, expected.right);
 
     DestroyWindow(hwnd);
 
@@ -7176,21 +7142,32 @@ static void test_format_rect(void)
     GetClientRect(hwnd, &clientRect);
 
     expected = clientRect;
+    expected.left += 1;
     expected.top += 1;
-    InflateRect(&expected, -1, 0);
+    expected.right -= 1;
     SendMessageA(hwnd, EM_GETRECT, 0, (LPARAM)&rc);
-    ok(EqualRect(&rc, &expected), "rect %s != %s\n", wine_dbgstr_rect(&rc),
-       wine_dbgstr_rect(&expected));
+    ok(rc.top == expected.top && rc.left == expected.left &&
+       rc.bottom == expected.bottom && rc.right == expected.right,
+       "rect a(t=%d, l=%d, b=%d, r=%d) != e(t=%d, l=%d, b=%d, r=%d)\n",
+       rc.top, rc.left, rc.bottom, rc.right,
+       expected.top, expected.left, expected.bottom, expected.right);
 
     rc = clientRect;
-    InflateRect(&rc, -5, -5);
+    rc.top += 5;
+    rc.left += 5;
+    rc.bottom -= 5;
+    rc.right -= 5;
     expected = rc;
     expected.top -= 1;
-    InflateRect(&expected, 1, 0);
+    expected.left -= 1;
+    expected.right += 1;
     SendMessageA(hwnd, EM_SETRECT, 0, (LPARAM)&rc);
     SendMessageA(hwnd, EM_GETRECT, 0, (LPARAM)&rc);
-    ok(EqualRect(&rc, &expected), "rect %s != %s\n", wine_dbgstr_rect(&rc),
-       wine_dbgstr_rect(&expected));
+    ok(rc.top == expected.top && rc.left == expected.left &&
+       rc.bottom == expected.bottom && rc.right == expected.right,
+       "rect a(t=%d, l=%d, b=%d, r=%d) != e(t=%d, l=%d, b=%d, r=%d)\n",
+       rc.top, rc.left, rc.bottom, rc.right,
+       expected.top, expected.left, expected.bottom, expected.right);
 
     DestroyWindow(hwnd);
 }
@@ -8095,7 +8072,7 @@ static void test_reset_default_para_fmt( void )
     SendMessageA( richedit, WM_CUT, 0, 0 );
 
     SendMessageA( richedit, EM_GETPARAFORMAT, 0, (LPARAM)&fmt );
-    ok( fmt.wAlignment == def_align, "got %d expect %d\n", fmt.wAlignment, def_align );
+    ok( fmt.wAlignment == def_align, "got %d exppect %d\n", fmt.wAlignment, def_align );
 
     DestroyWindow( richedit );
 }
@@ -8262,7 +8239,7 @@ static void test_alignment_style(void)
         SendMessageW(richedit, WM_CUT, 0, 0);
 
         SendMessageW(richedit, EM_GETPARAFORMAT, 0, (LPARAM)&pf);
-        ok(pf.wAlignment == align_mask[i], "got %d expect %d\n", pf.wAlignment, align_mask[i]);
+        ok(pf.wAlignment == align_mask[i], "got %d exppect %d\n", pf.wAlignment, align_mask[i]);
 
         DestroyWindow(richedit);
     }

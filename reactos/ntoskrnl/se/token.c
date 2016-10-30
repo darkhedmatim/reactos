@@ -373,7 +373,7 @@ SepDuplicateToken(PTOKEN Token,
     ULONG uLength;
     ULONG i;
     PVOID EndMem;
-    PTOKEN AccessToken;
+    PTOKEN AccessToken = NULL;
     NTSTATUS Status;
 
     PAGED_CODE();
@@ -400,12 +400,9 @@ SepDuplicateToken(PTOKEN Token,
 
     AccessToken->TokenLock = &SepTokenLock;
 
-    /* Copy and reference the logon session */
-    RtlCopyLuid(&AccessToken->AuthenticationId, &Token->AuthenticationId);
-    SepRmReferenceLogonSession(&AccessToken->AuthenticationId);
-
     AccessToken->TokenType  = TokenType;
     AccessToken->ImpersonationLevel = Level;
+    RtlCopyLuid(&AccessToken->AuthenticationId, &Token->AuthenticationId);
     RtlCopyLuid(&AccessToken->ModifiedId, &Token->ModifiedId);
 
     AccessToken->TokenSource.SourceIdentifier.LowPart = Token->TokenSource.SourceIdentifier.LowPart;
@@ -486,11 +483,25 @@ SepDuplicateToken(PTOKEN Token,
 
     *NewAccessToken = AccessToken;
 
+    /* Reference the logon session */
+    SepRmReferenceLogonSession(&AccessToken->AuthenticationId);
+
 done:
     if (!NT_SUCCESS(Status))
     {
-        /* Dereference the token, the delete procedure will clean up */
-        ObDereferenceObject(AccessToken);
+        if (AccessToken)
+        {
+            if (AccessToken->UserAndGroups)
+                ExFreePoolWithTag(AccessToken->UserAndGroups, TAG_TOKEN_USERS);
+
+            if (AccessToken->Privileges)
+                ExFreePoolWithTag(AccessToken->Privileges, TAG_TOKEN_PRIVILAGES);
+
+            if (AccessToken->DefaultDacl)
+                ExFreePoolWithTag(AccessToken->DefaultDacl, TAG_TOKEN_ACL);
+
+            ObDereferenceObject(AccessToken);
+        }
     }
 
     return Status;
@@ -748,11 +759,8 @@ SepCreateToken(OUT PHANDLE TokenHandle,
            TokenSource->SourceName,
            sizeof(TokenSource->SourceName));
 
-    /* Copy and reference the logon session */
-    RtlCopyLuid(&AccessToken->AuthenticationId, AuthenticationId);
-    SepRmReferenceLogonSession(&AccessToken->AuthenticationId);
-
     RtlCopyLuid(&AccessToken->TokenId, &TokenId);
+    RtlCopyLuid(&AccessToken->AuthenticationId, AuthenticationId);
     AccessToken->ExpirationTime = *ExpirationTime;
     RtlCopyLuid(&AccessToken->ModifiedId, &ModifiedId);
 
@@ -891,11 +899,17 @@ SepCreateToken(OUT PHANDLE TokenHandle,
         *TokenHandle = (HANDLE)AccessToken;
     }
 
+    /* Reference the logon session */
+    SepRmReferenceLogonSession(AuthenticationId);
+
 done:
     if (!NT_SUCCESS(Status))
     {
-        /* Dereference the token, the delete procedure will clean up */
-        ObDereferenceObject(AccessToken);
+        if (AccessToken)
+        {
+            /* Dereference the token, the delete procedure will clean up */
+            ObDereferenceObject(AccessToken);
+        }
     }
 
     return Status;
@@ -1077,7 +1091,7 @@ SeQueryInformationToken(IN PACCESS_TOKEN Token,
         DPRINT1("SeQueryInformationToken(%d) invalid information class\n", TokenInformationClass);
         return STATUS_INVALID_INFO_CLASS;
     }
-
+    
     switch (TokenInformationClass)
     {
         case TokenImpersonationLevel:
@@ -1832,7 +1846,7 @@ NtSetInformationToken(IN HANDLE TokenHandle,
                     _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
                     {
                         Status = _SEH2_GetExceptionCode();
-                        _SEH2_YIELD(goto Cleanup);
+                        goto Cleanup;
                     }
                     _SEH2_END;
 
@@ -1872,7 +1886,7 @@ NtSetInformationToken(IN HANDLE TokenHandle,
                     _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
                     {
                         Status = _SEH2_GetExceptionCode();
-                        _SEH2_YIELD(goto Cleanup);
+                        goto Cleanup;
                     }
                     _SEH2_END;
 
@@ -1912,7 +1926,7 @@ NtSetInformationToken(IN HANDLE TokenHandle,
                     _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
                     {
                         Status = _SEH2_GetExceptionCode();
-                        _SEH2_YIELD(goto Cleanup);
+                        goto Cleanup;
                     }
                     _SEH2_END;
 
@@ -1979,7 +1993,7 @@ NtSetInformationToken(IN HANDLE TokenHandle,
                 _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
                 {
                     Status = _SEH2_GetExceptionCode();
-                    _SEH2_YIELD(goto Cleanup);
+                    goto Cleanup;
                 }
                 _SEH2_END;
 
@@ -2006,7 +2020,7 @@ NtSetInformationToken(IN HANDLE TokenHandle,
                 _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
                 {
                     Status = _SEH2_GetExceptionCode();
-                    _SEH2_YIELD(goto Cleanup);
+                    goto Cleanup;
                 }
                 _SEH2_END;
 
@@ -2090,7 +2104,7 @@ NtSetInformationToken(IN HANDLE TokenHandle,
                 _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
                 {
                     Status = _SEH2_GetExceptionCode();
-                    _SEH2_YIELD(goto Cleanup);
+                    goto Cleanup;
                 }
                 _SEH2_END;
 
@@ -2125,7 +2139,7 @@ NtSetInformationToken(IN HANDLE TokenHandle,
                 _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
                 {
                     Status = _SEH2_GetExceptionCode();
-                    _SEH2_YIELD(goto Cleanup);
+                    goto Cleanup;
                 }
                 _SEH2_END;
 
@@ -2593,7 +2607,7 @@ NtAdjustPrivilegesToken(
         {
             /* Do cleanup and return the exception code */
             Status = _SEH2_GetExceptionCode();
-            _SEH2_YIELD(goto Cleanup);
+            goto Cleanup;
         }
         _SEH2_END;
 
@@ -2621,7 +2635,7 @@ NtAdjustPrivilegesToken(
     {
         /* Do cleanup and return the exception code */
         Status = _SEH2_GetExceptionCode();
-        _SEH2_YIELD(goto Cleanup);
+        goto Cleanup;
     }
     _SEH2_END;
 
@@ -2751,7 +2765,7 @@ NtCreateToken(
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
             /* Return the exception code */
-            _SEH2_YIELD(return _SEH2_GetExceptionCode());
+            return _SEH2_GetExceptionCode();
         }
         _SEH2_END;
     }

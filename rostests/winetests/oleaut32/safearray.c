@@ -710,9 +710,7 @@ static void test_safearray(void)
     }
 
     if (!pSafeArrayAllocDescriptorEx)
-    {
         return;
-    }
 
 	for (i=0;i<sizeof(vttypes)/sizeof(vttypes[0]);i++) {
 		a = NULL;

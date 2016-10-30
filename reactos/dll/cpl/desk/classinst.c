@@ -38,7 +38,7 @@ DisplayClassInstaller(
         return ERROR_DI_DO_DEFAULT;
 
     /* Set DI_DONOTCALLCONFIGMG flag */
-    InstallParams.cbSize = sizeof(InstallParams);
+    InstallParams.cbSize = sizeof(SP_DEVINSTALL_PARAMS);
     result = SetupDiGetDeviceInstallParams(DeviceInfoSet, DeviceInfoData, &InstallParams);
     if (!result)
     {
@@ -67,7 +67,7 @@ DisplayClassInstaller(
     }
 
     /* Get .inf file name and section name */
-    DriverInfoData.cbSize = sizeof(DriverInfoData);
+    DriverInfoData.cbSize = sizeof(SP_DRVINFO_DATA);
     result = SetupDiGetSelectedDriver(DeviceInfoSet, DeviceInfoData, &DriverInfoData);
     if (!result)
     {
@@ -76,10 +76,11 @@ DisplayClassInstaller(
         goto cleanup;
     }
 
-    DriverInfoDetailData.cbSize = sizeof(DriverInfoDetailData);
-    result = SetupDiGetDriverInfoDetail(DeviceInfoSet, DeviceInfoData,
-                                        &DriverInfoData, &DriverInfoDetailData,
-                                        sizeof(DriverInfoDetailData), NULL);
+    DriverInfoDetailData.cbSize = sizeof(SP_DRVINFO_DETAIL_DATA);
+    result = SetupDiGetDriverInfoDetail(
+        DeviceInfoSet, DeviceInfoData,
+        &DriverInfoData, &DriverInfoDetailData,
+        sizeof(SP_DRVINFO_DETAIL_DATA), NULL);
     if (!result && GetLastError() != ERROR_INSUFFICIENT_BUFFER)
     {
         rc = GetLastError();

@@ -6,6 +6,7 @@
  * COPYRIGHT:   Copyright 1999 Emanuele Aliberti
  *              Copyright 2007 Ged Murphy <gedmurphy@reactos.org>
  *                             Gregor Brunmar <gregor.brunmar@home.se>
+ *
  */
 
 

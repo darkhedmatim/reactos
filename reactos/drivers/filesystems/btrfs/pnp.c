@@ -1,20 +1,3 @@
-/* Copyright (c) Mark Harmstone 2016
- * 
- * This file is part of WinBtrfs.
- * 
- * WinBtrfs is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public Licence as published by
- * the Free Software Foundation, either version 3 of the Licence, or
- * (at your option) any later version.
- * 
- * WinBtrfs is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public Licence for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public Licence
- * along with WinBtrfs.  If not, see <http://www.gnu.org/licenses/>. */
-
 #include "btrfs_drv.h"
 
 struct pnp_context;
@@ -151,7 +134,7 @@ device_extension* Vcb = DeviceObject->DeviceExtension;
     
     ExAcquireResourceExclusiveLite(&Vcb->fcb_lock, TRUE);
 
-    if (Vcb->root_fileref && Vcb->root_fileref->fcb && (Vcb->root_fileref->open_count > 0 || has_open_children(Vcb->root_fileref))) {
+    if (Vcb->root_fileref && Vcb->root_fileref->fcb && (Vcb->root_fileref->fcb->open_count > 0 || has_open_children(Vcb->root_fileref))) {
         Status = STATUS_ACCESS_DENIED;
         goto end;
     }
@@ -176,7 +159,7 @@ static NTSTATUS pnp_query_remove_device(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
     
     ExAcquireResourceExclusiveLite(&Vcb->fcb_lock, TRUE);
 
-    if (Vcb->root_fileref && Vcb->root_fileref->fcb && (Vcb->root_fileref->open_count > 0 || has_open_children(Vcb->root_fileref))) {
+    if (Vcb->root_fileref && Vcb->root_fileref->fcb && (Vcb->root_fileref->fcb->open_count > 0 || has_open_children(Vcb->root_fileref))) {
         Status = STATUS_ACCESS_DENIED;
         goto end;
     }
@@ -191,14 +174,14 @@ static NTSTATUS pnp_query_remove_device(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
     
     InitializeListHead(&rollback);
     
-    ExAcquireResourceExclusiveLite(&Vcb->tree_lock, TRUE);
+    acquire_tree_lock(Vcb, TRUE);
 
-    if (Vcb->need_write && !Vcb->readonly)
-        do_write(Vcb, Irp, &rollback);
+    if (Vcb->write_trees > 0)
+        do_write(Vcb, &rollback);
     
-    clear_rollback(Vcb, &rollback);
+    clear_rollback(&rollback);
 
-    ExReleaseResourceLite(&Vcb->tree_lock);
+    release_tree_lock(Vcb, TRUE);
 
     Status = STATUS_SUCCESS;
 end:
@@ -217,16 +200,8 @@ static NTSTATUS pnp_remove_device(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
     }
     
     if (DeviceObject->Vpb->Flags & VPB_MOUNTED) {
-        Status = FsRtlNotifyVolumeEvent(Vcb->root_file, FSRTL_VOLUME_DISMOUNT);
-        if (!NT_SUCCESS(Status)) {
-            WARN("FsRtlNotifyVolumeEvent returned %08x\n", Status);
-        }
-        
-        if (Vcb->open_files > 0) {
-            Vcb->removing = TRUE;
-            Vcb->Vpb->Flags &= ~VPB_MOUNTED;
-        } else
-            uninit(Vcb, FALSE);
+        uninit(Vcb, FALSE);
+        DeviceObject->Vpb->Flags &= ~VPB_MOUNTED;
     }
 
     return STATUS_SUCCESS;
@@ -239,17 +214,7 @@ static NTSTATUS pnp_start_device(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
 }
 
 static NTSTATUS pnp_surprise_removal(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
-    device_extension* Vcb = DeviceObject->DeviceExtension;
-    
-    TRACE("(%p, %p)\n", DeviceObject, Irp);
-    
-    if (DeviceObject->Vpb->Flags & VPB_MOUNTED) {
-        if (Vcb->open_files > 0) {
-            Vcb->removing = TRUE;
-            Vcb->Vpb->Flags &= ~VPB_MOUNTED;
-        } else
-            uninit(Vcb, FALSE);
-    }
+    FIXME("STUB\n");
 
     return STATUS_SUCCESS;
 }
@@ -263,11 +228,6 @@ NTSTATUS STDCALL drv_pnp(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
     FsRtlEnterFileSystem();
 
     top_level = is_top_level(Irp);
-    
-    if (Vcb && Vcb->type == VCB_TYPE_PARTITION0) {
-        Status = part0_passthrough(DeviceObject, Irp);
-        goto end;
-    }
     
     Status = STATUS_NOT_IMPLEMENTED;
     

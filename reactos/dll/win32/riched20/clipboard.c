@@ -157,8 +157,7 @@ static const IEnumFORMATETCVtbl VT_EnumFormatImpl = {
     EnumFormatImpl_Clone
 };
 
-static HRESULT EnumFormatImpl_Create(const FORMATETC *fmtetc, UINT fmtetc_cnt,
-                                     IEnumFORMATETC **formatetc)
+static HRESULT EnumFormatImpl_Create(const FORMATETC *fmtetc, UINT fmtetc_cnt, IEnumFORMATETC **lplpformatetc)
 {
     EnumFormatImpl *ret;
     TRACE("\n");
@@ -170,7 +169,7 @@ static HRESULT EnumFormatImpl_Create(const FORMATETC *fmtetc, UINT fmtetc_cnt,
     ret->fmtetc_cnt = fmtetc_cnt;
     ret->fmtetc = GlobalAlloc(GMEM_ZEROINIT, fmtetc_cnt*sizeof(FORMATETC));
     memcpy(ret->fmtetc, fmtetc, fmtetc_cnt*sizeof(FORMATETC));
-    *formatetc = &ret->IEnumFORMATETC_iface;
+    *lplpformatetc = (LPENUMFORMATETC)ret;
     return S_OK;
 }
 
@@ -400,8 +399,8 @@ static HGLOBAL get_rtf_text(ME_TextEditor *editor, const ME_Cursor *start, int n
     return gds.hData;
 }
 
-HRESULT ME_GetDataObject(ME_TextEditor *editor, const ME_Cursor *start, int nChars,
-                         IDataObject **dataobj)
+HRESULT ME_GetDataObject(ME_TextEditor *editor, const ME_Cursor *start,
+                         int nChars, LPDATAOBJECT *lplpdataobj)
 {
     DataObjectImpl *obj;
     TRACE("(%p,%d,%d)\n", editor, ME_GetCursorOfs(start), nChars);
@@ -425,6 +424,6 @@ HRESULT ME_GetDataObject(ME_TextEditor *editor, const ME_Cursor *start, int nCha
         InitFormatEtc(obj->fmtetc[1], cfRTF, TYMED_HGLOBAL);
     }
 
-    *dataobj = &obj->IDataObject_iface;
+    *lplpdataobj = (LPDATAOBJECT)obj;
     return S_OK;
 }

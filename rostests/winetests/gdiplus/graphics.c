@@ -2319,29 +2319,6 @@ static void test_GdipGetVisibleClipBounds_window(void)
         recti.X, recti.Y, recti.Width, recti.Height,
         exp.X, exp.Y, exp.Width, exp.Height);
 
-    /* window bounds with transform applied */
-    status = GdipResetClip(graphics);
-    expect(Ok, status);
-
-    status = GdipScaleWorldTransform(graphics, 0.5, 0.5, MatrixOrderPrepend);
-    expect(Ok, status);
-
-    exp.X = window.X * 2.0;
-    exp.Y = window.Y * 2.0;
-    exp.Width = window.Width * 2.0;
-    exp.Height = window.Height * 2.0;
-
-    status = GdipGetVisibleClipBounds(graphics, &rectf);
-    expect(Ok, status);
-    ok(rectf.X == exp.X &&
-        rectf.Y == exp.Y &&
-        rectf.Width == exp.Width &&
-        rectf.Height == exp.Height,
-        "Expected clip bounds (%0.f, %0.f, %0.f, %0.f) to be "
-        "twice the window size (%0.f, %0.f, %0.f, %0.f)\n",
-        rectf.X, rectf.Y, rectf.Width, rectf.Height,
-        exp.X, exp.Y, exp.Width, exp.Height);
-
     GdipDeleteGraphics(graphics);
     EndPaint(hwnd, &ps);
 }
@@ -3769,8 +3746,10 @@ todo_wine
         expected_width = base_cx * pt.Y;
         expected_height = base_cy * pt.Y;
 
-        todo_wine_if(td[i].unit != UnitDisplay && td[i].unit != UnitPixel)
+        if (td[i].unit == UnitDisplay || td[i].unit == UnitPixel)
             ok(fabs(expected_width - bounds.Width) <= 0.001, "%u: expected %f, got %f\n", i, expected_width, bounds.Width);
+        else
+            todo_wine ok(fabs(expected_width - bounds.Width) <= 0.001, "%u: expected %f, got %f\n", i, expected_width, bounds.Width);
         ok(fabs(expected_height - bounds.Height) <= 0.001, "%u: expected %f, got %f\n", i, expected_height, bounds.Height);
 
         GdipDeleteGraphics(graphics);
@@ -4867,7 +4846,7 @@ static void test_clipping(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 45 && rc.top == 20 && rc.right == 95 && rc.bottom == 45,
-       "expected 45,20-95,45, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 45,20-95,45, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     status = GdipGetRegionHRgn(region, graphics, &hrgn);
@@ -4875,7 +4854,7 @@ static void test_clipping(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 100.0;
@@ -4892,7 +4871,7 @@ static void test_clipping(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     status = GdipGetRegionHRgn(region100x100, graphics, &hrgn);
@@ -4900,7 +4879,7 @@ static void test_clipping(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 210 && rc.top == 420 && rc.right == 410 && rc.bottom == 820,
-       "expected 210,420-410,820, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 210,420-410,820, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 210.0;
@@ -4939,7 +4918,7 @@ static void test_clipping(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 45 && rc.top == 20 && rc.right == 95 && rc.bottom == 45,
-       "expected 45,20-95,45, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 45,20-95,45, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     status = GdipGetRegionHRgn(region, graphics, &hrgn);
@@ -4947,7 +4926,7 @@ static void test_clipping(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 100.0;
@@ -4964,7 +4943,7 @@ static void test_clipping(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     status = GdipGetRegionHRgn(region100x100, graphics, &hrgn);
@@ -4972,7 +4951,7 @@ static void test_clipping(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 210 && rc.top == 420 && rc.right == 410 && rc.bottom == 820,
-       "expected 210,420-410,820, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 210,420-410,820, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 210.0;
@@ -5020,7 +4999,7 @@ static void test_clipping(void)
        /* rounding under Wine is slightly different */
        (rc.left == 14 && rc.top == 4 && rc.right == 33 && rc.bottom == 14) /* Wine */ ||
        broken(rc.left == 45 && rc.top == 20 && rc.right == 95 && rc.bottom == 45) /* before Win7 */,
-       "expected 14,5-33,14, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 14,5-33,14, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     status = GdipGetRegionHRgn(region, graphics, &hrgn);
@@ -5029,7 +5008,7 @@ static void test_clipping(void)
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok((rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200) ||
       broken(rc.left == 267 && rc.top == 267 && rc.right == 534 && rc.bottom == 534) /* before Win7 */,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 100.0;
@@ -5047,7 +5026,7 @@ static void test_clipping(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     status = GdipGetRegionHRgn(region100x100, graphics, &hrgn);
@@ -5057,7 +5036,7 @@ static void test_clipping(void)
     ok((rc.left == 560 && rc.top == 1120 && rc.right == 1094 && rc.bottom == 2187) ||
        /* rounding under Wine is slightly different */
        (rc.left == 560 && rc.top == 1120 && rc.right == 1093 && rc.bottom == 2187) /* Wine */,
-       "expected 560,1120-1094,2187, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 560,1120-1094,2187, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 560.0;
@@ -5094,7 +5073,7 @@ static void test_clipping(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 210 && rc.top == 420 && rc.right == 410 && rc.bottom == 820,
-       "expected 210,420-410,820, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 210,420-410,820, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     status = GdipGetRegionHRgn(region100x100, graphics, &hrgn);
@@ -5104,7 +5083,7 @@ static void test_clipping(void)
     ok((rc.left == 1147 && rc.top == 4534 && rc.right == 2214 && rc.bottom == 8800) ||
        /* rounding under Wine is slightly different */
        (rc.left == 1147 && rc.top == 4533 && rc.right == 2213 && rc.bottom == 8800) /* Wine */,
-       "expected 1147,4534-2214,8800, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 1147,4534-2214,8800, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 1147.0;
@@ -5164,7 +5143,7 @@ static void test_clipping(void)
     ok((rc.left == 22 && rc.top == -6 && rc.right == 46 && rc.bottom == 7) ||
        /* rounding under Wine is slightly different */
        (rc.left == 21 && rc.top == -5 && rc.right == 46 && rc.bottom == 7) /* Wine */,
-       "expected (22,-6)-(46,7), got %s\n", wine_dbgstr_rect(&rc));
+       "expected (22,-6)-(46,7), got (%d,%d)-(%d,%d)\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     status = GdipGetRegionHRgn(region, graphics, &hrgn);
@@ -5172,7 +5151,7 @@ static void test_clipping(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 100.0;
@@ -5199,7 +5178,7 @@ static void test_clipping(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 210 && rc.top == 420 && rc.right == 410 && rc.bottom == 820,
-       "expected 210,420-410,820, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 210,420-410,820, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     status = GdipGetRegionHRgn(region100x100, graphics, &hrgn);
@@ -5209,7 +5188,7 @@ static void test_clipping(void)
     ok((rc.left == -3406 && rc.top == 4500 && rc.right == -350 && rc.bottom == 8728) ||
        /* rounding under Wine is slightly different */
        (rc.left == -3407 && rc.top == 4500 && rc.right == -350 && rc.bottom == 8728) /* Wine */,
-       "expected (-3406,4500)-(-350,8728), got %s\n", wine_dbgstr_rect(&rc));
+       "expected (-3406,4500)-(-350,8728), got (%d,%d)-(%d,%d)\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = -3406.0;
@@ -5267,7 +5246,7 @@ static void test_clipping(void)
     ok((rc.left == -27 && rc.top == 8 && rc.right == -2 && rc.bottom == 21) ||
        /* rounding under Wine is slightly different */
        (rc.left == -28 && rc.top == 9 && rc.right == -2 && rc.bottom == 21) /* Wine */,
-       "expected (-27,8)-(-2,21), got %s\n", wine_dbgstr_rect(&rc));
+       "expected (-27,8)-(-2,21), got (%d,%d)-(%d,%d)\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     status = GdipGetRegionHRgn(region, graphics, &hrgn);
@@ -5275,7 +5254,7 @@ static void test_clipping(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 100.0;
@@ -5302,7 +5281,7 @@ static void test_clipping(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 210 && rc.top == 420 && rc.right == 410 && rc.bottom == 820,
-       "expected 210,420-410,820, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 210,420-410,820, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     status = GdipGetRegionHRgn(region100x100, graphics, &hrgn);
@@ -5312,7 +5291,7 @@ static void test_clipping(void)
     ok((rc.left == 4500 && rc.top == 351 && rc.right == 8728 && rc.bottom == 3407) ||
        /* rounding under Wine is slightly different */
        (rc.left == 4499 && rc.top == 351 && rc.right == 8728 && rc.bottom == 3407) /* Wine */,
-       "expected (4500,351)-(8728,3407), got %s\n", wine_dbgstr_rect(&rc));
+       "expected (4500,351)-(8728,3407), got (%d,%d)-(%d,%d)\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = -3406.0;
@@ -5384,14 +5363,14 @@ static void test_clipping_2(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
     status = GdipGetRegionHRgn(region, graphics, &hrgn);
     expect(Ok, status);
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 9600 && rc.top == 9600 && rc.right == 19200 && rc.bottom == 19200,
-       "expected 9600,9600-19200,19200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 9600,9600-19200,19200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 9600.0;
@@ -5415,7 +5394,7 @@ static void test_clipping_2(void)
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok((rc.left == 7200 && rc.top == 7200 && rc.right == 14400 && rc.bottom == 14400) ||
        broken(rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200) /* before Win7 */,
-       "expected 7200,7200-14400,14400, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 7200,7200-14400,14400, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
     status = GdipGetRegionHRgn(region, graphics, &hrgn);
     expect(Ok, status);
@@ -5423,7 +5402,7 @@ static void test_clipping_2(void)
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok((rc.left == 9600 && rc.top == 9600 && rc.right == 19200 && rc.bottom == 19200) ||
        broken(rc.left == 134 && rc.top == 134 && rc.right == 267 && rc.bottom == 267) /* before Win7 */,
-       "expected 9600,9600-19200,19200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 9600,9600-19200,19200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 9600.0;
@@ -5466,7 +5445,7 @@ static void test_clipping_2(void)
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok((rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200) ||
        broken(rc.left == 2 && rc.top == 2 && rc.right == 3 && rc.bottom == 3) /* before Win7 */,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
     status = GdipGetRegionHRgn(region, graphics, &hrgn);
     expect(Ok, status);
@@ -5474,7 +5453,7 @@ static void test_clipping_2(void)
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok((rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200) ||
        broken(rc.left == 2 && rc.top == 2 && rc.right == 3 && rc.bottom == 3) /* before Win7 */,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 100.0;
@@ -5504,7 +5483,7 @@ static void test_clipping_2(void)
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok((rc.left == 75 && rc.top == 75 && rc.right == 150 && rc.bottom == 150) ||
        broken(rc.left == 2 && rc.top == 2 && rc.right == 3 && rc.bottom == 3) /* before Win7 */,
-       "expected 75,75-150,150, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 75,75-150,150, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
     status = GdipGetRegionHRgn(region, graphics, &hrgn);
     expect(Ok, status);
@@ -5512,7 +5491,7 @@ static void test_clipping_2(void)
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok((rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200) ||
        broken(rc.left == 2 && rc.top == 2 && rc.right == 3 && rc.bottom == 3) /* before Win7 */,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 100.0;
@@ -5547,14 +5526,14 @@ static void test_clipping_2(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 65 && rc.top == 65 && rc.right == 140 && rc.bottom == 140,
-       "expected 65,65-140,140, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 65,65-140,140, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
     status = GdipGetRegionHRgn(region, graphics, &hrgn);
     expect(Ok, status);
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 100.0;
@@ -5583,14 +5562,14 @@ static void test_clipping_2(void)
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 300 && rc.top == 150 && rc.right == 600 && rc.bottom == 300,
-       "expected 300,150-600,300, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 300,150-600,300, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
     status = GdipGetRegionHRgn(region, graphics, &hrgn);
     expect(Ok, status);
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 100.0;
@@ -5615,7 +5594,7 @@ static void test_clipping_2(void)
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok((rc.left == 150 && rc.top == 75 && rc.right == 300 && rc.bottom == 150) ||
        broken(rc.left == 300 && rc.top == 150 && rc.right == 600 && rc.bottom == 300) /* before Win7 */,
-       "expected 150,75-300,150, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 150,75-300,150, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
     status = GdipGetRegionHRgn(region, graphics, &hrgn);
     expect(Ok, status);
@@ -5623,7 +5602,7 @@ static void test_clipping_2(void)
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok((rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200) ||
        broken(rc.left == 200 && rc.top == 200 && rc.right == 400 && rc.bottom == 400) /* before Win7 */,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 100.0;
@@ -5664,14 +5643,14 @@ static void test_clipping_2(void)
     ok((rc.left == 54 && rc.top == -26 && rc.right == 107 && rc.bottom == 27) ||
        /* rounding under Wine is slightly different */
        (rc.left == 53 && rc.top == -26 && rc.right == 106 && rc.bottom == 27) /* Wine */,
-       "expected 54,-26-107,27, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 54,-26-107,27, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
     status = GdipGetRegionHRgn(region, graphics, &hrgn);
     expect(Ok, status);
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 100.0;
@@ -5710,14 +5689,14 @@ static void test_clipping_2(void)
     ok((rc.left == -26 && rc.top == 54 && rc.right == 27 && rc.bottom == 107) ||
        /* rounding under Wine is slightly different */
        (rc.left == -27 && rc.top == 54 && rc.right == 27 && rc.bottom == 106) /* Wine */,
-       "expected -26,54-27,107, got %s\n", wine_dbgstr_rect(&rc));
+       "expected -26,54-27,107, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
     status = GdipGetRegionHRgn(region, graphics, &hrgn);
     expect(Ok, status);
     ret = GetRgnBox(hrgn, &rc);
     ok(ret == SIMPLEREGION, "expected SIMPLEREGION, got %d\n", ret);
     ok(rc.left == 100 && rc.top == 100 && rc.right == 200 && rc.bottom == 200,
-       "expected 100,100-200,200, got %s\n", wine_dbgstr_rect(&rc));
+       "expected 100,100-200,200, got %d,%d-%d,%d\n", rc.left, rc.top, rc.right, rc.bottom);
     DeleteObject(hrgn);
 
     ptf[0].X = 100.0;

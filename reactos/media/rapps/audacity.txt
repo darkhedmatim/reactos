@@ -6,7 +6,7 @@ Description = Free, open source, cross-platform software for recording and editi
 Size = 25.3 MiB
 Category = 1
 URLSite = http://audacityteam.org/
-URLDownload = https://www.jabawok.net/installers/audacity-win-2.1.2.exe
+URLDownload = http://app.oldfoss.com:81/download/Audacity/audacity_win_2_1_2-1453294050.exe
 SHA1 = 850f643bb715782f120edb8eee982b0f3543a332
 CDPath = none
 
@@ -23,7 +23,7 @@ Size = 25,3 Mio
 
 [Section.0419]
 Description = Программа для записи и редактирования звуковых файлов, ориентированная на работу с несколькими дорожками.
-Size = 25,3 МиБ
+Size = 25,3 МБ
 
 [Section.041f]
 Description = Sesleri kaydetme ve düzenleme için özgür, açık kaynak ve çapraz platform yazılımdır.

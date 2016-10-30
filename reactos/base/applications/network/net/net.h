@@ -7,34 +7,47 @@
 #ifndef _NET_PCH_
 #define _NET_PCH_
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <limits.h>
+#define WIN32_NO_STATUS
+
 #include <stdarg.h>
 
-#define WIN32_NO_STATUS
 #include <windef.h>
 #include <winbase.h>
 #include <winnls.h>
 #include <wincon.h>
+#include <winuser.h>
 #include <winsvc.h>
-#include <winnetwk.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <limits.h>
 #include <lm.h>
 #include <ndk/rtlfuncs.h>
-
-#include <conutils.h>
 
 #include "resource.h"
 
 VOID
+PrintResourceString(
+    INT resID,
+    ...);
+
+VOID
 PrintPaddedResourceString(
-    UINT uID,
+    INT resID,
     INT nPaddedLength);
 
 VOID
 PrintPadding(
     WCHAR chr,
     INT nPaddedLength);
+
+VOID
+PrintToConsole(
+    LPWSTR lpFormat,
+    ...);
+
+VOID
+WriteToConsole(
+    LPWSTR lpString);
 
 VOID
 ReadFromConsole(
@@ -53,7 +66,6 @@ INT cmdLocalGroup(INT argc, WCHAR **argv);
 INT cmdPause(INT argc, WCHAR **argv);
 INT cmdStart(INT argc, WCHAR **argv);
 INT cmdStop(INT argc, WCHAR **argv);
-INT cmdUse(INT argc, WCHAR **argv);
 INT cmdUser(INT argc, WCHAR **argv);
 
 #endif /* _NET_PCH_ */

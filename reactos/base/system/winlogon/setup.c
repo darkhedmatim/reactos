@@ -80,7 +80,7 @@ RunSetupThreadProc(
         return FALSE;
 
     /* Read key */
-    dwSize = sizeof(Shell);
+    dwSize = (sizeof(Shell) / sizeof(Shell[0])) - 1;
     dwError = RegQueryValueExW(hKey,
                                L"CmdLine",
                                NULL,

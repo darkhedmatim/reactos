@@ -102,9 +102,7 @@ static void test_comparemode(void)
     ok(hr == S_OK, "got 0x%08x\n", hr);
 
 if (0) /* crashes on native */
-{
     hr = IDictionary_get_CompareMode(dict, NULL);
-}
 
     method = 10;
     hr = IDictionary_get_CompareMode(dict, &method);
@@ -936,9 +934,7 @@ static void test_IEnumVARIANT(void)
     ok(hr == S_OK, "got 0x%08x\n", hr);
 
 if (0) /* crashes on native */
-{
     hr = IDictionary__NewEnum(dict, NULL);
-}
 
     hr = IDictionary__NewEnum(dict, &enum1);
     ok(hr == S_OK, "got 0x%08x\n", hr);

@@ -98,7 +98,10 @@ static void Context_Destructor(Context *This)
     TRACE("destroying %p\n", This);
 
     if (This->pITextStoreACP)
+    {
+        ITextStoreACP_UnadviseSink(This->pITextStoreACP, (IUnknown*)&This->ITextStoreACPSink_iface);
         ITextStoreACP_Release(This->pITextStoreACP);
+    }
 
     if (This->pITfContextOwnerCompositionSink)
         ITfContextOwnerCompositionSink_Release(This->pITfContextOwnerCompositionSink);

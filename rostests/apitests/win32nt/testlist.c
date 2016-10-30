@@ -44,7 +44,6 @@ extern void func_NtGdiSetDIBitsToDeviceInternal(void);
 //extern void func_NtUserCallNoParam(void);
 //extern void func_NtUserCallOneParam(void);
 extern void func_NtUserCountClipboardFormats(void);
-extern void func_NtUserCreateWindowEx(void);
 //extern void func_NtUserEnumDisplayMonitors(void);
 extern void func_NtUserEnumDisplaySettings(void);
 extern void func_NtUserFindExistingCursorIcon(void);
@@ -106,7 +105,6 @@ const struct test winetest_testlist[] =
     //{ "NtUserCallNoParam", func_NtUserCallNoParam },
     //{ "NtUserCallOneParam", func_NtUserCallOneParam },
     { "NtUserCountClipboardFormats", func_NtUserCountClipboardFormats },
-    { "NtUserCreateWindowEx", func_NtUserCreateWindowEx },
     //{ "NtUserEnumDisplayMonitors", func_NtUserEnumDisplayMonitors },
     { "NtUserEnumDisplaySettings", func_NtUserEnumDisplaySettings },
     { "NtUserFindExistingCursorIcon", func_NtUserFindExistingCursorIcon },

@@ -25,14 +25,9 @@
 
 #include "strmbase_private.h"
 
-#define XTIME_FMT "%u.%03u"
-#define XTIME(u) (int)(u/10000000), (int)((u / 10000)%1000)
-
-HRESULT QualityControlImpl_Create(IPin *input, IBaseFilter *self, QualityControlImpl **ppv)
-{
+HRESULT QualityControlImpl_Create(IPin *input, IBaseFilter *self, QualityControlImpl **ppv) {
     QualityControlImpl *This;
-    TRACE("%p, %p, %p\n", input, self, ppv);
-    *ppv = HeapAlloc(GetProcessHeap(),HEAP_ZERO_MEMORY,sizeof(QualityControlImpl));
+    *ppv = HeapAlloc(GetProcessHeap(),0,sizeof(QualityControlImpl));
     if (!*ppv)
         return E_OUTOFMEMORY;
     This = *ppv;
@@ -40,8 +35,6 @@ HRESULT QualityControlImpl_Create(IPin *input, IBaseFilter *self, QualityControl
     This->self = self;
     This->tonotify = NULL;
     This->clock = NULL;
-    This->current_rstart = This->current_rstop = -1;
-    TRACE("-> %p\n", This);
     return S_OK;
 }
 
@@ -50,41 +43,26 @@ void QualityControlImpl_Destroy(QualityControlImpl *This)
     HeapFree(GetProcessHeap(),0,This);
 }
 
-static inline QualityControlImpl *impl_from_IQualityControl(IQualityControl *iface)
-{
-    return CONTAINING_RECORD(iface, QualityControlImpl, IQualityControl_iface);
-}
-
-HRESULT WINAPI QualityControlImpl_QueryInterface(IQualityControl *iface, REFIID riid, void **ppv)
-{
-    QualityControlImpl *This = impl_from_IQualityControl(iface);
+HRESULT WINAPI QualityControlImpl_QueryInterface(IQualityControl *iface, REFIID riid, void **ppv) {
+    QualityControlImpl *This = (QualityControlImpl*)iface;
     return IBaseFilter_QueryInterface(This->self, riid, ppv);
 }
 
-ULONG WINAPI QualityControlImpl_AddRef(IQualityControl *iface)
-{
-    QualityControlImpl *This = impl_from_IQualityControl(iface);
+ULONG WINAPI QualityControlImpl_AddRef(IQualityControl *iface) {
+    QualityControlImpl *This = (QualityControlImpl*)iface;
     return IBaseFilter_AddRef(This->self);
 }
 
-ULONG WINAPI QualityControlImpl_Release(IQualityControl *iface)
-{
-    QualityControlImpl *This = impl_from_IQualityControl(iface);
+ULONG WINAPI QualityControlImpl_Release(IQualityControl *iface) {
+    QualityControlImpl *This = (QualityControlImpl*)iface;
     return IBaseFilter_Release(This->self);
 }
 
-HRESULT WINAPI QualityControlImpl_Notify(IQualityControl *iface, IBaseFilter *sender, Quality qm)
-{
-    QualityControlImpl *This = impl_from_IQualityControl(iface);
+HRESULT WINAPI QualityControlImpl_Notify(IQualityControl *iface, IBaseFilter *sender, Quality qm) {
     HRESULT hr = S_FALSE;
-
-    TRACE("%p %p { 0x%x %u " XTIME_FMT " " XTIME_FMT " }\n",
-            This, sender, qm.Type, qm.Proportion,
-            XTIME(qm.Late), XTIME(qm.TimeStamp));
-
+    QualityControlImpl *This = (QualityControlImpl*)iface;
     if (This->tonotify)
         return IQualityControl_Notify(This->tonotify, This->self, qm);
-
     if (This->input) {
         IPin *to = NULL;
         IPin_ConnectedTo(This->input, &to);
@@ -98,14 +76,11 @@ HRESULT WINAPI QualityControlImpl_Notify(IQualityControl *iface, IBaseFilter *se
             IPin_Release(to);
         }
     }
-
     return hr;
 }
 
-HRESULT WINAPI QualityControlImpl_SetSink(IQualityControl *iface, IQualityControl *tonotify)
-{
-    QualityControlImpl *This = impl_from_IQualityControl(iface);
-    TRACE("%p %p\n", This, tonotify);
+HRESULT WINAPI QualityControlImpl_SetSink(IQualityControl *iface, IQualityControl *tonotify) {
+    QualityControlImpl *This = (QualityControlImpl*)iface;
     This->tonotify = tonotify;
     return S_OK;
 }
@@ -122,9 +97,7 @@ HRESULT WINAPI QualityControlImpl_SetSink(IQualityControl *iface, IQualityContro
 #define UPDATE_RUNNING_AVG_P(avg,val) DO_RUNNING_AVG(avg,val,16)
 #define UPDATE_RUNNING_AVG_N(avg,val) DO_RUNNING_AVG(avg,val,4)
 
-void QualityControlRender_Start(QualityControlImpl *This, REFERENCE_TIME tStart)
-{
-    TRACE("%p " XTIME_FMT "\n", This, XTIME(tStart));
+void QualityControlRender_Start(QualityControlImpl *This, REFERENCE_TIME tStart) {
     This->avg_render = This->last_in_time = This->last_left = This->avg_duration = This->avg_pt = -1;
     This->clockstart = tStart;
     This->avg_rate = -1.0;
@@ -134,9 +107,7 @@ void QualityControlRender_Start(QualityControlImpl *This, REFERENCE_TIME tStart)
 }
 
 
-void QualityControlRender_SetClock(QualityControlImpl *This, IReferenceClock *clock)
-{
-    TRACE("%p %p\n", This, clock);
+void QualityControlRender_SetClock(QualityControlImpl *This, IReferenceClock *clock) {
     This->clock = clock;
 }
 
@@ -144,9 +115,6 @@ static BOOL QualityControlRender_IsLate(QualityControlImpl *This, REFERENCE_TIME
                                         REFERENCE_TIME start, REFERENCE_TIME stop)
 {
     REFERENCE_TIME max_lateness = 200000;
-
-    TRACE("%p " XTIME_FMT " " XTIME_FMT " " XTIME_FMT "\n",
-            This, XTIME(jitter), XTIME(start), XTIME(stop));
 
     /* we can add a valid stop time */
     if (stop >= start)
@@ -169,12 +137,8 @@ static BOOL QualityControlRender_IsLate(QualityControlImpl *This, REFERENCE_TIME
     return FALSE;
 }
 
-HRESULT QualityControlRender_WaitFor(QualityControlImpl *This, IMediaSample *sample, HANDLE ev)
-{
+HRESULT QualityControlRender_WaitFor(QualityControlImpl *This, IMediaSample *sample, HANDLE ev) {
     REFERENCE_TIME start = -1, stop = -1, jitter = 0;
-
-    TRACE("%p %p %p\n", This, sample, ev);
-
     This->current_rstart = This->current_rstop = -1;
     This->current_jitter = 0;
     if (!This->clock || FAILED(IMediaSample_GetTime(sample, &start, &stop)))
@@ -213,8 +177,6 @@ void QualityControlRender_DoQOS(QualityControlImpl *priv)
 {
     REFERENCE_TIME start, stop, jitter, pt, entered, left, duration;
     double rate;
-
-    TRACE("%p\n", priv);
 
     if (!priv->clock || priv->current_rstart < 0)
         return;
@@ -255,12 +217,14 @@ void QualityControlRender_DoQOS(QualityControlImpl *priv)
         pt = priv->avg_pt;
     }
 
-    TRACE("start: " XTIME_FMT ", entered " XTIME_FMT ", left " XTIME_FMT ", pt: " XTIME_FMT ", "
-          "duration " XTIME_FMT ", jitter " XTIME_FMT "\n", XTIME(start), XTIME(entered),
+#define XTIME(u) (int)(u/10000000), (int)((u / 10000)%1000)
+    TRACE("start: %u.%03u, entered %u.%03u, left %u.%03u, pt: %u.%03u, "
+          "duration %u.%03u, jitter %u.%03u\n", XTIME(start), XTIME(entered),
           XTIME(left), XTIME(pt), XTIME(duration), XTIME(jitter));
 
-    TRACE("avg_duration: " XTIME_FMT ", avg_pt: " XTIME_FMT ", avg_rate: %g\n",
+    TRACE("avg_duration: %u.%03u, avg_pt: %u.%03u, avg_rate: %g\n",
       XTIME(priv->avg_duration), XTIME(priv->avg_pt), priv->avg_rate);
+#undef XTIME
 
     /* collect running averages. for first observations, we copy the
     * values */
@@ -313,7 +277,7 @@ void QualityControlRender_DoQOS(QualityControlImpl *priv)
         q.Late = priv->current_jitter;
         q.TimeStamp = priv->current_rstart;
         TRACE("Late: %i from %i, rate: %g\n", (int)(q.Late/10000), (int)(q.TimeStamp/10000), 1./priv->avg_rate);
-        hr = IQualityControl_Notify(&priv->IQualityControl_iface, priv->self, q);
+        hr = IQualityControl_Notify((IQualityControl *)priv, priv->self, q);
         priv->qos_handled = hr == S_OK;
     }
 
@@ -322,25 +286,15 @@ void QualityControlRender_DoQOS(QualityControlImpl *priv)
 }
 
 
-void QualityControlRender_BeginRender(QualityControlImpl *This)
-{
-    TRACE("%p\n", This);
-
+void QualityControlRender_BeginRender(QualityControlImpl *This) {
     This->start = -1;
-
     if (!This->clock)
         return;
-
     IReferenceClock_GetTime(This->clock, &This->start);
-    TRACE("at: " XTIME_FMT "\n", XTIME(This->start));
 }
 
-void QualityControlRender_EndRender(QualityControlImpl *This)
-{
+void QualityControlRender_EndRender(QualityControlImpl *This) {
     REFERENCE_TIME elapsed;
-
-    TRACE("%p\n", This);
-
     if (!This->clock || This->start < 0 || FAILED(IReferenceClock_GetTime(This->clock, &This->stop)))
         return;
 

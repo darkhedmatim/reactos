@@ -38,6 +38,8 @@
 /* VARIABLES ******************************************************************/
 
 static LIST_ENTRY Timers;
+static ULONGLONG Cycles = 0ULL;
+static ULONGLONG CurrentIps = 20000000ULL; // 20 MIPS is a good estimate
 static LARGE_INTEGER StartPerfCount, Frequency;
 // static ULONG StartTickCount;
 static LARGE_INTEGER Counter;
@@ -45,30 +47,17 @@ static ULONG CurrentTickCount;
 static ULONGLONG LastCycles = 0ULL;
 static PHARDWARE_TIMER IpsTimer;
 
-ULONGLONG CurrentCycleCount = 0ULL;
-ULONGLONG CurrentIps = 20000000ULL; // 20 MIPS is a good estimate
-
 /* PRIVATE FUNCTIONS **********************************************************/
 
 static VOID FASTCALL IpsCallback(ULONGLONG ElapsedTime)
 {
-#ifdef IPS_DISPLAY
-    static INT NumCalls = 0;
-#endif
-    
-    ULONGLONG NewIps = 10ULL * (CurrentCycleCount - LastCycles) / ElapsedTime;
-    CurrentIps = (CurrentIps + NewIps) >> 1;
+    CurrentIps = (Cycles - LastCycles) / ElapsedTime;
 
 #ifdef IPS_DISPLAY
-    NumCalls++;
-    if (NumCalls == 10)
-    {
-        DPRINT1("NTVDM: %I64u Instructions Per Second\n", CurrentIps);
-        NumCalls = 0;
-    }
+    DPRINT1("NTVDM: %I64u Instructions Per Second\n", CurrentIps);
 #endif
 
-    LastCycles = CurrentCycleCount;
+    LastCycles = Cycles;
 }
 
 /* PUBLIC FUNCTIONS ***********************************************************/
@@ -92,7 +81,7 @@ VOID ClockUpdate(VOID)
         for (i = 0; VdmRunning && CpuRunning && (i < STEPS_PER_CYCLE); i++)
         {
             CpuStep();
-            ++CurrentCycleCount;
+            ++Cycles;
         }
 
         Entry = Timers.Flink;
@@ -216,6 +205,16 @@ VOID DestroyHardwareTimer(PHARDWARE_TIMER Timer)
     }
 }
 
+ULONGLONG GetCycleCount(VOID)
+{
+    return Cycles;
+}
+
+ULONGLONG GetCycleSpeed(VOID)
+{
+    return CurrentIps;
+}
+
 BOOLEAN ClockInitialize(VOID)
 {
     InitializeListHead(&Timers);
@@ -232,7 +231,7 @@ BOOLEAN ClockInitialize(VOID)
     /* Find the starting tick count */
     // StartTickCount = GetTickCount();
 
-    IpsTimer = CreateHardwareTimer(HARDWARE_TIMER_ENABLED, HZ_TO_NS(10), IpsCallback);
+    IpsTimer = CreateHardwareTimer(HARDWARE_TIMER_ENABLED, HZ_TO_NS(1), IpsCallback);
     if (IpsTimer == NULL)
     {
         wprintf(L"FATAL: Cannot create IPS timer.\n");

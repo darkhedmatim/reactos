@@ -58,7 +58,7 @@ HRESULT WINAPI CPrintersExtractIconW_CreateInstane(LPCITEMIDLIST pidl, REFIID ri
         return NULL;
 
     /* FIXME: other icons for default, network, print to file */
-    initIcon->SetNormalIcon(swShell32Name, -IDI_SHELL_PRINTER);
+    initIcon->SetNormalIcon(swShell32Name, -IDI_SHELL_PRINTERS_FOLDER);
 
     return initIcon->QueryInterface(riid,ppv);
 }
@@ -190,6 +190,14 @@ CPrinterFolder::~CPrinterFolder()
     TRACE("-- destroying IShellFolder(%p)\n", this);
     if (pidlRoot)
         SHFree(pidlRoot);
+}
+
+HRESULT WINAPI CPrinterFolder::FinalConstruct()
+{
+    pidlRoot = _ILCreatePrinters();    /* my qualified pidl */
+    if (pidlRoot == NULL)
+        return E_OUTOFMEMORY;
+    return S_OK;
 }
 
 /**************************************************************************

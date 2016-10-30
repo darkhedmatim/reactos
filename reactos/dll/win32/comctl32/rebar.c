@@ -714,7 +714,8 @@ REBAR_CalcHorzBand (const REBAR_INFO *infoPtr, UINT rstart, UINT rend)
 	  lpBand->fDraw |= DRAW_GRIPPER;
 	  lpBand->rcGripper.left   += REBAR_PRE_GRIPPER;
 	  lpBand->rcGripper.right  = lpBand->rcGripper.left + GRIPPER_WIDTH;
-          InflateRect(&lpBand->rcGripper, 0, -2);
+	  lpBand->rcGripper.top    += 2;
+	  lpBand->rcGripper.bottom -= 2;
 
 	  SetRect (&lpBand->rcCapImage,
 		   lpBand->rcGripper.right+REBAR_ALWAYS_SPACE, lpBand->rcBand.top,
@@ -842,7 +843,8 @@ REBAR_CalcVertBand (const REBAR_INFO *infoPtr, UINT rstart, UINT rend)
 	    }
 	    else {
 		/*  horizontal gripper  */
-                InflateRect(&lpBand->rcGripper, -2, 0);
+		lpBand->rcGripper.left   += 2;
+		lpBand->rcGripper.right  -= 2;
 		lpBand->rcGripper.top    += REBAR_PRE_GRIPPER;
 		lpBand->rcGripper.bottom  = lpBand->rcGripper.top + GRIPPER_WIDTH;
 
@@ -1555,7 +1557,7 @@ REBAR_AutoSize(REBAR_INFO *infoPtr, BOOL needsLayout)
     GetClientRect(infoPtr->hwndSelf, &rcNew);
 
     GetClientRect(infoPtr->hwndSelf, &autosize.rcTarget);
-    autosize.fChanged = EqualRect(&rc, &rcNew);
+    autosize.fChanged = (memcmp(&rc, &rcNew, sizeof(RECT)) == 0);
     autosize.rcTarget = rc;
     autosize.rcActual = rcNew;
     REBAR_Notify((NMHDR *)&autosize, infoPtr, RBN_AUTOSIZE);
@@ -2432,7 +2434,7 @@ REBAR_GetRect (const REBAR_INFO *infoPtr, INT iBand, RECT *lprc)
 
     lpBand = REBAR_GetBand(infoPtr, iBand);
     /* For CCS_VERT the coordinates will be swapped - like on Windows */
-    *lprc = lpBand->rcBand;
+    CopyRect (lprc, &lpBand->rcBand);
 
     TRACE("band %d, (%s)\n", iBand, wine_dbgstr_rect(lprc));
 
@@ -3376,11 +3378,7 @@ REBAR_NCHitTest (const REBAR_INFO *infoPtr, LPARAM lParam)
 			   (INT *)&nmmouse.dwItemSpec);
     nmmouse.dwItemData = 0;
     nmmouse.pt = clpt;
-#ifdef __REACTOS__
-    nmmouse.dwHitInfo = scrap;
-#else
     nmmouse.dwHitInfo = 0;
-#endif
     if ((i = REBAR_Notify((NMHDR *) &nmmouse, infoPtr, NM_NCHITTEST))) {
 	TRACE("notify changed return value from %ld to %d\n",
 	      ret, i);
@@ -3452,9 +3450,6 @@ REBAR_Paint (const REBAR_INFO *infoPtr, HDC hdc)
 {
     if (hdc) {
         TRACE("painting\n");
-#ifdef __REACTOS__
-        REBAR_EraseBkGnd (infoPtr, hdc);
-#endif
         REBAR_Refresh (infoPtr, hdc);
     } else {
         PAINTSTRUCT ps;

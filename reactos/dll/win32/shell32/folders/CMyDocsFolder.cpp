@@ -25,13 +25,37 @@ WINE_DEFAULT_DEBUG_CHANNEL (mydocs);
 
 CMyDocsFolder::CMyDocsFolder()
 {
-    m_pidlInner = NULL;
+    m_pisfInner = NULL;
 }
 
 CMyDocsFolder::~CMyDocsFolder()
 {
-    if(m_pidlInner)
-        SHFree(m_pidlInner);
+    m_pisfInner.Release();
+}
+
+HRESULT WINAPI CMyDocsFolder::FinalConstruct()
+{
+    HRESULT hr;
+    CComPtr<IPersistFolder3> ppf3;
+
+    hr = SHCoCreateInstance(NULL, &CLSID_ShellFSFolder, NULL, IID_PPV_ARG(IShellFolder2, &m_pisfInner));
+    if (FAILED(hr))
+        return hr;
+
+    hr = m_pisfInner->QueryInterface(IID_PPV_ARG(IPersistFolder3, &ppf3));
+    if (FAILED(hr))
+        return hr;
+
+    LPITEMIDLIST pidlRoot = _ILCreateMyDocuments();
+
+    PERSIST_FOLDER_TARGET_INFO info;
+    ZeroMemory(&info, sizeof(PERSIST_FOLDER_TARGET_INFO));
+    info.csidl = CSIDL_PERSONAL;
+    hr = ppf3->InitializeEx(NULL, pidlRoot, &info);
+
+    SHFree(pidlRoot);
+
+    return hr;
 }
 
 HRESULT WINAPI CMyDocsFolder::ParseDisplayName(HWND hwndOwner, LPBC pbc, LPOLESTR lpszDisplayName,
@@ -170,22 +194,13 @@ HRESULT WINAPI CMyDocsFolder::GetClassID(CLSID *lpClassId)
 
 HRESULT WINAPI CMyDocsFolder::Initialize(LPCITEMIDLIST pidl)
 {
-    m_pidlInner = ILClone(pidl);
-    if (!m_pidlInner)
-        return E_OUTOFMEMORY;
-
-    return SHELL32_CoCreateInitSF(m_pidlInner, 
-                                  NULL,
-                                  NULL,
-                                  &CLSID_ShellFSFolder,
-                                  CSIDL_PERSONAL,
-                                  IID_PPV_ARG(IShellFolder2, &m_pisfInner));
+    return S_OK;
 }
 
 HRESULT WINAPI CMyDocsFolder::GetCurFolder(LPITEMIDLIST *pidl)
 {
     if (!pidl)
         return E_POINTER;
-    *pidl = ILClone(m_pidlInner);
+    *pidl = _ILCreateMyDocuments();
     return S_OK;
 }

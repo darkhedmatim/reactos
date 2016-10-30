@@ -32,6 +32,7 @@
  */
 
 #include "progman.h"
+#include <strsafe.h>
 
 #include <commdlg.h>
 
@@ -513,7 +514,7 @@ EnumPickIconResourceProc(HMODULE hModule, LPCWSTR lpszType, LPWSTR lpszName, LON
     WCHAR szName[100];
 
     if (IS_INTRESOURCE(lpszName))
-        StringCbPrintfW(szName, sizeof(szName), L"%u", (unsigned)(UINT_PTR)lpszName);
+        swprintf(szName, L"%u", lpszName);
     else
         StringCbCopyW(szName, sizeof(szName), lpszName);
 

@@ -152,10 +152,10 @@ InterpretMain(VOID)
         args_count = 0;
         memset(args_vector, 0, sizeof(args_vector));
 
-        /* Shown just before the input where the user places commands */
-        ConResPuts(StdOut, IDS_APP_PROMPT);
+        /* shown just before the input where the user places commands */
+        PrintResourceString(IDS_APP_PROMPT);
 
-        /* Get input from the user. */
+        /* gets input from the user. */
         fgetws(input_line, MAX_STRING_SIZE, stdin);
 
         ptr = input_line;
@@ -178,7 +178,7 @@ InterpretMain(VOID)
             ptr++;
         }
 
-        /* Send the string to find the command */
+        /* sends the string to find the command */
         bRun = InterpretCmd(args_count, args_vector);
     }
 }

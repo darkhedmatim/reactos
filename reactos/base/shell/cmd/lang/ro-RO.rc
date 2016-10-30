@@ -70,7 +70,7 @@ ERRORLEVEL este calibrat pe deplasamentul tastei opțiunii alese de utilizator.\
     STRING_CMD_HELP2 "\nFuncționalitățile disponibile:"
     STRING_CMD_HELP3 "  [alias]"
     STRING_CMD_HELP4 "  [istoric]"
-    STRING_CMD_HELP5 "  [completarea numelui de fișier Bash]"
+    STRING_CMD_HELP5 "  [completarea numelui de fișier unix]"
     STRING_CMD_HELP6 "  [stiva de directoare]"
     STRING_CMD_HELP7 "  [redirecționări și conectări]"
     STRING_CMD_HELP8 "Deschide o nouă instanță a interpretorului de comenzi ReactOS.\n\n\
@@ -287,15 +287,15 @@ MKLINK [/D | /H | /J] ținta numelui legăturii\n\n\
   /J  Crează o joncțiune de director.\n\n\
 Dacă nu sunt specificate nici /H și nici /J ca argumente, va fi creată o\n\
 legătură simbolică."
-    STRING_MEMORY_HELP1 "Afișează cantitatea de memorie a sistemului.\n\nMEMORY\n"
-    STRING_MEMORY_HELP2 "\n  %12s%% nivel de uzilizare.\n\n\
+    STRING_MEMMORY_HELP1 "Afișează cantitatea de memorie a sistemului.\n\nMEMORY\n"
+    STRING_MEMMORY_HELP2 "\n  %12s%% nivel de uzilizare.\n\n\
   %13s octeți în total în memoria fizică (RAM).\n\
   %13s octeți disponibili în memorie fizică (RAM).\n\n\
   %13s octeți în total în fișierul de paginare.\n\
   %13s octeți disponibili în fișierul de paginare.\n\n\
   %13s octeți în total în memoria virtuală.\n\
   %13s octeți disponibili în memoria virtuală.\n"
-    STRING_MISC_HELP1 "Tastați pentru a continua..."
+    STRING_MISC_HELP1 "Tastați pentru a continua...\n"
     STRING_MOVE_HELP1 "Suprascrieți «%s»? (Da|Nu|Toate)"
     STRING_MOVE_HELP2 "Mută sau redenumește fișiere și directoare.\n\n\
 Pentru a muta unul sau mai multe fișiere:\n\

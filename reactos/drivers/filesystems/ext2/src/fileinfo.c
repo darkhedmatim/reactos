@@ -504,6 +504,7 @@ Ext2SetFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
     ULONG                   Length;
     PVOID                   Buffer;
 
+    BOOLEAN                 VcbMainResourceAcquired = FALSE;
     BOOLEAN                 FcbMainResourceAcquired = FALSE;
     BOOLEAN                 FcbPagingIoResourceAcquired = FALSE;
 
@@ -539,6 +540,18 @@ Ext2SetFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
         if (!IsMounted(Vcb)) {
             Status = STATUS_INVALID_DEVICE_REQUEST;
             _SEH2_LEAVE;
+        }
+
+        /* we need grab Vcb in case it's rename or sethardlink */
+        if (FileInformationClass == FileRenameInformation ||
+            FileInformationClass == FileLinkInformation) {
+            if (!ExAcquireResourceExclusiveLite(
+                        &Vcb->MainResource,
+                        IsFlagOn(IrpContext->Flags, IRP_CONTEXT_FLAG_WAIT) )) {
+                Status = STATUS_PENDING;
+                _SEH2_LEAVE;
+            }
+            VcbMainResourceAcquired = TRUE;
         }
 
         if (FlagOn(Vcb->Flags, VCB_VOLUME_LOCKED)) {
@@ -1034,6 +1047,10 @@ Ext2SetFileInformation (IN PEXT2_IRP_CONTEXT IrpContext)
             ExReleaseResourceLite(&Fcb->MainResource);
         }
 
+        if (VcbMainResourceAcquired) {
+            ExReleaseResourceLite(&Vcb->MainResource);
+        }
+
         if (!IrpContext->ExceptionInProgress) {
             if (Status == STATUS_PENDING ||
                     Status == STATUS_CANT_WAIT ) {
@@ -1330,7 +1347,8 @@ Ext2SetRenameInfo(
     BOOLEAN                 bMove = FALSE;
     BOOLEAN                 bTargetRemoved = FALSE;
 
-    BOOLEAN                 bFcbLockAcquired = FALSE;
+    BOOLEAN                 bNewTargetDcb = FALSE;
+    BOOLEAN                 bNewParentDcb = FALSE;
 
     PFILE_RENAME_INFORMATION    FRI;
 
@@ -1417,17 +1435,16 @@ Ext2SetRenameInfo(
         bMove = TRUE;
     }
 
-    if (!bFcbLockAcquired) {
-        ExAcquireResourceExclusiveLite(&Vcb->FcbLock, TRUE);
-        bFcbLockAcquired = TRUE;
-    }
-
     TargetDcb = TargetMcb->Fcb;
     if (TargetDcb == NULL) {
         TargetDcb = Ext2AllocateFcb(Vcb, TargetMcb);
+        if (TargetDcb) {
+            Ext2ReferXcb(&TargetDcb->ReferenceCount);
+            bNewTargetDcb = TRUE;
+        }
     }
     if (TargetDcb) {
-        Ext2ReferXcb(&TargetDcb->ReferenceCount);
+        SetLongFlag(TargetDcb->Flags, FCB_STATE_BUSY);
     }
 
     ParentMcb = Mcb->Parent;
@@ -1437,15 +1454,14 @@ Ext2SetRenameInfo(
 
         if (ParentDcb == NULL) {
             ParentDcb = Ext2AllocateFcb(Vcb, ParentMcb);
+            if (ParentDcb) {
+                Ext2ReferXcb(&ParentDcb->ReferenceCount);
+                bNewParentDcb = TRUE;
+            }
         }
-    }
-    if (ParentDcb) {
-        Ext2ReferXcb(&ParentDcb->ReferenceCount);
-    }
-
-    if (bFcbLockAcquired) {
-        ExReleaseResourceLite(&Vcb->FcbLock);
-        bFcbLockAcquired = FALSE;
+        if (ParentDcb) {
+            SetLongFlag(ParentDcb->Flags, FCB_STATE_BUSY);
+        }
     }
 
     if (!TargetDcb || !ParentDcb) {
@@ -1609,25 +1625,40 @@ Ext2SetRenameInfo(
                  FILE_NOTIFY_CHANGE_DIR_NAME :
                  FILE_NOTIFY_CHANGE_FILE_NAME ),
                 FILE_ACTION_RENAMED_NEW_NAME  );
+
         }
     }
 
 errorout:
 
-    if (bFcbLockAcquired) {
-        ExReleaseResourceLite(&Vcb->FcbLock);
-        bFcbLockAcquired = FALSE;
-    }
-
     if (NewEntry)
         Ext2FreeEntry(NewEntry);
 
     if (TargetDcb) {
-        Ext2ReleaseFcb(TargetDcb);
+        if (ParentDcb && ParentDcb->Inode->i_ino != TargetDcb->Inode->i_ino) {
+            ClearLongFlag(ParentDcb->Flags, FCB_STATE_BUSY);
+        }
+        ClearLongFlag(TargetDcb->Flags, FCB_STATE_BUSY);
     }
 
-    if (ParentDcb) {
-        Ext2ReleaseFcb(ParentDcb);
+    if (bNewTargetDcb) {
+        ASSERT(TargetDcb != NULL);
+        if (Ext2DerefXcb(&TargetDcb->ReferenceCount) == 0) {
+            Ext2FreeFcb(TargetDcb);
+            TargetDcb = NULL;
+        } else {
+            DEBUG(DL_RES, ( "Ext2SetRenameInfo: TargetDcb is resued by other threads.\n"));
+        }
+    }
+
+    if (bNewParentDcb) {
+        ASSERT(ParentDcb != NULL);
+        if (Ext2DerefXcb(&ParentDcb->ReferenceCount) == 0) {
+            Ext2FreeFcb(ParentDcb);
+            ParentDcb = NULL;
+        } else {
+            DEBUG(DL_RES, ( "Ext2SetRenameInfo: ParentDcb is resued by other threads.\n"));
+        }
     }
 
     if (ExistingMcb)
@@ -1667,8 +1698,8 @@ Ext2SetLinkInfo(
 
     BOOLEAN                 ReplaceIfExists;
     BOOLEAN                 bTargetRemoved = FALSE;
-
-    BOOLEAN                 bFcbLockAcquired = FALSE;
+    BOOLEAN                 bNewTargetDcb = FALSE;
+    BOOLEAN                 bNewParentDcb = FALSE;
 
     PFILE_LINK_INFORMATION  FLI;
 
@@ -1750,15 +1781,17 @@ Ext2SetLinkInfo(
         }
     }
 
-    ExAcquireResourceExclusiveLite(&Vcb->FcbLock, TRUE);
-    bFcbLockAcquired = TRUE;
-
     TargetDcb = TargetMcb->Fcb;
     if (TargetDcb == NULL) {
         TargetDcb = Ext2AllocateFcb(Vcb, TargetMcb);
+        if (TargetDcb) {
+            Ext2ReferXcb(&TargetDcb->ReferenceCount);
+            bNewTargetDcb = TRUE;
+        }
     }
+
     if (TargetDcb) {
-        Ext2ReferXcb(&TargetDcb->ReferenceCount);
+        SetLongFlag(TargetDcb->Flags, FCB_STATE_BUSY);
     }
 
     ParentMcb = Mcb->Parent;
@@ -1768,15 +1801,14 @@ Ext2SetLinkInfo(
 
         if (ParentDcb == NULL) {
             ParentDcb = Ext2AllocateFcb(Vcb, ParentMcb);
+            if (ParentDcb) {
+                Ext2ReferXcb(&ParentDcb->ReferenceCount);
+                bNewParentDcb = TRUE;
+            }
         }
-    }
-    if (ParentDcb) {
-        Ext2ReferXcb(&ParentDcb->ReferenceCount);
-    }
-
-    if (bFcbLockAcquired) {
-        ExReleaseResourceLite(&Vcb->FcbLock);
-        bFcbLockAcquired = FALSE;
+        if (ParentDcb) {
+            SetLongFlag(ParentDcb->Flags, FCB_STATE_BUSY);
+        }
     }
 
     if (!TargetDcb || !ParentDcb) {
@@ -1855,17 +1887,31 @@ Ext2SetLinkInfo(
 
 errorout:
 
-    if (bFcbLockAcquired) {
-        ExReleaseResourceLite(&Vcb->FcbLock);
-        bFcbLockAcquired = FALSE;
-    }
-
     if (TargetDcb) {
-        Ext2ReleaseFcb(TargetDcb);
+        if (ParentDcb && ParentDcb->Inode->i_ino != TargetDcb->Inode->i_ino) {
+            ClearLongFlag(ParentDcb->Flags, FCB_STATE_BUSY);
+        }
+        ClearLongFlag(TargetDcb->Flags, FCB_STATE_BUSY);
     }
 
-    if (ParentDcb) {
-        Ext2ReleaseFcb(ParentDcb);
+    if (bNewTargetDcb) {
+        ASSERT(TargetDcb != NULL);
+        if (Ext2DerefXcb(&TargetDcb->ReferenceCount) == 0) {
+            Ext2FreeFcb(TargetDcb);
+            TargetDcb = NULL;
+        } else {
+            DEBUG(DL_RES, ( "Ext2SetLinkInfo: TargetDcb is resued by other threads.\n"));
+        }
+    }
+
+    if (bNewParentDcb) {
+        ASSERT(ParentDcb != NULL);
+        if (Ext2DerefXcb(&ParentDcb->ReferenceCount) == 0) {
+            Ext2FreeFcb(ParentDcb);
+            ParentDcb = NULL;
+        } else {
+            DEBUG(DL_RES, ( "Ext2SeLinkInfo: ParentDcb is resued by other threads.\n"));
+        }
     }
 
     if (ExistingMcb)
@@ -1911,7 +1957,7 @@ Ext2DeleteFile(
     LARGE_INTEGER   Size;
     LARGE_INTEGER   SysTime;
 
-    BOOLEAN         bFcbLockAcquired = FALSE;
+    BOOLEAN         bNewDcb = FALSE;
 
     DEBUG(DL_INF, ( "Ext2DeleteFile: File %wZ (%xh) will be deleted!\n",
                     &Mcb->FullName, Mcb->Inode.i_ino));
@@ -1933,22 +1979,16 @@ Ext2DeleteFile(
         ExAcquireResourceExclusiveLite(&Vcb->MainResource, TRUE);
         VcbResourceAcquired = TRUE;
 
-        ExAcquireResourceExclusiveLite(&Vcb->FcbLock, TRUE);
-        bFcbLockAcquired = TRUE;
-
         if (!(Dcb = Mcb->Parent->Fcb)) {
             Dcb = Ext2AllocateFcb(Vcb, Mcb->Parent);
-        }
-        if (Dcb) {
-            Ext2ReferXcb(&Dcb->ReferenceCount);
-        }
-
-        if (bFcbLockAcquired) {
-            ExReleaseResourceLite(&Vcb->FcbLock);
-            bFcbLockAcquired = FALSE;
+            if (Dcb) {
+                Ext2ReferXcb(&Dcb->ReferenceCount);
+                bNewDcb = TRUE;
+            }
         }
 
         if (Dcb) {
+            SetLongFlag(Dcb->Flags, FCB_STATE_BUSY);
             DcbResourceAcquired =
                 ExAcquireResourceExclusiveLite(&Dcb->MainResource, TRUE);
 
@@ -2050,16 +2090,19 @@ Ext2DeleteFile(
             ExReleaseResourceLite(&Dcb->MainResource);
         }
 
-        if (bFcbLockAcquired) {
-            ExReleaseResourceLite(&Vcb->FcbLock);
+        if (Dcb) {
+            ClearLongFlag(Dcb->Flags, FCB_STATE_BUSY);
+            if (bNewDcb) {
+                if (Ext2DerefXcb(&Dcb->ReferenceCount) == 0) {
+                    Ext2FreeFcb(Dcb);
+                } else {
+                    DEBUG(DL_ERR, ( "Ext2DeleteFile: Dcb %wZ used by other threads.\n",
+                                    &Mcb->FullName ));
+                }
+            }
         }
-
         if (VcbResourceAcquired) {
             ExReleaseResourceLite(&Vcb->MainResource);
-        }
-
-        if (Dcb) {
-            Ext2ReleaseFcb(Dcb);
         }
 
         Ext2DerefMcb(Mcb);

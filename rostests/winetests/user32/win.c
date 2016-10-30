@@ -1381,9 +1381,6 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     static const WCHAR classW[] = {'M','D','I','_','c','h','i','l','d','_','C','l','a','s','s','_','1',0};
     static const WCHAR titleW[] = {'M','D','I',' ','c','h','i','l','d',0};
     BOOL isWin9x = FALSE;
-    HMENU frame_menu = GetMenu(parent);
-
-    ok(frame_menu != NULL, "Frame window didn't have a menu\n");
 
     mdi_cs.szClass = "MDI_child_Class_1";
     mdi_cs.szTitle = "MDI child";
@@ -1427,7 +1424,6 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
         ok(id == first_id, "wrong child id %ld\n", id);
         hwnd = (HWND)SendMessageA(mdi_client, WM_MDIGETACTIVE, 0, 0);
         ok(!hwnd, "WM_MDIGETACTIVE should return 0, got %p\n", hwnd);
-        ok(GetMenuItemCount(frame_menu) == 0, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
         SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
         ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
     }
@@ -1453,7 +1449,6 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
         hwnd = (HWND)SendMessageA(mdi_client, WM_MDIGETACTIVE, 0, 0);
         exp_hwnd = (GetWindowLongW(mdi_child, GWL_STYLE) & WS_VISIBLE) ? mdi_child : 0;
         ok(hwnd == exp_hwnd, "WM_MDIGETACTIVE should return %p, got %p\n", exp_hwnd, hwnd);
-        ok(GetMenuItemCount(frame_menu) == 0, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
         SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
         ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
     }
@@ -1470,7 +1465,6 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     hwnd = (HWND)SendMessageA(mdi_client, WM_MDIGETACTIVE, 0, 0);
     exp_hwnd = (GetWindowLongW(mdi_child, GWL_STYLE) & WS_VISIBLE) ? mdi_child : 0;
     ok(hwnd == exp_hwnd, "WM_MDIGETACTIVE should return %p, got %p\n", exp_hwnd, hwnd);
-    ok(GetMenuItemCount(frame_menu) == 0, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
     SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
     ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
 
@@ -1485,7 +1479,6 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     ok(id == first_id, "wrong child id %ld\n", id);
     hwnd = (HWND)SendMessageA(mdi_client, WM_MDIGETACTIVE, 0, 0);
     ok(!hwnd, "WM_MDIGETACTIVE should return 0, got %p\n", hwnd);
-    ok(GetMenuItemCount(frame_menu) == 0, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
     SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
     ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
 
@@ -1506,7 +1499,6 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
         ok(id == first_id, "wrong child id %ld\n", id);
         hwnd = (HWND)SendMessageA(mdi_client, WM_MDIGETACTIVE, 0, 0);
         ok(!hwnd, "WM_MDIGETACTIVE should return 0, got %p\n", hwnd);
-        ok(GetMenuItemCount(frame_menu) == 0, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
         SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
         ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
     }
@@ -1533,7 +1525,6 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
         hwnd = (HWND)SendMessageA(mdi_client, WM_MDIGETACTIVE, 0, 0);
         exp_hwnd = (GetWindowLongW(mdi_child, GWL_STYLE) & WS_VISIBLE) ? mdi_child : 0;
         ok(hwnd == exp_hwnd, "WM_MDIGETACTIVE should return %p, got %p\n", exp_hwnd, hwnd);
-        ok(GetMenuItemCount(frame_menu) == 0, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
         SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
         ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
     }
@@ -1550,26 +1541,6 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     hwnd = (HWND)SendMessageA(mdi_client, WM_MDIGETACTIVE, 0, 0);
     exp_hwnd = (GetWindowLongW(mdi_child, GWL_STYLE) & WS_VISIBLE) ? mdi_child : 0;
     ok(hwnd == exp_hwnd, "WM_MDIGETACTIVE should return %p, got %p\n", exp_hwnd, hwnd);
-    ok(GetMenuItemCount(frame_menu) == 0, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
-    SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
-    ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
-
-    mdi_child = CreateWindowExA(WS_EX_MDICHILD, "MDI_child_Class_1", "MDI child",
-                                WS_MAXIMIZE,
-                                CW_USEDEFAULT, CW_USEDEFAULT,
-                                CW_USEDEFAULT, CW_USEDEFAULT,
-                                mdi_client, 0, GetModuleHandleA(NULL),
-                                mdi_lParam_test_message);
-    ok(mdi_child != 0, "MDI child creation failed\n");
-    id = GetWindowLongPtrA(mdi_child, GWLP_ID);
-    ok(id == first_id, "wrong child id %ld\n", id);
-    hwnd = (HWND)SendMessageA(mdi_client, WM_MDIGETACTIVE, 0, 0);
-    exp_hwnd = (GetWindowLongW(mdi_child, GWL_STYLE) & WS_VISIBLE) ? mdi_child : 0;
-    ok(hwnd == exp_hwnd, "WM_MDIGETACTIVE should return %p, got %p\n", exp_hwnd, hwnd);
-    if (GetWindowLongA(mdi_client, GWL_STYLE) & MDIS_ALLCHILDSTYLES)
-        ok(GetMenuItemCount(frame_menu) == 0, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
-    else
-        ok(GetMenuItemCount(frame_menu) == 4, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
     SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
     ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
 
@@ -1584,7 +1555,6 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     ok(id == first_id, "wrong child id %ld\n", id);
     hwnd = (HWND)SendMessageA(mdi_client, WM_MDIGETACTIVE, 0, 0);
     ok(!hwnd, "WM_MDIGETACTIVE should return 0, got %p\n", hwnd);
-    ok(GetMenuItemCount(frame_menu) == 0, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
     SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
     ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
 
@@ -1605,7 +1575,6 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
         ok(id == first_id, "wrong child id %ld\n", id);
         hwnd = (HWND)SendMessageA(mdi_client, WM_MDIGETACTIVE, 0, 0);
         ok(!hwnd, "WM_MDIGETACTIVE should return 0, got %p\n", hwnd);
-        ok(GetMenuItemCount(frame_menu) == 0, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
         SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
         ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
     }
@@ -1632,7 +1601,6 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
         hwnd = (HWND)SendMessageA(mdi_client, WM_MDIGETACTIVE, 0, 0);
         exp_hwnd = (GetWindowLongW(mdi_child, GWL_STYLE) & WS_VISIBLE) ? mdi_child : 0;
         ok(hwnd == exp_hwnd, "WM_MDIGETACTIVE should return %p, got %p\n", exp_hwnd, hwnd);
-        ok(GetMenuItemCount(frame_menu) == 0, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
         SendMessageA(mdi_client, WM_MDIDESTROY, (WPARAM)mdi_child, 0);
         ok(!IsWindow(mdi_child), "WM_MDIDESTROY failed\n");
     }
@@ -1658,7 +1626,6 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     ok(mdi_child != 0, "MDI child creation failed\n");
     id = GetWindowLongPtrA(mdi_child, GWLP_ID);
     ok(id == 0, "wrong child id %ld\n", id);
-    ok(GetMenuItemCount(frame_menu) == 0, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
     hwnd = (HWND)SendMessageA(mdi_client, WM_MDIGETACTIVE, 0, 0);
     ok(!hwnd, "WM_MDIGETACTIVE should return 0, got %p\n", hwnd);
     DestroyWindow(mdi_child);
@@ -1674,7 +1641,6 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     ok(id == 0, "wrong child id %ld\n", id);
     hwnd = (HWND)SendMessageA(mdi_client, WM_MDIGETACTIVE, 0, 0);
     ok(!hwnd, "WM_MDIGETACTIVE should return 0, got %p\n", hwnd);
-    ok(GetMenuItemCount(frame_menu) == 0, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
     DestroyWindow(mdi_child);
 
     /* maximized child */
@@ -1689,7 +1655,6 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     ok(id == 0, "wrong child id %ld\n", id);
     hwnd = (HWND)SendMessageA(mdi_client, WM_MDIGETACTIVE, 0, 0);
     ok(!hwnd, "WM_MDIGETACTIVE should return 0, got %p\n", hwnd);
-    ok(GetMenuItemCount(frame_menu) == 0, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
     DestroyWindow(mdi_child);
 
     trace("Creating maximized child with a caption\n");
@@ -1704,7 +1669,6 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     ok(id == 0, "wrong child id %ld\n", id);
     hwnd = (HWND)SendMessageA(mdi_client, WM_MDIGETACTIVE, 0, 0);
     ok(!hwnd, "WM_MDIGETACTIVE should return 0, got %p\n", hwnd);
-    ok(GetMenuItemCount(frame_menu) == 0, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
     DestroyWindow(mdi_child);
 
     trace("Creating maximized child with a caption and a thick frame\n");
@@ -1719,7 +1683,6 @@ static void test_MDI_create(HWND parent, HWND mdi_client, INT_PTR first_id)
     ok(id == 0, "wrong child id %ld\n", id);
     hwnd = (HWND)SendMessageA(mdi_client, WM_MDIGETACTIVE, 0, 0);
     ok(!hwnd, "WM_MDIGETACTIVE should return 0, got %p\n", hwnd);
-    ok(GetMenuItemCount(frame_menu) == 0, "Got wrong frame menu item count: %u\n", GetMenuItemCount(frame_menu));
     DestroyWindow(mdi_child);
 }
 
@@ -1833,7 +1796,7 @@ static LRESULT WINAPI mdi_child_wnd_proc_1(HWND hwnd, UINT msg, WPARAM wparam, L
             ok(cs->hInstance == mdi_cs->hOwner, "%p != %p\n", cs->hInstance, mdi_cs->hOwner);
 
             /* MDICREATESTRUCT should have original values */
-            ok(mdi_cs->style == 0 || mdi_cs->style == 0x7fffffff || mdi_cs->style == 0xffffffff || mdi_cs->style == WS_MAXIMIZE,
+            ok(mdi_cs->style == 0 || mdi_cs->style == 0x7fffffff || mdi_cs->style == 0xffffffff,
                 "mdi_cs->style does not match (%08x)\n", mdi_cs->style);
             ok(mdi_cs->x == CW_USEDEFAULT, "%d != CW_USEDEFAULT\n", mdi_cs->x);
             ok(mdi_cs->y == CW_USEDEFAULT, "%d != CW_USEDEFAULT\n", mdi_cs->y);
@@ -2110,12 +2073,11 @@ static BOOL mdi_RegisterWindowClasses(void)
 static void test_mdi(void)
 {
     static const DWORD style[] = { 0, WS_HSCROLL, WS_VSCROLL, WS_HSCROLL | WS_VSCROLL };
-    HWND mdi_hwndMain, mdi_client, mdi_child;
+    HWND mdi_hwndMain, mdi_client;
     CLIENTCREATESTRUCT client_cs;
     RECT rc;
     DWORD i;
     MSG msg;
-    HMENU frame_menu, child_menu;
 
     if (!mdi_RegisterWindowClasses()) assert(0);
 
@@ -2127,8 +2089,6 @@ static void test_mdi(void)
                                    GetModuleHandleA(NULL), NULL);
     assert(mdi_hwndMain);
 
-    frame_menu = CreateMenu();
-
     GetClientRect(mdi_hwndMain, &rc);
 
     client_cs.hWindowMenu = 0;
@@ -2136,6 +2096,7 @@ static void test_mdi(void)
 
     for (i = 0; i < sizeof(style)/sizeof(style[0]); i++)
     {
+        HWND mdi_child;
         SCROLLINFO si;
         BOOL ret, gotit;
 
@@ -2152,25 +2113,6 @@ static void test_mdi(void)
                                 mdi_client, 0, 0,
                                 mdi_lParam_test_message);
         ok(mdi_child != 0, "MDI child creation failed\n");
-
-        SendMessageW(mdi_child, WM_SIZE, SIZE_MAXIMIZED, 0);
-        SetMenu(mdi_hwndMain, frame_menu);
-
-        ok(GetMenuItemCount(frame_menu) == 0, "Frame menu should be empty after child maximize, but has %u\n",
-                GetMenuItemCount(frame_menu));
-
-        child_menu = CreateMenu();
-        SendMessageW(mdi_client, WM_MDISETMENU, 0, (LPARAM)child_menu);
-
-        ok(GetMenuItemCount(frame_menu) == 0, "Frame menu should be empty after WM_MDISETMENU, but has %u\n",
-                GetMenuItemCount(frame_menu));
-
-        SendMessageW(mdi_child, WM_SIZE, SIZE_RESTORED, 0);
-
-        ok(GetMenuItemCount(frame_menu) == 0, "Frame menu should be empty after child restored, but has %u items\n",
-                GetMenuItemCount(frame_menu));
-
-        SetMenu(mdi_hwndMain, NULL);
 
         si.cbSize = sizeof(si);
         si.fMask = SIF_ALL;
@@ -2280,45 +2222,9 @@ todo_wine
         else
             ok(!ret, "style %#x: GetScrollInfo(SB_VERT) should fail\n", style[i]);
 
-        DestroyMenu(child_menu);
         DestroyWindow(mdi_child);
         DestroyWindow(mdi_client);
     }
-
-    SetMenu(mdi_hwndMain, frame_menu);
-
-    mdi_client = CreateWindowExA(0, "mdiclient", NULL,
-                             WS_CHILD,
-                             0, 0, rc.right, rc.bottom,
-                             mdi_hwndMain, 0, 0, &client_cs);
-    ok(mdi_client != 0, "MDI client creation failed\n");
-
-    mdi_child = CreateWindowExA(WS_EX_MDICHILD, "MDI_child_Class_1", "MDI child",
-                            0,
-                            CW_USEDEFAULT, CW_USEDEFAULT,
-                            CW_USEDEFAULT, CW_USEDEFAULT,
-                            mdi_client, 0, 0,
-                            mdi_lParam_test_message);
-    ok(mdi_child != 0, "MDI child creation failed\n");
-
-    SendMessageW(mdi_child, WM_SIZE, SIZE_MAXIMIZED, 0);
-    ok(GetMenuItemCount(frame_menu) == 4, "Frame menu should have 4 items after child maximize, but has %u\n",
-            GetMenuItemCount(frame_menu));
-
-    child_menu = CreateMenu();
-    SendMessageW(mdi_client, WM_MDISETMENU, 0, (LPARAM)child_menu);
-
-    ok(GetMenuItemCount(frame_menu) == 4, "Frame menu should have 4 items after WM_MDISETMENU, but has %u\n",
-            GetMenuItemCount(frame_menu));
-
-    SendMessageW(mdi_child, WM_SIZE, SIZE_RESTORED, 0);
-
-    ok(GetMenuItemCount(frame_menu) == 0, "Frame menu should be empty after child restored, but has %u items\n",
-            GetMenuItemCount(frame_menu));
-
-    DestroyMenu(child_menu);
-    DestroyWindow(mdi_child);
-    DestroyWindow(mdi_client);
 
     /* MDIClient without MDIS_ALLCHILDSTYLES */
     mdi_client = CreateWindowExA(0, "mdiclient",
@@ -6352,98 +6258,6 @@ static void test_SetWindowLong(void)
     }
 }
 
-static LRESULT WINAPI check_style_wnd_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    const STYLESTRUCT *expected = (STYLESTRUCT *)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
-    const STYLESTRUCT *got = (STYLESTRUCT *)lParam;
-
-    if (message == WM_STYLECHANGING && wParam == GWL_STYLE)
-    {
-        ok(got->styleOld == expected[0].styleOld, "expected old style %#x, got %#x\n",
-            expected[0].styleOld, got->styleOld);
-        ok(got->styleNew == expected[0].styleNew, "expected new style %#x, got %#x\n",
-            expected[0].styleNew, got->styleNew);
-    }
-    else if (message == WM_STYLECHANGED && wParam == GWL_STYLE)
-    {
-        ok(got->styleOld == expected[1].styleOld, "expected old style %#x, got %#x\n",
-            expected[1].styleOld, got->styleOld);
-        ok(got->styleNew == expected[1].styleNew, "expected new style %#x, got %#x\n",
-            expected[1].styleNew, got->styleNew);
-    }
-
-    return DefWindowProcA(hwnd, message, wParam, lParam);
-}
-
-static void test_set_window_style(void)
-{
-    LONG expected_style, new_style, old_style;
-    STYLESTRUCT expected_stylestruct[2];
-    unsigned int i;
-    WNDCLASSA cls;
-    HWND hwnd;
-
-    static const struct
-    {
-        LONG creation_style;
-        LONG style;
-    }
-    tests[] =
-    {
-        { WS_MINIMIZE | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-          WS_VISIBLE | WS_CLIPSIBLINGS | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX },
-        { WS_MINIMIZE | WS_CLIPSIBLINGS | WS_CAPTION,
-          WS_CLIPSIBLINGS | WS_CAPTION },
-        { WS_MAXIMIZE | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-          WS_VISIBLE | WS_CLIPSIBLINGS | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX },
-        { WS_MAXIMIZE | WS_CLIPSIBLINGS | WS_CAPTION,
-          WS_CLIPSIBLINGS | WS_CAPTION },
-        { WS_VISIBLE | WS_CLIPSIBLINGS | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-          WS_MINIMIZE | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX },
-        { WS_CLIPSIBLINGS | WS_CAPTION,
-          WS_MINIMIZE | WS_CLIPSIBLINGS | WS_CAPTION },
-        { WS_VISIBLE | WS_CLIPSIBLINGS | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-          WS_MAXIMIZE | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX },
-        { WS_CLIPSIBLINGS | WS_CAPTION,
-          WS_MAXIMIZE | WS_CLIPSIBLINGS | WS_CAPTION },
-    };
-
-    memset(&cls, 0, sizeof(cls));
-    cls.lpfnWndProc = check_style_wnd_proc;
-    cls.hInstance = GetModuleHandleA(0);
-    cls.lpszClassName = "TestSetWindowStylesClass";
-    ok(RegisterClassA(&cls), "RegisterClass failed\n");
-
-    for (i = 0; i < sizeof(tests) / sizeof(*tests); i++)
-    {
-        expected_style = tests[i].style;
-        if (tests[i].creation_style & WS_MINIMIZE)
-            expected_style |= WS_MINIMIZE;
-
-        expected_stylestruct[0].styleOld = tests[i].creation_style;
-        expected_stylestruct[0].styleNew = tests[i].style;
-        expected_stylestruct[1].styleOld = tests[i].creation_style;
-        expected_stylestruct[1].styleNew = expected_style;
-
-        hwnd = CreateWindowA(cls.lpszClassName, "Test set styles",
-                             tests[i].creation_style, 100, 100, 200, 200, 0, 0, 0, NULL);
-        ok(hwnd != 0, "CreateWindow failed\n");
-        SetWindowLongPtrA(hwnd, GWLP_USERDATA, (LONG_PTR)&expected_stylestruct);
-
-        old_style = SetWindowLongA(hwnd, GWL_STYLE, tests[i].style);
-        ok(old_style == tests[i].creation_style, "expected old style %#x, got %#x\n",
-            tests[i].creation_style, old_style);
-        new_style = GetWindowLongA(hwnd, GWL_STYLE);
-        ok(new_style == expected_style, "expected new style %#x, got %#x\n",
-            expected_style, new_style);
-
-        SetWindowLongPtrA(hwnd, GWLP_USERDATA, 0);
-        DestroyWindow(hwnd);
-    }
-
-    UnregisterClassA(cls.lpszClassName, cls.hInstance);
-}
-
 static void test_ShowWindow(void)
 {
     HWND hwnd;
@@ -9534,7 +9348,6 @@ START_TEST(win)
     test_redrawnow();
     test_csparentdc();
     test_SetWindowLong();
-    test_set_window_style();
     test_ShowWindow();
     test_gettext();
     test_GetUpdateRect();
@@ -9551,7 +9364,10 @@ START_TEST(win)
     test_smresult();
     test_GetMessagePos();
 
-    test_activateapp(hwndMain);
+    if (!winetest_interactive)
+        skip("ROSTESTS-208: Skipping test_activateapp(hwndMain).\n");
+    else
+        test_activateapp(hwndMain);
     test_winproc_handles(argv[0]);
     test_deferwindowpos();
 

@@ -35,7 +35,7 @@
 # CoGetApartmentID
 @ stdcall CoGetCallContext(ptr ptr)
 @ stdcall CoGetCallerTID(ptr)
-@ stdcall -stub CoGetCancelObject(long ptr ptr)
+# CoGetCancelObject
 @ stdcall CoGetClassObject(ptr long ptr ptr ptr)
 # CoGetClassVersion
 # CoGetComCatalog
@@ -236,7 +236,7 @@
 @ stdcall OleGetAutoConvert(ptr ptr)
 @ stdcall OleGetClipboard(ptr)
 @ stdcall OleGetIconOfClass(ptr ptr long)
-@ stdcall OleGetIconOfFile(ptr long)
+@ stub OleGetIconOfFile
 @ stdcall OleInitialize(ptr)
 @ stdcall OleInitializeWOW(long long)
 @ stdcall OleIsCurrentClipboard(ptr)
@@ -292,14 +292,14 @@
 @ stdcall StgCreateDocfile(wstr long long ptr)
 @ stdcall StgCreateDocfileOnILockBytes(ptr long long ptr)
 @ stdcall StgCreatePropSetStg(ptr long ptr)
-@ stdcall StgCreatePropStg(ptr ptr ptr long long ptr)
+# StgCreatePropStg
 @ stdcall StgCreateStorageEx(wstr long long long ptr ptr ptr ptr)
 @ stub StgGetIFillLockBytesOnFile
 @ stub StgGetIFillLockBytesOnILockBytes
 @ stdcall StgIsStorageFile(wstr)
 @ stdcall StgIsStorageILockBytes(ptr)
 @ stub StgOpenAsyncDocfileOnIFillLockBytes
-@ stdcall StgOpenPropStg(ptr ptr long long ptr)
+# StgOpenPropStg
 @ stdcall StgOpenStorage(wstr ptr long ptr long ptr)
 @ stdcall StgOpenStorageEx(wstr long long long ptr ptr ptr ptr)
 # StgOpenStorageOnHandle

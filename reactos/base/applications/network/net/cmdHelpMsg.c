@@ -13,15 +13,14 @@
 
 INT cmdHelpMsg(INT argc, WCHAR **argv)
 {
-    INT i;
-    LONG errNum;
     LPWSTR endptr;
-    // DWORD dwLength = 0;
     LPWSTR lpBuffer;
+    LONG errNum;
+    INT i;
 
     if (argc < 3)
     {
-        ConResPuts(StdOut, IDS_HELPMSG_SYNTAX);
+        PrintResourceString(IDS_HELPMSG_SYNTAX);
         return 1;
     }
 
@@ -29,7 +28,7 @@ INT cmdHelpMsg(INT argc, WCHAR **argv)
     {
         if (_wcsicmp(argv[i], L"/help") == 0)
         {
-            ConResPuts(StdOut, IDS_HELPMSG_HELP);
+            PrintResourceString(IDS_HELPMSG_HELP);
             return 1;
         }
     }
@@ -37,27 +36,25 @@ INT cmdHelpMsg(INT argc, WCHAR **argv)
     errNum = wcstol(argv[2], &endptr, 10);
     if (*endptr != 0)
     {
-        ConResPuts(StdOut, IDS_HELPMSG_SYNTAX);
+        PrintResourceString(IDS_HELPMSG_SYNTAX);
         return 1;
     }
 
-    /* Retrieve the message string without appending extra newlines */
-    // dwLength =
-    FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
-                   FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_MAX_WIDTH_MASK,
-                   NULL,
-                   errNum,
-                   LANG_USER_DEFAULT,
-                   (LPWSTR)&lpBuffer,
-                   0, NULL);
-    if (lpBuffer /* && dwLength */)
+    /* Unicode printing is not supported in ReactOS yet */
+    if (FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+                       NULL,
+                       errNum,
+                       LANG_USER_DEFAULT,
+                       (LPWSTR)&lpBuffer,
+                       0,
+                       NULL))
     {
-        ConPrintf(StdOut, L"\n%s\n", lpBuffer);
+        PrintToConsole(L"\n%s\n", lpBuffer);
         LocalFree(lpBuffer);
     }
     else
     {
-        ConPrintf(StdOut, L"Unrecognized error code: %ld\n", errNum);
+        PrintToConsole(L"Unrecognized error code: %ld\n", errNum);
     }
 
     return 0;

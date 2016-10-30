@@ -81,7 +81,7 @@ InitWindowStationImpl(VOID);
 
 NTSTATUS
 NTAPI
-UserCreateWinstaDirectory(VOID);
+UserCreateWinstaDirectory();
 
 NTSTATUS
 APIENTRY

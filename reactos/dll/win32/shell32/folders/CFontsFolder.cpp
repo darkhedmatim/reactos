@@ -25,13 +25,37 @@ WINE_DEFAULT_DEBUG_CHANNEL (shell);
 
 CFontsFolder::CFontsFolder()
 {
-    m_pidlInner = NULL;
+    m_pisfInner = NULL;
 }
 
 CFontsFolder::~CFontsFolder()
 {
-    if(m_pidlInner)
-        SHFree(m_pidlInner);
+}
+
+HRESULT WINAPI CFontsFolder::FinalConstruct()
+{
+    HRESULT hr;
+    CComPtr<IPersistFolder3> ppf3;
+    hr = SHCoCreateInstance(NULL, &CLSID_ShellFSFolder, NULL, IID_PPV_ARG(IShellFolder2, &m_pisfInner));
+    if (FAILED(hr))
+        return hr;
+
+    hr = m_pisfInner->QueryInterface(IID_PPV_ARG(IPersistFolder3, &ppf3));
+    if (FAILED(hr))
+        return hr;
+
+    LPITEMIDLIST pidl = _ILCreateGuid(PT_GUID, CLSID_FontsFolderShortcut);
+    if (!pidl)
+        return E_OUTOFMEMORY;
+        
+    PERSIST_FOLDER_TARGET_INFO info;
+    ZeroMemory(&info, sizeof(PERSIST_FOLDER_TARGET_INFO));
+    info.csidl = CSIDL_FONTS;
+    hr = ppf3->InitializeEx(NULL, pidl, &info);
+
+    ILFree(pidl);
+    
+    return hr;
 }
 
 HRESULT WINAPI CFontsFolder::ParseDisplayName(HWND hwndOwner, LPBC pbc, LPOLESTR lpszDisplayName,
@@ -171,22 +195,15 @@ HRESULT WINAPI CFontsFolder::GetClassID(CLSID *lpClassId)
 
 HRESULT WINAPI CFontsFolder::Initialize(LPCITEMIDLIST pidl)
 {
-    m_pidlInner = ILClone(pidl);
-    if (!m_pidlInner)
-        return E_OUTOFMEMORY;
-
-    return SHELL32_CoCreateInitSF(m_pidlInner, 
-                                  NULL,
-                                  NULL,
-                                  &CLSID_ShellFSFolder,
-                                  CSIDL_FONTS,
-                                  IID_PPV_ARG(IShellFolder2, &m_pisfInner));
+    return S_OK;
 }
 
 HRESULT WINAPI CFontsFolder::GetCurFolder(LPITEMIDLIST *pidl)
 {
     if (!pidl)
         return E_POINTER;
-    *pidl = ILClone(m_pidlInner);
+
+    *pidl = _ILCreateGuid(PT_GUID, CLSID_FontsFolderShortcut);
+
     return S_OK;
 }

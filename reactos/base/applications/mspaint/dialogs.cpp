@@ -76,6 +76,9 @@ ATTDlgWinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
         case WM_INITDIALOG:
         {
+            TCHAR strrc[100];
+            TCHAR res[100];
+
             widthSetInDlg = imageModel.GetWidth();
             heightSetInDlg = imageModel.GetHeight();
 
@@ -87,19 +90,20 @@ ATTDlgWinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             if (isAFile)
             {
                 TCHAR date[100];
+                TCHAR size[100];
                 TCHAR temp[100];
                 GetDateFormat(LOCALE_USER_DEFAULT, 0, &fileTime, NULL, date, SIZEOF(date));
                 GetTimeFormat(LOCALE_USER_DEFAULT, 0, &fileTime, NULL, temp, SIZEOF(temp));
                 _tcscat(date, _T(" "));
                 _tcscat(date, temp);
-                CString strSize;
-                strSize.Format(IDS_FILESIZE, fileSize);
+                LoadString(hProgInstance, IDS_FILESIZE, strrc, SIZEOF(strrc));
+                _stprintf(size, strrc, fileSize);
                 SetDlgItemText(hwnd, IDD_ATTRIBUTESTEXT6, date);
-                SetDlgItemText(hwnd, IDD_ATTRIBUTESTEXT7, strSize);
+                SetDlgItemText(hwnd, IDD_ATTRIBUTESTEXT7, size);
             }
-            CString strRes;
-            strRes.Format(IDS_PRINTRES, fileHPPM, fileVPPM);
-            SetDlgItemText(hwnd, IDD_ATTRIBUTESTEXT8, strRes);
+            LoadString(hProgInstance, IDS_PRINTRES, strrc, SIZEOF(strrc));
+            _stprintf(res, strrc, fileHPPM, fileVPPM);
+            SetDlgItemText(hwnd, IDD_ATTRIBUTESTEXT8, res);
             return TRUE;
         }
         case WM_CLOSE:
@@ -124,20 +128,20 @@ ATTDlgWinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     break;
                 case IDD_ATTRIBUTESRB1:
                 {
-                    CString strNum;
-                    strNum.Format(_T("%.3lf"), widthSetInDlg / (0.0254 * fileHPPM));
-                    SetDlgItemText(hwnd, IDD_ATTRIBUTESEDIT1, strNum);
-                    strNum.Format(_T("%.3lf"), heightSetInDlg / (0.0254 * fileVPPM));
-                    SetDlgItemText(hwnd, IDD_ATTRIBUTESEDIT2, strNum);
+                    TCHAR number[100];
+                    _stprintf(number, _T("%.3lf"), widthSetInDlg / (0.0254 * fileHPPM));
+                    SetDlgItemText(hwnd, IDD_ATTRIBUTESEDIT1, number);
+                    _stprintf(number, _T("%.3lf"), heightSetInDlg / (0.0254 * fileVPPM));
+                    SetDlgItemText(hwnd, IDD_ATTRIBUTESEDIT2, number);
                     break;
                 }
                 case IDD_ATTRIBUTESRB2:
                 {
-                    CString strNum;
-                    strNum.Format(_T("%.3lf"), widthSetInDlg * 100.0 / fileHPPM);
-                    SetDlgItemText(hwnd, IDD_ATTRIBUTESEDIT1, strNum);
-                    strNum.Format(_T("%.3lf"), heightSetInDlg * 100.0 / fileVPPM);
-                    SetDlgItemText(hwnd, IDD_ATTRIBUTESEDIT2, strNum);
+                    TCHAR number[100];
+                    _stprintf(number, _T("%.3lf"), widthSetInDlg * 100.0 / fileHPPM);
+                    SetDlgItemText(hwnd, IDD_ATTRIBUTESEDIT1, number);
+                    _stprintf(number, _T("%.3lf"), heightSetInDlg * 100.0 / fileVPPM);
+                    SetDlgItemText(hwnd, IDD_ATTRIBUTESEDIT2, number);
                     break;
                 }
                 case IDD_ATTRIBUTESRB3:

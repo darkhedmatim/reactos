@@ -57,11 +57,6 @@ struct proxy_manager
   void *dest_context_data;  /* reserved context value (LOCK) */
 };
 
-static inline struct proxy_manager *impl_from_IMultiQI( IMultiQI *iface )
-{
-    return CONTAINING_RECORD(iface, struct proxy_manager, IMultiQI_iface);
-}
-
 static inline struct proxy_manager *impl_from_IMarshal( IMarshal *iface )
 {
     return CONTAINING_RECORD(iface, struct proxy_manager, IMarshal_iface);
@@ -220,16 +215,16 @@ static HRESULT WINAPI ClientIdentity_QueryInterface(IMultiQI * iface, REFIID rii
     return hr;
 }
 
-static ULONG WINAPI ClientIdentity_AddRef(IMultiQI *iface)
+static ULONG WINAPI ClientIdentity_AddRef(IMultiQI * iface)
 {
-    struct proxy_manager *This = impl_from_IMultiQI(iface);
+    struct proxy_manager * This = (struct proxy_manager *)iface;
     TRACE("%p - before %d\n", iface, This->refs);
     return InterlockedIncrement(&This->refs);
 }
 
-static ULONG WINAPI ClientIdentity_Release(IMultiQI *iface)
+static ULONG WINAPI ClientIdentity_Release(IMultiQI * iface)
 {
-    struct proxy_manager *This = impl_from_IMultiQI(iface);
+    struct proxy_manager * This = (struct proxy_manager *)iface;
     ULONG refs = InterlockedDecrement(&This->refs);
     TRACE("%p - after %d\n", iface, refs);
     if (!refs)
@@ -239,7 +234,7 @@ static ULONG WINAPI ClientIdentity_Release(IMultiQI *iface)
 
 static HRESULT WINAPI ClientIdentity_QueryMultipleInterfaces(IMultiQI *iface, ULONG cMQIs, MULTI_QI *pMQIs)
 {
-    struct proxy_manager *This = impl_from_IMultiQI(iface);
+    struct proxy_manager * This = (struct proxy_manager *)iface;
     REMQIRESULT *qiresults = NULL;
     ULONG nonlocal_mqis = 0;
     ULONG i;

@@ -47,8 +47,6 @@
 #include <winbase.h>
 #include <wincon.h>
 
-#include <conutils.h>
-
 #define NTOS_MODE_USER
 #include <ndk/ntndk.h>
 
@@ -62,7 +60,7 @@
 //
 BOOL    Error = FALSE;
 
-// Switches
+// switches
 BOOL    FixErrors = FALSE;
 BOOL    SkipClean = FALSE;
 BOOL    ScanSectors = FALSE;
@@ -87,10 +85,15 @@ PCHKDSK Chkdsk;
 //----------------------------------------------------------------------
 static VOID PrintWin32Error(LPWSTR Message, DWORD ErrorCode)
 {
-    ConPrintf(StdErr, L"%s: ", Message);
-    ConMsgPuts(StdErr, FORMAT_MESSAGE_FROM_SYSTEM,
-               NULL, ErrorCode, LANG_USER_DEFAULT);
-    ConPuts(StdErr, L"\n");
+    LPWSTR lpMsgBuf;
+
+    FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+                   NULL, ErrorCode,
+                   MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                   (LPWSTR)&lpMsgBuf, 0, NULL);
+
+    wprintf(L"%s: %s\n", Message, lpMsgBuf);
+    LocalFree(lpMsgBuf);
 }
 
 
@@ -123,14 +126,13 @@ CtrlCIntercept(DWORD dwCtrlType)
 static VOID
 Usage(PWCHAR ProgramName)
 {
-    ConPrintf(StdOut,
-        L"Usage: %s [drive:] [-F] [-V] [-R] [-C]\n\n"
-        L"[drive:]    Specifies the drive to check.\n"
-        L"-F          Fixes errors on the disk.\n"
-        L"-V          Displays the full path of every file on the disk.\n"
-        L"-R          Locates bad sectors and recovers readable information.\n"
-        L"-C          Checks the drive only if it is dirty.\n\n",
-        ProgramName);
+    wprintf(L"Usage: %s [drive:] [-F] [-V] [-R] [-C]\n\n"
+            L"[drive:]    Specifies the drive to check.\n"
+            L"-F          Fixes errors on the disk.\n"
+            L"-V          Displays the full path of every file on the disk.\n"
+            L"-R          Locates bad sectors and recovers readable information.\n"
+            L"-C          Checks the drive only if it is dirty.\n\n",
+            ProgramName);
 }
 
 
@@ -239,76 +241,76 @@ ChkdskCallback(
     switch (Command)
     {
         case UNKNOWN2:
-            ConPuts(StdOut, L"UNKNOWN2\r");
+            wprintf(L"UNKNOWN2\r");
             break;
 
         case UNKNOWN3:
-            ConPuts(StdOut, L"UNKNOWN3\n");
+            wprintf(L"UNKNOWN3\n");
             break;
 
         case UNKNOWN4:
-            ConPuts(StdOut, L"UNKNOWN4\n");
+            wprintf(L"UNKNOWN4\n");
             break;
 
         case UNKNOWN5:
-            ConPuts(StdOut, L"UNKNOWN5\n");
+            wprintf(L"UNKNOWN5\n");
             break;
 
         case FSNOTSUPPORTED:
-            ConPuts(StdOut, L"FSNOTSUPPORTED\n");
+            wprintf(L"FSNOTSUPPORTED\n");
             break;
 
         case VOLUMEINUSE:
-            ConPuts(StdOut, L"VOLUMEINUSE\n");
+            wprintf(L"VOLUMEINUSE\n");
             break;
 
         case UNKNOWN9:
-            ConPuts(StdOut, L"UNKNOWN9\n");
+            wprintf(L"UNKNOWN9\n");
             break;
 
         case UNKNOWNA:
-            ConPuts(StdOut, L"UNKNOWNA\n");
+            wprintf(L"UNKNOWNA\n");
             break;
 
         case UNKNOWNC:
-            ConPuts(StdOut, L"UNKNOWNC\n");
+            wprintf(L"UNKNOWNC\n");
             break;
 
         case UNKNOWND:
-            ConPuts(StdOut, L"UNKNOWND\n");
+            wprintf(L"UNKNOWND\n");
             break;
 
         case INSUFFICIENTRIGHTS:
-            ConPuts(StdOut, L"INSUFFICIENTRIGHTS\n");
+            wprintf(L"INSUFFICIENTRIGHTS\n");
             break;
 
         case STRUCTUREPROGRESS:
-            ConPuts(StdOut, L"STRUCTUREPROGRESS\n");
+            wprintf(L"STRUCTUREPROGRESS\n");
             break;
 
         case DONEWITHSTRUCTURE:
-            ConPuts(StdOut, L"DONEWITHSTRUCTURE\n");
+            wprintf(L"DONEWITHSTRUCTURE\n");
             break;
 
         case CLUSTERSIZETOOSMALL:
-            ConPuts(StdOut, L"CLUSTERSIZETOOSMALL\n");
+            wprintf(L"CLUSTERSIZETOOSMALL\n");
             break;
 
         case PROGRESS:
             percent = (PDWORD)Argument;
-            ConPrintf(StdOut, L"%d percent completed.\r", *percent);
+            wprintf(L"%d percent completed.\r", *percent);
             break;
 
         case OUTPUT:
             output = (PTEXTOUTPUT)Argument;
-            ConPrintf(StdOut, L"%S", output->Output);
+            wprintf(L"%S", output->Output);
             break;
 
         case DONE:
             status = (PBOOLEAN)Argument;
             if (*status == FALSE)
             {
-                ConPuts(StdOut, L"Chkdsk was unable to complete successfully.\n\n");
+                wprintf(L"Chkdsk was unable to complete successfully.\n\n");
                 Error = TRUE;
             }
             break;
@@ -359,20 +361,16 @@ int
 wmain(int argc, WCHAR *argv[])
 {
     int badArg;
-    HANDLE volumeHandle;
-    WCHAR  fileSystem[1024];
-    WCHAR  volumeName[1024];
-    DWORD  serialNumber;
-    DWORD  flags, maxComponent;
+    HANDLE  volumeHandle;
+    WCHAR   fileSystem[1024];
+    WCHAR   volumeName[1024];
+    DWORD   serialNumber;
+    DWORD   flags, maxComponent;
 
-    /* Initialize the Console Standard Streams */
-    ConInitStdStreams();
-
-    ConPuts(StdOut,
-        L"\n"
-        L"Chkdskx v1.0.1 by Mark Russinovich\n"
-        L"Systems Internals - http://www.sysinternals.com\n"
-        L"ReactOS adaptation 1999 by Emanuele Aliberti\n\n");
+    wprintf(L"\n"
+            L"Chkdskx v1.0.1 by Mark Russinovich\n"
+            L"Systems Internals - http://www.sysinternals.com\n"
+            L"ReactOS adaptation 1999 by Emanuele Aliberti\n\n");
 
 #ifndef FMIFS_IMPORT_DLL
     //
@@ -380,7 +378,7 @@ wmain(int argc, WCHAR *argv[])
     //
     if (!LoadFMIFSEntryPoints())
     {
-        ConPuts(StdErr, L"Could not located FMIFS entry points.\n\n");
+        wprintf(L"Could not located FMIFS entry points.\n\n");
         return -1;
     }
 #endif
@@ -391,7 +389,7 @@ wmain(int argc, WCHAR *argv[])
     badArg = ParseCommandLine(argc, argv);
     if (badArg)
     {
-        ConPrintf(StdOut, L"Unknown argument: %s\n", argv[badArg]);
+        wprintf(L"Unknown argument: %s\n", argv[badArg]);
         Usage(argv[0]);
         return -1;
     }
@@ -447,7 +445,7 @@ wmain(int argc, WCHAR *argv[])
                                    0);
         if (volumeHandle == INVALID_HANDLE_VALUE)
         {
-            ConPuts(StdErr, L"Chkdsk cannot run because the volume is in use by another process.\n\n");
+            wprintf(L"Chdskx cannot run because the volume is in use by another process.\n\n");
             return -1;
         }
         CloseHandle(volumeHandle);
@@ -461,7 +459,7 @@ wmain(int argc, WCHAR *argv[])
     //
     // Just do it
     //
-    ConPrintf(StdOut, L"The type of file system is %s.\n", fileSystem);
+    wprintf(L"The type of file system is %s.\n", fileSystem);
     Chkdsk(Drive,
            fileSystem,
            FixErrors,

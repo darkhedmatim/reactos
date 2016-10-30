@@ -769,7 +769,7 @@ static WDML_QUEUE_STATE WDML_HandlePokeReply(WDML_CONV* pConv, MSG* msg, WDML_XA
     GlobalDeleteAtom(uiHi);
 
     if (ack) *ack = uiLo;
-    pXAct->hMem = GlobalFree(pXAct->hMem);
+    GlobalFree(pXAct->hMem);
 
     pXAct->hDdeData = (HDDEDATA)TRUE;
     return TRUE;

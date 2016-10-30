@@ -25,5 +25,4 @@ Size = 3,6 Mio
 
 [Section.0419]
 Description = Веб-сервер с упором на безопасность.
-Size = 3,6 МиБ
-
+Size = 3,6 МБ

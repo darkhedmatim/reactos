@@ -925,7 +925,7 @@ TOOLBAR_DrawButton (const TOOLBAR_INFO *infoPtr, TBUTTON_INFO *btnPtr, HDC hdc, 
     HTHEME theme = GetWindowTheme (infoPtr->hwndSelf);
 
     rc = btnPtr->rect;
-    rcArrow = rc;
+    CopyRect (&rcArrow, &rc);
 
     /* separator - doesn't send NM_CUSTOMDRAW */
     if (btnPtr->fsStyle & BTNS_SEP) {
@@ -979,8 +979,8 @@ TOOLBAR_DrawButton (const TOOLBAR_INFO *infoPtr, TBUTTON_INFO *btnPtr, HDC hdc, 
     /* copy text & bitmap rects after adjusting for drop-down arrow
      * so that text & bitmap is centered in the rectangle not containing
      * the arrow */
-    rcText = rc;
-    rcBitmap = rc;
+    CopyRect(&rcText, &rc);
+    CopyRect(&rcBitmap, &rc);
 
     /* Center the bitmap horizontally and vertically */
     if (dwStyle & TBSTYLE_LIST)
@@ -1007,7 +1007,8 @@ TOOLBAR_DrawButton (const TOOLBAR_INFO *infoPtr, TBUTTON_INFO *btnPtr, HDC hdc, 
     /* calculate text position */
     if (lpText)
     {
-        InflateRect(&rcText, -GetSystemMetrics(SM_CXEDGE), 0);
+        rcText.left += GetSystemMetrics(SM_CXEDGE);
+        rcText.right -= GetSystemMetrics(SM_CXEDGE);
         if (dwStyle & TBSTYLE_LIST)
         {
             rcText.left += infoPtr->nBitmapWidth + infoPtr->iListGap + 2;
@@ -2733,9 +2734,9 @@ TOOLBAR_CustomizeDialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			   lpdis->rcItem.right, lpdis->rcItem.bottom);
 
 		/* calculate button and text rectangles */
-                rcButton = lpdis->rcItem;
+		CopyRect (&rcButton, &lpdis->rcItem);
 		InflateRect (&rcButton, -1, -1);
-                rcText = rcButton;
+		CopyRect (&rcText, &rcButton);
 		rcButton.right = rcButton.left + custInfo->tbInfo->nBitmapWidth + 6;
 		rcText.left = rcButton.right + 2;
 
@@ -5703,7 +5704,7 @@ TOOLBAR_LButtonDown (TOOLBAR_INFO *infoPtr, WPARAM wParam, LPARAM lParam)
             RECT arrowRect;
             infoPtr->nOldHit = nHit;
 
-            arrowRect = btnPtr->rect;
+            CopyRect(&arrowRect, &btnPtr->rect);
             arrowRect.left = max(btnPtr->rect.left, btnPtr->rect.right - DDARROW_WIDTH);
 
             /* for EX_DRAWDDARROWS style,  click must be in the drop-down arrow rect */

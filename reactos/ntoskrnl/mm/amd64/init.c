@@ -370,15 +370,14 @@ INIT_FUNCTION
 MiBuildSystemPteSpace(VOID)
 {
     PMMPTE PointerPte;
-    SIZE_T NonPagedSystemSize;
 
-    /* Use the default number of system PTEs */
+    /* Use the default numer of system PTEs */
     MmNumberOfSystemPtes = MI_NUMBER_SYSTEM_PTES;
-    NonPagedSystemSize = (MmNumberOfSystemPtes + 1) * PAGE_SIZE;
+    MiNonPagedSystemSize = (MmNumberOfSystemPtes + 1) * PAGE_SIZE;
 
     /* Put system PTEs at the start of the system VA space */
     MiSystemPteSpaceStart = MmNonPagedSystemStart;
-    MiSystemPteSpaceEnd = (PUCHAR)MiSystemPteSpaceStart + NonPagedSystemSize;
+    MiSystemPteSpaceEnd = (PUCHAR)MiSystemPteSpaceStart + MiNonPagedSystemSize;
 
     /* Map the PPEs and PDEs for the system PTEs */
     MiMapPPEs(MiSystemPteSpaceStart, MiSystemPteSpaceEnd);

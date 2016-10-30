@@ -161,7 +161,7 @@ LoadAndParseAppCompatibilityFlags(LPCOMPATIBILITYPAGE info,
             }
 
             info->CSelectedItem = NULL;
-            if (szStr[0] != 0)
+            if (_tcslen(szStr) > 0)
             {
                 PCITEM item;
 

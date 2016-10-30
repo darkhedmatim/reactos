@@ -46,7 +46,6 @@ static const UINT64 superblock_addrs[] = { 0x10000, 0x4000000, 0x4000000000, 0x4
 #define BTRFS_ROOT_FSTREE       5
 #define BTRFS_ROOT_CHECKSUM     7
 #define BTRFS_ROOT_UUID         9
-#define BTRFS_ROOT_DATA_RELOC   0xFFFFFFFFFFFFFFF7
 
 #define BTRFS_COMPRESSION_NONE  0
 #define BTRFS_COMPRESSION_ZLIB  1
@@ -101,8 +100,6 @@ static const UINT64 superblock_addrs[] = { 0x10000, 0x4000000, 0x4000000000, 0x4
 #define BTRFS_INCOMPAT_FLAGS_SKINNY_METADATA    0x0100
 #define BTRFS_INCOMPAT_FLAGS_NO_HOLES           0x0200
 
-#define BTRFS_SUPERBLOCK_FLAGS_SEEDING   0x100000000
-
 #pragma pack(push, 1)
 
 typedef struct {
@@ -115,9 +112,8 @@ typedef struct {
     UINT64 offset;
 } KEY;
 
-#define HEADER_FLAG_WRITTEN         0x000000000000001
-#define HEADER_FLAG_SHARED_BACKREF  0x000000000000002
 #define HEADER_FLAG_MIXED_BACKREF   0x100000000000000
+#define HEADER_FLAG_SHARED_BACKREF  0x000000000000002
 
 typedef struct {
     UINT8 csum[32];

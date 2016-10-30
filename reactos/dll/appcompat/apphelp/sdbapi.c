@@ -425,7 +425,7 @@ PDB WINAPI SdbOpenDatabase(LPCWSTR path, PATH_TYPE type)
     if (!db)
         return NULL;
 
-    if (major != 2 && major != 3)
+    if (major != 2)
     {
         SdbCloseDatabase(db);
         SHIM_ERR("Invalid shim database version\n");
@@ -458,6 +458,59 @@ void WINAPI SdbCloseDatabase(PDB db)
         SdbpTableDestroy(&db->string_lookup);
     SdbFree(db->data);
     SdbFree(db);
+}
+
+/**
+ * Retrieves AppPatch directory.
+ *
+ * @param [in]  db      Handle to the shim database.
+ * @param [out] path    Pointer to memory in which path shall be written.
+ * @param [in]  size    Size of the buffer in characters.
+ */
+BOOL WINAPI SdbGetAppPatchDir(HSDB db, LPWSTR path, DWORD size)
+{
+    static WCHAR* default_dir = NULL;
+    static CONST WCHAR szAppPatch[] = {'\\','A','p','p','P','a','t','c','h',0};
+
+    /* In case function fails, path holds empty string */
+    if (size > 0)
+        *path = 0;
+
+    if (!default_dir)
+    {
+        WCHAR* tmp = NULL;
+        UINT len = GetSystemWindowsDirectoryW(NULL, 0) + lstrlenW(szAppPatch);
+        tmp = SdbAlloc((len + 1)* sizeof(WCHAR));
+        if (tmp)
+        {
+            UINT r = GetSystemWindowsDirectoryW(tmp, len+1);
+            if (r && r < len)
+            {
+                if (SUCCEEDED(StringCchCatW(tmp, len+1, szAppPatch)))
+                {
+                    if (InterlockedCompareExchangePointer((void**)&default_dir, tmp, NULL) == NULL)
+                        tmp = NULL;
+                }
+            }
+            if (tmp)
+                SdbFree(tmp);
+        }
+        if (!default_dir)
+        {
+            SHIM_ERR("Unable to obtain default AppPatch directory\n");
+            return FALSE;
+        }
+    }
+
+    if (!db)
+    {
+        return SUCCEEDED(StringCchCopyW(path, size, default_dir));
+    }
+    else
+    {
+        /* fixme */
+        return FALSE;
+    }
 }
 
 /**
@@ -561,108 +614,6 @@ BOOL WINAPI SdbGetDatabaseVersion(LPCWSTR database, PDWORD VersionHi, PDWORD Ver
 
     return TRUE;
 }
-
-
-/**
- * Find the first named child tag.
- *
- * @param [in]  database    The database.
- * @param [in]  root        The tag to start at
- * @param [in]  find        The tag type to find
- * @param [in]  nametag     The child of 'find' that contains the name
- * @param [in]  find_name   The name to find
- *
- * @return  The found tag, or TAGID_NULL on failure
- */
-TAGID WINAPI SdbFindFirstNamedTag(PDB db, TAGID root, TAGID find, TAGID nametag, LPCWSTR find_name)
-{
-    TAGID iter;
-
-    iter = SdbFindFirstTag(db, root, find);
-
-    while (iter != TAGID_NULL)
-    {
-        TAGID tmp = SdbFindFirstTag(db, iter, nametag);
-        if (tmp != TAGID_NULL)
-        {
-            LPCWSTR name = SdbGetStringTagPtr(db, tmp);
-            if (name && !lstrcmpiW(name, find_name))
-                return iter;
-        }
-        iter = SdbFindNextTag(db, root, iter);
-    }
-    return TAGID_NULL;
-}
-
-
-/**
- * Find a named layer in a multi-db.
- *
- * @param [in]  hsdb        The multi-database.
- * @param [in]  layerName   The named tag to find.
- *
- * @return  The layer, or TAGREF_NULL on failure
- */
-TAGREF WINAPI SdbGetLayerTagRef(HSDB hsdb, LPCWSTR layerName)
-{
-    PDB db = hsdb->db;
-
-    TAGID database = SdbFindFirstTag(db, TAGID_ROOT, TAG_DATABASE);
-    if (database != TAGID_NULL)
-    {
-        TAGID layer = SdbFindFirstNamedTag(db, database, TAG_LAYER, TAG_NAME, layerName);
-        if (layer != TAGID_NULL)
-        {
-            TAGREF tr;
-            if (SdbTagIDToTagRef(hsdb, db, layer, &tr))
-            {
-                return tr;
-            }
-        }
-    }
-    return TAGREF_NULL;
-}
-
-
-/**
- * Converts the specified string to an index key.
- *
- * @param [in]  str The string which will be converted.
- *
- * @return  The resulting index key
- *
- * @todo: Fix this for unicode strings.
- */
-LONGLONG WINAPI SdbMakeIndexKeyFromString(LPCWSTR str)
-{
-    LONGLONG result = 0;
-    int shift = 56;
-
-    while (*str && shift >= 0)
-    {
-        WCHAR c = toupper(*(str++));
-
-        if (c & 0xff)
-        {
-            result |= (((LONGLONG)(c & 0xff)) << shift);
-            shift -= 8;
-        }
-
-        if (shift < 0)
-            break;
-
-        c >>= 8;
-
-        if (c & 0xff)
-        {
-            result |= (((LONGLONG)(c & 0xff)) << shift);
-            shift -= 8;
-        }
-    }
-
-    return result;
-}
-
 
 /**
  * Converts specified tag into a string.

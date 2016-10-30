@@ -24,19 +24,15 @@ extern BOOLEAN NlsMbOemCodePageTag;
 extern PUSHORT NlsLeadByteInfo;
 extern USHORT NlsOemDefaultChar;
 extern USHORT NlsUnicodeDefaultChar;
-extern PUSHORT NlsOemLeadByteInfo;
-extern PWCHAR NlsOemToUnicodeTable;
-extern PCHAR NlsUnicodeToOemTable;
-extern PUSHORT NlsUnicodeToMbOemTable;
 
 
 /* FUNCTIONS *****************************************************************/
 
 NTSTATUS
 NTAPI
-RtlMultiAppendUnicodeStringBuffer(OUT PRTL_UNICODE_STRING_BUFFER StringBuffer,
-                                  IN ULONG NumberOfAddends,
-                                  IN PCUNICODE_STRING Addends)
+RtlMultiAppendUnicodeStringBuffer(IN PVOID Unknown,
+                                  IN ULONG Unknown2,
+                                  IN PVOID Unknown3)
 {
     UNIMPLEMENTED;
     return STATUS_NOT_IMPLEMENTED;
@@ -507,48 +503,14 @@ RtlpDidUnicodeToOemWork(IN PCUNICODE_STRING UnicodeString,
 }
 
 /*
-* @implemented
+* @unimplemented
 */
 BOOLEAN
 NTAPI
 RtlIsValidOemCharacter(IN PWCHAR Char)
 {
-    WCHAR UnicodeChar;
-    WCHAR OemChar;
-
-    /* If multi-byte code page present */
-    if (NlsMbOemCodePageTag)
-    {
-        USHORT Offset = 0;
-
-        OemChar = NlsUnicodeToMbOemTable[*Char];
-
-        /* If character has Lead Byte */
-        if (NlsOemLeadByteInfo[HIBYTE(OemChar)])
-            Offset = NlsOemLeadByteInfo[HIBYTE(OemChar)];
-
-        /* Receive Unicode character from the table */
-        UnicodeChar = RtlpUpcaseUnicodeChar(NlsOemToUnicodeTable[LOBYTE(OemChar) + Offset]);
-
-        /* Receive OEM character from the table */
-        OemChar = NlsUnicodeToMbOemTable[UnicodeChar];
-    }
-    else
-    {
-        /* Receive Unicode character from the table */
-        UnicodeChar = RtlpUpcaseUnicodeChar(NlsOemToUnicodeTable[(UCHAR)NlsUnicodeToOemTable[*Char]]);
-
-        /* Receive OEM character from the table */
-        OemChar = NlsUnicodeToOemTable[UnicodeChar];
-    }
-
-    /* Not valid character, failed */
-    if (OemChar == NlsOemDefaultChar)
-        return FALSE;
-
-    *Char = UnicodeChar;
-
-    return TRUE;
+    UNIMPLEMENTED;
+    return FALSE;
 }
 
 /*
@@ -742,11 +704,11 @@ NTSTATUS NTAPI RtlIntegerToChar(
     }
     else if (len == length)
     {
-        RtlCopyMemory(str, pos, len);
+        memcpy(str, pos, len);
     }
     else
     {
-        RtlCopyMemory(str, pos, len + 1);
+        memcpy(str, pos, len + 1);
     }
 
     return STATUS_SUCCESS;
@@ -943,8 +905,8 @@ RtlPrefixUnicodeString(
         {
             while (NumChars--)
             {
-                if (RtlpUpcaseUnicodeChar(*pc1++) !=
-                    RtlpUpcaseUnicodeChar(*pc2++))
+                if (RtlUpcaseUnicodeChar(*pc1++) !=
+                    RtlUpcaseUnicodeChar(*pc2++))
                     return FALSE;
             }
         }
@@ -1276,19 +1238,13 @@ RtlUnicodeStringToOemString(
  */
 BOOLEAN
 NTAPI
-RtlIsTextUnicode(CONST VOID* buf, INT len, INT* pf)
+RtlIsTextUnicode( PVOID buf, INT len, INT *pf )
 {
     static const WCHAR std_control_chars[] = {'\r', '\n', '\t', ' ', 0x3000, 0};
     static const WCHAR byterev_control_chars[] = {0x0d00, 0x0a00, 0x0900, 0x2000, 0};
     const WCHAR *s = buf;
     int i;
     unsigned int flags = MAXULONG, out_flags = 0;
-    UCHAR last_lo_byte = 0;
-    UCHAR last_hi_byte = 0;
-    ULONG hi_byte_diff = 0;
-    ULONG lo_byte_diff = 0;
-    ULONG weight = 3;
-    ULONG lead_byte = 0;
 
     if (len < sizeof(WCHAR))
     {
@@ -1323,75 +1279,19 @@ RtlIsTextUnicode(CONST VOID* buf, INT len, INT* pf)
     if (*s == 0xFEFF) out_flags |= IS_TEXT_UNICODE_SIGNATURE;
     if (*s == 0xFFFE) out_flags |= IS_TEXT_UNICODE_REVERSE_SIGNATURE;
 
-    for (i = 0; i < len; i++)
+    /* apply some statistical analysis */
+    if (flags & IS_TEXT_UNICODE_STATISTICS)
     {
-        UCHAR lo_byte = LOBYTE(s[i]);
-        UCHAR hi_byte = HIBYTE(s[i]);
+        int stats = 0;
 
-        lo_byte_diff += max(lo_byte, last_lo_byte) - min(lo_byte, last_lo_byte);
-        hi_byte_diff += max(hi_byte, last_hi_byte) - min(hi_byte, last_hi_byte);
-
-        last_lo_byte = lo_byte;
-        last_hi_byte = hi_byte;
-
-        switch (s[i])
-        {
-            case 0xFFFE: /* Reverse BOM */
-            case UNICODE_NULL:
-            case 0x0A0D: /* ASCII CRLF (packed into one word) */
-            case 0xFFFF: /* Unicode 0xFFFF */
-                out_flags |= IS_TEXT_UNICODE_ILLEGAL_CHARS;
-                break;
-        }
-    }
-
-    if (NlsMbCodePageTag)
-    {
+        /* FIXME: checks only for ASCII characters in the unicode stream */
         for (i = 0; i < len; i++)
         {
-            if (NlsLeadByteInfo[s[i]])
-            {
-                ++lead_byte;
-                ++i;
-            }
+            if (s[i] <= 255) stats++;
         }
 
-        if (lead_byte)
-        {
-            weight = (len / 2) - 1;
-
-            if (lead_byte < (weight / 3))
-                weight = 3;
-            else if (lead_byte < ((weight * 2) / 3))
-                weight = 2;
-            else
-                weight = 1;
-
-            if (pf && (*pf & IS_TEXT_UNICODE_DBCS_LEADBYTE))
-                out_flags |= IS_TEXT_UNICODE_DBCS_LEADBYTE;
-        }
-    }
-
-    if (lo_byte_diff < 127 && !hi_byte_diff)
-    {
-        out_flags |= IS_TEXT_UNICODE_ASCII16;
-    }
-
-    if (hi_byte_diff && !lo_byte_diff)
-    {
-        out_flags |= IS_TEXT_UNICODE_REVERSE_ASCII16;
-    }
-
-    if ((weight * lo_byte_diff) < hi_byte_diff)
-    {
-        out_flags |= IS_TEXT_UNICODE_REVERSE_STATISTICS;
-    }
-
-    /* apply some statistical analysis */
-    if ((flags & IS_TEXT_UNICODE_STATISTICS) &&
-        ((weight * hi_byte_diff) < lo_byte_diff))
-    {
-        out_flags |= IS_TEXT_UNICODE_STATISTICS;
+        if (stats > len / 2)
+            out_flags |= IS_TEXT_UNICODE_STATISTICS;
     }
 
     /* Check for unicode NULL chars */
@@ -1924,7 +1824,7 @@ RtlUpcaseUnicodeString(
 
     for (i = 0; i < j; i++)
     {
-        UniDest->Buffer[i] = RtlpUpcaseUnicodeChar(UniSource->Buffer[i]);
+        UniDest->Buffer[i] = RtlUpcaseUnicodeChar(UniSource->Buffer[i]);
     }
 
     UniDest->Length = UniSource->Length;
@@ -2196,7 +2096,7 @@ RtlCompareUnicodeString(
 
     if (CaseInsensitive)
     {
-        while (!ret && len--) ret = RtlpUpcaseUnicodeChar(*p1++) - RtlpUpcaseUnicodeChar(*p2++);
+        while (!ret && len--) ret = RtlUpcaseUnicodeChar(*p1++) - RtlUpcaseUnicodeChar(*p2++);
     }
     else
     {
@@ -2376,7 +2276,7 @@ RtlDowncaseUnicodeString(
         }
         else
         {
-            UniDest->Buffer[i] = RtlpDowncaseUnicodeChar(UniSource->Buffer[i]);
+            UniDest->Buffer[i] = RtlDowncaseUnicodeChar(UniSource->Buffer[i]);
         }
     }
 
@@ -2586,13 +2486,13 @@ RtlpIsCharInUnicodeString(
     USHORT i;
 
     if (CaseInSensitive)
-        Char = RtlpUpcaseUnicodeChar(Char);
+        Char = RtlUpcaseUnicodeChar(Char);
 
     for (i = 0; i < MatchString->Length / sizeof(WCHAR); i++)
     {
         WCHAR OtherChar = MatchString->Buffer[i];
         if (CaseInSensitive)
-            OtherChar = RtlpUpcaseUnicodeChar(OtherChar);
+            OtherChar = RtlUpcaseUnicodeChar(OtherChar);
 
         if (Char == OtherChar)
             return TRUE;

@@ -19,7 +19,7 @@ INT cmdPause(INT argc, WCHAR **argv)
 
     if (argc != 3)
     {
-        ConResPuts(StdOut, IDS_PAUSE_SYNTAX);
+        PrintResourceString(IDS_PAUSE_SYNTAX);
         return 1;
     }
 
@@ -27,7 +27,7 @@ INT cmdPause(INT argc, WCHAR **argv)
     {
         if (_wcsicmp(argv[i], L"/help") == 0)
         {
-            ConResPuts(StdOut, IDS_PAUSE_HELP);
+            PrintResourceString(IDS_PAUSE_HELP);
             return 1;
         }
     }
@@ -35,7 +35,7 @@ INT cmdPause(INT argc, WCHAR **argv)
     hManager = OpenSCManager(NULL, SERVICES_ACTIVE_DATABASE, SC_MANAGER_ENUMERATE_SERVICE);
     if (hManager == NULL)
     {
-        ConPrintf(StdErr, L"[OpenSCManager] Error: %ld\n", GetLastError());
+        printf("[OpenSCManager] Error: %ld\n", GetLastError());
         nError = 1;
         goto done;
     }
@@ -43,14 +43,14 @@ INT cmdPause(INT argc, WCHAR **argv)
     hService = OpenService(hManager, argv[2], SERVICE_PAUSE_CONTINUE);
     if (hService == NULL)
     {
-        ConPrintf(StdErr, L"[OpenService] Error: %ld\n", GetLastError());
+        printf("[OpenService] Error: %ld\n", GetLastError());
         nError = 1;
         goto done;
     }
 
     if (!ControlService(hService, SERVICE_CONTROL_PAUSE, &status))
     {
-        ConPrintf(StdErr, L"[ControlService] Error: %ld\n", GetLastError());
+        printf("[ControlService] Error: %ld\n", GetLastError());
     }
 
 done:

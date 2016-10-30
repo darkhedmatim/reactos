@@ -307,7 +307,7 @@ DefWndHandleSetCursor(PWND pWnd, WPARAM wParam, LPARAM lParam)
       {
          if (pWnd->pcls->spcur)
          {
-            IntSystemSetCursor(pWnd->pcls->spcur);
+            UserSetCursor(pWnd->pcls->spcur, FALSE);
 	 }
 	 return FALSE;
       }
@@ -319,7 +319,7 @@ DefWndHandleSetCursor(PWND pWnd, WPARAM wParam, LPARAM lParam)
          {
             break;
          }
-         IntSystemSetCursor(SYSTEMCUR(SIZEWE));
+         UserSetCursor(SYSTEMCUR(SIZEWE), FALSE);
          return TRUE;
       }
 
@@ -330,7 +330,7 @@ DefWndHandleSetCursor(PWND pWnd, WPARAM wParam, LPARAM lParam)
          {
             break;
          }
-         IntSystemSetCursor(SYSTEMCUR(SIZENS));
+         UserSetCursor(SYSTEMCUR(SIZENS), FALSE);
          return TRUE;
        }
 
@@ -341,7 +341,7 @@ DefWndHandleSetCursor(PWND pWnd, WPARAM wParam, LPARAM lParam)
          {
             break;
          }
-         IntSystemSetCursor(SYSTEMCUR(SIZENWSE));
+         UserSetCursor(SYSTEMCUR(SIZENWSE), FALSE);
          return TRUE;
        }
 
@@ -352,11 +352,11 @@ DefWndHandleSetCursor(PWND pWnd, WPARAM wParam, LPARAM lParam)
          {
             break;
          }
-         IntSystemSetCursor(SYSTEMCUR(SIZENESW));
+         UserSetCursor(SYSTEMCUR(SIZENESW), FALSE);
          return TRUE;
        }
    }
-   IntSystemSetCursor(SYSTEMCUR(ARROW));
+   UserSetCursor(SYSTEMCUR(ARROW), FALSE);
    return FALSE;
 }
 

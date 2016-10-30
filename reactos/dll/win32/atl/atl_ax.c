@@ -811,7 +811,7 @@ static void IOCS_OnSize( IOCS* This, LPCRECT rect )
 {
     SIZEL inPix, inHi;
 
-    This->size = *rect;
+    This->size.left = rect->left; This->size.right = rect->right; This->size.top = rect->top; This->size.bottom = rect->bottom;
 
     if ( !This->control )
         return;
@@ -874,7 +874,9 @@ static LRESULT IOCS_OnWndProc( IOCS *This, HWND hWnd, UINT uMsg, WPARAM wParam, 
         case WM_SIZE:
             {
                 RECT r;
-                SetRect(&r, 0, 0, LOWORD(lParam), HIWORD(lParam));
+                r.left = r.top = 0;
+                r.right = LOWORD( lParam );
+                r.bottom = HIWORD( lParam );
                 IOCS_OnSize( This, &r );
             }
             break;

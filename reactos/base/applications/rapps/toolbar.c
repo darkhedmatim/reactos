@@ -137,7 +137,7 @@ CreateSearchBar(VOID)
 
     SendMessageW(hSearchBar, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), 0);
 
-    LoadStringW(hInst, IDS_SEARCH_TEXT, szBuf, _countof(szBuf));
+    LoadStringW(hInst, IDS_SEARCH_TEXT, szBuf, sizeof(szBuf) / sizeof(WCHAR));
     SetWindowTextW(hSearchBar, szBuf);
 
     SetParent(hSearchBar, hToolBar); 
@@ -148,12 +148,12 @@ CreateSearchBar(VOID)
 BOOL
 CreateToolBar(HWND hwnd)
 {
-    INT NumButtons = _countof(Buttons);
+    INT NumButtons = sizeof(Buttons) / sizeof(Buttons[0]);
     HIMAGELIST hImageList;
 
-    LoadStringW(hInst, IDS_INSTALL, szInstallBtn, _countof(szInstallBtn));
-    LoadStringW(hInst, IDS_UNINSTALL, szUninstallBtn, _countof(szUninstallBtn));
-    LoadStringW(hInst, IDS_MODIFY, szModifyBtn, _countof(szModifyBtn));
+    LoadStringW(hInst, IDS_INSTALL, szInstallBtn, sizeof(szInstallBtn) / sizeof(WCHAR));
+    LoadStringW(hInst, IDS_UNINSTALL, szUninstallBtn, sizeof(szUninstallBtn) / sizeof(WCHAR));
+    LoadStringW(hInst, IDS_MODIFY, szModifyBtn, sizeof(szModifyBtn) / sizeof(WCHAR));
 
     hToolBar = CreateWindowExW(0,
                                TOOLBARCLASSNAMEW,

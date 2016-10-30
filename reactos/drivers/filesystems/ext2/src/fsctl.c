@@ -1582,6 +1582,8 @@ Ext2SetReparsePoint (IN PEXT2_IRP_CONTEXT IrpContext)
     PEXT2_MCB           Mcb = NULL;
 
     NTSTATUS            Status = STATUS_UNSUCCESSFUL;
+    BOOLEAN             bNewParentDcb = FALSE;
+    BOOLEAN             MainResourceAcquired = FALSE;
     
     PVOID               InputBuffer;
     ULONG               InputBufferLength;
@@ -1598,8 +1600,6 @@ Ext2SetReparsePoint (IN PEXT2_IRP_CONTEXT IrpContext)
     PCHAR               OemNameBuffer = NULL;
     int                 OemNameLength = 0, i;
 
-    BOOLEAN             MainResourceAcquired = FALSE;
-    BOOLEAN             FcbLockAcquired = FALSE;
 
     _SEH2_TRY {
 
@@ -1614,25 +1614,18 @@ Ext2SetReparsePoint (IN PEXT2_IRP_CONTEXT IrpContext)
         Irp = IrpContext->Irp;
         IrpSp = IoGetCurrentIrpStackLocation(Irp);
 
-        ExAcquireResourceExclusiveLite(&Vcb->FcbLock, TRUE);
-        FcbLockAcquired = TRUE;
-
         ParentMcb = Mcb->Parent;
         ParentDcb = ParentMcb->Fcb;
         if (ParentDcb == NULL) {
             ParentDcb = Ext2AllocateFcb(Vcb, ParentMcb);
-        }
-        if (ParentDcb) {
-            Ext2ReferXcb(&ParentDcb->ReferenceCount);
+            if (ParentDcb) {
+                Ext2ReferXcb(&ParentDcb->ReferenceCount);
+                bNewParentDcb = TRUE;
+            }
         }
 
         if (!Mcb)
             _SEH2_LEAVE;
-
-        if (FcbLockAcquired) {
-            ExReleaseResourceLite(&Vcb->FcbLock);
-            FcbLockAcquired = FALSE;
-        }
 
         if (!ExAcquireResourceSharedLite(
                     &Fcb->MainResource,
@@ -1709,11 +1702,6 @@ Ext2SetReparsePoint (IN PEXT2_IRP_CONTEXT IrpContext)
 
     } _SEH2_FINALLY {
 
-        if (FcbLockAcquired) {
-            ExReleaseResourceLite(&Vcb->FcbLock);
-            FcbLockAcquired = FALSE;
-        }
-
         if (MainResourceAcquired) {
             ExReleaseResourceLite(&Fcb->MainResource);
         }
@@ -1731,16 +1719,22 @@ Ext2SetReparsePoint (IN PEXT2_IRP_CONTEXT IrpContext)
                 FILE_ACTION_MODIFIED );
         }
 
+        if (bNewParentDcb) {
+            ASSERT(ParentDcb != NULL);
+            if (Ext2DerefXcb(&ParentDcb->ReferenceCount) == 0) {
+                Ext2FreeFcb(ParentDcb);
+                ParentDcb = NULL;
+            } else {
+                DEBUG(DL_RES, ( "Ext2SetRenameInfo: ParentDcb is resued by other threads.\n"));
+            }
+        }
+
         if (!_SEH2_AbnormalTermination()) {
             if (Status == STATUS_PENDING || Status == STATUS_CANT_WAIT) {
                 Status = Ext2QueueRequest(IrpContext);
             } else {
                 Ext2CompleteIrpContext(IrpContext, Status);
             }
-        }
-
-        if (ParentDcb) {
-            Ext2ReleaseFcb(ParentDcb);
         }
     } _SEH2_END;
     
@@ -1792,14 +1786,13 @@ Ext2DeleteReparsePoint (IN PEXT2_IRP_CONTEXT IrpContext)
     PEXT2_CCB           Ccb = NULL;
     PEXT2_MCB           Mcb = NULL;
 
-    PEXT2_FCB           ParentDcb = NULL;   /* Dcb of it's current parent */
-    PEXT2_MCB           ParentMcb = NULL;
-
     NTSTATUS            Status = STATUS_UNSUCCESSFUL;
-
-    BOOLEAN             FcbLockAcquired = FALSE;
+    BOOLEAN             bNewParentDcb = FALSE;
+    BOOLEAN             bFcbAllocated = FALSE;
     BOOLEAN             MainResourceAcquired = FALSE;
     
+    PEXT2_FCB           ParentDcb = NULL;   /* Dcb of it's current parent */
+    PEXT2_MCB           ParentMcb = NULL;
 
     _SEH2_TRY {
 
@@ -1812,16 +1805,14 @@ Ext2DeleteReparsePoint (IN PEXT2_IRP_CONTEXT IrpContext)
         Mcb = IrpContext->Fcb->Mcb;
         Irp = IrpContext->Irp;
 
-        ExAcquireResourceExclusiveLite(&Vcb->FcbLock, TRUE);
-        FcbLockAcquired = TRUE;
-
         ParentMcb = Mcb->Parent;
         ParentDcb = ParentMcb->Fcb;
         if (ParentDcb == NULL) {
             ParentDcb = Ext2AllocateFcb(Vcb, ParentMcb);
-        }
-        if (ParentDcb) {
-            Ext2ReferXcb(&ParentDcb->ReferenceCount);
+            if (ParentDcb) {
+                Ext2ReferXcb(&ParentDcb->ReferenceCount);
+                bNewParentDcb = TRUE;
+            }
         }
 
         if (!Mcb || !IsInodeSymLink(&Mcb->Inode) ||
@@ -1829,19 +1820,15 @@ Ext2DeleteReparsePoint (IN PEXT2_IRP_CONTEXT IrpContext)
             Status = STATUS_NOT_A_REPARSE_POINT;
             _SEH2_LEAVE;
         }
-
+        
         Fcb = Ext2AllocateFcb (Vcb, Mcb);
         if (Fcb) {
-            Ext2ReferXcb(&Fcb->ReferenceCount);
+            bFcbAllocated = TRUE;
         } else {
             Status = STATUS_INSUFFICIENT_RESOURCES;
             _SEH2_LEAVE;
         }
-
-        if (FcbLockAcquired) {
-            ExReleaseResourceLite(&Vcb->FcbLock);
-            FcbLockAcquired = FALSE;
-        }
+        Ext2ReferXcb(&Fcb->ReferenceCount);
 
         if (!ExAcquireResourceSharedLite(
                     &Fcb->MainResource,
@@ -1861,10 +1848,6 @@ Ext2DeleteReparsePoint (IN PEXT2_IRP_CONTEXT IrpContext)
 
     } _SEH2_FINALLY {
 
-        if (FcbLockAcquired) {
-            ExReleaseResourceLite(&Vcb->FcbLock);
-        }
-
         if (MainResourceAcquired) {
             ExReleaseResourceLite(&Fcb->MainResource);
         }
@@ -1879,6 +1862,16 @@ Ext2DeleteReparsePoint (IN PEXT2_IRP_CONTEXT IrpContext)
 
         }
         
+        if (bNewParentDcb) {
+            ASSERT(ParentDcb != NULL);
+            if (Ext2DerefXcb(&ParentDcb->ReferenceCount) == 0) {
+                Ext2FreeFcb(ParentDcb);
+                ParentDcb = NULL;
+            } else {
+                DEBUG(DL_RES, ( "Ext2DeleteReparsePoint: ParentDcb is resued.\n"));
+            }
+        }
+
         if (!_SEH2_AbnormalTermination()) {
             if (Status == STATUS_PENDING || Status == STATUS_CANT_WAIT) {
                 Status = Ext2QueueRequest(IrpContext);
@@ -1886,13 +1879,11 @@ Ext2DeleteReparsePoint (IN PEXT2_IRP_CONTEXT IrpContext)
                 Ext2CompleteIrpContext(IrpContext, Status);
             }
         }
-
-        if (ParentDcb) {
-            Ext2ReleaseFcb(ParentDcb);
-        }
-
-        if (Fcb) {
-            Ext2ReleaseFcb(Fcb);
+        
+        if (bFcbAllocated) {
+            if (Ext2DerefXcb(&Fcb->ReferenceCount) == 0) {
+                Ext2FreeFcb(Fcb);
+            }
         }
     } _SEH2_END;
     
@@ -2459,7 +2450,13 @@ Ext2VerifyVolume (IN PEXT2_IRP_CONTEXT IrpContext)
         } else {
 
             Status = STATUS_WRONG_VOLUME;
+            if (VcbResourceAcquired) {
+                ExReleaseResourceLite(&Vcb->MainResource);
+                VcbResourceAcquired = FALSE;
+            }
             Ext2PurgeVolume(Vcb, FALSE);
+            VcbResourceAcquired =
+                ExAcquireResourceExclusiveLite(&Vcb->MainResource, TRUE);
 
             SetLongFlag(Vcb->Flags, VCB_DISMOUNT_PENDING);
             ClearFlag(Vcb->TargetDeviceObject->Flags, DO_VERIFY_VOLUME);
@@ -2610,9 +2607,8 @@ Ext2CheckDismount (
     ExAcquireResourceExclusiveLite(
         &Vcb->MainResource, TRUE );
 
-    if (IrpContext && 
-        IrpContext->MajorFunction == IRP_MJ_CREATE &&
-        IrpContext->RealDevice == Vcb->RealDevice) {
+    if ((IrpContext->MajorFunction == IRP_MJ_CREATE) &&
+            (IrpContext->RealDevice == Vcb->RealDevice)) {
         UnCleanCount = 2;
     } else {
         UnCleanCount = 1;
@@ -2700,44 +2696,59 @@ Ext2PurgeVolume (IN PEXT2_VCB Vcb,
                  IN BOOLEAN  FlushBeforePurge )
 {
     PEXT2_FCB       Fcb;
-    LIST_ENTRY      List, *Next;
-
+    LIST_ENTRY      FcbList;
+    PLIST_ENTRY     ListEntry;
+    PFCB_LIST_ENTRY FcbListEntry;
     BOOLEAN         VcbResourceAcquired = FALSE;
-    BOOLEAN         FcbResourceAcquired = FALSE;
-    BOOLEAN         gdResourceAcquired = FALSE;
-
     _SEH2_TRY {
 
         ASSERT(Vcb != NULL);
         ASSERT((Vcb->Identifier.Type == EXT2VCB) &&
                (Vcb->Identifier.Size == sizeof(EXT2_VCB)));
 
-        ExAcquireResourceExclusiveLite(&Vcb->MainResource, TRUE);
-        VcbResourceAcquired = TRUE;
+        VcbResourceAcquired =
+            ExAcquireResourceExclusiveLite(&Vcb->MainResource, TRUE);
 
         if (IsVcbReadOnly(Vcb)) {
             FlushBeforePurge = FALSE;
         }
 
-        InitializeListHead(&List);
+        /* discard buffer_headers for group_desc */
+        Ext2DropGroup(Vcb);
 
-        ExAcquireResourceExclusiveLite(&Vcb->FcbLock, TRUE);
-        FcbResourceAcquired = TRUE;
+        FcbListEntry= NULL;
+        InitializeListHead(&FcbList);
 
-        while (!IsListEmpty(&Vcb->FcbList)) {
+        for (ListEntry = Vcb->FcbList.Flink;
+                ListEntry != &Vcb->FcbList;
+                ListEntry = ListEntry->Flink  ) {
 
-            Next = RemoveHeadList(&Vcb->FcbList);
-            Fcb = CONTAINING_RECORD(Next, EXT2_FCB, Next);
+            Fcb = CONTAINING_RECORD(ListEntry, EXT2_FCB, Next);
 
-            DEBUG(DL_INF, ( "Ext2PurgeVolume: %wZ refercount=%xh\n",
-                            &Fcb->Mcb->FullName, Fcb->ReferenceCount));
-            InsertTailList(&List, &Fcb->Next);
+            DEBUG(DL_INF, ( "Ext2PurgeVolume: %wZ refercount=%xh\n", &Fcb->Mcb->FullName, Fcb->ReferenceCount));
+
+            FcbListEntry = Ext2AllocatePool(
+                               PagedPool,
+                               sizeof(FCB_LIST_ENTRY),
+                               EXT2_FLIST_MAGIC
+                           );
+
+            if (FcbListEntry) {
+                FcbListEntry->Fcb = Fcb;
+                Ext2ReferXcb(&Fcb->ReferenceCount);
+                InsertTailList(&FcbList, &FcbListEntry->Next);
+            } else {
+                DEBUG(DL_ERR, ( "Ext2PurgeVolume: failed to allocate FcbListEntry ...\n"));
+            }
         }
 
-        while (!IsListEmpty(&List)) {
+        while (!IsListEmpty(&FcbList)) {
 
-            Next = RemoveHeadList(&List);
-            Fcb = CONTAINING_RECORD(Next, EXT2_FCB, Next);
+            ListEntry = RemoveHeadList(&FcbList);
+
+            FcbListEntry = CONTAINING_RECORD(ListEntry, FCB_LIST_ENTRY, Next);
+
+            Fcb = FcbListEntry->Fcb;
 
             if (ExAcquireResourceExclusiveLite(
                         &Fcb->MainResource,
@@ -2745,27 +2756,15 @@ Ext2PurgeVolume (IN PEXT2_VCB Vcb,
 
                 Ext2PurgeFile(Fcb, FlushBeforePurge);
 
-                if (Fcb->ReferenceCount <= 1) {
-                    Fcb->TsDrop.QuadPart = 0;
-                    InsertHeadList(&Vcb->FcbList, &Fcb->Next);
+                if (!Fcb->OpenHandleCount && Fcb->ReferenceCount == 1) {
+                    Ext2FreeFcb(Fcb);
                 } else {
-                    InsertTailList(&Vcb->FcbList, &Fcb->Next);
+                    ExReleaseResourceLite(&Fcb->MainResource);
                 }
-                ExReleaseResourceLite(&Fcb->MainResource);
             }
+
+            Ext2FreePool(FcbListEntry, EXT2_FLIST_MAGIC);
         }
-
-        if (FcbResourceAcquired) {
-            ExReleaseResourceLite(&Vcb->FcbLock);
-            FcbResourceAcquired = FALSE;
-        }
-
-        /* acquire bd lock to avoid bh creation */
-        ExAcquireResourceExclusiveLite(&Vcb->sbi.s_gd_lock, TRUE);
-        gdResourceAcquired = TRUE;
-
-        /* discard buffer_headers for group_desc */
-        Ext2DropBH(Vcb);
 
         if (FlushBeforePurge) {
             ExAcquireSharedStarveExclusive(&Vcb->PagingIoResource, TRUE);
@@ -2778,6 +2777,11 @@ Ext2PurgeVolume (IN PEXT2_VCB Vcb,
             MmFlushImageSection(&Vcb->SectionObject, MmFlushForWrite);
         }
 
+        if (VcbResourceAcquired) {
+            ExReleaseResourceLite(&Vcb->MainResource);
+            VcbResourceAcquired = FALSE;
+        }
+
         if (Vcb->SectionObject.DataSectionObject) {
             CcPurgeCacheSection(&Vcb->SectionObject, NULL, 0, FALSE);
         }
@@ -2785,14 +2789,6 @@ Ext2PurgeVolume (IN PEXT2_VCB Vcb,
         DEBUG(DL_INF, ( "Ext2PurgeVolume: Volume flushed and purged.\n"));
 
     } _SEH2_FINALLY {
-
-        if (gdResourceAcquired) {
-            ExReleaseResourceLite(&Vcb->sbi.s_gd_lock);
-        }
-
-        if (FcbResourceAcquired) {
-            ExReleaseResourceLite(&Vcb->FcbLock);
-        }
 
         if (VcbResourceAcquired) {
             ExReleaseResourceLite(&Vcb->MainResource);
@@ -2815,23 +2811,30 @@ Ext2PurgeFile ( IN PEXT2_FCB Fcb,
 
 
     if (!IsVcbReadOnly(Fcb->Vcb) && FlushBeforePurge) {
+
         DEBUG(DL_INF, ( "Ext2PurgeFile: CcFlushCache on %wZ.\n",
                         &Fcb->Mcb->FullName));
+
         ExAcquireSharedStarveExclusive(&Fcb->PagingIoResource, TRUE);
         ExReleaseResourceLite(&Fcb->PagingIoResource);
+
         CcFlushCache(&Fcb->SectionObject, NULL, 0, &IoStatus);
         ClearFlag(Fcb->Flags, FCB_FILE_MODIFIED);
     }
 
     if (Fcb->SectionObject.ImageSectionObject) {
+
         DEBUG(DL_INF, ( "Ext2PurgeFile: MmFlushImageSection on %wZ.\n",
                         &Fcb->Mcb->FullName));
+
         MmFlushImageSection(&Fcb->SectionObject, MmFlushForWrite);
     }
 
     if (Fcb->SectionObject.DataSectionObject) {
+
         DEBUG(DL_INF, ( "Ext2PurgeFile: CcPurgeCacheSection on %wZ.\n",
                         &Fcb->Mcb->FullName));
+
         CcPurgeCacheSection(&Fcb->SectionObject, NULL, 0, FALSE);
     }
 

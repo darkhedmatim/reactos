@@ -1,44 +1,42 @@
 LANGUAGE LANG_UKRAINIAN, SUBLANG_DEFAULT
 
-MENU_001 MENUEX
+MENU_001 MENU
 BEGIN
     MENUITEM "&Великі значки", FCIDM_SHVIEW_BIGICON
     MENUITEM "&Дрібні значки", FCIDM_SHVIEW_SMALLICON
     MENUITEM "Спис&ок", FCIDM_SHVIEW_LISTVIEW
     MENUITEM "&Подробиці", FCIDM_SHVIEW_REPORTVIEW
-    MENUITEM "", -1, MFT_SEPARATOR
-    POPUP "&Упорядкувати значки", FCIDM_SHVIEW_ARRANGE
-    BEGIN
-        MENUITEM "", -1, MFT_SEPARATOR
-        MENUITEM "&автоматично", FCIDM_SHVIEW_AUTOARRANGE
-    END
 END
 
 /* shellview background menu */
-MENU_002 MENUEX
+MENU_002 MENU
 BEGIN
     POPUP ""
     BEGIN
-        POPUP "&Вигляд", FCIDM_SHVIEW_VIEW
+        POPUP "&Вигляд"
         BEGIN
             MENUITEM "&Великі значки", FCIDM_SHVIEW_BIGICON
             MENUITEM "&Дрібні значки", FCIDM_SHVIEW_SMALLICON
             MENUITEM "Спис&ок", FCIDM_SHVIEW_LISTVIEW
             MENUITEM "&Подробиці", FCIDM_SHVIEW_REPORTVIEW
         END
-        MENUITEM "", -1, MFT_SEPARATOR
-        POPUP "&Упорядкувати значки", FCIDM_SHVIEW_ARRANGE
+        MENUITEM SEPARATOR
+        POPUP "&Упорядкувати значки"
         BEGIN
-            MENUITEM "", -1, MFT_SEPARATOR
+            MENUITEM "за &ім'ям", 0x30  /* column 0 */
+            MENUITEM "за &типом", 0x32  /* column 2 */
+            MENUITEM "за &розміром", 0x31  /* ... */
+            MENUITEM "за &датою", 0x33
+            MENUITEM SEPARATOR
             MENUITEM "&автоматично", FCIDM_SHVIEW_AUTOARRANGE
         END
         MENUITEM "Вирівняти значки", FCIDM_SHVIEW_SNAPTOGRID
-        MENUITEM "", -1, MFT_SEPARATOR
+        MENUITEM SEPARATOR
         MENUITEM "Оновити", FCIDM_SHVIEW_REFRESH
-        MENUITEM "", -1, MFT_SEPARATOR
+        MENUITEM SEPARATOR
         MENUITEM "Вставити", FCIDM_SHVIEW_INSERT
         MENUITEM "Вставити ярлик", FCIDM_SHVIEW_INSERTLINK
-        MENUITEM "", -1, MFT_SEPARATOR
+        MENUITEM SEPARATOR
         MENUITEM "Властивості", FCIDM_SHVIEW_PROPERTIES
     END
 END
@@ -488,15 +486,15 @@ BEGIN
     PUSHBUTTON "Скасувати", IDCANCEL, 99, 38, 43, 14
 END
 
-IDD_DISCONNECT DIALOGEX 0, 0, 188, 60
+IDD_DISCONNECT DIALOGEX 0, 0, 190, 60
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_CAPTION
 CAPTION "Вимкнення ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_SHELL_DISCONN, IDC_STATIC, 8, 6, 21, 20
-    LTEXT "Ви дійсно бажаєте відключитися?", -1, 49, 15, 131, 8
-    DEFPUSHBUTTON "&Вимкнення", IDOK, 47, 38, 47, 14
-    PUSHBUTTON "Скасувати", IDCANCEL, 99, 38, 47, 14
+    ICON 49, 14346, 10, 10, 21, 20, SS_REALSIZECONTROL
+    LTEXT "Ви дійсно бажаєте відключитися?", -1, 49, 12, 137, 23
+    DEFPUSHBUTTON "&Вимкнення", IDOK, 57, 40, 60, 14
+    PUSHBUTTON "Скасувати", IDCANCEL, 123, 40, 60, 14
 END
 
 IDD_AUTOPLAY1 DIALOGEX 0, 0, 227, 218
@@ -684,8 +682,8 @@ BEGIN
     IDS_RENAME "Перейменувати"
     IDS_PASTE "Вставити"
 
-    IDS_CREATEFOLDER_DENIED "Unable to create the folder '%1'"
-    IDS_CREATEFOLDER_CAPTION "Unable to create folder"
+    IDS_CREATEFOLDER_DENIED "Не вдалося створити нову папку: Відмова у доступі."
+    IDS_CREATEFOLDER_CAPTION "Помилка при створенні нової папки"
     IDS_DELETEITEM_CAPTION "Підтвердження вилучення файлу"
     IDS_DELETEFOLDER_CAPTION "Підтвердження вилучення папки"
     IDS_DELETEITEM_TEXT "Ви дійсно бажаєте видалити '%1'?"
@@ -812,7 +810,7 @@ BEGIN
     IDS_DEFAULT_CLUSTER_SIZE "Розмір кластера за замовчуванням"
     IDS_COPY_OF "Копія"
 
-    IDS_SHLEXEC_NOASSOC "Немає програми ReactOS, сконфігурованої для відкриття цього типу файлів."
+    IDS_SHLEXEC_NOASSOC "Немає програми Windows, сконфігурованої для відкриття цього типу файлів."
 
     IDS_FILE_DETAILS "Подробиці для розширення '%s'"
     IDS_FILE_DETAILSADV "Файли з розширенням '%s' мають тип '%s'. Щоб змінити параметри, які впливатимуть на всі файли '%s', натисніть кнопку 'Додатково'."

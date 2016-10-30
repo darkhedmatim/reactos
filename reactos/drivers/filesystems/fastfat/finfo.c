@@ -458,65 +458,6 @@ vfatPrepareTargetForRename(
     return Status;
 }
 
-static
-BOOLEAN
-IsThereAChildOpened(PVFATFCB FCB)
-{
-    PLIST_ENTRY Entry;
-    PVFATFCB VolFCB;
-
-    for (Entry = FCB->ParentListHead.Flink; Entry != &FCB->ParentListHead; Entry = Entry->Flink)
-    {
-        VolFCB = CONTAINING_RECORD(Entry, VFATFCB, ParentListEntry);
-        if (VolFCB->OpenHandleCount != 0)
-        {
-            ASSERT(VolFCB->parentFcb == FCB);
-            DPRINT1("At least one children file opened! %wZ (%u, %u)\n", &VolFCB->PathNameU, VolFCB->RefCount, VolFCB->OpenHandleCount);
-            return TRUE;
-        }
-
-        if (vfatFCBIsDirectory(VolFCB) && !IsListEmpty(&VolFCB->ParentListHead))
-        {
-            if (IsThereAChildOpened(VolFCB))
-            {
-                return TRUE;
-            }
-        }
-    }
-
-    return FALSE;
-}
-
-static
-VOID
-VfatRenameChildFCB(
-    PDEVICE_EXTENSION DeviceExt,
-    PVFATFCB FCB)
-{
-    PLIST_ENTRY Entry;
-    PVFATFCB Child;
-
-    if (IsListEmpty(&FCB->ParentListHead))
-        return;
-
-    for (Entry = FCB->ParentListHead.Flink; Entry != &FCB->ParentListHead; Entry = Entry->Flink)
-    {
-        NTSTATUS Status;
-
-        Child = CONTAINING_RECORD(Entry, VFATFCB, ParentListEntry);
-        DPRINT("Found %wZ with still %lu references (parent: %lu)!\n", &Child->PathNameU, Child->RefCount, FCB->RefCount);
-
-        Status = vfatSetFCBNewDirName(DeviceExt, Child, FCB);
-        if (!NT_SUCCESS(Status))
-            continue;
-
-        if (vfatFCBIsDirectory(Child))
-        {
-            VfatRenameChildFCB(DeviceExt, Child);
-        }
-    }
-}
-
 /*
  * FUNCTION: Set the file name information
  */
@@ -763,13 +704,24 @@ VfatSetRenameInformation(
     vfatSplitPathName(&NewName, &NewPath, &NewFile);
     DPRINT("New dir: %wZ, New file: %wZ\n", &NewPath, &NewFile);
 
-    if (vfatFCBIsDirectory(FCB) && !IsListEmpty(&FCB->ParentListHead))
+    /* FIXME: Do it in a more efficient way, like linking FCBs to their parent FCB so that we browse less FCBs
+     * Note: The FIXME is the way MS FastFAT seems to do it
+     */
+    if (vfatFCBIsDirectory(FCB))
     {
-        if (IsThereAChildOpened(FCB))
+        PLIST_ENTRY Entry;
+        PVFATFCB VolFCB;
+
+        for (Entry = DeviceExt->FcbListHead.Flink; Entry != &DeviceExt->FcbListHead; Entry = Entry->Flink)
         {
-            Status = STATUS_ACCESS_DENIED;
-            ASSERT(OldReferences == FCB->parentFcb->RefCount);
-            goto Cleanup;
+            VolFCB = CONTAINING_RECORD(Entry, VFATFCB, FcbListEntry);
+            if (VolFCB->parentFcb == FCB && VolFCB->OpenHandleCount != 0)
+            {
+                DPRINT1("At least one children file opened! %wZ (%u, %u)\n", &VolFCB->PathNameU, VolFCB->RefCount, VolFCB->OpenHandleCount);
+                Status = STATUS_ACCESS_DENIED;
+                ASSERT(OldReferences == FCB->parentFcb->RefCount);
+                goto Cleanup;
+            }
         }
     }
 
@@ -939,11 +891,6 @@ VfatSetRenameInformation(
                                             NULL);
             }
         }
-    }
-
-    if (NT_SUCCESS(Status) && vfatFCBIsDirectory(FCB))
-    {
-        VfatRenameChildFCB(DeviceExt, FCB);
     }
 
     ASSERT(OldReferences == OldParent->RefCount + 1); // removed file

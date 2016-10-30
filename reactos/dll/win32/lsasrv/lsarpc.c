@@ -13,26 +13,6 @@
 
 static RTL_CRITICAL_SECTION PolicyHandleTableLock;
 
-static
-GENERIC_MAPPING
-LsapPolicyMapping = {POLICY_READ,
-                     POLICY_WRITE,
-                     POLICY_EXECUTE,
-                     POLICY_ALL_ACCESS};
-
-static
-GENERIC_MAPPING
-LsapAccountMapping = {ACCOUNT_READ,
-                      ACCOUNT_WRITE,
-                      ACCOUNT_EXECUTE,
-                      ACCOUNT_ALL_ACCESS};
-
-static
-GENERIC_MAPPING
-LsapSecretMapping = {SECRET_READ,
-                     SECRET_WRITE,
-                     SECRET_EXECUTE,
-                     SECRET_ALL_ACCESS};
 
 /* FUNCTIONS ***************************************************************/
 
@@ -90,7 +70,7 @@ NTSTATUS WINAPI LsarClose(
     PLSA_DB_OBJECT DbObject;
     NTSTATUS Status = STATUS_SUCCESS;
 
-    TRACE("LsarClose(%p)\n", ObjectHandle);
+    TRACE("0x%p\n", ObjectHandle);
 
 //    RtlEnterCriticalSection(&PolicyHandleTableLock);
 
@@ -114,8 +94,6 @@ NTSTATUS WINAPI LsarClose(
 NTSTATUS WINAPI LsarDelete(
     LSAPR_HANDLE ObjectHandle)
 {
-    TRACE("LsarDelete(%p)\n", ObjectHandle);
-
     return LsarDeleteObject(&ObjectHandle);
 }
 
@@ -158,20 +136,13 @@ NTSTATUS WINAPI LsarQuerySecurityObject(
 {
     PLSA_DB_OBJECT DbObject = NULL;
     PSECURITY_DESCRIPTOR RelativeSd = NULL;
-    PSECURITY_DESCRIPTOR ResultSd = NULL;
     PLSAPR_SR_SECURITY_DESCRIPTOR SdData = NULL;
     ACCESS_MASK DesiredAccess = 0;
     ULONG RelativeSdSize = 0;
-    ULONG ResultSdSize = 0;
     NTSTATUS Status;
-
-    TRACE("LsarQuerySecurityObject(%p %lx %p)\n",
-          ObjectHandle, SecurityInformation, SecurityDescriptor);
 
     if (SecurityDescriptor == NULL)
         return STATUS_INVALID_PARAMETER;
-
-    *SecurityDescriptor = NULL;
 
     if ((SecurityInformation & OWNER_SECURITY_INFORMATION) ||
         (SecurityInformation & GROUP_SECURITY_INFORMATION) ||
@@ -210,40 +181,10 @@ NTSTATUS WINAPI LsarQuerySecurityObject(
     if (!NT_SUCCESS(Status))
         goto done;
 
-    /* Invalidate the SD information that was not requested */
-    if (!(SecurityInformation & OWNER_SECURITY_INFORMATION))
-        ((PISECURITY_DESCRIPTOR)RelativeSd)->Owner = NULL;
-
-    if (!(SecurityInformation & GROUP_SECURITY_INFORMATION))
-        ((PISECURITY_DESCRIPTOR)RelativeSd)->Group = NULL;
-
-    if (!(SecurityInformation & DACL_SECURITY_INFORMATION))
-        ((PISECURITY_DESCRIPTOR)RelativeSd)->Control &= ~SE_DACL_PRESENT;
-
-    if (!(SecurityInformation & SACL_SECURITY_INFORMATION))
-        ((PISECURITY_DESCRIPTOR)RelativeSd)->Control &= ~SE_SACL_PRESENT;
-
-    /* Calculate the required SD size */
-    Status = RtlMakeSelfRelativeSD(RelativeSd,
-                                   NULL,
-                                   &ResultSdSize);
-    if (Status != STATUS_BUFFER_TOO_SMALL)
-        goto done;
-
-    /* Allocate a buffer for the new SD */
-    ResultSd = MIDL_user_allocate(ResultSdSize);
-    if (ResultSd == NULL)
-    {
-        Status = STATUS_INSUFFICIENT_RESOURCES;
-        goto done;
-    }
-
-    /* Build the new SD */
-    Status = RtlMakeSelfRelativeSD(RelativeSd,
-                                   ResultSd,
-                                   &ResultSdSize);
-    if (!NT_SUCCESS(Status))
-        goto done;
+    /*
+     * FIXME: Invalidate the SD information that was not requested.
+     *        (see SecurityInformation)
+     */
 
     /* Allocate the SD data buffer */
     SdData = MIDL_user_allocate(sizeof(LSAPR_SR_SECURITY_DESCRIPTOR));
@@ -255,19 +196,16 @@ NTSTATUS WINAPI LsarQuerySecurityObject(
 
     /* Fill the SD data buffer and return it to the caller */
     SdData->Length = RelativeSdSize;
-    SdData->SecurityDescriptor = (PBYTE)ResultSd;
+    SdData->SecurityDescriptor = (PBYTE)RelativeSd;
 
     *SecurityDescriptor = SdData;
 
 done:
     if (!NT_SUCCESS(Status))
     {
-        if (ResultSd != NULL)
-            MIDL_user_free(ResultSd);
+        if (RelativeSd != NULL)
+            MIDL_user_free(RelativeSd);
     }
-
-    if (RelativeSd != NULL)
-        MIDL_user_free(RelativeSd);
 
     return Status;
 }
@@ -279,151 +217,8 @@ NTSTATUS WINAPI LsarSetSecurityObject(
     SECURITY_INFORMATION SecurityInformation,
     PLSAPR_SR_SECURITY_DESCRIPTOR SecurityDescriptor)
 {
-    PLSA_DB_OBJECT DbObject = NULL;
-    ACCESS_MASK DesiredAccess = 0;
-    PSECURITY_DESCRIPTOR RelativeSd = NULL;
-    ULONG RelativeSdSize = 0;
-    HANDLE TokenHandle = NULL;
-    PGENERIC_MAPPING Mapping;
-    NTSTATUS Status;
-
-    TRACE("LsarSetSecurityObject(%p %lx %p)\n",
-          ObjectHandle, SecurityInformation, SecurityDescriptor);
-
-    if ((SecurityDescriptor == NULL) ||
-        (SecurityDescriptor->SecurityDescriptor == NULL) ||
-        !RtlValidSecurityDescriptor((PSECURITY_DESCRIPTOR)SecurityDescriptor->SecurityDescriptor))
-        return ERROR_INVALID_PARAMETER;
-
-    if (SecurityInformation == 0 ||
-        SecurityInformation & ~(OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION
-        | DACL_SECURITY_INFORMATION | SACL_SECURITY_INFORMATION))
-        return ERROR_INVALID_PARAMETER;
-
-    if (SecurityInformation & SACL_SECURITY_INFORMATION)
-        DesiredAccess |= ACCESS_SYSTEM_SECURITY;
-
-    if (SecurityInformation & DACL_SECURITY_INFORMATION)
-        DesiredAccess |= WRITE_DAC;
-
-    if (SecurityInformation & (OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION))
-        DesiredAccess |= WRITE_OWNER;
-
-    if ((SecurityInformation & OWNER_SECURITY_INFORMATION) &&
-        (((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Owner == NULL))
-        return ERROR_INVALID_PARAMETER;
-
-    if ((SecurityInformation & GROUP_SECURITY_INFORMATION) &&
-        (((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Group == NULL))
-        return ERROR_INVALID_PARAMETER;
-
-    /* Validate the ObjectHandle */
-    Status = LsapValidateDbObject(ObjectHandle,
-                                  LsaDbIgnoreObject,
-                                  DesiredAccess,
-                                  &DbObject);
-    if (!NT_SUCCESS(Status))
-    {
-        ERR("LsapValidateDbObject failed (Status 0x%08lx)\n", Status);
-        return Status;
-    }
-
-    /* Get the mapping for the object type */
-    switch (DbObject->ObjectType)
-    {
-        case LsaDbPolicyObject:
-            Mapping = &LsapPolicyMapping;
-            break;
-
-        case LsaDbAccountObject:
-            Mapping = &LsapAccountMapping;
-            break;
-
-//        case LsaDbDomainObject:
-//            Mapping = &LsapDomainMapping;
-//            break;
-
-        case LsaDbSecretObject:
-            Mapping = &LsapSecretMapping;
-            break;
-
-        default:
-            return STATUS_INVALID_HANDLE;
-    }
-
-    /* Get the size of the SD */
-    Status = LsapGetObjectAttribute(DbObject,
-                                    L"SecDesc",
-                                    NULL,
-                                    &RelativeSdSize);
-    if (!NT_SUCCESS(Status))
-        return Status;
-
-    /* Allocate a buffer for the SD */
-    RelativeSd = RtlAllocateHeap(RtlGetProcessHeap(), 0, RelativeSdSize);
-    if (RelativeSd == NULL)
-        return STATUS_INSUFFICIENT_RESOURCES;
-
-    /* Get the SD */
-    Status = LsapGetObjectAttribute(DbObject,
-                                    L"SecDesc",
-                                    RelativeSd,
-                                    &RelativeSdSize);
-    if (!NT_SUCCESS(Status))
-        goto done;
-
-    /* Get the clients token if we try to set the owner */
-    if (SecurityInformation & OWNER_SECURITY_INFORMATION)
-    {
-        Status = I_RpcMapWin32Status(RpcImpersonateClient(NULL));
-        if (!NT_SUCCESS(Status))
-        {
-            ERR("RpcImpersonateClient returns 0x%08lx\n", Status);
-            goto done;
-        }
-
-        Status = NtOpenThreadToken(NtCurrentThread(),
-                                   TOKEN_QUERY,
-                                   TRUE,
-                                   &TokenHandle);
-        RpcRevertToSelf();
-        if (!NT_SUCCESS(Status))
-        {
-            ERR("NtOpenThreadToken returns 0x%08lx\n", Status);
-            goto done;
-        }
-    }
-
-    /* Build the new security descriptor */
-    Status = RtlSetSecurityObject(SecurityInformation,
-                                  (PSECURITY_DESCRIPTOR)SecurityDescriptor->SecurityDescriptor,
-                                  &RelativeSd,
-                                  Mapping,
-                                  TokenHandle);
-    if (!NT_SUCCESS(Status))
-    {
-        ERR("RtlSetSecurityObject failed (Status 0x%08lx)\n", Status);
-        goto done;
-    }
-
-    /* Set the modified SD */
-    Status = LsapSetObjectAttribute(DbObject,
-                                    L"SecDesc",
-                                    RelativeSd,
-                                    RtlLengthSecurityDescriptor(RelativeSd));
-    if (!NT_SUCCESS(Status))
-    {
-        ERR("LsapSetObjectAttribute failed (Status 0x%08lx)\n", Status);
-    }
-
-done:
-    if (TokenHandle != NULL)
-        NtClose(TokenHandle);
-
-    if (RelativeSd != NULL)
-        RtlFreeHeap(RtlGetProcessHeap(), 0, RelativeSd);
-
-    return Status;
+    UNIMPLEMENTED;
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 
@@ -451,8 +246,7 @@ NTSTATUS WINAPI LsarOpenPolicy(
     PLSA_DB_OBJECT PolicyObject;
     NTSTATUS Status;
 
-    TRACE("LsarOpenPolicy(%S %p %lx %p)\n",
-          SystemName, ObjectAttributes, DesiredAccess, PolicyHandle);
+    TRACE("LsarOpenPolicy called!\n");
 
     RtlEnterCriticalSection(&PolicyHandleTableLock);
 
@@ -743,74 +537,6 @@ NTSTATUS WINAPI LsarClearAuditLog(
 }
 
 
-NTSTATUS
-LsarpCreateAccount(
-    PLSA_DB_OBJECT PolicyObject,
-    PRPC_SID AccountSid,
-    ACCESS_MASK DesiredAccess,
-    PLSA_DB_OBJECT *AccountObject)
-{
-    LPWSTR SidString = NULL;
-    PSECURITY_DESCRIPTOR AccountSd = NULL;
-    ULONG AccountSdSize;
-    NTSTATUS Status = STATUS_SUCCESS;
-
-    /* Create SID string */
-    if (!ConvertSidToStringSid((PSID)AccountSid,
-                               &SidString))
-    {
-        ERR("ConvertSidToStringSid failed\n");
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    /* Create a security descriptor for the account */
-    Status = LsapCreateAccountSd(&AccountSd,
-                                 &AccountSdSize);
-    if (!NT_SUCCESS(Status))
-    {
-        ERR("LsapCreateAccountSd returned 0x%08lx\n", Status);
-        goto done;
-    }
-
-    /* Create the Account object */
-    Status = LsapCreateDbObject(PolicyObject,
-                                L"Accounts",
-                                SidString,
-                                LsaDbAccountObject,
-                                DesiredAccess,
-                                PolicyObject->Trusted,
-                                AccountObject);
-    if (!NT_SUCCESS(Status))
-    {
-        ERR("LsapCreateDbObject failed (Status 0x%08lx)\n", Status);
-        goto done;
-    }
-
-    /* Set the Sid attribute */
-    Status = LsapSetObjectAttribute(*AccountObject,
-                                    L"Sid",
-                                    (PVOID)AccountSid,
-                                    GetLengthSid(AccountSid));
-    if (!NT_SUCCESS(Status))
-        goto done;
-
-    /* Set the SecDesc attribute */
-    Status = LsapSetObjectAttribute(*AccountObject,
-                                    L"SecDesc",
-                                    AccountSd,
-                                    AccountSdSize);
-
-done:
-    if (SidString != NULL)
-        LocalFree(SidString);
-
-    if (AccountSd != NULL)
-        RtlFreeHeap(RtlGetProcessHeap(), 0, AccountSd);
-
-    return Status;
-}
-
-
 /* Function 10 */
 NTSTATUS WINAPI LsarCreateAccount(
     LSAPR_HANDLE PolicyHandle,
@@ -820,10 +546,10 @@ NTSTATUS WINAPI LsarCreateAccount(
 {
     PLSA_DB_OBJECT PolicyObject;
     PLSA_DB_OBJECT AccountObject = NULL;
+    LPWSTR SidString = NULL;
+    PSECURITY_DESCRIPTOR AccountSd = NULL;
+    ULONG AccountSdSize;
     NTSTATUS Status = STATUS_SUCCESS;
-
-    TRACE("LsarCreateAccount(%p %p %lx %p)\n",
-          PolicyHandle, AccountSid, DesiredAccess, AccountHandle);
 
     /* Validate the AccountSid */
     if (!RtlValidSid(AccountSid))
@@ -840,17 +566,70 @@ NTSTATUS WINAPI LsarCreateAccount(
         return Status;
     }
 
+    /* Create SID string */
+    if (!ConvertSidToStringSid((PSID)AccountSid,
+                               &SidString))
+    {
+        ERR("ConvertSidToStringSid failed\n");
+        Status = STATUS_INVALID_PARAMETER;
+        goto done;
+    }
 
-    Status = LsarpCreateAccount(PolicyObject,
-                                AccountSid,
+    /* Create a security descriptor for the account */
+    Status = LsapCreateAccountSd(&AccountSd,
+                                 &AccountSdSize);
+    if (!NT_SUCCESS(Status))
+    {
+        ERR("LsapCreateAccountSd returned 0x%08lx\n", Status);
+        return Status;
+    }
+
+    /* Create the Account object */
+    Status = LsapCreateDbObject(PolicyObject,
+                                L"Accounts",
+                                SidString,
+                                LsaDbAccountObject,
                                 DesiredAccess,
+                                PolicyObject->Trusted,
                                 &AccountObject);
-    if (NT_SUCCESS(Status))
+    if (!NT_SUCCESS(Status))
+    {
+        ERR("LsapCreateDbObject failed (Status 0x%08lx)\n", Status);
+        goto done;
+    }
+
+    /* Set the Sid attribute */
+    Status = LsapSetObjectAttribute(AccountObject,
+                                    L"Sid",
+                                    (PVOID)AccountSid,
+                                    GetLengthSid(AccountSid));
+    if (!NT_SUCCESS(Status))
+        goto done;
+
+    /* Set the SecDesc attribute */
+    Status = LsapSetObjectAttribute(AccountObject,
+                                    L"SecDesc",
+                                    AccountSd,
+                                    AccountSdSize);
+
+done:
+    if (SidString != NULL)
+        LocalFree(SidString);
+
+    if (AccountSd != NULL)
+        RtlFreeHeap(RtlGetProcessHeap(), 0, AccountSd);
+
+    if (!NT_SUCCESS(Status))
+    {
+        if (AccountObject != NULL)
+            LsapCloseDbObject(AccountObject);
+    }
+    else
     {
         *AccountHandle = (LSAPR_HANDLE)AccountObject;
     }
 
-    return Status;
+    return STATUS_SUCCESS;
 }
 
 
@@ -863,11 +642,10 @@ NTSTATUS WINAPI LsarEnumerateAccounts(
 {
     LSAPR_ACCOUNT_ENUM_BUFFER EnumBuffer = {0, NULL};
     PLSA_DB_OBJECT PolicyObject = NULL;
-    PWSTR AccountKeyBuffer = NULL;
+    WCHAR AccountKeyName[64];
     HANDLE AccountsKeyHandle = NULL;
     HANDLE AccountKeyHandle;
     HANDLE SidKeyHandle;
-    ULONG AccountKeyBufferSize;
     ULONG EnumIndex;
     ULONG EnumCount;
     ULONG RequiredLength;
@@ -875,8 +653,8 @@ NTSTATUS WINAPI LsarEnumerateAccounts(
     ULONG i;
     NTSTATUS Status = STATUS_SUCCESS;
 
-    TRACE("LsarEnumerateAccount(%p %p %p %lu)\n",
-          PolicyHandle, EnumerationContext, EnumerationBuffer, PreferedMaximumLength);
+    TRACE("(%p %p %p %lu)\n", PolicyHandle, EnumerationContext,
+          EnumerationBuffer, PreferedMaximumLength);
 
     if (EnumerationContext == NULL ||
         EnumerationBuffer == NULL)
@@ -903,23 +681,6 @@ NTSTATUS WINAPI LsarEnumerateAccounts(
     if (!NT_SUCCESS(Status))
         return Status;
 
-    Status = LsapRegQueryKeyInfo(AccountsKeyHandle,
-                                 NULL,
-                                 &AccountKeyBufferSize,
-                                 NULL);
-    if (!NT_SUCCESS(Status))
-    {
-        ERR("LsapRegQueryKeyInfo returned 0x%08lx\n", Status);
-        return Status;
-    }
-
-    AccountKeyBufferSize += sizeof(WCHAR);
-    AccountKeyBuffer = RtlAllocateHeap(RtlGetProcessHeap(), 0, AccountKeyBufferSize);
-    if (AccountKeyBuffer == NULL)
-    {
-        return STATUS_NO_MEMORY;
-    }
-
     EnumIndex = *EnumerationContext;
     EnumCount = 0;
     RequiredLength = 0;
@@ -928,16 +689,16 @@ NTSTATUS WINAPI LsarEnumerateAccounts(
     {
         Status = LsapRegEnumerateSubKey(AccountsKeyHandle,
                                         EnumIndex,
-                                        AccountKeyBufferSize,
-                                        AccountKeyBuffer);
+                                        64 * sizeof(WCHAR),
+                                        AccountKeyName);
         if (!NT_SUCCESS(Status))
             break;
 
         TRACE("EnumIndex: %lu\n", EnumIndex);
-        TRACE("Account key name: %S\n", AccountKeyBuffer);
+        TRACE("Account key name: %S\n", AccountKeyName);
 
         Status = LsapRegOpenKey(AccountsKeyHandle,
-                                AccountKeyBuffer,
+                                AccountKeyName,
                                 KEY_READ,
                                 &AccountKeyHandle);
         TRACE("LsapRegOpenKey returned %08lX\n", Status);
@@ -993,16 +754,16 @@ NTSTATUS WINAPI LsarEnumerateAccounts(
     {
         Status = LsapRegEnumerateSubKey(AccountsKeyHandle,
                                         EnumIndex,
-                                        AccountKeyBufferSize,
-                                        AccountKeyBuffer);
+                                        64 * sizeof(WCHAR),
+                                        AccountKeyName);
         if (!NT_SUCCESS(Status))
             break;
 
         TRACE("EnumIndex: %lu\n", EnumIndex);
-        TRACE("Account key name: %S\n", AccountKeyBuffer);
+        TRACE("Account key name: %S\n", AccountKeyName);
 
         Status = LsapRegOpenKey(AccountsKeyHandle,
-                                AccountKeyBuffer,
+                                AccountKeyName,
                                 KEY_READ,
                                 &AccountKeyHandle);
         TRACE("LsapRegOpenKey returned %08lX\n", Status);
@@ -1072,9 +833,6 @@ done:
         }
     }
 
-    if (AccountKeyBuffer != NULL)
-        RtlFreeHeap(RtlGetProcessHeap(), 0, AccountKeyBuffer);
-
     if (AccountsKeyHandle != NULL)
         LsapRegCloseKey(AccountsKeyHandle);
 
@@ -1120,7 +878,7 @@ NTSTATUS WINAPI LsarLookupNames(
     ULONG i;
     NTSTATUS Status;
 
-    TRACE("LsarLookupNames(%p %lu %p %p %p %d %p)\n",
+    TRACE("(%p %lu %p %p %p %d %p)\n",
           PolicyHandle, Count, Names, ReferencedDomains, TranslatedSids,
           LookupLevel, MappedCount);
 
@@ -1181,7 +939,7 @@ NTSTATUS WINAPI LsarLookupSids(
     ULONG i;
     NTSTATUS Status;
 
-    TRACE("LsarLookupSids(%p %p %p %p %d %p)\n",
+    TRACE("(%p %p %p %p %d %p)\n",
           PolicyHandle, SidEnumBuffer, ReferencedDomains, TranslatedNames,
           LookupLevel, MappedCount);
 
@@ -1242,9 +1000,6 @@ NTSTATUS WINAPI LsarCreateSecret(
     PSECURITY_DESCRIPTOR SecretSd = NULL;
     ULONG SecretSdSize;
     NTSTATUS Status = STATUS_SUCCESS;
-
-    TRACE("LsarCreateSecret(%p %wZ %lx %p)\n",
-          PolicyHandle, SecretName, DesiredAccess, SecretHandle);
 
     /* Validate the PolicyHandle */
     Status = LsapValidateDbObject(PolicyHandle,
@@ -1334,45 +1089,6 @@ done:
 }
 
 
-static
-NTSTATUS
-LsarpOpenAccount(
-    IN PLSA_DB_OBJECT PolicyObject,
-    IN PRPC_SID AccountSid,
-    IN ACCESS_MASK DesiredAccess,
-    OUT PLSA_DB_OBJECT *AccountObject)
-{
-    LPWSTR SidString = NULL;
-    NTSTATUS Status = STATUS_SUCCESS;
-
-    /* Create SID string */
-    if (!ConvertSidToStringSid((PSID)AccountSid,
-                               &SidString))
-    {
-        ERR("ConvertSidToStringSid failed\n");
-        return STATUS_INVALID_PARAMETER;
-    }
-
-    /* Create the Account object */
-    Status = LsapOpenDbObject(PolicyObject,
-                              L"Accounts",
-                              SidString,
-                              LsaDbAccountObject,
-                              DesiredAccess,
-                              PolicyObject->Trusted,
-                              AccountObject);
-    if (!NT_SUCCESS(Status))
-    {
-        ERR("LsapOpenDbObject failed (Status 0x%08lx)\n", Status);
-    }
-
-    if (SidString != NULL)
-        LocalFree(SidString);
-
-    return Status;
-}
-
-
 /* Function 17 */
 NTSTATUS WINAPI LsarOpenAccount(
     LSAPR_HANDLE PolicyHandle,
@@ -1381,10 +1097,9 @@ NTSTATUS WINAPI LsarOpenAccount(
     LSAPR_HANDLE *AccountHandle)
 {
     PLSA_DB_OBJECT PolicyObject;
-    NTSTATUS Status;
-
-    TRACE("LsarOpenAccount(%p %p %lx %p)\n",
-          PolicyHandle, AccountSid, DesiredAccess, AccountHandle);
+    PLSA_DB_OBJECT AccountObject = NULL;
+    LPWSTR SidString = NULL;
+    NTSTATUS Status = STATUS_SUCCESS;
 
     /* Validate the AccountSid */
     if (!RtlValidSid(AccountSid))
@@ -1401,12 +1116,50 @@ NTSTATUS WINAPI LsarOpenAccount(
         return Status;
     }
 
+    /* Create SID string */
+    if (!ConvertSidToStringSid((PSID)AccountSid,
+                               &SidString))
+    {
+        ERR("ConvertSidToStringSid failed\n");
+        Status = STATUS_INVALID_PARAMETER;
+        goto done;
+    }
 
-    /* Open the Account object */
-    return LsarpOpenAccount(PolicyObject,
-                            AccountSid,
-                            DesiredAccess,
-                            (PLSA_DB_OBJECT *)AccountHandle);
+    /* Create the Account object */
+    Status = LsapOpenDbObject(PolicyObject,
+                              L"Accounts",
+                              SidString,
+                              LsaDbAccountObject,
+                              DesiredAccess,
+                              PolicyObject->Trusted,
+                              &AccountObject);
+    if (!NT_SUCCESS(Status))
+    {
+        ERR("LsapOpenDbObject failed (Status 0x%08lx)\n", Status);
+        goto done;
+    }
+
+    /* Set the Sid attribute */
+    Status = LsapSetObjectAttribute(AccountObject,
+                                    L"Sid",
+                                    (PVOID)AccountSid,
+                                    GetLengthSid(AccountSid));
+
+done:
+    if (SidString != NULL)
+        LocalFree(SidString);
+
+    if (!NT_SUCCESS(Status))
+    {
+        if (AccountObject != NULL)
+            LsapCloseDbObject(AccountObject);
+    }
+    else
+    {
+        *AccountHandle = (LSAPR_HANDLE)AccountObject;
+    }
+
+    return Status;
 }
 
 
@@ -1419,9 +1172,6 @@ NTSTATUS WINAPI LsarEnumeratePrivilegesAccount(
     ULONG PrivilegeSetSize = 0;
     PLSAPR_PRIVILEGE_SET PrivilegeSet = NULL;
     NTSTATUS Status;
-
-    TRACE("LsarEnumeratePrivilegesAccount(%p %p)\n",
-          AccountHandle, Privileges);
 
     *Privileges = NULL;
 
@@ -1481,9 +1231,6 @@ NTSTATUS WINAPI LsarAddPrivilegesToAccount(
     BOOL bFound;
     NTSTATUS Status;
 
-    TRACE("LsarAddPrivilegesToAccount(%p %p)\n",
-          AccountHandle, Privileges);
-
     /* Validate the AccountHandle */
     Status = LsapValidateDbObject(AccountHandle,
                                   LsaDbAccountObject,
@@ -1534,7 +1281,7 @@ NTSTATUS WINAPI LsarAddPrivilegesToAccount(
         PrivilegeCount = CurrentPrivileges->PrivilegeCount;
         TRACE("Current privilege count: %lu\n", PrivilegeCount);
 
-        /* Calculate the number of privileges in the combined privilege set */
+        /* Calculate the number privileges in the combined privilege set */
         for (i = 0; i < Privileges->PrivilegeCount; i++)
         {
             bFound = FALSE;
@@ -1636,8 +1383,7 @@ NTSTATUS WINAPI LsarRemovePrivilegesFromAccount(
     BOOL bFound;
     NTSTATUS Status;
 
-    TRACE("LsarRemovePrivilegesFromAccount(%p %u %p)\n",
-          AccountHandle, AllPrivileges, Privileges);
+    TRACE("(%p %u %p)\n", AccountHandle, AllPrivileges, Privileges);
 
     /* */
     if ((AllPrivileges == FALSE && Privileges == NULL) ||
@@ -1787,8 +1533,7 @@ NTSTATUS WINAPI LsarGetQuotasForAccount(
     ULONG Size;
     NTSTATUS Status;
 
-    TRACE("LsarGetQuotasForAccount(%p %p)\n",
-          AccountHandle, QuotaLimits);
+    TRACE("(%p %p)\n", AccountHandle, QuotaLimits);
 
     /* Validate the account handle */
     Status = LsapValidateDbObject(AccountHandle,
@@ -1821,8 +1566,7 @@ NTSTATUS WINAPI LsarSetQuotasForAccount(
     ULONG Size;
     NTSTATUS Status;
 
-    TRACE("LsarSetQuotasForAccount(%p %p)\n",
-          AccountHandle, QuotaLimits);
+    TRACE("(%p %p)\n", AccountHandle, QuotaLimits);
 
     /* Validate the account handle */
     Status = LsapValidateDbObject(AccountHandle,
@@ -1879,11 +1623,8 @@ NTSTATUS WINAPI LsarGetSystemAccessAccount(
     ACCESS_MASK *SystemAccess)
 {
     PLSA_DB_OBJECT AccountObject;
-    ULONG Size = sizeof(ACCESS_MASK);
+    ULONG Size;
     NTSTATUS Status;
-
-    TRACE("LsarGetSystemAccessAccount(%p %p)\n",
-          AccountHandle, SystemAccess);
 
     /* Validate the account handle */
     Status = LsapValidateDbObject(AccountHandle,
@@ -1913,9 +1654,6 @@ NTSTATUS WINAPI LsarSetSystemAccessAccount(
 {
     PLSA_DB_OBJECT AccountObject;
     NTSTATUS Status;
-
-    TRACE("LsarSetSystemAccessAccount(%p %lx)\n",
-          AccountHandle, SystemAccess);
 
     /* Validate the account handle */
     Status = LsapValidateDbObject(AccountHandle,
@@ -1982,9 +1720,6 @@ NTSTATUS WINAPI LsarOpenSecret(
     PLSA_DB_OBJECT PolicyObject;
     PLSA_DB_OBJECT SecretObject = NULL;
     NTSTATUS Status = STATUS_SUCCESS;
-
-    TRACE("LsarOpenSecret(%p %wZ %lx %p)\n",
-          PolicyHandle, SecretName, DesiredAccess, SecretHandle);
 
     /* Validate the PolicyHandle */
     Status = LsapValidateDbObject(PolicyHandle,
@@ -2310,7 +2045,6 @@ NTSTATUS WINAPI LsarLookupPrivilegeValue(
     PRPC_UNICODE_STRING Name,
     PLUID Value)
 {
-    PLUID pValue;
     NTSTATUS Status;
 
     TRACE("LsarLookupPrivilegeValue(%p, %wZ, %p)\n",
@@ -2328,13 +2062,10 @@ NTSTATUS WINAPI LsarLookupPrivilegeValue(
 
     TRACE("Privilege: %wZ\n", Name);
 
-    pValue = LsarpLookupPrivilegeValue(Name);
-    if (pValue == NULL)
-        return STATUS_NO_SUCH_PRIVILEGE;
+    Status = LsarpLookupPrivilegeValue(Name,
+                                       Value);
 
-    RtlCopyLuid(Value, pValue);
-
-    return STATUS_SUCCESS;
+    return Status;
 }
 
 
@@ -2407,7 +2138,7 @@ NTSTATUS WINAPI LsarDeleteObject(
     PLSA_DB_OBJECT DbObject;
     NTSTATUS Status;
 
-    TRACE("LsarDeleteObject(%p)\n", ObjectHandle);
+    TRACE("(%p)\n", ObjectHandle);
 
     if (ObjectHandle == NULL)
         return STATUS_INVALID_PARAMETER;
@@ -2448,274 +2179,8 @@ NTSTATUS WINAPI LsarEnumerateAccountsWithUserRight(
     PRPC_UNICODE_STRING UserRight,
     PLSAPR_ACCOUNT_ENUM_BUFFER EnumerationBuffer)
 {
-    PLSA_DB_OBJECT PolicyObject;
-    ACCESS_MASK AccountRight = 0;
-    PLUID Luid = NULL;
-    ULONG AccountKeyBufferSize;
-    PWSTR AccountKeyBuffer = NULL;
-    HKEY AccountsKeyHandle = NULL;
-    HKEY AccountKeyHandle = NULL;
-    HKEY AttributeKeyHandle;
-    ACCESS_MASK SystemAccess;
-    PPRIVILEGE_SET PrivilegeSet;
-    PLSAPR_ACCOUNT_INFORMATION EnumBuffer = NULL, ReturnBuffer;
-    ULONG SubKeyCount = 0;
-    ULONG EnumIndex, EnumCount;
-    ULONG Size, i;
-    BOOL Found;
-    NTSTATUS Status;
-
-    TRACE("LsarEnumerateAccountsWithUserRights(%p %wZ %p)\n",
-          PolicyHandle, UserRight, EnumerationBuffer);
-
-    /* Validate the privilege and account right names */
-    if (UserRight != NULL)
-    {
-        Luid = LsarpLookupPrivilegeValue(UserRight);
-        if (Luid == NULL)
-        {
-            AccountRight = LsapLookupAccountRightValue(UserRight);
-            if (AccountRight == 0)
-                return STATUS_NO_SUCH_PRIVILEGE;
-        }
-    }
-
-    if (EnumerationBuffer == NULL)
-        return STATUS_INVALID_PARAMETER;
-
-    EnumerationBuffer->EntriesRead = 0;
-    EnumerationBuffer->Information = NULL;
-
-    /* Validate the PolicyHandle */
-    Status = LsapValidateDbObject(PolicyHandle,
-                                  LsaDbPolicyObject,
-                                  POLICY_LOOKUP_NAMES | POLICY_VIEW_LOCAL_INFORMATION,
-                                  &PolicyObject);
-    if (!NT_SUCCESS(Status))
-    {
-        ERR("LsapValidateDbObject returned 0x%08lx\n", Status);
-        return Status;
-    }
-
-    Status = LsapRegOpenKey(PolicyObject->KeyHandle,
-                            L"Accounts",
-                            KEY_READ,
-                            &AccountsKeyHandle);
-    if (!NT_SUCCESS(Status))
-    {
-        ERR("LsapRegOpenKey returned 0x%08lx\n", Status);
-        return Status;
-    }
-
-    Status = LsapRegQueryKeyInfo(AccountsKeyHandle,
-                                 &SubKeyCount,
-                                 &AccountKeyBufferSize,
-                                 NULL);
-    if (!NT_SUCCESS(Status))
-    {
-        ERR("LsapRegOpenKey returned 0x%08lx\n", Status);
-        return Status;
-    }
-
-    AccountKeyBufferSize += sizeof(WCHAR);
-    AccountKeyBuffer = RtlAllocateHeap(RtlGetProcessHeap(), 0, AccountKeyBufferSize);
-    if (AccountKeyBuffer == NULL)
-    {
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
-
-    EnumBuffer = RtlAllocateHeap(RtlGetProcessHeap(),
-                                 HEAP_ZERO_MEMORY,
-                                 SubKeyCount * sizeof(LSAPR_ACCOUNT_INFORMATION));
-    if (EnumBuffer == NULL)
-    {
-        Status = STATUS_INSUFFICIENT_RESOURCES;
-        goto done;
-    }
-
-    EnumCount = 0;
-    EnumIndex = 0;
-    while (TRUE)
-    {
-        Found = FALSE;
-
-        Status = LsapRegEnumerateSubKey(AccountsKeyHandle,
-                                        EnumIndex,
-                                        AccountKeyBufferSize,
-                                        AccountKeyBuffer);
-        if (!NT_SUCCESS(Status))
-        {
-            if (Status == STATUS_NO_MORE_ENTRIES)
-                Status = STATUS_SUCCESS;
-            break;
-        }
-
-        TRACE("EnumIndex: %lu\n", EnumIndex);
-        TRACE("Account key name: %S\n", AccountKeyBuffer);
-
-        Status = LsapRegOpenKey(AccountsKeyHandle,
-                                AccountKeyBuffer,
-                                KEY_READ,
-                                &AccountKeyHandle);
-        if (NT_SUCCESS(Status))
-        {
-            if (Luid != NULL || AccountRight != 0)
-            {
-                Status = LsapRegOpenKey(AccountKeyHandle,
-                                        (Luid != NULL) ? L"Privilgs" : L"ActSysAc",
-                                        KEY_READ,
-                                        &AttributeKeyHandle);
-                if (NT_SUCCESS(Status))
-                {
-                    if (Luid != NULL)
-                    {
-                        Size = 0;
-                        LsapRegQueryValue(AttributeKeyHandle,
-                                          NULL,
-                                          NULL,
-                                          NULL,
-                                          &Size);
-                        if (Size != 0)
-                        {
-                            PrivilegeSet = RtlAllocateHeap(RtlGetProcessHeap(), 0, Size);
-                            if (PrivilegeSet)
-                            {
-                                if (LsapRegQueryValue(AttributeKeyHandle,
-                                                      NULL,
-                                                      NULL,
-                                                      PrivilegeSet,
-                                                      &Size) == STATUS_SUCCESS)
-                                {
-                                    for (i = 0; i < PrivilegeSet->PrivilegeCount; i++)
-                                    {
-                                        if (RtlEqualLuid(&(PrivilegeSet->Privilege[i].Luid), Luid))
-                                        {
-                                            TRACE("%S got the privilege!\n", AccountKeyBuffer);
-                                            Found = TRUE;
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                RtlFreeHeap(RtlGetProcessHeap(), 0, PrivilegeSet);
-                            }
-                        }
-                    }
-                    else if (AccountRight != 0)
-                    {
-                        SystemAccess = 0;
-                        Size = sizeof(ACCESS_MASK);
-                        LsapRegQueryValue(AttributeKeyHandle,
-                                          NULL,
-                                          NULL,
-                                          &SystemAccess,
-                                          &Size);
-                        if (SystemAccess & AccountRight)
-                        {
-                            TRACE("%S got the account right!\n", AccountKeyBuffer);
-                            Found = TRUE;
-                        }
-                    }
-
-                    LsapRegCloseKey(AttributeKeyHandle);
-                }
-            }
-            else
-            {
-                /* enumerate all accounts */
-                Found = TRUE;
-            }
-
-            if (Found == TRUE)
-            {
-                TRACE("Add account: %S\n", AccountKeyBuffer);
-
-                Status = LsapRegOpenKey(AccountKeyHandle,
-                                        L"Sid",
-                                        KEY_READ,
-                                        &AttributeKeyHandle);
-                if (NT_SUCCESS(Status))
-                {
-                    Size = 0;
-                    LsapRegQueryValue(AttributeKeyHandle,
-                                      NULL,
-                                      NULL,
-                                      NULL,
-                                      &Size);
-                    if (Size != 0)
-                    {
-                        EnumBuffer[EnumCount].Sid = midl_user_allocate(Size);
-                        if (EnumBuffer[EnumCount].Sid != NULL)
-                        {
-                            Status = LsapRegQueryValue(AttributeKeyHandle,
-                                                       NULL,
-                                                       NULL,
-                                                       EnumBuffer[EnumCount].Sid,
-                                                       &Size);
-                            if (NT_SUCCESS(Status))
-                            {
-                                EnumCount++;
-                            }
-                            else
-                            {
-                                TRACE("SampRegQueryValue returned %08lX\n", Status);
-                                midl_user_free(EnumBuffer[EnumCount].Sid);
-                                EnumBuffer[EnumCount].Sid = NULL;
-                            }
-                        }
-                    }
-
-                    LsapRegCloseKey(AttributeKeyHandle);
-                }
-            }
-
-            LsapRegCloseKey(AccountKeyHandle);
-        }
-
-        EnumIndex++;
-    }
-
-    TRACE("EnumCount: %lu\n", EnumCount);
-
-    if (NT_SUCCESS(Status) && EnumCount != 0)
-    {
-        ReturnBuffer = midl_user_allocate(EnumCount * sizeof(LSAPR_ACCOUNT_INFORMATION));
-        if (ReturnBuffer == NULL)
-        {
-            Status = STATUS_INSUFFICIENT_RESOURCES;
-            goto done;
-        }
-
-        RtlCopyMemory(ReturnBuffer,
-                      EnumBuffer,
-                      EnumCount * sizeof(LSAPR_ACCOUNT_INFORMATION));
-
-        EnumerationBuffer->EntriesRead = EnumCount;
-        EnumerationBuffer->Information = ReturnBuffer;
-    }
-
-done:
-    if (EnumBuffer != NULL)
-    {
-        if (Status != STATUS_SUCCESS)
-        {
-            for (i = 0; i < EnumCount; i++)
-            {
-                if (EnumBuffer[i].Sid != NULL)
-                    midl_user_free(EnumBuffer[i].Sid);
-            }
-        }
-
-        RtlFreeHeap(RtlGetProcessHeap(), 0, EnumBuffer);
-    }
-
-    if (AccountKeyBuffer != NULL)
-        RtlFreeHeap(RtlGetProcessHeap(), 0, AccountKeyBuffer);
-
-    if (Status == STATUS_SUCCESS && EnumCount == 0)
-        Status = STATUS_NO_MORE_ENTRIES;
-
-    return Status;
+    UNIMPLEMENTED;
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 
@@ -2729,9 +2194,9 @@ NTSTATUS WINAPI LsarEnumerateAccountRights(
     PLSAPR_PRIVILEGE_SET PrivilegeSet = NULL;
     PRPC_UNICODE_STRING RightsBuffer = NULL;
     PRPC_UNICODE_STRING PrivilegeString;
-    ACCESS_MASK SystemAccess = 0;
+    ACCESS_MASK SystemAccess;
     ULONG RightsCount = 0;
-    ULONG Index;
+    ULONG RightsIndex;
     ULONG i;
     NTSTATUS Status;
 
@@ -2745,25 +2210,25 @@ NTSTATUS WINAPI LsarEnumerateAccountRights(
                              &AccountHandle);
     if (!NT_SUCCESS(Status))
     {
-        WARN("LsarOpenAccount returned 0x%08lx\n", Status);
+        ERR("LsarOpenAccount returned 0x%08lx\n", Status);
         return Status;
     }
 
     /* Enumerate the privileges */
     Status = LsarEnumeratePrivilegesAccount(AccountHandle,
                                             &PrivilegeSet);
-    if (!NT_SUCCESS(Status) && Status != STATUS_OBJECT_NAME_NOT_FOUND)
+    if (!NT_SUCCESS(Status))
     {
-        WARN("LsarEnumeratePrivilegesAccount returned 0x%08lx\n", Status);
+        ERR("LsarEnumeratePrivilegesAccount returned 0x%08lx\n", Status);
         goto done;
     }
 
     /* Get account rights */
     Status = LsarGetSystemAccessAccount(AccountHandle,
                                         &SystemAccess);
-    if (!NT_SUCCESS(Status) && Status != STATUS_OBJECT_NAME_NOT_FOUND)
+    if (!NT_SUCCESS(Status))
     {
-        WARN("LsarGetSystemAccessAccount returned 0x%08lx\n", Status);
+        ERR("LsarGetSystemAccessAccount returned 0x%08lx\n", Status);
         goto done;
     }
 
@@ -2794,28 +2259,22 @@ NTSTATUS WINAPI LsarEnumerateAccountRights(
     }
 
     /* Copy the privileges into the buffer */
-    Index = 0;
-    if (PrivilegeSet)
+    RightsIndex = 0;
+    for (i = 0; i < PrivilegeSet->PrivilegeCount; i++)
     {
-        for (i = 0; i < PrivilegeSet->PrivilegeCount; i++)
-        {
-            PrivilegeString = NULL;
-            Status = LsarLookupPrivilegeName(PolicyHandle,
-                                             (PLUID)&PrivilegeSet->Privilege[i].Luid,
-                                             &PrivilegeString);
-            if (!NT_SUCCESS(Status))
-            {
-                WARN("LsarLookupPrivilegeName returned 0x%08lx\n", Status);
-                goto done;
-            }
+        PrivilegeString = NULL;
+        Status = LsarLookupPrivilegeName(PolicyHandle,
+                                         (PLUID)&PrivilegeSet->Privilege[i].Luid,
+                                         &PrivilegeString);
+        if (!NT_SUCCESS(Status))
+            goto done;
 
-            RightsBuffer[Index].Length = PrivilegeString->Length;
-            RightsBuffer[Index].MaximumLength = PrivilegeString->MaximumLength;
-            RightsBuffer[Index].Buffer = PrivilegeString->Buffer;
+        RightsBuffer[i].Length = PrivilegeString->Length;
+        RightsBuffer[i].MaximumLength = PrivilegeString->MaximumLength;
+        RightsBuffer[i].Buffer = PrivilegeString->Buffer;
 
-            MIDL_user_free(PrivilegeString);
-            Index++;
-        }
+        MIDL_user_free(PrivilegeString);
+        RightsIndex++;
     }
 
     /* Copy account rights into the buffer */
@@ -2826,17 +2285,14 @@ NTSTATUS WINAPI LsarEnumerateAccountRights(
             Status = LsapLookupAccountRightName(1 << i,
                                                 &PrivilegeString);
             if (!NT_SUCCESS(Status))
-            {
-                WARN("LsarLookupAccountRightName returned 0x%08lx\n", Status);
                 goto done;
-            }
 
-            RightsBuffer[Index].Length = PrivilegeString->Length;
-            RightsBuffer[Index].MaximumLength = PrivilegeString->MaximumLength;
-            RightsBuffer[Index].Buffer = PrivilegeString->Buffer;
+            RightsBuffer[i].Length = PrivilegeString->Length;
+            RightsBuffer[i].MaximumLength = PrivilegeString->MaximumLength;
+            RightsBuffer[i].Buffer = PrivilegeString->Buffer;
 
             MIDL_user_free(PrivilegeString);
-            Index++;
+            RightsIndex++;
         }
     }
 
@@ -2848,10 +2304,10 @@ done:
     {
         if (RightsBuffer != NULL)
         {
-            for (Index = 0; Index < RightsCount; Index++)
+            for (RightsIndex = 0; RightsIndex < RightsCount; RightsIndex++)
             {
-                if (RightsBuffer[Index].Buffer != NULL)
-                    MIDL_user_free(RightsBuffer[Index].Buffer);
+                if (RightsBuffer[RightsIndex].Buffer != NULL)
+                    MIDL_user_free(RightsBuffer[RightsIndex].Buffer);
             }
 
             MIDL_user_free(RightsBuffer);
@@ -2873,206 +2329,8 @@ NTSTATUS WINAPI LsarAddAccountRights(
     PRPC_SID AccountSid,
     PLSAPR_USER_RIGHT_SET UserRights)
 {
-    PLSA_DB_OBJECT PolicyObject;
-    PLSA_DB_OBJECT AccountObject = NULL;
-    ULONG ulNewPrivileges = 0, ulNewRights = 0;
-    ACCESS_MASK SystemAccess = 0;
-    ULONG Size, Value, i, j;
-    PPRIVILEGE_SET PrivilegeSet = NULL;
-    ULONG PrivilegeSetBufferSize = 0;
-    ULONG PrivilegeCount;
-    BOOLEAN bFound;
-    PLUID pLuid;
-    NTSTATUS Status;
-
-    TRACE("LsarAddAccountRights(%p %p %p)\n",
-          PolicyHandle, AccountSid, UserRights);
-
-    /* Validate the AccountSid */
-    if (!RtlValidSid(AccountSid))
-        return STATUS_INVALID_PARAMETER;
-
-    /* Validate the UserRights */
-    if (UserRights == NULL)
-        return STATUS_INVALID_PARAMETER;
-
-    /* Validate the privilege and account right names */
-    for (i = 0; i < UserRights->Entries; i++)
-    {
-        if (LsarpLookupPrivilegeValue(&UserRights->UserRights[i]) != NULL)
-        {
-            ulNewPrivileges++;
-        }
-        else
-        {
-            if (LsapLookupAccountRightValue(&UserRights->UserRights[i]) == 0)
-                return STATUS_NO_SUCH_PRIVILEGE;
-
-            ulNewRights++;
-        }
-    }
-
-    TRACE("ulNewPrivileges: %lu\n", ulNewPrivileges);
-    TRACE("ulNewRights: %lu\n", ulNewRights);
-
-    /* Validate the PolicyHandle */
-    Status = LsapValidateDbObject(PolicyHandle,
-                                  LsaDbPolicyObject,
-                                  POLICY_LOOKUP_NAMES,
-                                  &PolicyObject);
-    if (!NT_SUCCESS(Status))
-    {
-        WARN("LsapValidateDbObject returned 0x%08lx\n", Status);
-        return Status;
-    }
-
-    /* Open the account */
-    Status = LsarpOpenAccount(PolicyObject,
-                              AccountSid,
-                              0,
-                              &AccountObject);
-    if (!NT_SUCCESS(Status) && Status != STATUS_OBJECT_NAME_NOT_FOUND)
-    {
-        WARN("LsarpOpenAccount returned 0x%08lx\n", Status);
-        goto done;
-    }
-    else if (Status == STATUS_OBJECT_NAME_NOT_FOUND)
-    {
-        /* Create a new account if it does not yet exist */
-        Status = LsarpCreateAccount(PolicyObject,
-                                    AccountSid,
-                                    0,
-                                    &AccountObject);
-        if (!NT_SUCCESS(Status))
-        {
-            WARN("LsarpCreateAccount returned 0x%08lx\n", Status);
-            goto done;
-        }
-    }
-
-    if (ulNewPrivileges > 0)
-    {
-        Size = 0;
-
-        /* Get the size of the Privilgs attribute */
-        Status = LsapGetObjectAttribute(AccountObject,
-                                        L"Privilgs",
-                                        NULL,
-                                        &Size);
-        if (!NT_SUCCESS(Status) && Status != STATUS_OBJECT_NAME_NOT_FOUND)
-            goto done;
-
-        /* Calculate the required privilege set buffer size */
-        if (Size == 0)
-            PrivilegeSetBufferSize = sizeof(PRIVILEGE_SET) +
-                                     (ulNewPrivileges - 1) * sizeof(LUID_AND_ATTRIBUTES);
-        else
-            PrivilegeSetBufferSize = Size +
-                                     ulNewPrivileges * sizeof(LUID_AND_ATTRIBUTES);
-
-        /* Allocate the privilege set buffer */
-        PrivilegeSet = RtlAllocateHeap(RtlGetProcessHeap(),
-                                       HEAP_ZERO_MEMORY,
-                                       PrivilegeSetBufferSize);
-        if (PrivilegeSet == NULL)
-            return STATUS_NO_MEMORY;
-
-        /* Get the privilege set */
-        if (Size != 0)
-        {
-            Status = LsapGetObjectAttribute(AccountObject,
-                                            L"Privilgs",
-                                            PrivilegeSet,
-                                            &Size);
-            if (!NT_SUCCESS(Status))
-            {
-                WARN("LsapGetObjectAttribute() failed (Status 0x%08lx)\n", Status);
-                goto done;
-            }
-        }
-
-        PrivilegeCount = PrivilegeSet->PrivilegeCount;
-        TRACE("Privilege count: %lu\n", PrivilegeCount);
-
-        for (i = 0; i < UserRights->Entries; i++)
-        {
-            pLuid = LsarpLookupPrivilegeValue(&UserRights->UserRights[i]);
-            if (pLuid == NULL)
-                continue;
-
-            bFound = FALSE;
-            for (j = 0; j < PrivilegeSet->PrivilegeCount; j++)
-            {
-                if (RtlEqualLuid(&(PrivilegeSet->Privilege[j].Luid), pLuid))
-                {
-                    bFound = TRUE;
-                    break;
-                }
-            }
-
-            if (bFound == FALSE)
-            {
-                /* Copy the new privilege */
-                RtlCopyMemory(&(PrivilegeSet->Privilege[PrivilegeSet->PrivilegeCount]),
-                              pLuid,
-                              sizeof(LUID));
-                PrivilegeSet->PrivilegeCount++;
-            }
-        }
-
-        /* Store the extended privilege set */
-        if (PrivilegeCount != PrivilegeSet->PrivilegeCount)
-        {
-            Size = sizeof(PRIVILEGE_SET) +
-                   (PrivilegeSet->PrivilegeCount - 1) * sizeof(LUID_AND_ATTRIBUTES);
-
-            Status = LsapSetObjectAttribute(AccountObject,
-                                            L"Privilgs",
-                                            PrivilegeSet,
-                                            Size);
-            if (!NT_SUCCESS(Status))
-            {
-                WARN("LsapSetObjectAttribute() failed (Status 0x%08lx)\n", Status);
-                goto done;
-            }
-        }
-    }
-
-    if (ulNewRights > 0)
-    {
-        Size = sizeof(ACCESS_MASK);
-
-        /* Get the system access flags, if the attribute exists */
-        Status = LsapGetObjectAttribute(AccountObject,
-                                        L"ActSysAc",
-                                        &SystemAccess,
-                                        &Size);
-        if (!NT_SUCCESS(Status) && Status != STATUS_OBJECT_NAME_NOT_FOUND)
-            goto done;
-
-        /* Set the new access rights */
-        for (i = 0; i < UserRights->Entries; i++)
-        {
-            Value = LsapLookupAccountRightValue(&UserRights->UserRights[i]);
-            if (Value != 0)
-                SystemAccess |= Value;
-        }
-
-        /* Set the system access flags */
-        Status = LsapSetObjectAttribute(AccountObject,
-                                        L"ActSysAc",
-                                        &SystemAccess,
-                                        sizeof(ACCESS_MASK));
-    }
-
-done:
-    if (PrivilegeSet != NULL)
-        RtlFreeHeap(RtlGetProcessHeap(), 0, PrivilegeSet);
-
-    if (AccountObject != NULL)
-        LsapCloseDbObject(AccountObject);
-
-    return Status;
+    UNIMPLEMENTED;
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 
@@ -3083,190 +2341,8 @@ NTSTATUS WINAPI LsarRemoveAccountRights(
     BOOL AllRights,
     PLSAPR_USER_RIGHT_SET UserRights)
 {
-    PLSA_DB_OBJECT PolicyObject;
-    PLSA_DB_OBJECT AccountObject = NULL;
-    ULONG PrivilegesToRemove = 0, RightsToRemove = 0;
-    ACCESS_MASK SystemAccess = 0;
-    ULONG Size, Value, i, j, Index;
-    PPRIVILEGE_SET PrivilegeSet = NULL;
-    ULONG PrivilegeCount;
-    PLUID pLuid;
-    NTSTATUS Status;
-
-    TRACE("LsarRemoveAccountRights(%p %p %lu %p)\n",
-          PolicyHandle, AccountSid, AllRights, UserRights);
-
-    /* Validate the AccountSid */
-    if (!RtlValidSid(AccountSid))
-        return STATUS_INVALID_PARAMETER;
-
-    /* Validate the UserRights */
-    if (UserRights == NULL)
-        return STATUS_INVALID_PARAMETER;
-
-    /* Validate the privilege and account right names */
-    for (i = 0; i < UserRights->Entries; i++)
-    {
-        if (LsarpLookupPrivilegeValue(&UserRights->UserRights[i]) != NULL)
-        {
-            PrivilegesToRemove++;
-        }
-        else
-        {
-            if (LsapLookupAccountRightValue(&UserRights->UserRights[i]) == 0)
-                return STATUS_NO_SUCH_PRIVILEGE;
-
-            RightsToRemove++;
-        }
-    }
-
-    /* Validate the PolicyHandle */
-    Status = LsapValidateDbObject(PolicyHandle,
-                                  LsaDbPolicyObject,
-                                  POLICY_LOOKUP_NAMES,
-                                  &PolicyObject);
-    if (!NT_SUCCESS(Status))
-    {
-        ERR("LsapValidateDbObject returned 0x%08lx\n", Status);
-        return Status;
-    }
-
-    /* Open the account */
-    Status = LsarpOpenAccount(PolicyObject,
-                              AccountSid,
-                              0,
-                              &AccountObject);
-    if (!NT_SUCCESS(Status) && Status != STATUS_OBJECT_NAME_NOT_FOUND)
-    {
-        ERR("LsarpOpenAccount returned 0x%08lx\n", Status);
-        goto done;
-    }
-
-    if (AllRights == FALSE)
-    {
-        /* Get the size of the Privilgs attribute */
-        Size = 0;
-        Status = LsapGetObjectAttribute(AccountObject,
-                                        L"Privilgs",
-                                        NULL,
-                                        &Size);
-        if (!NT_SUCCESS(Status) && Status != STATUS_OBJECT_NAME_NOT_FOUND)
-            goto done;
-
-        if ((Size != 0) && (PrivilegesToRemove != 0))
-        {
-            /* Allocate the privilege set buffer */
-            PrivilegeSet = RtlAllocateHeap(RtlGetProcessHeap(),
-                                           HEAP_ZERO_MEMORY,
-                                           Size);
-            if (PrivilegeSet == NULL)
-                return STATUS_NO_MEMORY;
-
-            /* Get the privilege set */
-            Status = LsapGetObjectAttribute(AccountObject,
-                                            L"Privilgs",
-                                            PrivilegeSet,
-                                            &Size);
-            if (!NT_SUCCESS(Status))
-            {
-                ERR("LsapGetObjectAttribute() failed (Status 0x%08lx)\n", Status);
-                goto done;
-            }
-
-            PrivilegeCount = PrivilegeSet->PrivilegeCount;
-
-            for (i = 0; i < UserRights->Entries; i++)
-            {
-                pLuid = LsarpLookupPrivilegeValue(&UserRights->UserRights[i]);
-                if (pLuid == NULL)
-                    continue;
-
-                Index = -1;
-                for (j = 0; j < PrivilegeSet->PrivilegeCount; j++)
-                {
-                    if (RtlEqualLuid(&(PrivilegeSet->Privilege[j].Luid), pLuid))
-                    {
-                        Index = j;
-                        break;
-                    }
-                }
-
-                if (Index != -1)
-                {
-                    /* Remove the privilege */
-                    if ((PrivilegeSet->PrivilegeCount > 1) &&
-                        (Index < PrivilegeSet->PrivilegeCount - 1))
-                        RtlMoveMemory(&(PrivilegeSet->Privilege[Index]),
-                                      &(PrivilegeSet->Privilege[Index + 1]),
-                                      (Index - PrivilegeSet->PrivilegeCount - 1) * sizeof(LUID));
-
-                    /* Wipe the last entry */
-                    RtlZeroMemory(&(PrivilegeSet->Privilege[PrivilegeSet->PrivilegeCount - 1]),
-                                  sizeof(LUID));
-
-                    PrivilegeSet->PrivilegeCount--;
-                }
-            }
-
-            /* Store the extended privilege set */
-            if (PrivilegeCount != PrivilegeSet->PrivilegeCount)
-            {
-                Size = sizeof(PRIVILEGE_SET) +
-                       (PrivilegeSet->PrivilegeCount - 1) * sizeof(LUID_AND_ATTRIBUTES);
-
-                Status = LsapSetObjectAttribute(AccountObject,
-                                                L"Privilgs",
-                                                PrivilegeSet,
-                                                Size);
-                if (!NT_SUCCESS(Status))
-                {
-                    ERR("LsapSetObjectAttribute() failed (Status 0x%08lx)\n", Status);
-                    goto done;
-                }
-            }
-        }
-
-        /* Get the system access flags, if the attribute exists */
-        Size = 0;
-        Status = LsapGetObjectAttribute(AccountObject,
-                                        L"ActSysAc",
-                                        &SystemAccess,
-                                        &Size);
-        if (!NT_SUCCESS(Status) && Status != STATUS_OBJECT_NAME_NOT_FOUND)
-            goto done;
-
-        if ((Size != 0) && (RightsToRemove != 0))
-        {
-            ERR("Rights: 0x%lx\n", SystemAccess);
-
-            /* Set the new access rights */
-            for (i = 0; i < UserRights->Entries; i++)
-            {
-                Value = LsapLookupAccountRightValue(&UserRights->UserRights[i]);
-                if (Value != 0)
-                    SystemAccess &= ~Value;
-            }
-            ERR("New Rights: 0x%lx\n", SystemAccess);
-
-            /* Set the system access flags */
-            Status = LsapSetObjectAttribute(AccountObject,
-                                            L"ActSysAc",
-                                            &SystemAccess,
-                                            sizeof(ACCESS_MASK));
-        }
-    }
-    else
-    {
-    }
-
-done:
-    if (PrivilegeSet != NULL)
-        RtlFreeHeap(RtlGetProcessHeap(), 0, PrivilegeSet);
-
-    if (AccountObject != NULL)
-        LsapCloseDbObject(AccountObject);
-
-    return Status;
+    UNIMPLEMENTED;
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 
@@ -3470,9 +2546,6 @@ NTSTATUS WINAPI LsarRetrievePrivateData(
     ULONG CurrentValueLength = 0;
     PBYTE CurrentValue = NULL;
     NTSTATUS Status;
-
-    TRACE("LsarRetrievePrivateData(%p %wZ %p)\n",
-          PolicyHandle, KeyName, EncryptedData);
 
     /* Validate the SecretHandle */
     Status = LsapValidateDbObject(PolicyHandle,
@@ -3724,7 +2797,7 @@ NTSTATUS WINAPI LsarLookupSids2(
 {
     NTSTATUS Status;
 
-    TRACE("LsarLookupSids2(%p %p %p %p %d %p %lu %lu)\n",
+    TRACE("(%p %p %p %p %d %p %lu %lu)\n",
           PolicyHandle, SidEnumBuffer, ReferencedDomains, TranslatedNames,
           LookupLevel, MappedCount, LookupOptions, ClientRevision);
 
@@ -3762,7 +2835,7 @@ NTSTATUS WINAPI LsarLookupNames2(
     ULONG i;
     NTSTATUS Status;
 
-    TRACE("LsarLookupNames2(%p %lu %p %p %p %d %p %lu %lu)\n",
+    TRACE("(%p %lu %p %p %p %d %p %lu %lu)\n",
           PolicyHandle, Count, Names, ReferencedDomains, TranslatedSids,
           LookupLevel, MappedCount, LookupOptions, ClientRevision);
 
@@ -3910,7 +2983,7 @@ NTSTATUS WINAPI LsarLookupNames3(
 {
     NTSTATUS Status;
 
-    TRACE("LsarLookupNames3(%p %lu %p %p %p %d %p %lu %lu)\n",
+    TRACE("(%p %lu %p %p %p %d %p %lu %lu)\n",
           PolicyHandle, Count, Names, ReferencedDomains, TranslatedSids,
           LookupLevel, MappedCount, LookupOptions, ClientRevision);
 
@@ -4018,7 +3091,7 @@ NTSTATUS WINAPI LsarLookupSids3(
 {
     NTSTATUS Status;
 
-    TRACE("LsarLookupSids3(%p %p %p %p %d %p %lu %lu)\n",
+    TRACE("(%p %p %p %p %d %p %lu %lu)\n",
           PolicyHandle, SidEnumBuffer, ReferencedDomains, TranslatedNames,
           LookupLevel, MappedCount, LookupOptions, ClientRevision);
 
@@ -4054,7 +3127,7 @@ NTSTATUS WINAPI LsarLookupNames4(
 {
     NTSTATUS Status;
 
-    TRACE("LsarLookupNames4(%p %lu %p %p %p %d %p %lu %lu)\n",
+    TRACE("(%p %lu %p %p %p %d %p %lu %lu)\n",
           RpcHandle, Count, Names, ReferencedDomains, TranslatedSids,
           LookupLevel, MappedCount, LookupOptions, ClientRevision);
 

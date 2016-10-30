@@ -594,8 +594,7 @@ CcRosMapVacb(
     MmUnlockAddressSpace(MmGetKernelAddressSpace());
     if (!NT_SUCCESS(Status))
     {
-        DPRINT1("MmCreateMemoryArea failed with %lx for VACB %p\n", Status, Vacb);
-        return Status;
+        KeBugCheck(CACHE_MANAGER);
     }
 
     ASSERT(((ULONG_PTR)Vacb->BaseAddress % PAGE_SIZE) == 0);
@@ -747,13 +746,6 @@ CcRosCreateVacb (
 #endif
 
     Status = CcRosMapVacb(current);
-    if (!NT_SUCCESS(Status))
-    {
-        RemoveEntryList(&current->CacheMapVacbListEntry);
-        RemoveEntryList(&current->VacbLruListEntry);
-        CcRosReleaseVacbLock(current);
-        ExFreeToNPagedLookasideList(&VacbLookasideList, current);
-    }
 
     return Status;
 }

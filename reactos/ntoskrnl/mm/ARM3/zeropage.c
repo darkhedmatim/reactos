@@ -68,8 +68,6 @@ MmZeroPageThread(VOID)
                                  NULL,
                                  NULL);
         OldIrql = KeAcquireQueuedSpinLock(LockQueuePfnLock);
-        MmZeroingPageThreadActive = TRUE;
-
         while (TRUE)
         {
             if (!MmFreePageListHead.Total)

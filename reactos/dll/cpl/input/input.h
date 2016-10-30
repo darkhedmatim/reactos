@@ -9,13 +9,8 @@
 #include <winnls.h>
 #include <winreg.h>
 #include <winuser.h>
-#include <wingdi.h>
 #include <commctrl.h>
-#include <windowsx.h>
-#include <setupapi.h>
-#include <wchar.h>
-#include <strsafe.h>
-#include <stdlib.h>
+#include <tchar.h>
 
 #include "resource.h"
 
@@ -30,6 +25,7 @@ typedef struct
 } APPLET, *PAPPLET;
 
 extern HINSTANCE hApplet;
+extern HANDLE hProcessHeap;
 
 // Character Count of a layout ID like "00000409"
 #define CCH_LAYOUT_ID    8
@@ -37,50 +33,44 @@ extern HINSTANCE hApplet;
 // Maximum Character Count of a ULONG in decimal
 #define CCH_ULONG_DEC    10
 
-#define MAX_STR_LEN      256
+/* input.c */
+VOID
+InitPropSheetPage(PROPSHEETPAGE *psp, WORD idDlg, DLGPROC DlgProc);
 
-/* settings_page.c */
+/* settings.c */
 INT_PTR CALLBACK
-SettingsPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+SettingsPageProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam);
+BOOL
+GetLayoutName(LPCTSTR szLCID, LPTSTR szName);
+VOID
+UpdateLayoutsList(VOID);
+BOOL
+IsLayoutExists(LPTSTR szLayoutID, LPTSTR szLangID);
 
-/* advanced_settings_page.c */
+/* advsettings.c */
 INT_PTR CALLBACK
 AdvancedSettingsPageProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-/* add_dialog.c */
+/* keysettings.c */
 INT_PTR CALLBACK
-AddDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+KeySettingsDlgProc(HWND hDlg,UINT message,WPARAM wParam,LPARAM lParam);
+VOID
+UpdateKeySettingsList(VOID);
 
-/* edit_dialog.c */
+/* add.c */
 INT_PTR CALLBACK
-EditDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+AddDlgProc(HWND hDlg,UINT message,WPARAM wParam,LPARAM lParam);
+VOID
+CreateKeyboardLayoutList(HWND hItemsList);
+INT
+GetLayoutCount(LPTSTR szLang);
 
-/* key_settings_dialog.c */
-
-typedef struct
-{
-    DWORD dwAttributes;
-    DWORD dwLanguage;
-    DWORD dwLayout;
-} KEY_SETTINGS;
-
+/* changekeyseq.c */
 INT_PTR CALLBACK
-KeySettingsDialogProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
+ChangeKeySeqDlgProc(HWND hDlg,UINT message,WPARAM wParam,LPARAM lParam);
+BOOL
+GetHotkeys(LPTSTR szHotkey, LPTSTR szLangHotkey, LPTSTR szLayoutHotkey);
 
-DWORD
-ReadAttributes(VOID);
-
-/* key_sequence_dialog.c */
-INT_PTR CALLBACK
-ChangeKeySeqDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
-
-
-static inline DWORD
-DWORDfromString(const WCHAR *pszString)
-{
-    WCHAR *pszEnd;
-
-    return wcstoul(pszString, &pszEnd, 16);
-}
+void ShowLastWin32Error(HWND hWndOwner);
 
 #endif /* _INPUT_H */

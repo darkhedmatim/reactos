@@ -410,7 +410,6 @@ static PKL
 co_UserActivateKbl(PTHREADINFO pti, PKL pKl, UINT Flags)
 {
     PKL pklPrev;
-    PWND pWnd;
 
     pklPrev = pti->KeyboardLayout;
     if (pklPrev)
@@ -425,13 +424,8 @@ co_UserActivateKbl(PTHREADINFO pti, PKL pKl, UINT Flags)
         // FIXME
     }
 
-    if (!(pWnd = pti->MessageQueue->spwndFocus))
-    {
-         pWnd = pti->MessageQueue->spwndActive;
-    }
-
     // Send WM_INPUTLANGCHANGE to thread's focus window
-    co_IntSendMessage( pWnd ? UserHMGetHandle(pWnd) : 0,
+    co_IntSendMessage(pti->MessageQueue->spwndFocus ? UserHMGetHandle(pti->MessageQueue->spwndFocus) : 0,
                       WM_INPUTLANGCHANGE,
                       (WPARAM)pKl->iBaseCharset, // FIXME: How to set it?
                       (LPARAM)pKl->hkl); // hkl
@@ -450,37 +444,31 @@ HKL FASTCALL
 UserGetKeyboardLayout(
     DWORD dwThreadId)
 {
+    NTSTATUS Status;
+    PETHREAD pThread;
     PTHREADINFO pti;
-    PLIST_ENTRY ListEntry;
     PKL pKl;
-
-    pti = PsGetCurrentThreadWin32Thread();
+    HKL hKl;
 
     if (!dwThreadId)
     {
+        pti = PsGetCurrentThreadWin32Thread();
         pKl = pti->KeyboardLayout;
         return pKl ? pKl->hkl : NULL;
     }
 
-    ListEntry = pti->rpdesk->PtiList.Flink;
-
-    //
-    // Search the Desktop Thread list for related Desktop active Threads.
-    //
-    while(ListEntry != &pti->rpdesk->PtiList)
+    Status = PsLookupThreadByThreadId((HANDLE)(DWORD_PTR)dwThreadId, &pThread);
+    if (!NT_SUCCESS(Status))
     {
-        pti = CONTAINING_RECORD(ListEntry, THREADINFO, PtiLink);
-
-        if (PsGetThreadId(pti->pEThread) == UlongToHandle(dwThreadId))
-        {
-           pKl = pti->KeyboardLayout;
-           return pKl ? pKl->hkl : NULL;
-        }
-
-        ListEntry = ListEntry->Flink;
+        EngSetLastError(ERROR_INVALID_PARAMETER);
+        return NULL;
     }
 
-    return NULL;
+    pti = PsGetThreadWin32Thread(pThread);
+    pKl = pti->KeyboardLayout;
+    hKl = pKl ? pKl->hkl : NULL;
+    ObDereferenceObject(pThread);
+    return hKl;
 }
 
 /*

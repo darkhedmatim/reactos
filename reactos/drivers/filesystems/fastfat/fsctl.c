@@ -445,6 +445,7 @@ VfatMount(
     Status = VfatMountDevice(DeviceExt, DeviceToMount);
     if (!NT_SUCCESS(Status))
     {
+        /* FIXME: delete device object */
         goto ByeBye;
     }
 

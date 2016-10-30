@@ -1,29 +1,26 @@
-/* Imported from msvcrt/console.c */
+/*
+ * COPYRIGHT:   LGPL - See COPYING in the top level directory
+ * PROJECT:     ReactOS system libraries
+ * FILE:        lib/sdk/crt/conio/cputs.c
+ * PURPOSE:     Writes a character to stdout
+ * PROGRAMER:   Aleksey Bragin
+ */
 
 #include <precomp.h>
 
-/*********************************************************************
- *		_cputs (MSVCRT.@)
+/*
+ * @implemented
  */
-int CDECL _cputs(const char* str)
+int _cputs(const char *_str)
 {
   DWORD count;
-  int len, retval = -1;
-#ifdef __REACTOS__ /* r54651 */
-  HANDLE MSVCRT_console_out = GetStdHandle(STD_OUTPUT_HANDLE);
-#endif
+  int retval = EOF;
+  HANDLE console_out = GetStdHandle(STD_OUTPUT_HANDLE);
 
-  if (!MSVCRT_CHECK_PMT(str != NULL)) return -1;
-  len = strlen(str);
-
-#ifndef __REACTOS__ /* r54651 */
-  LOCK_CONSOLE;
-#endif
-  if (WriteConsoleA(MSVCRT_console_out, str, len, &count, NULL)
-      && count == len)
+  //LOCK_CONSOLE;
+  if (WriteConsoleA(console_out, _str, strlen(_str), &count, NULL)
+      && count == 1)
     retval = 0;
-#ifndef __REACTOS__ /* r54651 */
-  UNLOCK_CONSOLE;
-#endif
+  //UNLOCK_CONSOLE;
   return retval;
 }

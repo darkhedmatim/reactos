@@ -17,8 +17,7 @@ add_definitions(-D_WIN32_WINNT=0x600)
 
 add_definitions(
     -D_SHELL32_
-    -D_WINE
-    -D_ATL_NO_EXCEPTIONS)
+    -D_WINE)
 
 include_directories(
     ${REACTOS_SOURCE_DIR}/sdk/lib/atl
@@ -54,9 +53,7 @@ list(APPEND SOURCE
     folders/CFontsFolder.cpp
     folders/CControlPanelFolder.cpp
     folders/CRecycleBin.cpp
-    folders/CRegFolder.cpp
     droptargets/CexeDropHandler.cpp
-    droptargets/CFSDropTarget.cpp
     shlexec.cpp
     shlfileop.cpp
     shlfolder.cpp

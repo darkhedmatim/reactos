@@ -800,11 +800,7 @@ void WINAPI SHAddToRecentDocs (UINT uFlags,LPCVOID pv)
     switch (uFlags)
     {
     case SHARD_PIDL:
-        if (!SHGetPathFromIDListA(pv, doc_name))
-        {
-            WARN("can't get path from PIDL\n");
-            return;
-        }
+        SHGetPathFromIDListA(pv, doc_name);
         break;
 
     case SHARD_PATHA:
@@ -900,7 +896,7 @@ void WINAPI SHAddToRecentDocs (UINT uFlags,LPCVOID pv)
 		/* buffer size looks good */
 		ptr += 12; /* get to string */
 		len = bufused - (ptr-buffer);  /* get length of buf remaining */
-                if (ptr[0] && (lstrlenA(ptr) <= len-1)) {
+		if ((lstrlenA(ptr) > 0) && (lstrlenA(ptr) <= len-1)) {
 		    /* appears to be good string */
 		    lstrcpyA(old_lnk_name, link_dir);
 		    PathAppendA(old_lnk_name, ptr);

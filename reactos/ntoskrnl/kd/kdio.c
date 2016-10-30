@@ -11,7 +11,6 @@
 
 #include <ntoskrnl.h>
 #include <reactos/buildno.h>
-#define NDEBUG
 #include <debug.h>
 
 /* GLOBALS *******************************************************************/
@@ -54,11 +53,9 @@ volatile BOOLEAN KdbpIsInDmesgMode = FALSE;
  *
  * Strongly inspired by:
  * mm\ARM3\mminit.c : MiScanMemoryDescriptors(...)
- *
- * See also: kd64\kdinit.c
  */
-static SIZE_T
-INIT_FUNCTION
+SIZE_T
+NTAPI
 KdpGetMemorySizeInMBs(IN PLOADER_PARAMETER_BLOCK LoaderBlock)
 {
     PLIST_ENTRY ListEntry;
@@ -243,15 +240,10 @@ KdpInitDebugLog(PKD_DISPATCH_TABLE DispatchTable,
         KeInitializeSpinLock(&KdpDebugLogSpinLock);
 
         /* Display separator + ReactOS version at start of the debug log */
-        DPRINT1("-----------------------------------------------------\n");
+        DPRINT1("---------------------------------------------------------------\n");
         DPRINT1("ReactOS "KERNEL_VERSION_STR" (Build "KERNEL_VERSION_BUILD_STR")\n");
         MemSizeMBs = MmNumberOfPhysicalPages * PAGE_SIZE / 1024 / 1024;
         DPRINT1("%u System Processor [%u MB Memory]\n", KeNumberProcessors, MemSizeMBs);
-        DPRINT1("Command Line: %s\n", KeLoaderBlock->LoadOptions);
-        DPRINT1("ARC Paths: %s %s %s %s\n", KeLoaderBlock->ArcBootDeviceName,
-                                            KeLoaderBlock->NtHalPathName,
-                                            KeLoaderBlock->ArcHalDeviceName,
-                                            KeLoaderBlock->NtBootPathName);
     }
     else if (BootPhase == 2)
     {

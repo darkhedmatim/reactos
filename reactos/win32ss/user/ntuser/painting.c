@@ -9,6 +9,9 @@
 #include <win32k.h>
 DBG_DEFAULT_CHANNEL(UserPainting);
 
+#define RDW_CLIPCHILDREN  4096
+#define RDW_NOUPDATEDIRTY 32768
+
 /* PRIVATE FUNCTIONS **********************************************************/
 
 /**
@@ -1995,7 +1998,7 @@ UserDrawCaptionText(
    TRACE("UserDrawCaptionText: %wZ\n", Text);
 
    nclm.cbSize = sizeof(nclm);
-   if (!UserSystemParametersInfo(SPI_GETNONCLIENTMETRICS, nclm.cbSize, &nclm, 0))
+   if(!UserSystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &nclm, 0))
    {
       ERR("UserSystemParametersInfo() failed!\n");
       return FALSE;

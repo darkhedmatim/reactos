@@ -309,16 +309,16 @@ CDrvDefExt::InitGeneralPage(HWND hwndDlg)
         default: IconId = IDI_SHELL_DRIVE; TypeStrId = IDS_DRIVE_FIXED;
     }
 
-    if (DriveType == DRIVE_CDROM || DriveType == DRIVE_REMOTE)
+    if (DriveType == DRIVE_CDROM)
     {
         /* volume label textbox */
-        SendMessage(GetDlgItem(hwndDlg, 14000), EM_SETREADONLY, TRUE, 0);
+        EnableWindow(GetDlgItem(hwndDlg, 14000), false);
         
         /* disk compression */
-        ShowWindow(GetDlgItem(hwndDlg, 14011), FALSE);
+        ShowWindow(GetDlgItem(hwndDlg, 14011), false);
 
         /* index */
-        ShowWindow(GetDlgItem(hwndDlg, 14012), FALSE);
+        ShowWindow(GetDlgItem(hwndDlg, 14012), false);
     }
     
     HICON hIcon = (HICON)LoadImage(shell32_hInstance, MAKEINTRESOURCE(IconId), IMAGE_ICON, 32, 32, LR_SHARED);

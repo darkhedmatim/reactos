@@ -20,8 +20,8 @@ Hib_InitDialog(HWND hwndDlg)
 {
     SYSTEM_POWER_CAPABILITIES PowerCaps;
     MEMORYSTATUSEX msex;
+    TCHAR szSize[MAX_PATH];
     TCHAR szTemp[MAX_PATH];
-    LPTSTR lpRoot;
     ULARGE_INTEGER FreeBytesAvailable, TotalNumberOfBytes, TotalNumberOfFreeBytes;
 
     if (GetPwrCapabilities(&PowerCaps))
@@ -37,21 +37,49 @@ Hib_InitDialog(HWND hwndDlg)
         }
 
         if (GetWindowsDirectory(szTemp,MAX_PATH))
-            lpRoot = szTemp;
+        {
+            if (!GetDiskFreeSpaceEx(szTemp,&FreeBytesAvailable, &TotalNumberOfBytes, &TotalNumberOfFreeBytes))
+                TotalNumberOfFreeBytes.QuadPart = 0;
+        }
         else
-            lpRoot = NULL;
+        {
+            if (!GetDiskFreeSpaceEx(NULL,&FreeBytesAvailable, &TotalNumberOfBytes, &TotalNumberOfFreeBytes))
+                TotalNumberOfFreeBytes.QuadPart = 0;
+        }
 
-        // Get available space and size of selected volume.
-        if (!GetDiskFreeSpaceEx(lpRoot, &FreeBytesAvailable, &TotalNumberOfBytes, &TotalNumberOfFreeBytes))
-            TotalNumberOfFreeBytes.QuadPart = 0;
+        if (TotalNumberOfFreeBytes.QuadPart > 0x100000)
+        {
+            if (LoadString(hApplet, IDS_SIZEMB, szTemp, MAX_PATH))
+            {
+                _stprintf(szSize,szTemp,TotalNumberOfFreeBytes.QuadPart / 0x100000);
+                SetDlgItemText(hwndDlg, IDC_FREESPACE, szSize);
+            }
+        }
+        else
+        {
+            if (LoadString(hApplet, IDS_SIZEBYTS, szTemp, MAX_PATH))
+            {
+                _stprintf(szSize,szTemp,TotalNumberOfFreeBytes.QuadPart);
+                SetDlgItemText(hwndDlg, IDC_FREESPACE, szSize);
+            }
+        }
 
-        // Print the free available space into selected volume.
-        StrFormatByteSize(TotalNumberOfFreeBytes.QuadPart, szTemp, _countof(szTemp));
-        SetDlgItemText(hwndDlg, IDC_FREESPACE, szTemp);
-
-        // Print the amount of space required for hibernation.
-        StrFormatByteSize(msex.ullTotalPhys, szTemp, _countof(szTemp));
-        SetDlgItemText(hwndDlg, IDC_SPACEFORHIBERNATEFILE, szTemp);
+        if (msex.ullTotalPhys>0x100000)
+        {
+            if (LoadString(hApplet, IDS_SIZEMB, szTemp, MAX_PATH))
+            {
+                _stprintf(szSize,szTemp,msex.ullTotalPhys/0x100000);
+                SetDlgItemText(hwndDlg, IDC_SPACEFORHIBERNATEFILE,szSize);
+            }
+        }
+        else
+        {
+            if (LoadString(hApplet, IDS_SIZEBYTS, szTemp, MAX_PATH))
+            {
+                _stprintf(szSize,szTemp,msex.ullTotalPhys);
+                SetDlgItemText(hwndDlg, IDC_SPACEFORHIBERNATEFILE, szSize);
+            }
+        }
 
         if (TotalNumberOfFreeBytes.QuadPart < msex.ullTotalPhys && !PowerCaps.HiberFilePresent)
         {

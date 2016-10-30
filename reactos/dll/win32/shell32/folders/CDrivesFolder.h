@@ -32,8 +32,6 @@ class CDrivesFolder :
     private:
         /* both paths are parsible from the desktop */
         LPITEMIDLIST pidlRoot;    /* absolute pidl */
-        CComPtr<IShellFolder2> m_regFolder;
-
     public:
         CDrivesFolder();
         ~CDrivesFolder();

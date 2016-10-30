@@ -38,7 +38,7 @@
 @ stub SdbFindFirstDWORDIndexedTag
 @ stub SdbFindFirstMsiPackage
 @ stub SdbFindFirstMsiPackage_Str
-@ stdcall SdbFindFirstNamedTag(ptr long long long wstr)
+@ stub SdbFindFirstNamedTag
 @ stub SdbFindFirstStringIndexedTag
 @ stdcall SdbFindFirstTag(ptr long long)
 @ stub SdbFindFirstTagRef
@@ -69,9 +69,9 @@
 @ stub SdbGetIndex
 @ stub SdbGetItemFromItemRef
 @ stub SdbGetLayerName
-@ stdcall SdbGetLayerTagRef(ptr wstr)
+@ stub SdbGetLayerTagRef
 @ stub SdbGetLocalPDB
-@ stdcall SdbGetMatchingExe(ptr wstr wstr wstr long ptr)
+@ stub SdbGetMatchingExe
 @ stub SdbGetMsiPackageInformation
 @ stub SdbGetNamedLayer
 @ stdcall SdbGetNextChild(ptr long long)
@@ -87,14 +87,14 @@
 @ stub SdbGrabMatchingInfoEx
 @ stdcall SdbGUIDFromString(wstr ptr)
 @ stdcall SdbGUIDToString(ptr wstr long)
-@ stdcall SdbInitDatabase(long wstr)
+@ stub SdbInitDatabase
 @ stub SdbInitDatabaseEx
 @ stdcall SdbIsNullGUID(ptr)
 @ stub SdbIsStandardDatabase
 @ stub SdbIsTagrefFromLocalDB
 @ stub SdbIsTagrefFromMainDB
 @ stub SdbLoadString
-@ stdcall SdbMakeIndexKeyFromString(wstr)
+@ stub SdbMakeIndexKeyFromString
 @ stub SdbOpenApphelpDetailsDatabase
 @ stub SdbOpenApphelpDetailsDatabaseSP
 @ stub SdbOpenApphelpInformation
@@ -129,7 +129,7 @@
 @ stdcall SdbReadWORDTag(ptr long long)
 @ stub SdbReadWORDTagRef
 @ stub SdbRegisterDatabase
-@ stdcall SdbReleaseDatabase(ptr)
+@ stub SdbReleaseDatabase
 @ stub SdbReleaseMatchingExe
 @ stub SdbResolveDatabase
 @ stub SdbSetApphelpDebugParameters
@@ -143,8 +143,8 @@
 @ stub SdbStringDuplicate
 @ stub SdbStringReplace
 @ stub SdbStringReplaceArray
-@ stdcall SdbTagIDToTagRef(ptr ptr long ptr)
-@ stdcall SdbTagRefToTagID(ptr long ptr ptr)
+@ stub SdbTagIDToTagRef
+@ stub SdbTagRefToTagID
 @ stdcall SdbTagToString(long)
 @ stub SdbUnregisterDatabase
 @ stdcall SdbWriteBinaryTag(ptr long ptr long)

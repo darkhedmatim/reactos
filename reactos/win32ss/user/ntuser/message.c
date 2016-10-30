@@ -43,7 +43,8 @@ static const unsigned int message_pointer_flags[] =
     SET(WM_GETMINMAXINFO) | SET(WM_DRAWITEM) | SET(WM_MEASUREITEM) | SET(WM_DELETEITEM) |
     SET(WM_COMPAREITEM),
     /* 0x40 - 0x5f */
-    SET(WM_WINDOWPOSCHANGING) | SET(WM_WINDOWPOSCHANGED) | SET(WM_COPYDATA) | SET(WM_COPYGLOBALDATA) | SET(WM_HELP),
+    SET(WM_WINDOWPOSCHANGING) | SET(WM_WINDOWPOSCHANGED) | SET(WM_COPYDATA) |
+    SET(WM_COPYGLOBALDATA) | SET(WM_NOTIFY) | SET(WM_HELP),
     /* 0x60 - 0x7f */
     SET(WM_STYLECHANGING) | SET(WM_STYLECHANGED),
     /* 0x80 - 0x9f */
@@ -553,11 +554,6 @@ IdlePong(VOID)
    }
 }
 
-static BOOL is_message_broadcastable(UINT msg)
-{
-    return msg < WM_USER || msg >= 0xc000;
-}
-
 UINT FASTCALL
 GetWakeMask(UINT first, UINT last )
 {
@@ -613,7 +609,7 @@ IntCallWndProcRet ( PWND Window, HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lPar
 static LRESULT handle_internal_message( PWND pWnd, UINT msg, WPARAM wparam, LPARAM lparam )
 {
     LRESULT lRes;
-//    USER_REFERENCE_ENTRY Ref;
+    USER_REFERENCE_ENTRY Ref;
 //    PTHREADINFO pti = PsGetCurrentThreadWin32Thread();
 
     if (!pWnd ||
@@ -641,6 +637,14 @@ static LRESULT handle_internal_message( PWND pWnd, UINT msg, WPARAM wparam, LPAR
           ExFreePoolWithTag(winpos, USERTAG_SWP);
           return lRes;
        }
+       case WM_ASYNC_SETACTIVEWINDOW:
+       {
+          PWND Window = (PWND)wparam;
+          if (wparam) UserRefObjectCo(Window, &Ref);
+          lRes = (LRESULT)co_IntSetActiveWindow(Window,(BOOL)lparam,TRUE,TRUE);
+          if (wparam) UserDerefObjectCo(Window);
+          return lRes;
+       }
        case WM_ASYNC_DESTROYWINDOW:
        {
           ERR("WM_ASYNC_DESTROYWINDOW\n");
@@ -653,29 +657,16 @@ static LRESULT handle_internal_message( PWND pWnd, UINT msg, WPARAM wparam, LPAR
     return 0;
 }
 
-static LRESULT handle_internal_events( PTHREADINFO pti, PWND pWnd, DWORD dwQEvent, LONG_PTR ExtraInfo, PMSG pMsg)
+static LRESULT handle_internal_events( PTHREADINFO pti, PWND pWnd, LONG_PTR ExtraInfo, PMSG pMsg)
 {
     LRESULT Result = 0;
 
-    switch(dwQEvent)
+    switch(pMsg->lParam)
     {
        case POSTEVENT_NWE:
        {
           co_EVENT_CallEvents( pMsg->message, pMsg->hwnd, pMsg->wParam, ExtraInfo);
        }
-       break;
-       case POSTEVENT_SAW:
-       {
-          //ERR("HIE : SAW : pti 0x%p hWnd 0x%p\n",pti,pMsg->hwnd);
-          IntActivateWindow((PWND)pMsg->wParam, pti, (HANDLE)pMsg->lParam, (DWORD)ExtraInfo);
-       }
-       break;
-       case POSTEVENT_DAW:
-       {
-          //ERR("HIE : DAW : pti 0x%p tid 0x%p hWndPrev 0x%p\n",pti,ExtraInfo,pMsg->hwnd);
-          IntDeactivateWindow(pti, (HANDLE)ExtraInfo);
-       }
-       break;
     }
     return Result;
 }
@@ -878,7 +869,6 @@ co_IntPeekMessage( PMSG Msg,
                             MsgFilterMax,
                             ProcessMask,
                             ExtraInfo,
-                            0,
                             Msg ))
         {
             return TRUE;
@@ -920,7 +910,6 @@ co_IntPeekMessage( PMSG Msg,
         {
            LONG_PTR eExtraInfo;
            MSG eMsg;
-           DWORD dwQEvent;
            if (MsqPeekMessage( pti,
                                TRUE,
                                Window,
@@ -928,10 +917,9 @@ co_IntPeekMessage( PMSG Msg,
                                0,
                                QS_EVENT,
                               &eExtraInfo,
-                              &dwQEvent,
                               &eMsg ))
            {
-              handle_internal_events( pti, Window, dwQEvent, eExtraInfo, &eMsg);
+              handle_internal_events( pti, Window, eExtraInfo, &eMsg);
               continue;
            }
         }
@@ -1090,10 +1078,6 @@ co_IntGetPeekMessage( PMSG pMsg,
 
            if (pMsg->message != WM_PAINT && pMsg->message != WM_QUIT)
            {
-              if (!RtlEqualMemory(&pti->ptLast, &pMsg->pt, sizeof(POINT)))
-              {
-                 pti->TIF_flags |= TIF_MSGPOSCHANGED;
-              }
               pti->timeLast = pMsg->time;
               pti->ptLast   = pMsg->pt;
            }
@@ -1212,13 +1196,11 @@ UserPostMessage( HWND Wnd,
         return FALSE;
     }
 
-    if (Wnd == HWND_BROADCAST || Wnd == HWND_TOPMOST)
+    if (Wnd == HWND_BROADCAST)
     {
         HWND *List;
         PWND DesktopWindow;
         ULONG i;
-
-        if (!is_message_broadcastable(Msg)) return TRUE;
 
         DesktopWindow = UserGetDesktopWindow();
         List = IntWinListChildren(DesktopWindow);
@@ -1296,7 +1278,6 @@ co_IntSendMessage( HWND hWnd,
                    LPARAM lParam )
 {
     ULONG_PTR Result = 0;
-
     if (co_IntSendMessageTimeout(hWnd, Msg, wParam, lParam, SMTO_NORMAL, 0, &Result))
     {
         return (LRESULT)Result;
@@ -1509,8 +1490,6 @@ co_IntSendMessageTimeout( HWND hWnd,
         return co_IntSendMessageTimeoutSingle(hWnd, Msg, wParam, lParam, uFlags, uTimeout, uResult);
     }
 
-    if (!is_message_broadcastable(Msg)) return TRUE;
-
     DesktopWindow = UserGetDesktopWindow();
     if (NULL == DesktopWindow)
     {
@@ -1532,14 +1511,26 @@ co_IntSendMessageTimeout( HWND hWnd,
 
     for (Child = Children; NULL != *Child; Child++)
     {
-        PWND pwnd = UserGetWindowObject(*Child);
-        if (!pwnd) continue;
+        if (hWnd == HWND_TOPMOST)
+        {
+           DesktopWindow = UserGetWindowObject(*Child);
+           if (DesktopWindow && DesktopWindow->ExStyle & WS_EX_TOPMOST)
+           {
+              ERR("HWND_TOPMOST Found\n");
+              co_IntSendMessageTimeoutSingle(*Child, Msg, wParam, lParam, uFlags, uTimeout, uResult);
+           }
+        }
+        else
+        {
+           PWND pwnd = UserGetWindowObject(*Child);
+           if (!pwnd) continue;
 
-        if ( pwnd->fnid == FNID_MENU ||
-             pwnd->pcls->atomClassName == gpsi->atomSysClass[ICLS_SWITCH] )
-           continue;
+           if ( pwnd->fnid == FNID_MENU ||
+                pwnd->pcls->atomClassName == gpsi->atomSysClass[ICLS_SWITCH] )
+              continue;
 
-        co_IntSendMessageTimeoutSingle(*Child, Msg, wParam, lParam, uFlags, uTimeout, uResult);
+           co_IntSendMessageTimeoutSingle(*Child, Msg, wParam, lParam, uFlags, uTimeout, uResult);
+        }
     }
 
     ExFreePoolWithTag(Children, USERTAG_WINDOWLIST);

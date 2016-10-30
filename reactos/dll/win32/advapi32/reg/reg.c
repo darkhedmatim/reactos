@@ -425,14 +425,9 @@ RegCloseKey(HKEY hKey)
     NTSTATUS Status;
 
     /* don't close null handle or a pseudo handle */
-    if (!hKey)
+    if ((!hKey) || (((ULONG_PTR)hKey & 0xF0000000) == 0x80000000))
     {
         return ERROR_INVALID_HANDLE;
-    }
-
-    if (((ULONG_PTR)hKey & 0xF0000000) == 0x80000000)
-    {
-        return ERROR_SUCCESS;
     }
 
     Status = NtClose(hKey);
@@ -2637,7 +2632,7 @@ RegEnumKeyExW(
         {
             if (KeyInfo->Basic.NameLength > NameLength)
             {
-                ErrorCode = ERROR_MORE_DATA;
+                ErrorCode = ERROR_BUFFER_OVERFLOW;
             }
             else
             {
@@ -2653,7 +2648,7 @@ RegEnumKeyExW(
             if (KeyInfo->Node.NameLength > NameLength ||
                 KeyInfo->Node.ClassLength > ClassLength)
             {
-                ErrorCode = ERROR_MORE_DATA;
+                ErrorCode = ERROR_BUFFER_OVERFLOW;
             }
             else
             {
@@ -3855,7 +3850,7 @@ RegQueryMultipleValuesA(HKEY hKey,
     LONG ErrorCode;
 
     if (maxBytes >= (1024*1024))
-        return ERROR_MORE_DATA;
+        return ERROR_TRANSFER_TOO_LONG;
 
     *ldwTotsize = 0;
 
@@ -3919,7 +3914,7 @@ RegQueryMultipleValuesW(HKEY hKey,
     LONG ErrorCode;
 
     if (maxBytes >= (1024*1024))
-        return ERROR_MORE_DATA;
+        return ERROR_TRANSFER_TOO_LONG;
 
     *ldwTotsize = 0;
 

@@ -13,7 +13,6 @@
 #define NDEBUG
 #include <debug.h>
 
-BOOLEAN CcPfEnablePrefetcher;
 PFSN_PREFETCHER_GLOBALS CcPfGlobals;
 
 /* FUNCTIONS *****************************************************************/

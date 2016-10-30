@@ -5,7 +5,6 @@
 #include <windef.h>
 #define NOBITMAP
 #include <mmreg.h>
-#include <ks.h>
 #include <ksmedia.h>
 #include <mmsystem.h>
 
@@ -358,12 +357,6 @@ MMixerGetDeviceName(
     IN PMIXER_CONTEXT MixerContext,
     OUT LPWSTR DeviceName,
     IN HANDLE hKey);
-
-MIXER_STATUS
-MMixerGetDeviceNameWithComponentId(
-    IN PMIXER_CONTEXT MixerContext,
-    IN HANDLE hMixer,
-    OUT LPWSTR DeviceName);
 
 VOID
 MMixerInitializePinConnect(

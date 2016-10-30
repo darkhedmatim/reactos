@@ -19,8 +19,10 @@ KeGetPreviousMode(VOID)
 //
 // Enters a Guarded Region
 //
-#define KeEnterGuardedRegionThread(_Thread)                                 \
+#define KeEnterGuardedRegion()                                              \
 {                                                                           \
+    PKTHREAD _Thread = KeGetCurrentThread();                                \
+                                                                            \
     /* Sanity checks */                                                     \
     ASSERT(KeGetCurrentIrql() <= APC_LEVEL);                                \
     ASSERT(_Thread == KeGetCurrentThread());                                \
@@ -31,17 +33,13 @@ KeGetPreviousMode(VOID)
     _Thread->SpecialApcDisable--;                                           \
 }
 
-#define KeEnterGuardedRegion()                                              \
-{                                                                           \
-    PKTHREAD _Thread = KeGetCurrentThread();                                \
-    KeEnterGuardedRegionThread(_Thread);                                    \
-}
-
 //
 // Leaves a Guarded Region
 //
-#define KeLeaveGuardedRegionThread(_Thread)                                 \
+#define KeLeaveGuardedRegion()                                              \
 {                                                                           \
+    PKTHREAD _Thread = KeGetCurrentThread();                                \
+                                                                            \
     /* Sanity checks */                                                     \
     ASSERT(KeGetCurrentIrql() <= APC_LEVEL);                                \
     ASSERT(_Thread == KeGetCurrentThread());                                \
@@ -60,17 +58,13 @@ KeGetPreviousMode(VOID)
     }                                                                       \
 }
 
-#define KeLeaveGuardedRegion()                                              \
-{                                                                           \
-    PKTHREAD _Thread = KeGetCurrentThread();                                \
-    KeLeaveGuardedRegionThread(_Thread);                                    \
-}
-
 //
 // Enters a Critical Region
 //
-#define KeEnterCriticalRegionThread(_Thread)                                \
+#define KeEnterCriticalRegion()                                             \
 {                                                                           \
+    PKTHREAD _Thread = KeGetCurrentThread();                                \
+                                                                            \
     /* Sanity checks */                                                     \
     ASSERT(_Thread == KeGetCurrentThread());                                \
     ASSERT((_Thread->KernelApcDisable <= 0) &&                              \
@@ -80,17 +74,13 @@ KeGetPreviousMode(VOID)
     _Thread->KernelApcDisable--;                                            \
 }
 
-#define KeEnterCriticalRegion()                                             \
-{                                                                           \
-    PKTHREAD _Thread = KeGetCurrentThread();                                \
-    KeEnterCriticalRegionThread(_Thread);                                   \
-}
-
 //
 // Leaves a Critical Region
 //
-#define KeLeaveCriticalRegionThread(_Thread)                                \
+#define KeLeaveCriticalRegion()                                             \
 {                                                                           \
+    PKTHREAD _Thread = KeGetCurrentThread();                                \
+                                                                            \
     /* Sanity checks */                                                     \
     ASSERT(_Thread == KeGetCurrentThread());                                \
     ASSERT(_Thread->KernelApcDisable < 0);                                  \
@@ -109,12 +99,6 @@ KeGetPreviousMode(VOID)
             KiCheckForKernelApcDelivery();                                  \
         }                                                                   \
     }                                                                       \
-}
-
-#define KeLeaveCriticalRegion()                                             \
-{                                                                           \
-    PKTHREAD _Thread = KeGetCurrentThread();                                \
-    KeLeaveCriticalRegionThread(_Thread);                                   \
 }
 
 #ifndef CONFIG_SMP
@@ -1579,7 +1563,7 @@ _KeAcquireGuardedMutex(IN PKGUARDED_MUTEX GuardedMutex)
     ASSERT(GuardedMutex->Owner != Thread);
 
     /* Disable Special APCs */
-    KeEnterGuardedRegionThread(Thread);
+    KeEnterGuardedRegion();
 
     /* Remove the lock */
     if (!InterlockedBitTestAndReset(&GuardedMutex->Count, GM_LOCK_BIT_V))
@@ -1597,13 +1581,13 @@ FORCEINLINE
 VOID
 _KeReleaseGuardedMutex(IN OUT PKGUARDED_MUTEX GuardedMutex)
 {
-    PKTHREAD Thread = KeGetCurrentThread();
     LONG OldValue, NewValue;
 
     /* Sanity checks */
     ASSERT(KeGetCurrentIrql() <= APC_LEVEL);
-    ASSERT(GuardedMutex->Owner == Thread);
-    ASSERT(Thread->SpecialApcDisable == GuardedMutex->SpecialApcDisable);
+    ASSERT(GuardedMutex->Owner == KeGetCurrentThread());
+    ASSERT(KeGetCurrentThread()->SpecialApcDisable ==
+           GuardedMutex->SpecialApcDisable);
 
     /* Destroy the Owner */
     GuardedMutex->Owner = NULL;
@@ -1633,7 +1617,7 @@ _KeReleaseGuardedMutex(IN OUT PKGUARDED_MUTEX GuardedMutex)
     }
 
     /* Re-enable APCs */
-    KeLeaveGuardedRegionThread(Thread);
+    KeLeaveGuardedRegion();
 }
 
 FORCEINLINE
@@ -1643,13 +1627,13 @@ _KeTryToAcquireGuardedMutex(IN OUT PKGUARDED_MUTEX GuardedMutex)
     PKTHREAD Thread = KeGetCurrentThread();
 
     /* Block APCs */
-    KeEnterGuardedRegionThread(Thread);
+    KeEnterGuardedRegion();
 
     /* Remove the lock */
     if (!InterlockedBitTestAndReset(&GuardedMutex->Count, GM_LOCK_BIT_V))
     {
         /* Re-enable APCs */
-        KeLeaveGuardedRegionThread(Thread);
+        KeLeaveGuardedRegion();
         YieldProcessor();
 
         /* Return failure */

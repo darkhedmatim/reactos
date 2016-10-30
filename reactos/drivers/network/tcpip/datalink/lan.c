@@ -138,9 +138,8 @@ GetPacketTypeFromNdisPacket(PLAN_ADAPTER Adapter,
     ULONG BytesCopied;
     NDIS_STATUS Status;
     
-    HeaderBuffer = ExAllocatePoolWithTag(NonPagedPool,
-                                         Adapter->HeaderSize,
-                                         HEADER_TAG);
+    HeaderBuffer = ExAllocatePool(NonPagedPool,
+                                  Adapter->HeaderSize);
     if (!HeaderBuffer)
         return NDIS_STATUS_RESOURCES;
     
@@ -152,7 +151,7 @@ GetPacketTypeFromNdisPacket(PLAN_ADAPTER Adapter,
     if (BytesCopied != Adapter->HeaderSize)
     {
         /* Runt frame */
-        ExFreePoolWithTag(HeaderBuffer, HEADER_TAG);
+        ExFreePool(HeaderBuffer);
         TI_DbgPrint(DEBUG_DATALINK, ("Runt frame (size %d).\n", BytesCopied));
         return NDIS_STATUS_NOT_ACCEPTED;
     }
@@ -162,7 +161,7 @@ GetPacketTypeFromNdisPacket(PLAN_ADAPTER Adapter,
                                            BytesCopied,
                                            PacketType);
     
-    ExFreePoolWithTag(HeaderBuffer, HEADER_TAG);
+    ExFreePool(HeaderBuffer);
     
     return Status;
 }
@@ -608,7 +607,7 @@ BOOLEAN ReadIpConfiguration(PIP_INTERFACE Interface)
     }
     else
     {
-        KeyValueInfo = ExAllocatePoolWithTag(PagedPool, sizeof(KEY_VALUE_PARTIAL_INFORMATION) + 16 * sizeof(WCHAR), KEY_VALUE_TAG);
+        KeyValueInfo = ExAllocatePool(PagedPool, sizeof(KEY_VALUE_PARTIAL_INFORMATION) + 16 * sizeof(WCHAR));
         if (!KeyValueInfo)
         {
             ZwClose(ParameterHandle);
@@ -697,7 +696,6 @@ BOOLEAN ReadIpConfiguration(PIP_INTERFACE Interface)
             }
         }
         
-        ExFreePoolWithTag(KeyValueInfo, KEY_VALUE_TAG);
         ZwClose(ParameterHandle);
     }
     
@@ -825,7 +823,7 @@ VOID NTAPI ProtocolStatus(
     if (!Adapter->Context)
         return;
     
-    Context = ExAllocatePoolWithTag(NonPagedPool, sizeof(RECONFIGURE_CONTEXT), CONTEXT_TAG);
+    Context = ExAllocatePool(NonPagedPool, sizeof(RECONFIGURE_CONTEXT));
     if (!Context)
         return;
     
@@ -838,7 +836,7 @@ VOID NTAPI ProtocolStatus(
 
             if (Adapter->State == LAN_STATE_STARTED)
             {
-                ExFreePoolWithTag(Context, CONTEXT_TAG);
+                ExFreePool(Context);
                 return;
             }
 
@@ -850,7 +848,7 @@ VOID NTAPI ProtocolStatus(
             
             if (Adapter->State == LAN_STATE_STOPPED)
             {
-                ExFreePoolWithTag(Context, CONTEXT_TAG);
+                ExFreePool(Context);
                 return;
             }
             
@@ -861,7 +859,7 @@ VOID NTAPI ProtocolStatus(
             Adapter->OldState = Adapter->State;
             Adapter->State = LAN_STATE_RESETTING;
             /* Nothing else to do here */
-            ExFreePoolWithTag(Context, CONTEXT_TAG);
+            ExFreePool(Context);
             return;
 
         case NDIS_STATUS_RESET_END:
@@ -871,13 +869,13 @@ VOID NTAPI ProtocolStatus(
 
         default:
             DbgPrint("Unhandled status: %x", GeneralStatus);
-            ExFreePoolWithTag(Context, CONTEXT_TAG);
+            ExFreePool(Context);
             return;
     }
 
     /* Queue the work item */
     if (!ChewCreate(ReconfigureAdapterWorker, Context))
-        ExFreePoolWithTag(Context, CONTEXT_TAG);
+        ExFreePool(Context);
 }
 
 VOID NTAPI ProtocolStatusComplete(NDIS_HANDLE NdisBindingContext)
@@ -1110,8 +1108,8 @@ static NTSTATUS ReadStringFromRegistry( HANDLE RegHandle,
     UnicodeString.MaximumLength = Information->DataLength;
 
     String->Buffer =
-	(PWCHAR)ExAllocatePoolWithTag( NonPagedPool,
-				UnicodeString.MaximumLength + sizeof(WCHAR), REG_STR_TAG );
+	(PWCHAR)ExAllocatePool( NonPagedPool,
+				UnicodeString.MaximumLength + sizeof(WCHAR) );
 
     if( !String->Buffer ) return STATUS_NO_MEMORY;
 
@@ -1137,9 +1135,9 @@ NTSTATUS NTAPI AppendUnicodeString(PUNICODE_STRING ResultFirst,
 				   BOOLEAN Deallocate) {
     NTSTATUS Status;
     UNICODE_STRING Ustr = *ResultFirst;
-    PWSTR new_string = ExAllocatePoolWithTag
+    PWSTR new_string = ExAllocatePool
         (PagedPool,
-         (ResultFirst->Length + Second->Length + sizeof(WCHAR)), TEMP_STRING_TAG);
+         (ResultFirst->Length + Second->Length + sizeof(WCHAR)));
     if( !new_string ) {
 	return STATUS_NO_MEMORY;
     }
@@ -1152,7 +1150,7 @@ NTSTATUS NTAPI AppendUnicodeString(PUNICODE_STRING ResultFirst,
     new_string[ResultFirst->Length / sizeof(WCHAR)] = 0;
     Status = RtlCreateUnicodeString(ResultFirst,new_string) ?
 	STATUS_SUCCESS : STATUS_NO_MEMORY;
-    ExFreePoolWithTag(new_string, TEMP_STRING_TAG);
+    ExFreePool(new_string);
     return Status;
 }
 
@@ -1215,7 +1213,7 @@ static NTSTATUS FindDeviceDescForAdapter( PUNICODE_STRING Name,
     NTSTATUS Status;
     ULONG i;
     KEY_BASIC_INFORMATION *Kbio =
-        ExAllocatePoolWithTag(NonPagedPool, sizeof(KEY_BASIC_INFORMATION), KBIO_TAG);
+        ExAllocatePool(NonPagedPool, sizeof(KEY_BASIC_INFORMATION));
     ULONG KbioLength = sizeof(KEY_BASIC_INFORMATION), ResultLength;
 
     RtlInitUnicodeString( DeviceDesc, NULL );
@@ -1230,7 +1228,7 @@ static NTSTATUS FindDeviceDescForAdapter( PUNICODE_STRING Name,
     if( !NT_SUCCESS(Status) ) {
         TI_DbgPrint(DEBUG_DATALINK,("Couldn't open Enum key %wZ: %x\n",
                                     &EnumKeyName, Status));
-        ExFreePoolWithTag( Kbio, KBIO_TAG );
+        ExFreePool( Kbio );
         return Status;
     }
 
@@ -1239,9 +1237,9 @@ static NTSTATUS FindDeviceDescForAdapter( PUNICODE_STRING Name,
                                  Kbio, KbioLength, &ResultLength );
 
         if( Status == STATUS_BUFFER_TOO_SMALL || Status == STATUS_BUFFER_OVERFLOW ) {
-            ExFreePoolWithTag( Kbio, KBIO_TAG );
+            ExFreePool( Kbio );
             KbioLength = ResultLength;
-            Kbio = ExAllocatePoolWithTag( NonPagedPool, KbioLength, KBIO_TAG );
+            Kbio = ExAllocatePool( NonPagedPool, KbioLength );
             if( !Kbio ) {
                 TI_DbgPrint(DEBUG_DATALINK,("Failed to allocate memory\n"));
                 ZwClose( EnumKey );
@@ -1254,7 +1252,7 @@ static NTSTATUS FindDeviceDescForAdapter( PUNICODE_STRING Name,
             if( !NT_SUCCESS(Status) ) {
                 TI_DbgPrint(DEBUG_DATALINK,("Couldn't enum key child %d\n", i));
                 ZwClose( EnumKey );
-                ExFreePoolWithTag( Kbio, KBIO_TAG );
+                ExFreePool( Kbio );
                 return Status;
             }
         }
@@ -1268,14 +1266,14 @@ static NTSTATUS FindDeviceDescForAdapter( PUNICODE_STRING Name,
                 ( &EnumKeyName, &TargetKeyName, Name, DeviceDesc );
             if( NT_SUCCESS(Status) ) {
                 ZwClose( EnumKey );
-                ExFreePoolWithTag( Kbio, KBIO_TAG );
+                ExFreePool( Kbio );
                 return Status;
             } else Status = STATUS_SUCCESS;
         }
     }
 
     ZwClose( EnumKey );
-    ExFreePoolWithTag( Kbio, KBIO_TAG );
+    ExFreePool( Kbio );
     return STATUS_UNSUCCESSFUL;
 }
 

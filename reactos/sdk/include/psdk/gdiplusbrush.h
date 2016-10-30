@@ -19,8 +19,6 @@
 #ifndef _GDIPLUSBRUSH_H
 #define _GDIPLUSBRUSH_H
 
-class Image;
-
 class Brush : public GdiplusBase
 {
 public:

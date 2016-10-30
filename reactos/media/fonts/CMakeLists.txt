@@ -1,6 +1,5 @@
 
 list(APPEND FONT_FILES
-    DejaVuMathTeXGyre.ttf
     DejaVuSans-Bold.ttf
     DejaVuSans-BoldOblique.ttf
     DejaVuSans-ExtraLight.ttf

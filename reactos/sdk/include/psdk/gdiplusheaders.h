@@ -69,15 +69,14 @@ public:
 
   Status GetEncoderParameterList(const CLSID *clsidEncoder, UINT size, EncoderParameters *buffer)
   {
-    return NotImplemented;  // FIXME: not available: SetStatus(DllExports::GdipGetEncoderParameterList(image, clsidEncoder, size, buffer));
+    return SetStatus(DllExports::GdipGetEncoderParameterList(image, clsidEncoder, size, buffer));
   }
 
   UINT GetEncoderParameterListSize(const CLSID *clsidEncoder)
   {
-    return 0;  // FIXME: not available:
-//     UINT size;
-//     SetStatus(DllExports::GdipGetEncoderParameterListSize(image, clsidEncoder, &size));
-//     return size;
+    UINT size;
+    SetStatus(DllExports::GdipGetEncoderParameterListSize(image, clsidEncoder, &size));
+    return size;
   }
 
   UINT GetFlags(VOID)
@@ -139,7 +138,7 @@ public:
 
   Status GetPhysicalDimension(SizeF *size)
   {
-    return SetStatus(DllExports::GdipGetImageDimension(image, &size->Width, &size->Height));
+    return SetStatus(DllExports::GdipGetImagePhysicalDimension(image, &(size->Width), &(size->Height)));
   }
 
   PixelFormat GetPixelFormat(VOID)
@@ -180,7 +179,7 @@ public:
 
   Status GetRawFormat(GUID *format)
   {
-    return SetStatus(DllExports::GdipGetImageRawFormat(image, format));
+    return SetStatus(DllExports::GdipGetRawFormat(image, format));
   }
 
   Image *GetThumbnailImage(UINT thumbWidth, UINT thumbHeight, GetThumbnailImageAbort callback, VOID *callbackData)
@@ -233,12 +232,12 @@ public:
 
   Status SaveAdd(const EncoderParameters* encoderParams)
   {
-    return NotImplemented;  // FIXME: not available: SetStatus(DllExports::GdipSaveAdd(image, encoderParams));
+    return SetStatus(DllExports::GdipSaveAdd(image, encoderParams));
   }
 
   Status SaveAdd(Image *newImage, const EncoderParameters *encoderParams)
   {
-    return NotImplemented;  // FIXME: not available: SetStatus(DllExports::GdipSaveAddImage(image, newImage->image, encoderParams));
+    return SetStatus(DllExports::GdipSaveAddImage(image, newImage->image, encoderParams));
   }
 
   Status SelectActiveFrame(const GUID *dimensionID, UINT frameIndex)
@@ -277,13 +276,11 @@ private:
 
 class Bitmap : public Image
 {
-  friend class CachedBitmap;
-
 public:
-//   Bitmap(IDirectDrawSurface7 *surface)  // <-- FIXME: compiler does not like this
-//   {
-//     status = DllExports::GdipCreateBitmapFromDirectDrawSurface(surface, &bitmap);
-//   }
+  Bitmap(IDirectDrawSurface7 *surface)
+  {
+    status = DllExports::GdipCreateBitmapFromDirectDrawSurface(surface, &bitmap);
+  }
 
   Bitmap(INT width, INT height, Graphics *target)
   {
@@ -368,10 +365,10 @@ public:
     return new Bitmap(gdiBitmapInfo, gdiBitmapData);
   }
 
-//   static Bitmap *FromDirectDrawSurface7(IDirectDrawSurface7 *surface)  // <-- FIXME: compiler does not like this
-//   {
-//     return new Bitmap(surface);
-//   }
+  static Bitmap *FromDirectDrawSurface7(IDirectDrawSurface7 *surface)
+  {
+    return new Bitmap(surface);
+  }
 
   static Bitmap *FromFile(const WCHAR *filename, BOOL useEmbeddedColorManagement)
   {
@@ -405,7 +402,7 @@ public:
 
   Status GetHICON(HICON *hicon)
   {
-    return SetStatus(DllExports::GdipCreateHICONFromBitmap(bitmap, hicon));
+    return SetStatus(DllExports::GdipCreateHICONFromBitmap(bitmap, hbmReturn));
   }
 
   Status GetPixel(INT x, INT y, Color *color)
@@ -461,7 +458,7 @@ class CachedBitmap : public GdiplusBase
 public:
   CachedBitmap(Bitmap *bitmap, Graphics *graphics)
   {
-    status = DllExports::GdipCreateCachedBitmap(bitmap->bitmap, graphics->graphics, &cachedBitmap);
+    status = DllExports::GdipCreateCachedBitmap(bitmap, graphics, &cachedBitmap);
   }
 
   Status GetLastStatus(VOID)
@@ -475,10 +472,124 @@ private:
 };
 
 
+class Font : public GdiplusBase
+{
+public:
+  friend class FontFamily;
+  friend class FontCollection;
+  friend class Graphics;
+
+  Font(const FontFamily *family, REAL emSize, INT style, Unit unit)
+  {
+    status = DllExports::GdipCreateFont(family->fontFamily, emSize, style. unit, &font);
+  }
+
+  Font(HDC hdc, const HFONT hfont)
+  {
+  }
+
+  Font(HDC hdc, const LOGFONTA *logfont)
+  {
+    status = DllExports::GdipCreateFontFromLogfontA(hdc, logfont, &font);
+  }
+
+  Font(HDC hdc, const LOGFONTW *logfont)
+  {
+    status = DllExports::GdipCreateFontFromLogfontW(hdc, logfont, &font);
+  }
+
+  Font(const WCHAR *familyName, REAL emSize, INT style, Unit unit, const FontCollection *fontCollection)
+  {
+  }
+
+  Font(HDC hdc)
+  {
+    status = DllExports::GdipCreateFontFromDC(hdc, &font);
+  }
+
+  Font *Clone(VOID) const
+  {
+    Font *cloneFont = new Font();
+    cloneFont->status = DllExports::GdipCloneFont(font, &(cloneFont->font));
+    return cloneFont;
+  }
+
+  Status GetFamily(FontFamily* family) const
+  {
+    return SetStatus(DllExports::GdipGetFamily(font, &(family->fontFamily)));
+  }
+
+  REAL GetHeight(const Graphics* graphics) const
+  {
+    REAL height;
+    SetStatus(DllExports::GdipGetFontHeight(font, graphics->graphics, &height));
+    return height;
+  }
+
+  REAL GetHeight(REAL dpi) const
+  {
+    REAL height;
+    SetStatus(DllExports::GdipGetFontHeightGivenDPI(font, dpi, &height));
+    return height;
+  }
+
+  Status GetLastStatus(VOID) const
+  {
+    return status;
+  }
+
+  Status GetLogFontA(const Graphics *g, LOGFONTA *logfontA) const
+  {
+    return SetStatus(DllExports::GdipGetLogFontA(font, g->graphics, logfontA));
+  }
+
+  Status GetLogFontW(const Graphics *g, LOGFONTW *logfontW) const
+  {
+    return SetStatus(DllExports::GdipGetLogFontW(font, g->graphics, logfontW));
+  }
+
+  REAL GetSize(VOID) const
+  {
+    REAL size;
+    SetStatus(DllExports::GdipGetFontSize(font, &size));
+    return size;
+  }
+
+  INT GetStyle(VOID) const
+  {
+    INT style;
+    SetStatus(DllExports::GdipGetFontStyle(font, &style));
+    return style;
+  }
+
+  Unit GetUnit(VOID) const
+  {
+    Unit unit;
+    SetStatus(DllExports::GdipGetFontUnit(font, &unit);
+    return unit;
+  }
+
+  BOOL IsAvailable(VOID) const
+  {
+    return FALSE;
+  }
+
+private:
+  mutable Status status;
+  GpFont *font;
+
+  Status SetStatus(Status status) const
+  {
+    if (status == Ok)
+      return status;
+    this->status = status;
+    return status;
+  }
+};
+
+
 class FontCollection : public GdiplusBase
 {
-  friend class FontFamily;
-
 public:
   FontCollection(VOID)
   {
@@ -498,16 +609,11 @@ public:
   {
     return NotImplemented;
   }
-
-private:
-  GpFontCollection *fontCollection;
 };
 
 
 class FontFamily : public GdiplusBase
 {
-  friend class Font;
-
 public:
   FontFamily(VOID)
   {
@@ -515,7 +621,7 @@ public:
 
   FontFamily(const WCHAR *name, const FontCollection *fontCollection)
   {
-    status = DllExports::GdipCreateFontFamilyFromName(name, fontCollection->fontCollection, &fontFamily);
+    status = DllExports::GdipCreateFontFamilyFromName(name, fontCollection, &fontFamily);
   }
 
   FontFamily *Clone(VOID)
@@ -636,127 +742,6 @@ public:
 };
 
 
-class Font : public GdiplusBase
-{
-public:
-  friend class FontFamily;
-  friend class FontCollection;
-  friend class Graphics;
-
-  Font(const FontFamily *family, REAL emSize, INT style, Unit unit)
-  {
-    status = DllExports::GdipCreateFont(family->fontFamily, emSize, style, unit, &font);
-  }
-
-  Font(HDC hdc, const HFONT hfont)
-  {
-  }
-
-  Font(HDC hdc, const LOGFONTA *logfont)
-  {
-    status = DllExports::GdipCreateFontFromLogfontA(hdc, logfont, &font);
-  }
-
-  Font(HDC hdc, const LOGFONTW *logfont)
-  {
-    status = DllExports::GdipCreateFontFromLogfontW(hdc, logfont, &font);
-  }
-
-  Font(const WCHAR *familyName, REAL emSize, INT style, Unit unit, const FontCollection *fontCollection)
-  {
-  }
-
-  Font(HDC hdc)
-  {
-    status = DllExports::GdipCreateFontFromDC(hdc, &font);
-  }
-
-  Font *Clone(VOID) const
-  {
-    Font *cloneFont = new Font();
-    cloneFont->status = DllExports::GdipCloneFont(font, &(cloneFont->font));
-    return cloneFont;
-  }
-
-  Status GetFamily(FontFamily* family) const
-  {
-    return SetStatus(DllExports::GdipGetFamily(font, &(family->fontFamily)));
-  }
-
-  REAL GetHeight(const Graphics* graphics) const
-  {
-    REAL height;
-    SetStatus(DllExports::GdipGetFontHeight(font, graphics->graphics, &height));
-    return height;
-  }
-
-  REAL GetHeight(REAL dpi) const
-  {
-    REAL height;
-    SetStatus(DllExports::GdipGetFontHeightGivenDPI(font, dpi, &height));
-    return height;
-  }
-
-  Status GetLastStatus(VOID) const
-  {
-    return status;
-  }
-
-  Status GetLogFontA(const Graphics *g, LOGFONTA *logfontA) const
-  {
-    return SetStatus(DllExports::GdipGetLogFontA(font, g->graphics, logfontA));
-  }
-
-  Status GetLogFontW(const Graphics *g, LOGFONTW *logfontW) const
-  {
-    return SetStatus(DllExports::GdipGetLogFontW(font, g->graphics, logfontW));
-  }
-
-  REAL GetSize(VOID) const
-  {
-    REAL size;
-    SetStatus(DllExports::GdipGetFontSize(font, &size));
-    return size;
-  }
-
-  INT GetStyle(VOID) const
-  {
-    INT style;
-    SetStatus(DllExports::GdipGetFontStyle(font, &style));
-    return style;
-  }
-
-  Unit GetUnit(VOID) const
-  {
-    Unit unit;
-    SetStatus(DllExports::GdipGetFontUnit(font, &unit));
-    return unit;
-  }
-
-  BOOL IsAvailable(VOID) const
-  {
-    return FALSE;
-  }
-
-protected:
-  Font()
-  {
-  }
-
-private:
-  mutable Status status;
-  GpFont *font;
-
-  Status SetStatus(Status status) const
-  {
-    if (status == Ok)
-      return status;
-    this->status = status;
-    return status;
-  }
-};
-
-
 class Region : public GdiplusBase
 {
 public:
@@ -791,13 +776,13 @@ public:
 
   Region(const RectF &rect)
   {
-    status = DllExports::GdipCreateRegionRect(&rect, &region);
+    status = DllExports::GdipCreateRegionRectF(&rect, &region);
   }
 
   Region *Clone(VOID)
   {
-    Region *cloneRegion = new Region();
-    cloneRegion->status = DllExports::GdipCloneRegion(region, &cloneRegion->region);
+    region *cloneRegion = new Region();
+    cloneRegion->status = DllExports::GdipCloneRegion(region, &cloneRegion);
     return cloneRegion;
   }
 
@@ -865,7 +850,7 @@ public:
 
   Status GetData(BYTE *buffer, UINT bufferSize, UINT *sizeFilled) const
   {
-    return SetStatus(DllExports::GdipGetRegionData(region, buffer, bufferSize, sizeFilled));
+    return SetStatus(DllExports::GdipGetRegionData(region, budder, bufferSize, sizeFilled));
   }
 
   UINT GetDataSize(VOID) const
@@ -941,21 +926,21 @@ public:
   BOOL IsVisible(const PointF &point, const Graphics *g) const
   {
     BOOL result;
-    SetStatus(DllExports::GdipIsVisibleRegionPoint(region, point.X, point.Y, g->graphics, &result));
+    SetStatus(DllExports::GdipIsVisibleRegionPoint(region, point.x, point.y, g->graphics, &result));
     return result;
   }
 
   BOOL IsVisible(const RectF &rect, const Graphics *g) const
   {
     BOOL result;
-    SetStatus(DllExports::GdipIsVisibleRegionRect(region, rect.X, rect.Y, rect.Width, rect.Height, g->graphics, &result));
+    SetStatus(DllExports::GdipIsVisibleRegionRect(region, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, g->graphics, &result));
     return result;
   }
 
   BOOL IsVisible(const Rect &rect, const Graphics *g) const
   {
     BOOL result;
-    SetStatus(DllExports::GdipIsVisibleRegionRectI(region, rect.X, rect.Y, rect.Width, rect.Height, g->graphics, &result));
+    SetStatus(DllExports::GdipIsVisibleRegionRectI(region, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, g->graphics, &result));
     return result;
   }
 
@@ -983,7 +968,7 @@ public:
   BOOL IsVisible(const Point &point, const Graphics *g) const
   {
     BOOL result;
-    SetStatus(DllExports::GdipIsVisibleRegionPointI(region, point.X, point.Y, g->graphics, &result));
+    SetStatus(DllExports::GdipIsVisibleRegionPointI(region, point.x, point.y, g->graphics, &result));
     return result;
   }
 

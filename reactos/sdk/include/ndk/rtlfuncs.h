@@ -1469,13 +1469,6 @@ ULONG
 NTAPI
 RtlLengthRequiredSid(IN ULONG SubAuthorityCount);
 
-_IRQL_requires_max_(APC_LEVEL)
-NTSYSAPI
-ULONG
-NTAPI
-RtlLengthSecurityDescriptor(
-    _In_ PSECURITY_DESCRIPTOR SecurityDescriptor);
-
 NTSYSAPI
 ULONG
 NTAPI
@@ -2206,9 +2199,9 @@ NTSYSAPI
 BOOLEAN
 NTAPI
 RtlIsTextUnicode(
-    _In_ CONST VOID* Buffer,
-    _In_ INT Size,
-    _Inout_opt_ INT* Flags
+    PVOID Buffer,
+    INT Length,
+    INT *Flags
 );
 
 _IRQL_requires_max_(PASSIVE_LEVEL)

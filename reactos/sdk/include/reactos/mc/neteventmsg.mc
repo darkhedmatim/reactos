@@ -13,8 +13,7 @@ SeverityNames=(Success=0x0:STATUS_SEVERITY_SUCCESS
 FacilityNames=(System=0x0:FACILITY_SYSTEM
               )
 
-LanguageNames=(English=0x409:MSG00409
-               Russian=0x419:MSG00419)
+LanguageNames=(English=0x409:MSG00409)
 
 
 ;
@@ -34,9 +33,6 @@ SymbolicName=EVENT_LOG_FULL
 Language=English
 The %1 log file is full.
 .
-Language=Russian
-Файл журнала "%1" заполнен.
-.
 
 MessageId=6001
 Severity=Warning
@@ -44,9 +40,6 @@ Facility=System
 SymbolicName=EVENT_LogFileNotOpened
 Language=English
 The %1 log file cannot be opened.
-.
-Language=Russian
-Файл журнала "%1" не может быть открыт.
 .
 
 MessageId=6002
@@ -56,9 +49,6 @@ SymbolicName=EVENT_LogFileCorrupt
 Language=English
 The %1 log file is corrupted and will be cleared.
 .
-Language=Russian
-Файл журана "%1" поврежден и будет очищен.
-.
 
 MessageId=6003
 Severity=Warning
@@ -66,9 +56,6 @@ Facility=System
 SymbolicName=EVENT_DefaultLogCorrupt
 Language=English
 The Application log file could not be opened.  %1 will be used as the default log file.
-.
-Language=Russian
-Файл журнала "Приложения" не может быть открыт. "%1" будет использоваться в качестве файла журана по умолчанию.
 .
 
 MessageId=6004
@@ -78,9 +65,6 @@ SymbolicName=EVENT_BadDriverPacket
 Language=English
 A driver packet received from the I/O subsystem was invalid.  The data is the packet.
 .
-Language=Russian
-Пакет драйвера, полученный от подсистемы ввода-вывода недопустим. Данные являются пакетом.
-.
 
 MessageId=6005
 Severity=Warning
@@ -88,9 +72,6 @@ Facility=System
 SymbolicName=EVENT_EventlogStarted
 Language=English
 The Event log service was started.
-.
-Language=Russian
-Служба журана событий была запущена.
 .
 
 MessageId=6006
@@ -100,9 +81,6 @@ SymbolicName=EVENT_EventlogStopped
 Language=English
 The Event log service was stopped.
 .
-Language=Russian
-Служба журнала событий была остановлена.
-.
 
 MessageId=6007
 Severity=Warning
@@ -111,9 +89,6 @@ SymbolicName=TITLE_EventlogMessageBox
 Language=English
 Eventlog Service %0
 .
-Language=Russian
-Служба журнала событий %0
-.
 
 MessageId=6008
 Severity=Warning
@@ -121,9 +96,6 @@ Facility=System
 SymbolicName=EVENT_EventlogAbnormalShutdown
 Language=English
 The previous system shutdown at %1 on %2 was unexpected.
-.
-Language=Russian
-Предыдущее завершение работы системы в %1 %2 было неожиданным.
 .
 
 MessageId=6009
@@ -141,9 +113,6 @@ SymbolicName=EVENT_ServiceNoEventLog
 Language=English
 The %1 service was unable to set up an event source.
 .
-Language=Russian
-Служба "%1" не смогла установить источник события.
-.
 
 MessageId=6011
 Severity=Error
@@ -152,9 +121,6 @@ SymbolicName=EVENT_ComputerNameChange
 Language=English
 The NetBIOS name and DNS host name of this machine have been changed from %1 to %2.
 .
-Language=Russian
-NetBIOS и DNS имена этого компьютера были изменены с "%1" на "%2".
-.
 
 MessageId=6012
 Severity=Error
@@ -162,9 +128,6 @@ Facility=System
 SymbolicName=EVENT_DNSDomainNameChange
 Language=English
 The DNS domain assigned to this computer has been changed from %1 to %2.
-.
-Language=Russian
-DNS-домен присвоенный этому компьютеру был изменен с "%1" на "%2".
 .
 
 
@@ -179,9 +142,6 @@ SymbolicName=EVENT_UP_DRIVER_ON_MP
 Language=English
 A uniprocessor-specific driver was loaded on a multiprocessor system.  The driver could not load.
 .
-Language=Russian
-Однопроцессорный драйвер был загружен на многопроцессорной системе. Драйвер не может быть загружен.
-.
 
 
 ;
@@ -195,9 +155,6 @@ SymbolicName=EVENT_SERVICE_START_FAILED
 Language=English
 The %1 service failed to start due to the following error: %n%2
 .
-Language=Russian
-Службе "%1" не удалось запуститься из-за следующей ошибки: %n%2
-.
 
 MessageId=7001
 Severity=Error
@@ -205,9 +162,6 @@ Facility=System
 SymbolicName=EVENT_SERVICE_START_FAILED_II
 Language=English
 The %1 service depends on the %2 service which failed to start because of the following error: %n%3
-.
-Language=Russian
-Служба "%1" зависит от службы "%2", которой не удалось запуститься из-за следующей ошибки: %n%3
 .
 
 MessageId=7002
@@ -217,9 +171,6 @@ SymbolicName=EVENT_SERVICE_START_FAILED_GROUP
 Language=English
 The %1 service depends on the %2 group and no member of this group started.
 .
-Language=Russian
-Служба "%1" зависит от группы "%2" и ни один элемент этой группы не запущен.
-.
 
 MessageId=7003
 Severity=Error
@@ -228,9 +179,6 @@ SymbolicName=EVENT_SERVICE_START_FAILED_NONE
 Language=English
 The %1 service depends on the following nonexistent service: %2
 .
-Language=Russian
-Служба "%1" зависит от следующей несуществующей службы: "%2"
-.
 
 MessageId=7005
 Severity=Error
@@ -238,9 +186,6 @@ Facility=System
 SymbolicName=EVENT_CALL_TO_FUNCTION_FAILED
 Language=English
 The %1 call failed with the following error: %n%2
-.
-Language=Russian
-Вызов "%1" завершился ошибкой: %n%2
 .
 
 MessageId=7006
@@ -378,9 +323,6 @@ SymbolicName=EVENT_SERVICE_START_HUNG
 Language=English
 The %1 service hung on starting.
 .
-Language=Russian
-Служба "%1" зависла при запуске.
-.
 
 MessageId=7023
 Severity=Error
@@ -479,9 +421,6 @@ SymbolicName=EVENT_SERVICE_CRASH_NO_ACTION
 Language=English
 The %1 service terminated unexpectedly.  It has done this %2 time(s).
 .
-Language=Russian
-Служба "%1" неожиданно завершилась. Это произошло %2 раз(а).
-.
 
 MessageId=7035
 Severity=Informational
@@ -490,9 +429,6 @@ SymbolicName=EVENT_SERVICE_CONTROL_SUCCESS
 Language=English
 The %1 service was successfully sent a %2 control.
 .
-Language=Russian
-Служба "%1" успешно отправила "%2".
-.
 
 MessageId=7036
 Severity=Informational
@@ -500,9 +436,6 @@ Facility=System
 SymbolicName=EVENT_SERVICE_STATUS_SUCCESS
 Language=English
 The %1 service entered the %2 state.
-.
-Language=Russian
-Служба "%1" перешла в состояние "%2".
 .
 
 MessageId=7037
@@ -547,9 +480,6 @@ Facility=System
 SymbolicName=EVENT_SERVICE_START_TYPE_CHANGED
 Language=English
 The start type of the %1 service was changed from %2 to %3.
-.
-Language=Russian
-Тип запуска службы "%1" изменен с "%2" на "%3".
 .
 
 MessageId=7041
@@ -610,7 +540,4 @@ Facility=System
 SymbolicName=EVENT_TRANSPORT_ADAPTER_NOT_FOUND
 Language=English
 %2 could not find adapter %3.
-.
-Language=Russian
-"%2" не смогла найти адаптер "%3".
 .

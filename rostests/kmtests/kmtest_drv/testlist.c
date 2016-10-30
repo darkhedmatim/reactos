@@ -54,7 +54,6 @@ KMT_TESTFUNC Test_NpfsReadWrite;
 KMT_TESTFUNC Test_NpfsVolumeInfo;
 KMT_TESTFUNC Test_ObHandle;
 KMT_TESTFUNC Test_ObReference;
-KMT_TESTFUNC Test_ObSecurity;
 KMT_TESTFUNC Test_ObSymbolicLink;
 KMT_TESTFUNC Test_ObType;
 KMT_TESTFUNC Test_ObTypeClean;
@@ -66,7 +65,6 @@ KMT_TESTFUNC Test_SeQueryInfoToken;
 KMT_TESTFUNC Test_RtlAvlTree;
 KMT_TESTFUNC Test_RtlException;
 KMT_TESTFUNC Test_RtlIntSafe;
-KMT_TESTFUNC Test_RtlIsValidOemCharacter;
 KMT_TESTFUNC Test_RtlMemory;
 KMT_TESTFUNC Test_RtlRegistry;
 KMT_TESTFUNC Test_RtlSplayTree;
@@ -125,7 +123,6 @@ const KMT_TEST TestList[] =
     { "NpfsVolumeInfo",                     Test_NpfsVolumeInfo },
     { "ObHandle",                           Test_ObHandle },
     { "ObReference",                        Test_ObReference },
-    { "ObSecurity",                         Test_ObSecurity },
     { "ObSymbolicLink",                     Test_ObSymbolicLink },
     { "ObType",                             Test_ObType },
     { "-ObTypeClean",                       Test_ObTypeClean },
@@ -137,7 +134,6 @@ const KMT_TEST TestList[] =
     { "RtlAvlTreeKM",                       Test_RtlAvlTree },
     { "RtlExceptionKM",                     Test_RtlException },
     { "RtlIntSafeKM",                       Test_RtlIntSafe },
-    { "RtlIsValidOemCharacter",             Test_RtlIsValidOemCharacter },
     { "RtlMemoryKM",                        Test_RtlMemory },
     { "RtlRegistryKM",                      Test_RtlRegistry },
     { "RtlSplayTreeKM",                     Test_RtlSplayTree },

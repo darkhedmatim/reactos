@@ -1,44 +1,42 @@
 LANGUAGE LANG_SLOVAK, SUBLANG_DEFAULT
 
-MENU_001 MENUEX
+MENU_001 MENU
 BEGIN
     MENUITEM "&Veľké ikony", FCIDM_SHVIEW_BIGICON
     MENUITEM "&Malé ikony", FCIDM_SHVIEW_SMALLICON
     MENUITEM "&Zoznam", FCIDM_SHVIEW_LISTVIEW
     MENUITEM "&Podrobnosti", FCIDM_SHVIEW_REPORTVIEW
-    MENUITEM "", -1, MFT_SEPARATOR
-    POPUP "&Usporiadať ikony", FCIDM_SHVIEW_ARRANGE
-    BEGIN
-        MENUITEM "", -1, MFT_SEPARATOR
-        MENUITEM "Usporiadať &automaticky", FCIDM_SHVIEW_AUTOARRANGE
-    END
 END
 
 /* shellview background menu */
-MENU_002 MENUEX
+MENU_002 MENU
 BEGIN
     POPUP ""
     BEGIN
-        POPUP "&Zobraziť", FCIDM_SHVIEW_VIEW
+        POPUP "&Zobraziť"
         BEGIN
             MENUITEM "&Veľké ikony", FCIDM_SHVIEW_BIGICON
             MENUITEM "&Malé ikony", FCIDM_SHVIEW_SMALLICON
             MENUITEM "&Zoznam", FCIDM_SHVIEW_LISTVIEW
             MENUITEM "&Podrobnosti", FCIDM_SHVIEW_REPORTVIEW
         END
-        MENUITEM "", -1, MFT_SEPARATOR
-        POPUP "&Usporiadať ikony", FCIDM_SHVIEW_ARRANGE
+        MENUITEM SEPARATOR
+        POPUP "&Usporiadať ikony"
         BEGIN
-            MENUITEM "", -1, MFT_SEPARATOR
+            MENUITEM "&Názov", 0x30  /* column 0 */
+            MENUITEM "&Typ", 0x32  /* column 2 */
+            MENUITEM "&Veľkosť", 0x31  /* ... */
+            MENUITEM "&Zmenené", 0x33
+            MENUITEM SEPARATOR
             MENUITEM "Usporiadať &automaticky", FCIDM_SHVIEW_AUTOARRANGE
         END
         MENUITEM "Zarovnať ikony", FCIDM_SHVIEW_SNAPTOGRID
-        MENUITEM "", -1, MFT_SEPARATOR
+        MENUITEM SEPARATOR
         MENUITEM "&Obnoviť", FCIDM_SHVIEW_REFRESH
-        MENUITEM "", -1, MFT_SEPARATOR
+        MENUITEM SEPARATOR
         MENUITEM "&Prilepiť", FCIDM_SHVIEW_INSERT
         MENUITEM "Prilepiť od&kaz", FCIDM_SHVIEW_INSERTLINK
-        MENUITEM "", -1, MFT_SEPARATOR
+        MENUITEM SEPARATOR
         MENUITEM "Vl&astnosti", FCIDM_SHVIEW_PROPERTIES
     END
 END
@@ -488,15 +486,15 @@ BEGIN
     PUSHBUTTON "Zrušiť", IDCANCEL, 99, 38, 43, 14
 END
 
-IDD_DISCONNECT DIALOGEX 0, 0, 188, 60
+IDD_DISCONNECT DIALOGEX 0, 0, 190, 60
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_CAPTION
 CAPTION "Odpojiť ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_SHELL_DISCONN, IDC_STATIC, 8, 6, 21, 20
-    LTEXT "Určite chcete odpojiť?", -1, 49, 15, 131, 8
-    DEFPUSHBUTTON "&Odpojiť", IDOK, 47, 38, 47, 14
-    PUSHBUTTON "Zrušiť", IDCANCEL, 99, 38, 47, 14
+    ICON 49, 14346, 10, 10, 21, 20, SS_REALSIZECONTROL
+    LTEXT "Určite chcete odpojiť?", -1, 49, 12, 137, 23
+    DEFPUSHBUTTON "&Odpojiť", IDOK, 57, 40, 60, 14
+    PUSHBUTTON "Zrušiť", IDCANCEL, 123, 40, 60, 14
 END
 
 IDD_AUTOPLAY1 DIALOGEX 0, 0, 227, 218
@@ -684,8 +682,8 @@ BEGIN
     IDS_RENAME "Premenovať"
     IDS_PASTE "Vložiť"
 
-    IDS_CREATEFOLDER_DENIED "Unable to create the folder '%1'"
-    IDS_CREATEFOLDER_CAPTION "Unable to create folder"
+    IDS_CREATEFOLDER_DENIED "Nie je možné vytvoriť nový priečinok: Prístup zamietnutý."
+    IDS_CREATEFOLDER_CAPTION "Chyba počas vytvárania nového priečinka"
     IDS_DELETEITEM_CAPTION "Potvrdenie odstránenia súboru"
     IDS_DELETEFOLDER_CAPTION "Potvrdenie odstránenia priečinka"
     IDS_DELETEITEM_TEXT "Naozaj chcete vymazať '%1'?"
@@ -812,7 +810,7 @@ BEGIN
     IDS_DEFAULT_CLUSTER_SIZE "Default allocation size"
     IDS_COPY_OF "Copy of"
 
-    IDS_SHLEXEC_NOASSOC "There is no ReactOS program configured to open this type of file."
+    IDS_SHLEXEC_NOASSOC "There is no Windows program configured to open this type of file."
 
     IDS_FILE_DETAILS "Details for '%s' extension"
     IDS_FILE_DETAILSADV "Files with extension '%s' are of type '%s'. To change settings that affect all '%s' files, click Advanced."

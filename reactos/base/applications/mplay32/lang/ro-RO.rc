@@ -35,7 +35,7 @@ BEGIN
     END
     POPUP "Aj&utor"
     BEGIN
-        MENUITEM "&Despre", IDM_ABOUT
+        MENUITEM "&Despre…", IDM_ABOUT
     END
 END
 

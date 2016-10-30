@@ -17,7 +17,7 @@ list(APPEND SOURCE
     fiber.c
     file.c
     format_msg.c
-    #generated.c
+    #generated_${ARCH}.c
     heap.c
     loader.c
     locale.c

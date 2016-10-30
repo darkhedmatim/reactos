@@ -40,7 +40,8 @@ Size = 9,5 Mio
 [Section.0419]
 License = Неизвестно
 Description = Утилита для захвата видео с помощью соответствующего устройства и преобразования его в другие форматы.
-Size = 9,5 МиБ
+Size = 9,5 МБ
+
 
 [Section.041b]
 Description = Neznáma

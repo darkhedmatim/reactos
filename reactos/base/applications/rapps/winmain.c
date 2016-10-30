@@ -61,7 +61,7 @@ LoadSettings(VOID)
 
     if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\ReactOS\\rapps", 0, KEY_READ, &hKey) == ERROR_SUCCESS)
     {
-        dwSize = sizeof(SettingsInfo);
+        dwSize = sizeof(SETTINGS_INFO);
         if (RegQueryValueExW(hKey, L"Settings", NULL, NULL, (LPBYTE)&SettingsInfo, &dwSize) == ERROR_SUCCESS)
         {
             RegCloseKey(hKey);
@@ -82,7 +82,7 @@ SaveSettings(HWND hwnd)
 
     if (SettingsInfo.bSaveWndPos)
     {
-        wp.length = sizeof(wp);
+        wp.length = sizeof(WINDOWPLACEMENT);
         GetWindowPlacement(hwnd, &wp);
 
         SettingsInfo.Left = wp.rcNormalPosition.left;
@@ -95,7 +95,7 @@ SaveSettings(HWND hwnd)
     if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\ReactOS\\rapps", 0, NULL,
         REG_OPTION_NON_VOLATILE, KEY_WRITE, NULL, &hKey, NULL) == ERROR_SUCCESS)
     {
-        RegSetValueExW(hKey, L"Settings", 0, REG_BINARY, (LPBYTE)&SettingsInfo, sizeof(SettingsInfo));
+        RegSetValueExW(hKey, L"Settings", 0, REG_BINARY, (LPBYTE)&SettingsInfo, sizeof(SETTINGS_INFO));
         RegCloseKey(hKey);
     }
 }
@@ -943,7 +943,7 @@ wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nSh
     InitCommonControls();
 
     /* Create the window */
-    WndClass.cbSize        = sizeof(WndClass);
+    WndClass.cbSize        = sizeof(WNDCLASSEXW);
     WndClass.lpszClassName = szWindowClass;
     WndClass.lpfnWndProc   = MainWindowProc;
     WndClass.hInstance     = hInstance;

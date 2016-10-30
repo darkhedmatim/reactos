@@ -6,20 +6,21 @@
  * COPYRIGHT:   Copyright 2012 Cameron Gutman (cameron.gutman@reactos.org)
  */
 
-#include <stdio.h>
 #include <stdarg.h>
-#include <tchar.h>
-
 #include <windef.h>
 #include <winbase.h>
+#include <winuser.h>
 #include <devioctl.h>
+#include <tchar.h>
+#include <stdio.h>
 #include <ntddndis.h>
 #include <nuiouser.h>
 #include <iphlpapi.h>
 
-#include <conutils.h>
-
 #include "resource.h"
+
+#define COUNT_OF(a) (sizeof(a) / sizeof(a[0]))
+#define MAX_BUFFER_SIZE     5024
 
 BOOL bScan = FALSE;
 
@@ -30,13 +31,45 @@ BOOL bAdhoc = FALSE;
 
 BOOL bDisconnect = FALSE;
 
-VOID DoFormatMessage(DWORD ErrorCode)
+/* This takes strings from a resource stringtable and outputs it to
+the command prompt. */
+VOID PrintResourceString(INT resID, ...)
 {
-    if (ErrorCode == ERROR_SUCCESS)
-        return;
+    WCHAR szMsgBuf[MAX_BUFFER_SIZE];
+    va_list arg_ptr;
 
-    ConMsgPuts(StdErr, FORMAT_MESSAGE_FROM_SYSTEM,
-               NULL, ErrorCode, LANG_USER_DEFAULT);
+    va_start(arg_ptr, resID);
+    LoadStringW(GetModuleHandle(NULL), resID, szMsgBuf, MAX_BUFFER_SIZE);
+    vwprintf(szMsgBuf, arg_ptr);
+    va_end(arg_ptr);
+}
+
+DWORD DoFormatMessage(DWORD ErrorCode)
+{
+    LPVOID lpMsgBuf;
+    DWORD RetVal;
+
+    if ((RetVal = FormatMessageW(
+            FORMAT_MESSAGE_ALLOCATE_BUFFER |
+            FORMAT_MESSAGE_FROM_SYSTEM |
+            FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL,
+            ErrorCode,
+            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), /* Default language */
+            (LPWSTR) &lpMsgBuf,
+            0,
+            NULL )))
+    {
+        printf("%S", (LPWSTR)lpMsgBuf);
+
+        LocalFree(lpMsgBuf);
+
+        /* return number of WCHAR's stored in output buffer
+         * excluding '\0' - as FormatMessage does*/
+        return RetVal;
+    }
+    else
+        return 0;
 }
 
 HANDLE
@@ -246,7 +279,7 @@ WlanDisconnect(HANDLE hAdapter, PIP_ADAPTER_INDEX_MAP IpInfo)
     if (!bSuccess)
         return FALSE;
 
-    ConResPuts(StdOut, IDS_SUCCESS);
+    PrintResourceString(IDS_SUCCESS);
     return TRUE;
 }
 
@@ -322,13 +355,13 @@ WlanPrintCurrentStatus(HANDLE hAdapter)
                                NULL);
     if (SsidInfo->SsidLength == 0 || !bSuccess)
     {
-        ConResPuts(StdOut, IDS_WLAN_DISCONNECT);
+        PrintResourceString(IDS_WLAN_DISCONNECT);
         HeapFree(GetProcessHeap(), 0, QueryOid);
         return TRUE;
     }
     else
     {
-        ConResPuts(StdOut, IDS_MSG_CURRENT_WIRELESS);
+        PrintResourceString(IDS_MSG_CURRENT_WIRELESS);
     }
 
     printf("SSID: %s\n", SsidBuffer);
@@ -367,11 +400,11 @@ WlanPrintCurrentStatus(HANDLE hAdapter)
         return FALSE;
     }
 
-    K32LoadStringW(GetModuleHandle(NULL),
-                   *(PUINT)QueryOid->Data == Ndis802_11IBSS ? IDS_ADHOC : IDS_INFRASTRUCTURE,
-                   szMsgBuf,
-                   ARRAYSIZE(szMsgBuf));
-    ConResPrintf(StdOut, IDS_MSG_NETWORK_MODE, szMsgBuf);
+    LoadStringW(GetModuleHandle(NULL),
+                *(PUINT)QueryOid->Data == Ndis802_11IBSS ? IDS_ADHOC : IDS_INFRASTRUCTURE,
+                szMsgBuf,
+                COUNT_OF(szMsgBuf));
+    PrintResourceString(IDS_MSG_NETWORK_MODE, szMsgBuf);
 
     QueryOid->Oid = OID_802_11_WEP_STATUS;
 
@@ -389,11 +422,11 @@ WlanPrintCurrentStatus(HANDLE hAdapter)
         return FALSE;
     }
 
-    K32LoadStringW(GetModuleHandle(NULL),
-                   *(PUINT)QueryOid->Data == Ndis802_11WEPEnabled ? IDS_YES : IDS_NO,
-                   szMsgBuf,
-                   ARRAYSIZE(szMsgBuf));
-    ConResPrintf(StdOut, IDS_MSG_WEP_ENABLED, szMsgBuf);
+    LoadStringW(GetModuleHandle(NULL),
+                *(PUINT)QueryOid->Data == Ndis802_11WEPEnabled ? IDS_YES : IDS_NO,
+                szMsgBuf,
+                COUNT_OF(szMsgBuf));
+    PrintResourceString(IDS_MSG_WEP_ENABLED, szMsgBuf);
 
     printf("\n");
     QueryOid->Oid = OID_802_11_RSSI;
@@ -425,7 +458,7 @@ WlanPrintCurrentStatus(HANDLE hAdapter)
     if (bSuccess)
     {
         /* This OID is optional */
-        ConResPrintf(StdOut, IDS_MSG_TRANSMISSION_POWER, *(PUINT)QueryOid->Data);
+        PrintResourceString(IDS_MSG_TRANSMISSION_POWER, *(PUINT)QueryOid->Data);
     }
 
     printf("\n");
@@ -443,7 +476,7 @@ WlanPrintCurrentStatus(HANDLE hAdapter)
     if (bSuccess)
     {
         /* This OID is optional */
-        ConResPrintf(StdOut, IDS_MSG_ANTENNA_COUNT, *(PUINT)QueryOid->Data);
+        PrintResourceString(IDS_MSG_ANTENNA_COUNT, *(PUINT)QueryOid->Data);
     }
 
     QueryOid->Oid = OID_802_11_TX_ANTENNA_SELECTED;
@@ -461,9 +494,9 @@ WlanPrintCurrentStatus(HANDLE hAdapter)
         UINT TransmitAntenna = *(PUINT)QueryOid->Data;
 
         if (TransmitAntenna != 0xFFFFFFFF)
-            ConResPrintf(StdOut, IDS_MSG_TRANSMIT_ANTENNA, TransmitAntenna);
+            PrintResourceString(IDS_MSG_TRANSMIT_ANTENNA, TransmitAntenna);
         else
-            ConResPuts(StdOut, IDS_MSG_TRANSMIT_ANTENNA_ANY);
+            PrintResourceString(IDS_MSG_TRANSMIT_ANTENNA_ANY);
     }
 
     QueryOid->Oid = OID_802_11_RX_ANTENNA_SELECTED;
@@ -481,9 +514,9 @@ WlanPrintCurrentStatus(HANDLE hAdapter)
         UINT ReceiveAntenna = *(PUINT)QueryOid->Data;
 
         if (ReceiveAntenna != 0xFFFFFFFF)
-            ConResPrintf(StdOut, IDS_MSG_RECEIVE_ANTENNA, ReceiveAntenna);
+            PrintResourceString(IDS_MSG_RECEIVE_ANTENNA, ReceiveAntenna);
         else
-            ConResPuts(StdOut, IDS_MSG_RECEIVE_ANTENNA_ANY);
+            PrintResourceString(IDS_MSG_RECEIVE_ANTENNA_ANY);
     }
 
     printf("\n");
@@ -501,7 +534,7 @@ WlanPrintCurrentStatus(HANDLE hAdapter)
     if (bSuccess)
     {
         /* This OID is optional */
-        ConResPrintf(StdOut, IDS_MSG_FRAGMENT_THRESHOLD, *(PUINT)QueryOid->Data);
+        PrintResourceString(IDS_MSG_FRAGMENT_THRESHOLD, *(PUINT)QueryOid->Data);
     }
 
     QueryOid->Oid = OID_802_11_RTS_THRESHOLD;
@@ -517,7 +550,7 @@ WlanPrintCurrentStatus(HANDLE hAdapter)
     if (bSuccess)
     {
         /* This OID is optional */
-        ConResPrintf(StdOut, IDS_MSG_RTS_THRESHOLD, *(PUINT)QueryOid->Data);
+        PrintResourceString(IDS_MSG_RTS_THRESHOLD, *(PUINT)QueryOid->Data);
     }
 
     HeapFree(GetProcessHeap(), 0, QueryOid);
@@ -692,7 +725,7 @@ WlanConnect(HANDLE hAdapter)
     if (!bSuccess)
         return FALSE;
 
-    ConResPuts(StdOut, IDS_SUCCESS);
+    PrintResourceString(IDS_SUCCESS);
     return TRUE;
 }
 
@@ -769,7 +802,7 @@ WlanScan(HANDLE hAdapter)
 
     if (BssidList->NumberOfItems == 0)
     {
-        ConResPuts(StdOut, IDS_NO_NETWORK);
+        PrintResourceString(IDS_NO_NETWORK);
     }
     else
     {
@@ -800,18 +833,18 @@ WlanScan(HANDLE hAdapter)
             }
             printf("\n");
 
-            K32LoadStringW(GetModuleHandle(NULL),
-                           BssidInfo->Privacy == 0 ? IDS_NO : IDS_YES,
-                           szMsgBuf,
-                           ARRAYSIZE(szMsgBuf));
-            ConResPrintf(StdOut, IDS_MSG_ENCRYPTED, szMsgBuf);
-            K32LoadStringW(GetModuleHandle(NULL),
-                           NetworkType == Ndis802_11IBSS ? IDS_ADHOC : IDS_INFRASTRUCTURE,
-                           szMsgBuf,
-                           ARRAYSIZE(szMsgBuf));
-            ConResPrintf(StdOut, IDS_MSG_NETWORK_TYPE, szMsgBuf);
-            ConResPrintf(StdOut, IDS_MSG_RSSI, (int)Rssi);
-            ConResPuts(StdOut, IDS_MSG_SUPPORT_RATE);
+            LoadStringW(GetModuleHandle(NULL),
+                        BssidInfo->Privacy == 0 ? IDS_NO : IDS_YES,
+                        szMsgBuf,
+                        COUNT_OF(szMsgBuf));
+            PrintResourceString(IDS_MSG_ENCRYPTED, szMsgBuf);
+            LoadStringW(GetModuleHandle(NULL),
+                        NetworkType == Ndis802_11IBSS ? IDS_ADHOC : IDS_INFRASTRUCTURE,
+                        szMsgBuf,
+                        COUNT_OF(szMsgBuf));
+            PrintResourceString(IDS_MSG_NETWORK_TYPE, szMsgBuf);
+            PrintResourceString(IDS_MSG_RSSI, (int)Rssi);
+            PrintResourceString(IDS_MSG_SUPPORT_RATE);
 
             for (j = 0; j < NDIS_802_11_LENGTH_RATES; j++)
             {
@@ -865,7 +898,7 @@ BOOL ParseCmdline(int argc, WCHAR *argv[])
                 case L'c':
                     if (i == argc - 1)
                     {
-                        ConResPuts(StdOut, IDS_USAGE);
+                        PrintResourceString(IDS_USAGE);
                         return FALSE;
                     }
                     bConnect = TRUE;
@@ -874,7 +907,7 @@ BOOL ParseCmdline(int argc, WCHAR *argv[])
                 case L'w':
                     if (i == argc - 1)
                     {
-                        ConResPuts(StdOut, IDS_USAGE);
+                        PrintResourceString(IDS_USAGE);
                         return FALSE;
                     }
                     sWepKey = argv[++i];
@@ -883,14 +916,14 @@ BOOL ParseCmdline(int argc, WCHAR *argv[])
                     bAdhoc = TRUE;
                     break;
                 default :
-                    ConResPuts(StdOut, IDS_USAGE);
+                    PrintResourceString(IDS_USAGE);
                     return FALSE;
             }
 
         }
         else
         {
-            ConResPuts(StdOut, IDS_USAGE);
+            PrintResourceString(IDS_USAGE);
             return FALSE;
         }
     }
@@ -903,15 +936,12 @@ int wmain(int argc, WCHAR *argv[])
     HANDLE hAdapter;
     IP_ADAPTER_INDEX_MAP IpInfo;
 
-    /* Initialize the Console Standard Streams */
-    ConInitStdStreams();
-
     if (!ParseCmdline(argc, argv))
         return -1;
 
     if (!OpenWlanAdapter(&hAdapter, &IpInfo))
     {
-        ConResPuts(StdOut, IDS_NO_WLAN_ADAPTER);
+        PrintResourceString(IDS_NO_WLAN_ADAPTER);
         return -1;
     }
 

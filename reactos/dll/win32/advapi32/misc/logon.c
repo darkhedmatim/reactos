@@ -89,7 +89,7 @@ CloseLogonLsaHandle(VOID)
 /*
  * @implemented
  */
-BOOL WINAPI DECLSPEC_HOTPATCH
+BOOL WINAPI
 CreateProcessAsUserA(HANDLE hToken,
                      LPCSTR lpApplicationName,
                      LPSTR lpCommandLine,
@@ -157,7 +157,7 @@ CreateProcessAsUserA(HANDLE hToken,
 /*
  * @implemented
  */
-BOOL WINAPI DECLSPEC_HOTPATCH
+BOOL WINAPI
 CreateProcessAsUserW(HANDLE hToken,
                      LPCWSTR lpApplicationName,
                      LPWSTR lpCommandLine,

@@ -970,7 +970,7 @@ DirPrintWideList(PDIRFINDINFO ptrFiles[],       /* [IN] Files' Info */
     }
 
     /* Count the highest number of columns */
-    GetScreenSize(&iScreenWidth, NULL);
+    GetScreenSize(&iScreenWidth, 0);
     iColumns = (USHORT)(iScreenWidth / iLongestName);
 
     /* Check if there is enough space for spaces between names */

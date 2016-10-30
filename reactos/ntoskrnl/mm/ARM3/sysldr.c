@@ -16,8 +16,8 @@
 #define MODULE_INVOLVED_IN_ARM3
 #include <mm/ARM3/miarm.h>
 
-static
-inline
+/* GCC's incompetence strikes again */
+__inline
 VOID
 sprintf_nt(IN PCHAR Buffer,
            IN PCHAR Format,

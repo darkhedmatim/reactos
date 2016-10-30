@@ -46,8 +46,8 @@
 #define WIN32_NO_STATUS
 #include <windef.h>
 #include <winbase.h>
-
-#include <conutils.h>
+#include <winnls.h>
+#include <winuser.h>
 
 #define NTOS_MODE_USER
 #include <ndk/rtlfuncs.h>
@@ -62,7 +62,7 @@
 // Globals
 BOOL    Error = FALSE;
 
-// Switches
+// switches
 BOOL    QuickFormat = FALSE;
 DWORD   ClusterSize = 0;
 BOOL    CompressDrive = FALSE;
@@ -107,6 +107,39 @@ SIZEDEFINITION LegalSizes[] = {
 };
 
 
+VOID PrintStringV(LPWSTR szStr, va_list args)
+{
+    WCHAR bufFormatted[RC_STRING_MAX_SIZE];
+    CHAR bufFormattedOem[RC_STRING_MAX_SIZE];
+
+    _vsnwprintf(bufFormatted, ARRAYSIZE(bufFormatted), szStr, args);
+
+    CharToOemW(bufFormatted, bufFormattedOem);
+    puts(bufFormattedOem);
+}
+
+VOID PrintString(LPWSTR szStr, ...)
+{
+    va_list args;
+
+    va_start(args, szStr);
+    PrintStringV(szStr, args);
+    va_end(args);
+}
+
+VOID PrintResourceString(UINT uID, ...)
+{
+    WCHAR bufSrc[RC_STRING_MAX_SIZE];
+    va_list args;
+
+    LoadStringW(GetModuleHandleW(NULL), uID, bufSrc, ARRAYSIZE(bufSrc));
+
+    va_start(args, uID);
+    PrintStringV(bufSrc, args);
+    va_end(args);
+}
+
+
 //----------------------------------------------------------------------
 //
 // PrintWin32Error
@@ -116,10 +149,15 @@ SIZEDEFINITION LegalSizes[] = {
 //----------------------------------------------------------------------
 static VOID PrintWin32Error(LPWSTR Message, DWORD ErrorCode)
 {
-    ConPrintf(StdErr, L"%s: ", Message);
-    ConMsgPuts(StdErr, FORMAT_MESSAGE_FROM_SYSTEM,
-               NULL, ErrorCode, LANG_USER_DEFAULT);
-    ConPuts(StdErr, L"\n");
+    LPWSTR lpMsgBuf;
+
+    FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+                   NULL, ErrorCode,
+                   MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                   (LPWSTR)&lpMsgBuf, 0, NULL);
+
+    PrintString(L"%s: %s\n", Message, lpMsgBuf);
+    LocalFree(lpMsgBuf);
 }
 
 
@@ -228,19 +266,19 @@ FormatExCallback(
     {
         case PROGRESS:
             percent = (PDWORD)Argument;
-            ConResPrintf(StdOut, STRING_COMPLETE, *percent);
+            PrintResourceString(STRING_COMPLETE, *percent);
             break;
 
         case OUTPUT:
             output = (PTEXTOUTPUT)Argument;
-            ConPrintf(StdOut, L"%S\n", output->Output);
+            wprintf(L"%S", output->Output);
             break;
 
         case DONE:
             status = (PBOOLEAN)Argument;
             if (*status == FALSE)
             {
-                ConResPuts(StdOut, STRING_FORMAT_FAIL);
+                PrintResourceString(STRING_FORMAT_FAIL);
                 Error = TRUE;
             }
             break;
@@ -259,7 +297,7 @@ FormatExCallback(
         case UNKNOWND:
         case STRUCTUREPROGRESS:
         case CLUSTERSIZETOOSMALL:
-            ConResPuts(StdOut, STRING_NO_SUPPORT);
+            PrintResourceString(STRING_NO_SUPPORT);
             return FALSE;
     }
     return TRUE;
@@ -321,12 +359,12 @@ static VOID Usage(LPWSTR ProgramName)
     BYTE dummy;
     BOOLEAN latestVersion;
 
-    K32LoadStringW(GetModuleHandle(NULL), STRING_HELP, szMsg, ARRAYSIZE(szMsg));
+    LoadStringW(GetModuleHandle(NULL), STRING_HELP, szMsg, ARRAYSIZE(szMsg));
 
 #ifndef FMIFS_IMPORT_DLL
     if (!LoadFMIFSEntryPoints())
     {
-        ConPrintf(StdOut, szMsg, ProgramName, L"");
+        PrintString(szMsg, ProgramName, L"");
         return;
     }
 #endif
@@ -341,7 +379,7 @@ static VOID Usage(LPWSTR ProgramName)
 
         wcscat(szFormats, szFormatW);
     }
-    ConPrintf(StdOut, szMsg, ProgramName, szFormats);
+    PrintString(szMsg, ProgramName, szFormats);
 }
 
 
@@ -370,14 +408,10 @@ int wmain(int argc, WCHAR *argv[])
     ULARGE_INTEGER freeBytesAvailableToCaller, totalNumberOfBytes, totalNumberOfFreeBytes;
     WCHAR szMsg[RC_STRING_MAX_SIZE];
 
-    /* Initialize the Console Standard Streams */
-    ConInitStdStreams();
-
-    ConPuts(StdOut,
-        L"\n"
-        L"Formatx v1.0 by Mark Russinovich\n"
-        L"Systems Internals - http://www.sysinternals.com\n"
-        L"ReactOS adaptation 1999 by Emanuele Aliberti\n\n");
+    wprintf(L"\n"
+            L"Formatx v1.0 by Mark Russinovich\n"
+            L"Systems Internals - http://www.sysinternals.com\n"
+            L"ReactOS adaptation 1999 by Emanuele Aliberti\n\n");
 
 #ifndef FMIFS_IMPORT_DLL
     //
@@ -385,7 +419,7 @@ int wmain(int argc, WCHAR *argv[])
     //
     if (!LoadFMIFSEntryPoints())
     {
-        ConResPuts(StdErr, STRING_FMIFS_FAIL);
+        PrintResourceString(STRING_FMIFS_FAIL);
         return -1;
     }
 #endif
@@ -396,7 +430,7 @@ int wmain(int argc, WCHAR *argv[])
     badArg = ParseCommandLine(argc, argv);
     if (badArg)
     {
-        ConResPrintf(StdErr, STRING_UNKNOW_ARG, argv[badArg]);
+        PrintResourceString(STRING_UNKNOW_ARG, argv[badArg]);
         Usage(argv[0]);
         return -1;
     }
@@ -406,7 +440,7 @@ int wmain(int argc, WCHAR *argv[])
     //
     if (!Drive)
     {
-        ConResPuts(StdErr, STRING_DRIVE_PARM);
+        PrintResourceString(STRING_DRIVE_PARM);
         Usage(argv[0]);
         return -1;
     }
@@ -424,22 +458,22 @@ int wmain(int argc, WCHAR *argv[])
     switch (driveType)
     {
         case DRIVE_UNKNOWN :
-            K32LoadStringW(GetModuleHandle(NULL), STRING_ERROR_DRIVE_TYPE, szMsg, ARRAYSIZE(szMsg));
+            LoadStringW(GetModuleHandle(NULL), STRING_ERROR_DRIVE_TYPE, szMsg, ARRAYSIZE(szMsg));
             PrintWin32Error(szMsg, GetLastError());
             return -1;
 
         case DRIVE_REMOTE:
         case DRIVE_CDROM:
-            ConResPuts(StdOut, STRING_NO_SUPPORT);
+            PrintResourceString(STRING_NO_SUPPORT);
             return -1;
 
         case DRIVE_NO_ROOT_DIR:
-            K32LoadStringW(GetModuleHandle(NULL), STRING_NO_VOLUME, szMsg, ARRAYSIZE(szMsg));
+            LoadStringW(GetModuleHandle(NULL), STRING_NO_VOLUME, szMsg, ARRAYSIZE(szMsg));
             PrintWin32Error(szMsg, GetLastError());
             return -1;
 
         case DRIVE_REMOVABLE:
-            ConResPrintf(StdOut, STRING_INSERT_DISK, RootDirectory[0]);
+            PrintResourceString(STRING_INSERT_DISK, RootDirectory[0]);
             fgetws(input, ARRAYSIZE(input), stdin);
             media = FMIFS_FLOPPY;
             break;
@@ -461,7 +495,7 @@ int wmain(int argc, WCHAR *argv[])
         if (towlower(path[0]) == towlower(Drive[0]))
         {
             // todo: report "Cannot format system drive"
-            ConResPuts(StdOut, STRING_NO_SUPPORT);
+            PrintResourceString(STRING_NO_SUPPORT);
             return -1;
         }
     }
@@ -474,7 +508,7 @@ int wmain(int argc, WCHAR *argv[])
                                &serialNumber, &maxComponent, &flags,
                                fileSystem, ARRAYSIZE(fileSystem)))
     {
-        K32LoadStringW(GetModuleHandle(NULL), STRING_NO_VOLUME, szMsg, ARRAYSIZE(szMsg));
+        LoadStringW(GetModuleHandle(NULL), STRING_NO_VOLUME, szMsg, ARRAYSIZE(szMsg));
         PrintWin32Error(szMsg, GetLastError());
         return -1;
     }
@@ -484,11 +518,11 @@ int wmain(int argc, WCHAR *argv[])
                              &totalNumberOfBytes,
                              &totalNumberOfFreeBytes))
     {
-        K32LoadStringW(GetModuleHandle(NULL), STRING_NO_VOLUME_SIZE, szMsg, ARRAYSIZE(szMsg));
+        LoadStringW(GetModuleHandle(NULL), STRING_NO_VOLUME_SIZE, szMsg, ARRAYSIZE(szMsg));
         PrintWin32Error(szMsg, GetLastError());
         return -1;
     }
-    ConResPrintf(StdOut, STRING_FILESYSTEM, fileSystem);
+    PrintResourceString(STRING_FILESYSTEM, fileSystem);
 
     //
     // Make sure they want to do this
@@ -499,27 +533,27 @@ int wmain(int argc, WCHAR *argv[])
         {
             while (TRUE)
             {
-                ConResPrintf(StdOut, STRING_LABEL_NAME_EDIT, RootDirectory[0]);
+                PrintResourceString(STRING_LABEL_NAME_EDIT, RootDirectory[0]);
                 fgetws(input, ARRAYSIZE(input), stdin);
                 input[wcslen(input) - 1] = 0;
 
                 if (!wcsicmp(input, volumeName))
                     break;
 
-                ConResPuts(StdOut, STRING_ERROR_LABEL);
+                PrintResourceString(STRING_ERROR_LABEL);
             }
         }
 
-        ConResPrintf(StdOut, STRING_YN_FORMAT, RootDirectory[0]);
+        PrintResourceString(STRING_YN_FORMAT, RootDirectory[0]);
 
-        K32LoadStringW(GetModuleHandle(NULL), STRING_YES_NO_FAQ, szMsg, ARRAYSIZE(szMsg));
+        LoadStringW(GetModuleHandle(NULL), STRING_YES_NO_FAQ, szMsg, ARRAYSIZE(szMsg));
         while (TRUE)
         {
             fgetws(input, ARRAYSIZE(input), stdin);
             if (_wcsnicmp(&input[0], &szMsg[0], 1) == 0) break;
             if (_wcsnicmp(&input[0], &szMsg[1], 1) == 0)
             {
-                ConPuts(StdOut, L"\n");
+                wprintf(L"\n");
                 return 0;
             }
         }
@@ -530,30 +564,30 @@ int wmain(int argc, WCHAR *argv[])
     //
     if (!QuickFormat)
     {
-        K32LoadStringW(GetModuleHandle(NULL), STRING_VERIFYING, szMsg, ARRAYSIZE(szMsg));
+        LoadStringW(GetModuleHandle(NULL), STRING_VERIFYING, szMsg, ARRAYSIZE(szMsg));
         if (totalNumberOfBytes.QuadPart > 1024*1024*10)
         {
-            ConPrintf(StdOut, L"%s %luM\n", szMsg, (DWORD)(totalNumberOfBytes.QuadPart/(1024*1024)));
+            PrintString(L"%s %luM\n", szMsg, (DWORD)(totalNumberOfBytes.QuadPart/(1024*1024)));
         }
         else
         {
-            ConPrintf(StdOut, L"%s %.1fM\n", szMsg,
+            PrintString(L"%s %.1fM\n", szMsg,
                 ((float)(LONGLONG)totalNumberOfBytes.QuadPart)/(float)(1024.0*1024.0));
         }
     }
     else
     {
-        K32LoadStringW(GetModuleHandle(NULL), STRING_FAST_FMT, szMsg, ARRAYSIZE(szMsg));
+        LoadStringW(GetModuleHandle(NULL), STRING_FAST_FMT, szMsg, ARRAYSIZE(szMsg));
         if (totalNumberOfBytes.QuadPart > 1024*1024*10)
         {
-            ConPrintf(StdOut, L"%s %luM\n", szMsg, (DWORD)(totalNumberOfBytes.QuadPart/(1024*1024)));
+            PrintString(L"%s %luM\n", szMsg, (DWORD)(totalNumberOfBytes.QuadPart/(1024*1024)));
         }
         else
         {
-            ConPrintf(StdOut, L"%s %.2fM\n", szMsg,
+            PrintString(L"%s %.2fM\n", szMsg,
                 ((float)(LONGLONG)totalNumberOfBytes.QuadPart)/(float)(1024.0*1024.0));
         }
-        ConResPuts(StdOut, STRING_CREATE_FSYS);
+        PrintResourceString(STRING_CREATE_FSYS);
     }
 
     //
@@ -562,7 +596,7 @@ int wmain(int argc, WCHAR *argv[])
     FormatEx(RootDirectory, media, FileSystem, Label, QuickFormat,
              ClusterSize, FormatExCallback);
     if (Error) return -1;
-    ConResPuts(StdOut, STRING_FMT_COMPLETE);
+    PrintResourceString(STRING_FMT_COMPLETE);
 
     //
     // Enable compression if desired
@@ -570,7 +604,7 @@ int wmain(int argc, WCHAR *argv[])
     if (CompressDrive)
     {
         if (!EnableVolumeCompression(RootDirectory, TRUE))
-            ConResPuts(StdOut, STRING_VOL_COMPRESS);
+            PrintResourceString(STRING_VOL_COMPRESS);
     }
 
     //
@@ -578,13 +612,13 @@ int wmain(int argc, WCHAR *argv[])
     //
     if (!GotALabel)
     {
-        ConResPuts(StdOut, STRING_ENTER_LABEL);
+        PrintResourceString(STRING_ENTER_LABEL);
         fgetws(input, ARRAYSIZE(LabelString), stdin);
 
         input[wcslen(input) - 1] = 0;
         if (!SetVolumeLabelW(RootDirectory, input))
         {
-            K32LoadStringW(GetModuleHandle(NULL), STRING_NO_LABEL, szMsg, ARRAYSIZE(szMsg));
+            LoadStringW(GetModuleHandle(NULL), STRING_NO_LABEL, szMsg, ARRAYSIZE(szMsg));
             PrintWin32Error(szMsg, GetLastError());
             return -1;
         }
@@ -595,7 +629,7 @@ int wmain(int argc, WCHAR *argv[])
                                &serialNumber, &maxComponent, &flags,
                                fileSystem, ARRAYSIZE(fileSystem)))
     {
-        K32LoadStringW(GetModuleHandle(NULL), STRING_NO_VOLUME, szMsg, ARRAYSIZE(szMsg));
+        LoadStringW(GetModuleHandle(NULL), STRING_NO_VOLUME, szMsg, ARRAYSIZE(szMsg));
         PrintWin32Error(szMsg, GetLastError());
         return -1;
     }
@@ -608,13 +642,13 @@ int wmain(int argc, WCHAR *argv[])
                              &totalNumberOfBytes,
                              &totalNumberOfFreeBytes))
     {
-        K32LoadStringW(GetModuleHandle(NULL), STRING_NO_VOLUME_SIZE, szMsg, ARRAYSIZE(szMsg));
+        LoadStringW(GetModuleHandle(NULL), STRING_NO_VOLUME_SIZE, szMsg, ARRAYSIZE(szMsg));
         PrintWin32Error(szMsg, GetLastError());
         return -1;
     }
 
-    ConResPrintf(StdOut, STRING_FREE_SPACE, totalNumberOfBytes.QuadPart,
-                                            totalNumberOfFreeBytes.QuadPart);
+    PrintResourceString(STRING_FREE_SPACE, totalNumberOfBytes.QuadPart,
+                                           totalNumberOfFreeBytes.QuadPart);
 
     //
     // Get the drive's serial number
@@ -624,13 +658,13 @@ int wmain(int argc, WCHAR *argv[])
                                &serialNumber, &maxComponent, &flags,
                                fileSystem, ARRAYSIZE(fileSystem)))
     {
-        K32LoadStringW(GetModuleHandle(NULL), STRING_NO_VOLUME, szMsg, ARRAYSIZE(szMsg));
+        LoadStringW(GetModuleHandle(NULL), STRING_NO_VOLUME, szMsg, ARRAYSIZE(szMsg));
         PrintWin32Error(szMsg, GetLastError());
         return -1;
     }
-    ConResPrintf(StdOut, STRING_SERIAL_NUMBER,
-                         (unsigned int)(serialNumber >> 16),
-                         (unsigned int)(serialNumber & 0xFFFF));
+    PrintResourceString(STRING_SERIAL_NUMBER,
+                        (unsigned int)(serialNumber >> 16),
+                        (unsigned int)(serialNumber & 0xFFFF));
 
     return 0;
 }

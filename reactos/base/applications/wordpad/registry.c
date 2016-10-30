@@ -116,7 +116,12 @@ void registry_read_winrect(RECT* rc)
     if(registry_get_handle(&hKey, 0, key_options) != ERROR_SUCCESS ||
        RegQueryValueExW(hKey, var_framerect, 0, NULL, (LPBYTE)rc, &size) !=
        ERROR_SUCCESS || size != sizeof(RECT))
-        SetRect(rc, 0, 0, 600, 300);
+    {
+        rc->top = 0;
+        rc->left = 0;
+        rc->bottom = 300;
+        rc->right = 600;
+    }
 
     RegCloseKey(hKey);
 }
@@ -295,7 +300,7 @@ void registry_set_filelist(LPCWSTR newFile, HWND hMainWnd)
                 if(!lstrcmpiW(pFiles[i], newFile))
                 {
                     int j;
-                    for(j = 0; j < i; j++)
+                    for(j = 0; pFiles[j] && j < i; j++)
                     {
                         pFiles[i-j] = pFiles[i-j-1];
                     }

@@ -295,7 +295,6 @@ KdDisableDebugger(VOID)
 
     /* Disable the Debugger */
     KdDebuggerEnabled = FALSE;
-    SharedUserData->KdDebuggerEnabled = FALSE;
 
     /* Lower the IRQL */
     KeLowerIrql(OldIrql);
@@ -320,7 +319,6 @@ KdEnableDebugger(VOID)
 
     /* Enable the Debugger */
     KdDebuggerEnabled = TRUE;
-    SharedUserData->KdDebuggerEnabled = TRUE;
 
     /* Lower the IRQL */
     KeLowerIrql(OldIrql);

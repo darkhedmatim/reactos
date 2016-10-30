@@ -1103,42 +1103,42 @@ static void test_SetThreadContext(void)
 
 static void test_GetThreadSelectorEntry(void)
 {
+    TEB *teb = NtCurrentTeb();
     LDT_ENTRY entry;
     CONTEXT ctx;
-    DWORD limit;
-    void *base;
-    BOOL ret;
+    TEB *teb_fs;
+    DWORD ret;
 
     memset(&ctx, 0x11, sizeof(ctx));
     ctx.ContextFlags = CONTEXT_SEGMENTS | CONTEXT_CONTROL;
     ret = GetThreadContext(GetCurrentThread(), &ctx);
     ok(ret, "GetThreadContext error %u\n", GetLastError());
-    ok(!HIWORD(ctx.SegCs), "expected HIWORD(SegCs) == 0, got %u\n", ctx.SegCs);
-    ok(!HIWORD(ctx.SegDs), "expected HIWORD(SegDs) == 0, got %u\n", ctx.SegDs);
-    ok(!HIWORD(ctx.SegFs), "expected HIWORD(SegFs) == 0, got %u\n", ctx.SegFs);
+    ok(!HIWORD(ctx.SegCs) && !HIWORD(ctx.SegDs) && !HIWORD(ctx.SegEs) && !HIWORD(ctx.SegFs) && !HIWORD(ctx.SegGs),
+       "cs %08x, ds %08x, es %08x, fs %08x, gs %08x\n", ctx.SegCs, ctx.SegDs, ctx.SegEs, ctx.SegFs, ctx.SegGs);
 
     ret = GetThreadSelectorEntry(GetCurrentThread(), ctx.SegCs, &entry);
     ok(ret, "GetThreadSelectorEntry(SegCs) error %u\n", GetLastError());
+
     ret = GetThreadSelectorEntry(GetCurrentThread(), ctx.SegDs, &entry);
     ok(ret, "GetThreadSelectorEntry(SegDs) error %u\n", GetLastError());
 
     memset(&entry, 0x11, sizeof(entry));
     ret = GetThreadSelectorEntry(GetCurrentThread(), ctx.SegFs, &entry);
     ok(ret, "GetThreadSelectorEntry(SegFs) error %u\n", GetLastError());
-    entry.HighWord.Bits.Type &= ~1; /* ignore accessed bit */
 
-    base  = (void *)((entry.HighWord.Bits.BaseHi << 24) | (entry.HighWord.Bits.BaseMid << 16) | entry.BaseLow);
-    limit = (entry.HighWord.Bits.LimitHi << 16) | entry.LimitLow;
+    teb_fs = (TEB *)((entry.HighWord.Bits.BaseHi << 24) | (entry.HighWord.Bits.BaseMid << 16) | entry.BaseLow);
+    ok(teb_fs == teb, "teb_fs %p != teb %p\n", teb_fs, teb);
 
-    ok(base == NtCurrentTeb(),                "expected %p, got %p\n", NtCurrentTeb(), base);
-    ok(limit == 0x0fff || limit == 0x4000,    "expected 0x0fff or 0x4000, got %#x\n", limit);
-    ok(entry.HighWord.Bits.Type == 0x12,      "expected 0x12, got %#x\n", entry.HighWord.Bits.Type);
-    ok(entry.HighWord.Bits.Dpl == 3,          "expected 3, got %u\n", entry.HighWord.Bits.Dpl);
-    ok(entry.HighWord.Bits.Pres == 1,         "expected 1, got %u\n", entry.HighWord.Bits.Pres);
-    ok(entry.HighWord.Bits.Sys == 0,          "expected 0, got %u\n", entry.HighWord.Bits.Sys);
-    ok(entry.HighWord.Bits.Reserved_0 == 0,   "expected 0, got %u\n", entry.HighWord.Bits.Reserved_0);
-    ok(entry.HighWord.Bits.Default_Big == 1,  "expected 1, got %u\n", entry.HighWord.Bits.Default_Big);
-    ok(entry.HighWord.Bits.Granularity == 0,  "expected 0, got %u\n", entry.HighWord.Bits.Granularity);
+    ret = (entry.HighWord.Bits.LimitHi << 16) | entry.LimitLow;
+    ok(ret == 0x0fff || ret == 0x4000 /* testbot win7u */, "got %#x\n", ret);
+
+    ok(entry.HighWord.Bits.Dpl == 3, "got %#x\n", entry.HighWord.Bits.Dpl);
+    ok(entry.HighWord.Bits.Sys == 0, "got %#x\n", entry.HighWord.Bits.Sys);
+    ok(entry.HighWord.Bits.Pres == 1, "got %#x\n", entry.HighWord.Bits.Pres);
+    ok(entry.HighWord.Bits.Granularity == 0, "got %#x\n", entry.HighWord.Bits.Granularity);
+    ok(entry.HighWord.Bits.Default_Big == 1, "got %#x\n", entry.HighWord.Bits.Default_Big);
+    ok(entry.HighWord.Bits.Type == 0x13, "got %#x\n", entry.HighWord.Bits.Type);
+    ok(entry.HighWord.Bits.Reserved_0 == 0, "got %#x\n", entry.HighWord.Bits.Reserved_0);
 }
 
 static void test_NtSetLdtEntries(void)
@@ -1318,64 +1318,33 @@ static void test_RegisterWaitForSingleObject(void)
 
     ret = pUnregisterWait(wait_handle);
     ok(ret, "UnregisterWait failed with error %d\n", GetLastError());
-
-    SetLastError(0xdeadbeef);
-    ret = pUnregisterWait(NULL);
-    ok(!ret, "Expected UnregisterWait to fail\n");
-    ok(GetLastError() == ERROR_INVALID_HANDLE,
-       "Expected ERROR_INVALID_HANDLE, got %d\n", GetLastError());
 }
 
-static DWORD LS_main;
-static DWORD LS_index0, LS_index1;
-static DWORD LS_OutOfIndexesValue;
+static DWORD TLS_main;
+static DWORD TLS_index0, TLS_index1;
 
-/* Function pointers to the FLS/TLS functions to test in LS_ThreadProc() */
-static DWORD (WINAPI *LS_AllocFunc)(void);
-static PVOID (WINAPI *LS_GetValueFunc)(DWORD);
-static BOOL (WINAPI *LS_SetValueFunc)(DWORD, PVOID);
-static BOOL (WINAPI *LS_FreeFunc)(DWORD);
-
-/* Names of the functions tested in LS_ThreadProc(), for error messages */
-static const char* LS_AllocFuncName = "";
-static const char* LS_GetValueFuncName = "";
-static const char* LS_SetValueFuncName = "";
-static const char* LS_FreeFuncName = "";
-
-/* FLS entry points, dynamically loaded in platforms that support them */
-static DWORD (WINAPI *pFlsAlloc)(PFLS_CALLBACK_FUNCTION);
-static BOOL (WINAPI *pFlsFree)(DWORD);
-static PVOID (WINAPI *pFlsGetValue)(DWORD);
-static BOOL (WINAPI *pFlsSetValue)(DWORD,PVOID);
-
-/* A thunk function to make FlsAlloc compatible with the signature of TlsAlloc */
-static DWORD WINAPI FLS_AllocFuncThunk(void)
+static DWORD WINAPI TLS_InheritanceProc(LPVOID p)
 {
-  return pFlsAlloc(NULL);
-}
-
-static DWORD WINAPI LS_InheritanceProc(LPVOID p)
-{
-  /* We should NOT inherit the FLS/TLS values from our parent or from the
+  /* We should NOT inherit the TLS values from our parent or from the
      main thread.  */
   LPVOID val;
 
-  val = LS_GetValueFunc(LS_main);
-  ok(val == NULL, "%s inheritance failed\n", LS_GetValueFuncName);
+  val = TlsGetValue(TLS_main);
+  ok(val == NULL, "TLS inheritance failed\n");
 
-  val = LS_GetValueFunc(LS_index0);
-  ok(val == NULL, "%s inheritance failed\n", LS_GetValueFuncName);
+  val = TlsGetValue(TLS_index0);
+  ok(val == NULL, "TLS inheritance failed\n");
 
-  val = LS_GetValueFunc(LS_index1);
-  ok(val == NULL, "%s inheritance failed\n", LS_GetValueFuncName);
+  val = TlsGetValue(TLS_index1);
+  ok(val == NULL, "TLS inheritance failed\n");
 
   return 0;
 }
 
-/* Basic FLS/TLS usage test.  Make sure we can create slots and the values we
-   store in them are separate among threads.  Also test FLS/TLS value
-   inheritance with LS_InheritanceProc.  */
-static DWORD WINAPI LS_ThreadProc(LPVOID p)
+/* Basic TLS usage test.  Make sure we can create slots and the values we
+   store in them are separate among threads.  Also test TLS value
+   inheritance with TLS_InheritanceProc.  */
+static DWORD WINAPI TLS_ThreadProc(LPVOID p)
 {
   LONG_PTR id = (LONG_PTR) p;
   LPVOID val;
@@ -1383,80 +1352,80 @@ static DWORD WINAPI LS_ThreadProc(LPVOID p)
 
   if (sync_threads_and_run_one(0, id))
   {
-    LS_index0 = LS_AllocFunc();
-    ok(LS_index0 != LS_OutOfIndexesValue, "%s failed\n", LS_AllocFuncName);
+    TLS_index0 = TlsAlloc();
+    ok(TLS_index0 != TLS_OUT_OF_INDEXES, "TlsAlloc failed\n");
   }
   resync_after_run();
 
   if (sync_threads_and_run_one(1, id))
   {
-    LS_index1 = LS_AllocFunc();
-    ok(LS_index1 != LS_OutOfIndexesValue, "%s failed\n", LS_AllocFuncName);
+    TLS_index1 = TlsAlloc();
+    ok(TLS_index1 != TLS_OUT_OF_INDEXES, "TlsAlloc failed\n");
 
     /* Slot indices should be different even if created in different
        threads.  */
-    ok(LS_index0 != LS_index1, "%s failed\n", LS_AllocFuncName);
+    ok(TLS_index0 != TLS_index1, "TlsAlloc failed\n");
 
     /* Both slots should be initialized to NULL */
-    val = LS_GetValueFunc(LS_index0);
-    ok(GetLastError() == ERROR_SUCCESS, "%s failed\n", LS_GetValueFuncName);
-    ok(val == NULL, "Slot not initialized correctly\n");
+    val = TlsGetValue(TLS_index0);
+    ok(GetLastError() == ERROR_SUCCESS, "TlsGetValue failed\n");
+    ok(val == NULL, "TLS slot not initialized correctly\n");
 
-    val = LS_GetValueFunc(LS_index1);
-    ok(GetLastError() == ERROR_SUCCESS, "%s failed\n", LS_GetValueFuncName);
-    ok(val == NULL, "Slot not initialized correctly\n");
+    val = TlsGetValue(TLS_index1);
+    ok(GetLastError() == ERROR_SUCCESS, "TlsGetValue failed\n");
+    ok(val == NULL, "TLS slot not initialized correctly\n");
   }
   resync_after_run();
 
   if (sync_threads_and_run_one(0, id))
   {
-    val = LS_GetValueFunc(LS_index0);
-    ok(GetLastError() == ERROR_SUCCESS, "%s failed\n", LS_GetValueFuncName);
-    ok(val == NULL, "Slot not initialized correctly\n");
+    val = TlsGetValue(TLS_index0);
+    ok(GetLastError() == ERROR_SUCCESS, "TlsGetValue failed\n");
+    ok(val == NULL, "TLS slot not initialized correctly\n");
 
-    val = LS_GetValueFunc(LS_index1);
-    ok(GetLastError() == ERROR_SUCCESS, "%s failed\n", LS_GetValueFuncName);
-    ok(val == NULL, "Slot not initialized correctly\n");
+    val = TlsGetValue(TLS_index1);
+    ok(GetLastError() == ERROR_SUCCESS, "TlsGetValue failed\n");
+    ok(val == NULL, "TLS slot not initialized correctly\n");
 
-    ret = LS_SetValueFunc(LS_index0, (LPVOID) 1);
-    ok(ret, "%s failed\n", LS_SetValueFuncName);
+    ret = TlsSetValue(TLS_index0, (LPVOID) 1);
+    ok(ret, "TlsSetValue failed\n");
 
-    ret = LS_SetValueFunc(LS_index1, (LPVOID) 2);
-    ok(ret, "%s failed\n", LS_SetValueFuncName);
+    ret = TlsSetValue(TLS_index1, (LPVOID) 2);
+    ok(ret, "TlsSetValue failed\n");
 
-    val = LS_GetValueFunc(LS_index0);
-    ok(GetLastError() == ERROR_SUCCESS, "%s failed\n", LS_GetValueFuncName);
-    ok(val == (LPVOID) 1, "Slot not initialized correctly\n");
+    val = TlsGetValue(TLS_index0);
+    ok(GetLastError() == ERROR_SUCCESS, "TlsGetValue failed\n");
+    ok(val == (LPVOID) 1, "TLS slot not initialized correctly\n");
 
-    val = LS_GetValueFunc(LS_index1);
-    ok(GetLastError() == ERROR_SUCCESS, "%s failed\n", LS_GetValueFuncName);
-    ok(val == (LPVOID) 2, "Slot not initialized correctly\n");
+    val = TlsGetValue(TLS_index1);
+    ok(GetLastError() == ERROR_SUCCESS, "TlsGetValue failed\n");
+    ok(val == (LPVOID) 2, "TLS slot not initialized correctly\n");
   }
   resync_after_run();
 
   if (sync_threads_and_run_one(1, id))
   {
-    val = LS_GetValueFunc(LS_index0);
-    ok(GetLastError() == ERROR_SUCCESS, "%s failed\n", LS_GetValueFuncName);
-    ok(val == NULL, "Slot not initialized correctly\n");
+    val = TlsGetValue(TLS_index0);
+    ok(GetLastError() == ERROR_SUCCESS, "TlsGetValue failed\n");
+    ok(val == NULL, "TLS slot not initialized correctly\n");
 
-    val = LS_GetValueFunc(LS_index1);
-    ok(GetLastError() == ERROR_SUCCESS, "%s failed\n", LS_GetValueFuncName);
-    ok(val == NULL, "Slot not initialized correctly\n");
+    val = TlsGetValue(TLS_index1);
+    ok(GetLastError() == ERROR_SUCCESS, "TlsGetValue failed\n");
+    ok(val == NULL, "TLS slot not initialized correctly\n");
 
-    ret = LS_SetValueFunc(LS_index0, (LPVOID) 3);
-    ok(ret, "%s failed\n", LS_SetValueFuncName);
+    ret = TlsSetValue(TLS_index0, (LPVOID) 3);
+    ok(ret, "TlsSetValue failed\n");
 
-    ret = LS_SetValueFunc(LS_index1, (LPVOID) 4);
-    ok(ret, "%s failed\n", LS_SetValueFuncName);
+    ret = TlsSetValue(TLS_index1, (LPVOID) 4);
+    ok(ret, "TlsSetValue failed\n");
 
-    val = LS_GetValueFunc(LS_index0);
-    ok(GetLastError() == ERROR_SUCCESS, "%s failed\n", LS_GetValueFuncName);
-    ok(val == (LPVOID) 3, "Slot not initialized correctly\n");
+    val = TlsGetValue(TLS_index0);
+    ok(GetLastError() == ERROR_SUCCESS, "TlsGetValue failed\n");
+    ok(val == (LPVOID) 3, "TLS slot not initialized correctly\n");
 
-    val = LS_GetValueFunc(LS_index1);
-    ok(GetLastError() == ERROR_SUCCESS, "%s failed\n", LS_GetValueFuncName);
-    ok(val == (LPVOID) 4, "Slot not initialized correctly\n");
+    val = TlsGetValue(TLS_index1);
+    ok(GetLastError() == ERROR_SUCCESS, "TlsGetValue failed\n");
+    ok(val == (LPVOID) 4, "TLS slot not initialized correctly\n");
   }
   resync_after_run();
 
@@ -1465,36 +1434,36 @@ static DWORD WINAPI LS_ThreadProc(LPVOID p)
     HANDLE thread;
     DWORD waitret, tid;
 
-    val = LS_GetValueFunc(LS_index0);
-    ok(GetLastError() == ERROR_SUCCESS, "%s failed\n", LS_GetValueFuncName);
-    ok(val == (LPVOID) 1, "Slot not initialized correctly\n");
+    val = TlsGetValue(TLS_index0);
+    ok(GetLastError() == ERROR_SUCCESS, "TlsGetValue failed\n");
+    ok(val == (LPVOID) 1, "TLS slot not initialized correctly\n");
 
-    val = LS_GetValueFunc(LS_index1);
-    ok(GetLastError() == ERROR_SUCCESS, "%s failed\n", LS_GetValueFuncName);
-    ok(val == (LPVOID) 2, "Slot not initialized correctly\n");
+    val = TlsGetValue(TLS_index1);
+    ok(GetLastError() == ERROR_SUCCESS, "TlsGetValue failed\n");
+    ok(val == (LPVOID) 2, "TLS slot not initialized correctly\n");
 
-    thread = CreateThread(NULL, 0, LS_InheritanceProc, 0, 0, &tid);
+    thread = CreateThread(NULL, 0, TLS_InheritanceProc, 0, 0, &tid);
     ok(thread != NULL, "CreateThread failed\n");
     waitret = WaitForSingleObject(thread, 60000);
     ok(waitret == WAIT_OBJECT_0, "WaitForSingleObject failed\n");
     CloseHandle(thread);
 
-    ret = LS_FreeFunc(LS_index0);
-    ok(ret, "%s failed\n", LS_FreeFuncName);
+    ret = TlsFree(TLS_index0);
+    ok(ret, "TlsFree failed\n");
   }
   resync_after_run();
 
   if (sync_threads_and_run_one(1, id))
   {
-    ret = LS_FreeFunc(LS_index1);
-    ok(ret, "%s failed\n", LS_FreeFuncName);
+    ret = TlsFree(TLS_index1);
+    ok(ret, "TlsFree failed\n");
   }
   resync_after_run();
 
   return 0;
 }
 
-static void run_LS_tests(void)
+static void test_TLS(void)
 {
   HANDLE threads[2];
   LONG_PTR i;
@@ -1503,17 +1472,17 @@ static void run_LS_tests(void)
 
   init_thread_sync_helpers();
 
-  /* Allocate a slot in the main thread to test for inheritance.  */
-  LS_main = LS_AllocFunc();
-  ok(LS_main != LS_OutOfIndexesValue, "%s failed\n", LS_AllocFuncName);
-  suc = LS_SetValueFunc(LS_main, (LPVOID) 4114);
-  ok(suc, "%s failed\n", LS_SetValueFuncName);
+  /* Allocate a TLS slot in the main thread to test for inheritance.  */
+  TLS_main = TlsAlloc();
+  ok(TLS_main != TLS_OUT_OF_INDEXES, "TlsAlloc failed\n");
+  suc = TlsSetValue(TLS_main, (LPVOID) 4114);
+  ok(suc, "TlsSetValue failed\n");
 
   for (i = 0; i < 2; ++i)
   {
     DWORD tid;
 
-    threads[i] = CreateThread(NULL, 0, LS_ThreadProc, (LPVOID) i, 0, &tid);
+    threads[i] = CreateThread(NULL, 0, TLS_ThreadProc, (LPVOID) i, 0, &tid);
     ok(threads[i] != NULL, "CreateThread failed\n");
   }
 
@@ -1523,49 +1492,9 @@ static void run_LS_tests(void)
   for (i = 0; i < 2; ++i)
     CloseHandle(threads[i]);
 
-  suc = LS_FreeFunc(LS_main);
-  ok(suc, "%s failed\n", LS_FreeFuncName);
+  suc = TlsFree(TLS_main);
+  ok(suc, "TlsFree failed\n");
   cleanup_thread_sync_helpers();
-}
-
-static void test_TLS(void)
-{
-  LS_OutOfIndexesValue = TLS_OUT_OF_INDEXES;
-
-  LS_AllocFunc = &TlsAlloc;
-  LS_GetValueFunc = &TlsGetValue;
-  LS_SetValueFunc = &TlsSetValue;
-  LS_FreeFunc = &TlsFree;
-
-  LS_AllocFuncName = "TlsAlloc";
-  LS_GetValueFuncName = "TlsGetValue";
-  LS_SetValueFuncName = "TlsSetValue";
-  LS_FreeFuncName = "TlsFree";
-
-  run_LS_tests();
-}
-
-static void test_FLS(void)
-{
-  if (!pFlsAlloc || !pFlsFree || !pFlsGetValue || !pFlsSetValue)
-  {
-     win_skip("Fiber Local Storage not supported\n");
-     return;
-  }
-
-  LS_OutOfIndexesValue = FLS_OUT_OF_INDEXES;
-
-  LS_AllocFunc = &FLS_AllocFuncThunk;
-  LS_GetValueFunc = pFlsGetValue;
-  LS_SetValueFunc = pFlsSetValue;
-  LS_FreeFunc = pFlsFree;
-
-  LS_AllocFuncName = "FlsAlloc";
-  LS_GetValueFuncName = "FlsGetValue";
-  LS_SetValueFuncName = "FlsSetValue";
-  LS_FreeFuncName = "FlsFree";
-
-  run_LS_tests();
 }
 
 static void test_ThreadErrorMode(void)
@@ -2089,11 +2018,6 @@ static void init_funcs(void)
 
     X(GetThreadGroupAffinity);
     X(SetThreadGroupAffinity);
-
-    X(FlsAlloc);
-    X(FlsFree);
-    X(FlsSetValue);
-    X(FlsGetValue);
 #undef X
 
 #define X(f) p##f = (void*)GetProcAddress(ntdll, #f)
@@ -2161,7 +2085,6 @@ START_TEST(thread)
    test_QueueUserWorkItem();
    test_RegisterWaitForSingleObject();
    test_TLS();
-   test_FLS();
    test_ThreadErrorMode();
 #if (defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))) || (defined(_MSC_VER) && defined(__i386__))
    test_thread_fpu_cw();

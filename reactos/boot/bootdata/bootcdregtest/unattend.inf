@@ -39,9 +39,10 @@ FormatPartition=1
 ; 0 - disabled
 AutoPartition = 1
 
-; set this option to automatically
-; specify language in 2nd mode setup
-; see hivesys.inf for available languages
+; enable this setting to disable vmware driver install
+; yes - disabled
+; no  - enabled
+DisableVmwInst = yes
 LocaleID = 409
 
 ; enable this section to automatically launch programs

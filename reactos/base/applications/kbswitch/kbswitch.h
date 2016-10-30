@@ -1,5 +1,3 @@
-#pragma once
-
 #include <stdarg.h>
 #include <windef.h>
 #include <winbase.h>
@@ -9,7 +7,6 @@
 #include <wingdi.h>
 #include <shellapi.h>
 #include <tchar.h>
-#include <strsafe.h>
 
 #include "resource.h"
 
@@ -23,8 +20,5 @@
 #define WM_LANG_CHANGED    (WM_USER + 10200)
 #define WM_WINDOW_ACTIVATE (WM_USER + 10300)
 #define WM_LOAD_LAYOUT     (WM_USER + 10400)
-
-typedef BOOL (WINAPI *PKBSWITCHSETHOOKS) (VOID);
-typedef VOID (WINAPI *PKBSWITCHDELETEHOOKS) (VOID);
 
 TCHAR szKbSwitcherName[] = _T("kbswitcher");

@@ -108,11 +108,9 @@ extern "C++"
 
   /*
    *  The allocation functions return a pointer, and the error code
-   *  is written to through the `p_error' parameter.
+   *  is written to through the `p_error' parameter.  See below for
+   *  for documentation.
    */
-
-  /* The `q' variants of the functions below (`q' for `quick') don't fill */
-  /* the allocated or reallocated memory with zero bytes.                 */
 
   FT_BASE( FT_Pointer )
   ft_mem_alloc( FT_Memory  memory,
@@ -144,9 +142,6 @@ extern "C++"
   ft_mem_free( FT_Memory    memory,
                const void*  P );
 
-
-  /* The `Q' variants of the macros below (`Q' for `quick') don't fill */
-  /* the allocated or reallocated memory with zero bytes.              */
 
 #define FT_MEM_ALLOC( ptr, size )                               \
           FT_ASSIGNP_INNER( ptr, ft_mem_alloc( memory,          \

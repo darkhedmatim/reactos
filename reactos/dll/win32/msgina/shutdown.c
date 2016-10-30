@@ -2,459 +2,323 @@
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS msgina.dll
  * FILE:            lib/msgina/shutdown.c
- * PURPOSE:         Shutdown Dialog Box (GUI only)
- * PROGRAMMERS:     Lee Schroeder (spaceseel at gmail dot com)
- *                  Hermes Belusca-Maito (hermes.belusca@sfr.fr)
+ * PURPOSE:         Shutdown Dialog Box
+ * PROGRAMMER:      Lee Schroeder (spaceseel at gmail dot com)
  */
 
 #include "msgina.h"
 #include <powrprof.h>
+#include <strsafe.h>
 #include <wingdi.h>
+#include <winreg.h>
+#include <stdlib.h>
 
-/* Shutdown state flags */
-#define WLX_SHUTDOWN_STATE_LOGOFF       0x01
-#define WLX_SHUTDOWN_STATE_POWER_OFF    0x02
-#define WLX_SHUTDOWN_STATE_REBOOT       0x04
-// 0x08
-#define WLX_SHUTDOWN_STATE_SLEEP        0x10
-// 0x20
-#define WLX_SHUTDOWN_STATE_HIBERNATE    0x40
-// 0x80
+int g_shutdownCode = 0;
+BOOL g_logoffHideState = FALSE;
 
-typedef struct _SHUTDOWN_DLG_CONTEXT
+int LoadShutdownSelState(void)
 {
-    PGINA_CONTEXT pgContext;
-    DWORD ShutdownOptions;
-    BOOL bCloseDlg;
-} SHUTDOWN_DLG_CONTEXT, *PSHUTDOWN_DLG_CONTEXT;
-
-DWORD
-LoadShutdownSelState(VOID)
-{
-    LONG lRet;
-    HKEY hKeyCurrentUser, hKey;
+    HKEY hKey;
     DWORD dwValue, dwTemp, dwSize;
 
-    /* Default to shutdown */
-    dwValue = WLX_SAS_ACTION_SHUTDOWN_POWER_OFF;
 
-    /* Open the current user HKCU key */
-    lRet = RegOpenCurrentUser(MAXIMUM_ALLOWED, &hKeyCurrentUser);
-    if (lRet == ERROR_SUCCESS)
+    /* default to shutdown */
+    dwValue = 1;
+
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer", 0, KEY_QUERY_VALUE, &hKey) != ERROR_SUCCESS)
     {
-        /* Open the subkey */
-        lRet = RegOpenKeyExW(hKeyCurrentUser,
-                             L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer",
-                             0, KEY_QUERY_VALUE, &hKey);
-        RegCloseKey(hKeyCurrentUser);
-    }
-    if (lRet != ERROR_SUCCESS)
         return dwValue;
+    }
 
-    /* Read the value */
     dwSize = sizeof(dwTemp);
-    lRet = RegQueryValueExW(hKey,
-                            L"Shutdown Setting",
-                            NULL, NULL,
-                            (LPBYTE)&dwTemp, &dwSize);
-    RegCloseKey(hKey);
-
-    if (lRet == ERROR_SUCCESS)
+    if (RegQueryValueExW(hKey, L"Shutdown Setting", NULL, NULL, (LPBYTE)&dwTemp, &dwSize) == ERROR_SUCCESS)
     {
-        switch (dwTemp)
+        switch(dwTemp)
         {
-            case WLX_SHUTDOWN_STATE_LOGOFF:
-                dwValue = WLX_SAS_ACTION_LOGOFF;
+            case 0x01: /* Log off */
+                dwValue = 0;
                 break;
 
-            case WLX_SHUTDOWN_STATE_POWER_OFF:
-                dwValue = WLX_SAS_ACTION_SHUTDOWN_POWER_OFF;
+            case 0x02: /* Shut down */
+                dwValue = 1;
                 break;
 
-            case WLX_SHUTDOWN_STATE_REBOOT:
-                dwValue = WLX_SAS_ACTION_SHUTDOWN_REBOOT;
+            case 0x04: /* Reboot */
+                dwValue = 2;
                 break;
 
-            // 0x08
-
-            case WLX_SHUTDOWN_STATE_SLEEP:
-                dwValue = WLX_SAS_ACTION_SHUTDOWN_SLEEP;
+            case 0x10: /* Sleep */
+                dwValue = 3;
                 break;
 
-            // 0x20
-
-            case WLX_SHUTDOWN_STATE_HIBERNATE:
-                dwValue = WLX_SAS_ACTION_SHUTDOWN_HIBERNATE;
+            case 0x40: /* Hibernate */
+                dwValue = 4;
                 break;
-
-            // 0x80
         }
     }
+
+    RegCloseKey(hKey);
 
     return dwValue;
 }
 
-VOID
-SaveShutdownSelState(
-    IN DWORD ShutdownCode)
+VOID SaveShutdownSelState(int ShutdownCode)
 {
-    LONG lRet;
-    HKEY hKeyCurrentUser, hKey;
+    HKEY hKey;
     DWORD dwValue = 0;
 
-    /* Open the current user HKCU key */
-    lRet = RegOpenCurrentUser(MAXIMUM_ALLOWED, &hKeyCurrentUser);
-    if (lRet == ERROR_SUCCESS)
+
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer", 0, NULL, REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &hKey, NULL) != ERROR_SUCCESS)
     {
-        /* Create the subkey */
-        lRet = RegCreateKeyExW(hKeyCurrentUser,
-                               L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer",
-                               0, NULL,
-                               REG_OPTION_NON_VOLATILE,
-                               KEY_SET_VALUE,
-                               NULL, &hKey, NULL);
-        RegCloseKey(hKeyCurrentUser);
-    }
-    if (lRet != ERROR_SUCCESS)
         return;
+    }
 
-    switch (ShutdownCode)
+    switch(ShutdownCode)
     {
-        case WLX_SAS_ACTION_LOGOFF:
-            dwValue = WLX_SHUTDOWN_STATE_LOGOFF;
+        case 0: /* Log off */
+            dwValue = 0x01;
             break;
 
-        case WLX_SAS_ACTION_SHUTDOWN_POWER_OFF:
-            dwValue = WLX_SHUTDOWN_STATE_POWER_OFF;
+        case 1: /* Shut down */
+            dwValue = 0x02;
             break;
 
-        case WLX_SAS_ACTION_SHUTDOWN_REBOOT:
-            dwValue = WLX_SHUTDOWN_STATE_REBOOT;
+        case 2: /* Reboot */
+            dwValue = 0x04;
             break;
 
-        case WLX_SAS_ACTION_SHUTDOWN_SLEEP:
-            dwValue = WLX_SHUTDOWN_STATE_SLEEP;
+        case 3: /* Sleep */
+            dwValue = 0x10;
             break;
 
-        case WLX_SAS_ACTION_SHUTDOWN_HIBERNATE:
-            dwValue = WLX_SHUTDOWN_STATE_HIBERNATE;
+        case 4: /* Hibernate */
+            dwValue = 0x40;
             break;
     }
 
-    RegSetValueExW(hKey,
-                   L"Shutdown Setting",
-                   0, REG_DWORD,
-                   (LPBYTE)&dwValue, sizeof(dwValue));
+    RegSetValueExW(hKey, L"Shutdown Setting", 0, REG_DWORD, (const BYTE*)&dwValue, sizeof(dwValue));
     RegCloseKey(hKey);
 }
 
-DWORD
-GetAllowedShutdownOptions(VOID)
+VOID UpdateShutdownShellDesc(HWND hwnd)
 {
-    DWORD Options = 0;
+    WCHAR tmpBuffer[256];
+    UINT shutdownDescId = 0;
+    HWND shutdownHwnd = GetDlgItem(hwnd, IDC_SHUTDOWN_DESCRIPTION);
+    int shutdownCode = 0;
+    
+    shutdownCode = SendDlgItemMessageW(hwnd, IDC_SHUTDOWN_LIST, CB_GETCURSEL, 0, 0);
 
-    // FIXME: Compute those options accordings to current user's rights!
-    Options |= WLX_SHUTDOWN_STATE_LOGOFF | WLX_SHUTDOWN_STATE_POWER_OFF | WLX_SHUTDOWN_STATE_REBOOT;
-
-    if (IsPwrSuspendAllowed())
-        Options |= WLX_SHUTDOWN_STATE_SLEEP;
-
-    if (IsPwrHibernateAllowed())
-        Options |= WLX_SHUTDOWN_STATE_HIBERNATE;
-
-    return Options;
-}
-
-static VOID
-UpdateShutdownDesc(
-    IN HWND hDlg,
-    IN PSHUTDOWN_DLG_CONTEXT pContext) // HINSTANCE hInstance
-{
-    UINT DescId = 0;
-    DWORD ShutdownCode;
-    WCHAR szBuffer[256];
-
-    ShutdownCode = SendDlgItemMessageW(hDlg, IDC_SHUTDOWN_LIST, CB_GETCURSEL, 0, 0);
-    if (ShutdownCode == CB_ERR) // Invalid selection
-        return;
-
-    ShutdownCode = SendDlgItemMessageW(hDlg, IDC_SHUTDOWN_LIST, CB_GETITEMDATA, ShutdownCode, 0);
-
-    switch (ShutdownCode)
+    if(!g_logoffHideState)
     {
-        case WLX_SAS_ACTION_LOGOFF:
-            DescId = IDS_SHUTDOWN_LOGOFF_DESC;
+        switch (shutdownCode)
+        {
+        case 0: /* Log off */
+            shutdownDescId = IDS_SHUTDOWN_LOGOFF_DESC;
             break;
-
-        case WLX_SAS_ACTION_SHUTDOWN_POWER_OFF:
-            DescId = IDS_SHUTDOWN_SHUTDOWN_DESC;
+        case 1: /* Shut down */
+            shutdownDescId = IDS_SHUTDOWN_SHUTDOWN_DESC;
             break;
-
-        case WLX_SAS_ACTION_SHUTDOWN_REBOOT:
-            DescId = IDS_SHUTDOWN_RESTART_DESC;
+        case 2: /* Restart */
+            shutdownDescId = IDS_SHUTDOWN_RESTART_DESC;
             break;
-
-        case WLX_SAS_ACTION_SHUTDOWN_SLEEP:
-            DescId = IDS_SHUTDOWN_SLEEP_DESC;
-            break;
-
-        case WLX_SAS_ACTION_SHUTDOWN_HIBERNATE:
-            DescId = IDS_SHUTDOWN_HIBERNATE_DESC;
-            break;
-
         default:
             break;
-    }
-
-    LoadStringW(pContext->pgContext->hDllInstance, DescId, szBuffer, _countof(szBuffer));
-    SetDlgItemTextW(hDlg, IDC_SHUTDOWN_DESCRIPTION, szBuffer);
-}
-
-static VOID
-ShutdownOnInit(
-    IN HWND hDlg,
-    IN PSHUTDOWN_DLG_CONTEXT pContext)
-{
-    PGINA_CONTEXT pgContext = pContext->pgContext;
-    HWND hwndList;
-    INT idx, count, i;
-    WCHAR szBuffer[256];
-    WCHAR szBuffer2[256];
-
-    hwndList = GetDlgItem(hDlg, IDC_SHUTDOWN_LIST);
-
-    /* Clear the content before it's used */
-    SendMessageW(hwndList, CB_RESETCONTENT, 0, 0);
-
-    /* Log off */
-    if (pContext->ShutdownOptions & WLX_SHUTDOWN_STATE_LOGOFF)
-    {
-        LoadStringW(pgContext->hDllInstance, IDS_SHUTDOWN_LOGOFF, szBuffer, _countof(szBuffer));
-        StringCchPrintfW(szBuffer2, _countof(szBuffer2), szBuffer, pgContext->UserName);
-        idx = SendMessageW(hwndList, CB_ADDSTRING, 0, (LPARAM)szBuffer2);
-        if (idx != CB_ERR)
-            SendMessageW(hwndList, CB_SETITEMDATA, idx, WLX_SAS_ACTION_LOGOFF);
-    }
-
-    /* Shut down - DEFAULT */
-    if (pContext->ShutdownOptions & WLX_SHUTDOWN_STATE_POWER_OFF)
-    {
-        LoadStringW(pgContext->hDllInstance, IDS_SHUTDOWN_SHUTDOWN, szBuffer, _countof(szBuffer));
-        idx = SendMessageW(hwndList, CB_ADDSTRING, 0, (LPARAM)szBuffer);
-        if (idx != CB_ERR)
-            SendMessageW(hwndList, CB_SETITEMDATA, idx, WLX_SAS_ACTION_SHUTDOWN_POWER_OFF);
-    }
-
-    /* Restart */
-    if (pContext->ShutdownOptions & WLX_SHUTDOWN_STATE_REBOOT)
-    {
-        LoadStringW(pgContext->hDllInstance, IDS_SHUTDOWN_RESTART, szBuffer, _countof(szBuffer));
-        idx = SendMessageW(hwndList, CB_ADDSTRING, 0, (LPARAM)szBuffer);
-        if (idx != CB_ERR)
-            SendMessageW(hwndList, CB_SETITEMDATA, idx, WLX_SAS_ACTION_SHUTDOWN_REBOOT);
-    }
-
-    // if (pContext->ShutdownOptions & 0x08) {}
-
-    /* Sleep */
-    if (pContext->ShutdownOptions & WLX_SHUTDOWN_STATE_SLEEP)
-    {
-        LoadStringW(pgContext->hDllInstance, IDS_SHUTDOWN_SLEEP, szBuffer, _countof(szBuffer));
-        idx = SendMessageW(hwndList, CB_ADDSTRING, 0, (LPARAM)szBuffer);
-        if (idx != CB_ERR)
-            SendMessageW(hwndList, CB_SETITEMDATA, idx, WLX_SAS_ACTION_SHUTDOWN_SLEEP);
-    }
-
-    // if (pContext->ShutdownOptions & 0x20) {}
-
-    /* Hibernate */
-    if (pContext->ShutdownOptions & WLX_SHUTDOWN_STATE_HIBERNATE)
-    {
-        LoadStringW(pgContext->hDllInstance, IDS_SHUTDOWN_HIBERNATE, szBuffer, _countof(szBuffer));
-        idx = SendMessageW(hwndList, CB_ADDSTRING, 0, (LPARAM)szBuffer);
-        if (idx != CB_ERR)
-            SendMessageW(hwndList, CB_SETITEMDATA, idx, WLX_SAS_ACTION_SHUTDOWN_HIBERNATE);
-    }
-
-    // if (pContext->ShutdownOptions & 0x80) {}
-
-    /* Set the default shut down selection */
-    count = SendMessageW(hwndList, CB_GETCOUNT, 0, 0);
-    for (i = 0; i < count; i++)
-    {
-        if (SendMessageW(hwndList, CB_GETITEMDATA, i, 0) == pgContext->nShutdownAction)
+        }
+        
+        if (IsPwrSuspendAllowed())
         {
-            SendMessageW(hwndList, CB_SETCURSEL, i, 0);
+            if (shutdownCode == 3) /* Sleep */
+            {
+                shutdownDescId = IDS_SHUTDOWN_SLEEP_DESC;
+            }
+            else if (shutdownCode == 4) /* Hibernate */
+            {
+                shutdownDescId = IDS_SHUTDOWN_HIBERNATE_DESC;
+            }
+        }
+        else
+        {
+            if (shutdownCode == 3) /* Hibernate */
+            {
+                shutdownDescId = IDS_SHUTDOWN_SLEEP_DESC;
+            }
+        }
+    }
+    else
+    {
+        switch (shutdownCode)
+        {
+        case 0: /* Shut down */
+            shutdownDescId = IDS_SHUTDOWN_SHUTDOWN_DESC;
             break;
+        case 1: /* Restart */
+            shutdownDescId = IDS_SHUTDOWN_RESTART_DESC;
+            break;
+        default:
+            break;
+        }
+
+        if (IsPwrSuspendAllowed())
+        {
+            if (shutdownCode == 2) /* Sleep */
+            {
+                shutdownDescId = IDS_SHUTDOWN_SLEEP_DESC;
+            }
+            else if (shutdownCode == 3) /* Hibernate */
+            {
+                shutdownDescId = IDS_SHUTDOWN_HIBERNATE_DESC;
+            }
+        }
+        else
+        {
+            if (shutdownCode == 2) /* Hibernate */
+            {
+                shutdownDescId = IDS_SHUTDOWN_SLEEP_DESC;
+            }
         }
     }
 
-    /* Update the choice description based on the current selection */
-    UpdateShutdownDesc(hDlg, pContext);
+    LoadStringW(hDllInstance, shutdownDescId, tmpBuffer, sizeof(tmpBuffer));
+    SetWindowTextW(shutdownHwnd, tmpBuffer);
 }
-
-static VOID
-ShutdownOnOk(
-    IN HWND hDlg,
-    IN PGINA_CONTEXT pgContext)
+ 
+BOOL CALLBACK ExitWindowsDialogShellProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam)
 {
-    INT idx;
+    PGINA_CONTEXT pgContext;
 
-    idx = SendDlgItemMessageW(hDlg,
-                              IDC_SHUTDOWN_LIST,
-                              CB_GETCURSEL,
-                              0,
-                              0);
-    if (idx != CB_ERR)
-    {
-        pgContext->nShutdownAction =
-            SendDlgItemMessageW(hDlg,
-                                IDC_SHUTDOWN_LIST,
-                                CB_GETITEMDATA,
-                                idx,
-                                0);
-    }
-}
+    pgContext = (PGINA_CONTEXT)GetWindowLongPtr(hwnd, GWL_USERDATA);
 
-static BOOL
-CALLBACK
-ShutdownDialogProc(
-    HWND hDlg,
-    UINT uMsg,
-    WPARAM wParam,
-    LPARAM lParam)
-{
-    PSHUTDOWN_DLG_CONTEXT pContext;
-
-    pContext = (PSHUTDOWN_DLG_CONTEXT)GetWindowLongPtrW(hDlg, GWLP_USERDATA);
-
-    switch (uMsg)
+    switch (Message)
     {
         case WM_INITDIALOG:
         {
-            pContext = (PSHUTDOWN_DLG_CONTEXT)lParam;
-            SetWindowLongPtrW(hDlg, GWLP_USERDATA, (LONG_PTR)pContext);
+            int defSelect = 0;
+            int tmpSelect, lastState;
+            WCHAR userBuffer[256];
+            DWORD userBufferSize = _countof(userBuffer);
+            WCHAR tmpBuffer[256];
+            WCHAR tmpBuffer2[512];
 
-            ShutdownOnInit(hDlg, pContext);
-
-            /* Draw the logo bitmap */
-            pContext->pgContext->hBitmap =
-                LoadImageW(pContext->pgContext->hDllInstance, MAKEINTRESOURCEW(IDI_ROSLOGO), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR);
-            return TRUE;
-        }
-
-        case WM_DESTROY:
-            DeleteObject(pContext->pgContext->hBitmap);
-            return TRUE;
-
-        case WM_ACTIVATE:
-        {
-            /*
-             * If the user deactivates the shutdown dialog (it loses its focus
-             * while the dialog is not being closed), then destroy the dialog
-             * and cancel shutdown.
-             */
-            if (LOWORD(wParam) == WA_INACTIVE)
+            pgContext = (PGINA_CONTEXT)lParam;
+            if (!pgContext)
             {
-                if (!pContext->bCloseDlg)
+                WARN("pgContext is NULL, branding bitmaps will not be displayed.\n");
+            }
+            
+            SetWindowLongPtr(hwnd, GWL_USERDATA, (DWORD_PTR)pgContext);
+
+            /* Clears the content before it's used */
+            SendDlgItemMessageW(hwnd, IDC_SHUTDOWN_LIST, CB_RESETCONTENT, 0, 0);
+
+            lastState = LoadShutdownSelState();
+
+            if(!g_logoffHideState)
+            {
+                /* Log off */
+                LoadStringW(hDllInstance, IDS_SHUTDOWN_LOGOFF, tmpBuffer, sizeof(tmpBuffer)/sizeof(WCHAR));
+                GetUserNameW(userBuffer, &userBufferSize);
+                StringCchPrintfW(tmpBuffer2, 512, tmpBuffer, userBuffer);
+                tmpSelect = SendDlgItemMessageW(hwnd, IDC_SHUTDOWN_LIST, CB_ADDSTRING, 0, (LPARAM)tmpBuffer2);
+                if (lastState == 0)
                 {
-                    pContext->bCloseDlg = TRUE;
-                    EndDialog(hDlg, 0);
+                    defSelect = tmpSelect;
                 }
             }
-            return FALSE;
-        }
 
+            /* Shut down - DEFAULT */
+            LoadStringW(hDllInstance, IDS_SHUTDOWN_SHUTDOWN, tmpBuffer, sizeof(tmpBuffer)/sizeof(WCHAR));
+            tmpSelect = SendDlgItemMessageW(hwnd, IDC_SHUTDOWN_LIST, CB_ADDSTRING, 0, (LPARAM)tmpBuffer);
+            if (lastState == 1)
+            {
+                defSelect = tmpSelect;
+            }
+
+            /* Restart */
+            LoadStringW(hDllInstance, IDS_SHUTDOWN_RESTART, tmpBuffer, sizeof(tmpBuffer)/sizeof(WCHAR));
+            tmpSelect = SendDlgItemMessageW(hwnd, IDC_SHUTDOWN_LIST, CB_ADDSTRING, 0, (LPARAM)tmpBuffer);
+            if (lastState == 2)
+            {
+                defSelect = tmpSelect;
+            }
+
+            /* Sleep */
+            if (IsPwrSuspendAllowed())
+            {
+                LoadStringW(hDllInstance, IDS_SHUTDOWN_SLEEP, tmpBuffer, sizeof(tmpBuffer)/sizeof(WCHAR));
+                tmpSelect = SendDlgItemMessageW(hwnd, IDC_SHUTDOWN_LIST, CB_ADDSTRING, 0, (LPARAM)tmpBuffer);
+                if (lastState == 3)
+                {
+                    defSelect = tmpSelect;
+                }
+            }
+
+            /* Hibernate */
+            if (IsPwrHibernateAllowed())
+            {
+                LoadStringW(hDllInstance, IDS_SHUTDOWN_HIBERNATE, tmpBuffer, sizeof(tmpBuffer)/sizeof(WCHAR));
+                tmpSelect = SendDlgItemMessageW(hwnd, IDC_SHUTDOWN_LIST, CB_ADDSTRING, 0, (LPARAM)tmpBuffer);
+                if (lastState == 4)
+                {
+                    defSelect = tmpSelect;
+                }
+            }
+
+            /* Sets the default shut down selection */
+            SendDlgItemMessageW(hwnd, IDC_SHUTDOWN_LIST, CB_SETCURSEL, defSelect, 0);
+            
+            /* Updates the choice description based on the current selection */
+            UpdateShutdownShellDesc(hwnd);
+            
+            /* Draw the logo graphic */
+            if (pgContext)
+                pgContext->hBitmap = LoadImage(hDllInstance, MAKEINTRESOURCE(IDI_ROSLOGO), IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR);
+
+            return TRUE;
+        }
         case WM_PAINT:
         {
             PAINTSTRUCT ps;
-            if (pContext->pgContext->hBitmap)
+            HDC hdc;
+            if (pgContext && pgContext->hBitmap)
             {
-                BeginPaint(hDlg, &ps);
-                DrawStateW(ps.hdc, NULL, NULL, (LPARAM)pContext->pgContext->hBitmap, (WPARAM)0, 0, 0, 0, 0, DST_BITMAP);
-                EndPaint(hDlg, &ps);
+                hdc = BeginPaint(hwnd, &ps);
+                DrawStateW(hdc, NULL, NULL, (LPARAM)pgContext->hBitmap, (WPARAM)0, 0, 0, 0, 0, DST_BITMAP);
+                EndPaint(hwnd, &ps);
+                return TRUE;
             }
+            return FALSE;
+        }
+        case WM_DESTROY:
+        {
+            if (pgContext)
+                DeleteObject(pgContext->hBitmap);
             return TRUE;
         }
-
-        case WM_CLOSE:
-            pContext->bCloseDlg = TRUE;
-            EndDialog(hDlg, IDCANCEL);
-            break;
-
         case WM_COMMAND:
-            switch (LOWORD(wParam))
+            switch(LOWORD(wParam))
             {
                 case IDOK:
-                    ShutdownOnOk(hDlg, pContext->pgContext);
-
-                /* Fall back */
-                case IDCANCEL:
-                case IDHELP:
-                    pContext->bCloseDlg = TRUE;
-                    EndDialog(hDlg, LOWORD(wParam));
+                    g_shutdownCode = SendDlgItemMessageW(hwnd, IDC_SHUTDOWN_LIST, CB_GETCURSEL, (WPARAM)0, (LPARAM)0);
+                    SaveShutdownSelState(g_shutdownCode);
+                    EndDialog(hwnd, IDOK);
                     break;
-
+                case IDCANCEL:
+                    EndDialog(hwnd, IDCANCEL);
+                    break;
+                case IDHELP:
+                    EndDialog(hwnd, IDHELP);
+                    break;
                 case IDC_SHUTDOWN_LIST:
-                    UpdateShutdownDesc(hDlg, pContext);
+                    UpdateShutdownShellDesc(hwnd);
                     break;
             }
             break;
-
         default:
             return FALSE;
     }
     return TRUE;
 }
-
-INT_PTR
-ShutdownDialog(
-    IN HWND hwndDlg,
-    IN DWORD ShutdownOptions,
-    IN PGINA_CONTEXT pgContext)
-{
-    INT_PTR ret;
-    SHUTDOWN_DLG_CONTEXT Context;
-
-#if 0
-    DWORD ShutdownOptions;
-
-    // FIXME: User impersonation!!
-    pgContext->nShutdownAction = LoadShutdownSelState();
-    ShutdownOptions = GetAllowedShutdownOptions();
-#endif
-
-    Context.pgContext = pgContext;
-    Context.ShutdownOptions = ShutdownOptions;
-    Context.bCloseDlg = FALSE;
-
-    if (pgContext->hWlx && pgContext->pWlxFuncs)
-    {
-        ret = pgContext->pWlxFuncs->WlxDialogBoxParam(pgContext->hWlx,
-                                                      pgContext->hDllInstance,
-                                                      MAKEINTRESOURCEW(IDD_SHUTDOWN_DLG),
-                                                      hwndDlg,
-                                                      ShutdownDialogProc,
-                                                      (LPARAM)&Context);
-    }
-    else
-    {
-        ret = DialogBoxParamW(pgContext->hDllInstance,
-                              MAKEINTRESOURCEW(IDD_SHUTDOWN_DLG),
-                              hwndDlg,
-                              ShutdownDialogProc,
-                              (LPARAM)&Context);
-    }
-
-#if 0
-    // FIXME: User impersonation!!
-    if (ret == IDOK)
-        SaveShutdownSelState(pgContext->nShutdownAction);
-#endif
-
-    return ret;
-}
-
 
 /*
  * NOTES:
@@ -467,10 +331,10 @@ ShutdownDialog(
  * - When the Help button is pushed, it sends the same return value as IDCANCEL (0x00), but
  *   at the same time, it calls the help file directly from the dialog box.
  * - When the dialog is created, it doesn't disable all other input from the other windows.
- *   This is done elsewhere. When running the function ShellShutdownDialog() from XP/2K3, if the user clicks
+ *   This is done elsewhere. When running the function ShellShutdownDialog() from XP/2K3, if the user clicks 
  *   out of the window, it automatically closes itself.
  * - The parameter, lpUsername never seems to be used when calling the function from Windows XP. Either
- *   it was a parameter that was never used in the final version before release, or it has a use that
+ *   it was a parameter that was never used in the final version before release, or it has a use that 
  *   is currently not known.
  */
 DWORD WINAPI
@@ -479,62 +343,35 @@ ShellShutdownDialog(
     LPWSTR lpUsername,
     BOOL   bHideLogoff)
 {
-    INT_PTR dlgValue;
-    DWORD ShutdownOptions;
-
-    /*
-     * As we are called by the shell itself, don't use
-     * the cached GINA context but use a local copy here.
-     */
-    GINA_CONTEXT gContext = { 0 };
-    DWORD BufferSize;
+    GINA_CONTEXT pgContext = { 0 };
+    int dlgValue = 0;
+    
+    g_logoffHideState = bHideLogoff;
 
     UNREFERENCED_PARAMETER(lpUsername);
 
-    ShutdownOptions = GetAllowedShutdownOptions();
-    if (bHideLogoff)
-        ShutdownOptions &= ~WLX_SHUTDOWN_STATE_LOGOFF;
+    // Loads the shut down dialog box
+    dlgValue = DialogBoxParam(hDllInstance,
+                              MAKEINTRESOURCE(IDD_SHUTDOWN_SHELL),
+                              hParent,
+                              ExitWindowsDialogShellProc,
+                              (LPARAM)&pgContext);
 
-    /* Initialize our local GINA context */
-    gContext.hDllInstance = hDllInstance;
-    BufferSize = _countof(gContext.UserName);
-    // NOTE: Only when this function is called, Win checks inside
-    // HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer",
-    // value "Logon User Name", and determines whether it will display
-    // the user name.
-    GetUserNameW(gContext.UserName, &BufferSize);
-    gContext.nShutdownAction = LoadShutdownSelState();
-
-    /* Load the shutdown dialog box */
-    dlgValue = ShutdownDialog(hParent, ShutdownOptions, &gContext);
-
-    /* Determine what to do based on user selection */
+    // Determines what to do based on user selection
     if (dlgValue == IDOK)
     {
-        SaveShutdownSelState(gContext.nShutdownAction);
-
-        switch (gContext.nShutdownAction)
+        switch (g_shutdownCode)
         {
-            case WLX_SAS_ACTION_LOGOFF:
-                return WLX_SHUTDOWN_STATE_LOGOFF;
-
-            case WLX_SAS_ACTION_SHUTDOWN_POWER_OFF:
-                return WLX_SHUTDOWN_STATE_POWER_OFF;
-
-            case WLX_SAS_ACTION_SHUTDOWN_REBOOT:
-                return WLX_SHUTDOWN_STATE_REBOOT;
-
-            // 0x08
-
-            case WLX_SAS_ACTION_SHUTDOWN_SLEEP:
-                return WLX_SHUTDOWN_STATE_SLEEP;
-
-            // 0x20
-
-            case WLX_SAS_ACTION_SHUTDOWN_HIBERNATE:
-                return WLX_SHUTDOWN_STATE_HIBERNATE;
-
-            // 0x80
+        case 0: /* Log off */
+            return 0x01;
+        case 1: /* Shut down */
+            return 0x02;
+        case 2: /* Reboot */
+            return 0x04;
+        case 3: /* Sleep */
+            return 0x10;
+        case 4: /* Hibernate */
+            return 0x40;
         }
     }
     /* Help file is called directly here */
@@ -547,6 +384,6 @@ ShellShutdownDialog(
     {
         ERR("Failed to create dialog\n");
     }
-
-    return 0;
+    
+    return 0x00;
 }

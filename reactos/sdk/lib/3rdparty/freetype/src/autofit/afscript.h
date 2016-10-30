@@ -40,7 +40,7 @@
           "Armenian",
           HB_SCRIPT_ARMENIAN,
           HINTING_BOTTOM_TO_TOP,
-          "\xD5\xBD \xD5\x8D" ) /* ս Ս */
+          "\xD6\x85 \xD5\x95" ) /* օ Օ */
 
   /* there are no simple forms for letters; we thus use two digit shapes */
   SCRIPT( beng, BENG,

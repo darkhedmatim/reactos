@@ -116,3 +116,10 @@ WlxGetConsoleSwitchCredentials(
     UNIMPLEMENTED;
     return FALSE;
 }
+
+HRESULT WINAPI 
+ShellDimScreen (void* Unknown, HWND* hWindow)
+{
+    UNIMPLEMENTED;
+    return E_FAIL;
+}

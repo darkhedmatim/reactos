@@ -624,7 +624,7 @@ HRESULT STDMETHODCALLTYPE CTravelLog::Revert()
     return E_NOTIMPL;
 }
 
-HRESULT CTravelLog_CreateInstance(REFIID riid, void **ppv)
+HRESULT CreateTravelLog(REFIID riid, void **ppv)
 {
     return ShellObjectCreatorInit<CTravelLog>(riid, ppv);
 }

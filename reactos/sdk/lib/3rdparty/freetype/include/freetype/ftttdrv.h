@@ -181,8 +181,6 @@ FT_BEGIN_HEADER
    * @note:
    *   This property can be used with @FT_Property_Get also.
    *
-   *   This property can be set via the `FREETYPE_PROPERTIES' environment
-   *   variable (using values `35', `38', or `40').
    */
 
 

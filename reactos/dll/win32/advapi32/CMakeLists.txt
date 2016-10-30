@@ -25,7 +25,6 @@ list(APPEND SOURCE
     misc/msi.c
     misc/shutdown.c
     misc/sysfunc.c
-    misc/unicode.c
     reg/hkcr.c
     reg/reg.c
     sec/ac.c

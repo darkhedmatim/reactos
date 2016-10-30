@@ -2314,24 +2314,11 @@
 
 
         if ( bsize->height < 0 )
-          bsize->height = -bsize->height;
+          bsize->height = (FT_Short)-bsize->height;
         if ( bsize->x_ppem < 0 )
-          bsize->x_ppem = -bsize->x_ppem;
+          bsize->x_ppem = (FT_Short)-bsize->x_ppem;
         if ( bsize->y_ppem < 0 )
           bsize->y_ppem = -bsize->y_ppem;
-
-        /* check whether negation actually has worked */
-        if ( bsize->height < 0 || bsize->x_ppem < 0 || bsize->y_ppem < 0 )
-        {
-          FT_TRACE0(( "FT_Open_Face:"
-                      " Invalid bitmap dimensions for stroke %d,"
-                      " now disabled\n", i ));
-          bsize->width  = 0;
-          bsize->height = 0;
-          bsize->size   = 0;
-          bsize->x_ppem = 0;
-          bsize->y_ppem = 0;
-        }
       }
     }
 
@@ -4577,8 +4564,7 @@
                   const FT_String*  module_name,
                   const FT_String*  property_name,
                   void*             value,
-                  FT_Bool           set,
-                  FT_Bool           value_is_string )
+                  FT_Bool           set )
   {
     FT_Module*           cur;
     FT_Module*           limit;
@@ -4648,13 +4634,8 @@
       return FT_THROW( Unimplemented_Feature );
     }
 
-    return set ? service->set_property( cur[0],
-                                        property_name,
-                                        value,
-                                        value_is_string )
-               : service->get_property( cur[0],
-                                        property_name,
-                                        value );
+    return set ? service->set_property( cur[0], property_name, value )
+               : service->get_property( cur[0], property_name, value );
   }
 
 
@@ -4670,8 +4651,7 @@
                            module_name,
                            property_name,
                            (void*)value,
-                           TRUE,
-                           FALSE );
+                           TRUE );
   }
 
 
@@ -4687,31 +4667,8 @@
                            module_name,
                            property_name,
                            value,
-                           FALSE,
                            FALSE );
   }
-
-
-#ifdef FT_CONFIG_OPTION_ENVIRONMENT_PROPERTIES
-
-  /* this variant is used for handling the FREETYPE_PROPERTIES */
-  /* environment variable                                      */
-
-  FT_BASE_DEF( FT_Error )
-  ft_property_string_set( FT_Library        library,
-                          const FT_String*  module_name,
-                          const FT_String*  property_name,
-                          FT_String*        value )
-  {
-    return ft_property_do( library,
-                           module_name,
-                           property_name,
-                           (void*)value,
-                           TRUE,
-                           TRUE );
-  }
-
-#endif
 
 
   /*************************************************************************/

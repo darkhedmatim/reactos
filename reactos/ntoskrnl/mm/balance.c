@@ -59,7 +59,7 @@ MmInitializeBalancer(ULONG NrAvailablePages, ULONG NrSystemPages)
     MiNrTotalPages = NrAvailablePages;
 
     /* Set up targets. */
-    MiMinimumAvailablePages = 256;
+    MiMinimumAvailablePages = 128;
     MiMinimumPagesPerRun = 256;
     if ((NrAvailablePages + NrSystemPages) >= 8192)
     {
@@ -96,6 +96,9 @@ NTSTATUS
 NTAPI
 MmReleasePageMemoryConsumer(ULONG Consumer, PFN_NUMBER Page)
 {
+    PMM_ALLOCATION_REQUEST Request;
+    PLIST_ENTRY Entry;
+
     if (Page == 0)
     {
         DPRINT1("Tried to release page zero.\n");
@@ -106,9 +109,22 @@ MmReleasePageMemoryConsumer(ULONG Consumer, PFN_NUMBER Page)
     {
         if(Consumer == MC_USER) MmRemoveLRUUserPage(Page);
         (void)InterlockedDecrementUL(&MiMemoryConsumers[Consumer].PagesUsed);
+        if ((Entry = ExInterlockedRemoveHeadList(&AllocationListHead, &AllocationListLock)) == NULL)
+        {
+            MmDereferencePage(Page);
+        }
+        else
+        {
+            Request = CONTAINING_RECORD(Entry, MM_ALLOCATION_REQUEST, ListEntry);
+            MiZeroPhysicalPage(Page);
+            Request->Page = Page;
+            KeSetEvent(&Request->Event, IO_NO_INCREMENT, FALSE);
+        }
     }
-
-    MmDereferencePage(Page);
+    else
+    {
+        MmDereferencePage(Page);
+    }
 
     return(STATUS_SUCCESS);
 }
@@ -215,6 +231,13 @@ MiIsBalancerThread(VOID)
 
 VOID
 NTAPI
+MiDeletePte(IN PMMPTE PointerPte,
+            IN PVOID VirtualAddress,
+            IN PEPROCESS CurrentProcess,
+            IN PMMPTE PrototypePte);
+
+VOID
+NTAPI
 MmRebalanceMemoryConsumers(VOID)
 {
     if (MiBalancerThreadHandle != NULL &&
@@ -245,7 +268,7 @@ MmRequestPageMemoryConsumer(ULONG Consumer, BOOLEAN CanWait,
     /*
      * Allocate always memory for the non paged pool and for the pager thread.
      */
-    if ((Consumer == MC_SYSTEM) /* || MiIsBalancerThread() */)
+    if ((Consumer == MC_SYSTEM) || MiIsBalancerThread())
     {
         Page = MmAllocPage(Consumer);
         if (Page == 0)
@@ -262,8 +285,7 @@ MmRequestPageMemoryConsumer(ULONG Consumer, BOOLEAN CanWait,
     /*
      * Make sure we don't exceed global targets.
      */
-    if (((MmAvailablePages < MiMinimumAvailablePages) && !MiIsBalancerThread())
-            || (MmAvailablePages < (MiMinimumAvailablePages / 2)))
+    if (MmAvailablePages < MiMinimumAvailablePages)
     {
         MM_ALLOCATION_REQUEST Request;
 
@@ -401,46 +423,6 @@ MiBalancerThread(PVOID Unused)
             KeBugCheck(MEMORY_MANAGEMENT);
         }
     }
-}
-
-BOOLEAN MmRosNotifyAvailablePage(PFN_NUMBER Page)
-{
-    PLIST_ENTRY Entry;
-    PMM_ALLOCATION_REQUEST Request;
-    PMMPFN Pfn1;
-
-    /* Make sure the PFN lock is held */
-    ASSERT(KeGetCurrentIrql() == DISPATCH_LEVEL);
-
-    if (!MiMinimumAvailablePages)
-    {
-        /* Dirty way to know if we were initialized. */
-        return FALSE;
-    }
-
-    Entry = ExInterlockedRemoveHeadList(&AllocationListHead, &AllocationListLock);
-    if (!Entry)
-        return FALSE;
-
-    Request = CONTAINING_RECORD(Entry, MM_ALLOCATION_REQUEST, ListEntry);
-    MiZeroPhysicalPage(Page);
-    Request->Page = Page;
-
-    Pfn1 = MiGetPfnEntry(Page);
-    ASSERT(Pfn1->u3.e2.ReferenceCount == 0);
-    Pfn1->u3.e2.ReferenceCount = 1;
-    Pfn1->u3.e1.PageLocation = ActiveAndValid;
-
-    /* This marks the PFN as a ReactOS PFN */
-    Pfn1->u4.AweAllocation = TRUE;
-
-    /* Allocate the extra ReactOS Data and zero it out */
-    Pfn1->u1.SwapEntry = 0;
-    Pfn1->RmapListHead = NULL;
-
-    KeSetEvent(&Request->Event, IO_NO_INCREMENT, FALSE);
-
-    return TRUE;
 }
 
 VOID

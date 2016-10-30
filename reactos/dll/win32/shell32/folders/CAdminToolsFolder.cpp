@@ -25,13 +25,37 @@ WINE_DEFAULT_DEBUG_CHANNEL (shell);
 
 CAdminToolsFolder::CAdminToolsFolder()
 {
-    m_pidlInner = NULL;
+    m_pisfInner = NULL;
 }
 
 CAdminToolsFolder::~CAdminToolsFolder()
 {
-    if(m_pidlInner)
-        SHFree(m_pidlInner);
+    m_pisfInner.Release();
+}
+
+HRESULT WINAPI CAdminToolsFolder::FinalConstruct()
+{
+    HRESULT hr;
+    CComPtr<IPersistFolder3> ppf3;
+
+    hr = SHCoCreateInstance(NULL, &CLSID_ShellFSFolder, NULL, IID_PPV_ARG(IShellFolder2, &m_pisfInner));
+    if (FAILED(hr))
+        return hr;
+
+    hr = m_pisfInner->QueryInterface(IID_PPV_ARG(IPersistFolder3, &ppf3));
+    if (FAILED(hr))
+        return hr;
+
+    LPITEMIDLIST pidlRoot = _ILCreateAdminTools();
+
+    PERSIST_FOLDER_TARGET_INFO info;
+    ZeroMemory(&info, sizeof(PERSIST_FOLDER_TARGET_INFO));
+    info.csidl = CSIDL_COMMON_ADMINTOOLS;
+    hr = ppf3->InitializeEx(NULL, pidlRoot, &info);
+
+    SHFree(pidlRoot);
+
+    return hr;
 }
 
 HRESULT WINAPI CAdminToolsFolder::ParseDisplayName(HWND hwndOwner, LPBC pbc, LPOLESTR lpszDisplayName,
@@ -170,22 +194,13 @@ HRESULT WINAPI CAdminToolsFolder::GetClassID(CLSID *lpClassId)
 
 HRESULT WINAPI CAdminToolsFolder::Initialize(LPCITEMIDLIST pidl)
 {
-    m_pidlInner = ILClone(pidl);
-    if (!m_pidlInner)
-        return E_OUTOFMEMORY;
-
-    return SHELL32_CoCreateInitSF(m_pidlInner, 
-                                  NULL,
-                                  NULL,
-                                  &CLSID_ShellFSFolder,
-                                  CSIDL_COMMON_ADMINTOOLS,
-                                  IID_PPV_ARG(IShellFolder2, &m_pisfInner));
+    return S_OK;
 }
 
 HRESULT WINAPI CAdminToolsFolder::GetCurFolder(LPITEMIDLIST *pidl)
 {
     if (!pidl)
         return E_POINTER;
-    *pidl = ILClone(m_pidlInner);
+    *pidl = _ILCreateAdminTools();
     return S_OK;
 }

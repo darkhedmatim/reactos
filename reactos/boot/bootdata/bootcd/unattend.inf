@@ -39,6 +39,11 @@ FormatPartition=1
 ; 0 - disabled
 AutoPartition = 1
 
+; enable this setting to disable vmware driver install
+; yes - disabled
+; no  - enabled
+DisableVmwInst = yes
+
 ; enable this setting to disable Gecko install
 ; yes - disabled
 ; no  - enabled

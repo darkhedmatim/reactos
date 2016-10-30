@@ -74,7 +74,6 @@ static int   (WINAPI *pgetaddrinfo)(LPCSTR,LPCSTR,const struct addrinfo *,struct
 static void  (WINAPI *pFreeAddrInfoW)(PADDRINFOW);
 static int   (WINAPI *pGetAddrInfoW)(LPCWSTR,LPCWSTR,const ADDRINFOW *,PADDRINFOW *);
 static PCSTR (WINAPI *pInetNtop)(INT,LPVOID,LPSTR,ULONG);
-static PCWSTR(WINAPI *pInetNtopW)(INT,LPVOID,LPWSTR,ULONG);
 static int   (WINAPI *pInetPtonA)(INT,LPCSTR,LPVOID);
 static int   (WINAPI *pInetPtonW)(INT,LPWSTR,LPVOID);
 static int   (WINAPI *pWSALookupServiceBeginW)(LPWSAQUERYSETW,DWORD,LPHANDLE);
@@ -1231,7 +1230,6 @@ static void Init (void)
     pFreeAddrInfoW = (void *)GetProcAddress(hws2_32, "FreeAddrInfoW");
     pGetAddrInfoW = (void *)GetProcAddress(hws2_32, "GetAddrInfoW");
     pInetNtop = (void *)GetProcAddress(hws2_32, "inet_ntop");
-    pInetNtopW = (void *)GetProcAddress(hws2_32, "InetNtopW");
     pInetPtonA = (void *)GetProcAddress(hws2_32, "inet_pton");
     pInetPtonW = (void *)GetProcAddress(hws2_32, "InetPtonW");
     pWSALookupServiceBeginW = (void *)GetProcAddress(hws2_32, "WSALookupServiceBeginW");
@@ -4079,7 +4077,7 @@ static void test_accept(void)
     int ret;
     SOCKET server_socket, accepted = INVALID_SOCKET, connector;
     struct sockaddr_in address;
-    SOCKADDR_STORAGE ss, ss_empty;
+    SOCKADDR_STORAGE ss;
     int socklen;
     select_thread_params thread_params;
     HANDLE thread_handle = NULL;
@@ -4210,19 +4208,6 @@ static void test_accept(void)
     ok(accepted != INVALID_SOCKET, "Failed to accept connection, %d\n", WSAGetLastError());
     ok(socklen != sizeof(ss), "unexpected length\n");
     ok(ss.ss_family, "family not set\n");
-    closesocket(accepted);
-    closesocket(connector);
-    accepted = connector = INVALID_SOCKET;
-
-    socklen = sizeof(address);
-    connector = setup_connector_socket(&address, socklen, FALSE);
-    if (connector == INVALID_SOCKET) goto done;
-
-    memset(&ss, 0, sizeof(ss));
-    memset(&ss_empty, 0, sizeof(ss_empty));
-    accepted = accept(server_socket, (struct sockaddr *)&ss, NULL);
-    ok(accepted != INVALID_SOCKET, "Failed to accept connection, %d\n", WSAGetLastError());
-    ok(!memcmp(&ss, &ss_empty, sizeof(ss)), "structure is different\n");
 
 done:
     if (accepted != INVALID_SOCKET)
@@ -4904,12 +4889,11 @@ static void test_inet_pton(void)
     int i, ret;
     DWORD err;
     char buffer[64],str[64];
-    WCHAR printableW[64], collapsedW[64];
+    WCHAR printableW[64];
     const char *ptr;
-    const WCHAR *ptrW;
 
     /* InetNtop and InetPton became available in Vista and Win2008 */
-    if (!pInetNtop || !pInetNtopW || !pInetPtonA || !pInetPtonW)
+    if (!pInetNtop || !pInetPtonA || !pInetPtonW)
     {
         win_skip("InetNtop and/or InetPton not present, not executing tests\n");
         return;
@@ -4957,18 +4941,6 @@ static void test_inet_pton(void)
         ok(memcmp(buffer, tests[i].raw_data,
            tests[i].family == AF_INET ? sizeof(struct in_addr) : sizeof(struct in6_addr)) == 0,
            "Test [%d]: Expected binary data differs\n", i);
-
-        /* Test the result from Pton with Ntop */
-        printableW[0] = 0xdead;
-        ptrW = pInetNtopW(tests[i].family, buffer, printableW, sizeof(printableW) / sizeof(printableW[0]));
-        ok (ptrW != NULL, "Test [%d]: Failed with NULL\n", i);
-        ok (ptrW == printableW, "Test [%d]: Pointers differ (%p != %p)\n", i, ptrW, printableW);
-        if (!ptrW) continue;
-
-        MultiByteToWideChar(CP_ACP, 0, tests[i].collapsed, -1, collapsedW,
-                            sizeof(collapsedW) / sizeof(collapsedW[0]));
-        ok (lstrcmpW(ptrW, collapsedW) == 0, "Test [%d]: Expected '%s', got '%s'\n",
-            i, tests[i].collapsed, wine_dbgstr_w(ptrW));
     }
 }
 
@@ -6711,6 +6683,7 @@ static void test_WSAPoll(void)
     POLL_SET(fdWrite, POLLIN);
     ret = pWSAPoll(fds, ix, poll_timeout);
     ok(ret == 1, "expected 1, got %d\n", ret);
+todo_wine
     ok(POLL_ISSET(fdWrite, POLLHUP), "fdWrite socket events incorrect\n");
     ret = recv(fdWrite, tmp_buf, sizeof(tmp_buf), 0);
     ok(ret == 0, "expected 0, got %d\n", ret);
@@ -6775,6 +6748,7 @@ todo_wine
     POLL_SET(fdWrite, POLLIN);
     ret = pWSAPoll(fds, ix, poll_timeout);
     ok(ret == 1, "expected 1, got %d\n", ret);
+todo_wine
     ok(POLL_ISSET(fdWrite, POLLNVAL), "fdWrite socket events incorrect\n");
     WaitForSingleObject (thread_handle, 1000);
     closesocket(fdRead);
@@ -8396,11 +8370,16 @@ static void test_sioAddressListChange(void)
     struct in_addr net_address;
     WSAOVERLAPPED overlapped;
     struct hostent *h;
-    DWORD num_bytes, error, tick;
-    SOCKET sock, sock2, sock3;
-    WSAEVENT event2, event3;
+    DWORD num_bytes;
+    SOCKET sock;
     int acount;
     int ret;
+
+    if (!winetest_interactive)
+    {
+        skip("Cannot test SIO_ADDRESS_LIST_CHANGE, interactive tests must be enabled\n");
+        return;
+    }
 
     /* Use gethostbyname to find the list of local network interfaces */
     h = gethostbyname("");
@@ -8416,188 +8395,40 @@ static void test_sioAddressListChange(void)
         skip("Cannot test SIO_ADDRESS_LIST_CHANGE, test requires a network card.\n");
         return;
     }
-
     net_address.s_addr = *(ULONG *) h->h_addr_list[0];
-
-    sock = socket(AF_INET, 0, IPPROTO_TCP);
-    ok(sock != INVALID_SOCKET, "socket() failed\n");
-
-    memset(&bindAddress, 0, sizeof(bindAddress));
-    bindAddress.sin_family = AF_INET;
-    bindAddress.sin_addr.s_addr = net_address.s_addr;
-    SetLastError(0xdeadbeef);
-    ret = bind(sock, (struct sockaddr*)&bindAddress, sizeof(bindAddress));
-    ok (!ret, "bind() failed with error %d\n", GetLastError());
-    set_blocking(sock, FALSE);
-
-    memset(&overlapped, 0, sizeof(overlapped));
-    overlapped.hEvent = CreateEventA(NULL, FALSE, FALSE, NULL);
-    SetLastError(0xdeadbeef);
-    ret = WSAIoctl(sock, SIO_ADDRESS_LIST_CHANGE, NULL, 0, NULL, 0, &num_bytes, &overlapped, NULL);
-    error = GetLastError();
-    ok (ret == SOCKET_ERROR, "WSAIoctl(SIO_ADDRESS_LIST_CHANGE) failed with error %d\n", error);
-todo_wine
-    ok (error == ERROR_IO_PENDING, "expected 0x3e5, got 0x%x\n", error);
-
-    CloseHandle(overlapped.hEvent);
-    closesocket(sock);
-
-    sock = socket(AF_INET, 0, IPPROTO_TCP);
-    ok(sock != INVALID_SOCKET, "socket() failed\n");
-
-    SetLastError(0xdeadbeef);
-    ret = bind(sock, (struct sockaddr*)&bindAddress, sizeof(bindAddress));
-    ok (!ret, "bind() failed with error %d\n", GetLastError());
-    set_blocking(sock, TRUE);
-
-    memset(&overlapped, 0, sizeof(overlapped));
-    overlapped.hEvent = CreateEventA(NULL, FALSE, FALSE, NULL);
-    SetLastError(0xdeadbeef);
-    ret = WSAIoctl(sock, SIO_ADDRESS_LIST_CHANGE, NULL, 0, NULL, 0, &num_bytes, &overlapped, NULL);
-    error = GetLastError();
-    ok (ret == SOCKET_ERROR, "WSAIoctl(SIO_ADDRESS_LIST_CHANGE) failed with error %d\n", error);
-    ok (error == ERROR_IO_PENDING, "expected 0x3e5, got 0x%x\n", error);
-
-    CloseHandle(overlapped.hEvent);
-    closesocket(sock);
-
-    sock = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
-    ok(sock != INVALID_SOCKET, "socket() failed\n");
-
-    SetLastError(0xdeadbeef);
-    ret = bind(sock, (struct sockaddr*)&bindAddress, sizeof(bindAddress));
-    ok (!ret, "bind() failed with error %d\n", GetLastError());
-    set_blocking(sock, FALSE);
-
-    memset(&overlapped, 0, sizeof(overlapped));
-    overlapped.hEvent = CreateEventA(NULL, FALSE, FALSE, NULL);
-    SetLastError(0xdeadbeef);
-    ret = WSAIoctl(sock, SIO_ADDRESS_LIST_CHANGE, NULL, 0, NULL, 0, &num_bytes, &overlapped, NULL);
-    error = GetLastError();
-    ok (ret == SOCKET_ERROR, "WSAIoctl(SIO_ADDRESS_LIST_CHANGE) failed with error %d\n", error);
-todo_wine
-    ok (error == ERROR_IO_PENDING, "expected 0x3e5, got 0x%x\n", error);
-
-    CloseHandle(overlapped.hEvent);
-    closesocket(sock);
-
-    sock = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
-    ok(sock != INVALID_SOCKET, "socket() failed\n");
-
-    SetLastError(0xdeadbeef);
-    ret = bind(sock, (struct sockaddr*)&bindAddress, sizeof(bindAddress));
-    ok (!ret, "bind() failed with error %d\n", GetLastError());
-    set_blocking(sock, TRUE);
-
-    memset(&overlapped, 0, sizeof(overlapped));
-    overlapped.hEvent = CreateEventA(NULL, FALSE, FALSE, NULL);
-    SetLastError(0xdeadbeef);
-    ret = WSAIoctl(sock, SIO_ADDRESS_LIST_CHANGE, NULL, 0, NULL, 0, &num_bytes, &overlapped, NULL);
-    error = GetLastError();
-    ok (ret == SOCKET_ERROR, "WSAIoctl(SIO_ADDRESS_LIST_CHANGE) failed with error %d\n", error);
-    ok (error == ERROR_IO_PENDING, "expected 0x3e5, got 0x%x\n", error);
-
-    CloseHandle(overlapped.hEvent);
-    closesocket(sock);
-
-    /* When the socket is overlapped non-blocking and the list change is requested without
-     * an overlapped structure the error will be different. */
-    sock = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
-    ok(sock != INVALID_SOCKET, "socket() failed\n");
-
-    SetLastError(0xdeadbeef);
-    ret = bind(sock, (struct sockaddr*)&bindAddress, sizeof(bindAddress));
-    ok (!ret, "bind() failed with error %d\n", GetLastError());
-    set_blocking(sock, FALSE);
-
-    SetLastError(0xdeadbeef);
-    ret = WSAIoctl(sock, SIO_ADDRESS_LIST_CHANGE, NULL, 0, NULL, 0, &num_bytes, NULL, NULL);
-    error = GetLastError();
-    ok (ret == SOCKET_ERROR, "WSAIoctl(SIO_ADDRESS_LIST_CHANGE) failed with error %d\n", error);
-    ok (error == WSAEWOULDBLOCK, "expected 10035, got %d\n", error);
-
-    closesocket(sock);
-
-    /* Misuse of the API by using a blocking socket and not using an overlapped structure,
-     * this leads to a hang forever. */
-    if (0)
-    {
-        sock = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
-
-        SetLastError(0xdeadbeef);
-        bind(sock, (struct sockaddr*)&bindAddress, sizeof(bindAddress));
-
-        set_blocking(sock, TRUE);
-        WSAIoctl(sock, SIO_ADDRESS_LIST_CHANGE, NULL, 0, NULL, 0, &num_bytes, NULL, NULL);
-        /* hang */
-
-        closesocket(sock);
-    }
-
-    if (!winetest_interactive)
-    {
-        skip("Cannot test SIO_ADDRESS_LIST_CHANGE, interactive tests must be enabled\n");
-        return;
-    }
 
     /* Bind an overlapped socket to the first found network interface */
     sock = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
     ok(sock != INVALID_SOCKET, "Expected socket to return a valid socket\n");
-    sock2 = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
-    ok(sock2 != INVALID_SOCKET, "Expected socket to return a valid socket\n");
-    sock3 = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
-    ok(sock3 != INVALID_SOCKET, "Expected socket to return a valid socket\n");
-
+    if (sock == INVALID_SOCKET)
+    {
+        skip("Cannot test SIO_ADDRESS_LIST_CHANGE, socket creation failed with %u\n",
+             WSAGetLastError());
+        return;
+    }
+    memset(&bindAddress, 0, sizeof(bindAddress));
+    bindAddress.sin_family = AF_INET;
+    bindAddress.sin_addr.s_addr = net_address.s_addr;
     ret = bind(sock, (struct sockaddr*)&bindAddress, sizeof(bindAddress));
-    ok(!ret, "bind failed unexpectedly\n");
-    ret = bind(sock2, (struct sockaddr*)&bindAddress, sizeof(bindAddress));
-    ok(!ret, "bind failed unexpectedly\n");
-    ret = bind(sock3, (struct sockaddr*)&bindAddress, sizeof(bindAddress));
-    ok(!ret, "bind failed unexpectedly\n");
-
-    set_blocking(sock2, FALSE);
-    set_blocking(sock3, FALSE);
+    if (ret != 0)
+    {
+        skip("Cannot test SIO_ADDRESS_LIST_CHANGE, failed to bind, error %u\n", WSAGetLastError());
+        goto end;
+    }
 
     /* Wait for address changes, request that the user connects/disconnects an interface */
     memset(&overlapped, 0, sizeof(overlapped));
     overlapped.hEvent = CreateEventA(NULL, FALSE, FALSE, NULL);
     ret = WSAIoctl(sock, SIO_ADDRESS_LIST_CHANGE, NULL, 0, NULL, 0, &num_bytes, &overlapped, NULL);
     ok(ret == SOCKET_ERROR, "WSAIoctl succeeded unexpectedly\n");
-    ok(WSAGetLastError() == WSA_IO_PENDING, "Expected pending last error, got %d\n", WSAGetLastError());
-
-    ret = WSAIoctl(sock2, SIO_ADDRESS_LIST_CHANGE, NULL, 0, NULL, 0, &num_bytes, NULL, NULL);
-    ok(ret == SOCKET_ERROR, "WSAIoctl succeeded unexpectedly\n");
-    ok(WSAGetLastError() == WSAEWOULDBLOCK, "Expected would block last error, got %d\n", WSAGetLastError());
-
-    event2 = WSACreateEvent();
-    event3 = WSACreateEvent();
-    ret = WSAEventSelect (sock2, event2, FD_ADDRESS_LIST_CHANGE);
-    ok(!ret, "WSAEventSelect failed with %d\n", WSAGetLastError());
-    /* sock3 did not request SIO_ADDRESS_LIST_CHANGE but it is trying to wait anyway */
-    ret = WSAEventSelect (sock3, event3, FD_ADDRESS_LIST_CHANGE);
-    ok(!ret, "WSAEventSelect failed with %d\n", WSAGetLastError());
-
+    ok(WSAGetLastError() == WSA_IO_PENDING, "Expected pending last error %d\n", WSAGetLastError());
     trace("Testing socket-based ipv4 address list change notification. Please connect/disconnect or"
-          " change the ipv4 address of any of the local network interfaces (15 second timeout).\n");
-    tick = GetTickCount();
-    ret = WaitForSingleObject(overlapped.hEvent, 15000);
+          " change the ipv4 address of any of the local network interfaces (10 second timeout).\n");
+    ret = WaitForSingleObject(overlapped.hEvent, 10000);
     ok(ret == WAIT_OBJECT_0, "failed to get overlapped event %u\n", ret);
 
-    ret = WaitForSingleObject(event2, 500);
-todo_wine
-    ok(ret == WAIT_OBJECT_0, "failed to get change event %u\n", ret);
-
-    ret = WaitForSingleObject(event3, 500);
-    ok(ret == WAIT_TIMEOUT, "unexpected change event\n");
-
-    trace("Spent %d ms waiting.\n", GetTickCount() - tick);
-
-    WSACloseEvent(event2);
-    WSACloseEvent(event3);
-
+end:
     closesocket(sock);
-    closesocket(sock2);
-    closesocket(sock3);
 }
 
 static void test_synchronous_WSAIoctl(void)
@@ -8667,22 +8498,6 @@ static HWND create_async_message_window(void)
     return hWnd;
 }
 
-static void wait_for_async_message(HWND hwnd, HANDLE handle)
-{
-    BOOL ret;
-    MSG msg;
-
-    while ((ret = GetMessageA(&msg, 0, 0, 0)) &&
-           !(msg.hwnd == hwnd && msg.message == WM_ASYNCCOMPLETE))
-    {
-        TranslateMessage(&msg);
-        DispatchMessageA(&msg);
-    }
-
-    ok(ret, "did not expect WM_QUIT message\n");
-    ok(msg.wParam == (WPARAM)handle, "expected wParam = %p, got %lx\n", handle, msg.wParam);
-}
-
 static void test_WSAAsyncGetServByPort(void)
 {
     HWND hwnd = create_async_message_window();
@@ -8700,15 +8515,12 @@ static void test_WSAAsyncGetServByPort(void)
 
     ret = WSAAsyncGetServByPort(hwnd, WM_ASYNCCOMPLETE, 0, NULL, NULL, 0);
     ok(ret != NULL, "WSAAsyncGetServByPort returned NULL\n");
-    wait_for_async_message(hwnd, ret);
 
     ret = WSAAsyncGetServByPort(hwnd, WM_ASYNCCOMPLETE, htons(80), NULL, NULL, 0);
     ok(ret != NULL, "WSAAsyncGetServByPort returned NULL\n");
-    wait_for_async_message(hwnd, ret);
 
     ret = WSAAsyncGetServByPort(hwnd, WM_ASYNCCOMPLETE, htons(80), NULL, buffer, MAXGETHOSTSTRUCT);
     ok(ret != NULL, "WSAAsyncGetServByPort returned NULL\n");
-    wait_for_async_message(hwnd, ret);
 
     DestroyWindow(hwnd);
 }
@@ -8727,19 +8539,15 @@ static void test_WSAAsyncGetServByName(void)
     /* Parameters are not checked when initiating the asynchronous operation.  */
     ret = WSAAsyncGetServByName(hwnd, WM_ASYNCCOMPLETE, "", NULL, NULL, 0);
     ok(ret != NULL, "WSAAsyncGetServByName returned NULL\n");
-    wait_for_async_message(hwnd, ret);
 
     ret = WSAAsyncGetServByName(hwnd, WM_ASYNCCOMPLETE, "", "", buffer, MAXGETHOSTSTRUCT);
     ok(ret != NULL, "WSAAsyncGetServByName returned NULL\n");
-    wait_for_async_message(hwnd, ret);
 
     ret = WSAAsyncGetServByName(hwnd, WM_ASYNCCOMPLETE, "http", NULL, NULL, 0);
     ok(ret != NULL, "WSAAsyncGetServByName returned NULL\n");
-    wait_for_async_message(hwnd, ret);
 
     ret = WSAAsyncGetServByName(hwnd, WM_ASYNCCOMPLETE, "http", "tcp", buffer, MAXGETHOSTSTRUCT);
     ok(ret != NULL, "WSAAsyncGetServByName returned NULL\n");
-    wait_for_async_message(hwnd, ret);
 
     DestroyWindow(hwnd);
 }

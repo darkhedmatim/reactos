@@ -6,8 +6,7 @@
  * PROGRAMMER:      Mark Jansen
  */
 
-#include <windef.h>
-#include <winbase.h>
+#include <windows.h>
 #include <shimlib.h>
 #include <strsafe.h>
 

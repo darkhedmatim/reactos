@@ -24,7 +24,6 @@
  */
 DWORD
 WINAPI
-DECLSPEC_HOTPATCH
 GetEnvironmentVariableA(IN LPCSTR lpName,
                         IN LPSTR lpBuffer,
                         IN DWORD nSize)
@@ -159,7 +158,6 @@ Quickie:
  */
 DWORD
 WINAPI
-DECLSPEC_HOTPATCH
 GetEnvironmentVariableW(IN LPCWSTR lpName,
                         IN LPWSTR lpBuffer,
                         IN DWORD nSize)
@@ -214,7 +212,6 @@ GetEnvironmentVariableW(IN LPCWSTR lpName,
  */
 BOOL
 WINAPI
-DECLSPEC_HOTPATCH
 SetEnvironmentVariableA(IN LPCSTR lpName,
                         IN LPCSTR lpValue)
 {
@@ -255,7 +252,6 @@ SetEnvironmentVariableA(IN LPCSTR lpName,
  */
 BOOL
 WINAPI
-DECLSPEC_HOTPATCH
 SetEnvironmentVariableW(IN LPCWSTR lpName,
                         IN LPCWSTR lpValue)
 {

@@ -763,9 +763,6 @@
   static void
   tt_cmap4_next( TT_CMap4  cmap )
   {
-    TT_Face   face  = (TT_Face)cmap->cmap.cmap.charmap.face;
-    FT_Byte*  limit = face->cmap_table + face->cmap_size;
-
     FT_UInt  charcode;
 
 
@@ -791,19 +788,15 @@
           FT_Byte*  p = values + 2 * ( charcode - cmap->cur_start );
 
 
-          /* if p > limit, the whole segment is invalid */
-          if ( p > limit )
-            goto Next_Segment;
-
           do
           {
             FT_UInt  gindex = FT_NEXT_USHORT( p );
 
 
-            if ( gindex )
+            if ( gindex != 0 )
             {
               gindex = (FT_UInt)( (FT_Int)gindex + delta ) & 0xFFFFU;
-              if ( gindex )
+              if ( gindex != 0 )
               {
                 cmap->cur_charcode = charcode;
                 cmap->cur_gindex   = gindex;
@@ -819,26 +812,7 @@
             FT_UInt  gindex = (FT_UInt)( (FT_Int)charcode + delta ) & 0xFFFFU;
 
 
-            if ( gindex >= (FT_UInt)face->root.num_glyphs )
-            {
-              /* we have an invalid glyph index; if there is an overflow, */
-              /* we can adjust `charcode', otherwise the whole segment is */
-              /* invalid                                                  */
-              gindex = 0;
-
-              if ( (FT_Int)charcode + delta < 0 &&
-                   (FT_Int)end + delta >= 0     )
-                charcode = (FT_UInt)( -delta );
-
-              else if ( (FT_Int)charcode + delta < 0x10000L &&
-                        (FT_Int)end + delta >= 0x10000L     )
-                charcode = (FT_UInt)( 0x10000L - delta );
-
-              else
-                goto Next_Segment;
-            }
-
-            if ( gindex )
+            if ( gindex != 0 )
             {
               cmap->cur_charcode = charcode;
               cmap->cur_gindex   = gindex;
@@ -848,7 +822,6 @@
         }
       }
 
-    Next_Segment:
       /* we need to find another range */
       if ( tt_cmap4_set_range( cmap, cmap->cur_range + 1 ) < 0 )
         break;
@@ -1197,9 +1170,6 @@
                             FT_UInt32*  pcharcode,
                             FT_Bool     next )
   {
-    TT_Face   face  = (TT_Face)cmap->cmap.charmap.face;
-    FT_Byte*  limit = face->cmap_table + face->cmap_size;
-
     FT_UInt   num_segs2, start, end, offset;
     FT_Int    delta;
     FT_UInt   max, min, mid, num_segs;
@@ -1251,6 +1221,10 @@
         if ( mid >= num_segs - 1                &&
              start == 0xFFFFU && end == 0xFFFFU )
         {
+          TT_Face   face  = (TT_Face)cmap->cmap.charmap.face;
+          FT_Byte*  limit = face->cmap_table + face->cmap_size;
+
+
           if ( offset && p + offset + 2 > limit )
           {
             delta  = 1;
@@ -1373,39 +1347,12 @@
         if ( offset )
         {
           p += offset + ( charcode - start ) * 2;
-
-          /* if p > limit, the whole segment is invalid */
-          if ( next && p > limit )
-            break;
-
           gindex = TT_PEEK_USHORT( p );
-          if ( gindex )
-          {
+          if ( gindex != 0 )
             gindex = (FT_UInt)( (FT_Int)gindex + delta ) & 0xFFFFU;
-            if ( gindex >= (FT_UInt)face->root.num_glyphs )
-              gindex = 0;
-          }
         }
         else
-        {
           gindex = (FT_UInt)( (FT_Int)charcode + delta ) & 0xFFFFU;
-
-          if ( next && gindex >= (FT_UInt)face->root.num_glyphs )
-          {
-            /* we have an invalid glyph index; if there is an overflow, */
-            /* we can adjust `charcode', otherwise the whole segment is */
-            /* invalid                                                  */
-            gindex = 0;
-
-            if ( (FT_Int)charcode + delta < 0 &&
-                 (FT_Int)end + delta >= 0     )
-              charcode = (FT_UInt)( -delta );
-
-            else if ( (FT_Int)charcode + delta < 0x10000L &&
-                      (FT_Int)end + delta >= 0x10000L     )
-              charcode = (FT_UInt)( 0x10000L - delta );
-          }
-        }
 
         break;
       }

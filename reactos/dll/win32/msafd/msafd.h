@@ -27,7 +27,6 @@
 #include <wsahelp.h>
 #include <tdi.h>
 #include <afd/shared.h>
-#include <mswsock.h>
 #include "include/helpers.h"
 
 extern HANDLE GlobalHeap;
@@ -48,7 +47,6 @@ typedef enum _SOCKET_STATE {
 
 typedef struct _SOCK_SHARED_INFO {
     SOCKET_STATE				State;
-    LONG						RefCount;
     INT							AddressFamily;
     INT							SocketType;
     INT							Protocol;
@@ -86,14 +84,12 @@ typedef struct _SOCK_SHARED_INFO {
     UINT						wMsg;
     LONG						AsyncEvents;
     LONG						AsyncDisabledEvents;
-    SOCKADDR					WSLocalAddress;
-    SOCKADDR					WSRemoteAddress;
 } SOCK_SHARED_INFO, *PSOCK_SHARED_INFO;
 
 typedef struct _SOCKET_INFORMATION {
+	ULONG RefCount;
 	SOCKET Handle;
-	PSOCK_SHARED_INFO SharedData;
-	HANDLE SharedDataHandle;
+	SOCK_SHARED_INFO SharedData;
 	DWORD HelperEvents;
 	PHELPER_DATA HelperData;
 	PVOID HelperContext;
@@ -107,6 +103,8 @@ typedef struct _SOCKET_INFORMATION {
 	CRITICAL_SECTION Lock;
 	PVOID SanData;
 	BOOL TrySAN;
+	SOCKADDR WSLocalAddress;
+	SOCKADDR WSRemoteAddress;
 	WSAPROTOCOL_INFOW ProtocolInfo;
 	struct _SOCKET_INFORMATION *NextSocket;
 } SOCKET_INFORMATION, *PSOCKET_INFORMATION;
@@ -127,13 +125,6 @@ typedef struct _ASYNC_DATA {
 	IO_STATUS_BLOCK IoStatusBlock;
 	AFD_POLL_INFO AsyncSelectInfo;
 } ASYNC_DATA, *PASYNC_DATA;
-
-typedef struct _AFDAPCCONTEXT
-{
-    LPWSAOVERLAPPED lpOverlapped;
-    LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine;
-    PSOCKET_INFORMATION lpSocket;
-} AFDAPCCONTEXT, *PAFDAPCCONTEXT;
 
 SOCKET
 WSPAPI
@@ -434,9 +425,7 @@ int GetSocketInformation(
 	ULONG				AfdInformationClass,
     PBOOLEAN            Boolean      OPTIONAL,
 	PULONG              Ulong        OPTIONAL,
-	PLARGE_INTEGER		LargeInteger OPTIONAL,
-    LPWSAOVERLAPPED     Overlapped   OPTIONAL,
-    LPWSAOVERLAPPED_COMPLETION_ROUTINE CompletionRoutine OPTIONAL
+	PLARGE_INTEGER		LargeInteger OPTIONAL
 );
 
 int SetSocketInformation(
@@ -444,9 +433,7 @@ int SetSocketInformation(
 	ULONG				AfdInformationClass,
     PBOOLEAN            Boolean      OPTIONAL,
 	PULONG				Ulong		 OPTIONAL,
-	PLARGE_INTEGER		LargeInteger OPTIONAL,
-    LPWSAOVERLAPPED     Overlapped   OPTIONAL,
-    LPWSAOVERLAPPED_COMPLETION_ROUTINE CompletionRoutine OPTIONAL
+	PLARGE_INTEGER		LargeInteger OPTIONAL
 );
 
 int CreateContext(

@@ -698,14 +698,13 @@ Ext2CreateFile(
     ULONG               CreateDisposition;
 
     BOOLEAN             bParentFcbCreated = FALSE;
+
 #ifndef __REACTOS__
     BOOLEAN             bDir = FALSE;
 #endif
     BOOLEAN             bFcbAllocated = FALSE;
     BOOLEAN             bCreated = FALSE;
-
     BOOLEAN             bMainResourceAcquired = FALSE;
-    BOOLEAN             bFcbLockAcquired = FALSE;
 
     BOOLEAN             OpenDirectory;
     BOOLEAN             OpenTargetDirectory;
@@ -777,14 +776,14 @@ Ext2CreateFile(
 
         if (ParentFcb) {
             ParentMcb = ParentFcb->Mcb;
+            SetLongFlag(ParentFcb->Flags, FCB_STATE_BUSY);
             Ext2ReferMcb(ParentMcb);
-            ParentFcb = NULL;
         }
 
         if (FileName.Length == 0) {
 
-            if (ParentMcb) {
-                Mcb = ParentMcb;
+            if (ParentFcb) {
+                Mcb = ParentFcb->Mcb;
                 Ext2ReferMcb(Mcb);
                 Status = STATUS_SUCCESS;
                 goto McbExisting;
@@ -812,7 +811,7 @@ Ext2CreateFile(
         RtlZeroMemory(FileName.Buffer, FileName.MaximumLength);
         RtlCopyMemory(FileName.Buffer, IrpSp->FileObject->FileName.Buffer, FileName.Length);
 
-        if (IrpSp->FileObject->RelatedFileObject && FileName.Buffer[0] == L'\\') {
+        if (ParentFcb && FileName.Buffer[0] == L'\\') {
             Status = STATUS_INVALID_PARAMETER;
             _SEH2_LEAVE;
         }
@@ -953,9 +952,9 @@ Dissecting:
                 _SEH2_LEAVE;
             }
 
-            if (!bFcbLockAcquired) {
-                ExAcquireResourceExclusiveLite(&Vcb->FcbLock, TRUE);
-                bFcbLockAcquired = TRUE;
+            /* clear BUSY bit from original ParentFcb */
+            if (ParentFcb) {
+                ClearLongFlag(ParentFcb->Flags, FCB_STATE_BUSY);
             }
 
             /* get the ParentFcb, allocate it if needed ... */
@@ -967,13 +966,9 @@ Dissecting:
                     _SEH2_LEAVE;
                 }
                 bParentFcbCreated = TRUE;
+                Ext2ReferXcb(&ParentFcb->ReferenceCount);
             }
-            Ext2ReferXcb(&ParentFcb->ReferenceCount);
-
-            if (bFcbLockAcquired) {
-                ExReleaseResourceLite(&Vcb->FcbLock);
-                bFcbLockAcquired = FALSE;
-            }
+            SetLongFlag(ParentFcb->Flags, FCB_STATE_BUSY);
 
             // We need to create a new one ?
             if ((CreateDisposition == FILE_CREATE ) ||
@@ -1162,12 +1157,6 @@ Dissecting:
         }
 
 Openit:
-
-        if (!bFcbLockAcquired) {
-            ExAcquireResourceExclusiveLite(&Vcb->FcbLock, TRUE);
-            bFcbLockAcquired = TRUE;
-        }
-
         /* Mcb should already be referred and symlink is too */
         if (Mcb) {
 
@@ -1232,15 +1221,10 @@ Openit:
         }
 
         if (Fcb) {
+
             /* grab Fcb's reference first to avoid the race between
                Ext2Close  (it could free the Fcb we are accessing) */
             Ext2ReferXcb(&Fcb->ReferenceCount);
-        }
-
-        ExReleaseResourceLite(&Vcb->FcbLock);
-        bFcbLockAcquired = FALSE;
-
-        if (Fcb) {
 
             ExAcquireResourceExclusiveLite(&Fcb->MainResource, TRUE);
             bMainResourceAcquired = TRUE;
@@ -1581,9 +1565,6 @@ Openit:
 
     } _SEH2_FINALLY {
 
-        if (bFcbLockAcquired) {
-            ExReleaseResourceLite(&Vcb->FcbLock);
-        }
 
         if (ParentMcb) {
             Ext2DerefMcb(ParentMcb);
@@ -1625,24 +1606,29 @@ Openit:
 
                 Ext2FreeCcb(Vcb, Ccb);
             }
+        }
 
-            if (Fcb != NULL) {
+        if (Fcb && Ext2DerefXcb(&Fcb->ReferenceCount) == 0) {
 
-                if (IsFlagOn(Fcb->Flags, FCB_ALLOC_IN_CREATE)) {
-                    LARGE_INTEGER Size;
-                    ExAcquireResourceExclusiveLite(&Fcb->PagingIoResource, TRUE);
-                    _SEH2_TRY {
-                        Size.QuadPart = 0;
-                        Ext2TruncateFile(IrpContext, Vcb, Fcb->Mcb, &Size);
-                    } _SEH2_FINALLY {
-                        ExReleaseResourceLite(&Fcb->PagingIoResource);
-                    } _SEH2_END;
-                }
+            if (IsFlagOn(Fcb->Flags, FCB_ALLOC_IN_CREATE)) {
 
-                if (bCreated) {
-                    Ext2DeleteFile(IrpContext, Vcb, Fcb, Mcb);
-                }
+                LARGE_INTEGER Size;
+                ExAcquireResourceExclusiveLite(&Fcb->PagingIoResource, TRUE);
+                _SEH2_TRY {
+                    Size.QuadPart = 0;
+                    Ext2TruncateFile(IrpContext, Vcb, Fcb->Mcb, &Size);
+                } _SEH2_FINALLY {
+                    ExReleaseResourceLite(&Fcb->PagingIoResource);
+                } _SEH2_END;
             }
+
+            if (bCreated) {
+                Ext2DeleteFile(IrpContext, Vcb, Fcb, Mcb);
+            }
+
+            Ext2FreeFcb(Fcb);
+            Fcb = NULL;
+            bMainResourceAcquired = FALSE;
         }
 
         if (bMainResourceAcquired) {
@@ -1655,12 +1641,14 @@ Openit:
             Ext2FreePool(FileName.Buffer, EXT2_FNAME_MAGIC);
         }
 
-        /* dereference Fcb and parent */
-        if (Fcb) {
-            Ext2ReleaseFcb(Fcb);
-        }
+        /* dereference parent Fcb, free it if it goes to zero */
         if (ParentFcb) {
-            Ext2ReleaseFcb(ParentFcb);
+            ClearLongFlag(ParentFcb->Flags, FCB_STATE_BUSY);
+            if (bParentFcbCreated) {
+                if (Ext2DerefXcb(&ParentFcb->ReferenceCount) == 0) {
+                    Ext2FreeFcb(ParentFcb);
+                }
+            }
         }
 
         /* drop SymLink's refer: If succeeds, Ext2AllocateCcb should refer

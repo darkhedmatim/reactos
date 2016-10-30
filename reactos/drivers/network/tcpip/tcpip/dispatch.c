@@ -400,8 +400,6 @@ NTSTATUS DispTdiConnect(
 
   IrpSp = IoGetCurrentIrpStackLocation(Irp);
 
-  IoMarkIrpPending(Irp);
-
   /* Get associated connection endpoint file object. Quit if none exists */
 
   TranContext = IrpSp->FileObject->FsContext;
@@ -436,11 +434,12 @@ NTSTATUS DispTdiConnect(
 done:
   if (Status != STATUS_PENDING) {
       DispDataRequestComplete(Irp, Status, 0);
-  }
+  } else
+      IoMarkIrpPending(Irp);
 
   TI_DbgPrint(MAX_TRACE, ("TCP Connect returned %08x\n", Status));
 
-  return STATUS_PENDING;
+  return Status;
 }
 
 
@@ -503,8 +502,6 @@ NTSTATUS DispTdiDisconnect(
   IrpSp = IoGetCurrentIrpStackLocation(Irp);
   DisReq = (PTDI_REQUEST_KERNEL_DISCONNECT)&IrpSp->Parameters;
 
-  IoMarkIrpPending(Irp);
-
   /* Get associated connection endpoint file object. Quit if none exists */
 
   TranContext = IrpSp->FileObject->FsContext;
@@ -540,11 +537,12 @@ NTSTATUS DispTdiDisconnect(
 done:
    if (Status != STATUS_PENDING) {
        DispDataRequestComplete(Irp, Status, 0);
-   }
+   } else
+       IoMarkIrpPending(Irp);
 
   TI_DbgPrint(MAX_TRACE, ("TCP Disconnect returned %08x\n", Status));
 
-  return STATUS_PENDING;
+  return Status;
 }
 
 
@@ -568,8 +566,6 @@ NTSTATUS DispTdiListen(
   TI_DbgPrint(DEBUG_IRP, ("Called.\n"));
 
   IrpSp = IoGetCurrentIrpStackLocation(Irp);
-
-  IoMarkIrpPending(Irp);
 
   /* Get associated connection endpoint file object. Quit if none exists */
 
@@ -653,11 +649,12 @@ NTSTATUS DispTdiListen(
 done:
   if (Status != STATUS_PENDING) {
       DispDataRequestComplete(Irp, Status, 0);
-  }
+  } else
+      IoMarkIrpPending(Irp);
 
   TI_DbgPrint(MID_TRACE,("Leaving %x\n", Status));
 
-  return STATUS_PENDING;
+  return Status;
 }
 
 
@@ -810,8 +807,6 @@ NTSTATUS DispTdiReceive(
   IrpSp = IoGetCurrentIrpStackLocation(Irp);
   ReceiveInfo = (PTDI_REQUEST_KERNEL_RECEIVE)&(IrpSp->Parameters);
 
-  IoMarkIrpPending(Irp);
-
   TranContext = IrpSp->FileObject->FsContext;
   if (TranContext == NULL)
     {
@@ -849,11 +844,12 @@ NTSTATUS DispTdiReceive(
 done:
   if (Status != STATUS_PENDING) {
       DispDataRequestComplete(Irp, Status, BytesReceived);
-  }
+  } else
+      IoMarkIrpPending(Irp);
 
   TI_DbgPrint(DEBUG_IRP, ("Leaving. Status is (0x%X)\n", Status));
 
-  return STATUS_PENDING;
+  return Status;
 }
 
 
@@ -878,8 +874,6 @@ NTSTATUS DispTdiReceiveDatagram(
 
   IrpSp     = IoGetCurrentIrpStackLocation(Irp);
   DgramInfo = (PTDI_REQUEST_KERNEL_RECEIVEDG)&(IrpSp->Parameters);
-
-  IoMarkIrpPending(Irp);
 
   TranContext = IrpSp->FileObject->FsContext;
   if (TranContext == NULL)
@@ -924,11 +918,12 @@ NTSTATUS DispTdiReceiveDatagram(
 done:
    if (Status != STATUS_PENDING) {
        DispDataRequestComplete(Irp, Status, BytesReceived);
-   }
+   } else
+       IoMarkIrpPending(Irp);
 
   TI_DbgPrint(DEBUG_IRP, ("Leaving. Status is (0x%X)\n", Status));
 
-  return STATUS_PENDING;
+  return Status;
 }
 
 
@@ -952,8 +947,6 @@ NTSTATUS DispTdiSend(
 
   IrpSp = IoGetCurrentIrpStackLocation(Irp);
   SendInfo = (PTDI_REQUEST_KERNEL_SEND)&(IrpSp->Parameters);
-
-  IoMarkIrpPending(Irp);
 
   TranContext = IrpSp->FileObject->FsContext;
   if (TranContext == NULL)
@@ -997,11 +990,12 @@ NTSTATUS DispTdiSend(
 done:
    if (Status != STATUS_PENDING) {
        DispDataRequestComplete(Irp, Status, BytesSent);
-   }
+   } else
+       IoMarkIrpPending(Irp);
 
   TI_DbgPrint(DEBUG_IRP, ("Leaving. Status is (0x%X)\n", Status));
 
-  return STATUS_PENDING;
+  return Status;
 }
 
 
@@ -1025,8 +1019,6 @@ NTSTATUS DispTdiSendDatagram(
 
     IrpSp       = IoGetCurrentIrpStackLocation(Irp);
     DgramInfo   = (PTDI_REQUEST_KERNEL_SENDDG)&(IrpSp->Parameters);
-
-    IoMarkIrpPending(Irp);
 
     TranContext = IrpSp->FileObject->FsContext;
     if (TranContext == NULL)
@@ -1082,11 +1074,12 @@ NTSTATUS DispTdiSendDatagram(
 done:
     if (Status != STATUS_PENDING) {
         DispDataRequestComplete(Irp, Status, Irp->IoStatus.Information);
-    }
+    } else
+        IoMarkIrpPending(Irp);
 
     TI_DbgPrint(DEBUG_IRP, ("Leaving.\n"));
 
-    return STATUS_PENDING;
+    return Status;
 }
 
 

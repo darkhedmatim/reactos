@@ -28,6 +28,12 @@
 #define UNIMPLEMENTED DbgPrint("%s is UNIMPLEMENTED!\n", __FUNCTION__)
 #endif
 
+extern "C"
+HRESULT WINAPI CExplorerBand_Constructor(REFIID riid, LPVOID *ppv)
+{
+    return ShellObjectCreator<CExplorerBand>(riid, ppv);
+}
+
 CExplorerBand::CExplorerBand() :
     pSite(NULL), fVisible(FALSE), bNavigating(FALSE), dwBandID(0)
 {
@@ -667,8 +673,7 @@ HRESULT STDMETHODCALLTYPE CExplorerBand::GetBandInfo(DWORD dwBandID, DWORD dwVie
 
     if (pdbi->dwMask & DBIM_TITLE)
     {
-        if (!LoadStringW(_AtlBaseModule.GetResourceInstance(), IDS_FOLDERSLABEL, pdbi->wszTitle, _countof(pdbi->wszTitle)))
-            return HRESULT_FROM_WIN32(GetLastError());
+        lstrcpyW(pdbi->wszTitle, L"Explorer");
     }
 
     if (pdbi->dwMask & DBIM_MODEFLAGS)
@@ -794,15 +799,11 @@ HRESULT STDMETHODCALLTYPE CExplorerBand::HasFocusIO()
 
 HRESULT STDMETHODCALLTYPE CExplorerBand::TranslateAcceleratorIO(LPMSG lpMsg)
 {
-    if (lpMsg->hwnd == m_hWnd)
-    {
-        TranslateMessage(lpMsg);
-        DispatchMessage(lpMsg);
-        return S_OK;
-    }
-
-    return S_FALSE;
+    TranslateMessage(lpMsg);
+    DispatchMessage(lpMsg);
+    return S_OK;
 }
+
 
 // *** IPersist methods ***
 HRESULT STDMETHODCALLTYPE CExplorerBand::GetClassID(CLSID *pClassID)

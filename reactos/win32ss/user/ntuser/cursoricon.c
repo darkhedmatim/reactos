@@ -226,15 +226,6 @@ PCURICON_OBJECT FASTCALL UserGetCurIconObject(HCURSOR hCurIcon)
     return CurIcon;
 }
 
-PCURICON_OBJECT
-IntSystemSetCursor(PCURICON_OBJECT pcurNew)
-{
-    PCURICON_OBJECT pcurOld = UserSetCursor(pcurNew, FALSE);
-    if (pcurNew) UserReferenceObject(pcurNew);
-    if (pcurOld) UserDereferenceObject(pcurOld);
-    return pcurOld;
-}
-
 BOOL UserSetCursorPos( INT x, INT y, DWORD flags, ULONG_PTR dwExtraInfo, BOOL Hook)
 {
     PWND DesktopWindow;
@@ -1071,12 +1062,9 @@ NtUserSetCursor(
     }
 
     pcurOld = UserSetCursor(pcurNew, FALSE);
-
-    // If returning an old cursor than validate it, Justin Case!
-    if ( pcurOld &&
-        (pcurOld = UserGetObjectNoErr(gHandleTable, UserHMGetHandle(pcurOld), TYPE_CURSOR)))
+    if (pcurOld)
     {
-        hOldCursor = UserHMGetHandle(pcurOld);
+        hOldCursor = pcurOld->head.h;
     /*
         Problem:
 
@@ -1090,19 +1078,22 @@ NtUserSetCursor(
         {
            TRACE("Returning Global Cursor hcur %p\n",hOldCursor);
 
-           /*if (pcurOld->head.cLockObj > 2) // Throttle down to 2.
+           if (pcurOld->head.cLockObj > 2) // Throttle down to 2.
            {
               UserDereferenceObject(pcurOld);
            }
 
-           goto leave;*/
+           goto leave;
         }
+
+        pcurOld->CURSORF_flags &= ~CURSORF_CURRENT;
 
         /* See if it was destroyed in the meantime */
         if (UserObjectInDestroy(hOldCursor))
-            hOldCursor = NULL;
-        pcurOld->CURSORF_flags &= ~CURSORF_CURRENT;
-        UserDereferenceObject(pcurOld);
+        {
+            UserDereferenceObject(pcurOld);
+            pcurOld = NULL;
+        }
     }
 
 leave:

@@ -1,13 +1,7 @@
 #ifndef _MSGINA_H
 #define _MSGINA_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdarg.h>
-#include <stdlib.h>
-#include <tchar.h>
 
 #define WIN32_NO_STATUS
 #define _INC_WINDOWS
@@ -15,13 +9,10 @@ extern "C" {
 
 #include <windef.h>
 #include <winbase.h>
-#include <winreg.h>
 #include <winuser.h>
 #include <winwlx.h>
 #include <ndk/rtlfuncs.h>
 #include <ntsecapi.h>
-
-#include <strsafe.h>
 
 #include <wine/debug.h>
 WINE_DEFAULT_DEBUG_CHANNEL(msgina);
@@ -48,7 +39,7 @@ typedef struct
     BOOL bDontDisplayLastUserName;
     BOOL bShutdownWithoutLogon;
 
-    ULONG nShutdownAction;
+    INT nShutdownAction;
 
     /* Information to be filled during logon */
     WCHAR UserName[256];
@@ -133,27 +124,5 @@ CreateProfile(
     IN PWSTR UserName,
     IN PWSTR Domain,
     IN PWSTR Password);
-
-/* shutdown.c */
-
-DWORD
-LoadShutdownSelState(VOID);
-
-VOID
-SaveShutdownSelState(DWORD ShutdownCode);
-
-DWORD
-GetAllowedShutdownOptions(VOID);
-
-INT_PTR
-ShutdownDialog(
-    IN HWND hwndDlg,
-    IN DWORD ShutdownOptions,
-    IN PGINA_CONTEXT pgContext);
-
-
-#ifdef __cplusplus
-} // extern "C"
-#endif
 
 #endif /* _MSGINA_H */

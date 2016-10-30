@@ -209,23 +209,16 @@ ShowLastWin32Error(HWND hwnd)
     LPTSTR lpMessageBuffer;
     DWORD dwError = GetLastError();
 
-    if (dwError == ERROR_SUCCESS)
-        return;
-
-    if (!FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                       FORMAT_MESSAGE_FROM_SYSTEM |
-                       FORMAT_MESSAGE_IGNORE_INSERTS,
-                       NULL,
-                       dwError,
-                       LANG_USER_DEFAULT,
-                       (LPTSTR)&lpMessageBuffer,
-                       0, NULL))
+    if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+                      NULL,
+                      dwError,
+                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                      (LPTSTR)&lpMessageBuffer,
+                      0, NULL) != 0)
     {
-        return;
+        MessageBox(hwnd, lpMessageBuffer, szAppTitle, MB_OK | MB_ICONERROR);
+        if (lpMessageBuffer) LocalFree(lpMessageBuffer);
     }
-
-    MessageBox(hwnd, lpMessageBuffer, szAppTitle, MB_OK | MB_ICONERROR);
-    LocalFree(lpMessageBuffer);
 }
 
 static VOID

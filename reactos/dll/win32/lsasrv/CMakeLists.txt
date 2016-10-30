@@ -21,7 +21,6 @@ list(APPEND SOURCE
     privileges.c
     registry.c
     security.c
-    service.c
     session.c
     srm.c
     utils.c

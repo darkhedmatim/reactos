@@ -19,8 +19,6 @@
  */
 
 #include <k32.h>
-#include <strsafe.h>
-
 #define NDEBUG
 #include <debug.h>
 DEBUG_CHANNEL(kernel32file);
@@ -403,35 +401,12 @@ GetDriveTypeW(IN LPCWSTR lpRootPathName)
         if (wcslen(CurrentDir) > 3)
             CurrentDir[3] = 0;
 
-        lpRootPath = CurrentDir;
+        lpRootPath = (PCWSTR)CurrentDir;
     }
     else
     {
-        size_t Length = wcslen(lpRootPathName);
-
         TRACE("lpRootPathName: %S\n", lpRootPathName);
-
-        if (Length == 2)
-        {
-            WCHAR DriveLetter = RtlUpcaseUnicodeChar(lpRootPathName[0]);
-
-            if (DriveLetter >= L'A' && DriveLetter <= L'Z' && lpRootPathName[1] == L':')
-            {
-                Length = (Length + 2) * sizeof(WCHAR);
-
-                CurrentDir = HeapAlloc(GetProcessHeap(), 0, Length);
-                if (!CurrentDir)
-                    return DRIVE_UNKNOWN;
-
-                StringCbPrintfW(CurrentDir, Length, L"%s\\", lpRootPathName);
-
-                lpRootPath = CurrentDir;
-            }
-        }
-        else
-        {
-            lpRootPath = lpRootPathName;
-        }
+        lpRootPath = lpRootPathName;
     }
 
     TRACE("lpRootPath: %S\n", lpRootPath);
@@ -449,11 +424,6 @@ GetDriveTypeW(IN LPCWSTR lpRootPathName)
     if (CurrentDir != NULL)
         HeapFree(GetProcessHeap(), 0, CurrentDir);
 
-    if (PathName.Buffer[(PathName.Length >> 1) - 1] != L'\\')
-    {
-        return DRIVE_NO_ROOT_DIR;
-    }
-
     InitializeObjectAttributes(&ObjectAttributes,
                                &PathName,
                                OBJ_CASE_INSENSITIVE,
@@ -466,7 +436,6 @@ GetDriveTypeW(IN LPCWSTR lpRootPathName)
                         &IoStatusBlock,
                         FILE_SHARE_READ | FILE_SHARE_WRITE,
                         FILE_SYNCHRONOUS_IO_NONALERT);
-
     RtlFreeHeap(RtlGetProcessHeap(), 0, PathName.Buffer);
     if (!NT_SUCCESS(Status))
         return DRIVE_NO_ROOT_DIR; /* According to WINE regression tests */
@@ -484,19 +453,19 @@ GetDriveTypeW(IN LPCWSTR lpRootPathName)
 
     switch (FileFsDevice.DeviceType)
     {
-        case FILE_DEVICE_CD_ROM:
-        case FILE_DEVICE_CD_ROM_FILE_SYSTEM:
-            return DRIVE_CDROM;
-        case FILE_DEVICE_VIRTUAL_DISK:
-            return DRIVE_RAMDISK;
-        case FILE_DEVICE_NETWORK_FILE_SYSTEM:
+    case FILE_DEVICE_CD_ROM:
+    case FILE_DEVICE_CD_ROM_FILE_SYSTEM:
+        return DRIVE_CDROM;
+    case FILE_DEVICE_VIRTUAL_DISK:
+        return DRIVE_RAMDISK;
+    case FILE_DEVICE_NETWORK_FILE_SYSTEM:
+        return DRIVE_REMOTE;
+    case FILE_DEVICE_DISK:
+    case FILE_DEVICE_DISK_FILE_SYSTEM:
+        if (FileFsDevice.Characteristics & FILE_REMOTE_DEVICE)
             return DRIVE_REMOTE;
-        case FILE_DEVICE_DISK:
-        case FILE_DEVICE_DISK_FILE_SYSTEM:
-            if (FileFsDevice.Characteristics & FILE_REMOTE_DEVICE)
-                return DRIVE_REMOTE;
-            if (FileFsDevice.Characteristics & FILE_REMOVABLE_MEDIA)
-                return DRIVE_REMOVABLE;
+        if (FileFsDevice.Characteristics & FILE_REMOVABLE_MEDIA)
+            return DRIVE_REMOVABLE;
         return DRIVE_FIXED;
     }
 

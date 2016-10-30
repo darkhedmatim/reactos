@@ -100,7 +100,6 @@ static REFIID tid_id[] =
     &IID_INetFwOpenPort,
     &IID_INetFwOpenPorts,
     &IID_INetFwPolicy,
-    &IID_INetFwPolicy2,
     &IID_INetFwProfile
 };
 

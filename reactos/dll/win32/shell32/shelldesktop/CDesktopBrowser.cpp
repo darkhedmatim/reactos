@@ -20,37 +20,44 @@
 
 #include "shelldesktop.h"
 
-// Support for multiple monitors is disabled till LVM_SETWORKAREAS gets implemented
-#ifdef MULTIMONITOR_SUPPORT
-#include <atlcoll.h>
-#endif
-
-
-
 WINE_DEFAULT_DEBUG_CHANNEL(desktop);
+
+#define SHDESK_TAG 'KSED'
 
 static const WCHAR szProgmanClassName[]  = L"Progman";
 static const WCHAR szProgmanWindowName[] = L"Program Manager";
 
 class CDesktopBrowser :
-    public CWindowImpl<CDesktopBrowser, CWindow, CFrameWinTraits>,
     public CComObjectRootEx<CComMultiThreadModelNoCS>,
     public IShellBrowser,
+    public ICommDlgBrowser,
     public IServiceProvider
 {
-private:
+public:
+    DWORD Tag;
     HACCEL m_hAccel;
-    HWND m_hWndShellView;
-    CComPtr<IShellDesktopTray> m_Tray;
-    CComPtr<IShellView>        m_ShellView;
+private:
+    HWND hWnd;
+    HWND hWndShellView;
+    HWND hWndDesktopListView; // FIXME: Unused
+    CComPtr<IShellDesktopTray> ShellDesk;
+    CComPtr<IShellView>        DesktopView;
+    CComPtr<IShellBrowser>     DefaultShellBrowser;
+    LPITEMIDLIST pidlDesktopDirectory;
+    LPITEMIDLIST pidlDesktop;
 
     LRESULT _NotifyTray(UINT uMsg, WPARAM wParam, LPARAM lParam);
-    HRESULT _Resize();
 
 public:
     CDesktopBrowser();
     ~CDesktopBrowser();
-    HRESULT Initialize(IShellDesktopTray *ShellDeskx);
+    HRESULT Initialize(HWND hWndx, IShellDesktopTray *ShellDeskx);
+    HWND FindDesktopListView();
+    BOOL CreateDeskWnd();
+    HWND DesktopGetWindowControl(IN UINT id);
+    LRESULT OnCommand(UINT uMsg, WPARAM wParam, LPARAM lParam);
+    static LRESULT CALLBACK ProgmanWindowProc(IN HWND hwnd, IN UINT uMsg, IN WPARAM wParam, IN LPARAM lParam);
+    BOOL MessageLoop();
 
     // *** IOleWindow methods ***
     virtual HRESULT STDMETHODCALLTYPE GetWindow(HWND *lphwnd);
@@ -71,173 +78,168 @@ public:
     virtual HRESULT STDMETHODCALLTYPE OnViewWindowActive(struct IShellView *ppshv);
     virtual HRESULT STDMETHODCALLTYPE SetToolbarItems(LPTBBUTTON lpButtons, UINT nButtons, UINT uFlags);
 
+    // *** ICommDlgBrowser methods ***
+    virtual HRESULT STDMETHODCALLTYPE OnDefaultCommand (struct IShellView *ppshv);
+    virtual HRESULT STDMETHODCALLTYPE OnStateChange (struct IShellView *ppshv, ULONG uChange);
+    virtual HRESULT STDMETHODCALLTYPE IncludeObject (struct IShellView *ppshv, LPCITEMIDLIST pidl);
+
     // *** IServiceProvider methods ***
     virtual HRESULT STDMETHODCALLTYPE QueryService(REFGUID guidService, REFIID riid, void **ppvObject);
-
-    // message handlers
-    LRESULT OnEraseBkgnd(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled);
-    LRESULT OnSize(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled);
-    LRESULT OnSettingChange(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled);
-    LRESULT OnClose(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled);
-    LRESULT OnOpenNewWindow(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled);
-    LRESULT OnCommand(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled);
-    LRESULT OnSetFocus(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled);
-
-DECLARE_WND_CLASS_EX(szProgmanClassName, CS_DBLCLKS, COLOR_DESKTOP)
-
-BEGIN_MSG_MAP(CBaseBar)
-    MESSAGE_HANDLER(WM_ERASEBKGND, OnEraseBkgnd)
-    MESSAGE_HANDLER(WM_SIZE, OnSize)
-    MESSAGE_HANDLER(WM_SYSCOLORCHANGE, OnSettingChange)
-    MESSAGE_HANDLER(WM_SETTINGCHANGE, OnSettingChange)
-    MESSAGE_HANDLER(WM_CLOSE, OnClose)
-    MESSAGE_HANDLER(WM_EXPLORER_OPEN_NEW_WINDOW, OnOpenNewWindow)
-    MESSAGE_HANDLER(WM_COMMAND, OnCommand)
-    MESSAGE_HANDLER(WM_SETFOCUS, OnSetFocus)
-END_MSG_MAP()
 
 BEGIN_COM_MAP(CDesktopBrowser)
     COM_INTERFACE_ENTRY_IID(IID_IOleWindow, IOleWindow)
     COM_INTERFACE_ENTRY_IID(IID_IShellBrowser, IShellBrowser)
+    COM_INTERFACE_ENTRY_IID(IID_ICommDlgBrowser, ICommDlgBrowser)
     COM_INTERFACE_ENTRY_IID(IID_IServiceProvider, IServiceProvider)
 END_COM_MAP()
 };
 
-CDesktopBrowser::CDesktopBrowser():
-    m_hAccel(NULL),    
-    m_hWndShellView(NULL)
+CDesktopBrowser::CDesktopBrowser()
 {
+    Tag = SHDESK_TAG;
+    hWnd = NULL;
+    hWndShellView = NULL;
+    hWndDesktopListView = NULL;
+    DefaultShellBrowser = NULL;
+    pidlDesktopDirectory = NULL;
+    pidlDesktop = NULL;
 }
 
 CDesktopBrowser::~CDesktopBrowser()
 {
-    if (m_ShellView.p != NULL && m_hWndShellView != NULL)
+    if (DesktopView.p != NULL)
     {
-        m_ShellView->DestroyViewWindow();
+        if (hWndShellView != NULL)
+            DesktopView->DestroyViewWindow();
+
+        hWndShellView = NULL;
+        hWndDesktopListView = NULL;
+    }
+
+    if (pidlDesktopDirectory != NULL)
+    {
+        ILFree(pidlDesktopDirectory);
+        pidlDesktopDirectory = NULL;
+    }
+
+    if (pidlDesktop != NULL)
+    {
+        ILFree(pidlDesktop);
+        pidlDesktop = NULL;
     }
 }
 
-#ifdef MULTIMONITOR_SUPPORT
-BOOL CALLBACK MonitorEnumProc(
-  _In_ HMONITOR hMonitor,
-  _In_ HDC      hdcMonitor,
-  _In_ LPRECT   lprcMonitor,
-  _In_ LPARAM   dwData
-)
+HRESULT CDesktopBrowser::Initialize(HWND hWndx, IShellDesktopTray *ShellDeskx)
 {
-    CAtlList<RECT> *list = (CAtlList<RECT>*)dwData;
-    MONITORINFO MonitorInfo;
-    MonitorInfo.cbSize = sizeof(MonitorInfo);
-    if (::GetMonitorInfoW(hMonitor, &MonitorInfo))
-    {
-        list->AddTail(MonitorInfo.rcWork);
-    }
-
-    return TRUE;
-}
-#endif
-
-HRESULT CDesktopBrowser::_Resize()
-{
-    RECT rcNewSize;
-
-#ifdef MULTIMONITOR_SUPPORT
-
-    UINT cMonitors = GetSystemMetrics(SM_CMONITORS);
-    if (cMonitors == 1)
-    {
-        SystemParametersInfoW(SPI_GETWORKAREA, 0, &rcNewSize, 0);
-    }
-    else
-    {
-        SetRect(&rcNewSize,
-                GetSystemMetrics(SM_XVIRTUALSCREEN),
-                GetSystemMetrics(SM_YVIRTUALSCREEN),
-                GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN),
-                GetSystemMetrics(SM_YVIRTUALSCREEN) + GetSystemMetrics(SM_CYVIRTUALSCREEN));
-    }
-
-    ::MoveWindow(m_hWnd, rcNewSize.left, rcNewSize.top, rcNewSize.right - rcNewSize.left, rcNewSize.bottom - rcNewSize.top, FALSE);
-    ::MoveWindow(m_hWndShellView, 0, 0, rcNewSize.right - rcNewSize.left, rcNewSize.bottom - rcNewSize.top, FALSE);
-
-    if (cMonitors != 1)
-    {
-        CAtlList<RECT> list;
-        EnumDisplayMonitors(NULL, NULL, MonitorEnumProc, (LPARAM)&list);
-        RECT* prcWorkAreas = new RECT[list.GetCount()];
-        int i = 0;
-        for (POSITION it = list.GetHeadPosition(); it; list.GetNext(it))
-            prcWorkAreas[i++] = list.GetAt(it);
-
-        HWND hwndListView = FindWindowExW(m_hWndShellView, NULL, WC_LISTVIEW, NULL);
-
-        ::SendMessageW(hwndListView, LVM_SETWORKAREAS , i, (LPARAM)prcWorkAreas);
-    }
-
-#else
-     SystemParametersInfoW(SPI_GETWORKAREA, 0, &rcNewSize, 0);
-    ::MoveWindow(m_hWnd, rcNewSize.left, rcNewSize.top, rcNewSize.right - rcNewSize.left, rcNewSize.bottom - rcNewSize.top, FALSE);
-    ::MoveWindow(m_hWndShellView, 0, 0, rcNewSize.right - rcNewSize.left, rcNewSize.bottom - rcNewSize.top, FALSE);
-
-#endif
-    return S_OK;
-}
-
-HRESULT CDesktopBrowser::Initialize(IShellDesktopTray *ShellDesk)
-{  
-    CComPtr<IShellFolder> psfDesktop;
+    CComPtr<IShellFolder> psfDesktopFolder;
+    CSFV    csfv;
     HRESULT hRet;
-    hRet = SHGetDesktopFolder(&psfDesktop);
-    if (FAILED_UNEXPECTEDLY(hRet))
+
+    hWnd = hWndx;
+    ShellDesk = ShellDeskx;
+    ShellDesk->AddRef();
+
+    pidlDesktopDirectory = SHCloneSpecialIDList(hWnd, CSIDL_DESKTOPDIRECTORY, FALSE);
+    hRet = SHGetSpecialFolderLocation(hWnd, CSIDL_DESKTOP, &pidlDesktop);
+    if (FAILED(hRet))
         return hRet;
 
-    m_Tray = ShellDesk;
-
-    Create(NULL, NULL, szProgmanWindowName, WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN, WS_EX_TOOLWINDOW);
-    if (!m_hWnd)
-        return E_FAIL;
-
-    CSFV csfv = {sizeof(CSFV), psfDesktop};
-    hRet = SHCreateShellFolderViewEx(&csfv, &m_ShellView);
-    if (FAILED_UNEXPECTEDLY(hRet))
+    hRet = SHGetDesktopFolder(&psfDesktopFolder);
+    if (FAILED(hRet))
         return hRet;
 
-    m_Tray->RegisterDesktopWindow(m_hWnd);
-    if (FAILED_UNEXPECTEDLY(hRet))
-        return hRet;
+    ZeroMemory(&csfv, sizeof(csfv));
+    csfv.cbSize = sizeof(csfv);
+    csfv.pshf = psfDesktopFolder;
+    csfv.psvOuter = NULL;
 
-    FOLDERSETTINGS fs;
-    RECT rcShellView = {0,0,0,0};
-    fs.ViewMode = FVM_ICON;
-    fs.fFlags = FWF_DESKTOP | FWF_NOCLIENTEDGE | FWF_NOSCROLL | FWF_TRANSPARENT;
-    hRet = m_ShellView->CreateViewWindow(NULL, &fs, (IShellBrowser *)this, &rcShellView, &m_hWndShellView);
-    if (FAILED_UNEXPECTEDLY(hRet))
-        return hRet;
-
-    _Resize();
-
-    HWND hwndListView = FindWindowExW(m_hWndShellView, NULL, WC_LISTVIEW, NULL);
-    SetShellWindowEx(m_hWnd, hwndListView);
-
-    m_hAccel = LoadAcceleratorsW(shell32_hInstance, MAKEINTRESOURCEW(IDA_DESKBROWSER));
-
-#if 1
-    /* A Windows8+ specific hack */
-    ::ShowWindow(m_hWndShellView, SW_SHOW);
-    ::ShowWindow(hwndListView, SW_SHOW);
-#endif
-    ShowWindow(SW_SHOW);
-    UpdateWindow();
+    hRet = SHCreateShellFolderViewEx(&csfv, &DesktopView);
 
     return hRet;
 }
 
-HRESULT STDMETHODCALLTYPE CDesktopBrowser::GetWindow(HWND *lphwnd)
+static CDesktopBrowser *SHDESK_Create(HWND hWnd, LPCREATESTRUCT lpCreateStruct)
 {
-    if (lphwnd == NULL)
-        return E_POINTER;
-    *lphwnd = m_hWnd;
-    return S_OK;
+    CComPtr<IShellDesktopTray>  ShellDesk;
+    CComObject<CDesktopBrowser> *pThis;
+    HRESULT hRet;
+
+    ShellDesk = (IShellDesktopTray *)lpCreateStruct->lpCreateParams;
+    if (ShellDesk == NULL)
+    {
+        WARN("No IShellDesk interface provided!");
+        return NULL;
+    }
+
+    pThis = new CComObject<CDesktopBrowser>;
+    if (pThis == NULL)
+        return NULL;
+    pThis->AddRef();
+
+    hRet = pThis->Initialize(hWnd, ShellDesk);
+    if (FAILED(hRet))
+    {
+        pThis->Release();
+        return NULL;
+    }
+
+    return pThis;
+}
+
+HWND CDesktopBrowser::FindDesktopListView()
+{
+    return FindWindowExW(hWndShellView, NULL, WC_LISTVIEW, NULL);
+}
+
+BOOL CDesktopBrowser::CreateDeskWnd()
+{
+    FOLDERSETTINGS fs;
+    RECT rcWorkArea;
+    HRESULT hRet;
+
+    // FIXME: Add support for multi-monitor?
+    SystemParametersInfoW(SPI_GETWORKAREA,
+                          0, &rcWorkArea, 0);
+
+    // TODO: Call GetClientRect for the tray window and make small computation
+    // to be sure the tray window rect is removed from the work area!
+#if 0
+    RECT rcTray;
+    HWND hWndTray;
+
+    /* Get client rect of the taskbar */
+    hRet = ShellDesk->GetTrayWindow(&hWndTray);
+    if (SUCCEEDED(hRet))
+        GetClientRect(hWndTray, &rcTray);
+#endif
+
+    fs.ViewMode = FVM_ICON;
+    fs.fFlags = FWF_DESKTOP | FWF_NOCLIENTEDGE | FWF_NOSCROLL | FWF_TRANSPARENT;
+    hRet = DesktopView->CreateViewWindow(NULL, &fs, (IShellBrowser *)this, &rcWorkArea, &hWndShellView);
+    if (!SUCCEEDED(hRet))
+        return FALSE;
+
+    SetShellWindowEx(hWnd, FindDesktopListView());
+
+#if 1
+    /* A Windows8+ specific hack */
+    ::ShowWindow(hWndShellView, SW_SHOW);
+    ::ShowWindow(FindDesktopListView(), SW_SHOW);
+#endif
+
+    return TRUE;
+}
+
+HRESULT STDMETHODCALLTYPE CDesktopBrowser::GetWindow(HWND *phwnd)
+{
+    if (hWnd != NULL)
+    {
+        *phwnd = hWnd;
+        return S_OK;
+    }
+
+    *phwnd = NULL;
+    return E_UNEXPECTED;
 }
 
 HRESULT STDMETHODCALLTYPE CDesktopBrowser::ContextSensitiveHelp(BOOL fEnterMode)
@@ -272,7 +274,7 @@ HRESULT STDMETHODCALLTYPE CDesktopBrowser::EnableModelessSB(BOOL fEnable)
 
 HRESULT STDMETHODCALLTYPE CDesktopBrowser::TranslateAcceleratorSB(LPMSG lpmsg, WORD wID)
 {
-    if (!::TranslateAcceleratorW(m_hWnd, m_hAccel, lpmsg))
+    if (!::TranslateAcceleratorW(hWnd, m_hAccel, lpmsg))
         return S_FALSE;
     return S_OK;
 }
@@ -292,27 +294,62 @@ HRESULT STDMETHODCALLTYPE CDesktopBrowser::GetViewStateStream(DWORD grfMode, ISt
     return E_NOTIMPL;
 }
 
+HWND CDesktopBrowser::DesktopGetWindowControl(IN UINT id)
+{
+    switch (id)
+    {
+        case FCW_TOOLBAR:
+        case FCW_STATUS:
+        case FCW_TREE:
+        case FCW_PROGRESS:
+            return NULL;
+
+        default:
+            return NULL;
+    }
+
+}
+
 HRESULT STDMETHODCALLTYPE CDesktopBrowser::GetControlWindow(UINT id, HWND *lphwnd)
 {
-    if (lphwnd == NULL)
-        return E_POINTER;
+    HWND hWnd;
+
+    hWnd = DesktopGetWindowControl(id);
+    if (hWnd != NULL)
+    {
+        *lphwnd = hWnd;
+        return S_OK;
+    }
+
+    *lphwnd = NULL;
     return E_NOTIMPL;
 }
 
 HRESULT STDMETHODCALLTYPE CDesktopBrowser::SendControlMsg(UINT id, UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT *pret)
 {
+    HWND hWnd;
+
     if (pret == NULL)
         return E_POINTER;
+
+    hWnd = DesktopGetWindowControl(id);
+    if (hWnd != NULL)
+    {
+        *pret = SendMessageW(hWnd,
+                             uMsg,
+                             wParam,
+                             lParam);
+        return S_OK;
+    }
+
     return E_NOTIMPL;
 }
 
 HRESULT STDMETHODCALLTYPE CDesktopBrowser::QueryActiveShellView(IShellView **ppshv)
 {
-    if (ppshv == NULL)
-        return E_POINTER;
-    *ppshv = m_ShellView;
-    if (m_ShellView != NULL)
-        m_ShellView->AddRef();
+    *ppshv = DesktopView;
+    if (DesktopView != NULL)
+        DesktopView->AddRef();
 
     return S_OK;
 }
@@ -327,10 +364,45 @@ HRESULT STDMETHODCALLTYPE CDesktopBrowser::SetToolbarItems(LPTBBUTTON lpButtons,
     return E_NOTIMPL;
 }
 
+HRESULT STDMETHODCALLTYPE CDesktopBrowser::OnDefaultCommand(IShellView *ppshv)
+{
+    return E_NOTIMPL;
+}
+
+HRESULT STDMETHODCALLTYPE CDesktopBrowser::OnStateChange(IShellView *ppshv, ULONG uChange)
+{
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE CDesktopBrowser::IncludeObject(IShellView *ppshv, LPCITEMIDLIST pidl)
+{
+    return S_OK;
+}
+
 HRESULT STDMETHODCALLTYPE CDesktopBrowser::QueryService(REFGUID guidService, REFIID riid, PVOID *ppv)
 {
     /* FIXME - handle guidService */
     return QueryInterface(riid, ppv);
+}
+
+BOOL CDesktopBrowser::MessageLoop()
+{
+    MSG Msg;
+    BOOL bRet;
+
+    while ((bRet = GetMessageW(&Msg, NULL, 0, 0)) != 0)
+    {
+        if (bRet != -1)
+        {
+            if (DesktopView->TranslateAcceleratorW(&Msg) != S_OK)
+            {
+                TranslateMessage(&Msg);
+                DispatchMessage(&Msg);
+            }
+        }
+    }
+
+    return TRUE;
 }
 
 LRESULT CDesktopBrowser::_NotifyTray(UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -338,14 +410,15 @@ LRESULT CDesktopBrowser::_NotifyTray(UINT uMsg, WPARAM wParam, LPARAM lParam)
     HWND hWndTray;
     HRESULT hRet;
 
-    hRet = m_Tray->GetTrayWindow(&hWndTray);
+    hRet = ShellDesk->GetTrayWindow(&hWndTray);
+
     if (SUCCEEDED(hRet))
-        ::PostMessageW(hWndTray, uMsg, wParam, lParam);
+        PostMessageW(hWndTray, uMsg, wParam, lParam);
 
     return 0;
 }
 
-LRESULT CDesktopBrowser::OnCommand(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled)
+LRESULT CDesktopBrowser::OnCommand(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (LOWORD(wParam))
     {
@@ -366,80 +439,217 @@ LRESULT CDesktopBrowser::OnCommand(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL
     return 0;
 }
 
-
-LRESULT CDesktopBrowser::OnEraseBkgnd(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled)
+LRESULT CALLBACK CDesktopBrowser::ProgmanWindowProc(IN HWND hwnd, IN UINT uMsg, IN WPARAM wParam, IN LPARAM lParam)
 {
-    return (LRESULT)PaintDesktop((HDC)wParam);
-}
+    CDesktopBrowser *pThis = NULL;
+    LRESULT Ret = FALSE;
 
-LRESULT CDesktopBrowser::OnSize(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled)
-{
-    if (wParam == SIZE_MINIMIZED)
+    if (uMsg != WM_NCCREATE)
     {
-        /* Hey, we're the desktop!!! */
-        ::ShowWindow(m_hWnd, SW_RESTORE);
+        pThis = reinterpret_cast<CDesktopBrowser *>(GetWindowLongPtrW(hwnd, 0));
+        if (pThis == NULL)
+            goto DefMsgHandler;
     }
 
-    return 0;
-}
-
-LRESULT CDesktopBrowser::OnSettingChange(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled)
-{
-    if (m_hWndShellView)
+    if (pThis != NULL || uMsg == WM_NCCREATE)
     {
-        /* Forward the message */
-        SendMessageW(m_hWndShellView, uMsg, wParam, lParam);
+        switch (uMsg)
+        {
+            case WM_ERASEBKGND:
+                return (LRESULT)PaintDesktop((HDC)wParam);
+
+            case WM_GETISHELLBROWSER:
+                Ret = (LRESULT)((IShellBrowser *)pThis);
+                break;
+
+            case WM_SIZE:
+            {
+                if (wParam == SIZE_MINIMIZED)
+                {
+                    /* Hey, we're the desktop!!! */
+                    ShowWindow(hwnd, SW_RESTORE);
+                }
+                else
+                {
+                    RECT rcDesktop;
+
+                    rcDesktop.left   = GetSystemMetrics(SM_XVIRTUALSCREEN);
+                    rcDesktop.top    = GetSystemMetrics(SM_YVIRTUALSCREEN);
+                    rcDesktop.right  = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+                    rcDesktop.bottom = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+
+                    /* FIXME: Update work area */
+                    DBG_UNREFERENCED_LOCAL_VARIABLE(rcDesktop);
+                }
+                break;
+            }
+
+            case WM_SYSCOLORCHANGE:
+            case WM_SETTINGCHANGE:
+            {
+                if (pThis->hWndShellView != NULL)
+                {
+                    /* Forward the message */
+                    SendMessageW(pThis->hWndShellView,
+                                 uMsg,
+                                 wParam,
+                                 lParam);
+                }
+
+                if (uMsg == WM_SETTINGCHANGE && wParam == SPI_SETWORKAREA &&
+                    pThis->hWndShellView != NULL)
+                {
+                    RECT rcWorkArea;
+
+                    // FIXME: Add support for multi-monitor!
+                    // FIXME: Maybe merge with the code that retrieves the
+                    //        work area in CDesktopBrowser::CreateDeskWnd ?
+                    SystemParametersInfoW(SPI_GETWORKAREA,
+                                          0, &rcWorkArea, 0);
+
+                    SetWindowPos(pThis->hWndShellView, NULL,
+                                 rcWorkArea.left, rcWorkArea.top,
+                                 rcWorkArea.right - rcWorkArea.left,
+                                 rcWorkArea.bottom - rcWorkArea.top,
+                                 SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOOWNERZORDER);
+                }
+                break;
+            }
+
+            case WM_CREATE:
+            {
+                pThis->ShellDesk->RegisterDesktopWindow(pThis->hWnd);
+
+                if (!pThis->CreateDeskWnd())
+                    WARN("Could not create the desktop view control!\n");
+
+                pThis->m_hAccel = LoadAcceleratorsW(shell32_hInstance, MAKEINTRESOURCEW(IDA_DESKBROWSER));
+
+                break;
+            }
+
+            case WM_NCCREATE:
+            {
+                LPCREATESTRUCT CreateStruct = (LPCREATESTRUCT)lParam;
+
+                // FIXME: This is a "hack" to enforce the window title
+                // to be set to what it should be *on Windows* only.
+                // I don't understand why it is reset to NULL whereas
+                // the creation of the progman window proper is done in
+                // the standard way... (05/06/2016, hbelusca).
+                //
+                ::SetWindowTextW(hwnd, CreateStruct->lpszName);
+
+                pThis = SHDESK_Create(hwnd, CreateStruct);
+                if (pThis == NULL)
+                {
+                    WARN("Failed to create desktop structure\n");
+                    break;
+                }
+
+                SetWindowLongPtrW(hwnd, 0, (LONG_PTR)pThis);
+                Ret = TRUE;
+                break;
+            }
+
+            case WM_NCDESTROY:
+            {
+                pThis->Release();
+                break;
+            }
+
+            case WM_CLOSE:
+                return pThis->_NotifyTray(TWM_DOEXITWINDOWS, 0, 0);
+
+            case WM_EXPLORER_OPEN_NEW_WINDOW:
+                TRACE("Proxy Desktop message 1035 received.\n");
+                SHOnCWMCommandLine((HANDLE)lParam);
+                break;
+
+            case WM_COMMAND:
+                return pThis->OnCommand(uMsg, wParam, lParam);
+
+            case WM_SETFOCUS:
+                SetFocus(pThis->hWndShellView);
+                break;
+
+            default:
+DefMsgHandler:
+                Ret = DefWindowProcW(hwnd, uMsg, wParam, lParam);
+                break;
+        }
     }
 
-    if (uMsg == WM_SETTINGCHANGE && wParam == SPI_SETWORKAREA && m_hWndShellView != NULL)
-    {
-        _Resize();
-    }
-
-    return 0;
+    return Ret;
 }
 
-LRESULT CDesktopBrowser::OnClose(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled)
+static BOOL
+RegisterProgmanWindowClass(VOID)
 {
-    return _NotifyTray(TWM_DOEXITWINDOWS, 0, 0);
+    WNDCLASSW wcProgman;
+
+    wcProgman.style = CS_DBLCLKS;
+    wcProgman.lpfnWndProc = CDesktopBrowser::ProgmanWindowProc;
+    wcProgman.cbClsExtra = 0;
+    wcProgman.cbWndExtra = sizeof(CDesktopBrowser *);
+    wcProgman.hInstance = shell32_hInstance;
+    wcProgman.hIcon = NULL;
+    wcProgman.hCursor = LoadCursorW(NULL, IDC_ARROW);
+    wcProgman.hbrBackground = (HBRUSH)(COLOR_DESKTOP + 1);
+    wcProgman.lpszMenuName = NULL;
+    wcProgman.lpszClassName = szProgmanClassName;
+
+    return RegisterClassW(&wcProgman) != 0;
 }
 
-LRESULT CDesktopBrowser::OnOpenNewWindow(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled)
-{
-    TRACE("Proxy Desktop message 1035 received.\n");
-    SHOnCWMCommandLine((HANDLE)lParam);
-    return 0;
-}
-
-LRESULT CDesktopBrowser::OnSetFocus(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled)
-{
-    ::SetFocus(m_hWndShellView);
-    return 0;
-}
-
-HRESULT CDesktopBrowser_CreateInstance(IShellDesktopTray *Tray, REFIID riid, void **ppv)
-{
-    return ShellObjectCreatorInit<CDesktopBrowser, IShellDesktopTray*>(Tray, riid, ppv);
-}
 
 /*************************************************************************
  * SHCreateDesktop            [SHELL32.200]
  *
  */
-HANDLE WINAPI SHCreateDesktop(IShellDesktopTray *Tray)
+HANDLE WINAPI SHCreateDesktop(IShellDesktopTray *ShellDesk)
 {
-    if (Tray == NULL)
+    HWND hWndDesk;
+    int x, y, cx, cy;
+
+    if (ShellDesk == NULL)
     {
         SetLastError(ERROR_INVALID_PARAMETER);
         return NULL;
     }
 
-    CComPtr<IShellBrowser> Browser;
-    HRESULT hr = CDesktopBrowser_CreateInstance(Tray, IID_PPV_ARG(IShellBrowser, &Browser));
-    if (FAILED_UNEXPECTEDLY(hr))
+    if (RegisterProgmanWindowClass() == 0)
+    {
+        WARN("Failed to register the Progman window class!\n");
         return NULL;
+    }
 
-    return static_cast<HANDLE>(Browser.Detach());
+    x  = GetSystemMetrics(SM_XVIRTUALSCREEN);
+    y  = GetSystemMetrics(SM_YVIRTUALSCREEN);
+    cx = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+    cy = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+
+    if (!cx || !cy)
+    {
+        x = y = 0;
+        cx = GetSystemMetrics(SM_CXSCREEN);
+        cy = GetSystemMetrics(SM_CYSCREEN);
+    }
+
+    hWndDesk = ::CreateWindowExW(WS_EX_TOOLWINDOW, szProgmanClassName, szProgmanWindowName,
+        WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+        x, y, cx, cy,
+        NULL, NULL, shell32_hInstance, (LPVOID)ShellDesk);
+
+    if (hWndDesk != NULL)
+    {
+        ::ShowWindow(hWndDesk, SW_SHOW);
+        ::UpdateWindow(hWndDesk);
+
+        return (HANDLE)GetWindowLongPtrW(hWndDesk, 0);
+    }
+
+    return NULL;
 }
 
 /*************************************************************************
@@ -448,34 +658,13 @@ HANDLE WINAPI SHCreateDesktop(IShellDesktopTray *Tray)
  */
 BOOL WINAPI SHDesktopMessageLoop(HANDLE hDesktop)
 {
-    if (hDesktop == NULL)
+    CDesktopBrowser *Desk = static_cast<CDesktopBrowser *>(hDesktop);
+
+    if (Desk == NULL || Desk->Tag != SHDESK_TAG)
     {
         SetLastError(ERROR_INVALID_PARAMETER);
         return FALSE;
     }
 
-    MSG Msg;
-    BOOL bRet;
-
-    CComPtr<IShellBrowser> browser;
-    CComPtr<IShellView> shellView;
-
-    browser.Attach(static_cast<IShellBrowser*>(hDesktop));
-    HRESULT hr = browser->QueryActiveShellView(&shellView);
-    if (FAILED_UNEXPECTEDLY(hr))
-        return FALSE;
-
-    while ((bRet = GetMessageW(&Msg, NULL, 0, 0)) != 0)
-    {
-        if (bRet != -1)
-        {
-            if (shellView->TranslateAcceleratorW(&Msg) != S_OK)
-            {
-                TranslateMessage(&Msg);
-                DispatchMessage(&Msg);
-            }
-        }
-    }
-
-    return TRUE;
+    return Desk->MessageLoop();
 }

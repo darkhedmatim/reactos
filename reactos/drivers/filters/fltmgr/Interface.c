@@ -1,7 +1,7 @@
 /*
 * PROJECT:         Filesystem Filter Manager
 * LICENSE:         GPL - See COPYING in the top level directory
-* FILE:            drivers/filters/fltmgr/interface.c
+* FILE:            drivers/fs_minifilter/fltmgr/interface.c
 * PURPOSE:         Implements the driver interface
 * PROGRAMMERS:     Ged Murphy (gedmurphy@reactos.org)
 */
@@ -9,7 +9,6 @@
 /* INCLUDES ******************************************************************/
 
 #include "fltmgr.h"
-#include "fltmgrint.h"
 
 //#define NDEBUG
 #include <debug.h>
@@ -96,13 +95,6 @@ FltpCreate(
 NTSTATUS
 NTAPI
 FltpFsControl(
-    _In_ PDEVICE_OBJECT DeviceObject,
-    _Inout_ PIRP Irp
-);
-
-NTSTATUS
-NTAPI
-FltpDeviceControl(
     _In_ PDEVICE_OBJECT DeviceObject,
     _Inout_ PIRP Irp
 );
@@ -352,7 +344,6 @@ FltpFastIoQueryOpen(
 #pragma alloc_text(PAGE, FltpFsNotification)
 #pragma alloc_text(PAGE, FltpCreate)
 #pragma alloc_text(PAGE, FltpFsControl)
-#pragma alloc_text(PAGE, FltpDeviceControl)
 #pragma alloc_text(PAGE, FltpFastIoRead)
 #pragma alloc_text(PAGE, FltpFastIoWrite)
 #pragma alloc_text(PAGE, FltpFastIoQueryBasicInfo)
@@ -375,10 +366,25 @@ FltpFastIoQueryOpen(
 #pragma alloc_text(PAGE, FltpFastIoQueryOpen)
 #endif
 
-
+#define MAX_DEVNAME_LENGTH  64
 
 DRIVER_DATA DriverData;
 
+
+typedef struct _FLTMGR_DEVICE_EXTENSION
+{
+    /* The file system we're attached to */
+    PDEVICE_OBJECT AttachedToDeviceObject;
+
+    /* The storage stack(disk) accociated with the file system device object we're attached to */
+    PDEVICE_OBJECT StorageStackDeviceObject;
+
+    /* Either physical drive for volume device objects otherwise
+     * it's the name of the control device we're attached to */
+    UNICODE_STRING DeviceName;
+    WCHAR DeviceNameBuffer[MAX_DEVNAME_LENGTH];
+
+} FLTMGR_DEVICE_EXTENSION, *PFLTMGR_DEVICE_EXTENSION;
 
 typedef struct _DETACH_DEVICE_WORK_ITEM
 {
@@ -421,37 +427,17 @@ FltpDispatch(_In_ PDEVICE_OBJECT DeviceObject,
 {
     PFLTMGR_DEVICE_EXTENSION DeviceExtension;
     PIO_STACK_LOCATION StackPtr;
-    NTSTATUS Status;
 
     DeviceExtension = DeviceObject->DeviceExtension;
-
-    /* Check if this is a request for us */
-    if (DeviceObject == DriverData.DeviceObject)
-    {
-        FLT_ASSERT(DeviceObject->DriverObject == DriverData.DriverObject);
-        FLT_ASSERT(DeviceExtension == NULL);
-
-        /* Hand it off to our internal handler */
-        Status = FltpDispatchHandler(DeviceObject, Irp);
-        if (Status != STATUS_REPARSE)
-        {
-            Irp->IoStatus.Status = Status;
-            Irp->IoStatus.Information = 0;
-            IoCompleteRequest(Irp, 0);
-        }
-        return Status;
-    }
-
+    __debugbreak();
     FLT_ASSERT(DeviceExtension &&
                DeviceExtension->AttachedToDeviceObject);
 
     StackPtr = IoGetCurrentIrpStackLocation(Irp);
     if (StackPtr->MajorFunction == IRP_MJ_SHUTDOWN)
     {
-        // handle shutdown request
+        //FltpProcessShutdownRequest(DeviceObject);
     }
-
-    DPRINT1("Received %X from %wZ\n", StackPtr->MajorFunction, &DeviceExtension->DeviceName);
 
     /* Just pass the IRP down the stack */
     IoSkipCurrentIrpStackLocation(Irp);
@@ -468,24 +454,9 @@ FltpCreate(_In_ PDEVICE_OBJECT DeviceObject,
     PAGED_CODE();
 
     DeviceExtension = DeviceObject->DeviceExtension;
-
-    /* Check if this is a request for us */
-    if (DeviceObject == DriverData.DeviceObject)
-    {
-        FLT_ASSERT(DeviceObject->DriverObject == DriverData.DriverObject);
-        FLT_ASSERT(DeviceExtension == NULL);
-
-        /* Someone wants a handle to the fltmgr, allow it */
-        Irp->IoStatus.Status = STATUS_SUCCESS;
-        Irp->IoStatus.Information = 0;
-        IofCompleteRequest(Irp, 0);
-        return STATUS_SUCCESS;
-    }
-
+    __debugbreak();
     FLT_ASSERT(DeviceExtension &&
                DeviceExtension->AttachedToDeviceObject);
-
-    DPRINT1("Received create from %wZ (%lu)\n", &DeviceExtension->DeviceName, PsGetCurrentProcessId());
 
     /* Just pass the IRP down the stack */
     IoSkipCurrentIrpStackLocation(Irp);
@@ -501,53 +472,10 @@ FltpFsControl(_In_ PDEVICE_OBJECT DeviceObject,
 
     PAGED_CODE();
 
-    /* Check if this is a request for us */
-    if (DeviceObject == DriverData.DeviceObject)
-    {
-        /* We don't handle this request */
-        Irp->IoStatus.Information = 0;
-        Irp->IoStatus.Status = STATUS_INVALID_DEVICE_REQUEST;
-        IofCompleteRequest(Irp, 0);
-        return STATUS_INVALID_DEVICE_REQUEST;
-    }
-
     DeviceExtension = DeviceObject->DeviceExtension;
-
+    __debugbreak();
     FLT_ASSERT(DeviceExtension &&
                DeviceExtension->AttachedToDeviceObject);
-
-    /* Just pass the IRP down the stack */
-    IoSkipCurrentIrpStackLocation(Irp);
-    return IoCallDriver(DeviceExtension->AttachedToDeviceObject, Irp);
-}
-
-NTSTATUS
-NTAPI
-FltpDeviceControl(_In_ PDEVICE_OBJECT DeviceObject,
-                  _Inout_ PIRP Irp)
-{
-    PFLTMGR_DEVICE_EXTENSION DeviceExtension;
-    NTSTATUS Status;
-
-    /* Check if the request was meant for us */
-    if (DeviceObject == DriverData.DeviceObject)
-    {
-        Status = FltpDeviceControlHandler(DeviceObject, Irp);
-        if (Status != STATUS_REPARSE)
-        {
-            Irp->IoStatus.Status = Status;
-            Irp->IoStatus.Information = 0;
-            IoCompleteRequest(Irp, 0);
-        }
-
-        return Status;
-    }
-
-    DeviceExtension = DeviceObject->DeviceExtension;
-
-    FLT_ASSERT(DeviceExtension &&
-               DeviceExtension->AttachedToDeviceObject);
-
     /* Just pass the IRP down the stack */
     IoSkipCurrentIrpStackLocation(Irp);
     return IoCallDriver(DeviceExtension->AttachedToDeviceObject, Irp);
@@ -1962,6 +1890,7 @@ FltpDetachFromFileSystemDevice(_In_ PDEVICE_OBJECT DeviceObject)
     LONG_PTR Count;
 
     PAGED_CODE();
+    __debugbreak();
 
     /* Get the top device in the chain and increment the ref count on it */
     AttachedDevice = IoGetAttachedDeviceReference(DeviceObject);
@@ -2170,7 +2099,6 @@ SetupDispatchAndCallbacksTables(_In_ PDRIVER_OBJECT DriverObject)
     DriverObject->MajorFunction[IRP_MJ_CREATE_NAMED_PIPE] = FltpCreate;
     DriverObject->MajorFunction[IRP_MJ_CREATE_MAILSLOT] = FltpCreate;
     DriverObject->MajorFunction[IRP_MJ_FILE_SYSTEM_CONTROL] = FltpFsControl;
-    DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = FltpDeviceControl;
 
     /* The FastIo diapatch table is stored in the pool along with a tag */
     FastIoDispatch = ExAllocatePoolWithTag(NonPagedPool, sizeof(FAST_IO_DISPATCH), FM_TAG_DISPATCH_TABLE);

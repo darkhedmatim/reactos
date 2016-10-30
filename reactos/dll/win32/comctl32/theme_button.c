@@ -265,7 +265,8 @@ static void GB_draw(HTHEME theme, HWND hwnd, HDC hDC, ButtonState drawState, UIN
 
     if (text)
     {
-        InflateRect(&textRect, -2, 0);
+        textRect.left += 2;
+        textRect.right -= 2;
         DrawThemeText(theme, hDC, BP_GROUPBOX, state, text, lstrlenW(text), 0, 0, &textRect);
         HeapFree(GetProcessHeap(), 0, text);
     }

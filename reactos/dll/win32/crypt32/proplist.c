@@ -142,10 +142,11 @@ BOOL ContextPropertyList_SetProperty(CONTEXT_PROPERTY_LIST *list, DWORD id,
 
 void ContextPropertyList_RemoveProperty(CONTEXT_PROPERTY_LIST *list, DWORD id)
 {
-    CONTEXT_PROPERTY *prop;
+    CONTEXT_PROPERTY *prop, *next;
 
     EnterCriticalSection(&list->cs);
-    LIST_FOR_EACH_ENTRY(prop, &list->properties, CONTEXT_PROPERTY, entry)
+    LIST_FOR_EACH_ENTRY_SAFE(prop, next, &list->properties, CONTEXT_PROPERTY,
+     entry)
     {
         if (prop->propID == id)
         {

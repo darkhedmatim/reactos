@@ -12,6 +12,21 @@
 #include <powrprof.h>
 
 /*
+ * This takes strings from a resource stringtable
+ * and outputs it to the console.
+ */
+VOID PrintResourceString(INT resID, ...)
+{
+    WCHAR tmpBuffer[MAX_BUFFER_SIZE];
+    va_list arg_ptr;
+
+    va_start(arg_ptr, resID);
+    LoadStringW(GetModuleHandle(NULL), resID, tmpBuffer, MAX_BUFFER_SIZE);
+    vfwprintf(stdout, tmpBuffer, arg_ptr);
+    va_end(arg_ptr);
+}
+
+/*
  * Takes the commandline arguments, and creates a
  * struct which matches the arguments supplied.
  */
@@ -48,7 +63,7 @@ ParseArguments(struct CommandLineOptions* pOpts, int argc, WCHAR *argv[])
             switch (towlower(argv[index][1]))
             {
                 case L'?': /* Help */
-                    ConResPuts(StdOut, IDS_USAGE);
+                    PrintResourceString(IDS_USAGE);
                     return ERROR_SUCCESS;
 
                 case L'a': /* Cancel delayed shutdown */
@@ -66,7 +81,7 @@ ParseArguments(struct CommandLineOptions* pOpts, int argc, WCHAR *argv[])
                     }
                     else
                     {
-                        ConResPuts(StdErr, IDS_ERROR_MAX_COMMENT_LENGTH);
+                        PrintResourceString(IDS_ERROR_MAX_COMMENT_LENGTH);
                         return ERROR_BAD_LENGTH;
                     }
                     break;
@@ -125,7 +140,7 @@ ParseArguments(struct CommandLineOptions* pOpts, int argc, WCHAR *argv[])
 
                 default:
                     /* Unknown arguments will exit the program. */
-                    ConResPuts(StdOut, IDS_USAGE);
+                    PrintResourceString(IDS_USAGE);
                     return ERROR_SUCCESS;
             }
         }
@@ -187,12 +202,9 @@ int wmain(int argc, WCHAR *argv[])
     DWORD error = ERROR_SUCCESS;
     struct CommandLineOptions opts;
 
-    /* Initialize the Console Standard Streams */
-    ConInitStdStreams();
-
     if (argc == 1) /* i.e. no commandline arguments given */
     {
-        ConResPuts(StdOut, IDS_USAGE);
+        PrintResourceString(IDS_USAGE);
         return EXIT_SUCCESS;
     }
 
@@ -216,7 +228,7 @@ int wmain(int argc, WCHAR *argv[])
         /* Abort the delayed system shutdown specified. */
         if (!AbortSystemShutdownW(opts.remote_system))
         {
-            ConResPuts(StdErr, IDS_ERROR_ABORT);
+            PrintResourceString(IDS_ERROR_ABORT);
             DisplayError(GetLastError());
             return EXIT_FAILURE;
         }
@@ -245,13 +257,13 @@ int wmain(int argc, WCHAR *argv[])
         
             if (!SetSuspendState(TRUE, FALSE, FALSE))
             {
-                ConResPuts(StdErr, IDS_ERROR_HIBERNATE);
+                PrintResourceString(IDS_ERROR_HIBERNATE);
                 DisplayError(GetLastError());
                 return EXIT_FAILURE;
             }
             else
             {
-                ConResPuts(StdOut, IDS_ERROR_HIBERNATE_ENABLED);
+                PrintResourceString(IDS_ERROR_HIBERNATE_ENABLED);
                 return EXIT_SUCCESS;
             }
         }
@@ -264,14 +276,14 @@ int wmain(int argc, WCHAR *argv[])
     /* Both shutdown and restart flags cannot both be true */
     if (opts.shutdown && opts.restart)
     {
-        ConResPuts(StdErr, IDS_ERROR_SHUTDOWN_REBOOT);
+        PrintResourceString(IDS_ERROR_SHUTDOWN_REBOOT);
         return EXIT_FAILURE;
     }
 
     /* Ensure that the timout amount is not too high or a negative number */
     if (opts.shutdown_delay > MAX_SHUTDOWN_TIMEOUT)
     {
-        ConResPrintf(StdErr, IDS_ERROR_TIMEOUT, opts.shutdown_delay);
+        PrintResourceString(IDS_ERROR_TIMEOUT, opts.shutdown_delay);
         return EXIT_FAILURE;
     }
 
@@ -302,7 +314,7 @@ int wmain(int argc, WCHAR *argv[])
             }
             else
             {
-                ConResPuts(StdErr, IDS_ERROR_LOGOFF);
+                PrintResourceString(IDS_ERROR_LOGOFF);
                 DisplayError(GetLastError());
                 return EXIT_FAILURE;
             }
@@ -343,9 +355,9 @@ int wmain(int argc, WCHAR *argv[])
              * on whether the user wanted to shutdown or restart.
              */
             if (opts.restart)
-                ConResPuts(StdErr, IDS_ERROR_RESTART);
+                PrintResourceString(IDS_ERROR_RESTART);
             else
-                ConResPuts(StdErr, IDS_ERROR_SHUTDOWN);
+                PrintResourceString(IDS_ERROR_SHUTDOWN);
             
             DisplayError(GetLastError());
             return EXIT_FAILURE;

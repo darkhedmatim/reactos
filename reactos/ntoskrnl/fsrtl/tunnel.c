@@ -467,21 +467,21 @@ FsRtlAddToTunnelCache(IN PTUNNEL Cache,
          else
          {
               /* update parent node */
-              if (RtlIsLeftChild(CurEntry))
+              if (LastEntry->LeftChild == CurEntry)
               {
-                  RtlInsertAsLeftChild(RtlParent(CurEntry), NodeEntry);
+                  RtlInsertAsLeftChild(LastEntry, NodeEntry);
               }
               else
               {
-                  RtlInsertAsRightChild(RtlParent(CurEntry), NodeEntry);
+                  RtlInsertAsRightChild(LastEntry, NodeEntry);
               }
          }
          
          /* remove entry */
-         RemoveEntryList(&((PTUNNEL_NODE_ENTRY)CurEntry)->TimerQueueEntry);
+         RemoveEntryList(&((PTUNNEL_NODE_ENTRY)LastEntry)->TimerQueueEntry);
 
          /* free node entry */
-         FsRtlFreeTunnelNode((PTUNNEL_NODE_ENTRY)CurEntry, &PoolList);
+         FsRtlFreeTunnelNode((PTUNNEL_NODE_ENTRY)LastEntry, &PoolList);
 
          /* decrement node count */
          Cache->NumEntries--;

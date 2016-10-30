@@ -1542,7 +1542,7 @@ ExitProcess(IN UINT uExitCode)
         RtlAcquirePebLock();
 
         /* Kill all the threads */
-        NtTerminateProcess(NULL, uExitCode);
+        NtTerminateProcess(NULL, 0);
 
         /* Unload all DLLs */
         LdrShutdownProcess();
@@ -4812,7 +4812,6 @@ CreateProcessA(LPCSTR lpApplicationName,
  */
 UINT
 WINAPI
-DECLSPEC_HOTPATCH
 WinExec(LPCSTR lpCmdLine,
         UINT uCmdShow)
 {

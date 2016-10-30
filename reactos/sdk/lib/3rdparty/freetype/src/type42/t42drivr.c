@@ -81,8 +81,7 @@
 
 
       if ( glyph_name[0] == gname[0] && !ft_strcmp( glyph_name, gname ) )
-        return (FT_UInt)ft_strtol( (const char *)face->type1.charstrings[i],
-                                   NULL, 10 );
+        return (FT_UInt)ft_atol( (const char *)face->type1.charstrings[i] );
     }
 
     return 0;

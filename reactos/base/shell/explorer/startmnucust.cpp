@@ -21,7 +21,6 @@
 
 #include "precomp.h"
 
-// TODO: Windows Explorer appears to be calling NewLinkHere / ConfigStartMenu directly for both items.
 VOID OnAddStartMenuItems(HWND hDlg)
 {
     WCHAR szPath[MAX_PATH];
@@ -32,11 +31,6 @@ VOID OnAddStartMenuItems(HWND hDlg)
         if (SUCCEEDED(StringCchCatW(szCommand, _countof(szCommand), szPath)))
             ShellExecuteW(hDlg, L"open", L"rundll32.exe", szCommand, NULL, SW_SHOWNORMAL);
     }
-}
-
-VOID OnRemoveStartmenuItems(HWND hDlg)
-{
-    ShellExecuteW(hDlg, L"open", L"rundll32.exe", L"appwiz.cpl,ConfigStartMenu", NULL, SW_SHOWNORMAL);
 }
 
 VOID OnAdvancedStartMenuItems()
@@ -82,9 +76,6 @@ INT_PTR CALLBACK CustomizeClassicProc(HWND hwnd, UINT Message, WPARAM wParam, LP
             {
                 case IDC_CLASSICSTART_ADD:
                     OnAddStartMenuItems(hwnd);
-                break;
-                case IDC_CLASSICSTART_REMOVE:
-                    OnRemoveStartmenuItems(hwnd);
                 break;
                 case IDC_CLASSICSTART_ADVANCED:
                     OnAdvancedStartMenuItems();

@@ -321,7 +321,7 @@
 
     mmvar->num_axis        = mmaster.num_axis;
     mmvar->num_designs     = mmaster.num_designs;
-    mmvar->num_namedstyles = 0;                           /* Not supported */
+    mmvar->num_namedstyles = ~0U;                        /* Does not apply */
     mmvar->axis            = (FT_Var_Axis*)&mmvar[1];
                                       /* Point to axes after MM_Var struct */
     mmvar->namedstyle      = NULL;
@@ -1774,12 +1774,6 @@
 
         n++;
       }
-    }
-
-    if ( !n )
-    {
-      error = FT_THROW( Invalid_File_Format );
-      goto Fail;
     }
 
     loader->num_glyphs = n;

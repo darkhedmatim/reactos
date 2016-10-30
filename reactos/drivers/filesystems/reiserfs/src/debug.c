@@ -22,7 +22,7 @@
 
 extern PRFSD_GLOBAL RfsdGlobal;
 
-LONG   DebugLevel = DBG_USER;
+LONG   DebugLevel = DBG_FUNC;
 
 ULONG  ProcessNameOffset = 0;
 

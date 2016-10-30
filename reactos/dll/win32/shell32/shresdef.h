@@ -130,6 +130,7 @@
 #define IDS_SHELL_ABOUT_AUTHORS   144
 #define IDS_SHELL_ABOUT_BACK      145
 #define FCIDM_SHVIEW_NEW          146
+#define FCIDM_SHVIEW_VIEW         147
 #define IDS_CONTROLPANEL          148
 #define IDS_NEWFOLDER             149
 #define IDS_COLUMN_EXTENSION      151
@@ -572,19 +573,17 @@
  * AVI resources
  *
  * windows shell32 has 14 of them: 150-152 and 160-170
- * FIXME: Add 165, 166
+ * FIXME: Add 150, 152
  */
 
-#define IDA_SHELL_AUTOPLAY        150
 #define IDA_SHELL_SEARCHING_INDEX 151
-#define IDA_SHELL_COMPUTER_SEARCH 152
 #define IDA_SHELL_COPY            160
 #define IDA_SHELL_COPY1           161
+#define IDA_SHELL_COPY2           167
+#define IDA_SHELL_COPY3           168
 #define IDA_SHELL_RECYCLE         162
 #define IDA_SHELL_EMPTY_RECYCLE   163
 #define IDA_SHELL_DELETE          164
-#define IDA_SHELL_COPY2           167
-#define IDA_SHELL_COPY3           168
 #define IDA_SHELL_DELETE1         169
 #define IDA_SHELL_DOWNLOAD        170
 
@@ -596,7 +595,6 @@
 
 /* Shell view commands */
 #define FCIDM_SHVIEW_ARRANGE         0x7001
-#define FCIDM_SHVIEW_VIEW            0x7002
 #define FCIDM_SHVIEW_DELETE          0x7011
 #define FCIDM_SHVIEW_PROPERTIES      0x7013
 #define FCIDM_SHVIEW_CUT             0x7018

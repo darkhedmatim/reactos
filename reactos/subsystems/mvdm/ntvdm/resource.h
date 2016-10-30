@@ -22,4 +22,7 @@
 
 #define IDS_NO_MEDIA    300
 
+/* Icon */
+#define IDI_APPICON 1
+
 /* EOF */

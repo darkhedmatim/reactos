@@ -17,11 +17,6 @@
  */
 
 #include "precomp.h"
-
-#include <shlwapi.h>
-#include <shellapi.h>
-#include <strsafe.h>
-#include <apphelp.h>
 #include <windowsx.h>
 #include <sfc.h>
 
@@ -51,7 +46,8 @@ void ACDBG_FN(PCSTR FunctionName, PCWSTR Format, ...)
 
 
 CLayerUIPropPage::CLayerUIPropPage()
-: m_IsSfcProtected(FALSE)
+:m_Filename(NULL)
+, m_IsSfcProtected(FALSE)
 , m_AllowPermLayer(FALSE)
 , m_LayerQueryFlags(GPLK_USER)
 , m_RegistryOSMode(0)

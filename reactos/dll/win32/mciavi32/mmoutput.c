@@ -137,7 +137,11 @@ static BOOL MCIAVI_GetInfoVideo(WINE_MCIAVI* wma, const MMCKINFO* mmckList, MMCK
     TRACE("bih.biClrUsed=%d\n", 	wma->inbih->biClrUsed);
     TRACE("bih.biClrImportant=%d\n", 	wma->inbih->biClrImportant);
 
-    SetRect(&wma->source, 0, 0, wma->inbih->biWidth, wma->inbih->biHeight);
+    wma->source.left = 0;
+    wma->source.top = 0;
+    wma->source.right = wma->inbih->biWidth;
+    wma->source.bottom = wma->inbih->biHeight;
+
     wma->dest = wma->source;
 
     return TRUE;

@@ -312,7 +312,7 @@ void PrepareWindow(VOID)
    ResizeAndCenter(switchdialog, totalW, totalH);
 }
 
-BOOL ProcessHotKey(VOID)
+void ProcessHotKey(VOID)
 {
    if (!isOpen)
    {
@@ -320,7 +320,7 @@ BOOL ProcessHotKey(VOID)
       EnumWindowsZOrder(EnumerateCallback, 0);
 
       if (windowCount < 2)
-         return FALSE;
+         return;
 
       selectedWindow = 1;
 
@@ -335,7 +335,6 @@ BOOL ProcessHotKey(VOID)
       selectedWindow = (selectedWindow + 1)%windowCount;
       InvalidateRect(switchdialog, NULL, TRUE);
    }
-   return TRUE;
 }
 
 LRESULT WINAPI DoAppSwitch( WPARAM wParam, LPARAM lParam )
@@ -360,7 +359,7 @@ LRESULT WINAPI DoAppSwitch( WPARAM wParam, LPARAM lParam )
       case VK_TAB:
          if( !CreateSwitcherWindow(User32Instance) ) goto Exit;
          if( !GetDialogFont() ) goto Exit;
-         if( !ProcessHotKey() ) goto Exit;
+         ProcessHotKey();
          break;
 
       case VK_ESCAPE:

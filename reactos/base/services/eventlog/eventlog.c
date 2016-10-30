@@ -1,16 +1,16 @@
 /*
- * PROJECT:         ReactOS EventLog Service
- * LICENSE:         GPL - See COPYING in the top level directory
- * FILE:            base/services/eventlog/eventlog.c
- * PURPOSE:         Event logging service
- * COPYRIGHT:       Copyright 2002 Eric Kohl
- *                  Copyright 2005 Saveliy Tretiakov
- *                  Hermes Belusca-Maito
+ * PROJECT:          ReactOS kernel
+ * LICENSE:          GPL - See COPYING in the top level directory
+ * FILE:             base/services/eventlog/eventlog.c
+ * PURPOSE:          Event logging service
+ * COPYRIGHT:        Copyright 2002 Eric Kohl
+ *                   Copyright 2005 Saveliy Tretiakov
  */
 
 /* INCLUDES *****************************************************************/
 
 #include "eventlog.h"
+
 #include <stdio.h>
 #include <netevent.h>
 
@@ -19,7 +19,7 @@
 
 /* GLOBALS ******************************************************************/
 
-static VOID CALLBACK ServiceMain(DWORD, LPWSTR*);
+static VOID CALLBACK ServiceMain(DWORD, LPWSTR *);
 static WCHAR ServiceName[] = L"EventLog";
 static SERVICE_TABLE_ENTRYW ServiceTable[2] =
 {
@@ -30,9 +30,8 @@ static SERVICE_TABLE_ENTRYW ServiceTable[2] =
 SERVICE_STATUS ServiceStatus;
 SERVICE_STATUS_HANDLE ServiceStatusHandle;
 
-BOOL onLiveCD = FALSE;  // On LiveCD events will go to debug output only
-
-PEVENTSOURCE EventLogSource = NULL;
+BOOL onLiveCD = FALSE;  // On livecd events will go to debug output only
+HANDLE MyHeap = NULL;
 
 /* FUNCTIONS ****************************************************************/
 
@@ -74,6 +73,7 @@ ServiceControlHandler(DWORD dwControl,
             LogfReportEvent(EVENTLOG_INFORMATION_TYPE,
                             0,
                             EVENT_EventlogStopped, 0, NULL, 0, NULL);
+
 
             /* Stop listening to incoming RPC messages */
             RpcMgmtStopServerListening(NULL);
@@ -120,13 +120,15 @@ ServiceInit(VOID)
 
     hThread = CreateThread(NULL,
                            0,
-                           (LPTHREAD_START_ROUTINE)PortThreadRoutine,
+                           (LPTHREAD_START_ROUTINE)
+                            PortThreadRoutine,
                            NULL,
                            0,
                            NULL);
+
     if (!hThread)
     {
-        DPRINT("Cannot create PortThread\n");
+        DPRINT("Can't create PortThread\n");
         return GetLastError();
     }
     else
@@ -134,14 +136,15 @@ ServiceInit(VOID)
 
     hThread = CreateThread(NULL,
                            0,
-                           RpcThreadRoutine,
+                           (LPTHREAD_START_ROUTINE)
+                            RpcThreadRoutine,
                            NULL,
                            0,
                            NULL);
 
     if (!hThread)
     {
-        DPRINT("Cannot create RpcThread\n");
+        DPRINT("Can't create RpcThread\n");
         return GetLastError();
     }
     else
@@ -156,63 +159,51 @@ ReportProductInfoEvent(VOID)
 {
     OSVERSIONINFOW versionInfo;
     WCHAR szBuffer[512];
-    PWSTR str;
-    size_t cchRemain;
+    DWORD dwLength;
     HKEY hKey;
     DWORD dwValueLength;
     DWORD dwType;
     LONG lResult = ERROR_SUCCESS;
 
-    ZeroMemory(&versionInfo, sizeof(versionInfo));
-    versionInfo.dwOSVersionInfoSize = sizeof(versionInfo);
+    ZeroMemory(&versionInfo, sizeof(OSVERSIONINFO));
+    versionInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
 
     /* Get version information */
     if (!GetVersionExW(&versionInfo))
         return;
 
-    ZeroMemory(szBuffer, sizeof(szBuffer));
-    str = szBuffer;
-    cchRemain = ARRAYSIZE(szBuffer);
+    ZeroMemory(szBuffer, 512 * sizeof(WCHAR));
 
-    /* Write the version number into the buffer */
-    StringCchPrintfExW(str, cchRemain,
-                       &str, &cchRemain, 0,
-                       L"%lu.%lu",
-                       versionInfo.dwMajorVersion,
-                       versionInfo.dwMinorVersion);
-    str++;
-    cchRemain++;
+    /* Write version into the buffer */
+    dwLength = swprintf(szBuffer,
+                        L"%lu.%lu",
+                        versionInfo.dwMajorVersion,
+                        versionInfo.dwMinorVersion) + 1;
 
-    /* Write the build number into the buffer */
-    StringCchPrintfExW(str, cchRemain,
-                       &str, &cchRemain, 0,
-                       L"%lu",
-                       versionInfo.dwBuildNumber);
-    str++;
-    cchRemain++;
+    /* Write build number into the buffer */
+    dwLength += swprintf(&szBuffer[dwLength],
+                         L"%lu",
+                         versionInfo.dwBuildNumber) + 1;
 
-    /* Write the service pack info into the buffer */
-    StringCchCopyExW(str, cchRemain,
-                     versionInfo.szCSDVersion,
-                     &str, &cchRemain, 0);
-    str++;
-    cchRemain++;
+    /* Write service pack info into the buffer */
+    wcscpy(&szBuffer[dwLength], versionInfo.szCSDVersion);
+    dwLength += wcslen(versionInfo.szCSDVersion) + 1;
 
     /* Read 'CurrentType' from the registry and write it into the buffer */
-    lResult = RegOpenKeyExW(HKEY_LOCAL_MACHINE,
-                            L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
-                            0,
-                            KEY_QUERY_VALUE,
-                            &hKey);
+    lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                           L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+                           0,
+                           KEY_QUERY_VALUE,
+                           &hKey);
     if (lResult == ERROR_SUCCESS)
     {
-        dwValueLength = cchRemain;
-        lResult = RegQueryValueExW(hKey,
-                                   L"CurrentType",
-                                   NULL,
-                                   &dwType,
-                                   (LPBYTE)str,
-                                   &dwValueLength);
+        dwValueLength = 512 - dwLength;
+        lResult = RegQueryValueEx(hKey,
+                                  L"CurrentType",
+                                  NULL,
+                                  &dwType,
+                                  (LPBYTE)&szBuffer[dwLength],
+                                  &dwValueLength);
 
         RegCloseKey(hKey);
     }
@@ -230,7 +221,7 @@ ReportProductInfoEvent(VOID)
 
 static VOID CALLBACK
 ServiceMain(DWORD argc,
-            LPWSTR* argv)
+            LPWSTR *argv)
 {
     DWORD dwError;
 
@@ -277,142 +268,96 @@ ServiceMain(DWORD argc,
 }
 
 
-static PLOGFILE
-LoadLogFile(HKEY hKey, PWSTR LogName)
+PLOGFILE LoadLogFile(HKEY hKey, WCHAR * LogName)
 {
     DWORD MaxValueLen, ValueLen, Type, ExpandedLen;
-    PWSTR Buf = NULL, Expanded = NULL;
+    WCHAR *Buf = NULL, *Expanded = NULL;
     LONG Result;
     PLOGFILE pLogf = NULL;
     UNICODE_STRING FileName;
     ULONG ulMaxSize, ulRetention;
     NTSTATUS Status;
 
-    DPRINT("LoadLogFile: `%S'\n", LogName);
+    DPRINT("LoadLogFile: %S\n", LogName);
 
-    Result = RegQueryInfoKeyW(hKey, NULL, NULL, NULL, NULL, NULL, NULL,
-                              NULL, NULL, &MaxValueLen, NULL, NULL);
+    Result = RegQueryInfoKey(hKey, NULL, NULL, NULL, NULL, NULL, NULL,
+                             NULL, NULL, &MaxValueLen, NULL, NULL);
     if (Result != ERROR_SUCCESS)
     {
-        DPRINT1("RegQueryInfoKeyW failed: %lu\n", Result);
+        DPRINT1("RegQueryInfoKey failed: %lu\n", Result);
         return NULL;
     }
 
-    MaxValueLen = ROUND_DOWN(MaxValueLen, sizeof(WCHAR));
-    Buf = HeapAlloc(GetProcessHeap(), 0, MaxValueLen);
+    Buf = HeapAlloc(MyHeap, 0, MaxValueLen);
     if (!Buf)
     {
-        DPRINT1("Cannot allocate heap!\n");
+        DPRINT1("Can't allocate heap!\n");
         return NULL;
     }
 
     ValueLen = MaxValueLen;
-    Result = RegQueryValueExW(hKey,
-                              L"File",
-                              NULL,
-                              &Type,
-                              (LPBYTE)Buf,
-                              &ValueLen);
-    /*
-     * If we failed, because the registry value was inexistent
-     * or the value type was incorrect, create a new "File" value
-     * that holds the default event log path.
-     */
-    if ((Result != ERROR_SUCCESS) || (Type != REG_EXPAND_SZ && Type != REG_SZ))
+
+    Result = RegQueryValueEx(hKey,
+                             L"File",
+                             NULL,
+                             &Type,
+                             (LPBYTE) Buf,
+                             &ValueLen);
+    if (Result != ERROR_SUCCESS)
     {
-        MaxValueLen = (wcslen(L"%SystemRoot%\\System32\\Config\\") +
-                       wcslen(LogName) + wcslen(L".evt") + 1) * sizeof(WCHAR);
-
-        Expanded = HeapReAlloc(GetProcessHeap(), 0, Buf, MaxValueLen);
-        if (!Expanded)
-        {
-            DPRINT1("Cannot reallocate heap!\n");
-            HeapFree(GetProcessHeap(), 0, Buf);
-            return NULL;
-        }
-        Buf = Expanded;
-
-        StringCbCopyW(Buf, MaxValueLen, L"%SystemRoot%\\System32\\Config\\");
-        StringCbCatW(Buf, MaxValueLen, LogName);
-        StringCbCatW(Buf, MaxValueLen, L".evt");
-
-        ValueLen = MaxValueLen;
-        Result = RegSetValueExW(hKey,
-                                L"File",
-                                0,
-                                REG_EXPAND_SZ,
-                                (LPBYTE)Buf,
-                                ValueLen);
-        if (Result != ERROR_SUCCESS)
-        {
-            DPRINT1("RegSetValueExW failed: %lu\n", Result);
-            HeapFree(GetProcessHeap(), 0, Buf);
-            return NULL;
-        }
-    }
-
-    ExpandedLen = ExpandEnvironmentStringsW(Buf, NULL, 0);
-    Expanded = HeapAlloc(GetProcessHeap(), 0, ExpandedLen * sizeof(WCHAR));
-    if (!Expanded)
-    {
-        DPRINT1("Cannot allocate heap!\n");
-        HeapFree(GetProcessHeap(), 0, Buf);
+        DPRINT1("RegQueryValueEx failed: %lu\n", Result);
+        HeapFree(MyHeap, 0, Buf);
         return NULL;
     }
 
-    ExpandEnvironmentStringsW(Buf, Expanded, ExpandedLen);
-
-    if (!RtlDosPathNameToNtPathName_U(Expanded, &FileName, NULL, NULL))
+    if (Type != REG_EXPAND_SZ && Type != REG_SZ)
     {
-        DPRINT1("Cannot convert path!\n");
-        HeapFree(GetProcessHeap(), 0, Expanded);
-        HeapFree(GetProcessHeap(), 0, Buf);
+        DPRINT1("%S\\File - value of wrong type %x.\n", LogName, Type);
+        HeapFree(MyHeap, 0, Buf);
+        return NULL;
+    }
+
+    ExpandedLen = ExpandEnvironmentStrings(Buf, NULL, 0);
+    Expanded = HeapAlloc(MyHeap, 0, ExpandedLen * sizeof(WCHAR));
+    if (!Expanded)
+    {
+        DPRINT1("Can't allocate heap!\n");
+        HeapFree(MyHeap, 0, Buf);
+        return NULL;
+    }
+
+    ExpandEnvironmentStrings(Buf, Expanded, ExpandedLen);
+
+    if (!RtlDosPathNameToNtPathName_U(Expanded, &FileName,
+                                      NULL, NULL))
+    {
+        DPRINT1("Can't convert path!\n");
+        HeapFree(MyHeap, 0, Expanded);
+        HeapFree(MyHeap, 0, Buf);
         return NULL;
     }
 
     DPRINT("%S -> %S\n", Buf, Expanded);
 
-    ValueLen = sizeof(ulMaxSize);
-    Result = RegQueryValueExW(hKey,
-                              L"MaxSize",
-                              NULL,
-                              &Type,
-                              (LPBYTE)&ulMaxSize,
-                              &ValueLen);
-    if ((Result != ERROR_SUCCESS) || (Type != REG_DWORD))
-    {
+    ValueLen = sizeof(ULONG);
+    Result = RegQueryValueEx(hKey,
+                             L"MaxSize",
+                             NULL,
+                             &Type,
+                             (LPBYTE)&ulMaxSize,
+                             &ValueLen);
+    if (Result != ERROR_SUCCESS)
         ulMaxSize = 512 * 1024; /* 512 kBytes */
 
-        Result = RegSetValueExW(hKey,
-                                L"MaxSize",
-                                0,
-                                REG_DWORD,
-                                (LPBYTE)&ulMaxSize,
-                                sizeof(ulMaxSize));
-    }
-
-    ValueLen = sizeof(ulRetention);
-    Result = RegQueryValueExW(hKey,
-                              L"Retention",
-                              NULL,
-                              &Type,
-                              (LPBYTE)&ulRetention,
-                              &ValueLen);
-    if ((Result != ERROR_SUCCESS) || (Type != REG_DWORD))
-    {
-        /* On Windows 2003 it is 604800 (secs) == 7 days */
+    ValueLen = sizeof(ULONG);
+    Result = RegQueryValueEx(hKey,
+                             L"Retention",
+                             NULL,
+                             &Type,
+                             (LPBYTE)&ulRetention,
+                             &ValueLen);
+    if (Result != ERROR_SUCCESS)
         ulRetention = 0;
-
-        Result = RegSetValueExW(hKey,
-                                L"Retention",
-                                0,
-                                REG_DWORD,
-                                (LPBYTE)&ulRetention,
-                                sizeof(ulRetention));
-    }
-
-    // TODO: Add, or use, default values for "AutoBackupLogFiles" (REG_DWORD)
-    // and "CustomSD" (REG_SZ).
 
     Status = LogfCreate(&pLogf, LogName, &FileName, ulMaxSize, ulRetention, TRUE, FALSE);
     if (!NT_SUCCESS(Status))
@@ -420,54 +365,57 @@ LoadLogFile(HKEY hKey, PWSTR LogName)
         DPRINT1("Failed to create %S! (Status %08lx)\n", Expanded, Status);
     }
 
-    HeapFree(GetProcessHeap(), 0, Expanded);
-    HeapFree(GetProcessHeap(), 0, Buf);
+    HeapFree(MyHeap, 0, Buf);
+    HeapFree(MyHeap, 0, Expanded);
     return pLogf;
 }
 
-static BOOL
-LoadLogFiles(HKEY eventlogKey)
+BOOL LoadLogFiles(HKEY eventlogKey)
 {
     LONG Result;
     DWORD MaxLognameLen, LognameLen;
-    DWORD dwIndex;
-    PWSTR Buf = NULL;
+    WCHAR *Buf = NULL;
+    INT i;
     PLOGFILE pLogFile;
 
-    Result = RegQueryInfoKeyW(eventlogKey, NULL, NULL, NULL, NULL, &MaxLognameLen,
-                              NULL, NULL, NULL, NULL, NULL, NULL);
+    Result = RegQueryInfoKey(eventlogKey,
+                             NULL, NULL, NULL, NULL,
+                             &MaxLognameLen,
+                             NULL, NULL, NULL, NULL, NULL, NULL);
     if (Result != ERROR_SUCCESS)
     {
-        DPRINT1("RegQueryInfoKeyW failed: %lu\n", Result);
+        DPRINT1("RegQueryInfoKey failed: %lu\n", Result);
         return FALSE;
     }
 
     MaxLognameLen++;
 
-    Buf = HeapAlloc(GetProcessHeap(), 0, MaxLognameLen * sizeof(WCHAR));
+    Buf = HeapAlloc(MyHeap, 0, MaxLognameLen * sizeof(WCHAR));
+
     if (!Buf)
     {
-        DPRINT1("Error: cannot allocate heap!\n");
+        DPRINT1("Error: can't allocate heap!\n");
         return FALSE;
     }
 
+    i = 0;
     LognameLen = MaxLognameLen;
-    dwIndex = 0;
-    while (RegEnumKeyExW(eventlogKey,
-                         dwIndex,
-                         Buf,
-                         &LognameLen,
-                         NULL, NULL, NULL, NULL) == ERROR_SUCCESS)
+
+    while (RegEnumKeyEx(eventlogKey,
+                        i,
+                        Buf,
+                        &LognameLen,
+                        NULL, NULL, NULL, NULL) == ERROR_SUCCESS)
     {
         HKEY SubKey;
 
         DPRINT("%S\n", Buf);
 
-        Result = RegOpenKeyExW(eventlogKey, Buf, 0, KEY_ALL_ACCESS, &SubKey);
+        Result = RegOpenKeyEx(eventlogKey, Buf, 0, KEY_ALL_ACCESS, &SubKey);
         if (Result != ERROR_SUCCESS)
         {
             DPRINT1("Failed to open %S key.\n", Buf);
-            HeapFree(GetProcessHeap(), 0, Buf);
+            HeapFree(MyHeap, 0, Buf);
             return FALSE;
         }
 
@@ -483,43 +431,51 @@ LoadLogFiles(HKEY eventlogKey)
         }
 
         RegCloseKey(SubKey);
-
         LognameLen = MaxLognameLen;
-        dwIndex++;
+        i++;
     }
 
-    HeapFree(GetProcessHeap(), 0, Buf);
+    HeapFree(MyHeap, 0, Buf);
     return TRUE;
 }
 
-
-int wmain(int argc, WCHAR* argv[])
+INT wmain()
 {
+    WCHAR LogPath[MAX_PATH];
     INT RetCode = 0;
     LONG Result;
     HKEY elogKey;
-    WCHAR LogPath[MAX_PATH];
 
     LogfListInitialize();
     InitEventSourceList();
 
-    GetSystemWindowsDirectoryW(LogPath, ARRAYSIZE(LogPath));
+    MyHeap = HeapCreate(0, 1024 * 256, 0);
 
-    if (GetDriveTypeW(LogPath) == DRIVE_CDROM)
+    if (!MyHeap)
+    {
+        DPRINT1("FATAL ERROR, can't create heap.\n");
+        RetCode = 1;
+        goto bye_bye;
+    }
+
+    GetWindowsDirectory(LogPath, MAX_PATH);
+
+    if (GetDriveType(LogPath) == DRIVE_CDROM)
     {
         DPRINT("LiveCD detected\n");
         onLiveCD = TRUE;
     }
     else
     {
-        Result = RegOpenKeyExW(HKEY_LOCAL_MACHINE,
-                               L"SYSTEM\\CurrentControlSet\\Services\\EventLog",
-                               0,
-                               KEY_ALL_ACCESS,
-                               &elogKey);
+        Result = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                              L"SYSTEM\\CurrentControlSet\\Services\\EventLog",
+                              0,
+                              KEY_ALL_ACCESS,
+                              &elogKey);
+
         if (Result != ERROR_SUCCESS)
         {
-            DPRINT1("Fatal error: cannot open eventlog registry key.\n");
+            DPRINT1("Fatal error: can't open eventlog registry key.\n");
             RetCode = 1;
             goto bye_bye;
         }
@@ -527,42 +483,89 @@ int wmain(int argc, WCHAR* argv[])
         LoadLogFiles(elogKey);
     }
 
-    EventLogSource = GetEventSourceByName(L"EventLog");
-    if (!EventLogSource)
-    {
-        DPRINT1("The 'EventLog' source is unavailable. The EventLog service will not be able to log its own events.\n");
-    }
-
     StartServiceCtrlDispatcher(ServiceTable);
 
-bye_bye:
+  bye_bye:
     LogfCloseAll();
 
+    if (MyHeap)
+        HeapDestroy(MyHeap);
+
     return RetCode;
+}
+
+VOID EventTimeToSystemTime(DWORD EventTime, SYSTEMTIME * pSystemTime)
+{
+    SYSTEMTIME st1970 = { 1970, 1, 0, 1, 0, 0, 0, 0 };
+    FILETIME ftLocal;
+    union
+    {
+        FILETIME ft;
+        ULONGLONG ll;
+    } u1970, uUCT;
+
+    uUCT.ft.dwHighDateTime = 0;
+    uUCT.ft.dwLowDateTime = EventTime;
+    SystemTimeToFileTime(&st1970, &u1970.ft);
+    uUCT.ll = uUCT.ll * 10000000 + u1970.ll;
+    FileTimeToLocalFileTime(&uUCT.ft, &ftLocal);
+    FileTimeToSystemTime(&ftLocal, pSystemTime);
+}
+
+VOID SystemTimeToEventTime(SYSTEMTIME * pSystemTime, DWORD * pEventTime)
+{
+    SYSTEMTIME st1970 = { 1970, 1, 0, 1, 0, 0, 0, 0 };
+    union
+    {
+        FILETIME ft;
+        ULONGLONG ll;
+    } Time, u1970;
+
+    SystemTimeToFileTime(pSystemTime, &Time.ft);
+    SystemTimeToFileTime(&st1970, &u1970.ft);
+    *pEventTime = (DWORD)((Time.ll - u1970.ll) / 10000000ull);
+}
+
+VOID PRINT_HEADER(PEVENTLOGHEADER header)
+{
+    DPRINT("HeaderSize = %lu\n", header->HeaderSize);
+    DPRINT("Signature = 0x%x\n", header->Signature);
+    DPRINT("MajorVersion = %lu\n", header->MajorVersion);
+    DPRINT("MinorVersion = %lu\n", header->MinorVersion);
+    DPRINT("StartOffset = %lu\n", header->StartOffset);
+    DPRINT("EndOffset = 0x%x\n", header->EndOffset);
+    DPRINT("CurrentRecordNumber = %lu\n", header->CurrentRecordNumber);
+    DPRINT("OldestRecordNumber = %lu\n", header->OldestRecordNumber);
+    DPRINT("MaxSize = 0x%x\n", header->MaxSize);
+    DPRINT("Retention = 0x%x\n", header->Retention);
+    DPRINT("EndHeaderSize = %lu\n", header->EndHeaderSize);
+    DPRINT("Flags: ");
+    if (header->Flags & ELF_LOGFILE_HEADER_DIRTY)  DPRINT("ELF_LOGFILE_HEADER_DIRTY");
+    if (header->Flags & ELF_LOGFILE_HEADER_WRAP)  DPRINT("| ELF_LOGFILE_HEADER_WRAP ");
+    if (header->Flags & ELF_LOGFILE_LOGFULL_WRITTEN)  DPRINT("| ELF_LOGFILE_LOGFULL_WRITTEN ");
+    if (header->Flags & ELF_LOGFILE_ARCHIVE_SET)  DPRINT("| ELF_LOGFILE_ARCHIVE_SET ");
+    DPRINT("\n");
 }
 
 VOID PRINT_RECORD(PEVENTLOGRECORD pRec)
 {
     UINT i;
-    PWSTR str;
-    LARGE_INTEGER SystemTime;
-    TIME_FIELDS Time;
+    WCHAR *str;
+    SYSTEMTIME time;
 
     DPRINT("Length = %lu\n", pRec->Length);
     DPRINT("Reserved = 0x%x\n", pRec->Reserved);
     DPRINT("RecordNumber = %lu\n", pRec->RecordNumber);
 
-    RtlSecondsSince1970ToTime(pRec->TimeGenerated, &SystemTime);
-    RtlTimeToTimeFields(&SystemTime, &Time);
+    EventTimeToSystemTime(pRec->TimeGenerated, &time);
     DPRINT("TimeGenerated = %hu.%hu.%hu %hu:%hu:%hu\n",
-           Time.Day, Time.Month, Time.Year,
-           Time.Hour, Time.Minute, Time.Second);
+           time.wDay, time.wMonth, time.wYear,
+           time.wHour, time.wMinute, time.wSecond);
 
-    RtlSecondsSince1970ToTime(pRec->TimeWritten, &SystemTime);
-    RtlTimeToTimeFields(&SystemTime, &Time);
+    EventTimeToSystemTime(pRec->TimeWritten, &time);
     DPRINT("TimeWritten = %hu.%hu.%hu %hu:%hu:%hu\n",
-           Time.Day, Time.Month, Time.Year,
-           Time.Hour, Time.Minute, Time.Second);
+           time.wDay, time.wMonth, time.wYear,
+           time.wHour, time.wMinute, time.wSecond);
 
     DPRINT("EventID = %lu\n", pRec->EventID);
 
@@ -597,22 +600,23 @@ VOID PRINT_RECORD(PEVENTLOGRECORD pRec)
     DPRINT("DataLength = %lu\n", pRec->DataLength);
     DPRINT("DataOffset = %lu\n", pRec->DataOffset);
 
-    DPRINT("SourceName: %S\n", (PWSTR)((ULONG_PTR)pRec + sizeof(EVENTLOGRECORD)));
+    DPRINT("SourceName: %S\n", (WCHAR *) (((PBYTE) pRec) + sizeof(EVENTLOGRECORD)));
 
-    i = (wcslen((PWSTR)((ULONG_PTR)pRec + sizeof(EVENTLOGRECORD))) + 1) * sizeof(WCHAR);
+    i = (lstrlenW((WCHAR *) (((PBYTE) pRec) + sizeof(EVENTLOGRECORD))) + 1) *
+        sizeof(WCHAR);
 
-    DPRINT("ComputerName: %S\n", (PWSTR)((ULONG_PTR)pRec + sizeof(EVENTLOGRECORD) + i));
+    DPRINT("ComputerName: %S\n", (WCHAR *) (((PBYTE) pRec) + sizeof(EVENTLOGRECORD) + i));
 
     if (pRec->StringOffset < pRec->Length && pRec->NumStrings)
     {
         DPRINT("Strings:\n");
-        str = (PWSTR)((ULONG_PTR)pRec + pRec->StringOffset);
+        str = (WCHAR *) (((PBYTE) pRec) + pRec->StringOffset);
         for (i = 0; i < pRec->NumStrings; i++)
         {
             DPRINT("[%u] %S\n", i, str);
-            str += wcslen(str) + 1;
+            str = str + lstrlenW(str) + 1;
         }
     }
 
-    DPRINT("Length2 = %lu\n", *(PULONG)((ULONG_PTR)pRec + pRec->Length - 4));
+    DPRINT("Length2 = %lu\n", *(PDWORD) (((PBYTE) pRec) + pRec->Length - 4));
 }

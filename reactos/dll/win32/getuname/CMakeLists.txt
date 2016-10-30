@@ -1,6 +1,6 @@
 
 include_directories(${REACTOS_SOURCE_DIR}/sdk/include/reactos/wine)
-spec2def(getuname.dll getuname.spec ADD_IMPORTLIB)
+spec2def(getuname.dll getuname.spec)
 
 add_library(getuname SHARED
     getuname.c

@@ -113,23 +113,17 @@ function(add_message_headers _type)
     else()
         set(_flag "-A")
     endif()
-    foreach(_file ${ARGN})
-        get_filename_component(_file_name ${_file} NAME_WE)
-        set(_converted_file ${CMAKE_CURRENT_BINARY_DIR}/${_file}) ## ${_file_name}.mc
-        set(_source_file ${CMAKE_CURRENT_SOURCE_DIR}/${_file})    ## ${_file_name}.mc
+    foreach(_in_FILE ${ARGN})
+        get_filename_component(FILE ${_in_FILE} NAME_WE)
+        macro_mc(${_flag} ${FILE})
         add_custom_command(
-            OUTPUT "${_converted_file}"
-            COMMAND native-utf16le "${_source_file}" "${_converted_file}" nobom
-            DEPENDS native-utf16le "${_source_file}")
-        macro_mc(${_flag} ${_converted_file})
-        add_custom_command(
-            OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_file_name}.h ${CMAKE_CURRENT_BINARY_DIR}/${_file_name}.rc
-            COMMAND ${COMMAND_MC}
-            DEPENDS "${_converted_file}")
+            OUTPUT ${REACTOS_BINARY_DIR}/sdk/include/reactos/${FILE}.rc ${REACTOS_BINARY_DIR}/sdk/include/reactos/${FILE}.h
+            COMMAND ${COMMAND_MC} ${MC_FLAGS}
+            DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${FILE}.mc)
         set_source_files_properties(
-            ${CMAKE_CURRENT_BINARY_DIR}/${_file_name}.h ${CMAKE_CURRENT_BINARY_DIR}/${_file_name}.rc
+            ${REACTOS_BINARY_DIR}/sdk/include/reactos/${FILE}.h ${REACTOS_BINARY_DIR}/sdk/include/reactos/${FILE}.rc
             PROPERTIES GENERATED TRUE)
-        add_custom_target(${_file_name} ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${_file_name}.h ${CMAKE_CURRENT_BINARY_DIR}/${_file_name}.rc)
+        add_custom_target(${FILE} ALL DEPENDS ${REACTOS_BINARY_DIR}/sdk/include/reactos/${FILE}.h ${REACTOS_BINARY_DIR}/sdk/include/reactos/${FILE}.rc)
     endforeach()
 endfunction()
 
@@ -496,18 +490,6 @@ elseif(USE_FOLDER_STRUCTURE)
 
     function(add_library name)
         _add_library(${name} ${ARGN})
-##
-## The following is a workaround for a CMake bug. Inspired by:
-## http://stackoverflow.com/questions/24926868/cmake-3-0-add-library-of-type-interface-breaks-get-target-property
-##
-## Beginning of the workaround:
-        get_target_property(_TARGET_TYPE ${name} TYPE)
-        if(_TARGET_TYPE STREQUAL "INTERFACE_LIBRARY")
-            unset(_target_excluded)
-        else()
-##
-## This is the original code:
-##
         get_target_property(_target_excluded ${name} EXCLUDE_FROM_ALL)
         if(_target_excluded AND ${name} MATCHES "^lib.*")
             set_property(TARGET "${name}" PROPERTY FOLDER "Importlibs")
@@ -515,10 +497,6 @@ elseif(USE_FOLDER_STRUCTURE)
             string(SUBSTRING ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR_LENGTH} -1 CMAKE_CURRENT_SOURCE_DIR_RELATIVE)
             set_property(TARGET "${name}" PROPERTY FOLDER "${CMAKE_CURRENT_SOURCE_DIR_RELATIVE}")
         endif()
-##
-## End of workaround
-        endif()
-##
     endfunction()
 
     function(add_executable name)

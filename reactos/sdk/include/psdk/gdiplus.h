@@ -42,18 +42,6 @@ namespace Gdiplus
     {
 #include "gdiplusflat.h"
     };
-
-#include "gdiplusbase.h"
-#include "gdiplusmatrix.h"
-#include "gdiplusimageattributes.h"
-#include "gdiplusbrush.h"
-#include "gdipluspen.h"
-#include "gdiplusstringformat.h"
-#include "gdipluspath.h"
-#include "gdiplusgraphics.h"
-#include "gdiplusheaders.h"
-#include "gdiplusmetafile.h"
-#include "gdipluslinecaps.h"
 };
 
 #else /* end c++ includes */

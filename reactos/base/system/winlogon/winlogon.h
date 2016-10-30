@@ -293,7 +293,7 @@ StartRpcServer(VOID);
 
 /* sas.c */
 BOOL
-SetDefaultLanguage(IN PWLSESSION Session);
+SetDefaultLanguage(IN BOOL UserProfile);
 
 BOOL
 InitializeSAS(IN OUT PWLSESSION Session);

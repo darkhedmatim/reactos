@@ -29,7 +29,6 @@
 #include "winuser.h"
 #include "winreg.h"
 #include "setupapi.h"
-#include "cfgmgr32.h"
 
 #include "wine/test.h"
 
@@ -817,14 +816,6 @@ static void test_SetupLogError(void)
     SetupCloseLog();
 }
 
-static void test_CM_Get_Version(void)
-{
-    WORD ret;
-
-    ret = CM_Get_Version();
-    ok(ret == 0x0400, "got version %#x\n", ret);
-}
-
 START_TEST(misc)
 {
     HMODULE hsetupapi = GetModuleHandleA("setupapi.dll");
@@ -858,5 +849,4 @@ START_TEST(misc)
     test_defaultcallback();
 
     test_SetupLogError();
-    test_CM_Get_Version();
 }

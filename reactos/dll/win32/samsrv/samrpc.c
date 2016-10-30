@@ -205,133 +205,8 @@ SamrSetSecurityObject(IN SAMPR_HANDLE ObjectHandle,
                       IN SECURITY_INFORMATION SecurityInformation,
                       IN PSAMPR_SR_SECURITY_DESCRIPTOR SecurityDescriptor)
 {
-    PSAM_DB_OBJECT DbObject = NULL;
-    ACCESS_MASK DesiredAccess = 0;
-    PSECURITY_DESCRIPTOR RelativeSd = NULL;
-    ULONG RelativeSdSize = 0;
-    HANDLE TokenHandle = NULL;
-    PGENERIC_MAPPING Mapping;
-    NTSTATUS Status;
-
-    TRACE("SamrSetSecurityObject(%p %lx %p)\n",
-          ObjectHandle, SecurityInformation, SecurityDescriptor);
-
-    if ((SecurityDescriptor == NULL) ||
-        (SecurityDescriptor->SecurityDescriptor == NULL) ||
-        !RtlValidSecurityDescriptor((PSECURITY_DESCRIPTOR)SecurityDescriptor->SecurityDescriptor))
-        return ERROR_INVALID_PARAMETER;
-
-    if (SecurityInformation == 0 ||
-        SecurityInformation & ~(OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION
-        | DACL_SECURITY_INFORMATION | SACL_SECURITY_INFORMATION))
-        return ERROR_INVALID_PARAMETER;
-
-    if (SecurityInformation & SACL_SECURITY_INFORMATION)
-        DesiredAccess |= ACCESS_SYSTEM_SECURITY;
-
-    if (SecurityInformation & DACL_SECURITY_INFORMATION)
-        DesiredAccess |= WRITE_DAC;
-
-    if (SecurityInformation & (OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION))
-        DesiredAccess |= WRITE_OWNER;
-
-    if ((SecurityInformation & OWNER_SECURITY_INFORMATION) &&
-        (((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Owner == NULL))
-        return ERROR_INVALID_PARAMETER;
-
-    if ((SecurityInformation & GROUP_SECURITY_INFORMATION) &&
-        (((PISECURITY_DESCRIPTOR)SecurityDescriptor)->Group == NULL))
-        return ERROR_INVALID_PARAMETER;
-
-    /* Validate the server handle */
-    Status = SampValidateDbObject(ObjectHandle,
-                                  SamDbIgnoreObject,
-                                  DesiredAccess,
-                                  &DbObject);
-    if (!NT_SUCCESS(Status))
-        goto done;
-
-    /* Get the mapping for the object type */
-    switch (DbObject->ObjectType)
-    {
-        case SamDbServerObject:
-            Mapping = &ServerMapping;
-            break;
-
-        case SamDbDomainObject:
-            Mapping = &DomainMapping;
-            break;
-
-        case SamDbAliasObject:
-            Mapping = &AliasMapping;
-            break;
-
-        case SamDbGroupObject:
-            Mapping = &GroupMapping;
-            break;
-
-        case SamDbUserObject:
-            Mapping = &UserMapping;
-            break;
-
-        default:
-            return STATUS_INVALID_HANDLE;
-    }
-
-    /* Get the size of the SD */
-    Status = SampGetObjectAttribute(DbObject,
-                                    L"SecDesc",
-                                    NULL,
-                                    NULL,
-                                    &RelativeSdSize);
-    if (!NT_SUCCESS(Status))
-        return Status;
-
-    /* Allocate a buffer for the SD */
-    RelativeSd = RtlAllocateHeap(RtlGetProcessHeap(), 0, RelativeSdSize);
-    if (RelativeSd == NULL)
-        return STATUS_INSUFFICIENT_RESOURCES;
-
-    /* Get the SD */
-    Status = SampGetObjectAttribute(DbObject,
-                                    L"SecDesc",
-                                    NULL,
-                                    RelativeSd,
-                                    &RelativeSdSize);
-    if (!NT_SUCCESS(Status))
-        goto done;
-
-    /* Build the new security descriptor */
-    Status = RtlSetSecurityObject(SecurityInformation,
-                                  (PSECURITY_DESCRIPTOR)SecurityDescriptor->SecurityDescriptor,
-                                  &RelativeSd,
-                                  Mapping,
-                                  TokenHandle);
-    if (!NT_SUCCESS(Status))
-    {
-        ERR("RtlSetSecurityObject failed (Status 0x%08lx)\n", Status);
-        goto done;
-    }
-
-    /* Set the modified SD */
-    Status = SampSetObjectAttribute(DbObject,
-                                    L"SecDesc",
-                                    REG_BINARY,
-                                    RelativeSd,
-                                    RtlLengthSecurityDescriptor(RelativeSd));
-    if (!NT_SUCCESS(Status))
-    {
-        ERR("SampSetObjectAttribute failed (Status 0x%08lx)\n", Status);
-    }
-
-done:
-    if (TokenHandle != NULL)
-        NtClose(TokenHandle);
-
-    if (RelativeSd != NULL)
-        RtlFreeHeap(RtlGetProcessHeap(), 0, RelativeSd);
-
-    return Status;
+    UNIMPLEMENTED;
+    return STATUS_NOT_IMPLEMENTED;
 }
 
 
@@ -343,12 +218,10 @@ SamrQuerySecurityObject(IN SAMPR_HANDLE ObjectHandle,
                         OUT PSAMPR_SR_SECURITY_DESCRIPTOR *SecurityDescriptor)
 {
     PSAM_DB_OBJECT SamObject;
-    PSAMPR_SR_SECURITY_DESCRIPTOR SdData = NULL;
-    PSECURITY_DESCRIPTOR RelativeSd = NULL;
-    PSECURITY_DESCRIPTOR ResultSd = NULL;
+    PSAMPR_SR_SECURITY_DESCRIPTOR SamSD = NULL;
+    PSECURITY_DESCRIPTOR SdBuffer = NULL;
     ACCESS_MASK DesiredAccess = 0;
-    ULONG RelativeSdSize = 0;
-    ULONG ResultSdSize = 0;
+    ULONG Length = 0;
     NTSTATUS Status;
 
     TRACE("(%p %lx %p)\n",
@@ -375,98 +248,64 @@ SamrQuerySecurityObject(IN SAMPR_HANDLE ObjectHandle,
     if (!NT_SUCCESS(Status))
         goto done;
 
-    /* Get the size of the SD */
+    SamSD = midl_user_allocate(sizeof(SAMPR_SR_SECURITY_DESCRIPTOR));
+    if (SamSD == NULL)
+    {
+        Status = STATUS_INSUFFICIENT_RESOURCES;
+        goto done;
+    }
+
     Status = SampGetObjectAttribute(SamObject,
                                     L"SecDesc",
                                     NULL,
                                     NULL,
-                                    &RelativeSdSize);
+                                    &Length);
     if (!NT_SUCCESS(Status) && Status != STATUS_BUFFER_OVERFLOW)
     {
         TRACE("Status 0x%08lx\n", Status);
         goto done;
     }
 
-    /* Allocate a buffer for the SD */
-    RelativeSd = midl_user_allocate(RelativeSdSize);
-    if (RelativeSd == NULL)
+    TRACE("SD Length: %lu\n", Length);
+
+    SdBuffer = midl_user_allocate(Length);
+    if (SdBuffer == NULL)
     {
         Status = STATUS_INSUFFICIENT_RESOURCES;
         goto done;
     }
 
-    /* Get the SD */
     Status = SampGetObjectAttribute(SamObject,
                                     L"SecDesc",
                                     NULL,
-                                    RelativeSd,
-                                    &RelativeSdSize);
+                                    SdBuffer,
+                                    &Length);
     if (!NT_SUCCESS(Status))
     {
         TRACE("Status 0x%08lx\n", Status);
         goto done;
     }
 
-    /* Invalidate the SD information that was not requested */
-    if (!(SecurityInformation & OWNER_SECURITY_INFORMATION))
-        ((PISECURITY_DESCRIPTOR)RelativeSd)->Owner = NULL;
+    /* FIXME: Use SecurityInformation to return only the requested information */
 
-    if (!(SecurityInformation & GROUP_SECURITY_INFORMATION))
-        ((PISECURITY_DESCRIPTOR)RelativeSd)->Group = NULL;
-
-    if (!(SecurityInformation & DACL_SECURITY_INFORMATION))
-        ((PISECURITY_DESCRIPTOR)RelativeSd)->Control &= ~SE_DACL_PRESENT;
-
-    if (!(SecurityInformation & SACL_SECURITY_INFORMATION))
-        ((PISECURITY_DESCRIPTOR)RelativeSd)->Control &= ~SE_SACL_PRESENT;
-
-    /* Calculate the required SD size */
-    Status = RtlMakeSelfRelativeSD(RelativeSd,
-                                   NULL,
-                                   &ResultSdSize);
-    if (Status != STATUS_BUFFER_TOO_SMALL)
-        goto done;
-
-    /* Allocate a buffer for the new SD */
-    ResultSd = MIDL_user_allocate(ResultSdSize);
-    if (ResultSd == NULL)
-    {
-        Status = STATUS_INSUFFICIENT_RESOURCES;
-        goto done;
-    }
-
-    /* Build the new SD */
-    Status = RtlMakeSelfRelativeSD(RelativeSd,
-                                   ResultSd,
-                                   &ResultSdSize);
-    if (!NT_SUCCESS(Status))
-        goto done;
-
-    /* Allocate the SD data buffer */
-    SdData = midl_user_allocate(sizeof(SAMPR_SR_SECURITY_DESCRIPTOR));
-    if (SdData == NULL)
-    {
-        Status = STATUS_INSUFFICIENT_RESOURCES;
-        goto done;
-    }
-
-    /* Fill the SD data buffer and return it to the caller */
-    SdData->Length = RelativeSdSize;
-    SdData->SecurityDescriptor = (PBYTE)ResultSd;
-
-    *SecurityDescriptor = SdData;
+    SamSD->Length = Length;
+    SamSD->SecurityDescriptor = SdBuffer;
 
 done:
     RtlReleaseResource(&SampResource);
 
-    if (!NT_SUCCESS(Status))
+    if (NT_SUCCESS(Status))
     {
-        if (ResultSd != NULL)
-            MIDL_user_free(ResultSd);
+        *SecurityDescriptor = SamSD;
     }
+    else
+    {
+        if (SdBuffer != NULL)
+            midl_user_free(SdBuffer);
 
-    if (RelativeSd != NULL)
-        MIDL_user_free(RelativeSd);
+        if (SamSD != NULL)
+            midl_user_free(SamSD);
+    }
 
     return Status;
 }

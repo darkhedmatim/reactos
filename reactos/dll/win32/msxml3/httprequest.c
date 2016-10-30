@@ -90,6 +90,7 @@ typedef struct
 {
     httprequest req;
     IServerXMLHTTPRequest IServerXMLHTTPRequest_iface;
+    LONG ref;
 } serverhttp;
 
 static inline httprequest *impl_from_IXMLHTTPRequest( IXMLHTTPRequest *iface )
@@ -1535,19 +1536,19 @@ static HRESULT WINAPI
 httprequest_ObjectWithSite_QueryInterface( IObjectWithSite* iface, REFIID riid, void** ppvObject )
 {
     httprequest *This = impl_from_IObjectWithSite(iface);
-    return IXMLHTTPRequest_QueryInterface(&This->IXMLHTTPRequest_iface, riid, ppvObject);
+    return IXMLHTTPRequest_QueryInterface( (IXMLHTTPRequest *)This, riid, ppvObject );
 }
 
 static ULONG WINAPI httprequest_ObjectWithSite_AddRef( IObjectWithSite* iface )
 {
     httprequest *This = impl_from_IObjectWithSite(iface);
-    return IXMLHTTPRequest_AddRef(&This->IXMLHTTPRequest_iface);
+    return IXMLHTTPRequest_AddRef((IXMLHTTPRequest *)This);
 }
 
 static ULONG WINAPI httprequest_ObjectWithSite_Release( IObjectWithSite* iface )
 {
     httprequest *This = impl_from_IObjectWithSite(iface);
-    return IXMLHTTPRequest_Release(&This->IXMLHTTPRequest_iface);
+    return IXMLHTTPRequest_Release((IXMLHTTPRequest *)This);
 }
 
 static HRESULT WINAPI httprequest_ObjectWithSite_GetSite( IObjectWithSite *iface, REFIID iid, void **ppvSite )
@@ -1631,19 +1632,19 @@ static const IObjectWithSiteVtbl ObjectWithSiteVtbl =
 static HRESULT WINAPI httprequest_Safety_QueryInterface(IObjectSafety *iface, REFIID riid, void **ppv)
 {
     httprequest *This = impl_from_IObjectSafety(iface);
-    return IXMLHTTPRequest_QueryInterface(&This->IXMLHTTPRequest_iface, riid, ppv);
+    return IXMLHTTPRequest_QueryInterface( (IXMLHTTPRequest *)This, riid, ppv );
 }
 
 static ULONG WINAPI httprequest_Safety_AddRef(IObjectSafety *iface)
 {
     httprequest *This = impl_from_IObjectSafety(iface);
-    return IXMLHTTPRequest_AddRef(&This->IXMLHTTPRequest_iface);
+    return IXMLHTTPRequest_AddRef((IXMLHTTPRequest *)This);
 }
 
 static ULONG WINAPI httprequest_Safety_Release(IObjectSafety *iface)
 {
     httprequest *This = impl_from_IObjectSafety(iface);
-    return IXMLHTTPRequest_Release(&This->IXMLHTTPRequest_iface);
+    return IXMLHTTPRequest_Release((IXMLHTTPRequest *)This);
 }
 
 static HRESULT WINAPI httprequest_Safety_GetInterfaceSafetyOptions(IObjectSafety *iface, REFIID riid,
@@ -1712,7 +1713,7 @@ static HRESULT WINAPI ServerXMLHTTPRequest_QueryInterface(IServerXMLHTTPRequest 
 static ULONG WINAPI ServerXMLHTTPRequest_AddRef(IServerXMLHTTPRequest *iface)
 {
     serverhttp *This = impl_from_IServerXMLHTTPRequest( iface );
-    ULONG ref = InterlockedIncrement( &This->req.ref );
+    ULONG ref = InterlockedIncrement( &This->ref );
     TRACE("(%p)->(%u)\n", This, ref );
     return ref;
 }
@@ -1720,7 +1721,7 @@ static ULONG WINAPI ServerXMLHTTPRequest_AddRef(IServerXMLHTTPRequest *iface)
 static ULONG WINAPI ServerXMLHTTPRequest_Release(IServerXMLHTTPRequest *iface)
 {
     serverhttp *This = impl_from_IServerXMLHTTPRequest( iface );
-    ULONG ref = InterlockedDecrement( &This->req.ref );
+    ULONG ref = InterlockedDecrement( &This->ref );
 
     TRACE("(%p)->(%u)\n", This, ref );
 
@@ -2016,6 +2017,7 @@ HRESULT ServerXMLHTTP_create(void **obj)
 
     init_httprequest(&req->req);
     req->IServerXMLHTTPRequest_iface.lpVtbl = &ServerXMLHTTPRequestVtbl;
+    req->ref = 1;
 
     *obj = &req->IServerXMLHTTPRequest_iface;
 

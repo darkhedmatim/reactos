@@ -2,7 +2,7 @@
  * PROJECT:         ReactOS DiskPart
  * LICENSE:         GPL - See COPYING in the top level directory
  * FILE:            base/system/diskpart/select.c
- * PURPOSE:         Manages all the partitions of the OS in an interactive way.
+ * PURPOSE:         Manages all the partitions of the OS in an interactive way
  * PROGRAMMERS:     Lee Schroeder
  */
 
@@ -28,16 +28,16 @@ SelectDisk(
 
     if (argc > 3)
     {
-        ConResPuts(StdErr, IDS_ERROR_INVALID_ARGS);
+        PrintResourceString(IDS_ERROR_INVALID_ARGS);
         return;
     }
 
     if (argc == 2)
     {
         if (CurrentDisk == NULL)
-            ConResPuts(StdOut, IDS_SELECT_NO_DISK);
+            PrintResourceString(IDS_SELECT_NO_DISK);
         else
-            ConResPrintf(StdOut, IDS_SELECT_DISK, CurrentDisk->DiskNumber);
+            PrintResourceString(IDS_SELECT_DISK, CurrentDisk->DiskNumber);
         return;
     }
 
@@ -45,7 +45,7 @@ SelectDisk(
     if (((lValue == 0) && (endptr == argv[2])) ||
         (lValue < 0))
     {
-        ConResPuts(StdErr, IDS_ERROR_INVALID_ARGS);
+        PrintResourceString(IDS_ERROR_INVALID_ARGS);
         return;
     }
 
@@ -60,14 +60,14 @@ SelectDisk(
         {
             CurrentDisk = DiskEntry;
             CurrentPartition = NULL;
-            ConResPrintf(StdOut, IDS_SELECT_DISK, CurrentDisk->DiskNumber);
+            PrintResourceString(IDS_SELECT_DISK, CurrentDisk->DiskNumber);
             return;
         }
 
         Entry = Entry->Flink;
     }
 
-    ConResPuts(StdErr, IDS_SELECT_DISK_INVALID);
+    PrintResourceString(IDS_SELECT_DISK_INVALID);
 }
 
 
@@ -87,22 +87,22 @@ SelectPartition(
 
     if (argc > 3)
     {
-        ConResPuts(StdErr, IDS_ERROR_INVALID_ARGS);
+        PrintResourceString(IDS_ERROR_INVALID_ARGS);
         return;
     }
 
     if (CurrentDisk == NULL)
     {
-        ConResPuts(StdOut, IDS_SELECT_PARTITION_NO_DISK);
+        PrintResourceString(IDS_SELECT_PARTITION_NO_DISK);
         return;
     }
 
     if (argc == 2)
     {
         if (CurrentPartition == NULL)
-            ConResPuts(StdOut, IDS_SELECT_NO_PARTITION);
+            PrintResourceString(IDS_SELECT_NO_PARTITION);
         else
-            ConResPrintf(StdOut, IDS_SELECT_PARTITION, CurrentPartition);
+            PrintResourceString(IDS_SELECT_PARTITION, CurrentPartition);
         return;
     }
 
@@ -110,7 +110,7 @@ SelectPartition(
     if (((lValue == 0) && (endptr == argv[2])) ||
         (lValue < 0))
     {
-        ConResPuts(StdErr, IDS_ERROR_INVALID_ARGS);
+        PrintResourceString(IDS_ERROR_INVALID_ARGS);
         return;
     }
 
@@ -124,7 +124,7 @@ SelectPartition(
             if (PartNumber == (ULONG)lValue)
             {
                 CurrentPartition = PartEntry;
-                ConResPrintf(StdOut, IDS_SELECT_PARTITION, PartNumber);
+                PrintResourceString(IDS_SELECT_PARTITION, PartNumber);
                 return;
             }
 
@@ -144,7 +144,7 @@ SelectPartition(
             if (PartNumber == (ULONG)lValue)
             {
                 CurrentPartition = PartEntry;
-                ConResPrintf(StdOut, IDS_SELECT_PARTITION, PartNumber);
+                PrintResourceString(IDS_SELECT_PARTITION, PartNumber);
                 return;
             }
 
@@ -153,7 +153,7 @@ SelectPartition(
         Entry = Entry->Flink;
     }
 
-    ConResPuts(StdErr, IDS_SELECT_PARTITION_INVALID);
+    PrintResourceString(IDS_SELECT_PARTITION_INVALID);
 }
 
 
@@ -165,7 +165,7 @@ select_main(
     /* gets the first word from the string */
     if (argc == 1)
     {
-        ConResPuts(StdOut, IDS_HELP_CMD_SELECT);
+        PrintResourceString(IDS_HELP_CMD_SELECT);
         return TRUE;
     }
 
@@ -175,7 +175,7 @@ select_main(
     else if (!wcsicmp(argv[1], L"partition"))
         SelectPartition(argc, argv);
     else
-        ConResPuts(StdOut, IDS_HELP_CMD_SELECT);
+        PrintResourceString(IDS_HELP_CMD_SELECT);
 
     return TRUE;
 }

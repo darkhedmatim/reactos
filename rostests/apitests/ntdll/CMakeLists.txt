@@ -5,7 +5,6 @@ list(APPEND SOURCE
     NtApphelpCacheControl.c
     NtContinue.c
     NtCreateFile.c
-    NtCreateKey.c
     NtCreateThread.c
     NtDeleteKey.c
     NtFreeVirtualMemory.c
@@ -18,10 +17,8 @@ list(APPEND SOURCE
     NtQueryKey.c
     NtQuerySystemEnvironmentValue.c
     NtQueryVolumeInformationFile.c
-    NtReadFile.c
     NtSaveKey.c
     NtSetValueKey.c
-    NtWriteFile.c
     RtlAllocateHeap.c
     RtlBitmap.c
     RtlCopyMappedMemory.c

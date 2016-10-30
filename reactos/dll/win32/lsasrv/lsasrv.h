@@ -22,7 +22,6 @@
 
 #define NTOS_MODE_USER
 #include <ndk/cmfuncs.h>
-#include <ndk/exfuncs.h>
 #include <ndk/kefuncs.h>
 #include <ndk/mmfuncs.h>
 #include <ndk/obfuncs.h>
@@ -316,9 +315,9 @@ LsarpLookupPrivilegeDisplayName(PRPC_UNICODE_STRING Name,
                                 PRPC_UNICODE_STRING *DisplayName,
                                 USHORT *LanguageReturned);
 
-PLUID
-LsarpLookupPrivilegeValue(
-    IN PRPC_UNICODE_STRING Name);
+NTSTATUS
+LsarpLookupPrivilegeValue(PRPC_UNICODE_STRING Name,
+                          PLUID Value);
 
 NTSTATUS
 LsarpEnumeratePrivileges(DWORD *EnumerationContext,
@@ -328,10 +327,6 @@ LsarpEnumeratePrivileges(DWORD *EnumerationContext,
 NTSTATUS
 LsapLookupAccountRightName(ULONG RightValue,
                            PRPC_UNICODE_STRING *Name);
-
-ACCESS_MASK
-LsapLookupAccountRightValue(
-    IN PRPC_UNICODE_STRING Name);
 
 /* registry.h */
 NTSTATUS
@@ -365,7 +360,6 @@ LsapRegOpenKey(IN HANDLE ParentKeyHandle,
 NTSTATUS
 LsapRegQueryKeyInfo(IN HANDLE KeyHandle,
                     OUT PULONG SubKeyCount,
-                    OUT PULONG MaxSubKeyNameLength,
                     OUT PULONG ValueCount);
 
 NTSTATUS
@@ -447,12 +441,7 @@ LsapDeleteCredential(
     _In_ PLSA_STRING PrimaryKeyValue);
 
 NTSTATUS
-LsapSetLogonSessionData(
-    _In_ PLUID LogonId,
-    _In_ ULONG LogonType,
-    _In_ PUNICODE_STRING UserName,
-    _In_ PUNICODE_STRING LogonDomain,
-    _In_ PSID Sid);
+LsapSetLogonSessionData(IN PLUID LogonId);
 
 NTSTATUS
 LsapEnumLogonSessions(IN OUT PLSA_API_MSG RequestMsg);

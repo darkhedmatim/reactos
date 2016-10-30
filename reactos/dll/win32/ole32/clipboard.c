@@ -1799,7 +1799,7 @@ void OLEClipbrd_UnInitialize(void)
  *
  * Enumerate all formats supported by the source and make
  * those formats available using delayed rendering using SetClipboardData.
- * Cache the enumeration list and make that list visible as the
+ * Cache the enumeration list and make that list visibile as the
  * 'Ole Private Data' format on the clipboard.
  *
  */
@@ -2001,10 +2001,6 @@ static LRESULT CALLBACK clipbrd_wndproc(HWND hwnd, UINT message, WPARAM wparam, 
     ole_clipbrd *clipbrd;
 
     get_ole_clipbrd(&clipbrd);
-#ifdef __REACTOS__
-    if(clipbrd == NULL)
-        return DefWindowProcW(hwnd, message, wparam, lparam);
-#endif
 
     switch (message)
     {

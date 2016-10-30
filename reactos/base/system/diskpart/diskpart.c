@@ -2,7 +2,8 @@
  * PROJECT:         ReactOS DiskPart
  * LICENSE:         GPL - See COPYING in the top level directory
  * FILE:            base/system/diskpart/diskpart.c
- * PURPOSE:         Manages all the partitions of the OS in an interactive way.
+ * PURPOSE:         Manages all the partitions of the OS in
+ *                  an interactive way
  * PROGRAMMERS:     Lee Schroeder
  */
 
@@ -10,7 +11,24 @@
 
 #include "diskpart.h"
 
+#include <stdlib.h>
+#include <winbase.h>
+#include <wincon.h>
+#include <winuser.h>
+
 /* FUNCTIONS ******************************************************************/
+
+VOID
+PrintResourceString(INT resID, ...)
+{
+    WCHAR szMsg[3072];
+    va_list arg_ptr;
+
+    va_start(arg_ptr, resID);
+    LoadStringW(GetModuleHandle(NULL), resID, szMsg, 3072);
+    vwprintf(szMsg, arg_ptr);
+    va_end(arg_ptr);
+}
 
 VOID
 ShowHeader(VOID)
@@ -22,14 +40,14 @@ ShowHeader(VOID)
     GetComputerNameW(szComputerName, &comp_size);
 
     /* TODO: Remove this section of code when program becomes stable enough for production use. */
-    ConPuts(StdOut, L"\n*WARNING*: This program is incomplete and may not work properly.\n");
+    wprintf(L"\n*WARNING*: This program is incomplete and may not work properly.\n");
 
     /* Print the header information */
-    ConPuts(StdOut, L"\n");
-    ConResPuts(StdOut, IDS_APP_HEADER);
-    ConPuts(StdOut, L"\n");
-    ConResPuts(StdOut, IDS_APP_LICENSE);
-    ConResPrintf(StdOut, IDS_APP_CURR_COMPUTER, szComputerName);
+    wprintf(L"\n");
+    PrintResourceString(IDS_APP_HEADER);
+    wprintf(L"\n");
+    PrintResourceString(IDS_APP_LICENSE);
+    PrintResourceString(IDS_APP_CURR_COMPUTER, szComputerName);
 }
 
 /*
@@ -48,7 +66,7 @@ RunScript(LPCWSTR filename)
     if (script == NULL)
     {
         /* if there was problems opening the file */
-        ConResPrintf(StdErr, IDS_ERROR_MSG_NO_SCRIPT, filename);
+        PrintResourceString(IDS_ERROR_MSG_NO_SCRIPT, filename);
         return FALSE; /* if there is no script, exit the program */
     }
 
@@ -80,13 +98,10 @@ int wmain(int argc, const LPWSTR argv[])
     int index, timeout;
     int result = EXIT_SUCCESS;
 
-    /* Initialize the Console Standard Streams */
-    ConInitStdStreams();
-
     /* Sets the title of the program so the user will have an easier time
     determining the current program, especially if diskpart is running a
     script */
-    K32LoadStringW(GetModuleHandle(NULL), IDS_APP_HEADER, appTitle, ARRAYSIZE(appTitle));
+    LoadStringW(GetModuleHandle(NULL), IDS_APP_HEADER, (LPWSTR)appTitle, 50);
     SetConsoleTitleW(appTitle);
 
     /* Sets the timeout value to 0 just in case the user doesn't
@@ -115,7 +130,7 @@ int wmain(int argc, const LPWSTR argv[])
             else
             {
                 /* If there is no flag, then return an error */
-                ConResPrintf(StdErr, IDS_ERROR_MSG_BAD_ARG, argv[index]);
+                PrintResourceString(IDS_ERROR_MSG_BAD_ARG, argv[index]);
                 result = EXIT_FAILURE;
                 goto done;
             }
@@ -124,7 +139,7 @@ int wmain(int argc, const LPWSTR argv[])
             exits as soon as the usage list is shown. */
             if (_wcsicmp(tmpBuffer, L"?") == 0)
             {
-                ConResPuts(StdOut, IDS_APP_USAGE);
+                PrintResourceString(IDS_APP_USAGE);
                 result = EXIT_SUCCESS;
                 goto done;
             }
@@ -154,7 +169,7 @@ int wmain(int argc, const LPWSTR argv[])
             else
             {
                 /* Assume that the flag doesn't exist. */
-                ConResPrintf(StdErr, IDS_ERROR_MSG_BAD_ARG, tmpBuffer);
+                PrintResourceString(IDS_ERROR_MSG_BAD_ARG, tmpBuffer);
                 result = EXIT_FAILURE;
                 goto done;
             }
@@ -180,14 +195,14 @@ int wmain(int argc, const LPWSTR argv[])
         else
         {
             /* Exit failure since the user wanted to run a script */
-            ConResPrintf(StdErr, IDS_ERROR_MSG_NO_SCRIPT, script);
+            PrintResourceString(IDS_ERROR_MSG_NO_SCRIPT, script);
             result = EXIT_FAILURE;
             goto done;
         }
     }
 
     /* Let the user know the program is exiting */
-    ConResPuts(StdOut, IDS_APP_LEAVING);
+    PrintResourceString(IDS_APP_LEAVING);
 
 done:
     DestroyPartitionList();

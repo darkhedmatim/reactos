@@ -118,34 +118,17 @@ static CACHE_MANAGER_CALLBACKS Callbacks = {
 
 static
 PVOID
-MapAndLockUserBuffer(
-    _In_ _Out_ PIRP Irp,
-    _In_ ULONG BufferLength)
+MapUserBuffer(
+    _In_ _Out_ PIRP Irp)
 {
-    PMDL Mdl;
-
     if (Irp->MdlAddress == NULL)
     {
-        Mdl = IoAllocateMdl(Irp->UserBuffer, BufferLength, FALSE, FALSE, Irp);
-        if (Mdl == NULL)
-        {
-            return NULL;
-        }
-
-        _SEH2_TRY
-        {
-            MmProbeAndLockPages(Mdl, Irp->RequestorMode, IoWriteAccess);
-        }
-        _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
-        {
-            IoFreeMdl(Mdl);
-            Irp->MdlAddress = NULL;
-            _SEH2_YIELD(return NULL);
-        }
-        _SEH2_END;
+        return Irp->UserBuffer;
     }
-
-    return MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority);
+    else
+    {
+        return MmGetSystemAddressForMdlSafe(Irp->MdlAddress, NormalPagePriority);
+    }
 }
 
 
@@ -191,16 +174,9 @@ TestIrpHandler(
         else if (IoStack->FileObject->FileName.Length >= 2 * sizeof(WCHAR) &&
                  IoStack->FileObject->FileName.Buffer[1] == 'S')
         {
-            Fcb->Header.AllocationSize.QuadPart = 1004;
-            Fcb->Header.FileSize.QuadPart = 1004;
-            Fcb->Header.ValidDataLength.QuadPart = 1004;
-        }
-        else if (IoStack->FileObject->FileName.Length >= 2 * sizeof(WCHAR) &&
-                 IoStack->FileObject->FileName.Buffer[1] == 'R')
-        {
-            Fcb->Header.AllocationSize.QuadPart = 62;
-            Fcb->Header.FileSize.QuadPart = 62;
-            Fcb->Header.ValidDataLength.QuadPart = 62;
+            Fcb->Header.AllocationSize.QuadPart = 3000;
+            Fcb->Header.FileSize.QuadPart = 3000;
+            Fcb->Header.ValidDataLength.QuadPart = 3000;
         }
         else
         {
@@ -208,7 +184,7 @@ TestIrpHandler(
             Fcb->Header.FileSize.QuadPart = 512;
             Fcb->Header.ValidDataLength.QuadPart = 512;
         }
-        Fcb->Header.IsFastIoPossible = FastIoIsNotPossible;
+        Fcb->Header.IsFastIoPossible = FALSE;
         IoStack->FileObject->FsContext = Fcb;
         IoStack->FileObject->SectionObjectPointer = &Fcb->SectionObjectPointers;
 
@@ -235,10 +211,10 @@ TestIrpHandler(
 
         if (!FlagOn(Irp->Flags, IRP_NOCACHE))
         {
-            ok(Offset.QuadPart % PAGE_SIZE != 0, "Offset is aligned: %I64i\n", Offset.QuadPart);
-            ok(Length % PAGE_SIZE != 0, "Length is aligned: %I64i\n", Length);
+            ok(Offset.QuadPart % 512 != 0, "Offset is aligned: %I64i\n", Offset.QuadPart);
+            ok(Length % 512 != 0, "Length is aligned: %I64i\n", Length);
 
-            Buffer = Irp->AssociatedIrp.SystemBuffer;
+            Buffer = MapUserBuffer(Irp);
             ok(Buffer != NULL, "Null pointer!\n");
 
             _SEH2_TRY
@@ -254,34 +230,13 @@ TestIrpHandler(
             _SEH2_END;
 
             Status = Irp->IoStatus.Status;
-
-            if (NT_SUCCESS(Status))
-            {
-                if (Offset.QuadPart <= 1000LL && Offset.QuadPart + Length > 1000LL)
-                {
-                    ok_eq_hex(*(PUSHORT)((ULONG_PTR)Buffer + (ULONG_PTR)(1000LL - Offset.QuadPart)), 0xFFFF);
-                }
-                else
-                {
-                    ok_eq_hex(*(PUSHORT)Buffer, 0xBABA);
-                }
-            }
         }
         else
         {
-            ok((Offset.QuadPart % PAGE_SIZE == 0 || Offset.QuadPart == 0), "Offset is not aligned: %I64i\n", Offset.QuadPart);
-            ok(Length % PAGE_SIZE == 0, "Length is not aligned: %I64i\n", Length);
-
-            ok(Irp->AssociatedIrp.SystemBuffer == NULL, "A SystemBuffer was allocated!\n");
-            Buffer = MapAndLockUserBuffer(Irp, Length);
-            ok(Buffer != NULL, "Null pointer!\n");
-            RtlFillMemory(Buffer, Length, 0xBA);
+            ok(Offset.QuadPart % 512 == 0, "Offset is not aligned: %I64i\n", Offset.QuadPart);
+            ok(Length % 512 == 0, "Length is not aligned: %I64i\n", Length);
 
             Status = STATUS_SUCCESS;
-            if (Offset.QuadPart <= 1000LL && Offset.QuadPart + Length > 1000LL)
-            {
-                *(PUSHORT)((ULONG_PTR)Buffer + (ULONG_PTR)(1000LL - Offset.QuadPart)) = 0xFFFF;
-            }
         }
 
         if (NT_SUCCESS(Status))

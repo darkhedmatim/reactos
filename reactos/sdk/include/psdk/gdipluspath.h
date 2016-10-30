@@ -19,13 +19,8 @@
 #ifndef _GDIPLUSPATH_H
 #define _GDIPLUSPATH_H
 
-class FontFamily;
-class Graphics;
-
 class GraphicsPath : public GdiplusBase
 {
-  friend class Region;
-
 public:
   GraphicsPath(const Point *points, const BYTE *types, INT count, FillMode fillMode)
   {
@@ -423,9 +418,6 @@ public:
   {
     return NotImplemented;
   }
-
-private:
-  GpPath *path;
 };
 
 

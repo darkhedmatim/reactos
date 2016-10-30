@@ -777,8 +777,7 @@
       CID_FaceDict  dict = cid->font_dicts + n;
 
 
-      if ( dict->sd_bytes < 0                        ||
-           ( dict->num_subrs && dict->sd_bytes < 1 ) )
+      if ( dict->sd_bytes < 0 )
       {
         FT_ERROR(( "cid_parse_dict: Invalid `SDBytes' value\n" ));
         error = FT_THROW( Invalid_File_Format );

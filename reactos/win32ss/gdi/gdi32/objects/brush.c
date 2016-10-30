@@ -210,6 +210,7 @@ CreateBrushIndirect(
 
     switch (LogBrush->lbStyle)
     {
+    case BS_DIBPATTERN8X8:
     case BS_DIBPATTERN:
         hBrush = CreateDIBPatternBrush((HGLOBAL)LogBrush->lbHatch,
                                        LogBrush->lbColor);

@@ -460,23 +460,6 @@ VfatOpenFile(
         return STATUS_ACCESS_DENIED;
     }
 
-    if ((*Fcb->Attributes & FILE_ATTRIBUTE_READONLY) &&
-        (RequestedOptions & FILE_DELETE_ON_CLOSE))
-    {
-        vfatReleaseFCB(DeviceExt, Fcb);
-        return STATUS_CANNOT_DELETE;
-    }
-
-    if ((vfatFCBIsRoot(Fcb) ||
-         (Fcb->LongNameU.Length == sizeof(WCHAR) && Fcb->LongNameU.Buffer[0] == L'.') ||
-         (Fcb->LongNameU.Length == 2 * sizeof(WCHAR) && Fcb->LongNameU.Buffer[0] == L'.' && Fcb->LongNameU.Buffer[1] == L'.')) &&
-        (RequestedOptions & FILE_DELETE_ON_CLOSE))
-    {
-        // we cannot delete a '.', '..' or the root directory
-        vfatReleaseFCB(DeviceExt, Fcb);
-        return STATUS_CANNOT_DELETE;
-    }
-
     DPRINT("Attaching FCB to fileObject\n");
     Status = vfatAttachFCBToFileObject(DeviceExt, Fcb, FileObject);
     if (!NT_SUCCESS(Status))
@@ -518,11 +501,6 @@ VfatCreateFile(
 
     FileObject = Stack->FileObject;
     DeviceExt = DeviceObject->DeviceExtension;
-
-    if (Stack->Parameters.Create.Options & FILE_OPEN_BY_FILE_ID)
-    {
-        return STATUS_NOT_IMPLEMENTED;
-    }
 
     /* Check their validity. */
     if (RequestedOptions & FILE_DIRECTORY_FILE &&
@@ -567,11 +545,6 @@ VfatCreateFile(
         if (OpenTargetDir)
         {
             return STATUS_INVALID_PARAMETER;
-        }
-
-        if (RequestedOptions & FILE_DELETE_ON_CLOSE)
-        {
-            return STATUS_CANNOT_DELETE;
         }
 
         pFcb = DeviceExt->VolumeFcb;
@@ -892,8 +865,7 @@ VfatCreateFile(
         {
             if (Stack->Parameters.Create.SecurityContext->DesiredAccess & FILE_WRITE_DATA ||
                 RequestedDisposition == FILE_OVERWRITE ||
-                RequestedDisposition == FILE_OVERWRITE_IF ||
-                (RequestedOptions & FILE_DELETE_ON_CLOSE))
+                RequestedDisposition == FILE_OVERWRITE_IF)
             {
                 if (!MmFlushImageSection(&pFcb->SectionObjectPointers, MmFlushForWrite))
                 {
@@ -901,8 +873,7 @@ VfatCreateFile(
                     DPRINT1("%d %d %d\n", Stack->Parameters.Create.SecurityContext->DesiredAccess & FILE_WRITE_DATA,
                             RequestedDisposition == FILE_OVERWRITE, RequestedDisposition == FILE_OVERWRITE_IF);
                     VfatCloseFile (DeviceExt, FileObject);
-                    return (RequestedOptions & FILE_DELETE_ON_CLOSE) ? STATUS_CANNOT_DELETE
-                                                                     : STATUS_SHARING_VIOLATION;
+                    return STATUS_SHARING_VIOLATION;
                 }
             }
         }

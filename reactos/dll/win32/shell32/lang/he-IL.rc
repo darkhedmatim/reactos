@@ -1,44 +1,42 @@
 LANGUAGE LANG_HEBREW, SUBLANG_DEFAULT
 
-MENU_001 MENUEX
+MENU_001 MENU
 BEGIN
     MENUITEM "סמלים גדולים", FCIDM_SHVIEW_BIGICON
     MENUITEM "סמלים קטנים", FCIDM_SHVIEW_SMALLICON
     MENUITEM "רשימה", FCIDM_SHVIEW_LISTVIEW
     MENUITEM "פרטים", FCIDM_SHVIEW_REPORTVIEW
-    MENUITEM "", -1, MFT_SEPARATOR
-    POPUP "סידור סמלים", FCIDM_SHVIEW_ARRANGE
-    BEGIN
-        MENUITEM "", -1, MFT_SEPARATOR
-        MENUITEM "סידור אוטומטי", FCIDM_SHVIEW_AUTOARRANGE
-    END
 END
 
 /* shellview background menu */
-MENU_002 MENUEX
+MENU_002 MENU
 BEGIN
     POPUP ""
     BEGIN
-        POPUP "תצוגה", FCIDM_SHVIEW_VIEW
+        POPUP "תצוגה"
         BEGIN
             MENUITEM "סמלים גדולים", FCIDM_SHVIEW_BIGICON
             MENUITEM "סמלים קטנים", FCIDM_SHVIEW_SMALLICON
             MENUITEM "רשימה", FCIDM_SHVIEW_LISTVIEW
             MENUITEM "פרטים", FCIDM_SHVIEW_REPORTVIEW
         END
-        MENUITEM "", -1, MFT_SEPARATOR
-        POPUP "סידור סמלים", FCIDM_SHVIEW_ARRANGE
+        MENUITEM SEPARATOR
+        POPUP "סידור סמלים"
         BEGIN
-            MENUITEM "", -1, MFT_SEPARATOR
+            MENUITEM "לפי שם", 0x30  /* column 0 */
+            MENUITEM "לפי סוג", 0x32  /* column 2 */
+            MENUITEM "לפי גודל", 0x31  /* ... */
+            MENUITEM "לפי תאריך", 0x33
+            MENUITEM SEPARATOR
             MENUITEM "סידור אוטומטי", FCIDM_SHVIEW_AUTOARRANGE
         END
         MENUITEM "Line up Icons", FCIDM_SHVIEW_SNAPTOGRID
-        MENUITEM "", -1, MFT_SEPARATOR
+        MENUITEM SEPARATOR
         MENUITEM "רענון", FCIDM_SHVIEW_REFRESH
-        MENUITEM "", -1, MFT_SEPARATOR
+        MENUITEM SEPARATOR
         MENUITEM "הדבק", FCIDM_SHVIEW_INSERT
         MENUITEM "הדבק כקיצור דרך", FCIDM_SHVIEW_INSERTLINK
-        MENUITEM "", -1, MFT_SEPARATOR
+        MENUITEM SEPARATOR
         MENUITEM "מאפיינים", FCIDM_SHVIEW_PROPERTIES
     END
 END
@@ -488,15 +486,15 @@ BEGIN
     PUSHBUTTON "Cancel", IDCANCEL, 99, 38, 43, 14
 END
 
-IDD_DISCONNECT DIALOGEX 0, 0, 188, 60
+IDD_DISCONNECT DIALOGEX 0, 0, 190, 60
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_CAPTION
 CAPTION "Disconnect ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_SHELL_DISCONN, IDC_STATIC, 8, 6, 21, 20
-    LTEXT "Are you sure you want to disconnect?", -1, 49, 15, 131, 8
-    DEFPUSHBUTTON "&Disconnect", IDOK, 47, 38, 47, 14
-    PUSHBUTTON "Cancel", IDCANCEL, 99, 38, 47, 14
+    ICON 49, 14346, 10, 10, 21, 20, SS_REALSIZECONTROL
+    LTEXT "Are you sure you want to disconnect?", -1, 49, 12, 137, 23
+    DEFPUSHBUTTON "&Disconnect", IDOK, 57, 40, 60, 14
+    PUSHBUTTON "Cancel", IDCANCEL, 123, 40, 60, 14
 END
 
 IDD_AUTOPLAY1 DIALOGEX 0, 0, 227, 218
@@ -684,8 +682,8 @@ BEGIN
     IDS_RENAME "שנה שם"
     IDS_PASTE "הכנס"
 
-    IDS_CREATEFOLDER_DENIED "Unable to create the folder '%1'"
-    IDS_CREATEFOLDER_CAPTION "Unable to create folder"
+    IDS_CREATEFOLDER_DENIED "Unable to create new Folder: Permission denied."
+    IDS_CREATEFOLDER_CAPTION "Error during creation of a new folder"
     IDS_DELETEITEM_CAPTION "Confirm File Deletion"
     IDS_DELETEFOLDER_CAPTION "Confirm Folder Deletion"
     IDS_DELETEITEM_TEXT "Are you sure you want to delete '%1'?"
@@ -812,7 +810,7 @@ BEGIN
     IDS_DEFAULT_CLUSTER_SIZE "Default allocation size"
     IDS_COPY_OF "Copy of"
 
-    IDS_SHLEXEC_NOASSOC "There is no ReactOS program configured to open this type of file."
+    IDS_SHLEXEC_NOASSOC "There is no Windows program configured to open this type of file."
 
     IDS_FILE_DETAILS "Details for '%s' extension"
     IDS_FILE_DETAILSADV "Files with extension '%s' are of type '%s'. To change settings that affect all '%s' files, click Advanced."

@@ -9,7 +9,7 @@ list(APPEND SOURCE
     dde.c
     dialog.c
     edit.c    
-    generated.c
+    generated_${ARCH}.c
     input.c
     listbox.c
     menu.c

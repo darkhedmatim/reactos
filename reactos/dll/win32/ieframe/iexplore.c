@@ -53,7 +53,8 @@ static void adjust_ie_docobj_rect(HWND frame, RECT* rc)
     HWND hwndStatus = GetDlgItem(frame, IDC_BROWSE_STATUSBAR);
     INT barHeight = SendMessageW(hwndRebar, RB_GETBARHEIGHT, 0, 0);
 
-    InflateRect(rc, 0, -barHeight);
+    rc->top += barHeight;
+    rc->bottom -= barHeight;
 
     if(IsWindowVisible(hwndStatus))
     {

@@ -1,15 +1,11 @@
 
 add_definitions(-D__WINESRC__)
-spec2def(fltlib.dll fltlib.spec ADD_IMPORTLIB)
-
-include_directories(
-    ${REACTOS_SOURCE_DIR}/sdk/include/reactos/drivers/fltmgr
-    ${REACTOS_SOURCE_DIR}/sdk/include/reactos/wine
-    includes)
+include_directories(${REACTOS_SOURCE_DIR}/sdk/include/reactos/wine)
+spec2def(fltlib.dll fltlib.spec)
 
 list(APPEND SOURCE
     fltlib.c
-    stubs.c
+    ${CMAKE_CURRENT_BINARY_DIR}/fltlib_stubs.c
     ${CMAKE_CURRENT_BINARY_DIR}/fltlib.def)
 
 add_library(fltlib SHARED ${SOURCE} rsrc.rc)

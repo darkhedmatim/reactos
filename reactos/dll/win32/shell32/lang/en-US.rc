@@ -1,44 +1,42 @@
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 
-MENU_001 MENUEX
+MENU_001 MENU
 BEGIN
     MENUITEM "Lar&ge Icons", FCIDM_SHVIEW_BIGICON
     MENUITEM "S&mall Icons", FCIDM_SHVIEW_SMALLICON
     MENUITEM "&List", FCIDM_SHVIEW_LISTVIEW
     MENUITEM "&Details", FCIDM_SHVIEW_REPORTVIEW
-    MENUITEM "", -1, MFT_SEPARATOR
-    POPUP "Arrange &Icons By", FCIDM_SHVIEW_ARRANGE
-    BEGIN
-        MENUITEM "", -1, MFT_SEPARATOR
-        MENUITEM "&Auto Arrange", FCIDM_SHVIEW_AUTOARRANGE
-    END
 END
 
 /* shellview background menu */
-MENU_002 MENUEX
+MENU_002 MENU
 BEGIN
     POPUP ""
     BEGIN
-        POPUP "&View", FCIDM_SHVIEW_VIEW
+        POPUP "&View"
         BEGIN
             MENUITEM "Lar&ge Icons", FCIDM_SHVIEW_BIGICON
             MENUITEM "S&mall Icons", FCIDM_SHVIEW_SMALLICON
             MENUITEM "&List", FCIDM_SHVIEW_LISTVIEW
             MENUITEM "&Details", FCIDM_SHVIEW_REPORTVIEW
         END
-        MENUITEM "", -1, MFT_SEPARATOR
-        POPUP "Arrange &Icons By", FCIDM_SHVIEW_ARRANGE
+        MENUITEM SEPARATOR
+        POPUP "Arrange &Icons"
         BEGIN
-            MENUITEM "", -1, MFT_SEPARATOR
+            MENUITEM "By &Name", 0x30  /* column 0 */
+            MENUITEM "By &Type", 0x32  /* column 2 */
+            MENUITEM "By &Size", 0x31  /* ... */
+            MENUITEM "By &Date", 0x33
+            MENUITEM SEPARATOR
             MENUITEM "&Auto Arrange", FCIDM_SHVIEW_AUTOARRANGE
         END
         MENUITEM "Line up Icons", FCIDM_SHVIEW_SNAPTOGRID
-        MENUITEM "", -1, MFT_SEPARATOR
+        MENUITEM SEPARATOR
         MENUITEM "Refresh", FCIDM_SHVIEW_REFRESH
-        MENUITEM "", -1, MFT_SEPARATOR
+        MENUITEM SEPARATOR
         MENUITEM "Paste", FCIDM_SHVIEW_INSERT
         MENUITEM "Paste as Link", FCIDM_SHVIEW_INSERTLINK
-        MENUITEM "", -1, MFT_SEPARATOR
+        MENUITEM SEPARATOR
         MENUITEM "Properties", FCIDM_SHVIEW_PROPERTIES
     END
 END
@@ -56,7 +54,7 @@ BEGIN
     MENUITEM "Copy to &folder...", FCIDM_SHVIEW_COPYTO
     MENUITEM "Mo&ve to folder...", FCIDM_SHVIEW_MOVETO
     MENUITEM SEPARATOR
-    MENUITEM "Select &All\tCtrl+A", FCIDM_SHVIEW_SELECTALL
+    MENUITEM "Select &all\tCtrl+A", FCIDM_SHVIEW_SELECTALL
     MENUITEM "&Invert Selection", FCIDM_SHVIEW_INVERTSELECTION
 END
 
@@ -68,7 +66,7 @@ BEGIN
         MENUITEM "E&xplore", FCIDM_SHVIEW_EXPLORE
         MENUITEM "&Open", FCIDM_SHVIEW_OPEN
         MENUITEM SEPARATOR
-        MENUITEM "Cu&t", FCIDM_SHVIEW_CUT
+        MENUITEM "C&ut", FCIDM_SHVIEW_CUT
         MENUITEM "&Copy", FCIDM_SHVIEW_COPY
         MENUITEM SEPARATOR
         MENUITEM "Create &Link", FCIDM_SHVIEW_CREATELINK
@@ -488,15 +486,15 @@ BEGIN
     PUSHBUTTON "Cancel", IDCANCEL, 99, 38, 43, 14
 END
 
-IDD_DISCONNECT DIALOGEX 0, 0, 188, 60
+IDD_DISCONNECT DIALOGEX 0, 0, 190, 60
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUPWINDOW | WS_CAPTION
 CAPTION "Disconnect ReactOS"
 FONT 8, "MS Shell Dlg"
 BEGIN
-    ICON IDI_SHELL_DISCONN, IDC_STATIC, 8, 6, 21, 20
-    LTEXT "Are you sure you want to disconnect?", -1, 49, 15, 131, 8
-    DEFPUSHBUTTON "&Disconnect", IDOK, 47, 38, 47, 14
-    PUSHBUTTON "Cancel", IDCANCEL, 99, 38, 47, 14
+    ICON 49, 14346, 10, 10, 21, 20, SS_REALSIZECONTROL
+    LTEXT "Are you sure you want to disconnect?", -1, 49, 12, 137, 23
+    DEFPUSHBUTTON "&Disconnect", IDOK, 57, 40, 60, 14
+    PUSHBUTTON "Cancel", IDCANCEL, 123, 40, 60, 14
 END
 
 IDD_AUTOPLAY1 DIALOGEX 0, 0, 227, 218
@@ -684,8 +682,8 @@ BEGIN
     IDS_RENAME "Rename"
     IDS_PASTE "Paste"
 
-    IDS_CREATEFOLDER_DENIED "Unable to create the folder '%1'"
-    IDS_CREATEFOLDER_CAPTION "Unable to create folder"
+    IDS_CREATEFOLDER_DENIED "Unable to create new Folder: Permission denied."
+    IDS_CREATEFOLDER_CAPTION "Error during creation of a new folder"
     IDS_DELETEITEM_CAPTION "Confirm File Deletion"
     IDS_DELETEFOLDER_CAPTION "Confirm Folder Deletion"
     IDS_DELETEITEM_TEXT "Are you sure you want to delete '%1'?"
@@ -812,7 +810,7 @@ BEGIN
     IDS_DEFAULT_CLUSTER_SIZE "Default allocation size"
     IDS_COPY_OF "Copy of"
 
-    IDS_SHLEXEC_NOASSOC "There is no ReactOS program configured to open this type of file."
+    IDS_SHLEXEC_NOASSOC "There is no Windows program configured to open this type of file."
 
     IDS_FILE_DETAILS "Details for '%s' extension"
     IDS_FILE_DETAILSADV "Files with extension '%s' are of type '%s'. To change settings that affect all '%s' files, click Advanced."

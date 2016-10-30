@@ -255,18 +255,6 @@ static void MCICDA_Notify(DWORD_PTR hWndCallBack, WINE_MCICDAUDIO* wmcda, UINT w
 }
 
 /**************************************************************************
- * 				MCICDA_ReadTOC		[internal]
- */
-static BOOL MCICDA_ReadTOC(WINE_MCICDAUDIO* wmcda, CDROM_TOC *toc, DWORD *br)
-{
-    if (!device_io(wmcda->handle, IOCTL_CDROM_READ_TOC, NULL, 0, toc, sizeof(*toc), br, NULL)) {
-        WARN("error reading TOC !\n");
-        return FALSE;
-    }
-    return TRUE;
-}
-
-/**************************************************************************
  * 				MCICDA_GetStatus		[internal]
  */
 static	DWORD    MCICDA_GetStatus(WINE_MCICDAUDIO* wmcda)
@@ -736,9 +724,11 @@ static DWORD MCICDA_Status(UINT wDevID, DWORD dwFlags, LPMCI_STATUS_PARMS lpParm
             TRACE("CURRENT_TRACK=%lu\n", lpParms->dwReturn);
 	    break;
 	case MCI_STATUS_LENGTH:
-	    if (!MCICDA_ReadTOC(wmcda, &toc, &br))
+            if (!device_io(wmcda->handle, IOCTL_CDROM_READ_TOC, NULL, 0,
+                                 &toc, sizeof(toc), &br, NULL)) {
+                WARN("error reading TOC !\n");
                 return MCICDA_GetError(wmcda);
-
+	    }
 	    if (dwFlags & MCI_TRACK) {
 		TRACE("MCI_TRACK #%u LENGTH=??? !\n", lpParms->dwTrack);
 		if (lpParms->dwTrack < toc.FirstTrack || lpParms->dwTrack > toc.LastTrack)
@@ -776,9 +766,11 @@ static DWORD MCICDA_Status(UINT wDevID, DWORD dwFlags, LPMCI_STATUS_PARMS lpParm
 	    ret = MCI_RESOURCE_RETURNED;
 	    break;
 	case MCI_STATUS_NUMBER_OF_TRACKS:
-	    if (!MCICDA_ReadTOC(wmcda, &toc, &br))
+            if (!device_io(wmcda->handle, IOCTL_CDROM_READ_TOC, NULL, 0,
+                                 &toc, sizeof(toc), &br, NULL)) {
+                WARN("error reading TOC !\n");
                 return MCICDA_GetError(wmcda);
-
+	    }
 	    lpParms->dwReturn = toc.LastTrack - toc.FirstTrack + 1;
             TRACE("MCI_STATUS_NUMBER_OF_TRACKS = %lu\n", lpParms->dwReturn);
 	    if (lpParms->dwReturn == (WORD)-1)
@@ -787,16 +779,20 @@ static DWORD MCICDA_Status(UINT wDevID, DWORD dwFlags, LPMCI_STATUS_PARMS lpParm
 	case MCI_STATUS_POSITION:
             switch (dwFlags & (MCI_STATUS_START | MCI_TRACK)) {
             case MCI_STATUS_START:
-                if (!MCICDA_ReadTOC(wmcda, &toc, &br))
+                if (!device_io(wmcda->handle, IOCTL_CDROM_READ_TOC, NULL, 0,
+                                     &toc, sizeof(toc), &br, NULL)) {
+                    WARN("error reading TOC !\n");
                     return MCICDA_GetError(wmcda);
-
+                }
 		lpParms->dwReturn = FRAME_OF_TOC(toc, toc.FirstTrack);
 		TRACE("get MCI_STATUS_START !\n");
                 break;
             case MCI_TRACK:
-                if (!MCICDA_ReadTOC(wmcda, &toc, &br))
+                if (!device_io(wmcda->handle, IOCTL_CDROM_READ_TOC, NULL, 0,
+                                     &toc, sizeof(toc), &br, NULL)) {
+                    WARN("error reading TOC !\n");
                     return MCICDA_GetError(wmcda);
-
+                }
 		if (lpParms->dwTrack < toc.FirstTrack || lpParms->dwTrack > toc.LastTrack)
 		    return MCIERR_OUTOFRANGE;
 		lpParms->dwReturn = FRAME_OF_TOC(toc, lpParms->dwTrack);
@@ -841,9 +837,11 @@ static DWORD MCICDA_Status(UINT wDevID, DWORD dwFlags, LPMCI_STATUS_PARMS lpParm
 	    if (!(dwFlags & MCI_TRACK))
 		ret = MCIERR_MISSING_PARAMETER;
 	    else {
-                if (!MCICDA_ReadTOC(wmcda, &toc, &br))
+                if (!device_io(wmcda->handle, IOCTL_CDROM_READ_TOC, NULL, 0,
+                                     &toc, sizeof(toc), &br, NULL)) {
+                    WARN("error reading TOC !\n");
                     return MCICDA_GetError(wmcda);
-
+                }
 		if (lpParms->dwTrack < toc.FirstTrack || lpParms->dwTrack > toc.LastTrack)
 		    ret = MCIERR_OUTOFRANGE;
 		else
@@ -871,9 +869,11 @@ static DWORD MCICDA_SkipDataTracks(WINE_MCICDAUDIO* wmcda,DWORD *frame)
   int i;
   DWORD br;
   CDROM_TOC toc;
-  if (!MCICDA_ReadTOC(wmcda, &toc, &br))
+  if (!device_io(wmcda->handle, IOCTL_CDROM_READ_TOC, NULL, 0,
+                      &toc, sizeof(toc), &br, NULL)) {
+    WARN("error reading TOC !\n");
     return MCICDA_GetError(wmcda);
-
+  }
   if (*frame < FRAME_OF_TOC(toc,toc.FirstTrack) ||
       *frame >= FRAME_OF_TOC(toc,toc.LastTrack+1)) /* lead-out */
     return MCIERR_OUTOFRANGE;
@@ -916,8 +916,11 @@ static DWORD MCICDA_Play(UINT wDevID, DWORD dwFlags, LPMCI_PLAY_PARMS lpParms)
     if (wmcda == NULL)
 	return MCIERR_INVALID_DEVICE_ID;
 
-    if (!MCICDA_ReadTOC(wmcda, &toc, &br))
+    if (!device_io(wmcda->handle, IOCTL_CDROM_READ_TOC, NULL, 0,
+                         &toc, sizeof(toc), &br, NULL)) {
+        WARN("error reading TOC !\n");
         return MCICDA_GetError(wmcda);
+    }
 
     if (dwFlags & MCI_FROM) {
 	start = MCICDA_CalcFrame(wmcda, lpParms->dwFrom);
@@ -1197,9 +1200,11 @@ static DWORD MCICDA_Seek(UINT wDevID, DWORD dwFlags, LPMCI_SEEK_PARMS lpParms)
      * then only checks the position flags, then stops and seeks. */
     MCICDA_Stop(wDevID, MCI_WAIT, 0);
 
-    if (!MCICDA_ReadTOC(wmcda, &toc, &br))
+    if (!device_io(wmcda->handle, IOCTL_CDROM_READ_TOC, NULL, 0,
+                         &toc, sizeof(toc), &br, NULL)) {
+        WARN("error reading TOC !\n");
         return MCICDA_GetError(wmcda);
-
+    }
     switch (position) {
     case MCI_SEEK_TO_START:
 	TRACE("Seeking to start\n");

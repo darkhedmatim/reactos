@@ -12,7 +12,6 @@
 #include <winuser.h>
 #include <mmsystem.h>
 #include <setupapi.h>
-#include <ks.h>
 #include <ksmedia.h>
 
 static HDEVNOTIFY device_notification_handle = NULL;

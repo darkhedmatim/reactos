@@ -20,9 +20,8 @@
 
 
 /* Dialog IDs */
-#define IDD_EVENTDETAILS_DLG    101
-#define IDD_EVENTDETAILS_CTRL   102
-#define IDD_LOGPROPERTIES_GENERAL   103
+#define IDD_EVENTPROPERTIES   101
+#define IDD_LOGPROPERTIES_GENERAL 102
 
 
 /* Control IDs */
@@ -39,7 +38,6 @@
 #define IDC_NEXT                1009
 #define IDC_COPY                1010
 #define IDC_EVENTTEXTEDIT       1011
-#define IDC_DETAILS_STATIC      -2
 #define IDC_BYTESRADIO          1012
 #define IDC_WORDRADIO           1013
 #define IDC_EVENTDATAEDIT       1014
@@ -72,11 +70,10 @@
 #define IDM_EXIT                32777
 #define IDM_LIST_NEWEST         32778
 #define IDM_LIST_OLDEST         32779
-#define IDM_EVENT_DETAILS       32780
-#define IDM_REFRESH             32781
-#define IDM_SHOW_EVENT_DETAILS_VIEW 32782
-#define IDM_HELP                32783
-#define IDM_ABOUT               32784
+#define IDM_REFRESH             32780
+#define IDM_OPTIONS             32781
+#define IDM_HELP                32782
+#define IDM_ABOUT               32783
 
 
 /* String IDs */

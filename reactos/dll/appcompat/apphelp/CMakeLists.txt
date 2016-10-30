@@ -1,14 +1,8 @@
 
-include_directories(${SHIMLIB_DIR})
-
-remove_definitions(-D_WIN32_WINNT=0x502 -DWINVER=0x502)
-add_definitions(-D_WIN32_WINNT=0x600 -DWINVER=0x600)
-
 spec2def(apphelp.dll apphelp.spec ADD_IMPORTLIB)
 
 list(APPEND SOURCE
     apphelp.c
-    hsdb.c
     layer.c
     sdbapi.c
     sdbfileattr.c
@@ -21,7 +15,6 @@ list(APPEND SOURCE
 
 add_library(apphelp SHARED
     ${SOURCE}
-    apphelp.rc
     ${CMAKE_CURRENT_BINARY_DIR}/apphelp.def)
 
 set_module_type(apphelp win32dll)

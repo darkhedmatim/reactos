@@ -275,6 +275,7 @@ typedef struct _PROCESSINFO
     LIST_ENTRY PrivateFontListHead;
     FAST_MUTEX DriverObjListLock;
     LIST_ENTRY DriverObjListHead;
+    struct tagKL* KeyboardLayout; // THREADINFO only
     W32HEAP_USER_MAPPING HeapMappings;
     struct _GDI_POOL* pPoolDcAttr;
     struct _GDI_POOL* pPoolBrushAttr;

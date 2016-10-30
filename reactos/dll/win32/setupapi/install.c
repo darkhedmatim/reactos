@@ -228,8 +228,7 @@ static void append_multi_sz_value( HKEY hkey, const WCHAR *value, const WCHAR *s
     if (RegQueryValueExW( hkey, value, NULL, &type, NULL, &size )) return;
     if (type != REG_MULTI_SZ) return;
 
-    size = size + str_size * sizeof(WCHAR) ;
-    if (!(buffer = HeapAlloc( GetProcessHeap(), 0, size))) return;
+    if (!(buffer = HeapAlloc( GetProcessHeap(), 0, (size + str_size) * sizeof(WCHAR) ))) return;
     if (RegQueryValueExW( hkey, value, NULL, NULL, (BYTE *)buffer, &size )) goto done;
 
     /* compare each string against all the existing ones */
@@ -272,7 +271,7 @@ static void delete_multi_sz_value( HKEY hkey, const WCHAR *value, const WCHAR *s
     if (RegQueryValueExW( hkey, value, NULL, &type, NULL, &size )) return;
     if (type != REG_MULTI_SZ) return;
     /* allocate double the size, one for value before and one for after */
-    if (!(buffer = HeapAlloc( GetProcessHeap(), 0, size * 2))) return;
+    if (!(buffer = HeapAlloc( GetProcessHeap(), 0, size * 2 * sizeof(WCHAR) ))) return;
     if (RegQueryValueExW( hkey, value, NULL, NULL, (BYTE *)buffer, &size )) goto done;
     src = buffer;
     dst = buffer + size;

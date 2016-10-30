@@ -35,7 +35,7 @@ SRSetRestorePointA(PRESTOREPOINTINFOA pRestorePtSpec, PSTATEMGRSTATUS pStateMgrS
 
     DPRINT1("SRSetRestorePointA is unimplemented\n");
 
-    if (!pRestorePtSpec)
+    if (!pRestorePtSpec || !pRestorePtSpec->szDescription)
         return FALSE;
 
     RPInfoW.dwEventType = pRestorePtSpec->dwEventType;

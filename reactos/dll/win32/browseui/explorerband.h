@@ -184,3 +184,6 @@ public:
         MESSAGE_HANDLER(WM_RBUTTONDOWN, ContextMenuHack)
     END_MSG_MAP()
 };
+
+extern "C"
+HRESULT WINAPI CExplorerBand_Constructor(REFIID riid, LPVOID *ppv);
