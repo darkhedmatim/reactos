@@ -8,7 +8,7 @@
  *        Started.
  *
  *    16-Jul-1998 (John P Price)
- *        Separated commands into individual files.
+ *        Seperated commands into individual files.
  *
  *    19-Jul-1998 (Hans B Pufal)
  *        Implementation of FOR.

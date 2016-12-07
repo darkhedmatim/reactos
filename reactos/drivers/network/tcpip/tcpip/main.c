@@ -50,6 +50,7 @@ VOID TiWriteErrorLog(
  *     DumpData         = Pointer to dump data for the log entry
  */
 {
+#if 0
     PIO_ERROR_LOG_PACKET LogEntry;
     UCHAR EntrySize;
     ULONG StringSize;
@@ -64,37 +65,35 @@ VOID TiWriteErrorLog(
         EntrySize += (UCHAR)StringSize;
     }
 
-    /* Fail if the required error log entry is too large */
-    if (EntrySize > ERROR_LOG_MAXIMUM_SIZE)
-        return;
+    LogEntry = (PIO_ERROR_LOG_PACKET)IoAllocateErrorLogEntry(
+		DriverContext, EntrySize);
 
-    LogEntry = (PIO_ERROR_LOG_PACKET)IoAllocateErrorLogEntry(DriverContext, EntrySize);
-    if (!LogEntry)
-        return;
+    if (LogEntry) {
+        LogEntry->MajorFunctionCode = -1;
+        LogEntry->RetryCount        = -1;
+        LogEntry->DumpDataSize      = (USHORT)(DumpDataCount * sizeof(ULONG));
+        LogEntry->NumberOfStrings   = (String == NULL) ? 1 : 2;
+        LogEntry->StringOffset      = sizeof(IO_ERROR_LOG_PACKET) + (DumpDataCount-1) * sizeof(ULONG);
+        LogEntry->EventCategory     = 0;
+        LogEntry->ErrorCode         = ErrorCode;
+        LogEntry->UniqueErrorValue  = UniqueErrorValue;
+        LogEntry->FinalStatus       = FinalStatus;
+        LogEntry->SequenceNumber    = -1;
+        LogEntry->IoControlCode     = 0;
 
-    LogEntry->MajorFunctionCode = -1;
-    LogEntry->RetryCount        = -1;
-    LogEntry->DumpDataSize      = (USHORT)(DumpDataCount * sizeof(ULONG));
-    LogEntry->NumberOfStrings   = (String == NULL) ? 1 : 2;
-    LogEntry->StringOffset      = sizeof(IO_ERROR_LOG_PACKET) + (DumpDataCount * sizeof(ULONG));
-    LogEntry->EventCategory     = 0;
-    LogEntry->ErrorCode         = ErrorCode;
-    LogEntry->UniqueErrorValue  = UniqueErrorValue;
-    LogEntry->FinalStatus       = FinalStatus;
-    LogEntry->SequenceNumber    = -1;
-    LogEntry->IoControlCode     = 0;
+        if (DumpDataCount)
+            RtlCopyMemory(LogEntry->DumpData, DumpData, DumpDataCount * sizeof(ULONG));
 
-    if (DumpDataCount)
-        RtlCopyMemory(LogEntry->DumpData, DumpData, DumpDataCount * sizeof(ULONG));
+        pString = ((PUCHAR)LogEntry) + LogEntry->StringOffset;
+        RtlCopyMemory(pString, DriverName, sizeof(DriverName));
+        pString += sizeof(DriverName);
 
-    pString = ((PUCHAR)LogEntry) + LogEntry->StringOffset;
-    RtlCopyMemory(pString, DriverName, sizeof(DriverName));
-    pString += sizeof(DriverName);
+        if (String)
+            RtlCopyMemory(pString, String, StringSize);
 
-    if (String)
-        RtlCopyMemory(pString, String, StringSize);
-
-    IoWriteErrorLogEntry(LogEntry);
+        IoWriteErrorLogEntry(LogEntry);
+    }
+#endif
 }
 
 /*

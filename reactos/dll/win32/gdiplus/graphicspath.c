@@ -1567,49 +1567,17 @@ GpStatus WINGDIPAPI GdipIsOutlineVisiblePathPointI(GpPath* path, INT x, INT y,
 GpStatus WINGDIPAPI GdipIsOutlineVisiblePathPoint(GpPath* path, REAL x, REAL y,
     GpPen *pen, GpGraphics *graphics, BOOL *result)
 {
-    GpStatus stat;
-    GpPath *wide_path;
-    GpMatrix *transform = NULL;
+    static int calls;
 
     TRACE("(%p,%0.2f,%0.2f,%p,%p,%p)\n", path, x, y, pen, graphics, result);
 
     if(!path || !pen)
         return InvalidParameter;
 
-    stat = GdipClonePath(path, &wide_path);
+    if(!(calls++))
+        FIXME("not implemented\n");
 
-    if (stat != Ok)
-        return stat;
-
-    if (pen->unit == UnitPixel && graphics != NULL)
-    {
-        stat = GdipCreateMatrix(&transform);
-
-        if (stat == Ok)
-            stat = get_graphics_transform(graphics, CoordinateSpaceDevice,
-                CoordinateSpaceWorld, transform);
-    }
-
-    if (stat == Ok)
-        stat = GdipWidenPath(wide_path, pen, transform, 1.0);
-
-    if (pen->unit == UnitPixel && graphics != NULL)
-    {
-        if (stat == Ok)
-            stat = GdipInvertMatrix(transform);
-
-        if (stat == Ok)
-            stat = GdipTransformPath(wide_path, transform);
-    }
-
-    if (stat == Ok)
-        stat = GdipIsVisiblePathPoint(wide_path, x, y, graphics, result);
-
-    GdipDeleteMatrix(transform);
-
-    GdipDeletePath(wide_path);
-
-    return stat;
+    return NotImplemented;
 }
 
 GpStatus WINGDIPAPI GdipIsVisiblePathPointI(GpPath* path, INT x, INT y, GpGraphics *graphics, BOOL *result)
@@ -1906,7 +1874,7 @@ static void widen_closed_figure(GpPath *path, GpPen *pen, int start, int end,
     int i;
     path_list_node_t *prev_point;
 
-    if (end <= start)
+    if (end <= start+1)
         return;
 
     /* left outline */

@@ -1256,14 +1256,6 @@ UniataFindBusMasterController(
     /***********************************************************/
 
     deviceExtension->UseDpc = TRUE;
-#ifndef UNIATA_CORE
-    if (g_Dump) {
-        deviceExtension->DriverMustPoll = TRUE;
-        deviceExtension->UseDpc = FALSE;
-        deviceExtension->simplexOnly = TRUE;
-        deviceExtension->HwFlags |= UNIATA_NO_DPC;
-    }
-#endif //UNIATA_CORE
     KdPrint2((PRINT_PREFIX "HwFlags = %x\n (3)", deviceExtension->HwFlags));
     if(deviceExtension->HwFlags & UNIATA_NO_DPC) {
         /* CMD 649, ROSB SWK33, ICH4 */
@@ -2044,21 +2036,10 @@ UniataConnectIntr2(
 
     KdPrint2((PRINT_PREFIX "Init ISR:\n"));
 
-    /*
-      We MUST register 2nd ISR for multichannel controllers even for UP systems.
-      This is needed for cases when 
-      multichannel controller generate interrupt while we are still in its ISR for 
-      other channle's interrupt. New interrupt must be detected and queued for 
-      further processing. If we do not do this, system will not route this 
-      interrupt to main ISR (since it is busy) and we shall get to infinite loop 
-      looking for interrupt handler.
-    */
-
     if(!deviceExtension->MasterDev && (deviceExtension->NumberChannels > 1) &&   // do not touch MasterDev
        !deviceExtension->simplexOnly && /*                        // this is unnecessary on simplex controllers
        !BMList[i].Isr2DevObj*/                                    // handle re-init under w2k+
        /*!ForceSimplex*/
-       /*(CPU_num > 1) &&  // unnecessary for UP systems*/
        TRUE) {
         // Ok, continue...
         KdPrint2((PRINT_PREFIX "Multichannel native mode, go...\n"));
@@ -2359,23 +2340,14 @@ AtapiFindIsaController(
         // if not, we go and find ourselves
         if (preConfig == FALSE) {
 
-            ULONG portBase_reg = 0;
-            ULONG irq_reg = 0;
-
             if (!portBase) {
                 portBase = AdapterAddresses[*adapterCount];
                 KdPrint2((PRINT_PREFIX "portBase[%d]=%x\n", *adapterCount, portBase));
             } else {
                 KdPrint2((PRINT_PREFIX "portBase=%x\n", portBase));
             }
-
-            portBase_reg = AtapiRegCheckDevValue(deviceExtension, CHAN_NOT_SPECIFIED, DEVNUM_NOT_SPECIFIED, L"PortBase", 0);
-            irq_reg      = AtapiRegCheckDevValue(deviceExtension, CHAN_NOT_SPECIFIED, DEVNUM_NOT_SPECIFIED, L"Irq", 0);
-            if(portBase_reg && irq_reg) {
-                KdPrint2((PRINT_PREFIX "use registry settings portBase=%x, irq=%d\n", portBase_reg, irq_reg));
-                portBase = portBase_reg;
-                irq = irq_reg;
-            }
+            portBase = AtapiRegCheckDevValue(deviceExtension, CHAN_NOT_SPECIFIED, DEVNUM_NOT_SPECIFIED, L"PortBase", portBase);
+            irq      = AtapiRegCheckDevValue(deviceExtension, CHAN_NOT_SPECIFIED, DEVNUM_NOT_SPECIFIED, L"Irq", irq);
             // check if Primary/Secondary Master IDE claimed
             if(AtapiCheckIOInterference(ConfigInfo, portBase)) {
                 goto next_adapter;
@@ -2615,11 +2587,26 @@ retryIdentifier:
 
                 // Determine whether this driver is being initialized by the
                 // system or as a crash dump driver.
-                if (g_Dump) {
+                if (ArgumentString) {
+
 #ifndef UNIATA_CORE
-                    deviceExtension->DriverMustPoll = TRUE;
+                    if (AtapiParseArgumentString(ArgumentString, "dump") == 1) {
+                        KdPrint2((PRINT_PREFIX
+                                   "AtapiFindIsaController: Crash dump\n"));
+                        //atapiOnly = FALSE;
+                        deviceExtension->DriverMustPoll = TRUE;
+                    } else {
+                        KdPrint2((PRINT_PREFIX
+                                   "AtapiFindIsaController: Atapi Only\n"));
+                        //atapiOnly = TRUE;
+                        deviceExtension->DriverMustPoll = FALSE;
+                    }
 #endif //UNIATA_CORE
                 } else {
+
+                    KdPrint2((PRINT_PREFIX
+                               "AtapiFindIsaController: Atapi Only (2)\n"));
+                    //atapiOnly = TRUE;
                     deviceExtension->DriverMustPoll = FALSE;
                 }
 
@@ -2703,8 +2690,6 @@ not_found:
                 (*ConfigInfo->AccessRanges)[i].RangeLength = 0;
                 (*ConfigInfo->AccessRanges)[i].RangeInMemory = FALSE;
             }
-            irq = 0;
-            portBase = 0;
         }
 #ifndef UNIATA_CORE
     }
@@ -2728,34 +2713,6 @@ exit_error:
     return SP_RETURN_ERROR;
     
 } // end AtapiFindIsaController()
-
-/*
-    Do nothing, but parse ScsiPort ArgumentString and setup global variables.
-*/
-
-ULONG
-NTAPI
-AtapiReadArgumentString(
-    IN PVOID HwDeviceExtension,
-    IN PVOID Context,
-    IN PVOID BusInformation,
-    IN PCHAR ArgumentString,
-    IN OUT PPORT_CONFIGURATION_INFORMATION ConfigInfo,
-    OUT PBOOLEAN Again
-    )
-{
-#ifndef __REACTOS__
-    PHW_DEVICE_EXTENSION deviceExtension = (PHW_DEVICE_EXTENSION)HwDeviceExtension;
-#endif
-
-    if (AtapiParseArgumentString(ArgumentString, "dump") == 1) {
-        KdPrint2((PRINT_PREFIX
-                   "AtapiReadArgumentString: Crash dump\n"));
-        //atapiOnly = FALSE;
-        g_Dump = TRUE;
-    }
-    return(SP_RETURN_NOT_FOUND);
-} // end AtapiReadArgumentString()
 
 ULONG
 NTAPI
@@ -3060,7 +3017,7 @@ CheckDevice(
         // Issue the ATAPI identify command if this
         // is not for the crash dump utility.
 try_atapi:
-        if (!g_Dump) {
+        if (!deviceExtension->DriverMustPoll) {
 
             // Issue ATAPI packet identify command.
             if (IssueIdentify(HwDeviceExtension,

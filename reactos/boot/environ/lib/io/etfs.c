@@ -635,7 +635,7 @@ EtfsOpen (
         NewFile->Flags |= BL_FILE_ENTRY_DIRECTORY;
     }
 
-    /* Write down the name of the filesystem */
+    /* Write down the name of the filesytem */
     EtfsFile->FsName = L"cdfs";
 
     /* All done, return the file entry, and save the ETFS side */

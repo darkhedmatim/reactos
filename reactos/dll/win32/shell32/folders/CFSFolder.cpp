@@ -371,21 +371,8 @@ HRESULT WINAPI CFSFolder::CreateViewObject(HWND hwndOwner,
             hr = CFSDropTarget_CreateInstance(sPathTarget, riid, ppvOut);
         else if (IsEqualIID (riid, IID_IContextMenu))
         {
-            HKEY hKeys[16];
-            UINT cKeys = 0;
-            AddClassKeyToArray(L"Directory\\Background", hKeys, &cKeys);
-
-            DEFCONTEXTMENU dcm;
-            dcm.hwnd = hwndOwner;
-            dcm.pcmcb = this;
-            dcm.pidlFolder = pidlRoot;
-            dcm.psf = this;
-            dcm.cidl = 0;
-            dcm.apidl = NULL;
-            dcm.cKeys = cKeys;
-            dcm.aKeys = hKeys;
-            dcm.punkAssociationInfo = NULL;
-            hr = SHCreateDefaultContextMenu (&dcm, riid, ppvOut);
+            FIXME ("IContextMenu not implemented\n");
+            hr = E_NOTIMPL;
         }
         else if (IsEqualIID (riid, IID_IShellView))
         {
@@ -502,21 +489,9 @@ HRESULT WINAPI CFSFolder::GetUIObjectOf(HWND hwndOwner,
 
         if (IsEqualIID(riid, IID_IContextMenu) && (cidl >= 1))
         {
-            HKEY hKeys[16];
-            UINT cKeys = 0;
-            AddFSClassKeysToArray(apidl[0], hKeys, &cKeys);
-
-            DEFCONTEXTMENU dcm;
-            dcm.hwnd = hwndOwner;
-            dcm.pcmcb = this;
-            dcm.pidlFolder = pidlRoot;
-            dcm.psf = this;
-            dcm.cidl = cidl;
-            dcm.apidl = apidl;
-            dcm.cKeys = cKeys;
-            dcm.aKeys = hKeys;
-            dcm.punkAssociationInfo = NULL;
-            hr = SHCreateDefaultContextMenu (&dcm, riid, &pObj);
+            IContextMenu  * pCm = NULL;
+            hr = CDefFolderMenu_Create2(pidlRoot, hwndOwner, cidl, apidl, static_cast<IShellFolder*>(this), NULL, 0, NULL, &pCm);
+            pObj = pCm;
         }
         else if (IsEqualIID (riid, IID_IDataObject))
         {
@@ -526,7 +501,7 @@ HRESULT WINAPI CFSFolder::GetUIObjectOf(HWND hwndOwner,
             }
             else
             {
-                hr = E_INVALIDARG;
+                hr = IDataObject_Constructor (hwndOwner, pidlRoot, (LPCITEMIDLIST*)&pidlRoot, 1, (IDataObject **)&pObj);
             }
         }
         else if ((IsEqualIID (riid, IID_IExtractIconA) || IsEqualIID (riid, IID_IExtractIconW)) && (cidl == 1))
@@ -1109,66 +1084,5 @@ HRESULT WINAPI CFSFolder::_LoadDynamicDropTargetHandler(const CLSID *pclsid, LPC
         ERR("Failed to query for interface IID_IShellExtInit hr %x pclsid %s\n", hr, wine_dbgstr_guid(pclsid));
         return hr;
     }
-    return hr;
-}
-
-HRESULT WINAPI CFSFolder::CallBack(IShellFolder *psf, HWND hwndOwner, IDataObject *pdtobj, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    if (uMsg != DFM_MERGECONTEXTMENU && uMsg != DFM_INVOKECOMMAND)
-        return S_OK;
-
-    /* no data object means no selection */
-    if (!pdtobj)
-    {
-        if (uMsg == DFM_INVOKECOMMAND && wParam == DFM_CMD_PROPERTIES)
-        {
-            PUITEMID_CHILD pidlChild = ILClone(ILFindLastID(pidlRoot));
-            LPITEMIDLIST pidlParent = ILClone(pidlRoot);
-            ILRemoveLastID(pidlParent);
-            HRESULT hr = SH_ShowPropertiesDialog(sPathTarget, pidlParent, &pidlChild);
-            if (FAILED(hr))
-                ERR("SH_ShowPropertiesDialog failed\n");
-            ILFree(pidlChild);
-            ILFree(pidlParent);
-        }
-        else if (uMsg == DFM_MERGECONTEXTMENU)
-        {
-            QCMINFO *pqcminfo = (QCMINFO *)lParam;
-            _InsertMenuItemW(pqcminfo->hmenu, pqcminfo->indexMenu++, TRUE, 0, MFT_SEPARATOR, NULL, 0);
-            _InsertMenuItemW(pqcminfo->hmenu, pqcminfo->indexMenu++, TRUE, FCIDM_SHVIEW_PROPERTIES, MFT_STRING, MAKEINTRESOURCEW(IDS_PROPERTIES), MFS_ENABLED);
-        }
-
-        return S_OK;
-    }
-
-    if (uMsg != DFM_INVOKECOMMAND || wParam != DFM_CMD_PROPERTIES)
-        return S_OK;
-
-    PIDLIST_ABSOLUTE pidlFolder;
-    PUITEMID_CHILD *apidl;
-    UINT cidl;
-    HRESULT hr = SH_GetApidlFromDataObject(pdtobj, &pidlFolder, &apidl, &cidl);
-    if (FAILED_UNEXPECTEDLY(hr))
-        return hr;
-
-    if (cidl > 1)
-        ERR("SHMultiFileProperties is not yet implemented\n");
-
-    STRRET strFile;
-    hr = GetDisplayNameOf(apidl[0], SHGDN_FORPARSING, &strFile);
-    if (SUCCEEDED(hr))
-    {
-        hr = SH_ShowPropertiesDialog(strFile.pOleStr, pidlFolder, apidl);
-        if (FAILED(hr))
-            ERR("SH_ShowPropertiesDialog failed\n");
-    }
-    else
-    {
-        ERR("Failed to get display name\n");
-    }
-
-    SHFree(pidlFolder);
-    _ILFreeaPidl(apidl, cidl);
-
     return hr;
 }

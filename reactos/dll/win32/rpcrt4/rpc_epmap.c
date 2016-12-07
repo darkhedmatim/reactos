@@ -21,9 +21,6 @@
  */
 
 #include "precomp.h"
-
-#include <winsvc.h>
-
 #include "epm_towers.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(ole);
@@ -68,52 +65,32 @@ static const struct epm_endpoints
 
 static BOOL start_rpcss(void)
 {
-    static const WCHAR rpcssW[] = {'R','p','c','S','s',0};
-    SC_HANDLE scm, service;
-    SERVICE_STATUS_PROCESS status;
-    BOOL ret = FALSE;
+    PROCESS_INFORMATION pi;
+    STARTUPINFOW si;
+    WCHAR cmd[MAX_PATH];
+    static const WCHAR rpcss[] = {'\\','r','p','c','s','s','.','e','x','e',0};
+    BOOL rslt;
+    void *redir;
 
     TRACE("\n");
 
-    if (!(scm = OpenSCManagerW( NULL, NULL, 0 )))
+    ZeroMemory(&si, sizeof(STARTUPINFOA));
+    si.cb = sizeof(STARTUPINFOA);
+    GetSystemDirectoryW( cmd, MAX_PATH - sizeof(rpcss)/sizeof(WCHAR) );
+    lstrcatW( cmd, rpcss );
+
+    Wow64DisableWow64FsRedirection( &redir );
+    rslt = CreateProcessW( cmd, cmd, NULL, NULL, FALSE, DETACHED_PROCESS, NULL, NULL, &si, &pi );
+    Wow64RevertWow64FsRedirection( redir );
+
+    if (rslt)
     {
-        ERR( "failed to open service manager\n" );
-        return FALSE;
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+        Sleep(100);
     }
-    if (!(service = OpenServiceW( scm, rpcssW, SERVICE_START | SERVICE_QUERY_STATUS )))
-    {
-        ERR( "failed to open RpcSs service\n" );
-        CloseServiceHandle( scm );
-        return FALSE;
-    }
-    if (StartServiceW( service, 0, NULL ) || GetLastError() == ERROR_SERVICE_ALREADY_RUNNING)
-    {
-        ULONGLONG start_time = GetTickCount64();
-        do
-        {
-            DWORD dummy;
 
-            if (!QueryServiceStatusEx( service, SC_STATUS_PROCESS_INFO,
-                                       (BYTE *)&status, sizeof(status), &dummy ))
-                break;
-            if (status.dwCurrentState == SERVICE_RUNNING)
-            {
-                ret = TRUE;
-                break;
-            }
-            if (GetTickCount64() - start_time > 30000) break;
-            Sleep( 100 );
-
-        } while (status.dwCurrentState == SERVICE_START_PENDING);
-
-        if (status.dwCurrentState != SERVICE_RUNNING)
-            WARN( "RpcSs failed to start %u\n", status.dwCurrentState );
-    }
-    else ERR( "failed to start RpcSs service\n" );
-
-    CloseServiceHandle( service );
-    CloseServiceHandle( scm );
-    return ret;
+    return rslt;
 }
 
 static inline BOOL is_epm_destination_local(RPC_BINDING_HANDLE handle)

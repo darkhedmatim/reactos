@@ -232,7 +232,7 @@ NdisMSetPeriodicTimer(
  *     Timer: pointer to the timer object to set
  *     MillisecondsPeriod: period of the timer
  * NOTES:
- *     - Minimum predictable interval is ~10ms
+ *     - Minimum predictible interval is ~10ms
  *     - Must be called at IRQL <= DISPATCH_LEVEL
  */
 {
@@ -278,7 +278,7 @@ NdisMSetTimer(
  *     Timer: timer object to set
  *     MillisecondsToDelay: time to wait for the timer to expire
  * NOTES:
- *     - Minimum predictable interval is ~10ms
+ *     - Minimum predictible interval is ~10ms
  *     - Must be called at IRQL <= DISPATCH_LEVEL
  */
 {
@@ -323,7 +323,7 @@ NdisSetTimer(
  *     Timer: timer object to set
  *     MillisecondsToDelay: time to wait for the timer to expire
  * NOTES:
- *     - Minimum predictable interval is ~10ms
+ *     - Minimum predictible interval is ~10ms
  *     - Must be called at IRQL <= DISPATCH_LEVEL
  */
 {

@@ -934,8 +934,6 @@ HRESULT STDMETHODCALLTYPE CInternetToolbar::CloseDW(DWORD dwReserved)
             return hResult;
         ReleaseCComPtrExpectZero(fLogoBar);
     }
-
-    SetSite(NULL);
     return S_OK;
 }
 

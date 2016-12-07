@@ -36,10 +36,10 @@ public:
     }
 
     //IBDA_LNBInfo methods
-    HRESULT STDMETHODCALLTYPE put_LocalOscillatorFrequencyLowBand(ULONG ulLOFLow);
-    HRESULT STDMETHODCALLTYPE get_LocalOscillatorFrequencyLowBand(ULONG *pulLOFLow);
-    HRESULT STDMETHODCALLTYPE put_LocalOscillatorFrequencyHighBand(ULONG ulLOFHigh);
-    HRESULT STDMETHODCALLTYPE get_LocalOscillatorFrequencyHighBand(ULONG *pulLOFHigh);
+    HRESULT STDMETHODCALLTYPE put_LocalOscilatorFrequencyLowBand(ULONG ulLOFLow);
+    HRESULT STDMETHODCALLTYPE get_LocalOscilatorFrequencyLowBand(ULONG *pulLOFLow);
+    HRESULT STDMETHODCALLTYPE put_LocalOscilatorFrequencyHighBand(ULONG ulLOFHigh);
+    HRESULT STDMETHODCALLTYPE get_LocalOscilatorFrequencyHighBand(ULONG *pulLOFHigh);
     HRESULT STDMETHODCALLTYPE put_HighLowSwitchFrequency(ULONG ulSwitchFrequency);
     HRESULT STDMETHODCALLTYPE get_HighLowSwitchFrequency(ULONG *pulSwitchFrequency);
 
@@ -88,7 +88,7 @@ CBDALNBInfo::QueryInterface(
 
 HRESULT
 STDMETHODCALLTYPE
-CBDALNBInfo::put_LocalOscillatorFrequencyLowBand(ULONG ulLOFLow)
+CBDALNBInfo::put_LocalOscilatorFrequencyLowBand(ULONG ulLOFLow)
 {
     KSP_NODE Node;
     HRESULT hr;
@@ -102,7 +102,7 @@ CBDALNBInfo::put_LocalOscillatorFrequencyLowBand(ULONG ulLOFLow)
 
 #ifdef BDAPLGIN_TRACE
     WCHAR Buffer[100];
-    swprintf(Buffer, L"CBDALNBInfo::put_LocalOscillatorFrequencyLowBand: m_NodeId %lu ulLOFLow %lu hr %lx\n", m_NodeId, ulLOFLow, hr);
+    swprintf(Buffer, L"CBDALNBInfo::put_LocalOscilatorFrequencyLowBand: m_NodeId %lu ulLOFLow %lu hr %lx\n", m_NodeId, ulLOFLow, hr);
     OutputDebugStringW(Buffer);
 #endif
 
@@ -111,14 +111,14 @@ CBDALNBInfo::put_LocalOscillatorFrequencyLowBand(ULONG ulLOFLow)
 
 HRESULT
 STDMETHODCALLTYPE
-CBDALNBInfo::get_LocalOscillatorFrequencyLowBand(ULONG *pulLOFLow)
+CBDALNBInfo::get_LocalOscilatorFrequencyLowBand(ULONG *pulLOFLow)
 {
     return E_NOINTERFACE;
 }
 
 HRESULT
 STDMETHODCALLTYPE
-CBDALNBInfo::put_LocalOscillatorFrequencyHighBand(ULONG ulLOFHigh)
+CBDALNBInfo::put_LocalOscilatorFrequencyHighBand(ULONG ulLOFHigh)
 {
     KSP_NODE Node;
     HRESULT hr;
@@ -132,7 +132,7 @@ CBDALNBInfo::put_LocalOscillatorFrequencyHighBand(ULONG ulLOFHigh)
 
 #ifdef BDAPLGIN_TRACE
     WCHAR Buffer[100];
-    swprintf(Buffer, L"CBDALNBInfo::put_LocalOscillatorFrequencyHighBand: m_NodeId %lu ulLOFHigh %lu hr %lx\n", m_NodeId, ulLOFHigh, hr);
+    swprintf(Buffer, L"CBDALNBInfo::put_LocalOscilatorFrequencyHighBand: m_NodeId %lu ulLOFHigh %lu hr %lx\n", m_NodeId, ulLOFHigh, hr);
     OutputDebugStringW(Buffer);
 #endif
 
@@ -141,7 +141,7 @@ CBDALNBInfo::put_LocalOscillatorFrequencyHighBand(ULONG ulLOFHigh)
 
 HRESULT
 STDMETHODCALLTYPE
-CBDALNBInfo::get_LocalOscillatorFrequencyHighBand(ULONG *pulLOFHigh)
+CBDALNBInfo::get_LocalOscilatorFrequencyHighBand(ULONG *pulLOFHigh)
 {
     return E_NOINTERFACE;
 }

@@ -104,7 +104,7 @@ KsRegisterWorker(
     if (!KsWorker)
         return STATUS_INSUFFICIENT_RESOURCES;
 
-    /* initialize the work ctx */
+    /* initialze the work ctx */
     ExInitializeWorkItem(&KsWorker->WorkItem, WorkItemRoutine, (PVOID)KsWorker);
     /* setup type */
     KsWorker->Type = WorkQueueType;

@@ -825,7 +825,7 @@ LogfReadEvents(PLOGFILE LogFile,
 
         /* Go to the next event record */
         /*
-         * NOTE: This implicitly supposes that all the other record numbers
+         * NOTE: This implicitely supposes that all the other record numbers
          * are consecutive (and do not jump than more than one unit); but if
          * it is not the case, then we would prefer here to call some
          * "get_next_record_number" function.
@@ -898,8 +898,8 @@ LogfAllocAndBuildNewRecord(PSIZE_T pRecSize,
                            USHORT  wType,
                            USHORT  wCategory,
                            ULONG   dwEventId,
-                           PUNICODE_STRING SourceName,
-                           PUNICODE_STRING ComputerName,
+                           PCWSTR  SourceName,
+                           PCWSTR  ComputerName,
                            ULONG   dwSidLength,
                            PSID    pUserSid,
                            USHORT  wNumStrings,
@@ -908,17 +908,16 @@ LogfAllocAndBuildNewRecord(PSIZE_T pRecSize,
                            PVOID   pRawData)
 {
     SIZE_T RecSize;
-    SIZE_T SourceNameSize, ComputerNameSize, StringLen;
     PBYTE Buffer;
     PEVENTLOGRECORD pRec;
     PWSTR str;
     UINT i, pos;
+    SIZE_T SourceNameLen, ComputerNameLen, StringLen;
 
-    SourceNameSize   = (SourceName   && SourceName->Buffer)   ? SourceName->Length   : 0;
-    ComputerNameSize = (ComputerName && ComputerName->Buffer) ? ComputerName->Length : 0;
+    SourceNameLen = (SourceName ? wcslen(SourceName) : 0) + 1;
+    ComputerNameLen = (ComputerName ? wcslen(ComputerName) : 0) + 1;
 
-    RecSize = sizeof(EVENTLOGRECORD) + /* Add the sizes of the strings, NULL-terminated */
-        SourceNameSize + ComputerNameSize + 2*sizeof(UNICODE_NULL);
+    RecSize = sizeof(EVENTLOGRECORD) + (SourceNameLen + ComputerNameLen) * sizeof(WCHAR);
 
     /* Align on DWORD boundary for the SID */
     RecSize = ROUND_UP(RecSize, sizeof(ULONG));
@@ -976,19 +975,12 @@ LogfAllocAndBuildNewRecord(PSIZE_T pRecSize,
 
     pos = sizeof(EVENTLOGRECORD);
 
-    /* NOTE: Equivalents of RtlStringCbCopyUnicodeString calls */
-    if (SourceNameSize)
-    {
-        StringCbCopyNW((PWSTR)(Buffer + pos), SourceNameSize + sizeof(UNICODE_NULL),
-                       SourceName->Buffer, SourceNameSize);
-    }
-    pos += SourceNameSize + sizeof(UNICODE_NULL);
-    if (ComputerNameSize)
-    {
-        StringCbCopyNW((PWSTR)(Buffer + pos), ComputerNameSize + sizeof(UNICODE_NULL),
-                       ComputerName->Buffer, ComputerNameSize);
-    }
-    pos += ComputerNameSize + sizeof(UNICODE_NULL);
+    if (SourceName)
+        StringCchCopyW((PWSTR)(Buffer + pos), SourceNameLen, SourceName);
+    pos += SourceNameLen * sizeof(WCHAR);
+    if (ComputerName)
+        StringCchCopyW((PWSTR)(Buffer + pos), ComputerNameLen, ComputerName);
+    pos += ComputerNameLen * sizeof(WCHAR);
 
     /* Align on DWORD boundary for the SID */
     pos = ROUND_UP(pos, sizeof(ULONG));
@@ -1043,24 +1035,20 @@ LogfReportEvent(USHORT wType,
                 PVOID  pRawData)
 {
     NTSTATUS Status;
-    UNICODE_STRING SourceName, ComputerName;
+    WCHAR szComputerName[MAX_COMPUTERNAME_LENGTH + 1];
+    DWORD dwComputerNameLength = MAX_COMPUTERNAME_LENGTH + 1;
     PEVENTLOGRECORD LogBuffer;
     LARGE_INTEGER SystemTime;
     ULONG Time;
     SIZE_T RecSize;
-    DWORD dwComputerNameLength;
-    WCHAR szComputerName[MAX_COMPUTERNAME_LENGTH + 1];
 
     if (!EventLogSource)
         return;
 
-    RtlInitUnicodeString(&SourceName, EventLogSource->szName);
-
-    dwComputerNameLength = ARRAYSIZE(szComputerName);
     if (!GetComputerNameW(szComputerName, &dwComputerNameLength))
+    {
         szComputerName[0] = L'\0';
-
-    RtlInitUnicodeString(&ComputerName, szComputerName);
+    }
 
     NtQuerySystemTime(&SystemTime);
     RtlTimeToSecondsSince1970(&SystemTime, &Time);
@@ -1070,19 +1058,14 @@ LogfReportEvent(USHORT wType,
                                            wType,
                                            wCategory,
                                            dwEventId,
-                                           &SourceName,
-                                           &ComputerName,
+                                           EventLogSource->szName,
+                                           szComputerName,
                                            0,
                                            NULL,
                                            wNumStrings,
                                            pStrings,
                                            dwDataSize,
                                            pRawData);
-    if (LogBuffer == NULL)
-    {
-        DPRINT1("LogfAllocAndBuildNewRecord failed!\n");
-        return;
-    }
 
     Status = LogfWriteRecord(EventLogSource->LogFile, LogBuffer, RecSize);
     if (!NT_SUCCESS(Status))

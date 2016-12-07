@@ -17,6 +17,7 @@ mswBufferInit(
   _In_ BYTE* buffer,
   _In_ DWORD bufferSize);
 
+inline
 BOOL
 mswBufferCheck(
   _Inout_ PMSW_BUFFER mswBuf,
@@ -27,6 +28,7 @@ mswBufferIncUsed(
   _Inout_ PMSW_BUFFER mswBuf,
   _In_ DWORD count);
 
+inline
 BYTE*
 mswBufferEndPtr(
   _Inout_ PMSW_BUFFER mswBuf);

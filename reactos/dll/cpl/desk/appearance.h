@@ -47,11 +47,10 @@ typedef struct
     BOOL bTooltipAnimation;
     BOOL bTooltipFade;
     BOOL bCursorShadow;
-    BOOL bDropShadow;
     BOOL bUiEffects;
     BOOL bFontSmoothing;
-    UINT uiFontSmoothingType;
     BOOL bDragFullWindows;
+    UINT uiFontSmoothingType;
 } EFFECTS;
 
 typedef struct
@@ -70,7 +69,7 @@ typedef struct
  * and different sizes. In other words the user can select a combination
  * of colour and size. 
  * That means that for the classic theme THEME.SizesList is unused and 
- * every color has some child styles that correspond its sizes.
+ * every color has some child styles that corespond its sizes.
  * The themes for visual styles however will use both ColoursList and SizesList
  * and ChildStyle will not be used.
  */

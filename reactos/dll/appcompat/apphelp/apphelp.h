@@ -79,20 +79,19 @@ typedef struct tagSDBQUERYRESULT {
     GUID   rgGuidDB[SDB_MAX_SDBS];
 } SDBQUERYRESULT, *PSDBQUERYRESULT;
 
+/* apphelp.c */
+
 #include "sdbpapi.h"
 
-/* sdbapi.c */
 PWSTR SdbpStrDup(LPCWSTR string);
 HSDB WINAPI SdbInitDatabase(DWORD, LPCWSTR);
 void WINAPI SdbReleaseDatabase(HSDB);
-BOOL WINAPI SdbGUIDToString(CONST GUID *Guid, PWSTR GuidString, SIZE_T Length);
 
 PDB WINAPI SdbOpenDatabase(LPCWSTR path, PATH_TYPE type);
 void WINAPI SdbCloseDatabase(PDB);
 BOOL WINAPI SdbIsNullGUID(CONST GUID *Guid);
 BOOL WINAPI SdbGetAppPatchDir(HSDB db, LPWSTR path, DWORD size);
 LPWSTR WINAPI SdbGetStringTagPtr(PDB db, TAGID tagid);
-TAGID WINAPI SdbFindFirstNamedTag(PDB db, TAGID root, TAGID find, TAGID nametag, LPCWSTR find_name);
 
 /* sdbread.c */
 BOOL WINAPI SdbpReadData(PDB db, PVOID dest, DWORD offset, DWORD num);
@@ -108,9 +107,6 @@ BOOL WINAPI SdbFreeFileAttributes(PATTRINFO attr_info);
 BOOL WINAPI AllowPermLayer(PCWSTR path);
 BOOL WINAPI SdbGetPermLayerKeys(PCWSTR wszPath, PWSTR pwszLayers, PDWORD pdwBytes, DWORD dwFlags);
 BOOL WINAPI SetPermLayerState(PCWSTR wszPath, PCWSTR wszLayer, DWORD dwFlags, BOOL bMachine, BOOL bEnable);
-
-/* hsdb.c */
-BOOL WINAPI SdbTagIDToTagRef(HSDB hsdb, PDB pdb, TAGID tiWhich, TAGREF* ptrWhich);
 
 
 #define ATTRIBUTE_AVAILABLE 0x1

@@ -975,7 +975,7 @@ MainWindowProc(HWND hwnd,
                 }
 
 
-                /* initialize preferences */
+                /* initialize perferences */
                 ZeroMemory(&Preferences, sizeof(Preferences));
 
                 /* store mixer */

@@ -59,7 +59,7 @@ typedef struct tag_WAVEALLOC {
 
     WAVEOVL             DummyWaveOvl;   // For break loop
                                                                                 //
-    HANDLE              Event;          // Event for driver synchronization
+    HANDLE              Event;          // Event for driver syncrhonization
                                         // and notification of auxiliary
                                         // task operation completion.
     WAVETHREADFUNCTION  AuxFunction;    // Function for thread to perform

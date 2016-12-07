@@ -235,7 +235,7 @@ HRESULT WINAPI CNetworkConnections::ParseDisplayName (
 }
 
 /**************************************************************************
- *  CreateNetConnectEnumList()
+ *  CreateNetConnectEnumListss()
  */
 static BOOL CreateNetConnectEnumList(CEnumIDList *list, DWORD dwFlags)
 {

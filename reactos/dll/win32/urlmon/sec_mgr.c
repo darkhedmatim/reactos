@@ -1820,7 +1820,7 @@ HRESULT ZoneMgrImpl_Construct(IUnknown *pUnkOuter, LPVOID *ppobj)
     TRACE("(%p %p)\n", pUnkOuter, ppobj);
     ret->IInternetZoneManagerEx2_iface.lpVtbl = &ZoneMgrImplVtbl;
     ret->ref = 1;
-    *ppobj = &ret->IInternetZoneManagerEx2_iface;
+    *ppobj = (IInternetZoneManagerEx*)ret;
 
     URLMON_LockModule();
 

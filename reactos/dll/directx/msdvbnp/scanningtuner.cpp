@@ -574,14 +574,14 @@ CScanningTunner::SetLnbInfo(
 {
     HRESULT hr;
 
-    hr = pLnbInfo->put_LocalOscillatorFrequencyLowBand(ulLOFLow);
+    hr = pLnbInfo->put_LocalOscilatorFrequencyLowBand(ulLOFLow);
     if (hr == MAKE_HRESULT(SEVERITY_ERROR, FACILITY_WIN32, ERROR_NOT_FOUND) || hr == MAKE_HRESULT(SEVERITY_ERROR, FACILITY_WIN32, ERROR_SET_NOT_FOUND))
         hr = NOERROR;
 
     if (FAILED(hr))
         return hr;
 
-    hr = pLnbInfo->put_LocalOscillatorFrequencyHighBand(ulLOFHigh);
+    hr = pLnbInfo->put_LocalOscilatorFrequencyHighBand(ulLOFHigh);
     if (hr == MAKE_HRESULT(SEVERITY_ERROR, FACILITY_WIN32, ERROR_NOT_FOUND) || hr == MAKE_HRESULT(SEVERITY_ERROR, FACILITY_WIN32, ERROR_SET_NOT_FOUND))
         hr = NOERROR;
 

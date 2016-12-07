@@ -14,10 +14,16 @@
 
 #include "services.h"
 
-#include <userenv.h>
+#include <winuser.h>
 
 #define NDEBUG
 #include <debug.h>
+
+/*
+ * Uncomment the line below to start services
+ * using the SERVICE_START_PENDING state.
+ */
+#define USE_SERVICE_START_PENDING
 
 /*
  * Uncomment the line below to use asynchronous IO operations
@@ -153,8 +159,8 @@ ScmGetServiceImageByImagePath(LPWSTR lpImagePath)
 static
 BOOL
 ScmIsSameServiceAccount(
-    _In_ PCWSTR pszAccountName1,
-    _In_ PCWSTR pszAccountName2)
+    IN PWSTR pszAccountName1,
+    IN PWSTR pszAccountName2)
 {
     if (pszAccountName1 == NULL && pszAccountName2 == NULL)
         return TRUE;
@@ -175,7 +181,7 @@ ScmIsSameServiceAccount(
 static
 BOOL
 ScmIsLocalSystemAccount(
-    _In_ PCWSTR pszAccountName)
+    IN PWSTR pszAccountName)
 {
     if (pszAccountName == NULL ||
         wcscmp(pszAccountName, L"LocalSystem") == 0)
@@ -306,7 +312,6 @@ ScmCreateOrReferenceServiceImage(PSERVICE pService)
 
         pServiceImage->dwImageRunCount = 1;
         pServiceImage->hControlPipe = INVALID_HANDLE_VALUE;
-        pServiceImage->hProcess = INVALID_HANDLE_VALUE;
 
         pString = (PWSTR)((INT_PTR)pServiceImage + sizeof(SERVICE_IMAGE));
 
@@ -330,10 +335,6 @@ ScmCreateOrReferenceServiceImage(PSERVICE pService)
         if (dwError != ERROR_SUCCESS)
         {
             DPRINT1("ScmLogonService() failed (Error %lu)\n", dwError);
-
-            /* Release the service image */
-            HeapFree(GetProcessHeap(), 0, pServiceImage);
-
             goto done;
         }
 
@@ -341,15 +342,7 @@ ScmCreateOrReferenceServiceImage(PSERVICE pService)
         dwError = ScmCreateNewControlPipe(pServiceImage);
         if (dwError != ERROR_SUCCESS)
         {
-            DPRINT1("ScmCreateNewControlPipe() failed (Error %lu)\n", dwError);
-
-            /* Close the logon token */
-            if (pServiceImage->hToken != NULL)
-                CloseHandle(pServiceImage->hToken);
-
-            /* Release the service image */
             HeapFree(GetProcessHeap(), 0, pServiceImage);
-
             goto done;
         }
 
@@ -408,17 +401,13 @@ ScmDereferenceServiceImage(PSERVICE_IMAGE pServiceImage)
         /* Remove the service image from the list */
         RemoveEntryList(&pServiceImage->ImageListEntry);
 
-        /* Close the process handle */
-        if (pServiceImage->hProcess != INVALID_HANDLE_VALUE)
-            CloseHandle(pServiceImage->hProcess);
+        /* Close the logon token */
+        if (pServiceImage->hToken != NULL)
+            CloseHandle(pServiceImage->hToken);
 
         /* Close the control pipe */
         if (pServiceImage->hControlPipe != INVALID_HANDLE_VALUE)
             CloseHandle(pServiceImage->hControlPipe);
-
-        /* Close the logon token */
-        if (pServiceImage->hToken != NULL)
-            CloseHandle(pServiceImage->hToken);
 
         /* Release the service image */
         HeapFree(GetProcessHeap(), 0, pServiceImage);
@@ -746,6 +735,55 @@ done:
     }
 
     return dwError;
+}
+
+
+DWORD
+ScmDeleteRegKey(HKEY hKey, LPCWSTR lpszSubKey)
+{
+    DWORD dwRet, dwMaxSubkeyLen = 0, dwSize;
+    WCHAR szNameBuf[MAX_PATH], *lpszName = szNameBuf;
+    HKEY hSubKey = 0;
+
+    dwRet = RegOpenKeyExW(hKey, lpszSubKey, 0, KEY_READ, &hSubKey);
+    if (!dwRet)
+    {
+        /* Find the maximum subkey length so that we can allocate a buffer */
+        dwRet = RegQueryInfoKeyW(hSubKey, NULL, NULL, NULL, NULL,
+                                 &dwMaxSubkeyLen, NULL, NULL, NULL, NULL, NULL, NULL);
+        if (!dwRet)
+        {
+            dwMaxSubkeyLen++;
+            if (dwMaxSubkeyLen > sizeof(szNameBuf) / sizeof(WCHAR))
+            {
+                /* Name too big: alloc a buffer for it */
+                lpszName = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwMaxSubkeyLen * sizeof(WCHAR));
+            }
+
+            if (!lpszName)
+                dwRet = ERROR_NOT_ENOUGH_MEMORY;
+            else
+            {
+                while (dwRet == ERROR_SUCCESS)
+                {
+                    dwSize = dwMaxSubkeyLen;
+                    dwRet = RegEnumKeyExW(hSubKey, 0, lpszName, &dwSize, NULL, NULL, NULL, NULL);
+                    if (dwRet == ERROR_SUCCESS || dwRet == ERROR_MORE_DATA)
+                        dwRet = ScmDeleteRegKey(hSubKey, lpszName);
+                }
+                if (dwRet == ERROR_NO_MORE_ITEMS)
+                    dwRet = ERROR_SUCCESS;
+
+                if (lpszName != szNameBuf)
+                    HeapFree(GetProcessHeap(), 0, lpszName); /* Free buffer if allocated */
+            }
+        }
+
+        RegCloseKey(hSubKey);
+        if (!dwRet)
+            dwRet = RegDeleteKeyW(hKey, lpszSubKey);
+    }
+    return dwRet;
 }
 
 
@@ -1197,7 +1235,7 @@ ScmControlService(PSERVICE Service,
 #endif
 
 Done:
-    /* Release the control packet */
+    /* Release the contol packet */
     HeapFree(GetProcessHeap(),
              0,
              ControlPacket);
@@ -1227,17 +1265,17 @@ ScmSendStartCommand(PSERVICE Service,
                     DWORD argc,
                     LPWSTR* argv)
 {
-    DWORD dwError = ERROR_SUCCESS;
     PSCM_CONTROL_PACKET ControlPacket;
     SCM_REPLY_PACKET ReplyPacket;
     DWORD PacketSize;
-    DWORD i;
     PWSTR Ptr;
+    DWORD dwWriteCount = 0;
+    DWORD dwReadCount = 0;
+    DWORD dwError = ERROR_SUCCESS;
+    DWORD i;
     PWSTR *pOffPtr;
     PWSTR pArgPtr;
     BOOL bResult;
-    DWORD dwWriteCount = 0;
-    DWORD dwReadCount = 0;
 #ifdef USE_ASYNCHRONOUS_IO
     OVERLAPPED Overlapped = {0};
 #endif
@@ -1245,32 +1283,26 @@ ScmSendStartCommand(PSERVICE Service,
     DPRINT("ScmSendStartCommand() called\n");
 
     /* Calculate the total length of the start command line */
-    PacketSize = sizeof(SCM_CONTROL_PACKET);
-    PacketSize += (DWORD)((wcslen(Service->lpServiceName) + 1) * sizeof(WCHAR));
+    PacketSize = sizeof(SCM_CONTROL_PACKET) +
+                 (DWORD)((wcslen(Service->lpServiceName) + 1) * sizeof(WCHAR));
 
-    /*
-     * Calculate the required packet size for the start argument vector 'argv',
-     * composed of the list of pointer offsets, followed by UNICODE strings.
-     * The strings are stored continuously after the vector of offsets, with
-     * the offsets being relative to the beginning of the vector, as in the
-     * following layout (with N == argc):
-     *     [argOff(0)]...[argOff(N-1)][str(0)]...[str(N-1)] .
-     */
+    /* Calculate the required packet size for the start arguments */
     if (argc > 0 && argv != NULL)
     {
-        PacketSize = ALIGN_UP(PacketSize, PWSTR);
-        PacketSize += (argc * sizeof(PWSTR));
+        PacketSize = ALIGN_UP(PacketSize, LPWSTR);
 
         DPRINT("Argc: %lu\n", argc);
         for (i = 0; i < argc; i++)
         {
             DPRINT("Argv[%lu]: %S\n", i, argv[i]);
-            PacketSize += (DWORD)((wcslen(argv[i]) + 1) * sizeof(WCHAR));
+            PacketSize += (DWORD)((wcslen(argv[i]) + 1) * sizeof(WCHAR) + sizeof(PWSTR));
         }
     }
 
     /* Allocate a control packet */
-    ControlPacket = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, PacketSize);
+    ControlPacket = HeapAlloc(GetProcessHeap(),
+                              HEAP_ZERO_MEMORY,
+                              PacketSize);
     if (ControlPacket == NULL)
         return ERROR_NOT_ENOUGH_MEMORY;
 
@@ -1279,23 +1311,22 @@ ScmSendStartCommand(PSERVICE Service,
                                ? SERVICE_CONTROL_START_OWN
                                : SERVICE_CONTROL_START_SHARE;
     ControlPacket->hServiceStatus = (SERVICE_STATUS_HANDLE)Service;
-
-    /* Copy the start command line */
     ControlPacket->dwServiceNameOffset = sizeof(SCM_CONTROL_PACKET);
-    Ptr = (PWSTR)((ULONG_PTR)ControlPacket + ControlPacket->dwServiceNameOffset);
+
+    Ptr = (PWSTR)((PBYTE)ControlPacket + ControlPacket->dwServiceNameOffset);
     wcscpy(Ptr, Service->lpServiceName);
 
-    ControlPacket->dwArgumentsCount  = 0;
+    ControlPacket->dwArgumentsCount = 0;
     ControlPacket->dwArgumentsOffset = 0;
 
-    /* Copy the argument vector */
+    /* Copy argument list */
     if (argc > 0 && argv != NULL)
     {
         Ptr += wcslen(Service->lpServiceName) + 1;
         pOffPtr = (PWSTR*)ALIGN_UP_POINTER(Ptr, PWSTR);
         pArgPtr = (PWSTR)((ULONG_PTR)pOffPtr + argc * sizeof(PWSTR));
 
-        ControlPacket->dwArgumentsCount  = argc;
+        ControlPacket->dwArgumentsCount = argc;
         ControlPacket->dwArgumentsOffset = (DWORD)((ULONG_PTR)pOffPtr - (ULONG_PTR)ControlPacket);
 
         DPRINT("dwArgumentsCount: %lu\n", ControlPacket->dwArgumentsCount);
@@ -1303,10 +1334,12 @@ ScmSendStartCommand(PSERVICE Service,
 
         for (i = 0; i < argc; i++)
         {
-            wcscpy(pArgPtr, argv[i]);
-            pOffPtr[i] = (PWSTR)((ULONG_PTR)pArgPtr - (ULONG_PTR)pOffPtr);
-            DPRINT("offset[%lu]: %p\n", i, pOffPtr[i]);
-            pArgPtr += wcslen(argv[i]) + 1;
+             wcscpy(pArgPtr, argv[i]);
+             *pOffPtr = (PWSTR)((ULONG_PTR)pArgPtr - (ULONG_PTR)pOffPtr);
+             DPRINT("offset: %p\n", *pOffPtr);
+
+             pArgPtr += wcslen(argv[i]) + 1;
+             pOffPtr++;
         }
     }
 
@@ -1444,7 +1477,7 @@ ScmSendStartCommand(PSERVICE Service,
 #endif
 
 Done:
-    /* Release the control packet */
+    /* Release the contol packet */
     HeapFree(GetProcessHeap(),
              0,
              ControlPacket);
@@ -1681,7 +1714,6 @@ ScmStartUserModeService(PSERVICE Service,
 {
     PROCESS_INFORMATION ProcessInformation;
     STARTUPINFOW StartupInfo;
-    LPVOID lpEnvironment;
     BOOL Result;
     DWORD dwError = ERROR_SUCCESS;
 
@@ -1699,86 +1731,21 @@ ScmStartUserModeService(PSERVICE Service,
     StartupInfo.cb = sizeof(StartupInfo);
     ZeroMemory(&ProcessInformation, sizeof(ProcessInformation));
 
-    /* Use the interactive desktop if the service is interactive */
-    // TODO: We should also check the value "NoInteractiveServices ":
-    // See https://msdn.microsoft.com/en-us/library/windows/desktop/ms683502(v=vs.85).aspx
-    // for more details.
-    if (Service->Status.dwServiceType & SERVICE_INTERACTIVE_PROCESS)
-        StartupInfo.lpDesktop = L"WinSta0\\Default";
-
-    if (Service->lpImage->hToken)
-    {
-        /* User token: Run the service under the user account */
-
-        if (!CreateEnvironmentBlock(&lpEnvironment, Service->lpImage->hToken, FALSE))
-        {
-            /* We failed, run the service with the current environment */
-            DPRINT1("CreateEnvironmentBlock() failed with error %d; service '%S' will run with the current environment.\n",
-                    GetLastError(), Service->lpServiceName);
-            lpEnvironment = NULL;
-        }
-
-        /* Impersonate the new user */
-        Result = ImpersonateLoggedOnUser(Service->lpImage->hToken);
-        if (Result)
-        {
-            /* Launch the process in the user's logon session */
-            Result = CreateProcessAsUserW(Service->lpImage->hToken,
-                                          NULL,
-                                          Service->lpImage->pszImagePath,
-                                          NULL,
-                                          NULL,
-                                          FALSE,
-                                          CREATE_UNICODE_ENVIRONMENT | DETACHED_PROCESS | CREATE_SUSPENDED,
-                                          lpEnvironment,
-                                          NULL,
-                                          &StartupInfo,
-                                          &ProcessInformation);
-            if (!Result)
-                dwError = GetLastError();
-
-            /* Revert the impersonation */
-            RevertToSelf();
-        }
-        else
-        {
-            dwError = GetLastError();
-            DPRINT1("ImpersonateLoggedOnUser() failed with error %d\n", dwError);
-        }
-    }
-    else
-    {
-        /* No user token: Run the service under the LocalSystem account */
-
-        if (!CreateEnvironmentBlock(&lpEnvironment, NULL, TRUE))
-        {
-            /* We failed, run the service with the current environment */
-            DPRINT1("CreateEnvironmentBlock() failed with error %d; service '%S' will run with the current environment.\n",
-                    GetLastError(), Service->lpServiceName);
-            lpEnvironment = NULL;
-        }
-
-        Result = CreateProcessW(NULL,
-                                Service->lpImage->pszImagePath,
-                                NULL,
-                                NULL,
-                                FALSE,
-                                CREATE_UNICODE_ENVIRONMENT | DETACHED_PROCESS | CREATE_SUSPENDED,
-                                lpEnvironment,
-                                NULL,
-                                &StartupInfo,
-                                &ProcessInformation);
-        if (!Result)
-            dwError = GetLastError();
-    }
-
-    if (lpEnvironment)
-        DestroyEnvironmentBlock(lpEnvironment);
-
+    Result = CreateProcessAsUserW(Service->lpImage->hToken,
+                                  NULL,
+                                  Service->lpImage->pszImagePath,
+                                  NULL,
+                                  NULL,
+                                  FALSE,
+                                  DETACHED_PROCESS | CREATE_SUSPENDED,
+                                  NULL,
+                                  NULL,
+                                  &StartupInfo,
+                                  &ProcessInformation);
     if (!Result)
     {
-        DPRINT1("Starting '%S' failed with error %d\n",
-                Service->lpServiceName, dwError);
+        dwError = GetLastError();
+        DPRINT1("Starting '%S' failed!\n", Service->lpServiceName);
         return dwError;
     }
 
@@ -1789,25 +1756,30 @@ ScmStartUserModeService(PSERVICE Service,
            ProcessInformation.dwThreadId,
            ProcessInformation.hThread);
 
-    /* Get the process handle and ID */
-    Service->lpImage->hProcess = ProcessInformation.hProcess;
+    /* Get process handle and id */
     Service->lpImage->dwProcessId = ProcessInformation.dwProcessId;
 
-    /* Resume the main thread and close its handle */
+    /* Resume Thread */
     ResumeThread(ProcessInformation.hThread);
-    CloseHandle(ProcessInformation.hThread);
 
     /* Connect control pipe */
     dwError = ScmWaitForServiceConnect(Service);
-    if (dwError != ERROR_SUCCESS)
+    if (dwError == ERROR_SUCCESS)
+    {
+        /* Send start command */
+        dwError = ScmSendStartCommand(Service, argc, argv);
+    }
+    else
     {
         DPRINT1("Connecting control pipe failed! (Error %lu)\n", dwError);
         Service->lpImage->dwProcessId = 0;
-        return dwError;
     }
 
-    /* Send the start command */
-    return ScmSendStartCommand(Service, argc, argv);
+    /* Close thread and process handle */
+    CloseHandle(ProcessInformation.hThread);
+    CloseHandle(ProcessInformation.hProcess);
+
+    return dwError;
 }
 
 
@@ -1838,8 +1810,8 @@ ScmLoadService(PSERVICE Service,
         dwError = ScmLoadDriver(Service);
         if (dwError == ERROR_SUCCESS)
         {
-            Service->Status.dwCurrentState = SERVICE_RUNNING;
             Service->Status.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+            Service->Status.dwCurrentState = SERVICE_RUNNING;
         }
     }
     else // if (Service->Status.dwServiceType & (SERVICE_WIN32 | SERVICE_INTERACTIVE_PROCESS))
@@ -1851,8 +1823,11 @@ ScmLoadService(PSERVICE Service,
             dwError = ScmStartUserModeService(Service, argc, argv);
             if (dwError == ERROR_SUCCESS)
             {
+#ifdef USE_SERVICE_START_PENDING
                 Service->Status.dwCurrentState = SERVICE_START_PENDING;
-                Service->Status.dwControlsAccepted = 0;
+#else
+                Service->Status.dwCurrentState = SERVICE_RUNNING;
+#endif
             }
             else
             {

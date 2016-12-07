@@ -211,7 +211,7 @@ Return Value:
         //
         //  We had some trouble trying to perform the verify or raised
         //  an error ourselves.  So we'll abort the I/O request with
-        //  the error status that we get back from the exception code.
+        //  the error status that we get back from the execption code.
         //
 
         Status = CdProcessException( IrpContext, Irp, GetExceptionCode() );
@@ -550,7 +550,7 @@ Return Value:
         }
 
         //
-        //  Raise the verify / error if necessary.
+        //  Raise the verify / error if neccessary.
         //
         
         if (ForceVerify || !NT_SUCCESS( Status)) {

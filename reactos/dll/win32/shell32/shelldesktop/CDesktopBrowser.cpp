@@ -284,8 +284,7 @@ HRESULT STDMETHODCALLTYPE CDesktopBrowser::BrowseObject(LPCITEMIDLIST pidl, UINT
      * find an open shell window that shows the requested pidl and activate it
      */
 
-    DWORD dwFlags = ((wFlags & SBSP_EXPLOREMODE) != 0) ? SH_EXPLORER_CMDLINE_FLAG_E : 0; 
-    return SHOpenNewFrame((LPITEMIDLIST)pidl, NULL, 0, dwFlags);
+    return SHOpenNewFrame((LPITEMIDLIST)pidl, NULL, 0, 0);
 }
 
 HRESULT STDMETHODCALLTYPE CDesktopBrowser::GetViewStateStream(DWORD grfMode, IStream **ppStrm)

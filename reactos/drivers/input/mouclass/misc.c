@@ -2,7 +2,7 @@
  * COPYRIGHT:       See COPYING in the top level directory
  * PROJECT:         ReactOS Mouse class driver
  * FILE:            drivers/input/mouclass/misc.c
- * PURPOSE:         Miscellaneous operations
+ * PURPOSE:         Misceallenous operations
  *
  * PROGRAMMERS:     Hervé Poussineau (hpoussin@reactos.org)
  */

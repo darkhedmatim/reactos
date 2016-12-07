@@ -458,7 +458,7 @@ USBSTOR_SelectConfigurationAndInterface(
     Status = USBSTOR_SyncUrbRequest(DeviceExtension->LowerDeviceObject, Urb);
 
     //
-    // did it succeed
+    // did it succeeed
     //
     if (NT_SUCCESS(Status))
     {

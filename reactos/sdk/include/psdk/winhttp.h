@@ -63,8 +63,6 @@ typedef int INTERNET_SCHEME, *LPINTERNET_SCHEME;
 #define WINHTTP_NO_PROXY_NAME               NULL
 #define WINHTTP_NO_PROXY_BYPASS             NULL
 
-#define WINHTTP_NO_CLIENT_CERT_CONTEXT      NULL
-
 #define WINHTTP_NO_REFERER                  NULL
 #define WINHTTP_DEFAULT_ACCEPT_TYPES        NULL
 

@@ -79,7 +79,7 @@ WsRasLoadHelperDll(VOID)
     /* Acquire the lock */
     WsRasLock();
 
-    /* Check if we were already initialized */
+    /* Check if we were already initialiazed */
     if (!WsRasInitialized)
     {
         /* Open the registry root key */

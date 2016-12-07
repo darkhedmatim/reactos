@@ -9,7 +9,6 @@ list(APPEND SOURCE
     compress.c
     crc32c.c
     create.c
-    devctrl.c
     dirctrl.c
     extent-tree.c
     fastio.c
@@ -17,7 +16,6 @@ list(APPEND SOURCE
     flushthread.c
     free-space.c
     fsctl.c
-    galois.c
     pnp.c
     read.c
     registry.c

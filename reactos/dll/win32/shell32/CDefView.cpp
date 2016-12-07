@@ -1212,11 +1212,7 @@ HRESULT CDefView::InvokeContextMenuCommand(UINT uCommand)
     if (GetKeyState(VK_CONTROL) & 0x8000)
         cmi.fMask |= CMIC_MASK_CONTROL_DOWN;
 
-    HRESULT hr = m_pCM->InvokeCommand(&cmi);
-    if (FAILED_UNEXPECTEDLY(hr))
-        return hr;
-
-    return S_OK;
+    return m_pCM->InvokeCommand(&cmi);
 }
 
 /**********************************************************
@@ -1241,13 +1237,13 @@ HRESULT CDefView::OpenSelectedItems()
         return E_FAIL;
 
     hResult = GetItemObject(SVGIO_SELECTION, IID_PPV_ARG(IContextMenu, &m_pCM));
-    if (FAILED_UNEXPECTEDLY(hResult))
+    if (FAILED(hResult))
         goto cleanup;
 
     IUnknown_SetSite(m_pCM, (IShellView *)this);
 
     hResult = m_pCM->QueryContextMenu(hMenu, 0, 0x20, 0x7fff, CMF_DEFAULTONLY);
-    if (FAILED_UNEXPECTEDLY(hResult))
+    if (FAILED(hResult))
         goto cleanup;
 
     uCommand = GetMenuDefaultItem(hMenu, FALSE, 0);
@@ -1294,13 +1290,13 @@ LRESULT CDefView::OnContextMenu(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &b
     m_cidl = m_ListView.GetSelectedCount();
 
     hResult = GetItemObject( m_cidl ? SVGIO_SELECTION : SVGIO_BACKGROUND, IID_PPV_ARG(IContextMenu, &m_pCM));
-    if (FAILED_UNEXPECTEDLY(hResult))
+    if (FAILED( hResult))
         goto cleanup;
 
     IUnknown_SetSite(m_pCM, (IShellView *)this);
 
     hResult = m_pCM->QueryContextMenu(m_hContextMenu, 0, FCIDM_SHVIEWFIRST, FCIDM_SHVIEWLAST, CMF_NORMAL);
-    if (FAILED_UNEXPECTEDLY(hResult))
+    if (FAILED( hResult))
         goto cleanup;
 
     uCommand = TrackPopupMenu(m_hContextMenu,
@@ -1340,13 +1336,13 @@ LRESULT CDefView::OnExplorerCommand(UINT uCommand, BOOL bUseSelection)
         return 0;
 
     hResult = GetItemObject( bUseSelection ? SVGIO_SELECTION : SVGIO_BACKGROUND, IID_PPV_ARG(IContextMenu, &m_pCM));
-    if (FAILED_UNEXPECTEDLY( hResult))
+    if (FAILED( hResult))
         goto cleanup;
 
     IUnknown_SetSite(m_pCM, (IShellView *)this);
 
     hResult = m_pCM->QueryContextMenu(hMenu, 0, FCIDM_SHVIEWFIRST, FCIDM_SHVIEWLAST, CMF_NORMAL);
-    if (FAILED_UNEXPECTEDLY( hResult))
+    if (FAILED( hResult))
         goto cleanup;
 
     InvokeContextMenuCommand(uCommand);
@@ -1692,8 +1688,11 @@ LRESULT CDefView::OnNotify(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandl
                 if (m_pSF2Parent)
                 {
                     SHELLDETAILS sd;
-                    if (FAILED_UNEXPECTEDLY(m_pSF2Parent->GetDetailsOf(pidl, lpdi->item.iSubItem, &sd)))
+                    if (FAILED(m_pSF2Parent->GetDetailsOf(pidl, lpdi->item.iSubItem, &sd)))
+                    {
+                        FIXME("failed to get details\n");
                         break;
+                    }
 
                     if (lpnmh->code == LVN_GETDISPINFOA)
                     {
@@ -2204,7 +2203,7 @@ HRESULT WINAPI CDefView::SelectItem(PCUITEMID_CHILD pidl, UINT uFlags)
         lvItem.iItem++;
     }
 
-    if((uFlags & SVSI_EDIT) == SVSI_EDIT)
+    if(uFlags & SVSI_EDIT)
         m_ListView.EditLabel(i);
 
     return S_OK;
@@ -2223,13 +2222,15 @@ HRESULT WINAPI CDefView::GetItemObject(UINT uItem, REFIID riid, LPVOID *ppvOut)
         case SVGIO_BACKGROUND:
             if (IsEqualIID(riid, IID_IContextMenu))
             {
+                //*ppvOut = ISvBgCm_Constructor(m_pSFParent, FALSE);
                 if (!ppvOut)
                     hr = E_OUTOFMEMORY;
 
-                hr = CDefViewBckgrndMenu_CreateInstance(m_pSF2Parent, riid, ppvOut);
-                if (FAILED_UNEXPECTEDLY(hr))
+                IContextMenu* pcm;
+                hr = CDefFolderMenu_Create2(NULL, NULL, 0, NULL, m_pSFParent, NULL, 0, NULL, &pcm);
+                if (FAILED(hr))
                     return hr;
-
+                *ppvOut = pcm;
             }
             else if (IsEqualIID(riid, IID_IDispatch))
             {
@@ -2237,7 +2238,9 @@ HRESULT WINAPI CDefView::GetItemObject(UINT uItem, REFIID riid, LPVOID *ppvOut)
                 {
                     hr = CDefViewDual_Constructor(riid, (LPVOID*)&m_pShellFolderViewDual);
                     if (FAILED_UNEXPECTEDLY(hr))
+                    {
                         return hr;
+                    }
                 }
                 hr = m_pShellFolderViewDual->QueryInterface(riid, ppvOut);
             }
@@ -2246,8 +2249,6 @@ HRESULT WINAPI CDefView::GetItemObject(UINT uItem, REFIID riid, LPVOID *ppvOut)
         case SVGIO_SELECTION:
             GetSelections();
             hr = m_pSFParent->GetUIObjectOf(m_hWnd, m_cidl, m_apidl, riid, 0, ppvOut);
-            if (FAILED_UNEXPECTEDLY(hr))
-                return hr;
             break;
     }
 

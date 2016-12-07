@@ -81,7 +81,7 @@
  *        added showcmds function to show commands and options available
  *
  *    07-Aug-1998 (John P Price <linux-guru@gcfl.net>)
- *        Fixed carriage return output to better match MSDOS with echo
+ *        Fixed carrage return output to better match MSDOS with echo
  *        on or off. (marked with "JPP 19980708")
  *
  *    07-Dec-1998 (Eric Kohl)
@@ -137,8 +137,8 @@
  *
  *    06-jul-2005 (Magnus Olsen <magnus@greatlord.com>)
  *        translate '%errorlevel%' to the internal value.
- *        Add proper memory alloc ProcessInput, the error
- *        handling for memory handling need to be improve
+ *        Add proper memmory alloc ProcessInput, the error
+ *        handling for memmory handling need to be improve
  */
 
 #include "precomp.h"
@@ -157,7 +157,6 @@ BOOL bExit = FALSE;       /* indicates EXIT was typed */
 BOOL bCanExit = TRUE;     /* indicates if this shell is exitable */
 BOOL bCtrlBreak = FALSE;  /* Ctrl-Break or Ctrl-C hit */
 BOOL bIgnoreEcho = FALSE; /* Set this to TRUE to prevent a newline, when executing a command */
-static BOOL bWaitForCommand = FALSE; /* When we are executing something passed on the commandline after /c or /k */
 INT  nErrorLevel = 0;     /* Errorlevel of last launched external program */
 CRITICAL_SECTION ChildProcessRunningLock;
 BOOL bUnicodeOutput = FALSE;
@@ -182,7 +181,7 @@ WORD wDefColor;           /* default color */
  * insert commas into a number
  */
 INT
-ConvertULargeInteger(ULONGLONG num, LPTSTR des, UINT len, BOOL bPutSeparator)
+ConvertULargeInteger(ULONGLONG num, LPTSTR des, UINT len, BOOL bPutSeperator)
 {
     TCHAR temp[39];   /* maximum length with nNumberGroups == 1 */
     UINT  n, iTarget;
@@ -193,11 +192,11 @@ ConvertULargeInteger(ULONGLONG num, LPTSTR des, UINT len, BOOL bPutSeparator)
     n = 0;
     iTarget = nNumberGroups;
     if (!nNumberGroups)
-        bPutSeparator = FALSE;
+        bPutSeperator = FALSE;
 
     do
     {
-        if (iTarget == n && bPutSeparator)
+        if (iTarget == n && bPutSeperator)
         {
             iTarget += nNumberGroups + 1;
             temp[38 - n++] = cThousandSeparator;
@@ -322,7 +321,7 @@ Execute(LPTSTR Full, LPTSTR First, LPTSTR Rest, PARSED_COMMAND *Cmd)
     TRACE ("Execute: \'%s\' \'%s\'\n", debugstr_aw(First), debugstr_aw(Rest));
 
     /* Though it was already parsed once, we have a different set of rules
-       for parsing before we pass to CreateProcess */
+       for parsing before we pass to CreateProccess */
     if (First[0] == _T('/') || (First[0] && First[1] == _T(':')))
     {
         /* Use the entire first word as the program name (no change) */
@@ -443,9 +442,8 @@ Execute(LPTSTR Full, LPTSTR First, LPTSTR Rest, PARSED_COMMAND *Cmd)
 
         if (prci.hProcess != NULL)
         {
-            if (bc != NULL || bWaitForCommand || IsConsoleProcess(prci.hProcess))
+            if (IsConsoleProcess(prci.hProcess))
             {
-                /* when processing a batch file or starting console processes: execute synchronously */
                 EnterCriticalSection(&ChildProcessRunningLock);
                 dwChildProcessId = prci.dwProcessId;
 
@@ -1762,9 +1760,7 @@ Initialize()
     {
         /* Do the /C or /K command */
         GetCmdLineCommand(commandline, &ptr[2], AlwaysStrip);
-        bWaitForCommand = TRUE;
         nExitCode = ParseCommandLine(commandline);
-        bWaitForCommand = FALSE;
         if (option != _T('K'))
         {
             nErrorLevel = nExitCode;
@@ -1789,7 +1785,7 @@ static VOID Cleanup()
         ParseCommandLine (_T("\\cmdexit.bat"));
     }
 
-#ifdef FEATURE_DIRECTORY_STACK
+#ifdef FEATURE_DIECTORY_STACK
     /* destroy directory stack */
     DestroyDirectoryStack ();
 #endif

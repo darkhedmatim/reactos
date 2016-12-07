@@ -760,7 +760,7 @@ static HRESULT WINAPI ItemMonikerROTDataImpl_QueryInterface(IROTData *iface,REFI
 
     ItemMonikerImpl *This = impl_from_IROTData(iface);
 
-    TRACE("(%p,%s,%p)\n",iface,debugstr_guid(riid),ppvObject);
+    TRACE("(%p,%p,%p)\n",iface,riid,ppvObject);
 
     return ItemMonikerImpl_QueryInterface(&This->IMoniker_iface, riid, ppvObject);
 }

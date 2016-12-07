@@ -310,7 +310,7 @@ LoadReactOSSetup(IN OperatingSystemItem* OperatingSystem,
 
     UiDrawStatusText("Setup is loading...");
 
-    /* Allocate and minimalist-initialize LPB */
+    /* Allocate and minimalistic-initialize LPB */
     AllocateAndInitLPB(&LoaderBlock);
 
     /* Allocate and initialize setup loader block */

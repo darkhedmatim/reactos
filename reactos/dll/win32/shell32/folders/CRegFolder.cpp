@@ -22,83 +22,6 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL (shell);
 
-HRESULT CALLBACK RegFolderContextMenuCallback(IShellFolder *psf,
-                                              HWND         hwnd,
-                                              IDataObject  *pdtobj,
-                                              UINT         uMsg,
-                                              WPARAM       wParam,
-                                              LPARAM       lParam)
-{
-    if (uMsg != DFM_INVOKECOMMAND || wParam != DFM_CMD_PROPERTIES)
-        return S_OK;
-
-    PIDLIST_ABSOLUTE pidlFolder;
-    PUITEMID_CHILD *apidl;
-    UINT cidl;
-    HRESULT hr = SH_GetApidlFromDataObject(pdtobj, &pidlFolder, &apidl, &cidl);
-    if (FAILED_UNEXPECTEDLY(hr))
-        return hr;
-
-    if (_ILIsMyComputer(apidl[0]))
-    {
-        if (32 >= (UINT)ShellExecuteW(hwnd, L"open", L"rundll32.exe shell32.dll,Control_RunDLL sysdm.cpl", NULL, NULL, SW_SHOWNORMAL))
-            hr = E_FAIL;
-    }
-    else if (_ILIsDesktop(apidl[0]))
-    {
-        if (32 >= (UINT)ShellExecuteW(hwnd, L"open", L"rundll32.exe shell32.dll,Control_RunDLL desk.cpl", NULL, NULL, SW_SHOWNORMAL))
-            hr = E_FAIL;
-    }
-    else if (_ILIsNetHood(apidl[0]))
-    {
-        // FIXME path!
-        if (32 >= (UINT)ShellExecuteW(NULL, L"open", L"explorer.exe",
-                                      L"::{7007ACC7-3202-11D1-AAD2-00805FC1270E}",
-                                      NULL, SW_SHOWDEFAULT))
-            hr = E_FAIL;
-    }
-    else if (_ILIsBitBucket(apidl[0]))
-    {
-        /* FIXME: detect the drive path of bitbucket if appropiate */
-        if (!SH_ShowRecycleBinProperties(L'C'))
-            hr = E_FAIL;
-    }
-
-    SHFree(pidlFolder);
-    _ILFreeaPidl(apidl, cidl);
-
-    return hr;
-}
-
-HRESULT CGuidItemContextMenu_CreateInstance(PCIDLIST_ABSOLUTE pidlFolder,
-                                            HWND hwnd,
-                                            UINT cidl,
-                                            PCUITEMID_CHILD_ARRAY apidl,
-                                            IShellFolder *psf,
-                                            IContextMenu **ppcm)
-{
-    HKEY hKeys[10];
-    UINT cKeys = 0;
-
-    GUID *pGuid = _ILGetGUIDPointer(apidl[0]);
-    if (pGuid)
-    {
-        LPOLESTR pwszCLSID;
-        WCHAR key[60];
-
-        wcscpy(key, L"CLSID\\");
-        HRESULT hr = StringFromCLSID(*pGuid, &pwszCLSID);
-        if (hr == S_OK)
-        {
-            wcscpy(&key[6], pwszCLSID);
-            AddClassKeyToArray(key, hKeys, &cKeys);
-        }
-    }
-    AddClassKeyToArray(L"Folder", hKeys, &cKeys);
-
-    return CDefFolderMenu_Create2(pidlFolder, hwnd, cidl, apidl, psf, RegFolderContextMenuCallback, cKeys, hKeys, ppcm);
-}
-
 HRESULT CGuidItemExtractIcon_CreateInstance(LPCITEMIDLIST pidl, REFIID iid, LPVOID * ppvOut)
 {
     CComPtr<IDefaultExtractIconInit>    initIcon;
@@ -252,26 +175,13 @@ HRESULT WINAPI CRegFolder::Initialize(const GUID *pGuid, LPCITEMIDLIST pidlRoot,
 
 HRESULT CRegFolder::GetGuidItemAttributes (LPCITEMIDLIST pidl, LPDWORD pdwAttributes)
 {
-    DWORD dwAttributes = *pdwAttributes;
-
     /* First try to get them from the registry */
-    if (!HCR_GetFolderAttributes(pidl, pdwAttributes))
+    if (HCR_GetFolderAttributes(pidl, pdwAttributes) && *pdwAttributes)
     {
-        /* We couldn't get anything */
-        *pdwAttributes = 0;
+        return S_OK;
     }
 
-    /* Items have more attributes when on desktop */
-    if (_ILIsDesktop(m_pidlRoot))
-    {
-        *pdwAttributes |= (dwAttributes & (SFGAO_CANLINK|SFGAO_CANDELETE|SFGAO_CANRENAME|SFGAO_HASPROPSHEET));
-    }
-
-    /* In any case, links can be created */
-    if (*pdwAttributes == NULL)
-    {
-        *pdwAttributes |= (dwAttributes & SFGAO_CANLINK);
-    }
+    *pdwAttributes &= SFGAO_CANLINK;
     return S_OK;
 }
 
@@ -436,24 +346,8 @@ HRESULT WINAPI CRegFolder::GetUIObjectOf(HWND hwndOwner, UINT cidl, PCUITEMID_CH
     {
         hr = CGuidItemExtractIcon_CreateInstance(apidl[0], riid, &pObj);
     }
-    else if (IsEqualIID (riid, IID_IContextMenu) && (cidl >= 1))
-    {
-        if (!_ILGetGUIDPointer (apidl[0]))
-        {
-            ERR("Got non guid item!\n");
-            return E_FAIL;
-        }
-
-        hr = CGuidItemContextMenu_CreateInstance(m_pidlRoot, hwndOwner, cidl, apidl, static_cast<IShellFolder*>(this), (IContextMenu**)&pObj);
-    }
-    else if (IsEqualIID (riid, IID_IDataObject) && (cidl >= 1))
-    {
-        hr = IDataObject_Constructor (hwndOwner, m_pidlRoot, apidl, cidl, (IDataObject **)&pObj);
-    }
     else
-    {
         hr = E_NOINTERFACE;
-    }
 
     *ppvOut = pObj;
     return hr;
@@ -462,31 +356,24 @@ HRESULT WINAPI CRegFolder::GetUIObjectOf(HWND hwndOwner, UINT cidl, PCUITEMID_CH
 
 HRESULT WINAPI CRegFolder::GetDisplayNameOf(PCUITEMID_CHILD pidl, DWORD dwFlags, LPSTRRET strRet)
 {
-    if (!strRet || (!_ILIsSpecialFolder(pidl) && pidl != NULL))
+    if (!strRet || !_ILIsSpecialFolder(pidl))
         return E_INVALIDARG;
 
-    if (!pidl || !pidl->mkid.cb)
+    if (!pidl->mkid.cb)
     {
-        if ((GET_SHGDN_RELATION(dwFlags) == SHGDN_NORMAL) && (GET_SHGDN_FOR(dwFlags) & SHGDN_FORPARSING))
-        {
-            LPWSTR pszPath = (LPWSTR)CoTaskMemAlloc((MAX_PATH + 1) * sizeof(WCHAR));
-            if (!pszPath)
-                return E_OUTOFMEMORY;
+        LPWSTR pszPath = (LPWSTR)CoTaskMemAlloc((MAX_PATH + 1) * sizeof(WCHAR));
+        if (!pszPath)
+            return E_OUTOFMEMORY;
 
-            /* parsing name like ::{...} */
-            pszPath[0] = ':';
-            pszPath[1] = ':';
-            SHELL32_GUIDToStringW(m_guid, &pszPath[2]);
+        /* parsing name like ::{...} */
+        pszPath[0] = ':';
+        pszPath[1] = ':';
+        SHELL32_GUIDToStringW(m_guid, &pszPath[2]);
 
-            strRet->uType = STRRET_WSTR;
-            strRet->pOleStr = pszPath;
+        strRet->uType = STRRET_WSTR;
+        strRet->pOleStr = pszPath;
 
-            return S_OK;
-        }
-        else
-        {
-            return HCR_GetClassName(m_guid, strRet);
-        }
+        return S_OK;
     }
 
     HRESULT hr;

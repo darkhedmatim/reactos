@@ -1186,7 +1186,7 @@ Quickie:
         //MmPapFreePages(HashBuffer, TRUE);
     }
 
-    /* Check if we have a certificate directory */
+    /* Check if we have a certificate diretory */
     if ((CertBuffer) && (CertDirectory))
     {
         /* Free it */

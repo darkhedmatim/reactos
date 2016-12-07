@@ -1332,7 +1332,7 @@ ProcessResources
         ||  (lengthIO == 0)
         )
     {
-        DPRINT("Unknown ResourceList configuration");
+        DPRINT("Unknown ResourceList configuraton");
         ntStatus = STATUS_DEVICE_CONFIGURATION_ERROR;
     }
 

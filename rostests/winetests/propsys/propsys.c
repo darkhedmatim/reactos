@@ -353,7 +353,7 @@ static void test_PSPropertyKeyFromString(void)
     } testcases[] =
     {
         {NULL, NULL, E_POINTER},
-        {NULL, &out, E_POINTER, {GUID_MEMBERS(out_init.fmtid), out_init.pid}},
+        {NULL, &out, E_POINTER, out_init},
         {emptyW, NULL, E_POINTER},
         {emptyW, &out, E_INVALIDARG, {GUID_MEMBERS(GUID_NULL), 0}},
         {fmtid_clsidW, &out, E_INVALIDARG, {GUID_MEMBERS(GUID_NULL), 0}},

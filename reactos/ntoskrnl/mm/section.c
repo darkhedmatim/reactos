@@ -1354,7 +1354,7 @@ MmNotPresentFaultSectionView(PMMSUPPORT AddressSpace,
      * Check if someone else is already handling this fault, if so wait
      * for them
      */
-    if (Entry && MM_IS_WAIT_PTE(Entry))
+    if (Entry && IS_SWAP_FROM_SSE(Entry) && SWAPENTRY_FROM_SSE(Entry) == MM_WAIT_ENTRY)
     {
         MmUnlockSectionSegment(Segment);
         MmUnlockAddressSpace(AddressSpace);
@@ -2909,6 +2909,9 @@ MmCreateDataFileSection(PROS_SECTION_OBJECT *SectionObject,
     PFILE_OBJECT FileObject;
     PMM_SECTION_SEGMENT Segment;
     ULONG FileAccess;
+    IO_STATUS_BLOCK Iosb;
+    LARGE_INTEGER Offset;
+    CHAR Buffer;
     FILE_STANDARD_INFORMATION FileInfo;
     ULONG Length;
 
@@ -2964,6 +2967,7 @@ MmCreateDataFileSection(PROS_SECTION_OBJECT *SectionObject,
                                     sizeof(FILE_STANDARD_INFORMATION),
                                     &FileInfo,
                                     &Length);
+    Iosb.Information = Length;
     if (!NT_SUCCESS(Status))
     {
         ObDereferenceObject(Section);
@@ -2994,7 +2998,7 @@ MmCreateDataFileSection(PROS_SECTION_OBJECT *SectionObject,
     if (MaximumSize.QuadPart > FileInfo.EndOfFile.QuadPart)
     {
         Status = IoSetInformation(FileObject,
-                                  FileEndOfFileInformation,
+                                  FileAllocationInformation,
                                   sizeof(LARGE_INTEGER),
                                   &MaximumSize);
         if (!NT_SUCCESS(Status))
@@ -3008,9 +3012,35 @@ MmCreateDataFileSection(PROS_SECTION_OBJECT *SectionObject,
     if (FileObject->SectionObjectPointer == NULL ||
             FileObject->SectionObjectPointer->SharedCacheMap == NULL)
     {
-        ObDereferenceObject(Section);
-        ObDereferenceObject(FileObject);
-        return STATUS_INVALID_FILE_FOR_SECTION;
+        /*
+         * Read a bit so caching is initiated for the file object.
+         * This is only needed because MiReadPage currently cannot
+         * handle non-cached streams.
+         */
+        Offset.QuadPart = 0;
+        Status = ZwReadFile(FileHandle,
+                            NULL,
+                            NULL,
+                            NULL,
+                            &Iosb,
+                            &Buffer,
+                            sizeof (Buffer),
+                            &Offset,
+                            0);
+        if (!NT_SUCCESS(Status) && (Status != STATUS_END_OF_FILE))
+        {
+            ObDereferenceObject(Section);
+            ObDereferenceObject(FileObject);
+            return(Status);
+        }
+        if (FileObject->SectionObjectPointer == NULL ||
+                FileObject->SectionObjectPointer->SharedCacheMap == NULL)
+        {
+            /* FIXME: handle this situation */
+            ObDereferenceObject(Section);
+            ObDereferenceObject(FileObject);
+            return STATUS_INVALID_PARAMETER;
+        }
     }
 
     /*
@@ -3122,6 +3152,11 @@ extern NTSTATUS NTAPI ElfFmtCreateSection
     IN PEXEFMT_CB_READ_FILE ReadFileCb,
     IN PEXEFMT_CB_ALLOCATE_SEGMENTS AllocateSegmentsCb
 );
+
+/* TODO: this is a standard DDK/PSDK macro */
+#ifndef RTL_NUMBER_OF
+#define RTL_NUMBER_OF(ARR_) (sizeof(ARR_) / sizeof((ARR_)[0]))
+#endif
 
 static PEXEFMT_LOADER ExeFmtpLoaders[] =
 {
@@ -3806,19 +3841,10 @@ MmCreateImageSection(PROS_SECTION_OBJECT *SectionObject,
             if(ImageSectionObject->Segments != NULL)
                 ExFreePool(ImageSectionObject->Segments);
 
-            /*
-             * If image file is empty, then return that the file is invalid for section
-             */
-            Status = StatusExeFmt;
-            if (StatusExeFmt == STATUS_END_OF_FILE)
-            {
-                Status = STATUS_INVALID_FILE_FOR_SECTION;
-            }
-
             ExFreePoolWithTag(ImageSectionObject, TAG_MM_SECTION_SEGMENT);
             ObDereferenceObject(Section);
             ObDereferenceObject(FileObject);
-            return(Status);
+            return(StatusExeFmt);
         }
 
         Section->ImageSection = ImageSectionObject;
@@ -4000,7 +4026,7 @@ MmFreeSectionPage(PVOID Context, MEMORY_AREA* MemoryArea, PVOID Address,
     Segment = MemoryArea->Data.SectionData.Segment;
 
     Entry = MmGetPageEntrySectionSegment(Segment, &Offset);
-    while (Entry && MM_IS_WAIT_PTE(Entry))
+    while (Entry && IS_SWAP_FROM_SSE(Entry) && SWAPENTRY_FROM_SSE(Entry) == MM_WAIT_ENTRY)
     {
         MmUnlockSectionSegment(Segment);
         MmUnlockAddressSpace(AddressSpace);
@@ -5077,39 +5103,9 @@ MmCreateSection (OUT PVOID  * Section,
         if (!NT_SUCCESS(Status) && Status != STATUS_END_OF_FILE)
         {
             DPRINT1("CC failure: %lx\n", Status);
-            if (FileObject)
-                ObDereferenceObject(FileObject);
             return Status;
         }
         // Caching is initialized...
-
-        // Hack of the hack: actually, it might not be initialized if FSD init on effective right and if file is null-size
-        // In such case, force cache by initiating a write IRP
-        if (Status == STATUS_END_OF_FILE && !(AllocationAttributes & SEC_IMAGE) && FileObject != NULL &&
-            (FileObject->SectionObjectPointer == NULL || FileObject->SectionObjectPointer->SharedCacheMap == NULL))
-        {
-            Buffer = 0xdb;
-            Status = ZwWriteFile(FileHandle,
-                                 NULL,
-                                 NULL,
-                                 NULL,
-                                 &Iosb,
-                                 &Buffer,
-                                 sizeof(Buffer),
-                                 &ByteOffset,
-                                 NULL);
-            if (NT_SUCCESS(Status))
-            {
-                LARGE_INTEGER Zero;
-                Zero.QuadPart = 0LL;
-
-                Status = IoSetInformation(FileObject,
-                                          FileEndOfFileInformation,
-                                          sizeof(LARGE_INTEGER),
-                                          &Zero);
-                ASSERT(NT_SUCCESS(Status));
-            }
-        }
     }
 #endif
 

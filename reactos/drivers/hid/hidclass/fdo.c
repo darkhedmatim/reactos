@@ -54,7 +54,7 @@ HidClassFDO_QueryCapabilities(
     KeInitializeEvent(&Event, NotificationEvent, FALSE);
 
     //
-    // now allocate the irp
+    // now allocte the irp
     //
     Irp = IoAllocateIrp(DeviceObject->StackSize, FALSE);
     if (!Irp)

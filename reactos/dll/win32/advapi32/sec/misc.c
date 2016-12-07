@@ -1555,11 +1555,11 @@ TreeResetNamedSecurityInfoW(LPWSTR pObjectName,
 
 #ifdef HAS_FN_PROGRESSW
 
-typedef struct _INTERNAL_FNPROGRESSW_DATA
+typedef struct _INERNAL_FNPROGRESSW_DATA
 {
     FN_PROGRESSA fnProgress;
     PVOID Args;
-} INTERNAL_FNPROGRESSW_DATA, *PINTERNAL_FNPROGRESSW_DATA;
+} INERNAL_FNPROGRESSW_DATA, *PINERNAL_FNPROGRESSW_DATA;
 
 static VOID WINAPI
 InternalfnProgressW(LPWSTR pObjectName,
@@ -1568,7 +1568,7 @@ InternalfnProgressW(LPWSTR pObjectName,
                     PVOID Args,
                     BOOL SecuritySet)
 {
-    PINTERNAL_FNPROGRESSW_DATA pifnProgressData = (PINTERNAL_FNPROGRESSW_DATA)Args;
+    PINERNAL_FNPROGRESSW_DATA pifnProgressData = (PINERNAL_FNPROGRESSW_DATA)Args;
     INT ObjectNameSize;
     LPSTR pObjectNameA;
 
@@ -1635,7 +1635,7 @@ TreeResetNamedSecurityInfoA(LPSTR pObjectName,
        lazy to implement it... */
     return ERROR_CALL_NOT_IMPLEMENTED;
 #else
-    INTERNAL_FNPROGRESSW_DATA ifnProgressData;
+    INERNAL_FNPROGRESSW_DATA ifnProgressData;
     UNICODE_STRING ObjectName;
     DWORD Ret;
 

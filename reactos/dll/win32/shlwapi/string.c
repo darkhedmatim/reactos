@@ -1488,7 +1488,7 @@ HRESULT WINAPI StrRetToBufA (LPSTRRET src, const ITEMIDLIST *pidl, LPSTR dest, U
 
 	  default:
 	    FIXME("unknown type!\n");
-	    return E_NOTIMPL;
+	    return FALSE;
 	}
 	return S_OK;
 }
@@ -1538,7 +1538,7 @@ HRESULT WINAPI StrRetToBufW (LPSTRRET src, const ITEMIDLIST *pidl, LPWSTR dest, 
 
 	  default:
 	    FIXME("unknown type!\n");
-	    return E_NOTIMPL;
+	    return FALSE;
 	}
 	return S_OK;
 }

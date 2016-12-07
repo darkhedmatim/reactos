@@ -219,7 +219,7 @@ SysAudio_AddDevice(
      NextDeviceObject = IoAttachDeviceToDeviceStack(DeviceObject, PhysicalDeviceObject);
      KsSetDevicePnpAndBaseObject(DeviceExtension->KsDeviceHeader, NextDeviceObject, DeviceObject);
 
-     /* register shutdown notification */
+     /* register shutdown notfication */
      IoRegisterShutdownNotification(DeviceObject);
 
 

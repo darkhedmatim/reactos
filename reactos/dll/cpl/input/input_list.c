@@ -190,16 +190,16 @@ InputList_AddInputMethodToUserRegistry(DWORD dwIndex, INPUT_LIST_NODE *pNode)
                           KEY_SET_VALUE,
                           &hKey) == ERROR_SUCCESS)
         {
-            WCHAR szSubstitutes[MAX_PATH];
+            WCHAR szSubstitues[MAX_PATH];
 
-            StringCchPrintfW(szSubstitutes, ARRAYSIZE(szSubstitutes), L"%08X", pNode->pLayout->dwId);
+            StringCchPrintfW(szSubstitues, ARRAYSIZE(szSubstitues), L"%08X", pNode->pLayout->dwId);
 
             RegSetValueExW(hKey,
                            szPreload,
                            0,
                            REG_SZ,
-                           (LPBYTE)szSubstitutes,
-                           (wcslen(szSubstitutes) + 1) * sizeof(WCHAR));
+                           (LPBYTE)szSubstitues,
+                           (wcslen(szSubstitues) + 1) * sizeof(WCHAR));
 
             RegCloseKey(hKey);
         }

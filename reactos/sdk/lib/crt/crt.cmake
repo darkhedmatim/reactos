@@ -305,7 +305,6 @@ list(APPEND CRT_SOURCE
     string/wcstombs_s.c
     string/wcstoul.c
     string/wctype.c
-    string/wtof.c
     string/wtoi.c
     string/wtoi64.c
     string/wtol.c
@@ -366,6 +365,8 @@ if(ARCH STREQUAL "i386")
     list(APPEND CRT_ASM_SOURCE
         except/i386/chkesp.s
         except/i386/prolog.s
+        except/i386/seh.s
+        except/i386/seh_prolog.s
         math/i386/alldiv_asm.s
         math/i386/alldvrm_asm.s
         math/i386/allmul_asm.s

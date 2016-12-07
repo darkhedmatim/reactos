@@ -252,7 +252,7 @@ HRESULT SHELL32_BindToFS (LPCITEMIDLIST pidlRoot,
         ERR("Binding to file is unimplemented\n");
         return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
     }
-    if (!_ILIsFolder(pidlComplete))
+    if (!_ILIsFolder(pidlComplete) && !_ILIsDrive(pidlComplete))
     {
         ERR("Got an unknown type of pidl!\n");
         return E_FAIL;
@@ -501,95 +501,6 @@ void AddClassKeyToArray(const WCHAR * szClass, HKEY* array, UINT* cKeys)
     *cKeys += 1;
 }
 
-void AddFSClassKeysToArray(PCUITEMID_CHILD pidl, HKEY* array, UINT* cKeys)
-{
-    if (_ILIsValue(pidl))
-    {
-        FileStructW* pFileData = _ILGetFileStructW(pidl);
-        LPWSTR extension = PathFindExtension(pFileData->wszName);
-
-        if (extension)
-        {
-            AddClassKeyToArray(extension, array, cKeys);
-
-            WCHAR wszClass[40], wszClass2[40];
-            DWORD dwSize = sizeof(wszClass);
-            if (RegGetValueW(HKEY_CLASSES_ROOT, extension, NULL, RRF_RT_REG_SZ, NULL, wszClass, &dwSize) == ERROR_SUCCESS)
-            {
-                swprintf(wszClass2, L"%s//%s", extension, wszClass);
-
-                AddClassKeyToArray(wszClass, array, cKeys);
-                AddClassKeyToArray(wszClass2, array, cKeys);
-            }
-
-            swprintf(wszClass2, L"SystemFileAssociations//%s", extension);
-            AddClassKeyToArray(wszClass2, array, cKeys);
-
-            if (RegGetValueW(HKEY_CLASSES_ROOT, extension, L"PerceivedType ", RRF_RT_REG_SZ, NULL, wszClass, &dwSize) == ERROR_SUCCESS)
-            {
-                swprintf(wszClass2, L"SystemFileAssociations//%s", wszClass);
-                AddClassKeyToArray(wszClass2, array, cKeys);
-            }
-        }
-
-        AddClassKeyToArray(L"AllFilesystemObjects", array, cKeys);
-        AddClassKeyToArray(L"*", array, cKeys);
-    }
-    else if (_ILIsFolder(pidl))
-    {
-        AddClassKeyToArray(L"AllFilesystemObjects", array, cKeys);
-        AddClassKeyToArray(L"Directory", array, cKeys);
-        AddClassKeyToArray(L"Folder", array, cKeys);
-    }
-    else
-    {
-        ERR("Got non FS pidl\n");
-    }
-}
-
-HRESULT SH_GetApidlFromDataObject(IDataObject *pDataObject, PIDLIST_ABSOLUTE* ppidlfolder, PUITEMID_CHILD **apidlItems, UINT *pcidl)
-{
-    UINT cfShellIDList = RegisterClipboardFormatW(CFSTR_SHELLIDLIST);
-    if (!cfShellIDList)
-        return E_FAIL;
-
-    FORMATETC fmt;
-    InitFormatEtc (fmt, cfShellIDList, TYMED_HGLOBAL);
-
-    HRESULT hr = pDataObject->QueryGetData(&fmt);
-    if (FAILED_UNEXPECTEDLY(hr))
-        return hr;
-
-    STGMEDIUM medium;
-    hr = pDataObject->GetData(&fmt, &medium);
-    if (FAILED_UNEXPECTEDLY(hr))
-        return hr;
-
-    /* lock the handle */
-    LPIDA lpcida = (LPIDA)GlobalLock(medium.hGlobal);
-    if (!lpcida)
-    {
-        ReleaseStgMedium(&medium);
-        return E_FAIL;
-    }
-
-    /* convert the data into pidl */
-    LPITEMIDLIST pidl;
-    LPITEMIDLIST *apidl = _ILCopyCidaToaPidl(&pidl, lpcida);
-    if (!apidl)
-    {
-        ReleaseStgMedium(&medium);
-        return E_OUTOFMEMORY;
-    }
-
-    *ppidlfolder = pidl;
-    *apidlItems = apidl;
-    *pcidl = lpcida->cidl;
-
-    ReleaseStgMedium(&medium);
-    return S_OK;
-}
-
 /***********************************************************************
  *  SHCreateLinks
  *
@@ -614,54 +525,6 @@ SHOpenFolderAndSelectItems(LPITEMIDLIST pidlFolder,
                            PCUITEMID_CHILD_ARRAY apidl,
                            DWORD dwFlags)
 {
-    ERR("SHOpenFolderAndSelectItems() is hackplemented\n");
-    PCIDLIST_ABSOLUTE pidlItem;
-    if (cidl)
-    {
-        /* Firefox sends a full pidl here dispite the fact it is a PCUITEMID_CHILD_ARRAY -_- */
-        if (ILGetNext(apidl[0]) != NULL)
-        {
-            pidlItem = apidl[0];
-        }
-        else
-        {
-            pidlItem = ILCombine(pidlFolder, apidl[0]);
-        }
-    }
-    else
-    {
-        pidlItem = pidlFolder;
-    }
-
-    CComPtr<IShellFolder> psfDesktop;
-
-    HRESULT hr = SHGetDesktopFolder(&psfDesktop);
-    if (FAILED_UNEXPECTEDLY(hr))
-        return hr;
-
-    STRRET strret;
-    hr = psfDesktop->GetDisplayNameOf(pidlItem, SHGDN_FORPARSING, &strret);
-    if (FAILED_UNEXPECTEDLY(hr))
-        return hr;
-
-    WCHAR wszBuf[MAX_PATH];
-    hr = StrRetToBufW(&strret, pidlItem, wszBuf, _countof(wszBuf));
-    if (FAILED_UNEXPECTEDLY(hr))
-        return hr;
-
-    WCHAR wszParams[MAX_PATH];
-    wcscpy(wszParams, L"/select,");
-    wcscat(wszParams, wszBuf);
-
-    SHELLEXECUTEINFOW sei;
-    memset(&sei, 0, sizeof sei);
-    sei.cbSize = sizeof sei;
-    sei.fMask = SEE_MASK_WAITFORINPUTIDLE;
-    sei.lpFile = L"explorer.exe";
-    sei.lpParameters = wszParams;
-
-    if (ShellExecuteExW(&sei))
-        return S_OK;
-    else
-        return E_FAIL;
+    FIXME("SHOpenFolderAndSelectItems() stub\n");
+    return E_NOTIMPL;
 }

@@ -352,7 +352,7 @@ PcVideoSetVerticalResolution(UCHAR VerticalResolutionMode)
    * Return:
    * AL = 12h if function supported
    *
-   * Specify the number of scan lines used to display text modes.
+   * Specifiy the number of scan lines used to display text modes.
    *
    * The specified resolution will take effect on the next mode set.
    */

@@ -59,8 +59,8 @@
 59 stdcall EtwQueryAllTracesW(ptr long ptr)
 60 stdcall -stub EtwQueryTraceA(double str ptr)
 61 stdcall -stub EtwQueryTraceW(double wstr ptr)
-62 stdcall -stub EtwReceiveNotificationsA(long long long long)
-63 stdcall -stub EtwReceiveNotificationsW(long long long long)
+62 stdcall -stub EtwReceiveNotificationsA() # FIXME prototype
+63 stdcall -stub EtwReceiveNotificationsW() # FIXME prototype
 64 stdcall EtwRegisterTraceGuidsA(ptr ptr ptr long ptr str str ptr)
 65 stdcall EtwRegisterTraceGuidsW(ptr ptr ptr long ptr wstr wstr ptr)
 66 stdcall EtwStartTraceA(ptr str ptr)
@@ -74,8 +74,8 @@
 74 stdcall EtwUnregisterTraceGuids(double)
 75 stdcall -stub EtwUpdateTraceA(double str ptr)
 76 stdcall -stub EtwUpdateTraceW(double wstr ptr)
-77 stdcall -stub EtwpGetTraceBuffer(long long long long)
-78 stdcall -stub EtwpSetHWConfigFunction(ptr long)
+# EtwpGetTraceBuffer
+# EtwpSetHWConfigFunction
 79 stdcall -arch=i386 KiFastSystemCall()
 80 stdcall -arch=i386 KiFastSystemCallRet()
 81 stdcall -arch=i386 KiIntSystemCall()
@@ -1325,7 +1325,7 @@
 1312 cdecl _wcsicmp(wstr wstr)
 1313 cdecl _wcslwr(wstr)
 1314 cdecl _wcsnicmp(wstr wstr long)
-1315 cdecl _wcstoui64(wstr ptr long)
+# _wcstoui64
 1316 cdecl _wcsupr(wstr)
 1317 cdecl _wtoi(wstr)
 1318 cdecl _wtoi64(wstr)

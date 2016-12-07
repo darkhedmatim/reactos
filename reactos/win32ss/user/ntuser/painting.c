@@ -1157,16 +1157,6 @@ IntFindWindowToRepaint(PWND Window, PTHREADINFO Thread)
    return Window;
 }
 
-//
-// Internal painting of windows.
-//
-VOID FASTCALL
-IntPaintWindow( PWND Window )
-{
-   // Handle normal painting.
-   co_IntPaintWindows( Window, RDW_NOCHILDREN, FALSE );
-}
-
 BOOL FASTCALL
 IntGetPaintMessage(
    PWND Window,

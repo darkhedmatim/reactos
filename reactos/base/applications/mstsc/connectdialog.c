@@ -156,7 +156,7 @@ LoadUsernameHint(HWND hDlg, INT iCur)
 
 
 static VOID
-FillServerAddressCombo(PINFO pInfo)
+FillServerAddesssCombo(PINFO pInfo)
 {
     HKEY hKey;
     WCHAR KeyName[] = L"Software\\Microsoft\\Terminal Server Client\\Default";
@@ -325,7 +325,7 @@ GeneralOnInit(HWND hwnd,
                             0);
     }
 
-    FillServerAddressCombo(pInfo);
+    FillServerAddesssCombo(pInfo);
     ReLoadGeneralPage(pInfo);
 }
 

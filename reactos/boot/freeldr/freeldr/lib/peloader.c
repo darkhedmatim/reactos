@@ -631,7 +631,7 @@ WinLdrpBindImportName(IN OUT PLIST_ENTRY ModuleListHead,
                 return FALSE;
             }
 
-            /* Everything alright, get the ordinal */
+            /* Everything allright, get the ordinal */
             Ordinal = OrdinalTable[Middle];
 
             //TRACE("WinLdrpBindImportName() found Ordinal %d\n", Ordinal);

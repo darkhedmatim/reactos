@@ -62,6 +62,8 @@ DEFINE_KSPROPERTY_TABLE(TopologySet) {\
     DEFINE_KSPROPERTY_ITEM_AUDIO_MUTE(Handler)\
 }
 
+
+
 #include <pshpack1.h>
 
 typedef struct
@@ -129,17 +131,6 @@ typedef struct
     UCHAR iMixer;
 }USB_AUDIO_CONTROL_MIXER_UNIT_DESCRIPTOR, *PUSB_AUDIO_CONTROL_MIXER_UNIT_DESCRIPTOR;
 
-typedef struct
-{
-    UCHAR bLength;
-    UCHAR bDescriptorType;
-    UCHAR bDescriptorSubtype;
-    UCHAR bUnitID;
-    UCHAR bNrInPins;
-    UCHAR baSourceID[1];
-    UCHAR iSelector;
-}USB_AUDIO_CONTROL_SELECTOR_UNIT_DESCRIPTOR, *PUSB_AUDIO_CONTROL_SELECTOR_UNIT_DESCRIPTOR;
-
 
 typedef struct
 {
@@ -200,8 +191,6 @@ typedef struct
     KSPIN_LOCK IrpListLock;                                      /* irp list lock*/
     PUCHAR Buffer;                                               /* iso buffer*/
     ULONG BufferSize;                                            /* iso buffer size */
-    ULONG BufferOffset;                                          /* buffer offset */
-    ULONG BufferLength;                                          /* remaining render bytes */
     PUSB_INTERFACE_DESCRIPTOR InterfaceDescriptor;               /* interface descriptor */
     WORK_QUEUE_ITEM  CaptureWorkItem;                            /* work item */
     PKSWORKER        CaptureWorker;                              /* capture worker */
@@ -215,11 +204,6 @@ NTSTATUS
 NTAPI
 USBAudioCreateFilterContext(
     PKSDEVICE Device);
-
-PUSB_AUDIO_CONTROL_INPUT_TERMINAL_DESCRIPTOR
-UsbAudioGetStreamingTerminalDescriptorByIndex(
-    IN PUSB_CONFIGURATION_DESCRIPTOR ConfigurationDescriptor,
-    IN ULONG Index);
 
 /* pool.c */
 PVOID
@@ -356,13 +340,6 @@ UsbAudioPinDataIntersect(
 NTSTATUS
 NTAPI
 UsbAudioCaptureComplete(
-	IN PDEVICE_OBJECT DeviceObject,
-	IN PIRP Irp,
-	IN PVOID Context);
-
-NTSTATUS
-NTAPI
-UsbAudioRenderComplete(
 	IN PDEVICE_OBJECT DeviceObject,
 	IN PIRP Irp,
 	IN PVOID Context);

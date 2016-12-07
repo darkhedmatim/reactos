@@ -41,23 +41,22 @@ NtAcceptConnectPort(OUT PHANDLE PortHandle,
                     IN PVOID PortContext OPTIONAL,
                     IN PPORT_MESSAGE ReplyMessage,
                     IN BOOLEAN AcceptConnection,
-                    IN OUT PPORT_VIEW ServerView OPTIONAL,
-                    OUT PREMOTE_PORT_VIEW ClientView OPTIONAL)
+                    IN PPORT_VIEW ServerView,
+                    IN PREMOTE_PORT_VIEW ClientView)
 {
-    NTSTATUS Status;
-    KPROCESSOR_MODE PreviousMode = KeGetPreviousMode();
-    PORT_VIEW CapturedServerView;
-    PORT_MESSAGE CapturedReplyMessage;
-    ULONG ConnectionInfoLength;
     PLPCP_PORT_OBJECT ConnectionPort, ServerPort, ClientPort;
-    PLPCP_CONNECTION_MESSAGE ConnectMessage;
-    PLPCP_MESSAGE Message;
     PVOID ClientSectionToMap = NULL;
     HANDLE Handle;
+    KPROCESSOR_MODE PreviousMode = KeGetPreviousMode();
+    NTSTATUS Status;
+    ULONG ConnectionInfoLength;
+    PLPCP_MESSAGE Message;
+    PLPCP_CONNECTION_MESSAGE ConnectMessage;
     PEPROCESS ClientProcess;
     PETHREAD ClientThread;
     LARGE_INTEGER SectionOffset;
-
+    CLIENT_ID ClientId;
+    ULONG MessageId;
     PAGED_CODE();
     LPCTRACE(LPC_COMPLETE_DEBUG,
              "Context: %p. Message: %p. Accept: %lx. Views: %p/%p\n",
@@ -70,42 +69,41 @@ NtAcceptConnectPort(OUT PHANDLE PortHandle,
     /* Check if the call comes from user mode */
     if (PreviousMode != KernelMode)
     {
+        /* Enter SEH for probing the parameters */
         _SEH2_TRY
         {
-            /* Probe the PortHandle */
             ProbeForWriteHandle(PortHandle);
 
             /* Probe the basic ReplyMessage structure */
-            ProbeForRead(ReplyMessage, sizeof(*ReplyMessage), sizeof(ULONG));
-            CapturedReplyMessage = *(volatile PORT_MESSAGE*)ReplyMessage;
-            ConnectionInfoLength = CapturedReplyMessage.u1.s1.DataLength;
+            ProbeForRead(ReplyMessage, sizeof(PORT_MESSAGE), sizeof(ULONG));
+
+            /* Grab some values */
+            ClientId = ReplyMessage->ClientId;
+            MessageId = ReplyMessage->MessageId;
+            ConnectionInfoLength = ReplyMessage->u1.s1.DataLength;
 
             /* Probe the connection info */
             ProbeForRead(ReplyMessage + 1, ConnectionInfoLength, 1);
 
             /* The following parameters are optional */
-
-            /* Capture the server view */
-            if (ServerView)
+            if (ServerView != NULL)
             {
-                ProbeForWrite(ServerView, sizeof(*ServerView), sizeof(ULONG));
-                CapturedServerView = *(volatile PORT_VIEW*)ServerView;
+                ProbeForWrite(ServerView, sizeof(PORT_VIEW), sizeof(ULONG));
 
                 /* Validate the size of the server view */
-                if (CapturedServerView.Length != sizeof(CapturedServerView))
+                if (ServerView->Length != sizeof(PORT_VIEW))
                 {
                     /* Invalid size */
                     _SEH2_YIELD(return STATUS_INVALID_PARAMETER);
                 }
             }
 
-            /* Capture the client view */
-            if (ClientView)
+            if (ClientView != NULL)
             {
-                ProbeForWrite(ClientView, sizeof(*ClientView), sizeof(ULONG));
+                ProbeForWrite(ClientView, sizeof(REMOTE_PORT_VIEW), sizeof(ULONG));
 
                 /* Validate the size of the client view */
-                if (((volatile REMOTE_PORT_VIEW*)ClientView)->Length != sizeof(*ClientView))
+                if (ClientView->Length != sizeof(REMOTE_PORT_VIEW))
                 {
                     /* Invalid size */
                     _SEH2_YIELD(return STATUS_INVALID_PARAMETER);
@@ -121,35 +119,28 @@ NtAcceptConnectPort(OUT PHANDLE PortHandle,
     }
     else
     {
-        CapturedReplyMessage = *ReplyMessage;
-        ConnectionInfoLength = CapturedReplyMessage.u1.s1.DataLength;
+        /* Grab some values */
+        ClientId = ReplyMessage->ClientId;
+        MessageId = ReplyMessage->MessageId;
+        ConnectionInfoLength = ReplyMessage->u1.s1.DataLength;
 
-        /* Capture the server view */
-        if (ServerView)
+        /* Validate the size of the server view */
+        if ((ServerView) && (ServerView->Length != sizeof(PORT_VIEW)))
         {
-            /* Validate the size of the server view */
-            if (ServerView->Length != sizeof(*ServerView))
-            {
-                /* Invalid size */
-                return STATUS_INVALID_PARAMETER;
-            }
-            CapturedServerView = *ServerView;
+            /* Invalid size */
+            return STATUS_INVALID_PARAMETER;
         }
 
-        /* Capture the client view */
-        if (ClientView)
+        /* Validate the size of the client view */
+        if ((ClientView) && (ClientView->Length != sizeof(REMOTE_PORT_VIEW)))
         {
-            /* Validate the size of the client view */
-            if (ClientView->Length != sizeof(*ClientView))
-            {
-                /* Invalid size */
-                return STATUS_INVALID_PARAMETER;
-            }
+            /* Invalid size */
+            return STATUS_INVALID_PARAMETER;
         }
     }
 
     /* Get the client process and thread */
-    Status = PsLookupProcessThreadByCid(&CapturedReplyMessage.ClientId,
+    Status = PsLookupProcessThreadByCid(&ClientId,
                                         &ClientProcess,
                                         &ClientThread);
     if (!NT_SUCCESS(Status)) return Status;
@@ -159,8 +150,8 @@ NtAcceptConnectPort(OUT PHANDLE PortHandle,
 
     /* Make sure that the client wants a reply, and this is the right one */
     if (!(LpcpGetMessageFromThread(ClientThread)) ||
-        !(CapturedReplyMessage.MessageId) ||
-        (ClientThread->LpcReplyMessageId != CapturedReplyMessage.MessageId))
+        !(MessageId) ||
+        (ClientThread->LpcReplyMessageId != MessageId))
     {
         /* Not the reply asked for, or no reply wanted, fail */
         KeReleaseGuardedMutex(&LpcpLock);
@@ -211,8 +202,8 @@ NtAcceptConnectPort(OUT PHANDLE PortHandle,
     /* Setup the reply message */
     Message->Request.u2.s2.Type = LPC_REPLY;
     Message->Request.u2.s2.DataInfoOffset = 0;
-    Message->Request.ClientId  = CapturedReplyMessage.ClientId;
-    Message->Request.MessageId = CapturedReplyMessage.MessageId;
+    Message->Request.ClientId = ClientId;
+    Message->Request.MessageId = MessageId;
     Message->Request.ClientViewSize = 0;
 
     _SEH2_TRY
@@ -318,7 +309,6 @@ NtAcceptConnectPort(OUT PHANDLE PortHandle,
     if (ServerView)
     {
         /* FIXME: TODO */
-        UNREFERENCED_PARAMETER(CapturedServerView);
         ASSERT(FALSE);
     }
 
@@ -356,7 +346,7 @@ NtAcceptConnectPort(OUT PHANDLE PortHandle,
     _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
     {
         /* Cleanup and return the exception code */
-        ObCloseHandle(Handle, PreviousMode);
+        ObCloseHandle(Handle, UserMode);
         ObDereferenceObject(ServerPort);
         Status = _SEH2_GetExceptionCode();
         _SEH2_YIELD(goto Cleanup);
@@ -417,10 +407,9 @@ NTAPI
 NtCompleteConnectPort(IN HANDLE PortHandle)
 {
     NTSTATUS Status;
-    KPROCESSOR_MODE PreviousMode = KeGetPreviousMode();
     PLPCP_PORT_OBJECT Port;
+    KPROCESSOR_MODE PreviousMode = KeGetPreviousMode();
     PETHREAD Thread;
-
     PAGED_CODE();
     LPCTRACE(LPC_COMPLETE_DEBUG, "Handle: %p\n", PortHandle);
 
@@ -473,7 +462,7 @@ NtCompleteConnectPort(IN HANDLE PortHandle)
     KeReleaseGuardedMutex(&LpcpLock);
     LpcpCompleteWait(&Thread->LpcReplySemaphore);
 
-    /* Dereference the Thread and Port and return */
+    /* Dereference the Thread and Port  and return */
     ObDereferenceObject(Port);
     ObDereferenceObject(Thread);
     LPCTRACE(LPC_COMPLETE_DEBUG, "Port: %p. Thread: %p\n", Port, Thread);

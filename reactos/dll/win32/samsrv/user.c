@@ -616,7 +616,7 @@ done:
 
 
 NTSTATUS
-SampGetLogonHoursAttribute(IN PSAM_DB_OBJECT UserObject,
+SampGetLogonHoursAttrbute(IN PSAM_DB_OBJECT UserObject,
                           IN OUT PSAMPR_LOGON_HOURS LogonHours)
 {
     PUCHAR RawBuffer = NULL;
@@ -686,7 +686,7 @@ done:
 
 
 NTSTATUS
-SampSetLogonHoursAttribute(IN PSAM_DB_OBJECT UserObject,
+SampSetLogonHoursAttrbute(IN PSAM_DB_OBJECT UserObject,
                           IN PSAMPR_LOGON_HOURS LogonHours)
 {
     PUCHAR RawBuffer = NULL;

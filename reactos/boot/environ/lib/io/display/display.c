@@ -600,7 +600,7 @@ BlpDisplayInitialize (
         Status = DsppInitialize(Flags);
     }
 
-    /* Return display initialization state */
+    /* Return display initailziation state */
     return Status;
 }
 

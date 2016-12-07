@@ -166,8 +166,8 @@ HRESULT WINAPI SHBindToFolder(LPCITEMIDLIST path, IShellFolder **newFolder)
     return desktop->BindToObject (path, NULL, IID_PPV_ARG(IShellFolder, newFolder));
 }
 
-static const TCHAR szCabinetWndClass[] = TEXT("CabinetWClass");
-static const TCHAR szExploreWndClass[] = TEXT("ExploreWClass");
+static const TCHAR szCabinetWndClass[] = TEXT("CabinetWClassX");
+static const TCHAR szExploreWndClass[] = TEXT("ExploreWClassX");
 
 class CDockManager;
 class CShellBrowser;
@@ -179,7 +179,7 @@ private:
     CComPtr<IExplorerToolbar>               fExplorerToolbar;
 public:
     void Initialize(HWND parent, IUnknown *explorerToolbar);
-    void Destroy();
+
 private:
 
     // message handlers
@@ -205,12 +205,6 @@ void CToolbarProxy::Initialize(HWND parent, IUnknown *explorerToolbar)
         hResult = explorerToolbar->QueryInterface(
             IID_PPV_ARG(IExplorerToolbar, &fExplorerToolbar));
     }
-}
-
-void CToolbarProxy::Destroy()
-{
-    DestroyWindow();
-    fExplorerToolbar = NULL;
 }
 
 LRESULT CToolbarProxy::OnAddBitmap(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled)
@@ -315,7 +309,7 @@ public:
 
     CShellBrowser();
     ~CShellBrowser();
-    HRESULT Initialize(LPITEMIDLIST pidl, DWORD dwFlags);
+    HRESULT Initialize(LPITEMIDLIST pidl, long b, long c, long d);
 public:
     HRESULT BrowseToPIDL(LPCITEMIDLIST pidl, long flags);
     HRESULT BrowseToPath(IShellFolder *newShellFolder, LPCITEMIDLIST absolutePIDL,
@@ -712,7 +706,7 @@ CShellBrowser::~CShellBrowser()
         DSA_Destroy(menuDsa);
 }
 
-HRESULT CShellBrowser::Initialize(LPITEMIDLIST pidl, DWORD dwFlags)
+HRESULT CShellBrowser::Initialize(LPITEMIDLIST pidl, long b, long c, long d)
 {
     CComPtr<IPersistStreamInit>             persistStreamInit;
     HRESULT                                 hResult;
@@ -785,9 +779,6 @@ HRESULT CShellBrowser::Initialize(LPITEMIDLIST pidl, DWORD dwFlags)
     hResult = BrowseToPIDL(pidl, BTP_UPDATE_NEXT_HISTORY);
     if (FAILED_UNEXPECTEDLY(hResult))
         return hResult;
-
-    if ((dwFlags & SBSP_EXPLOREMODE) != NULL)
-        ShowBand(CLSID_ExplorerBand, true);
 
     ShowWindow(SW_SHOWNORMAL);
 
@@ -1049,27 +1040,25 @@ HRESULT CShellBrowser::BrowseToPath(IShellFolder *newShellFolder,
         HIMAGELIST himlSmall, himlLarge;
 
         CComPtr<IShellFolder> sf;
-        hResult = SHBindToParent(absolutePIDL, IID_PPV_ARG(IShellFolder, &sf), &pidlChild);
-        if (SUCCEEDED(hResult))
-        {
-            index = SHMapPIDLToSystemImageListIndex(sf, pidlChild, &indexOpen);
+        SHBindToParent(absolutePIDL, IID_PPV_ARG(IShellFolder, &sf), &pidlChild);
 
-            Shell_GetImageLists(&himlLarge, &himlSmall);
+        index = SHMapPIDLToSystemImageListIndex(sf, pidlChild, &indexOpen);
 
-            HICON icSmall = ImageList_GetIcon(himlSmall, indexOpen, 0);
-            HICON icLarge = ImageList_GetIcon(himlLarge, indexOpen, 0);
+        Shell_GetImageLists(&himlLarge, &himlSmall);
 
-            /* Hack to make it possible to release the old icons */
-            /* Something seems to go wrong with WM_SETICON */
-            HICON oldSmall = (HICON)SendMessage(WM_GETICON, ICON_SMALL, 0);
-            HICON oldLarge = (HICON)SendMessage(WM_GETICON, ICON_BIG,   0);
+        HICON icSmall = ImageList_GetIcon(himlSmall, indexOpen, 0);
+        HICON icLarge = ImageList_GetIcon(himlLarge, indexOpen, 0);
 
-            SendMessage(WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(icSmall));
-            SendMessage(WM_SETICON, ICON_BIG,   reinterpret_cast<LPARAM>(icLarge));
+        /* Hack to make it possible to release the old icons */
+        /* Something seems to go wrong with WM_SETICON */
+        HICON oldSmall = (HICON)SendMessage(WM_GETICON, ICON_SMALL, 0);
+        HICON oldLarge = (HICON)SendMessage(WM_GETICON, ICON_BIG,   0);
 
-            DestroyIcon(oldSmall);
-            DestroyIcon(oldLarge);
-        }
+        SendMessage(WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(icSmall));
+        SendMessage(WM_SETICON, ICON_BIG,   reinterpret_cast<LPARAM>(icLarge));
+
+        DestroyIcon(oldSmall);
+        DestroyIcon(oldLarge);
     }
 
     FireCommandStateChangeAll();
@@ -1122,7 +1111,6 @@ HRESULT CShellBrowser::GetBaseBar(bool vertical, REFIID riid, void **theBaseBar)
     
         // we have to store our basebar into cache now
         *cache = newBaseBar;
-        newBaseBar->AddRef();
         
         // tell the new base bar about the shell browser
         hResult = IUnknown_SetSite(newBaseBar, static_cast<IDropTarget *>(this));
@@ -2192,9 +2180,6 @@ HRESULT STDMETHODCALLTYPE CShellBrowser::TranslateAcceleratorSB(MSG *pmsg, WORD 
 
 HRESULT STDMETHODCALLTYPE CShellBrowser::BrowseObject(LPCITEMIDLIST pidl, UINT wFlags)
 {
-    if ((wFlags & SBSP_EXPLOREMODE) != NULL)
-        ShowBand(CLSID_ExplorerBand, true);
-
     return BrowseToPIDL(pidl, BTP_UPDATE_CUR_HISTORY | BTP_UPDATE_NEXT_HISTORY);
 }
 
@@ -3369,10 +3354,9 @@ LRESULT CShellBrowser::OnDestroy(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &
 
     // TODO: rip down everything
     {
-        fToolbarProxy.Destroy();
-
         fCurrentShellView->DestroyViewWindow();
         fCurrentShellView->UIActivate(SVUIA_DEACTIVATE);
+        ReleaseCComPtrExpectZero(fCurrentShellView);
 
         for (int i = 0; i < 3; i++)
         {
@@ -3401,14 +3385,16 @@ LRESULT CShellBrowser::OnDestroy(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &
                 }
             }
             pdw->CloseDW(0);
-
-            pClient = NULL;
-            pBarSite = NULL;
             pdw = NULL;
-            bar = NULL;
+            /* For some reasons, it's like we miss some AddRef in ATL when QueryInterface on
+             * same interface or inherited one, so we are removing already removed (!) object.
+             * TODO: check with MSVC's ATL to see if this behaviour happens too
+             */
+            bar.Detach();
+            pClient.Detach();
+            pBarSite.Detach();
             ReleaseCComPtrExpectZero(fClientBars[i].clientBar);
         }
-        ReleaseCComPtrExpectZero(fCurrentShellView);
         ReleaseCComPtrExpectZero(fTravelLog);
 
         fCurrentShellFolder.Release();
@@ -3711,7 +3697,72 @@ LRESULT CShellBrowser::RelayCommands(UINT uMsg, WPARAM wParam, LPARAM lParam, BO
     return 0;
 }
 
-HRESULT CShellBrowser_CreateInstance(LPITEMIDLIST pidl, DWORD dwFlags, REFIID riid, void **ppv)
+static HRESULT ExplorerMessageLoop(IEThreadParamBlock * parameters)
 {
-    return ShellObjectCreatorInit<CShellBrowser>(pidl, dwFlags, riid, ppv);
+    CComPtr<CShellBrowser>    theCabinet;
+    HRESULT                   hResult;
+    MSG Msg;
+    BOOL Ret;
+
+    // Tell the thread ref we are using it.
+    if (parameters && parameters->offsetF8)
+        parameters->offsetF8->AddRef();
+    
+    ATLTRY(theCabinet = new CComObject<CShellBrowser>);
+    if (theCabinet == NULL)
+    {
+        return E_OUTOFMEMORY;
+    }
+    
+    hResult = theCabinet->Initialize(parameters->directoryPIDL, 0, 0, 0);
+    if (FAILED_UNEXPECTEDLY(hResult))
+        return E_OUTOFMEMORY;
+
+    while ((Ret = GetMessage(&Msg, NULL, 0, 0)) != 0)
+    {
+        if (Ret == -1)
+        {
+            // Error: continue or exit?
+            break;
+        }
+
+        if (Msg.message == WM_QUIT)
+            break;
+
+        if (theCabinet->v_MayTranslateAccelerator(&Msg) != S_OK)
+        {
+            TranslateMessage(&Msg);
+            DispatchMessage(&Msg);
+        }
+    }
+
+    int nrc = theCabinet->Release();
+    if (nrc > 0)
+    {
+        DbgPrint("WARNING: There are %d references to the CShellBrowser active or leaked.\n", nrc);
+    }
+
+    theCabinet.Detach();
+
+    // Tell the thread ref we are not using it anymore.
+    if (parameters && parameters->offsetF8)
+        parameters->offsetF8->Release();
+
+    return hResult;
+}
+
+DWORD WINAPI BrowserThreadProc(LPVOID lpThreadParameter)
+{
+    HRESULT hr;
+    IEThreadParamBlock * parameters = (IEThreadParamBlock *) lpThreadParameter;
+
+    OleInitialize(NULL);
+
+    ATLTRY(hr = ExplorerMessageLoop(parameters));
+
+    OleUninitialize();
+
+    SHDestroyIETHREADPARAM(parameters);
+
+    return hr;
 }

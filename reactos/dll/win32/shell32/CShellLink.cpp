@@ -1916,7 +1916,7 @@ HRESULT WINAPI CShellLink::InvokeCommand(LPCMINVOKECOMMANDINFO lpici)
     sei.lpVerb = L"open";
 
     // HACK for ShellExecuteExW
-    if (sPath && wcsstr(sPath, L".cpl"))
+    if (wcsstr(sPath, L".cpl"))
         sei.lpVerb = L"cplopen";
 
     if (ShellExecuteExW(&sei))
@@ -1974,13 +1974,6 @@ INT_PTR CALLBACK ExtendedShortcutProc(HWND hwndDlg, UINT uMsg,
     }
     return FALSE;
 }
-
-EXTERN_C HRESULT
-WINAPI
-SHOpenFolderAndSelectItems(LPITEMIDLIST pidlFolder,
-                           UINT cidl,
-                           PCUITEMID_CHILD_ARRAY apidl,
-                           DWORD dwFlags);
 
 /**************************************************************************
  * SH_ShellLinkDlgProc
@@ -2115,7 +2108,6 @@ INT_PTR CALLBACK CShellLink::SH_ShellLinkDlgProc(HWND hwndDlg, UINT uMsg, WPARAM
             switch(LOWORD(wParam))
             {
                 case 14020:
-                    SHOpenFolderAndSelectItems(pThis->pPidl, 0, NULL, 0);
                     ///
                     /// FIXME
                     /// open target directory
@@ -2248,7 +2240,7 @@ HRESULT WINAPI CShellLink::DragLeave()
     if (mDropTarget)
     {
         hr = mDropTarget->DragLeave();
-        mDropTarget.Release();
+        mDropTarget->Release();
     }
 
     return hr;

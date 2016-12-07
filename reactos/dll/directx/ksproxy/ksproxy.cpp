@@ -225,7 +225,7 @@ KsGetMediaTypeCount(
     PKSMULTIPLE_ITEM MultipleItem;
     HRESULT hr;
 
-    /* try get constrained data ranges */
+    /* try get contrained data ranges */
     hr = KsGetMultiplePinFactoryItems(FilterHandle, PinFactoryId, KSPROPERTY_PIN_CONSTRAINEDDATARANGES, (PVOID*)&MultipleItem);
 
     /* check for failure*/

@@ -59,7 +59,6 @@ typedef struct _SOCK_SHARED_INFO {
     ULONG						RecvTimeout;
     ULONG						SizeOfRecvBuffer;
     ULONG						SizeOfSendBuffer;
-    ULONG						ConnectTime;
     struct {
         BOOLEAN					Listening:1;
         BOOLEAN					Broadcast:1;

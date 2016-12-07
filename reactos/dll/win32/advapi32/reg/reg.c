@@ -4135,31 +4135,19 @@ RegQueryValueExW(
 
     RtlInitUnicodeString( &name_str, name );
 
-    if (data)
-        total_size = min( sizeof(buffer), *count + info_size );
+    if (data) total_size = min( sizeof(buffer), *count + info_size );
     else
+    {
         total_size = info_size;
+        if (count) *count = 0;
+    }
 
+    /* this matches Win9x behaviour - NT sets *type to a random value */
+    if (type) *type = REG_NONE;
 
     status = NtQueryValueKey( hkey, &name_str, KeyValuePartialInformation,
                               buffer, total_size, &total_size );
-
-    if (!NT_SUCCESS(status) && status != STATUS_BUFFER_OVERFLOW)
-    {
-        // NT: Valid handles with inexistant/null values or invalid (but not NULL) handles sets type to REG_NONE
-        // On windows these conditions are likely to be side effects of the implementation...
-        if (status == STATUS_INVALID_HANDLE && hkey)
-        {
-            if (type) *type = REG_NONE;
-            if (count) *count = 0;
-        }
-        else if (status == STATUS_OBJECT_NAME_NOT_FOUND)
-        {
-            if (type) *type = REG_NONE;
-            if (data == NULL && count) *count = 0;
-        }
-        goto done;
-    }
+    if (!NT_SUCCESS(status) && status != STATUS_BUFFER_OVERFLOW) goto done;
 
     if (data)
     {

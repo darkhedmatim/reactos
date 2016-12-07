@@ -60,7 +60,6 @@ LpcInitSystem(VOID)
                        NULL,
                        &LpcPortObjectType);
 
-    /* Create the Waitable Port Object Type */
     RtlInitUnicodeString(&Name, L"WaitablePort");
     ObjectTypeInitializer.PoolType = NonPagedPool;
     ObjectTypeInitializer.DefaultNonPagedPoolCharge += sizeof(LPCP_PORT_OBJECT);
@@ -126,35 +125,36 @@ NTAPI
 NtImpersonateClientOfPort(IN HANDLE PortHandle,
                           IN PPORT_MESSAGE ClientMessage)
 {
-    NTSTATUS Status;
-    KPROCESSOR_MODE PreviousMode = KeGetPreviousMode();
+    KPROCESSOR_MODE PreviousMode;
     CLIENT_ID ClientId;
     ULONG MessageId;
     PLPCP_PORT_OBJECT Port = NULL, ConnectedPort = NULL;
     PETHREAD ClientThread = NULL;
     SECURITY_CLIENT_CONTEXT ClientContext;
-
+    NTSTATUS Status;
     PAGED_CODE();
 
-    /* Check if the call comes from user mode */
-    if (PreviousMode != KernelMode)
+    /* Check the previous mode */
+    PreviousMode = ExGetPreviousMode();
+    if (PreviousMode == KernelMode)
+    {
+        ClientId = ClientMessage->ClientId;
+        MessageId = ClientMessage->MessageId;
+    }
+    else
     {
         _SEH2_TRY
         {
             ProbeForRead(ClientMessage, sizeof(*ClientMessage), sizeof(PVOID));
-            ClientId  = ((volatile PORT_MESSAGE*)ClientMessage)->ClientId;
-            MessageId = ((volatile PORT_MESSAGE*)ClientMessage)->MessageId;
+            ClientId = ClientMessage->ClientId;
+            MessageId = ClientMessage->MessageId;
         }
         _SEH2_EXCEPT(EXCEPTION_EXECUTE_HANDLER)
         {
+            DPRINT1("Got exception!\n");
             _SEH2_YIELD(return _SEH2_GetExceptionCode());
         }
         _SEH2_END;
-    }
-    else
-    {
-        ClientId  = ClientMessage->ClientId;
-        MessageId = ClientMessage->MessageId;
     }
 
     /* Reference the port handle */
@@ -192,7 +192,8 @@ NtImpersonateClientOfPort(IN HANDLE PortHandle,
 
     /* Get the connected port and try to reference it */
     ConnectedPort = Port->ConnectedPort;
-    if ((ConnectedPort == NULL) || !ObReferenceObjectSafe(ConnectedPort))
+    if ((ConnectedPort == NULL) ||
+        !ObReferenceObjectSafe(ConnectedPort))
     {
         DPRINT1("Failed to reference the connected port\n");
         ConnectedPort = NULL;
@@ -253,6 +254,13 @@ NtImpersonateClientOfPort(IN HANDLE PortHandle,
     /* Get rid of the security context */
     SeDeleteClientSecurity(&ClientContext);
 
+    goto Cleanup;
+
+CleanupWithLock:
+
+    /* Release the lock */
+    KeReleaseGuardedMutex(&LpcpLock);
+
 Cleanup:
 
     if (ConnectedPort != NULL)
@@ -264,12 +272,6 @@ Cleanup:
     ObDereferenceObject(Port);
 
     return Status;
-
-CleanupWithLock:
-
-    /* Release the lock */
-    KeReleaseGuardedMutex(&LpcpLock);
-    goto Cleanup;
 }
 
 NTSTATUS

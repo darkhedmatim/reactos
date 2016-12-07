@@ -18,10 +18,8 @@ list(APPEND SOURCE
     NtQueryKey.c
     NtQuerySystemEnvironmentValue.c
     NtQueryVolumeInformationFile.c
-    NtReadFile.c
     NtSaveKey.c
     NtSetValueKey.c
-    NtWriteFile.c
     RtlAllocateHeap.c
     RtlBitmap.c
     RtlCopyMappedMemory.c
@@ -40,10 +38,8 @@ list(APPEND SOURCE
     RtlGetLongestNtPathLength.c
     RtlImageRvaToVa.c
     RtlInitializeBitMap.c
-    RtlIsNameLegalDOS8Dot3.c
     RtlMemoryStream.c
     RtlReAllocateHeap.c
-    RtlUpcaseUnicodeStringToCountedOemString.c
     StackOverflow.c
     SystemInfo.c
     Timer.c

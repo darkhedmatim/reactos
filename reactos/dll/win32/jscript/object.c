@@ -67,8 +67,8 @@ static HRESULT Object_toString(script_ctx_t *ctx, vdisp_t *jsthis, WORD flags, u
         jsstr_t *ret;
         WCHAR *ptr;
 
-        ret = jsstr_alloc_buf(9+strlenW(str), &ptr);
-        if(!ret)
+        ptr = jsstr_alloc_buf(9+strlenW(str), &ret);
+        if(!ptr)
             return E_OUTOFMEMORY;
 
         sprintfW(ptr, formatW, str);

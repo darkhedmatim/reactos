@@ -53,8 +53,8 @@ HRESULT CNetFolderExtractIcon_CreateInstance(LPCITEMIDLIST pidl, REFIID riid, LP
 {
     CComPtr<IDefaultExtractIconInit> initIcon;
     HRESULT hr = SHCreateDefaultExtractIcon(IID_PPV_ARG(IDefaultExtractIconInit, &initIcon));
-    if (FAILED_UNEXPECTEDLY(hr))
-        return hr;
+    if (FAILED(hr))
+        return NULL;
 
     initIcon->SetNormalIcon(swShell32Name, -IDI_SHELL_NETWORK_FOLDER);
 
@@ -457,11 +457,14 @@ HRESULT WINAPI CNetFolder::GetUIObjectOf(HWND hwndOwner, UINT cidl, PCUITEMID_CH
 */
 HRESULT WINAPI CNetFolder::GetDisplayNameOf(PCUITEMID_CHILD pidl, DWORD dwFlags, LPSTRRET strRet)
 {
-    if (!strRet || !pidl || !pidl->mkid.cb)
+    if (!strRet)
         return E_INVALIDARG;
 
+    if (!pidl->mkid.cb)
+        return SHSetStrRet(strRet, IDS_NETWORKPLACE);
 #ifdef HACKY_UNC_PATHS
-    return SHSetStrRet(strRet, (LPCWSTR)pidl->mkid.abID);
+    else
+        return SHSetStrRet(strRet, (LPCWSTR)pidl->mkid.abID);
 #endif
     return E_NOTIMPL;
 }

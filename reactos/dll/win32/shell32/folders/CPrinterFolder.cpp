@@ -54,8 +54,8 @@ HRESULT WINAPI CPrintersExtractIconW_CreateInstane(LPCITEMIDLIST pidl, REFIID ri
 {
     CComPtr<IDefaultExtractIconInit> initIcon;
     HRESULT hr = SHCreateDefaultExtractIcon(IID_PPV_ARG(IDefaultExtractIconInit,&initIcon));
-    if (FAILED_UNEXPECTEDLY(hr))
-        return hr;
+    if (FAILED(hr))
+        return NULL;
 
     /* FIXME: other icons for default, network, print to file */
     initIcon->SetNormalIcon(swShell32Name, -IDI_SHELL_PRINTER);
@@ -367,10 +367,13 @@ HRESULT WINAPI CPrinterFolder::GetDisplayNameOf(PCUITEMID_CHILD pidl, DWORD dwFl
         return E_INVALIDARG;
     }
 
+    if (!pidl->mkid.cb)
+        return SHSetStrRet(strRet, IDS_PRINTERS);
+
     p = _ILGetPrinterStruct(pidl);
     if (!p)
     {
-        ERR("no printer struct\n");
+        WARN("no printer struct\n");
         return E_INVALIDARG;
     }
 

@@ -1349,7 +1349,7 @@ QueryVolumeName(IN HANDLE RootDirectory,
         return STATUS_BUFFER_TOO_SMALL;
     }
 
-    /* Copy symbolic name */
+    /* Copy symoblic name */
     SymbolicName->Length = ReparseDataBuffer->MountPointReparseBuffer.SubstituteNameLength;
     RtlCopyMemory(SymbolicName->Buffer,
                   (PWSTR)((ULONG_PTR)ReparseDataBuffer->MountPointReparseBuffer.PathBuffer +
@@ -1699,7 +1699,7 @@ CreateRemoteDatabaseWorker(IN PDEVICE_OBJECT DeviceObject,
         goto Cleanup;
     }
 
-    /* Finish initiating strings */
+    /* Finish initating strings */
     RtlCopyMemory(DatabaseName.Buffer, DeviceInformation->DeviceName.Buffer, DeviceInformation->DeviceName.Length);
     RtlCopyMemory(DatabaseName.Buffer + (DeviceInformation->DeviceName.Length / sizeof(WCHAR)),
                   RemoteDatabase.Buffer, RemoteDatabase.Length);

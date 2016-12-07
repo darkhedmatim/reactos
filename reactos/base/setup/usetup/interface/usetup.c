@@ -1488,7 +1488,7 @@ IsDiskSizeValid(PPARTENTRY PartEntry)
 
     if (size < RequiredPartitionDiskSpace)
     {
-        /* partition is too small so ask for another partition */
+        /* partition is too small so ask for another partion */
         DPRINT1("Partition is too small (size: %I64u MB), required disk space is %lu MB\n", size, RequiredPartitionDiskSpace);
         return FALSE;
     }
@@ -3122,7 +3122,7 @@ CheckFileSystemPage(PINPUT_RECORD Ir)
     DPRINT1("CheckFileSystemPage -- PartitionType: 0x%02X ; FileSystemName: %S\n",
             PartEntry->PartitionType, (CurrentFileSystem ? CurrentFileSystem->FileSystemName : L"n/a"));
 
-    /* HACK: Do not try to check a partition with an unknown filesystem */
+    /* HACK: Do not try to check a partition with an unknown filesytem */
     if (CurrentFileSystem == NULL)
     {
         PartEntry->NeedsCheck = FALSE;
@@ -3264,7 +3264,7 @@ InstallDirectoryPage(PINPUT_RECORD Ir)
     WCHAR c;
     ULONG Length;
 
-    /* We do not need the filesystem list any more */
+    /* We do not need the filsystem list any more */
     if (FileSystemList != NULL)
     {
         DestroyFileSystemList(FileSystemList);
@@ -3602,7 +3602,7 @@ PrepareCopyPageInfFile(HINF InfFile,
     Status = SetupCreateDirectory(PathBuffer);
     if (!NT_SUCCESS(Status) && Status != STATUS_OBJECT_NAME_COLLISION)
     {
-        DPRINT1("Creating directory '%S' failed: Status = 0x%08lx", PathBuffer, Status);
+        DPRINT("Creating directory '%S' failed: Status = 0x%08lx", PathBuffer, Status);
         MUIDisplayError(ERROR_CREATE_INSTALL_DIR, Ir, POPUP_WAIT_ENTER);
         return FALSE;
     }

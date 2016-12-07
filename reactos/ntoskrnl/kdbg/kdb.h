@@ -2,6 +2,10 @@
 
 /* DEFINES *******************************************************************/
 
+#ifndef RTL_NUMBER_OF
+# define RTL_NUMBER_OF(x) (sizeof(x) / sizeof((x)[0]))
+#endif
+
 /* formerly located in kdbg/kdb_symbols.c */
 #define TAG_KDBS 'SBDK'
 #define TAG_KDBG 'GBDK'

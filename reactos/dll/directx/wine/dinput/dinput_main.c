@@ -162,26 +162,15 @@ HRESULT WINAPI DECLSPEC_HOTPATCH DirectInputCreateW(HINSTANCE hinst, DWORD dwVer
     return DirectInputCreateEx(hinst, dwVersion, &IID_IDirectInput7W, (LPVOID *)ppDI, punkOuter);
 }
 
-static const char *_dump_DIDEVTYPE_value(DWORD dwDevType, DWORD dwVersion)
+static const char *_dump_DIDEVTYPE_value(DWORD dwDevType)
 {
-    if (dwVersion < 0x0800) {
-        switch (dwDevType) {
-            case 0: return "All devices";
-            case DIDEVTYPE_MOUSE: return "DIDEVTYPE_MOUSE";
-            case DIDEVTYPE_KEYBOARD: return "DIDEVTYPE_KEYBOARD";
-            case DIDEVTYPE_JOYSTICK: return "DIDEVTYPE_JOYSTICK";
-            case DIDEVTYPE_DEVICE: return "DIDEVTYPE_DEVICE";
-            default: return "Unknown";
-        }
-    } else {
-        switch (dwDevType) {
-            case DI8DEVCLASS_ALL: return "All devices";
-            case DI8DEVCLASS_POINTER: return "DI8DEVCLASS_POINTER";
-            case DI8DEVCLASS_KEYBOARD: return "DI8DEVCLASS_KEYBOARD";
-            case DI8DEVCLASS_DEVICE: return "DI8DEVCLASS_DEVICE";
-            case DI8DEVCLASS_GAMECTRL: return "DI8DEVCLASS_GAMECTRL";
-            default: return "Unknown";
-        }
+    switch (dwDevType) {
+        case 0: return "All devices";
+	case DIDEVTYPE_MOUSE: return "DIDEVTYPE_MOUSE";
+	case DIDEVTYPE_KEYBOARD: return "DIDEVTYPE_KEYBOARD";
+	case DIDEVTYPE_JOYSTICK: return "DIDEVTYPE_JOYSTICK";
+	case DIDEVTYPE_DEVICE: return "DIDEVTYPE_DEVICE";
+	default: return "Unknown";
     }
 }
 
@@ -374,11 +363,10 @@ static HRESULT WINAPI IDirectInputAImpl_EnumDevices(
     IDirectInputImpl *This = impl_from_IDirectInput7A(iface);
     DIDEVICEINSTANCEA devInstance;
     unsigned int i;
-    int j;
-    HRESULT r;
+    int j, r;
 
-    TRACE("(this=%p,0x%04x '%s',%p,%p,0x%04x)\n",
-	  This, dwDevType, _dump_DIDEVTYPE_value(dwDevType, This->dwVersion),
+    TRACE("(this=%p,0x%04x '%s',%p,%p,%04x)\n",
+	  This, dwDevType, _dump_DIDEVTYPE_value(dwDevType),
 	  lpCallback, pvRef, dwFlags);
     _dump_EnumDevices_dwFlags(dwFlags);
 
@@ -417,8 +405,8 @@ static HRESULT WINAPI IDirectInputWImpl_EnumDevices(
     int j;
     HRESULT r;
 
-    TRACE("(this=%p,0x%04x '%s',%p,%p,0x%04x)\n",
-	  This, dwDevType, _dump_DIDEVTYPE_value(dwDevType, This->dwVersion),
+    TRACE("(this=%p,0x%04x '%s',%p,%p,%04x)\n",
+	  This, dwDevType, _dump_DIDEVTYPE_value(dwDevType),
 	  lpCallback, pvRef, dwFlags);
     _dump_EnumDevices_dwFlags(dwFlags);
 

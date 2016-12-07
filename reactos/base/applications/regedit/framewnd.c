@@ -1316,7 +1316,7 @@ LRESULT CALLBACK FrameWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
             return DefWindowProcW(hWnd, message, wParam, lParam);
         break;
     case WM_ACTIVATE:
-        if (LOWORD(hWnd) && g_pChildWnd)
+        if (LOWORD(hWnd))
             SetFocus(g_pChildWnd->hWnd);
         break;
     case WM_SIZE:

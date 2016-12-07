@@ -1,10 +1,4 @@
 
-if(ARCH STREQUAL "i386")
-    list(APPEND ASM_SOURCE
-        i386/seh.s
-        i386/seh_prolog.s)
-endif()
-
 if(NOT MSVC)
 
     if(USE_PSEH3)
@@ -25,19 +19,24 @@ if(NOT MSVC)
         list(APPEND SOURCE powerpc/framebased.S)
     endif()
 
-    add_library(pseh ${SOURCE} ${ASM_SOURCE})
+    add_library(pseh ${SOURCE})
     target_link_libraries(pseh chkstk)
     add_dependencies(pseh psdk)
 
 else()
 
-    if(ARCH STREQUAL "amd64")
+    if(ARCH STREQUAL "i386")
+        list(APPEND ASM_SOURCE
+            i386/seh.s
+            i386/seh_prolog.s)
+    elseif(ARCH STREQUAL "amd64")
         list(APPEND ASM_SOURCE
             amd64/seh.s
             amd64/seh_prolog.s)
     elseif(ARCH STREQUAL "arm")
         list(APPEND ASM_SOURCE
             arm/seh_prolog.s)
+        list(APPEND SOURCE dummy.c)
     endif()
 
     list(APPEND SOURCE dummy.c)

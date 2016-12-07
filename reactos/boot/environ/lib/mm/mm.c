@@ -208,7 +208,7 @@ BlMmMapPhysicalAddressEx (
         goto Quickie;
     }
 
-    /* Compute the final address where the mapping was made */
+    /* Compute the final adress where the mapping was made */
     MappedBase = (PVOID)((ULONG_PTR)MappingAddress +
                          PhysicalAddress.LowPart -
                          MappedAddress.LowPart);
@@ -274,7 +274,7 @@ BlMmUnmapVirtualAddressEx (
     /* Increment call depth */
     ++MmDescriptorCallTreeCount;
 
-    /* Make sure all parameters are there */
+    /* Make sure all parameters are tehre */
     if ((VirtualAddress) && (Size))
     {
         /* Unmap the virtual address */

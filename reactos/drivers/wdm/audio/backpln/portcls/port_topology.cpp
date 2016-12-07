@@ -197,7 +197,7 @@ CPortTopology::GetDeviceProperty(
 
     if (!m_bInitialized)
     {
-        DPRINT("IPortTopology_fnNewRegistryKey called w/o initialized\n");
+        DPRINT("IPortTopology_fnNewRegistryKey called w/o initiazed\n");
         return STATUS_UNSUCCESSFUL;
     }
 

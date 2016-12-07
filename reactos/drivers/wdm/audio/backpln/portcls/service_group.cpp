@@ -141,7 +141,7 @@ CServiceGroup::RequestService()
     }
     else
     {
-        // check current irql
+        // check curent irql
         if (KeGetCurrentIrql() > DISPATCH_LEVEL)
         {
             //insert dpc to queue

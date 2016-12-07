@@ -306,6 +306,9 @@ struct BadString
 };
 
 static const struct BadString badStrings[] = {
+ { "A\r\nA\r\n=\r\n=\r\n", CRYPT_STRING_BASE64 },
+ { "AA\r\n=\r\n=\r\n", CRYPT_STRING_BASE64 },
+ { "AA=\r\n=\r\n", CRYPT_STRING_BASE64 },
  { "-----BEGIN X509 CRL-----\r\nAA==\r\n", CRYPT_STRING_BASE64X509CRLHEADER },
 };
 
@@ -337,7 +340,7 @@ static void testStringToBinaryA(void)
         ret = pCryptStringToBinaryA(badStrings[i].str, 0, badStrings[i].format,
          NULL, &bufLen, NULL, NULL);
         ok(!ret && GetLastError() == ERROR_INVALID_DATA,
-           "%d: Expected ERROR_INVALID_DATA, got ret=%d le=%u\n", i, ret, GetLastError());
+         "Expected ERROR_INVALID_DATA, got ret=%d le=%u\n", ret, GetLastError());
     }
     /* Good strings */
     for (i = 0; i < sizeof(tests) / sizeof(tests[0]); i++)

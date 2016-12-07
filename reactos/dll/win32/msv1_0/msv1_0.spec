@@ -14,5 +14,5 @@
 @ stub MsvValidateTarget
 @ stub SpInitialize
 @ stub SpInstanceInit
-@ stub SpLsaModeInitialize
-@ stub SpUserModeInitialize
+@ stub SpLsaModeInitiaize
+@ stub SpUserModeInitiaize

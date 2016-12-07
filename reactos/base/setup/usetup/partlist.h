@@ -207,7 +207,7 @@ typedef struct
 {
     LIST_ENTRY ListEntry;
     ULONG DiskNumber;
-    ULONG Identifier;
+    ULONG Idendifier;
     ULONG Signature;
 } BIOS_DISK, *PBIOS_DISK;
 

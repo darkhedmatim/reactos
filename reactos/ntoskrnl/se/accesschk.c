@@ -18,11 +18,8 @@
 
 /* PRIVATE FUNCTIONS **********************************************************/
 
-/*
- * FIXME: Incomplete!
- */
 BOOLEAN NTAPI
-SepAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
+SepAccessCheckEx(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
                IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext,
                IN ACCESS_MASK DesiredAccess,
                IN POBJECT_TYPE_LIST ObjectTypeList,
@@ -49,7 +46,7 @@ SepAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
     NTSTATUS Status;
     PAGED_CODE();
 
-    DPRINT("SepAccessCheck()\n");
+    DPRINT("SepAccessCheckEx()\n");
 
     /* Check for no access desired */
     if (!DesiredAccess)
@@ -286,6 +283,31 @@ ReturnCommonStatus:
     return NT_SUCCESS(Status);
 }
 
+BOOLEAN NTAPI
+SepAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
+               IN PSECURITY_SUBJECT_CONTEXT SubjectSecurityContext,
+               IN ACCESS_MASK DesiredAccess,
+               IN ACCESS_MASK PreviouslyGrantedAccess,
+               OUT PPRIVILEGE_SET* Privileges,
+               IN PGENERIC_MAPPING GenericMapping,
+               IN KPROCESSOR_MODE AccessMode,
+               OUT PACCESS_MASK GrantedAccess,
+               OUT PNTSTATUS AccessStatus)
+{
+    return SepAccessCheckEx(SecurityDescriptor,
+                            SubjectSecurityContext,
+                            DesiredAccess,
+                            NULL,
+                            0,
+                            PreviouslyGrantedAccess,
+                            Privileges,
+                            GenericMapping,
+                            AccessMode,
+                            GrantedAccess,
+                            AccessStatus,
+                            FALSE);
+}
+
 static PSID
 SepGetSDOwner(IN PSECURITY_DESCRIPTOR _SecurityDescriptor)
 {
@@ -421,15 +443,12 @@ SeAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
         ret = SepAccessCheck(SecurityDescriptor,
                              SubjectSecurityContext,
                              DesiredAccess,
-                             NULL,
-                             0,
                              PreviouslyGrantedAccess,
                              Privileges,
                              GenericMapping,
                              AccessMode,
                              GrantedAccess,
-                             AccessStatus,
-                             FALSE);
+                             AccessStatus);
     }
 
     /* Release the lock if needed */
@@ -668,15 +687,12 @@ NtAccessCheck(IN PSECURITY_DESCRIPTOR SecurityDescriptor,
         SepAccessCheck(SecurityDescriptor, // FIXME: use CapturedSecurityDescriptor
                        &SubjectSecurityContext,
                        DesiredAccess,
-                       NULL,
-                       0,
                        PreviouslyGrantedAccess,
                        &PrivilegeSet, //FIXME
                        GenericMapping,
                        PreviousMode,
                        GrantedAccess,
-                       AccessStatus,
-                       FALSE);
+                       AccessStatus);
     }
 
     /* Release subject context and unlock the token */

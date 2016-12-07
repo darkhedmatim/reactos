@@ -18,8 +18,6 @@
 
 #include "jscript.h"
 
-#include <wine/rbtree.h>
-
 WINE_DECLARE_DEBUG_CHANNEL(jscript_disas);
 
 typedef struct _statement_ctx_t {
@@ -36,12 +34,6 @@ typedef struct _statement_ctx_t {
 } statement_ctx_t;
 
 typedef struct {
-    struct wine_rb_entry entry;
-    BSTR name;
-    int ref;
-} function_local_t;
-
-typedef struct {
     parser_ctx_t *parser;
     bytecode_t *code;
 
@@ -54,7 +46,8 @@ typedef struct {
     unsigned labels_size;
     unsigned labels_cnt;
 
-    struct wine_rb_tree locals;
+    local_ref_t *locals_buf;
+    unsigned locals_buf_size;
     unsigned locals_cnt;
 
     statement_ctx_t *stat_ctx;
@@ -62,8 +55,6 @@ typedef struct {
 
     function_expression_t *func_head;
     function_expression_t *func_tail;
-
-    heap_pool_t heap;
 } compiler_ctx_t;
 
 static const struct {
@@ -1813,29 +1804,42 @@ static HRESULT compile_statement(compiler_ctx_t *ctx, statement_ctx_t *stat_ctx,
     return hres;
 }
 
-static int function_local_cmp(const void *key, const struct wine_rb_entry *entry)
+static int local_cmp(const void *key, const void *ref)
 {
-    function_local_t *local = WINE_RB_ENTRY_VALUE(entry, function_local_t, entry);
-    return strcmpW(key, local->name);
+    return strcmpW((const WCHAR*)key, ((const local_ref_t*)ref)->name);
 }
 
-static inline function_local_t *find_local(compiler_ctx_t *ctx, const WCHAR *name)
+static inline local_ref_t *find_local(compiler_ctx_t *ctx, const WCHAR *name)
 {
-    struct wine_rb_entry *entry = wine_rb_get(&ctx->locals, name);
-    return entry ? WINE_RB_ENTRY_VALUE(entry, function_local_t, entry) : NULL;
+    return bsearch(name, ctx->locals_buf, ctx->locals_cnt, sizeof(*ctx->locals_buf), local_cmp);
 }
 
 static BOOL alloc_local(compiler_ctx_t *ctx, BSTR name, int ref)
 {
-    function_local_t *local;
+    unsigned i;
 
-    local = heap_pool_alloc(&ctx->heap, sizeof(*local));
-    if(!local)
-        return FALSE;
+    if(!ctx->locals_buf_size) {
+        ctx->locals_buf = heap_alloc(4 * sizeof(*ctx->locals_buf));
+        if(!ctx->locals_buf)
+            return FALSE;
+        ctx->locals_buf_size = 4;
+    }else if(ctx->locals_buf_size == ctx->locals_cnt) {
+        local_ref_t *new_buf = heap_realloc(ctx->locals_buf, ctx->locals_buf_size * 2 * sizeof(*ctx->locals_buf));
+        if(!new_buf)
+            return FALSE;
+        ctx->locals_buf = new_buf;
+        ctx->locals_buf_size *= 2;
+    }
 
-    local->name = name;
-    local->ref = ref;
-    wine_rb_put(&ctx->locals, name, &local->entry);
+    for(i = 0; i < ctx->locals_cnt; i++) {
+        if(strcmpW(ctx->locals_buf[i].name, name) > 0) {
+            memmove(ctx->locals_buf + i+1, ctx->locals_buf + i, (ctx->locals_cnt - i) * sizeof(*ctx->locals_buf));
+            break;
+        }
+    }
+
+    ctx->locals_buf[i].name = name;
+    ctx->locals_buf[i].ref = ref;
     ctx->locals_cnt++;
     return TRUE;
 }
@@ -2252,8 +2256,7 @@ static HRESULT compile_function(compiler_ctx_t *ctx, source_elements_t *source, 
         BOOL from_eval, function_code_t *func)
 {
     function_expression_t *iter;
-    function_local_t *local;
-    unsigned off, i;
+    unsigned off, i, j;
     HRESULT hres;
 
     TRACE("\n");
@@ -2262,7 +2265,6 @@ static HRESULT compile_function(compiler_ctx_t *ctx, source_elements_t *source, 
     ctx->from_eval = from_eval;
     ctx->func = func;
     ctx->locals_cnt = 0;
-    wine_rb_init(&ctx->locals, function_local_cmp);
 
     if(func_expr) {
         parameter_t *param_iter;
@@ -2309,22 +2311,21 @@ static HRESULT compile_function(compiler_ctx_t *ctx, source_elements_t *source, 
     if(!func->locals)
         return E_OUTOFMEMORY;
     func->locals_cnt = ctx->locals_cnt;
+    memcpy(func->locals, ctx->locals_buf, func->locals_cnt * sizeof(*func->locals));
 
     func->variables = compiler_alloc(ctx->code, func->var_cnt * sizeof(*func->variables));
     if(!func->variables)
         return E_OUTOFMEMORY;
 
-    i = 0;
-    WINE_RB_FOR_EACH_ENTRY(local, &ctx->locals, function_local_t, entry) {
-        func->locals[i].name = local->name;
-        func->locals[i].ref = local->ref;
-        if(local->ref >= 0) {
-            func->variables[local->ref].name = local->name;
-            func->variables[local->ref].func_id = -1;
-        }
-        i++;
+    for(i = 0, j = 0; i < func->locals_cnt; i++) {
+        if(func->locals[i].ref < 0)
+            continue; /* skip arguments */
+        func->variables[func->locals[i].ref].name = func->locals[i].name;
+        func->variables[func->locals[i].ref].func_id = -1;
+        j++;
     }
-    assert(i == ctx->locals_cnt);
+
+    assert(j == func->var_cnt);
 
     func->funcs = compiler_alloc(ctx->code, func->func_cnt * sizeof(*func->funcs));
     if(!func->funcs)
@@ -2467,10 +2468,9 @@ HRESULT compile_script(script_ctx_t *ctx, const WCHAR *code, const WCHAR *args, 
         return hres;
     }
 
-    heap_pool_init(&compiler.heap);
     hres = compile_function(&compiler, compiler.parser->source, NULL, from_eval, &compiler.code->global_code);
-    heap_pool_free(&compiler.heap);
     parser_release(compiler.parser);
+    heap_free(compiler.locals_buf);
     if(FAILED(hres)) {
         release_bytecode(compiler.code);
         return hres;

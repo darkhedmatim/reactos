@@ -330,7 +330,7 @@ MountMgrNotify(IN PDEVICE_EXTENSION DeviceExtension)
     }
     IoReleaseCancelSpinLock(OldIrql);
 
-    /* Then, notify them one by one */
+    /* Then, notifiy them one by one */
     while (!IsListEmpty(&CopyList))
     {
         NextEntry = RemoveHeadList(&CopyList);

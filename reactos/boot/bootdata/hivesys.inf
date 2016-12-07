@@ -817,7 +817,6 @@ HKLM,"SYSTEM\CurrentControlSet\Control\Keyboard Layout\DosKeybIDs","00020408",2,
 
 ; Lsa
 HKLM,"SYSTEM\CurrentControlSet\Control\Lsa","Authentication Packages",0x00010000,"msv1_0"
-HKLM,"SYSTEM\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy","Enabled",0x00010001,0
 
 ; Network
 HKLM,"SYSTEM\CurrentControlSet\Control\Network\{4D36E972-E325-11CE-BFC1-08002BE10318}",,0x00000000,"Network Adapters"
@@ -1253,37 +1252,13 @@ HKLM,"SYSTEM\CurrentControlSet\Control\PnP\Pci\CardList","Toshiba",0x00030003,\
 HKLM,"SYSTEM\CurrentControlSet\Control\PnP\Pci\CardList","Ali",0x00030003,\
 01,00,00,00,b9,10,21,15,00,00,00,00,00,00,00,00
 
-
-; Printing
 HKLM,"SYSTEM\CurrentControlSet\Control\Print","MajorVersion",0x00010001,2
-HKLM,"SYSTEM\CurrentControlSet\Control\Print","MinorVersion",0x00010001,0
-HKLM,"SYSTEM\CurrentControlSet\Control\Print","PriorityClass",0x00010001,0
-
-HKLM,"SYSTEM\CurrentControlSet\Control\Print\Environments",,0x00000010
-HKLM,"SYSTEM\CurrentControlSet\Control\Print\Environments\Windows NT x86","Directory",,"W32X86"
-HKLM,"SYSTEM\CurrentControlSet\Control\Print\Environments\Windows NT x86\Print Processors",,0x00000010
-HKLM,"SYSTEM\CurrentControlSet\Control\Print\Environments\Windows NT x86\Print Processors\winprint","Driver",,"winprint.dll"
-
-HKLM,"SYSTEM\CurrentControlSet\Control\Print\Monitors",,0x00000010
-HKLM,"SYSTEM\CurrentControlSet\Control\Print\Monitors\Local Port","Driver",,"localmon.dll"
-
+HKLM,"SYSTEM\CurrentControlSet\Control\Print","MinorVersion",0x00010003,0
+HKLM,"SYSTEM\CurrentControlSet\Control\Print","PriorityClass",0x00010003,0
+HKLM,"SYSTEM\CurrentControlSet\Control\Print\Environments",,0x00000012
+HKLM,"SYSTEM\CurrentControlSet\Control\Print\Monitors",,0x00000012
+HKLM,"SYSTEM\CurrentControlSet\Control\Print\Monitors\Local Port","Driver",2,"localspl.dll"
 HKLM,"SYSTEM\CurrentControlSet\Control\Print\Printers",,0x00000012
-HKLM,"SYSTEM\CurrentControlSet\Control\Print\Printers\Dummy Printer On LPT1","Attributes",0x00010001,0
-HKLM,"SYSTEM\CurrentControlSet\Control\Print\Printers\Dummy Printer On LPT1","Datatype",,"RAW"
-HKLM,"SYSTEM\CurrentControlSet\Control\Print\Printers\Dummy Printer On LPT1","Description",,""
-HKLM,"SYSTEM\CurrentControlSet\Control\Print\Printers\Dummy Printer On LPT1","Default DevMode",1,\
-00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,\
-00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,dc,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,\
-00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,\
-00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,\
-00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00
-HKLM,"SYSTEM\CurrentControlSet\Control\Print\Printers\Dummy Printer On LPT1","Port",,"LPT1:"
-HKLM,"SYSTEM\CurrentControlSet\Control\Print\Printers\Dummy Printer On LPT1","Print Processor",,"winprint"
-HKLM,"SYSTEM\CurrentControlSet\Control\Print\Printers\Dummy Printer On LPT1","Printer Driver",,"Dummy Printer Driver"
-HKLM,"SYSTEM\CurrentControlSet\Control\Print\Printers\Dummy Printer On LPT1","Status",0x00010001,0
-
-HKLM,"SYSTEM\CurrentControlSet\Control\Print\Providers",,0x00000010
-
 
 HKLM,"SYSTEM\CurrentControlSet\Control\ProductOptions","ProductType",2,"ServerNT"
 HKLM,"SYSTEM\CurrentControlSet\Control\ProductOptions","ProductSuite",0x00010002,"Terminal Server"
@@ -1552,7 +1527,7 @@ HKLM,"SYSTEM\CurrentControlSet\Services\lanmanserver\Parameters","ServiceDll",0x
 
 ; Workstation service
 HKLM,"SYSTEM\CurrentControlSet\Services\lanmanworkstation","DisplayName",0x00000000,"Workstation service"
-HKLM,"SYSTEM\CurrentControlSet\Services\lanmanworkstation","Description",0x00000000,"Responsible for creating and maintaining network connections to servers"
+HKLM,"SYSTEM\CurrentControlSet\Services\lanmanworkstation","Description",0x00000000,"Responsible for creating and maintaning network connections to servers"
 HKLM,"SYSTEM\CurrentControlSet\Services\lanmanworkstation","ErrorControl",0x00010001,0x00000001
 HKLM,"SYSTEM\CurrentControlSet\Services\lanmanworkstation","Group",0x00000000,"Network Provider"
 HKLM,"SYSTEM\CurrentControlSet\Services\lanmanworkstation","ImagePath",0x00020000,"%SystemRoot%\system32\svchost.exe -k netsvcs"

@@ -38,6 +38,8 @@ BEGIN
         MENUITEM "", -1, MFT_SEPARATOR
         MENUITEM "Coller", FCIDM_SHVIEW_INSERT
         MENUITEM "Coller comme un lien", FCIDM_SHVIEW_INSERTLINK
+        MENUITEM "", -1, MFT_SEPARATOR
+        MENUITEM "Propriétés", FCIDM_SHVIEW_PROPERTIES
     END
 END
 
@@ -379,8 +381,8 @@ BEGIN
     RADIOBUTTON "Taille personnalisée :", 14001, 20, 90, 80, 10, WS_TABSTOP
     EDITTEXT 14002, 106, 87, 50, 14, WS_TABSTOP | ES_NUMBER
     LTEXT "T&aille maximale (MO) :", -1, 20, 105, 70, 10
-    RADIOBUTTON "Ne pas déplacer les fichie&rs vers la Corbeille. Effacer les fichiers immédiatement lors de la suppression.", 14003, 20, 117, 190, 20, BS_MULTILINE | WS_TABSTOP
-    AUTOCHECKBOX "Afficher une fenêtre de confirmation d'effacement", 14004, 20, 155, 190, 10, WS_TABSTOP
+    RADIOBUTTON "Ne pas déplacer les fichie&rs vers la Corbeille. Effacer les fichiers immédiatement lors de la suppression.", 14003, 20, 117, 170, 20, BS_MULTILINE | WS_TABSTOP
+    AUTOCHECKBOX "Afficher une fenêtre de confirmation d'effacement", 14004, 20, 155, 140, 10, WS_TABSTOP
 END
 
 IDD_OPEN_WITH DIALOGEX 0, 0, 264, 256
@@ -603,18 +605,18 @@ BEGIN
     LTEXT "", 14003, 60, 80, 170, 10
 END
 
-IDD_PICK_ICON DIALOGEX 0, 0, 193, 200
+IDD_PICK_ICON DIALOGEX 0, 0, 237, 204
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CONTEXTHELP | WS_POPUPWINDOW | WS_VISIBLE | WS_CAPTION
 CAPTION "Changer l'icône"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    LTEXT "Look for icons in this file:", -1, 7, 7, 179, 10
-    PUSHBUTTON "Parcourir...", IDC_BUTTON_PATH, 135, 17, 50, 14
-    EDITTEXT IDC_EDIT_PATH, 7, 17, 123, 14, ES_AUTOHSCROLL
-    LTEXT "Select an icon from the list below:", -1, 7, 36, 179, 10
-    LISTBOX IDC_PICKICON_LIST, 7, 47, 181, 120, LBS_OWNERDRAWFIXED | LBS_NOINTEGRALHEIGHT | LBS_MULTICOLUMN | LBS_DISABLENOSCROLL | WS_HSCROLL | WS_TABSTOP
-    DEFPUSHBUTTON "OK", IDOK, 81, 179, 50, 14
-    PUSHBUTTON "Annuler", IDCANCEL, 135, 179, 50, 14
+    LTEXT "Nom de fichier :", -1, 7, 14, 208, 10
+    PUSHBUTTON "Parcourir...", IDC_BUTTON_PATH, 148, 24, 67, 14
+    EDITTEXT IDC_EDIT_PATH, 6, 24, 135, 15, ES_AUTOHSCROLL
+    LTEXT "Icônes :", -1, 7, 47, 208, 10
+    LISTBOX IDC_PICKICON_LIST, 7, 57, 208, 119, LBS_OWNERDRAWFIXED | LBS_HASSTRINGS | LBS_NOINTEGRALHEIGHT | LBS_MULTICOLUMN | WS_VSCROLL | WS_HSCROLL | WS_TABSTOP, WS_EX_STATICEDGE
+    DEFPUSHBUTTON "OK", IDOK, 107, 181, 50, 14
+    PUSHBUTTON "Annuler", IDCANCEL, 167, 181, 50, 14
 END
 
 IDD_NOOPEN DIALOGEX 0, 0, 240, 75
@@ -664,12 +666,6 @@ BEGIN
     IDS_RECYCLEBIN_FOLDER_NAME "Corbeille"
     IDS_CONTROLPANEL "Panneau de configuration"
     IDS_ADMINISTRATIVETOOLS "Outils d'administration"
-
-    /* special folders descriptions */
-    IDS_ADMINISTRATIVETOOLS_DESCRIPTION "Configure administrative settings for your computer."
-    IDS_FOLDER_OPTIONS_DESCRIPTION "Customize the display of files and folders and change file associations."
-    IDS_FONTS_DESCRIPTION "Add, change, and manage fonts on your computer."
-    IDS_PRINTERS_DESCRIPTION "Shows installed printers and fax printers and helps you add new ones."
 
     /* context menus */
     IDS_VIEW_LARGE "&Grandes icônes"

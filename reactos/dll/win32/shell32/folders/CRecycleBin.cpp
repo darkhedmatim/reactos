@@ -67,8 +67,8 @@ HRESULT CRecyclerExtractIcon_CreateInstance(LPCITEMIDLIST pidl, REFIID riid, LPV
 {
     CComPtr<IDefaultExtractIconInit> initIcon;
     HRESULT hr = SHCreateDefaultExtractIcon(IID_PPV_ARG(IDefaultExtractIconInit, &initIcon));
-    if (FAILED_UNEXPECTEDLY(hr))
-        return hr;
+    if (FAILED(hr))
+        return NULL;
 
     /* FIXME: This is completely unimplemented */
     initIcon->SetNormalIcon(swShell32Name, 0);
@@ -626,6 +626,19 @@ HRESULT WINAPI CRecycleBin::GetDisplayNameOf(PCUITEMID_CHILD pidl, SHGDNF uFlags
     LPWSTR pFileName;
 
     TRACE("(%p, %p, %x, %p)\n", this, pidl, (unsigned int)uFlags, pName);
+
+
+    if (_ILIsBitBucket (pidl))
+    {
+        WCHAR pszPath[100];
+
+        if (HCR_GetClassNameW(CLSID_RecycleBin, pszPath, MAX_PATH))
+        {
+            pName->uType = STRRET_WSTR;
+            pName->pOleStr = StrDupW(pszPath);
+            return S_OK;
+        }
+    }
 
     pFileDetails = _ILGetRecycleStruct(pidl);
     if (!pFileDetails)

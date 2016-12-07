@@ -5,8 +5,8 @@
 ;@ stub HotPlugEjectDeviceEx
 ;@ stub HotPlugEjectVetoedW
 ;@ stub HotPlugHibernateVetoedW
-;@ stub HotPlugRemovalVetoedW
+;@ stub HotPlugRemovealVetoedW
 ;@ stub HotPlugSafeRemovalDriveNotificationW
 ;@ stub HotPlugSafeRemovalNotificationW
-;@ stub HotPlugStandbyVetoedW
+;@ stub HotPlugStandyVetoedW
 ;@ stub HotPlugWarmEjectVetoedW

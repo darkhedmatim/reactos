@@ -1,7 +1,8 @@
 /*
-* PROJECT:     ReactOS Character Map
+* PROJECT:     ReactOS Device Managment
 * LICENSE:     GPL - See COPYING in the top level directory
-* FILE:        base/applications/charmap/charmap.cpp
+* FILE:        base/applications/mscutils/devmgmt/devmgmt.c
+* PURPOSE:     Bootstrap for the device manager
 * COPYRIGHT:   Copyright 2006 Ged Murphy <gedmurphy@gmail.com>
 */
 

@@ -5162,13 +5162,36 @@ void sampler_texdim(struct wined3d_context *context, const struct wined3d_state 
     texture_activate_dimensions(state->textures[sampler], context->gl_info);
 }
 
-int wined3d_ffp_frag_program_key_compare(const void *key, const struct wine_rb_entry *entry)
+void *wined3d_rb_alloc(size_t size)
+{
+    return HeapAlloc(GetProcessHeap(), 0, size);
+}
+
+void *wined3d_rb_realloc(void *ptr, size_t size)
+{
+    return HeapReAlloc(GetProcessHeap(), 0, ptr, size);
+}
+
+void wined3d_rb_free(void *ptr)
+{
+    HeapFree(GetProcessHeap(), 0, ptr);
+}
+
+static int ffp_frag_program_key_compare(const void *key, const struct wine_rb_entry *entry)
 {
     const struct ffp_frag_settings *ka = key;
     const struct ffp_frag_settings *kb = &WINE_RB_ENTRY_VALUE(entry, const struct ffp_frag_desc, entry)->settings;
 
     return memcmp(ka, kb, sizeof(*ka));
 }
+
+const struct wine_rb_functions wined3d_ffp_frag_program_rb_functions =
+{
+    wined3d_rb_alloc,
+    wined3d_rb_realloc,
+    wined3d_rb_free,
+    ffp_frag_program_key_compare,
+};
 
 void wined3d_ffp_get_vs_settings(const struct wined3d_context *context,
         const struct wined3d_state *state, struct wined3d_ffp_vs_settings *settings)
@@ -5295,7 +5318,7 @@ void wined3d_ffp_get_vs_settings(const struct wined3d_context *context,
     settings->padding = 0;
 }
 
-int wined3d_ffp_vertex_program_key_compare(const void *key, const struct wine_rb_entry *entry)
+static int wined3d_ffp_vertex_program_key_compare(const void *key, const struct wine_rb_entry *entry)
 {
     const struct wined3d_ffp_vs_settings *ka = key;
     const struct wined3d_ffp_vs_settings *kb = &WINE_RB_ENTRY_VALUE(entry,
@@ -5303,6 +5326,14 @@ int wined3d_ffp_vertex_program_key_compare(const void *key, const struct wine_rb
 
     return memcmp(ka, kb, sizeof(*ka));
 }
+
+const struct wine_rb_functions wined3d_ffp_vertex_program_rb_functions =
+{
+    wined3d_rb_alloc,
+    wined3d_rb_realloc,
+    wined3d_rb_free,
+    wined3d_ffp_vertex_program_key_compare,
+};
 
 const struct blit_shader *wined3d_select_blitter(const struct wined3d_gl_info *gl_info,
         const struct wined3d_d3d_info *d3d_info, enum wined3d_blit_op blit_op,

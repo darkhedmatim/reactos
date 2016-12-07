@@ -4,7 +4,7 @@
 @ stub ApphelpCheckMsiPackage
 @ stub ApphelpCheckRunApp
 @ stub ApphelpCheckRunAppEx
-@ stdcall ApphelpCheckShellObject(ptr long ptr)
+@ stub ApphelpCheckShellObject
 @ stub ApphelpCreateAppcompatData
 @ stub ApphelpFixMsiPackage
 @ stub ApphelpFixMsiPackageExe
@@ -38,7 +38,7 @@
 @ stub SdbFindFirstDWORDIndexedTag
 @ stub SdbFindFirstMsiPackage
 @ stub SdbFindFirstMsiPackage_Str
-@ stdcall SdbFindFirstNamedTag(ptr long long long wstr)
+@ stub SdbFindFirstNamedTag
 @ stub SdbFindFirstStringIndexedTag
 @ stdcall SdbFindFirstTag(ptr long long)
 @ stub SdbFindFirstTagRef
@@ -69,7 +69,7 @@
 @ stub SdbGetIndex
 @ stub SdbGetItemFromItemRef
 @ stub SdbGetLayerName
-@ stdcall SdbGetLayerTagRef(ptr wstr)
+@ stub SdbGetLayerTagRef
 @ stub SdbGetLocalPDB
 @ stdcall SdbGetMatchingExe(ptr wstr wstr wstr long ptr)
 @ stub SdbGetMsiPackageInformation
@@ -143,7 +143,7 @@
 @ stub SdbStringDuplicate
 @ stub SdbStringReplace
 @ stub SdbStringReplaceArray
-@ stdcall SdbTagIDToTagRef(ptr ptr long ptr)
+@ stub SdbTagIDToTagRef
 @ stdcall SdbTagRefToTagID(ptr long ptr ptr)
 @ stdcall SdbTagToString(long)
 @ stub SdbUnregisterDatabase

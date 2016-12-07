@@ -363,7 +363,6 @@ static const CLASS_AND_INTERFACES ExpectedInterfaces[] =
         ID_NAME(CLSID_Printers),
         {
             {   -0xc,   &IID_IRemoteComputer },
-            {   -0x4,   &IID_IFolderNotify },
             {    0x0,   &IID_IShellFolder2 },
             {    0x0,       &IID_IShellFolder },
             {    0x0,           &IID_IUnknown },
@@ -377,9 +376,7 @@ static const CLASS_AND_INTERFACES ExpectedInterfaces[] =
     {
         ID_NAME(CLSID_QueryAssociations),
         {
-            {    0x0,   &IID_IAssociationArrayOld },
-            {    0x0,       &IID_IUnknown },
-            {    0x4,   &IID_IAssociationArrayInitialize },
+            {    0x0,   &IID_IUnknown },
             {    0x8,   &IID_IQueryAssociations },
         }
     },

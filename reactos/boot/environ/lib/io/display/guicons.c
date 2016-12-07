@@ -127,7 +127,7 @@ ConsolepClearBuffer (
     /* And the size of line we'll have to clear */
     WidthBytes = Width * BytesPerPixel;
 
-    /* Allocate a scanline */
+    /* Allocat a scanline */
     Scanline = BlMmAllocateHeap(WidthBytes);
     if (Scanline)
     {

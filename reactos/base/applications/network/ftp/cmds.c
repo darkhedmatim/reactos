@@ -2099,7 +2099,7 @@ void setrunique(int argc, const char *argv[])
 	code = runique;
 }
 
-/* change directory to parent directory */
+/* change directory to perent directory */
 void cdup(int argc, const char *argv[])
 {
 	if (command("CDUP") == ERROR && code == 500) {
@@ -2265,7 +2265,7 @@ void modtime(int argc, const char *argv[])
 }
 
 /*
- * show status on remote machine
+ * show status on reomte machine
  */
 void rmtstatus(int argc, const char *argv[])
 {

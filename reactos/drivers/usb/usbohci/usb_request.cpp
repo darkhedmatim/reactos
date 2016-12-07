@@ -740,7 +740,7 @@ CUSBRequest::BuildIsochronousEndpoint(
     ASSERT(Buffer);
 
     //
-    // FIXME: support requests which spans several pages
+    // FIXME: support requests which spans serveral pages
     //
     ASSERT(ADDRESS_AND_SIZE_TO_SPAN_PAGES(MmGetMdlVirtualAddress(m_TransferBufferMDL), MmGetMdlByteCount(m_TransferBufferMDL)) <= 2);
 
@@ -771,6 +771,7 @@ CUSBRequest::BuildIsochronousEndpoint(
         //
         // get physical page
         //
+        *(volatile char *)Buffer; // HACK for CORE-9224
         Page = MmGetPhysicalAddress(Buffer).LowPart;
 
         //
@@ -969,7 +970,7 @@ CUSBRequest::AllocateEndpointDescriptor(
     }
 
     //
-    // initialize descriptor
+    // intialize descriptor
     //
     Descriptor->Flags = OHCI_ENDPOINT_SKIP;
 
@@ -1087,6 +1088,7 @@ CUSBRequest::InitDescriptor(
     //
     // store physical address of buffer
     //
+    *(volatile char *)TransferBuffer; // HACK for CORE-9224
     CurrentDescriptor->BufferPhysical = MmGetPhysicalAddress(TransferBuffer).LowPart;
     CurrentDescriptor->LastPhysicalByteAddress = CurrentDescriptor->BufferPhysical + TransferBufferLength - 1; 
 
@@ -1503,6 +1505,7 @@ CUSBRequest::BuildControlTransferDescriptor(
         //
         // store physical address of buffer
         //
+        *(volatile char *)MmGetMdlVirtualAddress(m_TransferBufferMDL); // HACK for CORE-9224
         DataDescriptor->BufferPhysical = MmGetPhysicalAddress(MmGetMdlVirtualAddress(m_TransferBufferMDL)).LowPart;
         DataDescriptor->LastPhysicalByteAddress = DataDescriptor->BufferPhysical + m_TransferBufferLength - 1;
 

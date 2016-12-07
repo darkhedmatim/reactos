@@ -2,7 +2,7 @@
  * PROJECT:     Local Security Authority Server DLL
  * LICENSE:     GPL - See COPYING in the top level directory
  * FILE:        dll/win32/lsasrv/authpackage.c
- * PURPOSE:     Authentication package management routines
+ * PURPOSE:     Authenticaton package management routines
  * COPYRIGHT:   Copyright 2013 Eric Kohl
  */
 
@@ -360,27 +360,25 @@ LsapGetAuthenticationPackage(IN ULONG PackageId)
 }
 
 
+static
 PVOID
 NTAPI
 LsapAllocateHeap(IN ULONG Length)
 {
-    return RtlAllocateHeap(RtlGetProcessHeap(), 0, Length);
+    return RtlAllocateHeap(RtlGetProcessHeap(),
+                           HEAP_ZERO_MEMORY,
+                           Length);
 }
 
 
-PVOID
-NTAPI
-LsapAllocateHeapZero(IN ULONG Length)
-{
-    return RtlAllocateHeap(RtlGetProcessHeap(), HEAP_ZERO_MEMORY, Length);
-}
-
-
+static
 VOID
 NTAPI
 LsapFreeHeap(IN PVOID Base)
 {
-    RtlFreeHeap(RtlGetProcessHeap(), 0, Base);
+    RtlFreeHeap(RtlGetProcessHeap(),
+                0,
+                Base);
 }
 
 
@@ -488,7 +486,7 @@ LsapInitAuthPackages(VOID)
     DispatchTable.AddCredential = &LsapAddCredential;
     DispatchTable.GetCredentials = &LsapGetCredentials;
     DispatchTable.DeleteCredential = &LsapDeleteCredential;
-    DispatchTable.AllocateLsaHeap = &LsapAllocateHeapZero;
+    DispatchTable.AllocateLsaHeap = &LsapAllocateHeap;
     DispatchTable.FreeLsaHeap = &LsapFreeHeap;
     DispatchTable.AllocateClientBuffer = &LsapAllocateClientBuffer;
     DispatchTable.FreeClientBuffer = &LsapFreeClientBuffer;
@@ -952,7 +950,7 @@ LsapAppendSidToGroups(
         Groups->GroupCount = 1;
 
         Groups->Groups[0].Sid = Sid;
-        Groups->Groups[0].Attributes =
+        Groups->Groups[0].Attributes = 
             SE_GROUP_ENABLED | SE_GROUP_ENABLED_BY_DEFAULT | SE_GROUP_MANDATORY;
 
         *TokenGroups = Groups;
@@ -987,7 +985,7 @@ LsapAppendSidToGroups(
         }
 
         Groups->Groups[Groups->GroupCount].Sid = Sid;
-        Groups->Groups[Groups->GroupCount].Attributes =
+        Groups->Groups[Groups->GroupCount].Attributes = 
             SE_GROUP_ENABLED | SE_GROUP_ENABLED_BY_DEFAULT | SE_GROUP_MANDATORY;
 
         Groups->GroupCount++;
@@ -1412,7 +1410,7 @@ LsapLogonUser(PLSA_API_MSG RequestMsg,
             return STATUS_INSUFFICIENT_RESOURCES;
         }
 
-        /* Read the authentication info from the callers address space */
+        /* Read the authentication info from the callers adress space */
         Status = NtReadVirtualMemory(LogonContext->ClientProcessHandle,
                                      RequestMsg->LogonUser.Request.AuthenticationInformation,
                                      LocalAuthInfo,

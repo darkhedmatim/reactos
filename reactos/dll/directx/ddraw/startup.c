@@ -75,7 +75,7 @@ Create_DirectDraw (LPGUID pGUID, LPDIRECTDRAW* pIface,
 
         DX_STUB_str("2.linking\n");
 
-        /* step 1.Alloc the new  DDRAWI_DIRECTDRAW_INT for the link */
+        /* step 1.Alloc the new  DDRAWI_DIRECTDRAW_INT for the lnking */
         DxHeapMemAlloc(newThis, sizeof(DDRAWI_DIRECTDRAW_INT));
         if (newThis == NULL)
         {
@@ -213,7 +213,7 @@ StartDirectDraw(LPDIRECTDRAW iface, LPGUID lpGuid, BOOL reenable)
                 DxHeapMemAlloc( ddgbl.lpDDCBtmp , sizeof(DDHAL_CALLBACKS));
                 if (ddgbl.lpDDCBtmp == NULL)
                 {
-                    DX_STUB_str("Out of memory\n");
+                    DX_STUB_str("Out of memmory\n");
                     return DD_FALSE;
                 }
             }
@@ -500,7 +500,7 @@ StartDirectDrawHal(LPDIRECTDRAW iface, BOOL reenable)
     }
 
     /* Some card disable the dx after it have been created so
-     * we are force reenabling it
+     * we are force reanble it
      */
     if (!DdReenableDirectDrawObject(This->lpLcl->lpGbl, &newmode))
     {
@@ -650,7 +650,7 @@ StartDirectDrawHal(LPDIRECTDRAW iface, BOOL reenable)
         {
             DWORD                dwSize;
             DWORD                dwFlags;
-            PDD_ALPHABLT         AlphaBlt;  // unsuse according to msdn and always set to NULL
+            PDD_ALPHABLT         AlphaBlt;  // unsuse acoding msdn and always set to NULL
             PDD_CREATESURFACEEX  CreateSurfaceEx;
             PDD_GETDRIVERSTATE   GetDriverState;
             PDD_DESTROYDDLOCAL   DestroyDDLocal;

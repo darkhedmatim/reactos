@@ -206,7 +206,7 @@ ConMgrInitialize(VOID)
             /* Set it as the current and SAC channel */
             SacChannel = CurrentChannel = FoundChannel;
 
-            /* Disable writes for now and clear the display */
+            /* Diasable writes for now and clear the display */
             _InterlockedExchange(&FoundChannel->WriteEnabled, FALSE);
             Status = HeadlessDispatch(HeadlessCmdClearDisplay, NULL, 0, NULL, NULL);
             if (!NT_SUCCESS(Status))

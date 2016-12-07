@@ -6,11 +6,9 @@ list(APPEND SOURCE
     getservbyport.c
     helpers.c
     ioctlsocket.c
-    nonblocking.c
     nostartup.c
     recv.c
     send.c
-    WSAAsync.c
     WSAIoctl.c
     WSARecv.c
     WSAStartup.c

@@ -330,7 +330,7 @@ WlxInitialize(
     /* Notify winlogon that we will use the default SAS */
     pgContext->pWlxFuncs->WlxUseCtrlAltDel(hWlx);
 
-    /* Locates the authentication package */
+    /* Locates the authentification package */
     //LsaRegisterLogonProcess(...);
 
     /* Check autologon settings the first time */

@@ -598,7 +598,7 @@ NTSTATUS
 NTAPI
 RtlComputeImportTableHash(IN HANDLE FileHandle,
                           OUT PCHAR Hash,
-                          IN ULONG ImportTableHashSize)
+                          IN ULONG ImporTTableHashSize)
 {
     UNIMPLEMENTED;
     return STATUS_NOT_IMPLEMENTED;

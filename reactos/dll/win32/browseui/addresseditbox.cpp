@@ -43,16 +43,8 @@ CAddressEditBox::~CAddressEditBox()
 {
 }
 
-HRESULT STDMETHODCALLTYPE CAddressEditBox::SetOwner(IUnknown *pOwner)
+HRESULT STDMETHODCALLTYPE CAddressEditBox::SetOwner(IUnknown *)
 {
-    if (!pOwner)
-    {
-        CComPtr<IBrowserService> browserService;
-        HRESULT hResult = IUnknown_QueryService(fSite, SID_SShellBrowser, IID_PPV_ARG(IBrowserService, &browserService));
-        if (SUCCEEDED(hResult))
-            AtlUnadvise(browserService, DIID_DWebBrowserEvents, fAdviseCookie);
-        fSite = NULL; 
-    }
     // connect to browser connection point
     return 0;
 }
@@ -98,20 +90,16 @@ HRESULT STDMETHODCALLTYPE CAddressEditBox::ParseNow(long paramC)
     ULONG attributes;
     HRESULT hr;
     HWND topLevelWindow;
-    PIDLIST_ABSOLUTE pidlCurrent= NULL;
-    PIDLIST_RELATIVE pidlRelative = NULL;
-    CComPtr<IShellFolder> psfCurrent;
 
-    CComPtr<IBrowserService> pbs;
-    hr = IUnknown_QueryService(fSite, SID_SShellBrowser, IID_PPV_ARG(IBrowserService, &pbs));
+    CComPtr<IShellBrowser> pisb;
+    hr = IUnknown_QueryService(fSite, SID_SShellBrowser, IID_PPV_ARG(IShellBrowser, &pisb));
     if (FAILED_UNEXPECTEDLY(hr))
         return hr;
 
-    hr = IUnknown_GetWindow(pbs, &topLevelWindow);
+    hr = IUnknown_GetWindow(pisb, &topLevelWindow);
     if (FAILED_UNEXPECTEDLY(hr))
         return hr;
 
-    /* Get the path to browse and expand it if needed */
     LPWSTR input;
     int inputLength = fCombobox.GetWindowTextLength() + 2;
 
@@ -136,34 +124,13 @@ HRESULT STDMETHODCALLTYPE CAddressEditBox::ParseNow(long paramC)
         }
     }
 
-    /* Try to parse a relative path and if it fails, try to browse an absolute path */
     CComPtr<IShellFolder> psfDesktop;
     hr = SHGetDesktopFolder(&psfDesktop);
-    if (FAILED_UNEXPECTEDLY(hr))
-        goto cleanup;
-
-    hr = pbs->GetPidl(&pidlCurrent);
-    if (FAILED_UNEXPECTEDLY(hr))
-        goto cleanup;
-
-    hr = psfDesktop->BindToObject(pidlCurrent, NULL, IID_PPV_ARG(IShellFolder, &psfCurrent));
-    if (FAILED_UNEXPECTEDLY(hr))
-        goto cleanup;
-
-    hr = psfCurrent->ParseDisplayName(topLevelWindow, NULL, address, &eaten,  &pidlRelative, &attributes);
     if (SUCCEEDED(hr))
     {
-        pidlLastParsed = ILCombine(pidlCurrent, pidlRelative);
-        ILFree(pidlRelative);
-        goto cleanup;
+        hr = psfDesktop->ParseDisplayName(topLevelWindow, NULL, address, &eaten, &pidlLastParsed, &attributes);
     }
 
-    /* We couldn't parse a relative path, attempt to parse an absolute path */
-    hr = psfDesktop->ParseDisplayName(topLevelWindow, NULL, address, &eaten, &pidlLastParsed, &attributes);
-
-cleanup:
-    if (pidlCurrent)
-        ILFree(pidlCurrent);
     if (address != input)
         delete [] address;
     delete [] input;
@@ -356,22 +323,13 @@ HRESULT STDMETHODCALLTYPE CAddressEditBox::Invoke(DISPID dispIdMember, REFIID ri
         hr = IUnknown_QueryService(fSite, SID_STopLevelBrowser, IID_PPV_ARG(IBrowserService, &isb));
         if (FAILED_UNEXPECTEDLY(hr))
             return hr;
+        isb->GetPidl(&absolutePIDL);
 
-        hr = isb->GetPidl(&absolutePIDL);
-        if (FAILED_UNEXPECTEDLY(hr))
-            return hr;
+        SHBindToParent(absolutePIDL, IID_PPV_ARG(IShellFolder, &sf), &pidlChild);
 
-        hr = SHBindToParent(absolutePIDL, IID_PPV_ARG(IShellFolder, &sf), &pidlChild);
-        if (FAILED_UNEXPECTEDLY(hr))
-            return hr;
+        sf->GetDisplayNameOf(pidlChild, SHGDN_FORADDRESSBAR | SHGDN_FORPARSING, &ret);
 
-        hr = sf->GetDisplayNameOf(pidlChild, SHGDN_FORADDRESSBAR | SHGDN_FORPARSING, &ret);
-        if (FAILED_UNEXPECTEDLY(hr))
-            return hr;
-
-        hr = StrRetToBufW(&ret, pidlChild, buf, 4095);
-        if (FAILED_UNEXPECTEDLY(hr))
-            return hr;
+        StrRetToBufW(&ret, pidlChild, buf, 4095);
 
         indexClosed = SHMapPIDLToSystemImageListIndex(sf, pidlChild, &indexOpen);
 

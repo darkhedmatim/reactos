@@ -661,11 +661,15 @@ static void CC_EditSetRGB( CCPRIV *infoPtr )
    int r = GetRValue(cr);
    int g = GetGValue(cr);
    int b = GetBValue(cr);
+   char buffer[10];
 
    infoPtr->updating = TRUE;
-   SetDlgItemInt(infoPtr->hwndSelf, IDC_COLOR_EDIT_R, r, TRUE);
-   SetDlgItemInt(infoPtr->hwndSelf, IDC_COLOR_EDIT_G, g, TRUE);
-   SetDlgItemInt(infoPtr->hwndSelf, IDC_COLOR_EDIT_B, b, TRUE);
+   sprintf(buffer, "%d", r);
+   SetWindowTextA( GetDlgItem(infoPtr->hwndSelf, IDC_COLOR_EDIT_R), buffer);
+   sprintf(buffer, "%d", g);
+   SetWindowTextA( GetDlgItem(infoPtr->hwndSelf, IDC_COLOR_EDIT_G), buffer);
+   sprintf( buffer, "%d", b );
+   SetWindowTextA( GetDlgItem(infoPtr->hwndSelf, IDC_COLOR_EDIT_B), buffer);
    infoPtr->updating = FALSE;
  }
 }
@@ -677,10 +681,15 @@ static void CC_EditSetHSL( CCPRIV *infoPtr )
 {
  if (IsWindowVisible( GetDlgItem(infoPtr->hwndSelf, IDC_COLOR_GRAPH) ))   /* if full size */
  {
+   char buffer[10];
+
    infoPtr->updating = TRUE;
-   SetDlgItemInt(infoPtr->hwndSelf, IDC_COLOR_EDIT_H, infoPtr->h, TRUE);
-   SetDlgItemInt(infoPtr->hwndSelf, IDC_COLOR_EDIT_S, infoPtr->s, TRUE);
-   SetDlgItemInt(infoPtr->hwndSelf, IDC_COLOR_EDIT_L, infoPtr->l, TRUE);
+   sprintf(buffer, "%d", infoPtr->h);
+   SetWindowTextA( GetDlgItem(infoPtr->hwndSelf, IDC_COLOR_EDIT_H), buffer);
+   sprintf(buffer, "%d", infoPtr->s);
+   SetWindowTextA( GetDlgItem(infoPtr->hwndSelf, IDC_COLOR_EDIT_S), buffer);
+   sprintf(buffer, "%d", infoPtr->l);
+   SetWindowTextA( GetDlgItem(infoPtr->hwndSelf, IDC_COLOR_EDIT_L), buffer);
    infoPtr->updating = FALSE;
  }
  CC_PaintLumBar(infoPtr);

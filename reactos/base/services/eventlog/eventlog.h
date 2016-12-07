@@ -28,6 +28,15 @@
 #include <eventlogrpc_s.h>
 #include <strsafe.h>
 
+// FIXME: For that we may directly include NTOS header??
+typedef struct _IO_ERROR_LPC
+{
+    PORT_MESSAGE Header;
+    IO_ERROR_LOG_MESSAGE Message;
+} IO_ERROR_LPC, *PIO_ERROR_LPC;
+
+// C_ASSERT(sizeof(IO_ERROR_LPC) == 0x100);
+
 /* Defined in evtlib.h */
 // #define LOGFILE_SIGNATURE   0x654c664c  // "LfLe"
 
@@ -131,8 +140,8 @@ LogfAllocAndBuildNewRecord(PSIZE_T pRecSize,
                            USHORT  wType,
                            USHORT  wCategory,
                            ULONG   dwEventId,
-                           PUNICODE_STRING SourceName,
-                           PUNICODE_STRING ComputerName,
+                           PCWSTR  SourceName,
+                           PCWSTR  ComputerName,
                            ULONG   dwSidLength,
                            PSID    pUserSid,
                            USHORT  wNumStrings,

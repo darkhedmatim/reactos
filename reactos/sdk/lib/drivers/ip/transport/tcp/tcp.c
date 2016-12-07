@@ -337,8 +337,6 @@ NTSTATUS TCPConnect
     
     if (NT_SUCCESS(Status))
     {
-        /* Copy bind address into connection */
-        Connection->AddressFile->Address.Address.IPv4Address = bindaddr.addr;
         /* Check if we had an unspecified port */
         if (!Connection->AddressFile->Port)
         {

@@ -1279,13 +1279,13 @@ NTSYSAPI
 NTSTATUS
 NTAPI
 RtlCopySidAndAttributesArray(
-    _In_ ULONG Count,
-    _In_ PSID_AND_ATTRIBUTES Src,
-    _In_ ULONG SidAreaSize,
-    _In_ PSID_AND_ATTRIBUTES Dest,
-    _In_ PSID SidArea,
-    _Out_ PSID* RemainingSidArea,
-    _Out_ PULONG RemainingSidAreaSize
+    ULONG Count,
+    PSID_AND_ATTRIBUTES Src,
+    ULONG SidAreaSize,
+    PSID_AND_ATTRIBUTES Dest,
+    PVOID SidArea,
+    PVOID* RemainingSidArea,
+    PULONG RemainingSidAreaSize
 );
 
 _IRQL_requires_max_(APC_LEVEL)

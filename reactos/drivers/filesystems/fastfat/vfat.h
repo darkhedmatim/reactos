@@ -423,7 +423,7 @@ typedef struct _VFATFCB
     FILE_LOCK FileLock;
 
     /*
-     * Optimization: caching of last read/write cluster+offset pair. Can't
+     * Optimalization: caching of last read/write cluster+offset pair. Can't
      * be in VFATCCB because it must be reset everytime the allocated clusters
      * change.
      */

@@ -197,10 +197,7 @@ HRESULT STDMETHODCALLTYPE CAddressBand::CloseDW(DWORD dwReserved)
 
     m_hWnd = NULL;
 
-    CComPtr<IShellService> pservice;
-    HRESULT hres = fAddressEditBox->QueryInterface(IID_PPV_ARG(IShellService, &pservice));
-    if (SUCCEEDED(hres ))
-        pservice->SetOwner(NULL);
+    IUnknown_SetSite(fAddressEditBox, NULL);
 
     if (fAddressEditBox) fAddressEditBox.Release();
     if (fSite) fSite.Release();

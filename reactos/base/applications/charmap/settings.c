@@ -58,7 +58,7 @@ extern void LoadSettings(void)
     if (RegOpenKeyEx(HKEY_CURRENT_USER, g_szGeneralRegKey, 0, KEY_READ, &hKey) == ERROR_SUCCESS)
     {
         TCHAR szBuffer[MAX_PATH];
-        DWORD dwAdvancedChecked;
+        DWORD dwAdvanChecked;
         unsigned long type = REG_DWORD, size = 1024;
 
         /* Restore last selected font */
@@ -89,9 +89,9 @@ extern void LoadSettings(void)
             }
         }
 
-        RegQueryValueEx(hKey, _T("Advanced"), NULL, &type, (LPBYTE)&dwAdvancedChecked, &size);
+        RegQueryValueEx(hKey, _T("Advanced"), NULL, &type, (LPBYTE)&dwAdvanChecked, &size);
 
-        if(dwAdvancedChecked == TRUE)
+        if(dwAdvanChecked == TRUE)
             SendDlgItemMessage(hCharmapDlg, IDC_CHECK_ADVANCED, BM_CLICK, MF_CHECKED, 0);
 
     RegCloseKey(hKey);

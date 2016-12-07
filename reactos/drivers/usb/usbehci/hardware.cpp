@@ -23,7 +23,7 @@ InterruptServiceRoutine(
 
 VOID
 NTAPI
-EhciDeferredRoutine(
+EhciDefferedRoutine(
     IN PKDPC Dpc,
     IN PVOID DeferredContext,
     IN PVOID SystemArgument1,
@@ -67,7 +67,7 @@ public:
 
     // friend function
     friend BOOLEAN NTAPI InterruptServiceRoutine(IN PKINTERRUPT  Interrupt, IN PVOID  ServiceContext);
-    friend VOID NTAPI EhciDeferredRoutine(IN PKDPC Dpc, IN PVOID DeferredContext, IN PVOID SystemArgument1, IN PVOID SystemArgument2);
+    friend VOID NTAPI EhciDefferedRoutine(IN PKDPC Dpc, IN PVOID DeferredContext, IN PVOID SystemArgument1, IN PVOID SystemArgument2);
     friend VOID NTAPI StatusChangeWorkItemRoutine(PVOID Context);
     // constructor / destructor
     CUSBHardwareDevice(IUnknown *OuterUnknown){}
@@ -316,7 +316,7 @@ CUSBHardwareDevice::PnpStart(
             case CmResourceTypeInterrupt:
             {
                 KeInitializeDpc(&m_IntDpcObject,
-                                EhciDeferredRoutine,
+                                EhciDefferedRoutine,
                                 this);
 
                 Status = IoConnectInterrupt(&m_Interrupt,
@@ -1287,7 +1287,7 @@ InterruptServiceRoutine(
 }
 
 VOID NTAPI
-EhciDeferredRoutine(
+EhciDefferedRoutine(
     IN PKDPC Dpc,
     IN PVOID DeferredContext,
     IN PVOID SystemArgument1,
@@ -1301,7 +1301,7 @@ EhciDeferredRoutine(
     This = (CUSBHardwareDevice*) SystemArgument1;
     CStatus = (ULONG) SystemArgument2;
 
-    DPRINT("EhciDeferredRoutine CStatus %lx\n", CStatus);
+    DPRINT("EhciDefferedRoutine CStatus %lx\n", CStatus);
 
     //
     // check for completion of async schedule

@@ -128,7 +128,7 @@ SearchPageDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 }
 
 static INT_PTR CALLBACK
-IsConnectedPageDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+IsConnctedPageDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -811,7 +811,7 @@ HardwareWizardInit(HWND hwnd)
     psp.pszHeaderSubTitle = NULL;
     psp.hInstance = hApplet;
     psp.lParam = 0;
-    psp.pfnDlgProc = IsConnectedPageDlgProc;
+    psp.pfnDlgProc = IsConnctedPageDlgProc;
     psp.pszTemplate = MAKEINTRESOURCE(IDD_ISCONNECTEDPAGE);
     ahpsp[nPages++] = CreatePropertySheetPage(&psp);
 

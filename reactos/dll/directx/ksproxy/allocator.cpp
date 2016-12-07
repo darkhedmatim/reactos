@@ -75,7 +75,7 @@ protected:
     LONG m_cBuffers;
     LONG m_cbAlign;
     LONG m_cbPrefix;
-    BOOL m_Committed;
+    BOOL m_Commited;
     CRITICAL_SECTION m_CriticalSection;
     MediaSampleStack m_FreeList;
     MediaSampleList m_UsedList;
@@ -118,7 +118,7 @@ CKsAllocator::CKsAllocator() : m_Ref(0),
                                m_cBuffers(0),
                                m_cbAlign(0),
                                m_cbPrefix(0),
-                               m_Committed(FALSE),
+                               m_Commited(FALSE),
                                m_FreeList(),
                                m_UsedList(),
                                m_Buffer(0),
@@ -168,7 +168,7 @@ CKsAllocator::SetProperties(
         return VFW_E_ALREADY_COMMITTED;
     }
 
-    if (m_Committed)
+    if (m_Commited)
     {
         // need to decommit first
         LeaveCriticalSection(&m_CriticalSection);
@@ -230,9 +230,9 @@ CKsAllocator::Commit()
        return NOERROR;
     }
 
-    if (m_Committed)
+    if (m_Commited)
     {
-        // already committed
+        // already commited
         LeaveCriticalSection(&m_CriticalSection);
         return NOERROR;
     }
@@ -293,8 +293,8 @@ CKsAllocator::Commit()
         CurrentBuffer += Size;
     }
 
-    // we are now committed
-    m_Committed = true;
+    // we are now commited
+    m_Commited = true;
 
     LeaveCriticalSection(&m_CriticalSection);
     return S_OK;
@@ -317,7 +317,7 @@ CKsAllocator::Decommit()
         return NOERROR;
     }
 
-    m_Committed = false;
+    m_Commited = false;
 
     if (m_Allocated != m_FreeList.size())
     {
@@ -348,7 +348,7 @@ CKsAllocator::GetBuffer(
 {
     IMediaSample * Sample = NULL;
 
-    if (!m_Committed)
+    if (!m_Commited)
         return VFW_E_NOT_COMMITTED;
 
     do

@@ -38,7 +38,7 @@ VOID __cdecl BootMain(IN PCCH CmdLine)
     MachInit(CmdLine);
 
     /* Check if the CPU is new enough */
-    FrLdrCheckCpuCompatibility(); // FIXME: Should be done inside MachInit!
+    FrLdrCheckCpuCompatiblity(); // FIXME: Should be done inside MachInit!
 
     /* UI pre-initialization */
     if (!UiInitialize(FALSE))

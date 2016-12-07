@@ -391,7 +391,7 @@ CUSBRequest::CompletionCallback(
         }
 
         //
-        // check if the request was successful
+        // check if the request was successfull
         //
         if (!NT_SUCCESS(NtStatusCode))
         {
@@ -601,6 +601,7 @@ CUSBRequest::InitDescriptor(
         //
         // get address
         //
+        *(volatile char *)TransferBuffer; // HACK for CORE-9224
         Address = MmGetPhysicalAddress(TransferBuffer);
 
         //

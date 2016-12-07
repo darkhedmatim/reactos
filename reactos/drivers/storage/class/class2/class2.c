@@ -853,7 +853,7 @@ Routine Description:
 
     This routine builds and sends a request to the port driver to
     get a pointer to a structure that describes the adapter's
-    capabilities/limitations. This routine is synchronous.
+    capabilities/limitations. This routine is sychronous.
 
 Arguments:
 
@@ -1401,7 +1401,7 @@ StartUnit(
 Routine Description:
 
     Send command to SCSI unit to start or power up.
-    Because this command is issued asynchronously, that is, without
+    Because this command is issued asynchronounsly, that is, without
     waiting on it to complete, the IMMEDIATE flag is not set. This
     means that the CDB will not return until the drive has powered up.
     This should keep subsequent requests from being submitted to the
@@ -1537,7 +1537,7 @@ ScsiClassAsynchronousCompletion(
 Routine Description:
 
     This routine is called when an asynchronous I/O request
-    which was issued by the class driver completes.  Examples of such requests
+    which was issused by the class driver completes.  Examples of such requests
     are release queue or START UNIT. This routine releases the queue if
     necessary.  It then frees the context and the IRP.
 
@@ -1631,7 +1631,7 @@ Arguments:
 
     DeviceObject - Pointer to the class device object to be addressed.
 
-    Irp - Pointer to Irp the original request.
+    Irp - Pointer to Irp the orginal request.
 
 Return Value:
 
@@ -1691,9 +1691,9 @@ Return Value:
             DebugPrint((1,"ScsiClassSplitRequest: Can't allocate Irp\n"));
 
             //
-            // If an Irp can't be allocated then the original request cannot
+            // If an Irp can't be allocated then the orginal request cannot
             // be executed.  If this is the first request then just fail the
-            // original request; otherwise just return.  When the pending
+            // orginal request; otherwise just return.  When the pending
             // requests complete, they will complete the original request.
             // In either case set the IRP status to failure.
             //
@@ -2239,7 +2239,7 @@ Return Value:
     //
     // NOTICE:  The SCSI-II specification indicates that this field should be
     // zero; however, some target controllers ignore the logical unit number
-    // in the IDENTIFY message and only look at the logical unit number field
+    // in the INDENTIFY message and only look at the logical unit number field
     // in the CDB.
     //
 
@@ -3044,7 +3044,7 @@ Return Value:
         //
         // If the error count has exceeded the error limit, then disable
         // any tagged queuing, multiple requests per lu queueing
-        // and synchronous data transfers.
+        // and sychronous data transfers.
         //
 
         if (deviceExtension->ErrorCount == 4) {
@@ -3177,7 +3177,7 @@ Arguments:
 
     Srb - Supplies a Pointer to the SCSI request block to be retied.
 
-    Associated - Indicates this is an associated Irp created by split request.
+    Assocaiated - Indicates this is an assocatied Irp created by split request.
 
 Return Value:
 
@@ -3531,7 +3531,7 @@ Arguments:
 
     Length - Supplies the length in bytes of the mode sense buffer.
 
-    PageMode - Supplies the page or pages of mode sense data to be retrieved.
+    PageMode - Supplies the page or pages of mode sense data to be retrived.
 
 Return Value:
 
@@ -3696,9 +3696,9 @@ Routine Description:
     the port driver.
 
 Arguments:
-    DeviceObject - Supplies the device object for the original request.
+    DeviceObject - Supplies the device object for the orginal request.
 
-    Srb - Supplies a partially built ScsiRequestBlock.  In particular, the
+    Srb - Supplies a paritally build ScsiRequestBlock.  In particular, the
         CDB and the SRB timeout value must be filled in.  The SRB must not be
         allocated from zone.
 
@@ -3972,7 +3972,7 @@ Return Value:
         nextStack = IoGetNextIrpStackLocation(Irp);
 
         //
-        // Validate the user buffer.
+        // Validiate the user buffer.
         //
 
         if (irpStack->Parameters.DeviceIoControl.InputBufferLength < sizeof(SCSI_PASS_THROUGH)){
@@ -3993,9 +3993,9 @@ Return Value:
         scsiPass->Lun = deviceExtension->Lun;
 
         //
-        // NOTICE:  The SCSI-II specification indicates that this field
+        // NOTICE:  The SCSI-II specificaiton indicates that this field
         // should be zero; however, some target controllers ignore the logical
-        // unit number in the IDENTIFY message and only look at the logical
+        // unit number in the INDENTIFY message and only look at the logical
         // unit number field in the CDB.
         //
 
@@ -4917,9 +4917,9 @@ Return Value:
     srb->Lun = deviceExtension->Lun;
 
     //
-    // NOTICE:  The SCSI-II specification indicates that this field should be
+    // NOTICE:  The SCSI-II specificaiton indicates that this field should be
     // zero; however, some target controllers ignore the logical unit number
-    // in the IDENTIFY message and only look at the logical unit number field
+    // in the INDENTIFY message and only look at the logical unit number field
     // in the CDB.
     //
 

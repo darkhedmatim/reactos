@@ -348,7 +348,7 @@ static HRESULT WINAPI MediaStreamFilterImpl_AddMediaStream(IMediaStreamFilter* i
     if (!pins)
         return E_OUTOFMEMORY;
     This->pins = pins;
-    info.pFilter = &This->filter.IBaseFilter_iface;
+    info.pFilter = (IBaseFilter*)&This->filter;
     info.dir = PINDIR_INPUT;
     hr = IAMMediaStream_GetInformation(pAMMediaStream, &purpose_id, NULL);
     if (FAILED(hr))
@@ -362,11 +362,11 @@ static HRESULT WINAPI MediaStreamFilterImpl_AddMediaStream(IMediaStreamFilter* i
         return hr;
 
     pin = (MediaStreamFilter_InputPin*)This->pins[This->nb_streams];
-    pin->pin.pin.pinInfo.pFilter = &This->filter.IBaseFilter_iface;
+    pin->pin.pin.pinInfo.pFilter = (LPVOID)This;
     This->streams[This->nb_streams] = (IMediaStream*)pAMMediaStream;
     This->nb_streams++;
 
-    IAMMediaStream_AddRef(pAMMediaStream);
+    IMediaStream_AddRef((IMediaStream*)pAMMediaStream);
 
     return S_OK;
 }
@@ -510,7 +510,7 @@ HRESULT MediaStreamFilter_create(IUnknown *pUnkOuter, void **ppObj)
 
     BaseFilter_Init(&object->filter, (IBaseFilterVtbl*)&MediaStreamFilter_Vtbl, &CLSID_MediaStreamFilter, (DWORD_PTR)(__FILE__ ": MediaStreamFilterImpl.csFilter"), &BaseFuncTable);
 
-    *ppObj = &object->filter.IBaseFilter_iface;
+    *ppObj = object;
 
     return S_OK;
 }

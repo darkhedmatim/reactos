@@ -69,7 +69,7 @@ typedef enum
     INSERT_BEFORE,
     INSERT_AFTER,
     INSERT_LAST
-} INSERTION_TYPE;
+} INSERTATION_TYPE;
 
 /* FUNCTIONS ****************************************************************/
 
@@ -115,7 +115,7 @@ PINICACHEKEY
 IniCacheInsertKey(
     PINICACHESECTION Section,
     PINICACHEKEY AnchorKey,
-    INSERTION_TYPE InsertionType,
+    INSERTATION_TYPE InsertationType,
     PWCHAR Name,
     PWCHAR Data);
 

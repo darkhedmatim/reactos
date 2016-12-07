@@ -187,7 +187,7 @@ CDirectSoundCapture_fnInitialize(
         return DSERR_ALREADYINITIALIZED;
     }
 
-    /* fixme mutual exclusion */
+    /* fixme mutual exlucsion */
 
     if (pcGuidDevice == NULL || IsEqualGUID(pcGuidDevice, &GUID_NULL))
     {

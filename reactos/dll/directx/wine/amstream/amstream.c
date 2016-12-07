@@ -58,7 +58,7 @@ HRESULT AM_create(IUnknown *pUnkOuter, LPVOID *ppObj)
     object->IAMMultiMediaStream_iface.lpVtbl = &AM_Vtbl;
     object->ref = 1;
 
-    *ppObj = &object->IAMMultiMediaStream_iface;
+    *ppObj = object;
 
     return S_OK;
 }

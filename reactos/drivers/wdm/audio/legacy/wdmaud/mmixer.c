@@ -266,7 +266,7 @@ Enum(
         return MM_STATUS_UNSUCCESSFUL;
     }
 
-    /* initialize key name */
+    /* intialize key name */
     RtlInitUnicodeString(&KeyName, *DeviceName);
 
     /* open device interface key */

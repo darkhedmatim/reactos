@@ -438,15 +438,9 @@ VOID DIALOG_FileOpen(VOID)
 BOOL DIALOG_FileSave(VOID)
 {
     if (Globals.szFileName[0] == 0)
-    {
         return DIALOG_FileSaveAs();
-    }
-    else if (DoSaveFile())
-    {
-        UpdateWindowCaption(TRUE);
-        return TRUE;
-    }
-    return FALSE;
+    else
+        return DoSaveFile();
 }
 
 static UINT_PTR

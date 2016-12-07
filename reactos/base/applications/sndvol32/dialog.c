@@ -459,12 +459,12 @@ LoadDialogCtrls(
     /* enumerate controls */
     SndMixerEnumConnections(PrefContext->MixerWindow->Mixer, PrefContext->SelectedLine, EnumConnectionsCallback, (PVOID)PrefContext);
 
-    /* get last line separator */
+    /* get last line seperator */
     hDlgCtrl = GetDlgItem(PrefContext->MixerWindow->hWnd, IDC_LINE_SEP * PrefContext->Count);
 
     if (hDlgCtrl != NULL)
     {
-        /* hide last separator */
+        /* hide last seperator */
         ShowWindow(hDlgCtrl, SW_HIDE);
     }
 

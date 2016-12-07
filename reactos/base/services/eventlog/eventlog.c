@@ -548,73 +548,71 @@ VOID PRINT_RECORD(PEVENTLOGRECORD pRec)
     LARGE_INTEGER SystemTime;
     TIME_FIELDS Time;
 
-    DPRINT1("PRINT_RECORD(0x%p)\n", pRec);
-
-    DbgPrint("Length = %lu\n", pRec->Length);
-    DbgPrint("Reserved = 0x%x\n", pRec->Reserved);
-    DbgPrint("RecordNumber = %lu\n", pRec->RecordNumber);
+    DPRINT("Length = %lu\n", pRec->Length);
+    DPRINT("Reserved = 0x%x\n", pRec->Reserved);
+    DPRINT("RecordNumber = %lu\n", pRec->RecordNumber);
 
     RtlSecondsSince1970ToTime(pRec->TimeGenerated, &SystemTime);
     RtlTimeToTimeFields(&SystemTime, &Time);
-    DbgPrint("TimeGenerated = %hu.%hu.%hu %hu:%hu:%hu\n",
-             Time.Day, Time.Month, Time.Year,
-             Time.Hour, Time.Minute, Time.Second);
+    DPRINT("TimeGenerated = %hu.%hu.%hu %hu:%hu:%hu\n",
+           Time.Day, Time.Month, Time.Year,
+           Time.Hour, Time.Minute, Time.Second);
 
     RtlSecondsSince1970ToTime(pRec->TimeWritten, &SystemTime);
     RtlTimeToTimeFields(&SystemTime, &Time);
-    DbgPrint("TimeWritten = %hu.%hu.%hu %hu:%hu:%hu\n",
-             Time.Day, Time.Month, Time.Year,
-             Time.Hour, Time.Minute, Time.Second);
+    DPRINT("TimeWritten = %hu.%hu.%hu %hu:%hu:%hu\n",
+           Time.Day, Time.Month, Time.Year,
+           Time.Hour, Time.Minute, Time.Second);
 
-    DbgPrint("EventID = %lu\n", pRec->EventID);
+    DPRINT("EventID = %lu\n", pRec->EventID);
 
     switch (pRec->EventType)
     {
         case EVENTLOG_ERROR_TYPE:
-            DbgPrint("EventType = EVENTLOG_ERROR_TYPE\n");
+            DPRINT("EventType = EVENTLOG_ERROR_TYPE\n");
             break;
         case EVENTLOG_WARNING_TYPE:
-            DbgPrint("EventType = EVENTLOG_WARNING_TYPE\n");
+            DPRINT("EventType = EVENTLOG_WARNING_TYPE\n");
             break;
         case EVENTLOG_INFORMATION_TYPE:
-            DbgPrint("EventType = EVENTLOG_INFORMATION_TYPE\n");
+            DPRINT("EventType = EVENTLOG_INFORMATION_TYPE\n");
             break;
         case EVENTLOG_AUDIT_SUCCESS:
-            DbgPrint("EventType = EVENTLOG_AUDIT_SUCCESS\n");
+            DPRINT("EventType = EVENTLOG_AUDIT_SUCCESS\n");
             break;
         case EVENTLOG_AUDIT_FAILURE:
-            DbgPrint("EventType = EVENTLOG_AUDIT_FAILURE\n");
+            DPRINT("EventType = EVENTLOG_AUDIT_FAILURE\n");
             break;
         default:
-            DbgPrint("EventType = %hu\n", pRec->EventType);
+            DPRINT("EventType = %hu\n", pRec->EventType);
     }
 
-    DbgPrint("NumStrings = %hu\n", pRec->NumStrings);
-    DbgPrint("EventCategory = %hu\n", pRec->EventCategory);
-    DbgPrint("ReservedFlags = 0x%x\n", pRec->ReservedFlags);
-    DbgPrint("ClosingRecordNumber = %lu\n", pRec->ClosingRecordNumber);
-    DbgPrint("StringOffset = %lu\n", pRec->StringOffset);
-    DbgPrint("UserSidLength = %lu\n", pRec->UserSidLength);
-    DbgPrint("UserSidOffset = %lu\n", pRec->UserSidOffset);
-    DbgPrint("DataLength = %lu\n", pRec->DataLength);
-    DbgPrint("DataOffset = %lu\n", pRec->DataOffset);
+    DPRINT("NumStrings = %hu\n", pRec->NumStrings);
+    DPRINT("EventCategory = %hu\n", pRec->EventCategory);
+    DPRINT("ReservedFlags = 0x%x\n", pRec->ReservedFlags);
+    DPRINT("ClosingRecordNumber = %lu\n", pRec->ClosingRecordNumber);
+    DPRINT("StringOffset = %lu\n", pRec->StringOffset);
+    DPRINT("UserSidLength = %lu\n", pRec->UserSidLength);
+    DPRINT("UserSidOffset = %lu\n", pRec->UserSidOffset);
+    DPRINT("DataLength = %lu\n", pRec->DataLength);
+    DPRINT("DataOffset = %lu\n", pRec->DataOffset);
 
-    i = sizeof(EVENTLOGRECORD);
-    DbgPrint("SourceName: %S\n", (PWSTR)((ULONG_PTR)pRec + i));
+    DPRINT("SourceName: %S\n", (PWSTR)((ULONG_PTR)pRec + sizeof(EVENTLOGRECORD)));
 
-    i += (wcslen((PWSTR)((ULONG_PTR)pRec + i)) + 1) * sizeof(WCHAR);
-    DbgPrint("ComputerName: %S\n", (PWSTR)((ULONG_PTR)pRec + i));
+    i = (wcslen((PWSTR)((ULONG_PTR)pRec + sizeof(EVENTLOGRECORD))) + 1) * sizeof(WCHAR);
+
+    DPRINT("ComputerName: %S\n", (PWSTR)((ULONG_PTR)pRec + sizeof(EVENTLOGRECORD) + i));
 
     if (pRec->StringOffset < pRec->Length && pRec->NumStrings)
     {
-        DbgPrint("Strings:\n");
+        DPRINT("Strings:\n");
         str = (PWSTR)((ULONG_PTR)pRec + pRec->StringOffset);
         for (i = 0; i < pRec->NumStrings; i++)
         {
-            DbgPrint("[%u] %S\n", i, str);
+            DPRINT("[%u] %S\n", i, str);
             str += wcslen(str) + 1;
         }
     }
 
-    DbgPrint("Length2 = %lu\n", *(PULONG)((ULONG_PTR)pRec + pRec->Length - 4));
+    DPRINT("Length2 = %lu\n", *(PULONG)((ULONG_PTR)pRec + pRec->Length - 4));
 }

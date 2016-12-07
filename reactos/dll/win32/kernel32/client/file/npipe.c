@@ -944,7 +944,7 @@ GetNamedPipeHandleStateW(HANDLE hNamedPipe,
     if (lpUserName != NULL)
     {
       /* FIXME - open the thread token, call ImpersonateNamedPipeClient() and
-                 retrieve the user name with GetUserName(), revert the impersonation
+                 retreive the user name with GetUserName(), revert the impersonation
                  and finally restore the thread token */
     }
 

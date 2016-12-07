@@ -182,18 +182,20 @@ ClockWndProc(HWND hwnd,
                                               pClockData->cyClient);
                 if (hBmp)
                 {
-                    RECT rcParent;
-                    HWND hParentWnd = GetParent(hwnd);
+                    HBRUSH hWinBrush, hWinBrushOld;
                     INT oldMap, Radius;
                     POINT oldOrg;
 
                     hBmpOld = SelectObject(hdcMem, hBmp);
 
-                    SetRect(&rcParent, 0, 0, pClockData->cxClient, pClockData->cyClient);
-                    MapWindowPoints(hwnd, hParentWnd, (POINT*)&rcParent, 2);
-                    OffsetViewportOrgEx(hdcMem, -rcParent.left, -rcParent.top, &oldOrg);
-                    SendMessage(hParentWnd, WM_PRINT, (WPARAM)hdcMem, PRF_ERASEBKGND | PRF_CLIENT);
-                    SetViewportOrgEx(hdcMem, oldOrg.x, oldOrg.y, NULL);
+                    hWinBrush = GetSysColorBrush(COLOR_BTNFACE);
+                    hWinBrushOld = SelectObject(hdcMem, hWinBrush);
+                    PatBlt(hdcMem,
+                           0,
+                           0,
+                           pClockData->cxClient,
+                           pClockData->cyClient,
+                           PATCOPY);
 
                     oldMap = SetMapMode(hdcMem, MM_ISOTROPIC);
                     SetWindowExtEx(hdcMem, 3600, 2700, NULL);
@@ -219,6 +221,7 @@ ClockWndProc(HWND hwnd,
                            0,
                            SRCCOPY);
 
+                    SelectObject(hdcMem, hWinBrushOld);
                     SelectObject(hdcMem, hBmpOld);
                     DeleteObject(hBmp);
                 }
@@ -228,10 +231,6 @@ ClockWndProc(HWND hwnd,
 
             EndPaint(hwnd, &ps);
             break;
-
-        /* No need to erase background, handled during paint */
-        case WM_ERASEBKGND:
-            return 1;
 
         case WM_DESTROY:
             DeleteObject(pClockData->hGreyPen);

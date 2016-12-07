@@ -273,8 +273,7 @@ static HRESULT WINAPI AutomationObject_GetIDsOfNames(
     ITypeInfo *ti;
     HRESULT hr;
 
-    TRACE("(%p/%p)->(%s, %p, %d, %d, %p)\n", iface, This,
-            debugstr_guid(riid), rgszNames, cNames, lcid, rgDispId);
+    TRACE("(%p/%p)->(%p,%p,%d,%d,%p)\n", iface, This, riid, rgszNames, cNames, lcid, rgDispId);
 
     if (!IsEqualGUID(riid, &IID_NULL)) return E_INVALIDARG;
 
@@ -317,9 +316,7 @@ static HRESULT WINAPI AutomationObject_Invoke(
     BSTR bstrName = NULL;
     ITypeInfo *ti;
 
-    TRACE("(%p/%p)->(%d, %s, %d, %d, %p, %p, %p, %p)\n", iface, This,
-            dispIdMember, debugstr_guid(riid), lcid, wFlags,
-            pDispParams, pVarResult, pExcepInfo, puArgErr);
+    TRACE("(%p/%p)->(%d,%p,%d,%d,%p,%p,%p,%p)\n", iface, This, dispIdMember, riid, lcid, wFlags, pDispParams, pVarResult, pExcepInfo, puArgErr);
 
     if (!IsEqualIID(riid, &IID_NULL))
     {
@@ -1015,7 +1012,7 @@ static HRESULT list_invoke(
         EXCEPINFO* pExcepInfo,
         UINT* puArgErr)
 {
-    ListObject *list = CONTAINING_RECORD(This, ListObject, autoobj);
+    ListObject *list = (ListObject*)This;
     IUnknown *pUnk = NULL;
     HRESULT hr;
 
@@ -1063,7 +1060,7 @@ static HRESULT list_invoke(
 
 static void list_free(AutomationObject *This)
 {
-    ListObject *list = CONTAINING_RECORD(This, ListObject, autoobj);
+    ListObject *list = (ListObject*)This;
     int i;
 
     for (i = 0; i < list->count; i++)
@@ -1351,7 +1348,7 @@ static HRESULT session_invoke(
         EXCEPINFO* pExcepInfo,
         UINT* puArgErr)
 {
-    SessionObject *session = CONTAINING_RECORD(This, SessionObject, autoobj);
+    SessionObject *session = (SessionObject*)This;
     WCHAR *szString;
     DWORD dwLen = 0;
     MSIHANDLE msiHandle;

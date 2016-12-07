@@ -254,11 +254,11 @@ LsapCreateDatabaseObjects(VOID)
 
     /* Initialize the audit log attribute */
     AuditLogInfo.AuditLogPercentFull = 0;
-    AuditLogInfo.MaximumLogSize = 0;                    // DWORD
-    AuditLogInfo.AuditRetentionPeriod.QuadPart = 0;     // LARGE_INTEGER
-    AuditLogInfo.AuditLogFullShutdownInProgress = 0;    // BYTE
-    AuditLogInfo.TimeToShutdown.QuadPart = 0;           // LARGE_INTEGER
-    AuditLogInfo.NextAuditRecordId = 0;                 // DWORD
+    AuditLogInfo.MaximumLogSize = 0;			// DWORD
+    AuditLogInfo.AuditRetentionPeriod.QuadPart = 0;	// LARGE_INTEGER
+    AuditLogInfo.AuditLogFullShutdownInProgress = 0;	// BYTE
+    AuditLogInfo.TimeToShutdown.QuadPart = 0;		// LARGE_INTEGER
+    AuditLogInfo.NextAuditRecordId = 0;			// DWORD
 
     /* Initialize the Audit Events attribute */
     AuditEventsInfo = RtlAllocateHeap(RtlGetProcessHeap(),
@@ -273,7 +273,7 @@ LsapCreateDatabaseObjects(VOID)
         AuditEventsInfo->AuditEvents[i] = 0;
 
     /* Initialize the DNS Domain GUID attribute */
-    RtlZeroMemory(&DnsDomainGuid, sizeof(DnsDomainGuid));
+    memset(&DnsDomainGuid, 0, sizeof(GUID));
 
     /* Initialize the modification attribute */
     ModificationInfo.ModifiedId.QuadPart = 0;
@@ -323,31 +323,31 @@ LsapCreateDatabaseObjects(VOID)
     LsapSetObjectAttribute(PolicyObject,
                            L"DefQuota",
                            &QuotaInfo,
-                           sizeof(QuotaInfo));
+                           sizeof(POLICY_DEFAULT_QUOTA_INFO));
 
     /* Set the modification attribute */
     LsapSetObjectAttribute(PolicyObject,
                            L"PolMod",
                            &ModificationInfo,
-                           sizeof(ModificationInfo));
+                           sizeof(POLICY_MODIFICATION_INFO));
 
     /* Set the audit full attribute */
     LsapSetObjectAttribute(PolicyObject,
                            L"PolAdtFl",
                            &AuditFullInfo,
-                           sizeof(AuditFullInfo));
+                           sizeof(POLICY_AUDIT_FULL_QUERY_INFO));
 
     /* Set the audit log attribute */
     LsapSetObjectAttribute(PolicyObject,
                            L"PolAdtLg",
                            &AuditLogInfo,
-                           sizeof(AuditLogInfo));
+                           sizeof(POLICY_AUDIT_LOG_INFO));
 
     /* Set the audit events attribute */
     LsapSetObjectAttribute(PolicyObject,
                            L"PolAdtEv",
                            AuditEventsInfo,
-                           sizeof(*AuditEventsInfo));
+                           sizeof(LSAP_POLICY_AUDIT_EVENTS_DATA));
 
     /* Set the DNS Domain Name attribute */
     LsapSetObjectAttribute(PolicyObject,
@@ -365,9 +365,9 @@ LsapCreateDatabaseObjects(VOID)
     LsapSetObjectAttribute(PolicyObject,
                            L"PolDnDmG",
                            &DnsDomainGuid,
-                           sizeof(DnsDomainGuid));
+                           sizeof(GUID));
 
-    /* Set the Security Descriptor */
+    /* Set the Sceurity Descriptor */
     LsapSetObjectAttribute(PolicyObject,
                            L"SecDesc",
                            PolicySd,
@@ -912,7 +912,7 @@ LsapDeleteDbObject(IN PLSA_DB_OBJECT DbObject)
         {
             Status = LsapRegEnumerateSubKey(DbObject->KeyHandle,
                                             Index,
-                                            sizeof(KeyName),
+                                            64 * sizeof(WCHAR),
                                             KeyName);
             if (!NT_SUCCESS(Status))
                 break;
@@ -1081,3 +1081,4 @@ LsapDeleteObjectAttribute(PLSA_DB_OBJECT DbObject,
 }
 
 /* EOF */
+

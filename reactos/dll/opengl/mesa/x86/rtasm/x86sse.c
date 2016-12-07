@@ -1146,7 +1146,7 @@ void mmx_movq( struct x86_function *p,
  */
 
 
-/* Retrieve a reference to one of the function arguments, taking into
+/* Retreive a reference to one of the function arguments, taking into
  * account any push/pop activity:
  */
 struct x86_reg x86_fn_arg( struct x86_function *p,

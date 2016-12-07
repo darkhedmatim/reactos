@@ -451,13 +451,13 @@ LRESULT CMainWindow::OnCommand(UINT nMsg, WPARAM wParam, LPARAM lParam, BOOL& bH
                 GlobalFree(pd.hDevNames);
             break;
         case IDM_FILEASWALLPAPERPLANE:
-            RegistrySettings::SetWallpaper(filepathname, RegistrySettings::TILED);
+            RegistrySettings::SetWallpaper(filepathname, 1, 1);
             break;
         case IDM_FILEASWALLPAPERCENTERED:
-            RegistrySettings::SetWallpaper(filepathname, RegistrySettings::CENTERED);
+            RegistrySettings::SetWallpaper(filepathname, 1, 0);
             break;
         case IDM_FILEASWALLPAPERSTRETCHED:
-            RegistrySettings::SetWallpaper(filepathname, RegistrySettings::STRETCHED);
+            RegistrySettings::SetWallpaper(filepathname, 2, 0);
             break;
         case IDM_FILE1:
         {

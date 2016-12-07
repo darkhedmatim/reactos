@@ -71,7 +71,7 @@ typedef struct tag_MIDIALLOC {
                                         // on the device thread and its
                                         // apcs so does not need any
                                         // synchronized access.
-    HANDLE              Event;          // Event for driver synchronization
+    HANDLE              Event;          // Event for driver syncrhonization
                                         // and notification of auxiliary
                                         // task operation completion.
 //    MIDITHREADFUNCTION  AuxFunction;    // Function for thread to perform

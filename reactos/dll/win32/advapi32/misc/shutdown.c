@@ -292,7 +292,7 @@ InitiateSystemShutdownExW(LPWSTR lpMachineName,
 /******************************************************************************
  * InitiateShutdownW [ADVAPI32.@]
  *
- * @unimplemented
+ * @unimplamented
  */
 DWORD WINAPI
 InitiateShutdownW(LPWSTR lpMachineName,

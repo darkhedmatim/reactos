@@ -32,7 +32,7 @@ INT CommandMsgbox (LPTSTR param)
     HWND hWnd;
     TCHAR buff[128];
 
-    //these are MessageBox() parameters
+    //these are MessabeBox() parameters
     LPTSTR title, prompt = "";
     UINT uType = U_TYPE_INIT;
 

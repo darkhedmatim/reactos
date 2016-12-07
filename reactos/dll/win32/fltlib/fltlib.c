@@ -107,7 +107,7 @@ FilterLoadUnload(_In_z_ LPCWSTR lpFilterName,
                         FilterName,
                         BufferLength);
 
-    /* Cleanup and bail*/
+    /* Cleaup and bail*/
     RtlFreeHeap(GetProcessHeap(), 0, FilterName);
     CloseHandle(hFltMgr);
 

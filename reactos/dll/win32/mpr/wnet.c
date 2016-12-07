@@ -247,85 +247,6 @@ static void _tryLoadProvider(PCWSTR provider)
          debugstr_w(provider));
 }
 
-#ifdef __REACTOS__
-static void _restoreSavedConnection(HKEY connection, WCHAR * local)
-{
-    NETRESOURCEW net;
-    DWORD type, prov, index, size;
-
-    net.lpProvider = NULL;
-    net.lpRemoteName = NULL;
-    net.lpLocalName = NULL;
-
-    TRACE("Restoring: %S\n", local);
-
-    size = sizeof(DWORD);
-    if (RegQueryValueExW(connection, L"ConnectionType", NULL, &type, (BYTE *)&net.dwType, &size) != ERROR_SUCCESS)
-       return;
-
-    if (type != REG_DWORD || size != sizeof(DWORD))
-        return;
-
-    if (RegQueryValueExW(connection, L"ProviderName", NULL, &type, NULL, &size) != ERROR_SUCCESS)
-        return;
-
-    if (type != REG_SZ)
-        return;
-
-    net.lpProvider = HeapAlloc(GetProcessHeap(), 0, size);
-    if (!net.lpProvider)
-        return;
-
-    if (RegQueryValueExW(connection, L"ProviderName", NULL, NULL, (BYTE *)net.lpProvider, &size) != ERROR_SUCCESS)
-        goto cleanup;
-
-    size = sizeof(DWORD);
-    if (RegQueryValueExW(connection, L"ProviderType", NULL, &type, (BYTE *)&prov, &size) != ERROR_SUCCESS)
-        goto cleanup;
-
-    if (type != REG_DWORD || size != sizeof(DWORD))
-        goto cleanup;
-
-    index = _findProviderIndexW(net.lpProvider);
-    if (index == BAD_PROVIDER_INDEX)
-        goto cleanup;
-
-    if (providerTable->table[index].dwNetType != prov)
-        goto cleanup;
-
-    if (RegQueryValueExW(connection, L"RemotePath", NULL, &type, NULL, &size) != ERROR_SUCCESS)
-        goto cleanup;
-
-    if (type != REG_SZ)
-        goto cleanup;
-
-    net.lpRemoteName = HeapAlloc(GetProcessHeap(), 0, size);
-    if (!net.lpRemoteName)
-        goto cleanup;
-
-    if (RegQueryValueExW(connection, L"RemotePath", NULL, NULL, (BYTE *)net.lpRemoteName, &size) != ERROR_SUCCESS)
-        goto cleanup;
-
-    size = strlenW(local);
-    net.lpLocalName = HeapAlloc(GetProcessHeap(), 0, size * sizeof(WCHAR) + 2 * sizeof(WCHAR));
-    if (!net.lpLocalName)
-        goto cleanup;
-
-    strcpyW(net.lpLocalName, local);
-    net.lpLocalName[size] = ':';
-    net.lpLocalName[size + 1] = 0;
-
-    TRACE("Attempting connection\n");
-
-    WNetAddConnection2W(&net, NULL, NULL, 0);
-
-cleanup:
-    HeapFree(GetProcessHeap(), 0, net.lpProvider);
-    HeapFree(GetProcessHeap(), 0, net.lpRemoteName);
-    HeapFree(GetProcessHeap(), 0, net.lpLocalName);
-}
-#endif
-
 void wnetInit(HINSTANCE hInstDll)
 {
     static const WCHAR providerOrderKey[] = { 'S','y','s','t','e','m','\\',
@@ -404,64 +325,6 @@ void wnetInit(HINSTANCE hInstDll)
         }
         RegCloseKey(hKey);
     }
-
-#ifdef __REACTOS__
-    if (providerTable)
-    {
-        HKEY user_profile;
-
-        if (RegOpenCurrentUser(KEY_ALL_ACCESS, &user_profile) == ERROR_SUCCESS)
-        {
-            HKEY network;
-            WCHAR subkey[8] = {'N', 'e', 't', 'w', 'o', 'r', 'k', 0};
-
-            if (RegOpenKeyExW(user_profile, subkey, 0, KEY_READ, &network) == ERROR_SUCCESS)
-            {
-                DWORD size, max;
-
-                TRACE("Enumerating remembered connections\n");
-
-                if (RegQueryInfoKey(network, NULL, NULL, NULL, &max, &size, NULL, NULL, NULL, NULL, NULL, NULL) == ERROR_SUCCESS)
-                {
-                    WCHAR *local;
-
-                    TRACE("There are %lu connections\n", max);
-
-                    local = HeapAlloc(GetProcessHeap(), 0, (size + 1) * sizeof(WCHAR));
-                    if (local)
-                    {
-                        DWORD index;
-
-                        for (index = 0; index < max; ++index)
-                        {
-                            DWORD len = size + 1;
-                            HKEY connection;
-
-                            TRACE("Trying connection %lu\n", index);
-
-                            if (RegEnumKeyExW(network, index, local, &len, NULL, NULL, NULL, NULL) != ERROR_SUCCESS)
-                                continue;
-
-                            TRACE("It is %S\n", local);
-
-                            if (RegOpenKeyExW(network, local, 0, KEY_READ, &connection) != ERROR_SUCCESS)
-                                continue;
-
-                            _restoreSavedConnection(connection, local);
-                            RegCloseKey(connection);
-                        }
-
-                        HeapFree(GetProcessHeap(), 0, local);
-                    }
-                }
-
-                RegCloseKey(network);
-            }
-
-            RegCloseKey(user_profile);
-        }
-    }
-#endif
 }
 
 void wnetFree(void)
@@ -2003,43 +1866,6 @@ static DWORD wnet_use_connection( struct use_connection_context *ctxt )
         }
     }
 
-#ifdef __REACTOS__
-    if (ret == WN_SUCCESS && ctxt->flags & CONNECT_UPDATE_PROFILE)
-    {
-        HKEY user_profile;
-
-        if (netres.dwType == RESOURCETYPE_PRINT)
-        {
-            FIXME("Persistent connection are not supported for printers\n");
-            return ret;
-        }
-
-        if (RegOpenCurrentUser(KEY_ALL_ACCESS, &user_profile) == ERROR_SUCCESS)
-        {
-            HKEY network;
-            WCHAR subkey[10] = {'N', 'e', 't', 'w', 'o', 'r', 'k', '\\', netres.lpLocalName[0], 0};
-
-            if (RegCreateKeyExW(user_profile, subkey, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &network, NULL) == ERROR_SUCCESS)
-            {
-                DWORD dword_arg = RESOURCETYPE_DISK;
-                DWORD len = (strlenW(provider->name) + 1) * sizeof(WCHAR);
-
-                RegSetValueExW(network, L"ConnectionType", 0, REG_DWORD, (const BYTE *)&dword_arg, sizeof(DWORD));
-                RegSetValueExW(network, L"ProviderName", 0, REG_SZ, (const BYTE *)provider->name, len);
-                dword_arg = provider->dwNetType;
-                RegSetValueExW(network, L"ProviderType", 0, REG_DWORD, (const BYTE *)&dword_arg, sizeof(DWORD));
-                len = (strlenW(netres.lpRemoteName) + 1) * sizeof(WCHAR);
-                RegSetValueExW(network, L"RemotePath", 0, REG_SZ, (const BYTE *)netres.lpRemoteName, len);
-                len = 0;
-                RegSetValueExW(network, L"UserName", 0, REG_SZ, (const BYTE *)netres.lpRemoteName, len);
-                RegCloseKey(network);
-            }
-
-            RegCloseKey(user_profile);
-        }
-    }
-#endif
-
     return ret;
 }
 
@@ -2231,37 +2057,6 @@ DWORD WINAPI WNetCancelConnection2W( LPCWSTR lpName, DWORD dwFlags, BOOL fForce 
             }
         }
     }
-#ifdef __REACTOS__
-
-    if (dwFlags & CONNECT_UPDATE_PROFILE)
-    {
-        HKEY user_profile;
-        WCHAR *coma = strchrW(lpName, ':');
-
-        if (coma && RegOpenCurrentUser(KEY_ALL_ACCESS, &user_profile) == ERROR_SUCCESS)
-        {
-            WCHAR  *subkey;
-            DWORD len;
-
-            len = (ULONG_PTR)coma - (ULONG_PTR)lpName + sizeof(L"Network\\");
-            subkey = HeapAlloc(GetProcessHeap(), 0, len);
-            if (subkey)
-            {
-                strcpyW(subkey, L"Network\\");
-                memcpy(subkey + (sizeof(L"Network\\") / sizeof(WCHAR)) - 1, lpName, (ULONG_PTR)coma - (ULONG_PTR)lpName);
-                subkey[len / sizeof(WCHAR) - 1] = 0;
-
-                TRACE("Removing: %S\n", subkey);
-
-                RegDeleteKeyW(user_profile, subkey);
-                HeapFree(GetProcessHeap(), 0, subkey);
-            }
-
-            RegCloseKey(user_profile);
-        }
-    }
-
-#endif
     return ret;
 }
 

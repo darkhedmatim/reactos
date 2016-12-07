@@ -87,7 +87,7 @@ BEGIN
     IDS_MSG_ARG_SYNTAX_ERROR "The argument(s) specified for this command are not valid.\nFor more information on the command type:"
 END
 
-/* Help Command Descriptions */
+/* Help Command Descripions */
 STRINGTABLE
 BEGIN
     IDS_HELP_CMD_DESC_ACTIVE "ACTIVE\t\t- Mark the selected partition as active.\n"

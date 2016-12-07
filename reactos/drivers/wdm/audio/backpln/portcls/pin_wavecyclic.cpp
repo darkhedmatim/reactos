@@ -412,7 +412,7 @@ PinSetStateWorkerRoutine(
 
         if (PinWorkContext->Pin->m_ConnectDetails->Interface.Id == KSINTERFACE_STANDARD_LOOPED_STREAMING && PinWorkContext->Pin->m_State == KSSTATE_STOP)
         {
-            /* FIXME complete pending irps with successful state */
+            /* FIXME complete pending irps with successfull state */
             PinWorkContext->Pin->m_IrpQueue->CancelBuffers();
         }
         //HACK
@@ -890,7 +890,7 @@ CPortPinWaveCyclic::DeviceIoControl(
             Property = (PKSPROPERTY)IoStack->Parameters.DeviceIoControl.Type3InputBuffer;
 
             RtlStringFromGUID(Property->Set, &GuidString);
-            DPRINT("Unhandled property Set |%S| Id %u Flags %x\n", GuidString.Buffer, Property->Id, Property->Flags);
+            DPRINT("Unhandeled property Set |%S| Id %u Flags %x\n", GuidString.Buffer, Property->Id, Property->Flags);
             RtlFreeUnicodeString(&GuidString);
         }
     }
@@ -912,7 +912,7 @@ CPortPinWaveCyclic::DeviceIoControl(
             //determine state of reset request
             if (ResetValue == KSRESET_BEGIN)
             {
-                // start reset process
+                // start reset procress
                 // incoming read/write requests will be rejected
                 m_ResetState = KSRESET_BEGIN;
 
@@ -1290,7 +1290,7 @@ CPortPinWaveCyclic::Init(
     m_CommonBufferSize = m_DmaChannel->AllocatedBufferSize();
     m_CommonBuffer = m_DmaChannel->SystemAddress();
     m_Capture = Capture;
-    // delay of 10 millisec
+    // delay of 10 milisec
     m_Delay = Int32x32To64(10, -10000);
 
     // sanity checks

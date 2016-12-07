@@ -389,7 +389,7 @@ QueryDosDeviceW(
         Length = UnicodeString.Length / sizeof(WCHAR);
         if (Length < ucchMax)
         {
-            /* Append null-character */
+            /* Append null-charcter */
             lpTargetPath[Length] = UNICODE_NULL;
             Length++;
         }

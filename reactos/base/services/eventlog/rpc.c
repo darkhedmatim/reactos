@@ -586,7 +586,6 @@ ElfrIntReportEventW(
 {
     NTSTATUS Status;
     PLOGHANDLE pLogHandle;
-    UNICODE_STRING LocalSourceName, LocalComputerName;
     PEVENTLOGRECORD LogBuffer;
     USHORT i;
     SIZE_T RecSize;
@@ -656,32 +655,21 @@ ElfrIntReportEventW(
     if (UserSID)
         dwUserSidLength = FIELD_OFFSET(SID, SubAuthority[UserSID->SubAuthorityCount]);
 
-    if (SourceName && SourceName->Buffer)
-        LocalSourceName = *(PUNICODE_STRING)SourceName;
-    else
-        RtlInitUnicodeString(&LocalSourceName, pLogHandle->szName);
-
-    LocalComputerName = *(PUNICODE_STRING)ComputerName;
-
     LogBuffer = LogfAllocAndBuildNewRecord(&RecSize,
                                            Time,
                                            EventType,
                                            EventCategory,
                                            EventID,
-                                           &LocalSourceName,
-                                           &LocalComputerName,
+                                           (SourceName && SourceName->Buffer)
+                                                ? SourceName->Buffer
+                                                : pLogHandle->szName,
+                                           ComputerName->Buffer,
                                            dwUserSidLength,
                                            UserSID,
                                            NumStrings,
                                            lpStrings,
                                            DataSize,
                                            Data);
-    if (LogBuffer == NULL)
-    {
-        DPRINT1("LogfAllocAndBuildNewRecord failed!\n");
-        HeapFree(GetProcessHeap(), 0, lpStrings);
-        return STATUS_NO_MEMORY;
-    }
 
     Status = LogfWriteRecord(pLogHandle->LogFile, LogBuffer, RecSize);
     if (!NT_SUCCESS(Status))

@@ -441,7 +441,7 @@ USBCCGP_SelectInterface(
     Status = USBCCGP_SyncUrbRequest(DeviceExtension->NextDeviceObject, Urb);
 
     //
-    // did it succeed
+    // did it succeeed
     //
     if (NT_SUCCESS(Status))
     {

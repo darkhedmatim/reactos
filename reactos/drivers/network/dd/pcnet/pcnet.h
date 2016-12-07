@@ -41,7 +41,7 @@ typedef struct _ADAPTER_STATS
   ULONG XmtLossesOfCarrier;
   ULONG XmtCollisions;
   ULONG XmtLateCollisions;
-  ULONG XmtExcessiveDeferrals;
+  ULONG XmtExcessiveDefferals;
   ULONG XmtBufferUnderflows;
   ULONG XmtBufferErrors;
   ULONG XmtOneRetry;

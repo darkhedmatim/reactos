@@ -441,42 +441,25 @@ GpStatus WINGDIPAPI GdipCreateLineBrushFromRectWithAngle(GDIPCONST GpRectF* rect
 {
     GpStatus stat;
     LinearGradientMode mode;
-    REAL exofs, eyofs;
+    REAL width, height, exofs, eyofs;
     REAL sin_angle, cos_angle, sin_cos_angle;
 
     TRACE("(%p, %x, %x, %.2f, %d, %d, %p)\n", rect, startcolor, endcolor, angle, isAngleScalable,
           wrap, line);
 
-    if (!rect || !rect->Width || !rect->Height)
-        return InvalidParameter;
-
-    angle = fmodf(angle, 360);
-    if (angle < 0)
-        angle += 360;
+    sin_angle = sinf(deg2rad(angle));
+    cos_angle = cosf(deg2rad(angle));
+    sin_cos_angle = sin_angle * cos_angle;
 
     if (isAngleScalable)
     {
-        float add_angle = 0;
-
-        while(angle >= 90) {
-            angle -= 180;
-            add_angle += M_PI;
-        }
-
-        if (angle != 90 && angle != -90)
-            angle = atan((rect->Width / rect->Height) * tan(deg2rad(angle)));
-        else
-            angle = deg2rad(angle);
-        angle += add_angle;
+        width = height = 1.0;
     }
     else
     {
-        angle = deg2rad(angle);
+        width = rect->Width;
+        height = rect->Height;
     }
-
-    sin_angle = sinf(angle);
-    cos_angle = cosf(angle);
-    sin_cos_angle = sin_angle * cos_angle;
 
     if (sin_cos_angle >= 0)
         mode = LinearGradientModeForwardDiagonal;
@@ -489,13 +472,19 @@ GpStatus WINGDIPAPI GdipCreateLineBrushFromRectWithAngle(GDIPCONST GpRectF* rect
     {
         if (sin_cos_angle >= 0)
         {
-            exofs = rect->Height * sin_cos_angle + rect->Width * cos_angle * cos_angle;
-            eyofs = rect->Height * sin_angle * sin_angle + rect->Width * sin_cos_angle;
+            exofs = width * sin_cos_angle + height * cos_angle * cos_angle;
+            eyofs = width * sin_angle * sin_angle + height * sin_cos_angle;
         }
         else
         {
-            exofs = rect->Width * sin_angle * sin_angle + rect->Height * sin_cos_angle;
-            eyofs = -rect->Width * sin_cos_angle + rect->Height * sin_angle * sin_angle;
+            exofs = width * sin_angle * sin_angle + height * sin_cos_angle;
+            eyofs = -width * sin_cos_angle + height * sin_angle * sin_angle;
+        }
+
+        if (isAngleScalable)
+        {
+            exofs = exofs * rect->Width;
+            eyofs = eyofs * rect->Height;
         }
 
         if (sin_angle >= 0)

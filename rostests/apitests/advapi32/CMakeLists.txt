@@ -5,17 +5,13 @@ list(APPEND SOURCE
     eventlog.c
     HKEY_CLASSES_ROOT.c
     IsTextUnicode.c
-    LockServiceDatabase.c
+    LockDatabase.c
     QueryServiceConfig2.c
     RegEnumKey.c
     RegEnumValueW.c
     RegQueryInfoKey.c
-    RegQueryValueExW.c
     RtlEncryptMemory.c
     SaferIdentifyLevel.c
-    ServiceArgs.c
-    ServiceEnv.c
-    svchlp.c
     testlist.c)
 
 add_executable(advapi32_apitest ${SOURCE})

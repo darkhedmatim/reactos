@@ -195,7 +195,7 @@ KsReadFile(
 
         if (Result && NT_SUCCESS(IoStatusBlock->Status))
         {
-            /* request was handled and succeeded */
+            /* request was handeled and succeeded */
             return STATUS_SUCCESS;
         }
     }
@@ -295,7 +295,7 @@ KsWriteFile(
 
         if (Result && NT_SUCCESS(IoStatusBlock->Status))
         {
-            /* request was handled and succeeded */
+            /* request was handeled and succeeded */
             return STATUS_SUCCESS;
         }
     }
@@ -574,7 +574,7 @@ KsStreamIo(
 
                     if (Ret)
                     {
-                        /* the request was handled */
+                        /* the request was handeled */
                         return IoStatusBlock->Status;
                     }
                 }
@@ -589,7 +589,7 @@ KsStreamIo(
 
                     if (Ret)
                     {
-                        /* the request was handled */
+                        /* the request was handeled */
                         return IoStatusBlock->Status;
                     }
                 }

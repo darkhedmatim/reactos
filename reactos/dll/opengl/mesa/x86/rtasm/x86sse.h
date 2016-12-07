@@ -75,7 +75,7 @@ enum sse_cc {
 #define cc_Z  cc_E
 #define cc_NZ cc_NE
 
-/* Begin/end/retrieve function creation:
+/* Begin/end/retreive function creation:
  */
 
 
@@ -246,8 +246,8 @@ void x87_fucom( struct x86_function *p, struct x86_reg arg );
 
 
 
-/* Retrieve a reference to one of the function arguments, taking into
- * account any push/pop activity.  Note - doesn't track explicit
+/* Retreive a reference to one of the function arguments, taking into
+ * account any push/pop activity.  Note - doesn't track explict
  * manipulation of ESP by other instructions.
  */
 struct x86_reg x86_fn_arg( struct x86_function *p, unsigned arg );

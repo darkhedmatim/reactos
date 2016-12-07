@@ -118,7 +118,7 @@ static HRESULT WINAPI Direct3DSwapChain9_GetDevice(LPDIRECT3DSWAPCHAIN9 iface, I
 
     if (FAILED(D3D9BaseObject_GetDevice(&This->BaseObject, ppDevice)))
     {
-        DPRINT1("Invalid This parameter specified");
+        DPRINT1("Invalid This parameter speficied");
         UNLOCK_D3DDEVICE9();
         return D3DERR_INVALIDDEVICE;
     }

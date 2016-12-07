@@ -185,7 +185,7 @@ MmBapFreeBlockAllocatorTableEntry (
 }
 
 NTSTATUS
-MmBapPurgeBlockAllocatorTableEntry (
+MmBapPurgeBlockAlloctorTableEntry (
     _In_ PVOID Entry
     )
 {
@@ -248,7 +248,7 @@ BlpMmCreateBlockAllocator (
                            &MmBlockAllocatorTableEntries,
                            BlockInfo,
                            &BlockId,
-                           MmBapPurgeBlockAllocatorTableEntry);
+                           MmBapPurgeBlockAlloctorTableEntry);
     if (NT_SUCCESS(Status))
     {
         /* Add the initial reference and store the block ID */

@@ -21,11 +21,9 @@ extern void func_NtQueryInformationProcess(void);
 extern void func_NtQueryKey(void);
 extern void func_NtQuerySystemEnvironmentValue(void);
 extern void func_NtQueryVolumeInformationFile(void);
-extern void func_NtReadFile(void);
 extern void func_NtSaveKey(void);
 extern void func_NtSetValueKey(void);
 extern void func_NtSystemInformation(void);
-extern void func_NtWriteFile(void);
 extern void func_RtlAllocateHeap(void);
 extern void func_RtlBitmap(void);
 extern void func_RtlCopyMappedMemory(void);
@@ -44,10 +42,8 @@ extern void func_RtlGetLengthWithoutTrailingPathSeperators(void);
 extern void func_RtlGetLongestNtPathLength(void);
 extern void func_RtlImageRvaToVa(void);
 extern void func_RtlInitializeBitMap(void);
-extern void func_RtlIsNameLegalDOS8Dot3(void);
 extern void func_RtlMemoryStream(void);
 extern void func_RtlReAllocateHeap(void);
-extern void func_RtlUpcaseUnicodeStringToCountedOemString(void);
 extern void func_StackOverflow(void);
 extern void func_TimerResolution(void);
 
@@ -71,11 +67,9 @@ const struct test winetest_testlist[] =
     { "NtQueryKey",                     func_NtQueryKey },
     { "NtQuerySystemEnvironmentValue",  func_NtQuerySystemEnvironmentValue },
     { "NtQueryVolumeInformationFile",   func_NtQueryVolumeInformationFile },
-    { "NtReadFile",                     func_NtReadFile },
     { "NtSaveKey",                      func_NtSaveKey},
     { "NtSetValueKey",                  func_NtSetValueKey},
     { "NtSystemInformation",            func_NtSystemInformation },
-    { "NtWriteFile",                    func_NtWriteFile },
     { "RtlAllocateHeap",                func_RtlAllocateHeap },
     { "RtlBitmapApi",                   func_RtlBitmap },
     { "RtlCopyMappedMemory",            func_RtlCopyMappedMemory },
@@ -94,10 +88,8 @@ const struct test winetest_testlist[] =
     { "RtlGetLongestNtPathLength",      func_RtlGetLongestNtPathLength },
     { "RtlImageRvaToVa",                func_RtlImageRvaToVa },
     { "RtlInitializeBitMap",            func_RtlInitializeBitMap },
-    { "RtlIsNameLegalDOS8Dot3",         func_RtlIsNameLegalDOS8Dot3 },
     { "RtlMemoryStream",                func_RtlMemoryStream },
     { "RtlReAllocateHeap",              func_RtlReAllocateHeap },
-    { "RtlUpcaseUnicodeStringToCountedOemString", func_RtlUpcaseUnicodeStringToCountedOemString },
     { "StackOverflow",                  func_StackOverflow },
     { "TimerResolution",                func_TimerResolution },
 

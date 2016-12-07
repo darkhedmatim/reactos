@@ -580,7 +580,7 @@ USBD_ParseConfigurationDescriptorEx(
 
        if (Found)
        {
-           /* the chosen one */
+           /* the choosen one */
            return InterfaceDescriptor;
        }
 

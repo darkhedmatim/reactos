@@ -2025,12 +2025,10 @@ static LRESULT CALLBACK clipbrd_wndproc(HWND hwnd, UINT message, WPARAM wparam, 
     case WM_RENDERALLFORMATS:
     {
         DWORD i;
-        ole_priv_data_entry *entries;
+        ole_priv_data_entry *entries = clipbrd->cached_enum->entries;
 
         TRACE("(): WM_RENDERALLFORMATS\n");
 
-        if (!clipbrd || !clipbrd->cached_enum) break;
-        entries = clipbrd->cached_enum->entries;
         for(i = 0; i < clipbrd->cached_enum->count; i++)
         {
             if(entries[i].first_use)

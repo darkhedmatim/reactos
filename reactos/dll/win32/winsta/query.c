@@ -15,17 +15,15 @@ WinStationQueryLogonCredentialsW(PVOID A)
     UNIMPLEMENTED;
 }
 
-BOOLEAN
-WINSTAAPI WinStationQueryInformationA(HANDLE hServer,
-                                      ULONG LogonId,
-                                      WINSTATIONINFOCLASS WinStationInformationClass,
-                                      PVOID pWinStationInformation,
-                                      ULONG WinStationInformationLength,
-                                      PULONG pReturnLength)
+VOID
+WINSTAAPI WinStationQueryInformationA(PVOID A,
+                                      PVOID B,
+                                      PVOID C,
+                                      PVOID D,
+                                      PVOID E,
+                                      PVOID F)
 {
-    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
     UNIMPLEMENTED;
-    return FALSE;
 }
 
 /*

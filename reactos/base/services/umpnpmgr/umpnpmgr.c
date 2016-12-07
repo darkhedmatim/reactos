@@ -2857,28 +2857,10 @@ PNP_RunDetection(
 DWORD
 WINAPI
 PNP_RegisterNotification(
-    handle_t hBinding,
-    DWORD ulFlags,
-    DWORD *pulNotify)
+    handle_t hBinding)
 {
-#if 0
-    PNOTIFY_DATA pNotifyData;
-#endif
-
-    DPRINT1("PNP_RegisterNotification(%p 0x%lx %p)\n",
-           hBinding, ulFlags, pulNotify);
-
-#if 0
-    pNotifyData = RtlAllocateHeap(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(NOTIFY_DATA));
-    if (pNotifyData == NULL)
-        return CR_OUT_OF_MEMORY;
-
-    *pulNotify = (DWORD)pNotifyData;
-#endif
-
-    *pulNotify = 1;
-
-    return CR_SUCCESS;
+    UNIMPLEMENTED;
+    return CR_CALL_NOT_IMPLEMENTED;
 }
 
 
@@ -2886,18 +2868,10 @@ PNP_RegisterNotification(
 DWORD
 WINAPI
 PNP_UnregisterNotification(
-    handle_t hBinding,
-    DWORD ulNotify)
+    handle_t hBinding)
 {
-    DPRINT1("PNP_UnregisterNotification(%p 0x%lx)\n",
-           hBinding, ulNotify);
-
-#if 0
     UNIMPLEMENTED;
     return CR_CALL_NOT_IMPLEMENTED;
-#endif
-
-    return CR_SUCCESS;
 }
 
 

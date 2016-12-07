@@ -167,8 +167,6 @@ private:
             return hr;
 
         hr = pShellMenu->Initialize(this, 0, ANCESTORDEFAULT, SMINIT_VERTICAL);
-        if (FAILED_UNEXPECTEDLY(hr))
-            return hr;
 
         switch (psmd->uId)
         {
@@ -190,22 +188,11 @@ private:
                 LPITEMIDLIST pidlStartMenu;
                 IShellFolder *psfDestop;
                 hr = SHGetFolderLocation(NULL, csidl, 0, 0, &pidlStartMenu);
-                if (FAILED_UNEXPECTEDLY(hr))
-                    return hr;
-
                 hr = SHGetDesktopFolder(&psfDestop);
-                if (FAILED_UNEXPECTEDLY(hr))
-                    return hr;
-
                 hr = psfDestop->BindToObject(pidlStartMenu, NULL, IID_PPV_ARG(IShellFolder, &psfStartMenu));
-                if (FAILED_UNEXPECTEDLY(hr))
-                    return hr;
             }
 
             hr = pShellMenu->SetShellFolder(psfStartMenu, NULL, NULL, 0);
-            if (FAILED_UNEXPECTEDLY(hr))
-                return hr;
-
         }
         else
         {
@@ -215,8 +202,6 @@ private:
             if (GetMenuItemInfoW(psmd->hmenu, psmd->uId, FALSE, &mii))
             {
                 hr = pShellMenu->SetMenu(mii.hSubMenu, NULL, SMSET_BOTTOM);
-                if (FAILED_UNEXPECTEDLY(hr))
-                    return hr;
             }
         }
         return pShellMenu->QueryInterface(iid, pv);
@@ -490,7 +475,7 @@ CStartMenu_Constructor(REFIID riid, void **ppv)
     /* psf is a merged folder, so now we want to get the pidl of the programs item from the merged folder */
     {
         hr = SHGetSpecialFolderLocation(NULL, CSIDL_PROGRAMS, &pidlProgramsAbsolute);
-        if (FAILED_UNEXPECTEDLY(hr))
+        if (FAILED(hr))
         {
             WARN("USER Programs folder not found.");
             hr = SHGetSpecialFolderLocation(NULL, CSIDL_COMMON_PROGRAMS, &pidlProgramsAbsolute);
@@ -504,11 +489,11 @@ CStartMenu_Constructor(REFIID riid, void **ppv)
         TCHAR szDisplayName[MAX_PATH];
 
         hr = SHBindToParent(pidlProgramsAbsolute, IID_PPV_ARG(IShellFolder, &psfParent), &pcidlPrograms);
-        if (FAILED_UNEXPECTEDLY(hr))
+        if (FAILED(hr))
             return hr;
 
         hr = psfParent->GetDisplayNameOf(pcidlPrograms, SHGDN_FORPARSING | SHGDN_INFOLDER, &str);
-        if (FAILED_UNEXPECTEDLY(hr))
+        if (FAILED(hr))
             return hr;
 
         StrRetToBuf(&str, pcidlPrograms, szDisplayName, _countof(szDisplayName));
@@ -516,7 +501,7 @@ CStartMenu_Constructor(REFIID riid, void **ppv)
 
         /* We got the display name from the fs folder and we parse it with the merged folder here */
         hr = psf->ParseDisplayName(NULL, NULL, szDisplayName, NULL, &pidlPrograms, NULL);
-        if (FAILED_UNEXPECTEDLY(hr))
+        if (FAILED(hr))
             return hr;
     }
 

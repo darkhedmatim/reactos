@@ -613,6 +613,11 @@ PCURICON_OBJECT FASTCALL NC_IconForWindow( PWND pWnd )
     PCURICON_OBJECT pIcon = NULL;
     HICON hIcon;
 
+   //FIXME: Some callers use this function as if it returns a boolean saying "this window has an icon".
+   //FIXME: Hence we must return a pointer with no reference count.
+   //FIXME: This is bad and we should feel bad.
+   //FIXME: Stop whining over wine code.
+
    hIcon = UserGetProp(pWnd, gpsi->atomIconSmProp, TRUE);
    if (!hIcon) hIcon = UserGetProp(pWnd, gpsi->atomIconProp, TRUE);
 
@@ -631,9 +636,11 @@ PCURICON_OBJECT FASTCALL NC_IconForWindow( PWND pWnd )
    }
    if (hIcon)
    {
-       pIcon = (PCURICON_OBJECT)UserGetObjectNoErr(gHandleTable,
-                                                   hIcon,
-                                                   TYPE_CURSOR);
+       pIcon = UserGetCurIconObject(hIcon);
+       if (pIcon)
+       {
+           UserDereferenceObject(pIcon);
+       }
    }
    return pIcon;
 }

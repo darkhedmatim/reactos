@@ -37,15 +37,6 @@ static PWINE_ACMSTREAM	ACM_GetStream(HACMSTREAM has)
     return (PWINE_ACMSTREAM)has;
 }
 
-static BOOL ACM_ValidatePointers(PACMDRVSTREAMHEADER padsh)
-{
-    /* check that pointers have not been modified */
-    return !(padsh->pbPreparedSrc != padsh->pbSrc ||
-             padsh->cbPreparedSrcLength < padsh->cbSrcLength ||
-             padsh->pbPreparedDst != padsh->pbDst ||
-             padsh->cbPreparedDstLength < padsh->cbDstLength);
-}
-
 /***********************************************************************
  *           acmStreamClose (MSACM32.@)
  */
@@ -104,9 +95,13 @@ MMRESULT WINAPI acmStreamConvert(HACMSTREAM has, PACMSTREAMHEADER pash,
      */
     padsh = (PACMDRVSTREAMHEADER)pash;
 
-    if (!ACM_ValidatePointers(padsh)) {
+    /* check that pointers have not been modified */
+    if (padsh->pbPreparedSrc != padsh->pbSrc ||
+	padsh->cbPreparedSrcLength < padsh->cbSrcLength ||
+	padsh->pbPreparedDst != padsh->pbDst ||
+	padsh->cbPreparedDstLength < padsh->cbDstLength) {
         WARN("invalid parameter\n");
-        return MMSYSERR_INVALPARAM;
+	return MMSYSERR_INVALPARAM;
     }
 
     padsh->fdwConvert = fdwConvert;
@@ -294,21 +289,14 @@ MMRESULT WINAPI acmStreamPrepareHeader(HACMSTREAM has, PACMSTREAMHEADER pash,
 
     if ((was = ACM_GetStream(has)) == NULL) {
         WARN("invalid handle\n");
-        return MMSYSERR_INVALHANDLE;
+	return MMSYSERR_INVALHANDLE;
     }
     if (!pash || pash->cbStruct < sizeof(ACMSTREAMHEADER)) {
         WARN("invalid parameter\n");
-        return MMSYSERR_INVALPARAM;
+	return MMSYSERR_INVALPARAM;
     }
-    if (fdwPrepare) {
-        WARN("invalid use of reserved parameter\n");
-        return MMSYSERR_INVALFLAG;
-    }
-    if (pash->cbSrcLength < was->drvInst.pwfxSrc->nBlockAlign) {
-        WARN("source smaller than block align (%d < %d)\n",
-             pash->cbSrcLength, was->drvInst.pwfxSrc->nBlockAlign);
-        return pash->cbSrcLength ? ACMERR_NOTPOSSIBLE : MMSYSERR_INVALPARAM;
-    }
+    if (fdwPrepare)
+	ret = MMSYSERR_INVALFLAG;
 
     /* Note: the ACMSTREAMHEADER and ACMDRVSTREAMHEADER structs are of same
      * size. some fields are private to msacm internals, and are exposed
@@ -459,9 +447,13 @@ MMRESULT WINAPI acmStreamUnprepareHeader(HACMSTREAM has, PACMSTREAMHEADER pash,
      */
     padsh = (PACMDRVSTREAMHEADER)pash;
 
-    if (!ACM_ValidatePointers(padsh)) {
+    /* check that pointers have not been modified */
+    if (padsh->pbPreparedSrc != padsh->pbSrc ||
+	padsh->cbPreparedSrcLength < padsh->cbSrcLength ||
+	padsh->pbPreparedDst != padsh->pbDst ||
+	padsh->cbPreparedDstLength < padsh->cbDstLength) {
         WARN("invalid parameter\n");
-        return MMSYSERR_INVALPARAM;
+	return MMSYSERR_INVALPARAM;
     }
 
     padsh->fdwConvert = fdwUnprepare;

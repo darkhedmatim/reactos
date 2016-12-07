@@ -49,35 +49,35 @@ HRESULT __RPC_STUB IWinInetInfo_QueryOption_Stub(IWinInetInfo* This,
 }
 
 HRESULT CALLBACK IBindHost_MonikerBindToStorage_Proxy(IBindHost* This,
-        IMoniker *moniker, IBindCtx *bc, IBindStatusCallback *bsc,
-        REFIID riid, void **obj)
+        IMoniker *pMk, IBindCtx *pBC, IBindStatusCallback *pBSC,
+        REFIID riid, void **ppvObj)
 {
-    TRACE("(%p %p %p %p %s %p)\n", This, moniker, bc, bsc, debugstr_guid(riid), obj);
-    return IBindHost_RemoteMonikerBindToStorage_Proxy(This, moniker, bc, bsc, riid, (IUnknown**)obj);
+    FIXME("stub\n");
+    return E_NOTIMPL;
 }
 
 HRESULT __RPC_STUB IBindHost_MonikerBindToStorage_Stub(IBindHost* This,
-        IMoniker *moniker, IBindCtx *bc, IBindStatusCallback *bsc,
-        REFIID riid, IUnknown **obj)
+        IMoniker *pMk, IBindCtx *pBC, IBindStatusCallback *pBSC,
+        REFIID riid, IUnknown **ppvObj)
 {
-    TRACE("(%p %p %p %p %s %p)\n", This, moniker, bc, bsc, debugstr_guid(riid), obj);
-    return IBindHost_MonikerBindToStorage(This, moniker, bc, bsc, riid, (void**)obj);
+    FIXME("stub\n");
+    return E_NOTIMPL;
 }
 
 HRESULT CALLBACK IBindHost_MonikerBindToObject_Proxy(IBindHost* This,
-        IMoniker *moniker, IBindCtx *bc, IBindStatusCallback *bsc,
-        REFIID riid, void **obj)
+        IMoniker *pMk, IBindCtx *pBC, IBindStatusCallback *pBSC,
+        REFIID riid, void **ppvObj)
 {
-    TRACE("(%p %p %p %p %s %p)\n", This, moniker, bc, bsc, debugstr_guid(riid), obj);
-    return IBindHost_RemoteMonikerBindToObject_Proxy(This, moniker, bc, bsc, riid, (IUnknown**)obj);
+    FIXME("stub\n");
+    return E_NOTIMPL;
 }
 
 HRESULT __RPC_STUB IBindHost_MonikerBindToObject_Stub(IBindHost* This,
-        IMoniker *moniker, IBindCtx *bc, IBindStatusCallback *bsc,
-        REFIID riid, IUnknown **obj)
+        IMoniker *pMk, IBindCtx *pBC, IBindStatusCallback *pBSC,
+        REFIID riid, IUnknown **ppvObj)
 {
-    TRACE("(%p %p %p %p %s %p)\n", This, moniker, bc, bsc, debugstr_guid(riid), obj);
-    return IBindHost_MonikerBindToObject(This, moniker, bc, bsc, riid, (void**)obj);
+    FIXME("stub\n");
+    return E_NOTIMPL;
 }
 
 HRESULT CALLBACK IBindStatusCallbackEx_GetBindInfoEx_Proxy(

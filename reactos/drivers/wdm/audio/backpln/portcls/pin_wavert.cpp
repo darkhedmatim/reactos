@@ -275,7 +275,7 @@ CPortPinWaveRT::HandleKsProperty(
 
     }
     RtlStringFromGUID(Property->Set, &GuidString);
-    DPRINT("Unhandled property Set |%S| Id %u Flags %x\n", GuidString.Buffer, Property->Id, Property->Flags);
+    DPRINT("Unhandeled property Set |%S| Id %u Flags %x\n", GuidString.Buffer, Property->Id, Property->Flags);
     RtlFreeUnicodeString(&GuidString);
 
     Irp->IoStatus.Status = STATUS_NOT_IMPLEMENTED;
@@ -627,7 +627,7 @@ CPortPinWaveRT::Init(
         goto cleanup;
 
     m_Stream->GetHWLatency(&Latency);
-    // delay of 10 millisec
+    // delay of 10 milisec
     m_Delay = Int32x32To64(10, -10000);
 
     Status = m_Stream->AllocateAudioBuffer(16384 * 11, &m_Mdl, &m_CommonBufferSize, &m_CommonBufferOffset, &m_CacheType);

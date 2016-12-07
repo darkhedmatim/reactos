@@ -391,7 +391,7 @@ WdmAudCleanupByMMixer()
 }
 
 MMRESULT
-WdmAudGetMixerCapabilities(
+WdmAudGetMixerCapabilties(
     IN ULONG DeviceId,
     LPMIXERCAPSW Capabilities)
 {
@@ -530,7 +530,7 @@ WdmAudGetCapabilitiesByMMixer(
 
     if (DeviceType == MIXER_DEVICE_TYPE)
     {
-        return WdmAudGetMixerCapabilities(DeviceId, (LPMIXERCAPSW)Capabilities);
+        return WdmAudGetMixerCapabilties(DeviceId, (LPMIXERCAPSW)Capabilities);
     }
     else if (DeviceType == WAVE_OUT_DEVICE_TYPE)
     {

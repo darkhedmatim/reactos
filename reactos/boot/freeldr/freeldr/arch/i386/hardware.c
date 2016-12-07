@@ -296,7 +296,7 @@ DetectPnpBios(PCONFIGURATION_COMPONENT_DATA SystemKey, ULONG *BusNumber)
     /* The buffer starts after PartialResourceList->PartialDescriptors[0] */
     Ptr = (char *)(PartialResourceList + 1);
 
-    /* Set installation check data */
+    /* Set instalation check data */
     memcpy (Ptr, InstData, sizeof(CM_PNP_BIOS_INSTALLATION_CHECK));
     Ptr += sizeof(CM_PNP_BIOS_INSTALLATION_CHECK);
 
@@ -1792,7 +1792,7 @@ PcHwIdle(VOID)
 }
 
 VOID
-FrLdrCheckCpuCompatibility(VOID)
+FrLdrCheckCpuCompatiblity(VOID)
 {
     INT CpuInformation[4] = {-1};
     ULONG NumberOfIds;

@@ -49,7 +49,6 @@
 #include "header.h"
 #include "hash.h"
 #include "typetree.h"
-#include "parser.h"
 
 #ifdef __REACTOS__
 #define S_OK           0

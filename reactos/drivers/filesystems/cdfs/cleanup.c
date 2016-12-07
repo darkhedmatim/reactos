@@ -44,8 +44,8 @@ CdfsCleanupFile(PCDFS_IRP_CONTEXT IrpContext,
     PDEVICE_EXTENSION DeviceExt;
     PFCB Fcb;
 
-    DPRINT("CdfsCleanupFile(IrpContext %p, FileObject %p)\n",
-        IrpContext,
+    DPRINT("CdfsCleanupFile(DeviceExt %p, FileObject %p)\n",
+        DeviceExt,
         FileObject);
 
     DeviceExt = IrpContext->DeviceObject->DeviceExtension;
