@@ -1,0 +1,66 @@
+/*
+ * FILE:        base/applications/network/ping/lang/sv-SE.rc
+ * PURPOSE:     Swedish translations for ReactOS Ping Command
+ * TRANSLATORS: Jaix Bly
+ */
+
+LANGUAGE LANG_SWEDISH, SUBLANG_NEUTRAL
+
+STRINGTABLE
+BEGIN
+    IDS_USAGE "\n\
+SYNTAX: ping [-t] [-a] [-n antal] [-l storlek] [-f] [-i TTL] [-v TOS]\n\
+             [-w timeout] [-4] [-6] värddator\n\
+\n\
+Alternativ:\n\
+    -t          Ping the specified host until stopped.\n\
+                To see statistics and continue - type Control-Break;\n\
+                To stop - type Control-C.\n\
+    -a          Resolve addresses to hostnames.\n\
+    -n antal    Antal ekobegäranden som ska skickas.\n\
+    -l storlek  Sändniningsbuffertens storlek.\n\
+    -f          Set Don't Fragment flag in packet (IPv4-only).\n\
+    -i TTL      Time To Live.\n\
+    -v TOS      Type Of Service (IPv4-only. This setting has been deprecated\n\
+                and has no effect on the type of service field in the IP\n\
+                Header).\n\
+    -w timeout  Timeout i millisekunder att vänta på varje svar.\n\
+    -4          Force using IPv4.\n\
+    -6          Force using IPv6.\n\
+\n"
+
+    IDS_CTRL_BREAK "Control-Break\n"
+    IDS_CTRL_C "Control-C\n"
+    IDS_NO_RESOURCES "Inte tillräckliga resurser tillgänliga.\n"
+    IDS_MISSING_ADDRESS "IP address must be specified.\n"
+    IDS_MISSING_VALUE "Value must be supplied for option %1.\n"
+    IDS_BAD_OPTION "Ogiltigt alternativ %1.\n"
+    IDS_BAD_PARAMETER "Ogiltig parameter %1.\n"
+    IDS_BAD_VALUE "Ogiltigt värde för alternativ %1, giltig intervall är från %2!d! till %3!u!.\n"
+    IDS_WRONG_FAMILY "The option %1 is only supported for %2.\n"
+    IDS_UNKNOWN_HOST "Ping could not find host %1. Please check the name and try again.\n"
+    IDS_PINGING_ADDRESS "\nPingar %1 %0"
+    IDS_PINGING_HOSTNAME "\nPingar %1 [%2] %0"
+    IDS_SOURCE_ADDRESS "from %1!s! %0"
+    IDS_PING_SIZE "med %1!d! bytes data:\n\n"
+    IDS_REPLY_FROM "Svar från %1: %0"
+    IDS_REPLY_BYTES "bytes=%1!d! %0"
+    IDS_REPLY_TIME_MS "tid=%1!d!ms %0"
+    IDS_REPLY_TIME_0MS "tid<1ms %0"
+    IDS_REPLY_TTL "TTL=%1!d!\n"
+    IDS_REPLY_STATUS "Echo reply returned %1.\n"
+    IDS_DEST_HOST_UNREACHABLE "Destination host unreachable.\n"
+    IDS_DEST_NET_UNREACHABLE "Destination net unreachable.\n"
+    IDS_REQUEST_TIMED_OUT "Förfrågan gjorde timeout.\n"
+    IDS_TTL_EXPIRED "TTL expired in transit.\n"
+    IDS_TRANSMIT_FAILED "PING: transmit failed. (Error %1!u!)\n"
+
+    IDS_STATISTICS "\n\
+Ping statistk för %1!s!:\n\
+    Packet: Sända = %2!d!, Mottagna = %3!d!, Förlorade %4!d! (%5!u!%% förlust),\n"
+
+    IDS_APPROXIMATE_RTT "Ungefärliga slingtider i millisekunder:\n\
+    Minimum = %1!u!ms, Maximum = %2!u!ms, Genomsnittlig = %3!u!ms\n"
+
+    IDS_WINSOCK_FAIL "Failed to initialize WinSock: %1!d!\n"
+END
