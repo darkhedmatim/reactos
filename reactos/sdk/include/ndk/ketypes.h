@@ -4,11 +4,11 @@ Copyright (c) Alex Ionescu.  All rights reserved.
 
 Header Name:
 
-    ketypes.h
+    lpctypes.h
 
 Abstract:
 
-    Type definitions for the Kernel services.
+    Type definitions for the Loader.
 
 Author:
 

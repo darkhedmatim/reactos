@@ -24,4 +24,4 @@ if(MSVC)
     add_importlibs(quartz_winetest ntdll)
 endif()
 
-add_rostests_file(TARGET quartz_winetest)
+add_cd_file(TARGET quartz_winetest DESTINATION reactos/bin FOR all)

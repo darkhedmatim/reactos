@@ -579,13 +579,12 @@ InstallDeviceData(IN HDEVINFO DeviceInfoSet,
 
     TRACE("Section name: %S\n", DriverInfoDetailData->SectionName);
 
-    if (!SetupDiGetActualSectionToInstallW(hInf,
-                                           DriverInfoDetailData->SectionName,
-                                           InfSectionWithExt,
-                                           256,
-                                           NULL,
-                                           NULL))
-        goto done;
+    SetupDiGetActualSectionToInstallW(hInf,
+                                      DriverInfoDetailData->SectionName,
+                                      InfSectionWithExt,
+                                      256,
+                                      NULL,
+                                      NULL);
 
     TRACE("InfSectionWithExt: %S\n", InfSectionWithExt);
 

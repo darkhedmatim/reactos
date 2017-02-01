@@ -24,4 +24,4 @@ if(MSVC)
     add_importlibs(shlwapi_winetest ntdll)
 endif()
 
-add_rostests_file(TARGET shlwapi_winetest)
+add_cd_file(TARGET shlwapi_winetest DESTINATION reactos/bin FOR all)

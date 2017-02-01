@@ -27,4 +27,4 @@ if(MSVC)
     add_importlibs(ole32_winetest ntdll)
 endif()
 
-add_rostests_file(TARGET ole32_winetest)
+add_cd_file(TARGET ole32_winetest DESTINATION reactos/bin FOR all)

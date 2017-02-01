@@ -24,4 +24,4 @@ if(MSVC)
     add_importlibs(windowscodecs_winetest ntdll)
 endif()
 
-add_rostests_file(TARGET windowscodecs_winetest)
+add_cd_file(TARGET windowscodecs_winetest DESTINATION reactos/bin FOR all)
